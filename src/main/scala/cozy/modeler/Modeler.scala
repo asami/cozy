@@ -17,7 +17,8 @@ import org.goldenport.kaleidox.lisp.Context
  *  version Sep. 26, 2021
  *  version Oct. 31, 2021
  *  version Nov. 29, 2021
- * @version Dec. 18, 2021
+ *  version Dec. 18, 2021
+ * @version Jan. 23, 2022
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
@@ -34,9 +35,13 @@ class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
   }
 
   private def _make_sm(c: Context, name: String) =
-    c.universe.model.stateMachineModel.getClass(name).map { c =>
+    c.universe.model.stateMachineModel.getClass(name).orElse {
+      c.universe.model.getEntityModel.flatMap(_.get(name)).flatMap { em =>
+        em.stateMachines.headOption // TODO
+      }
+    }.map { x =>
       val sm = MDomainStateMachine.create(name)
-      val states = _states(sm, c)
+      val states = _states(sm, x)
       // val sms = VectorMap.empty[String, MDomainStateMachine]
       sm.setStates(states)
       sm

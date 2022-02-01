@@ -7,11 +7,13 @@ import org.goldenport.value._
 import org.goldenport.kaleidox.Kaleidox
 import org.goldenport.kaleidox.http.HttpHandle
 import org.smartdox.service.operations.HtmlOperationClass
+import arcadia._
 
 /*
  * @since   Dec.  4, 2021
  *  version Dec. 19, 2021
- * @version Jan.  1, 2022
+ *  version Jan.  1, 2022
+ * @version Feb.  1, 2022
  * @author  ASAMI, Tomoharu
  */
 class Cozy(
@@ -25,17 +27,36 @@ class Cozy(
   def execute(args: Array[String]) = _engine.apply(environment, args)
 
   def run(args: Array[String]) {
-    execute(args)
+    val req = spec.Request.empty
+    val res = spec.Response()
+    val op = spec.Operation("cozy", req, res)
+    val call = OperationCall.create(op, args)
+    if (call.request.arguments.isEmpty || call.request.isInteractive)
+      repl(call)
+    else
+      execute(args)
   }
 
   def repl(call: OperationCall) {
-    val kal = createInterpreter()
+    val kal = interpreter
     kal.repl(call)
+  }
+
+  def interpreter = environment.appEnvironment match {
+    case m: Context => m.kaleidox
+    case _ => createInterpreter()
+  }
+
+  def createInterpreter(): Kaleidox = {
+    val kconfig = org.goldenport.kaleidox.Config.create(environment).
+      setModeler(new modeler.Modeler()).
+      setPrompt("cozy> ")
+    new Kaleidox(kconfig, environment)
   }
 
   def createHttpHandle(): HttpHandle = {
     val args = Array[String]()
-    val kal = createInterpreter()
+    val kal = interpreter
     val req = spec.Request.empty
     val res = spec.Response()
     val op = spec.Operation("cozy", req, res)
@@ -43,11 +64,14 @@ class Cozy(
     kal.http(call)
   }
 
-  def createInterpreter(): Kaleidox = {
-    val kconfig = org.goldenport.kaleidox.Config.create(environment).
-      setModeler(new modeler.Modeler())
-    new Kaleidox(kconfig, environment)
+  def createWebEngine(): WebEngine = {
+    val webPlatformContext = RAISE.notImplementedYetDefect
+    val app = RAISE.notImplementedYetDefect
+    val extend = RAISE.notImplementedYetDefect
+    new WebEngine(webPlatformContext, app, extend, _web_config(app))
   }
+
+  private def _web_config(app: String) = RAISE.notImplementedYetDefect
 }
 
 object Cozy {
