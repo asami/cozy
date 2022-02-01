@@ -2,7 +2,7 @@ organization := "org.simplemodeling"
 
 name := "cozy"
 
-version := "0.0.1"
+version := "0.0.2"
 
 scalaVersion := "2.10.3"
 // crossScalaVersions := Seq("2.10.39.2", "2.9.1")
@@ -15,11 +15,13 @@ scalacOptions += "-feature"
 
 // resolvers += "Scalaz Bintray Repo" at "http://dl.bintray.com/scalaz/releases"
 
-// resolvers += "GitHab releases 2019" at "https://raw.github.com/asami/maven-repository/2019/releases"
+resolvers += "GitHab releases 2019" at "https://raw.github.com/asami/maven-repository/2019/releases"
 
-// resolvers += "GitHab releases 2020" at "https://raw.github.com/asami/maven-repository/2020/releases"
+resolvers += "GitHab releases 2020" at "https://raw.github.com/asami/maven-repository/2020/releases"
 
-resolvers += "GitHab releases" at "https://raw.github.com/asami/maven-repository/2021/releases"
+resolvers += "GitHab releases 2021" at "https://raw.github.com/asami/maven-repository/2021/releases"
+
+resolvers += "GitHab releases 2022" at "https://raw.github.com/asami/maven-repository/2022/releases"
 
 resolvers += "Asami Maven Repository" at "http://www.asamioffice.com/maven"
 
@@ -37,11 +39,11 @@ resolvers += "Local Maven Repository" at "file://"+Path.userHome.absolutePath+"/
 // override kaleidox
 // libraryDependencies += "org.smartdox" %% "smartdox" % "1.3.1"
 
-libraryDependencies += "org.goldenport" %% "kaleidox" % "0.4.0"
+libraryDependencies += "org.goldenport" %% "kaleidox" % "0.4.1"
 
-libraryDependencies += "org.simplemodeling" %% "simplemodeler" % "1.0.3"
+libraryDependencies += "org.simplemodeling" %% "simplemodeler" % "1.0.4"
 
-libraryDependencies += "org.goldenport" %% "arcadia" % "0.0.40"
+libraryDependencies += "org.goldenport" %% "arcadia" % "0.1.0"
 
 libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.2.3"
 
