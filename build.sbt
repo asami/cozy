@@ -2,7 +2,7 @@ organization := "org.simplemodeling"
 
 name := "cozy"
 
-version := "0.0.2"
+version := "0.0.3"
 
 scalaVersion := "2.10.3"
 // crossScalaVersions := Seq("2.10.39.2", "2.9.1")
@@ -39,11 +39,11 @@ resolvers += "Local Maven Repository" at "file://"+Path.userHome.absolutePath+"/
 // override kaleidox
 // libraryDependencies += "org.smartdox" %% "smartdox" % "1.3.1"
 
-libraryDependencies += "org.goldenport" %% "kaleidox" % "0.4.1"
+libraryDependencies += "org.goldenport" %% "kaleidox" % "0.4.2"
 
 libraryDependencies += "org.simplemodeling" %% "simplemodeler" % "1.0.4"
 
-libraryDependencies += "org.goldenport" %% "arcadia" % "0.1.0"
+libraryDependencies += "org.goldenport" %% "arcadia" % "0.2.0"
 
 libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.2.3"
 
