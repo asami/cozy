@@ -8,22 +8,26 @@ import javax.servlet.http.Cookie
 import org.eclipse.jetty.server.Request
 import org.eclipse.jetty.server.Server
 import org.eclipse.jetty.server.handler.AbstractHandler
-import cozy.Cozy
 import org.goldenport.kaleidox.http._
-import arcadia.WebEngine
+import org.goldenport.values.PathName
+import arcadia._
+import cozy.Context
+import cozy.web.arcadia._
 
 /*
  * @since   Dec.  4, 2021
  *  version Dec. 18, 2021
- * @version Jan. 24, 2022
+ *  version Jan. 24, 2022
+ * @version Feb. 28, 2022
  * @author  ASAMI, Tomoharu
  */
-class CozyHandler(cozy: Cozy) extends AbstractHandler {
+class CozyHandler(cozy: Context) extends AbstractHandler {
   val SERVICE_PATH = "service"
   val WEB_PATH = "web"
 
   private val _service_engine = cozy.createHttpHandle()
-  private val _web_engine: WebEngine = cozy.createWebEngine()
+
+  private val _web_engines = EngineHangar.create(cozy)
 
   @throws(classOf[IOException])
   @throws(classOf[ServletException])
@@ -33,11 +37,16 @@ class CozyHandler(cozy: Cozy) extends AbstractHandler {
     request: HttpServletRequest,
     response: HttpServletResponse
   ): Unit = {
-    ???
+    val pn = PathName(target)
+    pn.headOption.map {
+      case SERVICE_PATH => _handle_service(pn.tail, baseRequest, request, response)
+      case WEB_PATH => _handle_web(pn.tail, baseRequest, request, response)
+      case _ => ???
+    }.getOrElse(???)
   }
 
   private def _handle_service(
-    target: String,
+    target: PathName,
     baseRequest: Request,
     request: HttpServletRequest,
     response: HttpServletResponse
@@ -58,11 +67,13 @@ class CozyHandler(cozy: Cozy) extends AbstractHandler {
   }
 
   private def _handle_web(
-    target: String,
+    target: PathName,
     baseRequest: Request,
     request: HttpServletRequest,
     response: HttpServletResponse
   ): Unit = {
-    ???
+    val name = target.head // TODO
+    _web_engines(name).execute(target.tail, request, response)
+    baseRequest.setHandled(true)
   }
 }

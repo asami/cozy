@@ -7,13 +7,14 @@ import org.goldenport.value._
 
 /*
  * @since   Dec.  4, 2021
- * @version Dec.  4, 2021
+ * @version Feb.  6, 2022
  * @author  ASAMI, Tomoharu
  */
 case class Config(
   cliConfig: CliConfig,
   isLocation: Boolean = true
 ) {
+  def properties = cliConfig.properties.config
 }
 
 object Config {

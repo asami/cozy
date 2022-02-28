@@ -7,18 +7,18 @@ import org.goldenport.value._
 import org.goldenport.kaleidox.Kaleidox
 import org.goldenport.kaleidox.http.HttpHandle
 import org.smartdox.service.operations.HtmlOperationClass
-import arcadia._
+import cozy.web.jetty.JettyServer
 
 /*
  * @since   Dec.  4, 2021
  *  version Dec. 19, 2021
  *  version Jan.  1, 2022
- * @version Feb.  1, 2022
+ * @version Feb. 28, 2022
  * @author  ASAMI, Tomoharu
  */
 class Cozy(
-  config: Config,
-  environment: Environment,
+  val config: Config,
+  val environment: Environment,
   services: Services,
   operations: Operations
 ) {
@@ -63,15 +63,6 @@ class Cozy(
     val call = OperationCall.create(op, args)
     kal.http(call)
   }
-
-  def createWebEngine(): WebEngine = {
-    val webPlatformContext = RAISE.notImplementedYetDefect
-    val app = RAISE.notImplementedYetDefect
-    val extend = RAISE.notImplementedYetDefect
-    new WebEngine(webPlatformContext, app, extend, _web_config(app))
-  }
-
-  private def _web_config(app: String) = RAISE.notImplementedYetDefect
 }
 
 object Cozy {
@@ -80,6 +71,7 @@ object Cozy {
     val defaultOperation = Some(CozyOperationClass)
     val operations = Operations(
       CozyOperationClass,
+      WebOperationClass,
       HtmlOperationClass
     )
   }
@@ -102,8 +94,20 @@ object Cozy {
     }
   }
 
+  case object WebOperationClass extends OperationClassWithOperation {
+    val request = spec.Request.empty
+    val response = spec.Response.empty
+    val specification = spec.Operation("web", request, response)
+    
+    def apply(env: Environment, req: Request): Response = {
+      val ctx = env.toAppEnvironment[Context]
+      JettyServer.run(ctx)
+      VoidResponse
+    }
+  }
+
   def build(args: Array[String]): Cozy = {
-    val env0 = Environment.create(args)
+    val env0 = Environment.create("cozy", args)
     val config = Config.create(env0)
     val kaleidox = _create(env0)
     val context = new Context(env0, config, kaleidox)
