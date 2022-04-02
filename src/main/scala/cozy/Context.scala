@@ -1,5 +1,6 @@
 package cozy
 
+import java.net.URL
 import org.goldenport.RAISE
 import org.goldenport.i18n.I18NString
 import org.goldenport.cli.{Config => CliConfig, Environment}
@@ -12,7 +13,8 @@ import org.goldenport.kaleidox.http.HttpHandle
 /*
  * @since   Dec.  4, 2021
  *  version Dec. 18, 2021
- * @version Feb. 28, 2022
+ *  version Feb. 28, 2022
+ * @version Mar.  6, 2022
  * @author  ASAMI, Tomoharu
  */
 case class Context(
@@ -33,4 +35,8 @@ case class Context(
     val call = OperationCall.create(op, args)
     kaleidox.http(call)
   }
+
+  def getAppResource(path: String): Option[URL] = environment.getAppResource(this, path)
+
+  def getClassResource(o: Object, path: String): Option[URL] = environment.getClassResource(o, path)
 }

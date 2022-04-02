@@ -16,7 +16,8 @@ import arcadia.domain._
 
 /*
  * @since   Jan. 23, 2022
- * @version Feb. 27, 2022
+ *  version Feb. 27, 2022
+ * @version Mar.  6, 2022
  * @author  ASAMI, Tomoharu
  */
 class Engine(
@@ -27,8 +28,13 @@ class Engine(
     pn: PathName,
     request: HttpServletRequest,
     response: HttpServletResponse
+  ): Unit = execute(MaterialCommand(pn), request, response)
+
+  def execute(
+    cmd: Command,
+    request: HttpServletRequest,
+    response: HttpServletResponse
   ): Unit = {
-    val cmd = MaterialCommand(pn)
     val req = ServletHttpRequest(request)
     val r = _execute(req, cmd)
     response.setStatus(r.code)

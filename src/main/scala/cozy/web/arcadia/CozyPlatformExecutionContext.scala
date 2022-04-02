@@ -19,7 +19,8 @@ import arcadia.rule._
 
 /*
  * @since   Feb.  5, 2022
- * @version Feb. 28, 2022
+ *  version Feb. 28, 2022
+ * @version Mar. 20, 2022
  * @author  ASAMI, Tomoharu
  */
 class CozyPlatformExecutionContext(
@@ -31,7 +32,7 @@ class CozyPlatformExecutionContext(
 
   def isLogined: Boolean = false // TODO
 
-  def getOperationName: Option[String] = ???
+  def getOperationName: Option[String] = None
 
   def getPathName: Option[PathName] = ???
 
@@ -80,13 +81,18 @@ class CozyPlatformExecutionContext(
   def post(uri: String, query: Map[String, Any] = Map.empty, form: Map[String, Any] = Map.empty): arcadia.context.Response = ???
   def put(uri: String, query: Map[String, Any] = Map.empty, form: Map[String, Any] = Map.empty): arcadia.context.Response = ???
   def delete(uri: String, query: Map[String, Any] = Map.empty, form: Map[String, Any] = Map.empty): arcadia.context.Response = ???
-  def invoke(op: InvokePlatformCommand): arcadia.context.Response = ???
-  def invoke(op: InvokeOperationCommand): arcadia.context.Response = ???
+
+  def invoke(op: InvokePlatformCommand): arcadia.context.Response = arcadia.context.Response.notFound()
+
+  def invoke(op: InvokeOperationCommand): arcadia.context.Response = arcadia.context.Response.notFound()
+
   def login(username: String, password: String): Either[Conclusion, arcadia.context.Session] = ???
+
   override def resetPassword(
     token: String,
     password: String,
     passwordconfirm: Option[String]
   ): Either[Conclusion, Unit] = ???
+
   override def getResetPasswordRule: Option[ResetPasswordRule] = ???
 }
