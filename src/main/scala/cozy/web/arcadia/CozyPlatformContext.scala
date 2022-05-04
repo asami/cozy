@@ -8,7 +8,8 @@ import cozy.Context
 
 /*
  * @since   Feb.  5, 2022
- * @version Feb. 28, 2022
+ *  version Feb. 28, 2022
+ * @version May.  2, 2022
  * @author  ASAMI, Tomoharu
  */
 class CozyPlatformContext(
@@ -23,6 +24,8 @@ class CozyPlatformContext(
   def getDevelopDirectory = RAISE.notImplementedYetDefect
 
   def locale = environment.locale
+  def dateTimeContext = environment.dateTimeContext
+  def formatContext = environment.formatContext
 
   def charsetInputFile: Charset = environment.charsetInputFile
   def charsetOutputFile: Charset = environment.charsetOutputFile
