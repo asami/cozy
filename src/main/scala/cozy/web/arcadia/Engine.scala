@@ -18,7 +18,7 @@ import arcadia.domain._
  * @since   Jan. 23, 2022
  *  version Feb. 27, 2022
  *  version Mar.  6, 2022
- * @version May.  3, 2022
+ * @version May. 23, 2022
  * @author  ASAMI, Tomoharu
  */
 class Engine(
@@ -52,7 +52,8 @@ class Engine(
     // for (c <- r.cookies)
     //   response.addCookie(new Cookie(c.key, c.value))
     val out = response.getOutputStream()
-    r.write(out)
+//    println(r.asInstanceOf[XmlContent].toHtmlString)
+    r.writeClose(out)
   }
 
   private def _execute(req: ServletHttpRequest, cmd: Command): Content = {
