@@ -5,11 +5,13 @@ import com.typesafe.config.{Config => Hocon}
 import scala.collection.concurrent.TrieMap
 import arcadia._
 import arcadia.context._
+import arcadia.view.TemplateEngineHangar
 import cozy.Context
 
 /*
  * @since   Feb.  6, 2022
- * @version Feb. 28, 2022
+ *  version Feb. 28, 2022
+ * @version Sep. 25, 2022
  * @author  ASAMI, Tomoharu
  */
 class EngineHangar(
@@ -17,14 +19,15 @@ class EngineHangar(
   val config: Hocon
 ) extends {
   private lazy val _arcadia = {
-    Arcadia.make(platformContext, config).take
+    val webengineconfig = WebEngine.Config(TemplateEngineHangar.Factory(DoxTemplateEngine))
+    Arcadia.make(platformContext, webengineconfig, config).take
   }
 
   private val _web_engines = new TrieMap[String, Engine]()
 
   def apply(name: String): Engine = _web_engines.get(name) getOrElse {
     val a = _arcadia.engine(name)
-    val r = new Engine(platformContext, a)
+    val r = new Engine(platformContext, a, name)
     _web_engines += (name -> r)
     r
   }

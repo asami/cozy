@@ -5,6 +5,7 @@ import javax.servlet.http.HttpServletResponse
 import org.goldenport.Platform
 import org.goldenport.RAISE
 import org.goldenport.values.PathName
+import org.goldenport.util.StringUtils
 import org.goldenport.record.v2._
 import org.goldenport.record.v2.util.SchemaBuilder
 import org.goldenport.record.v2.util.SchemaBuilder._
@@ -18,18 +19,23 @@ import arcadia.domain._
  * @since   Jan. 23, 2022
  *  version Feb. 27, 2022
  *  version Mar.  6, 2022
- * @version May. 23, 2022
+ *  version May. 23, 2022
+ *  version Aug. 29, 2022
+ * @version Sep. 25, 2022
  * @author  ASAMI, Tomoharu
  */
 class Engine(
   val platform: CozyPlatformContext,
-  val engine: WebEngine
+  val engine: WebEngine,
+  val name: String
 ) {
   def execute(
     pn: PathName,
     request: HttpServletRequest,
     response: HttpServletResponse
-  ): Unit = execute(MaterialCommand(pn), request, response)
+  ): Unit = {
+    execute(MaterialCommand(pn), request, response)
+  }
 
   def execute(
     cmd: Command,
@@ -51,6 +57,16 @@ class Engine(
       response.setHeader(h._1, h._2)
     // for (c <- r.cookies)
     //   response.addCookie(new Cookie(c.key, c.value))
+    r match {
+      case m: RedirectContent =>
+        val pn = req.pathname.v
+        val path = if (pn.endsWith(name))
+          StringUtils.concatPath(name, m.uri.toASCIIString)
+        else 
+          m.uri.toASCIIString
+        response.sendRedirect(path)
+      case _ => // do nothing
+    }
     val out = response.getOutputStream()
 //    println(r.asInstanceOf[XmlContent].toHtmlString)
     r.writeClose(out)
