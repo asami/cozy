@@ -13,6 +13,7 @@ import org.goldenport.context.StatusCode
 import org.goldenport.io.IoUtils
 import org.goldenport.values.PathName
 import arcadia._
+import cozy.Cozy
 import cozy.Context
 import cozy.web.arcadia._
 
@@ -21,17 +22,18 @@ import cozy.web.arcadia._
  *  version Dec. 18, 2021
  *  version Jan. 24, 2022
  *  version Feb. 28, 2022
- * @version Mar.  6, 2022
+ *  version Mar.  6, 2022
+ * @version Oct. 30, 2022
  * @author  ASAMI, Tomoharu
  */
-class CozyHandler(cozy: Context) extends AbstractHandler {
+class CozyHandler(ctx: Context) extends AbstractHandler {
   val SERVICE_PATH = "service"
   val WEB_PATH = "web"
   val FAVICON_PATH = "favicon.ico"
 
-  private val _service_engine = cozy.createHttpHandle()
+  private val _service_engine = ctx.createHttpHandle()
 
-  private val _web_engines = EngineHangar.create(cozy)
+  private val _web_engines = EngineHangar.create(ctx)
 
   @throws(classOf[IOException])
   @throws(classOf[ServletException])
@@ -96,7 +98,7 @@ class CozyHandler(cozy: Context) extends AbstractHandler {
   ): Unit = {
     response.setStatus(StatusCode.Ok.code)
     response.setContentType(MimeType.image_xicon.name)
-    val url = cozy.getAppResource("favicon/favicon.ico")
+    val url = ctx.getAppResource("favicon/favicon.ico")
     url.foreach(IoUtils.write(response.getOutputStream(), _))
     baseRequest.setHandled(true)
   }

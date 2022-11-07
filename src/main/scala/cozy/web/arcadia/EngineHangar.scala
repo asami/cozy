@@ -6,20 +6,22 @@ import scala.collection.concurrent.TrieMap
 import arcadia._
 import arcadia.context._
 import arcadia.view.TemplateEngineHangar
+import cozy.Cozy
 import cozy.Context
 
 /*
  * @since   Feb.  6, 2022
  *  version Feb. 28, 2022
- * @version Sep. 25, 2022
+ *  version Sep. 25, 2022
+ * @version Oct. 30, 2022
  * @author  ASAMI, Tomoharu
  */
 class EngineHangar(
   val platformContext: CozyPlatformContext,
-  val config: Hocon
+  val config: Hocon,
+  val webengineconfig: WebEngine.Config
 ) extends {
   private lazy val _arcadia = {
-    val webengineconfig = WebEngine.Config(TemplateEngineHangar.Factory(DoxTemplateEngine))
     Arcadia.make(platformContext, webengineconfig, config).take
   }
 
@@ -34,8 +36,13 @@ class EngineHangar(
 }
 
 object EngineHangar {
-  def create(cozy: Context): EngineHangar = {
-    val pc = new CozyPlatformContext(cozy)
-    new EngineHangar(pc, cozy.config.properties)
+  def create(ctx: Context): EngineHangar = {
+    val pc = new CozyPlatformContext(ctx)
+    val services = List(CozyScriptService.create(ctx, pc))
+    val webengineconfig = WebEngine.Config(
+      TemplateEngineHangar.Factory(DoxTemplateEngine),
+      services
+    )
+    new EngineHangar(pc, ctx.config.properties, webengineconfig)
   }
 }
