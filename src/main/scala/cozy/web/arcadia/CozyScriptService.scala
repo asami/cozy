@@ -23,7 +23,7 @@ import cozy.Context
 /*
  * @since   Oct. 23, 2022
  *  version Oct. 30, 2022
- * @version Nov.  7, 2022
+ * @version Nov. 28, 2022
  * @author  ASAMI, Tomoharu
  */
 class CozyScriptService(
@@ -43,6 +43,12 @@ class CozyScriptService(
   protected def invoke_engine(op: InvokeOperationCommand): Response = {
     val req = ArcadiaHttpRequest(op.request)
     val (report, rs, universe) = handle.eval(req)
+    CozyResponse(rs)
+  }
+
+  def execute(cmd: ExecuteScriptCommand): Response = {
+    val req = ArcadiaHttpRequest(cmd.request)
+    val (report, rs, universe) = handle.eval(cmd.schema, cmd.script, req)
     CozyResponse(rs)
   }
 }

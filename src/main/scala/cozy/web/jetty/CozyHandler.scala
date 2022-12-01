@@ -23,7 +23,8 @@ import cozy.web.arcadia._
  *  version Jan. 24, 2022
  *  version Feb. 28, 2022
  *  version Mar.  6, 2022
- * @version Oct. 30, 2022
+ *  version Oct. 30, 2022
+ * @version Nov. 28, 2022
  * @author  ASAMI, Tomoharu
  */
 class CozyHandler(ctx: Context) extends AbstractHandler {

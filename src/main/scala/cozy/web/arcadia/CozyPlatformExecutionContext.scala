@@ -4,6 +4,7 @@ import java.util.Locale
 import java.net.URI
 import java.nio.charset.Charset
 import org.joda.time._
+import org.goldenport.RAISE
 import org.goldenport.record.v3.IRecord
 import org.goldenport.record.v2.Conclusion
 import org.goldenport.record.v2.{Schema, Column}
@@ -22,7 +23,8 @@ import arcadia.rule._
  * @since   Feb.  5, 2022
  *  version Feb. 28, 2022
  *  version Mar. 20, 2022
- * @version May.  2, 2022
+ *  version May.  2, 2022
+ * @version Nov. 27, 2022
  * @author  ASAMI, Tomoharu
  */
 class CozyPlatformExecutionContext(
@@ -92,7 +94,12 @@ class CozyPlatformExecutionContext(
 
   def invoke(op: InvokeOperationCommand): arcadia.context.Response = arcadia.context.Response.notFound()
 
-  def login(username: String, password: String): Either[Conclusion, arcadia.context.Session] = ???
+  def execute(cmd: ExecuteScriptCommand): arcadia.context.Response = {
+    val service = new CozyScriptService(platformContext, platformContext.httpHandle)
+    service.execute(cmd)
+  }
+
+  def login(username: String, password: String): Either[Conclusion, arcadia.context.Session] = RAISE.notImplementedYetDefect
 
   override def resetPassword(
     token: String,
