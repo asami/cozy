@@ -14,7 +14,8 @@ import cozy.Context
  *  version Feb. 28, 2022
  *  version Sep. 25, 2022
  *  version Oct. 30, 2022
- * @version Dec. 25, 2022
+ *  version Dec. 25, 2022
+ * @version Jan.  1, 2023
  * @author  ASAMI, Tomoharu
  */
 class EngineHangar(
