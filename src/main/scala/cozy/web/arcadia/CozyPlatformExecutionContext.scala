@@ -24,7 +24,9 @@ import arcadia.rule._
  *  version Feb. 28, 2022
  *  version Mar. 20, 2022
  *  version May.  2, 2022
- * @version Nov. 27, 2022
+ *  version Nov. 27, 2022
+ *  version Mar. 30, 2023
+ * @version Apr. 17, 2023
  * @author  ASAMI, Tomoharu
  */
 class CozyPlatformExecutionContext(
@@ -54,18 +56,19 @@ class CozyPlatformExecutionContext(
 
   // def getMimetypeBySuffix(suffix: String): Option[MimeType]
 
-  def getEntitySchema(name: String): Option[Schema] = ???
+  def getEntitySchema(name: String): Option[Schema] = None
 
-  def getDefaultPropertyColumn(name: String): Option[Column] = ???
+  def getDefaultPropertyColumn(name: String): Option[Column] = None
 
   def getEntity(
     entity: DomainEntityType,
     id: DomainObjectId
-  ): Option[EntityDetailModel] = ???
+  ): Option[EntityDetailModel] = None
 
   def readEntityList(p: Query): EntityListModel = ???
 
   def createEntity(entitytype: DomainEntityType, data: IRecord): DomainObjectId = ???
+
   def updateEntity(entitytype: DomainEntityType, id: DomainObjectId, data: IRecord): Unit = ???
   def deleteEntity(entitytype: DomainEntityType, id: DomainObjectId): Unit = ???
 

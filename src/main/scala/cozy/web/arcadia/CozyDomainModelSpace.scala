@@ -9,6 +9,7 @@ import org.goldenport.kaleidox.model.EntityModel
 import org.goldenport.sexpr._
 import org.goldenport.record.v3.Record
 import org.goldenport.record.v3.IRecord
+import org.goldenport.record.v2.Schema
 import arcadia.context.Query
 import arcadia.domain._
 import arcadia.model._
@@ -17,7 +18,10 @@ import cozy.Context
 /*
  * @since   Dec. 25, 2022
  *  version Dec. 31, 2022
- * @version Jan. 24, 2023
+ *  version Jan. 24, 2023
+ *  version Feb. 28, 2023
+ *  version Mar. 30, 2023
+ * @version Apr. 22, 2023
  * @author  ASAMI, Tomoharu
  */
 class CozyDomainModelSpace(
@@ -40,11 +44,14 @@ class CozyDomainModelSpace(
     }
   }
 
+  def getEntitySchema(entitytype: DomainEntityType): Option[Schema] =
+    model.getEntityModel.flatMap(_.getSchema(entitytype.name))
+
   def getEntity(
     entitytype: DomainEntityType,
     id: DomainObjectId
   ): Option[Consequence[Option[EntityDetailModel]]] = {
-    val collection = entitytype.v
+    val collection = entitytype.name
     val s = s"(entity-get '${collection} ${id})"
     val expr = kaleidox.applyModelScript(model, s)
     val r = expr match {
@@ -61,7 +68,7 @@ class CozyDomainModelSpace(
   }
 
   def readEntityList(q: Query): Option[Consequence[EntityListModel]] = {
-    val collection = q.entityType.v
+    val collection = q.entityType.name
     val s = s"(entity-query '${collection})" // entity-select
     val expr = kaleidox.applyModelScript(model, s)
     var r = expr match {
@@ -86,8 +93,50 @@ class CozyDomainModelSpace(
   }
 
   private def _entity_record(p: SExpr): Consequence[IRecord] = p match {
-    case m: SEntity => Consequence.success(m.record)
+    case m: SEntity => Consequence.success(m.recordWithShortId)
     case m => Consequence.internalServerError(s"Unknown entity: $m")
+  }
+
+  def createEntity(
+    entitytype: DomainEntityType,
+    record: IRecord
+  ): Option[Consequence[DomainObjectId]] = {
+    val script = SList.createAtomQAtomRecord("entity-create", entitytype.name, record)
+    val expr = kaleidox.applyModelScript(model, script)
+    val r = expr match {
+      case m: SEntity => Consequence.success(DomainObjectId(m.entityId.objectId.string))
+      case m: SString => Consequence.success(DomainObjectId(m.string))
+      case m: SError => Consequence.error(m.conclusion)
+      case m => Consequence.internalServerError(s"Unknown entity: $m")
+    }
+    Some(r)
+  }
+
+  def updateEntity(
+    entitytype: DomainEntityType,
+    id: DomainObjectId,
+    data: IRecord
+  ): Option[Consequence[Unit]] = {
+    val script = SList.createAtomQAtomStringRecord("entity-update", entitytype.name, id.v, data)
+    val expr = kaleidox.applyModelScript(model, script)
+    val r = expr match {
+      case m: SError => Consequence.error(m.conclusion)
+      case m => Consequence.unit
+    }
+    Some(r)
+  }
+
+  def deleteEntity(
+    entitytype: DomainEntityType,
+    id: DomainObjectId
+  ): Option[Consequence[Unit]] = {
+    val script = SList.createAtomQAtomString("entity-delete", entitytype.name, id.v)
+    val expr = kaleidox.applyModelScript(model, script)
+    val r = expr match {
+      case m: SError => Consequence.error(m.conclusion)
+      case m => Consequence.unit
+    }
+    Some(r)
   }
 }
 

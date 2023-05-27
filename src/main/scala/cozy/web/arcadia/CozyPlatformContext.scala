@@ -5,13 +5,15 @@ import java.nio.charset.Charset
 import org.goldenport.RAISE
 import org.goldenport.kaleidox.http.HttpHandle
 import arcadia.context.PlatformContext
+import arcadia.context.PlatformContext.Mode
 import cozy.Context
 
 /*
  * @since   Feb.  5, 2022
  *  version Feb. 28, 2022
  *  version May.  2, 2022
- * @version Nov. 27, 2022
+ *  version Nov. 27, 2022
+ * @version Jan. 29, 2023
  * @author  ASAMI, Tomoharu
  */
 class CozyPlatformContext(
@@ -32,6 +34,8 @@ class CozyPlatformContext(
   def charsetInputFile: Charset = environment.charsetInputFile
   def charsetOutputFile: Charset = environment.charsetOutputFile
   def charsetConsole: Charset = environment.charsetConsole
+
+  val mode: Mode = cozy.mode
 
   def httpHandle: HttpHandle = cozy.createHttpHandle()
 }

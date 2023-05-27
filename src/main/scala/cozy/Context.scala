@@ -11,13 +11,15 @@ import org.goldenport.recorder.{ForwardRecorder, Recorder}
 import org.goldenport.kaleidox.Kaleidox
 import org.goldenport.kaleidox.Model
 import org.goldenport.kaleidox.http.HttpHandle
+import arcadia.context.PlatformContext.Mode
 
 /*
  * @since   Dec.  4, 2021
  *  version Dec. 18, 2021
  *  version Feb. 28, 2022
  *  version Mar.  6, 2022
- * @version Dec. 25, 2022
+ *  version Dec. 25, 2022
+ * @version Jan. 29, 2023
  * @author  ASAMI, Tomoharu
  */
 case class Context(
@@ -29,6 +31,8 @@ case class Context(
 
   def recorder = environment.recorder
   def isPlatformWindows: Boolean = environment.isPlatformWindows
+
+  def mode: Mode = config.mode
 
   def createHttpHandle(): HttpHandle = {
     val args = Array[String]()
