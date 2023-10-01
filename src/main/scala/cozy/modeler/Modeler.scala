@@ -2,12 +2,19 @@ package cozy.modeler
 
 import org.simplemodeling.model._
 import org.simplemodeling.model.domain._
+import org.smartdox.Description
 import org.goldenport.RAISE
 import org.goldenport.collection.VectorMap
+import org.goldenport.values.Designation
+import org.goldenport.record.v2.Column
 import org.goldenport.statemachine._
 import org.goldenport.statemachine.{ExecutionContext => StateMachineContext}
 import org.goldenport.sexpr._
+import org.goldenport.kaleidox.{Model => KaleidoxModel}
 import org.goldenport.kaleidox.lisp.Context
+import org.goldenport.kaleidox.model.{SchemaModel, EntityModel}
+import org.goldenport.kaleidox.model.SchemaModel.SchemaClass
+import EntityModel._
 
 /*
  * @since   May.  5, 2021
@@ -18,7 +25,9 @@ import org.goldenport.kaleidox.lisp.Context
  *  version Oct. 31, 2021
  *  version Nov. 29, 2021
  *  version Dec. 18, 2021
- * @version Jan. 23, 2022
+ *  version Jan. 23, 2022
+ *  version Aug.  4, 2023
+ * @version Sep. 25, 2023
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
@@ -284,6 +293,33 @@ class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
   private def _make_model(sm: MStateMachine): SimpleModel = {
     SimpleModel(Vector(sm))
   }
+
+  def generateDiagram(
+    c: Context,
+    model: SModel
+  ): SExpr = {
+    val pkg = "domain" // TODO
+    _make_diagram(c, model, pkg)
+  }
+
+  private def _make_diagram(c: Context, smodel: SModel, pkg: String): SExpr = {
+    val env = c.executionContext.environment
+    val model = _make_model(smodel.model)
+    val g = new ClassDiagramGenerator(env, model)
+    model.getPackage(pkg) match {
+      case Some(s) => g.generate(s)
+      case None => SError.notFound("Unkown package", pkg)
+    }
+  }
+
+  private def _make_model(p: IModel): SimpleModel = p match {
+    case m: KaleidoxModel => _make_model(m)
+    case m => RAISE.noReachDefect
+  }
+
+  private def _make_model(p: KaleidoxModel): SimpleModel = {
+    ModelBuilder(p).build()
+  }
 }
 
 object Modeler {
@@ -303,5 +339,66 @@ object Modeler {
   }
   object StateHanger {
     def create(ps: Seq[(String, MState)]): StateHanger = new StateHanger(VectorMap(ps))
+  }
+
+  case class ModelBuilder(
+    schema: SchemaModel,
+    entity: EntityModel
+  ) {
+    def build(): SimpleModel = {
+      val entities = entity.classes.values.map(_entity)
+      SimpleModel(entities.toVector)
+    }
+
+    private def _entity(p: EntityClass): MEntity = {
+      val packagename = p.packageName
+      val desc = Description.name(p.name)
+      val affiliation = MPackageRef(packagename)
+      val stereotypes = Nil
+      val base = p.parents.headOption.map(_object_ref)
+      val traits = Nil // TODO
+      val powertypes = Nil
+      val attributes = _attributes(p.schemaClass)
+      val associations = Nil // TODO
+      val operations = Nil // TODO
+      val statemachines = Nil // TODO
+      MDomainResource(
+        desc,
+        affiliation,
+        stereotypes,
+        base,
+        traits,
+        powertypes,
+        attributes,
+        associations,
+        operations,
+        statemachines
+      )
+    }
+
+    private def _object_ref(p: EntityClass.ParentRef): MObjectRef =
+      p match {
+        case m: EntityClass.ParentRef.Name => RAISE.noReachDefect
+        case EntityClass.ParentRef.EntityKlass(c) => MEntityRef.create(c.packageName, c.name)
+      }
+
+    private def _attributes(p: SchemaClass): List[MAttribute] =
+      p.schema.columns.toList.map(_attribute)
+
+    private def _attribute(p: Column): MAttribute = {
+      val designation = Designation(p.name)
+      val atype = MDatatype(p.datatype)
+      val multiplicity = MMultiplicity(p.multiplicity)
+      val constraints = Nil // TODO
+      val readonly = false
+      val description = Description.empty // p.desc
+      MAttribute(designation, atype, multiplicity, constraints, Some(p), readonly, description)
+    }
+  }
+  object ModelBuilder {
+    def apply(p: KaleidoxModel): ModelBuilder = apply(
+      p.takeSchemaModel,
+      p.takeEntityModel
+    )
   }
 }
