@@ -21,7 +21,9 @@ import cozy.Context
  *  version Jan. 24, 2023
  *  version Feb. 28, 2023
  *  version Mar. 30, 2023
- * @version Apr. 22, 2023
+ *  version Apr. 22, 2023
+ *  version Sep. 30, 2023
+ * @version Oct.  1, 2023
  * @author  ASAMI, Tomoharu
  */
 class CozyDomainModelSpace(
@@ -69,10 +71,14 @@ class CozyDomainModelSpace(
 
   def readEntityList(q: Query): Option[Consequence[EntityListModel]] = {
     val collection = q.entityType.name
-    val s = s"(entity-query '${collection})" // entity-select
+    val offset = s":offset ${q.offset}"
+    val limit = s":limit ${q.limit}"
+    val columns = q.columns.fold("")(x => s""":columns "${x.mkString(",")}"""")
+    val s = s"(entity-select '${collection} $offset $limit $columns)"
     val expr = kaleidox.applyModelScript(model, s)
     var r = expr match {
       case SVector(xs) => _entity_list_model(q, q.entityType, xs)
+      case m: STable => _entity_list_model(q, q.entityType, m.vector.vector)
       case m: SError => Consequence.error(m.conclusion)
       case m => Consequence.internalServerError(s"Unknown entity: $m")
     }
@@ -94,6 +100,7 @@ class CozyDomainModelSpace(
 
   private def _entity_record(p: SExpr): Consequence[IRecord] = p match {
     case m: SEntity => Consequence.success(m.recordWithShortId)
+    case SRecord(r) => Consequence.success(r)
     case m => Consequence.internalServerError(s"Unknown entity: $m")
   }
 
