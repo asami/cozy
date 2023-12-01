@@ -6,15 +6,20 @@ import org.smartdox.Description
 import org.goldenport.RAISE
 import org.goldenport.collection.VectorMap
 import org.goldenport.values.Designation
+import org.goldenport.values.PathName
 import org.goldenport.record.v2.Column
 import org.goldenport.statemachine._
 import org.goldenport.statemachine.{ExecutionContext => StateMachineContext}
+import org.goldenport.statemachine.StateMachineClass
 import org.goldenport.sexpr._
 import org.goldenport.kaleidox.{Model => KaleidoxModel}
 import org.goldenport.kaleidox.lisp.Context
-import org.goldenport.kaleidox.model.{SchemaModel, EntityModel}
+import org.goldenport.kaleidox.model.{SchemaModel, EntityModel, DataTypeModel}
+import org.goldenport.kaleidox.model.{PowertypeModel, StateMachineModel}
 import org.goldenport.kaleidox.model.SchemaModel.SchemaClass
-import EntityModel._
+import org.goldenport.kaleidox.model.EntityModel.EntityClass
+import org.goldenport.kaleidox.model.DataTypeModel.DataTypeClass
+import org.goldenport.kaleidox.model.PowertypeModel.PowertypeClass
 
 /*
  * @since   May.  5, 2021
@@ -27,7 +32,8 @@ import EntityModel._
  *  version Dec. 18, 2021
  *  version Jan. 23, 2022
  *  version Aug.  4, 2023
- * @version Sep. 25, 2023
+ *  version Sep. 25, 2023
+ * @version Oct. 29, 2023
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
@@ -343,11 +349,18 @@ object Modeler {
 
   case class ModelBuilder(
     schema: SchemaModel,
-    entity: EntityModel
+    entity: EntityModel,
+    datatype: DataTypeModel,
+    powertype: PowertypeModel,
+    stateMachine: StateMachineModel
   ) {
     def build(): SimpleModel = {
       val entities = entity.classes.values.map(_entity)
-      SimpleModel(entities.toVector)
+      val datatypes = datatype.classes.values.map(_datatype)
+      val powertypes = powertype.classes.values.map(_powertype)
+      val statemachines = stateMachine.classes.values.map(_statemachine)
+      val xs = entities ++ datatypes ++ powertypes ++ statemachines
+      SimpleModel(xs.toVector)
     }
 
     private def _entity(p: EntityClass): MEntity = {
@@ -357,9 +370,9 @@ object Modeler {
       val stereotypes = Nil
       val base = p.parents.headOption.map(_object_ref)
       val traits = Nil // TODO
-      val powertypes = Nil
-      val attributes = _attributes(p.schemaClass)
-      val associations = Nil // TODO
+      val powertypes = _powertypes(affiliation, p.schemaClass)
+      val attributes = _attributes(affiliation, p.schemaClass)
+      val associations = _associations(affiliation, p.schemaClass)
       val operations = Nil // TODO
       val statemachines = Nil // TODO
       MDomainResource(
@@ -382,8 +395,35 @@ object Modeler {
         case EntityClass.ParentRef.EntityKlass(c) => MEntityRef.create(c.packageName, c.name)
       }
 
-    private def _attributes(p: SchemaClass): List[MAttribute] =
-      p.schema.columns.toList.map(_attribute)
+    private def _powertypes(pkg: MPackageRef, p: SchemaClass): List[MPowertypeRef] =
+      p.slots.flatMap(_get_powertype(pkg, _)).toList
+
+    private def _get_powertype(pkg: MPackageRef, p: SchemaModel.Slot): Option[MPowertypeRef] =
+      p match {
+        case m: SchemaModel.Id => None
+        case m: SchemaModel.Attribute => None
+        case m: SchemaModel.Association => None
+        case m: SchemaModel.PowertypeRelationship => Some(_powertype(pkg, m))
+        case m: SchemaModel.StateMachineRelationship => None
+      }
+
+    private def _powertype(pkg: MPackageRef, p: SchemaModel.PowertypeRelationship): MPowertypeRef = {
+      val name = p.name
+      val multiplicity = MMultiplicity(p.multiplicity)
+      MPowertypeRef(pkg, name, multiplicity)
+    }
+
+    private def _attributes(pkg: MPackageRef, p: SchemaClass): List[MAttribute] =
+      p.slots.flatMap(_get_attribute(pkg, _)).toList
+
+    private def _get_attribute(pkg: MPackageRef, p: SchemaModel.Slot): Option[MAttribute] =
+      p match {
+        case m: SchemaModel.Id => Some(_attribute(m.toColumn))
+        case m: SchemaModel.Attribute => Some(_attribute(m.toColumn))
+        case m: SchemaModel.Association => None
+        case m: SchemaModel.PowertypeRelationship => None
+        case m: SchemaModel.StateMachineRelationship => Some(_attribute(m.toColumn)) // TODO
+      }
 
     private def _attribute(p: Column): MAttribute = {
       val designation = Designation(p.name)
@@ -394,11 +434,66 @@ object Modeler {
       val description = Description.empty // p.desc
       MAttribute(designation, atype, multiplicity, constraints, Some(p), readonly, description)
     }
+
+    private def _associations(pkg: MPackageRef, p: SchemaClass): List[MAssociation] =
+      p.slots.flatMap(_get_association(pkg, _)).toList
+
+    private def _get_association(pkg: MPackageRef, p: SchemaModel.Slot): Option[MAssociation] =
+      p match {
+        case m: SchemaModel.Id => None
+        case m: SchemaModel.Attribute => None
+        case m: SchemaModel.Association => Some(_association(pkg, m))
+        case m: SchemaModel.PowertypeRelationship => None
+        case m: SchemaModel.StateMachineRelationship => None
+      }
+
+    private def _association(pkg: MPackageRef, p: SchemaModel.Association): MAssociation = {
+      val designation = Designation(p.name)
+      val description = Description.empty // p.desc
+      // val pkg = None
+      val objectref: MObjectRef = {
+        val pathname = p.objectRef.pathname
+        if (pathname.tailOption.isEmpty)
+          MObjectRef(pkg, pathname.head)
+        else
+          MObjectRef.create(pathname.v)
+      }
+      val kind = p match {
+        case p: SchemaModel.Composition => MAssociation.Association
+        case p: SchemaModel.Aggregation => MAssociation.Aggregation
+        case p: SchemaModel.Association => MAssociation.Composition
+      }
+      val multiplicity = MMultiplicity(p.multiplicity)
+      val collaborations = Nil
+      MAssociation(designation, description, Some(pkg), objectref, kind, multiplicity, collaborations)
+    }
+
+    private def _datatype(p: DataTypeClass): MDatatype = p match {
+      case m: DataTypeClass.Plain =>
+        val pkg = MPackageRef(m.packageName)
+        val desc = m.description
+        val datatype = m.datatype
+        MDatatype(desc.designation, datatype, pkg, desc)
+      case m: DataTypeClass.Complex => ???
+    }
+
+    private def _powertype(p: PowertypeClass): MPowertype = {
+      val desc = p.description
+      val pkg = MPackageRef(p.packageName)
+      val kinds = Nil
+      val stereotypes = Nil
+      MPowertype(desc, pkg, kinds, stereotypes)
+    }
+
+    private def _statemachine(p: StateMachineClass): MStateMachine = ???
   }
   object ModelBuilder {
     def apply(p: KaleidoxModel): ModelBuilder = apply(
       p.takeSchemaModel,
-      p.takeEntityModel
+      p.takeEntityModel,
+      p.takeDataTypeModel,
+      p.takePowertypeModel,
+      p.takeStateMachineModel
     )
   }
 }

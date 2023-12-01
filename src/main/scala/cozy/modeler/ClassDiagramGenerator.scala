@@ -3,13 +3,13 @@ package cozy.modeler
 import org.simplemodeling.model._
 import org.simplemodeling.SimpleModeler.{Context => UmlContext, Config => UmlConfig}
 import org.simplemodeling.SimpleModeler.generators.uml.{ClassDiagramGenerator => UmlClassDiagramGenerator}
-import org.simplemodeling.SimpleModeler.generators.uml.HilightPerspective
+import org.simplemodeling.SimpleModeler.generators.uml.{OverviewPerspective, HilightPerspective, DetailPerspective}
 import org.goldenport.sexpr._
 import org.goldenport.cli.Environment
 
 /*
  * @since   Sep. 17, 2023
- * @version Sep. 17, 2023
+ * @version Oct. 12, 2023
  * @author  ASAMI, Tomoharu
  */
 class ClassDiagramGenerator(
@@ -23,7 +23,7 @@ class ClassDiagramGenerator(
   }
 
   def generate(p: MPackage): SImage = {
-    val perspective = HilightPerspective
+    val perspective = DetailPerspective // OverviewPerspective // DetailPerspective // HilightPerspective
     val binary = _generator.makeClassDiagramSvg(p, perspective)
     SImage.svg(binary)
   }

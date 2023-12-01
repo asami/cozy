@@ -2,6 +2,7 @@ package cozy.web.arcadia
 
 import scalaz._, Scalaz._
 import java.io.File
+import java.net.URI
 import org.goldenport.context.Consequence
 import org.goldenport.kaleidox.{Engine => KaleidoxEngine}
 import org.goldenport.kaleidox.Model
@@ -13,6 +14,7 @@ import org.goldenport.record.v2.Schema
 import arcadia.context.Query
 import arcadia.domain._
 import arcadia.model._
+import arcadia.view.Renderer.TableOrder.Paging
 import cozy.Context
 
 /*
@@ -23,7 +25,8 @@ import cozy.Context
  *  version Mar. 30, 2023
  *  version Apr. 22, 2023
  *  version Sep. 30, 2023
- * @version Oct.  1, 2023
+number *  version Oct. 31, 2023
+number * @version Nov.  4, 2023
  * @author  ASAMI, Tomoharu
  */
 class CozyDomainModelSpace(
@@ -94,9 +97,21 @@ class CozyDomainModelSpace(
       xs <- ps.toList.traverse(_entity_record)
     } yield {
       val xfer = Transfer.create(q, xs)
-      EntityListModel(klass, xs, xfer)
+      val paging = _paging(q, xfer)
+      paging match {
+        case Some(s) => EntityListModel.paging(klass, xs, xfer, s)
+        case None => EntityListModel(klass, xs, xfer)
+      }
     }
   }
+
+  private def _paging(q: Query, xfer: Transfer) =
+    q.paging.map { paging =>
+      val uri = new URI("")
+      val pagesize = paging.size
+      val pagenumber = q.offset / pagesize
+      Paging(uri, pagenumber, pagesize, totalSize = xfer.total)
+    }
 
   private def _entity_record(p: SExpr): Consequence[IRecord] = p match {
     case m: SEntity => Consequence.success(m.recordWithShortId)

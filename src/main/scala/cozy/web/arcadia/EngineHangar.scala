@@ -8,6 +8,7 @@ import arcadia.context._
 import arcadia.view.TemplateEngineHangar
 import cozy.Cozy
 import cozy.Context
+import cozy.modeler.DomainModelFactory
 
 /*
  * @since   Feb.  6, 2022
