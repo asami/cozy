@@ -8,7 +8,7 @@ import arcadia.context._
 import arcadia.view.TemplateEngineHangar
 import cozy.Cozy
 import cozy.Context
-import cozy.modeler.DomainModelFactory
+import cozy.modeler.{DomainModelFactory => MDomainModelFactory}
 
 /*
  * @since   Feb.  6, 2022
@@ -16,7 +16,8 @@ import cozy.modeler.DomainModelFactory
  *  version Sep. 25, 2022
  *  version Oct. 30, 2022
  *  version Dec. 25, 2022
- * @version Jan.  1, 2023
+ *  version Jan.  1, 2023
+ * @version Dec. 28, 2023
  * @author  ASAMI, Tomoharu
  */
 class EngineHangar(
@@ -44,7 +45,7 @@ object EngineHangar {
     val services = List(CozyScriptService.create(ctx, pc))
     val webengineconfig = WebEngine.Config(
       TemplateEngineHangar.Factory(DoxTemplateEngine),
-      DomainModelFactory.create(ctx),
+      MDomainModelFactory.create(ctx),
       services
     )
     new EngineHangar(pc, ctx.config.properties, webengineconfig)
