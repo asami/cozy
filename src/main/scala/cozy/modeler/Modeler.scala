@@ -8,9 +8,9 @@ import org.goldenport.collection.VectorMap
 import org.goldenport.values.Designation
 import org.goldenport.values.PathName
 import org.goldenport.record.v2.Column
-import org.goldenport.statemachine._
-import org.goldenport.statemachine.{ExecutionContext => StateMachineContext}
-import org.goldenport.statemachine.StateMachineClass
+import org.goldenport.sm._
+import org.goldenport.sm.{ExecutionContext => StateMachineContext}
+import org.goldenport.sm.StateMachineClass
 import org.goldenport.sexpr._
 import org.goldenport.kaleidox.{Model => KaleidoxModel}
 import org.goldenport.kaleidox.lisp.Context
@@ -33,7 +33,8 @@ import org.goldenport.kaleidox.model.PowertypeModel.PowertypeClass
  *  version Jan. 23, 2022
  *  version Aug.  4, 2023
  *  version Sep. 25, 2023
- * @version Oct. 29, 2023
+ *  version Oct. 29, 2023
+ * @version Nov.  2, 2024
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
