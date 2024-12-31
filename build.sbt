@@ -2,7 +2,7 @@ organization := "org.simplemodeling"
 
 name := "cozy"
 
-version := "0.0.17"
+version := "0.1.0"
 
 scalaVersion := "2.10.3"
 // crossScalaVersions := Seq("2.10.39.2", "2.9.1")
@@ -31,8 +31,8 @@ resolvers += "Asami Maven Repository" at "http://www.asamioffice.com/maven"
 
 resolvers += "Local Maven Repository" at "file://"+Path.userHome.absolutePath+"/.m2/repository"
 
-// override kaleidox
-// libraryDependencies += "org.goldenport" %% "goldenport-scala-lib" % "1.3.58"
+// override arcadia
+libraryDependencies += "org.goldenport" %% "goldenport-scala-lib" % "1.4.0"
 
 // override kaleidox
 // libraryDependencies += "org.goldenport" %% "goldenport-record" % "1.3.70"
@@ -43,7 +43,7 @@ resolvers += "Local Maven Repository" at "file://"+Path.userHome.absolutePath+"/
 // override kaleidox
 // libraryDependencies += "org.smartdox" %% "smartdox" % "1.3.1"
 
-libraryDependencies += "org.goldenport" %% "kaleidox" % "0.4.16"
+libraryDependencies += "org.goldenport" %% "kaleidox" % "0.5.0"
 
 libraryDependencies += "org.simplemodeling" %% "simplemodeler" % "1.0.6"
 
