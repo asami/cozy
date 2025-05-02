@@ -17,7 +17,8 @@ import cozy.modeler.{DomainModelFactory => MDomainModelFactory}
  *  version Oct. 30, 2022
  *  version Dec. 25, 2022
  *  version Jan.  1, 2023
- * @version Dec. 28, 2023
+ *  version Dec. 28, 2023
+ * @version May.  3, 2025
  * @author  ASAMI, Tomoharu
  */
 class EngineHangar(
@@ -26,7 +27,9 @@ class EngineHangar(
   val webengineconfig: WebEngine.Config
 ) extends {
   private lazy val _arcadia = {
-    Arcadia.make(platformContext, webengineconfig, config).take
+    val libs = Nil
+    val standalons = Nil
+    Arcadia.make(platformContext, webengineconfig, config, libs, standalons).take
   }
 
   private val _web_engines = new TrieMap[String, Engine]()

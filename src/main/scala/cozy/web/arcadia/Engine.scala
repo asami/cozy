@@ -21,7 +21,8 @@ import arcadia.domain._
  *  version Mar.  6, 2022
  *  version May. 23, 2022
  *  version Aug. 29, 2022
- * @version Sep. 25, 2022
+ *  version Sep. 25, 2022
+ * @version May.  3, 2025
  * @author  ASAMI, Tomoharu
  */
 class Engine(
@@ -96,6 +97,7 @@ class Engine(
       _web_rule(engine),
       Partials.empty,
       Components.empty,
+      None,
       RenderContext.empty.withEpilogue.withFormatter(formatter),
       None
     )

@@ -4,10 +4,12 @@ import scala.xml._
 import org.fusesource.scalate.TemplateSource
 import arcadia.context._
 import arcadia.view._
+import arcadia.view.ViewEngine.Bindings
 
 /*
  * @since   Sep. 10, 2022
- * @version Sep. 25, 2022
+ *  version Sep. 25, 2022
+ * @version May.  3, 2025
  * @author  ASAMI, Tomoharu
  */
 class DoxTemplateEngine(val platform: PlatformContext) extends TemplateEngine {
@@ -16,7 +18,7 @@ class DoxTemplateEngine(val platform: PlatformContext) extends TemplateEngine {
     case _ => false
   }
   def shutdown(): Unit = {}
-  def layoutAsNodes(template: TemplateSource, bindings: Map[String, Object]): NodeSeq =
+  def layoutAsNodes(template: TemplateSource, bindings: Bindings): NodeSeq =
     ???
 }
 
