@@ -2,9 +2,9 @@ organization := "org.simplemodeling"
 
 name := "cozy"
 
-version := "0.1.1"
+version := "0.2.0"
 
-scalaVersion := "2.10.3"
+scalaVersion := "2.12.18"
 // crossScalaVersions := Seq("2.10.39.2", "2.9.1")
 
 scalacOptions += "-deprecation"
@@ -34,7 +34,7 @@ resolvers += "Asami Maven Repository" at "http://www.asamioffice.com/maven"
 resolvers += "Local Maven Repository" at "file://"+Path.userHome.absolutePath+"/.m2/repository"
 
 // override arcadia
-libraryDependencies += "org.goldenport" %% "goldenport-scala-lib" % "1.4.3"
+libraryDependencies += "org.goldenport" %% "goldenport-scala-lib" % "2.2.1"
 
 // override kaleidox
 // libraryDependencies += "org.goldenport" %% "goldenport-record" % "1.3.70"
@@ -45,15 +45,15 @@ libraryDependencies += "org.goldenport" %% "goldenport-scala-lib" % "1.4.3"
 // override kaleidox
 // libraryDependencies += "org.smartdox" %% "smartdox" % "1.3.1"
 
-libraryDependencies += "org.goldenport" %% "kaleidox" % "0.5.1"
+libraryDependencies += "org.goldenport" %% "kaleidox" % "0.6.0"
 
-libraryDependencies += "org.simplemodeling" %% "simplemodeler" % "1.0.6"
+libraryDependencies += "org.simplemodeling" %% "simplemodeler" % "1.1.0"
 
-libraryDependencies += "org.goldenport" %% "arcadia" % "0.3.2"
+libraryDependencies += "org.goldenport" %% "arcadia" % "0.6.0"
 
 libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.2.3"
 
-libraryDependencies += "com.typesafe.play" %% "play-json" % "2.2.2"
+libraryDependencies += "com.typesafe.play" %% "play-json" % "2.9.4"
 
 libraryDependencies += "org.scalaj" %% "scalaj-http" % "2.4.1"
 
@@ -81,9 +81,9 @@ libraryDependencies += "postgresql" %  "postgresql" % "8.4-702.jdbc4"
 
 libraryDependencies += "com.h2database" % "h2" % "1.4.199"
 
-libraryDependencies += "org.apache.spark" %% "spark-core" % "2.2.3" exclude("org.glassfish.hk2", "hk2-utils") exclude("org.glassfish.hk2", "hk2-locator") exclude("javax.validation", "validation-api") exclude("org.slf4j", "slf4j-log4j12") // Useing old version for Scala 2.10
+libraryDependencies += "org.apache.spark" %% "spark-core" % "2.4.8" exclude("org.glassfish.hk2", "hk2-utils") exclude("org.glassfish.hk2", "hk2-locator") exclude("javax.validation", "validation-api") exclude("org.slf4j", "slf4j-log4j12") // Useing old version for Scala 2.10
 
-libraryDependencies += "org.apache.spark" %% "spark-sql" % "2.2.3" exclude("org.glassfish.hk2", "hk2-utils") exclude("org.glassfish.hk2", "hk2-locator") exclude("javax.validation", "validation-api") exclude("org.slf4j", "slf4j-log4j12") // Useing old version for Scala 2.10
+libraryDependencies += "org.apache.spark" %% "spark-sql" % "2.4.8" exclude("org.glassfish.hk2", "hk2-utils") exclude("org.glassfish.hk2", "hk2-locator") exclude("javax.validation", "validation-api") exclude("org.slf4j", "slf4j-log4j12") // Useing old version for Scala 2.10
 
 libraryDependencies += "org.apache.felix" % "org.apache.felix.main" % "5.4.0"
 
