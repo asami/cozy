@@ -34,7 +34,8 @@ import org.goldenport.kaleidox.model.PowertypeModel.PowertypeClass
  *  version Aug.  4, 2023
  *  version Sep. 25, 2023
  *  version Oct. 29, 2023
- * @version Nov.  2, 2024
+ *  version Nov.  2, 2024
+ * @version May. 13, 2025
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
@@ -208,7 +209,7 @@ class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
           case NameTransitionTo(to) => to
         }.headOption
     }
-    ps./:(Z())(_+_).r
+    ps.foldLeft(Z())(_+_).r
   }
 
   private def _normalize_init(initstatename: Option[String], states: Seq[MState], sms: Seq[MState]): Seq[MState] = {
@@ -305,7 +306,7 @@ class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
     c: Context,
     model: SModel
   ): SExpr = {
-    val pkg = "domain" // TODO
+    val pkg = "" // TODO
     _make_diagram(c, model, pkg)
   }
 
@@ -326,6 +327,24 @@ class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
 
   private def _make_model(p: KaleidoxModel): SimpleModel = {
     ModelBuilder(p).build()
+  }
+
+  def generateScala(
+    c: Context,
+    model: SModel
+  ): SExpr = {
+    val pkg = "domain" // TODO
+    _make_scala(c, model, pkg)
+  }
+
+  private def _make_scala(c: Context, smodel: SModel, pkg: String): SExpr = {
+    val env = c.executionContext.environment
+    val model = _make_model(smodel.model)
+    val g = new ScalaGenerator(env, model)
+    model.getPackage(pkg) match {
+      case Some(s) => g.generate(s)
+      case None => SError.notFound("Unkown package", pkg)
+    }
   }
 }
 
