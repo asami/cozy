@@ -2,7 +2,7 @@ organization := "org.simplemodeling"
 
 name := "cozy"
 
-version := "0.2.1"
+version := "0.2.2"
 
 scalaVersion := "2.12.18"
 // crossScalaVersions := Seq("2.10.39.2", "2.9.1")
@@ -12,6 +12,8 @@ scalacOptions += "-deprecation"
 scalacOptions += "-unchecked"
 
 scalacOptions += "-feature"
+
+javacOptions ++= Seq("--release", "21")
 
 // resolvers += "Scalaz Bintray Repo" at "http://dl.bintray.com/scalaz/releases"
 
@@ -33,23 +35,27 @@ resolvers += "GitHub Packages" at "https://maven.pkg.github.com/asami/maven-repo
 
 // resolvers += "Asami Maven Repository" at "http://www.asamioffice.com/maven"
 
+resolvers += Resolver.file("Local Ivy", file(Path.userHome.absolutePath + "/.ivy2/local"))(Resolver.ivyStylePatterns)
+
 resolvers += "Local Maven Repository" at "file://"+Path.userHome.absolutePath+"/.m2/repository"
 
+resolvers += Resolver.defaultLocal
+
 // override arcadia
-libraryDependencies += "org.goldenport" %% "goldenport-scala-lib" % "2.2.2"
+libraryDependencies += "org.goldenport" %% "goldenport-scala-lib" % "2.3.14"
 
 // override kaleidox
-// libraryDependencies += "org.goldenport" %% "goldenport-record" % "1.3.70"
+libraryDependencies += "org.goldenport" %% "goldenport-record" % "2.2.2"
 
 // override kaleidox
 // libraryDependencies += "org.goldenport" %% "goldenport-sexpr" % "2.0.13"
 
 // override kaleidox
-// libraryDependencies += "org.smartdox" %% "smartdox" % "1.3.1"
+libraryDependencies += "org.smartdox" %% "smartdox" % "2.3.15"
 
-libraryDependencies += "org.goldenport" %% "kaleidox" % "0.6.1"
+libraryDependencies += "org.goldenport" %% "kaleidox" % "0.6.2"
 
-libraryDependencies += "org.simplemodeling" %% "simplemodeler" % "1.1.1"
+libraryDependencies += "org.simplemodeling" %% "simplemodeler" % "1.1.2"
 
 libraryDependencies += "org.goldenport" %% "arcadia" % "0.6.1"
 
@@ -121,6 +127,8 @@ excludeDependencies ++= Seq(
 )
 
 Compile / mainClass := Some("cozy.Cozy")
+
+useCoursier := false
 
 lazy val exportClasspath = taskKey[Unit]("Export full classpath to a file")
 
