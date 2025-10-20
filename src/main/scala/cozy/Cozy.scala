@@ -13,7 +13,8 @@ import cozy.web.jetty.JettyServer
  * @since   Dec.  4, 2021
  *  version Dec. 19, 2021
  *  version Jan.  1, 2022
- * @version Feb. 28, 2022
+ *  version Feb. 28, 2022
+ * @version Aug. 20, 2025
  * @author  ASAMI, Tomoharu
  */
 class Cozy(
@@ -113,7 +114,8 @@ object Cozy {
     val context = new Context(env0, config, kaleidox)
     val env = env0.withAppEnvironment(context)
     val services = Services(
-      CozyServiceClass
+      CozyServiceClass,
+      modeler.ModelerServiceClass
     )
     new Cozy(config, env, services, CozyServiceClass.operations)
   }
