@@ -12,6 +12,7 @@ import org.goldenport.sm._
 import org.goldenport.sm.{ExecutionContext => StateMachineContext}
 import org.goldenport.sm.StateMachineClass
 import org.goldenport.sexpr._
+import org.goldenport.util.StringUtils
 import org.goldenport.kaleidox.{Model => KaleidoxModel}
 import org.goldenport.kaleidox.lisp.Context
 import org.goldenport.kaleidox.model.{SchemaModel, EntityModel, DataTypeModel}
@@ -35,7 +36,8 @@ import org.goldenport.kaleidox.model.PowertypeModel.PowertypeClass
  *  version Sep. 25, 2023
  *  version Oct. 29, 2023
  *  version Nov.  2, 2024
- * @version May. 13, 2025
+ *  version May. 13, 2025
+ * @version Feb. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
@@ -380,7 +382,9 @@ object Modeler {
       val powertypes = powertype.classes.values.map(_powertype)
       val statemachines = stateMachine.classes.values.map(_statemachine)
       val xs = entities ++ datatypes ++ powertypes ++ statemachines
-      SimpleModel(xs.toVector)
+      val a = SimpleModel(xs.toVector)
+      val comps = _complement_components(a)
+      a.add(comps)
     }
 
     private def _entity(p: EntityClass): MEntity = {
@@ -447,7 +451,7 @@ object Modeler {
 
     private def _attribute(p: Column): MAttribute = {
       val designation = Designation(p.name)
-      val atype = MDatatype(p.datatype)
+      val atype = MDataType(p.datatype)
       val multiplicity = MMultiplicity(p.multiplicity)
       val constraints = Nil // TODO
       val readonly = false
@@ -488,12 +492,12 @@ object Modeler {
       MAssociation(designation, description, Some(pkg), objectref, kind, multiplicity, collaborations)
     }
 
-    private def _datatype(p: DataTypeClass): MDatatype = p match {
+    private def _datatype(p: DataTypeClass): MDataType = p match {
       case m: DataTypeClass.Plain =>
         val pkg = MPackageRef(m.packageName)
         val desc = m.description
         val datatype = m.datatype
-        MDatatype(desc.designation, datatype, pkg, desc)
+        MDataType(desc.designation, datatype, pkg, desc)
       case m: DataTypeClass.Complex => ???
     }
 
@@ -506,6 +510,115 @@ object Modeler {
     }
 
     private def _statemachine(p: StateMachineClass): MStateMachine = ???
+
+    private def _complement_components(p: SimpleModel): Vector[MComponent] =
+      _complement_components_package(p, p.root)
+
+    private def _complement_components_package(
+      sm: SimpleModel,
+      pkg: MPackage
+    ): Vector[MComponent] = {
+      val a = if (pkg.components.isEmpty) {
+        val entities = pkg.entities
+        if (entities.isEmpty) {
+          Vector.empty
+        } else {
+          val comp = _make_component(pkg, entities)
+          Vector(comp)
+        }
+      } else {
+        Vector.empty
+      }
+      val subpackages = pkg.subpackages
+      val xs = subpackages.flatMap(_complement_components_package(sm, _))
+      a ++ xs
+    }
+
+    private def _make_component(
+      pkg: MPackage,
+      entities: Vector[MEntity]
+    ): MComponent = {
+      // val compclassname = s"${StringUtils.makeTitle(pkg.name)}Component"
+      val compname = pkg.name
+      val desc = Description.name(compname)
+      val entityservice: MService = _make_entity_service(pkg, entities)
+      val reposervice: MService = _make_repository_service(pkg, entities)
+      val core = MObject.Core.create(pkg, services = List(reposervice, entityservice))
+      val ccore = MComponent.Core(entities)
+      MDomainComponent(desc, core, ccore)
+    }
+
+    private def _make_entity_service(
+      pkg: MPackage,
+      entities: Vector[MEntity]
+    ): MService = {
+      val ops = entities.flatMap(_make_entity_operations)
+      MService(pkg, "entity", ops)
+    }
+
+    private def _make_entity_operations(entity: MEntity): Vector[MOperation] = {
+      val title = StringUtils.makeTitle(entity.name)
+      val entityparam = MParameter("entity", entity)
+      val updateparam = MParameter("entity", entity)
+      val selectparam = MParameter.select("select", entity)
+      val selectrecparam = MParameter.select("select", entity) // TODO
+      val idparam = MParameter.entityId
+      val recordparam = MParameter.record
+      val loadresult = MResult.option(entity)
+      val selectresult = MResult.select(entity)
+      val selectrecresult = MResult.select(entity) // TODO
+      val create = MOperation(s"create$title", entityparam)
+      val createrec = MOperation(s"create${title}Record", recordparam)
+      val load = MOperation(s"load$title", idparam, loadresult)
+      val loadrec = MOperation(s"load${title}Record", idparam, loadresult)
+      val store = MOperation(s"store$title", entityparam)
+      val storerec = MOperation(s"store${title}Record", entityparam)
+      val update = MOperation(s"update$title", updateparam)
+      val updaterec = MOperation(s"update${title}Record", updateparam)
+      val delete = MOperation(s"delete$title", idparam)
+      val select = MOperation(s"select$title", selectparam, selectresult)
+      val selectrec = MOperation(s"select${title}Record", selectrecparam, selectrecresult)
+      Vector(
+        create,
+        load,
+        store,
+        update,
+        delete,
+        select
+      )
+    }
+
+    private def _make_repository_service(
+      pkg: MPackage,
+      entities: Vector[MEntity]
+    ): MService = {
+      val ops = entities.flatMap(_make_repository_operations)
+      MService(pkg, "repository", ops)
+    }
+
+    private def _make_repository_operations(entity: MEntity): Vector[MOperation] = {
+      val title = StringUtils.makeTitle(entity.name)
+      val entityparam = MParameter("entity", entity)
+      val updateparam = MParameter("entity", entity)
+      val selectparam = MParameter.select("select", entity)
+      val idparam = MParameter.entityId
+      val loadresult = MResult.option(entity)
+      val selectresult = MResult.select(entity)
+      val create = MOperation(s"create$title", entityparam)
+      val load = MOperation(s"load$title", idparam, loadresult)
+      val store = MOperation(s"store$title", entityparam)
+      val update = MOperation(s"update$title", updateparam)
+      val delete = MOperation(s"delete$title", idparam)
+      val select = MOperation(s"select$title", selectparam, selectresult)
+      Vector(
+        create,
+        load,
+        store,
+        update,
+        delete,
+        select
+      )
+    }
   }
   object ModelBuilder {
     def apply(p: KaleidoxModel): ModelBuilder = apply(
