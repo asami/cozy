@@ -37,7 +37,7 @@ import org.goldenport.kaleidox.model.PowertypeModel.PowertypeClass
  *  version Oct. 29, 2023
  *  version Nov.  2, 2024
  *  version May. 13, 2025
- * @version Feb. 14, 2026
+ * @version Feb. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
@@ -558,33 +558,37 @@ object Modeler {
 
     private def _make_entity_operations(entity: MEntity): Vector[MOperation] = {
       val title = StringUtils.makeTitle(entity.name)
-      val entityparam = MParameter("entity", entity)
-      val updateparam = MParameter("entity", entity)
-      val selectparam = MParameter.select("select", entity)
-      val selectrecparam = MParameter.select("select", entity) // TODO
+      val entityparam = MParameter("entity", MEntityValue.create(entity))
+      val updateparam = MParameter("entity", MEntityValue.update(entity))
+      val queryparam = MParameter.query("query", MEntityValue.query(entity))
+      val queryrecparam = MParameter.query("query", MObjectRef.record)
       val idparam = MParameter.entityId
       val recordparam = MParameter.record
-      val loadresult = MResult.option(entity)
-      val selectresult = MResult.select(entity)
-      val selectrecresult = MResult.select(entity) // TODO
-      val create = MOperation(s"create$title", entityparam)
-      val createrec = MOperation(s"create${title}Record", recordparam)
-      val load = MOperation(s"load$title", idparam, loadresult)
-      val loadrec = MOperation(s"load${title}Record", idparam, loadresult)
-      val store = MOperation(s"store$title", entityparam)
-      val storerec = MOperation(s"store${title}Record", entityparam)
-      val update = MOperation(s"update$title", updateparam)
-      val updaterec = MOperation(s"update${title}Record", updateparam)
-      val delete = MOperation(s"delete$title", idparam)
-      val select = MOperation(s"select$title", selectparam, selectresult)
-      val selectrec = MOperation(s"select${title}Record", selectrecparam, selectrecresult)
+      val loadresult = MResult.option(MEntityValue.whole(entity))
+      val searchresult = MResult.search(MEntityValue.whole(entity))
+      val create = MOperation.command(s"create$title", entityparam)
+      val createrec = MOperation.command(s"create${title}Record", recordparam)
+      val load = MOperation.query(s"load$title", idparam, loadresult)
+      val loadrec = MOperation.query(s"load${title}Record", idparam, loadresult)
+      val store = MOperation.command(s"store$title", entityparam)
+      val storerec = MOperation.command(s"store${title}Record", entityparam)
+      val update = MOperation.command(s"update$title", updateparam)
+      val updaterec = MOperation.command(s"update${title}Record", updateparam)
+      val delete = MOperation.command(s"delete$title", idparam)
+      val search = MOperation.query(s"search$title", queryparam, searchresult)
+      val searchrec = MOperation.query(s"search${title}Record", queryrecparam, searchresult)
       Vector(
         create,
+        createrec,
         load,
+        loadrec,
         store,
+        storerec,
         update,
+        updaterec,
         delete,
-        select
+        search,
+        searchrec
       )
     }
 
@@ -598,25 +602,26 @@ object Modeler {
 
     private def _make_repository_operations(entity: MEntity): Vector[MOperation] = {
       val title = StringUtils.makeTitle(entity.name)
-      val entityparam = MParameter("entity", entity)
-      val updateparam = MParameter("entity", entity)
-      val selectparam = MParameter.select("select", entity)
+      val createparam = MParameter("entity", MEntityValue.create(entity))
+      val storeparam = MParameter("entity", MEntityValue.store(entity))
+      val updateparam = MParameter("entity", MEntityValue.update(entity))
+      val searchparam = MParameter.query("query", MEntityValue.query(entity))
       val idparam = MParameter.entityId
-      val loadresult = MResult.option(entity)
-      val selectresult = MResult.select(entity)
-      val create = MOperation(s"create$title", entityparam)
-      val load = MOperation(s"load$title", idparam, loadresult)
-      val store = MOperation(s"store$title", entityparam)
-      val update = MOperation(s"update$title", updateparam)
-      val delete = MOperation(s"delete$title", idparam)
-      val select = MOperation(s"select$title", selectparam, selectresult)
+      val loadresult = MResult.option(MEntityValue.whole(entity))
+      val searchresult = MResult.search(MEntityValue.whole(entity))
+      val create = MOperation.command(s"create$title", createparam)
+      val load = MOperation.query(s"load$title", idparam, loadresult)
+      val store = MOperation.command(s"store$title", storeparam)
+      val update = MOperation.command(s"update$title", updateparam)
+      val delete = MOperation.command(s"delete$title", idparam)
+      val search = MOperation.query(s"search$title", searchparam, searchresult)
       Vector(
         create,
         load,
         store,
         update,
         delete,
-        select
+        search
       )
     }
   }
