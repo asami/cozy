@@ -2,6 +2,7 @@ package cozy.modeler
 
 import org.simplemodeling.model._
 import org.simplemodeling.model.domain._
+import org.simplemodeling.SimpleModeler.generator.scala.Generator.{State => GState, _}
 import org.smartdox.Description
 import org.goldenport.RAISE
 import org.goldenport.collection.VectorMap
@@ -37,7 +38,7 @@ import org.goldenport.kaleidox.model.PowertypeModel.PowertypeClass
  *  version Oct. 29, 2023
  *  version Nov.  2, 2024
  *  version May. 13, 2025
- * @version Feb. 19, 2026
+ * @version Feb. 27, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
@@ -560,13 +561,20 @@ object Modeler {
       val title = StringUtils.makeTitle(entity.name)
       val entityparam = MParameter("entity", MEntityValue.create(entity))
       val updateparam = MParameter("entity", MEntityValue.update(entity))
-      val queryparam = MParameter.query("query", MEntityValue.query(entity))
-      val queryrecparam = MParameter.query("query", MObjectRef.record)
+      val queryparam = MParameter.query("q", MEntityValue.query(entity))
+      val queryrecparam = MParameter.query("q", MObjectRef.record)
       val idparam = MParameter.entityId
       val recordparam = MParameter.record
       val loadresult = MResult.option(MEntityValue.whole(entity))
       val searchresult = MResult.search(MEntityValue.whole(entity))
-      val create = MOperation.command(s"create$title", entityparam)
+      val create = MOperation.commandBody(s"create$title", entityparam) {
+        for {
+          _ <- block("for") {
+            println("r <- entity_create(action.entity)")
+          }
+          _ <- println("yield OperationResponse(r.toRecord)")
+        } yield ()
+      }
       val createrec = MOperation.command(s"create${title}Record", recordparam)
       val load = MOperation.query(s"load$title", idparam, loadresult)
       val loadrec = MOperation.query(s"load${title}Record", idparam, loadresult)
@@ -605,7 +613,7 @@ object Modeler {
       val createparam = MParameter("entity", MEntityValue.create(entity))
       val storeparam = MParameter("entity", MEntityValue.store(entity))
       val updateparam = MParameter("entity", MEntityValue.update(entity))
-      val searchparam = MParameter.query("query", MEntityValue.query(entity))
+      val searchparam = MParameter.query("q", MEntityValue.query(entity))
       val idparam = MParameter.entityId
       val loadresult = MResult.option(MEntityValue.whole(entity))
       val searchresult = MResult.search(MEntityValue.whole(entity))
