@@ -38,7 +38,8 @@ import org.goldenport.kaleidox.model.PowertypeModel.PowertypeClass
  *  version Oct. 29, 2023
  *  version Nov.  2, 2024
  *  version May. 13, 2025
- * @version Feb. 27, 2026
+ *  version Feb. 27, 2026
+ * @version Mar. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
@@ -608,6 +609,8 @@ object Modeler {
       MService(pkg, "repository", ops)
     }
 
+    import org.simplemodeling.SimpleModeler.generator.scala.Generator.{State => GState, _}
+
     private def _make_repository_operations(entity: MEntity): Vector[MOperation] = {
       val title = StringUtils.makeTitle(entity.name)
       val createparam = MParameter("entity", MEntityValue.create(entity))
@@ -617,7 +620,13 @@ object Modeler {
       val idparam = MParameter.entityId
       val loadresult = MResult.option(MEntityValue.whole(entity))
       val searchresult = MResult.search(MEntityValue.whole(entity))
-      val create = MOperation.command(s"create$title", createparam)
+      val create = MOperation.commandBody(s"create$title", createparam) {
+        flockFor {
+          println("r <- entity_create(action.entity)")
+        } {
+          println("yield OperationResponse(r.toRecord)")
+        }
+      }
       val load = MOperation.query(s"load$title", idparam, loadresult)
       val store = MOperation.command(s"store$title", storeparam)
       val update = MOperation.command(s"update$title", updateparam)
