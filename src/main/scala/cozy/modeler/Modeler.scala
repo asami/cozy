@@ -394,7 +394,9 @@ object Modeler {
       val desc = Description.name(p.name)
       val affiliation = MPackageRef(packagename)
       val stereotypes = Nil
-      val base = p.parents.headOption.map(_object_ref)
+      val base = p.parents.headOption.map(_object_ref).orElse {
+        p.schemaClass.features.parentsName.headOption.map(_object_ref)
+      }
       val traits = Nil // TODO
       val powertypes = _powertypes(affiliation, p.schemaClass)
       val attributes = _attributes(affiliation, p.schemaClass)
@@ -417,8 +419,29 @@ object Modeler {
 
     private def _object_ref(p: EntityClass.ParentRef): MObjectRef =
       p match {
-        case m: EntityClass.ParentRef.Name => RAISE.noReachDefect
-        case EntityClass.ParentRef.EntityKlass(c) => MEntityRef.create(c.packageName, c.name)
+        case m: EntityClass.ParentRef.Name => _object_ref(m.name)
+        case EntityClass.ParentRef.EntityKlass(c) => _object_ref(c.packageName, c.name)
+      }
+
+    private def _object_ref(p: String): MObjectRef = {
+      val isSimpleEntity = _is_simple_entity(p)
+      if (isSimpleEntity)
+        MObjectRef.create("org.goldenport.model.SimpleEntity")
+      else
+        MObjectRef.create(p)
+    }
+
+    private def _object_ref(packagename: String, name: String): MObjectRef = {
+      val isSimpleEntity = _is_simple_entity(name)
+      if (isSimpleEntity)
+        MObjectRef.create("org.goldenport.model.SimpleEntity")
+      else
+        MEntityRef.create(packagename, name)
+    }
+
+    private def _is_simple_entity(p: String): Boolean =
+      p.split("\\.").lastOption.map(_.trim).exists { name =>
+        name.equalsIgnoreCase("SimpleEntity") || name.equalsIgnoreCase("simple_entity")
       }
 
     private def _powertypes(pkg: MPackageRef, p: SchemaClass): List[MPowertypeRef] =

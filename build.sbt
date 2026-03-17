@@ -56,7 +56,7 @@ libraryDependencies += "org.goldenport" %% "goldenport-record" % "2.2.2"
 // override kaleidox
 libraryDependencies += "org.smartdox" %% "smartdox" % "2.4.4"
 
-libraryDependencies += "org.goldenport" %% "kaleidox" % "0.6.2"
+libraryDependencies += "org.goldenport" %% "kaleidox" % "0.6.3-SNAPSHOT"
 
 libraryDependencies += "org.simplemodeling" %% "simplemodeler" % "1.1.5-SNAPSHOT"
 

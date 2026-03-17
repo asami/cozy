@@ -2,7 +2,7 @@
 set -eu
 
 cd out.d
-mkdir -p src/main/scala/domain src/main/scala/domain/impl .cncf
+mkdir -p src/main/scala/domain src/main/scala/domain/impl src/main/scala/domain/testsupport .cncf
 
 cat > src/main/scala/domain/impl/ComponentFactory.scala <<'SCALA'
 package domain.impl
@@ -107,40 +107,37 @@ object ComponentFactory {
 }
 SCALA
 
+cp ../EmbeddedCncfTestSupport.scala.txt src/main/scala/domain/testsupport/EmbeddedCncfTestSupport.scala
+
 cat > src/main/scala/domain/SearchMemoryProbe.scala <<'SCALA'
 package domain
 
 import java.nio.file.{Files, Paths}
-import org.goldenport.cncf.cli.CncfRuntime
 import org.goldenport.cncf.component.{Component, ComponentCreate, ComponentOrigin}
 import org.goldenport.cncf.subsystem.Subsystem
 import domain.impl.ComponentFactory
+import domain.testsupport.EmbeddedCncfTestSupport
 
 object SearchMemoryProbe {
   def main(args: Array[String]): Unit = {
-    val runtime = CncfRuntime()
     val id = "sys-sys-entity-person-1773772200000-7ddddddddddddddddddddd"
     val sqlitePath = Paths.get("target/cncf.d/cncf-command.sqlite3")
 
-    def runCommand(command: Array[String]): Unit = {
-      val code = runtime.run(command, _extraComponents)
-      if (code != 0)
-        throw new IllegalStateException(s"command failed (${command.mkString(" ")}): exit=$code")
+    EmbeddedCncfTestSupport.withHandle(extraComponents = _extraComponents) { handle =>
+      handle.executeOrThrow(Array("domain.entity.savePerson", "--id", id, "--name", "taro"))
+
+      if (!Files.exists(sqlitePath))
+        throw new IllegalStateException(s"sqlite file not found: $sqlitePath")
+      if (ComponentFactory.memorySize <= 0)
+        throw new IllegalStateException("memory cache was not updated by savePerson")
+
+      Files.deleteIfExists(sqlitePath)
+
+      handle.executeOrThrow(Array("domain.entity.searchPersonRecord", "--name", "taro"))
+
+      if (ComponentFactory.lastSearchResultSize <= 0)
+        throw new IllegalStateException("search did not hit in-memory records")
     }
-
-    runCommand(Array("command", "domain.entity.savePerson", "--id", id, "--name", "taro"))
-
-    if (!Files.exists(sqlitePath))
-      throw new IllegalStateException(s"sqlite file not found: $sqlitePath")
-    if (ComponentFactory.memorySize <= 0)
-      throw new IllegalStateException("memory cache was not updated by savePerson")
-
-    Files.deleteIfExists(sqlitePath)
-
-    runCommand(Array("command", "domain.entity.searchPersonRecord", "--name", "taro"))
-
-    if (ComponentFactory.lastSearchResultSize <= 0)
-      throw new IllegalStateException("search did not hit in-memory records")
 
     println("SEARCH_MEMORY_OK")
   }

@@ -31,6 +31,34 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(!content.contains("collectionId: EntityCollectionId = ???"))
   }
 
+  test("modeler-scala expands attributes from SimpleEntity parent") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/simpleentity-parent.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-simpleentity-parent")
+    _delete_recursively(out)
+    Files.createDirectories(out.getParent)
+
+    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+
+    val generated = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/Person.scala"
+    )
+    assert(Files.exists(generated), s"generated file not found: $generated")
+    val content = Files.readString(generated)
+    assert(content.contains("extends EntityPersistable"))
+    assert(content.contains("case class Person(id: EntityId, name: Name, age: Option[Age])"))
+    assert(content.contains("PROP_ID"))
+    assert(content.contains("PROP_NAME"))
+    assert(content.contains("PROP_AGE"))
+
+    val generatedCreate = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/create/Person.scala"
+    )
+    assert(Files.exists(generatedCreate), s"generated file not found: $generatedCreate")
+    val createContent = Files.readString(generatedCreate)
+    assert(createContent.contains("case class Person(id: Option[EntityId], name: Option[Name], age: Option[Age])"))
+  }
+
   private def _delete_recursively(path: Path): Unit = {
     if (Files.exists(path)) {
       val stream = Files.walk(path)

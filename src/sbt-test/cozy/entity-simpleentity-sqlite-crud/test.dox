@@ -1,0 +1,22 @@
+# Entity
+
+## SimpleEntity
+
+### Attribute
+
+| name | type     | multiplicity |
+|------+----------+--------------|
+| id   | entityid | 1            |
+| name | name     | 1            |
+
+## Person
+
+### features
+
+extends = ["SimpleEntity"]
+
+### Attribute
+
+| name | type     | multiplicity |
+|------+----------+--------------|
+| age  | age      | ?            |

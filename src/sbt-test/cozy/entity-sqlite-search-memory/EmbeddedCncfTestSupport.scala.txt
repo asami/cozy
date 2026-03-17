@@ -1,0 +1,103 @@
+package domain.testsupport
+
+import java.nio.file.Paths
+import org.goldenport.Consequence
+import org.goldenport.cncf.cli.CncfRuntime
+import org.goldenport.cncf.component.Component
+import org.goldenport.cncf.subsystem.Subsystem
+
+object EmbeddedCncfTestSupport {
+  final class Handle(
+    private val _execute: Array[String] => Unit,
+    private val _close: () => Unit
+  ) {
+    def executeOrThrow(args: Array[String]): Unit = _execute(args)
+    def close(): Unit = _close()
+  }
+
+  def withHandle(
+    extraComponents: Subsystem => Seq[Component] = (_: Subsystem) => Nil
+  )(
+    body: Handle => Unit
+  ): Unit = {
+    val runtime = CncfRuntime()
+    val handle = _embeddingHandle(runtime, extraComponents).getOrElse {
+      _runtimeHandle(runtime, extraComponents)
+    }
+    try {
+      body(handle)
+    } finally {
+      handle.close()
+    }
+  }
+
+  private def _embeddingHandle(
+    runtime: CncfRuntime,
+    extraComponents: Subsystem => Seq[Component]
+  ): Option[Handle] =
+    try {
+      val initMethod = runtime.getClass.getMethod(
+        "initializeForEmbedding",
+        classOf[java.nio.file.Path],
+        classOf[Array[String]],
+        classOf[Option[_]],
+        classOf[scala.Function1[_, _]]
+      )
+      val executeMethod = runtime.getClass.getMethod(
+        "executeCommandResponse",
+        classOf[Subsystem],
+        classOf[Array[String]]
+      )
+      val closeMethod = runtime.getClass.getMethod("closeEmbedding")
+      val initialized = initMethod.invoke(
+        runtime,
+        Paths.get("").toAbsolutePath.normalize(),
+        Array.empty[String],
+        None,
+        extraComponents
+      ).asInstanceOf[Consequence[Subsystem]]
+      initialized match {
+        case Consequence.Success(subsystem) =>
+          Some(
+            new Handle(
+              args =>
+                executeMethod
+                  .invoke(runtime, subsystem, args)
+                  .asInstanceOf[Consequence[org.goldenport.protocol.Response]] match {
+                  case Consequence.Success(_) =>
+                    ()
+                  case Consequence.Failure(conclusion) =>
+                    throw new IllegalStateException(
+                      s"executeCommand failed (${args.mkString(" ")}): ${conclusion.show}"
+                    )
+                },
+              () => {
+                closeMethod.invoke(runtime)
+                ()
+              }
+            )
+          )
+        case Consequence.Failure(conclusion) =>
+          throw new IllegalStateException(s"initializeForEmbedding failed: ${conclusion.show}")
+      }
+    } catch {
+      case _: NoSuchMethodException =>
+        None
+    }
+
+  private def _runtimeHandle(
+    runtime: CncfRuntime,
+    extraComponents: Subsystem => Seq[Component]
+  ): Handle =
+    new Handle(
+      args => {
+        val actual =
+          if (args.headOption.contains("command")) args
+          else Array("command") ++ args
+        val code = runtime.run(actual, extraComponents)
+        if (code != 0)
+          throw new IllegalStateException(s"command failed (${actual.mkString(" ")}): exit=$code")
+      },
+      () => ()
+    )
+}
