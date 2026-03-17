@@ -551,6 +551,37 @@ object Modeler {
       MDomainComponent(desc, core, ccore)
     }
 
+    private def _aggregate_package(name: Option[String]): String =
+      name.flatMap(_token_opt).fold("aggregate")(x => s"aggregate.$x")
+
+    private def _view_package(name: Option[String]): String =
+      name.flatMap(_token_opt).fold("view")(x => s"view.$x")
+
+    // NOTE: Aggregate DSL is not available yet. Keep default package for now.
+    // Future: return Some(aggregateName) from model metadata.
+    private def _aggregate_name(entity: MEntity): Option[String] = None
+
+    // NOTE: View DSL is not available yet. Keep default package for now.
+    // Future: return Some(viewName) from model metadata.
+    private def _view_name(entity: MEntity): Option[String] = None
+
+    private def _token_opt(name: String): Option[String] =
+      Option(name).map(_.trim).filter(_.nonEmpty).map(_package_token)
+
+    private def _package_token(name: String): String = {
+      val b = new StringBuilder
+      name.zipWithIndex.foreach { case (c, i) =>
+        if (
+          c.isUpper && i > 0 &&
+          (name.charAt(i - 1).isLower || (i + 1 < name.length && name.charAt(i + 1).isLower))
+        ) {
+          b.append('_')
+        }
+        b.append(c.toLower)
+      }
+      b.toString
+    }
+
     private def _make_entity_service(
       pkg: MPackage,
       entities: Vector[MEntity]
@@ -584,7 +615,7 @@ object Modeler {
       }
       val createrec = MOperation.commandBody(s"create${title}Record", recordparam) {
         blockFor(
-          s"entity <- exec_from($createclass.createC(action.record))",
+          s"entity <- exec_pure($createclass.create(action.record))",
           "r <- entity_create(entity)"
         )(
           "OperationResponse(r.toRecord)"
@@ -606,7 +637,7 @@ object Modeler {
       }
       val save = MOperation.commandBody(s"save$title", entityparam) {
         blockFor(
-          s"entity <- exec_from($wholeclass.createC(action.entity.toRecord()))",
+          s"entity <- exec_pure($wholeclass.create(action.entity.toRecord()))",
           "_ <- entity_save(entity)"
         )(
           "OperationResponse.void"
@@ -614,7 +645,7 @@ object Modeler {
       }
       val saverec = MOperation.commandBody(s"save${title}Record", entityparam) {
         blockFor(
-          s"entity <- exec_from($wholeclass.createC(action.entity.toRecord()))",
+          s"entity <- exec_pure($wholeclass.create(action.entity.toRecord()))",
           "_ <- entity_save(entity)"
         )(
           "OperationResponse.void"
@@ -622,7 +653,7 @@ object Modeler {
       }
       val update = MOperation.commandBody(s"update$title", updateparam) {
         blockFor(
-          """id <- exec_from(Consequence.successOrRecordNotFound[EntityId]("id", action.request.toRecord))""",
+          """id <- exec_pure(Consequence.successOrRecordNotFound[EntityId]("id", action.request.toRecord).TAKE)""",
           "_ <- entity_update(id, action.entity)"
         )(
           "OperationResponse.void"
@@ -630,7 +661,7 @@ object Modeler {
       }
       val updaterec = MOperation.commandBody(s"update${title}Record", updateparam) {
         blockFor(
-          """id <- exec_from(Consequence.successOrRecordNotFound[EntityId]("id", action.request.toRecord))""",
+          """id <- exec_pure(Consequence.successOrRecordNotFound[EntityId]("id", action.request.toRecord).TAKE)""",
           "_ <- entity_update(id, action.entity)"
         )(
           "OperationResponse.void"
@@ -682,54 +713,60 @@ object Modeler {
 
     private def _make_aggregate_operations(entity: MEntity): Vector[MOperation] = {
       val title = StringUtils.makeTitle(entity.name)
-      val wholeclass = entity.qualifiedName
-      val createparam = MParameter("entity", MEntityValue.create(entity))
-      val saveparam = MParameter("entity", MEntityValue.save(entity))
-      val updateparam = MParameter("entity", MEntityValue.update(entity))
+      val pkgname = entity.packageName
+      def _qualify(s: String) =
+        if (pkgname.isEmpty) s else s"$pkgname.$s"
+      // NOTE: Aggregate-specific DSL/model is not available yet.
+      // Default is aggregate.<Entity>. Non-default is aggregate.<aggregate-name>.<Entity>.
+      val aggregateclass = _qualify(s"${_aggregate_package(_aggregate_name(entity))}.$title")
+      val queryclass = _qualify(s"query.$title")
+      val createparam = MParameter("entity", MEntityValue.aggregate(entity))
+      val saveparam = MParameter("entity", MEntityValue.aggregate(entity))
+      val updateparam = MParameter("entity", MEntityValue.aggregate(entity))
       val searchparam = MParameter.query("q", MEntityValue.query(entity))
       val idparam = MParameter.entityId
-      val loadresult = MResult.option(MEntityValue.whole(entity))
-      val searchresult = MResult.search(MEntityValue.whole(entity))
+      val loadresult = MResult.option(MEntityValue.aggregate(entity))
+      val searchresult = MResult.search(MEntityValue.aggregate(entity))
       val create = MOperation.commandBody(s"create$title", createparam) {
         blockFor(
-          s"""_ <- exec_from(Consequence.failure("aggregate create is not supported in current CNCF spec: create$title"))"""
+          "_ <- uowmNotImplemented[org.goldenport.cncf.unitofwork.UnitOfWorkOp, Unit]"
         )(
           "OperationResponse.void"
         )
       }
       val load = MOperation.queryBody(s"load$title", idparam, loadresult) {
         blockFor(
-          s"r <- exec_from(aggregate_load_option[$wholeclass](action.id))"
+          s"r <- aggregate_load_option[$aggregateclass](action.id)"
         )(
           "OperationResponse.create(r.map(_.toRecord()))"
         )
       }
       val save = MOperation.commandBody(s"save$title", saveparam) {
         blockFor(
-          s"""_ <- exec_from(Consequence.failure("aggregate save is not supported in current CNCF spec: save$title"))"""
+          "_ <- uowmNotImplemented[org.goldenport.cncf.unitofwork.UnitOfWorkOp, Unit]"
         )(
           "OperationResponse.void"
         )
       }
       val update = MOperation.commandBody(s"update$title", updateparam) {
         blockFor(
-          s"""_ <- exec_from(Consequence.failure("aggregate update is not supported in current CNCF spec: update$title"))"""
+          "_ <- uowmNotImplemented[org.goldenport.cncf.unitofwork.UnitOfWorkOp, Unit]"
         )(
           "OperationResponse.void"
         )
       }
       val delete = MOperation.commandBody(s"delete$title", idparam) {
         blockFor(
-          s"""_ <- exec_from(Consequence.failure("aggregate delete is not supported in current CNCF spec: delete$title"))"""
+          "_ <- uowmNotImplemented[org.goldenport.cncf.unitofwork.UnitOfWorkOp, Unit]"
         )(
           "OperationResponse.void"
         )
       }
       val search = MOperation.queryBody(s"search$title", searchparam, searchresult) {
         blockFor(
-          s"""_ <- exec_from(Consequence.failure("aggregate search is not supported in current CNCF spec: search$title"))"""
+          s"r <- aggregate_search[$aggregateclass]($queryclass.collectionId.name, Query(action.q))"
         )(
-          "OperationResponse.void"
+          "OperationResponse.create(r)"
         )
       }
       Vector(
@@ -756,75 +793,51 @@ object Modeler {
       def _qualify(s: String) =
         if (pkgname.isEmpty) s else s"$pkgname.$s"
       val queryclass = _qualify(s"query.$title")
-      val createparam = MParameter("entity", MEntityValue.create(entity))
-      val saveparam = MParameter("entity", MEntityValue.save(entity))
-      val updateparam = MParameter("entity", MEntityValue.update(entity))
       val searchparam = MParameter.query("q", MEntityValue.query(entity))
+      val viewparam = MParameter(
+        Description.name("view"),
+        MParameter.MDataTypeParameterType(MDataType.string),
+        MZeroOne
+      )
       val searchrecparam = MParameter.query("q", MObjectRef.record)
       val idparam = MParameter.entityId
-      val viewobject = MObject(
-        if (pkgname.isEmpty) MPackageRef("view") else MPackageRef(s"$pkgname.view"),
-        title
-      )
-      val viewclass = _qualify(s"view.$title")
-      val browserref = s"browser.browser[$viewclass]($queryclass.collectionId.name)"
-      val loadresult = MResult.option(viewobject)
-      val searchresult = MResult.search(viewobject)
-      val create = MOperation.commandBody(s"create$title", createparam) {
-        blockFor(
-          s"""_ <- exec_from(Consequence.failure("view create is not supported in current CNCF spec: create$title"))"""
-        )(
-          "OperationResponse.void"
-        )
-      }
+      // NOTE: View-specific DSL/model is not available yet.
+      // Default is view.<Entity>. Non-default is view.<view-name>.<Entity>.
+      val viewvalue = MEntityValue.view(entity)
+      val viewclass = _qualify(s"${_view_package(_view_name(entity))}.$title")
+      val loadresult = MResult.option(viewvalue)
+      val searchresult = MResult.search(viewvalue)
       val load = MOperation.queryBody(s"load$title", idparam, loadresult) {
         blockFor(
-          s"r <- exec_from($browserref.find(action.id))"
+          s"r <- view_load[$viewclass]($queryclass.collectionId.name, action.id)"
         )(
           "OperationResponse(r.toRecord())"
         )
       }
-      val save = MOperation.commandBody(s"save$title", saveparam) {
+      val loadbyview = MOperation.queryBody(s"load${title}ByView", idparam, loadresult) {
         blockFor(
-          s"""_ <- exec_from(Consequence.failure("view save is not supported in current CNCF spec: save$title"))"""
+          s"""r <- view_load[$viewclass]($queryclass.collectionId.name, action_required_property_string("view").TAKE, action.id)"""
         )(
-          "OperationResponse.void"
+          "OperationResponse(r.toRecord())"
         )
       }
-      val update = MOperation.commandBody(s"update$title", updateparam) {
+      val search = MOperation.queryBody(s"search$title", List(searchparam, viewparam), searchresult) {
         blockFor(
-          s"""_ <- exec_from(Consequence.failure("view update is not supported in current CNCF spec: update$title"))"""
+          s"r <- action.view.fold(view_search[$viewclass]($queryclass.collectionId.name, Query(action.q)))(viewname => view_search[$viewclass]($queryclass.collectionId.name, viewname, Query(action.q)))"
         )(
-          "OperationResponse.void"
-        )
-      }
-      val delete = MOperation.commandBody(s"delete$title", idparam) {
-        blockFor(
-          s"""_ <- exec_from(Consequence.failure("view delete is not supported in current CNCF spec: delete$title"))"""
-        )(
-          "OperationResponse.void"
-        )
-      }
-      val search = MOperation.queryBody(s"search$title", searchparam, searchresult) {
-        blockFor(
-          s"r <- exec_from($browserref.query(Query(action.q)))"
-        )(
-          "OperationResponse.create(SearchResult(query = Query(action.q), data = r, totalCount = Some(r.size), offset = Query(action.q).offset, limit = Query(action.q).limit, fetchedCount = r.size))"
+          "OperationResponse.create(r)"
         )
       }
       val searchrec = MOperation.queryBody(s"search${title}Record", searchrecparam, searchresult) {
         blockFor(
-          s"r <- exec_from($browserref.query(action.q))"
+          s"""r <- action_property_string("view").fold(view_search[$viewclass]($queryclass.collectionId.name, action.q))(viewname => view_search[$viewclass]($queryclass.collectionId.name, viewname, action.q))"""
         )(
-          "OperationResponse.create(SearchResult(query = action.q, data = r, totalCount = Some(r.size), offset = action.q.offset, limit = action.q.limit, fetchedCount = r.size))"
+          "OperationResponse.create(r)"
         )
       }
       Vector(
-        create,
         load,
-        save,
-        update,
-        delete,
+        loadbyview,
         search,
         searchrec
       )
