@@ -1,0 +1,3 @@
+> runMain cozy.Cozy modeler-scala test.dox --save=out.d
+$ exists out.d/target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala
+$ exec sh check-crud.sh
