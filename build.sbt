@@ -1,8 +1,11 @@
+import sbt.ScriptedPlugin
+import sbt.ScriptedPlugin.autoImport._
+
 organization := "org.simplemodeling"
 
 name := "cozy"
 
-version := "0.2.4"
+version := "0.2.5-SNAPSHOT"
 
 scalaVersion := "2.12.18"
 // crossScalaVersions := Seq("2.10.39.2", "2.9.1")
@@ -42,7 +45,7 @@ resolvers += "Local Maven Repository" at "file://"+Path.userHome.absolutePath+"/
 resolvers += Resolver.defaultLocal
 
 // override arcadia
-libraryDependencies += "org.goldenport" %% "goldenport-scala-lib" % "2.3.23"
+libraryDependencies += "org.goldenport" %% "goldenport-scala-lib" % "2.3.24-SNAPSHOT"
 
 // override kaleidox
 libraryDependencies += "org.goldenport" %% "goldenport-record" % "2.2.2"
@@ -55,7 +58,7 @@ libraryDependencies += "org.smartdox" %% "smartdox" % "2.4.4"
 
 libraryDependencies += "org.goldenport" %% "kaleidox" % "0.6.2"
 
-libraryDependencies += "org.simplemodeling" %% "simplemodeler" % "1.1.4"
+libraryDependencies += "org.simplemodeling" %% "simplemodeler" % "1.1.5-SNAPSHOT"
 
 libraryDependencies += "org.goldenport" %% "arcadia" % "0.6.1"
 
@@ -157,6 +160,7 @@ dockerBaseImage in Docker := "dockerfile/java"
 
 lazy val root = (project in file(".")).
   enablePlugins(BuildInfoPlugin).
+  enablePlugins(ScriptedPlugin).
   enablePlugins(JavaAppPackaging).
   settings(
     buildInfoKeys := Seq[BuildInfoKey](
@@ -167,5 +171,10 @@ lazy val root = (project in file(".")).
         fmt.format(new java.util.Date())
       }
     ),
-    buildInfoPackage := "org.simplemodeling.cozy"
+    buildInfoPackage := "org.simplemodeling.cozy",
+    scriptedBufferLog := false,
+    scriptedLaunchOpts ++= Seq(
+      s"-Dcozy.version=${version.value}"
+    ),
+    scriptedDependencies := (Compile / publishLocal).value
   )

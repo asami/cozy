@@ -1,0 +1,11 @@
+# Entity
+
+## Person
+
+### Attribute
+
+| name | type     | multiplicity |
+|------+----------+-----|
+| id   | entityid | 1   |
+| name | name     | 1   |
+| age  | age      | ?   |
