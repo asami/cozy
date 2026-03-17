@@ -6,6 +6,11 @@ import java.nio.file.Paths
 import java.util.Comparator
 import org.scalatest.funsuite.AnyFunSuite
 
+/*
+ * @since   May. 17, 2025
+ * @version Mar. 17, 2026
+ * @author  ASAMI, Tomoharu
+ */
 class ModelerGenerationSpec extends AnyFunSuite {
   test("modeler-scala generates DomainComponent") {
     val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
@@ -23,6 +28,7 @@ class ModelerGenerationSpec extends AnyFunSuite {
     val content = Files.readString(generated)
     assert(content.contains("object DomainComponent"))
     assert(!content.contains("exec_from("))
+    assert(!content.contains("collectionId: EntityCollectionId = ???"))
   }
 
   private def _delete_recursively(path: Path): Unit = {
