@@ -39,7 +39,7 @@ import org.goldenport.kaleidox.model.PowertypeModel.PowertypeClass
  *  version Nov.  2, 2024
  *  version May. 13, 2025
  *  version Feb. 27, 2026
- * @version Mar. 17, 2026
+ * @version Mar. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
@@ -697,6 +697,13 @@ object Modeler {
           "OperationResponse.void"
         )
       }
+      val deletehard = MOperation.commandBody(s"delete${title}Hard", idparam) {
+        blockFor(
+          "_ <- entity_delete_hard(action.id)"
+        )(
+          "OperationResponse.void"
+        )
+      }
       val search = MOperation.queryBody(s"search$title", queryparam, searchresult) {
         blockFor(
           s"r <- entity_search[$wholeclass]($queryclass.collectionId, Query(action.q))"
@@ -721,6 +728,7 @@ object Modeler {
         update,
         updaterec,
         delete,
+        deletehard,
         search,
         searchrec
       )
