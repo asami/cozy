@@ -114,6 +114,7 @@ package domain
 
 import java.nio.file.{Files, Paths}
 import org.goldenport.cncf.component.{Component, ComponentCreate, ComponentOrigin}
+import org.goldenport.cncf.context.SecurityContext
 import org.goldenport.cncf.subsystem.Subsystem
 import domain.impl.ComponentFactory
 import domain.testsupport.EmbeddedCncfTestSupport
@@ -123,7 +124,10 @@ object SearchMemoryProbe {
     val id = "sys-sys-entity-person-1773772200000-7ddddddddddddddddddddd"
     val sqlitePath = Paths.get("target/cncf.d/cncf-command.sqlite3")
 
-    EmbeddedCncfTestSupport.withHandle(extraComponents = _extraComponents) { handle =>
+    EmbeddedCncfTestSupport.withHandle(
+      extraComponents = _extraComponents,
+      privilege = SecurityContext.Privilege.User
+    ) { handle =>
       handle.executeOrThrow(Array("domain.entity.savePerson", "--id", id, "--name", "taro"))
 
       if (!Files.exists(sqlitePath))

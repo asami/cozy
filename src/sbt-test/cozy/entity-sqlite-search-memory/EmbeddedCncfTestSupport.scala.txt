@@ -4,6 +4,7 @@ import java.nio.file.Paths
 import org.goldenport.Consequence
 import org.goldenport.cncf.cli.CncfRuntime
 import org.goldenport.cncf.component.Component
+import org.goldenport.cncf.context.SecurityContext
 import org.goldenport.cncf.subsystem.Subsystem
 
 object EmbeddedCncfTestSupport {
@@ -16,13 +17,14 @@ object EmbeddedCncfTestSupport {
   }
 
   def withHandle(
-    extraComponents: Subsystem => Seq[Component] = (_: Subsystem) => Nil
+    extraComponents: Subsystem => Seq[Component] = (_: Subsystem) => Nil,
+    privilege: SecurityContext.Privilege = SecurityContext.Privilege.User
   )(
     body: Handle => Unit
   ): Unit = {
     val runtime = CncfRuntime()
-    val handle = _embeddingHandle(runtime, extraComponents).getOrElse {
-      _runtimeHandle(runtime, extraComponents)
+    val handle = _embeddingHandle(runtime, extraComponents, privilege).getOrElse {
+      _runtimeHandle(runtime, extraComponents, privilege)
     }
     try {
       body(handle)
@@ -33,29 +35,17 @@ object EmbeddedCncfTestSupport {
 
   private def _embeddingHandle(
     runtime: CncfRuntime,
-    extraComponents: Subsystem => Seq[Component]
+    extraComponents: Subsystem => Seq[Component],
+    privilege: SecurityContext.Privilege
   ): Option[Handle] =
     try {
-      val initMethod = runtime.getClass.getMethod(
-        "initializeForEmbedding",
-        classOf[java.nio.file.Path],
-        classOf[Array[String]],
-        classOf[Option[_]],
-        classOf[scala.Function1[_, _]]
-      )
       val executeMethod = runtime.getClass.getMethod(
         "executeCommandResponse",
         classOf[Subsystem],
         classOf[Array[String]]
       )
       val closeMethod = runtime.getClass.getMethod("closeEmbedding")
-      val initialized = initMethod.invoke(
-        runtime,
-        Paths.get("").toAbsolutePath.normalize(),
-        Array.empty[String],
-        None,
-        extraComponents
-      ).asInstanceOf[Consequence[Subsystem]]
+      val initialized = _invoke_initialize(runtime, extraComponents, privilege)
       initialized match {
         case Consequence.Success(subsystem) =>
           Some(
@@ -85,12 +75,44 @@ object EmbeddedCncfTestSupport {
         None
     }
 
+  private def _invoke_initialize(
+    runtime: CncfRuntime,
+    extraComponents: Subsystem => Seq[Component],
+    privilege: SecurityContext.Privilege
+  ): Consequence[Subsystem] = {
+    val methods = runtime.getClass.getMethods.filter(_.getName == "initializeForEmbedding").toVector
+    val method = methods.sortBy(_.getParameterCount).reverse.headOption.getOrElse {
+      throw new NoSuchMethodException("initializeForEmbedding")
+    }
+    val cwd = Paths.get("").toAbsolutePath.normalize()
+    val args = Array.empty[String]
+    val optionnone = None
+    val values = method.getParameterTypes.toVector.map { t =>
+      val n = t.getName
+      if (n == "java.nio.file.Path")
+        cwd
+      else if (n == "[Ljava.lang.String;")
+        args
+      else if (n == "scala.Option")
+        optionnone
+      else if (n == "scala.Function1")
+        extraComponents
+      else if (classOf[SecurityContext.Privilege].isAssignableFrom(t))
+        privilege
+      else
+        throw new IllegalStateException(s"Unsupported initializeForEmbedding parameter: $n")
+    }
+    method.invoke(runtime, values.map(_.asInstanceOf[AnyRef])*).asInstanceOf[Consequence[Subsystem]]
+  }
+
   private def _runtimeHandle(
     runtime: CncfRuntime,
-    extraComponents: Subsystem => Seq[Component]
+    extraComponents: Subsystem => Seq[Component],
+    privilege: SecurityContext.Privilege
   ): Handle =
     new Handle(
       args => {
+        val _ = privilege
         val actual =
           if (args.headOption.contains("command")) args
           else Array("command") ++ args
