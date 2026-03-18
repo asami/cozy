@@ -1,0 +1,11 @@
+# Entity
+
+## Person
+
+### Attribute
+
+| name        | type     | multiplicity | DBカラム名           | DBカラム型 | 外部連携属性名     |
+|-------------+----------+--------------+----------------------+------------+--------------------|
+| id          | entityid | 1            | person_id            | TEXT       | external_id        |
+| displayName | name     | 1            | person_display_name  | TEXT       | display_name_ext   |
+| age         | age      | ?            |                      | INTEGER    |                    |
