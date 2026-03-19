@@ -40,7 +40,7 @@ import org.goldenport.kaleidox.model.PowertypeModel.PowertypeClass
  *  version Nov.  2, 2024
  *  version May. 13, 2025
  *  version Feb. 27, 2026
- * @version Mar. 19, 2026
+ * @version Mar. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
@@ -170,7 +170,35 @@ class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
       p.states.foreach(_build_state)
     }
 
-    def _guard_(g: SmGuard): Option[MGuard] = None // MGuard(sm)
+    def _guard_(g: SmGuard): Option[MGuard] =
+      _guard_mark(g).map(mark => MGuard(sm, Description.name("guard"), mark))
+
+    def _guard_mark(g: SmGuard): Option[String] =
+      g match {
+        case AllGuard => None
+        case EventNameGuard(_) => None
+        case CmlExpressionGuard(expression) =>
+          Option(expression).map(_.trim).filter(_.nonEmpty)
+        case ResourceIdGuard(resourceid) =>
+          Some(s"""event.targetId.exists(_.value == "$resourceid")""")
+        case ToStateGuard(name, value) =>
+          value match {
+            case Some(v) => Some(s"event.name == '${name}' || event.name == '${v.toString}'")
+            case None => Some(s"event.name == '${name}'")
+          }
+        case AndGuard(exprs) =>
+          _join_guard_mark(exprs, "&&")
+        case OrGuard(exprs) =>
+          _join_guard_mark(exprs, "||")
+      }
+
+    def _join_guard_mark(exprs: Vector[SmGuard], delimiter: String): Option[String] = {
+      val a = exprs.flatMap(_guard_mark)
+      if (a.isEmpty)
+        None
+      else
+        Some(a.map(x => s"($x)").mkString(s" $delimiter "))
+    }
 
     val (a0, initstatename) = _normalize_init(p.states)
     val a1 = a0.map(_state_)
@@ -551,8 +579,155 @@ object Modeler {
     }
 
     private def _statemachine(p: StateMachineClass): MStateMachine = {
-      // TODO build full state/transition graph and map guards/plans for CNCF rule generation.
-      MDomainStateMachine.create(p.name)
+      _validate_state_machine(p)
+      val sm = MDomainStateMachine.create(p.name)
+      val statemap = _build_state_map(sm, p.rule)
+      _build_state_machine_transitions(sm, p, statemap)
+      sm.setStates(statemap.states)
+    }
+
+    private def _build_state_map(
+      sm: MDomainStateMachine,
+      rule: StateMachineRule
+    ): StateHanger = {
+      def _state_(p: StateClass): MState =
+        MState.create(sm, p.name)
+
+      def _statemachine_state_(p: StateMachineRule): MState = {
+        val s = MState.create(sm, p.name.getOrElse("statemachine"))
+        s.subStateMap = _sub_states_map_(p)
+        s
+      }
+
+      def _sub_states_map_(p: StateMachineRule): VectorMap[String, MState] = {
+        val a1 = p.states.map(_state_)
+        val a2 = p.statemachines.map(_statemachine_state_)
+        val a = (a1 ++ a2).map(x => x.name -> x)
+        VectorMap(a)
+      }
+
+      val (a0, initstatename) = _normalize_init(rule.states)
+      val a1 = a0.map(_state_)
+      val a2 = rule.statemachines.map(_statemachine_state_)
+      val a4 = _normalize_init(initstatename, a1, a2)
+      StateHanger.create(a4.map(x => x.name -> x))
+    }
+
+    private def _build_state_machine_transitions(
+      sm: MDomainStateMachine,
+      smc: StateMachineClass,
+      statemap: StateHanger
+    ): Unit = {
+      def _event_(t: Transition): Option[MObject] =
+        _event_name_from_guard(t.guard).orElse(t.getEventName).map(MEvent.apply)
+
+      def _guard_(t: Transition): Option[MGuard] =
+        _guard_for_rule(t.guard).map {
+          case MComponent.RuleGuard.Ref(name) =>
+            MGuard(sm, Description.name(name), s"ref:$name")
+          case MComponent.RuleGuard.Expression(expr) =>
+            MGuard(sm, Description.name("guard"), expr)
+        }
+
+      def _build_transition(
+        sourceStateName: Option[String],
+        ownerRule: StateMachineRule,
+        t: Transition
+      ): Option[MTransition] = {
+        val g = _guard_(t)
+        val event = _event_(t)
+        val action = None // TODO MAction mapping
+        val from = sourceStateName.flatMap(statemap.get).orElse(ownerRule.name.flatMap(statemap.get))
+
+        def _name_transition_(name: String): MTransition =
+          (from, statemap.get(name)) match {
+            case (Some(pre), Some(post)) => MTransition(sm, event, g, pre, post, action)
+            case (Some(_), None) =>
+              RAISE.syntaxErrorFault(s"StateMachine '${smc.name}' transition target $name is not defined.")
+            case (None, Some(post)) =>
+              MTransition(sm, event, g, MState.initState(sm), post, action)
+            case (None, None) =>
+              RAISE.syntaxErrorFault(s"StateMachine '${smc.name}' transition target $name is not defined.")
+          }
+
+        def _history_transition_(): MTransition = {
+          val source = sourceStateName.flatMap(statemap.get).getOrElse(MState.initState(sm))
+          val history = statemap.historyStates(source.name).headOption.getOrElse {
+            RAISE.syntaxErrorFault(s"StateMachine '${smc.name}' transition history source ${source.name} is not defined.")
+          }
+          MTransition(sm, event, g, source, history, action)
+        }
+
+        t.to match {
+          case NoneTransitionTo => None
+          case FinalTransitionTo => None
+          case _: HistoryTransitionTo => Some(_history_transition_())
+          case NameTransitionTo(name) =>
+            if (name.equalsIgnoreCase(PROP_STATE_INIT))
+              None
+            else
+              Some(_name_transition_(name))
+        }
+      }
+
+      def _build_rule(rule: StateMachineRule): Unit = {
+        rule.states.foreach { s =>
+          val ts =
+            s.transitions.call.flatMap(_build_transition(Some(s.name), rule, _)) ++
+              s.transitions.global.flatMap(_build_transition(Some(s.name), rule, _))
+          statemap.get(s.name).foreach(_.transitions = ts.toList)
+        }
+        rule.statemachines.foreach(_build_rule)
+        val ts =
+          rule.transitions.call.flatMap(_build_transition(None, rule, _)) ++
+            rule.transitions.global.flatMap(_build_transition(None, rule, _))
+        rule.name.flatMap(statemap.get).foreach(_.transitions = ts.toList)
+      }
+
+      _build_rule(smc.rule)
+    }
+
+    private def _normalize_init(ps: Seq[StateClass]): (Vector[StateClass], Option[String]) = {
+      case class Z(
+        ss: Vector[StateClass] = Vector.empty,
+        initStateName: Option[String] = None
+      ) {
+        def r = initStateName.
+          map(_explicit_init).
+          getOrElse((ss, None))
+
+        private def _explicit_init(name: String): (Vector[StateClass], Option[String]) = {
+          val (ls, rs) = ss.span(_.name != name)
+          rs.headOption.map { x =>
+            (x +: (ls ++ rs.tail), None)
+          }.getOrElse((ss, initStateName))
+        }
+
+        def +(rhs: StateClass) = {
+          if (rhs.name.equalsIgnoreCase(PROP_STATE_INIT))
+            copy(initStateName = _init_state_name(rhs))
+          else
+            copy(ss = ss :+ rhs)
+        }
+
+        private def _init_state_name(p: StateClass) =
+          (p.transitions.call.map(_.to) ++ p.transitions.global.map(_.to)).collect {
+            case NameTransitionTo(to) => to
+          }.headOption
+      }
+      ps.foldLeft(Z())(_+_).r
+    }
+
+    private def _normalize_init(
+      initstatename: Option[String],
+      states: Seq[MState],
+      sms: Seq[MState]
+    ): Seq[MState] = {
+      val ss = states ++ sms
+      initstatename.map { name =>
+        val (ls, rs) = ss.span(_.name != name)
+        rs.headOption.map(x => x +: (ls ++ rs.tail)).getOrElse(ss)
+      }.getOrElse(ss)
     }
 
     private def _complement_components(p: SimpleModel): Vector[MComponent] =
@@ -629,10 +804,43 @@ object Modeler {
     }
 
     private case class _TransitionDef(
+      machineName: String,
+      sourceStateName: Option[String],
       sourceState: Option[StateClass],
       transition: Transition,
       isCallTransition: Boolean
     )
+
+    private def _validate_state_machine(sm: StateMachineClass): Unit = {
+      val states = _all_states(sm.rule).map(_.name).toSet
+      val transitions = _all_transitions(sm.rule)
+      val events = _declared_events(sm.rule)
+      transitions.foreach(x => _validate_transition(sm.name, x, states, events))
+    }
+
+    private def _validate_transition(
+      machineName: String,
+      transition: _TransitionDef,
+      stateNames: Set[String],
+      events: Set[String]
+    ): Unit = {
+      transition.transition.to match {
+        case NameTransitionTo(name) =>
+          if (!name.equalsIgnoreCase(PROP_STATE_INIT) && !stateNames.contains(name))
+            RAISE.syntaxErrorFault(s"StateMachine '$machineName' transition target $name is not defined.")
+        case _ =>
+      }
+      val eventName = _event_name_from_guard(transition.transition.guard).orElse(transition.transition.getEventName).getOrElse {
+        RAISE.syntaxErrorFault(s"StateMachine '$machineName' transition requires on.")
+      }
+      if (events.nonEmpty && !events.contains(eventName))
+        RAISE.syntaxErrorFault(s"StateMachine '$machineName' transition references undeclared event $eventName.")
+    }
+
+    private def _declared_events(rule: StateMachineRule): Set[String] = {
+      val self = rule.events.map(_.name).toSet
+      self ++ rule.statemachines.toSet.flatMap(_declared_events)
+    }
 
     private def _state_machine_transition_rules(
       entities: Vector[MEntity]
@@ -654,11 +862,12 @@ object Modeler {
       entity: MEntity,
       sm: StateMachineClass
     ): Vector[MComponent.StateMachineTransitionRule] = {
+      _validate_state_machine(sm)
       val collectionname = StringUtils.camelToUnderscore(entity.name)
       val statemap = _state_map(sm.rule)
       val transitions = _all_transitions(sm.rule)
       transitions.map { x =>
-        val eventname = _event_name(x.transition, x.isCallTransition)
+        val eventname = _event_name(sm.name, x)
         val trigger = _transition_trigger(eventname, x.isCallTransition)
         val guard = _transition_guard(x.transition.guard)
         val plan = _transition_plan(x, statemap)
@@ -692,25 +901,23 @@ object Modeler {
     private def _all_transitions(
       rule: StateMachineRule
     ): Vector[_TransitionDef] = {
+      val machinename = rule.name.getOrElse("")
       val fromstates = rule.states.toVector.flatMap { s =>
-        s.transitions.call.map(t => _TransitionDef(Some(s), t, isCallTransition = true)).toVector ++
-          s.transitions.global.map(t => _TransitionDef(Some(s), t, isCallTransition = false)).toVector
+        s.transitions.call.map(t => _TransitionDef(machinename, Some(s.name), Some(s), t, isCallTransition = true)).toVector ++
+          s.transitions.global.map(t => _TransitionDef(machinename, Some(s.name), Some(s), t, isCallTransition = false)).toVector
       }
       val fromrule =
-        rule.transitions.call.map(t => _TransitionDef(None, t, isCallTransition = true)).toVector ++
-          rule.transitions.global.map(t => _TransitionDef(None, t, isCallTransition = false)).toVector
+        rule.transitions.call.map(t => _TransitionDef(machinename, None, None, t, isCallTransition = true)).toVector ++
+          rule.transitions.global.map(t => _TransitionDef(machinename, None, None, t, isCallTransition = false)).toVector
       fromstates ++ fromrule ++ rule.statemachines.toVector.flatMap(_all_transitions)
     }
 
     private def _event_name(
-      transition: Transition,
-      iscall: Boolean
+      machineName: String,
+      transition: _TransitionDef
     ): String =
-      _event_name_from_guard(transition.guard).orElse(transition.getEventName).getOrElse {
-        if (iscall)
-          "update"
-        else
-          "save"
+      _event_name_from_guard(transition.transition.guard).orElse(transition.transition.getEventName).getOrElse {
+        RAISE.syntaxErrorFault(s"StateMachine '$machineName' transition requires on.")
       }
 
     private def _event_name_from_guard(
@@ -841,7 +1048,7 @@ object Modeler {
       guard match {
         case AllGuard => None
         case EventNameGuard(name) =>
-          Some(s"""event.name == "${_escape_string(name)}"""")
+          Some(s"event.name == '${_escape_string(name)}'")
         case CmlExpressionGuard(expression) =>
           Some(expression)
         case ResourceIdGuard(resourceid) =>
@@ -849,9 +1056,9 @@ object Modeler {
         case ToStateGuard(name, value) =>
           value match {
             case Some(v) =>
-              Some(s"""event.name == "${_escape_string(name)}" || event.name == "${v.toString}"""")
+              Some(s"event.name == '${_escape_string(name)}' || event.name == '${v.toString}'")
             case None =>
-              Some(s"""event.name == "${_escape_string(name)}"""")
+              Some(s"event.name == '${_escape_string(name)}'")
           }
         case AndGuard(exprs) =>
           _join_guard_expression(exprs, "&&")

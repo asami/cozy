@@ -1,0 +1,37 @@
+# Entity
+
+## Person
+
+### Attribute
+
+| name | type     | multiplicity |
+|------+----------+--------------|
+| id   | entityid | 1            |
+| name | name     | 1            |
+
+### StateMachine
+
+#### lifecycle
+
+##### State
+
+###### Draft
+
+####### Transition
+- to :: Published
+- on :: update
+- guard :: event.name == 'update'
+- action :: primaryCandidate
+
+####### Transition
+- to :: Archived
+- on :: update
+- guard :: 1 / 0 > 0
+- action :: shouldNotBeEvaluated
+
+###### Published
+###### Archived
+
+##### Event
+
+###### update

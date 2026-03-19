@@ -27,3 +27,6 @@ project/**/.bloop/
 ### BSP logs ###
 bsp.log
 project/**/bsp.log
+
+### scripted work directories ###
+src/sbt-test/**/out.d/

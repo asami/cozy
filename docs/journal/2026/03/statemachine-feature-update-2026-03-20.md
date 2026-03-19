@@ -34,6 +34,19 @@ Target:
 Target:
 - `src/main/scala/cozy/modeler/Modeler.scala`
 
+### 2.1 SM-05 completion (`Modeler._statemachine`)
+
+- Replaced placeholder implementation with full graph construction:
+  - state nodes
+  - nested state-machine nodes
+  - transition edges
+  - event/guard mapping
+- Added Cozy-side explicit validation in generation path:
+  - missing `on`
+  - unknown transition target
+  - undeclared event
+- Kept deterministic selection support explicit via emitted `declarationOrder`.
+
 ### 3. Generated code integration improvements (SimpleModeler)
 
 - Updated generated `build.sbt` CNCF dependency to `0.3.8-SNAPSHOT`.
@@ -54,6 +67,8 @@ Related commit:
 - `src/test/scala/cozy/modeler/ModelerGenerationSpec.scala`
   - StateMachine heading parsing
   - guardExpression / guardRef emission
+  - mixed guard coverage (`guardRef`, expression, composite-like expression text)
+  - deterministic declaration-order emission
   - detection of missing `on`, unknown transition target, and undeclared events
 
 ### scripted (surrounding regression)
@@ -61,13 +76,14 @@ Related commit:
 - `scripted cozy/entity-sqlite-crud` : pass  
 - `scripted cozy/entity-sqlite-search-memory` : pass  
 - `scripted cozy/entity-simpleentity-action` : pass
+- `scripted cozy/entity-statemachine-guard-order` : pass
 
 ---
 
 ## Known Gaps
 
-- `Modeler._statemachine` is currently minimal (`MDomainStateMachine.create(p.name)`); full graph construction remains TODO.
-- Guard/plan generation coverage (complex composite conditions, deeper multi-transition priority cases) still needs additional validation scenarios.
+- StateMachine slot datatype (`Statemachine`) is not yet a first-class generated runtime datatype; the scripted scenario currently adds a local shim for compile-time compatibility.
+- Transition rule `priority` is currently emitted as `0` because explicit priority input is not yet exposed by upstream DSL/model. Determinism is ensured by `declarationOrder`.
 
 ---
 
@@ -76,3 +92,4 @@ Related commit:
 - `docs/journal/2026/03/cozy-statemachine-integration-handoff-2026-03-19.md` (CNCF-side handoff)
 - `src/test/resources/modeler/statemachine-cml.dox`
 - `src/test/resources/modeler/statemachine-cml-guard-ref.dox`
+- `src/test/resources/modeler/statemachine-cml-guard-composite-order.dox`

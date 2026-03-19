@@ -11,7 +11,7 @@ import org.scalatest.funsuite.AnyFunSuite
 
 /*
  * @since   May. 17, 2025
- * @version Mar. 19, 2026
+ * @version Mar. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerGenerationSpec extends AnyFunSuite {
@@ -150,6 +150,34 @@ class ModelerGenerationSpec extends AnyFunSuite {
     val content = Files.readString(generated)
     assert(content.contains("eventName = \"publish\""))
     assert(content.contains("guard = Some(StateMachineRuleBuilder.guardRef[Any](\"paymentConfirmed\", stateMachineGuardResolver))"))
+  }
+
+  test("modeler-scala emits deterministic declaration order for mixed guards") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/statemachine-cml-guard-composite-order.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-statemachine-cml-guard-composite-order")
+    _delete_recursively(out)
+    Files.createDirectories(out.getParent)
+
+    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+
+    val generated = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+    )
+    assert(Files.exists(generated), s"generated file not found: $generated")
+    val content = Files.readString(generated)
+    assert(content.contains("eventName = \"submit\""))
+    assert(content.contains("eventName = \"publish\""))
+    assert(content.contains("eventName = \"approve\""))
+    assert(content.contains("eventName = \"reject\""))
+    assert(content.contains("guard = Some(StateMachineRuleBuilder.guardRef[Any](\"paymentConfirmed\", stateMachineGuardResolver))"))
+    assert(content.contains("guard = Some(StateMachineRuleBuilder.guardExpression[Any](\"event.amount > 0 && reviewerApproved\")"))
+    assert(content.contains("guard = Some(StateMachineRuleBuilder.guardExpression[Any](\"reviewerRejected || event.reasonPresent\")"))
+    assert(content.contains("declarationOrder = 0"))
+    assert(content.contains("declarationOrder = 1"))
+    assert(content.contains("declarationOrder = 2"))
+    assert(content.contains("declarationOrder = 3"))
+    assert(_count(content, "priority = 0") >= 4)
   }
 
   test("modeler-scala reports missing on in StateMachine transition") {
@@ -309,5 +337,17 @@ class ModelerGenerationSpec extends AnyFunSuite {
       finally
         stream.close()
     }
+  }
+
+  private def _count(content: String, token: String): Int = {
+    @annotation.tailrec
+    def go(index: Int, acc: Int): Int = {
+      val i = content.indexOf(token, index)
+      if (i < 0)
+        acc
+      else
+        go(i + token.length, acc + 1)
+    }
+    go(0, 0)
   }
 }

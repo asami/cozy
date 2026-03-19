@@ -1,0 +1,53 @@
+# Entity
+
+## Person
+
+### Attribute
+
+| name | type     | multiplicity |
+|------+----------+--------------|
+| id   | entityid | 1            |
+| name | name     | 1            |
+
+### StateMachine
+
+#### lifecycle
+
+##### State
+
+###### Draft
+
+####### Transition
+- to :: Review
+- on :: submit
+- guard :: paymentConfirmed
+- action :: submitForReview
+
+####### Transition
+- to :: Published
+- on :: publish
+- guard :: event.amount > 0 && reviewerApproved
+- action :: publishDirect
+
+###### Review
+
+####### Transition
+- to :: Published
+- on :: approve
+- guard :: event.score >= 80
+- action :: publishFromReview
+
+####### Transition
+- to :: Draft
+- on :: reject
+- guard :: reviewerRejected || event.reasonPresent
+- action :: backToDraft
+
+###### Published
+
+##### Event
+
+###### submit
+###### publish
+###### approve
+###### reject
