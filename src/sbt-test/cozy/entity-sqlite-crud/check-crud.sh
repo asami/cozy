@@ -48,6 +48,10 @@ printf "%s\n" "$update_out"
 load2_out=$(sbt --batch "run command --format yaml domain.entity.loadPerson --id $id" 2>&1)
 printf "%s\n" "$load2_out"
 printf "%s\n" "$load2_out" | grep -q "name: jiro"
+if printf "%s\n" "$load2_out" | grep -q "Invalid Age value: Noop"; then
+  echo "regression: Update.noop value leaked into datastore"
+  exit 1
+fi
 
 delete_out=$(sbt --batch "run command --format yaml domain.entity.deletePerson --id $id" 2>&1)
 printf "%s\n" "$delete_out"
