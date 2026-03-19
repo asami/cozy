@@ -1,0 +1,30 @@
+# Entity
+
+## Person
+
+### Attribute
+
+| name | type     | multiplicity |
+|------+----------+--------------|
+| id   | entityid | 1            |
+| name | name     | 1            |
+
+### StateMachine
+
+#### lifecycle
+
+##### State
+
+###### Draft
+
+####### Transition
+- to :: Published
+- on :: publish
+- guard :: paymentConfirmed
+- action :: recordPayment
+
+###### Published
+
+##### Event
+
+###### publish

@@ -18,6 +18,7 @@ import org.goldenport.kaleidox.{Model => KaleidoxModel}
 import org.goldenport.kaleidox.lisp.Context
 import org.goldenport.kaleidox.model.{SchemaModel, EntityModel, DataTypeModel}
 import org.goldenport.kaleidox.model.{PowertypeModel, StateMachineModel}
+import org.goldenport.kaleidox.model.CmlExpressionGuard
 import org.goldenport.kaleidox.model.SchemaModel.SchemaClass
 import org.goldenport.kaleidox.model.EntityModel.EntityClass
 import org.goldenport.kaleidox.model.DataTypeModel.DataTypeClass
@@ -39,7 +40,7 @@ import org.goldenport.kaleidox.model.PowertypeModel.PowertypeClass
  *  version Nov.  2, 2024
  *  version May. 13, 2025
  *  version Feb. 27, 2026
- * @version Mar. 18, 2026
+ * @version Mar. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
@@ -402,7 +403,7 @@ object Modeler {
       val attributes = _attributes(affiliation, p.schemaClass)
       val associations = _associations(affiliation, p.schemaClass)
       val operations = Nil // TODO
-      val statemachines = Nil // TODO
+      val statemachines = _state_machines(affiliation, p)
       MDomainResource(
         desc,
         affiliation,
@@ -416,6 +417,18 @@ object Modeler {
         statemachines
       )
     }
+
+    private def _state_machines(
+      pkg: MPackageRef,
+      p: EntityClass
+    ): List[MStateMachineRef] =
+      p.stateMachines.toList.map(_state_machine_ref(pkg, _))
+
+    private def _state_machine_ref(
+      pkg: MPackageRef,
+      p: StateMachineClass
+    ): MStateMachineRef =
+      MStateMachineRef(pkg, p.name)
 
     private def _object_ref(p: EntityClass.ParentRef): MObjectRef =
       p match {
@@ -454,6 +467,7 @@ object Modeler {
         case m: SchemaModel.Association => None
         case m: SchemaModel.PowertypeRelationship => Some(_powertype(pkg, m))
         case m: SchemaModel.StateMachineRelationship => None
+        case m: SchemaModel.StateMachine => None
       }
 
     private def _powertype(pkg: MPackageRef, p: SchemaModel.PowertypeRelationship): MPowertypeRef = {
@@ -472,6 +486,7 @@ object Modeler {
         case m: SchemaModel.Association => None
         case m: SchemaModel.PowertypeRelationship => None
         case m: SchemaModel.StateMachineRelationship => Some(_attribute(m.toColumn)) // TODO
+        case m: SchemaModel.StateMachine => Some(_attribute(m.toColumn))
       }
 
     private def _attribute(p: Column): MAttribute = {
@@ -494,6 +509,7 @@ object Modeler {
         case m: SchemaModel.Association => Some(_association(pkg, m))
         case m: SchemaModel.PowertypeRelationship => None
         case m: SchemaModel.StateMachineRelationship => None
+        case m: SchemaModel.StateMachine => None
       }
 
     private def _association(pkg: MPackageRef, p: SchemaModel.Association): MAssociation = {
@@ -534,7 +550,10 @@ object Modeler {
       MPowertype(desc, pkg, kinds, stereotypes)
     }
 
-    private def _statemachine(p: StateMachineClass): MStateMachine = ???
+    private def _statemachine(p: StateMachineClass): MStateMachine = {
+      // TODO build full state/transition graph and map guards/plans for CNCF rule generation.
+      MDomainStateMachine.create(p.name)
+    }
 
     private def _complement_components(p: SimpleModel): Vector[MComponent] =
       _complement_components_package(p, p.root)
@@ -570,7 +589,11 @@ object Modeler {
       val aggregateservice: MService = _make_aggregate_service(pkg, entities)
       val viewservice: MService = _make_view_service(pkg, entities)
       val core = MObject.Core.create(pkg, services = List(aggregateservice, viewservice, entityservice))
-      val ccore = MComponent.Core(entities)
+      val transitionrules = _state_machine_transition_rules(entities)
+      val ccore = MComponent.Core(
+        entities = entities,
+        stateMachineTransitionRules = transitionrules
+      )
       MDomainComponent(desc, core, ccore)
     }
 
@@ -604,6 +627,296 @@ object Modeler {
       }
       b.toString
     }
+
+    private case class _TransitionDef(
+      sourceState: Option[StateClass],
+      transition: Transition,
+      isCallTransition: Boolean
+    )
+
+    private def _state_machine_transition_rules(
+      entities: Vector[MEntity]
+    ): Vector[MComponent.StateMachineTransitionRule] = {
+      val a = entities.flatMap(_entity_state_machine_transition_rules)
+      a.zipWithIndex.map {
+        case (x, i) => x.copy(declarationOrder = i)
+      }
+    }
+
+    private def _entity_state_machine_transition_rules(
+      p: MEntity
+    ): Vector[MComponent.StateMachineTransitionRule] =
+      entity.get(p.name).toVector.flatMap { klass =>
+        klass.stateMachines.toVector.flatMap(_transition_rules(p, _))
+      }
+
+    private def _transition_rules(
+      entity: MEntity,
+      sm: StateMachineClass
+    ): Vector[MComponent.StateMachineTransitionRule] = {
+      val collectionname = StringUtils.camelToUnderscore(entity.name)
+      val statemap = _state_map(sm.rule)
+      val transitions = _all_transitions(sm.rule)
+      transitions.map { x =>
+        val eventname = _event_name(x.transition, x.isCallTransition)
+        val trigger = _transition_trigger(eventname, x.isCallTransition)
+        val guard = _transition_guard(x.transition.guard)
+        val plan = _transition_plan(x, statemap)
+        MComponent.StateMachineTransitionRule(
+          collectionName = collectionname,
+          trigger = trigger,
+          eventName = eventname,
+          priority = 0,
+          declarationOrder = 0,
+          guard = guard,
+          plan = plan
+        )
+      }
+    }
+
+    private def _state_map(
+      rule: StateMachineRule
+    ): Map[String, StateClass] =
+      _all_states(rule).foldLeft(Map.empty[String, StateClass]) { (z, x) =>
+        if (z.contains(x.name))
+          z
+        else
+          z + (x.name -> x)
+      }
+
+    private def _all_states(
+      rule: StateMachineRule
+    ): Vector[StateClass] =
+      rule.states.toVector ++ rule.statemachines.toVector.flatMap(_all_states)
+
+    private def _all_transitions(
+      rule: StateMachineRule
+    ): Vector[_TransitionDef] = {
+      val fromstates = rule.states.toVector.flatMap { s =>
+        s.transitions.call.map(t => _TransitionDef(Some(s), t, isCallTransition = true)).toVector ++
+          s.transitions.global.map(t => _TransitionDef(Some(s), t, isCallTransition = false)).toVector
+      }
+      val fromrule =
+        rule.transitions.call.map(t => _TransitionDef(None, t, isCallTransition = true)).toVector ++
+          rule.transitions.global.map(t => _TransitionDef(None, t, isCallTransition = false)).toVector
+      fromstates ++ fromrule ++ rule.statemachines.toVector.flatMap(_all_transitions)
+    }
+
+    private def _event_name(
+      transition: Transition,
+      iscall: Boolean
+    ): String =
+      _event_name_from_guard(transition.guard).orElse(transition.getEventName).getOrElse {
+        if (iscall)
+          "update"
+        else
+          "save"
+      }
+
+    private def _event_name_from_guard(
+      guard: SmGuard
+    ): Option[String] =
+      guard match {
+        case EventNameGuard(name) => Some(name)
+        case AndGuard(exprs) => exprs.toStream.flatMap(_event_name_from_guard).headOption
+        case OrGuard(exprs) => exprs.toStream.flatMap(_event_name_from_guard).headOption
+        case _ => None
+      }
+
+    private def _transition_trigger(
+      eventname: String,
+      iscall: Boolean
+    ): MComponent.TransitionTrigger = {
+      val n = eventname.toLowerCase
+      if (n == "save" || n.startsWith("save_") || n == "create")
+        MComponent.TransitionTrigger.Save
+      else if (n == "update" || n.startsWith("update_"))
+        MComponent.TransitionTrigger.Update
+      else if (iscall)
+        MComponent.TransitionTrigger.Update
+      else
+        MComponent.TransitionTrigger.Save
+    }
+
+    private def _transition_guard(
+      guard: SmGuard
+    ): Option[MComponent.RuleGuard] =
+      _guard_for_rule(guard)
+
+    private def _guard_for_rule(
+      guard: SmGuard
+    ): Option[MComponent.RuleGuard] =
+      guard match {
+        case AllGuard => None
+        case EventNameGuard(_) => None
+        case CmlExpressionGuard(expression) =>
+          _guard_text_to_rule_guard(expression)
+        case AndGuard(exprs) =>
+          _guard_for_composite(exprs, "&&")
+        case OrGuard(exprs) =>
+          _guard_for_composite(exprs, "||")
+        case m =>
+          _guard_expression(m).map(MComponent.RuleGuard.Expression)
+      }
+
+    private def _guard_for_composite(
+      exprs: Vector[SmGuard],
+      delimiter: String
+    ): Option[MComponent.RuleGuard] = {
+      val a = exprs.filterNot(_.isInstanceOf[EventNameGuard]).flatMap(_guard_expression_for_rule)
+      if (a.isEmpty)
+        None
+      else if (a.lengthCompare(1) == 0)
+        _guard_text_to_rule_guard(a.head)
+      else
+        Some(MComponent.RuleGuard.Expression(a.map(x => s"($x)").mkString(s" $delimiter ")))
+    }
+
+    private def _guard_text_to_rule_guard(
+      p: String
+    ): Option[MComponent.RuleGuard] = {
+      val s = _normalize_guard_text(p)
+      if (s.isEmpty)
+        None
+      else if (_is_guard_ref_name(s))
+        Some(MComponent.RuleGuard.Ref(s))
+      else
+        Some(MComponent.RuleGuard.Expression(s))
+    }
+
+    private def _normalize_guard_text(p: String): String = {
+      val s = p.trim
+      _strip_wrapping_paren(s)
+    }
+
+    private def _strip_wrapping_paren(p: String): String =
+      if (_is_wrapped_by_paren(p))
+        p.substring(1, p.length - 1).trim
+      else
+        p
+
+    private def _is_wrapped_by_paren(p: String): Boolean =
+      p.length >= 2 && p.head == '(' && p.last == ')' && _is_balanced_paren(p.substring(1, p.length - 1))
+
+    private def _is_balanced_paren(p: String): Boolean = {
+      @annotation.tailrec
+      def go(i: Int, depth: Int): Boolean =
+        if (i >= p.length)
+          depth == 0
+        else
+          p.charAt(i) match {
+            case '(' => go(i + 1, depth + 1)
+            case ')' =>
+              if (depth <= 0)
+                false
+              else
+                go(i + 1, depth - 1)
+            case _ => go(i + 1, depth)
+          }
+      go(0, 0)
+    }
+
+    private def _is_guard_ref_name(p: String): Boolean = {
+      p.matches("^[A-Za-z_][A-Za-z0-9_\\.]*$")
+    }
+
+    private def _guard_expression_for_rule(
+      guard: SmGuard
+    ): Option[String] =
+      guard match {
+        case AllGuard => None
+        case EventNameGuard(_) => None
+        case CmlExpressionGuard(expression) => Some(expression)
+        case AndGuard(exprs) =>
+          _join_guard_expression(exprs.filterNot(_.isInstanceOf[EventNameGuard]), "&&")
+        case OrGuard(exprs) =>
+          _join_guard_expression(exprs.filterNot(_.isInstanceOf[EventNameGuard]), "||")
+        case m =>
+          _guard_expression(m)
+      }
+
+    private def _guard_expression(
+      guard: SmGuard
+    ): Option[String] =
+      guard match {
+        case AllGuard => None
+        case EventNameGuard(name) =>
+          Some(s"""event.name == "${_escape_string(name)}"""")
+        case CmlExpressionGuard(expression) =>
+          Some(expression)
+        case ResourceIdGuard(resourceid) =>
+          Some(s"""event.targetId.exists(_.value == "${_escape_string(resourceid)}")""")
+        case ToStateGuard(name, value) =>
+          value match {
+            case Some(v) =>
+              Some(s"""event.name == "${_escape_string(name)}" || event.name == "${v.toString}"""")
+            case None =>
+              Some(s"""event.name == "${_escape_string(name)}"""")
+          }
+        case AndGuard(exprs) =>
+          _join_guard_expression(exprs, "&&")
+        case OrGuard(exprs) =>
+          _join_guard_expression(exprs, "||")
+      }
+
+    private def _join_guard_expression(
+      exprs: Vector[SmGuard],
+      delimiter: String
+    ): Option[String] = {
+      val a = exprs.flatMap(_guard_expression)
+      if (a.isEmpty)
+        None
+      else
+        Some(a.map(x => s"($x)").mkString(s" $delimiter "))
+    }
+
+    private def _transition_plan(
+      transition: _TransitionDef,
+      statemap: Map[String, StateClass]
+    ): MComponent.RulePlan = {
+      val exit = transition.sourceState.toVector.flatMap(x => _activity_scripts(x.exitActivity))
+      val trans = _activity_script(transition.transition.effect)
+      val entry = _entry_scripts(transition.transition.to, statemap)
+      MComponent.RulePlan(
+        exit = exit.map(MComponent.RuleAction.apply),
+        transition = trans.map(MComponent.RuleAction.apply),
+        entry = entry.map(MComponent.RuleAction.apply)
+      )
+    }
+
+    private def _entry_scripts(
+      to: TransitionTo,
+      statemap: Map[String, StateClass]
+    ): Vector[String] =
+      to match {
+        case NameTransitionTo(name) =>
+          statemap.get(name).toVector.flatMap(x => _activity_scripts(x.entryActivity))
+        case _ =>
+          Vector.empty
+      }
+
+    private def _activity_script(p: Activity): Option[String] =
+      _activity_scripts(p).headOption
+
+    private def _activity_scripts(p: Activity): Vector[String] =
+      p match {
+        case Activity.Empty => Vector.empty
+        case Activity.Opaque(script) => _script_vector(script)
+        case m => _script_vector(m.toString)
+      }
+
+    private def _script_vector(p: String): Vector[String] =
+      Option(p).map(_.trim).filter(_.nonEmpty).toVector
+
+    private def _escape_string(p: String): String =
+      Option(p).getOrElse("").flatMap {
+        case '\\' => "\\\\"
+        case '"' => "\\\""
+        case '\n' => "\\n"
+        case '\r' => "\\r"
+        case '\t' => "\\t"
+        case c => c.toString
+      }
 
     private def _make_entity_service(
       pkg: MPackage,
