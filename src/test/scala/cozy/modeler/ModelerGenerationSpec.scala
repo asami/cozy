@@ -8,10 +8,11 @@ import java.nio.file.Path
 import java.nio.file.Paths
 import java.util.Comparator
 import org.scalatest.funsuite.AnyFunSuite
+import org.goldenport.kaleidox.{Config => KaleidoxConfig, Model => KaleidoxModel}
 
 /*
  * @since   May. 17, 2025
- * @version Mar. 20, 2026
+ * @version Mar. 21, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerGenerationSpec extends AnyFunSuite {
@@ -178,6 +179,122 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(content.contains("declarationOrder = 2"))
     assert(content.contains("declarationOrder = 3"))
     assert(_count(content, "priority = 0") >= 4)
+  }
+
+  test("kaleidox parses Event metadata in Entity Event section") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/event-metadata.dox")
+    val model = KaleidoxModel.load(KaleidoxConfig.default.withoutLocation, input.toFile)
+    val entity = model.takeEntityModel.get("Person").getOrElse {
+      fail("Entity Person is missing")
+    }
+    val events = entity.schemaClass.events
+    assert(events.size == 3)
+
+    val created = events.find(_.name == "person.created").getOrElse {
+      fail("person.created event is missing")
+    }
+    assert(created.category == "ActionEvent")
+    assert(created.kind.contains("created"))
+    assert(created.selectors.get("source").contains("crm"))
+    assert(created.actionName.contains("person.sync"))
+    assert(created.priority == 0)
+
+    val updated = events.find(_.name == "person.updated").getOrElse {
+      fail("person.updated event is missing")
+    }
+    assert(updated.category == "ActionEvent")
+    assert(updated.kind.contains("updated"))
+    assert(updated.selectors.get("source").contains("crm"))
+    assert(updated.actionName.contains("person.sync"))
+    assert(updated.priority == 1)
+
+    val shipped = events.find(_.name == "order.shipped").getOrElse {
+      fail("order.shipped event is missing")
+    }
+    assert(shipped.category == "NonActionEvent")
+    assert(shipped.kind.contains("shipped"))
+    assert(shipped.selectors.isEmpty)
+    assert(shipped.actionName.isEmpty)
+    assert(shipped.priority == 0)
+  }
+
+  test("modeler-scala emits eventReceptionDefinitions from Event section") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/event-metadata.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-event-metadata")
+    _delete_recursively(out)
+    Files.createDirectories(out.getParent)
+
+    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+
+    val generated = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+    )
+    assert(Files.exists(generated), s"generated file not found: $generated")
+    val content = Files.readString(generated)
+    assert(content.contains("def eventReceptionDefinitions: Vector[org.goldenport.cncf.event.CmlEventDefinition] = Vector("))
+    assert(content.contains("name = \"person.created\""))
+    assert(content.contains("category = org.goldenport.cncf.event.CmlEventCategory.ActionEvent"))
+    assert(content.contains("kind = Some(\"created\")"))
+    assert(content.contains("selectors = Map(\"source\" -> \"crm\")"))
+    assert(content.contains("actionName = Some(\"person.sync\")"))
+    assert(content.contains("priority = 1"))
+    assert(content.contains("name = \"order.shipped\""))
+    assert(content.contains("category = org.goldenport.cncf.event.CmlEventCategory.NonActionEvent"))
+    assert(content.contains("actionName = None"))
+  }
+
+  test("modeler-scala merges Entity Event and top-level Event definitions") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/event-metadata-mixed.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-event-metadata-mixed")
+    _delete_recursively(out)
+    Files.createDirectories(out.getParent)
+
+    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+
+    val generated = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+    )
+    assert(Files.exists(generated), s"generated file not found: $generated")
+    val content = Files.readString(generated)
+    assert(content.contains("name = \"person.created\""))
+    assert(content.contains("name = \"system.heartbeat\""))
+    assert(content.contains("name = \"system.alert\""))
+    assert(content.contains("category = org.goldenport.cncf.event.CmlEventCategory.ActionEvent"))
+    assert(content.contains("category = org.goldenport.cncf.event.CmlEventCategory.NonActionEvent"))
+    assert(content.contains("actionName = Some(\"system.pulse\")"))
+    assert(content.contains("selectors = Map(\"level\" -> \"warn\")"))
+  }
+
+  test("modeler-scala emits routing/subscription definitions from CML") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/event-routing-subscription.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-event-routing-subscription")
+    _delete_recursively(out)
+    Files.createDirectories(out.getParent)
+
+    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+
+    val generated = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+    )
+    assert(Files.exists(generated), s"generated file not found: $generated")
+    val content = Files.readString(generated)
+    assert(content.contains("def eventRoutingDefinitions: Vector[org.goldenport.cncf.event.CmlRoutingDefinition] = Vector("))
+    assert(content.contains("name = \"crm-route\""))
+    assert(content.contains("topic = Some(\"crm.events\")"))
+    assert(content.contains("service = Some(\"person\")"))
+    assert(content.contains("partition = Some(\"organization\")"))
+    assert(content.contains("def eventSubscriptionDefinitions: Vector[org.goldenport.cncf.event.CmlSubscriptionDefinition] = Vector("))
+    assert(content.contains("name = \"person-sync\""))
+    assert(content.contains("eventName = \"person.created\""))
+    assert(content.contains("route = org.goldenport.cncf.event.DispatchRoute.Unicast"))
+    assert(content.contains("target = Some(\"targetId\")"))
+    assert(content.contains("actionName = \"person.sync\""))
+    assert(content.contains("declaredTargetUpperBound = 2"))
+    assert(content.contains("activation = Some(org.goldenport.cncf.event.EntityActivationMode.KeepResident)"))
   }
 
   test("modeler-scala reports missing on in StateMachine transition") {

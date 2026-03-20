@@ -1,0 +1,34 @@
+# Entity
+
+## Person
+
+### Attribute
+
+| name | type     | multiplicity |
+|------+----------+--------------|
+| id   | entityid | 1            |
+| name | name     | 1            |
+
+### Event
+
+#### person.created
+- category :: ActionEvent
+- kind :: created
+- selector :: source=crm
+- actionName :: person.sync
+- priority :: 0
+
+# Event
+
+## system.heartbeat
+- category :: NonActionEvent
+- kind :: heartbeat
+- actionName :: system.pulse
+- priority :: 9
+
+## system.alert
+- category :: ActionEvent
+- kind :: alert
+- selector :: level=warn
+- actionName :: system.alert
+- priority :: 2

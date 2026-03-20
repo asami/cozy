@@ -1,15 +1,15 @@
 # StateMachine Feature Update Log (Cozy)
 
-status=working-draft
-published_at=2026-03-20
+status=verified
+published_at=2026-03-21
 owner=cozy-modeler
 
 ---
 
 ## Overview
 
-Implemented feature updates to connect StateMachine CML definitions from Cozy Modeler to the CNCF runtime execution path.  
-This log summarizes implementation details, verification results, and known gaps as of 2026-03-20.
+Implemented feature updates to connect StateMachine CML definitions from Cozy Modeler to the CNCF runtime execution path.
+This log summarizes implementation details, verification results, and known gaps as of 2026-03-21.
 
 ---
 
@@ -69,14 +69,23 @@ Related commit:
   - guardExpression / guardRef emission
   - mixed guard coverage (`guardRef`, expression, composite-like expression text)
   - deterministic declaration-order emission
+  - Event metadata / reception definition emission
+  - routing/subscription definition emission
   - detection of missing `on`, unknown transition target, and undeclared events
 
 ### scripted (surrounding regression)
 
-- `scripted cozy/entity-sqlite-crud` : pass  
-- `scripted cozy/entity-sqlite-search-memory` : pass  
+- `scripted cozy/entity-sqlite-crud` : pass
+- `scripted cozy/entity-sqlite-search-memory` : pass
 - `scripted cozy/entity-simpleentity-action` : pass
 - `scripted cozy/entity-statemachine-guard-order` : pass
+
+### Re-check (2026-03-21)
+
+- Command:
+  - `sbt "testOnly cozy.modeler.ModelerGenerationSpec"`
+- Result:
+  - 13 tests passed, 0 failed
 
 ---
 

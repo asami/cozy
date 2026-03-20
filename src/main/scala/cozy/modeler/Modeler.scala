@@ -17,7 +17,7 @@ import org.goldenport.util.StringUtils
 import org.goldenport.kaleidox.{Model => KaleidoxModel}
 import org.goldenport.kaleidox.lisp.Context
 import org.goldenport.kaleidox.model.{SchemaModel, EntityModel, DataTypeModel}
-import org.goldenport.kaleidox.model.{PowertypeModel, StateMachineModel}
+import org.goldenport.kaleidox.model.{PowertypeModel, StateMachineModel, EventModel}
 import org.goldenport.kaleidox.model.CmlExpressionGuard
 import org.goldenport.kaleidox.model.SchemaModel.SchemaClass
 import org.goldenport.kaleidox.model.EntityModel.EntityClass
@@ -40,7 +40,7 @@ import org.goldenport.kaleidox.model.PowertypeModel.PowertypeClass
  *  version Nov.  2, 2024
  *  version May. 13, 2025
  *  version Feb. 27, 2026
- * @version Mar. 20, 2026
+ * @version Mar. 21, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
@@ -405,7 +405,8 @@ object Modeler {
     entity: EntityModel,
     datatype: DataTypeModel,
     powertype: PowertypeModel,
-    stateMachine: StateMachineModel
+    stateMachine: StateMachineModel,
+    event: EventModel
   ) {
     def build(): SimpleModel = {
       val entities = entity.classes.values.map(_entity)
@@ -765,12 +766,89 @@ object Modeler {
       val viewservice: MService = _make_view_service(pkg, entities)
       val core = MObject.Core.create(pkg, services = List(aggregateservice, viewservice, entityservice))
       val transitionrules = _state_machine_transition_rules(entities)
+      val eventdefs = _event_reception_definitions(entities)
+      val eventroutes = _event_routing_definitions()
+      val eventsubs = _event_subscription_definitions()
       val ccore = MComponent.Core(
         entities = entities,
-        stateMachineTransitionRules = transitionrules
+        stateMachineTransitionRules = transitionrules,
+        eventReceptionDefinitions = eventdefs,
+        eventRoutingDefinitions = eventroutes,
+        eventSubscriptionDefinitions = eventsubs
       )
       MDomainComponent(desc, core, ccore)
     }
+
+    private def _event_reception_definitions(
+      entities: Vector[MEntity]
+    ): Vector[MComponent.EventReceptionDefinition] = {
+      val a = entities.flatMap(_entity_event_reception_definitions) ++ _global_event_reception_definitions()
+      a.foldLeft(Vector.empty[MComponent.EventReceptionDefinition]) { (z, x) =>
+        if (z.contains(x)) z else z :+ x
+      }
+    }
+
+    private def _global_event_reception_definitions(
+    ): Vector[MComponent.EventReceptionDefinition] =
+      event.receptionDefinitions.map { e =>
+        MComponent.EventReceptionDefinition(
+          name = e.name,
+          category = e.category,
+          kind = e.kind,
+          selectors = e.selectors,
+          actionName = e.actionName,
+          priority = e.priority
+        )
+      }
+
+    private def _entity_event_reception_definitions(
+      p: MEntity
+    ): Vector[MComponent.EventReceptionDefinition] =
+      entity.get(p.name).toVector.flatMap { klass =>
+        klass.schemaClass.events.map { e =>
+          MComponent.EventReceptionDefinition(
+            name = e.name,
+            category = e.category,
+            kind = e.kind,
+            selectors = e.selectors,
+            actionName = e.actionName,
+            priority = e.priority
+          )
+        }
+      }
+
+    private def _event_routing_definitions(
+    ): Vector[MComponent.EventRoutingDefinition] =
+      event.routingDefinitions.map { r =>
+        MComponent.EventRoutingDefinition(
+          name = r.name,
+          when = r.when,
+          topic = r.topic,
+          service = r.service,
+          partition = r.partition
+        )
+      }
+
+    private def _event_subscription_definitions(
+    ): Vector[MComponent.EventSubscriptionDefinition] =
+      event.subscriptionDefinitions.flatMap { s =>
+        for {
+          eventname <- s.eventName
+          actionname <- s.actionName
+        } yield
+          MComponent.EventSubscriptionDefinition(
+            name = s.name,
+            eventName = eventname,
+            route = s.route.getOrElse("Unicast"),
+            entityName = s.entityName,
+            target = s.target,
+            targets = s.targets,
+            selector = s.selector,
+            actionName = actionname,
+            declaredTargetUpperBound = s.declaredTargetUpperBound.getOrElse(1),
+            activation = s.activation
+          )
+      }
 
     private def _aggregate_package(name: Option[String]): String =
       name.flatMap(_token_opt).fold("aggregate")(x => s"aggregate.$x")
@@ -1400,7 +1478,8 @@ object Modeler {
       p.takeEntityModel,
       p.takeDataTypeModel,
       p.takePowertypeModel,
-      p.takeStateMachineModel
+      p.takeStateMachineModel,
+      p.eventModel
     )
   }
 }

@@ -1,0 +1,38 @@
+# ENTITY
+
+## Person
+
+### ATTRIBUTE
+
+| name | type     | multiplicity |
+|------+----------+--------------|
+| id   | entityid | 1            |
+| name | name     | 1            |
+
+# EVENT
+
+## person.created
+- CATEGORY :: ActionEvent
+- KIND :: created
+- SELECTOR :: source=crm
+- ACTION_NAME :: person.sync
+- PRIORITY :: 0
+
+# ROUTING
+
+## crm-route
+- WHEN :: source=crm
+- TOPIC :: crm.events
+- SERVICE :: person
+- PARTITION :: organization
+
+# SUBSCRIPTION
+
+## person-sync
+- ON :: person.created
+- ROUTE :: Unicast
+- ENTITY :: Person
+- TARGET :: targetId
+- ACTION :: person.sync
+- BOUND :: 2
+- ACTIVATION :: KeepResident

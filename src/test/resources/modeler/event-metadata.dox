@@ -1,0 +1,31 @@
+# Entity
+
+## Person
+
+### Attribute
+
+| name | type     | multiplicity |
+|------+----------+--------------|
+| id   | entityid | 1            |
+| name | name     | 1            |
+
+### Event
+
+#### person.created
+- category :: ActionEvent
+- kind :: created
+- selector :: source=crm
+- actionName :: person.sync
+- priority :: 0
+
+#### person.updated
+- category :: ActionEvent
+- kind :: updated
+- selector :: source=crm
+- actionName :: person.sync
+- priority :: 1
+
+#### order.shipped
+- category :: NonActionEvent
+- kind :: shipped
+- priority :: 0
