@@ -5,7 +5,7 @@ organization := "org.simplemodeling"
 
 name := "cozy"
 
-version := "0.2.7-SNAPSHOT"
+version := "0.2.7"
 
 scalaVersion := "2.12.18"
 // crossScalaVersions := Seq("2.10.39.2", "2.9.1")
@@ -56,9 +56,9 @@ libraryDependencies += "org.goldenport" %% "goldenport-record" % "2.2.2"
 // override kaleidox
 libraryDependencies += "org.smartdox" %% "smartdox" % "2.4.9"
 
-libraryDependencies += "org.goldenport" %% "kaleidox" % "0.6.5-SNAPSHOT"
+libraryDependencies += "org.goldenport" %% "kaleidox" % "0.6.5"
 
-libraryDependencies += "org.simplemodeling" %% "simplemodeler" % "1.1.7-SNAPSHOT"
+libraryDependencies += "org.simplemodeling" %% "simplemodeler" % "1.1.7"
 
 libraryDependencies += "org.goldenport" %% "arcadia" % "0.6.1"
 
