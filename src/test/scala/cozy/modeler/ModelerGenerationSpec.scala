@@ -35,6 +35,8 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(!content.contains("collectionId: EntityCollectionId = ???"))
     assert(content.contains("extends Component with CollectionTransitionRuleProvider"))
     assert(content.contains("override def stateMachineTransitionRules: Vector[CollectionTransitionRule[Any]] = Vector.empty"))
+    assert(content.contains("override def aggregateDefinitions: Vector[org.goldenport.cncf.entity.aggregate.CmlAggregateDefinition] = Vector("))
+    assert(content.contains("override def viewDefinitions: Vector[org.goldenport.cncf.entity.view.CmlViewDefinition] = Vector("))
   }
 
   test("modeler-scala expands attributes from SimpleEntity parent") {

@@ -769,12 +769,16 @@ object Modeler {
       val eventdefs = _event_reception_definitions(entities)
       val eventroutes = _event_routing_definitions()
       val eventsubs = _event_subscription_definitions()
+      val aggregates = _aggregate_definitions(entities)
+      val views = _view_definitions(entities)
       val ccore = MComponent.Core(
         entities = entities,
         stateMachineTransitionRules = transitionrules,
         eventReceptionDefinitions = eventdefs,
         eventRoutingDefinitions = eventroutes,
-        eventSubscriptionDefinitions = eventsubs
+        eventSubscriptionDefinitions = eventsubs,
+        aggregateDefinitions = aggregates,
+        viewDefinitions = views
       )
       MDomainComponent(desc, core, ccore)
     }
@@ -848,6 +852,36 @@ object Modeler {
             declaredTargetUpperBound = s.declaredTargetUpperBound.getOrElse(1),
             activation = s.activation
           )
+      }
+
+    private def _aggregate_definitions(
+      entities: Vector[MEntity]
+    ): Vector[MComponent.AggregateDefinition] =
+      entities.map { entity =>
+        val entityname = _package_token(entity.name)
+        val name = _aggregate_name(entity).flatMap(_token_opt) match {
+          case Some(x) => s"${x}_$entityname"
+          case None => entityname
+        }
+        MComponent.AggregateDefinition(
+          name = name,
+          entityName = entityname
+        )
+      }
+
+    private def _view_definitions(
+      entities: Vector[MEntity]
+    ): Vector[MComponent.ViewDefinition] =
+      entities.map { entity =>
+        val entityname = _package_token(entity.name)
+        val name = _view_name(entity).flatMap(_token_opt) match {
+          case Some(x) => s"${x}_$entityname"
+          case None => entityname
+        }
+        MComponent.ViewDefinition(
+          name = name,
+          entityName = entityname
+        )
       }
 
     private def _aggregate_package(name: Option[String]): String =
