@@ -1,0 +1,67 @@
+# COMMAND
+
+## CreateOrder
+
+### ATTRIBUTE
+
+| name    | type    | multiplicity |
+|---------+---------+--------------|
+| orderId | OrderId | 1            |
+| amount  | Money   | 1            |
+
+# QUERY
+
+## GetOrder
+
+### ATTRIBUTE
+
+| name    | type    | multiplicity |
+|---------+---------+--------------|
+| orderId | OrderId | 1            |
+
+# OPERATION
+
+## createOrder
+
+### TYPE
+COMMAND
+
+### INPUT
+CreateOrder
+
+### OUTPUT
+CreateOrderResult
+
+## getOrder
+
+### TYPE
+QUERY
+
+### INPUT
+GetOrder
+
+### OUTPUT
+GetOrderResult
+
+## savePerson
+
+### TYPE
+COMMAND
+
+### PARAMETER
+id :: EntityId
+name :: Name
+
+### OUTPUT
+SavePersonResult
+
+# ENTITY
+
+## Person
+
+### ATTRIBUTE
+
+| name | type     | multiplicity |
+|------+----------+--------------|
+| id   | entityid | 1            |
+| name | name     | 1            |

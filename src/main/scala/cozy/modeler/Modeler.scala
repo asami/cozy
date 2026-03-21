@@ -18,6 +18,7 @@ import org.goldenport.kaleidox.{Model => KaleidoxModel}
 import org.goldenport.kaleidox.lisp.Context
 import org.goldenport.kaleidox.model.{SchemaModel, EntityModel, DataTypeModel}
 import org.goldenport.kaleidox.model.{PowertypeModel, StateMachineModel, EventModel}
+import org.goldenport.kaleidox.model.OperationModel
 import org.goldenport.kaleidox.model.CmlExpressionGuard
 import org.goldenport.kaleidox.model.SchemaModel.SchemaClass
 import org.goldenport.kaleidox.model.EntityModel.EntityClass
@@ -40,7 +41,7 @@ import org.goldenport.kaleidox.model.PowertypeModel.PowertypeClass
  *  version Nov.  2, 2024
  *  version May. 13, 2025
  *  version Feb. 27, 2026
- * @version Mar. 21, 2026
+ * @version Mar. 22, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
@@ -406,7 +407,8 @@ object Modeler {
     datatype: DataTypeModel,
     powertype: PowertypeModel,
     stateMachine: StateMachineModel,
-    event: EventModel
+    event: EventModel,
+    operation: OperationModel
   ) {
     def build(): SimpleModel = {
       val entities = entity.classes.values.map(_entity)
@@ -771,6 +773,7 @@ object Modeler {
       val eventsubs = _event_subscription_definitions()
       val aggregates = _aggregate_definitions(entities)
       val views = _view_definitions(entities)
+      val operations = _operation_definitions()
       val ccore = MComponent.Core(
         entities = entities,
         stateMachineTransitionRules = transitionrules,
@@ -778,7 +781,8 @@ object Modeler {
         eventRoutingDefinitions = eventroutes,
         eventSubscriptionDefinitions = eventsubs,
         aggregateDefinitions = aggregates,
-        viewDefinitions = views
+        viewDefinitions = views,
+        operationDefinitions = operations
       )
       MDomainComponent(desc, core, ccore)
     }
@@ -881,6 +885,28 @@ object Modeler {
         MComponent.ViewDefinition(
           name = name,
           entityName = entityname
+        )
+      }
+
+    private def _operation_definitions(
+    ): Vector[MComponent.OperationDefinition] =
+      operation.normalizedOperations.map { x =>
+        MComponent.OperationDefinition(
+          name = x.name,
+          kind = x.kind.toString.toUpperCase,
+          inputType = x.inputType,
+          outputType = x.outputType,
+          inputValueKind = x.inputValueKind match {
+            case OperationModel.InputValueKind.CommandValue => "COMMAND_VALUE"
+            case OperationModel.InputValueKind.QueryValue => "QUERY_VALUE"
+          },
+          parameters = x.parameters.map { p =>
+            MComponent.OperationField(
+              name = p.name,
+              datatype = p.datatype,
+              multiplicity = p.multiplicity
+            )
+          }
         )
       }
 
@@ -1513,7 +1539,8 @@ object Modeler {
       p.takeDataTypeModel,
       p.takePowertypeModel,
       p.takeStateMachineModel,
-      p.eventModel
+      p.eventModel,
+      p.takeOperationModel
     )
   }
 }

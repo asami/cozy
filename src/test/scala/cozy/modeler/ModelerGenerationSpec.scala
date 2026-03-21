@@ -12,7 +12,7 @@ import org.goldenport.kaleidox.{Config => KaleidoxConfig, Model => KaleidoxModel
 
 /*
  * @since   May. 17, 2025
- * @version Mar. 21, 2026
+ * @version Mar. 22, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerGenerationSpec extends AnyFunSuite {
@@ -272,6 +272,52 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(content.contains("name = \"order.shipped\""))
     assert(content.contains("category = org.goldenport.cncf.event.CmlEventCategory.NonActionEvent"))
     assert(content.contains("actionName = None"))
+  }
+
+  test("kaleidox parses and normalizes OPERATION grammar") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/operation-grammar.dox")
+    val model = KaleidoxModel.load(KaleidoxConfig.default.withoutLocation, input.toFile)
+    val opmodel = model.takeOperationModel
+    val normalized = opmodel.normalizedOperations
+
+    assert(normalized.exists(x => x.name == "createOrder" && x.kind.toString == "Command" && x.inputType == "CreateOrder"))
+    assert(normalized.exists(x => x.name == "getOrder" && x.kind.toString == "Query" && x.inputType == "GetOrder"))
+    assert(normalized.exists(x => x.name == "savePerson" && x.inputType == "SavePersonInput"))
+    assert(normalized.size == 3)
+  }
+
+  test("modeler-scala emits operationDefinitions from OPERATION section") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/operation-grammar.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-operation-grammar")
+    _delete_recursively(out)
+    Files.createDirectories(out.getParent)
+
+    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+
+    val generated = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+    )
+    assert(Files.exists(generated), s"generated file not found: $generated")
+    val content = Files.readString(generated)
+    assert(content.contains("override def operationDefinitions: Vector[org.goldenport.cncf.operation.CmlOperationDefinition] = Vector("))
+    assert(content.contains("name = \"createOrder\""))
+    assert(content.contains("kind = \"COMMAND\""))
+    assert(content.contains("inputType = \"CreateOrder\""))
+    assert(content.contains("name = \"savePerson\""))
+    assert(content.contains("inputType = \"SavePersonInput\""))
+    assert(content.contains("inputValueKind = \"COMMAND_VALUE\""))
+  }
+
+  test("modeler-scala rejects operation kind/input value mismatch") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/operation-grammar-invalid-kind-mismatch.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-operation-invalid-kind")
+    _delete_recursively(out)
+
+    val output = _run_modeler_scala(input, out)
+    assert(output.contains("TYPE=COMMAND cannot use query-value input"), s"unexpected output: $output")
   }
 
   test("modeler-scala merges Entity Event and top-level Event definitions") {

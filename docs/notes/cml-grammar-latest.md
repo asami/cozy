@@ -1,52 +1,57 @@
 # CML Grammar (Latest, Cozy)
 
-status=working  
-updated_at=2026-03-20  
+status=frozen-for-phase8-op-01-op-03
+updated_at=2026-03-22
 target=/Users/asami/src/dev2025/cozy
 
-## 1. Scope of This Document
+## 1. Scope
 
-This document summarizes the **CML grammar that Cozy `modeler-scala` currently accepts and uses in practice**.  
-It is not an ideal/future spec; it is an implementation- and test-based snapshot.
+This document is the canonical CML grammar contract for Cozy `modeler-scala`.
+It merges:
+
+- currently implemented grammar
+- Phase 8 OP-01/OP-03 operation handoff contract
+
+This document is normative for parser/modeler/generator behavior.
+It intentionally excludes draft/WIP grammar proposals.
 
 ---
 
-## 2. CML AST Mapping (Meta-Grammar)
+## 2. CML Meta-Grammar
 
-CML supports multiple syntactic forms:
+CML accepts multiple syntactic forms that normalize into the same AST:
 
 - section structure (heading-based)
 - dl list
 - table
 
-These are:
-
-- interchangeable
-- mapped into the same AST
-
-Guidelines:
+Guideline:
 
 - use section structure for descriptive documents
-- use dl/table for compact or machine-oriented definitions
+- use dl/table for compact machine-oriented documents
+
+Keyword convention:
+
+- grammar keywords are uppercase in this document (`ENTITY`, `ATTRIBUTE`, `STATEMACHINE`, `EVENT`, `OPERATION`, ...)
+- parser matching remains case-insensitive unless explicitly restricted
 
 ---
 
-## 3. Top-Level Structure
+## 3. Top-Level Sections
 
-Minimum structure:
+Supported top-level sections:
 
-```text
-# ENTITY
+- `# ENTITY`
+- `# EVENT` (global event definitions)
+- `# OPERATION`
+- `# COMMAND` (operation input value definitions)
+- `# QUERY` (operation input value definitions)
 
-## <ENTITY_NAME>
-...
-```
-
-Multiple entities can be defined in sequence.
+Future sections may be added, but this contract focuses on accepted and frozen behavior for the current phase.
 
 ---
 
-## 4. ENTITY Definition
+## 4. ENTITY
 
 ### 4.1 Basic Form
 
@@ -56,7 +61,6 @@ Multiple entities can be defined in sequence.
 ## Person
 
 ### ATTRIBUTE
-
 | name | type     | multiplicity |
 |------+----------+--------------|
 | id   | entityid | 1            |
@@ -64,115 +68,88 @@ Multiple entities can be defined in sequence.
 | age  | age      | ?            |
 ```
 
-### 4.2 `FEATURES` (Inheritance)
+### 4.2 FEATURES (Inheritance)
 
 ```text
 ## Person
 
 ### FEATURES
-
 EXTENDS = ["SimpleEntity"]
 ```
 
 Notes:
-- Place `### FEATURES` as a standalone heading.
-- Put `EXTENDS = [...]` directly below the heading (do not place it on the heading line).
-- Due to SmartDox heading parsing behavior, a blank line after the heading is recommended.
 
-When `SimpleEntity` is specified, it is treated as extending `org.goldenport.model.SimpleEntity`.
+- `FEATURES` must be a standalone heading.
+- `EXTENDS = [...]` must be in body text, not heading text.
+- `SimpleEntity` is treated as `org.goldenport.model.SimpleEntity`.
 
----
+### 4.3 ATTRIBUTE Columns
 
-## 5. ATTRIBUTE Table
-
-### 5.1 Required Columns
+Required:
 
 - `name`
 - `type`
 - `multiplicity`
 
-`multiplicity` examples:
-- `1`: required single value
-- `?`: optional single value
-
-### 5.2 Optional Columns (Currently Supported)
+Optional:
 
 - `db_column_name`
 - `db_column_type`
 - `external_name`
 
-Example:
+Default naming if omitted:
 
-```text
-| name        | type     | multiplicity | db_column_name       | db_column_type | external_name    |
-|-------------+----------+--------------+----------------------+----------------+------------------|
-| id          | entityid | 1            | person_id            | TEXT           | external_id      |
-| displayName | name     | 1            | person_display_name  | TEXT           | display_name_ext |
-| age         | age      | ?            |                      | INTEGER        |                  |
-```
-
-If omitted:
-- DB column name: `snake_case(name)`
-- External integration attribute name: `snake_case(name)`
+- datastore column name: `snake_case(name)`
+- external output name: `snake_case(name)`
 
 ---
 
-## 6. STATEMACHINE
+## 5. STATEMACHINE
 
-You can place `### STATEMACHINE` inside an `ENTITY`.
+`STATEMACHINE` is defined under each entity.
 
 ```text
 ### STATEMACHINE
-
 #### lifecycle
-
 ##### STATE
-
 ###### Draft
-
 ####### TRANSITION
 - TO :: Published
 - ON :: publish
 - GUARD :: paymentConfirmed
 - ACTION :: recordPayment
-
 ###### Published
-
 ##### EVENT
-
 ###### publish
 ```
 
-### 6.1 Transition Keys
+Validation:
 
-- Required:
-  - `TO`
-  - `ON`
-- Optional:
-  - `GUARD`
-  - `ACTION` (multiple lines allowed)
+- missing `ON`: error
+- undefined `TO` target: error
+- if event declarations exist, `ON` must reference declared event
+- same priority conflict is resolved by declaration order (deterministic)
 
-### 6.2 Guard Interpretation
+Guard mapping:
 
-- Single identifier (for example, `paymentConfirmed`): treated as guardRef.
-- Anything else (for example, `event.amount > 0 && reviewerApproved`): treated as expression.
-
-### 6.3 Validation Rules (Current)
-
-- Missing `ON`: error
-- Undefined `TO` destination: error
-- If an `EVENT` section exists, `ON` must reference a declared event
-- For same-priority conflicts, declaration order is used (deterministic)
+- single identifier -> guardRef
+- other expressions -> expression guard
 
 ---
 
-## 7. EVENT DSL (Current Implemented Subset)
+## 6. EVENT DSL
 
-Event reception metadata is defined in the `EVENT` section (not `EventReception`).
+Event reception metadata is defined by `EVENT` (not `EventReception`).
+
+Placement:
+
+- `ENTITY > EVENT`
+- top-level `# EVENT`
+
+Both are merged.
 
 ```text
 ### EVENT
-
 #### person.created
 - CATEGORY :: ActionEvent
 - KIND :: created
@@ -181,317 +158,252 @@ Event reception metadata is defined in the `EVENT` section (not `EventReception`
 - PRIORITY :: 0
 ```
 
-Mapping to runtime (`CmlEventDefinition`):
+Mapped metadata:
 
 - `name`
-- `CATEGORY` (`ActionEvent` / `NonActionEvent`, default `NonActionEvent`)
-- `KIND`
-- `SELECTOR` (`k=v`)
+- `CATEGORY` (`ActionEvent` | `NonActionEvent`, default `NonActionEvent`)
+- `KIND` (string)
+- `SELECTOR` (`k=v`, repeatable)
 - `ACTION_NAME`
-- `PRIORITY`
-
-Placement (both are supported and merged):
-
-- `ENTITY > EVENT` (entity-local)
-- top-level `# EVENT` (global)
+- `PRIORITY` (int, default 0)
 
 Generated output:
 
 - `DomainComponent.eventReceptionDefinitions`
 
-EV-06 verified behavior:
-
-- target event routes
-- non-target event deterministically drops
-- unknown event fails
-- subscription mismatch fails
-- policy denial fails
-- persistence differs between `persistent=true` and `persistent=false`
-
-Implementation status:
-
-- `kaleidox` parses event metadata into schema metadata.
-- Cozy emits metadata as `Vector[org.goldenport.cncf.event.CmlEventDefinition]`.
-- scripted verification uses generated `DomainComponent.eventReceptionDefinitions`.
-
 ---
 
-## 8. AGGREGATE / VIEW DSL (AV-02)
+## 7. AGGREGATE / VIEW (AV-02)
 
-`AGGREGATE` and `VIEW` sections can be defined inside `ENTITY`.
-
-### 8.1 AGGREGATE
-
-```text
-### AGGREGATE
-
-#### COMMAND
-
-##### createPerson
-- INPUT.name :: name
-- VALIDATE :: name.nonEmpty
-- EVENT :: person.created
-- NEW_STATE :: Active
-
-#### STATE
-| name | type | multiplicity |
-|------+------|--------------|
-| id   | entityid | 1         |
-| name | name     | 1         |
-
-#### INVARIANT
-
-##### nameRequired
-- EXPRESSION :: state.name.nonEmpty
-```
+`AGGREGATE` and `VIEW` are defined under each `ENTITY`.
 
 AST mapping:
+
 - `EntityDef.aggregate: Option[AggregateDef]`
-- `AggregateDef(commands, state, invariants)`
-
-### 8.2 VIEW
-
-```text
-### VIEW
-- EVENTS :: person.created, person.updated
-- REBUILDABLE :: true
-
-#### ATTRIBUTE
-| name | type | multiplicity |
-|------+------|--------------|
-| id   | entityid | 1         |
-| name | name     | 1         |
-
-#### QUERY
-
-##### searchPublished
-- EXPRESSION :: poststatus == "published"
-```
-
-AST mapping:
 - `EntityDef.view: Option[ViewDef]`
-- `ViewDef(attributes, queries)`
 
-Validation:
-- `VIEW/QUERY` must not include command-side mutation directives (`ACTION`, `WRITE`, `MUTATION`, `MUTATES`).
-- `EVENT` must not depend on `VIEW` metadata.
+Semantic constraints:
 
----
-
-## 9. Recommended Template
-
-```text
-# ENTITY
-
-## SimpleEntity
-
-### ATTRIBUTE
-
-| name | type     | multiplicity |
-|------+----------+--------------|
-| id   | entityid | 1            |
-| name | name     | 1            |
-
-## Person
-
-### FEATURES
-
-EXTENDS = ["SimpleEntity"]
-
-### ATTRIBUTE
-
-| name | type | multiplicity |
-|------+------|--------------|
-| age  | age  | ?            |
-```
+- aggregate = command-side model
+- view = read-side projection model
+- view must not mutate command-side state
+- event must not depend on view metadata
 
 ---
 
-## 10. Future Extension Points
+## 8. OPERATION DSL (Phase 8 Frozen Contract)
 
-- Promote EventReception as an official top-level modeler input
-- Extend Event selectors to support composite conditions (AND/OR)
-- Extend CML sections by purpose (entity/aggregate/view)
+This section freezes OP-01/OP-03 grammar and normalization contract.
 
----
+### 8.1 Purpose
 
-## 11. CNCF EVENT/SUBSCRIPTION/Runtime Design (WIP)
+`OPERATION` is first-class and must normalize to canonical single-input model.
 
-This section consolidates the design draft from:
+### 8.2 OPERATION Kind
 
-- `docs/journal/2026/03/cml-event-dsl-and-runtime.md`
+Operation kind is mandatory:
 
-### 10.1 Design Principles
+- `COMMAND`
+- `QUERY`
 
-- Event = fact (pure meaning)
-- Subscription = execution rule
-- Routing = partitioning / filtering
-- DispatchRoute = delivery semantics
-- ActionCall = execution unit
+### 8.3 Input Value Definition Sections
 
-### 10.2 DSL Normalization Rule
-
-CML forms are interchangeable and normalized into one AST:
-
-- section structure (heading-based)
-- dl list
-- table
-
-Recommended usage:
-
-- section style for descriptive docs
-- dl/table for compact/machine-oriented docs
-
-### 10.3 Extended EVENT DSL
+Operation input value types are defined in top-level `COMMAND` / `QUERY` sections.
 
 ```text
-# EVENT
-
-## ${EventName}
-
-### CATEGORY
-ActionEvent | NonActionEvent
-
-### KIND
-domain | system | integration
-
+# COMMAND
+## CreateOrder
 ### ATTRIBUTE
-${Entity Attribute Definition}
+| name    | type    | multiplicity |
+|---------+---------+--------------|
+| orderId | OrderId | 1            |
+| amount  | Money   | 1            |
 
-### ROUTING (optional)
-TOPIC :: ${TopicName}
-SERVICE :: ${ServiceName}
-PARTITION :: ${Expression}
+# QUERY
+## GetOrder
+### ATTRIBUTE
+| name    | type    | multiplicity |
+|---------+---------+--------------|
+| orderId | OrderId | 1            |
 ```
 
-### 10.4 ROUTING Rule DSL
+Input typing rule:
+
+- `TYPE=COMMAND` requires `INPUT` to resolve to a command value type
+- `TYPE=QUERY` requires `INPUT` to resolve to a query value type
+
+### 8.4 Canonical Form
 
 ```text
-# ROUTING
-
-## ${RuleName}
-
-### WHEN
-${Expression}
-
-### ROUTE
-TOPIC :: ${TopicName}
-SERVICE :: ${ServiceName}
-PARTITION :: ${Expression}
+# OPERATION
+## createOrder
+### TYPE
+COMMAND
+### INPUT
+CreateOrder
+### OUTPUT
+CreateOrderResult
 ```
 
-### 10.5 Subscription DSL
+Canonical semantic shape:
 
-Route types:
+`operation name(input: InputType): OutputType`
 
-- Unicast
-- Multicast
-- Broadcast
+### 8.5 Convenience Form
+
+```text
+# OPERATION
+## createOrder
+### TYPE
+COMMAND
+### PARAMETER
+orderId :: OrderId
+amount  :: Money
+### OUTPUT
+CreateOrderResult
+```
+
+Convenience form is syntactic sugar and must normalize into canonical single-input form.
+
+### 8.6 Dual Definition Form
+
+Both `INPUT` and `PARAMETER` may coexist:
+
+```text
+# OPERATION
+## createOrder
+### TYPE
+COMMAND
+### INPUT
+CreateOrder
+### PARAMETER
+orderId :: OrderId
+amount  :: Money
+```
+
+`PARAMETER` must be field-consistent with `INPUT`.
+
+### 8.7 Input Value Typing
+
+Operation input value is explicitly typed:
+
+- `COMMAND` operation -> command value input
+- `QUERY` operation -> query value input
+
+Type mismatch is invalid.
+
+### 8.8 Normalization Rules
+
+All operations normalize to:
+
+`NormalizedOperation(name, kind, inputType, outputType, inputValueKind)`
+
+Rules:
+
+1. canonical (`INPUT`) -> use declared input type
+2. convenience (`PARAMETER` only) -> auto-generate input value type with deterministic field order
+3. dual (`INPUT + PARAMETER`) -> validate strict consistency, then keep declared input type
+
+Auto-generated input type naming:
+
+- default: `<OperationNameInPascalCase>Input`
+- if name collision exists: `<OperationNameInPascalCase>Input2`, `...Input3`, ...
+
+Determinism:
+
+- field order follows declaration order in `PARAMETER`
+- normalized output is stable for equivalent source
+
+### 8.9 Validation Rules (Mandatory)
+
+Rejected definitions:
+
+1. `COMMAND` with query-value input
+2. `QUERY` with command-value input
+3. dual definition mismatch (`INPUT` fields vs `PARAMETER`)
+4. missing required operation core fields (`TYPE`, and either `INPUT` or `PARAMETER`)
+5. missing `OUTPUT`
+
+Dual consistency criteria:
+
+- field count must match
+- field declaration order must match
+- field name must match
+- field type must match
+- field multiplicity must match
+
+Validation failures must be deterministic and not rely on incidental parser behavior.
+
+### 8.10 Emitted Metadata Contract
+
+Generator boundary must emit enough metadata for SimpleModeler/CNCF:
+
+- operation name
+- operation kind (`COMMAND` / `QUERY`)
+- normalized input type
+- normalized input value kind (`COMMAND_VALUE` / `QUERY_VALUE`)
+- output type reference
+- normalized parameter list (ordered fields)
+
+### 8.11 PARAMETER Syntax Variants (Equivalent Forms)
 
 Section style:
 
 ```text
-# SUBSCRIPTION
-## ${SubscriptionName}
-### EVENT
-${EventName}
-### ROUTE
-Unicast | Multicast | Broadcast
-### ENTITY (optional)
-${EntityName}
-### TARGET (Unicast / Multicast)
-${TargetExpression}
-### TARGETS (Unicast explicit)
-[${id1}, ${id2}, ...]
-### SELECTOR (Multicast)
-${BooleanExpression}
-### ACTION
-${ActionName}
-### DECLARED_TARGET_UPPER_BOUND
-${Number}
-### ACTIVATION (optional)
-KeepResident | ActivateOnReceive
+### PARAMETER
+orderId :: OrderId
+amount  :: Money
 ```
 
 DL style:
 
 ```text
-# SUBSCRIPTION
-## ${SubscriptionName}
-- ON :: ${EventName}
-- ROUTE :: Unicast | Multicast | Broadcast
-- ENTITY :: ${EntityName}
-- TARGET :: ${TargetExpression}
-- TARGETS :: [${id1}, ${id2}]
-- SELECTOR :: ${BooleanExpression}
-- ACTION :: ${ActionName}
-- BOUND :: ${Number}
-- ACTIVATION :: KeepResident | ActivateOnReceive
+### PARAMETER
+- orderId :: OrderId
+- amount :: Money
 ```
 
-### 10.6 Runtime Model
-
-Execution flow:
+Table style:
 
 ```text
-Channel -> Reception -> RoutingEngine -> SubscriptionIndex -> Dispatch -> ActionCall -> Execution(Job)
+### PARAMETER
+| name    | type    | multiplicity |
+|---------+---------+--------------|
+| orderId | OrderId | 1            |
+| amount  | Money   | 1            |
 ```
 
-Routing strategy:
+---
 
-- Explicit routing
-- Embedded routing (event attributes)
-- Rule-based routing
+## 9. Runtime Alignment Notes
 
-Composite:
+Runtime expectation for integrated CNCF path:
 
-- `RoutingEngine = CompositeRoutingStrategy`
+- `COMMAND`: async job default execution path
+- `QUERY`: sync read path (or equivalent ephemeral job path)
 
-Subscription index keys:
+---
 
-- topic
-- event name
-- entity type
+## 10. Accepted / Rejected Examples
 
-Dispatch semantics:
+Accepted:
 
-- Unicast: explicit or deterministic IDs
-- Multicast: selector-based targets
-- Broadcast: all targets
+- canonical operation with explicit `INPUT`
+- convenience operation with only `PARAMETER` (auto input generation)
+- dual definition with strict field consistency
 
-Target resolver types:
+Rejected:
 
-- ExplicitTargets
-- FromEvent
-- Deterministic
+- `COMMAND` operation bound to query-value input
+- `QUERY` operation bound to command-value input
+- dual definition with field name/type/order inconsistency
 
-### 10.7 Validation Rules
+---
 
-Unicast:
+## 11. References
 
-- `target` or `targets` is required
-- `selector` is not allowed
-
-Multicast:
-
-- `selector` is required
-
-Broadcast:
-
-- `selector` is not allowed
-- explicit targets are not allowed
-
-### 10.8 Separation of Responsibilities
-
-- Event = what happened
-- Routing = where to look
-- Subscription = what to do
-- Dispatch = how to apply
-- ActionCall = execution
-
-### 10.9 Notes
-
-- Event does not define delivery semantics.
-- Dispatch is defined by Subscription.
-- Topic is a routing key, not domain meaning.
-- Attribute grammar follows Entity schema.
+- `/Users/asami/src/dev2025/cloud-native-component-framework/docs/journal/2026/03/cml-operation-arg-handoff.md`
+- `/Users/asami/src/dev2025/cloud-native-component-framework/docs/journal/2026/03/cml-operation-input-command-query-value-handoff.md`
+- `/Users/asami/src/dev2025/cloud-native-component-framework/docs/phase/phase-8.md`
+- `/Users/asami/src/dev2025/cloud-native-component-framework/docs/phase/phase-8-checklist.md`
+- `/Users/asami/src/dev2025/cozy/docs/design/cml-grammar-draft.md` (draft/WIP only)

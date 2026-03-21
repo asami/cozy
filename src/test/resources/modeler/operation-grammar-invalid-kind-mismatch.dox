@@ -1,0 +1,43 @@
+# COMMAND
+
+## SavePerson
+
+### ATTRIBUTE
+
+| name | type     | multiplicity |
+|------+----------+--------------|
+| id   | EntityId | 1            |
+
+# QUERY
+
+## PersonFilter
+
+### ATTRIBUTE
+
+| name | type | multiplicity |
+|------+------|--------------|
+| name | Name | 1            |
+
+# OPERATION
+
+## savePerson
+
+### TYPE
+COMMAND
+
+### INPUT
+PersonFilter
+
+### OUTPUT
+SavePersonResult
+
+# ENTITY
+
+## Person
+
+### ATTRIBUTE
+
+| name | type     | multiplicity |
+|------+----------+--------------|
+| id   | entityid | 1            |
+| name | name     | 1            |
