@@ -216,7 +216,69 @@ Implementation status:
 
 ---
 
-## 8. Recommended Template
+## 8. AGGREGATE / VIEW DSL (AV-02)
+
+`AGGREGATE` and `VIEW` sections can be defined inside `ENTITY`.
+
+### 8.1 AGGREGATE
+
+```text
+### AGGREGATE
+
+#### COMMAND
+
+##### createPerson
+- INPUT.name :: name
+- VALIDATE :: name.nonEmpty
+- EVENT :: person.created
+- NEW_STATE :: Active
+
+#### STATE
+| name | type | multiplicity |
+|------+------|--------------|
+| id   | entityid | 1         |
+| name | name     | 1         |
+
+#### INVARIANT
+
+##### nameRequired
+- EXPRESSION :: state.name.nonEmpty
+```
+
+AST mapping:
+- `EntityDef.aggregate: Option[AggregateDef]`
+- `AggregateDef(commands, state, invariants)`
+
+### 8.2 VIEW
+
+```text
+### VIEW
+- EVENTS :: person.created, person.updated
+- REBUILDABLE :: true
+
+#### ATTRIBUTE
+| name | type | multiplicity |
+|------+------|--------------|
+| id   | entityid | 1         |
+| name | name     | 1         |
+
+#### QUERY
+
+##### searchPublished
+- EXPRESSION :: poststatus == "published"
+```
+
+AST mapping:
+- `EntityDef.view: Option[ViewDef]`
+- `ViewDef(attributes, queries)`
+
+Validation:
+- `VIEW/QUERY` must not include command-side mutation directives (`ACTION`, `WRITE`, `MUTATION`, `MUTATES`).
+- `EVENT` must not depend on `VIEW` metadata.
+
+---
+
+## 9. Recommended Template
 
 ```text
 # ENTITY
@@ -245,7 +307,7 @@ EXTENDS = ["SimpleEntity"]
 
 ---
 
-## 9. Future Extension Points
+## 10. Future Extension Points
 
 - Promote EventReception as an official top-level modeler input
 - Extend Event selectors to support composite conditions (AND/OR)
@@ -253,7 +315,7 @@ EXTENDS = ["SimpleEntity"]
 
 ---
 
-## 10. CNCF EVENT/SUBSCRIPTION/Runtime Design (WIP)
+## 11. CNCF EVENT/SUBSCRIPTION/Runtime Design (WIP)
 
 This section consolidates the design draft from:
 

@@ -1,0 +1,48 @@
+# ENTITY
+
+## Person
+
+### ATTRIBUTE
+
+| name | type     | multiplicity |
+|------+----------+--------------|
+| id   | entityid | 1            |
+| name | name     | 1            |
+
+### AGGREGATE
+
+#### COMMAND
+
+##### createPerson
+- INPUT.name :: name
+- VALIDATE :: name.nonEmpty
+- EVENT :: person.created
+- NEW_STATE :: Active
+
+#### STATE
+
+| name | type     | multiplicity |
+|------+----------+--------------|
+| id   | entityid | 1            |
+| name | name     | 1            |
+
+#### INVARIANT
+
+##### nameRequired
+- EXPRESSION :: state.name.nonEmpty
+
+### VIEW
+- EVENTS :: person.created, person.updated
+- REBUILDABLE :: true
+
+#### ATTRIBUTE
+
+| name | type     | multiplicity |
+|------+----------+--------------|
+| id   | entityid | 1            |
+| name | name     | 1            |
+
+#### QUERY
+
+##### searchPublished
+- EXPRESSION :: poststatus == "published"

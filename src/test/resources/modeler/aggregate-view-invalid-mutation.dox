@@ -1,0 +1,17 @@
+# ENTITY
+
+## Person
+
+### ATTRIBUTE
+
+| name | type     | multiplicity |
+|------+----------+--------------|
+| id   | entityid | 1            |
+| name | name     | 1            |
+
+### EVENT
+
+#### person.created
+- CATEGORY :: ActionEvent
+- KIND :: created
+- VIEW :: person.default

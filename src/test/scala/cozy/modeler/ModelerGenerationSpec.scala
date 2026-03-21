@@ -219,6 +219,33 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(shipped.priority == 0)
   }
 
+  test("kaleidox parses Aggregate/View metadata in Entity section") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/aggregate-view-metadata.dox")
+    val model = KaleidoxModel.load(KaleidoxConfig.default.withoutLocation, input.toFile)
+    val entity = model.takeEntityModel.get("Person").getOrElse {
+      fail("Entity Person is missing")
+    }
+
+    val aggregate = entity.aggregate.getOrElse {
+      fail("Aggregate is missing")
+    }
+    assert(aggregate.commands.nonEmpty)
+    assert(aggregate.commands.head.name == "createPerson")
+    assert(aggregate.commands.head.events.contains("person.created"))
+    assert(aggregate.state.exists(_.name == "name"))
+    assert(aggregate.invariants.exists(_.name == "nameRequired"))
+
+    val view = entity.view.getOrElse {
+      fail("View is missing")
+    }
+    assert(view.attributes.exists(_.name == "id"))
+    assert(view.attributes.exists(_.name == "name"))
+    assert(view.queries.exists(_.name == "searchPublished"))
+    assert(view.sourceEvents.contains("person.created"))
+    assert(view.rebuildable.contains(true))
+  }
+
   test("modeler-scala emits eventReceptionDefinitions from Event section") {
     val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
     val input = base.resolve("src/test/resources/modeler/event-metadata.dox")
