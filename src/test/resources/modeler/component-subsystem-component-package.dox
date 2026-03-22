@@ -1,0 +1,18 @@
+# COMPONENT
+
+## domain
+
+### PACKAGE
+
+textus.user.account
+
+# ENTITY
+
+## Person
+
+### ATTRIBUTE
+
+| name | type     | multiplicity |
+|------+----------+--------------|
+| id   | entityid | 1            |
+| name | name     | 1            |

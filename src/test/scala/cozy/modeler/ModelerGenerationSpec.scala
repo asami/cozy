@@ -49,7 +49,7 @@ class ModelerGenerationSpec extends AnyFunSuite {
     cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
 
     val generated = out.resolve(
-      "target/scala-3.3.7/src_managed/main/scala/domain/Person.scala"
+      "target/scala-3.3.7/src_managed/main/scala/domain/entity/Person.scala"
     )
     assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)
@@ -60,7 +60,7 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(content.contains("PROP_AGE"))
 
     val generatedCreate = out.resolve(
-      "target/scala-3.3.7/src_managed/main/scala/domain/create/Person.scala"
+      "target/scala-3.3.7/src_managed/main/scala/domain/entity/create/Person.scala"
     )
     assert(Files.exists(generatedCreate), s"generated file not found: $generatedCreate")
     val createContent = Files.readString(generatedCreate)
@@ -77,7 +77,7 @@ class ModelerGenerationSpec extends AnyFunSuite {
     cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
 
     val generated = out.resolve(
-      "target/scala-3.3.7/src_managed/main/scala/domain/Person.scala"
+      "target/scala-3.3.7/src_managed/main/scala/domain/entity/Person.scala"
     )
     assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)
@@ -96,25 +96,25 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(content.contains("org.goldenport.model.value.BaseContent.simple(\"displayName\")"))
 
     val generatedCreate = out.resolve(
-      "target/scala-3.3.7/src_managed/main/scala/domain/create/Person.scala"
+      "target/scala-3.3.7/src_managed/main/scala/domain/entity/create/Person.scala"
     )
     assert(Files.exists(generatedCreate), s"generated file not found: $generatedCreate")
     val createContent = Files.readString(generatedCreate)
-    assert(createContent.contains("val schema: org.goldenport.schema.Schema = domain.Person.schema"))
+    assert(createContent.contains("val schema: org.goldenport.schema.Schema = domain.entity.Person.schema"))
 
     val generatedQuery = out.resolve(
-      "target/scala-3.3.7/src_managed/main/scala/domain/query/Person.scala"
+      "target/scala-3.3.7/src_managed/main/scala/domain/entity/query/Person.scala"
     )
     assert(Files.exists(generatedQuery), s"generated file not found: $generatedQuery")
     val queryContent = Files.readString(generatedQuery)
-    assert(queryContent.contains("val schema: org.goldenport.schema.Schema = domain.Person.schema"))
+    assert(queryContent.contains("val schema: org.goldenport.schema.Schema = domain.entity.Person.schema"))
 
     val generatedUpdate = out.resolve(
-      "target/scala-3.3.7/src_managed/main/scala/domain/update/Person.scala"
+      "target/scala-3.3.7/src_managed/main/scala/domain/entity/update/Person.scala"
     )
     assert(Files.exists(generatedUpdate), s"generated file not found: $generatedUpdate")
     val updateContent = Files.readString(generatedUpdate)
-    assert(updateContent.contains("val schema: org.goldenport.schema.Schema = domain.Person.schema"))
+    assert(updateContent.contains("val schema: org.goldenport.schema.Schema = domain.entity.Person.schema"))
   }
 
   test("modeler-scala parses StateMachine CML heading syntax") {
@@ -388,6 +388,37 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(content.contains("\"componentlets\" -> Vector(\"audit_sink\")"))
     assert(content.contains("\"extension_points\" -> Vector(\"observability\")"))
     assert(content.contains("\"extension_bindings\" -> Record.empty"))
+  }
+
+
+  test("kaleidox parses component package override") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/component-subsystem-component-package.dox")
+    val model = KaleidoxModel.load(KaleidoxConfig.default.withoutLocation, input.toFile)
+    val cs = model.takeComponentSubsystemModel
+
+    val component = cs.components.find(_.name == "domain").getOrElse {
+      fail("component 'domain' is missing")
+    }
+    assert(component.packageName.contains("textus.user.account"))
+  }
+
+  test("modeler-scala emits component in configured package") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/component-subsystem-component-package.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-component-subsystem-component-package")
+    _delete_recursively(out)
+    Files.createDirectories(out.getParent)
+
+    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+
+    val generated = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/textus/user/account/DomainComponent.scala"
+    )
+    assert(Files.exists(generated), s"generated file not found: $generated")
+    val content = Files.readString(generated)
+    assert(content.contains("package textus.user.account"))
+    assert(content.contains("object DomainComponent"))
   }
 
   test("modeler-scala rejects operation kind/input value mismatch") {

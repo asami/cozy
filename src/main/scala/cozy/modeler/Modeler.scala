@@ -768,7 +768,11 @@ object Modeler {
       val entityservice: MService = _make_entity_service(pkg, entities)
       val aggregateservice: MService = _make_aggregate_service(pkg, entities)
       val viewservice: MService = _make_view_service(pkg, entities)
-      val core = MObject.Core.create(pkg, services = List(aggregateservice, viewservice, entityservice))
+      val componentpackagename = _component_package_name(pkg).getOrElse(pkg.name)
+      val core = MObject.Core(
+        affiliation = MPackageRef(componentpackagename),
+        services = List(aggregateservice, viewservice, entityservice)
+      )
       val transitionrules = _state_machine_transition_rules(entities)
       val eventdefs = _event_reception_definitions(entities)
       val eventroutes = _event_routing_definitions()
@@ -792,6 +796,11 @@ object Modeler {
       )
       MDomainComponent(desc, core, ccore)
     }
+
+    private def _component_package_name(
+      pkg: MPackage
+    ): Option[String] =
+      componentSubsystem.components.find(_.name == pkg.name).flatMap(_.packageName)
 
     private def _component_definitions(
       pkg: MPackage
@@ -1025,11 +1034,15 @@ object Modeler {
         )
       }
 
+    private val _entity_package = "entity"
+    private val _entity_create_package = s"${_entity_package}.create"
+    private val _entity_query_package = s"${_entity_package}.query"
+
     private def _aggregate_package(name: Option[String]): String =
-      name.flatMap(_token_opt).fold("aggregate")(x => s"aggregate.$x")
+      name.flatMap(_token_opt).fold(s"${_entity_package}.aggregate")(x => s"${_entity_package}.aggregate.$x")
 
     private def _view_package(name: Option[String]): String =
-      name.flatMap(_token_opt).fold("view")(x => s"view.$x")
+      name.flatMap(_token_opt).fold(s"${_entity_package}.view")(x => s"${_entity_package}.view.$x")
 
     // NOTE: Aggregate DSL is not available yet. Keep default package for now.
     // Future: return Some(aggregateName) from model metadata.
@@ -1391,9 +1404,9 @@ object Modeler {
       val pkgname = entity.packageName
       def _qualify(s: String) =
         if (pkgname.isEmpty) s else s"$pkgname.$s"
-      val wholeclass = entity.qualifiedName
-      val createclass = _qualify(s"create.$title")
-      val queryclass = _qualify(s"query.$title")
+      val wholeclass = _qualify(s"${_entity_package}.$title")
+      val createclass = _qualify(s"${_entity_create_package}.$title")
+      val queryclass = _qualify(s"${_entity_query_package}.$title")
       val entityparam = MParameter("entity", MEntityValue.create(entity))
       val updateparam = MParameter("entity", MEntityValue.update(entity))
       val queryparam = MParameter.query("q", MEntityValue.query(entity))
@@ -1523,7 +1536,7 @@ object Modeler {
       // NOTE: Aggregate-specific DSL/model is not available yet.
       // Default is aggregate.<Entity>. Non-default is aggregate.<aggregate-name>.<Entity>.
       val aggregateclass = _qualify(s"${_aggregate_package(_aggregate_name(entity))}.$title")
-      val queryclass = _qualify(s"query.$title")
+      val queryclass = _qualify(s"${_entity_query_package}.$title")
       val createparam = MParameter("entity", MEntityValue.aggregate(entity))
       val saveparam = MParameter("entity", MEntityValue.aggregate(entity))
       val updateparam = MParameter("entity", MEntityValue.aggregate(entity))
@@ -1596,7 +1609,7 @@ object Modeler {
       val pkgname = entity.packageName
       def _qualify(s: String) =
         if (pkgname.isEmpty) s else s"$pkgname.$s"
-      val queryclass = _qualify(s"query.$title")
+      val queryclass = _qualify(s"${_entity_query_package}.$title")
       val searchparam = MParameter.query("q", MEntityValue.query(entity))
       val viewparam = MParameter(
         Description.name("view"),
