@@ -287,6 +287,18 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(normalized.size == 3)
   }
 
+  test("kaleidox parses OPERATION kind marker grammar (COMMAND/QUERY headings)") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/operation-grammar-kind-marker.dox")
+    val model = KaleidoxModel.load(KaleidoxConfig.default.withoutLocation, input.toFile)
+    val opmodel = model.takeOperationModel
+    val normalized = opmodel.normalizedOperations
+
+    assert(normalized.exists(x => x.name == "createOrder" && x.kind.toString == "Command" && x.inputType == "CreateOrder"))
+    assert(normalized.exists(x => x.name == "getOrder" && x.kind.toString == "Query" && x.inputType == "GetOrder"))
+    assert(normalized.size == 2)
+  }
+
   test("modeler-scala emits operationDefinitions from OPERATION section") {
     val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
     val input = base.resolve("src/test/resources/modeler/operation-grammar.dox")
@@ -310,6 +322,74 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(content.contains("inputValueKind = \"COMMAND_VALUE\""))
   }
 
+  test("kaleidox parses COMPONENT/SUBSYSTEM grammar") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/component-subsystem-grammar.dox")
+    val model = KaleidoxModel.load(KaleidoxConfig.default.withoutLocation, input.toFile)
+    val cs = model.takeComponentSubsystemModel
+
+    assert(cs.components.nonEmpty)
+    val component = cs.components.find(_.name == "person").getOrElse {
+      fail("component 'person' is missing")
+    }
+    assert(component.coordinates.exists(_.asString == "org.simplemodeling.car:person-service:0.1.0"))
+    assert(component.componentlets.contains("person_core"))
+    assert(component.extensionPoints.contains("transport"))
+    assert(component.extensionBindings.get("transport").contains("grpc"))
+
+    val subsystem = cs.subsystems.find(_.name == "identity").getOrElse {
+      fail("subsystem 'identity' is missing")
+    }
+    assert(subsystem.components.exists(_.asString == "org.simplemodeling.car:person-service:0.1.0"))
+    assert(subsystem.extensionBindings.get("transport").contains("http"))
+    assert(subsystem.config.get("profile").contains("prod"))
+  }
+
+  test("modeler-scala emits component/subsystem metadata records") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/component-subsystem-grammar.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-component-subsystem-grammar")
+    _delete_recursively(out)
+    Files.createDirectories(out.getParent)
+
+    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+
+    val generated = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+    )
+    assert(Files.exists(generated), s"generated file not found: $generated")
+    val content = Files.readString(generated)
+    assert(content.contains("def componentDefinitionRecords: Vector[Record] = Vector("))
+    assert(content.contains("def subsystemDefinitionRecords: Vector[Record] = Vector("))
+    assert(content.contains("\"name\" -> \"person\""))
+    assert(content.contains("\"coordinates\" -> Vector(\"org.simplemodeling.car:person-service:0.1.0\")"))
+    assert(content.contains("\"extension_bindings\" -> Record.data("))
+    assert(content.contains("\"transport\" -> \"grpc\""))
+    assert(content.contains("\"name\" -> \"identity\""))
+  }
+
+  test("modeler-scala emits default component metadata when COMPONENT section is missing") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/component-subsystem-default-component.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-component-subsystem-default-component")
+    _delete_recursively(out)
+    Files.createDirectories(out.getParent)
+
+    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+
+    val generated = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+    )
+    assert(Files.exists(generated), s"generated file not found: $generated")
+    val content = Files.readString(generated)
+    assert(content.contains("def componentDefinitionRecords: Vector[Record] = Vector("))
+    assert(content.contains("\"name\" -> \"domain\""))
+    assert(content.contains("\"coordinates\" -> Vector.empty"))
+    assert(content.contains("\"componentlets\" -> Vector(\"audit_sink\")"))
+    assert(content.contains("\"extension_points\" -> Vector(\"observability\")"))
+    assert(content.contains("\"extension_bindings\" -> Record.empty"))
+  }
+
   test("modeler-scala rejects operation kind/input value mismatch") {
     val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
     val input = base.resolve("src/test/resources/modeler/operation-grammar-invalid-kind-mismatch.dox")
@@ -318,6 +398,16 @@ class ModelerGenerationSpec extends AnyFunSuite {
 
     val output = _run_modeler_scala(input, out)
     assert(output.contains("TYPE=COMMAND cannot use query-value input"), s"unexpected output: $output")
+  }
+
+  test("modeler-scala rejects invalid subsystem component coordinate") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/component-subsystem-invalid-coordinate.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-component-subsystem-invalid-coordinate")
+    _delete_recursively(out)
+
+    val output = _run_modeler_scala(input, out)
+    assert(output.contains("invalid coordinate"), s"unexpected output: $output")
   }
 
   test("modeler-scala merges Entity Event and top-level Event definitions") {

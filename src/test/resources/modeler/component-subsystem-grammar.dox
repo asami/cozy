@@ -1,0 +1,74 @@
+# COMPONENT
+
+## person
+
+### COORDINATE
+
+- coordinate :: org.simplemodeling.car:person-service:0.1.0
+
+### COMPONENTLET
+
+#### person_core
+
+#### person_policy
+
+### EXTENSIONPOINT
+
+#### transport
+
+#### password_hash
+
+### EXTENSIONBINDING
+
+#### transport
+
+grpc
+
+#### password_hash
+
+bcrypt
+
+# COMPONENTLET
+
+## audit_sink
+
+- component :: person
+- kind :: infra
+
+# EXTENSIONPOINT
+
+## observability
+
+- component :: person
+- interface :: MetricsSink
+
+# SUBSYSTEM
+
+## identity
+
+### COMPONENT
+
+- org.simplemodeling.car:person-service:0.1.0
+
+### EXTENSIONBINDING
+
+#### transport
+
+http
+
+### CONFIG
+
+#### profile
+
+prod
+
+# ENTITY
+
+## Person
+
+### ATTRIBUTE
+
+| name | type     | multiplicity |
+|------+----------+--------------|
+| id   | entityid | 1            |
+| name | name     | 1            |

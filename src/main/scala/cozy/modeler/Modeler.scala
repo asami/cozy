@@ -18,6 +18,7 @@ import org.goldenport.kaleidox.{Model => KaleidoxModel}
 import org.goldenport.kaleidox.lisp.Context
 import org.goldenport.kaleidox.model.{SchemaModel, EntityModel, DataTypeModel}
 import org.goldenport.kaleidox.model.{PowertypeModel, StateMachineModel, EventModel}
+import org.goldenport.kaleidox.model.ComponentSubsystemModel
 import org.goldenport.kaleidox.model.OperationModel
 import org.goldenport.kaleidox.model.CmlExpressionGuard
 import org.goldenport.kaleidox.model.SchemaModel.SchemaClass
@@ -407,6 +408,7 @@ object Modeler {
     datatype: DataTypeModel,
     powertype: PowertypeModel,
     stateMachine: StateMachineModel,
+    componentSubsystem: ComponentSubsystemModel,
     event: EventModel,
     operation: OperationModel
   ) {
@@ -774,6 +776,8 @@ object Modeler {
       val aggregates = _aggregate_definitions(entities)
       val views = _view_definitions(entities)
       val operations = _operation_definitions()
+      val components = _component_definitions(pkg)
+      val subsystems = _subsystem_definitions()
       val ccore = MComponent.Core(
         entities = entities,
         stateMachineTransitionRules = transitionrules,
@@ -782,10 +786,121 @@ object Modeler {
         eventSubscriptionDefinitions = eventsubs,
         aggregateDefinitions = aggregates,
         viewDefinitions = views,
-        operationDefinitions = operations
+        operationDefinitions = operations,
+        componentDefinitions = components,
+        subsystemDefinitions = subsystems
       )
       MDomainComponent(desc, core, ccore)
     }
+
+    private def _component_definitions(
+      pkg: MPackage
+    ): Vector[MComponent.ComponentDefinition] = {
+      val all = componentSubsystem.components.sortBy(_.name)
+      val selected = {
+        val matched = all.filter(_.name == pkg.name)
+        if (matched.nonEmpty)
+          matched
+        else
+          all
+      }
+      if (selected.nonEmpty)
+        selected.map(_component_definition)
+      else
+        Vector(_default_component_definition(pkg))
+    }
+
+    private def _component_definition(
+      p: ComponentSubsystemModel.ComponentDefinition
+    ): MComponent.ComponentDefinition = {
+      MComponent.ComponentDefinition(
+        name = p.name,
+        coordinates = p.coordinates.map { c =>
+          MComponent.ComponentCoordinate(
+            group = c.group,
+            artifact = c.artifact,
+            version = c.version
+          )
+        },
+        componentlets = _componentlet_names_for_component(p),
+        extensionPoints = _extension_point_names_for_component(p),
+        extensionBindings = p.extensionBindings
+      )
+    }
+
+    private def _default_component_definition(
+      pkg: MPackage
+    ): MComponent.ComponentDefinition = {
+      MComponent.ComponentDefinition(
+        name = pkg.name,
+        coordinates = Vector.empty,
+        componentlets = _unbound_componentlet_names(),
+        extensionPoints = _unbound_extension_point_names(),
+        extensionBindings = Map.empty
+      )
+    }
+
+    private def _componentlet_names_for_component(
+      p: ComponentSubsystemModel.ComponentDefinition
+    ): Vector[String] =
+      _distinct_stable(
+        p.componentlets ++ componentSubsystem.componentlets.collect {
+          case x if x.component.contains(p.name) => x.name
+        }
+      )
+
+    private def _extension_point_names_for_component(
+      p: ComponentSubsystemModel.ComponentDefinition
+    ): Vector[String] =
+      _distinct_stable(
+        p.extensionPoints ++ componentSubsystem.extensionPoints.collect {
+          case x if x.component.contains(p.name) => x.name
+        }
+      )
+
+    private def _unbound_componentlet_names(
+    ): Vector[String] =
+      _distinct_stable(
+        componentSubsystem.componentlets.collect {
+          case x if x.component.isEmpty => x.name
+        }
+      )
+
+    private def _unbound_extension_point_names(
+    ): Vector[String] =
+      _distinct_stable(
+        componentSubsystem.extensionPoints.collect {
+          case x if x.component.isEmpty => x.name
+        }
+      )
+
+    private def _subsystem_definitions(
+    ): Vector[MComponent.SubsystemDefinition] =
+      componentSubsystem.subsystems.sortBy(_.name).map { p =>
+        MComponent.SubsystemDefinition(
+          name = p.name,
+          components = p.components.map { c =>
+            MComponent.ComponentCoordinate(
+              group = c.group,
+              artifact = c.artifact,
+              version = c.version
+            )
+          },
+          extensionBindings = p.extensionBindings,
+          config = p.config
+        )
+      }
+
+    private def _distinct_stable(
+      p: Vector[String]
+    ): Vector[String] =
+      p.foldLeft(Vector.empty[String]) { (z, x) =>
+        val s = Option(x).map(_.trim).getOrElse("")
+        if (s.isEmpty || z.contains(s))
+          z
+        else
+          z :+ s
+      }
 
     private def _event_reception_definitions(
       entities: Vector[MEntity]
@@ -1539,6 +1654,7 @@ object Modeler {
       p.takeDataTypeModel,
       p.takePowertypeModel,
       p.takeStateMachineModel,
+      p.takeComponentSubsystemModel,
       p.eventModel,
       p.takeOperationModel
     )

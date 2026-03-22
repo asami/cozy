@@ -1,6 +1,6 @@
 # CML Grammar (Latest, Cozy)
 
-status=frozen-for-phase8-op-01-op-03
+status=frozen-for-phase9-cs-01-cs-02
 updated_at=2026-03-22
 target=/Users/asami/src/dev2025/cozy
 
@@ -11,6 +11,7 @@ It merges:
 
 - currently implemented grammar
 - Phase 8 OP-01/OP-03 operation handoff contract
+- Phase 9 CS-01/CS-02 component-subsystem grammar contract
 
 This document is normative for parser/modeler/generator behavior.
 It intentionally excludes draft/WIP grammar proposals.
@@ -46,8 +47,15 @@ Supported top-level sections:
 - `# OPERATION`
 - `# COMMAND` (operation input value definitions)
 - `# QUERY` (operation input value definitions)
+- `# COMPONENT`
+- `# COMPONENTLET`
+- `# EXTENSIONPOINT`
+- `# SUBSYSTEM`
 
 Future sections may be added, but this contract focuses on accepted and frozen behavior for the current phase.
+
+`COMPONENT` is optional.
+If no `# COMPONENT` section is defined, Cozy generates a default placeholder component definition at generation time.
 
 ---
 
@@ -205,6 +213,32 @@ Operation kind is mandatory:
 
 - `COMMAND`
 - `QUERY`
+
+Accepted input patterns:
+
+1. `TYPE` section:
+
+```text
+### TYPE
+COMMAND
+```
+
+2. Kind marker section (equivalent to `TYPE`):
+
+```text
+### COMMAND
+enabled
+```
+
+or
+
+```text
+### QUERY
+enabled
+```
+
+Note:
+- marker section should include non-empty body text (e.g. `enabled`) for parser normalization stability.
 
 ### 8.3 Input Value Definition Sections
 
@@ -375,7 +409,124 @@ Table style:
 
 ---
 
-## 9. Runtime Alignment Notes
+## 9. COMPONENT / SUBSYSTEM DSL (Phase 9 Frozen Contract)
+
+### 9.1 COMPONENT
+
+`COMPONENT` defines packaging and composition metadata.
+`COMPONENT` itself is optional at CML level (see default fallback in Section 3).
+
+```text
+# COMPONENT
+
+## person
+
+### COORDINATE
+
+- coordinate :: org.simplemodeling.car:person-service:0.1.0
+
+### COMPONENTLET
+
+#### person_core
+#### person_policy
+
+### EXTENSIONPOINT
+
+#### transport
+#### password_hash
+
+### EXTENSIONBINDING
+
+#### transport
+grpc
+
+#### password_hash
+bcrypt
+```
+
+Mapped metadata:
+
+- `name`
+- `coordinates` (`group:artifact:version`)
+- `componentlets`
+- `extensionPoints`
+- `extensionBindings`
+
+### 9.2 COMPONENTLET
+
+Top-level `COMPONENTLET` is supported.
+
+```text
+# COMPONENTLET
+
+## audit_sink
+- component :: person
+- kind :: infra
+```
+
+### 9.3 EXTENSIONPOINT
+
+Top-level `EXTENSIONPOINT` is supported.
+
+```text
+# EXTENSIONPOINT
+
+## observability
+- component :: person
+- interface :: MetricsSink
+```
+
+### 9.4 SUBSYSTEM
+
+`SUBSYSTEM` defines composition metadata.
+
+```text
+# SUBSYSTEM
+
+## identity
+
+### COMPONENT
+- org.simplemodeling.car:person-service:0.1.0
+
+### EXTENSIONBINDING
+#### transport
+http
+
+### CONFIG
+#### profile
+prod
+```
+
+Mapped metadata:
+
+- `name`
+- `components` (`group:artifact:version`)
+- `extensionBindings`
+- `config`
+
+### 9.5 Validation Rules
+
+Rejected definitions:
+
+1. invalid component coordinate format (must be `group:artifact:version`)
+2. invalid subsystem component coordinate format
+3. empty component or subsystem names
+
+Generator output contract:
+
+- `DomainComponent.componentDefinitionRecords: Vector[Record]`
+- `DomainComponent.subsystemDefinitionRecords: Vector[Record]`
+
+If no explicit component is defined:
+
+- Cozy emits one default component definition with package-based name.
+- top-level unbound `COMPONENTLET` / `EXTENSIONPOINT` definitions are attached to that default component.
+
+These records are deterministic and sorted by declaration-normalized order.
+
+---
+
+## 10. Runtime Alignment Notes
 
 Runtime expectation for integrated CNCF path:
 
@@ -384,7 +535,7 @@ Runtime expectation for integrated CNCF path:
 
 ---
 
-## 10. Accepted / Rejected Examples
+## 11. Accepted / Rejected Examples
 
 Accepted:
 
@@ -400,10 +551,15 @@ Rejected:
 
 ---
 
-## 11. References
+## 12. References
 
 - `/Users/asami/src/dev2025/cloud-native-component-framework/docs/journal/2026/03/cml-operation-arg-handoff.md`
 - `/Users/asami/src/dev2025/cloud-native-component-framework/docs/journal/2026/03/cml-operation-input-command-query-value-handoff.md`
+- `/Users/asami/src/dev2025/cozy/docs/journal/2026/03/cml-component-subsystem-grammar-handoff.md`
+- `/Users/asami/src/dev2025/cozy/docs/journal/2026/03/cml-component-centric-spec-handoff.md` (reference/informational)
+- `/Users/asami/src/dev2025/cozy/docs/journal/2026/03/cml-component-subsystem-grammar-note-handoff.md` (reference/informational)
 - `/Users/asami/src/dev2025/cloud-native-component-framework/docs/phase/phase-8.md`
 - `/Users/asami/src/dev2025/cloud-native-component-framework/docs/phase/phase-8-checklist.md`
+- `/Users/asami/src/dev2025/cloud-native-component-framework/docs/phase/phase-9.md`
+- `/Users/asami/src/dev2025/cloud-native-component-framework/docs/phase/phase-9-checklist.md`
 - `/Users/asami/src/dev2025/cozy/docs/design/cml-grammar-draft.md` (draft/WIP only)

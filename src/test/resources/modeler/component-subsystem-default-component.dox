@@ -1,0 +1,22 @@
+# COMPONENTLET
+
+## audit_sink
+
+- kind :: infra
+
+# EXTENSIONPOINT
+
+## observability
+
+- interface :: MetricsSink
+
+# ENTITY
+
+## Person
+
+### ATTRIBUTE
+
+| name | type     | multiplicity |
+|------+----------+--------------|
+| id   | entityid | 1            |
+| name | name     | 1            |

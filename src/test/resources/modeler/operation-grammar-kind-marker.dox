@@ -1,0 +1,43 @@
+# COMMAND
+
+## CreateOrder
+
+### ATTRIBUTE
+| name    | type    | multiplicity |
+|---------+---------+--------------|
+| orderId | OrderId | 1            |
+
+# QUERY
+
+## GetOrder
+
+### ATTRIBUTE
+| name    | type    | multiplicity |
+|---------+---------+--------------|
+| orderId | OrderId | 1            |
+
+# OPERATION
+
+## createOrder
+
+### COMMAND
+
+enabled
+
+### INPUT
+CreateOrder
+
+### OUTPUT
+CreateOrderResult
+
+## getOrder
+
+### QUERY
+
+enabled
+
+### INPUT
+GetOrder
+
+### OUTPUT
+GetOrderResult

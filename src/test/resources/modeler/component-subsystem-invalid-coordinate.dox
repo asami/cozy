@@ -1,0 +1,15 @@
+# COMPONENT
+
+## person
+
+### COORDINATE
+
+- coordinate :: org.simplemodeling.car:person-service:0.1.0
+
+# SUBSYSTEM
+
+## identity
+
+### COMPONENT
+
+- person-service
