@@ -4,7 +4,6 @@ resolvers += "GitHab releases 2020" at "https://raw.github.com/asami/maven-repos
 resolvers += "GitHab releases" at "https://raw.github.com/asami/maven-repository/2025/releases"
 resolvers += Resolver.defaultLocal
 resolvers += Resolver.file("Local Ivy", file(Path.userHome.absolutePath + "/.ivy2/local"))(Resolver.ivyStylePatterns)
-resolvers += "Local Maven Repository" at ("file://" + Path.userHome.absolutePath + "/.m2/repository")
 
 useCoursier := false
 

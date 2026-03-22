@@ -2,96 +2,88 @@
 set -eu
 
 cd out.d
-mkdir -p src/main/scala/domain .cncf
+mkdir -p src/main/scala/org/goldenport/cncf/cli .cncf
 
-cat > src/main/scala/domain/SimpleEntityActionProbe.scala <<'SCALA'
-package domain
+cat > src/main/scala/org/goldenport/cncf/cli/SimpleEntitySyncCommandMain.scala <<'SCALA'
+package org.goldenport.cncf.cli
 
-import java.nio.file.{Files, Paths}
+import domain.DomainComponent
 import org.goldenport.Consequence
-import org.goldenport.protocol.{Argument, Request}
-import org.goldenport.protocol.operation.OperationResponse
-import org.goldenport.cncf.bootstrap.{BootstrapConfig, CncfBootstrap}
-import org.goldenport.cncf.component.{Component, ComponentCreate, ComponentOrigin}
-import org.goldenport.cncf.subsystem.Subsystem
-import domain.impl.ComponentFactory
+import org.goldenport.cncf.action.Action
+import org.goldenport.cncf.cli.help.CommandProtocolHelp
+import org.goldenport.cncf.component.{ComponentCreate, ComponentOrigin}
 
-object SimpleEntityActionProbe {
+object SimpleEntitySyncCommandMain {
+  private def _splitRuntimeArgs(
+    args: Array[String]
+  ): (Array[String], Array[String]) = {
+    val runtime = Vector.newBuilder[String]
+    val command = Vector.newBuilder[String]
+    var i = 0
+    while (i < args.length) {
+      val current = args(i)
+      if (current.startsWith("--cncf.") || current.startsWith("-cncf.")) {
+        runtime += current
+        if (!current.contains("=") && i + 1 < args.length && !args(i + 1).startsWith("-")) {
+          runtime += args(i + 1)
+          i = i + 1
+        }
+      } else {
+        command += current
+      }
+      i = i + 1
+    }
+    (runtime.result().toArray, command.result().toArray)
+  }
+
   def main(args: Array[String]): Unit = {
-    val id = "sys-sys-entity-simple_entity-1773792000000-1eeeeeeeeeeeeeeeee"
-    val sqlitePath = Paths.get("target/cncf.d/cncf-command.sqlite3")
-    Files.deleteIfExists(sqlitePath)
+    val (runtimeArgs, commandArgs) = _splitRuntimeArgs(args)
+    val normalized = CommandProtocolHelp.normalizeArgs(commandArgs) match {
+      case Left(code) =>
+        sys.exit(code)
+      case Right(xs) =>
+        xs
+    }
 
-    val handle = _take(
-      CncfBootstrap.initialize(
-        BootstrapConfig(
-          cwd = Paths.get("").toAbsolutePath.normalize,
-          args = Array.empty[String],
-          extraComponents = _extraComponents
-        )
-      ),
-      "initialize"
-    )
+    val runtime = new CncfRuntime()
+    val result = runtime
+      .initializeForEmbedding(
+        args = runtimeArgs,
+        modeHint = Some(RunMode.Command),
+        extraComponents = subsystem =>
+          DomainComponent.Factory().create(ComponentCreate(subsystem, ComponentOrigin.Main))
+      )
+      .flatMap { subsystem =>
+        runtime
+          .parseCommandArgs(subsystem, normalized, RunMode.Command)
+          .flatMap { req =>
+            req.component.flatMap(name => subsystem.components.find(_.name == name)) match {
+              case None =>
+                Consequence.failure(s"component not found: ${req.component.getOrElse("")}")
+              case Some(component) =>
+                component.logic.makeOperationRequest(req).flatMap {
+                  case action: Action =>
+                    val call = component.logic.createActionCall(action)
+                    component.actionEngine.execute(call)
+                  case _ =>
+                    Consequence.failure("OperationRequest must be Action")
+                }
+            }
+          }
+      }
 
     try {
-      val saveRequest = Request.of(
-        component = "domain",
-        service = "entity",
-        operation = "saveSimpleEntity",
-        arguments = List(
-          Argument("id", id),
-          Argument("name", "taro")
-        )
-      )
-      val saveAction = _take(
-        DomainComponent.EntityService.SaveSimpleEntityCommand.create(saveRequest),
-        "SaveSimpleEntityCommand.create"
-      )
-      _take(handle.executeAction(saveAction), "executeAction(saveSimpleEntity)")
-
-      if (!Files.exists(sqlitePath))
-        throw new IllegalStateException(s"sqlite file not found: $sqlitePath")
-
-      val loadRequest = Request.of(
-        component = "domain",
-        service = "entity",
-        operation = "loadSimpleEntity",
-        arguments = List(
-          Argument("id", id)
-        )
-      )
-      val loadAction = _take(
-        DomainComponent.EntityService.LoadSimpleEntityQuery.create(loadRequest),
-        "LoadSimpleEntityQuery.create"
-      )
-      val loadResponse = _take(handle.executeAction(loadAction), "executeAction(loadSimpleEntity)")
-      _assert_name(loadResponse, "taro")
+      result match {
+        case Consequence.Success(res) =>
+          println(res.show)
+          sys.exit(0)
+        case Consequence.Failure(conclusion) =>
+          println(conclusion.toRecord.toYamlString)
+          sys.exit(1)
+      }
     } finally {
-      handle.close()
+      runtime.closeEmbedding()
     }
-
-    println("SIMPLEENTITY_ACTION_OK")
-  }
-
-  private def _extraComponents(subsystem: Subsystem): Seq[Component] = {
-    val params = ComponentCreate(subsystem, ComponentOrigin.Main)
-    ComponentFactory().create(params)
-  }
-
-  private def _assert_name(response: OperationResponse, expected: String): Unit =
-    response match {
-      case OperationResponse.RecordResponse(record) =>
-        val actual = record.getString("name").getOrElse("")
-        if (actual != expected)
-          throw new IllegalStateException(s"Unexpected name: actual='$actual', expected='$expected'")
-      case m =>
-        throw new IllegalStateException(s"Unexpected response type: ${m.show}")
-    }
-
-  private def _take[A](c: Consequence[A], label: String): A = c match {
-    case Consequence.Success(v) => v
-    case Consequence.Failure(conclusion) =>
-      throw new IllegalStateException(s"$label failed: ${conclusion.show}")
   }
 }
 SCALA
@@ -106,10 +98,28 @@ EOFCONF
 
 sbt --batch compile
 
+ID="sys-sys-entity-simple_entity-1773792000000-1eeeeeeeeeeeeeeeee"
+DRIVER="org.goldenport.cncf.cli.SimpleEntitySyncCommandMain"
+CFG="--cncf.config.file=.cncf/config.conf"
+
+sbt --batch "runMain ${DRIVER} ${CFG} domain.entity.savePerson --id ${ID} --name taro"
+sbt --batch "runMain ${DRIVER} ${CFG} domain.entity.updatePerson --id ${ID} --name jiro"
+
 set +e
-probe_out=$(sbt --batch "runMain domain.SimpleEntityActionProbe" 2>&1)
-probe_status=$?
+LOAD_OUT=$(
+  sbt --batch "runMain ${DRIVER} ${CFG} --format yaml domain.entity.loadPerson --id ${ID}" 2>&1
+)
+LOAD_STATUS=$?
 set -e
-printf "%s\n" "$probe_out"
-[ "$probe_status" -eq 0 ]
-printf "%s\n" "$probe_out" | grep -q "SIMPLEENTITY_ACTION_OK"
+printf "%s\n" "$LOAD_OUT"
+[ "$LOAD_STATUS" -eq 0 ]
+printf "%s\n" "$LOAD_OUT" | grep -Eq '"name:[[:space:]]*jiro|"name":"jiro"'
+
+if [ ! -f target/cncf.d/cncf-command.sqlite3 ]; then
+  echo "SQLite file not found: target/cncf.d/cncf-command.sqlite3" >&2
+  exit 1
+fi
+
+sqlite3 target/cncf.d/cncf-command.sqlite3 ".tables" | grep -qi "simple_entity"
+
+echo "SIMPLEENTITY_ACTION_OK"

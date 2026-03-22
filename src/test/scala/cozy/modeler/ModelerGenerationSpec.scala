@@ -52,9 +52,13 @@ class ModelerGenerationSpec extends AnyFunSuite {
       "target/scala-3.3.7/src_managed/main/scala/domain/entity/Person.scala"
     )
     assert(Files.exists(generated), s"generated file not found: $generated")
+    val notGeneratedSimpleEntity = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/entity/SimpleEntity.scala"
+    )
+    assert(!Files.exists(notGeneratedSimpleEntity), s"SimpleEntity must not be generated: $notGeneratedSimpleEntity")
     val content = Files.readString(generated)
-    assert(content.contains("extends EntityPersistable"))
-    assert(content.contains("case class Person(id: EntityId, name: Name, age: Option[Age])"))
+    assert(content.contains("extends org.goldenport.model.SimpleEntity with EntityPersistable"))
+    assert(content.contains("case class Person(override val id: EntityId, override val name: Name, age: Option[Age])"))
     assert(content.contains("PROP_ID"))
     assert(content.contains("PROP_NAME"))
     assert(content.contains("PROP_AGE"))

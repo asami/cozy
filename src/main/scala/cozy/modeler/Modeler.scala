@@ -25,6 +25,7 @@ import org.goldenport.kaleidox.model.SchemaModel.SchemaClass
 import org.goldenport.kaleidox.model.EntityModel.EntityClass
 import org.goldenport.kaleidox.model.DataTypeModel.DataTypeClass
 import org.goldenport.kaleidox.model.PowertypeModel.PowertypeClass
+import scala.collection.mutable
 
 /*
  * @since   May.  5, 2021
@@ -42,7 +43,7 @@ import org.goldenport.kaleidox.model.PowertypeModel.PowertypeClass
  *  version Nov.  2, 2024
  *  version May. 13, 2025
  *  version Feb. 27, 2026
- * @version Mar. 22, 2026
+ * @version Mar. 23, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
@@ -413,7 +414,7 @@ object Modeler {
     operation: OperationModel
   ) {
     def build(): SimpleModel = {
-      val entities = entity.classes.values.map(_entity)
+      val entities = entity.classes.values.filterNot(c => _is_simple_entity(c.name)).map(_entity)
       val datatypes = datatype.classes.values.map(_datatype)
       val powertypes = powertype.classes.values.map(_powertype)
       val statemachines = stateMachine.classes.values.map(_statemachine)
@@ -433,7 +434,10 @@ object Modeler {
       }
       val traits = Nil // TODO
       val powertypes = _powertypes(affiliation, p.schemaClass)
-      val attributes = _attributes(affiliation, p.schemaClass)
+      val attributes = _merge_attributes(
+        _simple_entity_attributes(affiliation, p),
+        _attributes(affiliation, p.schemaClass)
+      )
       val associations = _associations(affiliation, p.schemaClass)
       val operations = Nil // TODO
       val statemachines = _state_machines(affiliation, p)
@@ -449,6 +453,37 @@ object Modeler {
         operations,
         statemachines
       )
+    }
+
+    private lazy val _simple_entity_template: Option[EntityClass] =
+      entity.classes.values.find(c => _is_simple_entity(c.name))
+
+    private def _simple_entity_attributes(
+      pkg: MPackageRef,
+      p: EntityClass
+    ): List[MAttribute] = {
+      val inheritsSimpleEntity = {
+        val byParentRef = p.parents.exists {
+          case m: EntityClass.ParentRef.Name => _is_simple_entity(m.name)
+          case EntityClass.ParentRef.EntityKlass(c) => _is_simple_entity(c.name)
+        }
+        val byFeatures = p.schemaClass.features.parentsName.exists(_is_simple_entity)
+        byParentRef || byFeatures
+      }
+      if (inheritsSimpleEntity)
+        _simple_entity_template.toList.flatMap(t => _attributes(pkg, t.schemaClass))
+      else
+        Nil
+    }
+
+    private def _merge_attributes(
+      inherited: List[MAttribute],
+      own: List[MAttribute]
+    ): List[MAttribute] = {
+      val z = mutable.LinkedHashMap.empty[String, MAttribute]
+      inherited.foreach(x => z.update(x.name, x))
+      own.foreach(x => z.update(x.name, x))
+      z.values.toList
     }
 
     private def _state_machines(

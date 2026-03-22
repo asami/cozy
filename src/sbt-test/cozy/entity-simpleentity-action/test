@@ -1,4 +1,5 @@
 > runMain cozy.Cozy modeler-scala test.dox --save=out.d
 $ exists out.d/target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala
-$ exists out.d/target/scala-3.3.7/src_managed/main/scala/domain/SimpleEntity.scala
+$ exists out.d/target/scala-3.3.7/src_managed/main/scala/domain/entity/Person.scala
+$ absent out.d/target/scala-3.3.7/src_managed/main/scala/domain/entity/SimpleEntity.scala
 $ exec sh check-crud.sh
