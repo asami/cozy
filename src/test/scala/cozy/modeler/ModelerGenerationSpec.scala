@@ -12,7 +12,7 @@ import org.goldenport.kaleidox.{Config => KaleidoxConfig, Model => KaleidoxModel
 
 /*
  * @since   May. 17, 2025
- * @version Mar. 22, 2026
+ * @version Mar. 23, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerGenerationSpec extends AnyFunSuite {
@@ -35,8 +35,8 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(!content.contains("collectionId: EntityCollectionId = ???"))
     assert(content.contains("extends Component with CollectionTransitionRuleProvider"))
     assert(content.contains("override def stateMachineTransitionRules: Vector[CollectionTransitionRule[Any]] = Vector.empty"))
-    assert(content.contains("override def aggregateDefinitions: Vector[org.goldenport.cncf.entity.aggregate.CmlAggregateDefinition] = Vector("))
-    assert(content.contains("override def viewDefinitions: Vector[org.goldenport.cncf.entity.view.CmlViewDefinition] = Vector("))
+    assert(content.contains("override def aggregateDefinitions: Vector[org.goldenport.cncf.entity.aggregate.AggregateDefinition] = Vector("))
+    assert(content.contains("override def viewDefinitions: Vector[org.goldenport.cncf.entity.view.ViewDefinition] = Vector("))
   }
 
   test("modeler-scala expands attributes from SimpleEntity parent") {
