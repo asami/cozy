@@ -3,7 +3,7 @@ package cozy.modeler
 import org.simplemodeling.model._
 import org.simplemodeling.model.domain._
 import org.simplemodeling.SimpleModeler.generator.scala.Generator.{State => GState, _}
-import org.smartdox.Description
+import org.smartdox.{Description, Dox}
 import org.goldenport.RAISE
 import org.goldenport.collection.VectorMap
 import org.goldenport.values.Designation
@@ -817,7 +817,7 @@ object Modeler {
     ): MComponent = {
       // val compclassname = s"${StringUtils.makeTitle(pkg.name)}Component"
       val compname = _component_name(pkg)
-      val desc = Description.name(compname)
+      val desc = _description(compname, _component_definition_for(pkg).flatMap(_.description))
       val componentpackagename = _component_package_name(pkg).getOrElse(pkg.name)
       val servicepkg = _service_package(pkg, componentpackagename)
       val definedservices = _defined_services(servicepkg)
@@ -880,6 +880,14 @@ object Modeler {
           None
       }
 
+    private def _description(
+      name: String,
+      text: Option[String]
+    ): Description =
+      text.map(_.trim).filter(_.nonEmpty).
+        map(s => Description.name(name, Dox.text(s))).
+        getOrElse(Description.name(name))
+
     private def _entity_package_name(
       packagename: String
     ): String =
@@ -905,7 +913,7 @@ object Modeler {
       p: ServiceModel.ServiceClass
     ): MService = {
       val ops = p.operations.operations.values.toVector.map(_defined_service_operation)
-      MService(pkg, p.name, ops)
+      MService(pkg, p.name, ops, _description(p.name, p.description))
     }
 
     private lazy val _normalized_operation_map: Map[String, OperationModel.NormalizedOperationDefinition] =
@@ -915,9 +923,13 @@ object Modeler {
       p: ServiceModel.ServiceClass.Operation
     ): MOperation = {
       val opname = p.name
+      val desc = _description(
+        opname,
+        p.description.orElse(_normalized_operation_map.get(opname).flatMap(_.description))
+      )
       _normalized_operation_map.get(opname).map(_.kind) match {
         case Some(OperationModel.OperationKind.Query) =>
-          MOperation.queryBody(opname, MParameter.record, MResult.unit) {
+          MOperation.queryBody(opname, MParameter.record, MResult.unit, desc) {
             blockFor(
               "_ <- uowmNotImplemented[org.goldenport.cncf.unitofwork.UnitOfWorkOp, Unit]"
             )(
@@ -925,7 +937,7 @@ object Modeler {
             )
           }
         case _ =>
-          MOperation.commandBody(opname, List(MParameter.record), MResult.unit) {
+          MOperation.commandBody(opname, List(MParameter.record), MResult.unit, desc) {
             blockFor(
               "_ <- uowmNotImplemented[org.goldenport.cncf.unitofwork.UnitOfWorkOp, Unit]"
             )(
