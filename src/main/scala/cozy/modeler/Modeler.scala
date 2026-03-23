@@ -525,7 +525,7 @@ object Modeler {
     private def _object_ref(p: String): MObjectRef = {
       val isSimpleEntity = _is_simple_entity(p)
       if (isSimpleEntity)
-        MObjectRef.create("org.goldenport.model.SimpleEntity")
+        MObjectRef.create("org.simplemodeling.model.SimpleEntity")
       else
         MObjectRef.create(p)
     }
@@ -533,7 +533,7 @@ object Modeler {
     private def _object_ref(packagename: String, name: String): MObjectRef = {
       val isSimpleEntity = _is_simple_entity(name)
       if (isSimpleEntity)
-        MObjectRef.create("org.goldenport.model.SimpleEntity")
+        MObjectRef.create("org.simplemodeling.model.SimpleEntity")
       else
         MEntityRef.create(_entity_package_name(packagename), name)
     }

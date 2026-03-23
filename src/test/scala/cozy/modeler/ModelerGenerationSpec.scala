@@ -12,7 +12,7 @@ import org.goldenport.kaleidox.{Config => KaleidoxConfig, Model => KaleidoxModel
 
 /*
  * @since   May. 17, 2025
- * @version Mar. 23, 2026
+ * @version Mar. 24, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerGenerationSpec extends AnyFunSuite {
@@ -57,10 +57,12 @@ class ModelerGenerationSpec extends AnyFunSuite {
     )
     assert(!Files.exists(notGeneratedSimpleEntity), s"SimpleEntity must not be generated: $notGeneratedSimpleEntity")
     val content = Files.readString(generated)
-    assert(content.contains("extends org.goldenport.model.SimpleEntity with EntityPersistable"))
-    assert(content.contains("case class Person(override val id: EntityId, override val name: Name, age: Option[Age])"))
+    assert(content.contains("extends org.simplemodeling.model.SimpleEntity with EntityPersistable"))
+    assert(content.contains("case class Person(override val id: EntityId"))
+    assert(content.contains("nameAttributes: NameAttributes"))
+    assert(content.contains("age: Option[Age]"))
     assert(content.contains("PROP_ID"))
-    assert(content.contains("PROP_NAME"))
+    assert(content.contains("PROP_NAME_ATTRIBUTES"))
     assert(content.contains("PROP_AGE"))
 
     val generatedCreate = out.resolve(
@@ -68,7 +70,9 @@ class ModelerGenerationSpec extends AnyFunSuite {
     )
     assert(Files.exists(generatedCreate), s"generated file not found: $generatedCreate")
     val createContent = Files.readString(generatedCreate)
-    assert(createContent.contains("case class Person(id: Option[EntityId], name: Option[Name], age: Option[Age])"))
+    assert(createContent.contains("case class Person(override val id: Option[EntityId]"))
+    assert(createContent.contains("nameAttributes: NameAttributes"))
+    assert(createContent.contains("age: Option[Age]"))
   }
 
   test("modeler-scala generates toDataStore with db column names") {
@@ -97,7 +101,7 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(content.contains("\"display_name\""))
     assert(content.contains("def schema(): Schema"))
     assert(content.contains("val schema: org.goldenport.schema.Schema = org.goldenport.schema.Schema("))
-    assert(content.contains("org.goldenport.model.value.BaseContent.simple(\"displayName\")"))
+    assert(content.contains("org.simplemodeling.model.value.BaseContent.simple(\"displayName\")"))
 
     val generatedCreate = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/entity/create/Person.scala"
@@ -359,7 +363,7 @@ class ModelerGenerationSpec extends AnyFunSuite {
     cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
 
     val generated = out.resolve(
-      "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+      "target/scala-3.3.7/src_managed/main/scala/domain/PersonComponent.scala"
     )
     assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)

@@ -89,7 +89,7 @@ Notes:
 
 - `FEATURES` must be a standalone heading.
 - `EXTENDS = [...]` must be in body text, not heading text.
-- `SimpleEntity` is treated as `org.goldenport.model.SimpleEntity`.
+- `SimpleEntity` is treated as `org.simplemodeling.model.SimpleEntity`.
 
 ### 4.3 ATTRIBUTE Columns
 

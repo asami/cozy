@@ -13,7 +13,7 @@ import cats.syntax.all.*
 import scala.collection.concurrent.TrieMap
 import org.goldenport.Consequence
 import org.goldenport.protocol.operation.OperationResponse
-import org.goldenport.model.datatype.EntityId
+import org.simplemodeling.model.datatype.EntityId
 import org.goldenport.cncf.directive.{Query, SearchResult}
 import org.goldenport.cncf.action.ActionCall
 import org.goldenport.cncf.unitofwork.ExecUowM
