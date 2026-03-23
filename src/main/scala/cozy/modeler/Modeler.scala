@@ -20,6 +20,7 @@ import org.goldenport.kaleidox.model.{SchemaModel, EntityModel, DataTypeModel}
 import org.goldenport.kaleidox.model.{PowertypeModel, StateMachineModel, EventModel}
 import org.goldenport.kaleidox.model.ComponentSubsystemModel
 import org.goldenport.kaleidox.model.OperationModel
+import org.goldenport.kaleidox.model.ServiceModel
 import org.goldenport.kaleidox.model.CmlExpressionGuard
 import org.goldenport.kaleidox.model.SchemaModel.SchemaClass
 import org.goldenport.kaleidox.model.EntityModel.EntityClass
@@ -369,18 +370,34 @@ class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
     c: Context,
     model: SModel
   ): SExpr = {
-    val pkg = "domain" // TODO
-    _make_scala(c, model, pkg)
+    _make_scala(c, model, "domain")
   }
 
   private def _make_scala(c: Context, smodel: SModel, pkg: String): SExpr = {
     val env = c.executionContext.environment
     val model = _make_model(smodel.model)
     val g = new ScalaGenerator(env, model)
-    model.getPackage(pkg) match {
+    val targetpkg = _resolve_generate_package(model, pkg)
+    model.getPackage(targetpkg).orElse(Some(model.root)) match {
       case Some(s) => g.generate(s)
-      case None => SError.notFound("Unkown package", pkg)
+      case None => SError.notFound("Unkown package", targetpkg)
     }
+  }
+
+  private def _resolve_generate_package(
+    model: SimpleModel,
+    requested: String
+  ): String = {
+    if (model.getPackage(requested).isDefined)
+      requested
+    else
+      model.elements.collectFirst {
+        case m: MComponent => m.packageName
+      }.orElse {
+        model.elements.collectFirst {
+          case m: MObject => m.packageName
+        }
+      }.getOrElse(requested)
   }
 }
 
@@ -410,6 +427,7 @@ object Modeler {
     powertype: PowertypeModel,
     stateMachine: StateMachineModel,
     componentSubsystem: ComponentSubsystemModel,
+    service: ServiceModel,
     event: EventModel,
     operation: OperationModel
   ) {
@@ -425,7 +443,7 @@ object Modeler {
     }
 
     private def _entity(p: EntityClass): MEntity = {
-      val packagename = p.packageName
+      val packagename = _entity_package_name(p.packageName)
       val desc = Description.name(p.name)
       val affiliation = MPackageRef(packagename)
       val stereotypes = Nil
@@ -517,7 +535,7 @@ object Modeler {
       if (isSimpleEntity)
         MObjectRef.create("org.goldenport.model.SimpleEntity")
       else
-        MEntityRef.create(packagename, name)
+        MEntityRef.create(_entity_package_name(packagename), name)
     }
 
     private def _is_simple_entity(p: String): Boolean =
@@ -798,16 +816,17 @@ object Modeler {
       entities: Vector[MEntity]
     ): MComponent = {
       // val compclassname = s"${StringUtils.makeTitle(pkg.name)}Component"
-      val compname = pkg.name
+      val compname = _component_name(pkg)
       val desc = Description.name(compname)
       val componentpackagename = _component_package_name(pkg).getOrElse(pkg.name)
       val servicepkg = _service_package(pkg, componentpackagename)
+      val definedservices = _defined_services(servicepkg)
       val entityservice: MService = _make_entity_service(servicepkg, entities)
       val aggregateservice: MService = _make_aggregate_service(servicepkg, entities)
       val viewservice: MService = _make_view_service(servicepkg, entities)
       val core = MObject.Core(
         affiliation = MPackageRef(componentpackagename),
-        services = List(aggregateservice, viewservice, entityservice)
+        services = definedservices.toList ++ List(aggregateservice, viewservice, entityservice)
       )
       val transitionrules = _state_machine_transition_rules(entities)
       val eventdefs = _event_reception_definitions(entities)
@@ -844,7 +863,77 @@ object Modeler {
     private def _component_package_name(
       pkg: MPackage
     ): Option[String] =
-      componentSubsystem.components.find(_.name == pkg.name).flatMap(_.packageName)
+      _component_definition_for(pkg).flatMap(_.packageName)
+
+    private def _component_name(
+      pkg: MPackage
+    ): String =
+      _component_definition_for(pkg).map(_.name).getOrElse(pkg.name)
+
+    private def _component_definition_for(
+      pkg: MPackage
+    ): Option[ComponentSubsystemModel.ComponentDefinition] =
+      componentSubsystem.components.find(_.name == pkg.name).orElse {
+        if (componentSubsystem.components.lengthCompare(1) == 0)
+          componentSubsystem.components.headOption
+        else
+          None
+      }
+
+    private def _entity_package_name(
+      packagename: String
+    ): String =
+      _component_package_override(packagename).getOrElse(packagename)
+
+    private def _component_package_override(
+      componentname: String
+    ): Option[String] =
+      componentSubsystem.components.find(_.name == componentname).flatMap(_.packageName).orElse {
+        if (componentSubsystem.components.lengthCompare(1) == 0)
+          componentSubsystem.components.headOption.flatMap(_.packageName)
+        else
+          None
+      }
+
+    private def _defined_services(
+      pkg: MPackage
+    ): Vector[MService] =
+      service.classes.values.toVector.map(_defined_service(pkg, _))
+
+    private def _defined_service(
+      pkg: MPackage,
+      p: ServiceModel.ServiceClass
+    ): MService = {
+      val ops = p.operations.operations.values.toVector.map(_defined_service_operation)
+      MService(pkg, p.name, ops)
+    }
+
+    private lazy val _normalized_operation_map: Map[String, OperationModel.NormalizedOperationDefinition] =
+      operation.normalizedOperations.map(x => x.name -> x).toMap
+
+    private def _defined_service_operation(
+      p: ServiceModel.ServiceClass.Operation
+    ): MOperation = {
+      val opname = p.name
+      _normalized_operation_map.get(opname).map(_.kind) match {
+        case Some(OperationModel.OperationKind.Query) =>
+          MOperation.queryBody(opname, MParameter.record, MResult.unit) {
+            blockFor(
+              "_ <- uowmNotImplemented[org.goldenport.cncf.unitofwork.UnitOfWorkOp, Unit]"
+            )(
+              "OperationResponse.void"
+            )
+          }
+        case _ =>
+          MOperation.commandBody(opname, List(MParameter.record), MResult.unit) {
+            blockFor(
+              "_ <- uowmNotImplemented[org.goldenport.cncf.unitofwork.UnitOfWorkOp, Unit]"
+            )(
+              "OperationResponse.void"
+            )
+          }
+      }
+    }
 
     private def _component_definitions(
       pkg: MPackage
@@ -1712,6 +1801,7 @@ object Modeler {
       p.takePowertypeModel,
       p.takeStateMachineModel,
       p.takeComponentSubsystemModel,
+      p.getServiceModel.getOrElse(ServiceModel.empty),
       p.eventModel,
       p.takeOperationModel
     )
