@@ -800,10 +800,11 @@ object Modeler {
       // val compclassname = s"${StringUtils.makeTitle(pkg.name)}Component"
       val compname = pkg.name
       val desc = Description.name(compname)
-      val entityservice: MService = _make_entity_service(pkg, entities)
-      val aggregateservice: MService = _make_aggregate_service(pkg, entities)
-      val viewservice: MService = _make_view_service(pkg, entities)
       val componentpackagename = _component_package_name(pkg).getOrElse(pkg.name)
+      val servicepkg = _service_package(pkg, componentpackagename)
+      val entityservice: MService = _make_entity_service(servicepkg, entities)
+      val aggregateservice: MService = _make_aggregate_service(servicepkg, entities)
+      val viewservice: MService = _make_view_service(servicepkg, entities)
       val core = MObject.Core(
         affiliation = MPackageRef(componentpackagename),
         services = List(aggregateservice, viewservice, entityservice)
@@ -831,6 +832,14 @@ object Modeler {
       )
       MDomainComponent(desc, core, ccore)
     }
+
+    private def _service_package(
+      pkg: MPackage,
+      packageName: String
+    ): MPackage = pkg.copy(
+      designation = Designation(packageName),
+      affiliation = MPackageRef.default
+    )
 
     private def _component_package_name(
       pkg: MPackage
