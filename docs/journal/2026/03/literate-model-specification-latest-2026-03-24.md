@@ -208,10 +208,6 @@ These keys may be written in section-body YAML/table/dl forms and map to
 - `pattern` -> `CRegex`
 - `format` -> `CFormat` (`email` / `uuid` / `uri` / `url`)
 
-Compatibility note:
-- when running with an older `goldenport-record` that does not provide
-  `CFormat`, format constraints are emitted as equivalent `CRegex`.
-
 ## 11.4 Classification Transparency
 
 For literate authoring feedback, parser/modeler should expose classification

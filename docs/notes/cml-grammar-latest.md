@@ -657,8 +657,6 @@ Normalization to `record.v2.Constraint`:
 
 Current implementation note:
 - unsupported `format` values are ignored (no constraint emitted).
-- if `CFormat` is unavailable in runtime dependency, parser falls back to
-  `CRegex` for recognized format keys.
 
 Example (yaml section body):
 

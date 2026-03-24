@@ -9,7 +9,7 @@ import java.nio.file.Paths
 import java.util.Comparator
 import org.scalatest.funsuite.AnyFunSuite
 import org.goldenport.kaleidox.{Config => KaleidoxConfig, Model => KaleidoxModel}
-import org.goldenport.record.v2.{CMaxLength, CMinLength, CRegex}
+import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 
 /*
  * @since   May. 17, 2025
@@ -310,13 +310,10 @@ class ModelerGenerationSpec extends AnyFunSuite {
     val column = schema.columns.find(_.name == "value").getOrElse {
       fail("Column value is missing")
     }
-    val regexCount = column.constraints.count(_.isInstanceOf[CRegex])
-    val hasFormalFormat = column.constraints.exists(_.getClass.getSimpleName == "CFormat")
-    val hasFormatConstraint = hasFormalFormat || regexCount >= 2
     assert(column.constraints.exists(_.isInstanceOf[CMinLength]))
     assert(column.constraints.exists(_.isInstanceOf[CMaxLength]))
-    assert(regexCount >= 1)
-    assert(hasFormatConstraint)
+    assert(column.constraints.exists(_.isInstanceOf[CRegex]))
+    assert(column.constraints.exists(_.isInstanceOf[CFormat]))
   }
 
   test("kaleidox parses Event metadata in Entity Event section") {
