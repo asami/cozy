@@ -618,7 +618,7 @@ object Modeler {
       val designation = Designation(p.name)
       val atype = MDataType(p.datatype)
       val multiplicity = MMultiplicity(p.multiplicity)
-      val constraints = Nil // TODO
+      val constraints: List[MConstraint] = p.constraints.map(RConstraint)
       val readonly = false
       val description = Description.empty // p.desc
       MAttribute(designation, atype, multiplicity, constraints, Some(p), readonly, description)

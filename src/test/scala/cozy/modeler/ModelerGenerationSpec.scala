@@ -9,6 +9,7 @@ import java.nio.file.Paths
 import java.util.Comparator
 import org.scalatest.funsuite.AnyFunSuite
 import org.goldenport.kaleidox.{Config => KaleidoxConfig, Model => KaleidoxModel}
+import org.goldenport.record.v2.{CMaxLength, CMinLength, CRegex}
 
 /*
  * @since   May. 17, 2025
@@ -297,6 +298,21 @@ class ModelerGenerationSpec extends AnyFunSuite {
     }
     assert(lifecycle.states.exists(_.name == "Draft"))
     assert(lifecycle.states.exists(_.name == "Published"))
+  }
+
+  test("kaleidox normalizes attribute constraint metadata to record constraints") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/constraint-metadata.dox")
+    val model = KaleidoxModel.load(KaleidoxConfig.default.withoutLocation, input.toFile)
+    val schema = model.takeEntityModel.get("CountryCode").getOrElse {
+      fail("Entity CountryCode is missing")
+    }.schema
+    val column = schema.columns.find(_.name == "value").getOrElse {
+      fail("Column value is missing")
+    }
+    assert(column.constraints.exists(_.isInstanceOf[CMinLength]))
+    assert(column.constraints.exists(_.isInstanceOf[CMaxLength]))
+    assert(column.constraints.count(_.isInstanceOf[CRegex]) >= 2)
   }
 
   test("kaleidox parses Event metadata in Entity Event section") {

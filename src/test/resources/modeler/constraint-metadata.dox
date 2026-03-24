@@ -1,0 +1,9 @@
+# Entity
+
+## CountryCode
+
+### Attribute
+
+| name  | type   | multiplicity | min_length | max_length | pattern     | format |
+|-------+--------+--------------+------------+------------+-------------+--------|
+| value | string | 1            | 2          | 2          | ^[A-Z]{2}$  | uuid   |
