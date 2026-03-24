@@ -1,0 +1,16 @@
+# ENTITY
+## Person
+### ATTRIBUTE
+| name | type     | multiplicity |
+|------+----------+--------------|
+| id   | entityid | 1            |
+| name | name     | 1            |
+
+### EVENT
+#### person.created
+category: ActionEvent
+kind: created
+selector:
+  source: crm
+action_name: person.sync
+priority: 2

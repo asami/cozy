@@ -1,7 +1,7 @@
 # CML Grammar (Latest, Cozy)
 
 status=frozen-for-phase9-cs-01-cs-02
-updated_at=2026-03-22
+updated_at=2026-03-24
 target=/Users/asami/src/dev2025/cozy
 
 ## 1. Scope
@@ -15,6 +15,7 @@ It merges:
 
 This document is normative for parser/modeler/generator behavior.
 It intentionally excludes draft/WIP grammar proposals.
+It also defines the Literate Model interpretation boundary used by Cozy.
 
 ---
 
@@ -25,6 +26,8 @@ CML accepts multiple syntactic forms that normalize into the same AST:
 - section structure (heading-based)
 - dl list
 - table
+- hocon (section body)
+- yaml (section body)
 
 Guideline:
 
@@ -35,6 +38,40 @@ Keyword convention:
 
 - grammar keywords are uppercase in this document (`ENTITY`, `ATTRIBUTE`, `STATEMACHINE`, `EVENT`, `OPERATION`, ...)
 - parser matching remains case-insensitive unless explicitly restricted
+
+### 2.1 Literate Model Interpretation Layers
+
+CML is interpreted as a Literate Model with three concurrent layers:
+
+- Structural DSL layer: executable model structure (`ENTITY`, `EVENT`, `OPERATION`, `COMPONENT`, ...)
+- Metadata DSL layer: machine-consumable modifiers (`TYPE`, `INPUT`, `OUTPUT`, `KIND`, `SELECTOR`, ...)
+- Narrative layer: human/AI explanatory context (`Overview`, `Notes`, `Rationale`, ...)
+
+Interpretation policy:
+
+- structural + metadata layers are generation/runtime inputs
+- narrative layer is non-executable context and must not silently override structural contracts
+
+### 2.2 Section Classification Rule
+
+Section meaning is determined by classification:
+
+- structural section: defines AST nodes and executable model structure
+- metadata section/key: enriches or constrains structural nodes
+- narrative section: descriptive context only
+
+This classification is normative for parser/modeler behavior and for future grammar extensions.
+
+### 2.3 Normalized Interpretation Pipeline
+
+For equivalent source expressions (heading, dl, table, hocon body, yaml body), Cozy applies the same pipeline:
+
+1. Parse and normalize syntax forms.
+2. Classify section role (structural/metadata/narrative).
+3. Build structural AST.
+4. Apply metadata overlays and validation.
+5. Preserve narrative as non-executable context.
+6. Emit deterministic generator/runtime metadata.
 
 ---
 
@@ -558,6 +595,8 @@ Rejected:
 - `/Users/asami/src/dev2025/cozy/docs/journal/2026/03/cml-component-subsystem-grammar-handoff.md`
 - `/Users/asami/src/dev2025/cozy/docs/journal/2026/03/cml-component-centric-spec-handoff.md` (reference/informational)
 - `/Users/asami/src/dev2025/cozy/docs/journal/2026/03/cml-component-subsystem-grammar-note-handoff.md` (reference/informational)
+- `/Users/asami/src/dev2025/cozy/docs/journal/2026/03/literate-model-specification-latest-2026-03-24.md`
+- `/Users/asami/src/dev2025/cozy/docs/journal/2026/03/literate-model-concept.md` (background concept)
 - `/Users/asami/src/dev2025/cloud-native-component-framework/docs/phase/phase-8.md`
 - `/Users/asami/src/dev2025/cloud-native-component-framework/docs/phase/phase-8-checklist.md`
 - `/Users/asami/src/dev2025/cloud-native-component-framework/docs/phase/phase-9.md`

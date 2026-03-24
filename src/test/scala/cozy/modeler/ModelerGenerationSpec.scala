@@ -229,6 +229,23 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(shipped.priority == 0)
   }
 
+  test("kaleidox parses Event metadata in YAML section body") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/event-metadata-yaml-body.dox")
+    val model = KaleidoxModel.load(KaleidoxConfig.default.withoutLocation, input.toFile)
+    val entity = model.takeEntityModel.get("Person").getOrElse {
+      fail("Entity Person is missing")
+    }
+    val created = entity.schemaClass.events.find(_.name == "person.created").getOrElse {
+      fail("person.created event is missing")
+    }
+    assert(created.category == "ActionEvent")
+    assert(created.kind.contains("created"))
+    assert(created.selectors.get("source").contains("crm"))
+    assert(created.actionName.contains("person.sync"))
+    assert(created.priority == 2)
+  }
+
   test("kaleidox parses Aggregate/View metadata in Entity section") {
     val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
     val input = base.resolve("src/test/resources/modeler/aggregate-view-metadata.dox")
