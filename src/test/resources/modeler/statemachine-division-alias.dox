@@ -1,0 +1,19 @@
+# STATE-MACHINE
+
+## lifecycle
+rule {
+  state = [
+    {
+      name = Draft
+      transition = [
+        {
+          guard = publish
+          to = Published
+        }
+      ]
+    },
+    {
+      name = Published
+    }
+  ]
+}

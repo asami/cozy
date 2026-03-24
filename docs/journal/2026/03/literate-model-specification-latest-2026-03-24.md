@@ -165,3 +165,56 @@ Implementation alignment was confirmed against current Cozy tests, including:
 - `cozy.modeler.ModelerGenerationSpec` (state machine/event/operation/component-subsystem coverage)
 
 This document should be maintained as an implementation-aligned specification snapshot.
+
+# 11. Address Literate Extension Addendum (Proposed)
+
+status=proposed
+added_at=2026-03-24
+
+This addendum captures implementation work needed to realize the intended
+Literate Model authoring style (rich narrative + executable structure) in a
+single CML source such as `address.cml`.
+
+## 11.1 Authoring Principle Update
+
+When structural and narrative intents conflict, the model should preserve:
+
+1. executable determinism for structural sections
+2. narrative richness for human/AI interpretation
+
+without forcing narrative text into pseudo-structural syntax.
+
+## 11.2 Proposed Structural Compatibility
+
+- introduce `VALUE` compatibility alias at top-level
+- normalize to `ENTITY(kind=VALUE)` in AST
+- keep generator semantics deterministic and equivalent to explicit `ENTITY`
+
+## 11.3 Proposed Metadata Enrichment
+
+At attribute level, normalize optional constraint metadata:
+
+- `min_length`
+- `max_length`
+- `pattern`
+- `format`
+
+These keys may be written in section-body YAML/table/dl forms and must map to
+one canonical metadata representation.
+
+## 11.4 Classification Transparency
+
+For literate authoring feedback, parser/modeler should expose classification
+results of each section as:
+
+- structural
+- metadata
+- narrative
+
+with section path and normalized target node.
+
+## 11.5 Scope and Compatibility
+
+- This addendum is a proposal track; frozen sections 1-10 remain normative.
+- Once implemented, accepted items should be folded into the normative body and
+  removed from proposal state.

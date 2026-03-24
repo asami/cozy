@@ -602,3 +602,82 @@ Rejected:
 - `/Users/asami/src/dev2025/cloud-native-component-framework/docs/phase/phase-9.md`
 - `/Users/asami/src/dev2025/cloud-native-component-framework/docs/phase/phase-9-checklist.md`
 - `/Users/asami/src/dev2025/cozy/docs/design/cml-grammar-draft.md` (draft/WIP only)
+
+---
+
+## 13. Address-Driven Extension Track (Proposed)
+
+status=proposed
+added_at=2026-03-24
+
+This section captures extensions required to realize the Literate Model goal
+with rich narrative + executable structure in one CML file (e.g. `address.cml`).
+
+### 13.1 VALUE Compatibility Alias
+
+Problem:
+- Earlier literate authoring frequently used top-level `VALUE` semantics.
+- Current frozen top-level sections are entity/operation/component-centric.
+
+Extension proposal:
+- accept top-level `VALUE` as a compatibility alias.
+- normalize internally to `ENTITY` with `kind=VALUE` metadata.
+
+Normalization contract:
+- `# VALUE` + `## Name` + `### ATTRIBUTE` -> `EntityDef(name=Name, kind=VALUE)`
+- generator keeps deterministic output equivalent to explicit `ENTITY` form.
+
+Validation:
+- `VALUE` must follow `ENTITY`-compatible attribute schema.
+
+### 13.2 Attribute Constraint Metadata
+
+Problem:
+- Constraint intent (`length`, `pattern`, `format`) is often written in narrative,
+  and not machine-bound.
+
+Extension proposal:
+- standardize optional attribute metadata keys:
+  - `min_length`
+  - `max_length`
+  - `pattern`
+  - `format`
+
+Accepted syntax forms (same normalization):
+- table columns
+- dl list
+- yaml section body
+
+Example (yaml section body):
+
+```text
+### ATTRIBUTE
+- name: value
+  type: String
+  multiplicity: "1"
+  min_length: 2
+  max_length: 2
+  pattern: "^[A-Z]{2}$"
+```
+
+### 13.3 Literate Classification Diagnostics
+
+Problem:
+- Authors and AI agents cannot inspect how sections were classified
+  (structural/metadata/narrative) after parsing.
+
+Extension proposal:
+- add diagnostics output (e.g. `cozyExplainModel`) that emits:
+  - section path
+  - classified role (`structural` | `metadata` | `narrative`)
+  - normalized target node (if structural/metadata)
+
+Purpose:
+- improve author feedback and deterministic literate behavior.
+
+### 13.4 Rollout Policy
+
+- This section is a proposed extension track and does not overwrite frozen
+  contracts in sections 1-12.
+- When implemented, move accepted items into the frozen contract sections and
+  update `status`/`updated_at` accordingly.

@@ -1,0 +1,10 @@
+# POWERTYPE
+
+## CountryCode
+package = domain.value
+
+## AddressType
+package: domain.value
+
+## Overview
+This section is narrative and must not be treated as a powertype class.

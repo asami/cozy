@@ -44,7 +44,7 @@ import scala.collection.mutable
  *  version Nov.  2, 2024
  *  version May. 13, 2025
  *  version Feb. 27, 2026
- * @version Mar. 24, 2026
+ * @version Mar. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
@@ -677,7 +677,11 @@ object Modeler {
 
     private def _statemachine(p: StateMachineClass): MStateMachine = {
       _validate_state_machine(p)
-      val sm = MDomainStateMachine.create(p.name)
+      val sm = new MDomainStateMachine(
+        Description.name(p.name),
+        MPackageRef("domain.statemachine"),
+        Nil
+      )
       val statemap = _build_state_map(sm, p.rule)
       _build_state_machine_transitions(sm, p, statemap)
       sm.setStates(statemap.states)
@@ -868,6 +872,7 @@ object Modeler {
         services = definedservices.toList ++ List(aggregateservice, viewservice, entityservice)
       )
       val transitionrules = _state_machine_transition_rules(entities)
+      val statemachinedefs = _state_machine_definitions(entities)
       val eventdefs = _event_reception_definitions(entities)
       val eventroutes = _event_routing_definitions()
       val eventsubs = _event_subscription_definitions()
@@ -879,6 +884,7 @@ object Modeler {
       val ccore = MComponent.Core(
         entities = entities,
         stateMachineTransitionRules = transitionrules,
+        stateMachineDefinitions = statemachinedefs,
         eventReceptionDefinitions = eventdefs,
         eventRoutingDefinitions = eventroutes,
         eventSubscriptionDefinitions = eventsubs,
@@ -1292,6 +1298,19 @@ object Modeler {
       self ++ rule.statemachines.toSet.flatMap(_declared_events)
     }
 
+    private def _declared_event_names(rule: StateMachineRule): Vector[String] = {
+      val self = rule.events.map(_.name).toVector
+      self ++ rule.statemachines.toVector.flatMap(_declared_event_names)
+    }
+
+    private def _state_machine_events(sm: StateMachineClass): Vector[String] = {
+      val declared = _declared_event_names(sm.rule)
+      val referenced = _all_transitions(sm.rule).flatMap { x =>
+        _event_name_from_guard(x.transition.guard).orElse(x.transition.getEventName)
+      }
+      _distinct_stable(declared ++ referenced)
+    }
+
     private def _state_machine_transition_rules(
       entities: Vector[MEntity]
     ): Vector[MComponent.StateMachineTransitionRule] = {
@@ -1300,6 +1319,24 @@ object Modeler {
         case (x, i) => x.copy(declarationOrder = i)
       }
     }
+
+    private def _state_machine_definitions(
+      entities: Vector[MEntity]
+    ): Vector[MComponent.StateMachineDefinition] =
+      entities.flatMap(_entity_state_machine_definitions)
+
+    private def _entity_state_machine_definitions(
+      p: MEntity
+    ): Vector[MComponent.StateMachineDefinition] =
+      entity.get(p.name).toVector.flatMap { klass =>
+        klass.stateMachines.toVector.map { sm =>
+          MComponent.StateMachineDefinition(
+            name = sm.name,
+            states = _distinct_stable(_all_states(sm.rule).map(_.name)),
+            events = _state_machine_events(sm)
+          )
+        }
+      }
 
     private def _entity_state_machine_transition_rules(
       p: MEntity

@@ -12,7 +12,7 @@ import org.goldenport.kaleidox.{Config => KaleidoxConfig, Model => KaleidoxModel
 
 /*
  * @since   May. 17, 2025
- * @version Mar. 24, 2026
+ * @version Mar. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerGenerationSpec extends AnyFunSuite {
@@ -35,6 +35,7 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(!content.contains("collectionId: EntityCollectionId = ???"))
     assert(content.contains("extends Component with CollectionTransitionRuleProvider"))
     assert(content.contains("override def stateMachineTransitionRules: Vector[CollectionTransitionRule[Any]] = Vector.empty"))
+    assert(content.contains("override def stateMachineDefinitions: Vector[org.goldenport.cncf.statemachine.CmlStateMachineDefinition] = Vector.empty"))
     assert(content.contains("override def aggregateDefinitions: Vector[org.goldenport.cncf.entity.aggregate.AggregateDefinition] = Vector("))
     assert(content.contains("override def viewDefinitions: Vector[org.goldenport.cncf.entity.view.ViewDefinition] = Vector("))
   }
@@ -59,6 +60,52 @@ class ModelerGenerationSpec extends AnyFunSuite {
     )
     assert(Files.exists(entity), s"generated entity file not found: $entity")
     assert(Files.exists(query), s"generated query value file not found: $query")
+    assert(!Files.exists(domainComponent), s"DomainComponent must not be generated in value mode: $domainComponent")
+  }
+
+  test("modeler-scala-value accepts powertype-only cml without component generation") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/powertype-literate.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-value-powertype-only")
+    _delete_recursively(out)
+    Files.createDirectories(out.getParent)
+
+    cozy.Cozy.main(Array("modeler-scala-value", input.toString, s"--save=${out.toString}"))
+
+    val buildSbt = out.resolve("build.sbt")
+    val countryCode = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/value/CountryCode.scala"
+    )
+    val addressType = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/value/AddressType.scala"
+    )
+    val domainComponent = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+    )
+    assert(Files.exists(buildSbt), s"build.sbt not found: $buildSbt")
+    assert(Files.exists(countryCode), s"powertype file not found: $countryCode")
+    assert(Files.exists(addressType), s"powertype file not found: $addressType")
+    assert(!Files.exists(domainComponent), s"DomainComponent must not be generated in value mode: $domainComponent")
+  }
+
+  test("modeler-scala-value accepts statemachine-only cml without component generation") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/statemachine-division-alias.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-value-statemachine-only")
+    _delete_recursively(out)
+    Files.createDirectories(out.getParent)
+
+    cozy.Cozy.main(Array("modeler-scala-value", input.toString, s"--save=${out.toString}"))
+
+    val buildSbt = out.resolve("build.sbt")
+    val lifecycle = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/statemachine/lifecycle.scala"
+    )
+    val domainComponent = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+    )
+    assert(Files.exists(buildSbt), s"build.sbt not found: $buildSbt")
+    assert(Files.exists(lifecycle), s"statemachine file not found: $lifecycle")
     assert(!Files.exists(domainComponent), s"DomainComponent must not be generated in value mode: $domainComponent")
   }
 
@@ -163,6 +210,10 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)
     assert(content.contains("override def stateMachineTransitionRules: Vector[CollectionTransitionRule[Any]] = Vector("))
+    assert(content.contains("override def stateMachineDefinitions: Vector[org.goldenport.cncf.statemachine.CmlStateMachineDefinition] = Vector("))
+    assert(content.contains("name = \"lifecycle\""))
+    assert(content.contains("states = Vector(\"Draft\", \"Published\")"))
+    assert(content.contains("events = Vector(\"publish\")"))
     assert(content.contains("eventName = \"publish\""))
     assert(content.contains("guard = Some(StateMachineRuleBuilder.guardExpression[Any](\"event.amount > 0\")"))
     assert(content.contains("StateMachineRuleBuilder.updateRule[Any]("))
@@ -212,6 +263,40 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(content.contains("declarationOrder = 2"))
     assert(content.contains("declarationOrder = 3"))
     assert(_count(content, "priority = 0") >= 4)
+  }
+
+  test("kaleidox parses POWERTYPE section and ignores narrative subsection") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/powertype-literate.dox")
+    val model = KaleidoxModel.load(KaleidoxConfig.default.withoutLocation, input.toFile)
+    val powertype = model.takePowertypeModel
+    val divisions = model.divisions.map(_.name).mkString(",")
+    val errors = model.errors.map(_.toString).mkString("|")
+    assert(
+      powertype.classes.contains("CountryCode"),
+      s"CountryCode missing; actual keys=${powertype.classes.keys.mkString(",")}, divisions=$divisions, errors=$errors"
+    )
+    assert(
+      powertype.classes.contains("AddressType"),
+      s"AddressType missing; actual keys=${powertype.classes.keys.mkString(",")}, divisions=$divisions, errors=$errors"
+    )
+    assert(!powertype.classes.contains("Overview"))
+    assert(powertype.classes("CountryCode").packageName == "domain.value")
+    assert(powertype.classes("AddressType").packageName == "domain.value")
+  }
+
+  test("kaleidox accepts STATE-MACHINE top-level alias") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/statemachine-division-alias.dox")
+    val model = KaleidoxModel.load(KaleidoxConfig.default.withoutLocation, input.toFile)
+    val sm = model.takeStateMachineModel
+    val divisions = model.divisions.map(_.name).mkString(",")
+    val errors = model.errors.map(_.toString).mkString("|")
+    val lifecycle = sm.getClass("lifecycle").getOrElse {
+      fail(s"state machine lifecycle is missing; actual keys=${sm.classes.keys.mkString(",")}, divisions=$divisions, errors=$errors")
+    }
+    assert(lifecycle.states.exists(_.name == "Draft"))
+    assert(lifecycle.states.exists(_.name == "Published"))
   }
 
   test("kaleidox parses Event metadata in Entity Event section") {
