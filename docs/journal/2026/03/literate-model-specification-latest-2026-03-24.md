@@ -206,7 +206,9 @@ These keys may be written in section-body YAML/table/dl forms and map to
 - `min_length` -> `CMinLength`
 - `max_length` -> `CMaxLength`
 - `pattern` -> `CRegex`
-- `format` -> `CFormat` (`email` / `uuid` / `uri` / `url`)
+- `format` -> `CFormat` (`email` / `uuid` / `uri` / `url` /
+  `date` / `time` / `date-time` / `datetime` / `date_time` /
+  `phone` / `tel` / `e164`)
 
 ## 11.4 Classification Transparency
 

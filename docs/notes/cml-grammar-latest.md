@@ -653,7 +653,9 @@ Normalization to `record.v2.Constraint`:
 - `min_length` -> `CMinLength`
 - `max_length` -> `CMaxLength`
 - `pattern` -> `CRegex`
-- `format` -> `CFormat` (currently `email` / `uuid` / `uri` / `url`)
+- `format` -> `CFormat` (currently `email` / `uuid` / `uri` / `url` /
+  `date` / `time` / `date-time` / `datetime` / `date_time` /
+  `phone` / `tel` / `e164`)
 
 Current implementation note:
 - unsupported `format` values are ignored (no constraint emitted).

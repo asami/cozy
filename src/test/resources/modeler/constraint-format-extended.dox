@@ -1,0 +1,10 @@
+# Entity
+
+## ContactProfile
+
+### Attribute
+
+| name          | type   | multiplicity | format    |
+|---------------+--------+--------------+-----------|
+| created_at    | string | 1            | date-time |
+| phone_number  | string | 1            | phone     |

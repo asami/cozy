@@ -316,6 +316,25 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(column.constraints.exists(_.isInstanceOf[CFormat]))
   }
 
+  test("kaleidox accepts extended format values for CFormat constraints") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/constraint-format-extended.dox")
+    val model = KaleidoxModel.load(KaleidoxConfig.default.withoutLocation, input.toFile)
+    val schema = model.takeEntityModel.get("ContactProfile").getOrElse {
+      fail("Entity ContactProfile is missing")
+    }.schema
+    val createdAt = schema.columns.find(_.name == "created_at").getOrElse {
+      fail("Column created_at is missing")
+    }
+    val phoneNumber = schema.columns.find(_.name == "phone_number").getOrElse {
+      fail("Column phone_number is missing")
+    }
+    val createdAtFormats = createdAt.constraints.collect { case CFormat(f) => f.toLowerCase }
+    val phoneFormats = phoneNumber.constraints.collect { case CFormat(f) => f.toLowerCase }
+    assert(createdAtFormats.contains("date-time"))
+    assert(phoneFormats.contains("phone"))
+  }
+
   test("kaleidox parses Event metadata in Entity Event section") {
     val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
     val input = base.resolve("src/test/resources/modeler/event-metadata.dox")
