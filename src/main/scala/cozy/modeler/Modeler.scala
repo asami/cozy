@@ -44,7 +44,7 @@ import scala.collection.mutable
  *  version Nov.  2, 2024
  *  version May. 13, 2025
  *  version Feb. 27, 2026
- * @version Mar. 23, 2026
+ * @version Mar. 24, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
@@ -362,8 +362,17 @@ class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
     case m => RAISE.noReachDefect
   }
 
+  private def _make_model_value(p: IModel): SimpleModel = p match {
+    case m: KaleidoxModel => _make_model_value(m)
+    case m => RAISE.noReachDefect
+  }
+
   private def _make_model(p: KaleidoxModel): SimpleModel = {
     ModelBuilder(p).build()
+  }
+
+  private def _make_model_value(p: KaleidoxModel): SimpleModel = {
+    ModelBuilder(p).buildValue()
   }
 
   def generateScala(
@@ -373,9 +382,27 @@ class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
     _make_scala(c, model, "domain")
   }
 
+  def generateScalaValue(
+    c: Context,
+    model: SModel
+  ): SExpr = {
+    _make_scala_value(c, model, "domain")
+  }
+
   private def _make_scala(c: Context, smodel: SModel, pkg: String): SExpr = {
     val env = c.executionContext.environment
     val model = _make_model(smodel.model)
+    val g = new ScalaGenerator(env, model)
+    val targetpkg = _resolve_generate_package(model, pkg)
+    model.getPackage(targetpkg).orElse(Some(model.root)) match {
+      case Some(s) => g.generate(s)
+      case None => SError.notFound("Unkown package", targetpkg)
+    }
+  }
+
+  private def _make_scala_value(c: Context, smodel: SModel, pkg: String): SExpr = {
+    val env = c.executionContext.environment
+    val model = _make_model_value(smodel.model)
     val g = new ScalaGenerator(env, model)
     val targetpkg = _resolve_generate_package(model, pkg)
     model.getPackage(targetpkg).orElse(Some(model.root)) match {
@@ -432,14 +459,26 @@ object Modeler {
     operation: OperationModel
   ) {
     def build(): SimpleModel = {
+      _build(includeComponents = true)
+    }
+
+    def buildValue(): SimpleModel = {
+      _build(includeComponents = false)
+    }
+
+    private def _build(includeComponents: Boolean): SimpleModel = {
       val entities = entity.classes.values.filterNot(c => _is_simple_entity(c.name)).map(_entity)
       val datatypes = datatype.classes.values.map(_datatype)
       val powertypes = powertype.classes.values.map(_powertype)
       val statemachines = stateMachine.classes.values.map(_statemachine)
       val xs = entities ++ datatypes ++ powertypes ++ statemachines
       val a = SimpleModel(xs.toVector)
-      val comps = _complement_components(a)
-      a.add(comps)
+      if (includeComponents) {
+        val comps = _complement_components(a)
+        a.add(comps)
+      } else {
+        a
+      }
     }
 
     private def _entity(p: EntityClass): MEntity = {

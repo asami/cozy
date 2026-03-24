@@ -39,6 +39,29 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(content.contains("override def viewDefinitions: Vector[org.goldenport.cncf.entity.view.ViewDefinition] = Vector("))
   }
 
+  test("modeler-scala-value generates value model without component") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/test.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-value")
+    _delete_recursively(out)
+    Files.createDirectories(out.getParent)
+
+    cozy.Cozy.main(Array("modeler-scala-value", input.toString, s"--save=${out.toString}"))
+
+    val entity = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/entity/Person.scala"
+    )
+    val query = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/entity/query/Person.scala"
+    )
+    val domainComponent = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+    )
+    assert(Files.exists(entity), s"generated entity file not found: $entity")
+    assert(Files.exists(query), s"generated query value file not found: $query")
+    assert(!Files.exists(domainComponent), s"DomainComponent must not be generated in value mode: $domainComponent")
+  }
+
   test("modeler-scala expands attributes from SimpleEntity parent") {
     val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
     val input = base.resolve("src/test/resources/modeler/simpleentity-parent.dox")
