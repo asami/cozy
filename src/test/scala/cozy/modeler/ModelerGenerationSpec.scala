@@ -310,9 +310,13 @@ class ModelerGenerationSpec extends AnyFunSuite {
     val column = schema.columns.find(_.name == "value").getOrElse {
       fail("Column value is missing")
     }
+    val regexCount = column.constraints.count(_.isInstanceOf[CRegex])
+    val hasFormalFormat = column.constraints.exists(_.getClass.getSimpleName == "CFormat")
+    val hasFormatConstraint = hasFormalFormat || regexCount >= 2
     assert(column.constraints.exists(_.isInstanceOf[CMinLength]))
     assert(column.constraints.exists(_.isInstanceOf[CMaxLength]))
-    assert(column.constraints.count(_.isInstanceOf[CRegex]) >= 2)
+    assert(regexCount >= 1)
+    assert(hasFormatConstraint)
   }
 
   test("kaleidox parses Event metadata in Entity Event section") {

@@ -1,7 +1,7 @@
 # CML Grammar (Latest, Cozy)
 
 status=frozen-for-phase9-cs-01-cs-02
-updated_at=2026-03-24
+updated_at=2026-03-25
 target=/Users/asami/src/dev2025/cozy
 
 ## 1. Scope
@@ -605,10 +605,11 @@ Rejected:
 
 ---
 
-## 13. Address-Driven Extension Track (Proposed)
+## 13. Address-Driven Extension Track (Partially Implemented)
 
-status=proposed
+status=partially-implemented
 added_at=2026-03-24
+updated_at=2026-03-25
 
 This section captures extensions required to realize the Literate Model goal
 with rich narrative + executable structure in one CML file (e.g. `address.cml`).
@@ -636,7 +637,7 @@ Problem:
 - Constraint intent (`length`, `pattern`, `format`) is often written in narrative,
   and not machine-bound.
 
-Extension proposal:
+Implemented contract:
 - standardize optional attribute metadata keys:
   - `min_length`
   - `max_length`
@@ -647,6 +648,17 @@ Accepted syntax forms (same normalization):
 - table columns
 - dl list
 - yaml section body
+
+Normalization to `record.v2.Constraint`:
+- `min_length` -> `CMinLength`
+- `max_length` -> `CMaxLength`
+- `pattern` -> `CRegex`
+- `format` -> `CFormat` (currently `email` / `uuid` / `uri` / `url`)
+
+Current implementation note:
+- unsupported `format` values are ignored (no constraint emitted).
+- if `CFormat` is unavailable in runtime dependency, parser falls back to
+  `CRegex` for recognized format keys.
 
 Example (yaml section body):
 
@@ -677,7 +689,7 @@ Purpose:
 
 ### 13.4 Rollout Policy
 
-- This section is a proposed extension track and does not overwrite frozen
+- Section `13.2` is implemented and treated as normative behavior in the
+  current parser/modeler pipeline.
+- Sections `13.1` and `13.3` remain proposal-track and do not overwrite frozen
   contracts in sections 1-12.
-- When implemented, move accepted items into the frozen contract sections and
-  update `status`/`updated_at` accordingly.

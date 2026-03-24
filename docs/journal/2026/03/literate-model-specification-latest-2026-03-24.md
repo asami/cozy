@@ -2,7 +2,7 @@ Literate Model Specification (Latest, Cozy)
 ============================================
 
 status=frozen-snapshot
-updated_at=2026-03-24
+updated_at=2026-03-25
 category=specification
 
 # 1. Purpose
@@ -166,10 +166,11 @@ Implementation alignment was confirmed against current Cozy tests, including:
 
 This document should be maintained as an implementation-aligned specification snapshot.
 
-# 11. Address Literate Extension Addendum (Proposed)
+# 11. Address Literate Extension Addendum (Partially Implemented)
 
-status=proposed
+status=partially-implemented
 added_at=2026-03-24
+updated_at=2026-03-25
 
 This addendum captures implementation work needed to realize the intended
 Literate Model authoring style (rich narrative + executable structure) in a
@@ -190,7 +191,7 @@ without forcing narrative text into pseudo-structural syntax.
 - normalize to `ENTITY(kind=VALUE)` in AST
 - keep generator semantics deterministic and equivalent to explicit `ENTITY`
 
-## 11.3 Proposed Metadata Enrichment
+## 11.3 Metadata Enrichment (Implemented)
 
 At attribute level, normalize optional constraint metadata:
 
@@ -199,8 +200,17 @@ At attribute level, normalize optional constraint metadata:
 - `pattern`
 - `format`
 
-These keys may be written in section-body YAML/table/dl forms and must map to
-one canonical metadata representation.
+These keys may be written in section-body YAML/table/dl forms and map to
+`record.v2.Constraint` in the current implementation:
+
+- `min_length` -> `CMinLength`
+- `max_length` -> `CMaxLength`
+- `pattern` -> `CRegex`
+- `format` -> `CFormat` (`email` / `uuid` / `uri` / `url`)
+
+Compatibility note:
+- when running with an older `goldenport-record` that does not provide
+  `CFormat`, format constraints are emitted as equivalent `CRegex`.
 
 ## 11.4 Classification Transparency
 
@@ -215,6 +225,6 @@ with section path and normalized target node.
 
 ## 11.5 Scope and Compatibility
 
-- This addendum is a proposal track; frozen sections 1-10 remain normative.
-- Once implemented, accepted items should be folded into the normative body and
-  removed from proposal state.
+- Section `11.3` is implemented and aligned with Cozy latest grammar.
+- Sections `11.2` and `11.4` remain proposal-track; sections 1-10 remain
+  normative for the frozen snapshot.
