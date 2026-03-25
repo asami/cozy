@@ -617,6 +617,8 @@ updated_at=2026-03-25
 
 This section captures extensions required to realize the Literate Model goal
 with rich narrative + executable structure in one CML file (e.g. `address.cml`).
+The `address.cml` file itself is treated as a production definition file, so
+design notes and grammar explanations live in Cozy docs, not in `address.cml`.
 
 ### 13.1 VALUE/ENTITY Structural Boundary
 
@@ -638,6 +640,13 @@ Validation:
 - `VALUE` and `ENTITY` may use compatible attribute schema syntax.
 - parser/modeler must keep them separated in AST/model boundaries.
 
+VALUE authoring contract:
+- `# VALUE` may contain narrative before the first `## <ValueName>` definition.
+- `# VALUE` may contain optional descriptive sections reserved from `DescriptiveAttributes`.
+- `# VALUE` may contain narrative after the last `## <ValueName>` definition.
+- reserved descriptive sections are optional and do not define new Value Objects.
+- non-reserved `## ...` sections are interpreted as Value definitions.
+
 ### 13.2 Attribute Constraint Metadata
 
 Problem:
@@ -653,14 +662,23 @@ Implemented contract:
 
 Accepted syntax forms (same normalization):
 - table columns
-- dl list
+- dl list / bullet list
 - yaml section body
+- hocon section body
+- plain text fallback if no structured form is available
 
 Normalization to `record.v2.Constraint`:
 - `min` -> `CMin`
 - `max` -> `CMax`
 - `pattern` -> `CRegex`
 - `format` -> `CFormat` (currently `email` / `uri`)
+
+Parsing priority for `ATTRIBUTE` bodies:
+1. table
+2. dl / bullet list
+3. yaml
+4. hocon
+5. plain text fallback
 
 Current implementation note:
 - unsupported `format` values are preserved in metadata but do not emit a

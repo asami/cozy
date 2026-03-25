@@ -1,0 +1,40 @@
+# SERVICE
+
+## address
+
+### DESCRIPTION
+
+Address service for postal address support.
+Provides help-visible metadata for CNCF projections.
+
+### OPERATION
+
+#### lookupAddress
+
+##### DESCRIPTION
+
+Look up an address by postal code.
+Returns a normalized address representation.
+
+##### IN
+
+| 名前         | 型     | 多重度 | 説明        |
+|--------------+--------+--------+-------------|
+| postalCode   | string | 1      | postal code |
+
+##### OUT
+
+| 名前    | 型     | 多重度 | 説明   |
+|---------+--------+--------+--------|
+| address | string | 1      | result |
+
+# ENTITY
+
+## Person
+
+### ATTRIBUTE
+
+| name | type     | multiplicity |
+|------+----------+--------------|
+| id   | entityid | 1            |
+| name | name     | 1            |

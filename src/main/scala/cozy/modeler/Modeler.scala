@@ -55,6 +55,9 @@ class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
   def explain(model: SimpleModel): Vector[ExplainEntry] =
     Explain.from(model)
 
+  def help(model: KaleidoxModel): Vector[HelpModel] =
+    Help.from(model)
+
   def linkageDiagnostics(model: KaleidoxModel): Vector[LinkageEntry] =
     Linkage.from(model)
 
@@ -440,6 +443,15 @@ class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
 }
 
 object Modeler {
+  final case class HelpModel(
+    `type`: String,
+    name: String,
+    summary: String,
+    children: Vector[String] = Vector.empty,
+    details: Map[String, Vector[String]] = Map.empty,
+    usage: Vector[String] = Vector.empty
+  )
+
   case class ExplainEntry(
     sectionPath: String,
     classifiedRole: String,
@@ -491,6 +503,67 @@ object Modeler {
           normalizedTarget = s"${p.packageName}.${p.name}.${a.name}"
         )
       }
+  }
+
+  object Help {
+    private val _narrativeKeys = Set(
+      "headline",
+      "brief",
+      "summary",
+      "description",
+      "lead",
+      "content",
+      "abstract",
+      "remarks",
+      "tooltip"
+    )
+
+    def from(model: KaleidoxModel): Vector[HelpModel] = {
+      val valueModel = model.getValueModel
+      model.divisions.collect {
+        case d: org.goldenport.kaleidox.Model.ValueDivision =>
+          val root = d.section
+          root.blocks.sections.filterNot(x => _narrativeKeys.contains(x.keyForModel.toLowerCase)).toVector.map { v =>
+            _value_help_model(valueModel.flatMap(_.get(v.nameForModel)), v)
+          }
+      }.flatten.toVector
+    }
+
+    private def _value_help_model(
+      valueClass: Option[org.goldenport.kaleidox.model.ValueModel.ValueClass],
+      p: org.goldenport.parser.LogicalSection
+    ): HelpModel = {
+      val summary = _child_text(p, "summary").
+        orElse(_child_text(p, "description")).
+        orElse(_free_narrative(p)).
+        getOrElse(s"Value: ${p.nameForModel}")
+      val description = _child_text(p, "description").orElse(_free_narrative(p))
+      val attributes = valueClass.map(_.schema.columns.map(_.name).toVector).getOrElse(Vector.empty)
+      val details = Vector.newBuilder[(String, Vector[String])]
+      if (attributes.nonEmpty)
+        details += "attributes" -> attributes
+      description.foreach(x => details += "description" -> Vector(x))
+      details += "sectionPath" -> Vector(s"VALUE/${p.nameForModel}")
+      HelpModel(
+        `type` = "value",
+        name = p.nameForModel,
+        summary = summary,
+        children = attributes,
+        details = details.result().toMap,
+        usage = Vector.empty
+      )
+    }
+
+    private def _child_text(p: org.goldenport.parser.LogicalSection, name: String): Option[String] =
+      p.blocks.sections.find(_.keyForModel.equalsIgnoreCase(name)).flatMap { s =>
+        val t = s.blocks.text.trim
+        if (t.isEmpty) None else Some(t)
+      }
+
+    private def _free_narrative(p: org.goldenport.parser.LogicalSection): Option[String] = {
+      val s = p.blocks.prologue.text.trim
+      if (s.isEmpty) None else Some(s)
+    }
   }
 
   object Linkage {

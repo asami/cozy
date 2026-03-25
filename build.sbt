@@ -40,12 +40,10 @@ resolvers += "GitHub Packages" at "https://maven.pkg.github.com/asami/maven-repo
 
 resolvers += Resolver.file("Local Ivy", file(Path.userHome.absolutePath + "/.ivy2/local"))(Resolver.ivyStylePatterns)
 
-resolvers += "Local Maven Repository" at "file://"+Path.userHome.absolutePath+"/.m2/repository"
-
 resolvers += Resolver.defaultLocal
 
 // override arcadia
-libraryDependencies += "org.goldenport" %% "goldenport-scala-lib" % "2.3.25"
+libraryDependencies += "org.goldenport" %% "goldenport-scala-lib" % "2.3.26-SNAPSHOT"
 
 // override kaleidox
 libraryDependencies += "org.goldenport" %% "goldenport-record" % "2.2.4-SNAPSHOT"

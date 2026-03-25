@@ -1,0 +1,34 @@
+Address Lifecycle
+=================
+
+This fixture checks literate statemachine parsing from a `.cml` document.
+Prelude narrative before the structural section must be ignored.
+
+# STATEMACHINE
+
+Narrative text before the first state machine definition must not become a machine.
+
+## SUMMARY
+
+Short summary for the statemachine section.
+
+## lifecycle
+rule {
+  state = [
+    {
+      name = Draft
+      transition = [
+        {
+          guard = publish
+          to = Published
+        }
+      ]
+    },
+    {
+      name = Published
+    }
+  ]
+}
+
+## Overview
+This section is narrative and must not be treated as a state machine definition.

@@ -39,6 +39,7 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(content.contains("override def stateMachineDefinitions: Vector[org.goldenport.cncf.statemachine.CmlStateMachineDefinition] = Vector.empty"))
     assert(content.contains("override def aggregateDefinitions: Vector[org.goldenport.cncf.entity.aggregate.AggregateDefinition] = Vector("))
     assert(content.contains("override def viewDefinitions: Vector[org.goldenport.cncf.entity.view.ViewDefinition] = Vector("))
+    assert(content.contains("/**"))
   }
 
   test("modeler-scala-value generates value model without component") {
@@ -135,6 +136,40 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(!Files.exists(domainComponent), s"DomainComponent must not be generated in value mode: $domainComponent")
   }
 
+  test("modeler-scala-value accepts powertype-only .cml with literate narrative") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/powertype-literate.cml")
+    val out = base.resolve("target/test-generated/modeler-scala-value-powertype-only-cml")
+    _delete_recursively(out)
+    Files.createDirectories(out.getParent)
+
+    cozy.Cozy.main(Array("modeler-scala-value", input.toString, s"--save=${out.toString}"))
+
+    val countryCode = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/value/CountryCode.scala"
+    )
+    val addressType = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/value/AddressType.scala"
+    )
+    assert(Files.exists(countryCode), s"powertype file not found: $countryCode")
+    assert(Files.exists(addressType), s"powertype file not found: $addressType")
+  }
+
+  test("modeler-scala-value accepts statemachine-only .cml with literate narrative") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/statemachine-literate.cml")
+    val out = base.resolve("target/test-generated/modeler-scala-value-statemachine-only-cml")
+    _delete_recursively(out)
+    Files.createDirectories(out.getParent)
+
+    cozy.Cozy.main(Array("modeler-scala-value", input.toString, s"--save=${out.toString}"))
+
+    val lifecycle = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/statemachine/lifecycle.scala"
+    )
+    assert(Files.exists(lifecycle), s"statemachine file not found: $lifecycle")
+  }
+
   test("modeler-scala expands attributes from SimpleEntity parent") {
     val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
     val input = base.resolve("src/test/resources/modeler/simpleentity-parent.dox")
@@ -154,6 +189,7 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(!Files.exists(notGeneratedSimpleEntity), s"SimpleEntity must not be generated: $notGeneratedSimpleEntity")
     val content = Files.readString(generated)
     assert(content.contains("extends org.simplemodeling.model.SimpleEntity with EntityPersistable"))
+    assert(content.contains("/**"))
     assert(content.contains("case class Person(override val id: EntityId"))
     assert(content.contains("nameAttributes: NameAttributes"))
     assert(content.contains("age: Option[Age]"))
@@ -323,6 +359,31 @@ class ModelerGenerationSpec extends AnyFunSuite {
     }
     assert(lifecycle.states.exists(_.name == "Draft"))
     assert(lifecycle.states.exists(_.name == "Published"))
+  }
+
+  test("kaleidox parses POWERTYPE from .cml and ignores reserved/free narrative sections") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/powertype-literate.cml")
+    val model = KaleidoxModel.load(KaleidoxConfig.default.withoutLocation, input.toFile)
+    val powertype = model.takePowertypeModel
+    assert(powertype.classes.contains("CountryCode"))
+    assert(powertype.classes.contains("AddressType"))
+    assert(!powertype.classes.contains("SUMMARY"))
+    assert(!powertype.classes.contains("Overview"))
+  }
+
+  test("kaleidox parses STATEMACHINE from .cml and ignores reserved/free narrative sections") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/statemachine-literate.cml")
+    val model = KaleidoxModel.load(KaleidoxConfig.default.withoutLocation, input.toFile)
+    val sm = model.takeStateMachineModel
+    val lifecycle = sm.getClass("lifecycle").getOrElse {
+      fail(s"state machine lifecycle is missing; actual keys=${sm.classes.keys.mkString(",")}")
+    }
+    assert(lifecycle.states.exists(_.name == "Draft"))
+    assert(lifecycle.states.exists(_.name == "Published"))
+    assert(sm.getClass("SUMMARY").isEmpty)
+    assert(sm.getClass("Overview").isEmpty)
   }
 
   test("kaleidox normalizes attribute constraint metadata to record constraints") {
@@ -522,6 +583,49 @@ class ModelerGenerationSpec extends AnyFunSuite {
     ))
   }
 
+  test("modeler explain covers production address.cml VALUE definitions") {
+    val base = Paths.get("/Users/asami/src/dev2026/simplemodeling-model").toAbsolutePath.normalize()
+    val input = base.resolve("src/main/cozy/address.cml")
+    val model = KaleidoxModel.load(KaleidoxConfig.default.withoutLocation, input.toFile)
+    val simpleModel = new cozy.modeler.Modeler().buildValueModel(model)
+    val explain = new cozy.modeler.Modeler().explain(simpleModel)
+
+    assert(explain.exists(e =>
+      e.sectionPath == "VALUE/Address" &&
+      e.classifiedRole == "structural" &&
+      e.normalizedTarget == "domain.value.Address"
+    ))
+    assert(explain.exists(e =>
+      e.sectionPath == "VALUE/CountryCode" &&
+      e.normalizedTarget == "domain.value.CountryCode"
+    ))
+    assert(explain.exists(e =>
+      e.sectionPath == "VALUE/Address/ATTRIBUTE/addressCountry" &&
+      e.normalizedTarget == "domain.value.Address.addressCountry"
+    ))
+  }
+
+  test("modeler help extracts production address.cml VALUE summaries") {
+    val base = Paths.get("/Users/asami/src/dev2026/simplemodeling-model").toAbsolutePath.normalize()
+    val input = base.resolve("src/main/cozy/address.cml")
+    val model = KaleidoxModel.load(KaleidoxConfig.default.withoutLocation, input.toFile)
+    val help = new cozy.modeler.Modeler().help(model)
+
+    assert(help.exists(e =>
+      e.`type` == "value" &&
+      e.name == "Address" &&
+      e.summary.contains("Structured postal destination value")
+    ))
+    assert(help.exists(e =>
+      e.name == "CountryCode" &&
+      e.summary.contains("Two-letter country code")
+    ))
+    assert(help.exists(e =>
+      e.name == "Address" &&
+      e.details.get("description").exists(_.exists(_.contains("structured postal destination value")))
+    ))
+  }
+
   test("modeler linkage diagnostics resolves event and action references") {
     val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
     val input = base.resolve("src/test/resources/modeler/event-routing-subscription.dox")
@@ -575,6 +679,101 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(content.contains("name = \"savePerson\""))
     assert(content.contains("inputType = \"SavePersonInput\""))
     assert(content.contains("inputValueKind = \"COMMAND_VALUE\""))
+  }
+
+  test("modeler-scala emits CNCF help source metadata for described service and operation") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/service-help-metadata.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-service-help-metadata")
+    _delete_recursively(out)
+    Files.createDirectories(out.getParent)
+
+    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+
+    val generated = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+    )
+    assert(Files.exists(generated), s"generated file not found: $generated")
+    val content = Files.readString(generated)
+    assert(content.contains("""ServiceDefinition.Specification.Builder("address")."""))
+    assert(content.contains("""summary("Address service for postal address support.")."""))
+    assert(content.contains("""description("Address service for postal address support.Provides help-visible metadata for CNCF projections.")."""))
+    assert(content.contains("""OperationDefinition.Specification.Builder("lookupAddress")."""))
+    assert(content.contains("""BaseContent.Builder("lookupAddress").summary("Look up an address by postal code.").description("Look up an address by postal code.Returns a normalized address representation.")"""))
+  }
+
+  test("modeler-scala-value is deterministic across repeated generation") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/main/cozy/address.cml")
+    val out1 = base.resolve("target/test-generated/modeler-scala-value-determinism-1")
+    val out2 = base.resolve("target/test-generated/modeler-scala-value-determinism-2")
+    _delete_recursively(out1)
+    _delete_recursively(out2)
+    Files.createDirectories(out1.getParent)
+    Files.createDirectories(out2.getParent)
+
+    cozy.Cozy.main(Array("modeler-scala-value", input.toString, s"--save=${out1.toString}"))
+    cozy.Cozy.main(Array("modeler-scala-value", input.toString, s"--save=${out2.toString}"))
+
+    val left = _tree_snapshot(out1)
+    val right = _tree_snapshot(out2)
+    assert(left == right, s"generated output differs between runs\nleft=$left\nright=$right")
+  }
+
+  test("modeler-scala-value emits Scaladoc from literate address.cml narrative") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/main/cozy/address.cml")
+    val out = base.resolve("target/test-generated/modeler-scala-value-scaladoc")
+    _delete_recursively(out)
+    Files.createDirectories(out.getParent)
+
+    cozy.Cozy.main(Array("modeler-scala-value", input.toString, s"--save=${out.toString}"))
+
+    val generated = out.resolve(
+      "target/scala-3.3.7/src_managed/main/domain/value/Address.scala"
+    )
+    assert(Files.exists(generated), s"generated file not found: $generated")
+    val content = Files.readString(generated)
+    assert(content.contains("/**"))
+    assert(content.contains("Structured postal destination value"))
+    assert(content.contains("@param addressCountry"))
+    assert(content.contains("@param postalCode"))
+  }
+
+  test("modeler-scala-value emits Scaladoc for powertype output") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/powertype-literate.cml")
+    val out = base.resolve("target/test-generated/modeler-scala-value-powertype-scaladoc")
+    _delete_recursively(out)
+    Files.createDirectories(out.getParent)
+
+    cozy.Cozy.main(Array("modeler-scala-value", input.toString, s"--save=${out.toString}"))
+
+    val generated = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/value/CountryCode.scala"
+    )
+    assert(Files.exists(generated), s"generated file not found: $generated")
+    val content = Files.readString(generated)
+    assert(content.contains("/**"))
+    assert(content.contains("Country"))
+  }
+
+  test("modeler-scala-value emits Scaladoc for statemachine output") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/statemachine-literate.cml")
+    val out = base.resolve("target/test-generated/modeler-scala-value-statemachine-scaladoc")
+    _delete_recursively(out)
+    Files.createDirectories(out.getParent)
+
+    cozy.Cozy.main(Array("modeler-scala-value", input.toString, s"--save=${out.toString}"))
+
+    val generated = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/statemachine/lifecycle.scala"
+    )
+    assert(Files.exists(generated), s"generated file not found: $generated")
+    val content = Files.readString(generated)
+    assert(content.contains("/**"))
+    assert(content.contains("Lifecycle"))
   }
 
   test("kaleidox parses COMPONENT/SUBSYSTEM grammar") {
@@ -917,5 +1116,22 @@ class ModelerGenerationSpec extends AnyFunSuite {
         go(i + token.length, acc + 1)
     }
     go(0, 0)
+  }
+
+  private def _tree_snapshot(root: Path): Vector[(String, String)] = {
+    if (!Files.exists(root))
+      Vector.empty
+    else {
+      import scala.jdk.CollectionConverters.*
+      Files.walk(root).iterator().asScala
+        .filter(path => Files.isRegularFile(path))
+        .map { path =>
+          val rel = root.relativize(path).toString
+          val content = Files.readString(path)
+          (rel, content)
+        }
+        .toVector
+        .sortBy(_._1)
+    }
   }
 }

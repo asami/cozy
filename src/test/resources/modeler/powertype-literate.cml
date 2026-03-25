@@ -1,0 +1,23 @@
+Address Classification
+======================
+
+This fixture checks literate powertype parsing from a `.cml` document.
+Prelude narrative before the structural section must be ignored for class extraction.
+
+# POWERTYPE
+
+Introductory narrative inside the structural section must remain non-structural.
+
+## SUMMARY
+
+Short summary for the whole powertype section.
+
+## CountryCode
+package = domain.value
+
+## AddressType
+package: domain.value
+
+## Overview
+This section is narrative and must not be treated as a powertype class.
+

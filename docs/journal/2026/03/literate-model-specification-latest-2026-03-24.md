@@ -175,6 +175,9 @@ updated_at=2026-03-25
 This addendum captures implementation work needed to realize the intended
 Literate Model authoring style (rich narrative + executable structure) in a
 single CML source such as `address.cml`.
+The `address.cml` file itself is treated as a production definition file; the
+grammar and design contract are documented in Cozy docs, not embedded in the
+domain file.
 
 ## 11.1 Authoring Principle Update
 
@@ -191,6 +194,10 @@ without forcing narrative text into pseudo-structural syntax.
 - share schema-level representation where possible
 - do not normalize `VALUE` into `ENTITY(kind=VALUE)`
 - keep generator semantics deterministic with explicit model boundaries
+- `# VALUE` may contain prelude narrative before the first Value definition
+- `# VALUE` may contain optional reserved descriptive sections from `DescriptiveAttributes`
+- `# VALUE` may contain trailing narrative after the last Value definition
+- reserved descriptive sections are optional and do not define new Value Objects
 
 ## 11.3 Metadata Enrichment (Implemented)
 
@@ -201,8 +208,17 @@ At attribute level, normalize optional constraint metadata:
 - `pattern`
 - `format`
 
-These keys may be written in section-body YAML/table/dl forms and map to
-`record.v2.Constraint` in the current implementation:
+These keys may be written in section-body table/dl/yaml/hocon forms and map to
+`record.v2.Constraint` in the current implementation.
+Accepted `ATTRIBUTE` body priority:
+
+1. table
+2. dl / bullet list
+3. yaml
+4. hocon
+5. plain text fallback
+
+Normalization to `record.v2.Constraint`:
 
 - `min_length` -> `CMinLength`
 - `max_length` -> `CMaxLength`
