@@ -1,0 +1,21 @@
+# VALUE
+
+## CountryCode
+
+### ATTRIBUTE
+
+| name  | type   | multiplicity |
+|-------|--------|--------------|
+| value | string | 1            |
+
+# ENTITY
+
+## Person
+
+### ATTRIBUTE
+
+| name | type     | multiplicity |
+|------+----------+--------------|
+| id   | entityid | 1            |
+| name | name     | 1            |
+

@@ -21,11 +21,13 @@ import org.goldenport.kaleidox.model.{PowertypeModel, StateMachineModel, EventMo
 import org.goldenport.kaleidox.model.ComponentSubsystemModel
 import org.goldenport.kaleidox.model.OperationModel
 import org.goldenport.kaleidox.model.ServiceModel
+import org.goldenport.kaleidox.model.ValueModel
 import org.goldenport.kaleidox.model.CmlExpressionGuard
 import org.goldenport.kaleidox.model.SchemaModel.SchemaClass
 import org.goldenport.kaleidox.model.EntityModel.EntityClass
 import org.goldenport.kaleidox.model.DataTypeModel.DataTypeClass
 import org.goldenport.kaleidox.model.PowertypeModel.PowertypeClass
+import org.goldenport.kaleidox.model.ValueModel.ValueClass
 import scala.collection.mutable
 
 /*
@@ -49,6 +51,12 @@ import scala.collection.mutable
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
   import Modeler._
+
+  def explain(model: SimpleModel): Vector[ExplainEntry] =
+    Explain.from(model)
+
+  def linkageDiagnostics(model: KaleidoxModel): Vector[LinkageEntry] =
+    Linkage.from(model)
 
   def generateStateMachineDiagram(
     c: Context,
@@ -347,6 +355,9 @@ class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
     _make_diagram(c, model, pkg)
   }
 
+  def buildValueModel(model: KaleidoxModel): SimpleModel =
+    _make_model_value(model)
+
   private def _make_diagram(c: Context, smodel: SModel, pkg: String): SExpr = {
     val env = c.executionContext.environment
     val model = _make_model(smodel.model)
@@ -429,6 +440,85 @@ class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
 }
 
 object Modeler {
+  case class ExplainEntry(
+    sectionPath: String,
+    classifiedRole: String,
+    normalizedTarget: String
+  )
+
+  case class LinkageEntry(
+    sectionPath: String,
+    target: String,
+    resolved: Boolean,
+    facet: String
+  )
+
+  object Explain {
+    def from(model: SimpleModel): Vector[ExplainEntry] = {
+      model.elements.toVector.flatMap {
+        case m: MDomainValue => _value(m)
+        case m: MDomainResource => _entity(m)
+        case _ => Vector.empty
+      }
+    }
+
+    private def _value(p: MDomainValue): Vector[ExplainEntry] =
+      Vector(
+        ExplainEntry(
+          sectionPath = s"VALUE/${p.name}",
+          classifiedRole = "structural",
+          normalizedTarget = s"${p.packageName}.${p.name}"
+        )
+      ) ++ p.attributes.toVector.map { a =>
+        ExplainEntry(
+          sectionPath = s"VALUE/${p.name}/ATTRIBUTE/${a.name}",
+          classifiedRole = "structural",
+          normalizedTarget = s"${p.packageName}.${p.name}.${a.name}"
+        )
+      }
+
+    private def _entity(p: MDomainResource): Vector[ExplainEntry] =
+      Vector(
+        ExplainEntry(
+          sectionPath = s"ENTITY/${p.name}",
+          classifiedRole = "structural",
+          normalizedTarget = s"${p.packageName}.${p.name}"
+        )
+      ) ++ p.attributes.toVector.map { a =>
+        ExplainEntry(
+          sectionPath = s"ENTITY/${p.name}/ATTRIBUTE/${a.name}",
+          classifiedRole = "structural",
+          normalizedTarget = s"${p.packageName}.${p.name}.${a.name}"
+        )
+      }
+  }
+
+  object Linkage {
+    def from(model: KaleidoxModel): Vector[LinkageEntry] = {
+      val eventModel = model.eventModel
+      val eventNames = eventModel.receptionDefinitions.map(_.name).toSet
+      val actionNames = eventModel.receptionDefinitions.flatMap(_.actionName).toSet
+      eventModel.subscriptionDefinitions.toVector.flatMap { s =>
+        val eventLinks = s.eventName.toVector.map { eventName =>
+          LinkageEntry(
+            sectionPath = s"SUBSCRIPTION/${s.name}/eventName",
+            target = eventName,
+            resolved = eventNames.contains(eventName),
+            facet = "event"
+          )
+        }
+        val actionLinks = s.actionName.toVector.map { actionName =>
+          LinkageEntry(
+            sectionPath = s"SUBSCRIPTION/${s.name}/actionName",
+            target = actionName,
+            resolved = actionNames.contains(actionName),
+            facet = "action"
+          )
+        }
+        eventLinks ++ actionLinks
+      }
+    }
+  }
   class StateHanger(val states: VectorMap[String, MState]) {
     def get(name: String): Option[MState] = states.get(name) orElse _get_substate(name)
 
@@ -451,6 +541,7 @@ object Modeler {
     schema: SchemaModel,
     entity: EntityModel,
     datatype: DataTypeModel,
+    value: ValueModel,
     powertype: PowertypeModel,
     stateMachine: StateMachineModel,
     componentSubsystem: ComponentSubsystemModel,
@@ -468,10 +559,11 @@ object Modeler {
 
     private def _build(includeComponents: Boolean): SimpleModel = {
       val entities = entity.classes.values.filterNot(c => _is_simple_entity(c.name)).map(_entity)
+      val values = value.classes.values.map(_value)
       val datatypes = datatype.classes.values.map(_datatype)
       val powertypes = powertype.classes.values.map(_powertype)
       val statemachines = stateMachine.classes.values.map(_statemachine)
-      val xs = entities ++ datatypes ++ powertypes ++ statemachines
+      val xs = entities ++ values ++ datatypes ++ powertypes ++ statemachines
       val a = SimpleModel(xs.toVector)
       if (includeComponents) {
         val comps = _complement_components(a)
@@ -665,6 +757,27 @@ object Modeler {
         val datatype = m.datatype
         MDataType(desc.designation, datatype, pkg, desc)
       case m: DataTypeClass.Complex => ???
+    }
+
+    private def _value(p: ValueClass): MValue = {
+      val desc = Description.name(p.name)
+      val pkg = MPackageRef("domain.value")
+      val stereotypes = Nil
+      val base = None
+      val traits = Nil
+      val powertypes = _powertypes(pkg, p.schemaClass)
+      val attributes = _attributes(pkg, p.schemaClass)
+      val operations = Nil
+      MDomainValue(
+        desc,
+        pkg,
+        stereotypes,
+        base,
+        traits,
+        powertypes,
+        attributes,
+        operations
+      )
     }
 
     private def _powertype(p: PowertypeClass): MPowertype = {
@@ -1886,6 +1999,7 @@ object Modeler {
       p.takeSchemaModel,
       p.takeEntityModel,
       p.takeDataTypeModel,
+      p.getValueModel.getOrElse(ValueModel.empty),
       p.takePowertypeModel,
       p.takeStateMachineModel,
       p.takeComponentSubsystemModel,

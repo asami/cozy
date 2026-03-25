@@ -80,6 +80,7 @@ For equivalent source expressions (heading, dl, table, hocon body, yaml body), C
 Supported top-level sections:
 
 - `# ENTITY`
+- `# VALUE`
 - `# EVENT` (global event definitions)
 - `# OPERATION`
 - `# COMMAND` (operation input value definitions)
@@ -93,6 +94,9 @@ Future sections may be added, but this contract focuses on accepted and frozen b
 
 `COMPONENT` is optional.
 If no `# COMPONENT` section is defined, Cozy generates a default placeholder component definition at generation time.
+
+`VALUE` and `ENTITY` are separate structural domains.
+They may share attribute/schema shape, but they do not normalize into each other.
 
 ---
 
@@ -614,22 +618,25 @@ updated_at=2026-03-25
 This section captures extensions required to realize the Literate Model goal
 with rich narrative + executable structure in one CML file (e.g. `address.cml`).
 
-### 13.1 VALUE Compatibility Alias
+### 13.1 VALUE/ENTITY Structural Boundary
 
 Problem:
 - Earlier literate authoring frequently used top-level `VALUE` semantics.
-- Current frozen top-level sections are entity/operation/component-centric.
+- Without an explicit boundary, VALUE and ENTITY semantics can be mixed.
 
-Extension proposal:
-- accept top-level `VALUE` as a compatibility alias.
-- normalize internally to `ENTITY` with `kind=VALUE` metadata.
+Implemented policy:
+- keep `VALUE` and `ENTITY` as separate model domains.
+- allow shared schema/attribute structure (`SchemaClass`-based internals).
+- do not normalize `VALUE` into `ENTITY` (`kind=VALUE` aliasing is not used).
 
-Normalization contract:
-- `# VALUE` + `## Name` + `### ATTRIBUTE` -> `EntityDef(name=Name, kind=VALUE)`
-- generator keeps deterministic output equivalent to explicit `ENTITY` form.
+Generation contract:
+- `# VALUE` contributes to `ValueModel`.
+- `# ENTITY` contributes to `EntityModel`.
+- `modeler-scala-value` generates VALUE outputs without forcing component/entity generation.
 
 Validation:
-- `VALUE` must follow `ENTITY`-compatible attribute schema.
+- `VALUE` and `ENTITY` may use compatible attribute schema syntax.
+- parser/modeler must keep them separated in AST/model boundaries.
 
 ### 13.2 Attribute Constraint Metadata
 
@@ -639,8 +646,8 @@ Problem:
 
 Implemented contract:
 - standardize optional attribute metadata keys:
-  - `min_length`
-  - `max_length`
+  - `min`
+  - `max`
   - `pattern`
   - `format`
 
@@ -650,15 +657,14 @@ Accepted syntax forms (same normalization):
 - yaml section body
 
 Normalization to `record.v2.Constraint`:
-- `min_length` -> `CMinLength`
-- `max_length` -> `CMaxLength`
+- `min` -> `CMin`
+- `max` -> `CMax`
 - `pattern` -> `CRegex`
-- `format` -> `CFormat` (currently `email` / `uuid` / `uri` / `url` /
-  `date` / `time` / `date-time` / `datetime` / `date_time` /
-  `phone` / `tel` / `e164`)
+- `format` -> `CFormat` (currently `email` / `uri`)
 
 Current implementation note:
-- unsupported `format` values are ignored (no constraint emitted).
+- unsupported `format` values are preserved in metadata but do not emit a
+  runtime validation rule.
 
 Example (yaml section body):
 
@@ -678,18 +684,38 @@ Problem:
 - Authors and AI agents cannot inspect how sections were classified
   (structural/metadata/narrative) after parsing.
 
-Extension proposal:
-- add diagnostics output (e.g. `cozyExplainModel`) that emits:
+Implemented contract:
+- `cozy.modeler.Modeler.explain` emits:
   - section path
-  - classified role (`structural` | `metadata` | `narrative`)
-  - normalized target node (if structural/metadata)
+  - classified role (`structural`)
+  - normalized target node
+- current implementation covers `VALUE` and `ENTITY` structural paths.
 
 Purpose:
 - improve author feedback and deterministic literate behavior.
 
-### 13.4 Rollout Policy
+### 13.4 Linkage Diagnostics
 
+Problem:
+- authors need a stable way to verify event/subscription references without
+  relying on rendered message text.
+
+Implemented contract:
+- `cozy.modeler.Modeler.linkageDiagnostics` emits:
+  - subscription section path
+  - referenced target
+  - resolved flag
+  - facet (`event` | `action`)
+- current implementation covers subscription event/action links.
+
+Purpose:
+- make linkage resolution observable and testable from diagnostics output.
+
+### 13.5 Rollout Policy
+
+- Section `13.1` is implemented and treated as normative behavior in the
+  current parser/modeler pipeline.
 - Section `13.2` is implemented and treated as normative behavior in the
   current parser/modeler pipeline.
-- Sections `13.1` and `13.3` remain proposal-track and do not overwrite frozen
-  contracts in sections 1-12.
+- Sections `13.3` and `13.4` are implemented and treated as normative
+  behavior in the current parser/modeler pipeline.

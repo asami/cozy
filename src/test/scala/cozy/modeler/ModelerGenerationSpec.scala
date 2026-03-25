@@ -64,6 +64,31 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(!Files.exists(domainComponent), s"DomainComponent must not be generated in value mode: $domainComponent")
   }
 
+  test("modeler-scala-value accepts VALUE-only cml without component generation") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/value-only-literate.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-value-value-only")
+    _delete_recursively(out)
+    Files.createDirectories(out.getParent)
+
+    cozy.Cozy.main(Array("modeler-scala-value", input.toString, s"--save=${out.toString}"))
+
+    val buildSbt = out.resolve("build.sbt")
+    val value = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/value/CountryCode.scala"
+    )
+    val entity = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/entity/CountryCode.scala"
+    )
+    val domainComponent = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+    )
+    assert(Files.exists(buildSbt), s"build.sbt not found: $buildSbt")
+    assert(Files.exists(value), s"value file not found: $value")
+    assert(!Files.exists(entity), s"entity file must not be generated from VALUE section: $entity")
+    assert(!Files.exists(domainComponent), s"DomainComponent must not be generated in value mode: $domainComponent")
+  }
+
   test("modeler-scala-value accepts powertype-only cml without component generation") {
     val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
     val input = base.resolve("src/test/resources/modeler/powertype-literate.dox")
@@ -454,6 +479,67 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(normalized.exists(x => x.name == "getOrder" && x.kind.toString == "Query" && x.inputType == "GetOrder"))
     assert(normalized.exists(x => x.name == "savePerson" && x.inputType == "SavePersonInput"))
     assert(normalized.size == 3)
+  }
+
+  test("kaleidox keeps VALUE and ENTITY in separate model domains with shared schema shape") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/value-entity-separation.dox")
+    val model = KaleidoxModel.load(KaleidoxConfig.default.withoutLocation, input.toFile)
+
+    val valueModel = model.getValueModel.getOrElse {
+      fail("ValueModel is missing")
+    }
+    val entityModel = model.takeEntityModel
+
+    val countryCode = valueModel.get("CountryCode").getOrElse {
+      fail("CountryCode in ValueModel is missing")
+    }
+    val person = entityModel.get("Person").getOrElse {
+      fail("Person in EntityModel is missing")
+    }
+
+    assert(countryCode.schema.columns.exists(_.name == "value"))
+    assert(person.schema.columns.exists(_.name == "id"))
+    assert(!entityModel.classes.contains("CountryCode"))
+    assert(!valueModel.classes.contains("Person"))
+  }
+
+  test("modeler explain emits VALUE section roles and normalized targets") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/value-only-literate.dox")
+    val model = KaleidoxModel.load(KaleidoxConfig.default.withoutLocation, input.toFile)
+    val simpleModel = new cozy.modeler.Modeler().buildValueModel(model)
+    val explain = new cozy.modeler.Modeler().explain(simpleModel)
+
+    assert(explain.exists(e =>
+      e.sectionPath == "VALUE/CountryCode" &&
+      e.classifiedRole == "structural" &&
+      e.normalizedTarget == "domain.value.CountryCode"
+    ))
+    assert(explain.exists(e =>
+      e.sectionPath == "VALUE/CountryCode/ATTRIBUTE/value" &&
+      e.normalizedTarget == "domain.value.CountryCode.value"
+    ))
+  }
+
+  test("modeler linkage diagnostics resolves event and action references") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/event-routing-subscription.dox")
+    val model = KaleidoxModel.load(KaleidoxConfig.default.withoutLocation, input.toFile)
+    val linkage = new cozy.modeler.Modeler().linkageDiagnostics(model)
+
+    assert(linkage.exists(e =>
+      e.sectionPath == "SUBSCRIPTION/person-sync/eventName" &&
+      e.target == "person.created" &&
+      e.resolved &&
+      e.facet == "event"
+    ))
+    assert(linkage.exists(e =>
+      e.sectionPath == "SUBSCRIPTION/person-sync/actionName" &&
+      e.target == "person.sync" &&
+      e.resolved &&
+      e.facet == "action"
+    ))
   }
 
   test("kaleidox parses OPERATION kind marker grammar (COMMAND/QUERY headings)") {

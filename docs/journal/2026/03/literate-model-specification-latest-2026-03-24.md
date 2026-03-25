@@ -185,11 +185,12 @@ When structural and narrative intents conflict, the model should preserve:
 
 without forcing narrative text into pseudo-structural syntax.
 
-## 11.2 Proposed Structural Compatibility
+## 11.2 VALUE/ENTITY Structural Boundary
 
-- introduce `VALUE` compatibility alias at top-level
-- normalize to `ENTITY(kind=VALUE)` in AST
-- keep generator semantics deterministic and equivalent to explicit `ENTITY`
+- keep `VALUE` and `ENTITY` as separate structural domains
+- share schema-level representation where possible
+- do not normalize `VALUE` into `ENTITY(kind=VALUE)`
+- keep generator semantics deterministic with explicit model boundaries
 
 ## 11.3 Metadata Enrichment (Implemented)
 
@@ -224,5 +225,6 @@ with section path and normalized target node.
 ## 11.5 Scope and Compatibility
 
 - Section `11.3` is implemented and aligned with Cozy latest grammar.
-- Sections `11.2` and `11.4` remain proposal-track; sections 1-10 remain
-  normative for the frozen snapshot.
+- Section `11.2` is implemented as boundary policy.
+- Section `11.4` remains proposal-track; sections 1-10 remain normative for
+  the frozen snapshot.
