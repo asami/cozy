@@ -46,7 +46,7 @@ import scala.collection.mutable
  *  version Nov.  2, 2024
  *  version May. 13, 2025
  *  version Feb. 27, 2026
- * @version Mar. 25, 2026
+ * @version Mar. 27, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
@@ -1154,11 +1154,12 @@ object Modeler {
       p: ServiceModel.ServiceClass.Operation
     ): MOperation = {
       val opname = p.name
+      val opdef = _normalized_operation_map.get(opname)
       val desc = _description(
         opname,
-        p.description.orElse(_normalized_operation_map.get(opname).flatMap(_.description))
+        p.description.orElse(opdef.flatMap(_.description))
       )
-      _normalized_operation_map.get(opname).map(_.kind) match {
+      opdef.map(_.kind) match {
         case Some(OperationModel.OperationKind.Query) =>
           MOperation.queryBody(opname, MParameter.record, MResult.unit, desc) {
             blockFor(
@@ -1168,13 +1169,22 @@ object Modeler {
             )
           }
         case _ =>
-          MOperation.commandBody(opname, List(MParameter.record), MResult.unit, desc) {
-            blockFor(
-              "_ <- uowmNotImplemented[org.goldenport.cncf.unitofwork.UnitOfWorkOp, Unit]"
-            )(
-              "OperationResponse.void"
-            )
-          }
+          if (opdef.flatMap(_.execution).exists(_.trim.equalsIgnoreCase("sync")))
+            MOperation.commandBody(opname, List(MParameter.record), MResult.unit, desc) {
+              blockFor(
+                "r <- ConsequenceT.fromConsequence[[X] =>> org.goldenport.cncf.Program[org.goldenport.cncf.unitofwork.UnitOfWorkOp, X], org.goldenport.record.Record](Consequence.success(action.request.toRecord))"
+              )(
+                "OperationResponse.create(r)"
+              )
+            }
+          else
+            MOperation.commandBody(opname, List(MParameter.record), MResult.unit, desc) {
+              blockFor(
+                "_ <- uowmNotImplemented[org.goldenport.cncf.unitofwork.UnitOfWorkOp, Unit]"
+              )(
+                "OperationResponse.void"
+              )
+            }
       }
     }
 
@@ -1394,6 +1404,7 @@ object Modeler {
         MComponent.OperationDefinition(
           name = x.name,
           kind = x.kind.toString.toUpperCase,
+          execution = x.execution,
           inputType = x.inputType,
           outputType = x.outputType,
           inputValueKind = x.inputValueKind match {
