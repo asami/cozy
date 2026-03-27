@@ -13,7 +13,7 @@ import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 
 /*
  * @since   May. 17, 2025
- * @version Mar. 25, 2026
+ * @version Mar. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerGenerationSpec extends AnyFunSuite {
@@ -702,6 +702,363 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(content.contains("""BaseContent.Builder("lookupAddress").summary("Look up an address by postal code.").description("Look up an address by postal code.Returns a normalized address representation.")"""))
   }
 
+  test("modeler-scala supports typical IMPLEMENTATION directives for entity operations") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("target/test-generated/modeler-implementation-entity.dox")
+    val out = base.resolve("target/test-generated/modeler-implementation-entity-out")
+    _delete_recursively(out)
+    _write(input,
+      """# COMPONENT
+        |
+        |## Demo
+        |
+        |### PACKAGE
+        |
+        |domain
+        |
+        |# SERVICE
+        |
+        |## Item
+        |
+        |### OPERATION
+        |
+        |#### createItem
+        |
+        |##### IN
+        |
+        |Create payload.
+        |
+        |##### OUT
+        |
+        |Created entity.
+        |
+        |#### loadItem
+        |
+        |##### IN
+        |
+        |Entity id.
+        |
+        |##### OUT
+        |
+        |Loaded entity.
+        |
+        |#### searchItem
+        |
+        |##### IN
+        |
+        |Search condition.
+        |
+        |##### OUT
+        |
+        |Search result.
+        |
+        |#### loadItemAggregate
+        |
+        |##### IN
+        |
+        |Entity id.
+        |
+        |##### OUT
+        |
+        |Aggregate projection.
+        |
+        |#### searchItemAggregate
+        |
+        |##### IN
+        |
+        |Search condition.
+        |
+        |##### OUT
+        |
+        |Aggregate search result.
+        |
+        |#### loadItemView
+        |
+        |##### IN
+        |
+        |Entity id.
+        |
+        |##### OUT
+        |
+        |View projection.
+        |
+        |#### searchItemView
+        |
+        |##### IN
+        |
+        |Search condition.
+        |
+        |##### OUT
+        |
+        |View search result.
+        |
+        |# ENTITY
+        |
+        |## Item
+        |
+        |### ATTRIBUTE
+        |
+        || name  | type   | multiplicity |
+        ||-------+--------+--------------|
+        || id    | entityid | 1         |
+        || name  | name   | 1            |
+        || title | string | 1            |
+        |
+        |# COMMAND
+        |
+        |## CreateItem
+        |
+        |### ATTRIBUTE
+        |
+        || name  | type   | multiplicity |
+        ||-------+--------+--------------|
+        || name  | name   | 1            |
+        || title | string | 1            |
+        |
+        |# QUERY
+        |
+        |## LoadItem
+        |
+        |### ATTRIBUTE
+        |
+        || name | type     | multiplicity |
+        ||------+----------+--------------|
+        || id   | entityid | 1            |
+        |
+        |## SearchItem
+        |
+        |### ATTRIBUTE
+        |
+        || name | type | multiplicity |
+        ||------+------|--------------|
+        || name | name | 0..1         |
+        |
+        |# OPERATION
+        |
+        |## createItem
+        |### TYPE
+        |COMMAND
+        |### IMPLEMENTATION
+        |entity-create
+        |### INPUT
+        |CreateItem
+        |### OUTPUT
+        |CreateItemResult
+        |
+        |## loadItem
+        |### TYPE
+        |QUERY
+        |### IMPLEMENTATION
+        |entity-load
+        |### INPUT
+        |LoadItem
+        |### OUTPUT
+        |LoadItemResult
+        |
+        |## searchItem
+        |### TYPE
+        |QUERY
+        |### IMPLEMENTATION
+        |entity-search
+        |### INPUT
+        |SearchItem
+        |### OUTPUT
+        |SearchItemResult
+        |
+        |## loadItemAggregate
+        |### TYPE
+        |QUERY
+        |### IMPLEMENTATION
+        |aggregate-load
+        |### INPUT
+        |LoadItem
+        |### OUTPUT
+        |LoadItemAggregateResult
+        |
+        |## searchItemAggregate
+        |### TYPE
+        |QUERY
+        |### IMPLEMENTATION
+        |aggregate-search
+        |### INPUT
+        |SearchItem
+        |### OUTPUT
+        |SearchItemAggregateResult
+        |
+        |## loadItemView
+        |### TYPE
+        |QUERY
+        |### IMPLEMENTATION
+        |view-load
+        |### INPUT
+        |LoadItem
+        |### OUTPUT
+        |LoadItemViewResult
+        |
+        |## searchItemView
+        |### TYPE
+        |QUERY
+        |### IMPLEMENTATION
+        |view-search
+        |### INPUT
+        |SearchItem
+        |### OUTPUT
+        |SearchItemViewResult
+        |""".stripMargin
+    )
+
+    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+
+    val generated = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/DemoComponent.scala"
+    )
+    assert(Files.exists(generated), s"generated file not found: $generated")
+    val content = Files.readString(generated)
+    assert(content.contains("""implementation = Some("entity-create")"""))
+    assert(content.contains("""implementation = Some("entity-load")"""))
+    assert(content.contains("""implementation = Some("entity-search")"""))
+    assert(content.contains("""implementation = Some("aggregate-load")"""))
+    assert(content.contains("""implementation = Some("aggregate-search")"""))
+    assert(content.contains("""implementation = Some("view-load")"""))
+    assert(content.contains("""implementation = Some("view-search")"""))
+    assert(content.contains("""entity <- exec_pure(domain.entity.create.Item.create(action.request.toRecord))"""))
+    assert(content.contains("""r <- entity_load[domain.entity.Item](id)"""))
+    assert(content.contains("""r <- entity_search[domain.entity.Item](domain.entity.query.Item.collectionId, Query(action.request.toRecord))"""))
+    assert(content.contains("""r <- aggregate_load_option[domain.entity.aggregate.Item](id)"""))
+    assert(content.contains("""r <- aggregate_search[domain.entity.aggregate.Item](domain.entity.query.Item.collectionId.name, Query(action.request.toRecord))"""))
+    assert(content.contains("""r <- view_load[domain.entity.view.Item](domain.entity.query.Item.collectionId.name, id)"""))
+    assert(content.contains("""view_search[domain.entity.view.Item](domain.entity.query.Item.collectionId.name, Query(action.request.toRecord))"""))
+  }
+
+  test("modeler-scala emits event IMPLEMENTATION directives into operation definitions") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("target/test-generated/modeler-implementation-event.dox")
+    val out = base.resolve("target/test-generated/modeler-implementation-event-out")
+    _delete_recursively(out)
+    _write(input,
+      """# COMPONENT
+        |
+        |## EventDriven
+        |
+        |### PACKAGE
+        |
+        |domain
+        |
+        |# SERVICE
+        |
+        |## Event
+        |
+        |### OPERATION
+        |
+        |#### emitEvent
+        |
+        |##### IN
+        |
+        |Emit payload.
+        |
+        |##### OUT
+        |
+        |Emit result.
+        |
+        |#### recordEffect
+        |
+        |##### IN
+        |
+        |Event payload.
+        |
+        |##### OUT
+        |
+        |Recorded effect.
+        |
+        |#### loadEffect
+        |
+        |##### IN
+        |
+        |None.
+        |
+        |##### OUT
+        |
+        |Loaded effect.
+        |
+        |# COMMAND
+        |
+        |## EmitEvent
+        |
+        |### ATTRIBUTE
+        |
+        || name | type | multiplicity |
+        ||------+------|--------------|
+        || name | name | 1            |
+        |
+        |## RecordEffect
+        |
+        |### ATTRIBUTE
+        |
+        || name | type | multiplicity |
+        ||------+------|--------------|
+        || name | name | 1            |
+        |
+        |# QUERY
+        |
+        |## LoadEffect
+        |
+        |# ENTITY
+        |
+        |## Item
+        |
+        |### ATTRIBUTE
+        |
+        || name | type     | multiplicity |
+        ||------+----------+--------------|
+        || id   | entityid | 1            |
+        || name | name     | 1            |
+        |
+        |# OPERATION
+        |
+        |## emitEvent
+        |### TYPE
+        |COMMAND
+        |### IMPLEMENTATION
+        |event-emit
+        |### INPUT
+        |EmitEvent
+        |### OUTPUT
+        |EmitEventResult
+        |
+        |## recordEffect
+        |### TYPE
+        |COMMAND
+        |### IMPLEMENTATION
+        |event-effect-record
+        |### INPUT
+        |RecordEffect
+        |### OUTPUT
+        |RecordEffectResult
+        |
+        |## loadEffect
+        |### TYPE
+        |QUERY
+        |### IMPLEMENTATION
+        |event-effect-load
+        |### INPUT
+        |LoadEffect
+        |### OUTPUT
+        |LoadEffectResult
+        |""".stripMargin
+    )
+
+    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+
+    val generated = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/EventDrivenComponent.scala"
+    )
+    assert(Files.exists(generated), s"generated file not found: $generated")
+    val content = Files.readString(generated)
+    assert(content.contains("""implementation = Some("event-emit")"""))
+    assert(content.contains("""implementation = Some("event-effect-record")"""))
+    assert(content.contains("""implementation = Some("event-effect-load")"""))
+  }
+
   test("modeler-scala-value is deterministic across repeated generation") {
     val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
     val input = base.resolve("src/main/cozy/address.cml")
@@ -1122,7 +1479,7 @@ class ModelerGenerationSpec extends AnyFunSuite {
     if (!Files.exists(root))
       Vector.empty
     else {
-      import scala.jdk.CollectionConverters.*
+      import scala.collection.JavaConverters._
       Files.walk(root).iterator().asScala
         .filter(path => Files.isRegularFile(path))
         .map { path =>

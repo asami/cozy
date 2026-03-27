@@ -46,7 +46,7 @@ import scala.collection.mutable
  *  version Nov.  2, 2024
  *  version May. 13, 2025
  *  version Feb. 27, 2026
- * @version Mar. 27, 2026
+ * @version Mar. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
@@ -1049,7 +1049,7 @@ object Modeler {
       val desc = _description(compname, _component_definition_for(pkg).flatMap(_.description))
       val componentpackagename = _component_package_name(pkg).getOrElse(pkg.name)
       val servicepkg = _service_package(pkg, componentpackagename)
-      val definedservices = _defined_services(servicepkg)
+      val definedservices = _defined_services(servicepkg, entities)
       val entityservice: MService = _make_entity_service(servicepkg, entities)
       val aggregateservice: MService = _make_aggregate_service(servicepkg, entities)
       val viewservice: MService = _make_view_service(servicepkg, entities)
@@ -1135,15 +1135,17 @@ object Modeler {
       }
 
     private def _defined_services(
-      pkg: MPackage
+      pkg: MPackage,
+      entities: Vector[MEntity]
     ): Vector[MService] =
-      service.classes.values.toVector.map(_defined_service(pkg, _))
+      service.classes.values.toVector.map(_defined_service(pkg, entities, _))
 
     private def _defined_service(
       pkg: MPackage,
+      entities: Vector[MEntity],
       p: ServiceModel.ServiceClass
     ): MService = {
-      val ops = p.operations.operations.values.toVector.map(_defined_service_operation)
+      val ops = p.operations.operations.values.toVector.map(_defined_service_operation(entities, p.name, _))
       MService(pkg, p.name, ops, _description(p.name, p.description))
     }
 
@@ -1151,6 +1153,8 @@ object Modeler {
       operation.normalizedOperations.map(x => x.name -> x).toMap
 
     private def _defined_service_operation(
+      entities: Vector[MEntity],
+      servicename: String,
       p: ServiceModel.ServiceClass.Operation
     ): MOperation = {
       val opname = p.name
@@ -1159,8 +1163,63 @@ object Modeler {
         opname,
         p.description.orElse(opdef.flatMap(_.description))
       )
+      val implementation = opdef.flatMap(_.implementation).map(_.trim.toLowerCase)
+      val entity = _entity_for_service(entities, servicename)
       opdef.map(_.kind) match {
         case Some(OperationModel.OperationKind.Query) =>
+          _defined_query_service_operation(opname, desc, implementation, entity)
+        case _ =>
+          _defined_command_service_operation(opname, desc, implementation, entity, opdef.flatMap(_.execution))
+      }
+    }
+
+    private def _defined_command_service_operation(
+      opname: String,
+      desc: Description,
+      implementation: Option[String],
+      entity: Option[MEntity],
+      execution: Option[String]
+    ): MOperation =
+      implementation match {
+        case Some("echo-record") =>
+          _echo_record_command_operation(opname, desc)
+        case Some("entity-create") =>
+          entity.map(_entity_create_command_operation(opname, desc, _)).getOrElse(_not_implemented_command_operation(opname, desc))
+        case Some("event-emit") | Some("event-effect-record") =>
+          MOperation.commandBody(opname, List(MParameter.record), MResult.unit, desc) {
+            blockFor(
+              "_ <- uowmNotImplemented[org.goldenport.cncf.unitofwork.UnitOfWorkOp, Unit]"
+            )(
+              "OperationResponse.void"
+            )
+          }
+        case _ =>
+          if (execution.exists(_.trim.equalsIgnoreCase("sync")))
+            _echo_record_command_operation(opname, desc)
+          else
+            _not_implemented_command_operation(opname, desc)
+      }
+
+    private def _defined_query_service_operation(
+      opname: String,
+      desc: Description,
+      implementation: Option[String],
+      entity: Option[MEntity]
+    ): MOperation =
+      implementation match {
+        case Some("entity-load") =>
+          entity.map(_entity_load_query_operation(opname, desc, _)).getOrElse(_not_implemented_query_operation(opname, desc))
+        case Some("entity-search") =>
+          entity.map(_entity_search_query_operation(opname, desc, _)).getOrElse(_not_implemented_query_operation(opname, desc))
+        case Some("aggregate-load") =>
+          entity.map(_aggregate_load_query_operation(opname, desc, _)).getOrElse(_not_implemented_query_operation(opname, desc))
+        case Some("aggregate-search") =>
+          entity.map(_aggregate_search_query_operation(opname, desc, _)).getOrElse(_not_implemented_query_operation(opname, desc))
+        case Some("view-load") =>
+          entity.map(_view_load_query_operation(opname, desc, _)).getOrElse(_not_implemented_query_operation(opname, desc))
+        case Some("view-search") =>
+          entity.map(_view_search_query_operation(opname, desc, _)).getOrElse(_not_implemented_query_operation(opname, desc))
+        case Some("event-effect-load") =>
           MOperation.queryBody(opname, MParameter.record, MResult.unit, desc) {
             blockFor(
               "_ <- uowmNotImplemented[org.goldenport.cncf.unitofwork.UnitOfWorkOp, Unit]"
@@ -1169,22 +1228,174 @@ object Modeler {
             )
           }
         case _ =>
-          if (opdef.flatMap(_.execution).exists(_.trim.equalsIgnoreCase("sync")))
-            MOperation.commandBody(opname, List(MParameter.record), MResult.unit, desc) {
-              blockFor(
-                "r <- ConsequenceT.fromConsequence[[X] =>> org.goldenport.cncf.Program[org.goldenport.cncf.unitofwork.UnitOfWorkOp, X], org.goldenport.record.Record](Consequence.success(action.request.toRecord))"
-              )(
-                "OperationResponse.create(r)"
-              )
-            }
-          else
-            MOperation.commandBody(opname, List(MParameter.record), MResult.unit, desc) {
-              blockFor(
-                "_ <- uowmNotImplemented[org.goldenport.cncf.unitofwork.UnitOfWorkOp, Unit]"
-              )(
-                "OperationResponse.void"
-              )
-            }
+          _not_implemented_query_operation(opname, desc)
+      }
+
+    private def _not_implemented_command_operation(
+      opname: String,
+      desc: Description
+    ): MOperation =
+      MOperation.commandBody(opname, List(MParameter.record), MResult.unit, desc) {
+        blockFor(
+          "_ <- uowmNotImplemented[org.goldenport.cncf.unitofwork.UnitOfWorkOp, Unit]"
+        )(
+          "OperationResponse.void"
+        )
+      }
+
+    private def _not_implemented_query_operation(
+      opname: String,
+      desc: Description
+    ): MOperation =
+      MOperation.queryBody(opname, MParameter.record, MResult.unit, desc) {
+        blockFor(
+          "_ <- uowmNotImplemented[org.goldenport.cncf.unitofwork.UnitOfWorkOp, Unit]"
+        )(
+          "OperationResponse.void"
+        )
+      }
+
+    private def _echo_record_command_operation(
+      opname: String,
+      desc: Description
+    ): MOperation =
+      MOperation.commandBody(opname, List(MParameter.record), MResult.unit, desc) {
+        blockFor(
+          "r <- ConsequenceT.fromConsequence[[X] =>> org.goldenport.cncf.Program[org.goldenport.cncf.unitofwork.UnitOfWorkOp, X], org.goldenport.record.Record](Consequence.success(action.request.toRecord))"
+        )(
+          "OperationResponse.create(r)"
+        )
+      }
+
+    private def _entity_for_service(
+      entities: Vector[MEntity],
+      servicename: String
+    ): Option[MEntity] =
+      entities.find(_.name == servicename).orElse {
+        entities.find(x => StringUtils.makeTitle(x.name) == StringUtils.makeTitle(servicename))
+      }
+
+    private def _entity_classes(
+      entity: MEntity
+    ): (String, String, String, String, String) = {
+      val title = StringUtils.makeTitle(entity.name)
+      val pkgname = entity.packageName
+      def _qualify(s: String) =
+        if (pkgname.isEmpty) s else s"$pkgname.$s"
+      val wholeclass = _qualify(s"${_entity_package}.$title")
+      val createclass = _qualify(s"${_entity_create_package}.$title")
+      val queryclass = _qualify(s"${_entity_query_package}.$title")
+      val aggregateclass = _qualify(s"${_aggregate_package(_aggregate_name(entity))}.$title")
+      val viewclass = _qualify(s"${_view_package(_view_name(entity))}.$title")
+      (wholeclass, createclass, queryclass, aggregateclass, viewclass)
+    }
+
+    private def _entity_create_command_operation(
+      opname: String,
+      desc: Description,
+      entity: MEntity
+    ): MOperation = {
+      val (_, createclass, _, _, _) = _entity_classes(entity)
+      MOperation.commandBody(opname, List(MParameter.record), MResult.unit, desc) {
+        blockFor(
+          s"entity <- exec_pure($createclass.create(action.request.toRecord))",
+          "r <- entity_create(entity)"
+        )(
+          "OperationResponse(r.toRecord)"
+        )
+      }
+    }
+
+    private def _entity_load_query_operation(
+      opname: String,
+      desc: Description,
+      entity: MEntity
+    ): MOperation = {
+      val (wholeclass, _, _, _, _) = _entity_classes(entity)
+      MOperation.queryBody(opname, MParameter.record, MResult.unit, desc) {
+        blockFor(
+          """id <- exec_pure(Consequence.successOrRecordNotFound[org.simplemodeling.model.datatype.EntityId]("id", action.request.toRecord).TAKE)""",
+          s"r <- entity_load[$wholeclass](id)"
+        )(
+          "OperationResponse(r.toRecord())"
+        )
+      }
+    }
+
+    private def _entity_search_query_operation(
+      opname: String,
+      desc: Description,
+      entity: MEntity
+    ): MOperation = {
+      val (wholeclass, _, queryclass, _, _) = _entity_classes(entity)
+      MOperation.queryBody(opname, MParameter.record, MResult.unit, desc) {
+        blockFor(
+          s"r <- entity_search[$wholeclass]($queryclass.collectionId, Query(action.request.toRecord))"
+        )(
+          "OperationResponse.create(r)"
+        )
+      }
+    }
+
+    private def _aggregate_load_query_operation(
+      opname: String,
+      desc: Description,
+      entity: MEntity
+    ): MOperation = {
+      val (_, _, _, aggregateclass, _) = _entity_classes(entity)
+      MOperation.queryBody(opname, MParameter.record, MResult.unit, desc) {
+        blockFor(
+          """id <- exec_pure(Consequence.successOrRecordNotFound[org.simplemodeling.model.datatype.EntityId]("id", action.request.toRecord).TAKE)""",
+          s"r <- aggregate_load_option[$aggregateclass](id)"
+        )(
+          "OperationResponse.create(r.map(_.toRecord()))"
+        )
+      }
+    }
+
+    private def _aggregate_search_query_operation(
+      opname: String,
+      desc: Description,
+      entity: MEntity
+    ): MOperation = {
+      val (_, _, queryclass, aggregateclass, _) = _entity_classes(entity)
+      MOperation.queryBody(opname, MParameter.record, MResult.unit, desc) {
+        blockFor(
+          s"r <- aggregate_search[$aggregateclass]($queryclass.collectionId.name, Query(action.request.toRecord))"
+        )(
+          "OperationResponse.create(r)"
+        )
+      }
+    }
+
+    private def _view_load_query_operation(
+      opname: String,
+      desc: Description,
+      entity: MEntity
+    ): MOperation = {
+      val (_, _, queryclass, _, viewclass) = _entity_classes(entity)
+      MOperation.queryBody(opname, MParameter.record, MResult.unit, desc) {
+        blockFor(
+          """id <- exec_pure(Consequence.successOrRecordNotFound[org.simplemodeling.model.datatype.EntityId]("id", action.request.toRecord).TAKE)""",
+          s"r <- view_load[$viewclass]($queryclass.collectionId.name, id)"
+        )(
+          "OperationResponse(r.toRecord())"
+        )
+      }
+    }
+
+    private def _view_search_query_operation(
+      opname: String,
+      desc: Description,
+      entity: MEntity
+    ): MOperation = {
+      val (_, _, queryclass, _, viewclass) = _entity_classes(entity)
+      MOperation.queryBody(opname, MParameter.record, MResult.unit, desc) {
+        blockFor(
+          s"""r <- action_property_string("view").fold(view_search[$viewclass]($queryclass.collectionId.name, Query(action.request.toRecord)))(viewname => view_search[$viewclass]($queryclass.collectionId.name, viewname, Query(action.request.toRecord)))"""
+        )(
+          "OperationResponse.create(r)"
+        )
       }
     }
 
@@ -1405,6 +1616,7 @@ object Modeler {
           name = x.name,
           kind = x.kind.toString.toUpperCase,
           execution = x.execution,
+          implementation = x.implementation,
           inputType = x.inputType,
           outputType = x.outputType,
           inputValueKind = x.inputValueKind match {
