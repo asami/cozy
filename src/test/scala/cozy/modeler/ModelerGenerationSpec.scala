@@ -930,6 +930,72 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(content.contains("""view_search[domain.entity.view.Item](domain.entity.query.Item.collectionId.name, Query(action.request.toRecord))"""))
   }
 
+  test("modeler-scala supports IMPLEMENTATION blocking-task for command operations") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("target/test-generated/modeler-implementation-blocking-task.dox")
+    val out = base.resolve("target/test-generated/modeler-implementation-blocking-task-out")
+    _delete_recursively(out)
+    _write(input,
+      """# COMPONENT
+        |
+        |## Demo
+        |
+        |### PACKAGE
+        |
+        |domain
+        |
+        |# SERVICE
+        |
+        |## Item
+        |
+        |### OPERATION
+        |
+        |#### createItem
+        |
+        |##### IN
+        |
+        |Create payload.
+        |
+        |##### OUT
+        |
+        |Created entity.
+        |
+        |# COMMAND
+        |
+        |## CreateItem
+        |
+        |### ATTRIBUTE
+        |
+        || name | type | multiplicity |
+        ||------+------|--------------|
+        || name | name | 1            |
+        |
+        |# OPERATION
+        |
+        |## createItem
+        |### TYPE
+        |COMMAND
+        |### IMPLEMENTATION
+        |blocking-task
+        |### INPUT
+        |CreateItem
+        |### OUTPUT
+        |CreateItemResult
+        |""".stripMargin
+    )
+
+    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+
+    val generated = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/DemoComponent.scala"
+    )
+    assert(Files.exists(generated), s"generated file not found: $generated")
+    val content = Files.readString(generated)
+    assert(content.contains("""implementation = Some("blocking-task")"""))
+    assert(!content.contains("uowmNotImplemented"))
+    assert(content.contains("""Thread.sleep(250L)"""))
+  }
+
   test("modeler-scala emits event IMPLEMENTATION directives into operation definitions") {
     val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
     val input = base.resolve("target/test-generated/modeler-implementation-event.dox")

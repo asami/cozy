@@ -1183,6 +1183,8 @@ object Modeler {
       implementation match {
         case Some("echo-record") =>
           _echo_record_command_operation(opname, desc)
+        case Some("blocking-task") =>
+          _blocking_task_command_operation(opname, desc)
         case Some("entity-create") =>
           entity.map(_entity_create_command_operation(opname, desc, _)).getOrElse(_not_implemented_command_operation(opname, desc))
         case Some("event-emit") | Some("event-effect-record") =>
@@ -1262,6 +1264,18 @@ object Modeler {
       MOperation.commandBody(opname, List(MParameter.record), MResult.unit, desc) {
         blockFor(
           "r <- ConsequenceT.fromConsequence[[X] =>> org.goldenport.cncf.Program[org.goldenport.cncf.unitofwork.UnitOfWorkOp, X], org.goldenport.record.Record](Consequence.success(action.request.toRecord))"
+        )(
+          "OperationResponse.create(r)"
+        )
+      }
+
+    private def _blocking_task_command_operation(
+      opname: String,
+      desc: Description
+    ): MOperation =
+      MOperation.commandBody(opname, List(MParameter.record), MResult.unit, desc) {
+        blockFor(
+          "r <- exec_pure({ Thread.sleep(250L); action.request.toRecord })"
         )(
           "OperationResponse.create(r)"
         )
