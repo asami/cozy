@@ -46,7 +46,7 @@ import scala.collection.mutable
  *  version Nov.  2, 2024
  *  version May. 13, 2025
  *  version Feb. 27, 2026
- * @version Mar. 28, 2026
+ * @version Mar. 30, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
@@ -660,7 +660,10 @@ object Modeler {
         _simple_entity_attributes(affiliation, p),
         _attributes(affiliation, p.schemaClass)
       )
-      val associations = _associations(affiliation, p.schemaClass)
+      val associations = _merge_associations(
+        _associations(affiliation, p.schemaClass),
+        _aggregate_member_associations(affiliation, p.schemaClass.aggregate)
+      )
       val operations = Nil // TODO
       val statemachines = _state_machines(affiliation, p)
       MDomainResource(
@@ -705,6 +708,16 @@ object Modeler {
       val z = mutable.LinkedHashMap.empty[String, MAttribute]
       inherited.foreach(x => z.update(x.name, x))
       own.foreach(x => z.update(x.name, x))
+      z.values.toList
+    }
+
+    private def _merge_associations(
+      base: List[MAssociation],
+      own: List[MAssociation]
+    ): List[MAssociation] = {
+      val z = mutable.LinkedHashMap.empty[String, MAssociation]
+      base.foreach(x => z.update(x.designation.name, x))
+      own.foreach(x => z.update(x.designation.name, x))
       z.values.toList
     }
 
@@ -792,6 +805,12 @@ object Modeler {
     private def _associations(pkg: MPackageRef, p: SchemaClass): List[MAssociation] =
       p.slots.flatMap(_get_association(pkg, _)).toList
 
+    private def _aggregate_member_associations(
+      pkg: MPackageRef,
+      aggregate: Option[SchemaModel.AggregateDefinition]
+    ): List[MAssociation] =
+      aggregate.toList.flatMap(_.members).map(_aggregate_member_association(pkg, _))
+
     private def _get_association(pkg: MPackageRef, p: SchemaModel.Slot): Option[MAssociation] =
       p match {
         case m: SchemaModel.Id => None
@@ -819,6 +838,23 @@ object Modeler {
         case p: SchemaModel.Association => MAssociation.Composition
       }
       val multiplicity = MMultiplicity(p.multiplicity)
+      val collaborations = Nil
+      MAssociation(designation, description, Some(pkg), objectref, kind, multiplicity, collaborations)
+    }
+
+    private def _aggregate_member_association(
+      pkg: MPackageRef,
+      p: SchemaModel.AggregateMemberDefinition
+    ): MAssociation = {
+      val designation = Designation(p.name)
+      val description = Description.empty
+      val objectref = MObjectRef(pkg, p.entity)
+      val kind = p.kind.toLowerCase match {
+        case "composition" => MAssociation.Composition
+        case "aggregation" => MAssociation.Aggregation
+        case _ => MAssociation.Association
+      }
+      val multiplicity = p.multiplicity.map(x => MMultiplicity.create(x.toString)).getOrElse(MOne)
       val collaborations = Nil
       MAssociation(designation, description, Some(pkg), objectref, kind, multiplicity, collaborations)
     }
@@ -1602,11 +1638,72 @@ object Modeler {
           case Some(x) => s"${x}_$entityname"
           case None => entityname
         }
+        val aggregate = this.entity.classes.get(entity.name).flatMap(_.schemaClass.aggregate)
+        val members = _aggregate_member_definitions(entity, entities, aggregate)
         MComponent.AggregateDefinition(
           name = name,
-          entityName = entityname
+          entityName = entityname,
+          members = members,
+          commands = aggregate.toVector.flatMap(_.commands).map { c =>
+            MComponent.AggregateCommandDefinition(
+              name = c.name,
+              input = c.input,
+              validations = c.validations,
+              events = c.events,
+              newState = c.newState
+            )
+          },
+          state = aggregate.toVector.flatMap(_.state).map { s =>
+            MComponent.AggregateStateDefinition(
+              name = s.name,
+              datatype = s.datatype,
+              multiplicity = s.multiplicity
+            )
+          },
+          invariants = aggregate.toVector.flatMap(_.invariants).map { i =>
+            MComponent.AggregateInvariantDefinition(
+              name = i.name,
+              expression = i.expression
+            )
+          }
         )
       }
+
+    private def _aggregate_member_definitions(
+      root: MEntity,
+      entities: Vector[MEntity],
+      aggregate: Option[SchemaModel.AggregateDefinition]
+    ): Vector[MComponent.AggregateMemberDefinition] = {
+      val explicit = aggregate.toVector.flatMap(_.members).flatMap { member =>
+        val entityname = _package_token(member.entity)
+        if (entityname.nonEmpty)
+          Some(MComponent.AggregateMemberDefinition(
+            name = _package_token(member.name),
+            entityName = entityname,
+            kind = Some(member.kind),
+            joinFieldName = member.joinField,
+            multiplicity = member.multiplicity
+          ))
+        else
+          None
+      }
+      if (explicit.nonEmpty)
+        explicit
+      else {
+        val joinFieldName = s"${root.name.head.toLower}${root.name.drop(1)}Id"
+        entities.filterNot(_ == root).flatMap { entity =>
+          entity.attributes.find(_.name.equalsIgnoreCase(joinFieldName)).map { attr =>
+            MComponent.AggregateMemberDefinition(
+              name = _package_token(entity.name),
+              entityName = _package_token(entity.name),
+              kind = Some("composition"),
+              joinFieldName = Some(attr.name),
+              multiplicity = Some("*")
+            )
+          }
+        }
+      }
+    }
 
     private def _view_definitions(
       entities: Vector[MEntity]

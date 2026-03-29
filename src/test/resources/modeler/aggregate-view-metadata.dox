@@ -46,3 +46,13 @@
 
 ##### searchPublished
 - EXPRESSION :: poststatus == "published"
+
+## Post
+
+### ATTRIBUTE
+
+| name     | type     | multiplicity |
+|----------+----------+--------------|
+| id       | entityid | 1            |
+| personId | entityid | 1            |
+| title    | name     | 1            |

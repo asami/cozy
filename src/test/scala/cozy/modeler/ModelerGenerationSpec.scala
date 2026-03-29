@@ -13,7 +13,7 @@ import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 
 /*
  * @since   May. 17, 2025
- * @version Mar. 28, 2026
+ * @version Mar. 30, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerGenerationSpec extends AnyFunSuite {
@@ -501,6 +501,39 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(view.queries.exists(_.name == "searchPublished"))
     assert(view.sourceEvents.contains("person.created"))
     assert(view.rebuildable.contains(true))
+  }
+
+  test("modeler-scala emits aggregate metadata into component definitions") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/aggregate-view-metadata.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-aggregate-view-metadata")
+    _delete_recursively(out)
+    Files.createDirectories(out.getParent)
+
+    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+
+    val generated = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+    )
+    assert(Files.exists(generated), s"generated file not found: $generated")
+    val content = Files.readString(generated)
+    assert(content.contains("""name = "person""""))
+    assert(content.contains("""entityName = "person""""))
+    assert(content.contains("""AggregateMemberDefinition("""))
+    assert(content.contains("""name = "post""""))
+    assert(content.contains("""entityName = "post""""))
+    assert(content.contains("""joinFieldName = Some("personId")"""))
+    assert(content.contains("""multiplicity = Some("*")"""))
+    assert(content.contains("""AggregateCommandDefinition("""))
+    assert(content.contains("""name = "createPerson""""))
+    assert(content.contains("""input = Map("input.name" -> "name")"""))
+    assert(content.contains("""validations = Vector("name.nonEmpty")"""))
+    assert(content.contains("""events = Vector("person.created")"""))
+    assert(content.contains("""newState = Some("Active")"""))
+    assert(content.contains("""AggregateStateDefinition("""))
+    assert(content.contains("""datatype = Some("entityid")"""))
+    assert(content.contains("""AggregateInvariantDefinition("""))
+    assert(content.contains("""expression = Some("state.name.nonEmpty")"""))
   }
 
   test("modeler-scala emits eventReceptionDefinitions from Event section") {
