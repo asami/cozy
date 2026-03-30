@@ -46,7 +46,7 @@ import scala.collection.mutable
  *  version Nov.  2, 2024
  *  version May. 13, 2025
  *  version Feb. 27, 2026
- * @version Mar. 30, 2026
+ * @version Mar. 31, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
@@ -785,12 +785,23 @@ object Modeler {
     private def _get_attribute(pkg: MPackageRef, p: SchemaModel.Slot): Option[MAttribute] =
       p match {
         case m: SchemaModel.Id => Some(_attribute(m.toColumn))
-        case m: SchemaModel.Attribute => Some(_attribute(m.toColumn))
+        case m: SchemaModel.Attribute => Some(_attribute(pkg, m))
         case m: SchemaModel.Association => None
         case m: SchemaModel.PowertypeRelationship => None
         case m: SchemaModel.StateMachineRelationship => Some(_attribute(m.toColumn)) // TODO
         case m: SchemaModel.StateMachine => Some(_attribute(m.toColumn))
       }
+
+    private def _attribute(pkg: MPackageRef, p: SchemaModel.Attribute): MAttribute = {
+      val column = p.toColumn
+      val designation = Designation(column.name)
+      val atype = _resolve_attribute_type(pkg, p)
+      val multiplicity = MMultiplicity(column.multiplicity)
+      val constraints: List[MConstraint] = column.constraints.map(RConstraint)
+      val readonly = false
+      val description = Description.empty
+      MAttribute(designation, atype, multiplicity, constraints, Some(column), readonly, description)
+    }
 
     private def _attribute(p: Column): MAttribute = {
       val designation = Designation(p.name)
@@ -800,6 +811,28 @@ object Modeler {
       val readonly = false
       val description = Description.empty // p.desc
       MAttribute(designation, atype, multiplicity, constraints, Some(p), readonly, description)
+    }
+
+    private def _resolve_attribute_type(
+      pkg: MPackageRef,
+      p: SchemaModel.Attribute
+    ): MAttributeType =
+      p.rawTypeName.flatMap(_resolve_object_attribute_type(pkg, _)).getOrElse(MDataType(p.domain.datatype))
+
+    private def _resolve_object_attribute_type(
+      pkg: MPackageRef,
+      p: String
+    ): Option[MObjectAttributeType] = {
+      val raw = p.trim
+      if (raw.isEmpty)
+        None
+      else {
+        val simple = raw.split("\\.").last
+        value.classes.get(simple).
+          map(_ => MObjectAttributeType(MObjectRef(MPackageRef("domain.value"), simple))).
+          orElse(entity.classes.get(simple).map(_ => MObjectAttributeType(_object_ref(pkg.packageName, simple))))
+          .orElse(if (raw.contains(".")) Some(MObjectAttributeType(MObjectRef.create(raw))) else None)
+      }
     }
 
     private def _associations(pkg: MPackageRef, p: SchemaClass): List[MAssociation] =
