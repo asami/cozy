@@ -1714,6 +1714,8 @@ object Modeler {
             name = _package_token(member.name),
             entityName = entityname,
             kind = Some(member.kind),
+            boundary = Some(member.boundary),
+            join = member.join,
             joinFieldName = member.joinField,
             multiplicity = member.multiplicity
           ))
@@ -1730,6 +1732,8 @@ object Modeler {
               name = _package_token(entity.name),
               entityName = _package_token(entity.name),
               kind = Some("composition"),
+              boundary = Some("internal"),
+              join = Some("reverse"),
               joinFieldName = Some(attr.name),
               multiplicity = Some("*")
             )
