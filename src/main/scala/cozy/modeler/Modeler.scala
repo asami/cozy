@@ -632,7 +632,7 @@ object Modeler {
 
     private def _build(includeComponents: Boolean): SimpleModel = {
       val entities = entity.classes.values.filterNot(c => _is_simple_entity(c.name)).map(_entity)
-      val values = value.classes.values.map(_value)
+      val values = value.classes.values.map(_value) ++ _service_inline_values.map(_value)
       val datatypes = datatype.classes.values.map(_datatype)
       val powertypes = powertype.classes.values.map(_powertype)
       val statemachines = stateMachine.classes.values.map(_statemachine)
@@ -922,6 +922,13 @@ object Modeler {
       )
     }
 
+    private def _service_inline_values: Vector[ValueClass] =
+      service.classes.values.toVector.flatMap { svc =>
+        svc.operations.operations.values.toVector.flatMap { op =>
+          Vector(op.input.value, op.output.value).flatten
+        }
+      }
+
     private def _powertype(p: PowertypeClass): MPowertype = {
       val desc = p.description
       val pkg = MPackageRef(p.packageName)
@@ -1095,7 +1102,7 @@ object Modeler {
     ): Vector[MComponent] = {
       val a = if (pkg.components.isEmpty) {
         val entities = pkg.entities
-        if (entities.isEmpty) {
+        if (entities.isEmpty && service.classes.isEmpty) {
           Vector.empty
         } else {
           val comp = _make_component(pkg, entities)
@@ -1227,7 +1234,7 @@ object Modeler {
       p: ServiceModel.ServiceClass.Operation
     ): MOperation = {
       val opname = p.name
-      val opdef = _normalized_operation_map.get(opname)
+      val opdef = _normalized_operation_map.get(opname).orElse(_normalized_service_operation(p))
       val desc = _description(
         opname,
         p.description.orElse(opdef.flatMap(_.description))
@@ -1241,6 +1248,35 @@ object Modeler {
           _defined_command_service_operation(opname, desc, implementation, entity, opdef.flatMap(_.execution))
       }
     }
+
+    private def _normalized_service_operation(
+      p: ServiceModel.ServiceClass.Operation
+    ): Option[OperationModel.NormalizedOperationDefinition] =
+      for {
+        kind <- p.kind
+        inputType <- p.input.tpe.map(_.trim).filterNot(_.isEmpty)
+        outputType <- p.output.tpe.map(_.trim).filterNot(_.isEmpty)
+      } yield {
+        OperationModel.NormalizedOperationDefinition(
+          name = p.name,
+          kind = kind,
+          summary = p.summary,
+          execution = None,
+          implementation = None,
+          inputType = inputType,
+          inputSummary = p.input.summary,
+          inputDescription = p.input.description,
+          outputType = outputType,
+          outputSummary = p.output.summary,
+          outputDescription = p.output.description,
+          inputValueKind = kind match {
+            case OperationModel.OperationKind.Command => OperationModel.InputValueKind.CommandValue
+            case OperationModel.OperationKind.Query => OperationModel.InputValueKind.QueryValue
+          },
+          description = p.description,
+          parameters = Vector.empty
+        )
+      }
 
     private def _defined_command_service_operation(
       opname: String,
@@ -1759,14 +1795,25 @@ object Modeler {
 
     private def _operation_definitions(
     ): Vector[MComponent.OperationDefinition] =
-      operation.normalizedOperations.map { x =>
+      (_normalized_operation_map.values.toVector ++ _normalized_service_operation_definitions).
+        groupBy(_.name).
+        values.
+        toVector.
+        flatMap(_.headOption).
+        sortBy(_.name).
+        map { x =>
         MComponent.OperationDefinition(
           name = x.name,
           kind = x.kind.toString.toUpperCase,
+          summary = x.summary,
           execution = x.execution,
           implementation = x.implementation,
           inputType = x.inputType,
+          inputSummary = x.inputSummary,
+          inputDescription = x.inputDescription,
           outputType = x.outputType,
+          outputSummary = x.outputSummary,
+          outputDescription = x.outputDescription,
           inputValueKind = x.inputValueKind match {
             case OperationModel.InputValueKind.CommandValue => "COMMAND_VALUE"
             case OperationModel.InputValueKind.QueryValue => "QUERY_VALUE"
@@ -1780,6 +1827,9 @@ object Modeler {
           }
         )
       }
+
+    private def _normalized_service_operation_definitions: Vector[OperationModel.NormalizedOperationDefinition] =
+      service.classes.values.toVector.flatMap(_.operations.operations.values).flatMap(_normalized_service_operation)
 
     private val _entity_package = "entity"
     private val _entity_create_package = s"${_entity_package}.create"

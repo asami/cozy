@@ -1,21 +1,34 @@
 # CML Grammar (Latest, Cozy)
 
-status=frozen-for-phase9-cs-01-cs-02
-updated_at=2026-03-25
+status=active-latest-spec
+updated_at=2026-04-01
 target=/Users/asami/src/dev2025/cozy
 
 ## 1. Scope
 
-This document is the canonical CML grammar contract for Cozy `modeler-scala`.
-It merges:
+This document is the active latest CML grammar specification for Cozy
+`modeler-scala`.
 
-- currently implemented grammar
-- Phase 8 OP-01/OP-03 operation handoff contract
-- Phase 9 CS-01/CS-02 component-subsystem grammar contract
+It represents the grammar contract currently being implemented or prepared for
+implementation.
 
-This document is normative for parser/modeler/generator behavior.
-It intentionally excludes draft/WIP grammar proposals.
+It may include:
+
+- already implemented grammar that remains part of the current latest contract
+- active implementation targets
+- near-term grammar extensions
+
+This document is normative for ongoing parser/modeler/generator work.
 It also defines the Literate Model interpretation boundary used by Cozy.
+
+Relationship to other documents:
+
+- `docs/design/cml-grammar.md`
+  - implemented baseline
+- `docs/notes/cml-grammar-latest.md`
+  - active latest spec
+- `docs/journal/...`
+  - discussion and handoff history
 
 ---
 
@@ -243,6 +256,24 @@ Semantic constraints:
 ## 8. OPERATION DSL (Phase 8 Frozen Contract)
 
 This section freezes OP-01/OP-03 grammar and normalization contract.
+
+### 8.0 Active Refactoring Direction
+
+The next operation refactoring direction is:
+
+- `OPERATION` remains type-based
+- `INPUT` / `OUTPUT` represent structural contract
+- `VALUE` remains the only structural unit
+- inside `INPUT` / `OUTPUT`
+  - `TYPE` references an existing `VALUE`
+  - `VALUE` defines an operation-local structural type
+- `SUMMARY` / `DESCRIPTION` are explicit metadata sources for:
+  - help
+  - OpenAPI
+  - scaladoc
+- narrative text is still allowed around formal subsections
+
+This direction is active and not yet treated as frozen grammar.
 
 ### 8.1 Purpose
 

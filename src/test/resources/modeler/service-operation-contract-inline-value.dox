@@ -1,0 +1,96 @@
+# COMPONENT
+
+## Domain
+
+### PACKAGE
+
+domain
+
+# SERVICE
+
+## Greeting
+
+### DESCRIPTION
+
+Greeting service for inline operation contract testing.
+
+### OPERATION
+
+#### greeting
+
+Returns a greeting for the supplied name.
+
+##### TYPE
+
+QUERY
+
+##### SUMMARY
+
+Return a greeting.
+
+##### DESCRIPTION
+
+Returns a greeting message for the supplied name.
+
+##### INPUT
+
+Greeting query payload.
+
+###### SUMMARY
+
+Greeting query payload.
+
+###### DESCRIPTION
+
+Structured query input accepted by greeting.
+
+###### VALUE
+
+####### GreetingQuery
+
+######## EXTENDS
+
+QueryAction
+
+######## ATTRIBUTE
+
+| name | type | multiplicity |
+|------+------|--------------|
+| name | name | 1            |
+
+##### OUTPUT
+
+Greeting result payload.
+
+###### SUMMARY
+
+Greeting result payload.
+
+###### DESCRIPTION
+
+Structured result returned by greeting.
+
+###### VALUE
+
+####### GreetingResult
+
+######## EXTENDS
+
+OperationResult
+
+######## ATTRIBUTE
+
+| name    | type   | multiplicity |
+|---------+--------+--------------|
+| message | string | 1            |
+
+# ENTITY
+
+## Person
+
+### ATTRIBUTE
+
+| name | type     | multiplicity |
+|------+----------+--------------|
+| id   | entityid | 1            |
+| name | name     | 1            |

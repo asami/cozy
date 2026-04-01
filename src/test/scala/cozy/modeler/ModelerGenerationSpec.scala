@@ -13,7 +13,8 @@ import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 
 /*
  * @since   May. 17, 2025
- * @version Mar. 30, 2026
+ *  version Mar. 30, 2026
+ * @version Apr.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerGenerationSpec extends AnyFunSuite {
@@ -733,6 +734,60 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(content.contains("""description("Address service for postal address support.Provides help-visible metadata for CNCF projections.")."""))
     assert(content.contains("""OperationDefinition.Specification.Builder("lookupAddress")."""))
     assert(content.contains("""BaseContent.Builder("lookupAddress").summary("Look up an address by postal code.").description("Look up an address by postal code.Returns a normalized address representation.")"""))
+  }
+
+  test("modeler-scala emits operationDefinitions from SERVICE scoped operation contract") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/service-operation-contract.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-service-operation-contract")
+    _delete_recursively(out)
+    Files.createDirectories(out.getParent)
+
+    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+
+    val generated = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+    )
+    assert(Files.exists(generated), s"generated file not found: $generated")
+    val content = Files.readString(generated)
+    assert(content.contains("""name = "greeting""""))
+    assert(content.contains("""kind = "QUERY""""))
+    assert(content.contains("""summary = Some("Return a greeting.")"""))
+    assert(content.contains("""inputType = "GreetingQuery""""))
+    assert(content.contains("""inputSummary = Some("Greeting query payload.")"""))
+    assert(content.contains("""inputDescription = Some("Structured query input accepted by greeting.")"""))
+    assert(content.contains("""outputType = "GreetingResult""""))
+    assert(content.contains("""outputSummary = Some("Greeting result payload.")"""))
+    assert(content.contains("""outputDescription = Some("Structured result returned by greeting.")"""))
+    assert(content.contains("""inputValueKind = "QUERY_VALUE""""))
+  }
+
+  test("modeler-scala emits operationDefinitions and value classes from SERVICE scoped inline VALUE contract") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/service-operation-contract-inline-value.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-service-operation-inline-value-contract")
+    _delete_recursively(out)
+    Files.createDirectories(out.getParent)
+
+    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+
+    val generated = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+    )
+    val generatedInput = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/value/GreetingQuery.scala"
+    )
+    val generatedOutput = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/value/GreetingResult.scala"
+    )
+    assert(Files.exists(generated), s"generated file not found: $generated")
+    assert(Files.exists(generatedInput), s"generated input value not found: $generatedInput")
+    assert(Files.exists(generatedOutput), s"generated output value not found: $generatedOutput")
+    val content = Files.readString(generated)
+    assert(content.contains("""name = "greeting""""))
+    assert(content.contains("""inputType = "GreetingQuery""""))
+    assert(content.contains("""outputType = "GreetingResult""""))
+    assert(content.contains("""inputValueKind = "QUERY_VALUE""""))
   }
 
   test("modeler-scala supports typical IMPLEMENTATION directives for entity operations") {
