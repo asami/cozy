@@ -1789,7 +1789,11 @@ object Modeler {
         }
         MComponent.ViewDefinition(
           name = name,
-          entityName = entityname
+          entityName = entityname,
+          viewNames = _view_names(entity),
+          queries = _view_queries(entity),
+          sourceEvents = _view_source_events(entity),
+          rebuildable = _view_rebuildable(entity)
         )
       }
 
@@ -1839,15 +1843,37 @@ object Modeler {
       name.flatMap(_token_opt).fold(s"${_entity_package}.aggregate")(x => s"${_entity_package}.aggregate.$x")
 
     private def _view_package(name: Option[String]): String =
-      name.flatMap(_token_opt).fold(s"${_entity_package}.view")(x => s"${_entity_package}.view.$x")
+      name.flatMap(_token_opt).fold("view")(x => s"view.$x")
 
     // NOTE: Aggregate DSL is not available yet. Keep default package for now.
     // Future: return Some(aggregateName) from model metadata.
     private def _aggregate_name(entity: MEntity): Option[String] = None
 
-    // NOTE: View DSL is not available yet. Keep default package for now.
-    // Future: return Some(viewName) from model metadata.
+    // NOTE: View DSL package scoping is not available yet. Keep default package for now.
+    // Named views are exposed through generated viewDefinitions.viewNames.
     private def _view_name(entity: MEntity): Option[String] = None
+
+    private def _view_names(mentity: MEntity): Vector[String] =
+      _source_entity_class(mentity).flatMap(_.view).toVector.flatMap(_.viewNames).map(_package_token(_)).filterNot(_.isEmpty).distinct
+
+    private def _view_queries(mentity: MEntity): Vector[MComponent.ViewQueryDefinition] =
+      _source_entity_class(mentity).flatMap(_.view).toVector.flatMap(_.queries).map { q =>
+        MComponent.ViewQueryDefinition(
+          name = _package_token(q.name),
+          expression = q.expression
+        )
+      }
+
+    private def _view_source_events(mentity: MEntity): Vector[String] =
+      _source_entity_class(mentity).flatMap(_.view).toVector.flatMap(_.sourceEvents).map(_package_token(_)).filterNot(_.isEmpty).distinct
+
+    private def _view_rebuildable(mentity: MEntity): Option[Boolean] =
+      _source_entity_class(mentity).flatMap(_.view).flatMap(_.rebuildable)
+
+    private def _source_entity_class(mentity: MEntity): Option[EntityClass] =
+      entity.classes.values.find { c =>
+        c.name == mentity.name || _package_token(c.name) == _package_token(mentity.name)
+      }
 
     private def _token_opt(name: String): Option[String] =
       Option(name).map(_.trim).filter(_.nonEmpty).map(_package_token)
@@ -2480,12 +2506,47 @@ object Modeler {
           "OperationResponse.create(r)"
         )
       }
+      val named = _view_names(entity).flatMap { viewname =>
+        _token_opt(viewname).toVector.flatMap { token =>
+          val projectionTitle = StringUtils.makeTitle(token)
+          val projectionValue = MEntityValue.projection(entity, Some(viewname))
+          val projectionClass = _qualify(s"${_view_package(Some(viewname))}.$title")
+          val projectionLoadResult = MResult.option(projectionValue)
+          val projectionSearchResult = MResult.search(projectionValue)
+          val loadProjection = MOperation.queryBody(s"load${title}${projectionTitle}", idparam, projectionLoadResult) {
+            blockFor(
+              s"""r <- view_load[$projectionClass]($queryclass.collectionId.name, "${viewname}", action.id)"""
+            )(
+              "OperationResponse(r.toRecord())"
+            )
+          }
+          val searchProjection = MOperation.queryBody(s"search${title}${projectionTitle}", searchrecparam, projectionSearchResult) {
+            blockFor(
+              s"""r <- view_search[$projectionClass]($queryclass.collectionId.name, "${viewname}", action.q)"""
+            )(
+              "OperationResponse.create(r)"
+            )
+          }
+          val searchProjectionRecord = MOperation.queryBody(s"search${title}${projectionTitle}Record", searchrecparam, projectionSearchResult) {
+            blockFor(
+              s"""r <- view_search[$projectionClass]($queryclass.collectionId.name, "${viewname}", action.q)"""
+            )(
+              "OperationResponse.create(r)"
+            )
+          }
+          Vector(
+            loadProjection,
+            searchProjection,
+            searchProjectionRecord
+          )
+        }
+      }
       Vector(
         load,
         loadbyview,
         search,
         searchrec
-      )
+      ) ++ named
     }
   }
   object ModelBuilder {

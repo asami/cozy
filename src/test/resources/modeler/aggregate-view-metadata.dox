@@ -32,6 +32,7 @@
 - EXPRESSION :: state.name.nonEmpty
 
 ### VIEW
+- VIEWS :: summary, detail, summary
 - EVENTS :: person.created, person.updated
 - REBUILDABLE :: true
 

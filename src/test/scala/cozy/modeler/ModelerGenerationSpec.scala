@@ -13,8 +13,7 @@ import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 
 /*
  * @since   May. 17, 2025
- *  version Mar. 30, 2026
- * @version Apr.  1, 2026
+ * @version Apr.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerGenerationSpec extends AnyFunSuite {
@@ -500,6 +499,7 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(view.attributes.exists(_.name == "id"))
     assert(view.attributes.exists(_.name == "name"))
     assert(view.queries.exists(_.name == "searchPublished"))
+    assert(view.viewNames == Vector("summary", "detail"))
     assert(view.sourceEvents.contains("person.created"))
     assert(view.rebuildable.contains(true))
   }
@@ -520,6 +520,12 @@ class ModelerGenerationSpec extends AnyFunSuite {
     val content = Files.readString(generated)
     assert(content.contains("""name = "person""""))
     assert(content.contains("""entityName = "person""""))
+    assert(content.contains("""viewNames = Vector("summary", "detail")"""))
+    assert(content.contains("""ViewQueryDefinition(name = "search_published"""))
+    assert(content.contains("""poststatus == """))
+    assert(content.contains("""published"""))
+    assert(content.contains("""sourceEvents = Vector("person.created", "person.updated")"""))
+    assert(content.contains("""rebuildable = Some(true)"""))
     assert(content.contains("""AggregateMemberDefinition("""))
     assert(content.contains("""name = "post""""))
     assert(content.contains("""entityName = "post""""))
@@ -736,6 +742,8 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(content.contains("""BaseContent.Builder("lookupAddress").summary("Look up an address by postal code.").description("Look up an address by postal code.Returns a normalized address representation.")"""))
   }
 
+
+
   test("modeler-scala emits operationDefinitions from SERVICE scoped operation contract") {
     val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
     val input = base.resolve("src/test/resources/modeler/service-operation-contract.dox")
@@ -892,6 +900,10 @@ class ModelerGenerationSpec extends AnyFunSuite {
         || name  | name   | 1            |
         || title | string | 1            |
         |
+        |### VIEW
+        |
+        |- VIEWS :: summary, detail
+        |
         |# COMMAND
         |
         |## CreateItem
@@ -1000,7 +1012,19 @@ class ModelerGenerationSpec extends AnyFunSuite {
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DemoComponent.scala"
     )
+    val generatedView = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/view/Item.scala"
+    )
+    val generatedViewSummary = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/view/summary/Item.scala"
+    )
+    val generatedViewDetail = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/view/detail/Item.scala"
+    )
     assert(Files.exists(generated), s"generated file not found: $generated")
+    assert(Files.exists(generatedView), s"generated view file not found: $generatedView")
+    assert(Files.exists(generatedViewSummary), s"generated summary view file not found: $generatedViewSummary")
+    assert(Files.exists(generatedViewDetail), s"generated detail view file not found: $generatedViewDetail")
     val content = Files.readString(generated)
     assert(content.contains("""implementation = Some("entity-create")"""))
     assert(content.contains("""implementation = Some("entity-load")"""))
@@ -1014,8 +1038,12 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(content.contains("""r <- entity_search[domain.entity.Item](domain.entity.query.Item.collectionId, Query(action.request.toRecord))"""))
     assert(content.contains("""r <- aggregate_load_option[domain.entity.aggregate.Item](id)"""))
     assert(content.contains("""r <- aggregate_search[domain.entity.aggregate.Item](domain.entity.query.Item.collectionId.name, Query(action.request.toRecord))"""))
-    assert(content.contains("""r <- view_load[domain.entity.view.Item](domain.entity.query.Item.collectionId.name, id)"""))
-    assert(content.contains("""view_search[domain.entity.view.Item](domain.entity.query.Item.collectionId.name, Query(action.request.toRecord))"""))
+    assert(content.contains("""r <- view_load[domain.view.Item](domain.entity.query.Item.collectionId.name, id)"""))
+    assert(content.contains("""view_search[domain.view.Item](domain.entity.query.Item.collectionId.name, Query(action.request.toRecord))"""))
+    assert(content.contains("""view_load[domain.view.summary.Item](domain.entity.query.Item.collectionId.name, "summary", action.id)"""))
+    assert(content.contains("""view_search[domain.view.summary.Item](domain.entity.query.Item.collectionId.name, "summary", action.q)"""))
+    assert(content.contains("""view_load[domain.view.detail.Item](domain.entity.query.Item.collectionId.name, "detail", action.id)"""))
+    assert(content.contains("""view_search[domain.view.detail.Item](domain.entity.query.Item.collectionId.name, "detail", action.q)"""))
   }
 
   test("modeler-scala supports IMPLEMENTATION blocking-task for command operations") {
