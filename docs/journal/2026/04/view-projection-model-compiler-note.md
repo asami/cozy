@@ -24,9 +24,9 @@ Current implemented line:
 
 - default generated view
 - predefined projection generation
-  - `view.<Type>`
-  - `view.summary.<Type>`
-  - `view.detail.<Type>`
+  - `entity.view.<Type>`
+  - `entity.view.summary.<Type>`
+  - `entity.view.detail.<Type>`
 - named view aliases
 - `VIEW > QUERY`
 - `EVENTS`
@@ -42,14 +42,14 @@ The formal Cozy-side `VIEW` model is:
 
 So the formal shape is:
 
-- `view.<Type>`
+- `entity.view.<Type>`
 - `view.<projection>.<Type>`
 
 Examples:
 
-- `view.Item`
-- `view.summary.Item`
-- `view.detail.Item`
+- `entity.view.Item`
+- `entity.view.summary.Item`
+- `entity.view.detail.Item`
 - `view.search_result.Item`
 
 ## Predefined Projections
@@ -63,17 +63,17 @@ The predefined projection set is:
 Their canonical type mapping is:
 
 - `all`
-  - `view.<Type>`
+  - `entity.view.<Type>`
 - `summary`
-  - `view.summary.<Type>`
+  - `entity.view.summary.<Type>`
 - `detail`
-  - `view.detail.<Type>`
+  - `entity.view.detail.<Type>`
 
 `all` is implicit and canonical.
 
 So:
 
-- `view.Item`
+- `entity.view.Item`
 
 is canonical, while:
 
@@ -157,16 +157,16 @@ through `MEntityValue` variants for:
 The canonical generated Scala namespace for view projection is:
 
 - full projection
-  - `view.<Type>`
+  - `entity.view.<Type>`
 - named projection
   - `view.<projection>.<Type>`
 
 Examples:
 
-- `view.Item`
-- `view.Person`
-- `view.summary.Item`
-- `view.detail.Item`
+- `entity.view.Item`
+- `entity.view.Person`
+- `entity.view.summary.Item`
+- `entity.view.detail.Item`
 
 This aligns view generation with the namespace-first style already used for:
 
@@ -175,8 +175,8 @@ This aligns view generation with the namespace-first style already used for:
 
 It replaces the older entity-rooted view package shape:
 
-- old: `entity.view.<Type>`
-- canonical: `view.<Type>`
+- old: `entity.entity.view.<Type>`
+- canonical: `entity.view.<Type>`
 - canonical named projection: `view.<projection>.<Type>`
 
 ## EntityObject / SimpleObject Rule
@@ -189,9 +189,9 @@ It replaces the older entity-rooted view package shape:
 
 So, for these standard model parts, the compiler only needs to prepare:
 
-- `view.<Type>`
-- `view.summary.<Type>`
-- `view.detail.<Type>`
+- `entity.view.<Type>`
+- `entity.view.summary.<Type>`
+- `entity.view.detail.<Type>`
 
 Custom projection names defined in domain models are outside this standard part set.
 
@@ -201,9 +201,9 @@ Current implemented line:
 
 - `EntityObject` / `SimpleObject`
   - generate:
-    - `view.<Type>`
-    - `view.summary.<Type>`
-    - `view.detail.<Type>`
+    - `entity.view.<Type>`
+    - `entity.view.summary.<Type>`
+    - `entity.view.detail.<Type>`
 - custom projection names
   - are represented in metadata/model
   - but are not yet auto-generated as standard part families
@@ -308,7 +308,7 @@ The ModelCompiler line is responsible for:
 
 1. parsing `VIEW` metadata from CML
 2. normalizing names into runtime-safe tokens
-3. emitting the canonical full-projection package as `view.<Type>`
+3. emitting the canonical full-projection package as `entity.view.<Type>`
 4. emitting the canonical named-projection packages as `view.<projection>.<Type>`
 5. emitting `viewDefinitions` metadata into the generated component
 6. emitting query metadata under each `ViewDefinition`
@@ -323,7 +323,7 @@ The ModelCompiler is not yet responsible for:
 
 As of this note, the Cozy-side formal spec is:
 
-- full projection is `view.<Type>`
+- full projection is `entity.view.<Type>`
 - named projection is `view.<projection>.<Type>`
 - package root is `view`
 - `VIEW > QUERY` is preserved and propagated as metadata
@@ -336,7 +336,7 @@ As of this note, the Cozy-side formal spec is:
 Current implementation status is split:
 
 - implemented
-  - canonical root package `view.<Type>`
+  - canonical root package `entity.view.<Type>`
   - named aliases in `viewDefinitions.viewNames`
   - `VIEW > QUERY` metadata propagation
 - not yet implemented
@@ -350,5 +350,5 @@ The next ModelCompiler line is:
 
 for example:
 
-- `view.summary.Item`
-- `view.detail.Item`
+- `entity.view.summary.Item`
+- `entity.view.detail.Item`

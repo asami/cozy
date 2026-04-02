@@ -1843,7 +1843,7 @@ object Modeler {
       name.flatMap(_token_opt).fold(s"${_entity_package}.aggregate")(x => s"${_entity_package}.aggregate.$x")
 
     private def _view_package(name: Option[String]): String =
-      name.flatMap(_token_opt).fold("view")(x => s"view.$x")
+      name.flatMap(_token_opt).fold(s"${_entity_package}.view")(x => s"${_entity_package}.view.$x")
 
     // NOTE: Aggregate DSL is not available yet. Keep default package for now.
     // Future: return Some(aggregateName) from model metadata.
