@@ -46,7 +46,8 @@ import scala.collection.mutable
  *  version Nov.  2, 2024
  *  version May. 13, 2025
  *  version Feb. 27, 2026
- * @version Mar. 31, 2026
+ *  version Mar. 31, 2026
+ * @version Apr.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
@@ -2482,28 +2483,28 @@ object Modeler {
         blockFor(
           s"r <- view_load[$viewclass]($queryclass.collectionId.name, action.id)"
         )(
-          "OperationResponse(r.toRecord())"
+          "OperationResponse(r.toViewRecord(using core.executionContext))"
         )
       }
       val loadbyview = MOperation.queryBody(s"load${title}ByView", idparam, loadresult) {
         blockFor(
           s"""r <- view_load[$viewclass]($queryclass.collectionId.name, action_required_property_string("view").TAKE, action.id)"""
         )(
-          "OperationResponse(r.toRecord())"
+          "OperationResponse(r.toViewRecord(using core.executionContext))"
         )
       }
       val search = MOperation.queryBody(s"search$title", List(searchparam, viewparam), searchresult) {
         blockFor(
           s"r <- action.view.fold(view_search[$viewclass]($queryclass.collectionId.name, Query(action.q)))(viewname => view_search[$viewclass]($queryclass.collectionId.name, viewname, Query(action.q)))"
         )(
-          "OperationResponse.create(r)"
+          "OperationResponse.create(org.goldenport.cncf.directive.SearchResult(query = r.query, data = r.data.map(_.toViewRecord(using core.executionContext)), totalCount = r.totalCount, offset = r.offset, limit = r.limit, fetchedCount = r.fetchedCount))"
         )
       }
       val searchrec = MOperation.queryBody(s"search${title}Record", searchrecparam, searchresult) {
         blockFor(
           s"""r <- action_property_string("view").fold(view_search[$viewclass]($queryclass.collectionId.name, action.q))(viewname => view_search[$viewclass]($queryclass.collectionId.name, viewname, action.q))"""
         )(
-          "OperationResponse.create(r)"
+          "OperationResponse.create(org.goldenport.cncf.directive.SearchResult(query = r.query, data = r.data.map(_.toViewRecord(using core.executionContext)), totalCount = r.totalCount, offset = r.offset, limit = r.limit, fetchedCount = r.fetchedCount))"
         )
       }
       val named = _view_names(entity).flatMap { viewname =>
@@ -2517,21 +2518,21 @@ object Modeler {
             blockFor(
               s"""r <- view_load[$projectionClass]($queryclass.collectionId.name, "${viewname}", action.id)"""
             )(
-              "OperationResponse(r.toRecord())"
+              "OperationResponse(r.toViewRecord(using core.executionContext))"
             )
           }
           val searchProjection = MOperation.queryBody(s"search${title}${projectionTitle}", searchrecparam, projectionSearchResult) {
             blockFor(
               s"""r <- view_search[$projectionClass]($queryclass.collectionId.name, "${viewname}", action.q)"""
             )(
-              "OperationResponse.create(r)"
+              "OperationResponse.create(org.goldenport.cncf.directive.SearchResult(query = r.query, data = r.data.map(_.toViewRecord(using core.executionContext)), totalCount = r.totalCount, offset = r.offset, limit = r.limit, fetchedCount = r.fetchedCount))"
             )
           }
           val searchProjectionRecord = MOperation.queryBody(s"search${title}${projectionTitle}Record", searchrecparam, projectionSearchResult) {
             blockFor(
               s"""r <- view_search[$projectionClass]($queryclass.collectionId.name, "${viewname}", action.q)"""
             )(
-              "OperationResponse.create(r)"
+              "OperationResponse.create(org.goldenport.cncf.directive.SearchResult(query = r.query, data = r.data.map(_.toViewRecord(using core.executionContext)), totalCount = r.totalCount, offset = r.offset, limit = r.limit, fetchedCount = r.fetchedCount))"
             )
           }
           Vector(
