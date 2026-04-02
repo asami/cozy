@@ -8,12 +8,12 @@ import org.scalatest.funsuite.AnyFunSuite
 
 /*
  * @since   Mar. 30, 2026
- * @version Mar. 31, 2026
+ * @version Apr.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 class EmbeddedValueObjectGenerationSpec extends AnyFunSuite {
-  test("modeler-scala generates embedded value object collection attributes from 06.a sample") {
-    val input = Paths.get("/Users/asami/src/dev2026/cncf-samples/samples/06.a-aggregate-single-record-lab/src/main/cozy/order-single-record-aggregate.cml")
+  test("modeler-scala generates embedded value object collection attributes from 07.a sample") {
+    val input = Paths.get("/Users/asami/src/dev2026/cncf-samples/samples/07.a-aggregate-single-record-lab/src/main/cozy/order-single-record-aggregate.cml")
     val out = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
       .resolve("target/test-generated/modeler-scala-embedded-value-object")
     _delete_recursively(out)

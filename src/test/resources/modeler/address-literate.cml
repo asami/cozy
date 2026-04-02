@@ -1,0 +1,24 @@
+Address
+=======
+
+# VALUE
+
+## Address
+
+### SUMMARY
+
+Structured postal destination value.
+
+### ATTRIBUTE
+
+- name: addressCountry
+  type: String
+  multiplicity: "1"
+- name: postalCode
+  type: String
+  multiplicity: "?"
+
+### DESCRIPTION
+
+Address is a structured postal destination value.
+

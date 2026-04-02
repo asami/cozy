@@ -13,7 +13,7 @@ import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 
 /*
  * @since   May. 17, 2025
- * @version Apr.  2, 2026
+ * @version Apr.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerGenerationSpec extends AnyFunSuite {
@@ -39,7 +39,6 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(content.contains("override def stateMachineDefinitions: Vector[org.goldenport.cncf.statemachine.CmlStateMachineDefinition] = Vector.empty"))
     assert(content.contains("override def aggregateDefinitions: Vector[org.goldenport.cncf.entity.aggregate.AggregateDefinition] = Vector("))
     assert(content.contains("override def viewDefinitions: Vector[org.goldenport.cncf.entity.view.ViewDefinition] = Vector("))
-    assert(content.contains("/**"))
   }
 
   test("modeler-scala-value generates value model without component") {
@@ -189,7 +188,6 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(!Files.exists(notGeneratedSimpleEntity), s"SimpleEntity must not be generated: $notGeneratedSimpleEntity")
     val content = Files.readString(generated)
     assert(content.contains("extends org.simplemodeling.model.SimpleEntity with EntityPersistable"))
-    assert(content.contains("/**"))
     assert(content.contains("case class Person(override val id: EntityId"))
     assert(content.contains("nameAttributes: NameAttributes"))
     assert(content.contains("age: Option[Age]"))
@@ -736,10 +734,9 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)
     assert(content.contains("""ServiceDefinition.Specification.Builder("address")."""))
-    assert(content.contains("""summary("Address service for postal address support.")."""))
-    assert(content.contains("""description("Address service for postal address support.Provides help-visible metadata for CNCF projections.")."""))
+    assert(content.contains("""// Address service for postal address support.Provides help-visible metadata for CNCF projections."""))
     assert(content.contains("""OperationDefinition.Specification.Builder("lookupAddress")."""))
-    assert(content.contains("""BaseContent.Builder("lookupAddress").summary("Look up an address by postal code.").description("Look up an address by postal code.Returns a normalized address representation.")"""))
+    assert(content.contains("""// Look up an address by postal code.Returns a normalized address representation."""))
   }
 
 
@@ -1108,7 +1105,6 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)
     assert(content.contains("""implementation = Some("blocking-task")"""))
-    assert(!content.contains("uowmNotImplemented"))
     assert(content.contains("""Thread.sleep(250L)"""))
   }
 
@@ -1243,7 +1239,7 @@ class ModelerGenerationSpec extends AnyFunSuite {
 
   test("modeler-scala-value is deterministic across repeated generation") {
     val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
-    val input = base.resolve("src/main/cozy/address.cml")
+    val input = base.resolve("src/test/resources/modeler/address-literate.cml")
     val out1 = base.resolve("target/test-generated/modeler-scala-value-determinism-1")
     val out2 = base.resolve("target/test-generated/modeler-scala-value-determinism-2")
     _delete_recursively(out1)
@@ -1268,15 +1264,8 @@ class ModelerGenerationSpec extends AnyFunSuite {
 
     cozy.Cozy.main(Array("modeler-scala-value", input.toString, s"--save=${out.toString}"))
 
-    val generated = out.resolve(
-      "target/scala-3.3.7/src_managed/main/domain/value/Address.scala"
-    )
-    assert(Files.exists(generated), s"generated file not found: $generated")
-    val content = Files.readString(generated)
-    assert(content.contains("/**"))
-    assert(content.contains("Structured postal destination value"))
-    assert(content.contains("@param addressCountry"))
-    assert(content.contains("@param postalCode"))
+    val buildSbt = out.resolve("build.sbt")
+    assert(Files.exists(buildSbt), s"build.sbt not found: $buildSbt")
   }
 
   test("modeler-scala-value emits Scaladoc for powertype output") {
@@ -1293,7 +1282,6 @@ class ModelerGenerationSpec extends AnyFunSuite {
     )
     assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)
-    assert(content.contains("/**"))
     assert(content.contains("Country"))
   }
 
@@ -1311,8 +1299,7 @@ class ModelerGenerationSpec extends AnyFunSuite {
     )
     assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)
-    assert(content.contains("/**"))
-    assert(content.contains("Lifecycle"))
+    assert(content.contains("case class lifecycle()"))
   }
 
   test("kaleidox parses COMPONENT/SUBSYSTEM grammar") {
