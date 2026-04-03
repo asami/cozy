@@ -1,19 +1,13 @@
 # STATE-MACHINE
 
 ## lifecycle
-rule {
-  state = [
-    {
-      name = Draft
-      transition = [
-        {
-          guard = publish
-          to = Published
-        }
-      ]
-    },
-    {
-      name = Published
-    }
-  ]
-}
+### state
+
+#### Draft
+value = 10
+
+##### transition
+on = publish
+to = Published
+
+#### Published

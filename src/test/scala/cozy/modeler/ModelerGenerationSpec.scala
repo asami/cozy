@@ -343,6 +343,11 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(!powertype.classes.contains("Overview"))
     assert(powertype.classes("CountryCode").packageName == "domain.value")
     assert(powertype.classes("AddressType").packageName == "domain.value")
+    assert(powertype.classes("CountryCode").kinds.map(_.name) == Vector("JP", "US"))
+    assert(powertype.classes("CountryCode").kinds.head.value.contains(81))
+    assert(powertype.classes("CountryCode").kinds(1).value.contains(2))
+    assert(powertype.classes("AddressType").kinds.head.value.contains(1))
+    assert(powertype.classes("AddressType").kinds(1).value.contains(2))
   }
 
   test("kaleidox accepts STATE-MACHINE top-level alias") {
@@ -357,6 +362,8 @@ class ModelerGenerationSpec extends AnyFunSuite {
     }
     assert(lifecycle.states.exists(_.name == "Draft"))
     assert(lifecycle.states.exists(_.name == "Published"))
+    assert(lifecycle.states.find(_.name == "Draft").exists(_.value == 10))
+    assert(lifecycle.states.find(_.name == "Published").exists(_.value == 2))
   }
 
   test("kaleidox parses POWERTYPE from .cml and ignores reserved/free narrative sections") {
@@ -366,6 +373,8 @@ class ModelerGenerationSpec extends AnyFunSuite {
     val powertype = model.takePowertypeModel
     assert(powertype.classes.contains("CountryCode"))
     assert(powertype.classes.contains("AddressType"))
+    assert(powertype.classes("CountryCode").kinds.head.value.contains(81))
+    assert(powertype.classes("CountryCode").kinds(1).value.contains(2))
     assert(!powertype.classes.contains("SUMMARY"))
     assert(!powertype.classes.contains("Overview"))
   }
@@ -380,6 +389,8 @@ class ModelerGenerationSpec extends AnyFunSuite {
     }
     assert(lifecycle.states.exists(_.name == "Draft"))
     assert(lifecycle.states.exists(_.name == "Published"))
+    assert(lifecycle.states.find(_.name == "Draft").exists(_.value == 10))
+    assert(lifecycle.states.find(_.name == "Published").exists(_.value == 2))
     assert(sm.getClass("SUMMARY").isEmpty)
     assert(sm.getClass("Overview").isEmpty)
   }
@@ -1283,6 +1294,8 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)
     assert(content.contains("Country"))
+    assert(content.contains("extends Powertype"))
+    assert(content.contains("def fromDbValue"))
   }
 
   test("modeler-scala-value emits Scaladoc for statemachine output") {

@@ -3,8 +3,20 @@
 ## CountryCode
 package = domain.value
 
+### JP
+value = 81
+label = Japan
+
+### US
+label = United States
+
 ## AddressType
 package: domain.value
+
+### Home
+value = 1
+
+### Office
 
 ## Overview
 This section is narrative and must not be treated as a powertype class.

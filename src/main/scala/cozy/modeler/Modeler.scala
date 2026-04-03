@@ -93,7 +93,7 @@ class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
     // def historyState = MState.historyState(sm)
 
     def _state_(p: StateClass): MState = {
-      val s = MState.create(sm, p.name)
+      val s = MState.create(sm, p.name, Right(p.value))
       s
     }
 
@@ -933,7 +933,9 @@ object Modeler {
     private def _powertype(p: PowertypeClass): MPowertype = {
       val desc = p.description
       val pkg = MPackageRef(p.packageName)
-      val kinds = Nil
+      val kinds = p.kinds.toList.map { x =>
+        MPowertypeKind(x.name, x.value.map(_.toString), x.label)
+      }
       val stereotypes = Nil
       MPowertype(desc, pkg, kinds, stereotypes)
     }
@@ -955,7 +957,7 @@ object Modeler {
       rule: StateMachineRule
     ): StateHanger = {
       def _state_(p: StateClass): MState =
-        MState.create(sm, p.name)
+        MState.create(sm, p.name, Right(p.value))
 
       def _statemachine_state_(p: StateMachineRule): MState = {
         val s = MState.create(sm, p.name.getOrElse("statemachine"))
