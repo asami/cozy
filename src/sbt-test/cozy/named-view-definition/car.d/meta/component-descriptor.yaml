@@ -1,0 +1,9 @@
+component: NamedViewSample
+entity: person
+collectionMajor: tokyo
+collectionMinor: sales
+collectionName: person
+memoryPolicy: LoadToMemory
+partitionStrategy: byOrganizationMonthUTC
+maxPartitions: 64
+maxEntitiesPerPartition: 10000

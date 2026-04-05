@@ -1,0 +1,58 @@
+# COMPONENT
+
+## NamedViewSample
+
+### PACKAGE
+
+org.sample.viewdefinition
+
+### DESCRIPTION
+
+Named view definition sample component.
+
+### SPECIFICATION
+
+This component demonstrates explicit named view aliases on top of the generated `ENTITY > VIEW` read surface.
+The first line is runtime-light: named views reuse the generated projection and select it through the CNCF view DSL.
+
+# ENTITY
+
+## Person
+
+### DESCRIPTION
+
+Person record used as the source entity for named view selection.
+
+### ATTRIBUTE
+
+| name  | type     | multiplicity |
+|-------+----------+--------------|
+| id    | entityid | 1            |
+| name  | name     | 1            |
+| city  | string   | 1            |
+| title | string   | 1            |
+
+### VIEW
+
+- VIEWS :: summary, detail
+- EVENTS :: person.created, person.updated
+- REBUILDABLE :: true
+
+#### DESCRIPTION
+
+The explicit view definition registers named aliases and custom query metadata while keeping the first-line projection shape identical to the default view.
+
+#### ATTRIBUTE
+
+| name  | type     | multiplicity |
+|-------+----------+--------------|
+| id    | entityid | 1            |
+| name  | name     | 1            |
+| city  | string   | 1            |
+| title | string   | 1            |
+
+#### QUERY
+
+##### searchByCity
+
+- EXPRESSION :: person.city == query.city

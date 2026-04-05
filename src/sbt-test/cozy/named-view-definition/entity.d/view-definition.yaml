@@ -1,0 +1,11 @@
+entitystore:
+  - collection: tokyo.sales.person
+    records:
+      - id: tokyo-sales-entity-person-1742198400000-abcd1234
+        name: Alice
+        city: Tokyo
+        title: Reader
+      - id: tokyo-sales-entity-person-1742198400000-efgh5678
+        name: Bob
+        city: Osaka
+        title: Editor
