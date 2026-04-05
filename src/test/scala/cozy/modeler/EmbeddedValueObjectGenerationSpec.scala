@@ -33,9 +33,9 @@ class EmbeddedValueObjectGenerationSpec extends AnyFunSuite {
     val valueContent = Files.readString(generatedValue)
 
     assert(entityContent.contains("lines: Vector[OrderLine]"))
-    assert(entityContent.contains("case m: org.goldenport.record.Recordable => m.toRecord()"))
+    assert(entityContent.contains("case m: org.goldenport.record.RecordPresentable => m.toRecord()"))
     assert(entityContent.contains("_record_get_vector_of_record_c(record, INPUT_KEYS_LINES)((r: Record) => domain.value.OrderLine.createC(r))"))
-    assert(valueContent.contains("case class OrderLine(name: Name, quantity: Int) extends org.goldenport.record.Recordable"))
+    assert(valueContent.contains("case class OrderLine(name: Name, quantity: Int) extends org.goldenport.record.RecordPresentable"))
     assert(valueContent.contains("given org.goldenport.convert.ValueReader[OrderLine]"))
   }
 
