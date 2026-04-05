@@ -1,0 +1,52 @@
+# COMPONENT
+
+## SimpleEntityViewSample
+
+### PACKAGE
+
+org.sample.simpleentityview
+
+### DESCRIPTION
+
+SimpleEntity-based view sample component.
+
+### SPECIFICATION
+
+This component demonstrates that the default generated `ENTITY > VIEW` read surface still works
+when the source entity inherits common fields from `SimpleEntity`.
+
+# ENTITY
+
+## SimpleEntity
+
+### DESCRIPTION
+
+Common base entity that provides the standard inherited field set.
+
+### KIND
+
+simpleentity
+
+# ENTITY
+
+## Person
+
+### EXTENDS
+
+SimpleEntity
+
+### DESCRIPTION
+
+Concrete entity that adds `city` on top of the inherited `SimpleEntity` fields.
+
+### ATTRIBUTE
+
+| name  | type   | multiplicity |
+|-------+--------+--------------|
+| city  | string | 1            |
+
+### VIEW
+
+#### DESCRIPTION
+
+The default generated `view` service is enough for this line.
