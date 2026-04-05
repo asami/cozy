@@ -47,7 +47,7 @@ import scala.collection.mutable
  *  version May. 13, 2025
  *  version Feb. 27, 2026
  *  version Mar. 31, 2026
- * @version Apr.  4, 2026
+ * @version Apr.  6, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
@@ -1125,7 +1125,7 @@ object Modeler {
     ): MComponent = {
       // val compclassname = s"${StringUtils.makeTitle(pkg.name)}Component"
       val compname = _component_name(pkg)
-      val desc = _description(compname, _component_definition_for(pkg).flatMap(_.description))
+      val desc = _description(compname, _component_description_for(pkg))
       val componentpackagename = _component_package_name(pkg).getOrElse(pkg.name)
       val servicepkg = _service_package(pkg, componentpackagename)
       val definedservices = _defined_services(servicepkg, entities)
@@ -1145,7 +1145,7 @@ object Modeler {
       val views = _view_definitions(entities)
       val operations = _operation_definitions()
       val components = _component_definitions(pkg)
-      val subsystems = _subsystem_definitions()
+      val subsystems = _subsystem_definitions(pkg)
       val ccore = MComponent.Core(
         entities = entities,
         stateMachineTransitionRules = transitionrules,
@@ -1198,6 +1198,13 @@ object Modeler {
         map(s => Description.name(name, Dox.text(s))).
         getOrElse(Description.name(name))
 
+    private def _component_description_for(
+      pkg: MPackage
+    ): Option[String] =
+      _component_definition_for(pkg).flatMap { p =>
+        _append_use_cases(p.description, p.useCases.map(_component_use_case_text))
+      }
+
     private def _entity_package_name(
       packagename: String
     ): String =
@@ -1225,7 +1232,71 @@ object Modeler {
       p: ServiceModel.ServiceClass
     ): MService = {
       val ops = p.operations.operations.values.toVector.map(_defined_service_operation(entities, p.name, _))
-      MService(pkg, p.name, ops, _description(p.name, p.description))
+      MService(
+        pkg,
+        p.name,
+        ops,
+        _description(p.name, _service_description(p)),
+        p.useCases.map(_component_use_case_definition_for_service)
+      )
+    }
+
+    private def _service_description(
+      p: ServiceModel.ServiceClass
+    ): Option[String] =
+      _append_use_cases(p.description, p.useCases.map(_service_use_case_text))
+
+    private def _append_use_cases(
+      base: Option[String],
+      usecases: Vector[String]
+    ): Option[String] = {
+      val xs = usecases.map(_.trim).filter(_.nonEmpty)
+      val usecaseText =
+        if (xs.isEmpty)
+          None
+        else
+          Some(xs.mkString("Use cases:\n", "\n", ""))
+      (base.map(_.trim).filter(_.nonEmpty), usecaseText) match {
+        case (Some(a), Some(b)) => Some(s"$a\n\n$b")
+        case (Some(a), None) => Some(a)
+        case (None, Some(b)) => Some(b)
+        case _ => None
+      }
+    }
+
+    private def _component_use_case_text(
+      p: ComponentSubsystemModel.UseCaseDefinition
+    ): String = {
+      val summary = p.summary.orElse(p.description).getOrElse("")
+      val actor = _use_case_actor_text(p.actor, p.primaryActor, p.secondaryActor, p.supportingActor, p.stakeholder)
+      val base = if (summary.nonEmpty) s"- ${p.name}: ${summary}" else s"- ${p.name}"
+      actor.map(x => s"${base} (${x})").getOrElse(base)
+    }
+
+    private def _service_use_case_text(
+      p: ServiceModel.ServiceClass.UseCaseDefinition
+    ): String = {
+      val summary = p.summary.orElse(p.description).getOrElse("")
+      val actor = _use_case_actor_text(p.actor, p.primaryActor, p.secondaryActor, p.supportingActor, p.stakeholder)
+      val base = if (summary.nonEmpty) s"- ${p.name}: ${summary}" else s"- ${p.name}"
+      actor.map(x => s"${base} (${x})").getOrElse(base)
+    }
+
+    private def _use_case_actor_text(
+      actor: Option[String],
+      primaryActor: Option[String],
+      secondaryActor: Option[String],
+      supportingActor: Option[String],
+      stakeholder: Option[String]
+    ): Option[String] = {
+      val xs = Vector(
+        actor.map(x => s"actor=${x.trim}"),
+        primaryActor.map(x => s"primary=${x.trim}"),
+        secondaryActor.map(x => s"secondary=${x.trim}"),
+        supportingActor.map(x => s"supporting=${x.trim}"),
+        stakeholder.map(x => s"stakeholder=${x.trim}")
+      ).flatten.filter(_.nonEmpty)
+      if (xs.isEmpty) None else Some(xs.mkString(", "))
     }
 
     private lazy val _normalized_operation_map: Map[String, OperationModel.NormalizedOperationDefinition] =
@@ -1240,7 +1311,12 @@ object Modeler {
       val opdef = _normalized_operation_map.get(opname).orElse(_normalized_service_operation(p))
       val desc = _description(
         opname,
-        p.description.orElse(opdef.flatMap(_.description))
+        _operation_description(
+          p.description.orElse(opdef.flatMap(_.description)),
+          p.precondition.orElse(opdef.flatMap(_.precondition)),
+          p.postcondition.orElse(opdef.flatMap(_.postcondition)),
+          if (p.rules.nonEmpty) p.rules else opdef.map(_.rules).getOrElse(Vector.empty)
+        )
       )
       val implementation = opdef.flatMap(_.implementation).map(_.trim.toLowerCase)
       val entity = _entity_for_service(entities, servicename)
@@ -1277,9 +1353,28 @@ object Modeler {
             case OperationModel.OperationKind.Query => OperationModel.InputValueKind.QueryValue
           },
           description = p.description,
+          precondition = p.precondition,
+          postcondition = p.postcondition,
+          rules = p.rules,
           parameters = Vector.empty
         )
       }
+
+    private def _operation_description(
+      base: Option[String],
+      precondition: Option[String],
+      postcondition: Option[String],
+      rules: Vector[String]
+    ): Option[String] = {
+      val normalizedRules = rules.map(_.trim).filter(_.nonEmpty)
+      val chunks = Vector(
+        base.map(_.trim).filter(_.nonEmpty),
+        precondition.map(x => s"Precondition: ${x.trim}").filter(_.nonEmpty),
+        postcondition.map(x => s"Postcondition: ${x.trim}").filter(_.nonEmpty),
+        if (normalizedRules.nonEmpty) Some(normalizedRules.mkString("Rules:\n- ", "\n- ", "")) else None
+      ).flatten
+      if (chunks.isEmpty) None else Some(chunks.mkString("\n\n"))
+    }
 
     private def _defined_command_service_operation(
       opname: String,
@@ -1552,7 +1647,13 @@ object Modeler {
         },
         componentlets = _componentlet_names_for_component(p),
         extensionPoints = _extension_point_names_for_component(p),
-        extensionBindings = p.extensionBindings
+        extensionBindings = p.extensionBindings,
+        domainVisions = Vector.empty,
+        domainCapabilities = Vector.empty,
+        domainQualities = Vector.empty,
+        domainConstraints = Vector.empty,
+        domainUseCases = Vector.empty,
+        useCases = p.useCases.map(_component_use_case_definition)
       )
     }
 
@@ -1564,9 +1665,149 @@ object Modeler {
         coordinates = Vector.empty,
         componentlets = _unbound_componentlet_names(),
         extensionPoints = _unbound_extension_point_names(),
-        extensionBindings = Map.empty
+        extensionBindings = Map.empty,
+        domainVisions = Vector.empty,
+        domainCapabilities = Vector.empty,
+        domainQualities = Vector.empty,
+        domainConstraints = Vector.empty,
+        domainUseCases = Vector.empty,
+        useCases = Vector.empty
       )
     }
+
+    private def _component_capability_definition(
+      p: ComponentSubsystemModel.CapabilityDefinition
+    ): MComponent.CapabilityDefinition =
+      MComponent.CapabilityDefinition(
+        name = p.name,
+        summary = p.summary,
+        description = p.description,
+        actor = p.actor,
+        primaryActor = p.primaryActor,
+        secondaryActor = p.secondaryActor,
+        supportingActor = p.supportingActor,
+        stakeholder = p.stakeholder,
+        goal = p.goal,
+        precondition = p.precondition,
+        postcondition = p.postcondition
+      )
+
+  private def _component_vision_definition(
+    p: ComponentSubsystemModel.VisionDefinition
+  ): MComponent.VisionDefinition =
+      MComponent.VisionDefinition(
+        name = p.name,
+        summary = p.summary,
+        description = p.description,
+        goal = p.goal,
+        precondition = p.precondition,
+        postcondition = p.postcondition
+      )
+
+    private def _component_context_definition(
+      p: ComponentSubsystemModel.ContextDefinition
+    ): MComponent.ContextDefinition =
+      MComponent.ContextDefinition(
+        name = p.name,
+        summary = p.summary,
+        description = p.description
+      )
+
+    private def _component_system_context_definition(
+      p: ComponentSubsystemModel.SystemContextDefinition
+    ): MComponent.SystemContextDefinition =
+      MComponent.SystemContextDefinition(
+        name = p.name,
+        summary = p.summary,
+        description = p.description
+      )
+
+    private def _component_context_map_definition(
+      p: ComponentSubsystemModel.ContextMapDefinition
+    ): MComponent.ContextMapDefinition =
+      MComponent.ContextMapDefinition(
+        name = p.name,
+        summary = p.summary,
+        description = p.description
+      )
+
+    private def _component_quality_definition(
+      p: ComponentSubsystemModel.QualityDefinition
+    ): MComponent.QualityDefinition =
+      MComponent.QualityDefinition(
+        name = p.name,
+        summary = p.summary,
+        description = p.description,
+        goal = p.goal,
+        precondition = p.precondition,
+        postcondition = p.postcondition
+      )
+
+    private def _component_constraint_definition(
+      p: ComponentSubsystemModel.ConstraintDefinition
+    ): MComponent.ConstraintDefinition =
+      MComponent.ConstraintDefinition(
+        name = p.name,
+        summary = p.summary,
+        description = p.description,
+        goal = p.goal,
+        precondition = p.precondition,
+        postcondition = p.postcondition
+      )
+
+    private def _component_use_case_definition_for_service(
+      p: ServiceModel.ServiceClass.UseCaseDefinition
+    ): MComponent.UseCaseDefinition =
+      MComponent.UseCaseDefinition(
+        name = p.name,
+        summary = p.summary,
+        description = p.description,
+        actor = p.actor,
+        primaryActor = p.primaryActor,
+        secondaryActor = p.secondaryActor,
+        supportingActor = p.supportingActor,
+        stakeholder = p.stakeholder,
+        goal = p.goal,
+        precondition = p.precondition,
+        postcondition = p.postcondition,
+        scenarios = p.scenarios.map { s =>
+          MComponent.UseCaseScenario(
+            name = s.name,
+            summary = s.summary,
+            description = s.description,
+            steps = s.steps,
+            alternates = s.alternates,
+            exceptions = s.exceptions
+          )
+        }
+      )
+
+    private def _component_use_case_definition(
+      p: ComponentSubsystemModel.UseCaseDefinition
+    ): MComponent.UseCaseDefinition =
+      MComponent.UseCaseDefinition(
+        name = p.name,
+        summary = p.summary,
+        description = p.description,
+        actor = p.actor,
+        primaryActor = p.primaryActor,
+        secondaryActor = p.secondaryActor,
+        supportingActor = p.supportingActor,
+        stakeholder = p.stakeholder,
+        goal = p.goal,
+        precondition = p.precondition,
+        postcondition = p.postcondition,
+        scenarios = p.scenarios.map { s =>
+          MComponent.UseCaseScenario(
+            name = s.name,
+            summary = s.summary,
+            description = s.description,
+            steps = s.steps,
+            alternates = s.alternates,
+            exceptions = s.exceptions
+          )
+        }
+      )
 
     private def _componentlet_names_for_component(
       p: ComponentSubsystemModel.ComponentDefinition
@@ -1603,8 +1844,9 @@ object Modeler {
       )
 
     private def _subsystem_definitions(
-    ): Vector[MComponent.SubsystemDefinition] =
-      componentSubsystem.subsystems.sortBy(_.name).map { p =>
+      pkg: MPackage
+    ): Vector[MComponent.SubsystemDefinition] = {
+      val explicit = componentSubsystem.subsystems.sortBy(_.name).map { p =>
         MComponent.SubsystemDefinition(
           name = p.name,
           components = p.components.map { c =>
@@ -1618,6 +1860,59 @@ object Modeler {
           config = p.config
         )
       }
+      val defaultName = _default_subsystem_name(pkg)
+      val topLevelRequirements =
+        if (_has_top_level_requirement_model)
+          Some(
+            MComponent.SubsystemDefinition(
+              name = defaultName,
+              domainVisions = componentSubsystem.visions.map(_component_vision_definition),
+              domainContexts = componentSubsystem.contexts.map(_component_context_definition),
+              domainSystemContexts = componentSubsystem.systemContexts.map(_component_system_context_definition),
+              domainContextMaps = componentSubsystem.contextMaps.map(_component_context_map_definition),
+              domainCapabilities = componentSubsystem.capabilities.map(_component_capability_definition),
+              domainQualities = componentSubsystem.qualities.map(_component_quality_definition),
+              domainConstraints = componentSubsystem.constraints.map(_component_constraint_definition),
+              domainUseCases = componentSubsystem.useCases.map(_component_use_case_definition)
+            )
+          )
+        else
+          None
+      topLevelRequirements.map { req =>
+        explicit.indexWhere(_.name == req.name) match {
+          case -1 => explicit :+ req
+          case i =>
+            explicit.updated(
+              i,
+              explicit(i).copy(
+                domainVisions = req.domainVisions,
+                domainContexts = req.domainContexts,
+                domainSystemContexts = req.domainSystemContexts,
+                domainContextMaps = req.domainContextMaps,
+                domainCapabilities = req.domainCapabilities,
+                domainQualities = req.domainQualities,
+                domainConstraints = req.domainConstraints,
+                domainUseCases = req.domainUseCases
+              )
+            )
+        }
+      }.getOrElse(explicit)
+    }
+
+    private def _default_subsystem_name(
+      pkg: MPackage
+    ): String =
+      pkg.name
+
+    private def _has_top_level_requirement_model: Boolean =
+      componentSubsystem.visions.nonEmpty ||
+        componentSubsystem.contexts.nonEmpty ||
+        componentSubsystem.systemContexts.nonEmpty ||
+        componentSubsystem.contextMaps.nonEmpty ||
+        componentSubsystem.capabilities.nonEmpty ||
+        componentSubsystem.qualities.nonEmpty ||
+        componentSubsystem.constraints.nonEmpty ||
+        componentSubsystem.useCases.nonEmpty
 
     private def _distinct_stable(
       p: Vector[String]

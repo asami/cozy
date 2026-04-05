@@ -58,6 +58,18 @@ Return a greeting.
 
 Returns a greeting message for the supplied name.
 
+##### PRECONDITION
+
+The caller provides a resolvable greeting target.
+
+##### POSTCONDITION
+
+A greeting result is returned without mutating state.
+
+##### RULE
+
+- Greeting generation must remain side-effect free.
+
 ##### INPUT
 
 Greeting query payload.

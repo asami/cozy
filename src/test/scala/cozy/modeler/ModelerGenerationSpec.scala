@@ -588,6 +588,9 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(normalized.exists(x => x.name == "createOrder" && x.kind.toString == "Command" && x.inputType == "CreateOrder"))
     assert(normalized.exists(x => x.name == "getOrder" && x.kind.toString == "Query" && x.inputType == "GetOrder"))
     assert(normalized.exists(x => x.name == "savePerson" && x.inputType == "SavePersonInput"))
+    assert(normalized.find(_.name == "createOrder").flatMap(_.precondition).contains("Customer can submit a new order."))
+    assert(normalized.find(_.name == "createOrder").flatMap(_.postcondition).contains("The order creation request is accepted."))
+    assert(normalized.find(_.name == "createOrder").exists(_.rules.nonEmpty))
     assert(normalized.size == 3)
   }
 
@@ -745,7 +748,11 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)
     assert(content.contains("""ServiceDefinition.Specification.Builder("address")."""))
+    assert(content.contains("""def useCaseRecords: Vector[Record] ="""))
+    assert(content.contains(""""name" -> "postal_lookup"""))
     assert(content.contains("""// Address service for postal address support.Provides help-visible metadata for CNCF projections."""))
+    assert(content.contains("""Use cases:"""))
+    assert(content.contains("""postal_lookup: Look up an address from a postal code."""))
     assert(content.contains("""OperationDefinition.Specification.Builder("lookupAddress")."""))
     assert(content.contains("""// Look up an address by postal code.Returns a normalized address representation."""))
   }
@@ -776,6 +783,9 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(content.contains("""outputSummary = Some("Greeting result payload.")"""))
     assert(content.contains("""outputDescription = Some("Structured result returned by greeting.")"""))
     assert(content.contains("""inputValueKind = "QUERY_VALUE""""))
+    assert(content.contains("""Precondition: The caller provides a resolvable greeting target."""))
+    assert(content.contains("""Postcondition: A greeting result is returned without mutating state."""))
+    assert(content.contains("""Rules:"""))
   }
 
   test("modeler-scala emits operationDefinitions and value classes from SERVICE scoped inline VALUE contract") {
@@ -1358,6 +1368,9 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(content.contains("\"coordinates\" -> Vector(\"org.simplemodeling.car:person-service:0.1.0\")"))
     assert(content.contains("\"extension_bindings\" -> Record.data("))
     assert(content.contains("\"transport\" -> \"grpc\""))
+    assert(content.contains("\"use_cases\" -> Vector("))
+    assert(content.contains("\"name\" -> \"provisional_onboarding\""))
+    assert(content.contains("\"actor\" -> \"EndUser\""))
     assert(content.contains("\"name\" -> \"identity\""))
   }
 

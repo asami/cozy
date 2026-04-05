@@ -6,6 +6,25 @@
 
 - coordinate :: org.simplemodeling.car:person-service:0.1.0
 
+### USE CASE
+
+#### provisional_onboarding
+
+##### SUMMARY
+
+Capture a provisional person account.
+
+##### ACTOR
+
+EndUser
+
+##### SCENARIO
+
+###### happy_path
+
+1. User submits minimum account information.
+2. System creates a provisional account.
+
 ### COMPONENTLET
 
 #### person_core

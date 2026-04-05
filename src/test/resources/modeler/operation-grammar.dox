@@ -26,6 +26,16 @@
 ### TYPE
 COMMAND
 
+### PRECONDITION
+Customer can submit a new order.
+
+### POSTCONDITION
+The order creation request is accepted.
+
+### RULE
+- Order creation follows domain validation policy.
+- Rules that fit schema belong in the input definition.
+
 ### INPUT
 CreateOrder
 
