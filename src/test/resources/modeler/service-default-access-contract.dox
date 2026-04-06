@@ -1,0 +1,53 @@
+# COMPONENT
+
+## Domain
+
+### PACKAGE
+
+domain
+
+# VALUE
+
+## AdminQuery
+
+### EXTENDS
+
+QueryAction
+
+# VALUE
+
+## AdminResult
+
+### EXTENDS
+
+OperationResult
+
+# SERVICE
+
+## Management
+
+### ACCESS
+
+#### POLICY
+
+manager_only
+
+### OPERATION
+
+#### listAccounts
+
+##### TYPE
+
+QUERY
+
+##### INPUT
+
+###### TYPE
+
+AdminQuery
+
+##### OUTPUT
+
+###### TYPE
+
+AdminResult

@@ -13,7 +13,8 @@ import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 
 /*
  * @since   May. 17, 2025
- * @version Apr.  3, 2026
+ *  version Apr.  3, 2026
+ * @version Apr.  6, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerGenerationSpec extends AnyFunSuite {
@@ -848,6 +849,24 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(content.contains("""name = "synchronizeAccount""""))
     assert(content.contains("""entityName = Some("Person")"""))
     assert(content.contains("""entityNames = Vector("Person", "Credential")"""))
+  }
+
+  test("modeler-scala applies SERVICE default ACCESS to service operations") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/service-default-access-contract.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-service-default-access-contract")
+    _delete_recursively(out)
+    Files.createDirectories(out.getParent)
+
+    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+
+    val generated = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+    )
+    assert(Files.exists(generated), s"generated file not found: $generated")
+    val content = Files.readString(generated)
+    assert(content.contains("""name = "listAccounts""""))
+    assert(content.contains("""access = Some(org.goldenport.cncf.operation.CmlOperationAccess(policy = "manager_only""""))
   }
 
   test("modeler-scala emits operationDefinitions and value classes from SERVICE scoped inline VALUE contract") {

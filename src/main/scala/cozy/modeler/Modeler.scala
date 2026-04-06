@@ -1353,7 +1353,7 @@ object Modeler {
         description = rhs.description.orElse(lhs.description),
         precondition = rhs.precondition.orElse(lhs.precondition),
         postcondition = rhs.postcondition.orElse(lhs.postcondition),
-        access = rhs.access.orElse(lhs.access),
+        access = rhs.access.orElse(serviceclass.access).orElse(lhs.access),
         rules = if (rhs.rules.nonEmpty) rhs.rules else lhs.rules
       )
 
