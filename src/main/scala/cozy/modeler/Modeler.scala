@@ -1231,7 +1231,7 @@ object Modeler {
       entities: Vector[MEntity],
       p: ServiceModel.ServiceClass
     ): MService = {
-      val ops = p.operations.operations.values.toVector.map(_defined_service_operation(entities, p.name, _))
+      val ops = p.operations.operations.values.toVector.map(_defined_service_operation(entities, p.name, p, _))
       MService(
         pkg,
         p.name,
@@ -1305,10 +1305,13 @@ object Modeler {
     private def _defined_service_operation(
       entities: Vector[MEntity],
       servicename: String,
+      serviceclass: ServiceModel.ServiceClass,
       p: ServiceModel.ServiceClass.Operation
     ): MOperation = {
       val opname = p.name
-      val opdef = _normalized_operation_map.get(opname).orElse(_normalized_service_operation(p))
+      val opdef = _normalized_service_operation(p).map { s =>
+        _normalized_operation_map.get(opname).map(_merge_normalized_operation_definition(_, s)).getOrElse(s)
+      }.orElse(_normalized_operation_map.get(opname)).map(_merge_service_operation_metadata(_, serviceclass, p))
       val desc = _description(
         opname,
         _operation_description(
@@ -1320,13 +1323,39 @@ object Modeler {
       )
       val implementation = opdef.flatMap(_.implementation).map(_.trim.toLowerCase)
       val entity = _entity_for_service(entities, servicename)
+      val access = opdef.flatMap(_.access).map(a =>
+        MComponent.OperationAccess(
+          policy = a.policy,
+          resource = a.resource,
+          target = a.target
+        )
+      )
       opdef.map(_.kind) match {
         case Some(OperationModel.OperationKind.Query) =>
-          _defined_query_service_operation(opname, desc, implementation, entity)
+          _defined_query_service_operation(opname, desc, implementation, entity, access)
         case _ =>
-          _defined_command_service_operation(opname, desc, implementation, entity, opdef.flatMap(_.execution))
+          _defined_command_service_operation(opname, desc, implementation, entity, opdef.flatMap(_.execution), access)
       }
     }
+
+    private def _merge_service_operation_metadata(
+      lhs: OperationModel.NormalizedOperationDefinition,
+      serviceclass: ServiceModel.ServiceClass,
+      rhs: ServiceModel.ServiceClass.Operation
+    ): OperationModel.NormalizedOperationDefinition =
+      lhs.copy(
+        summary = rhs.summary.orElse(lhs.summary),
+        entityName = rhs.entityName.orElse(serviceclass.entityName).orElse(lhs.entityName),
+        entityNames =
+          if (rhs.entityNames.nonEmpty) rhs.entityNames
+          else if (serviceclass.entityNames.nonEmpty) serviceclass.entityNames
+          else lhs.entityNames,
+        description = rhs.description.orElse(lhs.description),
+        precondition = rhs.precondition.orElse(lhs.precondition),
+        postcondition = rhs.postcondition.orElse(lhs.postcondition),
+        access = rhs.access.orElse(lhs.access),
+        rules = if (rhs.rules.nonEmpty) rhs.rules else lhs.rules
+      )
 
     private def _normalized_service_operation(
       p: ServiceModel.ServiceClass.Operation
@@ -1342,6 +1371,8 @@ object Modeler {
           summary = p.summary,
           execution = None,
           implementation = None,
+          entityName = p.entityName,
+          entityNames = p.entityNames,
           inputType = inputType,
           inputSummary = p.input.summary,
           inputDescription = p.input.description,
@@ -1355,6 +1386,7 @@ object Modeler {
           description = p.description,
           precondition = p.precondition,
           postcondition = p.postcondition,
+          access = p.access,
           rules = p.rules,
           parameters = Vector.empty
         )
@@ -1381,17 +1413,18 @@ object Modeler {
       desc: Description,
       implementation: Option[String],
       entity: Option[MEntity],
-      execution: Option[String]
+      execution: Option[String],
+      access: Option[MComponent.OperationAccess]
     ): MOperation =
       implementation match {
         case Some("echo-record") =>
-          _echo_record_command_operation(opname, desc)
+          _echo_record_command_operation(opname, desc, access)
         case Some("blocking-task") =>
-          _blocking_task_command_operation(opname, desc)
+          _blocking_task_command_operation(opname, desc, access)
         case Some("entity-create") =>
-          entity.map(_entity_create_command_operation(opname, desc, _)).getOrElse(_not_implemented_command_operation(opname, desc))
+          entity.map(_entity_create_command_operation(opname, desc, _)).getOrElse(_not_implemented_command_operation(opname, desc, access))
         case Some("event-emit") | Some("event-effect-record") =>
-          MOperation.commandBody(opname, List(MParameter.record), MResult.unit, desc) {
+          MOperation.commandBody(opname, List(MParameter.record), MResult.unit, desc, access) {
             blockFor(
               "_ <- uowmNotImplemented[org.goldenport.cncf.unitofwork.UnitOfWorkOp, Unit]"
             )(
@@ -1400,32 +1433,33 @@ object Modeler {
           }
         case _ =>
           if (execution.exists(_.trim.equalsIgnoreCase("sync")))
-            _echo_record_command_operation(opname, desc)
+            _echo_record_command_operation(opname, desc, access)
           else
-            _not_implemented_command_operation(opname, desc)
+            _not_implemented_command_operation(opname, desc, access)
       }
 
     private def _defined_query_service_operation(
       opname: String,
       desc: Description,
       implementation: Option[String],
-      entity: Option[MEntity]
+      entity: Option[MEntity],
+      access: Option[MComponent.OperationAccess]
     ): MOperation =
       implementation match {
         case Some("entity-load") =>
-          entity.map(_entity_load_query_operation(opname, desc, _)).getOrElse(_not_implemented_query_operation(opname, desc))
+          entity.map(_entity_load_query_operation(opname, desc, _)).getOrElse(_not_implemented_query_operation(opname, desc, access))
         case Some("entity-search") =>
-          entity.map(_entity_search_query_operation(opname, desc, _)).getOrElse(_not_implemented_query_operation(opname, desc))
+          entity.map(_entity_search_query_operation(opname, desc, _)).getOrElse(_not_implemented_query_operation(opname, desc, access))
         case Some("aggregate-load") =>
-          entity.map(_aggregate_load_query_operation(opname, desc, _)).getOrElse(_not_implemented_query_operation(opname, desc))
+          entity.map(_aggregate_load_query_operation(opname, desc, _)).getOrElse(_not_implemented_query_operation(opname, desc, access))
         case Some("aggregate-search") =>
-          entity.map(_aggregate_search_query_operation(opname, desc, _)).getOrElse(_not_implemented_query_operation(opname, desc))
+          entity.map(_aggregate_search_query_operation(opname, desc, _)).getOrElse(_not_implemented_query_operation(opname, desc, access))
         case Some("view-load") =>
-          entity.map(_view_load_query_operation(opname, desc, _)).getOrElse(_not_implemented_query_operation(opname, desc))
+          entity.map(_view_load_query_operation(opname, desc, _)).getOrElse(_not_implemented_query_operation(opname, desc, access))
         case Some("view-search") =>
-          entity.map(_view_search_query_operation(opname, desc, _)).getOrElse(_not_implemented_query_operation(opname, desc))
+          entity.map(_view_search_query_operation(opname, desc, _)).getOrElse(_not_implemented_query_operation(opname, desc, access))
         case Some("event-effect-load") =>
-          MOperation.queryBody(opname, MParameter.record, MResult.unit, desc) {
+          MOperation.queryBody(opname, List(MParameter.record), MResult.unit, desc, access) {
             blockFor(
               "_ <- uowmNotImplemented[org.goldenport.cncf.unitofwork.UnitOfWorkOp, Unit]"
             )(
@@ -1433,14 +1467,15 @@ object Modeler {
             )
           }
         case _ =>
-          _not_implemented_query_operation(opname, desc)
+          _not_implemented_query_operation(opname, desc, access)
       }
 
     private def _not_implemented_command_operation(
       opname: String,
-      desc: Description
+      desc: Description,
+      access: Option[MComponent.OperationAccess]
     ): MOperation =
-      MOperation.commandBody(opname, List(MParameter.record), MResult.unit, desc) {
+      MOperation.commandBody(opname, List(MParameter.record), MResult.unit, desc, access) {
         blockFor(
           "_ <- uowmNotImplemented[org.goldenport.cncf.unitofwork.UnitOfWorkOp, Unit]"
         )(
@@ -1450,9 +1485,10 @@ object Modeler {
 
     private def _not_implemented_query_operation(
       opname: String,
-      desc: Description
+      desc: Description,
+      access: Option[MComponent.OperationAccess]
     ): MOperation =
-      MOperation.queryBody(opname, MParameter.record, MResult.unit, desc) {
+      MOperation.queryBody(opname, List(MParameter.record), MResult.unit, desc, access) {
         blockFor(
           "_ <- uowmNotImplemented[org.goldenport.cncf.unitofwork.UnitOfWorkOp, Unit]"
         )(
@@ -1462,9 +1498,10 @@ object Modeler {
 
     private def _echo_record_command_operation(
       opname: String,
-      desc: Description
+      desc: Description,
+      access: Option[MComponent.OperationAccess]
     ): MOperation =
-      MOperation.commandBody(opname, List(MParameter.record), MResult.unit, desc) {
+      MOperation.commandBody(opname, List(MParameter.record), MResult.unit, desc, access) {
         blockFor(
           "r <- ConsequenceT.fromConsequence[[X] =>> org.goldenport.cncf.Program[org.goldenport.cncf.unitofwork.UnitOfWorkOp, X], org.goldenport.record.Record](Consequence.success(action.request.toRecord))"
         )(
@@ -1474,9 +1511,10 @@ object Modeler {
 
     private def _blocking_task_command_operation(
       opname: String,
-      desc: Description
+      desc: Description,
+      access: Option[MComponent.OperationAccess]
     ): MOperation =
-      MOperation.commandBody(opname, List(MParameter.record), MResult.unit, desc) {
+      MOperation.commandBody(opname, List(MParameter.record), MResult.unit, desc, access) {
         blockFor(
           "r <- exec_pure({ Thread.sleep(250L); action.request.toRecord })"
         )(
@@ -2100,8 +2138,8 @@ object Modeler {
       (_normalized_operation_map.values.toVector ++ _normalized_service_operation_definitions).
         groupBy(_.name).
         values.
-        toVector.
-        flatMap(_.headOption).
+        toVector.map(_.reduceOption(_merge_normalized_operation_definition)).
+        flatten.
         sortBy(_.name).
         map { x =>
         MComponent.OperationDefinition(
@@ -2110,6 +2148,8 @@ object Modeler {
           summary = x.summary,
           execution = x.execution,
           implementation = x.implementation,
+          entityName = x.entityName,
+          entityNames = x.entityNames,
           inputType = x.inputType,
           inputSummary = x.inputSummary,
           inputDescription = x.inputDescription,
@@ -2120,6 +2160,13 @@ object Modeler {
             case OperationModel.InputValueKind.CommandValue => "COMMAND_VALUE"
             case OperationModel.InputValueKind.QueryValue => "QUERY_VALUE"
           },
+          access = x.access.map(a =>
+            MComponent.OperationAccess(
+              policy = a.policy,
+              resource = a.resource,
+              target = a.target
+            )
+          ),
           parameters = x.parameters.map { p =>
             MComponent.OperationField(
               name = p.name,
@@ -2131,7 +2178,41 @@ object Modeler {
       }
 
     private def _normalized_service_operation_definitions: Vector[OperationModel.NormalizedOperationDefinition] =
-      service.classes.values.toVector.flatMap(_.operations.operations.values).flatMap(_normalized_service_operation)
+      service.classes.values.toVector.
+        flatMap { svc =>
+          svc.operations.operations.values.toVector.flatMap { p =>
+          _normalized_service_operation(p).
+            map { s =>
+              _normalized_operation_map.get(p.name).map(_merge_normalized_operation_definition(_, s)).getOrElse(s)
+            }.
+            orElse(_normalized_operation_map.get(p.name)).
+            map(_merge_service_operation_metadata(_, svc, p))
+          }
+        }
+
+    private def _merge_normalized_operation_definition(
+      lhs: OperationModel.NormalizedOperationDefinition,
+      rhs: OperationModel.NormalizedOperationDefinition
+    ): OperationModel.NormalizedOperationDefinition =
+      lhs.copy(
+        summary = rhs.summary.orElse(lhs.summary),
+        execution = rhs.execution.orElse(lhs.execution),
+        implementation = rhs.implementation.orElse(lhs.implementation),
+        entityName = rhs.entityName.orElse(lhs.entityName),
+        entityNames = if (rhs.entityNames.nonEmpty) rhs.entityNames else lhs.entityNames,
+        inputType = Option(rhs.inputType).filterNot(_.isEmpty).getOrElse(lhs.inputType),
+        inputSummary = rhs.inputSummary.orElse(lhs.inputSummary),
+        inputDescription = rhs.inputDescription.orElse(lhs.inputDescription),
+        outputType = Option(rhs.outputType).filterNot(_.isEmpty).getOrElse(lhs.outputType),
+        outputSummary = rhs.outputSummary.orElse(lhs.outputSummary),
+        outputDescription = rhs.outputDescription.orElse(lhs.outputDescription),
+        description = rhs.description.orElse(lhs.description),
+        precondition = rhs.precondition.orElse(lhs.precondition),
+        postcondition = rhs.postcondition.orElse(lhs.postcondition),
+        access = rhs.access.orElse(lhs.access),
+        rules = if (rhs.rules.nonEmpty) rhs.rules else lhs.rules,
+        parameters = if (rhs.parameters.nonEmpty) rhs.parameters else lhs.parameters
+      )
 
     private val _entity_package = "entity"
     private val _entity_create_package = s"${_entity_package}.create"

@@ -1,0 +1,80 @@
+# COMPONENT
+
+## Domain
+
+### PACKAGE
+
+domain
+
+# VALUE
+
+## GreetingQuery
+
+### EXTENDS
+
+QueryAction
+
+### ATTRIBUTE
+
+| name | type | multiplicity |
+|------+------|--------------|
+| name | name | 1            |
+
+## GreetingResult
+
+### EXTENDS
+
+OperationResult
+
+### ATTRIBUTE
+
+| name    | type   | multiplicity |
+|---------+--------+--------------|
+| message | string | 1            |
+
+# ENTITY
+
+## Person
+
+### ATTRIBUTE
+
+| name | type     | multiplicity |
+|------+----------+--------------|
+| id   | entityid | 1            |
+| name | name     | 1            |
+
+# SERVICE
+
+## Greeting
+
+### ENTITY
+
+Person
+
+### OPERATION
+
+#### greeting
+
+##### DESCRIPTION
+
+Returns a greeting message for the supplied name.
+
+##### TYPE
+
+QUERY
+
+##### INPUT
+
+Greeting query payload.
+
+###### TYPE
+
+GreetingQuery
+
+##### OUTPUT
+
+Greeting result payload.
+
+###### TYPE
+
+GreetingResult

@@ -1,0 +1,84 @@
+# COMPONENT
+
+## Domain
+
+### PACKAGE
+
+domain
+
+# VALUE
+
+## ChangePasswordInput
+
+### EXTENDS
+
+CommandAction
+
+### ATTRIBUTE
+
+| name          | type   | multiplicity |
+|---------------+--------+--------------|
+| userAccountId | string | 1            |
+| password      | string | 1            |
+
+## ChangePasswordResult
+
+### EXTENDS
+
+OperationResult
+
+# ENTITY
+
+## Person
+
+### ATTRIBUTE
+
+| name | type     | multiplicity |
+|------+----------+--------------|
+| id   | entityid | 1            |
+| name | name     | 1            |
+
+# SERVICE
+
+## Account
+
+### OPERATION
+
+#### changePassword
+
+##### DESCRIPTION
+
+Replaces the current password with a new password.
+
+##### ENTITY
+
+Person
+
+##### PRECONDITION
+
+The current credential presented by the requester is valid.
+
+##### POSTCONDITION
+
+The stored credential secret is replaced with newly derived secret material.
+
+##### IN
+
+Current credential and new credential material.
+
+##### OUT
+
+Credential update result.
+
+# OPERATION
+
+## changePassword
+
+### TYPE
+COMMAND
+
+### INPUT
+ChangePasswordInput
+
+### OUTPUT
+ChangePasswordResult

@@ -776,6 +776,7 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(content.contains("""name = "greeting""""))
     assert(content.contains("""kind = "QUERY""""))
     assert(content.contains("""summary = Some("Return a greeting.")"""))
+    assert(content.contains("""entityName = Some("Person")"""))
     assert(content.contains("""inputType = "GreetingQuery""""))
     assert(content.contains("""inputSummary = Some("Greeting query payload.")"""))
     assert(content.contains("""inputDescription = Some("Structured query input accepted by greeting.")"""))
@@ -786,6 +787,67 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(content.contains("""Precondition: The caller provides a resolvable greeting target."""))
     assert(content.contains("""Postcondition: A greeting result is returned without mutating state."""))
     assert(content.contains("""Rules:"""))
+  }
+
+  test("modeler-scala overlays SERVICE operation ENTITY onto top-level OPERATION definition") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/service-operation-overlay-entity.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-service-operation-overlay-entity")
+    _delete_recursively(out)
+    Files.createDirectories(out.getParent)
+
+    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+
+    val generated = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+    )
+    assert(Files.exists(generated), s"generated file not found: $generated")
+    val content = Files.readString(generated)
+    assert(content.contains("""name = "changePassword""""))
+    assert(content.contains("""entityName = Some("Person")"""))
+    assert(content.contains("""inputType = "ChangePasswordInput""""))
+    assert(content.contains("""outputType = "ChangePasswordResult""""))
+    assert(content.contains("""Precondition: The current credential presented by the requester is valid."""))
+    assert(content.contains("""Postcondition: The stored credential secret is replaced with newly derived secret material."""))
+  }
+
+  test("modeler-scala applies SERVICE default ENTITY to service operations") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/service-default-entity-contract.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-service-default-entity-contract")
+    _delete_recursively(out)
+    Files.createDirectories(out.getParent)
+
+    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+
+    val generated = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+    )
+    assert(Files.exists(generated), s"generated file not found: $generated")
+    val content = Files.readString(generated)
+    assert(content.contains("""name = "greeting""""))
+    assert(content.contains("""entityName = Some("Person")"""))
+    assert(content.contains("""inputType = "GreetingQuery""""))
+    assert(content.contains("""outputType = "GreetingResult""""))
+  }
+
+  test("modeler-scala preserves multiple SERVICE default ENTITY entries") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/service-multiple-entity-contract.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-service-multiple-entity-contract")
+    _delete_recursively(out)
+    Files.createDirectories(out.getParent)
+
+    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+
+    val generated = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+    )
+    assert(Files.exists(generated), s"generated file not found: $generated")
+    val content = Files.readString(generated)
+    assert(content.contains("""name = "synchronizeAccount""""))
+    assert(content.contains("""entityName = Some("Person")"""))
+    assert(content.contains("""entityNames = Vector("Person", "Credential")"""))
   }
 
   test("modeler-scala emits operationDefinitions and value classes from SERVICE scoped inline VALUE contract") {

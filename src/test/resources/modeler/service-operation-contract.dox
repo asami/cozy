@@ -58,6 +58,10 @@ Return a greeting.
 
 Returns a greeting message for the supplied name.
 
+##### ENTITY
+
+Person
+
 ##### PRECONDITION
 
 The caller provides a resolvable greeting target.

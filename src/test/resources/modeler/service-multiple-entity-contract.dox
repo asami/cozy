@@ -1,0 +1,69 @@
+# COMPONENT
+
+## Domain
+
+### PACKAGE
+
+domain
+
+# VALUE
+
+## SyncInput
+
+### EXTENDS
+
+CommandAction
+
+# VALUE
+
+## SyncResult
+
+### EXTENDS
+
+OperationResult
+
+# ENTITY
+
+## Person
+
+### ATTRIBUTE
+
+| name | type     | multiplicity |
+|------+----------+--------------|
+| id   | entityid | 1            |
+
+## Credential
+
+### ATTRIBUTE
+
+| name | type     | multiplicity |
+|------+----------+--------------|
+| id   | entityid | 1            |
+
+# SERVICE
+
+## Management
+
+### ENTITY
+
+Person, Credential
+
+### OPERATION
+
+#### synchronizeAccount
+
+##### TYPE
+
+COMMAND
+
+##### INPUT
+
+###### TYPE
+
+SyncInput
+
+##### OUTPUT
+
+###### TYPE
+
+SyncResult
