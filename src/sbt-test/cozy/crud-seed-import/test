@@ -1,0 +1,1 @@
+$ exec sh check-crud-seed-import.sh
