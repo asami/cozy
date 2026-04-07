@@ -8,7 +8,7 @@ import org.scalatest.funsuite.AnyFunSuite
 
 /*
  * @since   Mar. 30, 2026
- * @version Apr.  3, 2026
+ * @version Apr.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 class EmbeddedValueObjectGenerationSpec extends AnyFunSuite {
@@ -93,6 +93,53 @@ class EmbeddedValueObjectGenerationSpec extends AnyFunSuite {
     assert(entityContent.contains("optionalLine: Option[OrderLine]"))
     assert(entityContent.contains("_record_get_as_c[OrderLine](record, INPUT_KEYS_PRIMARY_LINE).flatMap {"))
     assert(entityContent.contains("_record_get_as_c[domain.value.OrderLine](record, INPUT_KEYS_OPTIONAL_LINE).map(_ orElse optionalLine)"))
+  }
+
+
+  test("modeler-scala does not generate duplicate builder overloads for optional string attributes") {
+    val out = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+      .resolve("target/test-generated/modeler-scala-optional-string-attribute")
+    _delete_recursively(out)
+    val input = out.resolve("optional-string-attribute.cml")
+    Files.createDirectories(out)
+    Files.writeString(
+      input,
+      """# COMPONENT
+        |
+        |## OptionalStringAttribute
+        |
+        |### PACKAGE
+        |
+        |org.sample.optionalstring
+        |
+        |# ENTITY
+        |
+        |## Person
+        |
+        |### ATTRIBUTE
+        |
+        || name | type | multiplicity |
+        ||------|------|--------------|
+        || id | entityid | 1 |
+        || name | name | 1 |
+        || nickname | string | ? |
+        |""".stripMargin
+    )
+
+    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+
+    val generatedEntity = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/org/sample/optionalstring/entity/Person.scala"
+    )
+    assert(Files.exists(generatedEntity), s"generated entity file not found: $generatedEntity")
+
+    val entityContent = Files.readString(generatedEntity)
+    assert(entityContent.contains("nickname: Option[String]"))
+    assert(entityContent.contains("def withNickname(nickname: String): Person.Builder"))
+    assert(entityContent.contains("def withNickname(nickname: Option[String]): Person.Builder"))
+    assert(!entityContent.contains("String.parse(nickname)"))
+    assert(entityContent.indexOf("def withNickname(nickname: String): Person.Builder") ==
+      entityContent.lastIndexOf("def withNickname(nickname: String): Person.Builder"))
   }
 
   private def _delete_recursively(path: Path): Unit = {
