@@ -1105,11 +1105,12 @@ object Modeler {
     ): Vector[MComponent] = {
       val a = if (pkg.components.isEmpty) {
         val entities = pkg.entities
-        if (entities.isEmpty && service.classes.isEmpty) {
-          Vector.empty
-        } else {
+        val isRootPackage = pkg == sm.root
+        if (entities.nonEmpty || (isRootPackage && service.classes.nonEmpty)) {
           val comp = _make_component(pkg, entities)
           Vector(comp)
+        } else {
+          Vector.empty
         }
       } else {
         Vector.empty

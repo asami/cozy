@@ -869,6 +869,308 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(content.contains("""access = Some(org.goldenport.cncf.operation.CmlOperationAccess(policy = "manager_only""""))
   }
 
+  test("modeler-scala keeps generated aggregate/view/entity services alongside custom SERVICE operations") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("target/test-generated/modeler-scala-service-entity-coexistence.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-service-entity-coexistence-out")
+    _delete_recursively(out)
+    _write(input,
+      """# COMPONENT
+        |
+        |## StructuredKnowledge
+        |
+        |### PACKAGE
+        |
+        |org.simplemodeling.textus.mcprag
+        |
+        |# SERVICE
+        |
+        |## Knowledge
+        |
+        |### DESCRIPTION
+        |
+        |Knowledge groups source registration and explanation operations.
+        |
+        |### OPERATION
+        |
+        |#### registerSource
+        |
+        |##### TYPE
+        |
+        |COMMAND
+        |
+        |##### IN
+        |
+        |RegisterSourceRequest
+        |
+        |##### OUT
+        |
+        |KnowledgeFragmentResponse
+        |
+        |#### explain
+        |
+        |##### TYPE
+        |
+        |QUERY
+        |
+        |##### IN
+        |
+        |ExplainKnowledgeRequest
+        |
+        |##### OUT
+        |
+        |KnowledgeFragmentResponse
+        |
+        |# ENTITY
+        |
+        |## KnowledgeFragment
+        |
+        |### DESCRIPTION
+        |
+        |Primary semantic unit exposed to retrieval and explanation.
+        |
+        |### ATTRIBUTE
+        |
+        || name | type | multiplicity |
+        ||------|------|--------------|
+        || id | entityid | 1 |
+        || text | string | 1 |
+        || sourceType | string | 1 |
+        || sourceId | string | 1 |
+        |
+        |# COMMAND
+        |
+        |## RegisterSourceRequest
+        |
+        |### ATTRIBUTE
+        |
+        || name | type | multiplicity |
+        ||------|------|--------------|
+        || sourceType | string | 1 |
+        || payload | string | 1 |
+        |
+        |# QUERY
+        |
+        |## ExplainKnowledgeRequest
+        |
+        |### ATTRIBUTE
+        |
+        || name | type | multiplicity |
+        ||------|------|--------------|
+        || entityType | string | 1 |
+        || id | string | 1 |
+        |
+        |## KnowledgeFragmentResponse
+        |
+        |### ATTRIBUTE
+        |
+        || name | type | multiplicity |
+        ||------|------|--------------|
+        || fragment | KnowledgeFragment | 1 |
+        |
+        |# OPERATION
+        |
+        |## registerSource
+        |
+        |### TYPE
+        |COMMAND
+        |
+        |### INPUT
+        |RegisterSourceRequest
+        |
+        |### OUTPUT
+        |KnowledgeFragmentResponse
+        |
+        |## explain
+        |
+        |### TYPE
+        |QUERY
+        |
+        |### INPUT
+        |ExplainKnowledgeRequest
+        |
+        |### OUTPUT
+        |KnowledgeFragmentResponse
+        |""".stripMargin)
+
+    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+
+    val generated = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/org/simplemodeling/textus/mcprag/StructuredKnowledgeComponent.scala"
+    )
+    assert(Files.exists(generated), s"generated file not found: $generated")
+    val content = Files.readString(generated)
+    assert(content.contains("""object KnowledgeService extends ServiceDefinition {"""))
+    assert(content.contains("""object AggregateService extends ServiceDefinition {"""))
+    assert(content.contains("""object ViewService extends ServiceDefinition {"""))
+    assert(content.contains("""object EntityService extends ServiceDefinition {"""))
+    assert(content.contains("""override def aggregateDefinitions: Vector[org.goldenport.cncf.entity.aggregate.AggregateDefinition] = Vector("""))
+    assert(content.contains("""override def viewDefinitions: Vector[org.goldenport.cncf.entity.view.ViewDefinition] = Vector("""))
+    assert(content.contains("""KnowledgeService,"""))
+    assert(content.contains("""AggregateService,"""))
+    assert(content.contains("""ViewService,"""))
+    assert(content.contains("""EntityService)"""))
+  }
+
+  test("modeler-scala keeps generated aggregate/view/entity services when custom SERVICE coexists with VALUE definitions") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("target/test-generated/modeler-scala-service-entity-value-coexistence.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-service-entity-value-coexistence-out")
+    _delete_recursively(out)
+    _write(input,
+      """# COMPONENT
+        |
+        |## StructuredKnowledge
+        |
+        |### PACKAGE
+        |
+        |org.simplemodeling.textus.mcprag
+        |
+        |# SERVICE
+        |
+        |## Knowledge
+        |
+        |### DESCRIPTION
+        |
+        |Knowledge groups source registration and explanation operations.
+        |
+        |### OPERATION
+        |
+        |#### registerSource
+        |
+        |##### TYPE
+        |
+        |COMMAND
+        |
+        |##### IN
+        |
+        |RegisterSourceRequest
+        |
+        |##### OUT
+        |
+        |KnowledgeFragmentResponse
+        |
+        |#### explain
+        |
+        |##### TYPE
+        |
+        |QUERY
+        |
+        |##### IN
+        |
+        |ExplainKnowledgeRequest
+        |
+        |##### OUT
+        |
+        |KnowledgeFragmentResponse
+        |
+        |# ENTITY
+        |
+        |## KnowledgeFragment
+        |
+        |### DESCRIPTION
+        |
+        |Primary semantic unit exposed to retrieval and explanation.
+        |
+        |### ATTRIBUTE
+        |
+        || name | type | multiplicity |
+        ||------|------|--------------|
+        || id | entityid | 1 |
+        || text | string | 1 |
+        || sourceType | string | 1 |
+        || sourceId | string | 1 |
+        |
+        |# COMMAND
+        |
+        |## RegisterSourceRequest
+        |
+        |### ATTRIBUTE
+        |
+        || name | type | multiplicity |
+        ||------|------|--------------|
+        || sourceType | string | 1 |
+        || payload | string | 1 |
+        |
+        |# QUERY
+        |
+        |## ExplainKnowledgeRequest
+        |
+        |### ATTRIBUTE
+        |
+        || name | type | multiplicity |
+        ||------|------|--------------|
+        || entityType | string | 1 |
+        || id | string | 1 |
+        |
+        |## KnowledgeFragmentResponse
+        |
+        |### ATTRIBUTE
+        |
+        || name | type | multiplicity |
+        ||------|------|--------------|
+        || fragment | KnowledgeFragment | 1 |
+        |
+        |# VALUE
+        |
+        |## NamedValue
+        |
+        |### ATTRIBUTE
+        |
+        || name | type | multiplicity |
+        ||------|------|--------------|
+        || name | string | 1 |
+        || value | string | 1 |
+        |
+        |## NamedValues
+        |
+        |### ATTRIBUTE
+        |
+        || name | type | multiplicity |
+        ||------|------|--------------|
+        || name | string | 1 |
+        || values | string | * |
+        |
+        |# OPERATION
+        |
+        |## registerSource
+        |
+        |### TYPE
+        |COMMAND
+        |
+        |### INPUT
+        |RegisterSourceRequest
+        |
+        |### OUTPUT
+        |KnowledgeFragmentResponse
+        |
+        |## explain
+        |
+        |### TYPE
+        |QUERY
+        |
+        |### INPUT
+        |ExplainKnowledgeRequest
+        |
+        |### OUTPUT
+        |KnowledgeFragmentResponse
+        |""".stripMargin)
+
+    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+
+    val generated = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/org/simplemodeling/textus/mcprag/StructuredKnowledgeComponent.scala"
+    )
+    assert(Files.exists(generated), s"generated file not found: $generated")
+    val content = Files.readString(generated)
+    assert(content.contains("""object KnowledgeService extends ServiceDefinition {"""))
+    assert(content.contains("""object AggregateService extends ServiceDefinition {"""))
+    assert(content.contains("""object ViewService extends ServiceDefinition {"""))
+    assert(content.contains("""object EntityService extends ServiceDefinition {"""))
+    assert(content.contains("""override def aggregateDefinitions: Vector[org.goldenport.cncf.entity.aggregate.AggregateDefinition] = Vector("""))
+    assert(content.contains("""override def viewDefinitions: Vector[org.goldenport.cncf.entity.view.ViewDefinition] = Vector("""))
+  }
+
   test("modeler-scala emits operationDefinitions and value classes from SERVICE scoped inline VALUE contract") {
     val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
     val input = base.resolve("src/test/resources/modeler/service-operation-contract-inline-value.dox")
