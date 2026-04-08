@@ -47,7 +47,7 @@ import scala.collection.mutable
  *  version May. 13, 2025
  *  version Feb. 27, 2026
  *  version Mar. 31, 2026
- * @version Apr.  6, 2026
+ * @version Apr.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
@@ -394,14 +394,22 @@ class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
     c: Context,
     model: SModel
   ): SExpr = {
-    _make_scala(c, model, "domain")
+    _strip_build_sbt(_make_scala(c, model, "domain"))
   }
 
   def generateScalaValue(
     c: Context,
     model: SModel
   ): SExpr = {
-    _make_scala_value(c, model, "domain")
+    _strip_build_sbt(_make_scala_value(c, model, "domain"))
+  }
+
+  private def _strip_build_sbt(expr: SExpr): SExpr = expr match {
+    case m: STree =>
+      m.tree.backend.remove("build.sbt")
+      m
+    case m =>
+      m
   }
 
   private def _make_scala(c: Context, smodel: SModel, pkg: String): SExpr = {

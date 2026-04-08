@@ -25,8 +25,8 @@ import cozy.Context
  *  version Mar. 30, 2023
  *  version Apr. 22, 2023
  *  version Sep. 30, 2023
-number *  version Oct. 31, 2023
-number * @version Nov.  4, 2023
+ *  version Oct. 31, 2023
+ * @version Nov.  4, 2023
  * @author  ASAMI, Tomoharu
  */
 class CozyDomainModelSpace(
