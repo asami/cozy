@@ -52,7 +52,7 @@ libraryDependencies += "org.goldenport" %% "goldenport-record" % "2.2.4"
 // libraryDependencies += "org.goldenport" %% "goldenport-sexpr" % "2.0.13"
 
 // override kaleidox
-libraryDependencies += "org.smartdox" %% "smartdox" % "2.4.9"
+libraryDependencies += "org.smartdox" %% "smartdox" % "2.4.11-SNAPSHOT"
 
 libraryDependencies += "org.goldenport" %% "kaleidox" % "0.6.10-SNAPSHOT"
 
@@ -139,6 +139,8 @@ exportClasspath := {
   IO.write(out, cp.mkString(":"))
   println(s"Classpath written to: $out")
 }
+
+Compile / packageBin := (Compile / packageBin).dependsOn(exportClasspath).value
 
 // Publish
 publishTo := Some(
