@@ -828,9 +828,48 @@ object Modeler {
       p: SchemaModel.Attribute
     ): MAttributeType =
       if (p.domain.datatype == org.goldenport.record.v2.XString)
-        p.rawTypeName.filterNot(_is_builtin_raw_type).flatMap(_resolve_object_attribute_type(pkg, _)).getOrElse(MDataType(p.domain.datatype))
+        p.rawTypeName.flatMap(_builtin_attribute_type(pkg, _)).
+          orElse(p.rawTypeName.filterNot(_is_builtin_raw_type).flatMap(_resolve_object_attribute_type(pkg, _))).
+          getOrElse(MDataType(p.domain.datatype))
       else
         MDataType(p.domain.datatype)
+
+    private def _builtin_attribute_type(
+      pkg: MPackageRef,
+      p: String
+    ): Option[MAttributeType] = {
+      val normalized = p.trim.toLowerCase(java.util.Locale.ROOT)
+      val datatype: Option[org.goldenport.record.v2.DataType] = normalized match {
+        case "entityid" => Some(org.goldenport.record.v2.XEntityId)
+        case "year" => Some(org.goldenport.record.v2.XYear)
+        case "yearmonth" => Some(org.goldenport.record.v2.XYearMonth)
+        case "month" => Some(org.goldenport.record.v2.XMonth)
+        case "monthday" => Some(org.goldenport.record.v2.XMonthDay)
+        case "day" => Some(org.goldenport.record.v2.XDay)
+        case "duration" => Some(org.goldenport.record.v2.XDuration)
+        case _ => None
+      }
+      datatype.map(MDataType(_)).orElse {
+        normalized match {
+          case "name" => Some(MObjectAttributeType(MObjectRef.create("org.goldenport.datatype.Name")))
+          case "identifier" => Some(MObjectAttributeType(MObjectRef.create("org.goldenport.datatype.Identifier")))
+          case "text" => Some(MObjectAttributeType(MObjectRef.create("org.goldenport.datatype.Text")))
+          case "token" => Some(MObjectAttributeType(MObjectRef.create("org.goldenport.datatype.Token")))
+          case "url" => Some(MObjectAttributeType(MObjectRef.create("java.net.URL")))
+          case "uri" => Some(MObjectAttributeType(MObjectRef.create("java.net.URI")))
+          case "urn" => Some(MObjectAttributeType(MObjectRef.create("org.goldenport.datatype.Urn")))
+          case "blob" => Some(MObjectAttributeType(MObjectRef.create("org.goldenport.bag.BinaryBag")))
+          case "clob" => Some(MObjectAttributeType(MObjectRef.create("org.goldenport.bag.TextBag")))
+          case "instant" => Some(MObjectAttributeType(MObjectRef.create("java.time.Instant")))
+          case "localdate" => Some(MObjectAttributeType(MObjectRef.create("java.time.LocalDate")))
+          case "localtime" => Some(MObjectAttributeType(MObjectRef.create("java.time.LocalTime")))
+          case "localdatetime" => Some(MObjectAttributeType(MObjectRef.create("java.time.LocalDateTime")))
+          case "locale" => Some(MObjectAttributeType(MObjectRef.create("java.util.Locale")))
+          case "timezone" => Some(MObjectAttributeType(MObjectRef.create("java.util.TimeZone")))
+          case _ => None
+        }
+      }
+    }
 
     private def _resolve_object_attribute_type(
       pkg: MPackageRef,
@@ -858,21 +897,31 @@ object Modeler {
     private def _is_builtin_raw_type(
       p: String
     ): Boolean = {
-      val normalized = p.trim.toLowerCase
-      org.goldenport.record.v2.DataType.get(normalized).isDefined || Set(
-        "email",
-        "uuid",
-        "uri",
-        "url",
-        "date",
-        "time",
-        "date-time",
-        "datetime",
-        "date_time",
-        "phone",
-        "tel",
-        "e164"
-      ).contains(normalized)
+      val normalized = p.trim.toLowerCase(java.util.Locale.ROOT)
+      _builtin_attribute_type(MPackageRef.default, normalized).isDefined ||
+        org.goldenport.record.v2.DataType.get(normalized).isDefined || Set(
+          "email",
+          "uuid",
+          "uri",
+          "url",
+          "urn",
+          "blob",
+          "clob",
+          "date",
+          "time",
+          "date-time",
+          "datetime",
+          "date_time",
+          "localdate",
+          "localtime",
+          "localdatetime",
+          "instant",
+          "locale",
+          "timezone",
+          "phone",
+          "tel",
+          "e164"
+        ).contains(normalized)
     }
 
     private def _associations(pkg: MPackageRef, p: SchemaClass): List[MAssociation] =

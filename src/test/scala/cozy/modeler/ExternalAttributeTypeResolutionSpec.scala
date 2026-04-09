@@ -26,6 +26,48 @@ class ExternalAttributeTypeResolutionSpec extends AnyFunSuite {
   }
 
 
+  test("modeler-scala preserves built-in urn/blob/clob runtime types") {
+    val out = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize().resolve("target/test-generated/modeler-scala-builtins")
+    _delete_recursively(out)
+    Files.createDirectories(out)
+    val input = out.resolve("builtins.cml")
+    Files.writeString(
+      input,
+      """# COMPONENT
+
+## BuiltinTypeSpec
+
+### PACKAGE
+
+org.sample.builtin
+
+# ENTITY
+
+## BuiltinHolder
+
+### ATTRIBUTE
+
+| name | type | multiplicity |
+|------|------|--------------|
+| id | entityid | 1 |
+| resourceUrn | urn | 1 |
+| payload | blob | ? |
+| description | clob | ? |
+""",
+      StandardCharsets.UTF_8
+    )
+
+    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+
+    val generated = out.resolve("target/scala-3.3.7/src_managed/main/scala/org/sample/builtin/entity/BuiltinHolder.scala")
+    assert(Files.exists(generated), s"generated file not found: $generated")
+    val content = Files.readString(generated)
+    assert(content.contains("resourceUrn: Urn"), s"URN type was collapsed in generated output\n$content")
+    assert(content.contains("payload: Option[BinaryBag]"), s"blob type was collapsed in generated output\n$content")
+    assert(content.contains("description: Option[TextBag]"), s"clob type was collapsed in generated output\n$content")
+  }
+
+
 
   test("modeler-scala uses component package for value models") {
     val out = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize().resolve("target/test-generated/modeler-scala-value-package")
