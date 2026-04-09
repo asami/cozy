@@ -1,0 +1,66 @@
+package cozy.modeler
+
+import java.nio.charset.StandardCharsets
+import java.nio.file.{Files, Path, Paths}
+import java.util.Comparator
+import org.scalatest.funsuite.AnyFunSuite
+
+/*
+ * @since   Apr.  9, 2026
+ * @version Apr.  9, 2026
+ * @author  ASAMI, Tomoharu
+ */
+class ExternalAttributeTypeResolutionSpec extends AnyFunSuite {
+  test("modeler-scala keeps Address as a declared value type for UserProfile") {
+    val input = Paths.get("/Users/asami/src/dev2026/textus-user-account/src/main/cozy/user-account.cml").toAbsolutePath.normalize()
+    val out = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize().resolve("target/test-generated/modeler-scala-user-account-address")
+    _delete_recursively(out)
+    Files.createDirectories(out.getParent)
+
+    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+
+    val generated = out.resolve("target/scala-3.3.7/src_managed/main/scala/org/simplemodeling/textus/useraccount/entity/UserProfile.scala")
+    assert(Files.exists(generated), s"generated file not found: $generated")
+    val content = Files.readString(generated)
+    assert(content.contains("address: Option[Address]"), s"Address type was collapsed in generated output\n$content")
+  }
+
+
+
+  test("modeler-scala uses component package for value models") {
+    val out = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize().resolve("target/test-generated/modeler-scala-value-package")
+    _delete_recursively(out)
+    Files.createDirectories(out)
+    val input = out.resolve("address-package.cml")
+    Files.writeString(
+      input,
+      """# COMPONENT
+
+## SimpleModelingModel
+
+### PACKAGE
+
+org.simplemodeling.model
+
+# VALUE
+
+## Address
+
+### ATTRIBUTE
+
+- name: value
+  type: String
+  multiplicity: "1"
+""",
+      StandardCharsets.UTF_8
+    )
+
+    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+
+    val generated = out.resolve("target/scala-3.3.7/src_managed/main/scala/org/simplemodeling/model/value/Address.scala")
+    assert(Files.exists(generated), s"generated file not found: $generated")
+  }
+  private def _delete_recursively(path: Path): Unit =
+    if (Files.exists(path))
+      Files.walk(path).sorted(Comparator.reverseOrder()).forEach(Files.delete)
+}

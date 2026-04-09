@@ -47,7 +47,8 @@ import scala.collection.mutable
  *  version May. 13, 2025
  *  version Feb. 27, 2026
  *  version Mar. 31, 2026
- * @version Apr.  8, 2026
+ *  version Apr.  8, 2026
+ * @version Apr.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
@@ -826,7 +827,10 @@ object Modeler {
       pkg: MPackageRef,
       p: SchemaModel.Attribute
     ): MAttributeType =
-      p.rawTypeName.flatMap(_resolve_object_attribute_type(pkg, _)).getOrElse(MDataType(p.domain.datatype))
+      if (p.domain.datatype == org.goldenport.record.v2.XString)
+        p.rawTypeName.filterNot(_is_builtin_raw_type).flatMap(_resolve_object_attribute_type(pkg, _)).getOrElse(MDataType(p.domain.datatype))
+      else
+        MDataType(p.domain.datatype)
 
     private def _resolve_object_attribute_type(
       pkg: MPackageRef,
@@ -837,11 +841,38 @@ object Modeler {
         None
       else {
         val simple = raw.split("\\.").last
-        value.classes.get(simple).
-          map(_ => MObjectAttributeType(MObjectRef(MPackageRef("domain.value"), simple))).
-          orElse(entity.classes.get(simple).map(_ => MObjectAttributeType(_object_ref(pkg.packageName, simple))))
-          .orElse(if (raw.contains(".")) Some(MObjectAttributeType(MObjectRef.create(raw))) else None)
+        _resolve_local_object_attribute_type(pkg, simple).
+          orElse(Some(MObjectAttributeType(MObjectRef.create(raw))))
       }
+    }
+
+    private def _resolve_local_object_attribute_type(
+      pkg: MPackageRef,
+      simple: String
+    ): Option[MObjectAttributeType] =
+      value.classes.get(simple).
+        map(_ => MObjectAttributeType(MObjectRef(MPackageRef(_value_package_name()), simple))).
+        orElse(datatype.classes.get(simple).map(_ => MObjectAttributeType(MObjectRef(MPackageRef(_datatype_package_name("domain")), simple)))).
+        orElse(entity.classes.get(simple).map(_ => MObjectAttributeType(_object_ref(pkg.packageName, simple))))
+
+    private def _is_builtin_raw_type(
+      p: String
+    ): Boolean = {
+      val normalized = p.trim.toLowerCase
+      org.goldenport.record.v2.DataType.get(normalized).isDefined || Set(
+        "email",
+        "uuid",
+        "uri",
+        "url",
+        "date",
+        "time",
+        "date-time",
+        "datetime",
+        "date_time",
+        "phone",
+        "tel",
+        "e164"
+      ).contains(normalized)
     }
 
     private def _associations(pkg: MPackageRef, p: SchemaClass): List[MAssociation] =
@@ -903,7 +934,7 @@ object Modeler {
 
     private def _datatype(p: DataTypeClass): MDataType = p match {
       case m: DataTypeClass.Plain =>
-        val pkg = MPackageRef(m.packageName)
+        val pkg = MPackageRef(_datatype_package_name(m.packageName))
         val desc = m.description
         val datatype = m.datatype
         MDataType(desc.designation, datatype, pkg, desc)
@@ -912,7 +943,7 @@ object Modeler {
 
     private def _value(p: ValueClass): MValue = {
       val desc = Description.name(p.name)
-      val pkg = MPackageRef("domain.value")
+      val pkg = MPackageRef(_value_package_name())
       val stereotypes = Nil
       val base = None
       val traits = Nil
@@ -1218,6 +1249,17 @@ object Modeler {
       packagename: String
     ): String =
       _component_package_override(packagename).getOrElse(packagename)
+
+    private def _value_package_name(): String =
+      _component_package_override("domain").map(_ + ".value").getOrElse("domain.value")
+
+    private def _datatype_package_name(
+      packagename: String
+    ): String =
+      if (packagename == "domain")
+        _component_package_override(packagename).map(_ + ".datatype").getOrElse("domain.datatype")
+      else
+        _component_package_override(packagename).getOrElse(packagename)
 
     private def _component_package_override(
       componentname: String
