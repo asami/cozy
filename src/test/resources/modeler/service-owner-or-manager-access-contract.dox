@@ -1,0 +1,65 @@
+# COMPONENT
+
+## Domain
+
+### PACKAGE
+
+domain
+
+# VALUE
+
+## ChangePasswordCommand
+
+### EXTENDS
+
+CommandAction
+
+# VALUE
+
+## ChangePasswordResult
+
+### EXTENDS
+
+OperationResult
+
+# SERVICE
+
+## User
+
+### OPERATION
+
+#### changePassword
+
+##### TYPE
+
+COMMAND
+
+##### ACCESS
+
+###### POLICY
+
+owner_or_manager
+
+###### RESOURCE
+
+UserAccount
+
+###### TARGET
+
+userAccountId
+
+##### ENTITY
+
+UserAccount
+
+##### INPUT
+
+###### TYPE
+
+ChangePasswordCommand
+
+##### OUTPUT
+
+###### TYPE
+
+ChangePasswordResult

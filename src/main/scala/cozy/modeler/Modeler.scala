@@ -664,11 +664,11 @@ object Modeler {
       val base = p.parents.headOption.map(_object_ref).orElse {
         p.schemaClass.features.parentsName.headOption.map(_object_ref)
       }
-      val traits = Nil // TODO
+      val traits = _delegate_traits(p)
       val powertypes = _powertypes(affiliation, p.schemaClass)
       val attributes = _merge_attributes(
         _simple_entity_attributes(affiliation, p),
-        _attributes(affiliation, p.schemaClass)
+        _delegate_attributes(affiliation, p) ++ _attributes(affiliation, p.schemaClass)
       )
       val associations = _merge_associations(
         _associations(affiliation, p.schemaClass),
@@ -709,6 +709,51 @@ object Modeler {
         _simple_entity_template.toList.flatMap(t => _attributes(pkg, t.schemaClass))
       else
         Nil
+    }
+
+    private def _delegate_attributes(
+      pkg: MPackageRef,
+      p: EntityClass
+    ): List[MAttribute] = {
+      p.schemaClass.features.delegates.toList.flatMap { d =>
+        val name = Option(d.name).map(_.trim).getOrElse("")
+        if (name.isEmpty) Nil
+        else {
+          val isOptional = Option(d.multiplicity).map(_.trim).contains("?")
+          _delegate_value_attribute(pkg, name, isOptional).toList
+        }
+      }
+    }
+
+    private def _delegate_traits(
+      p: EntityClass
+    ): List[MTraitRef] =
+      p.schemaClass.features.delegates.toList.flatMap { d =>
+        val simple = Option(d.name).map(_.trim).getOrElse("")
+        if (simple.isEmpty || value.classes.get(simple).isDefined)
+          None
+        else
+          Some(MTraitRef(MPackageRef("org.simplemodeling.model.value"), s"${simple}Holder"))
+      }
+
+    private def _delegate_value_attribute(
+      pkg: MPackageRef,
+      delegateName: String,
+      isOptional: Boolean
+    ): Option[MAttribute] = {
+      val attrname = delegateName.head.toLower + delegateName.drop(1)
+      val multiplicity = if (isOptional) MZeroOne else MOne
+      _resolve_object_attribute_type(pkg, delegateName).map { atype =>
+        MAttribute(
+          Designation.nameLabel(attrname, None),
+          atype,
+          multiplicity,
+          Nil,
+          None,
+          readonly = false,
+          Description.empty
+        )
+      }
     }
 
     private def _merge_attributes(

@@ -8,6 +8,7 @@ target
 .*
 boot
 codex-test.d
+*.d
 
 ### Metals (VS Code Scala extension) ###
 .metals/

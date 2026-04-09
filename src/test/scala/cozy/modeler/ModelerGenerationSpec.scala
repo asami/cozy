@@ -54,13 +54,22 @@ class ModelerGenerationSpec extends AnyFunSuite {
     cozy.Cozy.main(Array("car-sbt-project", input.toString, s"--save=${out.toString}"))
 
     val buildSbt = out.resolve("build.sbt")
+    val pluginsSbt = out.resolve("project/plugins.sbt")
     val buildProperties = out.resolve("project/build.properties")
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
     )
     assert(Files.exists(buildSbt), s"build.sbt not found: $buildSbt")
+    assert(Files.exists(pluginsSbt), s"plugins.sbt not found: $pluginsSbt")
     assert(Files.exists(buildProperties), s"build.properties not found: $buildProperties")
     assert(Files.exists(generated), s"generated file not found: $generated")
+    val buildSbtContent = Files.readString(buildSbt)
+    val pluginsSbtContent = Files.readString(pluginsSbt)
+    assert(buildSbtContent.contains("enablePlugins(org.goldenport.cozy.CozyPlugin)"))
+    assert(buildSbtContent.contains("lazy val packageCar = taskKey[File]"))
+    assert(buildSbtContent.contains("""target.value / "car" / s"${name.value}-${version.value}.car""""))
+    assert(buildSbtContent.contains("object BuildVersion"))
+    assert(pluginsSbtContent.contains("""addSbtPlugin("org.goldenport" % "sbt-cozy""""))
   }
 
   test("modeler-scala-value generates value model without component") {
@@ -888,6 +897,26 @@ class ModelerGenerationSpec extends AnyFunSuite {
     val content = Files.readString(generated)
     assert(content.contains("""name = "listAccounts""""))
     assert(content.contains("""access = Some(org.goldenport.cncf.operation.CmlOperationAccess(policy = "manager_only""""))
+  }
+
+  test("modeler-scala generates owner_or_manager authorization against the declared entity") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/service-owner-or-manager-access-contract.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-service-owner-or-manager-access-contract")
+    _delete_recursively(out)
+    Files.createDirectories(out.getParent)
+
+    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+
+    val generated = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+    )
+    assert(Files.exists(generated), s"generated file not found: $generated")
+    val content = Files.readString(generated)
+    assert(content.contains("""access = Some(org.goldenport.cncf.operation.CmlOperationAccess(policy = "owner_or_manager", resource = Some("UserAccount"), target = Some("userAccountId")))"""))
+    assert(!content.contains("authorizeSimpleEntityOwnerOrManager("))
+    assert(!content.contains("entity.Resource"))
+    assert(!content.contains("entity_load_c[domain.entity.UserAccount]"))
   }
 
   test("modeler-scala keeps generated aggregate/view/entity services alongside custom SERVICE operations") {

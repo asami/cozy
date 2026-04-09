@@ -11,7 +11,7 @@ import org.scalatest.funsuite.AnyFunSuite
  * @author  ASAMI, Tomoharu
  */
 class ExternalAttributeTypeResolutionSpec extends AnyFunSuite {
-  test("modeler-scala keeps Address as a declared value type for UserProfile") {
+  test("modeler-scala keeps delegate value composition for external textus UserProfile values") {
     val input = Paths.get("/Users/asami/src/dev2026/textus-user-account/src/main/cozy/user-account.cml").toAbsolutePath.normalize()
     val out = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize().resolve("target/test-generated/modeler-scala-user-account-address")
     _delete_recursively(out)
@@ -22,7 +22,9 @@ class ExternalAttributeTypeResolutionSpec extends AnyFunSuite {
     val generated = out.resolve("target/scala-3.3.7/src_managed/main/scala/org/simplemodeling/textus/useraccount/entity/UserProfile.scala")
     assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)
-    assert(content.contains("address: Option[Address]"), s"Address type was collapsed in generated output\n$content")
+    assert(content.contains("identityPresentation: Option[IdentityPresentation]"), s"IdentityPresentation delegate was not generated\n$content")
+    assert(content.contains("personalProfile: Option[PersonalProfile]"), s"PersonalProfile delegate was not generated\n$content")
+    assert(content.contains("organizationSupport: Option[OrganizationSupport]"), s"OrganizationSupport delegate was not generated\n$content")
   }
 
 
@@ -101,6 +103,68 @@ org.simplemodeling.model
 
     val generated = out.resolve("target/scala-3.3.7/src_managed/main/scala/org/simplemodeling/model/value/Address.scala")
     assert(Files.exists(generated), s"generated file not found: $generated")
+  }
+
+  test("modeler-scala supports DELEGATE section with required/optional composition") {
+    val out = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize().resolve("target/test-generated/modeler-scala-delegate-entity")
+    _delete_recursively(out)
+    Files.createDirectories(out)
+    val input = out.resolve("delegate-entity.cml")
+    Files.writeString(
+      input,
+      """# COMPONENT
+
+## DelegateEntity
+
+### PACKAGE
+
+org.sample.delegateentity
+
+# VALUE
+
+## IdentityPresentation
+
+### ATTRIBUTE
+
+| name | type | multiplicity |
+|------|------|--------------|
+| displayName | string | 1 |
+
+## OrganizationSupport
+
+### ATTRIBUTE
+
+| name | type | multiplicity |
+|------|------|--------------|
+| organization | string | 1 |
+
+# ENTITY
+
+## UserProfile
+
+### DELEGATE
+
+- name: IdentityPresentation
+  multiplicity: "1"
+- name: OrganizationSupport
+  multiplicity: "?"
+
+### ATTRIBUTE
+
+| name | type | multiplicity |
+|------|------|--------------|
+| userAccountId | entityid | 1 |
+""",
+      StandardCharsets.UTF_8
+    )
+
+    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+
+    val generated = out.resolve("target/scala-3.3.7/src_managed/main/scala/org/sample/delegateentity/entity/UserProfile.scala")
+    assert(Files.exists(generated), s"generated file not found: $generated")
+    val content = Files.readString(generated)
+    assert(content.contains("identityPresentation: IdentityPresentation"), s"required delegate should be generated as non-Option\n$content")
+    assert(content.contains("organizationSupport: Option[OrganizationSupport]"), s"optional delegate should be generated as Option\n$content")
   }
   private def _delete_recursively(path: Path): Unit =
     if (Files.exists(path))
