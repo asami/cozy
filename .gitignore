@@ -31,3 +31,6 @@ project/**/bsp.log
 
 ### scripted work directories ###
 src/sbt-test/**/out.d/
+src/sbt-test/**/scripted
+src/sbt-test/**/sh
+src/sbt-test/**/runMain
