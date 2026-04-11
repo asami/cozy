@@ -130,6 +130,7 @@ class Cozy(
           RAISE.invalidArgumentFault("Missing --save for car-sbt-project")
         }
         val policy = Cozy.ProjectFilePolicy.create(rest)
+        val versions = Cozy.CarDependencyVersions.create(rest)
         val replArgs = _without_project_file_policy_args(rest)
         val modelArgs = _without_save_args(replArgs)
         if (modelArgs.exists(!_.startsWith("-"))) {
@@ -137,7 +138,7 @@ class Cozy(
           val c = _operation_call(Array(repl))
           interpreter.execute(c)
         }
-        _materialize_car_sbt_project(save, policy)
+        _materialize_car_sbt_project(save, policy, versions)
         true
       case _ =>
         false
@@ -222,18 +223,29 @@ class Cozy(
   }
 
   private def _without_project_file_policy_args(args: List[String]): List[String] =
-    args.filterNot(Cozy.ProjectFilePolicy.isPolicyOption)
+    args match {
+      case Nil => Nil
+      case x :: xs if Cozy.CarDependencyVersions.isFlagOption(x) =>
+        _without_project_file_policy_args(xs.drop(1))
+      case x :: xs if Cozy.ProjectFilePolicy.isFlagOption(x) =>
+        _without_project_file_policy_args(xs)
+      case x :: xs if Cozy.ProjectFilePolicy.isInlineOption(x) || Cozy.CarDependencyVersions.isInlineOption(x) =>
+        _without_project_file_policy_args(xs)
+      case x :: xs =>
+        x :: _without_project_file_policy_args(xs)
+    }
 
   private def _materialize_car_sbt_project(
     dir: Path,
-    policy: Cozy.ProjectFilePolicy
+    policy: Cozy.ProjectFilePolicy,
+    versions: Cozy.CarDependencyVersions
   ): Unit = {
     if (policy.isSkip)
       return
     Files.createDirectories(dir)
     _write_project_file(
       dir.resolve("build.sbt"),
-      Cozy.carBuildSbt(),
+      Cozy.carBuildSbt(versions),
       policy
     )
     val projectdir = dir.resolve("project")
@@ -293,7 +305,53 @@ class Cozy(
 
 object Cozy {
   private val DefaultSbtVersion = "1.9.7"
-  private val DefaultSbtCozyVersion = "0.1.2"
+  private val DefaultSbtCozyVersion = "0.1.3-SNAPSHOT"
+
+  case class CarDependencyVersions(
+    cncfVersion: String,
+    simpleModelingModelVersion: String,
+    cncfCollaboratorApiVersion: String
+  )
+  object CarDependencyVersions {
+    def default: CarDependencyVersions = CarDependencyVersions(
+      org.simplemodeling.cozy.BuildInfo.cncfVersion,
+      org.simplemodeling.cozy.BuildInfo.simpleModelingModelVersion,
+      org.simplemodeling.cozy.BuildInfo.cncfCollaboratorApiVersion
+    )
+
+    def isOption(p: String): Boolean =
+      isInlineOption(p) || isFlagOption(p)
+
+    def isInlineOption(p: String): Boolean =
+      p.startsWith("--cncf-version=") ||
+      p.startsWith("--simplemodeling-model-version=") ||
+      p.startsWith("--cncf-collaborator-api-version=")
+
+    def isFlagOption(p: String): Boolean =
+      p == "--cncf-version" ||
+      p == "--simplemodeling-model-version" ||
+      p == "--cncf-collaborator-api-version"
+
+    def create(args: List[String]): CarDependencyVersions = {
+      val d = default
+      CarDependencyVersions(
+        _option(args, "cncf-version").getOrElse(d.cncfVersion),
+        _option(args, "simplemodeling-model-version").getOrElse(d.simpleModelingModelVersion),
+        _option(args, "cncf-collaborator-api-version").getOrElse(d.cncfCollaboratorApiVersion)
+      )
+    }
+
+    private def _option(args: List[String], key: String): Option[String] = {
+      val prefix = s"--${key}="
+      args.collectFirst {
+        case s if s.startsWith(prefix) => s.substring(prefix.length)
+      }.orElse {
+        args.sliding(2).collectFirst {
+          case List(flag, value) if flag == s"--${key}" => value
+        }
+      }.filter(_.nonEmpty)
+    }
+  }
 
   sealed trait ProjectFilePolicy {
     def isSkip: Boolean = this == ProjectFilePolicy.Skip
@@ -304,10 +362,16 @@ object Cozy {
     case object Overwrite extends ProjectFilePolicy
 
     def isPolicyOption(p: String): Boolean =
+      isInlineOption(p) || isFlagOption(p)
+
+    def isFlagOption(p: String): Boolean =
       p == "--no-project-files" ||
       p == "--no-scaffold-files" ||
       p == "--overwrite-project-files" ||
       p == "--force-project-files"
+
+    def isInlineOption(p: String): Boolean =
+      false
 
     def create(args: List[String]): ProjectFilePolicy =
       if (args.exists(x => x == "--no-project-files" || x == "--no-scaffold-files"))
@@ -333,10 +397,16 @@ object Cozy {
   }
 
   private[cozy] def carBuildSbt(): String =
-    """import org.goldenport.cozy.CozyPlugin.autoImport._
+    carBuildSbt(CarDependencyVersions.default)
+
+  private[cozy] def carBuildSbt(versions: CarDependencyVersions): String =
+    s"""import org.goldenport.cozy.CozyPlugin.autoImport._
       |import sbt.Keys.*
       |
       |val scala3Version = "3.3.7"
+      |val cncfVersion = "${versions.cncfVersion}"
+      |val simpleModelingModelVersion = "${versions.simpleModelingModelVersion}"
+      |val cncfCollaboratorApiVersion = "${versions.cncfCollaboratorApiVersion}"
       |
       |lazy val packageCar = taskKey[File]("Create versioned CAR archive.")
       |
@@ -369,12 +439,12 @@ object Cozy {
       |    libraryDependencies += "io.circe" %% "circe-core" % "0.14.3",
       |    libraryDependencies += "io.circe" %% "circe-generic" % "0.14.3",
       |    libraryDependencies += "io.circe" %% "circe-parser" % "0.14.3",
-      |    libraryDependencies += "org.goldenport" %% "goldenport-cncf" % "0.4.2-SNAPSHOT",
-      |    libraryDependencies += "org.simplemodeling" %% "simplemodeling-model" % "0.1.2-SNAPSHOT",
-      |    libraryDependencies += "org.goldenport" % "cncf-collaborator-api" % "0.1.0-SNAPSHOT",
+      |    libraryDependencies += "org.goldenport" %% "goldenport-cncf" % cncfVersion,
+      |    libraryDependencies += "org.simplemodeling" %% "simplemodeling-model" % simpleModelingModelVersion,
+      |    libraryDependencies += "org.goldenport" % "cncf-collaborator-api" % cncfCollaboratorApiVersion,
       |
       |    dependencyOverrides ++= Seq(
-      |      "org.goldenport" % "cncf-collaborator-api" % "0.1.0-SNAPSHOT",
+      |      "org.goldenport" % "cncf-collaborator-api" % cncfCollaboratorApiVersion,
       |      "org.scala-lang.modules" %% "scala-xml" % "2.1.0",
       |      "org.scala-lang.modules" %% "scala-parser-combinators" % "2.3.0"
       |    ),
@@ -382,6 +452,9 @@ object Cozy {
       |    cozyGeneratorBackend := "cozy",
       |    cozyDelegateProjectDir := None,
       |    cozyDelegateCommand := Seq("cozy"),
+      |    cozyCncfVersion := cncfVersion,
+      |    cozySimpleModelingModelVersion := simpleModelingModelVersion,
+      |    cozyCncfCollaboratorApiVersion := cncfCollaboratorApiVersion,
       |    cozyManifestMetadata ++= Map(
       |      "component" -> "sample-component",
       |      "boundedContext" -> "default",
@@ -389,7 +462,7 @@ object Cozy {
       |    ),
       |
       |    packageCar := {
-      |      val out = target.value / "car" / s"${name.value}-${version.value}.car"
+      |      val out = target.value / "car" / s"$${name.value}-$${version.value}.car"
       |      val sourcedir = baseDirectory.value / "car.d"
       |      val pairs =
       |        if (sourcedir.exists())
@@ -398,19 +471,21 @@ object Cozy {
       |          Seq.empty
       |      IO.createDirectory(out.getParentFile)
       |      IO.zip(pairs, out)
-      |      streams.value.log.info(s"CAR archive: ${out.getAbsolutePath}")
+      |      streams.value.log.info(s"CAR archive: $${out.getAbsolutePath}")
       |      out
       |    },
       |
       |    Compile / sourceGenerators += Def.task {
       |      val out = (Compile / sourceManaged).value / "domain" / "meta" / "BuildVersion.scala"
       |      val content =
-      |        s"package domain.meta\n\nobject BuildVersion {\n  val name: String = \"${name.value}\"\n  val version: String = \"${version.value}\"\n  val scalaVersion: String = \"${scalaVersion.value}\"\n}\n"
+      |        "package domain.meta\\n\\nobject BuildVersion {\\n" +
+      |          "  val name: String = \\"" + name.value + "\\"\\n" +
+      |          "  val version: String = \\"" + version.value + "\\"\\n" +
+      |          "  val scalaVersion: String = \\"" + scalaVersion.value + "\\"\\n" +
+      |          "}\\n"
       |      IO.write(out, content)
       |      Seq(out)
-      |    }.taskValue,
-      |
-      |    Compile / unmanagedSourceDirectories += (Compile / sourceManaged).value
+      |    }.taskValue
       |  )
       |""".stripMargin
 
@@ -828,6 +903,26 @@ private object CozySbtBridge {
     }.getOrElse(RAISE.invalidArgumentFault(s"Missing --${key}"))
   }
 
-  private case class BridgeRequest(version: String, action: String, arguments: Vector[String])
-  private implicit val _bridge_request_format: Format[BridgeRequest] = Json.format[BridgeRequest]
+  private case class BridgeRequest(
+    version: String,
+    action: String,
+    arguments: Vector[String],
+    settings: Map[String, String] = Map.empty
+  )
+  private implicit val _bridge_request_format: Format[BridgeRequest] = new Format[BridgeRequest] {
+    def reads(json: JsValue): JsResult[BridgeRequest] =
+      for {
+        version <- (json \ "version").validate[String]
+        action <- (json \ "action").validate[String]
+        arguments <- (json \ "arguments").validate[Vector[String]]
+        settings <- (json \ "settings").validateOpt[Map[String, String]]
+      } yield BridgeRequest(version, action, arguments, settings.getOrElse(Map.empty))
+
+    def writes(p: BridgeRequest): JsValue = Json.obj(
+      "version" -> p.version,
+      "action" -> p.action,
+      "arguments" -> p.arguments,
+      "settings" -> p.settings
+    )
+  }
 }

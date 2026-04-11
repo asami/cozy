@@ -68,6 +68,8 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(buildSbtContent.contains("enablePlugins(org.goldenport.cozy.CozyPlugin)"))
     assert(buildSbtContent.contains("lazy val packageCar = taskKey[File]"))
     assert(buildSbtContent.contains("""target.value / "car" / s"${name.value}-${version.value}.car""""))
+    assert(buildSbtContent.contains("""val cncfVersion = "0.4.2-SNAPSHOT""""))
+    assert(buildSbtContent.contains("""libraryDependencies += "org.goldenport" %% "goldenport-cncf" % cncfVersion"""))
     assert(buildSbtContent.contains("object BuildVersion"))
     assert(Files.exists(out.resolve("src/main/scala/domain/impl/ComponentFactory.scala")))
     assert(pluginsSbtContent.contains("""addSbtPlugin("org.goldenport" % "sbt-cozy""""))

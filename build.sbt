@@ -5,7 +5,13 @@ organization := "org.simplemodeling"
 
 name := "cozy"
 
-version := "0.2.13"
+version := "0.2.14-SNAPSHOT"
+
+lazy val cncfVersion = "0.4.2-SNAPSHOT"
+
+lazy val simpleModelingModelVersion = "0.1.2-SNAPSHOT"
+
+lazy val cncfCollaboratorApiVersion = "0.1.0-SNAPSHOT"
 
 scalaVersion := "2.12.18"
 // crossScalaVersions := Seq("2.10.39.2", "2.9.1")
@@ -54,9 +60,9 @@ libraryDependencies += "org.goldenport" %% "goldenport-record" % "2.2.4"
 // override kaleidox
 libraryDependencies += "org.smartdox" %% "smartdox" % "2.4.11"
 
-libraryDependencies += "org.goldenport" %% "kaleidox" % "0.6.10"
+libraryDependencies += "org.goldenport" %% "kaleidox" % "0.6.11-SNAPSHOT"
 
-libraryDependencies += "org.simplemodeling" %% "simplemodeler" % "1.1.13"
+libraryDependencies += "org.simplemodeling" %% "simplemodeler" % "1.1.14-SNAPSHOT"
 
 libraryDependencies += "org.goldenport" %% "arcadia" % "0.6.1"
 
@@ -165,6 +171,9 @@ lazy val root = (project in file(".")).
   settings(
     buildInfoKeys := Seq[BuildInfoKey](
       name, version, scalaVersion, sbtVersion,
+      BuildInfoKey.action("cncfVersion")(cncfVersion),
+      BuildInfoKey.action("simpleModelingModelVersion")(simpleModelingModelVersion),
+      BuildInfoKey.action("cncfCollaboratorApiVersion")(cncfCollaboratorApiVersion),
       BuildInfoKey.action("build") {
         val fmt = new java.text.SimpleDateFormat("yyyyMMdd")
         fmt.setTimeZone(java.util.TimeZone.getTimeZone("JST"))
