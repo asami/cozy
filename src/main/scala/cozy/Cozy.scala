@@ -29,7 +29,7 @@ import scala.collection.JavaConverters._
  *  version Aug. 20, 2025
  *  version Mar. 17, 2026
  *  version Apr.  8, 2026
- * @version Apr.  9, 2026
+ * @version Apr. 11, 2026
  * @author  ASAMI, Tomoharu
  */
 class Cozy(
@@ -43,13 +43,17 @@ class Cozy(
   def execute(args: Array[String]) = _engine.apply(environment, args)
 
   def run(args: Array[String]) {
-    val call = _operation_call(args)
-    if (call.request.arguments.isEmpty || call.request.isInteractive)
-      repl(call)
-    else if (_is_cli_command(call))
-      execute(args)
-    else
-      executeDirect(args)
+    if (_is_help_request(args))
+      println(Cozy.helpText)
+    else {
+      val call = _operation_call(args)
+      if (call.request.arguments.isEmpty || call.request.isInteractive)
+        repl(call)
+      else if (_is_cli_command(call))
+        execute(args)
+      else
+        executeDirect(args)
+    }
   }
 
   def repl(call: OperationCall) {
@@ -97,6 +101,14 @@ class Cozy(
       case _: CommandParser.NotFound[_] => false
     }
 
+  private def _is_help_request(args: Array[String]): Boolean =
+    args.toList match {
+      case "--help" :: Nil => true
+      case "-h" :: Nil => true
+      case "help" :: Nil => true
+      case _ => false
+    }
+
   private def _operation_call(args: Array[String]): OperationCall = {
     val req = spec.Request.empty
     val res = spec.Response()
@@ -117,10 +129,15 @@ class Cozy(
         val save = _save_path(rest).getOrElse {
           RAISE.invalidArgumentFault("Missing --save for car-sbt-project")
         }
-        val repl = (Vector("modeler-scala") ++ _convert_args(rest)).mkString(" ")
-        val c = _operation_call(Array(repl))
-        interpreter.execute(c)
-        _materialize_car_sbt_project(save)
+        val policy = Cozy.ProjectFilePolicy.create(rest)
+        val replArgs = _without_project_file_policy_args(rest)
+        val modelArgs = _without_save_args(replArgs)
+        if (modelArgs.exists(!_.startsWith("-"))) {
+          val repl = (Vector("modeler-scala") ++ _convert_args(replArgs)).mkString(" ")
+          val c = _operation_call(Array(repl))
+          interpreter.execute(c)
+        }
+        _materialize_car_sbt_project(save, policy)
         true
       case _ =>
         false
@@ -197,31 +214,109 @@ class Cozy(
   private def _save_path(args: List[String]): Option[Path] =
     Cozy._save_path(args)
 
-  private def _materialize_car_sbt_project(dir: Path): Unit = {
+  private def _without_save_args(args: List[String]): List[String] = args match {
+    case Nil => Nil
+    case x :: xs if x == "--save" => xs.drop(1)
+    case x :: xs if x.startsWith("--save=") => _without_save_args(xs)
+    case x :: xs => x :: _without_save_args(xs)
+  }
+
+  private def _without_project_file_policy_args(args: List[String]): List[String] =
+    args.filterNot(Cozy.ProjectFilePolicy.isPolicyOption)
+
+  private def _materialize_car_sbt_project(
+    dir: Path,
+    policy: Cozy.ProjectFilePolicy
+  ): Unit = {
+    if (policy.isSkip)
+      return
     Files.createDirectories(dir)
-    Files.writeString(
+    _write_project_file(
       dir.resolve("build.sbt"),
       Cozy.carBuildSbt(),
-      StandardCharsets.UTF_8
+      policy
     )
     val projectdir = dir.resolve("project")
     Files.createDirectories(projectdir)
-    Files.writeString(
+    _write_project_file(
       projectdir.resolve("build.properties"),
       s"sbt.version=${Cozy.detectSbtVersion()}",
-      StandardCharsets.UTF_8
+      policy
     )
-    Files.writeString(
+    _write_project_file(
       projectdir.resolve("plugins.sbt"),
       Cozy.carPluginsSbt(),
-      StandardCharsets.UTF_8
+      policy
     )
+    val cozydir = dir.resolve("src/main/cozy")
+    Files.createDirectories(cozydir)
+    val sampleModel = cozydir.resolve("sample.cml")
+    if (!Files.exists(sampleModel))
+      _write_project_file(
+        sampleModel,
+        Cozy.carSampleCml(),
+        policy
+      )
+    val impldir = dir.resolve("src/main/scala/domain/impl")
+    Files.createDirectories(impldir)
+    _write_project_file(
+      impldir.resolve("ComponentFactory.scala"),
+      Cozy.carComponentFactorySource(),
+      policy
+    )
+  }
+
+  private def _write_project_file(
+    path: Path,
+    content: String,
+    policy: Cozy.ProjectFilePolicy
+  ): Unit =
+    policy match {
+      case Cozy.ProjectFilePolicy.Skip =>
+        Unit
+      case Cozy.ProjectFilePolicy.Overwrite =>
+        _write_text(path, content)
+      case Cozy.ProjectFilePolicy.Default =>
+        if (!Files.exists(path))
+          _write_text(path, content)
+        else if (Files.readString(path, StandardCharsets.UTF_8) == content)
+          Unit
+        else
+          _write_text(Paths.get(path.toString + ".bak"), content)
+    }
+
+  private def _write_text(path: Path, content: String): Unit = {
+    Option(path.getParent).foreach(Files.createDirectories(_))
+    Files.writeString(path, content, StandardCharsets.UTF_8)
   }
 }
 
 object Cozy {
   private val DefaultSbtVersion = "1.9.7"
   private val DefaultSbtCozyVersion = "0.1.2"
+
+  sealed trait ProjectFilePolicy {
+    def isSkip: Boolean = this == ProjectFilePolicy.Skip
+  }
+  object ProjectFilePolicy {
+    case object Default extends ProjectFilePolicy
+    case object Skip extends ProjectFilePolicy
+    case object Overwrite extends ProjectFilePolicy
+
+    def isPolicyOption(p: String): Boolean =
+      p == "--no-project-files" ||
+      p == "--no-scaffold-files" ||
+      p == "--overwrite-project-files" ||
+      p == "--force-project-files"
+
+    def create(args: List[String]): ProjectFilePolicy =
+      if (args.exists(x => x == "--no-project-files" || x == "--no-scaffold-files"))
+        Skip
+      else if (args.exists(x => x == "--overwrite-project-files" || x == "--force-project-files"))
+        Overwrite
+      else
+        Default
+  }
 
   private[cozy] def detectSbtVersion(): String = {
     val path = Paths.get("project/build.properties")
@@ -310,7 +405,7 @@ object Cozy {
       |    Compile / sourceGenerators += Def.task {
       |      val out = (Compile / sourceManaged).value / "domain" / "meta" / "BuildVersion.scala"
       |      val content =
-      |        s"package domain.meta\\n\\nobject BuildVersion {\\n  val name: String = \\"${name.value}\\"\\n  val version: String = \\"${version.value}\\"\\n  val scalaVersion: String = \\"${scalaVersion.value}\\"\\n}\\n"
+      |        s"package domain.meta\n\nobject BuildVersion {\n  val name: String = \"${name.value}\"\n  val version: String = \"${version.value}\"\n  val scalaVersion: String = \"${scalaVersion.value}\"\n}\n"
       |      IO.write(out, content)
       |      Seq(out)
       |    }.taskValue,
@@ -323,6 +418,66 @@ object Cozy {
     s"""resolvers += Resolver.defaultLocal
        |addSbtPlugin("org.goldenport" % "sbt-cozy" % "${DefaultSbtCozyVersion}")
        |""".stripMargin
+
+  private[cozy] def carSampleCml(): String =
+    """# Entity
+      |
+      |## SampleItem
+      |
+      |### Attribute
+      |
+      || name  | type     | multiplicity |
+      ||-------+----------+--------------|
+      || id    | entityid | 1            |
+      || title | string   | 1            |
+      |""".stripMargin
+
+  private[cozy] def carComponentFactorySource(): String =
+    """package domain.impl
+      |
+      |import domain.DomainComponent
+      |
+      |class ComponentFactory() extends DomainComponent.Factory {
+      |}
+      |
+      |object ComponentFactory {
+      |  def apply(): ComponentFactory = new ComponentFactory()
+      |}
+      |""".stripMargin
+
+  private[cozy] val helpText: String =
+    """Usage:
+      |  cozy [command] [options]
+      |
+      |Commands:
+      |  help, --help, -h
+      |      Show this help and exit.
+      |
+      |  car-sbt-project [model-file] --save=<dir> [--no-project-files] [--overwrite-project-files]
+      |      Generate an sbt CAR component project. When model-file is omitted,
+      |      create a scaffold with src/main/cozy/sample.cml.
+      |      By default, existing differing project files are written as .bak files.
+      |
+      |  modeler-scala <model-file> --save=<dir>
+      |      Generate Scala sources from a CML/Dox model.
+      |
+      |  modeler-scala-value <model-file> --save=<dir>
+      |      Generate value/domain model Scala sources without a component.
+      |
+      |  package-car --save=<file> --main-jar=<file> --name=<name> --version=<version> --component=<component>
+      |      Build a CAR archive.
+      |
+      |  package-sar --save=<file> --source-dir=<dir> --name=<name> --version=<version>
+      |      Build a SAR archive.
+      |
+      |  sbt-bridge v1 --request=<file>
+      |      Run the sbt-cozy bridge for generation or archive packaging.
+      |
+      |  web
+      |      Start the Cozy web server.
+      |
+      |With no arguments, cozy starts the interactive REPL.
+      |""".stripMargin
 
   case object CozyServiceClass extends ServiceClass {
     val name = "cozy"

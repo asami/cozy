@@ -15,7 +15,7 @@ import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
  * @since   May. 17, 2025
  *  version Apr.  3, 2026
  *  version Apr.  6, 2026
- * @version Apr.  8, 2026
+ * @version Apr. 11, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerGenerationSpec extends AnyFunSuite {
@@ -69,7 +69,96 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(buildSbtContent.contains("lazy val packageCar = taskKey[File]"))
     assert(buildSbtContent.contains("""target.value / "car" / s"${name.value}-${version.value}.car""""))
     assert(buildSbtContent.contains("object BuildVersion"))
+    assert(Files.exists(out.resolve("src/main/scala/domain/impl/ComponentFactory.scala")))
     assert(pluginsSbtContent.contains("""addSbtPlugin("org.goldenport" % "sbt-cozy""""))
+  }
+
+  test("car-sbt-project preserves differing project files by writing bak files") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val out = base.resolve("target/test-generated/car-sbt-project-bak")
+    _delete_recursively(out)
+    Files.createDirectories(out.resolve("src/main/scala/domain/impl"))
+    val buildSbt = out.resolve("build.sbt")
+    val factory = out.resolve("src/main/scala/domain/impl/ComponentFactory.scala")
+    Files.writeString(buildSbt, "custom build", StandardCharsets.UTF_8)
+    Files.writeString(factory, "custom factory", StandardCharsets.UTF_8)
+
+    cozy.Cozy.main(Array("car-sbt-project", s"--save=${out.toString}"))
+
+    assert(Files.readString(buildSbt) == "custom build")
+    assert(Files.readString(factory) == "custom factory")
+    assert(Files.readString(out.resolve("build.sbt.bak")).contains("enablePlugins(org.goldenport.cozy.CozyPlugin)"))
+    assert(Files.readString(Paths.get(factory.toString + ".bak")).contains("class ComponentFactory() extends DomainComponent.Factory"))
+  }
+
+  test("car-sbt-project can skip project and src scaffold files") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val out = base.resolve("target/test-generated/car-sbt-project-skip")
+    _delete_recursively(out)
+    Files.createDirectories(out.getParent)
+
+    cozy.Cozy.main(Array("car-sbt-project", s"--save=${out.toString}", "--no-project-files"))
+
+    assert(!Files.exists(out.resolve("build.sbt")))
+    assert(!Files.exists(out.resolve("project/build.properties")))
+    assert(!Files.exists(out.resolve("src/main/cozy/sample.cml")))
+    assert(!Files.exists(out.resolve("src/main/scala/domain/impl/ComponentFactory.scala")))
+  }
+
+  test("car-sbt-project can overwrite project and src scaffold files") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val out = base.resolve("target/test-generated/car-sbt-project-overwrite")
+    _delete_recursively(out)
+    Files.createDirectories(out.resolve("src/main/scala/domain/impl"))
+    val buildSbt = out.resolve("build.sbt")
+    val factory = out.resolve("src/main/scala/domain/impl/ComponentFactory.scala")
+    Files.writeString(buildSbt, "custom build", StandardCharsets.UTF_8)
+    Files.writeString(factory, "custom factory", StandardCharsets.UTF_8)
+
+    cozy.Cozy.main(Array("car-sbt-project", s"--save=${out.toString}", "--overwrite-project-files"))
+
+    assert(Files.readString(buildSbt).contains("enablePlugins(org.goldenport.cozy.CozyPlugin)"))
+    assert(Files.readString(factory).contains("class ComponentFactory() extends DomainComponent.Factory"))
+    assert(!Files.exists(out.resolve("build.sbt.bak")))
+    assert(!Files.exists(Paths.get(factory.toString + ".bak")))
+  }
+
+  test("car-sbt-project generates sample model scaffold when model file is omitted") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val out = base.resolve("target/test-generated/car-sbt-project-scaffold")
+    _delete_recursively(out)
+    Files.createDirectories(out.getParent)
+
+    cozy.Cozy.main(Array("car-sbt-project", s"--save=${out.toString}"))
+
+    val buildSbt = out.resolve("build.sbt")
+    val pluginsSbt = out.resolve("project/plugins.sbt")
+    val sampleCml = out.resolve("src/main/cozy/sample.cml")
+    val generated = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+    )
+    assert(Files.exists(buildSbt), s"build.sbt not found: $buildSbt")
+    assert(Files.exists(pluginsSbt), s"plugins.sbt not found: $pluginsSbt")
+    assert(Files.exists(sampleCml), s"sample model not found: $sampleCml")
+    assert(!Files.exists(generated), s"generated sources should not be materialized without an input model: $generated")
+  }
+
+  test("cozy help lists commands without entering repl") {
+    val out = new ByteArrayOutputStream()
+
+    Console.withOut(new PrintStream(out, true, StandardCharsets.UTF_8.name())) {
+      cozy.Cozy.main(Array("--help"))
+    }
+
+    val help = out.toString(StandardCharsets.UTF_8.name())
+    assert(help.contains("Usage:"))
+    assert(help.contains("Commands:"))
+    assert(help.contains("car-sbt-project"))
+    assert(help.contains("modeler-scala"))
+    assert(help.contains("package-car"))
+    assert(help.contains("sbt-bridge"))
+    assert(help.contains("With no arguments, cozy starts the interactive REPL."))
+    assert(!help.contains("cozy>"))
   }
 
   test("modeler-scala-value generates value model without component") {
