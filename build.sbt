@@ -160,7 +160,7 @@ publishMavenStyle := true
 // Docker
 maintainer := "asami@asamioffice.com"
 
-dockerBaseImage in Docker := "dockerfile/java"
+(Docker / dockerBaseImage).withRank(KeyRanks.Invisible) := "dockerfile/java"
 
 // dockerExposedPorts in Docker := Seq(8080, 8080)
 

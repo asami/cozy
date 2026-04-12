@@ -28,8 +28,7 @@ import scala.collection.JavaConverters._
  *  version Feb. 28, 2022
  *  version Aug. 20, 2025
  *  version Mar. 17, 2026
- *  version Apr.  8, 2026
- * @version Apr. 11, 2026
+ * @version Apr. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 class Cozy(
@@ -276,6 +275,35 @@ class Cozy(
       Cozy.carComponentFactorySource(),
       policy
     )
+    val bindir = dir.resolve("bin")
+    Files.createDirectories(bindir)
+    _write_executable_project_file(
+      bindir.resolve("launcher"),
+      Cozy.carLauncherScript(),
+      policy
+    )
+    val scriptsdir = dir.resolve("scripts")
+    Files.createDirectories(scriptsdir)
+    _write_project_file(
+      scriptsdir.resolve("cncf-common.sh"),
+      Cozy.carCncfCommonScript(versions),
+      policy
+    )
+    _write_executable_project_file(
+      scriptsdir.resolve("update-runtime-classpath.sh"),
+      Cozy.carUpdateRuntimeClasspathScript(),
+      policy
+    )
+    _write_executable_project_file(
+      scriptsdir.resolve("run-server.sh"),
+      Cozy.carRunServerScript(),
+      policy
+    )
+    _write_executable_project_file(
+      scriptsdir.resolve("run-server-debug.sh"),
+      Cozy.carRunServerDebugScript(),
+      policy
+    )
   }
 
   private def _write_project_file(
@@ -296,6 +324,16 @@ class Cozy(
         else
           _write_text(Paths.get(path.toString + ".bak"), content)
     }
+
+  private def _write_executable_project_file(
+    path: Path,
+    content: String,
+    policy: Cozy.ProjectFilePolicy
+  ): Unit = {
+    _write_project_file(path, content, policy)
+    if (Files.exists(path))
+      path.toFile.setExecutable(true, false)
+  }
 
   private def _write_text(path: Path, content: String): Unit = {
     Option(path.getParent).foreach(Files.createDirectories(_))
@@ -404,8 +442,21 @@ object Cozy {
       |import sbt.Keys.*
       |
       |val scala3Version = "3.3.7"
-      |val cncfVersion = "${versions.cncfVersion}"
-      |val simpleModelingModelVersion = "${versions.simpleModelingModelVersion}"
+      |def sampleVersion(envName: String, fileName: String, fallback: String): String =
+      |  sys.env.get(envName)
+      |    .orElse {
+      |      sys.env.get("CNCF_SAMPLES_ROOT").flatMap { root =>
+      |        val versionFile = file(root) / "versions" / fileName
+      |        if (versionFile.isFile)
+      |          Some(IO.read(versionFile).trim).filter(_.nonEmpty)
+      |        else
+      |          None
+      |      }
+      |    }
+      |    .getOrElse(fallback)
+      |
+      |val cncfVersion = sampleVersion("CNCF_VERSION", "cncf-version.conf", "${versions.cncfVersion}")
+      |val simpleModelingModelVersion = sampleVersion("SIMPLEMODELING_MODEL_VERSION", "simplemodeling-model-version.conf", "${versions.simpleModelingModelVersion}")
       |val cncfCollaboratorApiVersion = "${versions.cncfCollaboratorApiVersion}"
       |
       |lazy val packageCar = taskKey[File]("Create versioned CAR archive.")
@@ -470,7 +521,7 @@ object Cozy {
       |        else
       |          Seq.empty
       |      IO.createDirectory(out.getParentFile)
-      |      IO.zip(pairs, out)
+      |      IO.zip(pairs, out, None)
       |      streams.value.log.info(s"CAR archive: $${out.getAbsolutePath}")
       |      out
       |    },
@@ -495,29 +546,499 @@ object Cozy {
        |""".stripMargin
 
   private[cozy] def carSampleCml(): String =
-    """# Entity
+    """# COMPONENT
       |
-      |## SampleItem
+      |## Sample
+      |
+      |### PACKAGE
+      |
+      |domain
+      |
+      |### DESCRIPTION
+      |
+      |Sample CAR component with a small notice-board service.
+      |
+      |# SERVICE
+      |
+      |## Notice
+      |
+      |### DESCRIPTION
+      |
+      |Operations for posting and reading notices without login.
+      |
+      |### OPERATION
+      |
+      |#### postNotice
+      |
+      |##### IN
+      |
+      |Notice post payload.
+      |
+      |##### OUT
+      |
+      |Posted notice.
+      |
+      |#### searchNotices
+      |
+      |##### IN
+      |
+      |Notice search query.
+      |
+      |##### OUT
+      |
+      |Matching notices.
+      |
+      |# ENTITY
+      |
+      |## Notice
       |
       |### Attribute
       |
-      || name  | type     | multiplicity |
-      ||-------+----------+--------------|
-      || id    | entityid | 1            |
-      || title | string   | 1            |
+      || name          | type     | multiplicity |
+      ||---------------+----------+--------------|
+      || id            | entityid | 1            |
+      || senderName    | string   | 1            |
+      || recipientName | string   | ?            |
+      || subject       | string   | 1            |
+      || body          | string   | 1            |
+      |
+      |# COMMAND
+      |
+      |## PostNotice
+      |
+      |### Attribute
+      |
+      || name          | type   | multiplicity |
+      ||---------------+--------+--------------|
+      || senderName    | string | 1            |
+      || recipientName | string | ?            |
+      || subject       | string | 1            |
+      || body          | string | 1            |
+      |
+      |# QUERY
+      |
+      |## SearchNotices
+      |
+      |### Attribute
+      |
+      || name          | type   | multiplicity |
+      ||---------------+--------+--------------|
+      || recipientName | string | ?            |
+      || text          | string | ?            |
+      || offset        | int    | ?            |
+      || limit         | int    | ?            |
+      |
+      |# OPERATION
+      |
+      |## postNotice
+      |
+      |### TYPE
+      |COMMAND
+      |
+      |### IMPLEMENTATION
+      |entity-create
+      |
+      |### INPUT
+      |PostNotice
+      |
+      |### OUTPUT
+      |PostNoticeResult
+      |
+      |## searchNotices
+      |
+      |### TYPE
+      |QUERY
+      |
+      |### IMPLEMENTATION
+      |entity-search
+      |
+      |### INPUT
+      |SearchNotices
+      |
+      |### OUTPUT
+      |SearchNoticesResult
       |""".stripMargin
 
   private[cozy] def carComponentFactorySource(): String =
     """package domain.impl
       |
-      |import domain.DomainComponent
+      |import domain.SampleComponent
       |
-      |class ComponentFactory() extends DomainComponent.Factory {
+      |class ComponentFactory() extends SampleComponent.Factory {
+      |  override val Notice: SampleComponent.NoticeServiceFactory = NoticeServiceFactoryImpl()
+      |  override val aggregate: SampleComponent.AggregateServiceFactory = AggregateServiceFactoryImpl()
+      |  override val view: SampleComponent.ViewServiceFactory = ViewServiceFactoryImpl()
+      |  override val entity: SampleComponent.EntityServiceFactory = EntityServiceFactoryImpl()
+      |
+      |  class NoticeServiceFactoryImpl extends SampleComponent.NoticeServiceFactory {
+      |    import SampleComponent.NoticeService.*
+      |
+      |    override def createPostNoticeActionCall(
+      |      core: org.goldenport.cncf.action.ActionCall.Core,
+      |      action: PostNoticeCommand
+      |    ): PostNoticeActionCall =
+      |      ??? // Replace with PostNoticeActionCall(core, action) or a custom ActionCall implementation.
+      |
+      |    override def createSearchNoticesActionCall(
+      |      core: org.goldenport.cncf.action.ActionCall.Core,
+      |      action: SearchNoticesQuery
+      |    ): SearchNoticesActionCall =
+      |      ??? // Replace with SearchNoticesActionCall(core, action) or a custom ActionCall implementation.
+      |
+      |    /*
+      |     * Usage:
+      |     *
+      |     * This factory is the customization point for source-side operation behavior.
+      |     * Operations without IMPLEMENTATION normally require an ActionCall override here.
+      |     * Leave the generated ??? in place until the generated project compiles; then replace
+      |     * each ??? with either the generated ActionCall constructor or a custom ActionCall.
+      |     *
+      |     * FunctionalActionCall example:
+      |     *
+      |     * override def createPostNoticeActionCall(
+      |     *   core: org.goldenport.cncf.action.ActionCall.Core,
+      |     *   action: PostNoticeCommand
+      |     * ): PostNoticeActionCall =
+      |     *   new PostNoticeActionCall {
+      |     *     override val action: PostNoticeCommand = action
+      |     *     protected def build_Program: org.goldenport.cncf.action.ExecUowM[org.goldenport.cncf.operation.OperationResponse] = {
+      |     *       ???
+      |     *     }
+      |     *   }
+      |     *
+      |     * ProcedureActionCall example:
+      |     *
+      |     * override def createPostNoticeActionCall(
+      |     *   core: org.goldenport.cncf.action.ActionCall.Core,
+      |     *   action: PostNoticeCommand
+      |     * ): PostNoticeActionCall =
+      |     *   new PostNoticeActionCall {
+      |     *     override val action: PostNoticeCommand = action
+      |     *     override def execute(): org.goldenport.context.Consequence[org.goldenport.cncf.operation.OperationResponse] = {
+      |     *       ???
+      |     *     }
+      |     *   }
+      |     */
+      |  }
+      |  object NoticeServiceFactoryImpl {
+      |    def apply(): NoticeServiceFactoryImpl = new NoticeServiceFactoryImpl()
+      |  }
+      |
+      |  class AggregateServiceFactoryImpl extends SampleComponent.AggregateServiceFactory
+      |  object AggregateServiceFactoryImpl {
+      |    def apply(): AggregateServiceFactoryImpl = new AggregateServiceFactoryImpl()
+      |  }
+      |
+      |  class ViewServiceFactoryImpl extends SampleComponent.ViewServiceFactory
+      |  object ViewServiceFactoryImpl {
+      |    def apply(): ViewServiceFactoryImpl = new ViewServiceFactoryImpl()
+      |  }
+      |
+      |  class EntityServiceFactoryImpl extends SampleComponent.EntityServiceFactory
+      |  object EntityServiceFactoryImpl {
+      |    def apply(): EntityServiceFactoryImpl = new EntityServiceFactoryImpl()
+      |  }
       |}
       |
       |object ComponentFactory {
       |  def apply(): ComponentFactory = new ComponentFactory()
       |}
+      |""".stripMargin
+
+  private[cozy] def carCncfCommonScript(versions: CarDependencyVersions): String =
+    s"""#!/usr/bin/env bash
+       |set -euo pipefail
+       |
+       |SCRIPT_DIR="$$(cd "$$(dirname "$${BASH_SOURCE[0]}")" && pwd)"
+       |PROJECT_ROOT="$$(cd "$$SCRIPT_DIR/.." && pwd)"
+       |
+      |CNCF_MAIN_CLASS="$${CNCF_MAIN_CLASS:-org.goldenport.cncf.CncfMain}"
+       |CNCF_SAMPLES_ROOT="$${CNCF_SAMPLES_ROOT:-}"
+       |if [[ -z "$$CNCF_SAMPLES_ROOT" ]]; then
+       |  if [[ -n "$${CNCF_BIN:-}" ]]; then
+       |    CNCF_SAMPLES_ROOT="$$(cd "$$(dirname "$$CNCF_BIN")/.." && pwd)"
+       |  elif [[ -d "/Users/asami/src/dev2026/cncf-samples/versions" ]]; then
+       |    CNCF_SAMPLES_ROOT="/Users/asami/src/dev2026/cncf-samples"
+       |  fi
+       |fi
+       |CNCF_VERSION_FILE="$${CNCF_VERSION_FILE:-$${CNCF_SAMPLES_ROOT:+$$CNCF_SAMPLES_ROOT/versions/cncf-version.conf}}"
+       |if [[ -z "$${CNCF_VERSION:-}" ]]; then
+       |  if [[ -n "$$CNCF_VERSION_FILE" && -f "$$CNCF_VERSION_FILE" ]]; then
+       |    CNCF_VERSION="$$(tr -d '[:space:]' < "$$CNCF_VERSION_FILE")"
+       |  else
+       |    CNCF_VERSION="${versions.cncfVersion}"
+       |  fi
+       |fi
+       |export CNCF_SAMPLES_ROOT
+       |export CNCF_VERSION
+       |CNCF_SERVER_PORT="$${CNCF_SERVER_PORT:-19532}"
+       |CNCF_HTTP_BASEURL="$${CNCF_HTTP_BASEURL:-http://127.0.0.1:$$CNCF_SERVER_PORT}"
+       |CNCF_LAUNCHER="$${CNCF_LAUNCHER:-$$PROJECT_ROOT/bin/launcher}"
+       |CNCF_LAUNCHER_CACHE="$${CNCF_LAUNCHER_CACHE:-$$PROJECT_ROOT/.cache/coursier}"
+       |CNCF_RUNTIME_CLASSPATH_FILE="$${CNCF_RUNTIME_CLASSPATH_FILE:-$$PROJECT_ROOT/target/cncf.d/runtime-classpath.txt}"
+       |SIMPLEMODELING_REPOSITORY="$${SIMPLEMODELING_REPOSITORY:-https://www.simplemodeling.org/maven}"
+       |
+       |CNCF_COMMON_ARGS=(--discover=classes)
+       |""".stripMargin
+
+  private[cozy] def carUpdateRuntimeClasspathScript(): String =
+    """#!/usr/bin/env bash
+      |set -euo pipefail
+      |
+      |SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+      |# shellcheck source=cncf-common.sh
+      |source "$SCRIPT_DIR/cncf-common.sh"
+      |
+      |mkdir -p "$(dirname "$CNCF_RUNTIME_CLASSPATH_FILE")"
+      |classpath="$(
+      |  cd "$PROJECT_ROOT"
+      |  sbt --batch 'export Runtime / fullClasspath' | awk '/^\// { print; exit }'
+      |)"
+      |
+      |if [[ -z "$classpath" ]]; then
+      |  echo "Failed to resolve Runtime / fullClasspath." >&2
+      |  exit 1
+      |fi
+      |
+      |printf '%s\n' "$classpath" > "$CNCF_RUNTIME_CLASSPATH_FILE"
+      |printf 'Wrote %s\n' "$CNCF_RUNTIME_CLASSPATH_FILE"
+      |""".stripMargin
+
+  private[cozy] def carRunServerScript(): String =
+    """#!/usr/bin/env bash
+      |set -euo pipefail
+      |
+      |SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+      |# shellcheck source=cncf-common.sh
+      |source "$SCRIPT_DIR/cncf-common.sh"
+      |
+      |if [[ ! -s "$CNCF_RUNTIME_CLASSPATH_FILE" ]]; then
+      |  echo "Runtime classpath is not prepared." >&2
+      |  echo "Run: $SCRIPT_DIR/update-runtime-classpath.sh" >&2
+      |  exit 1
+      |fi
+      |
+      |runtime_classpath="$(
+      |  "$CNCF_LAUNCHER" \
+      |    --dependency "org.goldenport:goldenport-cncf_3:$CNCF_VERSION" \
+      |    --main-class "$CNCF_MAIN_CLASS" \
+      |    --repository "$SIMPLEMODELING_REPOSITORY" \
+      |    --cache "$CNCF_LAUNCHER_CACHE" \
+      |    --resolve-only
+      |)"
+      |sample_classpath="$(cat "$CNCF_RUNTIME_CLASSPATH_FILE")"
+      |
+      |exec java \
+      |  -Dcncf.server.port="$CNCF_SERVER_PORT" \
+      |  -Dcncf.http.baseurl="$CNCF_HTTP_BASEURL" \
+      |  -cp "$runtime_classpath:$sample_classpath" \
+      |  "$CNCF_MAIN_CLASS" \
+      |  "${CNCF_COMMON_ARGS[@]}" \
+      |  server
+      |""".stripMargin
+
+  private[cozy] def carRunServerDebugScript(): String =
+    """#!/usr/bin/env bash
+      |set -euo pipefail
+      |
+      |SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+      |# shellcheck source=cncf-common.sh
+      |source "$SCRIPT_DIR/cncf-common.sh"
+      |
+      |DEBUG_PORT="${DEBUG_PORT:-5005}"
+      |
+      |cd "$PROJECT_ROOT"
+      |exec sbt \
+      |  -J-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:"$DEBUG_PORT" \
+      |  "runMain $CNCF_MAIN_CLASS ${CNCF_COMMON_ARGS[*]} server"
+      |""".stripMargin
+
+  private[cozy] def carLauncherScript(): String =
+    """#!/usr/bin/env bash
+      |set -eo pipefail
+      |
+      |SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+      |REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+      |
+      |usage() {
+      |  cat <<'EOF'
+      |Usage:
+      |  bin/launcher --dependency <org:name:version> --main-class <fqcn> [options] [-- app-args...]
+      |  bin/launcher --dependency-file <path> --main-class <fqcn> [options] [-- app-args...]
+      |
+      |Options:
+      |  --dependency <coord>        Root dependency coordinate. Repeatable.
+      |  --dependency-file <path>    Newline-separated dependency coordinates.
+      |  --main-class <fqcn>         Main class passed to java.
+      |  --repository <repo>         Extra coursier repository. Repeatable.
+      |  --cache <path>              Override coursier cache directory.
+      |  --scala-version <version>   Pass through to coursier for Scala dependencies.
+      |  --java <path>               Java executable. Default: java
+      |  --java-opt <arg>            JVM option. Repeatable.
+      |  --fetch-opt <arg>           Extra option forwarded to 'cs fetch'. Repeatable.
+      |  --resolve-only              Print resolved classpath and exit.
+      |  -h, --help                  Show this help.
+      |
+      |Defaults:
+      |  - repositories: ivy2Local, central, file://$HOME/.m2/repository
+      |  - cache: coursier default unless --cache is specified
+      |EOF
+      |}
+      |
+      |require_value() {
+      |  local name="$1"
+      |  local value="${2:-}"
+      |  if [[ -z "$value" ]]; then
+      |    echo "Missing required value: $name" >&2
+      |    exit 2
+      |  fi
+      |}
+      |
+      |find_coursier() {
+      |  if command -v cs >/dev/null 2>&1; then
+      |    command -v cs
+      |    return
+      |  fi
+      |  if command -v coursier >/dev/null 2>&1; then
+      |    command -v coursier
+      |    return
+      |  fi
+      |  echo "coursier command not found. Install coursier or put cs on PATH." >&2
+      |  exit 3
+      |}
+      |
+      |java_bin="${JAVA_CMD:-java}"
+      |main_class=""
+      |cache_dir=""
+      |scala_version=""
+      |resolve_only="0"
+      |
+      |declare -a dependencies=()
+      |declare -a dependency_files=()
+      |declare -a repositories=("ivy2Local" "central" "file://${HOME}/.m2/repository")
+      |declare -a java_opts=()
+      |declare -a fetch_opts=()
+      |declare -a app_args=()
+      |
+      |while [[ $# -gt 0 ]]; do
+      |  case "$1" in
+      |    --dependency)
+      |      dependencies+=("${2:-}")
+      |      shift 2
+      |      ;;
+      |    --dependency-file)
+      |      dependency_files+=("${2:-}")
+      |      shift 2
+      |      ;;
+      |    --main-class)
+      |      main_class="${2:-}"
+      |      shift 2
+      |      ;;
+      |    --repository)
+      |      repositories+=("${2:-}")
+      |      shift 2
+      |      ;;
+      |    --cache)
+      |      cache_dir="${2:-}"
+      |      shift 2
+      |      ;;
+      |    --scala-version)
+      |      scala_version="${2:-}"
+      |      shift 2
+      |      ;;
+      |    --java)
+      |      java_bin="${2:-}"
+      |      shift 2
+      |      ;;
+      |    --java-opt)
+      |      java_opts+=("${2:-}")
+      |      shift 2
+      |      ;;
+      |    --java-opt=*)
+      |      java_opts+=("${1#--java-opt=}")
+      |      shift
+      |      ;;
+      |    --fetch-opt)
+      |      fetch_opts+=("${2:-}")
+      |      shift 2
+      |      ;;
+      |    --fetch-opt=*)
+      |      fetch_opts+=("${1#--fetch-opt=}")
+      |      shift
+      |      ;;
+      |    --resolve-only)
+      |      resolve_only="1"
+      |      shift
+      |      ;;
+      |    -h|--help)
+      |      usage
+      |      exit 0
+      |      ;;
+      |    --)
+      |      shift
+      |      app_args=("$@")
+      |      break
+      |      ;;
+      |    *)
+      |      echo "Unknown argument: $1" >&2
+      |      usage >&2
+      |      exit 1
+      |      ;;
+      |  esac
+      |done
+      |
+      |require_value "--main-class" "$main_class"
+      |if [[ ${#dependencies[@]} -eq 0 && ${#dependency_files[@]} -eq 0 ]]; then
+      |  echo "Specify at least one --dependency or --dependency-file." >&2
+      |  exit 2
+      |fi
+      |
+      |for dep in "${dependencies[@]}"; do
+      |  require_value "--dependency" "$dep"
+      |done
+      |for dep_file in "${dependency_files[@]}"; do
+      |  require_value "--dependency-file" "$dep_file"
+      |  if [[ ! -f "$dep_file" ]]; then
+      |    echo "Dependency file not found: $dep_file" >&2
+      |    exit 2
+      |  fi
+      |done
+      |
+      |if ! command -v "$java_bin" >/dev/null 2>&1; then
+      |  echo "Java command not found: $java_bin" >&2
+      |  exit 3
+      |fi
+      |
+      |coursier_bin="$(find_coursier)"
+      |
+      |declare -a fetch_cmd=("$coursier_bin" "fetch" "--classpath")
+      |for repo in "${repositories[@]}"; do
+      |  fetch_cmd+=("--repository" "$repo")
+      |done
+      |if [[ -n "$cache_dir" ]]; then
+      |  fetch_cmd+=("--cache" "$cache_dir")
+      |fi
+      |if [[ -n "$scala_version" ]]; then
+      |  fetch_cmd+=("--scala-version" "$scala_version")
+      |fi
+      |for opt in "${fetch_opts[@]}"; do
+      |  fetch_cmd+=("$opt")
+      |done
+      |for dep_file in "${dependency_files[@]}"; do
+      |  fetch_cmd+=("--dependency-file" "$dep_file")
+      |done
+      |for dep in "${dependencies[@]}"; do
+      |  fetch_cmd+=("$dep")
+      |done
+      |
+      |classpath="$("${fetch_cmd[@]}")"
+      |
+      |if [[ "$resolve_only" == "1" ]]; then
+      |  printf '%s\n' "$classpath"
+      |  exit 0
+      |fi
+      |
+      |exec "$java_bin" "${java_opts[@]}" -cp "$classpath" "$main_class" "${app_args[@]}"
       |""".stripMargin
 
   private[cozy] val helpText: String =
@@ -632,14 +1153,30 @@ object Cozy {
     def go(xs: List[String]): Option[Path] = xs match {
       case Nil => None
       case x :: xx if x.startsWith("--save=") =>
-        Some(Paths.get(x.drop("--save=".length)).toAbsolutePath.normalize())
+        Some(_cli_path(x.drop("--save=".length)))
       case "--save" :: value :: _ =>
-        Some(Paths.get(value).toAbsolutePath.normalize())
+        Some(_cli_path(value))
       case _ :: xx =>
         go(xx)
     }
     go(args)
   }
+
+  private def _cli_path(value: String): Path = {
+    val path = Paths.get(value)
+    if (path.isAbsolute)
+      path.normalize()
+    else
+      _cli_base_directory.resolve(path).normalize()
+  }
+
+  private def _cli_base_directory: Path =
+    sys.env.get("COZY_INVOCATION_DIR").
+      filter(_.nonEmpty).
+      map(Paths.get(_)).
+      getOrElse(Paths.get(sys.props("user.dir"))).
+      toAbsolutePath.
+      normalize()
 }
 
 private object CozyArchivePackager {

@@ -13,9 +13,7 @@ import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 
 /*
  * @since   May. 17, 2025
- *  version Apr.  3, 2026
- *  version Apr.  6, 2026
- * @version Apr. 11, 2026
+ * @version Apr. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerGenerationSpec extends AnyFunSuite {
@@ -56,21 +54,47 @@ class ModelerGenerationSpec extends AnyFunSuite {
     val buildSbt = out.resolve("build.sbt")
     val pluginsSbt = out.resolve("project/plugins.sbt")
     val buildProperties = out.resolve("project/build.properties")
+    val launcher = out.resolve("bin/launcher")
+    val commonScript = out.resolve("scripts/cncf-common.sh")
+    val updateClasspathScript = out.resolve("scripts/update-runtime-classpath.sh")
+    val runServerScript = out.resolve("scripts/run-server.sh")
+    val runServerDebugScript = out.resolve("scripts/run-server-debug.sh")
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
     )
     assert(Files.exists(buildSbt), s"build.sbt not found: $buildSbt")
     assert(Files.exists(pluginsSbt), s"plugins.sbt not found: $pluginsSbt")
     assert(Files.exists(buildProperties), s"build.properties not found: $buildProperties")
+    assert(Files.exists(launcher), s"launcher not found: $launcher")
+    assert(Files.exists(commonScript), s"common script not found: $commonScript")
+    assert(Files.exists(updateClasspathScript), s"update script not found: $updateClasspathScript")
+    assert(Files.exists(runServerScript), s"server script not found: $runServerScript")
+    assert(Files.exists(runServerDebugScript), s"debug server script not found: $runServerDebugScript")
+    assert(Files.isExecutable(launcher), s"launcher must be executable: $launcher")
+    assert(Files.isExecutable(updateClasspathScript), s"update script must be executable: $updateClasspathScript")
+    assert(Files.isExecutable(runServerScript), s"server script must be executable: $runServerScript")
+    assert(Files.isExecutable(runServerDebugScript), s"debug server script must be executable: $runServerDebugScript")
     assert(Files.exists(generated), s"generated file not found: $generated")
     val buildSbtContent = Files.readString(buildSbt)
     val pluginsSbtContent = Files.readString(pluginsSbt)
+    val updateClasspathContent = Files.readString(updateClasspathScript)
+    val runServerContent = Files.readString(runServerScript)
+    val runServerDebugContent = Files.readString(runServerDebugScript)
     assert(buildSbtContent.contains("enablePlugins(org.goldenport.cozy.CozyPlugin)"))
     assert(buildSbtContent.contains("lazy val packageCar = taskKey[File]"))
     assert(buildSbtContent.contains("""target.value / "car" / s"${name.value}-${version.value}.car""""))
-    assert(buildSbtContent.contains("""val cncfVersion = "0.4.2-SNAPSHOT""""))
+    assert(buildSbtContent.contains("""val cncfVersion = sampleVersion("CNCF_VERSION", "cncf-version.conf""""))
+    assert(buildSbtContent.contains("""val simpleModelingModelVersion = sampleVersion("SIMPLEMODELING_MODEL_VERSION", "simplemodeling-model-version.conf""""))
     assert(buildSbtContent.contains("""libraryDependencies += "org.goldenport" %% "goldenport-cncf" % cncfVersion"""))
     assert(buildSbtContent.contains("object BuildVersion"))
+    assert(updateClasspathContent.contains("sbt --batch 'export Runtime / fullClasspath'"))
+    val commonScriptContent = Files.readString(commonScript)
+    assert(commonScriptContent.contains("CNCF_VERSION_FILE"))
+    assert(commonScriptContent.contains("versions/cncf-version.conf"))
+    assert(runServerContent.contains("$CNCF_LAUNCHER"))
+    assert(!runServerContent.contains("sbt --batch"))
+    assert(runServerDebugContent.contains("-J-agentlib:jdwp"))
+    assert(runServerDebugContent.contains("runMain $CNCF_MAIN_CLASS"))
     assert(Files.exists(out.resolve("src/main/scala/domain/impl/ComponentFactory.scala")))
     assert(pluginsSbtContent.contains("""addSbtPlugin("org.goldenport" % "sbt-cozy""""))
   }
@@ -90,7 +114,7 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(Files.readString(buildSbt) == "custom build")
     assert(Files.readString(factory) == "custom factory")
     assert(Files.readString(out.resolve("build.sbt.bak")).contains("enablePlugins(org.goldenport.cozy.CozyPlugin)"))
-    assert(Files.readString(Paths.get(factory.toString + ".bak")).contains("class ComponentFactory() extends DomainComponent.Factory"))
+    assert(Files.readString(Paths.get(factory.toString + ".bak")).contains("class ComponentFactory() extends SampleComponent.Factory"))
   }
 
   test("car-sbt-project can skip project and src scaffold files") {
@@ -120,7 +144,7 @@ class ModelerGenerationSpec extends AnyFunSuite {
     cozy.Cozy.main(Array("car-sbt-project", s"--save=${out.toString}", "--overwrite-project-files"))
 
     assert(Files.readString(buildSbt).contains("enablePlugins(org.goldenport.cozy.CozyPlugin)"))
-    assert(Files.readString(factory).contains("class ComponentFactory() extends DomainComponent.Factory"))
+    assert(Files.readString(factory).contains("class ComponentFactory() extends SampleComponent.Factory"))
     assert(!Files.exists(out.resolve("build.sbt.bak")))
     assert(!Files.exists(Paths.get(factory.toString + ".bak")))
   }
@@ -767,15 +791,15 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(explain.exists(e =>
       e.sectionPath == "VALUE/Address" &&
       e.classifiedRole == "structural" &&
-      e.normalizedTarget == "domain.value.Address"
+      e.normalizedTarget == "org.simplemodeling.model.value.Address"
     ))
     assert(explain.exists(e =>
       e.sectionPath == "VALUE/CountryCode" &&
-      e.normalizedTarget == "domain.value.CountryCode"
+      e.normalizedTarget == "org.simplemodeling.model.value.CountryCode"
     ))
     assert(explain.exists(e =>
       e.sectionPath == "VALUE/Address/ATTRIBUTE/addressCountry" &&
-      e.normalizedTarget == "domain.value.Address.addressCountry"
+      e.normalizedTarget == "org.simplemodeling.model.value.Address.addressCountry"
     ))
   }
 
@@ -1577,15 +1601,15 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(content.contains("""implementation = Some("view-search")"""))
     assert(content.contains("""entity <- exec_pure(domain.entity.create.Item.create(action.request.toRecord))"""))
     assert(content.contains("""r <- entity_load[domain.entity.Item](id)"""))
-    assert(content.contains("""r <- entity_search[domain.entity.Item](domain.entity.query.Item.collectionId, Query(action.request.toRecord))"""))
+    assert(content.contains("""r <- entity_search[domain.entity.Item](domain.entity.query.Item.collectionId, Query.fromRecord(action.request.toRecord))"""))
     assert(content.contains("""r <- aggregate_load_option[domain.entity.aggregate.Item](id)"""))
-    assert(content.contains("""r <- aggregate_search[domain.entity.aggregate.Item](domain.entity.query.Item.collectionId.name, Query(action.request.toRecord))"""))
+    assert(content.contains("""r <- aggregate_search[domain.entity.aggregate.Item](domain.entity.query.Item.collectionId.name, Query.fromRecord(action.request.toRecord))"""))
     assert(content.contains("""r <- view_load[domain.entity.view.Item](domain.entity.query.Item.collectionId.name, id)"""))
-    assert(content.contains("""view_search[domain.entity.view.Item](domain.entity.query.Item.collectionId.name, Query(action.request.toRecord))"""))
+    assert(content.contains("""view_search[domain.entity.view.Item](domain.entity.query.Item.collectionId.name, Query.fromRecord(action.request.toRecord))"""))
     assert(content.contains("""view_load[domain.entity.view.summary.Item](domain.entity.query.Item.collectionId.name, "summary", action.id)"""))
-    assert(content.contains("""view_search[domain.entity.view.summary.Item](domain.entity.query.Item.collectionId.name, "summary", action.q)"""))
+    assert(content.contains("""view_search[domain.entity.view.summary.Item](domain.entity.query.Item.collectionId.name, "summary", Query.withControls(action.q, action.request.toRecord))"""))
     assert(content.contains("""view_load[domain.entity.view.detail.Item](domain.entity.query.Item.collectionId.name, "detail", action.id)"""))
-    assert(content.contains("""view_search[domain.entity.view.detail.Item](domain.entity.query.Item.collectionId.name, "detail", action.q)"""))
+    assert(content.contains("""view_search[domain.entity.view.detail.Item](domain.entity.query.Item.collectionId.name, "detail", Query.withControls(action.q, action.request.toRecord))"""))
   }
 
   test("modeler-scala supports IMPLEMENTATION blocking-task for command operations") {
