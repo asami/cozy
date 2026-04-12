@@ -1,0 +1,85 @@
+# COMPONENT
+
+## Domain
+
+### PACKAGE
+
+domain
+
+# VALUE
+
+## SearchOrdersQuery
+
+### EXTENDS
+
+QueryAction
+
+# VALUE
+
+## SearchOrdersResult
+
+### EXTENDS
+
+OperationResult
+
+# SERVICE
+
+## Sales
+
+### OPERATION
+
+#### searchOrders
+
+##### TYPE
+
+QUERY
+
+##### ACCESS
+
+###### POLICY
+
+owner_or_manager
+
+###### RESOURCE
+
+SalesOrder
+
+###### TARGET
+
+salesOrderId
+
+###### OPERATION_MODEL
+
+business-service
+
+###### ENTITY_OPERATION_KIND
+
+resource
+
+###### ENTITY_APPLICATION_DOMAIN
+
+business
+
+###### RELATION
+
+customerId=subject.customerId:read,search/list
+
+###### CONDITION
+
+tenantId=subject.tenantId:read,search/list;postStatus=Published:read,search/list
+
+##### ENTITY
+
+SalesOrder
+
+##### INPUT
+
+###### TYPE
+
+SearchOrdersQuery
+
+##### OUTPUT
+
+###### TYPE
+
+SearchOrdersResult

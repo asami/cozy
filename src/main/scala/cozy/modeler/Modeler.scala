@@ -47,8 +47,7 @@ import scala.collection.mutable
  *  version May. 13, 2025
  *  version Feb. 27, 2026
  *  version Mar. 31, 2026
- *  version Apr.  8, 2026
- * @version Apr.  9, 2026
+ * @version Apr. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
@@ -1472,7 +1471,14 @@ object Modeler {
         MComponent.OperationAccess(
           policy = a.policy,
           resource = a.resource,
-          target = a.target
+          target = a.target,
+          mode = a.mode,
+          relation = a.relation,
+          operationModel = a.operationModel,
+          entityUsage = a.entityUsage,
+          entityOperationKind = a.entityOperationKind,
+          entityApplicationDomain = a.entityApplicationDomain,
+          condition = a.condition
         )
       )
       opdef.map(_.kind) match {
@@ -2309,7 +2315,14 @@ object Modeler {
             MComponent.OperationAccess(
               policy = a.policy,
               resource = a.resource,
-              target = a.target
+              target = a.target,
+              mode = a.mode,
+              relation = a.relation,
+              operationModel = a.operationModel,
+              entityUsage = a.entityUsage,
+              entityOperationKind = a.entityOperationKind,
+              entityApplicationDomain = a.entityApplicationDomain,
+              condition = a.condition
             )
           ),
           parameters = x.parameters.map { p =>

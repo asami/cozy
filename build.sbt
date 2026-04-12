@@ -157,6 +157,10 @@ credentials += Credentials(Path.userHome / ".sbt" / ".credentials")
 
 publishMavenStyle := true
 
+Compile / packageDoc / publishArtifact := false
+
+Compile / doc / sources := Seq.empty
+
 // Docker
 maintainer := "asami@asamioffice.com"
 

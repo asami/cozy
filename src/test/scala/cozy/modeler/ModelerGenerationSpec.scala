@@ -13,7 +13,7 @@ import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 
 /*
  * @since   May. 17, 2025
- * @version Apr. 12, 2026
+ * @version Apr. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerGenerationSpec extends AnyFunSuite {
@@ -1028,10 +1028,32 @@ class ModelerGenerationSpec extends AnyFunSuite {
     )
     assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)
-    assert(content.contains("""access = Some(org.goldenport.cncf.operation.CmlOperationAccess(policy = "owner_or_manager", resource = Some("UserAccount"), target = Some("userAccountId")))"""))
+    assert(content.contains("""access = Some(org.goldenport.cncf.operation.CmlOperationAccess(policy = "owner_or_manager", resource = Some("UserAccount"), target = Some("userAccountId")"""))
     assert(!content.contains("authorizeSimpleEntityOwnerOrManager("))
     assert(!content.contains("entity.Resource"))
     assert(!content.contains("entity_load_c[domain.entity.UserAccount]"))
+  }
+
+  test("modeler-scala carries authorization profile fields into CmlOperationAccess") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/service-authorization-profile-access-contract.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-service-authorization-profile-access-contract")
+    _delete_recursively(out)
+    Files.createDirectories(out.getParent)
+
+    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+
+    val generated = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+    )
+    assert(Files.exists(generated), s"generated file not found: $generated")
+    val content = Files.readString(generated)
+    assert(content.contains("""name = "searchOrders""""))
+    assert(content.contains("""operationModel = Some("business-service")"""))
+    assert(content.contains("""entityOperationKind = Some("resource")"""))
+    assert(content.contains("""entityApplicationDomain = Some("business")"""))
+    assert(content.contains("""relation = Some("customerId=subject.customerId:read,search/list")"""))
+    assert(content.contains("""condition = Some("tenantId=subject.tenantId:read,search/list;postStatus=Published:read,search/list")"""))
   }
 
   test("modeler-scala keeps generated aggregate/view/entity services alongside custom SERVICE operations") {
