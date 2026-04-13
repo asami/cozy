@@ -32,6 +32,10 @@ OperationResult
 
 manager_only
 
+#### OPERATION_MODEL
+
+internal-service
+
 ### OPERATION
 
 #### listAccounts

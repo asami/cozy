@@ -26,10 +26,12 @@ class CozyArchivePackagerSpec extends AnyFunSuite {
         s"--docs-dir=${doc.getParent.getParent}",
         "--name=sample-component",
         "--version=0.1.0",
-        "--component=sample-component"
+        "--component=sample-component",
+        "--entities=Notice:usageKind=public-content,operationKind=resource,applicationDomain=cms;SalesOrder:usage_kind=business-object,operation_kind=resource,application_domain=business"
       ))
 
       val entries = zipEntries(archive)
+      val descriptor = zipText(archive, "component-descriptor.json")
       assert(entries.contains("component-descriptor.json"))
       assert(entries.contains("component/main.jar"))
       assert(entries.contains("lib/dep.jar"))
@@ -37,6 +39,14 @@ class CozyArchivePackagerSpec extends AnyFunSuite {
       assert(entries.contains("config/default.conf"))
       assert(entries.contains("docs/guide/intro.md"))
       assert(!entries.contains("meta/manifest.json"))
+      assert(descriptor.contains(""""entities": ["""))
+      assert(descriptor.contains(""""entity": "Notice""""))
+      assert(descriptor.contains(""""usageKind": "public-content""""))
+      assert(descriptor.contains(""""operationKind": "resource""""))
+      assert(descriptor.contains(""""applicationDomain": "cms""""))
+      assert(descriptor.contains(""""entity": "SalesOrder""""))
+      assert(descriptor.contains(""""usageKind": "business-object""""))
+      assert(descriptor.contains(""""applicationDomain": "business""""))
     }
   }
 
@@ -81,6 +91,18 @@ class CozyArchivePackagerSpec extends AnyFunSuite {
     val zip = new ZipFile(path.toFile)
     try zip.entries().asScala.map(_.getName).toSet
     finally zip.close()
+  }
+
+  private def zipText(path: Path, entryName: String): String = {
+    val zip = new ZipFile(path.toFile)
+    try {
+      val entry = zip.getEntry(entryName)
+      val in = zip.getInputStream(entry)
+      try scala.io.Source.fromInputStream(in, "UTF-8").mkString
+      finally in.close()
+    } finally {
+      zip.close()
+    }
   }
 
   private def deleteTree(path: Path): Unit =

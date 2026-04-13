@@ -763,6 +763,42 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(!valueModel.classes.contains("Person"))
   }
 
+  test("kaleidox parses entity authorization classification features") {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("target/test-generated/modeler-entity-authorization-classification.dox")
+    _write(input,
+      """# SCHEMA
+        |
+        |## SalesOrderSchema
+        |
+        |### ATTRIBUTE
+        |
+        || name | type   |
+        || id   | string |
+        |
+        |# ENTITY
+        |
+        |## SalesOrder
+        |
+        |### FEATURES
+        |
+        |schema = "SalesOrderSchema"
+        |usageKind = "business-object"
+        |operationKind = "resource"
+        |applicationDomain = "business"
+        |""".stripMargin
+    )
+
+    val model = KaleidoxModel.load(KaleidoxConfig.default.withoutLocation, input.toFile)
+    val entity = model.takeEntityModel.get("SalesOrder").getOrElse {
+      fail("SalesOrder in EntityModel is missing")
+    }
+
+    assert(entity.usageKind.contains("business-object"))
+    assert(entity.operationKind.contains("resource"))
+    assert(entity.applicationDomain.contains("business"))
+  }
+
   test("modeler explain emits VALUE section roles and normalized targets") {
     val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
     val input = base.resolve("src/test/resources/modeler/value-only-literate.dox")
@@ -1012,6 +1048,7 @@ class ModelerGenerationSpec extends AnyFunSuite {
     val content = Files.readString(generated)
     assert(content.contains("""name = "listAccounts""""))
     assert(content.contains("""access = Some(org.goldenport.cncf.operation.CmlOperationAccess(policy = "manager_only""""))
+    assert(content.contains("""operationModel = Some("internal-service")"""))
   }
 
   test("modeler-scala generates owner_or_manager authorization against the declared entity") {

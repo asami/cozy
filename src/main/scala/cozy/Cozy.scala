@@ -28,7 +28,8 @@ import scala.collection.JavaConverters._
  *  version Feb. 28, 2022
  *  version Aug. 20, 2025
  *  version Mar. 17, 2026
- * @version Apr. 12, 2026
+ *  version Apr. 12, 2026
+ * @version Apr. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 class Cozy(
@@ -1060,7 +1061,7 @@ object Cozy {
       |  modeler-scala-value <model-file> --save=<dir>
       |      Generate value/domain model Scala sources without a component.
       |
-      |  package-car --save=<file> --main-jar=<file> --name=<name> --version=<version> --component=<component>
+      |  package-car --save=<file> --main-jar=<file> --name=<name> --version=<version> --component=<component> [--entities=<spec>]
       |      Build a CAR archive.
       |
       |  package-sar --save=<file> --source-dir=<dir> --name=<name> --version=<version>
@@ -1192,6 +1193,7 @@ private object CozyArchivePackager {
     val component = _required_value(args, "component")
     val extensionMap = _string_map(args, "extensions")
     val configMap = _string_map(args, "config")
+    val entities = _entity_descriptors(args)
     _write_archive(
       save,
       Vector(
@@ -1201,7 +1203,7 @@ private object CozyArchivePackager {
         spiJars.map(p => p -> s"spi/${p.getFileName}") ++
         defaultConf.toVector.map(_ -> "config/default.conf") ++
         _docs_entries(docsDir) ++
-        Vector(_write_temp("component-descriptor", _component_descriptor_json(name, version, component, extensionMap, configMap)) -> "component-descriptor.json"),
+        Vector(_write_temp("component-descriptor", _component_descriptor_json(name, version, component, extensionMap, configMap, entities)) -> "component-descriptor.json"),
       Vector("component", "lib", "spi", "config", "docs")
     )
   }
@@ -1298,16 +1300,60 @@ private object CozyArchivePackager {
     version: String,
     component: String,
     extensions: Map[String, String],
-    config: Map[String, String]
+    config: Map[String, String],
+    entities: Vector[EntityDescriptor]
   ): String =
     s"""{
        |  "name": ${_json_string(name)},
        |  "version": ${_json_string(version)},
        |  "component": ${_json_string(component)},
+       |  "entities": ${_json_entities(entities)},
        |  "extensions": ${_json_map(extensions)},
        |  "config": ${_json_map(config)}
        |}
        |""".stripMargin
+
+  private final case class EntityDescriptor(
+    name: String,
+    usageKind: Option[String],
+    operationKind: Option[String],
+    applicationDomain: Option[String]
+  )
+
+  private def _entity_descriptors(args: List[String]): Vector[EntityDescriptor] =
+    _value(args, "entities").toVector.flatMap { text =>
+      text.split(";").toVector.map(_.trim).filter(_.nonEmpty).map(_entity_descriptor)
+    }
+
+  private def _entity_descriptor(text: String): EntityDescriptor = {
+    val parts = text.split(":", 2).toVector.map(_.trim)
+    val name = parts.headOption.filter(_.nonEmpty).getOrElse(RAISE.invalidArgumentFault(s"Invalid entity descriptor: $text"))
+    val kv = parts.drop(1).headOption.toVector.flatMap(_.split(",")).flatMap { entry =>
+      entry.split("=", 2).toVector.map(_.trim) match {
+        case Vector(k, v) if k.nonEmpty && v.nonEmpty => Some(k -> v)
+        case _ => None
+      }
+    }.toMap
+    EntityDescriptor(
+      name = name,
+      usageKind = kv.get("usageKind").orElse(kv.get("usage_kind")).orElse(kv.get("entityUsage")).orElse(kv.get("entity_usage")),
+      operationKind = kv.get("operationKind").orElse(kv.get("operation_kind")).orElse(kv.get("entityOperationKind")).orElse(kv.get("entity_operation_kind")),
+      applicationDomain = kv.get("applicationDomain").orElse(kv.get("application_domain")).orElse(kv.get("entityApplicationDomain")).orElse(kv.get("entity_application_domain"))
+    )
+  }
+
+  private def _json_entities(xs: Vector[EntityDescriptor]): String =
+    xs.map(_json_entity).mkString("[", ", ", "]")
+
+  private def _json_entity(entity: EntityDescriptor): String = {
+    val fields = Vector(
+      Some("entity" -> entity.name),
+      entity.usageKind.map("usageKind" -> _),
+      entity.operationKind.map("operationKind" -> _),
+      entity.applicationDomain.map("applicationDomain" -> _)
+    ).flatten
+    fields.map { case (k, v) => s"${_json_string(k)}: ${_json_string(v)}" }.mkString("{", ", ", "}")
+  }
 
   private def _json_map(xs: Map[String, String]): String =
     xs.toVector.sortBy(_._1).map { case (k, v) => s"${_json_string(k)}: ${_json_string(v)}" }.mkString("{", ", ", "}")

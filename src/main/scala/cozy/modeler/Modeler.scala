@@ -685,7 +685,10 @@ object Modeler {
         attributes,
         associations,
         operations,
-        statemachines
+        statemachines,
+        usageKind = p.usageKind,
+        operationKind = p.operationKind,
+        applicationDomain = p.applicationDomain
       )
     }
 
