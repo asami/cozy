@@ -47,7 +47,7 @@ import scala.collection.mutable
  *  version May. 13, 2025
  *  version Feb. 27, 2026
  *  version Mar. 31, 2026
- * @version Apr. 13, 2026
+ * @version Apr. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
@@ -1282,8 +1282,10 @@ object Modeler {
       val operations = _operation_definitions()
       val components = _component_definitions(pkg)
       val subsystems = _subsystem_definitions(pkg)
+      val entitydescs = _entity_runtime_descriptors(entities)
       val ccore = MComponent.Core(
         entities = entities,
+        entityRuntimeDescriptors = entitydescs,
         stateMachineTransitionRules = transitionrules,
         stateMachineDefinitions = statemachinedefs,
         eventReceptionDefinitions = eventdefs,
@@ -1297,6 +1299,26 @@ object Modeler {
       )
       MDomainComponent(desc, core, ccore)
     }
+
+    private def _entity_runtime_descriptors(
+      entities: Vector[MEntity]
+    ): Vector[MComponent.EntityRuntimeDescriptor] =
+      entities.map { entity =>
+        MComponent.EntityRuntimeDescriptor(
+          entityName = StringUtils.makeTitle(entity.name),
+          packageName = _entity_runtime_package_name(entity),
+          usageKind = entity.usageKind,
+          operationKind = entity.operationKind,
+          applicationDomain = entity.applicationDomain
+        )
+      }
+
+    private def _entity_runtime_package_name(entity: MEntity): String =
+      entity.packageName match {
+        case "" => "entity"
+        case x if x.endsWith(".entity") => x
+        case x => s"${x}.entity"
+      }
 
     private def _service_package(
       pkg: MPackage,
