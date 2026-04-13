@@ -52,6 +52,10 @@ salesOrderId
 
 business-service
 
+###### MODE
+
+user-permission
+
 ###### ENTITY_OPERATION_KIND
 
 resource
@@ -62,7 +66,8 @@ business
 
 ###### RELATION
 
-customerId=subject.customerId:read,search/list
+customerId=subject.customerId:read,search/list;
+accountId=subject.accountId:read,search/list
 
 ###### CONDITION
 

@@ -1086,10 +1086,11 @@ class ModelerGenerationSpec extends AnyFunSuite {
     assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)
     assert(content.contains("""name = "searchOrders""""))
+    assert(content.contains("""mode = Some("user-permission")"""))
     assert(content.contains("""operationModel = Some("business-service")"""))
     assert(content.contains("""entityOperationKind = Some("resource")"""))
     assert(content.contains("""entityApplicationDomain = Some("business")"""))
-    assert(content.contains("""relation = Some("customerId=subject.customerId:read,search/list")"""))
+    assert(content.contains("""relation = Some("customerId=subject.customerId:read,search/list;\naccountId=subject.accountId:read,search/list")"""))
     assert(content.contains("""condition = Some("tenantId=subject.tenantId:read,search/list;postStatus=Published:read,search/list")"""))
   }
 
