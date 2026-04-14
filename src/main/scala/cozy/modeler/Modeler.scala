@@ -47,7 +47,8 @@ import scala.collection.mutable
  *  version May. 13, 2025
  *  version Feb. 27, 2026
  *  version Mar. 31, 2026
- * @version Apr. 14, 2026
+ *  version Apr. 14, 2026
+ * @version Apr. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
@@ -2225,6 +2226,15 @@ object Modeler {
           name = name,
           entityName = entityname,
           members = members,
+          creates = aggregate.toVector.flatMap(_.creates).map { c =>
+            MComponent.AggregateCreateDefinition(
+              name = c.name,
+              input = c.input,
+              validations = c.validations,
+              events = c.events,
+              initialState = c.initialState
+            )
+          },
           commands = aggregate.toVector.flatMap(_.commands).map { c =>
             MComponent.AggregateCommandDefinition(
               name = c.name,

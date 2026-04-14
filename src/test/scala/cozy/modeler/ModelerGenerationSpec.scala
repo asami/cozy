@@ -15,7 +15,8 @@ import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 
 /*
  * @since   May. 17, 2025
- * @version Apr. 14, 2026
+ *  version Apr. 14, 2026
+ * @version Apr. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -645,9 +646,13 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val aggregate = entity.aggregate.getOrElse {
       fail("Aggregate is missing")
     }
+    assert(aggregate.creates.nonEmpty)
+    assert(aggregate.creates.head.name == "createPerson")
+    assert(aggregate.creates.head.events.contains("person.created"))
+    assert(aggregate.creates.head.initialState.contains("Active"))
     assert(aggregate.commands.nonEmpty)
-    assert(aggregate.commands.head.name == "createPerson")
-    assert(aggregate.commands.head.events.contains("person.created"))
+    assert(aggregate.commands.head.name == "renamePerson")
+    assert(aggregate.commands.head.events.contains("person.renamed"))
     assert(aggregate.state.exists(_.name == "name"))
     assert(aggregate.invariants.exists(_.name == "nameRequired"))
 
@@ -689,11 +694,14 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(content.contains("""entityName = "post""""))
     assert(content.contains("""joinFieldName = Some("personId")"""))
     assert(content.contains("""multiplicity = Some("*")"""))
-    assert(content.contains("""AggregateCommandDefinition("""))
+    assert(content.contains("""AggregateCreateDefinition("""))
     assert(content.contains("""name = "createPerson""""))
+    assert(content.contains("""initialState = Some("Active")"""))
+    assert(content.contains("""AggregateCommandDefinition("""))
+    assert(content.contains("""name = "renamePerson""""))
     assert(content.contains("""input = Map("input.name" -> "name")"""))
     assert(content.contains("""validations = Vector("name.nonEmpty")"""))
-    assert(content.contains("""events = Vector("person.created")"""))
+    assert(content.contains("""events = Vector("person.renamed")"""))
     assert(content.contains("""newState = Some("Active")"""))
     assert(content.contains("""AggregateStateDefinition("""))
     assert(content.contains("""datatype = Some("entityid")"""))

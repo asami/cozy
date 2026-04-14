@@ -11,12 +11,20 @@
 
 ### AGGREGATE
 
-#### COMMAND
+#### CREATE
 
 ##### createPerson
 - INPUT.name :: name
 - VALIDATE :: name.nonEmpty
 - EVENT :: person.created
+- INITIAL_STATE :: Active
+
+#### COMMAND
+
+##### renamePerson
+- INPUT.name :: name
+- VALIDATE :: name.nonEmpty
+- EVENT :: person.renamed
 - NEW_STATE :: Active
 
 #### STATE
