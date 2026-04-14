@@ -21,11 +21,18 @@
 
 #### COMMAND
 
+##### updatePerson
+- INPUT.name :: name
+- VALIDATE :: name.nonEmpty
+- EVENT :: person.updated
+- NEW_STATE :: Active
+
 ##### renamePerson
 - INPUT.name :: name
 - VALIDATE :: name.nonEmpty
 - EVENT :: person.renamed
 - NEW_STATE :: Active
+- IMPLEMENTATION :: pattern:copy-update
 
 #### STATE
 

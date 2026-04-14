@@ -15,7 +15,6 @@ import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 
 /*
  * @since   May. 17, 2025
- *  version Apr. 14, 2026
  * @version Apr. 15, 2026
  * @author  ASAMI, Tomoharu
  */
@@ -650,9 +649,11 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(aggregate.creates.head.name == "createPerson")
     assert(aggregate.creates.head.events.contains("person.created"))
     assert(aggregate.creates.head.initialState.contains("Active"))
+    assert(aggregate.creates.head.implementation.contains("pattern:create"))
     assert(aggregate.commands.nonEmpty)
     assert(aggregate.commands.head.name == "renamePerson")
     assert(aggregate.commands.head.events.contains("person.renamed"))
+    assert(aggregate.commands.head.implementation.contains("pattern:copy-update"))
     assert(aggregate.state.exists(_.name == "name"))
     assert(aggregate.invariants.exists(_.name == "nameRequired"))
 
@@ -697,16 +698,53 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(content.contains("""AggregateCreateDefinition("""))
     assert(content.contains("""name = "createPerson""""))
     assert(content.contains("""initialState = Some("Active")"""))
+    assert(content.contains("""implementation = None"""))
     assert(content.contains("""AggregateCommandDefinition("""))
+    assert(content.contains("""name = "updatePerson""""))
+    assert(content.contains("""events = Vector("person.updated")"""))
+    assert(content.contains("""newState = Some("Active")"""))
     assert(content.contains("""name = "renamePerson""""))
     assert(content.contains("""input = Map("input.name" -> "name")"""))
     assert(content.contains("""validations = Vector("name.nonEmpty")"""))
     assert(content.contains("""events = Vector("person.renamed")"""))
     assert(content.contains("""newState = Some("Active")"""))
+    assert(content.contains("""implementation = Some("pattern:copy-update")"""))
     assert(content.contains("""AggregateStateDefinition("""))
     assert(content.contains("""datatype = Some("entityid")"""))
     assert(content.contains("""AggregateInvariantDefinition("""))
     assert(content.contains("""expression = Some("state.name.nonEmpty")"""))
+    assert(content.contains("""r <- aggregate_create("person", "createPerson", domain.entity.aggregate.Person.createPerson(action.entity.toRecord())(using executionContext))"""))
+    assert(content.contains("""r <- aggregate_update("person", action.entity.id, "updatePerson", current.updatePerson(action.entity.toRecord())(using executionContext))"""))
+    assert(!content.contains("""aggregate_put_record("person", r.toRecord())"""))
+    assert(!content.contains("collection.putRecord(r.toRecord())"))
+    assert(!content.contains("""aggregate_authorize_instance("person", action.id, "read""""))
+  }
+
+    "modeler-scala-value emits aggregate authorization hooks" in {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/aggregate-view-metadata.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-value-aggregate-hooks")
+    _delete_recursively(out)
+    Files.createDirectories(out.getParent)
+
+    cozy.Cozy.main(Array("modeler-scala-value", input.toString, s"--save=${out.toString}"))
+
+    val generated = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/entity/aggregate/Person.scala"
+    )
+    assert(Files.exists(generated), s"generated file not found: $generated")
+    val content = Files.readString(generated)
+    assert(content.contains("def renamePerson(input: Record)(using ctx: org.goldenport.cncf.context.ExecutionContext): Consequence[Person]"))
+    assert(content.contains("""r <- aggregateCommandNotImplemented[Person]("renamePerson")"""))
+    assert(content.contains("def updatePerson(input: Record)(using ctx: org.goldenport.cncf.context.ExecutionContext): Consequence[Person]"))
+    assert(content.contains("""_ <- if (r.id == id) Consequence.success(()) else Consequence.argumentInvalid(s"Aggregate id mismatch in updatePerson: expected ${id}, actual ${r.id}")"""))
+    assert(content.contains("protected def aggregateCommandNotImplemented[A](commandName: String): Consequence[A]"))
+    assert(content.contains("def createPerson(input: Record)(using ctx: org.goldenport.cncf.context.ExecutionContext): Consequence[Person]"))
+    assert(content.contains("r <- createC(input)"))
+    assert(content.contains("def aggregateCreateNotImplemented[A](commandName: String): Consequence[A]"))
+    assert(!content.contains("authorizeAggregateCommand"))
+    assert(!content.contains("authorizeAggregateCreate"))
+    assert(!content.contains("AggregateAuthorization.authorizeCommand"))
   }
 
     "modeler-scala emits eventReceptionDefinitions from Event section" in {

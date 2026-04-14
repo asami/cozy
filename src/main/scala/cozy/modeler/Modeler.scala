@@ -47,7 +47,6 @@ import scala.collection.mutable
  *  version May. 13, 2025
  *  version Feb. 27, 2026
  *  version Mar. 31, 2026
- *  version Apr. 14, 2026
  * @version Apr. 15, 2026
  * @author  ASAMI, Tomoharu
  */
@@ -674,7 +673,7 @@ object Modeler {
         _associations(affiliation, p.schemaClass),
         _aggregate_member_associations(affiliation, p.schemaClass.aggregate)
       )
-      val operations = Nil // TODO
+      val operations = _aggregate_methods(p)
       val statemachines = _state_machines(affiliation, p)
       MDomainResource(
         desc,
@@ -692,6 +691,19 @@ object Modeler {
         applicationDomain = p.applicationDomain
       )
     }
+
+    private def _aggregate_methods(
+      p: EntityClass
+    ): List[MOperation] =
+      p.schemaClass.aggregate.toList.flatMap { aggregate =>
+        val creates = aggregate.creates.map { create =>
+          MOperation.command(create.name, MParameter.record("input"))
+        }
+        val commands = aggregate.commands.map { command =>
+          MOperation.command(command.name, MParameter.record("input"))
+        }
+        creates ++ commands
+      }
 
     private lazy val _simple_entity_template: Option[EntityClass] =
       entity.classes.values.find(c => _is_simple_entity(c.name))
@@ -2232,7 +2244,8 @@ object Modeler {
               input = c.input,
               validations = c.validations,
               events = c.events,
-              initialState = c.initialState
+              initialState = c.initialState,
+              implementation = c.implementation
             )
           },
           commands = aggregate.toVector.flatMap(_.commands).map { c =>
@@ -2241,7 +2254,8 @@ object Modeler {
               input = c.input,
               validations = c.validations,
               events = c.events,
-              newState = c.newState
+              newState = c.newState,
+              implementation = c.implementation
             )
           },
           state = aggregate.toVector.flatMap(_.state).map { s =>
@@ -2463,6 +2477,16 @@ object Modeler {
       }
       b.toString
     }
+
+    private def _scala_string_literal(p: String): String =
+      "\"" + p.flatMap {
+        case '\\' => "\\\\"
+        case '"' => "\\\""
+        case '\n' => "\\n"
+        case '\r' => "\\r"
+        case '\t' => "\\t"
+        case c => c.toString
+      } + "\""
 
     private case class _TransitionDef(
       machineName: String,
@@ -2962,7 +2986,9 @@ object Modeler {
       // NOTE: Aggregate-specific DSL/model is not available yet.
       // Default is aggregate.<Entity>. Non-default is aggregate.<aggregate-name>.<Entity>.
       val aggregateclass = _qualify(s"${_aggregate_package(_aggregate_name(entity))}.$title")
+      val wholeclass = _qualify(s"${_entity_package}.$title")
       val queryclass = _qualify(s"${_entity_query_package}.$title")
+      val entityname = _package_token(entity.name)
       val createparam = MParameter("entity", MEntityValue.aggregate(entity))
       val saveparam = MParameter("entity", MEntityValue.aggregate(entity))
       val updateparam = MParameter("entity", MEntityValue.aggregate(entity))
@@ -2970,12 +2996,24 @@ object Modeler {
       val idparam = MParameter.entityId
       val loadresult = MResult.option(MEntityValue.aggregate(entity))
       val searchresult = MResult.search(MEntityValue.aggregate(entity))
+      val aggregate = this.entity.classes.get(entity.name).flatMap(_.schemaClass.aggregate)
+      val createMethod = s"create$title"
+      val updateMethod = s"update$title"
+      val hasCreateMethod = aggregate.exists(_.creates.exists(_.name == createMethod))
+      val hasUpdateMethod = aggregate.exists(_.commands.exists(_.name == updateMethod))
       val create = MOperation.commandBody(s"create$title", createparam) {
-        blockFor(
-          "_ <- uowmNotImplemented[org.goldenport.cncf.unitofwork.UnitOfWorkOp, Unit]"
-        )(
-          "OperationResponse.void"
-        )
+        if (hasCreateMethod)
+          blockFor(
+            s"r <- aggregate_create(${_scala_string_literal(entityname)}, ${_scala_string_literal(createMethod)}, $aggregateclass.$createMethod(action.entity.toRecord())(using executionContext))"
+          )(
+            "OperationResponse.create(r.toRecord())"
+          )
+        else
+          blockFor(
+            "_ <- uowmNotImplemented[org.goldenport.cncf.unitofwork.UnitOfWorkOp, Unit]"
+          )(
+            "OperationResponse.void"
+          )
       }
       val load = MOperation.queryBody(s"load$title", idparam, loadresult) {
         blockFor(
@@ -2992,11 +3030,19 @@ object Modeler {
         )
       }
       val update = MOperation.commandBody(s"update$title", updateparam) {
-        blockFor(
-          "_ <- uowmNotImplemented[org.goldenport.cncf.unitofwork.UnitOfWorkOp, Unit]"
-        )(
-          "OperationResponse.void"
-        )
+        if (hasUpdateMethod)
+          blockFor(
+            s"current <- aggregate_load[$aggregateclass](action.entity.id)",
+            s"r <- aggregate_update(${_scala_string_literal(entityname)}, action.entity.id, ${_scala_string_literal(updateMethod)}, current.$updateMethod(action.entity.toRecord())(using executionContext))"
+          )(
+            "OperationResponse.create(r.toRecord())"
+          )
+        else
+          blockFor(
+            "_ <- uowmNotImplemented[org.goldenport.cncf.unitofwork.UnitOfWorkOp, Unit]"
+          )(
+            "OperationResponse.void"
+          )
       }
       val delete = MOperation.commandBody(s"delete$title", idparam) {
         blockFor(
