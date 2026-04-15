@@ -609,6 +609,25 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(column.constraints.exists(_.isInstanceOf[CFormat]))
   }
 
+    "modeler-scala emits WebValidationHints from CML constraint metadata" in {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/constraint-metadata.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-constraint-metadata")
+    _delete_recursively(out)
+    Files.createDirectories(out.getParent)
+
+    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+
+    val generated = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/entity/CountryCode.scala"
+    )
+    assert(Files.exists(generated), s"generated file not found: $generated")
+    val content = Files.readString(generated)
+    assert(content.contains(
+      """validation = org.goldenport.schema.WebValidationHints(minLength = Some(2), maxLength = Some(2), pattern = Some("^..$"))"""
+    ))
+  }
+
     "kaleidox accepts extended format values for CFormat constraints" in {
     val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
     val input = base.resolve("src/test/resources/modeler/constraint-format-extended.dox")
