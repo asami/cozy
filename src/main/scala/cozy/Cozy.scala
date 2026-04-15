@@ -132,12 +132,13 @@ class Cozy(
         val versions = Cozy.CarDependencyVersions.create(rest)
         val replArgs = _without_project_file_policy_args(rest)
         val modelArgs = _without_save_args(replArgs)
+        val modelPath = modelArgs.find(!_.startsWith("-")).map(Paths.get(_))
         if (modelArgs.exists(!_.startsWith("-"))) {
           val repl = (Vector("modeler-scala") ++ _convert_args(replArgs)).mkString(" ")
           val c = _operation_call(Array(repl))
           interpreter.execute(c)
         }
-        _materialize_car_sbt_project(save, policy, versions)
+        _materialize_car_sbt_project(save, policy, versions, modelPath)
         true
       case _ =>
         false
@@ -237,7 +238,8 @@ class Cozy(
   private def _materialize_car_sbt_project(
     dir: Path,
     policy: Cozy.ProjectFilePolicy,
-    versions: Cozy.CarDependencyVersions
+    versions: Cozy.CarDependencyVersions,
+    modelPath: Option[Path] = None
   ): Unit = {
     if (policy.isSkip)
       return
@@ -272,7 +274,7 @@ class Cozy(
     Files.createDirectories(webdir)
     _write_project_file(
       webdir.resolve("web.yaml"),
-      Cozy.carWebDescriptorYaml(),
+      Cozy.carWebDescriptorYaml(modelPath),
       policy
     )
     val impldir = dir.resolve("src/main/scala/domain/impl")
@@ -666,7 +668,10 @@ object Cozy {
       |SearchNoticesResult
       |""".stripMargin
 
-  private[cozy] def carWebDescriptorYaml(): String =
+  private[cozy] def carWebDescriptorYaml(modelPath: Option[Path] = None): String =
+    modelPath.flatMap(_car_web_descriptor_yaml_from_cml).getOrElse(_default_car_web_descriptor_yaml)
+
+  private def _default_car_web_descriptor_yaml: String =
     """expose:
       |  sample.notice.post-notice: protected
       |  sample.notice.search-notices: public
@@ -687,6 +692,27 @@ object Cozy {
       |  entity.notice:
       |    totalCount: optional
       |""".stripMargin
+
+  private def _car_web_descriptor_yaml_from_cml(path: Path): Option[String] =
+    if (!Files.exists(path))
+      None
+    else {
+      val lines = Files.readAllLines(path, StandardCharsets.UTF_8).asScala.toVector
+      val start = lines.indexWhere(line => _is_web_heading(line))
+      if (start < 0)
+        None
+      else {
+        val body = lines.drop(start + 1).takeWhile(line => !_is_top_level_heading(line))
+        val text = body.dropWhile(_.trim.isEmpty).reverse.dropWhile(_.trim.isEmpty).reverse.mkString("\n")
+        Option(text).filter(_.trim.nonEmpty).map(_ + "\n")
+      }
+    }
+
+  private def _is_web_heading(line: String): Boolean =
+    line.trim.matches("#+\\s+WEB\\s*")
+
+  private def _is_top_level_heading(line: String): Boolean =
+    line.trim.matches("#\\s+.+")
 
   private[cozy] def carComponentFactorySource(): String =
     """package domain.impl

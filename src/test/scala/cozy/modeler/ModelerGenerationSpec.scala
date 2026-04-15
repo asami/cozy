@@ -181,6 +181,43 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(!Files.exists(generated), s"generated sources should not be materialized without an input model: $generated")
   }
 
+    "car-sbt-project generates web descriptor scaffold from CML WEB metadata" in {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val out = base.resolve("target/test-generated/car-sbt-project-web-metadata")
+    _delete_recursively(out)
+    Files.createDirectories(out)
+    val input = out.resolve("web-metadata.cml")
+    Files.writeString(
+      input,
+      """# COMPONENT
+        |
+        |## Sample
+        |
+        |# WEB
+        |
+        |expose:
+        |  sample.notice.post-notice: public
+        |form:
+        |  sample.notice.post-notice:
+        |    enabled: true
+        |    stayOnError: true
+        |
+        |# SERVICE
+        |
+        |## Notice
+        |""".stripMargin,
+      StandardCharsets.UTF_8
+    )
+
+    cozy.Cozy.main(Array("car-sbt-project", input.toString, s"--save=${out.toString}"))
+
+    val webDescriptor = out.resolve("src/main/web/web.yaml")
+    val content = Files.readString(webDescriptor)
+    assert(content.contains("sample.notice.post-notice: public"))
+    assert(content.contains("stayOnError: true"))
+    assert(!content.contains("sample.notice.search-notices"))
+  }
+
     "cozy help lists commands without entering repl" in {
     val out = new ByteArrayOutputStream()
 
