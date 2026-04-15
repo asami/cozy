@@ -421,12 +421,15 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(content.contains("\"person_id\" -> _to_data_store_value(id)"))
     assert(content.contains("\"person_display_name\" -> _to_data_store_value(displayName)"))
     assert(content.contains("\"age\" -> _to_data_store_value(age)"))
+    assert(content.contains("\"body\" -> _to_data_store_value(body)"))
     assert(content.contains("INPUT_KEYS_DISPLAY_NAME"))
     assert(content.contains("\"displayName\""))
     assert(content.contains("\"display_name\""))
     assert(content.contains("def schema(): Schema"))
     assert(content.contains("val schema: org.goldenport.schema.Schema = org.goldenport.schema.Schema("))
     assert(content.contains("org.simplemodeling.model.value.BaseContent.simple(\"displayName\")"))
+    assert(content.contains("""web = org.goldenport.schema.WebColumn(required = Some(true))"""))
+    assert(content.contains("""web = org.goldenport.schema.WebColumn(controlType = Some("textarea"), required = Some(false))"""))
 
     val generatedCreate = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/entity/create/Person.scala"
