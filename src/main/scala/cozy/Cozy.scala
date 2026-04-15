@@ -28,8 +28,7 @@ import scala.collection.JavaConverters._
  *  version Feb. 28, 2022
  *  version Aug. 20, 2025
  *  version Mar. 17, 2026
- *  version Apr. 12, 2026
- * @version Apr. 13, 2026
+ * @version Apr. 16, 2026
  * @author  ASAMI, Tomoharu
  */
 class Cozy(
@@ -269,6 +268,13 @@ class Cozy(
         Cozy.carSampleCml(),
         policy
       )
+    val webdir = dir.resolve("src/main/web")
+    Files.createDirectories(webdir)
+    _write_project_file(
+      webdir.resolve("web.yaml"),
+      Cozy.carWebDescriptorYaml(),
+      policy
+    )
     val impldir = dir.resolve("src/main/scala/domain/impl")
     Files.createDirectories(impldir)
     _write_project_file(
@@ -658,6 +664,28 @@ object Cozy {
       |
       |### OUTPUT
       |SearchNoticesResult
+      |""".stripMargin
+
+  private[cozy] def carWebDescriptorYaml(): String =
+    """expose:
+      |  sample.notice.post-notice: protected
+      |  sample.notice.search-notices: public
+      |form:
+      |  sample.notice.post-notice:
+      |    enabled: true
+      |    successRedirect: /web/${component}/admin/entities/notice/${result.id}
+      |    stayOnError: true
+      |    controls:
+      |      body:
+      |        type: textarea
+      |        required: true
+      |  sample.notice.search-notices:
+      |    enabled: true
+      |    successRedirect: /web/${component}/admin/entities/notice
+      |    stayOnError: true
+      |admin:
+      |  entity.notice:
+      |    totalCount: optional
       |""".stripMargin
 
   private[cozy] def carComponentFactorySource(): String =

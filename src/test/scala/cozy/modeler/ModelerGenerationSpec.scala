@@ -15,7 +15,7 @@ import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 
 /*
  * @since   May. 17, 2025
- * @version Apr. 15, 2026
+ * @version Apr. 16, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -62,6 +62,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val updateClasspathScript = out.resolve("scripts/update-runtime-classpath.sh")
     val runServerScript = out.resolve("scripts/run-server.sh")
     val runServerDebugScript = out.resolve("scripts/run-server-debug.sh")
+    val webDescriptor = out.resolve("src/main/web/web.yaml")
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
     )
@@ -73,6 +74,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(Files.exists(updateClasspathScript), s"update script not found: $updateClasspathScript")
     assert(Files.exists(runServerScript), s"server script not found: $runServerScript")
     assert(Files.exists(runServerDebugScript), s"debug server script not found: $runServerDebugScript")
+    assert(Files.exists(webDescriptor), s"web descriptor not found: $webDescriptor")
     assert(Files.isExecutable(launcher), s"launcher must be executable: $launcher")
     assert(Files.isExecutable(updateClasspathScript), s"update script must be executable: $updateClasspathScript")
     assert(Files.isExecutable(runServerScript), s"server script must be executable: $runServerScript")
@@ -83,6 +85,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val updateClasspathContent = Files.readString(updateClasspathScript)
     val runServerContent = Files.readString(runServerScript)
     val runServerDebugContent = Files.readString(runServerDebugScript)
+    val webDescriptorContent = Files.readString(webDescriptor)
     assert(buildSbtContent.contains("enablePlugins(org.goldenport.cozy.CozyPlugin)"))
     assert(buildSbtContent.contains("lazy val packageCar = taskKey[File]"))
     assert(buildSbtContent.contains("""target.value / "car" / s"${name.value}-${version.value}.car""""))
@@ -98,6 +101,9 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(!runServerContent.contains("sbt --batch"))
     assert(runServerDebugContent.contains("-J-agentlib:jdwp"))
     assert(runServerDebugContent.contains("runMain $CNCF_MAIN_CLASS"))
+    assert(webDescriptorContent.contains("sample.notice.post-notice"))
+    assert(webDescriptorContent.contains("successRedirect: /web/${component}/admin/entities/notice/${result.id}"))
+    assert(webDescriptorContent.contains("type: textarea"))
     assert(Files.exists(out.resolve("src/main/scala/domain/impl/ComponentFactory.scala")))
     assert(pluginsSbtContent.contains("""addSbtPlugin("org.goldenport" % "sbt-cozy""""))
   }
@@ -131,6 +137,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(!Files.exists(out.resolve("build.sbt")))
     assert(!Files.exists(out.resolve("project/build.properties")))
     assert(!Files.exists(out.resolve("src/main/cozy/sample.cml")))
+    assert(!Files.exists(out.resolve("src/main/web/web.yaml")))
     assert(!Files.exists(out.resolve("src/main/scala/domain/impl/ComponentFactory.scala")))
   }
 
@@ -163,12 +170,14 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val buildSbt = out.resolve("build.sbt")
     val pluginsSbt = out.resolve("project/plugins.sbt")
     val sampleCml = out.resolve("src/main/cozy/sample.cml")
+    val webDescriptor = out.resolve("src/main/web/web.yaml")
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
     )
     assert(Files.exists(buildSbt), s"build.sbt not found: $buildSbt")
     assert(Files.exists(pluginsSbt), s"plugins.sbt not found: $pluginsSbt")
     assert(Files.exists(sampleCml), s"sample model not found: $sampleCml")
+    assert(Files.exists(webDescriptor), s"web descriptor not found: $webDescriptor")
     assert(!Files.exists(generated), s"generated sources should not be materialized without an input model: $generated")
   }
 
