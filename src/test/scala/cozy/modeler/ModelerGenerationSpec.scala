@@ -624,7 +624,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)
     assert(content.contains(
-      """validation = org.goldenport.schema.WebValidationHints(minLength = Some(2), maxLength = Some(2), pattern = Some("^..$"))"""
+      """validation = org.goldenport.schema.WebValidationHints(minLength = Some(2), maxLength = Some(2), pattern = Some("^[A-Z]{2}$"))"""
     ))
   }
 

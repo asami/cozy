@@ -6,4 +6,4 @@
 
 | name  | type   | multiplicity | min_length | max_length | pattern     | format |
 |-------+--------+--------------+------------+------------+-------------+--------|
-| value | string | 1            | 2          | 2          | ^..$        | uuid   |
+| value | string | 1            | 2          | 2          | pass:[^[A-Z]{2}$] | uuid   |
