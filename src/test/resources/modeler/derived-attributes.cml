@@ -1,0 +1,16 @@
+# Entity
+
+## Notice
+
+### FEATURES
+
+extends = ["SimpleEntity"]
+
+### ATTRIBUTE
+
+| name          | type   | multiplicity | label      | derived |
+|---------------+--------+--------------+------------+---------|
+| senderName    | string | 1            | Sender     |         |
+| recipientName | string | ?            | Recipient  |         |
+| subject       | string | 1            | Subject    | title   |
+| body          | string | 1            | Body       | content |

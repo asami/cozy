@@ -47,7 +47,7 @@ import scala.collection.mutable
  *  version May. 13, 2025
  *  version Feb. 27, 2026
  *  version Mar. 31, 2026
- * @version Apr. 15, 2026
+ * @version Apr. 17, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
@@ -766,6 +766,7 @@ object Modeler {
           Nil,
           None,
           readonly = false,
+          derived = None,
           Description.empty
         )
       }
@@ -864,23 +865,23 @@ object Modeler {
 
     private def _attribute(pkg: MPackageRef, p: SchemaModel.Attribute): MAttribute = {
       val column = p.toColumn
-      val designation = Designation(column.name)
+      val designation = Designation.nameLabel(column.name, column.i18nLabel)
       val atype = _resolve_attribute_type(pkg, p)
       val multiplicity = MMultiplicity(column.multiplicity)
       val constraints: List[MConstraint] = column.constraints.map(RConstraint)
       val readonly = false
       val description = Description.empty
-      MAttribute(designation, atype, multiplicity, constraints, Some(column), readonly, description)
+      MAttribute(designation, atype, multiplicity, constraints, Some(column), readonly, p.derived, description)
     }
 
     private def _attribute(p: Column): MAttribute = {
-      val designation = Designation(p.name)
+      val designation = Designation.nameLabel(p.name, p.i18nLabel)
       val atype = MDataType(p.datatype)
       val multiplicity = MMultiplicity(p.multiplicity)
       val constraints: List[MConstraint] = p.constraints.map(RConstraint)
       val readonly = false
       val description = Description.empty // p.desc
-      MAttribute(designation, atype, multiplicity, constraints, Some(p), readonly, description)
+      MAttribute(designation, atype, multiplicity, constraints, Some(p), readonly, None, description)
     }
 
     private def _resolve_attribute_type(
@@ -1322,7 +1323,8 @@ object Modeler {
           packageName = _entity_runtime_package_name(entity),
           usageKind = entity.usageKind,
           operationKind = entity.operationKind,
-          applicationDomain = entity.applicationDomain
+          applicationDomain = entity.applicationDomain,
+          viewNames = _view_names(entity)
         )
       }
 
@@ -2439,8 +2441,25 @@ object Modeler {
     // Named views are exposed through generated viewDefinitions.viewNames.
     private def _view_name(entity: MEntity): Option[String] = None
 
-    private def _view_names(mentity: MEntity): Vector[String] =
-      _source_entity_class(mentity).flatMap(_.view).toVector.flatMap(_.viewNames).map(_package_token(_)).filterNot(_.isEmpty).distinct
+    private def _view_names(mentity: MEntity): Vector[String] = {
+      val source = _source_entity_class(mentity)
+      val declared = source.flatMap(_.view).toVector.flatMap(_.viewNames).map(_package_token(_)).filterNot(_.isEmpty)
+      val standard =
+        if (source.exists(_inherits_simple_entity))
+          Vector("summary", "detail")
+        else
+          Vector.empty
+      (standard ++ declared).distinct
+    }
+
+    private def _inherits_simple_entity(p: EntityClass): Boolean = {
+      val byParentRef = p.parents.exists {
+        case m: EntityClass.ParentRef.Name => _is_simple_entity(m.name)
+        case EntityClass.ParentRef.EntityKlass(c) => _is_simple_entity(c.name)
+      }
+      val byFeatures = p.schemaClass.features.parentsName.exists(_is_simple_entity)
+      byParentRef || byFeatures
+    }
 
     private def _view_queries(mentity: MEntity): Vector[MComponent.ViewQueryDefinition] =
       _source_entity_class(mentity).flatMap(_.view).toVector.flatMap(_.queries).map { q =>

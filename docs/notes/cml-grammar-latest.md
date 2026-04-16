@@ -158,11 +158,26 @@ Optional:
 - `db_column_name`
 - `db_column_type`
 - `external_name`
+- `derived`
 
 Default naming if omitted:
 
 - datastore column name: `snake_case(name)`
 - external output name: `snake_case(name)`
+
+`derived` marks an attribute as derived from another attribute or future
+computed expression.
+
+Current implemented alias patterns:
+
+- `derived=title`
+- `derived=content`
+
+In these cases, the derived attribute remains schema-visible but is not emitted
+as a case class constructor parameter.
+
+See `docs/notes/derived-attributes.md` for current implementation notes and
+open design items.
 
 ---
 

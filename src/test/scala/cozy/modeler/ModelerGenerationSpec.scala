@@ -15,7 +15,8 @@ import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 
 /*
  * @since   May. 17, 2025
- * @version Apr. 16, 2026
+ *  version Apr. 16, 2026
+ * @version Apr. 17, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -201,6 +202,11 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
         |  sample.notice.post-notice:
         |    enabled: true
         |    stayOnError: true
+        |    resultTemplate: |
+        |      <article>
+        |        <h2>${operation.label}</h2>
+        |        <textus-property-list source="result"></textus-property-list>
+        |      </article>
         |
         |# SERVICE
         |
@@ -215,6 +221,8 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val content = Files.readString(webDescriptor)
     assert(content.contains("sample.notice.post-notice: public"))
     assert(content.contains("stayOnError: true"))
+    assert(content.contains("resultTemplate: |"))
+    assert(content.contains("""<textus-property-list source="result"></textus-property-list>"""))
     assert(!content.contains("sample.notice.search-notices"))
   }
 
@@ -389,6 +397,11 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(content.contains("PROP_ID"))
     assert(content.contains("PROP_NAME_ATTRIBUTES"))
     assert(content.contains("PROP_AGE"))
+    assert(content.contains(""""content" -> _to_external_value(m.content)"""))
+    assert(content.contains(""""content" -> _to_data_store_value(m.content)"""))
+    assert(content.contains("""content = m.getAny("content").collect { case s: String => I18nText(s) }"""))
+    assert(content.contains("""_record_get_as_c[String](record, List("content"))"""))
+    assert(content.contains("""copy(content = contentv.map(I18nText(_)))"""))
 
     val generatedCreate = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/entity/create/Person.scala"
@@ -398,6 +411,44 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(createContent.contains("case class Person(override val id: Option[EntityId]"))
     assert(createContent.contains("nameAttributes: NameAttributes"))
     assert(createContent.contains("age: Option[Age]"))
+  }
+
+    "modeler-scala carries derived entity attributes as schema-visible aliases" in {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/derived-attributes.cml")
+    val out = base.resolve("target/test-generated/modeler-scala-derived-attributes")
+    _delete_recursively(out)
+    Files.createDirectories(out.getParent)
+
+    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+
+    val generated = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/entity/Notice.scala"
+    )
+    assert(Files.exists(generated), s"generated file not found: $generated")
+    val content = Files.readString(generated)
+    assert(content.contains("case class Notice(override val id: EntityId"))
+    assert(!content.contains("recipientName: Option[String], subject"))
+    assert(!content.contains("recipientName: Option[String], body"))
+    assert(content.contains("def subject: String = title"))
+    assert(content.contains("def subject(locale: java.util.Locale): String = title(locale)"))
+    assert(content.contains("def withSubject(value: String): Notice"))
+    assert(content.contains("def body: Option[org.goldenport.datatype.I18nText] = content"))
+    assert(content.contains("def body(locale: java.util.Locale): Option[String] = content(locale)"))
+    assert(content.contains("def withBody(value: String): Notice"))
+    assert(content.contains("org.simplemodeling.model.value.BaseContent.simple(\"subject\")"))
+    assert(content.contains("org.simplemodeling.model.value.BaseContent.simple(\"body\")"))
+    assert(content.contains("""_record_get_as_c[String](record, List("title", "subject"))"""))
+    assert(content.contains("""_record_get_as_c[String](record, List("content", "body"))"""))
+
+    val generatedQuery = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/entity/query/Notice.scala"
+    )
+    assert(Files.exists(generatedQuery), s"generated file not found: $generatedQuery")
+    val queryContent = Files.readString(generatedQuery)
+    assert(!queryContent.contains("def subject: String = title"))
+    assert(!queryContent.contains(""""subject" -> _to_external_value(subject)"""))
+    assert(queryContent.contains("val schema: org.goldenport.schema.Schema = domain.entity.Notice.schema"))
   }
 
     "modeler-scala generates toDataStore with db column names" in {
@@ -428,6 +479,8 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(content.contains("def schema(): Schema"))
     assert(content.contains("val schema: org.goldenport.schema.Schema = org.goldenport.schema.Schema("))
     assert(content.contains("org.simplemodeling.model.value.BaseContent.simple(\"displayName\")"))
+    assert(content.contains("""label = Some(org.goldenport.datatype.I18nLabel("Display Name"))"""))
+    assert(content.contains("""label = Some(org.goldenport.datatype.I18nLabel("Body"))"""))
     assert(content.contains("""web = org.goldenport.schema.WebColumn(required = Some(true))"""))
     assert(content.contains("""web = org.goldenport.schema.WebColumn(controlType = Some("textarea"), required = Some(false))"""))
 
@@ -609,6 +662,24 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(column.constraints.exists(_.isInstanceOf[CFormat]))
   }
 
+    "kaleidox carries CML attribute labels into entity schema columns" in {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/db-column-options.dox")
+    val model = KaleidoxModel.load(KaleidoxConfig.default.withoutLocation, input.toFile)
+    val schema = model.takeEntityModel.get("Person").getOrElse {
+      fail("Entity Person is missing")
+    }.schema
+    val displayName = schema.columns.find(_.name == "displayName").getOrElse {
+      fail("Column displayName is missing")
+    }
+    val body = schema.columns.find(_.name == "body").getOrElse {
+      fail("Column body is missing")
+    }
+
+    displayName.i18nLabel.map(_.c) shouldBe Some("Display Name")
+    body.i18nLabel.map(_.c) shouldBe Some("Body")
+  }
+
     "modeler-scala emits WebValidationHints from CML constraint metadata" in {
     val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
     val input = base.resolve("src/test/resources/modeler/constraint-metadata.dox")
@@ -719,9 +790,11 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(aggregate.creates.head.initialState.contains("Active"))
     assert(aggregate.creates.head.implementation.contains("pattern:create"))
     assert(aggregate.commands.nonEmpty)
-    assert(aggregate.commands.head.name == "renamePerson")
-    assert(aggregate.commands.head.events.contains("person.renamed"))
-    assert(aggregate.commands.head.implementation.contains("pattern:copy-update"))
+    val renamePerson = aggregate.commands.find(_.name == "renamePerson").getOrElse {
+      fail("renamePerson command is missing")
+    }
+    assert(renamePerson.events.contains("person.renamed"))
+    assert(renamePerson.implementation.contains("pattern:copy-update"))
     assert(aggregate.state.exists(_.name == "name"))
     assert(aggregate.invariants.exists(_.name == "nameRequired"))
 
