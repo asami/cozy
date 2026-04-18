@@ -473,11 +473,13 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(content.contains("""label = Some(org.goldenport.datatype.I18nLabel("Recipient"))"""))
     assert(content.contains("""placeholder = Some("Recipient name")"""))
     assert(content.contains("""help = Some("Name used by recipients to find notices.")"""))
-    assert(content.contains("""label = Some(org.goldenport.datatype.I18nLabel("Subject"))"""))
-    assert(content.contains("""placeholder = Some("Short subject")"""))
+    assert(content.contains("""baseContent = org.simplemodeling.model.value.BaseContent.simple("title")"""))
+    assert(content.contains("""label = Some(org.goldenport.datatype.I18nLabel("Title"))"""))
+    assert(content.contains("""placeholder = Some("Short title")"""))
     assert(content.contains("""validation = org.goldenport.schema.WebValidationHints(minLength = Some(1), maxLength = Some(80), pattern = Some("^[A-Za-z0-9 ]+$"))"""))
-    assert(content.contains("""label = Some(org.goldenport.datatype.I18nLabel("Body"))"""))
-    assert(content.contains("""web = org.goldenport.schema.WebColumn(controlType = Some("textarea"), required = Some(true), placeholder = Some("Notice body"), help = Some("Main notice text."), validation = org.goldenport.schema.WebValidationHints(minLength = Some(1)))"""))
+    assert(content.contains("""baseContent = org.simplemodeling.model.value.BaseContent.simple("content")"""))
+    assert(content.contains("""label = Some(org.goldenport.datatype.I18nLabel("Content"))"""))
+    assert(content.contains("""web = org.goldenport.schema.WebColumn(controlType = Some("textarea"), required = Some(true), placeholder = Some("Notice content"), help = Some("Main notice text."), validation = org.goldenport.schema.WebValidationHints(minLength = Some(1)))"""))
   }
 
     "modeler-scala generates toDataStore with db column names" in {
