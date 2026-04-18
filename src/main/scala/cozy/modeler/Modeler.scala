@@ -47,7 +47,7 @@ import scala.collection.mutable
  *  version May. 13, 2025
  *  version Feb. 27, 2026
  *  version Mar. 31, 2026
- * @version Apr. 18, 2026
+ * @version Apr. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
@@ -767,7 +767,7 @@ object Modeler {
           None,
           readonly = false,
           derived = None,
-          Description.empty
+          description = Description.empty
         )
       }
     }
@@ -868,11 +868,29 @@ object Modeler {
       val designation = Designation.nameLabel(column.name, column.i18nLabel)
       val atype = _resolve_attribute_type(pkg, p)
       val multiplicity = MMultiplicity(column.multiplicity)
-      val constraints: List[MConstraint] = column.constraints.map(RConstraint)
+      val web = _web(p.web)
+      val constraints: List[MConstraint] = column.constraints.map(RConstraint) ++ web.validationConstraints
       val readonly = false
       val description = Description.empty
-      MAttribute(designation, atype, multiplicity, constraints, Some(column), readonly, p.derived, description)
+      MAttribute(designation, atype, multiplicity, constraints, Some(column), readonly, p.derived, web = web, description = description)
     }
+
+    private def _web(p: SchemaModel.Attribute.Web): MAttribute.Web =
+      MAttribute.Web(
+        label = p.label,
+        controlType = p.controlType,
+        placeholder = p.placeholder,
+        help = p.help,
+        required = p.required,
+        hidden = p.hidden,
+        readonly = p.readonly,
+        minLength = p.minLength,
+        maxLength = p.maxLength,
+        min = p.min,
+        max = p.max,
+        step = p.step,
+        pattern = p.pattern
+      )
 
     private def _attribute(p: Column): MAttribute = {
       val designation = Designation.nameLabel(p.name, p.i18nLabel)
@@ -881,7 +899,7 @@ object Modeler {
       val constraints: List[MConstraint] = p.constraints.map(RConstraint)
       val readonly = false
       val description = Description.empty // p.desc
-      MAttribute(designation, atype, multiplicity, constraints, Some(p), readonly, None, description)
+      MAttribute(designation, atype, multiplicity, constraints, Some(p), readonly, None, description = description)
     }
 
     private def _resolve_attribute_type(
