@@ -122,6 +122,7 @@ Rules:
 ### Notes
 
 - See the canonical reference for detailed definitions of these Practices
+- Keep this group stable and update it only when new Essence reference facts are identified
 - Use Case Lite Practice and User Story Lite Practice are alternative practices
 - They operate on the same Requirements Alpha
 - A method typically selects one of them
@@ -131,6 +132,11 @@ Rules:
 ## Solo Development Practice Group
 
 - Scrum Solo Practice
+
+### Notes
+
+- Keep this group for one-person development
+- One-person development may become more practical in the AI-assisted development era
 
 ---
 
@@ -143,6 +149,11 @@ Rules:
 - CI/CD Pipeline Practice
 - DevOpsSec Solo Practice
 
+### Notes
+
+- Reconstruct this group based on current software engineering technology
+- Treat the lecture practices as source material, not as a fixed final structure
+
 ---
 
 ## SimpleModeling with CML Practice Group
@@ -150,6 +161,11 @@ Rules:
 - CML Use-Case Modeling Practice
 - CML Modeling Practice
 - Code Generation Practice
+
+### Notes
+
+- Reconstruct this group based on current CML and model-driven development technology
+- Keep CML-based use-case modeling independent from Use Case Lite Practice
 
 ---
 
@@ -956,3 +972,6 @@ Work Products:
 - Work Products may later be split into formal Essence work products and informal artifacts
 - Cloud Native CBD currently contains analysis, design, and implementation activities as sub-activities
 - TDD is treated as a technique inside Cloud Native CBD and test work, not as an independent Practice in the reconstructed SimpleModeling method
+- Essence Practice Group is kept as the reference-derived baseline
+- Solo Development Practice Group is kept because AI-assisted development increases the practical importance of one-person development
+- SimpleModeling Practice Group and SimpleModeling with CML Practice Group will be reconstructed from the lecture source material using current technology assumptions
