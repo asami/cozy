@@ -15,7 +15,7 @@ import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 
 /*
  * @since   May. 17, 2025
- * @version Apr. 18, 2026
+ * @version Apr. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -448,6 +448,36 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(!queryContent.contains("def subject: String = title"))
     assert(!queryContent.contains(""""subject" -> _to_external_value(subject)"""))
     assert(queryContent.contains("val schema: org.goldenport.schema.Schema = domain.entity.Notice.schema"))
+  }
+
+    "modeler-scala propagates CML web metadata into entity Schema columns" in {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/web-attribute-metadata.cml")
+    val out = base.resolve("target/test-generated/modeler-scala-web-attribute-metadata")
+    _delete_recursively(out)
+    Files.createDirectories(out.getParent)
+
+    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+
+    val generated = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/entity/Notice.scala"
+    )
+    assert(Files.exists(generated), s"generated file not found: $generated")
+    val content = Files.readString(generated)
+
+    assert(content.contains("""baseContent = org.simplemodeling.model.value.BaseContent.simple("senderName")"""))
+    assert(content.contains("""label = Some(org.goldenport.datatype.I18nLabel("Sender"))"""))
+    assert(content.contains("""placeholder = Some("Your name")"""))
+    assert(content.contains("""help = Some("Name displayed as the poster.")"""))
+    assert(content.contains("""validation = org.goldenport.schema.WebValidationHints(minLength = Some(1))"""))
+    assert(content.contains("""label = Some(org.goldenport.datatype.I18nLabel("Recipient"))"""))
+    assert(content.contains("""placeholder = Some("Recipient name")"""))
+    assert(content.contains("""help = Some("Name used by recipients to find notices.")"""))
+    assert(content.contains("""label = Some(org.goldenport.datatype.I18nLabel("Subject"))"""))
+    assert(content.contains("""placeholder = Some("Short subject")"""))
+    assert(content.contains("""validation = org.goldenport.schema.WebValidationHints(minLength = Some(1), maxLength = Some(80), pattern = Some("^[A-Za-z0-9 ]+$"))"""))
+    assert(content.contains("""label = Some(org.goldenport.datatype.I18nLabel("Body"))"""))
+    assert(content.contains("""web = org.goldenport.schema.WebColumn(controlType = Some("textarea"), required = Some(true), placeholder = Some("Notice body"), help = Some("Main notice text."), validation = org.goldenport.schema.WebValidationHints(minLength = Some(1)))"""))
   }
 
     "modeler-scala generates toDataStore with db column names" in {

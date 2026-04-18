@@ -1,0 +1,16 @@
+# Entity
+
+## Notice
+
+### FEATURES
+
+extends = ["SimpleEntity"]
+
+### ATTRIBUTE
+
+| name          | type   | multiplicity | web-label | web-control-type | web-placeholder | web-help                         | web-min-length | web-max-length | web-pattern          | derived |
+|---------------+--------+--------------+-----------+------------------+-----------------+----------------------------------+----------------+----------------+----------------------+---------|
+| senderName    | string | 1            | Sender    |                  | Your name       | Name displayed as the poster.    | 1              |                |                      |         |
+| recipientName | string | 1            | Recipient |                  | Recipient name  | Name used by recipients to find notices. | 1              |                |                      |         |
+| subject       | string | 1            | Subject   |                  | Short subject   | Short title shown in lists.      | 1              | 80             | pass:[^[A-Za-z0-9 ]+$] | title   |
+| body          | string | 1            | Body      | textarea         | Notice body     | Main notice text.                | 1              |                |                      | content |
