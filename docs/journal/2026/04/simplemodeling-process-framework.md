@@ -145,26 +145,30 @@ Rules:
 - Business Modeling Solo Practice
 - Cloud Native CBD Practice
 - BDD with Use-Case Slice Lite Practice
-- User Environment Lite Practice
-- CI/CD Pipeline Practice
-- DevOpsSec Solo Practice
 
 ### Notes
 
-- Reconstruct this group based on current software engineering technology
+- This group contains tool-independent SimpleModeling Practices
 - Treat the lecture practices as source material, not as a fixed final structure
 
 ---
 
-## SimpleModeling with CML Practice Group
+## SimpleModeling with Cozy/CozyTextus Practice Group
 
+- BoK Practice
 - CML Use-Case Modeling Practice
 - CML Modeling Practice
 - Code Generation Practice
+- CozyTextus CNCF Practice
+- CI/CD Pipeline Practice
+- User Environment Lite Practice
+- DevOpsSec Solo Practice
 
 ### Notes
 
-- Reconstruct this group based on current CML and model-driven development technology
+- This group contains Practices based on Cozy, CozyTextus, and CNCF-oriented tooling
+- BoK Practice is placed in this group for now
+- Reconstruct this group based on current CML, model-driven development, and CNCF technology
 - Keep CML-based use-case modeling independent from Use Case Lite Practice
 
 ---
@@ -814,6 +818,49 @@ Notes:
 
 ---
 
+## BoK Practice
+
+Purpose:
+
+- Maintain the Book of Knowledge used by SimpleModeling development
+- Keep context, requirements, design rationale, operation notes, and feedback available to AI-assisted development
+
+Primary Alphas:
+
+- Opportunity
+- Stakeholders
+- Requirements
+- Way of Working
+
+Activity Spaces:
+
+- Explore Possibilities
+- Understand Stakeholder Needs
+- Understand Requirements
+- Support the Team
+
+Activities:
+
+- Capture Knowledge
+- Organize Knowledge
+- Link Knowledge to Work Products
+- Update Knowledge from Feedback
+
+Work Products:
+
+- BoK Document
+- Context Note
+- Requirement Note
+- Design Rationale
+- Feedback Note
+
+Notes:
+
+- This Practice is placed under SimpleModeling with Cozy/CozyTextus Practice Group for now
+- BoK may later be split into a tool-independent SimpleModeling Practice if it becomes independent from Cozy/CozyTextus tooling
+
+---
+
 ## CML Use-Case Modeling Practice
 
 Purpose:
@@ -843,7 +890,7 @@ Work Products:
 
 Notes:
 
-- This Practice is planned as a SimpleModeling with CML extension
+- This Practice is planned as a SimpleModeling with Cozy/CozyTextus extension
 
 ---
 
@@ -907,6 +954,48 @@ Work Products:
 
 ---
 
+## CozyTextus CNCF Practice
+
+Purpose:
+
+- Implement SimpleModeling systems using Cozy and CozyTextus on a CNCF-oriented runtime foundation
+- Connect CML models, generated artifacts, component runtime, tests, and deployment assets
+
+Primary Alphas:
+
+- Software System
+- Work
+- Way of Working
+
+Activity Spaces:
+
+- Shape the System
+- Implement the System
+- Test the System
+- Deploy the System
+
+Activities:
+
+- Configure Cozy Project
+- Generate CozyTextus Artifact
+- Run Cozy Component
+- Verify CNCF Runtime Integration
+
+Work Products:
+
+- Cozy Project
+- CozyTextus Model
+- Generated Component
+- Runtime Configuration
+- Verification Result
+
+Notes:
+
+- This Practice captures tool-supported SimpleModeling work
+- CNCF is used here as the runtime and operational technology orientation
+
+---
+
 # 6. Minimum Process Reference
 
 ## Minimum Activity Set
@@ -960,6 +1049,7 @@ Work Products:
 - Scrum Solo Practice and Scrum Lite Practice are alternatives for solo development
 - BDD with Use-Case Slice Lite Practice assumes Use Case Lite Practice
 - CML Use-Case Modeling Practice is independent from Use Case Lite Practice
+- BoK Practice is placed under SimpleModeling with Cozy/CozyTextus Practice Group for now
 
 ---
 
@@ -974,4 +1064,5 @@ Work Products:
 - TDD is treated as a technique inside Cloud Native CBD and test work, not as an independent Practice in the reconstructed SimpleModeling method
 - Essence Practice Group is kept as the reference-derived baseline
 - Solo Development Practice Group is kept because AI-assisted development increases the practical importance of one-person development
-- SimpleModeling Practice Group and SimpleModeling with CML Practice Group will be reconstructed from the lecture source material using current technology assumptions
+- SimpleModeling Practice Group contains tool-independent SimpleModeling Practices
+- SimpleModeling with Cozy/CozyTextus Practice Group contains Cozy, CozyTextus, CML, BoK, and CNCF-oriented tool-supported Practices

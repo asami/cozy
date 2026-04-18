@@ -47,7 +47,7 @@ import scala.collection.mutable
  *  version May. 13, 2025
  *  version Feb. 27, 2026
  *  version Mar. 31, 2026
- * @version Apr. 17, 2026
+ * @version Apr. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
@@ -1483,8 +1483,21 @@ object Modeler {
       if (xs.isEmpty) None else Some(xs.mkString(", "))
     }
 
+    private lazy val _operation_input_value_map: Map[String, OperationModel.InputValueDefinition] =
+      operation.values.map(x => x.name -> x).toMap
+
     private lazy val _normalized_operation_map: Map[String, OperationModel.NormalizedOperationDefinition] =
-      operation.normalizedOperations.map(x => x.name -> x).toMap
+      operation.normalizedOperations.map(_with_input_value_parameters).map(x => x.name -> x).toMap
+
+    private def _with_input_value_parameters(
+      p: OperationModel.NormalizedOperationDefinition
+    ): OperationModel.NormalizedOperationDefinition =
+      if (p.parameters.nonEmpty)
+        p
+      else
+        _operation_input_value_map.get(p.inputType).
+          map(v => p.copy(parameters = v.fields)).
+          getOrElse(p)
 
     private def _defined_service_operation(
       entities: Vector[MEntity],
@@ -1776,7 +1789,8 @@ object Modeler {
       val (wholeclass, _, queryclass, _, _) = _entity_classes(entity)
       MOperation.queryBody(opname, MParameter.record, MResult.unit, desc) {
         blockFor(
-          s"r <- entity_search[$wholeclass]($queryclass.collectionId, Query.fromRecord(action.request.toRecord))"
+          s"""fields <- exec_pure(org.goldenport.cncf.entity.runtime.EntityQueryFieldResolver(core.component, ${_scala_string_literal(entity.name)}))""",
+          s"r <- entity_search[$wholeclass]($queryclass.collectionId, fields.rewrite(Query.fromRecord(action.request.toRecord)))"
         )(
           "OperationResponse.create(r)"
         )
@@ -1838,7 +1852,8 @@ object Modeler {
       val (_, _, queryclass, _, viewclass) = _entity_classes(entity)
       MOperation.queryBody(opname, MParameter.record, MResult.unit, desc) {
         blockFor(
-          s"""r <- action_property_string("view").fold(view_search[$viewclass]($queryclass.collectionId.name, Query.fromRecord(action.request.toRecord)))(viewname => view_search[$viewclass]($queryclass.collectionId.name, viewname, Query.fromRecord(action.request.toRecord)))"""
+          s"""fields <- exec_pure(org.goldenport.cncf.entity.runtime.EntityQueryFieldResolver(core.component, ${_scala_string_literal(entity.name)}))""",
+          s"""r <- action_property_string("view").fold(view_search[$viewclass]($queryclass.collectionId.name, fields.rewrite(Query.fromRecord(action.request.toRecord))))(viewname => view_search[$viewclass]($queryclass.collectionId.name, viewname, fields.rewrite(Query.fromRecord(action.request.toRecord))))"""
         )(
           "OperationResponse.create(r)"
         )
@@ -2329,6 +2344,7 @@ object Modeler {
           name = name,
           entityName = entityname,
           viewNames = _view_names(entity),
+          viewFields = _view_fields(entity),
           queries = _view_queries(entity),
           sourceEvents = _view_source_events(entity),
           rebuildable = _view_rebuildable(entity)
@@ -2376,11 +2392,23 @@ object Modeler {
               condition = a.condition
             )
           ),
+          operationAuthorization = x.authorization.map(a =>
+            MComponent.OperationAuthorization(
+              operationModes = a.operationModes,
+              allowAnonymous = a.allowAnonymous,
+              anonymousOperationModes = a.anonymousOperationModes
+            )
+          ),
           parameters = x.parameters.map { p =>
             MComponent.OperationField(
               name = p.name,
               datatype = p.datatype,
-              multiplicity = p.multiplicity
+              multiplicity = p.multiplicity,
+              label = p.label.orElse(Some(_humanize_field_name(p.name))),
+              controlType = p.controlType.orElse(_operation_control_type(p.name, p.datatype)),
+              placeholder = p.placeholder,
+              help = p.help,
+              required = p.required
             )
           }
         )
@@ -2419,6 +2447,7 @@ object Modeler {
         precondition = rhs.precondition.orElse(lhs.precondition),
         postcondition = rhs.postcondition.orElse(lhs.postcondition),
         access = rhs.access.orElse(lhs.access),
+        authorization = rhs.authorization.orElse(lhs.authorization),
         rules = if (rhs.rules.nonEmpty) rhs.rules else lhs.rules,
         parameters = if (rhs.parameters.nonEmpty) rhs.parameters else lhs.parameters
       )
@@ -2450,6 +2479,63 @@ object Modeler {
         else
           Vector.empty
       (standard ++ declared).distinct
+    }
+
+    private def _humanize_field_name(
+      name: String
+    ): String = {
+      val spaced = name.replace('_', ' ').replace('-', ' ').
+        replaceAll("([a-z0-9])([A-Z])", "$1 $2").
+        trim
+      if (spaced.isEmpty)
+        name
+      else
+        spaced.split("\\s+").map(_.capitalize).mkString(" ")
+    }
+
+    private def _operation_control_type(
+      name: String,
+      datatype: String
+    ): Option[String] = {
+      val n = name.toLowerCase(java.util.Locale.ROOT)
+      val t = Option(datatype).map(_.trim.toLowerCase(java.util.Locale.ROOT)).getOrElse("")
+      if (t == "text" || Vector("body", "content", "description", "comment", "message").exists(n.contains))
+        Some("textarea")
+      else
+        None
+    }
+
+    private def _view_fields(mentity: MEntity): Map[String, Vector[String]] = {
+      val source = _source_entity_class(mentity)
+      val names =
+        if (source.exists(_inherits_simple_entity))
+          (_view_names(mentity) :+ "create").distinct
+        else
+          _view_names(mentity)
+      val fields = _entity_value_display_fields(mentity)
+      if (names.isEmpty || fields.isEmpty)
+        Map.empty
+      else
+        names.map(name => name -> _entity_value_display_fields(name, fields)).toMap
+    }
+
+    private def _entity_value_display_fields(
+      view: String,
+      fields: Vector[String]
+    ): Vector[String] =
+      view match {
+        case "create" => fields.filterNot(_ == "id")
+        case _ => fields
+      }
+
+    private def _entity_value_display_fields(
+      mentity: MEntity
+    ): Vector[String] = {
+      val attrs = mentity.attributes.toVector.map(_.name).filterNot(_.isEmpty)
+      if (attrs.contains("id"))
+        attrs
+      else
+        "id" +: attrs
     }
 
     private def _inherits_simple_entity(p: EntityClass): Boolean = {
@@ -2961,14 +3047,16 @@ object Modeler {
       }
       val search = MOperation.queryBody(s"search$title", queryparam, searchresult) {
         blockFor(
-          s"r <- entity_search[$wholeclass]($queryclass.collectionId, Query.withControls(Query(action.q), action.request.toRecord))"
+          s"""fields <- exec_pure(org.goldenport.cncf.entity.runtime.EntityQueryFieldResolver(core.component, ${_scala_string_literal(entity.name)}))""",
+          s"r <- entity_search[$wholeclass]($queryclass.collectionId, fields.rewrite(Query.withControls(Query(action.q), action.request.toRecord)))"
         )(
           "OperationResponse.create(r)"
         )
       }
       val searchrec = MOperation.queryBody(s"search${title}Record", queryrecparam, searchresult) {
         blockFor(
-          s"r <- entity_search[$wholeclass]($queryclass.collectionId, Query.withControls(action.q, action.request.toRecord))"
+          s"""fields <- exec_pure(org.goldenport.cncf.entity.runtime.EntityQueryFieldResolver(core.component, ${_scala_string_literal(entity.name)}))""",
+          s"r <- entity_search[$wholeclass]($queryclass.collectionId, fields.rewrite(Query.withControls(action.q, action.request.toRecord)))"
         )(
           "OperationResponse.create(r)"
         )
@@ -3131,14 +3219,16 @@ object Modeler {
       }
       val search = MOperation.queryBody(s"search$title", List(searchparam, viewparam), searchresult) {
         blockFor(
-          s"r <- action.view.fold(view_search[$viewclass]($queryclass.collectionId.name, Query.withControls(Query(action.q), action.request.toRecord)))(viewname => view_search[$viewclass]($queryclass.collectionId.name, viewname, Query.withControls(Query(action.q), action.request.toRecord)))"
+          s"""fields <- exec_pure(org.goldenport.cncf.entity.runtime.EntityQueryFieldResolver(core.component, ${_scala_string_literal(entity.name)}))""",
+          s"r <- action.view.fold(view_search[$viewclass]($queryclass.collectionId.name, fields.rewrite(Query.withControls(Query(action.q), action.request.toRecord))))(viewname => view_search[$viewclass]($queryclass.collectionId.name, viewname, fields.rewrite(Query.withControls(Query(action.q), action.request.toRecord))))"
         )(
           "OperationResponse.create(org.goldenport.cncf.directive.SearchResult(query = r.query, data = r.data.map(_.toViewRecord(using core.executionContext)), totalCount = r.totalCount, offset = r.offset, limit = r.limit, fetchedCount = r.fetchedCount))"
         )
       }
       val searchrec = MOperation.queryBody(s"search${title}Record", searchrecparam, searchresult) {
         blockFor(
-          s"""r <- action_property_string("view").fold(view_search[$viewclass]($queryclass.collectionId.name, Query.withControls(action.q, action.request.toRecord)))(viewname => view_search[$viewclass]($queryclass.collectionId.name, viewname, Query.withControls(action.q, action.request.toRecord)))"""
+          s"""fields <- exec_pure(org.goldenport.cncf.entity.runtime.EntityQueryFieldResolver(core.component, ${_scala_string_literal(entity.name)}))""",
+          s"""r <- action_property_string("view").fold(view_search[$viewclass]($queryclass.collectionId.name, fields.rewrite(Query.withControls(action.q, action.request.toRecord))))(viewname => view_search[$viewclass]($queryclass.collectionId.name, viewname, fields.rewrite(Query.withControls(action.q, action.request.toRecord))))"""
         )(
           "OperationResponse.create(org.goldenport.cncf.directive.SearchResult(query = r.query, data = r.data.map(_.toViewRecord(using core.executionContext)), totalCount = r.totalCount, offset = r.offset, limit = r.limit, fetchedCount = r.fetchedCount))"
         )
@@ -3159,14 +3249,16 @@ object Modeler {
           }
           val searchProjection = MOperation.queryBody(s"search${title}${projectionTitle}", searchrecparam, projectionSearchResult) {
             blockFor(
-              s"""r <- view_search[$projectionClass]($queryclass.collectionId.name, "${viewname}", Query.withControls(action.q, action.request.toRecord))"""
+              s"""fields <- exec_pure(org.goldenport.cncf.entity.runtime.EntityQueryFieldResolver(core.component, ${_scala_string_literal(entity.name)}))""",
+              s"""r <- view_search[$projectionClass]($queryclass.collectionId.name, "${viewname}", fields.rewrite(Query.withControls(action.q, action.request.toRecord)))"""
             )(
               "OperationResponse.create(org.goldenport.cncf.directive.SearchResult(query = r.query, data = r.data.map(_.toViewRecord(using core.executionContext)), totalCount = r.totalCount, offset = r.offset, limit = r.limit, fetchedCount = r.fetchedCount))"
             )
           }
           val searchProjectionRecord = MOperation.queryBody(s"search${title}${projectionTitle}Record", searchrecparam, projectionSearchResult) {
             blockFor(
-              s"""r <- view_search[$projectionClass]($queryclass.collectionId.name, "${viewname}", Query.withControls(action.q, action.request.toRecord))"""
+              s"""fields <- exec_pure(org.goldenport.cncf.entity.runtime.EntityQueryFieldResolver(core.component, ${_scala_string_literal(entity.name)}))""",
+              s"""r <- view_search[$projectionClass]($queryclass.collectionId.name, "${viewname}", fields.rewrite(Query.withControls(action.q, action.request.toRecord)))"""
             )(
               "OperationResponse.create(org.goldenport.cncf.directive.SearchResult(query = r.query, data = r.data.map(_.toViewRecord(using core.executionContext)), totalCount = r.totalCount, offset = r.offset, limit = r.limit, fetchedCount = r.fetchedCount))"
             )

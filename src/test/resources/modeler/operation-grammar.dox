@@ -4,10 +4,10 @@
 
 ### ATTRIBUTE
 
-| name    | type    | multiplicity |
-|---------+---------+--------------|
-| orderId | OrderId | 1            |
-| amount  | Money   | 1            |
+| name    | type    | multiplicity | web-label    | web-help          |
+|---------+---------+--------------+--------------+-------------------|
+| orderId | OrderId | 1            |              |                   |
+| amount  | Money   | 1            | Order Amount | Payment amount.   |
 
 # QUERY
 
@@ -41,6 +41,11 @@ CreateOrder
 
 ### OUTPUT
 CreateOrderResult
+
+### AUTHORIZATION
+
+allowAnonymous :: true
+anonymousOperationModes :: develop test
 
 ## getOrder
 

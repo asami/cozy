@@ -15,8 +15,7 @@ import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 
 /*
  * @since   May. 17, 2025
- *  version Apr. 16, 2026
- * @version Apr. 17, 2026
+ * @version Apr. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -826,6 +825,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(content.contains("""name = "person""""))
     assert(content.contains("""entityName = "person""""))
     assert(content.contains("""viewNames = Vector("summary", "detail")"""))
+    assert(content.contains(""""create" -> Vector("name""""))
     assert(content.contains("""ViewQueryDefinition(name = "search_published"""))
     assert(content.contains("""poststatus == """))
     assert(content.contains("""published"""))
@@ -1125,6 +1125,13 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(content.contains("name = \"createOrder\""))
     assert(content.contains("kind = \"COMMAND\""))
     assert(content.contains("inputType = \"CreateOrder\""))
+    assert(content.contains("""parameters = Vector(org.goldenport.cncf.operation.CmlOperationField(name = "orderId", datatype = "OrderId", multiplicity = "1", label = Some("Order Id")), org.goldenport.cncf.operation.CmlOperationField(name = "amount", datatype = "Money", multiplicity = "1", label = Some("Order Amount"), help = Some("Payment amount.")))"""))
+    assert(content.contains("operationAuthorization = Some(org.goldenport.cncf.security.OperationAuthorizationRule("))
+    assert(content.contains("allowAnonymous = Some(true).getOrElse(false)"))
+    assert(content.contains("anonymousOperationModes = Vector(org.goldenport.cncf.config.OperationMode.Develop, org.goldenport.cncf.config.OperationMode.Test)"))
+    assert(content.contains("name = \"getOrder\""))
+    assert(content.contains("inputType = \"GetOrder\""))
+    assert(content.contains("""parameters = Vector(org.goldenport.cncf.operation.CmlOperationField(name = "orderId", datatype = "OrderId", multiplicity = "1", label = Some("Order Id")))"""))
     assert(content.contains("name = \"savePerson\""))
     assert(content.contains("inputType = \"SavePersonInput\""))
     assert(content.contains("inputValueKind = \"COMMAND_VALUE\""))
@@ -1876,15 +1883,23 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(content.contains("""implementation = Some("view-search")"""))
     assert(content.contains("""entity <- exec_pure(domain.entity.create.Item.create(action.request.toRecord))"""))
     assert(content.contains("""r <- entity_load[domain.entity.Item](id)"""))
-    assert(content.contains("""r <- entity_search[domain.entity.Item](domain.entity.query.Item.collectionId, Query.fromRecord(action.request.toRecord))"""))
+    assert(content.contains("""fields <- exec_pure(org.goldenport.cncf.entity.runtime.EntityQueryFieldResolver(core.component, "Item"))"""))
+    assert(content.contains("""r <- entity_search[domain.entity.Item](domain.entity.query.Item.collectionId, fields.rewrite(Query.fromRecord(action.request.toRecord)))"""))
+    assert(content.contains("""r <- entity_search[domain.entity.Item](domain.entity.query.Item.collectionId, fields.rewrite(Query.withControls(Query(action.q), action.request.toRecord)))"""))
+    assert(content.contains("""r <- entity_search[domain.entity.Item](domain.entity.query.Item.collectionId, fields.rewrite(Query.withControls(action.q, action.request.toRecord)))"""))
     assert(content.contains("""r <- aggregate_load_option[domain.entity.aggregate.Item](id)"""))
     assert(content.contains("""r <- aggregate_search[domain.entity.aggregate.Item](domain.entity.query.Item.collectionId.name, Query.fromRecord(action.request.toRecord))"""))
     assert(content.contains("""r <- view_load[domain.entity.view.Item](domain.entity.query.Item.collectionId.name, id)"""))
-    assert(content.contains("""view_search[domain.entity.view.Item](domain.entity.query.Item.collectionId.name, Query.fromRecord(action.request.toRecord))"""))
+    assert(content.contains("""view_search[domain.entity.view.Item](domain.entity.query.Item.collectionId.name, fields.rewrite(Query.fromRecord(action.request.toRecord)))"""))
+    assert(content.contains("""action_property_string("view").fold(view_search[domain.entity.view.Item](domain.entity.query.Item.collectionId.name, fields.rewrite(Query.fromRecord(action.request.toRecord))))(viewname => view_search[domain.entity.view.Item](domain.entity.query.Item.collectionId.name, viewname, fields.rewrite(Query.fromRecord(action.request.toRecord))))"""))
+    assert(content.contains("""action.view.fold(view_search[domain.entity.view.Item](domain.entity.query.Item.collectionId.name, fields.rewrite(Query.withControls(Query(action.q), action.request.toRecord))))(viewname => view_search[domain.entity.view.Item](domain.entity.query.Item.collectionId.name, viewname, fields.rewrite(Query.withControls(Query(action.q), action.request.toRecord))))"""))
+    assert(content.contains("""action_property_string("view").fold(view_search[domain.entity.view.Item](domain.entity.query.Item.collectionId.name, fields.rewrite(Query.withControls(action.q, action.request.toRecord))))(viewname => view_search[domain.entity.view.Item](domain.entity.query.Item.collectionId.name, viewname, fields.rewrite(Query.withControls(action.q, action.request.toRecord))))"""))
     assert(content.contains("""view_load[domain.entity.view.summary.Item](domain.entity.query.Item.collectionId.name, "summary", action.id)"""))
-    assert(content.contains("""view_search[domain.entity.view.summary.Item](domain.entity.query.Item.collectionId.name, "summary", Query.withControls(action.q, action.request.toRecord))"""))
+    assert(content.contains("""view_search[domain.entity.view.summary.Item](domain.entity.query.Item.collectionId.name, "summary", fields.rewrite(Query.withControls(action.q, action.request.toRecord)))"""))
     assert(content.contains("""view_load[domain.entity.view.detail.Item](domain.entity.query.Item.collectionId.name, "detail", action.id)"""))
-    assert(content.contains("""view_search[domain.entity.view.detail.Item](domain.entity.query.Item.collectionId.name, "detail", Query.withControls(action.q, action.request.toRecord))"""))
+    assert(content.contains("""view_search[domain.entity.view.detail.Item](domain.entity.query.Item.collectionId.name, "detail", fields.rewrite(Query.withControls(action.q, action.request.toRecord)))"""))
+    assert(content.contains("""viewFields = Map("detail" -> Vector("id", "name", "title"), "summary" -> Vector("id", "name", "title"))"""))
+    assert(!content.contains("""entity.view.create.Item"""))
   }
 
     "modeler-scala supports IMPLEMENTATION blocking-task for command operations" in {
