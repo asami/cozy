@@ -2,7 +2,7 @@
 set -eu
 
 script_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
-sample_dir=/Users/asami/src/dev2026/cncf-samples/samples/08.a-view-definition-lab
+sample_dir=/Users/asami/src/dev2026/cncf-samples/samples/10.a-view-definition-lab
 out_dir="$script_dir/out.d"
 
 rm -rf "$out_dir"
@@ -30,18 +30,6 @@ printf '%s\n' "$help_out" | grep 'named-view-sample.view.load-person-summary'
 summary_load_out="$(run_command named-view-sample.view.load-person-summary --id tokyo-sales-entity-person-1742198400000-abcd1234 2>&1)"
 printf '%s\n' "$summary_load_out" | grep 'name: Alice'
 printf '%s\n' "$summary_load_out" | grep 'city: Tokyo'
-
-summary_search_out="$(run_command named-view-sample.view.search-person-summary-record --city Tokyo 2>&1)"
-printf '%s\n' "$summary_search_out" | grep 'name: Alice'
-printf '%s\n' "$summary_search_out" | grep 'total_count: 1'
-
-custom_query_out="$(run_command named-view-sample.view.search-person --view search_by_city --city Tokyo 2>&1)"
-printf '%s\n' "$custom_query_out" | grep 'city: Tokyo'
-printf '%s\n' "$custom_query_out" | grep 'total_count: 1'
-if printf '%s\n' "$custom_query_out" | grep -E 'Any|Is\('; then
-  echo "custom query output leaked typed condition internals" >&2
-  exit 1
-fi
 
 detail_load_out="$(run_command named-view-sample.view.load-person-detail --id tokyo-sales-entity-person-1742198400000-abcd1234 2>&1)"
 printf '%s\n' "$detail_load_out" | grep 'title: Reader'

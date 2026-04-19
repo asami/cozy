@@ -28,7 +28,7 @@ import scala.collection.JavaConverters._
  *  version Feb. 28, 2022
  *  version Aug. 20, 2025
  *  version Mar. 17, 2026
- * @version Apr. 16, 2026
+ * @version Apr. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 class Cozy(
@@ -137,6 +137,10 @@ class Cozy(
           val repl = (Vector("modeler-scala") ++ _convert_args(replArgs)).mkString(" ")
           val c = _operation_call(Array(repl))
           interpreter.execute(c)
+          _delete_directory(save.resolve("target"))
+          if (!modelPath.exists(_.getFileName.toString.endsWith(".dox"))) {
+            _delete_directory(save.resolve("src/main/scala"))
+          }
         }
         _materialize_car_sbt_project(save, policy, versions, modelPath)
         true
@@ -264,12 +268,14 @@ class Cozy(
     val cozydir = dir.resolve("src/main/cozy")
     Files.createDirectories(cozydir)
     val sampleModel = cozydir.resolve("sample.cml")
-    if (!Files.exists(sampleModel))
-      _write_project_file(
-        sampleModel,
-        Cozy.carSampleCml(),
-        policy
-      )
+    val modelContent = modelPath.filter(Files.exists(_)).
+      map(Files.readString(_, StandardCharsets.UTF_8)).
+      getOrElse(Cozy.carSampleCml())
+    _write_project_file(
+      sampleModel,
+      modelContent,
+      policy
+    )
     val webdir = dir.resolve("src/main/web")
     Files.createDirectories(webdir)
     _write_project_file(
@@ -277,13 +283,15 @@ class Cozy(
       Cozy.carWebDescriptorYaml(modelPath),
       policy
     )
-    val impldir = dir.resolve("src/main/scala/domain/impl")
-    Files.createDirectories(impldir)
-    _write_project_file(
-      impldir.resolve("ComponentFactory.scala"),
-      Cozy.carComponentFactorySource(),
-      policy
-    )
+    if (modelPath.isEmpty) {
+      val impldir = dir.resolve("src/main/scala/domain/impl")
+      Files.createDirectories(impldir)
+      _write_project_file(
+        impldir.resolve("ComponentFactory.scala"),
+        Cozy.carComponentFactorySource(),
+        policy
+      )
+    }
     val bindir = dir.resolve("bin")
     Files.createDirectories(bindir)
     _write_executable_project_file(
@@ -343,6 +351,16 @@ class Cozy(
     if (Files.exists(path))
       path.toFile.setExecutable(true, false)
   }
+
+  private def _delete_directory(path: Path): Unit =
+    if (Files.exists(path)) {
+      val stream = Files.walk(path)
+      try {
+        stream.iterator.asScala.toVector.reverse.foreach(Files.deleteIfExists)
+      } finally {
+        stream.close()
+      }
+    }
 
   private def _write_text(path: Path, content: String): Unit = {
     Option(path.getParent).foreach(Files.createDirectories(_))

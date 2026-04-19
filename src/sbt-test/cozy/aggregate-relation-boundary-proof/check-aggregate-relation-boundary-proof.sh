@@ -1,8 +1,10 @@
 #!/bin/sh
 set -eu
 
+export COZY_PROJECT_DIR="${COZY_PROJECT_DIR:-/Users/asami/src/dev2025/cozy}"
+
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
-SAMPLE_DIR=/Users/asami/src/dev2026/cncf-samples/samples/07.b-aggregate-relation-boundary-model
+SAMPLE_DIR=/Users/asami/src/dev2026/cncf-samples/samples/09.b-aggregate-relation-boundary-model
 OUT_DIR="$SCRIPT_DIR/out.d"
 SRC_DIR="$OUT_DIR/src/main/scala/org/sample/aggregaterelationboundary"
 COZY_SRC_DIR="$OUT_DIR/src/main/cozy"
@@ -32,9 +34,9 @@ lazy val root = (project in file("."))
       "SimpleModeling.org" at "https://www.simplemodeling.org/maven"
     ),
     libraryDependencies ++= Seq(
-      "org.goldenport" %% "goldenport-cncf" % "0.4.2-SNAPSHOT",
+      "org.goldenport" %% "goldenport-cncf" % "0.4.4-SNAPSHOT",
       "org.goldenport" %% "goldenport-core" % "0.3.1-SNAPSHOT",
-      "org.simplemodeling" %% "simplemodeling-model" % "0.1.2-SNAPSHOT"
+      "org.simplemodeling" %% "simplemodeling-model" % "0.1.4-SNAPSHOT"
     ),
     cozyManifestMetadata ++= Map(
       "component" -> "aggregate-relation-boundary-sample",
@@ -119,6 +121,7 @@ object RelationBoundaryAggregateDemo:
         operation = "createUserRecord",
         properties = List(
           Property("textus.runtime.command.execution-mode", "sync-direct-no-job", None),
+          Property("cncf.security.privilege", "content_manager", None),
           Property("name", "Alice", None)
         )
       )
@@ -128,6 +131,7 @@ object RelationBoundaryAggregateDemo:
         operation = "createOrderRecord",
         properties = List(
           Property("textus.runtime.command.execution-mode", "sync-direct-no-job", None),
+          Property("cncf.security.privilege", "content_manager", None),
           Property("userId", userId, None),
           Property("name", "Alpha", None),
           Property("status", "Active", None),
@@ -146,6 +150,7 @@ object RelationBoundaryAggregateDemo:
         operation = "createShipmentOrderRecord",
         properties = List(
           Property("textus.runtime.command.execution-mode", "sync-direct-no-job", None),
+          Property("cncf.security.privilege", "content_manager", None),
           Property("orderId", orderId, None),
           Property("title", "Outbound-1", None)
         )
@@ -157,6 +162,7 @@ object RelationBoundaryAggregateDemo:
           service = "aggregate",
           operation = "loadOrder",
           properties = List(
+            Property("cncf.security.privilege", "content_manager", None),
             Property("id", orderId, None),
             Property("textus.output.format", "json", None)
           )
@@ -169,6 +175,7 @@ object RelationBoundaryAggregateDemo:
           service = "aggregate",
           operation = "searchOrder",
           properties = List(
+            Property("cncf.security.privilege", "content_manager", None),
             Property("name", "Alpha", None),
             Property("textus.output.format", "json", None)
           )

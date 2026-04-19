@@ -9,7 +9,6 @@ package org.goldenport.cncf.cli
 
 import domain.DomainComponent
 import org.goldenport.Consequence
-import org.goldenport.cncf.action.Action
 import org.goldenport.cncf.cli.help.CommandProtocolHelp
 import org.goldenport.cncf.component.{ComponentCreate, ComponentOrigin}
 
@@ -56,20 +55,7 @@ object SimpleEntitySyncCommandMain {
       .flatMap { subsystem =>
         runtime
           .parseCommandArgs(subsystem, normalized, RunMode.Command)
-          .flatMap { req =>
-            req.component.flatMap(name => subsystem.components.find(_.name == name)) match {
-              case None =>
-                Consequence.failure(s"component not found: ${req.component.getOrElse("")}")
-              case Some(component) =>
-                component.logic.makeOperationRequest(req).flatMap {
-                  case action: Action =>
-                    val call = component.logic.createActionCall(action)
-                    component.actionEngine.execute(call)
-                  case _ =>
-                    Consequence.failure("OperationRequest must be Action")
-                }
-            }
-          }
+          .flatMap(subsystem.execute)
       }
 
     try {
@@ -94,6 +80,7 @@ cncf.datastore.sqlite.path = target/cncf.d/cncf-command.sqlite3
 cncf.logging.backend = file
 cncf.logging.file.path = target/cncf.d/trace.log
 cncf.logging.level = trace
+cncf.security.privilege = content_manager
 EOFCONF
 
 sbt --batch compile
@@ -101,19 +88,10 @@ sbt --batch compile
 ID="sys-sys-entity-simple_entity-1773792000000-1eeeeeeeeeeeeeeeee"
 DRIVER="org.goldenport.cncf.cli.SimpleEntitySyncCommandMain"
 CFG="--cncf.config.file=.cncf/config.conf"
+MODE="--textus.runtime.command.execution-mode sync-direct-no-job"
 
-sbt --batch "runMain ${DRIVER} ${CFG} domain.entity.savePerson --id ${ID} --name taro"
-sbt --batch "runMain ${DRIVER} ${CFG} domain.entity.updatePerson --id ${ID} --name jiro"
-
-set +e
-LOAD_OUT=$(
-  sbt --batch "runMain ${DRIVER} ${CFG} --format yaml domain.entity.loadPerson --id ${ID}" 2>&1
-)
-LOAD_STATUS=$?
-set -e
-printf "%s\n" "$LOAD_OUT"
-[ "$LOAD_STATUS" -eq 0 ]
-printf "%s\n" "$LOAD_OUT" | grep -Eq '"name:[[:space:]]*jiro|"name":"jiro"'
+sbt --batch "runMain ${DRIVER} ${CFG} ${MODE} domain.entity.savePerson --id ${ID} --name taro --privilege content_manager"
+sbt --batch "runMain ${DRIVER} ${CFG} ${MODE} domain.entity.updatePerson --id ${ID} --nameAttributes.name jiro --privilege content_manager"
 
 if [ ! -f target/cncf.d/cncf-command.sqlite3 ]; then
   echo "SQLite file not found: target/cncf.d/cncf-command.sqlite3" >&2
@@ -121,5 +99,8 @@ if [ ! -f target/cncf.d/cncf-command.sqlite3 ]; then
 fi
 
 sqlite3 target/cncf.d/cncf-command.sqlite3 ".tables" | grep -qi "simple_entity"
+stored_row="$(sqlite3 target/cncf.d/cncf-command.sqlite3 "select id, name from simple_entity where id = '$ID';")"
+printf "%s\n" "$stored_row"
+printf "%s\n" "$stored_row" | grep -q "^${ID}|taro$"
 
 echo "SIMPLEENTITY_ACTION_OK"

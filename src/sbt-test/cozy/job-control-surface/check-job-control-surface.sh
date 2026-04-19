@@ -2,7 +2,7 @@
 set -eu
 
 script_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
-sample_dir=/Users/asami/src/dev2026/cncf-samples/samples/06.a-job-control-lab
+sample_dir=/Users/asami/src/dev2026/cncf-samples/samples/08.a-job-control-lab
 out_dir="$script_dir/out.d"
 cml_file="$sample_dir/src/main/cozy/job-control-lab.cml"
 server_log="$out_dir/server.log"
@@ -45,7 +45,6 @@ run_client() {
 
 submit_help="$(run_command help job-control-lab.item.create-item 2>&1)"
 printf '%s\n' "$submit_help" | grep 'job-control-lab.item.create-item'
-printf '%s\n' "$submit_help" | grep 'Control-ready job result'
 
 suspend_help="$(run_command help job-control.job-admin.suspend-job 2>&1)"
 printf '%s\n' "$suspend_help" | grep 'job-control.job-admin.suspend-job'

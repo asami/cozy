@@ -25,7 +25,7 @@ class ComponentFactory() extends DomainComponent.Factory {
 }
 
 object ComponentFactory {
-  private val _memory = TrieMap.empty[EntityId, domain.Person]
+  private val _memory = TrieMap.empty[EntityId, domain.entity.Person]
   @volatile private var _lastSearchResultSize: Int = -1
 
   def memorySize: Int = _memory.size
@@ -53,7 +53,7 @@ object ComponentFactory {
   ) extends DomainComponent.EntityService.SavePersonActionCall {
     protected def build_Program: ExecUowM[OperationResponse] = {
       for {
-        entity <- exec_pure(domain.Person.create(action.entity.toRecord()))
+        entity <- exec_pure(domain.entity.Person.create(action.entity.toRecord()))
         _ <- entity_save(entity)
         _ <- exec_pure {
           _memory.put(entity.id, entity)
@@ -128,7 +128,9 @@ object SearchMemoryProbe {
       extraComponents = _extraComponents,
       privilege = SecurityContext.Privilege.User
     ) { handle =>
-      handle.executeOrThrow(Array("domain.entity.savePerson", "--id", id, "--name", "taro"))
+      val syncMode = Array("--textus.runtime.command.execution-mode", "sync-direct-no-job")
+      val security = Array("--privilege", "content_manager")
+      handle.executeOrThrow(syncMode ++ Array("domain.entity.savePerson", "--id", id, "--name", "taro") ++ security)
 
       if (!Files.exists(sqlitePath))
         throw new IllegalStateException(s"sqlite file not found: $sqlitePath")
@@ -137,7 +139,7 @@ object SearchMemoryProbe {
 
       Files.deleteIfExists(sqlitePath)
 
-      handle.executeOrThrow(Array("domain.entity.searchPersonRecord", "--name", "taro"))
+      handle.executeOrThrow(syncMode ++ Array("domain.entity.searchPersonRecord", "--name", "taro") ++ security)
 
       if (ComponentFactory.lastSearchResultSize <= 0)
         throw new IllegalStateException("search did not hit in-memory records")

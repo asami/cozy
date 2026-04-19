@@ -2,6 +2,7 @@
 set -eu
 
 cd out.d
+rm -rf src/main/scala/domain/impl
 mkdir -p src/main/scala/domain
 
 cat > build.sbt <<'SBT'
@@ -22,8 +23,8 @@ Compile / unmanagedSourceDirectories := Seq(
 Compile / managedSourceDirectories := Nil
 
 libraryDependencies ++= Seq(
-  "org.goldenport" %% "goldenport-cncf" % "0.4.2-SNAPSHOT",
-  "org.simplemodeling" %% "simplemodeling-model" % "0.1.2-SNAPSHOT",
+  "org.goldenport" %% "goldenport-cncf" % "0.4.4-SNAPSHOT",
+  "org.simplemodeling" %% "simplemodeling-model" % "0.1.4-SNAPSHOT",
   "org.goldenport" % "cncf-collaborator-api" % "0.1.0-SNAPSHOT"
 )
 
@@ -84,7 +85,7 @@ object ViewCacheProbe {
   }
 
   private def _browser(): Browser[PersonSummary] = {
-    val cid = EntityCollectionId("test", "1", "person")
+    val cid = EntityCollectionId("test", "minor", "person")
     val builder = new ViewBuilder[PersonSummary] {
       def build(id: EntityId): Consequence[PersonSummary] =
         people.find(_.id == id.value) match {

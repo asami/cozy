@@ -9,8 +9,8 @@ cat >> build.sbt <<'SBTPATCH'
 resolvers += Resolver.defaultLocal
 resolvers += Resolver.file("Local Ivy", file(Path.userHome.absolutePath + "/.ivy2/local"))(Resolver.ivyStylePatterns)
 resolvers += "Local Maven Repository" at ("file://" + Path.userHome.absolutePath + "/.m2/repository")
-libraryDependencies += "org.goldenport" %% "goldenport-cncf" % "0.3.9-SNAPSHOT"
-dependencyOverrides += "org.goldenport" %% "goldenport-cncf" % "0.3.9-SNAPSHOT"
+libraryDependencies += "org.goldenport" %% "goldenport-cncf" % "0.4.4-SNAPSHOT"
+dependencyOverrides += "org.goldenport" %% "goldenport-cncf" % "0.4.4-SNAPSHOT"
 SBTPATCH
 
 cat > src/main/scala/domain/EventReceptionProbe.scala <<'SCALA'

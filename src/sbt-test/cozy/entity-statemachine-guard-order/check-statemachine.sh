@@ -27,12 +27,37 @@ object Statemachine {
 }
 SCALA
 
+cat > src/main/scala/domain/PersonLifecycle.scala <<'SCALA'
+package domain
+
+import org.goldenport.Consequence
+import org.goldenport.convert.ValueReader
+import io.circe.Codec
+
+final case class PersonLifecycle(value: String) derives Codec.AsObject {
+  override def toString: String = value
+}
+
+object PersonLifecycle {
+  def parse(value: String): Consequence[PersonLifecycle] =
+    Consequence.success(PersonLifecycle(Option(value).getOrElse("")))
+
+  implicit val valueReader: ValueReader[PersonLifecycle] = new ValueReader[PersonLifecycle] {
+    override def readC(value: Any): Consequence[PersonLifecycle] = value match {
+      case m: PersonLifecycle => Consequence.success(m)
+      case s: String => parse(s)
+      case other => parse(Option(other).map(_.toString).getOrElse(""))
+    }
+  }
+}
+SCALA
+
 cat > src/main/scala/domain/StateMachineGuardOrderProbe.scala <<'SCALA'
 package domain
 
 import java.nio.file.{Files, Paths}
 import org.goldenport.Consequence
-import org.goldenport.protocol.{Argument, Request}
+import org.goldenport.protocol.{Argument, Property, Request}
 import org.goldenport.protocol.operation.OperationResponse
 import org.goldenport.cncf.bootstrap.{BootstrapConfig, CncfBootstrap}
 import org.goldenport.cncf.component.{Component, ComponentCreate, ComponentOrigin}
@@ -41,7 +66,7 @@ import domain.impl.ComponentFactory
 
 object StateMachineGuardOrderProbe {
   def main(args: Array[String]): Unit = {
-    val id = "sys-sys-entity-person-1773810000000-1bbbbbbbbbbbbbbbbbbb"
+    val id = "major-minor-entity-person-1742198400000-abcd1234"
     val sqlitePath = Paths.get("target/cncf.d/cncf-command.sqlite3")
     Files.deleteIfExists(sqlitePath)
 
@@ -65,6 +90,10 @@ object StateMachineGuardOrderProbe {
           Argument("id", id),
           Argument("name", "taro"),
           Argument("lifecycle", "draft")
+        ),
+        properties = List(
+          Property("cncf.security.privilege", "content_manager", None),
+          Property("textus.runtime.command.execution-mode", "sync-direct-no-job", None)
         )
       )
       val saveAction = _take(
@@ -80,6 +109,10 @@ object StateMachineGuardOrderProbe {
         arguments = List(
           Argument("id", id),
           Argument("name", "jiro")
+        ),
+        properties = List(
+          Property("cncf.security.privilege", "content_manager", None),
+          Property("textus.runtime.command.execution-mode", "sync-direct-no-job", None)
         )
       )
       val updateAction = _take(
@@ -94,6 +127,10 @@ object StateMachineGuardOrderProbe {
         operation = "loadPerson",
         arguments = List(
           Argument("id", id)
+        ),
+        properties = List(
+          Property("cncf.security.privilege", "content_manager", None),
+          Property("textus.runtime.command.execution-mode", "sync-direct-no-job", None)
         )
       )
       val loadAction = _take(

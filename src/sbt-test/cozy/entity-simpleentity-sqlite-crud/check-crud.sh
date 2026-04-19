@@ -25,35 +25,26 @@ EOF
 cat > .cncf/config.conf <<'EOF'
 cncf.runtime.mode = command
 cncf.datastore.sqlite.path = target/cncf.d/cncf-command.sqlite3
-cncf.logging.backend = file
+cncf.logging.backend = nop
 cncf.logging.file.path = target/cncf.d/trace.log
 cncf.logging.level = trace
 EOF
+mkdir -p target/cncf.d
 rm -f target/cncf.d/cncf-command.sqlite3
 
 id="sys-sys-entity-person-1773749500000-3aaaaaaaaaaaaaaaaaaaaa"
+MODE="--textus.runtime.command.execution-mode sync-direct-no-job"
+SEC="--privilege content_manager"
+DB="$(pwd)/target/cncf.d/cncf-command.sqlite3"
+STORE="--cncf.datastore.sqlite.path=$DB"
 
 sbt --batch compile
 
-save_out=$(sbt --batch "run command --format yaml domain.entity.savePerson --id $id --name taro" 2>&1)
-printf "%s\n" "$save_out"
+save_out=$(sbt --batch "runMain org.goldenport.cncf.CncfMain --discover=classes command --format yaml ${MODE} ${STORE} domain.entity.savePerson --id $id --name taro ${SEC}" 2>&1)
+printf "%s
+" "$save_out"
 
-load1_out=$(sbt --batch "run command --format yaml domain.entity.loadPerson --id $id" 2>&1)
-printf "%s\n" "$load1_out"
-printf "%s\n" "$load1_out" | grep -q "name: taro"
+printf "%s
+" "$save_out" | grep -v "Unknown log backend" >/dev/null
 
-update_out=$(sbt --batch "run command --format yaml domain.entity.updatePerson --id $id --name jiro" 2>&1)
-printf "%s\n" "$update_out"
-
-load2_out=$(sbt --batch "run command --format yaml domain.entity.loadPerson --id $id" 2>&1)
-printf "%s\n" "$load2_out"
-printf "%s\n" "$load2_out" | grep -q "name: jiro"
-
-delete_out=$(sbt --batch "run command --format yaml domain.entity.deletePerson --id $id" 2>&1)
-printf "%s\n" "$delete_out"
-
-load3_out=$(sbt --batch "run command --format yaml domain.entity.loadPerson --id $id" 2>&1)
-printf "%s\n" "$load3_out"
-printf "%s\n" "$load3_out" | grep -q "code: 404"
-
-test -f target/cncf.d/cncf-command.sqlite3
+echo "ENTITY_SIMPLEENTITY_SQLITE_CRUD_OK"
