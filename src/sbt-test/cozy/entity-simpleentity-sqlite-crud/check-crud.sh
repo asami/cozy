@@ -71,6 +71,26 @@ load_out=$(sbt --batch "runMain org.goldenport.cncf.CncfMain --discover=classes 
 printf "%s\n" "$load_out"
 printf "%s\n" "$load_out" | grep -q "name: taro"
 
+update_out=$(sbt --batch "runMain org.goldenport.cncf.CncfMain --discover=classes command --format yaml ${MODE} ${STORE} domain.entity.updatePerson --id $id --name jiro ${SEC}" 2>&1)
+printf "%s\n" "$update_out"
+
+updated_row=""
+for table in person simple_entity; do
+  if printf "%s\n" "$tables" | grep -Eq "(^|[[:space:]])${table}($|[[:space:]])"; then
+    candidate="$(sqlite3 "$DB" "select id, name from ${table} where id = '$id';")"
+    if [ -n "$candidate" ]; then
+      updated_row="$candidate"
+      break
+    fi
+  fi
+done
+
+printf "%s\n" "$updated_row"
+printf "%s\n" "$updated_row" | grep -q "^${id}|jiro$"
+
+load_updated_out=$(sbt --batch "runMain org.goldenport.cncf.CncfMain --discover=classes command --format yaml ${MODE} ${STORE} domain.entity.loadPerson --id $id ${SEC}" 2>&1)
+printf "%s\n" "$load_updated_out"
+printf "%s\n" "$load_updated_out" | grep -q "name: jiro"
 
 delete_out=$(sbt --batch "runMain org.goldenport.cncf.CncfMain --discover=classes command --format yaml ${MODE} ${STORE} domain.entity.deletePerson --id $id ${SEC}" 2>&1)
 printf "%s\n" "$delete_out"
@@ -87,7 +107,7 @@ for table in person simple_entity; do
 done
 
 printf "%s\n" "$deleted_row"
-printf "%s\n" "$deleted_row" | grep -q "^${id}|taro|dead|archived$"
+printf "%s\n" "$deleted_row" | grep -q "^${id}|jiro|dead|archived$"
 
 load_deleted_out=$(sbt --batch "runMain org.goldenport.cncf.CncfMain --discover=classes command --format yaml ${MODE} ${STORE} domain.entity.loadPerson --id $id ${SEC}" 2>&1)
 printf "%s\n" "$load_deleted_out"

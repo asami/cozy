@@ -247,8 +247,10 @@ DEMO_OUTPUT="$(sbt --batch -Dsbt.server.autostart=false -Dsbt.supershell=false "
 AGGREGATE_OUTPUT="$(sbt --batch -Dsbt.server.autostart=false -Dsbt.supershell=false "runMain org.sample.aggregateexternalupdate.ExternalUpdateAggregateDemo")"
 
 printf '%s\n' "$DEMO_OUTPUT" | grep -q '"Order cancellation follows up to ShipmentOrder"'
+printf '%s\n' "$AGGREGATE_OUTPUT" | grep -q '"orderStatus":"Cancelled"'
 printf '%s\n' "$AGGREGATE_OUTPUT" | grep -q '"shipmentOrderFollowUp":"Cancelled via AggregateBehavior"'
 printf '%s\n' "$AGGREGATE_OUTPUT" | grep -q 'shipment_orders:'
+printf '%s\n' "$AGGREGATE_OUTPUT" | grep -q 'title: Outbound-1'
 printf '%s\n' "$AGGREGATE_OUTPUT" | grep -q 'userAssociation":"unchanged"'
 
 echo "AGGREGATE_EXTERNAL_UPDATE_PROOF_OK"

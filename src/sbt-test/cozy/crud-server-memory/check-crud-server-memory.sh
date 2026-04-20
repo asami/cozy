@@ -87,6 +87,8 @@ load_json="$(run_client crud.entity.load-item --id "$item_id" 2>&1 | grep '^{' |
 printf '%s
 ' "$load_json" | grep '"id"'
 printf '%s
+' "$load_json" | grep '"name":"alpha"'
+printf '%s
 ' "$load_json" | grep '"title":"Alpha"'
 
 echo CRUD_SERVER_MEMORY_OK

@@ -37,7 +37,7 @@ printf '%s\n' "$service_help" | grep 'listItems'
 operation_help="$(run_command help crud.item.create-item 2>&1)"
 printf '%s\n' "$operation_help" | grep 'type: operation'
 printf '%s\n' "$operation_help" | grep 'name: createItem'
-printf '%s\n' "$operation_help" | grep 'crud.item.create-item'
+printf '%s\n' "$operation_help" | grep 'selector: Some(canonical=Crud.Item.createItem,cli=crud.item.create-item,rest=/crud/item/create-item,accepted=Crud.Item.createItem)'
 printf '%s\n' "$operation_help" | grep 'CreateItemResult'
 
 meta_out="$(run_command crud.meta.describe --format yaml 2>&1)"

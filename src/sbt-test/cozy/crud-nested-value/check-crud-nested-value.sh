@@ -50,6 +50,20 @@ person_id="$(printf '%s
 ' "$create_out" | awk '/^id: / {print $2}' | tail -n 1)"
 [ -n "$person_id" ]
 
+load_out="$(run_command --cncf.datastore.sqlite.path="$dbpath" crud-nested-value-sample.entity.load-person --id "$person_id" 2>&1)"
+printf '%s
+' "$load_out" | grep "id: $person_id"
+printf '%s
+' "$load_out" | grep 'name: alice'
+printf '%s
+' "$load_out" | grep 'street: Marunouchi-1-2-3'
+printf '%s
+' "$load_out" | grep 'city: Tokyo'
+printf '%s
+' "$load_out" | grep 'country:'
+printf '%s
+' "$load_out" | grep 'value: JP'
+
 stored_row="$(sqlite3 "$dbpath" "select id, address from person where id = '$person_id';")"
 printf '%s
 ' "$stored_row" | grep "^$person_id|"
