@@ -2,7 +2,7 @@
 set -eu
 
 script_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
-sample_dir=/Users/asami/src/dev2026/cncf-samples/samples/02.a-crud-seed-import-lab
+sample_dir=/Users/asami/src/dev2026/cncf-samples/samples/04.a-crud-seed-import-lab
 out_dir="$script_dir/out.d"
 cml_file="$sample_dir/src/main/cozy/crud.cml"
 
@@ -38,7 +38,7 @@ printf '%s\n' "$load_out" | grep 'id: major-minor-entity-item-20260327000000-aaa
 printf '%s\n' "$load_out" | grep 'name: alpha'
 printf '%s\n' "$load_out" | grep 'title: Alpha'
 
-search_out="$(run_command crud.entity.search-item-record --name alpha 2>&1)"
+search_out="$(run_command crud.entity.search-item-record --name alpha --query.include_total true 2>&1)"
 printf '%s\n' "$search_out" | grep 'query:'
 printf '%s\n' "$search_out" | grep 'name: alpha'
 printf '%s\n' "$search_out" | grep 'title: Alpha'

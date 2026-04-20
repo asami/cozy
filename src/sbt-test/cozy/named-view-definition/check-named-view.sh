@@ -34,6 +34,19 @@ printf '%s\n' "$summary_load_out" | grep 'city: Tokyo'
 detail_load_out="$(run_command named-view-sample.view.load-person-detail --id tokyo-sales-entity-person-1742198400000-abcd1234 2>&1)"
 printf '%s\n' "$detail_load_out" | grep 'title: Reader'
 
+summary_search_out="$(run_command named-view-sample.view.search-person-summary --city Tokyo 2>&1)"
+printf '%s\n' "$summary_search_out" | grep 'name: Alice'
+printf '%s\n' "$summary_search_out" | grep 'city: Tokyo'
+printf '%s\n' "$summary_search_out" | grep 'total_count: 1'
+printf '%s\n' "$summary_search_out" | grep 'fetched_count: 1'
+
+view_search_out="$(run_command named-view-sample.view.search-person --view search_by_city --city Tokyo 2>&1)"
+printf '%s\n' "$view_search_out" | grep 'name: Alice'
+printf '%s\n' "$view_search_out" | grep 'title: Reader'
+printf '%s\n' "$view_search_out" | grep 'city: Tokyo'
+printf '%s\n' "$view_search_out" | grep 'total_count: 1'
+printf '%s\n' "$view_search_out" | grep 'fetched_count: 1'
+
 meta_out="$(run_command named-view-sample.meta.describe --format yaml 2>&1)"
 printf '%s\n' "$meta_out" | grep 'view_names:'
 printf '%s\n' "$meta_out" | grep 'source_events:'

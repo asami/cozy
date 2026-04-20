@@ -33,6 +33,13 @@ printf '%s\n' "$load_out" | grep 'name: Alice'
 printf '%s\n' "$load_out" | grep 'title: Reader'
 printf '%s\n' "$load_out" | grep 'city: Tokyo'
 
+search_out="$(run_command simple-entity-view-sample.view.search-person-record --name Alice 2>&1)"
+printf '%s\n' "$search_out" | grep 'name: Alice'
+printf '%s\n' "$search_out" | grep 'title: Reader'
+printf '%s\n' "$search_out" | grep 'city: Tokyo'
+printf '%s\n' "$search_out" | grep 'total_count: 1'
+printf '%s\n' "$search_out" | grep 'fetched_count: 1'
+
 meta_out="$(run_command simple-entity-view-sample.meta.describe --format yaml 2>&1)"
 printf '%s\n' "$meta_out" | grep 'runtime_name: view'
 printf '%s\n' "$meta_out" | grep 'rebuildable: false'
