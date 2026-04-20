@@ -2,7 +2,7 @@
 set -eu
 
 script_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
-sample_dir=/Users/asami/src/dev2026/cncf-samples/samples/05.b-event-job-server-client-lab
+sample_dir=/Users/asami/src/dev2026/cncf-samples/samples/07.b-event-job-server-client-lab
 out_dir="$script_dir/out.d"
 cml_file="$sample_dir/src/main/cozy/event.cml"
 server_log="$out_dir/server.log"

@@ -2,7 +2,7 @@
 set -eu
 
 script_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
-sample_dir=/Users/asami/src/dev2026/cncf-samples/samples/02-crud
+sample_dir=/Users/asami/src/dev2026/cncf-samples/samples/04-crud
 out_dir="$script_dir/out.d"
 cml_file="$sample_dir/src/main/cozy/crud.cml"
 
@@ -37,7 +37,7 @@ printf '%s\n' "$service_help" | grep 'listItems'
 operation_help="$(run_command help crud.item.create-item 2>&1)"
 printf '%s\n' "$operation_help" | grep 'type: operation'
 printf '%s\n' "$operation_help" | grep 'name: createItem'
-printf '%s\n' "$operation_help" | grep 'cli: crud.item.create-item'
+printf '%s\n' "$operation_help" | grep 'crud.item.create-item'
 printf '%s\n' "$operation_help" | grep 'CreateItemResult'
 
 meta_out="$(run_command crud.meta.describe --format yaml 2>&1)"

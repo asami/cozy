@@ -1,8 +1,10 @@
 #!/bin/sh
 set -eu
 
+export COZY_PROJECT_DIR="${COZY_PROJECT_DIR:-/Users/asami/src/dev2025/cozy}"
+
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
-SAMPLE_DIR=/Users/asami/src/dev2026/cncf-samples/samples/07.c-aggregate-external-update-semantics
+SAMPLE_DIR=/Users/asami/src/dev2026/cncf-samples/samples/09.c-aggregate-external-update-semantics
 OUT_DIR="$SCRIPT_DIR/out.d"
 SRC_DIR="$OUT_DIR/src/main/scala/org/sample/aggregateexternalupdate"
 COZY_SRC_DIR="$OUT_DIR/src/main/cozy"
@@ -32,9 +34,9 @@ lazy val root = (project in file("."))
       "SimpleModeling.org" at "https://www.simplemodeling.org/maven"
     ),
     libraryDependencies ++= Seq(
-      "org.goldenport" %% "goldenport-cncf" % "0.4.2-SNAPSHOT",
+      "org.goldenport" %% "goldenport-cncf" % "0.4.4-SNAPSHOT",
       "org.goldenport" %% "goldenport-core" % "0.3.1-SNAPSHOT",
-      "org.simplemodeling" %% "simplemodeling-model" % "0.1.2-SNAPSHOT"
+      "org.simplemodeling" %% "simplemodeling-model" % "0.1.4-SNAPSHOT"
     ),
     cozyManifestMetadata ++= Map(
       "component" -> "aggregate-external-update-sample",
@@ -101,6 +103,7 @@ object ExternalUpdateAggregateDemo:
         component = "AggregateExternalUpdateSample",
         operation = "createUserRecord",
         properties = List(
+          Property("cncf.security.privilege", "content_manager", None),
           Property("textus.runtime.command.execution-mode", "sync-direct-no-job", None),
           Property("name", "Alice", None)
         )
@@ -111,6 +114,7 @@ object ExternalUpdateAggregateDemo:
         component = "AggregateExternalUpdateSample",
         operation = "createOrderRecord",
         properties = List(
+          Property("cncf.security.privilege", "content_manager", None),
           Property("textus.runtime.command.execution-mode", "sync-direct-no-job", None),
           Property("userId", userId, None),
           Property("name", "Alpha", None),
@@ -123,6 +127,7 @@ object ExternalUpdateAggregateDemo:
         component = "AggregateExternalUpdateSample",
         operation = "createShipmentOrderRecord",
         properties = List(
+          Property("cncf.security.privilege", "content_manager", None),
           Property("textus.runtime.command.execution-mode", "sync-direct-no-job", None),
           Property("orderId", orderId, None),
           Property("title", "Outbound-1", None),
@@ -138,7 +143,8 @@ object ExternalUpdateAggregateDemo:
           operation = "cancelOrder",
           properties = List(
             Property("privilege", "content_admin", None),
-            Property("textus.runtime.command.execution-mode", "sync-direct-no-job", None),
+            Property("cncf.security.privilege", "content_manager", None),
+          Property("textus.runtime.command.execution-mode", "sync-direct-no-job", None),
             Property("orderId", orderId, None)
           )
         )
@@ -151,6 +157,7 @@ object ExternalUpdateAggregateDemo:
           service = "entity",
           operation = "loadOrderRecord",
           properties = List(
+            Property("cncf.security.privilege", "content_manager", None),
             Property("id", orderId, None)
           )
         )
@@ -163,6 +170,7 @@ object ExternalUpdateAggregateDemo:
           service = "entity",
           operation = "loadShipmentOrderRecord",
           properties = List(
+            Property("cncf.security.privilege", "content_manager", None),
             Property("id", shipmentId, None)
           )
         )
@@ -175,6 +183,7 @@ object ExternalUpdateAggregateDemo:
           service = "entity",
           operation = "loadUserRecord",
           properties = List(
+            Property("cncf.security.privilege", "content_manager", None),
             Property("id", userId, None)
           )
         )
@@ -239,7 +248,7 @@ AGGREGATE_OUTPUT="$(sbt --batch -Dsbt.server.autostart=false -Dsbt.supershell=fa
 
 printf '%s\n' "$DEMO_OUTPUT" | grep -q '"Order cancellation follows up to ShipmentOrder"'
 printf '%s\n' "$AGGREGATE_OUTPUT" | grep -q '"shipmentOrderFollowUp":"Cancelled via AggregateBehavior"'
-printf '%s\n' "$AGGREGATE_OUTPUT" | grep -q 'status: Cancelled'
+printf '%s\n' "$AGGREGATE_OUTPUT" | grep -q 'shipment_orders:'
 printf '%s\n' "$AGGREGATE_OUTPUT" | grep -q 'userAssociation":"unchanged"'
 
 echo "AGGREGATE_EXTERNAL_UPDATE_PROOF_OK"

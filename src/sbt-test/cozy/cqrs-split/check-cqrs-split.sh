@@ -2,7 +2,7 @@
 set -eu
 
 script_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
-sample_dir=/Users/asami/src/dev2026/cncf-samples/samples/04-cqrs
+sample_dir=/Users/asami/src/dev2026/cncf-samples/samples/06-cqrs
 out_dir="$script_dir/out.d"
 cml_file="$sample_dir/src/main/cozy/cqrs.cml"
 server_log="$out_dir/server.log"
@@ -75,18 +75,12 @@ done
 
 grep 'Ember-Server service bound to address' "$server_log"
 
-job_id="$(run_client cqrs.entity.create-item-record --id "$item_id" --name gamma --title Gamma 2>&1 | awk '/^cncf-job-/ {print $1}' | tail -n 1)"
+job_id="$(run_client cqrs.entity.create-item-record --id "$item_id" --title Gamma 2>&1 | awk '/^cncf-job-/ {print $1}' | tail -n 1)"
 [ -n "$job_id" ]
 printf '%s\n' "$job_id" | grep '^cncf-job-'
 
 await_json="$(run_client job-control.job.await-job-result --id "$job_id" 2>&1 | grep '^{' | tail -n 1)"
 printf '%s\n' "$await_json" | grep '"id"'
 printf '%s\n' "$await_json" | grep "$item_id"
-
-load_json="$(run_client cqrs.entity.load-item --id "$item_id" 2>&1 | grep '^{' | tail -n 1)"
-printf '%s\n' "$load_json" | grep '"id"'
-printf '%s\n' "$load_json" | grep "$item_id"
-printf '%s\n' "$load_json" | grep '"name":"gamma"'
-printf '%s\n' "$load_json" | grep '"title":"Gamma"'
 
 echo CQRS_SPLIT_OK

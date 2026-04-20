@@ -2,7 +2,7 @@
 set -eu
 
 script_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
-sample_dir=/Users/asami/src/dev2026/cncf-samples/samples/07-aggregate
+sample_dir=/Users/asami/src/dev2026/cncf-samples/samples/09-aggregate
 out_dir="$script_dir/out.d"
 cml_file="$sample_dir/src/main/cozy/order-aggregate.cml"
 impl_src="$sample_dir/src/main/scala/org/sample/aggregate/impl/AggregateSampleComponentFactory.scala"
@@ -44,6 +44,7 @@ object OrderAggregateDemo {
           operation = "addLine",
           properties = List(
             Property("textus.runtime.command.execution-mode", "sync-direct-no-job", None),
+          Property("cncf.security.privilege", "content_manager", None),
             Property("orderId", orderId, None),
             Property("lineName", "Broken", None),
             Property("quantity", "0", None)
@@ -56,7 +57,10 @@ object OrderAggregateDemo {
           component = "AggregateSample",
           service = "Order",
           operation = "loadOrderAggregate",
-          properties = List(Property("id", orderId, None))
+          properties = List(
+            Property("cncf.security.privilege", "content_manager", None),
+            Property("id", orderId, None)
+          )
         )
       )
       println(
@@ -81,6 +85,7 @@ object OrderAggregateDemo {
         operation = "createOrderRecord",
         properties = List(
           Property("textus.runtime.command.execution-mode", "sync-direct-no-job", None),
+          Property("cncf.security.privilege", "content_manager", None),
           Property("name", "Alpha", None),
           Property("status", "Active", None)
         )
@@ -103,6 +108,7 @@ object OrderAggregateDemo {
         operation = "addLine",
         properties = List(
           Property("textus.runtime.command.execution-mode", "sync-direct-no-job", None),
+          Property("cncf.security.privilege", "content_manager", None),
           Property("orderId", orderId, None),
           Property("lineName", lineName, None),
           Property("quantity", quantity.toString, None)

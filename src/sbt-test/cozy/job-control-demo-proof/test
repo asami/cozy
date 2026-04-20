@@ -1,2 +1,1 @@
-> scripted
-> sh check-job-control-demo-proof.sh
+$ exec sh check-job-control-demo-proof.sh

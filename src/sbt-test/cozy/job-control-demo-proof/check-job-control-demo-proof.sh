@@ -2,7 +2,7 @@
 set -eu
 
 script_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
-sample_dir=/Users/asami/src/dev2026/cncf-samples/samples/06.b-job-control-demo-lab
+sample_dir=/Users/asami/src/dev2026/cncf-samples/samples/08.b-job-control-demo-lab
 out_dir="$script_dir/out.d"
 cml_file="$sample_dir/src/main/cozy/job-control-lab.cml"
 demo_dst_dir="$out_dir/src/main/scala/org/sample/jobcontroldemo"

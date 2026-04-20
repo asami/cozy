@@ -2,7 +2,7 @@
 set -eu
 
 script_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
-sample_dir=/Users/asami/src/dev2026/cncf-samples/samples/04.b-test-sync-command-lab
+sample_dir=/Users/asami/src/dev2026/cncf-samples/samples/06.b-test-sync-command-lab
 out_dir="$script_dir/out.d"
 cml_file="$sample_dir/src/main/cozy/cqrs.cml"
 

@@ -41,10 +41,57 @@ STORE="--cncf.datastore.sqlite.path=$DB"
 sbt --batch compile
 
 save_out=$(sbt --batch "runMain org.goldenport.cncf.CncfMain --discover=classes command --format yaml ${MODE} ${STORE} domain.entity.savePerson --id $id --name taro ${SEC}" 2>&1)
-printf "%s
-" "$save_out"
+printf "%s\n" "$save_out"
 
-printf "%s
-" "$save_out" | grep -v "Unknown log backend" >/dev/null
+printf "%s\n" "$save_out" | grep -v "Unknown log backend" >/dev/null
+
+if [ ! -f "$DB" ]; then
+  echo "SQLite file not found: $DB" >&2
+  exit 1
+fi
+
+tables="$(sqlite3 "$DB" ".tables")"
+printf "%s\n" "$tables"
+
+stored_row=""
+for table in person simple_entity; do
+  if printf "%s\n" "$tables" | grep -Eq "(^|[[:space:]])${table}($|[[:space:]])"; then
+    candidate="$(sqlite3 "$DB" "select id, name from ${table} where id = '$id';")"
+    if [ -n "$candidate" ]; then
+      stored_row="$candidate"
+      break
+    fi
+  fi
+done
+
+printf "%s\n" "$stored_row"
+printf "%s\n" "$stored_row" | grep -q "^${id}|taro$"
+
+load_out=$(sbt --batch "runMain org.goldenport.cncf.CncfMain --discover=classes command --format yaml ${MODE} ${STORE} domain.entity.loadPerson --id $id ${SEC}" 2>&1)
+printf "%s\n" "$load_out"
+printf "%s\n" "$load_out" | grep -q "name: taro"
+
+
+delete_out=$(sbt --batch "runMain org.goldenport.cncf.CncfMain --discover=classes command --format yaml ${MODE} ${STORE} domain.entity.deletePerson --id $id ${SEC}" 2>&1)
+printf "%s\n" "$delete_out"
+
+deleted_row=""
+for table in person simple_entity; do
+  if printf "%s\n" "$tables" | grep -Eq "(^|[[:space:]])${table}($|[[:space:]])"; then
+    candidate="$(sqlite3 "$DB" "select id, name, aliveness, post_status from ${table} where id = '$id';")"
+    if [ -n "$candidate" ]; then
+      deleted_row="$candidate"
+      break
+    fi
+  fi
+done
+
+printf "%s\n" "$deleted_row"
+printf "%s\n" "$deleted_row" | grep -q "^${id}|taro|dead|archived$"
+
+load_deleted_out=$(sbt --batch "runMain org.goldenport.cncf.CncfMain --discover=classes command --format yaml ${MODE} ${STORE} domain.entity.loadPerson --id $id ${SEC}" 2>&1)
+printf "%s\n" "$load_deleted_out"
+printf "%s\n" "$load_deleted_out" | grep -q "code: 404"
+printf "%s\n" "$load_deleted_out" | grep -q "symptom: not-found"
 
 echo "ENTITY_SQLITE_CRUD_OK"

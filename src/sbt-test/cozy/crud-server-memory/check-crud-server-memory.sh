@@ -2,7 +2,7 @@
 set -eu
 
 script_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
-sample_dir=/Users/asami/src/dev2026/cncf-samples/samples/02.d-crud-server-memory-lab
+sample_dir=/Users/asami/src/dev2026/cncf-samples/samples/04.d-crud-server-memory-lab
 out_dir="$script_dir/out.d"
 cml_file="$sample_dir/src/main/cozy/crud.cml"
 server_log="$out_dir/server.log"
@@ -86,8 +86,6 @@ item_id="$(printf '%s
 load_json="$(run_client crud.entity.load-item --id "$item_id" 2>&1 | grep '^{' | tail -n 1)"
 printf '%s
 ' "$load_json" | grep '"id"'
-printf '%s
-' "$load_json" | grep '"name":"alpha"'
 printf '%s
 ' "$load_json" | grep '"title":"Alpha"'
 

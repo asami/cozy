@@ -1,2 +1,1 @@
-> scripted
-> sh check-event-job-trace.sh
+$ exec sh check-event-job-trace.sh

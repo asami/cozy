@@ -1,4 +1,4 @@
-# SimpleModeling Essence Method Framework
+# SimpleModeling with Cozy Development Process
 
 status=draft
 
@@ -6,16 +6,19 @@ status=draft
 
 # 0. Purpose
 
-This document defines a working framework for building a SimpleModeling development method based on Essence.
+This document defines the SimpleModeling with Cozy Development Process.
 
 It is intended as a single-file working document for discussion with ChatGPT and for iterative refinement.
 
+Development Process is used in the broad UP/RUP sense. It includes the Development Method, execution flow, work products, roles/agents, lifecycle structure, and automation support.
+
 The document covers:
 
-- Method meta-model
+- Process definition
+- Method view
 - Practice Group classification
 - Practice definitions
-- Concrete Method composition
+- Process flow references
 - Notes and open questions
 
 ---
@@ -41,7 +44,21 @@ Reference policy:
 
 # 2. Core Definition
 
-## Method
+## Development Process
+
+Development Process
+  = Method View
+  + Process Flow View
+  + Work Product View
+  + Role and Agent View
+  + Automation View
+  + Lifecycle View
+
+- Development Process is the broad development framework used for SimpleModeling work
+- Development Process includes the Method View
+- Development Process is not only an execution sequence
+
+## Method View
 
 Method
   = Kernel
@@ -49,8 +66,17 @@ Method
 
 - Kernel is fixed
 - Kernel means Essence Kernel
-- Practices are selected and composed into a Method
-- Practice Groups are not directly composed into a Method
+- Practices are selected and composed into the Method View
+- Practice Groups are not directly composed into the Method View
+
+## Process Flow View
+
+Process Flow View
+  = ordered and iterative use of Activities and SKILLs
+
+- Activities define abstract work units
+- SKILLs define concrete executable or assistive procedures
+- Process flows may vary by purpose while using the same Method View
 
 ## Kernel
 
@@ -144,7 +170,7 @@ Rules:
 
 - Business Modeling Solo Practice
 - Cloud Native CBD Practice
-- BDD with Use-Case Slice Lite Practice
+- BDD with Use-Case Lite Practice
 
 ### Notes
 
@@ -153,31 +179,34 @@ Rules:
 
 ---
 
-## SimpleModeling with Cozy/CozyTextus Practice Group
+## SimpleModeling with Cozy Practice Group
 
+- Cozy Environment Setup Practice
 - BoK Practice
 - CML Use-Case Modeling Practice
-- CML Modeling Practice
+- Cozy Domain Modeling Practice
 - Code Generation Practice
-- CozyTextus CNCF Practice
+- CozyTextus Practice
 - CI/CD Pipeline Practice
 - User Environment Lite Practice
-- DevOpsSec Solo Practice
+- DevOps Practice
+- Security Practice
 
 ### Notes
 
-- This group contains Practices based on Cozy, CozyTextus, and CNCF-oriented tooling
+- This group contains Practices based on the Cozy product family
+- Practices in this group are Cozy-specific specializations of more general development concerns
 - BoK Practice is placed in this group for now
-- Reconstruct this group based on current CML, model-driven development, and CNCF technology
+- Reconstruct this group based on current CML, model-driven development, and Cozy product family technology
 - Keep CML-based use-case modeling independent from Use Case Lite Practice
 
 ---
 
-# 4. Concrete Method
+# 4. Method View
 
-## Solo SimpleModeling Development Method
+## SimpleModeling with Cozy Development Method View
 
-Solo SimpleModeling Development Method
+SimpleModeling with Cozy Development Method View
   = Kernel
   + selected Practices
 
@@ -191,14 +220,19 @@ Solo SimpleModeling Development Method
 - Scrum Solo Practice
 - Business Modeling Solo Practice
 - Cloud Native CBD Practice
-- BDD with Use-Case Slice Lite Practice
+- BDD with Use-Case Lite Practice
+- Cozy Environment Setup Practice
 - User Environment Lite Practice
 - CI/CD Pipeline Practice
-- DevOpsSec Solo Practice
+- DevOps Practice
+- Security Practice
 
 ### Selection Notes
 
-- This method selects Use Case Lite Practice instead of User Story Lite Practice
+- This is the standard baseline Method View for Cozy-based SimpleModeling development
+- Purpose-specific Development Process variants may be derived from this baseline
+- One-person AI-assisted development is treated as the default operating mode
+- This Method View selects Use Case Lite Practice instead of User Story Lite Practice
 - Scrum Solo Practice is selected instead of Scrum Lite Practice
 - Cloud Native CBD Practice provides analysis, design, and implementation activities
 - CI/CD Pipeline Practice provides build, test, deploy, and delivery pipeline activities
@@ -206,7 +240,56 @@ Solo SimpleModeling Development Method
 
 ---
 
-# 5. Practice Definitions
+# 5. Alphas
+
+## Kernel Alphas
+
+- Opportunity
+- Stakeholders
+- Requirements
+- Software System
+- Work
+- Team
+- Way of Working
+
+## Practice-Specific Alphas
+
+- Use Case
+- Use-Case Slice
+- User Story
+- Sprint
+- Daily
+- Microservice
+
+## SimpleModeling Working Alphas
+
+- Business Context
+- Business Flow
+- Subsystem
+- Component
+- Domain Model
+- Design Model
+- BDD Specification
+- TDD Specification
+- User Environment
+- CI/CD Pipeline
+- DevOps Operation
+- Security Finding
+- Cozy Environment
+- BoK
+- Cozy Domain Model
+- CozyTextus Model
+
+### Notes
+
+- Kernel Alphas are defined by the Essence Kernel
+- Practice-Specific Alphas come from Essence or reconstructed Practices
+- SimpleModeling Working Alphas are working candidates and may be normalized later
+- Some items listed here may later become Work Products instead of Alphas
+
+---
+
+# 6. Practice Definitions
 
 ## Use Case Lite Practice
 
@@ -639,7 +722,7 @@ Notes:
 
 ---
 
-## BDD with Use-Case Slice Lite Practice
+## BDD with Use-Case Lite Practice
 
 Source:
 
@@ -774,7 +857,7 @@ Notes:
 
 ---
 
-## DevOpsSec Solo Practice
+## DevOps Practice
 
 Source:
 
@@ -783,8 +866,9 @@ Source:
 
 Purpose:
 
-- Provide a lightweight solo-development form of DevOpsSec
-- Keep operations, security, observability, and maintenance concerns visible
+- Provide DevOps management for Cozy-based development
+- Keep operations, observability, and maintenance concerns visible
+- Use AI assistance to make operational management nearly automatic for the developer
 
 Primary Alphas:
 
@@ -801,20 +885,103 @@ Activity Spaces:
 Activities:
 
 - Prepare Observability
-- Apply Security Check
 - Maintain Operational Checklist
 - Feed Operational Findings into Backlog
 
 Work Products:
 
 - Operational Checklist
-- Security Checklist
 - Observability Note
 - Improvement Backlog Item
 
 Notes:
 
-- Source material mentions GitHub, AWS, OpenTelemetry, Zero Trust, Immutable Infrastructure, and 3R as implementation direction
+- Source material mentions GitHub, AWS, OpenTelemetry, Immutable Infrastructure, and 3R as implementation direction
+- In Cozy-based development, DevOps is expected to be managed by the developer with AI assistance
+
+---
+
+## Security Practice
+
+Source:
+
+- `process-implementation_fixed.pptx`
+- `process-text_fixed.pptx`
+
+Purpose:
+
+- Keep security concerns explicit during development and operation
+- Provide lightweight security checks suitable for solo and AI-assisted development
+
+Primary Alphas:
+
+- Software System
+- Way of Working
+
+Activity Spaces:
+
+- Implement the System
+- Test the System
+- Operate the System
+
+Activities:
+
+- Identify Security Concern
+- Apply Security Check
+- Review Security Finding
+- Feed Security Finding into Backlog
+
+Work Products:
+
+- Security Checklist
+- Security Finding
+- Security Review Note
+
+Notes:
+
+- Security is separated from DevOps Practice to keep the responsibility explicit
+
+---
+
+## Cozy Environment Setup Practice
+
+Purpose:
+
+- Prepare the local and shared environments required for Cozy-based development
+- Make Cozy product family tools, project templates, runtime settings, and verification commands ready for use
+
+Primary Alphas:
+
+- Software System
+- Work
+- Way of Working
+
+Activity Spaces:
+
+- Prepare to Do the Work
+- Implement the System
+- Test the System
+
+Activities:
+
+- Install Cozy Tools
+- Configure Cozy Workspace
+- Create Cozy Project Skeleton
+- Verify Cozy Environment
+- Document Environment Setup
+
+Work Products:
+
+- Cozy Workspace
+- Cozy Project Skeleton
+- Environment Configuration
+- Setup Note
+- Verification Result
+
+Notes:
+
+- This Practice should run before other SimpleModeling with Cozy Practices
+- Environment setup covers development, generation, test, and local runtime prerequisites
 
 ---
 
@@ -856,8 +1023,8 @@ Work Products:
 
 Notes:
 
-- This Practice is placed under SimpleModeling with Cozy/CozyTextus Practice Group for now
-- BoK may later be split into a tool-independent SimpleModeling Practice if it becomes independent from Cozy/CozyTextus tooling
+- This Practice is placed under SimpleModeling with Cozy Practice Group for now
+- BoK may later move to a Knowledge Processing Practice Group when that group is defined
 
 ---
 
@@ -890,11 +1057,11 @@ Work Products:
 
 Notes:
 
-- This Practice is planned as a SimpleModeling with Cozy/CozyTextus extension
+- This Practice is planned as a SimpleModeling with Cozy extension
 
 ---
 
-## CML Modeling Practice
+## Cozy Domain Modeling Practice
 
 Purpose:
 
@@ -913,14 +1080,14 @@ Activity Spaces:
 
 Activities:
 
-- Write CML Model
-- Validate CML Model
-- Refine CML Model
+- Write Cozy Domain Model
+- Validate Cozy Domain Model
+- Refine Cozy Domain Model
 
 Work Products:
 
-- CML Model
-- CML Validation Result
+- Cozy Domain Model
+- Cozy Domain Model Validation Result
 
 ---
 
@@ -954,12 +1121,12 @@ Work Products:
 
 ---
 
-## CozyTextus CNCF Practice
+## CozyTextus Practice
 
 Purpose:
 
-- Implement SimpleModeling systems using Cozy and CozyTextus on a CNCF-oriented runtime foundation
-- Connect CML models, generated artifacts, component runtime, tests, and deployment assets
+- Implement SimpleModeling systems using Cozy and CozyTextus
+- Connect Cozy domain models, generated artifacts, component runtime, tests, and deployment assets
 
 Primary Alphas:
 
@@ -979,7 +1146,7 @@ Activities:
 - Configure Cozy Project
 - Generate CozyTextus Artifact
 - Run Cozy Component
-- Verify CNCF Runtime Integration
+- Verify CozyTextus Integration
 
 Work Products:
 
@@ -992,52 +1159,23 @@ Work Products:
 Notes:
 
 - This Practice captures tool-supported SimpleModeling work
-- CNCF is used here as the runtime and operational technology orientation
 
 ---
 
-# 6. Minimum Process Reference
+# 7. Process Flow View
 
-## Minimum Activity Set
+Development Process is the broad framework. Process Flow View is the execution-flow view within that framework.
 
-- Explore Context
-- Identify Stakeholders and Actors
-- Model Business Flow
-- Find Actors and Use Cases
-- Slice the Use Case
-- Prepare a Use-Case Slice
-- Make a BDD Specification
-- Sprint Planning Solo
-- Identify Subsystems
-- Make Cloud Native CBD
-- Evolve Cloud Native CBD
-- Test a Use-Case Slice
-- Make Documents
-- Ensure CI/CD Pipeline to Test
-- Sprint Review Solo
-- Sprint Retrospective Solo
+- Method View defines selected Practices
+- Process Flow View defines the execution flow of Activities and SKILLs
 
-## Minimum Flow
+Current flow reference:
 
-1. Frame the opportunity and context
-2. Identify stakeholders and actors
-3. Model business flow
-4. Find actors and use cases
-5. Slice the use case
-6. Prepare a use-case slice and BDD specification
-7. Plan a solo sprint
-8. Identify subsystems
-9. Make Cloud Native CBD design
-10. Evolve Cloud Native CBD implementation
-11. Test the use-case slice
-12. Update user documents
-13. Maintain the CI/CD pipeline
-14. Review the increment
-15. Retrospect and improve the way of working
+- [SimpleModeling with Cozy Minimum Development Process](processes/simplemodeling-with-cozy-minimum-development-process.md)
 
 ---
 
-# 7. Composition Rules
+# 8. Composition Rules
 
 - A Method always contains the Kernel
 - A Method contains selected Practices
@@ -1047,17 +1185,26 @@ Notes:
 - A Method should avoid selecting alternative Practices for the same responsibility
 - Use Case Lite Practice and User Story Lite Practice are alternatives
 - Scrum Solo Practice and Scrum Lite Practice are alternatives for solo development
-- BDD with Use-Case Slice Lite Practice assumes Use Case Lite Practice
+- BDD with Use-Case Lite Practice assumes Use Case Lite Practice
+- SimpleModeling with Cozy Practices assume Cozy Environment Setup Practice
 - CML Use-Case Modeling Practice is independent from Use Case Lite Practice
-- BoK Practice is placed under SimpleModeling with Cozy/CozyTextus Practice Group for now
+- BoK Practice is placed under SimpleModeling with Cozy Practice Group for now
 
 ---
 
-# 8. Working Notes
+# 9. Working Notes
 
 - This file is the temporary source of truth while the framework is being refined
 - Practice definitions are intentionally lightweight
+- The working automation mapping is Practice -> Activity -> SKILL
+- Activity is the abstract unit of work
+- SKILL is the concrete executable or assistive procedure for an Activity
+- `skills/<practice>/SKILL.md` represents a Practice overview or orchestration SKILL
+- `skills/<practice>/<activity>/SKILL.md` represents an Activity-level SKILL
+- Real operation combines manually performed Practices and Practices automated or assisted by SKILL files
+- SKILL files support Practice execution; they do not replace Practice definitions
 - Activity Spaces should be aligned with Essence terminology in a later pass
+- Activity Spaces are loosely aligned with Essence Kernel Activity Spaces and may be normalized later
 - Alphas should be checked against the official Essence Kernel in a later pass
 - Work Products may later be split into formal Essence work products and informal artifacts
 - Cloud Native CBD currently contains analysis, design, and implementation activities as sub-activities
@@ -1065,4 +1212,5 @@ Notes:
 - Essence Practice Group is kept as the reference-derived baseline
 - Solo Development Practice Group is kept because AI-assisted development increases the practical importance of one-person development
 - SimpleModeling Practice Group contains tool-independent SimpleModeling Practices
-- SimpleModeling with Cozy/CozyTextus Practice Group contains Cozy, CozyTextus, CML, BoK, and CNCF-oriented tool-supported Practices
+- SimpleModeling with Cozy Practice Group contains Cozy product family, CML, BoK, and tool-supported Practices
+- BoK Practice may later move to a Knowledge Processing Practice Group

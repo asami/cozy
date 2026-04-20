@@ -8,12 +8,12 @@ import org.scalatest.funsuite.AnyFunSuite
 
 /*
  * @since   Mar. 30, 2026
- * @version Apr.  7, 2026
+ * @version Apr. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 class EmbeddedValueObjectGenerationSpec extends AnyFunSuite {
-  test("modeler-scala generates embedded value object collection attributes from 07.a sample") {
-    val input = Paths.get("/Users/asami/src/dev2026/cncf-samples/samples/07.a-aggregate-single-record-lab/src/main/cozy/order-single-record-aggregate.cml")
+  test("modeler-scala generates embedded value object collection attributes from 09.a sample") {
+    val input = Paths.get("/Users/asami/src/dev2026/cncf-samples/samples/09.a-aggregate-single-record-lab/src/main/cozy/order-single-record-aggregate.cml")
     val out = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
       .resolve("target/test-generated/modeler-scala-embedded-value-object")
     _delete_recursively(out)
@@ -24,7 +24,7 @@ class EmbeddedValueObjectGenerationSpec extends AnyFunSuite {
       "target/scala-3.3.7/src_managed/main/scala/org/sample/aggregatesinglerecord/entity/Order.scala"
     )
     val generatedValue = out.resolve(
-      "target/scala-3.3.7/src_managed/main/scala/domain/value/OrderLine.scala"
+      "target/scala-3.3.7/src_managed/main/scala/org/sample/aggregatesinglerecord/value/OrderLine.scala"
     )
     assert(Files.exists(generatedEntity), s"generated entity file not found: $generatedEntity")
     assert(Files.exists(generatedValue), s"generated value file not found: $generatedValue")
@@ -34,7 +34,7 @@ class EmbeddedValueObjectGenerationSpec extends AnyFunSuite {
 
     assert(entityContent.contains("lines: Vector[OrderLine]"))
     assert(entityContent.contains("case m: org.goldenport.record.RecordPresentable => m.toRecord()"))
-    assert(entityContent.contains("_record_get_vector_of_record_c(record, INPUT_KEYS_LINES)((r: Record) => domain.value.OrderLine.createC(r))"))
+    assert(entityContent.contains("_record_get_vector_of_record_c(record, INPUT_KEYS_LINES)((r: Record) => org.sample.aggregatesinglerecord.value.OrderLine.createC(r))"))
     assert(valueContent.contains("case class OrderLine(name: Name, quantity: Int) extends org.goldenport.record.RecordPresentable"))
     assert(valueContent.contains("given org.goldenport.convert.ValueReader[OrderLine]"))
   }
@@ -92,7 +92,7 @@ class EmbeddedValueObjectGenerationSpec extends AnyFunSuite {
     assert(entityContent.contains("primaryLine: OrderLine"))
     assert(entityContent.contains("optionalLine: Option[OrderLine]"))
     assert(entityContent.contains("_record_get_as_c[OrderLine](record, INPUT_KEYS_PRIMARY_LINE).flatMap {"))
-    assert(entityContent.contains("_record_get_as_c[domain.value.OrderLine](record, INPUT_KEYS_OPTIONAL_LINE).map(_ orElse optionalLine)"))
+    assert(entityContent.contains("_record_get_as_c[org.sample.singlevalueobject.value.OrderLine](record, INPUT_KEYS_OPTIONAL_LINE).map(_ orElse optionalLine)"))
   }
 
 

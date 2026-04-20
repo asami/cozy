@@ -15,7 +15,7 @@ import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 
 /*
  * @since   May. 17, 2025
- * @version Apr. 19, 2026
+ * @version Apr. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -857,7 +857,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(content.contains("""name = "person""""))
     assert(content.contains("""entityName = "person""""))
     assert(content.contains("""viewNames = Vector("summary", "detail")"""))
-    assert(content.contains(""""create" -> Vector("name""""))
+    assert(content.contains("""input = Map("input.name" -> "name")"""))
     assert(content.contains("""ViewQueryDefinition(name = "search_published"""))
     assert(content.contains("""poststatus == """))
     assert(content.contains("""published"""))
@@ -871,7 +871,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(content.contains("""AggregateCreateDefinition("""))
     assert(content.contains("""name = "createPerson""""))
     assert(content.contains("""initialState = Some("Active")"""))
-    assert(content.contains("""implementation = None"""))
+    assert(content.contains("""implementation = Some("pattern:create")"""))
     assert(content.contains("""AggregateCommandDefinition("""))
     assert(content.contains("""name = "updatePerson""""))
     assert(content.contains("""events = Vector("person.updated")"""))
@@ -997,6 +997,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
         |### ATTRIBUTE
         |
         || name | type   |
+        ||------+--------|
         || id   | string |
         |
         |# ENTITY

@@ -47,7 +47,7 @@ import scala.collection.mutable
  *  version May. 13, 2025
  *  version Feb. 27, 2026
  *  version Mar. 31, 2026
- * @version Apr. 19, 2026
+ * @version Apr. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
@@ -2986,6 +2986,7 @@ object Modeler {
       val queryrecparam = MParameter.query("q", MObjectRef.record)
       val idparam = MParameter.entityId
       val recordparam = MParameter.record
+      val createRecordParam = MParameter("record", MEntityValue.create(entity))
       val loadresult = MResult.option(MEntityValue.whole(entity))
       val searchresult = MResult.search(MEntityValue.whole(entity))
       val create = MOperation.commandBody(s"create$title", entityparam) {
@@ -2995,10 +2996,9 @@ object Modeler {
           "OperationResponse(r.toRecord)"
         )
       }
-      val createrec = MOperation.commandBody(s"create${title}Record", recordparam) {
+      val createrec = MOperation.commandBody(s"create${title}Record", createRecordParam) {
         blockFor(
-          s"entity <- exec_pure($createclass.create(action.record))",
-          "r <- entity_create(entity)"
+          "r <- entity_create(action.record)"
         )(
           "OperationResponse(r.toRecord)"
         )

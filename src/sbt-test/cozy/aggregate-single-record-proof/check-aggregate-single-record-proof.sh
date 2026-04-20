@@ -2,7 +2,7 @@
 set -eu
 
 script_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
-sample_dir=/Users/asami/src/dev2026/cncf-samples/samples/07.a-aggregate-single-record-lab
+sample_dir=/Users/asami/src/dev2026/cncf-samples/samples/09.a-aggregate-single-record-lab
 out_dir="$script_dir/out.d"
 cml_file="$sample_dir/src/main/cozy/order-single-record-aggregate.cml"
 demo_dst_dir="$out_dir/src/main/scala/org/sample/aggregatesinglerecord"
@@ -19,7 +19,7 @@ import io.circe.syntax.*
 import io.circe.Json
 import org.goldenport.record.Record
 import org.goldenport.datatype.Name
-import domain.value.OrderLine
+import org.sample.aggregatesinglerecord.value.OrderLine
 import org.sample.aggregatesinglerecord.entity.Order
 import org.simplemodeling.model.datatype.EntityId
 
@@ -74,7 +74,7 @@ package org.sample.aggregatesinglerecord
 import cats.~>
 import io.circe.Json
 import io.circe.syntax.*
-import domain.value.OrderLine
+import org.sample.aggregatesinglerecord.value.OrderLine
 import org.goldenport.Consequence
 import org.goldenport.cncf.context.{CorrelationId, DataStoreContext, EntityStoreContext, ExecutionContext, ObservabilityContext, RuntimeContext, ScopeContext, ScopeKind, TraceId}
 import org.goldenport.cncf.datastore.DataStoreSpace

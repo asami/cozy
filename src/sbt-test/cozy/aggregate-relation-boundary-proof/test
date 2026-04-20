@@ -1,2 +1,1 @@
-> scripted
-> sh check-aggregate-relation-boundary-proof.sh
+$ exec sh check-aggregate-relation-boundary-proof.sh

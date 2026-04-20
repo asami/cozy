@@ -1,2 +1,1 @@
-> scripted
-> sh check-event-job-server-client.sh
+$ exec sh check-event-job-server-client.sh

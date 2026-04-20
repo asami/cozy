@@ -2,7 +2,7 @@
 set -eu
 
 script_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
-sample_dir=/Users/asami/src/dev2026/cncf-samples/samples/03.b-operation-entity-lab
+sample_dir=/Users/asami/src/dev2026/cncf-samples/samples/05.b-operation-entity-lab
 out_dir="$script_dir/out.d"
 cml_file="$sample_dir/src/main/cozy/operation-entity.cml"
 factory_class=org.sample.operationentity.OperationEntitySampleFactory

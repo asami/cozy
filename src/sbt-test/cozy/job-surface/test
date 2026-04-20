@@ -1,2 +1,1 @@
-> scripted
-> sh check-job-surface.sh
+$ exec sh check-job-surface.sh
