@@ -2,6 +2,8 @@
 
 Date: 2026-04-20
 
+Updated: 2026-04-21
+
 ## Context
 
 The `Fix scripted tests` work restored the currently required scripted test paths for Cozy and cncf-samples. Targeted reruns passed after the commit, but several fixes were intentionally scoped as compatibility repairs or temporary test-side adjustments. These items should be tracked separately so that the scripted suite does not hide unresolved runtime or generator issues.
@@ -10,6 +12,9 @@ Related commits:
 
 - Cozy: `d0d06d0 Fix scripted tests`
 - cncf-samples: `688a8f6 Fix scripted tests`
+- CNCF: `6eac46d Authorize entity load hits with storage records`
+- Cozy: `33c5a61 Restore scripted response assertions`
+- simple-modeler: `640f836 Restore SimpleEntity update patch generation`
 
 ## Verification Status
 
@@ -21,6 +26,14 @@ Passed targeted checks:
 - `scripted cozy/named-view-definition cozy/simpleentity-view`
 - `scripted cozy/crud-seed-import`
 - `scripted cozy/crud-sqlite`
+- `scripted cozy/crud-nested-value`
+- `scripted cozy/crud-server-memory`
+- `scripted cozy/cqrs-split`
+- `scripted cozy/crud-explicit-sync`
+- `scripted cozy/crud-surface`
+- `scripted cozy/generate-smoke`
+- `scripted cozy/aggregate-external-update-proof`
+- `scripted cozy/entity-simpleentity-sqlite-crud`
 
 Full scripted status:
 
@@ -82,29 +95,34 @@ Restored signal:
 
 ### 3. SQLite CRUD scripted coverage should restore update semantics
 
-Status:
+Status: completed on 2026-04-21.
 
-- The SQLite scripted checks now keep read-after-write and read-after-delete coverage.
-- `cozy/entity-simpleentity-sqlite-crud` verifies that `savePerson` creates a SQLite row and that `loadPerson` returns the saved value.
-- `cozy/entity-simpleentity-sqlite-crud` verifies that `deletePerson` marks the SQLite row as `aliveness=dead` and `post_status=archived`, and that a later `loadPerson` returns `404` / `not-found`.
-- `cozy/entity-sqlite-crud` verifies the same save/load/delete persistence route for the non-SimpleEntity case.
+Restored scripted checks:
+
+- `cozy/entity-simpleentity-sqlite-crud`
+- `cozy/entity-sqlite-crud`
+
+Restored behavior:
+
+- `savePerson` creates a SQLite row.
+- `loadPerson` returns the saved value.
+- `updatePerson --name jiro` updates SQLite storage.
+- A later `loadPerson` returns `name: jiro`.
+- `deletePerson` marks the row as `aliveness=dead` and `post_status=archived`.
+- A later `loadPerson` returns `404` / `not-found`.
 
 Fixes applied while restoring this coverage:
 
 - CNCF entity fallback now detects not-found by `Conclusion.observation.taxonomy.symptom` instead of relying only on message text.
 - `LifecycleAttributes` storage decode accepts external principal IDs such as `test-app-content-manager-principal` by normalizing them to safe `Identifier` text.
 - `SecurityAttributes` storage decode restores JSON `rights` text from SQLite rows.
+- simple-modeler now maps SimpleEntity update shortcut fields such as `name` into `NameAttributesUpdate`.
+- simple-modeler now emits flat SimpleEntity update datastore changes so update directives reach storage columns such as `name`.
 
-Remaining scope:
+Verification:
 
-- The current scripted coverage proves save/load/delete persistence.
-- It still does not cover update persistence behavior.
-- `updatePerson` currently requires generator-side work: generated update values do not populate nested SimpleEntity update attributes from CLI input, and datastore change extraction must avoid persisting nested update directive objects as ordinary entity columns.
-
-Desired outcome:
-
-- Extend executable CRUD persistence checks so that update persists changed values.
-- Keep the checks aligned with the current command execution mode and security model.
+- `sbt --no-server --batch "scripted cozy/entity-simpleentity-sqlite-crud"` passed.
+- `sbt --no-server --batch "scripted cozy/entity-simpleentity-sqlite-crud cozy/entity-sqlite-crud"` was run during restoration; the non-SimpleEntity case passed, and the SimpleEntity case exposed the generator blocker before the final fix.
 
 ### 4. `car-sbt-project` cleanup is broad
 
@@ -167,13 +185,11 @@ Desired outcome:
 
 Recommended order:
 
-1. Restore view search `ExecutionContext` propagation and re-enable search assertions.
-2. Restore SQLite update persistence assertions.
-3. Stabilize full scripted execution around local snapshot artifacts.
-4. Narrow `car-sbt-project` cleanup behavior.
-5. Fix generator string escaping for multi-line metadata.
-6. Centralize scripted fixture dependency versions.
-7. Reduce warning noise.
+1. Stabilize full scripted execution around local snapshot artifacts.
+2. Narrow `car-sbt-project` cleanup behavior.
+3. Fix generator string escaping for multi-line metadata.
+4. Centralize scripted fixture dependency versions.
+5. Reduce warning noise.
 
 ## Weakened Scripted Checks Inventory
 
@@ -200,6 +216,8 @@ Verification:
 
 ### B. CQRS read-after-command verification removed
 
+Status: restored on 2026-04-20.
+
 Affected scripted case:
 
 - `cozy/cqrs-split`
@@ -221,7 +239,20 @@ Restore target:
 - After job await, run `cqrs.entity.load-item`.
 - Assert `id`, `name`, and `title` in the read response.
 
+Restored behavior:
+
+- The create command again sends `--name gamma`.
+- The script awaits the create job and then runs `cqrs.entity.load-item`.
+- The load response asserts `id`, `name`, and `title`.
+- CNCF entity-space load-hit authorization now authorizes against the storage record so generated/domain records without security fields do not fail authorization.
+
+Verification:
+
+- `sbt --no-server --batch "scripted cozy/cqrs-split"` passed.
+
 ### C. CRUD explicit sync no longer covers server/client route
+
+Status: restored on 2026-04-20.
 
 Affected scripted case:
 
@@ -244,7 +275,18 @@ Restore target:
 - Keep direct command/SQLite checks only as supplemental coverage.
 - Restore server startup, client create, client load, and response assertions for `id`, `name`, and `title`.
 
+Restored behavior:
+
+- The script starts the server, creates through the client route, awaits the job result, loads through the client route, and asserts `id`, `name`, and `title`.
+- Direct command and SQLite checks remain supplemental.
+
+Verification:
+
+- `sbt --no-server --batch "scripted cozy/crud-explicit-sync"` passed.
+
 ### D. CRUD nested value load-response verification replaced by DB row check
+
+Status: restored on 2026-04-20.
 
 Affected scripted case:
 
@@ -266,6 +308,16 @@ Restore target:
 - Restore `crud-nested-value-sample.entity.load-person`.
 - Assert `id`, `name`, and nested `address.street`, `address.city`, `address.country.value` in the load response.
 - Keep DB row verification only if storage-shape coverage is needed separately.
+
+Restored behavior:
+
+- The script restores `load-person` after create.
+- The load response asserts `id`, `name`, `street`, `city`, `country`, and `value: JP`.
+- Raw SQLite address row checks remain supplemental storage-shape coverage.
+
+Verification:
+
+- `sbt --no-server --batch "scripted cozy/crud-nested-value"` passed.
 
 ### E. CRUD seed import search assertions reduced
 
@@ -327,6 +379,8 @@ Verification:
 
 ### G. CRUD server memory response assertion reduced
 
+Status: restored on 2026-04-20.
+
 Affected scripted case:
 
 - `cozy/crud-server-memory`
@@ -344,7 +398,17 @@ Restore target:
 
 - Re-add the `name` assertion in the JSON load response.
 
+Restored behavior:
+
+- The JSON load response now asserts `"name":"alpha"` in addition to the existing response checks.
+
+Verification:
+
+- `sbt --no-server --batch "scripted cozy/crud-server-memory"` passed.
+
 ### H. Aggregate external update state assertion relaxed
+
+Status: restored on 2026-04-20.
 
 Affected scripted case:
 
@@ -364,7 +428,18 @@ Restore target:
 - Re-add an explicit assertion for the cancelled state once the current output contract is stable.
 - Prefer facet/field-level structured output assertion over a broad container-presence check.
 
+Restored behavior:
+
+- The script asserts the current semantic output contract: `"orderStatus":"Cancelled"` and `"shipmentOrderFollowUp":"Cancelled via AggregateBehavior"`.
+- It still asserts that the aggregate output contains the specific shipment order (`shipment_orders:` and `title: Outbound-1`), but no longer treats broad container presence as the primary signal.
+
+Verification:
+
+- `sbt --no-server --batch "scripted cozy/aggregate-external-update-proof"` passed.
+
 ### I. CRUD surface CLI field assertion relaxed
+
+Status: restored on 2026-04-20.
 
 Affected scripted case:
 
@@ -383,7 +458,17 @@ Restore target:
 - Re-add an exact `cli:` field assertion if the CLI help projection still owns that field.
 - If the projection schema intentionally changed, update the scripted expectation to the new exact field path instead of broad substring matching.
 
+Restored behavior:
+
+- The script now asserts the exact selector field shape: `selector: Some(canonical=Crud.Item.createItem,cli=crud.item.create-item,rest=/crud/item/create-item,accepted=Crud.Item.createItem)`.
+
+Verification:
+
+- `sbt --no-server --batch "scripted cozy/crud-surface cozy/generate-smoke"` was run during restoration; `cozy/crud-surface` passed.
+
 ### J. Generate smoke no longer directly checks generated DomainComponent path
+
+Status: restored on 2026-04-20.
 
 Affected scripted case:
 
@@ -403,21 +488,32 @@ Restore target:
 - Re-add a generated source assertion using the current generated source location.
 - Keep project skeleton checks as supplemental coverage.
 
+Restored behavior:
+
+- The script checks `target/scala-3.3.7/src_managed/main/domain/DomainComponent.scala`.
+- It asserts the file exists and contains `object DomainComponent` and `Person`.
+
+Verification:
+
+- `sbt --no-server --batch "scripted cozy/generate-smoke"` passed.
+
 ### K. SQLite entity update remains unverified
+
+Status: restored on 2026-04-21.
 
 Affected scripted cases:
 
 - `cozy/entity-simpleentity-sqlite-crud`
 - `cozy/entity-sqlite-crud`
 
-Current restored coverage:
+Previously restored coverage:
 
 - `savePerson` creates a SQLite row.
 - `loadPerson` returns the saved value.
 - `deletePerson` marks the row as `aliveness=dead` and `post_status=archived`.
 - A later `loadPerson` returns `404` / `not-found`.
 
-Remaining weakness:
+Previously remaining weakness:
 
 - `updatePerson` persistence is still not covered.
 
@@ -431,3 +527,20 @@ Restore target:
 - Fix generator/runtime update patch handling.
 - Add update assertions for both SQLite entity scripted cases.
 - Verify changed value through both SQLite storage and `loadPerson` response.
+
+Restored behavior:
+
+- Both scripts execute `updatePerson --name jiro` before delete.
+- Both scripts assert SQLite row update to `jiro`.
+- Both scripts assert `loadPerson` returns `name: jiro`.
+- Delete assertions now verify the archived row keeps the updated value.
+
+Fixes applied:
+
+- simple-modeler maps `name` shortcut input into `NameAttributesUpdate.name`.
+- simple-modeler treats `SimpleEntityUpdate` as a SimpleEntity storage shape and emits flat update changes for storage columns.
+
+Verification:
+
+- `sbt --no-server --batch "scripted cozy/entity-simpleentity-sqlite-crud"` passed.
+- `sbt --no-server --batch "scripted cozy/entity-simpleentity-sqlite-crud cozy/entity-sqlite-crud"` was used during restoration; the non-SimpleEntity path passed and the SimpleEntity path was fixed afterward.
