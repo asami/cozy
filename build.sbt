@@ -5,13 +5,13 @@ organization := "org.simplemodeling"
 
 name := "cozy"
 
-version := "0.2.14-SNAPSHOT"
+version := "0.2.14"
 
-lazy val cncfVersion = "0.4.4-SNAPSHOT"
+lazy val cncfVersion = "0.4.4"
 
-lazy val simpleModelingModelVersion = "0.1.4-SNAPSHOT"
+lazy val simpleModelingModelVersion = "0.1.4"
 
-lazy val cncfCollaboratorApiVersion = "0.1.0-SNAPSHOT"
+lazy val cncfCollaboratorApiVersion = "0.1.0"
 
 scalaVersion := "2.12.18"
 // crossScalaVersions := Seq("2.10.39.2", "2.9.1")
@@ -58,11 +58,11 @@ libraryDependencies += "org.goldenport" %% "goldenport-record" % "2.2.4"
 // libraryDependencies += "org.goldenport" %% "goldenport-sexpr" % "2.0.13"
 
 // override kaleidox
-libraryDependencies += "org.smartdox" %% "smartdox" % "2.4.11"
+libraryDependencies += "org.smartdox" %% "smartdox" % "2.4.12"
 
-libraryDependencies += "org.goldenport" %% "kaleidox" % "0.6.11-SNAPSHOT"
+libraryDependencies += "org.goldenport" %% "kaleidox" % "0.6.11"
 
-libraryDependencies += "org.simplemodeling" %% "simplemodeler" % "1.1.14-SNAPSHOT"
+libraryDependencies += "org.simplemodeling" %% "simplemodeler" % "1.1.14"
 
 libraryDependencies += "org.goldenport" %% "arcadia" % "0.6.1"
 
