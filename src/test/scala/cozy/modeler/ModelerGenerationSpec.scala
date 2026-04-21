@@ -15,7 +15,7 @@ import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 
 /*
  * @since   May. 17, 2025
- * @version Apr. 20, 2026
+ * @version Apr. 22, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -123,7 +123,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(Files.readString(buildSbt) == "custom build")
     assert(Files.readString(factory) == "custom factory")
     assert(Files.readString(out.resolve("build.sbt.bak")).contains("enablePlugins(org.goldenport.cozy.CozyPlugin)"))
-    assert(Files.readString(Paths.get(factory.toString + ".bak")).contains("class ComponentFactory() extends SampleComponent.Factory"))
+    assert(Files.readString(Paths.get(factory.toString + ".bak")).contains("final class ComponentFactory extends Component.BundleFactory"))
   }
 
     "car-sbt-project can skip project and src scaffold files" in {
@@ -154,7 +154,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     cozy.Cozy.main(Array("car-sbt-project", s"--save=${out.toString}", "--overwrite-project-files"))
 
     assert(Files.readString(buildSbt).contains("enablePlugins(org.goldenport.cozy.CozyPlugin)"))
-    assert(Files.readString(factory).contains("class ComponentFactory() extends SampleComponent.Factory"))
+    assert(Files.readString(factory).contains("final class ComponentFactory extends Component.BundleFactory"))
     assert(!Files.exists(out.resolve("build.sbt.bak")))
     assert(!Files.exists(Paths.get(factory.toString + ".bak")))
   }

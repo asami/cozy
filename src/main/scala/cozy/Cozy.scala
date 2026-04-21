@@ -28,7 +28,7 @@ import scala.collection.JavaConverters._
  *  version Feb. 28, 2022
  *  version Aug. 20, 2025
  *  version Mar. 17, 2026
- * @version Apr. 20, 2026
+ * @version Apr. 22, 2026
  * @author  ASAMI, Tomoharu
  */
 class Cozy(
@@ -583,7 +583,35 @@ object Cozy {
       |
       |### DESCRIPTION
       |
-      |Sample CAR component with a small notice-board service.
+      |Sample CAR bundle root for the notice-board app.
+      |
+      |### COMPONENTLET
+      |
+      |#### public-notice
+      |
+      |#### notice-admin
+      |
+      |# COMPONENTLET
+      |
+      |## public-notice
+      |
+      |- component :: Sample
+      |- kind :: participant
+      |
+      |### DESCRIPTION
+      |
+      |Public notice participant for posting and reading notices and emitting notice.posted.
+      |
+      |# COMPONENTLET
+      |
+      |## notice-admin
+      |
+      |- component :: Sample
+      |- kind :: participant
+      |
+      |### DESCRIPTION
+      |
+      |Notice admin participant for accepting notice.posted and updating Notice state.
       |
       |# SERVICE
       |
@@ -736,85 +764,86 @@ object Cozy {
     """package domain.impl
       |
       |import domain.SampleComponent
+      |import org.goldenport.cncf.component.{Component, ComponentCreate, ComponentId}
       |
-      |class ComponentFactory() extends SampleComponent.Factory {
-      |  override val Notice: SampleComponent.NoticeServiceFactory = NoticeServiceFactoryImpl()
-      |  override val aggregate: SampleComponent.AggregateServiceFactory = AggregateServiceFactoryImpl()
-      |  override val view: SampleComponent.ViewServiceFactory = ViewServiceFactoryImpl()
-      |  override val entity: SampleComponent.EntityServiceFactory = EntityServiceFactoryImpl()
+      |final class ComponentFactory extends Component.BundleFactory {
+      |  def primaryFactory: Component.PrimaryComponentFactory =
+      |    SamplePrimaryFactory
       |
-      |  class NoticeServiceFactoryImpl extends SampleComponent.NoticeServiceFactory {
-      |    import SampleComponent.NoticeService.*
-      |
-      |    override def createPostNoticeActionCall(
-      |      core: org.goldenport.cncf.action.ActionCall.Core,
-      |      action: PostNoticeCommand
-      |    ): PostNoticeActionCall =
-      |      ??? // Replace with PostNoticeActionCall(core, action) or a custom ActionCall implementation.
-      |
-      |    override def createSearchNoticesActionCall(
-      |      core: org.goldenport.cncf.action.ActionCall.Core,
-      |      action: SearchNoticesQuery
-      |    ): SearchNoticesActionCall =
-      |      ??? // Replace with SearchNoticesActionCall(core, action) or a custom ActionCall implementation.
-      |
-      |    /*
-      |     * Usage:
-      |     *
-      |     * This factory is the customization point for source-side operation behavior.
-      |     * Operations without IMPLEMENTATION normally require an ActionCall override here.
-      |     * Leave the generated ??? in place until the generated project compiles; then replace
-      |     * each ??? with either the generated ActionCall constructor or a custom ActionCall.
-      |     *
-      |     * FunctionalActionCall example:
-      |     *
-      |     * override def createPostNoticeActionCall(
-      |     *   core: org.goldenport.cncf.action.ActionCall.Core,
-      |     *   action: PostNoticeCommand
-      |     * ): PostNoticeActionCall =
-      |     *   new PostNoticeActionCall {
-      |     *     override val action: PostNoticeCommand = action
-      |     *     protected def build_Program: org.goldenport.cncf.action.ExecUowM[org.goldenport.cncf.operation.OperationResponse] = {
-      |     *       ???
-      |     *     }
-      |     *   }
-      |     *
-      |     * ProcedureActionCall example:
-      |     *
-      |     * override def createPostNoticeActionCall(
-      |     *   core: org.goldenport.cncf.action.ActionCall.Core,
-      |     *   action: PostNoticeCommand
-      |     * ): PostNoticeActionCall =
-      |     *   new PostNoticeActionCall {
-      |     *     override val action: PostNoticeCommand = action
-      |     *     override def execute(): org.goldenport.context.Consequence[org.goldenport.cncf.operation.OperationResponse] = {
-      |     *       ???
-      |     *     }
-      |     *   }
-      |     */
-      |  }
-      |  object NoticeServiceFactoryImpl {
-      |    def apply(): NoticeServiceFactoryImpl = new NoticeServiceFactoryImpl()
-      |  }
-      |
-      |  class AggregateServiceFactoryImpl extends SampleComponent.AggregateServiceFactory
-      |  object AggregateServiceFactoryImpl {
-      |    def apply(): AggregateServiceFactoryImpl = new AggregateServiceFactoryImpl()
-      |  }
-      |
-      |  class ViewServiceFactoryImpl extends SampleComponent.ViewServiceFactory
-      |  object ViewServiceFactoryImpl {
-      |    def apply(): ViewServiceFactoryImpl = new ViewServiceFactoryImpl()
-      |  }
-      |
-      |  class EntityServiceFactoryImpl extends SampleComponent.EntityServiceFactory
-      |  object EntityServiceFactoryImpl {
-      |    def apply(): EntityServiceFactoryImpl = new EntityServiceFactoryImpl()
-      |  }
+      |  override def componentletFactories: Vector[Component.ComponentletFactory] =
+      |    Vector.empty
       |}
       |
-      |object ComponentFactory {
-      |  def apply(): ComponentFactory = new ComponentFactory()
+      |abstract class SampleParticipantFactoryBase extends SampleComponent.Factory {
+      |  protected final val sharedServices =
+      |    Vector(
+      |      SampleComponent.NoticeService,
+      |      SampleComponent.AggregateService,
+      |      SampleComponent.ViewService,
+      |      SampleComponent.EntityService
+      |    )
+      |
+      |  protected final def componentCore(
+      |    name: String,
+      |    componentId: ComponentId
+      |  ): Component.Core =
+      |    spec_create(name, componentId, sharedServices)
+      |
+      |  override val Notice: SampleComponent.NoticeServiceFactory = DefaultNoticeServiceFactory()
+      |  override val aggregate: SampleComponent.AggregateServiceFactory = AggregateServiceFactoryImpl()
+      |  override val view: SampleComponent.ViewServiceFactory = ViewServiceFactoryImpl()
+      |  override val entity: SampleComponent.EntityServiceFactory = DefaultEntityServiceFactory()
+      |}
+      |
+      |final class SamplePrimaryComponent extends SampleComponent
+      |
+      |object SamplePrimaryFactory extends SampleParticipantFactoryBase with Component.PrimaryComponentFactory {
+      |  protected def create_Component(params: ComponentCreate): Component =
+      |    new SamplePrimaryComponent()
+      |
+      |  override protected def create_Core(
+      |    params: ComponentCreate,
+      |    comp: Component
+      |  ): Component.Core =
+      |    componentCore(SampleComponent.name, SampleComponent.componentId)
+      |}
+      |
+      |final class DefaultNoticeServiceFactory extends SampleComponent.NoticeServiceFactory {
+      |  import SampleComponent.NoticeService.*
+      |
+      |  override def createPostNoticeActionCall(
+      |    core: org.goldenport.cncf.action.ActionCall.Core,
+      |    action: PostNoticeCommand
+      |  ): PostNoticeActionCall =
+      |    PostNoticeActionCall(core, action)
+      |
+      |  override def createSearchNoticesActionCall(
+      |    core: org.goldenport.cncf.action.ActionCall.Core,
+      |    action: SearchNoticesQuery
+      |  ): SearchNoticesActionCall =
+      |    SearchNoticesActionCall(core, action)
+      |  }
+      |
+      |object DefaultNoticeServiceFactory {
+      |  def apply(): DefaultNoticeServiceFactory = new DefaultNoticeServiceFactory()
+      |  }
+      |
+      |final class DefaultEntityServiceFactory extends SampleComponent.EntityServiceFactory
+      |
+      |object DefaultEntityServiceFactory {
+      |  def apply(): DefaultEntityServiceFactory = new DefaultEntityServiceFactory()
+      |  }
+      |
+      |final class AggregateServiceFactoryImpl extends SampleComponent.AggregateServiceFactory
+      |
+      |object AggregateServiceFactoryImpl {
+      |  def apply(): AggregateServiceFactoryImpl = new AggregateServiceFactoryImpl()
+      |}
+      |
+      |final class ViewServiceFactoryImpl extends SampleComponent.ViewServiceFactory
+      |
+      |object ViewServiceFactoryImpl {
+      |  def apply(): ViewServiceFactoryImpl = new ViewServiceFactoryImpl()
       |}
       |""".stripMargin
 
@@ -1375,15 +1404,21 @@ private object CozyArchivePackager {
     config: Map[String, String],
     entities: Vector[EntityDescriptor]
   ): String =
-    s"""{
-       |  "name": ${_json_string(name)},
-       |  "version": ${_json_string(version)},
-       |  "component": ${_json_string(component)},
-       |  "entities": ${_json_entities(entities)},
-       |  "extensions": ${_json_map(extensions)},
-       |  "config": ${_json_map(config)}
-       |}
-       |""".stripMargin
+    _component_descriptor_override(extensions).getOrElse {
+      val effectiveExtensions = extensions - "componentDescriptorJson"
+      s"""{
+         |  "name": ${_json_string(name)},
+         |  "version": ${_json_string(version)},
+         |  "component": ${_json_string(component)},
+         |  "entities": ${_json_entities(entities)},
+         |  "extensions": ${_json_map(effectiveExtensions)},
+         |  "config": ${_json_map(config)}
+         |}
+         |""".stripMargin
+    }
+
+  private def _component_descriptor_override(extensions: Map[String, String]): Option[String] =
+    extensions.get("componentDescriptorJson").map(_.trim).filter(_.nonEmpty)
 
   private final case class EntityDescriptor(
     name: String,
@@ -1446,12 +1481,33 @@ private object CozyArchivePackager {
     _value(args, key).toVector.flatMap(_.split(",")).map(_.trim).filter(_.nonEmpty).map(p => Paths.get(p).toAbsolutePath.normalize())
 
   private def _string_map(args: List[String], key: String): Map[String, String] =
-    _value(args, key).toVector.flatMap(_.split(",")).map(_.trim).filter(_.nonEmpty).flatMap { kv =>
-      kv.split("=", 2).toList match {
-        case k :: v :: Nil if k.nonEmpty => Some(k -> v)
-        case _ => None
-      }
-    }.toMap
+    _value(args, key).map(_parse_string_map).getOrElse(Map.empty)
+
+  private def _parse_string_map(value: String): Map[String, String] = {
+    val trimmed = value.trim
+    if (trimmed.startsWith("{"))
+      _parse_string_map_json(trimmed)
+    else
+      trimmed.split(",").toVector.map(_.trim).filter(_.nonEmpty).flatMap { kv =>
+        kv.split("=", 2).toList match {
+          case k :: v :: Nil if k.nonEmpty => Some(k -> v)
+          case _ => None
+        }
+      }.toMap
+  }
+
+  private def _parse_string_map_json(value: String): Map[String, String] =
+    Try(Json.parse(value))
+      .toOption
+      .collect { case o: JsObject => o }
+      .map(_.fields.map { case (k, v) => k -> _json_value_string(v) }.toMap)
+      .getOrElse(RAISE.invalidArgumentFault(s"Invalid JSON map argument: $value"))
+
+  private def _json_value_string(value: JsValue): String = value match {
+    case JsNull => "null"
+    case JsString(s) => s
+    case other => Json.stringify(other)
+  }
 
   private def _value(args: List[String], key: String): Option[String] = {
     val prefix = s"--${key}="

@@ -6,6 +6,7 @@ import java.util.zip.ZipFile
 import scala.collection.JavaConverters._
 
 import org.scalatest.funsuite.AnyFunSuite
+import play.api.libs.json.Json
 
 class CozyArchivePackagerSpec extends AnyFunSuite {
   test("package-car writes descriptor-first CAR layout") {
@@ -47,6 +48,30 @@ class CozyArchivePackagerSpec extends AnyFunSuite {
       assert(descriptor.contains(""""entity": "SalesOrder""""))
       assert(descriptor.contains(""""usageKind": "business-object""""))
       assert(descriptor.contains(""""applicationDomain": "business""""))
+    }
+  }
+
+  test("package-car prefers structured component descriptor override") {
+    withTempDir("cozy-car-componentlet") { dir =>
+      val mainJar = write(dir.resolve("artifacts/main.jar"), "main")
+      val archive = dir.resolve("out/sample.car")
+      val descriptorJson =
+        """{"component":{"name":"sample-component","kind":"component","isPrimary":"true"},"componentlets":[{"name":"notice-admin","kind":"componentlet"},{"name":"public-notice","kind":"componentlet"}]}"""
+
+      CozyArchivePackager.buildCar(List(
+        s"--save=$archive",
+        s"--main-jar=$mainJar",
+        "--name=sample-component",
+        "--version=0.1.0",
+        "--component=sample-component",
+        s"""--extensions={"componentDescriptorJson":${Json.stringify(Json.toJson(descriptorJson))}}"""
+      ))
+
+      val descriptor = zipText(archive, "component-descriptor.json")
+      assert(descriptor == descriptorJson)
+      assert(descriptor.contains("\"componentlets\""))
+      assert(descriptor.contains("\"name\":\"notice-admin\""))
+      assert(descriptor.contains("\"name\":\"public-notice\""))
     }
   }
 
