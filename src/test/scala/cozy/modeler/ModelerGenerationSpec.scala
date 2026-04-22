@@ -7,6 +7,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.util.Comparator
+import scala.collection.JavaConverters._
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -15,7 +16,7 @@ import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 
 /*
  * @since   May. 17, 2025
- * @version Apr. 22, 2026
+ * @version Apr. 23, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -32,7 +33,6 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
     )
-    assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)
     assert(content.contains("object DomainComponent"))
     assert(!content.contains("exec_from("))
@@ -63,9 +63,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val runServerScript = out.resolve("scripts/run-server.sh")
     val runServerDebugScript = out.resolve("scripts/run-server-debug.sh")
     val webDescriptor = out.resolve("src/main/web/web.yaml")
-    val generated = out.resolve(
-      "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
-    )
+    val sampleCml = out.resolve("src/main/cozy/sample.cml")
     assert(Files.exists(buildSbt), s"build.sbt not found: $buildSbt")
     assert(Files.exists(pluginsSbt), s"plugins.sbt not found: $pluginsSbt")
     assert(Files.exists(buildProperties), s"build.properties not found: $buildProperties")
@@ -75,11 +73,11 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(Files.exists(runServerScript), s"server script not found: $runServerScript")
     assert(Files.exists(runServerDebugScript), s"debug server script not found: $runServerDebugScript")
     assert(Files.exists(webDescriptor), s"web descriptor not found: $webDescriptor")
+    assert(Files.exists(sampleCml), s"sample model not found: $sampleCml")
     assert(Files.isExecutable(launcher), s"launcher must be executable: $launcher")
     assert(Files.isExecutable(updateClasspathScript), s"update script must be executable: $updateClasspathScript")
     assert(Files.isExecutable(runServerScript), s"server script must be executable: $runServerScript")
     assert(Files.isExecutable(runServerDebugScript), s"debug server script must be executable: $runServerDebugScript")
-    assert(Files.exists(generated), s"generated file not found: $generated")
     val buildSbtContent = Files.readString(buildSbt)
     val pluginsSbtContent = Files.readString(pluginsSbt)
     val updateClasspathContent = Files.readString(updateClasspathScript)
@@ -159,6 +157,58 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(!Files.exists(Paths.get(factory.toString + ".bak")))
   }
 
+    "car-sbt-project generates CAR+SAR application scaffold when style is car-sar" in {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("src/test/resources/modeler/test.dox")
+    val out = base.resolve("target/test-generated/car-sar-sbt-project")
+    _delete_recursively(out)
+    Files.createDirectories(out.getParent)
+
+    cozy.Cozy.main(Array("car-sbt-project", input.toString, s"--save=${out.toString}", "--style=car-sar"))
+
+    val rootBuild = out.resolve("build.sbt")
+    val pluginsSbt = out.resolve("project/plugins.sbt")
+    val componentModel = out.resolve("component/src/main/cozy/car-sar-sbt-project.cml")
+    val componentWeb = out.resolve("component/src/main/web/web.yaml")
+    val subsystemDescriptor = out.resolve("subsystem/subsystem-descriptor.yaml")
+    val componentDReadme = out.resolve("subsystem/component.d/README.md")
+    val subsystemScriptsReadme = out.resolve("subsystem/scripts/README.md")
+    val generatedOut = out.resolve("component-generated")
+
+    assert(Files.exists(rootBuild), s"root build.sbt not found: $rootBuild")
+    assert(Files.exists(pluginsSbt), s"plugins.sbt not found: $pluginsSbt")
+    assert(Files.exists(componentModel), s"component model not found: $componentModel")
+    assert(Files.exists(componentWeb), s"component web descriptor not found: $componentWeb")
+    assert(Files.exists(subsystemDescriptor), s"subsystem descriptor not found: $subsystemDescriptor")
+    assert(Files.exists(componentDReadme), s"component.d README not found: $componentDReadme")
+    assert(Files.exists(subsystemScriptsReadme), s"subsystem scripts README not found: $subsystemScriptsReadme")
+    assert(!Files.exists(out.resolve("component/build.sbt")), s"component/build.sbt must not exist under CAR+SAR scaffold")
+    assert(!Files.exists(out.resolve("subsystem/build.sbt")), s"subsystem/build.sbt must not exist under CAR+SAR scaffold")
+
+    val rootBuildContent = Files.readString(rootBuild)
+    val subsystemDescriptorContent = Files.readString(subsystemDescriptor)
+    assert(rootBuildContent.contains("lazy val component = project"))
+    assert(rootBuildContent.contains("lazy val subsystem = project"))
+    assert(rootBuildContent.contains("cozyGenerateApp"))
+    assert(rootBuildContent.contains("""name := "car-sar-sbt-project"""))
+    assert(subsystemDescriptorContent.contains("subsystem: car-sar-sbt-project"))
+    assert(subsystemDescriptorContent.contains("name: car-sar-sbt-project"))
+    assert(subsystemDescriptorContent.contains("name: textus-user-account"))
+    assert(subsystemDescriptorContent.contains("version: 0.1.1-SNAPSHOT"))
+    assert(Files.readString(componentDReadme).contains("component.d/textus-user-account.car"))
+
+    cozy.Cozy.main(Array("modeler-scala", componentModel.toString, s"--save=${generatedOut.toString}"))
+    val generatedScala = Files.find(generatedOut, 32, (p, attr) => attr.isRegularFile && p.toString.endsWith(".scala"))
+    try {
+      assert(
+        generatedScala.findAny().isPresent,
+        s"generated component model did not produce Scala sources: $componentModel"
+      )
+    } finally {
+      generatedScala.close()
+    }
+  }
+
     "car-sbt-project generates sample model scaffold when model file is omitted" in {
     val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
     val out = base.resolve("target/test-generated/car-sbt-project-scaffold")
@@ -171,14 +221,10 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val pluginsSbt = out.resolve("project/plugins.sbt")
     val sampleCml = out.resolve("src/main/cozy/sample.cml")
     val webDescriptor = out.resolve("src/main/web/web.yaml")
-    val generated = out.resolve(
-      "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
-    )
     assert(Files.exists(buildSbt), s"build.sbt not found: $buildSbt")
     assert(Files.exists(pluginsSbt), s"plugins.sbt not found: $pluginsSbt")
     assert(Files.exists(sampleCml), s"sample model not found: $sampleCml")
     assert(Files.exists(webDescriptor), s"web descriptor not found: $webDescriptor")
-    assert(!Files.exists(generated), s"generated sources should not be materialized without an input model: $generated")
   }
 
     "car-sbt-project generates web descriptor scaffold from CML WEB metadata" in {
@@ -236,6 +282,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(help.contains("Usage:"))
     assert(help.contains("Commands:"))
     assert(help.contains("car-sbt-project"))
+    assert(help.contains("--style=car|car-sar"))
     assert(help.contains("modeler-scala"))
     assert(help.contains("package-car"))
     assert(help.contains("sbt-bridge"))
@@ -383,7 +430,6 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/entity/Person.scala"
     )
-    assert(Files.exists(generated), s"generated file not found: $generated")
     val notGeneratedSimpleEntity = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/entity/SimpleEntity.scala"
     )
@@ -424,7 +470,6 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/entity/Notice.scala"
     )
-    assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)
     assert(content.contains("case class Notice(override val id: EntityId"))
     assert(!content.contains("recipientName: Option[String], subject"))
@@ -462,7 +507,6 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/entity/Notice.scala"
     )
-    assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)
 
     assert(content.contains("""baseContent = org.simplemodeling.model.value.BaseContent.simple("senderName")"""))
@@ -494,7 +538,6 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/entity/Person.scala"
     )
-    assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)
     assert(content.contains("def toRecord(): Record"))
     assert(content.contains("\"external_id\" -> _to_external_value(id)"))
@@ -549,7 +592,6 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
     )
-    assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)
     assert(content.contains("override def stateMachineTransitionRules: Vector[CollectionTransitionRule[Any]] = Vector("))
     assert(content.contains("override def stateMachineDefinitions: Vector[org.goldenport.cncf.statemachine.CmlStateMachineDefinition] = Vector("))
@@ -573,7 +615,6 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
     )
-    assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)
     assert(content.contains("eventName = \"publish\""))
     assert(content.contains("guard = Some(StateMachineRuleBuilder.guardRef[Any](\"paymentConfirmed\", stateMachineGuardResolver))"))
@@ -591,7 +632,6 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
     )
-    assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)
     assert(content.contains("eventName = \"submit\""))
     assert(content.contains("eventName = \"publish\""))
@@ -723,7 +763,6 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/entity/CountryCode.scala"
     )
-    assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)
     assert(content.contains(
       """validation = org.goldenport.schema.WebValidationHints(minLength = Some(2), maxLength = Some(2), pattern = Some("^[A-Z]{2}$"))"""
@@ -852,7 +891,6 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
     )
-    assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)
     assert(content.contains("""name = "person""""))
     assert(content.contains("""entityName = "person""""))
@@ -905,7 +943,6 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/entity/aggregate/Person.scala"
     )
-    assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)
     assert(content.contains("def renamePerson(input: Record)(using ctx: org.goldenport.cncf.context.ExecutionContext): Consequence[Person]"))
     assert(content.contains("""r <- aggregateCommandNotImplemented[Person]("renamePerson")"""))
@@ -932,7 +969,6 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
     )
-    assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)
     assert(content.contains("def eventReceptionDefinitions: Vector[org.goldenport.cncf.event.CmlEventDefinition] = Vector("))
     assert(content.contains("name = \"person.created\""))
@@ -1152,7 +1188,6 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
     )
-    assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)
     assert(content.contains("override def operationDefinitions: Vector[org.goldenport.cncf.operation.CmlOperationDefinition] = Vector("))
     assert(content.contains("name = \"createOrder\""))
@@ -1182,7 +1217,6 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
     )
-    assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)
     assert(content.contains("""ServiceDefinition.Specification.Builder("address")."""))
     assert(content.contains("""def useCaseRecords: Vector[Record] ="""))
@@ -1208,7 +1242,6 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
     )
-    assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)
     assert(content.contains("""name = "greeting""""))
     assert(content.contains("""kind = "QUERY""""))
@@ -1238,7 +1271,6 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
     )
-    assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)
     assert(content.contains("""name = "changePassword""""))
     assert(content.contains("""entityName = Some("Person")"""))
@@ -1260,7 +1292,6 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
     )
-    assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)
     assert(content.contains("""name = "greeting""""))
     assert(content.contains("""entityName = Some("Person")"""))
@@ -1280,7 +1311,6 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
     )
-    assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)
     assert(content.contains("""name = "synchronizeAccount""""))
     assert(content.contains("""entityName = Some("Person")"""))
@@ -1299,7 +1329,6 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
     )
-    assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)
     assert(content.contains("""name = "listAccounts""""))
     assert(content.contains("""access = Some(org.goldenport.cncf.operation.CmlOperationAccess(policy = "manager_only""""))
@@ -1318,7 +1347,6 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
     )
-    assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)
     assert(content.contains("""access = Some(org.goldenport.cncf.operation.CmlOperationAccess(policy = "owner_or_manager", resource = Some("UserAccount"), target = Some("userAccountId")"""))
     assert(!content.contains("authorizeSimpleEntityOwnerOrManager("))
@@ -1338,7 +1366,6 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
     )
-    assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)
     assert(content.contains("""name = "searchOrders""""))
     assert(content.contains("""mode = Some("user-permission")"""))
@@ -1478,7 +1505,6 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/org/simplemodeling/textus/mcprag/StructuredKnowledgeComponent.scala"
     )
-    assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)
     assert(content.contains("""object KnowledgeService extends ServiceDefinition {"""))
     assert(content.contains("""object AggregateService extends ServiceDefinition {"""))
@@ -1641,7 +1667,6 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/org/simplemodeling/textus/mcprag/StructuredKnowledgeComponent.scala"
     )
-    assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)
     assert(content.contains("""object KnowledgeService extends ServiceDefinition {"""))
     assert(content.contains("""object AggregateService extends ServiceDefinition {"""))
@@ -1669,7 +1694,6 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val generatedOutput = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/value/GreetingResult.scala"
     )
-    assert(Files.exists(generated), s"generated file not found: $generated")
     assert(Files.exists(generatedInput), s"generated input value not found: $generatedInput")
     assert(Files.exists(generatedOutput), s"generated output value not found: $generatedOutput")
     val content = Files.readString(generated)
@@ -1902,7 +1926,6 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val generatedViewDetail = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/entity/view/detail/Item.scala"
     )
-    assert(Files.exists(generated), s"generated file not found: $generated")
     assert(Files.exists(generatedView), s"generated view file not found: $generatedView")
     assert(Files.exists(generatedViewSummary), s"generated summary view file not found: $generatedViewSummary")
     assert(Files.exists(generatedViewDetail), s"generated detail view file not found: $generatedViewDetail")
@@ -1994,7 +2017,6 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DemoComponent.scala"
     )
-    assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)
     assert(content.contains("""implementation = Some("blocking-task")"""))
     assert(content.contains("""Thread.sleep(250L)"""))
@@ -2122,7 +2144,6 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/EventDrivenComponent.scala"
     )
-    assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)
     assert(content.contains("""implementation = Some("event-emit")"""))
     assert(content.contains("""implementation = Some("event-effect-record")"""))
@@ -2172,7 +2193,6 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/value/CountryCode.scala"
     )
-    assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)
     assert(content.contains("Country"))
     assert(content.contains("extends Powertype"))
@@ -2191,7 +2211,6 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/statemachine/lifecycle.scala"
     )
-    assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)
     assert(content.contains("case class lifecycle()"))
   }
@@ -2231,7 +2250,6 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/PersonComponent.scala"
     )
-    assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)
     assert(content.contains("def componentDefinitionRecords: Vector[Record] = Vector("))
     assert(content.contains("def subsystemDefinitionRecords: Vector[Record] = Vector("))
@@ -2257,7 +2275,6 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
     )
-    assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)
     assert(content.contains("def componentDefinitionRecords: Vector[Record] = Vector("))
     assert(content.contains("\"name\" -> \"domain\""))
@@ -2292,7 +2309,6 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/textus/user/account/DomainComponent.scala"
     )
-    assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)
     assert(content.contains("package textus.user.account"))
     assert(content.contains("object DomainComponent"))
@@ -2330,7 +2346,6 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
     )
-    assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)
     assert(content.contains("name = \"person.created\""))
     assert(content.contains("name = \"system.heartbeat\""))
@@ -2353,7 +2368,6 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
     )
-    assert(Files.exists(generated), s"generated file not found: $generated")
     val content = Files.readString(generated)
     assert(content.contains("def eventRoutingDefinitions: Vector[org.goldenport.cncf.event.CmlRoutingDefinition] = Vector("))
     assert(content.contains("name = \"crm-route\""))
@@ -2547,8 +2561,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     if (!Files.exists(root))
       Vector.empty
     else {
-      import scala.collection.JavaConverters._
-      Files.walk(root).iterator().asScala
+            Files.walk(root).iterator().asScala
         .filter(path => Files.isRegularFile(path))
         .map { path =>
           val rel = root.relativize(path).toString

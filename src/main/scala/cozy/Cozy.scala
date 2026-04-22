@@ -28,7 +28,7 @@ import scala.collection.JavaConverters._
  *  version Feb. 28, 2022
  *  version Aug. 20, 2025
  *  version Mar. 17, 2026
- * @version Apr. 22, 2026
+ * @version Apr. 23, 2026
  * @author  ASAMI, Tomoharu
  */
 class Cozy(
@@ -130,19 +130,27 @@ class Cozy(
         }
         val policy = Cozy.ProjectFilePolicy.create(rest)
         val versions = Cozy.CarDependencyVersions.create(rest)
-        val replArgs = _without_project_file_policy_args(rest)
+        val style = Cozy.ProjectLayoutStyle.create(rest)
+        val replArgs = _without_style_args(_without_project_file_policy_args(rest))
         val modelArgs = _without_save_args(replArgs)
         val modelPath = modelArgs.find(!_.startsWith("-")).map(Paths.get(_))
+        val projectsave = _project_save_path(style, save)
         if (modelArgs.exists(!_.startsWith("-"))) {
-          val repl = (Vector("modeler-scala") ++ _convert_args(replArgs)).mkString(" ")
+          val generatedargs = modelArgs :+ s"--save=${projectsave}"
+          val repl = (Vector("modeler-scala") ++ _convert_args(generatedargs)).mkString(" ")
           val c = _operation_call(Array(repl))
           interpreter.execute(c)
-          _delete_directory(save.resolve("target"))
+          _delete_directory(projectsave.resolve("target"))
           if (!modelPath.exists(_.getFileName.toString.endsWith(".dox"))) {
-            _delete_directory(save.resolve("src/main/scala"))
+            _delete_directory(projectsave.resolve("src/main/scala"))
           }
         }
-        _materialize_car_sbt_project(save, policy, versions, modelPath)
+        style match {
+          case Cozy.ProjectLayoutStyle.CarOnly =>
+            _materialize_car_sbt_project(save, policy, versions, modelPath)
+          case Cozy.ProjectLayoutStyle.CarSar =>
+            _materialize_car_sar_sbt_project(save, policy, versions, modelPath)
+        }
         true
       case _ =>
         false
@@ -233,10 +241,29 @@ class Cozy(
         _without_project_file_policy_args(xs.drop(1))
       case x :: xs if Cozy.ProjectFilePolicy.isFlagOption(x) =>
         _without_project_file_policy_args(xs)
-      case x :: xs if Cozy.ProjectFilePolicy.isInlineOption(x) || Cozy.CarDependencyVersions.isInlineOption(x) =>
+      case x :: xs if Cozy.ProjectLayoutStyle.isFlagOption(x) =>
+        _without_project_file_policy_args(xs.drop(1))
+      case x :: xs if Cozy.ProjectFilePolicy.isInlineOption(x) || Cozy.CarDependencyVersions.isInlineOption(x) || Cozy.ProjectLayoutStyle.isInlineOption(x) =>
         _without_project_file_policy_args(xs)
       case x :: xs =>
         x :: _without_project_file_policy_args(xs)
+    }
+
+  private def _without_style_args(args: List[String]): List[String] =
+    args match {
+      case Nil => Nil
+      case x :: xs if Cozy.ProjectLayoutStyle.isFlagOption(x) =>
+        _without_style_args(xs.drop(1))
+      case x :: xs if Cozy.ProjectLayoutStyle.isInlineOption(x) =>
+        _without_style_args(xs)
+      case x :: xs =>
+        x :: _without_style_args(xs)
+    }
+
+  private def _project_save_path(style: Cozy.ProjectLayoutStyle, save: Path): Path =
+    style match {
+      case Cozy.ProjectLayoutStyle.CarOnly => save
+      case Cozy.ProjectLayoutStyle.CarSar => save.resolve("component")
     }
 
   private def _materialize_car_sbt_project(
@@ -319,6 +346,98 @@ class Cozy(
     _write_executable_project_file(
       scriptsdir.resolve("run-server-debug.sh"),
       Cozy.carRunServerDebugScript(),
+      policy
+    )
+  }
+
+  private def _materialize_car_sar_sbt_project(
+    dir: Path,
+    policy: Cozy.ProjectFilePolicy,
+    versions: Cozy.CarDependencyVersions,
+    modelPath: Option[Path] = None
+  ): Unit = {
+    if (policy.isSkip)
+      return
+    val appname = Cozy.appNameFromPath(dir)
+    Files.createDirectories(dir)
+    _write_project_file(
+      dir.resolve("README.md"),
+      Cozy.carSarReadme(appname),
+      policy
+    )
+    _write_project_file(
+      dir.resolve("build.sbt"),
+      Cozy.carSarBuildSbt(appname, versions),
+      policy
+    )
+    val projectdir = dir.resolve("project")
+    Files.createDirectories(projectdir)
+    _write_project_file(
+      projectdir.resolve("build.properties"),
+      s"sbt.version=${Cozy.detectSbtVersion()}",
+      policy
+    )
+    _write_project_file(
+      projectdir.resolve("plugins.sbt"),
+      Cozy.carPluginsSbt(),
+      policy
+    )
+
+    val componentdir = dir.resolve("component")
+    val cozydir = componentdir.resolve(s"src/main/cozy")
+    Files.createDirectories(cozydir)
+    val sampleModel = cozydir.resolve(s"${appname}.cml")
+    val modelContent = modelPath.filter(Files.exists(_)).
+      map(Files.readString(_, StandardCharsets.UTF_8)).
+      getOrElse(Cozy.carSarSampleCml(appname))
+    _write_project_file(sampleModel, modelContent, policy)
+    val webdir = componentdir.resolve("src/main/web")
+    Files.createDirectories(webdir)
+    _write_project_file(
+      webdir.resolve("web.yaml"),
+      Cozy.carWebDescriptorYaml(modelPath),
+      policy
+    )
+    _write_project_file(
+      componentdir.resolve("src/main/resources/.keep"),
+      "",
+      policy
+    )
+    _write_project_file(
+      componentdir.resolve("src/test/scala/.keep"),
+      "",
+      policy
+    )
+
+    val subsystemdir = dir.resolve("subsystem")
+    Files.createDirectories(subsystemdir)
+    _write_project_file(
+      subsystemdir.resolve("subsystem-descriptor.yaml"),
+      Cozy.carSarSubsystemDescriptorYaml(appname),
+      policy
+    )
+    _write_project_file(
+      subsystemdir.resolve("src/main/resources/.keep"),
+      "",
+      policy
+    )
+    _write_project_file(
+      subsystemdir.resolve("src/test/scala/.keep"),
+      "",
+      policy
+    )
+    val componentddir = subsystemdir.resolve("component.d")
+    Files.createDirectories(componentddir)
+    _write_project_file(
+      componentddir.resolve("README.md"),
+      Cozy.carSarComponentDReadme(appname),
+      policy
+    )
+    val scriptsdir = subsystemdir.resolve("scripts")
+    Files.createDirectories(scriptsdir)
+    _write_project_file(
+      scriptsdir.resolve("README.md"),
+      Cozy.carSarScriptsReadme(appname),
       policy
     )
   }
@@ -418,6 +537,38 @@ object Cozy {
     }
   }
 
+  sealed trait ProjectLayoutStyle
+  object ProjectLayoutStyle {
+    case object CarOnly extends ProjectLayoutStyle
+    case object CarSar extends ProjectLayoutStyle
+
+    def isOption(p: String): Boolean =
+      isInlineOption(p) || isFlagOption(p)
+
+    def isInlineOption(p: String): Boolean =
+      p.startsWith("--style=")
+
+    def isFlagOption(p: String): Boolean =
+      p == "--style"
+
+    def create(args: List[String]): ProjectLayoutStyle =
+      _option(args).map {
+        case "car" => CarOnly
+        case "car-sar" => CarSar
+        case other => RAISE.invalidArgumentFault(s"Unsupported project style: ${other}")
+      }.getOrElse(CarOnly)
+
+    private def _option(args: List[String]): Option[String] = {
+      args.collectFirst {
+        case s if s.startsWith("--style=") => s.substring("--style=".length)
+      }.orElse {
+        args.sliding(2).collectFirst {
+          case List(flag, value) if flag == "--style" => value
+        }
+      }.filter(_.nonEmpty)
+    }
+  }
+
   sealed trait ProjectFilePolicy {
     def isSkip: Boolean = this == ProjectFilePolicy.Skip
   }
@@ -459,6 +610,14 @@ object Cozy {
         getOrElse(DefaultSbtVersion)
     else
       DefaultSbtVersion
+  }
+
+  private[cozy] def appNameFromPath(path: Path): String = {
+    val name = Option(path.getFileName).map(_.toString).getOrElse("sample")
+    name.trim match {
+      case "" => "sample"
+      case x => x
+    }
   }
 
   private[cozy] def carBuildSbt(): String =
@@ -565,6 +724,156 @@ object Cozy {
       |      Seq(out)
       |    }.taskValue
       |  )
+      |""".stripMargin
+
+  private[cozy] def carSarBuildSbt(appname: String, versions: CarDependencyVersions): String =
+    s"""import org.goldenport.cozy.CozyPlugin.autoImport._
+      |import sbt.Keys.*
+      |
+      |val scala3Version = "3.3.7"
+      |def sampleVersion(envName: String, fileName: String, fallback: String): String =
+      |  sys.env.get(envName)
+      |    .orElse {
+      |      sys.env.get("TEXTUS_SAMPLES_ROOT")
+      |        .orElse(sys.env.get("CNCF_SAMPLES_ROOT"))
+      |        .flatMap { root =>
+      |          val versionFile = file(root) / "versions" / fileName
+      |          if (versionFile.isFile)
+      |            Some(IO.read(versionFile).trim).filter(_.nonEmpty)
+      |          else
+      |            None
+      |        }
+      |    }
+      |    .getOrElse(fallback)
+      |
+      |val cncfVersion = sampleVersion("CNCF_VERSION", "cncf-version.conf", "${versions.cncfVersion}")
+      |val simpleModelingModelVersion = sampleVersion("SIMPLEMODELING_MODEL_VERSION", "simplemodeling-model-version.conf", "${versions.simpleModelingModelVersion}")
+      |val cncfCollaboratorApiVersion = sampleVersion("CNCF_COLLABORATOR_API_VERSION", "cncf-collaborator-api-version.conf", "${versions.cncfCollaboratorApiVersion}")
+      |
+      |lazy val commonSettings = Seq(
+      |  organization := "com.example",
+      |  version := "0.0.1-SNAPSHOT",
+      |  scalaVersion := scala3Version,
+      |  resolvers += Resolver.defaultLocal,
+      |  resolvers += Resolver.file("Local Ivy", file(Path.userHome.absolutePath + "/.ivy2/local"))(Resolver.ivyStylePatterns),
+      |  resolvers += "Local Maven Repository" at ("file://" + Path.userHome.absolutePath + "/.m2/repository"),
+      |  resolvers += "SimpleModeling.org" at "https://www.simplemodeling.org/maven"
+      |)
+      |
+      |lazy val root = project
+      |  .in(file("."))
+      |  .aggregate(component, subsystem)
+      |  .settings(commonSettings)
+      |  .settings(
+      |    name := "${appname}",
+      |    publish / skip := true
+      |  )
+      |
+      |lazy val component = project
+      |  .in(file("component"))
+      |  .enablePlugins(org.goldenport.cozy.CozyPlugin)
+      |  .settings(commonSettings)
+      |  .settings(
+      |    name := "${appname}",
+      |    cozyGeneratorBackend := "cozy",
+      |    libraryDependencies ++= Seq(
+      |      "org.goldenport" %% "goldenport-cncf" % cncfVersion,
+      |      "org.simplemodeling" %% "simplemodeling-model" % simpleModelingModelVersion,
+      |      "org.goldenport" % "cncf-collaborator-api" % cncfCollaboratorApiVersion,
+      |      "org.scalatest" %% "scalatest" % "3.2.19" % Test
+      |    ),
+      |    cozyManifestMetadata ++= Map(
+      |      "component" -> "${appname}",
+      |      "boundedContext" -> "default",
+      |      "domain" -> "${appname}"
+      |    ),
+      |    Test / fork := false
+      |  )
+      |
+      |lazy val subsystem = project
+      |  .in(file("subsystem"))
+      |  .enablePlugins(org.goldenport.cozy.CozyPlugin)
+      |  .settings(commonSettings)
+      |  .settings(
+      |    name := "${appname}-subsystem",
+      |    cozyPackaging := "sar",
+      |    cozySourceDir := baseDirectory.value,
+      |    libraryDependencies ++= Seq(
+      |      "org.goldenport" %% "goldenport-cncf" % cncfVersion,
+      |      "org.scalatest" %% "scalatest" % "3.2.19" % Test
+      |    ),
+      |    Test / fork := false
+      |  )
+      |
+      |addCommandAlias("cozyGenerateApp", "component/cozyGenerate")
+      |addCommandAlias("cozyBuildAppCAR", "component/cozyBuildCAR")
+      |addCommandAlias("cozyBuildAppSAR", "subsystem/cozyBuildSAR")
+      |""".stripMargin
+
+  private[cozy] def carSarReadme(appname: String): String =
+    s"""# ${appname}
+      |
+      |Generated Cozy application scaffold.
+      |
+      |Directories:
+      |- `component/`: Cozy/CML source, generated component code, web assets, CAR packaging
+      |- `subsystem/`: subsystem descriptor, external component bindings, SAR packaging
+      |
+      |Typical workflow:
+      |- `sbt component/cozyGenerate`
+      |- `sbt component/cozyBuildCAR`
+      |- `sbt subsystem/cozyBuildSAR`
+      |""".stripMargin
+
+  private[cozy] def carSarSampleCml(appname: String): String =
+    carSampleCml()
+
+  private[cozy] def carSarSubsystemDescriptorYaml(appname: String): String =
+    s"""subsystem: ${appname}
+      |version: 0.0.1-SNAPSHOT
+      |components:
+      |  - name: ${appname}
+      |    version: 0.0.1-SNAPSHOT
+      |  - name: textus-user-account
+      |    version: 0.1.1-SNAPSHOT
+      |#security:
+      |#  authentication:
+      |#    convention: enabled
+      |#    fallback_privilege: disabled
+      |#    providers:
+      |#      - name: user-account
+      |#        component: textus-user-account
+      |#        kind: human
+      |#        enabled: true
+      |#        priority: 100
+      |#        schemes:
+      |#          - bearer
+      |#        default: true
+      |""".stripMargin
+
+  private[cozy] def carSarComponentDReadme(appname: String): String =
+    s"""# component.d
+      |
+      |Development-time packaged dependencies for `${appname}` live here.
+      |
+      |Current expected local setup:
+      |- build `textus-user-account` as a CAR
+      |- place it here as a symlink
+      |- keep `subsystem-descriptor.yaml` coordinates stable
+      |
+      |Recommended local command:
+      |`ln -s /absolute/path/to/textus-user-account-0.1.1-SNAPSHOT.car component.d/textus-user-account.car`
+      |
+      |Production distribution is repository-first. `component.d` is only the local development and test staging path.
+      |""".stripMargin
+
+  private[cozy] def carSarScriptsReadme(appname: String): String =
+    s"""# subsystem/scripts
+      |
+      |Local subsystem run helpers belong here.
+      |
+      |The default ${appname} scaffold expects local packaged dependencies under `subsystem/component.d`.
+      |For development, stage `textus-user-account` there as a symlink to the built CAR while keeping `subsystem-descriptor.yaml` on the stable repository coordinate.
       |""".stripMargin
 
   private[cozy] def carPluginsSbt(): String =
@@ -1151,9 +1460,10 @@ object Cozy {
       |  help, --help, -h
       |      Show this help and exit.
       |
-      |  car-sbt-project [model-file] --save=<dir> [--no-project-files] [--overwrite-project-files]
-      |      Generate an sbt CAR component project. When model-file is omitted,
-      |      create a scaffold with src/main/cozy/sample.cml.
+      |  car-sbt-project [model-file] --save=<dir> [--style=car|car-sar] [--no-project-files] [--overwrite-project-files]
+      |      Generate an sbt project scaffold. `car` creates a single CAR component project.
+      |      `car-sar` creates an application root with `component/` and `subsystem/`.
+      |      When model-file is omitted, create a scaffold sample model.
       |      By default, existing differing project files are written as .bak files.
       |
       |  modeler-scala <model-file> --save=<dir>
