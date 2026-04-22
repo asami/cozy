@@ -1862,7 +1862,7 @@ private object CozyArchivePackager {
     }
 }
 
-private object CozySbtBridge {
+private[cozy] object CozySbtBridge {
   def execute(args: List[String]): Unit =
     args match {
       case "v1" :: rest =>
@@ -1902,6 +1902,10 @@ private object CozySbtBridge {
 
   private def _load_request(path: Path): BridgeRequest = {
     val text = Files.readString(path, StandardCharsets.UTF_8)
+    _parse_request_json(text, Some(path))
+  }
+
+  private def _parse_request_json(text: String, path: Option[Path]): BridgeRequest =
     Json.parse(text).validate[BridgeRequest] match {
       case JsSuccess(request, _) =>
         if (request.version != "v1")
@@ -1909,9 +1913,9 @@ private object CozySbtBridge {
         request
       case JsError(errors) =>
         val detail = errors.map { case (p, xs) => s"${p.toJsonString}: ${xs.map(_.message).mkString(", ")}" }.mkString("; ")
-        RAISE.invalidArgumentFault(s"Invalid sbt-bridge request file: ${path.toAbsolutePath.normalize()} (${detail})")
+        val location = path.map(p => s"${p.toAbsolutePath.normalize()} ").getOrElse("")
+        RAISE.invalidArgumentFault(s"Invalid sbt-bridge request file: ${location}(${detail})")
     }
-  }
 
   private def _required_path(args: List[String], key: String): Path = {
     val prefix = s"--${key}="
@@ -1923,6 +1927,35 @@ private object CozySbtBridge {
       }
     }.getOrElse(RAISE.invalidArgumentFault(s"Missing --${key}"))
   }
+
+  private[cozy] final case class BridgeRequestView(
+    version: String,
+    action: String,
+    arguments: Vector[String],
+    settings: Map[String, String]
+  )
+
+  private[cozy] def loadRequestForTest(path: Path): BridgeRequestView = {
+    val req = _load_request(path)
+    BridgeRequestView(req.version, req.action, req.arguments, req.settings)
+  }
+
+  private case class BridgeResponseEnvelope(
+    version: String,
+    status: String,
+    mode: String,
+    action: String,
+    exitCode: Int,
+    message: String
+  )
+
+  private[cozy] def renderSuccessEnvelopeForTest(action: String): String =
+    Json.prettyPrint(Json.toJson(BridgeResponseEnvelope("v1", "success", "process-exit", action, 0, "Bridge command completed successfully.")))
+
+  private[cozy] def renderErrorEnvelopeForTest(action: String, message: String): String =
+    Json.prettyPrint(Json.toJson(BridgeResponseEnvelope("v1", "error", "process-exit", action, 1, message)))
+
+  private implicit val _bridge_response_envelope_format: Format[BridgeResponseEnvelope] = Json.format[BridgeResponseEnvelope]
 
   private case class BridgeRequest(
     version: String,

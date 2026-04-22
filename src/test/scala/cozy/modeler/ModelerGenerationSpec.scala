@@ -482,7 +482,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(content.contains("def withBody(value: String): Notice"))
     assert(content.contains("org.simplemodeling.model.value.BaseContent.simple(\"subject\")"))
     assert(content.contains("org.simplemodeling.model.value.BaseContent.simple(\"body\")"))
-    assert(content.contains("""_record_get_as_c[String](record, List("title", "subject"))"""))
+    assert(content.contains("""_record_get_as_c[String](record, List("nameAttributes.title", "name_attributes.title") ++ List("title", "subject"))"""))
     assert(content.contains("""_record_get_as_c[String](record, List("content", "body"))"""))
 
     val generatedQuery = out.resolve(
