@@ -47,7 +47,7 @@ import scala.collection.mutable
  *  version May. 13, 2025
  *  version Feb. 27, 2026
  *  version Mar. 31, 2026
- * @version Apr. 20, 2026
+ * @version Apr. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
@@ -640,6 +640,7 @@ object Modeler {
     }
 
     private def _build(includeComponents: Boolean): SimpleModel = {
+      _validate_component_service_operation_boundary()
       val entities = entity.classes.values.filterNot(c => _is_simple_entity(c.name)).map(_entity)
       val values = value.classes.values.map(_value) ++ _service_inline_values.map(_value)
       val datatypes = datatype.classes.values.map(_datatype)
@@ -653,6 +654,13 @@ object Modeler {
       } else {
         a
       }
+    }
+
+    private def _validate_component_service_operation_boundary(): Unit = {
+      if (operation.operations.nonEmpty)
+        RAISE.syntaxErrorFault("Top-level OPERATION is not supported; define operations under SERVICE.")
+      if (service.classes.nonEmpty && componentSubsystem.components.isEmpty)
+        RAISE.syntaxErrorFault("SERVICE requires COMPONENT; services are owned by a component.")
     }
 
     private def _entity(p: EntityClass): MEntity = {
@@ -906,11 +914,16 @@ object Modeler {
       pkg: MPackageRef,
       p: SchemaModel.Attribute
     ): MAttributeType =
-      if (p.domain.datatype == org.goldenport.record.v2.XString)
-        p.rawTypeName.flatMap(_builtin_attribute_type(pkg, _)).
-          orElse(p.rawTypeName.filterNot(_is_builtin_raw_type).flatMap(_resolve_object_attribute_type(pkg, _))).
-          getOrElse(MDataType(p.domain.datatype))
-      else
+      if (p.domain.datatype == org.goldenport.record.v2.XString) {
+        p.rawTypeName match {
+          case Some(raw) =>
+            _builtin_attribute_type(pkg, raw).
+              orElse(if (_is_string_format_raw_type(raw)) Some(MDataType(p.domain.datatype)) else None).
+              orElse(_resolve_object_attribute_type(pkg, raw)).
+              getOrElse(RAISE.syntaxErrorFault(s"Unknown CML attribute type: $raw"))
+          case None => MDataType(p.domain.datatype)
+        }
+      } else
         MDataType(p.domain.datatype)
 
     private def _builtin_attribute_type(
@@ -926,7 +939,8 @@ object Modeler {
         case "monthday" => Some(org.goldenport.record.v2.XMonthDay)
         case "day" => Some(org.goldenport.record.v2.XDay)
         case "duration" => Some(org.goldenport.record.v2.XDuration)
-        case _ => None
+        case "date-time" => None
+        case _ => org.goldenport.record.v2.DataType.get(normalized)
       }
       datatype.map(MDataType(_)).orElse {
         normalized match {
@@ -939,6 +953,7 @@ object Modeler {
           case "urn" => Some(MObjectAttributeType(MObjectRef.create("org.goldenport.datatype.Urn")))
           case "blob" => Some(MObjectAttributeType(MObjectRef.create("org.goldenport.bag.BinaryBag")))
           case "clob" => Some(MObjectAttributeType(MObjectRef.create("org.goldenport.bag.TextBag")))
+          case "datetime" | "date_time" => Some(MObjectAttributeType(MObjectRef.create("java.time.ZonedDateTime")))
           case "instant" => Some(MObjectAttributeType(MObjectRef.create("java.time.Instant")))
           case "localdate" => Some(MObjectAttributeType(MObjectRef.create("java.time.LocalDate")))
           case "localtime" => Some(MObjectAttributeType(MObjectRef.create("java.time.LocalTime")))
@@ -957,12 +972,21 @@ object Modeler {
       val raw = p.trim
       if (raw.isEmpty)
         None
+      else if (!_is_valid_type_name(raw))
+        None
       else {
         val simple = raw.split("\\.").last
         _resolve_local_object_attribute_type(pkg, simple).
           orElse(Some(MObjectAttributeType(MObjectRef.create(raw))))
       }
     }
+
+    private def _is_valid_type_name(p: String): Boolean =
+      p.split("\\.").forall { segment =>
+        segment.nonEmpty &&
+          segment.headOption.exists(c => c.isLetter || c == '_') &&
+          segment.forall(c => c.isLetterOrDigit || c == '_')
+      }
 
     private def _resolve_local_object_attribute_type(
       pkg: MPackageRef,
@@ -978,29 +1002,19 @@ object Modeler {
     ): Boolean = {
       val normalized = p.trim.toLowerCase(java.util.Locale.ROOT)
       _builtin_attribute_type(MPackageRef.default, normalized).isDefined ||
-        org.goldenport.record.v2.DataType.get(normalized).isDefined || Set(
-          "email",
-          "uuid",
-          "uri",
-          "url",
-          "urn",
-          "blob",
-          "clob",
-          "date",
-          "time",
-          "date-time",
-          "datetime",
-          "date_time",
-          "localdate",
-          "localtime",
-          "localdatetime",
-          "instant",
-          "locale",
-          "timezone",
-          "phone",
-          "tel",
-          "e164"
-        ).contains(normalized)
+        org.goldenport.record.v2.DataType.get(normalized).isDefined ||
+        _is_string_format_raw_type(normalized)
+    }
+
+    private def _is_string_format_raw_type(p: String): Boolean = {
+      val normalized = p.trim.toLowerCase(java.util.Locale.ROOT)
+      Set(
+        "email",
+        "uuid",
+        "phone",
+        "tel",
+        "e164"
+      ).contains(normalized)
     }
 
     private def _associations(pkg: MPackageRef, p: SchemaClass): List[MAssociation] =
@@ -1504,6 +1518,24 @@ object Modeler {
     private lazy val _operation_input_value_map: Map[String, OperationModel.InputValueDefinition] =
       operation.values.map(x => x.name -> x).toMap
 
+    private lazy val _value_input_field_map: Map[String, Vector[OperationModel.FieldDefinition]] =
+      (value.classes.values.toVector ++ _service_inline_values).map(x => x.name -> _operation_fields(x)).toMap
+
+    private def _operation_fields(p: ValueClass): Vector[OperationModel.FieldDefinition] =
+      p.schemaClass.attributes.map(_operation_field)
+
+    private def _operation_field(p: SchemaModel.Attribute): OperationModel.FieldDefinition =
+      OperationModel.FieldDefinition(
+        name = p.name,
+        datatype = p.rawTypeName.getOrElse(p.domain.datatype.name),
+        multiplicity = p.domain.multiplicity.mark,
+        label = p.web.label,
+        controlType = p.web.controlType,
+        placeholder = p.web.placeholder,
+        help = p.web.help,
+        required = p.web.required
+      )
+
     private lazy val _normalized_operation_map: Map[String, OperationModel.NormalizedOperationDefinition] =
       operation.normalizedOperations.map(_with_input_value_parameters).map(x => x.name -> x).toMap
 
@@ -1524,9 +1556,7 @@ object Modeler {
       p: ServiceModel.ServiceClass.Operation
     ): MOperation = {
       val opname = p.name
-      val opdef = _normalized_service_operation(p).map { s =>
-        _normalized_operation_map.get(opname).map(_merge_normalized_operation_definition(_, s)).getOrElse(s)
-      }.orElse(_normalized_operation_map.get(opname)).map(_merge_service_operation_metadata(_, serviceclass, p))
+      val opdef = _normalized_service_operation(p).map(_merge_service_operation_metadata(_, serviceclass, p))
       val desc = _description(
         opname,
         _operation_description(
@@ -1575,24 +1605,48 @@ object Modeler {
         description = rhs.description.orElse(lhs.description),
         precondition = rhs.precondition.orElse(lhs.precondition),
         postcondition = rhs.postcondition.orElse(lhs.postcondition),
+        execution = rhs.execution.orElse(lhs.execution),
+        implementation = rhs.implementation.orElse(lhs.implementation),
         access = rhs.access.orElse(serviceclass.access).orElse(lhs.access),
-        rules = if (rhs.rules.nonEmpty) rhs.rules else lhs.rules
+        authorization = rhs.authorization.orElse(lhs.authorization),
+        rules = if (rhs.rules.nonEmpty) rhs.rules else lhs.rules,
+        parameters = if (rhs.parameters.nonEmpty) rhs.parameters else lhs.parameters
       )
 
     private def _normalized_service_operation(
       p: ServiceModel.ServiceClass.Operation
     ): Option[OperationModel.NormalizedOperationDefinition] =
-      for {
-        kind <- p.kind
-        inputType <- p.input.tpe.map(_.trim).filterNot(_.isEmpty)
-        outputType <- p.output.tpe.map(_.trim).filterNot(_.isEmpty)
-      } yield {
-        OperationModel.NormalizedOperationDefinition(
+      if (!_has_service_operation_contract(p)) {
+        None
+      } else {
+        val kind = p.kind.getOrElse(
+          RAISE.syntaxErrorFault(s"Operation '${p.name}' requires TYPE (COMMAND|QUERY).")
+        )
+        val inputType = p.input.tpe.map(_.trim).filterNot(_.isEmpty).getOrElse(
+          RAISE.syntaxErrorFault(s"Operation '${p.name}' requires INPUT TYPE.")
+        )
+        val outputType = p.output.tpe.map(_.trim).filterNot(_.isEmpty).getOrElse(
+          RAISE.syntaxErrorFault(s"Operation '${p.name}' requires OUTPUT TYPE.")
+        )
+        val inputValue = _operation_input_value_map.get(inputType)
+        val inputValueKind = inputValue.map(_.kind).getOrElse {
+          kind match {
+            case OperationModel.OperationKind.Command => OperationModel.InputValueKind.CommandValue
+            case OperationModel.OperationKind.Query => OperationModel.InputValueKind.QueryValue
+          }
+        }
+        val parameters =
+          if (p.parameters.nonEmpty)
+            p.parameters
+          else
+            inputValue.map(_.fields).orElse(_value_input_field_map.get(inputType)).getOrElse(Vector.empty)
+        _validate_service_operation_input_kind(p.name, kind, inputValueKind)
+        Some(OperationModel.NormalizedOperationDefinition(
           name = p.name,
           kind = kind,
           summary = p.summary,
-          execution = None,
-          implementation = None,
+          execution = p.execution,
+          implementation = p.implementation,
           entityName = p.entityName,
           entityNames = p.entityNames,
           inputType = inputType,
@@ -1601,17 +1655,43 @@ object Modeler {
           outputType = outputType,
           outputSummary = p.output.summary,
           outputDescription = p.output.description,
-          inputValueKind = kind match {
-            case OperationModel.OperationKind.Command => OperationModel.InputValueKind.CommandValue
-            case OperationModel.OperationKind.Query => OperationModel.InputValueKind.QueryValue
-          },
+          inputValueKind = inputValueKind,
           description = p.description,
           precondition = p.precondition,
           postcondition = p.postcondition,
           access = p.access,
+          authorization = p.authorization,
           rules = p.rules,
-          parameters = Vector.empty
-        )
+          parameters = parameters
+        ))
+      }
+
+    private def _has_service_operation_contract(
+      p: ServiceModel.ServiceClass.Operation
+    ): Boolean =
+      p.kind.nonEmpty ||
+        p.input.tpe.exists(_.trim.nonEmpty) ||
+        p.output.tpe.exists(_.trim.nonEmpty) ||
+        p.execution.nonEmpty ||
+        p.implementation.nonEmpty ||
+        p.entityName.nonEmpty ||
+        p.entityNames.nonEmpty ||
+        p.access.nonEmpty ||
+        p.authorization.nonEmpty ||
+        p.parameters.nonEmpty
+
+    private def _validate_service_operation_input_kind(
+      opname: String,
+      opkind: OperationModel.OperationKind,
+      valuekind: OperationModel.InputValueKind
+    ): Unit =
+      (opkind, valuekind) match {
+        case (OperationModel.OperationKind.Command, OperationModel.InputValueKind.QueryValue) =>
+          RAISE.syntaxErrorFault(s"Operation '$opname' TYPE=COMMAND cannot use query-value input.")
+        case (OperationModel.OperationKind.Query, OperationModel.InputValueKind.CommandValue) =>
+          RAISE.syntaxErrorFault(s"Operation '$opname' TYPE=QUERY cannot use command-value input.")
+        case _ =>
+          ()
       }
 
     private def _operation_description(
@@ -2371,11 +2451,7 @@ object Modeler {
 
     private def _operation_definitions(
     ): Vector[MComponent.OperationDefinition] =
-      (_normalized_operation_map.values.toVector ++ _normalized_service_operation_definitions).
-        groupBy(_.name).
-        values.
-        toVector.map(_.reduceOption(_merge_normalized_operation_definition)).
-        flatten.
+      _normalized_service_operation_definitions.
         sortBy(_.name).
         map { x =>
         MComponent.OperationDefinition(
@@ -2437,10 +2513,6 @@ object Modeler {
         flatMap { svc =>
           svc.operations.operations.values.toVector.flatMap { p =>
           _normalized_service_operation(p).
-            map { s =>
-              _normalized_operation_map.get(p.name).map(_merge_normalized_operation_definition(_, s)).getOrElse(s)
-            }.
-            orElse(_normalized_operation_map.get(p.name)).
             map(_merge_service_operation_metadata(_, svc, p))
           }
         }

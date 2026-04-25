@@ -50,6 +50,22 @@ OperationResult
 
 Replaces the current password with a new password.
 
+##### TYPE
+
+COMMAND
+
+##### INPUT
+
+###### TYPE
+
+ChangePasswordInput
+
+##### OUTPUT
+
+###### TYPE
+
+ChangePasswordResult
+
 ##### ENTITY
 
 Person
@@ -69,16 +85,3 @@ Current credential and new credential material.
 ##### OUT
 
 Credential update result.
-
-# OPERATION
-
-## changePassword
-
-### TYPE
-COMMAND
-
-### INPUT
-ChangePasswordInput
-
-### OUTPUT
-ChangePasswordResult

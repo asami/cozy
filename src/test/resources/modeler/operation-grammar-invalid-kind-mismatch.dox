@@ -1,3 +1,11 @@
+# COMPONENT
+
+## Domain
+
+### PACKAGE
+
+domain
+
 # COMMAND
 
 ## SavePerson
@@ -18,17 +26,23 @@
 |------+------|--------------|
 | name | Name | 1            |
 
-# OPERATION
+# SERVICE
 
-## savePerson
+## Person
 
-### TYPE
+### OPERATION
+
+#### savePerson
+
+##### TYPE
 COMMAND
 
-### INPUT
+##### INPUT
+###### TYPE
 PersonFilter
 
-### OUTPUT
+##### OUTPUT
+###### TYPE
 SavePersonResult
 
 # ENTITY

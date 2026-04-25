@@ -16,7 +16,7 @@ import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 
 /*
  * @since   May. 17, 2025
- * @version Apr. 23, 2026
+ * @version Apr. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -769,6 +769,33 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     ))
   }
 
+    "modeler rejects date-time as an attribute type" in {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("target/test-generated/invalid-date-time-type.dox")
+    Files.createDirectories(input.getParent)
+    Files.write(input,
+      """# COMPONENT
+        |
+        |## InvalidDateTimeType
+        |
+        |# ENTITY
+        |
+        |## Event
+        |
+        |### Attribute
+        |
+        || name      | type      | multiplicity |
+        ||-----------+-----------+--------------|
+        || occurredAt| date-time | 1            |
+        |""".stripMargin.getBytes(StandardCharsets.UTF_8))
+    val model = KaleidoxModel.load(KaleidoxConfig.default.withoutLocation, input.toFile)
+
+    val thrown = intercept[Throwable] {
+      new cozy.modeler.Modeler().buildValueModel(model)
+    }
+    thrown.getMessage should include ("Unknown CML attribute type: date-time")
+  }
+
     "kaleidox accepts extended format values for CFormat constraints" in {
     val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
     val input = base.resolve("src/test/resources/modeler/constraint-format-extended.dox")
@@ -1176,33 +1203,93 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(normalized.size == 2)
   }
 
-    "modeler-scala emits operationDefinitions from OPERATION section" in {
+    "modeler-scala rejects top-level OPERATION section" in {
     val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
     val input = base.resolve("src/test/resources/modeler/operation-grammar.dox")
     val out = base.resolve("target/test-generated/modeler-scala-operation-grammar")
     _delete_recursively(out)
-    Files.createDirectories(out.getParent)
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+    val output = _run_modeler_scala(input, out)
+    assert(output.contains("Top-level OPERATION is not supported; define operations under SERVICE."), s"unexpected output: $output")
+  }
 
-    val generated = out.resolve(
-      "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
-    )
-    val content = Files.readString(generated)
-    assert(content.contains("override def operationDefinitions: Vector[org.goldenport.cncf.operation.CmlOperationDefinition] = Vector("))
-    assert(content.contains("name = \"createOrder\""))
-    assert(content.contains("kind = \"COMMAND\""))
-    assert(content.contains("inputType = \"CreateOrder\""))
-    assert(content.contains("""parameters = Vector(org.goldenport.cncf.operation.CmlOperationField(name = "orderId", datatype = "OrderId", multiplicity = "1", label = Some("Order Id")), org.goldenport.cncf.operation.CmlOperationField(name = "amount", datatype = "Money", multiplicity = "1", label = Some("Order Amount"), help = Some("Payment amount.")))"""))
-    assert(content.contains("operationAuthorization = Some(org.goldenport.cncf.security.OperationAuthorizationRule("))
-    assert(content.contains("allowAnonymous = Some(true).getOrElse(false)"))
-    assert(content.contains("anonymousOperationModes = Vector(org.goldenport.cncf.config.OperationMode.Develop, org.goldenport.cncf.config.OperationMode.Test)"))
-    assert(content.contains("name = \"getOrder\""))
-    assert(content.contains("inputType = \"GetOrder\""))
-    assert(content.contains("""parameters = Vector(org.goldenport.cncf.operation.CmlOperationField(name = "orderId", datatype = "OrderId", multiplicity = "1", label = Some("Order Id")))"""))
-    assert(content.contains("name = \"savePerson\""))
-    assert(content.contains("inputType = \"SavePersonInput\""))
-    assert(content.contains("inputValueKind = \"COMMAND_VALUE\""))
+    "modeler-scala rejects SERVICE without COMPONENT" in {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("target/test-generated/modeler-scala-service-without-component.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-service-without-component-out")
+    _delete_recursively(out)
+    _write(input,
+      """# SERVICE
+        |
+        |## Greeting
+        |
+        |### OPERATION
+        |
+        |#### greeting
+        |
+        |##### TYPE
+        |QUERY
+        |##### INPUT
+        |###### TYPE
+        |GreetingQuery
+        |##### OUTPUT
+        |###### TYPE
+        |GreetingResult
+        |
+        |# QUERY
+        |
+        |## GreetingQuery
+        |
+        |# VALUE
+        |
+        |## GreetingResult
+        |""".stripMargin)
+
+    val output = _run_modeler_scala(input, out)
+    assert(output.contains("SERVICE requires COMPONENT; services are owned by a component."), s"unexpected output: $output")
+  }
+
+    "modeler-scala rejects partial SERVICE operation contract" in {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("target/test-generated/modeler-scala-partial-service-operation.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-partial-service-operation-out")
+    _delete_recursively(out)
+    _write(input,
+      """# COMPONENT
+        |
+        |## Domain
+        |
+        |### PACKAGE
+        |
+        |domain
+        |
+        |# SERVICE
+        |
+        |## Greeting
+        |
+        |### OPERATION
+        |
+        |#### greeting
+        |
+        |##### TYPE
+        |QUERY
+        |##### INPUT
+        |###### TYPE
+        |GreetingQuery
+        |##### OUTPUT
+        |Greeting result.
+        |
+        |# QUERY
+        |
+        |## GreetingQuery
+        |
+        |# VALUE
+        |
+        |## GreetingResult
+        |""".stripMargin)
+
+    val output = _run_modeler_scala(input, out)
+    assert(output.contains("Operation 'greeting' requires OUTPUT TYPE."), s"unexpected output: $output")
   }
 
     "modeler-scala emits CNCF help source metadata for described service and operation" in {
@@ -1254,12 +1341,13 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(content.contains("""outputSummary = Some("Greeting result payload.")"""))
     assert(content.contains("""outputDescription = Some("Structured result returned by greeting.")"""))
     assert(content.contains("""inputValueKind = "QUERY_VALUE""""))
+    assert(content.contains("""parameters = Vector(org.goldenport.cncf.operation.CmlOperationField(name = "name", datatype = "name", multiplicity = "1", label = Some("Name"))"""))
     assert(content.contains("""Precondition: The caller provides a resolvable greeting target."""))
     assert(content.contains("""Postcondition: A greeting result is returned without mutating state."""))
     assert(content.contains("""Rules:"""))
   }
 
-    "modeler-scala overlays SERVICE operation ENTITY onto top-level OPERATION definition" in {
+    "modeler-scala keeps SERVICE operation contract self-contained" in {
     val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
     val input = base.resolve("src/test/resources/modeler/service-operation-overlay-entity.dox")
     val out = base.resolve("target/test-generated/modeler-scala-service-operation-overlay-entity")
@@ -1406,12 +1494,12 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
         |
         |COMMAND
         |
-        |##### IN
-        |
+        |##### INPUT
+        |###### TYPE
         |RegisterSourceRequest
         |
-        |##### OUT
-        |
+        |##### OUTPUT
+        |###### TYPE
         |KnowledgeFragmentResponse
         |
         |#### explain
@@ -1420,12 +1508,12 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
         |
         |QUERY
         |
-        |##### IN
-        |
+        |##### INPUT
+        |###### TYPE
         |ExplainKnowledgeRequest
         |
-        |##### OUT
-        |
+        |##### OUTPUT
+        |###### TYPE
         |KnowledgeFragmentResponse
         |
         |# ENTITY
@@ -1475,29 +1563,6 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
         ||------|------|--------------|
         || fragment | KnowledgeFragment | 1 |
         |
-        |# OPERATION
-        |
-        |## registerSource
-        |
-        |### TYPE
-        |COMMAND
-        |
-        |### INPUT
-        |RegisterSourceRequest
-        |
-        |### OUTPUT
-        |KnowledgeFragmentResponse
-        |
-        |## explain
-        |
-        |### TYPE
-        |QUERY
-        |
-        |### INPUT
-        |ExplainKnowledgeRequest
-        |
-        |### OUTPUT
-        |KnowledgeFragmentResponse
         |""".stripMargin)
 
     cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
@@ -1548,12 +1613,12 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
         |
         |COMMAND
         |
-        |##### IN
-        |
+        |##### INPUT
+        |###### TYPE
         |RegisterSourceRequest
         |
-        |##### OUT
-        |
+        |##### OUTPUT
+        |###### TYPE
         |KnowledgeFragmentResponse
         |
         |#### explain
@@ -1562,12 +1627,12 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
         |
         |QUERY
         |
-        |##### IN
-        |
+        |##### INPUT
+        |###### TYPE
         |ExplainKnowledgeRequest
         |
-        |##### OUT
-        |
+        |##### OUTPUT
+        |###### TYPE
         |KnowledgeFragmentResponse
         |
         |# ENTITY
@@ -1637,29 +1702,6 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
         || name | string | 1 |
         || values | string | * |
         |
-        |# OPERATION
-        |
-        |## registerSource
-        |
-        |### TYPE
-        |COMMAND
-        |
-        |### INPUT
-        |RegisterSourceRequest
-        |
-        |### OUTPUT
-        |KnowledgeFragmentResponse
-        |
-        |## explain
-        |
-        |### TYPE
-        |QUERY
-        |
-        |### INPUT
-        |ExplainKnowledgeRequest
-        |
-        |### OUTPUT
-        |KnowledgeFragmentResponse
         |""".stripMargin)
 
     cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
@@ -1725,73 +1767,94 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
         |
         |#### createItem
         |
-        |##### IN
-        |
-        |Create payload.
-        |
-        |##### OUT
-        |
-        |Created entity.
+        |##### TYPE
+        |COMMAND
+        |##### IMPLEMENTATION
+        |entity-create
+        |##### INPUT
+        |###### TYPE
+        |CreateItem
+        |##### OUTPUT
+        |###### TYPE
+        |CreateItemResult
         |
         |#### loadItem
         |
-        |##### IN
-        |
-        |Entity id.
-        |
-        |##### OUT
-        |
-        |Loaded entity.
+        |##### TYPE
+        |QUERY
+        |##### IMPLEMENTATION
+        |entity-load
+        |##### INPUT
+        |###### TYPE
+        |LoadItem
+        |##### OUTPUT
+        |###### TYPE
+        |LoadItemResult
         |
         |#### searchItem
         |
-        |##### IN
-        |
-        |Search condition.
-        |
-        |##### OUT
-        |
-        |Search result.
+        |##### TYPE
+        |QUERY
+        |##### IMPLEMENTATION
+        |entity-search
+        |##### INPUT
+        |###### TYPE
+        |SearchItem
+        |##### OUTPUT
+        |###### TYPE
+        |SearchItemResult
         |
         |#### loadItemAggregate
         |
-        |##### IN
-        |
-        |Entity id.
-        |
-        |##### OUT
-        |
-        |Aggregate projection.
+        |##### TYPE
+        |QUERY
+        |##### IMPLEMENTATION
+        |aggregate-load
+        |##### INPUT
+        |###### TYPE
+        |LoadItem
+        |##### OUTPUT
+        |###### TYPE
+        |LoadItemAggregateResult
         |
         |#### searchItemAggregate
         |
-        |##### IN
-        |
-        |Search condition.
-        |
-        |##### OUT
-        |
-        |Aggregate search result.
+        |##### TYPE
+        |QUERY
+        |##### IMPLEMENTATION
+        |aggregate-search
+        |##### INPUT
+        |###### TYPE
+        |SearchItem
+        |##### OUTPUT
+        |###### TYPE
+        |SearchItemAggregateResult
         |
         |#### loadItemView
         |
-        |##### IN
-        |
-        |Entity id.
-        |
-        |##### OUT
-        |
-        |View projection.
+        |##### TYPE
+        |QUERY
+        |##### IMPLEMENTATION
+        |view-load
+        |##### INPUT
+        |###### TYPE
+        |LoadItem
+        |##### OUTPUT
+        |###### TYPE
+        |LoadItemViewResult
         |
         |#### searchItemView
         |
-        |##### IN
-        |
-        |Search condition.
-        |
-        |##### OUT
-        |
-        |View search result.
+        |##### TYPE
+        |QUERY
+        |##### IMPLEMENTATION
+        |view-search
+        |##### INPUT
+        |###### TYPE
+        |SearchItem
+        |##### OUTPUT
+        |###### TYPE
+        |SearchItemViewResult
         |
         |# ENTITY
         |
@@ -1838,77 +1901,6 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
         ||------+------|--------------|
         || name | name | 0..1         |
         |
-        |# OPERATION
-        |
-        |## createItem
-        |### TYPE
-        |COMMAND
-        |### IMPLEMENTATION
-        |entity-create
-        |### INPUT
-        |CreateItem
-        |### OUTPUT
-        |CreateItemResult
-        |
-        |## loadItem
-        |### TYPE
-        |QUERY
-        |### IMPLEMENTATION
-        |entity-load
-        |### INPUT
-        |LoadItem
-        |### OUTPUT
-        |LoadItemResult
-        |
-        |## searchItem
-        |### TYPE
-        |QUERY
-        |### IMPLEMENTATION
-        |entity-search
-        |### INPUT
-        |SearchItem
-        |### OUTPUT
-        |SearchItemResult
-        |
-        |## loadItemAggregate
-        |### TYPE
-        |QUERY
-        |### IMPLEMENTATION
-        |aggregate-load
-        |### INPUT
-        |LoadItem
-        |### OUTPUT
-        |LoadItemAggregateResult
-        |
-        |## searchItemAggregate
-        |### TYPE
-        |QUERY
-        |### IMPLEMENTATION
-        |aggregate-search
-        |### INPUT
-        |SearchItem
-        |### OUTPUT
-        |SearchItemAggregateResult
-        |
-        |## loadItemView
-        |### TYPE
-        |QUERY
-        |### IMPLEMENTATION
-        |view-load
-        |### INPUT
-        |LoadItem
-        |### OUTPUT
-        |LoadItemViewResult
-        |
-        |## searchItemView
-        |### TYPE
-        |QUERY
-        |### IMPLEMENTATION
-        |view-search
-        |### INPUT
-        |SearchItem
-        |### OUTPUT
-        |SearchItemViewResult
         |""".stripMargin
     )
 
@@ -1980,13 +1972,16 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
         |
         |#### createItem
         |
-        |##### IN
-        |
-        |Create payload.
-        |
-        |##### OUT
-        |
-        |Created entity.
+        |##### TYPE
+        |COMMAND
+        |##### IMPLEMENTATION
+        |blocking-task
+        |##### INPUT
+        |###### TYPE
+        |CreateItem
+        |##### OUTPUT
+        |###### TYPE
+        |CreateItemResult
         |
         |# COMMAND
         |
@@ -1998,17 +1993,6 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
         ||------+------|--------------|
         || name | name | 1            |
         |
-        |# OPERATION
-        |
-        |## createItem
-        |### TYPE
-        |COMMAND
-        |### IMPLEMENTATION
-        |blocking-task
-        |### INPUT
-        |CreateItem
-        |### OUTPUT
-        |CreateItemResult
         |""".stripMargin
     )
 
@@ -2044,33 +2028,42 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
         |
         |#### emitEvent
         |
-        |##### IN
-        |
-        |Emit payload.
-        |
-        |##### OUT
-        |
-        |Emit result.
+        |##### TYPE
+        |COMMAND
+        |##### IMPLEMENTATION
+        |event-emit
+        |##### INPUT
+        |###### TYPE
+        |EmitEvent
+        |##### OUTPUT
+        |###### TYPE
+        |EmitEventResult
         |
         |#### recordEffect
         |
-        |##### IN
-        |
-        |Event payload.
-        |
-        |##### OUT
-        |
-        |Recorded effect.
+        |##### TYPE
+        |COMMAND
+        |##### IMPLEMENTATION
+        |event-effect-record
+        |##### INPUT
+        |###### TYPE
+        |RecordEffect
+        |##### OUTPUT
+        |###### TYPE
+        |RecordEffectResult
         |
         |#### loadEffect
         |
-        |##### IN
-        |
-        |None.
-        |
-        |##### OUT
-        |
-        |Loaded effect.
+        |##### TYPE
+        |QUERY
+        |##### IMPLEMENTATION
+        |event-effect-load
+        |##### INPUT
+        |###### TYPE
+        |LoadEffect
+        |##### OUTPUT
+        |###### TYPE
+        |LoadEffectResult
         |
         |# COMMAND
         |
@@ -2105,37 +2098,6 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
         || id   | entityid | 1            |
         || name | name     | 1            |
         |
-        |# OPERATION
-        |
-        |## emitEvent
-        |### TYPE
-        |COMMAND
-        |### IMPLEMENTATION
-        |event-emit
-        |### INPUT
-        |EmitEvent
-        |### OUTPUT
-        |EmitEventResult
-        |
-        |## recordEffect
-        |### TYPE
-        |COMMAND
-        |### IMPLEMENTATION
-        |event-effect-record
-        |### INPUT
-        |RecordEffect
-        |### OUTPUT
-        |RecordEffectResult
-        |
-        |## loadEffect
-        |### TYPE
-        |QUERY
-        |### IMPLEMENTATION
-        |event-effect-load
-        |### INPUT
-        |LoadEffect
-        |### OUTPUT
-        |LoadEffectResult
         |""".stripMargin
     )
 
