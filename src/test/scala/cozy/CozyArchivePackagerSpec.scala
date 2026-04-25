@@ -16,6 +16,8 @@ class CozyArchivePackagerSpec extends AnyFunSuite {
       val spiJar = write(dir.resolve("artifacts/spi.jar"), "spi")
       val defaultConf = write(dir.resolve("conf/default.conf"), "service.timeout=10")
       val doc = write(dir.resolve("docs/guide/intro.md"), "# intro")
+      val web = write(dir.resolve("web/web.yaml"), "apps: []")
+      val assembly = write(dir.resolve("assembly-descriptor.yaml"), "subsystem: sample-component\ncomponents:\n  - name: sample-component\n")
       val archive = dir.resolve("out/sample.car")
 
       CozyArchivePackager.buildCar(List(
@@ -25,6 +27,8 @@ class CozyArchivePackagerSpec extends AnyFunSuite {
         s"--spi-jars=$spiJar",
         s"--default-conf=$defaultConf",
         s"--docs-dir=${doc.getParent.getParent}",
+        s"--web-dir=${web.getParent}",
+        s"--assembly-descriptor=$assembly",
         "--name=sample-component",
         "--version=0.1.0",
         "--component=sample-component",
@@ -38,6 +42,9 @@ class CozyArchivePackagerSpec extends AnyFunSuite {
       assert(entries.contains("lib/dep.jar"))
       assert(entries.contains("spi/spi.jar"))
       assert(entries.contains("config/default.conf"))
+      assert(entries.contains("assembly-descriptor.yaml"))
+      assert(entries.contains("web/web.yaml"))
+      assert(!entries.contains("component.d/provider.car"))
       assert(entries.contains("docs/guide/intro.md"))
       assert(!entries.contains("meta/manifest.json"))
       assert(descriptor.contains(""""entities": ["""))

@@ -426,11 +426,11 @@ class Cozy(
       "",
       policy
     )
-    val componentddir = subsystemdir.resolve("component.d")
-    Files.createDirectories(componentddir)
+    val repositorydir = dir.resolve("repository.d")
+    Files.createDirectories(repositorydir)
     _write_project_file(
-      componentddir.resolve("README.md"),
-      Cozy.carSarComponentDReadme(appname),
+      repositorydir.resolve("README.md"),
+      Cozy.carSarRepositoryDReadme(appname),
       policy
     )
     val scriptsdir = subsystemdir.resolve("scripts")
@@ -851,10 +851,10 @@ object Cozy {
       |#        default: true
       |""".stripMargin
 
-  private[cozy] def carSarComponentDReadme(appname: String): String =
-    s"""# component.d
+  private[cozy] def carSarRepositoryDReadme(appname: String): String =
+    s"""# repository.d
       |
-      |Development-time packaged dependencies for `${appname}` live here.
+      |Development-time packaged dependencies for `${appname}` live here as searchable artifacts.
       |
       |Current expected local setup:
       |- build `textus-user-account` as a CAR
@@ -862,9 +862,9 @@ object Cozy {
       |- keep `subsystem-descriptor.yaml` coordinates stable
       |
       |Recommended local command:
-      |`ln -s /absolute/path/to/textus-user-account-0.1.1-SNAPSHOT.car component.d/textus-user-account.car`
+      |`ln -s /absolute/path/to/textus-user-account-0.1.1-SNAPSHOT.car repository.d/textus-user-account.car`
       |
-      |Production distribution is repository-first. `component.d` is only the local development and test staging path.
+      |Production distribution is repository-first. `repository.d` is the local development and test search staging path.
       |""".stripMargin
 
   private[cozy] def carSarScriptsReadme(appname: String): String =
@@ -872,7 +872,7 @@ object Cozy {
       |
       |Local subsystem run helpers belong here.
       |
-      |The default ${appname} scaffold expects local packaged dependencies under `subsystem/component.d`.
+      |The default ${appname} scaffold expects local packaged dependencies under `repository.d` as the local search staging path.
       |For development, stage `textus-user-account` there as a symlink to the built CAR while keeping `subsystem-descriptor.yaml` on the stable repository coordinate.
       |""".stripMargin
 
@@ -1599,6 +1599,8 @@ private object CozyArchivePackager {
     val spiJars = _paths(args, "spi-jars")
     val defaultConf = _path(args, "default-conf")
     val docsDir = _path(args, "docs-dir")
+    val webDir = _path(args, "web-dir")
+    val assemblyDescriptor = _path(args, "assembly-descriptor")
     val name = _required_value(args, "name")
     val version = _required_value(args, "version")
     val component = _required_value(args, "component")
@@ -1613,9 +1615,11 @@ private object CozyArchivePackager {
         libJars.map(p => p -> s"lib/${p.getFileName}") ++
         spiJars.map(p => p -> s"spi/${p.getFileName}") ++
         defaultConf.toVector.map(_ -> "config/default.conf") ++
+        assemblyDescriptor.toVector.map(_ -> "assembly-descriptor.yaml") ++
+        _web_entries(webDir) ++
         _docs_entries(docsDir) ++
         Vector(_write_temp("component-descriptor", _component_descriptor_json(name, version, component, extensionMap, configMap, entities)) -> "component-descriptor.json"),
-      Vector("component", "lib", "spi", "config", "docs")
+      Vector("component", "lib", "spi", "config", "web", "docs")
     )
   }
 
@@ -1657,6 +1661,11 @@ private object CozyArchivePackager {
   private def _docs_entries(docsDir: Option[Path]): Vector[(Path, String)] =
     docsDir.toVector.flatMap { dir =>
       _archive_sources(dir).map { case (p, rel) => p -> s"docs/${rel}" }
+    }
+
+  private def _web_entries(webDir: Option[Path]): Vector[(Path, String)] =
+    webDir.toVector.flatMap { dir =>
+      _archive_sources(dir).map { case (p, rel) => p -> s"web/${rel}" }
     }
 
   private def _write_archive(

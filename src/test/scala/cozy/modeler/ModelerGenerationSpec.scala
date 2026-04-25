@@ -171,7 +171,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val componentModel = out.resolve("component/src/main/cozy/car-sar-sbt-project.cml")
     val componentWeb = out.resolve("component/src/main/web/web.yaml")
     val subsystemDescriptor = out.resolve("subsystem/subsystem-descriptor.yaml")
-    val componentDReadme = out.resolve("subsystem/component.d/README.md")
+    val repositoryDReadme = out.resolve("repository.d/README.md")
     val subsystemScriptsReadme = out.resolve("subsystem/scripts/README.md")
     val generatedOut = out.resolve("component-generated")
 
@@ -180,7 +180,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(Files.exists(componentModel), s"component model not found: $componentModel")
     assert(Files.exists(componentWeb), s"component web descriptor not found: $componentWeb")
     assert(Files.exists(subsystemDescriptor), s"subsystem descriptor not found: $subsystemDescriptor")
-    assert(Files.exists(componentDReadme), s"component.d README not found: $componentDReadme")
+    assert(Files.exists(repositoryDReadme), s"repository.d README not found: $repositoryDReadme")
     assert(Files.exists(subsystemScriptsReadme), s"subsystem scripts README not found: $subsystemScriptsReadme")
     assert(!Files.exists(out.resolve("component/build.sbt")), s"component/build.sbt must not exist under CAR+SAR scaffold")
     assert(!Files.exists(out.resolve("subsystem/build.sbt")), s"subsystem/build.sbt must not exist under CAR+SAR scaffold")
@@ -195,7 +195,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(subsystemDescriptorContent.contains("name: car-sar-sbt-project"))
     assert(subsystemDescriptorContent.contains("name: textus-user-account"))
     assert(subsystemDescriptorContent.contains("version: 0.1.1-SNAPSHOT"))
-    assert(Files.readString(componentDReadme).contains("component.d/textus-user-account.car"))
+    assert(Files.readString(repositoryDReadme).contains("repository.d/textus-user-account.car"))
 
     cozy.Cozy.main(Array("modeler-scala", componentModel.toString, s"--save=${generatedOut.toString}"))
     val generatedScala = Files.find(generatedOut, 32, (p, attr) => attr.isRegularFile && p.toString.endsWith(".scala"))
