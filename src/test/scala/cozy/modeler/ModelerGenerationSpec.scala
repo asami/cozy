@@ -796,12 +796,20 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
         ||-----------+-----------+--------------|
         || occurredAt| date-time | 1            |
         |""".stripMargin.getBytes(StandardCharsets.UTF_8))
-    val model = KaleidoxModel.load(KaleidoxConfig.default.withoutLocation, input.toFile)
+    val out = base.resolve("target/test-generated/invalid-date-time-type-out")
+    _delete_recursively(out)
 
-    val thrown = intercept[Throwable] {
-      new cozy.modeler.Modeler().buildValueModel(model)
+    val stdout = new ByteArrayOutputStream()
+    val stderr = new ByteArrayOutputStream()
+    Console.withOut(new PrintStream(stdout)) {
+      Console.withErr(new PrintStream(stderr)) {
+        cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+      }
     }
-    thrown.getMessage should include ("Unknown CML attribute type: date-time")
+
+    val diagnostic = stdout.toString(StandardCharsets.UTF_8.name()) + stderr.toString(StandardCharsets.UTF_8.name())
+    diagnostic should include ("Unknown CML attribute type: date-time")
+    Files.exists(out) shouldBe false
   }
 
     "kaleidox accepts extended format values for CFormat constraints" in {
