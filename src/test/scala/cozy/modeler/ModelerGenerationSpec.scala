@@ -16,7 +16,7 @@ import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 
 /*
  * @since   May. 17, 2025
- * @version Apr. 25, 2026
+ * @version Apr. 26, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -442,6 +442,12 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(content.contains("PROP_ID"))
     assert(content.contains("PROP_NAME_ATTRIBUTES"))
     assert(content.contains("PROP_AGE"))
+    assert(content.contains("def toRecord(e: Person): Record = e.toRecord()"))
+    assert(content.contains("override def toStoreRecord(e: Person): Record = e.toDataStore()"))
+    assert(content.contains("override def fromStoreRecord(r: Record): Consequence[Person] = createC(r)"))
+    assert(content.contains(""""permission" -> _permission_json(securityAttributes.rights)"""))
+    assert(content.contains(""""owner_id" -> _to_external_value(securityAttributes.ownerId)"""))
+    assert(content.contains(""""created_at" -> _to_external_value(lifecycleAttributes.createdAt)"""))
     assert(content.contains(""""content" -> _to_external_value(m.content)"""))
     assert(content.contains(""""content" -> _to_data_store_value(m.content)"""))
     assert(content.contains("""content = m.getAny("content").collect { case s: String => I18nText(s) }"""))
@@ -456,6 +462,8 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(createContent.contains("case class Person(override val id: Option[EntityId]"))
     assert(createContent.contains("nameAttributes: NameAttributes"))
     assert(createContent.contains("age: Option[Age]"))
+    assert(createContent.contains("def toRecord(e: Person): Record = e.toRecord()"))
+    assert(createContent.contains("override def toStoreRecord(e: Person): Record = e.toDataStore()"))
   }
 
     "modeler-scala carries derived entity attributes as schema-visible aliases" in {
