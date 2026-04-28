@@ -16,7 +16,7 @@ import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 
 /*
  * @since   May. 17, 2025
- * @version Apr. 26, 2026
+ * @version Apr. 29, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -104,6 +104,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(webDescriptorContent.contains("type: textarea"))
     assert(Files.exists(out.resolve("src/main/scala/domain/impl/ComponentFactory.scala")))
     assert(pluginsSbtContent.contains("""addSbtPlugin("org.goldenport" % "sbt-cozy""""))
+    assert(pluginsSbtContent.contains("0.1.5-SNAPSHOT"))
   }
 
     "car-sbt-project preserves differing project files by writing bak files" in {
@@ -1759,6 +1760,150 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(content.contains("""inputType = "GreetingQuery""""))
     assert(content.contains("""outputType = "GreetingResult""""))
     assert(content.contains("""inputValueKind = "QUERY_VALUE""""))
+  }
+
+
+
+    "modeler-scala emits AwsComponent S3 inline values with key long and boolean fields" in {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("target/test-generated/modeler-scala-aws-s3-inline-values.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-aws-s3-inline-values-out")
+    _delete_recursively(out)
+    _write(input,
+      """# COMPONENT
+## AwsComponent
+### PACKAGE
+org.simplemodeling.textus.aws
+# SERVICE
+## S3
+### OPERATION
+#### putS3Object
+##### TYPE
+COMMAND
+##### INPUT
+PutS3Object
+###### VALUE
+####### PutS3Object
+######## EXTENDS
+CommandAction
+######## ATTRIBUTE
+| name        | type   | multiplicity |
+|-------------+--------+--------------|
+| bucketName  | string | 1            |
+| key         | string | 1            |
+| content     | string | 1            |
+| contentType | string | ?            |
+##### OUTPUT
+PutS3ObjectResult
+###### VALUE
+####### PutS3ObjectResult
+######## EXTENDS
+OperationResult
+######## ATTRIBUTE
+| name       | type | multiplicity |
+|------------+------+--------------|
+| bucketName | string | 1          |
+| key        | string | 1          |
+| sizeBytes  | long | ?            |
+#### deleteS3Object
+##### TYPE
+COMMAND
+##### INPUT
+DeleteS3Object
+###### VALUE
+####### DeleteS3Object
+######## EXTENDS
+CommandAction
+######## ATTRIBUTE
+| name       | type   | multiplicity |
+|------------+--------+--------------|
+| bucketName | string | 1            |
+| key        | string | 1            |
+##### OUTPUT
+DeleteS3ObjectResult
+###### VALUE
+####### DeleteS3ObjectResult
+######## EXTENDS
+OperationResult
+######## ATTRIBUTE
+| name       | type    | multiplicity |
+|------------+---------+--------------|
+| bucketName | string  | 1            |
+| key        | string  | 1            |
+| deleted    | boolean | 1            |
+# ENTITY
+## S3Object
+### ATTRIBUTE
+| name       | type     | multiplicity |
+|------------+----------+--------------|
+| id         | entityid | 1            |
+| bucketName | string   | 1            |
+| key        | string   | 1            |
+| sizeBytes  | long     | ?            |
+""")
+
+    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+
+    val component = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/org/simplemodeling/textus/aws/AwsComponentComponent.scala"
+    )
+    val put = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/org/simplemodeling/textus/aws/value/PutS3Object.scala"
+    )
+    val deleteResult = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/org/simplemodeling/textus/aws/value/DeleteS3ObjectResult.scala"
+    )
+    assert(Files.exists(component), s"generated component not found: $component")
+    assert(Files.exists(put), s"generated input value not found: $put")
+    assert(Files.exists(deleteResult), s"generated output value not found: $deleteResult")
+    val content = Files.readString(deleteResult)
+    assert(content.contains("deleted: Boolean"), s"boolean field was not generated as Scala Boolean\n$content")
+    assert(content.contains("Consequence.toBoolean"), s"boolean String builder did not use Consequence.toBoolean\n$content")
+  }
+
+    "modeler-scala does not double-wrap optional entityid attributes in create models" in {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("target/test-generated/modeler-optional-entityid.dox")
+    val out = base.resolve("target/test-generated/modeler-optional-entityid-out")
+    _delete_recursively(out)
+    _write(input,
+      """# COMPONENT
+        |
+        |## BlogComponent
+        |
+        |### PACKAGE
+        |
+        |org.simplemodeling.textus.blog
+        |
+        |# ENTITY
+        |
+        |## BlogPost
+        |
+        |### FEATURES
+        |
+        |extends = ["SimpleEntity"]
+        |
+        |### ATTRIBUTE
+        |
+        || name           | type     | multiplicity |
+        ||----------------+----------+--------------|
+        || id             | entityid | 1            |
+        || title          | string   | 1            |
+        || primaryImageId | entityid | ?            |
+        |
+        |""".stripMargin
+    )
+
+    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+
+    val generated = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/org/simplemodeling/textus/blog/entity/create/BlogPost.scala"
+    )
+    val content = Files.readString(generated)
+    assert(content.contains("primaryImageId: Option[EntityId]"), s"optional entityid was not generated as Option[EntityId]\n$content")
+    assert(!content.contains("primaryImageId: Option[Option[EntityId]]"), s"optional entityid was double-wrapped\n$content")
+    assert(!content.contains("withPrimaryImageId(primaryImageId: Option[Option[EntityId]])"), s"builder overload should not use Option[Option[EntityId]]\n$content")
+    assert(content.contains("_record_get_as_c[EntityId](record, INPUT_KEYS_PRIMARY_IMAGE_ID)"), s"record reader should read raw EntityId and let record lookup carry optionality\n$content")
   }
 
     "modeler-scala supports typical IMPLEMENTATION directives for entity operations" in {

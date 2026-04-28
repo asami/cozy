@@ -28,7 +28,7 @@ import scala.collection.JavaConverters._
  *  version Feb. 28, 2022
  *  version Aug. 20, 2025
  *  version Mar. 17, 2026
- * @version Apr. 23, 2026
+ * @version Apr. 29, 2026
  * @author  ASAMI, Tomoharu
  */
 class Cozy(
@@ -118,9 +118,34 @@ class Cozy(
 
   private def _to_repl_commandline(args: Array[String]): Option[String] =
     _leading_command(args).map { case (command, rest) =>
-      val converted = _convert_args(rest)
+      val normalized = _normalize_repl_args(command, rest)
+      val converted = _convert_args(normalized)
       (Vector(command) ++ converted).mkString(" ")
     }
+
+  private def _normalize_repl_args(command: String, args: List[String]): List[String] =
+    command match {
+      case "modeler-scala" | "modeler-scala-value" => _normalize_first_positional_path(args)
+      case _ => args
+    }
+
+  private def _normalize_first_positional_path(args: List[String]): List[String] = {
+    @annotation.tailrec
+    def go(xs: List[String], z: Vector[String], done: Boolean): List[String] = xs match {
+      case Nil => z.toList
+      case x :: xx if x.startsWith("--save=") =>
+        go(xx, z :+ x, done)
+      case x :: y :: yy if x == "--save" =>
+        go(yy, z :+ x :+ y, done)
+      case x :: xx if x.startsWith("-") =>
+        go(xx, z :+ x, done)
+      case x :: xx if !done =>
+        go(xx, z :+ Cozy._cli_path(x).toString, done = true)
+      case x :: xx =>
+        go(xx, z :+ x, done)
+    }
+    go(args, Vector.empty, done = false)
+  }
 
   private def _execute_car_sbt_project(args: Array[String]): Boolean =
     _leading_command(args) match {
@@ -133,10 +158,11 @@ class Cozy(
         val style = Cozy.ProjectLayoutStyle.create(rest)
         val replArgs = _without_style_args(_without_project_file_policy_args(rest))
         val modelArgs = _without_save_args(replArgs)
-        val modelPath = modelArgs.find(!_.startsWith("-")).map(Paths.get(_))
+        val normalizedModelArgs = _normalize_first_positional_path(modelArgs)
+        val modelPath = normalizedModelArgs.find(!_.startsWith("-")).map(Paths.get(_))
         val projectsave = _project_save_path(style, save)
-        if (modelArgs.exists(!_.startsWith("-"))) {
-          val generatedargs = modelArgs :+ s"--save=${projectsave}"
+        if (normalizedModelArgs.exists(!_.startsWith("-"))) {
+          val generatedargs = normalizedModelArgs :+ s"--save=${projectsave}"
           val repl = (Vector("modeler-scala") ++ _convert_args(generatedargs)).mkString(" ")
           val c = _operation_call(Array(repl))
           interpreter.execute(c)
@@ -489,7 +515,7 @@ class Cozy(
 
 object Cozy {
   private val DefaultSbtVersion = "1.9.7"
-  private val DefaultSbtCozyVersion = "0.1.3-SNAPSHOT"
+  private val DefaultSbtCozyVersion = "0.1.5-SNAPSHOT"
 
   case class CarDependencyVersions(
     cncfVersion: String,
@@ -934,23 +960,45 @@ object Cozy {
       |
       |#### postNotice
       |
-      |##### IN
+      |##### TYPE
+      |COMMAND
       |
-      |Notice post payload.
+      |##### IMPLEMENTATION
+      |entity-create
       |
-      |##### OUT
+      |##### ENTITY
+      |Notice
       |
-      |Posted notice.
+      |##### INPUT
+      |
+      |###### TYPE
+      |PostNotice
+      |
+      |##### OUTPUT
+      |
+      |###### TYPE
+      |PostNoticeResult
       |
       |#### searchNotices
       |
-      |##### IN
+      |##### TYPE
+      |QUERY
       |
-      |Notice search query.
+      |##### IMPLEMENTATION
+      |entity-search
       |
-      |##### OUT
+      |##### ENTITY
+      |Notice
       |
-      |Matching notices.
+      |##### INPUT
+      |
+      |###### TYPE
+      |SearchNotices
+      |
+      |##### OUTPUT
+      |
+      |###### TYPE
+      |SearchNoticesResult
       |
       |# ENTITY
       |
@@ -991,36 +1039,6 @@ object Cozy {
       || text          | string | ?            |
       || offset        | int    | ?            |
       || limit         | int    | ?            |
-      |
-      |# OPERATION
-      |
-      |## postNotice
-      |
-      |### TYPE
-      |COMMAND
-      |
-      |### IMPLEMENTATION
-      |entity-create
-      |
-      |### INPUT
-      |PostNotice
-      |
-      |### OUTPUT
-      |PostNoticeResult
-      |
-      |## searchNotices
-      |
-      |### TYPE
-      |QUERY
-      |
-      |### IMPLEMENTATION
-      |entity-search
-      |
-      |### INPUT
-      |SearchNotices
-      |
-      |### OUTPUT
-      |SearchNoticesResult
       |""".stripMargin
 
   private[cozy] def carWebDescriptorYaml(modelPath: Option[Path] = None): String =
@@ -1107,7 +1125,7 @@ object Cozy {
       |final class SamplePrimaryComponent extends SampleComponent
       |
       |object SamplePrimaryFactory extends SampleParticipantFactoryBase with Component.PrimaryComponentFactory {
-      |  protected def create_Component(params: ComponentCreate): Component =
+      |  override protected def create_Component(params: ComponentCreate): Component =
       |    new SamplePrimaryComponent()
       |
       |  override protected def create_Core(
