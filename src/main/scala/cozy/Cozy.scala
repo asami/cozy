@@ -672,6 +672,7 @@ object Cozy {
       |val cncfCollaboratorApiVersion = "${versions.cncfCollaboratorApiVersion}"
       |
       |lazy val packageCar = taskKey[File]("Create versioned CAR archive.")
+      |lazy val cozyBundleFactoryClassName = settingKey[Option[String]]("Optional Component.BundleFactory implementation class for ServiceLoader discovery.")
       |
       |lazy val root = project
       |  .in(file("."))
@@ -748,6 +749,20 @@ object Cozy {
       |          "}\\n"
       |      IO.write(out, content)
       |      Seq(out)
+      |    }.taskValue,
+      |
+      |    cozyBundleFactoryClassName := {
+      |      val source = baseDirectory.value / "src" / "main" / "scala" / "domain" / "impl" / "ComponentFactory.scala"
+      |      if (source.isFile) Some("domain.impl.ComponentFactory") else None
+      |    },
+      |
+      |    Compile / resourceGenerators += Def.task {
+      |      cozyBundleFactoryClassName.value.map { classname =>
+      |        val out = (Compile / resourceManaged).value / "META-INF" / "services" / "org.goldenport.cncf.component.Component$$BundleFactory"
+      |        IO.createDirectory(out.getParentFile)
+      |        IO.write(out, classname + "\\n")
+      |        out
+      |      }.toSeq
       |    }.taskValue
       |  )
       |""".stripMargin
@@ -775,6 +790,7 @@ object Cozy {
       |val cncfVersion = sampleVersion("CNCF_VERSION", "cncf-version.conf", "${versions.cncfVersion}")
       |val simpleModelingModelVersion = sampleVersion("SIMPLEMODELING_MODEL_VERSION", "simplemodeling-model-version.conf", "${versions.simpleModelingModelVersion}")
       |val cncfCollaboratorApiVersion = sampleVersion("CNCF_COLLABORATOR_API_VERSION", "cncf-collaborator-api-version.conf", "${versions.cncfCollaboratorApiVersion}")
+      |lazy val cozyBundleFactoryClassName = settingKey[Option[String]]("Optional Component.BundleFactory implementation class for ServiceLoader discovery.")
       |
       |lazy val commonSettings = Seq(
       |  organization := "com.example",
@@ -813,6 +829,15 @@ object Cozy {
       |      "boundedContext" -> "default",
       |      "domain" -> "${appname}"
       |    ),
+      |    cozyBundleFactoryClassName := None,
+      |    Compile / resourceGenerators += Def.task {
+      |      cozyBundleFactoryClassName.value.map { classname =>
+      |        val out = (Compile / resourceManaged).value / "META-INF" / "services" / "org.goldenport.cncf.component.Component$$BundleFactory"
+      |        IO.createDirectory(out.getParentFile)
+      |        IO.write(out, classname + "\\n")
+      |        out
+      |      }.toSeq
+      |    }.taskValue,
       |    Test / fork := false
       |  )
       |
