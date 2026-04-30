@@ -1,7 +1,7 @@
 # CML Grammar Extension Tracker
 
 status=active-note
-updated_at=2026-04-06
+updated_at=2026-04-30
 target=/Users/asami/src/dev2025/cozy
 
 ## 1. Purpose
@@ -28,6 +28,7 @@ for executable component specification, especially around:
 - `COMPONENT`
 - `SERVICE`
 - `OPERATION`
+- `RELATIONSHIP`
 - user-facing Help/OpenAPI/comment generation
 
 The immediate objective is not to freeze a final standard grammar.
@@ -94,7 +95,38 @@ Interpretation guideline:
 
 `RULE` is intentionally broader than invariant-only semantics.
 
-### 3.4 SCENARIO Step Splitting
+### 3.4 RELATIONSHIP Sections
+
+Implemented as a provisional grammar extension for Entity relationships.
+
+Supported relationship kinds:
+
+- `association`
+- `aggregation`
+- `composition`
+
+Supported storage modes:
+
+- `association-record`
+- `child-parent-id-field`
+- `embedded-value-object`
+
+For `composition` with `child-parent-id-field`, `PARENT ID FIELD` is required.
+Operation `CHILD ENTITY BINDING` may reference a relationship and Cozy expands
+the relationship into generated CNCF child Entity binding metadata before
+Scala generation.
+
+For `composition` with `embedded-value-object`, `TARGET` must reference a
+`VALUE` definition and `VALUE FIELD` is required. The value field must exist on
+the source Entity and use the target VALUE type. Cozy emits relationship
+metadata with `targetModelKind = "value"` and does not expand the relationship
+into child Entity binding metadata.
+
+SmartDox relationship sections intentionally enforce the authoring rule that a
+section heading is followed by one blank line before its content or child
+sections.
+
+### 3.5 SCENARIO Step Splitting
 
 Implemented parser behavior:
 

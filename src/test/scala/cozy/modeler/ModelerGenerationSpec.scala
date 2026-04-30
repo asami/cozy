@@ -16,7 +16,7 @@ import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 
 /*
  * @since   May. 17, 2025
- * @version Apr. 29, 2026
+ * @version Apr. 30, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -2635,6 +2635,708 @@ OperationResult
     val output = _run_modeler_scala(input, out)
     assert(output.contains("undeclared event publish"), s"unexpected output: $output")
     assert(!output.contains("URI is not absolute"), s"unexpected output: $output")
+  }
+
+    "modeler-scala emits SmartDox RELATIONSHIP metadata and child bindings" in {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("target/test-generated/modeler-scala-relationship-child-binding.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-relationship-child-binding-out")
+    _delete_recursively(out)
+    _write(input,
+      """# COMPONENT
+        |
+        |## Domain
+        |
+        |# ENTITY
+        |
+        |## SalesOrder
+        |
+        |### ATTRIBUTE
+        |
+        || name  | type     | multiplicity |
+        ||-------+----------+--------------|
+        || id    | entityid | 1            |
+        || title | string   | 1            |
+        |
+        |## SalesOrderLine
+        |
+        |### ATTRIBUTE
+        |
+        || name    | type     | multiplicity |
+        ||---------+----------+--------------|
+        || id      | entityid | 1            |
+        || orderId | entityid | 1            |
+        || lineNo  | int      | 1            |
+        |
+        |# VALUE
+        |
+        |## RegisterOrder
+        |
+        |### ATTRIBUTE
+        |
+        || name  | type           | multiplicity |
+        ||-------+----------------+--------------|
+        || title | string         | 1            |
+        || lines | SalesOrderLine | *            |
+        |
+        |## RegisterOrderResult
+        |
+        |### ATTRIBUTE
+        |
+        || name      | type     | multiplicity |
+        ||-----------+----------+--------------|
+        || entity_id | entityid | 1            |
+        |
+        |# RELATIONSHIP
+        |
+        |## SalesOrder.lines
+        |
+        |### KIND
+        |
+        |composition
+        |
+        |### SOURCE
+        |
+        |SalesOrder
+        |
+        |### TARGET
+        |
+        |SalesOrderLine
+        |
+        |### STORAGE
+        |
+        |child-parent-id-field
+        |
+        |### PARENT ID FIELD
+        |
+        |orderId
+        |
+        |### SORT ORDER FIELD
+        |
+        |lineNo
+        |
+        |### MULTIPLICITY
+        |
+        |one-to-many
+        |
+        |### LIFECYCLE
+        |
+        |dependent
+        |
+        |# SERVICE
+        |
+        |## OrderService
+        |
+        |### OPERATION
+        |
+        |#### registerOrder
+        |
+        |##### TYPE
+        |
+        |COMMAND
+        |
+        |##### INPUT
+        |
+        |###### TYPE
+        |
+        |RegisterOrder
+        |
+        |##### OUTPUT
+        |
+        |###### TYPE
+        |
+        |RegisterOrderResult
+        |
+        |##### CHILD ENTITY BINDING
+        |
+        |###### RELATIONSHIP
+        |
+        |SalesOrder.lines
+        |
+        |###### INPUT
+        |
+        |lines
+        |
+        |###### SOURCE ENTITY ID
+        |
+        |entity-create-result
+        |""".stripMargin
+    )
+
+    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+
+    val generated = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+    )
+    val content = Files.readString(generated)
+    content should include ("override def relationshipDefinitions: Vector[org.goldenport.cncf.operation.CmlEntityRelationshipDefinition] = Vector(")
+    content should include ("""name = "SalesOrder.lines"""")
+    content should include ("""kind = "composition"""")
+    content should include ("""storageMode = "child-parent-id-field"""")
+    content should include ("""parentIdField = Some("orderId")""")
+    content should include ("""childEntityBindings = Vector(org.goldenport.cncf.operation.CmlOperationChildEntityBinding""")
+    content should include ("""relationshipName = Some("SalesOrder.lines")""")
+    content should include ("""inputParameter = "lines"""")
+    content should include ("""sortOrderField = Some("lineNo")""")
+  }
+
+    "modeler-scala emits embedded value object relationship metadata" in {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("target/test-generated/modeler-scala-embedded-value-relationship.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-embedded-value-relationship-out")
+    _delete_recursively(out)
+    _write(input,
+      """# COMPONENT
+        |
+        |## Domain
+        |
+        |# ENTITY
+        |
+        |## SalesOrder
+        |
+        |### ATTRIBUTE
+        |
+        || name            | type            | multiplicity |
+        ||-----------------+-----------------+--------------|
+        || id              | entityid        | 1            |
+        || shippingAddress | ShippingAddress | ?            |
+        |
+        |# VALUE
+        |
+        |## ShippingAddress
+        |
+        |### ATTRIBUTE
+        |
+        || name       | type   | multiplicity |
+        ||------------+--------+--------------|
+        || line1      | string | 1            |
+        || postalCode | string | 1            |
+        |
+        |# RELATIONSHIP
+        |
+        |## SalesOrder.shippingAddress
+        |
+        |### KIND
+        |
+        |composition
+        |
+        |### SOURCE
+        |
+        |SalesOrder
+        |
+        |### TARGET
+        |
+        |ShippingAddress
+        |
+        |### STORAGE
+        |
+        |embedded-value-object
+        |
+        |### VALUE FIELD
+        |
+        |shippingAddress
+        |
+        |### MULTIPLICITY
+        |
+        |zero-or-one
+        |
+        |### LIFECYCLE
+        |
+        |dependent
+        |
+        |# SERVICE
+        |
+        |## OrderService
+        |""".stripMargin
+    )
+
+    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+
+    val generated = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+    )
+    val content = Files.readString(generated)
+    content should include ("""name = "SalesOrder.shippingAddress"""")
+    content should include ("""targetEntityName = "ShippingAddress"""")
+    content should include ("""targetModelKind = "value"""")
+    content should include ("""storageMode = "embedded-value-object"""")
+    content should include ("""valueField = Some("shippingAddress")""")
+    content should not include ("""relationshipName = Some("SalesOrder.shippingAddress")""")
+  }
+
+    "modeler-scala rejects composition relationship without parent id field" in {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("target/test-generated/modeler-scala-invalid-composition-relationship.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-invalid-composition-relationship-out")
+    _delete_recursively(out)
+    _write(input,
+      """# COMPONENT
+        |
+        |## Domain
+        |
+        |# ENTITY
+        |
+        |## SalesOrder
+        |
+        |### ATTRIBUTE
+        |
+        || name | type     | multiplicity |
+        ||------+----------+--------------|
+        || id   | entityid | 1            |
+        |
+        |## SalesOrderLine
+        |
+        |### ATTRIBUTE
+        |
+        || name | type     | multiplicity |
+        ||------+----------+--------------|
+        || id   | entityid | 1            |
+        |
+        |# RELATIONSHIP
+        |
+        |## SalesOrder.lines
+        |
+        |### KIND
+        |
+        |composition
+        |
+        |### SOURCE
+        |
+        |SalesOrder
+        |
+        |### TARGET
+        |
+        |SalesOrderLine
+        |
+        |### STORAGE
+        |
+        |child-parent-id-field
+        |
+        |# SERVICE
+        |
+        |## OrderService
+        |""".stripMargin
+    )
+
+    val output = _run_modeler_scala(input, out)
+    assert(output.contains("requires PARENT ID FIELD"), s"unexpected output: $output")
+  }
+
+    "modeler-scala rejects embedded value object relationship without value field" in {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("target/test-generated/modeler-scala-invalid-embedded-value-field.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-invalid-embedded-value-field-out")
+    _delete_recursively(out)
+    _write(input,
+      """# COMPONENT
+        |
+        |## Domain
+        |
+        |# ENTITY
+        |
+        |## SalesOrder
+        |
+        |### ATTRIBUTE
+        |
+        || name            | type            | multiplicity |
+        ||-----------------+-----------------+--------------|
+        || id              | entityid        | 1            |
+        || shippingAddress | ShippingAddress | ?            |
+        |
+        |# VALUE
+        |
+        |## ShippingAddress
+        |
+        |### ATTRIBUTE
+        |
+        || name  | type   | multiplicity |
+        ||-------+--------+--------------|
+        || line1 | string | 1            |
+        |
+        |# RELATIONSHIP
+        |
+        |## SalesOrder.shippingAddress
+        |
+        |### KIND
+        |
+        |composition
+        |
+        |### SOURCE
+        |
+        |SalesOrder
+        |
+        |### TARGET
+        |
+        |ShippingAddress
+        |
+        |### STORAGE
+        |
+        |embedded-value-object
+        |
+        |# SERVICE
+        |
+        |## OrderService
+        |""".stripMargin
+    )
+
+    val output = _run_modeler_scala(input, out)
+    assert(output.contains("requires VALUE FIELD"), s"unexpected output: $output")
+  }
+
+    "modeler-scala rejects embedded value object relationship with unknown target value" in {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("target/test-generated/modeler-scala-invalid-embedded-target-value.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-invalid-embedded-target-value-out")
+    _delete_recursively(out)
+    _write(input,
+      """# COMPONENT
+        |
+        |## Domain
+        |
+        |# ENTITY
+        |
+        |## SalesOrder
+        |
+        |### ATTRIBUTE
+        |
+        || name | type     | multiplicity |
+        ||------+----------+--------------|
+        || id   | entityid | 1            |
+        |
+        |# RELATIONSHIP
+        |
+        |## SalesOrder.shippingAddress
+        |
+        |### KIND
+        |
+        |composition
+        |
+        |### SOURCE
+        |
+        |SalesOrder
+        |
+        |### TARGET
+        |
+        |ShippingAddress
+        |
+        |### STORAGE
+        |
+        |embedded-value-object
+        |
+        |### VALUE FIELD
+        |
+        |shippingAddress
+        |
+        |# SERVICE
+        |
+        |## OrderService
+        |""".stripMargin
+    )
+
+    val output = _run_modeler_scala(input, out)
+    assert(output.contains("must reference a VALUE"), s"unexpected output: $output")
+  }
+
+    "modeler-scala rejects embedded value object relationship when value field is missing on source entity" in {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("target/test-generated/modeler-scala-invalid-embedded-missing-source-field.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-invalid-embedded-missing-source-field-out")
+    _delete_recursively(out)
+    _write(input,
+      """# COMPONENT
+        |
+        |## Domain
+        |
+        |# ENTITY
+        |
+        |## SalesOrder
+        |
+        |### ATTRIBUTE
+        |
+        || name | type     | multiplicity |
+        ||------+----------+--------------|
+        || id   | entityid | 1            |
+        |
+        |# VALUE
+        |
+        |## ShippingAddress
+        |
+        |### ATTRIBUTE
+        |
+        || name  | type   | multiplicity |
+        ||-------+--------+--------------|
+        || line1 | string | 1            |
+        |
+        |# RELATIONSHIP
+        |
+        |## SalesOrder.shippingAddress
+        |
+        |### KIND
+        |
+        |composition
+        |
+        |### SOURCE
+        |
+        |SalesOrder
+        |
+        |### TARGET
+        |
+        |ShippingAddress
+        |
+        |### STORAGE
+        |
+        |embedded-value-object
+        |
+        |### VALUE FIELD
+        |
+        |shippingAddress
+        |
+        |# SERVICE
+        |
+        |## OrderService
+        |""".stripMargin
+    )
+
+    val output = _run_modeler_scala(input, out)
+    assert(output.contains("is not an ATTRIBUTE of SOURCE"), s"unexpected output: $output")
+  }
+
+    "modeler-scala rejects embedded value object relationship when value field type differs from target value" in {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("target/test-generated/modeler-scala-invalid-embedded-wrong-source-field-type.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-invalid-embedded-wrong-source-field-type-out")
+    _delete_recursively(out)
+    _write(input,
+      """# COMPONENT
+        |
+        |## Domain
+        |
+        |# ENTITY
+        |
+        |## SalesOrder
+        |
+        |### ATTRIBUTE
+        |
+        || name            | type   | multiplicity |
+        ||-----------------+--------+--------------|
+        || id              | entityid | 1          |
+        || shippingAddress | string | ?            |
+        |
+        |# VALUE
+        |
+        |## ShippingAddress
+        |
+        |### ATTRIBUTE
+        |
+        || name  | type   | multiplicity |
+        ||-------+--------+--------------|
+        || line1 | string | 1            |
+        |
+        |# RELATIONSHIP
+        |
+        |## SalesOrder.shippingAddress
+        |
+        |### KIND
+        |
+        |composition
+        |
+        |### SOURCE
+        |
+        |SalesOrder
+        |
+        |### TARGET
+        |
+        |ShippingAddress
+        |
+        |### STORAGE
+        |
+        |embedded-value-object
+        |
+        |### VALUE FIELD
+        |
+        |shippingAddress
+        |
+        |# SERVICE
+        |
+        |## OrderService
+        |""".stripMargin
+    )
+
+    val output = _run_modeler_scala(input, out)
+    assert(output.contains("must have VALUE type"), s"unexpected output: $output")
+  }
+
+    "modeler-scala rejects child binding against embedded value object relationship" in {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("target/test-generated/modeler-scala-invalid-embedded-child-binding.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-invalid-embedded-child-binding-out")
+    _delete_recursively(out)
+    _write(input,
+      """# COMPONENT
+        |
+        |## Domain
+        |
+        |# ENTITY
+        |
+        |## SalesOrder
+        |
+        |### ATTRIBUTE
+        |
+        || name            | type            | multiplicity |
+        ||-----------------+-----------------+--------------|
+        || id              | entityid        | 1            |
+        || shippingAddress | ShippingAddress | ?            |
+        |
+        |# VALUE
+        |
+        |## ShippingAddress
+        |
+        |### ATTRIBUTE
+        |
+        || name  | type   | multiplicity |
+        ||-------+--------+--------------|
+        || line1 | string | 1            |
+        |
+        |## RegisterOrder
+        |
+        |### ATTRIBUTE
+        |
+        || name            | type            | multiplicity |
+        ||-----------------+-----------------+--------------|
+        || shippingAddress | ShippingAddress | ?            |
+        |
+        |## RegisterOrderResult
+        |
+        |### ATTRIBUTE
+        |
+        || name      | type     | multiplicity |
+        ||-----------+----------+--------------|
+        || entity_id | entityid | 1            |
+        |
+        |# RELATIONSHIP
+        |
+        |## SalesOrder.shippingAddress
+        |
+        |### KIND
+        |
+        |composition
+        |
+        |### SOURCE
+        |
+        |SalesOrder
+        |
+        |### TARGET
+        |
+        |ShippingAddress
+        |
+        |### STORAGE
+        |
+        |embedded-value-object
+        |
+        |### VALUE FIELD
+        |
+        |shippingAddress
+        |
+        |# SERVICE
+        |
+        |## OrderService
+        |
+        |### OPERATION
+        |
+        |#### registerOrder
+        |
+        |##### TYPE
+        |
+        |COMMAND
+        |
+        |##### INPUT
+        |
+        |###### TYPE
+        |
+        |RegisterOrder
+        |
+        |##### OUTPUT
+        |
+        |###### TYPE
+        |
+        |RegisterOrderResult
+        |
+        |##### CHILD ENTITY BINDING
+        |
+        |###### RELATIONSHIP
+        |
+        |SalesOrder.shippingAddress
+        |
+        |###### INPUT
+        |
+        |shippingAddress
+        |""".stripMargin
+    )
+
+    val output = _run_modeler_scala(input, out)
+    assert(output.contains("requires child-parent-id-field storage"), s"unexpected output: $output")
+  }
+
+    "modeler-scala rejects RELATIONSHIP heading without required blank line" in {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("target/test-generated/modeler-scala-relationship-missing-blank-line.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-relationship-missing-blank-line-out")
+    _delete_recursively(out)
+    _write(input,
+      """# COMPONENT
+        |
+        |## Domain
+        |
+        |# ENTITY
+        |
+        |## SalesOrder
+        |
+        |### ATTRIBUTE
+        |
+        || name | type     | multiplicity |
+        ||------+----------+--------------|
+        || id   | entityid | 1            |
+        |
+        |## SalesOrderLine
+        |
+        |### ATTRIBUTE
+        |
+        || name    | type     | multiplicity |
+        ||---------+----------+--------------|
+        || id      | entityid | 1            |
+        || orderId | entityid | 1            |
+        |
+        |# RELATIONSHIP
+        |## SalesOrder.lines
+        |
+        |### KIND
+        |
+        |composition
+        |
+        |### SOURCE
+        |
+        |SalesOrder
+        |
+        |### TARGET
+        |
+        |SalesOrderLine
+        |
+        |### STORAGE
+        |
+        |child-parent-id-field
+        |
+        |### PARENT ID FIELD
+        |
+        |orderId
+        |
+        |# SERVICE
+        |
+        |## OrderService
+        |""".stripMargin
+    )
+
+    val output = _run_modeler_scala(input, out)
+    assert(output.contains("requires a blank line after the section heading"), s"unexpected output: $output")
   }
 
   }

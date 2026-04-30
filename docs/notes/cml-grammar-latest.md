@@ -1,7 +1,7 @@
 # CML Grammar (Latest, Cozy)
 
 status=active-latest-spec
-updated_at=2026-04-01
+updated_at=2026-04-30
 target=/Users/asami/src/dev2025/cozy
 
 ## 1. Scope
@@ -85,6 +85,100 @@ For equivalent source expressions (heading, dl, table, hocon body, yaml body), C
 4. Apply metadata overlays and validation.
 5. Preserve narrative as non-executable context.
 6. Emit deterministic generator/runtime metadata.
+
+### 2.4 SmartDox Host-Grammar Conventions
+
+CML is hosted by SmartDox. SmartDox document notation is therefore valid in CML
+sources, but only CML structural and metadata sections build executable AST
+nodes.
+
+Reference SmartDox usage guide:
+
+- `/Users/asami/src/dev2025/smartdox/docs/design/smartdox-usage-by-purpose.md`
+- `/Users/asami/src/dev2025/smartdox/docs/spec/smartdox-grammar.md`
+
+Images and generated image blocks:
+
+```dox
+[[images/address-model.png]]
+
+#+CAPTION: Address model overview
+#+LABEL: fig-address-model
+[[images/address-model.png]]
+
+#+begin_dot images/address-model.png
+digraph Address {
+  Address -> CountryCode
+  Address -> PostalCode
+}
+#+end_dot
+```
+
+Interpretation:
+
+- ordinary images, figures, and generated image blocks are narrative/document
+  assets
+- they do not create CML model nodes unless a future explicit CML section
+  defines such behavior
+- captions and labels are preserved as SmartDox document metadata
+
+Article references:
+
+```dox
+[[https://schema.org/PostalAddress][schema.org PostalAddress]]
+[schema.org PostalAddress](https://schema.org/PostalAddress)
+site:[literate-modeling/what-is-literate-model.dox]
+```
+
+Interpretation:
+
+- external links are narrative references
+- `site:[target.dox]` is the preferred DoxSite-local reference form
+- legacy `[target.dox]` is migration-only and should not be used in new CML
+  sources
+
+Tables:
+
+```dox
+| name | type     | multiplicity |
+|------+----------+--------------|
+| id   | entityid | 1            |
+| name | name     | 1            |
+```
+
+Interpretation:
+
+- pipe tables inside formal CML sections such as `ATTRIBUTE`, `INPUT`,
+  `OUTPUT`, `STATE`, or `COMMAND` are structural or metadata inputs
+- pipe tables in narrative sections are document content only
+- `#+CAPTION` and `#+LABEL` may annotate document tables, but they do not
+  change CML AST semantics
+- `#+table: "data/file.csv" src` is SmartDox table inclusion; CML parser support
+  for included external data is not part of the current CML structural contract
+
+Program and verbatim examples:
+
+```dox
+#+begin_src scala
+case class Address(addressCountry: CountryCode)
+#+end_src
+
+#+begin_example
+addressCountry: JP
+#+end_example
+
+pattern: pass:[^[A-Z]{2}$]
+```
+
+Interpretation:
+
+- `#+begin_src` and `#+begin_example` blocks are examples or narrative
+  verbatim content unless a future explicit CML section assigns structural
+  meaning to them
+- inline `pass:[...]` may be used when SmartDox inline parsing would otherwise
+  alter a literal value
+- avoid indentation-only code blocks in CML examples; use explicit SmartDox
+  verbatim blocks
 
 ---
 
@@ -613,7 +707,142 @@ These records are deterministic and sorted by declaration-normalized order.
 
 ---
 
-## 10. Runtime Alignment Notes
+## 10. RELATIONSHIP DSL
+
+`RELATIONSHIP` defines entity-to-entity relationships that are emitted as
+generated runtime metadata. SmartDox section headings in this block require a
+blank line immediately after the heading.
+
+```text
+# RELATIONSHIP
+
+## SalesOrder.lines
+
+### KIND
+
+composition
+
+### SOURCE
+
+SalesOrder
+
+### TARGET
+
+SalesOrderLine
+
+### STORAGE
+
+child-parent-id-field
+
+### PARENT ID FIELD
+
+orderId
+
+### SORT ORDER FIELD
+
+lineNo
+
+### MULTIPLICITY
+
+one-to-many
+
+### LIFECYCLE
+
+dependent
+```
+
+Embedded value object composition stores a `VALUE` inside a parent Entity
+field and does not create child Entity records or Associations:
+
+```text
+# VALUE
+
+## ShippingAddress
+
+### ATTRIBUTE
+
+| name       | type   | multiplicity |
+| line1      | string | 1            |
+| postalCode | string | 1            |
+
+# RELATIONSHIP
+
+## SalesOrder.shippingAddress
+
+### KIND
+
+composition
+
+### SOURCE
+
+SalesOrder
+
+### TARGET
+
+ShippingAddress
+
+### STORAGE
+
+embedded-value-object
+
+### VALUE FIELD
+
+shippingAddress
+
+### MULTIPLICITY
+
+zero-or-one
+
+### LIFECYCLE
+
+dependent
+```
+
+Fields:
+
+- `KIND`: `association`, `aggregation`, or `composition`
+- `SOURCE`: owning/source Entity
+- `TARGET`: target/child Entity, or target `VALUE` for `embedded-value-object`
+- `STORAGE`: `association-record`, `child-parent-id-field`, or `embedded-value-object`
+- `PARENT ID FIELD`: required for `composition` with `child-parent-id-field`
+- `VALUE FIELD`: required for `composition` with `embedded-value-object`; it
+  must name a `SOURCE` Entity attribute whose type is the `TARGET` VALUE
+- `SORT ORDER FIELD`: optional child ordering field
+- `MULTIPLICITY`: optional relationship cardinality
+- `LIFECYCLE`: optional lifecycle policy such as `dependent`
+- `ASSOCIATION DOMAIN`: optional Association domain for association-record storage
+- `TARGET KIND`: optional Association target kind
+
+Operation bindings may reference a relationship and are expanded before Scala
+generation:
+
+```text
+##### CHILD ENTITY BINDING
+
+###### RELATIONSHIP
+
+SalesOrder.lines
+
+###### INPUT
+
+lines
+
+###### SOURCE ENTITY ID
+
+entity-create-result
+```
+
+For `composition` with `child-parent-id-field`, Cozy emits
+`CmlOperationChildEntityBinding` using the relationship target Entity,
+`PARENT ID FIELD`, and optional `SORT ORDER FIELD`.
+
+For `composition` with `embedded-value-object`, Cozy emits relationship
+metadata with `targetModelKind = "value"` and `valueField = Some(...)`; it does
+not emit child Entity binding metadata.
+
+---
+
+## 11. Runtime Alignment Notes
 
 Runtime expectation for integrated CNCF path:
 
@@ -622,7 +851,7 @@ Runtime expectation for integrated CNCF path:
 
 ---
 
-## 11. Accepted / Rejected Examples
+## 12. Accepted / Rejected Examples
 
 Accepted:
 
