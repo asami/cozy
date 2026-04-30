@@ -16,7 +16,8 @@ import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 
 /*
  * @since   May. 17, 2025
- * @version Apr. 30, 2026
+ *  version Apr. 30, 2026
+ * @version May.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -62,7 +63,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val updateClasspathScript = out.resolve("scripts/update-runtime-classpath.sh")
     val runServerScript = out.resolve("scripts/run-server.sh")
     val runServerDebugScript = out.resolve("scripts/run-server-debug.sh")
-    val webDescriptor = out.resolve("src/main/web/web.yaml")
+    val webDescriptor = out.resolve("src/main/car/web/web.yaml")
     val sampleCml = out.resolve("src/main/cozy/sample.cml")
     assert(Files.exists(buildSbt), s"build.sbt not found: $buildSbt")
     assert(Files.exists(pluginsSbt), s"plugins.sbt not found: $pluginsSbt")
@@ -85,8 +86,8 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val runServerDebugContent = Files.readString(runServerDebugScript)
     val webDescriptorContent = Files.readString(webDescriptor)
     assert(buildSbtContent.contains("enablePlugins(org.goldenport.cozy.CozyPlugin)"))
-    assert(buildSbtContent.contains("lazy val packageCar = taskKey[File]"))
-    assert(buildSbtContent.contains("""target.value / "car" / s"${name.value}-${version.value}.car""""))
+    assert(!buildSbtContent.contains("lazy val packageCar = taskKey[File]"))
+    assert(!buildSbtContent.contains("""target.value / "car" / s"${name.value}-${version.value}.car""""))
     assert(buildSbtContent.contains("""val cncfVersion = sampleVersion("CNCF_VERSION", "cncf-version.conf""""))
     assert(buildSbtContent.contains("""val simpleModelingModelVersion = sampleVersion("SIMPLEMODELING_MODEL_VERSION", "simplemodeling-model-version.conf""""))
     assert(buildSbtContent.contains("""libraryDependencies += "org.goldenport" %% "goldenport-cncf" % cncfVersion"""))
@@ -139,7 +140,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(!Files.exists(out.resolve("build.sbt")))
     assert(!Files.exists(out.resolve("project/build.properties")))
     assert(!Files.exists(out.resolve("src/main/cozy/sample.cml")))
-    assert(!Files.exists(out.resolve("src/main/web/web.yaml")))
+    assert(!Files.exists(out.resolve("src/main/car/web/web.yaml")))
     assert(!Files.exists(out.resolve("src/main/scala/domain/impl/ComponentFactory.scala")))
   }
 
@@ -173,7 +174,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val rootBuild = out.resolve("build.sbt")
     val pluginsSbt = out.resolve("project/plugins.sbt")
     val componentModel = out.resolve("component/src/main/cozy/car-sar-sbt-project.cml")
-    val componentWeb = out.resolve("component/src/main/web/web.yaml")
+    val componentWeb = out.resolve("component/src/main/car/web/web.yaml")
     val subsystemDescriptor = out.resolve("subsystem/subsystem-descriptor.yaml")
     val repositoryDReadme = out.resolve("repository.d/README.md")
     val subsystemScriptsReadme = out.resolve("subsystem/scripts/README.md")
@@ -226,7 +227,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val buildSbt = out.resolve("build.sbt")
     val pluginsSbt = out.resolve("project/plugins.sbt")
     val sampleCml = out.resolve("src/main/cozy/sample.cml")
-    val webDescriptor = out.resolve("src/main/web/web.yaml")
+    val webDescriptor = out.resolve("src/main/car/web/web.yaml")
     assert(Files.exists(buildSbt), s"build.sbt not found: $buildSbt")
     assert(Files.exists(pluginsSbt), s"plugins.sbt not found: $pluginsSbt")
     assert(Files.exists(sampleCml), s"sample model not found: $sampleCml")
@@ -268,7 +269,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
 
     cozy.Cozy.main(Array("car-sbt-project", input.toString, s"--save=${out.toString}"))
 
-    val webDescriptor = out.resolve("src/main/web/web.yaml")
+    val webDescriptor = out.resolve("src/main/car/web/web.yaml")
     val content = Files.readString(webDescriptor)
     assert(content.contains("sample.notice.post-notice: public"))
     assert(content.contains("stayOnError: true"))

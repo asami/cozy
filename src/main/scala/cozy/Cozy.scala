@@ -28,7 +28,8 @@ import scala.collection.JavaConverters._
  *  version Feb. 28, 2022
  *  version Aug. 20, 2025
  *  version Mar. 17, 2026
- * @version Apr. 29, 2026
+ *  version Apr. 29, 2026
+ * @version May.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 class Cozy(
@@ -329,7 +330,7 @@ class Cozy(
       modelContent,
       policy
     )
-    val webdir = dir.resolve("src/main/web")
+    val webdir = dir.resolve("src/main/car/web")
     Files.createDirectories(webdir)
     _write_project_file(
       webdir.resolve("web.yaml"),
@@ -417,7 +418,7 @@ class Cozy(
       map(Files.readString(_, StandardCharsets.UTF_8)).
       getOrElse(Cozy.carSarSampleCml(appname))
     _write_project_file(sampleModel, modelContent, policy)
-    val webdir = componentdir.resolve("src/main/web")
+    val webdir = componentdir.resolve("src/main/car/web")
     Files.createDirectories(webdir)
     _write_project_file(
       webdir.resolve("web.yaml"),
@@ -671,7 +672,6 @@ object Cozy {
       |val simpleModelingModelVersion = sampleVersion("SIMPLEMODELING_MODEL_VERSION", "simplemodeling-model-version.conf", "${versions.simpleModelingModelVersion}")
       |val cncfCollaboratorApiVersion = "${versions.cncfCollaboratorApiVersion}"
       |
-      |lazy val packageCar = taskKey[File]("Create versioned CAR archive.")
       |lazy val cozyBundleFactoryClassName = settingKey[Option[String]]("Optional Component.BundleFactory implementation class for ServiceLoader discovery.")
       |
       |lazy val root = project
@@ -723,20 +723,6 @@ object Cozy {
       |      "component" -> "sample-component",
       |      "boundedContext" -> "default",
       |      "domain" -> "default"
-      |    ),
-      |
-      |    packageCar := {
-      |      val out = target.value / "car" / s"$${name.value}-$${version.value}.car"
-      |      val sourcedir = baseDirectory.value / "car.d"
-      |      val pairs =
-      |        if (sourcedir.exists())
-      |          sbt.Path.allSubpaths(sourcedir).toSeq
-      |        else
-      |          Seq.empty
-      |      IO.createDirectory(out.getParentFile)
-      |      IO.zip(pairs, out, None)
-      |      streams.value.log.info(s"CAR archive: $${out.getAbsolutePath}")
-      |      out
       |    },
       |
       |    Compile / sourceGenerators += Def.task {
@@ -1515,8 +1501,8 @@ object Cozy {
       |  modeler-scala-value <model-file> --save=<dir>
       |      Generate value/domain model Scala sources without a component.
       |
-      |  package-car --save=<file> --main-jar=<file> --name=<name> --version=<version> --component=<component> [--entities=<spec>]
-      |      Build a CAR archive.
+      |  package-car --save=<file> --main-jar=<file> --name=<name> --version=<version> --component=<component> [--car-dir=<dir>] [--entities=<spec>]
+      |      Build a CAR archive. Additional CAR-root files come from --car-dir, typically src/main/car.
       |
       |  package-sar --save=<file> --source-dir=<dir> --name=<name> --version=<version>
       |      Build a SAR archive.
@@ -1640,8 +1626,8 @@ private object CozyArchivePackager {
     val mainJar = _required_path(args, "main-jar")
     val libJars = _paths(args, "lib-jars")
     val spiJars = _paths(args, "spi-jars")
+    val carDir = _path(args, "car-dir")
     val defaultConf = _path(args, "default-conf")
-    val docsDir = _path(args, "docs-dir")
     val webDir = _path(args, "web-dir")
     val assemblyDescriptor = _path(args, "assembly-descriptor")
     val name = _required_value(args, "name")
@@ -1655,14 +1641,14 @@ private object CozyArchivePackager {
       Vector(
         mainJar -> "component/main.jar"
       ) ++
+        _car_entries(carDir) ++
         libJars.map(p => p -> s"lib/${p.getFileName}") ++
         spiJars.map(p => p -> s"spi/${p.getFileName}") ++
         defaultConf.toVector.map(_ -> "config/default.conf") ++
         assemblyDescriptor.toVector.map(_ -> "assembly-descriptor.yaml") ++
         _web_entries(webDir) ++
-        _docs_entries(docsDir) ++
         Vector(_write_temp("component-descriptor", _component_descriptor_json(name, version, component, extensionMap, configMap, entities)) -> "component-descriptor.json"),
-      Vector("component", "lib", "spi", "config", "web", "docs")
+      Vector("component", "lib", "spi", "config", "web")
     )
   }
 
@@ -1701,14 +1687,14 @@ private object CozyArchivePackager {
     }
   }
 
-  private def _docs_entries(docsDir: Option[Path]): Vector[(Path, String)] =
-    docsDir.toVector.flatMap { dir =>
-      _archive_sources(dir).map { case (p, rel) => p -> s"docs/${rel}" }
-    }
+  private def _car_entries(carDir: Option[Path]): Vector[(Path, String)] =
+    carDir.toVector.flatMap(_archive_sources(_))
 
   private def _web_entries(webDir: Option[Path]): Vector[(Path, String)] =
     webDir.toVector.flatMap { dir =>
-      _archive_sources(dir).map { case (p, rel) => p -> s"web/${rel}" }
+      _archive_sources(dir).filterNot { case (_, rel) =>
+        rel == "web.yaml" || rel == "web-descriptor.yaml"
+      }.map { case (p, rel) => p -> s"web/${rel}" }
     }
 
   private def _write_archive(
@@ -1723,7 +1709,7 @@ private object CozyArchivePackager {
       entries.foreach { case (source, relative) =>
         val dest = tempDir.resolve(relative)
         Option(dest.getParent).foreach(Files.createDirectories(_))
-        Files.copy(source, dest)
+        Files.copy(source, dest, java.nio.file.StandardCopyOption.REPLACE_EXISTING)
       }
       placeholderDirs.foreach { dir =>
         val target = tempDir.resolve(dir)

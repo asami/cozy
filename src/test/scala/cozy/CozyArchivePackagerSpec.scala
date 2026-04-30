@@ -15,8 +15,11 @@ class CozyArchivePackagerSpec extends AnyFunSuite {
       val libJar = write(dir.resolve("artifacts/dep.jar"), "dep")
       val spiJar = write(dir.resolve("artifacts/spi.jar"), "spi")
       val defaultConf = write(dir.resolve("conf/default.conf"), "service.timeout=10")
-      val doc = write(dir.resolve("docs/guide/intro.md"), "# intro")
-      val web = write(dir.resolve("web/web.yaml"), "apps: []")
+      write(dir.resolve("docs/guide/intro.md"), "# intro")
+      val carNote = write(dir.resolve("src/main/car/manual/component.md"), "# component")
+      val carWebDescriptor = write(dir.resolve("src/main/car/web/web.yaml"), "apps:\n  - name: from-car\n")
+      write(dir.resolve("src/main/web/web.yaml"), "apps:\n  - name: from-web-app\n")
+      val webApp = write(dir.resolve("src/main/web/cwitter/index.html"), "<!doctype html><title>Cwitter</title>")
       val assembly = write(dir.resolve("assembly-descriptor.yaml"), "subsystem: sample-component\ncomponents:\n  - name: sample-component\n")
       val archive = dir.resolve("out/sample.car")
 
@@ -25,9 +28,9 @@ class CozyArchivePackagerSpec extends AnyFunSuite {
         s"--main-jar=$mainJar",
         s"--lib-jars=$libJar",
         s"--spi-jars=$spiJar",
+        s"--car-dir=${carNote.getParent.getParent}",
         s"--default-conf=$defaultConf",
-        s"--docs-dir=${doc.getParent.getParent}",
-        s"--web-dir=${web.getParent}",
+        s"--web-dir=${webApp.getParent.getParent}",
         s"--assembly-descriptor=$assembly",
         "--name=sample-component",
         "--version=0.1.0",
@@ -37,6 +40,7 @@ class CozyArchivePackagerSpec extends AnyFunSuite {
 
       val entries = zipEntries(archive)
       val descriptor = zipText(archive, "component-descriptor.json")
+      val webDescriptor = zipText(archive, "web/web.yaml")
       assert(entries.contains("component-descriptor.json"))
       assert(entries.contains("component/main.jar"))
       assert(entries.contains("lib/dep.jar"))
@@ -44,8 +48,12 @@ class CozyArchivePackagerSpec extends AnyFunSuite {
       assert(entries.contains("config/default.conf"))
       assert(entries.contains("assembly-descriptor.yaml"))
       assert(entries.contains("web/web.yaml"))
+      assert(entries.contains("web/cwitter/index.html"))
+      assert(webDescriptor == Files.readString(carWebDescriptor))
+      assert(!webDescriptor.contains("from-web-app"))
       assert(!entries.contains("component.d/provider.car"))
-      assert(entries.contains("docs/guide/intro.md"))
+      assert(entries.contains("manual/component.md"))
+      assert(!entries.contains("docs/guide/intro.md"))
       assert(!entries.contains("meta/manifest.json"))
       assert(descriptor.contains(""""entities": ["""))
       assert(descriptor.contains(""""entity": "Notice""""))
