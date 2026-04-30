@@ -52,7 +52,7 @@ resolvers += Resolver.defaultLocal
 libraryDependencies += "org.goldenport" %% "goldenport-scala-lib" % "2.3.26"
 
 // override kaleidox
-libraryDependencies += "org.goldenport" %% "goldenport-record" % "2.2.4"
+libraryDependencies += "org.goldenport" %% "goldenport-record" % "2.2.5-SNAPSHOT"
 
 // override kaleidox
 // libraryDependencies += "org.goldenport" %% "goldenport-sexpr" % "2.0.13"

@@ -818,6 +818,90 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     Files.exists(out) shouldBe false
   }
 
+    "modeler-scala recognizes filebundle as a builtin datatype" in {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("target/test-generated/filebundle-type.cml")
+    val out = base.resolve("target/test-generated/filebundle-type-out")
+    _delete_recursively(out)
+    _write(input,
+      """# COMPONENT
+        |
+        |## FileBundleSample
+        |
+        |### PACKAGE
+        |
+        |domain
+        |
+        |# ENTITY
+        |
+        |## ImportJob
+        |
+        |### ATTRIBUTE
+        |
+        || name | type   | multiplicity |
+        ||------+--------+--------------|
+        || name | string | 1            |
+        |
+        |# SERVICE
+        |
+        |## ImportService
+        |
+        |### OPERATION
+        |
+        |#### importBundle
+        |
+        |##### TYPE
+        |
+        |COMMAND
+        |
+        |##### INPUT
+        |
+        |###### TYPE
+        |
+        |ImportBundle
+        |
+        |##### OUTPUT
+        |
+        |###### TYPE
+        |
+        |ImportResult
+        |
+        |# VALUE
+        |
+        |## ImportBundle
+        |
+        |### EXTENDS
+        |
+        |CommandAction
+        |
+        |### ATTRIBUTE
+        |
+        || name | type       | multiplicity |
+        ||------+------------+--------------|
+        || tree | filebundle | 1            |
+        |
+        |## ImportResult
+        |
+        |### EXTENDS
+        |
+        |OperationResult
+        |
+        |### ATTRIBUTE
+        |
+        || name | type    | multiplicity |
+        ||------+---------+--------------|
+        || ok   | boolean | 1            |
+        |""".stripMargin)
+
+    val output = _run_modeler_scala(input, out)
+    assert(!output.contains("Unknown CML attribute type"), s"unexpected output: $output")
+    val generated = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/FileBundleSampleComponent.scala"
+    )
+    val content = Files.readString(generated)
+    content should include ("""datatype = "filebundle"""")
+  }
+
     "kaleidox accepts extended format values for CFormat constraints" in {
     val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
     val input = base.resolve("src/test/resources/modeler/constraint-format-extended.dox")
