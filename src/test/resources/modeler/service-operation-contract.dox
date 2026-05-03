@@ -62,6 +62,10 @@ Returns a greeting message for the supplied name.
 
 Person
 
+##### VISIBILITY
+
+public
+
 ##### PRECONDITION
 
 The caller provides a resolvable greeting target.

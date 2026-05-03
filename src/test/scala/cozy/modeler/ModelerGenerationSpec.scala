@@ -17,7 +17,7 @@ import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 /*
  * @since   May. 17, 2025
  *  version Apr. 30, 2026
- * @version May.  1, 2026
+ * @version May.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -455,9 +455,9 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(content.contains(""""permission" -> _permission_json(securityAttributes.rights)"""))
     assert(content.contains(""""owner_id" -> _to_external_value(securityAttributes.ownerId)"""))
     assert(content.contains(""""created_at" -> _to_external_value(lifecycleAttributes.createdAt)"""))
-    assert(content.contains(""""content" -> _to_external_value(m.content)"""))
-    assert(content.contains(""""content" -> _to_data_store_value(m.content)"""))
-    assert(content.contains("""content = m.getAny("content").collect { case s: String => I18nText(s) }"""))
+    assert(content.contains(""""content" -> _to_external_value(contentAttributes.content)"""))
+    assert(content.contains(""""content_references" -> _to_external_value(contentAttributes.references)"""))
+    assert(content.contains("""ContentAttributes.Builder(attrv.orElse(contentAttributes))"""))
     assert(content.contains("""_record_get_as_c[String](record, List("content"))"""))
     assert(content.contains("""copy(content = contentv.map(I18nText(_)))"""))
 
@@ -471,6 +471,49 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(createContent.contains("age: Option[Age]"))
     assert(createContent.contains("def toRecord(e: Person): Record = e.toRecord()"))
     assert(createContent.contains("override def toStoreRecord(e: Person): Record = e.toDataStore()"))
+  }
+
+    "modeler-scala generates SimpleEntity child without local attributes" in {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("target/test-generated/modeler-scala-simpleentity-empty-child-input.cml")
+    val out = base.resolve("target/test-generated/modeler-scala-simpleentity-empty-child")
+    _delete_recursively(out)
+    Files.createDirectories(input.getParent)
+    Files.writeString(
+      input,
+      """# ENTITY
+        |
+        |## SimpleEntity
+        |
+        |### ATTRIBUTE
+        |
+        || name | type     | multiplicity |
+        ||------+----------+--------------|
+        || id   | entityid | 1            |
+        || name | name     | 1            |
+        |
+        |## BlogPost
+        |
+        |### FEATURES
+        |
+        |extends = ["SimpleEntity"]
+        |
+        |### DESCRIPTION
+        |
+        |Uses only SimpleEntity standard fields.
+        |""".stripMargin
+    )
+
+    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+
+    val generated = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/entity/BlogPost.scala"
+    )
+    assert(Files.exists(generated), s"generated file not found: $generated")
+    val content = Files.readString(generated)
+    assert(content.contains("case class BlogPost(override val id: EntityId"))
+    assert(content.contains("nameAttributes: NameAttributes"))
+    assert(!content.contains("slug:"))
   }
 
     "modeler-scala carries derived entity attributes as schema-visible aliases" in {
@@ -489,16 +532,21 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(content.contains("case class Notice(override val id: EntityId"))
     assert(!content.contains("recipientName: Option[String], subject"))
     assert(!content.contains("recipientName: Option[String], body"))
+    assert(!content.contains("body: String, authorId"))
     assert(content.contains("def subject: String = title"))
     assert(content.contains("def subject(locale: java.util.Locale): String = title(locale)"))
     assert(content.contains("def withSubject(value: String): Notice"))
     assert(content.contains("def body: Option[org.goldenport.datatype.I18nText] = content"))
     assert(content.contains("def body(locale: java.util.Locale): Option[String] = content(locale)"))
     assert(content.contains("def withBody(value: String): Notice"))
+    assert(content.contains("def authorId: String = ownerId"))
+    assert(content.contains("def withAuthorId(value: String): Notice"))
     assert(content.contains("org.simplemodeling.model.value.BaseContent.simple(\"subject\")"))
     assert(content.contains("org.simplemodeling.model.value.BaseContent.simple(\"body\")"))
+    assert(content.contains("org.simplemodeling.model.value.BaseContent.simple(\"authorId\")"))
     assert(content.contains("""_record_get_as_c[String](record, List("nameAttributes.title", "name_attributes.title") ++ List("title", "subject"))"""))
     assert(content.contains("""_record_get_as_c[String](record, List("content", "body"))"""))
+    assert(content.contains("""_record_with_derived_target_aliases(record, "ownerId", List("ownerId", "authorId"))"""))
 
     val generatedQuery = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/entity/query/Notice.scala"
@@ -507,6 +555,8 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val queryContent = Files.readString(generatedQuery)
     assert(!queryContent.contains("def subject: String = title"))
     assert(!queryContent.contains(""""subject" -> _to_external_value(subject)"""))
+    assert(!queryContent.contains("def authorId: String = ownerId"))
+    assert(!queryContent.contains(""""authorId" -> _to_external_value(authorId)"""))
     assert(queryContent.contains("val schema: org.goldenport.schema.Schema = domain.entity.Notice.schema"))
   }
 
@@ -1441,6 +1491,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(content.contains("""kind = "QUERY""""))
     assert(content.contains("""summary = Some("Return a greeting.")"""))
     assert(content.contains("""entityName = Some("Person")"""))
+    assert(content.contains("""visibility = Some("public")"""))
     assert(content.contains("""inputType = "GreetingQuery""""))
     assert(content.contains("""inputSummary = Some("Greeting query payload.")"""))
     assert(content.contains("""inputDescription = Some("Structured query input accepted by greeting.")"""))

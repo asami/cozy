@@ -14,3 +14,4 @@ extends = ["SimpleEntity"]
 | recipientName | string | ?            | Recipient  |         |
 | subject       | string | 1            | Subject    | title   |
 | body          | string | 1            | Body       | content |
+| authorId      | string | ?            | Author     | ownerId |

@@ -48,7 +48,7 @@ import scala.collection.mutable
  *  version May. 13, 2025
  *  version Feb. 27, 2026
  *  version Mar. 31, 2026
- * @version Apr. 30, 2026
+ * @version May.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
@@ -1861,6 +1861,7 @@ object Modeler {
         postcondition = rhs.postcondition.orElse(lhs.postcondition),
         execution = rhs.execution.orElse(lhs.execution),
         implementation = rhs.implementation.orElse(lhs.implementation),
+        visibility = rhs.visibility.orElse(lhs.visibility),
         access = rhs.access.orElse(serviceclass.access).orElse(lhs.access),
         authorization = rhs.authorization.orElse(lhs.authorization),
         rules = if (rhs.rules.nonEmpty) rhs.rules else lhs.rules,
@@ -1913,6 +1914,7 @@ object Modeler {
           description = p.description,
           precondition = p.precondition,
           postcondition = p.postcondition,
+          visibility = p.visibility,
           access = p.access,
           authorization = p.authorization,
           rules = p.rules,
@@ -2726,6 +2728,7 @@ object Modeler {
             case OperationModel.InputValueKind.CommandValue => "COMMAND_VALUE"
             case OperationModel.InputValueKind.QueryValue => "QUERY_VALUE"
           },
+          visibility = x.visibility,
           access = x.access.map(a =>
             MComponent.OperationAccess(
               policy = a.policy,
@@ -2792,6 +2795,7 @@ object Modeler {
         description = rhs.description.orElse(lhs.description),
         precondition = rhs.precondition.orElse(lhs.precondition),
         postcondition = rhs.postcondition.orElse(lhs.postcondition),
+        visibility = rhs.visibility.orElse(lhs.visibility),
         access = rhs.access.orElse(lhs.access),
         authorization = rhs.authorization.orElse(lhs.authorization),
         rules = if (rhs.rules.nonEmpty) rhs.rules else lhs.rules,
