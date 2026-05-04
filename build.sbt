@@ -5,11 +5,11 @@ organization := "org.simplemodeling"
 
 name := "cozy"
 
-version := "0.2.16-SNAPSHOT"
+version := "0.2.16"
 
-lazy val cncfVersion = "0.4.6-SNAPSHOT"
+lazy val cncfVersion = "0.4.6"
 
-lazy val simpleModelingModelVersion = "0.1.6-SNAPSHOT"
+lazy val simpleModelingModelVersion = "0.1.6"
 
 lazy val cncfCollaboratorApiVersion = "0.1.0"
 
@@ -52,7 +52,7 @@ resolvers += Resolver.defaultLocal
 libraryDependencies += "org.goldenport" %% "goldenport-scala-lib" % "2.3.26"
 
 // override kaleidox
-libraryDependencies += "org.goldenport" %% "goldenport-record" % "2.2.5-SNAPSHOT"
+libraryDependencies += "org.goldenport" %% "goldenport-record" % "2.2.5"
 
 // override kaleidox
 // libraryDependencies += "org.goldenport" %% "goldenport-sexpr" % "2.0.13"
@@ -60,9 +60,9 @@ libraryDependencies += "org.goldenport" %% "goldenport-record" % "2.2.5-SNAPSHOT
 // override kaleidox
 libraryDependencies += "org.smartdox" %% "smartdox" % "2.4.12"
 
-libraryDependencies += "org.goldenport" %% "kaleidox" % "0.6.13-SNAPSHOT"
+libraryDependencies += "org.goldenport" %% "kaleidox" % "0.6.13"
 
-libraryDependencies += "org.simplemodeling" %% "simplemodeler" % "1.1.16-SNAPSHOT"
+libraryDependencies += "org.simplemodeling" %% "simplemodeler" % "1.1.16"
 
 libraryDependencies += "org.goldenport" %% "arcadia" % "0.6.1"
 
