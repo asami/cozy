@@ -16,8 +16,8 @@ import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 
 /*
  * @since   May. 17, 2025
- *  version Apr. 30, 2026
- * @version May.  3, 2026
+ * @version Apr. 30, 2026
+ * @version May.  5, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -458,8 +458,8 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(content.contains(""""content" -> _to_external_value(contentAttributes.content)"""))
     assert(content.contains(""""content_references" -> _to_external_value(contentAttributes.references)"""))
     assert(content.contains("""ContentAttributes.Builder(attrv.orElse(contentAttributes))"""))
-    assert(content.contains("""_record_get_as_c[String](record, List("content"))"""))
-    assert(content.contains("""copy(content = contentv.map(I18nText(_)))"""))
+    assert(content.contains("""_record_get_as_c[ContentBody](record, List("content"))"""))
+    assert(content.contains("""copy(content = contentv)"""))
 
     val generatedCreate = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/entity/create/Person.scala"
@@ -545,7 +545,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(content.contains("org.simplemodeling.model.value.BaseContent.simple(\"body\")"))
     assert(content.contains("org.simplemodeling.model.value.BaseContent.simple(\"authorId\")"))
     assert(content.contains("""_record_get_as_c[String](record, List("nameAttributes.title", "name_attributes.title") ++ List("title", "subject"))"""))
-    assert(content.contains("""_record_get_as_c[String](record, List("content", "body"))"""))
+    assert(content.contains("""_record_get_as_c[ContentBody](record, List("content", "body"))"""))
     assert(content.contains("""_record_with_derived_target_aliases(record, "ownerId", List("ownerId", "authorId"))"""))
 
     val generatedQuery = out.resolve(
