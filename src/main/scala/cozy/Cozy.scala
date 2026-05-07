@@ -29,7 +29,7 @@ import scala.collection.JavaConverters._
  *  version Aug. 20, 2025
  *  version Mar. 17, 2026
  *  version Apr. 29, 2026
- * @version May.  1, 2026
+ * @version May.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 class Cozy(
@@ -157,7 +157,8 @@ class Cozy(
         val policy = Cozy.ProjectFilePolicy.create(rest)
         val versions = Cozy.CarDependencyVersions.create(rest)
         val style = Cozy.ProjectLayoutStyle.create(rest)
-        val replArgs = _without_style_args(_without_project_file_policy_args(rest))
+        val scaffold = Cozy.CarScaffoldConfig.create(rest, save, style)
+        val replArgs = _without_car_scaffold_args(_without_style_args(_without_project_file_policy_args(rest)))
         val modelArgs = _without_save_args(replArgs)
         val normalizedModelArgs = _normalize_first_positional_path(modelArgs)
         val modelPath = normalizedModelArgs.find(!_.startsWith("-")).map(Paths.get(_))
@@ -174,9 +175,9 @@ class Cozy(
         }
         style match {
           case Cozy.ProjectLayoutStyle.CarOnly =>
-            _materialize_car_sbt_project(save, policy, versions, modelPath)
+            _materialize_car_sbt_project(save, policy, versions, scaffold, modelPath)
           case Cozy.ProjectLayoutStyle.CarSar =>
-            _materialize_car_sar_sbt_project(save, policy, versions, modelPath)
+            _materialize_car_sar_sbt_project(save, policy, versions, scaffold, modelPath)
         }
         true
       case _ =>
@@ -287,6 +288,19 @@ class Cozy(
         x :: _without_style_args(xs)
     }
 
+  private def _without_car_scaffold_args(args: List[String]): List[String] =
+    args match {
+      case Nil => Nil
+      case x :: xs if Cozy.CarScaffoldConfig.isFlagOption(x) =>
+        _without_car_scaffold_args(xs.drop(1))
+      case x :: xs if Cozy.CarScaffoldConfig.isSwitchOption(x) =>
+        _without_car_scaffold_args(xs)
+      case x :: xs if Cozy.CarScaffoldConfig.isInlineOption(x) =>
+        _without_car_scaffold_args(xs)
+      case x :: xs =>
+        x :: _without_car_scaffold_args(xs)
+    }
+
   private def _project_save_path(style: Cozy.ProjectLayoutStyle, save: Path): Path =
     style match {
       case Cozy.ProjectLayoutStyle.CarOnly => save
@@ -297,6 +311,7 @@ class Cozy(
     dir: Path,
     policy: Cozy.ProjectFilePolicy,
     versions: Cozy.CarDependencyVersions,
+    scaffold: Cozy.CarScaffoldConfig,
     modelPath: Option[Path] = None
   ): Unit = {
     if (policy.isSkip)
@@ -304,7 +319,7 @@ class Cozy(
     Files.createDirectories(dir)
     _write_project_file(
       dir.resolve("build.sbt"),
-      Cozy.carBuildSbt(versions),
+      Cozy.carBuildSbt(versions, scaffold),
       policy
     )
     val projectdir = dir.resolve("project")
@@ -321,10 +336,10 @@ class Cozy(
     )
     val cozydir = dir.resolve("src/main/cozy")
     Files.createDirectories(cozydir)
-    val sampleModel = cozydir.resolve("sample.cml")
+    val sampleModel = cozydir.resolve(scaffold.modelFileName)
     val modelContent = modelPath.filter(Files.exists(_)).
       map(Files.readString(_, StandardCharsets.UTF_8)).
-      getOrElse(Cozy.carSampleCml())
+      getOrElse(Cozy.carSampleCml(scaffold))
     _write_project_file(
       sampleModel,
       modelContent,
@@ -334,15 +349,28 @@ class Cozy(
     Files.createDirectories(webdir)
     _write_project_file(
       webdir.resolve("web.yaml"),
-      Cozy.carWebDescriptorYaml(modelPath),
+      Cozy.carWebDescriptorYaml(modelPath, scaffold),
       policy
     )
     if (modelPath.isEmpty) {
-      val impldir = dir.resolve("src/main/scala/domain/impl")
+      val impldir = dir.resolve(scaffold.scalaPackageDir("src/main/scala")).resolve("impl")
       Files.createDirectories(impldir)
       _write_project_file(
         impldir.resolve("ComponentFactory.scala"),
-        Cozy.carComponentFactorySource(),
+        Cozy.carComponentFactorySource(scaffold),
+        policy
+      )
+    }
+    if (scaffold.gitignore)
+      _write_project_file(dir.resolve(".gitignore"), Cozy.carGitignore(), policy)
+    if (scaffold.readme)
+      _write_project_file(dir.resolve("README.md"), Cozy.carReadme(scaffold), policy)
+    if (scaffold.tests) {
+      val testdir = dir.resolve(scaffold.scalaPackageDir("src/test/scala"))
+      Files.createDirectories(testdir)
+      _write_project_file(
+        testdir.resolve("ComponentFactorySpec.scala"),
+        Cozy.carComponentFactorySpecSource(scaffold),
         policy
       )
     }
@@ -381,20 +409,21 @@ class Cozy(
     dir: Path,
     policy: Cozy.ProjectFilePolicy,
     versions: Cozy.CarDependencyVersions,
+    scaffold: Cozy.CarScaffoldConfig,
     modelPath: Option[Path] = None
   ): Unit = {
     if (policy.isSkip)
       return
-    val appname = Cozy.appNameFromPath(dir)
+    val appname = scaffold.artifactName
     Files.createDirectories(dir)
     _write_project_file(
       dir.resolve("README.md"),
-      Cozy.carSarReadme(appname),
+      Cozy.carSarReadme(scaffold),
       policy
     )
     _write_project_file(
       dir.resolve("build.sbt"),
-      Cozy.carSarBuildSbt(appname, versions),
+      Cozy.carSarBuildSbt(scaffold, versions),
       policy
     )
     val projectdir = dir.resolve("project")
@@ -413,16 +442,16 @@ class Cozy(
     val componentdir = dir.resolve("component")
     val cozydir = componentdir.resolve(s"src/main/cozy")
     Files.createDirectories(cozydir)
-    val sampleModel = cozydir.resolve(s"${appname}.cml")
+    val sampleModel = cozydir.resolve(scaffold.modelFileName)
     val modelContent = modelPath.filter(Files.exists(_)).
       map(Files.readString(_, StandardCharsets.UTF_8)).
-      getOrElse(Cozy.carSarSampleCml(appname))
+      getOrElse(Cozy.carSarSampleCml(scaffold))
     _write_project_file(sampleModel, modelContent, policy)
     val webdir = componentdir.resolve("src/main/car/web")
     Files.createDirectories(webdir)
     _write_project_file(
       webdir.resolve("web.yaml"),
-      Cozy.carWebDescriptorYaml(modelPath),
+      Cozy.carWebDescriptorYaml(modelPath, scaffold),
       policy
     )
     _write_project_file(
@@ -625,6 +654,111 @@ object Cozy {
         Default
   }
 
+  final case class CarScaffoldConfig(
+    componentName: String,
+    packageName: String,
+    artifactName: String,
+    organization: String,
+    version: String,
+    boundedContext: String,
+    domain: String,
+    gitignore: Boolean,
+    readme: Boolean,
+    tests: Boolean
+  ) {
+    def componentClassStem: String = componentName
+
+    def modelFileName: String =
+      if (isDefault) "sample.cml" else s"${artifactName}.cml"
+
+    def scalaPackageDir(root: String): Path =
+      packageName.split("\\.").foldLeft(Paths.get(root))((z, x) => z.resolve(x))
+
+    def serviceLoaderClassName: String =
+      s"${packageName}.impl.ComponentFactory"
+
+    def isDefault: Boolean =
+      componentName == "Sample" &&
+      packageName == "domain" &&
+      artifactName == "sample" &&
+      organization == "com.example" &&
+      version == "0.0.1-SNAPSHOT" &&
+      boundedContext == "default" &&
+      domain == "default"
+  }
+  object CarScaffoldConfig {
+    private val valueOptions = Set(
+      "component",
+      "package",
+      "name",
+      "organization",
+      "version",
+      "bounded-context",
+      "domain"
+    )
+    private val switchOptions = Set("gitignore", "readme", "tests")
+
+    def isFlagOption(p: String): Boolean =
+      valueOptions.exists(x => p == s"--${x}")
+
+    def isInlineOption(p: String): Boolean =
+      valueOptions.exists(x => p.startsWith(s"--${x}="))
+
+    def isSwitchOption(p: String): Boolean =
+      switchOptions.exists(x => p == s"--${x}")
+
+    def create(
+      args: List[String],
+      save: Path,
+      style: ProjectLayoutStyle = ProjectLayoutStyle.CarOnly
+    ): CarScaffoldConfig = {
+      val component = _option(args, "component").map(_class_name).getOrElse("Sample")
+      val artifact = _option(args, "name").orElse {
+        if (component != "Sample")
+          Some(_kebab(component))
+        else
+          style match {
+            case ProjectLayoutStyle.CarOnly => Some("sample")
+            case ProjectLayoutStyle.CarSar => Some(appNameFromPath(save))
+          }
+      }.getOrElse("sample")
+      CarScaffoldConfig(
+        component,
+        _option(args, "package").getOrElse("domain"),
+        artifact,
+        _option(args, "organization").getOrElse("com.example"),
+        _option(args, "version").getOrElse("0.0.1-SNAPSHOT"),
+        _option(args, "bounded-context").getOrElse("default"),
+        _option(args, "domain").getOrElse("default"),
+        args.contains("--gitignore"),
+        args.contains("--readme"),
+        args.contains("--tests")
+      )
+    }
+
+    private def _option(args: List[String], key: String): Option[String] = {
+      val prefix = s"--${key}="
+      args.collectFirst {
+        case s if s.startsWith(prefix) => s.substring(prefix.length)
+      }.orElse {
+        args.sliding(2).collectFirst {
+          case List(flag, value) if flag == s"--${key}" => value
+        }
+      }.map(_.trim).filter(_.nonEmpty)
+    }
+
+    private def _class_name(p: String): String =
+      p.split("[^A-Za-z0-9]+").toVector.filter(_.nonEmpty).map { x =>
+        x.head.toUpper + x.drop(1)
+      }.mkString match {
+        case "" => "Sample"
+        case x => x
+      }
+
+    private def _kebab(p: String): String =
+      p.replaceAll("([a-z0-9])([A-Z])", "$1-$2").toLowerCase(java.util.Locale.ROOT)
+  }
+
   private[cozy] def detectSbtVersion(): String = {
     val path = Paths.get("project/build.properties")
     if (Files.exists(path))
@@ -648,9 +782,12 @@ object Cozy {
   }
 
   private[cozy] def carBuildSbt(): String =
-    carBuildSbt(CarDependencyVersions.default)
+    carBuildSbt(CarDependencyVersions.default, CarScaffoldConfig.create(Nil, Paths.get("sample")))
 
-  private[cozy] def carBuildSbt(versions: CarDependencyVersions): String =
+  private[cozy] def carBuildSbt(
+    versions: CarDependencyVersions,
+    scaffold: CarScaffoldConfig
+  ): String =
     s"""import org.goldenport.cozy.CozyPlugin.autoImport._
       |import sbt.Keys.*
       |
@@ -678,9 +815,9 @@ object Cozy {
       |  .in(file("."))
       |  .enablePlugins(org.goldenport.cozy.CozyPlugin)
       |  .settings(
-      |    organization := "com.example",
-      |    name := "sample",
-      |    version := "0.0.1-SNAPSHOT",
+      |    organization := "${scaffold.organization}",
+      |    name := "${scaffold.artifactName}",
+      |    version := "${scaffold.version}",
       |
       |    scalaVersion := scala3Version,
       |
@@ -720,26 +857,27 @@ object Cozy {
       |    cozySimpleModelingModelVersion := simpleModelingModelVersion,
       |    cozyCncfCollaboratorApiVersion := cncfCollaboratorApiVersion,
       |    cozyManifestMetadata ++= Map(
-      |      "component" -> "sample-component",
-      |      "boundedContext" -> "default",
-      |      "domain" -> "default"
-      |    },
+      |      "component" -> "${scaffold.artifactName}",
+      |      "boundedContext" -> "${scaffold.boundedContext}",
+      |      "domain" -> "${scaffold.domain}"
+      |    ),
       |
       |    Compile / sourceGenerators += Def.task {
-      |      val out = (Compile / sourceManaged).value / "domain" / "meta" / "BuildVersion.scala"
+      |      val out = (Compile / sourceManaged).value / "${scaffold.packageName.split("\\.").mkString("\" / \"")}" / "meta" / "BuildVersion.scala"
       |      val content =
-      |        "package domain.meta\\n\\nobject BuildVersion {\\n" +
+      |        "package ${scaffold.packageName}.meta\\n\\nobject BuildVersion {\\n" +
       |          "  val name: String = \\"" + name.value + "\\"\\n" +
       |          "  val version: String = \\"" + version.value + "\\"\\n" +
       |          "  val scalaVersion: String = \\"" + scalaVersion.value + "\\"\\n" +
       |          "}\\n"
+      |      IO.createDirectory(out.getParentFile)
       |      IO.write(out, content)
       |      Seq(out)
       |    }.taskValue,
       |
       |    cozyBundleFactoryClassName := {
-      |      val source = baseDirectory.value / "src" / "main" / "scala" / "domain" / "impl" / "ComponentFactory.scala"
-      |      if (source.isFile) Some("domain.impl.ComponentFactory") else None
+      |      val source = baseDirectory.value / "src" / "main" / "scala" / "${scaffold.packageName.split("\\.").mkString("\" / \"")}" / "impl" / "ComponentFactory.scala"
+      |      if (source.isFile) Some("${scaffold.serviceLoaderClassName}") else None
       |    },
       |
       |    Compile / resourceGenerators += Def.task {
@@ -753,7 +891,7 @@ object Cozy {
       |  )
       |""".stripMargin
 
-  private[cozy] def carSarBuildSbt(appname: String, versions: CarDependencyVersions): String =
+  private[cozy] def carSarBuildSbt(scaffold: CarScaffoldConfig, versions: CarDependencyVersions): String =
     s"""import org.goldenport.cozy.CozyPlugin.autoImport._
       |import sbt.Keys.*
       |
@@ -779,8 +917,8 @@ object Cozy {
       |lazy val cozyBundleFactoryClassName = settingKey[Option[String]]("Optional Component.BundleFactory implementation class for ServiceLoader discovery.")
       |
       |lazy val commonSettings = Seq(
-      |  organization := "com.example",
-      |  version := "0.0.1-SNAPSHOT",
+      |  organization := "${scaffold.organization}",
+      |  version := "${scaffold.version}",
       |  scalaVersion := scala3Version,
       |  resolvers += Resolver.defaultLocal,
       |  resolvers += Resolver.file("Local Ivy", file(Path.userHome.absolutePath + "/.ivy2/local"))(Resolver.ivyStylePatterns),
@@ -793,7 +931,7 @@ object Cozy {
       |  .aggregate(component, subsystem)
       |  .settings(commonSettings)
       |  .settings(
-      |    name := "${appname}",
+      |    name := "${scaffold.artifactName}",
       |    publish / skip := true
       |  )
       |
@@ -802,7 +940,7 @@ object Cozy {
       |  .enablePlugins(org.goldenport.cozy.CozyPlugin)
       |  .settings(commonSettings)
       |  .settings(
-      |    name := "${appname}",
+      |    name := "${scaffold.artifactName}",
       |    cozyGeneratorBackend := "cozy",
       |    libraryDependencies ++= Seq(
       |      "org.goldenport" %% "goldenport-cncf" % cncfVersion,
@@ -811,9 +949,9 @@ object Cozy {
       |      "org.scalatest" %% "scalatest" % "3.2.19" % Test
       |    ),
       |    cozyManifestMetadata ++= Map(
-      |      "component" -> "${appname}",
-      |      "boundedContext" -> "default",
-      |      "domain" -> "${appname}"
+      |      "component" -> "${scaffold.artifactName}",
+      |      "boundedContext" -> "${scaffold.boundedContext}",
+      |      "domain" -> "${scaffold.domain}"
       |    ),
       |    cozyBundleFactoryClassName := None,
       |    Compile / resourceGenerators += Def.task {
@@ -832,7 +970,7 @@ object Cozy {
       |  .enablePlugins(org.goldenport.cozy.CozyPlugin)
       |  .settings(commonSettings)
       |  .settings(
-      |    name := "${appname}-subsystem",
+      |    name := "${scaffold.artifactName}-subsystem",
       |    cozyPackaging := "sar",
       |    cozySourceDir := baseDirectory.value,
       |    libraryDependencies ++= Seq(
@@ -847,8 +985,8 @@ object Cozy {
       |addCommandAlias("cozyBuildAppSAR", "subsystem/cozyBuildSAR")
       |""".stripMargin
 
-  private[cozy] def carSarReadme(appname: String): String =
-    s"""# ${appname}
+  private[cozy] def carSarReadme(scaffold: CarScaffoldConfig): String =
+    s"""# ${scaffold.artifactName}
       |
       |Generated Cozy application scaffold.
       |
@@ -862,8 +1000,8 @@ object Cozy {
       |- `sbt subsystem/cozyBuildSAR`
       |""".stripMargin
 
-  private[cozy] def carSarSampleCml(appname: String): String =
-    carSampleCml()
+  private[cozy] def carSarSampleCml(scaffold: CarScaffoldConfig): String =
+    carSampleCml(scaffold)
 
   private[cozy] def carSarSubsystemDescriptorYaml(appname: String): String =
     s"""subsystem: ${appname}
@@ -918,18 +1056,18 @@ object Cozy {
        |addSbtPlugin("org.goldenport" % "sbt-cozy" % "${DefaultSbtCozyVersion}")
        |""".stripMargin
 
-  private[cozy] def carSampleCml(): String =
-    """# COMPONENT
+  private[cozy] def carSampleCml(scaffold: CarScaffoldConfig = CarScaffoldConfig.create(Nil, Paths.get("sample"))): String =
+    s"""# COMPONENT
       |
-      |## Sample
+      |## ${scaffold.componentName}
       |
       |### PACKAGE
       |
-      |domain
+      |${scaffold.packageName}
       |
       |### DESCRIPTION
       |
-      |Sample CAR bundle root for the notice-board app.
+      |${scaffold.componentName} CAR bundle root.
       |
       |### COMPONENTLET
       |
@@ -941,7 +1079,7 @@ object Cozy {
       |
       |## public-notice
       |
-      |- component :: Sample
+      |- component :: ${scaffold.componentName}
       |- kind :: participant
       |
       |### DESCRIPTION
@@ -952,7 +1090,7 @@ object Cozy {
       |
       |## notice-admin
       |
-      |- component :: Sample
+      |- component :: ${scaffold.componentName}
       |- kind :: participant
       |
       |### DESCRIPTION
@@ -1052,25 +1190,28 @@ object Cozy {
       || limit         | int    | ?            |
       |""".stripMargin
 
-  private[cozy] def carWebDescriptorYaml(modelPath: Option[Path] = None): String =
-    modelPath.flatMap(_car_web_descriptor_yaml_from_cml).getOrElse(_default_car_web_descriptor_yaml)
+  private[cozy] def carWebDescriptorYaml(
+    modelPath: Option[Path] = None,
+    scaffold: CarScaffoldConfig = CarScaffoldConfig.create(Nil, Paths.get("sample"))
+  ): String =
+    modelPath.flatMap(_car_web_descriptor_yaml_from_cml).getOrElse(_default_car_web_descriptor_yaml(scaffold))
 
-  private def _default_car_web_descriptor_yaml: String =
-    """expose:
-      |  sample.notice.post-notice: protected
-      |  sample.notice.search-notices: public
+  private def _default_car_web_descriptor_yaml(scaffold: CarScaffoldConfig): String =
+    s"""expose:
+      |  ${scaffold.artifactName}.notice.post-notice: protected
+      |  ${scaffold.artifactName}.notice.search-notices: public
       |form:
-      |  sample.notice.post-notice:
+      |  ${scaffold.artifactName}.notice.post-notice:
       |    enabled: true
-      |    successRedirect: /web/${component}/admin/entities/notice/${result.id}
+      |    successRedirect: /web/$${component}/admin/entities/notice/$${result.id}
       |    stayOnError: true
       |    controls:
       |      body:
       |        type: textarea
       |        required: true
-      |  sample.notice.search-notices:
+      |  ${scaffold.artifactName}.notice.search-notices:
       |    enabled: true
-      |    successRedirect: /web/${component}/admin/entities/notice
+      |    successRedirect: /web/$${component}/admin/entities/notice
       |    stayOnError: true
       |admin:
       |  entity.notice:
@@ -1098,27 +1239,30 @@ object Cozy {
   private def _is_top_level_heading(line: String): Boolean =
     line.trim.matches("#\\s+.+")
 
-  private[cozy] def carComponentFactorySource(): String =
-    """package domain.impl
+  private[cozy] def carComponentFactorySource(
+    scaffold: CarScaffoldConfig = CarScaffoldConfig.create(Nil, Paths.get("sample"))
+  ): String = {
+    val component = scaffold.componentClassStem
+    s"""package ${scaffold.packageName}.impl
       |
-      |import domain.SampleComponent
+      |import ${scaffold.packageName}.${component}Component
       |import org.goldenport.cncf.component.{Component, ComponentCreate, ComponentId}
       |
       |final class ComponentFactory extends Component.BundleFactory {
       |  def primaryFactory: Component.PrimaryComponentFactory =
-      |    SamplePrimaryFactory
+      |    ${component}PrimaryFactory
       |
       |  override def componentletFactories: Vector[Component.ComponentletFactory] =
       |    Vector.empty
       |}
       |
-      |abstract class SampleParticipantFactoryBase extends SampleComponent.Factory {
+      |abstract class ${component}ParticipantFactoryBase extends ${component}Component.Factory {
       |  protected final val sharedServices =
       |    Vector(
-      |      SampleComponent.NoticeService,
-      |      SampleComponent.AggregateService,
-      |      SampleComponent.ViewService,
-      |      SampleComponent.EntityService
+      |      ${component}Component.NoticeService,
+      |      ${component}Component.AggregateService,
+      |      ${component}Component.ViewService,
+      |      ${component}Component.EntityService
       |    )
       |
       |  protected final def componentCore(
@@ -1127,37 +1271,37 @@ object Cozy {
       |  ): Component.Core =
       |    spec_create(name, componentId, sharedServices)
       |
-      |  override val Notice: SampleComponent.NoticeServiceFactory = DefaultNoticeServiceFactory()
-      |  override val aggregate: SampleComponent.AggregateServiceFactory = AggregateServiceFactoryImpl()
-      |  override val view: SampleComponent.ViewServiceFactory = ViewServiceFactoryImpl()
-      |  override val entity: SampleComponent.EntityServiceFactory = DefaultEntityServiceFactory()
+      |  override val Notice: ${component}Component.NoticeServiceFactory = DefaultNoticeServiceFactory()
+      |  override val aggregate: ${component}Component.AggregateServiceFactory = AggregateServiceFactoryImpl()
+      |  override val view: ${component}Component.ViewServiceFactory = ViewServiceFactoryImpl()
+      |  override val entity: ${component}Component.EntityServiceFactory = DefaultEntityServiceFactory()
       |}
       |
-      |final class SamplePrimaryComponent extends SampleComponent
+      |final class ${component}PrimaryComponent extends ${component}Component
       |
-      |object SamplePrimaryFactory extends SampleParticipantFactoryBase with Component.PrimaryComponentFactory {
+      |object ${component}PrimaryFactory extends ${component}ParticipantFactoryBase with Component.PrimaryComponentFactory {
       |  override protected def create_Component(params: ComponentCreate): Component =
-      |    new SamplePrimaryComponent()
+      |    new ${component}PrimaryComponent()
       |
       |  override protected def create_Core(
       |    params: ComponentCreate,
       |    comp: Component
       |  ): Component.Core =
-      |    componentCore(SampleComponent.name, SampleComponent.componentId)
+      |    componentCore(${component}Component.name, ${component}Component.componentId)
       |}
       |
-      |final class DefaultNoticeServiceFactory extends SampleComponent.NoticeServiceFactory {
-      |  import SampleComponent.NoticeService.*
+      |final class DefaultNoticeServiceFactory extends ${component}Component.NoticeServiceFactory {
+      |  import ${component}Component.NoticeService.*
       |
       |  override def createPostNoticeActionCall(
       |    core: org.goldenport.cncf.action.ActionCall.Core,
-      |    action: PostNoticeCommand
+      |    action: PostNotice
       |  ): PostNoticeActionCall =
       |    PostNoticeActionCall(core, action)
       |
       |  override def createSearchNoticesActionCall(
       |    core: org.goldenport.cncf.action.ActionCall.Core,
-      |    action: SearchNoticesQuery
+      |    action: SearchNotices
       |  ): SearchNoticesActionCall =
       |    SearchNoticesActionCall(core, action)
       |  }
@@ -1166,22 +1310,63 @@ object Cozy {
       |  def apply(): DefaultNoticeServiceFactory = new DefaultNoticeServiceFactory()
       |  }
       |
-      |final class DefaultEntityServiceFactory extends SampleComponent.EntityServiceFactory
+      |final class DefaultEntityServiceFactory extends ${component}Component.EntityServiceFactory
       |
       |object DefaultEntityServiceFactory {
       |  def apply(): DefaultEntityServiceFactory = new DefaultEntityServiceFactory()
       |  }
       |
-      |final class AggregateServiceFactoryImpl extends SampleComponent.AggregateServiceFactory
+      |final class AggregateServiceFactoryImpl extends ${component}Component.AggregateServiceFactory
       |
       |object AggregateServiceFactoryImpl {
       |  def apply(): AggregateServiceFactoryImpl = new AggregateServiceFactoryImpl()
       |}
       |
-      |final class ViewServiceFactoryImpl extends SampleComponent.ViewServiceFactory
+      |final class ViewServiceFactoryImpl extends ${component}Component.ViewServiceFactory
       |
       |object ViewServiceFactoryImpl {
       |  def apply(): ViewServiceFactoryImpl = new ViewServiceFactoryImpl()
+      |}
+      |""".stripMargin
+  }
+
+  private[cozy] def carGitignore(): String =
+    """target/
+      |.bsp/
+      |.metals/
+      |.scala-build/
+      |.idea/
+      |.DS_Store
+      |""".stripMargin
+
+  private[cozy] def carReadme(scaffold: CarScaffoldConfig): String =
+    s"""# ${scaffold.componentName}
+      |
+      |Generated Cozy CAR component project.
+      |
+      |Component:
+      |- artifact: `${scaffold.artifactName}`
+      |- package: `${scaffold.packageName}`
+      |- version: `${scaffold.version}`
+      |
+      |Typical workflow:
+      |- `sbt cozyGenerate`
+      |- `sbt compile`
+      |- `sbt cozyBuildCAR`
+      |
+      |Generated Scala sources are written under `target/scala-3.3.7/src_managed/main/scala`.
+      |""".stripMargin
+
+  private[cozy] def carComponentFactorySpecSource(scaffold: CarScaffoldConfig): String =
+    s"""package ${scaffold.packageName}
+      |
+      |import org.scalatest.funsuite.AnyFunSuite
+      |
+      |class ComponentFactorySpec extends AnyFunSuite {
+      |  test("ComponentFactory exposes a primary factory") {
+      |    val factory = new impl.ComponentFactory()
+      |    assert(factory.primaryFactory != null)
+      |  }
       |}
       |""".stripMargin
 
@@ -1489,7 +1674,7 @@ object Cozy {
       |  help, --help, -h
       |      Show this help and exit.
       |
-      |  car-sbt-project [model-file] --save=<dir> [--style=car|car-sar] [--no-project-files] [--overwrite-project-files]
+      |  car-sbt-project [model-file] --save=<dir> [--style=car|car-sar] [--component=<name>] [--package=<package>] [--name=<artifact>] [--organization=<organization>] [--version=<version>] [--bounded-context=<name>] [--domain=<name>] [--gitignore] [--readme] [--tests] [--no-project-files] [--overwrite-project-files]
       |      Generate an sbt project scaffold. `car` creates a single CAR component project.
       |      `car-sar` creates an application root with `component/` and `subsystem/`.
       |      When model-file is omitted, create a scaffold sample model.

@@ -16,8 +16,8 @@ import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 
 /*
  * @since   May. 17, 2025
- * @version Apr. 30, 2026
- * @version May.  5, 2026
+ *  version Apr. 30, 2026
+ * @version May.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -232,6 +232,63 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(Files.exists(pluginsSbt), s"plugins.sbt not found: $pluginsSbt")
     assert(Files.exists(sampleCml), s"sample model not found: $sampleCml")
     assert(Files.exists(webDescriptor), s"web descriptor not found: $webDescriptor")
+  }
+
+    "car-sbt-project accepts component scaffold metadata parameters" in {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val out = base.resolve("target/test-generated/car-sbt-project-scaffold-parameters")
+    _delete_recursively(out)
+    Files.createDirectories(out.getParent)
+
+    cozy.Cozy.main(Array(
+      "car-sbt-project",
+      s"--save=${out.toString}",
+      "--component=UserNotification",
+      "--package=org.simplemodeling.textus.usernotification",
+      "--organization=org.textus",
+      "--name=textus-user-notification",
+      "--version=0.1.0-SNAPSHOT",
+      "--bounded-context=user-notification",
+      "--domain=notification",
+      "--gitignore",
+      "--readme",
+      "--tests"
+    ))
+
+    val buildSbt = out.resolve("build.sbt")
+    val model = out.resolve("src/main/cozy/textus-user-notification.cml")
+    val factory = out.resolve("src/main/scala/org/simplemodeling/textus/usernotification/impl/ComponentFactory.scala")
+    val readme = out.resolve("README.md")
+    val gitignore = out.resolve(".gitignore")
+    val spec = out.resolve("src/test/scala/org/simplemodeling/textus/usernotification/ComponentFactorySpec.scala")
+    val webDescriptor = out.resolve("src/main/car/web/web.yaml")
+
+    assert(Files.exists(buildSbt), s"build.sbt not found: $buildSbt")
+    assert(Files.exists(model), s"model not found: $model")
+    assert(Files.exists(factory), s"factory not found: $factory")
+    assert(Files.exists(readme), s"README not found: $readme")
+    assert(Files.exists(gitignore), s".gitignore not found: $gitignore")
+    assert(Files.exists(spec), s"ComponentFactorySpec not found: $spec")
+
+    val buildSbtContent = Files.readString(buildSbt)
+    val modelContent = Files.readString(model)
+    val factoryContent = Files.readString(factory)
+    val webContent = Files.readString(webDescriptor)
+    assert(buildSbtContent.contains("""organization := "org.textus""""))
+    assert(buildSbtContent.contains("""name := "textus-user-notification""""))
+    assert(buildSbtContent.contains("""version := "0.1.0-SNAPSHOT""""))
+    assert(buildSbtContent.contains("""cozyManifestMetadata ++= Map("""))
+    assert(buildSbtContent.contains("),"))
+    assert(buildSbtContent.contains("""package org.simplemodeling.textus.usernotification.meta"""))
+    assert(buildSbtContent.contains("""Some("org.simplemodeling.textus.usernotification.impl.ComponentFactory")"""))
+    assert(modelContent.contains("## UserNotification"))
+    assert(modelContent.contains("org.simplemodeling.textus.usernotification"))
+    assert(factoryContent.contains("package org.simplemodeling.textus.usernotification.impl"))
+    assert(factoryContent.contains("import org.simplemodeling.textus.usernotification.UserNotificationComponent"))
+    assert(webContent.contains("textus-user-notification.notice.post-notice"))
+    assert(Files.readString(gitignore).contains("target/"))
+    assert(Files.readString(readme).contains("textus-user-notification"))
+    assert(Files.readString(spec).contains("new impl.ComponentFactory()"))
   }
 
     "car-sbt-project generates web descriptor scaffold from CML WEB metadata" in {
