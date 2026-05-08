@@ -48,7 +48,7 @@ import scala.collection.mutable
  *  version May. 13, 2025
  *  version Feb. 27, 2026
  *  version Mar. 31, 2026
- * @version May.  3, 2026
+ * @version May.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
@@ -1133,7 +1133,7 @@ object Modeler {
       val constraints: List[MConstraint] = column.constraints.map(RConstraint) ++ web.validationConstraints
       val readonly = false
       val description = Description.empty
-      MAttribute(designation, atype, multiplicity, constraints, Some(column), readonly, p.derived, web = web, description = description)
+      MAttribute(designation, atype, multiplicity, constraints, Some(column), readonly, p.derived, web = web, description = description, confidentiality = p.confidentiality)
     }
 
     private def _web(p: SchemaModel.Attribute.Web): MAttribute.Web =
@@ -1787,7 +1787,8 @@ object Modeler {
         controlType = p.web.controlType,
         placeholder = p.web.placeholder,
         help = p.web.help,
-        required = p.web.required
+        required = p.web.required,
+        confidentiality = p.confidentiality
       )
 
     private lazy val _normalized_operation_map: Map[String, OperationModel.NormalizedOperationDefinition] =
@@ -2761,7 +2762,8 @@ object Modeler {
               controlType = p.controlType.orElse(_operation_control_type(p.name, p.datatype)),
               placeholder = p.placeholder,
               help = p.help,
-              required = p.required
+              required = p.required,
+              confidentiality = p.confidentiality
             )
           }
         )
