@@ -34,9 +34,9 @@ lazy val root = (project in file("."))
       "SimpleModeling.org" at "https://www.simplemodeling.org/maven"
     ),
     libraryDependencies ++= Seq(
-      "org.goldenport" %% "goldenport-cncf" % "0.4.4-SNAPSHOT",
-      "org.goldenport" %% "goldenport-core" % "0.3.1-SNAPSHOT",
-      "org.simplemodeling" %% "simplemodeling-model" % "0.1.4-SNAPSHOT"
+      "org.goldenport" %% "goldenport-cncf" % "0.4.7-SNAPSHOT",
+      "org.goldenport" %% "goldenport-core" % "0.3.7-SNAPSHOT",
+      "org.simplemodeling" %% "simplemodeling-model" % "0.1.7-SNAPSHOT"
     ),
     cozyManifestMetadata ++= Map(
       "component" -> "aggregate-external-update-sample",
@@ -86,6 +86,7 @@ import org.goldenport.Consequence
 import org.goldenport.protocol.{Property, Request}
 import org.goldenport.cncf.cli.{CncfRuntime, RunMode}
 import org.goldenport.cncf.component.{ComponentCreate, ComponentFactory, ComponentOrigin}
+import org.simplemodeling.model.datatype.{EntityCollectionId, EntityId}
 
 object ExternalUpdateAggregateDemo:
   private val IdPattern = "(?m)^id:\\s*(\\S+)\\s*$".r
@@ -94,14 +95,17 @@ object ExternalUpdateAggregateDemo:
     val runtime = new CncfRuntime
     val subsystem = runtime.initializeForEmbedding(modeHint = Some(RunMode.Command)).TAKE
     val factory = new OrderExternalUpdateFactory
-    val initialized = factory.create(ComponentCreate(subsystem, ComponentOrigin.Builtin))
-    val _ = subsystem.add(Vector(ComponentFactory().bootstrap(initialized.head)))
+    val component = ComponentFactory().bootstrap(
+      factory.createPrimary(ComponentCreate(subsystem, ComponentOrigin.Builtin))
+    )
+    val _ = subsystem.add(Vector(component))
     try {
       val userId = _create(
         "createUserRecord",
         subsystem,
         component = "AggregateExternalUpdateSample",
         operation = "createUserRecord",
+        collection = org.sample.aggregateexternalupdate.entity.User.collectionId,
         properties = List(
           Property("cncf.security.privilege", "content_manager", None),
           Property("textus.runtime.command.execution-mode", "sync-direct-no-job", None),
@@ -113,6 +117,7 @@ object ExternalUpdateAggregateDemo:
         subsystem,
         component = "AggregateExternalUpdateSample",
         operation = "createOrderRecord",
+        collection = org.sample.aggregateexternalupdate.entity.Order.collectionId,
         properties = List(
           Property("cncf.security.privilege", "content_manager", None),
           Property("textus.runtime.command.execution-mode", "sync-direct-no-job", None),
@@ -126,6 +131,7 @@ object ExternalUpdateAggregateDemo:
         subsystem,
         component = "AggregateExternalUpdateSample",
         operation = "createShipmentOrderRecord",
+        collection = org.sample.aggregateexternalupdate.entity.ShipmentOrder.collectionId,
         properties = List(
           Property("cncf.security.privilege", "content_manager", None),
           Property("textus.runtime.command.execution-mode", "sync-direct-no-job", None),
@@ -144,7 +150,7 @@ object ExternalUpdateAggregateDemo:
           properties = List(
             Property("privilege", "content_admin", None),
             Property("cncf.security.privilege", "content_manager", None),
-          Property("textus.runtime.command.execution-mode", "sync-direct-no-job", None),
+            Property("textus.runtime.command.execution-mode", "sync-direct-no-job", None),
             Property("orderId", orderId, None)
           )
         )
@@ -189,9 +195,9 @@ object ExternalUpdateAggregateDemo:
         )
       )
       val result = Json.obj(
-        "userId" -> Json.fromString(userId),
-        "orderId" -> Json.fromString(orderId),
-        "shipmentOrderId" -> Json.fromString(shipmentId),
+        "userId" -> Json.fromString(userId.print),
+        "orderId" -> Json.fromString(orderId.print),
+        "shipmentOrderId" -> Json.fromString(shipmentId.print),
         "semantic" -> Json.obj(
           "orderStatus" -> Json.fromString("Cancelled"),
           "shipmentOrderFollowUp" -> Json.fromString("Cancelled via AggregateBehavior"),
@@ -213,14 +219,16 @@ object ExternalUpdateAggregateDemo:
     subsystem: org.goldenport.cncf.subsystem.Subsystem,
     component: String,
     operation: String,
+    collection: EntityCollectionId,
     properties: List[Property]
-  ): String =
+  ): EntityId =
     _extractId(
       _executeString(
         label,
         subsystem,
         Request.of(component = component, service = "entity", operation = operation, properties = properties)
-      )
+      ),
+      collection
     )
 
   private def _executeString(
@@ -232,10 +240,15 @@ object ExternalUpdateAggregateDemo:
       case Consequence.Success(response) => response.print
       case Consequence.Failure(c) => throw new IllegalStateException(s"$label: ${c.show}")
 
-  private def _extractId(text: String): String =
-    IdPattern.findFirstMatchIn(text).map(_.group(1)).getOrElse {
-      throw new IllegalStateException(s"Missing id in response: $text")
-    }
+  private def _extractId(text: String, collection: EntityCollectionId): EntityId =
+    IdPattern.findFirstMatchIn(text)
+      .map(_.group(1))
+      .map { raw =>
+        EntityId.parse(raw).map(_.copy(collection = collection)).TAKE
+      }
+      .getOrElse {
+        throw new IllegalStateException(s"Missing id in response: $text")
+      }
 EOF
 
 /Users/asami/src/dev2026/cncf-samples/bin/setup cozy >/dev/null

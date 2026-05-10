@@ -34,9 +34,9 @@ lazy val root = (project in file("."))
       "SimpleModeling.org" at "https://www.simplemodeling.org/maven"
     ),
     libraryDependencies ++= Seq(
-      "org.goldenport" %% "goldenport-cncf" % "0.4.4-SNAPSHOT",
-      "org.goldenport" %% "goldenport-core" % "0.3.1-SNAPSHOT",
-      "org.simplemodeling" %% "simplemodeling-model" % "0.1.4-SNAPSHOT"
+      "org.goldenport" %% "goldenport-cncf" % "0.4.7-SNAPSHOT",
+      "org.goldenport" %% "goldenport-core" % "0.3.7-SNAPSHOT",
+      "org.simplemodeling" %% "simplemodeling-model" % "0.1.7-SNAPSHOT"
     ),
     cozyManifestMetadata ++= Map(
       "component" -> "aggregate-relation-boundary-sample",
@@ -112,8 +112,10 @@ object RelationBoundaryAggregateDemo:
     val runtime = new CncfRuntime
     val subsystem = runtime.initializeForEmbedding(modeHint = Some(RunMode.Command)).TAKE
     val factory = new AggregateRelationBoundarySampleComponent.Factory
-    val initialized = factory.create(ComponentCreate(subsystem, ComponentOrigin.Builtin))
-    val _ = subsystem.add(Vector(ComponentFactory().bootstrap(initialized.head)))
+    val component = ComponentFactory().bootstrap(
+      factory.createPrimary(ComponentCreate(subsystem, ComponentOrigin.Builtin))
+    )
+    val _ = subsystem.add(Vector(component))
     try {
       val userId = _create(
         subsystem,

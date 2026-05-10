@@ -40,8 +40,9 @@ object EventFlowDemo {
       runMode = RunMode.Command
     )
     val generatedFactory = new EventDrivenComponent.Factory
-    val initialized = generatedFactory.create(ComponentCreate(subsystem, ComponentOrigin.Builtin))
-    val component = ComponentFactory().bootstrap(initialized.head)
+    val component = ComponentFactory().bootstrap(
+      generatedFactory.createPrimary(ComponentCreate(subsystem, ComponentOrigin.Builtin))
+    )
     val _ = subsystem.add(Vector(component))
 
     val emitResponse = _execute(

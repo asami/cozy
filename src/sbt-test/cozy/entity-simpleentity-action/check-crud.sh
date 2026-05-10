@@ -50,7 +50,7 @@ object SimpleEntitySyncCommandMain {
         args = runtimeArgs,
         modeHint = Some(RunMode.Command),
         extraComponents = subsystem =>
-          DomainComponent.Factory().create(ComponentCreate(subsystem, ComponentOrigin.Main))
+          DomainComponent.Factory().createPrimary(ComponentCreate(subsystem, ComponentOrigin.Main))
       )
       .flatMap { subsystem =>
         runtime

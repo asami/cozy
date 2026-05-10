@@ -31,8 +31,10 @@ object OrderAggregateDemo {
     val runtime = new CncfRuntime
     val subsystem = runtime.initializeForEmbedding(modeHint = Some(RunMode.Command)).TAKE
     val customFactory = new impl.AggregateSampleComponentFactory
-    val initialized = customFactory.create(ComponentCreate(subsystem, ComponentOrigin.Builtin))
-    val _ = subsystem.add(Vector(ComponentFactory().bootstrap(initialized.head)))
+    val component = ComponentFactory().bootstrap(
+      customFactory.createPrimary(ComponentCreate(subsystem, ComponentOrigin.Builtin))
+    )
+    val _ = subsystem.add(Vector(component))
     try {
       val orderId = _createOrder(subsystem)
       val addLineText = _addLine(subsystem, orderId, "Widget", 2)
@@ -149,7 +151,7 @@ SCALA
 )
 
 result="$(cd "$out_dir" && sbt --batch 'runMain org.sample.aggregate.OrderAggregateDemo' 2>&1 | grep '^{' | tail -n 1)"
-printf '%s\n' "$result" | grep '"orderId":"major-minor-entity-order-'
+printf '%s\n' "$result" | grep '"orderId":"single-global-entity-order-'
 printf '%s\n' "$result" | grep '"invalidAddLine"'
 printf '%s\n' "$result" | grep 'quantityPositive'
 printf '%s\n' "$result" | grep '"load":"id: '
