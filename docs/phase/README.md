@@ -2,6 +2,10 @@
 
 Purpose: engineering work management.
 
+Current phase:
+
+- `phase-5.md`: Engineering Publication Compiler
+
 Belongs:
 
 - current phase or stage status

@@ -16,6 +16,7 @@ import play.api.libs.json._
 import cozy.web.jetty.JettyServer
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
+import java.security.MessageDigest
 import java.util.zip.{ZipEntry, ZipOutputStream}
 import scala.util.Try
 import scala.collection.mutable.ArrayBuffer
@@ -29,7 +30,7 @@ import scala.collection.JavaConverters._
  *  version Aug. 20, 2025
  *  version Mar. 17, 2026
  *  version Apr. 29, 2026
- * @version May.  7, 2026
+ * @version May. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 class Cozy(
@@ -81,7 +82,7 @@ class Cozy(
   }
 
   def executeDirect(args: Array[String]): Unit = {
-    if (!_execute_car_sbt_project(args) && !_execute_sbt_bridge(args) && !_execute_package_archive(args))
+    if (!_execute_car_sbt_project(args) && !_execute_publish_project(args) && !_execute_index_warehouse(args) && !_execute_sbt_bridge(args) && !_execute_package_archive(args))
       _to_repl_commandline(args) match {
         case Some(s) =>
           val c = _operation_call(Array(s))
@@ -191,6 +192,24 @@ class Cozy(
         true
       case Some(("package-sar", rest)) =>
         CozyArchivePackager.buildSar(rest)
+        true
+      case _ =>
+        false
+    }
+
+  private def _execute_publish_project(args: Array[String]): Boolean =
+    _leading_command(args) match {
+      case Some(("publish-project", rest)) =>
+        CozyPublicationCompiler.publish(rest)
+        true
+      case _ =>
+        false
+    }
+
+  private def _execute_index_warehouse(args: Array[String]): Boolean =
+    _leading_command(args) match {
+      case Some(("index-warehouse", rest)) =>
+        CozyWarehouseIndexer.index(rest)
         true
       case _ =>
         false
@@ -1692,6 +1711,13 @@ object Cozy {
       |  package-sar --save=<file> --source-dir=<dir> --name=<name> --version=<version>
       |      Build a SAR archive.
       |
+      |  publish-project <project-dir> [--save=<dir>] [--kind=car|sar|sample-single|sample-multi] [--name=<slug>] [--title=<title>] [--path=<path>]
+      |      Generate SmartDox site BoK publication sources from an sbt project.
+      |      Writes deterministic YAML/JSON metadata and a source manifest under publish.d.
+      |
+      |  index-warehouse <warehouse-dir> --save=<dir> --name=<slug> [--title=<title>] [--maven-coordinates=<group:artifact,...>] [--repository-artifacts=car,sar,zip] [--repository-modules=<module,...>]
+      |      Generate publish.d artifact and release metadata by indexing a warehouse.
+      |
       |  sbt-bridge v1 --request=<file>
       |      Run the sbt-cozy bridge for generation or archive packaging.
       |
@@ -2082,7 +2108,920 @@ private object CozyArchivePackager {
       } finally {
         stream.close()
       }
+  }
+}
+
+private object CozyProjectYamlConfig {
+  final case class Config(values: Map[String, String], lists: Map[String, Vector[String]]) {
+    def value(path: String): Option[String] = values.get(path).map(_.trim).filter(_.nonEmpty)
+    def list(path: String): Vector[String] = lists.getOrElse(path, Vector.empty).map(_.trim).filter(_.nonEmpty)
+  }
+  object Config {
+    val empty: Config = Config(Map.empty, Map.empty)
+  }
+
+  def load(path: Path): Config =
+    if (Files.isRegularFile(path))
+      parse(Files.readAllLines(path, StandardCharsets.UTF_8).asScala.toVector)
+    else
+      Config.empty
+
+  def parse(lines: Vector[String]): Config = {
+    var stack = Vector.empty[(Int, String)]
+    var values = Map.empty[String, String]
+    var lists = Map.empty[String, Vector[String]]
+
+    def currentPath: String = stack.map(_._2).mkString(".")
+    def appendList(value: String): Unit = {
+      val key = currentPath
+      if (key.nonEmpty)
+        lists = lists.updated(key, lists.getOrElse(key, Vector.empty) :+ _unquote(value))
     }
+
+    lines.foreach { raw =>
+      val withoutComment = _strip_comment(raw)
+      if (withoutComment.trim.nonEmpty) {
+        val indent = withoutComment.takeWhile(_ == ' ').length
+        val trimmed = withoutComment.trim
+        if (trimmed.startsWith("- ")) {
+          stack = stack.dropRight(stack.reverse.takeWhile(_._1 >= indent).length)
+          appendList(trimmed.substring(2).trim)
+        } else {
+          val n = trimmed.indexOf(':')
+          if (n >= 0) {
+            val key = trimmed.substring(0, n).trim
+            val rest = trimmed.substring(n + 1).trim
+            stack = stack.dropRight(stack.reverse.takeWhile(_._1 >= indent).length)
+            if (rest.isEmpty) {
+              stack = stack :+ (indent -> key)
+            } else {
+              val path = (stack.map(_._2) :+ key).mkString(".")
+              values = values.updated(path, _unquote(rest))
+            }
+          }
+        }
+      }
+    }
+    Config(values, lists)
+  }
+
+  private def _strip_comment(s: String): String = {
+    val trimmed = s.trim
+    if (trimmed.startsWith("#"))
+      ""
+    else
+      s
+  }
+
+  private def _unquote(s: String): String = {
+    val t = s.trim
+    if (t.length >= 2 && ((t.head == '"' && t.last == '"') || (t.head == '\'' && t.last == '\'')))
+      t.substring(1, t.length - 1)
+    else
+      t
+  }
+}
+
+private object CozyPublicationCompiler {
+  private val Schema = "cozy.publish-project.v1"
+  private val ValidKinds = Set("car", "sar", "sample-single", "sample-multi")
+  private val DefaultExcludedSegments = Set("target", ".git", ".bsp", ".bloop", ".metals", ".idea", ".cache", ".vscode", "repository.d")
+  private val SlugPattern = "^[a-z0-9][a-z0-9-]*$".r
+
+  final case class ProjectMetadata(
+    name: String,
+    title: String,
+    kind: String,
+    publicationPath: Option[String],
+    organization: String,
+    version: String,
+    scalaVersion: String,
+    sbtVersion: String
+  )
+  final case class SourceFile(path: String, size: Long, sha256: String)
+  final case class Publication(project: ProjectMetadata, sourceFiles: Vector[SourceFile])
+
+  def publish(args: List[String]): Unit = {
+    val projectDir = _project_dir(args)
+    if (!Files.isDirectory(projectDir))
+      RAISE.invalidArgumentFault(s"Project directory does not exist: ${projectDir}")
+    if (!Files.isRegularFile(projectDir.resolve("build.sbt")))
+      RAISE.invalidArgumentFault(s"Not an sbt project directory: ${projectDir}")
+
+    val config = CozyProjectYamlConfig.load(projectDir.resolve(".cozy/config.yaml"))
+    val saveDir = _publication_output(projectDir, args, config)
+    val publication = _compile(projectDir, saveDir, args, config)
+    _write(publication, saveDir)
+  }
+
+  private def _compile(projectDir: Path, saveDir: Path, args: List[String], config: CozyProjectYamlConfig.Config): Publication = {
+    val buildSbt = Files.readString(projectDir.resolve("build.sbt"), StandardCharsets.UTF_8)
+    val rawName = _value(args, "name").orElse(config.value("publication.name")).orElse(_sbt_setting(buildSbt, "name"))
+    val name = rawName match {
+      case Some(x) if _explicit_name(args, config) => _validate_name(x, "publication name")
+      case Some(x) => _slugify(x)
+      case None => _slugify(projectDir.getFileName.toString)
+    }
+    if (name.isEmpty)
+      RAISE.invalidArgumentFault("Publication name is empty after slug normalization")
+    val title = _value(args, "title").orElse(config.value("publication.title")).orElse(_sbt_setting(buildSbt, "name")).getOrElse(name)
+    val publicationPath = _value(args, "path").orElse(config.value("publication.path")).map(_validate_publication_path)
+    val organization = _value(args, "organization").orElse(_sbt_setting(buildSbt, "organization")).getOrElse("")
+    val version = _value(args, "version").orElse(_sbt_setting(buildSbt, "version")).getOrElse("")
+    val scalaVersion = _value(args, "scala-version").orElse(_sbt_setting(buildSbt, "scalaVersion")).getOrElse("")
+    val sbtVersion = _value(args, "sbt-version").orElse(_sbt_version(projectDir)).getOrElse("")
+    val samplesDir = _config_path(projectDir, config.value("publication.samples_dir")).getOrElse(projectDir.resolve("samples"))
+    val kind = _value(args, "kind").orElse(config.value("publication.kind")).map(_.trim).filter(_.nonEmpty).getOrElse(_detect_kind(projectDir, buildSbt, samplesDir))
+    if (!ValidKinds.contains(kind))
+      RAISE.invalidArgumentFault(s"Invalid --kind: ${kind}. Expected one of: ${ValidKinds.toVector.sorted.mkString(", ")}")
+    val excludes = DefaultExcludedSegments ++ config.list("publication.source_manifest.excludes")
+
+    Publication(
+      ProjectMetadata(
+        name = name,
+        title = title,
+        kind = kind,
+        publicationPath = publicationPath,
+        organization = organization,
+        version = version,
+        scalaVersion = scalaVersion,
+        sbtVersion = sbtVersion
+      ),
+      _source_manifest(projectDir, saveDir, excludes)
+    )
+  }
+
+  private def _write(publication: Publication, saveDir: Path): Unit = {
+    val name = publication.project.name
+    _write_pair(saveDir.resolve(s"catalog/projects/${name}"), _catalog_project_yaml(publication), _catalog_project_json(publication))
+    _write_pair(saveDir.resolve(s"catalog/samples/${name}"), _catalog_sample_yaml(publication), _catalog_sample_json(publication))
+    _write_pair(saveDir.resolve(s"samples/${name}/metadata"), _sample_metadata_yaml(publication), _sample_metadata_json(publication))
+    _write_pair(saveDir.resolve(s"repository/artifacts/${name}"), _artifact_yaml(publication, "repository"), _artifact_json(publication, "repository"))
+    _write_pair(saveDir.resolve(s"maven/artifacts/${name}"), _artifact_yaml(publication, "maven"), _artifact_json(publication, "maven"))
+    _write_pair(saveDir.resolve(s"source-manifest/${name}"), _source_manifest_yaml(publication), _source_manifest_json(publication))
+  }
+
+  private def _write_pair(base: Path, yaml: String, json: JsValue): Unit = {
+    _write_text(Paths.get(base.toString + ".yaml"), yaml)
+    _write_text(Paths.get(base.toString + ".json"), Json.prettyPrint(json) + "\n")
+  }
+
+  private def _catalog_project_yaml(p: Publication): String =
+    _yaml_header("catalog-project") +
+      _project_yaml(p.project) +
+      _publication_yaml(p.project)
+
+  private def _catalog_project_json(p: Publication): JsValue =
+    Json.obj(
+      "schema" -> Schema,
+      "type" -> "catalog-project",
+      "project" -> _project_json(p.project),
+      "publication" -> _publication_json(p.project)
+    )
+
+  private def _catalog_sample_yaml(p: Publication): String =
+    _yaml_header("catalog-sample") +
+      _project_yaml(p.project) +
+      s"""sample:
+         |  name: ${_yaml_string(p.project.name)}
+         |  project_name: ${_yaml_string(p.project.name)}
+         |  kind: ${_yaml_string(p.project.kind)}
+         |""".stripMargin
+
+  private def _catalog_sample_json(p: Publication): JsValue =
+    Json.obj(
+      "schema" -> Schema,
+      "type" -> "catalog-sample",
+      "project" -> _project_json(p.project),
+      "sample" -> Json.obj(
+        "name" -> p.project.name,
+        "projectName" -> p.project.name,
+        "kind" -> p.project.kind
+      )
+    )
+
+  private def _sample_metadata_yaml(p: Publication): String =
+    _yaml_header("sample-metadata") +
+      _project_yaml(p.project) +
+      _publication_yaml(p.project)
+
+  private def _sample_metadata_json(p: Publication): JsValue =
+    Json.obj(
+      "schema" -> Schema,
+      "type" -> "sample-metadata",
+      "project" -> _project_json(p.project),
+      "publication" -> _publication_json(p.project)
+    )
+
+  private def _artifact_yaml(p: Publication, layer: String): String =
+    _yaml_header(s"${layer}-artifact") +
+      _project_yaml(p.project) +
+      s"""artifact:
+         |  layer: ${_yaml_string(layer)}
+         |  status: placeholder
+         |  files: []
+         |""".stripMargin
+
+  private def _artifact_json(p: Publication, layer: String): JsValue =
+    Json.obj(
+      "schema" -> Schema,
+      "type" -> s"${layer}-artifact",
+      "project" -> _project_json(p.project),
+      "artifact" -> Json.obj(
+        "layer" -> layer,
+        "status" -> "placeholder",
+        "files" -> Json.arr()
+      )
+    )
+
+  private def _source_manifest_yaml(p: Publication): String =
+    _yaml_header("source-manifest") +
+      _project_yaml(p.project) +
+      s"""files:
+         |${p.sourceFiles.map(_source_file_yaml).mkString}""".stripMargin
+
+  private def _source_manifest_json(p: Publication): JsValue =
+    Json.obj(
+      "schema" -> Schema,
+      "type" -> "source-manifest",
+      "project" -> _project_json(p.project),
+      "files" -> JsArray(p.sourceFiles.map { f =>
+        Json.obj(
+          "path" -> f.path,
+          "size" -> f.size,
+          "sha256" -> f.sha256
+        )
+      })
+    )
+
+  private def _yaml_header(kind: String): String =
+    s"""schema: ${_yaml_string(Schema)}
+       |type: ${_yaml_string(kind)}
+       |""".stripMargin
+
+  private def _project_yaml(p: ProjectMetadata): String =
+    s"""project:
+       |  name: ${_yaml_string(p.name)}
+       |  title: ${_yaml_string(p.title)}
+       |  kind: ${_yaml_string(p.kind)}
+       |  organization: ${_yaml_string(p.organization)}
+       |  version: ${_yaml_string(p.version)}
+       |  scala_version: ${_yaml_string(p.scalaVersion)}
+       |  sbt_version: ${_yaml_string(p.sbtVersion)}
+       |""".stripMargin
+
+  private def _publication_yaml(p: ProjectMetadata): String = {
+    val path = p.publicationPath.map(x => s"  path: ${_yaml_string(x)}\n").getOrElse("")
+    s"""publication:
+       |  source_manifest: source-manifest/${p.name}
+       |${path}""".stripMargin
+  }
+
+  private def _publication_json(p: ProjectMetadata): JsValue = {
+    val base = Json.obj("sourceManifest" -> s"source-manifest/${p.name}")
+    p.publicationPath match {
+      case Some(path) => base + ("path" -> JsString(path))
+      case None => base
+    }
+  }
+
+  private def _source_file_yaml(p: SourceFile): String =
+    s"""  - path: ${_yaml_string(p.path)}
+       |    size: ${p.size}
+       |    sha256: ${_yaml_string(p.sha256)}
+       |""".stripMargin
+
+  private def _project_json(p: ProjectMetadata): JsValue =
+    Json.obj(
+      "name" -> p.name,
+      "title" -> p.title,
+      "kind" -> p.kind,
+      "organization" -> p.organization,
+      "version" -> p.version,
+      "scalaVersion" -> p.scalaVersion,
+      "sbtVersion" -> p.sbtVersion
+    )
+
+  private def _source_manifest(projectDir: Path, saveDir: Path, excludes: Set[String]): Vector[SourceFile] = {
+    val save = saveDir.toAbsolutePath.normalize()
+    val stream = Files.walk(projectDir)
+    try {
+      stream.iterator().asScala.toVector.collect {
+        case p if Files.isRegularFile(p) && !_excluded(projectDir, p, save, excludes) =>
+          val rel = projectDir.relativize(p).toString.replace('\\', '/')
+          SourceFile(rel, Files.size(p), _sha256(p))
+      }.sortBy(_.path)
+    } finally {
+      stream.close()
+    }
+  }
+
+  private def _excluded(projectDir: Path, path: Path, saveDir: Path, excludes: Set[String]): Boolean = {
+    val abs = path.toAbsolutePath.normalize()
+    val rel = projectDir.relativize(path).toString.replace('\\', '/')
+    val segments = rel.split('/').toVector
+    val normalizedExcludes = excludes.map(_.trim.stripPrefix("/").stripSuffix("/")).filter(_.nonEmpty)
+    val excludedByName = normalizedExcludes.exists(x => !x.contains("/") && segments.contains(x))
+    val excludedByPath = normalizedExcludes.exists(x => x.contains("/") && (rel == x || rel.startsWith(x + "/")))
+    excludedByName || excludedByPath || abs.startsWith(saveDir)
+  }
+
+  private def _sha256(path: Path): String = {
+    val digest = MessageDigest.getInstance("SHA-256")
+    val in = Files.newInputStream(path)
+    val buffer = new Array[Byte](8192)
+    try {
+      var n = in.read(buffer)
+      while (n >= 0) {
+        if (n > 0)
+          digest.update(buffer, 0, n)
+        n = in.read(buffer)
+      }
+    } finally {
+      in.close()
+    }
+    digest.digest().map(b => f"${b & 0xff}%02x").mkString
+  }
+
+  private def _detect_kind(projectDir: Path, buildSbt: String, samplesDir: Path): String = {
+    val childBuilds = Option(projectDir.toFile.listFiles()).toVector.flatten.count(f => f.isDirectory && new java.io.File(f, "build.sbt").isFile)
+    val sampleBuilds = Option(samplesDir.toFile.listFiles()).toVector.flatten.count(f => f.isDirectory && new java.io.File(f, "build.sbt").isFile)
+    if (_contains_sar_marker(projectDir, buildSbt))
+      "sar"
+    else if (_contains_car_marker(projectDir, buildSbt))
+      "car"
+    else if (sampleBuilds > 1 || childBuilds > 1 || _project_definition_count(buildSbt) > 1)
+      "sample-multi"
+    else
+      "sample-single"
+  }
+
+  private def _contains_sar_marker(projectDir: Path, buildSbt: String): Boolean =
+    buildSbt.contains("cozyPackaging := \"sar\"") ||
+      Files.isRegularFile(projectDir.resolve("subsystem-descriptor.yaml")) ||
+      Files.isRegularFile(projectDir.resolve("subsystem-descriptor.yml"))
+
+  private def _contains_car_marker(projectDir: Path, buildSbt: String): Boolean =
+    buildSbt.contains("CozyPlugin") &&
+      (buildSbt.contains("cozyPackaging := \"car\"") ||
+        Files.isDirectory(projectDir.resolve("src/main/car")) ||
+        Files.isDirectory(projectDir.resolve("src/main/cozy")))
+
+  private def _project_definition_count(buildSbt: String): Int =
+    "(?m)^\\s*lazy\\s+val\\s+\\w+\\s*=\\s*\\(?project\\b".r.findAllIn(buildSbt).length
+
+  private def _sbt_setting(buildSbt: String, key: String): Option[String] = {
+    val pattern = ("""(?m)^\s*(?:ThisBuild\s*/\s*)?""" + java.util.regex.Pattern.quote(key) + """\s*:=\s*"([^"]+)""").r
+    pattern.findFirstMatchIn(buildSbt).map(_.group(1).trim).filter(_.nonEmpty)
+  }
+
+  private def _sbt_version(projectDir: Path): Option[String] = {
+    val path = projectDir.resolve("project/build.properties")
+    if (!Files.isRegularFile(path))
+      None
+    else
+      Files.readAllLines(path, StandardCharsets.UTF_8).asScala.collectFirst {
+        case line if line.trim.startsWith("sbt.version=") =>
+          line.trim.substring("sbt.version=".length).trim
+      }.filter(_.nonEmpty)
+  }
+
+  private def _project_dir(args: List[String]): Path =
+    _value(args, "project").orElse(_positional_args(args).headOption).
+      map(p => Paths.get(p).toAbsolutePath.normalize()).
+      getOrElse(RAISE.invalidArgumentFault("Missing project directory for publish-project"))
+
+  private def _publication_output(projectDir: Path, args: List[String], config: CozyProjectYamlConfig.Config): Path =
+    _value(args, "save").
+      map(p => Paths.get(p).toAbsolutePath.normalize()).
+      orElse(_config_path(projectDir, config.value("publication.output"))).
+      getOrElse(projectDir.resolve("target/publish.d").toAbsolutePath.normalize())
+
+  private def _config_path(projectDir: Path, value: Option[String]): Option[Path] =
+    value.map { p =>
+      val path = Paths.get(p)
+      if (path.isAbsolute)
+        path.normalize()
+      else
+        projectDir.resolve(path).toAbsolutePath.normalize()
+    }
+
+  private def _positional_args(args: List[String]): Vector[String] = {
+    val optionNamesWithValue = Set("project", "save", "kind", "name", "title", "path", "organization", "version", "scala-version", "sbt-version")
+    val b = Vector.newBuilder[String]
+    var skipNext = false
+    args.foreach { arg =>
+      if (skipNext) {
+        skipNext = false
+      } else if (arg.startsWith("--")) {
+        val key = arg.drop(2).takeWhile(_ != '=')
+        if (!arg.contains("=") && optionNamesWithValue.contains(key))
+          skipNext = true
+      } else {
+        b += arg
+      }
+    }
+    b.result()
+  }
+
+  private def _value(args: List[String], key: String): Option[String] = {
+    val prefix = s"--${key}="
+    args.collectFirst {
+      case s if s.startsWith(prefix) => s.substring(prefix.length)
+    }.orElse {
+      args.sliding(2).collectFirst {
+        case List(flag, value) if flag == s"--${key}" => value
+      }
+    }.map(_.trim).filter(_.nonEmpty)
+  }
+
+  private def _explicit_name(args: List[String], config: CozyProjectYamlConfig.Config): Boolean =
+    _value(args, "name").nonEmpty || config.value("publication.name").nonEmpty
+
+  private def _validate_publication_path(value: String): String = {
+    val path = value.trim.stripPrefix("/").stripSuffix("/")
+    if (path.isEmpty || path.split('/').exists(segment => SlugPattern.findFirstIn(segment).forall(_ != segment)))
+      RAISE.invalidArgumentFault(s"Invalid publication path: ${value}. Expected slash-separated slug segments")
+    else
+      path
+  }
+
+  private def _validate_name(value: String, label: String): String = {
+    val name = value.trim
+    SlugPattern.findFirstIn(name) match {
+      case Some(x) if x == name => name
+      case _ => RAISE.invalidArgumentFault(s"Invalid ${label}: ${value}. Expected ${SlugPattern.regex}")
+    }
+  }
+
+  private def _slugify(value: String): String =
+    value.toLowerCase(java.util.Locale.ROOT).
+      replaceAll("[^a-z0-9]+", "-").
+      stripPrefix("-").
+      stripSuffix("-")
+
+  private def _yaml_string(value: String): String =
+    "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+
+  private def _write_text(path: Path, text: String): Unit = {
+    Option(path.getParent).foreach(Files.createDirectories(_))
+    Files.writeString(path, text, StandardCharsets.UTF_8)
+  }
+}
+
+private object CozyWarehouseIndexer {
+  private val Schema = "cozy.publish-project.v1"
+  private val SlugPattern = "^[a-z0-9][a-z0-9-]*$".r
+  private val ChecksumExtensions = Set("sha1", "md5")
+  private val ArtifactExtensions = Set("jar", "pom", "car", "sar", "zip")
+
+  final case class MavenCoordinate(groupId: String, artifactId: String) {
+    def path: String = groupId.replace('.', '/') + "/" + artifactId
+    def key: String = s"${groupId}:${artifactId}"
+  }
+  final case class IndexedFile(
+    layer: String,
+    artifactType: String,
+    groupId: Option[String],
+    artifactId: Option[String],
+    version: String,
+    classifier: Option[String],
+    extension: String,
+    path: String,
+    name: String,
+    size: Long,
+    sha256: String,
+    sha1: Option[String],
+    md5: Option[String]
+  )
+  final case class MavenArtifact(coordinate: MavenCoordinate, versions: Vector[String], latestRelease: Option[String], files: Vector[IndexedFile])
+  final case class RepositoryArtifact(kind: String, versions: Vector[String], files: Vector[IndexedFile])
+  final case class IndexResult(name: String, title: String, maven: Vector[MavenArtifact], repository: Vector[RepositoryArtifact])
+
+  def index(args: List[String]): Unit = {
+    val warehouseDir = _warehouse_dir(args)
+    if (!Files.isDirectory(warehouseDir))
+      RAISE.invalidArgumentFault(s"Warehouse directory does not exist: ${warehouseDir}")
+    val saveDir = _required_path(args, "save")
+    val name = _value(args, "name").map(_validate_name).getOrElse(RAISE.invalidArgumentFault("Missing --name"))
+    val title = _value(args, "title").getOrElse(name)
+    val coordinates = _csv(args, "maven-coordinates").map(_coordinate)
+    val repositoryKinds = _csv(args, "repository-artifacts").map(_.toLowerCase(java.util.Locale.ROOT)).filter(_.nonEmpty)
+    val repositoryModules = _csv(args, "repository-modules").filter(_.nonEmpty) match {
+      case Vector() => Vector(name)
+      case xs => xs
+    }
+    val result = IndexResult(
+      name = name,
+      title = title,
+      maven = coordinates.map(_index_maven(warehouseDir, _)),
+      repository = repositoryKinds.map(_index_repository(warehouseDir, _, repositoryModules))
+    )
+    _write(result, saveDir)
+  }
+
+  private def _write(p: IndexResult, saveDir: Path): Unit = {
+    _write_pair(saveDir.resolve(s"maven/artifacts/${p.name}"), _maven_yaml(p), _maven_json(p))
+    _write_pair(saveDir.resolve(s"repository/artifacts/${p.name}"), _repository_yaml(p), _repository_json(p))
+    _write_pair(saveDir.resolve(s"releases/${p.name}"), _release_yaml(p), _release_json(p))
+  }
+
+  private def _index_maven(warehouseDir: Path, coordinate: MavenCoordinate): MavenArtifact = {
+    val artifactDir = warehouseDir.resolve("maven").resolve(coordinate.path)
+    val files =
+      if (Files.isDirectory(artifactDir)) {
+        val stream = Files.walk(artifactDir)
+        try {
+          stream.iterator().asScala.toVector.collect {
+            case p if Files.isRegularFile(p) && _is_artifact_file(p) =>
+              val version = artifactDir.relativize(p).iterator().asScala.toVector.headOption.map(_.toString).getOrElse("")
+              val parsed = _parse_maven_file(coordinate.artifactId, version, p.getFileName.toString)
+              _indexed_file(
+                warehouseDir,
+                p,
+                layer = "maven",
+                artifactType = parsed._2,
+                groupId = Some(coordinate.groupId),
+                artifactId = Some(coordinate.artifactId),
+                version = version,
+                classifier = parsed._1
+              )
+          }.sortBy(_.path)
+        } finally {
+          stream.close()
+        }
+      } else {
+        Vector.empty
+      }
+    val versions = _sort_versions(files.map(_.version).distinct)
+    MavenArtifact(coordinate, versions, _latest_release(versions), files)
+  }
+
+  private def _index_repository(warehouseDir: Path, kind: String, modules: Vector[String]): RepositoryArtifact = {
+    val files = modules.flatMap { module =>
+      val artifactDir = warehouseDir.resolve("repository").resolve(kind).resolve(module)
+      if (Files.isDirectory(artifactDir)) {
+        val stream = Files.walk(artifactDir)
+        try {
+          stream.iterator().asScala.toVector.collect {
+            case p if Files.isRegularFile(p) && p.getFileName.toString.toLowerCase(java.util.Locale.ROOT).endsWith(s".${kind}") =>
+              _indexed_file(
+                warehouseDir,
+                p,
+                layer = "repository",
+                artifactType = kind,
+                groupId = None,
+                artifactId = Some(module),
+                version = _infer_repository_version(warehouseDir, p, kind).getOrElse("unknown"),
+                classifier = None
+              )
+          }
+        } finally {
+          stream.close()
+        }
+      } else {
+        Vector.empty
+      }
+    }.sortBy(_.path)
+    RepositoryArtifact(kind, _sort_versions(files.map(_.version).distinct), files)
+  }
+
+  private def _indexed_file(
+    warehouseDir: Path,
+    path: Path,
+    layer: String,
+    artifactType: String,
+    groupId: Option[String],
+    artifactId: Option[String],
+    version: String,
+    classifier: Option[String]
+  ): IndexedFile = {
+    val rel = warehouseDir.relativize(path).toString.replace('\\', '/')
+    val extension = path.getFileName.toString.reverse.takeWhile(_ != '.').reverse
+    IndexedFile(
+      layer = layer,
+      artifactType = artifactType,
+      groupId = groupId,
+      artifactId = artifactId,
+      version = version,
+      classifier = classifier,
+      extension = extension,
+      path = rel,
+      name = path.getFileName.toString,
+      size = Files.size(path),
+      sha256 = _sha256(path),
+      sha1 = _sidecar(path, "sha1"),
+      md5 = _sidecar(path, "md5")
+    )
+  }
+
+  private def _maven_yaml(p: IndexResult): String =
+    _yaml_header("maven-artifact") +
+      _project_yaml(p) +
+      s"""artifact:
+         |  layer: "maven"
+         |  status: ${_yaml_string(if (p.maven.exists(_.files.nonEmpty)) "available" else "missing")}
+         |  coordinates:
+         |${p.maven.map(_maven_coordinate_yaml).mkString}
+         |  files:
+         |${p.maven.flatMap(_.files).map(_file_yaml).mkString}""".stripMargin
+
+  private def _maven_json(p: IndexResult): JsValue =
+    Json.obj(
+      "schema" -> Schema,
+      "type" -> "maven-artifact",
+      "project" -> _project_json(p),
+      "artifact" -> Json.obj(
+        "layer" -> "maven",
+        "status" -> (if (p.maven.exists(_.files.nonEmpty)) "available" else "missing"),
+        "coordinates" -> JsArray(p.maven.map { x =>
+          Json.obj(
+            "groupId" -> x.coordinate.groupId,
+            "artifactId" -> x.coordinate.artifactId,
+            "versions" -> x.versions,
+            "latestRelease" -> x.latestRelease
+          )
+        }),
+        "files" -> JsArray(p.maven.flatMap(_.files).map(_file_json))
+      )
+    )
+
+  private def _repository_yaml(p: IndexResult): String =
+    _yaml_header("repository-artifact") +
+      _project_yaml(p) +
+      s"""artifact:
+         |  layer: "repository"
+         |  status: ${_yaml_string(if (p.repository.exists(_.files.nonEmpty)) "available" else "missing")}
+         |  kinds:
+         |${p.repository.map(_repository_kind_yaml).mkString}
+         |  files:
+         |${p.repository.flatMap(_.files).map(_file_yaml).mkString}""".stripMargin
+
+  private def _repository_json(p: IndexResult): JsValue =
+    Json.obj(
+      "schema" -> Schema,
+      "type" -> "repository-artifact",
+      "project" -> _project_json(p),
+      "artifact" -> Json.obj(
+        "layer" -> "repository",
+        "status" -> (if (p.repository.exists(_.files.nonEmpty)) "available" else "missing"),
+        "kinds" -> JsArray(p.repository.map { x =>
+          Json.obj(
+            "type" -> x.kind,
+            "versions" -> x.versions,
+            "latestRelease" -> _latest_release(x.versions)
+          )
+        }),
+        "files" -> JsArray(p.repository.flatMap(_.files).map(_file_json))
+      )
+    )
+
+  private def _release_yaml(p: IndexResult): String =
+    _yaml_header("release-history") +
+      _project_yaml(p) +
+      s"""release:
+         |  name: ${_yaml_string(p.name)}
+         |  latest: ${_yaml_string(_latest_release(_release_versions_ascending(p)).getOrElse(""))}
+         |  versions:
+         |${_release_versions(p).map(v => _release_version_yaml(v, p)).mkString}""".stripMargin
+
+  private def _release_json(p: IndexResult): JsValue =
+    Json.obj(
+      "schema" -> Schema,
+      "type" -> "release-history",
+      "project" -> _project_json(p),
+      "release" -> Json.obj(
+        "name" -> p.name,
+        "latest" -> _latest_release(_release_versions_ascending(p)),
+        "versions" -> JsArray(_release_versions(p).map { v =>
+          Json.obj(
+            "version" -> v,
+            "artifacts" -> JsArray(_release_artifacts(v, p))
+          )
+        })
+      )
+    )
+
+  private def _release_versions(p: IndexResult): Vector[String] =
+    _release_versions_ascending(p).reverse
+
+  private def _release_versions_ascending(p: IndexResult): Vector[String] =
+    _sort_versions((p.maven.flatMap(_.versions) ++ p.repository.flatMap(_.versions)).filter(_ != "unknown").distinct)
+
+  private def _release_artifacts(version: String, p: IndexResult): Vector[JsValue] =
+    p.maven.flatMap(_.files).filter(_.version == version).map { f =>
+      Json.obj(
+        "layer" -> "maven",
+        "groupId" -> f.groupId,
+        "artifactId" -> f.artifactId,
+        "path" -> f.path
+      )
+    } ++ p.repository.flatMap(_.files).filter(_.version == version).map { f =>
+      Json.obj(
+        "layer" -> "repository",
+        "type" -> f.artifactType,
+        "module" -> f.artifactId,
+        "path" -> f.path
+      )
+    }
+
+  private def _release_version_yaml(version: String, p: IndexResult): String =
+    s"""    - version: ${_yaml_string(version)}
+       |      artifacts:
+       |${_release_artifacts(version, p).map(x => s"        - ${Json.stringify(x)}\n").mkString}""".stripMargin
+
+  private def _maven_coordinate_yaml(p: MavenArtifact): String =
+    s"""    - group_id: ${_yaml_string(p.coordinate.groupId)}
+       |      artifact_id: ${_yaml_string(p.coordinate.artifactId)}
+       |      latest_release: ${_yaml_string(p.latestRelease.getOrElse(""))}
+       |      versions: [${p.versions.map(_yaml_string).mkString(", ")}]
+       |""".stripMargin
+
+  private def _repository_kind_yaml(p: RepositoryArtifact): String =
+    s"""    - type: ${_yaml_string(p.kind)}
+       |      latest_release: ${_yaml_string(_latest_release(p.versions).getOrElse(""))}
+       |      versions: [${p.versions.map(_yaml_string).mkString(", ")}]
+       |""".stripMargin
+
+  private def _file_yaml(p: IndexedFile): String =
+    s"""    - path: ${_yaml_string(p.path)}
+       |      name: ${_yaml_string(p.name)}
+       |      version: ${_yaml_string(p.version)}
+       |      type: ${_yaml_string(p.artifactType)}
+       |      extension: ${_yaml_string(p.extension)}
+       |      classifier: ${_yaml_string(p.classifier.getOrElse(""))}
+       |      size: ${p.size}
+       |      sha256: ${_yaml_string(p.sha256)}
+       |      sha1: ${_yaml_string(p.sha1.getOrElse(""))}
+       |      md5: ${_yaml_string(p.md5.getOrElse(""))}
+       |""".stripMargin
+
+  private def _file_json(p: IndexedFile): JsValue =
+    Json.obj(
+      "layer" -> p.layer,
+      "type" -> p.artifactType,
+      "groupId" -> p.groupId,
+      "artifactId" -> p.artifactId,
+      "version" -> p.version,
+      "classifier" -> p.classifier,
+      "extension" -> p.extension,
+      "path" -> p.path,
+      "downloadPath" -> p.path,
+      "name" -> p.name,
+      "size" -> p.size,
+      "sha256" -> p.sha256,
+      "sha1" -> p.sha1,
+      "md5" -> p.md5
+    )
+
+  private def _yaml_header(kind: String): String =
+    s"""schema: ${_yaml_string(Schema)}
+       |type: ${_yaml_string(kind)}
+       |""".stripMargin
+
+  private def _project_yaml(p: IndexResult): String =
+    s"""project:
+       |  name: ${_yaml_string(p.name)}
+       |  title: ${_yaml_string(p.title)}
+       |""".stripMargin
+
+  private def _project_json(p: IndexResult): JsValue =
+    Json.obj("name" -> p.name, "title" -> p.title)
+
+  private def _write_pair(base: Path, yaml: String, json: JsValue): Unit = {
+    _write_text(Paths.get(base.toString + ".yaml"), yaml)
+    _write_text(Paths.get(base.toString + ".json"), Json.prettyPrint(json) + "\n")
+  }
+
+  private def _warehouse_dir(args: List[String]): Path =
+    _value(args, "warehouse").orElse(_positional_args(args).headOption).
+      map(p => Paths.get(p).toAbsolutePath.normalize()).
+      getOrElse(RAISE.invalidArgumentFault("Missing warehouse directory for index-warehouse"))
+
+  private def _required_path(args: List[String], key: String): Path =
+    _value(args, key).
+      map(p => Paths.get(p).toAbsolutePath.normalize()).
+      getOrElse(RAISE.invalidArgumentFault(s"Missing --${key}"))
+
+  private def _value(args: List[String], key: String): Option[String] = {
+    val prefix = s"--${key}="
+    args.collectFirst {
+      case s if s.startsWith(prefix) => s.substring(prefix.length)
+    }.orElse {
+      args.sliding(2).collectFirst {
+        case List(flag, value) if flag == s"--${key}" => value
+      }
+    }.map(_.trim).filter(_.nonEmpty)
+  }
+
+  private def _csv(args: List[String], key: String): Vector[String] =
+    _value(args, key).toVector.flatMap(_.split(',')).map(_.trim).filter(_.nonEmpty)
+
+  private def _positional_args(args: List[String]): Vector[String] = {
+    val optionNamesWithValue = Set("warehouse", "save", "name", "title", "maven-coordinates", "repository-artifacts", "repository-modules")
+    val b = Vector.newBuilder[String]
+    var skipNext = false
+    args.foreach { arg =>
+      if (skipNext) {
+        skipNext = false
+      } else if (arg.startsWith("--")) {
+        val key = arg.drop(2).takeWhile(_ != '=')
+        if (!arg.contains("=") && optionNamesWithValue.contains(key))
+          skipNext = true
+      } else {
+        b += arg
+      }
+    }
+    b.result()
+  }
+
+  private def _coordinate(s: String): MavenCoordinate =
+    s.split(':').toVector match {
+      case Vector(groupId, artifactId) if groupId.nonEmpty && artifactId.nonEmpty =>
+        MavenCoordinate(groupId, artifactId)
+      case _ =>
+        RAISE.invalidArgumentFault(s"Invalid Maven coordinate: ${s}. Expected groupId:artifactId")
+    }
+
+  private def _is_artifact_file(path: Path): Boolean = {
+    val name = path.getFileName.toString
+    val ext = name.reverse.takeWhile(_ != '.').reverse.toLowerCase(java.util.Locale.ROOT)
+    ArtifactExtensions.contains(ext) && !ChecksumExtensions.contains(ext)
+  }
+
+  private def _parse_maven_file(artifactId: String, version: String, name: String): (Option[String], String) = {
+    val ext = name.reverse.takeWhile(_ != '.').reverse
+    val base = name.stripSuffix("." + ext)
+    val prefix = s"${artifactId}-${version}"
+    val classifier =
+      if (base == prefix)
+        None
+      else if (base.startsWith(prefix + "-"))
+        Some(base.substring(prefix.length + 1))
+      else
+        None
+    classifier -> ext
+  }
+
+  private def _infer_version(name: String, kind: String): Option[String] = {
+    val base = name.stripSuffix("." + kind)
+    "([0-9]+(?:\\.[0-9A-Za-z-]+)+)(?:[-_].*)?$".r.findFirstMatchIn(base).map(_.group(1))
+  }
+
+  private def _infer_repository_version(warehouseDir: Path, path: Path, kind: String): Option[String] = {
+    val rel = warehouseDir.relativize(path).iterator().asScala.toVector.map(_.toString)
+    rel.reverse.drop(1).find(_looks_like_version).orElse(_infer_version(path.getFileName.toString, kind))
+  }
+
+  private def _looks_like_version(value: String): Boolean =
+    value.matches("[0-9]+(?:\\.[0-9A-Za-z-]+)+(?:-[0-9A-Za-z.-]+)?")
+
+  private def _latest_release(versions: Vector[String]): Option[String] =
+    versions.reverse.find(!_.toUpperCase(java.util.Locale.ROOT).contains("SNAPSHOT")).orElse(versions.lastOption)
+
+  private def _sort_versions(xs: Vector[String]): Vector[String] =
+    xs.sortBy(x => x.split("[.-]").toVector.map(part => f"${Try(part.toInt).getOrElse(0)}%08d:$part").mkString("|"))
+
+  private def _sidecar(path: Path, ext: String): Option[String] = {
+    val p = Paths.get(path.toString + "." + ext)
+    if (Files.isRegularFile(p))
+      Some(Files.readString(p, StandardCharsets.UTF_8).trim.split("\\s+").headOption.getOrElse(""))
+    else
+      None
+  }
+
+  private def _sha256(path: Path): String = {
+    val digest = MessageDigest.getInstance("SHA-256")
+    val in = Files.newInputStream(path)
+    val buffer = new Array[Byte](8192)
+    try {
+      var n = in.read(buffer)
+      while (n >= 0) {
+        if (n > 0)
+          digest.update(buffer, 0, n)
+        n = in.read(buffer)
+      }
+    } finally {
+      in.close()
+    }
+    digest.digest().map(b => f"${b & 0xff}%02x").mkString
+  }
+
+  private def _validate_name(value: String): String = {
+    val name = value.trim
+    SlugPattern.findFirstIn(name) match {
+      case Some(x) if x == name => name
+      case _ => RAISE.invalidArgumentFault(s"Invalid publication name: ${value}. Expected ${SlugPattern.regex}")
+    }
+  }
+
+  private def _yaml_string(value: String): String =
+    "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+
+  private def _write_text(path: Path, text: String): Unit = {
+    Option(path.getParent).foreach(Files.createDirectories(_))
+    Files.writeString(path, text, StandardCharsets.UTF_8)
+  }
 }
 
 private[cozy] object CozySbtBridge {
@@ -2104,6 +3043,10 @@ private[cozy] object CozySbtBridge {
         CozyArchivePackager.buildCar(request.arguments.toList)
       case "package-sar" =>
         CozyArchivePackager.buildSar(request.arguments.toList)
+      case "publish-project" =>
+        CozyPublicationCompiler.publish(request.arguments.toList)
+      case "index-warehouse" =>
+        CozyWarehouseIndexer.index(request.arguments.toList)
       case other =>
         RAISE.invalidArgumentFault(s"Unsupported sbt-bridge v1 action: $other")
     }
