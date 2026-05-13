@@ -95,7 +95,7 @@ Example publication identity for `cncf-samples`:
 publication:
   name: textus-tutorial
   title: Textus Tutorial
-  path: textus/samples/tutorial
+  path: textus/tutorial/textus-tutorial
   kind: sample-multi
   samples_dir: samples
 ```
@@ -209,7 +209,7 @@ Example:
 project:
   name: textus-tutorial
   title: Textus Tutorial
-  path: textus/samples/tutorial
+  path: textus/tutorial/textus-tutorial
   kind: sample-multi
   summary: Textus tutorial sample collection.
   description: Tutorial samples for Cozy Textus users.
@@ -346,8 +346,12 @@ publication. For `cncf-samples`, that publication is currently named
 Expected human-facing site area:
 
 ```text
-/textus/samples/tutorial/
+/textus/tutorial/textus-tutorial/
 ```
+
+`/textus/tutorial/` is the tutorial catalog. `textus-tutorial` is the current
+tutorial collection generated from `cncf-samples`; future tutorials should be
+added as sibling collections under `/textus/tutorial/<tutorial>/`.
 
 Expected page roles:
 
@@ -356,7 +360,7 @@ Expected page roles:
 | Tutorial collection page | `metadata/catalog/samples/textus-tutorial.*`, `metadata/samples/textus-tutorial/metadata.*` |
 | Project metadata page | `metadata/catalog/projects/textus-tutorial.*` |
 | Source manifest page | `metadata/source-manifest/textus-tutorial.*` |
-| Download page | `metadata/artifacts/maven/textus-tutorial.*`, `metadata/artifacts/repository/textus-tutorial.*` |
+| Download page | `metadata/artifacts/download/textus-tutorial.*`, `metadata/artifacts/maven/textus-tutorial.*`, `metadata/artifacts/repository/textus-tutorial.*` |
 | Release history page | `metadata/releases/textus-tutorial.*` |
 
 SmartDox may create richer navigation, but the data source remains `publish.d`.
@@ -504,7 +508,7 @@ Warehouse target:
 Human-facing SmartDox path:
 
 ```text
-/textus/samples/tutorial/
+/textus/tutorial/textus-tutorial/
 ```
 
 Publication identity:
@@ -513,7 +517,7 @@ Publication identity:
 publication:
   name: textus-tutorial
   title: Textus Tutorial
-  path: textus/samples/tutorial
+  path: textus/tutorial/textus-tutorial
   kind: sample-multi
   output: /Users/asami/src/dev2025/simplemodeling-org/publish.d
   samples_dir: samples
@@ -590,7 +594,7 @@ Recommended public metadata:
 project:
   name: textus-tutorial
   title: Textus Tutorial
-  path: textus/samples/tutorial
+  path: textus/tutorial/textus-tutorial
   kind: sample-multi
   summary: Cozy Textus tutorial sample collection.
   description: Executable sample projects that demonstrate Textus and CNCF usage patterns.
@@ -739,11 +743,19 @@ Represent publish.d metadata for Maven, expected repository/download paths, and 
 Sample ZIP archives are user-facing downloads. `publish-project` writes their expected paths in `publish.d`; `cozyDistributeSamples` places both the collection archive and individual sample archives at:
 
 ```text
-warehouse/download/samples/<publication>/<version>/<publication>-<version>.zip
-warehouse/download/samples/<publication>/<sample>/<version>/<sample>-<version>.zip
+warehouse/download/<publication.path>/<version>/<publication>-<version>.zip
+warehouse/download/<publication.path>/<sample>/<version>/<sample>-<version>.zip
 ```
 
 The collection archive contains all child sample directories. Individual sample archives contain one child sample project.
+
+Use dry-run when the operator wants to inspect the planned archive paths without writing to the warehouse:
+
+```console
+cozy distribute-samples . --warehouse=/Users/asami/src/maven-repository --name=textus-tutorial --version=0.2.0-SNAPSHOT --dry-run
+```
+
+Dry-run accepts SNAPSHOT versions because it does not publish artifacts.
 
 CAR/SAR archives are runtime repository artifacts. `publish-project` writes their expected paths in `publish.d`; `cozyDistributeCAR/SAR` places the files at:
 

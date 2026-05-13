@@ -6,7 +6,8 @@
     "--warehouse=/tmp/warehouse",
     "--name=textus-tutorial",
     "--version=0.1.0",
-    "--samples-dir=/tmp/sample-project/samples"
+    "--samples-dir=/tmp/sample-project/samples",
+    "--dry-run"
   ],
   "settings": {}
 }

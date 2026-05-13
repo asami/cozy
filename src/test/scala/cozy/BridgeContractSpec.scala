@@ -7,7 +7,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Apr. 23, 2026
- * @version May. 13, 2026
+ * @version May. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 final class BridgeContractSpec extends AnyWordSpec with Matchers {
@@ -50,6 +50,7 @@ final class BridgeContractSpec extends AnyWordSpec with Matchers {
       publish.arguments should contain ("--kind=car")
       samples.action shouldBe "distribute-samples"
       samples.arguments should contain ("--name=textus-tutorial")
+      samples.arguments should contain ("--dry-run")
       warehouse.action shouldBe "index-warehouse"
       warehouse.arguments should contain ("--maven-coordinates=org.example:textus-tutorial_3")
       warehouse.arguments should contain ("--repository-modules=textus-tutorial")

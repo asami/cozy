@@ -1,5 +1,6 @@
 package cozy
 
+import java.io.{ByteArrayOutputStream, PrintStream}
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 import java.util.zip.ZipFile
@@ -9,7 +10,7 @@ import play.api.libs.json.Json
 
 /*
  * @since   May. 12, 2026
- * @version May. 13, 2026
+ * @version May. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 final class PublicationCompilerSpec extends AnyFunSuite {
@@ -186,13 +187,13 @@ final class PublicationCompilerSpec extends AnyFunSuite {
       """project:
         |  name: reserved-path
         |  title: Reserved Path
-        |  path: textus/samples/tutorial
+        |  path: textus/tutorial/textus-tutorial
         |""".stripMargin,
       StandardCharsets.UTF_8
     )
     Cozy.main(Array("publish-project", project.toString, s"--save=${out}"))
     val projectJson = Json.parse(Files.readString(out.resolve("metadata/projects/reserved-path/metadata.json")))
-    assert((projectJson \ "publication" \ "path").as[String] == "textus/samples/tutorial")
+    assert((projectJson \ "publication" \ "path").as[String] == "textus/tutorial/textus-tutorial")
   }
 
   test("publish-project auto-detects car projects and supports kind override") {
@@ -241,7 +242,7 @@ final class PublicationCompilerSpec extends AnyFunSuite {
         |  name: textus-tutorial
         |  title: Textus Tutorial
         |  kind: sample-multi
-        |  path: textus/samples/tutorial
+        |  path: textus/tutorial/textus-tutorial
         |  summary: Tutorial sample collection.
         |  description: Textus tutorial samples for Cozy publication.
         |""".stripMargin,
@@ -287,7 +288,7 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     assert((projectJson \ "project" \ "title").as[String] == "Textus Tutorial")
     assert((projectJson \ "project" \ "summary").as[String] == "Tutorial sample collection.")
     assert((projectJson \ "project" \ "description").as[String] == "Textus tutorial samples for Cozy publication.")
-    assert((projectJson \ "publication" \ "path").as[String] == "textus/samples/tutorial")
+    assert((projectJson \ "publication" \ "path").as[String] == "textus/tutorial/textus-tutorial")
     assert((projectJson \ "project" \ "kind").as[String] == "sample-multi")
 
     val manifestJson = Json.parse(Files.readString(out.resolve("metadata/source-manifest/textus-tutorial.json")))
@@ -318,10 +319,10 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     val downloadArtifact = Json.parse(Files.readString(out.resolve("metadata/artifacts/download/textus-tutorial.json")))
     assert((downloadArtifact \ "artifact" \ "status").as[String] == "planned")
     assert((downloadArtifact \ "project" \ "summary").as[String] == "Tutorial sample collection.")
-    assert((downloadArtifact \ "artifact" \ "files" \\ "warehousePath").map(_.as[String]).contains("download/samples/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip"))
-    assert((downloadArtifact \ "artifact" \ "files" \\ "publicPath").map(_.as[String]).contains("repository/download/samples/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip"))
-    assert((downloadArtifact \ "artifact" \ "files" \\ "warehousePath").map(_.as[String]).contains("download/samples/textus-tutorial/01-hello/0.1.0/01-hello-0.1.0.zip"))
-    assert((downloadArtifact \ "artifact" \ "files" \\ "publicPath").map(_.as[String]).contains("repository/download/samples/textus-tutorial/01-hello/0.1.0/01-hello-0.1.0.zip"))
+    assert((downloadArtifact \ "artifact" \ "files" \\ "warehousePath").map(_.as[String]).contains("download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip"))
+    assert((downloadArtifact \ "artifact" \ "files" \\ "publicPath").map(_.as[String]).contains("repository/download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip"))
+    assert((downloadArtifact \ "artifact" \ "files" \\ "warehousePath").map(_.as[String]).contains("download/textus/tutorial/textus-tutorial/01-hello/0.1.0/01-hello-0.1.0.zip"))
+    assert((downloadArtifact \ "artifact" \ "files" \\ "publicPath").map(_.as[String]).contains("repository/download/textus/tutorial/textus-tutorial/01-hello/0.1.0/01-hello-0.1.0.zip"))
     assert(Files.isRegularFile(out.resolve("metadata/samples/textus-tutorial/items/01-hello/0.1.0/files/build.sbt")))
     assert(Files.isRegularFile(out.resolve("metadata/samples/textus-tutorial/items/01-hello/0.1.0/files/README.md")))
     val latest = Json.parse(Files.readString(out.resolve("metadata/samples/textus-tutorial/items/01-hello/latest.json")))
@@ -338,6 +339,13 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     _delete(root)
     Files.createDirectories(project.resolve("samples/01-hello/target"))
     Files.writeString(project.resolve("build.sbt"), "name := \"Samples\"\nversion := \"0.1.0\"\n", StandardCharsets.UTF_8)
+    Files.writeString(
+      project.resolve("project.yaml"),
+      """project:
+        |  path: textus/tutorial/textus-tutorial
+        |""".stripMargin,
+      StandardCharsets.UTF_8
+    )
     Files.writeString(project.resolve("samples/01-hello/build.sbt"), "name := \"Hello\"\n", StandardCharsets.UTF_8)
     Files.writeString(project.resolve("samples/01-hello/README.md"), "# Hello\n", StandardCharsets.UTF_8)
     Files.writeString(project.resolve("samples/01-hello/target/ignored.txt"), "ignored\n", StandardCharsets.UTF_8)
@@ -350,9 +358,9 @@ final class PublicationCompilerSpec extends AnyFunSuite {
       "--version=0.1.0"
     ))
 
-    val zipPath = warehouse.resolve("download/samples/textus-tutorial/01-hello/0.1.0/01-hello-0.1.0.zip")
+    val zipPath = warehouse.resolve("download/textus/tutorial/textus-tutorial/01-hello/0.1.0/01-hello-0.1.0.zip")
     assert(Files.isRegularFile(zipPath))
-    val collectionZipPath = warehouse.resolve("download/samples/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip")
+    val collectionZipPath = warehouse.resolve("download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip")
     assert(Files.isRegularFile(collectionZipPath))
     val collectionZip = new ZipFile(collectionZipPath.toFile)
     try {
@@ -381,6 +389,46 @@ final class PublicationCompilerSpec extends AnyFunSuite {
       "--version=0.1.0"
     ))
     assert(_sha256(collectionZipPath) == firstSha)
+  }
+
+  test("distribute-samples dry-run prints planned archives without writing files") {
+    val root = base.resolve("target/test-generated/distribute-samples-dry-run")
+    val project = root.resolve("project")
+    val warehouse = root.resolve("warehouse")
+    _delete(root)
+    Files.createDirectories(project.resolve("samples/01-hello"))
+    Files.writeString(project.resolve("build.sbt"), "name := \"Samples\"\nversion := \"0.2.0-SNAPSHOT\"\n", StandardCharsets.UTF_8)
+    Files.writeString(
+      project.resolve("project.yaml"),
+      """project:
+        |  path: textus/tutorial/textus-tutorial
+        |""".stripMargin,
+      StandardCharsets.UTF_8
+    )
+    Files.writeString(project.resolve("samples/01-hello/build.sbt"), "name := \"Hello\"\n", StandardCharsets.UTF_8)
+
+    val buffer = new ByteArrayOutputStream()
+    val printer = new PrintStream(buffer, true, "UTF-8")
+    try {
+      Console.withOut(printer) {
+        Cozy.main(Array(
+          "distribute-samples",
+          project.toString,
+          s"--warehouse=${warehouse}",
+          "--name=textus-tutorial",
+          "--version=0.2.0-SNAPSHOT",
+          "--dry-run"
+        ))
+      }
+    } finally {
+      printer.close()
+    }
+
+    val out = buffer.toString("UTF-8")
+    assert(out.contains("distribute-samples dry-run"))
+    assert(out.contains("sample-collection-zip warehousePath=download/textus/tutorial/textus-tutorial/0.2.0-SNAPSHOT/textus-tutorial-0.2.0-SNAPSHOT.zip"))
+    assert(out.contains("sample-zip sample=01-hello warehousePath=download/textus/tutorial/textus-tutorial/01-hello/0.2.0-SNAPSHOT/01-hello-0.2.0-SNAPSHOT.zip"))
+    assert(!Files.exists(warehouse))
   }
 
   test("distribute-samples rejects colliding sample slugs") {
@@ -420,8 +468,10 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     val car = warehouse.resolve("repository/car/textus-tutorial/0.1.0/textus-tutorial-0.1.0.car")
     val sar = warehouse.resolve("repository/sar/textus-tutorial/0.1.0/textus-tutorial-0.1.0.sar")
     val unrelatedCar = warehouse.resolve("repository/car/other-module/9.9.9/other-module-9.9.9.car")
-    val collectionZip = warehouse.resolve("download/samples/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip")
-    val sampleZip = warehouse.resolve("download/samples/textus-tutorial/01-hello/0.1.0/01-hello-0.1.0.zip")
+    val collectionZip = warehouse.resolve("download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip")
+    val sampleZip = warehouse.resolve("download/textus/tutorial/textus-tutorial/01-hello/0.1.0/01-hello-0.1.0.zip")
+    val legacyCollectionZip = warehouse.resolve("download/samples/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip")
+    val legacySampleZip = warehouse.resolve("download/samples/textus-tutorial/01-hello/0.1.0/01-hello-0.1.0.zip")
     val unrelatedZip = warehouse.resolve("download/samples/other-publication/01-hello/9.9.9/01-hello-9.9.9.zip")
     Files.createDirectories(artifact.getParent)
     Files.writeString(artifact, "binary-010", StandardCharsets.UTF_8)
@@ -444,6 +494,10 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     Files.writeString(collectionZip, "sample-collection-zip", StandardCharsets.UTF_8)
     Files.createDirectories(sampleZip.getParent)
     Files.writeString(sampleZip, "sample-zip", StandardCharsets.UTF_8)
+    Files.createDirectories(legacyCollectionZip.getParent)
+    Files.writeString(legacyCollectionZip, "legacy-sample-collection-zip", StandardCharsets.UTF_8)
+    Files.createDirectories(legacySampleZip.getParent)
+    Files.writeString(legacySampleZip, "legacy-sample-zip", StandardCharsets.UTF_8)
     Files.createDirectories(unrelatedZip.getParent)
     Files.writeString(unrelatedZip, "unrelated-sample-zip", StandardCharsets.UTF_8)
     Files.createDirectories(out.resolve("metadata/artifacts/repository"))
@@ -486,16 +540,29 @@ final class PublicationCompilerSpec extends AnyFunSuite {
 	        |    "status": "planned",
 	        |    "files": [
 	        |      {
-	        |        "warehousePath": "download/samples/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip",
-	        |        "publicPath": "repository/download/samples/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip",
+	        |        "warehousePath": "download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip",
+	        |        "publicPath": "repository/download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip",
 	        |        "type": "sample-collection-zip"
 	        |      },
 	        |      {
-	        |        "warehousePath": "download/samples/textus-tutorial/01-hello/0.1.0/01-hello-0.1.0.zip",
-	        |        "publicPath": "repository/download/samples/textus-tutorial/01-hello/0.1.0/01-hello-0.1.0.zip",
+	        |        "warehousePath": "download/textus/tutorial/textus-tutorial/01-hello/0.1.0/01-hello-0.1.0.zip",
+	        |        "publicPath": "repository/download/textus/tutorial/textus-tutorial/01-hello/0.1.0/01-hello-0.1.0.zip",
 	        |        "type": "sample-zip"
 	        |      }
         |    ]
+        |  }
+        |}
+        |""".stripMargin,
+      StandardCharsets.UTF_8
+    )
+    Files.createDirectories(out.resolve("metadata/samples/textus-tutorial"))
+    Files.writeString(
+      out.resolve("metadata/samples/textus-tutorial/metadata.json"),
+      """{
+        |  "schema": "cozy.publish-project.v1",
+        |  "type": "sample-metadata",
+        |  "publication": {
+        |    "path": "textus/tutorial/textus-tutorial"
         |  }
         |}
         |""".stripMargin,
@@ -541,11 +608,12 @@ final class PublicationCompilerSpec extends AnyFunSuite {
 	    assert((downloadJson \ "artifact" \ "status").as[String] == "planned")
 	    assert((downloadJson \ "project" \ "summary").as[String] == "Tutorial sample collection.")
 	    val downloadFiles = (downloadJson \ "artifact" \ "files").as[Vector[play.api.libs.json.JsObject]]
-	    assert(downloadFiles.map(x => (x \ "warehousePath").as[String]).contains("download/samples/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip"))
-	    assert(downloadFiles.map(x => (x \ "publicPath").as[String]).contains("repository/download/samples/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip"))
-	    assert(downloadFiles.find(x => (x \ "warehousePath").as[String] == "download/samples/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip").exists(x => (x \ "type").as[String] == "sample-collection-zip"))
-	    assert(downloadFiles.map(x => (x \ "warehousePath").as[String]).contains("download/samples/textus-tutorial/01-hello/0.1.0/01-hello-0.1.0.zip"))
-	    assert(downloadFiles.map(x => (x \ "publicPath").as[String]).contains("repository/download/samples/textus-tutorial/01-hello/0.1.0/01-hello-0.1.0.zip"))
+	    assert(downloadFiles.map(x => (x \ "warehousePath").as[String]).contains("download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip"))
+	    assert(downloadFiles.map(x => (x \ "publicPath").as[String]).contains("repository/download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip"))
+	    assert(downloadFiles.find(x => (x \ "warehousePath").as[String] == "download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip").exists(x => (x \ "type").as[String] == "sample-collection-zip"))
+	    assert(downloadFiles.map(x => (x \ "warehousePath").as[String]).contains("download/textus/tutorial/textus-tutorial/01-hello/0.1.0/01-hello-0.1.0.zip"))
+	    assert(downloadFiles.map(x => (x \ "publicPath").as[String]).contains("repository/download/textus/tutorial/textus-tutorial/01-hello/0.1.0/01-hello-0.1.0.zip"))
+    assert(!downloadFiles.map(x => (x \ "warehousePath").as[String]).contains("download/samples/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip"))
     assert(!downloadFiles.map(x => (x \ "warehousePath").as[String]).exists(_.contains("other-publication")))
 
     val releaseJson = Json.parse(Files.readString(out.resolve("metadata/releases/textus-tutorial.json")))
@@ -553,6 +621,93 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     val releaseVersions = (releaseJson \ "release" \ "versions").as[Vector[play.api.libs.json.JsObject]].map(x => (x \ "version").as[String])
     assert(releaseVersions.contains("0.1.0"))
     assert(releaseVersions.contains("0.2.0-SNAPSHOT"))
+  }
+
+  test("index-warehouse keeps legacy download sample paths readable") {
+    val root = base.resolve("target/test-generated/index-warehouse-legacy-download")
+    val warehouse = root.resolve("warehouse")
+    val out = root.resolve("publish.d")
+    _delete(root)
+    val collectionZip = warehouse.resolve("download/samples/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip")
+    val sampleZip = warehouse.resolve("download/samples/textus-tutorial/01-hello/0.1.0/01-hello-0.1.0.zip")
+    Files.createDirectories(collectionZip.getParent)
+    Files.writeString(collectionZip, "legacy-sample-collection-zip", StandardCharsets.UTF_8)
+    Files.createDirectories(sampleZip.getParent)
+    Files.writeString(sampleZip, "legacy-sample-zip", StandardCharsets.UTF_8)
+    Files.createDirectories(out.resolve("metadata/artifacts/download"))
+    Files.writeString(
+      out.resolve("metadata/artifacts/download/textus-tutorial.json"),
+      """{
+        |  "schema": "cozy.publish-project.v1",
+        |  "type": "download-artifact",
+        |  "artifact": {
+        |    "layer": "download",
+        |    "status": "planned",
+        |    "files": [
+        |      { "warehousePath": "download/samples/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip" },
+        |      { "warehousePath": "download/samples/textus-tutorial/01-hello/0.1.0/01-hello-0.1.0.zip" }
+        |    ]
+        |  }
+        |}
+        |""".stripMargin,
+      StandardCharsets.UTF_8
+    )
+
+    Cozy.main(Array(
+      "index-warehouse",
+      warehouse.toString,
+      s"--save=${out}",
+      "--name=textus-tutorial",
+      "--title=Textus Tutorial"
+    ))
+
+    val downloadJson = Json.parse(Files.readString(out.resolve("metadata/artifacts/download/textus-tutorial.json")))
+    val downloadFiles = (downloadJson \ "artifact" \ "files").as[Vector[play.api.libs.json.JsObject]]
+    assert(downloadFiles.map(x => (x \ "warehousePath").as[String]).contains("download/samples/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip"))
+    assert(downloadFiles.map(x => (x \ "warehousePath").as[String]).contains("download/samples/textus-tutorial/01-hello/0.1.0/01-hello-0.1.0.zip"))
+  }
+
+  test("index-warehouse reports canonical download metadata with legacy-only files") {
+    val root = base.resolve("target/test-generated/index-warehouse-canonical-download-missing")
+    val warehouse = root.resolve("warehouse")
+    val out = root.resolve("publish.d")
+    _delete(root)
+    val legacyCollectionZip = warehouse.resolve("download/samples/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip")
+    val legacySampleZip = warehouse.resolve("download/samples/textus-tutorial/01-hello/0.1.0/01-hello-0.1.0.zip")
+    Files.createDirectories(legacyCollectionZip.getParent)
+    Files.writeString(legacyCollectionZip, "legacy-sample-collection-zip", StandardCharsets.UTF_8)
+    Files.createDirectories(legacySampleZip.getParent)
+    Files.writeString(legacySampleZip, "legacy-sample-zip", StandardCharsets.UTF_8)
+    Files.createDirectories(out.resolve("metadata/artifacts/download"))
+    Files.writeString(
+      out.resolve("metadata/artifacts/download/textus-tutorial.json"),
+      """{
+        |  "schema": "cozy.publish-project.v1",
+        |  "type": "download-artifact",
+        |  "artifact": {
+        |    "layer": "download",
+        |    "status": "planned",
+        |    "files": [
+        |      { "warehousePath": "download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip" },
+        |      { "warehousePath": "download/textus/tutorial/textus-tutorial/01-hello/0.1.0/01-hello-0.1.0.zip" }
+        |    ]
+        |  }
+        |}
+        |""".stripMargin,
+      StandardCharsets.UTF_8
+    )
+
+    val ex = intercept[Throwable] {
+      Cozy.main(Array(
+        "index-warehouse",
+        warehouse.toString,
+        s"--save=${out}",
+        "--name=textus-tutorial",
+        "--title=Textus Tutorial"
+      ))
+    }
+    assert(ex.getMessage.contains("Missing download artifact"))
+    assert(ex.getMessage.contains("download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip"))
   }
 
   test("publish-project fails explicitly for missing project roots") {

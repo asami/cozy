@@ -30,7 +30,7 @@ import scala.collection.JavaConverters._
  *  version Aug. 20, 2025
  *  version Mar. 17, 2026
  *  version Apr. 29, 2026
- * @version May. 13, 2026
+ * @version May. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 class Cozy(
@@ -1724,8 +1724,9 @@ object Cozy {
       |      Generate SmartDox site BoK publication sources from an sbt project.
       |      Writes deterministic YAML/JSON metadata and a source manifest under publish.d.
       |
-      |  distribute-samples <project-dir> --warehouse=<dir> --name=<slug> --version=<version> [--samples-dir=<dir>]
-      |      Zip the sample collection and each sample project under warehouse/download/samples/<name>.
+      |  distribute-samples <project-dir> --warehouse=<dir> --name=<slug> --version=<version> [--samples-dir=<dir>] [--dry-run]
+      |      Zip the sample collection and each sample project under warehouse/download/<publication.path>.
+      |      With --dry-run, print planned output paths without writing archives.
       |
       |  index-warehouse <warehouse-dir> --save=<dir> --name=<slug> [--title=<title>] [--maven-coordinates=<group:artifact,...>] [--repository-artifacts=car,sar,zip] [--repository-modules=<module,...>] [--download-samples=<publication,...>]
       |      Generate publish.d artifact and release metadata by indexing a warehouse.
@@ -2194,12 +2195,35 @@ private object CozyProjectYamlConfig {
   }
 }
 
+private object CozyPublicationPaths {
+  private val SlugSegmentPattern = "^[a-z0-9][a-z0-9-]*$".r
+  private val ReservedPublicationRoots = Set("metadata", "repository")
+
+  def validatePublicationPath(value: String): String = {
+    val path = value.trim.stripPrefix("/").stripSuffix("/")
+    if (path.isEmpty || path.split('/').exists(segment => SlugSegmentPattern.findFirstIn(segment).forall(_ != segment)))
+      RAISE.invalidArgumentFault(s"Invalid publication path: ${value}. Expected slash-separated slug segments")
+    else if (ReservedPublicationRoots.contains(path.split('/').headOption.getOrElse("")))
+      RAISE.invalidArgumentFault(s"Invalid publication path: ${value}. Reserved top-level path: ${path.split('/').head}")
+    else
+      path
+  }
+
+  def downloadBase(publicationName: String, publicationPath: Option[String]): String =
+    publicationPath.map(validatePublicationPath).getOrElse(s"samples/${publicationName}")
+
+  def collectionDownloadPath(publicationName: String, publicationPath: Option[String], version: String): String =
+    s"download/${downloadBase(publicationName, publicationPath)}/${version}/${publicationName}-${version}.zip"
+
+  def sampleDownloadPath(publicationName: String, publicationPath: Option[String], sampleName: String, version: String): String =
+    s"download/${downloadBase(publicationName, publicationPath)}/${sampleName}/${version}/${sampleName}-${version}.zip"
+}
+
 private object CozyPublicationCompiler {
   private val Schema = "cozy.publish-project.v1"
   private val ValidKinds = Set("car", "sar", "sample-single", "sample-multi")
   private val DefaultExcludedSegments = Set("target", ".git", ".bsp", ".bloop", ".metals", ".idea", ".cache", ".vscode", "repository.d")
   private val SlugPattern = "^[a-z0-9][a-z0-9-]*$".r
-  private val ReservedPublicationRoots = Set("metadata", "repository")
 
   final case class ProjectMetadata(
     name: String,
@@ -2653,7 +2677,7 @@ private object CozyPublicationCompiler {
       sampleName = Some(sample.name),
       version = sample.version,
       extension = "zip",
-      path = s"download/samples/${project.name}/${sample.name}/${sample.version}/${sample.name}-${sample.version}.zip",
+      path = CozyPublicationPaths.sampleDownloadPath(project.name, project.publicationPath, sample.name, sample.version),
       name = s"${sample.name}-${sample.version}.zip"
     )
 
@@ -2666,7 +2690,7 @@ private object CozyPublicationCompiler {
       sampleName = None,
       version = version,
       extension = "zip",
-      path = s"download/samples/${project.name}/${version}/${project.name}-${version}.zip",
+      path = CozyPublicationPaths.collectionDownloadPath(project.name, project.publicationPath, version),
       name = s"${project.name}-${version}.zip"
     )
   }
@@ -3013,13 +3037,7 @@ private object CozyPublicationCompiler {
   }
 
   private def _validate_publication_path(value: String): String = {
-    val path = value.trim.stripPrefix("/").stripSuffix("/")
-    if (path.isEmpty || path.split('/').exists(segment => SlugPattern.findFirstIn(segment).forall(_ != segment)))
-      RAISE.invalidArgumentFault(s"Invalid publication path: ${value}. Expected slash-separated slug segments")
-    else if (ReservedPublicationRoots.contains(path.split('/').headOption.getOrElse("")))
-      RAISE.invalidArgumentFault(s"Invalid publication path: ${value}. Reserved top-level path: ${path.split('/').head}")
-    else
-      path
+    CozyPublicationPaths.validatePublicationPath(value)
   }
 
   private def _validate_name(value: String, label: String): String = {
@@ -3051,18 +3069,21 @@ private object CozyPublicationCompiler {
 private object CozySampleDistributor {
   private val DefaultExcludedSegments = Set("target", ".git", ".bsp", ".bloop", ".metals", ".idea", ".cache", ".vscode")
   private val SlugPattern = "^[a-z0-9][a-z0-9-]*$".r
+  final case class PlannedArchive(kind: String, sampleName: Option[String], path: Path)
 
   def distribute(args: List[String]): Unit = {
     val projectDir = _project_dir(args)
     if (!Files.isDirectory(projectDir))
       RAISE.invalidArgumentFault(s"Project directory does not exist: ${projectDir}")
     val config = CozyProjectYamlConfig.load(projectDir.resolve(".cozy/config.yaml"))
+    val projectMetadata = CozyProjectYamlConfig.load(projectDir.resolve("project.yaml"))
     val warehouseDir = _value(args, "warehouse").
       map(p => Paths.get(p).toAbsolutePath.normalize()).
       orElse(_config_path(projectDir, config.value("warehouse.repository"))).
       getOrElse(RAISE.invalidArgumentFault("Missing --warehouse for distribute-samples"))
     val name = _value(args, "name").orElse(config.value("publication.name")).map(_validate_name).getOrElse(RAISE.invalidArgumentFault("Missing --name for distribute-samples"))
     val version = _value(args, "version").orElse(_project_version(projectDir)).getOrElse(RAISE.invalidArgumentFault("Missing --version for distribute-samples"))
+    val publicationPath = _value(args, "path").orElse(projectMetadata.value("project.path")).orElse(config.value("publication.path")).map(CozyPublicationPaths.validatePublicationPath)
     val samplesDir = _value(args, "samples-dir").orElse(config.value("publication.samples_dir")).
       map(p => _config_path(projectDir, Some(p)).get).
       getOrElse(projectDir.resolve("samples"))
@@ -3071,10 +3092,44 @@ private object CozySampleDistributor {
     if (samples.isEmpty)
       RAISE.invalidArgumentFault(s"No sample projects found under: ${samplesDir}")
     val samplePairs = _validate_unique_sample_names(samples.map(sample => sample -> _validate_name(_slugify(sample.getFileName.toString))))
-    _zip_sample_collection(samplesDir, warehouseDir.resolve(s"download/samples/${name}/${version}/${name}-${version}.zip"), excludes)
+    val archives = _planned_archives(warehouseDir, name, publicationPath, version, samplePairs)
+    if (_flag(args, "dry-run")) {
+      _print_plan(warehouseDir, archives)
+      return
+    }
+    _zip_sample_collection(samplesDir, archives.head.path, excludes)
     samplePairs.foreach { case (sample, sampleName) =>
-      val out = warehouseDir.resolve(s"download/samples/${name}/${sampleName}/${version}/${sampleName}-${version}.zip")
+      val out = archives.find(_.sampleName.contains(sampleName)).map(_.path).
+        getOrElse(warehouseDir.resolve(CozyPublicationPaths.sampleDownloadPath(name, publicationPath, sampleName, version)))
       _zip_dir(sample, out, excludes)
+    }
+  }
+
+  private def _planned_archives(
+    warehouseDir: Path,
+    name: String,
+    publicationPath: Option[String],
+    version: String,
+    samples: Vector[(Path, String)]
+  ): Vector[PlannedArchive] =
+    PlannedArchive(
+      "sample-collection-zip",
+      None,
+      warehouseDir.resolve(CozyPublicationPaths.collectionDownloadPath(name, publicationPath, version))
+    ) +: samples.map { case (_, sampleName) =>
+      PlannedArchive(
+        "sample-zip",
+        Some(sampleName),
+        warehouseDir.resolve(CozyPublicationPaths.sampleDownloadPath(name, publicationPath, sampleName, version))
+      )
+    }
+
+  private def _print_plan(warehouseDir: Path, archives: Vector[PlannedArchive]): Unit = {
+    println("distribute-samples dry-run")
+    archives.foreach { archive =>
+      val warehousePath = warehouseDir.relativize(archive.path).toString.replace('\\', '/')
+      val sample = archive.sampleName.map(x => s" sample=${x}").getOrElse("")
+      println(s"${archive.kind}${sample} warehousePath=${warehousePath} file=${archive.path}")
     }
   }
 
@@ -3168,7 +3223,7 @@ private object CozySampleDistributor {
       getOrElse(RAISE.invalidArgumentFault("Missing project directory for distribute-samples"))
 
   private def _positional_args(args: List[String]): Vector[String] = {
-    val optionNamesWithValue = Set("project", "warehouse", "name", "version", "samples-dir")
+    val optionNamesWithValue = Set("project", "warehouse", "name", "path", "version", "samples-dir")
     val b = Vector.newBuilder[String]
     var skipNext = false
     args.foreach { arg =>
@@ -3195,6 +3250,10 @@ private object CozySampleDistributor {
       }
     }.map(_.trim).filter(_.nonEmpty)
   }
+
+  private def _flag(args: List[String], key: String): Boolean =
+    args.exists(_ == s"--${key}") ||
+      _value(args, key).exists(x => x.equalsIgnoreCase("true") || x == "1" || x.equalsIgnoreCase("yes"))
 
   private def _config_path(projectDir: Path, value: Option[String]): Option[Path] =
     value.map { p =>
@@ -3268,15 +3327,16 @@ private object CozyWarehouseIndexer {
       case Vector() => Vector(name)
       case xs => xs
     }
+    val downloadPublicationPaths = downloadSamples.map(publication => publication -> _publication_path(saveDir, publication)).toMap
     val result = IndexResult(
       name = name,
       title = title,
       maven = coordinates.map(_index_maven(warehouseDir, _)),
       repository = Vector.empty,
-      download = Vector(_index_download_samples(warehouseDir, downloadSamples))
+      download = Vector(_index_download_samples(warehouseDir, downloadSamples, downloadPublicationPaths))
     )
     _check_repository_consistency(warehouseDir, saveDir, name, repositoryKinds, repositoryModules)
-    _check_download_consistency(warehouseDir, saveDir, name, downloadSamples)
+    _check_download_consistency(warehouseDir, saveDir, name, downloadSamples, downloadPublicationPaths)
     _write(result, saveDir)
   }
 
@@ -3311,14 +3371,17 @@ private object CozyWarehouseIndexer {
     warehouseDir: Path,
     saveDir: Path,
     name: String,
-    downloadSamples: Vector[String]
+    downloadSamples: Vector[String],
+    publicationPaths: Map[String, Option[String]]
   ): Unit = {
     _expected_paths(saveDir.resolve(s"metadata/artifacts/download/${name}.json")) match {
       case xs if xs.nonEmpty =>
         _check_paths_exist(warehouseDir, "download", xs)
       case _ =>
         val existing = downloadSamples.exists { publication =>
-          Files.exists(warehouseDir.resolve("download").resolve("samples").resolve(publication))
+          _download_scan_bases(publication, publicationPaths.getOrElse(publication, None)).exists { base =>
+            Files.exists(warehouseDir.resolve("download").resolve(base))
+          }
         }
         if (existing)
           RAISE.invalidArgumentFault(s"Warehouse download artifacts exist for ${name}, but publish.d metadata/artifacts/download/${name}.json is missing")
@@ -3334,6 +3397,19 @@ private object CozyWarehouseIndexer {
         (x \ "warehousePath").asOpt[String].orElse((x \ "path").asOpt[String])
       }.filter(_.nonEmpty).distinct.sorted
     }
+
+  private def _publication_path(saveDir: Path, publication: String): Option[String] = {
+    val candidates = Vector(
+      saveDir.resolve(s"metadata/samples/${publication}/metadata.json"),
+      saveDir.resolve(s"metadata/projects/${publication}/metadata.json")
+    )
+    candidates.collectFirst {
+      case path if Files.isRegularFile(path) =>
+        Try {
+          (Json.parse(Files.readString(path, StandardCharsets.UTF_8)) \ "publication" \ "path").asOpt[String]
+        }.toOption.flatten
+    }.flatten.map(CozyPublicationPaths.validatePublicationPath)
+  }
 
   private def _check_paths_exist(warehouseDir: Path, layer: String, paths: Vector[String]): Unit = {
     val missing = paths.filterNot(path => Files.isRegularFile(warehouseDir.resolve(path)))
@@ -3403,43 +3479,66 @@ private object CozyWarehouseIndexer {
     RepositoryArtifact(kind, _sort_versions(files.map(_.version).distinct), files)
   }
 
-  private def _index_download_samples(warehouseDir: Path, publications: Vector[String]): DownloadArtifact = {
+  private def _index_download_samples(
+    warehouseDir: Path,
+    publications: Vector[String],
+    publicationPaths: Map[String, Option[String]]
+  ): DownloadArtifact = {
     val files = publications.flatMap { publication =>
-      val dir = warehouseDir.resolve("download").resolve("samples").resolve(publication)
-      if (Files.isDirectory(dir)) {
-        val stream = Files.walk(dir)
-        try {
-          stream.iterator().asScala.toVector.collect {
-            case p if Files.isRegularFile(p) && p.getFileName.toString.toLowerCase(java.util.Locale.ROOT).endsWith(".zip") =>
-              val rel = dir.relativize(p).iterator().asScala.toVector.map(_.toString)
-              val collectionArchive = rel.size == 2
-              val sample = if (collectionArchive) None else rel.headOption
-              val version =
-                if (collectionArchive)
-                  rel.headOption.getOrElse(_infer_version(p.getFileName.toString, "zip").getOrElse("unknown"))
-                else
-                  rel.drop(1).headOption.getOrElse(_infer_version(p.getFileName.toString, "zip").getOrElse("unknown"))
-              _indexed_file(
-                warehouseDir,
-                p,
-                layer = "download",
-                artifactType = if (collectionArchive) "sample-collection-zip" else "sample-zip",
-                groupId = None,
-                artifactId = Some(publication),
-                sampleName = sample,
-                version = version,
-                classifier = None
-              )
-          }
-        } finally {
-          stream.close()
-        }
-      } else {
-        Vector.empty
+      val indexed = _download_scan_bases(publication, publicationPaths.getOrElse(publication, None)).flatMap { base =>
+        _index_download_sample_base(warehouseDir, publication, warehouseDir.resolve("download").resolve(base))
       }
+      _prefer_first_download_files(indexed)
     }.sortBy(_.path)
     DownloadArtifact("sample-zip", _sort_versions(files.map(_.version).distinct), files)
   }
+
+  private def _download_scan_bases(publication: String, publicationPath: Option[String]): Vector[String] = {
+    val canonical = CozyPublicationPaths.downloadBase(publication, publicationPath)
+    Vector(canonical, s"samples/${publication}").distinct
+  }
+
+  private def _index_download_sample_base(warehouseDir: Path, publication: String, dir: Path): Vector[IndexedFile] =
+    if (Files.isDirectory(dir)) {
+      val stream = Files.walk(dir)
+      try {
+        stream.iterator().asScala.toVector.collect {
+          case p if Files.isRegularFile(p) && p.getFileName.toString.toLowerCase(java.util.Locale.ROOT).endsWith(".zip") =>
+            val rel = dir.relativize(p).iterator().asScala.toVector.map(_.toString)
+            val collectionArchive = rel.size == 2
+            val sample = if (collectionArchive) None else rel.headOption
+            val version =
+              if (collectionArchive)
+                rel.headOption.getOrElse(_infer_version(p.getFileName.toString, "zip").getOrElse("unknown"))
+              else
+                rel.drop(1).headOption.getOrElse(_infer_version(p.getFileName.toString, "zip").getOrElse("unknown"))
+            _indexed_file(
+              warehouseDir,
+              p,
+              layer = "download",
+              artifactType = if (collectionArchive) "sample-collection-zip" else "sample-zip",
+              groupId = None,
+              artifactId = Some(publication),
+              sampleName = sample,
+              version = version,
+              classifier = None
+            )
+        }
+      } finally {
+        stream.close()
+      }
+    } else {
+      Vector.empty
+    }
+
+  private def _prefer_first_download_files(files: Vector[IndexedFile]): Vector[IndexedFile] =
+    files.foldLeft(Vector.empty[IndexedFile]) { (z, file) =>
+      val key = (file.artifactType, file.sampleName, file.version, file.name)
+      if (z.exists(x => (x.artifactType, x.sampleName, x.version, x.name) == key))
+        z
+      else
+        z :+ file
+    }
 
   private def _indexed_file(
     warehouseDir: Path,

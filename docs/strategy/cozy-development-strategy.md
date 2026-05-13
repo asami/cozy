@@ -47,10 +47,11 @@ SimpleModeling.org owns the published knowledge platform structure:
 - `/ontology`
 - `/schema`
 - `/smartdox`
+- `/textus`
 - `/catalog`
 - `/samples`
 - `/repository`
-- `/maven`
+- `/maven` (legacy compatibility)
 
 Cozy should generate the semantic inputs that allow SmartDox site to build the
 BoK and AI-facing engineering knowledge platform.
@@ -124,7 +125,7 @@ Purpose:
 Purpose:
 
 - connect CAR/SAR/Maven/ZIP artifact publication with durable warehouse output
-- generate repository metadata for `/repository` and `/maven`
+- generate repository metadata for `/repository`, including `/repository/maven`
 
 ## Current Priority
 
