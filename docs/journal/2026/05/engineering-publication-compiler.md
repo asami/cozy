@@ -419,13 +419,13 @@ Example:
 publication:
   name: textus-tutorial
   title: Textus Tutorial
-  path: samples/textus/tutorial
+  path: textus/samples/tutorial
   kind: sample-multi
   output: target/publish.d
   samples_dir: samples
 ```
 
-The `sample-multi` detector recognizes repositories that keep independent sbt sample projects under `samples/*/build.sbt`, such as `cncf-samples`. The planned publication for that repository can use `name: textus-tutorial` and `path: samples/textus/tutorial`.
+The `sample-multi` detector recognizes repositories that keep independent sbt sample projects under `samples/*/build.sbt`, such as `cncf-samples`. The planned publication for that repository can use `name: textus-tutorial` and `path: textus/samples/tutorial`.
 
 # Distribution Operation Split
 
@@ -448,7 +448,7 @@ Recommended config:
 publication:
   name: textus-tutorial
   title: Textus Tutorial
-  path: samples/textus/tutorial
+  path: textus/samples/tutorial
   output: /Users/asami/src/dev2025/simplemodeling-org/publish.d
 
 distribution:
@@ -502,6 +502,6 @@ Rules:
 
 Generated metadata:
 
-- `maven/artifacts/<name>.yaml|json`
-- `repository/artifacts/<name>.yaml|json`
-- `releases/<name>.yaml|json`
+- `metadata/artifacts/maven/<name>.yaml|json`
+- `metadata/artifacts/repository/<name>.yaml|json`
+- `metadata/releases/<name>.yaml|json`

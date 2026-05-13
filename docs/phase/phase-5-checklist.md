@@ -68,8 +68,8 @@
 - [x] Add sbt-cozy `cozyIndexWarehouse`
 - [x] Read configured Maven coordinates only
 - [x] Read configured CAR/SAR repository artifact modules only
-- [x] Generate `maven/artifacts/<name>.yaml|json`
-- [x] Generate `repository/artifacts/<name>.yaml|json`
-- [x] Generate `releases/<name>.yaml|json`
+- [x] Generate `metadata/artifacts/maven/<name>.yaml|json`
+- [x] Generate `metadata/artifacts/repository/<name>.yaml|json`
+- [x] Generate `metadata/releases/<name>.yaml|json`
 - [x] Compute SHA-256 and read `.sha1` / `.md5` sidecars
 - [x] Prefer non-SNAPSHOT `latestRelease`

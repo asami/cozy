@@ -28,12 +28,16 @@ SmartDox site owns rendering and navigation. Cozy owns extraction, warehouse ind
 
 Primary inputs:
 
-- `catalog/projects/*.yaml|json`
-- `catalog/samples/*.yaml|json`
-- `samples/*/metadata.yaml|json`
-- `repository/artifacts/*.yaml|json`
-- `maven/artifacts/*.yaml|json`
-- `source-manifest/*.yaml|json`
+- `metadata/catalog/projects/*.yaml|json`
+- `metadata/catalog/samples/*.yaml|json`
+- `metadata/projects/*/metadata.yaml|json`
+- `metadata/samples/*/metadata.yaml|json`
+- `metadata/samples/*/items/*/*/metadata.yaml|json`
+- `metadata/samples/*/items/*/*/files/...`
+- `metadata/artifacts/download/*.yaml|json`
+- `metadata/artifacts/repository/*.yaml|json`
+- `metadata/artifacts/maven/*.yaml|json`
+- `metadata/source-manifest/*.yaml|json`
 
 This layer answers:
 
@@ -52,11 +56,12 @@ Cozy indexes:
 - Maven artifacts under `warehouse/maven`
 - CAR archives under `warehouse/repository/car/<module>/<version>`
 - SAR archives under `warehouse/repository/sar/<module>/<version>`
+- sample collection ZIP archives under `warehouse/download/samples/<publication>/<version>`
+- individual sample ZIP archives under `warehouse/download/samples/<publication>/<sample>/<version>`
 - only repository artifact modules configured for the publication
-- ZIP or bundle artifacts in future
 - checksum sidecars when present
 
-The resulting `publish.d` metadata answers:
+The resulting `publish.d/metadata` entries answer:
 
 - what can be downloaded
 - which versions exist
@@ -95,13 +100,20 @@ Example:
 publication:
   name: textus-tutorial
   title: Textus Tutorial
-  path: samples/textus/tutorial
+  path: textus/samples/tutorial
 ```
 
-This can render a human tutorial view under:
+This can render a human tutorial view under a non-multilingual BoK path:
 
 ```text
-/samples/textus/tutorial/
+/textus/samples/tutorial/
+```
+
+In a multilingual BoK such as `www.simplemodeling.org`, SmartDox site adds language prefixes:
+
+```text
+/ja/textus/samples/tutorial/
+/en/textus/samples/tutorial/
 ```
 
 However, this tutorial view should still be connected back to the component repository pillar that owns or contextualizes it.
@@ -149,7 +161,7 @@ Expected content:
 Example paths:
 
 ```text
-/components/textus/tutorial/
+/textus/components/tutorial/
 /repositories/textus-tutorial/
 ```
 
@@ -163,9 +175,11 @@ Purpose:
 
 Source data:
 
-- `catalog/projects/textus-tutorial.*`
-- `samples/textus-tutorial/metadata.*` when the repository is a sample/tutorial repository
-- `maven/artifacts`, `repository/artifacts`, and `releases` metadata when available
+- `metadata/catalog/projects/textus-tutorial.*`
+- `metadata/projects/textus-tutorial/metadata.*`
+- `metadata/samples/textus-tutorial/metadata.*` when the repository is a sample/tutorial repository
+- `metadata/artifacts/maven`, `metadata/artifacts/repository`, and `metadata/releases` metadata when available
+- `metadata/artifacts/download` metadata when sample ZIP downloads are available
 
 Expected content:
 
@@ -183,8 +197,8 @@ Expected content:
 Example paths:
 
 ```text
-/components/textus/tutorial/samples/
-/samples/textus/tutorial/
+/textus/components/tutorial/samples/
+/textus/samples/tutorial/
 ```
 
 Purpose:
@@ -195,9 +209,11 @@ Purpose:
 
 Source data:
 
-- `catalog/samples/textus-tutorial.*`
+- `metadata/catalog/samples/textus-tutorial.*`
+- `metadata/samples/textus-tutorial/metadata.*`
+- child sample metadata linked from the collection metadata
+- `metadata/artifacts/download/textus-tutorial.*` for collection and individual sample ZIP downloads
 - source manifest entries under `samples/*/build.sbt`
-- future child sample metadata
 
 Expected content:
 
@@ -219,8 +235,8 @@ Current limitation:
 Example paths:
 
 ```text
-/components/textus/tutorial/samples/04-crud/
-/samples/textus/tutorial/04-crud/
+/textus/components/tutorial/samples/04-crud/
+/textus/samples/tutorial/04-crud/
 ```
 
 Purpose:
@@ -251,8 +267,8 @@ Expected content:
 Example paths:
 
 ```text
-/components/textus/tutorial/source-manifest/
-/samples/textus/tutorial/source-manifest/
+/textus/components/tutorial/metadata/source-manifest/
+/textus/samples/tutorial/metadata/source-manifest/
 ```
 
 Purpose:
@@ -262,7 +278,7 @@ Purpose:
 
 Source data:
 
-- `source-manifest/textus-tutorial.*`
+- `metadata/source-manifest/textus-tutorial.*`
 
 Expected content:
 
@@ -281,8 +297,8 @@ This page is mainly for maintainers, reviewers, and AI grounding workflows.
 Example paths:
 
 ```text
-/components/textus/tutorial/downloads/
-/samples/textus/tutorial/downloads/
+/textus/components/tutorial/downloads/
+/textus/samples/tutorial/downloads/
 ```
 
 Purpose:
@@ -292,9 +308,10 @@ Purpose:
 
 Source data:
 
-- `repository/artifacts/textus-tutorial.*`
-- `maven/artifacts/textus-tutorial.*`
-- `releases/textus-tutorial.*`
+- `metadata/artifacts/repository/textus-tutorial.*`
+- `metadata/artifacts/maven/textus-tutorial.*`
+- `metadata/artifacts/download/textus-tutorial.*`
+- `metadata/releases/textus-tutorial.*`
 
 Expected content:
 
@@ -318,8 +335,8 @@ Current limitation:
 Example paths:
 
 ```text
-/components/textus/tutorial/releases/
-/samples/textus/tutorial/releases/
+/textus/components/tutorial/releases/
+/textus/samples/tutorial/releases/
 ```
 
 Purpose:
@@ -329,7 +346,7 @@ Purpose:
 
 Source data:
 
-- `releases/textus-tutorial.*` generated by Cozy warehouse indexing
+- `metadata/releases/textus-tutorial.*` generated by Cozy warehouse indexing
 
 Expected content:
 
@@ -346,8 +363,8 @@ Expected content:
 Example paths:
 
 ```text
-/components/textus/tutorial/metadata/
-/samples/textus/tutorial/metadata/
+/textus/components/tutorial/metadata/
+/textus/samples/tutorial/metadata/
 ```
 
 Purpose:
@@ -392,10 +409,10 @@ Purpose:
 
 Source data:
 
-- `catalog/projects/*`
-- `catalog/samples/*`
-- `repository/artifacts/*`
-- `maven/artifacts/*`
+- `metadata/catalog/projects/*`
+- `metadata/catalog/samples/*`
+- `metadata/artifacts/repository/*`
+- `metadata/artifacts/maven/*`
 
 Expected content:
 
@@ -422,7 +439,7 @@ A typical reader flow:
   -> source or download page
 ```
 
-A tutorial-oriented entry may still start from `/samples/textus/tutorial/`, but it should show the owning or adjacent component repository context.
+A tutorial-oriented entry may still start from `/textus/samples/tutorial/`, but it should show the owning or adjacent component repository context.
 
 A maintainer flow:
 

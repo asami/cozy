@@ -7,7 +7,6 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Apr. 23, 2026
- *  version Apr. 23, 2026
  * @version May. 13, 2026
  * @author  ASAMI, Tomoharu
  */
@@ -24,6 +23,7 @@ final class BridgeContractSpec extends AnyWordSpec with Matchers {
         "request-package-car.json",
         "request-package-sar.json",
         "request-publish-project.json",
+        "request-distribute-samples.json",
         "request-index-warehouse.json",
         "response-success.json",
         "response-error.json"
@@ -38,6 +38,7 @@ final class BridgeContractSpec extends AnyWordSpec with Matchers {
       val car = CozySbtBridge.loadRequestForTest(contractDir.resolve("request-package-car.json"))
       val sar = CozySbtBridge.loadRequestForTest(contractDir.resolve("request-package-sar.json"))
       val publish = CozySbtBridge.loadRequestForTest(contractDir.resolve("request-publish-project.json"))
+      val samples = CozySbtBridge.loadRequestForTest(contractDir.resolve("request-distribute-samples.json"))
       val warehouse = CozySbtBridge.loadRequestForTest(contractDir.resolve("request-index-warehouse.json"))
 
       generate.version shouldBe "v1"
@@ -47,9 +48,12 @@ final class BridgeContractSpec extends AnyWordSpec with Matchers {
       sar.action shouldBe "package-sar"
       publish.action shouldBe "publish-project"
       publish.arguments should contain ("--kind=car")
+      samples.action shouldBe "distribute-samples"
+      samples.arguments should contain ("--name=textus-tutorial")
       warehouse.action shouldBe "index-warehouse"
       warehouse.arguments should contain ("--maven-coordinates=org.example:textus-tutorial_3")
       warehouse.arguments should contain ("--repository-modules=textus-tutorial")
+      warehouse.arguments should contain ("--download-samples=textus-tutorial")
     }
 
     "render canonical success and error compatibility envelopes" in {
