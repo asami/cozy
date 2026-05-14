@@ -14,12 +14,12 @@ import play.api.libs.json.Json
  * @author  ASAMI, Tomoharu
  */
 final class PublicationCompilerSpec extends AnyFunSuite {
-  private val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+  private val _base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
 
   test("publish-project generates deterministic BoK publication metadata from an sbt project") {
-    val project = base.resolve("target/test-generated/publish-project/sample")
-    val out1 = base.resolve("target/test-generated/publish-project/out-1")
-    val out2 = base.resolve("target/test-generated/publish-project/out-2")
+    val project = _base.resolve("target/test-generated/publish-project/sample")
+    val out1 = _base.resolve("target/test-generated/publish-project/out-1")
+    val out2 = _base.resolve("target/test-generated/publish-project/out-2")
     _delete(project.getParent)
     Files.createDirectories(project.resolve("project"))
     Files.createDirectories(project.resolve("src/main/scala"))
@@ -98,8 +98,8 @@ final class PublicationCompilerSpec extends AnyFunSuite {
   }
 
   test("publish-project rejects colliding sample slugs") {
-    val project = base.resolve("target/test-generated/publish-project/colliding-samples")
-    val out = base.resolve("target/test-generated/publish-project/colliding-samples-out")
+    val project = _base.resolve("target/test-generated/publish-project/colliding-samples")
+    val out = _base.resolve("target/test-generated/publish-project/colliding-samples-out")
     _delete(project)
     _delete(out)
     Files.createDirectories(project.resolve("samples/01 Hello"))
@@ -115,8 +115,8 @@ final class PublicationCompilerSpec extends AnyFunSuite {
   }
 
   test("publish-project requires project.yaml name to be URL-safe") {
-    val project = base.resolve("target/test-generated/publish-project/invalid-project-name")
-    val out = base.resolve("target/test-generated/publish-project/invalid-project-name-out")
+    val project = _base.resolve("target/test-generated/publish-project/invalid-project-name")
+    val out = _base.resolve("target/test-generated/publish-project/invalid-project-name-out")
     _delete(project)
     _delete(out)
     Files.createDirectories(project)
@@ -137,8 +137,8 @@ final class PublicationCompilerSpec extends AnyFunSuite {
   }
 
   test("publish-project does not auto-detect publication.yaml as public metadata") {
-    val project = base.resolve("target/test-generated/publish-project/publication-yaml-ignored")
-    val out = base.resolve("target/test-generated/publish-project/publication-yaml-ignored-out")
+    val project = _base.resolve("target/test-generated/publish-project/publication-yaml-ignored")
+    val out = _base.resolve("target/test-generated/publish-project/publication-yaml-ignored-out")
     _delete(project)
     _delete(out)
     Files.createDirectories(project)
@@ -161,8 +161,8 @@ final class PublicationCompilerSpec extends AnyFunSuite {
   }
 
   test("publish-project rejects reserved publication path roots") {
-    val project = base.resolve("target/test-generated/publish-project/reserved-publication-path")
-    val out = base.resolve("target/test-generated/publish-project/reserved-publication-path-out")
+    val project = _base.resolve("target/test-generated/publish-project/reserved-publication-path")
+    val out = _base.resolve("target/test-generated/publish-project/reserved-publication-path-out")
     _delete(project)
     _delete(out)
     Files.createDirectories(project)
@@ -197,8 +197,8 @@ final class PublicationCompilerSpec extends AnyFunSuite {
   }
 
   test("publish-project auto-detects car projects and supports kind override") {
-    val project = base.resolve("target/test-generated/publish-project/car")
-    val out = base.resolve("target/test-generated/publish-project/car-out")
+    val project = _base.resolve("target/test-generated/publish-project/car")
+    val out = _base.resolve("target/test-generated/publish-project/car-out")
     _delete(project)
     _delete(out)
     Files.createDirectories(project.resolve("src/main/car"))
@@ -230,7 +230,7 @@ final class PublicationCompilerSpec extends AnyFunSuite {
   }
 
   test("publish-project uses .cozy/config.yaml defaults and detects sample collections") {
-    val project = base.resolve("target/test-generated/publish-project/configured")
+    val project = _base.resolve("target/test-generated/publish-project/configured")
     _delete(project)
     Files.createDirectories(project.resolve(".cozy"))
     Files.createDirectories(project.resolve("samples/01-hello"))
@@ -245,6 +245,24 @@ final class PublicationCompilerSpec extends AnyFunSuite {
         |  path: textus/tutorial/textus-tutorial
         |  summary: Tutorial sample collection.
         |  description: Textus tutorial samples for Cozy publication.
+        |  summary_i18n:
+        |    ja: Textus と CNCF の基本を実行しながら学ぶサンプル集です。
+        |publication:
+        |  pages:
+        |    - path: textus/tutorial
+        |      title: Textus Tutorials
+        |      summary: Tutorial collections for learning Textus.
+        |      description: Choose a tutorial collection and follow its samples.
+        |      title_i18n:
+        |        ja: Textus チュートリアル
+        |      summary_i18n:
+        |        ja: Textus を学ぶためのチュートリアル一覧です。
+        |    - path: textus/tutorial/textus-tutorial
+        |      title: Textus Tutorial
+        |      summary: Executable Textus and CNCF tutorial sample collection.
+        |      description: Tutorial samples for CozyTextus users.
+        |      summary_i18n:
+        |        ja: Textus と CNCF の基本を実行しながら学ぶサンプル集です。
         |""".stripMargin,
       StandardCharsets.UTF_8
     )
@@ -288,8 +306,16 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     assert((projectJson \ "project" \ "title").as[String] == "Textus Tutorial")
     assert((projectJson \ "project" \ "summary").as[String] == "Tutorial sample collection.")
     assert((projectJson \ "project" \ "description").as[String] == "Textus tutorial samples for Cozy publication.")
+    assert((projectJson \ "project" \ "summary_i18n" \ "ja").as[String] == "Textus と CNCF の基本を実行しながら学ぶサンプル集です。")
     assert((projectJson \ "publication" \ "path").as[String] == "textus/tutorial/textus-tutorial")
     assert((projectJson \ "project" \ "kind").as[String] == "sample-multi")
+
+    val pagesjson = Json.parse(Files.readString(out.resolve("metadata/publication-pages/textus-tutorial.json")))
+    val pagepaths = (pagesjson \ "pages").as[Vector[play.api.libs.json.JsObject]].map(x => (x \ "path").as[String])
+    assert(pagepaths.contains("textus/tutorial"))
+    assert(pagepaths.contains("textus/tutorial/textus-tutorial"))
+    val tutorialcatalog = (pagesjson \ "pages").as[Vector[play.api.libs.json.JsObject]].find(x => (x \ "path").as[String] == "textus/tutorial").get
+    assert((tutorialcatalog \ "summary_i18n" \ "ja").as[String] == "Textus を学ぶためのチュートリアル一覧です。")
 
     val manifestJson = Json.parse(Files.readString(out.resolve("metadata/source-manifest/textus-tutorial.json")))
     val paths = (manifestJson \ "files").as[Vector[play.api.libs.json.JsObject]].map(x => (x \ "path").as[String])
@@ -321,8 +347,8 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     assert((downloadArtifact \ "project" \ "summary").as[String] == "Tutorial sample collection.")
     assert((downloadArtifact \ "artifact" \ "files" \\ "warehousePath").map(_.as[String]).contains("download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip"))
     assert((downloadArtifact \ "artifact" \ "files" \\ "publicPath").map(_.as[String]).contains("repository/download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip"))
-    assert((downloadArtifact \ "artifact" \ "files" \\ "warehousePath").map(_.as[String]).contains("download/textus/tutorial/textus-tutorial/01-hello/0.1.0/01-hello-0.1.0.zip"))
-    assert((downloadArtifact \ "artifact" \ "files" \\ "publicPath").map(_.as[String]).contains("repository/download/textus/tutorial/textus-tutorial/01-hello/0.1.0/01-hello-0.1.0.zip"))
+    assert((downloadArtifact \ "artifact" \ "files" \\ "warehousePath").map(_.as[String]).contains("download/textus/tutorial/textus-tutorial/0.1.0/01-hello/01-hello-0.1.0.zip"))
+    assert((downloadArtifact \ "artifact" \ "files" \\ "publicPath").map(_.as[String]).contains("repository/download/textus/tutorial/textus-tutorial/0.1.0/01-hello/01-hello-0.1.0.zip"))
     assert(Files.isRegularFile(out.resolve("metadata/samples/textus-tutorial/items/01-hello/0.1.0/files/build.sbt")))
     assert(Files.isRegularFile(out.resolve("metadata/samples/textus-tutorial/items/01-hello/0.1.0/files/README.md")))
     val latest = Json.parse(Files.readString(out.resolve("metadata/samples/textus-tutorial/items/01-hello/latest.json")))
@@ -333,7 +359,7 @@ final class PublicationCompilerSpec extends AnyFunSuite {
   }
 
   test("distribute-samples writes versioned sample archives under warehouse download") {
-    val root = base.resolve("target/test-generated/distribute-samples")
+    val root = _base.resolve("target/test-generated/distribute-samples")
     val project = root.resolve("project")
     val warehouse = root.resolve("warehouse")
     _delete(root)
@@ -358,8 +384,8 @@ final class PublicationCompilerSpec extends AnyFunSuite {
       "--version=0.1.0"
     ))
 
-    val zipPath = warehouse.resolve("download/textus/tutorial/textus-tutorial/01-hello/0.1.0/01-hello-0.1.0.zip")
-    assert(Files.isRegularFile(zipPath))
+    val zippath = warehouse.resolve("download/textus/tutorial/textus-tutorial/0.1.0/01-hello/01-hello-0.1.0.zip")
+    assert(Files.isRegularFile(zippath))
     val collectionZipPath = warehouse.resolve("download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip")
     assert(Files.isRegularFile(collectionZipPath))
     val collectionZip = new ZipFile(collectionZipPath.toFile)
@@ -371,7 +397,7 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     } finally {
       collectionZip.close()
     }
-    val zip = new ZipFile(zipPath.toFile)
+    val zip = new ZipFile(zippath.toFile)
     try {
       val entries = zip.entries().asScala.map(_.getName).toSet
       assert(entries.contains("build.sbt"))
@@ -392,7 +418,7 @@ final class PublicationCompilerSpec extends AnyFunSuite {
   }
 
   test("distribute-samples dry-run prints planned archives without writing files") {
-    val root = base.resolve("target/test-generated/distribute-samples-dry-run")
+    val root = _base.resolve("target/test-generated/distribute-samples-dry-run")
     val project = root.resolve("project")
     val warehouse = root.resolve("warehouse")
     _delete(root)
@@ -427,12 +453,12 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     val out = buffer.toString("UTF-8")
     assert(out.contains("distribute-samples dry-run"))
     assert(out.contains("sample-collection-zip warehousePath=download/textus/tutorial/textus-tutorial/0.2.0-SNAPSHOT/textus-tutorial-0.2.0-SNAPSHOT.zip"))
-    assert(out.contains("sample-zip sample=01-hello warehousePath=download/textus/tutorial/textus-tutorial/01-hello/0.2.0-SNAPSHOT/01-hello-0.2.0-SNAPSHOT.zip"))
+    assert(out.contains("sample-zip sample=01-hello warehousePath=download/textus/tutorial/textus-tutorial/0.2.0-SNAPSHOT/01-hello/01-hello-0.2.0-SNAPSHOT.zip"))
     assert(!Files.exists(warehouse))
   }
 
   test("distribute-samples rejects colliding sample slugs") {
-    val root = base.resolve("target/test-generated/distribute-samples-colliding")
+    val root = _base.resolve("target/test-generated/distribute-samples-colliding")
     val project = root.resolve("project")
     val warehouse = root.resolve("warehouse")
     _delete(root)
@@ -456,7 +482,7 @@ final class PublicationCompilerSpec extends AnyFunSuite {
   }
 
   test("index-warehouse generates Maven metadata and checks publish.d artifact consistency") {
-    val root = base.resolve("target/test-generated/index-warehouse")
+    val root = _base.resolve("target/test-generated/index-warehouse")
     val warehouse = root.resolve("warehouse")
     val out = root.resolve("publish.d")
     _delete(root)
@@ -469,7 +495,7 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     val sar = warehouse.resolve("repository/sar/textus-tutorial/0.1.0/textus-tutorial-0.1.0.sar")
     val unrelatedCar = warehouse.resolve("repository/car/other-module/9.9.9/other-module-9.9.9.car")
     val collectionZip = warehouse.resolve("download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip")
-    val sampleZip = warehouse.resolve("download/textus/tutorial/textus-tutorial/01-hello/0.1.0/01-hello-0.1.0.zip")
+    val samplezip = warehouse.resolve("download/textus/tutorial/textus-tutorial/0.1.0/01-hello/01-hello-0.1.0.zip")
     val legacyCollectionZip = warehouse.resolve("download/samples/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip")
     val legacySampleZip = warehouse.resolve("download/samples/textus-tutorial/01-hello/0.1.0/01-hello-0.1.0.zip")
     val unrelatedZip = warehouse.resolve("download/samples/other-publication/01-hello/9.9.9/01-hello-9.9.9.zip")
@@ -492,8 +518,8 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     Files.writeString(unrelatedCar, "other-car", StandardCharsets.UTF_8)
     Files.createDirectories(collectionZip.getParent)
     Files.writeString(collectionZip, "sample-collection-zip", StandardCharsets.UTF_8)
-    Files.createDirectories(sampleZip.getParent)
-    Files.writeString(sampleZip, "sample-zip", StandardCharsets.UTF_8)
+    Files.createDirectories(samplezip.getParent)
+    Files.writeString(samplezip, "sample-zip", StandardCharsets.UTF_8)
     Files.createDirectories(legacyCollectionZip.getParent)
     Files.writeString(legacyCollectionZip, "legacy-sample-collection-zip", StandardCharsets.UTF_8)
     Files.createDirectories(legacySampleZip.getParent)
@@ -545,8 +571,8 @@ final class PublicationCompilerSpec extends AnyFunSuite {
 	        |        "type": "sample-collection-zip"
 	        |      },
 	        |      {
-	        |        "warehousePath": "download/textus/tutorial/textus-tutorial/01-hello/0.1.0/01-hello-0.1.0.zip",
-	        |        "publicPath": "repository/download/textus/tutorial/textus-tutorial/01-hello/0.1.0/01-hello-0.1.0.zip",
+	        |        "warehousePath": "download/textus/tutorial/textus-tutorial/0.1.0/01-hello/01-hello-0.1.0.zip",
+	        |        "publicPath": "repository/download/textus/tutorial/textus-tutorial/0.1.0/01-hello/01-hello-0.1.0.zip",
 	        |        "type": "sample-zip"
 	        |      }
         |    ]
@@ -611,8 +637,8 @@ final class PublicationCompilerSpec extends AnyFunSuite {
 	    assert(downloadFiles.map(x => (x \ "warehousePath").as[String]).contains("download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip"))
 	    assert(downloadFiles.map(x => (x \ "publicPath").as[String]).contains("repository/download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip"))
 	    assert(downloadFiles.find(x => (x \ "warehousePath").as[String] == "download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip").exists(x => (x \ "type").as[String] == "sample-collection-zip"))
-	    assert(downloadFiles.map(x => (x \ "warehousePath").as[String]).contains("download/textus/tutorial/textus-tutorial/01-hello/0.1.0/01-hello-0.1.0.zip"))
-	    assert(downloadFiles.map(x => (x \ "publicPath").as[String]).contains("repository/download/textus/tutorial/textus-tutorial/01-hello/0.1.0/01-hello-0.1.0.zip"))
+	    assert(downloadFiles.map(x => (x \ "warehousePath").as[String]).contains("download/textus/tutorial/textus-tutorial/0.1.0/01-hello/01-hello-0.1.0.zip"))
+	    assert(downloadFiles.map(x => (x \ "publicPath").as[String]).contains("repository/download/textus/tutorial/textus-tutorial/0.1.0/01-hello/01-hello-0.1.0.zip"))
     assert(!downloadFiles.map(x => (x \ "warehousePath").as[String]).contains("download/samples/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip"))
     assert(!downloadFiles.map(x => (x \ "warehousePath").as[String]).exists(_.contains("other-publication")))
 
@@ -624,16 +650,16 @@ final class PublicationCompilerSpec extends AnyFunSuite {
   }
 
   test("index-warehouse keeps legacy download sample paths readable") {
-    val root = base.resolve("target/test-generated/index-warehouse-legacy-download")
+    val root = _base.resolve("target/test-generated/index-warehouse-legacy-download")
     val warehouse = root.resolve("warehouse")
     val out = root.resolve("publish.d")
     _delete(root)
     val collectionZip = warehouse.resolve("download/samples/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip")
-    val sampleZip = warehouse.resolve("download/samples/textus-tutorial/01-hello/0.1.0/01-hello-0.1.0.zip")
+    val samplezip = warehouse.resolve("download/samples/textus-tutorial/01-hello/0.1.0/01-hello-0.1.0.zip")
     Files.createDirectories(collectionZip.getParent)
     Files.writeString(collectionZip, "legacy-sample-collection-zip", StandardCharsets.UTF_8)
-    Files.createDirectories(sampleZip.getParent)
-    Files.writeString(sampleZip, "legacy-sample-zip", StandardCharsets.UTF_8)
+    Files.createDirectories(samplezip.getParent)
+    Files.writeString(samplezip, "legacy-sample-zip", StandardCharsets.UTF_8)
     Files.createDirectories(out.resolve("metadata/artifacts/download"))
     Files.writeString(
       out.resolve("metadata/artifacts/download/textus-tutorial.json"),
@@ -668,7 +694,7 @@ final class PublicationCompilerSpec extends AnyFunSuite {
   }
 
   test("index-warehouse reports canonical download metadata with legacy-only files") {
-    val root = base.resolve("target/test-generated/index-warehouse-canonical-download-missing")
+    val root = _base.resolve("target/test-generated/index-warehouse-canonical-download-missing")
     val warehouse = root.resolve("warehouse")
     val out = root.resolve("publish.d")
     _delete(root)
@@ -689,7 +715,7 @@ final class PublicationCompilerSpec extends AnyFunSuite {
         |    "status": "planned",
         |    "files": [
         |      { "warehousePath": "download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip" },
-        |      { "warehousePath": "download/textus/tutorial/textus-tutorial/01-hello/0.1.0/01-hello-0.1.0.zip" }
+        |      { "warehousePath": "download/textus/tutorial/textus-tutorial/0.1.0/01-hello/01-hello-0.1.0.zip" }
         |    ]
         |  }
         |}
@@ -711,8 +737,8 @@ final class PublicationCompilerSpec extends AnyFunSuite {
   }
 
   test("publish-project fails explicitly for missing project roots") {
-    val missing = base.resolve("target/test-generated/publish-project/missing")
-    val out = base.resolve("target/test-generated/publish-project/missing-out")
+    val missing = _base.resolve("target/test-generated/publish-project/missing")
+    val out = _base.resolve("target/test-generated/publish-project/missing-out")
     _delete(missing)
     val ex = intercept[Throwable] {
       Cozy.main(Array("publish-project", missing.toString, s"--save=${out}"))

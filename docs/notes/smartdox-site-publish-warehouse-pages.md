@@ -354,7 +354,7 @@ It corresponds to `publicPath` values in
 
 ```text
 repository/download/textus/tutorial/textus-tutorial/0.1.0-SNAPSHOT/textus-tutorial-0.1.0-SNAPSHOT.zip
-repository/download/textus/tutorial/textus-tutorial/01-minimal/0.1.0-SNAPSHOT/01-minimal-0.1.0-SNAPSHOT.zip
+repository/download/textus/tutorial/textus-tutorial/0.1.0-SNAPSHOT/01-minimal/01-minimal-0.1.0-SNAPSHOT.zip
 ```
 
 This path prioritizes stable URLs, machine reference, and script access over

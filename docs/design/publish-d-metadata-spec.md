@@ -564,8 +564,8 @@ artifact:
       sample: ""
       extension: "zip"
       expected: true
-    - warehouse_path: "download/textus/tutorial/textus-tutorial/01-hello/0.1.0/01-hello-0.1.0.zip"
-      public_path: "repository/download/textus/tutorial/textus-tutorial/01-hello/0.1.0/01-hello-0.1.0.zip"
+    - warehouse_path: "download/textus/tutorial/textus-tutorial/0.1.0/01-hello/01-hello-0.1.0.zip"
+      public_path: "repository/download/textus/tutorial/textus-tutorial/0.1.0/01-hello/01-hello-0.1.0.zip"
       name: "01-hello-0.1.0.zip"
       version: "0.1.0"
       type: "sample-zip"

@@ -1,7 +1,9 @@
 package cozy
 
 import org.goldenport.RAISE
+import org.goldenport.config.ConfigLoader
 import org.goldenport.i18n.I18NString
+import org.goldenport.io.InputSource
 import org.goldenport.cli.{Config => CliConfig, _}
 import org.goldenport.value._
 import org.goldenport.parser.CommandParser
@@ -13,6 +15,7 @@ import org.smartdox.service.operations.{
   SiteOperationClass
 }
 import play.api.libs.json._
+import io.circe.{Json => CJson}
 import cozy.web.jetty.JettyServer
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths, StandardCopyOption}
@@ -572,8 +575,8 @@ class Cozy(
 }
 
 object Cozy {
-  private val DefaultSbtVersion = "1.9.7"
-  private val DefaultSbtCozyVersion = "0.1.5-SNAPSHOT"
+  private val _default_sbt_version = "1.9.7"
+  private val _default_sbt_cozy_version = "0.1.5-SNAPSHOT"
 
   case class CarDependencyVersions(
     cncfVersion: String,
@@ -715,7 +718,7 @@ object Cozy {
       domain == "default"
   }
   object CarScaffoldConfig {
-    private val valueOptions = Set(
+    private val _value_options = Set(
       "component",
       "package",
       "name",
@@ -724,16 +727,16 @@ object Cozy {
       "bounded-context",
       "domain"
     )
-    private val switchOptions = Set("gitignore", "readme", "tests")
+    private val _switch_options = Set("gitignore", "readme", "tests")
 
     def isFlagOption(p: String): Boolean =
-      valueOptions.exists(x => p == s"--${x}")
+      _value_options.exists(x => p == s"--${x}")
 
     def isInlineOption(p: String): Boolean =
-      valueOptions.exists(x => p.startsWith(s"--${x}="))
+      _value_options.exists(x => p.startsWith(s"--${x}="))
 
     def isSwitchOption(p: String): Boolean =
-      switchOptions.exists(x => p == s"--${x}")
+      _switch_options.exists(x => p == s"--${x}")
 
     def create(
       args: List[String],
@@ -796,9 +799,9 @@ object Cozy {
           case s: String if s.startsWith("sbt.version=") => s.substring("sbt.version=".length).trim
         }).
         filter(_.nonEmpty).
-        getOrElse(DefaultSbtVersion)
+        getOrElse(_default_sbt_version)
     else
-      DefaultSbtVersion
+      _default_sbt_version
   }
 
   private[cozy] def appNameFromPath(path: Path): String = {
@@ -820,11 +823,11 @@ object Cozy {
       |import sbt.Keys.*
       |
       |val scala3Version = "3.3.7"
-      |def sampleVersion(envName: String, fileName: String, fallback: String): String =
+      |def sampleVersion(envName: String, filename: String, fallback: String): String =
       |  sys.env.get(envName)
       |    .orElse {
       |      sys.env.get("CNCF_SAMPLES_ROOT").flatMap { root =>
-      |        val versionFile = file(root) / "versions" / fileName
+      |        val versionFile = file(root) / "versions" / filename
       |        if (versionFile.isFile)
       |          Some(IO.read(versionFile).trim).filter(_.nonEmpty)
       |        else
@@ -924,13 +927,13 @@ object Cozy {
       |import sbt.Keys.*
       |
       |val scala3Version = "3.3.7"
-      |def sampleVersion(envName: String, fileName: String, fallback: String): String =
+      |def sampleVersion(envName: String, filename: String, fallback: String): String =
       |  sys.env.get(envName)
       |    .orElse {
       |      sys.env.get("TEXTUS_SAMPLES_ROOT")
       |        .orElse(sys.env.get("CNCF_SAMPLES_ROOT"))
       |        .flatMap { root =>
-      |          val versionFile = file(root) / "versions" / fileName
+      |          val versionFile = file(root) / "versions" / filename
       |          if (versionFile.isFile)
       |            Some(IO.read(versionFile).trim).filter(_.nonEmpty)
       |          else
@@ -1081,7 +1084,7 @@ object Cozy {
 
   private[cozy] def carPluginsSbt(): String =
     s"""resolvers += Resolver.defaultLocal
-       |addSbtPlugin("org.goldenport" % "sbt-cozy" % "${DefaultSbtCozyVersion}")
+       |addSbtPlugin("org.goldenport" % "sbt-cozy" % "${_default_sbt_cozy_version}")
        |""".stripMargin
 
   private[cozy] def carSampleCml(scaffold: CarScaffoldConfig = CarScaffoldConfig.create(Nil, Paths.get("sample"))): String =
@@ -1878,30 +1881,30 @@ private object CozyArchivePackager {
 
   def buildSar(args: List[String]): Unit = {
     val save = _required_path(args, "save")
-    val sourceDir = _required_path(args, "source-dir")
-    val sourceFiles = _values(args, "source-files")
+    val sourcedir = _required_path(args, "source-dir")
+    val sourcefiles = _values(args, "source-files")
     val extensionJars = _paths(args, "extension-jars")
     val applicationConf = _path(args, "application-conf")
-    val subsystemSources = _archive_sources(sourceDir, sourceFiles)
+    val subsystemsources = _archive_sources(sourcedir, sourcefiles)
     _write_archive(
       save,
-      subsystemSources ++
+      subsystemsources ++
         extensionJars.map(p => p -> s"extension/${p.getFileName}") ++
         applicationConf.toVector.map(_ -> "config/application.conf"),
       Vector("extension", "config")
     )
   }
 
-  private def _archive_sources(sourceDir: Path, includes: Vector[String] = Vector.empty): Vector[(Path, String)] = {
-    if (!Files.exists(sourceDir))
+  private def _archive_sources(sourcedir: Path, includes: Vector[String] = Vector.empty): Vector[(Path, String)] = {
+    if (!Files.exists(sourcedir))
       Vector.empty
     else {
       val includeSet = includes.map(_.replace('\\', '/')).toSet
-      val stream = Files.walk(sourceDir)
+      val stream = Files.walk(sourcedir)
       try {
         stream.iterator().asScala.toVector.collect {
           case p if Files.isRegularFile(p) =>
-            p -> sourceDir.relativize(p).toString.replace('\\', '/')
+            p -> sourcedir.relativize(p).toString.replace('\\', '/')
         }.filter { case (_, rel) =>
           includeSet.isEmpty || includeSet.contains(rel)
         }.sortBy(_._2)
@@ -1946,12 +1949,12 @@ private object CozyArchivePackager {
     }
   }
 
-  private def _zip_dir(sourceDir: Path, archive: Path): Unit = {
-    val stream = Files.walk(sourceDir)
+  private def _zip_dir(sourcedir: Path, archive: Path): Unit = {
+    val stream = Files.walk(sourcedir)
     try {
       val files = stream.iterator().asScala.toVector.collect {
         case p if Files.isRegularFile(p) =>
-          p -> sourceDir.relativize(p).toString.replace('\\', '/')
+          p -> sourcedir.relativize(p).toString.replace('\\', '/')
       }.sortBy(_._2)
       val out = new ZipOutputStream(Files.newOutputStream(archive))
       try {
@@ -2125,9 +2128,24 @@ private object CozyArchivePackager {
 }
 
 private object CozyProjectYamlConfig {
-  final case class Config(values: Map[String, String], lists: Map[String, Vector[String]]) {
+  final case class Config(
+    values: Map[String, String],
+    lists: Map[String, Vector[String]],
+    json: Option[CJson] = None
+  ) {
     def value(path: String): Option[String] = values.get(path).map(_.trim).filter(_.nonEmpty)
     def list(path: String): Vector[String] = lists.getOrElse(path, Vector.empty).map(_.trim).filter(_.nonEmpty)
+    def descriptiveAttributes: DescriptiveAttributes =
+      json.map { root =>
+        val top = DescriptiveAttributes.fromJson(root)
+        val project = root.hcursor.downField("project").focus.map(DescriptiveAttributes.fromJson).getOrElse(DescriptiveAttributes.empty)
+        val publication = root.hcursor.downField("publication").focus.map(DescriptiveAttributes.fromJson).getOrElse(DescriptiveAttributes.empty)
+        top.orElse(project).orElse(publication)
+      }.getOrElse(DescriptiveAttributes.empty)
+    def publicationPageJsons: Vector[CJson] =
+      json.flatMap(_.hcursor.downField("publication").downField("pages").focus).
+        flatMap(_.asArray).
+        getOrElse(Vector.empty)
   }
   object Config {
     val empty: Config = Config(Map.empty, Map.empty)
@@ -2138,6 +2156,14 @@ private object CozyProjectYamlConfig {
       parse(Files.readAllLines(path, StandardCharsets.UTF_8).asScala.toVector)
     else
       Config.empty
+
+  def loadPublic(path: Path): Config =
+    if (Files.isRegularFile(path)) {
+      val json = ConfigLoader.loadConfig[CJson](InputSource(path.toFile)).take
+      Config(_flatten_json(json), Map.empty, Some(json))
+    } else {
+      Config.empty
+    }
 
   def parse(lines: Vector[String]): Config = {
     var stack = Vector.empty[(Int, String)]
@@ -2178,6 +2204,18 @@ private object CozyProjectYamlConfig {
     Config(values, lists)
   }
 
+  private def _flatten_json(json: CJson): Map[String, String] =
+    _flatten_json("", json)
+
+  private def _flatten_json(prefix: String, json: CJson): Map[String, String] =
+    json.asObject.map { obj =>
+      obj.toMap.flatMap {
+        case (k, v) =>
+          val key = if (prefix.isEmpty) k else s"${prefix}.${k}"
+          v.asString.map(key -> _).toMap ++ _flatten_json(key, v)
+      }
+    }.getOrElse(Map.empty)
+
   private def _strip_comment(s: String): String = {
     val trimmed = s.trim
     if (trimmed.startsWith("#"))
@@ -2196,40 +2234,41 @@ private object CozyProjectYamlConfig {
 }
 
 private object CozyPublicationPaths {
-  private val SlugSegmentPattern = "^[a-z0-9][a-z0-9-]*$".r
-  private val ReservedPublicationRoots = Set("metadata", "repository")
+  private val _slug_segment_pattern = "^[a-z0-9][a-z0-9-]*$".r
+  private val _reserved_publication_roots = Set("metadata", "repository")
 
   def validatePublicationPath(value: String): String = {
     val path = value.trim.stripPrefix("/").stripSuffix("/")
-    if (path.isEmpty || path.split('/').exists(segment => SlugSegmentPattern.findFirstIn(segment).forall(_ != segment)))
+    if (path.isEmpty || path.split('/').exists(segment => _slug_segment_pattern.findFirstIn(segment).forall(_ != segment)))
       RAISE.invalidArgumentFault(s"Invalid publication path: ${value}. Expected slash-separated slug segments")
-    else if (ReservedPublicationRoots.contains(path.split('/').headOption.getOrElse("")))
+    else if (_reserved_publication_roots.contains(path.split('/').headOption.getOrElse("")))
       RAISE.invalidArgumentFault(s"Invalid publication path: ${value}. Reserved top-level path: ${path.split('/').head}")
     else
       path
   }
 
-  def downloadBase(publicationName: String, publicationPath: Option[String]): String =
-    publicationPath.map(validatePublicationPath).getOrElse(s"samples/${publicationName}")
+  def downloadBase(publicationname: String, publicationpath: Option[String]): String =
+    publicationpath.map(validatePublicationPath).getOrElse(s"samples/${publicationname}")
 
-  def collectionDownloadPath(publicationName: String, publicationPath: Option[String], version: String): String =
-    s"download/${downloadBase(publicationName, publicationPath)}/${version}/${publicationName}-${version}.zip"
+  def collectionDownloadPath(publicationname: String, publicationpath: Option[String], version: String): String =
+    s"download/${downloadBase(publicationname, publicationpath)}/${version}/${publicationname}-${version}.zip"
 
-  def sampleDownloadPath(publicationName: String, publicationPath: Option[String], sampleName: String, version: String): String =
-    s"download/${downloadBase(publicationName, publicationPath)}/${sampleName}/${version}/${sampleName}-${version}.zip"
+  def sampleDownloadPath(publicationname: String, publicationpath: Option[String], samplename: String, version: String): String =
+    s"download/${downloadBase(publicationname, publicationpath)}/${version}/${samplename}/${samplename}-${version}.zip"
 }
 
 private object CozyPublicationCompiler {
-  private val Schema = "cozy.publish-project.v1"
-  private val ValidKinds = Set("car", "sar", "sample-single", "sample-multi")
-  private val DefaultExcludedSegments = Set("target", ".git", ".bsp", ".bloop", ".metals", ".idea", ".cache", ".vscode", "repository.d")
-  private val SlugPattern = "^[a-z0-9][a-z0-9-]*$".r
+  private val _schema = "cozy.publish-project.v1"
+  private val _valid_kinds = Set("car", "sar", "sample-single", "sample-multi")
+  private val _default_excluded_segments = Set("target", ".git", ".bsp", ".bloop", ".metals", ".idea", ".cache", ".vscode", "repository.d")
+  private val _slug_pattern = "^[a-z0-9][a-z0-9-]*$".r
 
   final case class ProjectMetadata(
     name: String,
     title: String,
     kind: String,
     publicationPath: Option[String],
+    descriptiveAttributes: DescriptiveAttributes,
     summary: Option[String],
     description: Option[String],
     organization: String,
@@ -2251,6 +2290,7 @@ private object CozyPublicationCompiler {
   final case class SamplePublication(
     name: String,
     title: String,
+    descriptiveAttributes: DescriptiveAttributes,
     summary: Option[String],
     description: Option[String],
     directory: String,
@@ -2260,68 +2300,76 @@ private object CozyPublicationCompiler {
   )
   final case class Publication(
     project: ProjectMetadata,
-    sourceFiles: Vector[SourceFile],
+    pages: Vector[PublicationPage],
+    sourcefiles: Vector[SourceFile],
     samples: Vector[SamplePublication],
     repositoryModules: Vector[String]
   )
+  final case class PublicationPage(
+    path: String,
+    title: DescriptiveAttributes.Text,
+    descriptiveAttributes: DescriptiveAttributes
+  )
 
   def publish(args: List[String]): Unit = {
-    val projectDir = _project_dir(args)
-    if (!Files.isDirectory(projectDir))
-      RAISE.invalidArgumentFault(s"Project directory does not exist: ${projectDir}")
-    if (!Files.isRegularFile(projectDir.resolve("build.sbt")))
-      RAISE.invalidArgumentFault(s"Not an sbt project directory: ${projectDir}")
+    val projectdir = _project_dir(args)
+    if (!Files.isDirectory(projectdir))
+      RAISE.invalidArgumentFault(s"Project directory does not exist: ${projectdir}")
+    if (!Files.isRegularFile(projectdir.resolve("build.sbt")))
+      RAISE.invalidArgumentFault(s"Not an sbt project directory: ${projectdir}")
 
-    val config = CozyProjectYamlConfig.load(projectDir.resolve(".cozy/config.yaml"))
-    val saveDir = _publication_output(projectDir, args, config)
-    val publication = _compile(projectDir, saveDir, args, config)
-    _write(publication, saveDir)
+    val config = CozyProjectYamlConfig.load(projectdir.resolve(".cozy/config.yaml"))
+    val savedir = _publication_output(projectdir, args, config)
+    val publication = _compile(projectdir, savedir, args, config)
+    _write(publication, savedir)
   }
 
-  private def _compile(projectDir: Path, saveDir: Path, args: List[String], config: CozyProjectYamlConfig.Config): Publication = {
-    val buildSbt = Files.readString(projectDir.resolve("build.sbt"), StandardCharsets.UTF_8)
-    val publicMetadata = _public_metadata(projectDir)
-    val cliName = _value(args, "name")
-    val publicName = _metadata_value(publicMetadata, "name")
-    val configName = config.value("publication.name")
-    val rawName = cliName.orElse(publicName).orElse(configName).orElse(_sbt_setting(buildSbt, "name"))
-    val name = rawName match {
-      case Some(x) if cliName.nonEmpty || publicName.nonEmpty || configName.nonEmpty => _validate_name(x, "publication name")
+  private def _compile(projectdir: Path, savedir: Path, args: List[String], config: CozyProjectYamlConfig.Config): Publication = {
+    val buildsbt = Files.readString(projectdir.resolve("build.sbt"), StandardCharsets.UTF_8)
+    val publicmetadata = _public_metadata(projectdir)
+    val cliname = _value(args, "name")
+    val publicname = _metadata_value(publicmetadata, "name")
+    val configname = config.value("publication.name")
+    val rawname = cliname.orElse(publicname).orElse(configname).orElse(_sbt_setting(buildsbt, "name"))
+    val name = rawname match {
+      case Some(x) if cliname.nonEmpty || publicname.nonEmpty || configname.nonEmpty => _validate_name(x, "publication name")
       case Some(x) => _slugify(x)
-      case None => _slugify(projectDir.getFileName.toString)
+      case None => _slugify(projectdir.getFileName.toString)
     }
     if (name.isEmpty)
       RAISE.invalidArgumentFault("Publication name is empty after slug normalization")
-    val title = _value(args, "title").orElse(_metadata_value(publicMetadata, "title")).orElse(config.value("publication.title")).orElse(_sbt_setting(buildSbt, "name")).getOrElse(name)
-    val publicationPath = _value(args, "path").orElse(_metadata_value(publicMetadata, "path")).orElse(config.value("publication.path")).map(_validate_publication_path)
-    val summary = _value(args, "summary").orElse(_metadata_value(publicMetadata, "summary")).orElse(_readme_summary(projectDir)).orElse(config.value("publication.summary"))
-    val description = _value(args, "description").orElse(_metadata_value(publicMetadata, "description")).orElse(_readme_description(projectDir)).orElse(config.value("publication.description"))
-    val organization = _value(args, "organization").orElse(_sbt_setting(buildSbt, "organization")).getOrElse("")
-    val version = _value(args, "version").orElse(_sbt_setting(buildSbt, "version")).getOrElse("")
-    val scalaVersion = _value(args, "scala-version").orElse(_sbt_setting(buildSbt, "scalaVersion")).getOrElse("")
-    val sbtVersion = _value(args, "sbt-version").orElse(_sbt_version(projectDir)).getOrElse("")
-    val samplesDir = _config_path(projectDir, config.value("publication.samples_dir")).getOrElse(projectDir.resolve("samples"))
-    val kind = _value(args, "kind").orElse(_metadata_value(publicMetadata, "kind")).orElse(config.value("publication.kind")).map(_.trim).filter(_.nonEmpty).getOrElse(_detect_kind(projectDir, buildSbt, samplesDir))
-    if (!ValidKinds.contains(kind))
-      RAISE.invalidArgumentFault(s"Invalid --kind: ${kind}. Expected one of: ${ValidKinds.toVector.sorted.mkString(", ")}")
-    val excludes = DefaultExcludedSegments ++ config.list("publication.source_manifest.excludes")
+    val title = _value(args, "title").orElse(_metadata_value(publicmetadata, "title")).orElse(config.value("publication.title")).orElse(_sbt_setting(buildsbt, "name")).getOrElse(name)
+    val publicationpath = _value(args, "path").orElse(_metadata_value(publicmetadata, "path")).orElse(config.value("publication.path")).map(_validate_publication_path)
+    val descriptiveattributes = _descriptive_attributes(projectdir, args, publicmetadata, config)
+    val summary = descriptiveattributes.summary.default
+    val description = descriptiveattributes.description.default
+    val organization = _value(args, "organization").orElse(_sbt_setting(buildsbt, "organization")).getOrElse("")
+    val version = _value(args, "version").orElse(_sbt_setting(buildsbt, "version")).getOrElse("")
+    val scalaversion = _value(args, "scala-version").orElse(_sbt_setting(buildsbt, "scalaVersion")).getOrElse("")
+    val sbtversion = _value(args, "sbt-version").orElse(_sbt_version(projectdir)).getOrElse("")
+    val samplesdir = _config_path(projectdir, config.value("publication.samples_dir")).getOrElse(projectdir.resolve("samples"))
+    val kind = _value(args, "kind").orElse(_metadata_value(publicmetadata, "kind")).orElse(config.value("publication.kind")).map(_.trim).filter(_.nonEmpty).getOrElse(_detect_kind(projectdir, buildsbt, samplesdir))
+    if (!_valid_kinds.contains(kind))
+      RAISE.invalidArgumentFault(s"Invalid --kind: ${kind}. Expected one of: ${_valid_kinds.toVector.sorted.mkString(", ")}")
+    val excludes = _default_excluded_segments ++ config.list("publication.source_manifest.excludes")
 
     val project = ProjectMetadata(
       name = name,
       title = title,
       kind = kind,
-      publicationPath = publicationPath,
+      publicationPath = publicationpath,
+      descriptiveAttributes = descriptiveattributes,
       summary = summary,
       description = description,
       organization = organization,
       version = version,
-      scalaVersion = scalaVersion,
-      sbtVersion = sbtVersion
+      scalaVersion = scalaversion,
+      sbtVersion = sbtversion
     )
-    val sourceFiles = _source_manifest(projectDir, saveDir, excludes)
+    val sourcefiles = _source_manifest(projectdir, savedir, excludes)
     val samples =
       if (kind == "sample-multi")
-        _sample_publications(samplesDir, saveDir, project.version, excludes)
+        _sample_publications(samplesdir, savedir, project.version, excludes)
       else
         Vector.empty
 
@@ -2330,23 +2378,36 @@ private object CozyPublicationCompiler {
       case xs => xs.toVector
     }
 
-    Publication(project, sourceFiles, samples, repositoryModules)
+    Publication(project, _publication_pages(publicmetadata), sourcefiles, samples, repositoryModules)
   }
 
-  private def _write(publication: Publication, saveDir: Path): Unit = {
+  private def _publication_pages(metadata: CozyProjectYamlConfig.Config): Vector[PublicationPage] =
+    metadata.publicationPageJsons.flatMap { json =>
+      val path = json.hcursor.downField("path").as[String].toOption.map(_.trim).filter(_.nonEmpty)
+      path.map { p =>
+        PublicationPage(
+          path = _validate_publication_path(p),
+          title = DescriptiveAttributes.textFromJson(json, "title"),
+          descriptiveAttributes = DescriptiveAttributes.fromJson(json)
+        )
+      }
+    }
+
+  private def _write(publication: Publication, savedir: Path): Unit = {
     val name = publication.project.name
-    _delete_legacy_placeholder(saveDir.resolve(s"repository/artifacts/${name}"))
-    _delete_legacy_placeholder(saveDir.resolve(s"maven/artifacts/${name}"))
-    _delete_legacy_placeholder(saveDir.resolve(s"download/artifacts/${name}"))
-    val metadataDir = saveDir.resolve("metadata")
-    _write_pair(metadataDir.resolve(s"catalog/projects/${name}"), _catalog_project_yaml(publication), _catalog_project_json(publication))
-    _write_pair(metadataDir.resolve(s"catalog/samples/${name}"), _catalog_sample_yaml(publication), _catalog_sample_json(publication))
-    _write_pair(metadataDir.resolve(s"projects/${name}/metadata"), _project_metadata_yaml(publication), _project_metadata_json(publication))
-    _write_pair(metadataDir.resolve(s"samples/${name}/metadata"), _sample_metadata_yaml(publication), _sample_metadata_json(publication))
-    publication.samples.foreach(_write_sample(publication.project, metadataDir, _))
-    _write_repository_artifact(publication, metadataDir)
-    _write_download_artifact(publication, metadataDir)
-    _write_pair(metadataDir.resolve(s"source-manifest/${name}"), _source_manifest_yaml(publication), _source_manifest_json(publication))
+    _delete_legacy_placeholder(savedir.resolve(s"repository/artifacts/${name}"))
+    _delete_legacy_placeholder(savedir.resolve(s"maven/artifacts/${name}"))
+    _delete_legacy_placeholder(savedir.resolve(s"download/artifacts/${name}"))
+    val metadatadir = savedir.resolve("metadata")
+    _write_pair(metadatadir.resolve(s"catalog/projects/${name}"), _catalog_project_yaml(publication), _catalog_project_json(publication))
+    _write_pair(metadatadir.resolve(s"catalog/samples/${name}"), _catalog_sample_yaml(publication), _catalog_sample_json(publication))
+    _write_pair(metadatadir.resolve(s"projects/${name}/metadata"), _project_metadata_yaml(publication), _project_metadata_json(publication))
+    _write_pair(metadatadir.resolve(s"samples/${name}/metadata"), _sample_metadata_yaml(publication), _sample_metadata_json(publication))
+    _write_publication_pages(publication, metadatadir)
+    publication.samples.foreach(_write_sample(publication.project, metadatadir, _))
+    _write_repository_artifact(publication, metadatadir)
+    _write_download_artifact(publication, metadatadir)
+    _write_pair(metadatadir.resolve(s"source-manifest/${name}"), _source_manifest_yaml(publication), _source_manifest_json(publication))
   }
 
   private def _delete_legacy_placeholder(base: Path): Unit = {
@@ -2377,7 +2438,7 @@ private object CozyPublicationCompiler {
 
   private def _catalog_project_json(p: Publication): JsValue =
     Json.obj(
-      "schema" -> Schema,
+      "schema" -> _schema,
       "type" -> "catalog-project",
       "project" -> Json.obj(
         "name" -> p.project.name,
@@ -2404,7 +2465,7 @@ private object CozyPublicationCompiler {
       "metadata" -> s"metadata/samples/${p.project.name}/metadata"
     )
     Json.obj(
-      "schema" -> Schema,
+      "schema" -> _schema,
       "type" -> "catalog-sample",
       "sample" -> (if (p.samples.nonEmpty) sample + ("download" -> _sample_collection_download_json(p.project)) else sample)
     )
@@ -2417,7 +2478,7 @@ private object CozyPublicationCompiler {
 
   private def _project_metadata_json(p: Publication): JsValue =
     Json.obj(
-      "schema" -> Schema,
+      "schema" -> _schema,
       "type" -> "project-metadata",
       "project" -> _project_json(p.project),
       "publication" -> _publication_json(p.project)
@@ -2432,7 +2493,7 @@ private object CozyPublicationCompiler {
 
   private def _sample_metadata_json(p: Publication): JsValue = {
     val base = Json.obj(
-      "schema" -> Schema,
+      "schema" -> _schema,
       "type" -> "sample-metadata",
       "project" -> _project_json(p.project),
       "publication" -> _publication_json(p.project),
@@ -2472,6 +2533,34 @@ private object CozyPublicationCompiler {
       "types" -> Json.arr("sample-collection-zip", "sample-zip")
     )
 
+  private def _publication_pages_yaml(p: Publication): String =
+    _yaml_header("publication-pages") +
+      s"""publication:
+         |  name: ${_yaml_string(p.project.name)}
+         |  title: ${_yaml_string(p.project.title)}
+         |${p.project.publicationPath.map(x => s"  path: ${_yaml_string(x)}\n").getOrElse("")}pages:
+         |${p.pages.map(_publication_page_yaml).mkString}""".stripMargin
+
+  private def _publication_page_yaml(p: PublicationPage): String =
+    s"""  - path: ${_yaml_string(p.path)}
+       |${_text_yaml("title", p.title, 4)}${_descriptive_yaml(p.descriptiveAttributes, 4)}""".stripMargin
+
+  private def _publication_pages_json(p: Publication): JsValue =
+    Json.obj(
+      "schema" -> _schema,
+      "type" -> "publication-pages",
+      "publication" -> (Json.obj(
+        "name" -> p.project.name,
+        "title" -> p.project.title
+      ) ++ p.project.publicationPath.map(x => Json.obj("path" -> x)).getOrElse(Json.obj())),
+      "pages" -> JsArray(p.pages.map(_publication_page_json))
+    )
+
+  private def _publication_page_json(p: PublicationPage): JsObject =
+    Json.obj("path" -> p.path) ++
+      _text_json("title", p.title) ++
+      _descriptive_json(p.descriptiveAttributes)
+
   private def _sample_refs_yaml(p: Publication): String =
     if (p.samples.nonEmpty)
       s"""samples:
@@ -2479,11 +2568,11 @@ private object CozyPublicationCompiler {
     else
       ""
 
-  private def _write_repository_artifact(publication: Publication, saveDir: Path): Unit =
+  private def _write_repository_artifact(publication: Publication, savedir: Path): Unit =
     publication.project.kind match {
       case "car" | "sar" =>
         _write_pair(
-          saveDir.resolve(s"artifacts/repository/${publication.project.name}"),
+          savedir.resolve(s"artifacts/repository/${publication.project.name}"),
           _repository_artifact_yaml(publication),
           _repository_artifact_json(publication)
         )
@@ -2491,12 +2580,20 @@ private object CozyPublicationCompiler {
         Unit
     }
 
-  private def _write_download_artifact(publication: Publication, saveDir: Path): Unit =
+  private def _write_download_artifact(publication: Publication, savedir: Path): Unit =
     if (publication.samples.nonEmpty)
       _write_pair(
-        saveDir.resolve(s"artifacts/download/${publication.project.name}"),
+        savedir.resolve(s"artifacts/download/${publication.project.name}"),
         _download_artifact_yaml(publication),
         _download_artifact_json(publication)
+      )
+
+  private def _write_publication_pages(publication: Publication, savedir: Path): Unit =
+    if (publication.pages.nonEmpty)
+      _write_pair(
+        savedir.resolve(s"publication-pages/${publication.project.name}"),
+        _publication_pages_yaml(publication),
+        _publication_pages_json(publication)
       )
 
   private def _repository_artifact_yaml(p: Publication): String =
@@ -2512,7 +2609,7 @@ private object CozyPublicationCompiler {
 
   private def _repository_artifact_json(p: Publication): JsValue =
     Json.obj(
-      "schema" -> Schema,
+      "schema" -> _schema,
       "type" -> "repository-artifact",
       "project" -> _project_json(p.project),
       "artifact" -> Json.obj(
@@ -2550,7 +2647,7 @@ private object CozyPublicationCompiler {
     {
       val files = _sample_collection_zip_file(p.project) +: p.samples.map(sample => _sample_zip_file(p.project, sample))
     Json.obj(
-      "schema" -> Schema,
+      "schema" -> _schema,
       "type" -> "download-artifact",
       "project" -> _project_json(p.project),
       "artifact" -> Json.obj(
@@ -2579,12 +2676,12 @@ private object CozyPublicationCompiler {
        |      versions: [${_yaml_string(_artifact_version(p.project.version))}]
        |""".stripMargin
 
-  private def _write_sample(project: ProjectMetadata, metadataDir: Path, sample: SamplePublication): Unit = {
-    val itemBase = metadataDir.resolve(s"samples/${project.name}/items/${sample.name}/${sample.version}")
-    _write_pair(itemBase.resolve("metadata"), _sample_item_yaml(project, sample), _sample_item_json(project, sample))
-    _copy_sample_files(itemBase.resolve("files"), sample)
-    _write_text(metadataDir.resolve(s"samples/${project.name}/items/${sample.name}/latest.json"), Json.prettyPrint(Json.obj(
-      "schema" -> Schema,
+  private def _write_sample(project: ProjectMetadata, metadatadir: Path, sample: SamplePublication): Unit = {
+    val itembase = metadatadir.resolve(s"samples/${project.name}/items/${sample.name}/${sample.version}")
+    _write_pair(itembase.resolve("metadata"), _sample_item_yaml(project, sample), _sample_item_json(project, sample))
+    _copy_sample_files(itembase.resolve("files"), sample)
+    _write_text(metadatadir.resolve(s"samples/${project.name}/items/${sample.name}/latest.json"), Json.prettyPrint(Json.obj(
+      "schema" -> _schema,
       "type" -> "sample-latest",
       "project" -> _project_json(project),
       "sample" -> _sample_json(sample),
@@ -2598,7 +2695,7 @@ private object CozyPublicationCompiler {
   private def _sample_ref_yaml(project: ProjectMetadata, p: SamplePublication): String =
     s"""    - name: ${_yaml_string(p.name)}
        |      title: ${_yaml_string(p.title)}
-       |${_optional_yaml("summary", p.summary, 6)}      version: ${_yaml_string(p.version)}
+       |${_descriptive_yaml(p.descriptiveAttributes, 6)}      version: ${_yaml_string(p.version)}
        |      directory: ${_yaml_string(p.directory)}
        |      metadata: ${_yaml_string(s"metadata/samples/${project.name}/items/${p.name}/${p.version}/metadata")}
        |""".stripMargin
@@ -2607,12 +2704,10 @@ private object CozyPublicationCompiler {
     Json.obj(
       "name" -> p.name,
       "title" -> p.title,
-      "summary" -> p.summary,
-      "description" -> p.description,
       "version" -> p.version,
       "directory" -> p.directory,
       "metadata" -> s"metadata/samples/${project.name}/items/${p.name}/${p.version}/metadata"
-    )
+    ) ++ _descriptive_json(p.descriptiveAttributes)
 
   private def _sample_item_yaml(project: ProjectMetadata, sample: SamplePublication): String =
     _yaml_header("sample-item") +
@@ -2620,7 +2715,7 @@ private object CozyPublicationCompiler {
       s"""sample:
          |  name: ${_yaml_string(sample.name)}
          |  title: ${_yaml_string(sample.title)}
-         |${_optional_yaml("summary", sample.summary, 2)}${_optional_yaml("description", sample.description, 2)}  version: ${_yaml_string(sample.version)}
+         |${_descriptive_yaml(sample.descriptiveAttributes, 2)}  version: ${_yaml_string(sample.version)}
          |  directory: ${_yaml_string(sample.directory)}
          |  files_path: ${_yaml_string(s"metadata/samples/${project.name}/items/${sample.name}/${sample.version}/files")}
          |  download:
@@ -2630,7 +2725,7 @@ private object CozyPublicationCompiler {
 
   private def _sample_item_json(project: ProjectMetadata, sample: SamplePublication): JsValue =
     Json.obj(
-      "schema" -> Schema,
+      "schema" -> _schema,
       "type" -> "sample-item",
       "project" -> _project_json(project),
       "sample" -> (_sample_json(sample) +
@@ -2642,11 +2737,9 @@ private object CozyPublicationCompiler {
     Json.obj(
       "name" -> p.name,
       "title" -> p.title,
-      "summary" -> p.summary,
-      "description" -> p.description,
       "version" -> p.version,
       "directory" -> p.directory
-    )
+    ) ++ _descriptive_json(p.descriptiveAttributes)
 
   private def _sample_download_json(project: ProjectMetadata, sample: SamplePublication): JsObject =
     Json.obj(
@@ -2739,18 +2832,18 @@ private object CozyPublicationCompiler {
     _yaml_header("source-manifest") +
       _project_yaml(p.project) +
       s"""files:
-         |${p.sourceFiles.map(_source_file_yaml).mkString}""".stripMargin
+         |${p.sourcefiles.map(_source_file_yaml).mkString}""".stripMargin
 
   private def _source_manifest_json(p: Publication): JsValue =
     Json.obj(
-      "schema" -> Schema,
+      "schema" -> _schema,
       "type" -> "source-manifest",
       "project" -> _project_json(p.project),
-      "files" -> JsArray(p.sourceFiles.map(_source_file_json))
+      "files" -> JsArray(p.sourcefiles.map(_source_file_json))
     )
 
   private def _yaml_header(kind: String): String =
-    s"""schema: ${_yaml_string(Schema)}
+    s"""schema: ${_yaml_string(_schema)}
        |type: ${_yaml_string(kind)}
        |""".stripMargin
 
@@ -2759,8 +2852,7 @@ private object CozyPublicationCompiler {
        |  name: ${_yaml_string(p.name)}
          |  title: ${_yaml_string(p.title)}
          |  kind: ${_yaml_string(p.kind)}
-         |${_optional_yaml("summary", p.summary)}
-         |${_optional_yaml("description", p.description)}
+         |${_descriptive_yaml(p.descriptiveAttributes)}
          |  organization: ${_yaml_string(p.organization)}
        |  version: ${_yaml_string(p.version)}
        |  scala_version: ${_yaml_string(p.scalaVersion)}
@@ -2800,21 +2892,52 @@ private object CozyPublicationCompiler {
       "name" -> p.name,
       "title" -> p.title,
       "kind" -> p.kind,
-      "summary" -> p.summary,
-      "description" -> p.description,
       "organization" -> p.organization,
       "version" -> p.version,
       "scalaVersion" -> p.scalaVersion,
       "sbtVersion" -> p.sbtVersion
-    )
+    ) ++ _descriptive_json(p.descriptiveAttributes)
 
-  private def _source_manifest(projectDir: Path, saveDir: Path, excludes: Set[String]): Vector[SourceFile] = {
-    val save = saveDir.toAbsolutePath.normalize()
-    val stream = Files.walk(projectDir)
+  private def _descriptive_yaml(p: DescriptiveAttributes, indent: Int = 2): String =
+    DescriptiveAttributes.Fields.map(name => _text_yaml(name, p.field(name), indent)).mkString
+
+  private def _text_yaml(name: String, text: DescriptiveAttributes.Text, indent: Int): String = {
+    val sp = " " * indent
+    val default = text.default.map(x => s"${sp}${name}: ${_yaml_string(x)}\n").getOrElse("")
+    val i18n =
+      if (text.i18n.isEmpty)
+        ""
+      else
+        s"${sp}${name}_i18n:\n" + text.i18n.toVector.sortBy(_._1).map {
+          case (k, v) => s"${sp}  ${k}: ${_yaml_string(v)}\n"
+        }.mkString
+    default + i18n
+  }
+
+  private def _descriptive_json(p: DescriptiveAttributes): JsObject =
+    DescriptiveAttributes.Fields.foldLeft(Json.obj()) { (z, name) =>
+      z ++ _text_json(name, p.field(name))
+    }
+
+  private def _text_json(name: String, text: DescriptiveAttributes.Text): JsObject = {
+    val default = text.default.map(x => Json.obj(name -> x)).getOrElse(Json.obj())
+    val i18n =
+      if (text.i18n.isEmpty)
+        Json.obj()
+      else
+        Json.obj(s"${name}_i18n" -> JsObject(text.i18n.toVector.sortBy(_._1).map {
+          case (k, v) => k -> JsString(v)
+        }))
+    default ++ i18n
+  }
+
+  private def _source_manifest(projectdir: Path, savedir: Path, excludes: Set[String]): Vector[SourceFile] = {
+    val save = savedir.toAbsolutePath.normalize()
+    val stream = Files.walk(projectdir)
     try {
       stream.iterator().asScala.toVector.collect {
-        case p if Files.isRegularFile(p) && !_excluded(projectDir, p, save, excludes) =>
-          val rel = projectDir.relativize(p).toString.replace('\\', '/')
+        case p if Files.isRegularFile(p) && !_excluded(projectdir, p, save, excludes) =>
+          val rel = projectdir.relativize(p).toString.replace('\\', '/')
           SourceFile(rel, Files.size(p), _sha256(p))
       }.sortBy(_.path)
     } finally {
@@ -2822,22 +2945,25 @@ private object CozyPublicationCompiler {
     }
   }
 
-  private def _sample_publications(samplesDir: Path, saveDir: Path, projectVersion: String, excludes: Set[String]): Vector[SamplePublication] =
-    _validate_unique_sample_names(_sample_dirs(samplesDir).map(dir => dir -> _validate_name(_slugify(dir.getFileName.toString), "sample name"))).map { case (dir, name) =>
-      val buildSbt = Files.readString(dir.resolve("build.sbt"), StandardCharsets.UTF_8)
+  private def _sample_publications(samplesdir: Path, savedir: Path, projectversion: String, excludes: Set[String]): Vector[SamplePublication] =
+    _validate_unique_sample_names(_sample_dirs(samplesdir).map(dir => dir -> _validate_name(_slugify(dir.getFileName.toString), "sample name"))).map { case (dir, name) =>
+      val buildsbt = Files.readString(dir.resolve("build.sbt"), StandardCharsets.UTF_8)
       val metadata = _public_metadata(dir)
       val rawName = dir.getFileName.toString
-      val title = _metadata_value(metadata, "title").orElse(_sbt_setting(buildSbt, "name")).getOrElse(rawName)
-      val version = Option(projectVersion).map(_.trim).filter(_.nonEmpty).getOrElse("0.0.0-SNAPSHOT")
+      val title = _metadata_value(metadata, "title").orElse(_sbt_setting(buildsbt, "name")).getOrElse(rawName)
+      val version = Option(projectversion).map(_.trim).filter(_.nonEmpty).getOrElse("0.0.0-SNAPSHOT")
+      val descriptiveattributes = metadata.descriptiveAttributes.
+        orElse(_descriptive_attributes(_readme_summary(dir), _readme_description(dir)))
       SamplePublication(
         name = name,
         title = title,
-        summary = _metadata_value(metadata, "summary").orElse(_readme_summary(dir)),
-        description = _metadata_value(metadata, "description").orElse(_readme_description(dir)),
-        directory = samplesDir.relativize(dir).toString.replace('\\', '/'),
+        descriptiveAttributes = descriptiveattributes,
+        summary = descriptiveattributes.summary.default,
+        description = descriptiveattributes.description.default,
+        directory = samplesdir.relativize(dir).toString.replace('\\', '/'),
         version = version,
         root = dir,
-        files = _source_manifest(dir, saveDir, excludes)
+        files = _source_manifest(dir, savedir, excludes)
       )
     }
 
@@ -2851,11 +2977,11 @@ private object CozyPublicationCompiler {
     samples
   }
 
-  private def _sample_dirs(samplesDir: Path): Vector[Path] =
-    if (!Files.isDirectory(samplesDir))
+  private def _sample_dirs(samplesdir: Path): Vector[Path] =
+    if (!Files.isDirectory(samplesdir))
       Vector.empty
     else
-      Option(samplesDir.toFile.listFiles()).toVector.flatten.
+      Option(samplesdir.toFile.listFiles()).toVector.flatten.
         filter(f => f.isDirectory && new java.io.File(f, "build.sbt").isFile).
         map(_.toPath.toAbsolutePath.normalize()).
         sortBy(_.getFileName.toString)
@@ -2870,14 +2996,14 @@ private object CozyPublicationCompiler {
     }
   }
 
-  private def _excluded(projectDir: Path, path: Path, saveDir: Path, excludes: Set[String]): Boolean = {
+  private def _excluded(projectdir: Path, path: Path, savedir: Path, excludes: Set[String]): Boolean = {
     val abs = path.toAbsolutePath.normalize()
-    val rel = projectDir.relativize(path).toString.replace('\\', '/')
+    val rel = projectdir.relativize(path).toString.replace('\\', '/')
     val segments = rel.split('/').toVector
     val normalizedExcludes = excludes.map(_.trim.stripPrefix("/").stripSuffix("/")).filter(_.nonEmpty)
     val excludedByName = normalizedExcludes.exists(x => !x.contains("/") && segments.contains(x))
     val excludedByPath = normalizedExcludes.exists(x => x.contains("/") && (rel == x || rel.startsWith(x + "/")))
-    excludedByName || excludedByPath || abs.startsWith(saveDir)
+    excludedByName || excludedByPath || abs.startsWith(savedir)
   }
 
   private def _sha256(path: Path): String = {
@@ -2907,40 +3033,40 @@ private object CozyPublicationCompiler {
       }
     }
 
-  private def _detect_kind(projectDir: Path, buildSbt: String, samplesDir: Path): String = {
-    val childBuilds = Option(projectDir.toFile.listFiles()).toVector.flatten.count(f => f.isDirectory && new java.io.File(f, "build.sbt").isFile)
-    val sampleBuilds = Option(samplesDir.toFile.listFiles()).toVector.flatten.count(f => f.isDirectory && new java.io.File(f, "build.sbt").isFile)
-    if (_contains_sar_marker(projectDir, buildSbt))
+  private def _detect_kind(projectdir: Path, buildsbt: String, samplesdir: Path): String = {
+    val childbuilds = Option(projectdir.toFile.listFiles()).toVector.flatten.count(f => f.isDirectory && new java.io.File(f, "build.sbt").isFile)
+    val samplebuilds = Option(samplesdir.toFile.listFiles()).toVector.flatten.count(f => f.isDirectory && new java.io.File(f, "build.sbt").isFile)
+    if (_contains_sar_marker(projectdir, buildsbt))
       "sar"
-    else if (_contains_car_marker(projectDir, buildSbt))
+    else if (_contains_car_marker(projectdir, buildsbt))
       "car"
-    else if (sampleBuilds > 1 || childBuilds > 1 || _project_definition_count(buildSbt) > 1)
+    else if (samplebuilds > 1 || childbuilds > 1 || _project_definition_count(buildsbt) > 1)
       "sample-multi"
     else
       "sample-single"
   }
 
-  private def _contains_sar_marker(projectDir: Path, buildSbt: String): Boolean =
-    buildSbt.contains("cozyPackaging := \"sar\"") ||
-      Files.isRegularFile(projectDir.resolve("subsystem-descriptor.yaml")) ||
-      Files.isRegularFile(projectDir.resolve("subsystem-descriptor.yml"))
+  private def _contains_sar_marker(projectdir: Path, buildsbt: String): Boolean =
+    buildsbt.contains("cozyPackaging := \"sar\"") ||
+      Files.isRegularFile(projectdir.resolve("subsystem-descriptor.yaml")) ||
+      Files.isRegularFile(projectdir.resolve("subsystem-descriptor.yml"))
 
-  private def _contains_car_marker(projectDir: Path, buildSbt: String): Boolean =
-    buildSbt.contains("CozyPlugin") &&
-      (buildSbt.contains("cozyPackaging := \"car\"") ||
-        Files.isDirectory(projectDir.resolve("src/main/car")) ||
-        Files.isDirectory(projectDir.resolve("src/main/cozy")))
+  private def _contains_car_marker(projectdir: Path, buildsbt: String): Boolean =
+    buildsbt.contains("CozyPlugin") &&
+      (buildsbt.contains("cozyPackaging := \"car\"") ||
+        Files.isDirectory(projectdir.resolve("src/main/car")) ||
+        Files.isDirectory(projectdir.resolve("src/main/cozy")))
 
-  private def _project_definition_count(buildSbt: String): Int =
-    "(?m)^\\s*lazy\\s+val\\s+\\w+\\s*=\\s*\\(?project\\b".r.findAllIn(buildSbt).length
+  private def _project_definition_count(buildsbt: String): Int =
+    "(?m)^\\s*lazy\\s+val\\s+\\w+\\s*=\\s*\\(?project\\b".r.findAllIn(buildsbt).length
 
-  private def _sbt_setting(buildSbt: String, key: String): Option[String] = {
+  private def _sbt_setting(buildsbt: String, key: String): Option[String] = {
     val pattern = ("""(?m)^\s*(?:ThisBuild\s*/\s*)?""" + java.util.regex.Pattern.quote(key) + """\s*:=\s*"([^"]+)""").r
-    pattern.findFirstMatchIn(buildSbt).map(_.group(1).trim).filter(_.nonEmpty)
+    pattern.findFirstMatchIn(buildsbt).map(_.group(1).trim).filter(_.nonEmpty)
   }
 
-  private def _sbt_version(projectDir: Path): Option[String] = {
-    val path = projectDir.resolve("project/build.properties")
+  private def _sbt_version(projectdir: Path): Option[String] = {
+    val path = projectdir.resolve("project/build.properties")
     if (!Files.isRegularFile(path))
       None
     else
@@ -2950,11 +3076,11 @@ private object CozyPublicationCompiler {
       }.filter(_.nonEmpty)
   }
 
-  private def _public_metadata(projectDir: Path): CozyProjectYamlConfig.Config =
-    Vector("project.yaml", "project.yml").
-      map(projectDir.resolve).
+  private def _public_metadata(projectdir: Path): CozyProjectYamlConfig.Config =
+    Vector("project.yaml", "project.yml", "project.json", "project.conf", "project.hocon").
+      map(projectdir.resolve).
       find(Files.isRegularFile(_)).
-      map(CozyProjectYamlConfig.load).
+      map(CozyProjectYamlConfig.loadPublic).
       getOrElse(CozyProjectYamlConfig.Config.empty)
 
   private def _metadata_value(metadata: CozyProjectYamlConfig.Config, key: String): Option[String] =
@@ -2962,17 +3088,35 @@ private object CozyPublicationCompiler {
       orElse(metadata.value(s"project.${key}")).
       orElse(metadata.value(s"publication.${key}"))
 
-  private def _readme_summary(projectDir: Path): Option[String] =
-    _readme_lines(projectDir).find(line => line.nonEmpty && !line.startsWith("#")).map(_trim_sentence)
+  private def _descriptive_attributes(
+    projectdir: Path,
+    args: List[String],
+    metadata: CozyProjectYamlConfig.Config,
+    config: CozyProjectYamlConfig.Config
+  ): DescriptiveAttributes = {
+    val cli = _descriptive_attributes(_value(args, "summary"), _value(args, "description"))
+    val readme = _descriptive_attributes(_readme_summary(projectdir), _readme_description(projectdir))
+    val conf = _descriptive_attributes(config.value("publication.summary"), config.value("publication.description"))
+    cli.orElse(metadata.descriptiveAttributes).orElse(readme).orElse(conf)
+  }
 
-  private def _readme_description(projectDir: Path): Option[String] =
-    _readme_lines(projectDir).filter(line => line.nonEmpty && !line.startsWith("#")).take(3).mkString("\n") match {
+  private def _descriptive_attributes(summary: Option[String], description: Option[String]): DescriptiveAttributes =
+    DescriptiveAttributes(
+      summary = DescriptiveAttributes.Text(summary),
+      description = DescriptiveAttributes.Text(description)
+    )
+
+  private def _readme_summary(projectdir: Path): Option[String] =
+    _readme_lines(projectdir).find(line => line.nonEmpty && !line.startsWith("#")).map(_trim_sentence)
+
+  private def _readme_description(projectdir: Path): Option[String] =
+    _readme_lines(projectdir).filter(line => line.nonEmpty && !line.startsWith("#")).take(3).mkString("\n") match {
       case "" => None
       case x => Some(x)
     }
 
-  private def _readme_lines(projectDir: Path): Vector[String] = {
-    val candidates = Vector("README.md", "README.adoc", "README.txt").map(projectDir.resolve)
+  private def _readme_lines(projectdir: Path): Vector[String] = {
+    val candidates = Vector("README.md", "README.adoc", "README.txt").map(projectdir.resolve)
     candidates.find(Files.isRegularFile(_)) match {
       case Some(path) =>
         Files.readAllLines(path, StandardCharsets.UTF_8).asScala.toVector.map(_.trim)
@@ -2992,19 +3136,19 @@ private object CozyPublicationCompiler {
       map(p => Paths.get(p).toAbsolutePath.normalize()).
       getOrElse(RAISE.invalidArgumentFault("Missing project directory for publish-project"))
 
-  private def _publication_output(projectDir: Path, args: List[String], config: CozyProjectYamlConfig.Config): Path =
+  private def _publication_output(projectdir: Path, args: List[String], config: CozyProjectYamlConfig.Config): Path =
     _value(args, "save").
       map(p => Paths.get(p).toAbsolutePath.normalize()).
-      orElse(_config_path(projectDir, config.value("publication.output"))).
-      getOrElse(projectDir.resolve("target/publish.d").toAbsolutePath.normalize())
+      orElse(_config_path(projectdir, config.value("publication.output"))).
+      getOrElse(projectdir.resolve("target/publish.d").toAbsolutePath.normalize())
 
-  private def _config_path(projectDir: Path, value: Option[String]): Option[Path] =
+  private def _config_path(projectdir: Path, value: Option[String]): Option[Path] =
     value.map { p =>
       val path = Paths.get(p)
       if (path.isAbsolute)
         path.normalize()
       else
-        projectDir.resolve(path).toAbsolutePath.normalize()
+        projectdir.resolve(path).toAbsolutePath.normalize()
     }
 
   private def _positional_args(args: List[String]): Vector[String] = {
@@ -3042,9 +3186,9 @@ private object CozyPublicationCompiler {
 
   private def _validate_name(value: String, label: String): String = {
     val name = value.trim
-    SlugPattern.findFirstIn(name) match {
+    _slug_pattern.findFirstIn(name) match {
       case Some(x) if x == name => name
-      case _ => RAISE.invalidArgumentFault(s"Invalid ${label}: ${value}. Expected ${SlugPattern.regex}")
+      case _ => RAISE.invalidArgumentFault(s"Invalid ${label}: ${value}. Expected ${_slug_pattern.regex}")
     }
   }
 
@@ -3067,40 +3211,40 @@ private object CozyPublicationCompiler {
 }
 
 private object CozySampleDistributor {
-  private val DefaultExcludedSegments = Set("target", ".git", ".bsp", ".bloop", ".metals", ".idea", ".cache", ".vscode")
-  private val SlugPattern = "^[a-z0-9][a-z0-9-]*$".r
+  private val _default_excluded_segments = Set("target", ".git", ".bsp", ".bloop", ".metals", ".idea", ".cache", ".vscode")
+  private val _slug_pattern = "^[a-z0-9][a-z0-9-]*$".r
   final case class PlannedArchive(kind: String, sampleName: Option[String], path: Path)
 
   def distribute(args: List[String]): Unit = {
-    val projectDir = _project_dir(args)
-    if (!Files.isDirectory(projectDir))
-      RAISE.invalidArgumentFault(s"Project directory does not exist: ${projectDir}")
-    val config = CozyProjectYamlConfig.load(projectDir.resolve(".cozy/config.yaml"))
-    val projectMetadata = CozyProjectYamlConfig.load(projectDir.resolve("project.yaml"))
+    val projectdir = _project_dir(args)
+    if (!Files.isDirectory(projectdir))
+      RAISE.invalidArgumentFault(s"Project directory does not exist: ${projectdir}")
+    val config = CozyProjectYamlConfig.load(projectdir.resolve(".cozy/config.yaml"))
+    val projectmetadata = CozyProjectYamlConfig.load(projectdir.resolve("project.yaml"))
     val warehouseDir = _value(args, "warehouse").
       map(p => Paths.get(p).toAbsolutePath.normalize()).
-      orElse(_config_path(projectDir, config.value("warehouse.repository"))).
+      orElse(_config_path(projectdir, config.value("warehouse.repository"))).
       getOrElse(RAISE.invalidArgumentFault("Missing --warehouse for distribute-samples"))
     val name = _value(args, "name").orElse(config.value("publication.name")).map(_validate_name).getOrElse(RAISE.invalidArgumentFault("Missing --name for distribute-samples"))
-    val version = _value(args, "version").orElse(_project_version(projectDir)).getOrElse(RAISE.invalidArgumentFault("Missing --version for distribute-samples"))
-    val publicationPath = _value(args, "path").orElse(projectMetadata.value("project.path")).orElse(config.value("publication.path")).map(CozyPublicationPaths.validatePublicationPath)
-    val samplesDir = _value(args, "samples-dir").orElse(config.value("publication.samples_dir")).
-      map(p => _config_path(projectDir, Some(p)).get).
-      getOrElse(projectDir.resolve("samples"))
-    val excludes = DefaultExcludedSegments ++ config.list("publication.source_manifest.excludes")
-    val samples = _sample_dirs(samplesDir)
+    val version = _value(args, "version").orElse(_project_version(projectdir)).getOrElse(RAISE.invalidArgumentFault("Missing --version for distribute-samples"))
+    val publicationpath = _value(args, "path").orElse(projectmetadata.value("project.path")).orElse(config.value("publication.path")).map(CozyPublicationPaths.validatePublicationPath)
+    val samplesdir = _value(args, "samples-dir").orElse(config.value("publication.samples_dir")).
+      map(p => _config_path(projectdir, Some(p)).get).
+      getOrElse(projectdir.resolve("samples"))
+    val excludes = _default_excluded_segments ++ config.list("publication.source_manifest.excludes")
+    val samples = _sample_dirs(samplesdir)
     if (samples.isEmpty)
-      RAISE.invalidArgumentFault(s"No sample projects found under: ${samplesDir}")
+      RAISE.invalidArgumentFault(s"No sample projects found under: ${samplesdir}")
     val samplePairs = _validate_unique_sample_names(samples.map(sample => sample -> _validate_name(_slugify(sample.getFileName.toString))))
-    val archives = _planned_archives(warehouseDir, name, publicationPath, version, samplePairs)
+    val archives = _planned_archives(warehouseDir, name, publicationpath, version, samplePairs)
     if (_flag(args, "dry-run")) {
       _print_plan(warehouseDir, archives)
       return
     }
-    _zip_sample_collection(samplesDir, archives.head.path, excludes)
+    _zip_sample_collection(samplesdir, archives.head.path, excludes)
     samplePairs.foreach { case (sample, sampleName) =>
       val out = archives.find(_.sampleName.contains(sampleName)).map(_.path).
-        getOrElse(warehouseDir.resolve(CozyPublicationPaths.sampleDownloadPath(name, publicationPath, sampleName, version)))
+        getOrElse(warehouseDir.resolve(CozyPublicationPaths.sampleDownloadPath(name, publicationpath, sampleName, version)))
       _zip_dir(sample, out, excludes)
     }
   }
@@ -3133,17 +3277,17 @@ private object CozySampleDistributor {
     }
   }
 
-  private def _zip_sample_collection(samplesDir: Path, out: Path, excludes: Set[String]): Unit =
-    _zip_dir(samplesDir, out, excludes)
+  private def _zip_sample_collection(samplesdir: Path, out: Path, excludes: Set[String]): Unit =
+    _zip_dir(samplesdir, out, excludes)
 
-  private def _zip_dir(sourceDir: Path, out: Path, excludes: Set[String]): Unit = {
+  private def _zip_dir(sourcedir: Path, out: Path, excludes: Set[String]): Unit = {
     val parent = Option(out.getParent).getOrElse(Paths.get("."))
     Files.createDirectories(parent)
     val tmp = Files.createTempFile(parent, out.getFileName.toString, ".tmp")
     val zip = new ZipOutputStream(Files.newOutputStream(tmp))
     try {
-      _sample_files(sourceDir, excludes).foreach { file =>
-        val rel = sourceDir.relativize(file).toString.replace('\\', '/')
+      _sample_files(sourcedir, excludes).foreach { file =>
+        val rel = sourcedir.relativize(file).toString.replace('\\', '/')
         val entry = new ZipEntry(rel)
         entry.setTime(0L)
         zip.putNextEntry(entry)
@@ -3187,11 +3331,11 @@ private object CozySampleDistributor {
     excludedByName || excludedByPath
   }
 
-  private def _sample_dirs(samplesDir: Path): Vector[Path] =
-    if (!Files.isDirectory(samplesDir))
+  private def _sample_dirs(samplesdir: Path): Vector[Path] =
+    if (!Files.isDirectory(samplesdir))
       Vector.empty
     else
-      Option(samplesDir.toFile.listFiles()).toVector.flatten.
+      Option(samplesdir.toFile.listFiles()).toVector.flatten.
         filter(f => f.isDirectory && new java.io.File(f, "build.sbt").isFile).
         map(_.toPath.toAbsolutePath.normalize()).
         sortBy(_.getFileName.toString)
@@ -3206,15 +3350,15 @@ private object CozySampleDistributor {
     samples
   }
 
-  private def _project_version(projectDir: Path): Option[String] =
-    if (Files.isRegularFile(projectDir.resolve("build.sbt")))
-      _sbt_setting(Files.readString(projectDir.resolve("build.sbt"), StandardCharsets.UTF_8), "version")
+  private def _project_version(projectdir: Path): Option[String] =
+    if (Files.isRegularFile(projectdir.resolve("build.sbt")))
+      _sbt_setting(Files.readString(projectdir.resolve("build.sbt"), StandardCharsets.UTF_8), "version")
     else
       None
 
-  private def _sbt_setting(buildSbt: String, key: String): Option[String] = {
+  private def _sbt_setting(buildsbt: String, key: String): Option[String] = {
     val pattern = ("""(?m)^\s*(?:ThisBuild\s*/\s*)?""" + java.util.regex.Pattern.quote(key) + """\s*:=\s*"([^"]+)""").r
-    pattern.findFirstMatchIn(buildSbt).map(_.group(1).trim).filter(_.nonEmpty)
+    pattern.findFirstMatchIn(buildsbt).map(_.group(1).trim).filter(_.nonEmpty)
   }
 
   private def _project_dir(args: List[String]): Path =
@@ -3255,20 +3399,20 @@ private object CozySampleDistributor {
     args.exists(_ == s"--${key}") ||
       _value(args, key).exists(x => x.equalsIgnoreCase("true") || x == "1" || x.equalsIgnoreCase("yes"))
 
-  private def _config_path(projectDir: Path, value: Option[String]): Option[Path] =
+  private def _config_path(projectdir: Path, value: Option[String]): Option[Path] =
     value.map { p =>
       val path = Paths.get(p)
       if (path.isAbsolute)
         path.normalize()
       else
-        projectDir.resolve(path).toAbsolutePath.normalize()
+        projectdir.resolve(path).toAbsolutePath.normalize()
     }
 
   private def _validate_name(value: String): String = {
     val name = value.trim
-    SlugPattern.findFirstIn(name) match {
+    _slug_pattern.findFirstIn(name) match {
       case Some(x) if x == name => name
-      case _ => RAISE.invalidArgumentFault(s"Invalid name: ${value}. Expected ${SlugPattern.regex}")
+      case _ => RAISE.invalidArgumentFault(s"Invalid name: ${value}. Expected ${_slug_pattern.regex}")
     }
   }
 
@@ -3280,10 +3424,10 @@ private object CozySampleDistributor {
 }
 
 private object CozyWarehouseIndexer {
-  private val Schema = "cozy.publish-project.v1"
-  private val SlugPattern = "^[a-z0-9][a-z0-9-]*$".r
-  private val ChecksumExtensions = Set("sha1", "md5")
-  private val ArtifactExtensions = Set("jar", "pom", "car", "sar", "zip")
+  private val _schema = "cozy.publish-project.v1"
+  private val _slug_pattern = "^[a-z0-9][a-z0-9-]*$".r
+  private val _checksum_extensions = Set("sha1", "md5")
+  private val _artifact_extensions = Set("jar", "pom", "car", "sar", "zip")
 
   final case class MavenCoordinate(groupId: String, artifactId: String) {
     def path: String = groupId.replace('.', '/') + "/" + artifactId
@@ -3314,7 +3458,7 @@ private object CozyWarehouseIndexer {
     val warehouseDir = _warehouse_dir(args)
     if (!Files.isDirectory(warehouseDir))
       RAISE.invalidArgumentFault(s"Warehouse directory does not exist: ${warehouseDir}")
-    val saveDir = _required_path(args, "save")
+    val savedir = _required_path(args, "save")
     val name = _value(args, "name").map(_validate_name).getOrElse(RAISE.invalidArgumentFault("Missing --name"))
     val title = _value(args, "title").getOrElse(name)
     val coordinates = _csv(args, "maven-coordinates").map(_coordinate)
@@ -3327,33 +3471,33 @@ private object CozyWarehouseIndexer {
       case Vector() => Vector(name)
       case xs => xs
     }
-    val downloadPublicationPaths = downloadSamples.map(publication => publication -> _publication_path(saveDir, publication)).toMap
+    val downloadpublicationpaths = downloadSamples.map(publication => publication -> _publication_path(savedir, publication)).toMap
     val result = IndexResult(
       name = name,
       title = title,
       maven = coordinates.map(_index_maven(warehouseDir, _)),
       repository = Vector.empty,
-      download = Vector(_index_download_samples(warehouseDir, downloadSamples, downloadPublicationPaths))
+      download = Vector(_index_download_samples(warehouseDir, downloadSamples, downloadpublicationpaths))
     )
-    _check_repository_consistency(warehouseDir, saveDir, name, repositoryKinds, repositoryModules)
-    _check_download_consistency(warehouseDir, saveDir, name, downloadSamples, downloadPublicationPaths)
-    _write(result, saveDir)
+    _check_repository_consistency(warehouseDir, savedir, name, repositoryKinds, repositoryModules)
+    _check_download_consistency(warehouseDir, savedir, name, downloadSamples, downloadpublicationpaths)
+    _write(result, savedir)
   }
 
-  private def _write(p: IndexResult, saveDir: Path): Unit = {
-    val metadataDir = saveDir.resolve("metadata")
-    _write_pair(metadataDir.resolve(s"artifacts/maven/${p.name}"), _maven_yaml(p), _maven_json(p))
-    _write_pair(metadataDir.resolve(s"releases/${p.name}"), _release_yaml(p), _release_json(p))
+  private def _write(p: IndexResult, savedir: Path): Unit = {
+    val metadatadir = savedir.resolve("metadata")
+    _write_pair(metadatadir.resolve(s"artifacts/maven/${p.name}"), _maven_yaml(p), _maven_json(p))
+    _write_pair(metadatadir.resolve(s"releases/${p.name}"), _release_yaml(p), _release_json(p))
   }
 
   private def _check_repository_consistency(
     warehouseDir: Path,
-    saveDir: Path,
+    savedir: Path,
     name: String,
     repositoryKinds: Vector[String],
     repositoryModules: Vector[String]
   ): Unit = {
-    _expected_paths(saveDir.resolve(s"metadata/artifacts/repository/${name}.json")) match {
+    _expected_paths(savedir.resolve(s"metadata/artifacts/repository/${name}.json")) match {
       case xs if xs.nonEmpty =>
         _check_paths_exist(warehouseDir, "repository", xs)
       case _ =>
@@ -3369,12 +3513,12 @@ private object CozyWarehouseIndexer {
 
   private def _check_download_consistency(
     warehouseDir: Path,
-    saveDir: Path,
+    savedir: Path,
     name: String,
     downloadSamples: Vector[String],
     publicationPaths: Map[String, Option[String]]
   ): Unit = {
-    _expected_paths(saveDir.resolve(s"metadata/artifacts/download/${name}.json")) match {
+    _expected_paths(savedir.resolve(s"metadata/artifacts/download/${name}.json")) match {
       case xs if xs.nonEmpty =>
         _check_paths_exist(warehouseDir, "download", xs)
       case _ =>
@@ -3398,10 +3542,10 @@ private object CozyWarehouseIndexer {
       }.filter(_.nonEmpty).distinct.sorted
     }
 
-  private def _publication_path(saveDir: Path, publication: String): Option[String] = {
+  private def _publication_path(savedir: Path, publication: String): Option[String] = {
     val candidates = Vector(
-      saveDir.resolve(s"metadata/samples/${publication}/metadata.json"),
-      saveDir.resolve(s"metadata/projects/${publication}/metadata.json")
+      savedir.resolve(s"metadata/samples/${publication}/metadata.json"),
+      savedir.resolve(s"metadata/projects/${publication}/metadata.json")
     )
     candidates.collectFirst {
       case path if Files.isRegularFile(path) =>
@@ -3495,6 +3639,8 @@ private object CozyWarehouseIndexer {
 
   private def _download_scan_bases(publication: String, publicationPath: Option[String]): Vector[String] = {
     val canonical = CozyPublicationPaths.downloadBase(publication, publicationPath)
+    // Transitional compatibility only. Remove the legacy samples/<publication>
+    // scan after existing warehouses have migrated to publication.path-based URLs.
     Vector(canonical, s"samples/${publication}").distinct
   }
 
@@ -3506,12 +3652,13 @@ private object CozyWarehouseIndexer {
           case p if Files.isRegularFile(p) && p.getFileName.toString.toLowerCase(java.util.Locale.ROOT).endsWith(".zip") =>
             val rel = dir.relativize(p).iterator().asScala.toVector.map(_.toString)
             val collectionArchive = rel.size == 2
-            val sample = if (collectionArchive) None else rel.headOption
-            val version =
-              if (collectionArchive)
-                rel.headOption.getOrElse(_infer_version(p.getFileName.toString, "zip").getOrElse("unknown"))
-              else
-                rel.drop(1).headOption.getOrElse(_infer_version(p.getFileName.toString, "zip").getOrElse("unknown"))
+            val filename = p.getFileName.toString
+            val (sample, version) =
+              if (collectionArchive) {
+                None -> rel.headOption.getOrElse(_infer_version(filename, "zip").getOrElse("unknown"))
+              } else {
+                _download_sample_and_version(rel, filename)
+              }
             _indexed_file(
               warehouseDir,
               p,
@@ -3538,6 +3685,18 @@ private object CozyWarehouseIndexer {
         z
       else
         z :+ file
+    }
+
+  private def _download_sample_and_version(rel: Vector[String], filename: String): (Option[String], String) =
+    rel match {
+      case Vector(version, sample, _) if filename == s"${sample}-${version}.zip" =>
+        Some(sample) -> version
+      // Legacy download layout: <sample>/<version>/<sample>-<version>.zip.
+      // Keep this only while index-warehouse accepts pre-migration warehouses.
+      case Vector(sample, version, _) =>
+        Some(sample) -> version
+      case _ =>
+        rel.headOption -> _infer_version(filename, "zip").getOrElse("unknown")
     }
 
   private def _indexed_file(
@@ -3584,7 +3743,7 @@ private object CozyWarehouseIndexer {
 
   private def _maven_json(p: IndexResult): JsValue =
     Json.obj(
-      "schema" -> Schema,
+      "schema" -> _schema,
       "type" -> "maven-artifact",
       "project" -> _project_json(p),
       "artifact" -> Json.obj(
@@ -3615,7 +3774,7 @@ private object CozyWarehouseIndexer {
 
   private def _repository_json(p: IndexResult): JsValue =
     Json.obj(
-      "schema" -> Schema,
+      "schema" -> _schema,
       "type" -> "repository-artifact",
       "project" -> _project_json(p),
       "artifact" -> Json.obj(
@@ -3645,7 +3804,7 @@ private object CozyWarehouseIndexer {
 
   private def _download_json(p: IndexResult): JsValue =
     Json.obj(
-      "schema" -> Schema,
+      "schema" -> _schema,
       "type" -> "download-artifact",
       "project" -> _project_json(p),
       "artifact" -> Json.obj(
@@ -3673,7 +3832,7 @@ private object CozyWarehouseIndexer {
 
   private def _release_json(p: IndexResult): JsValue =
     Json.obj(
-      "schema" -> Schema,
+      "schema" -> _schema,
       "type" -> "release-history",
       "project" -> _project_json(p),
       "release" -> Json.obj(
@@ -3791,7 +3950,7 @@ private object CozyWarehouseIndexer {
       warehousePath
 
   private def _yaml_header(kind: String): String =
-    s"""schema: ${_yaml_string(Schema)}
+    s"""schema: ${_yaml_string(_schema)}
        |type: ${_yaml_string(kind)}
        |""".stripMargin
 
@@ -3862,7 +4021,7 @@ private object CozyWarehouseIndexer {
   private def _is_artifact_file(path: Path): Boolean = {
     val name = path.getFileName.toString
     val ext = name.reverse.takeWhile(_ != '.').reverse.toLowerCase(java.util.Locale.ROOT)
-    ArtifactExtensions.contains(ext) && !ChecksumExtensions.contains(ext)
+    _artifact_extensions.contains(ext) && !_checksum_extensions.contains(ext)
   }
 
   private def _parse_maven_file(artifactId: String, version: String, name: String): (Option[String], String) = {
@@ -3925,9 +4084,9 @@ private object CozyWarehouseIndexer {
 
   private def _validate_name(value: String): String = {
     val name = value.trim
-    SlugPattern.findFirstIn(name) match {
+    _slug_pattern.findFirstIn(name) match {
       case Some(x) if x == name => name
-      case _ => RAISE.invalidArgumentFault(s"Invalid publication name: ${value}. Expected ${SlugPattern.regex}")
+      case _ => RAISE.invalidArgumentFault(s"Invalid publication name: ${value}. Expected ${_slug_pattern.regex}")
     }
   }
 
@@ -3944,12 +4103,12 @@ private[cozy] object CozySbtBridge {
   def execute(args: List[String]): Unit =
     args match {
       case "v1" :: rest =>
-        executeV1(rest)
+        _execute_v1(rest)
       case _ =>
         RAISE.invalidArgumentFault("Missing sbt-bridge version. Expected: sbt-bridge v1 --request=<file>")
     }
 
-  private def executeV1(args: List[String]): Unit = {
+  private def _execute_v1(args: List[String]): Unit = {
     val requestPath = _required_path(args, "request")
     val request = _load_request(requestPath)
     request.action match {
