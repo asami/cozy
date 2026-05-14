@@ -25,11 +25,11 @@ CAR component sbt project
 
 CAR component sbt project
   -> Cozy publish-project
-  -> publish.d project/source metadata
+  -> publication registry project/source metadata
 
 warehouse
   -> Cozy index-warehouse
-  -> publish.d artifact/release metadata
+  -> publication registry artifact/release metadata
   -> SmartDox site rendering
 ```
 
@@ -76,7 +76,7 @@ Local operation settings go in `.cozy/config.yaml`:
 
 ```yaml
 publication:
-  output: /Users/asami/src/dev2025/simplemodeling-org/publish.d
+  output: /Users/asami/src/dev2025/simplemodeling-org/src/main/publication
 
 packaging:
   kind: car
@@ -140,22 +140,15 @@ sbt cozyIndexWarehouse
 
 ---
 
-# Expected publish.d Output
-
-Project metadata:
+# Expected publication registry Output
 
 ```text
-publish.d/metadata/catalog/projects/<name>.yaml|json
-publish.d/metadata/source-manifest/<name>.yaml|json
+src/main/publication/<name>.json
 ```
 
-Artifact metadata:
-
-```text
-publish.d/metadata/artifacts/repository/<name>.yaml|json
-publish.d/metadata/artifacts/maven/<name>.yaml|json
-publish.d/metadata/releases/<name>.yaml|json
-```
+The bundle contains entries for project metadata, source manifest metadata,
+repository artifact metadata, optional Maven artifact metadata, and release
+metadata.
 
 ---
 
@@ -176,7 +169,7 @@ SmartDox site can render:
 # Common Mistakes
 
 - Do not put SmartDox page templates into `src/main/car`.
-- Do not hand-copy CAR files into `publish.d`.
+- Do not hand-copy CAR files into `src/main/publication`.
 - Do not use `cozyPublishProject` as a binary distribution operation.
 - Do not use `cozyIndexWarehouse` before the warehouse contains the released CAR.
 - Do not index unrelated CAR modules.

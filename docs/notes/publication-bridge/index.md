@@ -11,7 +11,7 @@ This directory collects project-type-specific notes for the Cozy to SmartDox
 publication bridge.
 
 Each note explains how a source project should be shaped so Cozy can generate
-`publish.d` metadata and SmartDox site can render human-facing pages from that
+`src/main/publication` metadata and SmartDox site can render human-facing pages from that
 metadata.
 
 ---
@@ -34,7 +34,7 @@ The boundary is common to every project type:
 ```text
 source project
   -> Cozy publication compiler
-  -> publish.d
+  -> publication registry
   -> SmartDox site renderer
   -> website.d
 ```
@@ -43,9 +43,9 @@ Rules:
 
 - Source projects provide executable or descriptive source material.
 - Cozy extracts and normalizes publication metadata.
-- `publish.d` is the generated semantic publication workspace.
-- SmartDox site renders `publish.d` into pages.
-- Warehouse artifacts are indexed by Cozy into `publish.d`; SmartDox site should not scan warehouse directly.
+- `src/main/publication` is the git-managed semantic publication registry.
+- SmartDox site renders `src/main/publication` into pages.
+- Warehouse artifacts are indexed by Cozy into `src/main/publication`; SmartDox site should not scan warehouse directly.
 
 ---
 
@@ -67,7 +67,7 @@ Each note should cover:
 - `project.yaml` public project metadata
 - `.cozy/config.yaml` local operation defaults
 - Cozy commands
-- generated `publish.d` files
+- generated `src/main/publication` files
 - SmartDox page interpretation
 - common mistakes
 - one concrete example when available

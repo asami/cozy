@@ -1,6 +1,6 @@
 # Phase 5 Checklist
 
-## EPC-01: `publish.d` Output Contract
+## EPC-01: `src/main/publication` Output Contract
 
 - [x] Define top-level output directories
 - [x] Define project identity metadata
@@ -13,7 +13,7 @@
 
 - [x] Add command name and help entry
 - [x] Accept source sbt project path
-- [x] Accept `--save=<publish.d>` output path
+- [x] Accept `--save=<registry-dir>` output path
 - [x] Keep output deterministic
 - [x] Fail explicitly for missing project roots
 
@@ -45,7 +45,7 @@
 ## EPC-06: Tests
 
 - [x] Add minimal sbt fixture project
-- [x] Verify deterministic `publish.d` generation
+- [x] Verify deterministic `src/main/publication` generation
 - [x] Verify generated catalog paths
 - [x] Verify generated sample metadata
 - [x] Verify missing project failure
@@ -55,7 +55,7 @@
 
 ## EPC-07: SmartDox Site Handoff
 
-- [x] Document how SmartDox site consumes generated `publish.d`
+- [x] Document how SmartDox site consumes generated `src/main/publication`
 - [x] Document which generated files map to `/catalog`
 - [x] Document which generated files map to `/samples`
 - [x] Document which generated files map to `/repository`

@@ -34,13 +34,13 @@ The publication pipeline is:
 ```text
 multi-sample project repository
   -> Cozy publish-project
-  -> publish.d metadata
+  -> publication registry metadata
   -> SmartDox site rendering
   -> website.d
 
 warehouse artifacts
   -> Cozy index-warehouse
-  -> publish.d artifact/release metadata
+  -> publication registry artifact/release metadata
   -> SmartDox site rendering
 ```
 
@@ -50,14 +50,14 @@ Responsibilities:
 |---|---|
 | multi-sample project | executable sample projects, source layout, sample explanations, local verification scripts |
 | Cozy | extraction, normalization, source manifests, catalog metadata, artifact/release metadata |
-| `publish.d` | generated semantic publication data consumed by SmartDox site |
+| `src/main/publication` | generated semantic publication data consumed by SmartDox site |
 | SmartDox site | navigation, HTML/PDF/site rendering, human-facing layout |
 | warehouse | durable released binaries such as Maven artifacts, CAR, SAR, ZIP |
 
 Important consequence:
 
-- SmartDox site should consume `publish.d`, not scan the sample repository directly.
-- SmartDox site should consume artifact metadata in `publish.d`, not scan the warehouse directly.
+- SmartDox site should consume `src/main/publication`, not scan the sample repository directly.
+- SmartDox site should consume artifact metadata in `src/main/publication`, not scan the warehouse directly.
 - The sample repository should not duplicate Cozy's metadata compiler logic.
 
 ---
@@ -120,7 +120,7 @@ Repository level:
 
 - owns `.cozy/config.yaml`
 - owns the collection publication identity
-- owns the output destination for `publish.d`
+- owns the output destination for `src/main/publication`
 - owns shared setup scripts and repository-wide documentation
 
 Child sample level:
@@ -152,10 +152,10 @@ download links after `index-warehouse` has run.
 
 # What Cozy Produces For sample-multi
 
-For a `sample-multi` project, Cozy should generate collection-level `publish.d` entries such as:
+For a `sample-multi` project, Cozy should generate collection-level `src/main/publication` entries such as:
 
 ```text
-publish.d/
+src/main/publication/
   metadata/
     catalog/
       projects/textus-tutorial.yaml
@@ -180,7 +180,7 @@ publish.d/
 When release artifacts exist in the warehouse, Cozy also generates:
 
 ```text
-publish.d/
+src/main/publication/
   metadata/
     artifacts/
       maven/textus-tutorial.yaml
@@ -219,7 +219,7 @@ Use `.cozy/config.yaml` for repository-local operation defaults.
 
 ```yaml
 publication:
-  output: /Users/asami/src/dev2025/simplemodeling-org/publish.d
+  output: /Users/asami/src/dev2025/simplemodeling-org/src/main/publication
   samples_dir: samples
 
 warehouse:
@@ -258,7 +258,7 @@ sbt cozyPublishProject
 Equivalent Cozy CLI:
 
 ```console
-cozy publish-project . --save=/Users/asami/src/dev2025/simplemodeling-org/publish.d
+cozy publish-project . --save=/Users/asami/src/dev2025/simplemodeling-org/src/main/publication
 ```
 
 This operation reads the multi-sample repository and produces project/source/catalog/sample metadata.
@@ -277,7 +277,7 @@ Equivalent Cozy CLI:
 
 ```console
 cozy index-warehouse /Users/asami/src/maven-repository \
-  --save=/Users/asami/src/dev2025/simplemodeling-org/publish.d \
+  --save=/Users/asami/src/dev2025/simplemodeling-org/src/main/publication \
   --name=textus-tutorial \
   --maven-coordinates=org.example:textus-tutorial_3 \
   --repository-artifacts=car,sar \
@@ -285,7 +285,7 @@ cozy index-warehouse /Users/asami/src/maven-repository \
 ```
 
 This operation reads warehouse artifacts and updates artifact/release metadata
-in `publish.d`.
+in `src/main/publication`.
 
 It should not build the samples and should not render the website.
 
@@ -327,7 +327,7 @@ Contributors and AI agents working in a multi-sample project should edit:
 
 They should not edit:
 
-- generated `publish.d` by hand
+- generated `src/main/publication` by hand
 - SmartDox site templates to compensate for missing sample metadata
 - warehouse metadata files by hand
 - Cozy compiler behavior from inside `cncf-samples`
@@ -363,7 +363,7 @@ Expected page roles:
 | Download page | `metadata/artifacts/download/textus-tutorial.*`, `metadata/artifacts/maven/textus-tutorial.*`, `metadata/artifacts/repository/textus-tutorial.*` |
 | Release history page | `metadata/releases/textus-tutorial.*` |
 
-SmartDox may create richer navigation, but the data source remains `publish.d`.
+SmartDox may create richer navigation, but the data source remains `src/main/publication`.
 
 ---
 
@@ -380,10 +380,10 @@ cncf-samples -> website.d
 Correct:
 
 ```text
-cncf-samples -> Cozy -> publish.d -> SmartDox site -> website.d
+cncf-samples -> Cozy -> publication registry -> SmartDox site -> website.d
 ```
 
-## Mistake: Make sample scripts update publish.d directly
+## Mistake: Make sample scripts update publication registry directly
 
 Sample scripts should demonstrate CNCF runtime behavior. They should not become
 publication compilers.
@@ -445,12 +445,12 @@ Do:
 
 - update `.cozy/config.yaml` when defaults are wrong
 - run `sbt cozyPublishProject`
-- inspect generated `publish.d` metadata shape
+- inspect generated `src/main/publication` metadata shape
 - update notes/specs if the model changed
 
 Do not:
 
-- hand-edit `publish.d`
+- hand-edit `src/main/publication`
 - add per-sample hacks to generate publication metadata
 
 ## Artifact/release metadata task
@@ -460,7 +460,7 @@ Do:
 - ensure artifacts are in warehouse
 - configure Maven coordinates and repository modules
 - run `sbt cozyIndexWarehouse`
-- inspect `metadata/artifacts/maven`, `metadata/artifacts/repository`, and `metadata/releases` under `publish.d`
+- inspect `metadata/artifacts/maven`, `metadata/artifacts/repository`, and `metadata/releases` under `src/main/publication`
 
 Do not:
 
@@ -496,7 +496,7 @@ Repository path:
 Publication target:
 
 ```text
-/Users/asami/src/dev2025/simplemodeling-org/publish.d
+/Users/asami/src/dev2025/simplemodeling-org/src/main/publication
 ```
 
 Warehouse target:
@@ -519,13 +519,13 @@ publication:
   title: Textus Tutorial
   path: textus/tutorial/textus-tutorial
   kind: sample-multi
-  output: /Users/asami/src/dev2025/simplemodeling-org/publish.d
+  output: /Users/asami/src/dev2025/simplemodeling-org/src/main/publication
   samples_dir: samples
 ```
 
 Why `name` is `textus-tutorial`:
 
-- it is the stable publication key used in `publish.d`
+- it is the stable publication key used in `src/main/publication`
 - it is URL-safe
 - it is not necessarily the same as the repository directory name
 - it represents the tutorial/sample collection as presented to readers
@@ -605,7 +605,7 @@ Recommended local operation settings:
 ```yaml
 # cncf-samples .cozy/config.yaml
 publication:
-  output: /Users/asami/src/dev2025/simplemodeling-org/publish.d
+  output: /Users/asami/src/dev2025/simplemodeling-org/src/main/publication
   samples_dir: samples
   source_manifest:
     excludes:
@@ -649,11 +649,11 @@ sbt cozyPublishProject
 Expected effect:
 
 ```text
-publish.d/metadata/catalog/projects/textus-tutorial.json
-publish.d/metadata/catalog/samples/textus-tutorial.json
-publish.d/metadata/samples/textus-tutorial/metadata.json
-publish.d/metadata/source-manifest/textus-tutorial.json
+src/main/publication/textus-tutorial.json
 ```
+
+The bundle contains entries for catalog metadata, sample metadata, expected
+download artifact metadata, publication pages, and source manifest metadata.
 
 This command answers:
 
@@ -673,10 +673,10 @@ sbt cozyIndexWarehouse
 Expected effect:
 
 ```text
-publish.d/metadata/artifacts/maven/textus-tutorial.json
-publish.d/metadata/artifacts/repository/textus-tutorial.json
-publish.d/metadata/releases/textus-tutorial.json
+src/main/publication/textus-tutorial.json
 ```
+
+The command updates Maven artifact and release entries inside the same bundle.
 
 This command answers:
 
@@ -689,7 +689,7 @@ It does not build samples and does not render the website.
 
 ---
 
-# cncf-samples Expected publish.d Meaning
+# cncf-samples Expected publication registry Meaning
 
 ## `metadata/catalog/projects/textus-tutorial.*`
 
@@ -738,9 +738,9 @@ SmartDox and AI-facing tools can use it for:
 
 ## `metadata/artifacts/maven`, `metadata/artifacts/repository`, `metadata/artifacts/download`, and `metadata/releases`
 
-Represent publish.d metadata for Maven, expected repository/download paths, and release history. Maven metadata is indexed from the warehouse; repository/download metadata is written by `publish-project` and checked by `index-warehouse`.
+Represent publication registry metadata for Maven, expected repository/download paths, and release history. Maven metadata is indexed from the warehouse; repository/download metadata is written by `publish-project` and checked by `index-warehouse`.
 
-Sample ZIP archives are user-facing downloads. `publish-project` writes their expected paths in `publish.d`; `cozyDistributeSamples` places both the collection archive and individual sample archives at:
+Sample ZIP archives are user-facing downloads. `publish-project` writes their expected paths in `src/main/publication`; `cozyDistributeSamples` places both the collection archive and individual sample archives at:
 
 ```text
 warehouse/download/<publication.path>/<version>/<publication>-<version>.zip
@@ -757,7 +757,7 @@ cozy distribute-samples . --warehouse=/Users/asami/src/maven-repository --name=t
 
 Dry-run accepts SNAPSHOT versions because it does not publish artifacts.
 
-CAR/SAR archives are runtime repository artifacts. `publish-project` writes their expected paths in `publish.d`; `cozyDistributeCAR/SAR` places the files at:
+CAR/SAR archives are runtime repository artifacts. `publish-project` writes their expected paths in `src/main/publication`; `cozyDistributeCAR/SAR` places the files at:
 
 ```text
 warehouse/repository/car/<module>/<version>/<module>-<version>.car
@@ -790,8 +790,8 @@ If the task is about publication:
 ```text
 Check .cozy/config.yaml.
 Run cozyPublishProject.
-Inspect publish.d metadata.
-Do not hand-edit publish.d.
+Inspect publication registry metadata.
+Do not hand-edit publication registry.
 ```
 
 If the task is about releases or downloads:
@@ -825,7 +825,7 @@ Avoid these changes:
 
 - adding `website.d` generation scripts to `cncf-samples`
 - putting SmartDox page templates in child sample directories
-- making every child sample write its own `publish.d` files
+- making every child sample write its own `src/main/publication` files
 - scanning all `/Users/asami/src/maven-repository` artifacts for `textus-tutorial`
 - using repository directory name as the publication identity when the published collection name is different
 - treating `samples/01-minimal` as a separate top-level publication unless that is explicitly designed
@@ -836,6 +836,6 @@ Preferred shape:
 cncf-samples
   -> one sample-multi publication: textus-tutorial
   -> many child sample projects under samples/
-  -> Cozy-generated publish.d
+  -> Cozy-generated publication registry
   -> SmartDox-rendered pages
 ```

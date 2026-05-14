@@ -24,6 +24,7 @@ import java.util.zip.{ZipEntry, ZipOutputStream}
 import scala.util.Try
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.JavaConverters._
+import scala.sys.process._
 
 /*
  * @since   Dec.  4, 2021
@@ -204,6 +205,9 @@ class Cozy(
     _leading_command(args) match {
       case Some(("publish-project", rest)) =>
         CozyPublicationCompiler.publish(rest)
+        true
+      case Some(("unpublish-project", rest)) =>
+        CozyPublicationCompiler.unpublish(rest)
         true
       case _ =>
         false
@@ -1724,15 +1728,18 @@ object Cozy {
       |      Build a SAR archive.
       |
       |  publish-project <project-dir> [--save=<dir>] [--kind=car|sar|sample-single|sample-multi] [--name=<slug>] [--title=<title>] [--path=<path>]
-      |      Generate SmartDox site BoK publication sources from an sbt project.
-      |      Writes deterministic YAML/JSON metadata and a source manifest under publish.d.
+      |      Generate SmartDox site BoK publication registry sources from an sbt project.
+      |      Writes or replaces one publication bundle under the registry.
+      |
+      |  unpublish-project --save=<dir> --name=<slug>
+      |      Remove a publication bundle from a publication registry.
       |
       |  distribute-samples <project-dir> --warehouse=<dir> --name=<slug> --version=<version> [--samples-dir=<dir>] [--dry-run]
       |      Zip the sample collection and each sample project under warehouse/download/<publication.path>.
       |      With --dry-run, print planned output paths without writing archives.
       |
       |  index-warehouse <warehouse-dir> --save=<dir> --name=<slug> [--title=<title>] [--maven-coordinates=<group:artifact,...>] [--repository-artifacts=car,sar,zip] [--repository-modules=<module,...>] [--download-samples=<publication,...>]
-      |      Generate publish.d artifact and release metadata by indexing a warehouse.
+      |      Generate publication registry artifact and release metadata by indexing a warehouse.
       |
       |  sbt-bridge v1 --request=<file>
       |      Run the sbt-cozy bridge for generation or archive packaging.
@@ -2321,7 +2328,7 @@ private object CozyPublicationCompiler {
     val config = CozyProjectYamlConfig.load(projectdir.resolve(".cozy/config.yaml"))
     val savedir = _publication_output(projectdir, args, config)
     val publication = _compile(projectdir, savedir, args, config)
-    _write(publication, savedir)
+    _write(publication, savedir, projectdir)
   }
 
   private def _compile(projectdir: Path, savedir: Path, args: List[String], config: CozyProjectYamlConfig.Config): Publication = {
@@ -2393,7 +2400,32 @@ private object CozyPublicationCompiler {
       }
     }
 
-  private def _write(publication: Publication, savedir: Path): Unit = {
+  def unpublish(args: List[String]): Unit = {
+    val savedir = _required_path(args, "save")
+    val name = _value(args, "name").map(_validate_name(_, "publication name")).getOrElse(RAISE.invalidArgumentFault("Missing --name"))
+    PublicationRegistry.remove(savedir, name)
+  }
+
+  def registerMetadata(root: Path, name: String, entries: Vector[(String, JsValue)]): Unit =
+    PublicationRegistry.registerMetadata(root, name, entries.map {
+      case (path, json) => PublicationBundleEntry(path, _publication_bundle_key(path), json)
+    })
+
+  private def _write(publication: Publication, savedir: Path, projectdir: Path): Unit = {
+    val name = publication.project.name
+    _delete_legacy_placeholder(savedir.resolve(s"repository/artifacts/${name}"))
+    _delete_legacy_placeholder(savedir.resolve(s"maven/artifacts/${name}"))
+    _delete_legacy_placeholder(savedir.resolve(s"download/artifacts/${name}"))
+    val staging = Files.createTempDirectory("cozy-publication-")
+    try {
+      _write_publication_files(publication, staging)
+      PublicationRegistry.publish(savedir, publication, projectdir, staging)
+    } finally {
+      _delete_directory(staging)
+    }
+  }
+
+  private def _write_publication_files(publication: Publication, savedir: Path): Unit = {
     val name = publication.project.name
     _delete_legacy_placeholder(savedir.resolve(s"repository/artifacts/${name}"))
     _delete_legacy_placeholder(savedir.resolve(s"maven/artifacts/${name}"))
@@ -3136,11 +3168,16 @@ private object CozyPublicationCompiler {
       map(p => Paths.get(p).toAbsolutePath.normalize()).
       getOrElse(RAISE.invalidArgumentFault("Missing project directory for publish-project"))
 
+  private def _required_path(args: List[String], key: String): Path =
+    _value(args, key).
+      map(p => Paths.get(p).toAbsolutePath.normalize()).
+      getOrElse(RAISE.invalidArgumentFault(s"Missing --${key}"))
+
   private def _publication_output(projectdir: Path, args: List[String], config: CozyProjectYamlConfig.Config): Path =
     _value(args, "save").
       map(p => Paths.get(p).toAbsolutePath.normalize()).
       orElse(_config_path(projectdir, config.value("publication.output"))).
-      getOrElse(projectdir.resolve("target/publish.d").toAbsolutePath.normalize())
+      getOrElse(projectdir.resolve("target/publication").toAbsolutePath.normalize())
 
   private def _config_path(projectdir: Path, value: Option[String]): Option[Path] =
     value.map { p =>
@@ -3207,6 +3244,213 @@ private object CozyPublicationCompiler {
   private def _write_text(path: Path, text: String): Unit = {
     Option(path.getParent).foreach(Files.createDirectories(_))
     Files.writeString(path, text, StandardCharsets.UTF_8)
+  }
+
+  private final case class PublicationBundleEntry(
+    path: String,
+    key: String,
+    metadata: JsValue
+  )
+  private final case class PublicationBundle(
+    publication: String,
+    publicationPath: Option[String],
+    sourceRepository: String,
+    sourcePath: String,
+    sourceCommit: Option[String],
+    entries: Vector[PublicationBundleEntry]
+  )
+
+  private def _publication_bundle_key(path: String): String = {
+    val stripped = path.replaceFirst("""\.[^.]+$""", "")
+    if (stripped.startsWith("metadata/"))
+      stripped.substring("metadata/".length)
+    else
+      stripped
+  }
+
+  private object PublicationRegistry {
+    def publish(root: Path, publication: Publication, projectdir: Path, staging: Path): Unit = {
+      val name = publication.project.name
+      val bundle = PublicationBundle(
+        publication = name,
+        publicationPath = publication.project.publicationPath,
+        sourceRepository = _source_repository(projectdir),
+        sourcePath = _source_path(projectdir),
+        sourceCommit = _source_commit(projectdir),
+        entries = _bundle_entries(staging)
+      )
+      _check_collisions(root, bundle)
+      _write_bundle(root, bundle)
+    }
+
+    def registerMetadata(root: Path, name: String, entries: Vector[PublicationBundleEntry]): Unit = {
+      val old = _load_bundle(root, name).getOrElse(RAISE.invalidArgumentFault(s"Publication bundle not found: ${name}"))
+      val replacepaths = entries.map(_.path).toSet
+      val bundle = old.copy(
+        entries = (old.entries.filterNot(x => replacepaths.contains(x.path)) ++ entries.map(_validate_entry)).distinct.sortBy(_.path)
+      )
+      _check_collisions(root, bundle)
+      _write_bundle(root, bundle)
+    }
+
+    def remove(root: Path, name: String): Unit = {
+      val path = _bundle_path(root, name)
+      if (!Files.isRegularFile(path))
+        RAISE.invalidArgumentFault(s"Publication bundle not found: ${name}")
+      Files.deleteIfExists(path)
+    }
+
+    private def _load_bundle(root: Path, name: String): Option[PublicationBundle] = {
+      val jsonpath = _bundle_path(root, name)
+      if (Files.isRegularFile(jsonpath)) {
+        val json = Json.parse(Files.readString(jsonpath, StandardCharsets.UTF_8))
+        if ((json \ "type").asOpt[String].contains("publication-bundle"))
+          Some(PublicationBundle(
+            publication = (json \ "publication" \ "name").asOpt[String].getOrElse(name),
+            publicationPath = (json \ "publication" \ "path").asOpt[String],
+            sourceRepository = (json \ "sourceRepository").asOpt[String].getOrElse(""),
+            sourcePath = (json \ "sourcePath").asOpt[String].getOrElse(""),
+            sourceCommit = (json \ "sourceCommit").asOpt[String],
+            entries = (json \ "entries").asOpt[Vector[JsObject]].getOrElse(Vector.empty).map { entry =>
+              PublicationBundleEntry(
+                path = _validate_relative_metadata_path((entry \ "path").as[String]),
+                key = (entry \ "key").asOpt[String].getOrElse(_logical_key((entry \ "path").as[String])),
+                metadata = (entry \ "metadata").as[JsValue]
+              )
+            }
+          ))
+        else
+          None
+      } else {
+        None
+      }
+    }
+
+    private def _all_bundles(root: Path): Vector[PublicationBundle] =
+      if (!Files.isDirectory(root))
+        Vector.empty
+      else {
+        val stream = Files.list(root)
+        try {
+          stream.iterator().asScala.toVector.filter(_.getFileName.toString.endsWith(".json")).flatMap { path =>
+            _load_bundle(root, path.getFileName.toString.stripSuffix(".json"))
+          }
+        } finally {
+          stream.close()
+        }
+      }
+
+    private def _check_collisions(root: Path, bundle: PublicationBundle): Unit = {
+      val mine = bundle.entries.map(_.path).toSet
+      val collisions = _all_bundles(root).filterNot(_.publication == bundle.publication).flatMap { other =>
+        other.entries.map(_.path).filter(mine.contains).map(path => s"${path} (${other.publication})")
+      }
+      if (collisions.nonEmpty)
+        RAISE.invalidArgumentFault(s"Publication registry path collision for ${bundle.publication}: ${collisions.sorted.mkString(", ")}")
+      bundle.publicationPath.foreach { path =>
+        val pathcollisions = _all_bundles(root).filterNot(_.publication == bundle.publication).filter(_.publicationPath.contains(path)).map(_.publication)
+        if (pathcollisions.nonEmpty)
+          RAISE.invalidArgumentFault(s"Publication registry publication.path collision for ${bundle.publication}: ${path} (${pathcollisions.sorted.mkString(", ")})")
+      }
+    }
+
+    private def _write_bundle(root: Path, bundle: PublicationBundle): Unit = {
+      Files.createDirectories(root)
+      _write_text(_bundle_path(root, bundle.publication), Json.prettyPrint(_bundle_json(bundle)) + "\n")
+    }
+
+    private def _bundle_json(p: PublicationBundle): JsValue =
+      Json.obj(
+        "schema" -> _schema,
+        "type" -> "publication-bundle",
+        "publication" -> (Json.obj(
+          "name" -> p.publication
+        ) ++ p.publicationPath.map(x => Json.obj("path" -> x)).getOrElse(Json.obj())),
+        "sourceRepository" -> p.sourceRepository,
+        "sourcePath" -> p.sourcePath,
+        "sourceCommit" -> p.sourceCommit,
+        "entries" -> JsArray(p.entries.sortBy(_.path).map(_entry_json))
+      )
+
+    private def _entry_json(p: PublicationBundleEntry): JsValue =
+      Json.obj(
+        "path" -> p.path,
+        "key" -> p.key,
+        "metadata" -> p.metadata
+      )
+
+    private def _bundle_entries(staging: Path): Vector[PublicationBundleEntry] =
+      _relative_files(staging).filter(x => x.endsWith(".json") && _is_public_metadata_entry(x)).map { rel =>
+        val path = _validate_relative_metadata_path(rel)
+        PublicationBundleEntry(
+          path = path,
+          key = _logical_key(path),
+          metadata = Json.parse(Files.readString(staging.resolve(path), StandardCharsets.UTF_8))
+        )
+      }.sortBy(_.path)
+
+    private def _is_public_metadata_entry(path: String): Boolean =
+      path.startsWith("metadata/") && !path.contains("/files/")
+
+    private def _validate_entry(p: PublicationBundleEntry): PublicationBundleEntry =
+      p.copy(path = _validate_relative_metadata_path(p.path), key = if (p.key.trim.isEmpty) _logical_key(p.path) else p.key.trim)
+
+    private def _bundle_path(root: Path, name: String): Path =
+      root.resolve(s"${name}.json")
+
+    private def _relative_files(root: Path): Vector[String] =
+      if (!Files.exists(root))
+        Vector.empty
+      else {
+        val stream = Files.walk(root)
+        try {
+          stream.iterator().asScala.toVector.filter(Files.isRegularFile(_)).map { path =>
+            root.relativize(path).toString.replace('\\', '/')
+          }.map(_validate_relative_path).distinct.sorted
+        } finally {
+          stream.close()
+        }
+      }
+
+    private def _validate_relative_metadata_path(path: String): String = {
+      val rel = _validate_relative_path(path)
+      if (!rel.startsWith("metadata/"))
+        RAISE.invalidArgumentFault(s"Publication bundle entry must be under metadata/: ${path}")
+      rel
+    }
+
+    private def _validate_relative_path(path: String): String = {
+      val normalized = Paths.get(path).normalize()
+      if (normalized.isAbsolute || normalized.startsWith("..") || path.contains("\u0000"))
+        RAISE.invalidArgumentFault(s"Invalid publication bundle path: ${path}")
+      normalized.toString.replace('\\', '/')
+    }
+
+    private def _logical_key(path: String): String = {
+      val stripped = path.replaceFirst("""\.[^.]+$""", "")
+      if (stripped.startsWith("metadata/"))
+        stripped.substring("metadata/".length)
+      else
+        stripped
+    }
+
+    private def _source_repository(projectdir: Path): String =
+      _git_toplevel(projectdir).map(_.getFileName.toString).getOrElse(projectdir.getFileName.toString)
+
+    private def _source_path(projectdir: Path): String = {
+      val normalized = projectdir.toAbsolutePath.normalize()
+      _git_toplevel(projectdir).filter(root => normalized.startsWith(root)).map { root =>
+        val relative = root.relativize(normalized).toString.replace('\\', '/')
+        if (relative.isEmpty) "." else relative
+      }.getOrElse(".")
+    }
+
+    private def _source_commit(projectdir: Path): Option[String] =
+      Try(Process(Seq("git", "-C", projectdir.toString, "rev-parse", "HEAD")).!!.trim).toOption.filter(_.nonEmpty)
+
+    private def _git_toplevel(projectdir: Path): Option[Path] =
+      Try(Process(Seq("git", "-C", projectdir.toString, "rev-parse", "--show-toplevel")).!!.trim).toOption.
+        filter(_.nonEmpty).map(x => Paths.get(x).toAbsolutePath.normalize())
   }
 }
 
@@ -3485,9 +3729,10 @@ private object CozyWarehouseIndexer {
   }
 
   private def _write(p: IndexResult, savedir: Path): Unit = {
-    val metadatadir = savedir.resolve("metadata")
-    _write_pair(metadatadir.resolve(s"artifacts/maven/${p.name}"), _maven_yaml(p), _maven_json(p))
-    _write_pair(metadatadir.resolve(s"releases/${p.name}"), _release_yaml(p), _release_json(p))
+    CozyPublicationCompiler.registerMetadata(savedir, p.name, Vector(
+      s"metadata/artifacts/maven/${p.name}.json" -> _maven_json(p),
+      s"metadata/releases/${p.name}.json" -> _release_json(p)
+    ))
   }
 
   private def _check_repository_consistency(
@@ -3497,7 +3742,7 @@ private object CozyWarehouseIndexer {
     repositoryKinds: Vector[String],
     repositoryModules: Vector[String]
   ): Unit = {
-    _expected_paths(savedir.resolve(s"metadata/artifacts/repository/${name}.json")) match {
+    _expected_paths(savedir, name, s"metadata/artifacts/repository/${name}.json") match {
       case xs if xs.nonEmpty =>
         _check_paths_exist(warehouseDir, "repository", xs)
       case _ =>
@@ -3507,7 +3752,7 @@ private object CozyWarehouseIndexer {
         } yield warehouseDir.resolve("repository").resolve(kind).resolve(module)
         val existing = expected.exists(Files.exists(_))
         if (existing)
-          RAISE.invalidArgumentFault(s"Warehouse repository artifacts exist for ${name}, but publish.d metadata/artifacts/repository/${name}.json is missing")
+          RAISE.invalidArgumentFault(s"Warehouse repository artifacts exist for ${name}, but publication registry metadata/artifacts/repository/${name}.json is missing")
     }
   }
 
@@ -3518,7 +3763,7 @@ private object CozyWarehouseIndexer {
     downloadSamples: Vector[String],
     publicationPaths: Map[String, Option[String]]
   ): Unit = {
-    _expected_paths(savedir.resolve(s"metadata/artifacts/download/${name}.json")) match {
+    _expected_paths(savedir, name, s"metadata/artifacts/download/${name}.json") match {
       case xs if xs.nonEmpty =>
         _check_paths_exist(warehouseDir, "download", xs)
       case _ =>
@@ -3528,31 +3773,38 @@ private object CozyWarehouseIndexer {
           }
         }
         if (existing)
-          RAISE.invalidArgumentFault(s"Warehouse download artifacts exist for ${name}, but publish.d metadata/artifacts/download/${name}.json is missing")
+          RAISE.invalidArgumentFault(s"Warehouse download artifacts exist for ${name}, but publication registry metadata/artifacts/download/${name}.json is missing")
     }
   }
 
-  private def _expected_paths(path: Path): Vector[String] =
-    if (!Files.isRegularFile(path))
-      Vector.empty
-    else {
-      val json = Json.parse(Files.readString(path, StandardCharsets.UTF_8))
+  private def _expected_paths(savedir: Path, name: String, path: String): Vector[String] =
+    _bundle_entry(savedir, name, path) match {
+      case None => Vector.empty
+      case Some(json) =>
       (json \ "artifact" \ "files").asOpt[Vector[JsObject]].toVector.flatten.flatMap { x =>
         (x \ "warehousePath").asOpt[String].orElse((x \ "path").asOpt[String])
       }.filter(_.nonEmpty).distinct.sorted
     }
 
   private def _publication_path(savedir: Path, publication: String): Option[String] = {
-    val candidates = Vector(
-      savedir.resolve(s"metadata/samples/${publication}/metadata.json"),
-      savedir.resolve(s"metadata/projects/${publication}/metadata.json")
-    )
-    candidates.collectFirst {
-      case path if Files.isRegularFile(path) =>
-        Try {
-          (Json.parse(Files.readString(path, StandardCharsets.UTF_8)) \ "publication" \ "path").asOpt[String]
-        }.toOption.flatten
-    }.flatten.map(CozyPublicationPaths.validatePublicationPath)
+    Vector(
+      s"metadata/samples/${publication}/metadata.json",
+      s"metadata/projects/${publication}/metadata.json"
+    ).flatMap(path => _bundle_entry(savedir, publication, path)).
+      flatMap(json => (json \ "publication" \ "path").asOpt[String]).
+      headOption.map(CozyPublicationPaths.validatePublicationPath)
+  }
+
+  private def _bundle_entry(savedir: Path, name: String, path: String): Option[JsValue] = {
+    val bundle = savedir.resolve(s"${name}.json")
+    if (!Files.isRegularFile(bundle))
+      None
+    else {
+      val json = Json.parse(Files.readString(bundle, StandardCharsets.UTF_8))
+      (json \ "entries").asOpt[Vector[JsObject]].getOrElse(Vector.empty).collectFirst {
+        case entry if (entry \ "path").asOpt[String].contains(path) => (entry \ "metadata").as[JsValue]
+      }
+    }
   }
 
   private def _check_paths_exist(warehouseDir: Path, layer: String, paths: Vector[String]): Unit = {
@@ -4120,6 +4372,8 @@ private[cozy] object CozySbtBridge {
         CozyArchivePackager.buildSar(request.arguments.toList)
       case "publish-project" =>
         CozyPublicationCompiler.publish(request.arguments.toList)
+      case "unpublish-project" =>
+        CozyPublicationCompiler.unpublish(request.arguments.toList)
       case "distribute-samples" =>
         CozySampleDistributor.distribute(request.arguments.toList)
       case "index-warehouse" =>

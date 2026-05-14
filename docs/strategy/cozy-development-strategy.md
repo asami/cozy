@@ -70,7 +70,7 @@ Cozy should produce stable, normalized publication sources such as:
 - runtime artifact metadata
 - generated SmartDox fragments when needed
 
-These outputs belong in a generated `publish.d` workspace.
+These outputs belong in a generated `src/main/publication` workspace.
 
 ### SmartDox Site Renders Publication Knowledge
 
@@ -137,7 +137,7 @@ The first useful slice is:
 sbt project
   -> project inventory
   -> normalized publication model
-  -> publish.d catalog/sample/source metadata
+  -> publication registry catalog/sample/source metadata
 ```
 
 The implementation should start small and produce inspectable files before

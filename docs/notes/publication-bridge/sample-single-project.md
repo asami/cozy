@@ -25,7 +25,7 @@ metadata and SmartDox site renders it.
 ```text
 single sample sbt project
   -> Cozy publish-project
-  -> publish.d metadata
+  -> publication registry metadata
   -> SmartDox site rendering
 ```
 
@@ -34,7 +34,7 @@ If release artifacts exist:
 ```text
 warehouse artifacts
   -> Cozy index-warehouse
-  -> publish.d artifact/release metadata
+  -> publication registry artifact/release metadata
   -> SmartDox site rendering
 ```
 
@@ -81,7 +81,7 @@ Local operation settings go in `.cozy/config.yaml`:
 
 ```yaml
 publication:
-  output: /Users/asami/src/dev2025/simplemodeling-org/publish.d
+  output: /Users/asami/src/dev2025/simplemodeling-org/src/main/publication
 
 warehouse:
   repository: /Users/asami/src/maven-repository
@@ -112,18 +112,18 @@ sbt cozyPublishProject
 or:
 
 ```console
-cozy publish-project . --kind=sample-single --save=/Users/asami/src/dev2025/simplemodeling-org/publish.d
+cozy publish-project . --kind=sample-single --save=/Users/asami/src/dev2025/simplemodeling-org/src/main/publication
 ```
 
 Expected output:
 
 ```text
-publish.d/
-  metadata/catalog/projects/<name>.yaml|json
-  metadata/catalog/samples/<name>.yaml|json
-  metadata/samples/<name>/metadata.yaml|json
-  metadata/source-manifest/<name>.yaml|json
+src/main/publication/
+  <name>.json
 ```
+
+The bundle contains entries for catalog metadata, sample metadata, and source
+manifest metadata.
 
 Artifact indexing is optional. Use it only when the sample has distributed
 artifacts that should appear in download/release pages.
@@ -133,7 +133,7 @@ artifacts that should appear in download/release pages.
 # SmartDox Interpretation
 
 SmartDox site should render a single sample page or small sample section from
-`publish.d`.
+`src/main/publication`.
 
 Expected page roles:
 
@@ -149,7 +149,7 @@ Expected page roles:
 # Common Mistakes
 
 - Do not model one sample repository as `sample-multi` unless it actually owns many child samples.
-- Do not hand-edit `publish.d`.
+- Do not hand-edit `src/main/publication`.
 - Do not add SmartDox rendering scripts to the sample project.
 - Do not use a human title as `name`; keep `name` URL-safe.
 

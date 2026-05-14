@@ -25,11 +25,11 @@ SAR subsystem sbt project
 
 SAR subsystem sbt project
   -> Cozy publish-project
-  -> publish.d project/source metadata
+  -> publication registry project/source metadata
 
 warehouse
   -> Cozy index-warehouse
-  -> publish.d artifact/release metadata
+  -> publication registry artifact/release metadata
   -> SmartDox site rendering
 ```
 
@@ -75,7 +75,7 @@ Local operation settings go in `.cozy/config.yaml`:
 
 ```yaml
 publication:
-  output: /Users/asami/src/dev2025/simplemodeling-org/publish.d
+  output: /Users/asami/src/dev2025/simplemodeling-org/src/main/publication
 
 packaging:
   kind: sar
@@ -136,21 +136,14 @@ sbt cozyIndexWarehouse
 
 ---
 
-# Expected publish.d Output
-
-Project metadata:
+# Expected publication registry Output
 
 ```text
-publish.d/metadata/catalog/projects/<name>.yaml|json
-publish.d/metadata/source-manifest/<name>.yaml|json
+src/main/publication/<name>.json
 ```
 
-Artifact metadata:
-
-```text
-publish.d/metadata/artifacts/repository/<name>.yaml|json
-publish.d/metadata/releases/<name>.yaml|json
-```
+The bundle contains entries for project metadata, source manifest metadata,
+repository artifact metadata, and release metadata.
 
 Maven metadata is optional and only appears when configured coordinates are
 present.
@@ -174,7 +167,7 @@ SmartDox site can render:
 
 - Do not treat SAR as a collection of samples.
 - Do not embed SmartDox rendering logic in subsystem descriptors.
-- Do not hand-edit `publish.d` release metadata.
+- Do not hand-edit `src/main/publication` release metadata.
 - Do not index every SAR in a shared warehouse.
 - Do not confuse local `repository.d` development staging with release warehouse metadata.
 

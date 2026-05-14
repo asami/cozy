@@ -23,7 +23,7 @@ engineering knowledge platform plan:
 
 ## Scope
 
-Phase 5 focuses on generated `publish.d` knowledge sources.
+Phase 5 focuses on generated `src/main/publication` knowledge sources.
 
 In scope:
 
@@ -50,7 +50,7 @@ Out of scope for this phase:
 ```text
 sbt project
   -> Cozy Engineering Publication Compiler
-  -> publish.d
+  -> publication registry
       /catalog
       /samples
       /repository
@@ -59,7 +59,7 @@ sbt project
       /source-manifest
 warehouse
   -> Cozy Warehouse Indexer
-  -> publish.d
+  -> publication registry
       /maven
       /repository
       /releases
@@ -69,18 +69,18 @@ warehouse
 
 ## Phase Items
 
-- [x] EPC-01: Define `publish.d` output contract for sbt project knowledge
+- [x] EPC-01: Define `src/main/publication` output contract for sbt project knowledge
 - [x] EPC-02: Add Cozy command for engineering publication compilation
 - [x] EPC-03: Implement sbt project metadata extraction
 - [x] EPC-04: Generate catalog and sample metadata aligned with SimpleModeling.org
 - [x] EPC-05: Generate source snapshot manifest for AI-facing source retrieval
 - [x] EPC-06: Add tests with a minimal sbt fixture project
-- [x] EPC-07: Document handoff from Cozy `publish.d` output to SmartDox site
-- [x] EPC-08: Index warehouse artifacts into `publish.d` release metadata
+- [x] EPC-07: Document handoff from Cozy `src/main/publication` output to SmartDox site
+- [x] EPC-08: Index warehouse artifacts into `src/main/publication` release metadata
 
 ## Acceptance Criteria
 
-- A command can read a local sbt project and write a deterministic `publish.d`
+- A command can read a local sbt project and write a deterministic `src/main/publication`
   directory.
 - Generated metadata has stable paths and stable IDs.
 - Generated output maps clearly to `/catalog`, `/samples`, `/repository`, and

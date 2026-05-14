@@ -1,4 +1,4 @@
-# publish.d Metadata Specification
+# Publication Registry Metadata Specification
 
 status=implemented
 published_at=2026-05-13
@@ -8,12 +8,12 @@ schema=cozy.publish-project.v1
 
 # Overview
 
-`publish.d` is the generated metadata staging workspace consumed by SmartDox site BoK publication flows. In the final public site, this workspace is published under `metadata/`.
+`src/main/publication` is the git-managed publication registry consumed by SmartDox site BoK publication flows. In the final public site, this workspace is published under `metadata/`.
 
 Cozy generates it from an sbt project with:
 
 ```console
-cozy publish-project <project-dir> [--save=<publish.d>]
+cozy publish-project <project-dir> [--save=<registry-dir>]
 ```
 
 or through sbt-cozy:
@@ -25,7 +25,7 @@ sbt cozyPublishProject
 Cozy also indexes a release warehouse into artifact and release metadata:
 
 ```console
-cozy index-warehouse <warehouse-dir> --save=<publish.d> --name=<publication-name>
+cozy index-warehouse <warehouse-dir> --save=<registry-dir> --name=<publication-name>
 ```
 
 or through sbt-cozy:
@@ -48,9 +48,11 @@ sbt cozyDistributeSamples
 
 `--dry-run` prints the planned collection and individual sample archive paths without writing ZIP files. Dry-run accepts SNAPSHOT versions because it is a planning operation, not a release distribution.
 
-The output is deterministic and consists of YAML/JSON pairs. YAML is for human inspection and SmartDox-oriented workflows. JSON is for machine consumers.
+The registry output is deterministic and uses one JSON publication bundle per project. The bundle contains an `entries` array. Each entry has a public metadata `path`, a logical `key`, and a `metadata` object. SmartDox generates both the public `metadata/...` files and Antora pages from this bundle instead of copying registry directories directly.
 
 `publish-project` writes project/source metadata and expected repository/download deployment metadata. `index-warehouse` writes Maven/release metadata and checks that expected repository/download paths exist in the warehouse.
+
+`publish-project` updates one file: `${publication}.json`. On the next publish, Cozy replaces that one bundle, so removed samples, removed publication pages, and removed source entries disappear from the source of truth. Other publication bundles are not touched. Multiple projects publish into the same registry root, but each publication keeps its own file boundary. If a new bundle entry path is already provided by another publication bundle, Cozy fails instead of creating ambiguous generated metadata. `unpublish-project --save=<registry-dir> --name=<publication>` removes `${publication}.json`.
 
 ---
 
@@ -90,46 +92,29 @@ Cozy's `publication.path` is the logical article path without a language prefix.
 
 ---
 
-# Metadata Output Layout
+# Registry Output Layout
 
 For project name `${name}`:
 
 ```text
-publish.d/
-  metadata/
-    catalog/
-      projects/${name}.yaml
-      projects/${name}.json
-      samples/${name}.yaml
-      samples/${name}.json
-    projects/
-      ${name}/metadata.yaml
-      ${name}/metadata.json
-    samples/
-      ${name}/metadata.yaml
-      ${name}/metadata.json
-      ${name}/items/${sample}/${version}/metadata.yaml
-      ${name}/items/${sample}/${version}/metadata.json
-      ${name}/items/${sample}/${version}/files/...
-      ${name}/items/${sample}/latest.json
-    artifacts/
-      download/${name}.yaml
-      download/${name}.json
-      repository/${name}.yaml
-      repository/${name}.json
-      maven/${name}.yaml
-      maven/${name}.json
-    releases/
-      ${name}.yaml
-      ${name}.json
-    source-manifest/
-      ${name}.yaml
-      ${name}.json
+src/main/publication/
+  ${name}.json
 ```
 
 `${name}` is the publication stable name. It is used as the BoK key, file-name stem, and URL-safe identity.
 
-`publish-project` writes project/source metadata plus expected repository/download metadata under `metadata/`. `index-warehouse` writes Maven/release metadata under `metadata/` and verifies that expected repository/download paths exist in the warehouse.
+`publish-project` writes project/source metadata plus expected repository/download metadata as entries in `${name}.json`. `index-warehouse` replaces the Maven/release entries in the same bundle and verifies that expected repository/download paths exist in the warehouse.
+
+The public site generator materializes selected entries as generated files such as:
+
+```text
+website.d/metadata/catalog/projects/${name}.json
+website.d/metadata/samples/${name}/metadata.json
+website.d/metadata/artifacts/download/${name}.json
+website.d/metadata/source-manifest/${name}.json
+```
+
+These files are generated projections of the publication bundle. They are not copied from the registry as raw directory contents.
 
 For `sample-multi`, each child sample is expanded as a versioned web-readable source tree under `metadata/samples/${name}/items/${sample}/${version}/files`.
 
@@ -179,7 +164,7 @@ Example:
 
 ```yaml
 publication:
-  output: /Users/asami/src/dev2025/simplemodeling-org/publish.d
+  output: /Users/asami/src/dev2025/simplemodeling-org/src/main/publication
   samples_dir: samples
   source_manifest:
     excludes:
@@ -205,7 +190,7 @@ Meaning:
 
 | Field | Meaning |
 |-------|---------|
-| `publication.output` | Output `publish.d` directory. |
+| `publication.output` | Output `src/main/publication` directory. |
 | `publication.samples_dir` | Directory containing child sample projects for `sample-multi`. |
 | `publication.source_manifest.excludes` | Extra source manifest exclude paths or directory names. |
 | `warehouse.repository` | Warehouse root used by `index-warehouse`. |
@@ -455,7 +440,7 @@ sample:
     type: "sample-zip"
 ```
 
-`publish-project` writes this reference and the matching `publish.d/metadata/artifacts/download/${name}` metadata without checking warehouse contents. `index-warehouse` later verifies the referenced warehouse path.
+`publish-project` writes this reference and the matching `metadata/artifacts/download/${name}.json` entry in `${name}.json` without checking warehouse contents. `index-warehouse` later verifies the referenced warehouse path.
 
 ---
 
@@ -708,7 +693,7 @@ top-level `/maven` remain in place for backward compatibility, but new
 
 For repository artifacts, Cozy scans only configured modules. If no repository module is configured, the publication `name` is used as the default module. Cozy prefers a version directory when present. If no version directory is found, it falls back to parsing the version from the file name.
 
-SmartDox site consumes the generated `publish.d` metadata. It should not scan warehouse directly.
+SmartDox site consumes the generated `src/main/publication` metadata. It should not scan warehouse directly.
 
 ---
 
@@ -817,6 +802,6 @@ Generation is deterministic for the same input tree and options:
 # Current Limitations
 
 - Project-level source publication remains manifest-only.
-- `sample-multi` child sample source trees are expanded for web browsing under `metadata/samples/${name}/items/.../files`.
-- `publish-project` generates expected repository/download metadata in `publish.d/metadata`; `index-warehouse` verifies those paths against warehouse contents.
+- `sample-multi` child sample source trees are recorded in source manifests. They are not copied as registry files.
+- `publish-project` generates expected repository/download metadata as bundle entries; `index-warehouse` verifies those paths against warehouse contents.
 - SmartDox site rendering is a downstream consumer and is outside this metadata writer.
