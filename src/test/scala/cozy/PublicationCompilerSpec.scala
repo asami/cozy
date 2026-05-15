@@ -510,6 +510,56 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     assert(Files.isRegularFile(out.resolve("metadata/projects/other/metadata.json")))
   }
 
+  test("publish-maven-repository generates Maven repository publication metadata without sbt project files") {
+    val root = _base.resolve("target/test-generated/publish-maven-repository")
+    val repository = root.resolve("repository")
+    val out = root.resolve("publication")
+    _delete(root)
+    val artifact = repository.resolve("maven/org/example/textus-tutorial_3/0.1.0/textus-tutorial_3-0.1.0.jar")
+    val sources = repository.resolve("maven/org/example/textus-tutorial_3/0.1.0/textus-tutorial_3-0.1.0-sources.jar")
+    val snapshot = repository.resolve("maven/org/example/textus-tutorial_3/0.2.0-SNAPSHOT/textus-tutorial_3-0.2.0-SNAPSHOT.jar")
+    Files.createDirectories(artifact.getParent)
+    Files.writeString(artifact, "binary-010", StandardCharsets.UTF_8)
+    Files.writeString(Paths.get(artifact.toString + ".sha1"), "abc123  textus-tutorial_3-0.1.0.jar\n", StandardCharsets.UTF_8)
+    Files.writeString(Paths.get(artifact.toString + ".md5"), "def456\n", StandardCharsets.UTF_8)
+    Files.writeString(sources, "sources-010", StandardCharsets.UTF_8)
+    Files.createDirectories(snapshot.getParent)
+    Files.writeString(snapshot, "binary-snapshot", StandardCharsets.UTF_8)
+
+    Cozy.main(Array(
+      "publish-maven-repository",
+      repository.toString,
+      s"--save=${out}",
+      "--name=maven-repository",
+      "--title=Maven Repository"
+    ))
+
+    val metadata = _entry(out, "metadata/projects/maven-repository/metadata.json")
+    assert((metadata \ "project" \ "name").as[String] == "maven-repository")
+    assert((metadata \ "project" \ "kind").as[String] == "maven-repository")
+    val mavenjson = _entry(out, "metadata/artifacts/maven/maven-repository.json")
+    assert((mavenjson \ "artifact" \ "status").as[String] == "available")
+    val coordinates = (mavenjson \ "artifact" \ "coordinates").as[Vector[play.api.libs.json.JsObject]]
+    assert((coordinates.head \ "groupId").as[String] == "org.example")
+    assert((coordinates.head \ "artifactId").as[String] == "textus-tutorial_3")
+    assert((coordinates.head \ "latestRelease").as[String] == "0.1.0")
+    val files = (mavenjson \ "artifact" \ "files").as[Vector[play.api.libs.json.JsObject]]
+    val paths = files.map(x => (x \ "warehousePath").as[String])
+    assert(paths.contains("maven/org/example/textus-tutorial_3/0.1.0/textus-tutorial_3-0.1.0.jar"))
+    assert(paths.contains("maven/org/example/textus-tutorial_3/0.1.0/textus-tutorial_3-0.1.0-sources.jar"))
+    assert(paths.exists(_.contains("0.2.0-SNAPSHOT")))
+    val mainjar = files.find(x => (x \ "name").as[String] == "textus-tutorial_3-0.1.0.jar").get
+    assert((mainjar \ "publicPath").as[String] == "repository/maven/org/example/textus-tutorial_3/0.1.0/textus-tutorial_3-0.1.0.jar")
+    assert((mainjar \ "sha1").as[String] == "abc123")
+    assert((mainjar \ "md5").as[String] == "def456")
+    assert((mainjar \ "sha256").as[String].nonEmpty)
+    val releasejson = _entry(out, "metadata/releases/maven-repository.json")
+    assert((releasejson \ "release" \ "latest").as[String] == "0.1.0")
+    val releaseversions = (releasejson \ "release" \ "versions").as[Vector[play.api.libs.json.JsObject]].map(x => (x \ "version").as[String])
+    assert(releaseversions.contains("0.1.0"))
+    assert(releaseversions.contains("0.2.0-SNAPSHOT"))
+  }
+
   test("publish-project defaults to target/publication") {
     val project = _base.resolve("target/test-generated/publish-project/default-output")
     _delete(project)
@@ -665,7 +715,7 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     assert(!Files.exists(warehouse.resolve("download/samples/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip")))
   }
 
-  test("index-warehouse generates Maven metadata and checks publication registry artifact consistency") {
+  test("index-warehouse checks publication registry artifact consistency without Maven metadata") {
     val root = _base.resolve("target/test-generated/index-warehouse")
     val warehouse = root.resolve("warehouse")
     val out = root.resolve("publication")
@@ -779,23 +829,7 @@ final class PublicationCompilerSpec extends AnyFunSuite {
       "--repository-artifacts=car,sar"
     ))
 
-    val mavenjson = _entry(out, "metadata/artifacts/maven/textus-tutorial.json")
-    assert((mavenjson \ "artifact" \ "status").as[String] == "available")
-    val coordinates = (mavenjson \ "artifact" \ "coordinates").as[Vector[play.api.libs.json.JsObject]]
-    assert((coordinates.head \ "groupId").as[String] == "org.example")
-    assert((coordinates.head \ "artifactId").as[String] == "textus-tutorial_3")
-    assert((coordinates.head \ "latestRelease").as[String] == "0.1.0")
-    val files = (mavenjson \ "artifact" \ "files").as[Vector[play.api.libs.json.JsObject]]
-    val paths = files.map(x => (x \ "warehousePath").as[String])
-    assert(paths.contains("maven/org/example/textus-tutorial_3/0.1.0/textus-tutorial_3-0.1.0.jar"))
-    assert(paths.contains("maven/org/example/textus-tutorial_3/0.1.0/textus-tutorial_3-0.1.0-sources.jar"))
-    assert(paths.exists(_.contains("0.2.0-SNAPSHOT")))
-    assert(!paths.exists(_.contains("other_3")))
-    val mainjar = files.find(x => (x \ "name").as[String] == "textus-tutorial_3-0.1.0.jar").get
-    assert((mainjar \ "publicPath").as[String] == "repository/maven/org/example/textus-tutorial_3/0.1.0/textus-tutorial_3-0.1.0.jar")
-    assert((mainjar \ "sha1").as[String] == "abc123")
-    assert((mainjar \ "md5").as[String] == "def456")
-    assert((mainjar \ "sha256").as[String].nonEmpty)
+    assert(!_entry_exists(out, "metadata/artifacts/maven/textus-tutorial.json"))
 
     val repositoryjson = _entry(out, "metadata/artifacts/repository/textus-tutorial.json")
     val repositoryfiles = (repositoryjson \ "artifact" \ "files").as[Vector[play.api.libs.json.JsObject]]
@@ -820,7 +854,7 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     assert((releasejson \ "release" \ "latest").as[String] == "0.1.0")
     val releaseversions = (releasejson \ "release" \ "versions").as[Vector[play.api.libs.json.JsObject]].map(x => (x \ "version").as[String])
     assert(releaseversions.contains("0.1.0"))
-    assert(releaseversions.contains("0.2.0-SNAPSHOT"))
+    assert(!releaseversions.contains("0.2.0-SNAPSHOT"))
   }
 
   test("index-warehouse keeps legacy download sample paths readable") {

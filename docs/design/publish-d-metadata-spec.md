@@ -22,7 +22,7 @@ or through sbt-cozy:
 sbt cozyPublishProject
 ```
 
-Cozy also indexes a release warehouse into artifact and release metadata:
+Cozy also indexes a release warehouse into download/repository release metadata:
 
 ```console
 cozy index-warehouse <warehouse-dir> --save=<registry-dir> --name=<publication-name>
@@ -32,6 +32,12 @@ or through sbt-cozy:
 
 ```console
 sbt cozyIndexWarehouse
+```
+
+Maven repository metadata is generated from the Maven repository itself:
+
+```console
+cozy publish-maven-repository <repository-dir> --save=<registry-dir> --name=<publication-name>
 ```
 
 Sample archives are distributed to the warehouse separately:
@@ -50,7 +56,7 @@ sbt cozyDistributeSamples
 
 The registry output is deterministic and uses one JSON publication bundle per project. The bundle contains an `entries` array. Each entry has a public metadata `path`, a logical `key`, and a `metadata` object. SmartDox generates both the public `metadata/...` files and Antora pages from this bundle instead of copying registry directories directly.
 
-`publish-project` writes project/source metadata and expected repository/download deployment metadata. `index-warehouse` writes Maven/release metadata and checks that expected repository/download paths exist in the warehouse.
+`publish-project` writes project/source metadata and expected repository/download deployment metadata. `index-warehouse` writes release metadata for download/repository artifacts and checks that expected repository/download paths exist in the warehouse. `publish-maven-repository` writes the Maven repository publication bundle directly from repository contents.
 
 `publish-project` updates one file: `${publication}.json`. On the next publish, Cozy replaces that one bundle, so removed samples, removed publication pages, and removed source entries disappear from the source of truth. Other publication bundles are not touched. Multiple projects publish into the same registry root, but each publication keeps its own file boundary. If a new bundle entry path is already provided by another publication bundle, Cozy fails instead of creating ambiguous generated metadata. `unpublish-project --save=<registry-dir> --name=<publication>` removes `${publication}.json`.
 
@@ -103,7 +109,7 @@ src/main/publication/
 
 `${name}` is the publication stable name. It is used as the BoK key, file-name stem, and URL-safe identity.
 
-`publish-project` writes project/source metadata plus expected repository/download metadata as entries in `${name}.json`. `index-warehouse` replaces the Maven/release entries in the same bundle and verifies that expected repository/download paths exist in the warehouse.
+`publish-project` writes project/source metadata plus expected repository/download metadata as entries in `${name}.json`. `index-warehouse` replaces the release entry for download/repository artifacts and verifies that expected repository/download paths exist in the warehouse. `publish-maven-repository` owns Maven repository publication bundles and `metadata/artifacts/maven/${name}.json`.
 
 The public site generator materializes selected entries as generated files such as:
 
@@ -194,7 +200,7 @@ Meaning:
 | `publication.samples_dir` | Directory containing child sample projects for `sample-multi`. |
 | `publication.source_manifest.excludes` | Extra source manifest exclude paths or directory names. |
 | `warehouse.repository` | Warehouse root used by `index-warehouse`. |
-| `warehouse.maven.coordinates` | Maven coordinates indexed from `${warehouse.repository}/maven`. |
+| `warehouse.maven.coordinates` | Maven coordinates indexed by Maven repository publication operations from `${warehouse.repository}/maven`. |
 | `warehouse.repository_artifacts.include` | Repository artifact types checked against warehouse, such as `car` and `sar`. |
 | `warehouse.repository_artifacts.modules` | Repository artifact module directories checked under `${warehouse.repository}/repository/<type>/<module>`. |
 | `warehouse.download.samples` | Sample publications checked under `${warehouse.repository}/repository/download/<publication.path>`. Legacy `${warehouse.repository}/download/samples/<publication>` remains readable only when the existing expected metadata points to that legacy path. |
@@ -614,7 +620,9 @@ Maven scan root:
 ${warehouse.repository}/maven
 ```
 
-Only configured coordinates are indexed in v1.
+`publish-maven-repository` indexes configured coordinates when `--maven-coordinates` is given. When omitted, it scans `${repository.dir}/maven` and derives coordinates from the Maven directory layout.
+
+`index-warehouse` does not create, replace, or remove Maven artifact metadata. CAR, SAR, and sample distribution metadata are intentionally separate from Maven repository metadata.
 
 ---
 
@@ -784,6 +792,7 @@ car
 sar
 sample-single
 sample-multi
+maven-repository
 ```
 
 ---

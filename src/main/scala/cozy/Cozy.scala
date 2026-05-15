@@ -206,6 +206,9 @@ class Cozy(
       case Some(("publish-project", rest)) =>
         CozyPublicationCompiler.publish(rest)
         true
+      case Some(("publish-maven-repository", rest)) =>
+        CozyPublicationCompiler.publishMavenRepository(rest)
+        true
       case Some(("unpublish-project", rest)) =>
         CozyPublicationCompiler.unpublish(rest)
         true
@@ -1729,9 +1732,12 @@ object Cozy {
       |  package-sar --save=<file> --source-dir=<dir> --name=<name> --version=<version>
       |      Build a SAR archive.
       |
-      |  publish-project <project-dir> [--save=<dir>] [--kind=car|sar|sample-single|sample-multi] [--name=<slug>] [--title=<title>] [--path=<path>]
+      |  publish-project <project-dir> [--save=<dir>] [--kind=car|sar|sample-single|sample-multi|maven-repository] [--name=<slug>] [--title=<title>] [--path=<path>]
       |      Generate SmartDox site BoK publication registry sources from an sbt project.
       |      Writes or replaces one publication bundle under the registry.
+      |
+      |  publish-maven-repository <repository-dir> --save=<dir> --name=<slug> [--title=<title>] [--path=<path>] [--maven-coordinates=<group:artifact,...>]
+      |      Generate a SmartDox publication bundle and Maven artifact metadata from a Maven repository directory.
       |
       |  unpublish-project --save=<dir> --name=<slug>
       |      Remove a publication bundle from a publication registry.
@@ -1740,8 +1746,8 @@ object Cozy {
       |      Zip the sample collection and each sample project under warehouse/repository/download/<publication.path>.
       |      With --dry-run, print planned output paths without writing archives.
       |
-      |  index-warehouse <warehouse-dir> --save=<dir> --name=<slug> [--title=<title>] [--maven-coordinates=<group:artifact,...>] [--repository-artifacts=car,sar,zip] [--repository-modules=<module,...>] [--download-samples=<publication,...>]
-      |      Generate publication registry artifact and release metadata by indexing a warehouse.
+      |  index-warehouse <warehouse-dir> --save=<dir> --name=<slug> [--title=<title>] [--repository-artifacts=car,sar,zip] [--repository-modules=<module,...>] [--download-samples=<publication,...>]
+      |      Generate publication registry download/repository release metadata by indexing a warehouse.
       |
       |  sbt-bridge v1 --request=<file>
       |      Run the sbt-cozy bridge for generation or archive packaging.
@@ -2268,7 +2274,7 @@ private object CozyPublicationPaths {
 
 private object CozyPublicationCompiler {
   private val _schema = "cozy.publish-project.v1"
-  private val _valid_kinds = Set("car", "sar", "sample-single", "sample-multi")
+  private val _valid_kinds = Set("car", "sar", "sample-single", "sample-multi", "maven-repository")
   private val _default_excluded_segments = Set(
     "target",
     ".git",
@@ -2421,6 +2427,41 @@ private object CozyPublicationCompiler {
     val savedir = _required_path(args, "save")
     val name = _value(args, "name").map(_validate_name(_, "publication name")).getOrElse(RAISE.invalidArgumentFault("Missing --name"))
     PublicationRegistry.remove(savedir, name)
+  }
+
+  def publishMavenRepository(args: List[String]): Unit = {
+    val repositorydir = _project_dir(args)
+    if (!Files.isDirectory(repositorydir))
+      RAISE.invalidArgumentFault(s"Maven repository directory does not exist: ${repositorydir}")
+    val savedir = _required_path(args, "save")
+    val name = _value(args, "name").map(_validate_name(_, "publication name")).getOrElse("maven-repository")
+    val title = _value(args, "title").getOrElse("Maven Repository")
+    val publicationpath = _value(args, "path").map(_validate_publication_path)
+    val coordinates = _value(args, "maven-coordinates")
+    val metadata = Json.obj(
+      "schema" -> _schema,
+      "type" -> "project-metadata",
+      "project" -> Json.obj(
+        "name" -> name,
+        "title" -> title,
+        "kind" -> "maven-repository"
+      ),
+      "publication" -> (Json.obj() ++ publicationpath.map(x => Json.obj("path" -> x)).getOrElse(Json.obj()))
+    )
+    PublicationRegistry.publishMetadata(
+      root = savedir,
+      name = name,
+      publicationPath = publicationpath,
+      projectdir = repositorydir,
+      entries = Vector(s"metadata/projects/${name}/metadata.json" -> metadata)
+    )
+    CozyWarehouseIndexer.publishMaven(
+      warehouseDir = repositorydir,
+      savedir = savedir,
+      name = name,
+      title = title,
+      coordinates = coordinates
+    )
   }
 
   def registerMetadata(root: Path, name: String, entries: Vector[(String, JsValue)]): Unit =
@@ -3300,6 +3341,27 @@ private object CozyPublicationCompiler {
       _write_bundle(root, bundle)
     }
 
+    def publishMetadata(
+      root: Path,
+      name: String,
+      publicationPath: Option[String],
+      projectdir: Path,
+      entries: Vector[(String, JsValue)]
+    ): Unit = {
+      val bundle = PublicationBundle(
+        publication = name,
+        publicationPath = publicationPath,
+        sourceRepository = _source_repository(projectdir),
+        sourcePath = _source_path(projectdir),
+        sourceCommit = _source_commit(projectdir),
+        entries = entries.map {
+          case (path, json) => PublicationBundleEntry(path, _publication_bundle_key(path), json)
+        }.map(_validate_entry).distinct.sortBy(_.path)
+      )
+      _check_collisions(root, bundle)
+      _write_bundle(root, bundle)
+    }
+
     def registerMetadata(root: Path, name: String, entries: Vector[PublicationBundleEntry]): Unit = {
       val old = _load_bundle(root, name).getOrElse(RAISE.invalidArgumentFault(s"Publication bundle not found: ${name}"))
       val replacepaths = entries.map(_.path).toSet
@@ -3736,7 +3798,6 @@ private object CozyWarehouseIndexer {
     val savedir = _required_path(args, "save")
     val name = _value(args, "name").map(_validate_name).getOrElse(RAISE.invalidArgumentFault("Missing --name"))
     val title = _value(args, "title").getOrElse(name)
-    val coordinates = _csv(args, "maven-coordinates").map(_coordinate)
     val repositoryKinds = _csv(args, "repository-artifacts").map(_.toLowerCase(java.util.Locale.ROOT)).filter(_.nonEmpty)
     val repositoryModules = _csv(args, "repository-modules").filter(_.nonEmpty) match {
       case Vector() => Vector(name)
@@ -3750,21 +3811,46 @@ private object CozyWarehouseIndexer {
     val result = IndexResult(
       name = name,
       title = title,
-      maven = coordinates.map(_index_maven(warehouseDir, _)),
+      maven = Vector.empty,
       repository = Vector.empty,
       download = Vector(_index_download_samples(warehouseDir, downloadSamples, downloadpublicationpaths))
     )
     _check_repository_consistency(warehouseDir, savedir, name, repositoryKinds, repositoryModules)
     _check_download_consistency(warehouseDir, savedir, name, downloadSamples, downloadpublicationpaths)
-    _write(result, savedir)
+    _write_release(result, savedir)
   }
 
-  private def _write(p: IndexResult, savedir: Path): Unit = {
+  def publishMaven(
+    warehouseDir: Path,
+    savedir: Path,
+    name: String,
+    title: String,
+    coordinates: Option[String]
+  ): Unit = {
+    if (!Files.isDirectory(warehouseDir))
+      RAISE.invalidArgumentFault(s"Warehouse directory does not exist: ${warehouseDir}")
+    val configured = _csv(coordinates).map(_coordinate)
+    val coordinateList = if (configured.nonEmpty) configured else _discover_maven_coordinates(warehouseDir)
+    val result = IndexResult(
+      name = name,
+      title = title,
+      maven = coordinateList.map(_index_maven(warehouseDir, _)),
+      repository = Vector.empty,
+      download = Vector.empty
+    )
+    _write_maven(result, savedir)
+  }
+
+  private def _write_release(p: IndexResult, savedir: Path): Unit =
+    CozyPublicationCompiler.registerMetadata(savedir, p.name, Vector(
+      s"metadata/releases/${p.name}.json" -> _release_json(p)
+    ))
+
+  private def _write_maven(p: IndexResult, savedir: Path): Unit =
     CozyPublicationCompiler.registerMetadata(savedir, p.name, Vector(
       s"metadata/artifacts/maven/${p.name}.json" -> _maven_json(p),
       s"metadata/releases/${p.name}.json" -> _release_json(p)
     ))
-  }
 
   private def _check_repository_consistency(
     warehouseDir: Path,
@@ -3875,6 +3961,31 @@ private object CozyWarehouseIndexer {
       }
     val versions = _sort_versions(files.map(_.version).distinct)
     MavenArtifact(coordinate, versions, _latest_release(versions), files)
+  }
+
+  private def _discover_maven_coordinates(warehouseDir: Path): Vector[MavenCoordinate] = {
+    val root = warehouseDir.resolve("maven")
+    if (!Files.isDirectory(root))
+      Vector.empty
+    else {
+      val stream = Files.walk(root)
+      try {
+        stream.iterator().asScala.toVector.collect {
+          case p if Files.isRegularFile(p) && _is_artifact_file(p) =>
+            val rel = root.relativize(p).iterator().asScala.toVector.map(_.toString)
+            rel match {
+              case xs if xs.size >= 4 =>
+                val groupId = xs.dropRight(3).mkString(".")
+                val artifactId = xs(xs.size - 3)
+                Some(MavenCoordinate(groupId, artifactId))
+              case _ =>
+                None
+            }
+        }.flatten.distinct.sortBy(_.key)
+      } finally {
+        stream.close()
+      }
+    }
   }
 
   private def _index_repository(warehouseDir: Path, kind: String, modules: Vector[String]): RepositoryArtifact = {
@@ -4276,6 +4387,9 @@ private object CozyWarehouseIndexer {
 
   private def _csv(args: List[String], key: String): Vector[String] =
     _value(args, key).toVector.flatMap(_.split(',')).map(_.trim).filter(_.nonEmpty)
+
+  private def _csv(value: Option[String]): Vector[String] =
+    value.toVector.flatMap(_.split(',')).map(_.trim).filter(_.nonEmpty)
 
   private def _positional_args(args: List[String]): Vector[String] = {
     val optionNamesWithValue = Set("warehouse", "save", "name", "title", "maven-coordinates", "repository-artifacts", "repository-modules", "download-samples")
