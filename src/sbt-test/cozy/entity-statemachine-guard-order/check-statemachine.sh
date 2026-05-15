@@ -88,10 +88,10 @@ object StateMachineGuardOrderProbe {
         operation = "savePerson",
         arguments = List(
           Argument("id", id),
-          Argument("name", "taro"),
-          Argument("lifecycle", "draft")
+          Argument("name", "taro")
         ),
         properties = List(
+          Property("lifecycle", "draft", None),
           Property("cncf.security.privilege", "content_manager", None),
           Property("textus.runtime.command.execution-mode", "sync-direct-no-job", None)
         )
@@ -125,10 +125,9 @@ object StateMachineGuardOrderProbe {
         component = "domain",
         service = "entity",
         operation = "loadPerson",
-        arguments = List(
-          Argument("id", id)
-        ),
+        arguments = List.empty,
         properties = List(
+          Property("id", id, None),
           Property("cncf.security.privilege", "content_manager", None),
           Property("textus.runtime.command.execution-mode", "sync-direct-no-job", None)
         )
@@ -151,7 +150,7 @@ object StateMachineGuardOrderProbe {
 
   private def _extraComponents(subsystem: Subsystem): Seq[Component] = {
     val params = ComponentCreate(subsystem, ComponentOrigin.Main)
-    ComponentFactory().create(params)
+    Vector(ComponentFactory().createPrimary(params))
   }
 
   private def _assert_name(response: OperationResponse, expected: String): Unit =

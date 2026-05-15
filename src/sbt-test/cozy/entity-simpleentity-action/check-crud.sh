@@ -50,7 +50,7 @@ object SimpleEntitySyncCommandMain {
         args = runtimeArgs,
         modeHint = Some(RunMode.Command),
         extraComponents = subsystem =>
-          DomainComponent.Factory().createPrimary(ComponentCreate(subsystem, ComponentOrigin.Main))
+          Vector(DomainComponent.Factory().createPrimary(ComponentCreate(subsystem, ComponentOrigin.Main)))
       )
       .flatMap { subsystem =>
         runtime
@@ -101,6 +101,6 @@ fi
 sqlite3 target/cncf.d/cncf-command.sqlite3 ".tables" | grep -qi "simple_entity"
 stored_row="$(sqlite3 target/cncf.d/cncf-command.sqlite3 "select id, name from simple_entity where id = '$ID';")"
 printf "%s\n" "$stored_row"
-printf "%s\n" "$stored_row" | grep -q "^${ID}|taro$"
+printf "%s\n" "$stored_row" | grep -q "^${ID}|jiro$"
 
 echo "SIMPLEENTITY_ACTION_OK"

@@ -48,7 +48,7 @@ import scala.collection.mutable
  *  version May. 13, 2025
  *  version Feb. 27, 2026
  *  version Mar. 31, 2026
- * @version May.  8, 2026
+ * @version May. 16, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
@@ -516,7 +516,7 @@ object Modeler {
   }
 
   object Help {
-    private val _narrativeKeys = Set(
+    private val _narrative_keys = Set(
       "headline",
       "brief",
       "summary",
@@ -533,7 +533,7 @@ object Modeler {
       model.divisions.collect {
         case d: org.goldenport.kaleidox.Model.ValueDivision =>
           val root = d.section
-          root.blocks.sections.filterNot(x => _narrativeKeys.contains(x.keyForModel.toLowerCase)).toVector.map { v =>
+          root.blocks.sections.filterNot(x => _narrative_keys.contains(x.keyForModel.toLowerCase)).toVector.map { v =>
             _value_help_model(valueModel.flatMap(_.get(v.nameForModel)), v)
           }
       }.flatten.toVector
@@ -626,12 +626,12 @@ object Modeler {
   )
 
   private object RelationshipCml {
-    private val KindAssociation = "association"
-    private val KindAggregation = "aggregation"
-    private val KindComposition = "composition"
-    private val StorageAssociationRecord = "association-record"
-    private val StorageChildParentIdField = "child-parent-id-field"
-    private val StorageEmbeddedValueObject = "embedded-value-object"
+    private val _kind_association = "association"
+    private val _kind_aggregation = "aggregation"
+    private val _kind_composition = "composition"
+    private val _storage_association_record = "association-record"
+    private val _storage_child_parent_id_field = "child-parent-id-field"
+    private val _storage_embedded_value_object = "embedded-value-object"
 
     def relationshipDefinitions(model: KaleidoxModel): Vector[MComponent.RelationshipDefinition] = {
       val valueNames = model.getValueModel.map(_.classes.keys.toSet).getOrElse(Set.empty[String])
@@ -677,32 +677,32 @@ object Modeler {
       val target = _required(section, "TARGET", name)
       val storage = _child_text(section, "STORAGE").map(_.toLowerCase).getOrElse {
         kind match {
-          case KindComposition => StorageChildParentIdField
-          case _ => StorageAssociationRecord
+          case x if x == _kind_composition => _storage_child_parent_id_field
+          case _ => _storage_association_record
         }
       }
-      _validate_enum(name, "KIND", kind, Set(KindAssociation, KindAggregation, KindComposition))
-      _validate_enum(name, "STORAGE", storage, Set(StorageAssociationRecord, StorageChildParentIdField, StorageEmbeddedValueObject))
+      _validate_enum(name, "KIND", kind, Set(_kind_association, _kind_aggregation, _kind_composition))
+      _validate_enum(name, "STORAGE", storage, Set(_storage_association_record, _storage_child_parent_id_field, _storage_embedded_value_object))
       val parentIdField = _child_text(section, "PARENT ID FIELD")
       val valueField = _child_text(section, "VALUE FIELD")
-      if (kind == KindComposition && storage == StorageChildParentIdField && parentIdField.isEmpty)
+      if (kind == _kind_composition && storage == _storage_child_parent_id_field && parentIdField.isEmpty)
         RAISE.syntaxErrorFault(s"RELATIONSHIP '$name' composition with child-parent-id-field requires PARENT ID FIELD.")
-      if (storage == StorageEmbeddedValueObject && kind != KindComposition)
+      if (storage == _storage_embedded_value_object && kind != _kind_composition)
         RAISE.syntaxErrorFault(s"RELATIONSHIP '$name' embedded-value-object storage requires composition kind.")
-      if (storage == StorageEmbeddedValueObject && valueField.isEmpty)
+      if (storage == _storage_embedded_value_object && valueField.isEmpty)
         RAISE.syntaxErrorFault(s"RELATIONSHIP '$name' composition with embedded-value-object requires VALUE FIELD.")
-      if (storage == StorageEmbeddedValueObject && parentIdField.nonEmpty)
+      if (storage == _storage_embedded_value_object && parentIdField.nonEmpty)
         RAISE.syntaxErrorFault(s"RELATIONSHIP '$name' embedded-value-object storage does not accept PARENT ID FIELD.")
-      if (storage == StorageEmbeddedValueObject && !valueNames.contains(target))
+      if (storage == _storage_embedded_value_object && !valueNames.contains(target))
         RAISE.syntaxErrorFault(s"RELATIONSHIP '$name' embedded-value-object TARGET '$target' must reference a VALUE.")
-      if (storage == StorageEmbeddedValueObject)
+      if (storage == _storage_embedded_value_object)
         _validate_embedded_value_field(name, source, target, valueField.get, entities)
       MComponent.RelationshipDefinition(
         name = name,
         kind = kind,
         sourceEntityName = source,
         targetEntityName = target,
-        targetModelKind = if (storage == StorageEmbeddedValueObject) "value" else "entity",
+        targetModelKind = if (storage == _storage_embedded_value_object) "value" else "entity",
         multiplicity = _child_text(section, "MULTIPLICITY"),
         storageMode = storage,
         parentIdField = parentIdField,
@@ -744,7 +744,7 @@ object Modeler {
       val relationship = relationships.getOrElse(relationshipName,
         RAISE.syntaxErrorFault(s"CHILD ENTITY BINDING references unknown RELATIONSHIP '$relationshipName'.")
       )
-      if (relationship.storageMode != StorageChildParentIdField)
+      if (relationship.storageMode != _storage_child_parent_id_field)
         RAISE.syntaxErrorFault(s"CHILD ENTITY BINDING '$relationshipName' requires child-parent-id-field storage.")
       val parentIdField = relationship.parentIdField.getOrElse(
         RAISE.syntaxErrorFault(s"RELATIONSHIP '$relationshipName' requires PARENT ID FIELD for CHILD ENTITY BINDING.")
@@ -775,7 +775,7 @@ object Modeler {
       val relationship = relationships.getOrElse(relationshipName,
         RAISE.syntaxErrorFault(s"ASSOCIATION BINDING references unknown RELATIONSHIP '$relationshipName'.")
       )
-      if (relationship.storageMode != StorageAssociationRecord)
+      if (relationship.storageMode != _storage_association_record)
         RAISE.syntaxErrorFault(s"ASSOCIATION BINDING '$relationshipName' requires association-record storage.")
       MComponent.OperationAssociationBinding(
         domain = relationship.associationDomain.getOrElse(relationship.name),
@@ -1985,7 +1985,19 @@ object Modeler {
         case Some("event-emit") | Some("event-effect-record") =>
           MOperation.commandBody(opname, List(MParameter.record), MResult.unit, desc, access) {
             blockFor(
-              "_ <- uowmNotImplemented[org.goldenport.cncf.unitofwork.UnitOfWorkOp, Unit]"
+              """_ <- exec_pure {
+                |  val previous = core.component.map(_.loadEventEffect()).getOrElse(org.goldenport.record.Record.empty)
+                |  val name = action.record.getString("name").filter(_.nonEmpty).orElse(previous.getString("name")).getOrElse("")
+                |  val title = action.record.getString("title").filter(_.nonEmpty).orElse(previous.getString("title")).getOrElse("")
+                |  val record = org.goldenport.record.Record.data(
+                |    "cncf" -> "event-driven",
+                |    "event" -> "item.changed",
+                |    "name" -> name,
+                |    "title" -> title
+                |  )
+                |  core.component.foreach(_.recordEventEffect(record))
+                |  ()
+                |}""".stripMargin
             )(
               "OperationResponse.void"
             )
@@ -2020,9 +2032,9 @@ object Modeler {
         case Some("event-effect-load") =>
           MOperation.queryBody(opname, List(MParameter.record), MResult.unit, desc, access) {
             blockFor(
-              "_ <- uowmNotImplemented[org.goldenport.cncf.unitofwork.UnitOfWorkOp, Unit]"
+              "_ <- exec_pure(())"
             )(
-              "OperationResponse.void"
+              """OperationResponse(core.component.map(_.loadEventEffect()).getOrElse(org.goldenport.record.Record.empty))"""
             )
           }
         case _ =>

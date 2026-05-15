@@ -20,7 +20,7 @@ import org.goldenport.protocol.operation.OperationResponse
 import org.goldenport.cncf.action.Action
 import org.goldenport.cncf.cli.RunMode
 import org.goldenport.cncf.component.{Component, ComponentCreate, ComponentFactory, ComponentOrigin}
-import org.goldenport.cncf.context.ExecutionContext
+import org.goldenport.cncf.context.{ExecutionContext, SecurityContext}
 import org.goldenport.cncf.job.JobId
 import org.goldenport.cncf.path.AliasResolver
 import org.goldenport.cncf.subsystem.Subsystem
@@ -52,6 +52,7 @@ object EventFlowDemo {
         service = "Event",
         operation = "emitEvent",
         properties = List(
+          Property("cncf.security.privilege", "application_content_manager", None),
           Property("name", "alpha", None),
           Property("title", "Alpha", None)
         )
@@ -96,7 +97,7 @@ object EventFlowDemo {
   ): Consequence[OperationResponse] =
     component.logic.makeOperationRequest(request).flatMap {
       case action: Action =>
-        component.logic.executeAction(action, ExecutionContext.create())
+        component.logic.executeAction(action, ExecutionContext.create(SecurityContext.Privilege.ApplicationContentManager))
       case m =>
         Consequence.failure(s"OperationRequest must be Action: ${m.show}")
     }

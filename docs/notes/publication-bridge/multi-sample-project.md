@@ -743,8 +743,8 @@ Represent publication registry metadata for Maven, expected repository/download 
 Sample ZIP archives are user-facing downloads. `publish-project` writes their expected paths in `src/main/publication`; `cozyDistributeSamples` places both the collection archive and individual sample archives at:
 
 ```text
-warehouse/download/<publication.path>/<version>/<publication>-<version>.zip
-warehouse/download/<publication.path>/<sample>/<version>/<sample>-<version>.zip
+warehouse/repository/download/<publication.path>/<version>/<publication>-<version>.zip
+warehouse/repository/download/<publication.path>/<sample>/<version>/<sample>-<version>.zip
 ```
 
 The collection archive contains all child sample directories. Individual sample archives contain one child sample project.

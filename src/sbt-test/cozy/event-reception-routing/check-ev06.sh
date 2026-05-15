@@ -24,7 +24,7 @@ import org.goldenport.cncf.context.{ExecutionContext, SecurityContext}
 import org.goldenport.cncf.datastore.DataStore
 import org.goldenport.cncf.event.*
 import org.goldenport.cncf.unitofwork.CommitRecorder
-import org.goldenport.provisional.observation.Taxonomy
+import org.goldenport.observation.Taxonomy
 
 object EventReceptionProbe {
   final case class FailureObservation(

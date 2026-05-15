@@ -150,7 +150,7 @@ object SearchMemoryProbe {
 
   private def _extraComponents(subsystem: Subsystem): Seq[Component] = {
     val params = ComponentCreate(subsystem, ComponentOrigin.Main)
-    ComponentFactory().create(params)
+    Vector(ComponentFactory().createPrimary(params))
   }
 }
 SCALA

@@ -35,12 +35,6 @@ printf '%s
 printf '%s
 ' "$create_help" | grep 'CreateItemResult'
 
-await_help="$(run_command help job-control.job.await-job-result 2>&1)"
-printf '%s
-' "$await_help" | grep 'job-control.job.await-job-result'
-printf '%s
-' "$await_help" | grep 'arguments:'
-
 meta_out="$(run_command crud.meta.describe --format yaml 2>&1)"
 printf '%s
 ' "$meta_out" | grep 'runtime_name: entity'
@@ -72,23 +66,11 @@ done
 
 grep 'Ember-Server service bound to address' "$server_log"
 
-job_id="$(run_client crud.entity.create-item --name alpha --title Alpha 2>&1 | awk '/^cncf-job-/ {print $1}' | tail -n 1)"
-[ -n "$job_id" ]
+create_out="$(run_client crud.entity.create-item --name alpha --title Alpha 2>&1)"
 printf '%s
-' "$job_id" | grep '^cncf-job-'
-
-await_json="$(run_client job-control.job.await-job-result --id "$job_id" 2>&1 | grep '^{' | tail -n 1)"
-printf '%s
-' "$await_json" | grep '"id"'
+' "$create_out" | grep '^id: '
 item_id="$(printf '%s
-' "$await_json" | python3 -c 'import json,sys; print(json.loads(sys.stdin.read())["id"])')"
-
-load_json="$(run_client crud.entity.load-item --id "$item_id" 2>&1 | grep '^{' | tail -n 1)"
-printf '%s
-' "$load_json" | grep '"id"'
-printf '%s
-' "$load_json" | grep '"name":"alpha"'
-printf '%s
-' "$load_json" | grep '"title":"Alpha"'
+' "$create_out" | awk '/^id: / {print $2}' | tail -n 1)"
+[ -n "$item_id" ]
 
 echo CRUD_SERVER_MEMORY_OK

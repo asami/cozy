@@ -39,7 +39,7 @@ printf '%s\n' "$meta_out" | grep 'input_type: PersonLookup'
 printf '%s\n' "$meta_out" | grep 'output_type: PersonCard'
 printf '%s\n' "$meta_out" | grep 'input_value_kind: QUERY_VALUE'
 
-query_out="$(run_command operation-entity-sample.person-app.get-person-card --person-id "$person_id")"
+query_out="$(run_command operation-entity-sample.person-app.get-person-card --personId "$person_id")"
 printf '%s\n' "$query_out" | grep '^name: Alice$'
 
 echo OPERATION_ENTITY_CONTRACT_OK

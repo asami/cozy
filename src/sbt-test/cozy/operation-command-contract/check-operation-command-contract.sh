@@ -66,9 +66,9 @@ printf '%s
 ' "$job_id" | grep '^cncf-job-'
   await_out="$(run_client job-control.job.await-job-result --id "$job_id")"
   printf '%s
-' "$await_out" | grep '"status":"accepted"'
+' "$await_out" | grep 'status: accepted'
   printf '%s
-' "$await_out" | grep '"name":"Alice"'
+' "$await_out" | grep 'name: Alice'
 )
 
 echo OPERATION_COMMAND_CONTRACT_OK

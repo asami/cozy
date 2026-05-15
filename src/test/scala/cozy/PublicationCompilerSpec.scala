@@ -10,7 +10,7 @@ import play.api.libs.json.Json
 
 /*
  * @since   May. 12, 2026
- * @version May. 14, 2026
+ * @version May. 16, 2026
  * @author  ASAMI, Tomoharu
  */
 final class PublicationCompilerSpec extends AnyFunSuite {
@@ -387,9 +387,9 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     val downloadartifact = _entry(out, "metadata/artifacts/download/textus-tutorial.json")
     assert((downloadartifact \ "artifact" \ "status").as[String] == "planned")
     assert((downloadartifact \ "project" \ "summary").as[String] == "Tutorial sample collection.")
-    assert((downloadartifact \ "artifact" \ "files" \\ "warehousePath").map(_.as[String]).contains("download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip"))
+    assert((downloadartifact \ "artifact" \ "files" \\ "warehousePath").map(_.as[String]).contains("repository/download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip"))
     assert((downloadartifact \ "artifact" \ "files" \\ "publicPath").map(_.as[String]).contains("repository/download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip"))
-    assert((downloadartifact \ "artifact" \ "files" \\ "warehousePath").map(_.as[String]).contains("download/textus/tutorial/textus-tutorial/0.1.0/01-hello/01-hello-0.1.0.zip"))
+    assert((downloadartifact \ "artifact" \ "files" \\ "warehousePath").map(_.as[String]).contains("repository/download/textus/tutorial/textus-tutorial/0.1.0/01-hello/01-hello-0.1.0.zip"))
     assert((downloadartifact \ "artifact" \ "files" \\ "publicPath").map(_.as[String]).contains("repository/download/textus/tutorial/textus-tutorial/0.1.0/01-hello/01-hello-0.1.0.zip"))
     assert(!_entry_exists(out, "metadata/samples/textus-tutorial/items/01-hello/0.1.0/files/build.sbt"))
     assert(!_entry_exists(out, "metadata/samples/textus-tutorial/items/01-hello/0.1.0/files/README.md"))
@@ -528,6 +528,11 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     val warehouse = root.resolve("warehouse")
     _delete(root)
     Files.createDirectories(project.resolve("samples/01-hello/target"))
+    Files.createDirectories(project.resolve("samples/01-hello/script/.scala-build"))
+    Files.createDirectories(project.resolve("samples/01-hello/car.d"))
+    Files.createDirectories(project.resolve("samples/01-hello/component.d"))
+    Files.createDirectories(project.resolve("samples/01-hello/component-repository.d"))
+    Files.createDirectories(project.resolve("samples/01-hello/tmprepo"))
     Files.writeString(project.resolve("build.sbt"), "name := \"Samples\"\nversion := \"0.1.0\"\n", StandardCharsets.UTF_8)
     Files.writeString(
       project.resolve("project.yaml"),
@@ -539,6 +544,11 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     Files.writeString(project.resolve("samples/01-hello/build.sbt"), "name := \"Hello\"\n", StandardCharsets.UTF_8)
     Files.writeString(project.resolve("samples/01-hello/README.md"), "# Hello\n", StandardCharsets.UTF_8)
     Files.writeString(project.resolve("samples/01-hello/target/ignored.txt"), "ignored\n", StandardCharsets.UTF_8)
+    Files.writeString(project.resolve("samples/01-hello/script/.scala-build/ignored.class"), "ignored\n", StandardCharsets.UTF_8)
+    Files.writeString(project.resolve("samples/01-hello/car.d/ignored.car"), "ignored\n", StandardCharsets.UTF_8)
+    Files.writeString(project.resolve("samples/01-hello/component.d/ignored.yaml"), "ignored\n", StandardCharsets.UTF_8)
+    Files.writeString(project.resolve("samples/01-hello/component-repository.d/ignored.jar"), "ignored\n", StandardCharsets.UTF_8)
+    Files.writeString(project.resolve("samples/01-hello/tmprepo/ignored.txt"), "ignored\n", StandardCharsets.UTF_8)
 
     Cozy.main(Array(
       "distribute-samples",
@@ -548,9 +558,9 @@ final class PublicationCompilerSpec extends AnyFunSuite {
       "--version=0.1.0"
     ))
 
-    val zippath = warehouse.resolve("download/textus/tutorial/textus-tutorial/0.1.0/01-hello/01-hello-0.1.0.zip")
+    val zippath = warehouse.resolve("repository/download/textus/tutorial/textus-tutorial/0.1.0/01-hello/01-hello-0.1.0.zip")
     assert(Files.isRegularFile(zippath))
-    val collectionzippath = warehouse.resolve("download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip")
+    val collectionzippath = warehouse.resolve("repository/download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip")
     assert(Files.isRegularFile(collectionzippath))
     val collectionzip = new ZipFile(collectionzippath.toFile)
     try {
@@ -558,6 +568,11 @@ final class PublicationCompilerSpec extends AnyFunSuite {
       assert(entries.contains("01-hello/build.sbt"))
       assert(entries.contains("01-hello/README.md"))
       assert(!entries.exists(_.startsWith("01-hello/target/")))
+      assert(!entries.exists(_.startsWith("01-hello/script/.scala-build/")))
+      assert(!entries.exists(_.startsWith("01-hello/car.d/")))
+      assert(!entries.exists(_.startsWith("01-hello/component.d/")))
+      assert(!entries.exists(_.startsWith("01-hello/component-repository.d/")))
+      assert(!entries.exists(_.startsWith("01-hello/tmprepo/")))
     } finally {
       collectionzip.close()
     }
@@ -567,6 +582,11 @@ final class PublicationCompilerSpec extends AnyFunSuite {
       assert(entries.contains("build.sbt"))
       assert(entries.contains("README.md"))
       assert(!entries.exists(_.startsWith("target/")))
+      assert(!entries.exists(_.startsWith("script/.scala-build/")))
+      assert(!entries.exists(_.startsWith("car.d/")))
+      assert(!entries.exists(_.startsWith("component.d/")))
+      assert(!entries.exists(_.startsWith("component-repository.d/")))
+      assert(!entries.exists(_.startsWith("tmprepo/")))
     } finally {
       zip.close()
     }
@@ -616,8 +636,8 @@ final class PublicationCompilerSpec extends AnyFunSuite {
 
     val out = buffer.toString("UTF-8")
     assert(out.contains("distribute-samples dry-run"))
-    assert(out.contains("sample-collection-zip warehousePath=download/textus/tutorial/textus-tutorial/0.2.0-SNAPSHOT/textus-tutorial-0.2.0-SNAPSHOT.zip"))
-    assert(out.contains("sample-zip sample=01-hello warehousePath=download/textus/tutorial/textus-tutorial/0.2.0-SNAPSHOT/01-hello/01-hello-0.2.0-SNAPSHOT.zip"))
+    assert(out.contains("sample-collection-zip warehousePath=repository/download/textus/tutorial/textus-tutorial/0.2.0-SNAPSHOT/textus-tutorial-0.2.0-SNAPSHOT.zip"))
+    assert(out.contains("sample-zip sample=01-hello warehousePath=repository/download/textus/tutorial/textus-tutorial/0.2.0-SNAPSHOT/01-hello/01-hello-0.2.0-SNAPSHOT.zip"))
     assert(!Files.exists(warehouse))
   }
 
@@ -658,8 +678,8 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     val car = warehouse.resolve("repository/car/textus-tutorial/0.1.0/textus-tutorial-0.1.0.car")
     val sar = warehouse.resolve("repository/sar/textus-tutorial/0.1.0/textus-tutorial-0.1.0.sar")
     val unrelatedcar = warehouse.resolve("repository/car/other-module/9.9.9/other-module-9.9.9.car")
-    val collectionzip = warehouse.resolve("download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip")
-    val samplezip = warehouse.resolve("download/textus/tutorial/textus-tutorial/0.1.0/01-hello/01-hello-0.1.0.zip")
+    val collectionzip = warehouse.resolve("repository/download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip")
+    val samplezip = warehouse.resolve("repository/download/textus/tutorial/textus-tutorial/0.1.0/01-hello/01-hello-0.1.0.zip")
     val legacycollectionzip = warehouse.resolve("download/samples/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip")
     val legacysamplezip = warehouse.resolve("download/samples/textus-tutorial/01-hello/0.1.0/01-hello-0.1.0.zip")
     val unrelatedzip = warehouse.resolve("download/samples/other-publication/01-hello/9.9.9/01-hello-9.9.9.zip")
@@ -725,12 +745,12 @@ final class PublicationCompilerSpec extends AnyFunSuite {
 	        |    "status": "planned",
 	        |    "files": [
 	        |      {
-	        |        "warehousePath": "download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip",
+	        |        "warehousePath": "repository/download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip",
 	        |        "publicPath": "repository/download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip",
 	        |        "type": "sample-collection-zip"
 	        |      },
 	        |      {
-	        |        "warehousePath": "download/textus/tutorial/textus-tutorial/0.1.0/01-hello/01-hello-0.1.0.zip",
+	        |        "warehousePath": "repository/download/textus/tutorial/textus-tutorial/0.1.0/01-hello/01-hello-0.1.0.zip",
 	        |        "publicPath": "repository/download/textus/tutorial/textus-tutorial/0.1.0/01-hello/01-hello-0.1.0.zip",
 	        |        "type": "sample-zip"
 	        |      }
@@ -788,10 +808,10 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     assert((downloadjson \ "artifact" \ "status").as[String] == "planned")
     assert((downloadjson \ "project" \ "summary").as[String] == "Tutorial sample collection.")
     val downloadfiles = (downloadjson \ "artifact" \ "files").as[Vector[play.api.libs.json.JsObject]]
-    assert(downloadfiles.map(x => (x \ "warehousePath").as[String]).contains("download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip"))
+    assert(downloadfiles.map(x => (x \ "warehousePath").as[String]).contains("repository/download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip"))
     assert(downloadfiles.map(x => (x \ "publicPath").as[String]).contains("repository/download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip"))
-    assert(downloadfiles.find(x => (x \ "warehousePath").as[String] == "download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip").exists(x => (x \ "type").as[String] == "sample-collection-zip"))
-    assert(downloadfiles.map(x => (x \ "warehousePath").as[String]).contains("download/textus/tutorial/textus-tutorial/0.1.0/01-hello/01-hello-0.1.0.zip"))
+    assert(downloadfiles.find(x => (x \ "warehousePath").as[String] == "repository/download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip").exists(x => (x \ "type").as[String] == "sample-collection-zip"))
+    assert(downloadfiles.map(x => (x \ "warehousePath").as[String]).contains("repository/download/textus/tutorial/textus-tutorial/0.1.0/01-hello/01-hello-0.1.0.zip"))
     assert(downloadfiles.map(x => (x \ "publicPath").as[String]).contains("repository/download/textus/tutorial/textus-tutorial/0.1.0/01-hello/01-hello-0.1.0.zip"))
     assert(!downloadfiles.map(x => (x \ "warehousePath").as[String]).contains("download/samples/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip"))
     assert(!downloadfiles.map(x => (x \ "warehousePath").as[String]).exists(_.contains("other-publication")))
@@ -865,8 +885,8 @@ final class PublicationCompilerSpec extends AnyFunSuite {
         |    "layer": "download",
         |    "status": "planned",
         |    "files": [
-        |      { "warehousePath": "download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip" },
-        |      { "warehousePath": "download/textus/tutorial/textus-tutorial/0.1.0/01-hello/01-hello-0.1.0.zip" }
+        |      { "warehousePath": "repository/download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip" },
+        |      { "warehousePath": "repository/download/textus/tutorial/textus-tutorial/0.1.0/01-hello/01-hello-0.1.0.zip" }
         |    ]
         |  }
         |}
@@ -883,7 +903,7 @@ final class PublicationCompilerSpec extends AnyFunSuite {
       ))
     }
     assert(ex.getMessage.contains("Missing download artifact"))
-    assert(ex.getMessage.contains("download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip"))
+    assert(ex.getMessage.contains("repository/download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip"))
   }
 
   test("publish-project fails explicitly for missing project roots") {

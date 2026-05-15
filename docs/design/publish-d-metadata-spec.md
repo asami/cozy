@@ -197,7 +197,7 @@ Meaning:
 | `warehouse.maven.coordinates` | Maven coordinates indexed from `${warehouse.repository}/maven`. |
 | `warehouse.repository_artifacts.include` | Repository artifact types checked against warehouse, such as `car` and `sar`. |
 | `warehouse.repository_artifacts.modules` | Repository artifact module directories checked under `${warehouse.repository}/repository/<type>/<module>`. |
-| `warehouse.download.samples` | Sample publications checked under `${warehouse.repository}/download/<publication.path>`. Legacy `${warehouse.repository}/download/samples/<publication>` remains readable only when the existing expected metadata points to that legacy path. |
+| `warehouse.download.samples` | Sample publications checked under `${warehouse.repository}/repository/download/<publication.path>`. Legacy `${warehouse.repository}/download/samples/<publication>` remains readable only when the existing expected metadata points to that legacy path. |
 
 Resolution priority for public metadata is CLI option, `project.yaml`, `.cozy/config.yaml` compatibility fields, sbt setting, then directory-derived default.
 
@@ -508,21 +508,21 @@ download-artifact
 
 Purpose:
 
-- records expected user-facing downloadable archives under `${warehouse.repository}/download`
+- records expected user-facing downloadable archives under `${warehouse.repository}/repository/download`
 - records sample ZIP archive paths separately from CAR/SAR runtime repository artifacts
 - provides stable warehouse and public download paths for SmartDox sample pages
 
 Sample ZIP layouts:
 
 ```text
-warehouse/download/${publication.path}/${version}/${name}-${version}.zip
-warehouse/download/${publication.path}/${sample}/${version}/${sample}-${version}.zip
+warehouse/repository/download/${publication.path}/${version}/${name}-${version}.zip
+warehouse/repository/download/${publication.path}/${sample}/${version}/${sample}-${version}.zip
 ```
 
 The collection archive contains all child sample directories. Individual sample archives contain one child sample project.
 When `publication.path` is not configured, Cozy falls back to the legacy-compatible `samples/${name}` base.
 `index-warehouse` does not rewrite planned download paths. If `publish-project`
-expects the canonical `download/<publication.path>/...` location but only legacy
+expects the canonical `repository/download/<publication.path>/...` location but only legacy
 `download/samples/<publication>/...` files exist, `index-warehouse` reports the
 missing canonical artifacts so the distribution path bug is visible.
 
@@ -540,7 +540,7 @@ artifact:
       latest_release: "0.1.0"
       versions: ["0.1.0"]
   files:
-    - warehouse_path: "download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip"
+    - warehouse_path: "repository/download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip"
       public_path: "repository/download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip"
       name: "textus-tutorial-0.1.0.zip"
       version: "0.1.0"
@@ -549,7 +549,7 @@ artifact:
       sample: ""
       extension: "zip"
       expected: true
-    - warehouse_path: "download/textus/tutorial/textus-tutorial/0.1.0/01-hello/01-hello-0.1.0.zip"
+    - warehouse_path: "repository/download/textus/tutorial/textus-tutorial/0.1.0/01-hello/01-hello-0.1.0.zip"
       public_path: "repository/download/textus/tutorial/textus-tutorial/0.1.0/01-hello/01-hello-0.1.0.zip"
       name: "01-hello-0.1.0.zip"
       version: "0.1.0"
@@ -673,8 +673,8 @@ warehouse/
   maven/<group path>/<artifactId>/<version>/<files>
   repository/car/<module>/<version>/<name>-<version>.car
   repository/sar/<module>/<version>/<name>-<version>.sar
-  download/<publication-path>/<version>/<publication>-<version>.zip
-  download/<publication-path>/<sample>/<version>/<sample>-<version>.zip
+  repository/download/<publication-path>/<version>/<publication>-<version>.zip
+  repository/download/<publication-path>/<sample>/<version>/<sample>-<version>.zip
 ```
 
 Public URL mapping:
@@ -683,7 +683,7 @@ Public URL mapping:
 warehouse/maven           -> /repository/maven
 warehouse/repository/car  -> /repository/car
 warehouse/repository/sar  -> /repository/sar
-warehouse/download        -> /repository/download
+warehouse/repository/download -> /repository/download
 ```
 
 `/repository/maven` is the canonical public location for Maven artifacts from

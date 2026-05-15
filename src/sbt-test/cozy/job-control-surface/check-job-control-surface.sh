@@ -6,12 +6,15 @@ sample_dir=/Users/asami/src/dev2026/cncf-samples/samples/08.a-job-control-lab
 out_dir="$script_dir/out.d"
 cml_file="$sample_dir/src/main/cozy/job-control-lab.cml"
 server_log="$out_dir/server.log"
+server_port=19085
+server_baseurl="http://localhost:${server_port}"
+security_query="cncf.context.securityLevel=content_manager"
 factory_class=org.sample.jobcontrol.impl.JobControlLabComponentFactory
 factory_src="$sample_dir/src/main/scala/org/sample/jobcontrol/impl/JobControlLabComponentFactory.scala"
 factory_dst_dir="$out_dir/src/main/scala/org/sample/jobcontrol/impl"
 
 cleanup_existing_servers() {
-  pids=$(ps -ax | awk '/org\.goldenport\.cncf\.CncfMain --discover=classes server/ && /06\.a-job-control-lab|job-control-surface\/out\.d/ {print $1}')
+  pids=$(ps -ax | awk '/org\.goldenport\.cncf\.CncfMain --discover=classes server/ && /08\.a-job-control-lab|job-control-surface\/out\.d/ {print $1}')
   if [ -n "$pids" ]; then
     printf '%s\n' "$pids" | xargs kill >/dev/null 2>&1 || true
     sleep 1
@@ -34,7 +37,14 @@ run_command() {
 run_client() {
   (
     cd "$out_dir"
-    sbt --batch "runMain org.goldenport.cncf.CncfMain --component-factory-class $factory_class --discover=classes client $*"
+    sbt -Dcncf.http.baseurl="${server_baseurl}" --batch "runMain org.goldenport.cncf.CncfMain --component-factory-class $factory_class --discover=classes client $*"
+  )
+}
+
+run_client_http() {
+  (
+    cd "$out_dir"
+    sbt -Dcncf.http.baseurl="${server_baseurl}" --batch "runMain org.goldenport.cncf.CncfMain --component-factory-class $factory_class --discover=classes client http $*"
   )
 }
 
@@ -65,7 +75,7 @@ printf '%s\n' "$meta_out" | grep 'kind: COMMAND'
 
 (
   cd "$out_dir"
-  sbt --batch "runMain org.goldenport.cncf.CncfMain --component-factory-class $factory_class --discover=classes server" >"$server_log" 2>&1 &
+  sbt -Dcncf.server.port="${server_port}" -Dcncf.http.baseurl="${server_baseurl}" --batch "runMain org.goldenport.cncf.CncfMain --component-factory-class $factory_class --discover=classes server" >"$server_log" 2>&1 &
   echo $! > server.pid
 )
 server_pid=$(cat "$out_dir/server.pid")
@@ -84,48 +94,69 @@ done
 
 grep 'Ember-Server service bound to address' "$server_log"
 
-job_json="$(run_client job-control-lab.item.create-item --name suspend-resume --title SuspendResume 2>&1 | grep '^{' | tail -n 1)"
-printf '%s\n' "$job_json" | grep '"job_id":"cncf-job-'
-job_id="$(printf '%s\n' "$job_json" | sed -n 's/.*"job_id":"\([^"]*\)".*/\1/p')"
-[ -n "$job_id" ]
-
-suspend_json="$(run_client job-control.job-admin.suspend-job --id "$job_id" --privilege content_admin 2>&1 | grep '^{' | tail -n 1)"
-printf '%s\n' "$suspend_json" | grep '"status":"Suspended"'
-
-status_json="$(run_client job-control.job.get-job-status --id "$job_id" 2>&1 | grep '^{' | tail -n 1)"
-printf '%s\n' "$status_json" | grep '"job.suspended"'
-
-resume_json="$(run_client job-control.job-admin.resume-job --id "$job_id" --privilege content_admin 2>&1 | grep '^{' | tail -n 1)"
-printf '%s\n' "$resume_json" | grep '"status":"Running"'
-
-await_json=''
-for _ in $(seq 1 10); do
-  await_json="$(run_client job-control.job.await-job-result --id "$job_id" 2>&1 | grep '^{' | tail -n 1)"
-  if printf '%s\n' "$await_json" | grep -q '"id":"major-minor-entity-item-'; then
+for _ in $(seq 1 30); do
+  http_status="$(curl -sS -o /dev/null -w '%{http_code}' "${server_baseurl}/web" 2>/dev/null || true)"
+  if [ "$http_status" != "000" ]; then
     break
   fi
   sleep 1
 done
-printf '%s\n' "$await_json" | grep '"id":"major-minor-entity-item-'
+[ "$http_status" != "000" ]
 
-history_json="$(run_client job-control.job.load-job-history --id "$job_id" 2>&1 | grep '^{' | tail -n 1)"
-printf '%s\n' "$history_json" | grep '"job.suspended"'
-printf '%s\n' "$history_json" | grep '"job.resumed"'
-printf '%s\n' "$history_json" | grep '"job.succeeded"'
+create_out="$(run_client job-control-lab.item.create-item --name suspend-resume --title SuspendResume 2>&1)"
+outer_job_id="$(printf '%s\n' "$create_out" | awk '/^cncf-job-/ {print $1}' | tail -n 1)"
+[ -n "$outer_job_id" ]
+printf '%s\n' "$outer_job_id" | grep '^cncf-job-'
+
+submit_result="$(run_client_http post "/rest/v1/job-control/job/await-job-result?$security_query" "id=$outer_job_id" 2>&1)"
+job_id="$(printf '%s\n' "$submit_result" | grep -o 'cncf-job-[A-Za-z0-9_-]*' | tail -n 1)"
+[ -n "$job_id" ]
+printf '%s\n' "$job_id" | grep '^cncf-job-'
+
+suspend_out="$(run_client_http post "/rest/v1/job-control/job-admin/suspend-job?$security_query" "id=$job_id" 2>&1)"
+printf '%s\n' "$suspend_out" | grep 'status: Suspended\|"status"[[:space:]]*:[[:space:]]*"Suspended"'
+
+status_out="$(run_client_http get "/rest/v1/job-control/job/get-job-status?id=$job_id&$security_query" 2>&1)"
+printf '%s\n' "$status_out" | grep 'job.suspended'
+
+resume_out="$(run_client_http post "/rest/v1/job-control/job-admin/resume-job?$security_query" "id=$job_id" 2>&1)"
+printf '%s\n' "$resume_out" | grep 'status: Running\|"status"[[:space:]]*:[[:space:]]*"Running"'
+
+await_out=''
+item_result_pattern='id: .*entity-item-\|"id"[[:space:]]*:[[:space:]]*".*entity-item-'
+for _ in $(seq 1 10); do
+  await_out="$(run_client_http post "/rest/v1/job-control/job/await-job-result?$security_query" "id=$job_id" 2>&1)"
+  if printf '%s\n' "$await_out" | grep -q "$item_result_pattern"; then
+    break
+  fi
+  sleep 1
+done
+printf '%s\n' "$await_out" | grep "$item_result_pattern"
+
+history_out="$(run_client_http get "/rest/v1/job-control/job/load-job-history?id=$job_id&$security_query" 2>&1)"
+printf '%s\n' "$history_out" | grep 'job.suspended'
+printf '%s\n' "$history_out" | grep 'job.resumed'
+printf '%s\n' "$history_out" | grep 'job.succeeded'
 
 events_out="$(run_command event.event-admin.load-job-events --id "$job_id" --privilege content_admin 2>&1)"
 printf '%s\n' "$events_out" | grep 'job_id:'
 printf '%s\n' "$events_out" | grep "$job_id"
 
-cancel_json="$(run_client job-control-lab.item.create-item --name cancel --title Cancel 2>&1 | grep '^{' | tail -n 1)"
-cancel_job_id="$(printf '%s\n' "$cancel_json" | sed -n 's/.*"job_id":"\([^"]*\)".*/\1/p')"
+cancel_out="$(run_client job-control-lab.item.create-item --name cancel --title Cancel 2>&1)"
+cancel_outer_job_id="$(printf '%s\n' "$cancel_out" | awk '/^cncf-job-/ {print $1}' | tail -n 1)"
+[ -n "$cancel_outer_job_id" ]
+printf '%s\n' "$cancel_outer_job_id" | grep '^cncf-job-'
+
+cancel_submit_result="$(run_client_http post "/rest/v1/job-control/job/await-job-result?$security_query" "id=$cancel_outer_job_id" 2>&1)"
+cancel_job_id="$(printf '%s\n' "$cancel_submit_result" | grep -o 'cncf-job-[A-Za-z0-9_-]*' | tail -n 1)"
 [ -n "$cancel_job_id" ]
+printf '%s\n' "$cancel_job_id" | grep '^cncf-job-'
 
-cancel_result="$(run_client job-control.job-admin.cancel-job --id "$cancel_job_id" --privilege content_admin 2>&1 | grep '^{' | tail -n 1)"
-printf '%s\n' "$cancel_result" | grep '"status":"Cancelled"'
+cancel_result="$(run_client_http post "/rest/v1/job-control/job-admin/cancel-job?$security_query" "id=$cancel_job_id" 2>&1)"
+printf '%s\n' "$cancel_result" | grep 'status: Cancelled\|"status"[[:space:]]*:[[:space:]]*"Cancelled"'
 
-cancel_history="$(run_client job-control.job.load-job-history --id "$cancel_job_id" 2>&1 | grep '^{' | tail -n 1)"
-printf '%s\n' "$cancel_history" | grep '"job.cancelled"'
+cancel_history="$(run_client_http get "/rest/v1/job-control/job/load-job-history?id=$cancel_job_id&$security_query" 2>&1)"
+printf '%s\n' "$cancel_history" | grep 'job.cancelled'
 
 cancel_events_out="$(run_command event.event-admin.load-job-events --id "$cancel_job_id" --privilege content_admin 2>&1)"
 printf '%s\n' "$cancel_events_out" | grep 'job_id:'

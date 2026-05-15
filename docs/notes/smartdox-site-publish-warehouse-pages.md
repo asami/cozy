@@ -55,8 +55,8 @@ Cozy indexes:
 - Maven artifacts under `warehouse/maven`
 - CAR archives under `warehouse/repository/car/<module>/<version>`
 - SAR archives under `warehouse/repository/sar/<module>/<version>`
-- sample collection ZIP archives under `warehouse/download/<publication.path>/<version>`
-- individual sample ZIP archives under `warehouse/download/<publication.path>/<sample>/<version>`
+- sample collection ZIP archives under `warehouse/repository/download/<publication.path>/<version>`
+- individual sample ZIP archives under `warehouse/repository/download/<publication.path>/<sample>/<version>`
 - only repository artifact modules configured for the publication
 - checksum sidecars when present
 

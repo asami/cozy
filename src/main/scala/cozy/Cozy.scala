@@ -34,7 +34,7 @@ import scala.sys.process._
  *  version Aug. 20, 2025
  *  version Mar. 17, 2026
  *  version Apr. 29, 2026
- * @version May. 14, 2026
+ * @version May. 16, 2026
  * @author  ASAMI, Tomoharu
  */
 class Cozy(
@@ -855,6 +855,7 @@ object Cozy {
       |    version := "${scaffold.version}",
       |
       |    scalaVersion := scala3Version,
+      |    useCoursier := false,
       |
       |    resolvers += Resolver.defaultLocal,
       |    resolvers += Resolver.file("Local Ivy", file(Path.userHome.absolutePath + "/.ivy2/local"))(Resolver.ivyStylePatterns),
@@ -955,6 +956,7 @@ object Cozy {
       |  organization := "${scaffold.organization}",
       |  version := "${scaffold.version}",
       |  scalaVersion := scala3Version,
+      |  useCoursier := false,
       |  resolvers += Resolver.defaultLocal,
       |  resolvers += Resolver.file("Local Ivy", file(Path.userHome.absolutePath + "/.ivy2/local"))(Resolver.ivyStylePatterns),
       |  resolvers += "Local Maven Repository" at ("file://" + Path.userHome.absolutePath + "/.m2/repository"),
@@ -1735,7 +1737,7 @@ object Cozy {
       |      Remove a publication bundle from a publication registry.
       |
       |  distribute-samples <project-dir> --warehouse=<dir> --name=<slug> --version=<version> [--samples-dir=<dir>] [--dry-run]
-      |      Zip the sample collection and each sample project under warehouse/download/<publication.path>.
+      |      Zip the sample collection and each sample project under warehouse/repository/download/<publication.path>.
       |      With --dry-run, print planned output paths without writing archives.
       |
       |  index-warehouse <warehouse-dir> --save=<dir> --name=<slug> [--title=<title>] [--maven-coordinates=<group:artifact,...>] [--repository-artifacts=car,sar,zip] [--repository-modules=<module,...>] [--download-samples=<publication,...>]
@@ -2258,16 +2260,31 @@ private object CozyPublicationPaths {
     publicationpath.map(validatePublicationPath).getOrElse(s"samples/${publicationname}")
 
   def collectionDownloadPath(publicationname: String, publicationpath: Option[String], version: String): String =
-    s"download/${downloadBase(publicationname, publicationpath)}/${version}/${publicationname}-${version}.zip"
+    s"repository/download/${downloadBase(publicationname, publicationpath)}/${version}/${publicationname}-${version}.zip"
 
   def sampleDownloadPath(publicationname: String, publicationpath: Option[String], samplename: String, version: String): String =
-    s"download/${downloadBase(publicationname, publicationpath)}/${version}/${samplename}/${samplename}-${version}.zip"
+    s"repository/download/${downloadBase(publicationname, publicationpath)}/${version}/${samplename}/${samplename}-${version}.zip"
 }
 
 private object CozyPublicationCompiler {
   private val _schema = "cozy.publish-project.v1"
   private val _valid_kinds = Set("car", "sar", "sample-single", "sample-multi")
-  private val _default_excluded_segments = Set("target", ".git", ".bsp", ".bloop", ".metals", ".idea", ".cache", ".vscode", "repository.d")
+  private val _default_excluded_segments = Set(
+    "target",
+    ".git",
+    ".bsp",
+    ".bloop",
+    ".metals",
+    ".idea",
+    ".cache",
+    ".vscode",
+    ".scala-build",
+    "car.d",
+    "component.d",
+    "component-repository.d",
+    "tmprepo",
+    "repository.d"
+  )
   private val _slug_pattern = "^[a-z0-9][a-z0-9-]*$".r
 
   final case class ProjectMetadata(
@@ -3455,7 +3472,21 @@ private object CozyPublicationCompiler {
 }
 
 private object CozySampleDistributor {
-  private val _default_excluded_segments = Set("target", ".git", ".bsp", ".bloop", ".metals", ".idea", ".cache", ".vscode")
+  private val _default_excluded_segments = Set(
+    "target",
+    ".git",
+    ".bsp",
+    ".bloop",
+    ".metals",
+    ".idea",
+    ".cache",
+    ".vscode",
+    ".scala-build",
+    "car.d",
+    "component.d",
+    "component-repository.d",
+    "tmprepo"
+  )
   private val _slug_pattern = "^[a-z0-9][a-z0-9-]*$".r
   final case class PlannedArchive(kind: String, sampleName: Option[String], path: Path)
 
@@ -3769,7 +3800,8 @@ private object CozyWarehouseIndexer {
       case _ =>
         val existing = downloadSamples.exists { publication =>
           _download_scan_bases(publication, publicationPaths.getOrElse(publication, None)).exists { base =>
-            Files.exists(warehouseDir.resolve("download").resolve(base))
+            Files.exists(warehouseDir.resolve("repository/download").resolve(base)) ||
+              Files.exists(warehouseDir.resolve("download").resolve(base))
           }
         }
         if (existing)
@@ -3882,7 +3914,8 @@ private object CozyWarehouseIndexer {
   ): DownloadArtifact = {
     val files = publications.flatMap { publication =>
       val indexed = _download_scan_bases(publication, publicationPaths.getOrElse(publication, None)).flatMap { base =>
-        _index_download_sample_base(warehouseDir, publication, warehouseDir.resolve("download").resolve(base))
+        _index_download_sample_base(warehouseDir, publication, warehouseDir.resolve("repository/download").resolve(base)) ++
+          _index_download_sample_base(warehouseDir, publication, warehouseDir.resolve("download").resolve(base))
       }
       _prefer_first_download_files(indexed)
     }.sortBy(_.path)

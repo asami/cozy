@@ -18,7 +18,7 @@ object Main {
 
   private def _extraComponents(subsystem: Subsystem): Seq[Component] = {
     val params = ComponentCreate(subsystem, ComponentOrigin.Main)
-    ComponentFactory().create(params)
+    Vector(ComponentFactory().createPrimary(params))
   }
 }
 EOF
@@ -111,7 +111,7 @@ printf "%s\n" "$deleted_row" | grep -q "^${id}|jiro|dead|archived$"
 
 load_deleted_out=$(sbt --batch "runMain org.goldenport.cncf.CncfMain --discover=classes command --format yaml ${MODE} ${STORE} domain.entity.loadPerson --id $id ${SEC}" 2>&1)
 printf "%s\n" "$load_deleted_out"
-printf "%s\n" "$load_deleted_out" | grep -q "code: 404"
-printf "%s\n" "$load_deleted_out" | grep -q "symptom: not-found"
+printf "%s\n" "$load_deleted_out" | grep -q "status=404"
+printf "%s\n" "$load_deleted_out" | grep -q "entity.not-found-id"
 
 echo "ENTITY_SQLITE_CRUD_OK"

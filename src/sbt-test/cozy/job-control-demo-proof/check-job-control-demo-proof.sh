@@ -84,7 +84,7 @@ object JobControlDemo {
       List(task),
       ctx,
       JobSubmitOption(runMode = JobRunMode.Async, requestSummary = Some(summary))
-    )
+    ).TAKE
   }
 
   private def _control(component: Component, ctx: ExecutionContext, jobId: JobId, command: JobControlCommand): Unit = {

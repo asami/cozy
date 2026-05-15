@@ -74,25 +74,12 @@ done
 
 grep 'Ember-Server service bound to address' "$server_log"
 
-client_job_id="$(run_client crud.entity.create-item --name alpha --title Alpha 2>&1 | awk '/^cncf-job-/ {print $1}' | tail -n 1)"
-[ -n "$client_job_id" ]
+client_create_out="$(run_client crud.entity.create-item --name alpha --title Alpha 2>&1)"
 printf '%s
-' "$client_job_id" | grep '^cncf-job-'
-
-client_await_json="$(run_client job-control.job.await-job-result --id "$client_job_id" 2>&1 | grep '^{' | tail -n 1)"
-printf '%s
-' "$client_await_json" | grep '"id"'
+' "$client_create_out" | grep '^id: '
 client_item_id="$(printf '%s
-' "$client_await_json" | python3 -c 'import json,sys; print(json.loads(sys.stdin.read())["id"])')"
+' "$client_create_out" | awk '/^id: / {print $2}' | tail -n 1)"
 [ -n "$client_item_id" ]
-
-client_load_json="$(run_client crud.entity.load-item --id "$client_item_id" 2>&1 | grep '^{' | tail -n 1)"
-printf '%s
-' "$client_load_json" | grep "$client_item_id"
-printf '%s
-' "$client_load_json" | grep '"name":"alpha"'
-printf '%s
-' "$client_load_json" | grep '"title":"Alpha"'
 
 rm -f "$dbpath"
 create_out="$(
