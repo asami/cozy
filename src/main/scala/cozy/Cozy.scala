@@ -1870,6 +1870,7 @@ private object CozyArchivePackager {
     val spiJars = _paths(args, "spi-jars")
     val carDir = _path(args, "car-dir")
     val defaultConf = _path(args, "default-conf")
+    val dependencymanifest = _path(args, "dependency-manifest")
     val webDir = _path(args, "web-dir")
     val assemblyDescriptor = _path(args, "assembly-descriptor")
     val name = _required_value(args, "name")
@@ -1887,6 +1888,7 @@ private object CozyArchivePackager {
         libJars.map(p => p -> s"lib/${p.getFileName}") ++
         spiJars.map(p => p -> s"spi/${p.getFileName}") ++
         defaultConf.toVector.map(_ -> "config/default.conf") ++
+        dependencymanifest.toVector.map(_ -> "component-dependencies.yaml") ++
         assemblyDescriptor.toVector.map(_ -> "assembly-descriptor.yaml") ++
         _web_entries(webDir) ++
         Vector(_write_temp("component-descriptor", _component_descriptor_json(name, version, component, extensionMap, configMap, entities)) -> "component-descriptor.json"),
@@ -2150,6 +2152,11 @@ private object CozyProjectYamlConfig {
   ) {
     def value(path: String): Option[String] = values.get(path).map(_.trim).filter(_.nonEmpty)
     def list(path: String): Vector[String] = lists.getOrElse(path, Vector.empty).map(_.trim).filter(_.nonEmpty)
+    def boolean(path: String): Option[Boolean] =
+      value(path).map(_.toLowerCase(java.util.Locale.ROOT)).collect {
+        case "true" | "yes" | "on" => true
+        case "false" | "no" | "off" => false
+      }
     def descriptiveAttributes: DescriptiveAttributes =
       json.map { root =>
         val top = DescriptiveAttributes.fromJson(root)
@@ -2331,6 +2338,7 @@ private object CozyPublicationCompiler {
   final case class Publication(
     project: ProjectMetadata,
     pages: Vector[PublicationPage],
+    sourceManifestEnabled: Boolean,
     sourcefiles: Vector[SourceFile],
     samples: Vector[SamplePublication],
     repositoryModules: Vector[String]
@@ -2381,6 +2389,7 @@ private object CozyPublicationCompiler {
     val kind = _value(args, "kind").orElse(_metadata_value(publicmetadata, "kind")).orElse(config.value("publication.kind")).map(_.trim).filter(_.nonEmpty).getOrElse(_detect_kind(projectdir, buildsbt, samplesdir))
     if (!_valid_kinds.contains(kind))
       RAISE.invalidArgumentFault(s"Invalid --kind: ${kind}. Expected one of: ${_valid_kinds.toVector.sorted.mkString(", ")}")
+    val sourcemanifestenabled = config.boolean("publication.source_manifest.enabled").getOrElse(true)
     val excludes = _default_excluded_segments ++ config.list("publication.source_manifest.excludes")
 
     val project = ProjectMetadata(
@@ -2396,7 +2405,9 @@ private object CozyPublicationCompiler {
       scalaVersion = scalaversion,
       sbtVersion = sbtversion
     )
-    val sourcefiles = _source_manifest(projectdir, savedir, excludes)
+    val sourcefiles =
+      if (sourcemanifestenabled) _source_manifest(projectdir, savedir, excludes)
+      else Vector.empty
     val samples =
       if (kind == "sample-multi")
         _sample_publications(samplesdir, savedir, project.version, excludes)
@@ -2408,7 +2419,7 @@ private object CozyPublicationCompiler {
       case xs => xs.toVector
     }
 
-    Publication(project, _publication_pages(publicmetadata), sourcefiles, samples, repositoryModules)
+    Publication(project, _publication_pages(publicmetadata), sourcemanifestenabled, sourcefiles, samples, repositoryModules)
   }
 
   private def _publication_pages(metadata: CozyProjectYamlConfig.Config): Vector[PublicationPage] =
@@ -2497,7 +2508,8 @@ private object CozyPublicationCompiler {
     publication.samples.foreach(_write_sample(publication.project, metadatadir, _))
     _write_repository_artifact(publication, metadatadir)
     _write_download_artifact(publication, metadatadir)
-    _write_pair(metadatadir.resolve(s"source-manifest/${name}"), _source_manifest_yaml(publication), _source_manifest_json(publication))
+    if (publication.sourceManifestEnabled)
+      _write_pair(metadatadir.resolve(s"source-manifest/${name}"), _source_manifest_yaml(publication), _source_manifest_json(publication))
   }
 
   private def _delete_legacy_placeholder(base: Path): Unit = {
@@ -2564,20 +2576,20 @@ private object CozyPublicationCompiler {
   private def _project_metadata_yaml(p: Publication): String =
     _yaml_header("project-metadata") +
       _project_yaml(p.project) +
-      _publication_yaml(p.project)
+      _publication_yaml(p)
 
   private def _project_metadata_json(p: Publication): JsValue =
     Json.obj(
       "schema" -> _schema,
       "type" -> "project-metadata",
       "project" -> _project_json(p.project),
-      "publication" -> _publication_json(p.project)
+      "publication" -> _publication_json(p)
     )
 
   private def _sample_metadata_yaml(p: Publication): String =
     _yaml_header("sample-metadata") +
       _project_yaml(p.project) +
-      _publication_yaml(p.project) +
+      _publication_yaml(p) +
       _sample_collection_download_yaml(p) +
       _sample_refs_yaml(p)
 
@@ -2586,7 +2598,7 @@ private object CozyPublicationCompiler {
       "schema" -> _schema,
       "type" -> "sample-metadata",
       "project" -> _project_json(p.project),
-      "publication" -> _publication_json(p.project),
+      "publication" -> _publication_json(p),
       "samples" -> JsArray(p.samples.map(sample => _sample_ref_json(p.project, sample)))
     )
     if (p.samples.nonEmpty)
@@ -2949,18 +2961,20 @@ private object CozyPublicationCompiler {
        |  sbt_version: ${_yaml_string(p.sbtVersion)}
        |""".stripMargin
 
-  private def _publication_yaml(p: ProjectMetadata): String = {
-    val path = p.publicationPath.map(x => s"  path: ${_yaml_string(x)}\n").getOrElse("")
+  private def _publication_yaml(p: Publication): String = {
+    val source = if (p.sourceManifestEnabled) s"  source_manifest: metadata/source-manifest/${p.project.name}\n" else ""
+    val path = p.project.publicationPath.map(x => s"  path: ${_yaml_string(x)}\n").getOrElse("")
     s"""publication:
-       |  source_manifest: metadata/source-manifest/${p.name}
-       |${path}""".stripMargin
+       |${source}${path}""".stripMargin
   }
 
-  private def _publication_json(p: ProjectMetadata): JsValue = {
-    val base = Json.obj("sourceManifest" -> s"metadata/source-manifest/${p.name}")
-    p.publicationPath match {
-      case Some(path) => base + ("path" -> JsString(path))
-      case None => base
+  private def _publication_json(p: Publication): JsValue = {
+    val source =
+      if (p.sourceManifestEnabled) Json.obj("sourceManifest" -> s"metadata/source-manifest/${p.project.name}")
+      else Json.obj()
+    p.project.publicationPath match {
+      case Some(path) => source + ("path" -> JsString(path))
+      case None => source
     }
   }
 
