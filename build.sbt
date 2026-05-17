@@ -1,6 +1,78 @@
 import sbt.ScriptedPlugin
 import sbt.ScriptedPlugin.autoImport._
 
+lazy val publishCozyCoursierChannel = taskKey[File]("Publish the Cozy Coursier channel descriptor into the warehouse repository.")
+
+def cozyPublishRepositoryFile(resolver: Resolver): Option[File] =
+  resolver match {
+    case m: MavenRepository =>
+      val root = m.root
+      if (root.startsWith("file:"))
+        Some(new File(new java.net.URI(root)))
+      else
+        Some(file(root))
+    case f: FileRepository =>
+      f.patterns.artifactPatterns.headOption.flatMap { pattern =>
+        val marker = "/[organisation]/"
+        val index = pattern.indexOf(marker)
+        if (index >= 0)
+          Some(file(pattern.take(index)))
+        else
+          None
+      }
+    case _ =>
+      None
+  }
+
+def cozyWarehouseDirFromMavenRepository(repository: File): File =
+  repository.getCanonicalFile match {
+    case canonical
+        if canonical.getName == "maven" &&
+          canonical.getParentFile != null &&
+          canonical.getParentFile.getName == "repository" =>
+      canonical.getParentFile.getParentFile
+    case canonical if canonical.getName == "maven" =>
+      canonical.getParentFile
+    case canonical =>
+      sys.error(
+        s"Cozy Coursier channel publish requires publishTo to point at a Maven repository " +
+          s"under a warehouse, but got: ${canonical}"
+      )
+  }
+
+def cozyCoursierChannelJson(version: String): String =
+  s"""{
+     |  "cozy": {
+     |    "repositories": [
+     |      "central",
+     |      "https://www.simplemodeling.org/repository/maven"
+     |    ],
+     |    "dependencies": [
+     |      "org.simplemodeling:cozy_2.12:$version"
+     |    ],
+     |    "mainClass": "cozy.Cozy"
+     |  }
+     |}
+     |""".stripMargin
+
+def cozyPublishCoursierChannelFile(
+  version: String,
+  publishResolver: Option[Resolver],
+  baseDir: File,
+  log: sbt.util.Logger
+): File = {
+  val warehouseDir =
+    publishResolver
+      .flatMap(cozyPublishRepositoryFile)
+      .map(cozyWarehouseDirFromMavenRepository)
+      .getOrElse(cozyWarehouseDirFromMavenRepository(baseDir / "maven-local"))
+  val target = warehouseDir / "repository" / "cozy" / "coursier-channel.json"
+  IO.createDirectory(target.getParentFile)
+  IO.write(target, cozyCoursierChannelJson(version))
+  log.info(s"Published Cozy Coursier channel to ${target}")
+  target
+}
+
 organization := "org.simplemodeling"
 
 name := "cozy"
@@ -149,9 +221,12 @@ exportClasspath := {
 Compile / packageBin := (Compile / packageBin).dependsOn(exportClasspath).value
 
 // Publish
-publishTo := Some(
-  "GitHub Packages" at "https://maven.pkg.github.com/asami/maven-repository"
-)
+publishTo := {
+  val repo = sys.env.get("SIMPLEMODELING_MAVEN_LOCAL")
+    .map(file)
+    .getOrElse(baseDirectory.value / "maven-local")
+  Some(Resolver.file("local-simplemodeling-maven", repo))
+}
 
 credentials += Credentials(Path.userHome / ".sbt" / ".credentials")
 
@@ -160,6 +235,15 @@ publishMavenStyle := true
 Compile / packageDoc / publishArtifact := false
 
 Compile / doc / sources := Seq.empty
+
+publishCozyCoursierChannel := {
+  cozyPublishCoursierChannelFile(version.value, publishTo.value, baseDirectory.value, streams.value.log)
+}
+
+publish / packagedArtifacts := {
+  publishCozyCoursierChannel.value
+  (publish / packagedArtifacts).value
+}
 
 // Docker
 maintainer := "asami@asamioffice.com"
