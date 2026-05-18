@@ -1726,8 +1726,8 @@ object Cozy {
       |  modeler-scala-value <model-file> --save=<dir>
       |      Generate value/domain model Scala sources without a component.
       |
-      |  package-car --save=<file> --main-jar=<file> --name=<name> --version=<version> --component=<component> [--car-dir=<dir>] [--entities=<spec>]
-      |      Build a CAR archive. Additional CAR-root files come from --car-dir, typically src/main/car.
+      |  package-car --save=<file> --main-jar=<file> --name=<name> --version=<version> [--component=<component>] [--project-dir=<dir>] [--car-dir=<dir>] [--entities=<spec>]
+      |      Build a CAR archive. Project CAR policy comes from --project-dir/project.yaml and --project-dir/.cozy/config.yaml.
       |
       |  package-sar --save=<file> --source-dir=<dir> --name=<name> --version=<version>
       |      Build a SAR archive.
@@ -1865,35 +1865,151 @@ object Cozy {
 private object CozyArchivePackager {
   def buildCar(args: List[String]): Unit = {
     val save = _required_path(args, "save")
-    val mainJar = _required_path(args, "main-jar")
-    val libJars = _paths(args, "lib-jars")
-    val spiJars = _paths(args, "spi-jars")
-    val carDir = _path(args, "car-dir")
-    val defaultConf = _path(args, "default-conf")
-    val dependencymanifest = _path(args, "dependency-manifest")
-    val webDir = _path(args, "web-dir")
-    val assemblyDescriptor = _path(args, "assembly-descriptor")
+    val mainjar = _required_path(args, "main-jar")
+    val projectdir = _path(args, "project-dir")
+    val config = _project_config(projectdir)
+    val libjars = if (_include_dependencies(projectdir, config)) _paths(args, "lib-jars") else Vector.empty
+    val spijars = _paths(args, "spi-jars")
+    val cardir = _path(args, "car-dir").orElse(_car_dir(projectdir, config))
+    val defaultconf = _path(args, "default-conf").orElse(cardir.map(_.resolve("config/default.conf")).filter(Files.isRegularFile(_)))
+    val dependencymanifest = _path(args, "dependency-manifest").orElse(_dependency_manifest(config))
+    val webdir = _path(args, "web-dir").orElse(projectdir.map(_.resolve("src/main/web")).filter(Files.isDirectory(_)))
+    val assemblydescriptor = _path(args, "assembly-descriptor").orElse(cardir.map(_.resolve("assembly-descriptor.yaml")).filter(Files.isRegularFile(_)))
     val name = _required_value(args, "name")
     val version = _required_value(args, "version")
-    val component = _required_value(args, "component")
-    val extensionMap = _string_map(args, "extensions")
-    val configMap = _string_map(args, "config")
+    val manifestmetadata = config.mapUnder("packaging.car.manifest_metadata")
+    val component = _value(args, "component").orElse(manifestmetadata.get("component")).getOrElse(RAISE.invalidArgumentFault("Missing --component"))
+    val packagemetadata = _car_package_metadata(manifestmetadata, component)
+    val extensionmap = packagemetadata.extensions ++ _string_map(args, "extensions")
+    val configmap = _string_map(args, "config")
     val entities = _entity_descriptors(args)
     _write_archive(
       save,
       Vector(
-        mainJar -> "component/main.jar"
+        mainjar -> "component/main.jar"
       ) ++
-        _car_entries(carDir) ++
-        libJars.map(p => p -> s"lib/${p.getFileName}") ++
-        spiJars.map(p => p -> s"spi/${p.getFileName}") ++
-        defaultConf.toVector.map(_ -> "config/default.conf") ++
+        _car_entries(cardir) ++
+        libjars.map(p => p -> s"lib/${p.getFileName}") ++
+        spijars.map(p => p -> s"spi/${p.getFileName}") ++
+        defaultconf.toVector.map(_ -> "config/default.conf") ++
         dependencymanifest.toVector.map(_ -> "component-dependencies.yaml") ++
-        assemblyDescriptor.toVector.map(_ -> "assembly-descriptor.yaml") ++
-        _web_entries(webDir) ++
-        Vector(_write_temp("component-descriptor", _component_descriptor_json(name, version, component, extensionMap, configMap, entities)) -> "component-descriptor.json"),
+        assemblydescriptor.toVector.map(_ -> "assembly-descriptor.yaml") ++
+        _web_entries(webdir) ++
+        Vector(_write_temp("component-descriptor", _component_descriptor_json(name, version, packagemetadata.component, extensionmap, configmap, entities)) -> "component-descriptor.json"),
       Vector("component", "lib", "spi", "config", "web")
     )
+  }
+
+  private def _project_config(projectdir: Option[Path]): CozyProjectYamlConfig.Config =
+    projectdir.map { dir =>
+      val project = CozyProjectYamlConfig.load(dir.resolve("project.yaml"))
+      val local = CozyProjectYamlConfig.load(dir.resolve(".cozy/config.yaml"))
+      project.merge(local)
+    }.getOrElse(CozyProjectYamlConfig.Config.empty)
+
+  private def _car_dir(projectdir: Option[Path], config: CozyProjectYamlConfig.Config): Option[Path] =
+    projectdir.flatMap { dir =>
+      config.value("packaging.car.source_dir").
+        map(path => _config_path(dir, path)).
+        orElse(Some(dir.resolve("src/main/car").toAbsolutePath.normalize())).
+        filter(Files.isDirectory(_))
+    }
+
+  private def _config_path(projectdir: Path, value: String): Path = {
+    val path = Paths.get(value)
+    if (path.isAbsolute)
+      path.normalize()
+    else
+      projectdir.resolve(path).toAbsolutePath.normalize()
+  }
+
+  private def _include_dependencies(projectdir: Option[Path], config: CozyProjectYamlConfig.Config): Boolean =
+    config.boolean("packaging.car.include_dependencies").getOrElse(projectdir.isEmpty)
+
+  private def _dependency_manifest(config: CozyProjectYamlConfig.Config): Option[Path] = {
+    val provided = config.list("packaging.car.dependencies.provided")
+    val shared = config.list("packaging.car.dependencies.shared")
+    val local = config.list("packaging.car.dependencies.local")
+    val repositories = config.list("packaging.car.dependencies.repositories")
+    if (provided.isEmpty && shared.isEmpty && local.isEmpty && repositories.isEmpty)
+      None
+    else
+      Some(_write_temp("component-dependencies", _dependency_manifest_yaml(provided, shared, local, repositories)))
+  }
+
+  private def _dependency_manifest_yaml(
+    provided: Vector[String],
+    shared: Vector[String],
+    local: Vector[String],
+    repositories: Vector[String]
+  ): String = {
+    def section(name: String, values: Vector[String]): String =
+      if (values.isEmpty) ""
+      else values.map(v => s"    - ${_yaml_string(v)}\n").mkString(s"  $name:\n", "", "")
+    "dependencies:\n" +
+      section("provided", provided) +
+      section("shared", shared) +
+      section("local", local) +
+      section("repositories", repositories)
+  }
+
+  private def _yaml_string(value: String): String = {
+    val escaped = value.replace("\\", "\\\\").replace("\"", "\\\"")
+    s""""$escaped""""
+  }
+
+  private final case class CarPackageMetadata(
+    component: String,
+    extensions: Map[String, String]
+  )
+
+  private def _car_package_metadata(metadata: Map[String, String], defaultcomponent: String): CarPackageMetadata = {
+    val component = metadata.getOrElse("component", defaultcomponent)
+    val componentletnames = _componentlet_names(metadata)
+    val reservedkeys = Set("component", "componentlets") ++ metadata.keySet.filter(_.startsWith("componentlet."))
+    val passthroughextensions = metadata -- reservedkeys
+    val extensions =
+      if (componentletnames.isEmpty)
+        passthroughextensions
+      else
+        passthroughextensions + ("componentDescriptorJson" -> _component_descriptor_override_json(component, passthroughextensions, componentletnames, metadata))
+    CarPackageMetadata(component, extensions)
+  }
+
+  private def _componentlet_names(metadata: Map[String, String]): Vector[String] = {
+    val fromlist = metadata
+      .get("componentlets")
+      .toVector
+      .flatMap(_.split(",").toVector)
+      .map(_.trim)
+      .filter(_.nonEmpty)
+    val fromkeys = metadata.keysIterator
+      .filter(_.startsWith("componentlet."))
+      .flatMap { key =>
+        key.stripPrefix("componentlet.").split("\\.", 2).headOption
+      }
+      .toVector
+      .map(_.trim)
+      .filter(_.nonEmpty)
+    (fromlist ++ fromkeys).distinct.sorted.toVector
+  }
+
+  private def _component_descriptor_override_json(
+    component: String,
+    extensions: Map[String, String],
+    componentletnames: Vector[String],
+    metadata: Map[String, String]
+  ): String = {
+    val componentlets = componentletnames.map { name =>
+      val prefix = s"componentlet.$name."
+      val fields = metadata.collect {
+        case (key, value) if key.startsWith(prefix) =>
+          key.stripPrefix(prefix) -> value
+      }
+      val jsonfields = (Map("name" -> name, "kind" -> fields.getOrElse("kind", "componentlet")) ++ fields).toVector.sortBy(_._1)
+      jsonfields.map { case (key, value) => s"${_json_string(key)}:${_json_string(value)}" }.mkString("{", ",", "}")
+    }
+    s"""{"component":{"name":${_json_string(component)},"kind":"component","isPrimary":"true"},"componentlets":[${componentlets.mkString(",")}],"extensions":${_json_map(extensions)}}"""
   }
 
   def buildSar(args: List[String]): Unit = {
@@ -2152,6 +2268,13 @@ private object CozyProjectYamlConfig {
   ) {
     def value(path: String): Option[String] = values.get(path).map(_.trim).filter(_.nonEmpty)
     def list(path: String): Vector[String] = lists.getOrElse(path, Vector.empty).map(_.trim).filter(_.nonEmpty)
+    def mapUnder(path: String): Map[String, String] = {
+      val prefix = path + "."
+      values.collect {
+        case (key, value) if key.startsWith(prefix) && value.trim.nonEmpty =>
+          key.substring(prefix.length) -> value.trim
+      }
+    }
     def boolean(path: String): Option[Boolean] =
       value(path).map(_.toLowerCase(java.util.Locale.ROOT)).collect {
         case "true" | "yes" | "on" => true
@@ -2168,6 +2291,12 @@ private object CozyProjectYamlConfig {
       json.flatMap(_.hcursor.downField("publication").downField("pages").focus).
         flatMap(_.asArray).
         getOrElse(Vector.empty)
+    def merge(overrideconfig: Config): Config =
+      Config(
+        values ++ overrideconfig.values,
+        lists ++ overrideconfig.lists,
+        overrideconfig.json.orElse(json)
+      )
   }
   object Config {
     val empty: Config = Config(Map.empty, Map.empty)

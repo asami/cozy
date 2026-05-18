@@ -49,6 +49,7 @@ class CozyArchivePackagerSpec extends AnyFunSuite {
       assert(entries.contains("spi/spi.jar"))
       assert(entries.contains("config/default.conf"))
       assert(entries.contains("component-dependencies.yaml"))
+      assert(!entries.contains("cozy/component-dependencies.yaml"))
       assert(entries.contains("assembly-descriptor.yaml"))
       assert(entries.contains("web/web.yaml"))
       assert(entries.contains("web/cwitter/index.html"))
@@ -90,6 +91,52 @@ class CozyArchivePackagerSpec extends AnyFunSuite {
       assert(descriptor.contains("\"componentlets\""))
       assert(descriptor.contains("\"name\":\"notice-admin\""))
       assert(descriptor.contains("\"name\":\"public-notice\""))
+    }
+  }
+
+  test("package-car reads project packaging policy and writes dependency manifest") {
+    _with_temp_dir("cozy-car-project-policy") { dir =>
+      val projectdir = dir.resolve("project")
+      val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
+      val libjar = _write(dir.resolve("artifacts/dep.jar"), "dep")
+      val archive = dir.resolve("out/sample.car")
+      _write(
+        projectdir.resolve("project.yaml"),
+        """packaging:
+          |  car:
+          |    include_dependencies: false
+          |    manifest_metadata:
+          |      component: policy-component
+          |    dependencies:
+          |      provided:
+          |        - org.goldenport:goldenport-cncf_3:0.4.8-SNAPSHOT
+          |      shared:
+          |        - org.postgresql:postgresql:42.7.3
+          |      repositories:
+          |        - maven-central
+          |""".stripMargin
+      )
+
+      CozyArchivePackager.buildCar(List(
+        s"--save=$archive",
+        s"--project-dir=$projectdir",
+        s"--main-jar=$mainjar",
+        s"--lib-jars=$libjar",
+        "--name=sample-component",
+        "--version=0.1.0",
+        "--component=sample-component"
+      ))
+
+      val entries = _zip_entries(archive)
+      val manifest = _zip_text(archive, "component-dependencies.yaml")
+      val descriptor = _zip_text(archive, "component-descriptor.json")
+      assert(entries.contains("component-dependencies.yaml"))
+      assert(!entries.contains("cozy/component-dependencies.yaml"))
+      assert(!entries.contains("lib/dep.jar"))
+      assert(descriptor.contains(""""component": "policy-component""""))
+      assert(manifest.contains("provided:"))
+      assert(manifest.contains("shared:"))
+      assert(manifest.contains("\"org.postgresql:postgresql:42.7.3\""))
     }
   }
 

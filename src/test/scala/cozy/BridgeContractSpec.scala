@@ -7,12 +7,12 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Apr. 23, 2026
- * @version May. 14, 2026
+ * @version May. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 final class BridgeContractSpec extends AnyWordSpec with Matchers {
-  private val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
-  private val contractDir = base.resolve("bridge").resolve("sbt-bridge").resolve("v1")
+  private val _base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+  private val _contract_dir = _base.resolve("bridge").resolve("sbt-bridge").resolve("v1")
 
   "sbt-bridge v1 contract" should {
     "provide canonical fixture files" in {
@@ -29,22 +29,23 @@ final class BridgeContractSpec extends AnyWordSpec with Matchers {
         "response-error.json"
       )
       files.foreach { name =>
-        Files.isRegularFile(contractDir.resolve(name)) shouldBe true
+        Files.isRegularFile(_contract_dir.resolve(name)) shouldBe true
       }
     }
 
     "load canonical request fixtures through the real bridge parser" in {
-      val generate = CozySbtBridge.loadRequestForTest(contractDir.resolve("request-generate.json"))
-      val car = CozySbtBridge.loadRequestForTest(contractDir.resolve("request-package-car.json"))
-      val sar = CozySbtBridge.loadRequestForTest(contractDir.resolve("request-package-sar.json"))
-      val publish = CozySbtBridge.loadRequestForTest(contractDir.resolve("request-publish-project.json"))
-      val samples = CozySbtBridge.loadRequestForTest(contractDir.resolve("request-distribute-samples.json"))
-      val warehouse = CozySbtBridge.loadRequestForTest(contractDir.resolve("request-index-warehouse.json"))
+      val generate = CozySbtBridge.loadRequestForTest(_contract_dir.resolve("request-generate.json"))
+      val car = CozySbtBridge.loadRequestForTest(_contract_dir.resolve("request-package-car.json"))
+      val sar = CozySbtBridge.loadRequestForTest(_contract_dir.resolve("request-package-sar.json"))
+      val publish = CozySbtBridge.loadRequestForTest(_contract_dir.resolve("request-publish-project.json"))
+      val samples = CozySbtBridge.loadRequestForTest(_contract_dir.resolve("request-distribute-samples.json"))
+      val warehouse = CozySbtBridge.loadRequestForTest(_contract_dir.resolve("request-index-warehouse.json"))
 
       generate.version shouldBe "v1"
       generate.action shouldBe "generate"
       generate.arguments.head shouldBe "modeler-scala"
       car.action shouldBe "package-car"
+      car.arguments should contain ("--project-dir=/tmp/sample-project")
       sar.action shouldBe "package-sar"
       publish.action shouldBe "publish-project"
       publish.arguments should contain ("--kind=car")
@@ -60,11 +61,11 @@ final class BridgeContractSpec extends AnyWordSpec with Matchers {
     "render canonical success and error compatibility envelopes" in {
       val success = Json.parse(CozySbtBridge.renderSuccessEnvelopeForTest("generate"))
       val error = Json.parse(CozySbtBridge.renderErrorEnvelopeForTest("generate", "Bridge command failed with a diagnostic message."))
-      val successFixture = Json.parse(Files.readString(contractDir.resolve("response-success.json")))
-      val errorFixture = Json.parse(Files.readString(contractDir.resolve("response-error.json")))
+      val successfixture = Json.parse(Files.readString(_contract_dir.resolve("response-success.json")))
+      val errorfixture = Json.parse(Files.readString(_contract_dir.resolve("response-error.json")))
 
-      success shouldBe successFixture
-      error shouldBe errorFixture
+      success shouldBe successfixture
+      error shouldBe errorfixture
     }
   }
 }
