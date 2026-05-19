@@ -77,9 +77,9 @@ organization := "org.simplemodeling"
 
 name := "cozy"
 
-version := "0.2.18-SNAPSHOT"
+version := "0.2.18"
 
-lazy val cncfVersion = "0.4.7"
+lazy val cncfVersion = "0.4.8"
 
 lazy val simpleModelingModelVersion = "0.1.7"
 
@@ -114,6 +114,8 @@ resolvers += "GitHab releases" at "https://raw.github.com/asami/maven-repository
 
 resolvers += "GitHub Packages" at "https://maven.pkg.github.com/asami/maven-repository"
 
+resolvers += "SimpleModeling.org" at "https://www.simplemodeling.org/repository/maven"
+
 // resolvers += "Asami Maven Repository" at "http://www.asamioffice.com/maven"
 
 resolvers += Resolver.file("Local Ivy", file(Path.userHome.absolutePath + "/.ivy2/local"))(Resolver.ivyStylePatterns)
@@ -132,9 +134,9 @@ libraryDependencies += "org.goldenport" %% "goldenport-record" % "2.2.5"
 // override kaleidox
 libraryDependencies += "org.smartdox" %% "smartdox" % "2.4.13"
 
-libraryDependencies += "org.goldenport" %% "kaleidox" % "0.6.15-SNAPSHOT"
+libraryDependencies += "org.goldenport" %% "kaleidox" % "0.6.15"
 
-libraryDependencies += "org.simplemodeling" %% "simplemodeler" % "1.1.18-SNAPSHOT"
+libraryDependencies += "org.simplemodeling" %% "simplemodeler" % "1.1.18"
 
 libraryDependencies += "org.goldenport" %% "arcadia" % "0.6.1"
 
@@ -225,7 +227,13 @@ publishTo := {
   val repo = sys.env.get("SIMPLEMODELING_MAVEN_LOCAL")
     .map(file)
     .getOrElse(baseDirectory.value / "maven-local")
-  Some(Resolver.file("local-simplemodeling-maven", repo))
+
+  Some(
+    Resolver.file(
+      "local-simplemodeling-maven",
+      repo
+    )
+  )
 }
 
 credentials += Credentials(Path.userHome / ".sbt" / ".credentials")
