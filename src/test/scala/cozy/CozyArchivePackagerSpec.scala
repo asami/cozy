@@ -140,6 +140,134 @@ class CozyArchivePackagerSpec extends AnyFunSuite {
     }
   }
 
+  test("package-car accepts CNCF runtime requirement without dependency manifest") {
+    _with_temp_dir("cozy-car-runtime-requirement") { dir =>
+      val projectdir = dir.resolve("project")
+      val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
+      val archive = dir.resolve("out/sample.car")
+      _write(
+        projectdir.resolve("repository/textus/runtime-catalog.yaml"),
+        """schemaVersion: 1
+          |baseProvided:
+          |  - org.goldenport:goldenport-cncf_3
+          |  - org.simplemodeling:simplemodeling-model_3
+          |""".stripMargin
+      )
+      _write(
+        projectdir.resolve("project.yaml"),
+        """packaging:
+          |  car:
+          |    runtime:
+          |      cncf:
+          |        minimum: 0.4.8
+          |        excluded: []
+          |        tested:
+          |          - 0.4.8
+          |""".stripMargin
+      )
+
+      CozyArchivePackager.buildCar(List(
+        s"--save=$archive",
+        s"--project-dir=$projectdir",
+        s"--main-jar=$mainjar",
+        "--name=sample-component",
+        "--version=0.1.0",
+        "--component=sample-component"
+      ))
+
+      val entries = _zip_entries(archive)
+      assert(!entries.contains("component-dependencies.yaml"))
+    }
+  }
+
+  test("package-car writes only component-owned dependencies with CNCF runtime requirement") {
+    _with_temp_dir("cozy-car-component-owned-deps") { dir =>
+      val projectdir = dir.resolve("project")
+      val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
+      val archive = dir.resolve("out/sample.car")
+      _write(
+        projectdir.resolve("repository/textus/runtime-catalog.yaml"),
+        """schemaVersion: 1
+          |baseProvided:
+          |  - org.goldenport:goldenport-cncf_3
+          |  - org.typelevel:cats-core_3
+          |""".stripMargin
+      )
+      _write(
+        projectdir.resolve("project.yaml"),
+        """packaging:
+          |  car:
+          |    runtime:
+          |      cncf:
+          |        minimum: 0.4.8
+          |    dependencies:
+          |      shared:
+          |        - org.postgresql:postgresql:42.7.3
+          |      local:
+          |        - com.example:legacy-driver:1.2.0
+          |      repositories:
+          |        - maven-central
+          |""".stripMargin
+      )
+
+      CozyArchivePackager.buildCar(List(
+        s"--save=$archive",
+        s"--project-dir=$projectdir",
+        s"--main-jar=$mainjar",
+        "--name=sample-component",
+        "--version=0.1.0",
+        "--component=sample-component"
+      ))
+
+      val manifest = _zip_text(archive, "component-dependencies.yaml")
+      assert(!manifest.contains("goldenport-cncf"))
+      assert(!manifest.contains("cats-core"))
+      assert(manifest.contains("\"org.postgresql:postgresql:42.7.3\""))
+      assert(manifest.contains("\"com.example:legacy-driver:1.2.0\""))
+      assert(manifest.contains("repositories:"))
+    }
+  }
+
+  test("package-car rejects dependencies already provided by CNCF runtime catalog") {
+    _with_temp_dir("cozy-car-base-provided-overlap") { dir =>
+      val projectdir = dir.resolve("project")
+      val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
+      val archive = dir.resolve("out/sample.car")
+      _write(
+        projectdir.resolve("repository/textus/runtime-catalog.yaml"),
+        """schemaVersion: 1
+          |baseProvided:
+          |  - org.typelevel:cats-core_3
+          |""".stripMargin
+      )
+      _write(
+        projectdir.resolve("project.yaml"),
+        """packaging:
+          |  car:
+          |    runtime:
+          |      cncf:
+          |        minimum: 0.4.8
+          |    dependencies:
+          |      shared:
+          |        - org.typelevel:cats-core_3:2.10.0
+          |""".stripMargin
+      )
+
+      val ex = intercept[Throwable] {
+        CozyArchivePackager.buildCar(List(
+          s"--save=$archive",
+          s"--project-dir=$projectdir",
+          s"--main-jar=$mainjar",
+          "--name=sample-component",
+          "--version=0.1.0",
+          "--component=sample-component"
+        ))
+      }
+      assert(ex.getMessage.contains("base-provided"))
+      assert(ex.getMessage.contains("org.typelevel:cats-core_3:2.10.0"))
+    }
+  }
+
   test("package-sar writes descriptor at SAR top level") {
     _with_temp_dir("cozy-sar") { dir =>
       val sourcedir = dir.resolve("src")

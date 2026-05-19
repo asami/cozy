@@ -34,7 +34,7 @@ import scala.sys.process._
  *  version Aug. 20, 2025
  *  version Mar. 17, 2026
  *  version Apr. 29, 2026
- * @version May. 16, 2026
+ * @version May. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 class Cozy(
@@ -1872,7 +1872,7 @@ private object CozyArchivePackager {
     val spijars = _paths(args, "spi-jars")
     val cardir = _path(args, "car-dir").orElse(_car_dir(projectdir, config))
     val defaultconf = _path(args, "default-conf").orElse(cardir.map(_.resolve("config/default.conf")).filter(Files.isRegularFile(_)))
-    val dependencymanifest = _path(args, "dependency-manifest").orElse(_dependency_manifest(config))
+    val dependencymanifest = _path(args, "dependency-manifest").orElse(_dependency_manifest(projectdir, config))
     val webdir = _path(args, "web-dir").orElse(projectdir.map(_.resolve("src/main/web")).filter(Files.isDirectory(_)))
     val assemblydescriptor = _path(args, "assembly-descriptor").orElse(cardir.map(_.resolve("assembly-descriptor.yaml")).filter(Files.isRegularFile(_)))
     val name = _required_value(args, "name")
@@ -1926,15 +1926,93 @@ private object CozyArchivePackager {
   private def _include_dependencies(projectdir: Option[Path], config: CozyProjectYamlConfig.Config): Boolean =
     config.boolean("packaging.car.include_dependencies").getOrElse(projectdir.isEmpty)
 
-  private def _dependency_manifest(config: CozyProjectYamlConfig.Config): Option[Path] = {
+  private def _dependency_manifest(projectdir: Option[Path], config: CozyProjectYamlConfig.Config): Option[Path] = {
     val provided = config.list("packaging.car.dependencies.provided")
     val shared = config.list("packaging.car.dependencies.shared")
     val local = config.list("packaging.car.dependencies.local")
     val repositories = config.list("packaging.car.dependencies.repositories")
+    _validate_component_owned_dependencies(projectdir, config, shared, local)
     if (provided.isEmpty && shared.isEmpty && local.isEmpty && repositories.isEmpty)
       None
     else
       Some(_write_temp("component-dependencies", _dependency_manifest_yaml(provided, shared, local, repositories)))
+  }
+
+  private def _validate_component_owned_dependencies(
+    projectdir: Option[Path],
+    config: CozyProjectYamlConfig.Config,
+    shared: Vector[String],
+    local: Vector[String]
+  ): Unit = {
+    if (_cncf_runtime_configured(config)) {
+      _runtime_catalog(projectdir, config) match {
+        case Some(catalog) =>
+          val baseprovided = catalog.baseprovidedmodules
+          val overlaps = (shared ++ local).flatMap { coordinate =>
+            _coordinate_module(coordinate).filter(baseprovided.contains).map(_ => coordinate)
+          }.distinct
+          if (overlaps.nonEmpty)
+            RAISE.invalidArgumentFault(
+              "Component dependencies overlap CNCF base-provided runtime libraries: " +
+                overlaps.mkString(", ")
+            )
+        case None =>
+          Console.err.println("[cozy] warning: CNCF runtime catalog is unavailable; skipping base-provided dependency validation")
+      }
+    }
+  }
+
+  private def _cncf_runtime_configured(config: CozyProjectYamlConfig.Config): Boolean =
+    config.value("packaging.car.runtime.cncf.minimum").nonEmpty ||
+      config.value("packaging.car.runtime.cncf.version").nonEmpty ||
+      config.value("packaging.car.runtime.cncf.maximum").nonEmpty ||
+      config.list("packaging.car.runtime.cncf.excluded").nonEmpty ||
+      config.list("packaging.car.runtime.cncf.tested").nonEmpty
+
+  private final case class RuntimeCatalog(baseprovidedmodules: Set[String])
+
+  private def _runtime_catalog(
+    projectdir: Option[Path],
+    config: CozyProjectYamlConfig.Config
+  ): Option[RuntimeCatalog] =
+    _runtime_catalog_paths(projectdir, config).collectFirst {
+      case path if Files.isRegularFile(path) =>
+        val catalog = CozyProjectYamlConfig.load(path)
+        RuntimeCatalog(_base_provided_modules(catalog))
+    }.filter(_.baseprovidedmodules.nonEmpty)
+
+  private def _runtime_catalog_paths(
+    projectdir: Option[Path],
+    config: CozyProjectYamlConfig.Config
+  ): Vector[Path] = {
+    val configured =
+      config.value("packaging.car.runtime.cncf.catalog").
+        orElse(config.value("runtime.catalog.path")).
+        map(value => _config_path(projectdir.getOrElse(Paths.get(".").toAbsolutePath.normalize()), value)).
+        toVector
+    val local = projectdir.toVector.flatMap { dir =>
+      Vector(
+        dir.resolve("repository/textus/runtime-catalog.yaml"),
+        dir.resolve("src/main/catalog/cncf.yaml")
+      )
+    }
+    (configured ++ local).distinct
+  }
+
+  private def _base_provided_modules(config: CozyProjectYamlConfig.Config): Set[String] =
+    (
+      config.list("baseProvided") ++
+        config.list("base_provided") ++
+        config.list("runtime.baseProvided") ++
+        config.list("runtime.base_provided")
+    ).flatMap(_coordinate_module).toSet
+
+  private def _coordinate_module(coordinate: String): Option[String] = {
+    val parts = coordinate.split(":").toVector.map(_.trim).filter(_.nonEmpty)
+    if (parts.length >= 2)
+      Some(s"${parts(0)}:${parts(1)}")
+    else
+      None
   }
 
   private def _dependency_manifest_yaml(
