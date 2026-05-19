@@ -17,7 +17,7 @@ import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 /*
  * @since   May. 17, 2025
  *  version Apr. 30, 2026
- * @version May.  7, 2026
+ * @version May. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -89,8 +89,20 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(!buildSbtContent.contains("lazy val packageCar = taskKey[File]"))
     assert(!buildSbtContent.contains("""target.value / "car" / s"${name.value}-${version.value}.car""""))
     assert(buildSbtContent.contains("""val cncfVersion = sampleVersion("CNCF_VERSION", "cncf-version.conf""""))
-    assert(buildSbtContent.contains("""val simpleModelingModelVersion = sampleVersion("SIMPLEMODELING_MODEL_VERSION", "simplemodeling-model-version.conf""""))
     assert(buildSbtContent.contains("""libraryDependencies += "org.goldenport" %% "goldenport-cncf" % cncfVersion"""))
+    assert(buildSbtContent.contains("""libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.10" % Test"""))
+    assert(!buildSbtContent.contains("junit-interface"))
+    assert(!buildSbtContent.contains("cats-core"))
+    assert(!buildSbtContent.contains("kittens"))
+    assert(!buildSbtContent.contains("spire"))
+    assert(!buildSbtContent.contains("circe-core"))
+    assert(!buildSbtContent.contains("cats-testkit"))
+    assert(!buildSbtContent.contains("discipline-core"))
+    assert(!buildSbtContent.contains("simplemodeling-model"))
+    assert(!buildSbtContent.contains("cncf-collaborator-api"))
+    assert(!buildSbtContent.contains("dependencyOverrides"))
+    assert(!buildSbtContent.contains("simpleModelingModelVersion"))
+    assert(!buildSbtContent.contains("cncfCollaboratorApiVersion"))
     assert(buildSbtContent.contains("object BuildVersion"))
     assert(buildSbtContent.contains("lazy val cozyBundleFactoryClassName = settingKey[Option[String]]"))
     assert(buildSbtContent.contains("""Some("domain.impl.ComponentFactory")"""))
@@ -195,6 +207,13 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(rootBuildContent.contains("lazy val component = project"))
     assert(rootBuildContent.contains("lazy val subsystem = project"))
     assert(rootBuildContent.contains("lazy val cozyBundleFactoryClassName = settingKey[Option[String]]"))
+    assert(rootBuildContent.contains(""""org.goldenport" %% "goldenport-cncf" % cncfVersion"""))
+    assert(rootBuildContent.contains(""""org.scalatest" %% "scalatest" % "3.2.19" % Test"""))
+    assert(!rootBuildContent.contains("simplemodeling-model"))
+    assert(!rootBuildContent.contains("cncf-collaborator-api"))
+    assert(!rootBuildContent.contains("dependencyOverrides"))
+    assert(!rootBuildContent.contains("simpleModelingModelVersion"))
+    assert(!rootBuildContent.contains("cncfCollaboratorApiVersion"))
     assert(rootBuildContent.contains("org.goldenport.cncf.component.Component$BundleFactory"))
     assert(rootBuildContent.contains("cozyGenerateApp"))
     assert(rootBuildContent.contains("""name := "car-sar-sbt-project"""))

@@ -830,13 +830,13 @@ object Cozy {
       |import sbt.Keys.*
       |
       |val scala3Version = "3.3.7"
-      |def sampleVersion(envName: String, filename: String, fallback: String): String =
-      |  sys.env.get(envName)
+      |def sampleVersion(envname: String, filename: String, fallback: String): String =
+      |  sys.env.get(envname)
       |    .orElse {
       |      sys.env.get("CNCF_SAMPLES_ROOT").flatMap { root =>
-      |        val versionFile = file(root) / "versions" / filename
-      |        if (versionFile.isFile)
-      |          Some(IO.read(versionFile).trim).filter(_.nonEmpty)
+      |        val versionfile = file(root) / "versions" / filename
+      |        if (versionfile.isFile)
+      |          Some(IO.read(versionfile).trim).filter(_.nonEmpty)
       |        else
       |          None
       |      }
@@ -844,8 +844,6 @@ object Cozy {
       |    .getOrElse(fallback)
       |
       |val cncfVersion = sampleVersion("CNCF_VERSION", "cncf-version.conf", "${versions.cncfVersion}")
-      |val simpleModelingModelVersion = sampleVersion("SIMPLEMODELING_MODEL_VERSION", "simplemodeling-model-version.conf", "${versions.simpleModelingModelVersion}")
-      |val cncfCollaboratorApiVersion = "${versions.cncfCollaboratorApiVersion}"
       |
       |lazy val cozyBundleFactoryClassName = settingKey[Option[String]]("Optional Component.BundleFactory implementation class for ServiceLoader discovery.")
       |
@@ -865,36 +863,13 @@ object Cozy {
       |    resolvers += "Local Maven Repository" at ("file://" + Path.userHome.absolutePath + "/.m2/repository"),
       |    resolvers += "SimpleModeling.org" at "https://www.simplemodeling.org/maven",
       |
-      |    libraryDependencies += "com.novocode" % "junit-interface" % "0.11" % "test",
-      |    libraryDependencies += "org.typelevel" %% "cats-core" % "2.7.0",
-      |    libraryDependencies += "org.typelevel" %% "cats-kernel-laws" % "2.7.0",
-      |    libraryDependencies += "org.typelevel" %% "cats-free" % "2.7.0",
-      |    libraryDependencies += "org.typelevel" %% "cats-effect" % "3.3.0",
-      |    libraryDependencies += "org.typelevel" %% "kittens" % "3.5.0",
-      |    libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.10" % "test",
-      |    libraryDependencies += "org.typelevel" %% "cats-testkit" % "2.7.0" % "test",
-      |    libraryDependencies += "org.typelevel" %% "discipline-core" % "1.3.0" % "test",
-      |    libraryDependencies += "org.typelevel" %% "discipline-scalatest" % "2.1.5" % "test",
-      |    libraryDependencies += "org.typelevel" %% "spire" % "0.18.0",
-      |    libraryDependencies += "io.circe" %% "circe-core" % "0.14.3",
-      |    libraryDependencies += "io.circe" %% "circe-generic" % "0.14.3",
-      |    libraryDependencies += "io.circe" %% "circe-parser" % "0.14.3",
       |    libraryDependencies += "org.goldenport" %% "goldenport-cncf" % cncfVersion,
-      |    libraryDependencies += "org.simplemodeling" %% "simplemodeling-model" % simpleModelingModelVersion,
-      |    libraryDependencies += "org.goldenport" % "cncf-collaborator-api" % cncfCollaboratorApiVersion,
-      |
-      |    dependencyOverrides ++= Seq(
-      |      "org.goldenport" % "cncf-collaborator-api" % cncfCollaboratorApiVersion,
-      |      "org.scala-lang.modules" %% "scala-xml" % "2.1.0",
-      |      "org.scala-lang.modules" %% "scala-parser-combinators" % "2.3.0"
-      |    ),
+      |    libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.10" % Test,
       |
       |    cozyGeneratorBackend := "cozy",
       |    cozyDelegateProjectDir := None,
       |    cozyDelegateCommand := Seq("cozy"),
       |    cozyCncfVersion := cncfVersion,
-      |    cozySimpleModelingModelVersion := simpleModelingModelVersion,
-      |    cozyCncfCollaboratorApiVersion := cncfCollaboratorApiVersion,
       |    cozyManifestMetadata ++= Map(
       |      "component" -> "${scaffold.artifactName}",
       |      "boundedContext" -> "${scaffold.boundedContext}",
@@ -935,15 +910,15 @@ object Cozy {
       |import sbt.Keys.*
       |
       |val scala3Version = "3.3.7"
-      |def sampleVersion(envName: String, filename: String, fallback: String): String =
-      |  sys.env.get(envName)
+      |def sampleVersion(envname: String, filename: String, fallback: String): String =
+      |  sys.env.get(envname)
       |    .orElse {
       |      sys.env.get("TEXTUS_SAMPLES_ROOT")
       |        .orElse(sys.env.get("CNCF_SAMPLES_ROOT"))
       |        .flatMap { root =>
-      |          val versionFile = file(root) / "versions" / filename
-      |          if (versionFile.isFile)
-      |            Some(IO.read(versionFile).trim).filter(_.nonEmpty)
+      |          val versionfile = file(root) / "versions" / filename
+      |          if (versionfile.isFile)
+      |            Some(IO.read(versionfile).trim).filter(_.nonEmpty)
       |          else
       |            None
       |        }
@@ -951,8 +926,6 @@ object Cozy {
       |    .getOrElse(fallback)
       |
       |val cncfVersion = sampleVersion("CNCF_VERSION", "cncf-version.conf", "${versions.cncfVersion}")
-      |val simpleModelingModelVersion = sampleVersion("SIMPLEMODELING_MODEL_VERSION", "simplemodeling-model-version.conf", "${versions.simpleModelingModelVersion}")
-      |val cncfCollaboratorApiVersion = sampleVersion("CNCF_COLLABORATOR_API_VERSION", "cncf-collaborator-api-version.conf", "${versions.cncfCollaboratorApiVersion}")
       |lazy val cozyBundleFactoryClassName = settingKey[Option[String]]("Optional Component.BundleFactory implementation class for ServiceLoader discovery.")
       |
       |lazy val commonSettings = Seq(
@@ -984,8 +957,6 @@ object Cozy {
       |    cozyGeneratorBackend := "cozy",
       |    libraryDependencies ++= Seq(
       |      "org.goldenport" %% "goldenport-cncf" % cncfVersion,
-      |      "org.simplemodeling" %% "simplemodeling-model" % simpleModelingModelVersion,
-      |      "org.goldenport" % "cncf-collaborator-api" % cncfCollaboratorApiVersion,
       |      "org.scalatest" %% "scalatest" % "3.2.19" % Test
       |    ),
       |    cozyManifestMetadata ++= Map(
