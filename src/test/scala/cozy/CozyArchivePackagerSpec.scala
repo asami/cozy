@@ -140,11 +140,13 @@ class CozyArchivePackagerSpec extends AnyFunSuite {
     }
   }
 
-  test("package-car accepts CNCF runtime requirement without dependency manifest") {
+  test("package-car accepts CNCF runtime requirement while defaulting project CAR policy") {
     _with_temp_dir("cozy-car-runtime-requirement") { dir =>
       val projectdir = dir.resolve("project")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
+      val libjar = _write(dir.resolve("artifacts/dep.jar"), "dep")
       val archive = dir.resolve("out/sample.car")
+      _write(projectdir.resolve("src/main/car/web/web.yaml"), "apps:\n  - name: default-car-dir\n")
       _write(
         projectdir.resolve("repository/textus/runtime-catalog.yaml"),
         """schemaVersion: 1
@@ -170,13 +172,45 @@ class CozyArchivePackagerSpec extends AnyFunSuite {
         s"--save=$archive",
         s"--project-dir=$projectdir",
         s"--main-jar=$mainjar",
+        s"--lib-jars=$libjar",
         "--name=sample-component",
         "--version=0.1.0",
         "--component=sample-component"
       ))
 
       val entries = _zip_entries(archive)
+      assert(entries.contains("web/web.yaml"))
       assert(!entries.contains("component-dependencies.yaml"))
+      assert(!entries.contains("lib/dep.jar"))
+    }
+  }
+
+  test("package-car embeds dependency jars only when project policy enables them") {
+    _with_temp_dir("cozy-car-include-dependencies") { dir =>
+      val projectdir = dir.resolve("project")
+      val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
+      val libjar = _write(dir.resolve("artifacts/dep.jar"), "dep")
+      val archive = dir.resolve("out/sample.car")
+      _write(
+        projectdir.resolve("project.yaml"),
+        """packaging:
+          |  car:
+          |    include_dependencies: true
+          |""".stripMargin
+      )
+
+      CozyArchivePackager.buildCar(List(
+        s"--save=$archive",
+        s"--project-dir=$projectdir",
+        s"--main-jar=$mainjar",
+        s"--lib-jars=$libjar",
+        "--name=sample-component",
+        "--version=0.1.0",
+        "--component=sample-component"
+      ))
+
+      val entries = _zip_entries(archive)
+      assert(entries.contains("lib/dep.jar"))
     }
   }
 

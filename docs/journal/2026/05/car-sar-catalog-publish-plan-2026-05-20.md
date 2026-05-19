@@ -328,8 +328,8 @@ for coordinating cozy, sbt-cozy, and textus.
 | CS-07 | Simplified CNCF runtime requirement | done | CAR/SAR projects declare `runtime.cncf.minimum` compatibility, while component dependency manifests keep only component-owned dependencies. CNCF base-provided modules live in `repository/textus/runtime-catalog.yaml`; cozy rejects `shared/local` overlaps when catalog data is available. | Use this contract in SIE cleanup. | CS-04 |
 | CS-08 | SIE build dependency simplification | done | SIE now compiles and builds CAR with direct `goldenport-cncf` plus ScalaTest only; redundant direct dependencies and overrides were removed from `build.sbt`. | Use the simplified build as the downstream scaffold target. | CS-07 |
 | CS-08B | Generated sbt scaffold dependency simplification | done | Cozy and simple-modeler `build.sbt` scaffold templates now emit direct `goldenport-cncf` plus ScalaTest only, with tests rejecting the old broad dependency list. | Start CS-09 SIE CAR manifest simplification. | CS-07, CS-08 |
-| CS-09 | SIE CAR manifest simplification | open | SIE `project.yaml` should reduce to the CNCF provided runtime requirement unless additional runtime dependencies are truly component-owned. | Simplify `packaging.car.dependencies` and validate CAR root `component-dependencies.yaml`. | CS-07, CS-08, CS-08B |
-| CS-10 | CAR packaging defaults | open | Normal CAR packaging should default to `source_dir: src/main/car` and `include_dependencies: false`. | Move these defaults into cozy so projects can omit them. | CS-07 |
+| CS-09 | SIE CAR manifest simplification | done | SIE `project.yaml` now declares only CNCF runtime compatibility; it has no component-owned CAR dependencies, so no `component-dependencies.yaml` is expected. | Start CS-10 CAR packaging defaults so `source_dir` and `include_dependencies` can be omitted by ordinary CAR projects. | CS-07, CS-08, CS-08B |
+| CS-10 | CAR packaging defaults | done | Project-dir CAR packaging defaults to `src/main/car` and dependency embedding disabled; SIE now omits `source_dir` and `include_dependencies`. | Start CS-11 CAR/SAR catalog schema and metadata generation. | CS-07, CS-09 |
 | CS-11 | CAR/SAR catalog schema | open | Need YAML schema for artifact history, status, recommended/latest, aliases, runtime compatibility, and files. | Implement reader/writer/validator in cozy. | CS-04, CS-05, CS-07 |
 | CS-12 | `cozyPublishCar` flow | open | Public workflow should be one task; internal subtasks may build, update catalog, publish artifact, publish catalog, and generate metadata. | Implement in cozy first. | CS-10, CS-11 |
 | CS-13 | `cozyPublishSar` flow | open | SAR should follow the same lifecycle as CAR. | Implement after or alongside CAR flow. | CS-11, CS-12 |
@@ -340,10 +340,9 @@ for coordinating cozy, sbt-cozy, and textus.
 
 ## Immediate Next Step
 
-Restart from CS-07. First define the simplified dependency/runtime
-compatibility model so the SIE CAR does not preserve redundant CNCF transitive
-dependency declarations. Then simplify the SIE build and CAR manifest before
-implementing `cozyPublishCar` / `cozyPublishSar` in cozy.
+Start CS-11. Define the CAR/SAR catalog schema and metadata generation contract
+so `cozyPublishCar` / `cozyPublishSar` can publish both archive bodies and
+version-discovery metadata from catalog state.
 
 The publish flow must eventually prove these outputs are produced from catalog
 state:
