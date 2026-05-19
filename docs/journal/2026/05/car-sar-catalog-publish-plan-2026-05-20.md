@@ -331,7 +331,7 @@ for coordinating cozy, sbt-cozy, and textus.
 | CS-09 | SIE CAR manifest simplification | done | SIE `project.yaml` now declares only CNCF runtime compatibility; it has no component-owned CAR dependencies, so no `component-dependencies.yaml` is expected. | Start CS-10 CAR packaging defaults so `source_dir` and `include_dependencies` can be omitted by ordinary CAR projects. | CS-07, CS-08, CS-08B |
 | CS-10 | CAR packaging defaults | done | Project-dir CAR packaging defaults to `src/main/car` and dependency embedding disabled; SIE now omits `source_dir` and `include_dependencies`. | Start CS-11 CAR/SAR catalog schema and metadata generation. | CS-07, CS-09 |
 | CS-11 | CAR/SAR catalog schema | done | Cozy now has a CAR/SAR catalog model, deterministic YAML render, source-path validation, and schema checks for versions, selectors, status, channel, runtime compatibility, and archive extension. | Start CS-12 `cozyPublishCar` flow; derived `maven-metadata.xml` remains CS-15. | CS-04, CS-05, CS-07, CS-10 |
-| CS-12 | `cozyPublishCar` flow | open | Public workflow should be one task; internal subtasks may build, update catalog, publish artifact, publish catalog, and generate metadata. | Implement in cozy first. | CS-10, CS-11 |
+| CS-12 | `publish-car` flow | done | Cozy now has a `publish-car` command that publishes a prebuilt or temporary built CAR, updates the source CAR catalog, and publishes the catalog to the warehouse without generating Maven metadata. | Start CS-13 `publish-sar` flow. | CS-10, CS-11 |
 | CS-13 | `cozyPublishSar` flow | open | SAR should follow the same lifecycle as CAR. | Implement after or alongside CAR flow. | CS-11, CS-12 |
 | CS-14 | sbt-cozy task bridge | open | sbt-cozy remains an adapter and must not own catalog schema or metadata policy. | Add `Car` / `Sar` tasks and delegate to cozy. Keep legacy aliases. | CS-06, CS-12, CS-13 |
 | CS-15 | Derived Maven metadata | open | `maven-metadata.xml` is compatibility output, not source truth. | Generate `repository/car/<artifact>/maven-metadata.xml` and SAR equivalent from catalog. | CS-11, CS-12 |
@@ -340,9 +340,8 @@ for coordinating cozy, sbt-cozy, and textus.
 
 ## Immediate Next Step
 
-Start CS-12. Implement `cozyPublishCar` as the first public workflow that uses
-the CS-11 catalog model, while leaving generated `maven-metadata.xml` as the
-CS-15 compatibility output.
+Start CS-13. Implement the SAR equivalent of `publish-car`, then expose the
+Car/Sar task surface through sbt-cozy in CS-14.
 
 The publish flow must eventually prove these outputs are produced from catalog
 state:
