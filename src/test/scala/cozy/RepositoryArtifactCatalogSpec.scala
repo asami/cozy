@@ -3,6 +3,7 @@ package cozy
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
 
+import cozy.archive.RepositoryArtifactMavenMetadata
 import org.scalatest.funsuite.AnyFunSuite
 
 /*
@@ -213,6 +214,74 @@ class RepositoryArtifactCatalogSpec extends AnyFunSuite {
       }
       assert(ex2.getMessage.contains("path kind"))
     }
+  }
+
+  test("render Maven metadata from catalog selectors") {
+    val catalog = RepositoryArtifactCatalog.parse(
+      """schemaVersion: 1
+        |kind: car
+        |artifactId: sample-component
+        |recommended: 0.0.9
+        |latestStable: 0.1.0
+        |latestSnapshot: 0.2.0-SNAPSHOT
+        |versions:
+        |  - version: 0.0.9
+        |    channel: stable
+        |    status: deprecated
+        |    publishedAt: 2026-05-19T10:11:12Z
+        |    file: repository/car/sample-component/0.0.9/sample-component-0.0.9.car
+        |  - version: 0.1.0
+        |    channel: stable
+        |    publishedAt: 2026-05-20T10:11:12Z
+        |    file: repository/car/sample-component/0.1.0/sample-component-0.1.0.car
+        |  - version: 0.2.0-SNAPSHOT
+        |    channel: snapshot
+        |    publishedAt: 2026-05-20T12:11:12Z
+        |    file: repository/car/sample-component/0.2.0-SNAPSHOT/sample-component-0.2.0-SNAPSHOT.car
+        |  - version: 0.3.0
+        |    channel: stable
+        |    status: disabled
+        |    publishedAt: 2026-05-20T13:11:12Z
+        |    file: repository/car/sample-component/0.3.0/sample-component-0.3.0.car
+        |""".stripMargin
+    )
+    val metadata = RepositoryArtifactMavenMetadata.toXml(catalog, "2026-05-20T00:00:00Z")
+    assert(metadata.contains("<groupId>org.simplemodeling.repository.car</groupId>"))
+    assert(metadata.contains("<artifactId>sample-component</artifactId>"))
+    assert(metadata.contains("<latest>0.0.9</latest>"))
+    assert(metadata.contains("<release>0.1.0</release>"))
+    assert(metadata.contains("<version>0.0.9</version>"))
+    assert(metadata.contains("<version>0.1.0</version>"))
+    assert(metadata.contains("<version>0.2.0-SNAPSHOT</version>"))
+    assert(!metadata.contains("<version>0.3.0</version>"))
+    assert(metadata.contains("<lastUpdated>20260519101112</lastUpdated>"))
+  }
+
+  test("render Maven metadata fallback latest by version order") {
+    val catalog = RepositoryArtifactCatalog.parse(
+      """schemaVersion: 1
+        |kind: car
+        |artifactId: sample-component
+        |versions:
+        |  - version: 0.2.0
+        |    channel: stable
+        |    publishedAt: 2026-05-20T02:00:00Z
+        |    file: repository/car/sample-component/0.2.0/sample-component-0.2.0.car
+        |  - version: 0.10.0
+        |    channel: stable
+        |    publishedAt: 2026-05-20T10:00:00Z
+        |    file: repository/car/sample-component/0.10.0/sample-component-0.10.0.car
+        |  - version: 0.11.0
+        |    channel: stable
+        |    status: disabled
+        |    publishedAt: 2026-05-20T11:00:00Z
+        |    file: repository/car/sample-component/0.11.0/sample-component-0.11.0.car
+        |""".stripMargin
+    )
+    val metadata = RepositoryArtifactMavenMetadata.toXml(catalog, "2026-05-20T00:00:00Z")
+    assert(metadata.contains("<latest>0.10.0</latest>"))
+    assert(!metadata.contains("<version>0.11.0</version>"))
+    assert(metadata.contains("<lastUpdated>20260520100000</lastUpdated>"))
   }
 
   private def _assert_invalid(line: String, expected: String): Unit = {

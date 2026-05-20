@@ -61,7 +61,13 @@ class CozyCarPublisherSpec extends AnyFunSuite {
 
       val target = warehouse.resolve("repository/car/sample-component/0.1.0/sample-component-0.1.0.car")
       assert(Files.readString(target) == "car-body")
-      assert(!Files.exists(warehouse.resolve("repository/car/sample-component/maven-metadata.xml")))
+      val metadata = Files.readString(warehouse.resolve("repository/car/sample-component/maven-metadata.xml"))
+      assert(metadata.contains("<groupId>org.simplemodeling.repository.car</groupId>"))
+      assert(metadata.contains("<artifactId>sample-component</artifactId>"))
+      assert(metadata.contains("<latest>0.1.0</latest>"))
+      assert(metadata.contains("<release>0.1.0</release>"))
+      assert(metadata.contains("<version>0.1.0</version>"))
+      assert(!Files.exists(projectdir.resolve("src/main/catalog/car/maven-metadata.xml")))
       val sourcecatalog = RepositoryArtifactCatalog.load(projectdir.resolve("src/main/catalog/car/sample-component.yaml"))
       val publiccatalog = RepositoryArtifactCatalog.load(warehouse.resolve("repository/catalog/car/sample-component.yaml"))
       assert(sourcecatalog == publiccatalog)
@@ -98,6 +104,9 @@ class CozyCarPublisherSpec extends AnyFunSuite {
       val catalog = RepositoryArtifactCatalog.load(warehouse.resolve("repository/catalog/car/sample-component.yaml"))
       assert(catalog.latestSnapshot == Some("0.1.1-SNAPSHOT"))
       assert(catalog.versions.head.channel == Some("snapshot"))
+      val metadata = Files.readString(warehouse.resolve("repository/car/sample-component/maven-metadata.xml"))
+      assert(metadata.contains("<latest>0.1.1-SNAPSHOT</latest>"))
+      assert(metadata.contains("<version>0.1.1-SNAPSHOT</version>"))
     }
   }
 
@@ -148,6 +157,11 @@ class CozyCarPublisherSpec extends AnyFunSuite {
       assert(catalog.recommended == Some("0.0.9"))
       assert(catalog.latestStable == Some("0.1.0"))
       assert(catalog.aliases == Vector("sample-old"))
+      val metadata = Files.readString(warehouse.resolve("repository/car/sample-component/maven-metadata.xml"))
+      assert(metadata.contains("<latest>0.0.9</latest>"))
+      assert(metadata.contains("<release>0.1.0</release>"))
+      assert(metadata.contains("<version>0.0.9</version>"))
+      assert(metadata.contains("<version>0.1.0</version>"))
     }
   }
 

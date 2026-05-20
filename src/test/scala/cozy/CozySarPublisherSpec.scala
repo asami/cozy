@@ -61,7 +61,13 @@ class CozySarPublisherSpec extends AnyFunSuite {
 
       val target = warehouse.resolve("repository/sar/sample-application/0.1.0/sample-application-0.1.0.sar")
       assert(Files.readString(target) == "sar-body")
-      assert(!Files.exists(warehouse.resolve("repository/sar/sample-application/maven-metadata.xml")))
+      val metadata = Files.readString(warehouse.resolve("repository/sar/sample-application/maven-metadata.xml"))
+      assert(metadata.contains("<groupId>org.simplemodeling.repository.sar</groupId>"))
+      assert(metadata.contains("<artifactId>sample-application</artifactId>"))
+      assert(metadata.contains("<latest>0.1.0</latest>"))
+      assert(metadata.contains("<release>0.1.0</release>"))
+      assert(metadata.contains("<version>0.1.0</version>"))
+      assert(!Files.exists(projectdir.resolve("src/main/catalog/sar/maven-metadata.xml")))
       val sourcecatalog = RepositoryArtifactCatalog.load(projectdir.resolve("src/main/catalog/sar/sample-application.yaml"))
       val publiccatalog = RepositoryArtifactCatalog.load(warehouse.resolve("repository/catalog/sar/sample-application.yaml"))
       assert(sourcecatalog == publiccatalog)
@@ -102,6 +108,9 @@ class CozySarPublisherSpec extends AnyFunSuite {
       val catalog = RepositoryArtifactCatalog.load(warehouse.resolve("repository/catalog/sar/sample-application.yaml"))
       assert(catalog.latestSnapshot == Some("0.1.1-SNAPSHOT"))
       assert(catalog.versions.head.channel == Some("snapshot"))
+      val metadata = Files.readString(warehouse.resolve("repository/sar/sample-application/maven-metadata.xml"))
+      assert(metadata.contains("<latest>0.1.1-SNAPSHOT</latest>"))
+      assert(metadata.contains("<version>0.1.1-SNAPSHOT</version>"))
     }
   }
 
@@ -150,6 +159,11 @@ class CozySarPublisherSpec extends AnyFunSuite {
       assert(catalog.recommended == Some("0.0.9"))
       assert(catalog.latestStable == Some("0.1.0"))
       assert(catalog.aliases == Vector("sample-old"))
+      val metadata = Files.readString(warehouse.resolve("repository/sar/sample-application/maven-metadata.xml"))
+      assert(metadata.contains("<latest>0.0.9</latest>"))
+      assert(metadata.contains("<release>0.1.0</release>"))
+      assert(metadata.contains("<version>0.0.9</version>"))
+      assert(metadata.contains("<version>0.1.0</version>"))
     }
   }
 

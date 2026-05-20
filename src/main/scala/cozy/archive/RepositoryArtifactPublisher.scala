@@ -35,8 +35,11 @@ private[cozy] object RepositoryArtifactPublisher {
     val catalog = _updated_catalog(projectdir, warehouse, name, version, target, args, policy)
     val sourcecatalog = sourceCatalogPath(projectdir, policy.kind, name)
     val publiccatalog = publicCatalogPath(warehouse, policy.kind, name)
+    val metadatapath = mavenMetadataPath(warehouse, policy.kind, name)
+    val metadata = RepositoryArtifactMavenMetadata.toXml(catalog, publishedAt(args))
     writeText(sourcecatalog, catalog.toYaml)
     writeText(publiccatalog, catalog.toYaml)
+    writeText(metadatapath, metadata)
   }
 
   def projectConfig(projectdir: Path): CozyProjectYamlConfig.Config = {
@@ -96,6 +99,9 @@ private[cozy] object RepositoryArtifactPublisher {
 
   def publicCatalogPath(warehouse: Path, kind: String, name: String): Path =
     warehouse.resolve(s"repository/catalog/$kind").resolve(s"$name.yaml")
+
+  def mavenMetadataPath(warehouse: Path, kind: String, name: String): Path =
+    warehouse.resolve("repository").resolve(kind).resolve(name).resolve("maven-metadata.xml")
 
   def warehouseRelativePath(warehouse: Path, file: Path): String =
     warehouse.toAbsolutePath.normalize().relativize(file.toAbsolutePath.normalize()).iterator().asScala.map(_.toString).mkString("/")
