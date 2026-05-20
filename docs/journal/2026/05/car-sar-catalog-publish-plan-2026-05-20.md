@@ -8,7 +8,7 @@ driver is `textus-semantic-integration-engine`. Version `0.1.0` is already
 published and can start with an explicit version:
 
 ```sh
-textus server textus-semantic-integration-engine@0.1.0
+textus server textus-semantic-integration-engine:0.1.0
 ```
 
 The CS work now targets the next development line, `0.1.1-SNAPSHOT`. CS-16 is
@@ -307,8 +307,10 @@ or publication policy.
   `repository/<kind>/<artifact>/maven-metadata.xml`.
 - Later, add direct catalog resolution from `repository/catalog/car/*.yaml` and
   `repository/catalog/sar/*.yaml`.
-- Keep explicit-version resolution working:
-  `textus server textus-semantic-integration-engine@0.1.0`.
+- Keep explicit-version resolution working with canonical
+  `textus server textus-semantic-integration-engine:0.1.0`.
+- Keep legacy `artifact@version` accepted as compatibility input while new docs
+  and scripts use `artifact:version`.
 - After catalog support exists, support richer selectors such as recommended,
   latest stable, disabled rejection, deprecated warning, and aliases.
 
@@ -324,7 +326,7 @@ for coordinating cozy, sbt-cozy, and textus.
 
 | Id | Topic | Status | Decision / Current Position | Next Action | Depends On |
 | --- | --- | --- | --- | --- | --- |
-| CS-01 | Explicit-version startup | done | `textus server textus-semantic-integration-engine@0.1.0` starts, so CAR body, dependency loading, and CNCF startup are minimally valid. | Use this as the baseline smoke while versionless resolution is fixed. | none |
+| CS-01 | Explicit-version startup | done | `textus server textus-semantic-integration-engine:0.1.0` starts, so CAR body, dependency loading, and CNCF startup are minimally valid. Legacy `@` spelling remains compatibility input. | Use this as the baseline smoke while versionless resolution is fixed. | none |
 | CS-02 | Missing versionless metadata | done | Versionless startup fails because `repository/car/textus-semantic-integration-engine/maven-metadata.xml` is missing. | Generate metadata from CAR catalog during publish. | CS-05, CS-07 |
 | CS-03 | Canonical artifact name | decided | Keep `textus-semantic-integration-engine` as the CAR artifact/component name for now. | Do not rename to `textus-sie` in the immediate fix. | none |
 | CS-04 | Catalog responsibility split | decided | Source catalog, warehouse publication, and runtime consumption have separate owners and outputs. | Preserve this split in cozy, sbt-cozy, and textus implementation. | none |
@@ -341,14 +343,14 @@ for coordinating cozy, sbt-cozy, and textus.
 | CS-14 | sbt-cozy task bridge | done | sbt-cozy now exposes canonical `cozyBuildCar/Sar`, `cozyPublishCar/Sar`, and `cozyDistributeCar/Sar` tasks, keeps legacy all-caps aliases, and delegates publish to Cozy `publish-car` / `publish-sar` through sbt-bridge v1. | Start CS-15 derived Maven metadata generation from CAR/SAR catalogs. | CS-06, CS-12, CS-13 |
 | CS-15 | Derived Maven metadata | done | Cozy publish now generates CAR/SAR `maven-metadata.xml` from the catalog as compatibility output. `recommended` drives `<latest>`, `latestStable` drives `<release>`, disabled versions are excluded, and deprecated versions remain explicit. | Start CS-16 SIE 0.1.1-SNAPSHOT spec reflection. | CS-11, CS-12 |
 | CS-16 | SIE 0.1.1-SNAPSHOT spec reflection | done | `textus-semantic-integration-engine` stays on `0.1.1-SNAPSHOT`, uses `sbt-cozy 0.1.8-SNAPSHOT` for canonical `Car` task names during development, keeps the simplified direct build dependencies and runtime compatibility-only `project.yaml`, and now has a source CAR catalog for the already published `0.1.0` entry. Release publication is not part of CS-16. | Use the local CAR shape as the development baseline; publish and versionless startup verification remain CS-18. | CS-07, CS-10, CS-15 |
-| CS-17 | textus artifact syntax and catalog resolution | future | Textus should use `artifact:version` as the canonical explicit-version syntax, keep `artifact@version` as temporary compatibility, and later resolve directly from CAR/SAR catalogs. | Update Textus parser/help/docs/tests to prefer `artifact:version`, keep `@` compatibility, reject ambiguous artifact names, then add catalog-aware resolution after metadata-based startup is stable. | CS-11, CS-16 |
+| CS-17 | textus artifact syntax and catalog resolution | done | Textus now uses `artifact:version` as the canonical explicit-version syntax, keeps `artifact@version` as compatibility input, and rejects mixed `:` / `@` artifact version spellings. CAR/SAR direct catalog resolution is still deferred. | Keep metadata-based startup stable; direct CAR/SAR catalog resolution remains a future follow-up. | CS-11, CS-16 |
 | CS-18 | SIE 0.1.1 release publication verification | future | The 0.1.1 release should publish the CAR, warehouse catalog, and derived Maven metadata, then prove versionless `textus server textus-semantic-integration-engine`. | Run `cozyPublishCar`, upload/sync warehouse output, and verify versionless startup during the 0.1.1 release. | CS-15, CS-16, CS-17 |
 
 ## Immediate Next Step
 
-Start CS-17. Update Textus to prefer `artifact:version` as the canonical
-explicit-version syntax while keeping `artifact@version` as temporary
-compatibility.
+Start CS-18 when the `textus-semantic-integration-engine` `0.1.1` release is
+ready. Publish the CAR, warehouse catalog, and derived Maven metadata, then
+prove versionless `textus server textus-semantic-integration-engine`.
 
 The publish flow must eventually prove these outputs are produced from catalog
 state:
