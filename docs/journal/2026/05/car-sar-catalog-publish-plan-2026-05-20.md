@@ -333,15 +333,15 @@ for coordinating cozy, sbt-cozy, and textus.
 | CS-11 | CAR/SAR catalog schema | done | Cozy now has a CAR/SAR catalog model, deterministic YAML render, source-path validation, and schema checks for versions, selectors, status, channel, runtime compatibility, and archive extension. | Start CS-12 `cozyPublishCar` flow; derived `maven-metadata.xml` remains CS-15. | CS-04, CS-05, CS-07, CS-10 |
 | CS-12 | `publish-car` flow | done | Cozy now has a `publish-car` command that publishes a prebuilt or temporary built CAR, updates the source CAR catalog, and publishes the catalog to the warehouse without generating Maven metadata. | Start CS-13 `publish-sar` flow. | CS-10, CS-11 |
 | CS-13 | `publish-sar` flow | done | Cozy now has a `publish-sar` command that publishes a prebuilt or temporary built SAR, updates the source SAR catalog, and publishes the catalog to the warehouse without generating Maven metadata. | Start CS-14 sbt-cozy task bridge. | CS-11, CS-12 |
-| CS-14 | sbt-cozy task bridge | open | sbt-cozy remains an adapter and must not own catalog schema or metadata policy. | Add `Car` / `Sar` tasks and delegate to cozy. Keep legacy aliases. | CS-06, CS-12, CS-13 |
+| CS-14 | sbt-cozy task bridge | done | sbt-cozy now exposes canonical `cozyBuildCar/Sar`, `cozyPublishCar/Sar`, and `cozyDistributeCar/Sar` tasks, keeps legacy all-caps aliases, and delegates publish to Cozy `publish-car` / `publish-sar` through sbt-bridge v1. | Start CS-15 derived Maven metadata generation from CAR/SAR catalogs. | CS-06, CS-12, CS-13 |
 | CS-15 | Derived Maven metadata | open | `maven-metadata.xml` is compatibility output, not source truth. | Generate `repository/car/<artifact>/maven-metadata.xml` and SAR equivalent from catalog. | CS-11, CS-12 |
 | CS-16 | SIE CAR metadata publication | open | `textus-semantic-integration-engine` needs catalog and metadata publication to support versionless startup. | Publish catalog + metadata, then verify `textus server textus-semantic-integration-engine`. | CS-12, CS-15 |
 | CS-17 | textus catalog resolution | future | Immediate fix can keep `maven-metadata.xml`; direct CAR/SAR catalog resolution is later. | Add catalog-aware resolution after publish flow is stable. | CS-11, CS-16 |
 
 ## Immediate Next Step
 
-Start CS-14. Expose the Car/Sar task surface through sbt-cozy while keeping
-cozy as the catalog and publish-policy owner.
+Start CS-15. Generate derived Maven metadata from CAR/SAR catalog state while
+keeping the catalog as the source of truth.
 
 The publish flow must eventually prove these outputs are produced from catalog
 state:

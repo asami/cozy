@@ -4733,6 +4733,10 @@ private[cozy] object CozySbtBridge {
         CozyArchivePackager.buildCar(request.arguments.toList)
       case "package-sar" =>
         CozyArchivePackager.buildSar(request.arguments.toList)
+      case "publish-car" =>
+        CozyCarPublisher.publish(request.arguments.toList)
+      case "publish-sar" =>
+        CozySarPublisher.publish(request.arguments.toList)
       case "publish-project" =>
         CozyPublicationCompiler.publish(request.arguments.toList)
       case "unpublish-project" =>
