@@ -5,9 +5,15 @@ import java.util.zip.ZipFile
 
 import scala.collection.JavaConverters._
 
+import cozy.archive.CozyArchivePackager
 import org.scalatest.funsuite.AnyFunSuite
 import play.api.libs.json.Json
 
+/*
+ * @since   May. 20, 2026
+ * @version May. 20, 2026
+ * @author  ASAMI, Tomoharu
+ */
 class CozyArchivePackagerSpec extends AnyFunSuite {
   test("package-car writes descriptor-first CAR layout") {
     _with_temp_dir("cozy-car") { dir =>

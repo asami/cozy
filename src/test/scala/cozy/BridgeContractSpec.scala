@@ -2,6 +2,7 @@ package cozy
 
 import java.nio.file.{Files, Path, Paths}
 import scala.collection.JavaConverters._
+import cozy.runtime.CozySbtBridge
 import play.api.libs.json.Json
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec

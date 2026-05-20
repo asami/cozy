@@ -5,6 +5,11 @@ import java.nio.file.{Files, Path}
 
 import org.scalatest.funsuite.AnyFunSuite
 
+/*
+ * @since   May. 20, 2026
+ * @version May. 20, 2026
+ * @author  ASAMI, Tomoharu
+ */
 class RepositoryArtifactCatalogSpec extends AnyFunSuite {
   test("parse and render valid CAR catalog deterministically") {
     val catalog = RepositoryArtifactCatalog.parse(_car_catalog_text)

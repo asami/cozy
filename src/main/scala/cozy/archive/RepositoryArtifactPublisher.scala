@@ -1,4 +1,4 @@
-package cozy
+package cozy.archive
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths, StandardCopyOption}
@@ -6,6 +6,7 @@ import java.security.MessageDigest
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 
+import cozy.config.CozyProjectYamlConfig
 import org.goldenport.RAISE
 import scala.collection.JavaConverters._
 

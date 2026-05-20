@@ -9,6 +9,11 @@ import scala.collection.JavaConverters._
 
 import org.scalatest.funsuite.AnyFunSuite
 
+/*
+ * @since   May. 20, 2026
+ * @version May. 20, 2026
+ * @author  ASAMI, Tomoharu
+ */
 class CozyCarPublisherSpec extends AnyFunSuite {
   test("cozy publish-car command dispatches publisher and help lists command") {
     _with_temp_dir("cozy-publish-car-cli") { dir =>
