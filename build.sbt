@@ -77,9 +77,9 @@ organization := "org.simplemodeling"
 
 name := "cozy"
 
-version := "0.2.19-SNAPSHOT"
+version := "0.2.19"
 
-lazy val cncfVersion = "0.4.9-SNAPSHOT"
+lazy val cncfVersion = "0.4.9"
 
 lazy val simpleModelingModelVersion = "0.1.7"
 
@@ -134,9 +134,9 @@ libraryDependencies += "org.goldenport" %% "goldenport-record" % "2.2.5"
 // override kaleidox
 libraryDependencies += "org.smartdox" %% "smartdox" % "2.4.13"
 
-libraryDependencies += "org.goldenport" %% "kaleidox" % "0.6.16-SNAPSHOT"
+libraryDependencies += "org.goldenport" %% "kaleidox" % "0.6.15"
 
-libraryDependencies += "org.simplemodeling" %% "simplemodeler" % "1.1.19-SNAPSHOT"
+libraryDependencies += "org.simplemodeling" %% "simplemodeler" % "1.1.19"
 
 libraryDependencies += "org.goldenport" %% "arcadia" % "0.6.1"
 
