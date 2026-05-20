@@ -2,6 +2,7 @@ package cozy.scaffold
 
 import org.goldenport.RAISE
 import org.goldenport.value._
+import cozy.config.CozyProjectYamlConfig
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 import scala.util.Try
@@ -9,7 +10,7 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   May. 20, 2026
- * @version May. 20, 2026
+ * @version May. 21, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyScaffold {
@@ -228,6 +229,120 @@ private[cozy] object CozyScaffold {
       p.replaceAll("([a-z0-9])([A-Z])", "$1-$2").toLowerCase(java.util.Locale.ROOT)
   }
 
+  final case class ComponentInitConfig(
+    save: Path,
+    style: ProjectLayoutStyle,
+    scaffold: CarScaffoldConfig,
+    displayName: String
+  )
+  object ComponentInitConfig {
+    def create(args: List[String]): ComponentInitConfig = {
+      val save = _path_option(args, "save").getOrElse {
+        RAISE.invalidArgumentFault("Missing --save for init component")
+      }
+      val config = _path_option(args, "config") match {
+        case Some(path) =>
+          if (!Files.isRegularFile(path))
+            RAISE.invalidArgumentFault(s"Config file not found: ${path}")
+          else
+            CozyProjectYamlConfig.load(path)
+        case None =>
+          CozyProjectYamlConfig.Config.empty
+      }
+      val kind = _option(args, "kind").
+        orElse(config.value("project.component.kind")).
+        orElse(config.value("project.kind")).
+        getOrElse("car")
+      val style = kind match {
+        case "car" => ProjectLayoutStyle.CarOnly
+        case "car-sar" => ProjectLayoutStyle.CarSar
+        case other => RAISE.invalidArgumentFault(s"Unsupported component init kind: ${other}")
+      }
+      val artifact = _option(args, "name").
+        orElse(config.value("project.name")).
+        getOrElse {
+          val rawcomponent = _option(args, "component-name").
+            orElse(_option(args, "component")).
+            orElse(config.value("project.component.name")).
+            getOrElse("Sample")
+          _kebab(_class_name(rawcomponent))
+        }
+      val rawcomponent = _option(args, "component-name").
+        orElse(_option(args, "component")).
+        orElse(config.value("project.component.className")).
+        orElse(config.value("project.component.name")).
+        getOrElse(artifact)
+      val component = _class_name(rawcomponent)
+      val packagename = _option(args, "package").
+        orElse(config.value("project.scalaPackage")).
+        orElse(config.value("project.package")).
+        getOrElse("domain")
+      val organization = _option(args, "organization").
+        orElse(config.value("project.organization")).
+        getOrElse("com.example")
+      val version = _option(args, "version").
+        orElse(config.value("project.component.version")).
+        orElse(config.value("project.version")).
+        getOrElse("0.0.1-SNAPSHOT")
+      val displayname = _option(args, "display-name").
+        orElse(config.value("project.component.displayName")).
+        orElse(config.value("project.title")).
+        getOrElse(_display_name(artifact))
+      val boundedcontext = _option(args, "bounded-context").
+        orElse(config.value("project.boundedContext")).
+        getOrElse("default")
+      val domain = _option(args, "domain").
+        orElse(config.value("project.domain")).
+        getOrElse("default")
+      val scaffold = CarScaffoldConfig(
+        component,
+        packagename,
+        artifact,
+        organization,
+        version,
+        boundedcontext,
+        domain,
+        args.contains("--gitignore") || config.boolean("project.scaffold.gitignore").getOrElse(false),
+        args.contains("--readme") || config.boolean("project.scaffold.readme").getOrElse(false),
+        args.contains("--tests") || config.boolean("project.scaffold.tests").getOrElse(false)
+      )
+      ComponentInitConfig(save, style, scaffold, displayname)
+    }
+
+    private def _option(args: List[String], key: String): Option[String] = {
+      val prefix = s"--${key}="
+      args.collectFirst {
+        case s if s.startsWith(prefix) => s.substring(prefix.length)
+      }.orElse {
+        args.sliding(2).collectFirst {
+          case List(flag, value) if flag == s"--${key}" => value
+        }
+      }.map(_.trim).filter(_.nonEmpty)
+    }
+
+    private def _path_option(args: List[String], key: String): Option[Path] =
+      _option(args, key).map(Paths.get(_).toAbsolutePath.normalize())
+
+    private def _class_name(p: String): String =
+      p.split("[^A-Za-z0-9]+").toVector.filter(_.nonEmpty).map { x =>
+        x.head.toUpper + x.drop(1)
+      }.mkString match {
+        case "" => "Sample"
+        case x => x
+      }
+
+    private def _kebab(p: String): String =
+      p.replaceAll("([a-z0-9])([A-Z])", "$1-$2").toLowerCase(java.util.Locale.ROOT)
+
+    private def _display_name(p: String): String =
+      p.split("[^A-Za-z0-9]+").toVector.filter(_.nonEmpty).map { x =>
+        x.head.toUpper + x.drop(1)
+      }.mkString(" ") match {
+        case "" => "Sample"
+        case x => x
+      }
+  }
+
   private[cozy] def detectSbtVersion(): String = {
     val path = Paths.get("project/build.properties")
     if (Files.exists(path))
@@ -335,6 +450,49 @@ private[cozy] object CozyScaffold {
       |    }.taskValue
       |  )
       |""".stripMargin
+
+  private[cozy] def carProjectYaml(
+    init: ComponentInitConfig,
+    versions: CarDependencyVersions
+  ): String = {
+    val scaffold = init.scaffold
+    s"""project:
+      |  name: ${_yaml_string(scaffold.artifactName)}
+      |  title: ${_yaml_string(init.displayName)}
+      |  kind: car
+      |  organization: ${_yaml_string(scaffold.organization)}
+      |  scalaPackage: ${_yaml_string(scaffold.packageName)}
+      |  component:
+      |    name: ${_yaml_string(scaffold.artifactName)}
+      |    className: ${_yaml_string(scaffold.componentName)}
+      |    displayName: ${_yaml_string(init.displayName)}
+      |    version: ${_yaml_string(scaffold.version)}
+      |
+      |publication:
+      |  source_manifest:
+      |    enabled: false
+      |
+      |packaging:
+      |  kind: car
+      |  car:
+      |    runtime:
+      |      cncf:
+      |        minimum: ${_yaml_string(versions.cncfVersion)}
+      |        excluded: []
+      |        tested:
+      |          - ${_yaml_string(versions.cncfVersion)}
+      |
+      |warehouse:
+      |  repository_artifacts:
+      |    include:
+      |      - car
+      |    modules:
+      |      - ${_yaml_string(scaffold.artifactName)}
+      |""".stripMargin
+  }
+
+  private def _yaml_string(value: String): String =
+    "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 
   private[cozy] def carSarBuildSbt(scaffold: CarScaffoldConfig, versions: CarDependencyVersions): String =
     s"""import org.goldenport.cozy.CozyPlugin.autoImport._
@@ -1115,6 +1273,9 @@ private[cozy] object CozyScaffold {
       |Commands:
       |  help, --help, -h
       |      Show this help and exit.
+      |
+      |  init component --save=<dir> [--config=<file>] [--name=<artifact>] [--component-name=<name>] [--display-name=<title>] [--organization=<organization>] [--package=<package>] [--version=<version>] [--kind=car|car-sar] [--bounded-context=<name>] [--domain=<name>] [--gitignore] [--readme] [--tests] [--no-project-files] [--overwrite-project-files]
+      |      Initialize a component project scaffold. Config-file values are read first; CLI options override them.
       |
       |  car-sbt-project [model-file] --save=<dir> [--style=car|car-sar] [--component=<name>] [--package=<package>] [--name=<artifact>] [--organization=<organization>] [--version=<version>] [--bounded-context=<name>] [--domain=<name>] [--gitignore] [--readme] [--tests] [--no-project-files] [--overwrite-project-files]
       |      Generate an sbt project scaffold. `car` creates a single CAR component project.

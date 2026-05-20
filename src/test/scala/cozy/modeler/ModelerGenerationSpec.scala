@@ -17,7 +17,7 @@ import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 /*
  * @since   May. 17, 2025
  *  version Apr. 30, 2026
- * @version May. 20, 2026
+ * @version May. 21, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -55,72 +55,72 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
 
     cozy.Cozy.main(Array("car-sbt-project", input.toString, s"--save=${out.toString}"))
 
-    val buildSbt = out.resolve("build.sbt")
-    val pluginsSbt = out.resolve("project/plugins.sbt")
-    val buildProperties = out.resolve("project/build.properties")
+    val buildsbt = out.resolve("build.sbt")
+    val pluginssbt = out.resolve("project/plugins.sbt")
+    val buildproperties = out.resolve("project/build.properties")
     val launcher = out.resolve("bin/launcher")
-    val commonScript = out.resolve("scripts/cncf-common.sh")
-    val updateClasspathScript = out.resolve("scripts/update-runtime-classpath.sh")
-    val runServerScript = out.resolve("scripts/run-server.sh")
-    val runServerDebugScript = out.resolve("scripts/run-server-debug.sh")
-    val webDescriptor = out.resolve("src/main/car/web/web.yaml")
-    val sampleCml = out.resolve("src/main/cozy/sample.cml")
-    assert(Files.exists(buildSbt), s"build.sbt not found: $buildSbt")
-    assert(Files.exists(pluginsSbt), s"plugins.sbt not found: $pluginsSbt")
-    assert(Files.exists(buildProperties), s"build.properties not found: $buildProperties")
+    val commonscript = out.resolve("scripts/cncf-common.sh")
+    val updateclasspathscript = out.resolve("scripts/update-runtime-classpath.sh")
+    val runserverscript = out.resolve("scripts/run-server.sh")
+    val runserverdebugscript = out.resolve("scripts/run-server-debug.sh")
+    val webdescriptor = out.resolve("src/main/car/web/web.yaml")
+    val samplecml = out.resolve("src/main/cozy/sample.cml")
+    assert(Files.exists(buildsbt), s"build.sbt not found: $buildsbt")
+    assert(Files.exists(pluginssbt), s"plugins.sbt not found: $pluginssbt")
+    assert(Files.exists(buildproperties), s"build.properties not found: $buildproperties")
     assert(Files.exists(launcher), s"launcher not found: $launcher")
-    assert(Files.exists(commonScript), s"common script not found: $commonScript")
-    assert(Files.exists(updateClasspathScript), s"update script not found: $updateClasspathScript")
-    assert(Files.exists(runServerScript), s"server script not found: $runServerScript")
-    assert(Files.exists(runServerDebugScript), s"debug server script not found: $runServerDebugScript")
-    assert(Files.exists(webDescriptor), s"web descriptor not found: $webDescriptor")
-    assert(Files.exists(sampleCml), s"sample model not found: $sampleCml")
+    assert(Files.exists(commonscript), s"common script not found: $commonscript")
+    assert(Files.exists(updateclasspathscript), s"update script not found: $updateclasspathscript")
+    assert(Files.exists(runserverscript), s"server script not found: $runserverscript")
+    assert(Files.exists(runserverdebugscript), s"debug server script not found: $runserverdebugscript")
+    assert(Files.exists(webdescriptor), s"web descriptor not found: $webdescriptor")
+    assert(Files.exists(samplecml), s"sample model not found: $samplecml")
     assert(Files.isExecutable(launcher), s"launcher must be executable: $launcher")
-    assert(Files.isExecutable(updateClasspathScript), s"update script must be executable: $updateClasspathScript")
-    assert(Files.isExecutable(runServerScript), s"server script must be executable: $runServerScript")
-    assert(Files.isExecutable(runServerDebugScript), s"debug server script must be executable: $runServerDebugScript")
-    val buildSbtContent = Files.readString(buildSbt)
-    val pluginsSbtContent = Files.readString(pluginsSbt)
-    val updateClasspathContent = Files.readString(updateClasspathScript)
-    val runServerContent = Files.readString(runServerScript)
-    val runServerDebugContent = Files.readString(runServerDebugScript)
-    val webDescriptorContent = Files.readString(webDescriptor)
-    assert(buildSbtContent.contains("enablePlugins(org.goldenport.cozy.CozyPlugin)"))
-    assert(!buildSbtContent.contains("lazy val packageCar = taskKey[File]"))
-    assert(!buildSbtContent.contains("""target.value / "car" / s"${name.value}-${version.value}.car""""))
-    assert(buildSbtContent.contains("""val cncfVersion = sampleVersion("CNCF_VERSION", "cncf-version.conf""""))
-    assert(buildSbtContent.contains("""libraryDependencies += "org.goldenport" %% "goldenport-cncf" % cncfVersion"""))
-    assert(buildSbtContent.contains("""libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.10" % Test"""))
-    assert(!buildSbtContent.contains("junit-interface"))
-    assert(!buildSbtContent.contains("cats-core"))
-    assert(!buildSbtContent.contains("kittens"))
-    assert(!buildSbtContent.contains("spire"))
-    assert(!buildSbtContent.contains("circe-core"))
-    assert(!buildSbtContent.contains("cats-testkit"))
-    assert(!buildSbtContent.contains("discipline-core"))
-    assert(!buildSbtContent.contains("simplemodeling-model"))
-    assert(!buildSbtContent.contains("cncf-collaborator-api"))
-    assert(!buildSbtContent.contains("dependencyOverrides"))
-    assert(!buildSbtContent.contains("simpleModelingModelVersion"))
-    assert(!buildSbtContent.contains("cncfCollaboratorApiVersion"))
-    assert(buildSbtContent.contains("object BuildVersion"))
-    assert(buildSbtContent.contains("lazy val cozyBundleFactoryClassName = settingKey[Option[String]]"))
-    assert(buildSbtContent.contains("""Some("domain.impl.ComponentFactory")"""))
-    assert(buildSbtContent.contains("org.goldenport.cncf.component.Component$BundleFactory"))
-    assert(updateClasspathContent.contains("sbt --batch 'export Runtime / fullClasspath'"))
-    val commonScriptContent = Files.readString(commonScript)
-    assert(commonScriptContent.contains("CNCF_VERSION_FILE"))
-    assert(commonScriptContent.contains("versions/cncf-version.conf"))
-    assert(runServerContent.contains("$CNCF_LAUNCHER"))
-    assert(!runServerContent.contains("sbt --batch"))
-    assert(runServerDebugContent.contains("-J-agentlib:jdwp"))
-    assert(runServerDebugContent.contains("runMain $CNCF_MAIN_CLASS"))
-    assert(webDescriptorContent.contains("sample.notice.post-notice"))
-    assert(webDescriptorContent.contains("successRedirect: /web/${component}/admin/entities/notice/${result.id}"))
-    assert(webDescriptorContent.contains("type: textarea"))
+    assert(Files.isExecutable(updateclasspathscript), s"update script must be executable: $updateclasspathscript")
+    assert(Files.isExecutable(runserverscript), s"server script must be executable: $runserverscript")
+    assert(Files.isExecutable(runserverdebugscript), s"debug server script must be executable: $runserverdebugscript")
+    val buildsbtcontent = Files.readString(buildsbt)
+    val pluginssbtcontent = Files.readString(pluginssbt)
+    val updateclasspathcontent = Files.readString(updateclasspathscript)
+    val runservercontent = Files.readString(runserverscript)
+    val runserverdebugcontent = Files.readString(runserverdebugscript)
+    val webdescriptorcontent = Files.readString(webdescriptor)
+    assert(buildsbtcontent.contains("enablePlugins(org.goldenport.cozy.CozyPlugin)"))
+    assert(!buildsbtcontent.contains("lazy val packageCar = taskKey[File]"))
+    assert(!buildsbtcontent.contains("""target.value / "car" / s"${name.value}-${version.value}.car""""))
+    assert(buildsbtcontent.contains("""val cncfVersion = sampleVersion("CNCF_VERSION", "cncf-version.conf""""))
+    assert(buildsbtcontent.contains("""libraryDependencies += "org.goldenport" %% "goldenport-cncf" % cncfVersion"""))
+    assert(buildsbtcontent.contains("""libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.10" % Test"""))
+    assert(!buildsbtcontent.contains("junit-interface"))
+    assert(!buildsbtcontent.contains("cats-core"))
+    assert(!buildsbtcontent.contains("kittens"))
+    assert(!buildsbtcontent.contains("spire"))
+    assert(!buildsbtcontent.contains("circe-core"))
+    assert(!buildsbtcontent.contains("cats-testkit"))
+    assert(!buildsbtcontent.contains("discipline-core"))
+    assert(!buildsbtcontent.contains("simplemodeling-model"))
+    assert(!buildsbtcontent.contains("cncf-collaborator-api"))
+    assert(!buildsbtcontent.contains("dependencyOverrides"))
+    assert(!buildsbtcontent.contains("simpleModelingModelVersion"))
+    assert(!buildsbtcontent.contains("cncfCollaboratorApiVersion"))
+    assert(buildsbtcontent.contains("object BuildVersion"))
+    assert(buildsbtcontent.contains("lazy val cozyBundleFactoryClassName = settingKey[Option[String]]"))
+    assert(buildsbtcontent.contains("""Some("domain.impl.ComponentFactory")"""))
+    assert(buildsbtcontent.contains("org.goldenport.cncf.component.Component$BundleFactory"))
+    assert(updateclasspathcontent.contains("sbt --batch 'export Runtime / fullClasspath'"))
+    val commonscriptcontent = Files.readString(commonscript)
+    assert(commonscriptcontent.contains("CNCF_VERSION_FILE"))
+    assert(commonscriptcontent.contains("versions/cncf-version.conf"))
+    assert(runservercontent.contains("$CNCF_LAUNCHER"))
+    assert(!runservercontent.contains("sbt --batch"))
+    assert(runserverdebugcontent.contains("-J-agentlib:jdwp"))
+    assert(runserverdebugcontent.contains("runMain $CNCF_MAIN_CLASS"))
+    assert(webdescriptorcontent.contains("sample.notice.post-notice"))
+    assert(webdescriptorcontent.contains("successRedirect: /web/${component}/admin/entities/notice/${result.id}"))
+    assert(webdescriptorcontent.contains("type: textarea"))
     assert(Files.exists(out.resolve("src/main/scala/domain/impl/ComponentFactory.scala")))
-    assert(pluginsSbtContent.contains("""addSbtPlugin("org.goldenport" % "sbt-cozy""""))
-    assert(pluginsSbtContent.contains("0.1.5-SNAPSHOT"))
+    assert(pluginssbtcontent.contains("""addSbtPlugin("org.goldenport" % "sbt-cozy""""))
+    assert(pluginssbtcontent.contains("0.1.5-SNAPSHOT"))
   }
 
     "car-sbt-project preserves differing project files by writing bak files" in {
@@ -128,14 +128,14 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val out = base.resolve("target/test-generated/car-sbt-project-bak")
     _delete_recursively(out)
     Files.createDirectories(out.resolve("src/main/scala/domain/impl"))
-    val buildSbt = out.resolve("build.sbt")
+    val buildsbt = out.resolve("build.sbt")
     val factory = out.resolve("src/main/scala/domain/impl/ComponentFactory.scala")
-    Files.writeString(buildSbt, "custom build", StandardCharsets.UTF_8)
+    Files.writeString(buildsbt, "custom build", StandardCharsets.UTF_8)
     Files.writeString(factory, "custom factory", StandardCharsets.UTF_8)
 
     cozy.Cozy.main(Array("car-sbt-project", s"--save=${out.toString}"))
 
-    assert(Files.readString(buildSbt) == "custom build")
+    assert(Files.readString(buildsbt) == "custom build")
     assert(Files.readString(factory) == "custom factory")
     assert(Files.readString(out.resolve("build.sbt.bak")).contains("enablePlugins(org.goldenport.cozy.CozyPlugin)"))
     assert(Files.readString(Paths.get(factory.toString + ".bak")).contains("final class ComponentFactory extends Component.BundleFactory"))
@@ -161,14 +161,14 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val out = base.resolve("target/test-generated/car-sbt-project-overwrite")
     _delete_recursively(out)
     Files.createDirectories(out.resolve("src/main/scala/domain/impl"))
-    val buildSbt = out.resolve("build.sbt")
+    val buildsbt = out.resolve("build.sbt")
     val factory = out.resolve("src/main/scala/domain/impl/ComponentFactory.scala")
-    Files.writeString(buildSbt, "custom build", StandardCharsets.UTF_8)
+    Files.writeString(buildsbt, "custom build", StandardCharsets.UTF_8)
     Files.writeString(factory, "custom factory", StandardCharsets.UTF_8)
 
     cozy.Cozy.main(Array("car-sbt-project", s"--save=${out.toString}", "--overwrite-project-files"))
 
-    assert(Files.readString(buildSbt).contains("enablePlugins(org.goldenport.cozy.CozyPlugin)"))
+    assert(Files.readString(buildsbt).contains("enablePlugins(org.goldenport.cozy.CozyPlugin)"))
     assert(Files.readString(factory).contains("final class ComponentFactory extends Component.BundleFactory"))
     assert(!Files.exists(out.resolve("build.sbt.bak")))
     assert(!Files.exists(Paths.get(factory.toString + ".bak")))
@@ -183,55 +183,55 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
 
     cozy.Cozy.main(Array("car-sbt-project", input.toString, s"--save=${out.toString}", "--style=car-sar"))
 
-    val rootBuild = out.resolve("build.sbt")
-    val pluginsSbt = out.resolve("project/plugins.sbt")
-    val componentModel = out.resolve("component/src/main/cozy/car-sar-sbt-project.cml")
-    val componentWeb = out.resolve("component/src/main/car/web/web.yaml")
-    val subsystemDescriptor = out.resolve("subsystem/subsystem-descriptor.yaml")
-    val repositoryDReadme = out.resolve("repository.d/README.md")
-    val subsystemScriptsReadme = out.resolve("subsystem/scripts/README.md")
-    val generatedOut = out.resolve("component-generated")
+    val rootbuild = out.resolve("build.sbt")
+    val pluginssbt = out.resolve("project/plugins.sbt")
+    val componentmodel = out.resolve("component/src/main/cozy/car-sar-sbt-project.cml")
+    val componentweb = out.resolve("component/src/main/car/web/web.yaml")
+    val subsystemdescriptor = out.resolve("subsystem/subsystem-descriptor.yaml")
+    val repositorydreadme = out.resolve("repository.d/README.md")
+    val subsystemscriptsreadme = out.resolve("subsystem/scripts/README.md")
+    val generatedout = out.resolve("component-generated")
 
-    assert(Files.exists(rootBuild), s"root build.sbt not found: $rootBuild")
-    assert(Files.exists(pluginsSbt), s"plugins.sbt not found: $pluginsSbt")
-    assert(Files.exists(componentModel), s"component model not found: $componentModel")
-    assert(Files.exists(componentWeb), s"component web descriptor not found: $componentWeb")
-    assert(Files.exists(subsystemDescriptor), s"subsystem descriptor not found: $subsystemDescriptor")
-    assert(Files.exists(repositoryDReadme), s"repository.d README not found: $repositoryDReadme")
-    assert(Files.exists(subsystemScriptsReadme), s"subsystem scripts README not found: $subsystemScriptsReadme")
+    assert(Files.exists(rootbuild), s"root build.sbt not found: $rootbuild")
+    assert(Files.exists(pluginssbt), s"plugins.sbt not found: $pluginssbt")
+    assert(Files.exists(componentmodel), s"component model not found: $componentmodel")
+    assert(Files.exists(componentweb), s"component web descriptor not found: $componentweb")
+    assert(Files.exists(subsystemdescriptor), s"subsystem descriptor not found: $subsystemdescriptor")
+    assert(Files.exists(repositorydreadme), s"repository.d README not found: $repositorydreadme")
+    assert(Files.exists(subsystemscriptsreadme), s"subsystem scripts README not found: $subsystemscriptsreadme")
     assert(!Files.exists(out.resolve("component/build.sbt")), s"component/build.sbt must not exist under CAR+SAR scaffold")
     assert(!Files.exists(out.resolve("subsystem/build.sbt")), s"subsystem/build.sbt must not exist under CAR+SAR scaffold")
 
-    val rootBuildContent = Files.readString(rootBuild)
-    val subsystemDescriptorContent = Files.readString(subsystemDescriptor)
-    assert(rootBuildContent.contains("lazy val component = project"))
-    assert(rootBuildContent.contains("lazy val subsystem = project"))
-    assert(rootBuildContent.contains("lazy val cozyBundleFactoryClassName = settingKey[Option[String]]"))
-    assert(rootBuildContent.contains(""""org.goldenport" %% "goldenport-cncf" % cncfVersion"""))
-    assert(rootBuildContent.contains(""""org.scalatest" %% "scalatest" % "3.2.19" % Test"""))
-    assert(!rootBuildContent.contains("simplemodeling-model"))
-    assert(!rootBuildContent.contains("cncf-collaborator-api"))
-    assert(!rootBuildContent.contains("dependencyOverrides"))
-    assert(!rootBuildContent.contains("simpleModelingModelVersion"))
-    assert(!rootBuildContent.contains("cncfCollaboratorApiVersion"))
-    assert(rootBuildContent.contains("org.goldenport.cncf.component.Component$BundleFactory"))
-    assert(rootBuildContent.contains("cozyGenerateApp"))
-    assert(rootBuildContent.contains("""name := "car-sar-sbt-project"""))
-    assert(subsystemDescriptorContent.contains("subsystem: car-sar-sbt-project"))
-    assert(subsystemDescriptorContent.contains("name: car-sar-sbt-project"))
-    assert(subsystemDescriptorContent.contains("name: textus-user-account"))
-    assert(subsystemDescriptorContent.contains("version: 0.1.1-SNAPSHOT"))
-    assert(Files.readString(repositoryDReadme).contains("repository.d/textus-user-account.car"))
+    val rootbuildcontent = Files.readString(rootbuild)
+    val subsystemdescriptorcontent = Files.readString(subsystemdescriptor)
+    assert(rootbuildcontent.contains("lazy val component = project"))
+    assert(rootbuildcontent.contains("lazy val subsystem = project"))
+    assert(rootbuildcontent.contains("lazy val cozyBundleFactoryClassName = settingKey[Option[String]]"))
+    assert(rootbuildcontent.contains(""""org.goldenport" %% "goldenport-cncf" % cncfVersion"""))
+    assert(rootbuildcontent.contains(""""org.scalatest" %% "scalatest" % "3.2.19" % Test"""))
+    assert(!rootbuildcontent.contains("simplemodeling-model"))
+    assert(!rootbuildcontent.contains("cncf-collaborator-api"))
+    assert(!rootbuildcontent.contains("dependencyOverrides"))
+    assert(!rootbuildcontent.contains("simpleModelingModelVersion"))
+    assert(!rootbuildcontent.contains("cncfCollaboratorApiVersion"))
+    assert(rootbuildcontent.contains("org.goldenport.cncf.component.Component$BundleFactory"))
+    assert(rootbuildcontent.contains("cozyGenerateApp"))
+    assert(rootbuildcontent.contains("""name := "car-sar-sbt-project"""))
+    assert(subsystemdescriptorcontent.contains("subsystem: car-sar-sbt-project"))
+    assert(subsystemdescriptorcontent.contains("name: car-sar-sbt-project"))
+    assert(subsystemdescriptorcontent.contains("name: textus-user-account"))
+    assert(subsystemdescriptorcontent.contains("version: 0.1.1-SNAPSHOT"))
+    assert(Files.readString(repositorydreadme).contains("repository.d/textus-user-account.car"))
 
-    cozy.Cozy.main(Array("modeler-scala", componentModel.toString, s"--save=${generatedOut.toString}"))
-    val generatedScala = Files.find(generatedOut, 32, (p, attr) => attr.isRegularFile && p.toString.endsWith(".scala"))
+    cozy.Cozy.main(Array("modeler-scala", componentmodel.toString, s"--save=${generatedout.toString}"))
+    val generatedscala = Files.find(generatedout, 32, (p, attr) => attr.isRegularFile && p.toString.endsWith(".scala"))
     try {
       assert(
-        generatedScala.findAny().isPresent,
-        s"generated component model did not produce Scala sources: $componentModel"
+        generatedscala.findAny().isPresent,
+        s"generated component model did not produce Scala sources: $componentmodel"
       )
     } finally {
-      generatedScala.close()
+      generatedscala.close()
     }
   }
 
@@ -243,14 +243,14 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
 
     cozy.Cozy.main(Array("car-sbt-project", s"--save=${out.toString}"))
 
-    val buildSbt = out.resolve("build.sbt")
-    val pluginsSbt = out.resolve("project/plugins.sbt")
-    val sampleCml = out.resolve("src/main/cozy/sample.cml")
-    val webDescriptor = out.resolve("src/main/car/web/web.yaml")
-    assert(Files.exists(buildSbt), s"build.sbt not found: $buildSbt")
-    assert(Files.exists(pluginsSbt), s"plugins.sbt not found: $pluginsSbt")
-    assert(Files.exists(sampleCml), s"sample model not found: $sampleCml")
-    assert(Files.exists(webDescriptor), s"web descriptor not found: $webDescriptor")
+    val buildsbt = out.resolve("build.sbt")
+    val pluginssbt = out.resolve("project/plugins.sbt")
+    val samplecml = out.resolve("src/main/cozy/sample.cml")
+    val webdescriptor = out.resolve("src/main/car/web/web.yaml")
+    assert(Files.exists(buildsbt), s"build.sbt not found: $buildsbt")
+    assert(Files.exists(pluginssbt), s"plugins.sbt not found: $pluginssbt")
+    assert(Files.exists(samplecml), s"sample model not found: $samplecml")
+    assert(Files.exists(webdescriptor), s"web descriptor not found: $webdescriptor")
   }
 
     "car-sbt-project accepts component scaffold metadata parameters" in {
@@ -274,43 +274,173 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
       "--tests"
     ))
 
-    val buildSbt = out.resolve("build.sbt")
+    val buildsbt = out.resolve("build.sbt")
     val model = out.resolve("src/main/cozy/textus-user-notification.cml")
     val factory = out.resolve("src/main/scala/org/simplemodeling/textus/usernotification/impl/ComponentFactory.scala")
     val readme = out.resolve("README.md")
     val gitignore = out.resolve(".gitignore")
     val spec = out.resolve("src/test/scala/org/simplemodeling/textus/usernotification/ComponentFactorySpec.scala")
-    val webDescriptor = out.resolve("src/main/car/web/web.yaml")
+    val webdescriptor = out.resolve("src/main/car/web/web.yaml")
 
-    assert(Files.exists(buildSbt), s"build.sbt not found: $buildSbt")
+    assert(Files.exists(buildsbt), s"build.sbt not found: $buildsbt")
     assert(Files.exists(model), s"model not found: $model")
     assert(Files.exists(factory), s"factory not found: $factory")
     assert(Files.exists(readme), s"README not found: $readme")
     assert(Files.exists(gitignore), s".gitignore not found: $gitignore")
     assert(Files.exists(spec), s"ComponentFactorySpec not found: $spec")
 
-    val buildSbtContent = Files.readString(buildSbt)
-    val modelContent = Files.readString(model)
-    val factoryContent = Files.readString(factory)
-    val webContent = Files.readString(webDescriptor)
-    assert(buildSbtContent.contains("""organization := "org.textus""""))
-    assert(buildSbtContent.contains("""name := "textus-user-notification""""))
-    assert(buildSbtContent.contains("""version := "0.1.0-SNAPSHOT""""))
-    assert(buildSbtContent.contains("""cozyManifestMetadata ++= Map("""))
-    assert(buildSbtContent.contains("),"))
-    assert(buildSbtContent.contains("""package org.simplemodeling.textus.usernotification.meta"""))
-    assert(buildSbtContent.contains("""Some("org.simplemodeling.textus.usernotification.impl.ComponentFactory")"""))
-    assert(modelContent.contains("## UserNotification"))
-    assert(modelContent.contains("org.simplemodeling.textus.usernotification"))
-    assert(factoryContent.contains("package org.simplemodeling.textus.usernotification.impl"))
-    assert(factoryContent.contains("import org.simplemodeling.textus.usernotification.UserNotificationComponent"))
-    assert(webContent.contains("textus-user-notification.notice.post-notice"))
+    val buildsbtcontent = Files.readString(buildsbt)
+    val modelcontent = Files.readString(model)
+    val factorycontent = Files.readString(factory)
+    val webcontent = Files.readString(webdescriptor)
+    assert(buildsbtcontent.contains("""organization := "org.textus""""))
+    assert(buildsbtcontent.contains("""name := "textus-user-notification""""))
+    assert(buildsbtcontent.contains("""version := "0.1.0-SNAPSHOT""""))
+    assert(buildsbtcontent.contains("""cozyManifestMetadata ++= Map("""))
+    assert(buildsbtcontent.contains("),"))
+    assert(buildsbtcontent.contains("""package org.simplemodeling.textus.usernotification.meta"""))
+    assert(buildsbtcontent.contains("""Some("org.simplemodeling.textus.usernotification.impl.ComponentFactory")"""))
+    assert(modelcontent.contains("## UserNotification"))
+    assert(modelcontent.contains("org.simplemodeling.textus.usernotification"))
+    assert(factorycontent.contains("package org.simplemodeling.textus.usernotification.impl"))
+    assert(factorycontent.contains("import org.simplemodeling.textus.usernotification.UserNotificationComponent"))
+    assert(webcontent.contains("textus-user-notification.notice.post-notice"))
     assert(Files.readString(gitignore).contains("target/"))
     assert(Files.readString(readme).contains("textus-user-notification"))
     assert(Files.readString(spec).contains("new impl.ComponentFactory()"))
   }
 
-    "car-sbt-project generates web descriptor scaffold from CML WEB metadata" in {
+  "init component creates a configured CAR project from config" in {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val out = base.resolve("target/test-generated/init-component-config")
+    _delete_recursively(out)
+    Files.createDirectories(out.getParent)
+    val config = base.resolve("target/test-generated/init-component-config.yaml")
+    Files.writeString(
+      config,
+      """project:
+        |  name: textus-knowledge-editor
+        |  organization: org.goldenport
+        |  scalaPackage: org.goldenport.textus.knowledge.editor
+        |  component:
+        |    name: textus-knowledge-editor
+        |    displayName: Textus Knowledge Editor
+        |    version: 0.1.0-SNAPSHOT
+        |    kind: car
+        |  scaffold:
+        |    readme: true
+        |    tests: true
+        |""".stripMargin,
+      StandardCharsets.UTF_8
+    )
+
+    cozy.Cozy.main(Array("init", "component", s"--save=${out.toString}", s"--config=${config.toString}"))
+
+    val buildsbt = out.resolve("build.sbt")
+    val projectyaml = out.resolve("project.yaml")
+    val model = out.resolve("src/main/cozy/textus-knowledge-editor.cml")
+    val factory = out.resolve("src/main/scala/org/goldenport/textus/knowledge/editor/impl/ComponentFactory.scala")
+    val spec = out.resolve("src/test/scala/org/goldenport/textus/knowledge/editor/ComponentFactorySpec.scala")
+    val readme = out.resolve("README.md")
+
+    assert(Files.exists(buildsbt), s"build.sbt not found: $buildsbt")
+    assert(Files.exists(projectyaml), s"project.yaml not found: $projectyaml")
+    assert(Files.exists(model), s"model not found: $model")
+    assert(Files.exists(factory), s"factory not found: $factory")
+    assert(Files.exists(spec), s"spec not found: $spec")
+    assert(Files.exists(readme), s"README not found: $readme")
+
+    val buildsbtcontent = Files.readString(buildsbt)
+    val projectyamlcontent = Files.readString(projectyaml)
+    val modelcontent = Files.readString(model)
+    assert(buildsbtcontent.contains("""organization := "org.goldenport""""))
+    assert(buildsbtcontent.contains("""name := "textus-knowledge-editor""""))
+    assert(buildsbtcontent.contains("""version := "0.1.0-SNAPSHOT""""))
+    assert(buildsbtcontent.contains("""libraryDependencies += "org.goldenport" %% "goldenport-cncf" % cncfVersion"""))
+    assert(buildsbtcontent.contains("""libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.10" % Test"""))
+    assert(!buildsbtcontent.contains("dependencyOverrides"))
+    assert(projectyamlcontent.contains("""name: "textus-knowledge-editor""""))
+    assert(projectyamlcontent.contains("""title: "Textus Knowledge Editor""""))
+    assert(projectyamlcontent.contains("""scalaPackage: "org.goldenport.textus.knowledge.editor""""))
+    assert(projectyamlcontent.contains("""minimum: """))
+    assert(projectyamlcontent.contains("""modules:"""))
+    assert(modelcontent.contains("## TextusKnowledgeEditor"))
+    assert(modelcontent.contains("org.goldenport.textus.knowledge.editor"))
+  }
+
+  "init component CLI options override config values" in {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val out = base.resolve("target/test-generated/init-component-override")
+    _delete_recursively(out)
+    Files.createDirectories(out.getParent)
+    val config = base.resolve("target/test-generated/init-component-override.yaml")
+    Files.writeString(
+      config,
+      """project:
+        |  name: wrong-name
+        |  organization: org.wrong
+        |  scalaPackage: org.wrong
+        |  component:
+        |    name: wrong-component
+        |    displayName: Wrong Name
+        |    version: 0.0.1
+        |    kind: car
+        |""".stripMargin,
+      StandardCharsets.UTF_8
+    )
+
+    cozy.Cozy.main(Array(
+      "init",
+      "component",
+      s"--save=${out.toString}",
+      s"--config=${config.toString}",
+      "--name=override-artifact",
+      "--component-name=OverrideComponent",
+      "--display-name=Override Component",
+      "--organization=org.override",
+      "--package=org.override.component",
+      "--version=0.2.0-SNAPSHOT"
+    ))
+
+    val buildsbtcontent = Files.readString(out.resolve("build.sbt"))
+    val projectyamlcontent = Files.readString(out.resolve("project.yaml"))
+    val modelcontent = Files.readString(out.resolve("src/main/cozy/override-artifact.cml"))
+    assert(buildsbtcontent.contains("""organization := "org.override""""))
+    assert(buildsbtcontent.contains("""name := "override-artifact""""))
+    assert(buildsbtcontent.contains("""version := "0.2.0-SNAPSHOT""""))
+    assert(projectyamlcontent.contains("""title: "Override Component""""))
+    assert(projectyamlcontent.contains("""scalaPackage: "org.override.component""""))
+    assert(modelcontent.contains("## OverrideComponent"))
+    assert(modelcontent.contains("org.override.component"))
+  }
+
+  "init component can create a CAR plus SAR application layout" in {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val out = base.resolve("target/test-generated/init-component-car-sar")
+    _delete_recursively(out)
+    Files.createDirectories(out.getParent)
+
+    cozy.Cozy.main(Array(
+      "init",
+      "component",
+      s"--save=${out.toString}",
+      "--kind=car-sar",
+      "--name=textus-knowledge-editor",
+      "--component-name=TextusKnowledgeEditor",
+      "--package=org.goldenport.textus.knowledge.editor"
+    ))
+
+    assert(Files.exists(out.resolve("build.sbt")))
+    assert(Files.exists(out.resolve("component/src/main/cozy/textus-knowledge-editor.cml")))
+    assert(Files.exists(out.resolve("component/src/main/car/web/web.yaml")))
+    assert(Files.exists(out.resolve("component/project.yaml")))
+    assert(Files.exists(out.resolve("subsystem/subsystem-descriptor.yaml")))
+    val projectyamlcontent = Files.readString(out.resolve("component/project.yaml"))
+    assert(projectyamlcontent.contains("""name: "textus-knowledge-editor""""))
+    assert(projectyamlcontent.contains("""packaging:"""))
+  }
+
+  "car-sbt-project generates web descriptor scaffold from CML WEB metadata" in {
     val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
     val out = base.resolve("target/test-generated/car-sbt-project-web-metadata")
     _delete_recursively(out)
@@ -345,8 +475,8 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
 
     cozy.Cozy.main(Array("car-sbt-project", input.toString, s"--save=${out.toString}"))
 
-    val webDescriptor = out.resolve("src/main/car/web/web.yaml")
-    val content = Files.readString(webDescriptor)
+    val webdescriptor = out.resolve("src/main/car/web/web.yaml")
+    val content = Files.readString(webdescriptor)
     assert(content.contains("sample.notice.post-notice: public"))
     assert(content.contains("stayOnError: true"))
     assert(content.contains("resultTemplate: |"))
@@ -364,6 +494,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val help = out.toString(StandardCharsets.UTF_8.name())
     assert(help.contains("Usage:"))
     assert(help.contains("Commands:"))
+    assert(help.contains("init component"))
     assert(help.contains("car-sbt-project"))
     assert(help.contains("--style=car|car-sar"))
     assert(help.contains("modeler-scala"))
@@ -388,12 +519,12 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val query = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/entity/query/Person.scala"
     )
-    val domainComponent = out.resolve(
+    val domaincomponent = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
     )
     assert(Files.exists(entity), s"generated entity file not found: $entity")
     assert(Files.exists(query), s"generated query value file not found: $query")
-    assert(!Files.exists(domainComponent), s"DomainComponent must not be generated in value mode: $domainComponent")
+    assert(!Files.exists(domaincomponent), s"DomainComponent must not be generated in value mode: $domaincomponent")
   }
 
     "modeler-scala-value accepts VALUE-only cml without component generation" in {
@@ -405,20 +536,20 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
 
     cozy.Cozy.main(Array("modeler-scala-value", input.toString, s"--save=${out.toString}"))
 
-    val buildSbt = out.resolve("build.sbt")
+    val buildsbt = out.resolve("build.sbt")
     val value = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/value/CountryCode.scala"
     )
     val entity = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/entity/CountryCode.scala"
     )
-    val domainComponent = out.resolve(
+    val domaincomponent = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
     )
-    assert(!Files.exists(buildSbt), s"build.sbt must not be generated by default: $buildSbt")
+    assert(!Files.exists(buildsbt), s"build.sbt must not be generated by default: $buildsbt")
     assert(Files.exists(value), s"value file not found: $value")
     assert(!Files.exists(entity), s"entity file must not be generated from VALUE section: $entity")
-    assert(!Files.exists(domainComponent), s"DomainComponent must not be generated in value mode: $domainComponent")
+    assert(!Files.exists(domaincomponent), s"DomainComponent must not be generated in value mode: $domaincomponent")
   }
 
     "modeler-scala-value accepts powertype-only cml without component generation" in {
@@ -430,20 +561,20 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
 
     cozy.Cozy.main(Array("modeler-scala-value", input.toString, s"--save=${out.toString}"))
 
-    val buildSbt = out.resolve("build.sbt")
-    val countryCode = out.resolve(
+    val buildsbt = out.resolve("build.sbt")
+    val countrycode = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/value/CountryCode.scala"
     )
-    val addressType = out.resolve(
+    val addresstype = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/value/AddressType.scala"
     )
-    val domainComponent = out.resolve(
+    val domaincomponent = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
     )
-    assert(!Files.exists(buildSbt), s"build.sbt must not be generated by default: $buildSbt")
-    assert(Files.exists(countryCode), s"powertype file not found: $countryCode")
-    assert(Files.exists(addressType), s"powertype file not found: $addressType")
-    assert(!Files.exists(domainComponent), s"DomainComponent must not be generated in value mode: $domainComponent")
+    assert(!Files.exists(buildsbt), s"build.sbt must not be generated by default: $buildsbt")
+    assert(Files.exists(countrycode), s"powertype file not found: $countrycode")
+    assert(Files.exists(addresstype), s"powertype file not found: $addresstype")
+    assert(!Files.exists(domaincomponent), s"DomainComponent must not be generated in value mode: $domaincomponent")
   }
 
     "modeler-scala-value accepts statemachine-only cml without component generation" in {
@@ -455,16 +586,16 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
 
     cozy.Cozy.main(Array("modeler-scala-value", input.toString, s"--save=${out.toString}"))
 
-    val buildSbt = out.resolve("build.sbt")
+    val buildsbt = out.resolve("build.sbt")
     val lifecycle = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/statemachine/lifecycle.scala"
     )
-    val domainComponent = out.resolve(
+    val domaincomponent = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
     )
-    assert(!Files.exists(buildSbt), s"build.sbt must not be generated by default: $buildSbt")
+    assert(!Files.exists(buildsbt), s"build.sbt must not be generated by default: $buildsbt")
     assert(Files.exists(lifecycle), s"statemachine file not found: $lifecycle")
-    assert(!Files.exists(domainComponent), s"DomainComponent must not be generated in value mode: $domainComponent")
+    assert(!Files.exists(domaincomponent), s"DomainComponent must not be generated in value mode: $domaincomponent")
   }
 
     "modeler-scala-value accepts powertype-only .cml with literate narrative" in {
@@ -476,14 +607,14 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
 
     cozy.Cozy.main(Array("modeler-scala-value", input.toString, s"--save=${out.toString}"))
 
-    val countryCode = out.resolve(
+    val countrycode = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/value/CountryCode.scala"
     )
-    val addressType = out.resolve(
+    val addresstype = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/value/AddressType.scala"
     )
-    assert(Files.exists(countryCode), s"powertype file not found: $countryCode")
-    assert(Files.exists(addressType), s"powertype file not found: $addressType")
+    assert(Files.exists(countrycode), s"powertype file not found: $countrycode")
+    assert(Files.exists(addresstype), s"powertype file not found: $addresstype")
   }
 
     "modeler-scala-value accepts statemachine-only .cml with literate narrative" in {
@@ -513,10 +644,10 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/entity/Person.scala"
     )
-    val notGeneratedSimpleEntity = out.resolve(
+    val notgeneratedsimpleentity = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/entity/SimpleEntity.scala"
     )
-    assert(!Files.exists(notGeneratedSimpleEntity), s"SimpleEntity must not be generated: $notGeneratedSimpleEntity")
+    assert(!Files.exists(notgeneratedsimpleentity), s"SimpleEntity must not be generated: $notgeneratedsimpleentity")
     val content = Files.readString(generated)
     assert(content.contains("extends org.simplemodeling.model.SimpleEntity with EntityPersistable"))
     assert(content.contains("case class Person(override val id: EntityId"))
@@ -537,16 +668,16 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(content.contains("""_record_get_as_c[ContentBody](record, List("content"))"""))
     assert(content.contains("""copy(content = contentv)"""))
 
-    val generatedCreate = out.resolve(
+    val generatedcreate = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/entity/create/Person.scala"
     )
-    assert(Files.exists(generatedCreate), s"generated file not found: $generatedCreate")
-    val createContent = Files.readString(generatedCreate)
-    assert(createContent.contains("case class Person(override val id: Option[EntityId]"))
-    assert(createContent.contains("nameAttributes: NameAttributes"))
-    assert(createContent.contains("age: Option[Age]"))
-    assert(createContent.contains("def toRecord(e: Person): Record = e.toRecord()"))
-    assert(createContent.contains("override def toStoreRecord(e: Person): Record = e.toDataStore()"))
+    assert(Files.exists(generatedcreate), s"generated file not found: $generatedcreate")
+    val createcontent = Files.readString(generatedcreate)
+    assert(createcontent.contains("case class Person(override val id: Option[EntityId]"))
+    assert(createcontent.contains("nameAttributes: NameAttributes"))
+    assert(createcontent.contains("age: Option[Age]"))
+    assert(createcontent.contains("def toRecord(e: Person): Record = e.toRecord()"))
+    assert(createcontent.contains("override def toStoreRecord(e: Person): Record = e.toDataStore()"))
   }
 
     "modeler-scala generates SimpleEntity child without local attributes" in {
@@ -624,16 +755,16 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(content.contains("""_record_get_as_c[ContentBody](record, List("content", "body"))"""))
     assert(content.contains("""_record_with_derived_target_aliases(record, "ownerId", List("ownerId", "authorId"))"""))
 
-    val generatedQuery = out.resolve(
+    val generatedquery = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/entity/query/Notice.scala"
     )
-    assert(Files.exists(generatedQuery), s"generated file not found: $generatedQuery")
-    val queryContent = Files.readString(generatedQuery)
-    assert(!queryContent.contains("def subject: String = title"))
-    assert(!queryContent.contains(""""subject" -> _to_external_value(subject)"""))
-    assert(!queryContent.contains("def authorId: String = ownerId"))
-    assert(!queryContent.contains(""""authorId" -> _to_external_value(authorId)"""))
-    assert(queryContent.contains("val schema: org.goldenport.schema.Schema = domain.entity.Notice.schema"))
+    assert(Files.exists(generatedquery), s"generated file not found: $generatedquery")
+    val querycontent = Files.readString(generatedquery)
+    assert(!querycontent.contains("def subject: String = title"))
+    assert(!querycontent.contains(""""subject" -> _to_external_value(subject)"""))
+    assert(!querycontent.contains("def authorId: String = ownerId"))
+    assert(!querycontent.contains(""""authorId" -> _to_external_value(authorId)"""))
+    assert(querycontent.contains("val schema: org.goldenport.schema.Schema = domain.entity.Notice.schema"))
   }
 
     "modeler-scala propagates CML web metadata into entity Schema columns" in {
@@ -699,26 +830,26 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(content.contains("""web = org.goldenport.schema.WebColumn(required = Some(true))"""))
     assert(content.contains("""web = org.goldenport.schema.WebColumn(controlType = Some("textarea"), required = Some(false))"""))
 
-    val generatedCreate = out.resolve(
+    val generatedcreate = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/entity/create/Person.scala"
     )
-    assert(Files.exists(generatedCreate), s"generated file not found: $generatedCreate")
-    val createContent = Files.readString(generatedCreate)
-    assert(createContent.contains("val schema: org.goldenport.schema.Schema = domain.entity.Person.schema"))
+    assert(Files.exists(generatedcreate), s"generated file not found: $generatedcreate")
+    val createcontent = Files.readString(generatedcreate)
+    assert(createcontent.contains("val schema: org.goldenport.schema.Schema = domain.entity.Person.schema"))
 
-    val generatedQuery = out.resolve(
+    val generatedquery = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/entity/query/Person.scala"
     )
-    assert(Files.exists(generatedQuery), s"generated file not found: $generatedQuery")
-    val queryContent = Files.readString(generatedQuery)
-    assert(queryContent.contains("val schema: org.goldenport.schema.Schema = domain.entity.Person.schema"))
+    assert(Files.exists(generatedquery), s"generated file not found: $generatedquery")
+    val querycontent = Files.readString(generatedquery)
+    assert(querycontent.contains("val schema: org.goldenport.schema.Schema = domain.entity.Person.schema"))
 
-    val generatedUpdate = out.resolve(
+    val generatedupdate = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/entity/update/Person.scala"
     )
-    assert(Files.exists(generatedUpdate), s"generated file not found: $generatedUpdate")
-    val updateContent = Files.readString(generatedUpdate)
-    assert(updateContent.contains("val schema: org.goldenport.schema.Schema = domain.entity.Person.schema"))
+    assert(Files.exists(generatedupdate), s"generated file not found: $generatedupdate")
+    val updatecontent = Files.readString(generatedupdate)
+    assert(updatecontent.contains("val schema: org.goldenport.schema.Schema = domain.entity.Person.schema"))
   }
 
     "modeler-scala parses StateMachine CML heading syntax" in {
@@ -881,14 +1012,14 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val schema = model.takeEntityModel.get("Person").getOrElse {
       fail("Entity Person is missing")
     }.schema
-    val displayName = schema.columns.find(_.name == "displayName").getOrElse {
+    val displayname = schema.columns.find(_.name == "displayName").getOrElse {
       fail("Column displayName is missing")
     }
     val body = schema.columns.find(_.name == "body").getOrElse {
       fail("Column body is missing")
     }
 
-    displayName.i18nLabel.map(_.c) shouldBe Some("Display Name")
+    displayname.i18nLabel.map(_.c) shouldBe Some("Display Name")
     body.i18nLabel.map(_.c) shouldBe Some("Body")
   }
 
@@ -1036,16 +1167,16 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val schema = model.takeEntityModel.get("ContactProfile").getOrElse {
       fail("Entity ContactProfile is missing")
     }.schema
-    val createdAt = schema.columns.find(_.name == "created_at").getOrElse {
+    val createdat = schema.columns.find(_.name == "created_at").getOrElse {
       fail("Column created_at is missing")
     }
-    val phoneNumber = schema.columns.find(_.name == "phone_number").getOrElse {
+    val phonenumber = schema.columns.find(_.name == "phone_number").getOrElse {
       fail("Column phone_number is missing")
     }
-    val createdAtFormats = createdAt.constraints.collect { case CFormat(f) => f.toLowerCase }
-    val phoneFormats = phoneNumber.constraints.collect { case CFormat(f) => f.toLowerCase }
-    assert(createdAtFormats.contains("date-time"))
-    assert(phoneFormats.contains("phone"))
+    val createdatformats = createdat.constraints.collect { case CFormat(f) => f.toLowerCase }
+    val phoneformats = phonenumber.constraints.collect { case CFormat(f) => f.toLowerCase }
+    assert(createdatformats.contains("date-time"))
+    assert(phoneformats.contains("phone"))
   }
 
     "kaleidox parses Event metadata in Entity Event section" in {
@@ -1120,11 +1251,11 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(aggregate.creates.head.initialState.contains("Active"))
     assert(aggregate.creates.head.implementation.contains("pattern:create"))
     assert(aggregate.commands.nonEmpty)
-    val renamePerson = aggregate.commands.find(_.name == "renamePerson").getOrElse {
+    val renameperson = aggregate.commands.find(_.name == "renamePerson").getOrElse {
       fail("renamePerson command is missing")
     }
-    assert(renamePerson.events.contains("person.renamed"))
-    assert(renamePerson.implementation.contains("pattern:copy-update"))
+    assert(renameperson.events.contains("person.renamed"))
+    assert(renameperson.implementation.contains("pattern:copy-update"))
     assert(aggregate.state.exists(_.name == "name"))
     assert(aggregate.invariants.exists(_.name == "nameRequired"))
 
@@ -1263,22 +1394,22 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val input = base.resolve("src/test/resources/modeler/value-entity-separation.dox")
     val model = KaleidoxModel.load(KaleidoxConfig.default.withoutLocation, input.toFile)
 
-    val valueModel = model.getValueModel.getOrElse {
+    val valuemodel = model.getValueModel.getOrElse {
       fail("ValueModel is missing")
     }
-    val entityModel = model.takeEntityModel
+    val entitymodel = model.takeEntityModel
 
-    val countryCode = valueModel.get("CountryCode").getOrElse {
+    val countrycode = valuemodel.get("CountryCode").getOrElse {
       fail("CountryCode in ValueModel is missing")
     }
-    val person = entityModel.get("Person").getOrElse {
+    val person = entitymodel.get("Person").getOrElse {
       fail("Person in EntityModel is missing")
     }
 
-    assert(countryCode.schema.columns.exists(_.name == "value"))
+    assert(countrycode.schema.columns.exists(_.name == "value"))
     assert(person.schema.columns.exists(_.name == "id"))
-    assert(!entityModel.classes.contains("CountryCode"))
-    assert(!valueModel.classes.contains("Person"))
+    assert(!entitymodel.classes.contains("CountryCode"))
+    assert(!valuemodel.classes.contains("Person"))
   }
 
     "preserve entity authorization classification from CML to generated component descriptors" in {
@@ -1347,8 +1478,8 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
     val input = base.resolve("src/test/resources/modeler/value-only-literate.dox")
     val model = KaleidoxModel.load(KaleidoxConfig.default.withoutLocation, input.toFile)
-    val simpleModel = new cozy.modeler.Modeler().buildValueModel(model)
-    val explain = new cozy.modeler.Modeler().explain(simpleModel)
+    val simplemodel = new cozy.modeler.Modeler().buildValueModel(model)
+    val explain = new cozy.modeler.Modeler().explain(simplemodel)
 
     assert(explain.exists(e =>
       e.sectionPath == "VALUE/CountryCode" &&
@@ -1365,8 +1496,8 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val base = Paths.get("/Users/asami/src/dev2026/simplemodeling-model").toAbsolutePath.normalize()
     val input = base.resolve("src/main/cozy/address.cml")
     val model = KaleidoxModel.load(KaleidoxConfig.default.withoutLocation, input.toFile)
-    val simpleModel = new cozy.modeler.Modeler().buildValueModel(model)
-    val explain = new cozy.modeler.Modeler().explain(simpleModel)
+    val simplemodel = new cozy.modeler.Modeler().buildValueModel(model)
+    val explain = new cozy.modeler.Modeler().explain(simplemodel)
 
     assert(explain.exists(e =>
       e.sectionPath == "VALUE/Address" &&
@@ -1964,14 +2095,14 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
     )
-    val generatedInput = out.resolve(
+    val generatedinput = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/value/GreetingQuery.scala"
     )
-    val generatedOutput = out.resolve(
+    val generatedoutput = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/value/GreetingResult.scala"
     )
-    assert(Files.exists(generatedInput), s"generated input value not found: $generatedInput")
-    assert(Files.exists(generatedOutput), s"generated output value not found: $generatedOutput")
+    assert(Files.exists(generatedinput), s"generated input value not found: $generatedinput")
+    assert(Files.exists(generatedoutput), s"generated output value not found: $generatedoutput")
     val content = Files.readString(generated)
     assert(content.contains("""name = "greeting""""))
     assert(content.contains("""inputType = "GreetingQuery""""))
@@ -2067,13 +2198,13 @@ OperationResult
     val put = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/org/simplemodeling/textus/aws/value/PutS3Object.scala"
     )
-    val deleteResult = out.resolve(
+    val deleteresult = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/org/simplemodeling/textus/aws/value/DeleteS3ObjectResult.scala"
     )
     assert(Files.exists(component), s"generated component not found: $component")
     assert(Files.exists(put), s"generated input value not found: $put")
-    assert(Files.exists(deleteResult), s"generated output value not found: $deleteResult")
-    val content = Files.readString(deleteResult)
+    assert(Files.exists(deleteresult), s"generated output value not found: $deleteresult")
+    val content = Files.readString(deleteresult)
     assert(content.contains("deleted: Boolean"), s"boolean field was not generated as Scala Boolean\n$content")
     assert(content.contains("Consequence.toBoolean"), s"boolean String builder did not use Consequence.toBoolean\n$content")
   }
@@ -2287,18 +2418,18 @@ OperationResult
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DemoComponent.scala"
     )
-    val generatedView = out.resolve(
+    val generatedview = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/entity/view/Item.scala"
     )
-    val generatedViewSummary = out.resolve(
+    val generatedviewsummary = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/entity/view/summary/Item.scala"
     )
-    val generatedViewDetail = out.resolve(
+    val generatedviewdetail = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/entity/view/detail/Item.scala"
     )
-    assert(Files.exists(generatedView), s"generated view file not found: $generatedView")
-    assert(Files.exists(generatedViewSummary), s"generated summary view file not found: $generatedViewSummary")
-    assert(Files.exists(generatedViewDetail), s"generated detail view file not found: $generatedViewDetail")
+    assert(Files.exists(generatedview), s"generated view file not found: $generatedview")
+    assert(Files.exists(generatedviewsummary), s"generated summary view file not found: $generatedviewsummary")
+    assert(Files.exists(generatedviewdetail), s"generated detail view file not found: $generatedviewdetail")
     val content = Files.readString(generated)
     assert(content.contains("""implementation = Some("entity-create")"""))
     assert(content.contains("""implementation = Some("entity-load")"""))
@@ -2517,8 +2648,8 @@ OperationResult
 
     cozy.Cozy.main(Array("modeler-scala-value", input.toString, s"--save=${out.toString}"))
 
-    val buildSbt = out.resolve("build.sbt")
-    assert(!Files.exists(buildSbt), s"build.sbt must not be generated by default: $buildSbt")
+    val buildsbt = out.resolve("build.sbt")
+    assert(!Files.exists(buildsbt), s"build.sbt must not be generated by default: $buildsbt")
   }
 
     "modeler-scala-value emits Scaladoc for powertype output" in {
@@ -3555,21 +3686,21 @@ OperationResult
 
   private def _run_modeler_scala(input: Path, out: Path): String = {
     Files.createDirectories(out.getParent)
-    val outBuffer = new ByteArrayOutputStream
-    val errBuffer = new ByteArrayOutputStream
-    val outPs = new PrintStream(outBuffer, true, StandardCharsets.UTF_8.name())
-    val errPs = new PrintStream(errBuffer, true, StandardCharsets.UTF_8.name())
+    val outbuffer = new ByteArrayOutputStream
+    val errbuffer = new ByteArrayOutputStream
+    val outps = new PrintStream(outbuffer, true, StandardCharsets.UTF_8.name())
+    val errps = new PrintStream(errbuffer, true, StandardCharsets.UTF_8.name())
     try {
-      Console.withOut(outPs) {
-        Console.withErr(errPs) {
+      Console.withOut(outps) {
+        Console.withErr(errps) {
           cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
         }
       }
     } finally {
-      outPs.close()
-      errPs.close()
+      outps.close()
+      errps.close()
     }
-    outBuffer.toString(StandardCharsets.UTF_8.name()) + "\n" + errBuffer.toString(StandardCharsets.UTF_8.name())
+    outbuffer.toString(StandardCharsets.UTF_8.name()) + "\n" + errbuffer.toString(StandardCharsets.UTF_8.name())
   }
 
   private def _write(path: Path, content: String): Unit = {

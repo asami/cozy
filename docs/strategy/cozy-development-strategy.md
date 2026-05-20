@@ -99,7 +99,7 @@ Purpose:
 
 ### Phase 5: Engineering Publication Compiler
 
-Status: current.
+Status: completed.
 
 Purpose:
 
@@ -112,6 +112,23 @@ Primary reference:
 - `docs/journal/2026/05/engineering-publication-compiler.md`
 - `/Users/asami/src/dev2025/simplemodeling-org/docs/journal/2026/05/site-structure-expansion-for-ai-era-engineering-knowledge-platform.md`
 
+### Phase 6: Component Repository Publication and Scaffolding
+
+Status: current.
+
+Purpose:
+
+- make CAR/SAR catalog and publication flow first-class Cozy workflows
+- align `cozy`, `sbt-cozy`, and `textus` around component repository metadata
+- add Cozy-owned component initialization/scaffolding for projects such as
+  `textus-knowledge-editor`
+
+Primary reference:
+
+- `docs/phase/phase-6.md`
+- `docs/phase/phase-6-checklist.md`
+- `docs/journal/2026/05/car-sar-catalog-publish-plan-2026-05-20.md`
+
 ### Future Phase: Model-Driven CAR Project Scaffolding
 
 Purpose:
@@ -120,25 +137,21 @@ Purpose:
   Notice-template-driven
 - connect scaffold options to generated CML, factory overrides, and web metadata
 
-### Future Phase: Publication Warehouse Integration
-
-Purpose:
-
-- connect CAR/SAR/Maven/ZIP artifact publication with durable warehouse output
-- generate repository metadata for `/repository`, including `/repository/maven`
-
 ## Current Priority
 
-The next development target is the Engineering Publication Compiler.
+The current development target is Component Repository Publication and
+Scaffolding.
 
 The first useful slice is:
 
 ```text
-sbt project
-  -> project inventory
-  -> normalized publication model
-  -> publication registry catalog/sample/source metadata
+cozy init component
+  -> configured component project scaffold
+  -> CAR/SAR packaging defaults
+  -> catalog-aware publication flow
+  -> Textus runtime consumption
 ```
 
-The implementation should start small and produce inspectable files before
-adding site rendering or warehouse publication.
+CS-19 is complete: Cozy now owns the `cozy init component` scaffolding
+contract. The remaining active Phase 6 validation item is CS-18 public SIE
+0.1.1 publication verification.

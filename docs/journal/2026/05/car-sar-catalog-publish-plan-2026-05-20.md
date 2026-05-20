@@ -2,6 +2,15 @@
 
 Date: 2026-05-20
 
+Progress tracking for this work has moved to:
+
+- `docs/phase/phase-6.md`
+- `docs/phase/phase-6-checklist.md`
+
+This journal remains the design history and rationale for the CAR/SAR catalog,
+publication, and init scaffolding work. Do not use the progress ledger below as
+the authoritative current tracker after 2026-05-21.
+
 This journal records the development items needed to make CAR/SAR repository
 publication usable by `textus` without project-local configuration. The immediate
 driver is `textus-semantic-integration-engine`. Version `0.1.0` is already
@@ -229,6 +238,59 @@ cozyDistributeSAR
 
 Documentation, tests, and new scripts should use the `Car` / `Sar` names.
 
+## Init Scaffolding Contract
+
+Phase 27 will use `textus-knowledge-editor` as a new component driver. Its
+initial project shape should be created by cozy, not by hand-written ad hoc
+scripts. That requires cozy to own the initialization contract for component
+projects in the same way it owns CAR/SAR packaging policy.
+
+The init flow should accept package names, artifact names, component names, and
+display metadata at initialization time through CLI parameters and/or a
+definition file. The definition file should be the preferred durable input, with
+CLI options acting as overrides for quick creation.
+
+Candidate command surface:
+
+```sh
+cozy init component --config cozy-init.yaml
+cozy init component \
+  --name textus-knowledge-editor \
+  --component-name textus-knowledge-editor \
+  --organization org.goldenport \
+  --package org.goldenport.textus.knowledge.editor \
+  --kind car
+```
+
+Candidate definition shape:
+
+```yaml
+project:
+  name: textus-knowledge-editor
+  organization: org.goldenport
+  scalaPackage: org.goldenport.textus.knowledge.editor
+  component:
+    name: textus-knowledge-editor
+    displayName: Textus Knowledge Editor
+    version: 0.1.0-SNAPSHOT
+    kind: car
+```
+
+Responsibilities:
+
+- `cozy` interprets initialization semantics.
+- `cozy` creates consistent `build.sbt`, `project.yaml`, component descriptor,
+  package directory, CAR/SAR source directory, and optional Web entry skeleton.
+- `cozy` uses the current scaffold dependency simplification: direct
+  `goldenport-cncf` plus ScalaTest by default.
+- `sbt-cozy` does not own initialization semantics.
+- Generated defaults should match the CAR/SAR packaging defaults and runtime
+  compatibility contract already defined in CS-07 through CS-15.
+
+For Phase 27, `textus-knowledge-editor` initialization should use this cozy
+contract once implemented. Manual corrections after generation should be limited
+to project-specific metadata and editor feature code.
+
 ## Publish Flow
 
 The user-facing operation should be one task:
@@ -273,6 +335,8 @@ sbt tasks, and `textus` consumes the published repository metadata at runtime.
 - Define CAR/SAR catalog schema.
 - Define normal CAR packaging defaults, including `source_dir: src/main/car`
   and `include_dependencies: false`.
+- Define component init/scaffold semantics, including project name, artifact
+  name, component name, package name, component kind, and display metadata.
 - Define how simplified CNCF runtime requirements generate CAR dependency
   manifest entries.
 - Read and update `src/main/catalog/car/*.yaml` and
@@ -344,13 +408,15 @@ for coordinating cozy, sbt-cozy, and textus.
 | CS-15 | Derived Maven metadata | done | Cozy publish now generates CAR/SAR `maven-metadata.xml` from the catalog as compatibility output. `recommended` drives `<latest>`, `latestStable` drives `<release>`, disabled versions are excluded, and deprecated versions remain explicit. | Start CS-16 SIE 0.1.1-SNAPSHOT spec reflection. | CS-11, CS-12 |
 | CS-16 | SIE 0.1.1-SNAPSHOT spec reflection | done | `textus-semantic-integration-engine` stays on `0.1.1-SNAPSHOT`, uses `sbt-cozy 0.1.8-SNAPSHOT` for canonical `Car` task names during development, keeps the simplified direct build dependencies and runtime compatibility-only `project.yaml`, and now has a source CAR catalog for the already published `0.1.0` entry. Release publication is not part of CS-16. | Use the local CAR shape as the development baseline; publish and versionless startup verification remain CS-18. | CS-07, CS-10, CS-15 |
 | CS-17 | textus artifact syntax and catalog resolution | done | Textus now uses `artifact:version` as the canonical explicit-version syntax, keeps `artifact@version` as compatibility input, and rejects mixed `:` / `@` artifact version spellings. CAR/SAR direct catalog resolution is still deferred. | Keep metadata-based startup stable; direct CAR/SAR catalog resolution remains a future follow-up. | CS-11, CS-16 |
-| CS-18 | SIE 0.1.1 release publication verification | future | The 0.1.1 release should publish the CAR, warehouse catalog, and derived Maven metadata, then prove versionless `textus server textus-semantic-integration-engine`. | Run `cozyPublishCar`, upload/sync warehouse output, and verify versionless startup during the 0.1.1 release. | CS-15, CS-16, CS-17 |
+| CS-17R | Textus metadata-selected version propagation | done | CS-18 local verification exposed that Textus checked `maven-metadata.xml` for versionless CAR/SAR existence but did not pass the selected version to CNCF. Textus now resolves the concrete version from local/remote Maven metadata and emits `--textus.component.version=<resolved>`. | Use this fixed Textus launcher for final public versionless startup verification. | CS-15, CS-17 |
+| CS-18 | SIE 0.1.1 release publication verification | partial | Local `cozyPublishCar` produced the 0.1.1 CAR, updated the source and warehouse CAR catalogs, and generated derived `maven-metadata.xml` with `latest/release=0.1.1`. Public repository upload/sync is not yet complete; current public URLs still return 403 for the new CAR metadata/artifact. | Upload/sync warehouse output, invalidate CDN if needed, and verify public versionless `textus server textus-semantic-integration-engine`. | CS-15, CS-16, CS-17R |
+| CS-19 | Cozy init component scaffolding contract | done | Cozy should own component initialization semantics. Package name, artifact name, component name, display metadata, component kind, and version should be supplied by config and/or CLI at init time. Phase 27 `textus-knowledge-editor` should use this path instead of manual project scaffolding. | Implemented `cozy init component`; actual `textus-knowledge-editor` normalization is tracked by Phase 27 work. | CS-08B, CS-10, CS-14 |
 
 ## Immediate Next Step
 
-Start CS-18 when the `textus-semantic-integration-engine` `0.1.1` release is
-ready. Publish the CAR, warehouse catalog, and derived Maven metadata, then
-prove versionless `textus server textus-semantic-integration-engine`.
+Continue CS-18 by publishing the local warehouse output to the public repository
+and proving versionless `textus server textus-semantic-integration-engine`
+against the public endpoint.
 
 The publish flow must eventually prove these outputs are produced from catalog
 state:
@@ -364,3 +430,21 @@ repository/car/textus-semantic-integration-engine/maven-metadata.xml
 Until that release, keep using `0.1.1-SNAPSHOT` for feature development and
 validate the local generated CAR shape without treating it as public repository
 confirmation.
+
+Local CS-18 verification on 2026-05-20 produced:
+
+```text
+/Users/asami/src/maven-repository/repository/car/textus-semantic-integration-engine/0.1.1/textus-semantic-integration-engine-0.1.1.car
+/Users/asami/src/maven-repository/repository/catalog/car/textus-semantic-integration-engine.yaml
+/Users/asami/src/maven-repository/repository/car/textus-semantic-integration-engine/maven-metadata.xml
+```
+
+The local metadata selects 0.1.1:
+
+```xml
+<latest>0.1.1</latest>
+<release>0.1.1</release>
+```
+
+Public repository confirmation remains pending until the warehouse output is
+uploaded/synced.

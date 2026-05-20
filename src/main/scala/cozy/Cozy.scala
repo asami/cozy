@@ -22,7 +22,7 @@ import scala.collection.JavaConverters._
  *  version Aug. 20, 2025
  *  version Mar. 17, 2026
  *  version Apr. 29, 2026
- * @version May. 20, 2026
+ * @version May. 21, 2026
  * @author  ASAMI, Tomoharu
  */
 class Cozy(
@@ -74,7 +74,7 @@ class Cozy(
   }
 
   def executeDirect(args: Array[String]): Unit = {
-    if (!_execute_car_sbt_project(args) && !_execute_publish_car(args) && !_execute_publish_sar(args) && !_execute_publish_project(args) && !_execute_distribute_samples(args) && !_execute_index_warehouse(args) && !_execute_sbt_bridge(args) && !_execute_package_archive(args))
+    if (!_execute_init(args) && !_execute_car_sbt_project(args) && !_execute_publish_car(args) && !_execute_publish_sar(args) && !_execute_publish_project(args) && !_execute_distribute_samples(args) && !_execute_index_warehouse(args) && !_execute_sbt_bridge(args) && !_execute_package_archive(args))
       _to_repl_commandline(args) match {
         case Some(s) =>
           val c = _operation_call(Array(s))
@@ -173,6 +173,27 @@ class Cozy(
             _materialize_car_sar_sbt_project(save, policy, versions, scaffold, modelpath)
         }
         true
+      case _ =>
+        false
+    }
+
+  private def _execute_init(args: Array[String]): Boolean =
+    _leading_command(args) match {
+      case Some(("init", "component" :: rest)) =>
+        val init = Cozy.ComponentInitConfig.create(rest)
+        val policy = Cozy.ProjectFilePolicy.create(rest)
+        val versions = Cozy.CarDependencyVersions.create(rest)
+        init.style match {
+          case CozyScaffold.ProjectLayoutStyle.CarOnly =>
+            _materialize_car_sbt_project(init.save, policy, versions, init.scaffold, None)
+            _materialize_car_project_yaml(init.save, policy, versions, init)
+          case CozyScaffold.ProjectLayoutStyle.CarSar =>
+            _materialize_car_sar_sbt_project(init.save, policy, versions, init.scaffold, None)
+            _materialize_car_project_yaml(init.save.resolve("component"), policy, versions, init)
+        }
+        true
+      case Some(("init", other :: _)) =>
+        RAISE.invalidArgumentFault(s"Unsupported init target: ${other}")
       case _ =>
         false
     }
@@ -350,6 +371,19 @@ class Cozy(
       case CozyScaffold.ProjectLayoutStyle.CarOnly => save
       case CozyScaffold.ProjectLayoutStyle.CarSar => save.resolve("component")
     }
+
+  private def _materialize_car_project_yaml(
+    dir: Path,
+    policy: Cozy.ProjectFilePolicy,
+    versions: Cozy.CarDependencyVersions,
+    init: Cozy.ComponentInitConfig
+  ): Unit =
+    if (!policy.isSkip)
+      _write_project_file(
+        dir.resolve("project.yaml"),
+        Cozy.carProjectYaml(init, versions),
+        policy
+      )
 
   private def _materialize_car_sbt_project(
     dir: Path,
@@ -693,10 +727,28 @@ object Cozy {
       CozyScaffold.CarScaffoldConfig.create(args, save, style)
   }
 
+  type ComponentInitConfig = CozyScaffold.ComponentInitConfig
+  object ComponentInitConfig {
+    def apply(
+      save: Path,
+      style: ProjectLayoutStyle,
+      scaffold: CarScaffoldConfig,
+      displayname: String
+    ): ComponentInitConfig =
+      CozyScaffold.ComponentInitConfig(save, style, scaffold, displayname)
+
+    def unapply(value: ComponentInitConfig): Option[(Path, ProjectLayoutStyle, CarScaffoldConfig, String)] =
+      CozyScaffold.ComponentInitConfig.unapply(value)
+
+    def create(args: List[String]): ComponentInitConfig =
+      CozyScaffold.ComponentInitConfig.create(args)
+  }
+
   private[cozy] def detectSbtVersion(): String = CozyScaffold.detectSbtVersion()
   private[cozy] def appNameFromPath(path: Path): String = CozyScaffold.appNameFromPath(path)
   private[cozy] def carBuildSbt(): String = CozyScaffold.carBuildSbt()
   private[cozy] def carBuildSbt(versions: CarDependencyVersions, scaffold: CarScaffoldConfig): String = CozyScaffold.carBuildSbt(versions, scaffold)
+  private[cozy] def carProjectYaml(init: ComponentInitConfig, versions: CarDependencyVersions): String = CozyScaffold.carProjectYaml(init, versions)
   private[cozy] def carSarBuildSbt(scaffold: CarScaffoldConfig, versions: CarDependencyVersions): String = CozyScaffold.carSarBuildSbt(scaffold, versions)
   private[cozy] def carSarReadme(scaffold: CarScaffoldConfig): String = CozyScaffold.carSarReadme(scaffold)
   private[cozy] def carSarSampleCml(scaffold: CarScaffoldConfig): String = CozyScaffold.carSarSampleCml(scaffold)
