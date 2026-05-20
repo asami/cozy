@@ -4,15 +4,20 @@ Date: 2026-05-20
 
 This journal records the development items needed to make CAR/SAR repository
 publication usable by `textus` without project-local configuration. The immediate
-driver is `textus-semantic-integration-engine`, which can start with an explicit
-version:
+driver is `textus-semantic-integration-engine`. Version `0.1.0` is already
+published and can start with an explicit version:
 
 ```sh
 textus server textus-semantic-integration-engine@0.1.0
 ```
 
-The versionless form currently fails because the CAR body is published, but the
-repository metadata used for version discovery is missing:
+The CS work now targets the next development line, `0.1.1-SNAPSHOT`. CS-16 is
+limited to reflecting the latest CAR/SAR catalog and packaging specification in
+the `textus-semantic-integration-engine` sources. Publishing and end-to-end
+confirmation are deferred until the `0.1.1` release.
+
+The versionless form is expected to work only after the release publication
+flow has produced the catalog and derived metadata:
 
 ```sh
 textus server textus-semantic-integration-engine
@@ -334,22 +339,26 @@ for coordinating cozy, sbt-cozy, and textus.
 | CS-12 | `publish-car` flow | done | Cozy now has a `publish-car` command that publishes a prebuilt or temporary built CAR, updates the source CAR catalog, and publishes the catalog to the warehouse without generating Maven metadata. | Start CS-13 `publish-sar` flow. | CS-10, CS-11 |
 | CS-13 | `publish-sar` flow | done | Cozy now has a `publish-sar` command that publishes a prebuilt or temporary built SAR, updates the source SAR catalog, and publishes the catalog to the warehouse without generating Maven metadata. | Start CS-14 sbt-cozy task bridge. | CS-11, CS-12 |
 | CS-14 | sbt-cozy task bridge | done | sbt-cozy now exposes canonical `cozyBuildCar/Sar`, `cozyPublishCar/Sar`, and `cozyDistributeCar/Sar` tasks, keeps legacy all-caps aliases, and delegates publish to Cozy `publish-car` / `publish-sar` through sbt-bridge v1. | Start CS-15 derived Maven metadata generation from CAR/SAR catalogs. | CS-06, CS-12, CS-13 |
-| CS-15 | Derived Maven metadata | done | Cozy publish now generates CAR/SAR `maven-metadata.xml` from the catalog as compatibility output. `recommended` drives `<latest>`, `latestStable` drives `<release>`, disabled versions are excluded, and deprecated versions remain explicit. | Start CS-16 SIE CAR metadata publication. | CS-11, CS-12 |
-| CS-16 | SIE CAR metadata publication | open | `textus-semantic-integration-engine` needs catalog and metadata publication to support versionless startup. | Publish catalog + metadata, then verify `textus server textus-semantic-integration-engine`. | CS-12, CS-15 |
+| CS-15 | Derived Maven metadata | done | Cozy publish now generates CAR/SAR `maven-metadata.xml` from the catalog as compatibility output. `recommended` drives `<latest>`, `latestStable` drives `<release>`, disabled versions are excluded, and deprecated versions remain explicit. | Start CS-16 SIE 0.1.1-SNAPSHOT spec reflection. | CS-11, CS-12 |
+| CS-16 | SIE 0.1.1-SNAPSHOT spec reflection | done | `textus-semantic-integration-engine` stays on `0.1.1-SNAPSHOT`, uses `sbt-cozy 0.1.8-SNAPSHOT` for canonical `Car` task names during development, keeps the simplified direct build dependencies and runtime compatibility-only `project.yaml`, and now has a source CAR catalog for the already published `0.1.0` entry. Release publication is not part of CS-16. | Use the local CAR shape as the development baseline; publish and versionless startup verification remain CS-18. | CS-07, CS-10, CS-15 |
 | CS-17 | textus artifact syntax and catalog resolution | future | Textus should use `artifact:version` as the canonical explicit-version syntax, keep `artifact@version` as temporary compatibility, and later resolve directly from CAR/SAR catalogs. | Update Textus parser/help/docs/tests to prefer `artifact:version`, keep `@` compatibility, reject ambiguous artifact names, then add catalog-aware resolution after metadata-based startup is stable. | CS-11, CS-16 |
+| CS-18 | SIE 0.1.1 release publication verification | future | The 0.1.1 release should publish the CAR, warehouse catalog, and derived Maven metadata, then prove versionless `textus server textus-semantic-integration-engine`. | Run `cozyPublishCar`, upload/sync warehouse output, and verify versionless startup during the 0.1.1 release. | CS-15, CS-16, CS-17 |
 
 ## Immediate Next Step
 
-Start CS-16. Publish `textus-semantic-integration-engine` with catalog and
-derived Maven metadata, then verify versionless Textus startup.
+Start CS-17. Update Textus to prefer `artifact:version` as the canonical
+explicit-version syntax while keeping `artifact@version` as temporary
+compatibility.
 
 The publish flow must eventually prove these outputs are produced from catalog
 state:
 
 ```text
-repository/car/textus-semantic-integration-engine/0.1.0/textus-semantic-integration-engine-0.1.0.car
+repository/car/textus-semantic-integration-engine/0.1.1/textus-semantic-integration-engine-0.1.1.car
 repository/catalog/car/textus-semantic-integration-engine.yaml
 repository/car/textus-semantic-integration-engine/maven-metadata.xml
 ```
 
-Then validate the SIE publish path through the existing sbt-cozy task surface.
+Until that release, keep using `0.1.1-SNAPSHOT` for feature development and
+validate the local generated CAR shape without treating it as public repository
+confirmation.
