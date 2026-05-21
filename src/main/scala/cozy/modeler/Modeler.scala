@@ -48,7 +48,7 @@ import scala.collection.mutable
  *  version May. 13, 2025
  *  version Feb. 27, 2026
  *  version Mar. 31, 2026
- * @version May. 16, 2026
+ * @version May. 21, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
@@ -529,12 +529,12 @@ object Modeler {
     )
 
     def from(model: KaleidoxModel): Vector[HelpModel] = {
-      val valueModel = model.getValueModel
+      val valuemodel = model.getValueModel
       model.divisions.collect {
         case d: org.goldenport.kaleidox.Model.ValueDivision =>
           val root = d.section
           root.blocks.sections.filterNot(x => _narrative_keys.contains(x.keyForModel.toLowerCase)).toVector.map { v =>
-            _value_help_model(valueModel.flatMap(_.get(v.nameForModel)), v)
+            _value_help_model(valuemodel.flatMap(_.get(v.nameForModel)), v)
           }
       }.flatten.toVector
     }
@@ -578,27 +578,27 @@ object Modeler {
 
   object Linkage {
     def from(model: KaleidoxModel): Vector[LinkageEntry] = {
-      val eventModel = model.eventModel
-      val eventNames = eventModel.receptionDefinitions.map(_.name).toSet
-      val actionNames = eventModel.receptionDefinitions.flatMap(_.actionName).toSet
-      eventModel.subscriptionDefinitions.toVector.flatMap { s =>
-        val eventLinks = s.eventName.toVector.map { eventName =>
+      val eventmodel = model.eventModel
+      val eventnames = eventmodel.receptionDefinitions.map(_.name).toSet
+      val actionnames = eventmodel.receptionDefinitions.flatMap(_.actionName).toSet
+      eventmodel.subscriptionDefinitions.toVector.flatMap { s =>
+        val eventlinks = s.eventName.toVector.map { eventname =>
           LinkageEntry(
             sectionPath = s"SUBSCRIPTION/${s.name}/eventName",
-            target = eventName,
-            resolved = eventNames.contains(eventName),
+            target = eventname,
+            resolved = eventnames.contains(eventname),
             facet = "event"
           )
         }
-        val actionLinks = s.actionName.toVector.map { actionName =>
+        val actionlinks = s.actionName.toVector.map { actionname =>
           LinkageEntry(
             sectionPath = s"SUBSCRIPTION/${s.name}/actionName",
-            target = actionName,
-            resolved = actionNames.contains(actionName),
+            target = actionname,
+            resolved = actionnames.contains(actionname),
             facet = "action"
           )
         }
-        eventLinks ++ actionLinks
+        eventlinks ++ actionlinks
       }
     }
   }
@@ -634,11 +634,11 @@ object Modeler {
     private val _storage_embedded_value_object = "embedded-value-object"
 
     def relationshipDefinitions(model: KaleidoxModel): Vector[MComponent.RelationshipDefinition] = {
-      val valueNames = model.getValueModel.map(_.classes.keys.toSet).getOrElse(Set.empty[String])
+      val valuenames = model.getValueModel.map(_.classes.keys.toSet).getOrElse(Set.empty[String])
       val entities = model.takeEntityModel.classes
       _division_sections(model, "RELATIONSHIP").flatMap { root =>
         _validate_blank_after_heading(root, "RELATIONSHIP")
-        root.blocks.sections.toVector.map(_relationship_definition(_, valueNames, entities))
+        root.blocks.sections.toVector.map(_relationship_definition(_, valuenames, entities))
       }
     }
 
@@ -666,7 +666,7 @@ object Modeler {
 
     private def _relationship_definition(
       section: LogicalSection,
-      valueNames: Set[String],
+      valuenames: Set[String],
       entities: VectorMap[String, EntityClass]
     ): MComponent.RelationshipDefinition = {
       val name = section.nameForModel
@@ -683,20 +683,20 @@ object Modeler {
       }
       _validate_enum(name, "KIND", kind, Set(_kind_association, _kind_aggregation, _kind_composition))
       _validate_enum(name, "STORAGE", storage, Set(_storage_association_record, _storage_child_parent_id_field, _storage_embedded_value_object))
-      val parentIdField = _child_text(section, "PARENT ID FIELD")
-      val valueField = _child_text(section, "VALUE FIELD")
-      if (kind == _kind_composition && storage == _storage_child_parent_id_field && parentIdField.isEmpty)
+      val parentidfield = _child_text(section, "PARENT ID FIELD")
+      val valuefield = _child_text(section, "VALUE FIELD")
+      if (kind == _kind_composition && storage == _storage_child_parent_id_field && parentidfield.isEmpty)
         RAISE.syntaxErrorFault(s"RELATIONSHIP '$name' composition with child-parent-id-field requires PARENT ID FIELD.")
       if (storage == _storage_embedded_value_object && kind != _kind_composition)
         RAISE.syntaxErrorFault(s"RELATIONSHIP '$name' embedded-value-object storage requires composition kind.")
-      if (storage == _storage_embedded_value_object && valueField.isEmpty)
+      if (storage == _storage_embedded_value_object && valuefield.isEmpty)
         RAISE.syntaxErrorFault(s"RELATIONSHIP '$name' composition with embedded-value-object requires VALUE FIELD.")
-      if (storage == _storage_embedded_value_object && parentIdField.nonEmpty)
+      if (storage == _storage_embedded_value_object && parentidfield.nonEmpty)
         RAISE.syntaxErrorFault(s"RELATIONSHIP '$name' embedded-value-object storage does not accept PARENT ID FIELD.")
-      if (storage == _storage_embedded_value_object && !valueNames.contains(target))
+      if (storage == _storage_embedded_value_object && !valuenames.contains(target))
         RAISE.syntaxErrorFault(s"RELATIONSHIP '$name' embedded-value-object TARGET '$target' must reference a VALUE.")
       if (storage == _storage_embedded_value_object)
-        _validate_embedded_value_field(name, source, target, valueField.get, entities)
+        _validate_embedded_value_field(name, source, target, valuefield.get, entities)
       MComponent.RelationshipDefinition(
         name = name,
         kind = kind,
@@ -705,8 +705,8 @@ object Modeler {
         targetModelKind = if (storage == _storage_embedded_value_object) "value" else "entity",
         multiplicity = _child_text(section, "MULTIPLICITY"),
         storageMode = storage,
-        parentIdField = parentIdField,
-        valueField = valueField,
+        parentIdField = parentidfield,
+        valueField = valuefield,
         sortOrderField = _child_text(section, "SORT ORDER FIELD"),
         associationDomain = _child_text(section, "ASSOCIATION DOMAIN"),
         targetKind = _child_text(section, "TARGET KIND"),
@@ -715,23 +715,23 @@ object Modeler {
     }
 
     private def _validate_embedded_value_field(
-      relationshipName: String,
-      sourceEntityName: String,
-      targetValueName: String,
-      valueField: String,
+      relationshipname: String,
+      sourceentityname: String,
+      targetvaluename: String,
+      valuefield: String,
       entities: VectorMap[String, EntityClass]
     ): Unit = {
-      val entity = entities.getOrElse(sourceEntityName,
-        RAISE.syntaxErrorFault(s"RELATIONSHIP '$relationshipName' embedded-value-object SOURCE '$sourceEntityName' must reference an ENTITY.")
+      val entity = entities.getOrElse(sourceentityname,
+        RAISE.syntaxErrorFault(s"RELATIONSHIP '$relationshipname' embedded-value-object SOURCE '$sourceentityname' must reference an ENTITY.")
       )
       val attribute = entity.schemaClass.slots.collectFirst {
-        case p: SchemaModel.Attribute if _same_key(p.name, valueField) => p
+        case p: SchemaModel.Attribute if _same_key(p.name, valuefield) => p
       }.getOrElse(
-        RAISE.syntaxErrorFault(s"RELATIONSHIP '$relationshipName' VALUE FIELD '$valueField' is not an ATTRIBUTE of SOURCE '$sourceEntityName'.")
+        RAISE.syntaxErrorFault(s"RELATIONSHIP '$relationshipname' VALUE FIELD '$valuefield' is not an ATTRIBUTE of SOURCE '$sourceentityname'.")
       )
       val actual = attribute.rawTypeName.map(_.split("\\.").last).getOrElse("")
-      if (!_same_key(actual, targetValueName))
-        RAISE.syntaxErrorFault(s"RELATIONSHIP '$relationshipName' VALUE FIELD '$valueField' must have VALUE type '$targetValueName'.")
+      if (!_same_key(actual, targetvaluename))
+        RAISE.syntaxErrorFault(s"RELATIONSHIP '$relationshipname' VALUE FIELD '$valuefield' must have VALUE type '$targetvaluename'.")
     }
 
     private def _child_entity_binding(
@@ -740,21 +740,21 @@ object Modeler {
     ): MComponent.OperationChildEntityBinding = {
       _validate_blank_after_heading(section, s"CHILD ENTITY BINDING '${section.nameForModel}'")
       section.blocks.sections.foreach(s => _validate_blank_after_heading(s, s"CHILD ENTITY BINDING field ${s.nameForModel}"))
-      val relationshipName = _required(section, "RELATIONSHIP", section.nameForModel)
-      val relationship = relationships.getOrElse(relationshipName,
-        RAISE.syntaxErrorFault(s"CHILD ENTITY BINDING references unknown RELATIONSHIP '$relationshipName'.")
+      val relationshipname = _required(section, "RELATIONSHIP", section.nameForModel)
+      val relationship = relationships.getOrElse(relationshipname,
+        RAISE.syntaxErrorFault(s"CHILD ENTITY BINDING references unknown RELATIONSHIP '$relationshipname'.")
       )
       if (relationship.storageMode != _storage_child_parent_id_field)
-        RAISE.syntaxErrorFault(s"CHILD ENTITY BINDING '$relationshipName' requires child-parent-id-field storage.")
-      val parentIdField = relationship.parentIdField.getOrElse(
-        RAISE.syntaxErrorFault(s"RELATIONSHIP '$relationshipName' requires PARENT ID FIELD for CHILD ENTITY BINDING.")
+        RAISE.syntaxErrorFault(s"CHILD ENTITY BINDING '$relationshipname' requires child-parent-id-field storage.")
+      val parentidfield = relationship.parentIdField.getOrElse(
+        RAISE.syntaxErrorFault(s"RELATIONSHIP '$relationshipname' requires PARENT ID FIELD for CHILD ENTITY BINDING.")
       )
       MComponent.OperationChildEntityBinding(
-        name = relationshipName,
+        name = relationshipname,
         entityName = relationship.targetEntityName,
-        inputParameter = _required(section, "INPUT", relationshipName),
-        parentIdField = parentIdField,
-        relationshipName = Some(relationshipName),
+        inputParameter = _required(section, "INPUT", relationshipname),
+        parentIdField = parentidfield,
+        relationshipName = Some(relationshipname),
         sourceEntityIdMode = _child_text(section, "SOURCE ENTITY ID").getOrElse("entity-create-result"),
         sourceEntityIdParameters = _child_vector(section, "SOURCE ENTITY ID PARAMETERS"),
         sourceEntityIdResultFields = _child_vector(section, "SOURCE ENTITY ID RESULT FIELDS", Vector("entity_id", "entityId", "id")),
@@ -771,12 +771,12 @@ object Modeler {
     ): MComponent.OperationAssociationBinding = {
       _validate_blank_after_heading(section, s"ASSOCIATION BINDING '${section.nameForModel}'")
       section.blocks.sections.foreach(s => _validate_blank_after_heading(s, s"ASSOCIATION BINDING field ${s.nameForModel}"))
-      val relationshipName = _required(section, "RELATIONSHIP", section.nameForModel)
-      val relationship = relationships.getOrElse(relationshipName,
-        RAISE.syntaxErrorFault(s"ASSOCIATION BINDING references unknown RELATIONSHIP '$relationshipName'.")
+      val relationshipname = _required(section, "RELATIONSHIP", section.nameForModel)
+      val relationship = relationships.getOrElse(relationshipname,
+        RAISE.syntaxErrorFault(s"ASSOCIATION BINDING references unknown RELATIONSHIP '$relationshipname'.")
       )
       if (relationship.storageMode != _storage_association_record)
-        RAISE.syntaxErrorFault(s"ASSOCIATION BINDING '$relationshipName' requires association-record storage.")
+        RAISE.syntaxErrorFault(s"ASSOCIATION BINDING '$relationshipname' requires association-record storage.")
       MComponent.OperationAssociationBinding(
         domain = relationship.associationDomain.getOrElse(relationship.name),
         targetKind = relationship.targetKind.getOrElse(relationship.targetEntityName),
@@ -881,18 +881,19 @@ object Modeler {
     service: ServiceModel,
     event: EventModel,
     operation: OperationModel,
+    cmlDeclaredTypeNames: Set[String] = Set.empty,
     relationships: Vector[MComponent.RelationshipDefinition] = Vector.empty,
     operationRelationshipBindings: Map[String, OperationRelationshipBinding] = Map.empty
   ) {
     def build(): SimpleModel = {
-      _build(includeComponents = true)
+      _build(includecomponents = true)
     }
 
     def buildValue(): SimpleModel = {
-      _build(includeComponents = false)
+      _build(includecomponents = false)
     }
 
-    private def _build(includeComponents: Boolean): SimpleModel = {
+    private def _build(includecomponents: Boolean): SimpleModel = {
       _validate_component_service_operation_boundary()
       val entities = entity.classes.values.filterNot(c => _is_simple_entity(c.name)).map(_entity)
       val values = value.classes.values.map(_value) ++ _service_inline_values.map(_value)
@@ -901,7 +902,7 @@ object Modeler {
       val statemachines = stateMachine.classes.values.map(_statemachine)
       val xs = entities ++ values ++ datatypes ++ powertypes ++ statemachines
       val a = SimpleModel(xs.toVector)
-      if (includeComponents) {
+      if (includecomponents) {
         val comps = _complement_components(a)
         a.add(comps)
       } else {
@@ -973,15 +974,15 @@ object Modeler {
       pkg: MPackageRef,
       p: EntityClass
     ): List[MAttribute] = {
-      val inheritsSimpleEntity = {
-        val byParentRef = p.parents.exists {
+      val inheritssimpleentity = {
+        val byparentref = p.parents.exists {
           case m: EntityClass.ParentRef.Name => _is_simple_entity(m.name)
           case EntityClass.ParentRef.EntityKlass(c) => _is_simple_entity(c.name)
         }
-        val byFeatures = p.schemaClass.features.parentsName.exists(_is_simple_entity)
-        byParentRef || byFeatures
+        val byfeatures = p.schemaClass.features.parentsName.exists(_is_simple_entity)
+        byparentref || byfeatures
       }
-      if (inheritsSimpleEntity)
+      if (inheritssimpleentity)
         _simple_entity_template.toList.flatMap(t => _attributes(pkg, t.schemaClass))
       else
         Nil
@@ -995,8 +996,8 @@ object Modeler {
         val name = Option(d.name).map(_.trim).getOrElse("")
         if (name.isEmpty) Nil
         else {
-          val isOptional = Option(d.multiplicity).map(_.trim).contains("?")
-          _delegate_value_attribute(pkg, name, isOptional).toList
+          val isoptional = Option(d.multiplicity).map(_.trim).contains("?")
+          _delegate_value_attribute(pkg, name, isoptional).toList
         }
       }
     }
@@ -1072,16 +1073,16 @@ object Modeler {
       }
 
     private def _object_ref(p: String): MObjectRef = {
-      val isSimpleEntity = _is_simple_entity(p)
-      if (isSimpleEntity)
+      val issimpleentity = _is_simple_entity(p)
+      if (issimpleentity)
         MObjectRef.create("org.simplemodeling.model.SimpleEntity")
       else
         MObjectRef.create(p)
     }
 
     private def _object_ref(packagename: String, name: String): MObjectRef = {
-      val isSimpleEntity = _is_simple_entity(name)
-      if (isSimpleEntity)
+      val issimpleentity = _is_simple_entity(name)
+      if (issimpleentity)
         MObjectRef.create("org.simplemodeling.model.SimpleEntity")
       else
         MEntityRef.create(_entity_package_name(packagename), name)
@@ -1539,8 +1540,8 @@ object Modeler {
     ): Vector[MComponent] = {
       val a = if (pkg.components.isEmpty) {
         val entities = pkg.entities
-        val isRootPackage = pkg == sm.root
-        if (entities.nonEmpty || (isRootPackage && service.classes.nonEmpty)) {
+        val isrootpackage = pkg == sm.root
+        if (entities.nonEmpty || (isrootpackage && service.classes.nonEmpty)) {
           val comp = _make_component(pkg, entities)
           Vector(comp)
         } else {
@@ -1721,12 +1722,12 @@ object Modeler {
       usecases: Vector[String]
     ): Option[String] = {
       val xs = usecases.map(_.trim).filter(_.nonEmpty)
-      val usecaseText =
+      val usecasetext =
         if (xs.isEmpty)
           None
         else
           Some(xs.mkString("Use cases:\n", "\n", ""))
-      (base.map(_.trim).filter(_.nonEmpty), usecaseText) match {
+      (base.map(_.trim).filter(_.nonEmpty), usecasetext) match {
         case (Some(a), Some(b)) => Some(s"$a\n\n$b")
         case (Some(a), None) => Some(a)
         case (None, Some(b)) => Some(b)
@@ -1774,6 +1775,22 @@ object Modeler {
 
     private lazy val _value_input_field_map: Map[String, Vector[OperationModel.FieldDefinition]] =
       (value.classes.values.toVector ++ _service_inline_values).map(x => x.name -> _operation_fields(x)).toMap
+
+    private lazy val _service_operation_type_names: Set[String] =
+      _operation_input_value_map.keySet ++
+        value.classes.keySet ++
+        _service_inline_values.map(_.name).toSet ++
+        entity.classes.keySet ++
+        datatype.classes.keySet ++
+        cmlDeclaredTypeNames ++
+        _builtin_service_operation_type_names
+
+    private lazy val _builtin_service_operation_type_names: Set[String] =
+      Set(
+        "OperationResult",
+        "CommandAction",
+        "QueryAction"
+      )
 
     private def _operation_fields(p: ValueClass): Vector[OperationModel.FieldDefinition] =
       p.schemaClass.attributes.map(_operation_field)
@@ -1878,14 +1895,16 @@ object Modeler {
         val kind = p.kind.getOrElse(
           RAISE.syntaxErrorFault(s"Operation '${p.name}' requires TYPE (COMMAND|QUERY).")
         )
-        val inputType = p.input.tpe.map(_.trim).filterNot(_.isEmpty).getOrElse(
+        val inputtype = p.input.tpe.map(_.trim).filterNot(_.isEmpty).map(_canonical_service_operation_type(p.name, _)).getOrElse(
           RAISE.syntaxErrorFault(s"Operation '${p.name}' requires INPUT TYPE.")
         )
-        val outputType = p.output.tpe.map(_.trim).filterNot(_.isEmpty).getOrElse(
+        val outputtype = p.output.tpe.map(_.trim).filterNot(_.isEmpty).map(_canonical_service_operation_type(p.name, _)).getOrElse(
           RAISE.syntaxErrorFault(s"Operation '${p.name}' requires OUTPUT TYPE.")
         )
-        val inputValue = _operation_input_value_map.get(inputType)
-        val inputValueKind = inputValue.map(_.kind).getOrElse {
+        _validate_service_operation_type_reference(p.name, "INPUT", inputtype)
+        _validate_service_operation_type_reference(p.name, "OUTPUT", outputtype)
+        val inputvalue = _operation_input_value_map.get(inputtype)
+        val inputvaluekind = inputvalue.map(_.kind).getOrElse {
           kind match {
             case OperationModel.OperationKind.Command => OperationModel.InputValueKind.CommandValue
             case OperationModel.OperationKind.Query => OperationModel.InputValueKind.QueryValue
@@ -1895,8 +1914,8 @@ object Modeler {
           if (p.parameters.nonEmpty)
             p.parameters
           else
-            inputValue.map(_.fields).orElse(_value_input_field_map.get(inputType)).getOrElse(Vector.empty)
-        _validate_service_operation_input_kind(p.name, kind, inputValueKind)
+            inputvalue.map(_.fields).orElse(_value_input_field_map.get(inputtype)).getOrElse(Vector.empty)
+        _validate_service_operation_input_kind(p.name, kind, inputvaluekind)
         Some(OperationModel.NormalizedOperationDefinition(
           name = p.name,
           kind = kind,
@@ -1905,13 +1924,13 @@ object Modeler {
           implementation = p.implementation,
           entityName = p.entityName,
           entityNames = p.entityNames,
-          inputType = inputType,
+          inputType = inputtype,
           inputSummary = p.input.summary,
           inputDescription = p.input.description,
-          outputType = outputType,
+          outputType = outputtype,
           outputSummary = p.output.summary,
           outputDescription = p.output.description,
-          inputValueKind = inputValueKind,
+          inputValueKind = inputvaluekind,
           description = p.description,
           precondition = p.precondition,
           postcondition = p.postcondition,
@@ -1937,6 +1956,34 @@ object Modeler {
         p.authorization.nonEmpty ||
         p.parameters.nonEmpty
 
+    private def _canonical_service_operation_type(
+      opname: String,
+      tpe: String
+    ): String =
+      if (_is_void_service_operation_type(tpe)) {
+        if (tpe != "void")
+          Console.err.println(s"[cozy] warning: Operation '$opname' uses '$tpe'; use canonical 'void'.")
+        "void"
+      } else {
+        tpe
+      }
+
+    private def _validate_service_operation_type_reference(
+      opname: String,
+      role: String,
+      tpe: String
+    ): Unit =
+      if (_is_void_service_operation_type(tpe)) {
+        ()
+      } else if (_service_operation_type_names.contains(tpe)) {
+        ()
+      } else {
+        RAISE.syntaxErrorFault(s"Operation '$opname' $role TYPE '$tpe' is not defined.")
+      }
+
+    private def _is_void_service_operation_type(tpe: String): Boolean =
+      tpe.equalsIgnoreCase("void")
+
     private def _validate_service_operation_input_kind(
       opname: String,
       opkind: OperationModel.OperationKind,
@@ -1957,12 +2004,12 @@ object Modeler {
       postcondition: Option[String],
       rules: Vector[String]
     ): Option[String] = {
-      val normalizedRules = rules.map(_.trim).filter(_.nonEmpty)
+      val normalizedrules = rules.map(_.trim).filter(_.nonEmpty)
       val chunks = Vector(
         base.map(_.trim).filter(_.nonEmpty),
         precondition.map(x => s"Precondition: ${x.trim}").filter(_.nonEmpty),
         postcondition.map(x => s"Postcondition: ${x.trim}").filter(_.nonEmpty),
-        if (normalizedRules.nonEmpty) Some(normalizedRules.mkString("Rules:\n- ", "\n- ", "")) else None
+        if (normalizedrules.nonEmpty) Some(normalizedrules.mkString("Rules:\n- ", "\n- ", "")) else None
       ).flatten
       if (chunks.isEmpty) None else Some(chunks.mkString("\n\n"))
     }
@@ -2471,12 +2518,12 @@ object Modeler {
           config = p.config
         )
       }
-      val defaultName = _default_subsystem_name(pkg)
-      val topLevelRequirements =
+      val defaultname = _default_subsystem_name(pkg)
+      val toplevelrequirements =
         if (_has_top_level_requirement_model)
           Some(
             MComponent.SubsystemDefinition(
-              name = defaultName,
+              name = defaultname,
               domainVisions = componentSubsystem.visions.map(_component_vision_definition),
               domainContexts = componentSubsystem.contexts.map(_component_context_definition),
               domainSystemContexts = componentSubsystem.systemContexts.map(_component_system_context_definition),
@@ -2489,7 +2536,7 @@ object Modeler {
           )
         else
           None
-      topLevelRequirements.map { req =>
+      toplevelrequirements.map { req =>
         explicit.indexWhere(_.name == req.name) match {
           case -1 => explicit :+ req
           case i =>
@@ -2681,9 +2728,9 @@ object Modeler {
       if (explicit.nonEmpty)
         explicit
       else {
-        val joinFieldName = s"${root.name.head.toLower}${root.name.drop(1)}Id"
+        val joinfieldname = s"${root.name.head.toLower}${root.name.drop(1)}Id"
         entities.filterNot(_ == root).flatMap { entity =>
-          entity.attributes.find(_.name.equalsIgnoreCase(joinFieldName)).map { attr =>
+          entity.attributes.find(_.name.equalsIgnoreCase(joinfieldname)).map { attr =>
             MComponent.AggregateMemberDefinition(
               name = _package_token(entity.name),
               entityName = _package_token(entity.name),
@@ -2903,12 +2950,12 @@ object Modeler {
     }
 
     private def _inherits_simple_entity(p: EntityClass): Boolean = {
-      val byParentRef = p.parents.exists {
+      val byparentref = p.parents.exists {
         case m: EntityClass.ParentRef.Name => _is_simple_entity(m.name)
         case EntityClass.ParentRef.EntityKlass(c) => _is_simple_entity(c.name)
       }
-      val byFeatures = p.schemaClass.features.parentsName.exists(_is_simple_entity)
-      byParentRef || byFeatures
+      val byfeatures = p.schemaClass.features.parentsName.exists(_is_simple_entity)
+      byparentref || byfeatures
     }
 
     private def _view_queries(mentity: MEntity): Vector[MComponent.ViewQueryDefinition] =
@@ -2984,11 +3031,11 @@ object Modeler {
             RAISE.syntaxErrorFault(s"StateMachine '$machineName' transition target $name is not defined.")
         case _ =>
       }
-      val eventName = _event_name_from_guard(transition.transition.guard).orElse(transition.transition.getEventName).getOrElse {
+      val eventname = _event_name_from_guard(transition.transition.guard).orElse(transition.transition.getEventName).getOrElse {
         RAISE.syntaxErrorFault(s"StateMachine '$machineName' transition requires on.")
       }
-      if (events.nonEmpty && !events.contains(eventName))
-        RAISE.syntaxErrorFault(s"StateMachine '$machineName' transition references undeclared event $eventName.")
+      if (events.nonEmpty && !events.contains(eventname))
+        RAISE.syntaxErrorFault(s"StateMachine '$machineName' transition references undeclared event $eventname.")
     }
 
     private def _declared_events(rule: StateMachineRule): Set[String] = {
@@ -3332,7 +3379,7 @@ object Modeler {
       val queryrecparam = MParameter.query("q", MObjectRef.record)
       val idparam = MParameter.entityId
       val recordparam = MParameter.record
-      val createRecordParam = MParameter("record", MEntityValue.create(entity))
+      val createrecordparam = MParameter("record", MEntityValue.create(entity))
       val loadresult = MResult.option(MEntityValue.whole(entity))
       val searchresult = MResult.search(MEntityValue.whole(entity))
       val create = MOperation.commandBody(s"create$title", entityparam) {
@@ -3342,7 +3389,7 @@ object Modeler {
           "OperationResponse(r.toRecord)"
         )
       }
-      val createrec = MOperation.commandBody(s"create${title}Record", createRecordParam) {
+      val createrec = MOperation.commandBody(s"create${title}Record", createrecordparam) {
         blockFor(
           "r <- entity_create(action.record)"
         )(
@@ -3468,14 +3515,14 @@ object Modeler {
       val loadresult = MResult.option(MEntityValue.aggregate(entity))
       val searchresult = MResult.search(MEntityValue.aggregate(entity))
       val aggregate = this.entity.classes.get(entity.name).flatMap(_.schemaClass.aggregate)
-      val createMethod = s"create$title"
-      val updateMethod = s"update$title"
-      val hasCreateMethod = aggregate.exists(_.creates.exists(_.name == createMethod))
-      val hasUpdateMethod = aggregate.exists(_.commands.exists(_.name == updateMethod))
+      val createmethod = s"create$title"
+      val updatemethod = s"update$title"
+      val hascreatemethod = aggregate.exists(_.creates.exists(_.name == createmethod))
+      val hasupdatemethod = aggregate.exists(_.commands.exists(_.name == updatemethod))
       val create = MOperation.commandBody(s"create$title", createparam) {
-        if (hasCreateMethod)
+        if (hascreatemethod)
           blockFor(
-            s"r <- aggregate_create(${_scala_string_literal(entityname)}, ${_scala_string_literal(createMethod)}, $aggregateclass.$createMethod(action.entity.toRecord())(using executionContext))"
+            s"r <- aggregate_create(${_scala_string_literal(entityname)}, ${_scala_string_literal(createmethod)}, $aggregateclass.$createmethod(action.entity.toRecord())(using executionContext))"
           )(
             "OperationResponse.create(r.toRecord())"
           )
@@ -3501,10 +3548,10 @@ object Modeler {
         )
       }
       val update = MOperation.commandBody(s"update$title", updateparam) {
-        if (hasUpdateMethod)
+        if (hasupdatemethod)
           blockFor(
             s"current <- aggregate_load[$aggregateclass](action.entity.id)",
-            s"r <- aggregate_update(${_scala_string_literal(entityname)}, action.entity.id, ${_scala_string_literal(updateMethod)}, current.$updateMethod(action.entity.toRecord())(using executionContext))"
+            s"r <- aggregate_update(${_scala_string_literal(entityname)}, action.entity.id, ${_scala_string_literal(updatemethod)}, current.$updatemethod(action.entity.toRecord())(using executionContext))"
           )(
             "OperationResponse.create(r.toRecord())"
           )
@@ -3599,38 +3646,38 @@ object Modeler {
       }
       val named = _view_names(entity).flatMap { viewname =>
         _token_opt(viewname).toVector.flatMap { token =>
-          val projectionTitle = StringUtils.makeTitle(token)
-          val projectionValue = MEntityValue.projection(entity, Some(viewname))
-          val projectionClass = _qualify(s"${_view_package(Some(viewname))}.$title")
-          val projectionLoadResult = MResult.option(projectionValue)
-          val projectionSearchResult = MResult.search(projectionValue)
-          val loadProjection = MOperation.queryBody(s"load${title}${projectionTitle}", idparam, projectionLoadResult) {
+          val projectiontitle = StringUtils.makeTitle(token)
+          val projectionvalue = MEntityValue.projection(entity, Some(viewname))
+          val projectionclass = _qualify(s"${_view_package(Some(viewname))}.$title")
+          val projectionloadresult = MResult.option(projectionvalue)
+          val projectionsearchresult = MResult.search(projectionvalue)
+          val loadprojection = MOperation.queryBody(s"load${title}${projectiontitle}", idparam, projectionloadresult) {
             blockFor(
-              s"""r <- view_load[$projectionClass]($queryclass.collectionId.name, "${viewname}", action.id)"""
+              s"""r <- view_load[$projectionclass]($queryclass.collectionId.name, "${viewname}", action.id)"""
             )(
               "OperationResponse(r.toViewRecord(using core.executionContext))"
             )
           }
-          val searchProjection = MOperation.queryBody(s"search${title}${projectionTitle}", searchrecparam, projectionSearchResult) {
+          val searchprojection = MOperation.queryBody(s"search${title}${projectiontitle}", searchrecparam, projectionsearchresult) {
             blockFor(
               s"""fields <- exec_pure(org.goldenport.cncf.entity.runtime.EntityQueryFieldResolver(core.component, ${_scala_string_literal(entity.name)}))""",
-              s"""r <- view_search[$projectionClass]($queryclass.collectionId.name, "${viewname}", fields.rewrite(Query.withControls(action.q, action.request.toRecord)))"""
+              s"""r <- view_search[$projectionclass]($queryclass.collectionId.name, "${viewname}", fields.rewrite(Query.withControls(action.q, action.request.toRecord)))"""
             )(
               "OperationResponse.create(org.goldenport.cncf.directive.SearchResult(query = r.query, data = r.data.map(_.toViewRecord(using core.executionContext)), totalCount = r.totalCount, offset = r.offset, limit = r.limit, fetchedCount = r.fetchedCount))"
             )
           }
-          val searchProjectionRecord = MOperation.queryBody(s"search${title}${projectionTitle}Record", searchrecparam, projectionSearchResult) {
+          val searchprojectionrecord = MOperation.queryBody(s"search${title}${projectiontitle}Record", searchrecparam, projectionsearchresult) {
             blockFor(
               s"""fields <- exec_pure(org.goldenport.cncf.entity.runtime.EntityQueryFieldResolver(core.component, ${_scala_string_literal(entity.name)}))""",
-              s"""r <- view_search[$projectionClass]($queryclass.collectionId.name, "${viewname}", fields.rewrite(Query.withControls(action.q, action.request.toRecord)))"""
+              s"""r <- view_search[$projectionclass]($queryclass.collectionId.name, "${viewname}", fields.rewrite(Query.withControls(action.q, action.request.toRecord)))"""
             )(
               "OperationResponse.create(org.goldenport.cncf.directive.SearchResult(query = r.query, data = r.data.map(_.toViewRecord(using core.executionContext)), totalCount = r.totalCount, offset = r.offset, limit = r.limit, fetchedCount = r.fetchedCount))"
             )
           }
           Vector(
-            loadProjection,
-            searchProjection,
-            searchProjectionRecord
+            loadprojection,
+            searchprojection,
+            searchprojectionrecord
           )
         }
       }
@@ -3657,9 +3704,29 @@ object Modeler {
         p.getServiceModel.getOrElse(ServiceModel.empty),
         p.eventModel,
         p.takeOperationModel,
+        _cml_declared_type_names(p),
         relationships,
         operationbindings
       )
     }
+
+    private def _cml_declared_type_names(p: KaleidoxModel): Set[String] = {
+      val typesections = Set("QUERY", "COMMAND", "VALUE", "ENTITY", "DATATYPE")
+      p.divisions.toVector.flatMap(_logical_section).filter { section =>
+        typesections.contains(_normalize_section_key(section))
+      }.flatMap(_.blocks.sections.toVector.map(_.nameForModel)).filter(_.nonEmpty).toSet
+    }
+
+    private def _logical_section(d: org.goldenport.kaleidox.Model.Division): Option[LogicalSection] =
+      d match {
+        case p: Product =>
+          p.productIterator.collectFirst {
+            case s: LogicalSection => s
+          }
+        case _ => None
+      }
+
+    private def _normalize_section_key(section: LogicalSection): String =
+      section.keyForModel.toUpperCase.filter(_.isLetterOrDigit)
   }
 }

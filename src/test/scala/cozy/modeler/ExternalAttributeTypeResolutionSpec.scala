@@ -7,15 +7,76 @@ import org.scalatest.funsuite.AnyFunSuite
 
 /*
  * @since   Apr.  9, 2026
- * @version Apr.  9, 2026
+ * @version May. 21, 2026
  * @author  ASAMI, Tomoharu
  */
 class ExternalAttributeTypeResolutionSpec extends AnyFunSuite {
-  test("modeler-scala keeps delegate value composition for external textus UserProfile values") {
-    val input = Paths.get("/Users/asami/src/dev2026/textus-user-account/src/main/cozy/user-account.cml").toAbsolutePath.normalize()
+  test("modeler-scala keeps delegate value composition for textus UserProfile values") {
     val out = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize().resolve("target/test-generated/modeler-scala-user-account-address")
     _delete_recursively(out)
-    Files.createDirectories(out.getParent)
+    Files.createDirectories(out)
+    val input = out.resolve("user-profile.cml")
+    Files.writeString(
+      input,
+      """# COMPONENT
+
+## UserAccount
+
+### PACKAGE
+
+org.simplemodeling.textus.useraccount
+
+# ENTITY
+
+## UserProfile
+
+### features
+
+extends = ["SimpleEntity"]
+
+### DELEGATE
+
+- name: IdentityPresentation
+  multiplicity: "?"
+- name: PersonalProfile
+  multiplicity: "?"
+- name: OrganizationSupport
+  multiplicity: "?"
+
+### ATTRIBUTE
+
+| name          | type     | multiplicity |
+|---------------+----------+--------------|
+| userAccountId | entityid | 1            |
+
+# VALUE
+
+## IdentityPresentation
+
+### ATTRIBUTE
+
+| name        | type   | multiplicity |
+|-------------+--------+--------------|
+| displayName | string | ?            |
+
+## PersonalProfile
+
+### ATTRIBUTE
+
+| name      | type   | multiplicity |
+|-----------+--------+--------------|
+| givenName | string | ?            |
+
+## OrganizationSupport
+
+### ATTRIBUTE
+
+| name             | type   | multiplicity |
+|------------------+--------+--------------|
+| organizationName | string | ?            |
+""",
+      StandardCharsets.UTF_8
+    )
 
     cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
 

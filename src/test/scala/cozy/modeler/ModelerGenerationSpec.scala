@@ -1662,6 +1662,245 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(output.contains("Operation 'greeting' requires OUTPUT TYPE."), s"unexpected output: $output")
   }
 
+    "modeler-scala rejects SERVICE operation with undefined INPUT TYPE" in {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("target/test-generated/modeler-scala-undefined-input-type.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-undefined-input-type-out")
+    _delete_recursively(out)
+    _write(input,
+      """# COMPONENT
+        |
+        |## Domain
+        |
+        |### PACKAGE
+        |
+        |domain
+        |
+        |# SERVICE
+        |
+        |## Greeting
+        |
+        |### OPERATION
+        |
+        |#### greeting
+        |
+        |##### TYPE
+        |
+        |QUERY
+        |
+        |##### INPUT
+        |
+        |###### TYPE
+        |
+        |MissingQuery
+        |
+        |##### OUTPUT
+        |
+        |###### TYPE
+        |
+        |GreetingResult
+        |
+        |# VALUE
+        |
+        |## GreetingResult
+        |
+        |### EXTENDS
+        |
+        |OperationResult
+        |""".stripMargin)
+
+    val output = _run_modeler_scala(input, out)
+    assert(output.contains("Operation 'greeting' INPUT TYPE 'MissingQuery' is not defined."), s"unexpected output: $output")
+  }
+
+    "modeler-scala rejects SERVICE operation with undefined OUTPUT TYPE" in {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("target/test-generated/modeler-scala-undefined-output-type.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-undefined-output-type-out")
+    _delete_recursively(out)
+    _write(input,
+      """# COMPONENT
+        |
+        |## Domain
+        |
+        |### PACKAGE
+        |
+        |domain
+        |
+        |# SERVICE
+        |
+        |## Greeting
+        |
+        |### OPERATION
+        |
+        |#### greeting
+        |
+        |##### TYPE
+        |
+        |QUERY
+        |
+        |##### INPUT
+        |
+        |###### TYPE
+        |
+        |GreetingQuery
+        |
+        |##### OUTPUT
+        |
+        |###### TYPE
+        |
+        |MissingResult
+        |
+        |# QUERY
+        |
+        |## GreetingQuery
+        |""".stripMargin)
+
+    val output = _run_modeler_scala(input, out)
+    assert(output.contains("Operation 'greeting' OUTPUT TYPE 'MissingResult' is not defined."), s"unexpected output: $output")
+  }
+
+    "modeler-scala accepts void operation input and output without value definitions" in {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("target/test-generated/modeler-scala-void-operation-types.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-void-operation-types-out")
+    _delete_recursively(out)
+    _write(input,
+      """# COMPONENT
+        |
+        |## Domain
+        |
+        |### PACKAGE
+        |
+        |domain
+        |
+        |# SERVICE
+        |
+        |## Greeting
+        |
+        |### OPERATION
+        |
+        |#### ping
+        |
+        |##### TYPE
+        |
+        |COMMAND
+        |
+        |##### INPUT
+        |
+        |###### TYPE
+        |
+        |void
+        |
+        |##### OUTPUT
+        |
+        |###### TYPE
+        |
+        |void
+        |""".stripMargin)
+
+    val output = _run_modeler_scala(input, out)
+    assert(!output.contains("is not defined"), s"unexpected output: $output")
+    val generated = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+    )
+    val content = Files.readString(generated)
+    assert(content.contains("""inputType = "void""""))
+    assert(content.contains("""outputType = "void""""))
+  }
+
+    "modeler-scala accepts OperationResult as a built-in output type" in {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("target/test-generated/modeler-scala-builtin-output-type.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-builtin-output-type-out")
+    _delete_recursively(out)
+    _write(input,
+      """# COMPONENT
+        |
+        |## Domain
+        |
+        |### PACKAGE
+        |
+        |domain
+        |
+        |# SERVICE
+        |
+        |## Greeting
+        |
+        |### OPERATION
+        |
+        |#### greeting
+        |
+        |##### TYPE
+        |
+        |QUERY
+        |
+        |##### INPUT
+        |
+        |###### TYPE
+        |
+        |GreetingQuery
+        |
+        |##### OUTPUT
+        |
+        |###### TYPE
+        |
+        |OperationResult
+        |
+        |# QUERY
+        |
+        |## GreetingQuery
+        |""".stripMargin)
+
+    val output = _run_modeler_scala(input, out)
+    assert(!output.contains("is not defined"), s"unexpected output: $output")
+  }
+
+    "modeler-scala accepts non-canonical void with warning" in {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("target/test-generated/modeler-scala-noncanonical-void-operation-types.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-noncanonical-void-operation-types-out")
+    _delete_recursively(out)
+    _write(input,
+      """# COMPONENT
+        |
+        |## Domain
+        |
+        |### PACKAGE
+        |
+        |domain
+        |
+        |# SERVICE
+        |
+        |## Greeting
+        |
+        |### OPERATION
+        |
+        |#### ping
+        |
+        |##### TYPE
+        |
+        |COMMAND
+        |
+        |##### INPUT
+        |
+        |###### TYPE
+        |
+        |Void
+        |
+        |##### OUTPUT
+        |
+        |###### TYPE
+        |
+        |VOID
+        |""".stripMargin)
+
+    val output = _run_modeler_scala(input, out)
+    assert(output.contains("Operation 'ping' uses 'Void'; use canonical 'void'."), s"unexpected output: $output")
+    assert(output.contains("Operation 'ping' uses 'VOID'; use canonical 'void'."), s"unexpected output: $output")
+    assert(!output.contains("is not defined"), s"unexpected output: $output")
+  }
+
     "modeler-scala emits CNCF help source metadata for described service and operation" in {
     val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
     val input = base.resolve("src/test/resources/modeler/service-help-metadata.dox")
@@ -2291,7 +2530,7 @@ OperationResult
         |CreateItem
         |##### OUTPUT
         |###### TYPE
-        |CreateItemResult
+        |OperationResult
         |
         |#### loadItem
         |
@@ -2304,7 +2543,7 @@ OperationResult
         |LoadItem
         |##### OUTPUT
         |###### TYPE
-        |LoadItemResult
+        |OperationResult
         |
         |#### searchItem
         |
@@ -2317,7 +2556,7 @@ OperationResult
         |SearchItem
         |##### OUTPUT
         |###### TYPE
-        |SearchItemResult
+        |OperationResult
         |
         |#### loadItemAggregate
         |
@@ -2330,7 +2569,7 @@ OperationResult
         |LoadItem
         |##### OUTPUT
         |###### TYPE
-        |LoadItemAggregateResult
+        |OperationResult
         |
         |#### searchItemAggregate
         |
@@ -2343,7 +2582,7 @@ OperationResult
         |SearchItem
         |##### OUTPUT
         |###### TYPE
-        |SearchItemAggregateResult
+        |OperationResult
         |
         |#### loadItemView
         |
@@ -2356,7 +2595,7 @@ OperationResult
         |LoadItem
         |##### OUTPUT
         |###### TYPE
-        |LoadItemViewResult
+        |OperationResult
         |
         |#### searchItemView
         |
@@ -2369,7 +2608,7 @@ OperationResult
         |SearchItem
         |##### OUTPUT
         |###### TYPE
-        |SearchItemViewResult
+        |OperationResult
         |
         |# ENTITY
         |
@@ -2496,7 +2735,7 @@ OperationResult
         |CreateItem
         |##### OUTPUT
         |###### TYPE
-        |CreateItemResult
+        |OperationResult
         |
         |# COMMAND
         |
@@ -2552,7 +2791,7 @@ OperationResult
         |EmitEvent
         |##### OUTPUT
         |###### TYPE
-        |EmitEventResult
+        |OperationResult
         |
         |#### recordEffect
         |
@@ -2565,7 +2804,7 @@ OperationResult
         |RecordEffect
         |##### OUTPUT
         |###### TYPE
-        |RecordEffectResult
+        |OperationResult
         |
         |#### loadEffect
         |
@@ -2578,7 +2817,7 @@ OperationResult
         |LoadEffect
         |##### OUTPUT
         |###### TYPE
-        |LoadEffectResult
+        |OperationResult
         |
         |# COMMAND
         |
