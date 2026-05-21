@@ -712,8 +712,9 @@ private[cozy] object CozyScaffold {
       |
       |#### postNotice
       |
-      |##### TYPE
-      |COMMAND
+      |- type :: COMMAND
+      |- input :: PostNotice
+      |- output :: PostNoticeResult
       |
       |##### IMPLEMENTATION
       |entity-create
@@ -721,36 +722,17 @@ private[cozy] object CozyScaffold {
       |##### ENTITY
       |Notice
       |
-      |##### INPUT
-      |
-      |###### TYPE
-      |PostNotice
-      |
-      |##### OUTPUT
-      |
-      |###### TYPE
-      |PostNoticeResult
-      |
       |#### searchNotices
       |
-      |##### TYPE
-      |QUERY
+      |- type :: QUERY
+      |- input :: SearchNotices
+      |- output :: SearchNoticesResult
       |
       |##### IMPLEMENTATION
       |entity-search
       |
       |##### ENTITY
       |Notice
-      |
-      |##### INPUT
-      |
-      |###### TYPE
-      |SearchNotices
-      |
-      |##### OUTPUT
-      |
-      |###### TYPE
-      |SearchNoticesResult
       |
       |# ENTITY
       |

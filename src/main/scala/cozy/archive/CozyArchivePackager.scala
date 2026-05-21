@@ -11,7 +11,7 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   May. 20, 2026
- * @version May. 21, 2026
+ * @version May. 22, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArchivePackager {
@@ -165,24 +165,73 @@ private[cozy] object CozyArchivePackager {
       case path if Files.isRegularFile(path) =>
         val catalog = CozyProjectYamlConfig.load(path)
         RuntimeCatalog(_base_provided_modules(catalog))
-    }.filter(_.baseprovidedmodules.nonEmpty)
+    }.filter(_.baseprovidedmodules.nonEmpty).
+      orElse(_runtime_catalog_urls(config).flatMap(_runtime_catalog_url).find(_.baseprovidedmodules.nonEmpty))
 
   private def _runtime_catalog_paths(
     projectdir: Option[Path],
     config: CozyProjectYamlConfig.Config
   ): Vector[Path] = {
+    val basedir = projectdir.getOrElse(Paths.get(".").toAbsolutePath.normalize())
     val configured =
-      config.value("packaging.car.runtime.cncf.catalog").
-        orElse(config.value("runtime.catalog.path")).
-        map(value => _config_path(projectdir.getOrElse(Paths.get(".").toAbsolutePath.normalize()), value)).
+      _runtime_catalog_config_values(config).
+        filterNot(_is_url).
+        map(value => _config_path(basedir, value)).
         toVector
+    val cncfprojects =
+      _cncf_runtime_project_dirs(projectdir, config).map(_.resolve("target/cncf.d/runtime-catalog.yaml"))
     val local = projectdir.toVector.flatMap { dir =>
       Vector(
+        dir.resolve("target/cncf.d/runtime-catalog.yaml"),
         dir.resolve("repository/textus/runtime-catalog.yaml"),
         dir.resolve("src/main/catalog/cncf.yaml")
       )
     }
-    (configured ++ local).distinct
+    (configured ++ cncfprojects ++ local).distinct
+  }
+
+  private def _runtime_catalog_config_values(config: CozyProjectYamlConfig.Config): Vector[String] =
+    config.value("packaging.car.runtime.cncf.catalog").toVector ++
+      config.value("runtime.catalog.path").toVector
+
+  private def _runtime_catalog_urls(config: CozyProjectYamlConfig.Config): Vector[String] =
+    _runtime_catalog_config_values(config).filter(_is_url)
+
+  private def _is_url(value: String): Boolean =
+    value.startsWith("http://") || value.startsWith("https://")
+
+  private def _runtime_catalog_url(url: String): Option[RuntimeCatalog] =
+    Try {
+      val connection = new java.net.URI(url).toURL.openConnection()
+      connection.setConnectTimeout(3000)
+      connection.setReadTimeout(3000)
+      val in = connection.getInputStream
+      try {
+        val lines = scala.io.Source.fromInputStream(in, "UTF-8").getLines().toVector
+        val catalog = CozyProjectYamlConfig.parse(lines)
+        RuntimeCatalog(_base_provided_modules(catalog))
+      } finally {
+        in.close()
+      }
+    }.toOption
+
+  private def _cncf_runtime_project_dirs(
+    projectdir: Option[Path],
+    config: CozyProjectYamlConfig.Config
+  ): Vector[Path] = {
+    val basedir = projectdir.getOrElse(Paths.get(".").toAbsolutePath.normalize())
+    val configured =
+      config.value("packaging.car.runtime.cncf.project_dir").
+        orElse(config.value("packaging.car.runtime.cncf.projectDir")).
+        orElse(config.value("runtime.cncf.project_dir")).
+        orElse(config.value("runtime.cncf.projectDir")).
+        map(value => _config_path(basedir, value)).
+        toVector
+    val environment =
+      Vector("CNCF_RUNTIME_PROJECT_DIR", "CNCF_PROJECT_DIR").
+        flatMap(name => sys.env.get(name)).
+        map(value => _config_path(basedir, value))
+    (configured ++ environment).distinct
   }
 
   private def _base_provided_modules(config: CozyProjectYamlConfig.Config): Set[String] =

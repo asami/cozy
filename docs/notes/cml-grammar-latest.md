@@ -1,7 +1,7 @@
 # CML Grammar (Latest, Cozy)
 
 status=active-latest-spec
-updated_at=2026-04-30
+updated_at=2026-05-22
 target=/Users/asami/src/dev2025/cozy
 
 ## 1. Scope
@@ -46,6 +46,9 @@ Guideline:
 
 - use section structure for descriptive documents
 - use dl/table for compact machine-oriented documents
+- use Markdown pipe tables for AI-readable source definitions
+- reserve Unicode box-drawing tables for final human-facing documents or
+  narrative examples, not executable CML model definitions
 
 Keyword convention:
 
@@ -151,10 +154,35 @@ Interpretation:
 - pipe tables inside formal CML sections such as `ATTRIBUTE`, `INPUT`,
   `OUTPUT`, `STATE`, or `COMMAND` are structural or metadata inputs
 - pipe tables in narrative sections are document content only
+- SmartDox can parse Unicode box-drawing tables, but CML source should prefer
+  Markdown pipe tables for AI readability, diff stability, searchability, and
+  hand editing
 - `#+CAPTION` and `#+LABEL` may annotate document tables, but they do not
   change CML AST semantics
 - `#+table: "data/file.csv" src` is SmartDox table inclusion; CML parser support
   for included external data is not part of the current CML structural contract
+
+Unicode box-drawing table example (document/narrative use only):
+
+```text
+┏━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Section      │ Responsibility               ┃
+┣━━━━━━━━━━━━━━┿━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
+┃ InfoSpace    │ Curated editable information ┃
+┃ Knowledge    │ Semantic runtime             ┃
+┃ Mapping      │ Interpretation rules         ┃
+┗━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+```
+
+Equivalent CML-source-preferred form:
+
+```text
+| Section | Responsibility |
+| --- | --- |
+| InfoSpace | Curated editable information |
+| Knowledge | Semantic runtime |
+| Mapping | Interpretation rules |
+```
 
 Program and verbatim examples:
 
@@ -180,6 +208,53 @@ Interpretation:
 - avoid indentation-only code blocks in CML examples; use explicit SmartDox
   verbatim blocks
 
+### 2.5 AI-Readable Authoring Style
+
+CML is both executable model source and literate documentation.  Source files
+should therefore optimize for parser stability, human review, and AI-assisted
+editing.
+
+Recommended style:
+
+- put a document title at the top of executable `.cml` files
+- leave a blank line after every section heading because SmartDox headings may
+  have multiline bodies
+- use section headings for model tree structure
+- use property lists for small AST leaves
+- use Markdown pipe tables for repeated field definitions
+- use same-name child sections for rich field descriptions and UI-facing
+  language
+- use HOCON or YAML for configuration-oriented metadata
+- avoid Unicode box-drawing tables in executable model definitions even though
+  SmartDox can parse them
+
+Example:
+
+```text
+### OPERATION
+
+#### home
+
+Home dashboard query.
+
+- type :: QUERY
+- input :: Home
+- output :: HomeResult
+
+Returns the editor home projection.
+```
+
+This is preferred over a leaf section that repeats the same key:
+
+```text
+##### TYPE
+
+- type :: QUERY
+```
+
+The latter is not canonical because the `TYPE` leaf is already named by the
+section heading.
+
 ---
 
 ## 3. Top-Level Sections
@@ -196,6 +271,7 @@ Supported top-level sections:
 - `# COMPONENTLET`
 - `# EXTENSIONPOINT`
 - `# SUBSYSTEM`
+- `# POWERTYPE`
 
 Future sections may be added, but this contract focuses on accepted and frozen behavior for the current phase.
 
@@ -204,6 +280,14 @@ If no `# COMPONENT` section is defined, Cozy generates a default placeholder com
 
 `VALUE` and `ENTITY` are separate structural domains.
 They may share attribute/schema shape, but they do not normalize into each other.
+
+`QUERY` and `COMMAND` are operation input value domains.  Each operation input
+type should be defined under the appropriate domain unless the operation uses
+the reserved pseudo-type `void`.
+
+`POWERTYPE` defines controlled vocabularies used by attributes and operation
+inputs.  Use powertype references instead of unconstrained `string` when the
+field is a state, category, selector, or other finite vocabulary.
 
 ---
 
@@ -272,6 +356,101 @@ as a case class constructor parameter.
 
 See `docs/notes/derived-attributes.md` for current implementation notes and
 open design items.
+
+### 4.4 ATTRIBUTE Overview Table and Detail Sections
+
+For attributes, the recommended authoring form is:
+
+- use the `ATTRIBUTE` table for compact structural fields
+- use same-name child sections for field-level narrative and UI-facing metadata
+
+This keeps the AST leaf compact while preserving rich explanations for
+generated UI, help, and AI-assisted editing.
+
+```text
+### ATTRIBUTE
+
+| name | type | multiplicity |
+| --- | --- | --- |
+| state | BookRecordState | zero-one |
+
+#### state
+
+##### SUMMARY
+
+Lifecycle filter.
+
+##### DESCRIPTION
+
+Filters records by InformationSpace lifecycle state.  The value is represented
+as the `BookRecordState` powertype, not as a free string.
+```
+
+Interpretation:
+
+- table row `name=state` defines the structural attribute
+- child section `#### state` supplies metadata for the same attribute
+- metadata sections such as `SUMMARY`, `DESCRIPTION`, and `LABEL` are merged by
+  attribute name
+- subsection metadata overrides or fills fields from the table row where the
+  same metadata key is present
+- this pattern is valid for model attributes and is also used by view/operation
+  attribute definitions where the grammar accepts attribute rows
+
+---
+
+## 4A. POWERTYPE
+
+`POWERTYPE` defines controlled vocabularies.  Use a powertype when a field is a
+state, category, selector, lifecycle value, or other finite vocabulary.  Do not
+model such fields as unconstrained `string` unless the vocabulary is genuinely
+open-ended.
+
+Recommended form:
+
+```text
+# POWERTYPE
+
+## BookRecordState
+
+package = org.goldenport.textus.knowledge.editor.value
+
+| name | label |
+| --- | --- |
+| imported | Imported |
+| invalid | Invalid |
+| needs_resolution | Needs resolution |
+| ready_for_confirmation | Ready for confirmation |
+| confirmed | Confirmed |
+| published | Published |
+| rejected | Rejected |
+| conflict | Conflict |
+```
+
+Columns:
+
+- `name`: required stable symbolic value.
+- `label`: optional display label.
+- `value`: optional numeric value. If omitted, generation assigns deterministic
+  declaration-order values.
+
+Section-per-kind form remains a tree-structure representation, but table form
+is canonical for finite vocabulary elements because it is easier to review,
+diff, and edit with AI assistance.
+
+```text
+### imported
+
+label = Imported
+```
+
+Interpretation:
+
+- powertype names are valid attribute and operation input/output references.
+- powertype narrative sections such as `DESCRIPTION`, `SUMMARY`, or `OVERVIEW`
+  are not powertype values.
+- identifiers such as `BookRecordState` are type names; values such as
+  `imported` are powertype elements.
 
 ---
 
@@ -388,23 +567,54 @@ This direction is active and not yet treated as frozen grammar.
 
 `OPERATION` is first-class and must normalize to canonical single-input model.
 
-### 8.2 OPERATION Kind
+### 8.2 OPERATION Core Properties
 
-Operation kind is mandatory:
+Operation kind, input type, and output type are mandatory for SERVICE
+operations. The canonical notation is a property list directly under the
+operation name, so narrative text can appear before and after the machine
+readable leaf:
+
+```text
+### OPERATION
+#### createOrder
+
+Creates a new order.
+
+- type :: COMMAND
+- input :: CreateOrder
+- output :: CreateOrderResult
+
+The operation returns the created order summary.
+```
+
+Accepted `type` values:
 
 - `COMMAND`
 - `QUERY`
 
-Accepted input patterns:
+`result` is accepted as an alias of `output`.
 
-1. `TYPE` section:
+Equivalent structured forms may also be used for larger configuration-style
+definitions:
+
+```text
+type = COMMAND
+input = CreateOrder
+output = CreateOrderResult
+```
+
+Section form remains valid as another tree representation:
 
 ```text
 ### TYPE
 COMMAND
+### INPUT
+CreateOrder
+### OUTPUT
+CreateOrderResult
 ```
 
-2. Kind marker section (equivalent to `TYPE`):
+Kind marker section is also equivalent to `TYPE`:
 
 ```text
 ### COMMAND
@@ -420,6 +630,13 @@ enabled
 
 Note:
 - marker section should include non-empty body text (e.g. `enabled`) for parser normalization stability.
+- `### TYPE` with `- type :: COMMAND` is not canonical because it repeats the
+  same leaf name at two levels. Prefer direct operation properties or plain
+  `### TYPE` body text.
+- Tree structure can be represented by sections, lists, tables, HOCON, or YAML.
+  For AST leaves, lists or Markdown pipe tables are usually more readable,
+  especially for AI-assisted maintenance. For program configuration-style
+  metadata, HOCON or YAML is appropriate.
 
 ### 8.3 Input Value Definition Sections
 
@@ -452,12 +669,10 @@ Input typing rule:
 ```text
 # OPERATION
 ## createOrder
-### TYPE
-COMMAND
-### INPUT
-CreateOrder
-### OUTPUT
-CreateOrderResult
+
+- type :: COMMAND
+- input :: CreateOrder
+- output :: CreateOrderResult
 ```
 
 Canonical semantic shape:
@@ -538,6 +753,22 @@ Rejected definitions:
 3. dual definition mismatch (`INPUT` fields vs `PARAMETER`)
 4. missing required operation core fields (`TYPE`, and either `INPUT` or `PARAMETER`)
 5. missing `OUTPUT`
+6. non-`void` `INPUT` type reference that is not defined in the model
+7. non-`void` `OUTPUT` type reference that is not defined in the model
+
+Type reference validation:
+
+- `void` is a reserved pseudo-type and requires no `QUERY`, `COMMAND`, or
+  `VALUE` definition.
+- canonical spelling is lowercase `void`.
+- `Void` and `VOID` are accepted for compatibility, but generation should emit
+  a warning and authors should normalize to `void`.
+- operation `INPUT` must resolve to `# QUERY`, `# COMMAND`, service inline
+  `VALUE`, or a known built-in type.
+- operation `OUTPUT` must resolve to `# VALUE`, service inline `VALUE`, or a
+  known built-in result type such as `OperationResult`.
+- undefined non-`void` references are model errors.  For example:
+  `Operation 'home' OUTPUT TYPE 'HomeResult' is not defined.`
 
 Dual consistency criteria:
 

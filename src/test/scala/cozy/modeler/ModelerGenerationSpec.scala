@@ -1342,13 +1342,13 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     )
     val content = Files.readString(generated)
     assert(content.contains("def renamePerson(input: Record)(using ctx: org.goldenport.cncf.context.ExecutionContext): Consequence[Person]"))
-    assert(content.contains("""r <- aggregateCommandNotImplemented[Person]("renamePerson")"""))
+    assert(content.contains("""r <- aggregate_command_not_implemented[Person]("renamePerson")"""))
     assert(content.contains("def updatePerson(input: Record)(using ctx: org.goldenport.cncf.context.ExecutionContext): Consequence[Person]"))
     assert(content.contains("""_ <- if (r.id == id) Consequence.success(()) else Consequence.argumentInvalid(s"Aggregate id mismatch in updatePerson: expected ${id}, actual ${r.id}")"""))
-    assert(content.contains("protected def aggregateCommandNotImplemented[A](commandName: String): Consequence[A]"))
+    assert(content.contains("protected def aggregate_command_not_implemented[A](commandname: String): Consequence[A]"))
     assert(content.contains("def createPerson(input: Record)(using ctx: org.goldenport.cncf.context.ExecutionContext): Consequence[Person]"))
     assert(content.contains("r <- createC(input)"))
-    assert(content.contains("def aggregateCreateNotImplemented[A](commandName: String): Consequence[A]"))
+    assert(content.contains("def aggregate_create_not_implemented[A](commandname: String): Consequence[A]"))
     assert(!content.contains("authorizeAggregateCommand"))
     assert(!content.contains("authorizeAggregateCreate"))
     assert(!content.contains("AggregateAuthorization.authorizeCommand"))
@@ -1660,6 +1660,274 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
 
     val output = _run_modeler_scala(input, out)
     assert(output.contains("Operation 'greeting' requires OUTPUT TYPE."), s"unexpected output: $output")
+  }
+
+    "modeler-scala accepts SERVICE operation direct property notation with narrative" in {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("target/test-generated/modeler-scala-service-operation-direct-property.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-service-operation-direct-property-out")
+    _delete_recursively(out)
+    _write(input,
+      """# COMPONENT
+        |
+        |## Domain
+        |
+        |### PACKAGE
+        |
+        |domain
+        |
+        |# SERVICE
+        |
+        |## Greeting
+        |
+        |### OPERATION
+        |
+        |#### greeting
+        |
+        |Greeting dashboard query.
+        |
+        |- type :: QUERY
+        |- input :: GreetingQuery
+        |- output :: GreetingResult
+        |
+        |This operation is intentionally documented around the property list.
+        |
+        |# QUERY
+        |
+        |## GreetingQuery
+        |
+        |# VALUE
+        |
+        |## GreetingResult
+        |
+        |### EXTENDS
+        |
+        |OperationResult
+        |""".stripMargin)
+
+    val output = _run_modeler_scala(input, out)
+    assert(!output.contains("requires TYPE"), s"unexpected output: $output")
+    assert(!output.contains("is not defined"), s"unexpected output: $output")
+    val component = out.resolve("target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala")
+    val content = Files.readString(component)
+    assert(content.contains("name = \"greeting\""))
+    assert(content.contains("inputType = \"GreetingQuery\""))
+    assert(content.contains("outputType = \"GreetingResult\""))
+  }
+
+    "modeler-scala accepts SERVICE operation HOCON direct properties" in {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("target/test-generated/modeler-scala-service-operation-hocon-property.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-service-operation-hocon-property-out")
+    _delete_recursively(out)
+    _write(input,
+      """# COMPONENT
+        |
+        |## Domain
+        |
+        |### PACKAGE
+        |
+        |domain
+        |
+        |# SERVICE
+        |
+        |## Greeting
+        |
+        |### OPERATION
+        |
+        |#### greeting
+        |
+        |type = QUERY
+        |input = GreetingQuery
+        |result = GreetingResult
+        |
+        |# QUERY
+        |
+        |## GreetingQuery
+        |
+        |# VALUE
+        |
+        |## GreetingResult
+        |
+        |### EXTENDS
+        |
+        |OperationResult
+        |""".stripMargin)
+
+    val output = _run_modeler_scala(input, out)
+    assert(!output.contains("requires TYPE"), s"unexpected output: $output")
+    assert(!output.contains("is not defined"), s"unexpected output: $output")
+    val component = out.resolve("target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala")
+    val content = Files.readString(component)
+    assert(content.contains("inputType = \"GreetingQuery\""))
+    assert(content.contains("outputType = \"GreetingResult\""))
+  }
+
+    "modeler-scala rejects conflicting direct and section operation properties" in {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("target/test-generated/modeler-scala-service-operation-property-conflict.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-service-operation-property-conflict-out")
+    _delete_recursively(out)
+    _write(input,
+      """# COMPONENT
+        |
+        |## Domain
+        |
+        |### PACKAGE
+        |
+        |domain
+        |
+        |# SERVICE
+        |
+        |## Greeting
+        |
+        |### OPERATION
+        |
+        |#### greeting
+        |
+        |- type :: QUERY
+        |- input :: GreetingQuery
+        |- output :: GreetingResult
+        |
+        |##### INPUT
+        |
+        |###### TYPE
+        |
+        |OtherGreetingQuery
+        |
+        |# QUERY
+        |
+        |## GreetingQuery
+        |
+        |## OtherGreetingQuery
+        |
+        |# VALUE
+        |
+        |## GreetingResult
+        |
+        |### EXTENDS
+        |
+        |OperationResult
+        |""".stripMargin)
+
+    val output = _run_modeler_scala(input, out)
+    assert(output.contains("Operation greeting direct INPUT GreetingQuery conflicts with INPUT section OtherGreetingQuery."), s"unexpected output: $output")
+  }
+
+    "modeler-scala accepts POWERTYPE references as operation input fields" in {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("target/test-generated/modeler-scala-powertype-operation-field.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-powertype-operation-field-out")
+    _delete_recursively(out)
+    _write(input,
+      """# COMPONENT
+        |
+        |## Domain
+        |
+        |### PACKAGE
+        |
+        |domain
+        |
+        |# SERVICE
+        |
+        |## Book
+        |
+        |### OPERATION
+        |
+        |#### listBooks
+        |
+        |- type :: QUERY
+        |- input :: ListBooks
+        |- output :: ListBooksResult
+        |
+        |# QUERY
+        |
+        |## ListBooks
+        |
+        || name | type | multiplicity |
+        || --- | --- | --- |
+        || state | BookRecordState | zero-one |
+        |
+        |# POWERTYPE
+        |
+        |## BookRecordState
+        |
+        |package = domain.value
+        |
+        || name | label |
+        || --- | --- |
+        || imported | Imported |
+        || confirmed | Confirmed |
+        |
+        |# VALUE
+        |
+        |## ListBooksResult
+        |
+        |### EXTENDS
+        |
+        |OperationResult
+        |""".stripMargin)
+
+    val output = _run_modeler_scala(input, out)
+    assert(!output.contains("is not defined"), s"unexpected output: $output")
+    val component = out.resolve("target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala")
+    val powertype = out.resolve("target/scala-3.3.7/src_managed/main/scala/domain/value/BookRecordState.scala")
+    val componentcontent = Files.readString(component)
+    val powertypecontent = Files.readString(powertype)
+    assert(componentcontent.contains("inputType = \"ListBooks\""))
+    assert(powertypecontent.contains("case class Builder(value: Option[String] = None"))
+    assert(powertypecontent.contains("val imported: BookRecordState = BookRecordState(\"imported\")"))
+  }
+
+    "modeler-scala rejects POWERTYPE narrative sections as operation input fields" in {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("target/test-generated/modeler-scala-powertype-narrative-input.dox")
+    val out = base.resolve("target/test-generated/modeler-scala-powertype-narrative-input-out")
+    _delete_recursively(out)
+    _write(input,
+      """# COMPONENT
+        |
+        |## Domain
+        |
+        |### PACKAGE
+        |
+        |domain
+        |
+        |# SERVICE
+        |
+        |## Book
+        |
+        |### OPERATION
+        |
+        |#### listBooks
+        |
+        |- type :: QUERY
+        |- input :: Summary
+        |- output :: ListBooksResult
+        |
+        |# POWERTYPE
+        |
+        |## SUMMARY
+        |
+        |Narrative text, not a powertype class.
+        |
+        |## BookRecordState
+        |package = domain.value
+        |
+        |### imported
+        |label = Imported
+        |
+        |# VALUE
+        |
+        |## ListBooksResult
+        |
+        |### EXTENDS
+        |
+        |OperationResult
+        |""".stripMargin)
+
+    val output = _run_modeler_scala(input, out)
+    assert(output.contains("Operation 'listBooks' INPUT TYPE 'Summary' is not defined."), s"unexpected output: $output")
   }
 
     "modeler-scala rejects SERVICE operation with undefined INPUT TYPE" in {

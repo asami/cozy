@@ -48,7 +48,7 @@ import scala.collection.mutable
  *  version May. 13, 2025
  *  version Feb. 27, 2026
  *  version Mar. 31, 2026
- * @version May. 21, 2026
+ * @version May. 22, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
@@ -625,6 +625,15 @@ object Modeler {
     associationBinding: Option[MComponent.OperationAssociationBinding] = None
   )
 
+  final case class ServiceOperationLeafContract(
+    kind: Option[OperationModel.OperationKind] = None,
+    inputType: Option[String] = None,
+    outputType: Option[String] = None
+  ) {
+    def nonEmpty: Boolean =
+      kind.nonEmpty || inputType.exists(_.trim.nonEmpty) || outputType.exists(_.trim.nonEmpty)
+  }
+
   private object RelationshipCml {
     private val _kind_association = "association"
     private val _kind_aggregation = "aggregation"
@@ -883,7 +892,8 @@ object Modeler {
     operation: OperationModel,
     cmlDeclaredTypeNames: Set[String] = Set.empty,
     relationships: Vector[MComponent.RelationshipDefinition] = Vector.empty,
-    operationRelationshipBindings: Map[String, OperationRelationshipBinding] = Map.empty
+    operationRelationshipBindings: Map[String, OperationRelationshipBinding] = Map.empty,
+    serviceOperationLeafContracts: Map[String, ServiceOperationLeafContract] = Map.empty
   ) {
     def build(): SimpleModel = {
       _build(includecomponents = true)
@@ -1888,17 +1898,20 @@ object Modeler {
 
     private def _normalized_service_operation(
       p: ServiceModel.ServiceClass.Operation
-    ): Option[OperationModel.NormalizedOperationDefinition] =
-      if (!_has_service_operation_contract(p)) {
+    ): Option[OperationModel.NormalizedOperationDefinition] = {
+      val leafcontract = serviceOperationLeafContracts.get(p.name)
+      if (!_has_service_operation_contract(p, leafcontract)) {
         None
       } else {
-        val kind = p.kind.getOrElse(
+        val kind = _merge_service_operation_kind(p.name, p.kind, leafcontract.flatMap(_.kind)).getOrElse(
           RAISE.syntaxErrorFault(s"Operation '${p.name}' requires TYPE (COMMAND|QUERY).")
         )
-        val inputtype = p.input.tpe.map(_.trim).filterNot(_.isEmpty).map(_canonical_service_operation_type(p.name, _)).getOrElse(
+        val inputtype = _merge_service_operation_type(p.name, "INPUT", p.input.tpe, leafcontract.flatMap(_.inputType)).
+          map(_.trim).filterNot(_.isEmpty).map(_canonical_service_operation_type(p.name, _)).getOrElse(
           RAISE.syntaxErrorFault(s"Operation '${p.name}' requires INPUT TYPE.")
         )
-        val outputtype = p.output.tpe.map(_.trim).filterNot(_.isEmpty).map(_canonical_service_operation_type(p.name, _)).getOrElse(
+        val outputtype = _merge_service_operation_type(p.name, "OUTPUT", p.output.tpe, leafcontract.flatMap(_.outputType)).
+          map(_.trim).filterNot(_.isEmpty).map(_canonical_service_operation_type(p.name, _)).getOrElse(
           RAISE.syntaxErrorFault(s"Operation '${p.name}' requires OUTPUT TYPE.")
         )
         _validate_service_operation_type_reference(p.name, "INPUT", inputtype)
@@ -1941,13 +1954,16 @@ object Modeler {
           parameters = parameters
         ))
       }
+    }
 
     private def _has_service_operation_contract(
-      p: ServiceModel.ServiceClass.Operation
+      p: ServiceModel.ServiceClass.Operation,
+      leafcontract: Option[ServiceOperationLeafContract]
     ): Boolean =
       p.kind.nonEmpty ||
         p.input.tpe.exists(_.trim.nonEmpty) ||
         p.output.tpe.exists(_.trim.nonEmpty) ||
+        leafcontract.exists(_.nonEmpty) ||
         p.execution.nonEmpty ||
         p.implementation.nonEmpty ||
         p.entityName.nonEmpty ||
@@ -1955,6 +1971,35 @@ object Modeler {
         p.access.nonEmpty ||
         p.authorization.nonEmpty ||
         p.parameters.nonEmpty
+
+    private def _merge_service_operation_kind(
+      opname: String,
+      lhs: Option[OperationModel.OperationKind],
+      rhs: Option[OperationModel.OperationKind]
+    ): Option[OperationModel.OperationKind] =
+      _merge_service_operation_value(opname, "TYPE", lhs, rhs)(_.toString)
+
+    private def _merge_service_operation_type(
+      opname: String,
+      role: String,
+      lhs: Option[String],
+      rhs: Option[String]
+    ): Option[String] =
+      _merge_service_operation_value(opname, role, lhs, rhs)(identity)
+
+    private def _merge_service_operation_value[A](
+      opname: String,
+      role: String,
+      lhs: Option[A],
+      rhs: Option[A]
+    )(show: A => String): Option[A] =
+      (lhs, rhs) match {
+        case (Some(l), Some(r)) if show(l) != show(r) =>
+          RAISE.syntaxErrorFault(s"Operation '$opname' direct $role '${show(r)}' conflicts with $role section '${show(l)}'.")
+        case (Some(l), _) => Some(l)
+        case (_, Some(r)) => Some(r)
+        case _ => None
+      }
 
     private def _canonical_service_operation_type(
       opname: String,
@@ -3693,6 +3738,7 @@ object Modeler {
     def apply(p: KaleidoxModel): ModelBuilder = {
       val relationships = RelationshipCml.relationshipDefinitions(p)
       val operationbindings = RelationshipCml.operationBindings(p, relationships)
+      val leafcontracts = _service_operation_leaf_contracts(p)
       apply(
         p.takeSchemaModel,
         p.takeEntityModel,
@@ -3706,15 +3752,104 @@ object Modeler {
         p.takeOperationModel,
         _cml_declared_type_names(p),
         relationships,
-        operationbindings
+        operationbindings,
+        leafcontracts
       )
+    }
+
+    private def _service_operation_leaf_contracts(
+      p: KaleidoxModel
+    ): Map[String, ServiceOperationLeafContract] = {
+      p.divisions.toVector.flatMap { division =>
+        _logical_section(division).filter { section =>
+          division.name.equalsIgnoreCase("SERVICE") || _same_section_key(section, "SERVICE")
+        }
+      }.flatMap { service =>
+        service.blocks.sections.toVector.flatMap { serviceclass =>
+          _child_sections(serviceclass, "OPERATION").flatMap(_.blocks.sections.toVector)
+        }
+      }.map { operation =>
+        operation.nameForModel -> ServiceOperationLeafContract(
+          kind = _operation_kind_property(operation).orElse(_operation_kind_direct_property(operation)),
+          inputType = _operation_direct_property(operation, "input").orElse(_child_property(operation, "INPUT", "type")),
+          outputType = _operation_direct_property(operation, "output").orElse(_operation_direct_property(operation, "result")).orElse(_child_property(operation, "OUTPUT", "type"))
+        )
+      }.filter(_._2.nonEmpty).toMap
+    }
+
+    private def _operation_kind_property(
+      operation: LogicalSection
+    ): Option[OperationModel.OperationKind] =
+      _child_text(operation, "TYPE").map {
+        case x if x.equalsIgnoreCase("COMMAND") => OperationModel.OperationKind.Command
+        case x if x.equalsIgnoreCase("QUERY") => OperationModel.OperationKind.Query
+        case x => RAISE.syntaxErrorFault(s"Operation '${operation.nameForModel}' TYPE must be COMMAND or QUERY: $x")
+      }
+
+    private def _operation_kind_direct_property(
+      operation: LogicalSection
+    ): Option[OperationModel.OperationKind] =
+      _operation_direct_property(operation, "type").map {
+        case x if x.equalsIgnoreCase("COMMAND") => OperationModel.OperationKind.Command
+        case x if x.equalsIgnoreCase("QUERY") => OperationModel.OperationKind.Query
+        case x => RAISE.syntaxErrorFault(s"Operation '${operation.nameForModel}' TYPE must be COMMAND or QUERY: $x")
+      }
+
+    private def _operation_direct_property(
+      operation: LogicalSection,
+      propertyname: String
+    ): Option[String] =
+      _property_value(operation.blocks.text, propertyname).
+        orElse(_property_value(operation.blocks.lines.text, propertyname))
+
+    private def _child_text(
+      section: LogicalSection,
+      childname: String
+    ): Option[String] =
+      _child_sections(section, childname).headOption.flatMap { child =>
+        child.blocks.text.linesIterator.map(_.trim).find(_.nonEmpty)
+      }
+
+    private def _child_property(
+      section: LogicalSection,
+      childname: String,
+      propertyname: String
+    ): Option[String] =
+      _child_sections(section, childname).headOption.flatMap { child =>
+        _property_value(child.blocks.text, propertyname)
+      }
+
+    private def _child_sections(
+      section: LogicalSection,
+      childname: String
+    ): Vector[LogicalSection] =
+      section.blocks.sections.toVector.filter { child =>
+        _same_section_key(child, childname)
+      }
+
+    private def _property_value(
+      text: String,
+      propertyname: String
+    ): Option[String] = {
+      val prefix = s"${propertyname.toLowerCase} ::"
+      text.linesIterator.map(_.trim).flatMap {
+        case line if line.startsWith("-") =>
+          val body = line.drop(1).trim
+          if (body.toLowerCase.startsWith(prefix))
+            Some(body.drop(prefix.length).trim).filter(_.nonEmpty)
+          else
+            None
+        case _ =>
+          None
+      }.toSeq.headOption
     }
 
     private def _cml_declared_type_names(p: KaleidoxModel): Set[String] = {
       val typesections = Set("QUERY", "COMMAND", "VALUE", "ENTITY", "DATATYPE")
-      p.divisions.toVector.flatMap(_logical_section).filter { section =>
+      val modeltypes = p.divisions.toVector.flatMap(_logical_section).filter { section =>
         typesections.contains(_normalize_section_key(section))
       }.flatMap(_.blocks.sections.toVector.map(_.nameForModel)).filter(_.nonEmpty).toSet
+      modeltypes ++ p.takePowertypeModel.classes.keySet
     }
 
     private def _logical_section(d: org.goldenport.kaleidox.Model.Division): Option[LogicalSection] =
@@ -3728,5 +3863,9 @@ object Modeler {
 
     private def _normalize_section_key(section: LogicalSection): String =
       section.keyForModel.toUpperCase.filter(_.isLetterOrDigit)
+
+    private def _same_section_key(section: LogicalSection, name: String): Boolean =
+      _normalize_section_key(section) == name.toUpperCase.filter(_.isLetterOrDigit) ||
+        section.nameForModel.toUpperCase.filter(_.isLetterOrDigit) == name.toUpperCase.filter(_.isLetterOrDigit)
   }
 }

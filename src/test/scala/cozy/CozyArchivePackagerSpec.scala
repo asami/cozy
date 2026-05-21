@@ -1,5 +1,7 @@
 package cozy
 
+import java.io.{ByteArrayOutputStream, PrintStream}
+import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
 import java.util.zip.ZipFile
 
@@ -11,7 +13,7 @@ import play.api.libs.json.Json
 
 /*
  * @since   May. 20, 2026
- * @version May. 21, 2026
+ * @version May. 22, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyArchivePackagerSpec extends AnyFunSuite {
@@ -310,6 +312,86 @@ class CozyArchivePackagerSpec extends AnyFunSuite {
       }
       assert(ex.getMessage.contains("base-provided"))
       assert(ex.getMessage.contains("org.typelevel:cats-core_3:2.10.0"))
+    }
+  }
+
+  test("package-car prefers exported CNCF runtime catalog from configured runtime project") {
+    _with_temp_dir("cozy-car-exported-runtime-catalog") { dir =>
+      val projectdir = dir.resolve("project")
+      val runtimedir = dir.resolve("cncf-runtime")
+      val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
+      val archive = dir.resolve("out/sample.car")
+      _write(
+        runtimedir.resolve("target/cncf.d/runtime-catalog.yaml"),
+        """schemaVersion: 1
+          |baseProvided:
+          |  - org.typelevel:cats-core_3
+          |""".stripMargin
+      )
+      _write(
+        projectdir.resolve("repository/textus/runtime-catalog.yaml"),
+        """schemaVersion: 1
+          |baseProvided:
+          |  - org.example:older-runtime-entry
+          |""".stripMargin
+      )
+      _write(
+        projectdir.resolve("project.yaml"),
+        """packaging:
+          |  car:
+          |    runtime:
+          |      cncf:
+          |        minimum: 0.4.8
+          |        project_dir: ../cncf-runtime
+          |    dependencies:
+          |      shared:
+          |        - org.typelevel:cats-core_3:2.10.0
+          |""".stripMargin
+      )
+
+      val ex = intercept[Throwable] {
+        CozyArchivePackager.buildCar(List(
+          s"--save=$archive",
+          s"--project-dir=$projectdir",
+          s"--main-jar=$mainjar",
+          "--name=sample-component",
+          "--version=0.1.0",
+          "--component=sample-component"
+        ))
+      }
+      assert(ex.getMessage.contains("base-provided"))
+      assert(ex.getMessage.contains("org.typelevel:cats-core_3:2.10.0"))
+    }
+  }
+
+  test("package-car warns and continues when CNCF runtime catalog is unavailable") {
+    _with_temp_dir("cozy-car-missing-runtime-catalog") { dir =>
+      val projectdir = dir.resolve("project")
+      val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
+      val archive = dir.resolve("out/sample.car")
+      _write(
+        projectdir.resolve("project.yaml"),
+        """packaging:
+          |  car:
+          |    runtime:
+          |      cncf:
+          |        minimum: 0.4.8
+          |""".stripMargin
+      )
+      val stderr = new ByteArrayOutputStream()
+      Console.withErr(new PrintStream(stderr)) {
+        CozyArchivePackager.buildCar(List(
+          s"--save=$archive",
+          s"--project-dir=$projectdir",
+          s"--main-jar=$mainjar",
+          "--name=sample-component",
+          "--version=0.1.0",
+          "--component=sample-component"
+        ))
+      }
+
+      assert(Files.isRegularFile(archive))
+      assert(stderr.toString(StandardCharsets.UTF_8.name()).contains("CNCF runtime catalog is unavailable"))
     }
   }
 
