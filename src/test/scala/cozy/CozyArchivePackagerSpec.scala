@@ -1,9 +1,11 @@
 package cozy
 
+import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
 import java.io.{ByteArrayOutputStream, PrintStream}
+import java.net.InetSocketAddress
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
-import java.util.zip.ZipFile
+import java.util.zip.{ZipEntry, ZipFile, ZipOutputStream}
 
 import scala.collection.JavaConverters._
 
@@ -195,6 +197,122 @@ class CozyArchivePackagerSpec extends AnyFunSuite {
       assert(!entries.contains("web/web.yaml"))
       assert(!entries.contains("component-dependencies.yaml"))
       assert(!entries.contains("lib/dep.jar"))
+    }
+  }
+
+  test("package-car reads CNCF runtime descriptor from lib jar without embedding dependencies") {
+    _with_temp_dir("cozy-car-runtime-descriptor-jar") { dir =>
+      val projectdir = dir.resolve("project")
+      val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
+      val cncfjar = _write_zip(
+        dir.resolve("artifacts/goldenport-cncf_3.jar"),
+        "META-INF/cncf/runtime.yaml",
+        """schemaVersion: 1
+          |runtime: cncf
+          |version: 0.4.10-SNAPSHOT
+          |scalaBinaryVersion: "3"
+          |module: org.goldenport:goldenport-cncf_3:0.4.10-SNAPSHOT
+          |baseProvided:
+          |  - org.goldenport:goldenport-cncf_3
+          |  - org.typelevel:cats-core_3
+          |""".stripMargin
+      )
+      val archive = dir.resolve("out/sample.car")
+      _write(
+        projectdir.resolve("project.yaml"),
+        """packaging:
+          |  car:
+          |    runtime:
+          |      cncf:
+          |        minimum: 0.4.10-SNAPSHOT
+          |    dependencies:
+          |      shared:
+          |        - org.postgresql:postgresql:42.7.3
+          |""".stripMargin
+      )
+
+      val stderr = new ByteArrayOutputStream()
+      Console.withErr(new PrintStream(stderr)) {
+        CozyArchivePackager.buildCar(List(
+          s"--save=$archive",
+          s"--project-dir=$projectdir",
+          s"--main-jar=$mainjar",
+          s"--lib-jars=$cncfjar",
+          "--name=sample-component",
+          "--version=0.1.0",
+          "--component=sample-component"
+        ))
+      }
+
+      val entries = _zip_entries(archive)
+      assert(!stderr.toString(StandardCharsets.UTF_8.name()).contains("CNCF runtime catalog is unavailable"))
+      assert(!entries.contains("lib/goldenport-cncf_3.jar"))
+      assert(_zip_text(archive, "component-dependencies.yaml").contains("org.postgresql:postgresql:42.7.3"))
+    }
+  }
+
+  test("package-car prefers explicit runtime catalog URL over runtime jar descriptor") {
+    _with_temp_dir("cozy-car-runtime-catalog-url") { dir =>
+      val projectdir = dir.resolve("project")
+      val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
+      val cncfjar = _write_zip(
+        dir.resolve("artifacts/goldenport-cncf_3.jar"),
+        "META-INF/cncf/runtime.yaml",
+        """schemaVersion: 1
+          |runtime: cncf
+          |version: 0.4.10-SNAPSHOT
+          |baseProvided:
+          |  - org.typelevel:cats-core_3
+          |""".stripMargin
+      )
+      val archive = dir.resolve("out/sample.car")
+      val server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0)
+      server.createContext("/runtime-catalog.yaml", new HttpHandler {
+        def handle(exchange: HttpExchange): Unit = {
+          val body =
+            """schemaVersion: 1
+              |baseProvided:
+              |  - org.postgresql:postgresql
+              |""".stripMargin
+          val bytes = body.getBytes(StandardCharsets.UTF_8)
+          exchange.sendResponseHeaders(200, bytes.length)
+          val out = exchange.getResponseBody
+          try out.write(bytes)
+          finally out.close()
+        }
+      })
+      server.start()
+      try {
+        _write(
+          projectdir.resolve("project.yaml"),
+          s"""packaging:
+             |  car:
+             |    runtime:
+             |      cncf:
+             |        minimum: 0.4.10-SNAPSHOT
+             |        catalog: http://127.0.0.1:${server.getAddress.getPort}/runtime-catalog.yaml
+             |    dependencies:
+             |      shared:
+             |        - org.postgresql:postgresql:42.7.3
+             |""".stripMargin
+        )
+
+        val ex = intercept[Throwable] {
+          CozyArchivePackager.buildCar(List(
+            s"--save=$archive",
+            s"--project-dir=$projectdir",
+            s"--main-jar=$mainjar",
+            s"--lib-jars=$cncfjar",
+            "--name=sample-component",
+            "--version=0.1.0",
+            "--component=sample-component"
+          ))
+        }
+        assert(ex.getMessage.contains("base-provided"))
+        assert(ex.getMessage.contains("org.postgresql:postgresql:42.7.3"))
+      } finally {
+        server.stop(0)
+      }
     }
   }
 
@@ -395,6 +513,53 @@ class CozyArchivePackagerSpec extends AnyFunSuite {
     }
   }
 
+  test("package-car can query configured CNCF command for runtime descriptor") {
+    _with_temp_dir("cozy-car-runtime-descriptor-command") { dir =>
+      val projectdir = dir.resolve("project")
+      val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
+      val archive = dir.resolve("out/sample.car")
+      val command = _write(
+        dir.resolve("bin/cncf-descriptor"),
+        """#!/bin/sh
+          |cat <<'EOF'
+          |schemaVersion: 1
+          |runtime: cncf
+          |version: 0.4.10-SNAPSHOT
+          |baseProvided:
+          |  - org.typelevel:cats-core_3
+          |EOF
+          |""".stripMargin
+      )
+      command.toFile.setExecutable(true)
+      _write(
+        projectdir.resolve("project.yaml"),
+        s"""packaging:
+           |  car:
+           |    runtime:
+           |      cncf:
+           |        minimum: 0.4.10-SNAPSHOT
+           |        command: ${command.toAbsolutePath}
+           |    dependencies:
+           |      shared:
+           |        - org.typelevel:cats-core_3:2.10.0
+           |""".stripMargin
+      )
+
+      val ex = intercept[Throwable] {
+        CozyArchivePackager.buildCar(List(
+          s"--save=$archive",
+          s"--project-dir=$projectdir",
+          s"--main-jar=$mainjar",
+          "--name=sample-component",
+          "--version=0.1.0",
+          "--component=sample-component"
+        ))
+      }
+      assert(ex.getMessage.contains("base-provided"))
+      assert(ex.getMessage.contains("org.typelevel:cats-core_3:2.10.0"))
+    }
+  }
+
   test("package-sar writes descriptor at SAR top level") {
     _with_temp_dir("cozy-sar") { dir =>
       val sourcedir = dir.resolve("src")
@@ -429,6 +594,23 @@ class CozyArchivePackagerSpec extends AnyFunSuite {
   private def _write(path: Path, content: String): Path = {
     Option(path.getParent).foreach(Files.createDirectories(_))
     Files.write(path, content.getBytes("UTF-8"))
+    path
+  }
+
+  private def _write_zip(
+    path: Path,
+    entryname: String,
+    content: String
+  ): Path = {
+    Option(path.getParent).foreach(Files.createDirectories(_))
+    val zip = new ZipOutputStream(Files.newOutputStream(path))
+    try {
+      zip.putNextEntry(new ZipEntry(entryname))
+      zip.write(content.getBytes(StandardCharsets.UTF_8))
+      zip.closeEntry()
+    } finally {
+      zip.close()
+    }
     path
   }
 

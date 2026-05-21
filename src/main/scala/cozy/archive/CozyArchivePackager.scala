@@ -5,9 +5,10 @@ import cozy.config.CozyProjectYamlConfig
 import play.api.libs.json._
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
-import java.util.zip.{ZipEntry, ZipOutputStream}
+import java.util.zip.{ZipEntry, ZipFile, ZipOutputStream}
 import scala.util.Try
 import scala.collection.JavaConverters._
+import scala.sys.process._
 
 /*
  * @since   May. 20, 2026
@@ -20,11 +21,13 @@ private[cozy] object CozyArchivePackager {
     val mainjar = _required_path(args, "main-jar")
     val projectdir = _path(args, "project-dir")
     val config = _project_config(projectdir)
-    val libjars = if (_include_dependencies(projectdir, config)) _paths(args, "lib-jars") else Vector.empty
+    val alllibjars = _paths(args, "lib-jars")
+    val validationjars = mainjar +: alllibjars
+    val libjars = if (_include_dependencies(projectdir, config)) alllibjars else Vector.empty
     val spijars = _paths(args, "spi-jars")
     val cardir = _path(args, "car-dir").orElse(_car_dir(projectdir, config))
     val defaultconf = _path(args, "default-conf").orElse(cardir.map(_.resolve("config/default.conf")).filter(Files.isRegularFile(_)))
-    val dependencymanifest = _path(args, "dependency-manifest").orElse(_dependency_manifest(projectdir, config))
+    val dependencymanifest = _path(args, "dependency-manifest").orElse(_dependency_manifest(projectdir, config, validationjars))
     val webdir = _path(args, "web-dir").orElse(projectdir.map(_.resolve("src/main/web")).filter(Files.isDirectory(_)))
     val webinfdescriptors = _web_inf_descriptors(args, projectdir, config)
     val assemblydescriptor = _path(args, "assembly-descriptor").orElse(cardir.map(_.resolve("assembly-descriptor.yaml")).filter(Files.isRegularFile(_)))
@@ -80,12 +83,16 @@ private[cozy] object CozyArchivePackager {
   private def _include_dependencies(projectdir: Option[Path], config: CozyProjectYamlConfig.Config): Boolean =
     config.boolean("packaging.car.include_dependencies").getOrElse(projectdir.isEmpty)
 
-  private def _dependency_manifest(projectdir: Option[Path], config: CozyProjectYamlConfig.Config): Option[Path] = {
+  private def _dependency_manifest(
+    projectdir: Option[Path],
+    config: CozyProjectYamlConfig.Config,
+    validationjars: Vector[Path]
+  ): Option[Path] = {
     val provided = config.list("packaging.car.dependencies.provided")
     val shared = config.list("packaging.car.dependencies.shared")
     val local = config.list("packaging.car.dependencies.local")
     val repositories = config.list("packaging.car.dependencies.repositories")
-    _validate_component_owned_dependencies(projectdir, config, shared, local)
+    _validate_component_owned_dependencies(projectdir, config, validationjars, shared, local)
     if (provided.isEmpty && shared.isEmpty && local.isEmpty && repositories.isEmpty)
       None
     else
@@ -127,11 +134,12 @@ private[cozy] object CozyArchivePackager {
   private def _validate_component_owned_dependencies(
     projectdir: Option[Path],
     config: CozyProjectYamlConfig.Config,
+    validationjars: Vector[Path],
     shared: Vector[String],
     local: Vector[String]
   ): Unit = {
     if (_cncf_runtime_configured(config)) {
-      _runtime_catalog(projectdir, config) match {
+      _runtime_catalog(projectdir, config, validationjars) match {
         case Some(catalog) =>
           val baseprovided = catalog.baseprovidedmodules
           val overlaps = (shared ++ local).flatMap { coordinate =>
@@ -159,25 +167,38 @@ private[cozy] object CozyArchivePackager {
 
   private def _runtime_catalog(
     projectdir: Option[Path],
-    config: CozyProjectYamlConfig.Config
+    config: CozyProjectYamlConfig.Config,
+    validationjars: Vector[Path]
   ): Option[RuntimeCatalog] =
-    _runtime_catalog_paths(projectdir, config).collectFirst {
+    _explicit_runtime_catalog_paths(projectdir, config).collectFirst {
       case path if Files.isRegularFile(path) =>
         val catalog = CozyProjectYamlConfig.load(path)
         RuntimeCatalog(_base_provided_modules(catalog))
     }.filter(_.baseprovidedmodules.nonEmpty).
-      orElse(_runtime_catalog_urls(config).flatMap(_runtime_catalog_url).find(_.baseprovidedmodules.nonEmpty))
+      orElse(_runtime_catalog_urls(config).flatMap(_runtime_catalog_url).find(_.baseprovidedmodules.nonEmpty)).
+      orElse(_runtime_catalog_jars(validationjars).find(_.baseprovidedmodules.nonEmpty)).
+      orElse(_project_runtime_catalog_paths(projectdir, config).collectFirst {
+        case path if Files.isRegularFile(path) =>
+          val catalog = CozyProjectYamlConfig.load(path)
+          RuntimeCatalog(_base_provided_modules(catalog))
+      }.filter(_.baseprovidedmodules.nonEmpty)).
+      orElse(_runtime_catalog_commands(config).flatMap(_runtime_catalog_command).find(_.baseprovidedmodules.nonEmpty))
 
-  private def _runtime_catalog_paths(
+  private def _explicit_runtime_catalog_paths(
     projectdir: Option[Path],
     config: CozyProjectYamlConfig.Config
   ): Vector[Path] = {
     val basedir = projectdir.getOrElse(Paths.get(".").toAbsolutePath.normalize())
-    val configured =
-      _runtime_catalog_config_values(config).
-        filterNot(_is_url).
-        map(value => _config_path(basedir, value)).
-        toVector
+    _runtime_catalog_config_values(config).
+      filterNot(_is_url).
+      map(value => _config_path(basedir, value)).
+      toVector
+  }
+
+  private def _project_runtime_catalog_paths(
+    projectdir: Option[Path],
+    config: CozyProjectYamlConfig.Config
+  ): Vector[Path] = {
     val cncfprojects =
       _cncf_runtime_project_dirs(projectdir, config).map(_.resolve("target/cncf.d/runtime-catalog.yaml"))
     val local = projectdir.toVector.flatMap { dir =>
@@ -187,7 +208,7 @@ private[cozy] object CozyArchivePackager {
         dir.resolve("src/main/catalog/cncf.yaml")
       )
     }
-    (configured ++ cncfprojects ++ local).distinct
+    (cncfprojects ++ local).distinct
   }
 
   private def _runtime_catalog_config_values(config: CozyProjectYamlConfig.Config): Vector[String] =
@@ -213,6 +234,42 @@ private[cozy] object CozyArchivePackager {
       } finally {
         in.close()
       }
+    }.toOption
+
+  private def _runtime_catalog_jars(paths: Vector[Path]): Vector[RuntimeCatalog] =
+    paths.distinct.flatMap(_runtime_catalog_jar)
+
+  private def _runtime_catalog_jar(path: Path): Option[RuntimeCatalog] =
+    if (Files.isRegularFile(path) && path.getFileName.toString.endsWith(".jar"))
+      Try {
+        val zip = new ZipFile(path.toFile)
+        try {
+          Option(zip.getEntry("META-INF/cncf/runtime.yaml")).map { entry =>
+            val in = zip.getInputStream(entry)
+            try {
+              val lines = scala.io.Source.fromInputStream(in, "UTF-8").getLines().toVector
+              val catalog = CozyProjectYamlConfig.parse(lines)
+              RuntimeCatalog(_base_provided_modules(catalog))
+            } finally {
+              in.close()
+            }
+          }
+        } finally {
+          zip.close()
+        }
+      }.toOption.flatten
+    else
+      None
+
+  private def _runtime_catalog_commands(config: CozyProjectYamlConfig.Config): Vector[String] =
+    config.value("runtime.cncf.command").toVector ++
+      config.value("packaging.car.runtime.cncf.command").toVector
+
+  private def _runtime_catalog_command(command: String): Option[RuntimeCatalog] =
+    Try {
+      val output = Process(Vector(command, "runtime", "descriptor", "--format", "yaml")).!!
+      val catalog = CozyProjectYamlConfig.parse(output.linesIterator.toVector)
+      RuntimeCatalog(_base_provided_modules(catalog))
     }.toOption
 
   private def _cncf_runtime_project_dirs(
