@@ -11,7 +11,7 @@ import play.api.libs.json.Json
 
 /*
  * @since   May. 20, 2026
- * @version May. 20, 2026
+ * @version May. 21, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyArchivePackagerSpec extends AnyFunSuite {
@@ -152,7 +152,9 @@ class CozyArchivePackagerSpec extends AnyFunSuite {
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
       val libjar = _write(dir.resolve("artifacts/dep.jar"), "dep")
       val archive = dir.resolve("out/sample.car")
-      _write(projectdir.resolve("src/main/car/web/web.yaml"), "apps:\n  - name: default-car-dir\n")
+      _write(projectdir.resolve("src/main/web-inf/web.yaml"), "apps:\n  - name: sample-component\n")
+      _write(projectdir.resolve("src/main/web-inf/form.yaml"), "expose:\n  sample-component.notice.search: public\n")
+      _write(projectdir.resolve("src/main/web-inf/admin.yaml"), "web:\n  admin:\n    pages: []\n")
       _write(
         projectdir.resolve("repository/textus/runtime-catalog.yaml"),
         """schemaVersion: 1
@@ -185,7 +187,10 @@ class CozyArchivePackagerSpec extends AnyFunSuite {
       ))
 
       val entries = _zip_entries(archive)
-      assert(entries.contains("web/web.yaml"))
+      assert(entries.contains("web/WEB-INF/web.yaml"))
+      assert(entries.contains("web/WEB-INF/form.yaml"))
+      assert(entries.contains("web/WEB-INF/admin.yaml"))
+      assert(!entries.contains("web/web.yaml"))
       assert(!entries.contains("component-dependencies.yaml"))
       assert(!entries.contains("lib/dep.jar"))
     }

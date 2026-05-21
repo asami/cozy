@@ -423,10 +423,15 @@ class Cozy(
       modelcontent,
       policy
     )
-    val webdir = dir.resolve("src/main/car/web")
+    val webdir = dir.resolve("src/main/web-inf")
     Files.createDirectories(webdir)
     _write_project_file(
       webdir.resolve("web.yaml"),
+      Cozy.carWebAppYaml(scaffold),
+      policy
+    )
+    _write_project_file(
+      webdir.resolve("form.yaml"),
       Cozy.carWebDescriptorYaml(modelpath, scaffold),
       policy
     )
@@ -525,10 +530,15 @@ class Cozy(
       map(Files.readString(_, StandardCharsets.UTF_8)).
       getOrElse(Cozy.carSarSampleCml(scaffold))
     _write_project_file(samplemodel, modelcontent, policy)
-    val webdir = componentdir.resolve("src/main/car/web")
+    val webdir = componentdir.resolve("src/main/web-inf")
     Files.createDirectories(webdir)
     _write_project_file(
       webdir.resolve("web.yaml"),
+      Cozy.carWebAppYaml(scaffold),
+      policy
+    )
+    _write_project_file(
+      webdir.resolve("form.yaml"),
       Cozy.carWebDescriptorYaml(modelpath, scaffold),
       policy
     )
@@ -758,6 +768,7 @@ object Cozy {
   private[cozy] def carPluginsSbt(): String = CozyScaffold.carPluginsSbt()
   private[cozy] def carSampleCml(scaffold: CarScaffoldConfig = CarScaffoldConfig.create(Nil, Paths.get("sample"))): String = CozyScaffold.carSampleCml(scaffold)
   private[cozy] def carWebDescriptorYaml(modelpath: Option[Path] = None, scaffold: CarScaffoldConfig = CarScaffoldConfig.create(Nil, Paths.get("sample"))): String = CozyScaffold.carWebDescriptorYaml(modelpath, scaffold)
+  private[cozy] def carWebAppYaml(scaffold: CarScaffoldConfig = CarScaffoldConfig.create(Nil, Paths.get("sample"))): String = CozyScaffold.carWebAppYaml(scaffold)
   private[cozy] def carComponentFactorySource(scaffold: CarScaffoldConfig = CarScaffoldConfig.create(Nil, Paths.get("sample"))): String = CozyScaffold.carComponentFactorySource(scaffold)
   private[cozy] def carGitignore(): String = CozyScaffold.carGitignore()
   private[cozy] def carReadme(scaffold: CarScaffoldConfig): String = CozyScaffold.carReadme(scaffold)

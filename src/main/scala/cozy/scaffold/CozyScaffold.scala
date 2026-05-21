@@ -799,6 +799,17 @@ private[cozy] object CozyScaffold {
   ): String =
     modelpath.flatMap(_car_web_descriptor_yaml_from_cml).getOrElse(_default_car_web_descriptor_yaml(scaffold))
 
+  private[cozy] def carWebAppYaml(
+    scaffold: CarScaffoldConfig = CarScaffoldConfig.create(Nil, Paths.get("sample"))
+  ): String =
+    s"""apps:
+      |  - name: ${scaffold.artifactName}
+      |    path: /web/${scaffold.artifactName}
+      |    kind: static-form
+      |    root: /web/${scaffold.artifactName}
+      |    route: /web/{component}/${scaffold.artifactName}
+      |""".stripMargin
+
   private def _default_car_web_descriptor_yaml(scaffold: CarScaffoldConfig): String =
     s"""expose:
       |  ${scaffold.artifactName}.notice.post-notice: protected

@@ -11,7 +11,7 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   May. 20, 2026
- * @version May. 20, 2026
+ * @version May. 21, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArchivePackager {
@@ -26,6 +26,7 @@ private[cozy] object CozyArchivePackager {
     val defaultconf = _path(args, "default-conf").orElse(cardir.map(_.resolve("config/default.conf")).filter(Files.isRegularFile(_)))
     val dependencymanifest = _path(args, "dependency-manifest").orElse(_dependency_manifest(projectdir, config))
     val webdir = _path(args, "web-dir").orElse(projectdir.map(_.resolve("src/main/web")).filter(Files.isDirectory(_)))
+    val webinfdescriptors = _web_inf_descriptors(args, projectdir, config)
     val assemblydescriptor = _path(args, "assembly-descriptor").orElse(cardir.map(_.resolve("assembly-descriptor.yaml")).filter(Files.isRegularFile(_)))
     val name = _required_value(args, "name")
     val version = _required_value(args, "version")
@@ -47,6 +48,7 @@ private[cozy] object CozyArchivePackager {
         dependencymanifest.toVector.map(_ -> "component-dependencies.yaml") ++
         assemblydescriptor.toVector.map(_ -> "assembly-descriptor.yaml") ++
         _web_entries(webdir) ++
+        webinfdescriptors ++
         Vector(_write_temp("component-descriptor", _component_descriptor_json(name, version, packagemetadata.component, extensionmap, configmap, entities)) -> "component-descriptor.json"),
       Vector("component", "lib", "spi", "config", "web")
     )
@@ -89,6 +91,38 @@ private[cozy] object CozyArchivePackager {
     else
       Some(_write_temp("component-dependencies", _dependency_manifest_yaml(provided, shared, local, repositories)))
   }
+
+  private def _web_inf_descriptors(
+    args: List[String],
+    projectdir: Option[Path],
+    config: CozyProjectYamlConfig.Config
+  ): Vector[(Path, String)] = {
+    val descriptors = Vector(
+      "web" -> _web_inf_descriptor(args, projectdir, config, "web", "packaging.car.web_descriptor"),
+      "form" -> _web_inf_descriptor(args, projectdir, config, "form", "packaging.car.form_descriptor"),
+      "admin" -> _web_inf_descriptor(args, projectdir, config, "admin", "packaging.car.admin_descriptor")
+    )
+    descriptors.flatMap {
+      case (name, Some(path)) => Some(path -> s"web/WEB-INF/${name}.yaml")
+      case (_, None) => None
+    }
+  }
+
+  private def _web_inf_descriptor(
+    args: List[String],
+    projectdir: Option[Path],
+    config: CozyProjectYamlConfig.Config,
+    name: String,
+    key: String
+  ): Option[Path] =
+    _path(args, s"${name}-descriptor").orElse {
+      projectdir.flatMap { dir =>
+        config.value(key).
+          map(path => _config_path(dir, path)).
+          orElse(Some(dir.resolve("src/main/web-inf").resolve(s"${name}.yaml").toAbsolutePath.normalize())).
+          filter(Files.isRegularFile(_))
+      }
+    }
 
   private def _validate_component_owned_dependencies(
     projectdir: Option[Path],
@@ -283,7 +317,12 @@ private[cozy] object CozyArchivePackager {
   private def _web_entries(webdir: Option[Path]): Vector[(Path, String)] =
     webdir.toVector.flatMap { dir =>
       _archive_sources(dir).filterNot { case (_, rel) =>
-        rel == "web.yaml" || rel == "web-descriptor.yaml"
+        rel == "web.yaml" ||
+          rel == "web-descriptor.yaml" ||
+          rel == "WEB-INF/web-descriptor.yaml" ||
+          rel == "WEB-INF/web.yaml" ||
+          rel == "WEB-INF/form.yaml" ||
+          rel == "WEB-INF/admin.yaml"
       }.map { case (p, rel) => p -> s"web/${rel}" }
     }
 
