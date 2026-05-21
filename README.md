@@ -115,6 +115,23 @@ CLI tooling will be provided in future releases.
 cozy generate --input model.cml --out src/generated
 ```
 
+### Publish CAR/SAR artifacts
+
+Cozy `publish-car` and `publish-sar` accept any warehouse root and write the
+standard repository layout below it:
+
+```text
+<warehouse>/repository/car/<artifact>/<version>/<artifact>-<version>.car
+<warehouse>/repository/sar/<artifact>/<version>/<artifact>-<version>.sar
+<warehouse>/repository/catalog/car/<artifact>.yaml
+<warehouse>/repository/catalog/sar/<artifact>.yaml
+```
+
+For local CNCF development, use the sbt-cozy tasks `cozyPublishLocalCar` and
+`cozyPublishLocalSar`. They call these Cozy commands with `~/.cncf/repository`
+as the warehouse root. Cozy itself does not provide separate
+`publish-local-car` or `publish-local-sar` commands.
+
 ### Use Cozy programmatically
 ```scala
 import org.simplemodeling.cozy.*
