@@ -153,5 +153,6 @@ cozy init component
 ```
 
 CS-19 is complete: Cozy now owns the `cozy init component` scaffolding
-contract. The remaining active Phase 6 validation item is CS-18 public SIE
-0.1.1 publication verification.
+contract, including explicit CML package/component naming through
+`cml.package` and `cml.component.name`. The remaining active Phase 6 validation
+item is CS-18 public SIE 0.1.1 publication verification.

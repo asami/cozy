@@ -269,11 +269,14 @@ private[cozy] object CozyScaffold {
         }
       val rawcomponent = _option(args, "component-name").
         orElse(_option(args, "component")).
+        orElse(config.value("cml.component.name")).
+        orElse(config.value("cml.component.className")).
         orElse(config.value("project.component.className")).
         orElse(config.value("project.component.name")).
         getOrElse(artifact)
       val component = _class_name(rawcomponent)
       val packagename = _option(args, "package").
+        orElse(config.value("cml.package")).
         orElse(config.value("project.scalaPackage")).
         orElse(config.value("project.package")).
         getOrElse("domain")
@@ -857,7 +860,7 @@ private[cozy] object CozyScaffold {
       |}
       |
       |abstract class ${component}ParticipantFactoryBase extends ${component}Component.Factory {
-      |  protected final val sharedServices =
+      |  protected final val shared_services =
       |    Vector(
       |      ${component}Component.NoticeService,
       |      ${component}Component.AggregateService,
@@ -865,11 +868,11 @@ private[cozy] object CozyScaffold {
       |      ${component}Component.EntityService
       |    )
       |
-      |  protected final def componentCore(
+      |  protected final def component_core(
       |    name: String,
-      |    componentId: ComponentId
+      |    componentid: ComponentId
       |  ): Component.Core =
-      |    spec_create(name, componentId, sharedServices)
+      |    spec_create(name, componentid, shared_services)
       |
       |  override val Notice: ${component}Component.NoticeServiceFactory = DefaultNoticeServiceFactory()
       |  override val aggregate: ${component}Component.AggregateServiceFactory = AggregateServiceFactoryImpl()
@@ -887,7 +890,7 @@ private[cozy] object CozyScaffold {
       |    params: ComponentCreate,
       |    comp: Component
       |  ): Component.Core =
-      |    componentCore(${component}Component.name, ${component}Component.componentId)
+      |    component_core(${component}Component.name, ${component}Component.componentId)
       |}
       |
       |final class DefaultNoticeServiceFactory extends ${component}Component.NoticeServiceFactory {
@@ -1275,6 +1278,7 @@ private[cozy] object CozyScaffold {
       |      Show this help and exit.
       |
       |  init component --save=<dir> [--config=<file>] [--name=<artifact>] [--component-name=<name>] [--display-name=<title>] [--organization=<organization>] [--package=<package>] [--version=<version>] [--kind=car|car-sar] [--bounded-context=<name>] [--domain=<name>] [--gitignore] [--readme] [--tests] [--no-project-files] [--overwrite-project-files]
+      |    config keys: project.name, project.organization, project.component.*, project.scaffold.*, cml.package, cml.component.name
       |      Initialize a component project scaffold. Config-file values are read first; CLI options override them.
       |
       |  car-sbt-project [model-file] --save=<dir> [--style=car|car-sar] [--component=<name>] [--package=<package>] [--name=<artifact>] [--organization=<organization>] [--version=<version>] [--bounded-context=<name>] [--domain=<name>] [--gitignore] [--readme] [--tests] [--no-project-files] [--overwrite-project-files]

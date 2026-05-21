@@ -214,6 +214,9 @@ Completion notes:
   entrypoint for configured component project initialization.
 - Config-file values are read first and CLI values override them
   deterministically.
+- CML-specific package and component class names can be supplied explicitly as
+  `cml.package` and `cml.component.name`; the older `project.scalaPackage` and
+  `project.component.className` keys remain compatible aliases.
 - `--kind=car` and `--kind=car-sar` reuse the existing Cozy scaffold
   materialization path.
 - Existing `car-sbt-project` behavior remains compatible.

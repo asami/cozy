@@ -321,7 +321,6 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
       """project:
         |  name: textus-knowledge-editor
         |  organization: org.goldenport
-        |  scalaPackage: org.goldenport.textus.knowledge.editor
         |  component:
         |    name: textus-knowledge-editor
         |    displayName: Textus Knowledge Editor
@@ -330,6 +329,10 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
         |  scaffold:
         |    readme: true
         |    tests: true
+        |cml:
+        |  package: org.goldenport.textus.knowledge.editor
+        |  component:
+        |    name: TextusKnowledgeEditor
         |""".stripMargin,
       StandardCharsets.UTF_8
     )
