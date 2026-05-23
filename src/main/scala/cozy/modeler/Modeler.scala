@@ -48,7 +48,7 @@ import scala.collection.mutable
  *  version May. 13, 2025
  *  version Feb. 27, 2026
  *  version Mar. 31, 2026
- * @version May. 22, 2026
+ * @version May. 24, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
@@ -1204,7 +1204,10 @@ object Modeler {
         case "day" => Some(org.goldenport.record.v2.XDay)
         case "duration" => Some(org.goldenport.record.v2.XDuration)
         case "date-time" => None
-        case _ => org.goldenport.record.v2.DataType.get(normalized)
+        case _ =>
+          org.goldenport.record.v2.DataType.get(normalized).filter { datatype =>
+            datatype != org.goldenport.record.v2.XString || normalized == "string"
+          }
       }
       datatype.map(MDataType(_)).orElse {
         normalized match {
@@ -1238,6 +1241,8 @@ object Modeler {
         None
       else if (!_is_valid_type_name(raw))
         None
+      else if (raw.contains("."))
+        Some(MObjectAttributeType(MObjectRef.create(raw)))
       else {
         val simple = raw.split("\\.").last
         _resolve_local_object_attribute_type(pkg, simple).
@@ -1257,9 +1262,10 @@ object Modeler {
       simple: String
     ): Option[MObjectAttributeType] =
       value.classes.get(simple).
-        map(_ => MObjectAttributeType(MObjectRef(MPackageRef(_value_package_name()), simple))).
+        map(x => MObjectAttributeType(MObjectRef(MPackageRef(_value_package_name(x)), simple))).
+        orElse(powertype.classes.get(simple).map(x => MObjectAttributeType(MObjectRef(MPackageRef(x.packageName), simple)))).
         orElse(datatype.classes.get(simple).map(_ => MObjectAttributeType(MObjectRef(MPackageRef(_datatype_package_name("domain")), simple)))).
-        orElse(entity.classes.get(simple).map(_ => MObjectAttributeType(_object_ref(pkg.packageName, simple))))
+        orElse(entity.classes.get(simple).map(x => MObjectAttributeType(_object_ref(x.packageName, simple))))
 
     private def _is_builtin_raw_type(
       p: String
@@ -1349,7 +1355,7 @@ object Modeler {
 
     private def _value(p: ValueClass): MValue = {
       val desc = Description.name(p.name)
-      val pkg = MPackageRef(_value_package_name())
+      val pkg = MPackageRef(_value_package_name(p))
       val stereotypes = Nil
       val base = None
       val traits = Nil
@@ -1682,6 +1688,9 @@ object Modeler {
 
     private def _value_package_name(): String =
       _component_package_override("domain").map(_ + ".value").getOrElse("domain.value")
+
+    private def _value_package_name(p: ValueClass): String =
+      p.packageName.getOrElse(_value_package_name())
 
     private def _datatype_package_name(
       packagename: String

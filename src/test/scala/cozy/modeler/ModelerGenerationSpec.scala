@@ -17,7 +17,7 @@ import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 /*
  * @since   May. 17, 2025
  *  version Apr. 30, 2026
- * @version May. 21, 2026
+ * @version May. 24, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -558,6 +558,57 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(!Files.exists(domaincomponent), s"DomainComponent must not be generated in value mode: $domaincomponent")
   }
 
+    "modeler-scala-value honors explicit VALUE package and local value references" in {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("target/test-input/modeler-scala-value-explicit-package.cml")
+    val out = base.resolve("target/test-generated/modeler-scala-value-explicit-package")
+    _delete_recursively(out)
+    _write(input,
+      """# VALUE
+        |
+        |## InformationId
+        |
+        |package = org.goldenport.cncf.information
+        |
+        |### ATTRIBUTE
+        |
+        || name  | type   | multiplicity |
+        ||-------|--------|--------------|
+        || value | string | 1            |
+        |
+        |## EditableInformation
+        |
+        |package = org.goldenport.cncf.information
+        |
+        |### ATTRIBUTE
+        |
+        || name          | type          | multiplicity |
+        ||---------------|---------------|--------------|
+        || informationId | InformationId | 1            |
+        |""".stripMargin)
+
+    val model = KaleidoxModel.load(KaleidoxConfig.default.withoutLocation, input.toFile)
+    val simplemodel = new cozy.modeler.Modeler().buildValueModel(model)
+    val editablevalue = simplemodel.elements.collectFirst {
+      case m: org.simplemodeling.model.domain.MDomainValue if m.name == "EditableInformation" => m
+    }.getOrElse(fail("EditableInformation value is missing"))
+    val idattribute = editablevalue.attributes.find(_.name == "informationId").getOrElse(fail("informationId attribute is missing"))
+    assert(idattribute.attributeType.isInstanceOf[org.simplemodeling.model.MObjectAttributeType], s"informationId must be object typed: ${idattribute.attributeType}")
+
+    cozy.Cozy.main(Array("modeler-scala-value", input.toString, s"--save=${out.toString}"))
+
+    val informationid = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/org/goldenport/cncf/information/InformationId.scala"
+    )
+    val editable = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/org/goldenport/cncf/information/EditableInformation.scala"
+    )
+    assert(Files.exists(informationid), s"value file not found: $informationid")
+    assert(Files.exists(editable), s"value file not found: $editable")
+    val content = Files.readString(editable)
+    assert(content.contains("informationId: InformationId"), s"local value reference must stay typed: $content")
+  }
+
     "modeler-scala-value accepts powertype-only cml without component generation" in {
     val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
     val input = base.resolve("src/test/resources/modeler/powertype-literate.dox")
@@ -684,6 +735,47 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(createcontent.contains("age: Option[Age]"))
     assert(createcontent.contains("def toRecord(e: Person): Record = e.toRecord()"))
     assert(createcontent.contains("override def toStoreRecord(e: Person): Record = e.toDataStore()"))
+  }
+
+    "modeler-scala-value honors explicit ENTITY package without component" in {
+    val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val input = base.resolve("target/test-input/modeler-scala-value-entity-explicit-package.cml")
+    val out = base.resolve("target/test-generated/modeler-scala-value-entity-explicit-package")
+    _delete_recursively(out)
+    _write(input,
+      """# ENTITY
+        |
+        |## SimpleEntity
+        |
+        |### ATTRIBUTE
+        |
+        || name | type     | multiplicity |
+        ||------|----------|--------------|
+        || id   | entityid | 1            |
+        || name | name     | 1            |
+        |
+        |## EditableInformation
+        |
+        |### FEATURES
+        |
+        |extends = ["SimpleEntity"]
+        |package = org.goldenport.cncf.information
+        |
+        |### ATTRIBUTE
+        |
+        || name          | type   | multiplicity |
+        ||---------------|--------|--------------|
+        || informationId | string | 1            |
+        |""".stripMargin)
+
+    cozy.Cozy.main(Array("modeler-scala-value", input.toString, s"--save=${out.toString}"))
+
+    val generated = out.resolve(
+      "target/scala-3.3.7/src_managed/main/scala/org/goldenport/cncf/information/entity/EditableInformation.scala"
+    )
+    assert(Files.exists(generated), s"entity file not found: $generated")
+    val content = Files.readString(generated)
+    assert(content.contains("extends org.simplemodeling.model.SimpleEntity with EntityPersistable"))
   }
 
     "modeler-scala generates SimpleEntity child without local attributes" in {

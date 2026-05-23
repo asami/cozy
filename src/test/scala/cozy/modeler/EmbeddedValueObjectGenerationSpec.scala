@@ -8,7 +8,8 @@ import org.scalatest.funsuite.AnyFunSuite
 
 /*
  * @since   Mar. 30, 2026
- * @version Apr. 20, 2026
+ *  version Apr. 20, 2026
+ * @version May. 24, 2026
  * @author  ASAMI, Tomoharu
  */
 class EmbeddedValueObjectGenerationSpec extends AnyFunSuite {
@@ -34,9 +35,10 @@ class EmbeddedValueObjectGenerationSpec extends AnyFunSuite {
 
     assert(entityContent.contains("lines: Vector[OrderLine]"))
     assert(entityContent.contains("case m: org.goldenport.record.RecordPresentable => m.toRecord()"))
-    assert(entityContent.contains("_record_get_vector_of_record_c(record, INPUT_KEYS_LINES)((r: Record) => org.sample.aggregatesinglerecord.value.OrderLine.createC(r))"))
+    assert(entityContent.contains("_record_get_vector_as_c[org.sample.aggregatesinglerecord.value.OrderLine](record, INPUT_KEYS_LINES).flatMap {"))
     assert(valueContent.contains("case class OrderLine(name: Name, quantity: Int) extends org.goldenport.record.RecordPresentable"))
     assert(valueContent.contains("given org.goldenport.convert.ValueReader[OrderLine]"))
+    assert(valueContent.contains("case m: Record => createC(m)"))
   }
 
   test("modeler-scala generates single and optional embedded value object attributes") {
