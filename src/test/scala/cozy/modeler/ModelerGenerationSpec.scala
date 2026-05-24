@@ -1781,6 +1781,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
         |- type :: QUERY
         |- input :: GreetingQuery
         |- output :: GreetingResult
+        |- execution :: async-job
         |
         |This operation is intentionally documented around the property list.
         |
@@ -1803,6 +1804,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val component = out.resolve("target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala")
     val content = Files.readString(component)
     assert(content.contains("name = \"greeting\""))
+    assert(content.contains("""execution = Some("async-job")"""))
     assert(content.contains("inputType = \"GreetingQuery\""))
     assert(content.contains("outputType = \"GreetingResult\""))
   }
