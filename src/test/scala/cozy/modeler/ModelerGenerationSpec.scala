@@ -17,7 +17,7 @@ import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 /*
  * @since   May. 17, 2025
  *  version Apr. 30, 2026
- * @version May. 24, 2026
+ * @version May. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -93,6 +93,10 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(buildsbtcontent.contains("""val cncfVersion = sampleVersion("CNCF_VERSION", "cncf-version.conf""""))
     assert(buildsbtcontent.contains("""libraryDependencies += "org.goldenport" %% "goldenport-cncf" % cncfVersion"""))
     assert(buildsbtcontent.contains("""libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.10" % Test"""))
+    assert(buildsbtcontent.contains("publish := {"))
+    assert(buildsbtcontent.contains("cozyPublishCar.value"))
+    assert(buildsbtcontent.contains("publishLocal := {"))
+    assert(buildsbtcontent.contains("cozyPublishLocalCar.value"))
     assert(!buildsbtcontent.contains("junit-interface"))
     assert(!buildsbtcontent.contains("cats-core"))
     assert(!buildsbtcontent.contains("kittens"))
@@ -122,7 +126,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(formdescriptorcontent.contains("type: textarea"))
     assert(Files.exists(out.resolve("src/main/scala/domain/impl/ComponentFactory.scala")))
     assert(pluginssbtcontent.contains("""addSbtPlugin("org.goldenport" % "sbt-cozy""""))
-    assert(pluginssbtcontent.contains("0.1.5-SNAPSHOT"))
+    assert(pluginssbtcontent.contains("0.1.9-SNAPSHOT"))
   }
 
     "car-sbt-project preserves differing project files by writing bak files" in {
@@ -211,6 +215,10 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(rootbuildcontent.contains("lazy val cozyBundleFactoryClassName = settingKey[Option[String]]"))
     assert(rootbuildcontent.contains(""""org.goldenport" %% "goldenport-cncf" % cncfVersion"""))
     assert(rootbuildcontent.contains(""""org.scalatest" %% "scalatest" % "3.2.19" % Test"""))
+    assert(rootbuildcontent.contains("(component / cozyPublishCar).value"))
+    assert(rootbuildcontent.contains("(subsystem / cozyPublishSar).value"))
+    assert(rootbuildcontent.contains("(component / cozyPublishLocalCar).value"))
+    assert(rootbuildcontent.contains("(subsystem / cozyPublishLocalSar).value"))
     assert(!rootbuildcontent.contains("simplemodeling-model"))
     assert(!rootbuildcontent.contains("cncf-collaborator-api"))
     assert(!rootbuildcontent.contains("dependencyOverrides"))
@@ -363,6 +371,8 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(buildsbtcontent.contains("""version := "0.1.0-SNAPSHOT""""))
     assert(buildsbtcontent.contains("""libraryDependencies += "org.goldenport" %% "goldenport-cncf" % cncfVersion"""))
     assert(buildsbtcontent.contains("""libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.10" % Test"""))
+    assert(buildsbtcontent.contains("cozyPublishCar.value"))
+    assert(buildsbtcontent.contains("cozyPublishLocalCar.value"))
     assert(!buildsbtcontent.contains("dependencyOverrides"))
     assert(projectyamlcontent.contains("""name: "textus-knowledge-editor""""))
     assert(projectyamlcontent.contains("""title: "Textus Knowledge Editor""""))

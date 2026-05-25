@@ -15,7 +15,7 @@ import scala.collection.JavaConverters._
  */
 private[cozy] object CozyScaffold {
   private val _default_sbt_version = "1.9.7"
-  private val _default_sbt_cozy_version = "0.1.5-SNAPSHOT"
+  private val _default_sbt_cozy_version = "0.1.9-SNAPSHOT"
 
   case class CarDependencyVersions(
     cncfVersion: String,
@@ -410,7 +410,7 @@ private[cozy] object CozyScaffold {
       |    resolvers += Resolver.defaultLocal,
       |    resolvers += Resolver.file("Local Ivy", file(Path.userHome.absolutePath + "/.ivy2/local"))(Resolver.ivyStylePatterns),
       |    resolvers += "Local Maven Repository" at ("file://" + Path.userHome.absolutePath + "/.m2/repository"),
-      |    resolvers += "SimpleModeling.org" at "https://www.simplemodeling.org/maven",
+      |    resolvers += "SimpleModeling.org" at "https://www.simplemodeling.org/repository/maven",
       |
       |    libraryDependencies += "org.goldenport" %% "goldenport-cncf" % cncfVersion,
       |    libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.10" % Test,
@@ -424,6 +424,14 @@ private[cozy] object CozyScaffold {
       |      "boundedContext" -> "${scaffold.boundedContext}",
       |      "domain" -> "${scaffold.domain}"
       |    ),
+      |    publish := {
+      |      val _ = cozyPublishCar.value
+      |      ()
+      |    },
+      |    publishLocal := {
+      |      val _ = cozyPublishLocalCar.value
+      |      ()
+      |    },
       |
       |    Compile / sourceGenerators += Def.task {
       |      val out = (Compile / sourceManaged).value / "${scaffold.packageName.split("\\.").mkString("\" / \"")}" / "meta" / "BuildVersion.scala"
@@ -528,7 +536,7 @@ private[cozy] object CozyScaffold {
       |  resolvers += Resolver.defaultLocal,
       |  resolvers += Resolver.file("Local Ivy", file(Path.userHome.absolutePath + "/.ivy2/local"))(Resolver.ivyStylePatterns),
       |  resolvers += "Local Maven Repository" at ("file://" + Path.userHome.absolutePath + "/.m2/repository"),
-      |  resolvers += "SimpleModeling.org" at "https://www.simplemodeling.org/maven"
+      |  resolvers += "SimpleModeling.org" at "https://www.simplemodeling.org/repository/maven"
       |)
       |
       |lazy val root = project
@@ -537,7 +545,16 @@ private[cozy] object CozyScaffold {
       |  .settings(commonSettings)
       |  .settings(
       |    name := "${scaffold.artifactName}",
-      |    publish / skip := true
+      |    publish := {
+      |      val _ = (component / cozyPublishCar).value
+      |      val _ = (subsystem / cozyPublishSar).value
+      |      ()
+      |    },
+      |    publishLocal := {
+      |      val _ = (component / cozyPublishLocalCar).value
+      |      val _ = (subsystem / cozyPublishLocalSar).value
+      |      ()
+      |    }
       |  )
       |
       |lazy val component = project
@@ -556,6 +573,14 @@ private[cozy] object CozyScaffold {
       |      "boundedContext" -> "${scaffold.boundedContext}",
       |      "domain" -> "${scaffold.domain}"
       |    ),
+      |    publish := {
+      |      val _ = cozyPublishCar.value
+      |      ()
+      |    },
+      |    publishLocal := {
+      |      val _ = cozyPublishLocalCar.value
+      |      ()
+      |    },
       |    cozyBundleFactoryClassName := None,
       |    Compile / resourceGenerators += Def.task {
       |      cozyBundleFactoryClassName.value.map { classname =>
@@ -580,6 +605,14 @@ private[cozy] object CozyScaffold {
       |      "org.goldenport" %% "goldenport-cncf" % cncfVersion,
       |      "org.scalatest" %% "scalatest" % "3.2.19" % Test
       |    ),
+      |    publish := {
+      |      val _ = cozyPublishSar.value
+      |      ()
+      |    },
+      |    publishLocal := {
+      |      val _ = cozyPublishLocalSar.value
+      |      ()
+      |    },
       |    Test / fork := false
       |  )
       |
@@ -997,7 +1030,7 @@ private[cozy] object CozyScaffold {
        |CNCF_LAUNCHER="$${CNCF_LAUNCHER:-$$PROJECT_ROOT/bin/launcher}"
        |CNCF_LAUNCHER_CACHE="$${CNCF_LAUNCHER_CACHE:-$$PROJECT_ROOT/.cache/coursier}"
        |CNCF_RUNTIME_CLASSPATH_FILE="$${CNCF_RUNTIME_CLASSPATH_FILE:-$$PROJECT_ROOT/target/cncf.d/runtime-classpath.txt}"
-       |SIMPLEMODELING_REPOSITORY="$${SIMPLEMODELING_REPOSITORY:-https://www.simplemodeling.org/maven}"
+       |SIMPLEMODELING_REPOSITORY="$${SIMPLEMODELING_REPOSITORY:-https://www.simplemodeling.org/repository/maven}"
        |
        |CNCF_COMMON_ARGS=(--discover=classes)
        |""".stripMargin
