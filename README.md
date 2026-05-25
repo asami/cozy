@@ -128,7 +128,7 @@ standard repository layout below it:
 ```
 
 For local CNCF development, use the sbt-cozy tasks `cozyPublishLocalCar` and
-`cozyPublishLocalSar`. They call these Cozy commands with `~/.cncf/repository`
+`cozyPublishLocalSar`. They call these Cozy commands with `~/.cncf/local`
 as the warehouse root. Cozy itself does not provide separate
 `publish-local-car` or `publish-local-sar` commands.
 

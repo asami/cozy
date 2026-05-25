@@ -10,7 +10,7 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   May. 20, 2026
- * @version May. 22, 2026
+ * @version May. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyScaffold {
@@ -1294,11 +1294,11 @@ private[cozy] object CozyScaffold {
       |
       |  publish-car <project-dir> --warehouse=<dir> --name=<artifact> --version=<version> [--car=<file> | --main-jar=<file>]
       |      Publish a CAR archive and CAR catalog, plus derived Maven metadata, to a warehouse.
-      |      sbt-cozy cozyPublishLocalCar calls this command with ~/.cncf/repository as the warehouse root.
+      |      sbt-cozy cozyPublishLocalCar calls this command with ~/.cncf/local as the warehouse root.
       |
       |  publish-sar <project-dir> --warehouse=<dir> --name=<artifact> --version=<version> [--sar=<file> | --source-dir=<dir>]
       |      Publish a SAR archive and SAR catalog, plus derived Maven metadata, to a warehouse.
-      |      sbt-cozy cozyPublishLocalSar calls this command with ~/.cncf/repository as the warehouse root.
+      |      sbt-cozy cozyPublishLocalSar calls this command with ~/.cncf/local as the warehouse root.
       |
       |  publish-project <project-dir> [--save=<dir>] [--kind=car|sar|sample-single|sample-multi|maven-repository] [--name=<slug>] [--title=<title>] [--path=<path>]
       |      Generate SmartDox site BoK publication registry sources from an sbt project.
