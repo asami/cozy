@@ -12,6 +12,7 @@ import cozy.runtime.{CozyRuntime, CozySbtBridge}
 import cozy.scaffold.CozyScaffold
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
+import scala.io.Source
 import scala.collection.JavaConverters._
 
 /*
@@ -22,7 +23,8 @@ import scala.collection.JavaConverters._
  *  version Aug. 20, 2025
  *  version Mar. 17, 2026
  *  version Apr. 29, 2026
- * @version May. 21, 2026
+ *  version May. 21, 2026
+ * @version Jun.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 class Cozy(
@@ -39,13 +41,14 @@ class Cozy(
     if (_is_help_request(args))
       println(Cozy.helpText)
     else {
-      val call = _operation_call(args)
+      val effectiveargs = _operation_config_args(args.toList).toArray
+      val call = _operation_call(effectiveargs)
       if (call.request.arguments.isEmpty || call.request.isInteractive)
         repl(call)
       else if (_is_cli_command(call))
-        execute(args)
+        execute(effectiveargs)
       else
-        executeDirect(args)
+        executeDirect(effectiveargs)
     }
   }
 
@@ -113,7 +116,8 @@ class Cozy(
   private def _to_repl_commandline(args: Array[String]): Option[String] =
     _leading_command(args).map { case (command, rest) =>
       val normalized = _normalize_repl_args(command, rest)
-      val converted = _convert_args(normalized)
+      val withconfig = _operation_config_args(command, normalized)
+      val converted = _convert_args(withconfig)
       (Vector(command) ++ converted).mkString(" ")
     }
 
@@ -121,6 +125,20 @@ class Cozy(
     command match {
       case "modeler-scala" | "modeler-scala-value" => _normalize_first_positional_path(args)
       case _ => args
+    }
+
+  private def _operation_config_args(command: String, args: List[String]): List[String] =
+    command match {
+      case "pdf" => CozyOperationConfig.withPdfDefaults(args)
+      case _ => args
+    }
+
+  private def _operation_config_args(args: List[String]): List[String] =
+    _leading_command(args.toArray) match {
+      case Some((command, rest)) =>
+        val i = args.indexOf(command)
+        args.take(i + 1) ++ _operation_config_args(command, rest)
+      case None => args
     }
 
   private def _normalize_first_positional_path(args: List[String]): List[String] = {
@@ -789,4 +807,115 @@ object Cozy {
 
   private[cozy] def _save_path(args: List[String]): Option[Path] = CozyRuntime.savePath(args)
   private[cozy] def _cli_path(value: String): Path = CozyRuntime.cliPath(value)
+}
+
+private object CozyOperationConfig {
+  def withPdfDefaults(args: List[String]): List[String] =
+    _pdf_property_options.foldLeft(args) {
+      case (z, (property, option)) =>
+        if (_has_option(z, option))
+          z
+        else
+          _value(property).fold(z)(v => z :+ option :+ v)
+    }
+
+  private val _pdf_property_options = Vector(
+    "renderer" -> "--renderer",
+    "latex-engine" -> "--latex-engine",
+    "latex-format" -> "--latex-format",
+    "latex-date" -> "--latex-date",
+    "latex-affiliation" -> "--latex-affiliation",
+    "latex-author" -> "--latex-author",
+    "dependency-mode" -> "--dependency-mode",
+    "docker-image" -> "--docker-image"
+  )
+
+  private def _value(name: String): Option[String] = {
+    val key = _normalize(name)
+    val keys = Vector(s"pdf.$key", s"smartdox.pdf.$key", s"cozy.pdf.$key")
+    _config_files.foldLeft(Option.empty[String]) { (z, file) =>
+      _load(file).flatMap(m => keys.toStream.flatMap(m.get).lastOption).orElse(z)
+    }
+  }
+
+  private def _config_files: Vector[Path] =
+    Vector(
+      Option(System.getProperty("user.home")).map(h => Paths.get(h).resolve(".cozy/config.yaml")),
+      Some(Paths.get(".").toAbsolutePath.normalize.resolve(".cozy/config.yaml"))
+    ).flatten
+
+  private def _load(path: Path): Option[Map[String, String]] =
+    if (!Files.isRegularFile(path))
+      None
+    else
+      Some(_parse(Source.fromFile(path.toFile, "UTF-8").getLines().toVector))
+
+  private def _parse(lines: Vector[String]): Map[String, String] = {
+    case class Context(section0: String = "", section2: String = "")
+    lines.foldLeft((Context(), Map.empty[String, String])) {
+      case ((ctx, acc), raw) =>
+        _parse_line(raw) match {
+          case None => (ctx, acc)
+          case Some((indent, key, value)) =>
+            indent match {
+              case 0 =>
+                value match {
+                  case Some(v) => (Context(key), acc + (key -> v))
+                  case None => (Context(key), acc)
+                }
+              case 2 =>
+                val full = _join(ctx.section0, key)
+                value match {
+                  case Some(v) => (ctx.copy(section2 = key), acc + (full -> v))
+                  case None => (ctx.copy(section2 = key), acc)
+                }
+              case _ =>
+                val prefix =
+                  if (ctx.section2.nonEmpty)
+                    _join(ctx.section0, ctx.section2)
+                  else
+                    ctx.section0
+                val full = _join(prefix, key)
+                value match {
+                  case Some(v) => (ctx, acc + (full -> v))
+                  case None => (ctx, acc)
+                }
+            }
+        }
+    }._2
+  }
+
+  private def _parse_line(raw: String): Option[(Int, String, Option[String])] = {
+    val line = raw.takeWhile(_ != '#')
+    if (line.trim.isEmpty || !line.contains(":"))
+      None
+    else {
+      val indent = line.takeWhile(_ == ' ').length
+      val trimmed = line.trim
+      val i = trimmed.indexOf(':')
+      val key = _normalize(trimmed.substring(0, i))
+      val rest = _trim_value(trimmed.substring(i + 1))
+      Some((indent, key, if (rest.isEmpty) None else Some(rest)))
+    }
+  }
+
+  private def _has_option(args: List[String], option: String): Boolean =
+    args.exists(x => x == option || x.startsWith(s"$option="))
+
+  private def _join(a: String, b: String): String =
+    if (a.isEmpty)
+      b
+    else
+      s"$a.$b"
+
+  private def _normalize(p: String): String =
+    p.trim.toLowerCase.replace('_', '.').replace('-', '.')
+
+  private def _trim_value(p: String): String = {
+    val s = p.trim
+    if ((s.startsWith("\"") && s.endsWith("\"")) || (s.startsWith("'") && s.endsWith("'")))
+      s.substring(1, s.length - 1)
+    else
+      s
+  }
 }

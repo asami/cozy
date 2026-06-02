@@ -10,7 +10,8 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   May. 20, 2026
- * @version May. 25, 2026
+ *  version May. 25, 2026
+ * @version Jun.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyScaffold {
@@ -1121,10 +1122,12 @@ private[cozy] object CozyScaffold {
       |  bin/launcher --dependency-file <path> --main-class <fqcn> [options] [-- app-args...]
       |
       |Options:
+      |  --config <path>            Additional launcher config file loaded after default config files.
       |  --dependency <coord>        Root dependency coordinate. Repeatable.
       |  --dependency-file <path>    Newline-separated dependency coordinates.
       |  --main-class <fqcn>         Main class passed to java.
       |  --repository <repo>         Extra coursier repository. Repeatable.
+      |  --classpath-file <path>     Use an existing classpath file instead of resolving dependencies.
       |  --cache <path>              Override coursier cache directory.
       |  --scala-version <version>   Pass through to coursier for Scala dependencies.
       |  --java <path>               Java executable. Default: java
@@ -1136,6 +1139,7 @@ private[cozy] object CozyScaffold {
       |Defaults:
       |  - repositories: ivy2Local, central, file://$HOME/.m2/repository
       |  - cache: coursier default unless --cache is specified
+      |  - config: $HOME/.cozy/config.yaml, then $PWD/.cozy/config.yaml, then $REPO_ROOT/.cozy/config.yaml if present
       |EOF
       |}
       |
@@ -1164,18 +1168,196 @@ private[cozy] object CozyScaffold {
       |java_bin="${JAVA_CMD:-java}"
       |main_class=""
       |cache_dir=""
+      |classpath_file=""
       |scala_version=""
       |resolve_only="0"
+      |config_file="${COZY_LAUNCHER_CONFIG:-}"
+      |config_file_set="0"
       |
       |declare -a dependencies=()
       |declare -a dependency_files=()
       |declare -a repositories=("ivy2Local" "central" "file://${HOME}/.m2/repository")
-      |declare -a java_opts=()
+      |repositories_from_config="0"
+      |declare -a java_opts=("-Dlogback.statusListenerClass=ch.qos.logback.core.status.NopStatusListener")
       |declare -a fetch_opts=()
       |declare -a app_args=()
       |
+      |normalize_config_key() {
+      |  printf '%s' "$1" | tr '[:upper:]_-' '[:lower:]..'
+      |}
+      |
+      |trim_config_value() {
+      |  local value="$1"
+      |  value="${value#"${value%%[![:space:]]*}"}"
+      |  value="${value%"${value##*[![:space:]]}"}"
+      |  if [[ "$value" == \"*\" && "$value" == *\" ]]; then
+      |    value="${value:1:${#value}-2}"
+      |  elif [[ "$value" == \'*\' && "$value" == *\' ]]; then
+      |    value="${value:1:${#value}-2}"
+      |  fi
+      |  printf '%s' "$value"
+      |}
+      |
+      |append_config_repository() {
+      |  if [[ "$repositories_from_config" == "0" ]]; then
+      |    repositories=()
+      |    repositories_from_config="1"
+      |  fi
+      |  repositories+=("$1")
+      |}
+      |
+      |apply_launcher_config_value() {
+      |  local key="$1"
+      |  local value="$2"
+      |  [[ -z "$value" ]] && return
+      |  case "$key" in
+      |    launcher.dependency|launcher.dependencies|cozy.launcher.dependency|cozy.launcher.dependencies)
+      |      dependencies+=("$value")
+      |      ;;
+      |    launcher.dependency.file|launcher.dependency.files|cozy.launcher.dependency.file|cozy.launcher.dependency.files)
+      |      dependency_files+=("$value")
+      |      ;;
+      |    launcher.main.class|cozy.launcher.main.class)
+      |      main_class="$value"
+      |      ;;
+      |    launcher.classpath|launcher.classpath.file|cozy.launcher.classpath|cozy.launcher.classpath.file)
+      |      classpath_file="$value"
+      |      ;;
+      |    launcher.repository|launcher.repositories|cozy.launcher.repository|cozy.launcher.repositories)
+      |      append_config_repository "$value"
+      |      ;;
+      |    launcher.cache|cozy.launcher.cache)
+      |      cache_dir="$value"
+      |      ;;
+      |    launcher.scala.version|cozy.launcher.scala.version)
+      |      scala_version="$value"
+      |      ;;
+      |    launcher.java|cozy.launcher.java)
+      |      java_bin="$value"
+      |      ;;
+      |    launcher.java.opt|launcher.java.opts|launcher.java.option|launcher.java.options|cozy.launcher.java.opt|cozy.launcher.java.opts|cozy.launcher.java.option|cozy.launcher.java.options)
+      |      java_opts+=("$value")
+      |      ;;
+      |    launcher.fetch.opt|launcher.fetch.opts|launcher.fetch.option|launcher.fetch.options|cozy.launcher.fetch.opt|cozy.launcher.fetch.opts|cozy.launcher.fetch.option|cozy.launcher.fetch.options)
+      |      fetch_opts+=("$value")
+      |      ;;
+      |  esac
+      |}
+      |
+      |load_launcher_config() {
+      |  local file="$1"
+      |  [[ -f "$file" ]] || return 0
+      |  local section0=""
+      |  local section2=""
+      |  local list_key=""
+      |  local raw line indent trimmed key rest full_key value
+      |  while IFS= read -r raw || [[ -n "$raw" ]]; do
+      |    line="${raw%%#*}"
+      |    [[ -z "${line//[[:space:]]/}" ]] && continue
+      |    indent="${line%%[! ]*}"
+      |    indent="${#indent}"
+      |    trimmed="$(trim_config_value "$line")"
+      |    if [[ "$trimmed" == "- "* ]]; then
+      |      value="$(trim_config_value "${trimmed:2}")"
+      |      if [[ -n "$list_key" ]]; then
+      |        apply_launcher_config_value "$list_key" "$value"
+      |      fi
+      |      continue
+      |    fi
+      |    [[ "$trimmed" == *:* ]] || continue
+      |    key="$(normalize_config_key "${trimmed%%:*}")"
+      |    rest="$(trim_config_value "${trimmed#*:}")"
+      |    case "$indent" in
+      |      0)
+      |        section0="$key"
+      |        section2=""
+      |        if [[ -n "$rest" ]]; then
+      |          apply_launcher_config_value "$key" "$rest"
+      |          list_key=""
+      |        else
+      |          list_key="$key"
+      |        fi
+      |        ;;
+      |      2)
+      |        section2="$key"
+      |        full_key="$section0.$key"
+      |        if [[ -n "$rest" ]]; then
+      |          apply_launcher_config_value "$full_key" "$rest"
+      |          list_key=""
+      |        else
+      |          list_key="$full_key"
+      |        fi
+      |        ;;
+      |      *)
+      |        if [[ -n "$section2" ]]; then
+      |          full_key="$section0.$section2.$key"
+      |        else
+      |          full_key="$section0.$key"
+      |        fi
+      |        if [[ -n "$rest" ]]; then
+      |          apply_launcher_config_value "$full_key" "$rest"
+      |          list_key=""
+      |        else
+      |          list_key="$full_key"
+      |        fi
+      |        ;;
+      |    esac
+      |  done < "$file"
+      |}
+      |
+      |declare -a config_scan_args=("$@")
+      |config_scan_index=0
+      |while [[ $config_scan_index -lt ${#config_scan_args[@]} ]]; do
+      |  arg="${config_scan_args[$config_scan_index]}"
+      |  case "$arg" in
+      |    --config)
+      |      next_index=$((config_scan_index + 1))
+      |      config_file="${config_scan_args[$next_index]:-}"
+      |      config_file_set="1"
+      |      config_scan_index=$((config_scan_index + 2))
+      |      ;;
+      |    --config=*)
+      |      config_file="${arg#--config=}"
+      |      config_file_set="1"
+      |      config_scan_index=$((config_scan_index + 1))
+      |      ;;
+      |    --)
+      |      break
+      |      ;;
+      |    *)
+      |      config_scan_index=$((config_scan_index + 1))
+      |      ;;
+      |  esac
+      |done
+      |
+      |if [[ "$config_file_set" == "1" ]]; then
+      |  require_value "--config" "$config_file"
+      |fi
+      |if [[ "$config_file_set" == "1" && ! -f "$config_file" ]]; then
+      |  echo "Config file not found: $config_file" >&2
+      |  exit 2
+      |fi
+      |load_launcher_config "$HOME/.cozy/config.yaml"
+      |load_launcher_config "$PWD/.cozy/config.yaml"
+      |if [[ "$REPO_ROOT" != "$PWD" ]]; then
+      |  load_launcher_config "$REPO_ROOT/.cozy/config.yaml"
+      |fi
+      |if [[ -n "$config_file" ]]; then
+      |  load_launcher_config "$config_file"
+      |fi
+      |
       |while [[ $# -gt 0 ]]; do
       |  case "$1" in
+      |    --config)
+      |      config_file="${2:-}"
+      |      config_file_set="1"
+      |      shift 2
+      |      ;;
+      |    --config=*)
+      |      config_file="${1#--config=}"
+      |      config_file_set="1"
+      |      shift
+      |      ;;
       |    --dependency)
       |      dependencies+=("${2:-}")
       |      shift 2
@@ -1191,6 +1373,14 @@ private[cozy] object CozyScaffold {
       |    --repository)
       |      repositories+=("${2:-}")
       |      shift 2
+      |      ;;
+      |    --classpath-file)
+      |      classpath_file="${2:-}"
+      |      shift 2
+      |      ;;
+      |    --classpath-file=*)
+      |      classpath_file="${1#--classpath-file=}"
+      |      shift
       |      ;;
       |    --cache)
       |      cache_dir="${2:-}"
@@ -1242,7 +1432,14 @@ private[cozy] object CozyScaffold {
       |done
       |
       |require_value "--main-class" "$main_class"
-      |if [[ ${#dependencies[@]} -eq 0 && ${#dependency_files[@]} -eq 0 ]]; then
+      |if [[ -n "$classpath_file" ]]; then
+      |  require_value "--classpath-file" "$classpath_file"
+      |  if [[ ! -f "$classpath_file" ]]; then
+      |    echo "Classpath file not found: $classpath_file" >&2
+      |    exit 2
+      |  fi
+      |fi
+      |if [[ -z "$classpath_file" && ${#dependencies[@]} -eq 0 && ${#dependency_files[@]} -eq 0 ]]; then
       |  echo "Specify at least one --dependency or --dependency-file." >&2
       |  exit 2
       |fi
@@ -1263,29 +1460,33 @@ private[cozy] object CozyScaffold {
       |  exit 3
       |fi
       |
-      |coursier_bin="$(find_coursier)"
+      |if [[ -n "$classpath_file" ]]; then
+      |  classpath="$(tr '\n' ':' < "$classpath_file" | sed 's/:$//')"
+      |else
+      |  coursier_bin="$(find_coursier)"
       |
-      |declare -a fetch_cmd=("$coursier_bin" "fetch" "--classpath")
-      |for repo in "${repositories[@]}"; do
-      |  fetch_cmd+=("--repository" "$repo")
-      |done
-      |if [[ -n "$cache_dir" ]]; then
-      |  fetch_cmd+=("--cache" "$cache_dir")
-      |fi
-      |if [[ -n "$scala_version" ]]; then
-      |  fetch_cmd+=("--scala-version" "$scala_version")
-      |fi
-      |for opt in "${fetch_opts[@]}"; do
-      |  fetch_cmd+=("$opt")
-      |done
-      |for dep_file in "${dependency_files[@]}"; do
-      |  fetch_cmd+=("--dependency-file" "$dep_file")
-      |done
-      |for dep in "${dependencies[@]}"; do
-      |  fetch_cmd+=("$dep")
-      |done
+      |  declare -a fetch_cmd=("$coursier_bin" "fetch" "--classpath")
+      |  for repo in "${repositories[@]}"; do
+      |    fetch_cmd+=("--repository" "$repo")
+      |  done
+      |  if [[ -n "$cache_dir" ]]; then
+      |    fetch_cmd+=("--cache" "$cache_dir")
+      |  fi
+      |  if [[ -n "$scala_version" ]]; then
+      |    fetch_cmd+=("--scala-version" "$scala_version")
+      |  fi
+      |  for opt in "${fetch_opts[@]}"; do
+      |    fetch_cmd+=("$opt")
+      |  done
+      |  for dep_file in "${dependency_files[@]}"; do
+      |    fetch_cmd+=("--dependency-file" "$dep_file")
+      |  done
+      |  for dep in "${dependencies[@]}"; do
+      |    fetch_cmd+=("$dep")
+      |  done
       |
-      |classpath="$("${fetch_cmd[@]}")"
+      |  classpath="$("${fetch_cmd[@]}")"
+      |fi
       |
       |if [[ "$resolve_only" == "1" ]]; then
       |  printf '%s\n' "$classpath"
