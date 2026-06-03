@@ -4,7 +4,7 @@ Purpose: engineering work management.
 
 Current phase:
 
-- `phase-5.md`: Engineering Publication Compiler
+- `phase-7.md`: BoK Source and Site Operations Toolchain
 
 Belongs:
 

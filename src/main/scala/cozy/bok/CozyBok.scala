@@ -288,6 +288,7 @@ private[cozy] object CozyBok {
     runner.run(Vector("dox", "antora", "-strategy", config.strategy, config.source), config.project)
     _run_antora(config, runner)
     runner.run(Vector("dox", "site", "-strategy", config.strategy, config.source), config.project)
+    _normalize_doxsite_output(config)
     _delete_directory(config.project.resolve(s"doxsite-cache-${config.strategy}.d"))
     if (config.arcadia.enabled) {
       runner.run(Vector("arcadia", "site", config.arcadia.source, config.arcadiaSite), config.project)
@@ -357,6 +358,17 @@ private[cozy] object CozyBok {
       "--to-dir",
       s"/workspace/${output}"
     )
+
+  private def _normalize_doxsite_output(config: BuildConfig): Unit =
+    config.localeMode match {
+      case LocaleMode.SingleLocaleRoot =>
+        _single_locale_doxsite_dirs(config).foreach(_delete_directory)
+      case LocaleMode.MultiLocaleSubdirs =>
+        Unit
+    }
+
+  private def _single_locale_doxsite_dirs(config: BuildConfig): Vector[Path] =
+    (config.languages ++ Vector("ja", "en")).distinct.map(config.doxsitePath.resolve)
 
   private def _copy_ui_bundle(config: BuildConfig, target: Path): Unit =
     {
@@ -448,7 +460,8 @@ private[cozy] object CozyBok {
       "<p>カテゴリはまだ登録されていません。`cozy bok create-category` で追加します。</p>"
     else
       categories.map { category =>
-        s"""<li><a href="${_html_escape(category.slug)}/index.html">${_html_escape(category.title)}</a>: ${_html_escape(category.description)}</li>"""
+        val htmlclass = if (category.slug == "glossary") """ class="glossary"""" else ""
+        s"""<li><a${htmlclass} href="${_html_escape(category.slug)}/index.html">${_html_escape(category.title)}</a>: ${_html_escape(category.description)}</li>"""
       }.mkString("<ul>\n", "\n", "\n</ul>")
   }
 

@@ -41,20 +41,10 @@ private[cozy] object CozyCliArgs {
   }
 
   def parse(parameters: spec.Parameter*)(args: List[String]): Parsed =
-    Parsed(spec.Request(parameters: _*).build(CliRequest("cozy"), _normalize_property_assignments(args).map(identity[Any]).toVector))
+    Parsed(spec.Request(parameters: _*).build(CliRequest("cozy"), args.map(identity[Any]).toVector))
 
   def parseStrict(parameters: spec.Parameter*)(args: List[String]): Parsed =
-    Parsed(spec.Request(parameters: _*).buildStrict(CliRequest("cozy"), _normalize_property_assignments(args).map(identity[Any]).toVector))
-
-  private def _normalize_property_assignments(args: List[String]): List[String] =
-    args.flatMap { arg =>
-      if (arg.startsWith("--") && arg.contains("=")) {
-        val i = arg.indexOf('=')
-        List(arg.take(i), arg.drop(i + 1))
-      } else {
-        List(arg)
-      }
-    }
+    Parsed(spec.Request(parameters: _*).buildStrict(CliRequest("cozy"), args.map(identity[Any]).toVector))
 
   def toPath(value: Any): Path = value match {
     case m: java.io.File => m.toPath.toAbsolutePath.normalize()

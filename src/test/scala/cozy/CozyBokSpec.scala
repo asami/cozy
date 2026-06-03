@@ -83,6 +83,9 @@ class CozyBokSpec extends AnyFunSuite {
     _with_temp_dir("cozy-bok-build") { dir =>
       _write(dir.resolve(".cozy/config.yaml"), "bok:\n  docker-image: smartdox-antora:test\n")
       _write(dir.resolve("src/main/doxsite/site.conf"), "site {\n  output {\n    locale_mode = \"single_locale_root\"\n  }\n}\n")
+      _write(dir.resolve("src/main/doxsite/glossary/category.yaml"), "name: Glossary\ntitle: 用語集\ndescription: BoK全体で共有する用語集。\n")
+      _write(dir.resolve("doxsite.d/ja/index.html"), "stale ja\n")
+      _write(dir.resolve("doxsite.d/en/index.html"), "stale en\n")
       _write(dir.resolve("doxsite-cache-work-in-progress.d/stale.error_msg"), "stale\n")
       val config = CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "wip"))
       val runner = new RecordingRunner
@@ -94,7 +97,10 @@ class CozyBokSpec extends AnyFunSuite {
       assert(runner.commands.exists(_.contains("smartdox-antora:test")))
       assert(runner.commands.exists(_.contains("/workspace/website.d")))
       assert(_read(dir.resolve("website.d/index.html")).contains("KnowledgeHub BoKのHome画面"))
+      assert(_read(dir.resolve("website.d/index.html")).contains("""<a class="glossary" href="glossary/index.html">用語集</a>"""))
       assert(Files.isRegularFile(dir.resolve("src/main/antora-ui/build/ui-bundle.zip")))
+      assert(!Files.exists(dir.resolve("doxsite.d/ja")))
+      assert(!Files.exists(dir.resolve("doxsite.d/en")))
       assert(!Files.exists(dir.resolve("doxsite-cache-work-in-progress.d/stale.error_msg")))
       assert(!runner.commands.exists(_.headOption.contains("arcadia")))
     }

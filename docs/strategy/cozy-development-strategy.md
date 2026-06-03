@@ -114,7 +114,7 @@ Primary reference:
 
 ### Phase 6: Component Repository Publication and Scaffolding
 
-Status: current.
+Status: active validation.
 
 Purpose:
 
@@ -129,6 +129,24 @@ Primary reference:
 - `docs/phase/phase-6-checklist.md`
 - `docs/journal/2026/05/car-sar-catalog-publish-plan-2026-05-20.md`
 
+### Phase 7: BoK Source and Site Operations Toolchain
+
+Status: current.
+
+Purpose:
+
+- make BoK source creation, category management, HTML build, and local preview
+  first-class Cozy workflows
+- support source-project and published-site project separation by default
+- use SmartDox category-driven structure without `site-structure.yaml`
+- support Japanese single-locale BoK operation with root `website.d` output
+- use the standard Cozy toolchain Docker image for Antora-based HTML generation
+
+Primary reference:
+
+- `docs/phase/phase-7.md`
+- `docs/phase/phase-7-checklist.md`
+
 ### Future Phase: Model-Driven CAR Project Scaffolding
 
 Purpose:
@@ -139,20 +157,18 @@ Purpose:
 
 ## Current Priority
 
-The current development target is Component Repository Publication and
-Scaffolding.
+The current development target is BoK Source and Site Operations Toolchain.
 
 The first useful slice is:
 
 ```text
-cozy init component
-  -> configured component project scaffold
-  -> CAR/SAR packaging defaults
-  -> catalog-aware publication flow
-  -> Textus runtime consumption
+cozy bok create
+  -> glossary-first BoK source scaffold
+  -> category creation with article and term seeds
+  -> Docker-backed Antora build
+  -> Japanese single-locale root website.d output
+  -> preview and workflow hooks
 ```
 
-CS-19 is complete: Cozy now owns the `cozy init component` scaffolding
-contract, including explicit CML package/component naming through
-`cml.package` and `cml.component.name`. The remaining active Phase 6 validation
-item is CS-18 public SIE 0.1.1 publication verification.
+Phase 6 remains active only for the carried CS-18 public SIE 0.1.1 publication
+verification item. New BoK operations work belongs to Phase 7.

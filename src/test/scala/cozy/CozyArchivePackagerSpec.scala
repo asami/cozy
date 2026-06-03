@@ -36,19 +36,19 @@ class CozyArchivePackagerSpec extends AnyFunSuite {
       val archive = dir.resolve("out/sample.car")
 
       CozyArchivePackager.buildCar(List(
-        s"--save=${archive.toString}",
-        s"--main-jar=${mainjar.toString}",
-        s"--lib-jars=${libjar.toString}",
-        s"--spi-jars=${spijar.toString}",
-        s"--car-dir=${carnote.getParent.getParent.toString}",
-        s"--default-conf=${defaultconf.toString}",
-        s"--dependency-manifest=${dependencymanifest.toString}",
-        s"--web-dir=${webapp.getParent.getParent.toString}",
-        s"--assembly-descriptor=${assembly.toString}",
-        "--name=sample-component",
-        "--version=0.1.0",
-        "--component=sample-component",
-        "--entities=Notice:usageKind=public-content,operationKind=resource,applicationDomain=cms;SalesOrder:usage_kind=business-object,operation_kind=resource,application_domain=business"
+        "--save", archive.toString,
+        "--main-jar", mainjar.toString,
+        "--lib-jars", libjar.toString,
+        "--spi-jars", spijar.toString,
+        "--car-dir", carnote.getParent.getParent.toString,
+        "--default-conf", defaultconf.toString,
+        "--dependency-manifest", dependencymanifest.toString,
+        "--web-dir", webapp.getParent.getParent.toString,
+        "--assembly-descriptor", assembly.toString,
+        "--name", "sample-component",
+        "--version", "0.1.0",
+        "--component", "sample-component",
+        "--entities", "Notice:usageKind=public-content,operationKind=resource,applicationDomain=cms;SalesOrder:usage_kind=business-object,operation_kind=resource,application_domain=business"
       ))
 
       val entries = _zip_entries(archive)
