@@ -1514,6 +1514,25 @@ private[cozy] object CozyScaffold {
       |      When model-file is omitted, create a scaffold sample model.
       |      By default, existing differing project files are written as .bak files.
       |
+      |  bok create --save=<dir> [--name=<name>] [--url=<url>] [--language=ja] [--no-project-files] [--overwrite-project-files]
+      |      Create a SmartDox category-driven BoK source project scaffold without generated HTML, Arcadia assets, or site-structure.yaml.
+      |
+      |  bok build [--project=<dir>] [--strategy=wip|draft|preview|production] [--docker-image=<image>]
+      |      Build BoK HTML under website.d using SmartDox and Antora through the configured Docker image.
+      |      The default Docker image is the standard Cozy toolchain image: simplemodeling/cozy-toolchain:latest.
+      |
+      |  bok update [--project=<dir>] [--strategy=wip|draft|preview|production] [--docker-image=<image>]
+      |      Update the BoK output. In this version it runs the same generation flow as bok build.
+      |
+      |  bok preview [--project=<dir>] [--port=8080]
+      |      Serve website.d with python3 -m http.server for local preview.
+      |
+      |  bok commit [--project=<dir>]
+      |      Run the external command registered at bok.workflow.commit.command. Cozy does not perform built-in git operations.
+      |
+      |  bok upload [--project=<dir>]
+      |      Run the external command registered at bok.workflow.upload.command. Cozy does not interpret upload targets or credentials.
+      |
       |  modeler-scala <model-file> --save=<dir>
       |      Generate Scala sources from a CML/Dox model.
       |

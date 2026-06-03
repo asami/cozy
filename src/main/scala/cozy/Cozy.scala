@@ -7,6 +7,7 @@ import org.goldenport.parser.CommandParser
 import org.goldenport.kaleidox.Kaleidox
 import org.goldenport.kaleidox.http.HttpHandle
 import cozy.archive.CozyArchivePackager
+import cozy.bok.CozyBok
 import cozy.publication.{CozyPublicationCompiler, CozySampleDistributor, CozyWarehouseIndexer}
 import cozy.runtime.{CozyRuntime, CozySbtBridge}
 import cozy.scaffold.CozyScaffold
@@ -77,7 +78,7 @@ class Cozy(
   }
 
   def executeDirect(args: Array[String]): Unit = {
-    if (!_execute_init(args) && !_execute_car_sbt_project(args) && !_execute_publish_car(args) && !_execute_publish_sar(args) && !_execute_publish_project(args) && !_execute_distribute_samples(args) && !_execute_index_warehouse(args) && !_execute_sbt_bridge(args) && !_execute_package_archive(args))
+    if (!CozyBok.execute(args.toList) && !_execute_init(args) && !_execute_car_sbt_project(args) && !_execute_publish_car(args) && !_execute_publish_sar(args) && !_execute_publish_project(args) && !_execute_distribute_samples(args) && !_execute_index_warehouse(args) && !_execute_sbt_bridge(args) && !_execute_package_archive(args))
       _to_repl_commandline(args) match {
         case Some(s) =>
           val c = _operation_call(Array(s))
@@ -832,7 +833,11 @@ private object CozyOperationConfig {
 
   private def _value(name: String): Option[String] = {
     val key = _normalize(name)
-    val keys = Vector(s"pdf.$key", s"smartdox.pdf.$key", s"cozy.pdf.$key")
+    val keys =
+      if (key == "docker.image")
+        Vector(s"pdf.$key", s"smartdox.pdf.$key", s"cozy.pdf.$key", "cozy.docker.image")
+      else
+        Vector(s"pdf.$key", s"smartdox.pdf.$key", s"cozy.pdf.$key")
     _config_files.foldLeft(Option.empty[String]) { (z, file) =>
       _load(file).flatMap(m => keys.toStream.flatMap(m.get).lastOption).orElse(z)
     }
