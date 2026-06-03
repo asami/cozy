@@ -11,7 +11,7 @@ import org.scalatest.funsuite.AnyFunSuite
 
 /*
  * @since   May. 20, 2026
- * @version May. 20, 2026
+ * @version Jun.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozySarPublisherSpec extends AnyFunSuite {
@@ -80,7 +80,7 @@ class CozySarPublisherSpec extends AnyFunSuite {
     }
   }
 
-  test("publish-sar builds a SAR from source directory when no prebuilt SAR is supplied") {
+  test("publish-sar builds a snapshot SAR without adding snapshot to catalog") {
     _with_temp_dir("cozy-publish-sar-build") { dir =>
       val projectdir = dir.resolve("project")
       val warehouse = dir.resolve("warehouse")
@@ -105,12 +105,52 @@ class CozySarPublisherSpec extends AnyFunSuite {
       assert(entries.contains("subsystem-descriptor.yaml"))
       assert(entries.contains("extension/adapter.jar"))
       assert(!entries.contains("ignored.txt"))
-      val catalog = RepositoryArtifactCatalog.load(warehouse.resolve("repository/catalog/sar/sample-application.yaml"))
-      assert(catalog.latestSnapshot == Some("0.1.1-SNAPSHOT"))
-      assert(catalog.versions.head.channel == Some("snapshot"))
-      val metadata = Files.readString(warehouse.resolve("repository/sar/sample-application/maven-metadata.xml"))
-      assert(metadata.contains("<latest>0.1.1-SNAPSHOT</latest>"))
-      assert(metadata.contains("<version>0.1.1-SNAPSHOT</version>"))
+      assert(!Files.exists(projectdir.resolve("src/main/catalog/sar/sample-application.yaml")))
+      assert(!Files.exists(warehouse.resolve("repository/catalog/sar/sample-application.yaml")))
+      assert(!Files.exists(warehouse.resolve("repository/sar/sample-application/maven-metadata.xml")))
+    }
+  }
+
+  test("publish-sar removes existing snapshot entries from catalog") {
+    _with_temp_dir("cozy-publish-sar-snapshot-cleanup") { dir =>
+      val projectdir = dir.resolve("project")
+      val warehouse = dir.resolve("warehouse")
+      val sar = _write(dir.resolve("input/sample.sar"), "snapshot-sar-body")
+      _write_project_yaml(projectdir, "sample-application")
+      _write(
+        projectdir.resolve("src/main/catalog/sar/sample-application.yaml"),
+        """schemaVersion: 1
+          |kind: sar
+          |artifactId: sample-application
+          |latestSnapshot: 0.1.1-SNAPSHOT
+          |status: active
+          |aliases: []
+          |versions:
+          |  - version: 0.1.0
+          |    channel: stable
+          |    status: active
+          |    file: repository/sar/sample-application/0.1.0/sample-application-0.1.0.sar
+          |  - version: 0.1.1-SNAPSHOT
+          |    channel: snapshot
+          |    status: active
+          |    file: repository/sar/sample-application/0.1.1-SNAPSHOT/sample-application-0.1.1-SNAPSHOT.sar
+          |""".stripMargin
+      )
+
+      CozySarPublisher.publish(List(
+        projectdir.toString,
+        s"--warehouse=$warehouse",
+        "--name=sample-application",
+        "--version=0.1.2-SNAPSHOT",
+        s"--sar=$sar"
+      ))
+
+      val sourcecatalog = RepositoryArtifactCatalog.load(projectdir.resolve("src/main/catalog/sar/sample-application.yaml"))
+      val publiccatalog = RepositoryArtifactCatalog.load(warehouse.resolve("repository/catalog/sar/sample-application.yaml"))
+      assert(sourcecatalog == publiccatalog)
+      assert(sourcecatalog.latestSnapshot.isEmpty)
+      assert(sourcecatalog.versions.map(_.version) == Vector("0.1.0"))
+      assert(sourcecatalog.versions.forall(_.channel != Some("snapshot")))
     }
   }
 

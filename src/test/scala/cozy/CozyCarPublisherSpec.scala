@@ -11,7 +11,7 @@ import org.scalatest.funsuite.AnyFunSuite
 
 /*
  * @since   May. 20, 2026
- * @version May. 20, 2026
+ * @version Jun.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyCarPublisherSpec extends AnyFunSuite {
@@ -79,7 +79,7 @@ class CozyCarPublisherSpec extends AnyFunSuite {
     }
   }
 
-  test("publish-car builds a CAR from main jar when no prebuilt CAR is supplied") {
+  test("publish-car builds a snapshot CAR without adding snapshot to catalog") {
     _with_temp_dir("cozy-publish-car-build") { dir =>
       val projectdir = dir.resolve("project")
       val warehouse = dir.resolve("warehouse")
@@ -101,12 +101,54 @@ class CozyCarPublisherSpec extends AnyFunSuite {
       assert(entries.contains("component/main.jar"))
       assert(entries.contains("component-descriptor.json"))
       assert(entries.contains("web/web.yaml"))
-      val catalog = RepositoryArtifactCatalog.load(warehouse.resolve("repository/catalog/car/sample-component.yaml"))
-      assert(catalog.latestSnapshot == Some("0.1.1-SNAPSHOT"))
-      assert(catalog.versions.head.channel == Some("snapshot"))
-      val metadata = Files.readString(warehouse.resolve("repository/car/sample-component/maven-metadata.xml"))
-      assert(metadata.contains("<latest>0.1.1-SNAPSHOT</latest>"))
-      assert(metadata.contains("<version>0.1.1-SNAPSHOT</version>"))
+      assert(!Files.exists(projectdir.resolve("src/main/catalog/car/sample-component.yaml")))
+      assert(!Files.exists(warehouse.resolve("repository/catalog/car/sample-component.yaml")))
+      assert(!Files.exists(warehouse.resolve("repository/car/sample-component/maven-metadata.xml")))
+    }
+  }
+
+  test("publish-car removes existing snapshot entries from catalog") {
+    _with_temp_dir("cozy-publish-car-snapshot-cleanup") { dir =>
+      val projectdir = dir.resolve("project")
+      val warehouse = dir.resolve("warehouse")
+      val car = _write(dir.resolve("input/sample.car"), "snapshot-car-body")
+      _write_project_yaml(projectdir, "sample-component")
+      _write(
+        projectdir.resolve("src/main/catalog/car/sample-component.yaml"),
+        """schemaVersion: 1
+          |kind: car
+          |artifactId: sample-component
+          |latestSnapshot: 0.1.1-SNAPSHOT
+          |status: active
+          |aliases: []
+          |versions:
+          |  - version: 0.1.0
+          |    channel: stable
+          |    status: active
+          |    component: sample-component
+          |    file: repository/car/sample-component/0.1.0/sample-component-0.1.0.car
+          |  - version: 0.1.1-SNAPSHOT
+          |    channel: snapshot
+          |    status: active
+          |    component: sample-component
+          |    file: repository/car/sample-component/0.1.1-SNAPSHOT/sample-component-0.1.1-SNAPSHOT.car
+          |""".stripMargin
+      )
+
+      CozyCarPublisher.publish(List(
+        projectdir.toString,
+        s"--warehouse=$warehouse",
+        "--name=sample-component",
+        "--version=0.1.2-SNAPSHOT",
+        s"--car=$car"
+      ))
+
+      val sourcecatalog = RepositoryArtifactCatalog.load(projectdir.resolve("src/main/catalog/car/sample-component.yaml"))
+      val publiccatalog = RepositoryArtifactCatalog.load(warehouse.resolve("repository/catalog/car/sample-component.yaml"))
+      assert(sourcecatalog == publiccatalog)
+      assert(sourcecatalog.latestSnapshot.isEmpty)
+      assert(sourcecatalog.versions.map(_.version) == Vector("0.1.0"))
+      assert(sourcecatalog.versions.forall(_.channel != Some("snapshot")))
     }
   }
 

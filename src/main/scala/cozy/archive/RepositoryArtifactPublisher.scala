@@ -12,7 +12,7 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   May. 20, 2026
- * @version May. 20, 2026
+ * @version Jun.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object RepositoryArtifactPublisher {
@@ -36,10 +36,16 @@ private[cozy] object RepositoryArtifactPublisher {
     val sourcecatalog = sourceCatalogPath(projectdir, policy.kind, name)
     val publiccatalog = publicCatalogPath(warehouse, policy.kind, name)
     val metadatapath = mavenMetadataPath(warehouse, policy.kind, name)
-    val metadata = RepositoryArtifactMavenMetadata.toXml(catalog, publishedAt(args))
-    writeText(sourcecatalog, catalog.toYaml)
-    writeText(publiccatalog, catalog.toYaml)
-    writeText(metadatapath, metadata)
+    if (catalog.versions.isEmpty) {
+      _delete_if_exists(sourcecatalog)
+      _delete_if_exists(publiccatalog)
+      _delete_if_exists(metadatapath)
+    } else {
+      val metadata = RepositoryArtifactMavenMetadata.toXml(catalog, publishedAt(args))
+      writeText(sourcecatalog, catalog.toYaml)
+      writeText(publiccatalog, catalog.toYaml)
+      writeText(metadatapath, metadata)
+    }
   }
 
   def projectConfig(projectdir: Path): CozyProjectYamlConfig.Config = {
@@ -168,30 +174,45 @@ private[cozy] object RepositoryArtifactPublisher {
     if (existing.kind != policy.kind || existing.artifactId != name)
       RAISE.invalidArgumentFault(s"${policy.kind.toUpperCase} catalog does not match requested artifact: $sourcepath")
 
-    val channel = value(args, "channel").getOrElse(if (version.endsWith("-SNAPSHOT")) "snapshot" else "stable")
+    val channel = value(args, "channel").getOrElse(if (_is_snapshot_version(version)) "snapshot" else "stable")
     val entry = policy.versionEntry(version, channel, warehouseRelativePath(warehouse, publishedarchive), publishedarchive, args)
-    val versions = (existing.versions.filterNot(_.version == version) :+ entry).sortBy(_.version)
+    val snapshotpublish = _is_snapshot_version(version) || channel == "snapshot"
+    val releaseversions = existing.versions.filterNot(_is_snapshot_catalog_version)
+    val versions =
+      if (snapshotpublish)
+        releaseversions
+      else
+        (releaseversions.filterNot(_.version == version) :+ entry).sortBy(_.version)
+    def _valid_selector_(selector: Option[String]): Option[String] =
+      selector.filter(value => versions.exists(_.version == value))
     val recommended =
-      if (flag(args, "recommended"))
+      if (!snapshotpublish && flag(args, "recommended"))
         Some(version)
       else
-        existing.recommended.orElse(Some(version))
+        _valid_selector_(existing.recommended).orElse(if (snapshotpublish) None else Some(version))
     val lateststable =
-      if (channel == "stable") Some(version) else existing.latestStable
-    val latestsnapshot =
-      if (channel == "snapshot") Some(version) else existing.latestSnapshot
+      if (!snapshotpublish && channel == "stable") Some(version) else _valid_selector_(existing.latestStable)
     RepositoryArtifactCatalog(
       schemaVersion = existing.schemaVersion,
       kind = policy.kind,
       artifactId = name,
       recommended = recommended,
       latestStable = lateststable,
-      latestSnapshot = latestsnapshot,
+      latestSnapshot = None,
       status = existing.status.orElse(Some("active")),
       aliases = existing.aliases,
       versions = versions
     ).validate
   }
+
+  private def _is_snapshot_catalog_version(version: RepositoryArtifactCatalogVersion): Boolean =
+    version.channel.contains("snapshot") || _is_snapshot_version(version.version)
+
+  private def _is_snapshot_version(version: String): Boolean =
+    version.toUpperCase(java.util.Locale.ROOT).contains("SNAPSHOT")
+
+  private def _delete_if_exists(path: Path): Unit =
+    Files.deleteIfExists(path)
 
   private def _positional_args(args: List[String]): Vector[String] = {
     val result = Vector.newBuilder[String]
