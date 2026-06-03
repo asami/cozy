@@ -3,7 +3,9 @@ package cozy.publication
 import org.goldenport.RAISE
 import org.goldenport.value._
 import cozy.config.CozyProjectYamlConfig
+import cozy.runtime.CozyCliArgs
 import play.api.libs.json._
+import org.goldenport.cli.spec
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 import java.security.MessageDigest
@@ -13,7 +15,7 @@ import scala.sys.process._
 
 /*
  * @since   May. 20, 2026
- * @version May. 20, 2026
+ * @version Jun.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyPublicationCompiler {
@@ -973,18 +975,15 @@ private[cozy] object CozyPublicationCompiler {
       value.take(157).trim + "..."
 
   private def _project_dir(args: List[String]): Path =
-    _value(args, "project").orElse(_positional_args(args).headOption).
-      map(p => Paths.get(p).toAbsolutePath.normalize()).
+    _parsed_with_project(args).pathProperty("project").
+      orElse(_parsed_with_project(args).argument("project").map(p => Paths.get(p).toAbsolutePath.normalize())).
       getOrElse(RAISE.invalidArgumentFault("Missing project directory for publish-project"))
 
   private def _required_path(args: List[String], key: String): Path =
-    _value(args, key).
-      map(p => Paths.get(p).toAbsolutePath.normalize()).
-      getOrElse(RAISE.invalidArgumentFault(s"Missing --${key}"))
+    _parsed(args).pathProperty(key).getOrElse(RAISE.invalidArgumentFault(s"Missing --${key}"))
 
   private def _publication_output(projectdir: Path, args: List[String], config: CozyProjectYamlConfig.Config): Path =
-    _value(args, "save").
-      map(p => Paths.get(p).toAbsolutePath.normalize()).
+    _parsed(args).pathProperty("save").
       orElse(_config_path(projectdir, config.value("publication.output"))).
       getOrElse(projectdir.resolve("target/publication").toAbsolutePath.normalize())
 
@@ -997,34 +996,33 @@ private[cozy] object CozyPublicationCompiler {
         projectdir.resolve(path).toAbsolutePath.normalize()
     }
 
-  private def _positional_args(args: List[String]): Vector[String] = {
-    val optionnameswithvalue = Set("project", "save", "kind", "name", "title", "path", "summary", "description", "organization", "version", "scala-version", "sbt-version")
-    val b = Vector.newBuilder[String]
-    var skipnext = false
-    args.foreach { arg =>
-      if (skipnext) {
-        skipnext = false
-      } else if (arg.startsWith("--")) {
-        val key = arg.drop(2).takeWhile(_ != '=')
-        if (!arg.contains("=") && optionnameswithvalue.contains(key))
-          skipnext = true
-      } else {
-        b += arg
-      }
-    }
-    b.result()
-  }
+  private def _value(args: List[String], key: String): Option[String] =
+    _parsed(args).property(key)
 
-  private def _value(args: List[String], key: String): Option[String] = {
-    val prefix = s"--${key}="
-    args.collectFirst {
-      case s if s.startsWith(prefix) => s.substring(prefix.length)
-    }.orElse {
-      args.sliding(2).collectFirst {
-        case List(flag, value) if flag == s"--${key}" => value
-      }
-    }.map(_.trim).filter(_.nonEmpty)
-  }
+  private val _request_parameters = Vector(
+    spec.Parameter.propertyFileOption("project"),
+    spec.Parameter.propertyFileOption("save"),
+    spec.Parameter.property("kind"),
+    spec.Parameter.property("name"),
+    spec.Parameter.property("title"),
+    spec.Parameter.property("path"),
+    spec.Parameter.property("summary"),
+    spec.Parameter.property("description"),
+    spec.Parameter.property("organization"),
+    spec.Parameter.property("version"),
+    spec.Parameter.property("scala-version"),
+    spec.Parameter.property("sbt-version"),
+    spec.Parameter.property("maven-coordinates"),
+    spec.Parameter.property("repository-artifacts"),
+    spec.Parameter.property("repository-modules"),
+    spec.Parameter.property("download-samples")
+  )
+
+  private def _parsed(args: List[String]): CozyCliArgs.Parsed =
+    CozyCliArgs.parse(_request_parameters: _*)(args)
+
+  private def _parsed_with_project(args: List[String]): CozyCliArgs.Parsed =
+    CozyCliArgs.parse((spec.Parameter.argumentFile("project") +: _request_parameters): _*)(args)
 
   private def _validate_publication_path(value: String): String = {
     CozyPublicationPaths.validatePublicationPath(value)

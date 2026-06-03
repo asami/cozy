@@ -1,16 +1,17 @@
 package cozy.runtime
 
 import org.goldenport.RAISE
+import org.goldenport.cli.spec
 import cozy.Cozy
 import cozy.archive.{CozyArchivePackager, CozyCarPublisher, CozySarPublisher}
 import cozy.publication.{CozyPublicationCompiler, CozySampleDistributor, CozyWarehouseIndexer}
 import play.api.libs.json._
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Files, Path}
 
 /*
  * @since   May. 20, 2026
- * @version May. 20, 2026
+ * @version Jun.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozySbtBridge {
@@ -19,7 +20,7 @@ private[cozy] object CozySbtBridge {
       case "v1" :: rest =>
         _execute_v1(rest)
       case _ =>
-        RAISE.invalidArgumentFault("Missing sbt-bridge version. Expected: sbt-bridge v1 --request=<file>")
+        RAISE.invalidArgumentFault("Missing sbt-bridge version. Expected: sbt-bridge v1 --request <file>")
     }
 
   private def _execute_v1(args: List[String]): Unit = {
@@ -80,16 +81,10 @@ private[cozy] object CozySbtBridge {
         RAISE.invalidArgumentFault(s"Invalid sbt-bridge request file: ${location}(${detail})")
     }
 
-  private def _required_path(args: List[String], key: String): Path = {
-    val prefix = s"--${key}="
-    args.collectFirst {
-      case s if s.startsWith(prefix) => Paths.get(s.substring(prefix.length)).toAbsolutePath.normalize()
-    }.orElse {
-      args.sliding(2).collectFirst {
-        case List(flag, value) if flag == s"--${key}" => Paths.get(value).toAbsolutePath.normalize()
-      }
-    }.getOrElse(RAISE.invalidArgumentFault(s"Missing --${key}"))
-  }
+  private def _required_path(args: List[String], key: String): Path =
+    CozyCliArgs.parse(spec.Parameter.propertyFileOption(key))(args).
+      pathProperty(key).
+      getOrElse(RAISE.invalidArgumentFault(s"Missing --${key}"))
 
   private[cozy] final case class BridgeRequestView(
     version: String,

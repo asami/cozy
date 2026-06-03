@@ -10,7 +10,8 @@ import play.api.libs.json.Json
 
 /*
  * @since   May. 12, 2026
- * @version May. 16, 2026
+ *  version May. 16, 2026
+ * @version Jun.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 final class PublicationCompilerSpec extends AnyFunSuite {
@@ -96,8 +97,8 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     Files.writeString(out1.resolve("repository/artifacts/sample-publication.json"), """{"artifact":{"status":"placeholder"}}""", StandardCharsets.UTF_8)
     Files.writeString(out1.resolve("repository/artifacts/sample-publication.yaml"), "artifact:\n  status: placeholder\n", StandardCharsets.UTF_8)
 
-    Cozy.main(Array("publish-project", project.toString, s"--save=${out1}", "--kind=sample-single", "--name=sample-publication", "--title=Sample Publication"))
-    Cozy.main(Array("publish-project", project.toString, s"--save=${out2}", "--kind=sample-single", "--name=sample-publication", "--title=Sample Publication"))
+    Cozy.main(Array("publish-project", project.toString, "--save", out1.toString, "--kind", "sample-single", "--name", "sample-publication", "--title", "Sample Publication"))
+    Cozy.main(Array("publish-project", project.toString, "--save", out2.toString, "--kind", "sample-single", "--name", "sample-publication", "--title", "Sample Publication"))
 
     val expected = Vector(
       "metadata/catalog/projects/sample-publication.json",
@@ -154,7 +155,7 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     Files.writeString(project.resolve("samples/01-hello/build.sbt"), "name := \"Hello B\"\n", StandardCharsets.UTF_8)
 
     val ex = intercept[Throwable] {
-      Cozy.main(Array("publish-project", project.toString, s"--save=${out}", "--kind=sample-multi"))
+      Cozy.main(Array("publish-project", project.toString, "--save", out.toString, "--kind", "sample-multi"))
     }
     assert(ex.getMessage.contains("Duplicate sample slug"))
   }
@@ -176,7 +177,7 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     )
 
     val ex = intercept[Throwable] {
-      Cozy.main(Array("publish-project", project.toString, s"--save=${out}"))
+      Cozy.main(Array("publish-project", project.toString, "--save", out.toString))
     }
     assert(ex.getMessage.contains("Invalid publication name"))
   }
@@ -197,7 +198,7 @@ final class PublicationCompilerSpec extends AnyFunSuite {
       StandardCharsets.UTF_8
     )
 
-    Cozy.main(Array("publish-project", project.toString, s"--save=${out}"))
+    Cozy.main(Array("publish-project", project.toString, "--save", out.toString))
 
     val projectjson = _entry(out, "metadata/projects/fallback-name/metadata.json")
     assert((projectjson \ "project" \ "name").as[String] == "fallback-name")
@@ -223,7 +224,7 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     )
 
     val ex = intercept[Throwable] {
-      Cozy.main(Array("publish-project", project.toString, s"--save=${out}"))
+      Cozy.main(Array("publish-project", project.toString, "--save", out.toString))
     }
     assert(ex.getMessage.contains("Reserved top-level path"))
 
@@ -236,7 +237,7 @@ final class PublicationCompilerSpec extends AnyFunSuite {
         |""".stripMargin,
       StandardCharsets.UTF_8
     )
-    Cozy.main(Array("publish-project", project.toString, s"--save=${out}"))
+    Cozy.main(Array("publish-project", project.toString, "--save", out.toString))
     val projectjson = _entry(out, "metadata/projects/reserved-path/metadata.json")
     assert((projectjson \ "publication" \ "path").as[String] == "textus/tutorial/textus-tutorial")
   }
@@ -261,7 +262,7 @@ final class PublicationCompilerSpec extends AnyFunSuite {
       StandardCharsets.UTF_8
     )
 
-    Cozy.main(Array("publish-project", project.toString, s"--save=${out}"))
+    Cozy.main(Array("publish-project", project.toString, "--save", out.toString))
     val detected = _entry(out, "metadata/projects/car-publication/metadata.json")
     assert((detected \ "project" \ "kind").as[String] == "car")
     val artifact = _entry(out, "metadata/artifacts/repository/car-publication.json")
@@ -269,7 +270,7 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     assert((artifact \ "artifact" \ "files" \\ "warehousePath").map(_.as[String]).contains("repository/car/car-publication/0.1.0/car-publication-0.1.0.car"))
     assert((artifact \ "artifact" \ "files" \\ "publicPath").map(_.as[String]).contains("repository/car/car-publication/0.1.0/car-publication-0.1.0.car"))
 
-    Cozy.main(Array("publish-project", project.toString, s"--save=${out}", "--kind=sample-single"))
+    Cozy.main(Array("publish-project", project.toString, "--save", out.toString, "--kind", "sample-single"))
     val overridden = _entry(out, "metadata/projects/car-publication/metadata.json")
     assert((overridden \ "project" \ "kind").as[String] == "sample-single")
   }
@@ -431,7 +432,7 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     )
     Files.writeString(project.resolve("samples/01-hello/build.sbt"), "name := \"Hello\"\n", StandardCharsets.UTF_8)
     Files.writeString(project.resolve("samples/02-crud/build.sbt"), "name := \"CRUD\"\n", StandardCharsets.UTF_8)
-    Cozy.main(Array("publish-project", project.toString, s"--save=${out}"))
+    Cozy.main(Array("publish-project", project.toString, "--save", out.toString))
     assert(_entry_exists(out, "metadata/publication-pages/textus-tutorial.json"))
     assert(_entry_exists(out, "metadata/samples/textus-tutorial/items/02-crud/0.1.0/metadata.json"))
 
@@ -448,7 +449,7 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     )
     Files.createDirectories(out.resolve("metadata/projects/other"))
     Files.writeString(out.resolve("metadata/projects/other/metadata.json"), "{}\n", StandardCharsets.UTF_8)
-    Cozy.main(Array("publish-project", project.toString, s"--save=${out}"))
+    Cozy.main(Array("publish-project", project.toString, "--save", out.toString))
 
     assert(!_entry_exists(out, "metadata/publication-pages/textus-tutorial.json"))
     assert(!_entry_exists(out, "metadata/samples/textus-tutorial/items/02-crud/0.1.0/metadata.json"))
@@ -488,7 +489,7 @@ final class PublicationCompilerSpec extends AnyFunSuite {
       StandardCharsets.UTF_8
     )
     val ex = intercept[Throwable] {
-      Cozy.main(Array("publish-project", project.toString, s"--save=${out}", "--name=textus-tutorial"))
+      Cozy.main(Array("publish-project", project.toString, "--save", out.toString, "--name", "textus-tutorial"))
     }
     assert(ex.getMessage.contains("Publication registry path collision"))
   }
@@ -500,11 +501,11 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     _delete(out)
     Files.createDirectories(project)
     Files.writeString(project.resolve("build.sbt"), "name := \"Unpublish Sample\"\nversion := \"0.1.0\"\n", StandardCharsets.UTF_8)
-    Cozy.main(Array("publish-project", project.toString, s"--save=${out}", "--name=unpublish-sample"))
+    Cozy.main(Array("publish-project", project.toString, "--save", out.toString, "--name", "unpublish-sample"))
     Files.createDirectories(out.resolve("metadata/projects/other"))
     Files.writeString(out.resolve("metadata/projects/other/metadata.json"), "{}\n", StandardCharsets.UTF_8)
 
-    Cozy.main(Array("unpublish-project", s"--save=${out}", "--name=unpublish-sample"))
+    Cozy.main(Array("unpublish-project", "--save", out.toString, "--name", "unpublish-sample"))
 
     assert(!Files.exists(out.resolve("unpublish-sample.json")))
     assert(Files.isRegularFile(out.resolve("metadata/projects/other/metadata.json")))
@@ -529,9 +530,9 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     Cozy.main(Array(
       "publish-maven-repository",
       repository.toString,
-      s"--save=${out}",
-      "--name=maven-repository",
-      "--title=Maven Repository"
+      "--save", out.toString,
+      "--name", "maven-repository",
+      "--title", "Maven Repository"
     ))
 
     val metadata = _entry(out, "metadata/projects/maven-repository/metadata.json")
@@ -566,7 +567,7 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     Files.createDirectories(project)
     Files.writeString(project.resolve("build.sbt"), "name := \"Default Output\"\nversion := \"0.1.0\"\n", StandardCharsets.UTF_8)
 
-    Cozy.main(Array("publish-project", project.toString, "--name=default-output"))
+    Cozy.main(Array("publish-project", project.toString, "--name", "default-output"))
 
     assert(Files.isRegularFile(project.resolve("target/publication/default-output.json")))
     assert(!Files.exists(project.resolve("target/publish.d")))
@@ -603,9 +604,9 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     Cozy.main(Array(
       "distribute-samples",
       project.toString,
-      s"--warehouse=${warehouse}",
-      "--name=textus-tutorial",
-      "--version=0.1.0"
+      "--warehouse", warehouse.toString,
+      "--name", "textus-tutorial",
+      "--version", "0.1.0"
     ))
 
     val zippath = warehouse.resolve("repository/download/textus/tutorial/textus-tutorial/0.1.0/01-hello/01-hello-0.1.0.zip")
@@ -644,9 +645,9 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     Cozy.main(Array(
       "distribute-samples",
       project.toString,
-      s"--warehouse=${warehouse}",
-      "--name=textus-tutorial",
-      "--version=0.1.0"
+      "--warehouse", warehouse.toString,
+      "--name", "textus-tutorial",
+      "--version", "0.1.0"
     ))
     assert(_sha256(collectionzippath) == firstsha)
   }
@@ -674,9 +675,9 @@ final class PublicationCompilerSpec extends AnyFunSuite {
         Cozy.main(Array(
           "distribute-samples",
           project.toString,
-          s"--warehouse=${warehouse}",
-          "--name=textus-tutorial",
-          "--version=0.2.0-SNAPSHOT",
+          "--warehouse", warehouse.toString,
+          "--name", "textus-tutorial",
+          "--version", "0.2.0-SNAPSHOT",
           "--dry-run"
         ))
       }
@@ -706,9 +707,9 @@ final class PublicationCompilerSpec extends AnyFunSuite {
       Cozy.main(Array(
         "distribute-samples",
         project.toString,
-        s"--warehouse=${warehouse}",
-        "--name=textus-tutorial",
-        "--version=0.1.0"
+        "--warehouse", warehouse.toString,
+        "--name", "textus-tutorial",
+        "--version", "0.1.0"
       ))
     }
     assert(ex.getMessage.contains("Duplicate sample slug"))
@@ -822,11 +823,11 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     Cozy.main(Array(
       "index-warehouse",
       warehouse.toString,
-      s"--save=${out}",
-      "--name=textus-tutorial",
-      "--title=Textus Tutorial",
-      "--maven-coordinates=org.example:textus-tutorial_3",
-      "--repository-artifacts=car,sar"
+      "--save", out.toString,
+      "--name", "textus-tutorial",
+      "--title", "Textus Tutorial",
+      "--maven-coordinates", "org.example:textus-tutorial_3",
+      "--repository-artifacts", "car,sar"
     ))
 
     assert(!_entry_exists(out, "metadata/artifacts/maven/textus-tutorial.json"))
@@ -888,9 +889,9 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     Cozy.main(Array(
       "index-warehouse",
       warehouse.toString,
-      s"--save=${out}",
-      "--name=textus-tutorial",
-      "--title=Textus Tutorial"
+      "--save", out.toString,
+      "--name", "textus-tutorial",
+      "--title", "Textus Tutorial"
     ))
 
     val downloadjson = _entry(out, "metadata/artifacts/download/textus-tutorial.json")
@@ -931,9 +932,9 @@ final class PublicationCompilerSpec extends AnyFunSuite {
       Cozy.main(Array(
         "index-warehouse",
         warehouse.toString,
-        s"--save=${out}",
-        "--name=textus-tutorial",
-        "--title=Textus Tutorial"
+        "--save", out.toString,
+        "--name", "textus-tutorial",
+        "--title", "Textus Tutorial"
       ))
     }
     assert(ex.getMessage.contains("Missing download artifact"))
@@ -945,7 +946,7 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     val out = _base.resolve("target/test-generated/publish-project/missing-out")
     _delete(missing)
     val ex = intercept[Throwable] {
-      Cozy.main(Array("publish-project", missing.toString, s"--save=${out}"))
+      Cozy.main(Array("publish-project", missing.toString, "--save", out.toString))
     }
     assert(ex.getMessage.contains("Project directory does not exist"))
   }

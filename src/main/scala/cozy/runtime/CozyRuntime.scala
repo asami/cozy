@@ -1,6 +1,7 @@
 package cozy.runtime
 
 import org.goldenport.cli._
+import org.goldenport.cli.spec
 import org.goldenport.kaleidox.Kaleidox
 import org.goldenport.value._
 import org.smartdox.service.operations.{HtmlOperationClass, PdfOperationClass, SiteOperationClass}
@@ -11,7 +12,7 @@ import java.nio.file.{Path, Paths}
 
 /*
  * @since   May. 20, 2026
- * @version May. 20, 2026
+ * @version Jun.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyRuntime {
@@ -89,13 +90,16 @@ private[cozy] object CozyRuntime {
       getOrElse(env)
 
   private[cozy] def savePath(args: List[String]): Option[Path] = {
+    val parsed = CozyCliArgs.parse(spec.Parameter.propertyFileOption("save"))(args)
+    parsed.property("save").map(cliPath).orElse(_legacy_save_path(args))
+  }
+
+  private def _legacy_save_path(args: List[String]): Option[Path] = {
     @annotation.tailrec
     def go(xs: List[String]): Option[Path] = xs match {
       case Nil => None
       case x :: xx if x.startsWith("--save=") =>
         Some(cliPath(x.drop("--save=".length)))
-      case "--save" :: value :: _ =>
-        Some(cliPath(value))
       case _ :: xx =>
         go(xx)
     }

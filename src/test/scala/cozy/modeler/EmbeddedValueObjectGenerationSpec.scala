@@ -9,7 +9,8 @@ import org.scalatest.funsuite.AnyFunSuite
 /*
  * @since   Mar. 30, 2026
  *  version Apr. 20, 2026
- * @version May. 24, 2026
+ *  version May. 24, 2026
+ * @version Jun.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 class EmbeddedValueObjectGenerationSpec extends AnyFunSuite {
@@ -19,7 +20,7 @@ class EmbeddedValueObjectGenerationSpec extends AnyFunSuite {
       .resolve("target/test-generated/modeler-scala-embedded-value-object")
     _delete_recursively(out)
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
     val generatedEntity = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/org/sample/aggregatesinglerecord/entity/Order.scala"
@@ -83,7 +84,7 @@ class EmbeddedValueObjectGenerationSpec extends AnyFunSuite {
         |""".stripMargin
     )
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
     val generatedEntity = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/org/sample/singlevalueobject/entity/Order.scala"
@@ -128,7 +129,7 @@ class EmbeddedValueObjectGenerationSpec extends AnyFunSuite {
         |""".stripMargin
     )
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
     val generatedEntity = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/org/sample/optionalstring/entity/Person.scala"

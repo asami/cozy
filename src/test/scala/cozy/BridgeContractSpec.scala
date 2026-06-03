@@ -9,7 +9,8 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Apr. 23, 2026
- * @version May. 20, 2026
+ *  version May. 20, 2026
+ * @version Jun.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 final class BridgeContractSpec extends AnyWordSpec with Matchers {
@@ -51,22 +52,22 @@ final class BridgeContractSpec extends AnyWordSpec with Matchers {
       generate.action shouldBe "generate"
       generate.arguments.head shouldBe "modeler-scala"
       car.action shouldBe "package-car"
-      car.arguments should contain ("--project-dir=/tmp/sample-project")
+      car.arguments should contain allElementsOf Vector("--project-dir", "/tmp/sample-project")
       sar.action shouldBe "package-sar"
       publishcar.action shouldBe "publish-car"
-      publishcar.arguments should contain ("--warehouse=/tmp/warehouse")
+      publishcar.arguments should contain allElementsOf Vector("--warehouse", "/tmp/warehouse")
       publishsar.action shouldBe "publish-sar"
-      publishsar.arguments should contain ("--sar=/tmp/sample-subsystem.sar")
+      publishsar.arguments should contain allElementsOf Vector("--sar", "/tmp/sample-subsystem.sar")
       publish.action shouldBe "publish-project"
-      publish.arguments should contain ("--kind=car")
+      publish.arguments should contain allElementsOf Vector("--kind", "car")
       samples.action shouldBe "distribute-samples"
-      samples.arguments should contain ("--name=textus-tutorial")
-      samples.arguments should contain ("--path=textus/tutorial/textus-tutorial")
+      samples.arguments should contain allElementsOf Vector("--name", "textus-tutorial")
+      samples.arguments should contain allElementsOf Vector("--path", "textus/tutorial/textus-tutorial")
       samples.arguments should contain ("--dry-run")
       warehouse.action shouldBe "index-warehouse"
-      warehouse.arguments should contain ("--maven-coordinates=org.example:textus-tutorial_3")
-      warehouse.arguments should contain ("--repository-modules=textus-tutorial")
-      warehouse.arguments should contain ("--download-samples=textus-tutorial")
+      warehouse.arguments should contain allElementsOf Vector("--maven-coordinates", "org.example:textus-tutorial_3")
+      warehouse.arguments should contain allElementsOf Vector("--repository-modules", "textus-tutorial")
+      warehouse.arguments should contain allElementsOf Vector("--download-samples", "textus-tutorial")
     }
 
     "render canonical success and error compatibility envelopes" in {
@@ -92,17 +93,17 @@ final class BridgeContractSpec extends AnyWordSpec with Matchers {
              |  "action": "publish-car",
              |  "arguments": [
              |    "${projectdir.toString}",
-             |    "--warehouse=${warehouse.toString}",
-             |    "--name=sample-component",
-             |    "--version=0.1.0",
-             |    "--car=${car.toString}"
+             |    "--warehouse", "${warehouse.toString}",
+             |    "--name", "sample-component",
+             |    "--version", "0.1.0",
+             |    "--car", "${car.toString}"
              |  ],
              |  "settings": {}
              |}
              |""".stripMargin
         )
 
-        CozySbtBridge.execute(List("v1", s"--request=$request"))
+        CozySbtBridge.execute(List("v1", "--request", request.toString))
 
         Files.isRegularFile(warehouse.resolve("repository/car/sample-component/0.1.0/sample-component-0.1.0.car")) shouldBe true
         Files.isRegularFile(warehouse.resolve("repository/catalog/car/sample-component.yaml")) shouldBe true
@@ -122,17 +123,17 @@ final class BridgeContractSpec extends AnyWordSpec with Matchers {
              |  "action": "publish-sar",
              |  "arguments": [
              |    "${projectdir.toString}",
-             |    "--warehouse=${warehouse.toString}",
-             |    "--name=sample-subsystem",
-             |    "--version=0.1.0",
-             |    "--sar=${sar.toString}"
+             |    "--warehouse", "${warehouse.toString}",
+             |    "--name", "sample-subsystem",
+             |    "--version", "0.1.0",
+             |    "--sar", "${sar.toString}"
              |  ],
              |  "settings": {}
              |}
              |""".stripMargin
         )
 
-        CozySbtBridge.execute(List("v1", s"--request=$request"))
+        CozySbtBridge.execute(List("v1", "--request", request.toString))
 
         Files.isRegularFile(warehouse.resolve("repository/sar/sample-subsystem/0.1.0/sample-subsystem-0.1.0.sar")) shouldBe true
         Files.isRegularFile(warehouse.resolve("repository/catalog/sar/sample-subsystem.yaml")) shouldBe true

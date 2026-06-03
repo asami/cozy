@@ -258,7 +258,7 @@ sbt cozyPublishProject
 Equivalent Cozy CLI:
 
 ```console
-cozy publish-project . --save=/Users/asami/src/dev2025/simplemodeling-org/src/main/publication
+cozy publish-project . --save /Users/asami/src/dev2025/simplemodeling-org/src/main/publication
 ```
 
 This operation reads the multi-sample repository and produces project/source/catalog/sample metadata.
@@ -277,11 +277,11 @@ Equivalent Cozy CLI:
 
 ```console
 cozy index-warehouse /Users/asami/src/maven-repository \
-  --save=/Users/asami/src/dev2025/simplemodeling-org/src/main/publication \
-  --name=textus-tutorial \
-  --maven-coordinates=org.example:textus-tutorial_3 \
-  --repository-artifacts=car,sar \
-  --repository-modules=textus-tutorial
+  --save /Users/asami/src/dev2025/simplemodeling-org/src/main/publication \
+  --name textus-tutorial \
+  --maven-coordinates org.example:textus-tutorial_3 \
+  --repository-artifacts car,sar \
+  --repository-modules textus-tutorial
 ```
 
 This operation reads warehouse artifacts and updates artifact/release metadata
@@ -752,7 +752,7 @@ The collection archive contains all child sample directories. Individual sample 
 Use dry-run when the operator wants to inspect the planned archive paths without writing to the warehouse:
 
 ```console
-cozy distribute-samples . --warehouse=/Users/asami/src/maven-repository --name=textus-tutorial --version=0.2.0-SNAPSHOT --dry-run
+cozy distribute-samples . --warehouse /Users/asami/src/maven-repository --name textus-tutorial --version 0.2.0-SNAPSHOT --dry-run
 ```
 
 Dry-run accepts SNAPSHOT versions because it does not publish artifacts.

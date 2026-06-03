@@ -13,7 +13,7 @@ schema=cozy.publish-project.v1
 Cozy generates it from an sbt project with:
 
 ```console
-cozy publish-project <project-dir> [--save=<registry-dir>]
+cozy publish-project <project-dir> [--save <registry-dir>]
 ```
 
 or through sbt-cozy:
@@ -25,7 +25,7 @@ sbt cozyPublishProject
 Cozy also indexes a release warehouse into download/repository release metadata:
 
 ```console
-cozy index-warehouse <warehouse-dir> --save=<registry-dir> --name=<publication-name>
+cozy index-warehouse <warehouse-dir> --save <registry-dir> --name <publication-name>
 ```
 
 or through sbt-cozy:
@@ -37,13 +37,13 @@ sbt cozyIndexWarehouse
 Maven repository metadata is generated from the Maven repository itself:
 
 ```console
-cozy publish-maven-repository <repository-dir> --save=<registry-dir> --name=<publication-name>
+cozy publish-maven-repository <repository-dir> --save <registry-dir> --name <publication-name>
 ```
 
 Sample archives are distributed to the warehouse separately:
 
 ```console
-cozy distribute-samples <project-dir> --warehouse=<warehouse> --name=<publication> --version=<version> [--dry-run]
+cozy distribute-samples <project-dir> --warehouse <warehouse> --name <publication> --version <version> [--dry-run]
 ```
 
 or through sbt-cozy:
@@ -58,7 +58,7 @@ The registry output is deterministic and uses one JSON publication bundle per pr
 
 `publish-project` writes project/source metadata and expected repository/download deployment metadata. `index-warehouse` writes release metadata for download/repository artifacts and checks that expected repository/download paths exist in the warehouse. `publish-maven-repository` writes the Maven repository publication bundle directly from repository contents.
 
-`publish-project` updates one file: `${publication}.json`. On the next publish, Cozy replaces that one bundle, so removed samples, removed publication pages, and removed source entries disappear from the source of truth. Other publication bundles are not touched. Multiple projects publish into the same registry root, but each publication keeps its own file boundary. If a new bundle entry path is already provided by another publication bundle, Cozy fails instead of creating ambiguous generated metadata. `unpublish-project --save=<registry-dir> --name=<publication>` removes `${publication}.json`.
+`publish-project` updates one file: `${publication}.json`. On the next publish, Cozy replaces that one bundle, so removed samples, removed publication pages, and removed source entries disappear from the source of truth. Other publication bundles are not touched. Multiple projects publish into the same registry root, but each publication keeps its own file boundary. If a new bundle entry path is already provided by another publication bundle, Cozy fails instead of creating ambiguous generated metadata. `unpublish-project --save <registry-dir> --name <publication>` removes `${publication}.json`.
 
 ---
 

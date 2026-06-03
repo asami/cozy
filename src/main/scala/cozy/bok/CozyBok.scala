@@ -1,16 +1,19 @@
 package cozy.bok
 
 import org.goldenport.RAISE
+import org.goldenport.cli.{Request => CliRequest}
+import org.goldenport.cli.spec
 import cozy.config.CozyProjectYamlConfig
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths, StandardCopyOption}
+import java.util.zip.{ZipEntry, ZipOutputStream}
 import scala.collection.JavaConverters._
 import scala.util.matching.Regex
 import scala.sys.process._
 
 /*
  * @since   Jun.  3, 2026
- * @version Jun.  3, 2026
+ * @version Jun.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyBok {
@@ -36,6 +39,23 @@ private[cozy] object CozyBok {
     language: String,
     policy: ProjectFilePolicy
   )
+  final case class CategoryConfig(
+    project: Path,
+    name: String,
+    title: String,
+    description: String,
+    articles: Vector[CategoryArticle],
+    terms: Vector[CategoryTerm],
+    policy: ProjectFilePolicy
+  )
+  final case class CategoryArticle(slug: String, title: String, purpose: String) {
+    def fileName: String = s"${slug}.dox"
+    def htmlName: String = s"${slug}.html"
+  }
+  final case class CategoryTerm(path: String, title: String, definition: String) {
+    def fileName: String = s"${path}.dox"
+    def htmlName: String = s"${path}.html"
+  }
 
   final case class BuildConfig(
     project: Path,
@@ -47,6 +67,7 @@ private[cozy] object CozyBok {
     uiBundle: String,
     strategy: String,
     dockerImage: String,
+    siteTitle: String,
     localeMode: LocaleMode,
     languages: Vector[String],
     arcadia: ArcadiaConfig,
@@ -64,6 +85,113 @@ private[cozy] object CozyBok {
   final case class DirectAssetsConfig(enabled: Boolean, items: Vector[DirectAsset])
   final case class DirectAsset(source: String, destination: String)
   final case class WorkflowConfig(project: Path, name: String, command: Vector[String])
+  private final case class ParsedArgs(request: CliRequest) {
+    def argument(name: String): Option[String] =
+      request.arguments.find(_.name == name).map(_.asString).map(_.trim).filter(_.nonEmpty)
+
+    def property(name: String): Option[String] =
+      request.properties.find(_.name == name).map(_.asString).map(_.trim).filter(_.nonEmpty)
+
+    def properties(name: String): Vector[String] =
+      request.properties.filter(_.name == name).map(_.asString).map(_.trim).filter(_.nonEmpty).toVector
+
+    def pathProperty(name: String): Option[Path] =
+      request.properties.find(_.name == name).map(x => _to_path(x.value))
+
+    def requiredPath(name: String, usage: String): Path =
+      pathProperty(name).getOrElse(RAISE.invalidArgumentFault(s"Missing --${name} ${usage}"))
+
+    def optionalInt(name: String): Option[Int] =
+      request.properties.find(_.name == name).map { value =>
+        value.value match {
+          case m: Int => m
+          case other => RAISE.invalidArgumentFault(s"Invalid --${name} <number>: ${other}")
+        }
+      }
+
+    def validateNoUnrecognized(): Unit = {
+      request.switches.filter(_.spec.isEmpty).foreach { x =>
+        RAISE.invalidArgumentFault(s"Unknown option: --${x.name}")
+      }
+      request.arguments.filter(_.spec.isEmpty).foreach { x =>
+        RAISE.invalidArgumentFault(s"Unknown argument: ${x.asString}")
+      }
+    }
+  }
+
+  private object BokArgs {
+    private val _p_save = spec.Parameter.propertyFileOption("save")
+    private val _p_project = spec.Parameter.argumentFile("project")
+    private val _p_project_property = spec.Parameter.propertyFileOption("project")
+    private val _p_project_dir_property = spec.Parameter.propertyFileOption("project-dir")
+
+    private val _p_no_project_files = spec.Parameter("no-project-files", spec.Parameter.SwitchKind)
+    private val _p_no_scaffold_files = spec.Parameter("no-scaffold-files", spec.Parameter.SwitchKind)
+    private val _p_overwrite_project_files = spec.Parameter("overwrite-project-files", spec.Parameter.SwitchKind)
+    private val _p_force_project_files = spec.Parameter("force-project-files", spec.Parameter.SwitchKind)
+
+    private val _p_article = spec.Parameter(
+      "article",
+      spec.Parameter.PropertyKind,
+      spec.XString,
+      spec.Multiplicity.ZeroMore
+    )
+    private val _p_term = spec.Parameter(
+      "term",
+      spec.Parameter.PropertyKind,
+      spec.XString,
+      spec.Multiplicity.ZeroMore
+    )
+
+    private val _create_request = spec.Request(
+      _p_save,
+      spec.Parameter.property("name"),
+      spec.Parameter.property("url"),
+      spec.Parameter.property("language"),
+      _p_no_project_files,
+      _p_no_scaffold_files,
+      _p_overwrite_project_files,
+      _p_force_project_files
+    )
+
+    private val _category_request = spec.Request(
+      spec.Parameter.argument("name"),
+      _p_project_property,
+      _p_project_dir_property,
+      spec.Parameter.property("title"),
+      spec.Parameter.property("description"),
+      spec.Parameter.property("kind"),
+      spec.Parameter.propertyInt("order"),
+      _p_article,
+      _p_term,
+      _p_no_project_files,
+      _p_no_scaffold_files,
+      _p_overwrite_project_files,
+      _p_force_project_files
+    )
+
+    private val _build_request = spec.Request(
+      _p_project,
+      spec.Parameter.property("strategy"),
+      spec.Parameter.property("docker-image")
+    )
+
+    private val _preview_request = spec.Request(
+      _p_project,
+      spec.Parameter.propertyInt("port")
+    )
+
+    private val _workflow_request = spec.Request(_p_project)
+
+    def create(args: List[String]): ParsedArgs = _parse("bok-create", _create_request, args)
+    def category(args: List[String]): ParsedArgs = _parse("bok-create-category", _category_request, args)
+    def build(args: List[String]): ParsedArgs = _parse("bok-build", _build_request, args)
+    def preview(args: List[String]): ParsedArgs = _parse("bok-preview", _preview_request, args)
+    def workflow(name: String, args: List[String]): ParsedArgs = _parse(s"bok-${name}", _workflow_request, args)
+
+    private def _parse(name: String, request: spec.Request, args: List[String]): ParsedArgs =
+      ParsedArgs(request.build(CliRequest(name), args))
+  }
   final case class SiteConfig(values: Map[String, String], lists: Map[String, Vector[String]]) {
     def value(path: String): Option[String] = values.get(path).map(_.trim).filter(_.nonEmpty)
     def boolean(path: String): Option[Boolean] =
@@ -94,6 +222,9 @@ private[cozy] object CozyBok {
       case "bok" :: "create" :: rest =>
         create(CreateConfig.create(rest))
         true
+      case "bok" :: "create-category" :: rest =>
+        createCategory(CategoryConfig.create(rest))
+        true
       case "bok" :: "build" :: rest =>
         build(BuildConfig.create(rest), ProcessRunner)
         true
@@ -117,29 +248,13 @@ private[cozy] object CozyBok {
 
   def create(config: CreateConfig): Unit = {
     val sitedir = config.save.resolve("src/main/doxsite")
+    _write(config.save.resolve(".cozy/config.yaml"), _cozy_config(), config.policy)
     _write(config.save.resolve("README.md"), _readme(config), config.policy)
     _write(config.save.resolve("STRUCTURE.md"), _structure(config), config.policy)
     _write(sitedir.resolve("site.conf"), _site_conf(config), config.policy)
     _write(sitedir.resolve("index.dox"), _site_index(config), config.policy)
-    _write(sitedir.resolve("knowledgehub/category.yaml"), _category("knowledgehub", "KnowledgeHub", 10), config.policy)
-    _write(sitedir.resolve("knowledgehub/index.dox"), _category_index("KnowledgeHub", "KnowledgeHub BoKの中心概念と利用境界を扱うカテゴリです。"), config.policy)
-    _write(sitedir.resolve("knowledgehub/knowledgehub-overview.dox"), _article("KnowledgeHub Overview", "KnowledgeHubの目的、対象読者、BoK内での位置づけを整理します。"), config.policy)
-    _write(sitedir.resolve("knowledgehub/knowledgehub-framework.dox"), _article("KnowledgeHub Framework", "KnowledgeHubをTextus Componentとして扱うためのフレームワーク境界を整理します。"), config.policy)
-    _write(sitedir.resolve("knowledgehub/knowledgehub-car-component.dox"), _article("KnowledgeHub CAR Component", "CAR Componentとしての構成、生成物、公開面を整理します。"), config.policy)
-    _write(sitedir.resolve("knowledgehub/knowledgehub-rag-swf-pipeline.dox"), _article("KnowledgeHub RAG/SWF Pipeline", "RAG候補取得、Feature抽出、SWF評価、Decision、Feedbackの流れを整理します。"), config.policy)
-    _write(sitedir.resolve("knowledgehub/knowledgehub-mcp-service.dox"), _article("KnowledgeHub MCP Service", "AI/RAG利用に絞ったMCP-facing curated serviceの設計観点を整理します。"), config.policy)
-    _write(sitedir.resolve("book-knowledge/category.yaml"), _category("book-knowledge", "Book Knowledge", 20), config.policy)
-    _write(sitedir.resolve("book-knowledge/index.dox"), _category_index("Book Knowledge", "Book、RDF、embedding、textus-knowledge-editorの知識化を扱うカテゴリです。"), config.policy)
-    _write(sitedir.resolve("book-knowledge/textus-knowledge-editor-book-structure.dox"), _article("Textus Knowledge Editor Book Structure", "textus-knowledge-editorが想定するBook知識構造を整理します。"), config.policy)
-    _write(sitedir.resolve("book-knowledge/book-rdf-vocabulary.dox"), _article("Book RDF Vocabulary", "BookをRDFとして記述する標準語彙と利用方針を整理します。"), config.policy)
-    _write(sitedir.resolve("book-knowledge/book-information-knowledge.dox"), _article("Book Information And Knowledge", "BookをInformation(Entity)とKnowledge(RDF triple and embedding)の両面から整理します。"), config.policy)
-    _write(sitedir.resolve("glossary/category.yaml"), _category("glossary", "Glossary", 30), config.policy)
-    _write(sitedir.resolve("glossary/knowledgehub/knowledgehub.dox"), _glossary("KnowledgeHub", "知識の取得、評価、説明、再利用を扱うTextus向け知識基盤です。"), config.policy)
-    _write(sitedir.resolve("glossary/knowledgehub/knowledge-item.dox"), _glossary("Knowledge Item", "検索、評価、説明、再利用の単位になる知識項目です。"), config.policy)
-    _write(sitedir.resolve("glossary/knowledgehub/knowledge-space.dox"), _glossary("Knowledge Space", "RDF triple、embedding、メタデータを合わせて扱う知識空間です。"), config.policy)
-    _write(sitedir.resolve("glossary/knowledgehub/rdf-link.dox"), _glossary("RDF Link", "Entityや文書断片をRDF tripleとして接続する関係です。"), config.policy)
-    _write(sitedir.resolve("glossary/knowledgehub/swf-evaluation.dox"), _glossary("SWF Evaluation", "候補知識を目的に照らして評価するKnowledgeHubの評価工程です。"), config.policy)
-    _write(sitedir.resolve("glossary/knowledgehub/mcp-facing-service.dox"), _glossary("MCP Facing Service", "AI/RAG利用に必要な操作だけを公開するcurated serviceです。"), config.policy)
+    _write(sitedir.resolve("glossary/category.yaml"), _category("Glossary", "用語集", "BoK全体で共有する用語集。"), config.policy)
+    _write(sitedir.resolve("glossary/index.dox"), _category_index("用語集", "BoK全体で共有する用語集です。"), config.policy)
     _write(sitedir.resolve("rdf/site.ttl"), _site_ttl(config), config.policy)
     _write(sitedir.resolve("rdf/site.jsonld"), _site_jsonld(config), config.policy)
     _write(sitedir.resolve("rdf/schema/knowledgehub.ttl"), _schema_ttl(config), config.policy)
@@ -147,10 +262,24 @@ private[cozy] object CozyBok {
     _write(sitedir.resolve("rdf/ontology/knowledgehub.ttl"), _ontology_ttl(config), config.policy)
     _write(sitedir.resolve("rdf/ontology/knowledgehub.jsonld"), _ontology_jsonld(), config.policy)
     _write(sitedir.resolve("assets/css/knowledgehub.css"), _css(), config.policy)
+    _write_default_ui_bundle(config.save.resolve("src/main/antora-ui/build/ui-bundle.zip"), config.policy)
+  }
+
+  def createCategory(config: CategoryConfig): Unit = {
+    val dir = config.project.resolve("src/main/doxsite").resolve(config.name)
+    _write(dir.resolve("category.yaml"), _category(_category_name(config.name), config.title, config.description), config.policy)
+    _write(dir.resolve("index.dox"), _category_index(config.title, config.description, config.articles, config.terms), config.policy)
+    config.articles.foreach { article =>
+      _write(dir.resolve(article.fileName), _article(article.title, article.purpose), config.policy)
+    }
+    config.terms.foreach { term =>
+      _write(dir.resolve(term.fileName), _glossary(term.title, term.definition), config.policy)
+    }
   }
 
   def build(config: BuildConfig, runner: Runner): Unit = {
     _delete_directory(config.project.resolve("target"))
+    _delete_directory(config.project.resolve(s"doxsite-cache-${config.strategy}.d"))
     _delete_directory(config.doxsitePath)
     _delete_directory(config.antoraPath)
     _delete_directory(config.websitePath)
@@ -159,10 +288,12 @@ private[cozy] object CozyBok {
     runner.run(Vector("dox", "antora", "-strategy", config.strategy, config.source), config.project)
     _run_antora(config, runner)
     runner.run(Vector("dox", "site", "-strategy", config.strategy, config.source), config.project)
+    _delete_directory(config.project.resolve(s"doxsite-cache-${config.strategy}.d"))
     if (config.arcadia.enabled) {
       runner.run(Vector("arcadia", "site", config.arcadia.source, config.arcadiaSite), config.project)
       _copy_directory(config.arcadiaSitePath, config.websitePath)
     }
+    _write_home_page(config)
     if (config.strategy == "production") {
       runner.run(Vector("dox", "site-mark", "-strategy", "production", "-output.scope.policy", "all", config.source), config.project)
       if (config.directAssets.enabled)
@@ -173,8 +304,10 @@ private[cozy] object CozyBok {
   }
 
   def preview(args: List[String], runner: Runner): Unit = {
-    val project = _project(args)
-    val port = _option(args, "port").getOrElse("8080")
+    val parsed = BokArgs.preview(args)
+    val project = _project(parsed)
+    val port = parsed.optionalInt("port").map(_.toString).getOrElse("8080")
+    parsed.validateNoUnrecognized()
     val config = _load_config(project)
     val website = config.value("bok.website").getOrElse("website.d")
     runner.run(Vector("python3", "-m", "http.server", port), project.resolve(website))
@@ -226,9 +359,13 @@ private[cozy] object CozyBok {
     )
 
   private def _copy_ui_bundle(config: BuildConfig, target: Path): Unit =
-    if (Files.isRegularFile(config.uiBundlePath)) {
-      Files.createDirectories(target)
-      Files.copy(config.uiBundlePath, target.resolve("ui-bundle.zip"), StandardCopyOption.REPLACE_EXISTING)
+    {
+      if (!Files.isRegularFile(config.uiBundlePath))
+        _write_default_ui_bundle(config.uiBundlePath, ProjectFilePolicy.Default)
+      if (Files.isRegularFile(config.uiBundlePath)) {
+        Files.createDirectories(target)
+        Files.copy(config.uiBundlePath, target.resolve("ui-bundle.zip"), StandardCopyOption.REPLACE_EXISTING)
+      }
     }
 
   private def _copy_directory(source: Path, dest: Path): Unit =
@@ -248,6 +385,126 @@ private[cozy] object CozyBok {
       } finally {
         stream.close()
       }
+    }
+
+  private def _write_home_page(config: BuildConfig): Unit =
+    _write_text(
+      config.websitePath.resolve("index.html"),
+      s"""<!doctype html>
+         |<html lang="ja">
+         |<head>
+         |  <meta charset="utf-8">
+         |  <meta name="viewport" content="width=device-width, initial-scale=1">
+         |  <title>${_html_escape(config.siteTitle)}</title>
+         |  <link rel="stylesheet" href="_/css/site.css">
+         |</head>
+         |<body class="article">
+         |<header class="header">
+         |  <nav class="navbar">
+         |    <div class="navbar-brand">
+         |      <a class="navbar-item" href="index.html">${_html_escape(config.siteTitle)}</a>
+         |    </div>
+         |    <div class="navbar-menu">
+         |      <div class="navbar-end">
+         |        <a class="navbar-item" href="index.html">Home</a>
+         |        ${_home_nav_items(config)}
+         |      </div>
+         |    </div>
+         |  </nav>
+         |</header>
+         |<main class="article">
+         |  <div class="content">
+         |    <article class="doc">
+         |      <h1 class="page">${_html_escape(config.siteTitle)}</h1>
+         |      <p>KnowledgeHub BoKのHome画面です。登録済みカテゴリへ移動できます。</p>
+         |      <div class="sect1">
+         |        <h2>カテゴリ</h2>
+         |        <div class="sectionbody">
+         |          ${_home_category_list(config)}
+         |        </div>
+         |      </div>
+         |      <div class="sect1">
+         |        <h2>運用方針</h2>
+         |        <div class="sectionbody">
+         |          <p>このBoKはSmartDox本文、Category、RDF素材、用語自動リンクを中心に運用します。</p>
+         |        </div>
+         |      </div>
+         |    </article>
+         |  </div>
+         |</main>
+         |</body>
+         |</html>
+         |""".stripMargin
+    )
+
+  private def _home_nav_items(config: BuildConfig): String =
+    _category_summaries(config.sourcePath).map { category =>
+      s"""<a class="navbar-item" href="${_html_escape(category.slug)}/index.html">${_html_escape(category.title)}</a>"""
+    }.mkString("\n        ")
+
+  private def _home_category_list(config: BuildConfig): String = {
+    val categories = _category_summaries(config.sourcePath)
+    if (categories.isEmpty)
+      "<p>カテゴリはまだ登録されていません。`cozy bok create-category` で追加します。</p>"
+    else
+      categories.map { category =>
+        s"""<li><a href="${_html_escape(category.slug)}/index.html">${_html_escape(category.title)}</a>: ${_html_escape(category.description)}</li>"""
+      }.mkString("<ul>\n", "\n", "\n</ul>")
+  }
+
+  private final case class CategorySummary(slug: String, title: String, description: String)
+
+  private def _category_summaries(source: Path): Vector[CategorySummary] =
+    if (!Files.isDirectory(source))
+      Vector.empty
+    else {
+      val stream = Files.list(source)
+      try {
+        stream.iterator.asScala.toVector.filter(Files.isDirectory(_)).flatMap { dir =>
+          val category = dir.resolve("category.yaml")
+          if (Files.isRegularFile(category))
+            Some(CategorySummary(
+              source.relativize(dir).toString,
+              _yaml_value(category, "title").getOrElse(dir.getFileName.toString),
+              _yaml_description(category).getOrElse("")
+            ))
+          else
+            None
+        }.sortBy(_.slug)
+      } finally {
+        stream.close()
+      }
+    }
+
+  private def _yaml_value(file: Path, key: String): Option[String] =
+    Files.readAllLines(file, StandardCharsets.UTF_8).asScala.collectFirst {
+      case line if line.trim.startsWith(s"${key}:") =>
+        _unquote(line.trim.substring(key.length + 1).trim)
+    }.filter(_.nonEmpty)
+
+  private def _yaml_description(file: Path): Option[String] = {
+    val lines = Files.readAllLines(file, StandardCharsets.UTF_8).asScala.toVector
+    _yaml_value(file, "description").orElse {
+      lines.sliding(2).collectFirst {
+        case Vector(a, b) if a.trim == "description:" && b.trim.startsWith("ja:") =>
+          _unquote(b.trim.substring(3).trim)
+      }
+    }.orElse {
+      lines.sliding(3).collectFirst {
+        case Vector(a, _, c) if a.trim == "description:" && c.trim.startsWith("ja:") =>
+          _unquote(c.trim.substring(3).trim)
+      }
+    }
+  }
+
+  private def _html_escape(value: String): String =
+    value.flatMap {
+      case '&' => "&amp;"
+      case '<' => "&lt;"
+      case '>' => "&gt;"
+      case '"' => "&quot;"
+      case '\'' => "&#39;"
+      case c => c.toString
     }
 
   private def _delete_directory(path: Path): Unit =
@@ -280,8 +537,175 @@ private[cozy] object CozyBok {
     Files.writeString(path, content, StandardCharsets.UTF_8)
   }
 
-  private def _project(args: List[String]): Path =
-    _path_option(args, "project").getOrElse(Paths.get(".").toAbsolutePath.normalize)
+  private def _write_default_ui_bundle(path: Path, policy: ProjectFilePolicy): Unit =
+    policy match {
+      case ProjectFilePolicy.Skip =>
+        Unit
+      case ProjectFilePolicy.Overwrite =>
+        _write_default_ui_bundle(path)
+      case ProjectFilePolicy.Default =>
+        if (!Files.exists(path))
+          _write_default_ui_bundle(path)
+    }
+
+  private def _write_default_ui_bundle(path: Path): Unit = {
+    Option(path.getParent).foreach(Files.createDirectories(_))
+    val out = new ZipOutputStream(Files.newOutputStream(path))
+    try {
+      _zip_text(out, "layouts/default.hbs", _default_ui_layout())
+      _zip_text(out, "layouts/404.hbs", _default_ui_layout())
+      _zip_text(out, "partials/header-content.hbs", _default_ui_header())
+      _zip_text(out, "partials/footer-content.hbs", "")
+      _zip_text(out, "helpers/or.js", _default_ui_or_helper())
+      _zip_text(out, "helpers/relativize.js", _default_ui_relativize_helper())
+      _zip_text(out, "css/site.css", _default_ui_css())
+      _zip_text(out, "js/site.js", "")
+    } finally {
+      out.close()
+    }
+  }
+
+  private def _zip_text(out: ZipOutputStream, name: String, content: String): Unit = {
+    out.putNextEntry(new ZipEntry(name))
+    out.write(content.getBytes(StandardCharsets.UTF_8))
+    out.closeEntry()
+  }
+
+  private def _default_ui_layout(): String =
+    """<!doctype html>
+      |<html lang="{{site.keys.lang}}">
+      |<head>
+      |  <meta charset="utf-8">
+      |  <meta name="viewport" content="width=device-width, initial-scale=1">
+      |  <title>{{page.title}} - {{site.title}}</title>
+      |  <link rel="stylesheet" href="{{uiRootPath}}/css/site.css">
+      |</head>
+      |<body class="article">
+      |  {{> header-content}}
+      |  <main class="article">
+      |    <div class="content">
+      |      <article class="doc">
+      |        <h1 class="page">{{page.title}}</h1>
+      |        {{{page.contents}}}
+      |      </article>
+      |    </div>
+      |  </main>
+      |  {{> footer-content}}
+      |  <script src="{{uiRootPath}}/js/site.js"></script>
+      |</body>
+      |</html>
+      |""".stripMargin
+
+  private def _default_ui_header(): String =
+    """<header class="header">
+      |  <nav class="navbar">
+      |    <div class="navbar-brand">
+      |      <a class="navbar-item" href="{{site.url}}">{{site.title}}</a>
+      |    </div>
+      |  </nav>
+      |</header>
+      |""".stripMargin
+
+  private def _default_ui_or_helper(): String =
+    """'use strict'
+      |
+      |module.exports = (...args) => {
+      |  const numArgs = args.length
+      |  if (numArgs === 3) return args[0] || args[1]
+      |  if (numArgs < 3) throw new Error('{{or}} helper expects at least 2 arguments')
+      |  args.pop()
+      |  return args.some((it) => it)
+      |}
+      |""".stripMargin
+
+  private def _default_ui_relativize_helper(): String =
+    """'use strict'
+      |
+      |const { posix: path } = require('path')
+      |
+      |module.exports = (to, from, ctx) => {
+      |  if (!to) return '#'
+      |  if (to.charAt() !== '/') return to
+      |  if (!ctx) from = (ctx = from).data.root.page.url
+      |  if (!from) return (ctx.data.root.site.path || '') + to
+      |  let hash = ''
+      |  const hashIdx = to.indexOf('#')
+      |  if (~hashIdx) {
+      |    hash = to.slice(hashIdx)
+      |    to = to.slice(0, hashIdx)
+      |  }
+      |  if (to === from) return hash || (isDir(to) ? './' : path.basename(to))
+      |  const rel = path.relative(path.dirname(from + '.'), to)
+      |  return rel ? (isDir(to) ? rel + '/' : rel) + hash : (isDir(to) ? './' : '../' + path.basename(to)) + hash
+      |}
+      |
+      |function isDir (str) {
+      |  return str.charAt(str.length - 1) === '/'
+      |}
+      |""".stripMargin
+
+  private def _default_ui_css(): String =
+    """body {
+      |  margin: 0;
+      |  color: #1f2933;
+      |  background: #ffffff;
+      |  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      |  line-height: 1.7;
+      |}
+      |
+      |.header {
+      |  border-bottom: 1px solid #d8dee4;
+      |  background: #f7f9fb;
+      |}
+      |
+      |.navbar {
+      |  display: flex;
+      |  align-items: center;
+      |  min-height: 3.25rem;
+      |  max-width: 72rem;
+      |  margin: 0 auto;
+      |  padding: 0 1rem;
+      |}
+      |
+      |.navbar-item {
+      |  color: #1f2933;
+      |  font-weight: 600;
+      |  text-decoration: none;
+      |}
+      |
+      |main.article {
+      |  max-width: 72rem;
+      |  margin: 0 auto;
+      |  padding: 2rem 1rem 4rem;
+      |}
+      |
+      |.doc h1,
+      |.doc h2,
+      |.doc h3 {
+      |  line-height: 1.3;
+      |}
+      |
+      |.doc a {
+      |  color: #0b5cad;
+      |}
+      |
+      |.doc .reference-section {
+      |  margin-top: 3rem;
+      |  padding-top: 1rem;
+      |  border-top: 1px solid #d8dee4;
+      |}
+      |""".stripMargin
+
+  private def _project(parsed: ParsedArgs): Path =
+    parsed.pathProperty("project-dir").
+      orElse(parsed.pathProperty("project")).
+      orElse(parsed.argument("project").map(Paths.get(_).toAbsolutePath.normalize)).
+      getOrElse(Paths.get(".").toAbsolutePath.normalize)
+
+  private def _category_project(parsed: ParsedArgs): Path =
+    parsed.pathProperty("project-dir").
+      orElse(parsed.pathProperty("project")).
+      getOrElse(Paths.get(".").toAbsolutePath.normalize)
 
   private def _load_config(project: Path): CozyProjectYamlConfig.Config =
     CozyProjectYamlConfig.load(project.resolve(".cozy/config.yaml"))
@@ -296,25 +720,17 @@ private[cozy] object CozyBok {
     }
   }
 
-  private def _option(args: List[String], key: String): Option[String] = {
-    val prefix = s"--${key}="
-    args.collectFirst {
-      case s if s.startsWith(prefix) => s.substring(prefix.length)
-    }.orElse {
-      args.sliding(2).collectFirst {
-        case List(flag, value) if flag == s"--${key}" => value
-      }
-    }.map(_.trim).filter(_.nonEmpty)
+  private def _to_path(value: Any): Path = value match {
+    case m: java.io.File => m.toPath.toAbsolutePath.normalize
+    case m: Path => m.toAbsolutePath.normalize
+    case m => Paths.get(m.toString).toAbsolutePath.normalize
   }
-
-  private def _path_option(args: List[String], key: String): Option[Path] =
-    _option(args, key).map(Paths.get(_).toAbsolutePath.normalize)
 
   private def _boolean(config: CozyProjectYamlConfig.Config, path: String, default: Boolean): Boolean =
     config.boolean(path).getOrElse(default)
 
-  private def _strategy(args: List[String]): String =
-    _option(args, "strategy").getOrElse("wip") match {
+  private def _strategy(parsed: ParsedArgs): String =
+    parsed.property("strategy").getOrElse("wip") match {
       case "wip" => "work-in-progress"
       case "draft" => "draft"
       case "preview" => "production-preview"
@@ -473,6 +889,29 @@ private[cozy] object CozyBok {
       s
   }
 
+  private def _cozy_config(): String =
+    s"""cozy:
+       |  docker-image: ${_default_docker_image}
+       |
+       |bok:
+       |  source: src/main/doxsite
+       |  website: website.d
+       |  antora: antora.d
+       |  doxsite: doxsite.d
+       |  ui-bundle: src/main/antora-ui/build/ui-bundle.zip
+       |  arcadia:
+       |    enabled: false
+       |    source: src/main/arcadiasite
+       |  direct-assets:
+       |    enabled: false
+       |    items: []
+       |  workflow:
+       |    commit:
+       |      command: ""
+       |    upload:
+       |      command: ""
+       |""".stripMargin
+
   private def _readme(config: CreateConfig): String =
     s"""# ${config.name}
        |
@@ -496,7 +935,9 @@ private[cozy] object CozyBok {
        |`knowledgehub/` contains KnowledgeHub framework articles.
        |`book-knowledge/` contains Book/RDF/embedding articles.
        |`glossary/` contains terms used for automatic glossary linking.
+       |`history/` contains operation history entries.
        |`rdf/` contains minimal RDF and JSON-LD machine-readable placeholders.
+       |`src/main/antora-ui/build/ui-bundle.zip` is a minimal local Antora UI bundle for offline BoK generation.
        |`assets/css/` contains restrained reading CSS only.
        |
        |Only source files, metadata, RDF seeds, glossary terms, and minimal CSS are generated here.
@@ -524,39 +965,125 @@ private[cozy] object CozyBok {
        |""".stripMargin
 
   private def _site_index(config: CreateConfig): String =
-    s"""= ${config.name}
+    s"""Home
+       |======
+       |
+       |# HEAD
+       |
+       |status=work-in-progress
+       |
+       |## HEADLINE
+       |${config.name}
+       |
+       |## BRIEF
+       |KnowledgeHub BoKのHome画面。
+       |
+       |# はじめに
        |
        |${config.name} is a BoK site for organizing KnowledgeHub concepts, book knowledge materialization, RDF vocabulary, and operation terms.
+       |
+       |# カテゴリ
+       |
+       |- `knowledgehub/index.dox`: KnowledgeHubフレームワーク、CAR、RAG/SWF、MCP用サービス。
+       |- `book-knowledge/index.dox`: Book知識、RDF語彙、Information/Knowledge構造。
+       |- `glossary/index.dox`: BoK内で共有する用語集。
+       |- `history/2026.dox`: BoK運用の更新履歴。
+       |
+       |# 運用方針
+       |
+       |このBoKはSmartDox本文、Category、RDF素材、用語自動リンクを中心に運用します。
+       |日本語単独運用のため、生成HTMLはサイトroot直下に配置します。
        |""".stripMargin
 
-  private def _category(name: String, title: String, order: Int): String =
+  private def _category(name: String, title: String, description: String): String =
     s"""name: ${name}
        |title: ${title}
-       |description: ${title} articles.
-       |kind: category
-       |order: ${order}
+       |description:
+       |  en: ${description}
+       |  ja: ${description}
        |""".stripMargin
 
-  private def _category_index(title: String, purpose: String): String =
-    s"""= ${title}
+  private def _category_index(
+    title: String,
+    purpose: String,
+    articles: Vector[CategoryArticle] = Vector.empty,
+    terms: Vector[CategoryTerm] = Vector.empty
+  ): String =
+    s"""${title}
+       |======
+       |
+       |# HEAD
+       |
+       |status=work-in-progress
+       |
+       |## HEADLINE
+       |${title}
+       |
+       |## BRIEF
+       |${purpose}
+       |
+       |# 概要
        |
        |${purpose}
+       |${_article_links(articles)}${_term_links(terms)}
        |""".stripMargin
+
+  private def _article_links(articles: Vector[CategoryArticle]): String =
+    if (articles.isEmpty)
+      ""
+    else
+      articles.map {
+        article => s"""- <a href="${_html_escape(article.htmlName)}">${_html_escape(article.title)}</a>"""
+      }.mkString("\n# 記事\n\n", "\n", "\n")
+
+  private def _term_links(terms: Vector[CategoryTerm]): String =
+    if (terms.isEmpty)
+      ""
+    else
+      terms.map { term =>
+        s"""- <a href="${_html_escape(term.htmlName)}">${_html_escape(term.title)}</a>"""
+      }.mkString("\n# 用語\n\n", "\n", "\n")
+
+  private def _category_name(name: String): String =
+    name.split("[^A-Za-z0-9]+").toVector.filter(_.nonEmpty).map { part =>
+      part.head.toUpper + part.tail
+    }.mkString match {
+      case "" => "Category"
+      case x => x
+    }
 
   private def _article(title: String, purpose: String): String =
-    s"""= ${title}
+    s"""${title}
+       |======
        |
-       |== Purpose
+       |# HEAD
+       |
+       |status=work-in-progress
+       |
+       |## HEADLINE
+       |${title}
+       |
+       |## BRIEF
+       |${purpose}
+       |
+       |# 目的
        |
        |${purpose}
        |
-       |== Notes
+       |# 執筆メモ
        |
        |This is a cozy-generated BoK article seed.
        |""".stripMargin
 
   private def _glossary(title: String, definition: String): String =
-    s"""= ${title}
+    s"""${title}
+       |======
+       |
+       |# HEAD
+       |
+       |status=work-in-progress
+       |
+       |# Definition
        |
        |${definition}
        |""".stripMargin
@@ -629,34 +1156,84 @@ private[cozy] object CozyBok {
     case object Skip extends ProjectFilePolicy
     case object Overwrite extends ProjectFilePolicy
 
-    def create(args: List[String]): ProjectFilePolicy =
-      if (args.exists(x => x == "--no-project-files" || x == "--no-scaffold-files"))
+    def create(args: ParsedArgs): ProjectFilePolicy =
+      if (args.request.switches.exists(x => x.name == "no-project-files" || x.name == "no-scaffold-files"))
         Skip
-      else if (args.exists(x => x == "--overwrite-project-files" || x == "--force-project-files"))
+      else if (args.request.switches.exists(x => x.name == "overwrite-project-files" || x.name == "force-project-files"))
         Overwrite
       else
         Default
   }
 
   object CreateConfig {
-    def create(args: List[String]): CreateConfig =
+    def create(args: List[String]): CreateConfig = {
+      val parsed = BokArgs.create(args)
+      val save = parsed.requiredPath("save", "<dir>")
+      parsed.validateNoUnrecognized()
       CreateConfig(
-        _path_option(args, "save").getOrElse(RAISE.invalidArgumentFault("Missing --save for bok create")),
-        _option(args, "name").getOrElse("KnowledgeHub BoK"),
-        _option(args, "url").getOrElse("https://www.asamioffice.com/kokubunji/knowledgehub"),
-        _option(args, "language").getOrElse("ja"),
-        ProjectFilePolicy.create(args)
+        save,
+        parsed.property("name").getOrElse("KnowledgeHub BoK"),
+        parsed.property("url").getOrElse("https://www.asamioffice.com/kokubunji/knowledgehub"),
+        parsed.property("language").getOrElse("ja"),
+        ProjectFilePolicy.create(parsed)
       )
+    }
   }
+
+  object CategoryConfig {
+    def create(args: List[String]): CategoryConfig = {
+      val parsed = BokArgs.category(args)
+      val name = parsed.argument("name").getOrElse(
+        RAISE.invalidArgumentFault("Missing category name for bok create-category")
+      )
+      parsed.validateNoUnrecognized()
+      CategoryConfig(
+        _category_project(parsed),
+        name,
+        parsed.property("title").getOrElse(_titleize(name)),
+        parsed.property("description").getOrElse(s"${_titleize(name)} category."),
+        parsed.properties("article").map(_parse_category_article),
+        parsed.properties("term").map(_parse_category_term),
+        ProjectFilePolicy.create(parsed)
+      )
+    }
+  }
+
+  private def _parse_category_article(value: String): CategoryArticle = {
+    val xs = value.split(":", 3).toVector
+    xs match {
+      case Vector(slug, title, purpose) => CategoryArticle(slug, title, purpose)
+      case Vector(slug, title) => CategoryArticle(slug, title, s"${title} article.")
+      case Vector(slug) => CategoryArticle(slug, _titleize(slug), s"${_titleize(slug)} article.")
+      case _ => RAISE.invalidArgumentFault(s"Invalid bok category article: ${value}")
+    }
+  }
+
+  private def _parse_category_term(value: String): CategoryTerm = {
+    val xs = value.split(":", 3).toVector
+    xs match {
+      case Vector(path, title, definition) => CategoryTerm(path, title, definition)
+      case Vector(path, title) => CategoryTerm(path, title, s"${title} definition.")
+      case Vector(path) => CategoryTerm(path, _titleize(path), s"${_titleize(path)} definition.")
+      case _ => RAISE.invalidArgumentFault(s"Invalid bok category term: ${value}")
+    }
+  }
+
+  private def _titleize(value: String): String =
+    value.split("[/_-]+").toVector.filter(_.nonEmpty).map { part =>
+      part.head.toUpper + part.tail
+    }.mkString(" ")
 
   object BuildConfig {
     def create(args: List[String]): BuildConfig = {
-      val project = _project(args)
+      val parsed = BokArgs.build(args)
+      val project = _project(parsed)
+      parsed.validateNoUnrecognized()
       val config = _load_config(project)
       val source = config.value("bok.source").getOrElse("src/main/doxsite")
       val site = _load_site_config(project.resolve(source))
       val dockerimage =
-        _option(args, "docker-image").
+        parsed.property("docker-image").
           orElse(config.value("bok.docker-image")).
           orElse(config.value("cozy.docker-image")).
           orElse(config.value("pdf.docker-image")).
@@ -671,8 +1248,9 @@ private[cozy] object CozyBok {
         config.value("bok.doxsite").getOrElse("doxsite.d"),
         config.value("bok.arcadia-site").getOrElse("arcadiasite.d"),
         config.value("bok.ui-bundle").getOrElse("src/main/antora-ui/build/ui-bundle.zip"),
-        _strategy(args),
+        _strategy(parsed),
         dockerimage,
+        site.value("site.metadata.name").getOrElse("KnowledgeHub BoK"),
         _locale_mode(config, site),
         _languages(config, site),
         ArcadiaConfig(_boolean(config, "bok.arcadia.enabled", false), config.value("bok.arcadia.source").getOrElse("src/main/arcadiasite")),
@@ -683,7 +1261,9 @@ private[cozy] object CozyBok {
 
   object WorkflowConfig {
     def create(name: String, args: List[String]): WorkflowConfig = {
-      val project = _project(args)
+      val parsed = BokArgs.workflow(name, args)
+      val project = _project(parsed)
+      parsed.validateNoUnrecognized()
       val config = _load_config(project)
       WorkflowConfig(
         project,

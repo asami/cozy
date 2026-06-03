@@ -11,7 +11,7 @@ import org.scalatest.funsuite.AnyFunSuite
 
 /*
  * @since   May. 20, 2026
- * @version Jun.  3, 2026
+ * @version Jun.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozySarPublisherSpec extends AnyFunSuite {
@@ -25,10 +25,10 @@ class CozySarPublisherSpec extends AnyFunSuite {
       Cozy.main(Array(
         "publish-sar",
         projectdir.toString,
-        s"--warehouse=$warehouse",
-        "--name=sample-application",
-        "--version=0.1.0",
-        s"--sar=$sar"
+        "--warehouse", warehouse.toString,
+        "--name", "sample-application",
+        "--version", "0.1.0",
+        "--sar", sar.toString
       ))
 
       assert(Files.isRegularFile(warehouse.resolve("repository/sar/sample-application/0.1.0/sample-application-0.1.0.sar")))
@@ -52,11 +52,11 @@ class CozySarPublisherSpec extends AnyFunSuite {
 
       CozySarPublisher.publish(List(
         projectdir.toString,
-        s"--warehouse=$warehouse",
-        "--name=sample-application",
-        "--version=0.1.0",
-        s"--sar=$sar",
-        "--recommended=true"
+        "--warehouse", warehouse.toString,
+        "--name", "sample-application",
+        "--version", "0.1.0",
+        "--sar", sar.toString,
+        "--recommended"
       ))
 
       val target = warehouse.resolve("repository/sar/sample-application/0.1.0/sample-application-0.1.0.sar")
@@ -92,12 +92,12 @@ class CozySarPublisherSpec extends AnyFunSuite {
 
       CozySarPublisher.publish(List(
         projectdir.toString,
-        s"--warehouse=$warehouse",
-        "--name=sample-application",
-        "--version=0.1.1-SNAPSHOT",
-        s"--source-dir=$sourcedir",
-        "--source-files=subsystem-descriptor.yaml",
-        s"--extension-jars=$extension"
+        "--warehouse", warehouse.toString,
+        "--name", "sample-application",
+        "--version", "0.1.1-SNAPSHOT",
+        "--source-dir", sourcedir.toString,
+        "--source-files", "subsystem-descriptor.yaml",
+        "--extension-jars", extension.toString
       ))
 
       val target = warehouse.resolve("repository/sar/sample-application/0.1.1-SNAPSHOT/sample-application-0.1.1-SNAPSHOT.sar")
@@ -139,10 +139,10 @@ class CozySarPublisherSpec extends AnyFunSuite {
 
       CozySarPublisher.publish(List(
         projectdir.toString,
-        s"--warehouse=$warehouse",
-        "--name=sample-application",
-        "--version=0.1.2-SNAPSHOT",
-        s"--sar=$sar"
+        "--warehouse", warehouse.toString,
+        "--name", "sample-application",
+        "--version", "0.1.2-SNAPSHOT",
+        "--sar", sar.toString
       ))
 
       val sourcecatalog = RepositoryArtifactCatalog.load(projectdir.resolve("src/main/catalog/sar/sample-application.yaml"))
@@ -186,10 +186,10 @@ class CozySarPublisherSpec extends AnyFunSuite {
 
       CozySarPublisher.publish(List(
         projectdir.toString,
-        s"--warehouse=$warehouse",
-        "--name=sample-application",
-        "--version=0.1.0",
-        s"--sar=$sar"
+        "--warehouse", warehouse.toString,
+        "--name", "sample-application",
+        "--version", "0.1.0",
+        "--sar", sar.toString
       ))
 
       val catalog = RepositoryArtifactCatalog.load(projectdir.resolve("src/main/catalog/sar/sample-application.yaml"))

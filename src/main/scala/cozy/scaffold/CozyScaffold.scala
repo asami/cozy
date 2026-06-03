@@ -3,6 +3,8 @@ package cozy.scaffold
 import org.goldenport.RAISE
 import org.goldenport.value._
 import cozy.config.CozyProjectYamlConfig
+import cozy.runtime.CozyCliArgs
+import org.goldenport.cli.spec
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 import scala.util.Try
@@ -11,7 +13,7 @@ import scala.collection.JavaConverters._
 /*
  * @since   May. 20, 2026
  *  version May. 25, 2026
- * @version Jun.  3, 2026
+ * @version Jun.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyScaffold {
@@ -34,9 +36,7 @@ private[cozy] object CozyScaffold {
       isInlineOption(p) || isFlagOption(p)
 
     def isInlineOption(p: String): Boolean =
-      p.startsWith("--cncf-version=") ||
-      p.startsWith("--simplemodeling-model-version=") ||
-      p.startsWith("--cncf-collaborator-api-version=")
+      false
 
     def isFlagOption(p: String): Boolean =
       p == "--cncf-version" ||
@@ -53,14 +53,7 @@ private[cozy] object CozyScaffold {
     }
 
     private def _option(args: List[String], key: String): Option[String] = {
-      val prefix = s"--${key}="
-      args.collectFirst {
-        case s if s.startsWith(prefix) => s.substring(prefix.length)
-      }.orElse {
-        args.sliding(2).collectFirst {
-          case List(flag, value) if flag == s"--${key}" => value
-        }
-      }.filter(_.nonEmpty)
+      CozyCliArgs.parse(spec.Parameter.property(key))(args).property(key)
     }
   }
 
@@ -73,7 +66,7 @@ private[cozy] object CozyScaffold {
       isInlineOption(p) || isFlagOption(p)
 
     def isInlineOption(p: String): Boolean =
-      p.startsWith("--style=")
+      false
 
     def isFlagOption(p: String): Boolean =
       p == "--style"
@@ -86,13 +79,7 @@ private[cozy] object CozyScaffold {
       }.getOrElse(CarOnly)
 
     private def _option(args: List[String]): Option[String] = {
-      args.collectFirst {
-        case s if s.startsWith("--style=") => s.substring("--style=".length)
-      }.orElse {
-        args.sliding(2).collectFirst {
-          case List(flag, value) if flag == "--style" => value
-        }
-      }.filter(_.nonEmpty)
+      CozyCliArgs.parse(spec.Parameter.property("style"))(args).property("style")
     }
   }
 
@@ -173,7 +160,7 @@ private[cozy] object CozyScaffold {
       _value_options.exists(x => p == s"--${x}")
 
     def isInlineOption(p: String): Boolean =
-      _value_options.exists(x => p.startsWith(s"--${x}="))
+      false
 
     def isSwitchOption(p: String): Boolean =
       _switch_options.exists(x => p == s"--${x}")
@@ -208,14 +195,7 @@ private[cozy] object CozyScaffold {
     }
 
     private def _option(args: List[String], key: String): Option[String] = {
-      val prefix = s"--${key}="
-      args.collectFirst {
-        case s if s.startsWith(prefix) => s.substring(prefix.length)
-      }.orElse {
-        args.sliding(2).collectFirst {
-          case List(flag, value) if flag == s"--${key}" => value
-        }
-      }.map(_.trim).filter(_.nonEmpty)
+      CozyCliArgs.parse(spec.Parameter.property(key))(args).property(key)
     }
 
     private def _class_name(p: String): String =
@@ -314,18 +294,11 @@ private[cozy] object CozyScaffold {
     }
 
     private def _option(args: List[String], key: String): Option[String] = {
-      val prefix = s"--${key}="
-      args.collectFirst {
-        case s if s.startsWith(prefix) => s.substring(prefix.length)
-      }.orElse {
-        args.sliding(2).collectFirst {
-          case List(flag, value) if flag == s"--${key}" => value
-        }
-      }.map(_.trim).filter(_.nonEmpty)
+      CozyCliArgs.parse(spec.Parameter.property(key))(args).property(key)
     }
 
     private def _path_option(args: List[String], key: String): Option[Path] =
-      _option(args, key).map(Paths.get(_).toAbsolutePath.normalize())
+      CozyCliArgs.parse(spec.Parameter.propertyFileOption(key))(args).pathProperty(key)
 
     private def _class_name(p: String): String =
       p.split("[^A-Za-z0-9]+").toVector.filter(_.nonEmpty).map { x =>
@@ -1504,73 +1477,76 @@ private[cozy] object CozyScaffold {
       |  help, --help, -h
       |      Show this help and exit.
       |
-      |  init component --save=<dir> [--config=<file>] [--name=<artifact>] [--component-name=<name>] [--display-name=<title>] [--organization=<organization>] [--package=<package>] [--version=<version>] [--kind=car|car-sar] [--bounded-context=<name>] [--domain=<name>] [--gitignore] [--readme] [--tests] [--no-project-files] [--overwrite-project-files]
+      |  init component --save <dir> [--config <file>] [--name <artifact>] [--component-name <name>] [--display-name <title>] [--organization <organization>] [--package <package>] [--version <version>] [--kind car|car-sar] [--bounded-context <name>] [--domain <name>] [--gitignore] [--readme] [--tests] [--no-project-files] [--overwrite-project-files]
       |    config keys: project.name, project.organization, project.component.*, project.scaffold.*, cml.package, cml.component.name
       |      Initialize a component project scaffold. Config-file values are read first; CLI options override them.
       |
-      |  car-sbt-project [model-file] --save=<dir> [--style=car|car-sar] [--component=<name>] [--package=<package>] [--name=<artifact>] [--organization=<organization>] [--version=<version>] [--bounded-context=<name>] [--domain=<name>] [--gitignore] [--readme] [--tests] [--no-project-files] [--overwrite-project-files]
+      |  car-sbt-project [model-file] --save <dir> [--style car|car-sar] [--component <name>] [--package <package>] [--name <artifact>] [--organization <organization>] [--version <version>] [--bounded-context <name>] [--domain <name>] [--gitignore] [--readme] [--tests] [--no-project-files] [--overwrite-project-files]
       |      Generate an sbt project scaffold. `car` creates a single CAR component project.
       |      `car-sar` creates an application root with `component/` and `subsystem/`.
       |      When model-file is omitted, create a scaffold sample model.
       |      By default, existing differing project files are written as .bak files.
       |
-      |  bok create --save=<dir> [--name=<name>] [--url=<url>] [--language=ja] [--no-project-files] [--overwrite-project-files]
+      |  bok create --save <dir> [--name <name>] [--url <url>] [--language ja] [--no-project-files] [--overwrite-project-files]
       |      Create a SmartDox category-driven BoK source project scaffold without generated HTML, Arcadia assets, or site-structure.yaml.
       |
-      |  bok build [--project=<dir>] [--strategy=wip|draft|preview|production] [--docker-image=<image>]
+      |  bok create-category <category-name> [--project <dir>] [--title <title>] [--description <text>] [--article <slug:title:purpose>] [--term <slug:title:definition>]
+      |      Add a category, category index, and optional article or term seeds to a BoK source project.
+      |
+      |  bok build [<project-dir>] [--strategy wip|draft|preview|production] [--docker-image <image>]
       |      Build BoK HTML under website.d using SmartDox and Antora through the configured Docker image.
       |      The default Docker image is the standard Cozy toolchain image: simplemodeling/cozy-toolchain:latest.
       |
-      |  bok update [--project=<dir>] [--strategy=wip|draft|preview|production] [--docker-image=<image>]
+      |  bok update [<project-dir>] [--strategy wip|draft|preview|production] [--docker-image <image>]
       |      Update the BoK output. In this version it runs the same generation flow as bok build.
       |
-      |  bok preview [--project=<dir>] [--port=8080]
+      |  bok preview [<project-dir>] [--port 8080]
       |      Serve website.d with python3 -m http.server for local preview.
       |
-      |  bok commit [--project=<dir>]
+      |  bok commit [<project-dir>]
       |      Run the external command registered at bok.workflow.commit.command. Cozy does not perform built-in git operations.
       |
-      |  bok upload [--project=<dir>]
+      |  bok upload [<project-dir>]
       |      Run the external command registered at bok.workflow.upload.command. Cozy does not interpret upload targets or credentials.
       |
-      |  modeler-scala <model-file> --save=<dir>
+      |  modeler-scala <model-file> --save <dir>
       |      Generate Scala sources from a CML/Dox model.
       |
-      |  modeler-scala-value <model-file> --save=<dir>
+      |  modeler-scala-value <model-file> --save <dir>
       |      Generate value/domain model Scala sources without a component.
       |
-      |  package-car --save=<file> --main-jar=<file> --name=<name> --version=<version> [--component=<component>] [--project-dir=<dir>] [--car-dir=<dir>] [--entities=<spec>]
+      |  package-car --save <file> --main-jar <file> --name <name> --version <version> [--component <component>] [--project-dir <dir>] [--car-dir <dir>] [--entities <spec>]
       |      Build a CAR archive. Project CAR policy comes from --project-dir/project.yaml and --project-dir/.cozy/config.yaml.
       |
-      |  package-sar --save=<file> --source-dir=<dir> --name=<name> --version=<version>
+      |  package-sar --save <file> --source-dir <dir> --name <name> --version <version>
       |      Build a SAR archive.
       |
-      |  publish-car <project-dir> --warehouse=<dir> --name=<artifact> --version=<version> [--car=<file> | --main-jar=<file>]
+      |  publish-car <project-dir> --warehouse <dir> --name <artifact> --version <version> [--car <file> | --main-jar <file>]
       |      Publish a CAR archive and CAR catalog, plus derived Maven metadata, to a warehouse.
       |      sbt-cozy cozyPublishLocalCar calls this command with ~/.cncf/local as the warehouse root.
       |
-      |  publish-sar <project-dir> --warehouse=<dir> --name=<artifact> --version=<version> [--sar=<file> | --source-dir=<dir>]
+      |  publish-sar <project-dir> --warehouse <dir> --name <artifact> --version <version> [--sar <file> | --source-dir <dir>]
       |      Publish a SAR archive and SAR catalog, plus derived Maven metadata, to a warehouse.
       |      sbt-cozy cozyPublishLocalSar calls this command with ~/.cncf/local as the warehouse root.
       |
-      |  publish-project <project-dir> [--save=<dir>] [--kind=car|sar|sample-single|sample-multi|maven-repository] [--name=<slug>] [--title=<title>] [--path=<path>]
+      |  publish-project <project-dir> [--save <dir>] [--kind car|sar|sample-single|sample-multi|maven-repository] [--name <slug>] [--title <title>] [--path <path>]
       |      Generate SmartDox site BoK publication registry sources from an sbt project.
       |      Writes or replaces one publication bundle under the registry.
       |
-      |  publish-maven-repository <repository-dir> --save=<dir> --name=<slug> [--title=<title>] [--path=<path>] [--maven-coordinates=<group:artifact,...>]
+      |  publish-maven-repository <repository-dir> --save <dir> --name <slug> [--title <title>] [--path <path>] [--maven-coordinates <group:artifact,...>]
       |      Generate a SmartDox publication bundle and Maven artifact metadata from a Maven repository directory.
       |
-      |  unpublish-project --save=<dir> --name=<slug>
+      |  unpublish-project --save <dir> --name <slug>
       |      Remove a publication bundle from a publication registry.
       |
-      |  distribute-samples <project-dir> --warehouse=<dir> --name=<slug> --version=<version> [--samples-dir=<dir>] [--dry-run]
+      |  distribute-samples <project-dir> --warehouse <dir> --name <slug> --version <version> [--samples-dir <dir>] [--dry-run]
       |      Zip the sample collection and each sample project under warehouse/repository/download/<publication.path>.
       |      With --dry-run, print planned output paths without writing archives.
       |
-      |  index-warehouse <warehouse-dir> --save=<dir> --name=<slug> [--title=<title>] [--repository-artifacts=car,sar,zip] [--repository-modules=<module,...>] [--download-samples=<publication,...>]
+      |  index-warehouse <warehouse-dir> --save <dir> --name <slug> [--title <title>] [--repository-artifacts car,sar,zip] [--repository-modules <module,...>] [--download-samples <publication,...>]
       |      Generate publication registry download/repository release metadata by indexing a warehouse.
       |
-      |  sbt-bridge v1 --request=<file>
+      |  sbt-bridge v1 --request <file>
       |      Run the sbt-cozy bridge for generation or archive packaging.
       |
       |  web

@@ -17,7 +17,8 @@ import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 /*
  * @since   May. 17, 2025
  *  version Apr. 30, 2026
- * @version May. 25, 2026
+ *  version May. 25, 2026
+ * @version Jun.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -29,7 +30,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     _delete_recursively(out)
     Files.createDirectories(out.getParent)
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
@@ -53,7 +54,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     _delete_recursively(out)
     Files.createDirectories(out.getParent)
 
-    cozy.Cozy.main(Array("car-sbt-project", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("car-sbt-project", input.toString, "--save", out.toString.toString))
 
     val buildsbt = out.resolve("build.sbt")
     val pluginssbt = out.resolve("project/plugins.sbt")
@@ -139,7 +140,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     Files.writeString(buildsbt, "custom build", StandardCharsets.UTF_8)
     Files.writeString(factory, "custom factory", StandardCharsets.UTF_8)
 
-    cozy.Cozy.main(Array("car-sbt-project", s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("car-sbt-project", "--save", out.toString.toString))
 
     assert(Files.readString(buildsbt) == "custom build")
     assert(Files.readString(factory) == "custom factory")
@@ -153,7 +154,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     _delete_recursively(out)
     Files.createDirectories(out.getParent)
 
-    cozy.Cozy.main(Array("car-sbt-project", s"--save=${out.toString}", "--no-project-files"))
+    cozy.Cozy.main(Array("car-sbt-project", "--save", out.toString.toString, "--no-project-files"))
 
     assert(!Files.exists(out.resolve("build.sbt")))
     assert(!Files.exists(out.resolve("project/build.properties")))
@@ -172,7 +173,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     Files.writeString(buildsbt, "custom build", StandardCharsets.UTF_8)
     Files.writeString(factory, "custom factory", StandardCharsets.UTF_8)
 
-    cozy.Cozy.main(Array("car-sbt-project", s"--save=${out.toString}", "--overwrite-project-files"))
+    cozy.Cozy.main(Array("car-sbt-project", "--save", out.toString.toString, "--overwrite-project-files"))
 
     assert(Files.readString(buildsbt).contains("enablePlugins(org.goldenport.cozy.CozyPlugin)"))
     assert(Files.readString(factory).contains("final class ComponentFactory extends Component.BundleFactory"))
@@ -187,7 +188,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     _delete_recursively(out)
     Files.createDirectories(out.getParent)
 
-    cozy.Cozy.main(Array("car-sbt-project", input.toString, s"--save=${out.toString}", "--style=car-sar"))
+    cozy.Cozy.main(Array("car-sbt-project", input.toString, "--save", out.toString.toString, "--style", "car-sar"))
 
     val rootbuild = out.resolve("build.sbt")
     val pluginssbt = out.resolve("project/plugins.sbt")
@@ -233,7 +234,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(subsystemdescriptorcontent.contains("version: 0.1.1-SNAPSHOT"))
     assert(Files.readString(repositorydreadme).contains("repository.d/textus-user-account.car"))
 
-    cozy.Cozy.main(Array("modeler-scala", componentmodel.toString, s"--save=${generatedout.toString}"))
+    cozy.Cozy.main(Array("modeler-scala", componentmodel.toString, "--save", generatedout.toString.toString))
     val generatedscala = Files.find(generatedout, 32, (p, attr) => attr.isRegularFile && p.toString.endsWith(".scala"))
     try {
       assert(
@@ -251,7 +252,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     _delete_recursively(out)
     Files.createDirectories(out.getParent)
 
-    cozy.Cozy.main(Array("car-sbt-project", s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("car-sbt-project", "--save", out.toString.toString))
 
     val buildsbt = out.resolve("build.sbt")
     val pluginssbt = out.resolve("project/plugins.sbt")
@@ -271,14 +272,14 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
 
     cozy.Cozy.main(Array(
       "car-sbt-project",
-      s"--save=${out.toString}",
-      "--component=UserNotification",
-      "--package=org.simplemodeling.textus.usernotification",
-      "--organization=org.textus",
-      "--name=textus-user-notification",
-      "--version=0.1.0-SNAPSHOT",
-      "--bounded-context=user-notification",
-      "--domain=notification",
+      "--save", out.toString.toString,
+      "--component", "UserNotification",
+      "--package", "org.simplemodeling.textus.usernotification",
+      "--organization", "org.textus",
+      "--name", "textus-user-notification",
+      "--version", "0.1.0-SNAPSHOT",
+      "--bounded-context", "user-notification",
+      "--domain", "notification",
       "--gitignore",
       "--readme",
       "--tests"
@@ -347,7 +348,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
       StandardCharsets.UTF_8
     )
 
-    cozy.Cozy.main(Array("init", "component", s"--save=${out.toString}", s"--config=${config.toString}"))
+    cozy.Cozy.main(Array("init", "component", "--save", out.toString.toString, "--config", config.toString.toString))
 
     val buildsbt = out.resolve("build.sbt")
     val projectyaml = out.resolve("project.yaml")
@@ -407,14 +408,14 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     cozy.Cozy.main(Array(
       "init",
       "component",
-      s"--save=${out.toString}",
-      s"--config=${config.toString}",
-      "--name=override-artifact",
-      "--component-name=OverrideComponent",
-      "--display-name=Override Component",
-      "--organization=org.override",
-      "--package=org.override.component",
-      "--version=0.2.0-SNAPSHOT"
+      "--save", out.toString.toString,
+      "--config", config.toString.toString,
+      "--name", "override-artifact",
+      "--component-name", "OverrideComponent",
+      "--display-name", "Override Component",
+      "--organization", "org.override",
+      "--package", "org.override.component",
+      "--version", "0.2.0-SNAPSHOT"
     ))
 
     val buildsbtcontent = Files.readString(out.resolve("build.sbt"))
@@ -438,11 +439,11 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     cozy.Cozy.main(Array(
       "init",
       "component",
-      s"--save=${out.toString}",
-      "--kind=car-sar",
-      "--name=textus-knowledge-editor",
-      "--component-name=TextusKnowledgeEditor",
-      "--package=org.goldenport.textus.knowledge.editor"
+      "--save", out.toString.toString,
+      "--kind", "car-sar",
+      "--name", "textus-knowledge-editor",
+      "--component-name", "TextusKnowledgeEditor",
+      "--package", "org.goldenport.textus.knowledge.editor"
     ))
 
     assert(Files.exists(out.resolve("build.sbt")))
@@ -489,7 +490,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
       StandardCharsets.UTF_8
     )
 
-    cozy.Cozy.main(Array("car-sbt-project", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("car-sbt-project", input.toString, "--save", out.toString.toString))
 
     val webdescriptor = out.resolve("src/main/web-inf/form.yaml")
     val content = Files.readString(webdescriptor)
@@ -512,7 +513,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     assert(help.contains("Commands:"))
     assert(help.contains("init component"))
     assert(help.contains("car-sbt-project"))
-    assert(help.contains("--style=car|car-sar"))
+    assert(help.contains("--style car|car-sar"))
     assert(help.contains("modeler-scala"))
     assert(help.contains("package-car"))
     assert(help.contains("sbt-bridge"))
@@ -527,7 +528,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     _delete_recursively(out)
     Files.createDirectories(out.getParent)
 
-    cozy.Cozy.main(Array("modeler-scala-value", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala-value", input.toString, "--save", out.toString.toString))
 
     val entity = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/entity/Person.scala"
@@ -550,7 +551,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     _delete_recursively(out)
     Files.createDirectories(out.getParent)
 
-    cozy.Cozy.main(Array("modeler-scala-value", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala-value", input.toString, "--save", out.toString.toString))
 
     val buildsbt = out.resolve("build.sbt")
     val value = out.resolve(
@@ -605,7 +606,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val idattribute = editablevalue.attributes.find(_.name == "informationId").getOrElse(fail("informationId attribute is missing"))
     assert(idattribute.attributeType.isInstanceOf[org.simplemodeling.model.MObjectAttributeType], s"informationId must be object typed: ${idattribute.attributeType}")
 
-    cozy.Cozy.main(Array("modeler-scala-value", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala-value", input.toString, "--save", out.toString.toString))
 
     val informationid = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/org/goldenport/cncf/information/InformationId.scala"
@@ -626,7 +627,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     _delete_recursively(out)
     Files.createDirectories(out.getParent)
 
-    cozy.Cozy.main(Array("modeler-scala-value", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala-value", input.toString, "--save", out.toString.toString))
 
     val buildsbt = out.resolve("build.sbt")
     val countrycode = out.resolve(
@@ -651,7 +652,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     _delete_recursively(out)
     Files.createDirectories(out.getParent)
 
-    cozy.Cozy.main(Array("modeler-scala-value", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala-value", input.toString, "--save", out.toString.toString))
 
     val buildsbt = out.resolve("build.sbt")
     val lifecycle = out.resolve(
@@ -672,7 +673,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     _delete_recursively(out)
     Files.createDirectories(out.getParent)
 
-    cozy.Cozy.main(Array("modeler-scala-value", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala-value", input.toString, "--save", out.toString.toString))
 
     val countrycode = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/value/CountryCode.scala"
@@ -691,7 +692,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     _delete_recursively(out)
     Files.createDirectories(out.getParent)
 
-    cozy.Cozy.main(Array("modeler-scala-value", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala-value", input.toString, "--save", out.toString.toString))
 
     val lifecycle = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/statemachine/lifecycle.scala"
@@ -706,7 +707,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     _delete_recursively(out)
     Files.createDirectories(out.getParent)
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/entity/Person.scala"
@@ -778,7 +779,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
         || informationId | string | 1            |
         |""".stripMargin)
 
-    cozy.Cozy.main(Array("modeler-scala-value", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala-value", input.toString, "--save", out.toString.toString))
 
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/org/goldenport/cncf/information/entity/EditableInformation.scala"
@@ -819,7 +820,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
         |""".stripMargin
     )
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/entity/BlogPost.scala"
@@ -838,7 +839,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     _delete_recursively(out)
     Files.createDirectories(out.getParent)
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/entity/Notice.scala"
@@ -882,7 +883,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     _delete_recursively(out)
     Files.createDirectories(out.getParent)
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/entity/Notice.scala"
@@ -913,7 +914,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     _delete_recursively(out)
     Files.createDirectories(out.getParent)
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/entity/Person.scala"
@@ -968,7 +969,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     _delete_recursively(out)
     Files.createDirectories(out.getParent)
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
@@ -991,7 +992,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     _delete_recursively(out)
     Files.createDirectories(out.getParent)
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
@@ -1008,7 +1009,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     _delete_recursively(out)
     Files.createDirectories(out.getParent)
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
@@ -1139,7 +1140,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     _delete_recursively(out)
     Files.createDirectories(out.getParent)
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/entity/CountryCode.scala"
@@ -1176,7 +1177,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     val stderr = new ByteArrayOutputStream()
     Console.withOut(new PrintStream(stdout)) {
       Console.withErr(new PrintStream(stderr)) {
-        cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+        cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
       }
     }
 
@@ -1386,7 +1387,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     _delete_recursively(out)
     Files.createDirectories(out.getParent)
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
@@ -1438,7 +1439,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     _delete_recursively(out)
     Files.createDirectories(out.getParent)
 
-    cozy.Cozy.main(Array("modeler-scala-value", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala-value", input.toString, "--save", out.toString.toString))
 
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/entity/aggregate/Person.scala"
@@ -1464,7 +1465,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     _delete_recursively(out)
     Files.createDirectories(out.getParent)
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
@@ -1565,7 +1566,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     Files.createDirectories(out.getParent)
 
     When("the same model is projected into generated Scala component code")
-    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
@@ -2281,7 +2282,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     _delete_recursively(out)
     Files.createDirectories(out.getParent)
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
@@ -2306,7 +2307,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     _delete_recursively(out)
     Files.createDirectories(out.getParent)
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
@@ -2337,7 +2338,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     _delete_recursively(out)
     Files.createDirectories(out.getParent)
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
@@ -2358,7 +2359,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     _delete_recursively(out)
     Files.createDirectories(out.getParent)
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
@@ -2377,7 +2378,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     _delete_recursively(out)
     Files.createDirectories(out.getParent)
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
@@ -2395,7 +2396,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     _delete_recursively(out)
     Files.createDirectories(out.getParent)
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
@@ -2413,7 +2414,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     _delete_recursively(out)
     Files.createDirectories(out.getParent)
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
@@ -2432,7 +2433,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     _delete_recursively(out)
     Files.createDirectories(out.getParent)
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
@@ -2548,7 +2549,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
         |
         |""".stripMargin)
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/org/simplemodeling/textus/mcprag/StructuredKnowledgeComponent.scala"
@@ -2687,7 +2688,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
         |
         |""".stripMargin)
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/org/simplemodeling/textus/mcprag/StructuredKnowledgeComponent.scala"
@@ -2708,7 +2709,7 @@ class ModelerGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen
     _delete_recursively(out)
     Files.createDirectories(out.getParent)
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
@@ -2808,7 +2809,7 @@ OperationResult
 | sizeBytes  | long     | ?            |
 """)
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
     val component = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/org/simplemodeling/textus/aws/AwsComponentComponent.scala"
@@ -2860,7 +2861,7 @@ OperationResult
         |""".stripMargin
     )
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/org/simplemodeling/textus/blog/entity/create/BlogPost.scala"
@@ -3031,7 +3032,7 @@ OperationResult
         |""".stripMargin
     )
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DemoComponent.scala"
@@ -3123,7 +3124,7 @@ OperationResult
         |""".stripMargin
     )
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DemoComponent.scala"
@@ -3228,7 +3229,7 @@ OperationResult
         |""".stripMargin
     )
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/EventDrivenComponent.scala"
@@ -3249,8 +3250,8 @@ OperationResult
     Files.createDirectories(out1.getParent)
     Files.createDirectories(out2.getParent)
 
-    cozy.Cozy.main(Array("modeler-scala-value", input.toString, s"--save=${out1.toString}"))
-    cozy.Cozy.main(Array("modeler-scala-value", input.toString, s"--save=${out2.toString}"))
+    cozy.Cozy.main(Array("modeler-scala-value", input.toString, "--save", out1.toString.toString))
+    cozy.Cozy.main(Array("modeler-scala-value", input.toString, "--save", out2.toString.toString))
 
     val left = _tree_snapshot(out1)
     val right = _tree_snapshot(out2)
@@ -3264,7 +3265,7 @@ OperationResult
     _delete_recursively(out)
     Files.createDirectories(out.getParent)
 
-    cozy.Cozy.main(Array("modeler-scala-value", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala-value", input.toString, "--save", out.toString.toString))
 
     val buildsbt = out.resolve("build.sbt")
     assert(!Files.exists(buildsbt), s"build.sbt must not be generated by default: $buildsbt")
@@ -3277,7 +3278,7 @@ OperationResult
     _delete_recursively(out)
     Files.createDirectories(out.getParent)
 
-    cozy.Cozy.main(Array("modeler-scala-value", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala-value", input.toString, "--save", out.toString.toString))
 
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/value/CountryCode.scala"
@@ -3295,7 +3296,7 @@ OperationResult
     _delete_recursively(out)
     Files.createDirectories(out.getParent)
 
-    cozy.Cozy.main(Array("modeler-scala-value", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala-value", input.toString, "--save", out.toString.toString))
 
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/statemachine/lifecycle.scala"
@@ -3334,7 +3335,7 @@ OperationResult
     _delete_recursively(out)
     Files.createDirectories(out.getParent)
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/PersonComponent.scala"
@@ -3359,7 +3360,7 @@ OperationResult
     _delete_recursively(out)
     Files.createDirectories(out.getParent)
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
@@ -3393,7 +3394,7 @@ OperationResult
     _delete_recursively(out)
     Files.createDirectories(out.getParent)
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/textus/user/account/DomainComponent.scala"
@@ -3430,7 +3431,7 @@ OperationResult
     _delete_recursively(out)
     Files.createDirectories(out.getParent)
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
@@ -3452,7 +3453,7 @@ OperationResult
     _delete_recursively(out)
     Files.createDirectories(out.getParent)
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
@@ -3724,7 +3725,7 @@ OperationResult
         |""".stripMargin
     )
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
@@ -3811,7 +3812,7 @@ OperationResult
         |""".stripMargin
     )
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
     val generated = out.resolve(
       "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
@@ -4311,7 +4312,7 @@ OperationResult
     try {
       Console.withOut(outps) {
         Console.withErr(errps) {
-          cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+          cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
         }
       }
     } finally {

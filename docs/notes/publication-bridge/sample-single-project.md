@@ -112,7 +112,7 @@ sbt cozyPublishProject
 or:
 
 ```console
-cozy publish-project . --kind=sample-single --save=/Users/asami/src/dev2025/simplemodeling-org/src/main/publication
+cozy publish-project . --kind sample-single --save /Users/asami/src/dev2025/simplemodeling-org/src/main/publication
 ```
 
 Expected output:

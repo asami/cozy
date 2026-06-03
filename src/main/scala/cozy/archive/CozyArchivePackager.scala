@@ -2,7 +2,9 @@ package cozy.archive
 
 import org.goldenport.RAISE
 import cozy.config.CozyProjectYamlConfig
+import cozy.runtime.CozyCliArgs
 import play.api.libs.json._
+import org.goldenport.cli.spec
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 import java.util.zip.{ZipEntry, ZipFile, ZipOutputStream}
@@ -12,7 +14,8 @@ import scala.sys.process._
 
 /*
  * @since   May. 20, 2026
- * @version May. 22, 2026
+ *  version May. 22, 2026
+ * @version Jun.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArchivePackager {
@@ -558,7 +561,7 @@ private[cozy] object CozyArchivePackager {
     _value(args, key).getOrElse(RAISE.invalidArgumentFault(s"Missing --${key}"))
 
   private def _path(args: List[String], key: String): Option[Path] =
-    _value(args, key).map(p => Paths.get(p).toAbsolutePath.normalize())
+    _parsed(args).pathProperty(key)
 
   private def _paths(args: List[String], key: String): Vector[Path] =
     _value(args, key).toVector.flatMap(_.split(",")).map(_.trim).filter(_.nonEmpty).map(p => Paths.get(p).toAbsolutePath.normalize())
@@ -593,18 +596,40 @@ private[cozy] object CozyArchivePackager {
   }
 
   private def _value(args: List[String], key: String): Option[String] = {
-    val prefix = s"--${key}="
-    args.collectFirst {
-      case s if s.startsWith(prefix) => s.substring(prefix.length)
-    }.orElse {
-      args.sliding(2).collectFirst {
-        case List(flag, value) if flag == s"--${key}" => value
-      }
-    }
+    _parsed(args).property(key)
   }
 
   private def _values(args: List[String], key: String): Vector[String] =
     _value(args, key).toVector.flatMap(_.split(",")).map(_.trim).filter(_.nonEmpty)
+
+  private val _request_parameters = Vector(
+    spec.Parameter.propertyFileOption("save"),
+    spec.Parameter.propertyFileOption("main-jar"),
+    spec.Parameter.propertyFileOption("project-dir"),
+    spec.Parameter.propertyFileOption("lib-jars"),
+    spec.Parameter.propertyFileOption("spi-jars"),
+    spec.Parameter.propertyFileOption("car-dir"),
+    spec.Parameter.propertyFileOption("default-conf"),
+    spec.Parameter.propertyFileOption("dependency-manifest"),
+    spec.Parameter.propertyFileOption("web-dir"),
+    spec.Parameter.propertyFileOption("web-descriptor"),
+    spec.Parameter.propertyFileOption("form-descriptor"),
+    spec.Parameter.propertyFileOption("admin-descriptor"),
+    spec.Parameter.propertyFileOption("assembly-descriptor"),
+    spec.Parameter.propertyFileOption("source-dir"),
+    spec.Parameter.property("source-files"),
+    spec.Parameter.property("extension-jars"),
+    spec.Parameter.property("application-conf"),
+    spec.Parameter.property("name"),
+    spec.Parameter.property("version"),
+    spec.Parameter.property("component"),
+    spec.Parameter.property("extensions"),
+    spec.Parameter.property("config"),
+    spec.Parameter.property("entities")
+  )
+
+  private def _parsed(args: List[String]): CozyCliArgs.Parsed =
+    CozyCliArgs.parse(_request_parameters: _*)(args)
 
   private def _write_text(path: Path, text: String): Unit = {
     Option(path.getParent).foreach(Files.createDirectories(_))

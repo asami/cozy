@@ -7,12 +7,14 @@ import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 
 import cozy.config.CozyProjectYamlConfig
+import cozy.runtime.CozyCliArgs
 import org.goldenport.RAISE
+import org.goldenport.cli.spec
 import scala.collection.JavaConverters._
 
 /*
  * @since   May. 20, 2026
- * @version Jun.  3, 2026
+ * @version Jun.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object RepositoryArtifactPublisher {
@@ -55,9 +57,8 @@ private[cozy] object RepositoryArtifactPublisher {
   }
 
   def projectDir(args: List[String], missingmessage: String): Path =
-    value(args, "project-dir").
-      orElse(_positional_args(args).headOption).
-      map(p => Paths.get(p).toAbsolutePath.normalize()).
+    _parse(args).pathProperty("project-dir").
+      orElse(_parse(args).argument("project").map(p => Paths.get(p).toAbsolutePath.normalize())).
       getOrElse(RAISE.invalidArgumentFault(missingmessage))
 
   def requiredPath(args: List[String], key: String): Path =
@@ -70,19 +71,14 @@ private[cozy] object RepositoryArtifactPublisher {
     value(args, key).getOrElse(RAISE.invalidArgumentFault(s"Missing --$key"))
 
   def value(args: List[String], key: String): Option[String] = {
-    val prefix = s"--$key="
-    args.collectFirst {
-      case s if s.startsWith(prefix) => s.substring(prefix.length)
-    }.orElse {
-      args.sliding(2).collectFirst {
-        case List(flag, v) if flag == s"--$key" => v
-      }
-    }
+    _parse(args).property(key)
   }
 
   def flag(args: List[String], key: String): Boolean =
     args.exists(_ == s"--$key") ||
-      value(args, key).exists(x => x.equalsIgnoreCase("true") || x == "1" || x.equalsIgnoreCase("yes"))
+      args.sliding(2).collectFirst {
+        case List(flag, value) if flag == s"--${key}" => value
+      }.exists(x => x.equalsIgnoreCase("true") || x == "1" || x.equalsIgnoreCase("yes"))
 
   def removePublishOnlyArgs(args: List[String], skipkeys: Set[String]): Vector[String] = {
     def _go_(xs: List[String], acc: Vector[String]): Vector[String] =
@@ -99,6 +95,42 @@ private[cozy] object RepositoryArtifactPublisher {
       }
     _go_(args, Vector.empty)
   }
+
+  private val _request_parameters = Vector(
+    spec.Parameter.argumentFile("project"),
+    spec.Parameter.propertyFileOption("project-dir"),
+    spec.Parameter.propertyFileOption("warehouse"),
+    spec.Parameter.propertyFileOption("car"),
+    spec.Parameter.propertyFileOption("sar"),
+    spec.Parameter.propertyFileOption("main-jar"),
+    spec.Parameter.propertyFileOption("source-dir"),
+    spec.Parameter.property("source-files"),
+    spec.Parameter.propertyFileOption("extension-jars"),
+    spec.Parameter.propertyFileOption("application-conf"),
+    spec.Parameter.propertyFileOption("lib-jars"),
+    spec.Parameter.propertyFileOption("spi-jars"),
+    spec.Parameter.propertyFileOption("car-dir"),
+    spec.Parameter.propertyFileOption("default-conf"),
+    spec.Parameter.propertyFileOption("dependency-manifest"),
+    spec.Parameter.propertyFileOption("web-dir"),
+    spec.Parameter.propertyFileOption("web-descriptor"),
+    spec.Parameter.propertyFileOption("form-descriptor"),
+    spec.Parameter.propertyFileOption("admin-descriptor"),
+    spec.Parameter.propertyFileOption("assembly-descriptor"),
+    spec.Parameter.property("extensions"),
+    spec.Parameter.property("config"),
+    spec.Parameter.property("entities"),
+    spec.Parameter.property("name"),
+    spec.Parameter.property("version"),
+    spec.Parameter.property("component"),
+    spec.Parameter.property("status"),
+    spec.Parameter.property("channel"),
+    spec.Parameter.property("published-at"),
+    spec.Parameter("recommended", spec.Parameter.SwitchKind)
+  )
+
+  private def _parse(args: List[String]): CozyCliArgs.Parsed =
+    CozyCliArgs.parseStrict(_request_parameters: _*)(args)
 
   def sourceCatalogPath(projectdir: Path, kind: String, name: String): Path =
     projectdir.resolve(s"src/main/catalog/$kind").resolve(s"$name.yaml")
@@ -214,18 +246,4 @@ private[cozy] object RepositoryArtifactPublisher {
   private def _delete_if_exists(path: Path): Unit =
     Files.deleteIfExists(path)
 
-  private def _positional_args(args: List[String]): Vector[String] = {
-    val result = Vector.newBuilder[String]
-    var skip = false
-    args.foreach { arg =>
-      if (skip) {
-        skip = false
-      } else if (arg.startsWith("--") && !arg.contains("=")) {
-        skip = true
-      } else if (!arg.startsWith("--")) {
-        result += arg
-      }
-    }
-    result.result()
-  }
 }

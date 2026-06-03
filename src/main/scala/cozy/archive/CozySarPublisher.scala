@@ -4,7 +4,7 @@ import java.nio.file.{Files, Path}
 
 /*
  * @since   May. 20, 2026
- * @version May. 20, 2026
+ * @version Jun.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 object CozySarPublisher {
@@ -26,8 +26,8 @@ object CozySarPublisher {
     val buildargs =
       RepositoryArtifactPublisher.removePublishOnlyArgs(args, _publish_only_keys) ++
         Vector(
-          s"--save=$tempsar",
-          s"--source-dir=$sourcedir"
+          "--save", tempsar.toString,
+          "--source-dir", sourcedir.toString
         )
     CozyArchivePackager.buildSar(buildargs.toList)
     tempsar

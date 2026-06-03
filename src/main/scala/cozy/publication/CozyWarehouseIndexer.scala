@@ -1,7 +1,9 @@
 package cozy.publication
 
 import org.goldenport.RAISE
+import cozy.runtime.CozyCliArgs
 import play.api.libs.json._
+import org.goldenport.cli.spec
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 import java.security.MessageDigest
@@ -10,7 +12,7 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   May. 20, 2026
- * @version May. 20, 2026
+ * @version Jun.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyWarehouseIndexer {
@@ -618,25 +620,15 @@ private[cozy] object CozyWarehouseIndexer {
   }
 
   private def _warehouse_dir(args: List[String]): Path =
-    _value(args, "warehouse").orElse(_positional_args(args).headOption).
-      map(p => Paths.get(p).toAbsolutePath.normalize()).
+    _parsed(args).pathProperty("warehouse").
+      orElse(_parsed(args).argument("warehouse").map(p => Paths.get(p).toAbsolutePath.normalize())).
       getOrElse(RAISE.invalidArgumentFault("Missing warehouse directory for index-warehouse"))
 
   private def _required_path(args: List[String], key: String): Path =
-    _value(args, key).
-      map(p => Paths.get(p).toAbsolutePath.normalize()).
-      getOrElse(RAISE.invalidArgumentFault(s"Missing --${key}"))
+    _parsed(args).pathProperty(key).getOrElse(RAISE.invalidArgumentFault(s"Missing --${key}"))
 
-  private def _value(args: List[String], key: String): Option[String] = {
-    val prefix = s"--${key}="
-    args.collectFirst {
-      case s if s.startsWith(prefix) => s.substring(prefix.length)
-    }.orElse {
-      args.sliding(2).collectFirst {
-        case List(flag, value) if flag == s"--${key}" => value
-      }
-    }.map(_.trim).filter(_.nonEmpty)
-  }
+  private def _value(args: List[String], key: String): Option[String] =
+    _parsed(args).property(key)
 
   private def _csv(args: List[String], key: String): Vector[String] =
     _value(args, key).toVector.flatMap(_.split(',')).map(_.trim).filter(_.nonEmpty)
@@ -644,23 +636,20 @@ private[cozy] object CozyWarehouseIndexer {
   private def _csv(value: Option[String]): Vector[String] =
     value.toVector.flatMap(_.split(',')).map(_.trim).filter(_.nonEmpty)
 
-  private def _positional_args(args: List[String]): Vector[String] = {
-    val optionnameswithvalue = Set("warehouse", "save", "name", "title", "maven-coordinates", "repository-artifacts", "repository-modules", "download-samples")
-    val b = Vector.newBuilder[String]
-    var skipnext = false
-    args.foreach { arg =>
-      if (skipnext) {
-        skipnext = false
-      } else if (arg.startsWith("--")) {
-        val key = arg.drop(2).takeWhile(_ != '=')
-        if (!arg.contains("=") && optionnameswithvalue.contains(key))
-          skipnext = true
-      } else {
-        b += arg
-      }
-    }
-    b.result()
-  }
+  private val _request_parameters = Vector(
+    spec.Parameter.argumentFile("warehouse"),
+    spec.Parameter.propertyFileOption("warehouse"),
+    spec.Parameter.propertyFileOption("save"),
+    spec.Parameter.property("name"),
+    spec.Parameter.property("title"),
+    spec.Parameter.property("maven-coordinates"),
+    spec.Parameter.property("repository-artifacts"),
+    spec.Parameter.property("repository-modules"),
+    spec.Parameter.property("download-samples")
+  )
+
+  private def _parsed(args: List[String]): CozyCliArgs.Parsed =
+    CozyCliArgs.parse(_request_parameters: _*)(args)
 
   private def _coordinate(s: String): MavenCoordinate =
     s.split(':').toVector match {

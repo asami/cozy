@@ -2,6 +2,8 @@ package cozy.publication
 
 import org.goldenport.RAISE
 import cozy.config.CozyProjectYamlConfig
+import cozy.runtime.CozyCliArgs
+import org.goldenport.cli.spec
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 import java.util.zip.{ZipEntry, ZipOutputStream}
@@ -9,7 +11,7 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   May. 20, 2026
- * @version May. 20, 2026
+ * @version Jun.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozySampleDistributor {
@@ -178,42 +180,31 @@ private[cozy] object CozySampleDistributor {
   }
 
   private def _project_dir(args: List[String]): Path =
-    _value(args, "project").orElse(_positional_args(args).headOption).
-      map(p => Paths.get(p).toAbsolutePath.normalize()).
+    _parsed(args).pathProperty("project").
+      orElse(_parsed(args).argument("project").map(p => Paths.get(p).toAbsolutePath.normalize())).
       getOrElse(RAISE.invalidArgumentFault("Missing project directory for distribute-samples"))
 
-  private def _positional_args(args: List[String]): Vector[String] = {
-    val optionnameswithvalue = Set("project", "warehouse", "name", "path", "version", "samples-dir")
-    val b = Vector.newBuilder[String]
-    var skipnext = false
-    args.foreach { arg =>
-      if (skipnext) {
-        skipnext = false
-      } else if (arg.startsWith("--")) {
-        val key = arg.drop(2).takeWhile(_ != '=')
-        if (!arg.contains("=") && optionnameswithvalue.contains(key))
-          skipnext = true
-      } else {
-        b += arg
-      }
-    }
-    b.result()
-  }
-
-  private def _value(args: List[String], key: String): Option[String] = {
-    val prefix = s"--${key}="
-    args.collectFirst {
-      case s if s.startsWith(prefix) => s.substring(prefix.length)
-    }.orElse {
-      args.sliding(2).collectFirst {
-        case List(flag, value) if flag == s"--${key}" => value
-      }
-    }.map(_.trim).filter(_.nonEmpty)
-  }
+  private def _value(args: List[String], key: String): Option[String] =
+    _parsed(args).property(key)
 
   private def _flag(args: List[String], key: String): Boolean =
     args.exists(_ == s"--${key}") ||
-      _value(args, key).exists(x => x.equalsIgnoreCase("true") || x == "1" || x.equalsIgnoreCase("yes"))
+      args.sliding(2).collectFirst {
+        case List(flag, value) if flag == s"--${key}" => value
+      }.exists(x => x.equalsIgnoreCase("true") || x == "1" || x.equalsIgnoreCase("yes"))
+
+  private val _request_parameters = Vector(
+    spec.Parameter.argumentFile("project"),
+    spec.Parameter.propertyFileOption("project"),
+    spec.Parameter.propertyFileOption("warehouse"),
+    spec.Parameter.propertyFileOption("samples-dir"),
+    spec.Parameter.property("name"),
+    spec.Parameter.property("path"),
+    spec.Parameter.property("version")
+  )
+
+  private def _parsed(args: List[String]): CozyCliArgs.Parsed =
+    CozyCliArgs.parse(_request_parameters: _*)(args)
 
   private def _config_path(projectdir: Path, value: Option[String]): Option[Path] =
     value.map { p =>

@@ -11,7 +11,7 @@ import org.scalatest.funsuite.AnyFunSuite
 
 /*
  * @since   May. 20, 2026
- * @version Jun.  3, 2026
+ * @version Jun.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyCarPublisherSpec extends AnyFunSuite {
@@ -25,10 +25,10 @@ class CozyCarPublisherSpec extends AnyFunSuite {
       Cozy.main(Array(
         "publish-car",
         projectdir.toString,
-        s"--warehouse=$warehouse",
-        "--name=sample-component",
-        "--version=0.1.0",
-        s"--car=$car"
+        "--warehouse", warehouse.toString,
+        "--name", "sample-component",
+        "--version", "0.1.0",
+        "--car", car.toString
       ))
 
       assert(Files.isRegularFile(warehouse.resolve("repository/car/sample-component/0.1.0/sample-component-0.1.0.car")))
@@ -43,6 +43,27 @@ class CozyCarPublisherSpec extends AnyFunSuite {
     }
   }
 
+  test("publish-car rejects unknown option through metadata parser") {
+    _with_temp_dir("cozy-publish-car-unknown") { dir =>
+      val projectdir = dir.resolve("project")
+      val warehouse = dir.resolve("warehouse")
+      val car = _write(dir.resolve("input/sample.car"), "car-body")
+      _write_project_yaml(projectdir, "sample-component")
+
+      val e = intercept[Throwable] {
+        CozyCarPublisher.publish(List(
+          projectdir.toString,
+          "--warehouse", warehouse.toString,
+          "--name", "sample-component",
+          "--version", "0.1.0",
+          "--car", car.toString,
+          "--unknown", "value"
+        ))
+      }
+      assert(e.getMessage.contains("Too many arguments"))
+    }
+  }
+
   test("publish-car publishes a prebuilt CAR and creates source and warehouse catalogs") {
     _with_temp_dir("cozy-publish-car-prebuilt") { dir =>
       val projectdir = dir.resolve("project")
@@ -52,11 +73,11 @@ class CozyCarPublisherSpec extends AnyFunSuite {
 
       CozyCarPublisher.publish(List(
         projectdir.toString,
-        s"--warehouse=$warehouse",
-        "--name=sample-component",
-        "--version=0.1.0",
-        s"--car=$car",
-        "--recommended=true"
+        "--warehouse", warehouse.toString,
+        "--name", "sample-component",
+        "--version", "0.1.0",
+        "--car", car.toString,
+        "--recommended"
       ))
 
       val target = warehouse.resolve("repository/car/sample-component/0.1.0/sample-component-0.1.0.car")
@@ -89,11 +110,11 @@ class CozyCarPublisherSpec extends AnyFunSuite {
 
       CozyCarPublisher.publish(List(
         projectdir.toString,
-        s"--warehouse=$warehouse",
-        "--name=sample-component",
-        "--version=0.1.1-SNAPSHOT",
-        s"--main-jar=$mainjar",
-        "--component=sample-component"
+        "--warehouse", warehouse.toString,
+        "--name", "sample-component",
+        "--version", "0.1.1-SNAPSHOT",
+        "--main-jar", mainjar.toString,
+        "--component", "sample-component"
       ))
 
       val target = warehouse.resolve("repository/car/sample-component/0.1.1-SNAPSHOT/sample-component-0.1.1-SNAPSHOT.car")
@@ -137,10 +158,10 @@ class CozyCarPublisherSpec extends AnyFunSuite {
 
       CozyCarPublisher.publish(List(
         projectdir.toString,
-        s"--warehouse=$warehouse",
-        "--name=sample-component",
-        "--version=0.1.2-SNAPSHOT",
-        s"--car=$car"
+        "--warehouse", warehouse.toString,
+        "--name", "sample-component",
+        "--version", "0.1.2-SNAPSHOT",
+        "--car", car.toString
       ))
 
       val sourcecatalog = RepositoryArtifactCatalog.load(projectdir.resolve("src/main/catalog/car/sample-component.yaml"))
@@ -186,10 +207,10 @@ class CozyCarPublisherSpec extends AnyFunSuite {
 
       CozyCarPublisher.publish(List(
         projectdir.toString,
-        s"--warehouse=$warehouse",
-        "--name=sample-component",
-        "--version=0.1.0",
-        s"--car=$car"
+        "--warehouse", warehouse.toString,
+        "--name", "sample-component",
+        "--version", "0.1.0",
+        "--car", car.toString
       ))
 
       val catalog = RepositoryArtifactCatalog.load(projectdir.resolve("src/main/catalog/car/sample-component.yaml"))

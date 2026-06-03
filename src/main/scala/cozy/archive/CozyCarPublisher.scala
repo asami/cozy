@@ -5,7 +5,7 @@ import java.nio.file.{Files, Path}
 
 /*
  * @since   May. 20, 2026
- * @version May. 20, 2026
+ * @version Jun.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 object CozyCarPublisher {
@@ -30,11 +30,11 @@ object CozyCarPublisher {
     val buildargs =
       RepositoryArtifactPublisher.removePublishOnlyArgs(args, _publish_only_keys) ++
         Vector(
-          s"--save=$tempcar",
-          s"--project-dir=$projectdir",
-          s"--name=$name",
-          s"--version=$version",
-          s"--main-jar=$mainjar"
+          "--save", tempcar.toString,
+          "--project-dir", projectdir.toString,
+          "--name", name,
+          "--version", version,
+          "--main-jar", mainjar.toString
         )
     CozyArchivePackager.buildCar(buildargs.toList)
     tempcar

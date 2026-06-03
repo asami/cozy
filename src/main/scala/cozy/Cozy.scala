@@ -25,7 +25,7 @@ import scala.collection.JavaConverters._
  *  version Mar. 17, 2026
  *  version Apr. 29, 2026
  *  version May. 21, 2026
- * @version Jun.  3, 2026
+ * @version Jun.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 class Cozy(
@@ -176,7 +176,7 @@ class Cozy(
         val modelpath = normalizedmodelargs.find(!_.startsWith("-")).map(Paths.get(_))
         val projectsave = _project_save_path(style, save)
         if (normalizedmodelargs.exists(!_.startsWith("-"))) {
-          val generatedargs = normalizedmodelargs :+ s"--save=${projectsave}"
+          val generatedargs = normalizedmodelargs ++ List("--save", projectsave.toString)
           val repl = (Vector("modeler-scala") ++ _convert_args(generatedargs)).mkString(" ")
           val c = _operation_call(Array(repl))
           interpreter.execute(c)

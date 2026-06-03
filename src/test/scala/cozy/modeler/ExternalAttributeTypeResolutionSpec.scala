@@ -7,7 +7,8 @@ import org.scalatest.funsuite.AnyFunSuite
 
 /*
  * @since   Apr.  9, 2026
- * @version May. 21, 2026
+ *  version May. 21, 2026
+ * @version Jun.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 class ExternalAttributeTypeResolutionSpec extends AnyFunSuite {
@@ -78,7 +79,7 @@ extends = ["SimpleEntity"]
       StandardCharsets.UTF_8
     )
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
     val generated = out.resolve("target/scala-3.3.7/src_managed/main/scala/org/simplemodeling/textus/useraccount/entity/UserProfile.scala")
     assert(Files.exists(generated), s"generated file not found: $generated")
@@ -120,7 +121,7 @@ org.sample.builtin
       StandardCharsets.UTF_8
     )
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
     val generated = out.resolve("target/scala-3.3.7/src_managed/main/scala/org/sample/builtin/entity/BuiltinHolder.scala")
     assert(Files.exists(generated), s"generated file not found: $generated")
@@ -160,7 +161,7 @@ org.simplemodeling.model
       StandardCharsets.UTF_8
     )
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
     val generated = out.resolve("target/scala-3.3.7/src_managed/main/scala/org/simplemodeling/model/value/Address.scala")
     assert(Files.exists(generated), s"generated file not found: $generated")
@@ -219,7 +220,7 @@ org.sample.delegateentity
       StandardCharsets.UTF_8
     )
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, s"--save=${out.toString}"))
+    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
     val generated = out.resolve("target/scala-3.3.7/src_managed/main/scala/org/sample/delegateentity/entity/UserProfile.scala")
     assert(Files.exists(generated), s"generated file not found: $generated")

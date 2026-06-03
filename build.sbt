@@ -123,7 +123,7 @@ resolvers += Resolver.file("Local Ivy", file(Path.userHome.absolutePath + "/.ivy
 resolvers += Resolver.defaultLocal
 
 // override arcadia
-libraryDependencies += "org.goldenport" %% "goldenport-scala-lib" % "2.3.2"
+libraryDependencies += "org.goldenport" %% "goldenport-scala-lib" % "2.3.28-SNAPSHOT"
 
 // override kaleidox
 libraryDependencies += "org.goldenport" %% "goldenport-record" % "2.2.5"

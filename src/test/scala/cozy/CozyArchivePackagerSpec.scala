@@ -15,7 +15,8 @@ import play.api.libs.json.Json
 
 /*
  * @since   May. 20, 2026
- * @version May. 22, 2026
+ *  version May. 22, 2026
+ * @version Jun.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyArchivePackagerSpec extends AnyFunSuite {
@@ -35,19 +36,19 @@ class CozyArchivePackagerSpec extends AnyFunSuite {
       val archive = dir.resolve("out/sample.car")
 
       CozyArchivePackager.buildCar(List(
-        s"--save=$archive",
-        s"--main-jar=$mainjar",
-        s"--lib-jars=$libjar",
-        s"--spi-jars=$spijar",
-        s"--car-dir=${carnote.getParent.getParent}",
-        s"--default-conf=$defaultconf",
-        s"--dependency-manifest=$dependencymanifest",
-        s"--web-dir=${webapp.getParent.getParent}",
-        s"--assembly-descriptor=$assembly",
-        "--name=sample-component",
-        "--version=0.1.0",
-        "--component=sample-component",
-        "--entities=Notice:usageKind=public-content,operationKind=resource,applicationDomain=cms;SalesOrder:usage_kind=business-object,operation_kind=resource,application_domain=business"
+        "--save", archive.toString,
+        "--main-jar", mainjar.toString,
+        "--lib-jars", libjar.toString,
+        "--spi-jars", spijar.toString,
+        "--car-dir", carnote.getParent.getParent.toString,
+        "--default-conf", defaultconf.toString,
+        "--dependency-manifest", dependencymanifest.toString,
+        "--web-dir", webapp.getParent.getParent.toString,
+        "--assembly-descriptor", assembly.toString,
+        "--name", "sample-component",
+        "--version", "0.1.0",
+        "--component", "sample-component",
+        "--entities", "Notice:usageKind=public-content,operationKind=resource,applicationDomain=cms;SalesOrder:usage_kind=business-object,operation_kind=resource,application_domain=business"
       ))
 
       val entries = _zip_entries(archive)
@@ -88,12 +89,12 @@ class CozyArchivePackagerSpec extends AnyFunSuite {
         """{"component":{"name":"sample-component","kind":"component","isPrimary":"true"},"componentlets":[{"name":"notice-admin","kind":"componentlet"},{"name":"public-notice","kind":"componentlet"}]}"""
 
       CozyArchivePackager.buildCar(List(
-        s"--save=$archive",
-        s"--main-jar=$mainjar",
-        "--name=sample-component",
-        "--version=0.1.0",
-        "--component=sample-component",
-        s"""--extensions={"componentDescriptorJson":${Json.stringify(Json.toJson(descriptorjson))}}"""
+        "--save", archive.toString,
+        "--main-jar", mainjar.toString,
+        "--name", "sample-component",
+        "--version", "0.1.0",
+        "--component", "sample-component",
+        "--extensions", s"""{"componentDescriptorJson":${Json.stringify(Json.toJson(descriptorjson))}}"""
       ))
 
       val descriptor = _zip_text(archive, "component-descriptor.json")
@@ -128,13 +129,13 @@ class CozyArchivePackagerSpec extends AnyFunSuite {
       )
 
       CozyArchivePackager.buildCar(List(
-        s"--save=$archive",
-        s"--project-dir=$projectdir",
-        s"--main-jar=$mainjar",
-        s"--lib-jars=$libjar",
-        "--name=sample-component",
-        "--version=0.1.0",
-        "--component=sample-component"
+        "--save", archive.toString,
+        "--project-dir", projectdir.toString,
+        "--main-jar", mainjar.toString,
+        "--lib-jars", libjar.toString,
+        "--name", "sample-component",
+        "--version", "0.1.0",
+        "--component", "sample-component"
       ))
 
       val entries = _zip_entries(archive)
@@ -181,13 +182,13 @@ class CozyArchivePackagerSpec extends AnyFunSuite {
       )
 
       CozyArchivePackager.buildCar(List(
-        s"--save=$archive",
-        s"--project-dir=$projectdir",
-        s"--main-jar=$mainjar",
-        s"--lib-jars=$libjar",
-        "--name=sample-component",
-        "--version=0.1.0",
-        "--component=sample-component"
+        "--save", archive.toString,
+        "--project-dir", projectdir.toString,
+        "--main-jar", mainjar.toString,
+        "--lib-jars", libjar.toString,
+        "--name", "sample-component",
+        "--version", "0.1.0",
+        "--component", "sample-component"
       ))
 
       val entries = _zip_entries(archive)
@@ -234,13 +235,13 @@ class CozyArchivePackagerSpec extends AnyFunSuite {
       val stderr = new ByteArrayOutputStream()
       Console.withErr(new PrintStream(stderr)) {
         CozyArchivePackager.buildCar(List(
-          s"--save=$archive",
-          s"--project-dir=$projectdir",
-          s"--main-jar=$mainjar",
-          s"--lib-jars=$cncfjar",
-          "--name=sample-component",
-          "--version=0.1.0",
-          "--component=sample-component"
+          "--save", archive.toString,
+          "--project-dir", projectdir.toString,
+          "--main-jar", mainjar.toString,
+          "--lib-jars", cncfjar.toString,
+          "--name", "sample-component",
+          "--version", "0.1.0",
+          "--component", "sample-component"
         ))
       }
 
@@ -299,13 +300,13 @@ class CozyArchivePackagerSpec extends AnyFunSuite {
 
         val ex = intercept[Throwable] {
           CozyArchivePackager.buildCar(List(
-            s"--save=$archive",
-            s"--project-dir=$projectdir",
-            s"--main-jar=$mainjar",
-            s"--lib-jars=$cncfjar",
-            "--name=sample-component",
-            "--version=0.1.0",
-            "--component=sample-component"
+            "--save", archive.toString,
+            "--project-dir", projectdir.toString,
+            "--main-jar", mainjar.toString,
+            "--lib-jars", cncfjar.toString,
+            "--name", "sample-component",
+            "--version", "0.1.0",
+            "--component", "sample-component"
           ))
         }
         assert(ex.getMessage.contains("base-provided"))
@@ -331,13 +332,13 @@ class CozyArchivePackagerSpec extends AnyFunSuite {
       )
 
       CozyArchivePackager.buildCar(List(
-        s"--save=$archive",
-        s"--project-dir=$projectdir",
-        s"--main-jar=$mainjar",
-        s"--lib-jars=$libjar",
-        "--name=sample-component",
-        "--version=0.1.0",
-        "--component=sample-component"
+        "--save", archive.toString,
+        "--project-dir", projectdir.toString,
+        "--main-jar", mainjar.toString,
+        "--lib-jars", libjar.toString,
+        "--name", "sample-component",
+        "--version", "0.1.0",
+        "--component", "sample-component"
       ))
 
       val entries = _zip_entries(archive)
@@ -376,12 +377,12 @@ class CozyArchivePackagerSpec extends AnyFunSuite {
       )
 
       CozyArchivePackager.buildCar(List(
-        s"--save=$archive",
-        s"--project-dir=$projectdir",
-        s"--main-jar=$mainjar",
-        "--name=sample-component",
-        "--version=0.1.0",
-        "--component=sample-component"
+        "--save", archive.toString,
+        "--project-dir", projectdir.toString,
+        "--main-jar", mainjar.toString,
+        "--name", "sample-component",
+        "--version", "0.1.0",
+        "--component", "sample-component"
       ))
 
       val manifest = _zip_text(archive, "component-dependencies.yaml")
@@ -420,12 +421,12 @@ class CozyArchivePackagerSpec extends AnyFunSuite {
 
       val ex = intercept[Throwable] {
         CozyArchivePackager.buildCar(List(
-          s"--save=$archive",
-          s"--project-dir=$projectdir",
-          s"--main-jar=$mainjar",
-          "--name=sample-component",
-          "--version=0.1.0",
-          "--component=sample-component"
+          "--save", archive.toString,
+          "--project-dir", projectdir.toString,
+          "--main-jar", mainjar.toString,
+          "--name", "sample-component",
+          "--version", "0.1.0",
+          "--component", "sample-component"
         ))
       }
       assert(ex.getMessage.contains("base-provided"))
@@ -469,12 +470,12 @@ class CozyArchivePackagerSpec extends AnyFunSuite {
 
       val ex = intercept[Throwable] {
         CozyArchivePackager.buildCar(List(
-          s"--save=$archive",
-          s"--project-dir=$projectdir",
-          s"--main-jar=$mainjar",
-          "--name=sample-component",
-          "--version=0.1.0",
-          "--component=sample-component"
+          "--save", archive.toString,
+          "--project-dir", projectdir.toString,
+          "--main-jar", mainjar.toString,
+          "--name", "sample-component",
+          "--version", "0.1.0",
+          "--component", "sample-component"
         ))
       }
       assert(ex.getMessage.contains("base-provided"))
@@ -499,12 +500,12 @@ class CozyArchivePackagerSpec extends AnyFunSuite {
       val stderr = new ByteArrayOutputStream()
       Console.withErr(new PrintStream(stderr)) {
         CozyArchivePackager.buildCar(List(
-          s"--save=$archive",
-          s"--project-dir=$projectdir",
-          s"--main-jar=$mainjar",
-          "--name=sample-component",
-          "--version=0.1.0",
-          "--component=sample-component"
+          "--save", archive.toString,
+          "--project-dir", projectdir.toString,
+          "--main-jar", mainjar.toString,
+          "--name", "sample-component",
+          "--version", "0.1.0",
+          "--component", "sample-component"
         ))
       }
 
@@ -547,12 +548,12 @@ class CozyArchivePackagerSpec extends AnyFunSuite {
 
       val ex = intercept[Throwable] {
         CozyArchivePackager.buildCar(List(
-          s"--save=$archive",
-          s"--project-dir=$projectdir",
-          s"--main-jar=$mainjar",
-          "--name=sample-component",
-          "--version=0.1.0",
-          "--component=sample-component"
+          "--save", archive.toString,
+          "--project-dir", projectdir.toString,
+          "--main-jar", mainjar.toString,
+          "--name", "sample-component",
+          "--version", "0.1.0",
+          "--component", "sample-component"
         ))
       }
       assert(ex.getMessage.contains("base-provided"))
@@ -569,11 +570,11 @@ class CozyArchivePackagerSpec extends AnyFunSuite {
       val archive = dir.resolve("out/sample.sar")
 
       CozyArchivePackager.buildSar(List(
-        s"--save=$archive",
-        s"--source-dir=$sourcedir",
-        "--source-files=subsystem-descriptor.yaml",
-        s"--extension-jars=$extension",
-        s"--application-conf=$appconf"
+        "--save", archive.toString,
+        "--source-dir", sourcedir.toString,
+        "--source-files", "subsystem-descriptor.yaml",
+        "--extension-jars", extension.toString,
+        "--application-conf", appconf.toString
       ))
 
       val entries = _zip_entries(archive)
