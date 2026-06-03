@@ -257,6 +257,12 @@ project:
   version: "0.1.0-SNAPSHOT"
   scala_version: "3.3.6"
   sbt_version: "1.11.7"
+  build_settings:
+    cozy_plugin: true
+    cozy_packaging: "car"
+    cncf_version: "0.4.8-SNAPSHOT"
+    cncf_dependency: true
+    sbt_cozy_plugin: true
 ```
 
 JSON uses camelCase for Scala/sbt version fields:
@@ -270,10 +276,21 @@ JSON uses camelCase for Scala/sbt version fields:
     "organization": "org.example.textussamples",
     "version": "0.1.0-SNAPSHOT",
     "scalaVersion": "3.3.6",
-    "sbtVersion": "1.11.7"
+    "sbtVersion": "1.11.7",
+    "buildSettings": {
+      "cozyPlugin": true,
+      "cozyPackaging": "car",
+      "cncfVersion": "0.4.8-SNAPSHOT",
+      "cncfDependency": true,
+      "sbtCozyPlugin": true
+    }
   }
 }
 ```
+
+`buildSettings` preserves detected sbt project signals that are useful for BoK
+classification and component repository pages. Cozy detects these from
+`build.sbt` when present. Missing optional values are omitted from JSON and YAML.
 
 Local absolute project paths are intentionally not included in public metadata.
 
@@ -287,6 +304,13 @@ Files that describe publication placement contain:
 publication:
   source_manifest: metadata/source-manifest/textus-tutorial
   path: "textus/tutorial/textus-tutorial"
+  articles:
+    - path: "textus/tutorial/textus-tutorial"
+      role: "primary"
+      title: "Textus Tutorial"
+    - path: "textus/tutorial/textus-tutorial/reference"
+      role: "page"
+      title: "Reference"
 ```
 
 JSON form:
@@ -295,12 +319,27 @@ JSON form:
 {
   "publication": {
     "sourceManifest": "metadata/source-manifest/textus-tutorial",
-    "path": "textus/tutorial/textus-tutorial"
+    "path": "textus/tutorial/textus-tutorial",
+    "articles": [
+      {
+        "path": "textus/tutorial/textus-tutorial",
+        "role": "primary",
+        "title": "Textus Tutorial"
+      },
+      {
+        "path": "textus/tutorial/textus-tutorial/reference",
+        "role": "page",
+        "title": "Reference"
+      }
+    ]
   }
 }
 ```
 
 `path` is omitted when not configured.
+`articles` is omitted when no BoK article relationship is known. The `primary`
+article is derived from `publication.path`; additional `page` articles are
+derived from `publication.pages` in `project.yaml`.
 
 ---
 

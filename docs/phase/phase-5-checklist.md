@@ -25,7 +25,7 @@
 - [x] Detect organization
 - [x] Detect version
 - [x] Detect Scala version
-- [ ] Detect Cozy/CNCF-related settings when present
+- [x] Detect Cozy/CNCF-related settings when present
 
 ## EPC-04: Catalog and Sample Metadata Generation
 
@@ -33,7 +33,7 @@
 - [x] Generate `/catalog/samples/<id>.yaml` when sample metadata is available
 - [x] Generate `/samples/<id>/metadata.yaml`
 - [x] Align fields with AI-facing discovery use cases
-- [ ] Preserve relationship to BoK articles when known
+- [x] Preserve relationship to BoK articles when known
 
 ## EPC-05: Source Snapshot Manifest
 

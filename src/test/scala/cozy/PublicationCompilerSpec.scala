@@ -275,6 +275,63 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     assert((overridden \ "project" \ "kind").as[String] == "sample-single")
   }
 
+  test("publish-project preserves Cozy/CNCF settings and BoK article relationships") {
+    val project = _base.resolve("target/test-generated/publish-project/bok-relationships")
+    val out = _base.resolve("target/test-generated/publish-project/bok-relationships-out")
+    _delete(project)
+    _delete(out)
+    Files.createDirectories(project.resolve("src/main/car"))
+    Files.writeString(
+      project.resolve("build.sbt"),
+      """import org.goldenport.cozy.CozyPlugin.autoImport._
+        |
+        |lazy val cncfVersion = "0.4.8-SNAPSHOT"
+        |
+        |lazy val root = project
+        |  .in(file("."))
+        |  .enablePlugins(org.goldenport.cozy.CozyPlugin)
+        |  .settings(
+        |    name := "bok-linked-component",
+        |    version := "0.1.0",
+        |    cozyPackaging := "car",
+        |    libraryDependencies += "org.goldenport" %% "goldenport-cncf" % cncfVersion
+        |  )
+        |""".stripMargin,
+      StandardCharsets.UTF_8
+    )
+    Files.writeString(
+      project.resolve("project.yaml"),
+      """project:
+        |  name: bok-linked-component
+        |  title: BoK Linked Component
+        |  path: textus/components/bok-linked-component
+        |publication:
+        |  pages:
+        |    - path: textus/components/bok-linked-component/reference
+        |      title: Reference Page
+        |""".stripMargin,
+      StandardCharsets.UTF_8
+    )
+
+    Cozy.main(Array("publish-project", project.toString, "--save", out.toString))
+
+    val projectjson = _entry(out, "metadata/projects/bok-linked-component/metadata.json")
+    val settings = (projectjson \ "project" \ "buildSettings").as[play.api.libs.json.JsObject]
+    assert((settings \ "cozyPlugin").as[Boolean])
+    assert((settings \ "sbtCozyPlugin").as[Boolean])
+    assert((settings \ "cozyPackaging").as[String] == "car")
+    assert((settings \ "cncfDependency").as[Boolean])
+    assert((settings \ "cncfVersion").as[String] == "0.4.8-SNAPSHOT")
+    val articles = (projectjson \ "publication" \ "articles").as[Vector[play.api.libs.json.JsObject]]
+    assert(articles.map(x => (x \ "path").as[String]) == Vector(
+      "textus/components/bok-linked-component",
+      "textus/components/bok-linked-component/reference"
+    ))
+    assert((articles.head \ "role").as[String] == "primary")
+    assert((articles(1) \ "role").as[String] == "page")
+    assert((articles(1) \ "title").as[String] == "Reference Page")
+  }
+
   test("publish-project uses .cozy/config.yaml defaults and detects sample collections") {
     val project = _base.resolve("target/test-generated/publish-project/configured")
     _delete(project)
@@ -538,6 +595,8 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     val metadata = _entry(out, "metadata/projects/maven-repository/metadata.json")
     assert((metadata \ "project" \ "name").as[String] == "maven-repository")
     assert((metadata \ "project" \ "kind").as[String] == "maven-repository")
+    assert(!((metadata \ "project" \ "buildSettings" \ "cozyPlugin").as[Boolean]))
+    assert(!((metadata \ "project" \ "buildSettings" \ "cncfDependency").as[Boolean]))
     val mavenjson = _entry(out, "metadata/artifacts/maven/maven-repository.json")
     assert((mavenjson \ "artifact" \ "status").as[String] == "available")
     val coordinates = (mavenjson \ "artifact" \ "coordinates").as[Vector[play.api.libs.json.JsObject]]

@@ -1,6 +1,6 @@
 # Phase 5: Engineering Publication Compiler
 
-Status: active
+Status: completed
 
 Start date: 2026-05-12
 
@@ -78,6 +78,19 @@ warehouse
 - [x] EPC-07: Document handoff from Cozy `src/main/publication` output to SmartDox site
 - [x] EPC-08: Index warehouse artifacts into `src/main/publication` release metadata
 
+## Closure
+
+Closed on: 2026-06-04
+
+Phase 5 is complete. The remaining checklist items were closed by making the
+publication compiler preserve the needed information explicitly:
+
+- Cozy/CNCF-related sbt settings are detected and emitted as
+  `project.buildSettings`.
+- Known BoK article relationships are emitted as `publication.articles` from
+  `publication.path` and `publication.pages`.
+- `PublicationCompilerSpec` covers both behaviors.
+
 ## Acceptance Criteria
 
 - A command can read a local sbt project and write a deterministic `src/main/publication`
@@ -88,7 +101,13 @@ warehouse
 - Warehouse indexing generates `/repository`, `/maven`, and `/releases`
   metadata without requiring SmartDox site to scan the warehouse directly.
 - Tests verify at least one minimal sbt project fixture.
-- The phase checklist records completed and remaining EPC work.
+- The phase checklist records completed EPC work with no remaining Phase 5
+  items.
+
+## Validation
+
+- `sbt --batch Test/compile "testOnly cozy.PublicationCompilerSpec"` passed
+  with 20 tests on 2026-06-04.
 
 ## References
 

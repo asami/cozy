@@ -50,7 +50,15 @@ private[cozy] object CozyPublicationCompiler {
     organization: String,
     version: String,
     scalaVersion: String,
-    sbtVersion: String
+    sbtVersion: String,
+    buildSettings: BuildSettings
+  )
+  final case class BuildSettings(
+    cozyPlugin: Boolean,
+    cozyPackaging: Option[String],
+    cncfVersion: Option[String],
+    cncfDependency: Boolean,
+    sbtCozyPlugin: Boolean
   )
   final case class SourceFile(path: String, size: Long, sha256: String)
   final case class ArtifactFile(
@@ -87,6 +95,7 @@ private[cozy] object CozyPublicationCompiler {
     title: DescriptiveAttributes.Text,
     descriptiveAttributes: DescriptiveAttributes
   )
+  final case class ArticleRelation(path: String, role: String, title: Option[String])
 
   def publish(args: List[String]): Unit = {
     val projectdir = _project_dir(args)
@@ -124,6 +133,7 @@ private[cozy] object CozyPublicationCompiler {
     val version = _value(args, "version").orElse(_sbt_setting(buildsbt, "version")).getOrElse("")
     val scalaversion = _value(args, "scala-version").orElse(_sbt_setting(buildsbt, "scalaVersion")).getOrElse("")
     val sbtversion = _value(args, "sbt-version").orElse(_sbt_version(projectdir)).getOrElse("")
+    val buildsettings = _build_settings(buildsbt)
     val samplesdir = _config_path(projectdir, config.value("publication.samples_dir")).getOrElse(projectdir.resolve("samples"))
     val kind = _value(args, "kind").orElse(_metadata_value(publicmetadata, "kind")).orElse(config.value("publication.kind")).map(_.trim).filter(_.nonEmpty).getOrElse(_detect_kind(projectdir, buildsbt, samplesdir))
     if (!_valid_kinds.contains(kind))
@@ -142,7 +152,8 @@ private[cozy] object CozyPublicationCompiler {
       organization = organization,
       version = version,
       scalaVersion = scalaversion,
-      sbtVersion = sbtversion
+      sbtVersion = sbtversion,
+      buildSettings = buildsettings
     )
     val sourcefiles =
       if (sourcemanifestenabled) _source_manifest(projectdir, savedir, excludes)
@@ -194,7 +205,14 @@ private[cozy] object CozyPublicationCompiler {
       "project" -> Json.obj(
         "name" -> name,
         "title" -> title,
-        "kind" -> "maven-repository"
+        "kind" -> "maven-repository",
+        "buildSettings" -> _build_settings_json(BuildSettings(
+          cozyPlugin = false,
+          cozyPackaging = None,
+          cncfVersion = None,
+          cncfDependency = false,
+          sbtCozyPlugin = false
+        ))
       ),
       "publication" -> (Json.obj() ++ publicationpath.map(x => Json.obj("path" -> x)).getOrElse(Json.obj()))
     )
@@ -698,22 +716,55 @@ private[cozy] object CozyPublicationCompiler {
        |  version: ${_yaml_string(p.version)}
        |  scala_version: ${_yaml_string(p.scalaVersion)}
        |  sbt_version: ${_yaml_string(p.sbtVersion)}
+       |${_build_settings_yaml(p.buildSettings, 2)}
        |""".stripMargin
 
   private def _publication_yaml(p: Publication): String = {
     val source = if (p.sourceManifestEnabled) s"  source_manifest: metadata/source-manifest/${p.project.name}\n" else ""
     val path = p.project.publicationPath.map(x => s"  path: ${_yaml_string(x)}\n").getOrElse("")
     s"""publication:
-       |${source}${path}""".stripMargin
+       |${source}${path}${_article_relations_yaml(p)}""".stripMargin
+  }
+
+  private def _article_relations_yaml(p: Publication): String = {
+    val xs = _article_relations(p)
+    if (xs.isEmpty)
+      ""
+    else
+      s"""  articles:
+         |${xs.map(_article_relation_yaml).mkString}""".stripMargin
+  }
+
+  private def _article_relation_yaml(p: ArticleRelation): String =
+    s"""    - path: ${_yaml_string(p.path)}
+       |      role: ${_yaml_string(p.role)}
+       |${p.title.map(x => s"      title: ${_yaml_string(x)}\n").getOrElse("")}""".stripMargin
+
+  private def _article_relation_json(p: ArticleRelation): JsObject =
+    Json.obj(
+      "path" -> p.path,
+      "role" -> p.role
+    ) ++ p.title.map(x => Json.obj("title" -> x)).getOrElse(Json.obj())
+
+  private def _article_relations(p: Publication): Vector[ArticleRelation] = {
+    val primary = p.project.publicationPath.map(path => ArticleRelation(path, "primary", Some(p.project.title))).toVector
+    val pages = p.pages.map(page => ArticleRelation(page.path, "page", page.title.default))
+    (primary ++ pages).foldLeft(Vector.empty[ArticleRelation]) { (z, x) =>
+      if (z.exists(_.path == x.path)) z else z :+ x
+    }
   }
 
   private def _publication_json(p: Publication): JsValue = {
     val source =
       if (p.sourceManifestEnabled) Json.obj("sourceManifest" -> s"metadata/source-manifest/${p.project.name}")
       else Json.obj()
-    p.project.publicationPath match {
+    val base = p.project.publicationPath match {
       case Some(path) => source + ("path" -> JsString(path))
       case None => source
+    }
+    _article_relations(p) match {
+      case Vector() => base
+      case xs => base + ("articles" -> JsArray(xs.map(_article_relation_json)))
     }
   }
 
@@ -738,8 +789,28 @@ private[cozy] object CozyPublicationCompiler {
       "organization" -> p.organization,
       "version" -> p.version,
       "scalaVersion" -> p.scalaVersion,
-      "sbtVersion" -> p.sbtVersion
+      "sbtVersion" -> p.sbtVersion,
+      "buildSettings" -> _build_settings_json(p.buildSettings)
     ) ++ _descriptive_json(p.descriptiveAttributes)
+
+  private def _build_settings_yaml(p: BuildSettings, indent: Int): String = {
+    val sp = " " * indent
+    val packaging = p.cozyPackaging.map(x => s"${sp}  cozy_packaging: ${_yaml_string(x)}\n").getOrElse("")
+    val cncfversion = p.cncfVersion.map(x => s"${sp}  cncf_version: ${_yaml_string(x)}\n").getOrElse("")
+    s"""${sp}build_settings:
+       |${sp}  cozy_plugin: ${p.cozyPlugin}
+       |${packaging}${cncfversion}${sp}  cncf_dependency: ${p.cncfDependency}
+       |${sp}  sbt_cozy_plugin: ${p.sbtCozyPlugin}
+       |""".stripMargin
+  }
+
+  private def _build_settings_json(p: BuildSettings): JsObject =
+    Json.obj(
+      "cozyPlugin" -> p.cozyPlugin,
+      "cncfDependency" -> p.cncfDependency,
+      "sbtCozyPlugin" -> p.sbtCozyPlugin
+    ) ++ p.cozyPackaging.map(x => Json.obj("cozyPackaging" -> x)).getOrElse(Json.obj()) ++
+      p.cncfVersion.map(x => Json.obj("cncfVersion" -> x)).getOrElse(Json.obj())
 
   private def _descriptive_yaml(p: DescriptiveAttributes, indent: Int = 2): String =
     DescriptiveAttributes.Fields.map(name => _text_yaml(name, p.field(name), indent)).mkString
@@ -900,11 +971,33 @@ private[cozy] object CozyPublicationCompiler {
         Files.isDirectory(projectdir.resolve("src/main/car")) ||
         Files.isDirectory(projectdir.resolve("src/main/cozy")))
 
+  private def _build_settings(buildsbt: String): BuildSettings =
+    BuildSettings(
+      cozyPlugin = buildsbt.contains("CozyPlugin") || buildsbt.contains("sbt-cozy"),
+      cozyPackaging = _sbt_setting(buildsbt, "cozyPackaging"),
+      cncfVersion = _sbt_setting(buildsbt, "cncfVersion").orElse(_sbt_val(buildsbt, "cncfVersion")).
+        orElse(_library_dependency_version(buildsbt, "org.goldenport", "goldenport-cncf")),
+      cncfDependency = buildsbt.contains("goldenport-cncf") || buildsbt.contains("org.goldenport.cncf"),
+      sbtCozyPlugin = buildsbt.contains("sbt-cozy") || buildsbt.contains("CozyPlugin")
+    )
+
+  private def _library_dependency_version(buildsbt: String, organization: String, artifactprefix: String): Option[String] = {
+    val versionpattern = """%\s*"([^"]+)"""".r
+    buildsbt.linesIterator.find(line => line.contains("\"" + organization + "\"") && line.contains("\"" + artifactprefix)).flatMap { line =>
+      versionpattern.findAllMatchIn(line).map(_.group(1).trim).toVector.lastOption
+    }.filter(_.nonEmpty)
+  }
+
   private def _project_definition_count(buildsbt: String): Int =
     "(?m)^\\s*lazy\\s+val\\s+\\w+\\s*=\\s*\\(?project\\b".r.findAllIn(buildsbt).length
 
   private def _sbt_setting(buildsbt: String, key: String): Option[String] = {
     val pattern = ("""(?m)^\s*(?:ThisBuild\s*/\s*)?""" + java.util.regex.Pattern.quote(key) + """\s*:=\s*"([^"]+)""").r
+    pattern.findFirstMatchIn(buildsbt).map(_.group(1).trim).filter(_.nonEmpty)
+  }
+
+  private def _sbt_val(buildsbt: String, key: String): Option[String] = {
+    val pattern = ("""(?m)^\s*(?:lazy\s+)?val\s+""" + java.util.regex.Pattern.quote(key) + """\s*=\s*"([^"]+)""").r
     pattern.findFirstMatchIn(buildsbt).map(_.group(1).trim).filter(_.nonEmpty)
   }
 
