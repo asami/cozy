@@ -55,7 +55,7 @@ Out of scope:
 - [x] BK-13: Validate `/tmp/bok2` smoke for KnowledgeHub-style BoK
 - [ ] BK-14: Decide whether category index term lists should use SmartDox
       glossary links or remain ordinary explicit links
-- [ ] BK-15: Add full runtime smoke fixture for generated BoK build artifacts
+- [x] BK-15: Add full runtime smoke fixture for generated BoK build artifacts
 
 ## Acceptance Criteria
 

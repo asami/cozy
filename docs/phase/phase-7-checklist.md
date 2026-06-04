@@ -81,14 +81,15 @@ Status: DONE
 
 ## BK-11: Runtime Smoke
 
-Status: PARTIAL
+Status: DONE
 
 - [x] Build `/tmp/bok2` with `cozy bok build /tmp/bok2 --strategy wip`.
 - [x] Confirm `website.d/ja` is absent.
 - [x] Confirm `doxsite.d/ja` and `doxsite.d/en` are absent.
 - [x] Confirm Home, category, glossary, and term pages return HTTP 200 in
       preview.
-- [ ] Convert the `/tmp/bok2` smoke into a repeatable runtime fixture.
+- [x] Convert the `/tmp/bok2` smoke into a repeatable runtime fixture:
+      `src/sbt-test/cozy/bok-runtime-smoke`.
 
 ## BK-12: Remaining Glossary Link Policy
 
