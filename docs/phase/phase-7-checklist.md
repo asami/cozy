@@ -91,12 +91,18 @@ Status: DONE
 - [x] Convert the `/tmp/bok2` smoke into a repeatable runtime fixture:
       `src/sbt-test/cozy/bok-runtime-smoke`.
 
-## BK-12: Remaining Glossary Link Policy
+## BK-14: Remaining Glossary Link Policy
 
-Status: OPEN
+Status: DONE
 
-- [ ] Decide whether category index term lists are glossary semantic links or
+- [x] Decide whether category index term lists are glossary semantic links or
       ordinary explicit links.
-- [ ] If semantic, implement through SmartDox-supported link representation
+- [x] If semantic, implement through SmartDox-supported link representation
       rather than raw HTML attributes.
-- [ ] Keep SmartDox glossary auto-link semantics unchanged.
+- [x] Keep SmartDox glossary auto-link semantics unchanged.
+
+Decision:
+
+- Category index term lists remain ordinary explicit links.
+- SmartDox glossary semantic links are reserved for SmartDox body processing.
+- Cozy does not synthesize semantic glossary links for category navigation.

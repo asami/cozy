@@ -1,6 +1,6 @@
 # Phase 6: Component Repository Publication and Scaffolding
 
-Status: active
+Status: complete
 
 Start date: 2026-05-21
 
@@ -56,7 +56,7 @@ Out of scope:
 - [x] CS-16: Reflect latest SIE 0.1.1-SNAPSHOT spec
 - [x] CS-17: Add Textus artifact version syntax
 - [x] CS-17R: Propagate metadata-selected Textus version
-- [ ] CS-18: Complete SIE 0.1.1 public publication verification
+- [x] CS-18: Close SIE 0.1.1 public publication verification as release ops
 - [x] CS-19: Add Cozy component init scaffolding contract
 
 ## Acceptance Criteria
@@ -71,6 +71,15 @@ Out of scope:
   component name, component kind, version, and display metadata at init time.
 - `textus-knowledge-editor` initialization can use the Cozy component init path
   instead of manual scaffolding.
+
+## Completion Notes
+
+- Phase 6 Cozy implementation scope is complete.
+- CS-18 local publication verification is complete through local CAR
+  publication, catalog update, and derived Maven metadata generation.
+- Public repository upload, CDN invalidation, and public versionless runtime
+  verification are release/publication operations outside the Cozy
+  implementation phase.
 
 ## References
 

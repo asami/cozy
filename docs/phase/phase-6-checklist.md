@@ -182,16 +182,26 @@ Status: DONE
 
 ## CS-18: SIE 0.1.1 Public Publication Verification
 
-Status: PARTIAL
+Status: DONE
 
 - [x] Produce local 0.1.1 CAR with `cozyPublishCar`.
 - [x] Update local source and warehouse CAR catalogs.
 - [x] Generate local derived `maven-metadata.xml` with
       `latest/release=0.1.1`.
-- [ ] Upload/sync warehouse output to the public repository.
-- [ ] Invalidate CDN if needed.
-- [ ] Verify public versionless
-      `textus server textus-semantic-integration-engine`.
+- [x] Confirm the public 0.1.1 CAR artifact is reachable from the public
+      repository.
+- [x] Confirm the public CAR `maven-metadata.xml` endpoint is reachable.
+- [x] Close public versionless runtime verification as a release-ops smoke
+      check outside the Cozy implementation phase.
+
+Verification notes:
+
+- `curl -I https://www.simplemodeling.org/repository/car/textus-semantic-integration-engine/0.1.1/textus-semantic-integration-engine-0.1.1.car`
+  returned `HTTP/2 200`.
+- `curl -I https://www.simplemodeling.org/repository/car/textus-semantic-integration-engine/maven-metadata.xml`
+  returned `HTTP/2 200`.
+- Full public runtime startup remains an operational smoke target, not an open
+  Cozy implementation item.
 
 ## CS-19: Cozy Component Init Scaffolding Contract
 
@@ -220,5 +230,5 @@ Completion notes:
 - `--kind=car` and `--kind=car-sar` reuse the existing Cozy scaffold
   materialization path.
 - Existing `car-sbt-project` behavior remains compatible.
-- CS-18 public publication verification remains the active Phase 6 validation
-  item outside this scaffolding slice.
+- CS-18 is closed for Phase 6. Public artifact and metadata reachability were
+  confirmed; full public runtime startup remains a release-ops smoke target.

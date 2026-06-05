@@ -114,7 +114,7 @@ Primary reference:
 
 ### Phase 6: Component Repository Publication and Scaffolding
 
-Status: active validation.
+Status: completed.
 
 Purpose:
 
@@ -131,7 +131,7 @@ Primary reference:
 
 ### Phase 7: BoK Source and Site Operations Toolchain
 
-Status: current.
+Status: completed.
 
 Purpose:
 
@@ -157,18 +157,11 @@ Purpose:
 
 ## Current Priority
 
-The current development target is BoK Source and Site Operations Toolchain.
+Phase 6 and Phase 7 are closed.
 
-The first useful slice is:
+The next development target should be selected as a new phase. Candidate
+directions include:
 
-```text
-cozy bok create
-  -> glossary-first BoK source scaffold
-  -> category creation with article and term seeds
-  -> Docker-backed Antora build
-  -> Japanese single-locale root website.d output
-  -> preview and workflow hooks
-```
-
-Phase 6 remains active only for the carried CS-18 public SIE 0.1.1 publication
-verification item. New BoK operations work belongs to Phase 7.
+- BoK publication and Component Repository public pages
+- Knowledge source compiler expansion
+- Model-driven CAR project scaffolding

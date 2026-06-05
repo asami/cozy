@@ -1,6 +1,6 @@
 # Phase 7: BoK Source and Site Operations Toolchain
 
-Status: active
+Status: complete
 
 Start date: 2026-06-04
 
@@ -53,9 +53,15 @@ Out of scope:
 - [x] BK-11: Add commit/upload workflow hooks without built-in policy
 - [x] BK-12: Move `bok` CLI parsing to Goldenport metadata
 - [x] BK-13: Validate `/tmp/bok2` smoke for KnowledgeHub-style BoK
-- [ ] BK-14: Decide whether category index term lists should use SmartDox
+- [x] BK-14: Decide whether category index term lists should use SmartDox
       glossary links or remain ordinary explicit links
 - [x] BK-15: Add full runtime smoke fixture for generated BoK build artifacts
+
+## Decisions
+
+- BK-14: Category index term lists use ordinary explicit links. SmartDox
+  glossary semantic links remain a SmartDox body-processing responsibility.
+  Cozy does not synthesize semantic glossary links for category navigation.
 
 ## Acceptance Criteria
 
