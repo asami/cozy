@@ -164,7 +164,7 @@ The legacy top-level keys `name`, `title`, `kind`, `path`, `summary`, and `descr
 
 Only `project.yaml` and `project.yml` are auto-detected. `publication.yaml` is intentionally not auto-detected in v1 because the current model is one project to one publication. If multiple publications become necessary, a separate `publications/` structure should be added explicitly.
 
-`.cozy/config.yaml` is for local Cozy operation defaults. It can contain output paths, sample directory mapping, source manifest excludes, and warehouse indexing settings. It is intentionally not the primary place for public descriptive metadata.
+`conf/cozy/config.yaml` is for Git-managed Cozy operation defaults. `.cozy/config.yaml` is the Git-ignored local override. They can contain output paths, sample directory mapping, source manifest excludes, and warehouse indexing settings. They are intentionally not the primary place for public descriptive metadata.
 
 Example:
 
@@ -205,7 +205,7 @@ Meaning:
 | `warehouse.repository_artifacts.modules` | Repository artifact module directories checked under `${warehouse.repository}/repository/<type>/<module>`. |
 | `warehouse.download.samples` | Sample publications checked under `${warehouse.repository}/repository/download/<publication.path>`. Legacy `${warehouse.repository}/download/samples/<publication>` remains readable only when the existing expected metadata points to that legacy path. |
 
-Resolution priority for public metadata is CLI option, `project.yaml`, `.cozy/config.yaml` compatibility fields, sbt setting, then directory-derived default.
+Resolution priority for public metadata is CLI option, `project.yaml`, Cozy operation config compatibility fields, sbt setting, then directory-derived default. Cozy operation config loads from global `~/.cozy/config.yaml`, project `conf/cozy/config.yaml`, and local `.cozy/config.yaml`.
 
 ---
 

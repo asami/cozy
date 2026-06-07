@@ -11,7 +11,7 @@ import play.api.libs.json.Json
 /*
  * @since   May. 12, 2026
  *  version May. 16, 2026
- * @version Jun.  4, 2026
+ * @version Jun.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 final class PublicationCompilerSpec extends AnyFunSuite {
@@ -332,9 +332,10 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     assert((articles(1) \ "title").as[String] == "Reference Page")
   }
 
-  test("publish-project uses .cozy/config.yaml defaults and detects sample collections") {
+  test("publish-project uses conf/cozy and .cozy defaults and detects sample collections") {
     val project = _base.resolve("target/test-generated/publish-project/configured")
     _delete(project)
+    Files.createDirectories(project.resolve("conf/cozy"))
     Files.createDirectories(project.resolve(".cozy"))
     Files.createDirectories(project.resolve("samples/01-hello"))
     Files.createDirectories(project.resolve("samples/02-crud"))
@@ -381,6 +382,14 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     )
     Files.writeString(project.resolve("samples/01-hello/README.md"), "# Hello\nREADME fallback should not override project.yaml.\n", StandardCharsets.UTF_8)
     Files.writeString(project.resolve("samples/02-crud/build.sbt"), "name := \"CRUD\"\n", StandardCharsets.UTF_8)
+    Files.writeString(
+      project.resolve("conf/cozy/config.yaml"),
+      """publication:
+        |  output: target/shared-publication
+        |  samples_dir: samples
+        |""".stripMargin,
+      StandardCharsets.UTF_8
+    )
     Files.writeString(
       project.resolve(".cozy/config.yaml"),
       """publication:

@@ -13,7 +13,7 @@ import scala.collection.JavaConverters._
 /*
  * @since   May. 20, 2026
  *  version May. 25, 2026
- * @version Jun.  4, 2026
+ * @version Jun.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyScaffold {
@@ -1112,7 +1112,7 @@ private[cozy] object CozyScaffold {
       |Defaults:
       |  - repositories: ivy2Local, central, file://$HOME/.m2/repository
       |  - cache: coursier default unless --cache is specified
-      |  - config: $HOME/.cozy/config.yaml, then $PWD/.cozy/config.yaml, then $REPO_ROOT/.cozy/config.yaml if present
+      |  - config: $HOME/.cozy/launcher.yaml, then conf/cozy/launcher.yaml, then .cozy/launcher.yaml
       |EOF
       |}
       |
@@ -1310,10 +1310,12 @@ private[cozy] object CozyScaffold {
       |  echo "Config file not found: $config_file" >&2
       |  exit 2
       |fi
-      |load_launcher_config "$HOME/.cozy/config.yaml"
-      |load_launcher_config "$PWD/.cozy/config.yaml"
+      |load_launcher_config "$HOME/.cozy/launcher.yaml"
+      |load_launcher_config "$PWD/conf/cozy/launcher.yaml"
+      |load_launcher_config "$PWD/.cozy/launcher.yaml"
       |if [[ "$REPO_ROOT" != "$PWD" ]]; then
-      |  load_launcher_config "$REPO_ROOT/.cozy/config.yaml"
+      |  load_launcher_config "$REPO_ROOT/conf/cozy/launcher.yaml"
+      |  load_launcher_config "$REPO_ROOT/.cozy/launcher.yaml"
       |fi
       |if [[ -n "$config_file" ]]; then
       |  load_launcher_config "$config_file"
@@ -1516,7 +1518,7 @@ private[cozy] object CozyScaffold {
       |      Generate value/domain model Scala sources without a component.
       |
       |  package-car --save <file> --main-jar <file> --name <name> --version <version> [--component <component>] [--project-dir <dir>] [--car-dir <dir>] [--entities <spec>]
-      |      Build a CAR archive. Project CAR policy comes from --project-dir/project.yaml and --project-dir/.cozy/config.yaml.
+      |      Build a CAR archive. Project CAR policy comes from --project-dir/project.yaml, --project-dir/conf/cozy/config.yaml, and --project-dir/.cozy/config.yaml.
       |
       |  package-sar --save <file> --source-dir <dir> --name <name> --version <version>
       |      Build a SAR archive.

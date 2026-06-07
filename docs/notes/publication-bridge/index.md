@@ -65,7 +65,8 @@ Each note should cover:
 
 - project shape
 - `project.yaml` public project metadata
-- `.cozy/config.yaml` local operation defaults
+- `conf/cozy/config.yaml` project operation defaults
+- `.cozy/config.yaml` local operation overrides
 - Cozy commands
 - generated `src/main/publication` files
 - SmartDox page interpretation

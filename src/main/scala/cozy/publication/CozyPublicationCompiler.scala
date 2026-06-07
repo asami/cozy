@@ -15,7 +15,7 @@ import scala.sys.process._
 
 /*
  * @since   May. 20, 2026
- * @version Jun.  4, 2026
+ * @version Jun.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyPublicationCompiler {
@@ -104,7 +104,7 @@ private[cozy] object CozyPublicationCompiler {
     if (!Files.isRegularFile(projectdir.resolve("build.sbt")))
       RAISE.invalidArgumentFault(s"Not an sbt project directory: ${projectdir}")
 
-    val config = CozyProjectYamlConfig.load(projectdir.resolve(".cozy/config.yaml"))
+    val config = CozyProjectYamlConfig.loadOperationDefaults(projectdir)
     val savedir = _publication_output(projectdir, args, config)
     val publication = _compile(projectdir, savedir, args, config)
     _write(publication, savedir, projectdir)

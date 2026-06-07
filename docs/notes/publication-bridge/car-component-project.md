@@ -43,6 +43,7 @@ Typical structure:
 component-project/
   build.sbt
   project.yaml
+  conf/cozy/config.yaml
   .cozy/config.yaml
   src/
     main/
@@ -72,7 +73,7 @@ project:
   description: Provides the public metadata used by SmartDox and publication catalogs.
 ```
 
-Local operation settings go in `.cozy/config.yaml`:
+Git-managed operation settings go in `conf/cozy/config.yaml`; local overrides go in `.cozy/config.yaml`:
 
 ```yaml
 publication:

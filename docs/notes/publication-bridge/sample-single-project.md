@@ -48,6 +48,7 @@ Typical structure:
 sample-project/
   build.sbt
   project.yaml
+  conf/cozy/config.yaml
   .cozy/config.yaml
   README.md
   src/
@@ -77,7 +78,7 @@ project:
   description: Public metadata for the sample page and generated catalogs.
 ```
 
-Local operation settings go in `.cozy/config.yaml`:
+Git-managed operation settings go in `conf/cozy/config.yaml`; local overrides go in `.cozy/config.yaml`:
 
 ```yaml
 publication:

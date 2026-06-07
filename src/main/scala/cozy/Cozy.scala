@@ -25,7 +25,7 @@ import scala.collection.JavaConverters._
  *  version Mar. 17, 2026
  *  version Apr. 29, 2026
  *  version May. 21, 2026
- * @version Jun.  4, 2026
+ * @version Jun.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 class Cozy(
@@ -844,10 +844,7 @@ private object CozyOperationConfig {
   }
 
   private def _config_files: Vector[Path] =
-    Vector(
-      Option(System.getProperty("user.home")).map(h => Paths.get(h).resolve(".cozy/config.yaml")),
-      Some(Paths.get(".").toAbsolutePath.normalize.resolve(".cozy/config.yaml"))
-    ).flatten
+    cozy.config.CozyProjectYamlConfig.operationDefaultFiles(Paths.get(".").toAbsolutePath.normalize)
 
   private def _load(path: Path): Option[Map[String, String]] =
     if (!Files.isRegularFile(path))

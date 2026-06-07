@@ -15,7 +15,7 @@ import scala.sys.process._
 /*
  * @since   May. 20, 2026
  *  version May. 22, 2026
- * @version Jun.  4, 2026
+ * @version Jun.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArchivePackager {
@@ -61,11 +61,7 @@ private[cozy] object CozyArchivePackager {
   }
 
   private def _project_config(projectdir: Option[Path]): CozyProjectYamlConfig.Config =
-    projectdir.map { dir =>
-      val project = CozyProjectYamlConfig.load(dir.resolve("project.yaml"))
-      val local = CozyProjectYamlConfig.load(dir.resolve(".cozy/config.yaml"))
-      project.merge(local)
-    }.getOrElse(CozyProjectYamlConfig.Config.empty)
+    projectdir.map(CozyProjectYamlConfig.loadProjectConfig).getOrElse(CozyProjectYamlConfig.Config.empty)
 
   private def _car_dir(projectdir: Option[Path], config: CozyProjectYamlConfig.Config): Option[Path] =
     projectdir.flatMap { dir =>

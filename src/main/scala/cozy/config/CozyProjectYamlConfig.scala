@@ -10,7 +10,7 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   May. 20, 2026
- * @version May. 20, 2026
+ * @version Jun.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyProjectYamlConfig {
@@ -60,6 +60,23 @@ private[cozy] object CozyProjectYamlConfig {
       parse(Files.readAllLines(path, StandardCharsets.UTF_8).asScala.toVector)
     else
       Config.empty
+
+  def loadOperationDefaults(projectdir: Path): Config =
+    operationDefaultFiles(projectdir).foldLeft(Config.empty) { (z, file) =>
+      z.merge(load(file))
+    }
+
+  def loadProjectConfig(projectdir: Path): Config = {
+    val project = load(projectdir.resolve("project.yaml"))
+    project.merge(loadOperationDefaults(projectdir))
+  }
+
+  def operationDefaultFiles(projectdir: Path): Vector[Path] =
+    Vector(
+      Option(System.getProperty("user.home")).map(h => Path.of(h).resolve(".cozy").resolve("config.yaml")),
+      Some(projectdir.resolve("conf").resolve("cozy").resolve("config.yaml")),
+      Some(projectdir.resolve(".cozy").resolve("config.yaml"))
+    ).flatten.map(_.toAbsolutePath.normalize)
 
   def loadPublic(path: Path): Config =
     if (Files.isRegularFile(path)) {

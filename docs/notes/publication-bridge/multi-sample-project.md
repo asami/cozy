@@ -74,6 +74,7 @@ Generic structure:
 ```text
 sample-repository/
   build.sbt
+  conf/cozy/config.yaml
   .cozy/config.yaml
   samples/
     01-minimal/
@@ -118,7 +119,8 @@ A `sample-multi` repository has two levels.
 
 Repository level:
 
-- owns `.cozy/config.yaml`
+- owns `conf/cozy/config.yaml` for shared operation defaults
+- may have `.cozy/config.yaml` for local operation overrides
 - owns the collection publication identity
 - owns the output destination for `src/main/publication`
 - owns shared setup scripts and repository-wide documentation
@@ -215,7 +217,8 @@ project:
   description: Tutorial samples for Cozy Textus users.
 ```
 
-Use `.cozy/config.yaml` for repository-local operation defaults.
+Use `conf/cozy/config.yaml` for Git-managed repository operation defaults.
+Use `.cozy/config.yaml` for local overrides such as personal output paths.
 
 ```yaml
 publication:
@@ -238,7 +241,8 @@ warehouse:
 Guidelines:
 
 - Put public project metadata in `project.yaml`.
-- Put local output paths, warehouse settings, and operational defaults in `.cozy/config.yaml`.
+- Put shared operation defaults in `conf/cozy/config.yaml`.
+- Put local output paths and personal overrides in `.cozy/config.yaml`.
 - Use `build.sbt` settings only when sbt-specific override is needed.
 - Do not hard-code SmartDox rendering behavior in sample build files.
 - Do not make sample scripts write directly into `website.d`.
@@ -323,7 +327,8 @@ Contributors and AI agents working in a multi-sample project should edit:
 - sample source files
 - sample run scripts
 - phase/checklist documents
-- `.cozy/config.yaml` when publication defaults need to change
+- `conf/cozy/config.yaml` when shared publication defaults need to change
+- `.cozy/config.yaml` when local publication overrides need to change
 
 They should not edit:
 
@@ -443,7 +448,8 @@ Do not:
 
 Do:
 
-- update `.cozy/config.yaml` when defaults are wrong
+- update `conf/cozy/config.yaml` when shared defaults are wrong
+- update `.cozy/config.yaml` only for local overrides
 - run `sbt cozyPublishProject`
 - inspect generated `src/main/publication` metadata shape
 - update notes/specs if the model changed
@@ -547,6 +553,7 @@ Expected shape:
 cncf-samples/
   build.sbt
   project.yaml
+  conf/cozy/config.yaml
   .cozy/config.yaml
   README.md
   bin/
@@ -603,7 +610,7 @@ project:
 Recommended local operation settings:
 
 ```yaml
-# cncf-samples .cozy/config.yaml
+# cncf-samples conf/cozy/config.yaml
 publication:
   output: /Users/asami/src/dev2025/simplemodeling-org/src/main/publication
   samples_dir: samples
@@ -788,7 +795,7 @@ Update that sample's README or phase checklist.
 If the task is about publication:
 
 ```text
-Check .cozy/config.yaml.
+Check conf/cozy/config.yaml and then .cozy/config.yaml.
 Run cozyPublishProject.
 Inspect publication registry metadata.
 Do not hand-edit publication registry.

@@ -9,7 +9,7 @@ import org.scalatest.funsuite.AnyFunSuite
 
 /*
  * @since   Jun.  3, 2026
- * @version Jun.  5, 2026
+ * @version Jun.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokSpec extends AnyFunSuite {
@@ -28,7 +28,7 @@ class CozyBokSpec extends AnyFunSuite {
 
       assert(Files.isRegularFile(dir.resolve("README.md")))
       assert(Files.isRegularFile(dir.resolve("STRUCTURE.md")))
-      assert(Files.isRegularFile(dir.resolve(".cozy/config.yaml")))
+      assert(Files.isRegularFile(dir.resolve("conf/cozy/config.yaml")))
       assert(Files.isRegularFile(dir.resolve("src/main/doxsite/site.conf")))
       assert(Files.isRegularFile(dir.resolve("src/main/doxsite/glossary/category.yaml")))
       assert(!Files.exists(dir.resolve("src/main/doxsite/glossary/index.dox")))
@@ -47,7 +47,7 @@ class CozyBokSpec extends AnyFunSuite {
       assert(_read(dir.resolve("src/main/doxsite/manual/index.dox")).contains("# Dashboard"))
       assert(_read(dir.resolve("src/main/doxsite/manual/index.dox")).contains("cozy bok build"))
       assert(_read(dir.resolve("src/main/doxsite/manual/index.dox")).contains("自動用語リンク対象外"))
-      assert(_read(dir.resolve(".cozy/config.yaml")).contains("cozy-toolchain"))
+      assert(_read(dir.resolve("conf/cozy/config.yaml")).contains("cozy-toolchain"))
       assert(_read(dir.resolve("src/main/doxsite/site.conf")).contains("""locale_mode = "single_locale_root""""))
       assert(_read(dir.resolve("src/main/doxsite/site.conf")).contains("output.scope.policy = home_only"))
       assert(_read(dir.resolve("src/main/doxsite/index.dox")).contains("published_at="))
@@ -278,6 +278,18 @@ class CozyBokSpec extends AnyFunSuite {
       _write(dir.resolve(".cozy/config.yaml"), "bok:\n  docker-image: config-image\n")
       val config = CozyBok.BuildConfig.create(List(dir.toString, "--docker-image", "cli-image"))
       assert(config.dockerImage == "cli-image")
+    }
+  }
+
+  test("bok build reads conf/cozy defaults before .cozy local overrides") {
+    _with_temp_dir("cozy-bok-config-precedence") { dir =>
+      _write(dir.resolve("conf/cozy/config.yaml"), "bok:\n  docker-image: shared-image\n")
+      val shared = CozyBok.BuildConfig.create(List(dir.toString))
+      assert(shared.dockerImage == "shared-image")
+
+      _write(dir.resolve(".cozy/config.yaml"), "bok:\n  docker-image: local-image\n")
+      val local = CozyBok.BuildConfig.create(List(dir.toString))
+      assert(local.dockerImage == "local-image")
     }
   }
 

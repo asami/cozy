@@ -11,7 +11,7 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   May. 20, 2026
- * @version Jun.  4, 2026
+ * @version Jun.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozySampleDistributor {
@@ -37,7 +37,7 @@ private[cozy] object CozySampleDistributor {
     val projectdir = _project_dir(args)
     if (!Files.isDirectory(projectdir))
       RAISE.invalidArgumentFault(s"Project directory does not exist: ${projectdir}")
-    val config = CozyProjectYamlConfig.load(projectdir.resolve(".cozy/config.yaml"))
+    val config = CozyProjectYamlConfig.loadOperationDefaults(projectdir)
     val projectmetadata = CozyProjectYamlConfig.load(projectdir.resolve("project.yaml"))
     val warehousedir = _value(args, "warehouse").
       map(p => Paths.get(p).toAbsolutePath.normalize()).

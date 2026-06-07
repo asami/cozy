@@ -43,6 +43,7 @@ Typical structure:
 subsystem-project/
   build.sbt
   project.yaml
+  conf/cozy/config.yaml
   .cozy/config.yaml
   src/
     main/
@@ -71,7 +72,7 @@ project:
   description: Public metadata for subsystem catalogs and generated documentation.
 ```
 
-Local operation settings go in `.cozy/config.yaml`:
+Git-managed operation settings go in `conf/cozy/config.yaml`; local overrides go in `.cozy/config.yaml`:
 
 ```yaml
 publication:

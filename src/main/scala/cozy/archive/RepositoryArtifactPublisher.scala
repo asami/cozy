@@ -14,7 +14,7 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   May. 20, 2026
- * @version Jun.  4, 2026
+ * @version Jun.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object RepositoryArtifactPublisher {
@@ -51,9 +51,7 @@ private[cozy] object RepositoryArtifactPublisher {
   }
 
   def projectConfig(projectdir: Path): CozyProjectYamlConfig.Config = {
-    val project = CozyProjectYamlConfig.load(projectdir.resolve("project.yaml"))
-    val local = CozyProjectYamlConfig.load(projectdir.resolve(".cozy/config.yaml"))
-    project.merge(local)
+    CozyProjectYamlConfig.loadProjectConfig(projectdir)
   }
 
   def projectDir(args: List[String], missingmessage: String): Path =

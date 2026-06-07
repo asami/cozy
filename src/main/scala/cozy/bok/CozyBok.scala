@@ -16,7 +16,7 @@ import io.circe.parser
 
 /*
  * @since   Jun.  3, 2026
- * @version Jun.  5, 2026
+ * @version Jun.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyBok {
@@ -360,7 +360,7 @@ private[cozy] object CozyBok {
 
   def create(config: CreateConfig): Unit = {
     val sitedir = config.save.resolve("src/main/doxsite")
-    _write(config.save.resolve(".cozy/config.yaml"), _cozy_config(), config.policy)
+    _write(config.save.resolve("conf/cozy/config.yaml"), _cozy_config(), config.policy)
     _write(config.save.resolve("README.md"), _readme(config), config.policy)
     _write(config.save.resolve("STRUCTURE.md"), _structure(config), config.policy)
     _write(sitedir.resolve("site.conf"), _site_conf(config), config.policy)
@@ -2135,7 +2135,7 @@ private[cozy] object CozyBok {
       getOrElse(Paths.get(".").toAbsolutePath.normalize)
 
   private def _load_config(project: Path): CozyProjectYamlConfig.Config =
-    CozyProjectYamlConfig.load(project.resolve(".cozy/config.yaml"))
+    CozyProjectYamlConfig.loadOperationDefaults(project)
 
   private def _load_site_config(source: Path): SiteConfig = {
     val file = source.resolve("site.conf")
@@ -2215,7 +2215,10 @@ private[cozy] object CozyBok {
   }
 
   private def _direct_asset_list_items(project: Path): Vector[DirectAsset] = {
-    val file = project.resolve(".cozy/config.yaml")
+    CozyProjectYamlConfig.operationDefaultFiles(project).flatMap(_direct_asset_list_items_in_file)
+  }
+
+  private def _direct_asset_list_items_in_file(file: Path): Vector[DirectAsset] = {
     if (!Files.isRegularFile(file))
       Vector.empty
     else {
