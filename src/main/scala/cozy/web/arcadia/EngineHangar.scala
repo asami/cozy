@@ -3,6 +3,8 @@ package cozy.web.arcadia
 import java.net.URL
 import com.typesafe.config.{Config => Hocon}
 import scala.collection.concurrent.TrieMap
+import org.goldenport.collection.NonEmptyVector
+import org.goldenport.realm.Realm
 import arcadia._
 import arcadia.context._
 import arcadia.view.TemplateEngineHangar
@@ -18,7 +20,7 @@ import cozy.modeler.{DomainModelFactory => MDomainModelFactory}
  *  version Dec. 25, 2022
  *  version Jan.  1, 2023
  *  version Dec. 28, 2023
- * @version May.  3, 2025
+ * @version Jun. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 class EngineHangar(
@@ -28,7 +30,7 @@ class EngineHangar(
 ) extends {
   private lazy val _arcadia = {
     val libs = Nil
-    val standalons = Nil
+    val standalons = NonEmptyVector(Realm.create())
     Arcadia.make(platformContext, webengineconfig, config, libs, standalons).take
   }
 

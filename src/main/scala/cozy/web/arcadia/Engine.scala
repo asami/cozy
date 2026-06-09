@@ -22,7 +22,7 @@ import arcadia.domain._
  *  version May. 23, 2022
  *  version Aug. 29, 2022
  *  version Sep. 25, 2022
- * @version May.  3, 2025
+ * @version Jun. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 class Engine(
@@ -97,6 +97,8 @@ class Engine(
       _web_rule(engine),
       Partials.empty,
       Components.empty,
+      DataSet.empty,
+      None,
       None,
       RenderContext.empty.withEpilogue.withFormatter(formatter),
       None
