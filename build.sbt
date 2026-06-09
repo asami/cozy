@@ -15,9 +15,9 @@ organization := "org.simplemodeling"
 
 name := "cozy"
 
-version := "0.2.20"
+version := "0.2.21"
 
-lazy val cncfVersion = "0.4.9"
+lazy val cncfVersion = "0.4.10"
 
 lazy val simpleModelingModelVersion = "0.1.7"
 
@@ -76,7 +76,7 @@ libraryDependencies += "org.goldenport" %% "kaleidox" % "0.6.16"
 
 libraryDependencies += "org.simplemodeling" %% "simplemodeler" % "1.1.20"
 
-libraryDependencies += "org.goldenport" %% "arcadia" % "0.6.1"
+libraryDependencies += "org.goldenport" %% "arcadia" % "1.0.2"
 
 libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.4.11"
 
