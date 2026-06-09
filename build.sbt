@@ -15,7 +15,7 @@ organization := "org.simplemodeling"
 
 name := "cozy"
 
-version := "0.2.20-SNAPSHOT"
+version := "0.2.20"
 
 lazy val cncfVersion = "0.4.9"
 
@@ -61,7 +61,7 @@ resolvers += Resolver.file("Local Ivy", file(Path.userHome.absolutePath + "/.ivy
 resolvers += Resolver.defaultLocal
 
 // override arcadia
-libraryDependencies += "org.goldenport" %% "goldenport-scala-lib" % "2.3.28-SNAPSHOT"
+libraryDependencies += "org.goldenport" %% "goldenport-scala-lib" % "2.3.28"
 
 // override kaleidox
 libraryDependencies += "org.goldenport" %% "goldenport-record" % "2.2.5"
@@ -70,11 +70,11 @@ libraryDependencies += "org.goldenport" %% "goldenport-record" % "2.2.5"
 // libraryDependencies += "org.goldenport" %% "goldenport-sexpr" % "2.0.13"
 
 // override kaleidox
-libraryDependencies += "org.smartdox" %% "smartdox" % "2.4.14-SNAPSHOT"
+libraryDependencies += "org.smartdox" %% "smartdox" % "2.4.14"
 
-libraryDependencies += "org.goldenport" %% "kaleidox" % "0.6.16-SNAPSHOT"
+libraryDependencies += "org.goldenport" %% "kaleidox" % "0.6.16"
 
-libraryDependencies += "org.simplemodeling" %% "simplemodeler" % "1.1.20-SNAPSHOT"
+libraryDependencies += "org.simplemodeling" %% "simplemodeler" % "1.1.20"
 
 libraryDependencies += "org.goldenport" %% "arcadia" % "0.6.1"
 

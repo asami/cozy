@@ -1,5 +1,7 @@
 resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/groups/scala-tools/"
 
+resolvers += "SimpleModeling.org" at "https://www.simplemodeling.org/repository/maven"
+
 // addSbtPlugin("com.typesafe.sbteclipse" % "sbteclipse-plugin" % "2.4.0")
 
 // addSbtPlugin("org.ensime" % "ensime-sbt-cmd" % "0.1.2")
@@ -12,4 +14,4 @@ addSbtPlugin("net.virtual-void" % "sbt-dependency-graph" % "0.10.0-RC1")
 
 libraryDependencies += "org.scala-sbt" %% "scripted-plugin" % "1.9.7"
 
-addSbtPlugin("org.goldenport" % "sbt-cozy" % "0.1.9-SNAPSHOT")
+addSbtPlugin("org.goldenport" % "sbt-cozy" % "0.1.9")
