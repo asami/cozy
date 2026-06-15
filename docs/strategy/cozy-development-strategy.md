@@ -154,12 +154,14 @@ Status: in-progress.
 Purpose:
 
 - make scripted video production a first-class Cozy workflow
-- use the Cozy toolchain Docker image for rendering, capture, encoding, Node,
-  Remotion, Playwright, ffmpeg/ffprobe, and related video dependencies while
-  keeping Cozy responsible for orchestration and knowledge outputs
-- extend and validate the Cozy toolchain Docker image for the video dependency
-  set as part of Phase 8 planning, even if the image definition is maintained
-  outside the Cozy repository
+- formalize and validate the unified Cozy toolchain Docker image used by BoK,
+  SmartDox PDF, and video workflows
+- use the Cozy toolchain Docker image for BoK HTML generation, SmartDox PDF
+  rendering, video capture, encoding, Node, Remotion, Playwright,
+  ffmpeg/ffprobe, and related heavy dependencies while keeping Cozy responsible
+  for orchestration and knowledge outputs
+- use the current SmartDox PDF dependency image line as the baseline for the
+  unified `simplemodeling/cozy-toolchain` image unless a better owner is found
 - integrate VOICEVOX as an external HTTP service rather than bundling it into
   the toolchain image
 - generate RDF source files from video projects, scripts, timing metadata, and

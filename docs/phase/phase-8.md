@@ -7,7 +7,8 @@ Start date: 2026-06-15
 ## Goal
 
 Make `cozy video` a first-class Cozy workflow for scripted video production and
-video knowledge extraction.
+video knowledge extraction, and formalize the unified Cozy toolchain Docker
+image used by BoK, PDF, and video workflows.
 
 Phase 8 connects video production to Cozy's engineering knowledge compiler and
 publication toolchain. Cozy owns project/script parsing, orchestration,
@@ -15,11 +16,13 @@ manifest handling, dependency checks, RDF generation, and future BoK handoff
 points. External media tools remain responsible for rendering, capture, speech
 synthesis, and encoding.
 
-The standard tool execution model is Docker-first for video production
-dependencies. Remotion, Playwright/Chromium, ffmpeg/ffprobe, Node/npm
-dependencies, and fonts should run from the configured Cozy toolchain Docker
-image. VOICEVOX remains an external HTTP service and is not bundled into the
-toolchain image.
+The standard tool execution model is Docker-first for heavy publication and
+media dependencies. Phase 8 turns the existing BoK/PDF dependency-image line
+into a documented `simplemodeling/cozy-toolchain` image that covers BoK HTML
+generation, SmartDox PDF generation, and video rendering. Remotion,
+Playwright/Chromium, ffmpeg/ffprobe, Node/npm dependencies, and fonts should
+run from the configured Cozy toolchain Docker image. VOICEVOX remains an
+external HTTP service and is not bundled into the toolchain image.
 
 ## Scope
 
@@ -36,8 +39,10 @@ In scope:
 - external tool checks with install/setup hints
 - Docker toolchain execution for Remotion, Playwright, ffmpeg/ffprobe, Node,
   and related video rendering dependencies
-- Cozy toolchain Docker image extension planning and validation for video
-  production dependencies
+- Cozy toolchain Docker image development, documentation, and validation for
+  BoK, SmartDox PDF, and video production dependencies
+- migration path from the current SmartDox PDF dependency image to the unified
+  Cozy toolchain image
 - VOICEVOX HTTP endpoint configuration and connectivity checks
 - VOICEVOX synthesis orchestration
 - Remotion primary renderer invocation
@@ -52,6 +57,7 @@ Out of scope:
 - Python/Pillow as a required standard Cozy runtime dependency
 - vendoring ffmpeg, VOICEVOX, Node, Playwright, Remotion, or browser binaries
 - bundling VOICEVOX Engine in the Cozy toolchain image
+- removing SmartDox PDF image compatibility before a transition path exists
 - production hosting, upload, CDN invalidation, or publication policy
 - full visual-effect parity with every legacy Python renderer
 
@@ -64,7 +70,7 @@ Out of scope:
 - [ ] VDO-05: Dry-run and inspect implemented
 - [ ] VDO-06: External tool checks implemented
 - [ ] VDO-06B: Docker toolchain mode implemented
-- [ ] VDO-06C: Cozy toolchain Docker image extension planned
+- [ ] VDO-06C: Unified Cozy toolchain Docker image developed
 - [ ] VDO-07: VOICEVOX synthesis implemented
 - [ ] VDO-08: Remotion renderer adapter implemented
 - [ ] VDO-09: Java2D simple renderer implemented
@@ -82,9 +88,10 @@ Out of scope:
   status with setup hints.
 - `cozy video inspect <project-json> --check-tools` can report Docker
   toolchain availability separately from VOICEVOX HTTP connectivity.
-- The configured Cozy toolchain Docker image is planned to include the video
-  dependency set required by `cozy video`: ffmpeg/ffprobe, Node/npm, Remotion
-  runtime dependencies, Playwright Chromium, and Japanese-capable fonts.
+- The configured Cozy toolchain Docker image has a documented build path and
+  includes the BoK/PDF/video dependency set required by Cozy: SmartDox PDF
+  dependencies, Antora-capable Node tooling, ffmpeg/ffprobe, Remotion runtime
+  dependencies, Playwright Chromium, and Japanese-capable fonts.
 - VOICEVOX Engine remains outside the image and is checked only as an HTTP
   endpoint.
 - `cozy video build <project-json> --dry-run` prints planned synthesis,
@@ -100,6 +107,8 @@ Out of scope:
 - Missing external tools fail with clear install/setup guidance.
 - Existing `cozy bok`, publication, scaffold, and sbt-bridge behavior remains
   compatible.
+- `cozy bok build` can continue to use the configured Cozy toolchain image, and
+  SmartDox PDF image compatibility remains available during transition.
 
 ## Decisions
 
@@ -108,8 +117,12 @@ Out of scope:
   is not required.
 - Video rendering dependencies run through the configured Cozy toolchain Docker
   image by default.
-- Phase 8 includes the Docker image extension plan and validation checks, even
-  if the image definition lives outside the Cozy repository.
+- Phase 8 includes the unified Cozy toolchain image definition, build
+  documentation, and validation checks for BoK, SmartDox PDF, and video
+  workflows. If the image definition lives outside the Cozy repository, Phase 8
+  must still record the owning repository and release path.
+- A single operational image is preferred over separate BoK/PDF/video images.
+  Compatibility tags or configuration aliases may remain during migration.
 - VOICEVOX is integrated only through HTTP, with the endpoint configured by
   project or local Cozy config.
 - Remotion replaces the legacy Python/Pillow renderer as the standard rendering

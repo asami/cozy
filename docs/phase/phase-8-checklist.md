@@ -77,18 +77,27 @@ Status: OPEN
 
 Status: OPEN
 
-- [ ] Identify the repository or release process that owns
+- [ ] Identify or create the repository/release process that owns
       `simplemodeling/cozy-toolchain`.
-- [ ] Extend the image definition or release notes to include ffmpeg/ffprobe,
-      Node/npm, Remotion runtime dependencies, Playwright Chromium, and
+- [ ] Decide whether the image definition lives in Cozy, SmartDox, or a shared
+      toolchain repository, and document that ownership.
+- [ ] Use the current SmartDox `smartdox-pdf` dependency image as the baseline
+      for the unified toolchain unless a better existing owner is found.
+- [ ] Include the BoK/PDF dependency set already needed by Cozy: SmartDox PDF
+      rendering dependencies, Kroki command/server support, Japanese TeX
+      tooling, CJK/emoji fonts, Node/npm, and Antora-capable tooling.
+- [ ] Extend the unified image to include the video dependency set:
+      ffmpeg/ffprobe, Remotion runtime dependencies, Playwright Chromium, and
       Japanese-capable fonts.
 - [ ] Keep Python available only as a tolerated toolchain utility if already
       present or useful, not as the standard `cozy video` renderer dependency.
 - [ ] Do not include VOICEVOX Engine in the image.
-- [ ] Add an image validation command or documented check that verifies the
-      video dependency set inside the image.
+- [ ] Keep `simplemodeling/smartdox-pdf:latest` compatibility or document a
+      transition path to `simplemodeling/cozy-toolchain:latest`.
+- [ ] Add image validation commands or documented checks that verify BoK,
+      SmartDox PDF, and video dependency sets inside the image.
 - [ ] Document the expected image tag used by Phase 8 development and smoke
-      tests.
+      tests, with `simplemodeling/cozy-toolchain:latest` as the standard image.
 
 ## VDO-07: VOICEVOX Synthesis
 
