@@ -157,6 +157,9 @@ Purpose:
 - use the Cozy toolchain Docker image for rendering, capture, encoding, Node,
   Remotion, Playwright, ffmpeg/ffprobe, and related video dependencies while
   keeping Cozy responsible for orchestration and knowledge outputs
+- extend and validate the Cozy toolchain Docker image for the video dependency
+  set as part of Phase 8 planning, even if the image definition is maintained
+  outside the Cozy repository
 - integrate VOICEVOX as an external HTTP service rather than bundling it into
   the toolchain image
 - generate RDF source files from video projects, scripts, timing metadata, and

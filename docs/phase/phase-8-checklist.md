@@ -73,6 +73,23 @@ Status: OPEN
       and for `host.docker.internal` or compose service URLs when VOICEVOX is
       unreachable from Docker.
 
+## VDO-06C: Cozy Toolchain Docker Image Extension
+
+Status: OPEN
+
+- [ ] Identify the repository or release process that owns
+      `simplemodeling/cozy-toolchain`.
+- [ ] Extend the image definition or release notes to include ffmpeg/ffprobe,
+      Node/npm, Remotion runtime dependencies, Playwright Chromium, and
+      Japanese-capable fonts.
+- [ ] Keep Python available only as a tolerated toolchain utility if already
+      present or useful, not as the standard `cozy video` renderer dependency.
+- [ ] Do not include VOICEVOX Engine in the image.
+- [ ] Add an image validation command or documented check that verifies the
+      video dependency set inside the image.
+- [ ] Document the expected image tag used by Phase 8 development and smoke
+      tests.
+
 ## VDO-07: VOICEVOX Synthesis
 
 Status: OPEN

@@ -36,6 +36,8 @@ In scope:
 - external tool checks with install/setup hints
 - Docker toolchain execution for Remotion, Playwright, ffmpeg/ffprobe, Node,
   and related video rendering dependencies
+- Cozy toolchain Docker image extension planning and validation for video
+  production dependencies
 - VOICEVOX HTTP endpoint configuration and connectivity checks
 - VOICEVOX synthesis orchestration
 - Remotion primary renderer invocation
@@ -62,6 +64,7 @@ Out of scope:
 - [ ] VDO-05: Dry-run and inspect implemented
 - [ ] VDO-06: External tool checks implemented
 - [ ] VDO-06B: Docker toolchain mode implemented
+- [ ] VDO-06C: Cozy toolchain Docker image extension planned
 - [ ] VDO-07: VOICEVOX synthesis implemented
 - [ ] VDO-08: Remotion renderer adapter implemented
 - [ ] VDO-09: Java2D simple renderer implemented
@@ -79,6 +82,11 @@ Out of scope:
   status with setup hints.
 - `cozy video inspect <project-json> --check-tools` can report Docker
   toolchain availability separately from VOICEVOX HTTP connectivity.
+- The configured Cozy toolchain Docker image is planned to include the video
+  dependency set required by `cozy video`: ffmpeg/ffprobe, Node/npm, Remotion
+  runtime dependencies, Playwright Chromium, and Japanese-capable fonts.
+- VOICEVOX Engine remains outside the image and is checked only as an HTTP
+  endpoint.
 - `cozy video build <project-json> --dry-run` prints planned synthesis,
   capture, render, and concat steps without requiring media tools.
 - `cozy video synthesize <script-json> --save <audio-dir>` can generate
@@ -100,6 +108,8 @@ Out of scope:
   is not required.
 - Video rendering dependencies run through the configured Cozy toolchain Docker
   image by default.
+- Phase 8 includes the Docker image extension plan and validation checks, even
+  if the image definition lives outside the Cozy repository.
 - VOICEVOX is integrated only through HTTP, with the endpoint configured by
   project or local Cozy config.
 - Remotion replaces the legacy Python/Pillow renderer as the standard rendering
