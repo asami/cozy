@@ -11,7 +11,7 @@ import play.api.libs.json.Json
 /*
  * @since   May. 12, 2026
  *  version May. 16, 2026
- * @version Jun.  8, 2026
+ * @version Jun. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 final class PublicationCompilerSpec extends AnyFunSuite {
@@ -652,6 +652,11 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     Files.createDirectories(project.resolve("samples/01-hello/component.d"))
     Files.createDirectories(project.resolve("samples/01-hello/component-repository.d"))
     Files.createDirectories(project.resolve("samples/01-hello/tmprepo"))
+    Files.createDirectories(project.resolve(".cozy"))
+    Files.createDirectories(project.resolve("repository.d"))
+    Files.createDirectories(project.resolve("scripts"))
+    Files.createDirectories(project.resolve("versions"))
+    Files.createDirectories(project.resolve("target"))
     Files.writeString(project.resolve("build.sbt"), "name := \"Samples\"\nversion := \"0.1.0\"\n", StandardCharsets.UTF_8)
     Files.writeString(
       project.resolve("project.yaml"),
@@ -662,6 +667,11 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     )
     Files.writeString(project.resolve("samples/01-hello/build.sbt"), "name := \"Hello\"\n", StandardCharsets.UTF_8)
     Files.writeString(project.resolve("samples/01-hello/README.md"), "# Hello\n", StandardCharsets.UTF_8)
+    Files.writeString(project.resolve("scripts/run-all-samples.sh"), "#!/usr/bin/env bash\n", StandardCharsets.UTF_8)
+    Files.writeString(project.resolve("versions/cncf-version.conf"), "0.4.10\n", StandardCharsets.UTF_8)
+    Files.writeString(project.resolve(".cozy/config.yaml"), "local: true\n", StandardCharsets.UTF_8)
+    Files.writeString(project.resolve("repository.d/ignored.txt"), "ignored\n", StandardCharsets.UTF_8)
+    Files.writeString(project.resolve("target/root-ignored.txt"), "ignored\n", StandardCharsets.UTF_8)
     Files.writeString(project.resolve("samples/01-hello/target/ignored.txt"), "ignored\n", StandardCharsets.UTF_8)
     Files.writeString(project.resolve("samples/01-hello/script/.scala-build/ignored.class"), "ignored\n", StandardCharsets.UTF_8)
     Files.writeString(project.resolve("samples/01-hello/car.d/ignored.car"), "ignored\n", StandardCharsets.UTF_8)
@@ -684,14 +694,19 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     val collectionzip = new ZipFile(collectionzippath.toFile)
     try {
       val entries = collectionzip.entries().asScala.map(_.getName).toSet
-      assert(entries.contains("01-hello/build.sbt"))
-      assert(entries.contains("01-hello/README.md"))
-      assert(!entries.exists(_.startsWith("01-hello/target/")))
-      assert(!entries.exists(_.startsWith("01-hello/script/.scala-build/")))
-      assert(!entries.exists(_.startsWith("01-hello/car.d/")))
-      assert(!entries.exists(_.startsWith("01-hello/component.d/")))
-      assert(!entries.exists(_.startsWith("01-hello/component-repository.d/")))
-      assert(!entries.exists(_.startsWith("01-hello/tmprepo/")))
+      assert(entries.contains("samples/01-hello/build.sbt"))
+      assert(entries.contains("samples/01-hello/README.md"))
+      assert(entries.contains("scripts/run-all-samples.sh"))
+      assert(entries.contains("versions/cncf-version.conf"))
+      assert(!entries.exists(_.startsWith("target/")))
+      assert(!entries.exists(_.startsWith(".cozy/")))
+      assert(!entries.exists(_.startsWith("repository.d/")))
+      assert(!entries.exists(_.startsWith("samples/01-hello/target/")))
+      assert(!entries.exists(_.startsWith("samples/01-hello/script/.scala-build/")))
+      assert(!entries.exists(_.startsWith("samples/01-hello/car.d/")))
+      assert(!entries.exists(_.startsWith("samples/01-hello/component.d/")))
+      assert(!entries.exists(_.startsWith("samples/01-hello/component-repository.d/")))
+      assert(!entries.exists(_.startsWith("samples/01-hello/tmprepo/")))
     } finally {
       collectionzip.close()
     }

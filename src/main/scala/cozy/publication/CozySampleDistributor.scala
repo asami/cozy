@@ -11,7 +11,7 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   May. 20, 2026
- * @version Jun.  8, 2026
+ * @version Jun. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozySampleDistributor {
@@ -23,11 +23,13 @@ private[cozy] object CozySampleDistributor {
     ".metals",
     ".idea",
     ".cache",
+    ".cozy",
     ".vscode",
     ".scala-build",
     "car.d",
     "component.d",
     "component-repository.d",
+    "repository.d",
     "tmprepo"
   )
   private val _slug_pattern = "^[a-z0-9][a-z0-9-]*$".r
@@ -59,7 +61,7 @@ private[cozy] object CozySampleDistributor {
       _print_plan(warehousedir, archives)
       return
     }
-    _zip_sample_collection(samplesdir, archives.head.path, excludes)
+    _zip_sample_collection(projectdir, archives.head.path, excludes)
     samplepairs.foreach { case (sample, samplename) =>
       val out = archives.find(_.sampleName.contains(samplename)).map(_.path).
         getOrElse(warehousedir.resolve(CozyPublicationPaths.sampleDownloadPath(name, publicationpath, samplename, version)))
@@ -95,8 +97,8 @@ private[cozy] object CozySampleDistributor {
     }
   }
 
-  private def _zip_sample_collection(samplesdir: Path, out: Path, excludes: Set[String]): Unit =
-    _zip_dir(samplesdir, out, excludes)
+  private def _zip_sample_collection(projectdir: Path, out: Path, excludes: Set[String]): Unit =
+    _zip_dir(projectdir, out, excludes)
 
   private def _zip_dir(sourcedir: Path, out: Path, excludes: Set[String]): Unit = {
     val parent = Option(out.getParent).getOrElse(Paths.get("."))

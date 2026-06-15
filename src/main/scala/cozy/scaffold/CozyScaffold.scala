@@ -353,20 +353,7 @@ private[cozy] object CozyScaffold {
       |import sbt.Keys.*
       |
       |val scala3Version = "3.3.7"
-      |def sampleVersion(envname: String, filename: String, fallback: String): String =
-      |  sys.env.get(envname)
-      |    .orElse {
-      |      sys.env.get("CNCF_SAMPLES_ROOT").flatMap { root =>
-      |        val versionfile = file(root) / "versions" / filename
-      |        if (versionfile.isFile)
-      |          Some(IO.read(versionfile).trim).filter(_.nonEmpty)
-      |        else
-      |          None
-      |      }
-      |    }
-      |    .getOrElse(fallback)
-      |
-      |val cncfVersion = sampleVersion("CNCF_VERSION", "cncf-version.conf", "${versions.cncfVersion}")
+      |val cncfVersion = "${versions.cncfVersion}"
       |
       |lazy val cozyBundleFactoryClassName = settingKey[Option[String]]("Optional Component.BundleFactory implementation class for ServiceLoader discovery.")
       |
@@ -484,22 +471,7 @@ private[cozy] object CozyScaffold {
       |import sbt.Keys.*
       |
       |val scala3Version = "3.3.7"
-      |def sampleVersion(envname: String, filename: String, fallback: String): String =
-      |  sys.env.get(envname)
-      |    .orElse {
-      |      sys.env.get("TEXTUS_SAMPLES_ROOT")
-      |        .orElse(sys.env.get("CNCF_SAMPLES_ROOT"))
-      |        .flatMap { root =>
-      |          val versionfile = file(root) / "versions" / filename
-      |          if (versionfile.isFile)
-      |            Some(IO.read(versionfile).trim).filter(_.nonEmpty)
-      |          else
-      |            None
-      |        }
-      |    }
-      |    .getOrElse(fallback)
-      |
-      |val cncfVersion = sampleVersion("CNCF_VERSION", "cncf-version.conf", "${versions.cncfVersion}")
+      |val cncfVersion = "${versions.cncfVersion}"
       |lazy val cozyBundleFactoryClassName = settingKey[Option[String]]("Optional Component.BundleFactory implementation class for ServiceLoader discovery.")
       |
       |lazy val commonSettings = Seq(
