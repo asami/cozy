@@ -147,6 +147,27 @@ Primary reference:
 - `docs/phase/phase-7.md`
 - `docs/phase/phase-7-checklist.md`
 
+### Phase 8: Video Knowledge Pipeline
+
+Status: in-progress.
+
+Purpose:
+
+- make scripted video production a first-class Cozy workflow
+- use the Cozy toolchain Docker image for rendering, capture, encoding, Node,
+  Remotion, Playwright, ffmpeg/ffprobe, and related video dependencies while
+  keeping Cozy responsible for orchestration and knowledge outputs
+- integrate VOICEVOX as an external HTTP service rather than bundling it into
+  the toolchain image
+- generate RDF source files from video projects, scripts, timing metadata, and
+  artifact provenance
+- keep Python/Pillow out of the standard Cozy dependency path
+
+Primary reference:
+
+- `docs/phase/phase-8.md`
+- `docs/phase/phase-8-checklist.md`
+
 ### Future Phase: Model-Driven CAR Project Scaffolding
 
 Purpose:
@@ -157,10 +178,9 @@ Purpose:
 
 ## Current Priority
 
-Phase 6 and Phase 7 are closed.
+Phase 6 and Phase 7 are closed. Phase 8 is open for `cozy video` development.
 
-The next development target should be selected as a new phase. Candidate
-directions include:
+Candidate directions after Phase 8 include:
 
 - BoK publication and Component Repository public pages
 - Knowledge source compiler expansion
