@@ -18,6 +18,8 @@ Status: OPEN
 - [ ] Add CLI delegation following the `cozy.bok.CozyBok` pattern.
 - [ ] Add help text for `video inspect`, `video build`, `video synthesize`,
       `video render`, and `video rdf`.
+- [ ] Add help text for `video transcribe`, `video demo-script`, and
+      `video replay`.
 
 ## VDO-03: Video Project Model
 
@@ -52,7 +54,8 @@ Status: OPEN
 - [ ] Check VOICEVOX HTTP endpoint connectivity separately from Docker
       toolchain checks.
 - [ ] In host mode only, check `ffmpeg`, `ffprobe`, `node`, `npm`, Remotion
-      dependencies, and Playwright Chromium directly.
+      dependencies, Playwright Chromium, whisper.cpp, and transcription model
+      data directly.
 - [ ] Print installation/setup hints for missing dependencies.
 - [ ] Support an inspect-time tool check.
 
@@ -66,7 +69,8 @@ Status: OPEN
       `video.docker-image`, `cozy.docker-image`, then the standard Cozy
       toolchain image.
 - [ ] Run Remotion, Playwright/Chromium, ffmpeg/ffprobe, Node/npm-based video
-      tooling, and fonts from the configured Cozy toolchain Docker image.
+      tooling, whisper.cpp, transcription model/data, and fonts from the
+      configured Cozy toolchain Docker image.
 - [ ] Keep VOICEVOX Engine outside the image and access it through
       `video.voicevox.url`.
 - [ ] Provide setup hints for `docker pull simplemodeling/cozy-toolchain:latest`
@@ -89,6 +93,10 @@ Status: OPEN
 - [ ] Extend the unified image to include the video dependency set:
       ffmpeg/ffprobe, Remotion runtime dependencies, Playwright Chromium, and
       Japanese-capable fonts.
+- [ ] Add whisper.cpp and the standard transcription model/data path to the
+      unified image or documented toolchain-managed cache/volume.
+- [ ] Add Playwright trace/replay tooling needed for recorded demo replay
+      generation and dry-run validation.
 - [ ] Keep Python available only as a tolerated toolchain utility if already
       present or useful, not as the standard `cozy video` renderer dependency.
 - [ ] Do not include VOICEVOX Engine in the image.
@@ -143,6 +151,9 @@ Status: OPEN
 - [ ] Generate JSON-LD output.
 - [ ] Include scene, timing, utterance, speaker, artifact, and provenance
       metadata.
+- [ ] Include recorded demo transcript, caption, replay step, source video,
+      input hash, tool version, model name/version, and timing provenance when
+      available.
 
 ## VDO-12: BoK Registration Extension Point
 
@@ -159,6 +170,11 @@ Status: OPEN
 - [ ] Validate inspect/dry-run behavior.
 - [ ] Validate RDF generation.
 - [ ] Validate dependency-check reporting without requiring every external tool.
+- [ ] Validate recorded demo transcription dry-run behavior.
+- [ ] Validate missing whisper.cpp or missing model setup hints.
+- [ ] Validate Playwright trace-backed replay script generation.
+- [ ] Validate video-only replay script generation produces a manual-review
+      draft marker.
 
 ## VDO-14: Existing Workflow Preservation
 
@@ -166,3 +182,45 @@ Status: OPEN
 
 - [ ] Existing `cozy bok` smoke remains compatible.
 - [ ] Existing publication, scaffold, and sbt-bridge tests remain compatible.
+
+## VDO-15: Recorded Demo Transcription
+
+Status: OPEN
+
+- [ ] Accept a recorded demo video input for transcription planning.
+- [ ] Extract audio with ffmpeg.
+- [ ] Run whisper.cpp with the configured transcription model/data.
+- [ ] Write timestamped `transcript.json`.
+- [ ] Write caption output such as `captions.srt`.
+- [ ] Write a narration script artifact suitable for review or reuse.
+- [ ] Record input video hash, whisper.cpp version, model name/version, and
+      transcript timing provenance.
+- [ ] Fail with setup hints when whisper.cpp or model/data is unavailable.
+
+## VDO-16: Playwright Demo Replay Generation
+
+Status: OPEN
+
+- [ ] Generate `demo-script.json` from recorded demo metadata.
+- [ ] Convert Playwright trace, HAR, selector event log, or equivalent capture
+      metadata into replay steps when available.
+- [ ] Include selectors, URL, viewport, timing hints, and captured input text
+      when available.
+- [ ] For video-only input, produce a draft script with a manual-review marker
+      instead of claiming complete reconstruction.
+- [ ] Dry-run generated replay scripts with Playwright without recording.
+- [ ] Optionally record replay output when `--save <output-video>` is provided.
+
+## VDO-17: Toolchain Includes whisper.cpp and Demo Replay Dependencies
+
+Status: OPEN
+
+- [ ] Include whisper.cpp binary or a documented build/install path in the
+      Cozy toolchain image.
+- [ ] Include standard whisper model/data in the image, or document the
+      toolchain-managed cache/volume fallback if image size becomes too large.
+- [ ] Include ffmpeg/ffprobe for audio extraction and probing.
+- [ ] Include Playwright Chromium and runtime dependencies for replay.
+- [ ] Include Node/npm and Japanese-capable fonts needed by replay/rendering.
+- [ ] Add validation commands for whisper.cpp, model/data availability,
+      ffmpeg/ffprobe, Playwright Chromium, and Node/npm.

@@ -10,19 +10,21 @@ Make `cozy video` a first-class Cozy workflow for scripted video production and
 video knowledge extraction, and formalize the unified Cozy toolchain Docker
 image used by BoK, PDF, and video workflows.
 
-Phase 8 connects video production to Cozy's engineering knowledge compiler and
-publication toolchain. Cozy owns project/script parsing, orchestration,
+Phase 8 connects video production and recorded demo knowledge extraction to
+Cozy's engineering knowledge compiler and publication toolchain. Cozy owns
+project/script parsing, transcription orchestration, replay script generation,
 manifest handling, dependency checks, RDF generation, and future BoK handoff
 points. External media tools remain responsible for rendering, capture, speech
-synthesis, and encoding.
+synthesis, transcription, and encoding.
 
 The standard tool execution model is Docker-first for heavy publication and
 media dependencies. Phase 8 turns the existing BoK/PDF dependency-image line
 into a documented `simplemodeling/cozy-toolchain` image that covers BoK HTML
 generation, SmartDox PDF generation, and video rendering. Remotion,
-Playwright/Chromium, ffmpeg/ffprobe, Node/npm dependencies, and fonts should
-run from the configured Cozy toolchain Docker image. VOICEVOX remains an
-external HTTP service and is not bundled into the toolchain image.
+Playwright/Chromium, ffmpeg/ffprobe, whisper.cpp, transcription model/data,
+Node/npm dependencies, and fonts should run from the configured Cozy toolchain
+Docker image. VOICEVOX remains an external HTTP service and is not bundled into
+the toolchain image.
 
 ## Scope
 
@@ -33,12 +35,19 @@ In scope:
 - `cozy video synthesize`
 - `cozy video render`
 - `cozy video rdf`
+- `cozy video transcribe`
+- `cozy video demo-script`
+- `cozy video replay`
 - video project and script JSON parsing compatible with the current
   `videotools` project shape
+- recorded demo ingestion from captured video files
+- transcript, caption, and narration script generation from recorded demo
+  audio
+- Playwright replay script generation from recorded demo metadata
 - dry-run build planning without requiring media tools to be installed
 - external tool checks with install/setup hints
 - Docker toolchain execution for Remotion, Playwright, ffmpeg/ffprobe, Node,
-  and related video rendering dependencies
+  whisper.cpp, and related video rendering/transcription dependencies
 - Cozy toolchain Docker image development, documentation, and validation for
   BoK, SmartDox PDF, and video production dependencies
 - migration path from the current SmartDox PDF dependency image to the unified
@@ -46,10 +55,12 @@ In scope:
 - VOICEVOX HTTP endpoint configuration and connectivity checks
 - VOICEVOX synthesis orchestration
 - Remotion primary renderer invocation
+- Playwright replay/dry-run invocation for generated demo scripts
 - Java2D simple/fallback renderer
 - ffmpeg/ffprobe process integration
 - Turtle and JSON-LD RDF generation from video metadata and manifests
-- runtime smoke coverage for dry-run, dependency reporting, and RDF generation
+- runtime smoke coverage for dry-run, dependency reporting, transcription
+  planning, replay script generation, and RDF generation
 
 Out of scope:
 
@@ -60,6 +71,9 @@ Out of scope:
 - removing SmartDox PDF image compatibility before a transition path exists
 - production hosting, upload, CDN invalidation, or publication policy
 - full visual-effect parity with every legacy Python renderer
+- guaranteed fully automatic operation reconstruction from a recorded video
+  when no Playwright trace, HAR, selector event log, or equivalent capture
+  metadata is available
 
 ## Phase Items
 
@@ -79,6 +93,9 @@ Out of scope:
 - [ ] VDO-12: BoK registration extension point decided
 - [ ] VDO-13: Runtime smoke fixture added
 - [ ] VDO-14: Existing workflows preserved
+- [ ] VDO-15: Recorded demo transcription implemented
+- [ ] VDO-16: Playwright demo replay generation implemented
+- [ ] VDO-17: Toolchain includes whisper.cpp and demo replay dependencies
 
 ## Acceptance Criteria
 
@@ -91,7 +108,8 @@ Out of scope:
 - The configured Cozy toolchain Docker image has a documented build path and
   includes the BoK/PDF/video dependency set required by Cozy: SmartDox PDF
   dependencies, Antora-capable Node tooling, ffmpeg/ffprobe, Remotion runtime
-  dependencies, Playwright Chromium, and Japanese-capable fonts.
+  dependencies, Playwright Chromium, whisper.cpp, transcription model/data, and
+  Japanese-capable fonts.
 - VOICEVOX Engine remains outside the image and is checked only as an HTTP
   endpoint.
 - `cozy video build <project-json> --dry-run` prints planned synthesis,
@@ -102,8 +120,20 @@ Out of scope:
   rendering path.
 - `cozy video render ... --renderer simple-java2d` creates a simple video
   without requiring Python/Pillow on the host runtime.
+- `cozy video transcribe <input-video> --save <dir>` extracts audio, runs
+  whisper.cpp, and writes timestamped transcript, caption, and narration
+  artifacts.
+- `cozy video demo-script <input-video> --save <script-json> [--trace
+  <trace.zip>] [--har <file>]` writes a Playwright replay script draft. Trace,
+  HAR, or selector event metadata provides the high-precision path; video-only
+  input produces a manual-review draft.
+- `cozy video replay <script-json> [--save <output-video>] [--dry-run]` can
+  dry-run or execute the generated Playwright replay plan.
 - `cozy video rdf <project-json> --save <dir>` writes Turtle and JSON-LD with
   scene, utterance, timing, artifact, and provenance metadata.
+- RDF output includes transcript, caption, replay step, source video, input
+  hash, tool version, model name/version, and timing provenance when recorded
+  demo inputs are present.
 - Missing external tools fail with clear install/setup guidance.
 - Existing `cozy bok`, publication, scaffold, and sbt-bridge behavior remains
   compatible.
@@ -125,6 +155,14 @@ Out of scope:
   Compatibility tags or configuration aliases may remain during migration.
 - VOICEVOX is integrated only through HTTP, with the endpoint configured by
   project or local Cozy config.
+- whisper.cpp is the standard transcription engine for recorded demo audio.
+- The standard transcription model/data is part of the Cozy toolchain plan. If
+  image size becomes impractical, the model/data may move to a toolchain-managed
+  cache or Docker volume with the same validation and setup behavior.
+- Recorded video plus Playwright trace, HAR, selector event log, or equivalent
+  capture metadata is the high-precision path for replay generation.
+- Recorded video alone produces a draft replay script requiring manual review;
+  OCR and visual operation inference remain future extensions.
 - Remotion replaces the legacy Python/Pillow renderer as the standard rendering
   direction.
 - Python/Pillow may be used later for optional toolchain-contained adapters or
