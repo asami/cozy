@@ -47,7 +47,7 @@ In scope:
 Out of scope:
 
 - completed BoK registration operation
-- Python/Pillow as a standard Cozy dependency
+- Python/Pillow as a required standard Cozy runtime dependency
 - vendoring ffmpeg, VOICEVOX, Node, Playwright, Remotion, or browser binaries
 - bundling VOICEVOX Engine in the Cozy toolchain image
 - production hosting, upload, CDN invalidation, or publication policy
@@ -86,7 +86,7 @@ Out of scope:
 - `cozy video render ... --renderer remotion` uses Remotion as the standard
   rendering path.
 - `cozy video render ... --renderer simple-java2d` creates a simple video
-  without requiring Python/Pillow.
+  without requiring Python/Pillow on the host runtime.
 - `cozy video rdf <project-json> --save <dir>` writes Turtle and JSON-LD with
   scene, utterance, timing, artifact, and provenance metadata.
 - Missing external tools fail with clear install/setup guidance.
@@ -102,7 +102,11 @@ Out of scope:
   image by default.
 - VOICEVOX is integrated only through HTTP, with the endpoint configured by
   project or local Cozy config.
-- Python/Pillow is not part of the standard `cozy video` dependency path.
+- Remotion replaces the legacy Python/Pillow renderer as the standard rendering
+  direction.
+- Python/Pillow may be used later for optional toolchain-contained adapters or
+  specialized extensions when it is the pragmatic choice, but Phase 8 must not
+  make host Python/Pillow a required dependency.
 - BoK registration is deferred. Phase 8 records the RDF output handoff point for
   a later BoK/publish integration phase.
 

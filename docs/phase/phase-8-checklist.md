@@ -97,8 +97,10 @@ Status: OPEN
 
 Status: OPEN
 
-- [ ] Render a simple static-frame video without Python/Pillow.
+- [ ] Render a simple static-frame video without requiring host Python/Pillow.
 - [ ] Use ffmpeg for final MP4 encoding.
+- [ ] Keep Python/Pillow available only as a future optional toolchain-contained
+      extension path, not as the Phase 8 standard renderer.
 
 ## VDO-10: ffmpeg/ffprobe Integration
 

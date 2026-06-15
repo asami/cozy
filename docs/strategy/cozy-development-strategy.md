@@ -161,7 +161,9 @@ Purpose:
   the toolchain image
 - generate RDF source files from video projects, scripts, timing metadata, and
   artifact provenance
-- keep Python/Pillow out of the standard Cozy dependency path
+- make Remotion the standard replacement for legacy Python/Pillow rendering
+  while allowing Python/Pillow later as an optional toolchain-contained
+  extension when useful
 
 Primary reference:
 
