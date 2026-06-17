@@ -22,6 +22,7 @@ In scope:
 - derived `maven-metadata.xml` for current Textus compatibility
 - `cozyPublishCar` / `cozyPublishSar` and sbt-cozy task bridge alignment
 - simplified CNCF runtime compatibility and component-owned dependency policy
+- package-time validation of resolved CNCF runtime compatibility metadata
 - canonical `artifact:version` Textus syntax alignment
 - `cozy init component` scaffolding contract for new component projects
 - `textus-knowledge-editor` initialization as the first Phase 6 scaffolding

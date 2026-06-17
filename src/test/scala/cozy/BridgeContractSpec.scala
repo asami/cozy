@@ -10,7 +10,7 @@ import org.scalatest.wordspec.AnyWordSpec
 /*
  * @since   Apr. 23, 2026
  *  version May. 20, 2026
- * @version Jun.  4, 2026
+ * @version Jun. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 final class BridgeContractSpec extends AnyWordSpec with Matchers {
@@ -78,6 +78,55 @@ final class BridgeContractSpec extends AnyWordSpec with Matchers {
 
       success shouldBe successfixture
       error shouldBe errorfixture
+    }
+
+    "resolve generation version settings with bridge overrides taking precedence" in {
+      _with_temp_dir("cozy-bridge-generation-settings") { dir =>
+        _write(
+          dir.resolve(".cozy/config.yaml"),
+          """generation:
+            |  versions:
+            |    cncf: 0.4.10
+            |    simplemodeling_model: 0.1.7
+            |    cncf_collaborator_api: 0.1.0
+            |""".stripMargin
+        )
+
+        val args = CozySbtBridge.versionArgsForTest(
+          Map("generation.versions.cncf" -> "0.4.11"),
+          dir
+        )
+
+        args should contain allElementsOf List("--cncf-version", "0.4.11")
+        args should contain allElementsOf List("--simplemodeling-model-version", "0.1.7")
+        args should contain allElementsOf List("--cncf-collaborator-api-version", "0.1.0")
+      }
+    }
+
+    "use sbt project dir setting as generation config base" in {
+      _with_temp_dir("cozy-bridge-generation-project-dir") { dir =>
+        val projectdir = dir.resolve("consumer")
+        _write(
+          projectdir.resolve(".cozy/config.yaml"),
+          """generation:
+            |  versions:
+            |    cncf: 0.4.10
+            |    simplemodeling_model: 0.1.7
+            |    cncf_collaborator_api: 0.1.0
+            |""".stripMargin
+        )
+
+        val args = CozySbtBridge.versionArgsForSettingsForTest(
+          Map(
+            "sbt.project_dir" -> projectdir.toString,
+            "generation.versions.cncf" -> "0.4.11"
+          )
+        )
+
+        args should contain allElementsOf List("--cncf-version", "0.4.11")
+        args should contain allElementsOf List("--simplemodeling-model-version", "0.1.7")
+        args should contain allElementsOf List("--cncf-collaborator-api-version", "0.1.0")
+      }
     }
 
     "dispatch publish-car through the bridge runtime" in {

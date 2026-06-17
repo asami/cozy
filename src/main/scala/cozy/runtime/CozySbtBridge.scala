@@ -4,17 +4,20 @@ import org.goldenport.RAISE
 import org.goldenport.cli.spec
 import cozy.Cozy
 import cozy.archive.{CozyArchivePackager, CozyCarPublisher, CozySarPublisher}
+import cozy.config.CozyProjectYamlConfig
 import cozy.publication.{CozyPublicationCompiler, CozySampleDistributor, CozyWarehouseIndexer}
 import play.api.libs.json._
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path}
+import java.nio.file.{Files, Path, Paths}
 
 /*
  * @since   May. 20, 2026
- * @version Jun.  4, 2026
+ * @version Jun. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozySbtBridge {
+  private val _sbt_project_dir_setting = "sbt.project_dir"
+
   def execute(args: List[String]): Unit =
     args match {
       case "v1" :: rest =>
@@ -28,7 +31,7 @@ private[cozy] object CozySbtBridge {
     val request = _load_request(requestpath)
     request.action match {
       case "generate" =>
-        _run_generation(request.arguments)
+        _run_generation(request.arguments, request.settings)
       case "package-car" =>
         CozyArchivePackager.buildCar(request.arguments.toList)
       case "package-sar" =>
@@ -50,19 +53,46 @@ private[cozy] object CozySbtBridge {
     }
   }
 
-  private def _run_generation(args: Vector[String]): Unit =
+  private def _run_generation(args: Vector[String], settings: Map[String, String]): Unit =
     args.toList match {
       case command :: rest =>
         command match {
           case "modeler-scala" =>
             val cozy = Cozy.build(Array.empty)
             cozy.executeDirect((command :: rest).toArray)
+          case "car-sbt-project" =>
+            val cozy = Cozy.build(Array.empty)
+            val config = _generation_config(settings)
+            cozy.executeDirect((command :: (rest ++ _version_args(config))).toArray)
           case other =>
             RAISE.invalidArgumentFault(s"Unsupported sbt-bridge generation command: $other")
         }
       case Nil =>
         RAISE.invalidArgumentFault("Missing sbt-bridge generation arguments")
     }
+
+  private def _generation_config(settings: Map[String, String]): CozyProjectYamlConfig.Config = {
+    val projectdir = settings.get(_sbt_project_dir_setting).
+      map(x => Paths.get(x).toAbsolutePath.normalize()).
+      getOrElse(Paths.get(".").toAbsolutePath.normalize())
+    val generationsettings = settings - _sbt_project_dir_setting
+    CozyProjectYamlConfig.loadOperationDefaults(projectdir).merge(CozyProjectYamlConfig.Config(generationsettings, Map.empty))
+  }
+
+  private def _version_args(config: CozyProjectYamlConfig.Config): List[String] = {
+    val versions = Cozy.CarDependencyVersions.create(Nil, config)
+    List(
+      "--cncf-version", versions.cncfVersion,
+      "--simplemodeling-model-version", versions.simpleModelingModelVersion,
+      "--cncf-collaborator-api-version", versions.cncfCollaboratorApiVersion
+    )
+  }
+
+  private[cozy] def versionArgsForTest(settings: Map[String, String], projectdir: Path): List[String] =
+    _version_args(_generation_config(settings + (_sbt_project_dir_setting -> projectdir.toString)))
+
+  private[cozy] def versionArgsForSettingsForTest(settings: Map[String, String]): List[String] =
+    _version_args(_generation_config(settings))
 
   private def _load_request(path: Path): BridgeRequest = {
     val text = Files.readString(path, StandardCharsets.UTF_8)

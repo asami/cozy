@@ -25,7 +25,7 @@ import scala.collection.JavaConverters._
  *  version Mar. 17, 2026
  *  version Apr. 29, 2026
  *  version May. 21, 2026
- * @version Jun.  8, 2026
+ * @version Jun. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 class Cozy(
@@ -681,6 +681,9 @@ object Cozy {
 
     def create(args: List[String]): CarDependencyVersions =
       CozyScaffold.CarDependencyVersions.create(args)
+
+    def create(args: List[String], config: cozy.config.CozyProjectYamlConfig.Config): CarDependencyVersions =
+      CozyScaffold.CarDependencyVersions.create(args, config)
   }
 
   type ProjectLayoutStyle = CozyScaffold.ProjectLayoutStyle

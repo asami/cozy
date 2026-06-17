@@ -18,6 +18,8 @@ Request contract:
   - `arguments`
 - optional fields:
   - `settings`
+- reserved settings:
+  - `sbt.project_dir`: consuming sbt project directory used as the base for Cozy project config lookup
 
 Response contract in `v1`:
 - runtime success/failure is process-oriented

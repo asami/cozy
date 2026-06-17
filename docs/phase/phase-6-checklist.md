@@ -68,6 +68,9 @@ Status: DONE
       declarations, not CNCF transitive dependency lists.
 - [x] Use CNCF runtime catalog base-provided coordinates to detect
       shared/local overlap when available.
+- [x] Validate packaged CAR runtime metadata against resolved CNCF runtime
+      version for `minimum`, `maximum`, `excluded`, and `tested` when runtime
+      descriptor data is available.
 
 ## CS-08: SIE Build Dependency Simplification
 
@@ -140,6 +143,8 @@ Status: DONE
 - [x] Add canonical `cozyDistributeCar/Sar` tasks.
 - [x] Keep legacy all-caps aliases.
 - [x] Delegate publish to Cozy `publish-car` / `publish-sar`.
+- [x] Let bridge generation use the consuming sbt project directory as the base
+      for Cozy generation version defaults.
 
 ## CS-15: Derived Maven Metadata
 

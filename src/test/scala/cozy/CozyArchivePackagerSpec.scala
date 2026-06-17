@@ -16,7 +16,7 @@ import play.api.libs.json.Json
 /*
  * @since   May. 20, 2026
  *  version May. 22, 2026
- * @version Jun.  4, 2026
+ * @version Jun. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyArchivePackagerSpec extends AnyFunSuite {
@@ -249,6 +249,214 @@ class CozyArchivePackagerSpec extends AnyFunSuite {
       assert(!stderr.toString(StandardCharsets.UTF_8.name()).contains("CNCF runtime catalog is unavailable"))
       assert(!entries.contains("lib/goldenport-cncf_3.jar"))
       assert(_zip_text(archive, "component-dependencies.yaml").contains("org.postgresql:postgresql:42.7.3"))
+    }
+  }
+
+  test("package-car accepts CNCF runtime version above declared minimum") {
+    _with_temp_dir("cozy-car-runtime-minimum-compatible") { dir =>
+      val projectdir = dir.resolve("project")
+      val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
+      val cncfjar = _write_zip(
+        dir.resolve("artifacts/goldenport-cncf_3.jar"),
+        "META-INF/cncf/runtime.yaml",
+        """schemaVersion: 1
+          |runtime: cncf
+          |version: 0.4.10
+          |module: org.goldenport:goldenport-cncf_3:0.4.10
+          |""".stripMargin
+      )
+      val archive = dir.resolve("out/sample.car")
+      _write(
+        projectdir.resolve("project.yaml"),
+        """packaging:
+          |  car:
+          |    runtime:
+          |      cncf:
+          |        minimum: 0.4.9
+          |""".stripMargin
+      )
+
+      CozyArchivePackager.buildCar(List(
+        "--save", archive.toString,
+        "--project-dir", projectdir.toString,
+        "--main-jar", mainjar.toString,
+        "--lib-jars", cncfjar.toString,
+        "--name", "sample-component",
+        "--version", "0.1.0",
+        "--component", "sample-component"
+      ))
+
+      assert(Files.exists(archive))
+    }
+  }
+
+  test("package-car rejects CNCF runtime version below declared minimum") {
+    _with_temp_dir("cozy-car-runtime-minimum-too-low") { dir =>
+      val projectdir = dir.resolve("project")
+      val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
+      val cncfjar = _write_zip(
+        dir.resolve("artifacts/goldenport-cncf_3.jar"),
+        "META-INF/cncf/runtime.yaml",
+        """schemaVersion: 1
+          |runtime: cncf
+          |version: 0.4.8
+          |module: org.goldenport:goldenport-cncf_3:0.4.8
+          |""".stripMargin
+      )
+      val archive = dir.resolve("out/sample.car")
+      _write(
+        projectdir.resolve("project.yaml"),
+        """packaging:
+          |  car:
+          |    runtime:
+          |      cncf:
+          |        minimum: 0.4.9
+          |""".stripMargin
+      )
+
+      val error = intercept[RuntimeException] {
+        CozyArchivePackager.buildCar(List(
+          "--save", archive.toString,
+          "--project-dir", projectdir.toString,
+          "--main-jar", mainjar.toString,
+          "--lib-jars", cncfjar.toString,
+          "--name", "sample-component",
+          "--version", "0.1.0",
+          "--component", "sample-component"
+        ))
+      }
+
+      assert(error.getMessage.contains("below"))
+      assert(error.getMessage.contains("0.4.8"))
+      assert(error.getMessage.contains("0.4.9"))
+    }
+  }
+
+  test("package-car rejects CNCF runtime version above declared maximum") {
+    _with_temp_dir("cozy-car-runtime-maximum-exceeded") { dir =>
+      val projectdir = dir.resolve("project")
+      val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
+      val cncfjar = _write_zip(
+        dir.resolve("artifacts/goldenport-cncf_3.jar"),
+        "META-INF/cncf/runtime.yaml",
+        """schemaVersion: 1
+          |runtime: cncf
+          |version: 0.4.10
+          |module: org.goldenport:goldenport-cncf_3:0.4.10
+          |""".stripMargin
+      )
+      val archive = dir.resolve("out/sample.car")
+      _write(
+        projectdir.resolve("project.yaml"),
+        """packaging:
+          |  car:
+          |    runtime:
+          |      cncf:
+          |        maximum: 0.4.9
+          |""".stripMargin
+      )
+
+      val error = intercept[RuntimeException] {
+        CozyArchivePackager.buildCar(List(
+          "--save", archive.toString,
+          "--project-dir", projectdir.toString,
+          "--main-jar", mainjar.toString,
+          "--lib-jars", cncfjar.toString,
+          "--name", "sample-component",
+          "--version", "0.1.0",
+          "--component", "sample-component"
+        ))
+      }
+
+      assert(error.getMessage.contains("maximum"))
+      assert(error.getMessage.contains("0.4.10"))
+      assert(error.getMessage.contains("0.4.9"))
+    }
+  }
+
+  test("package-car rejects excluded CNCF runtime version") {
+    _with_temp_dir("cozy-car-runtime-excluded") { dir =>
+      val projectdir = dir.resolve("project")
+      val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
+      val cncfjar = _write_zip(
+        dir.resolve("artifacts/goldenport-cncf_3.jar"),
+        "META-INF/cncf/runtime.yaml",
+        """schemaVersion: 1
+          |runtime: cncf
+          |version: 0.4.10
+          |module: org.goldenport:goldenport-cncf_3:0.4.10
+          |""".stripMargin
+      )
+      val archive = dir.resolve("out/sample.car")
+      _write(
+        projectdir.resolve("project.yaml"),
+        """packaging:
+          |  car:
+          |    runtime:
+          |      cncf:
+          |        excluded:
+          |          - 0.4.10
+          |""".stripMargin
+      )
+
+      val error = intercept[RuntimeException] {
+        CozyArchivePackager.buildCar(List(
+          "--save", archive.toString,
+          "--project-dir", projectdir.toString,
+          "--main-jar", mainjar.toString,
+          "--lib-jars", cncfjar.toString,
+          "--name", "sample-component",
+          "--version", "0.1.0",
+          "--component", "sample-component"
+        ))
+      }
+
+      assert(error.getMessage.contains("excluded"))
+      assert(error.getMessage.contains("0.4.10"))
+    }
+  }
+
+  test("package-car rejects CNCF runtime tested list that omits resolved runtime descriptor") {
+    _with_temp_dir("cozy-car-runtime-tested-mismatch") { dir =>
+      val projectdir = dir.resolve("project")
+      val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
+      val cncfjar = _write_zip(
+        dir.resolve("artifacts/goldenport-cncf_3.jar"),
+        "META-INF/cncf/runtime.yaml",
+        """schemaVersion: 1
+          |runtime: cncf
+          |version: 0.4.10
+          |module: org.goldenport:goldenport-cncf_3:0.4.10
+          |baseProvided:
+          |  - org.goldenport:goldenport-cncf_3
+          |""".stripMargin
+      )
+      val archive = dir.resolve("out/sample.car")
+      _write(
+        projectdir.resolve("project.yaml"),
+        """packaging:
+          |  car:
+          |    runtime:
+          |      cncf:
+          |        tested:
+          |          - 0.4.9
+          |""".stripMargin
+      )
+
+      val error = intercept[RuntimeException] {
+        CozyArchivePackager.buildCar(List(
+          "--save", archive.toString,
+          "--project-dir", projectdir.toString,
+          "--main-jar", mainjar.toString,
+          "--lib-jars", cncfjar.toString,
+          "--name", "sample-component",
+          "--version", "0.1.0",
+          "--component", "sample-component"
+        ))
+      }
+
+      assert(error.getMessage.contains("packaging.car.runtime.cncf.tested"))
+      assert(error.getMessage.contains("0.4.10"))
     }
   }
 
@@ -495,6 +703,10 @@ class CozyArchivePackagerSpec extends AnyFunSuite {
           |    runtime:
           |      cncf:
           |        minimum: 0.4.8
+          |        version: 0.4.8
+          |    dependencies:
+          |      shared:
+          |        - org.postgresql:postgresql:42.7.3
           |""".stripMargin
       )
       val stderr = new ByteArrayOutputStream()

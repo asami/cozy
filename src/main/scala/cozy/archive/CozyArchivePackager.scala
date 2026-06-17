@@ -15,7 +15,7 @@ import scala.sys.process._
 /*
  * @since   May. 20, 2026
  *  version May. 22, 2026
- * @version Jun.  8, 2026
+ * @version Jun. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArchivePackager {
@@ -26,6 +26,7 @@ private[cozy] object CozyArchivePackager {
     val config = _project_config(projectdir)
     val alllibjars = _paths(args, "lib-jars")
     val validationjars = mainjar +: alllibjars
+    _validate_cncf_runtime_metadata(projectdir, config, validationjars)
     val libjars = if (_include_dependencies(projectdir, config)) alllibjars else Vector.empty
     val spijars = _paths(args, "spi-jars")
     val cardir = _path(args, "car-dir").orElse(_car_dir(projectdir, config))
@@ -82,6 +83,53 @@ private[cozy] object CozyArchivePackager {
   private def _include_dependencies(projectdir: Option[Path], config: CozyProjectYamlConfig.Config): Boolean =
     config.boolean("packaging.car.include_dependencies").getOrElse(projectdir.isEmpty)
 
+  private def _validate_cncf_runtime_metadata(
+    projectdir: Option[Path],
+    config: CozyProjectYamlConfig.Config,
+    validationjars: Vector[Path]
+  ): Unit = {
+    val minimum = config.value("packaging.car.runtime.cncf.minimum")
+    val maximum = config.value("packaging.car.runtime.cncf.maximum")
+    val excluded = config.list("packaging.car.runtime.cncf.excluded")
+    val tested = config.list("packaging.car.runtime.cncf.tested")
+    if (minimum.nonEmpty || maximum.nonEmpty || excluded.nonEmpty || tested.nonEmpty) {
+      _resolved_cncf_runtime_version(projectdir, config, validationjars) match {
+        case Some(version) =>
+          minimum.foreach { x =>
+            if (_compare_version(version, x) < 0)
+              RAISE.invalidArgumentFault(
+                s"Resolved CNCF runtime version '${version}' is below project.yaml packaging.car.runtime.cncf.minimum '${x}'"
+              )
+          }
+          maximum.foreach { x =>
+            if (_compare_version(version, x) > 0)
+              RAISE.invalidArgumentFault(
+                s"Resolved CNCF runtime version '${version}' exceeds project.yaml packaging.car.runtime.cncf.maximum '${x}'"
+              )
+          }
+          if (excluded.contains(version))
+            RAISE.invalidArgumentFault(
+              s"Resolved CNCF runtime version '${version}' is listed in project.yaml packaging.car.runtime.cncf.excluded"
+            )
+          if (tested.nonEmpty && !tested.contains(version))
+            RAISE.invalidArgumentFault(
+              s"project.yaml packaging.car.runtime.cncf.tested must include resolved CNCF runtime version '${version}'"
+            )
+        case None =>
+          Console.err.println("[cozy] warning: CNCF runtime version is unavailable; skipping runtime metadata compatibility validation")
+      }
+    }
+  }
+
+  private def _resolved_cncf_runtime_version(
+    projectdir: Option[Path],
+    config: CozyProjectYamlConfig.Config,
+    validationjars: Vector[Path]
+  ): Option[String] =
+    config.value("packaging.car.runtime.cncf.version").
+      orElse(config.value("runtime.cncf.version")).
+      orElse(_runtime_catalog(projectdir, config, validationjars).flatMap(_.version))
+
   private def _dependency_manifest(
     projectdir: Option[Path],
     config: CozyProjectYamlConfig.Config,
@@ -137,8 +185,8 @@ private[cozy] object CozyArchivePackager {
     shared: Vector[String],
     local: Vector[String]
   ): Unit = {
-    if (_cncf_runtime_configured(config)) {
-      _runtime_catalog(projectdir, config, validationjars) match {
+    if ((shared.nonEmpty || local.nonEmpty) && _cncf_runtime_configured(config)) {
+      _runtime_base_catalog(projectdir, config, validationjars) match {
         case Some(catalog) =>
           val baseprovided = catalog.baseprovidedmodules
           val overlaps = (shared ++ local).flatMap { coordinate =>
@@ -162,26 +210,43 @@ private[cozy] object CozyArchivePackager {
       config.list("packaging.car.runtime.cncf.excluded").nonEmpty ||
       config.list("packaging.car.runtime.cncf.tested").nonEmpty
 
-  private final case class RuntimeCatalog(baseprovidedmodules: Set[String])
+  private final case class RuntimeCatalog(version: Option[String], baseprovidedmodules: Set[String]) {
+    def hasRuntimeData: Boolean =
+      version.nonEmpty || baseprovidedmodules.nonEmpty
+  }
 
   private def _runtime_catalog(
     projectdir: Option[Path],
     config: CozyProjectYamlConfig.Config,
     validationjars: Vector[Path]
   ): Option[RuntimeCatalog] =
-    _explicit_runtime_catalog_paths(projectdir, config).collectFirst {
+    _runtime_catalog_candidates(projectdir, config, validationjars).find(_.hasRuntimeData)
+
+  private def _runtime_base_catalog(
+    projectdir: Option[Path],
+    config: CozyProjectYamlConfig.Config,
+    validationjars: Vector[Path]
+  ): Option[RuntimeCatalog] =
+    _runtime_catalog_candidates(projectdir, config, validationjars).find(_.baseprovidedmodules.nonEmpty)
+
+  private def _runtime_catalog_candidates(
+    projectdir: Option[Path],
+    config: CozyProjectYamlConfig.Config,
+    validationjars: Vector[Path]
+  ): Vector[RuntimeCatalog] =
+    _explicit_runtime_catalog_paths(projectdir, config).collect {
       case path if Files.isRegularFile(path) =>
         val catalog = CozyProjectYamlConfig.load(path)
-        RuntimeCatalog(_base_provided_modules(catalog))
-    }.filter(_.baseprovidedmodules.nonEmpty).
-      orElse(_runtime_catalog_urls(config).flatMap(_runtime_catalog_url).find(_.baseprovidedmodules.nonEmpty)).
-      orElse(_runtime_catalog_jars(validationjars).find(_.baseprovidedmodules.nonEmpty)).
-      orElse(_project_runtime_catalog_paths(projectdir, config).collectFirst {
+        _runtime_catalog_from_config(catalog)
+    } ++
+      _runtime_catalog_urls(config).flatMap(_runtime_catalog_url) ++
+      _runtime_catalog_jars(validationjars) ++
+      _project_runtime_catalog_paths(projectdir, config).collect {
         case path if Files.isRegularFile(path) =>
           val catalog = CozyProjectYamlConfig.load(path)
-          RuntimeCatalog(_base_provided_modules(catalog))
-      }.filter(_.baseprovidedmodules.nonEmpty)).
-      orElse(_runtime_catalog_commands(config).flatMap(_runtime_catalog_command).find(_.baseprovidedmodules.nonEmpty))
+          _runtime_catalog_from_config(catalog)
+      } ++
+      _runtime_catalog_commands(config).flatMap(_runtime_catalog_command)
 
   private def _explicit_runtime_catalog_paths(
     projectdir: Option[Path],
@@ -229,7 +294,7 @@ private[cozy] object CozyArchivePackager {
       try {
         val lines = scala.io.Source.fromInputStream(in, "UTF-8").getLines().toVector
         val catalog = CozyProjectYamlConfig.parse(lines)
-        RuntimeCatalog(_base_provided_modules(catalog))
+        _runtime_catalog_from_config(catalog)
       } finally {
         in.close()
       }
@@ -248,7 +313,7 @@ private[cozy] object CozyArchivePackager {
             try {
               val lines = scala.io.Source.fromInputStream(in, "UTF-8").getLines().toVector
               val catalog = CozyProjectYamlConfig.parse(lines)
-              RuntimeCatalog(_base_provided_modules(catalog))
+              _runtime_catalog_from_config(catalog)
             } finally {
               in.close()
             }
@@ -268,8 +333,17 @@ private[cozy] object CozyArchivePackager {
     Try {
       val output = Process(Vector(command, "runtime", "descriptor", "--format", "yaml")).!!
       val catalog = CozyProjectYamlConfig.parse(output.linesIterator.toVector)
-      RuntimeCatalog(_base_provided_modules(catalog))
+      _runtime_catalog_from_config(catalog)
     }.toOption
+
+  private def _runtime_catalog_from_config(config: CozyProjectYamlConfig.Config): RuntimeCatalog =
+    RuntimeCatalog(_cncf_runtime_version(config), _base_provided_modules(config))
+
+  private def _cncf_runtime_version(config: CozyProjectYamlConfig.Config): Option[String] =
+    config.value("version").
+      orElse(config.value("runtime.version")).
+      orElse(config.value("cncf.version")).
+      orElse(config.value("module").flatMap(_coordinate_version))
 
   private def _cncf_runtime_project_dirs(
     projectdir: Option[Path],
@@ -304,6 +378,45 @@ private[cozy] object CozyArchivePackager {
       Some(s"${parts(0)}:${parts(1)}")
     else
       None
+  }
+
+  private def _coordinate_version(coordinate: String): Option[String] = {
+    val parts = coordinate.split(":").toVector.map(_.trim).filter(_.nonEmpty)
+    if (parts.length >= 3)
+      Some(parts.last)
+    else
+      None
+  }
+
+  private def _compare_version(left: String, right: String): Int = {
+    def _parts_(value: String): Vector[String] =
+      value.split("[.\\-+_]").toVector.map(_.trim).filter(_.nonEmpty)
+    def _number_(value: String): Option[BigInt] =
+      if (value.forall(_.isDigit)) Some(BigInt(value)) else None
+    def _compare_part_(l: String, r: String): Int =
+      (_number_(l), _number_(r)) match {
+        case (Some(a), Some(b)) => a.compare(b)
+        case (Some(_), None) => 1
+        case (None, Some(_)) => -1
+        case (None, None) => l.compareToIgnoreCase(r)
+      }
+    def _remaining_(parts: Vector[String], index: Int): Int =
+      parts.drop(index).find(_.nonEmpty).map { x =>
+        _number_(x) match {
+          case Some(n) => n.signum
+          case None => -1
+        }
+      }.getOrElse(0)
+
+    val lparts = _parts_(left)
+    val rparts = _parts_(right)
+    val size = math.max(lparts.length, rparts.length)
+    (0 until size).foldLeft(0) {
+      case (0, index) if index >= lparts.length => -_remaining_(rparts, index)
+      case (0, index) if index >= rparts.length => _remaining_(lparts, index)
+      case (0, index) => _compare_part_(lparts(index), rparts(index))
+      case (r, _) => r
+    }
   }
 
   private def _dependency_manifest_yaml(

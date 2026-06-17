@@ -122,6 +122,9 @@ Purpose:
 - align `cozy`, `sbt-cozy`, and `textus` around component repository metadata
 - add Cozy-owned component initialization/scaffolding for projects such as
   `textus-knowledge-editor`
+- validate packaged CAR runtime compatibility metadata against the resolved CNCF
+  runtime descriptor, while keeping bridge generation defaults rooted in the
+  consuming sbt project
 
 Primary reference:
 

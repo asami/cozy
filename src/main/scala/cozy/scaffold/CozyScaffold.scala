@@ -13,7 +13,7 @@ import scala.collection.JavaConverters._
 /*
  * @since   May. 20, 2026
  *  version May. 25, 2026
- * @version Jun.  8, 2026
+ * @version Jun. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyScaffold {
@@ -32,6 +32,15 @@ private[cozy] object CozyScaffold {
       org.simplemodeling.cozy.BuildInfo.cncfCollaboratorApiVersion
     )
 
+    def default(config: CozyProjectYamlConfig.Config): CarDependencyVersions = {
+      val d = default
+      CarDependencyVersions(
+        config.value("generation.versions.cncf").getOrElse(d.cncfVersion),
+        config.value("generation.versions.simplemodeling_model").getOrElse(d.simpleModelingModelVersion),
+        config.value("generation.versions.cncf_collaborator_api").getOrElse(d.cncfCollaboratorApiVersion)
+      )
+    }
+
     def isOption(p: String): Boolean =
       isInlineOption(p) || isFlagOption(p)
 
@@ -44,7 +53,11 @@ private[cozy] object CozyScaffold {
       p == "--cncf-collaborator-api-version"
 
     def create(args: List[String]): CarDependencyVersions = {
-      val d = default
+      create(args, CozyProjectYamlConfig.loadOperationDefaults(Paths.get(".").toAbsolutePath.normalize()))
+    }
+
+    def create(args: List[String], config: CozyProjectYamlConfig.Config): CarDependencyVersions = {
+      val d = default(config)
       CarDependencyVersions(
         _option(args, "cncf-version").getOrElse(d.cncfVersion),
         _option(args, "simplemodeling-model-version").getOrElse(d.simpleModelingModelVersion),
@@ -379,7 +392,6 @@ private[cozy] object CozyScaffold {
       |    cozyGeneratorBackend := "cozy",
       |    cozyDelegateProjectDir := None,
       |    cozyDelegateCommand := Seq("cozy"),
-      |    cozyCncfVersion := cncfVersion,
       |    cozyManifestMetadata ++= Map(
       |      "component" -> "${scaffold.artifactName}",
       |      "boundedContext" -> "${scaffold.boundedContext}",
