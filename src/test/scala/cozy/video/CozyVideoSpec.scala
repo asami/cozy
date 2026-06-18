@@ -1804,6 +1804,61 @@ final class CozyVideoSpec extends AnyFunSuite {
     }
   }
 
+  test("publish-video metadata is consumed by SmartDox site rendering") {
+    _with_temp_dir("cozy-video-publisher-smartdox") { dir =>
+      val doxsite = dir.resolve("src/main/doxsite")
+      val pkg = doxsite.resolve("concepts/tutorial.video")
+      val publication = dir.resolve("src/main/publication")
+      val warehouse = dir.resolve("warehouse")
+      _write(pkg.resolve("index.dox"), "# Tutorial\n\nThis is a video article.\n")
+      _write(pkg.resolve("script.json"), _script_json)
+      _write(
+        pkg.resolve("video.yaml"),
+        """video:
+          |  name: tutorial
+          |title: Textus Tutorial
+          |version: 0.1.0
+          |renderer: simple-java2d
+          |toolMode: docker
+          |publish:
+          |  module: textus
+          |  publicPath: videos/tutorial.mp4
+          |""".stripMargin
+      )
+
+      CozyVideoPublisher.publish(
+        CozyVideoPublisher.PublishVideoConfig(pkg, publication, warehouse, None, force = false),
+        RecordingVoicevoxClient(),
+        PublishingRunner()
+      )
+
+      val env = org.goldenport.cli.Environment.createJaJp()
+      val config = org.smartdox.generator.Config(org.goldenport.cli.Config.buildJaJp())
+      val ctx = org.smartdox.generator.Context(env, config, env.contextFoundation)
+      val generator = new org.smartdox.generators.AntoraGenerator(
+        ctx,
+        org.smartdox.doxsite.DoxSite.Config.default,
+        Some(publication.toFile)
+      )
+      val result = generator.generate(org.goldenport.realm.Realm.create(doxsite.toFile))
+      val article = result.get("antora.d/docs/concepts/modules/ROOT/pages/tutorial.adoc").collect {
+        case m: org.goldenport.realm.Realm.StringData => m.string
+      }.getOrElse("")
+
+      assert(article.contains("Tutorial"))
+      assert(article.contains("This is a video article."))
+      assert(article.contains("pass:[<video"))
+      assert(article.contains("src=\"/repository/video/textus/0.1.0/tutorial-0.1.0.mp4\""))
+      assert(result.get("antora.d/docs/concepts/modules/ROOT/pages/tutorial.video/index.adoc").isEmpty)
+
+      val sourcefiles = Files.walk(pkg).iterator().asScala.toVector.filter(Files.isRegularFile(_)).map(_.getFileName.toString)
+      assert(!sourcefiles.exists(_.endsWith(".mp4")))
+      assert(!sourcefiles.exists(_.endsWith(".ttl")))
+      assert(!sourcefiles.exists(_.endsWith(".jsonld")))
+      assert(!sourcefiles.exists(_.endsWith(".srt")))
+    }
+  }
+
   test("cozy toolchain Docker assets define expected BoK PDF and video checks") {
     val root = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
     val dockerfile = _read(root.resolve("docker/cozy-toolchain/Dockerfile"))

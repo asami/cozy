@@ -274,3 +274,5 @@ Status: DONE
       source packages.
 - [x] Add SmartDox source handling for `<slug>.video/index.dox` as the public
       article source without running heavy video tools.
+- [x] Verify Cozy-generated `publish-video` metadata is consumed by SmartDox
+      rendering to embed the published video player.

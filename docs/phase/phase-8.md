@@ -273,6 +273,10 @@ Out of scope:
   without placing generated MP4/RDF/caption outputs under source paths.
   SmartDox now folds `<slug>.video/index.dox` into the public article path
   while keeping heavy video generation outside site rendering.
+- 2026-06-19: Verified the VDO-18 operational integration path. A deterministic
+  Cozy spec now publishes a `.video` package with stubbed media tools and feeds
+  the generated publication metadata into SmartDox Antora rendering, confirming
+  the article rewrite and video player embedding behavior end to end.
 
 ## References
 
