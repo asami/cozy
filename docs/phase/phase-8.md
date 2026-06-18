@@ -91,7 +91,7 @@ Out of scope:
 - [x] VDO-09: Java2D simple renderer implemented
 - [x] VDO-10: ffmpeg/ffprobe integration implemented
 - [x] VDO-11: RDF generation implemented
-- [ ] VDO-12: BoK registration extension point decided
+- [x] VDO-12: BoK registration extension point decided
 - [ ] VDO-13: Runtime smoke fixture added
 - [ ] VDO-14: Existing workflows preserved
 - [ ] VDO-15: Recorded demo transcription implemented
@@ -228,6 +228,11 @@ Out of scope:
   render, and build manifests into Turtle and JSON-LD through SmartDox
   `Rdf.Graph` / `RdfRenderer`, while recorded demo transcript/replay
   provenance remains open for VDO-15/VDO-16 manifest inputs.
+- 2026-06-19: Completed VDO-12 BoK registration extension point decision.
+  Phase 8 now documents the handoff from `cozy video rdf` output to future
+  BoK/publish integration through `src/main/publication`, while explicitly
+  keeping video RDF registration commands and automatic BoK page generation
+  deferred to a later phase.
 
 ## References
 

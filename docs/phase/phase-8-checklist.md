@@ -184,10 +184,10 @@ Status: DONE
 
 ## VDO-12: BoK Registration Extension Point
 
-Status: OPEN
+Status: DONE
 
-- [ ] Document the RDF output handoff to future BoK/publish integration.
-- [ ] Keep BoK registration out of Phase 8 completion.
+- [x] Document the RDF output handoff to future BoK/publish integration.
+- [x] Keep BoK registration out of Phase 8 completion.
 
 ## VDO-13: Runtime Smoke Fixture
 
