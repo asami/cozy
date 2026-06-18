@@ -155,11 +155,11 @@ Status: DONE
 
 ## VDO-09: Java2D Simple Renderer
 
-Status: OPEN
+Status: DONE
 
-- [ ] Render a simple static-frame video without requiring host Python/Pillow.
-- [ ] Use ffmpeg for final MP4 encoding.
-- [ ] Use Python/Pillow as a toolchain-contained helper rendering path without
+- [x] Render a simple static-frame video without requiring host Python/Pillow.
+- [x] Use ffmpeg for final MP4 encoding.
+- [x] Use Python/Pillow as a toolchain-contained helper rendering path without
       requiring host Python/Pillow.
 
 ## VDO-10: ffmpeg/ffprobe Integration

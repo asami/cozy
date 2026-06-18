@@ -1509,8 +1509,8 @@ private[cozy] object CozyScaffold {
       |      Generate VOICEVOX scene WAV files, a combined WAV, and manifest.json.
       |      VOICEVOX Engine is always used as an external HTTP service.
       |
-      |  video render <project-file> --renderer=remotion [--part=<id>] [--tool-mode=<docker|host>] [--docker-image=<image>] [--check-tools]
-      |      Render project parts with Cozy-generated Remotion compositions.
+      |  video render <project-file> --renderer=remotion|simple-java2d [--part=<id>] [--tool-mode=<docker|host>] [--docker-image=<image>] [--check-tools]
+      |      Render project parts with Cozy-generated Remotion compositions or a simple Python/Pillow plus ffmpeg renderer.
       |      Final concat/mux remains a separate later video build step.
       |
       |  modeler-scala <model-file> --save <dir>

@@ -438,6 +438,83 @@ final class CozyVideoSpec extends AnyFunSuite {
     }
   }
 
+  test("video render simple-java2d renders all renderable parts through python and ffmpeg") {
+    _with_temp_dir("cozy-video-render-simple-java2d") { dir =>
+      _write(dir.resolve("dialogue.json"), _script_json)
+      _write(dir.resolve("storyboard.json"), _script_json)
+      _write_audio_manifest(dir.resolve("build/audio/lecture"), Vector("title", "description", "summary"), Some("dialogue.wav"))
+      _write_audio_manifest(dir.resolve("build/audio/board"), Vector("title", "description", "summary"), Some("storyboard.wav"))
+      _write(
+        dir.resolve("video_project.json"),
+        s"""{
+           |  "title": "Simple Render Video",
+           |  "parts": [
+           |    {"id": "lecture", "type": "dialogue", "script": "dialogue.json", "output": "build/parts/lecture.mp4"},
+           |    {"id": "board", "type": "storyboard", "script": "storyboard.json", "output": "build/parts/board.mp4"}
+           |  ]
+           |}
+           |""".stripMargin
+      )
+      val runner = RenderingRunner()
+
+      val out = CozyVideo.render(CozyVideo.RenderConfig(dir.resolve("video_project.json"), "simple-java2d"), CozyVideo.VideoToolRegistry(Vector.empty), runner)
+
+      assert(out.contains("Cozy Video Render"))
+      assert(out.contains("parts: 2"))
+      assert(out.contains("part.lecture: " + dir.resolve("build/parts/lecture.mp4").normalize()))
+      assert(out.contains("simpleJava2dWorkDir: " + dir.resolve("target/cozy-video/simple-java2d/lecture").normalize()))
+      assert(runner.commands.size == 4)
+      assert(runner.commands(0).args.take(8) == Vector("docker", "run", "--rm", "-v", s"$dir:/workspace", "-w", "/workspace", "simplemodeling/cozy-toolchain:latest"))
+      assert(runner.commands(0).args.contains("python3"))
+      assert(runner.commands(0).args.exists(_.endsWith("target/cozy-video/simple-java2d/lecture/render_frame.py")))
+      assert(runner.commands(1).args.contains("ffmpeg"))
+      assert(runner.commands(1).args.contains("/workspace/target/cozy-video/simple-java2d/lecture/frame.png"))
+      assert(runner.commands(1).args.contains("/workspace/build/audio/lecture/dialogue.wav"))
+      assert(Files.isRegularFile(dir.resolve("target/cozy-video/simple-java2d/lecture/props.json")))
+      assert(Files.isRegularFile(dir.resolve("target/cozy-video/simple-java2d/lecture/render_frame.py")))
+      assert(Files.isRegularFile(dir.resolve("target/cozy-video/simple-java2d/lecture/frame.png")))
+      assert(!_read(dir.resolve("target/cozy-video/simple-java2d/lecture/render_frame.py")).contains("props.get(\"framePath\""))
+      assert(Files.isRegularFile(dir.resolve("build/parts/lecture.mp4")))
+      assert(Files.isRegularFile(dir.resolve("build/parts/lecture.manifest.json")))
+      val manifest = _read(dir.resolve("build/parts/lecture.manifest.json"))
+      assert(manifest.contains("\"renderer\" : \"simple-java2d\""))
+      assert(manifest.contains("\"framePath\""))
+      assert(manifest.contains("\"audioCombinedPath\""))
+      assert(manifest.contains("\"simpleJava2dWorkDir\""))
+    }
+  }
+
+  test("video render simple-java2d can render one selected part in host mode") {
+    _with_temp_dir("cozy-video-render-simple-java2d-host") { dir =>
+      _write(dir.resolve("dialogue.json"), _script_json)
+      _write(dir.resolve("storyboard.json"), _script_json)
+      _write_audio_manifest(dir.resolve("build/audio/lecture"), Vector("title", "description", "summary"), Some("dialogue.wav"))
+      _write_audio_manifest(dir.resolve("build/audio/board"), Vector("title", "description", "summary"), Some("storyboard.wav"))
+      _write(
+        dir.resolve("video_project.json"),
+        s"""{
+           |  "parts": [
+           |    {"id": "lecture", "type": "dialogue", "script": "dialogue.json"},
+           |    {"id": "board", "type": "storyboard", "script": "storyboard.json"}
+           |  ]
+           |}
+           |""".stripMargin
+      )
+      val runner = RenderingRunner()
+
+      val out = CozyVideo.render(CozyVideo.RenderConfig(dir.resolve("video_project.json"), "simple-java2d", part = Some("board"), toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), runner)
+
+      assert(out.contains("toolMode: host"))
+      assert(out.contains("parts: 1"))
+      assert(out.contains("part.board: " + dir.resolve("build/parts/board.mp4").normalize()))
+      assert(runner.commands.size == 2)
+      assert(runner.commands(0).args.head == "python3")
+      assert(runner.commands(1).args.head == "ffmpeg")
+      assert(!runner.commands.exists(_.args.head == "docker"))
+      assert(Files.isRegularFile(dir.resolve("build/parts/board.manifest.json")))
+    }
+  }
+
   test("video render remotion fails for invalid selection renderer inputs and runner failures") {
     _with_temp_dir("cozy-video-render-errors") { dir =>
       _write(dir.resolve("script.json"), _script_json)
@@ -450,7 +527,7 @@ final class CozyVideoSpec extends AnyFunSuite {
       assert(unknownpart.getMessage.contains("Unknown video part"))
 
       val unsupportedrenderer = intercept[Throwable] {
-        CozyVideo.render(CozyVideo.RenderConfig(dir.resolve("video_project.json"), "simple-java2d"), CozyVideo.VideoToolRegistry(Vector.empty), RecordingRunner())
+        CozyVideo.render(CozyVideo.RenderConfig(dir.resolve("video_project.json"), "simple-java3d"), CozyVideo.VideoToolRegistry(Vector.empty), RecordingRunner())
       }
       assert(unsupportedrenderer.getMessage.contains("Unsupported video renderer"))
 
@@ -464,6 +541,44 @@ final class CozyVideoSpec extends AnyFunSuite {
       }
       assert(runnerfailure.getMessage.contains("Remotion render failed"))
       assert(runnerfailure.getMessage.contains("remotion missing"))
+    }
+  }
+
+  test("video render simple-java2d validates combined audio runner failures and tool checks") {
+    _with_temp_dir("cozy-video-render-simple-java2d-errors") { dir =>
+      _write(dir.resolve("script.json"), _script_json)
+      _write_audio_manifest(dir.resolve("build/audio/intro"), Vector("title", "description", "summary"))
+      _write(dir.resolve("video_project.json"), _project_json("script.json"))
+
+      val missingcombined = intercept[Throwable] {
+        CozyVideo.render(CozyVideo.RenderConfig(dir.resolve("video_project.json"), "simple-java2d"), CozyVideo.VideoToolRegistry(Vector.empty), RenderingRunner())
+      }
+      assert(missingcombined.getMessage.contains("Missing combined audio file"))
+      assert(missingcombined.getMessage.contains("cozy video synthesize"))
+
+      Files.write(dir.resolve("build/audio/intro/script.wav"), _wav_bytes(0.4))
+      val framefailure = intercept[Throwable] {
+        CozyVideo.render(CozyVideo.RenderConfig(dir.resolve("video_project.json"), "simple-java2d"), CozyVideo.VideoToolRegistry(Vector.empty), RenderingRunner(failTool = Some("python3")))
+      }
+      assert(framefailure.getMessage.contains("simple-java2d frame render failed"))
+
+      val ffmpegfailure = intercept[Throwable] {
+        CozyVideo.render(CozyVideo.RenderConfig(dir.resolve("video_project.json"), "simple-java2d"), CozyVideo.VideoToolRegistry(Vector.empty), RenderingRunner(failTool = Some("ffmpeg")))
+      }
+      assert(ffmpegfailure.getMessage.contains("simple-java2d ffmpeg encode failed"))
+
+      val missingtool = intercept[Throwable] {
+        CozyVideo.render(
+          CozyVideo.RenderConfig(dir.resolve("video_project.json"), "simple-java2d", checkTools = true, toolMode = Some("host")),
+          CozyVideo.VideoToolRegistry(Vector(
+            StubProvider(CozyVideo.VideoToolCheck("python-pillow", CozyVideo.VideoToolMode.Host, CozyVideo.VideoToolStatus.Available, "ok")),
+            StubProvider(CozyVideo.VideoToolCheck("ffmpeg", CozyVideo.VideoToolMode.Host, CozyVideo.VideoToolStatus.Missing, "missing ffmpeg", Some("install ffmpeg")))
+          )),
+          RenderingRunner()
+        )
+      }
+      assert(missingtool.getMessage.contains("ffmpeg is missing"))
+      assert(missingtool.getMessage.contains("install ffmpeg"))
     }
   }
 
@@ -890,7 +1005,7 @@ final class CozyVideoSpec extends AnyFunSuite {
       assert(help.contains("video inspect <project-file>"))
       assert(help.contains("video build <project-file> --dry-run"))
       assert(help.contains("video synthesize <script-file> --save <audio-dir>"))
-      assert(help.contains("video render <project-file> --renderer=remotion"))
+      assert(help.contains("video render <project-file> --renderer=remotion|simple-java2d"))
       assert(help.contains("--check-tools"))
     }
   }
@@ -1027,6 +1142,31 @@ object CozyVideoSpec {
     }
   }
 
+  final case class RenderingRunner(
+    failTool: Option[String] = None
+  ) extends CozyVideo.VideoProcessRunner {
+    val commands = ArrayBuffer.empty[RecordingCommand]
+
+    def run(args: Vector[String], cwd: Path): CozyVideo.VideoCommandResult = {
+      commands += RecordingCommand(args, cwd)
+      if (failTool.exists(args.contains))
+        CozyVideo.VideoCommandResult(1, "", s"${failTool.get} failed")
+      else {
+        if (args.contains("python3"))
+          Files.writeString(_command_path(cwd, args.find(_.endsWith("render_frame.py")).get).getParent.resolve("frame.png"), "png", StandardCharsets.UTF_8)
+        if (args.contains("ffmpeg"))
+          Files.write(_command_path(cwd, args.last), Array[Byte](0, 0, 0, 0))
+        CozyVideo.VideoCommandResult(0, "ok", "")
+      }
+    }
+  }
+
+  private def _command_path(cwd: Path, value: String): Path =
+    if (value.startsWith("/workspace/"))
+      cwd.resolve(value.stripPrefix("/workspace/")).normalize()
+    else
+      Paths.get(value).normalize()
+
   private def _wav_bytes(duration: Double): Array[Byte] = {
     val samplerate = 24000
     val frames = math.max(1, (duration * samplerate).toInt)
@@ -1064,11 +1204,14 @@ object CozyVideoSpec {
     out.write((value >>> 8) & 0xff)
   }
 
-  private def _write_audio_manifest(dir: Path, scenes: Vector[String]): Unit = {
+  private def _write_audio_manifest(dir: Path, scenes: Vector[String], combined: Option[String] = None): Unit = {
     Files.createDirectories(dir)
     scenes.zipWithIndex.foreach {
       case (scene, index) =>
         Files.write(dir.resolve(f"${index + 1}%02d-$scene.wav"), _wav_bytes(0.2))
+    }
+    combined.foreach { name =>
+      Files.write(dir.resolve(name), _wav_bytes(scenes.size.toDouble * 0.2))
     }
     Files.writeString(dir.resolve("manifest.json"), _audio_manifest_json(scenes), StandardCharsets.UTF_8)
   }

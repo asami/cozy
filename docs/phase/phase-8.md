@@ -88,7 +88,7 @@ Out of scope:
 - [x] VDO-06C: Unified Cozy toolchain Docker image developed
 - [x] VDO-07: VOICEVOX synthesis implemented
 - [x] VDO-08: Remotion renderer adapter implemented
-- [ ] VDO-09: Java2D simple renderer implemented
+- [x] VDO-09: Java2D simple renderer implemented
 - [ ] VDO-10: ffmpeg/ffprobe integration implemented
 - [ ] VDO-11: RDF generation implemented
 - [ ] VDO-12: BoK registration extension point decided
@@ -213,6 +213,11 @@ Out of scope:
   implementation. Structured document parsing is complete for project and
   script inputs, while the command surface and model work remain open for the
   later RDF, transcription, and replay slices.
+- 2026-06-18: Completed VDO-09 Java2D simple renderer. `cozy video render`
+  now accepts `--renderer=simple-java2d`, generates a Python/Pillow static
+  frame workspace, muxes the frame with VDO-07 combined audio through ffmpeg,
+  and writes renderer-specific part manifests. Final project concat/mux
+  remains deferred to VDO-10.
 
 ## References
 
