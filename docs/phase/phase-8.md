@@ -92,7 +92,7 @@ Out of scope:
 - [x] VDO-10: ffmpeg/ffprobe integration implemented
 - [x] VDO-11: RDF generation implemented
 - [x] VDO-12: BoK registration extension point decided
-- [ ] VDO-13: Runtime smoke fixture added
+- [x] VDO-13: Runtime smoke fixture added
 - [ ] VDO-14: Existing workflows preserved
 - [ ] VDO-15: Recorded demo transcription implemented
 - [ ] VDO-16: Playwright demo replay generation implemented
@@ -233,6 +233,11 @@ Out of scope:
   BoK/publish integration through `src/main/publication`, while explicitly
   keeping video RDF registration commands and automatic BoK page generation
   deferred to a later phase.
+- 2026-06-19: Completed VDO-13 runtime smoke fixture for the implemented
+  `cozy video` surface. `src/sbt-test/cozy/video-runtime-smoke` now validates
+  `inspect`, `build --dry-run`, `rdf`, and `--check-tools` through the real
+  `cozy.Cozy` entrypoint without requiring media tools to be installed.
+  Transcription and replay smoke coverage remains tied to VDO-15 and VDO-16.
 
 ## References
 

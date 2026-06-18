@@ -918,7 +918,7 @@ final class CozyVideoSpec extends AnyFunSuite {
         CozyVideo.VideoToolRegistry.production(probe)
       )
 
-      assert(!out.contains("tools:"))
+      assert(!out.contains("tool checks:"))
       assert(probe.commands.isEmpty)
       assert(probe.httpGets.isEmpty)
       assert(probe.existsChecks.isEmpty)
@@ -1193,7 +1193,7 @@ final class CozyVideoSpec extends AnyFunSuite {
 
       assert(out.contains("Cozy Video Build Dry-Run"))
       assert(out.contains("commands:"))
-      assert(out.contains("tools:"))
+      assert(out.contains("tool checks:"))
       assert(out.contains("docker-toolchain: missing (docker)"))
       assert(out.contains("voicevox: missing (external-service)"))
     }

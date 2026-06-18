@@ -2730,7 +2730,7 @@ private[cozy] object CozyVideo {
 
   private def _render_tool_checks(checks: Vector[VideoToolCheck]): Vector[String] = {
     val b = Vector.newBuilder[String]
-    b += "tools:"
+    b += "tool checks:"
     checks.foreach { check =>
       b += s"  - ${check.name}: ${check.status.label} (${check.mode.label}) - ${check.message}"
       check.setupHint.foreach(x => b += s"    setup: $x")
