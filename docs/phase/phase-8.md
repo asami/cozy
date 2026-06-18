@@ -89,7 +89,7 @@ Out of scope:
 - [x] VDO-07: VOICEVOX synthesis implemented
 - [x] VDO-08: Remotion renderer adapter implemented
 - [x] VDO-09: Java2D simple renderer implemented
-- [ ] VDO-10: ffmpeg/ffprobe integration implemented
+- [x] VDO-10: ffmpeg/ffprobe integration implemented
 - [ ] VDO-11: RDF generation implemented
 - [ ] VDO-12: BoK registration extension point decided
 - [ ] VDO-13: Runtime smoke fixture added
@@ -218,6 +218,11 @@ Out of scope:
   frame workspace, muxes the frame with VDO-07 combined audio through ffmpeg,
   and writes renderer-specific part manifests. Final project concat/mux
   remains deferred to VDO-10.
+- 2026-06-18: Completed VDO-10 ffmpeg/ffprobe final assembly.
+  `cozy video build` without `--dry-run` now assembles already-rendered part
+  MP4 files into the project final output, validates the output with ffprobe,
+  and writes a deterministic project manifest. RDF, transcription, and replay
+  remain open for later VDO slices.
 
 ## References
 

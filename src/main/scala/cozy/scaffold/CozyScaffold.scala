@@ -1500,10 +1500,9 @@ private[cozy] object CozyScaffold {
       |      Project and script files may be JSON, YAML, HOCON, or XML.
       |      Docker is the default tool mode; VOICEVOX is always checked as an external HTTP service.
       |
-      |  video build <project-file> --dry-run [--check-tools] [--tool-mode=<docker|host>] [--docker-image=<image>]
-      |      Print planned video artifacts and command steps without executing external tools.
+      |  video build <project-file> [--dry-run] [--check-tools] [--tool-mode=<docker|host>] [--docker-image=<image>]
+      |      Assemble already-rendered part MP4 files into the project final output, or print the plan with --dry-run.
       |      Docker mode wraps Remotion, Playwright, ffmpeg, whisper.cpp, and Python/Pillow helper steps in the configured Cozy toolchain image.
-      |      Non-dry-run video build is not implemented in this version.
       |
       |  video synthesize <script-file> --save <audio-dir> [--voicevox-url=<url>]
       |      Generate VOICEVOX scene WAV files, a combined WAV, and manifest.json.

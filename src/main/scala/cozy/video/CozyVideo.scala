@@ -921,7 +921,7 @@ private[cozy] object CozyVideo {
         println(inspect(InspectConfig.create(rest), tools))
         true
       case "video" :: "build" :: rest =>
-        println(build(BuildConfig.create(rest), tools))
+        println(build(BuildConfig.create(rest), tools, runner))
         true
       case "video" :: "synthesize" :: rest =>
         println(synthesize(SynthesizeConfig.create(rest), voicevox))
@@ -941,12 +941,19 @@ private[cozy] object CozyVideo {
     _render_inspect(config, plan, if (config.checkTools) tools.checks(context) else Vector.empty)
   }
 
-  def build(config: BuildConfig, tools: VideoToolRegistry): String = {
-    if (!config.dryRun)
-      RAISE.invalidArgumentFault("cozy video build without --dry-run is not implemented yet")
+  def build(config: BuildConfig, tools: VideoToolRegistry): String =
+    build(config, tools, VideoProcessRunner.default)
+
+  def build(config: BuildConfig, tools: VideoToolRegistry, runner: VideoProcessRunner): String = {
     val plan = _plan(config.projectFile, config.toolMode, config.dockerImage)
     val context = VideoToolContext(config.projectFile, config.projectRoot, plan.project, plan.execution)
-    _render_build_dry_run(config, plan, if (config.checkTools) tools.checks(context) else Vector.empty)
+    val checks = if (config.checkTools) tools.checks(context) else Vector.empty
+    if (config.dryRun)
+      _render_build_dry_run(config, plan, checks)
+    else {
+      _validate_build_tools(plan.execution, checks)
+      _render_build_result(_build_project(plan, runner))
+    }
   }
 
   def synthesize(config: SynthesizeConfig, voicevox: VoicevoxClient): String = {
@@ -1054,6 +1061,17 @@ private[cozy] object CozyVideo {
     parts: Vector[VideoRenderedPart],
     toolMode: VideoToolMode,
     dockerImage: String
+  )
+
+  final case class VideoBuildResult(
+    projectFile: Path,
+    outputPath: Path,
+    manifestPath: Path,
+    concatListPath: Path,
+    partOutputs: Vector[Path],
+    toolMode: VideoToolMode,
+    dockerImage: String,
+    ffprobeSummary: Json
   )
 
   final case class VideoAudioInput(
@@ -1378,6 +1396,158 @@ private[cozy] object CozyVideo {
         RAISE.invalidArgumentFault(s"Cannot render with $renderer: ${check.name} is missing.${hint}")
       }
     }
+
+  private def _validate_build_tools(execution: VideoExecutionConfig, checks: Vector[VideoToolCheck]): Unit =
+    if (checks.nonEmpty) {
+      val required =
+        execution.toolMode match {
+          case VideoToolMode.Docker => Set("docker-toolchain", "docker-image", "cozy-toolchain-image")
+          case VideoToolMode.Host => Set("ffmpeg")
+          case VideoToolMode.ExternalService => Set.empty[String]
+        }
+      checks.filter(x => required.contains(x.name) && x.status == VideoToolStatus.Missing).headOption.foreach { check =>
+        val hint = check.setupHint.map(x => s" $x").getOrElse("")
+        RAISE.invalidArgumentFault(s"Cannot build video: ${check.name} is missing.${hint}")
+      }
+    }
+
+  private def _build_project(plan: VideoPlan, runner: VideoProcessRunner): VideoBuildResult = {
+    val partoutputs = plan.parts.filter(_.renderable).map(_.outputPath)
+    if (partoutputs.isEmpty)
+      RAISE.invalidArgumentFault("No rendered video part outputs found for final assembly.")
+    partoutputs.foreach { path =>
+      if (!Files.isRegularFile(path))
+        RAISE.invalidArgumentFault(s"Missing rendered part output: $path. Run: cozy video render <project-file> --renderer=remotion|simple-java2d")
+    }
+    val concatlist = _ffmpeg_concat_list_path(plan.projectRoot)
+    _write_ffmpeg_concat_list(plan.projectRoot, plan.execution, concatlist, partoutputs)
+    _run_build_ffmpeg(plan.projectRoot, plan.execution, concatlist, plan.outputPath, runner)
+    if (!Files.isRegularFile(plan.outputPath))
+      RAISE.invalidArgumentFault(s"ffmpeg concat/mux did not create output: ${plan.outputPath}")
+    val ffprobe = _run_build_ffprobe(plan.projectRoot, plan.execution, plan.outputPath, runner)
+    val summary = _ffprobe_summary(ffprobe)
+    _write_project_manifest(plan, concatlist, partoutputs, summary)
+    VideoBuildResult(plan.projectFile, plan.outputPath, plan.manifestPath, concatlist, partoutputs, plan.execution.toolMode, plan.execution.dockerImage, summary)
+  }
+
+  private def _ffmpeg_concat_list_path(projectroot: Path): Path =
+    projectroot.resolve("target/cozy-video/ffmpeg/concat.txt").normalize()
+
+  private def _write_ffmpeg_concat_list(
+    projectroot: Path,
+    execution: VideoExecutionConfig,
+    path: Path,
+    partoutputs: Vector[Path]
+  ): Unit = {
+    Files.createDirectories(path.getParent)
+    val lines = partoutputs.map { part =>
+      val value =
+        execution.toolMode match {
+          case VideoToolMode.Docker => _docker_path(projectroot, part)
+          case _ => part.toString
+        }
+      s"file '${_ffmpeg_concat_escape(value)}'"
+    }
+    Files.writeString(path, lines.mkString("", "\n", "\n"), StandardCharsets.UTF_8)
+  }
+
+  private def _ffmpeg_concat_escape(value: String): String =
+    value.replace("\\", "\\\\").replace("'", "\\'")
+
+  private def _run_build_ffmpeg(
+    projectroot: Path,
+    execution: VideoExecutionConfig,
+    concatlist: Path,
+    output: Path,
+    runner: VideoProcessRunner
+  ): Unit = {
+    Files.createDirectories(output.getParent)
+    val concatarg = _execution_path(projectroot, execution, concatlist)
+    val outputarg = _execution_path(projectroot, execution, output)
+    val args = _execution_command(projectroot, execution, "ffmpeg", Vector(
+      "-y",
+      "-f",
+      "concat",
+      "-safe",
+      "0",
+      "-i",
+      concatarg,
+      "-c",
+      "copy",
+      outputarg
+    ))
+    val result = runner.run(args, projectroot)
+    if (!result.isSuccess)
+      RAISE.invalidArgumentFault(s"ffmpeg concat/mux failed: ${result.stderr.trim}")
+  }
+
+  private def _run_build_ffprobe(
+    projectroot: Path,
+    execution: VideoExecutionConfig,
+    output: Path,
+    runner: VideoProcessRunner
+  ): VideoCommandResult = {
+    val outputarg = _execution_path(projectroot, execution, output)
+    val args = _execution_command(projectroot, execution, "ffprobe", Vector(
+      "-v",
+      "error",
+      "-print_format",
+      "json",
+      "-show_format",
+      "-show_streams",
+      outputarg
+    ))
+    val result = runner.run(args, projectroot)
+    if (!result.isSuccess)
+      RAISE.invalidArgumentFault(s"ffprobe validation failed: ${result.stderr.trim}")
+    result
+  }
+
+  private def _execution_path(projectroot: Path, execution: VideoExecutionConfig, path: Path): String =
+    execution.toolMode match {
+      case VideoToolMode.Docker => _docker_path(projectroot, path)
+      case _ => path.toString
+    }
+
+  private def _execution_command(projectroot: Path, execution: VideoExecutionConfig, tool: String, args: Vector[String]): Vector[String] =
+    execution.toolMode match {
+      case VideoToolMode.Docker =>
+        Vector(
+          "docker",
+          "run",
+          "--rm",
+          "-v",
+          s"${projectroot}:/workspace",
+          "-w",
+          "/workspace",
+          execution.dockerImage,
+          tool
+        ) ++ args
+      case VideoToolMode.Host =>
+        Vector(tool) ++ args
+      case VideoToolMode.ExternalService =>
+        RAISE.invalidArgumentFault(s"$tool cannot use external-service tool mode")
+    }
+
+  private def _ffprobe_summary(result: VideoCommandResult): Json =
+    parser.parse(result.stdout).fold(
+      e => RAISE.invalidArgumentFault(s"ffprobe returned invalid JSON: ${e.getMessage}"),
+      identity
+    )
+
+  private def _write_project_manifest(plan: VideoPlan, concatlist: Path, partoutputs: Vector[Path], ffprobe: Json): Unit = {
+    Files.createDirectories(plan.manifestPath.getParent)
+    val json = Json.obj(
+      "projectFile" -> Json.fromString(plan.projectFile.toString),
+      "outputPath" -> Json.fromString(plan.outputPath.toString),
+      "partOutputs" -> Json.fromValues(partoutputs.map(x => Json.fromString(x.toString))),
+      "toolMode" -> Json.fromString(plan.execution.toolMode.label),
+      "dockerImage" -> Json.fromString(plan.execution.dockerImage),
+      "concatListPath" -> Json.fromString(concatlist.toString),
+      "ffprobe" -> ffprobe
+    )
+    Files.writeString(plan.manifestPath, json.spaces2, StandardCharsets.UTF_8)
+  }
 
   private def _render_remotion(
     config: RenderConfig,
@@ -2149,6 +2319,23 @@ private[cozy] object CozyVideo {
     if (config.checkTools) {
       b ++= _render_tool_checks(checks)
     }
+    b.result().mkString("\n") + "\n"
+  }
+
+  private def _render_build_result(result: VideoBuildResult): String = {
+    val b = Vector.newBuilder[String]
+    b += "Cozy Video Build"
+    b += s"projectFile: ${result.projectFile}"
+    b += s"toolMode: ${result.toolMode.label}"
+    b += s"dockerImage: ${result.dockerImage}"
+    b += s"output: ${result.outputPath}"
+    b += s"manifest: ${result.manifestPath}"
+    b += s"concatList: ${result.concatListPath}"
+    b += s"parts: ${result.partOutputs.size}"
+    result.partOutputs.foreach { path =>
+      b += s"  - partOutput: $path"
+    }
+    b += s"ffprobe: ${result.ffprobeSummary.noSpaces}"
     b.result().mkString("\n") + "\n"
   }
 

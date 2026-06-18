@@ -164,10 +164,10 @@ Status: DONE
 
 ## VDO-10: ffmpeg/ffprobe Integration
 
-Status: OPEN
+Status: DONE
 
-- [ ] Run concat/mux/probe commands through a common process runner.
-- [ ] Report missing or failed media commands clearly.
+- [x] Run concat/mux/probe commands through a common process runner.
+- [x] Report missing or failed media commands clearly.
 
 ## VDO-11: RDF Generation
 

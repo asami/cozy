@@ -243,15 +243,131 @@ final class CozyVideoSpec extends AnyFunSuite {
     }
   }
 
-  test("video build requires dry-run for VDO-05") {
-    _with_temp_dir("cozy-video-build-no-dry-run") { dir =>
+  test("video build assembles rendered parts with ffmpeg and validates with ffprobe") {
+    _with_temp_dir("cozy-video-build-final-docker") { dir =>
+      _write(dir.resolve("dialogue.json"), _script_json)
+      _write(dir.resolve("storyboard.json"), _script_json)
+      _write_bytes(dir.resolve("build/parts/lecture.mp4"), Array[Byte](1, 2, 3))
+      _write_bytes(dir.resolve("build/parts/board.mp4"), Array[Byte](4, 5, 6))
+      _write(
+        dir.resolve("video_project.json"),
+        s"""{
+           |  "title": "Final Build",
+           |  "output": "build/final.mp4",
+           |  "parts": [
+           |    {"id": "lecture", "type": "dialogue", "script": "dialogue.json", "output": "build/parts/lecture.mp4"},
+           |    {"id": "board", "type": "storyboard", "script": "storyboard.json", "output": "build/parts/board.mp4"}
+           |  ]
+           |}
+           |""".stripMargin
+      )
+      val runner = AssemblyRunner()
+
+      val out = CozyVideo.build(CozyVideo.BuildConfig(dir.resolve("video_project.json"), dryRun = false, checkTools = false), CozyVideo.VideoToolRegistry(Vector.empty), runner)
+
+      assert(out.contains("Cozy Video Build"))
+      assert(out.contains("output: " + dir.resolve("build/final.mp4").normalize()))
+      assert(out.contains("manifest: " + dir.resolve("build/manifest.json").normalize()))
+      assert(out.contains("parts: 2"))
+      assert(runner.commands.size == 2)
+      assert(runner.commands(0).args.take(8) == Vector("docker", "run", "--rm", "-v", s"$dir:/workspace", "-w", "/workspace", "simplemodeling/cozy-toolchain:latest"))
+      assert(runner.commands(0).args.contains("ffmpeg"))
+      assert(runner.commands(0).args.contains("/workspace/target/cozy-video/ffmpeg/concat.txt"))
+      assert(runner.commands(0).args.contains("/workspace/build/final.mp4"))
+      assert(runner.commands(1).args.contains("ffprobe"))
+      assert(runner.commands(1).args.contains("/workspace/build/final.mp4"))
+      val concat = _read(dir.resolve("target/cozy-video/ffmpeg/concat.txt"))
+      assert(concat.contains("file '/workspace/build/parts/lecture.mp4'"))
+      assert(concat.contains("file '/workspace/build/parts/board.mp4'"))
+      assert(Files.isRegularFile(dir.resolve("build/final.mp4")))
+      val manifest = _read(dir.resolve("build/manifest.json"))
+      assert(manifest.contains("\"outputPath\""))
+      assert(manifest.contains("\"partOutputs\""))
+      assert(manifest.contains("\"concatListPath\""))
+      assert(manifest.contains("\"ffprobe\""))
+    }
+  }
+
+  test("video build can assemble rendered parts in host mode") {
+    _with_temp_dir("cozy-video-build-final-host") { dir =>
       _write(dir.resolve("script.json"), _script_json)
+      _write_bytes(dir.resolve("build/parts/intro.mp4"), Array[Byte](1, 2, 3))
       _write(dir.resolve("video_project.json"), _project_json("script.json"))
-      val e = intercept[Throwable] {
-        CozyVideo.execute(List("video", "build", dir.resolve("video_project.json").toString), CozyVideo.VideoToolRegistry(Vector.empty))
+      val runner = AssemblyRunner()
+
+      val out = CozyVideo.build(CozyVideo.BuildConfig(dir.resolve("video_project.json"), dryRun = false, checkTools = false, toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), runner)
+
+      assert(out.contains("toolMode: host"))
+      assert(runner.commands.size == 2)
+      assert(runner.commands(0).args.head == "ffmpeg")
+      assert(runner.commands(1).args.head == "ffprobe")
+      assert(!runner.commands.exists(_.args.head == "docker"))
+      assert(_read(dir.resolve("target/cozy-video/ffmpeg/concat.txt")).contains("file '" + dir.resolve("build/parts/intro.mp4").normalize() + "'"))
+      assert(Files.isRegularFile(dir.resolve("build/manifest.json")))
+    }
+  }
+
+  test("cozy video build CLI dispatch assembles rendered parts through injected runner") {
+    _with_temp_dir("cozy-video-build-final-cli") { dir =>
+      _write(dir.resolve("script.json"), _script_json)
+      _write_bytes(dir.resolve("build/parts/intro.mp4"), Array[Byte](1, 2, 3))
+      _write(dir.resolve("video_project.json"), _project_json("script.json"))
+      val runner = AssemblyRunner()
+
+      val out = _capture {
+        assert(CozyVideo.execute(
+          List("video", "build", dir.resolve("video_project.json").toString, "--tool-mode=host"),
+          CozyVideo.VideoToolRegistry(Vector.empty),
+          RecordingVoicevoxClient(),
+          runner
+        ))
       }
 
-      assert(e.getMessage.contains("without --dry-run is not implemented yet"))
+      assert(out.contains("Cozy Video Build"))
+      assert(runner.commands.size == 2)
+      assert(runner.commands(0).args.head == "ffmpeg")
+      assert(runner.commands(1).args.head == "ffprobe")
+      assert(Files.isRegularFile(dir.resolve("build/final.mp4")))
+      assert(Files.isRegularFile(dir.resolve("build/manifest.json")))
+    }
+  }
+
+  test("video build reports missing part outputs runner failures and tool checks") {
+    _with_temp_dir("cozy-video-build-final-errors") { dir =>
+      _write(dir.resolve("script.json"), _script_json)
+      _write(dir.resolve("video_project.json"), _project_json("script.json"))
+
+      val missingoutput = intercept[Throwable] {
+        CozyVideo.build(CozyVideo.BuildConfig(dir.resolve("video_project.json"), dryRun = false, checkTools = false), CozyVideo.VideoToolRegistry(Vector.empty), AssemblyRunner())
+      }
+      assert(missingoutput.getMessage.contains("Missing rendered part output"))
+      assert(missingoutput.getMessage.contains("cozy video render"))
+
+      _write_bytes(dir.resolve("build/parts/intro.mp4"), Array[Byte](1, 2, 3))
+      val ffmpegfailure = intercept[Throwable] {
+        CozyVideo.build(CozyVideo.BuildConfig(dir.resolve("video_project.json"), dryRun = false, checkTools = false), CozyVideo.VideoToolRegistry(Vector.empty), AssemblyRunner(failTool = Some("ffmpeg")))
+      }
+      assert(ffmpegfailure.getMessage.contains("ffmpeg concat/mux failed"))
+
+      val ffprobefailure = intercept[Throwable] {
+        CozyVideo.build(CozyVideo.BuildConfig(dir.resolve("video_project.json"), dryRun = false, checkTools = false), CozyVideo.VideoToolRegistry(Vector.empty), AssemblyRunner(failTool = Some("ffprobe")))
+      }
+      assert(ffprobefailure.getMessage.contains("ffprobe validation failed"))
+
+      val invalidprobe = intercept[Throwable] {
+        CozyVideo.build(CozyVideo.BuildConfig(dir.resolve("video_project.json"), dryRun = false, checkTools = false), CozyVideo.VideoToolRegistry(Vector.empty), AssemblyRunner(invalidProbeJson = true))
+      }
+      assert(invalidprobe.getMessage.contains("ffprobe returned invalid JSON"))
+
+      val missingtool = intercept[Throwable] {
+        CozyVideo.build(
+          CozyVideo.BuildConfig(dir.resolve("video_project.json"), dryRun = false, checkTools = true, toolMode = Some("host")),
+          CozyVideo.VideoToolRegistry(Vector(StubProvider(CozyVideo.VideoToolCheck("ffmpeg", CozyVideo.VideoToolMode.Host, CozyVideo.VideoToolStatus.Missing, "missing ffmpeg", Some("install ffmpeg"))))),
+          AssemblyRunner()
+        )
+      }
+      assert(missingtool.getMessage.contains("ffmpeg is missing"))
+      assert(missingtool.getMessage.contains("install ffmpeg"))
     }
   }
 
@@ -1003,7 +1119,7 @@ final class CozyVideoSpec extends AnyFunSuite {
       assert(render.contains("part.intro: " + dir.resolve("build/parts/intro.mp4").normalize()))
       assert(runner.commands.nonEmpty)
       assert(help.contains("video inspect <project-file>"))
-      assert(help.contains("video build <project-file> --dry-run"))
+      assert(help.contains("video build <project-file> [--dry-run]"))
       assert(help.contains("video synthesize <script-file> --save <audio-dir>"))
       assert(help.contains("video render <project-file> --renderer=remotion|simple-java2d"))
       assert(help.contains("--check-tools"))
@@ -1044,6 +1160,11 @@ final class CozyVideoSpec extends AnyFunSuite {
   private def _write(path: Path, text: String): Unit = {
     Files.createDirectories(path.getParent)
     Files.writeString(path, text, StandardCharsets.UTF_8)
+  }
+
+  private def _write_bytes(path: Path, bytes: Array[Byte]): Unit = {
+    Files.createDirectories(path.getParent)
+    Files.write(path, bytes)
   }
 
   private def _read(path: Path): String =
@@ -1156,6 +1277,30 @@ object CozyVideoSpec {
           Files.writeString(_command_path(cwd, args.find(_.endsWith("render_frame.py")).get).getParent.resolve("frame.png"), "png", StandardCharsets.UTF_8)
         if (args.contains("ffmpeg"))
           Files.write(_command_path(cwd, args.last), Array[Byte](0, 0, 0, 0))
+        CozyVideo.VideoCommandResult(0, "ok", "")
+      }
+    }
+  }
+
+  final case class AssemblyRunner(
+    failTool: Option[String] = None,
+    invalidProbeJson: Boolean = false
+  ) extends CozyVideo.VideoProcessRunner {
+    val commands = ArrayBuffer.empty[RecordingCommand]
+
+    def run(args: Vector[String], cwd: Path): CozyVideo.VideoCommandResult = {
+      commands += RecordingCommand(args, cwd)
+      if (failTool.exists(args.contains))
+        CozyVideo.VideoCommandResult(1, "", s"${failTool.get} failed")
+      else if (args.contains("ffmpeg")) {
+        Files.write(_command_path(cwd, args.last), Array[Byte](0, 0, 0, 0))
+        CozyVideo.VideoCommandResult(0, "ffmpeg ok", "")
+      } else if (args.contains("ffprobe")) {
+        if (invalidProbeJson)
+          CozyVideo.VideoCommandResult(0, "not json", "")
+        else
+          CozyVideo.VideoCommandResult(0, """{"format":{"duration":"1.000"},"streams":[]}""", "")
+      } else {
         CozyVideo.VideoCommandResult(0, "ok", "")
       }
     }
