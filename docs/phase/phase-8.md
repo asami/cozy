@@ -90,7 +90,7 @@ Out of scope:
 - [x] VDO-08: Remotion renderer adapter implemented
 - [x] VDO-09: Java2D simple renderer implemented
 - [x] VDO-10: ffmpeg/ffprobe integration implemented
-- [ ] VDO-11: RDF generation implemented
+- [x] VDO-11: RDF generation implemented
 - [ ] VDO-12: BoK registration extension point decided
 - [ ] VDO-13: Runtime smoke fixture added
 - [ ] VDO-14: Existing workflows preserved
@@ -222,7 +222,12 @@ Out of scope:
   `cozy video build` without `--dry-run` now assembles already-rendered part
   MP4 files into the project final output, validates the output with ffprobe,
   and writes a deterministic project manifest. RDF, transcription, and replay
-  remain open for later VDO slices.
+  remained open for later VDO slices at this point.
+- 2026-06-18: Completed VDO-11 SmartDox semanticweb based Video RDF
+  generation. `cozy video rdf` now projects video project, script, audio,
+  render, and build manifests into Turtle and JSON-LD through SmartDox
+  `Rdf.Graph` / `RdfRenderer`, while recorded demo transcript/replay
+  provenance remains open for VDO-15/VDO-16 manifest inputs.
 
 ## References
 

@@ -6,6 +6,7 @@ import org.goldenport.io.InputSource
 import cozy.config.CozyProjectYamlConfig
 import cozy.runtime.CozyCliArgs
 import org.goldenport.cli.spec
+import org.smartdox.semanticweb.{Rdf, RdfRenderer, Vocabulary}
 import io.circe.{Decoder, HCursor, Json}
 import io.circe.parser
 import java.io.ByteArrayOutputStream
@@ -22,7 +23,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Jun. 18, 2026
- * @version Jun. 18, 2026
+ * @version Jun. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideo {
@@ -105,6 +106,24 @@ private[cozy] object CozyVideo {
         RAISE.invalidArgumentFault("Missing script file for video synthesize")
       )
       SynthesizeConfig(scriptfile, parsed.requiredPathProperty("save"), parsed.property("voicevox-url"))
+    }
+  }
+
+  final case class RdfConfig(
+    projectFile: Path,
+    saveDir: Path,
+    toolMode: Option[String] = None,
+    dockerImage: Option[String] = None
+  ) {
+    def projectRoot: Path = projectFile.getParent
+  }
+  object RdfConfig {
+    def create(args: List[String]): RdfConfig = {
+      val parsed = CozyCliArgs.parseStrict(_p_project_file, _p_save, _p_tool_mode, _p_docker_image)(_normalize_property_args(args))
+      val projectfile = parsed.argument("project-file").map(CozyCliArgs.toPath).getOrElse(
+        RAISE.invalidArgumentFault("Missing project file for video rdf")
+      )
+      RdfConfig(projectfile, parsed.requiredPathProperty("save"), parsed.property("tool-mode"), parsed.property("docker-image"))
     }
   }
 
@@ -906,6 +925,21 @@ private[cozy] object CozyVideo {
   private val _docker_managed_tools = Set("remotion", "playwright", "ffmpeg", "ffprobe", "node", "npm", "whisper-cpp", "python-pillow")
   private val _property_options = Set("tool-mode", "docker-image", "save", "voicevox-url", "renderer", "part")
   private val _default_sample_rate = 24000
+  private val _video_rdf_namespace = "https://www.simplemodeling.org/ns/cozy/video#"
+  private val _schema_namespace = "https://schema.org/"
+  private val _dcterms_namespace = "http://purl.org/dc/terms/"
+  private val _prov_namespace = "http://www.w3.org/ns/prov#"
+  private val _xsd_namespace = "http://www.w3.org/2001/XMLSchema#"
+  private val _rdf_hex_digits = "0123456789ABCDEF"
+  private val _video_rdf_context: Map[String, Any] = Map(
+    "rdf" -> Vocabulary.Rdf.namespace,
+    "rdfs" -> Vocabulary.Rdfs.namespace,
+    "cozy-video" -> _video_rdf_namespace,
+    "schema" -> _schema_namespace,
+    "dcterms" -> _dcterms_namespace,
+    "prov" -> _prov_namespace,
+    "xsd" -> _xsd_namespace
+  )
 
   def execute(args: List[String]): Boolean = execute(args, VideoToolRegistry.default)
 
@@ -928,6 +962,9 @@ private[cozy] object CozyVideo {
         true
       case "video" :: "render" :: rest =>
         println(render(RenderConfig.create(rest), tools, runner))
+        true
+      case "video" :: "rdf" :: rest =>
+        println(rdf(RdfConfig.create(rest)))
         true
       case "video" :: other :: _ =>
         RAISE.invalidArgumentFault(s"Unsupported video command: $other")
@@ -976,6 +1013,12 @@ private[cozy] object CozyVideo {
         case "simple-java2d" => _render_simple_java2d(config, plan, runner)
       }
     _render_render_result(result)
+  }
+
+  def rdf(config: RdfConfig): String = {
+    val plan = _plan(config.projectFile, config.toolMode, config.dockerImage)
+    val result = _write_video_rdf(config, plan)
+    _render_rdf_result(result)
   }
 
   private def _load_project(path: Path): VideoProject = {
@@ -1072,6 +1115,16 @@ private[cozy] object CozyVideo {
     toolMode: VideoToolMode,
     dockerImage: String,
     ffprobeSummary: Json
+  )
+
+  final case class VideoRdfResult(
+    projectFile: Path,
+    outputDir: Path,
+    turtleFile: Path,
+    jsonLdFile: Path,
+    manifestFile: Path,
+    tripleCount: Int,
+    resourceCount: Int
   )
 
   final case class VideoAudioInput(
@@ -1547,6 +1600,259 @@ private[cozy] object CozyVideo {
       "ffprobe" -> ffprobe
     )
     Files.writeString(plan.manifestPath, json.spaces2, StandardCharsets.UTF_8)
+  }
+
+  private def _write_video_rdf(config: RdfConfig, plan: VideoPlan): VideoRdfResult = {
+    Files.createDirectories(config.saveDir)
+    val graph = _video_rdf_graph(plan)
+    val turtle = RdfRenderer.toTurtle(graph, _video_rdf_context)
+    val jsonld = RdfRenderer.toJsonLD(graph, RdfRenderer.JsonLDProfile.BoK, userContext = _video_rdf_context)
+    val turtlefile = config.saveDir.resolve("video.ttl").normalize()
+    val jsonldfile = config.saveDir.resolve("video.jsonld").normalize()
+    val manifestfile = config.saveDir.resolve("manifest.json").normalize()
+    Files.writeString(turtlefile, turtle, StandardCharsets.UTF_8)
+    Files.writeString(jsonldfile, jsonld, StandardCharsets.UTF_8)
+    val result = VideoRdfResult(
+      plan.projectFile,
+      config.saveDir,
+      turtlefile,
+      jsonldfile,
+      manifestfile,
+      graph.triples.size,
+      graph.triples.map(_.subject).distinct.size
+    )
+    Files.writeString(manifestfile, _video_rdf_manifest(result).spaces2, StandardCharsets.UTF_8)
+    result
+  }
+
+  private def _video_rdf_manifest(result: VideoRdfResult): Json =
+    Json.obj(
+      "projectFile" -> Json.fromString(result.projectFile.toString),
+      "namespace" -> Json.fromString(_video_rdf_namespace),
+      "turtleFile" -> Json.fromString(result.turtleFile.toString),
+      "jsonLdFile" -> Json.fromString(result.jsonLdFile.toString),
+      "tripleCount" -> Json.fromInt(result.tripleCount),
+      "resourceCount" -> Json.fromInt(result.resourceCount)
+    )
+
+  private def _video_rdf_graph(plan: VideoPlan): Rdf.Graph = {
+    val projectid = _video_rdf_resource("project", _project_rdf_slug(plan))
+    val projectmanifest = _read_optional_json_manifest(plan.manifestPath, "project manifest")
+    val projecttriples =
+      Vector(
+        _rdf_type(projectid, "VideoProject"),
+        _rdf_literal(projectid, Vocabulary.Rdfs.label, plan.project.title.orElse(plan.project.name).getOrElse(_basename(plan.projectFile))),
+        _rdf_literal(projectid, _schema("name"), plan.project.name.getOrElse(_basename(plan.projectFile))),
+        _rdf_literal(projectid, _dcterms("source"), plan.projectFile.toString),
+        _rdf_literal(projectid, _cv("path"), plan.projectFile.toString),
+        _rdf_literal(projectid, _cv("outputPath"), plan.outputPath.toString),
+        _rdf_literal(projectid, _cv("toolMode"), plan.execution.toolMode.label),
+        _rdf_literal(projectid, _cv("dockerImage"), plan.execution.dockerImage)
+      ) ++ plan.project.title.map(x => _rdf_literal(projectid, _schema("headline"), x)).toVector ++
+        _artifact_link_triples(projectid, _video_rdf_resource("artifact", "project-output"), "project-output", plan.outputPath, "planned", "project.concat") ++
+        _artifact_link_triples(projectid, _video_rdf_resource("artifact", "project-manifest"), "project-manifest", plan.manifestPath, _rdf_file_status(plan.manifestPath), "project.manifest") ++
+        projectmanifest.toVector.flatMap(json => _json_field_triples(projectid, json, Vector("toolMode", "dockerImage", "concatListPath"), _cv)) ++
+        projectmanifest.flatMap(_.hcursor.downField("ffprobe").focus).toVector.map(json => _rdf_literal(projectid, _cv("ffprobe"), json.noSpaces))
+
+    val parttriples = plan.parts.flatMap(part => _video_part_rdf_triples(projectid, part))
+    val futureartifacts = Vector(
+      plan.projectRoot.resolve("build/transcript.json").normalize() -> "transcript",
+      plan.projectRoot.resolve("build/captions.srt").normalize() -> "caption",
+      plan.projectRoot.resolve("build/demo-script.json").normalize() -> "replay-script"
+    ).filter(x => Files.exists(x._1)).flatMap {
+      case (path, kind) =>
+        _artifact_link_triples(projectid, _video_rdf_resource("artifact", kind), kind, path, "present", "future.video")
+    }
+    Rdf.Graph(projecttriples ++ parttriples ++ futureartifacts)
+  }
+
+  private def _video_part_rdf_triples(projectid: String, part: VideoPartPlan): Vector[Rdf.Triple] = {
+    val partid = _video_rdf_resource("part", part.id)
+    val partmanifest = _read_optional_json_manifest(part.manifestPath, s"part manifest ${part.id}")
+    val audiomanifestpath = part.audioDir.map(_.resolve("manifest.json").normalize())
+    val audioentries = audiomanifestpath.flatMap(path => _read_optional_audio_manifest(path, s"audio manifest ${part.id}"))
+    val basetriples =
+      Vector(
+        _rdf_uri(projectid, _cv("hasPart"), partid),
+        _rdf_type(partid, "VideoPart"),
+        _rdf_literal(partid, Vocabulary.Rdfs.label, part.id),
+        _rdf_literal(partid, _cv("partType"), part.partType),
+        _rdf_literal(partid, _cv("renderer"), part.renderer),
+        _rdf_literal(partid, _cv("supported"), part.supported.toString, Some(_xsd_namespace + "boolean")),
+        _rdf_literal(partid, _cv("outputPath"), part.outputPath.toString)
+      ) ++ part.scriptPath.toVector.flatMap { path =>
+        _artifact_link_triples(partid, _video_rdf_resource("artifact", s"script-${part.id}"), "script", path, part.scriptStatus, s"part.${part.id}.input")
+      } ++ audiomanifestpath.toVector.flatMap { path =>
+        _artifact_link_triples(partid, _video_rdf_resource("artifact", s"audio-manifest-${part.id}"), "audio-manifest", path, _rdf_file_status(path), s"part.${part.id}.synthesize")
+      } ++
+        _artifact_link_triples(partid, _video_rdf_resource("artifact", s"part-output-${part.id}"), "part-output", part.outputPath, "planned", s"part.${part.id}.render") ++
+        _artifact_link_triples(partid, _video_rdf_resource("artifact", s"part-manifest-${part.id}"), "part-manifest", part.manifestPath, _rdf_file_status(part.manifestPath), s"part.${part.id}.manifest") ++
+        partmanifest.toVector.flatMap(json => _json_field_triples(partid, json, Vector("renderer", "outputPath", "toolMode", "dockerImage"), _cv))
+    val scenetriples = part.script.toVector.flatMap { script =>
+      script.expandedScenes.zipWithIndex.flatMap {
+        case (scene, index) =>
+          val sceneid = scene.id.getOrElse(f"scene-${index + 1}%02d")
+          val matchingaudio = audioentries.flatMap(_.find(_.sceneId == sceneid))
+          _video_scene_rdf_triples(partid, part, scene, sceneid, index + 1, matchingaudio)
+      }
+    }
+    basetriples ++ scenetriples
+  }
+
+  private def _video_scene_rdf_triples(
+    partid: String,
+    part: VideoPartPlan,
+    scene: VideoScene,
+    sceneid: String,
+    index: Int,
+    audio: Option[VideoAudioManifestEntry]
+  ): Vector[Rdf.Triple] = {
+    val sceneuri = _video_rdf_resource("scene", s"${part.id}-$sceneid")
+    val utteranceuri = _video_rdf_resource("utterance", s"${part.id}-$sceneid")
+    val text = scene.narration.orElse(scene.line).orElse(scene.caption)
+    val basetriples = Vector(
+      _rdf_uri(partid, _cv("hasScene"), sceneuri),
+      _rdf_type(sceneuri, "VideoScene"),
+      _rdf_literal(sceneuri, Vocabulary.Rdfs.label, sceneid),
+      _rdf_literal(sceneuri, _cv("sceneId"), sceneid),
+      _rdf_literal(sceneuri, _cv("sceneOrder"), index.toString, Some(_xsd_namespace + "integer")),
+      _rdf_literal(sceneuri, _schema("duration"), scene.durationSeconds.toString, Some(_xsd_namespace + "double")),
+      _rdf_uri(sceneuri, _cv("hasUtterance"), utteranceuri),
+      _rdf_type(utteranceuri, "VideoUtterance"),
+      _rdf_literal(utteranceuri, Vocabulary.Rdfs.label, sceneid)
+    ) ++ scene.speaker.map(x => _rdf_literal(utteranceuri, _cv("speaker"), x)).toVector ++
+      text.map(x => _rdf_literal(utteranceuri, _schema("text"), x)).toVector
+    val audiotriples = audio.toVector.flatMap { entry =>
+      val audioartifact = _video_rdf_resource("artifact", s"audio-${part.id}-${entry.sceneId}")
+      val audiofile = part.audioDir.map(_.resolve(entry.file).normalize()).getOrElse(Path.of(entry.file))
+      Vector(
+        _rdf_literal(utteranceuri, _cv("audioDuration"), entry.audioDuration.toString, Some(_xsd_namespace + "double")),
+        _rdf_literal(utteranceuri, _cv("targetDuration"), entry.targetDuration.toString, Some(_xsd_namespace + "double")),
+        _rdf_literal(utteranceuri, _cv("leadSilence"), entry.leadSilence.toString, Some(_xsd_namespace + "double")),
+        _rdf_literal(utteranceuri, _cv("tailSilence"), entry.tailSilence.toString, Some(_xsd_namespace + "double")),
+        _rdf_uri(utteranceuri, _schema("encoding"), audioartifact)
+      ) ++ entry.speaker.map(x => _rdf_literal(utteranceuri, _cv("speaker"), x)).toVector ++
+        _artifact_triples(audioartifact, "audio", audiofile, _rdf_file_status(audiofile), s"part.${part.id}.synthesize")
+    }
+    basetriples ++ audiotriples
+  }
+
+  private def _artifact_link_triples(
+    owner: String,
+    artifactid: String,
+    kind: String,
+    path: Path,
+    status: String,
+    producer: String
+  ): Vector[Rdf.Triple] =
+    Vector(_rdf_uri(owner, _cv("hasArtifact"), artifactid)) ++ _artifact_triples(artifactid, kind, path, status, producer)
+
+  private def _artifact_triples(
+    artifactid: String,
+    kind: String,
+    path: Path,
+    status: String,
+    producer: String
+  ): Vector[Rdf.Triple] = {
+    val executionid = _video_rdf_resource("tool-execution", producer)
+    Vector(
+      _rdf_type(artifactid, "VideoArtifact"),
+      _rdf_literal(artifactid, Vocabulary.Rdfs.label, kind),
+      _rdf_literal(artifactid, _cv("artifactKind"), kind),
+      _rdf_literal(artifactid, _cv("path"), path.toString),
+      _rdf_literal(artifactid, _cv("status"), status),
+      _rdf_uri(artifactid, _prov("wasGeneratedBy"), executionid),
+      _rdf_type(executionid, "VideoToolExecution"),
+      _rdf_literal(executionid, Vocabulary.Rdfs.label, producer),
+      _rdf_literal(executionid, _cv("stepName"), producer)
+    )
+  }
+
+  private def _read_optional_json_manifest(path: Path, label: String): Option[Json] =
+    if (Files.isRegularFile(path))
+      Some(parser.parse(Files.readString(path, StandardCharsets.UTF_8)).fold(
+        e => RAISE.invalidArgumentFault(s"Invalid $label JSON: ${e.getMessage}"),
+        identity
+      ))
+    else
+      None
+
+  private def _read_optional_audio_manifest(path: Path, label: String): Option[Vector[VideoAudioManifestEntry]] =
+    if (Files.isRegularFile(path))
+      Some(parser.decode[Vector[VideoAudioManifestEntry]](Files.readString(path, StandardCharsets.UTF_8)).fold(
+        e => RAISE.invalidArgumentFault(s"Invalid $label JSON: ${e.getMessage}"),
+        identity
+      ))
+    else
+      None
+
+  private def _json_field_triples(
+    subject: String,
+    json: Json,
+    fields: Vector[String],
+    predicate: String => String
+  ): Vector[Rdf.Triple] =
+    fields.flatMap { name =>
+      json.hcursor.downField(name).focus.flatMap(_json_scalar_text).map(value => _rdf_literal(subject, predicate(name), value))
+    }
+
+  private def _json_scalar_text(json: Json): Option[String] =
+    json.asString.
+      orElse(json.asNumber.map(_.toString)).
+      orElse(json.asBoolean.map(_.toString))
+
+  private def _rdf_file_status(path: Path): String =
+    if (Files.exists(path)) "present" else "missing"
+
+  private def _rdf_type(subject: String, localtype: String): Rdf.Triple =
+    _rdf_uri(subject, Vocabulary.Rdf.`type`, _cv(localtype))
+
+  private def _rdf_uri(subject: String, predicate: String, obj: String): Rdf.Triple =
+    Rdf.Triple(Rdf.Node.Uri(subject), Rdf.Node.Uri(predicate), Rdf.Node.Uri(obj))
+
+  private def _rdf_literal(subject: String, predicate: String, value: String, datatype: Option[String] = None): Rdf.Triple =
+    Rdf.Triple(Rdf.Node.Uri(subject), Rdf.Node.Uri(predicate), Rdf.Node.Literal(value, datatype))
+
+  private def _cv(local: String): String =
+    _video_rdf_namespace + local
+
+  private def _schema(local: String): String =
+    _schema_namespace + local
+
+  private def _dcterms(local: String): String =
+    _dcterms_namespace + local
+
+  private def _prov(local: String): String =
+    _prov_namespace + local
+
+  private def _video_rdf_resource(kind: String, id: String): String =
+    _video_rdf_namespace + _rdf_segment_id(kind, "rdf resource kind") + "/" + _rdf_segment_id(id, s"rdf $kind")
+
+  private def _project_rdf_slug(plan: VideoPlan): String =
+    plan.project.name.getOrElse(_basename(plan.projectFile))
+
+  private def _rdf_segment_id(value: String, label: String): String = {
+    val normalized = value.trim
+    if (normalized.isEmpty || normalized == "." || normalized == ".." || normalized.indexOf(0.toChar) >= 0)
+      RAISE.invalidArgumentFault(s"Invalid $label for RDF resource id: $value")
+    val bytes = normalized.getBytes(StandardCharsets.UTF_8)
+    val b = new StringBuilder
+    bytes.foreach { byte =>
+      val c = byte & 0xff
+      if (
+        (c >= 'A' && c <= 'Z') ||
+        (c >= 'a' && c <= 'z') ||
+        (c >= '0' && c <= '9') ||
+        c == '-' || c == '.' || c == '_' || c == '~'
+      ) {
+        b.append(c.toChar)
+      } else {
+        b.append('%')
+        b.append(_rdf_hex_digits.charAt((c >> 4) & 0x0f))
+        b.append(_rdf_hex_digits.charAt(c & 0x0f))
+      }
+    }
+    b.toString
   }
 
   private def _render_remotion(
@@ -2366,6 +2672,19 @@ private[cozy] object CozyVideo {
       b += s"    manifest: ${part.manifestPath}"
       b += s"    ${part.workDirLabel}: ${part.workDir}"
     }
+    b.result().mkString("\n") + "\n"
+  }
+
+  private def _render_rdf_result(result: VideoRdfResult): String = {
+    val b = Vector.newBuilder[String]
+    b += "Cozy Video RDF"
+    b += s"projectFile: ${result.projectFile}"
+    b += s"outputDir: ${result.outputDir}"
+    b += s"turtle: ${result.turtleFile}"
+    b += s"jsonld: ${result.jsonLdFile}"
+    b += s"manifest: ${result.manifestFile}"
+    b += s"triples: ${result.tripleCount}"
+    b += s"resources: ${result.resourceCount}"
     b.result().mkString("\n") + "\n"
   }
 

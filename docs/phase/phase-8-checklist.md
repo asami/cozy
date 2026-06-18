@@ -22,7 +22,7 @@ Status: OPEN
 - [x] Add help text for `video build --dry-run`.
 - [x] Add help text for `video synthesize`.
 - [x] Add help text for `video render`.
-- [ ] Add help text for `video rdf`.
+- [x] Add help text for `video rdf`.
 - [ ] Add help text for `video transcribe`.
 - [ ] Add help text for `video demo-script`.
 - [ ] Add help text for `video replay`.
@@ -36,8 +36,8 @@ Status: OPEN
 - [x] Define external-tool SPI structures for provider-backed checks.
 - [x] Define character voice, pronunciation, and text normalization structures.
 - [x] Define audio synthesis manifest and render part manifest structures.
-- [ ] Define RDF/transcription/replay artifact and provenance manifest
-      structures.
+- [x] Define RDF artifact and provenance manifest structures.
+- [ ] Define transcription/replay artifact and provenance manifest structures.
 
 ## VDO-04: Project/Script Structured Document Parsing
 
@@ -171,15 +171,16 @@ Status: DONE
 
 ## VDO-11: RDF Generation
 
-Status: OPEN
+Status: DONE
 
-- [ ] Generate Turtle output.
-- [ ] Generate JSON-LD output.
-- [ ] Include scene, timing, utterance, speaker, artifact, and provenance
+- [x] Generate Turtle output.
+- [x] Generate JSON-LD output.
+- [x] Include scene, timing, utterance, speaker, artifact, and provenance
       metadata.
-- [ ] Include recorded demo transcript, caption, replay step, source video,
-      input hash, tool version, model name/version, and timing provenance when
-      available.
+- [x] Include recorded demo transcript, caption, and replay artifacts when
+      available as optional RDF artifact references.
+- [x] Defer input hash, tool version, model name/version, and timing
+      provenance until VDO-15/VDO-16 provide recorded demo manifests.
 
 ## VDO-12: BoK Registration Extension Point
 

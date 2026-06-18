@@ -13,7 +13,7 @@ import scala.collection.JavaConverters._
 /*
  * @since   May. 20, 2026
  *  version May. 25, 2026
- * @version Jun. 18, 2026
+ * @version Jun. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyScaffold {
@@ -1511,6 +1511,9 @@ private[cozy] object CozyScaffold {
       |  video render <project-file> --renderer=remotion|simple-java2d [--part=<id>] [--tool-mode=<docker|host>] [--docker-image=<image>] [--check-tools]
       |      Render project parts with Cozy-generated Remotion compositions or a simple Python/Pillow plus ffmpeg renderer.
       |      Final concat/mux remains a separate later video build step.
+      |
+      |  video rdf <project-file> --save <dir> [--tool-mode=<docker|host>] [--docker-image=<image>]
+      |      Generate Turtle and JSON-LD video metadata using the SmartDox semanticweb RDF renderer.
       |
       |  modeler-scala <model-file> --save <dir>
       |      Generate Scala sources from a CML/Dox model.

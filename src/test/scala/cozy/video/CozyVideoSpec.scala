@@ -12,7 +12,7 @@ import org.scalatest.funsuite.AnyFunSuite
 
 /*
  * @since   Jun. 18, 2026
- * @version Jun. 18, 2026
+ * @version Jun. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoSpec extends AnyFunSuite {
@@ -380,6 +380,144 @@ final class CozyVideoSpec extends AnyFunSuite {
       }
 
       assert(e.getMessage.contains("dry-ran"))
+    }
+  }
+
+  test("video rdf generates Turtle JSON-LD and manifest from video artifacts") {
+    _with_temp_dir("cozy-video-rdf") { dir =>
+      _write(dir.resolve("script.json"), _script_json)
+      _write(dir.resolve("video_project.json"), _project_json("script.json"))
+      _write_audio_manifest(dir.resolve("build/audio/intro"), Vector("title", "description", "summary"))
+      _write(dir.resolve("build/audio/intro/manifest.json"), _audio_manifest_json(Vector("title", "description", "summary")).replace("\"speaker\":null", "\"speaker\":\"narrator\""))
+      _write(
+        dir.resolve("build/parts/intro.manifest.json"),
+        s"""{
+           |  "partId": "intro",
+           |  "renderer": "simple-java2d",
+           |  "outputPath": "${dir.resolve("build/parts/intro.mp4").normalize()}",
+           |  "toolMode": "docker",
+           |  "dockerImage": "simplemodeling/cozy-toolchain:latest"
+           |}
+           |""".stripMargin
+      )
+      _write(
+        dir.resolve("build/manifest.json"),
+        s"""{
+           |  "outputPath": "${dir.resolve("build/final.mp4").normalize()}",
+           |  "toolMode": "docker",
+           |  "dockerImage": "simplemodeling/cozy-toolchain:latest",
+           |  "concatListPath": "${dir.resolve("target/cozy-video/ffmpeg/concat.txt").normalize()}",
+           |  "ffprobe": {"format": {"duration": "12.0"}}
+           |}
+           |""".stripMargin
+      )
+
+      val out = CozyVideo.rdf(CozyVideo.RdfConfig(dir.resolve("video_project.json"), dir.resolve("rdf")))
+
+      assert(out.contains("Cozy Video RDF"))
+      assert(out.contains("turtle: " + dir.resolve("rdf/video.ttl").normalize()))
+      assert(out.contains("jsonld: " + dir.resolve("rdf/video.jsonld").normalize()))
+      assert(Files.isRegularFile(dir.resolve("rdf/video.ttl")))
+      assert(Files.isRegularFile(dir.resolve("rdf/video.jsonld")))
+      assert(Files.isRegularFile(dir.resolve("rdf/manifest.json")))
+      val turtle = _read(dir.resolve("rdf/video.ttl"))
+      val jsonld = _read(dir.resolve("rdf/video.jsonld"))
+      val manifest = _read(dir.resolve("rdf/manifest.json"))
+      assert(turtle.contains("@prefix cozy-video: <https://www.simplemodeling.org/ns/cozy/video#> ."))
+      assert(turtle.contains("cozy-video:VideoProject"))
+      assert(turtle.contains("cozy-video:VideoPart"))
+      assert(turtle.contains("cozy-video:VideoScene"))
+      assert(turtle.contains("cozy-video:VideoUtterance"))
+      assert(turtle.contains("cozy-video:VideoArtifact"))
+      assert(turtle.contains("cozy-video:speaker"))
+      assert(turtle.contains("cozy-video:audioDuration"))
+      assert(turtle.contains("simple-java2d"))
+      assert(turtle.contains("ffprobe"))
+      assert(jsonld.contains("\"cozy-video\""))
+      assert(jsonld.contains("cozy-video:VideoProject"))
+      assert(manifest.contains("\"tripleCount\""))
+      assert(manifest.contains("\"resourceCount\""))
+    }
+  }
+
+  test("video rdf records missing manifests without failing") {
+    _with_temp_dir("cozy-video-rdf-missing-manifests") { dir =>
+      _write(dir.resolve("script.json"), _script_json)
+      _write(dir.resolve("video_project.json"), _project_json("script.json"))
+
+      CozyVideo.rdf(CozyVideo.RdfConfig(dir.resolve("video_project.json"), dir.resolve("rdf")))
+
+      val turtle = _read(dir.resolve("rdf/video.ttl"))
+      assert(turtle.contains("cozy-video:artifactKind \"audio-manifest\""))
+      assert(turtle.contains("cozy-video:artifactKind \"part-manifest\""))
+      assert(turtle.contains("cozy-video:artifactKind \"project-manifest\""))
+      assert(turtle.contains("cozy-video:status \"missing\""))
+      assert(turtle.contains("cozy-video:VideoScene"))
+    }
+  }
+
+  test("video rdf percent-encodes resource ids for Turtle-safe output") {
+    _with_temp_dir("cozy-video-rdf-unsafe-ids") { dir =>
+      _write(
+        dir.resolve("script.json"),
+        """{
+          |  "title": "Unsafe Id Script",
+          |  "scenes": [
+          |    {"id": "scene #1", "duration": 1.0, "line": "Hello"}
+          |  ]
+          |}
+          |""".stripMargin
+      )
+      _write(
+        dir.resolve("video_project.json"),
+        """{
+          |  "name": "Sample Video 2026",
+          |  "title": "Sample Video",
+          |  "parts": [
+          |    {"id": "intro slide", "type": "dialogue", "script": "script.json"}
+          |  ]
+          |}
+          |""".stripMargin
+      )
+
+      CozyVideo.rdf(CozyVideo.RdfConfig(dir.resolve("video_project.json"), dir.resolve("rdf")))
+
+      val turtle = _read(dir.resolve("rdf/video.ttl"))
+      val jsonld = _read(dir.resolve("rdf/video.jsonld"))
+      assert(turtle.contains("cozy-video:project/Sample%20Video%202026"))
+      assert(turtle.contains("cozy-video:part/intro%20slide"))
+      assert(turtle.contains("cozy-video:scene/intro%20slide-scene%20%231"))
+      assert(jsonld.contains("cozy-video:project/Sample%20Video%202026"))
+      assert(jsonld.contains("cozy-video:part/intro%20slide"))
+      assert(!turtle.contains("cozy-video:part/intro slide"))
+    }
+  }
+
+  test("video rdf fails explicitly for invalid manifests inputs and options") {
+    _with_temp_dir("cozy-video-rdf-errors") { dir =>
+      _write(dir.resolve("script.json"), _script_json)
+      _write(dir.resolve("video_project.json"), _project_json("script.json"))
+      _write(dir.resolve("build/audio/intro/manifest.json"), "not json")
+
+      val invalidmanifest = intercept[Throwable] {
+        CozyVideo.rdf(CozyVideo.RdfConfig(dir.resolve("video_project.json"), dir.resolve("rdf")))
+      }
+      assert(invalidmanifest.getMessage.contains("Invalid audio manifest intro JSON"))
+
+      val missingsave = intercept[Throwable] {
+        CozyVideo.execute(List("video", "rdf", dir.resolve("video_project.json").toString), CozyVideo.VideoToolRegistry(Vector.empty))
+      }
+      assert(missingsave.getMessage.contains("save"))
+
+      val unknownoption = intercept[Throwable] {
+        CozyVideo.execute(List("video", "rdf", dir.resolve("video_project.json").toString, "--save", dir.resolve("rdf").toString, "--unknown"), CozyVideo.VideoToolRegistry(Vector.empty))
+      }
+      assert(unknownoption.getMessage.contains("unknown"))
+
+      val missingproject = intercept[Throwable] {
+        CozyVideo.rdf(CozyVideo.RdfConfig(dir.resolve("missing.json"), dir.resolve("rdf")))
+      }
+      assert(missingproject.getMessage.contains("Missing video project file"))
     }
   }
 
@@ -1109,6 +1247,12 @@ final class CozyVideoSpec extends AnyFunSuite {
           runner
         )
       }
+      val rdf = _capture {
+        CozyVideo.execute(
+          List("video", "rdf", dir.resolve("video_project.json").toString, "--save", dir.resolve("rdf").toString),
+          CozyVideo.VideoToolRegistry(Vector.empty)
+        )
+      }
 
       assert(out.contains("Cozy Video Inspect"))
       assert(out.contains("part[1]: intro"))
@@ -1118,10 +1262,13 @@ final class CozyVideoSpec extends AnyFunSuite {
       assert(render.contains("Cozy Video Render"))
       assert(render.contains("part.intro: " + dir.resolve("build/parts/intro.mp4").normalize()))
       assert(runner.commands.nonEmpty)
+      assert(rdf.contains("Cozy Video RDF"))
+      assert(Files.isRegularFile(dir.resolve("rdf/video.ttl")))
       assert(help.contains("video inspect <project-file>"))
       assert(help.contains("video build <project-file> [--dry-run]"))
       assert(help.contains("video synthesize <script-file> --save <audio-dir>"))
       assert(help.contains("video render <project-file> --renderer=remotion|simple-java2d"))
+      assert(help.contains("video rdf <project-file> --save <dir>"))
       assert(help.contains("--check-tools"))
     }
   }
