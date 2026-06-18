@@ -1515,6 +1515,12 @@ private[cozy] object CozyScaffold {
       |  video transcribe <input-video> --save <dir> [--tool-mode=<docker|host>] [--docker-image=<image>] [--whisper-model=<path>] [--check-tools]
       |      Extract audio from a recorded demo video, run whisper.cpp, and write transcript, captions, narration draft, and manifest files.
       |
+      |  video demo-script <input-video> --save <script-file> [--events=<file>] [--har=<file>] [--trace=<trace.zip>] [--transcript=<transcript.json>]
+      |      Generate a Playwright replay script draft from recorded demo metadata.
+      |
+      |  video replay <script-file> [--save=<output-video.webm>] [--dry-run] [--tool-mode=<docker|host>] [--docker-image=<image>] [--check-tools]
+      |      Dry-run or execute a generated Playwright replay script. Recorded replay output is WebM.
+      |
       |  video rdf <project-file> --save <dir> [--tool-mode=<docker|host>] [--docker-image=<image>]
       |      Generate Turtle and JSON-LD video metadata using the SmartDox semanticweb RDF renderer.
       |

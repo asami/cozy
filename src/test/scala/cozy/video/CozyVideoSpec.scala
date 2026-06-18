@@ -1415,9 +1415,237 @@ final class CozyVideoSpec extends AnyFunSuite {
       assert(help.contains("video synthesize <script-file> --save <audio-dir>"))
       assert(help.contains("video render <project-file> --renderer=remotion|simple-java2d"))
       assert(help.contains("video transcribe <input-video> --save <dir>"))
+      assert(help.contains("video demo-script <input-video> --save <script-file>"))
+      assert(help.contains("video replay <script-file>"))
       assert(help.contains("video rdf <project-file> --save <dir>"))
       assert(help.contains("publish-video <slug>.video"))
       assert(help.contains("--check-tools"))
+    }
+  }
+
+  test("video demo-script generates replay script from selector event log and transcript") {
+    _with_temp_dir("cozy-video-demo-script-events") { dir =>
+      val input = dir.resolve("demo.mp4")
+      val events = dir.resolve("events.json")
+      val transcript = dir.resolve("transcript.json")
+      val save = dir.resolve("build/demo-script.json")
+      _write_bytes(input, Array[Byte](1, 2, 3))
+      _write(
+        events,
+        """{
+          |  "viewport": {"width": 1440, "height": 900},
+          |  "steps": [
+          |    {"kind": "navigate", "url": "http://example.test/"},
+          |    {"kind": "click", "selector": "#start", "timestampMs": 250},
+          |    {"kind": "input", "selector": "#name", "text": "alice"},
+          |    {"kind": "keydown", "selector": "#name", "key": "Enter"},
+          |    {"kind": "wait", "durationMs": 500}
+          |  ]
+          |}
+          |""".stripMargin
+      )
+      _write(
+        transcript,
+        """{
+          |  "segments": [
+          |    {"index": 1, "start": 0.0, "end": 1.0, "text": "Open the start page"}
+          |  ]
+          |}
+          |""".stripMargin
+      )
+
+      val out = CozyVideo.demoScript(CozyVideo.DemoScriptConfig(input, save, eventsFile = Some(events), transcriptFile = Some(transcript)))
+
+      assert(out.contains("Cozy Video Demo Script"))
+      assert(out.contains("manualReview: true"))
+      val json = parser.parse(_read(save)).toOption.get
+      assert(json.hcursor.downField("schema").as[String].toOption.contains("cozy.video.replay-script.v1"))
+      assert(json.hcursor.downField("manualReview").as[Boolean].toOption.contains(true))
+      assert(json.hcursor.downField("viewport").downField("width").as[Int].toOption.contains(1440))
+      val steps = json.hcursor.downField("steps").focus.flatMap(_.asArray).get
+      assert(steps.map(_.hcursor.downField("kind").as[String].toOption.get).take(5) == Vector("goto", "click", "fill", "press", "wait"))
+      assert(steps.exists(_.hcursor.downField("note").as[String].toOption.contains("Open the start page")))
+      assert(json.hcursor.downField("sourceSha256").as[String].toOption.exists(_.nonEmpty))
+    }
+  }
+
+  test("video demo-script produces manual-review drafts for HAR and video-only inputs") {
+    _with_temp_dir("cozy-video-demo-script-manual") { dir =>
+      val input = dir.resolve("demo.mp4")
+      val har = dir.resolve("demo.har")
+      _write_bytes(input, Array[Byte](1, 2, 3))
+      _write(
+        har,
+        """{
+          |  "log": {
+          |    "entries": [
+          |      {"_resourceType": "document", "request": {"method": "GET", "url": "http://example.test/home"}}
+          |    ]
+          |  }
+          |}
+          |""".stripMargin
+      )
+
+      CozyVideo.demoScript(CozyVideo.DemoScriptConfig(input, dir.resolve("build/har-demo-script.json"), harFile = Some(har)))
+      CozyVideo.demoScript(CozyVideo.DemoScriptConfig(input, dir.resolve("build/video-only-demo-script.json")))
+
+      val harjson = parser.parse(_read(dir.resolve("build/har-demo-script.json"))).toOption.get
+      val videojson = parser.parse(_read(dir.resolve("build/video-only-demo-script.json"))).toOption.get
+      assert(harjson.hcursor.downField("manualReview").as[Boolean].toOption.contains(true))
+      assert(harjson.noSpaces.contains("http://example.test/home"))
+      assert(videojson.hcursor.downField("manualReview").as[Boolean].toOption.contains(true))
+      assert(videojson.noSpaces.contains("Manual review is required"))
+    }
+  }
+
+  test("video demo-script validates inputs options and missing files") {
+    _with_temp_dir("cozy-video-demo-script-errors") { dir =>
+      val input = dir.resolve("demo.mp4")
+      _write_bytes(input, Array[Byte](1, 2, 3))
+
+      val missinginput = intercept[RuntimeException] {
+        CozyVideo.demoScript(CozyVideo.DemoScriptConfig(dir.resolve("missing.mp4"), dir.resolve("build/demo-script.json")))
+      }
+      assert(missinginput.getMessage.contains("Missing input video"))
+
+      val missingsave = intercept[RuntimeException] {
+        CozyVideo.execute(List("video", "demo-script", input.toString), CozyVideo.VideoToolRegistry(Vector.empty))
+      }
+      assert(missingsave.getMessage.contains("save"))
+
+      val missingevents = intercept[RuntimeException] {
+        CozyVideo.demoScript(CozyVideo.DemoScriptConfig(input, dir.resolve("build/demo-script.json"), eventsFile = Some(dir.resolve("missing-events.json"))))
+      }
+      assert(missingevents.getMessage.contains("Missing selector event log"))
+
+      val unknown = intercept[RuntimeException] {
+        CozyVideo.execute(List("video", "demo-script", input.toString, "--save", dir.resolve("build/demo-script.json").toString, "--unknown"), CozyVideo.VideoToolRegistry(Vector.empty))
+      }
+      assert(unknown.getMessage.contains("unknown"))
+    }
+  }
+
+  test("video replay dry-runs and executes generated Playwright plans") {
+    _with_temp_dir("cozy-video-replay") { dir =>
+      val script = dir.resolve("build/demo-script.json")
+      val output = dir.resolve("build/replay.webm")
+      _write(
+        script,
+        """{
+          |  "schema": "cozy.video.replay-script.v1",
+          |  "sourceVideo": "demo.mp4",
+          |  "sourceSha256": "abc123",
+          |  "manualReview": false,
+          |  "viewport": {"width": 1280, "height": 720},
+          |  "steps": [
+          |    {"kind": "goto", "url": "http://example.test/"},
+          |    {"kind": "click", "selector": "#start"}
+          |  ]
+          |}
+          |""".stripMargin
+      )
+      val dryrun = CozyVideo.replay(
+        CozyVideo.ReplayConfig(script, dryRun = true, projectRootOverride = Some(dir)),
+        CozyVideo.VideoToolRegistry(Vector.empty),
+        ReplayRunner()
+      )
+      val runner = ReplayRunner()
+      val execute = CozyVideo.replay(
+        CozyVideo.ReplayConfig(script, saveFile = Some(output), toolMode = Some("host"), projectRootOverride = Some(dir)),
+        CozyVideo.VideoToolRegistry(Vector.empty),
+        runner
+      )
+
+      assert(dryrun.contains("Cozy Video Replay Dry-Run"))
+      assert(dryrun.contains("'docker' 'run' '--rm'"))
+      assert(dryrun.contains("replay.playwright"))
+      assert(execute.contains("Cozy Video Replay"))
+      assert(execute.contains("toolMode: host"))
+      assert(runner.commands.size == 1)
+      assert(runner.commands.head.args.head == "node")
+      assert(Files.isRegularFile(output))
+      assert(Files.isRegularFile(dir.resolve("target/cozy-video/replay/demo-script/manifest.json")))
+      val manifest = _read(dir.resolve("target/cozy-video/replay/demo-script/manifest.json"))
+      assert(manifest.contains("cozy.video.replay-manifest.v1"))
+      assert(manifest.contains("abc123"))
+      assert(manifest.contains("replay.playwright"))
+    }
+  }
+
+  test("video replay validates inputs runner failures and tool checks") {
+    _with_temp_dir("cozy-video-replay-errors") { dir =>
+      val script = dir.resolve("build/demo-script.json")
+      _write(script, """{"schema":"cozy.video.replay-script.v1","steps":[{"kind":"goto","url":"http://example.test/"}]}""")
+
+      val missing = intercept[RuntimeException] {
+        CozyVideo.replay(CozyVideo.ReplayConfig(dir.resolve("missing.json"), projectRootOverride = Some(dir)), CozyVideo.VideoToolRegistry(Vector.empty), ReplayRunner())
+      }
+      assert(missing.getMessage.contains("Missing video replay script file"))
+
+      val unknown = intercept[RuntimeException] {
+        CozyVideo.execute(List("video", "replay", script.toString, "--unknown"), CozyVideo.VideoToolRegistry(Vector.empty))
+      }
+      assert(unknown.getMessage.contains("unknown"))
+
+      val failure = intercept[RuntimeException] {
+        CozyVideo.replay(CozyVideo.ReplayConfig(script, toolMode = Some("host"), projectRootOverride = Some(dir)), CozyVideo.VideoToolRegistry(Vector.empty), ReplayRunner(fail = true))
+      }
+      assert(failure.getMessage.contains("Playwright replay failed"))
+
+      val mp4output = intercept[RuntimeException] {
+        CozyVideo.replay(CozyVideo.ReplayConfig(script, saveFile = Some(dir.resolve("build/replay.mp4")), toolMode = Some("host"), projectRootOverride = Some(dir)), CozyVideo.VideoToolRegistry(Vector.empty), ReplayRunner())
+      }
+      assert(mp4output.getMessage.contains("must use .webm"))
+
+      val hostcheck = intercept[RuntimeException] {
+        CozyVideo.replay(
+          CozyVideo.ReplayConfig(script, checkTools = true, toolMode = Some("host"), projectRootOverride = Some(dir)),
+          CozyVideo.VideoToolRegistry(Vector(StubProvider(CozyVideo.VideoToolCheck("playwright", CozyVideo.VideoToolMode.Host, CozyVideo.VideoToolStatus.Missing, "missing playwright", Some("install playwright"))))),
+          ReplayRunner()
+        )
+      }
+      assert(hostcheck.getMessage.contains("playwright"))
+      assert(hostcheck.getMessage.contains("install playwright"))
+    }
+  }
+
+  test("video rdf includes replay script and replay manifest provenance") {
+    _with_temp_dir("cozy-video-rdf-replay") { dir =>
+      _write(dir.resolve("script.json"), _script_json)
+      _write(dir.resolve("video_project.json"), _project_json("script.json"))
+      _write(
+        dir.resolve("build/demo-script.json"),
+        """{
+          |  "schema": "cozy.video.replay-script.v1",
+          |  "sourceVideo": "demo.mp4",
+          |  "sourceSha256": "abc123",
+          |  "manualReview": false,
+          |  "steps": [
+          |    {"kind": "goto", "url": "http://example.test/"},
+          |    {"kind": "click", "selector": "#start", "timestampMs": 250}
+          |  ]
+          |}
+          |""".stripMargin
+      )
+      _write(
+        dir.resolve("target/cozy-video/replay/demo-script/manifest.json"),
+        """{
+          |  "schema": "cozy.video.replay-manifest.v1",
+          |  "toolMode": "host",
+          |  "dockerImage": "simplemodeling/cozy-toolchain:latest",
+          |  "outputVideo": "build/replay.webm"
+          |}
+          |""".stripMargin
+      )
+
+      CozyVideo.rdf(CozyVideo.RdfConfig(dir.resolve("video_project.json"), dir.resolve("rdf")))
+
+      val turtle = _read(dir.resolve("rdf/video.ttl"))
+      assert(turtle.contains("cozy-video:VideoReplay"))
+      assert(turtle.contains("cozy-video:VideoReplayStep"))
+      assert(turtle.contains("cozy-video:sourceSha256 \"abc123\""))
+      assert(turtle.contains("cozy-video:selector \"#start\""))
+      assert(turtle.contains("cozy-video:artifactKind \"replay-manifest\""))
     }
   }
 
@@ -1803,6 +2031,28 @@ object CozyVideoSpec {
     }
   }
 
+  final case class ReplayRunner(
+    fail: Boolean = false
+  ) extends CozyVideo.VideoProcessRunner {
+    val commands = ArrayBuffer.empty[RecordingCommand]
+
+    def run(args: Vector[String], cwd: Path): CozyVideo.VideoCommandResult = {
+      commands += RecordingCommand(args, cwd)
+      if (fail)
+        CozyVideo.VideoCommandResult(1, "", "playwright failed")
+      else {
+        args.find(_.endsWith("replay.mjs")).foreach { script =>
+          val workdir = _command_path(cwd, script).getParent
+          val props = parser.parse(Files.readString(workdir.resolve("props.json"), StandardCharsets.UTF_8)).toOption.get
+          props.hcursor.downField("outputPath").as[String].toOption.foreach { output =>
+            Files.write(_command_path(cwd, output), Array[Byte](1, 2, 3))
+          }
+        }
+        CozyVideo.VideoCommandResult(0, "playwright ok", "")
+      }
+    }
+  }
+
   private val _whisper_json: String =
     """{
       |  "segments": [
@@ -1816,7 +2066,10 @@ object CozyVideoSpec {
     if (value.startsWith("/workspace/"))
       cwd.resolve(value.stripPrefix("/workspace/")).normalize()
     else
-      Paths.get(value).normalize()
+      {
+        val path = Paths.get(value).normalize()
+        if (path.isAbsolute) path else cwd.resolve(path).normalize()
+      }
 
   private def _wav_bytes(duration: Double): Array[Byte] = {
     val samplerate = 24000

@@ -14,7 +14,7 @@ Status: DONE
 
 ## VDO-02: `cozy video` Command Surface
 
-Status: OPEN
+Status: DONE
 
 - [x] Add CLI delegation following the `cozy.bok.CozyBok` pattern for
       `video inspect`.
@@ -24,12 +24,12 @@ Status: OPEN
 - [x] Add help text for `video render`.
 - [x] Add help text for `video rdf`.
 - [x] Add help text for `video transcribe`.
-- [ ] Add help text for `video demo-script`.
-- [ ] Add help text for `video replay`.
+- [x] Add help text for `video demo-script`.
+- [x] Add help text for `video replay`.
 
 ## VDO-03: Video Project Model
 
-Status: OPEN
+Status: DONE
 
 - [x] Define minimal production project, part, renderer, script, and scene
       structures for inspect.
@@ -38,7 +38,7 @@ Status: OPEN
 - [x] Define audio synthesis manifest and render part manifest structures.
 - [x] Define RDF artifact and provenance manifest structures.
 - [x] Define transcription artifact and provenance manifest structures.
-- [ ] Define replay artifact and provenance manifest structures.
+- [x] Define replay artifact and provenance manifest structures.
 
 ## VDO-04: Project/Script Structured Document Parsing
 
@@ -180,8 +180,8 @@ Status: DONE
       metadata.
 - [x] Include recorded demo transcript, caption, and replay artifacts when
       available as optional RDF artifact references.
-- [x] Defer input hash, tool version, model name/version, and timing
-      provenance until VDO-15/VDO-16 provide recorded demo manifests.
+- [x] Include recorded demo input hash, tool/model, timing, and replay
+      provenance through VDO-15/VDO-16 manifests when available.
 
 ## VDO-12: BoK Registration Extension Point
 
@@ -200,10 +200,10 @@ Status: DONE
 - [x] Validate dependency-check reporting without requiring every external tool.
 - [x] Defer recorded demo transcription smoke coverage to VDO-15.
 - [x] Defer missing whisper.cpp/model setup hint smoke coverage to VDO-15.
-- [x] Defer Playwright trace-backed replay script generation smoke coverage to
+- [x] Cover selector event log replay script generation smoke coverage in
       VDO-16.
-- [x] Defer video-only replay script manual-review draft smoke coverage to
-      VDO-16.
+- [x] Cover video-only replay script manual-review draft behavior in VDO-16
+      specs.
 
 ## VDO-14: Existing Workflow Preservation
 
@@ -228,17 +228,19 @@ Status: DONE
 
 ## VDO-16: Playwright Demo Replay Generation
 
-Status: OPEN
+Status: DONE
 
-- [ ] Generate `demo-script.json` from recorded demo metadata.
-- [ ] Convert Playwright trace, HAR, selector event log, or equivalent capture
-      metadata into replay steps when available.
-- [ ] Include selectors, URL, viewport, timing hints, and captured input text
+- [x] Generate `demo-script.json` from recorded demo metadata.
+- [x] Convert selector event log metadata into replay steps when available.
+- [x] Preserve HAR and Playwright trace inputs as source/provenance hints in
+      VDO-16 v1.
+- [x] Include selectors, URL, viewport, timing hints, and captured input text
       when available.
-- [ ] For video-only input, produce a draft script with a manual-review marker
+- [x] For video-only input, produce a draft script with a manual-review marker
       instead of claiming complete reconstruction.
-- [ ] Dry-run generated replay scripts with Playwright without recording.
-- [ ] Optionally record replay output when `--save <output-video>` is provided.
+- [x] Dry-run generated replay scripts with Playwright without recording.
+- [x] Optionally record WebM replay output when `--save <output-video.webm>` is
+      provided.
 
 ## VDO-17: Toolchain Includes whisper.cpp and Demo Replay Dependencies
 

@@ -173,6 +173,64 @@ private[cozy] object CozyVideo {
     }
   }
 
+  final case class DemoScriptConfig(
+    inputVideo: Path,
+    saveFile: Path,
+    eventsFile: Option[Path] = None,
+    harFile: Option[Path] = None,
+    traceFile: Option[Path] = None,
+    transcriptFile: Option[Path] = None
+  )
+  object DemoScriptConfig {
+    def create(args: List[String]): DemoScriptConfig = {
+      val parsed = CozyCliArgs.parseStrict(_p_input_video, _p_save, _p_events, _p_har, _p_trace, _p_transcript)(_normalize_property_args(args))
+      val inputvideo = parsed.argument("input-video").map(CozyCliArgs.toPath).getOrElse(
+        RAISE.invalidArgumentFault("Missing input video for video demo-script")
+      )
+      DemoScriptConfig(
+        inputvideo,
+        parsed.requiredPathProperty("save"),
+        parsed.property("events").map(Path.of(_)),
+        parsed.property("har").map(Path.of(_)),
+        parsed.property("trace").map(Path.of(_)),
+        parsed.property("transcript").map(Path.of(_))
+      )
+    }
+  }
+
+  final case class ReplayConfig(
+    scriptFile: Path,
+    saveFile: Option[Path] = None,
+    dryRun: Boolean = false,
+    checkTools: Boolean = false,
+    toolMode: Option[String] = None,
+    dockerImage: Option[String] = None,
+    projectRootOverride: Option[Path] = None
+  ) {
+    def projectRoot: Path =
+      projectRootOverride.getOrElse(Paths.get(sys.props("user.dir"))).toAbsolutePath.normalize()
+  }
+  object ReplayConfig {
+    def create(args: List[String]): ReplayConfig =
+      create(args, Paths.get(sys.props("user.dir")).toAbsolutePath.normalize())
+
+    def create(args: List[String], projectroot: Path): ReplayConfig = {
+      val parsed = CozyCliArgs.parseStrict(_p_script_file, _p_save, _p_dry_run, _p_check_tools, _p_tool_mode, _p_docker_image)(_normalize_property_args(args))
+      val scriptfile = parsed.argument("script-file").map(CozyCliArgs.toPath).getOrElse(
+        RAISE.invalidArgumentFault("Missing script file for video replay")
+      )
+      ReplayConfig(
+        scriptfile,
+        parsed.property("save").map(Path.of(_)),
+        parsed.flag("dry-run"),
+        parsed.flag("check-tools"),
+        parsed.property("tool-mode"),
+        parsed.property("docker-image"),
+        Some(projectroot)
+      )
+    }
+  }
+
   final case class VideoProject(
     name: Option[String],
     title: Option[String],
@@ -390,6 +448,86 @@ private[cozy] object CozyVideo {
         subscenes <- c.downField("subscenes").as[Option[Vector[VideoScene]]]
         silent <- c.downField("silent").as[Option[Boolean]]
       } yield VideoScene(id, speaker, line, narration, caption, duration, targetduration, leadsilence, subscenes.getOrElse(Vector.empty), silent)
+  }
+
+  final case class VideoReplayViewport(width: Int, height: Int)
+  object VideoReplayViewport {
+    val default = VideoReplayViewport(1280, 720)
+
+    implicit val decoder: Decoder[VideoReplayViewport] = (c: HCursor) =>
+      for {
+        width <- c.downField("width").as[Option[Int]]
+        height <- c.downField("height").as[Option[Int]]
+      } yield VideoReplayViewport(width.getOrElse(default.width), height.getOrElse(default.height))
+  }
+
+  final case class VideoReplayStep(
+    kind: String,
+    url: Option[String] = None,
+    selector: Option[String] = None,
+    text: Option[String] = None,
+    key: Option[String] = None,
+    delayMs: Option[Int] = None,
+    timestampMs: Option[Int] = None,
+    note: Option[String] = None,
+    manualReview: Boolean = false
+  )
+  object VideoReplayStep {
+    implicit val decoder: Decoder[VideoReplayStep] = (c: HCursor) =>
+      for {
+        rawkind <- c.downField("kind").as[Option[String]].flatMap {
+          case Some(s) => Right(Some(s))
+          case None => c.downField("type").as[Option[String]]
+        }
+        url <- c.downField("url").as[Option[String]]
+        selector <- c.downField("selector").as[Option[String]]
+        text <- c.downField("text").as[Option[String]]
+        key <- c.downField("key").as[Option[String]]
+        delayms <- c.downField("delayMs").as[Option[Int]].flatMap {
+          case Some(n) => Right(Some(n))
+          case None => c.downField("durationMs").as[Option[Int]]
+        }
+        timestampms <- c.downField("timestampMs").as[Option[Int]]
+        note <- c.downField("note").as[Option[String]]
+        manualreview <- c.downField("manualReview").as[Option[Boolean]]
+      } yield VideoReplayStep(_normalize_replay_kind(rawkind.getOrElse("note")), url, selector, text, key, delayms, timestampms, note, manualreview.getOrElse(false))
+
+    def toJson(step: VideoReplayStep): Json =
+      Json.obj(
+        Vector(
+          Some("kind" -> Json.fromString(step.kind)),
+          step.url.map(x => "url" -> Json.fromString(x)),
+          step.selector.map(x => "selector" -> Json.fromString(x)),
+          step.text.map(x => "text" -> Json.fromString(x)),
+          step.key.map(x => "key" -> Json.fromString(x)),
+          step.delayMs.map(x => "delayMs" -> Json.fromInt(x)),
+          step.timestampMs.map(x => "timestampMs" -> Json.fromInt(x)),
+          step.note.map(x => "note" -> Json.fromString(x)),
+          if (step.manualReview) Some("manualReview" -> Json.fromBoolean(true)) else None
+        ).flatten: _*
+      )
+  }
+
+  final case class VideoReplayScript(
+    schema: Option[String],
+    sourceVideo: Option[String],
+    sourceSha256: Option[String],
+    manualReview: Boolean,
+    sources: Json,
+    viewport: VideoReplayViewport,
+    steps: Vector[VideoReplayStep]
+  )
+  object VideoReplayScript {
+    implicit val decoder: Decoder[VideoReplayScript] = (c: HCursor) =>
+      for {
+        schema <- c.downField("schema").as[Option[String]]
+        sourcevideo <- c.downField("sourceVideo").as[Option[String]]
+        sourcesha256 <- c.downField("sourceSha256").as[Option[String]]
+        manualreview <- c.downField("manualReview").as[Option[Boolean]]
+        sources <- c.downField("sources").as[Option[Json]]
+        viewport <- c.downField("viewport").as[Option[VideoReplayViewport]]
+        steps <- c.downField("steps").as[Option[Vector[VideoReplayStep]]]
+      } yield VideoReplayScript(schema, sourcevideo, sourcesha256, manualreview.getOrElse(false), sources.getOrElse(Json.obj()), viewport.getOrElse(VideoReplayViewport.default), steps.getOrElse(Vector.empty))
   }
 
   sealed trait VideoToolMode { def label: String }
@@ -999,11 +1137,15 @@ private[cozy] object CozyVideo {
   private val _p_docker_image = spec.Parameter.property("docker-image")
   private val _p_voicevox_url = spec.Parameter.property("voicevox-url")
   private val _p_whisper_model = spec.Parameter.property("whisper-model")
+  private val _p_events = spec.Parameter.property("events")
+  private val _p_har = spec.Parameter.property("har")
+  private val _p_trace = spec.Parameter.property("trace")
+  private val _p_transcript = spec.Parameter.property("transcript")
   private val _supported_part_types = Set("dialogue", "storyboard", "web-demo")
   private val _supported_renderers = Set("remotion", "simple-java2d")
   private val _docker_managed_tools = Set("remotion", "playwright", "ffmpeg", "ffprobe", "node", "npm", "whisper-cpp", "python-pillow")
   private val _docker_whisper_model = "/opt/cozy/models/ggml-base.bin"
-  private val _property_options = Set("tool-mode", "docker-image", "save", "voicevox-url", "renderer", "part", "whisper-model")
+  private val _property_options = Set("tool-mode", "docker-image", "save", "voicevox-url", "renderer", "part", "whisper-model", "events", "har", "trace", "transcript")
   private val _default_sample_rate = 24000
   private val _video_rdf_namespace = "https://www.simplemodeling.org/ns/cozy/video#"
   private val _schema_namespace = "https://schema.org/"
@@ -1045,6 +1187,12 @@ private[cozy] object CozyVideo {
         true
       case "video" :: "transcribe" :: rest =>
         println(transcribe(TranscribeConfig.create(rest), tools, runner))
+        true
+      case "video" :: "demo-script" :: rest =>
+        println(demoScript(DemoScriptConfig.create(rest)))
+        true
+      case "video" :: "replay" :: rest =>
+        println(replay(ReplayConfig.create(rest), tools, runner))
         true
       case "video" :: "rdf" :: rest =>
         println(rdf(RdfConfig.create(rest)))
@@ -1125,6 +1273,26 @@ private[cozy] object CozyVideo {
     _render_rdf_result(result)
   }
 
+  def demoScript(config: DemoScriptConfig): String =
+    _render_demo_script_result(_write_demo_script(config))
+
+  def replay(config: ReplayConfig, tools: VideoToolRegistry, runner: VideoProcessRunner): String = {
+    val script = _load_replay_script(config.scriptFile)
+    val execution = _replay_execution(config)
+    val project = VideoProject(
+      name = Some("replay"),
+      title = Some("Video Replay"),
+      output = None,
+      renderer = None,
+      tools = Some(VideoToolSettings(Some(execution.toolMode.label), Some(execution.dockerImage), None, None)),
+      parts = Vector.empty
+    )
+    val context = VideoToolContext(config.scriptFile, config.projectRoot, project, execution)
+    val checks = if (config.checkTools) tools.checks(context) else Vector.empty
+    _validate_replay_tools(execution, checks)
+    _render_replay_result(_replay_script(config, script, execution, runner))
+  }
+
   private def _load_project(path: Path): VideoProject = {
     if (!Files.isRegularFile(path))
       RAISE.invalidArgumentFault(s"Missing video project file: $path")
@@ -1153,6 +1321,158 @@ private[cozy] object CozyVideo {
     if (!Files.isRegularFile(path))
       RAISE.invalidArgumentFault(s"Missing video script file: $path")
     StructuredDocumentLoader.loadDocument[VideoScript](InputSource(path.toFile)).take
+  }
+
+  private def _load_replay_script(path: Path): VideoReplayScript = {
+    if (!Files.isRegularFile(path))
+      RAISE.invalidArgumentFault(s"Missing video replay script file: $path")
+    StructuredDocumentLoader.loadDocument[VideoReplayScript](InputSource(path.toFile)).take
+  }
+
+  private def _write_demo_script(config: DemoScriptConfig): VideoDemoScriptResult = {
+    val input = config.inputVideo.toAbsolutePath.normalize()
+    if (!Files.isRegularFile(input))
+      RAISE.invalidArgumentFault(s"Missing input video for demo-script: $input")
+    val save = config.saveFile.toAbsolutePath.normalize()
+    config.eventsFile.foreach(path => _require_regular_file(path, "selector event log"))
+    config.harFile.foreach(path => _require_regular_file(path, "HAR file"))
+    config.traceFile.foreach(path => _require_regular_file(path, "Playwright trace file"))
+    config.transcriptFile.foreach(path => _require_regular_file(path, "transcript file"))
+    val eventjson = config.eventsFile.map(path => StructuredDocumentLoader.loadJson(InputSource(path.toFile)).take)
+    val harjson = config.harFile.map(path => StructuredDocumentLoader.loadJson(InputSource(path.toFile)).take)
+    val transcript = config.transcriptFile.map(_read_transcript_segments)
+    val eventsteps = eventjson.toVector.flatMap(_event_log_steps)
+    val harsteps =
+      if (eventsteps.isEmpty)
+        harjson.flatMap(_har_initial_url).map(url => VideoReplayStep("goto", url = Some(url), manualReview = true)).toVector
+      else
+        Vector.empty
+    val transcriptsteps = transcript.toVector.flatten.map { segment =>
+      VideoReplayStep(
+        "note",
+        timestampMs = Some(math.round(segment.start * 1000).toInt),
+        note = Some(segment.text),
+        manualReview = true
+      )
+    }
+    val sourcedsteps = eventsteps ++ harsteps ++ transcriptsteps
+    val steps =
+      if (sourcedsteps.nonEmpty)
+        sourcedsteps
+      else
+        Vector(VideoReplayStep("note", note = Some("Recorded video only. Manual review is required to reconstruct browser operations."), manualReview = true))
+    val manualreview = eventsteps.isEmpty || steps.exists(_.manualReview)
+    val viewport = eventjson.flatMap(_event_log_viewport).getOrElse(VideoReplayViewport.default)
+    val json = _demo_script_json(config, input, viewport, manualreview, steps)
+    Option(save.getParent).foreach(Files.createDirectories(_))
+    Files.writeString(save, json.spaces2, StandardCharsets.UTF_8)
+    VideoDemoScriptResult(input, save, manualreview, steps)
+  }
+
+  private def _require_regular_file(path: Path, label: String): Unit =
+    if (!Files.isRegularFile(path))
+      RAISE.invalidArgumentFault(s"Missing $label: $path")
+
+  private def _demo_script_json(
+    config: DemoScriptConfig,
+    input: Path,
+    viewport: VideoReplayViewport,
+    manualreview: Boolean,
+    steps: Vector[VideoReplayStep]
+  ): Json =
+    Json.obj(
+      "schema" -> Json.fromString("cozy.video.replay-script.v1"),
+      "sourceVideo" -> Json.fromString(input.toString),
+      "sourceSha256" -> Json.fromString(_sha256(input)),
+      "manualReview" -> Json.fromBoolean(manualreview),
+      "sources" -> Json.obj(
+        Vector(
+          config.eventsFile.map(path => "events" -> Json.fromString(path.toString)),
+          config.harFile.map(path => "har" -> Json.fromString(path.toString)),
+          config.traceFile.map(path => "trace" -> Json.fromString(path.toString)),
+          config.transcriptFile.map(path => "transcript" -> Json.fromString(path.toString))
+        ).flatten: _*
+      ),
+      "viewport" -> Json.obj(
+        "width" -> Json.fromInt(viewport.width),
+        "height" -> Json.fromInt(viewport.height)
+      ),
+      "steps" -> Json.fromValues(steps.map(VideoReplayStep.toJson))
+    )
+
+  private def _event_log_steps(json: Json): Vector[VideoReplayStep] = {
+    val cursor = json.hcursor
+    val rawsteps = cursor.downField("steps").focus.flatMap(_.asArray).getOrElse(json.asArray.getOrElse(Vector.empty))
+    rawsteps.map(_event_log_step)
+  }
+
+  private def _event_log_step(json: Json): VideoReplayStep = {
+    val kind = _normalize_replay_kind(_json_string(json, "kind").orElse(_json_string(json, "type")).orElse(_json_string(json, "event")).getOrElse("note"))
+    VideoReplayStep(
+      kind,
+      url = _json_string(json, "url"),
+      selector = _json_string(json, "selector"),
+      text = _json_string(json, "text").orElse(_json_string(json, "value")),
+      key = _json_string(json, "key"),
+      delayMs = _json_int(json, "delayMs").orElse(_json_int(json, "durationMs")),
+      timestampMs = _json_int(json, "timestampMs"),
+      note = _json_string(json, "note"),
+      manualReview = _json_boolean(json, "manualReview").getOrElse(false)
+    )
+  }
+
+  private def _event_log_viewport(json: Json): Option[VideoReplayViewport] =
+    json.hcursor.downField("viewport").focus.map { viewport =>
+      VideoReplayViewport(_json_int(viewport, "width").getOrElse(1280), _json_int(viewport, "height").getOrElse(720))
+    }
+
+  private def _normalize_replay_kind(value: String): String =
+    value.trim.toLowerCase(java.util.Locale.ROOT) match {
+      case "navigate" => "goto"
+      case "input" => "fill"
+      case "keydown" => "press"
+      case "pause" => "wait"
+      case "goto" | "click" | "fill" | "press" | "wait" | "note" | "screenshot" => value.trim.toLowerCase(java.util.Locale.ROOT)
+      case other => other
+    }
+
+  private def _har_initial_url(json: Json): Option[String] =
+    json.hcursor.downField("log").downField("entries").focus.flatMap(_.asArray).flatMap { entries =>
+      entries.toVector.flatMap { entry =>
+        val request = entry.hcursor.downField("request")
+        val url = request.downField("url").as[String].toOption
+        val resourcetype = entry.hcursor.downField("_resourceType").as[String].toOption
+        val method = request.downField("method").as[String].toOption
+        url.filter(_ => resourcetype.contains("document") || method.contains("GET"))
+      }.headOption
+    }
+
+  private def _read_transcript_segments(path: Path): Vector[VideoTranscriptSegment] = {
+    val json = parser.parse(Files.readString(path, StandardCharsets.UTF_8)).fold(
+      e => RAISE.invalidArgumentFault(s"Invalid transcript JSON: ${e.getMessage}"),
+      identity
+    )
+    _json_array(json, "segments").getOrElse(Vector.empty).zipWithIndex.map {
+      case (segment, index) =>
+        VideoTranscriptSegment(
+          _json_int(segment, "index").getOrElse(index + 1),
+          _json_double(segment, "start").getOrElse(0.0),
+          _json_double(segment, "end").getOrElse(0.0),
+          _json_string(segment, "text").getOrElse("").trim
+        )
+    }.filter(_.text.nonEmpty)
+  }
+
+  private def _replay_execution(config: ReplayConfig): VideoExecutionConfig = {
+    val defaults = CozyProjectYamlConfig.loadOperationDefaults(config.projectRoot)
+    val mode = config.toolMode.
+      orElse(defaults.value("video.tool-mode")).
+      getOrElse("docker")
+    val dockerimage = config.dockerImage.
+      orElse(defaults.value("video.docker-image")).
+      orElse(defaults.value("cozy.docker-image")).
+      getOrElse(VideoToolSettings.DEFAULT_DOCKER_IMAGE)
+    VideoExecutionConfig(VideoToolMode.parse(mode), dockerimage, VideoToolSettings.DEFAULT_VOICEVOX_URL)
   }
 
   private def _resolve_voicevox_url(projectroot: Path, script: VideoScript, cliurl: Option[String]): String = {
@@ -1229,6 +1549,23 @@ private[cozy] object CozyVideo {
     manifestFile: Path,
     tripleCount: Int,
     resourceCount: Int
+  )
+
+  final case class VideoDemoScriptResult(
+    inputVideo: Path,
+    scriptFile: Path,
+    manualReview: Boolean,
+    steps: Vector[VideoReplayStep]
+  )
+
+  final case class VideoReplayResult(
+    scriptFile: Path,
+    manifestPath: Path,
+    outputVideo: Option[Path],
+    toolMode: VideoToolMode,
+    dockerImage: String,
+    dryRun: Boolean,
+    commands: Vector[VideoCommandPlan]
   )
 
   final case class VideoAudioInput(
@@ -1579,6 +1916,20 @@ private[cozy] object CozyVideo {
       checks.filter(x => required.contains(x.name) && (x.status == VideoToolStatus.Missing || x.status == VideoToolStatus.Unchecked)).headOption.foreach { check =>
         val hint = check.setupHint.map(x => s" $x").getOrElse("")
         RAISE.invalidArgumentFault(s"Cannot transcribe video: ${check.name} is not available.${hint}")
+      }
+    }
+
+  private def _validate_replay_tools(execution: VideoExecutionConfig, checks: Vector[VideoToolCheck]): Unit =
+    if (checks.nonEmpty) {
+      val required =
+        execution.toolMode match {
+          case VideoToolMode.Docker => Set("docker-toolchain", "docker-image", "cozy-toolchain-image")
+          case VideoToolMode.Host => Set("playwright")
+          case VideoToolMode.ExternalService => Set.empty[String]
+        }
+      checks.filter(x => required.contains(x.name) && (x.status == VideoToolStatus.Missing || x.status == VideoToolStatus.Unchecked)).headOption.foreach { check =>
+        val hint = check.setupHint.map(x => s" $x").getOrElse("")
+        RAISE.invalidArgumentFault(s"Cannot replay video demo: ${check.name} is not available.${hint}")
       }
     }
 
@@ -2000,6 +2351,179 @@ private[cozy] object CozyVideo {
     Files.writeString(plan.manifestPath, json.spaces2, StandardCharsets.UTF_8)
   }
 
+  private def _replay_script(
+    config: ReplayConfig,
+    script: VideoReplayScript,
+    execution: VideoExecutionConfig,
+    runner: VideoProcessRunner
+  ): VideoReplayResult = {
+    val scriptfile = config.scriptFile.toAbsolutePath.normalize()
+    val output = config.saveFile.map(_.toAbsolutePath.normalize())
+    _validate_replay_output(output)
+    _validate_replay_docker_paths(config.projectRoot, execution, scriptfile, output)
+    val workdir = _replay_work_dir(config.projectRoot, scriptfile)
+    val manifest = workdir.resolve("manifest.json").normalize()
+    val command = _replay_command(config.projectRoot, execution, scriptfile, workdir, output)
+    if (config.dryRun)
+      VideoReplayResult(scriptfile, manifest, output, execution.toolMode, execution.dockerImage, dryRun = true, Vector(command))
+    else {
+      _write_replay_workspace(config.projectRoot, scriptfile, script, workdir, output)
+      val result = runner.run(_replay_command_args(config.projectRoot, execution, workdir), config.projectRoot)
+      if (!result.isSuccess)
+        RAISE.invalidArgumentFault(s"Playwright replay failed: ${result.stderr.trim}")
+      output.foreach { path =>
+        if (!Files.isRegularFile(path))
+          RAISE.invalidArgumentFault(s"Playwright replay did not create output video: $path")
+      }
+      _write_replay_manifest(scriptfile, script, manifest, output, execution, command)
+      VideoReplayResult(scriptfile, manifest, output, execution.toolMode, execution.dockerImage, dryRun = false, Vector(command))
+    }
+  }
+
+  private def _validate_replay_output(output: Option[Path]): Unit =
+    output.foreach { path =>
+      if (!path.getFileName.toString.toLowerCase(java.util.Locale.ROOT).endsWith(".webm"))
+        RAISE.invalidArgumentFault(s"Playwright replay recording output must use .webm: $path")
+    }
+
+  private def _validate_replay_docker_paths(
+    projectroot: Path,
+    execution: VideoExecutionConfig,
+    scriptfile: Path,
+    output: Option[Path]
+  ): Unit =
+    if (execution.toolMode == VideoToolMode.Docker) {
+      if (!scriptfile.startsWith(projectroot))
+        RAISE.invalidArgumentFault(s"Docker replay requires script file under project root $projectroot: $scriptfile")
+      output.foreach { path =>
+        if (!path.startsWith(projectroot))
+          RAISE.invalidArgumentFault(s"Docker replay requires --save under project root $projectroot: $path")
+      }
+    }
+
+  private def _replay_work_dir(projectroot: Path, scriptfile: Path): Path =
+    projectroot.resolve("target/cozy-video/replay").resolve(_file_segment_id(_basename(scriptfile), "replay script stem")).normalize()
+
+  private def _write_replay_workspace(
+    projectroot: Path,
+    scriptfile: Path,
+    script: VideoReplayScript,
+    workdir: Path,
+    output: Option[Path]
+  ): Unit = {
+    Files.createDirectories(workdir)
+    val props = Json.obj(
+      "scriptPath" -> Json.fromString(_project_relative(projectroot, scriptfile)),
+      "outputPath" -> output.map(path => Json.fromString(_project_relative(projectroot, path))).getOrElse(Json.Null),
+      "viewport" -> Json.obj("width" -> Json.fromInt(script.viewport.width), "height" -> Json.fromInt(script.viewport.height)),
+      "manualReview" -> Json.fromBoolean(script.manualReview),
+      "steps" -> Json.fromValues(script.steps.map(VideoReplayStep.toJson))
+    )
+    Files.writeString(workdir.resolve("props.json"), props.spaces2, StandardCharsets.UTF_8)
+    Files.writeString(workdir.resolve("replay.mjs"), _playwright_replay_mjs, StandardCharsets.UTF_8)
+  }
+
+  private def _replay_command(
+    projectroot: Path,
+    execution: VideoExecutionConfig,
+    scriptfile: Path,
+    workdir: Path,
+    output: Option[Path]
+  ): VideoCommandPlan =
+    VideoCommandPlan(
+      "replay.playwright",
+      "playwright",
+      execution.toolMode,
+      _replay_command_preview(projectroot, execution, workdir),
+      Vector(scriptfile),
+      output.toVector
+    )
+
+  private def _replay_command_preview(projectroot: Path, execution: VideoExecutionConfig, workdir: Path): String =
+    _replay_command_args(projectroot, execution, workdir).map(_shell_quote).mkString(" ")
+
+  private def _replay_command_args(projectroot: Path, execution: VideoExecutionConfig, workdir: Path): Vector[String] = {
+    val script = workdir.resolve("replay.mjs").normalize()
+    execution.toolMode match {
+      case VideoToolMode.Docker =>
+        Vector("docker", "run", "--rm", "-v", s"${projectroot}:/workspace", "-w", "/workspace", execution.dockerImage, "node", _docker_path(projectroot, script))
+      case VideoToolMode.Host =>
+        Vector("node", script.toString)
+      case VideoToolMode.ExternalService =>
+        RAISE.invalidArgumentFault("Playwright replay cannot use external-service tool mode")
+    }
+  }
+
+  private val _playwright_replay_mjs: String =
+    """import fs from 'node:fs';
+      |import path from 'node:path';
+      |import {fileURLToPath} from 'node:url';
+      |import {chromium} from 'playwright';
+      |
+      |const workDir = path.dirname(fileURLToPath(import.meta.url));
+      |const projectRoot = process.cwd();
+      |const props = JSON.parse(fs.readFileSync(path.join(workDir, 'props.json'), 'utf8'));
+      |const recordDir = path.join(workDir, 'video');
+      |const contextOptions = {
+      |  viewport: props.viewport || {width: 1280, height: 720}
+      |};
+      |if (props.outputPath) {
+      |  fs.mkdirSync(recordDir, {recursive: true});
+      |  contextOptions.recordVideo = {dir: recordDir, size: contextOptions.viewport};
+      |}
+      |const browser = await chromium.launch({headless: true});
+      |const context = await browser.newContext(contextOptions);
+      |const page = await context.newPage();
+      |
+      |for (const step of props.steps || []) {
+      |  if (step.kind === 'goto' && step.url) await page.goto(step.url);
+      |  else if (step.kind === 'click' && step.selector) await page.click(step.selector);
+      |  else if (step.kind === 'fill' && step.selector) await page.fill(step.selector, step.text || '');
+      |  else if (step.kind === 'press' && step.selector && step.key) await page.press(step.selector, step.key);
+      |  else if (step.kind === 'wait') await page.waitForTimeout(Number(step.delayMs || 250));
+      |  else if (step.kind === 'screenshot') await page.screenshot({path: path.join(workDir, `${Date.now()}.png`)});
+      |}
+      |
+      |await context.close();
+      |await browser.close();
+      |
+      |if (props.outputPath) {
+      |  const files = fs.readdirSync(recordDir).filter((x) => x.endsWith('.webm') || x.endsWith('.mp4')).sort();
+      |  if (files.length === 0) throw new Error('Playwright did not produce a recorded video');
+      |  const output = path.resolve(projectRoot, props.outputPath);
+      |  fs.mkdirSync(path.dirname(output), {recursive: true});
+      |  fs.copyFileSync(path.join(recordDir, files[0]), output);
+      |}
+      |""".stripMargin
+
+  private def _write_replay_manifest(
+    scriptfile: Path,
+    script: VideoReplayScript,
+    manifest: Path,
+    output: Option[Path],
+    execution: VideoExecutionConfig,
+    command: VideoCommandPlan
+  ): Unit = {
+    Files.createDirectories(manifest.getParent)
+    val json = Json.obj(
+      "schema" -> Json.fromString("cozy.video.replay-manifest.v1"),
+      "scriptFile" -> Json.fromString(scriptfile.toString),
+      "sourceVideo" -> script.sourceVideo.map(Json.fromString).getOrElse(Json.Null),
+      "sourceSha256" -> script.sourceSha256.map(Json.fromString).getOrElse(Json.Null),
+      "manualReview" -> Json.fromBoolean(script.manualReview),
+      "outputVideo" -> output.map(path => Json.fromString(path.toString)).getOrElse(Json.Null),
+      "toolMode" -> Json.fromString(execution.toolMode.label),
+      "dockerImage" -> Json.fromString(execution.dockerImage),
+      "stepCount" -> Json.fromInt(script.steps.size),
+      "commands" -> Json.fromValues(Vector(Json.obj(
+        "name" -> Json.fromString(command.stepName),
+        "tool" -> Json.fromString(command.toolName),
+        "preview" -> Json.fromString(command.preview)
+      )))
+    )
+    Files.writeString(manifest, json.spaces2, StandardCharsets.UTF_8)
+  }
+
   private def _write_video_rdf(config: RdfConfig, plan: VideoPlan): VideoRdfResult = {
     Files.createDirectories(config.saveDir)
     val graph = _video_rdf_graph(plan)
@@ -2061,7 +2585,48 @@ private[cozy] object CozyVideo {
       case (path, kind) =>
         _artifact_link_triples(projectid, _video_rdf_resource("artifact", kind), kind, path, "present", "future.video")
     }
-    Rdf.Graph(projecttriples ++ parttriples ++ futureartifacts)
+    val replayscript = plan.projectRoot.resolve("build/demo-script.json").normalize()
+    val replaytriples =
+      if (Files.isRegularFile(replayscript))
+        _replay_rdf_triples(projectid, plan.projectRoot, replayscript)
+      else
+        Vector.empty
+    Rdf.Graph(projecttriples ++ parttriples ++ futureartifacts ++ replaytriples)
+  }
+
+  private def _replay_rdf_triples(projectid: String, projectroot: Path, scriptpath: Path): Vector[Rdf.Triple] = {
+    val script = _load_replay_script(scriptpath)
+    val replayid = _video_rdf_resource("replay", _basename(scriptpath))
+    val manifestpath = _replay_work_dir(projectroot, scriptpath).resolve("manifest.json").normalize()
+    val manifest = _read_optional_json_manifest(manifestpath, "replay manifest")
+    val basetriples =
+      Vector(
+        _rdf_uri(projectid, _cv("hasReplay"), replayid),
+        _rdf_type(replayid, "VideoReplay"),
+        _rdf_literal(replayid, Vocabulary.Rdfs.label, _basename(scriptpath)),
+        _rdf_literal(replayid, _cv("manualReview"), script.manualReview.toString, Some(_xsd_namespace + "boolean")),
+        _rdf_literal(replayid, _cv("stepCount"), script.steps.size.toString, Some(_xsd_namespace + "integer"))
+      ) ++ script.sourceVideo.map(x => _rdf_literal(replayid, _cv("sourceVideo"), x)).toVector ++
+        script.sourceSha256.map(x => _rdf_literal(replayid, _cv("sourceSha256"), x)).toVector ++
+        _artifact_link_triples(replayid, _video_rdf_resource("artifact", "replay-manifest"), "replay-manifest", manifestpath, _rdf_file_status(manifestpath), "replay.playwright") ++
+        manifest.toVector.flatMap(json => _json_field_triples(replayid, json, Vector("toolMode", "dockerImage", "outputVideo"), _cv))
+    val steptriples = script.steps.zipWithIndex.flatMap {
+      case (step, index) =>
+        val stepid = _video_rdf_resource("replay-step", s"${_basename(scriptpath)}-${index + 1}")
+        Vector(
+          _rdf_uri(replayid, _cv("hasReplayStep"), stepid),
+          _rdf_type(stepid, "VideoReplayStep"),
+          _rdf_literal(stepid, Vocabulary.Rdfs.label, s"step-${index + 1}"),
+          _rdf_literal(stepid, _cv("stepOrder"), (index + 1).toString, Some(_xsd_namespace + "integer")),
+          _rdf_literal(stepid, _cv("stepKind"), step.kind),
+          _rdf_literal(stepid, _cv("manualReview"), step.manualReview.toString, Some(_xsd_namespace + "boolean"))
+        ) ++ step.url.map(x => _rdf_literal(stepid, _cv("url"), x)).toVector ++
+          step.selector.map(x => _rdf_literal(stepid, _cv("selector"), x)).toVector ++
+          step.text.map(x => _rdf_literal(stepid, _schema("text"), x)).toVector ++
+          step.timestampMs.map(x => _rdf_literal(stepid, _cv("timestampMs"), x.toString, Some(_xsd_namespace + "integer"))).toVector ++
+          step.note.map(x => _rdf_literal(stepid, _cv("note"), x)).toVector
+    }
+    basetriples ++ steptriples
   }
 
   private def _video_part_rdf_triples(projectid: String, part: VideoPartPlan): Vector[Rdf.Triple] = {
@@ -3087,6 +3652,38 @@ private[cozy] object CozyVideo {
     b += s"narration: ${result.narrationPath}"
     b += s"manifest: ${result.manifestPath}"
     b += s"segments: ${result.segmentCount}"
+    b.result().mkString("\n") + "\n"
+  }
+
+  private def _render_demo_script_result(result: VideoDemoScriptResult): String = {
+    val b = Vector.newBuilder[String]
+    b += "Cozy Video Demo Script"
+    b += s"inputVideo: ${result.inputVideo}"
+    b += s"scriptFile: ${result.scriptFile}"
+    b += s"manualReview: ${result.manualReview}"
+    b += s"steps: ${result.steps.size}"
+    result.steps.foreach { step =>
+      b += s"  - ${step.kind}${step.selector.map(x => s" selector=$x").getOrElse("")}${step.url.map(x => s" url=$x").getOrElse("")}"
+    }
+    b.result().mkString("\n") + "\n"
+  }
+
+  private def _render_replay_result(result: VideoReplayResult): String = {
+    val b = Vector.newBuilder[String]
+    b += (if (result.dryRun) "Cozy Video Replay Dry-Run" else "Cozy Video Replay")
+    b += s"scriptFile: ${result.scriptFile}"
+    b += s"toolMode: ${result.toolMode.label}"
+    b += s"dockerImage: ${result.dockerImage}"
+    result.outputVideo.foreach(x => b += s"outputVideo: $x")
+    b += s"manifest: ${result.manifestPath}"
+    b += "commands:"
+    result.commands.foreach { command =>
+      b += s"  - ${command.stepName}: ${command.toolName} (${command.mode.label}) - ${command.preview}"
+      if (command.inputs.nonEmpty)
+        b += s"    inputs: ${command.inputs.mkString(", ")}"
+      if (command.outputs.nonEmpty)
+        b += s"    outputs: ${command.outputs.mkString(", ")}"
+    }
     b.result().mkString("\n") + "\n"
   }
 

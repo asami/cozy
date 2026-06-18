@@ -79,8 +79,8 @@ Out of scope:
 ## Phase Items
 
 - [x] VDO-01: Phase 8 documentation added
-- [ ] VDO-02: `cozy video` command surface defined
-- [ ] VDO-03: Video project model implemented
+- [x] VDO-02: `cozy video` command surface defined
+- [x] VDO-03: Video project model implemented
 - [x] VDO-04: Project/script structured document parsing implemented
 - [x] VDO-05: Dry-run and inspect implemented
 - [x] VDO-06: External tool checks implemented
@@ -95,7 +95,7 @@ Out of scope:
 - [x] VDO-13: Runtime smoke fixture added
 - [x] VDO-14: Existing workflows preserved
 - [x] VDO-15: Recorded demo transcription implemented
-- [ ] VDO-16: Playwright demo replay generation implemented
+- [x] VDO-16: Playwright demo replay generation implemented
 - [x] VDO-17: Toolchain includes whisper.cpp and demo replay dependencies
 - [x] VDO-18: `.video/` source package and external video publication implemented
 
@@ -125,12 +125,14 @@ Out of scope:
 - `cozy video transcribe <input-video> --save <dir>` extracts audio, runs
   whisper.cpp, and writes timestamped transcript, caption, and narration
   artifacts.
-- `cozy video demo-script <input-video> --save <script-file> [--trace
-  <trace.zip>] [--har <file>]` writes a Playwright replay script draft. Trace,
-  HAR, or selector event metadata provides the high-precision path; video-only
-  input produces a manual-review draft.
-- `cozy video replay <script-file> [--save <output-video>] [--dry-run]` can
-  dry-run or execute the generated Playwright replay plan.
+- `cozy video demo-script <input-video> --save <script-file> [--events
+  <file>] [--trace <trace.zip>] [--har <file>] [--transcript
+  <transcript.json>]` writes a Playwright replay script draft. Selector event
+  metadata provides the high-precision path; HAR and trace are preserved as
+  source/provenance hints; video-only input produces a manual-review draft.
+- `cozy video replay <script-file> [--save <output-video.webm>] [--dry-run]`
+  can dry-run or execute the generated Playwright replay plan. Recorded replay
+  output is WebM in VDO-16.
 - `cozy video rdf <project-file> --save <dir>` writes Turtle and JSON-LD with
   scene, utterance, timing, artifact, and provenance metadata.
 - `cozy publish-video <slug>.video --save <publication-dir> --warehouse
@@ -168,8 +170,10 @@ Out of scope:
 - The standard transcription model/data is part of the Cozy toolchain plan. If
   image size becomes impractical, the model/data may move to a toolchain-managed
   cache or Docker volume with the same validation and setup behavior.
-- Recorded video plus Playwright trace, HAR, selector event log, or equivalent
-  capture metadata is the high-precision path for replay generation.
+- Recorded video plus selector event log, or equivalent selector-level capture
+  metadata, is the high-precision path for replay generation in VDO-16.
+  Playwright trace and HAR are preserved as source/provenance hints until full
+  operation reconstruction is implemented.
 - Recorded video alone produces a draft replay script requiring manual review;
   OCR and visual operation inference remain future extensions.
 - Remotion is the standard renderer direction; Python/Pillow remains available
@@ -235,7 +239,7 @@ Out of scope:
   generation. `cozy video rdf` now projects video project, script, audio,
   render, and build manifests into Turtle and JSON-LD through SmartDox
   `Rdf.Graph` / `RdfRenderer`, while recorded demo transcript/replay
-  provenance remains open for VDO-15/VDO-16 manifest inputs.
+  provenance remained open for VDO-15/VDO-16 manifest inputs at this point.
 - 2026-06-19: Completed VDO-12 BoK registration extension point decision.
   Phase 8 now documents the handoff from `cozy video rdf` output to future
   BoK/publish integration through `src/main/publication`, while explicitly
@@ -245,8 +249,8 @@ Out of scope:
   `cozy video` surface. `src/sbt-test/cozy/video-runtime-smoke` now validates
   `inspect`, `build --dry-run`, `rdf`, and `--check-tools` through the real
   `cozy.Cozy` entrypoint without requiring media tools to be installed.
-  Transcription execution is covered by the later VDO-15 specs; replay smoke
-  coverage remains tied to VDO-16.
+  Transcription execution was covered by the later VDO-15 specs, and replay
+  smoke coverage was later added by VDO-16.
 - 2026-06-19: Completed VDO-14 existing workflow preservation check.
   `cozy bok` runtime smoke, publication, CAR/SAR publishing, scaffold, and
   sbt-bridge contract tests passed after the Phase 8 video additions.
@@ -256,6 +260,12 @@ Out of scope:
   transcript, SRT captions, narration draft, and manifest files, records input
   hash/model/tool provenance, and supports Docker-first plus host execution
   with setup-hint based tool validation.
+- 2026-06-19: Completed VDO-16 Playwright demo replay generation.
+  `cozy video demo-script` now writes deterministic replay-script JSON from
+  selector event logs, HAR URL hints, optional transcript notes, and video-only
+  manual-review drafts. `cozy video replay` now dry-runs or executes
+  Playwright replay plans through the shared process runner, optionally records
+  WebM replay output, and writes replay manifest/RDF provenance.
 - 2026-06-19: Completed VDO-18 `.video/` source package and external video
   publication. Cozy now accepts `<slug>.video` packages with `index.dox`,
   `video.yaml|yml|json`, and `script.json`, publishes generated video artifacts
