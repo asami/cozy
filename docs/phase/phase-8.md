@@ -82,7 +82,7 @@ Out of scope:
 - [ ] VDO-03: Video project model implemented
 - [ ] VDO-04: Project/script structured document parsing implemented
 - [x] VDO-05: Dry-run and inspect implemented
-- [ ] VDO-06: External tool checks implemented
+- [x] VDO-06: External tool checks implemented
 - [ ] VDO-06B: Docker toolchain mode implemented
 - [ ] VDO-06C: Unified Cozy toolchain Docker image developed
 - [ ] VDO-07: VOICEVOX synthesis implemented
@@ -182,6 +182,11 @@ Out of scope:
   renders a reusable artifact plan, and `video build <project-file> --dry-run`
   prints non-executing command previews for supported dialogue, storyboard, and
   web-demo parts.
+- 2026-06-18: Completed VDO-06 external tool checks. `--check-tools` now uses
+  probe-backed providers for Docker daemon/image availability, VOICEVOX HTTP,
+  ffmpeg/ffprobe, Node/npm, Remotion dependency detection, Playwright Chromium,
+  and whisper.cpp/model data while preserving stub-injectable deterministic
+  tests and keeping normal inspect/dry-run independent of installed tools.
 
 ## References
 

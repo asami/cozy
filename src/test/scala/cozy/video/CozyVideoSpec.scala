@@ -4,6 +4,8 @@ import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 import scala.collection.JavaConverters._
+import scala.collection.mutable.ArrayBuffer
+import java.net.URI
 import org.scalatest.funsuite.AnyFunSuite
 
 /*
@@ -219,20 +221,202 @@ final class CozyVideoSpec extends AnyFunSuite {
     assert(scene.expanded(7).flatMap(_.id) == Vector("scene-07.subscene-01", "scene-07.subscene-02"))
   }
 
-  test("video inspect default tool providers are non-executing unchecked checks") {
-    _with_temp_dir("cozy-video-default-tools") { dir =>
+  test("video inspect does not call tool probes without check-tools") {
+    _with_temp_dir("cozy-video-no-tool-probe") { dir =>
       _write(dir.resolve("script.json"), _script_json)
       _write(dir.resolve("video_project.json"), _project_json("script.json"))
+      val probe = RecordingProbe()
 
-      val out = CozyVideo.inspect(CozyVideo.InspectConfig(dir.resolve("video_project.json"), checkTools = true), CozyVideo.VideoToolRegistry.default)
+      val out = CozyVideo.inspect(
+        CozyVideo.InspectConfig(dir.resolve("video_project.json"), checkTools = false),
+        CozyVideo.VideoToolRegistry.production(probe)
+      )
 
+      assert(!out.contains("tools:"))
+      assert(probe.commands.isEmpty)
+      assert(probe.httpGets.isEmpty)
+      assert(probe.existsChecks.isEmpty)
+    }
+  }
+
+  test("video inspect production registry reports deterministic available tools through probe") {
+    _with_temp_dir("cozy-video-tool-probe-available") { dir =>
+      val chromium = dir.resolve("chromium")
+      val whisper = dir.resolve("models/ggml-base.bin")
+      _write(dir.resolve("script.json"), _script_json)
+      _write(dir.resolve("video_project.json"), _project_json_with_tools("script.json", whisper.toString))
+      _write(chromium, "binary")
+      _write(whisper, "model")
+      val probe = RecordingProbe(
+        commandResults = Map(
+          Vector("docker", "version", "--format", "{{.Server.Version}}") -> CozyVideo.VideoCommandResult(0, "25.0\n", ""),
+          Vector("docker", "image", "inspect", "simplemodeling/cozy-toolchain:latest") -> CozyVideo.VideoCommandResult(0, "[]", ""),
+          Vector("ffmpeg", "-version") -> CozyVideo.VideoCommandResult(0, "ffmpeg", ""),
+          Vector("ffprobe", "-version") -> CozyVideo.VideoCommandResult(0, "ffprobe", ""),
+          Vector("node", "--version") -> CozyVideo.VideoCommandResult(0, "v22.0.0", ""),
+          Vector("npm", "--version") -> CozyVideo.VideoCommandResult(0, "10.0.0", ""),
+          Vector("node", "-e", "require.resolve('@remotion/renderer')") -> CozyVideo.VideoCommandResult(0, "/node_modules/@remotion/renderer", ""),
+          Vector("node", "-e", "require.resolve('playwright')") -> CozyVideo.VideoCommandResult(0, "/node_modules/playwright", ""),
+          Vector("node", "-e", "const { chromium } = require('playwright'); console.log(chromium.executablePath())") -> CozyVideo.VideoCommandResult(0, chromium.toString + "\n", ""),
+          Vector("whisper-cli", "--help") -> CozyVideo.VideoCommandResult(0, "usage", "")
+        ),
+        httpResults = Map(
+          "http://127.0.0.1:50021/version" -> CozyVideo.VideoHttpResult(200, "0.0.0")
+        )
+      )
+
+      val out = CozyVideo.inspect(
+        CozyVideo.InspectConfig(dir.resolve("video_project.json"), checkTools = true),
+        CozyVideo.VideoToolRegistry.production(probe)
+      )
+
+      assert(out.contains("docker-toolchain: available (docker)"))
+      assert(out.contains("docker-image: available (docker)"))
+      assert(out.contains("voicevox: available (external-service)"))
+      assert(out.contains("ffmpeg: available (host)"))
+      assert(out.contains("remotion-node: available (host)"))
+      assert(out.contains("playwright: available (host)"))
+      assert(out.contains("whisper-cpp: available (host)"))
+      assert(out.indexOf("docker-toolchain: available") < out.indexOf("docker-image: available"))
+      assert(out.indexOf("docker-image: available") < out.indexOf("voicevox: available"))
+    }
+  }
+
+  test("video inspect production registry reports missing and unchecked tools through probe") {
+    _with_temp_dir("cozy-video-tool-probe-missing") { dir =>
+      _write(dir.resolve("script.json"), _script_json)
+      _write(
+        dir.resolve("video_project.json"),
+        s"""{
+           |  "title": "Tool Missing",
+           |  "tools": {
+           |    "dockerImage": "example/toolchain:dev",
+           |    "voicevoxUrl": "http://voicevox.example",
+           |    "whisperModel": "models/missing.bin"
+           |  },
+           |  "parts": [
+           |    {"id": "intro", "type": "dialogue", "script": "script.json"}
+           |  ]
+           |}
+           |""".stripMargin
+      )
+      val probe = RecordingProbe(
+        commandResults = Map(
+          Vector("docker", "version", "--format", "{{.Server.Version}}") -> CozyVideo.VideoCommandResult(1, "", "docker unavailable"),
+          Vector("ffmpeg", "-version") -> CozyVideo.VideoCommandResult(0, "ffmpeg", ""),
+          Vector("ffprobe", "-version") -> CozyVideo.VideoCommandResult(127, "", "missing"),
+          Vector("node", "--version") -> CozyVideo.VideoCommandResult(0, "v22.0.0", ""),
+          Vector("npm", "--version") -> CozyVideo.VideoCommandResult(0, "10.0.0", ""),
+          Vector("node", "-e", "require.resolve('@remotion/renderer')") -> CozyVideo.VideoCommandResult(1, "", "missing"),
+          Vector("node", "-e", "require.resolve('playwright')") -> CozyVideo.VideoCommandResult(1, "", "missing"),
+          Vector("node", "-e", "const { chromium } = require('playwright'); console.log(chromium.executablePath())") -> CozyVideo.VideoCommandResult(1, "", "missing"),
+          Vector("whisper-cli", "--help") -> CozyVideo.VideoCommandResult(0, "usage", "")
+        ),
+        httpResults = Map(
+          "http://voicevox.example/version" -> CozyVideo.VideoHttpResult(0, "", Some("connection refused"))
+        )
+      )
+
+      val out = CozyVideo.inspect(
+        CozyVideo.InspectConfig(dir.resolve("video_project.json"), checkTools = true),
+        CozyVideo.VideoToolRegistry.production(probe)
+      )
+
+      assert(out.contains("docker-toolchain: missing (docker)"))
+      assert(out.contains("docker-image: unchecked (docker)"))
+      assert(out.contains("setup: Start Docker, then run: docker pull example/toolchain:dev"))
+      assert(out.contains("voicevox: missing (external-service)"))
+      assert(out.contains("setup: Start VOICEVOX Engine or set tools.voicevoxUrl."))
+      assert(out.contains("ffmpeg: missing (host)"))
+      assert(out.contains("remotion-node: missing (host)"))
+      assert(out.contains("playwright: missing (host)"))
+      assert(out.contains("whisper-cpp: missing (host)"))
+      assert(out.contains("whisper.cpp model is missing: " + dir.resolve("models/missing.bin").normalize()))
+    }
+  }
+
+  test("video inspect production registry reports missing docker image with pull guidance") {
+    _with_temp_dir("cozy-video-tool-probe-image-missing") { dir =>
+      _write(dir.resolve("script.json"), _script_json)
+      _write(
+        dir.resolve("video_project.json"),
+        s"""{
+           |  "title": "Image Missing",
+           |  "tools": {
+           |    "dockerImage": "example/toolchain:dev"
+           |  },
+           |  "parts": [
+           |    {"id": "intro", "type": "dialogue", "script": "script.json"}
+           |  ]
+           |}
+           |""".stripMargin
+      )
+      val probe = RecordingProbe(
+        commandResults = Map(
+          Vector("docker", "version", "--format", "{{.Server.Version}}") -> CozyVideo.VideoCommandResult(0, "25.0\n", ""),
+          Vector("docker", "image", "inspect", "example/toolchain:dev") -> CozyVideo.VideoCommandResult(1, "", "No such image"),
+          Vector("ffmpeg", "-version") -> CozyVideo.VideoCommandResult(0, "ffmpeg", ""),
+          Vector("ffprobe", "-version") -> CozyVideo.VideoCommandResult(0, "ffprobe", "")
+        )
+      )
+
+      val out = CozyVideo.inspect(
+        CozyVideo.InspectConfig(dir.resolve("video_project.json"), checkTools = true),
+        CozyVideo.VideoToolRegistry.production(probe)
+      )
+
+      assert(out.contains("docker-toolchain: available (docker)"))
+      assert(out.contains("docker-image: missing (docker)"))
+      assert(out.contains("setup: Run: docker pull example/toolchain:dev"))
+    }
+  }
+
+  test("video inspect production registry reports invalid voicevox URL as missing") {
+    _with_temp_dir("cozy-video-tool-probe-invalid-voicevox") { dir =>
+      _write(dir.resolve("script.json"), _script_json)
+      _write(
+        dir.resolve("video_project.json"),
+        s"""{
+           |  "title": "Invalid Voicevox",
+           |  "tools": {
+           |    "voicevoxUrl": "http://bad host"
+           |  },
+           |  "parts": [
+           |    {"id": "intro", "type": "dialogue", "script": "script.json"}
+           |  ]
+           |}
+           |""".stripMargin
+      )
+      val probe = RecordingProbe()
+
+      val out = CozyVideo.inspect(
+        CozyVideo.InspectConfig(dir.resolve("video_project.json"), checkTools = true),
+        CozyVideo.VideoToolRegistry.production(probe)
+      )
+
+      assert(out.contains("voicevox: missing (external-service)"))
+      assert(out.contains("VOICEVOX endpoint URL is invalid"))
+      assert(out.contains("setup: Set tools.voicevoxUrl to a valid HTTP URL."))
+      assert(probe.httpGets.isEmpty)
+    }
+  }
+
+  test("video build dry-run can include production tool checks without failing on missing tools") {
+    _with_temp_dir("cozy-video-build-check-tools") { dir =>
+      _write(dir.resolve("script.json"), _script_json)
+      _write(dir.resolve("video_project.json"), _project_json("script.json"))
+      val probe = RecordingProbe()
+
+      val out = CozyVideo.build(
+        CozyVideo.BuildConfig(dir.resolve("video_project.json"), dryRun = true, checkTools = true),
+        CozyVideo.VideoToolRegistry.production(probe)
+      )
+
+      assert(out.contains("Cozy Video Build Dry-Run"))
+      assert(out.contains("commands:"))
       assert(out.contains("tools:"))
-      assert(out.contains("docker-toolchain: unchecked (docker)"))
-      assert(out.contains("voicevox: unchecked (external-service)"))
-      assert(out.contains("ffmpeg: unchecked (host)"))
-      assert(out.contains("remotion-node: unchecked (host)"))
-      assert(out.contains("playwright: unchecked (host)"))
-      assert(out.contains("whisper-cpp: unchecked (host)"))
+      assert(out.contains("docker-toolchain: missing (docker)"))
+      assert(out.contains("voicevox: missing (external-service)"))
     }
   }
 
@@ -304,9 +488,45 @@ object CozyVideoSpec {
     def check(context: CozyVideo.VideoToolContext): CozyVideo.VideoToolCheck = result
   }
 
+  final case class RecordingProbe(
+    commandResults: Map[Vector[String], CozyVideo.VideoCommandResult] = Map.empty,
+    httpResults: Map[String, CozyVideo.VideoHttpResult] = Map.empty
+  ) extends CozyVideo.VideoToolProbe {
+    val commands = ArrayBuffer.empty[Vector[String]]
+    val httpGets = ArrayBuffer.empty[String]
+    val existsChecks = ArrayBuffer.empty[Path]
+
+    def command(args: Vector[String], cwd: Path): CozyVideo.VideoCommandResult = {
+      commands += args
+      commandResults.getOrElse(args, CozyVideo.VideoCommandResult(127, "", s"missing: ${args.mkString(" ")}"))
+    }
+
+    def httpGet(uri: URI): CozyVideo.VideoHttpResult = {
+      httpGets += uri.toString
+      httpResults.getOrElse(uri.toString, CozyVideo.VideoHttpResult(0, "", Some("missing endpoint")))
+    }
+
+    def exists(path: Path): Boolean = {
+      existsChecks += path
+      Files.exists(path)
+    }
+  }
+
   private def _project_json(script: String): String =
     s"""{
        |  "title": "Sample Video",
+       |  "parts": [
+       |    {"id": "intro", "type": "dialogue", "script": "$script"}
+       |  ]
+       |}
+       |""".stripMargin
+
+  private def _project_json_with_tools(script: String, whispermodel: String): String =
+    s"""{
+       |  "title": "Sample Video",
+       |  "tools": {
+       |    "whisperModel": "$whispermodel"
+       |  },
        |  "parts": [
        |    {"id": "intro", "type": "dialogue", "script": "$script"}
        |  ]

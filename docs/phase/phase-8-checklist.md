@@ -61,21 +61,21 @@ Status: DONE
 
 ## VDO-06: External Tool Checks
 
-Status: OPEN
+Status: DONE
 
 - [x] Add external-tool SPI and injectable stub registry for deterministic
       checks.
 - [x] Add non-executing default providers for Docker toolchain, VOICEVOX,
       ffmpeg/ffprobe, Remotion/Node, Playwright, and whisper.cpp.
-- [ ] Check Docker availability when Docker toolchain mode is selected.
-- [ ] Check Docker image availability or pull guidance for the configured Cozy
+- [x] Check Docker availability when Docker toolchain mode is selected.
+- [x] Check Docker image availability or pull guidance for the configured Cozy
       toolchain image.
-- [ ] Check VOICEVOX HTTP endpoint connectivity separately from Docker
+- [x] Check VOICEVOX HTTP endpoint connectivity separately from Docker
       toolchain checks.
-- [ ] In host mode only, check `ffmpeg`, `ffprobe`, `node`, `npm`, Remotion
+- [x] In host mode only, check `ffmpeg`, `ffprobe`, `node`, `npm`, Remotion
       dependencies, Playwright Chromium, whisper.cpp, and transcription model
       data directly.
-- [ ] Print installation/setup hints for missing dependencies.
+- [x] Print installation/setup hints for missing dependencies.
 - [x] Support an inspect-time tool check.
 
 ## VDO-06B: Docker Toolchain Mode

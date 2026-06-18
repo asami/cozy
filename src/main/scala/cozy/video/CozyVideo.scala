@@ -7,6 +7,14 @@ import cozy.runtime.CozyCliArgs
 import org.goldenport.cli.spec
 import io.circe.{Decoder, HCursor, Json}
 import java.nio.file.{Files, Path}
+import java.net.URI
+import java.net.http.{HttpClient, HttpRequest, HttpResponse}
+import java.time.{Duration => JDuration}
+import java.util.concurrent.TimeUnit
+import scala.collection.JavaConverters._
+import scala.concurrent.{Await, ExecutionContext, Future, blocking}
+import scala.concurrent.duration._
+import scala.util.control.NonFatal
 
 /*
  * @since   Jun. 18, 2026
@@ -52,6 +60,7 @@ private[cozy] object CozyVideo {
     title: Option[String],
     output: Option[String],
     renderer: Option[VideoRenderer],
+    tools: Option[VideoToolSettings],
     parts: Vector[VideoPart]
   )
   object VideoProject {
@@ -61,8 +70,45 @@ private[cozy] object CozyVideo {
         title <- c.downField("title").as[Option[String]]
         output <- c.downField("output").as[Option[String]]
         renderer <- c.downField("renderer").as[Option[VideoRenderer]]
+        tools <- c.downField("tools").as[Option[VideoToolSettings]]
         parts <- c.downField("parts").as[Option[Vector[VideoPart]]]
-      } yield VideoProject(name, title, output, renderer, parts.getOrElse(Vector.empty))
+      } yield VideoProject(name, title, output, renderer, tools, parts.getOrElse(Vector.empty))
+  }
+
+  final case class VideoToolSettings(
+    dockerImage: Option[String],
+    voicevoxUrl: Option[String],
+    whisperModel: Option[String]
+  ) {
+    def dockerImageOrDefault: String =
+      dockerImage.getOrElse(VideoToolSettings.DEFAULT_DOCKER_IMAGE)
+    def voicevoxUrlOrDefault: String =
+      voicevoxUrl.getOrElse(VideoToolSettings.DEFAULT_VOICEVOX_URL)
+    def whisperModelPath(projectroot: Path): Option[Path] =
+      whisperModel.map { x =>
+        val path = Path.of(x)
+        if (path.isAbsolute) path.normalize() else projectroot.resolve(path).normalize()
+      }
+  }
+  object VideoToolSettings {
+    val DEFAULT_DOCKER_IMAGE = "simplemodeling/cozy-toolchain:latest"
+    val DEFAULT_VOICEVOX_URL = "http://127.0.0.1:50021"
+
+    implicit val decoder: Decoder[VideoToolSettings] = (c: HCursor) =>
+      for {
+        dockerimage <- c.downField("dockerImage").as[Option[String]].flatMap {
+          case Some(s) => Right(Some(s))
+          case None => c.downField("docker-image").as[Option[String]]
+        }
+        voicevoxurl <- c.downField("voicevoxUrl").as[Option[String]].flatMap {
+          case Some(s) => Right(Some(s))
+          case None => c.downField("voicevox-url").as[Option[String]]
+        }
+        whispermodel <- c.downField("whisperModel").as[Option[String]].flatMap {
+          case Some(s) => Right(Some(s))
+          case None => c.downField("whisper-model").as[Option[String]]
+        }
+      } yield VideoToolSettings(dockerimage, voicevoxurl, whispermodel)
   }
 
   final case class VideoPart(
@@ -230,7 +276,9 @@ private[cozy] object CozyVideo {
     projectFile: Path,
     projectRoot: Path,
     project: VideoProject
-  )
+  ) {
+    def settings: VideoToolSettings = project.tools.getOrElse(VideoToolSettings(None, None, None))
+  }
 
   trait VideoToolProvider {
     def check(context: VideoToolContext): VideoToolCheck
@@ -240,13 +288,16 @@ private[cozy] object CozyVideo {
     def checks(context: VideoToolContext): Vector[VideoToolCheck] = providers.map(_.check(context))
   }
   object VideoToolRegistry {
-    val default: VideoToolRegistry = VideoToolRegistry(Vector(
-      UncheckedToolProvider("docker-toolchain", VideoToolMode.Docker, "Docker toolchain check is not implemented yet.", Some("Future check: docker image simplemodeling/cozy-toolchain:latest")),
-      UncheckedToolProvider("voicevox", VideoToolMode.ExternalService, "VOICEVOX HTTP check is not implemented yet.", Some("Future check: video.voicevox.url")),
-      UncheckedToolProvider("ffmpeg", VideoToolMode.Host, "ffmpeg/ffprobe check is not implemented yet.", Some("Future check: ffmpeg and ffprobe availability")),
-      UncheckedToolProvider("remotion-node", VideoToolMode.Host, "Remotion/Node check is not implemented yet.", Some("Future check: node, npm, and Remotion dependencies")),
-      UncheckedToolProvider("playwright", VideoToolMode.Host, "Playwright check is not implemented yet.", Some("Future check: Playwright Chromium availability")),
-      UncheckedToolProvider("whisper-cpp", VideoToolMode.Host, "whisper.cpp check is not implemented yet.", Some("Future check: whisper.cpp binary and model data"))
+    val default: VideoToolRegistry = production(VideoToolProbe.default)
+
+    def production(probe: VideoToolProbe): VideoToolRegistry = VideoToolRegistry(Vector(
+      DockerToolchainProvider(probe),
+      DockerImageProvider(probe),
+      VoicevoxProvider(probe),
+      FfmpegProvider(probe),
+      RemotionNodeProvider(probe),
+      PlaywrightProvider(probe),
+      WhisperCppProvider(probe)
     ))
   }
 
@@ -258,6 +309,241 @@ private[cozy] object CozyVideo {
   ) extends VideoToolProvider {
     def check(context: VideoToolContext): VideoToolCheck =
       VideoToolCheck(name, mode, VideoToolStatus.Unchecked, message, setupHint)
+  }
+
+  final case class VideoCommandResult(
+    exitCode: Int,
+    stdout: String,
+    stderr: String
+  ) {
+    def isSuccess: Boolean = exitCode == 0
+    def text: String = Vector(stdout.trim, stderr.trim).filter(_.nonEmpty).mkString(" ")
+  }
+
+  final case class VideoHttpResult(
+    statusCode: Int,
+    body: String,
+    error: Option[String] = None
+  ) {
+    def isSuccess: Boolean = statusCode >= 200 && statusCode < 300 && error.isEmpty
+  }
+
+  trait VideoToolProbe {
+    def command(args: Vector[String], cwd: Path): VideoCommandResult
+    def httpGet(uri: URI): VideoHttpResult
+    def exists(path: Path): Boolean
+  }
+  object VideoToolProbe {
+    val default: VideoToolProbe = DefaultVideoToolProbe
+  }
+
+  private object DefaultVideoToolProbe extends VideoToolProbe {
+    private implicit val ec: ExecutionContext = ExecutionContext.global
+    private val _process_timeout = 5.seconds
+    private val _http_timeout = JDuration.ofSeconds(3)
+
+    def command(args: Vector[String], cwd: Path): VideoCommandResult =
+      try {
+        val builder = new ProcessBuilder(args.asJava)
+        builder.directory(cwd.toFile)
+        val process = builder.start()
+        val stdout = Future(blocking(new String(process.getInputStream.readAllBytes())))
+        val stderr = Future(blocking(new String(process.getErrorStream.readAllBytes())))
+        val finished = process.waitFor(_process_timeout.toMillis, TimeUnit.MILLISECONDS)
+        if (!finished) {
+          process.destroyForcibly()
+          VideoCommandResult(124, "", s"Timed out: ${args.mkString(" ")}")
+        } else {
+          VideoCommandResult(
+            process.exitValue(),
+            Await.result(stdout, _process_timeout),
+            Await.result(stderr, _process_timeout)
+          )
+        }
+      } catch {
+        case NonFatal(e) => VideoCommandResult(127, "", e.getMessage)
+      }
+
+    def httpGet(uri: URI): VideoHttpResult =
+      try {
+        val client = HttpClient.newBuilder().connectTimeout(_http_timeout).build()
+        val request = HttpRequest.newBuilder(uri).timeout(_http_timeout).GET().build()
+        val response = client.send(request, HttpResponse.BodyHandlers.ofString())
+        VideoHttpResult(response.statusCode(), response.body())
+      } catch {
+        case NonFatal(e) => VideoHttpResult(0, "", Some(e.getMessage))
+      }
+
+    def exists(path: Path): Boolean = Files.exists(path)
+  }
+
+  final case class DockerToolchainProvider(probe: VideoToolProbe) extends VideoToolProvider {
+    def check(context: VideoToolContext): VideoToolCheck = {
+      val result = probe.command(Vector("docker", "version", "--format", "{{.Server.Version}}"), context.projectRoot)
+      if (result.isSuccess)
+        VideoToolCheck("docker-toolchain", VideoToolMode.Docker, VideoToolStatus.Available, "Docker daemon is reachable.")
+      else
+        VideoToolCheck(
+          "docker-toolchain",
+          VideoToolMode.Docker,
+          VideoToolStatus.Missing,
+          _message("Docker daemon is not reachable.", result),
+          Some("Install/start Docker Desktop or a compatible Docker daemon.")
+        )
+    }
+  }
+
+  final case class DockerImageProvider(probe: VideoToolProbe) extends VideoToolProvider {
+    def check(context: VideoToolContext): VideoToolCheck = {
+      val image = context.settings.dockerImageOrDefault
+      val docker = probe.command(Vector("docker", "version", "--format", "{{.Server.Version}}"), context.projectRoot)
+      if (!docker.isSuccess)
+        VideoToolCheck(
+          "docker-image",
+          VideoToolMode.Docker,
+          VideoToolStatus.Unchecked,
+          s"Docker image was not checked because Docker is unavailable: $image.",
+          Some("Start Docker, then run: docker pull " + image)
+        )
+      else {
+        val result = probe.command(Vector("docker", "image", "inspect", image), context.projectRoot)
+        if (result.isSuccess)
+          VideoToolCheck("docker-image", VideoToolMode.Docker, VideoToolStatus.Available, s"Docker image is available: $image.")
+        else
+          VideoToolCheck(
+            "docker-image",
+            VideoToolMode.Docker,
+            VideoToolStatus.Missing,
+            _message(s"Docker image is missing: $image.", result),
+            Some("Run: docker pull " + image)
+          )
+      }
+    }
+  }
+
+  final case class VoicevoxProvider(probe: VideoToolProbe) extends VideoToolProvider {
+    def check(context: VideoToolContext): VideoToolCheck = {
+      val url = context.settings.voicevoxUrlOrDefault.stripSuffix("/") + "/version"
+      try {
+        val result = probe.httpGet(URI.create(url))
+        if (result.isSuccess)
+          VideoToolCheck("voicevox", VideoToolMode.ExternalService, VideoToolStatus.Available, s"VOICEVOX endpoint is reachable: $url.")
+        else
+          VideoToolCheck(
+            "voicevox",
+            VideoToolMode.ExternalService,
+            VideoToolStatus.Missing,
+            result.error.map(e => s"VOICEVOX endpoint is not reachable: $url ($e)").getOrElse(s"VOICEVOX endpoint returned HTTP ${result.statusCode}: $url."),
+            Some("Start VOICEVOX Engine or set tools.voicevoxUrl.")
+          )
+      } catch {
+        case NonFatal(e) =>
+          VideoToolCheck(
+            "voicevox",
+            VideoToolMode.ExternalService,
+            VideoToolStatus.Missing,
+            s"VOICEVOX endpoint URL is invalid: $url (${e.getMessage})",
+            Some("Set tools.voicevoxUrl to a valid HTTP URL.")
+          )
+      }
+    }
+  }
+
+  final case class FfmpegProvider(probe: VideoToolProbe) extends VideoToolProvider {
+    def check(context: VideoToolContext): VideoToolCheck = {
+      val ffmpeg = probe.command(Vector("ffmpeg", "-version"), context.projectRoot)
+      val ffprobe = probe.command(Vector("ffprobe", "-version"), context.projectRoot)
+      if (ffmpeg.isSuccess && ffprobe.isSuccess)
+        VideoToolCheck("ffmpeg", VideoToolMode.Host, VideoToolStatus.Available, "ffmpeg and ffprobe are available.")
+      else
+        VideoToolCheck(
+          "ffmpeg",
+          VideoToolMode.Host,
+          VideoToolStatus.Missing,
+          s"ffmpeg/ffprobe check failed: ffmpeg=${ffmpeg.exitCode}, ffprobe=${ffprobe.exitCode}.",
+          Some("Install ffmpeg and ffprobe, or use the Cozy Docker toolchain.")
+        )
+    }
+  }
+
+  final case class RemotionNodeProvider(probe: VideoToolProbe) extends VideoToolProvider {
+    def check(context: VideoToolContext): VideoToolCheck = {
+      val node = probe.command(Vector("node", "--version"), context.projectRoot)
+      val npm = probe.command(Vector("npm", "--version"), context.projectRoot)
+      val remotion = probe.command(Vector("node", "-e", "require.resolve('@remotion/renderer')"), context.projectRoot)
+      if (node.isSuccess && npm.isSuccess && remotion.isSuccess)
+        VideoToolCheck("remotion-node", VideoToolMode.Host, VideoToolStatus.Available, "Node, npm, and @remotion/renderer are available.")
+      else
+        VideoToolCheck(
+          "remotion-node",
+          VideoToolMode.Host,
+          VideoToolStatus.Missing,
+          s"Remotion host check failed: node=${node.exitCode}, npm=${npm.exitCode}, remotion=${remotion.exitCode}.",
+          Some("Install Node/npm and project Remotion dependencies, or use the Cozy Docker toolchain.")
+        )
+    }
+  }
+
+  final case class PlaywrightProvider(probe: VideoToolProbe) extends VideoToolProvider {
+    def check(context: VideoToolContext): VideoToolCheck = {
+      val module = probe.command(Vector("node", "-e", "require.resolve('playwright')"), context.projectRoot)
+      val executable = probe.command(Vector("node", "-e", "const { chromium } = require('playwright'); console.log(chromium.executablePath())"), context.projectRoot)
+      val path = executable.stdout.trim
+      val chromium = executable.isSuccess && path.nonEmpty && probe.exists(Path.of(path))
+      if (module.isSuccess && chromium)
+        VideoToolCheck("playwright", VideoToolMode.Host, VideoToolStatus.Available, "Playwright and Chromium are available.")
+      else
+        VideoToolCheck(
+          "playwright",
+          VideoToolMode.Host,
+          VideoToolStatus.Missing,
+          s"Playwright check failed: module=${module.exitCode}, chromium=${if (chromium) "available" else "missing"}.",
+          Some("Install Playwright and Chromium, or use the Cozy Docker toolchain. Hint: npx playwright install chromium")
+        )
+    }
+  }
+
+  final case class WhisperCppProvider(probe: VideoToolProbe) extends VideoToolProvider {
+    def check(context: VideoToolContext): VideoToolCheck = {
+      val binary = _first_success(Vector("whisper-cli", "whisper.cpp").map(x => probe.command(Vector(x, "--help"), context.projectRoot)))
+      val model = context.settings.whisperModelPath(context.projectRoot)
+      (binary, model) match {
+        case (Some(_), Some(path)) if probe.exists(path) =>
+          VideoToolCheck("whisper-cpp", VideoToolMode.Host, VideoToolStatus.Available, s"whisper.cpp binary and model are available: $path.")
+        case (Some(_), Some(path)) =>
+          VideoToolCheck(
+            "whisper-cpp",
+            VideoToolMode.Host,
+            VideoToolStatus.Missing,
+            s"whisper.cpp model is missing: $path.",
+            Some("Place the transcription model at tools.whisperModel or use the Cozy Docker toolchain.")
+          )
+        case (Some(_), None) =>
+          VideoToolCheck(
+            "whisper-cpp",
+            VideoToolMode.Host,
+            VideoToolStatus.Unchecked,
+            "whisper.cpp binary is available, but transcription model data is not configured.",
+            Some("Set tools.whisperModel or use the Cozy Docker toolchain.")
+          )
+        case (None, _) =>
+          VideoToolCheck(
+            "whisper-cpp",
+            VideoToolMode.Host,
+            VideoToolStatus.Missing,
+            "whisper.cpp binary is missing.",
+            Some("Install whisper.cpp, provide whisper-cli on PATH, or use the Cozy Docker toolchain.")
+          )
+      }
+    }
+  }
+
+  private def _first_success(results: Vector[VideoCommandResult]): Option[VideoCommandResult] =
+    results.find(_.isSuccess)
+
+  private def _message(prefix: String, result: VideoCommandResult): String = {
+    val detail = result.text
+    if (detail.isEmpty) prefix else s"$prefix $detail"
   }
 
   sealed trait VideoArtifactStatus { def label: String }
