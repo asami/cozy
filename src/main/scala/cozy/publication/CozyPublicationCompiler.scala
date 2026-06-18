@@ -15,7 +15,8 @@ import scala.sys.process._
 
 /*
  * @since   May. 20, 2026
- * @version Jun.  8, 2026
+ *  version Jun.  8, 2026
+ * @version Jun. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyPublicationCompiler {
@@ -1013,7 +1014,7 @@ private[cozy] object CozyPublicationCompiler {
   }
 
   private def _public_metadata(projectdir: Path): CozyProjectYamlConfig.Config =
-    Vector("project.yaml", "project.yml", "project.json", "project.conf", "project.hocon").
+    Vector("project.yaml", "project.yml", "project.json", "project.conf", "project.hocon", "project.xml").
       map(projectdir.resolve).
       find(Files.isRegularFile(_)).
       map(CozyProjectYamlConfig.loadPublic).

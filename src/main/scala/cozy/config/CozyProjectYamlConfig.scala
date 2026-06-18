@@ -1,6 +1,6 @@
 package cozy.config
 
-import org.goldenport.config.ConfigLoader
+import org.goldenport.config.StructuredDocumentLoader
 import org.goldenport.io.InputSource
 import org.goldenport.value._
 import io.circe.{Json => CJson}
@@ -10,7 +10,8 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   May. 20, 2026
- * @version Jun.  8, 2026
+ *  version Jun.  8, 2026
+ * @version Jun. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyProjectYamlConfig {
@@ -55,11 +56,19 @@ private[cozy] object CozyProjectYamlConfig {
     val empty: Config = Config(Map.empty, Map.empty)
   }
 
+  private val _project_file_names: Vector[String] =
+    Vector("project.yaml", "project.yml", "project.json", "project.conf", "project.hocon", "project.xml")
+
+  private val _config_file_names: Vector[String] =
+    Vector("config.yaml", "config.yml", "config.json", "config.conf", "config.hocon", "config.xml")
+
   def load(path: Path): Config =
-    if (Files.isRegularFile(path))
-      parse(Files.readAllLines(path, StandardCharsets.UTF_8).asScala.toVector)
-    else
+    if (Files.isRegularFile(path)) {
+      val json = StructuredDocumentLoader.loadJson(InputSource(path.toFile)).take
+      _config_from_json(json)
+    } else {
       Config.empty
+    }
 
   def loadOperationDefaults(projectdir: Path): Config =
     operationDefaultFiles(projectdir).foldLeft(Config.empty) { (z, file) =>
@@ -67,21 +76,26 @@ private[cozy] object CozyProjectYamlConfig {
     }
 
   def loadProjectConfig(projectdir: Path): Config = {
-    val project = load(projectdir.resolve("project.yaml"))
+    val project = loadProjectMetadata(projectdir)
     project.merge(loadOperationDefaults(projectdir))
   }
 
-  def operationDefaultFiles(projectdir: Path): Vector[Path] =
-    Vector(
-      Option(System.getProperty("user.home")).map(h => Path.of(h).resolve(".cozy").resolve("config.yaml")),
-      Some(projectdir.resolve("conf").resolve("cozy").resolve("config.yaml")),
-      Some(projectdir.resolve(".cozy").resolve("config.yaml"))
-    ).flatten.map(_.toAbsolutePath.normalize)
+  def loadProjectMetadata(projectdir: Path): Config =
+    _first_existing(projectdir, _project_file_names).map(load).getOrElse(Config.empty)
+
+  def operationDefaultFiles(projectdir: Path): Vector[Path] = {
+    val dirs = Vector(
+      Option(System.getProperty("user.home")).map(h => Path.of(h).resolve(".cozy")),
+      Some(projectdir.resolve("conf").resolve("cozy")),
+      Some(projectdir.resolve(".cozy"))
+    ).flatten
+    dirs.flatMap(dir => _config_file_names.map(name => dir.resolve(name))).map(_.toAbsolutePath.normalize).filter(Files.isRegularFile(_))
+  }
 
   def loadPublic(path: Path): Config =
     if (Files.isRegularFile(path)) {
-      val json = ConfigLoader.loadConfig[CJson](InputSource(path.toFile)).take
-      Config(_flatten_json(json), Map.empty, Some(json))
+      val json = StructuredDocumentLoader.loadJson(InputSource(path.toFile)).take
+      _config_from_json(json)
     } else {
       Config.empty
     }
@@ -125,6 +139,12 @@ private[cozy] object CozyProjectYamlConfig {
     Config(values, lists)
   }
 
+  private def _first_existing(projectdir: Path, names: Vector[String]): Option[Path] =
+    names.map(name => projectdir.resolve(name)).find(Files.isRegularFile(_))
+
+  private def _config_from_json(json: CJson): Config =
+    Config(_flatten_json(json), _flatten_json_lists(json), Some(json))
+
   private def _flatten_json(json: CJson): Map[String, String] =
     _flatten_json("", json)
 
@@ -133,7 +153,39 @@ private[cozy] object CozyProjectYamlConfig {
       obj.toMap.flatMap {
         case (k, v) =>
           val key = if (prefix.isEmpty) k else s"${prefix}.${k}"
-          v.asString.map(key -> _).toMap ++ _flatten_json(key, v)
+          _json_scalar_string(v).map(key -> _).toMap ++ _flatten_json(key, v)
+      }
+    }.orElse {
+      json.asArray.map { xs =>
+        xs.zipWithIndex.flatMap {
+          case (v, i) => _flatten_json(s"${prefix}.${i}", v)
+        }.toMap
+      }
+    }.getOrElse(Map.empty)
+
+  private def _json_scalar_string(json: CJson): Option[String] =
+    json.asString.
+      orElse(json.asBoolean.map(_.toString)).
+      orElse(json.asNumber.map(_.toString))
+
+  private def _flatten_json_lists(json: CJson): Map[String, Vector[String]] =
+    _flatten_json_lists("", json)
+
+  private def _flatten_json_lists(prefix: String, json: CJson): Map[String, Vector[String]] =
+    json.asObject.map { obj =>
+      obj.toMap.flatMap {
+        case (k, v) =>
+          val key = if (prefix.isEmpty) k else s"${prefix}.${k}"
+          val list = v.asArray.map { xs =>
+            xs.flatMap(_.asString.map(_.trim).filter(_.nonEmpty)).toVector
+          }.filter(_.nonEmpty).map(key -> _).toMap
+          list ++ _flatten_json_lists(key, v)
+      }
+    }.orElse {
+      json.asArray.map { xs =>
+        xs.zipWithIndex.flatMap {
+          case (v, i) => _flatten_json_lists(s"${prefix}.${i}", v)
+        }.toMap
       }
     }.getOrElse(Map.empty)
 

@@ -13,7 +13,6 @@ import cozy.runtime.{CozyRuntime, CozySbtBridge}
 import cozy.scaffold.CozyScaffold
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
-import scala.io.Source
 import scala.collection.JavaConverters._
 
 /*
@@ -853,7 +852,7 @@ private object CozyOperationConfig {
     if (!Files.isRegularFile(path))
       None
     else
-      Some(_parse(Source.fromFile(path.toFile, "UTF-8").getLines().toVector))
+      Some(cozy.config.CozyProjectYamlConfig.load(path).values)
 
   private def _parse(lines: Vector[String]): Map[String, String] = {
     case class Context(section0: String = "", section2: String = "")
