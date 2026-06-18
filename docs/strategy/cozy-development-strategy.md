@@ -192,6 +192,11 @@ Purpose:
 ## Current Priority
 
 Phase 6 and Phase 7 are closed. Phase 8 is open for `cozy video` development.
+The initial Phase 8 `video inspect` slice is implemented with structured
+project/script parsing and a non-executing external-tool SPI. Remaining Phase 8
+work should extend this surface into build planning, real dependency checks,
+Docker toolchain execution, rendering, transcription, replay generation, and
+RDF output.
 
 Candidate directions after Phase 8 include:
 

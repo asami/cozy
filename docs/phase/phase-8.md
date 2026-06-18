@@ -99,7 +99,7 @@ Out of scope:
 
 ## Acceptance Criteria
 
-- `cozy video inspect <project-file>` prints project, part, script, and artifact
+- `cozy video inspect <project-file>` prints project, part, script, and initial
   planning information.
 - `cozy video inspect <project-file> --check-tools` reports external tool
   status with setup hints.
@@ -170,6 +170,14 @@ Out of scope:
   make host Python/Pillow a required dependency.
 - BoK registration is deferred. Phase 8 records the RDF output handoff point for
   a later BoK/publish integration phase.
+
+## Progress Notes
+
+- 2026-06-18: Implemented the initial `cozy video inspect` slice. It supports
+  JSON, YAML, HOCON, and XML project/script loading, mixed dialogue/storyboard
+  / web-demo part summaries, unsupported part reporting, deterministic
+  subscene IDs, and an injectable non-executing external-tool SPI for stubbed
+  tests.
 
 ## References
 

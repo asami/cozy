@@ -11,6 +11,7 @@ import cozy.bok.CozyBok
 import cozy.publication.{CozyPublicationCompiler, CozySampleDistributor, CozyWarehouseIndexer}
 import cozy.runtime.{CozyRuntime, CozySbtBridge}
 import cozy.scaffold.CozyScaffold
+import cozy.video.CozyVideo
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 import scala.collection.JavaConverters._
@@ -77,7 +78,7 @@ class Cozy(
   }
 
   def executeDirect(args: Array[String]): Unit = {
-    if (!CozyBok.execute(args.toList) && !_execute_init(args) && !_execute_car_sbt_project(args) && !_execute_publish_car(args) && !_execute_publish_sar(args) && !_execute_publish_project(args) && !_execute_distribute_samples(args) && !_execute_index_warehouse(args) && !_execute_sbt_bridge(args) && !_execute_package_archive(args))
+    if (!CozyBok.execute(args.toList) && !CozyVideo.execute(args.toList) && !_execute_init(args) && !_execute_car_sbt_project(args) && !_execute_publish_car(args) && !_execute_publish_sar(args) && !_execute_publish_project(args) && !_execute_distribute_samples(args) && !_execute_index_warehouse(args) && !_execute_sbt_bridge(args) && !_execute_package_archive(args))
       _to_repl_commandline(args) match {
         case Some(s) =>
           val c = _operation_call(Array(s))

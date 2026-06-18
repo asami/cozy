@@ -1495,6 +1495,11 @@ private[cozy] object CozyScaffold {
       |  bok upload [<project-dir>]
       |      Run the external command registered at bok.workflow.upload.command. Cozy does not interpret upload targets or credentials.
       |
+      |  video inspect <project-file> [--check-tools]
+      |      Inspect a video project file and print a deterministic project, part, script, and tool-check plan.
+      |      Project and script files may be JSON, YAML, HOCON, or XML.
+      |      In this version --check-tools uses the external-tool SPI but does not execute external tools.
+      |
       |  modeler-scala <model-file> --save <dir>
       |      Generate Scala sources from a CML/Dox model.
       |

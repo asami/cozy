@@ -16,9 +16,11 @@ Status: DONE
 
 Status: OPEN
 
-- [ ] Add CLI delegation following the `cozy.bok.CozyBok` pattern.
-- [ ] Add help text for `video inspect`, `video build`, `video synthesize`,
-      `video render`, and `video rdf`.
+- [x] Add CLI delegation following the `cozy.bok.CozyBok` pattern for
+      `video inspect`.
+- [x] Add help text for `video inspect`.
+- [ ] Add help text for `video build`, `video synthesize`, `video render`, and
+      `video rdf`.
 - [ ] Add help text for `video transcribe`, `video demo-script`, and
       `video replay`.
 
@@ -26,8 +28,10 @@ Status: OPEN
 
 Status: OPEN
 
-- [ ] Define project, part, script, scene, character, artifact, timing, and
-      manifest data structures.
+- [x] Define minimal production project, part, renderer, script, and scene
+      structures for inspect.
+- [x] Define external-tool SPI structures for provider-backed checks.
+- [ ] Define full character, artifact, timing, and manifest data structures.
 
 ## VDO-04: Project/Script Structured Document Parsing
 
@@ -41,16 +45,17 @@ Status: OPEN
       formats for video script fixtures.
 - [x] Keep XML singleton-object-to-array recovery scoped to XML typed decoding
       only.
-- [ ] Parse the current `videotools` `video_project` shape through the
+- [x] Parse the current `videotools` `video_project` shape through the
       production `cozy video` model.
-- [ ] Parse dialogue/storyboard/web-demo script shapes through the production
+- [x] Parse dialogue/storyboard/web-demo script shapes through the production
       `cozy video` model.
 
 ## VDO-05: Dry-Run and Inspect
 
 Status: OPEN
 
-- [ ] Print video project and artifact plans.
+- [x] Print video project and part/script plans.
+- [ ] Print complete artifact plans.
 - [ ] Print planned external commands without executing them.
 - [ ] Keep dry-run independent of installed media tools.
 
@@ -58,6 +63,10 @@ Status: OPEN
 
 Status: OPEN
 
+- [x] Add external-tool SPI and injectable stub registry for deterministic
+      checks.
+- [x] Add non-executing default providers for Docker toolchain, VOICEVOX,
+      ffmpeg/ffprobe, Remotion/Node, Playwright, and whisper.cpp.
 - [ ] Check Docker availability when Docker toolchain mode is selected.
 - [ ] Check Docker image availability or pull guidance for the configured Cozy
       toolchain image.
@@ -67,7 +76,7 @@ Status: OPEN
       dependencies, Playwright Chromium, whisper.cpp, and transcription model
       data directly.
 - [ ] Print installation/setup hints for missing dependencies.
-- [ ] Support an inspect-time tool check.
+- [x] Support an inspect-time tool check.
 
 ## VDO-06B: Docker Toolchain Mode
 
