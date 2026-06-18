@@ -20,9 +20,12 @@ Status: OPEN
       `video inspect`.
 - [x] Add help text for `video inspect`.
 - [x] Add help text for `video build --dry-run`.
-- [ ] Add help text for `video synthesize`, `video render`, and `video rdf`.
-- [ ] Add help text for `video transcribe`, `video demo-script`, and
-      `video replay`.
+- [x] Add help text for `video synthesize`.
+- [x] Add help text for `video render`.
+- [ ] Add help text for `video rdf`.
+- [ ] Add help text for `video transcribe`.
+- [ ] Add help text for `video demo-script`.
+- [ ] Add help text for `video replay`.
 
 ## VDO-03: Video Project Model
 
@@ -31,11 +34,14 @@ Status: OPEN
 - [x] Define minimal production project, part, renderer, script, and scene
       structures for inspect.
 - [x] Define external-tool SPI structures for provider-backed checks.
-- [ ] Define full character, artifact, timing, and manifest data structures.
+- [x] Define character voice, pronunciation, and text normalization structures.
+- [x] Define audio synthesis manifest and render part manifest structures.
+- [ ] Define RDF/transcription/replay artifact and provenance manifest
+      structures.
 
 ## VDO-04: Project/Script Structured Document Parsing
 
-Status: OPEN
+Status: DONE
 
 - [x] Add shared structured document loading foundation through
       `org.goldenport.config.StructuredDocumentLoader`.

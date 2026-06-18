@@ -81,7 +81,7 @@ Out of scope:
 - [x] VDO-01: Phase 8 documentation added
 - [ ] VDO-02: `cozy video` command surface defined
 - [ ] VDO-03: Video project model implemented
-- [ ] VDO-04: Project/script structured document parsing implemented
+- [x] VDO-04: Project/script structured document parsing implemented
 - [x] VDO-05: Dry-run and inspect implemented
 - [x] VDO-06: External tool checks implemented
 - [x] VDO-06B: Docker toolchain mode implemented
@@ -209,6 +209,10 @@ Out of scope:
   `target/cozy-video/remotion`, supports Docker-first and host execution through
   a runner SPI, validates VDO-07 audio manifests, and writes part manifests.
   Final project concat/mux remains deferred to VDO-10.
+- 2026-06-18: Reconciled VDO-02 through VDO-04 status against the current
+  implementation. Structured document parsing is complete for project and
+  script inputs, while the command surface and model work remain open for the
+  later RDF, transcription, and replay slices.
 
 ## References
 
