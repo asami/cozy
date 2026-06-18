@@ -1505,6 +1505,10 @@ private[cozy] object CozyScaffold {
       |      Docker mode wraps Remotion, Playwright, ffmpeg, whisper.cpp, and Python/Pillow helper steps in the configured Cozy toolchain image.
       |      Non-dry-run video build is not implemented in this version.
       |
+      |  video synthesize <script-file> --save <audio-dir> [--voicevox-url=<url>]
+      |      Generate VOICEVOX scene WAV files, a combined WAV, and manifest.json.
+      |      VOICEVOX Engine is always used as an external HTTP service.
+      |
       |  modeler-scala <model-file> --save <dir>
       |      Generate Scala sources from a CML/Dox model.
       |

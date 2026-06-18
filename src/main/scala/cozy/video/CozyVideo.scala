@@ -7,9 +7,12 @@ import cozy.config.CozyProjectYamlConfig
 import cozy.runtime.CozyCliArgs
 import org.goldenport.cli.spec
 import io.circe.{Decoder, HCursor, Json}
-import java.nio.file.{Files, Path}
-import java.net.URI
+import io.circe.parser
+import java.io.ByteArrayOutputStream
+import java.net.{URI, URLEncoder}
 import java.net.http.{HttpClient, HttpRequest, HttpResponse}
+import java.nio.charset.StandardCharsets
+import java.nio.file.{Files, Path, Paths}
 import java.time.{Duration => JDuration}
 import java.util.concurrent.TimeUnit
 import scala.collection.JavaConverters._
@@ -57,6 +60,24 @@ private[cozy] object CozyVideo {
         RAISE.invalidArgumentFault("Missing project file for video build")
       )
       BuildConfig(projectfile, parsed.flag("dry-run"), parsed.flag("check-tools"), parsed.property("tool-mode"), parsed.property("docker-image"))
+    }
+  }
+
+  final case class SynthesizeConfig(
+    scriptFile: Path,
+    saveDir: Path,
+    voicevoxUrl: Option[String] = None
+  ) {
+    def projectRoot: Path =
+      Option(scriptFile.getParent).getOrElse(Paths.get(".").toAbsolutePath.normalize())
+  }
+  object SynthesizeConfig {
+    def create(args: List[String]): SynthesizeConfig = {
+      val parsed = CozyCliArgs.parseStrict(_p_script_file, _p_save, _p_voicevox_url)(_normalize_property_args(args))
+      val scriptfile = parsed.argument("script-file").map(CozyCliArgs.toPath).getOrElse(
+        RAISE.invalidArgumentFault("Missing script file for video synthesize")
+      )
+      SynthesizeConfig(scriptfile, parsed.requiredPathProperty("save"), parsed.property("voicevox-url"))
     }
   }
 
@@ -196,6 +217,10 @@ private[cozy] object CozyVideo {
 
   final case class VideoScript(
     title: Option[String],
+    tools: Option[VideoToolSettings],
+    voice: Json,
+    pronunciations: Map[String, String],
+    voiceTextNormalization: Json,
     characters: Map[String, Json],
     sections: Vector[Json],
     scenes: Vector[VideoScene]
@@ -209,10 +234,23 @@ private[cozy] object CozyVideo {
     implicit val decoder: Decoder[VideoScript] = (c: HCursor) =>
       for {
         title <- c.downField("title").as[Option[String]]
+        tools <- c.downField("tools").as[Option[VideoToolSettings]]
+        voice <- c.downField("voice").as[Option[Json]]
+        pronunciations <- c.downField("pronunciations").as[Option[Map[String, String]]]
+        voicetextnormalization <- c.downField("voiceTextNormalization").as[Option[Json]]
         characters <- c.downField("characters").as[Option[Map[String, Json]]]
         sections <- c.downField("sections").as[Option[Vector[Json]]]
         scenes <- c.downField("scenes").as[Option[Vector[VideoScene]]]
-      } yield VideoScript(title, characters.getOrElse(Map.empty), sections.getOrElse(Vector.empty), scenes.getOrElse(Vector.empty))
+      } yield VideoScript(
+        title,
+        tools,
+        voice.getOrElse(Json.obj()),
+        pronunciations.getOrElse(Map.empty),
+        voicetextnormalization.getOrElse(Json.obj()),
+        characters.getOrElse(Map.empty),
+        sections.getOrElse(Vector.empty),
+        scenes.getOrElse(Vector.empty)
+      )
   }
 
   final case class VideoScene(
@@ -224,7 +262,8 @@ private[cozy] object CozyVideo {
     duration: Option[Double],
     targetDuration: Option[Double],
     leadSilence: Option[Double],
-    subscenes: Vector[VideoScene]
+    subscenes: Vector[VideoScene],
+    silent: Option[Boolean] = None
   ) {
     def durationSeconds: Double = duration.orElse(targetDuration).getOrElse(8.0)
     def expanded(index: Int): Vector[VideoScene] =
@@ -240,7 +279,8 @@ private[cozy] object CozyVideo {
             line = subscene.line.orElse(line),
             narration = subscene.narration.orElse(narration),
             caption = subscene.caption.orElse(caption),
-            leadSilence = subscene.leadSilence.orElse(leadSilence)
+            leadSilence = subscene.leadSilence.orElse(leadSilence),
+            silent = subscene.silent.orElse(silent)
           )
         }
   }
@@ -256,7 +296,8 @@ private[cozy] object CozyVideo {
         targetduration <- c.downField("targetDuration").as[Option[Double]]
         leadsilence <- c.downField("leadSilence").as[Option[Double]]
         subscenes <- c.downField("subscenes").as[Option[Vector[VideoScene]]]
-      } yield VideoScene(id, speaker, line, narration, caption, duration, targetduration, leadsilence, subscenes.getOrElse(Vector.empty))
+        silent <- c.downField("silent").as[Option[Boolean]]
+      } yield VideoScene(id, speaker, line, narration, caption, duration, targetduration, leadsilence, subscenes.getOrElse(Vector.empty), silent)
   }
 
   sealed trait VideoToolMode { def label: String }
@@ -425,6 +466,76 @@ private[cozy] object CozyVideo {
       }
 
     def exists(path: Path): Boolean = Files.exists(path)
+  }
+
+  trait VoicevoxClient {
+    def speakers(baseurl: String): Json
+    def audioQuery(baseurl: String, text: String, speakerid: Int): Json
+    def synthesis(baseurl: String, speakerid: Int, audioquery: Json): Array[Byte]
+  }
+  object VoicevoxClient {
+    val default: VoicevoxClient = DefaultVoicevoxClient
+  }
+
+  private object DefaultVoicevoxClient extends VoicevoxClient {
+    private val _timeout = JDuration.ofSeconds(30)
+    private val _client = HttpClient.newBuilder().connectTimeout(JDuration.ofSeconds(5)).build()
+
+    def speakers(baseurl: String): Json =
+      _with_voicevox_failure("speakers", baseurl) {
+        _request_json(_uri(baseurl, "/speakers"), "GET", None)
+      }
+
+    def audioQuery(baseurl: String, text: String, speakerid: Int): Json =
+      _with_voicevox_failure("audio_query", baseurl) {
+        _request_json(_uri(baseurl, s"/audio_query?text=${_encode(text)}&speaker=$speakerid"), "POST", None)
+      }
+
+    def synthesis(baseurl: String, speakerid: Int, audioquery: Json): Array[Byte] =
+      _with_voicevox_failure("synthesis", baseurl) {
+        _request_bytes(_uri(baseurl, s"/synthesis?speaker=$speakerid"), "POST", Some(audioquery))
+      }
+
+    private def _with_voicevox_failure[A](operation: String, baseurl: String)(body: => A): A =
+      try {
+        body
+      } catch {
+        case e: InterruptedException =>
+          Thread.currentThread().interrupt()
+          RAISE.invalidArgumentFault(s"VOICEVOX $operation failed for $baseurl: ${e.getMessage}")
+        case NonFatal(e) =>
+          RAISE.invalidArgumentFault(s"VOICEVOX $operation failed for $baseurl: ${e.getMessage}")
+      }
+
+    private def _request_json(uri: URI, method: String, body: Option[Json]): Json = {
+      val text = new String(_request_bytes(uri, method, body), StandardCharsets.UTF_8)
+      parser.parse(text).fold(
+        e => RAISE.invalidArgumentFault(s"VOICEVOX returned invalid JSON from $uri: ${e.getMessage}"),
+        identity
+      )
+    }
+
+    private def _request_bytes(uri: URI, method: String, body: Option[Json]): Array[Byte] = {
+      val builder = HttpRequest.newBuilder(uri).timeout(_timeout)
+      val request =
+        body match {
+          case Some(json) =>
+            builder.header("Content-Type", "application/json").method(method, HttpRequest.BodyPublishers.ofString(json.noSpaces, StandardCharsets.UTF_8)).build()
+          case None =>
+            builder.method(method, HttpRequest.BodyPublishers.noBody()).build()
+        }
+      val response = _client.send(request, HttpResponse.BodyHandlers.ofByteArray())
+      if (response.statusCode() >= 200 && response.statusCode() < 300)
+        response.body()
+      else
+        RAISE.invalidArgumentFault(s"VOICEVOX HTTP $method $uri failed: ${response.statusCode()}")
+    }
+
+    private def _uri(baseurl: String, path: String): URI =
+      URI.create(baseurl.stripSuffix("/") + path)
+
+    private def _encode(value: String): String =
+      URLEncoder.encode(value, StandardCharsets.UTF_8.name())
   }
 
   final case class DockerToolchainProvider(probe: VideoToolProbe) extends VideoToolProvider {
@@ -754,23 +865,33 @@ private[cozy] object CozyVideo {
   )
 
   private val _p_project_file = spec.Parameter.argumentFile("project-file")
+  private val _p_script_file = spec.Parameter.argumentFile("script-file")
   private val _p_check_tools = spec.Parameter("check-tools", spec.Parameter.SwitchKind)
   private val _p_dry_run = spec.Parameter("dry-run", spec.Parameter.SwitchKind)
+  private val _p_save = spec.Parameter.property("save")
   private val _p_tool_mode = spec.Parameter.property("tool-mode")
   private val _p_docker_image = spec.Parameter.property("docker-image")
+  private val _p_voicevox_url = spec.Parameter.property("voicevox-url")
   private val _supported_part_types = Set("dialogue", "storyboard", "web-demo")
   private val _docker_managed_tools = Set("remotion", "playwright", "ffmpeg", "ffprobe", "node", "npm", "whisper-cpp", "python-pillow")
-  private val _property_options = Set("tool-mode", "docker-image")
+  private val _property_options = Set("tool-mode", "docker-image", "save", "voicevox-url")
+  private val _default_sample_rate = 24000
 
   def execute(args: List[String]): Boolean = execute(args, VideoToolRegistry.default)
 
   def execute(args: List[String], tools: VideoToolRegistry): Boolean =
+    execute(args, tools, VoicevoxClient.default)
+
+  def execute(args: List[String], tools: VideoToolRegistry, voicevox: VoicevoxClient): Boolean =
     args match {
       case "video" :: "inspect" :: rest =>
         println(inspect(InspectConfig.create(rest), tools))
         true
       case "video" :: "build" :: rest =>
         println(build(BuildConfig.create(rest), tools))
+        true
+      case "video" :: "synthesize" :: rest =>
+        println(synthesize(SynthesizeConfig.create(rest), voicevox))
         true
       case "video" :: other :: _ =>
         RAISE.invalidArgumentFault(s"Unsupported video command: $other")
@@ -790,6 +911,13 @@ private[cozy] object CozyVideo {
     val plan = _plan(config.projectFile, config.toolMode, config.dockerImage)
     val context = VideoToolContext(config.projectFile, config.projectRoot, plan.project, plan.execution)
     _render_build_dry_run(config, plan, if (config.checkTools) tools.checks(context) else Vector.empty)
+  }
+
+  def synthesize(config: SynthesizeConfig, voicevox: VoicevoxClient): String = {
+    val script = _load_required_script(config.scriptFile)
+    val voicevoxurl = _resolve_voicevox_url(config.projectRoot, script, config.voicevoxUrl)
+    val result = _synthesize_script(config.scriptFile, script, config.saveDir, voicevoxurl, voicevox)
+    _render_synthesis_result(result)
   }
 
   private def _load_project(path: Path): VideoProject = {
@@ -815,6 +943,312 @@ private[cozy] object CozyVideo {
       Some(StructuredDocumentLoader.loadDocument[VideoScript](InputSource(path.toFile)).take)
     else
       None
+
+  private def _load_required_script(path: Path): VideoScript = {
+    if (!Files.isRegularFile(path))
+      RAISE.invalidArgumentFault(s"Missing video script file: $path")
+    StructuredDocumentLoader.loadDocument[VideoScript](InputSource(path.toFile)).take
+  }
+
+  private def _resolve_voicevox_url(projectroot: Path, script: VideoScript, cliurl: Option[String]): String = {
+    val config = CozyProjectYamlConfig.loadOperationDefaults(projectroot)
+    val scripttools = script.tools.getOrElse(VideoToolSettings(None, None, None, None))
+    cliurl.
+      orElse(scripttools.voicevoxUrl).
+      orElse(config.value("video.voicevox.url")).
+      getOrElse(VideoToolSettings.DEFAULT_VOICEVOX_URL)
+  }
+
+  final case class VideoAudioManifestEntry(
+    sceneId: String,
+    speaker: Option[String],
+    file: String,
+    leadSilence: Double,
+    audioDuration: Double,
+    targetDuration: Double,
+    tailSilence: Double
+  )
+
+  final case class VideoSynthesisResult(
+    scriptFile: Path,
+    outputDir: Path,
+    voicevoxUrl: String,
+    combinedFile: Path,
+    manifestFile: Path,
+    entries: Vector[VideoAudioManifestEntry]
+  )
+
+  private final case class WaveData(
+    sampleRate: Int,
+    channels: Int,
+    bitsPerSample: Int,
+    data: Array[Byte]
+  ) {
+    def durationSeconds: Double =
+      if (sampleRate <= 0 || channels <= 0 || bitsPerSample <= 0)
+        0.0
+      else
+        data.length.toDouble / (sampleRate.toDouble * channels.toDouble * (bitsPerSample.toDouble / 8.0))
+  }
+
+  private def _synthesize_script(
+    scriptfile: Path,
+    script: VideoScript,
+    savedir: Path,
+    voicevoxurl: String,
+    voicevox: VoicevoxClient
+  ): VideoSynthesisResult = {
+    Files.createDirectories(savedir)
+    val speakerids = scala.collection.mutable.Map.empty[String, Int]
+    val concatparts = scala.collection.mutable.ArrayBuffer.empty[Path]
+    val entries = script.expandedScenes.zipWithIndex.map {
+      case (scene, index) =>
+        val sceneid = scene.id.getOrElse(f"scene-${index + 1}%02d")
+        val fileid = _scene_file_id(sceneid)
+        val scenewav = _audio_output_file(savedir, f"${index + 1}%02d-$fileid.wav")
+        val leadsilence = math.max(0.0, scene.leadSilence.getOrElse(0.0))
+        val voice = _voice_for_scene(script, scene)
+        if (_is_silent_scene(scene)) {
+          _write_silence_wav(scenewav, 0.01)
+        } else {
+          val cachekey = voice.noSpaces
+          val speakerid = speakerids.getOrElseUpdate(cachekey, _resolve_speaker_id(voicevoxurl, voice, voicevox))
+          val text = _spoken_text(script, scene)
+          val audioquery = _apply_voice_tuning(voicevox.audioQuery(voicevoxurl, text, speakerid), voice)
+          Files.write(scenewav, voicevox.synthesis(voicevoxurl, speakerid, audioquery))
+        }
+        val audioduration = _wav_duration(scenewav)
+        val targetduration = scene.durationSeconds
+        if (leadsilence > 0) {
+          val leadwav = _audio_output_file(savedir, f"${index + 1}%02d-$fileid-lead.wav")
+          _write_silence_wav(leadwav, leadsilence)
+          concatparts += leadwav
+        }
+        concatparts += scenewav
+        val tailsilence = math.max(0.0, targetduration - leadsilence - audioduration)
+        if (tailsilence > 0) {
+          val silencewav = _audio_output_file(savedir, f"${index + 1}%02d-$fileid-silence.wav")
+          _write_silence_wav(silencewav, tailsilence)
+          concatparts += silencewav
+        }
+        VideoAudioManifestEntry(sceneid, scene.speaker, scenewav.getFileName.toString, _round3(leadsilence), _round3(audioduration), targetduration, _round3(tailsilence))
+    }
+    val combined = _audio_output_file(savedir, s"${_basename(scriptfile)}.wav")
+    _concatenate_wavs(concatparts.toVector, combined)
+    val manifest = _audio_output_file(savedir, "manifest.json")
+    Files.writeString(manifest, _manifest_json(entries).spaces2, StandardCharsets.UTF_8)
+    VideoSynthesisResult(scriptfile, savedir, voicevoxurl, combined, manifest, entries)
+  }
+
+  private def _scene_file_id(sceneid: String): String = {
+    val normalized = sceneid.trim
+    if (normalized.isEmpty || normalized == "." || normalized == ".." || normalized.contains("/") || normalized.contains("\\") || normalized.indexOf(0.toChar) >= 0)
+      RAISE.invalidArgumentFault(s"Invalid scene id for audio file name: $sceneid")
+    normalized
+  }
+
+  private def _audio_output_file(savedir: Path, filename: String): Path = {
+    val path = savedir.resolve(filename).normalize()
+    val root = savedir.toAbsolutePath.normalize()
+    val absolute = path.toAbsolutePath.normalize()
+    if (!absolute.startsWith(root))
+      RAISE.invalidArgumentFault(s"Audio output path escapes --save directory: $filename")
+    path
+  }
+
+  private def _voice_for_scene(script: VideoScript, scene: VideoScene): Json =
+    scene.speaker.flatMap { speaker =>
+      script.characters.get(speaker).flatMap(_.hcursor.downField("voice").focus)
+    }.getOrElse(script.voice)
+
+  private def _resolve_speaker_id(baseurl: String, voice: Json, voicevox: VoicevoxClient): Int = {
+    val fallback = _json_int(voice, "fallbackSpeakerId").getOrElse(3)
+    val speakername = _json_string(voice, "speakerName").getOrElse("ずんだもん")
+    val stylename = _json_string(voice, "styleName").getOrElse("ノーマル")
+    val speakers = voicevox.speakers(baseurl).asArray.getOrElse(Vector.empty)
+    speakers.foreach { speaker =>
+      if (_json_string(speaker, "name").contains(speakername)) {
+        _json_array(speaker, "styles").foreach { styles =>
+          styles.foreach { style =>
+            if (_json_string(style, "name").contains(stylename))
+              return _json_int(style, "id").getOrElse(fallback)
+          }
+        }
+      }
+    }
+    fallback
+  }
+
+  private def _spoken_text(script: VideoScript, scene: VideoScene): String = {
+    val raw = scene.narration.orElse(scene.line).orElse(scene.caption).getOrElse(
+      RAISE.invalidArgumentFault(s"Scene has no narration/line/caption text: ${scene.id.getOrElse("(no id)")}")
+    )
+    val normalized = _apply_voice_text_normalization(raw, script.voiceTextNormalization)
+    script.pronunciations.foldLeft(normalized) {
+      case (z, (source, spoken)) => z.replace(source, spoken)
+    }
+  }
+
+  private def _apply_voice_text_normalization(text: String, options: Json): String = {
+    if (_json_boolean(options, "removeSpaces").getOrElse(false))
+      text.replaceAll("\\s+", "")
+    else if (_json_boolean(options, "removeAsciiJapaneseSpaces").getOrElse(false)) {
+      val japanese = "\\u3040-\\u30ff\\u3400-\\u9fff"
+      val ascii = "A-Za-z0-9"
+      text.
+        replaceAll(s"([$japanese])\\s+([$ascii])", "$1$2").
+        replaceAll(s"([$ascii])\\s+([$japanese])", "$1$2")
+    } else {
+      text
+    }
+  }
+
+  private def _is_silent_scene(scene: VideoScene): Boolean =
+    scene.silent.getOrElse(false) || scene.narration.orElse(scene.line).orElse(scene.caption).isEmpty
+
+  private def _apply_voice_tuning(audioquery: Json, voice: Json): Json =
+    Vector("speedScale", "pitchScale", "intonationScale", "volumeScale", "prePhonemeLength", "postPhonemeLength").foldLeft(audioquery) { (z, name) =>
+      _json_double(voice, name).map(value => z.deepMerge(Json.obj(name -> Json.fromDoubleOrNull(value)))).getOrElse(z)
+    }
+
+  private def _write_silence_wav(path: Path, duration: Double): Unit = {
+    val frames = math.max(0, (duration * _default_sample_rate).toInt)
+    _write_wav(path, WaveData(_default_sample_rate, 1, 16, Array.fill(frames * 2)(0.toByte)))
+  }
+
+  private def _wav_duration(path: Path): Double =
+    _read_wav(path).durationSeconds
+
+  private def _concatenate_wavs(parts: Vector[Path], output: Path): Unit = {
+    if (parts.isEmpty) {
+      _write_silence_wav(output, 0.01)
+    } else {
+      val waves = parts.map(_read_wav)
+      val head = waves.head
+      waves.tail.foreach { wave =>
+        if (wave.sampleRate != head.sampleRate || wave.channels != head.channels || wave.bitsPerSample != head.bitsPerSample)
+          RAISE.invalidArgumentFault(s"Cannot concatenate wav with different params: $output")
+      }
+      val out = new ByteArrayOutputStream()
+      waves.foreach(x => out.write(x.data))
+      _write_wav(output, head.copy(data = out.toByteArray))
+    }
+  }
+
+  private def _read_wav(path: Path): WaveData = {
+    val bytes = Files.readAllBytes(path)
+    if (bytes.length < 44 || _ascii(bytes, 0, 4) != "RIFF" || _ascii(bytes, 8, 4) != "WAVE")
+      RAISE.invalidArgumentFault(s"Invalid WAV file: $path")
+    var offset = 12
+    var samplerate = 0
+    var channels = 0
+    var bitspersample = 0
+    var data = Array.emptyByteArray
+    while (offset + 8 <= bytes.length) {
+      val id = _ascii(bytes, offset, 4)
+      val size = _read_int_le(bytes, offset + 4)
+      val start = offset + 8
+      if (start + size <= bytes.length) {
+        id match {
+          case "fmt " =>
+            channels = _read_short_le(bytes, start + 2)
+            samplerate = _read_int_le(bytes, start + 4)
+            bitspersample = _read_short_le(bytes, start + 14)
+          case "data" =>
+            data = bytes.slice(start, start + size)
+          case _ =>
+        }
+      }
+      offset = start + size + (size % 2)
+    }
+    if (samplerate == 0 || channels == 0 || bitspersample == 0 || data.isEmpty)
+      RAISE.invalidArgumentFault(s"Invalid WAV file: $path")
+    WaveData(samplerate, channels, bitspersample, data)
+  }
+
+  private def _write_wav(path: Path, wave: WaveData): Unit = {
+    Files.createDirectories(path.getParent)
+    val out = new ByteArrayOutputStream()
+    _write_ascii(out, "RIFF")
+    _write_int_le(out, 36 + wave.data.length)
+    _write_ascii(out, "WAVE")
+    _write_ascii(out, "fmt ")
+    _write_int_le(out, 16)
+    _write_short_le(out, 1)
+    _write_short_le(out, wave.channels)
+    _write_int_le(out, wave.sampleRate)
+    _write_int_le(out, wave.sampleRate * wave.channels * wave.bitsPerSample / 8)
+    _write_short_le(out, wave.channels * wave.bitsPerSample / 8)
+    _write_short_le(out, wave.bitsPerSample)
+    _write_ascii(out, "data")
+    _write_int_le(out, wave.data.length)
+    out.write(wave.data)
+    Files.write(path, out.toByteArray)
+  }
+
+  private def _manifest_json(entries: Vector[VideoAudioManifestEntry]): Json =
+    Json.fromValues(entries.map { entry =>
+      Json.obj(
+        "sceneId" -> Json.fromString(entry.sceneId),
+        "speaker" -> entry.speaker.map(Json.fromString).getOrElse(Json.Null),
+        "file" -> Json.fromString(entry.file),
+        "leadSilence" -> Json.fromDoubleOrNull(entry.leadSilence),
+        "audioDuration" -> Json.fromDoubleOrNull(entry.audioDuration),
+        "targetDuration" -> Json.fromDoubleOrNull(entry.targetDuration),
+        "tailSilence" -> Json.fromDoubleOrNull(entry.tailSilence)
+      )
+    })
+
+  private def _write_ascii(out: ByteArrayOutputStream, value: String): Unit =
+    out.write(value.getBytes(StandardCharsets.US_ASCII))
+
+  private def _write_int_le(out: ByteArrayOutputStream, value: Int): Unit = {
+    out.write(value & 0xff)
+    out.write((value >>> 8) & 0xff)
+    out.write((value >>> 16) & 0xff)
+    out.write((value >>> 24) & 0xff)
+  }
+
+  private def _write_short_le(out: ByteArrayOutputStream, value: Int): Unit = {
+    out.write(value & 0xff)
+    out.write((value >>> 8) & 0xff)
+  }
+
+  private def _read_int_le(bytes: Array[Byte], offset: Int): Int =
+    (bytes(offset) & 0xff) |
+      ((bytes(offset + 1) & 0xff) << 8) |
+      ((bytes(offset + 2) & 0xff) << 16) |
+      ((bytes(offset + 3) & 0xff) << 24)
+
+  private def _read_short_le(bytes: Array[Byte], offset: Int): Int =
+    (bytes(offset) & 0xff) | ((bytes(offset + 1) & 0xff) << 8)
+
+  private def _ascii(bytes: Array[Byte], offset: Int, length: Int): String =
+    new String(bytes, offset, length, StandardCharsets.US_ASCII)
+
+  private def _json_string(json: Json, name: String): Option[String] =
+    json.hcursor.downField(name).as[String].toOption
+
+  private def _json_int(json: Json, name: String): Option[Int] =
+    json.hcursor.downField(name).as[Int].toOption
+
+  private def _json_double(json: Json, name: String): Option[Double] =
+    json.hcursor.downField(name).as[Double].toOption
+
+  private def _json_boolean(json: Json, name: String): Option[Boolean] =
+    json.hcursor.downField(name).as[Boolean].toOption
+
+  private def _json_array(json: Json, name: String): Option[Vector[Json]] =
+    json.hcursor.downField(name).focus.flatMap(_.asArray)
+
+  private def _basename(path: Path): String = {
+    val name = path.getFileName.toString
+    val index = name.lastIndexOf('.')
+    if (index <= 0) name else name.substring(0, index)
+  }
+
+  private def _round3(value: Double): Double =
+    BigDecimal(value).setScale(3, BigDecimal.RoundingMode.HALF_UP).toDouble
 
   private def _plan(projectfile: Path, toolmode: Option[String], dockerimage: Option[String]): VideoPlan = {
     val project = _load_project(projectfile)
@@ -1107,6 +1541,21 @@ private[cozy] object CozyVideo {
     }
     if (config.checkTools) {
       b ++= _render_tool_checks(checks)
+    }
+    b.result().mkString("\n") + "\n"
+  }
+
+  private def _render_synthesis_result(result: VideoSynthesisResult): String = {
+    val b = Vector.newBuilder[String]
+    b += "Cozy Video Synthesize"
+    b += s"scriptFile: ${result.scriptFile}"
+    b += s"outputDir: ${result.outputDir}"
+    b += s"voicevoxUrl: ${result.voicevoxUrl}"
+    b += s"scenes: ${result.entries.size}"
+    b += s"combined: ${result.combinedFile}"
+    b += s"manifest: ${result.manifestFile}"
+    result.entries.foreach { entry =>
+      b += f"  - ${entry.sceneId}: ${entry.file} audio=${entry.audioDuration}%.3f target=${entry.targetDuration}%.3f lead=${entry.leadSilence}%.3f tail=${entry.tailSilence}%.3f"
     }
     b.result().mkString("\n") + "\n"
   }

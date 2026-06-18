@@ -192,11 +192,12 @@ Purpose:
 ## Current Priority
 
 Phase 6 and Phase 7 are closed. Phase 8 is open for `cozy video` development.
-The initial Phase 8 `video inspect` slice is implemented with structured
-project/script parsing, a non-executing external-tool SPI, and VDO-05 dry-run
-artifact/command planning. Remaining Phase 8 work should extend this surface
-into real dependency checks, Docker toolchain execution, rendering,
-transcription, replay generation, and RDF output.
+The Phase 8 `cozy video` surface now includes structured project/script
+parsing, inspect, dry-run artifact/command planning, real dependency checks,
+Docker-first toolchain mode, a unified Cozy toolchain image definition, and
+VOICEVOX synthesis. Remaining Phase 8 work should extend this surface into
+rendering, final muxing/encoding, transcription, replay generation, and RDF
+output.
 
 Candidate directions after Phase 8 include:
 

@@ -6,6 +6,8 @@ import java.nio.file.{Files, Path, Paths}
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
 import java.net.URI
+import io.circe.Json
+import io.circe.parser
 import org.scalatest.funsuite.AnyFunSuite
 
 /*
@@ -262,6 +264,95 @@ final class CozyVideoSpec extends AnyFunSuite {
       }
 
       assert(e.getMessage.contains("dry-ran"))
+    }
+  }
+
+  test("video synthesize writes scene wavs combined wav and manifest through VOICEVOX client") {
+    _with_temp_dir("cozy-video-synthesize") { dir =>
+      val script = dir.resolve("script.json")
+      val outdir = dir.resolve("audio")
+      _write(script, _voicevox_script_json)
+      val voicevox = RecordingVoicevoxClient(
+        speakersJson = Json.arr(
+          Json.obj(
+            "name" -> Json.fromString("Character Voice"),
+            "styles" -> Json.arr(Json.obj("name" -> Json.fromString("Normal"), "id" -> Json.fromInt(10)))
+          ),
+          Json.obj(
+            "name" -> Json.fromString("Top Voice"),
+            "styles" -> Json.arr(Json.obj("name" -> Json.fromString("Plain"), "id" -> Json.fromInt(20)))
+          )
+        )
+      )
+
+      val result = CozyVideo.synthesize(CozyVideo.SynthesizeConfig(script, outdir, Some("http://voicevox.example")), voicevox)
+      val manifest = parser.parse(Files.readString(outdir.resolve("manifest.json"), StandardCharsets.UTF_8)).toOption.flatMap(_.asArray).get
+
+      assert(result.contains("Cozy Video Synthesize"))
+      assert(result.contains("scenes: 3"))
+      assert(Files.isRegularFile(outdir.resolve("01-intro.wav")))
+      assert(Files.isRegularFile(outdir.resolve("01-intro-lead.wav")))
+      assert(Files.isRegularFile(outdir.resolve("01-intro-silence.wav")))
+      assert(Files.isRegularFile(outdir.resolve("02-fallback.wav")))
+      assert(Files.isRegularFile(outdir.resolve("03-silent.wav")))
+      assert(Files.isRegularFile(outdir.resolve("script.wav")))
+      assert(voicevox.calls.map(_.kind) == Vector("speakers", "audio_query", "synthesis", "speakers", "audio_query", "synthesis"))
+      assert(voicevox.calls.collect { case c if c.kind == "audio_query" => c.text } == Vector(Some("HelloCozy"), Some("TopLine")))
+      assert(voicevox.calls.collect { case c if c.kind == "audio_query" => c.speakerId } == Vector(Some(10), Some(99)))
+      assert(voicevox.audioQueries.exists(_.hcursor.downField("speedScale").as[Double].toOption.contains(1.2)))
+      assert(voicevox.audioQueries.exists(_.hcursor.downField("volumeScale").as[Double].toOption.contains(0.8)))
+      assert(manifest.size == 3)
+      assert(manifest.head.hcursor.downField("sceneId").as[String].toOption.contains("intro"))
+      assert(manifest.head.hcursor.downField("leadSilence").as[Double].toOption.contains(0.1))
+      assert(manifest(2).hcursor.downField("sceneId").as[String].toOption.contains("silent"))
+    }
+  }
+
+  test("video synthesize resolves voicevox url from script tools and config") {
+    _with_temp_dir("cozy-video-synthesize-url") { dir =>
+      val voicevox = RecordingVoicevoxClient()
+      _write(dir.resolve("script-tools.json"), """{"tools": {"voicevoxUrl": "http://script.example"}, "scenes": [{"id": "s1", "duration": 0.2, "line": "A"}]}""")
+      _write(dir.resolve("conf/cozy/config.yaml"), "video:\n  voicevox:\n    url: http://config.example\n")
+
+      CozyVideo.synthesize(CozyVideo.SynthesizeConfig(dir.resolve("script-tools.json"), dir.resolve("audio1")), voicevox)
+      assert(voicevox.calls.head.baseUrl == "http://script.example")
+
+      val configvoicevox = RecordingVoicevoxClient()
+      _write(dir.resolve("script-config.json"), """{"scenes": [{"id": "s1", "duration": 0.2, "line": "A"}]}""")
+      CozyVideo.synthesize(CozyVideo.SynthesizeConfig(dir.resolve("script-config.json"), dir.resolve("audio2")), configvoicevox)
+      assert(configvoicevox.calls.head.baseUrl == "http://config.example")
+    }
+  }
+
+  test("video synthesize fails explicitly for missing script save option and voicevox errors") {
+    _with_temp_dir("cozy-video-synthesize-errors") { dir =>
+      _write(dir.resolve("script.json"), """{"scenes": [{"id": "s1", "duration": 0.2, "line": "A"}]}""")
+
+      val missingsave = intercept[Throwable] {
+        CozyVideo.execute(List("video", "synthesize", dir.resolve("script.json").toString), CozyVideo.VideoToolRegistry(Vector.empty), RecordingVoicevoxClient())
+      }
+      assert(missingsave.getMessage.contains("Missing --save"))
+
+      val missingfile = intercept[Throwable] {
+        CozyVideo.synthesize(CozyVideo.SynthesizeConfig(dir.resolve("missing.json"), dir.resolve("audio")), RecordingVoicevoxClient())
+      }
+      assert(missingfile.getMessage.contains("Missing video script file"))
+
+      val voicevoxfailure = intercept[Throwable] {
+        CozyVideo.synthesize(CozyVideo.SynthesizeConfig(dir.resolve("script.json"), dir.resolve("audio")), RecordingVoicevoxClient(failSpeakers = true))
+      }
+      assert(voicevoxfailure.getMessage.contains("VOICEVOX speakers failed"))
+
+      _write(dir.resolve("unsafe-scene.json"), """{"scenes": [{"id": "../escape", "duration": 0.2, "line": "A"}]}""")
+      val unsafescene = intercept[Throwable] {
+        CozyVideo.synthesize(CozyVideo.SynthesizeConfig(dir.resolve("unsafe-scene.json"), dir.resolve("audio-unsafe")), RecordingVoicevoxClient())
+      }
+      assert(unsafescene.getMessage.contains("Invalid scene id"))
+
+      val invalidurl = intercept[Throwable] {
+        CozyVideo.synthesize(CozyVideo.SynthesizeConfig(dir.resolve("script.json"), dir.resolve("audio-invalid-url"), Some("://bad")), CozyVideo.VoicevoxClient.default)
+      }
+      assert(invalidurl.getMessage.contains("VOICEVOX speakers failed"))
     }
   }
 
@@ -644,6 +735,7 @@ final class CozyVideoSpec extends AnyFunSuite {
       assert(build.contains("dockerImage: cli-image"))
       assert(help.contains("video inspect <project-file>"))
       assert(help.contains("video build <project-file> --dry-run"))
+      assert(help.contains("video synthesize <script-file> --save <audio-dir>"))
       assert(help.contains("--check-tools"))
     }
   }
@@ -706,6 +798,43 @@ object CozyVideoSpec {
     def check(context: CozyVideo.VideoToolContext): CozyVideo.VideoToolCheck = result
   }
 
+  final case class VoicevoxCall(
+    kind: String,
+    baseUrl: String,
+    text: Option[String] = None,
+    speakerId: Option[Int] = None
+  )
+
+  final case class RecordingVoicevoxClient(
+    speakersJson: Json = Json.arr(Json.obj(
+      "name" -> Json.fromString("ずんだもん"),
+      "styles" -> Json.arr(Json.obj("name" -> Json.fromString("ノーマル"), "id" -> Json.fromInt(3)))
+    )),
+    failSpeakers: Boolean = false
+  ) extends CozyVideo.VoicevoxClient {
+    val calls = ArrayBuffer.empty[VoicevoxCall]
+    private val _audio_queries = ArrayBuffer.empty[Json]
+    def audioQueries: ArrayBuffer[Json] = _audio_queries
+
+    def speakers(baseurl: String): Json = {
+      calls += VoicevoxCall("speakers", baseurl)
+      if (failSpeakers)
+        throw new RuntimeException("VOICEVOX speakers failed")
+      speakersJson
+    }
+
+    def audioQuery(baseurl: String, text: String, speakerid: Int): Json = {
+      calls += VoicevoxCall("audio_query", baseurl, Some(text), Some(speakerid))
+      Json.obj("text" -> Json.fromString(text), "speaker" -> Json.fromInt(speakerid))
+    }
+
+    def synthesis(baseurl: String, speakerid: Int, audioquery: Json): Array[Byte] = {
+      calls += VoicevoxCall("synthesis", baseurl, speakerId = Some(speakerid))
+      _audio_queries += audioquery
+      _wav_bytes(0.2)
+    }
+  }
+
   final case class RecordingProbe(
     commandResults: Map[Vector[String], CozyVideo.VideoCommandResult] = Map.empty,
     httpResults: Map[String, CozyVideo.VideoHttpResult] = Map.empty
@@ -728,6 +857,43 @@ object CozyVideoSpec {
       existsChecks += path
       Files.exists(path)
     }
+  }
+
+  private def _wav_bytes(duration: Double): Array[Byte] = {
+    val samplerate = 24000
+    val frames = math.max(1, (duration * samplerate).toInt)
+    val data = Array.fill(frames * 2)(0.toByte)
+    val out = new ByteArrayOutputStream()
+    _write_ascii(out, "RIFF")
+    _write_int_le(out, 36 + data.length)
+    _write_ascii(out, "WAVE")
+    _write_ascii(out, "fmt ")
+    _write_int_le(out, 16)
+    _write_short_le(out, 1)
+    _write_short_le(out, 1)
+    _write_int_le(out, samplerate)
+    _write_int_le(out, samplerate * 2)
+    _write_short_le(out, 2)
+    _write_short_le(out, 16)
+    _write_ascii(out, "data")
+    _write_int_le(out, data.length)
+    out.write(data)
+    out.toByteArray
+  }
+
+  private def _write_ascii(out: ByteArrayOutputStream, value: String): Unit =
+    out.write(value.getBytes(StandardCharsets.US_ASCII))
+
+  private def _write_int_le(out: ByteArrayOutputStream, value: Int): Unit = {
+    out.write(value & 0xff)
+    out.write((value >>> 8) & 0xff)
+    out.write((value >>> 16) & 0xff)
+    out.write((value >>> 24) & 0xff)
+  }
+
+  private def _write_short_le(out: ByteArrayOutputStream, value: Int): Unit = {
+    out.write(value & 0xff)
+    out.write((value >>> 8) & 0xff)
   }
 
   private def _project_json(script: String): String =
@@ -781,6 +947,39 @@ object CozyVideoSpec {
       |      {"id": "description", "duration": 5.0, "line": "Description"},
       |      {"id": "summary", "targetDuration": 6.0, "line": "Summary"}
       |    ]}
+      |  ]
+      |}
+      |""".stripMargin
+
+  private val _voicevox_script_json: String =
+    """{
+      |  "title": "VOICEVOX Script",
+      |  "voice": {
+      |    "speakerName": "Missing Top Voice",
+      |    "styleName": "Plain",
+      |    "fallbackSpeakerId": 99,
+      |    "volumeScale": 0.8
+      |  },
+      |  "pronunciations": {
+      |    "World": "Cozy"
+      |  },
+      |  "voiceTextNormalization": {
+      |    "removeSpaces": true
+      |  },
+      |  "characters": {
+      |    "hero": {
+      |      "voice": {
+      |        "speakerName": "Character Voice",
+      |        "styleName": "Normal",
+      |        "fallbackSpeakerId": 11,
+      |        "speedScale": 1.2
+      |      }
+      |    }
+      |  },
+      |  "scenes": [
+      |    {"id": "intro", "speaker": "hero", "duration": 0.6, "leadSilence": 0.1, "line": "Hello World"},
+      |    {"id": "fallback", "duration": 0.4, "line": "Top Line"},
+      |    {"id": "silent", "duration": 0.2, "silent": true}
       |  ]
       |}
       |""".stripMargin

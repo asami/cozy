@@ -129,15 +129,15 @@ Status: DONE
 
 ## VDO-07: VOICEVOX Synthesis
 
-Status: OPEN
+Status: DONE
 
-- [ ] Read VOICEVOX endpoint from `video.voicevox.url`, falling back to a local
+- [x] Read VOICEVOX endpoint from `video.voicevox.url`, falling back to a local
       development default.
-- [ ] Resolve VOICEVOX speakers.
-- [ ] Generate audio query and synthesis requests.
-- [ ] Generate silent scenes.
-- [ ] Concatenate WAV files.
-- [ ] Write `manifest.json`.
+- [x] Resolve VOICEVOX speakers.
+- [x] Generate audio query and synthesis requests.
+- [x] Generate silent scenes.
+- [x] Concatenate WAV files.
+- [x] Write `manifest.json`.
 
 ## VDO-08: Remotion Renderer Adapter
 
