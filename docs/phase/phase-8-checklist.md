@@ -206,10 +206,10 @@ Status: DONE
 
 ## VDO-14: Existing Workflow Preservation
 
-Status: OPEN
+Status: DONE
 
-- [ ] Existing `cozy bok` smoke remains compatible.
-- [ ] Existing publication, scaffold, and sbt-bridge tests remain compatible.
+- [x] Existing `cozy bok` smoke remains compatible.
+- [x] Existing publication, scaffold, and sbt-bridge tests remain compatible.
 
 ## VDO-15: Recorded Demo Transcription
 
