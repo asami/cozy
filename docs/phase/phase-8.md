@@ -22,9 +22,9 @@ media dependencies. Phase 8 turns the existing BoK/PDF dependency-image line
 into a documented `simplemodeling/cozy-toolchain` image that covers BoK HTML
 generation, SmartDox PDF generation, and video rendering. Remotion,
 Playwright/Chromium, ffmpeg/ffprobe, whisper.cpp, transcription model/data,
-Node/npm dependencies, and fonts should run from the configured Cozy toolchain
-Docker image. VOICEVOX remains an external HTTP service and is not bundled into
-the toolchain image.
+Python/Pillow helper rendering, Node/npm dependencies, and fonts should run
+from the configured Cozy toolchain Docker image. VOICEVOX remains an external
+HTTP service and is not bundled into the toolchain image.
 
 ## Scope
 
@@ -47,7 +47,8 @@ In scope:
 - dry-run build planning without requiring media tools to be installed
 - external tool checks with install/setup hints
 - Docker toolchain execution for Remotion, Playwright, ffmpeg/ffprobe, Node,
-  whisper.cpp, and related video rendering/transcription dependencies
+  Python/Pillow, whisper.cpp, and related video rendering/transcription
+  dependencies
 - Cozy toolchain Docker image development, documentation, and validation for
   BoK, SmartDox PDF, and video production dependencies
 - migration path from the current SmartDox PDF dependency image to the unified
@@ -65,7 +66,7 @@ In scope:
 Out of scope:
 
 - completed BoK registration operation
-- Python/Pillow as a required standard Cozy runtime dependency
+- host Python/Pillow as a required standard Cozy runtime dependency
 - vendoring ffmpeg, VOICEVOX, Node, Playwright, Remotion, or browser binaries
 - bundling VOICEVOX Engine in the Cozy toolchain image
 - removing SmartDox PDF image compatibility before a transition path exists
@@ -83,7 +84,7 @@ Out of scope:
 - [ ] VDO-04: Project/script structured document parsing implemented
 - [x] VDO-05: Dry-run and inspect implemented
 - [x] VDO-06: External tool checks implemented
-- [ ] VDO-06B: Docker toolchain mode implemented
+- [x] VDO-06B: Docker toolchain mode implemented
 - [ ] VDO-06C: Unified Cozy toolchain Docker image developed
 - [ ] VDO-07: VOICEVOX synthesis implemented
 - [ ] VDO-08: Remotion renderer adapter implemented
@@ -108,8 +109,8 @@ Out of scope:
 - The configured Cozy toolchain Docker image has a documented build path and
   includes the BoK/PDF/video dependency set required by Cozy: SmartDox PDF
   dependencies, Antora-capable Node tooling, ffmpeg/ffprobe, Remotion runtime
-  dependencies, Playwright Chromium, whisper.cpp, transcription model/data, and
-  Japanese-capable fonts.
+  dependencies, Playwright Chromium, Python/Pillow, whisper.cpp, transcription
+  model/data, and Japanese-capable fonts.
 - VOICEVOX Engine remains outside the image and is checked only as an HTTP
   endpoint.
 - `cozy video build <project-file> --dry-run` prints planned synthesis,
@@ -163,11 +164,10 @@ Out of scope:
   capture metadata is the high-precision path for replay generation.
 - Recorded video alone produces a draft replay script requiring manual review;
   OCR and visual operation inference remain future extensions.
-- Remotion replaces the legacy Python/Pillow renderer as the standard rendering
-  direction.
-- Python/Pillow may be used later for optional toolchain-contained adapters or
-  specialized extensions when it is the pragmatic choice, but Phase 8 must not
-  make host Python/Pillow a required dependency.
+- Remotion is the standard renderer direction; Python/Pillow remains available
+  inside the toolchain for helper rendering and pragmatic adapters.
+- Python/Pillow is an intentional Cozy toolchain utility for helper rendering
+  paths, but Phase 8 must not make host Python/Pillow a required dependency.
 - BoK registration is deferred. Phase 8 records the RDF output handoff point for
   a later BoK/publish integration phase.
 
@@ -187,6 +187,11 @@ Out of scope:
   ffmpeg/ffprobe, Node/npm, Remotion dependency detection, Playwright Chromium,
   and whisper.cpp/model data while preserving stub-injectable deterministic
   tests and keeping normal inspect/dry-run independent of installed tools.
+- 2026-06-18: Completed VDO-06B Docker toolchain mode planning/execution
+  surface. `cozy video inspect/build --dry-run` now resolves `tool-mode` and
+  Docker image precedence, defaults to Docker mode, wraps planned Remotion,
+  Playwright, ffmpeg, and Python/Pillow helper steps in the configured Cozy
+  toolchain image, and keeps VOICEVOX as an external HTTP service.
 
 ## References
 

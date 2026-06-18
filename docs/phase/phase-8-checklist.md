@@ -80,19 +80,19 @@ Status: DONE
 
 ## VDO-06B: Docker Toolchain Mode
 
-Status: OPEN
+Status: DONE
 
-- [ ] Add a `video.tool-mode` setting with `docker` as the standard planned
+- [x] Add a `video.tool-mode` setting with `docker` as the standard planned
       mode and `host` as an explicit fallback mode.
-- [ ] Resolve Docker image precedence from CLI `--docker-image`,
-      `video.docker-image`, `cozy.docker-image`, then the standard Cozy
-      toolchain image.
-- [ ] Run Remotion, Playwright/Chromium, ffmpeg/ffprobe, Node/npm-based video
-      tooling, whisper.cpp, transcription model/data, and fonts from the
-      configured Cozy toolchain Docker image.
-- [ ] Keep VOICEVOX Engine outside the image and access it through
+- [x] Resolve Docker image precedence from CLI `--docker-image`, video project
+      `tools.dockerImage`, `video.docker-image`, `cozy.docker-image`, then the
+      standard Cozy toolchain image.
+- [x] Plan Docker-wrapped command previews for Remotion, Playwright/Chromium,
+      ffmpeg/ffprobe, Node/npm-based video tooling, whisper.cpp, transcription
+      model/data, and fonts from the configured Cozy toolchain Docker image.
+- [x] Keep VOICEVOX Engine outside the image and access it through
       `video.voicevox.url`.
-- [ ] Provide setup hints for `docker pull simplemodeling/cozy-toolchain:latest`
+- [x] Provide setup hints for `docker pull simplemodeling/cozy-toolchain:latest`
       and for `host.docker.internal` or compose service URLs when VOICEVOX is
       unreachable from Docker.
 
@@ -108,16 +108,17 @@ Status: OPEN
       for the unified toolchain unless a better existing owner is found.
 - [ ] Include the BoK/PDF dependency set already needed by Cozy: SmartDox PDF
       rendering dependencies, Kroki command/server support, Japanese TeX
-      tooling, CJK/emoji fonts, Node/npm, and Antora-capable tooling.
+      tooling, CJK/emoji fonts, Python/Pillow, Node/npm, and Antora-capable
+      tooling.
 - [ ] Extend the unified image to include the video dependency set:
       ffmpeg/ffprobe, Remotion runtime dependencies, Playwright Chromium, and
-      Japanese-capable fonts.
+      Japanese-capable fonts, plus Python/Pillow helper rendering support.
 - [ ] Add whisper.cpp and the standard transcription model/data path to the
       unified image or documented toolchain-managed cache/volume.
 - [ ] Add Playwright trace/replay tooling needed for recorded demo replay
       generation and dry-run validation.
-- [ ] Keep Python available only as a tolerated toolchain utility if already
-      present or useful, not as the standard `cozy video` renderer dependency.
+- [ ] Include Python/Pillow as an intentional toolchain utility for helper
+      rendering paths while keeping host Python/Pillow optional.
 - [ ] Do not include VOICEVOX Engine in the image.
 - [ ] Keep `simplemodeling/smartdox-pdf:latest` compatibility or document a
       transition path to `simplemodeling/cozy-toolchain:latest`.
@@ -152,8 +153,8 @@ Status: OPEN
 
 - [ ] Render a simple static-frame video without requiring host Python/Pillow.
 - [ ] Use ffmpeg for final MP4 encoding.
-- [ ] Keep Python/Pillow available only as a future optional toolchain-contained
-      extension path, not as the Phase 8 standard renderer.
+- [ ] Use Python/Pillow as a toolchain-contained helper rendering path without
+      requiring host Python/Pillow.
 
 ## VDO-10: ffmpeg/ffprobe Integration
 

@@ -119,13 +119,98 @@ final class CozyVideoSpec extends AnyFunSuite {
       assert(out.contains("commands:"))
       assert(out.contains("part.lecture.parse-script: cozy (host) - parse dialogue script"))
       assert(out.contains("part.lecture.synthesize: voicevox (external-service) - synthesize scene audio"))
-      assert(out.contains("part.lecture.render: remotion (host) - render dialogue part"))
-      assert(out.contains("part.board.render: remotion (host) - render storyboard part"))
-      assert(out.contains("part.demo.capture: playwright (host) - plan web-demo replay/capture"))
+      assert(out.contains("part.lecture.prepare-visuals: python-pillow (docker) - docker run --rm"))
+      assert(out.contains("part.lecture.render: remotion (docker) - docker run --rm"))
+      assert(out.contains("part.board.render: remotion (docker) - docker run --rm"))
+      assert(out.contains("part.demo.capture: playwright (docker) - docker run --rm"))
       assert(out.contains("part.demo.synthesize: voicevox (external-service) - synthesize scene audio"))
-      assert(out.contains("project.concat: ffmpeg (host) - concat planned part outputs into final video"))
+      assert(out.contains("project.concat: ffmpeg (docker) - docker run --rm"))
       assert(out.contains("project.manifest: cozy (host) - write project manifest"))
       assert(!out.contains("  - part.future.render:"))
+    }
+  }
+
+  test("video build dry-run can use explicit host tool mode") {
+    _with_temp_dir("cozy-video-build-host-mode") { dir =>
+      _write(dir.resolve("script.json"), _script_json)
+      _write(
+        dir.resolve("video_project.json"),
+        s"""{
+           |  "title": "Host Mode",
+           |  "renderer": {"engine": "remotion"},
+           |  "parts": [
+           |    {"id": "intro", "type": "dialogue", "script": "script.json"}
+           |  ]
+           |}
+           |""".stripMargin
+      )
+
+      val out = CozyVideo.build(CozyVideo.BuildConfig(dir.resolve("video_project.json"), dryRun = true, checkTools = false, toolMode = Some("host")), CozyVideo.VideoToolRegistry.default)
+
+      assert(out.contains("toolMode: host"))
+      assert(out.contains("part.intro.prepare-visuals: python-pillow (host) - prepare dialogue visual helper assets"))
+      assert(out.contains("part.intro.render: remotion (host) - render dialogue part"))
+      assert(out.contains("project.concat: ffmpeg (host) - concat planned part outputs into final video"))
+    }
+  }
+
+  test("video build dry-run resolves docker mode and image precedence") {
+    _with_temp_dir("cozy-video-build-docker-precedence") { dir =>
+      _write(dir.resolve("script.json"), _script_json)
+      _write(dir.resolve("conf/cozy/config.yaml"), "video:\n  docker-image: shared-image\n  tool-mode: host\ncozy:\n  docker-image: cozy-image\n")
+      _write(dir.resolve(".cozy/config.yaml"), "video:\n  docker-image: local-image\n")
+      _write(
+        dir.resolve("video_project.json"),
+        s"""{
+           |  "title": "Docker Precedence",
+           |  "tools": {
+           |    "toolMode": "docker",
+           |    "dockerImage": "project-image"
+           |  },
+           |  "renderer": {"engine": "remotion"},
+           |  "parts": [
+           |    {"id": "intro", "type": "dialogue", "script": "script.json"}
+           |  ]
+           |}
+           |""".stripMargin
+      )
+
+      val project = CozyVideo.build(CozyVideo.BuildConfig(dir.resolve("video_project.json"), dryRun = true, checkTools = false), CozyVideo.VideoToolRegistry.default)
+      val cli = CozyVideo.build(CozyVideo.BuildConfig(dir.resolve("video_project.json"), dryRun = true, checkTools = false, toolMode = Some("host"), dockerImage = Some("cli-image")), CozyVideo.VideoToolRegistry.default)
+
+      assert(project.contains("toolMode: docker"))
+      assert(project.contains("dockerImage: project-image"))
+      assert(project.contains("docker run --rm -v '" + dir + ":/workspace' -w /workspace 'project-image' 'remotion'"))
+      assert(cli.contains("toolMode: host"))
+      assert(cli.contains("dockerImage: cli-image"))
+      assert(cli.contains("part.intro.render: remotion (host)"))
+    }
+  }
+
+  test("video build dry-run reads video config defaults with local override") {
+    _with_temp_dir("cozy-video-build-config-defaults") { dir =>
+      _write(dir.resolve("script.json"), _script_json)
+      _write(dir.resolve("conf/cozy/config.yaml"), "video:\n  docker-image: shared-image\n  tool-mode: host\n")
+      _write(dir.resolve(".cozy/config.yaml"), "video:\n  docker-image: local-image\n  tool-mode: docker\n")
+      _write(dir.resolve("video_project.json"), _project_json("script.json"))
+
+      val out = CozyVideo.build(CozyVideo.BuildConfig(dir.resolve("video_project.json"), dryRun = true, checkTools = false), CozyVideo.VideoToolRegistry.default)
+
+      assert(out.contains("toolMode: docker"))
+      assert(out.contains("dockerImage: local-image"))
+    }
+  }
+
+  test("video build fails explicitly for invalid tool mode") {
+    _with_temp_dir("cozy-video-build-invalid-tool-mode") { dir =>
+      _write(dir.resolve("script.json"), _script_json)
+      _write(dir.resolve("video_project.json"), _project_json("script.json"))
+
+      val e = intercept[Throwable] {
+        CozyVideo.build(CozyVideo.BuildConfig(dir.resolve("video_project.json"), dryRun = true, checkTools = false, toolMode = Some("invalid")), CozyVideo.VideoToolRegistry.default)
+      }
+
+      assert(e.getMessage.contains("Invalid video tool mode"))
     }
   }
 
@@ -266,19 +351,20 @@ final class CozyVideoSpec extends AnyFunSuite {
       )
 
       val out = CozyVideo.inspect(
-        CozyVideo.InspectConfig(dir.resolve("video_project.json"), checkTools = true),
+        CozyVideo.InspectConfig(dir.resolve("video_project.json"), checkTools = true, toolMode = Some("host")),
         CozyVideo.VideoToolRegistry.production(probe)
       )
 
-      assert(out.contains("docker-toolchain: available (docker)"))
-      assert(out.contains("docker-image: available (docker)"))
+      assert(out.contains("docker-toolchain: unchecked (docker)"))
+      assert(out.contains("docker-image: unchecked (docker)"))
       assert(out.contains("voicevox: available (external-service)"))
       assert(out.contains("ffmpeg: available (host)"))
       assert(out.contains("remotion-node: available (host)"))
       assert(out.contains("playwright: available (host)"))
       assert(out.contains("whisper-cpp: available (host)"))
-      assert(out.indexOf("docker-toolchain: available") < out.indexOf("docker-image: available"))
-      assert(out.indexOf("docker-image: available") < out.indexOf("voicevox: available"))
+      assert(out.contains("python-pillow: missing (host)"))
+      assert(out.indexOf("docker-toolchain: unchecked") < out.indexOf("docker-image: unchecked"))
+      assert(out.indexOf("docker-image: unchecked") < out.indexOf("voicevox: available"))
     }
   }
 
@@ -318,19 +404,19 @@ final class CozyVideoSpec extends AnyFunSuite {
       )
 
       val out = CozyVideo.inspect(
-        CozyVideo.InspectConfig(dir.resolve("video_project.json"), checkTools = true),
+        CozyVideo.InspectConfig(dir.resolve("video_project.json"), checkTools = true, toolMode = Some("host")),
         CozyVideo.VideoToolRegistry.production(probe)
       )
 
-      assert(out.contains("docker-toolchain: missing (docker)"))
+      assert(out.contains("docker-toolchain: unchecked (docker)"))
       assert(out.contains("docker-image: unchecked (docker)"))
-      assert(out.contains("setup: Start Docker, then run: docker pull example/toolchain:dev"))
       assert(out.contains("voicevox: missing (external-service)"))
-      assert(out.contains("setup: Start VOICEVOX Engine or set tools.voicevoxUrl."))
+      assert(out.contains("setup: Start VOICEVOX Engine or set tools.voicevoxUrl / video.voicevox.url."))
       assert(out.contains("ffmpeg: missing (host)"))
       assert(out.contains("remotion-node: missing (host)"))
       assert(out.contains("playwright: missing (host)"))
       assert(out.contains("whisper-cpp: missing (host)"))
+      assert(out.contains("python-pillow: missing (host)"))
       assert(out.contains("whisper.cpp model is missing: " + dir.resolve("models/missing.bin").normalize()))
     }
   }
@@ -371,6 +457,54 @@ final class CozyVideoSpec extends AnyFunSuite {
     }
   }
 
+  test("video inspect docker mode check-tools focuses on docker image and voicevox") {
+    _with_temp_dir("cozy-video-tool-probe-docker-mode") { dir =>
+      _write(dir.resolve("script.json"), _script_json)
+      _write(
+        dir.resolve("video_project.json"),
+        s"""{
+           |  "title": "Docker Checks",
+           |  "tools": {
+           |    "toolMode": "docker",
+           |    "dockerImage": "example/toolchain:dev",
+           |    "voicevoxUrl": "http://voicevox.example"
+           |  },
+           |  "parts": [
+           |    {"id": "intro", "type": "dialogue", "script": "script.json"}
+           |  ]
+           |}
+           |""".stripMargin
+      )
+      val probe = RecordingProbe(
+        commandResults = Map(
+          Vector("docker", "version", "--format", "{{.Server.Version}}") -> CozyVideo.VideoCommandResult(0, "25.0\n", ""),
+          Vector("docker", "image", "inspect", "example/toolchain:dev") -> CozyVideo.VideoCommandResult(0, "[]", "")
+        ),
+        httpResults = Map(
+          "http://voicevox.example/version" -> CozyVideo.VideoHttpResult(0, "", Some("connection refused"))
+        )
+      )
+
+      val out = CozyVideo.inspect(
+        CozyVideo.InspectConfig(dir.resolve("video_project.json"), checkTools = true),
+        CozyVideo.VideoToolRegistry.production(probe)
+      )
+
+      assert(out.contains("toolMode: docker"))
+      assert(out.contains("docker-image: available (docker)"))
+      assert(out.contains("voicevox: missing (external-service)"))
+      assert(out.contains("host.docker.internal"))
+      assert(out.contains("ffmpeg: unchecked (docker)"))
+      assert(out.contains("remotion-node: unchecked (docker)"))
+      assert(out.contains("playwright: unchecked (docker)"))
+      assert(out.contains("whisper-cpp: unchecked (docker)"))
+      assert(out.contains("python-pillow: unchecked (docker)"))
+      assert(!probe.commands.exists(_.headOption.contains("ffmpeg")))
+      assert(!probe.commands.exists(_.headOption.contains("node")))
+      assert(!probe.commands.exists(_.headOption.contains("python3")))
+    }
+  }
+
   test("video inspect production registry reports invalid voicevox URL as missing") {
     _with_temp_dir("cozy-video-tool-probe-invalid-voicevox") { dir =>
       _write(dir.resolve("script.json"), _script_json)
@@ -396,7 +530,7 @@ final class CozyVideoSpec extends AnyFunSuite {
 
       assert(out.contains("voicevox: missing (external-service)"))
       assert(out.contains("VOICEVOX endpoint URL is invalid"))
-      assert(out.contains("setup: Set tools.voicevoxUrl to a valid HTTP URL."))
+      assert(out.contains("setup: Set tools.voicevoxUrl or video.voicevox.url to a valid HTTP URL."))
       assert(probe.httpGets.isEmpty)
     }
   }
@@ -445,12 +579,25 @@ final class CozyVideoSpec extends AnyFunSuite {
       val out = _capture {
         cozy.Cozy.main(Array("video", "inspect", dir.resolve("video_project.json").toString))
       }
+      val build = _capture {
+        cozy.Cozy.main(Array(
+          "video",
+          "build",
+          dir.resolve("video_project.json").toString,
+          "--dry-run",
+          "--tool-mode=host",
+          "--docker-image=cli-image"
+        ))
+      }
       val help = _capture {
         cozy.Cozy.main(Array("--help"))
       }
 
       assert(out.contains("Cozy Video Inspect"))
       assert(out.contains("part[1]: intro"))
+      assert(build.contains("Cozy Video Build Dry-Run"))
+      assert(build.contains("toolMode: host"))
+      assert(build.contains("dockerImage: cli-image"))
       assert(help.contains("video inspect <project-file>"))
       assert(help.contains("video build <project-file> --dry-run"))
       assert(help.contains("--check-tools"))

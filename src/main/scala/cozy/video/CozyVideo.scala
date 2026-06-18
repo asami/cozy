@@ -3,6 +3,7 @@ package cozy.video
 import org.goldenport.RAISE
 import org.goldenport.config.StructuredDocumentLoader
 import org.goldenport.io.InputSource
+import cozy.config.CozyProjectYamlConfig
 import cozy.runtime.CozyCliArgs
 import org.goldenport.cli.spec
 import io.circe.{Decoder, HCursor, Json}
@@ -12,7 +13,7 @@ import java.net.http.{HttpClient, HttpRequest, HttpResponse}
 import java.time.{Duration => JDuration}
 import java.util.concurrent.TimeUnit
 import scala.collection.JavaConverters._
-import scala.concurrent.{Await, ExecutionContext, Future, blocking}
+import scala.concurrent.{Await, ExecutionContext => ScalaExecutionContext, Future, blocking}
 import scala.concurrent.duration._
 import scala.util.control.NonFatal
 
@@ -24,34 +25,38 @@ import scala.util.control.NonFatal
 private[cozy] object CozyVideo {
   final case class InspectConfig(
     projectFile: Path,
-    checkTools: Boolean
+    checkTools: Boolean,
+    toolMode: Option[String] = None,
+    dockerImage: Option[String] = None
   ) {
     def projectRoot: Path = projectFile.getParent
   }
   object InspectConfig {
     def create(args: List[String]): InspectConfig = {
-      val parsed = CozyCliArgs.parseStrict(_p_project_file, _p_check_tools)(args)
+      val parsed = CozyCliArgs.parseStrict(_p_project_file, _p_check_tools, _p_tool_mode, _p_docker_image)(_normalize_property_args(args))
       val projectfile = parsed.argument("project-file").map(CozyCliArgs.toPath).getOrElse(
         RAISE.invalidArgumentFault("Missing project file for video inspect")
       )
-      InspectConfig(projectfile, parsed.flag("check-tools"))
+      InspectConfig(projectfile, parsed.flag("check-tools"), parsed.property("tool-mode"), parsed.property("docker-image"))
     }
   }
 
   final case class BuildConfig(
     projectFile: Path,
     dryRun: Boolean,
-    checkTools: Boolean
+    checkTools: Boolean,
+    toolMode: Option[String] = None,
+    dockerImage: Option[String] = None
   ) {
     def projectRoot: Path = projectFile.getParent
   }
   object BuildConfig {
     def create(args: List[String]): BuildConfig = {
-      val parsed = CozyCliArgs.parseStrict(_p_project_file, _p_dry_run, _p_check_tools)(args)
+      val parsed = CozyCliArgs.parseStrict(_p_project_file, _p_dry_run, _p_check_tools, _p_tool_mode, _p_docker_image)(_normalize_property_args(args))
       val projectfile = parsed.argument("project-file").map(CozyCliArgs.toPath).getOrElse(
         RAISE.invalidArgumentFault("Missing project file for video build")
       )
-      BuildConfig(projectfile, parsed.flag("dry-run"), parsed.flag("check-tools"))
+      BuildConfig(projectfile, parsed.flag("dry-run"), parsed.flag("check-tools"), parsed.property("tool-mode"), parsed.property("docker-image"))
     }
   }
 
@@ -76,6 +81,7 @@ private[cozy] object CozyVideo {
   }
 
   final case class VideoToolSettings(
+    toolMode: Option[String],
     dockerImage: Option[String],
     voicevoxUrl: Option[String],
     whisperModel: Option[String]
@@ -96,6 +102,10 @@ private[cozy] object CozyVideo {
 
     implicit val decoder: Decoder[VideoToolSettings] = (c: HCursor) =>
       for {
+        toolmode <- c.downField("toolMode").as[Option[String]].flatMap {
+          case Some(s) => Right(Some(s))
+          case None => c.downField("tool-mode").as[Option[String]]
+        }
         dockerimage <- c.downField("dockerImage").as[Option[String]].flatMap {
           case Some(s) => Right(Some(s))
           case None => c.downField("docker-image").as[Option[String]]
@@ -108,7 +118,7 @@ private[cozy] object CozyVideo {
           case Some(s) => Right(Some(s))
           case None => c.downField("whisper-model").as[Option[String]]
         }
-      } yield VideoToolSettings(dockerimage, voicevoxurl, whispermodel)
+      } yield VideoToolSettings(toolmode, dockerimage, voicevoxurl, whispermodel)
   }
 
   final case class VideoPart(
@@ -254,6 +264,13 @@ private[cozy] object CozyVideo {
     case object Docker extends VideoToolMode { val label = "docker" }
     case object Host extends VideoToolMode { val label = "host" }
     case object ExternalService extends VideoToolMode { val label = "external-service" }
+
+    def parse(value: String): VideoToolMode =
+      value.trim.toLowerCase(java.util.Locale.ROOT) match {
+        case "docker" => Docker
+        case "host" => Host
+        case other => RAISE.invalidArgumentFault(s"Invalid video tool mode: $other")
+      }
   }
 
   sealed trait VideoToolStatus { def label: String }
@@ -275,9 +292,40 @@ private[cozy] object CozyVideo {
   final case class VideoToolContext(
     projectFile: Path,
     projectRoot: Path,
-    project: VideoProject
+    project: VideoProject,
+    execution: VideoExecutionConfig
   ) {
-    def settings: VideoToolSettings = project.tools.getOrElse(VideoToolSettings(None, None, None))
+    def settings: VideoToolSettings = project.tools.getOrElse(VideoToolSettings(None, None, None, None))
+  }
+
+  final case class VideoExecutionConfig(
+    toolMode: VideoToolMode,
+    dockerImage: String,
+    voicevoxUrl: String
+  )
+  object VideoExecutionConfig {
+    def create(
+      projectroot: Path,
+      project: VideoProject,
+      toolmode: Option[String],
+      dockerimage: Option[String]
+    ): VideoExecutionConfig = {
+      val config = CozyProjectYamlConfig.loadOperationDefaults(projectroot)
+      val projecttools = project.tools.getOrElse(VideoToolSettings(None, None, None, None))
+      val resolvedmode = toolmode.
+        orElse(projecttools.toolMode).
+        orElse(config.value("video.tool-mode")).
+        getOrElse("docker")
+      val resolvedimage = dockerimage.
+        orElse(projecttools.dockerImage).
+        orElse(config.value("video.docker-image")).
+        orElse(config.value("cozy.docker-image")).
+        getOrElse(VideoToolSettings.DEFAULT_DOCKER_IMAGE)
+      val resolvedvoicevox = projecttools.voicevoxUrl.
+        orElse(config.value("video.voicevox.url")).
+        getOrElse(VideoToolSettings.DEFAULT_VOICEVOX_URL)
+      VideoExecutionConfig(VideoToolMode.parse(resolvedmode), resolvedimage, resolvedvoicevox)
+    }
   }
 
   trait VideoToolProvider {
@@ -297,7 +345,8 @@ private[cozy] object CozyVideo {
       FfmpegProvider(probe),
       RemotionNodeProvider(probe),
       PlaywrightProvider(probe),
-      WhisperCppProvider(probe)
+      WhisperCppProvider(probe),
+      PythonPillowProvider(probe)
     ))
   }
 
@@ -338,7 +387,7 @@ private[cozy] object CozyVideo {
   }
 
   private object DefaultVideoToolProbe extends VideoToolProbe {
-    private implicit val ec: ExecutionContext = ExecutionContext.global
+    private implicit val _ec: ScalaExecutionContext = ScalaExecutionContext.global
     private val _process_timeout = 5.seconds
     private val _http_timeout = JDuration.ofSeconds(3)
 
@@ -379,6 +428,13 @@ private[cozy] object CozyVideo {
 
   final case class DockerToolchainProvider(probe: VideoToolProbe) extends VideoToolProvider {
     def check(context: VideoToolContext): VideoToolCheck = {
+      if (context.execution.toolMode == VideoToolMode.Host)
+        return VideoToolCheck(
+          "docker-toolchain",
+          VideoToolMode.Docker,
+          VideoToolStatus.Unchecked,
+          "Docker daemon is not required in host tool mode."
+        )
       val result = probe.command(Vector("docker", "version", "--format", "{{.Server.Version}}"), context.projectRoot)
       if (result.isSuccess)
         VideoToolCheck("docker-toolchain", VideoToolMode.Docker, VideoToolStatus.Available, "Docker daemon is reachable.")
@@ -395,7 +451,14 @@ private[cozy] object CozyVideo {
 
   final case class DockerImageProvider(probe: VideoToolProbe) extends VideoToolProvider {
     def check(context: VideoToolContext): VideoToolCheck = {
-      val image = context.settings.dockerImageOrDefault
+      val image = context.execution.dockerImage
+      if (context.execution.toolMode == VideoToolMode.Host)
+        return VideoToolCheck(
+          "docker-image",
+          VideoToolMode.Docker,
+          VideoToolStatus.Unchecked,
+          s"Docker image is not required in host tool mode: $image."
+        )
       val docker = probe.command(Vector("docker", "version", "--format", "{{.Server.Version}}"), context.projectRoot)
       if (!docker.isSuccess)
         VideoToolCheck(
@@ -423,7 +486,7 @@ private[cozy] object CozyVideo {
 
   final case class VoicevoxProvider(probe: VideoToolProbe) extends VideoToolProvider {
     def check(context: VideoToolContext): VideoToolCheck = {
-      val url = context.settings.voicevoxUrlOrDefault.stripSuffix("/") + "/version"
+      val url = context.execution.voicevoxUrl.stripSuffix("/") + "/version"
       try {
         val result = probe.httpGet(URI.create(url))
         if (result.isSuccess)
@@ -434,7 +497,7 @@ private[cozy] object CozyVideo {
             VideoToolMode.ExternalService,
             VideoToolStatus.Missing,
             result.error.map(e => s"VOICEVOX endpoint is not reachable: $url ($e)").getOrElse(s"VOICEVOX endpoint returned HTTP ${result.statusCode}: $url."),
-            Some("Start VOICEVOX Engine or set tools.voicevoxUrl.")
+            Some("Start VOICEVOX Engine or set tools.voicevoxUrl / video.voicevox.url. In Docker mode, use host.docker.internal or a compose service URL when needed.")
           )
       } catch {
         case NonFatal(e) =>
@@ -443,7 +506,7 @@ private[cozy] object CozyVideo {
             VideoToolMode.ExternalService,
             VideoToolStatus.Missing,
             s"VOICEVOX endpoint URL is invalid: $url (${e.getMessage})",
-            Some("Set tools.voicevoxUrl to a valid HTTP URL.")
+            Some("Set tools.voicevoxUrl or video.voicevox.url to a valid HTTP URL.")
           )
       }
     }
@@ -451,6 +514,8 @@ private[cozy] object CozyVideo {
 
   final case class FfmpegProvider(probe: VideoToolProbe) extends VideoToolProvider {
     def check(context: VideoToolContext): VideoToolCheck = {
+      if (context.execution.toolMode == VideoToolMode.Docker)
+        return _docker_managed_check("ffmpeg", "ffmpeg/ffprobe", context.execution.dockerImage)
       val ffmpeg = probe.command(Vector("ffmpeg", "-version"), context.projectRoot)
       val ffprobe = probe.command(Vector("ffprobe", "-version"), context.projectRoot)
       if (ffmpeg.isSuccess && ffprobe.isSuccess)
@@ -468,6 +533,8 @@ private[cozy] object CozyVideo {
 
   final case class RemotionNodeProvider(probe: VideoToolProbe) extends VideoToolProvider {
     def check(context: VideoToolContext): VideoToolCheck = {
+      if (context.execution.toolMode == VideoToolMode.Docker)
+        return _docker_managed_check("remotion-node", "Node/npm and Remotion dependencies", context.execution.dockerImage)
       val node = probe.command(Vector("node", "--version"), context.projectRoot)
       val npm = probe.command(Vector("npm", "--version"), context.projectRoot)
       val remotion = probe.command(Vector("node", "-e", "require.resolve('@remotion/renderer')"), context.projectRoot)
@@ -486,6 +553,8 @@ private[cozy] object CozyVideo {
 
   final case class PlaywrightProvider(probe: VideoToolProbe) extends VideoToolProvider {
     def check(context: VideoToolContext): VideoToolCheck = {
+      if (context.execution.toolMode == VideoToolMode.Docker)
+        return _docker_managed_check("playwright", "Playwright Chromium", context.execution.dockerImage)
       val module = probe.command(Vector("node", "-e", "require.resolve('playwright')"), context.projectRoot)
       val executable = probe.command(Vector("node", "-e", "const { chromium } = require('playwright'); console.log(chromium.executablePath())"), context.projectRoot)
       val path = executable.stdout.trim
@@ -505,6 +574,8 @@ private[cozy] object CozyVideo {
 
   final case class WhisperCppProvider(probe: VideoToolProbe) extends VideoToolProvider {
     def check(context: VideoToolContext): VideoToolCheck = {
+      if (context.execution.toolMode == VideoToolMode.Docker)
+        return _docker_managed_check("whisper-cpp", "whisper.cpp binary and model data", context.execution.dockerImage)
       val binary = _first_success(Vector("whisper-cli", "whisper.cpp").map(x => probe.command(Vector(x, "--help"), context.projectRoot)))
       val model = context.settings.whisperModelPath(context.projectRoot)
       (binary, model) match {
@@ -538,6 +609,25 @@ private[cozy] object CozyVideo {
     }
   }
 
+  final case class PythonPillowProvider(probe: VideoToolProbe) extends VideoToolProvider {
+    def check(context: VideoToolContext): VideoToolCheck = {
+      if (context.execution.toolMode == VideoToolMode.Docker)
+        return _docker_managed_check("python-pillow", "Python and Pillow helper rendering", context.execution.dockerImage)
+      val python = probe.command(Vector("python3", "--version"), context.projectRoot)
+      val pillow = probe.command(Vector("python3", "-c", "import PIL; print(PIL.__version__)"), context.projectRoot)
+      if (python.isSuccess && pillow.isSuccess)
+        VideoToolCheck("python-pillow", VideoToolMode.Host, VideoToolStatus.Available, "Python and Pillow are available.")
+      else
+        VideoToolCheck(
+          "python-pillow",
+          VideoToolMode.Host,
+          VideoToolStatus.Missing,
+          s"Python/Pillow check failed: python=${python.exitCode}, pillow=${pillow.exitCode}.",
+          Some("Install Python 3 and Pillow, or use the Cozy Docker toolchain.")
+        )
+    }
+  }
+
   private def _first_success(results: Vector[VideoCommandResult]): Option[VideoCommandResult] =
     results.find(_.isSuccess)
 
@@ -545,6 +635,15 @@ private[cozy] object CozyVideo {
     val detail = result.text
     if (detail.isEmpty) prefix else s"$prefix $detail"
   }
+
+  private def _docker_managed_check(name: String, label: String, image: String): VideoToolCheck =
+    VideoToolCheck(
+      name,
+      VideoToolMode.Docker,
+      VideoToolStatus.Unchecked,
+      s"$label are expected to be provided by Docker image: $image.",
+      Some("Validate the image contents in VDO-06C; pull with: docker pull " + image)
+    )
 
   sealed trait VideoArtifactStatus { def label: String }
   object VideoArtifactStatus {
@@ -598,6 +697,7 @@ private[cozy] object CozyVideo {
     projectFile: Path,
     projectRoot: Path,
     project: VideoProject,
+    execution: VideoExecutionConfig,
     outputPath: Path,
     manifestPath: Path,
     parts: Vector[VideoPartPlan],
@@ -608,7 +708,11 @@ private[cozy] object CozyVideo {
   private val _p_project_file = spec.Parameter.argumentFile("project-file")
   private val _p_check_tools = spec.Parameter("check-tools", spec.Parameter.SwitchKind)
   private val _p_dry_run = spec.Parameter("dry-run", spec.Parameter.SwitchKind)
+  private val _p_tool_mode = spec.Parameter.property("tool-mode")
+  private val _p_docker_image = spec.Parameter.property("docker-image")
   private val _supported_part_types = Set("dialogue", "storyboard", "web-demo")
+  private val _docker_managed_tools = Set("remotion", "playwright", "ffmpeg", "ffprobe", "node", "npm", "whisper-cpp", "python-pillow")
+  private val _property_options = Set("tool-mode", "docker-image")
 
   def execute(args: List[String]): Boolean = execute(args, VideoToolRegistry.default)
 
@@ -627,16 +731,16 @@ private[cozy] object CozyVideo {
     }
 
   def inspect(config: InspectConfig, tools: VideoToolRegistry): String = {
-    val plan = _plan(config.projectFile)
-    val context = VideoToolContext(config.projectFile, config.projectRoot, plan.project)
+    val plan = _plan(config.projectFile, config.toolMode, config.dockerImage)
+    val context = VideoToolContext(config.projectFile, config.projectRoot, plan.project, plan.execution)
     _render_inspect(config, plan, if (config.checkTools) tools.checks(context) else Vector.empty)
   }
 
   def build(config: BuildConfig, tools: VideoToolRegistry): String = {
     if (!config.dryRun)
       RAISE.invalidArgumentFault("cozy video build without --dry-run is not implemented yet")
-    val plan = _plan(config.projectFile)
-    val context = VideoToolContext(config.projectFile, config.projectRoot, plan.project)
+    val plan = _plan(config.projectFile, config.toolMode, config.dockerImage)
+    val context = VideoToolContext(config.projectFile, config.projectRoot, plan.project, plan.execution)
     _render_build_dry_run(config, plan, if (config.checkTools) tools.checks(context) else Vector.empty)
   }
 
@@ -646,15 +750,28 @@ private[cozy] object CozyVideo {
     StructuredDocumentLoader.loadDocument[VideoProject](InputSource(path.toFile)).take
   }
 
+  private def _normalize_property_args(args: List[String]): List[String] =
+    args.flatMap {
+      case x if x.startsWith("--") && x.contains("=") =>
+        val keyvalue = x.drop(2).split("=", 2)
+        if (keyvalue.length == 2 && _property_options.contains(keyvalue(0)))
+          List("--" + keyvalue(0), keyvalue(1))
+        else
+          List(x)
+      case x =>
+        List(x)
+    }
+
   private def _load_script(path: Path): Option[VideoScript] =
     if (Files.isRegularFile(path))
       Some(StructuredDocumentLoader.loadDocument[VideoScript](InputSource(path.toFile)).take)
     else
       None
 
-  private def _plan(projectfile: Path): VideoPlan = {
+  private def _plan(projectfile: Path, toolmode: Option[String], dockerimage: Option[String]): VideoPlan = {
     val project = _load_project(projectfile)
     val projectroot = projectfile.getParent
+    val execution = VideoExecutionConfig.create(projectroot, project, toolmode, dockerimage)
     val outputpath = projectroot.resolve(project.output.getOrElse("build/final.mp4")).normalize()
     val manifestpath = projectroot.resolve("build/manifest.json").normalize()
     val parts = project.parts.zipWithIndex.map {
@@ -665,7 +782,7 @@ private[cozy] object CozyVideo {
       VideoArtifactPlan("project-manifest", manifestpath, "project.manifest", VideoArtifactStatus.Planned)
     ) ++ parts.flatMap(_.artifacts)
     val partoutputs = parts.filter(_.renderable).map(_.outputPath)
-    val commands =
+    val rawcommands =
       parts.flatMap(_.commands) ++
         Vector(
           VideoCommandPlan(
@@ -685,7 +802,8 @@ private[cozy] object CozyVideo {
             Vector(manifestpath)
           )
         )
-    VideoPlan(projectfile, projectroot, project, outputpath, manifestpath, parts, artifacts, commands)
+    val commands = rawcommands.map(_resolve_command(projectroot, execution, _))
+    VideoPlan(projectfile, projectroot, project, execution, outputpath, manifestpath, parts, artifacts, commands)
   }
 
   private def _part_plan(
@@ -791,6 +909,18 @@ private[cozy] object CozyVideo {
       else
         Vector.empty
     val renderable = scriptstatus == "found" && (parttype != "web-demo" || stepsstatus.contains("found"))
+    val visualhelper =
+      if (renderable)
+        Vector(VideoCommandPlan(
+          s"part.$id.prepare-visuals",
+          "python-pillow",
+          VideoToolMode.Host,
+          s"prepare $parttype visual helper assets",
+          scriptpath.toVector,
+          Vector.empty
+        ))
+      else
+        Vector.empty
     val synthesize =
       if (renderable)
         audiodir.map { path =>
@@ -829,7 +959,7 @@ private[cozy] object CozyVideo {
         ))
       else
         Vector.empty
-    parse ++ capture.filter(_ => stepsstatus.forall(_ == "found")) ++ synthesize ++ render ++ manifest
+    parse ++ capture.filter(_ => stepsstatus.forall(_ == "found")) ++ visualhelper ++ synthesize ++ render ++ manifest
   }
 
   private def _input_status(status: String): VideoArtifactStatus =
@@ -844,6 +974,40 @@ private[cozy] object CozyVideo {
     else
       "ffmpeg"
 
+  private def _resolve_command(
+    projectroot: Path,
+    execution: VideoExecutionConfig,
+    command: VideoCommandPlan
+  ): VideoCommandPlan =
+    execution.toolMode match {
+      case VideoToolMode.Docker if _docker_managed_tools.contains(command.toolName) =>
+        command.copy(
+          mode = VideoToolMode.Docker,
+          preview = _docker_preview(projectroot, execution.dockerImage, command)
+        )
+      case _ =>
+        command
+    }
+
+  private def _docker_preview(projectroot: Path, image: String, command: VideoCommandPlan): String = {
+    val inputargs = command.inputs.map(path => s"--input ${_shell_quote(_docker_path(projectroot, path))}")
+    val outputargs = command.outputs.map(path => s"--output ${_shell_quote(_docker_path(projectroot, path))}")
+    val args = (inputargs ++ outputargs).mkString(" ")
+    val suffix = if (args.isEmpty) "" else " " + args
+    s"docker run --rm -v ${_shell_quote(s"${projectroot}:/workspace")} -w /workspace ${_shell_quote(image)} ${_shell_quote(command.toolName)}$suffix # ${command.preview}"
+  }
+
+  private def _shell_quote(value: String): String =
+    "'" + value.replace("'", "'\"'\"'") + "'"
+
+  private def _docker_path(projectroot: Path, path: Path): String = {
+    val normalized = path.toAbsolutePath.normalize()
+    if (normalized.startsWith(projectroot))
+      "/workspace/" + projectroot.relativize(normalized).toString
+    else
+      normalized.toString
+  }
+
   private def _render_inspect(
     config: InspectConfig,
     plan: VideoPlan,
@@ -856,6 +1020,8 @@ private[cozy] object CozyVideo {
     b += s"projectRoot: ${plan.projectRoot}"
     project.name.foreach(x => b += s"name: $x")
     project.title.foreach(x => b += s"title: $x")
+    b += s"toolMode: ${plan.execution.toolMode.label}"
+    b += s"dockerImage: ${plan.execution.dockerImage}"
     b += s"output: ${plan.outputPath}"
     b += s"renderer: ${project.renderer.map(_.summary).getOrElse("engine=legacy")}"
     b += s"parts: ${project.parts.size}"
@@ -878,6 +1044,8 @@ private[cozy] object CozyVideo {
     b += "Cozy Video Build Dry-Run"
     b += s"projectFile: ${plan.projectFile}"
     b += s"projectRoot: ${plan.projectRoot}"
+    b += s"toolMode: ${plan.execution.toolMode.label}"
+    b += s"dockerImage: ${plan.execution.dockerImage}"
     b += s"output: ${plan.outputPath}"
     b += s"parts: ${plan.parts.size}"
     b ++= _render_artifacts(plan.artifacts)

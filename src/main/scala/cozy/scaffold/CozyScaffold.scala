@@ -1495,13 +1495,14 @@ private[cozy] object CozyScaffold {
       |  bok upload [<project-dir>]
       |      Run the external command registered at bok.workflow.upload.command. Cozy does not interpret upload targets or credentials.
       |
-      |  video inspect <project-file> [--check-tools]
+      |  video inspect <project-file> [--check-tools] [--tool-mode=<docker|host>] [--docker-image=<image>]
       |      Inspect a video project file and print a deterministic project, part, script, and tool-check plan.
       |      Project and script files may be JSON, YAML, HOCON, or XML.
-      |      In this version --check-tools uses the external-tool SPI but does not execute external tools.
+      |      Docker is the default tool mode; VOICEVOX is always checked as an external HTTP service.
       |
-      |  video build <project-file> --dry-run [--check-tools]
+      |  video build <project-file> --dry-run [--check-tools] [--tool-mode=<docker|host>] [--docker-image=<image>]
       |      Print planned video artifacts and command steps without executing external tools.
+      |      Docker mode wraps Remotion, Playwright, ffmpeg, whisper.cpp, and Python/Pillow helper steps in the configured Cozy toolchain image.
       |      Non-dry-run video build is not implemented in this version.
       |
       |  modeler-scala <model-file> --save <dir>
