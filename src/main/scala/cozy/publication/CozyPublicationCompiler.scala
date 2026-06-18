@@ -16,7 +16,7 @@ import scala.sys.process._
 /*
  * @since   May. 20, 2026
  *  version Jun.  8, 2026
- * @version Jun. 18, 2026
+ * @version Jun. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyPublicationCompiler {
@@ -237,6 +237,15 @@ private[cozy] object CozyPublicationCompiler {
     PublicationRegistry.registerMetadata(root, name, entries.map {
       case (path, json) => PublicationBundleEntry(path, _publication_bundle_key(path), json)
     })
+
+  def publishMetadata(
+    root: Path,
+    name: String,
+    publicationpath: Option[String],
+    projectdir: Path,
+    entries: Vector[(String, JsValue)]
+  ): Unit =
+    PublicationRegistry.publishMetadata(root, name, publicationpath, projectdir, entries)
 
   private def _write(publication: Publication, savedir: Path, projectdir: Path): Unit = {
     val name = publication.project.name

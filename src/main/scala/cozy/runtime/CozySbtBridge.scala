@@ -6,13 +6,14 @@ import cozy.Cozy
 import cozy.archive.{CozyArchivePackager, CozyCarPublisher, CozySarPublisher}
 import cozy.config.CozyProjectYamlConfig
 import cozy.publication.{CozyPublicationCompiler, CozySampleDistributor, CozyWarehouseIndexer}
+import cozy.video.CozyVideoPublisher
 import play.api.libs.json._
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 
 /*
  * @since   May. 20, 2026
- * @version Jun. 18, 2026
+ * @version Jun. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozySbtBridge {
@@ -42,6 +43,8 @@ private[cozy] object CozySbtBridge {
         CozySarPublisher.publish(request.arguments.toList)
       case "publish-project" =>
         CozyPublicationCompiler.publish(request.arguments.toList)
+      case "publish-video" =>
+        CozyVideoPublisher.publish(request.arguments.toList)
       case "unpublish-project" =>
         CozyPublicationCompiler.unpublish(request.arguments.toList)
       case "distribute-samples" =>

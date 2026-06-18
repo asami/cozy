@@ -1542,6 +1542,9 @@ private[cozy] object CozyScaffold {
       |      Generate SmartDox site BoK publication registry sources from an sbt project.
       |      Writes or replaces one publication bundle under the registry.
       |
+      |  publish-video <slug>.video --save <publication-dir> --warehouse <warehouse-dir> [--version <version>] [--force]
+      |      Build and publish a .video source package. Generated MP4/RDF sidecars go to warehouse/repository/video; only metadata is written to the publication registry.
+      |
       |  publish-maven-repository <repository-dir> --save <dir> --name <slug> [--title <title>] [--path <path>] [--maven-coordinates <group:artifact,...>]
       |      Generate a SmartDox publication bundle and Maven artifact metadata from a Maven repository directory.
       |

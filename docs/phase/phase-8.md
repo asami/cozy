@@ -97,6 +97,7 @@ Out of scope:
 - [x] VDO-15: Recorded demo transcription implemented
 - [ ] VDO-16: Playwright demo replay generation implemented
 - [x] VDO-17: Toolchain includes whisper.cpp and demo replay dependencies
+- [x] VDO-18: `.video/` source package and external video publication implemented
 
 ## Acceptance Criteria
 
@@ -132,6 +133,13 @@ Out of scope:
   dry-run or execute the generated Playwright replay plan.
 - `cozy video rdf <project-file> --save <dir>` writes Turtle and JSON-LD with
   scene, utterance, timing, artifact, and provenance metadata.
+- `cozy publish-video <slug>.video --save <publication-dir> --warehouse
+  <warehouse-dir>` builds a Git-managed video source package, writes generated
+  MP4/RDF sidecars to `warehouse/repository/video`, and writes only metadata to
+  the publication registry.
+- SmartDox treats `<slug>.video/index.dox` as the video introduction article
+  source and renders it as the corresponding `<slug>.html` article without
+  executing heavy video generation.
 - RDF output includes transcript, caption, replay step, source video, input
   hash, tool version, model name/version, and timing provenance when recorded
   demo inputs are present.
@@ -248,6 +256,13 @@ Out of scope:
   transcript, SRT captions, narration draft, and manifest files, records input
   hash/model/tool provenance, and supports Docker-first plus host execution
   with setup-hint based tool validation.
+- 2026-06-19: Completed VDO-18 `.video/` source package and external video
+  publication. Cozy now accepts `<slug>.video` packages with `index.dox`,
+  `video.yaml|yml|json`, and `script.json`, publishes generated video artifacts
+  under `warehouse/repository/video`, and writes publication registry metadata
+  without placing generated MP4/RDF/caption outputs under source paths.
+  SmartDox now folds `<slug>.video/index.dox` into the public article path
+  while keeping heavy video generation outside site rendering.
 
 ## References
 

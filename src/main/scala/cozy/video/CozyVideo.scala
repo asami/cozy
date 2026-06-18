@@ -134,12 +134,17 @@ private[cozy] object CozyVideo {
     checkTools: Boolean = false,
     toolMode: Option[String] = None,
     dockerImage: Option[String] = None,
-    whisperModel: Option[String] = None
+    whisperModel: Option[String] = None,
+    projectRootOverride: Option[Path] = None
   ) {
-    def projectRoot: Path = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    def projectRoot: Path =
+      projectRootOverride.getOrElse(Paths.get(sys.props("user.dir"))).toAbsolutePath.normalize()
   }
   object TranscribeConfig {
-    def create(args: List[String]): TranscribeConfig = {
+    def create(args: List[String]): TranscribeConfig =
+      create(args, Paths.get(sys.props("user.dir")).toAbsolutePath.normalize())
+
+    def create(args: List[String], projectroot: Path): TranscribeConfig = {
       _validate_transcribe_options(args)
       val parsed = CozyCliArgs.parseStrict(_p_input_video, _p_save, _p_check_tools, _p_tool_mode, _p_docker_image, _p_whisper_model)(_normalize_property_args(args))
       val inputvideo = parsed.argument("input-video").map(CozyCliArgs.toPath).getOrElse(
@@ -151,7 +156,8 @@ private[cozy] object CozyVideo {
         parsed.flag("check-tools"),
         parsed.property("tool-mode"),
         parsed.property("docker-image"),
-        parsed.property("whisper-model")
+        parsed.property("whisper-model"),
+        Some(projectroot)
       )
     }
 

@@ -528,13 +528,11 @@ final class CozyVideoSpec extends AnyFunSuite {
       _write_bytes(input, Array[Byte](1, 2, 3, 4))
       val runner = TranscriptionRunner()
 
-      val out = _with_user_dir(dir) {
-        CozyVideo.transcribe(
-          CozyVideo.TranscribeConfig(input, save),
-          CozyVideo.VideoToolRegistry(Vector.empty),
-          runner
-        )
-      }
+      val out = CozyVideo.transcribe(
+        CozyVideo.TranscribeConfig(input, save, projectRootOverride = Some(dir)),
+        CozyVideo.VideoToolRegistry(Vector.empty),
+        runner
+      )
 
       assert(out.contains("Cozy Video Transcribe"))
       assert(out.contains("toolMode: docker"))
@@ -572,17 +570,15 @@ final class CozyVideoSpec extends AnyFunSuite {
       _write(dir.resolve(".cozy/config.yaml"), "video:\n  tool-mode: host\ntools:\n  whisperModel: models/config.bin\n")
       val runner = TranscriptionRunner()
 
-      _with_user_dir(dir) {
-        val out = _capture {
-          CozyVideo.execute(
-            List("video", "transcribe", input.toString, s"--save=${save.toString}", "--whisper-model=models/cli.bin"),
-            CozyVideo.VideoToolRegistry(Vector.empty),
-            RecordingVoicevoxClient(),
-            runner
-          )
-        }
-        assert(out.contains("Cozy Video Transcribe"))
-      }
+      val out = CozyVideo.transcribe(
+        CozyVideo.TranscribeConfig.create(
+          List("video", "transcribe", input.toString, s"--save=${save.toString}", "--whisper-model=models/cli.bin").drop(2),
+          dir
+        ),
+        CozyVideo.VideoToolRegistry(Vector.empty),
+        runner
+      )
+      assert(out.contains("Cozy Video Transcribe"))
 
       assert(runner.commands.exists(_.args.headOption.contains("ffmpeg")))
       assert(!runner.commands.exists(_.args.headOption.contains("docker")))
@@ -657,18 +653,14 @@ final class CozyVideoSpec extends AnyFunSuite {
       _write_bytes(projectinput, Array[Byte](1, 2, 3))
       _write_bytes(outsideinput, Array[Byte](1, 2, 3))
       val inputrunner = TranscriptionRunner()
-      val dockerinput = _with_user_dir(projectroot) {
-        intercept[RuntimeException] {
-          CozyVideo.transcribe(CozyVideo.TranscribeConfig(outsideinput, projectsave), CozyVideo.VideoToolRegistry(Vector.empty), inputrunner)
-        }
+      val dockerinput = intercept[RuntimeException] {
+        CozyVideo.transcribe(CozyVideo.TranscribeConfig(outsideinput, projectsave, projectRootOverride = Some(projectroot)), CozyVideo.VideoToolRegistry(Vector.empty), inputrunner)
       }
       assert(dockerinput.getMessage.contains("Docker transcription requires input video under project root"))
       assert(inputrunner.commands.isEmpty)
       val saverunner = TranscriptionRunner()
-      val dockersave = _with_user_dir(projectroot) {
-        intercept[RuntimeException] {
-          CozyVideo.transcribe(CozyVideo.TranscribeConfig(projectinput, outsidesave), CozyVideo.VideoToolRegistry(Vector.empty), saverunner)
-        }
+      val dockersave = intercept[RuntimeException] {
+        CozyVideo.transcribe(CozyVideo.TranscribeConfig(projectinput, outsidesave, projectRootOverride = Some(projectroot)), CozyVideo.VideoToolRegistry(Vector.empty), saverunner)
       }
       assert(dockersave.getMessage.contains("Docker transcription requires --save under project root"))
       assert(saverunner.commands.isEmpty)
@@ -1424,7 +1416,163 @@ final class CozyVideoSpec extends AnyFunSuite {
       assert(help.contains("video render <project-file> --renderer=remotion|simple-java2d"))
       assert(help.contains("video transcribe <input-video> --save <dir>"))
       assert(help.contains("video rdf <project-file> --save <dir>"))
+      assert(help.contains("publish-video <slug>.video"))
       assert(help.contains("--check-tools"))
+    }
+  }
+
+  test("video publisher resolves .video descriptors from YAML and JSON") {
+    _with_temp_dir("cozy-video-publisher-resolve") { dir =>
+      val yamlpkg = dir.resolve("intro.video")
+      _write(yamlpkg.resolve("index.dox"), "# Intro\n")
+      _write(yamlpkg.resolve("script.json"), _script_json)
+      _write(
+        yamlpkg.resolve("video.yaml"),
+        """title: Intro Video
+          |version: 0.1.0
+          |publish:
+          |  module: textus
+          |""".stripMargin
+      )
+      val yaml = CozyVideoPublisher.resolve(CozyVideoPublisher.PublishVideoConfig(
+        yamlpkg,
+        dir.resolve("publication"),
+        dir.resolve("warehouse"),
+        None,
+        force = false
+      ))
+
+      assert(yaml.name == "intro")
+      assert(yaml.title == "Intro Video")
+      assert(yaml.version == "0.1.0")
+      assert(yaml.articlePath == "index.dox")
+      assert(yaml.scriptPath == "script.json")
+      assert(yaml.renderer == "simple-java2d")
+      assert(yaml.toolMode == "docker")
+      assert(yaml.module == "textus")
+      assert(yaml.publicPath == "videos/intro.mp4")
+
+      val jsonpkg = dir.resolve("custom.video")
+      _write(jsonpkg.resolve("article.dox"), "# Custom\n")
+      _write(jsonpkg.resolve("custom-script.json"), _script_json)
+      _write(
+        jsonpkg.resolve("video.json"),
+        """{
+          |  "video": {"name": "custom-video"},
+          |  "title": "Custom Video",
+          |  "article": "article.dox",
+          |  "script": "custom-script.json",
+          |  "renderer": {"engine": "remotion"},
+          |  "toolMode": "host",
+          |  "publish": {"module": "custom-module", "publicPath": "videos/custom.mp4"}
+          |}
+          |""".stripMargin
+      )
+      val json = CozyVideoPublisher.resolve(CozyVideoPublisher.PublishVideoConfig(
+        jsonpkg,
+        dir.resolve("publication"),
+        dir.resolve("warehouse"),
+        Some("0.2.0"),
+        force = false
+      ))
+
+      assert(json.name == "custom-video")
+      assert(json.version == "0.2.0")
+      assert(json.articlePath == "article.dox")
+      assert(json.scriptPath == "custom-script.json")
+      assert(json.renderer == "remotion")
+      assert(json.toolMode == "host")
+      assert(json.module == "custom-module")
+      assert(json.publicPath == "videos/custom.mp4")
+    }
+  }
+
+  test("video publisher rejects .video.d source packages") {
+    _with_temp_dir("cozy-video-publisher-reject") { dir =>
+      val pkg = dir.resolve("bad.video.d")
+      Files.createDirectories(pkg)
+
+      val e = intercept[RuntimeException] {
+        CozyVideoPublisher.resolve(CozyVideoPublisher.PublishVideoConfig(
+          pkg,
+          dir.resolve("publication"),
+          dir.resolve("warehouse"),
+          None,
+          force = false
+        ))
+      }
+
+      assert(e.getMessage.contains("*.video.d is reserved"))
+    }
+  }
+
+  test("publish-video writes warehouse video artifact and publication metadata outside source package") {
+    _with_temp_dir("cozy-video-publisher") { dir =>
+      val pkg = dir.resolve("src/main/doxsite/concepts/tutorial.video")
+      val publication = dir.resolve("src/main/publication")
+      val warehouse = dir.resolve("warehouse")
+      _write(pkg.resolve("index.dox"), "# Tutorial\n")
+      _write(pkg.resolve("script.json"), _script_json)
+      _write(
+        pkg.resolve("video.yaml"),
+        """video:
+          |  name: tutorial
+          |title: Textus Tutorial
+          |version: 0.1.0
+          |renderer: simple-java2d
+          |toolMode: docker
+          |publish:
+          |  module: textus
+          |  publicPath: videos/tutorial.mp4
+          |""".stripMargin
+      )
+      val runner = PublishingRunner()
+
+      val result = CozyVideoPublisher.publish(
+        CozyVideoPublisher.PublishVideoConfig(pkg, publication, warehouse, None, force = false),
+        RecordingVoicevoxClient(),
+        runner
+      )
+
+      val artifact = warehouse.resolve("repository/video/textus/0.1.0/tutorial-0.1.0.mp4")
+      assert(result.warehouseArtifact == artifact.toAbsolutePath.normalize())
+      assert(Files.isRegularFile(artifact))
+      assert(Files.isRegularFile(artifact.resolveSibling("tutorial-0.1.0.manifest.json")))
+      assert(Files.isRegularFile(artifact.resolveSibling("tutorial-0.1.0.ttl")))
+      assert(Files.isRegularFile(artifact.resolveSibling("tutorial-0.1.0.jsonld")))
+      assert(Files.isRegularFile(publication.resolve("tutorial.json")))
+
+      val bundle = play.api.libs.json.Json.parse(_read(publication.resolve("tutorial.json")))
+      val entries = (bundle \ "entries").as[Vector[play.api.libs.json.JsObject]]
+      val video = entries.find(entry => (entry \ "path").as[String] == "metadata/videos/tutorial/metadata.json").get
+      val videometadata = (video \ "metadata" \ "video")
+      assert((videometadata \ "type").as[String] == "video")
+      assert((videometadata \ "name").as[String] == "tutorial")
+      assert((videometadata \ "articlePath").as[String] == "index.dox")
+      assert((videometadata \ "sourcePackage").as[String] == "concepts/tutorial.video")
+      assert((videometadata \ "scriptPath").as[String] == "script.json")
+      assert((videometadata \ "artifact" \ "warehousePath").as[String] == "repository/video/textus/0.1.0/tutorial-0.1.0.mp4")
+      assert((videometadata \ "artifact" \ "publicPath").as[String] == "videos/tutorial.mp4")
+      assert((videometadata \ "artifact" \ "repositoryPublicPath").as[String] == "repository/video/textus/0.1.0/tutorial-0.1.0.mp4")
+      assert((videometadata \ "rdf" \ "turtle" \ "path").as[String].endsWith("rdf/video.ttl"))
+
+      val sourcefiles = Files.walk(pkg).iterator().asScala.toVector.filter(Files.isRegularFile(_)).map(_.getFileName.toString)
+      assert(!sourcefiles.exists(_.endsWith(".mp4")))
+      assert(!sourcefiles.exists(_.endsWith(".ttl")))
+      assert(!sourcefiles.exists(_.endsWith(".jsonld")))
+      assert(!sourcefiles.exists(_.endsWith(".srt")))
+      assert(runner.commands.exists(_.args.contains("python3")))
+      assert(runner.commands.exists(_.args.contains("ffmpeg")))
+      assert(runner.commands.exists(_.args.contains("ffprobe")))
+
+      val exists = intercept[RuntimeException] {
+        CozyVideoPublisher.publish(
+          CozyVideoPublisher.PublishVideoConfig(pkg, publication, warehouse, None, force = false),
+          RecordingVoicevoxClient(),
+          PublishingRunner()
+        )
+      }
+      assert(exists.getMessage.contains("already exists"))
     }
   }
 
@@ -1485,18 +1633,6 @@ final class CozyVideoSpec extends AnyFunSuite {
     out.toString(StandardCharsets.UTF_8.name())
   }
 
-  private def _with_user_dir[A](dir: Path)(body: => A): A = {
-    val old = sys.props.get("user.dir")
-    sys.props("user.dir") = dir.toString
-    try {
-      body
-    } finally {
-      old match {
-        case Some(x) => sys.props("user.dir") = x
-        case None => sys.props.remove("user.dir")
-      }
-    }
-  }
 }
 
 object CozyVideoSpec {
@@ -1615,6 +1751,26 @@ object CozyVideoSpec {
           CozyVideo.VideoCommandResult(0, "not json", "")
         else
           CozyVideo.VideoCommandResult(0, """{"format":{"duration":"1.000"},"streams":[]}""", "")
+      } else {
+        CozyVideo.VideoCommandResult(0, "ok", "")
+      }
+    }
+  }
+
+  final case class PublishingRunner() extends CozyVideo.VideoProcessRunner {
+    val commands = ArrayBuffer.empty[RecordingCommand]
+
+    def run(args: Vector[String], cwd: Path): CozyVideo.VideoCommandResult = {
+      commands += RecordingCommand(args, cwd)
+      if (args.contains("python3")) {
+        val script = args.find(_.endsWith("render_frame.py")).map(_command_path(cwd, _)).get
+        Files.writeString(script.getParent.resolve("frame.png"), "png", StandardCharsets.UTF_8)
+        CozyVideo.VideoCommandResult(0, "python ok", "")
+      } else if (args.contains("ffmpeg")) {
+        Files.write(_command_path(cwd, args.last), Array[Byte](0, 0, 0, 0))
+        CozyVideo.VideoCommandResult(0, "ffmpeg ok", "")
+      } else if (args.contains("ffprobe")) {
+        CozyVideo.VideoCommandResult(0, """{"format":{"duration":"1.000"},"streams":[]}""", "")
       } else {
         CozyVideo.VideoCommandResult(0, "ok", "")
       }

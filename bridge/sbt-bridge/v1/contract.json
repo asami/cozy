@@ -9,6 +9,7 @@
     "publish-car",
     "publish-sar",
     "publish-project",
+    "publish-video",
     "distribute-samples",
     "index-warehouse"
   ],

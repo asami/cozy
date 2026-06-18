@@ -70,7 +70,7 @@ libraryDependencies += "org.goldenport" %% "goldenport-record" % "2.2.5"
 // libraryDependencies += "org.goldenport" %% "goldenport-sexpr" % "2.0.13"
 
 // override kaleidox
-libraryDependencies += "org.smartdox" %% "smartdox" % "2.4.14"
+libraryDependencies += "org.smartdox" %% "smartdox" % "2.4.15-SNAPSHOT"
 
 libraryDependencies += "org.goldenport" %% "kaleidox" % "0.6.16"
 

@@ -28,6 +28,7 @@ final class BridgeContractSpec extends AnyWordSpec with Matchers {
         "request-publish-car.json",
         "request-publish-sar.json",
         "request-publish-project.json",
+        "request-publish-video.json",
         "request-distribute-samples.json",
         "request-index-warehouse.json",
         "response-success.json",
@@ -45,6 +46,7 @@ final class BridgeContractSpec extends AnyWordSpec with Matchers {
       val publishcar = CozySbtBridge.loadRequestForTest(_contract_dir.resolve("request-publish-car.json"))
       val publishsar = CozySbtBridge.loadRequestForTest(_contract_dir.resolve("request-publish-sar.json"))
       val publish = CozySbtBridge.loadRequestForTest(_contract_dir.resolve("request-publish-project.json"))
+      val publishvideo = CozySbtBridge.loadRequestForTest(_contract_dir.resolve("request-publish-video.json"))
       val samples = CozySbtBridge.loadRequestForTest(_contract_dir.resolve("request-distribute-samples.json"))
       val warehouse = CozySbtBridge.loadRequestForTest(_contract_dir.resolve("request-index-warehouse.json"))
 
@@ -60,6 +62,8 @@ final class BridgeContractSpec extends AnyWordSpec with Matchers {
       publishsar.arguments should contain allElementsOf Vector("--sar", "/tmp/sample-subsystem.sar")
       publish.action shouldBe "publish-project"
       publish.arguments should contain allElementsOf Vector("--kind", "car")
+      publishvideo.action shouldBe "publish-video"
+      publishvideo.arguments should contain allElementsOf Vector("--warehouse", "/tmp/warehouse")
       samples.action shouldBe "distribute-samples"
       samples.arguments should contain allElementsOf Vector("--name", "textus-tutorial")
       samples.arguments should contain allElementsOf Vector("--path", "textus/tutorial/textus-tutorial")

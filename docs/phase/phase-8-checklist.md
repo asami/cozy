@@ -252,3 +252,23 @@ Status: DONE
 - [x] Include Node/npm and Japanese-capable fonts needed by replay/rendering.
 - [x] Add validation commands for whisper.cpp, model/data availability,
       ffmpeg/ffprobe, Playwright Chromium, and Node/npm.
+
+## VDO-18: `.video/` Source Package and External Video Publication
+
+Status: DONE
+
+- [x] Define `<slug>.video/` as the Git-managed video source package suffix.
+- [x] Require `index.dox` plus `video.yaml`, `video.yml`, or `video.json`.
+- [x] Apply defaults for name, article, script, renderer, tool mode, and public
+      video path from the package slug.
+- [x] Reject `*.video.d` as source input because `*.d` remains generated/work
+      staging.
+- [x] Add `cozy publish-video <slug>.video --save <publication-dir>
+      --warehouse <warehouse-dir>`.
+- [x] Build through existing synthesize/render/build/RDF primitives.
+- [x] Store generated MP4/RDF sidecars under `warehouse/repository/video`.
+- [x] Write only publication metadata to the publication registry.
+- [x] Keep generated video artifacts out of `src/main/doxsite` and `.video`
+      source packages.
+- [x] Add SmartDox source handling for `<slug>.video/index.dox` as the public
+      article source without running heavy video tools.
