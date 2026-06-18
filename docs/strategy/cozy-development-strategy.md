@@ -152,7 +152,7 @@ Primary reference:
 
 ### Phase 8: Video Knowledge Pipeline
 
-Status: in-progress.
+Status: completed.
 
 Purpose:
 
@@ -191,16 +191,21 @@ Purpose:
 
 ## Current Priority
 
-Phase 6 and Phase 7 are closed. Phase 8 is open for `cozy video` development.
-The Phase 8 `cozy video` surface now includes structured project/script
-parsing, inspect, dry-run artifact/command planning, real dependency checks,
-Docker-first toolchain mode, a unified Cozy toolchain image definition, and
-VOICEVOX synthesis. Remaining Phase 8 work should extend this surface into
-rendering, final muxing/encoding, transcription, replay generation, and RDF
-output.
+Phase 6, Phase 7, and Phase 8 are closed.
+
+Phase 8 completed the first-class `cozy video` workflow: structured
+project/script parsing, inspect, dry-run artifact/command planning, dependency
+checks, Docker-first toolchain mode, unified Cozy toolchain image definition,
+VOICEVOX synthesis, rendering, final muxing/encoding, transcription, replay
+generation, RDF output, and `.video` publication metadata handoff to SmartDox.
+
+Next planning should choose the next standalone Cozy phase. Likely candidates
+are BoK/video publication registration, real toolchain release validation, or
+model-driven CAR project scaffolding.
 
 Candidate directions after Phase 8 include:
 
 - BoK publication and Component Repository public pages
+- Video publication registration and operational toolchain validation
 - Knowledge source compiler expansion
 - Model-driven CAR project scaffolding

@@ -4,7 +4,8 @@ Purpose: engineering work management.
 
 Current phase:
 
-- `phase-8.md`: Video Knowledge Pipeline
+- No active phase is open.
+- Most recent closed phase: `phase-8.md`: Video Knowledge Pipeline
 
 Belongs:
 

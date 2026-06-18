@@ -22,7 +22,7 @@ RUN apt-get update \
     fonts-noto-color-emoji \
     git \
     latexmk \
-    libasound2 \
+    libasound2t64 \
     libatk-bridge2.0-0 \
     libatk1.0-0 \
     libcairo2 \

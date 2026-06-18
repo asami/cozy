@@ -1,8 +1,9 @@
 # Phase 8: Video Knowledge Pipeline
 
-Status: in-progress
+Status: complete
 
 Start date: 2026-06-15
+Close date: 2026-06-19
 
 ## Goal
 
@@ -183,6 +184,22 @@ Out of scope:
 - BoK registration is deferred. Phase 8 records the RDF output handoff point for
   a later BoK/publish integration phase.
 
+## Closure
+
+Phase 8 is closed with all VDO-01 through VDO-18 checklist items complete.
+The remaining work is intentionally outside Phase 8:
+
+- BoK registration and automatic video page publication from RDF metadata.
+- Full Playwright trace/HAR operation reconstruction beyond source/provenance
+  hints.
+- Real external media-tool smoke for Docker, VOICEVOX, ffmpeg, Remotion,
+  Playwright, and whisper.cpp in a prepared toolchain environment.
+- Production hosting, upload, CDN invalidation, and publication policy.
+
+The standard validation boundary for closing Phase 8 is deterministic Cozy test
+coverage plus runtime smoke that does not require external media tools. Heavy
+toolchain validation remains a manual/release validation activity.
+
 ## Progress Notes
 
 - 2026-06-18: Implemented the initial `cozy video inspect` slice. It supports
@@ -277,6 +294,9 @@ Out of scope:
   Cozy spec now publishes a `.video` package with stubbed media tools and feeds
   the generated publication metadata into SmartDox Antora rendering, confirming
   the article rewrite and video player embedding behavior end to end.
+- 2026-06-19: Closed Phase 8. The checklist has no remaining open VDO items;
+  deferred work is explicitly outside the Phase 8 boundary and should be planned
+  as a later BoK/video publication or toolchain validation phase.
 
 ## References
 
