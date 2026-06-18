@@ -365,6 +365,7 @@ final class CozyVideoSpec extends AnyFunSuite {
       assert(out.contains("python-pillow: missing (host)"))
       assert(out.indexOf("docker-toolchain: unchecked") < out.indexOf("docker-image: unchecked"))
       assert(out.indexOf("docker-image: unchecked") < out.indexOf("voicevox: available"))
+      assert(!probe.commands.exists(_.take(3) == Vector("docker", "run", "--rm")))
     }
   }
 
@@ -454,6 +455,8 @@ final class CozyVideoSpec extends AnyFunSuite {
       assert(out.contains("docker-toolchain: available (docker)"))
       assert(out.contains("docker-image: missing (docker)"))
       assert(out.contains("setup: Run: docker pull example/toolchain:dev"))
+      assert(out.contains("cozy-toolchain-image: unchecked (docker)"))
+      assert(!probe.commands.exists(_.take(3) == Vector("docker", "run", "--rm")))
     }
   }
 
@@ -478,7 +481,8 @@ final class CozyVideoSpec extends AnyFunSuite {
       val probe = RecordingProbe(
         commandResults = Map(
           Vector("docker", "version", "--format", "{{.Server.Version}}") -> CozyVideo.VideoCommandResult(0, "25.0\n", ""),
-          Vector("docker", "image", "inspect", "example/toolchain:dev") -> CozyVideo.VideoCommandResult(0, "[]", "")
+          Vector("docker", "image", "inspect", "example/toolchain:dev") -> CozyVideo.VideoCommandResult(0, "[]", ""),
+          Vector("docker", "run", "--rm", "example/toolchain:dev", "cozy-toolchain", "check", "video") -> CozyVideo.VideoCommandResult(0, "cozy-toolchain check video: ok\n", "")
         ),
         httpResults = Map(
           "http://voicevox.example/version" -> CozyVideo.VideoHttpResult(0, "", Some("connection refused"))
@@ -492,7 +496,10 @@ final class CozyVideoSpec extends AnyFunSuite {
 
       assert(out.contains("toolMode: docker"))
       assert(out.contains("docker-image: available (docker)"))
+      assert(out.contains("cozy-toolchain-image: available (docker)"))
       assert(out.contains("voicevox: missing (external-service)"))
+      assert(out.indexOf("docker-image: available") < out.indexOf("cozy-toolchain-image: available"))
+      assert(out.indexOf("cozy-toolchain-image: available") < out.indexOf("voicevox: missing"))
       assert(out.contains("host.docker.internal"))
       assert(out.contains("ffmpeg: unchecked (docker)"))
       assert(out.contains("remotion-node: unchecked (docker)"))
@@ -502,6 +509,43 @@ final class CozyVideoSpec extends AnyFunSuite {
       assert(!probe.commands.exists(_.headOption.contains("ffmpeg")))
       assert(!probe.commands.exists(_.headOption.contains("node")))
       assert(!probe.commands.exists(_.headOption.contains("python3")))
+    }
+  }
+
+  test("video inspect docker mode reports image content check failure without failing inspect") {
+    _with_temp_dir("cozy-video-toolchain-image-failure") { dir =>
+      _write(dir.resolve("script.json"), _script_json)
+      _write(
+        dir.resolve("video_project.json"),
+        s"""{
+           |  "title": "Toolchain Image Failure",
+           |  "tools": {
+           |    "toolMode": "docker",
+           |    "dockerImage": "example/toolchain:dev"
+           |  },
+           |  "parts": [
+           |    {"id": "intro", "type": "dialogue", "script": "script.json"}
+           |  ]
+           |}
+           |""".stripMargin
+      )
+      val probe = RecordingProbe(
+        commandResults = Map(
+          Vector("docker", "version", "--format", "{{.Server.Version}}") -> CozyVideo.VideoCommandResult(0, "25.0\n", ""),
+          Vector("docker", "image", "inspect", "example/toolchain:dev") -> CozyVideo.VideoCommandResult(0, "[]", ""),
+          Vector("docker", "run", "--rm", "example/toolchain:dev", "cozy-toolchain", "check", "video") -> CozyVideo.VideoCommandResult(1, "", "missing command: whisper-cli")
+        )
+      )
+
+      val out = CozyVideo.inspect(
+        CozyVideo.InspectConfig(dir.resolve("video_project.json"), checkTools = true),
+        CozyVideo.VideoToolRegistry.production(probe)
+      )
+
+      assert(out.contains("Cozy Video Inspect"))
+      assert(out.contains("cozy-toolchain-image: missing (docker)"))
+      assert(out.contains("missing command: whisper-cli"))
+      assert(out.contains("setup: Rebuild the image: docker build -t example/toolchain:dev docker/cozy-toolchain"))
     }
   }
 
@@ -604,6 +648,30 @@ final class CozyVideoSpec extends AnyFunSuite {
     }
   }
 
+  test("cozy toolchain Docker assets define expected BoK PDF and video checks") {
+    val root = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+    val dockerfile = _read(root.resolve("docker/cozy-toolchain/Dockerfile"))
+    val script = _read(root.resolve("docker/cozy-toolchain/cozy-toolchain"))
+
+    assert(dockerfile.contains("asciidoctor-pdf"))
+    assert(dockerfile.contains("@antora/cli"))
+    assert(dockerfile.contains("ffmpeg"))
+    assert(dockerfile.contains("playwright"))
+    assert(dockerfile.contains("@remotion/renderer"))
+    assert(dockerfile.contains("python3-pil"))
+    assert(dockerfile.contains("whisper.cpp"))
+    assert(dockerfile.contains("ggml-base.bin"))
+    assert(dockerfile.contains("NODE_PATH"))
+    assert(script.contains("check_bok"))
+    assert(script.contains("check_pdf"))
+    assert(script.contains("check_video"))
+    assert(script.contains("node_with_global_modules"))
+    assert(script.contains("npm root -g"))
+    assert(script.contains("fs.existsSync(path)"))
+    assert(script.contains("kroki-server"))
+    assert(script.contains("exec \"$@\""))
+  }
+
   private def _with_temp_dir(name: String)(body: Path => Unit): Unit = {
     val root = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize().resolve("target/test-generated/video").resolve(name)
     _delete(root)
@@ -615,6 +683,9 @@ final class CozyVideoSpec extends AnyFunSuite {
     Files.createDirectories(path.getParent)
     Files.writeString(path, text, StandardCharsets.UTF_8)
   }
+
+  private def _read(path: Path): String =
+    Files.readString(path, StandardCharsets.UTF_8)
 
   private def _delete(path: Path): Unit =
     if (Files.exists(path)) {

@@ -98,33 +98,33 @@ Status: DONE
 
 ## VDO-06C: Cozy Toolchain Docker Image Extension
 
-Status: OPEN
+Status: DONE
 
-- [ ] Identify or create the repository/release process that owns
+- [x] Identify or create the repository/release process that owns
       `simplemodeling/cozy-toolchain`.
-- [ ] Decide whether the image definition lives in Cozy, SmartDox, or a shared
+- [x] Decide whether the image definition lives in Cozy, SmartDox, or a shared
       toolchain repository, and document that ownership.
-- [ ] Use the current SmartDox `smartdox-pdf` dependency image as the baseline
+- [x] Use the current SmartDox `smartdox-pdf` dependency image as the baseline
       for the unified toolchain unless a better existing owner is found.
-- [ ] Include the BoK/PDF dependency set already needed by Cozy: SmartDox PDF
+- [x] Include the BoK/PDF dependency set already needed by Cozy: SmartDox PDF
       rendering dependencies, Kroki command/server support, Japanese TeX
       tooling, CJK/emoji fonts, Python/Pillow, Node/npm, and Antora-capable
       tooling.
-- [ ] Extend the unified image to include the video dependency set:
+- [x] Extend the unified image to include the video dependency set:
       ffmpeg/ffprobe, Remotion runtime dependencies, Playwright Chromium, and
       Japanese-capable fonts, plus Python/Pillow helper rendering support.
-- [ ] Add whisper.cpp and the standard transcription model/data path to the
-      unified image or documented toolchain-managed cache/volume.
-- [ ] Add Playwright trace/replay tooling needed for recorded demo replay
+- [x] Add whisper.cpp and the standard transcription model/data path to the
+      unified image.
+- [x] Add Playwright trace/replay tooling needed for recorded demo replay
       generation and dry-run validation.
-- [ ] Include Python/Pillow as an intentional toolchain utility for helper
+- [x] Include Python/Pillow as an intentional toolchain utility for helper
       rendering paths while keeping host Python/Pillow optional.
-- [ ] Do not include VOICEVOX Engine in the image.
-- [ ] Keep `simplemodeling/smartdox-pdf:latest` compatibility or document a
+- [x] Do not include VOICEVOX Engine in the image.
+- [x] Keep `simplemodeling/smartdox-pdf:latest` compatibility or document a
       transition path to `simplemodeling/cozy-toolchain:latest`.
-- [ ] Add image validation commands or documented checks that verify BoK,
+- [x] Add image validation commands or documented checks that verify BoK,
       SmartDox PDF, and video dependency sets inside the image.
-- [ ] Document the expected image tag used by Phase 8 development and smoke
+- [x] Document the expected image tag used by Phase 8 development and smoke
       tests, with `simplemodeling/cozy-toolchain:latest` as the standard image.
 
 ## VDO-07: VOICEVOX Synthesis
@@ -233,14 +233,13 @@ Status: OPEN
 
 ## VDO-17: Toolchain Includes whisper.cpp and Demo Replay Dependencies
 
-Status: OPEN
+Status: DONE
 
-- [ ] Include whisper.cpp binary or a documented build/install path in the
+- [x] Include whisper.cpp binary or a documented build/install path in the
       Cozy toolchain image.
-- [ ] Include standard whisper model/data in the image, or document the
-      toolchain-managed cache/volume fallback if image size becomes too large.
-- [ ] Include ffmpeg/ffprobe for audio extraction and probing.
-- [ ] Include Playwright Chromium and runtime dependencies for replay.
-- [ ] Include Node/npm and Japanese-capable fonts needed by replay/rendering.
-- [ ] Add validation commands for whisper.cpp, model/data availability,
+- [x] Include standard whisper model/data in the image.
+- [x] Include ffmpeg/ffprobe for audio extraction and probing.
+- [x] Include Playwright Chromium and runtime dependencies for replay.
+- [x] Include Node/npm and Japanese-capable fonts needed by replay/rendering.
+- [x] Add validation commands for whisper.cpp, model/data availability,
       ffmpeg/ffprobe, Playwright Chromium, and Node/npm.

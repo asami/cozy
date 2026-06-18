@@ -341,6 +341,7 @@ private[cozy] object CozyVideo {
     def production(probe: VideoToolProbe): VideoToolRegistry = VideoToolRegistry(Vector(
       DockerToolchainProvider(probe),
       DockerImageProvider(probe),
+      CozyToolchainImageProvider(probe),
       VoicevoxProvider(probe),
       FfmpegProvider(probe),
       RemotionNodeProvider(probe),
@@ -481,6 +482,53 @@ private[cozy] object CozyVideo {
             Some("Run: docker pull " + image)
           )
       }
+    }
+  }
+
+  final case class CozyToolchainImageProvider(probe: VideoToolProbe) extends VideoToolProvider {
+    def check(context: VideoToolContext): VideoToolCheck = {
+      val image = context.execution.dockerImage
+      if (context.execution.toolMode == VideoToolMode.Host)
+        return VideoToolCheck(
+          "cozy-toolchain-image",
+          VideoToolMode.Docker,
+          VideoToolStatus.Unchecked,
+          s"Cozy toolchain image content is not required in host tool mode: $image."
+        )
+      val docker = probe.command(Vector("docker", "version", "--format", "{{.Server.Version}}"), context.projectRoot)
+      if (!docker.isSuccess)
+        return VideoToolCheck(
+          "cozy-toolchain-image",
+          VideoToolMode.Docker,
+          VideoToolStatus.Unchecked,
+          s"Cozy toolchain image content was not checked because Docker is unavailable: $image.",
+          Some("Start Docker, then run: docker pull " + image)
+        )
+      val inspect = probe.command(Vector("docker", "image", "inspect", image), context.projectRoot)
+      if (!inspect.isSuccess)
+        return VideoToolCheck(
+          "cozy-toolchain-image",
+          VideoToolMode.Docker,
+          VideoToolStatus.Unchecked,
+          s"Cozy toolchain image content was not checked because the image is unavailable: $image.",
+          Some("Run: docker pull " + image)
+        )
+      val result = probe.command(Vector("docker", "run", "--rm", image, "cozy-toolchain", "check", "video"), context.projectRoot)
+      if (result.isSuccess)
+        VideoToolCheck(
+          "cozy-toolchain-image",
+          VideoToolMode.Docker,
+          VideoToolStatus.Available,
+          s"Cozy toolchain video dependencies are available in Docker image: $image."
+        )
+      else
+        VideoToolCheck(
+          "cozy-toolchain-image",
+          VideoToolMode.Docker,
+          VideoToolStatus.Missing,
+          _message(s"Cozy toolchain video dependency check failed in Docker image: $image.", result),
+          Some("Rebuild the image: docker build -t " + image + " docker/cozy-toolchain")
+        )
     }
   }
 

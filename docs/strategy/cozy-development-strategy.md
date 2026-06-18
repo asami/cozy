@@ -166,15 +166,15 @@ Purpose:
   ffmpeg/ffprobe, whisper.cpp, transcription model/data, and related heavy
   dependencies while keeping Cozy responsible for orchestration and knowledge
   outputs
-- use the current SmartDox PDF dependency image line as the baseline for the
-  unified `simplemodeling/cozy-toolchain` image unless a better owner is found
+- own the unified `simplemodeling/cozy-toolchain` image in the Cozy repository,
+  using the current SmartDox PDF dependency image line as the baseline
 - integrate VOICEVOX as an external HTTP service rather than bundling it into
   the toolchain image
 - generate RDF source files from video projects, scripts, timing metadata, and
   artifact provenance
-- make Remotion the standard replacement for legacy Python/Pillow rendering
-  while allowing Python/Pillow later as an optional toolchain-contained
-  extension when useful
+- make Remotion the standard rendering direction while keeping Python/Pillow as
+  an intentional toolchain-contained helper path, never as a required host
+  dependency
 
 Primary reference:
 

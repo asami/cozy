@@ -85,7 +85,7 @@ Out of scope:
 - [x] VDO-05: Dry-run and inspect implemented
 - [x] VDO-06: External tool checks implemented
 - [x] VDO-06B: Docker toolchain mode implemented
-- [ ] VDO-06C: Unified Cozy toolchain Docker image developed
+- [x] VDO-06C: Unified Cozy toolchain Docker image developed
 - [ ] VDO-07: VOICEVOX synthesis implemented
 - [ ] VDO-08: Remotion renderer adapter implemented
 - [ ] VDO-09: Java2D simple renderer implemented
@@ -96,7 +96,7 @@ Out of scope:
 - [ ] VDO-14: Existing workflows preserved
 - [ ] VDO-15: Recorded demo transcription implemented
 - [ ] VDO-16: Playwright demo replay generation implemented
-- [ ] VDO-17: Toolchain includes whisper.cpp and demo replay dependencies
+- [x] VDO-17: Toolchain includes whisper.cpp and demo replay dependencies
 
 ## Acceptance Criteria
 
@@ -192,6 +192,12 @@ Out of scope:
   Docker image precedence, defaults to Docker mode, wraps planned Remotion,
   Playwright, ffmpeg, and Python/Pillow helper steps in the configured Cozy
   toolchain image, and keeps VOICEVOX as an external HTTP service.
+- 2026-06-18: Completed VDO-06C unified Cozy toolchain image definition.
+  Cozy now owns `docker/cozy-toolchain`, using the SmartDox PDF image line as
+  the baseline and extending it with Antora, ffmpeg/ffprobe, Remotion,
+  Playwright Chromium, Python/Pillow, whisper.cpp, and the standard
+  `ggml-base.bin` model. Docker-mode `--check-tools` validates the image
+  contents with `cozy-toolchain check video`; VOICEVOX remains external.
 
 ## References
 
