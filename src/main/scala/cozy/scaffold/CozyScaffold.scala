@@ -1481,7 +1481,7 @@ private[cozy] object CozyScaffold {
       |
       |  bok build [<project-dir>] [--strategy wip|draft|preview|production] [--docker-image <image>]
       |      Build BoK HTML under website.d using SmartDox and Antora through the configured Docker image.
-      |      The default Docker image is the standard Cozy toolchain image: simplemodeling/cozy-toolchain:latest.
+      |      The default Docker image is the standard Cozy toolchain image: ghcr.io/asami/cozy-toolchain:latest.
       |
       |  bok update [<project-dir>] [--strategy wip|draft|preview|production] [--docker-image <image>]
       |      Update the BoK output. In this version it runs the same generation flow as bok build.

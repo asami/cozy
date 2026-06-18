@@ -16,11 +16,11 @@ import io.circe.parser
 
 /*
  * @since   Jun.  3, 2026
- * @version Jun.  8, 2026
+ * @version Jun. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyBok {
-  private val _default_docker_image = "simplemodeling/cozy-toolchain:latest"
+  private val _default_docker_image = "ghcr.io/asami/cozy-toolchain:latest"
 
   sealed trait LocaleMode
   object LocaleMode {

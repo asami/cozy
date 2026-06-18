@@ -166,7 +166,7 @@ Purpose:
   ffmpeg/ffprobe, whisper.cpp, transcription model/data, and related heavy
   dependencies while keeping Cozy responsible for orchestration and knowledge
   outputs
-- own the unified `simplemodeling/cozy-toolchain` image in the Cozy repository,
+- own the unified `ghcr.io/asami/cozy-toolchain` image in the Cozy repository,
   using the current SmartDox PDF dependency image line as the baseline
 - integrate VOICEVOX as an external HTTP service rather than bundling it into
   the toolchain image
@@ -200,12 +200,12 @@ VOICEVOX synthesis, rendering, final muxing/encoding, transcription, replay
 generation, RDF output, and `.video` publication metadata handoff to SmartDox.
 
 Next planning should choose the next standalone Cozy phase. Likely candidates
-are BoK/video publication registration, real toolchain release validation, or
-model-driven CAR project scaffolding.
+are BoK/video publication registration, component repository publication pages,
+or model-driven CAR project scaffolding.
 
 Candidate directions after Phase 8 include:
 
 - BoK publication and Component Repository public pages
-- Video publication registration and operational toolchain validation
+- Video publication registration
 - Knowledge source compiler expansion
 - Model-driven CAR project scaffolding

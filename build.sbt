@@ -216,5 +216,19 @@ lazy val root = (project in file(".")).
     scriptedLaunchOpts ++= Seq(
       s"-Dcozy.version=${version.value}"
     ),
-    scriptedDependencies := (Compile / publishLocal).value
+    scriptedDependencies := Def.taskDyn {
+      val v = version.value
+      if (v.endsWith("-SNAPSHOT")) {
+        Def.task {
+          streams.value.log.info(s"Publishing local SNAPSHOT for scripted: $v")
+          (Compile / publishLocal).value
+        }
+      } else {
+        Def.task {
+          streams.value.log.info(
+            s"Skipping publishLocal for scripted release version: $v"
+          )
+        }
+      }
+    }.value
   )

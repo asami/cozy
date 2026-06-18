@@ -270,7 +270,7 @@ final class CozyVideoSpec extends AnyFunSuite {
       assert(out.contains("manifest: " + dir.resolve("build/manifest.json").normalize()))
       assert(out.contains("parts: 2"))
       assert(runner.commands.size == 2)
-      assert(runner.commands(0).args.take(8) == Vector("docker", "run", "--rm", "-v", s"$dir:/workspace", "-w", "/workspace", "simplemodeling/cozy-toolchain:latest"))
+      assert(runner.commands(0).args.take(8) == Vector("docker", "run", "--rm", "-v", s"$dir:/workspace", "-w", "/workspace", "ghcr.io/asami/cozy-toolchain:latest"))
       assert(runner.commands(0).args.contains("ffmpeg"))
       assert(runner.commands(0).args.contains("/workspace/target/cozy-video/ffmpeg/concat.txt"))
       assert(runner.commands(0).args.contains("/workspace/build/final.mp4"))
@@ -396,7 +396,7 @@ final class CozyVideoSpec extends AnyFunSuite {
            |  "renderer": "simple-java2d",
            |  "outputPath": "${dir.resolve("build/parts/intro.mp4").normalize()}",
            |  "toolMode": "docker",
-           |  "dockerImage": "simplemodeling/cozy-toolchain:latest"
+           |  "dockerImage": "ghcr.io/asami/cozy-toolchain:latest"
            |}
            |""".stripMargin
       )
@@ -405,7 +405,7 @@ final class CozyVideoSpec extends AnyFunSuite {
         s"""{
            |  "outputPath": "${dir.resolve("build/final.mp4").normalize()}",
            |  "toolMode": "docker",
-           |  "dockerImage": "simplemodeling/cozy-toolchain:latest",
+           |  "dockerImage": "ghcr.io/asami/cozy-toolchain:latest",
            |  "concatListPath": "${dir.resolve("target/cozy-video/ffmpeg/concat.txt").normalize()}",
            |  "ffprobe": {"format": {"duration": "12.0"}}
            |}
@@ -552,7 +552,7 @@ final class CozyVideoSpec extends AnyFunSuite {
       assert(narration.contains("cozy.video.narration-draft.v1"))
       assert(manifest.contains("inputSha256"))
       assert(manifest.contains("whisper-cli 1.7.6"))
-      assert(runner.commands.head.args.take(8) == Vector("docker", "run", "--rm", "-v", s"${dir.toAbsolutePath.normalize}:/workspace", "-w", "/workspace", "simplemodeling/cozy-toolchain:latest"))
+      assert(runner.commands.head.args.take(8) == Vector("docker", "run", "--rm", "-v", s"${dir.toAbsolutePath.normalize}:/workspace", "-w", "/workspace", "ghcr.io/asami/cozy-toolchain:latest"))
       assert(runner.commands.exists(_.args.contains("/opt/cozy/models/ggml-base.bin")))
     }
   }
@@ -784,7 +784,7 @@ final class CozyVideoSpec extends AnyFunSuite {
       assert(out.contains("part.lecture: " + dir.resolve("build/parts/lecture.mp4").normalize()))
       assert(out.contains("part.board: " + dir.resolve("build/parts/board.mp4").normalize()))
       assert(runner.commands.size == 2)
-      assert(runner.commands.head.args.take(8) == Vector("docker", "run", "--rm", "-v", s"$dir:/workspace", "-w", "/workspace", "simplemodeling/cozy-toolchain:latest"))
+      assert(runner.commands.head.args.take(8) == Vector("docker", "run", "--rm", "-v", s"$dir:/workspace", "-w", "/workspace", "ghcr.io/asami/cozy-toolchain:latest"))
       assert(runner.commands.head.args.contains("node"))
       assert(runner.commands.head.args.exists(_.endsWith("target/cozy-video/remotion/lecture/src/render.mjs")))
       assert(Files.isRegularFile(dir.resolve("target/cozy-video/remotion/lecture/package.json")))
@@ -864,7 +864,7 @@ final class CozyVideoSpec extends AnyFunSuite {
       assert(out.contains("part.lecture: " + dir.resolve("build/parts/lecture.mp4").normalize()))
       assert(out.contains("simpleJava2dWorkDir: " + dir.resolve("target/cozy-video/simple-java2d/lecture").normalize()))
       assert(runner.commands.size == 4)
-      assert(runner.commands(0).args.take(8) == Vector("docker", "run", "--rm", "-v", s"$dir:/workspace", "-w", "/workspace", "simplemodeling/cozy-toolchain:latest"))
+      assert(runner.commands(0).args.take(8) == Vector("docker", "run", "--rm", "-v", s"$dir:/workspace", "-w", "/workspace", "ghcr.io/asami/cozy-toolchain:latest"))
       assert(runner.commands(0).args.contains("python3"))
       assert(runner.commands(0).args.exists(_.endsWith("target/cozy-video/simple-java2d/lecture/render_frame.py")))
       assert(runner.commands(1).args.contains("ffmpeg"))
@@ -1082,7 +1082,7 @@ final class CozyVideoSpec extends AnyFunSuite {
       val probe = RecordingProbe(
         commandResults = Map(
           Vector("docker", "version", "--format", "{{.Server.Version}}") -> CozyVideo.VideoCommandResult(0, "25.0\n", ""),
-          Vector("docker", "image", "inspect", "simplemodeling/cozy-toolchain:latest") -> CozyVideo.VideoCommandResult(0, "[]", ""),
+          Vector("docker", "image", "inspect", "ghcr.io/asami/cozy-toolchain:latest") -> CozyVideo.VideoCommandResult(0, "[]", ""),
           Vector("ffmpeg", "-version") -> CozyVideo.VideoCommandResult(0, "ffmpeg", ""),
           Vector("ffprobe", "-version") -> CozyVideo.VideoCommandResult(0, "ffprobe", ""),
           Vector("node", "--version") -> CozyVideo.VideoCommandResult(0, "v22.0.0", ""),
@@ -1632,7 +1632,7 @@ final class CozyVideoSpec extends AnyFunSuite {
         """{
           |  "schema": "cozy.video.replay-manifest.v1",
           |  "toolMode": "host",
-          |  "dockerImage": "simplemodeling/cozy-toolchain:latest",
+          |  "dockerImage": "ghcr.io/asami/cozy-toolchain:latest",
           |  "outputVideo": "build/replay.webm"
           |}
           |""".stripMargin

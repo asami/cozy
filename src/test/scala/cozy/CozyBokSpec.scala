@@ -9,7 +9,7 @@ import org.scalatest.funsuite.AnyFunSuite
 
 /*
  * @since   Jun.  3, 2026
- * @version Jun.  8, 2026
+ * @version Jun. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokSpec extends AnyFunSuite {
@@ -296,7 +296,7 @@ class CozyBokSpec extends AnyFunSuite {
   test("bok build defaults to the standard Cozy toolchain Docker image") {
     _with_temp_dir("cozy-bok-default-docker") { dir =>
       val config = CozyBok.BuildConfig.create(List(dir.toString))
-      assert(config.dockerImage == "simplemodeling/cozy-toolchain:latest")
+      assert(config.dockerImage == "ghcr.io/asami/cozy-toolchain:latest")
     }
   }
 

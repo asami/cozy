@@ -26,7 +26,7 @@ cat > "$work_dir/video_project.json" <<'JSON'
   "renderer": {"engine": "simple-java2d"},
   "tools": {
     "toolMode": "docker",
-    "dockerImage": "simplemodeling/cozy-toolchain:latest",
+    "dockerImage": "ghcr.io/asami/cozy-toolchain:latest",
     "voicevoxUrl": "http://127.0.0.1:50021"
   },
   "parts": [
@@ -69,7 +69,7 @@ cat > "$work_dir/build/parts/intro.manifest.json" <<'JSON'
   "sceneCount": 3,
   "estimatedDuration": 3.5,
   "toolMode": "docker",
-  "dockerImage": "simplemodeling/cozy-toolchain:latest"
+  "dockerImage": "ghcr.io/asami/cozy-toolchain:latest"
 }
 JSON
 
@@ -79,7 +79,7 @@ cat > "$work_dir/build/manifest.json" <<'JSON'
   "outputPath": "build/final.mp4",
   "partOutputs": ["build/parts/intro.mp4"],
   "toolMode": "docker",
-  "dockerImage": "simplemodeling/cozy-toolchain:latest",
+  "dockerImage": "ghcr.io/asami/cozy-toolchain:latest",
   "concatListPath": "target/cozy-video/ffmpeg/concat.txt",
   "ffprobe": {"format":{"duration":"3.5"},"streams":[]}
 }

@@ -20,7 +20,7 @@ synthesis, transcription, and encoding.
 
 The standard tool execution model is Docker-first for heavy publication and
 media dependencies. Phase 8 turns the existing BoK/PDF dependency-image line
-into a documented `simplemodeling/cozy-toolchain` image that covers BoK HTML
+into a documented `ghcr.io/asami/cozy-toolchain` image that covers BoK HTML
 generation, SmartDox PDF generation, and video rendering. Remotion,
 Playwright/Chromium, ffmpeg/ffprobe, whisper.cpp, transcription model/data,
 Python/Pillow helper rendering, Node/npm dependencies, and fonts should run
@@ -187,18 +187,16 @@ Out of scope:
 ## Closure
 
 Phase 8 is closed with all VDO-01 through VDO-18 checklist items complete.
-The remaining work is intentionally outside Phase 8:
+The remaining product work is intentionally outside Phase 8:
 
 - BoK registration and automatic video page publication from RDF metadata.
 - Full Playwright trace/HAR operation reconstruction beyond source/provenance
   hints.
-- Real external media-tool smoke for Docker, VOICEVOX, ffmpeg, Remotion,
-  Playwright, and whisper.cpp in a prepared toolchain environment.
 - Production hosting, upload, CDN invalidation, and publication policy.
 
 The standard validation boundary for closing Phase 8 is deterministic Cozy test
-coverage plus runtime smoke that does not require external media tools. Heavy
-toolchain validation remains a manual/release validation activity.
+coverage plus Docker toolchain release validation and real smoke for the
+implemented Docker-based video path.
 
 ## Progress Notes
 
@@ -296,7 +294,15 @@ toolchain validation remains a manual/release validation activity.
   the article rewrite and video player embedding behavior end to end.
 - 2026-06-19: Closed Phase 8. The checklist has no remaining open VDO items;
   deferred work is explicitly outside the Phase 8 boundary and should be planned
-  as a later BoK/video publication or toolchain validation phase.
+  as a later BoK/video publication phase.
+- 2026-06-19: Released the Phase 8 Cozy toolchain image to GitHub Container
+  Registry. The canonical image is `ghcr.io/asami/cozy-toolchain`, with release
+  tag `2026.06.19`, floating tag `latest`, and registry digest
+  `sha256:5948924af5a8c6ac56fbf39931acbb958ad7a5ca078f3a9b7f22700e4d8f5057`.
+  Validation covered `cozy-toolchain check all`, Docker-mode `video inspect
+  --check-tools`, `video render --renderer=simple-java2d --check-tools`, and
+  final `video build --check-tools`, producing
+  `/private/tmp/cozy-real-smoke/build/final.mp4`.
 
 ## References
 

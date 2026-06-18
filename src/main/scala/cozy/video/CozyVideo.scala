@@ -268,7 +268,7 @@ private[cozy] object CozyVideo {
       }
   }
   object VideoToolSettings {
-    val DEFAULT_DOCKER_IMAGE = "simplemodeling/cozy-toolchain:latest"
+    val DEFAULT_DOCKER_IMAGE = "ghcr.io/asami/cozy-toolchain:latest"
     val DEFAULT_VOICEVOX_URL = "http://127.0.0.1:50021"
 
     implicit val decoder: Decoder[VideoToolSettings] = (c: HCursor) =>

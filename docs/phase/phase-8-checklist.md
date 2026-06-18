@@ -99,7 +99,7 @@ Status: DONE
       model/data, and fonts from the configured Cozy toolchain Docker image.
 - [x] Keep VOICEVOX Engine outside the image and access it through
       `video.voicevox.url`.
-- [x] Provide setup hints for `docker pull simplemodeling/cozy-toolchain:latest`
+- [x] Provide setup hints for `docker pull ghcr.io/asami/cozy-toolchain:latest`
       and for `host.docker.internal` or compose service URLs when VOICEVOX is
       unreachable from Docker.
 
@@ -108,7 +108,7 @@ Status: DONE
 Status: DONE
 
 - [x] Identify or create the repository/release process that owns
-      `simplemodeling/cozy-toolchain`.
+      `ghcr.io/asami/cozy-toolchain`.
 - [x] Decide whether the image definition lives in Cozy, SmartDox, or a shared
       toolchain repository, and document that ownership.
 - [x] Use the current SmartDox `smartdox-pdf` dependency image as the baseline
@@ -128,11 +128,17 @@ Status: DONE
       rendering paths while keeping host Python/Pillow optional.
 - [x] Do not include VOICEVOX Engine in the image.
 - [x] Keep `simplemodeling/smartdox-pdf:latest` compatibility or document a
-      transition path to `simplemodeling/cozy-toolchain:latest`.
+      transition path to `ghcr.io/asami/cozy-toolchain:latest`.
 - [x] Add image validation commands or documented checks that verify BoK,
       SmartDox PDF, and video dependency sets inside the image.
 - [x] Document the expected image tag used by Phase 8 development and smoke
-      tests, with `simplemodeling/cozy-toolchain:latest` as the standard image.
+      tests, with `ghcr.io/asami/cozy-toolchain:latest` as the standard image.
+- [x] Release the Phase 8 image to GitHub Container Registry as
+      `ghcr.io/asami/cozy-toolchain:2026.06.19` and update `latest` to the
+      same validated image digest.
+- [x] Verify the pushed release image from GHCR with `cozy-toolchain check all`
+      and Docker-mode real smoke through `video inspect`, `video render`, and
+      `video build`.
 
 ## VDO-07: VOICEVOX Synthesis
 
