@@ -4,7 +4,7 @@ Purpose: engineering work management.
 
 Current phase:
 
-- `phase-7.md`: BoK Source and Site Operations Toolchain
+- `phase-8.md`: Video Knowledge Pipeline
 
 Belongs:
 

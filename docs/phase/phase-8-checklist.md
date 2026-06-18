@@ -5,11 +5,12 @@ Pipeline work from 2026-06-15 onward.
 
 ## VDO-01: Phase 8 Documentation
 
-Status: OPEN
+Status: DONE
 
-- [ ] Add `docs/phase/phase-8.md`.
-- [ ] Add `docs/phase/phase-8-checklist.md`.
-- [ ] Add Phase 8 to `docs/strategy/cozy-development-strategy.md`.
+- [x] Add `docs/phase/phase-8.md`.
+- [x] Add `docs/phase/phase-8-checklist.md`.
+- [x] Add Phase 8 to `docs/strategy/cozy-development-strategy.md`.
+- [x] Set `docs/phase/README.md` current phase to Phase 8.
 
 ## VDO-02: `cozy video` Command Surface
 
@@ -28,13 +29,22 @@ Status: OPEN
 - [ ] Define project, part, script, scene, character, artifact, timing, and
       manifest data structures.
 
-## VDO-04: Project/Script JSON Parsing
+## VDO-04: Project/Script Structured Document Parsing
 
 Status: OPEN
 
-- [ ] Parse the current `videotools` `video_project.json` shape.
-- [ ] Parse dialogue/storyboard/web-demo script JSON shapes used by current
-      video projects.
+- [x] Add shared structured document loading foundation through
+      `org.goldenport.config.StructuredDocumentLoader`.
+- [x] Accept JSON, YAML, HOCON, and XML as equivalent structured document
+      formats for video project fixtures.
+- [x] Accept JSON, YAML, HOCON, and XML as equivalent structured document
+      formats for video script fixtures.
+- [x] Keep XML singleton-object-to-array recovery scoped to XML typed decoding
+      only.
+- [ ] Parse the current `videotools` `video_project` shape through the
+      production `cozy video` model.
+- [ ] Parse dialogue/storyboard/web-demo script shapes through the production
+      `cozy video` model.
 
 ## VDO-05: Dry-Run and Inspect
 

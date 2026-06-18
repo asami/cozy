@@ -38,8 +38,8 @@ In scope:
 - `cozy video transcribe`
 - `cozy video demo-script`
 - `cozy video replay`
-- video project and script JSON parsing compatible with the current
-  `videotools` project shape
+- video project and script structured document parsing compatible with the
+  current `videotools` project shape
 - recorded demo ingestion from captured video files
 - transcript, caption, and narration script generation from recorded demo
   audio
@@ -77,10 +77,10 @@ Out of scope:
 
 ## Phase Items
 
-- [ ] VDO-01: Phase 8 documentation added
+- [x] VDO-01: Phase 8 documentation added
 - [ ] VDO-02: `cozy video` command surface defined
 - [ ] VDO-03: Video project model implemented
-- [ ] VDO-04: Project/script JSON parsing implemented
+- [ ] VDO-04: Project/script structured document parsing implemented
 - [ ] VDO-05: Dry-run and inspect implemented
 - [ ] VDO-06: External tool checks implemented
 - [ ] VDO-06B: Docker toolchain mode implemented
@@ -99,11 +99,11 @@ Out of scope:
 
 ## Acceptance Criteria
 
-- `cozy video inspect <project-json>` prints project, part, script, and artifact
+- `cozy video inspect <project-file>` prints project, part, script, and artifact
   planning information.
-- `cozy video inspect <project-json> --check-tools` reports external tool
+- `cozy video inspect <project-file> --check-tools` reports external tool
   status with setup hints.
-- `cozy video inspect <project-json> --check-tools` can report Docker
+- `cozy video inspect <project-file> --check-tools` can report Docker
   toolchain availability separately from VOICEVOX HTTP connectivity.
 - The configured Cozy toolchain Docker image has a documented build path and
   includes the BoK/PDF/video dependency set required by Cozy: SmartDox PDF
@@ -112,9 +112,9 @@ Out of scope:
   Japanese-capable fonts.
 - VOICEVOX Engine remains outside the image and is checked only as an HTTP
   endpoint.
-- `cozy video build <project-json> --dry-run` prints planned synthesis,
+- `cozy video build <project-file> --dry-run` prints planned synthesis,
   capture, render, and concat steps without requiring media tools.
-- `cozy video synthesize <script-json> --save <audio-dir>` can generate
+- `cozy video synthesize <script-file> --save <audio-dir>` can generate
   VOICEVOX scene WAV files, a combined WAV, and `manifest.json`.
 - `cozy video render ... --renderer remotion` uses Remotion as the standard
   rendering path.
@@ -123,13 +123,13 @@ Out of scope:
 - `cozy video transcribe <input-video> --save <dir>` extracts audio, runs
   whisper.cpp, and writes timestamped transcript, caption, and narration
   artifacts.
-- `cozy video demo-script <input-video> --save <script-json> [--trace
+- `cozy video demo-script <input-video> --save <script-file> [--trace
   <trace.zip>] [--har <file>]` writes a Playwright replay script draft. Trace,
   HAR, or selector event metadata provides the high-precision path; video-only
   input produces a manual-review draft.
-- `cozy video replay <script-json> [--save <output-video>] [--dry-run]` can
+- `cozy video replay <script-file> [--save <output-video>] [--dry-run]` can
   dry-run or execute the generated Playwright replay plan.
-- `cozy video rdf <project-json> --save <dir>` writes Turtle and JSON-LD with
+- `cozy video rdf <project-file> --save <dir>` writes Turtle and JSON-LD with
   scene, utterance, timing, artifact, and provenance metadata.
 - RDF output includes transcript, caption, replay step, source video, input
   hash, tool version, model name/version, and timing provenance when recorded
