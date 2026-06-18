@@ -14,6 +14,7 @@ import java.net.{URI, URLEncoder}
 import java.net.http.{HttpClient, HttpRequest, HttpResponse}
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths, StandardCopyOption}
+import java.security.MessageDigest
 import java.time.{Duration => JDuration}
 import java.util.concurrent.TimeUnit
 import scala.collection.JavaConverters._
@@ -124,6 +125,45 @@ private[cozy] object CozyVideo {
         RAISE.invalidArgumentFault("Missing project file for video rdf")
       )
       RdfConfig(projectfile, parsed.requiredPathProperty("save"), parsed.property("tool-mode"), parsed.property("docker-image"))
+    }
+  }
+
+  final case class TranscribeConfig(
+    inputVideo: Path,
+    saveDir: Path,
+    checkTools: Boolean = false,
+    toolMode: Option[String] = None,
+    dockerImage: Option[String] = None,
+    whisperModel: Option[String] = None
+  ) {
+    def projectRoot: Path = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+  }
+  object TranscribeConfig {
+    def create(args: List[String]): TranscribeConfig = {
+      _validate_transcribe_options(args)
+      val parsed = CozyCliArgs.parseStrict(_p_input_video, _p_save, _p_check_tools, _p_tool_mode, _p_docker_image, _p_whisper_model)(_normalize_property_args(args))
+      val inputvideo = parsed.argument("input-video").map(CozyCliArgs.toPath).getOrElse(
+        RAISE.invalidArgumentFault("Missing input video for video transcribe")
+      )
+      TranscribeConfig(
+        inputvideo,
+        parsed.requiredPathProperty("save"),
+        parsed.flag("check-tools"),
+        parsed.property("tool-mode"),
+        parsed.property("docker-image"),
+        parsed.property("whisper-model")
+      )
+    }
+
+    private def _validate_transcribe_options(args: List[String]): Unit = {
+      val options = Set("save", "check-tools", "tool-mode", "docker-image", "whisper-model")
+      args.foreach {
+        case x if x.startsWith("--") =>
+          val name = x.drop(2).takeWhile(_ != '=')
+          if (!options.contains(name))
+            RAISE.invalidArgumentFault(s"Unknown option: --$name")
+        case _ =>
+      }
     }
   }
 
@@ -873,6 +913,37 @@ private[cozy] object CozyVideo {
     outputs: Vector[Path]
   )
 
+  final case class VideoTranscriptSegment(
+    index: Int,
+    start: Double,
+    end: Double,
+    text: String
+  )
+
+  final case class VideoTranscriptionResult(
+    inputVideo: Path,
+    saveDir: Path,
+    audioPath: Path,
+    transcriptPath: Path,
+    captionsPath: Path,
+    narrationPath: Path,
+    manifestPath: Path,
+    toolMode: VideoToolMode,
+    dockerImage: String,
+    modelPath: String,
+    segmentCount: Int
+  )
+
+  final case class VideoTranscribeExecution(
+    toolMode: VideoToolMode,
+    dockerImage: String,
+    modelPath: String,
+    hostWhisperModel: Option[Path]
+  ) {
+    def toVideoExecutionConfig: VideoExecutionConfig =
+      VideoExecutionConfig(toolMode, dockerImage, VideoToolSettings.DEFAULT_VOICEVOX_URL)
+  }
+
   final case class VideoPartPlan(
     index: Int,
     id: String,
@@ -911,6 +982,7 @@ private[cozy] object CozyVideo {
   )
 
   private val _p_project_file = spec.Parameter.argumentFile("project-file")
+  private val _p_input_video = spec.Parameter.argumentFile("input-video")
   private val _p_script_file = spec.Parameter.argumentFile("script-file")
   private val _p_check_tools = spec.Parameter("check-tools", spec.Parameter.SwitchKind)
   private val _p_dry_run = spec.Parameter("dry-run", spec.Parameter.SwitchKind)
@@ -920,10 +992,12 @@ private[cozy] object CozyVideo {
   private val _p_tool_mode = spec.Parameter.property("tool-mode")
   private val _p_docker_image = spec.Parameter.property("docker-image")
   private val _p_voicevox_url = spec.Parameter.property("voicevox-url")
+  private val _p_whisper_model = spec.Parameter.property("whisper-model")
   private val _supported_part_types = Set("dialogue", "storyboard", "web-demo")
   private val _supported_renderers = Set("remotion", "simple-java2d")
   private val _docker_managed_tools = Set("remotion", "playwright", "ffmpeg", "ffprobe", "node", "npm", "whisper-cpp", "python-pillow")
-  private val _property_options = Set("tool-mode", "docker-image", "save", "voicevox-url", "renderer", "part")
+  private val _docker_whisper_model = "/opt/cozy/models/ggml-base.bin"
+  private val _property_options = Set("tool-mode", "docker-image", "save", "voicevox-url", "renderer", "part", "whisper-model")
   private val _default_sample_rate = 24000
   private val _video_rdf_namespace = "https://www.simplemodeling.org/ns/cozy/video#"
   private val _schema_namespace = "https://schema.org/"
@@ -962,6 +1036,9 @@ private[cozy] object CozyVideo {
         true
       case "video" :: "render" :: rest =>
         println(render(RenderConfig.create(rest), tools, runner))
+        true
+      case "video" :: "transcribe" :: rest =>
+        println(transcribe(TranscribeConfig.create(rest), tools, runner))
         true
       case "video" :: "rdf" :: rest =>
         println(rdf(RdfConfig.create(rest)))
@@ -1013,6 +1090,27 @@ private[cozy] object CozyVideo {
         case "simple-java2d" => _render_simple_java2d(config, plan, runner)
       }
     _render_render_result(result)
+  }
+
+  def transcribe(config: TranscribeConfig, tools: VideoToolRegistry, runner: VideoProcessRunner): String = {
+    val execution = _transcribe_execution(config)
+    val project = VideoProject(
+      name = Some("transcription"),
+      title = Some("Video Transcription"),
+      output = None,
+      renderer = None,
+      tools = Some(VideoToolSettings(
+        Some(execution.toolMode.label),
+        Some(execution.dockerImage),
+        None,
+        execution.hostWhisperModel.map(_.toString)
+      )),
+      parts = Vector.empty
+    )
+    val context = VideoToolContext(config.inputVideo, config.projectRoot, project, execution.toVideoExecutionConfig)
+    val checks = if (config.checkTools) tools.checks(context) else Vector.empty
+    _validate_transcribe_tools(execution, checks)
+    _render_transcription_result(_transcribe_video(config, execution, runner))
   }
 
   def rdf(config: RdfConfig): String = {
@@ -1463,6 +1561,300 @@ private[cozy] object CozyVideo {
         RAISE.invalidArgumentFault(s"Cannot build video: ${check.name} is missing.${hint}")
       }
     }
+
+  private def _validate_transcribe_tools(execution: VideoTranscribeExecution, checks: Vector[VideoToolCheck]): Unit =
+    if (checks.nonEmpty) {
+      val required =
+        execution.toolMode match {
+          case VideoToolMode.Docker => Set("docker-toolchain", "docker-image", "cozy-toolchain-image")
+          case VideoToolMode.Host => Set("ffmpeg", "whisper-cpp")
+          case VideoToolMode.ExternalService => Set.empty[String]
+        }
+      checks.filter(x => required.contains(x.name) && (x.status == VideoToolStatus.Missing || x.status == VideoToolStatus.Unchecked)).headOption.foreach { check =>
+        val hint = check.setupHint.map(x => s" $x").getOrElse("")
+        RAISE.invalidArgumentFault(s"Cannot transcribe video: ${check.name} is not available.${hint}")
+      }
+    }
+
+  private def _transcribe_execution(config: TranscribeConfig): VideoTranscribeExecution = {
+    val defaults = CozyProjectYamlConfig.loadOperationDefaults(config.projectRoot)
+    val mode = config.toolMode.
+      orElse(defaults.value("video.tool-mode")).
+      getOrElse("docker")
+    val dockerimage = config.dockerImage.
+      orElse(defaults.value("video.docker-image")).
+      orElse(defaults.value("cozy.docker-image")).
+      getOrElse(VideoToolSettings.DEFAULT_DOCKER_IMAGE)
+    val toolmode = VideoToolMode.parse(mode)
+    val hostmodel = _resolve_whisper_model(config.projectRoot, config.whisperModel.
+      orElse(defaults.value("tools.whisperModel")).
+      orElse(defaults.value("tools.whisper-model")).
+      orElse(defaults.value("video.whisper.model")).
+      orElse(defaults.value("video.whisper-model")))
+    val modelpath =
+      toolmode match {
+        case VideoToolMode.Docker => _docker_whisper_model
+        case VideoToolMode.Host =>
+          hostmodel.map(_.toString).getOrElse(
+            RAISE.invalidArgumentFault("Host transcription requires --whisper-model, tools.whisperModel, or video.whisper.model.")
+          )
+        case VideoToolMode.ExternalService =>
+          RAISE.invalidArgumentFault("Transcription does not support external-service tool mode.")
+      }
+    VideoTranscribeExecution(toolmode, dockerimage, modelpath, hostmodel)
+  }
+
+  private def _resolve_whisper_model(projectroot: Path, value: Option[String]): Option[Path] =
+    value.map { x =>
+      val path = Path.of(x)
+      if (path.isAbsolute) path.normalize() else projectroot.resolve(path).normalize()
+    }
+
+  private def _transcribe_video(
+    config: TranscribeConfig,
+    execution: VideoTranscribeExecution,
+    runner: VideoProcessRunner
+  ): VideoTranscriptionResult = {
+    val input = config.inputVideo.toAbsolutePath.normalize()
+    if (!Files.isRegularFile(input))
+      RAISE.invalidArgumentFault(s"Missing input video for transcription: $input")
+    val savedir = config.saveDir.toAbsolutePath.normalize()
+    _validate_transcribe_docker_paths(config.projectRoot, execution, input, savedir)
+    Files.createDirectories(savedir)
+    val audio = savedir.resolve("audio.wav").normalize()
+    val transcript = savedir.resolve("transcript.json").normalize()
+    val captions = savedir.resolve("captions.srt").normalize()
+    val narration = savedir.resolve("narration.json").normalize()
+    val manifest = savedir.resolve("manifest.json").normalize()
+    val whisperbase = savedir.resolve("whisper").normalize()
+    _run_transcribe_ffmpeg(config.projectRoot, execution, input, audio, runner)
+    val whisperversion = _run_whisper_version(config.projectRoot, execution, runner)
+    _run_whisper(config.projectRoot, execution, audio, whisperbase, runner)
+    val whisperjson = whisperbase.resolveSibling(whisperbase.getFileName.toString + ".json")
+    val segments = _read_whisper_segments(whisperjson)
+    Files.writeString(transcript, _transcript_json(input, segments).spaces2, StandardCharsets.UTF_8)
+    Files.writeString(captions, _srt_text(segments), StandardCharsets.UTF_8)
+    Files.writeString(narration, _narration_json(segments).spaces2, StandardCharsets.UTF_8)
+    Files.writeString(manifest, _transcription_manifest(config, execution, input, audio, transcript, captions, narration, whisperversion, segments.size).spaces2, StandardCharsets.UTF_8)
+    VideoTranscriptionResult(input, savedir, audio, transcript, captions, narration, manifest, execution.toolMode, execution.dockerImage, execution.modelPath, segments.size)
+  }
+
+  private def _validate_transcribe_docker_paths(
+    projectroot: Path,
+    execution: VideoTranscribeExecution,
+    input: Path,
+    savedir: Path
+  ): Unit =
+    if (execution.toolMode == VideoToolMode.Docker) {
+      if (!input.startsWith(projectroot))
+        RAISE.invalidArgumentFault(s"Docker transcription requires input video under project root $projectroot: $input")
+      if (!savedir.startsWith(projectroot))
+        RAISE.invalidArgumentFault(s"Docker transcription requires --save under project root $projectroot: $savedir")
+    }
+
+  private def _run_transcribe_ffmpeg(
+    projectroot: Path,
+    execution: VideoTranscribeExecution,
+    input: Path,
+    audio: Path,
+    runner: VideoProcessRunner
+  ): Unit = {
+    val args = _execution_command(projectroot, execution.toVideoExecutionConfig, "ffmpeg", Vector(
+      "-y",
+      "-i",
+      _execution_path(projectroot, execution.toVideoExecutionConfig, input),
+      "-vn",
+      "-ac",
+      "1",
+      "-ar",
+      "16000",
+      _execution_path(projectroot, execution.toVideoExecutionConfig, audio)
+    ))
+    val result = runner.run(args, projectroot)
+    if (!result.isSuccess)
+      RAISE.invalidArgumentFault(s"ffmpeg audio extraction failed: ${result.stderr.trim}")
+    if (!Files.isRegularFile(audio))
+      RAISE.invalidArgumentFault(s"ffmpeg audio extraction did not create output: $audio")
+  }
+
+  private def _run_whisper_version(projectroot: Path, execution: VideoTranscribeExecution, runner: VideoProcessRunner): Option[String] = {
+    val result = runner.run(_execution_command(projectroot, execution.toVideoExecutionConfig, "whisper-cli", Vector("--version")), projectroot)
+    if (result.isSuccess) Some(result.text).filter(_.nonEmpty) else None
+  }
+
+  private def _run_whisper(
+    projectroot: Path,
+    execution: VideoTranscribeExecution,
+    audio: Path,
+    outputbase: Path,
+    runner: VideoProcessRunner
+  ): Unit = {
+    val args = _execution_command(projectroot, execution.toVideoExecutionConfig, "whisper-cli", Vector(
+      "-m",
+      _execution_model_path(projectroot, execution),
+      "-f",
+      _execution_path(projectroot, execution.toVideoExecutionConfig, audio),
+      "-oj",
+      "-osrt",
+      "-of",
+      _execution_path(projectroot, execution.toVideoExecutionConfig, outputbase)
+    ))
+    val result = runner.run(args, projectroot)
+    if (!result.isSuccess)
+      RAISE.invalidArgumentFault(s"whisper.cpp transcription failed: ${result.stderr.trim}")
+  }
+
+  private def _execution_model_path(projectroot: Path, execution: VideoTranscribeExecution): String =
+    execution.toolMode match {
+      case VideoToolMode.Docker => execution.modelPath
+      case VideoToolMode.Host => execution.modelPath
+      case VideoToolMode.ExternalService => RAISE.invalidArgumentFault("whisper model path cannot use external-service tool mode")
+    }
+
+  private def _read_whisper_segments(path: Path): Vector[VideoTranscriptSegment] = {
+    if (!Files.isRegularFile(path))
+      RAISE.invalidArgumentFault(s"whisper.cpp did not create JSON transcript: $path")
+    val json = parser.parse(Files.readString(path, StandardCharsets.UTF_8)).fold(
+      e => RAISE.invalidArgumentFault(s"whisper.cpp returned invalid JSON: ${e.getMessage}"),
+      identity
+    )
+    val segments = _json_array(json, "segments").map { xs =>
+      xs.zipWithIndex.map {
+        case (x, i) =>
+          VideoTranscriptSegment(
+            i + 1,
+            _json_double(x, "start").getOrElse(0.0),
+            _json_double(x, "end").getOrElse(0.0),
+            _json_string(x, "text").getOrElse("").trim
+          )
+      }
+    }.orElse {
+      _json_array(json, "transcription").map { xs =>
+        xs.zipWithIndex.map {
+          case (x, i) =>
+            val timestamps = x.hcursor.downField("timestamps").focus.getOrElse(Json.obj())
+            VideoTranscriptSegment(
+              i + 1,
+              _parse_timestamp_seconds(_json_string(timestamps, "from").getOrElse("0")),
+              _parse_timestamp_seconds(_json_string(timestamps, "to").getOrElse("0")),
+              _json_string(x, "text").getOrElse("").trim
+            )
+        }
+      }
+    }.getOrElse(Vector.empty)
+    if (segments.isEmpty)
+      RAISE.invalidArgumentFault(s"whisper.cpp JSON contains no transcript segments: $path")
+    segments
+  }
+
+  private def _parse_timestamp_seconds(value: String): Double = {
+    val normalized = value.trim.replace(',', '.')
+    val parts = normalized.split(":").toVector
+    try {
+      parts match {
+        case Vector(h, m, s) => h.toDouble * 3600 + m.toDouble * 60 + s.toDouble
+        case Vector(m, s) => m.toDouble * 60 + s.toDouble
+        case Vector(s) => s.toDouble
+        case _ => 0.0
+      }
+    } catch {
+      case NonFatal(_) => 0.0
+    }
+  }
+
+  private def _transcript_json(input: Path, segments: Vector[VideoTranscriptSegment]): Json =
+    Json.obj(
+      "schema" -> Json.fromString("cozy.video.transcript.v1"),
+      "source" -> Json.fromString(input.toString),
+      "segments" -> Json.fromValues(segments.map(_transcript_segment_json))
+    )
+
+  private def _transcript_segment_json(segment: VideoTranscriptSegment): Json =
+    Json.obj(
+      "index" -> Json.fromInt(segment.index),
+      "start" -> Json.fromDoubleOrNull(_round3(segment.start)),
+      "end" -> Json.fromDoubleOrNull(_round3(segment.end)),
+      "text" -> Json.fromString(segment.text)
+    )
+
+  private def _narration_json(segments: Vector[VideoTranscriptSegment]): Json =
+    Json.obj(
+      "schema" -> Json.fromString("cozy.video.narration-draft.v1"),
+      "scenes" -> Json.fromValues(segments.map { segment =>
+        Json.obj(
+          "id" -> Json.fromString(f"segment-${segment.index}%03d"),
+          "narration" -> Json.fromString(segment.text),
+          "start" -> Json.fromDoubleOrNull(_round3(segment.start)),
+          "end" -> Json.fromDoubleOrNull(_round3(segment.end))
+        )
+      })
+    )
+
+  private def _srt_text(segments: Vector[VideoTranscriptSegment]): String =
+    segments.map { segment =>
+      Vector(
+        segment.index.toString,
+        s"${_srt_timestamp(segment.start)} --> ${_srt_timestamp(segment.end)}",
+        segment.text,
+        ""
+      ).mkString("\n")
+    }.mkString("\n")
+
+  private def _srt_timestamp(seconds: Double): String = {
+    val millis = math.max(0L, math.round(seconds * 1000))
+    val h = millis / 3600000
+    val m = (millis % 3600000) / 60000
+    val s = (millis % 60000) / 1000
+    val ms = millis % 1000
+    f"$h%02d:$m%02d:$s%02d,$ms%03d"
+  }
+
+  private def _transcription_manifest(
+    config: TranscribeConfig,
+    execution: VideoTranscribeExecution,
+    input: Path,
+    audio: Path,
+    transcript: Path,
+    captions: Path,
+    narration: Path,
+    whisperversion: Option[String],
+    segmentcount: Int
+  ): Json =
+    Json.obj(
+      "schema" -> Json.fromString("cozy.video.transcription-manifest.v1"),
+      "inputVideo" -> Json.fromString(input.toString),
+      "inputSha256" -> Json.fromString(_sha256(input)),
+      "audioPath" -> Json.fromString(audio.toString),
+      "transcriptPath" -> Json.fromString(transcript.toString),
+      "captionsPath" -> Json.fromString(captions.toString),
+      "narrationPath" -> Json.fromString(narration.toString),
+      "toolMode" -> Json.fromString(execution.toolMode.label),
+      "dockerImage" -> Json.fromString(execution.dockerImage),
+      "modelPath" -> Json.fromString(execution.modelPath),
+      "whisperVersion" -> whisperversion.map(Json.fromString).getOrElse(Json.Null),
+      "segmentCount" -> Json.fromInt(segmentcount),
+      "commands" -> Json.fromValues(Vector(
+        Json.obj("name" -> Json.fromString("extract-audio"), "tool" -> Json.fromString("ffmpeg")),
+        Json.obj("name" -> Json.fromString("transcribe"), "tool" -> Json.fromString("whisper-cli"))
+      ))
+    )
+
+  private def _sha256(path: Path): String = {
+    val digest = MessageDigest.getInstance("SHA-256")
+    val in = Files.newInputStream(path)
+    try {
+      val buffer = new Array[Byte](8192)
+      var n = in.read(buffer)
+      while (n >= 0) {
+        if (n > 0)
+          digest.update(buffer, 0, n)
+        n = in.read(buffer)
+      }
+    } finally {
+      in.close()
+    }
+    digest.digest().map("%02x".format(_)).mkString
+  }
 
   private def _build_project(plan: VideoPlan, runner: VideoProcessRunner): VideoBuildResult = {
     val partoutputs = plan.parts.filter(_.renderable).map(_.outputPath)
@@ -2672,6 +3064,23 @@ private[cozy] object CozyVideo {
       b += s"    manifest: ${part.manifestPath}"
       b += s"    ${part.workDirLabel}: ${part.workDir}"
     }
+    b.result().mkString("\n") + "\n"
+  }
+
+  private def _render_transcription_result(result: VideoTranscriptionResult): String = {
+    val b = Vector.newBuilder[String]
+    b += "Cozy Video Transcribe"
+    b += s"inputVideo: ${result.inputVideo}"
+    b += s"outputDir: ${result.saveDir}"
+    b += s"toolMode: ${result.toolMode.label}"
+    b += s"dockerImage: ${result.dockerImage}"
+    b += s"modelPath: ${result.modelPath}"
+    b += s"audio: ${result.audioPath}"
+    b += s"transcript: ${result.transcriptPath}"
+    b += s"captions: ${result.captionsPath}"
+    b += s"narration: ${result.narrationPath}"
+    b += s"manifest: ${result.manifestPath}"
+    b += s"segments: ${result.segmentCount}"
     b.result().mkString("\n") + "\n"
   }
 

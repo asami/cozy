@@ -521,6 +521,160 @@ final class CozyVideoSpec extends AnyFunSuite {
     }
   }
 
+  test("video transcribe writes transcript captions narration and manifest in docker mode") {
+    _with_temp_dir("cozy-video-transcribe-docker") { dir =>
+      val input = dir.resolve("demo.mp4")
+      val save = dir.resolve("transcript")
+      _write_bytes(input, Array[Byte](1, 2, 3, 4))
+      val runner = TranscriptionRunner()
+
+      val out = _with_user_dir(dir) {
+        CozyVideo.transcribe(
+          CozyVideo.TranscribeConfig(input, save),
+          CozyVideo.VideoToolRegistry(Vector.empty),
+          runner
+        )
+      }
+
+      assert(out.contains("Cozy Video Transcribe"))
+      assert(out.contains("toolMode: docker"))
+      assert(out.contains("modelPath: /opt/cozy/models/ggml-base.bin"))
+      assert(Files.isRegularFile(save.resolve("audio.wav")))
+      assert(Files.isRegularFile(save.resolve("transcript.json")))
+      assert(Files.isRegularFile(save.resolve("captions.srt")))
+      assert(Files.isRegularFile(save.resolve("narration.json")))
+      assert(Files.isRegularFile(save.resolve("manifest.json")))
+      val transcript = _read(save.resolve("transcript.json"))
+      val captions = _read(save.resolve("captions.srt"))
+      val narration = _read(save.resolve("narration.json"))
+      val manifest = _read(save.resolve("manifest.json"))
+      assert(transcript.contains("cozy.video.transcript.v1"))
+      assert(transcript.contains("Hello world"))
+      assert(captions.contains("00:00:00,000 --> 00:00:01,250"))
+      assert(narration.contains("cozy.video.narration-draft.v1"))
+      assert(manifest.contains("inputSha256"))
+      assert(manifest.contains("whisper-cli 1.7.6"))
+      assert(runner.commands.head.args.take(8) == Vector("docker", "run", "--rm", "-v", s"${dir.toAbsolutePath.normalize}:/workspace", "-w", "/workspace", "simplemodeling/cozy-toolchain:latest"))
+      assert(runner.commands.exists(_.args.contains("/opt/cozy/models/ggml-base.bin")))
+    }
+  }
+
+  test("video transcribe resolves config defaults and CLI whisper model in host mode") {
+    _with_temp_dir("cozy-video-transcribe-config") { dir =>
+      val input = dir.resolve("demo.mp4")
+      val save = dir.resolve("transcript")
+      val configmodel = dir.resolve("models/config.bin")
+      val climodel = dir.resolve("models/cli.bin")
+      _write_bytes(input, Array[Byte](1, 2, 3))
+      _write(configmodel, "model")
+      _write(climodel, "model")
+      _write(dir.resolve("conf/cozy/config.yaml"), "video:\n  tool-mode: docker\n  docker-image: conf-image\n")
+      _write(dir.resolve(".cozy/config.yaml"), "video:\n  tool-mode: host\ntools:\n  whisperModel: models/config.bin\n")
+      val runner = TranscriptionRunner()
+
+      _with_user_dir(dir) {
+        val out = _capture {
+          CozyVideo.execute(
+            List("video", "transcribe", input.toString, s"--save=${save.toString}", "--whisper-model=models/cli.bin"),
+            CozyVideo.VideoToolRegistry(Vector.empty),
+            RecordingVoicevoxClient(),
+            runner
+          )
+        }
+        assert(out.contains("Cozy Video Transcribe"))
+      }
+
+      assert(runner.commands.exists(_.args.headOption.contains("ffmpeg")))
+      assert(!runner.commands.exists(_.args.headOption.contains("docker")))
+      assert(runner.commands.exists(_.args.contains(climodel.normalize().toString)))
+      assert(Files.isRegularFile(save.resolve("manifest.json")))
+    }
+  }
+
+  test("video transcribe validates inputs options and tool checks") {
+    _with_temp_dir("cozy-video-transcribe-failures") { dir =>
+      val input = dir.resolve("demo.mp4")
+      val save = dir.resolve("transcript")
+      val model = dir.resolve("models/model.bin")
+      _write_bytes(input, Array[Byte](1, 2, 3))
+      _write(model, "model")
+
+      val missinginput = intercept[RuntimeException] {
+        CozyVideo.transcribe(CozyVideo.TranscribeConfig(dir.resolve("missing.mp4"), save), CozyVideo.VideoToolRegistry(Vector.empty), TranscriptionRunner())
+      }
+      assert(missinginput.getMessage.contains("Missing input video"))
+
+      val missingsave = intercept[RuntimeException] {
+        CozyVideo.execute(List("video", "transcribe", input.toString), CozyVideo.VideoToolRegistry(Vector.empty))
+      }
+      assert(missingsave.getMessage.contains("save"))
+
+      val unknown = intercept[RuntimeException] {
+        CozyVideo.execute(List("video", "transcribe", input.toString, "--save", save.toString, "--unknown"), CozyVideo.VideoToolRegistry(Vector.empty))
+      }
+      assert(unknown.getMessage.contains("Unknown option"))
+
+      val invalidmode = intercept[RuntimeException] {
+        CozyVideo.transcribe(CozyVideo.TranscribeConfig(input, save, toolMode = Some("remote")), CozyVideo.VideoToolRegistry(Vector.empty), TranscriptionRunner())
+      }
+      assert(invalidmode.getMessage.contains("Invalid video tool mode"))
+
+      val dockercheck = intercept[RuntimeException] {
+        CozyVideo.transcribe(
+          CozyVideo.TranscribeConfig(input, save, checkTools = true),
+          CozyVideo.VideoToolRegistry(Vector(StubProvider(CozyVideo.VideoToolCheck("docker-image", CozyVideo.VideoToolMode.Docker, CozyVideo.VideoToolStatus.Missing, "missing image", Some("pull image"))))),
+          TranscriptionRunner()
+        )
+      }
+      assert(dockercheck.getMessage.contains("docker-image"))
+      assert(dockercheck.getMessage.contains("pull image"))
+
+      val hostcheck = intercept[RuntimeException] {
+        CozyVideo.transcribe(
+          CozyVideo.TranscribeConfig(input, save, checkTools = true, toolMode = Some("host"), whisperModel = Some(model.toString)),
+          CozyVideo.VideoToolRegistry(Vector(StubProvider(CozyVideo.VideoToolCheck("whisper-cpp", CozyVideo.VideoToolMode.Host, CozyVideo.VideoToolStatus.Missing, "missing whisper", Some("install whisper"))))),
+          TranscriptionRunner()
+        )
+      }
+      assert(hostcheck.getMessage.contains("whisper-cpp"))
+      assert(hostcheck.getMessage.contains("install whisper"))
+
+      val ffmpegfailure = intercept[RuntimeException] {
+        CozyVideo.transcribe(CozyVideo.TranscribeConfig(input, save, toolMode = Some("host"), whisperModel = Some(model.toString)), CozyVideo.VideoToolRegistry(Vector.empty), TranscriptionRunner(failTool = Some("ffmpeg")))
+      }
+      assert(ffmpegfailure.getMessage.contains("ffmpeg audio extraction failed"))
+
+      val whisperfailure = intercept[RuntimeException] {
+        CozyVideo.transcribe(CozyVideo.TranscribeConfig(input, save, toolMode = Some("host"), whisperModel = Some(model.toString)), CozyVideo.VideoToolRegistry(Vector.empty), TranscriptionRunner(failTool = Some("whisper-cli")))
+      }
+      assert(whisperfailure.getMessage.contains("whisper.cpp transcription failed"))
+
+      val projectroot = dir.resolve("project-root")
+      val projectinput = projectroot.resolve("demo.mp4")
+      val projectsave = projectroot.resolve("transcript")
+      val outsideinput = dir.resolve("outside/demo.mp4")
+      val outsidesave = dir.resolve("outside-transcript")
+      _write_bytes(projectinput, Array[Byte](1, 2, 3))
+      _write_bytes(outsideinput, Array[Byte](1, 2, 3))
+      val inputrunner = TranscriptionRunner()
+      val dockerinput = _with_user_dir(projectroot) {
+        intercept[RuntimeException] {
+          CozyVideo.transcribe(CozyVideo.TranscribeConfig(outsideinput, projectsave), CozyVideo.VideoToolRegistry(Vector.empty), inputrunner)
+        }
+      }
+      assert(dockerinput.getMessage.contains("Docker transcription requires input video under project root"))
+      assert(inputrunner.commands.isEmpty)
+      val saverunner = TranscriptionRunner()
+      val dockersave = _with_user_dir(projectroot) {
+        intercept[RuntimeException] {
+          CozyVideo.transcribe(CozyVideo.TranscribeConfig(projectinput, outsidesave), CozyVideo.VideoToolRegistry(Vector.empty), saverunner)
+        }
+      }
+      assert(dockersave.getMessage.contains("Docker transcription requires --save under project root"))
+      assert(saverunner.commands.isEmpty)
+    }
+  }
+
   test("video synthesize writes scene wavs combined wav and manifest through VOICEVOX client") {
     _with_temp_dir("cozy-video-synthesize") { dir =>
       val script = dir.resolve("script.json")
@@ -1268,6 +1422,7 @@ final class CozyVideoSpec extends AnyFunSuite {
       assert(help.contains("video build <project-file> [--dry-run]"))
       assert(help.contains("video synthesize <script-file> --save <audio-dir>"))
       assert(help.contains("video render <project-file> --renderer=remotion|simple-java2d"))
+      assert(help.contains("video transcribe <input-video> --save <dir>"))
       assert(help.contains("video rdf <project-file> --save <dir>"))
       assert(help.contains("--check-tools"))
     }
@@ -1328,6 +1483,19 @@ final class CozyVideoSpec extends AnyFunSuite {
       body
     }
     out.toString(StandardCharsets.UTF_8.name())
+  }
+
+  private def _with_user_dir[A](dir: Path)(body: => A): A = {
+    val old = sys.props.get("user.dir")
+    sys.props("user.dir") = dir.toString
+    try {
+      body
+    } finally {
+      old match {
+        case Some(x) => sys.props("user.dir") = x
+        case None => sys.props.remove("user.dir")
+      }
+    }
   }
 }
 
@@ -1452,6 +1620,41 @@ object CozyVideoSpec {
       }
     }
   }
+
+  final case class TranscriptionRunner(
+    failTool: Option[String] = None
+  ) extends CozyVideo.VideoProcessRunner {
+    val commands = ArrayBuffer.empty[RecordingCommand]
+
+    def run(args: Vector[String], cwd: Path): CozyVideo.VideoCommandResult = {
+      commands += RecordingCommand(args, cwd)
+      if (failTool.exists(args.contains))
+        CozyVideo.VideoCommandResult(1, "", s"${failTool.get} failed")
+      else if (args.contains("ffmpeg")) {
+        Files.write(_command_path(cwd, args.last), Array[Byte](0, 0, 0, 0))
+        CozyVideo.VideoCommandResult(0, "ffmpeg ok", "")
+      } else if (args.contains("whisper-cli") && args.contains("--version")) {
+        CozyVideo.VideoCommandResult(0, "whisper-cli 1.7.6", "")
+      } else if (args.contains("whisper-cli")) {
+        val base = _command_path(cwd, args(args.indexOf("-of") + 1))
+        Files.createDirectories(base.getParent)
+        Files.writeString(base.resolveSibling(base.getFileName.toString + ".json"), _whisper_json, StandardCharsets.UTF_8)
+        Files.writeString(base.resolveSibling(base.getFileName.toString + ".srt"), "stub srt", StandardCharsets.UTF_8)
+        CozyVideo.VideoCommandResult(0, "whisper ok", "")
+      } else {
+        CozyVideo.VideoCommandResult(0, "ok", "")
+      }
+    }
+  }
+
+  private val _whisper_json: String =
+    """{
+      |  "segments": [
+      |    {"start": 0.0, "end": 1.25, "text": "Hello world"},
+      |    {"start": 1.25, "end": 2.5, "text": "Second line"}
+      |  ]
+      |}
+      |""".stripMargin
 
   private def _command_path(cwd: Path, value: String): Path =
     if (value.startsWith("/workspace/"))

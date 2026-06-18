@@ -1512,6 +1512,9 @@ private[cozy] object CozyScaffold {
       |      Render project parts with Cozy-generated Remotion compositions or a simple Python/Pillow plus ffmpeg renderer.
       |      Final concat/mux remains a separate later video build step.
       |
+      |  video transcribe <input-video> --save <dir> [--tool-mode=<docker|host>] [--docker-image=<image>] [--whisper-model=<path>] [--check-tools]
+      |      Extract audio from a recorded demo video, run whisper.cpp, and write transcript, captions, narration draft, and manifest files.
+      |
       |  video rdf <project-file> --save <dir> [--tool-mode=<docker|host>] [--docker-image=<image>]
       |      Generate Turtle and JSON-LD video metadata using the SmartDox semanticweb RDF renderer.
       |

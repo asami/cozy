@@ -23,7 +23,7 @@ Status: OPEN
 - [x] Add help text for `video synthesize`.
 - [x] Add help text for `video render`.
 - [x] Add help text for `video rdf`.
-- [ ] Add help text for `video transcribe`.
+- [x] Add help text for `video transcribe`.
 - [ ] Add help text for `video demo-script`.
 - [ ] Add help text for `video replay`.
 
@@ -37,7 +37,8 @@ Status: OPEN
 - [x] Define character voice, pronunciation, and text normalization structures.
 - [x] Define audio synthesis manifest and render part manifest structures.
 - [x] Define RDF artifact and provenance manifest structures.
-- [ ] Define transcription/replay artifact and provenance manifest structures.
+- [x] Define transcription artifact and provenance manifest structures.
+- [ ] Define replay artifact and provenance manifest structures.
 
 ## VDO-04: Project/Script Structured Document Parsing
 
@@ -213,17 +214,17 @@ Status: DONE
 
 ## VDO-15: Recorded Demo Transcription
 
-Status: OPEN
+Status: DONE
 
-- [ ] Accept a recorded demo video input for transcription planning.
-- [ ] Extract audio with ffmpeg.
-- [ ] Run whisper.cpp with the configured transcription model/data.
-- [ ] Write timestamped `transcript.json`.
-- [ ] Write caption output such as `captions.srt`.
-- [ ] Write a narration script artifact suitable for review or reuse.
-- [ ] Record input video hash, whisper.cpp version, model name/version, and
+- [x] Accept a recorded demo video input for transcription planning.
+- [x] Extract audio with ffmpeg.
+- [x] Run whisper.cpp with the configured transcription model/data.
+- [x] Write timestamped `transcript.json`.
+- [x] Write caption output such as `captions.srt`.
+- [x] Write a narration script artifact suitable for review or reuse.
+- [x] Record input video hash, whisper.cpp version, model name/version, and
       transcript timing provenance.
-- [ ] Fail with setup hints when whisper.cpp or model/data is unavailable.
+- [x] Fail with setup hints when whisper.cpp or model/data is unavailable.
 
 ## VDO-16: Playwright Demo Replay Generation
 

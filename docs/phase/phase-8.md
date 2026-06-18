@@ -94,7 +94,7 @@ Out of scope:
 - [x] VDO-12: BoK registration extension point decided
 - [x] VDO-13: Runtime smoke fixture added
 - [x] VDO-14: Existing workflows preserved
-- [ ] VDO-15: Recorded demo transcription implemented
+- [x] VDO-15: Recorded demo transcription implemented
 - [ ] VDO-16: Playwright demo replay generation implemented
 - [x] VDO-17: Toolchain includes whisper.cpp and demo replay dependencies
 
@@ -237,10 +237,17 @@ Out of scope:
   `cozy video` surface. `src/sbt-test/cozy/video-runtime-smoke` now validates
   `inspect`, `build --dry-run`, `rdf`, and `--check-tools` through the real
   `cozy.Cozy` entrypoint without requiring media tools to be installed.
-  Transcription and replay smoke coverage remains tied to VDO-15 and VDO-16.
+  Transcription execution is covered by the later VDO-15 specs; replay smoke
+  coverage remains tied to VDO-16.
 - 2026-06-19: Completed VDO-14 existing workflow preservation check.
   `cozy bok` runtime smoke, publication, CAR/SAR publishing, scaffold, and
   sbt-bridge contract tests passed after the Phase 8 video additions.
+- 2026-06-19: Completed VDO-15 recorded demo transcription.
+  `cozy video transcribe` now extracts recorded video audio with ffmpeg,
+  runs whisper.cpp through the shared process runner, writes normalized
+  transcript, SRT captions, narration draft, and manifest files, records input
+  hash/model/tool provenance, and supports Docker-first plus host execution
+  with setup-hint based tool validation.
 
 ## References
 
