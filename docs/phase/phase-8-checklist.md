@@ -141,10 +141,10 @@ Status: DONE
 
 ## VDO-08: Remotion Renderer Adapter
 
-Status: OPEN
+Status: DONE
 
-- [ ] Invoke Remotion as the standard renderer path.
-- [ ] Fail with actionable setup hints when Node/Remotion prerequisites are
+- [x] Invoke Remotion as the standard renderer path.
+- [x] Fail with actionable setup hints when Node/Remotion prerequisites are
       missing.
 
 ## VDO-09: Java2D Simple Renderer

@@ -12,7 +12,7 @@ import java.io.ByteArrayOutputStream
 import java.net.{URI, URLEncoder}
 import java.net.http.{HttpClient, HttpRequest, HttpResponse}
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 import java.time.{Duration => JDuration}
 import java.util.concurrent.TimeUnit
 import scala.collection.JavaConverters._
@@ -60,6 +60,33 @@ private[cozy] object CozyVideo {
         RAISE.invalidArgumentFault("Missing project file for video build")
       )
       BuildConfig(projectfile, parsed.flag("dry-run"), parsed.flag("check-tools"), parsed.property("tool-mode"), parsed.property("docker-image"))
+    }
+  }
+
+  final case class RenderConfig(
+    projectFile: Path,
+    renderer: String,
+    part: Option[String] = None,
+    checkTools: Boolean = false,
+    toolMode: Option[String] = None,
+    dockerImage: Option[String] = None
+  ) {
+    def projectRoot: Path = projectFile.getParent
+  }
+  object RenderConfig {
+    def create(args: List[String]): RenderConfig = {
+      val parsed = CozyCliArgs.parseStrict(_p_project_file, _p_renderer, _p_part, _p_check_tools, _p_tool_mode, _p_docker_image)(_normalize_property_args(args))
+      val projectfile = parsed.argument("project-file").map(CozyCliArgs.toPath).getOrElse(
+        RAISE.invalidArgumentFault("Missing project file for video render")
+      )
+      RenderConfig(
+        projectfile,
+        parsed.requiredProperty("renderer"),
+        parsed.property("part"),
+        parsed.flag("check-tools"),
+        parsed.property("tool-mode"),
+        parsed.property("docker-image")
+      )
     }
   }
 
@@ -869,20 +896,25 @@ private[cozy] object CozyVideo {
   private val _p_check_tools = spec.Parameter("check-tools", spec.Parameter.SwitchKind)
   private val _p_dry_run = spec.Parameter("dry-run", spec.Parameter.SwitchKind)
   private val _p_save = spec.Parameter.property("save")
+  private val _p_renderer = spec.Parameter.property("renderer")
+  private val _p_part = spec.Parameter.property("part")
   private val _p_tool_mode = spec.Parameter.property("tool-mode")
   private val _p_docker_image = spec.Parameter.property("docker-image")
   private val _p_voicevox_url = spec.Parameter.property("voicevox-url")
   private val _supported_part_types = Set("dialogue", "storyboard", "web-demo")
   private val _docker_managed_tools = Set("remotion", "playwright", "ffmpeg", "ffprobe", "node", "npm", "whisper-cpp", "python-pillow")
-  private val _property_options = Set("tool-mode", "docker-image", "save", "voicevox-url")
+  private val _property_options = Set("tool-mode", "docker-image", "save", "voicevox-url", "renderer", "part")
   private val _default_sample_rate = 24000
 
   def execute(args: List[String]): Boolean = execute(args, VideoToolRegistry.default)
 
   def execute(args: List[String], tools: VideoToolRegistry): Boolean =
-    execute(args, tools, VoicevoxClient.default)
+    execute(args, tools, VoicevoxClient.default, VideoProcessRunner.default)
 
   def execute(args: List[String], tools: VideoToolRegistry, voicevox: VoicevoxClient): Boolean =
+    execute(args, tools, voicevox, VideoProcessRunner.default)
+
+  def execute(args: List[String], tools: VideoToolRegistry, voicevox: VoicevoxClient, runner: VideoProcessRunner): Boolean =
     args match {
       case "video" :: "inspect" :: rest =>
         println(inspect(InspectConfig.create(rest), tools))
@@ -892,6 +924,9 @@ private[cozy] object CozyVideo {
         true
       case "video" :: "synthesize" :: rest =>
         println(synthesize(SynthesizeConfig.create(rest), voicevox))
+        true
+      case "video" :: "render" :: rest =>
+        println(render(RenderConfig.create(rest), tools, runner))
         true
       case "video" :: other :: _ =>
         RAISE.invalidArgumentFault(s"Unsupported video command: $other")
@@ -918,6 +953,17 @@ private[cozy] object CozyVideo {
     val voicevoxurl = _resolve_voicevox_url(config.projectRoot, script, config.voicevoxUrl)
     val result = _synthesize_script(config.scriptFile, script, config.saveDir, voicevoxurl, voicevox)
     _render_synthesis_result(result)
+  }
+
+  def render(config: RenderConfig, tools: VideoToolRegistry, runner: VideoProcessRunner): String = {
+    if (config.renderer != "remotion")
+      RAISE.invalidArgumentFault(s"Unsupported video renderer: ${config.renderer}. VDO-08 supports only remotion.")
+    val plan = _plan(config.projectFile, config.toolMode, config.dockerImage)
+    val context = VideoToolContext(config.projectFile, config.projectRoot, plan.project, plan.execution)
+    val checks = if (config.checkTools) tools.checks(context) else Vector.empty
+    _validate_render_tools(plan.execution, checks)
+    val result = _render_remotion(config, plan, runner)
+    _render_render_result(result)
   }
 
   private def _load_project(path: Path): VideoProject = {
@@ -968,6 +1014,18 @@ private[cozy] object CozyVideo {
     targetDuration: Double,
     tailSilence: Double
   )
+  object VideoAudioManifestEntry {
+    implicit val decoder: Decoder[VideoAudioManifestEntry] = (c: HCursor) =>
+      for {
+        sceneid <- c.downField("sceneId").as[String]
+        speaker <- c.downField("speaker").as[Option[String]]
+        file <- c.downField("file").as[String]
+        leadsilence <- c.downField("leadSilence").as[Double]
+        audioduration <- c.downField("audioDuration").as[Double]
+        targetduration <- c.downField("targetDuration").as[Double]
+        tailsilence <- c.downField("tailSilence").as[Double]
+      } yield VideoAudioManifestEntry(sceneid, speaker, file, leadsilence, audioduration, targetduration, tailsilence)
+  }
 
   final case class VideoSynthesisResult(
     scriptFile: Path,
@@ -977,6 +1035,51 @@ private[cozy] object CozyVideo {
     manifestFile: Path,
     entries: Vector[VideoAudioManifestEntry]
   )
+
+  final case class VideoRenderedPart(
+    id: String,
+    outputPath: Path,
+    manifestPath: Path,
+    remotionWorkDir: Path
+  )
+
+  final case class VideoRenderResult(
+    projectFile: Path,
+    parts: Vector[VideoRenderedPart],
+    toolMode: VideoToolMode,
+    dockerImage: String
+  )
+
+  final case class VideoAudioInput(
+    manifestPath: Path,
+    entries: Vector[VideoAudioManifestEntry],
+    files: Vector[Path]
+  )
+
+  trait VideoProcessRunner {
+    def run(args: Vector[String], cwd: Path): VideoCommandResult
+  }
+  object VideoProcessRunner {
+    val default: VideoProcessRunner = DefaultVideoProcessRunner
+  }
+
+  private object DefaultVideoProcessRunner extends VideoProcessRunner {
+    def run(args: Vector[String], cwd: Path): VideoCommandResult = {
+      implicit val ec: ScalaExecutionContext = ScalaExecutionContext.global
+      try {
+        val process = new ProcessBuilder(args.asJava).
+          directory(cwd.toFile).
+          redirectErrorStream(false).
+          start()
+        val stdoutf = Future(blocking(new String(process.getInputStream.readAllBytes(), StandardCharsets.UTF_8)))
+        val stderrf = Future(blocking(new String(process.getErrorStream.readAllBytes(), StandardCharsets.UTF_8)))
+        val exit = process.waitFor()
+        VideoCommandResult(exit, Await.result(stdoutf, 30.seconds), Await.result(stderrf, 30.seconds))
+      } catch {
+        case NonFatal(e) => VideoCommandResult(127, "", e.getMessage)
+      }
+    }
+  }
 
   private final case class WaveData(
     sampleRate: Int,
@@ -1041,10 +1144,7 @@ private[cozy] object CozyVideo {
   }
 
   private def _scene_file_id(sceneid: String): String = {
-    val normalized = sceneid.trim
-    if (normalized.isEmpty || normalized == "." || normalized == ".." || normalized.contains("/") || normalized.contains("\\") || normalized.indexOf(0.toChar) >= 0)
-      RAISE.invalidArgumentFault(s"Invalid scene id for audio file name: $sceneid")
-    normalized
+    _file_segment_id(sceneid, "scene id")
   }
 
   private def _audio_output_file(savedir: Path, filename: String): Path = {
@@ -1250,6 +1350,296 @@ private[cozy] object CozyVideo {
   private def _round3(value: Double): Double =
     BigDecimal(value).setScale(3, BigDecimal.RoundingMode.HALF_UP).toDouble
 
+  private def _validate_render_tools(execution: VideoExecutionConfig, checks: Vector[VideoToolCheck]): Unit =
+    if (checks.nonEmpty) {
+      val required =
+        execution.toolMode match {
+          case VideoToolMode.Docker => Set("docker-toolchain", "docker-image", "cozy-toolchain-image")
+          case VideoToolMode.Host => Set("remotion-node")
+          case VideoToolMode.ExternalService => Set.empty[String]
+        }
+      checks.filter(x => required.contains(x.name) && x.status == VideoToolStatus.Missing).headOption.foreach { check =>
+        val hint = check.setupHint.map(x => s" $x").getOrElse("")
+        RAISE.invalidArgumentFault(s"Cannot render with Remotion: ${check.name} is missing.${hint}")
+      }
+    }
+
+  private def _render_remotion(
+    config: RenderConfig,
+    plan: VideoPlan,
+    runner: VideoProcessRunner
+  ): VideoRenderResult = {
+    val parts = _render_target_parts(config, plan)
+    val rendered = parts.map { part =>
+      val script = part.script.getOrElse(RAISE.invalidArgumentFault(s"Part is missing a parsed script: ${part.id}"))
+      val audiodir = part.audioDir.getOrElse(RAISE.invalidArgumentFault(s"Part has no audio directory: ${part.id}"))
+      val audio = _load_audio_input(part.id, audiodir, script)
+      val workdir = _remotion_work_dir(plan.projectRoot, part.id)
+      _write_remotion_workspace(plan.projectRoot, part, script, audio, workdir)
+      _run_remotion(plan.projectRoot, plan.execution, part, workdir, runner)
+      _write_part_manifest(plan, part, audio, workdir)
+      VideoRenderedPart(part.id, part.outputPath, part.manifestPath, workdir)
+    }
+    VideoRenderResult(plan.projectFile, rendered, plan.execution.toolMode, plan.execution.dockerImage)
+  }
+
+  private def _render_target_parts(config: RenderConfig, plan: VideoPlan): Vector[VideoPartPlan] = {
+    val candidates = config.part match {
+      case Some(id) =>
+        val part = plan.parts.find(_.id == id).getOrElse(
+          RAISE.invalidArgumentFault(s"Unknown video part: $id")
+        )
+        Vector(part)
+      case None =>
+        plan.parts.filter(_.renderable)
+    }
+    if (candidates.isEmpty)
+      RAISE.invalidArgumentFault("No renderable video parts found.")
+    candidates.foreach { part =>
+      if (!part.renderable)
+        RAISE.invalidArgumentFault(s"Video part is not renderable: ${part.id}")
+    }
+    candidates
+  }
+
+  private def _load_audio_input(partid: String, audiodir: Path, script: VideoScript): VideoAudioInput = {
+    val manifest = audiodir.resolve("manifest.json").normalize()
+    if (!Files.isRegularFile(manifest))
+      RAISE.invalidArgumentFault(s"Missing audio manifest for part $partid: $manifest. Run: cozy video synthesize <script-file> --save <audio-dir>")
+    val entries = parser.decode[Vector[VideoAudioManifestEntry]](Files.readString(manifest, StandardCharsets.UTF_8)).fold(
+      e => RAISE.invalidArgumentFault(s"Invalid audio manifest for part $partid: ${e.getMessage}"),
+      identity
+    )
+    val scenes = script.expandedScenes
+    if (entries.size != scenes.size)
+      RAISE.invalidArgumentFault(s"Audio manifest scene count does not match script for part $partid: ${entries.size} != ${scenes.size}")
+    val files = entries.map { entry =>
+      val path = audiodir.resolve(entry.file).normalize()
+      if (!Files.isRegularFile(path))
+        RAISE.invalidArgumentFault(s"Missing audio file for part $partid: $path")
+      path
+    }
+    VideoAudioInput(manifest, entries, files)
+  }
+
+  private def _remotion_work_dir(projectroot: Path, partid: String): Path =
+    projectroot.resolve("target/cozy-video/remotion").resolve(_file_segment_id(partid, "part id")).normalize()
+
+  private def _write_remotion_workspace(
+    projectroot: Path,
+    part: VideoPartPlan,
+    script: VideoScript,
+    audio: VideoAudioInput,
+    workdir: Path
+  ): Unit = {
+    val srcdir = workdir.resolve("src")
+    Files.createDirectories(srcdir)
+    Files.writeString(workdir.resolve("package.json"), _remotion_package_json, StandardCharsets.UTF_8)
+    Files.writeString(srcdir.resolve("Root.tsx"), _remotion_root_tsx, StandardCharsets.UTF_8)
+    Files.writeString(srcdir.resolve("render.mjs"), _remotion_render_mjs, StandardCharsets.UTF_8)
+    val propsjson = _remotion_props_json(projectroot, part, script, audio)
+    Files.writeString(workdir.resolve("props.json"), propsjson.spaces2, StandardCharsets.UTF_8)
+    Files.writeString(srcdir.resolve("props.ts"), _remotion_props_ts(propsjson), StandardCharsets.UTF_8)
+    _copy_remotion_audio(workdir, audio)
+  }
+
+  private def _copy_remotion_audio(workdir: Path, audio: VideoAudioInput): Unit = {
+    val audiodir = workdir.resolve("public/audio")
+    Files.createDirectories(audiodir)
+    audio.files.foreach { file =>
+      Files.copy(file, audiodir.resolve(file.getFileName), StandardCopyOption.REPLACE_EXISTING)
+    }
+  }
+
+  private def _run_remotion(
+    projectroot: Path,
+    execution: VideoExecutionConfig,
+    part: VideoPartPlan,
+    workdir: Path,
+    runner: VideoProcessRunner
+  ): Unit = {
+    Files.createDirectories(part.outputPath.getParent)
+    val script = workdir.resolve("src/render.mjs")
+    val args =
+      execution.toolMode match {
+        case VideoToolMode.Docker =>
+          Vector(
+            "docker",
+            "run",
+            "--rm",
+            "-v",
+            s"${projectroot}:/workspace",
+            "-w",
+            "/workspace",
+            execution.dockerImage,
+            "node",
+            _docker_path(projectroot, script)
+          )
+        case VideoToolMode.Host =>
+          Vector("node", script.toString)
+        case VideoToolMode.ExternalService =>
+          RAISE.invalidArgumentFault("Remotion render cannot use external-service tool mode")
+      }
+    val result = runner.run(args, projectroot)
+    if (!result.isSuccess)
+      RAISE.invalidArgumentFault(s"Remotion render failed for part ${part.id}: ${result.stderr.trim}")
+  }
+
+  private def _write_part_manifest(
+    plan: VideoPlan,
+    part: VideoPartPlan,
+    audio: VideoAudioInput,
+    workdir: Path
+  ): Unit = {
+    Files.createDirectories(part.manifestPath.getParent)
+    val json = Json.obj(
+      "partId" -> Json.fromString(part.id),
+      "renderer" -> Json.fromString("remotion"),
+      "scriptPath" -> Json.fromString(part.scriptPath.map(_.toString).getOrElse("")),
+      "audioManifestPath" -> Json.fromString(audio.manifestPath.toString),
+      "outputPath" -> Json.fromString(part.outputPath.toString),
+      "sceneCount" -> Json.fromInt(part.script.map(_.expandedScenes.size).getOrElse(0)),
+      "estimatedDuration" -> Json.fromDoubleOrNull(part.estimatedDuration.getOrElse(0.0)),
+      "toolMode" -> Json.fromString(plan.execution.toolMode.label),
+      "dockerImage" -> Json.fromString(plan.execution.dockerImage),
+      "remotionWorkDir" -> Json.fromString(workdir.toString)
+    )
+    Files.writeString(part.manifestPath, json.spaces2, StandardCharsets.UTF_8)
+  }
+
+  private def _remotion_props_json(projectroot: Path, part: VideoPartPlan, script: VideoScript, audio: VideoAudioInput): Json = {
+    val scenes = script.expandedScenes.zip(audio.entries).zip(audio.files).map {
+      case ((scene, entry), file) =>
+        Json.obj(
+          "id" -> Json.fromString(entry.sceneId),
+          "speaker" -> entry.speaker.map(Json.fromString).getOrElse(Json.Null),
+          "text" -> Json.fromString(scene.narration.orElse(scene.line).orElse(scene.caption).getOrElse("")),
+          "audioPath" -> Json.fromString(s"audio/${file.getFileName}"),
+          "duration" -> Json.fromDoubleOrNull(entry.targetDuration)
+        )
+    }
+    Json.obj(
+      "partId" -> Json.fromString(part.id),
+      "outputPath" -> Json.fromString(_project_relative(projectroot, part.outputPath)),
+      "fps" -> Json.fromInt(30),
+      "width" -> Json.fromInt(1280),
+      "height" -> Json.fromInt(720),
+      "durationSeconds" -> Json.fromDoubleOrNull(script.estimatedDuration),
+      "scenes" -> Json.fromValues(scenes)
+    )
+  }
+
+  private def _remotion_props_ts(json: Json): String =
+    s"""export const cozyVideoProps = ${json.spaces2};
+       |""".stripMargin
+
+  private def _project_relative(projectroot: Path, path: Path): String = {
+    val root = projectroot.toAbsolutePath.normalize()
+    val normalized = path.toAbsolutePath.normalize()
+    if (normalized.startsWith(root))
+      root.relativize(normalized).toString
+    else
+      normalized.toString
+  }
+
+  private def _file_segment_id(value: String, label: String): String = {
+    val normalized = value.trim
+    if (normalized.isEmpty || normalized == "." || normalized == ".." || normalized.contains("/") || normalized.contains("\\") || normalized.indexOf(0.toChar) >= 0)
+      RAISE.invalidArgumentFault(s"Invalid $label for file name: $value")
+    normalized
+  }
+
+  private val _remotion_package_json: String =
+    """{
+      |  "type": "module",
+      |  "private": true,
+      |  "scripts": {
+      |    "render": "node src/render.mjs"
+      |  }
+      |}
+      |""".stripMargin
+
+  private val _remotion_render_mjs: String =
+    """import {execFileSync} from 'node:child_process';
+      |import fs from 'node:fs';
+      |import path from 'node:path';
+      |import {fileURLToPath} from 'node:url';
+      |
+      |const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+      |const workDir = path.resolve(scriptDir, '..');
+      |const projectRoot = process.env.COZY_PROJECT_ROOT || process.cwd();
+      |const propsPath = path.join(workDir, 'props.json');
+      |const props = JSON.parse(fs.readFileSync(propsPath, 'utf8'));
+      |const entry = path.join(scriptDir, 'Root.tsx');
+      |const output = path.resolve(projectRoot, props.outputPath);
+      |fs.mkdirSync(path.dirname(output), {recursive: true});
+      |execFileSync('remotion', ['render', entry, 'CozyVideo', output, '--overwrite'], {
+      |  cwd: projectRoot,
+      |  stdio: 'inherit',
+      |  env: {...process.env, NODE_PATH: process.env.NODE_PATH || '/usr/local/lib/node_modules'}
+      |});
+      |""".stripMargin
+
+  private val _remotion_root_tsx: String =
+    """import React from 'react';
+      |import {AbsoluteFill, Audio, Composition, Sequence, registerRoot, staticFile} from 'remotion';
+      |import {cozyVideoProps} from './props';
+      |
+      |type Scene = {
+      |  id: string;
+      |  text: string;
+      |  audioPath: string;
+      |  duration: number;
+      |};
+      |
+      |type Props = {
+      |  partId: string;
+      |  fps: number;
+      |  width: number;
+      |  height: number;
+      |  durationSeconds: number;
+      |  scenes: Scene[];
+      |};
+      |
+      |const SceneCard: React.FC<{scene: Scene}> = ({scene}) => (
+      |  <AbsoluteFill style={{backgroundColor: '#101820', color: '#f4efe6', fontFamily: 'Noto Sans CJK JP, sans-serif', alignItems: 'center', justifyContent: 'center', padding: 80}}>
+      |    <div style={{fontSize: 56, lineHeight: 1.25, textAlign: 'center'}}>{scene.text || scene.id}</div>
+      |    <div style={{position: 'absolute', bottom: 48, right: 64, fontSize: 24, opacity: 0.7}}>{scene.id}</div>
+      |    <Audio src={staticFile(scene.audioPath)} />
+      |  </AbsoluteFill>
+      |);
+      |
+      |export const CozyVideo: React.FC<Props> = ({scenes, fps}) => {
+      |  let start = 0;
+      |  return (
+      |    <AbsoluteFill>
+      |      {scenes.map((scene) => {
+      |        const duration = Math.max(1, Math.round((scene.duration || 1) * fps));
+      |        const sequence = <Sequence key={scene.id} from={start} durationInFrames={duration}><SceneCard scene={scene} /></Sequence>;
+      |        start += duration;
+      |        return sequence;
+      |      })}
+      |    </AbsoluteFill>
+      |  );
+      |};
+      |
+      |export const RemotionRoot: React.FC = () => (
+      |  <Composition
+      |    id="CozyVideo"
+      |    component={CozyVideo}
+      |    durationInFrames={Math.max(1, Math.round((cozyVideoProps.durationSeconds || 1) * cozyVideoProps.fps))}
+      |    fps={cozyVideoProps.fps}
+      |    width={cozyVideoProps.width}
+      |    height={cozyVideoProps.height}
+      |    defaultProps={cozyVideoProps}
+      |  />
+      |);
+      |
+      |registerRoot(RemotionRoot);
+      |
+      |export default RemotionRoot;
+      |""".stripMargin
+
   private def _plan(projectfile: Path, toolmode: Option[String], dockerimage: Option[String]): VideoPlan = {
     val project = _load_project(projectfile)
     val projectroot = projectfile.getParent
@@ -1305,7 +1695,7 @@ private[cozy] object CozyVideo {
     val recorddir = part.recordDir.map(x => projectroot.resolve(x).normalize()).orElse {
       if (parttype == "web-demo") Some(projectroot.resolve(s"build/record/$id").normalize()) else None
     }
-    val manifestpath = outputpath.getParent.resolve("manifest.json").normalize()
+    val manifestpath = outputpath.getParent.resolve(s"${_basename(outputpath)}.manifest.json").normalize()
     val scriptpath = part.script.map(x => projectroot.resolve(x).normalize())
     val script = scriptpath.flatMap(_load_script)
     val scriptstatus = scriptpath match {
@@ -1556,6 +1946,21 @@ private[cozy] object CozyVideo {
     b += s"manifest: ${result.manifestFile}"
     result.entries.foreach { entry =>
       b += f"  - ${entry.sceneId}: ${entry.file} audio=${entry.audioDuration}%.3f target=${entry.targetDuration}%.3f lead=${entry.leadSilence}%.3f tail=${entry.tailSilence}%.3f"
+    }
+    b.result().mkString("\n") + "\n"
+  }
+
+  private def _render_render_result(result: VideoRenderResult): String = {
+    val b = Vector.newBuilder[String]
+    b += "Cozy Video Render"
+    b += s"projectFile: ${result.projectFile}"
+    b += s"toolMode: ${result.toolMode.label}"
+    b += s"dockerImage: ${result.dockerImage}"
+    b += s"parts: ${result.parts.size}"
+    result.parts.foreach { part =>
+      b += s"  - part.${part.id}: ${part.outputPath}"
+      b += s"    manifest: ${part.manifestPath}"
+      b += s"    remotionWorkDir: ${part.remotionWorkDir}"
     }
     b.result().mkString("\n") + "\n"
   }

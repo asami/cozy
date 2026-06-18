@@ -87,7 +87,7 @@ Out of scope:
 - [x] VDO-06B: Docker toolchain mode implemented
 - [x] VDO-06C: Unified Cozy toolchain Docker image developed
 - [x] VDO-07: VOICEVOX synthesis implemented
-- [ ] VDO-08: Remotion renderer adapter implemented
+- [x] VDO-08: Remotion renderer adapter implemented
 - [ ] VDO-09: Java2D simple renderer implemented
 - [ ] VDO-10: ffmpeg/ffprobe integration implemented
 - [ ] VDO-11: RDF generation implemented
@@ -204,6 +204,11 @@ Out of scope:
   concatenates a combined WAV with JDK WAV handling, and writes
   `manifest.json`. Video render and final mux execution remain deferred to
   VDO-08 and VDO-10.
+- 2026-06-18: Completed VDO-08 Remotion renderer adapter. `cozy video render`
+  now renders renderable parts through Cozy-generated Remotion workspaces under
+  `target/cozy-video/remotion`, supports Docker-first and host execution through
+  a runner SPI, validates VDO-07 audio manifests, and writes part manifests.
+  Final project concat/mux remains deferred to VDO-10.
 
 ## References
 
