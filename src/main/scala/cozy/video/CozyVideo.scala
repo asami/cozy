@@ -6,7 +6,7 @@ import org.goldenport.io.InputSource
 import cozy.runtime.CozyCliArgs
 import org.goldenport.cli.spec
 import io.circe.{Decoder, HCursor, Json}
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Files, Path}
 
 /*
  * @since   Jun. 18, 2026
@@ -27,6 +27,23 @@ private[cozy] object CozyVideo {
         RAISE.invalidArgumentFault("Missing project file for video inspect")
       )
       InspectConfig(projectfile, parsed.flag("check-tools"))
+    }
+  }
+
+  final case class BuildConfig(
+    projectFile: Path,
+    dryRun: Boolean,
+    checkTools: Boolean
+  ) {
+    def projectRoot: Path = projectFile.getParent
+  }
+  object BuildConfig {
+    def create(args: List[String]): BuildConfig = {
+      val parsed = CozyCliArgs.parseStrict(_p_project_file, _p_dry_run, _p_check_tools)(args)
+      val projectfile = parsed.argument("project-file").map(CozyCliArgs.toPath).getOrElse(
+        RAISE.invalidArgumentFault("Missing project file for video build")
+      )
+      BuildConfig(projectfile, parsed.flag("dry-run"), parsed.flag("check-tools"))
     }
   }
 
@@ -243,8 +260,68 @@ private[cozy] object CozyVideo {
       VideoToolCheck(name, mode, VideoToolStatus.Unchecked, message, setupHint)
   }
 
+  sealed trait VideoArtifactStatus { def label: String }
+  object VideoArtifactStatus {
+    case object Planned extends VideoArtifactStatus { val label = "planned" }
+    case object Input extends VideoArtifactStatus { val label = "input" }
+    case object MissingInput extends VideoArtifactStatus { val label = "missing-input" }
+  }
+
+  final case class VideoArtifactPlan(
+    kind: String,
+    path: Path,
+    producerStep: String,
+    status: VideoArtifactStatus
+  )
+
+  final case class VideoCommandPlan(
+    stepName: String,
+    toolName: String,
+    mode: VideoToolMode,
+    preview: String,
+    inputs: Vector[Path],
+    outputs: Vector[Path]
+  )
+
+  final case class VideoPartPlan(
+    index: Int,
+    id: String,
+    partType: String,
+    supported: Boolean,
+    renderer: String,
+    scriptName: Option[String],
+    scriptPath: Option[Path],
+    scriptStatus: String,
+    script: Option[VideoScript],
+    stepsName: Option[String],
+    stepsPath: Option[Path],
+    stepsStatus: Option[String],
+    outputPath: Path,
+    audioDir: Option[Path],
+    recordDir: Option[Path],
+    manifestPath: Path,
+    artifacts: Vector[VideoArtifactPlan],
+    commands: Vector[VideoCommandPlan]
+  ) {
+    def estimatedDuration: Option[Double] = script.map(_.estimatedDuration)
+    def renderable: Boolean =
+      supported && scriptStatus == "found" && (partType != "web-demo" || stepsStatus.contains("found"))
+  }
+
+  final case class VideoPlan(
+    projectFile: Path,
+    projectRoot: Path,
+    project: VideoProject,
+    outputPath: Path,
+    manifestPath: Path,
+    parts: Vector[VideoPartPlan],
+    artifacts: Vector[VideoArtifactPlan],
+    commands: Vector[VideoCommandPlan]
+  )
+
   private val _p_project_file = spec.Parameter.argumentFile("project-file")
   private val _p_check_tools = spec.Parameter("check-tools", spec.Parameter.SwitchKind)
+  private val _p_dry_run = spec.Parameter("dry-run", spec.Parameter.SwitchKind)
   private val _supported_part_types = Set("dialogue", "storyboard", "web-demo")
 
   def execute(args: List[String]): Boolean = execute(args, VideoToolRegistry.default)
@@ -254,6 +331,9 @@ private[cozy] object CozyVideo {
       case "video" :: "inspect" :: rest =>
         println(inspect(InspectConfig.create(rest), tools))
         true
+      case "video" :: "build" :: rest =>
+        println(build(BuildConfig.create(rest), tools))
+        true
       case "video" :: other :: _ =>
         RAISE.invalidArgumentFault(s"Unsupported video command: $other")
       case _ =>
@@ -261,9 +341,17 @@ private[cozy] object CozyVideo {
     }
 
   def inspect(config: InspectConfig, tools: VideoToolRegistry): String = {
-    val project = _load_project(config.projectFile)
-    val context = VideoToolContext(config.projectFile, config.projectRoot, project)
-    _render_inspect(config, context, if (config.checkTools) tools.checks(context) else Vector.empty)
+    val plan = _plan(config.projectFile)
+    val context = VideoToolContext(config.projectFile, config.projectRoot, plan.project)
+    _render_inspect(config, plan, if (config.checkTools) tools.checks(context) else Vector.empty)
+  }
+
+  def build(config: BuildConfig, tools: VideoToolRegistry): String = {
+    if (!config.dryRun)
+      RAISE.invalidArgumentFault("cozy video build without --dry-run is not implemented yet")
+    val plan = _plan(config.projectFile)
+    val context = VideoToolContext(config.projectFile, config.projectRoot, plan.project)
+    _render_build_dry_run(config, plan, if (config.checkTools) tools.checks(context) else Vector.empty)
   }
 
   private def _load_project(path: Path): VideoProject = {
@@ -278,73 +366,296 @@ private[cozy] object CozyVideo {
     else
       None
 
-  private def _render_inspect(
-    config: InspectConfig,
-    context: VideoToolContext,
-    checks: Vector[VideoToolCheck]
-  ): String = {
-    val project = context.project
-    val b = Vector.newBuilder[String]
-    b += "Cozy Video Inspect"
-    b += s"projectFile: ${context.projectFile}"
-    b += s"projectRoot: ${context.projectRoot}"
-    project.name.foreach(x => b += s"name: $x")
-    project.title.foreach(x => b += s"title: $x")
-    b += s"output: ${context.projectRoot.resolve(project.output.getOrElse("build/final.mp4")).normalize()}"
-    b += s"renderer: ${project.renderer.map(_.summary).getOrElse("engine=legacy")}"
-    b += s"parts: ${project.parts.size}"
-    project.parts.zipWithIndex.foreach { case (part, index) =>
-      b ++= _render_part(context.projectRoot, project, part, index + 1)
+  private def _plan(projectfile: Path): VideoPlan = {
+    val project = _load_project(projectfile)
+    val projectroot = projectfile.getParent
+    val outputpath = projectroot.resolve(project.output.getOrElse("build/final.mp4")).normalize()
+    val manifestpath = projectroot.resolve("build/manifest.json").normalize()
+    val parts = project.parts.zipWithIndex.map {
+      case (part, index) => _part_plan(projectroot, project, part, index + 1)
     }
-    if (config.checkTools) {
-      b += "tools:"
-      checks.foreach { check =>
-        b += s"  - ${check.name}: ${check.status.label} (${check.mode.label}) - ${check.message}"
-        check.setupHint.foreach(x => b += s"    setup: $x")
-      }
-    }
-    b.result().mkString("\n") + "\n"
+    val artifacts = Vector(
+      VideoArtifactPlan("project-output", outputpath, "project.concat", VideoArtifactStatus.Planned),
+      VideoArtifactPlan("project-manifest", manifestpath, "project.manifest", VideoArtifactStatus.Planned)
+    ) ++ parts.flatMap(_.artifacts)
+    val partoutputs = parts.filter(_.renderable).map(_.outputPath)
+    val commands =
+      parts.flatMap(_.commands) ++
+        Vector(
+          VideoCommandPlan(
+            "project.concat",
+            "ffmpeg",
+            VideoToolMode.Host,
+            "concat planned part outputs into final video",
+            partoutputs,
+            Vector(outputpath)
+          ),
+          VideoCommandPlan(
+            "project.manifest",
+            "cozy",
+            VideoToolMode.Host,
+            "write project manifest",
+            Vector(outputpath),
+            Vector(manifestpath)
+          )
+        )
+    VideoPlan(projectfile, projectroot, project, outputpath, manifestpath, parts, artifacts, commands)
   }
 
-  private def _render_part(
+  private def _part_plan(
     projectroot: Path,
     project: VideoProject,
     part: VideoPart,
     index: Int
-  ): Vector[String] = {
+  ): VideoPartPlan = {
     val id = part.displayId(index)
     val parttype = part.displayType
     val supported = _supported_part_types.contains(parttype)
     val renderer = part.renderer.orElse(project.renderer).map(_.summary).getOrElse("engine=legacy")
+    val outputpath = projectroot.resolve(part.output.getOrElse(s"build/parts/$id.mp4")).normalize()
+    val audiodir = part.audioDir.map(x => projectroot.resolve(x).normalize()).orElse {
+      if (supported) Some(projectroot.resolve(s"build/audio/$id").normalize()) else None
+    }
+    val recorddir = part.recordDir.map(x => projectroot.resolve(x).normalize()).orElse {
+      if (parttype == "web-demo") Some(projectroot.resolve(s"build/record/$id").normalize()) else None
+    }
+    val manifestpath = outputpath.getParent.resolve("manifest.json").normalize()
+    val scriptpath = part.script.map(x => projectroot.resolve(x).normalize())
+    val script = scriptpath.flatMap(_load_script)
+    val scriptstatus = scriptpath match {
+      case Some(path) if Files.isRegularFile(path) => "found"
+      case Some(_) => "missing"
+      case None => "none"
+    }
+    val stepspath = part.steps.map(x => projectroot.resolve(x).normalize())
+    val stepsstatus = stepspath.map { path =>
+      if (Files.isRegularFile(path)) "found" else "missing"
+    }
+    val artifacts = _part_artifacts(id, scriptpath, scriptstatus, stepspath, stepsstatus, outputpath, audiodir, recorddir, manifestpath)
+    val commands =
+      if (!supported)
+        Vector.empty
+      else
+        _part_commands(id, parttype, renderer, scriptpath, scriptstatus, stepspath, stepsstatus, outputpath, audiodir, recorddir, manifestpath)
+    VideoPartPlan(index, id, parttype, supported, renderer, part.script, scriptpath, scriptstatus, script, part.steps, stepspath, stepsstatus, outputpath, audiodir, recorddir, manifestpath, artifacts, commands)
+  }
+
+  private def _part_artifacts(
+    id: String,
+    scriptpath: Option[Path],
+    scriptstatus: String,
+    stepspath: Option[Path],
+    stepsstatus: Option[String],
+    outputpath: Path,
+    audiodir: Option[Path],
+    recorddir: Option[Path],
+    manifestpath: Path
+  ): Vector[VideoArtifactPlan] = {
+    val scriptartifact = scriptpath.map { path =>
+      VideoArtifactPlan("part-script", path, s"part.$id.input", _input_status(scriptstatus))
+    }
+    val stepsartifact = stepspath.map { path =>
+      VideoArtifactPlan("part-steps", path, s"part.$id.input", _input_status(stepsstatus.getOrElse("missing")))
+    }
+    Vector(
+      scriptartifact,
+      stepsartifact,
+      audiodir.map(path => VideoArtifactPlan("part-audio-dir", path, s"part.$id.synthesize", VideoArtifactStatus.Planned)),
+      recorddir.map(path => VideoArtifactPlan("part-record-dir", path, s"part.$id.capture", VideoArtifactStatus.Planned)),
+      Some(VideoArtifactPlan("part-output", outputpath, s"part.$id.render", VideoArtifactStatus.Planned)),
+      Some(VideoArtifactPlan("part-manifest", manifestpath, s"part.$id.manifest", VideoArtifactStatus.Planned))
+    ).flatten
+  }
+
+  private def _part_commands(
+    id: String,
+    parttype: String,
+    renderer: String,
+    scriptpath: Option[Path],
+    scriptstatus: String,
+    stepspath: Option[Path],
+    stepsstatus: Option[String],
+    outputpath: Path,
+    audiodir: Option[Path],
+    recorddir: Option[Path],
+    manifestpath: Path
+  ): Vector[VideoCommandPlan] = {
+    val parse = scriptpath.map { path =>
+      VideoCommandPlan(
+        s"part.$id.parse-script",
+        "cozy",
+        VideoToolMode.Host,
+        s"parse $parttype script",
+        Vector(path),
+        Vector.empty
+      )
+    }.toVector
+    val capture =
+      if (parttype == "web-demo")
+        stepspath.map { path =>
+          VideoCommandPlan(
+            s"part.$id.capture",
+            "playwright",
+            VideoToolMode.Host,
+            "plan web-demo replay/capture",
+            Vector(path),
+            recorddir.toVector
+          )
+        }.toVector
+      else
+        Vector.empty
+    val renderable = scriptstatus == "found" && (parttype != "web-demo" || stepsstatus.contains("found"))
+    val synthesize =
+      if (renderable)
+        audiodir.map { path =>
+          VideoCommandPlan(
+            s"part.$id.synthesize",
+            "voicevox",
+            VideoToolMode.ExternalService,
+            "synthesize scene audio",
+            scriptpath.toVector,
+            Vector(path)
+          )
+        }.toVector
+      else
+        Vector.empty
+    val render =
+      if (renderable)
+        Vector(VideoCommandPlan(
+          s"part.$id.render",
+          _renderer_tool(renderer),
+          VideoToolMode.Host,
+          s"render $parttype part",
+          scriptpath.toVector ++ audiodir.toVector ++ recorddir.toVector,
+          Vector(outputpath)
+        ))
+      else
+        Vector.empty
+    val manifest =
+      if (renderable)
+        Vector(VideoCommandPlan(
+          s"part.$id.manifest",
+          "cozy",
+          VideoToolMode.Host,
+          "write part manifest",
+          Vector(outputpath),
+          Vector(manifestpath)
+        ))
+      else
+        Vector.empty
+    parse ++ capture.filter(_ => stepsstatus.forall(_ == "found")) ++ synthesize ++ render ++ manifest
+  }
+
+  private def _input_status(status: String): VideoArtifactStatus =
+    status match {
+      case "found" => VideoArtifactStatus.Input
+      case _ => VideoArtifactStatus.MissingInput
+    }
+
+  private def _renderer_tool(renderer: String): String =
+    if (renderer.contains("engine=remotion"))
+      "remotion"
+    else
+      "ffmpeg"
+
+  private def _render_inspect(
+    config: InspectConfig,
+    plan: VideoPlan,
+    checks: Vector[VideoToolCheck]
+  ): String = {
+    val project = plan.project
+    val b = Vector.newBuilder[String]
+    b += "Cozy Video Inspect"
+    b += s"projectFile: ${plan.projectFile}"
+    b += s"projectRoot: ${plan.projectRoot}"
+    project.name.foreach(x => b += s"name: $x")
+    project.title.foreach(x => b += s"title: $x")
+    b += s"output: ${plan.outputPath}"
+    b += s"renderer: ${project.renderer.map(_.summary).getOrElse("engine=legacy")}"
+    b += s"parts: ${project.parts.size}"
+    plan.parts.foreach { part =>
+      b ++= _render_part(part)
+    }
+    b ++= _render_artifacts(plan.artifacts)
+    if (config.checkTools) {
+      b ++= _render_tool_checks(checks)
+    }
+    b.result().mkString("\n") + "\n"
+  }
+
+  private def _render_build_dry_run(
+    config: BuildConfig,
+    plan: VideoPlan,
+    checks: Vector[VideoToolCheck]
+  ): String = {
+    val b = Vector.newBuilder[String]
+    b += "Cozy Video Build Dry-Run"
+    b += s"projectFile: ${plan.projectFile}"
+    b += s"projectRoot: ${plan.projectRoot}"
+    b += s"output: ${plan.outputPath}"
+    b += s"parts: ${plan.parts.size}"
+    b ++= _render_artifacts(plan.artifacts)
+    b += "commands:"
+    plan.commands.foreach { command =>
+      b += s"  - ${command.stepName}: ${command.toolName} (${command.mode.label}) - ${command.preview}"
+      if (command.inputs.nonEmpty)
+        b += s"    inputs: ${command.inputs.mkString(", ")}"
+      if (command.outputs.nonEmpty)
+        b += s"    outputs: ${command.outputs.mkString(", ")}"
+    }
+    if (config.checkTools) {
+      b ++= _render_tool_checks(checks)
+    }
+    b.result().mkString("\n") + "\n"
+  }
+
+  private def _render_part(part: VideoPartPlan): Vector[String] = {
     val z = Vector.newBuilder[String]
-    z += s"part[$index]: $id"
-    z += s"  type: $parttype${if (supported) "" else " (unsupported)"}"
-    z += s"  renderer: $renderer"
-    part.script match {
-      case Some(script) =>
-        val scriptpath = projectroot.resolve(script).normalize()
-        z += s"  script: $script"
-        z += s"  scriptPath: $scriptpath"
-        _load_script(scriptpath) match {
-          case Some(videoscript) =>
-            z += s"  scriptStatus: found"
-            videoscript.title.foreach(x => z += s"  scriptTitle: $x")
-            z += s"  scenes: ${videoscript.scenes.size}"
-            z += s"  expandedScenes: ${videoscript.expandedScenes.size}"
-            z += f"  estimatedDuration: ${videoscript.estimatedDuration}%.2f"
-          case None =>
-            z += s"  scriptStatus: missing"
+    z += s"part[${part.index}]: ${part.id}"
+    z += s"  type: ${part.partType}${if (part.supported) "" else " (unsupported)"}"
+    z += s"  renderer: ${part.renderer}"
+    part.scriptPath match {
+      case Some(path) =>
+        z += s"  script: ${part.scriptName.getOrElse(path.getFileName.toString)}"
+        z += s"  scriptPath: $path"
+        z += s"  scriptStatus: ${part.scriptStatus}"
+        part.script.foreach { videoscript =>
+          videoscript.title.foreach(x => z += s"  scriptTitle: $x")
+          z += s"  scenes: ${videoscript.scenes.size}"
+          z += s"  expandedScenes: ${videoscript.expandedScenes.size}"
+          z += f"  estimatedDuration: ${videoscript.estimatedDuration}%.2f"
         }
       case None =>
         z += s"  scriptStatus: none"
     }
-    part.steps.foreach { steps =>
-      z += s"  steps: $steps"
-      z += s"  stepsPath: ${projectroot.resolve(steps).normalize()}"
+    part.stepsPath.foreach { path =>
+      z += s"  steps: ${part.stepsName.getOrElse(path.getFileName.toString)}"
+      z += s"  stepsPath: $path"
+      part.stepsStatus.foreach(x => z += s"  stepsStatus: $x")
     }
-    part.output.foreach(x => z += s"  output: ${projectroot.resolve(x).normalize()}")
-    part.audioDir.foreach(x => z += s"  audioDir: ${projectroot.resolve(x).normalize()}")
-    part.recordDir.foreach(x => z += s"  recordDir: ${projectroot.resolve(x).normalize()}")
+    z += s"  output: ${part.outputPath}"
+    part.audioDir.foreach(x => z += s"  audioDir: $x")
+    part.recordDir.foreach(x => z += s"  recordDir: $x")
     z.result()
+  }
+
+  private def _render_artifacts(artifacts: Vector[VideoArtifactPlan]): Vector[String] = {
+    val b = Vector.newBuilder[String]
+    b += "artifacts:"
+    artifacts.foreach { artifact =>
+      b += s"  - ${artifact.kind}: ${artifact.status.label} ${artifact.path}"
+      b += s"    producer: ${artifact.producerStep}"
+    }
+    b.result()
+  }
+
+  private def _render_tool_checks(checks: Vector[VideoToolCheck]): Vector[String] = {
+    val b = Vector.newBuilder[String]
+    b += "tools:"
+    checks.foreach { check =>
+      b += s"  - ${check.name}: ${check.status.label} (${check.mode.label}) - ${check.message}"
+      check.setupHint.foreach(x => b += s"    setup: $x")
+    }
+    b.result()
   }
 }

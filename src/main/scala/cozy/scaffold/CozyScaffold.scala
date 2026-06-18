@@ -1500,6 +1500,10 @@ private[cozy] object CozyScaffold {
       |      Project and script files may be JSON, YAML, HOCON, or XML.
       |      In this version --check-tools uses the external-tool SPI but does not execute external tools.
       |
+      |  video build <project-file> --dry-run [--check-tools]
+      |      Print planned video artifacts and command steps without executing external tools.
+      |      Non-dry-run video build is not implemented in this version.
+      |
       |  modeler-scala <model-file> --save <dir>
       |      Generate Scala sources from a CML/Dox model.
       |

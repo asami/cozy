@@ -81,7 +81,7 @@ Out of scope:
 - [ ] VDO-02: `cozy video` command surface defined
 - [ ] VDO-03: Video project model implemented
 - [ ] VDO-04: Project/script structured document parsing implemented
-- [ ] VDO-05: Dry-run and inspect implemented
+- [x] VDO-05: Dry-run and inspect implemented
 - [ ] VDO-06: External tool checks implemented
 - [ ] VDO-06B: Docker toolchain mode implemented
 - [ ] VDO-06C: Unified Cozy toolchain Docker image developed
@@ -178,6 +178,10 @@ Out of scope:
   / web-demo part summaries, unsupported part reporting, deterministic
   subscene IDs, and an injectable non-executing external-tool SPI for stubbed
   tests.
+- 2026-06-18: Completed VDO-05 dry-run and artifact planning. `inspect` now
+  renders a reusable artifact plan, and `video build <project-file> --dry-run`
+  prints non-executing command previews for supported dialogue, storyboard, and
+  web-demo parts.
 
 ## References
 

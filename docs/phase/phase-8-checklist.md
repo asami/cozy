@@ -19,8 +19,8 @@ Status: OPEN
 - [x] Add CLI delegation following the `cozy.bok.CozyBok` pattern for
       `video inspect`.
 - [x] Add help text for `video inspect`.
-- [ ] Add help text for `video build`, `video synthesize`, `video render`, and
-      `video rdf`.
+- [x] Add help text for `video build --dry-run`.
+- [ ] Add help text for `video synthesize`, `video render`, and `video rdf`.
 - [ ] Add help text for `video transcribe`, `video demo-script`, and
       `video replay`.
 
@@ -52,12 +52,12 @@ Status: OPEN
 
 ## VDO-05: Dry-Run and Inspect
 
-Status: OPEN
+Status: DONE
 
 - [x] Print video project and part/script plans.
-- [ ] Print complete artifact plans.
-- [ ] Print planned external commands without executing them.
-- [ ] Keep dry-run independent of installed media tools.
+- [x] Print complete artifact plans.
+- [x] Print planned external commands without executing them.
+- [x] Keep dry-run independent of installed media tools.
 
 ## VDO-06: External Tool Checks
 
