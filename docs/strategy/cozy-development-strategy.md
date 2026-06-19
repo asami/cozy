@@ -183,7 +183,7 @@ Primary reference:
 
 ### Phase 9: Video Publication Registration and BoK Integration
 
-Status: active.
+Status: closed.
 
 Purpose:
 
@@ -210,7 +210,7 @@ Purpose:
 
 ## Current Priority
 
-Phase 6, Phase 7, and Phase 8 are closed. Phase 9 is active.
+Phase 6, Phase 7, Phase 8, and Phase 9 are closed.
 
 Phase 8 completed the first-class `cozy video` workflow: structured
 project/script parsing, inspect, dry-run artifact/command planning, dependency
@@ -218,12 +218,12 @@ checks, Docker-first toolchain mode, unified Cozy toolchain image definition,
 VOICEVOX synthesis, rendering, final muxing/encoding, transcription, replay
 generation, RDF output, and `.video` publication metadata handoff to SmartDox.
 
-Current Phase 9 priority is Video Publication Registration. The immediate
-workstream is completing `publish-video` registry output for RDF/provenance
-metadata so SmartDox/BoK consumers use `src/main/publication` instead of
-workspace or warehouse scans.
+Phase 9 completed Video Publication Registration. `publish-video` registry
+output now carries RDF/provenance metadata through `src/main/publication`, and
+SmartDox/BoK consumers can use publication metadata instead of workspace or
+warehouse scans.
 
-Candidate directions after the initial Phase 9 registration slice include:
+Candidate directions for the next standalone Cozy phase include:
 
 - BoK publication and Component Repository public pages
 - Video publication registration follow-up, if richer article/navigation

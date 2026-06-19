@@ -4,8 +4,8 @@ Purpose: engineering work management.
 
 Current phase:
 
-- Active phase: `phase-9.md`: Video Publication Registration and BoK Integration
-- Most recent closed phase: `phase-8.md`: Video Knowledge Pipeline
+- No active phase is open.
+- Most recent closed phase: `phase-9.md`: Video Publication Registration and BoK Integration
 
 Belongs:
 

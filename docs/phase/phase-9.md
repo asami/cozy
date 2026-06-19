@@ -1,8 +1,9 @@
 # Phase 9: Video Publication Registration and BoK Integration
 
-Status: active
+Status: closed
 
 Start date: 2026-06-19
+Close date: 2026-06-19
 
 ## Goal
 
@@ -78,6 +79,8 @@ Out of scope:
   when present. SmartDox embeds caption tracks and adds site RDF reference
   triples for video/RDF/caption/transcript artifacts. RDF body parse/merge is
   intentionally deferred.
+- 2026-06-19: Closed Phase 9. All VPR items are complete, and there is no
+  active Cozy phase after this closure.
 
 ## References
 
