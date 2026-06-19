@@ -181,6 +181,25 @@ Primary reference:
 - `docs/phase/phase-8.md`
 - `docs/phase/phase-8-checklist.md`
 
+### Phase 9: Video Publication Registration and BoK Integration
+
+Status: active.
+
+Purpose:
+
+- complete the registry boundary for `.video/` package publication
+- make `src/main/publication` the BoK-facing source of truth for video RDF and
+  provenance metadata
+- keep generated video artifacts in warehouse/work areas and outside source
+  packages
+- preserve the existing `publish-video` command surface while enriching its
+  publication registry output
+
+Primary reference:
+
+- `docs/phase/phase-9.md`
+- `docs/phase/phase-9-checklist.md`
+
 ### Future Phase: Model-Driven CAR Project Scaffolding
 
 Purpose:
@@ -191,7 +210,7 @@ Purpose:
 
 ## Current Priority
 
-Phase 6, Phase 7, and Phase 8 are closed.
+Phase 6, Phase 7, and Phase 8 are closed. Phase 9 is active.
 
 Phase 8 completed the first-class `cozy video` workflow: structured
 project/script parsing, inspect, dry-run artifact/command planning, dependency
@@ -199,13 +218,15 @@ checks, Docker-first toolchain mode, unified Cozy toolchain image definition,
 VOICEVOX synthesis, rendering, final muxing/encoding, transcription, replay
 generation, RDF output, and `.video` publication metadata handoff to SmartDox.
 
-Next planning should choose the next standalone Cozy phase. Likely candidates
-are BoK/video publication registration, component repository publication pages,
-or model-driven CAR project scaffolding.
+Current Phase 9 priority is Video Publication Registration. The immediate
+workstream is completing `publish-video` registry output for RDF/provenance
+metadata so SmartDox/BoK consumers use `src/main/publication` instead of
+workspace or warehouse scans.
 
-Candidate directions after Phase 8 include:
+Candidate directions after the initial Phase 9 registration slice include:
 
 - BoK publication and Component Repository public pages
-- Video publication registration
+- Video publication registration follow-up, if richer article/navigation
+  integration is needed
 - Knowledge source compiler expansion
 - Model-driven CAR project scaffolding

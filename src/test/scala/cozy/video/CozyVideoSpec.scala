@@ -1768,10 +1768,16 @@ final class CozyVideoSpec extends AnyFunSuite {
       assert(Files.isRegularFile(artifact.resolveSibling("tutorial-0.1.0.manifest.json")))
       assert(Files.isRegularFile(artifact.resolveSibling("tutorial-0.1.0.ttl")))
       assert(Files.isRegularFile(artifact.resolveSibling("tutorial-0.1.0.jsonld")))
+      assert(Files.isRegularFile(artifact.resolveSibling("tutorial-0.1.0.srt")))
+      assert(Files.isRegularFile(artifact.resolveSibling("tutorial-0.1.0.transcript.json")))
       assert(Files.isRegularFile(publication.resolve("tutorial.json")))
 
       val bundle = play.api.libs.json.Json.parse(_read(publication.resolve("tutorial.json")))
       val entries = (bundle \ "entries").as[Vector[play.api.libs.json.JsObject]]
+      val paths = entries.map(entry => (entry \ "path").as[String]).toSet
+      assert(paths.contains("metadata/video/tutorial/0.1.0/manifest.json"))
+      assert(paths.contains("metadata/video/tutorial/0.1.0/rdf.json"))
+      assert(paths.contains("metadata/video/tutorial/latest.json"))
       val video = entries.find(entry => (entry \ "path").as[String] == "metadata/videos/tutorial/metadata.json").get
       val videometadata = (video \ "metadata" \ "video")
       assert((videometadata \ "type").as[String] == "video")
@@ -1780,9 +1786,41 @@ final class CozyVideoSpec extends AnyFunSuite {
       assert((videometadata \ "sourcePackage").as[String] == "concepts/tutorial.video")
       assert((videometadata \ "scriptPath").as[String] == "script.json")
       assert((videometadata \ "artifact" \ "warehousePath").as[String] == "repository/video/textus/0.1.0/tutorial-0.1.0.mp4")
-      assert((videometadata \ "artifact" \ "publicPath").as[String] == "videos/tutorial.mp4")
+      assert((videometadata \ "artifact" \ "publicPath").as[String] == "repository/video/textus/0.1.0/tutorial-0.1.0.mp4")
+      assert((videometadata \ "artifact" \ "sitePublicPath").as[String] == "videos/tutorial.mp4")
       assert((videometadata \ "artifact" \ "repositoryPublicPath").as[String] == "repository/video/textus/0.1.0/tutorial-0.1.0.mp4")
-      assert((videometadata \ "rdf" \ "turtle" \ "path").as[String].endsWith("rdf/video.ttl"))
+      assert((videometadata \ "rdf" \ "registryPath").as[String] == "metadata/video/tutorial/0.1.0/rdf")
+      assert((videometadata \ "rdf" \ "manifestPath").as[String] == "metadata/video/tutorial/0.1.0/manifest")
+      assert((videometadata \ "rdf" \ "latestPath").as[String] == "metadata/video/tutorial/latest")
+      assert((videometadata \ "rdf" \ "files").toOption.isEmpty)
+      assert((videometadata \ "captions" \ "warehousePath").as[String] == "repository/video/textus/0.1.0/tutorial-0.1.0.srt")
+      assert((videometadata \ "captions" \ "publicPath").as[String] == "repository/video/textus/0.1.0/tutorial-0.1.0.srt")
+      assert((videometadata \ "transcript" \ "warehousePath").as[String] == "repository/video/textus/0.1.0/tutorial-0.1.0.transcript.json")
+      assert((videometadata \ "transcript" \ "publicPath").as[String] == "repository/video/textus/0.1.0/tutorial-0.1.0.transcript.json")
+      assert(!play.api.libs.json.Json.stringify(videometadata.get).contains("target/cozy-video"))
+
+      val rdfentry = entries.find(entry => (entry \ "path").as[String] == "metadata/video/tutorial/0.1.0/rdf.json").get
+      val rdfmetadata = (rdfentry \ "metadata")
+      assert((rdfmetadata \ "type").as[String] == "video-rdf")
+      assert((rdfmetadata \ "registryPath").as[String] == "metadata/video/tutorial/0.1.0/rdf")
+      assert((rdfmetadata \ "files" \ "turtle" \ "warehousePath").as[String] == "repository/video/textus/0.1.0/tutorial-0.1.0.ttl")
+      assert((rdfmetadata \ "files" \ "jsonLd" \ "warehousePath").as[String] == "repository/video/textus/0.1.0/tutorial-0.1.0.jsonld")
+      assert((rdfmetadata \ "files" \ "manifest" \ "warehousePath").as[String] == "repository/video/textus/0.1.0/tutorial-0.1.0.rdf-manifest.json")
+
+      val latestentry = entries.find(entry => (entry \ "path").as[String] == "metadata/video/tutorial/latest.json").get
+      assert((latestentry \ "metadata" \ "video" \ "version").as[String] == "0.1.0")
+      assert((latestentry \ "metadata" \ "video" \ "rdfPath").as[String] == "metadata/video/tutorial/0.1.0/rdf")
+
+      val artifactentry = entries.find(entry => (entry \ "path").as[String] == "metadata/artifacts/repository/tutorial.json").get
+      val artifactfiles = (artifactentry \ "metadata" \ "artifact" \ "files").as[Vector[play.api.libs.json.JsObject]]
+      val artifacttypes = artifactfiles.map(x => (x \ "type").as[String]).toSet
+      assert(artifacttypes.contains("video"))
+      assert(artifacttypes.contains("manifest"))
+      assert(artifacttypes.contains("turtle"))
+      assert(artifacttypes.contains("jsonld"))
+      assert(artifacttypes.contains("rdf-manifest"))
+      assert(artifacttypes.contains("captions"))
+      assert(artifacttypes.contains("transcript"))
 
       val sourcefiles = Files.walk(pkg).iterator().asScala.toVector.filter(Files.isRegularFile(_)).map(_.getFileName.toString)
       assert(!sourcefiles.exists(_.endsWith(".mp4")))
@@ -2053,6 +2091,9 @@ object CozyVideoSpec {
         Files.write(_command_path(cwd, args.last), Array[Byte](0, 0, 0, 0))
         CozyVideo.VideoCommandResult(0, "ffmpeg ok", "")
       } else if (args.contains("ffprobe")) {
+        Files.createDirectories(cwd.resolve("build"))
+        Files.writeString(cwd.resolve("build/captions.srt"), "1\n00:00:00,000 --> 00:00:01,000\ncaption\n", StandardCharsets.UTF_8)
+        Files.writeString(cwd.resolve("build/transcript.json"), """{"schema":"cozy.video.transcript.v1","segments":[]}""", StandardCharsets.UTF_8)
         CozyVideo.VideoCommandResult(0, """{"format":{"duration":"1.000"},"streams":[]}""", "")
       } else {
         CozyVideo.VideoCommandResult(0, "ok", "")

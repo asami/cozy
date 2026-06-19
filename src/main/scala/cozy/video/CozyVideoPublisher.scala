@@ -7,7 +7,7 @@ import org.goldenport.cli.spec
 import cozy.publication.CozyPublicationCompiler
 import cozy.runtime.CozyCliArgs
 import io.circe.{Decoder, HCursor, Json => CJson}
-import play.api.libs.json.{Json => PJson, JsObject, JsValue}
+import play.api.libs.json.{Json => PJson, JsArray, JsObject, JsValue}
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 import java.security.MessageDigest
@@ -275,7 +275,7 @@ private[cozy] object CozyVideoPublisher {
     projectfile: Path,
     artifact: Path
   ): PublishVideoResult = {
-    val videojson = _video_metadata_json(video, workspace, artifact)
+    val videojson = _video_metadata_json(video, artifact)
     val artifactjson = _video_artifact_json(video, artifact)
     val catalogjson = PJson.obj(
       "schema" -> _schema,
@@ -297,20 +297,19 @@ private[cozy] object CozyVideoPublisher {
       Vector(
         s"metadata/catalog/videos/${video.name}.json" -> catalogjson,
         s"metadata/videos/${video.name}/metadata.json" -> videojson,
-        s"metadata/artifacts/repository/${video.name}.json" -> artifactjson
+        s"metadata/artifacts/repository/${video.name}.json" -> artifactjson,
+        s"${_video_registry_root(video)}/manifest.json" -> _video_registry_manifest_json(video, artifact),
+        s"${_video_registry_root(video)}/rdf.json" -> _video_registry_rdf_json(video, artifact),
+        s"metadata/video/${video.name}/latest.json" -> _video_latest_json(video)
       )
     )
     PublishVideoResult(video, workspace, projectfile, artifact, config.saveDir.resolve(s"${video.name}.json"))
   }
 
-  private def _video_metadata_json(video: ResolvedVideoPackage, workspace: Path, artifact: Path): JsValue = {
-    val rdf = _optional_files_json(Vector(
-      "turtle" -> workspace.resolve("rdf/video.ttl"),
-      "jsonLd" -> workspace.resolve("rdf/video.jsonld"),
-      "manifest" -> workspace.resolve("rdf/manifest.json")
-    ))
-    val captions = _optional_file_json(workspace.resolve("build/captions.srt"))
-    val transcript = _optional_file_json(workspace.resolve("build/transcript.json"))
+  private def _video_metadata_json(video: ResolvedVideoPackage, artifact: Path): JsValue = {
+    val rdf = Some(_video_rdf_reference_json(video))
+    val captions = _video_repository_sidecar_json(video, artifact.resolveSibling(s"${video.name}-${video.version}.srt"), "captions")
+    val transcript = _video_repository_sidecar_json(video, artifact.resolveSibling(s"${video.name}-${video.version}.transcript.json"), "transcript")
     val optional = Vector(
       rdf.map("rdf" -> _),
       captions.map("captions" -> _),
@@ -338,7 +337,8 @@ private[cozy] object CozyVideoPublisher {
         ),
         "artifact" -> PJson.obj(
           "warehousePath" -> video.warehousePath,
-          "publicPath" -> video.publicPath,
+          "publicPath" -> video.repositoryPublicPath,
+          "sitePublicPath" -> video.publicPath,
           "repositoryPublicPath" -> video.repositoryPublicPath,
           "file" -> artifact.toString,
           "sha256" -> _sha256(artifact),
@@ -348,6 +348,61 @@ private[cozy] object CozyVideoPublisher {
     )
     base
   }
+
+  private def _video_registry_manifest_json(video: ResolvedVideoPackage, artifact: Path): JsValue =
+    PJson.obj(
+      "schema" -> _schema,
+      "type" -> "video-registry-manifest",
+      "video" -> PJson.obj(
+        "name" -> video.name,
+        "title" -> video.title,
+        "version" -> video.version,
+        "metadataPath" -> s"metadata/videos/${video.name}/metadata",
+        "rdfPath" -> s"${_video_registry_root(video)}/rdf",
+        "latestPath" -> s"metadata/video/${video.name}/latest"
+      ),
+      "artifact" -> PJson.obj(
+        "warehousePath" -> video.warehousePath,
+        "publicPath" -> video.repositoryPublicPath,
+        "sitePublicPath" -> video.publicPath,
+        "repositoryPublicPath" -> video.repositoryPublicPath,
+        "size" -> Files.size(artifact),
+        "sha256" -> _sha256(artifact)
+      ),
+      "sidecars" -> _video_sidecars_json(video, artifact)
+    )
+
+  private def _video_registry_rdf_json(video: ResolvedVideoPackage, artifact: Path): JsValue =
+    PJson.obj(
+      "schema" -> _schema,
+      "type" -> "video-rdf",
+      "video" -> PJson.obj(
+        "name" -> video.name,
+        "version" -> video.version
+      ),
+      "registryPath" -> s"${_video_registry_root(video)}/rdf",
+      "files" -> _video_rdf_files_json(video, artifact)
+    )
+
+  private def _video_latest_json(video: ResolvedVideoPackage): JsValue =
+    PJson.obj(
+      "schema" -> _schema,
+      "type" -> "video-latest",
+      "video" -> PJson.obj(
+        "name" -> video.name,
+        "version" -> video.version,
+        "metadataPath" -> s"metadata/videos/${video.name}/metadata",
+        "manifestPath" -> s"${_video_registry_root(video)}/manifest",
+        "rdfPath" -> s"${_video_registry_root(video)}/rdf"
+      )
+    )
+
+  private def _video_rdf_reference_json(video: ResolvedVideoPackage): JsObject =
+    PJson.obj(
+      "registryPath" -> s"${_video_registry_root(video)}/rdf",
+      "manifestPath" -> s"${_video_registry_root(video)}/manifest",
+      "latestPath" -> s"metadata/video/${video.name}/latest"
+    )
 
   private def _video_artifact_json(video: ResolvedVideoPackage, artifact: Path): JsValue =
     PJson.obj(
@@ -367,39 +422,78 @@ private[cozy] object CozyVideoPublisher {
           "versions" -> PJson.arr(video.version),
           "latestRelease" -> video.version
         )),
-        "files" -> PJson.arr(PJson.obj(
-          "layer" -> "repository",
-          "type" -> "video",
-          "module" -> video.module,
-          "artifactId" -> video.module,
-          "version" -> video.version,
-          "extension" -> "mp4",
-          "warehousePath" -> video.warehousePath,
-          "publicPath" -> video.repositoryPublicPath,
-          "sitePublicPath" -> video.publicPath,
-          "name" -> artifact.getFileName.toString,
-          "expected" -> false,
-          "size" -> Files.size(artifact),
-          "sha256" -> _sha256(artifact)
-        ))
+        "files" -> JsArray(
+          PJson.obj(
+            "layer" -> "repository",
+            "type" -> "video",
+            "module" -> video.module,
+            "artifactId" -> video.module,
+            "version" -> video.version,
+            "extension" -> "mp4",
+            "warehousePath" -> video.warehousePath,
+            "publicPath" -> video.repositoryPublicPath,
+            "sitePublicPath" -> video.publicPath,
+            "name" -> artifact.getFileName.toString,
+            "expected" -> false,
+            "size" -> Files.size(artifact),
+            "sha256" -> _sha256(artifact)
+          ) +: _video_repository_sidecar_files(video, artifact)
+        )
       )
     )
 
-  private def _optional_files_json(paths: Vector[(String, Path)]): Option[JsObject] = {
-    val fields = paths.flatMap { case (name, path) =>
-      if (Files.isRegularFile(path))
-        Some(name -> PJson.obj("path" -> path.toString, "sha256" -> _sha256(path), "size" -> Files.size(path)))
-      else
-        None
+  private def _video_repository_sidecar_files(video: ResolvedVideoPackage, artifact: Path): Vector[JsObject] =
+    Vector(
+      "manifest" -> artifact.resolveSibling(s"${video.name}-${video.version}.manifest.json"),
+      "turtle" -> artifact.resolveSibling(s"${video.name}-${video.version}.ttl"),
+      "jsonld" -> artifact.resolveSibling(s"${video.name}-${video.version}.jsonld"),
+      "rdf-manifest" -> artifact.resolveSibling(s"${video.name}-${video.version}.rdf-manifest.json"),
+      "captions" -> artifact.resolveSibling(s"${video.name}-${video.version}.srt"),
+      "transcript" -> artifact.resolveSibling(s"${video.name}-${video.version}.transcript.json")
+    ).flatMap { case (kind, path) =>
+      _video_repository_sidecar_json(video, path, kind)
     }
-    if (fields.isEmpty) None else Some(JsObject(fields))
-  }
 
-  private def _optional_file_json(path: Path): Option[JsObject] =
+  private def _video_repository_sidecar_json(video: ResolvedVideoPackage, path: Path, kind: String): Option[JsObject] =
     if (Files.isRegularFile(path))
-      Some(PJson.obj("path" -> path.toString, "sha256" -> _sha256(path), "size" -> Files.size(path)))
+      Some(_video_repository_file_json(video, path, kind))
     else
       None
+
+  private def _video_rdf_files_json(video: ResolvedVideoPackage, artifact: Path): JsObject =
+    JsObject(Vector(
+      _video_repository_sidecar_json(video, artifact.resolveSibling(s"${video.name}-${video.version}.ttl"), "turtle").map("turtle" -> _),
+      _video_repository_sidecar_json(video, artifact.resolveSibling(s"${video.name}-${video.version}.jsonld"), "jsonLd").map("jsonLd" -> _),
+      _video_repository_sidecar_json(video, artifact.resolveSibling(s"${video.name}-${video.version}.rdf-manifest.json"), "manifest").map("manifest" -> _)
+    ).flatten)
+
+  private def _video_repository_file_json(video: ResolvedVideoPackage, path: Path, kind: String): JsObject = {
+    val extension = path.getFileName.toString.split('.').lastOption.getOrElse("")
+    PJson.obj(
+      "layer" -> "repository",
+      "type" -> kind,
+      "module" -> video.module,
+      "artifactId" -> video.module,
+      "version" -> video.version,
+      "extension" -> extension,
+      "warehousePath" -> s"repository/video/${video.module}/${video.version}/${path.getFileName}",
+      "publicPath" -> s"repository/video/${video.module}/${video.version}/${path.getFileName}",
+      "sitePublicPath" -> video.publicPath,
+      "name" -> path.getFileName.toString,
+      "expected" -> false,
+      "size" -> Files.size(path),
+      "sha256" -> _sha256(path)
+    )
+  }
+
+  private def _video_sidecars_json(video: ResolvedVideoPackage, artifact: Path): JsObject =
+    PJson.obj(
+      "repository" -> JsArray(_video_repository_sidecar_files(video, artifact)),
+      "rdf" -> _video_rdf_reference_json(video)
+    )
+
+  private def _video_registry_root(video: ResolvedVideoPackage): String =
+    s"metadata/video/${video.name}/${video.version}"
 
   private def _descriptor_file(packagedir: Path): Path = {
     val files = _descriptor_names.map(packagedir.resolve).filter(Files.isRegularFile(_))
