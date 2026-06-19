@@ -12,7 +12,7 @@ import org.scalatest.funsuite.AnyFunSuite
 
 /*
  * @since   Jun. 18, 2026
- * @version Jun. 19, 2026
+ * @version Jun. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoSpec extends AnyFunSuite {
@@ -1885,7 +1885,8 @@ final class CozyVideoSpec extends AnyFunSuite {
 
       assert(article.contains("Tutorial"))
       assert(article.contains("This is a video article."))
-      assert(article.contains("pass:[<video"))
+      assert(article.contains("smartdox-video-publication"))
+      assert(article.contains("<video"))
       assert(article.contains("src=\"/repository/video/textus/0.1.0/tutorial-0.1.0.mp4\""))
       assert(result.get("antora.d/docs/concepts/modules/ROOT/pages/tutorial.video/index.adoc").isEmpty)
 

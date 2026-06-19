@@ -13,7 +13,7 @@ import scala.collection.JavaConverters._
 /*
  * @since   May. 20, 2026
  *  version May. 25, 2026
- * @version Jun. 19, 2026
+ * @version Jun. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyScaffold {
@@ -1492,8 +1492,9 @@ private[cozy] object CozyScaffold {
       |  bok update-publication <project-dir> [--publication <dir>] [--warehouse <dir>] [--version <version>] [--force]
       |      Update BoK publication registry metadata. In this version it publishes .video packages.
       |
-      |  bok publish <project-dir> [--publication <dir>] [--warehouse <dir>] [--version <version>] [--strategy production] [--force]
+      |  bok publish <project-dir> [--publication <dir>] [--warehouse <dir>] [--version <version>] [--strategy production] [--force] [--dry-run]
       |      Run update-publication, production BoK build, and the configured bok.workflow.upload.command.
+      |      With --dry-run, print the planned steps and write a target manifest without changing publication, warehouse, or site output.
       |
       |  bok preview [<project-dir>] [--port 8080]
       |      Serve website.d with python3 -m http.server for local preview.

@@ -218,6 +218,24 @@ Primary reference:
 - `docs/phase/phase-10.md`
 - `docs/phase/phase-10-checklist.md`
 
+### Phase 11: BoK Publication and Upload Workflow Productionization
+
+Status: active.
+
+Purpose:
+
+- make `cozy bok publish` safe and repeatable for production BoK publication
+  operation
+- add dry-run, preflight, operation manifest, and step-level diagnostics
+- keep upload implementation as a project-owned external workflow command
+- preserve Phase 10 source, publication registry, warehouse, and site output
+  boundaries
+
+Primary reference:
+
+- `docs/phase/phase-11.md`
+- `docs/phase/phase-11-checklist.md`
+
 ### Future Phase: Model-Driven CAR Project Scaffolding
 
 Purpose:
@@ -228,7 +246,7 @@ Purpose:
 
 ## Current Priority
 
-Phase 6, Phase 7, Phase 8, Phase 9, and Phase 10 are closed.
+Phase 6, Phase 7, Phase 8, Phase 9, and Phase 10 are closed. Phase 11 is active.
 
 Phase 8 completed the first-class `cozy video` workflow: structured
 project/script parsing, inspect, dry-run artifact/command planning, dependency
@@ -245,7 +263,9 @@ Phase 10 completed one-stop BoK build and operation integration. `cozy bok` can
 coordinate publication metadata, registered video artifacts, SmartDox site
 generation, and registered Turtle RDF merge behavior.
 
-Candidate directions for the next standalone Cozy phase include:
+Current Phase 11 priority is productionizing BoK publication and upload workflow operation.
+
+Candidate directions after Phase 11 include:
 
 - BoK publication and Component Repository public pages
 - Video publication registration follow-up, if richer article/navigation

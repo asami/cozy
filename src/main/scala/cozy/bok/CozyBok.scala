@@ -12,12 +12,12 @@ import java.util.zip.{ZipEntry, ZipOutputStream}
 import scala.collection.JavaConverters._
 import scala.util.matching.Regex
 import scala.sys.process._
-import io.circe.{Decoder, HCursor}
+import io.circe.{Decoder, HCursor, Json}
 import io.circe.parser
 
 /*
  * @since   Jun.  3, 2026
- * @version Jun. 19, 2026
+ * @version Jun. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyBok {
@@ -215,13 +215,21 @@ private[cozy] object CozyBok {
     version: Option[String],
     force: Boolean,
     videoEnabled: Boolean,
+    dryRun: Boolean,
     strategy: String
   ) {
     def sourcePath: Path = project.resolve(source).toAbsolutePath.normalize()
     def publicationPath: Path = project.resolve(publication).toAbsolutePath.normalize()
     def warehousePath: Path = project.resolve(warehouse).toAbsolutePath.normalize()
+    def manifestPath: Path = project.resolve("target/cozy-bok/publish/latest/manifest.json").toAbsolutePath.normalize()
   }
   final case class WorkflowConfig(project: Path, name: String, command: Vector[String])
+  private final case class PublishStep(name: String, status: String, message: String)
+  private final case class PublishPreflight(
+    upload: WorkflowConfig,
+    build: BuildConfig,
+    packages: Vector[Path]
+  )
   private final case class ParsedArgs(request: CliRequest) {
     def argument(name: String): Option[String] =
       request.arguments.find(_.name == name).map(_.asString).map(_.trim).filter(_.nonEmpty)
@@ -322,7 +330,8 @@ private[cozy] object CozyBok {
       spec.Parameter.propertyFileOption("publication"),
       spec.Parameter.property("version"),
       spec.Parameter.property("strategy"),
-      spec.Parameter("force", spec.Parameter.SwitchKind)
+      spec.Parameter("force", spec.Parameter.SwitchKind),
+      spec.Parameter("dry-run", spec.Parameter.SwitchKind)
     )
 
     private val _preview_request = spec.Request(
@@ -516,17 +525,159 @@ private[cozy] object CozyBok {
     voicevox: CozyVideo.VoicevoxClient,
     videorunner: CozyVideo.VideoProcessRunner
   ): Unit = {
+    val preflight = _publish_preflight(config)
+    val planned = Vector(
+      PublishStep("preflight", "succeeded", "Publish preflight passed."),
+      PublishStep("update-publication", if (preflight.packages.isEmpty) "skipped" else if (config.dryRun) "planned" else "pending", s"${preflight.packages.size} .video package(s)."),
+      PublishStep("build", if (config.dryRun) "planned" else "pending", s"strategy=${preflight.build.strategy}"),
+      PublishStep("upload", if (config.dryRun) "planned" else "pending", preflight.upload.command.mkString(" "))
+    )
+    if (config.dryRun) {
+      _write_publish_manifest(config, preflight, planned)
+      _print_publish_plan(config, preflight)
+    } else {
+      var steps = Vector(PublishStep("preflight", "succeeded", "Publish preflight passed."))
+      try {
+        if (preflight.packages.isEmpty) {
+          steps :+= PublishStep("update-publication", "skipped", "No .video packages to publish.")
+          _publish_status("update-publication", "skipped")
+        } else {
+          _publish_status("update-publication", "start")
+          val results = updatePublication(config, voicevox, videorunner)
+          steps :+= PublishStep("update-publication", "succeeded", s"${results.size} package(s) published.")
+          _publish_status("update-publication", "succeeded")
+        }
+        _write_publish_manifest(config, preflight, steps)
+
+        _publish_status("build", "start")
+        build(preflight.build, runner)
+        steps :+= PublishStep("build", "succeeded", s"strategy=${preflight.build.strategy}")
+        _publish_status("build", "succeeded")
+        _write_publish_manifest(config, preflight, steps)
+
+        _publish_status("upload", "start")
+        runWorkflow(preflight.upload, runner)
+        steps :+= PublishStep("upload", "succeeded", preflight.upload.command.mkString(" "))
+        _publish_status("upload", "succeeded")
+        _write_publish_manifest(config, preflight, steps)
+      } catch {
+        case e: Throwable =>
+          val failed = _failed_step(steps)
+          steps :+= PublishStep(failed, "failed", Option(e.getMessage).getOrElse(e.toString))
+          _publish_status(failed, "failed")
+          _write_publish_manifest(config, preflight, steps)
+          throw e
+      }
+    }
+  }
+
+  private def _publish_preflight(config: PublicationConfig): PublishPreflight = {
     val upload = WorkflowConfig.create("upload", List(config.project.toString))
     _require_workflow(upload)
-    updatePublication(config, voicevox, videorunner)
-    build(BuildConfig.create(List(
+    val buildconfig = BuildConfig.create(List(
       config.project.toString,
       "--strategy", config.strategy,
       "--warehouse", config.warehousePath.toString,
       "--publication", config.publicationPath.toString
-    )), runner)
-    runWorkflow(upload, runner)
+    ))
+    val packages = if (config.videoEnabled) _video_packages(config) else Vector.empty
+    _validate_publish_path("publication", config.publicationPath, config.project, config.sourcePath)
+    _validate_publish_path("warehouse", config.warehousePath, config.project, config.sourcePath)
+    _reject_path_overlap("publication", config.publicationPath, "warehouse", config.warehousePath)
+    _reject_path_overlap("publication", config.publicationPath, "website", buildconfig.websitePath)
+    _reject_path_overlap("publication", config.publicationPath, "doxsite", buildconfig.doxsitePath)
+    _reject_path_overlap("warehouse", config.warehousePath, "website", buildconfig.websitePath)
+    _reject_path_overlap("warehouse", config.warehousePath, "doxsite", buildconfig.doxsitePath)
+    PublishPreflight(upload, buildconfig, packages)
   }
+
+  private def _validate_publish_path(name: String, path: Path, project: Path, source: Path): Unit = {
+    if (path == source || path.startsWith(source) || source.startsWith(path))
+      RAISE.invalidArgumentFault(s"Invalid ${name} path overlaps BoK source: ${path}")
+    val parent = Option(path.getParent).getOrElse(project)
+    if (Files.exists(path) && !Files.isDirectory(path))
+      RAISE.invalidArgumentFault(s"Invalid ${name} path is not a directory: ${path}")
+    if (!Files.exists(path) && !Files.exists(parent))
+      RAISE.invalidArgumentFault(s"Invalid ${name} path parent does not exist: ${parent}")
+    if (Files.exists(parent) && !Files.isWritable(parent))
+      RAISE.invalidArgumentFault(s"Invalid ${name} path parent is not writable: ${parent}")
+    if (Files.exists(path) && !Files.isWritable(path))
+      RAISE.invalidArgumentFault(s"Invalid ${name} path is not writable: ${path}")
+  }
+
+  private def _reject_path_overlap(leftname: String, left: Path, rightname: String, right: Path): Unit =
+    if ({
+      val leftpath = left.toAbsolutePath.normalize()
+      val rightpath = right.toAbsolutePath.normalize()
+      leftpath == rightpath || leftpath.startsWith(rightpath) || rightpath.startsWith(leftpath)
+    })
+      RAISE.invalidArgumentFault(s"Invalid ${leftname}/${rightname} path overlap: ${left.toAbsolutePath.normalize()} / ${right.toAbsolutePath.normalize()}")
+
+  private def _failed_step(steps: Vector[PublishStep]): String =
+    if (!steps.exists(_.name == "update-publication"))
+      "update-publication"
+    else if (!steps.exists(_.name == "build"))
+      "build"
+    else if (!steps.exists(_.name == "upload"))
+      "upload"
+    else
+      "publish"
+
+  private def _publish_status(step: String, status: String): Unit =
+    println(s"bok publish: ${step}: ${status}")
+
+  private def _print_publish_plan(config: PublicationConfig, preflight: PublishPreflight): Unit = {
+    println("bok publish dry-run")
+    println(s"project: ${config.project}")
+    println(s"publication: ${config.publicationPath}")
+    println(s"warehouse: ${config.warehousePath}")
+    println(s"strategy: ${config.strategy}")
+    println("steps:")
+    println(s"- update-publication: ${preflight.packages.size} .video package(s)")
+    println(s"- build: strategy=${preflight.build.strategy}")
+    println(s"- upload: ${preflight.upload.command.mkString(" ")}")
+    println(s"manifest: ${config.manifestPath}")
+  }
+
+  private def _write_publish_manifest(
+    config: PublicationConfig,
+    preflight: PublishPreflight,
+    steps: Vector[PublishStep]
+  ): Unit = {
+    Files.createDirectories(config.manifestPath.getParent)
+    val json = Json.obj(
+      "schema" -> Json.fromString("cozy.bok.publish-manifest.v1"),
+      "project" -> Json.fromString(config.project.toString),
+      "source" -> Json.fromString(config.sourcePath.toString),
+      "publication" -> Json.fromString(config.publicationPath.toString),
+      "warehouse" -> Json.fromString(config.warehousePath.toString),
+      "strategy" -> Json.fromString(config.strategy),
+      "dryRun" -> Json.fromBoolean(config.dryRun),
+      "force" -> Json.fromBoolean(config.force),
+      "videoEnabled" -> Json.fromBoolean(config.videoEnabled),
+      "videoPackages" -> Json.fromValues(preflight.packages.map(x => Json.fromString(x.toString))),
+      "publicationArtifacts" -> Json.fromValues(preflight.packages.map(x => Json.obj(
+        "sourcePackage" -> Json.fromString(x.toString),
+        "registryRoot" -> Json.fromString(config.publicationPath.toString),
+        "warehouseRoot" -> Json.fromString(config.warehousePath.toString)
+      ))),
+      "buildCommands" -> Json.arr(
+        Json.fromValues(_dox_antora_command(preflight.build).map(Json.fromString)),
+        Json.fromValues(_dox_site_command(preflight.build).map(Json.fromString))
+      ),
+      "buildCommand" -> Json.fromValues(_dox_site_command(preflight.build).map(Json.fromString)),
+      "uploadCommand" -> Json.fromValues(preflight.upload.command.map(Json.fromString)),
+      "steps" -> Json.fromValues(steps.map(_publish_step_json))
+    )
+    Files.writeString(config.manifestPath, json.spaces2, StandardCharsets.UTF_8)
+  }
+
+  private def _publish_step_json(step: PublishStep): Json =
+    Json.obj(
+      "name" -> Json.fromString(step.name),
+      "status" -> Json.fromString(step.status),
+      "message" -> Json.fromString(step.message)
+    )
 
   private def _publish_video_packages(
     config: PublicationConfig,
@@ -2521,6 +2672,8 @@ private[cozy] object CozyBok {
        |    commit:
        |      command: ""
        |    upload:
+       |      # Configure an external, project-owned upload command.
+       |      # Example: "etc/upload-site.sh"
        |      command: ""
        |""".stripMargin
 
@@ -3088,6 +3241,9 @@ private[cozy] object CozyBok {
         getOrElse("warehouse")
       val force = parsed.request.switches.exists(_.name == "force") || _boolean(config, "bok.video.force", false)
       val videoenabled = _boolean(config, "bok.video.enabled", true)
+      val dryrun = parsed.request.switches.exists(_.name == "dry-run")
+      if (dryrun && name != "publish")
+        RAISE.invalidArgumentFault(s"--dry-run is only supported by bok publish: ${name}")
       PublicationConfig(
         project,
         config.value("bok.source").getOrElse("src/main/doxsite"),
@@ -3096,6 +3252,7 @@ private[cozy] object CozyBok {
         parsed.property("version"),
         force,
         videoenabled,
+        dryrun,
         strategy
       )
     }

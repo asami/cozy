@@ -145,6 +145,17 @@ UPLOAD
 chmod +x bok.d/etc/upload.sh
 
 sbt -Dcozy.version="$cozy_version" --batch \
+  "runMain cozy.Cozy bok publish bok.d --dry-run --strategy production"
+
+test -f bok.d/target/cozy-bok/publish/latest/manifest.json
+grep '"dryRun" : true' bok.d/target/cozy-bok/publish/latest/manifest.json
+grep '"status" : "planned"' bok.d/target/cozy-bok/publish/latest/manifest.json
+test ! -f bok.d/src/main/publication/tutorial.json
+test ! -d bok.d/warehouse
+test ! -d bok.d/website.d
+test ! -d bok.d/doxsite.d
+
+sbt -Dcozy.version="$cozy_version" --batch \
   "runMain cozy.Cozy bok publish-video bok.d --force" \
   "runMain cozy.Cozy bok publish bok.d --force --strategy production"
 
