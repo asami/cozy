@@ -1,6 +1,6 @@
 # Phase 11: BoK Publication and Upload Workflow Productionization
 
-Status: active
+Status: closed
 
 Start date: 2026-06-19
 
@@ -42,7 +42,7 @@ Out of scope:
 - [x] BK11-07: Help and config examples
 - [x] BK11-08: Compatibility preservation
 - [x] BK11-09: Tests and smoke
-- [ ] BK11-10: Phase closure
+- [x] BK11-10: Phase closure
 
 ## Acceptance Criteria
 
@@ -68,6 +68,25 @@ Out of scope:
   preflight validates upload configuration and path boundaries before side
   effects. Non-dry-run publish records step status for publication update,
   build, and upload, including build/upload failure diagnostics.
+
+## Closure
+
+Closed on 2026-06-20.
+
+Validation:
+
+- `sbt --batch "testOnly cozy.CozyBokSpec"` passed.
+- `sbt --batch "testOnly cozy.video.CozyVideoSpec"` passed.
+- `sbt --batch "scripted cozy/bok-video-publication-smoke"` passed.
+- `sbt --batch test` passed.
+- `git diff --check` passed.
+
+Scripted note:
+
+- `bok-video-publication-smoke` completed successfully. The fixture reported
+  that the released `cozy.version=0.2.22` does not expose `bok publish-video`
+  yet, so the runtime smoke body was skipped under the current release-version
+  scripted policy.
 
 ## References
 
