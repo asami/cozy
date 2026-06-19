@@ -4,6 +4,7 @@ import org.goldenport.RAISE
 import org.goldenport.cli.{Request => CliRequest}
 import org.goldenport.cli.spec
 import cozy.config.CozyProjectYamlConfig
+import cozy.video.{CozyVideo, CozyVideoPublisher}
 import java.time.LocalDate
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths, StandardCopyOption}
@@ -183,7 +184,8 @@ private[cozy] object CozyBok {
     localeMode: LocaleMode,
     languages: Vector[String],
     arcadia: ArcadiaConfig,
-    directAssets: DirectAssetsConfig
+    directAssets: DirectAssetsConfig,
+    publication: PublicationSettings
   ) {
     def sourcePath: Path = project.resolve(source)
     def websitePath: Path = project.resolve(website)
@@ -196,6 +198,29 @@ private[cozy] object CozyBok {
   final case class ArcadiaConfig(enabled: Boolean, source: String)
   final case class DirectAssetsConfig(enabled: Boolean, items: Vector[DirectAsset])
   final case class DirectAsset(source: String, destination: String)
+  final case class PublicationSettings(
+    path: String,
+    warehouse: String,
+    mergeRdf: Boolean,
+    missingRdfPolicy: String
+  ) {
+    def publicationPath(project: Path): Path = project.resolve(path).toAbsolutePath.normalize()
+    def warehousePath(project: Path): Path = project.resolve(warehouse).toAbsolutePath.normalize()
+  }
+  final case class PublicationConfig(
+    project: Path,
+    source: String,
+    publication: String,
+    warehouse: String,
+    version: Option[String],
+    force: Boolean,
+    videoEnabled: Boolean,
+    strategy: String
+  ) {
+    def sourcePath: Path = project.resolve(source).toAbsolutePath.normalize()
+    def publicationPath: Path = project.resolve(publication).toAbsolutePath.normalize()
+    def warehousePath: Path = project.resolve(warehouse).toAbsolutePath.normalize()
+  }
   final case class WorkflowConfig(project: Path, name: String, command: Vector[String])
   private final case class ParsedArgs(request: CliRequest) {
     def argument(name: String): Option[String] =
@@ -285,7 +310,19 @@ private[cozy] object CozyBok {
     private val _build_request = spec.Request(
       _p_project,
       spec.Parameter.property("strategy"),
-      spec.Parameter.property("docker-image")
+      spec.Parameter.property("docker-image"),
+      spec.Parameter.propertyFileOption("warehouse"),
+      spec.Parameter.propertyFileOption("publication"),
+      spec.Parameter.property("rdf-missing-artifact-policy")
+    )
+
+    private val _publication_request = spec.Request(
+      _p_project,
+      spec.Parameter.propertyFileOption("warehouse"),
+      spec.Parameter.propertyFileOption("publication"),
+      spec.Parameter.property("version"),
+      spec.Parameter.property("strategy"),
+      spec.Parameter("force", spec.Parameter.SwitchKind)
     )
 
     private val _preview_request = spec.Request(
@@ -298,6 +335,7 @@ private[cozy] object CozyBok {
     def create(args: List[String]): ParsedArgs = _parse("bok-create", _create_request, args)
     def category(args: List[String]): ParsedArgs = _parse("bok-create-category", _category_request, args)
     def build(args: List[String]): ParsedArgs = _parse("bok-build", _build_request, args)
+    def publication(name: String, args: List[String]): ParsedArgs = _parse(s"bok-${name}", _publication_request, args)
     def preview(args: List[String]): ParsedArgs = _parse("bok-preview", _preview_request, args)
     def workflow(name: String, args: List[String]): ParsedArgs = _parse(s"bok-${name}", _workflow_request, args)
 
@@ -342,6 +380,15 @@ private[cozy] object CozyBok {
         true
       case "bok" :: "update" :: rest =>
         build(BuildConfig.create(rest), ProcessRunner)
+        true
+      case "bok" :: "publish-video" :: rest =>
+        publishVideo(PublicationConfig.create("publish-video", rest), CozyVideo.VoicevoxClient.default, CozyVideo.VideoProcessRunner.default)
+        true
+      case "bok" :: "update-publication" :: rest =>
+        updatePublication(PublicationConfig.create("update-publication", rest), CozyVideo.VoicevoxClient.default, CozyVideo.VideoProcessRunner.default)
+        true
+      case "bok" :: "publish" :: rest =>
+        publish(PublicationConfig.create("publish", rest), ProcessRunner, CozyVideo.VoicevoxClient.default, CozyVideo.VideoProcessRunner.default)
         true
       case "bok" :: "preview" :: rest =>
         preview(rest, ProcessRunner)
@@ -400,9 +447,9 @@ private[cozy] object CozyBok {
     _delete_directory(config.websitePath)
     if (config.arcadia.enabled)
       _delete_directory(config.arcadiaSitePath)
-    runner.run(Vector("dox", "antora", "-strategy", config.strategy, config.source), config.project)
+    runner.run(_dox_antora_command(config), config.project)
     _run_antora(config, runner)
-    runner.run(Vector("dox", "site", "-strategy", config.strategy, "-output.scope.policy", config.siteOutputScopePolicy, config.source), config.project)
+    runner.run(_dox_site_command(config), config.project)
     _normalize_doxsite_output(config)
     _delete_directory(config.project.resolve(s"doxsite-cache-${config.strategy}.d"))
     if (config.arcadia.enabled) {
@@ -432,6 +479,10 @@ private[cozy] object CozyBok {
   }
 
   def runWorkflow(config: WorkflowConfig, runner: Runner): Unit =
+    if (_require_workflow(config))
+      runner.run(config.command, config.project)
+
+  private def _require_workflow(config: WorkflowConfig): Boolean =
     if (config.command.isEmpty)
       RAISE.invalidArgumentFault(
         s"Missing bok workflow command: bok.workflow.${config.name}.command\n" +
@@ -443,7 +494,83 @@ private[cozy] object CozyBok {
              |""".stripMargin
       )
     else
-      runner.run(config.command, config.project)
+      true
+
+  def publishVideo(
+    config: PublicationConfig,
+    voicevox: CozyVideo.VoicevoxClient,
+    videorunner: CozyVideo.VideoProcessRunner
+  ): Vector[CozyVideoPublisher.PublishVideoResult] =
+    _publish_video_packages(config, voicevox, videorunner)
+
+  def updatePublication(
+    config: PublicationConfig,
+    voicevox: CozyVideo.VoicevoxClient,
+    videorunner: CozyVideo.VideoProcessRunner
+  ): Vector[CozyVideoPublisher.PublishVideoResult] =
+    publishVideo(config, voicevox, videorunner)
+
+  def publish(
+    config: PublicationConfig,
+    runner: Runner,
+    voicevox: CozyVideo.VoicevoxClient,
+    videorunner: CozyVideo.VideoProcessRunner
+  ): Unit = {
+    val upload = WorkflowConfig.create("upload", List(config.project.toString))
+    _require_workflow(upload)
+    updatePublication(config, voicevox, videorunner)
+    build(BuildConfig.create(List(
+      config.project.toString,
+      "--strategy", config.strategy,
+      "--warehouse", config.warehousePath.toString,
+      "--publication", config.publicationPath.toString
+    )), runner)
+    runWorkflow(upload, runner)
+  }
+
+  private def _publish_video_packages(
+    config: PublicationConfig,
+    voicevox: CozyVideo.VoicevoxClient,
+    videorunner: CozyVideo.VideoProcessRunner
+  ): Vector[CozyVideoPublisher.PublishVideoResult] =
+    if (!config.videoEnabled)
+      Vector.empty
+    else
+      _video_packages(config).map { packagedir =>
+        CozyVideoPublisher.publish(
+          CozyVideoPublisher.PublishVideoConfig(
+            packagedir,
+            config.publicationPath,
+            config.warehousePath,
+            config.version,
+            config.force
+          ),
+          voicevox,
+          videorunner
+        )
+      }
+
+  private def _video_packages(config: PublicationConfig): Vector[Path] = {
+    if (!Files.isDirectory(config.sourcePath))
+      RAISE.invalidArgumentFault(s"Missing BoK source directory: ${config.sourcePath}")
+    val stream = Files.walk(config.sourcePath)
+    try {
+      val dirs = stream.iterator.asScala.toVector.filter(Files.isDirectory(_)).map(_.toAbsolutePath.normalize())
+      dirs.find(_.getFileName.toString.endsWith(".video.d")).foreach { path =>
+        RAISE.invalidArgumentFault(s"*.video.d is reserved for generated/work directories: $path")
+      }
+      dirs.filter(_.getFileName.toString.endsWith(".video")).sortBy(_.toString).map { path =>
+        if (!_has_video_descriptor(path))
+          RAISE.invalidArgumentFault(s"Missing video descriptor in .video package: $path")
+        path
+      }
+    } finally {
+      stream.close()
+    }
+  }
+
+  private def _has_video_descriptor(path: Path): Boolean =
+    Vector("video.yaml", "video.yml", "video.json").exists(x => Files.isRegularFile(path.resolve(x)))
 
   private def _run_antora(config: BuildConfig, runner: Runner): Unit = {
     config.localeMode match {
@@ -458,6 +585,29 @@ private[cozy] object CozyBok {
           runner.run(_docker_antora(config, antoradir, websitedir), config.project)
         }
     }
+  }
+
+  private def _dox_antora_command(config: BuildConfig): Vector[String] =
+    Vector("dox", "antora", "-strategy", config.strategy) ++
+      _publication_options(config, includerdf = false) ++
+      Vector(config.source)
+
+  private def _dox_site_command(config: BuildConfig): Vector[String] =
+    Vector("dox", "site", "-strategy", config.strategy, "-output.scope.policy", config.siteOutputScopePolicy) ++
+      _publication_options(config, includerdf = true) ++
+      Vector(config.source)
+
+  private def _publication_options(config: BuildConfig, includerdf: Boolean): Vector[String] = {
+    val base = Vector(
+      "-publication", config.publication.publicationPath(config.project).toString
+    )
+    if (includerdf && config.publication.mergeRdf)
+      base ++ Vector(
+        "-publication.repository", config.publication.warehousePath(config.project).toString,
+        "-publication.rdf.missing.policy", config.publication.missingRdfPolicy
+      )
+    else
+      base
   }
 
   private def _docker_antora(config: BuildConfig, workdir: String, output: String): Vector[String] =
@@ -2157,13 +2307,37 @@ private[cozy] object CozyBok {
     config.boolean(path).getOrElse(default)
 
   private def _strategy(parsed: ParsedArgs): String =
-    parsed.property("strategy").getOrElse("wip") match {
+    _strategy(parsed, "wip")
+
+  private def _strategy(parsed: ParsedArgs, default: String): String =
+    parsed.property("strategy").getOrElse(default) match {
       case "wip" => "work-in-progress"
       case "draft" => "draft"
       case "preview" => "production-preview"
       case "production" => "production"
       case other => other
     }
+
+  private def _publication_settings(
+    parsed: ParsedArgs,
+    config: CozyProjectYamlConfig.Config,
+    strategy: String
+  ): PublicationSettings = {
+    val publication = parsed.pathProperty("publication").
+      map(_.toString).
+      orElse(config.value("bok.publication")).
+      getOrElse("src/main/publication")
+    val warehouse = parsed.pathProperty("warehouse").
+      map(_.toString).
+      orElse(config.value("bok.warehouse")).
+      getOrElse("warehouse")
+    val merge = _boolean(config, "bok.rdf.merge-publication-artifacts", true)
+    val defaultpolicy = if (strategy == "production") "fail" else "warn"
+    val missingpolicy = parsed.property("rdf-missing-artifact-policy").
+      orElse(config.value("bok.rdf.missing-artifact-policy")).
+      getOrElse(defaultpolicy)
+    PublicationSettings(publication, warehouse, merge, missingpolicy)
+  }
 
   private def _split_command(value: String): Vector[String] =
     value.trim.split("\\s+").toVector.filter(_.nonEmpty)
@@ -2325,10 +2499,18 @@ private[cozy] object CozyBok {
        |
        |bok:
        |  source: src/main/doxsite
+       |  publication: src/main/publication
+       |  warehouse: warehouse
+       |  strategy: production
        |  website: website.d
        |  antora: antora.d
        |  doxsite: doxsite.d
        |  ui-bundle: src/main/antora-ui/build/ui-bundle.zip
+       |  rdf:
+       |    merge-publication-artifacts: true
+       |  video:
+       |    enabled: true
+       |    force: false
        |  arcadia:
        |    enabled: false
        |    source: src/main/arcadiasite
@@ -2883,7 +3065,38 @@ private[cozy] object CozyBok {
         _locale_mode(config, site),
         _languages(config, site),
         ArcadiaConfig(_boolean(config, "bok.arcadia.enabled", false), config.value("bok.arcadia.source").getOrElse("src/main/arcadiasite")),
-        _direct_assets(project, config)
+        _direct_assets(project, config),
+        _publication_settings(parsed, config, _strategy(parsed))
+      )
+    }
+  }
+
+  object PublicationConfig {
+    def create(name: String, args: List[String]): PublicationConfig = {
+      val parsed = BokArgs.publication(name, args)
+      val project = _project(parsed)
+      parsed.validateNoUnrecognized()
+      val config = _load_config(project)
+      val strategy = _strategy(parsed, config.value("bok.strategy").getOrElse("production"))
+      val publication = parsed.pathProperty("publication").
+        map(_.toString).
+        orElse(config.value("bok.publication")).
+        getOrElse("src/main/publication")
+      val warehouse = parsed.pathProperty("warehouse").
+        map(_.toString).
+        orElse(config.value("bok.warehouse")).
+        getOrElse("warehouse")
+      val force = parsed.request.switches.exists(_.name == "force") || _boolean(config, "bok.video.force", false)
+      val videoenabled = _boolean(config, "bok.video.enabled", true)
+      PublicationConfig(
+        project,
+        config.value("bok.source").getOrElse("src/main/doxsite"),
+        publication,
+        warehouse,
+        parsed.property("version"),
+        force,
+        videoenabled,
+        strategy
       )
     }
   }

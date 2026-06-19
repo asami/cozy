@@ -200,6 +200,24 @@ Primary reference:
 - `docs/phase/phase-9.md`
 - `docs/phase/phase-9-checklist.md`
 
+### Phase 10: One-Stop BoK Build and Operation Integration
+
+Status: active.
+
+Purpose:
+
+- integrate BoK source, publication registry, warehouse artifacts, and
+  SmartDox site generation under `cozy bok`
+- add BoK-level video publication and publication update commands
+- make `bok build` consume registered publication metadata and merge registered
+  RDF artifacts without running heavy video generation
+- preserve source/work/artifact/site boundaries for BoK operation
+
+Primary reference:
+
+- `docs/phase/phase-10.md`
+- `docs/phase/phase-10-checklist.md`
+
 ### Future Phase: Model-Driven CAR Project Scaffolding
 
 Purpose:
@@ -210,7 +228,7 @@ Purpose:
 
 ## Current Priority
 
-Phase 6, Phase 7, Phase 8, and Phase 9 are closed.
+Phase 6, Phase 7, Phase 8, and Phase 9 are closed. Phase 10 is active.
 
 Phase 8 completed the first-class `cozy video` workflow: structured
 project/script parsing, inspect, dry-run artifact/command planning, dependency
@@ -223,7 +241,11 @@ output now carries RDF/provenance metadata through `src/main/publication`, and
 SmartDox/BoK consumers can use publication metadata instead of workspace or
 warehouse scans.
 
-Candidate directions for the next standalone Cozy phase include:
+Current Phase 10 priority is one-stop BoK build and operation integration. The
+immediate workstream is making `cozy bok` coordinate publication metadata,
+registered video artifacts, SmartDox site generation, and RDF merge behavior.
+
+Candidate directions after Phase 10 include:
 
 - BoK publication and Component Repository public pages
 - Video publication registration follow-up, if richer article/navigation

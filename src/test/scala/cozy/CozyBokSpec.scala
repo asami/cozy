@@ -1,6 +1,8 @@
 package cozy
 
 import cozy.bok.CozyBok
+import cozy.video.CozyVideoSpec
+import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
 import java.util.zip.ZipInputStream
@@ -48,6 +50,7 @@ class CozyBokSpec extends AnyFunSuite {
       assert(_read(dir.resolve("src/main/doxsite/manual/index.dox")).contains("cozy bok build"))
       assert(_read(dir.resolve("src/main/doxsite/manual/index.dox")).contains("自動用語リンク対象外"))
       assert(_read(dir.resolve("conf/cozy/config.yaml")).contains("cozy-toolchain"))
+      assert(!_read(dir.resolve("conf/cozy/config.yaml")).contains("missing-artifact-policy: warn"))
       assert(_read(dir.resolve("src/main/doxsite/site.conf")).contains("""locale_mode = "single_locale_root""""))
       assert(_read(dir.resolve("src/main/doxsite/site.conf")).contains("output.scope.policy = home_only"))
       assert(_read(dir.resolve("src/main/doxsite/index.dox")).contains("published_at="))
@@ -136,8 +139,18 @@ class CozyBokSpec extends AnyFunSuite {
       CozyBok.build(config, runner)
 
       assert(config.strategy == "work-in-progress")
-      assert(runner.commands.exists(_ == Vector("dox", "antora", "-strategy", "work-in-progress", "src/main/doxsite")))
-      assert(runner.commands.exists(_ == Vector("dox", "site", "-strategy", "work-in-progress", "-output.scope.policy", "home_only", "src/main/doxsite")))
+      assert(runner.commands.exists { command =>
+        command.take(4) == Vector("dox", "antora", "-strategy", "work-in-progress") &&
+          command.contains("-publication") &&
+          command.last == "src/main/doxsite"
+      })
+      assert(runner.commands.exists { command =>
+        command.take(6) == Vector("dox", "site", "-strategy", "work-in-progress", "-output.scope.policy", "home_only") &&
+          command.contains("-publication") &&
+          command.contains("-publication.repository") &&
+          command.contains("-publication.rdf.missing.policy") &&
+          command.last == "src/main/doxsite"
+      })
       assert(runner.commands.exists(_.contains("smartdox-antora:test")))
       assert(runner.commands.exists(_.contains("/workspace/website.d")))
       assert(_read(dir.resolve("website.d/index.html")).contains("KnowledgeHub BoKのHome画面"))
@@ -411,6 +424,182 @@ class CozyBokSpec extends AnyFunSuite {
     }
   }
 
+
+
+  test("bok build applies publication config and CLI precedence") {
+    _with_temp_dir("cozy-bok-publication-options") { dir =>
+      _write(dir.resolve(".cozy/config.yaml"),
+        """bok:
+          |  publication: configured-publication
+          |  warehouse: configured-warehouse
+          |  rdf:
+          |    merge-publication-artifacts: true
+          |    missing-artifact-policy: warn
+          |""".stripMargin)
+      _write(dir.resolve("src/main/doxsite/site.conf"), "site { output { locale_mode = \"single_locale_root\" } }\n")
+      val config = CozyBok.BuildConfig.create(List(
+        dir.toString,
+        "--strategy", "production",
+        "--publication", dir.resolve("cli-publication").toString,
+        "--warehouse", dir.resolve("cli-warehouse").toString,
+        "--rdf-missing-artifact-policy", "fail"
+      ))
+      val runner = new RecordingRunner
+
+      CozyBok.build(config, runner)
+
+      val sitecommand = runner.commands.find(_.take(2) == Vector("dox", "site")).get
+      assert(sitecommand.contains("-publication"))
+      assert(sitecommand.contains(dir.resolve("cli-publication").toAbsolutePath.normalize().toString))
+      assert(sitecommand.contains("-publication.repository"))
+      assert(sitecommand.contains(dir.resolve("cli-warehouse").toAbsolutePath.normalize().toString))
+      assert(sitecommand.contains("-publication.rdf.missing.policy"))
+      assert(sitecommand.contains("fail"))
+    }
+  }
+
+  test("bok build uses production RDF missing artifact failure by default") {
+    _with_temp_dir("cozy-bok-production-rdf-policy") { dir =>
+      val config = CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "production"))
+      val runner = new RecordingRunner
+
+      CozyBok.build(config, runner)
+
+      val sitecommand = runner.commands.find(_.take(2) == Vector("dox", "site")).get
+      assert(sitecommand.contains("-publication.rdf.missing.policy"))
+      assert(sitecommand.contains("fail"))
+    }
+  }
+
+  test("bok publish-video discovers .video packages and writes publication registry") {
+    _with_temp_dir("cozy-bok-publish-video") { dir =>
+      val pkg = dir.resolve("src/main/doxsite/concepts/tutorial.video")
+      _write(pkg.resolve("index.dox"), "# Tutorial\n")
+      _write(pkg.resolve("script.json"), _video_script_json)
+      _write(pkg.resolve("video.yaml"),
+        """video:
+          |  name: tutorial
+          |title: Tutorial Video
+          |version: 0.1.0
+          |publish:
+          |  module: textus
+          |""".stripMargin)
+      val runner = CozyVideoSpec.PublishingRunner()
+      val config = CozyBok.PublicationConfig.create("publish-video", List(dir.toString))
+
+      val results = CozyBok.publishVideo(config, CozyVideoSpec.RecordingVoicevoxClient(), runner)
+
+      assert(results.size == 1)
+      assert(Files.isRegularFile(dir.resolve("src/main/publication/tutorial.json")))
+      assert(Files.isRegularFile(dir.resolve("warehouse/repository/video/textus/0.1.0/tutorial-0.1.0.mp4")))
+      val sourcefiles = Files.walk(pkg).iterator().asScala.toVector.filter(Files.isRegularFile(_)).map(_.getFileName.toString)
+      assert(!sourcefiles.exists(_.endsWith(".mp4")))
+      assert(!sourcefiles.exists(_.endsWith(".ttl")))
+      assert(!sourcefiles.exists(_.endsWith(".jsonld")))
+      assert(!sourcefiles.exists(_.endsWith(".srt")))
+    }
+  }
+
+  test("bok publish-video honors bok video enabled false") {
+    _with_temp_dir("cozy-bok-publish-video-disabled") { dir =>
+      val pkg = dir.resolve("src/main/doxsite/concepts/tutorial.video")
+      _write(pkg.resolve("index.dox"), "# Tutorial\n")
+      _write(pkg.resolve("script.json"), _video_script_json)
+      _write(pkg.resolve("video.yaml"),
+        """video:
+          |  name: tutorial
+          |title: Tutorial Video
+          |version: 0.1.0
+          |publish:
+          |  module: textus
+          |""".stripMargin)
+      _write(dir.resolve(".cozy/config.yaml"),
+        """bok:
+          |  video:
+          |    enabled: false
+          |""".stripMargin)
+      val config = CozyBok.PublicationConfig.create("publish-video", List(dir.toString))
+
+      val results = CozyBok.publishVideo(config, CozyVideoSpec.RecordingVoicevoxClient(), CozyVideoSpec.PublishingRunner())
+
+      assert(results.isEmpty)
+      assert(!Files.exists(dir.resolve("src/main/publication/tutorial.json")))
+      assert(!Files.exists(dir.resolve("warehouse/repository/video/textus/0.1.0/tutorial-0.1.0.mp4")))
+    }
+  }
+
+  test("bok publish-video rejects .video.d work directories") {
+    _with_temp_dir("cozy-bok-publish-video-workdir") { dir =>
+      Files.createDirectories(dir.resolve("src/main/doxsite/concepts/bad.video.d"))
+      val config = CozyBok.PublicationConfig.create("publish-video", List(dir.toString))
+
+      val e = intercept[Throwable] {
+        CozyBok.publishVideo(config, CozyVideoSpec.RecordingVoicevoxClient(), CozyVideoSpec.PublishingRunner())
+      }
+
+      assert(e.getMessage.contains("*.video.d is reserved"))
+    }
+  }
+
+  test("bok publish validates upload workflow before publication update") {
+    _with_temp_dir("cozy-bok-publish-upload-preflight") { dir =>
+      val pkg = dir.resolve("src/main/doxsite/concepts/tutorial.video")
+      _write(pkg.resolve("index.dox"), "# Tutorial\n")
+      _write(pkg.resolve("script.json"), _video_script_json)
+      _write(pkg.resolve("video.yaml"),
+        """video:
+          |  name: tutorial
+          |title: Tutorial Video
+          |version: 0.1.0
+          |publish:
+          |  module: textus
+          |""".stripMargin)
+      _write(dir.resolve("src/main/doxsite/site.conf"), "site { output { locale_mode = \"single_locale_root\" } }\n")
+      val config = CozyBok.PublicationConfig.create("publish", List(dir.toString, "--strategy", "production"))
+      val runner = new RecordingRunner
+
+      val e = intercept[Throwable] {
+        CozyBok.publish(config, runner, CozyVideoSpec.RecordingVoicevoxClient(), CozyVideoSpec.PublishingRunner())
+      }
+
+      assert(e.getMessage.contains("Missing bok workflow command"))
+      assert(runner.commands.isEmpty)
+      assert(!Files.exists(dir.resolve("src/main/publication/tutorial.json")))
+      assert(!Files.exists(dir.resolve("warehouse/repository/video/textus/0.1.0/tutorial-0.1.0.mp4")))
+    }
+  }
+
+  test("bok publish runs update publication then build then configured upload") {
+    _with_temp_dir("cozy-bok-publish-flow") { dir =>
+      _write(dir.resolve(".cozy/config.yaml"),
+        """bok:
+          |  docker-image: antora-image
+          |  workflow:
+          |    upload:
+          |      command: "etc/upload.sh"
+          |""".stripMargin)
+      _write(dir.resolve("src/main/doxsite/site.conf"), "site { output { locale_mode = \"single_locale_root\" } }\n")
+      val config = CozyBok.PublicationConfig.create("publish", List(dir.toString, "--strategy", "production"))
+      val runner = new RecordingRunner
+
+      CozyBok.publish(config, runner, CozyVideoSpec.RecordingVoicevoxClient(), CozyVideoSpec.PublishingRunner())
+
+      assert(runner.commands.exists(_.take(2) == Vector("dox", "antora")))
+      assert(runner.commands.exists(_.take(2) == Vector("dox", "site")))
+      assert(runner.commands.last == Vector("sh", "-c", "etc/upload.sh"))
+    }
+  }
+
+  test("cozy help lists BoK publication path options") {
+    val help = _capture {
+      Cozy.main(Array("--help"))
+    }
+
+    assert(help.contains("bok publish-video <project-dir> [--publication <dir>] [--warehouse <dir>]"))
+    assert(help.contains("bok update-publication <project-dir> [--publication <dir>] [--warehouse <dir>]"))
+    assert(help.contains("bok publish <project-dir> [--publication <dir>] [--warehouse <dir>]"))
+  }
+
   test("bok preview validates port as integer metadata") {
     _with_temp_dir("cozy-bok-preview-port") { dir =>
       val e = intercept[Throwable] {
@@ -450,6 +639,18 @@ class CozyBokSpec extends AnyFunSuite {
       ))
     }
   }
+
+
+
+  private val _video_script_json: String =
+    """{
+      |  "title": "Tutorial Script",
+      |  "voice": {"speaker": "ずんだもん", "style": "ノーマル"},
+      |  "scenes": [
+      |    {"id": "intro", "speaker": "ずんだもん", "line": "こんにちは", "duration": 1.0}
+      |  ]
+      |}
+      |""".stripMargin
 
   private class RecordingRunner extends CozyBok.Runner {
     var calls = Vector.empty[(Vector[String], Path)]
@@ -566,6 +767,14 @@ class CozyBokSpec extends AnyFunSuite {
 
   private def _read(path: Path): String =
     new String(Files.readAllBytes(path), StandardCharsets.UTF_8)
+
+  private def _capture(body: => Unit): String = {
+    val out = new ByteArrayOutputStream()
+    Console.withOut(out) {
+      body
+    }
+    out.toString(StandardCharsets.UTF_8.name())
+  }
 
   private def _zip_text(path: Path, name: String): String = {
     new String(_zip_bytes(path, name), StandardCharsets.UTF_8)

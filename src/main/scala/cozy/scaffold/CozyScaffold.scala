@@ -1486,6 +1486,15 @@ private[cozy] object CozyScaffold {
       |  bok update [<project-dir>] [--strategy wip|draft|preview|production] [--docker-image <image>]
       |      Update the BoK output. In this version it runs the same generation flow as bok build.
       |
+      |  bok publish-video <project-dir> [--publication <dir>] [--warehouse <dir>] [--version <version>] [--force]
+      |      Publish all .video packages in a BoK source tree into src/main/publication and warehouse/repository/video.
+      |
+      |  bok update-publication <project-dir> [--publication <dir>] [--warehouse <dir>] [--version <version>] [--force]
+      |      Update BoK publication registry metadata. In this version it publishes .video packages.
+      |
+      |  bok publish <project-dir> [--publication <dir>] [--warehouse <dir>] [--version <version>] [--strategy production] [--force]
+      |      Run update-publication, production BoK build, and the configured bok.workflow.upload.command.
+      |
       |  bok preview [<project-dir>] [--port 8080]
       |      Serve website.d with python3 -m http.server for local preview.
       |
