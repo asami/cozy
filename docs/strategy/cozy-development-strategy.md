@@ -236,6 +236,25 @@ Primary reference:
 - `docs/phase/phase-11.md`
 - `docs/phase/phase-11-checklist.md`
 
+### Phase 12: KnowledgeHub BoK Operational Onboarding
+
+Status: active.
+
+Purpose:
+
+- use `/Users/asami/src/Project2026/bok-knowlegehub` as a real BoK operation
+  driver for `cozy bok`
+- align KnowledgeHub BoK source, `.cozy/config.yaml`, generated scaffold docs,
+  and current Cozy defaults
+- verify `bok build`, `bok publish --dry-run`, and upload workflow readiness
+- convert operational friction into focused Cozy improvements and follow-up
+  backlog
+
+Primary reference:
+
+- `docs/phase/phase-12.md`
+- `docs/phase/phase-12-checklist.md`
+
 ### Future Phase: Model-Driven CAR Project Scaffolding
 
 Purpose:
@@ -246,8 +265,8 @@ Purpose:
 
 ## Current Priority
 
-Phase 6, Phase 7, Phase 8, Phase 9, Phase 10, and Phase 11 are closed. No
-phase is active.
+Phase 6, Phase 7, Phase 8, Phase 9, Phase 10, and Phase 11 are closed. Phase
+12 is active.
 
 Phase 8 completed the first-class `cozy video` workflow: structured
 project/script parsing, inspect, dry-run artifact/command planning, dependency
@@ -268,7 +287,10 @@ Phase 11 completed BoK publication and upload workflow productionization.
 `cozy bok publish` now has dry-run, preflight, operation manifest, step-level
 diagnostics, and external upload workflow boundaries.
 
-Candidate directions for the next phase include:
+Current Phase 12 priority is KnowledgeHub BoK operational onboarding. The
+active driver project is `/Users/asami/src/Project2026/bok-knowlegehub`.
+
+Candidate directions after Phase 12 include:
 
 - BoK publication and Component Repository public pages
 - Video publication registration follow-up, if richer article/navigation
