@@ -4,8 +4,8 @@ Purpose: engineering work management.
 
 Current phase:
 
-- Active phase: `phase-10.md`: One-Stop BoK Build and Operation Integration
-- Most recent closed phase: `phase-9.md`: Video Publication Registration and BoK Integration
+- No active phase is open.
+- Most recent closed phase: `phase-10.md`: One-Stop BoK Build and Operation Integration
 
 Belongs:
 

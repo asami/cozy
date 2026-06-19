@@ -202,7 +202,7 @@ Primary reference:
 
 ### Phase 10: One-Stop BoK Build and Operation Integration
 
-Status: active.
+Status: closed.
 
 Purpose:
 
@@ -228,7 +228,7 @@ Purpose:
 
 ## Current Priority
 
-Phase 6, Phase 7, Phase 8, and Phase 9 are closed. Phase 10 is active.
+Phase 6, Phase 7, Phase 8, Phase 9, and Phase 10 are closed.
 
 Phase 8 completed the first-class `cozy video` workflow: structured
 project/script parsing, inspect, dry-run artifact/command planning, dependency
@@ -241,11 +241,11 @@ output now carries RDF/provenance metadata through `src/main/publication`, and
 SmartDox/BoK consumers can use publication metadata instead of workspace or
 warehouse scans.
 
-Current Phase 10 priority is one-stop BoK build and operation integration. The
-immediate workstream is making `cozy bok` coordinate publication metadata,
-registered video artifacts, SmartDox site generation, and RDF merge behavior.
+Phase 10 completed one-stop BoK build and operation integration. `cozy bok` can
+coordinate publication metadata, registered video artifacts, SmartDox site
+generation, and registered Turtle RDF merge behavior.
 
-Candidate directions after Phase 10 include:
+Candidate directions for the next standalone Cozy phase include:
 
 - BoK publication and Component Repository public pages
 - Video publication registration follow-up, if richer article/navigation

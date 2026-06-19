@@ -1,6 +1,6 @@
 # Phase 10: One-Stop BoK Build and Operation Integration
 
-Status: active
+Status: closed
 
 Start date: 2026-06-19
 
@@ -40,17 +40,17 @@ Out of scope:
 
 ## Phase Items
 
-- [ ] BK10-01: Phase 10 documentation
-- [ ] BK10-02: BoK publication config model
-- [ ] BK10-03: BoK video publication commands
-- [ ] BK10-04: `.video/` package discovery
-- [ ] BK10-05: One-stop BoK publish flow
-- [ ] BK10-06: SmartDox RDF artifact merge
-- [ ] BK10-07: SmartDox video article enhancement
-- [ ] BK10-08: BoK build integration
-- [ ] BK10-09: Compatibility preservation
-- [ ] BK10-10: Tests and smoke
-- [ ] BK10-11: Phase closure
+- [x] BK10-01: Phase 10 documentation
+- [x] BK10-02: BoK publication config model
+- [x] BK10-03: BoK video publication commands
+- [x] BK10-04: `.video/` package discovery
+- [x] BK10-05: One-stop BoK publish flow
+- [x] BK10-06: SmartDox RDF artifact merge
+- [x] BK10-07: SmartDox video article enhancement
+- [x] BK10-08: BoK build integration
+- [x] BK10-09: Compatibility preservation
+- [x] BK10-10: Tests and smoke
+- [x] BK10-11: Phase closure
 
 ## Acceptance Criteria
 
@@ -79,6 +79,34 @@ Out of scope:
 
 - 2026-06-19: Opened Phase 10 with one-stop BoK build and operation integration
   as the active Cozy workstream.
+
+## Closure
+
+Closed date: 2026-06-19
+
+Closure summary:
+
+- `cozy bok publish-video`, `update-publication`, and `publish` provide the
+  BoK-level publication operation surface.
+- `.video/` source packages are discovered from BoK source trees and published
+  into `src/main/publication` plus `warehouse/repository/video` without writing
+  generated artifacts back into source packages.
+- `bok build` passes publication metadata and repository context to SmartDox,
+  and SmartDox can merge registered Turtle RDF artifacts into the site graph.
+- Missing RDF artifacts fail in production and remain reference-only in
+  preview/draft-style operation.
+- Existing BoK, video, publication, and bridge behavior was preserved.
+
+Validation completed:
+
+- Cozy `sbt --batch "testOnly cozy.CozyBokSpec"` passed.
+- Cozy `sbt --batch "testOnly cozy.video.CozyVideoSpec"` passed.
+- Cozy `sbt --batch test` passed.
+- Cozy `sbt --batch "scripted cozy/bok-video-publication-smoke"` passed with
+  the documented release-version skip guard.
+- SmartDox `sbt --batch "testOnly org.smartdox.generators.DoxSiteGeneratorSpec"` passed.
+- SmartDox `sbt --batch test` passed.
+- `git diff --check` passed in changed repositories.
 
 ## References
 

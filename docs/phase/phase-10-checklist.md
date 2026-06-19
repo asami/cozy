@@ -132,11 +132,11 @@ Status: DONE
 
 ## BK10-11: Phase Closure
 
-Status: OPEN
+Status: DONE
 
-- [ ] Confirm all BK10 items are complete.
-- [ ] Confirm Cozy and SmartDox tests pass.
-- [ ] Confirm scripted smoke passes or document why it is deferred.
-- [ ] Update `docs/phase/phase-10.md` closure section.
-- [ ] Set `docs/phase/README.md` active phase to none.
-- [ ] Mark Phase 10 closed in strategy.
+- [x] Confirm all BK10 items are complete.
+- [x] Confirm Cozy and SmartDox tests pass.
+- [x] Confirm scripted smoke passes or document why it is deferred.
+- [x] Update `docs/phase/phase-10.md` closure section.
+- [x] Set `docs/phase/README.md` active phase to none.
+- [x] Mark Phase 10 closed in strategy.
