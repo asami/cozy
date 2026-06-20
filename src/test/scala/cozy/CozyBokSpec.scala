@@ -920,10 +920,13 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
           |  workflow:
           |    upload:
           |      command: "etc/upload.sh"
+          |      env:
+          |        AWS_S3_URI: s3://publish.example/
+          |        AWS_S3_SYNC_DELETE: "false"
           |""".stripMargin)
       _write(dir.resolve("src/main/doxsite/site.conf"), "site { output { locale_mode = \"single_locale_root\" } }\n")
       val config = CozyBok.PublicationConfig.create("publish", List(dir.toString, "--strategy", "production"))
-      val runner = new RecordingRunner
+      val runner = new EnvRecordingRunner
 
       When("Cozy runs one-stop publish")
       CozyBok.publish(config, runner, CozyVideoSpec.RecordingVoicevoxClient(), CozyVideoSpec.PublishingRunner())
@@ -932,6 +935,13 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
       runner.commands should containWhere[Vector[String]](_.take(2) == Vector("dox", "antora"))
       runner.commands should containWhere[Vector[String]](_.take(2) == Vector("dox", "site"))
       runner.commands.last shouldBe Vector("sh", "-c", "etc/upload.sh")
+
+      And("the publish upload step receives workflow environment settings")
+      val uploadenv = runner.envCalls.collectFirst {
+        case (Vector("sh", "-c", "etc/upload.sh"), _, env) => env
+      }.getOrElse(Map.empty)
+      uploadenv should contain ("AWS_S3_URI" -> "s3://publish.example/")
+      uploadenv should contain ("AWS_S3_SYNC_DELETE" -> "false")
     }
   }
 
@@ -1303,6 +1313,44 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
             Vector("sh", "-c", "etc/website-stage.sh"),
             Vector("sh", "-c", "etc/website-upload.sh")
           )
+        }
+      }
+
+      "pass workflow environment settings with local overrides" in {
+        _with_temp_dir("cozy-bok-workflow-env") { dir =>
+          Given("a public upload workflow environment and a local sensitive override")
+          _write(dir.resolve("conf/cozy/config.yaml"),
+            """bok:
+              |  workflow:
+              |    upload:
+              |      command: "etc/website-upload.sh"
+              |      env:
+              |        WEBSITE_SOURCE_DIR: website.d
+              |        AWS_S3_URI: s3://public.example/
+              |        AWS_S3_SYNC_DELETE: "true"
+              |""".stripMargin)
+          _write(dir.resolve(".cozy/config.yaml"),
+            """bok:
+              |  workflow:
+              |    upload:
+              |      env:
+              |        AWS_S3_URI: s3://private.example/
+              |        AWS_CLOUDFRONT_DISTRIBUTION_ID: SECRET123
+              |""".stripMargin)
+          val runner = new EnvRecordingRunner
+
+          When("Cozy runs the upload workflow")
+          CozyBok.runWorkflow(CozyBok.WorkflowConfig.create("upload", List(dir.toString)), runner)
+
+          Then("the configured workflow command receives merged environment variables")
+          runner.commands shouldBe Vector(Vector("sh", "-c", "etc/website-upload.sh"))
+          runner.envs should have size 1
+          runner.envs.head should contain ("WEBSITE_SOURCE_DIR" -> "website.d")
+          runner.envs.head should contain ("AWS_S3_SYNC_DELETE" -> "true")
+
+          And("the local sensitive config overrides public environment values")
+          runner.envs.head should contain ("AWS_S3_URI" -> "s3://private.example/")
+          runner.envs.head should contain ("AWS_CLOUDFRONT_DISTRIBUTION_ID" -> "SECRET123")
         }
       }
     }

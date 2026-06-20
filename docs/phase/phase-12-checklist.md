@@ -100,12 +100,17 @@ Status: DONE
 
 ## BK12-09: Development Findings And Follow-Up Backlog
 
-Status: OPEN
+Status: DONE
 
-- [ ] Record operational findings from KnowledgeHub use.
-- [ ] Separate immediate Phase 12 fixes from future-phase candidates.
-- [ ] Track local command, config, scaffold, dry-run, stage, and upload workflow gaps.
-- [ ] Keep findings tied to reproducible BoK operation commands.
+- [x] Record operational findings from KnowledgeHub use.
+- [x] Separate immediate Phase 12 fixes from future-phase candidates.
+- [x] Track local command, config, scaffold, dry-run, stage, and upload workflow gaps.
+- [x] Keep findings tied to reproducible BoK operation commands.
+- [x] Fix the Antora empty-content `start_page` warning where it is actionable.
+- [x] Add config-backed environment injection for project-owned workflow scripts.
+- [x] Update the scaffolded AWS upload prototype to consume Cozy-provided environment variables.
+- [x] Update KnowledgeHub upload workflow configuration and script without adding real hosting secrets.
+- [x] Backlog only the real `AWS_S3_URI` / CloudFront values and production upload confirmation.
 
 ## BK12-10: Phase Closure
 

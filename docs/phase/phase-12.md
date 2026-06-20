@@ -33,7 +33,7 @@ into focused Cozy improvements.
 - [x] BK12-06: Publish dry-run operational verification
 - [x] BK12-07: Scaffold/document drift diagnostics
 - [x] BK12-08: Upload workflow readiness
-- [ ] BK12-09: Development findings and follow-up backlog
+- [x] BK12-09: Development findings and follow-up backlog
 - [ ] BK12-10: Phase closure
 
 ## Acceptance Criteria
@@ -159,6 +159,22 @@ into focused Cozy improvements.
   instead of silently skipping it. The publish manifest recorded
   `stage=succeeded` and `upload=failed`, so the operational boundary is ready
   while real hosting upload configuration remains a BK12-09 follow-up.
+- 2026-06-21: Completed BK12-09 residual finding fixes and workflow
+  environment injection. SmartDox now omits `site.start_page` from
+  empty-content Antora playbooks while preserving component-qualified
+  `component::page.adoc` start pages for normal component playbooks, removing
+  the KnowledgeHub Antora warning at the source. Cozy workflow execution now
+  passes `bok.workflow.<name>.env.*` settings from `conf/cozy/config.*` and
+  `.cozy/config.*` to project-owned `stage` and `upload` scripts, with local
+  `.cozy` settings overriding public project defaults. The scaffolded
+  `etc/website-upload.sh.proto` and KnowledgeHub `etc/website-upload.sh` were
+  updated to the same AWS-ready environment-variable contract. No AWS provider
+  or credentials were added to Cozy. Remaining backlog is limited to adding
+  real project-local `AWS_S3_URI` / CloudFront values and running the
+  production upload confirmation. Validation passed with SmartDox
+  `DoxSiteGeneratorSpec`, SmartDox `sbt test`, Cozy `CozyBokSpec`, Cozy
+  `sbt test`, KnowledgeHub `cozy bok build . --strategy preview`, and the
+  expected `cozy bok upload .` missing-`AWS_S3_URI` failure.
 
 ## References
 

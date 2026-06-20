@@ -15,7 +15,7 @@ organization := "org.simplemodeling"
 
 name := "cozy"
 
-version := "0.2.22"
+version := "0.2.23-SNAPSHOT"
 
 lazy val cncfVersion = "0.4.11"
 
@@ -181,6 +181,26 @@ publishMavenStyle := true
 Compile / packageDoc / publishArtifact := false
 
 Compile / doc / sources := Seq.empty
+
+def ensurePublishAllowed(version: String): Unit = {
+  if (version.endsWith("-SNAPSHOT"))
+    sys.error(s"Refusing to publish SNAPSHOT cozy version $version. Use publishLocal for development versions.")
+}
+
+def ensurePublishLocalAllowed(version: String): Unit = {
+  if (!version.endsWith("-SNAPSHOT"))
+    sys.error(s"Refusing to publishLocal release cozy version $version. Use publish for public release versions.")
+}
+
+publish / skip := {
+  ensurePublishAllowed(version.value)
+  false
+}
+
+publishLocal / skip := {
+  ensurePublishLocalAllowed(version.value)
+  false
+}
 
 publish / packagedArtifacts := {
   cozyPublishCoursierChannel.value

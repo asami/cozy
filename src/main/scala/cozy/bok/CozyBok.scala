@@ -259,7 +259,7 @@ private[cozy] object CozyBok {
     def warehousePath: Path = project.resolve(warehouse).toAbsolutePath.normalize()
     def manifestPath: Path = project.resolve("target/cozy-bok/publish/latest/manifest.json").toAbsolutePath.normalize()
   }
-  final case class WorkflowConfig(project: Path, name: String, command: Vector[String])
+  final case class WorkflowConfig(project: Path, name: String, command: Vector[String], env: Map[String, String])
   private final case class PublishStep(name: String, status: String, message: String)
   private final case class PublishPreflight(
     stage: Option[WorkflowConfig],
@@ -645,7 +645,7 @@ private[cozy] object CozyBok {
 
   def runWorkflow(config: WorkflowConfig, runner: Runner): Unit =
     if (_require_workflow(config))
-      runner.run(config.command, config.project)
+      runner.run(config.command, config.project, config.env)
 
   private def _require_workflow(config: WorkflowConfig): Boolean =
     if (config.command.isEmpty)
@@ -3957,22 +3957,24 @@ private[cozy] object CozyBok {
     """#!/bin/sh
       |set -eu
       |
-      |# Prototype upload workflow.
-      |# Copy this file to etc/website-upload.sh, set AWS_S3_URI, and set it in
-      |# bok.workflow.upload.command. The default uploads website.d directly. If the
-      |# project keeps a separate website staging tree, set WEBSITE_SOURCE_DIR to it.
+      |# Prototype AWS S3 upload workflow.
+      |# Copy this file to etc/website-upload.sh and set it in
+      |# bok.workflow.upload.command. Cozy reads conf/cozy/config.* and .cozy/config.*
+      |# and passes bok.workflow.upload.env.* values to this script as environment
+      |# variables. Put sensitive values in .cozy/config.*.
       |
       |PROJECT_DIR=$(cd "$(dirname "$0")/.." && pwd)
       |cd "$PROJECT_DIR"
       |
       |WEBSITE_SOURCE_DIR=${WEBSITE_SOURCE_DIR:-website.d}
       |AWS_S3_URI=${AWS_S3_URI:-}
+      |AWS_S3_SYNC_DELETE=${AWS_S3_SYNC_DELETE:-true}
       |AWS_CLOUDFRONT_DISTRIBUTION_ID=${AWS_CLOUDFRONT_DISTRIBUTION_ID:-}
       |
       |if [ ! -d "$WEBSITE_SOURCE_DIR" ]; then
       |  echo "Website source directory is missing: $WEBSITE_SOURCE_DIR" >&2
       |  echo "Run: cozy bok build ." >&2
-      |  echo "Or set WEBSITE_SOURCE_DIR to a directory prepared by cozy bok stage ." >&2
+      |  echo "Or set WEBSITE_SOURCE_DIR via bok.workflow.upload.env.WEBSITE_SOURCE_DIR." >&2
       |  exit 2
       |fi
       |
@@ -3980,27 +3982,40 @@ private[cozy] object CozyBok {
       |  cat >&2 <<'MSG'
       |AWS_S3_URI is not configured.
       |
-      |Set AWS_S3_URI to the target bucket/prefix, for example:
+      |Configure the upload target through Cozy workflow environment settings.
+      |Use conf/cozy/config.yaml for public defaults and .cozy/config.yaml for
+      |sensitive local overrides. Example:
       |
-      |  AWS_S3_URI=s3://example-bucket/
-      |
-      |Optional cache purge:
-      |
-      |  AWS_CLOUDFRONT_DISTRIBUTION_ID=EXAMPLE123
+      |bok:
+      |  workflow:
+      |    upload:
+      |      env:
+      |        WEBSITE_SOURCE_DIR: website.d
+      |        AWS_S3_URI: s3://example-bucket/path/
+      |        AWS_S3_SYNC_DELETE: "true"
+      |        AWS_CLOUDFRONT_DISTRIBUTION_ID: EXAMPLE123
       |
       |Cozy intentionally does not embed hosting credentials or provider policy.
       |MSG
       |  exit 2
       |fi
       |
-      |aws s3 sync "$WEBSITE_SOURCE_DIR/" "$AWS_S3_URI"
+      |if ! command -v aws >/dev/null 2>&1; then
+      |  echo "aws CLI is required for this upload workflow." >&2
+      |  exit 2
+      |fi
+      |
+      |if [ "$AWS_S3_SYNC_DELETE" = "true" ]; then
+      |  aws s3 sync "$WEBSITE_SOURCE_DIR"/ "$AWS_S3_URI" --delete
+      |else
+      |  aws s3 sync "$WEBSITE_SOURCE_DIR"/ "$AWS_S3_URI"
+      |fi
       |
       |if [ -n "$AWS_CLOUDFRONT_DISTRIBUTION_ID" ]; then
-      |  aws cloudfront create-invalidation \
-      |    --distribution-id "$AWS_CLOUDFRONT_DISTRIBUTION_ID" \
-      |    --paths "/*"
+      |  aws cloudfront create-invalidation --distribution-id "$AWS_CLOUDFRONT_DISTRIBUTION_ID" --paths "/*"
       |fi
       |""".stripMargin
+
 
   sealed trait ProjectFilePolicy
   object ProjectFilePolicy {
@@ -4212,6 +4227,9 @@ private[cozy] object CozyBok {
   private def _workflow_command(config: CozyProjectYamlConfig.Config, name: String): Vector[String] =
     config.value(s"bok.workflow.${name}.command").map(x => Vector("sh", "-c", x)).getOrElse(Vector.empty)
 
+  private def _workflow_env(config: CozyProjectYamlConfig.Config, name: String): Map[String, String] =
+    config.mapUnder(s"bok.workflow.${name}.env")
+
   object WorkflowConfig {
     def create(name: String, args: List[String]): WorkflowConfig = {
       val parsed = BokArgs.workflow(name, args)
@@ -4221,7 +4239,8 @@ private[cozy] object CozyBok {
       WorkflowConfig(
         project,
         name,
-        _workflow_command(config, name)
+        _workflow_command(config, name),
+        _workflow_env(config, name)
       )
     }
   }
