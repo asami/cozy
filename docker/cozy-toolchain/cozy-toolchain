@@ -77,6 +77,7 @@ check_bok() {
   require_command npm
   require_command antora
   node_with_global_modules -e "require.resolve('@antora/cli'); require.resolve('@antora/site-generator'); require.resolve('asciidoctor-kroki')"
+  find_kroki_jar >/dev/null
 }
 
 check_pdf() {
@@ -88,6 +89,12 @@ check_pdf() {
   require_command curl
   find_kroki_jar >/dev/null
   test -f /opt/smartdox/themes/asciidoctor-pdf-ja.yml
+}
+
+check_kroki() {
+  require_command java
+  require_command curl
+  find_kroki_jar >/dev/null
 }
 
 check_video() {
@@ -151,9 +158,13 @@ case "${1:-}" in
     target="${2:-all}"
     case "$target" in
       all)
+        check_kroki
         check_bok
         check_pdf
         check_video
+        ;;
+      kroki)
+        check_kroki
         ;;
       bok)
         check_bok
@@ -170,6 +181,18 @@ case "${1:-}" in
         ;;
     esac
     echo "cozy-toolchain check ${target}: ok"
+    ;;
+  antora)
+    SMARTDOX_KROKI_PORT="${SMARTDOX_KROKI_PORT:-9609}"
+    start_kroki_server
+    if "$@"; then
+      cleanup
+      exit 0
+    else
+      status="$?"
+      cleanup
+      exit "$status"
+    fi
     ;;
   *)
     exec "$@"

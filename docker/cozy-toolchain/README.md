@@ -26,6 +26,7 @@ Validate the installed dependency sets:
 ```bash
 docker run --rm ghcr.io/asami/cozy-toolchain:2026.06.19 cozy-toolchain check all
 docker run --rm ghcr.io/asami/cozy-toolchain:latest cozy-toolchain check all
+docker run --rm ghcr.io/asami/cozy-toolchain:latest cozy-toolchain check kroki
 docker run --rm ghcr.io/asami/cozy-toolchain:latest cozy-toolchain check bok
 docker run --rm ghcr.io/asami/cozy-toolchain:latest cozy-toolchain check pdf
 docker run --rm ghcr.io/asami/cozy-toolchain:latest cozy-toolchain check video
@@ -60,6 +61,12 @@ The image is based on the SmartDox `smartdox-pdf` dependency image line and keep
 ```bash
 docker run --rm -p 9609:8000 ghcr.io/asami/cozy-toolchain:latest kroki-server
 ```
+
+When Cozy runs Antora through this image, the wrapper starts the bundled Kroki
+server inside the container and serves it on `localhost:9609`, matching the
+SmartDox Antora playbook compatibility setting. Direct SmartDox usage can still
+use the existing `simplemodeling/smartdox-pdf:latest` Docker image or an
+explicit Kroki server.
 
 The wrapper passes through unknown commands, so tools remain directly runnable:
 

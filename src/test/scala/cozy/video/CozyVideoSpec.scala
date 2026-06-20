@@ -8,17 +8,21 @@ import scala.collection.mutable.ArrayBuffer
 import java.net.URI
 import io.circe.Json
 import io.circe.parser
-import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.GivenWhenThen
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatest.matchers.should.Matchers
 
 /*
  * @since   Jun. 18, 2026
- * @version Jun. 20, 2026
+ * @version Jun. 21, 2026
  * @author  ASAMI, Tomoharu
  */
-final class CozyVideoSpec extends AnyFunSuite {
+final class CozyVideoSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   import CozyVideoSpec._
 
-  test("video inspect accepts JSON, YAML, HOCON, and XML project files") {
+  "Cozy Video" should {
+  "inspect planning" which {
+  "video inspect accepts JSON, YAML, HOCON, and XML project files" in {
     _with_temp_dir("cozy-video-formats") { dir =>
       _write(dir.resolve("script.json"), _script_json)
       val files = Vector(
@@ -32,20 +36,20 @@ final class CozyVideoSpec extends AnyFunSuite {
         _write(dir.resolve(name), text)
         val out = CozyVideo.inspect(CozyVideo.InspectConfig(dir.resolve(name), checkTools = false), CozyVideo.VideoToolRegistry(Vector.empty))
 
-        assert(out.contains("Cozy Video Inspect"))
-        assert(out.contains("title: Sample Video"))
-        assert(out.contains("parts: 1"))
-        assert(out.contains("part[1]: intro"))
-        assert(out.contains("type: dialogue"))
-        assert(out.contains("scriptStatus: found"))
-        assert(out.contains("scenes: 2"))
-        assert(out.contains("expandedScenes: 3"))
-        assert(out.contains("estimatedDuration: 15.00"))
+        ((out.contains("Cozy Video Inspect")) shouldBe true)
+        ((out.contains("title: Sample Video")) shouldBe true)
+        ((out.contains("parts: 1")) shouldBe true)
+        ((out.contains("part[1]: intro")) shouldBe true)
+        ((out.contains("type: dialogue")) shouldBe true)
+        ((out.contains("scriptStatus: found")) shouldBe true)
+        ((out.contains("scenes: 2")) shouldBe true)
+        ((out.contains("expandedScenes: 3")) shouldBe true)
+        ((out.contains("estimatedDuration: 15.00")) shouldBe true)
       }
     }
   }
 
-  test("video inspect reports mixed part plans and unsupported part types") {
+  "video inspect reports mixed part plans and unsupported part types" in {
     _with_temp_dir("cozy-video-mixed") { dir =>
       _write(dir.resolve("dialogue.json"), _script_json)
       _write(dir.resolve("storyboard.json"), _script_json)
@@ -68,30 +72,33 @@ final class CozyVideoSpec extends AnyFunSuite {
 
       val out = CozyVideo.inspect(CozyVideo.InspectConfig(dir.resolve("video_project.json"), checkTools = false), CozyVideo.VideoToolRegistry(Vector.empty))
 
-      assert(out.contains("parts: 4"))
-      assert(out.contains("part[1]: lecture"))
-      assert(out.contains("type: dialogue"))
-      assert(out.contains("renderer: engine=remotion, strategy=slide"))
-      assert(out.contains("output: " + dir.resolve("01/build/part.mp4").normalize()))
-      assert(out.contains("audioDir: " + dir.resolve("01/build/audio").normalize()))
-      assert(out.contains("part[3]: demo"))
-      assert(out.contains("type: web-demo"))
-      assert(out.contains("steps: steps.json"))
-      assert(out.contains("recordDir: " + dir.resolve("03/build/recording").normalize()))
-      assert(out.contains("part[4]: future"))
-      assert(out.contains("type: future-kind (unsupported)"))
-      assert(out.contains("scriptStatus: missing"))
-      assert(out.contains("artifacts:"))
-      assert(out.contains("project-output: planned " + dir.resolve("build/final.mp4").normalize()))
-      assert(out.contains("part-output: planned " + dir.resolve("01/build/part.mp4").normalize()))
-      assert(out.contains("part-audio-dir: planned " + dir.resolve("01/build/audio").normalize()))
-      assert(out.contains("part-steps: missing-input " + dir.resolve("steps.json").normalize()))
-      assert(out.contains("part-record-dir: planned " + dir.resolve("03/build/recording").normalize()))
-      assert(out.contains("part-manifest: planned " + dir.resolve("01/build/part.manifest.json").normalize()))
+      ((out.contains("parts: 4")) shouldBe true)
+      ((out.contains("part[1]: lecture")) shouldBe true)
+      ((out.contains("type: dialogue")) shouldBe true)
+      ((out.contains("renderer: engine=remotion, strategy=slide")) shouldBe true)
+      ((out.contains("output: " + dir.resolve("01/build/part.mp4").normalize())) shouldBe true)
+      ((out.contains("audioDir: " + dir.resolve("01/build/audio").normalize())) shouldBe true)
+      ((out.contains("part[3]: demo")) shouldBe true)
+      ((out.contains("type: web-demo")) shouldBe true)
+      ((out.contains("steps: steps.json")) shouldBe true)
+      ((out.contains("recordDir: " + dir.resolve("03/build/recording").normalize())) shouldBe true)
+      ((out.contains("part[4]: future")) shouldBe true)
+      ((out.contains("type: future-kind (unsupported)")) shouldBe true)
+      ((out.contains("scriptStatus: missing")) shouldBe true)
+      ((out.contains("artifacts:")) shouldBe true)
+      ((out.contains("project-output: planned " + dir.resolve("build/final.mp4").normalize())) shouldBe true)
+      ((out.contains("part-output: planned " + dir.resolve("01/build/part.mp4").normalize())) shouldBe true)
+      ((out.contains("part-audio-dir: planned " + dir.resolve("01/build/audio").normalize())) shouldBe true)
+      ((out.contains("part-steps: missing-input " + dir.resolve("steps.json").normalize())) shouldBe true)
+      ((out.contains("part-record-dir: planned " + dir.resolve("03/build/recording").normalize())) shouldBe true)
+      ((out.contains("part-manifest: planned " + dir.resolve("01/build/part.manifest.json").normalize())) shouldBe true)
     }
   }
 
-  test("video build dry-run reports artifact and command plans without external tools") {
+  }
+
+  "build planning and execution" which {
+  "video build dry-run reports artifact and command plans without external tools" in {
     _with_temp_dir("cozy-video-build-dry-run") { dir =>
       _write(dir.resolve("dialogue.json"), _script_json)
       _write(dir.resolve("storyboard.json"), _script_json)
@@ -115,24 +122,24 @@ final class CozyVideoSpec extends AnyFunSuite {
 
       val out = CozyVideo.build(CozyVideo.BuildConfig(dir.resolve("video_project.json"), dryRun = true, checkTools = false), CozyVideo.VideoToolRegistry.default)
 
-      assert(out.contains("Cozy Video Build Dry-Run"))
-      assert(out.contains("artifacts:"))
-      assert(out.contains("part-script: missing-input " + dir.resolve("missing.json").normalize()))
-      assert(out.contains("commands:"))
-      assert(out.contains("part.lecture.parse-script: cozy (host) - parse dialogue script"))
-      assert(out.contains("part.lecture.synthesize: voicevox (external-service) - synthesize scene audio"))
-      assert(out.contains("part.lecture.prepare-visuals: python-pillow (docker) - docker run --rm"))
-      assert(out.contains("part.lecture.render: remotion (docker) - docker run --rm"))
-      assert(out.contains("part.board.render: remotion (docker) - docker run --rm"))
-      assert(out.contains("part.demo.capture: playwright (docker) - docker run --rm"))
-      assert(out.contains("part.demo.synthesize: voicevox (external-service) - synthesize scene audio"))
-      assert(out.contains("project.concat: ffmpeg (docker) - docker run --rm"))
-      assert(out.contains("project.manifest: cozy (host) - write project manifest"))
-      assert(!out.contains("  - part.future.render:"))
+      ((out.contains("Cozy Video Build Dry-Run")) shouldBe true)
+      ((out.contains("artifacts:")) shouldBe true)
+      ((out.contains("part-script: missing-input " + dir.resolve("missing.json").normalize())) shouldBe true)
+      ((out.contains("commands:")) shouldBe true)
+      ((out.contains("part.lecture.parse-script: cozy (host) - parse dialogue script")) shouldBe true)
+      ((out.contains("part.lecture.synthesize: voicevox (external-service) - synthesize scene audio")) shouldBe true)
+      ((out.contains("part.lecture.prepare-visuals: python-pillow (docker) - docker run --rm")) shouldBe true)
+      ((out.contains("part.lecture.render: remotion (docker) - docker run --rm")) shouldBe true)
+      ((out.contains("part.board.render: remotion (docker) - docker run --rm")) shouldBe true)
+      ((out.contains("part.demo.capture: playwright (docker) - docker run --rm")) shouldBe true)
+      ((out.contains("part.demo.synthesize: voicevox (external-service) - synthesize scene audio")) shouldBe true)
+      ((out.contains("project.concat: ffmpeg (docker) - docker run --rm")) shouldBe true)
+      ((out.contains("project.manifest: cozy (host) - write project manifest")) shouldBe true)
+      ((!out.contains("  - part.future.render:")) shouldBe true)
     }
   }
 
-  test("video build dry-run can use explicit host tool mode") {
+  "video build dry-run can use explicit host tool mode" in {
     _with_temp_dir("cozy-video-build-host-mode") { dir =>
       _write(dir.resolve("script.json"), _script_json)
       _write(
@@ -149,14 +156,14 @@ final class CozyVideoSpec extends AnyFunSuite {
 
       val out = CozyVideo.build(CozyVideo.BuildConfig(dir.resolve("video_project.json"), dryRun = true, checkTools = false, toolMode = Some("host")), CozyVideo.VideoToolRegistry.default)
 
-      assert(out.contains("toolMode: host"))
-      assert(out.contains("part.intro.prepare-visuals: python-pillow (host) - prepare dialogue visual helper assets"))
-      assert(out.contains("part.intro.render: remotion (host) - render dialogue part"))
-      assert(out.contains("project.concat: ffmpeg (host) - concat planned part outputs into final video"))
+      ((out.contains("toolMode: host")) shouldBe true)
+      ((out.contains("part.intro.prepare-visuals: python-pillow (host) - prepare dialogue visual helper assets")) shouldBe true)
+      ((out.contains("part.intro.render: remotion (host) - render dialogue part")) shouldBe true)
+      ((out.contains("project.concat: ffmpeg (host) - concat planned part outputs into final video")) shouldBe true)
     }
   }
 
-  test("video build dry-run resolves docker mode and image precedence") {
+  "video build dry-run resolves docker mode and image precedence" in {
     _with_temp_dir("cozy-video-build-docker-precedence") { dir =>
       _write(dir.resolve("script.json"), _script_json)
       _write(dir.resolve("conf/cozy/config.yaml"), "video:\n  docker-image: shared-image\n  tool-mode: host\ncozy:\n  docker-image: cozy-image\n")
@@ -180,16 +187,16 @@ final class CozyVideoSpec extends AnyFunSuite {
       val project = CozyVideo.build(CozyVideo.BuildConfig(dir.resolve("video_project.json"), dryRun = true, checkTools = false), CozyVideo.VideoToolRegistry.default)
       val cli = CozyVideo.build(CozyVideo.BuildConfig(dir.resolve("video_project.json"), dryRun = true, checkTools = false, toolMode = Some("host"), dockerImage = Some("cli-image")), CozyVideo.VideoToolRegistry.default)
 
-      assert(project.contains("toolMode: docker"))
-      assert(project.contains("dockerImage: project-image"))
-      assert(project.contains("docker run --rm -v '" + dir + ":/workspace' -w /workspace 'project-image' 'remotion'"))
-      assert(cli.contains("toolMode: host"))
-      assert(cli.contains("dockerImage: cli-image"))
-      assert(cli.contains("part.intro.render: remotion (host)"))
+      ((project.contains("toolMode: docker")) shouldBe true)
+      ((project.contains("dockerImage: project-image")) shouldBe true)
+      ((project.contains("docker run --rm -v '" + dir + ":/workspace' -w /workspace 'project-image' 'remotion'")) shouldBe true)
+      ((cli.contains("toolMode: host")) shouldBe true)
+      ((cli.contains("dockerImage: cli-image")) shouldBe true)
+      ((cli.contains("part.intro.render: remotion (host)")) shouldBe true)
     }
   }
 
-  test("video build dry-run reads video config defaults with local override") {
+  "video build dry-run reads video config defaults with local override" in {
     _with_temp_dir("cozy-video-build-config-defaults") { dir =>
       _write(dir.resolve("script.json"), _script_json)
       _write(dir.resolve("conf/cozy/config.yaml"), "video:\n  docker-image: shared-image\n  tool-mode: host\n")
@@ -198,12 +205,12 @@ final class CozyVideoSpec extends AnyFunSuite {
 
       val out = CozyVideo.build(CozyVideo.BuildConfig(dir.resolve("video_project.json"), dryRun = true, checkTools = false), CozyVideo.VideoToolRegistry.default)
 
-      assert(out.contains("toolMode: docker"))
-      assert(out.contains("dockerImage: local-image"))
+      ((out.contains("toolMode: docker")) shouldBe true)
+      ((out.contains("dockerImage: local-image")) shouldBe true)
     }
   }
 
-  test("video build fails explicitly for invalid tool mode") {
+  "video build fails explicitly for invalid tool mode" in {
     _with_temp_dir("cozy-video-build-invalid-tool-mode") { dir =>
       _write(dir.resolve("script.json"), _script_json)
       _write(dir.resolve("video_project.json"), _project_json("script.json"))
@@ -212,11 +219,11 @@ final class CozyVideoSpec extends AnyFunSuite {
         CozyVideo.build(CozyVideo.BuildConfig(dir.resolve("video_project.json"), dryRun = true, checkTools = false, toolMode = Some("invalid")), CozyVideo.VideoToolRegistry.default)
       }
 
-      assert(e.getMessage.contains("Invalid video tool mode"))
+      ((e.getMessage.contains("Invalid video tool mode")) shouldBe true)
     }
   }
 
-  test("video build dry-run excludes missing inputs from render and concat plans") {
+  "video build dry-run excludes missing inputs from render and concat plans" in {
     _with_temp_dir("cozy-video-build-missing-inputs") { dir =>
       _write(dir.resolve("web.json"), _script_json)
       _write(
@@ -233,17 +240,17 @@ final class CozyVideoSpec extends AnyFunSuite {
 
       val out = CozyVideo.build(CozyVideo.BuildConfig(dir.resolve("video_project.json"), dryRun = true, checkTools = false), CozyVideo.VideoToolRegistry.default)
 
-      assert(out.contains("part-script: missing-input " + dir.resolve("missing-dialogue.json").normalize()))
-      assert(out.contains("part-steps: missing-input " + dir.resolve("missing-steps.json").normalize()))
-      assert(!out.contains("  - part.dialogue-missing.render:"))
-      assert(!out.contains("  - part.web-missing-steps.capture:"))
-      assert(!out.contains("  - part.web-missing-steps.render:"))
-      assert(!out.contains("    inputs: " + dir.resolve("build/parts/dialogue-missing.mp4").normalize()))
-      assert(!out.contains("    inputs: " + dir.resolve("build/parts/web-missing-steps.mp4").normalize()))
+      ((out.contains("part-script: missing-input " + dir.resolve("missing-dialogue.json").normalize())) shouldBe true)
+      ((out.contains("part-steps: missing-input " + dir.resolve("missing-steps.json").normalize())) shouldBe true)
+      ((!out.contains("  - part.dialogue-missing.render:")) shouldBe true)
+      ((!out.contains("  - part.web-missing-steps.capture:")) shouldBe true)
+      ((!out.contains("  - part.web-missing-steps.render:")) shouldBe true)
+      ((!out.contains("    inputs: " + dir.resolve("build/parts/dialogue-missing.mp4").normalize())) shouldBe true)
+      ((!out.contains("    inputs: " + dir.resolve("build/parts/web-missing-steps.mp4").normalize())) shouldBe true)
     }
   }
 
-  test("video build assembles rendered parts with ffmpeg and validates with ffprobe") {
+  "video build assembles rendered parts with ffmpeg and validates with ffprobe" in {
     _with_temp_dir("cozy-video-build-final-docker") { dir =>
       _write(dir.resolve("dialogue.json"), _script_json)
       _write(dir.resolve("storyboard.json"), _script_json)
@@ -265,30 +272,30 @@ final class CozyVideoSpec extends AnyFunSuite {
 
       val out = CozyVideo.build(CozyVideo.BuildConfig(dir.resolve("video_project.json"), dryRun = false, checkTools = false), CozyVideo.VideoToolRegistry(Vector.empty), runner)
 
-      assert(out.contains("Cozy Video Build"))
-      assert(out.contains("output: " + dir.resolve("build/final.mp4").normalize()))
-      assert(out.contains("manifest: " + dir.resolve("build/manifest.json").normalize()))
-      assert(out.contains("parts: 2"))
-      assert(runner.commands.size == 2)
-      assert(runner.commands(0).args.take(8) == Vector("docker", "run", "--rm", "-v", s"$dir:/workspace", "-w", "/workspace", "ghcr.io/asami/cozy-toolchain:latest"))
-      assert(runner.commands(0).args.contains("ffmpeg"))
-      assert(runner.commands(0).args.contains("/workspace/target/cozy-video/ffmpeg/concat.txt"))
-      assert(runner.commands(0).args.contains("/workspace/build/final.mp4"))
-      assert(runner.commands(1).args.contains("ffprobe"))
-      assert(runner.commands(1).args.contains("/workspace/build/final.mp4"))
+      ((out.contains("Cozy Video Build")) shouldBe true)
+      ((out.contains("output: " + dir.resolve("build/final.mp4").normalize())) shouldBe true)
+      ((out.contains("manifest: " + dir.resolve("build/manifest.json").normalize())) shouldBe true)
+      ((out.contains("parts: 2")) shouldBe true)
+      ((runner.commands.size == 2) shouldBe true)
+      ((runner.commands(0).args.take(8) == Vector("docker", "run", "--rm", "-v", s"$dir:/workspace", "-w", "/workspace", "ghcr.io/asami/cozy-toolchain:latest")) shouldBe true)
+      ((runner.commands(0).args.contains("ffmpeg")) shouldBe true)
+      ((runner.commands(0).args.contains("/workspace/target/cozy-video/ffmpeg/concat.txt")) shouldBe true)
+      ((runner.commands(0).args.contains("/workspace/build/final.mp4")) shouldBe true)
+      ((runner.commands(1).args.contains("ffprobe")) shouldBe true)
+      ((runner.commands(1).args.contains("/workspace/build/final.mp4")) shouldBe true)
       val concat = _read(dir.resolve("target/cozy-video/ffmpeg/concat.txt"))
-      assert(concat.contains("file '/workspace/build/parts/lecture.mp4'"))
-      assert(concat.contains("file '/workspace/build/parts/board.mp4'"))
-      assert(Files.isRegularFile(dir.resolve("build/final.mp4")))
+      ((concat.contains("file '/workspace/build/parts/lecture.mp4'")) shouldBe true)
+      ((concat.contains("file '/workspace/build/parts/board.mp4'")) shouldBe true)
+      ((Files.isRegularFile(dir.resolve("build/final.mp4"))) shouldBe true)
       val manifest = _read(dir.resolve("build/manifest.json"))
-      assert(manifest.contains("\"outputPath\""))
-      assert(manifest.contains("\"partOutputs\""))
-      assert(manifest.contains("\"concatListPath\""))
-      assert(manifest.contains("\"ffprobe\""))
+      ((manifest.contains("\"outputPath\"")) shouldBe true)
+      ((manifest.contains("\"partOutputs\"")) shouldBe true)
+      ((manifest.contains("\"concatListPath\"")) shouldBe true)
+      ((manifest.contains("\"ffprobe\"")) shouldBe true)
     }
   }
 
-  test("video build can assemble rendered parts in host mode") {
+  "video build can assemble rendered parts in host mode" in {
     _with_temp_dir("cozy-video-build-final-host") { dir =>
       _write(dir.resolve("script.json"), _script_json)
       _write_bytes(dir.resolve("build/parts/intro.mp4"), Array[Byte](1, 2, 3))
@@ -297,17 +304,17 @@ final class CozyVideoSpec extends AnyFunSuite {
 
       val out = CozyVideo.build(CozyVideo.BuildConfig(dir.resolve("video_project.json"), dryRun = false, checkTools = false, toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), runner)
 
-      assert(out.contains("toolMode: host"))
-      assert(runner.commands.size == 2)
-      assert(runner.commands(0).args.head == "ffmpeg")
-      assert(runner.commands(1).args.head == "ffprobe")
-      assert(!runner.commands.exists(_.args.head == "docker"))
-      assert(_read(dir.resolve("target/cozy-video/ffmpeg/concat.txt")).contains("file '" + dir.resolve("build/parts/intro.mp4").normalize() + "'"))
-      assert(Files.isRegularFile(dir.resolve("build/manifest.json")))
+      ((out.contains("toolMode: host")) shouldBe true)
+      ((runner.commands.size == 2) shouldBe true)
+      ((runner.commands(0).args.head == "ffmpeg") shouldBe true)
+      ((runner.commands(1).args.head == "ffprobe") shouldBe true)
+      ((!runner.commands.exists(_.args.head == "docker")) shouldBe true)
+      ((_read(dir.resolve("target/cozy-video/ffmpeg/concat.txt")).contains("file '" + dir.resolve("build/parts/intro.mp4").normalize() + "'")) shouldBe true)
+      ((Files.isRegularFile(dir.resolve("build/manifest.json"))) shouldBe true)
     }
   }
 
-  test("cozy video build CLI dispatch assembles rendered parts through injected runner") {
+  "cozy video build CLI dispatch assembles rendered parts through injected runner" in {
     _with_temp_dir("cozy-video-build-final-cli") { dir =>
       _write(dir.resolve("script.json"), _script_json)
       _write_bytes(dir.resolve("build/parts/intro.mp4"), Array[Byte](1, 2, 3))
@@ -315,24 +322,24 @@ final class CozyVideoSpec extends AnyFunSuite {
       val runner = AssemblyRunner()
 
       val out = _capture {
-        assert(CozyVideo.execute(
+        ((CozyVideo.execute(
           List("video", "build", dir.resolve("video_project.json").toString, "--tool-mode=host"),
           CozyVideo.VideoToolRegistry(Vector.empty),
           RecordingVoicevoxClient(),
           runner
-        ))
+        )) shouldBe true)
       }
 
-      assert(out.contains("Cozy Video Build"))
-      assert(runner.commands.size == 2)
-      assert(runner.commands(0).args.head == "ffmpeg")
-      assert(runner.commands(1).args.head == "ffprobe")
-      assert(Files.isRegularFile(dir.resolve("build/final.mp4")))
-      assert(Files.isRegularFile(dir.resolve("build/manifest.json")))
+      ((out.contains("Cozy Video Build")) shouldBe true)
+      ((runner.commands.size == 2) shouldBe true)
+      ((runner.commands(0).args.head == "ffmpeg") shouldBe true)
+      ((runner.commands(1).args.head == "ffprobe") shouldBe true)
+      ((Files.isRegularFile(dir.resolve("build/final.mp4"))) shouldBe true)
+      ((Files.isRegularFile(dir.resolve("build/manifest.json"))) shouldBe true)
     }
   }
 
-  test("video build reports missing part outputs runner failures and tool checks") {
+  "video build reports missing part outputs runner failures and tool checks" in {
     _with_temp_dir("cozy-video-build-final-errors") { dir =>
       _write(dir.resolve("script.json"), _script_json)
       _write(dir.resolve("video_project.json"), _project_json("script.json"))
@@ -340,24 +347,24 @@ final class CozyVideoSpec extends AnyFunSuite {
       val missingoutput = intercept[Throwable] {
         CozyVideo.build(CozyVideo.BuildConfig(dir.resolve("video_project.json"), dryRun = false, checkTools = false), CozyVideo.VideoToolRegistry(Vector.empty), AssemblyRunner())
       }
-      assert(missingoutput.getMessage.contains("Missing rendered part output"))
-      assert(missingoutput.getMessage.contains("cozy video render"))
+      ((missingoutput.getMessage.contains("Missing rendered part output")) shouldBe true)
+      ((missingoutput.getMessage.contains("cozy video render")) shouldBe true)
 
       _write_bytes(dir.resolve("build/parts/intro.mp4"), Array[Byte](1, 2, 3))
       val ffmpegfailure = intercept[Throwable] {
         CozyVideo.build(CozyVideo.BuildConfig(dir.resolve("video_project.json"), dryRun = false, checkTools = false), CozyVideo.VideoToolRegistry(Vector.empty), AssemblyRunner(failTool = Some("ffmpeg")))
       }
-      assert(ffmpegfailure.getMessage.contains("ffmpeg concat/mux failed"))
+      ((ffmpegfailure.getMessage.contains("ffmpeg concat/mux failed")) shouldBe true)
 
       val ffprobefailure = intercept[Throwable] {
         CozyVideo.build(CozyVideo.BuildConfig(dir.resolve("video_project.json"), dryRun = false, checkTools = false), CozyVideo.VideoToolRegistry(Vector.empty), AssemblyRunner(failTool = Some("ffprobe")))
       }
-      assert(ffprobefailure.getMessage.contains("ffprobe validation failed"))
+      ((ffprobefailure.getMessage.contains("ffprobe validation failed")) shouldBe true)
 
       val invalidprobe = intercept[Throwable] {
         CozyVideo.build(CozyVideo.BuildConfig(dir.resolve("video_project.json"), dryRun = false, checkTools = false), CozyVideo.VideoToolRegistry(Vector.empty), AssemblyRunner(invalidProbeJson = true))
       }
-      assert(invalidprobe.getMessage.contains("ffprobe returned invalid JSON"))
+      ((invalidprobe.getMessage.contains("ffprobe returned invalid JSON")) shouldBe true)
 
       val missingtool = intercept[Throwable] {
         CozyVideo.build(
@@ -366,12 +373,12 @@ final class CozyVideoSpec extends AnyFunSuite {
           AssemblyRunner()
         )
       }
-      assert(missingtool.getMessage.contains("ffmpeg is missing"))
-      assert(missingtool.getMessage.contains("install ffmpeg"))
+      ((missingtool.getMessage.contains("ffmpeg is missing")) shouldBe true)
+      ((missingtool.getMessage.contains("install ffmpeg")) shouldBe true)
     }
   }
 
-  test("video build fails explicitly for unknown options") {
+  "video build fails explicitly for unknown options" in {
     _with_temp_dir("cozy-video-build-unknown-option") { dir =>
       _write(dir.resolve("script.json"), _script_json)
       _write(dir.resolve("video_project.json"), _project_json("script.json"))
@@ -379,11 +386,14 @@ final class CozyVideoSpec extends AnyFunSuite {
         CozyVideo.execute(List("video", "build", dir.resolve("video_project.json").toString, "--dry-ran"), CozyVideo.VideoToolRegistry(Vector.empty))
       }
 
-      assert(e.getMessage.contains("dry-ran"))
+      ((e.getMessage.contains("dry-ran")) shouldBe true)
     }
   }
 
-  test("video rdf generates Turtle JSON-LD and manifest from video artifacts") {
+  }
+
+  "rdf generation" which {
+  "video rdf generates Turtle JSON-LD and manifest from video artifacts" in {
     _with_temp_dir("cozy-video-rdf") { dir =>
       _write(dir.resolve("script.json"), _script_json)
       _write(dir.resolve("video_project.json"), _project_json("script.json"))
@@ -414,33 +424,33 @@ final class CozyVideoSpec extends AnyFunSuite {
 
       val out = CozyVideo.rdf(CozyVideo.RdfConfig(dir.resolve("video_project.json"), dir.resolve("rdf")))
 
-      assert(out.contains("Cozy Video RDF"))
-      assert(out.contains("turtle: " + dir.resolve("rdf/video.ttl").normalize()))
-      assert(out.contains("jsonld: " + dir.resolve("rdf/video.jsonld").normalize()))
-      assert(Files.isRegularFile(dir.resolve("rdf/video.ttl")))
-      assert(Files.isRegularFile(dir.resolve("rdf/video.jsonld")))
-      assert(Files.isRegularFile(dir.resolve("rdf/manifest.json")))
+      ((out.contains("Cozy Video RDF")) shouldBe true)
+      ((out.contains("turtle: " + dir.resolve("rdf/video.ttl").normalize())) shouldBe true)
+      ((out.contains("jsonld: " + dir.resolve("rdf/video.jsonld").normalize())) shouldBe true)
+      ((Files.isRegularFile(dir.resolve("rdf/video.ttl"))) shouldBe true)
+      ((Files.isRegularFile(dir.resolve("rdf/video.jsonld"))) shouldBe true)
+      ((Files.isRegularFile(dir.resolve("rdf/manifest.json"))) shouldBe true)
       val turtle = _read(dir.resolve("rdf/video.ttl"))
       val jsonld = _read(dir.resolve("rdf/video.jsonld"))
       val manifest = _read(dir.resolve("rdf/manifest.json"))
-      assert(turtle.contains("@prefix cozy-video: <https://www.simplemodeling.org/ns/cozy/video#> ."))
-      assert(turtle.contains("cozy-video:VideoProject"))
-      assert(turtle.contains("cozy-video:VideoPart"))
-      assert(turtle.contains("cozy-video:VideoScene"))
-      assert(turtle.contains("cozy-video:VideoUtterance"))
-      assert(turtle.contains("cozy-video:VideoArtifact"))
-      assert(turtle.contains("cozy-video:speaker"))
-      assert(turtle.contains("cozy-video:audioDuration"))
-      assert(turtle.contains("simple-java2d"))
-      assert(turtle.contains("ffprobe"))
-      assert(jsonld.contains("\"cozy-video\""))
-      assert(jsonld.contains("cozy-video:VideoProject"))
-      assert(manifest.contains("\"tripleCount\""))
-      assert(manifest.contains("\"resourceCount\""))
+      ((turtle.contains("@prefix cozy-video: <https://www.simplemodeling.org/ns/cozy/video#> .")) shouldBe true)
+      ((turtle.contains("cozy-video:VideoProject")) shouldBe true)
+      ((turtle.contains("cozy-video:VideoPart")) shouldBe true)
+      ((turtle.contains("cozy-video:VideoScene")) shouldBe true)
+      ((turtle.contains("cozy-video:VideoUtterance")) shouldBe true)
+      ((turtle.contains("cozy-video:VideoArtifact")) shouldBe true)
+      ((turtle.contains("cozy-video:speaker")) shouldBe true)
+      ((turtle.contains("cozy-video:audioDuration")) shouldBe true)
+      ((turtle.contains("simple-java2d")) shouldBe true)
+      ((turtle.contains("ffprobe")) shouldBe true)
+      ((jsonld.contains("\"cozy-video\"")) shouldBe true)
+      ((jsonld.contains("cozy-video:VideoProject")) shouldBe true)
+      ((manifest.contains("\"tripleCount\"")) shouldBe true)
+      ((manifest.contains("\"resourceCount\"")) shouldBe true)
     }
   }
 
-  test("video rdf records missing manifests without failing") {
+  "video rdf records missing manifests without failing" in {
     _with_temp_dir("cozy-video-rdf-missing-manifests") { dir =>
       _write(dir.resolve("script.json"), _script_json)
       _write(dir.resolve("video_project.json"), _project_json("script.json"))
@@ -448,15 +458,15 @@ final class CozyVideoSpec extends AnyFunSuite {
       CozyVideo.rdf(CozyVideo.RdfConfig(dir.resolve("video_project.json"), dir.resolve("rdf")))
 
       val turtle = _read(dir.resolve("rdf/video.ttl"))
-      assert(turtle.contains("cozy-video:artifactKind \"audio-manifest\""))
-      assert(turtle.contains("cozy-video:artifactKind \"part-manifest\""))
-      assert(turtle.contains("cozy-video:artifactKind \"project-manifest\""))
-      assert(turtle.contains("cozy-video:status \"missing\""))
-      assert(turtle.contains("cozy-video:VideoScene"))
+      ((turtle.contains("cozy-video:artifactKind \"audio-manifest\"")) shouldBe true)
+      ((turtle.contains("cozy-video:artifactKind \"part-manifest\"")) shouldBe true)
+      ((turtle.contains("cozy-video:artifactKind \"project-manifest\"")) shouldBe true)
+      ((turtle.contains("cozy-video:status \"missing\"")) shouldBe true)
+      ((turtle.contains("cozy-video:VideoScene")) shouldBe true)
     }
   }
 
-  test("video rdf percent-encodes resource ids for Turtle-safe output") {
+  "video rdf percent-encodes resource ids for Turtle-safe output" in {
     _with_temp_dir("cozy-video-rdf-unsafe-ids") { dir =>
       _write(
         dir.resolve("script.json"),
@@ -484,16 +494,16 @@ final class CozyVideoSpec extends AnyFunSuite {
 
       val turtle = _read(dir.resolve("rdf/video.ttl"))
       val jsonld = _read(dir.resolve("rdf/video.jsonld"))
-      assert(turtle.contains("cozy-video:project/Sample%20Video%202026"))
-      assert(turtle.contains("cozy-video:part/intro%20slide"))
-      assert(turtle.contains("cozy-video:scene/intro%20slide-scene%20%231"))
-      assert(jsonld.contains("cozy-video:project/Sample%20Video%202026"))
-      assert(jsonld.contains("cozy-video:part/intro%20slide"))
-      assert(!turtle.contains("cozy-video:part/intro slide"))
+      ((turtle.contains("cozy-video:project/Sample%20Video%202026")) shouldBe true)
+      ((turtle.contains("cozy-video:part/intro%20slide")) shouldBe true)
+      ((turtle.contains("cozy-video:scene/intro%20slide-scene%20%231")) shouldBe true)
+      ((jsonld.contains("cozy-video:project/Sample%20Video%202026")) shouldBe true)
+      ((jsonld.contains("cozy-video:part/intro%20slide")) shouldBe true)
+      ((!turtle.contains("cozy-video:part/intro slide")) shouldBe true)
     }
   }
 
-  test("video rdf fails explicitly for invalid manifests inputs and options") {
+  "video rdf fails explicitly for invalid manifests inputs and options" in {
     _with_temp_dir("cozy-video-rdf-errors") { dir =>
       _write(dir.resolve("script.json"), _script_json)
       _write(dir.resolve("video_project.json"), _project_json("script.json"))
@@ -502,26 +512,29 @@ final class CozyVideoSpec extends AnyFunSuite {
       val invalidmanifest = intercept[Throwable] {
         CozyVideo.rdf(CozyVideo.RdfConfig(dir.resolve("video_project.json"), dir.resolve("rdf")))
       }
-      assert(invalidmanifest.getMessage.contains("Invalid audio manifest intro JSON"))
+      ((invalidmanifest.getMessage.contains("Invalid audio manifest intro JSON")) shouldBe true)
 
       val missingsave = intercept[Throwable] {
         CozyVideo.execute(List("video", "rdf", dir.resolve("video_project.json").toString), CozyVideo.VideoToolRegistry(Vector.empty))
       }
-      assert(missingsave.getMessage.contains("save"))
+      ((missingsave.getMessage.contains("save")) shouldBe true)
 
       val unknownoption = intercept[Throwable] {
         CozyVideo.execute(List("video", "rdf", dir.resolve("video_project.json").toString, "--save", dir.resolve("rdf").toString, "--unknown"), CozyVideo.VideoToolRegistry(Vector.empty))
       }
-      assert(unknownoption.getMessage.contains("unknown"))
+      ((unknownoption.getMessage.contains("unknown")) shouldBe true)
 
       val missingproject = intercept[Throwable] {
         CozyVideo.rdf(CozyVideo.RdfConfig(dir.resolve("missing.json"), dir.resolve("rdf")))
       }
-      assert(missingproject.getMessage.contains("Missing video project file"))
+      ((missingproject.getMessage.contains("Missing video project file")) shouldBe true)
     }
   }
 
-  test("video transcribe writes transcript captions narration and manifest in docker mode") {
+  }
+
+  "transcription" which {
+  "video transcribe writes transcript captions narration and manifest in docker mode" in {
     _with_temp_dir("cozy-video-transcribe-docker") { dir =>
       val input = dir.resolve("demo.mp4")
       val save = dir.resolve("transcript")
@@ -534,30 +547,30 @@ final class CozyVideoSpec extends AnyFunSuite {
         runner
       )
 
-      assert(out.contains("Cozy Video Transcribe"))
-      assert(out.contains("toolMode: docker"))
-      assert(out.contains("modelPath: /opt/cozy/models/ggml-base.bin"))
-      assert(Files.isRegularFile(save.resolve("audio.wav")))
-      assert(Files.isRegularFile(save.resolve("transcript.json")))
-      assert(Files.isRegularFile(save.resolve("captions.srt")))
-      assert(Files.isRegularFile(save.resolve("narration.json")))
-      assert(Files.isRegularFile(save.resolve("manifest.json")))
+      ((out.contains("Cozy Video Transcribe")) shouldBe true)
+      ((out.contains("toolMode: docker")) shouldBe true)
+      ((out.contains("modelPath: /opt/cozy/models/ggml-base.bin")) shouldBe true)
+      ((Files.isRegularFile(save.resolve("audio.wav"))) shouldBe true)
+      ((Files.isRegularFile(save.resolve("transcript.json"))) shouldBe true)
+      ((Files.isRegularFile(save.resolve("captions.srt"))) shouldBe true)
+      ((Files.isRegularFile(save.resolve("narration.json"))) shouldBe true)
+      ((Files.isRegularFile(save.resolve("manifest.json"))) shouldBe true)
       val transcript = _read(save.resolve("transcript.json"))
       val captions = _read(save.resolve("captions.srt"))
       val narration = _read(save.resolve("narration.json"))
       val manifest = _read(save.resolve("manifest.json"))
-      assert(transcript.contains("cozy.video.transcript.v1"))
-      assert(transcript.contains("Hello world"))
-      assert(captions.contains("00:00:00,000 --> 00:00:01,250"))
-      assert(narration.contains("cozy.video.narration-draft.v1"))
-      assert(manifest.contains("inputSha256"))
-      assert(manifest.contains("whisper-cli 1.7.6"))
-      assert(runner.commands.head.args.take(8) == Vector("docker", "run", "--rm", "-v", s"${dir.toAbsolutePath.normalize}:/workspace", "-w", "/workspace", "ghcr.io/asami/cozy-toolchain:latest"))
-      assert(runner.commands.exists(_.args.contains("/opt/cozy/models/ggml-base.bin")))
+      ((transcript.contains("cozy.video.transcript.v1")) shouldBe true)
+      ((transcript.contains("Hello world")) shouldBe true)
+      ((captions.contains("00:00:00,000 --> 00:00:01,250")) shouldBe true)
+      ((narration.contains("cozy.video.narration-draft.v1")) shouldBe true)
+      ((manifest.contains("inputSha256")) shouldBe true)
+      ((manifest.contains("whisper-cli 1.7.6")) shouldBe true)
+      ((runner.commands.head.args.take(8) == Vector("docker", "run", "--rm", "-v", s"${dir.toAbsolutePath.normalize}:/workspace", "-w", "/workspace", "ghcr.io/asami/cozy-toolchain:latest")) shouldBe true)
+      ((runner.commands.exists(_.args.contains("/opt/cozy/models/ggml-base.bin"))) shouldBe true)
     }
   }
 
-  test("video transcribe resolves config defaults and CLI whisper model in host mode") {
+  "video transcribe resolves config defaults and CLI whisper model in host mode" in {
     _with_temp_dir("cozy-video-transcribe-config") { dir =>
       val input = dir.resolve("demo.mp4")
       val save = dir.resolve("transcript")
@@ -578,16 +591,16 @@ final class CozyVideoSpec extends AnyFunSuite {
         CozyVideo.VideoToolRegistry(Vector.empty),
         runner
       )
-      assert(out.contains("Cozy Video Transcribe"))
+      ((out.contains("Cozy Video Transcribe")) shouldBe true)
 
-      assert(runner.commands.exists(_.args.headOption.contains("ffmpeg")))
-      assert(!runner.commands.exists(_.args.headOption.contains("docker")))
-      assert(runner.commands.exists(_.args.contains(climodel.normalize().toString)))
-      assert(Files.isRegularFile(save.resolve("manifest.json")))
+      ((runner.commands.exists(_.args.headOption.contains("ffmpeg"))) shouldBe true)
+      ((!runner.commands.exists(_.args.headOption.contains("docker"))) shouldBe true)
+      ((runner.commands.exists(_.args.contains(climodel.normalize().toString))) shouldBe true)
+      ((Files.isRegularFile(save.resolve("manifest.json"))) shouldBe true)
     }
   }
 
-  test("video transcribe validates inputs options and tool checks") {
+  "video transcribe validates inputs options and tool checks" in {
     _with_temp_dir("cozy-video-transcribe-failures") { dir =>
       val input = dir.resolve("demo.mp4")
       val save = dir.resolve("transcript")
@@ -598,22 +611,22 @@ final class CozyVideoSpec extends AnyFunSuite {
       val missinginput = intercept[RuntimeException] {
         CozyVideo.transcribe(CozyVideo.TranscribeConfig(dir.resolve("missing.mp4"), save), CozyVideo.VideoToolRegistry(Vector.empty), TranscriptionRunner())
       }
-      assert(missinginput.getMessage.contains("Missing input video"))
+      ((missinginput.getMessage.contains("Missing input video")) shouldBe true)
 
       val missingsave = intercept[RuntimeException] {
         CozyVideo.execute(List("video", "transcribe", input.toString), CozyVideo.VideoToolRegistry(Vector.empty))
       }
-      assert(missingsave.getMessage.contains("save"))
+      ((missingsave.getMessage.contains("save")) shouldBe true)
 
       val unknown = intercept[RuntimeException] {
         CozyVideo.execute(List("video", "transcribe", input.toString, "--save", save.toString, "--unknown"), CozyVideo.VideoToolRegistry(Vector.empty))
       }
-      assert(unknown.getMessage.contains("Unknown option"))
+      ((unknown.getMessage.contains("Unknown option")) shouldBe true)
 
       val invalidmode = intercept[RuntimeException] {
         CozyVideo.transcribe(CozyVideo.TranscribeConfig(input, save, toolMode = Some("remote")), CozyVideo.VideoToolRegistry(Vector.empty), TranscriptionRunner())
       }
-      assert(invalidmode.getMessage.contains("Invalid video tool mode"))
+      ((invalidmode.getMessage.contains("Invalid video tool mode")) shouldBe true)
 
       val dockercheck = intercept[RuntimeException] {
         CozyVideo.transcribe(
@@ -622,8 +635,8 @@ final class CozyVideoSpec extends AnyFunSuite {
           TranscriptionRunner()
         )
       }
-      assert(dockercheck.getMessage.contains("docker-image"))
-      assert(dockercheck.getMessage.contains("pull image"))
+      ((dockercheck.getMessage.contains("docker-image")) shouldBe true)
+      ((dockercheck.getMessage.contains("pull image")) shouldBe true)
 
       val hostcheck = intercept[RuntimeException] {
         CozyVideo.transcribe(
@@ -632,18 +645,18 @@ final class CozyVideoSpec extends AnyFunSuite {
           TranscriptionRunner()
         )
       }
-      assert(hostcheck.getMessage.contains("whisper-cpp"))
-      assert(hostcheck.getMessage.contains("install whisper"))
+      ((hostcheck.getMessage.contains("whisper-cpp")) shouldBe true)
+      ((hostcheck.getMessage.contains("install whisper")) shouldBe true)
 
       val ffmpegfailure = intercept[RuntimeException] {
         CozyVideo.transcribe(CozyVideo.TranscribeConfig(input, save, toolMode = Some("host"), whisperModel = Some(model.toString)), CozyVideo.VideoToolRegistry(Vector.empty), TranscriptionRunner(failTool = Some("ffmpeg")))
       }
-      assert(ffmpegfailure.getMessage.contains("ffmpeg audio extraction failed"))
+      ((ffmpegfailure.getMessage.contains("ffmpeg audio extraction failed")) shouldBe true)
 
       val whisperfailure = intercept[RuntimeException] {
         CozyVideo.transcribe(CozyVideo.TranscribeConfig(input, save, toolMode = Some("host"), whisperModel = Some(model.toString)), CozyVideo.VideoToolRegistry(Vector.empty), TranscriptionRunner(failTool = Some("whisper-cli")))
       }
-      assert(whisperfailure.getMessage.contains("whisper.cpp transcription failed"))
+      ((whisperfailure.getMessage.contains("whisper.cpp transcription failed")) shouldBe true)
 
       val projectroot = dir.resolve("project-root")
       val projectinput = projectroot.resolve("demo.mp4")
@@ -656,18 +669,21 @@ final class CozyVideoSpec extends AnyFunSuite {
       val dockerinput = intercept[RuntimeException] {
         CozyVideo.transcribe(CozyVideo.TranscribeConfig(outsideinput, projectsave, projectRootOverride = Some(projectroot)), CozyVideo.VideoToolRegistry(Vector.empty), inputrunner)
       }
-      assert(dockerinput.getMessage.contains("Docker transcription requires input video under project root"))
-      assert(inputrunner.commands.isEmpty)
+      ((dockerinput.getMessage.contains("Docker transcription requires input video under project root")) shouldBe true)
+      ((inputrunner.commands.isEmpty) shouldBe true)
       val saverunner = TranscriptionRunner()
       val dockersave = intercept[RuntimeException] {
         CozyVideo.transcribe(CozyVideo.TranscribeConfig(projectinput, outsidesave, projectRootOverride = Some(projectroot)), CozyVideo.VideoToolRegistry(Vector.empty), saverunner)
       }
-      assert(dockersave.getMessage.contains("Docker transcription requires --save under project root"))
-      assert(saverunner.commands.isEmpty)
+      ((dockersave.getMessage.contains("Docker transcription requires --save under project root")) shouldBe true)
+      ((saverunner.commands.isEmpty) shouldBe true)
     }
   }
 
-  test("video synthesize writes scene wavs combined wav and manifest through VOICEVOX client") {
+  }
+
+  "voice synthesis" which {
+  "video synthesize writes scene wavs combined wav and manifest through VOICEVOX client" in {
     _with_temp_dir("cozy-video-synthesize") { dir =>
       val script = dir.resolve("script.json")
       val outdir = dir.resolve("audio")
@@ -688,75 +704,78 @@ final class CozyVideoSpec extends AnyFunSuite {
       val result = CozyVideo.synthesize(CozyVideo.SynthesizeConfig(script, outdir, Some("http://voicevox.example")), voicevox)
       val manifest = parser.parse(Files.readString(outdir.resolve("manifest.json"), StandardCharsets.UTF_8)).toOption.flatMap(_.asArray).get
 
-      assert(result.contains("Cozy Video Synthesize"))
-      assert(result.contains("scenes: 3"))
-      assert(Files.isRegularFile(outdir.resolve("01-intro.wav")))
-      assert(Files.isRegularFile(outdir.resolve("01-intro-lead.wav")))
-      assert(Files.isRegularFile(outdir.resolve("01-intro-silence.wav")))
-      assert(Files.isRegularFile(outdir.resolve("02-fallback.wav")))
-      assert(Files.isRegularFile(outdir.resolve("03-silent.wav")))
-      assert(Files.isRegularFile(outdir.resolve("script.wav")))
-      assert(voicevox.calls.map(_.kind) == Vector("speakers", "audio_query", "synthesis", "speakers", "audio_query", "synthesis"))
-      assert(voicevox.calls.collect { case c if c.kind == "audio_query" => c.text } == Vector(Some("HelloCozy"), Some("TopLine")))
-      assert(voicevox.calls.collect { case c if c.kind == "audio_query" => c.speakerId } == Vector(Some(10), Some(99)))
-      assert(voicevox.audioQueries.exists(_.hcursor.downField("speedScale").as[Double].toOption.contains(1.2)))
-      assert(voicevox.audioQueries.exists(_.hcursor.downField("volumeScale").as[Double].toOption.contains(0.8)))
-      assert(manifest.size == 3)
-      assert(manifest.head.hcursor.downField("sceneId").as[String].toOption.contains("intro"))
-      assert(manifest.head.hcursor.downField("leadSilence").as[Double].toOption.contains(0.1))
-      assert(manifest(2).hcursor.downField("sceneId").as[String].toOption.contains("silent"))
+      ((result.contains("Cozy Video Synthesize")) shouldBe true)
+      ((result.contains("scenes: 3")) shouldBe true)
+      ((Files.isRegularFile(outdir.resolve("01-intro.wav"))) shouldBe true)
+      ((Files.isRegularFile(outdir.resolve("01-intro-lead.wav"))) shouldBe true)
+      ((Files.isRegularFile(outdir.resolve("01-intro-silence.wav"))) shouldBe true)
+      ((Files.isRegularFile(outdir.resolve("02-fallback.wav"))) shouldBe true)
+      ((Files.isRegularFile(outdir.resolve("03-silent.wav"))) shouldBe true)
+      ((Files.isRegularFile(outdir.resolve("script.wav"))) shouldBe true)
+      ((voicevox.calls.map(_.kind) == Vector("speakers", "audio_query", "synthesis", "speakers", "audio_query", "synthesis")) shouldBe true)
+      ((voicevox.calls.collect { case c if c.kind == "audio_query" => c.text } == Vector(Some("HelloCozy"), Some("TopLine"))) shouldBe true)
+      ((voicevox.calls.collect { case c if c.kind == "audio_query" => c.speakerId } == Vector(Some(10), Some(99))) shouldBe true)
+      ((voicevox.audioQueries.exists(_.hcursor.downField("speedScale").as[Double].toOption.contains(1.2))) shouldBe true)
+      ((voicevox.audioQueries.exists(_.hcursor.downField("volumeScale").as[Double].toOption.contains(0.8))) shouldBe true)
+      ((manifest.size == 3) shouldBe true)
+      ((manifest.head.hcursor.downField("sceneId").as[String].toOption.contains("intro")) shouldBe true)
+      ((manifest.head.hcursor.downField("leadSilence").as[Double].toOption.contains(0.1)) shouldBe true)
+      ((manifest(2).hcursor.downField("sceneId").as[String].toOption.contains("silent")) shouldBe true)
     }
   }
 
-  test("video synthesize resolves voicevox url from script tools and config") {
+  "video synthesize resolves voicevox url from script tools and config" in {
     _with_temp_dir("cozy-video-synthesize-url") { dir =>
       val voicevox = RecordingVoicevoxClient()
       _write(dir.resolve("script-tools.json"), """{"tools": {"voicevoxUrl": "http://script.example"}, "scenes": [{"id": "s1", "duration": 0.2, "line": "A"}]}""")
       _write(dir.resolve("conf/cozy/config.yaml"), "video:\n  voicevox:\n    url: http://config.example\n")
 
       CozyVideo.synthesize(CozyVideo.SynthesizeConfig(dir.resolve("script-tools.json"), dir.resolve("audio1")), voicevox)
-      assert(voicevox.calls.head.baseUrl == "http://script.example")
+      ((voicevox.calls.head.baseUrl == "http://script.example") shouldBe true)
 
       val configvoicevox = RecordingVoicevoxClient()
       _write(dir.resolve("script-config.json"), """{"scenes": [{"id": "s1", "duration": 0.2, "line": "A"}]}""")
       CozyVideo.synthesize(CozyVideo.SynthesizeConfig(dir.resolve("script-config.json"), dir.resolve("audio2")), configvoicevox)
-      assert(configvoicevox.calls.head.baseUrl == "http://config.example")
+      ((configvoicevox.calls.head.baseUrl == "http://config.example") shouldBe true)
     }
   }
 
-  test("video synthesize fails explicitly for missing script save option and voicevox errors") {
+  "video synthesize fails explicitly for missing script save option and voicevox errors" in {
     _with_temp_dir("cozy-video-synthesize-errors") { dir =>
       _write(dir.resolve("script.json"), """{"scenes": [{"id": "s1", "duration": 0.2, "line": "A"}]}""")
 
       val missingsave = intercept[Throwable] {
         CozyVideo.execute(List("video", "synthesize", dir.resolve("script.json").toString), CozyVideo.VideoToolRegistry(Vector.empty), RecordingVoicevoxClient())
       }
-      assert(missingsave.getMessage.contains("Missing --save"))
+      ((missingsave.getMessage.contains("Missing --save")) shouldBe true)
 
       val missingfile = intercept[Throwable] {
         CozyVideo.synthesize(CozyVideo.SynthesizeConfig(dir.resolve("missing.json"), dir.resolve("audio")), RecordingVoicevoxClient())
       }
-      assert(missingfile.getMessage.contains("Missing video script file"))
+      ((missingfile.getMessage.contains("Missing video script file")) shouldBe true)
 
       val voicevoxfailure = intercept[Throwable] {
         CozyVideo.synthesize(CozyVideo.SynthesizeConfig(dir.resolve("script.json"), dir.resolve("audio")), RecordingVoicevoxClient(failSpeakers = true))
       }
-      assert(voicevoxfailure.getMessage.contains("VOICEVOX speakers failed"))
+      ((voicevoxfailure.getMessage.contains("VOICEVOX speakers failed")) shouldBe true)
 
       _write(dir.resolve("unsafe-scene.json"), """{"scenes": [{"id": "../escape", "duration": 0.2, "line": "A"}]}""")
       val unsafescene = intercept[Throwable] {
         CozyVideo.synthesize(CozyVideo.SynthesizeConfig(dir.resolve("unsafe-scene.json"), dir.resolve("audio-unsafe")), RecordingVoicevoxClient())
       }
-      assert(unsafescene.getMessage.contains("Invalid scene id"))
+      ((unsafescene.getMessage.contains("Invalid scene id")) shouldBe true)
 
       val invalidurl = intercept[Throwable] {
         CozyVideo.synthesize(CozyVideo.SynthesizeConfig(dir.resolve("script.json"), dir.resolve("audio-invalid-url"), Some("://bad")), CozyVideo.VoicevoxClient.default)
       }
-      assert(invalidurl.getMessage.contains("VOICEVOX speakers failed"))
+      ((invalidurl.getMessage.contains("VOICEVOX speakers failed")) shouldBe true)
     }
   }
 
-  test("video render remotion renders all renderable parts through a runner") {
+  }
+
+  "part rendering" which {
+  "video render remotion renders all renderable parts through a runner" in {
     _with_temp_dir("cozy-video-render-remotion") { dir =>
       _write(dir.resolve("dialogue.json"), _script_json)
       _write(dir.resolve("storyboard.json"), _script_json)
@@ -779,35 +798,35 @@ final class CozyVideoSpec extends AnyFunSuite {
 
       val out = CozyVideo.render(CozyVideo.RenderConfig(dir.resolve("video_project.json"), "remotion"), CozyVideo.VideoToolRegistry(Vector.empty), runner)
 
-      assert(out.contains("Cozy Video Render"))
-      assert(out.contains("parts: 2"))
-      assert(out.contains("part.lecture: " + dir.resolve("build/parts/lecture.mp4").normalize()))
-      assert(out.contains("part.board: " + dir.resolve("build/parts/board.mp4").normalize()))
-      assert(runner.commands.size == 2)
-      assert(runner.commands.head.args.take(8) == Vector("docker", "run", "--rm", "-v", s"$dir:/workspace", "-w", "/workspace", "ghcr.io/asami/cozy-toolchain:latest"))
-      assert(runner.commands.head.args.contains("node"))
-      assert(runner.commands.head.args.exists(_.endsWith("target/cozy-video/remotion/lecture/src/render.mjs")))
-      assert(Files.isRegularFile(dir.resolve("target/cozy-video/remotion/lecture/package.json")))
-      assert(Files.isRegularFile(dir.resolve("target/cozy-video/remotion/lecture/src/Root.tsx")))
-      assert(Files.isRegularFile(dir.resolve("target/cozy-video/remotion/lecture/src/render.mjs")))
-      assert(Files.isRegularFile(dir.resolve("target/cozy-video/remotion/lecture/src/props.ts")))
-      assert(Files.isRegularFile(dir.resolve("target/cozy-video/remotion/lecture/props.json")))
-      assert(Files.isRegularFile(dir.resolve("target/cozy-video/remotion/lecture/public/audio/01-title.wav")))
-      assert(Files.isRegularFile(dir.resolve("build/parts/lecture.manifest.json")))
-      assert(Files.isRegularFile(dir.resolve("build/parts/board.manifest.json")))
-      assert(!Files.exists(dir.resolve("build/parts/manifest.json")))
+      ((out.contains("Cozy Video Render")) shouldBe true)
+      ((out.contains("parts: 2")) shouldBe true)
+      ((out.contains("part.lecture: " + dir.resolve("build/parts/lecture.mp4").normalize())) shouldBe true)
+      ((out.contains("part.board: " + dir.resolve("build/parts/board.mp4").normalize())) shouldBe true)
+      ((runner.commands.size == 2) shouldBe true)
+      ((runner.commands.head.args.take(8) == Vector("docker", "run", "--rm", "-v", s"$dir:/workspace", "-w", "/workspace", "ghcr.io/asami/cozy-toolchain:latest")) shouldBe true)
+      ((runner.commands.head.args.contains("node")) shouldBe true)
+      ((runner.commands.head.args.exists(_.endsWith("target/cozy-video/remotion/lecture/src/render.mjs"))) shouldBe true)
+      ((Files.isRegularFile(dir.resolve("target/cozy-video/remotion/lecture/package.json"))) shouldBe true)
+      ((Files.isRegularFile(dir.resolve("target/cozy-video/remotion/lecture/src/Root.tsx"))) shouldBe true)
+      ((Files.isRegularFile(dir.resolve("target/cozy-video/remotion/lecture/src/render.mjs"))) shouldBe true)
+      ((Files.isRegularFile(dir.resolve("target/cozy-video/remotion/lecture/src/props.ts"))) shouldBe true)
+      ((Files.isRegularFile(dir.resolve("target/cozy-video/remotion/lecture/props.json"))) shouldBe true)
+      ((Files.isRegularFile(dir.resolve("target/cozy-video/remotion/lecture/public/audio/01-title.wav"))) shouldBe true)
+      ((Files.isRegularFile(dir.resolve("build/parts/lecture.manifest.json"))) shouldBe true)
+      ((Files.isRegularFile(dir.resolve("build/parts/board.manifest.json"))) shouldBe true)
+      ((!Files.exists(dir.resolve("build/parts/manifest.json"))) shouldBe true)
       val root = _read(dir.resolve("target/cozy-video/remotion/lecture/src/Root.tsx"))
       val render = _read(dir.resolve("target/cozy-video/remotion/lecture/src/render.mjs"))
       val props = _read(dir.resolve("target/cozy-video/remotion/lecture/src/props.ts"))
-      assert(root.contains("cozyVideoProps"))
-      assert(root.contains("staticFile(scene.audioPath)"))
-      assert(!root.contains("React.FC<Props> = (props)"))
-      assert(!render.contains("--props"))
-      assert(props.contains("audio/01-title.wav"))
+      ((root.contains("cozyVideoProps")) shouldBe true)
+      ((root.contains("staticFile(scene.audioPath)")) shouldBe true)
+      ((!root.contains("React.FC<Props> = (props)")) shouldBe true)
+      ((!render.contains("--props")) shouldBe true)
+      ((props.contains("audio/01-title.wav")) shouldBe true)
     }
   }
 
-  test("video render remotion can render one selected part in host mode") {
+  "video render remotion can render one selected part in host mode" in {
     _with_temp_dir("cozy-video-render-selected-host") { dir =>
       _write(dir.resolve("dialogue.json"), _script_json)
       _write(dir.resolve("storyboard.json"), _script_json)
@@ -828,17 +847,17 @@ final class CozyVideoSpec extends AnyFunSuite {
 
       val out = CozyVideo.render(CozyVideo.RenderConfig(dir.resolve("video_project.json"), "remotion", part = Some("board"), toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), runner)
 
-      assert(out.contains("toolMode: host"))
-      assert(out.contains("parts: 1"))
-      assert(out.contains("part.board: " + dir.resolve("build/parts/board.mp4").normalize()))
-      assert(runner.commands.size == 1)
-      assert(runner.commands.head.args.head == "node")
-      assert(runner.commands.head.args(1).endsWith("target/cozy-video/remotion/board/src/render.mjs"))
-      assert(Files.isRegularFile(dir.resolve("build/parts/board.manifest.json")))
+      ((out.contains("toolMode: host")) shouldBe true)
+      ((out.contains("parts: 1")) shouldBe true)
+      ((out.contains("part.board: " + dir.resolve("build/parts/board.mp4").normalize())) shouldBe true)
+      ((runner.commands.size == 1) shouldBe true)
+      ((runner.commands.head.args.head == "node") shouldBe true)
+      ((runner.commands.head.args(1).endsWith("target/cozy-video/remotion/board/src/render.mjs")) shouldBe true)
+      ((Files.isRegularFile(dir.resolve("build/parts/board.manifest.json"))) shouldBe true)
     }
   }
 
-  test("video render simple-java2d renders all renderable parts through python and ffmpeg") {
+  "video render simple-java2d renders all renderable parts through python and ffmpeg" in {
     _with_temp_dir("cozy-video-render-simple-java2d") { dir =>
       _write(dir.resolve("dialogue.json"), _script_json)
       _write(dir.resolve("storyboard.json"), _script_json)
@@ -859,32 +878,32 @@ final class CozyVideoSpec extends AnyFunSuite {
 
       val out = CozyVideo.render(CozyVideo.RenderConfig(dir.resolve("video_project.json"), "simple-java2d"), CozyVideo.VideoToolRegistry(Vector.empty), runner)
 
-      assert(out.contains("Cozy Video Render"))
-      assert(out.contains("parts: 2"))
-      assert(out.contains("part.lecture: " + dir.resolve("build/parts/lecture.mp4").normalize()))
-      assert(out.contains("simpleJava2dWorkDir: " + dir.resolve("target/cozy-video/simple-java2d/lecture").normalize()))
-      assert(runner.commands.size == 4)
-      assert(runner.commands(0).args.take(8) == Vector("docker", "run", "--rm", "-v", s"$dir:/workspace", "-w", "/workspace", "ghcr.io/asami/cozy-toolchain:latest"))
-      assert(runner.commands(0).args.contains("python3"))
-      assert(runner.commands(0).args.exists(_.endsWith("target/cozy-video/simple-java2d/lecture/render_frame.py")))
-      assert(runner.commands(1).args.contains("ffmpeg"))
-      assert(runner.commands(1).args.contains("/workspace/target/cozy-video/simple-java2d/lecture/frame.png"))
-      assert(runner.commands(1).args.contains("/workspace/build/audio/lecture/dialogue.wav"))
-      assert(Files.isRegularFile(dir.resolve("target/cozy-video/simple-java2d/lecture/props.json")))
-      assert(Files.isRegularFile(dir.resolve("target/cozy-video/simple-java2d/lecture/render_frame.py")))
-      assert(Files.isRegularFile(dir.resolve("target/cozy-video/simple-java2d/lecture/frame.png")))
-      assert(!_read(dir.resolve("target/cozy-video/simple-java2d/lecture/render_frame.py")).contains("props.get(\"framePath\""))
-      assert(Files.isRegularFile(dir.resolve("build/parts/lecture.mp4")))
-      assert(Files.isRegularFile(dir.resolve("build/parts/lecture.manifest.json")))
+      ((out.contains("Cozy Video Render")) shouldBe true)
+      ((out.contains("parts: 2")) shouldBe true)
+      ((out.contains("part.lecture: " + dir.resolve("build/parts/lecture.mp4").normalize())) shouldBe true)
+      ((out.contains("simpleJava2dWorkDir: " + dir.resolve("target/cozy-video/simple-java2d/lecture").normalize())) shouldBe true)
+      ((runner.commands.size == 4) shouldBe true)
+      ((runner.commands(0).args.take(8) == Vector("docker", "run", "--rm", "-v", s"$dir:/workspace", "-w", "/workspace", "ghcr.io/asami/cozy-toolchain:latest")) shouldBe true)
+      ((runner.commands(0).args.contains("python3")) shouldBe true)
+      ((runner.commands(0).args.exists(_.endsWith("target/cozy-video/simple-java2d/lecture/render_frame.py"))) shouldBe true)
+      ((runner.commands(1).args.contains("ffmpeg")) shouldBe true)
+      ((runner.commands(1).args.contains("/workspace/target/cozy-video/simple-java2d/lecture/frame.png")) shouldBe true)
+      ((runner.commands(1).args.contains("/workspace/build/audio/lecture/dialogue.wav")) shouldBe true)
+      ((Files.isRegularFile(dir.resolve("target/cozy-video/simple-java2d/lecture/props.json"))) shouldBe true)
+      ((Files.isRegularFile(dir.resolve("target/cozy-video/simple-java2d/lecture/render_frame.py"))) shouldBe true)
+      ((Files.isRegularFile(dir.resolve("target/cozy-video/simple-java2d/lecture/frame.png"))) shouldBe true)
+      ((!_read(dir.resolve("target/cozy-video/simple-java2d/lecture/render_frame.py")).contains("props.get(\"framePath\"")) shouldBe true)
+      ((Files.isRegularFile(dir.resolve("build/parts/lecture.mp4"))) shouldBe true)
+      ((Files.isRegularFile(dir.resolve("build/parts/lecture.manifest.json"))) shouldBe true)
       val manifest = _read(dir.resolve("build/parts/lecture.manifest.json"))
-      assert(manifest.contains("\"renderer\" : \"simple-java2d\""))
-      assert(manifest.contains("\"framePath\""))
-      assert(manifest.contains("\"audioCombinedPath\""))
-      assert(manifest.contains("\"simpleJava2dWorkDir\""))
+      ((manifest.contains("\"renderer\" : \"simple-java2d\"")) shouldBe true)
+      ((manifest.contains("\"framePath\"")) shouldBe true)
+      ((manifest.contains("\"audioCombinedPath\"")) shouldBe true)
+      ((manifest.contains("\"simpleJava2dWorkDir\"")) shouldBe true)
     }
   }
 
-  test("video render simple-java2d can render one selected part in host mode") {
+  "video render simple-java2d can render one selected part in host mode" in {
     _with_temp_dir("cozy-video-render-simple-java2d-host") { dir =>
       _write(dir.resolve("dialogue.json"), _script_json)
       _write(dir.resolve("storyboard.json"), _script_json)
@@ -904,18 +923,18 @@ final class CozyVideoSpec extends AnyFunSuite {
 
       val out = CozyVideo.render(CozyVideo.RenderConfig(dir.resolve("video_project.json"), "simple-java2d", part = Some("board"), toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), runner)
 
-      assert(out.contains("toolMode: host"))
-      assert(out.contains("parts: 1"))
-      assert(out.contains("part.board: " + dir.resolve("build/parts/board.mp4").normalize()))
-      assert(runner.commands.size == 2)
-      assert(runner.commands(0).args.head == "python3")
-      assert(runner.commands(1).args.head == "ffmpeg")
-      assert(!runner.commands.exists(_.args.head == "docker"))
-      assert(Files.isRegularFile(dir.resolve("build/parts/board.manifest.json")))
+      ((out.contains("toolMode: host")) shouldBe true)
+      ((out.contains("parts: 1")) shouldBe true)
+      ((out.contains("part.board: " + dir.resolve("build/parts/board.mp4").normalize())) shouldBe true)
+      ((runner.commands.size == 2) shouldBe true)
+      ((runner.commands(0).args.head == "python3") shouldBe true)
+      ((runner.commands(1).args.head == "ffmpeg") shouldBe true)
+      ((!runner.commands.exists(_.args.head == "docker")) shouldBe true)
+      ((Files.isRegularFile(dir.resolve("build/parts/board.manifest.json"))) shouldBe true)
     }
   }
 
-  test("video render remotion fails for invalid selection renderer inputs and runner failures") {
+  "video render remotion fails for invalid selection renderer inputs and runner failures" in {
     _with_temp_dir("cozy-video-render-errors") { dir =>
       _write(dir.resolve("script.json"), _script_json)
       _write_audio_manifest(dir.resolve("build/audio/intro"), Vector("title", "description", "summary"))
@@ -924,27 +943,27 @@ final class CozyVideoSpec extends AnyFunSuite {
       val unknownpart = intercept[Throwable] {
         CozyVideo.render(CozyVideo.RenderConfig(dir.resolve("video_project.json"), "remotion", part = Some("missing")), CozyVideo.VideoToolRegistry(Vector.empty), RecordingRunner())
       }
-      assert(unknownpart.getMessage.contains("Unknown video part"))
+      ((unknownpart.getMessage.contains("Unknown video part")) shouldBe true)
 
       val unsupportedrenderer = intercept[Throwable] {
         CozyVideo.render(CozyVideo.RenderConfig(dir.resolve("video_project.json"), "simple-java3d"), CozyVideo.VideoToolRegistry(Vector.empty), RecordingRunner())
       }
-      assert(unsupportedrenderer.getMessage.contains("Unsupported video renderer"))
+      ((unsupportedrenderer.getMessage.contains("Unsupported video renderer")) shouldBe true)
 
       val missingproject = intercept[Throwable] {
         CozyVideo.render(CozyVideo.RenderConfig(dir.resolve("missing.json"), "remotion"), CozyVideo.VideoToolRegistry(Vector.empty), RecordingRunner())
       }
-      assert(missingproject.getMessage.contains("Missing video project file"))
+      ((missingproject.getMessage.contains("Missing video project file")) shouldBe true)
 
       val runnerfailure = intercept[Throwable] {
         CozyVideo.render(CozyVideo.RenderConfig(dir.resolve("video_project.json"), "remotion"), CozyVideo.VideoToolRegistry(Vector.empty), RecordingRunner(result = CozyVideo.VideoCommandResult(1, "", "remotion missing")))
       }
-      assert(runnerfailure.getMessage.contains("Remotion render failed"))
-      assert(runnerfailure.getMessage.contains("remotion missing"))
+      ((runnerfailure.getMessage.contains("Remotion render failed")) shouldBe true)
+      ((runnerfailure.getMessage.contains("remotion missing")) shouldBe true)
     }
   }
 
-  test("video render simple-java2d validates combined audio runner failures and tool checks") {
+  "video render simple-java2d validates combined audio runner failures and tool checks" in {
     _with_temp_dir("cozy-video-render-simple-java2d-errors") { dir =>
       _write(dir.resolve("script.json"), _script_json)
       _write_audio_manifest(dir.resolve("build/audio/intro"), Vector("title", "description", "summary"))
@@ -953,19 +972,19 @@ final class CozyVideoSpec extends AnyFunSuite {
       val missingcombined = intercept[Throwable] {
         CozyVideo.render(CozyVideo.RenderConfig(dir.resolve("video_project.json"), "simple-java2d"), CozyVideo.VideoToolRegistry(Vector.empty), RenderingRunner())
       }
-      assert(missingcombined.getMessage.contains("Missing combined audio file"))
-      assert(missingcombined.getMessage.contains("cozy video synthesize"))
+      ((missingcombined.getMessage.contains("Missing combined audio file")) shouldBe true)
+      ((missingcombined.getMessage.contains("cozy video synthesize")) shouldBe true)
 
       Files.write(dir.resolve("build/audio/intro/script.wav"), _wav_bytes(0.4))
       val framefailure = intercept[Throwable] {
         CozyVideo.render(CozyVideo.RenderConfig(dir.resolve("video_project.json"), "simple-java2d"), CozyVideo.VideoToolRegistry(Vector.empty), RenderingRunner(failTool = Some("python3")))
       }
-      assert(framefailure.getMessage.contains("simple-java2d frame render failed"))
+      ((framefailure.getMessage.contains("simple-java2d frame render failed")) shouldBe true)
 
       val ffmpegfailure = intercept[Throwable] {
         CozyVideo.render(CozyVideo.RenderConfig(dir.resolve("video_project.json"), "simple-java2d"), CozyVideo.VideoToolRegistry(Vector.empty), RenderingRunner(failTool = Some("ffmpeg")))
       }
-      assert(ffmpegfailure.getMessage.contains("simple-java2d ffmpeg encode failed"))
+      ((ffmpegfailure.getMessage.contains("simple-java2d ffmpeg encode failed")) shouldBe true)
 
       val missingtool = intercept[Throwable] {
         CozyVideo.render(
@@ -977,12 +996,12 @@ final class CozyVideoSpec extends AnyFunSuite {
           RenderingRunner()
         )
       }
-      assert(missingtool.getMessage.contains("ffmpeg is missing"))
-      assert(missingtool.getMessage.contains("install ffmpeg"))
+      ((missingtool.getMessage.contains("ffmpeg is missing")) shouldBe true)
+      ((missingtool.getMessage.contains("install ffmpeg")) shouldBe true)
     }
   }
 
-  test("video render remotion validates audio prerequisites and tool checks") {
+  "video render remotion validates audio prerequisites and tool checks" in {
     _with_temp_dir("cozy-video-render-audio-errors") { dir =>
       _write(dir.resolve("script.json"), _script_json)
       _write(dir.resolve("video_project.json"), _project_json("script.json"))
@@ -990,14 +1009,14 @@ final class CozyVideoSpec extends AnyFunSuite {
       val missingmanifest = intercept[Throwable] {
         CozyVideo.render(CozyVideo.RenderConfig(dir.resolve("video_project.json"), "remotion"), CozyVideo.VideoToolRegistry(Vector.empty), RecordingRunner())
       }
-      assert(missingmanifest.getMessage.contains("Missing audio manifest"))
-      assert(missingmanifest.getMessage.contains("cozy video synthesize"))
+      ((missingmanifest.getMessage.contains("Missing audio manifest")) shouldBe true)
+      ((missingmanifest.getMessage.contains("cozy video synthesize")) shouldBe true)
 
       _write(dir.resolve("build/audio/intro/manifest.json"), _audio_manifest_json(Vector("title", "description", "summary")))
       val missingaudio = intercept[Throwable] {
         CozyVideo.render(CozyVideo.RenderConfig(dir.resolve("video_project.json"), "remotion"), CozyVideo.VideoToolRegistry(Vector.empty), RecordingRunner())
       }
-      assert(missingaudio.getMessage.contains("Missing audio file"))
+      ((missingaudio.getMessage.contains("Missing audio file")) shouldBe true)
 
       _write_audio_manifest(dir.resolve("build/audio/intro"), Vector("title", "description", "summary"))
       val missingtool = intercept[Throwable] {
@@ -1007,22 +1026,25 @@ final class CozyVideoSpec extends AnyFunSuite {
           RecordingRunner()
         )
       }
-      assert(missingtool.getMessage.contains("remotion-node is missing"))
-      assert(missingtool.getMessage.contains("install remotion"))
+      ((missingtool.getMessage.contains("remotion-node is missing")) shouldBe true)
+      ((missingtool.getMessage.contains("install remotion")) shouldBe true)
     }
   }
 
-  test("video inspect fails explicitly for missing project files") {
+  }
+
+  "runtime inspection and tool checks" which {
+  "video inspect fails explicitly for missing project files" in {
     _with_temp_dir("cozy-video-missing-project") { dir =>
       val e = intercept[Throwable] {
         CozyVideo.inspect(CozyVideo.InspectConfig(dir.resolve("missing.json"), checkTools = false), CozyVideo.VideoToolRegistry(Vector.empty))
       }
 
-      assert(e.getMessage.contains("Missing video project file"))
+      ((e.getMessage.contains("Missing video project file")) shouldBe true)
     }
   }
 
-  test("video inspect fails explicitly for unknown options") {
+  "video inspect fails explicitly for unknown options" in {
     _with_temp_dir("cozy-video-unknown-option") { dir =>
       _write(dir.resolve("script.json"), _script_json)
       _write(dir.resolve("video_project.json"), _project_json("script.json"))
@@ -1030,11 +1052,11 @@ final class CozyVideoSpec extends AnyFunSuite {
         CozyVideo.execute(List("video", "inspect", dir.resolve("video_project.json").toString, "--check-toolz"), CozyVideo.VideoToolRegistry(Vector.empty))
       }
 
-      assert(e.getMessage.contains("check-toolz"))
+      ((e.getMessage.contains("check-toolz")) shouldBe true)
     }
   }
 
-  test("video inspect generates unique ids for anonymous subscenes") {
+  "video inspect generates unique ids for anonymous subscenes" in {
     val scene = CozyVideo.VideoScene(
       id = None,
       speaker = None,
@@ -1050,10 +1072,10 @@ final class CozyVideoSpec extends AnyFunSuite {
       )
     )
 
-    assert(scene.expanded(7).flatMap(_.id) == Vector("scene-07.subscene-01", "scene-07.subscene-02"))
+    ((scene.expanded(7).flatMap(_.id) == Vector("scene-07.subscene-01", "scene-07.subscene-02")) shouldBe true)
   }
 
-  test("video inspect does not call tool probes without check-tools") {
+  "video inspect does not call tool probes without check-tools" in {
     _with_temp_dir("cozy-video-no-tool-probe") { dir =>
       _write(dir.resolve("script.json"), _script_json)
       _write(dir.resolve("video_project.json"), _project_json("script.json"))
@@ -1064,14 +1086,14 @@ final class CozyVideoSpec extends AnyFunSuite {
         CozyVideo.VideoToolRegistry.production(probe)
       )
 
-      assert(!out.contains("tool checks:"))
-      assert(probe.commands.isEmpty)
-      assert(probe.httpGets.isEmpty)
-      assert(probe.existsChecks.isEmpty)
+      ((!out.contains("tool checks:")) shouldBe true)
+      ((probe.commands.isEmpty) shouldBe true)
+      ((probe.httpGets.isEmpty) shouldBe true)
+      ((probe.existsChecks.isEmpty) shouldBe true)
     }
   }
 
-  test("video inspect production registry reports deterministic available tools through probe") {
+  "video inspect production registry reports deterministic available tools through probe" in {
     _with_temp_dir("cozy-video-tool-probe-available") { dir =>
       val chromium = dir.resolve("chromium")
       val whisper = dir.resolve("models/ggml-base.bin")
@@ -1102,21 +1124,21 @@ final class CozyVideoSpec extends AnyFunSuite {
         CozyVideo.VideoToolRegistry.production(probe)
       )
 
-      assert(out.contains("docker-toolchain: unchecked (docker)"))
-      assert(out.contains("docker-image: unchecked (docker)"))
-      assert(out.contains("voicevox: available (external-service)"))
-      assert(out.contains("ffmpeg: available (host)"))
-      assert(out.contains("remotion-node: available (host)"))
-      assert(out.contains("playwright: available (host)"))
-      assert(out.contains("whisper-cpp: available (host)"))
-      assert(out.contains("python-pillow: missing (host)"))
-      assert(out.indexOf("docker-toolchain: unchecked") < out.indexOf("docker-image: unchecked"))
-      assert(out.indexOf("docker-image: unchecked") < out.indexOf("voicevox: available"))
-      assert(!probe.commands.exists(_.take(3) == Vector("docker", "run", "--rm")))
+      ((out.contains("docker-toolchain: unchecked (docker)")) shouldBe true)
+      ((out.contains("docker-image: unchecked (docker)")) shouldBe true)
+      ((out.contains("voicevox: available (external-service)")) shouldBe true)
+      ((out.contains("ffmpeg: available (host)")) shouldBe true)
+      ((out.contains("remotion-node: available (host)")) shouldBe true)
+      ((out.contains("playwright: available (host)")) shouldBe true)
+      ((out.contains("whisper-cpp: available (host)")) shouldBe true)
+      ((out.contains("python-pillow: missing (host)")) shouldBe true)
+      ((out.indexOf("docker-toolchain: unchecked") < out.indexOf("docker-image: unchecked")) shouldBe true)
+      ((out.indexOf("docker-image: unchecked") < out.indexOf("voicevox: available")) shouldBe true)
+      ((!probe.commands.exists(_.take(3) == Vector("docker", "run", "--rm"))) shouldBe true)
     }
   }
 
-  test("video inspect production registry reports missing and unchecked tools through probe") {
+  "video inspect production registry reports missing and unchecked tools through probe" in {
     _with_temp_dir("cozy-video-tool-probe-missing") { dir =>
       _write(dir.resolve("script.json"), _script_json)
       _write(
@@ -1156,20 +1178,20 @@ final class CozyVideoSpec extends AnyFunSuite {
         CozyVideo.VideoToolRegistry.production(probe)
       )
 
-      assert(out.contains("docker-toolchain: unchecked (docker)"))
-      assert(out.contains("docker-image: unchecked (docker)"))
-      assert(out.contains("voicevox: missing (external-service)"))
-      assert(out.contains("setup: Start VOICEVOX Engine or set tools.voicevoxUrl / video.voicevox.url."))
-      assert(out.contains("ffmpeg: missing (host)"))
-      assert(out.contains("remotion-node: missing (host)"))
-      assert(out.contains("playwright: missing (host)"))
-      assert(out.contains("whisper-cpp: missing (host)"))
-      assert(out.contains("python-pillow: missing (host)"))
-      assert(out.contains("whisper.cpp model is missing: " + dir.resolve("models/missing.bin").normalize()))
+      ((out.contains("docker-toolchain: unchecked (docker)")) shouldBe true)
+      ((out.contains("docker-image: unchecked (docker)")) shouldBe true)
+      ((out.contains("voicevox: missing (external-service)")) shouldBe true)
+      ((out.contains("setup: Start VOICEVOX Engine or set tools.voicevoxUrl / video.voicevox.url.")) shouldBe true)
+      ((out.contains("ffmpeg: missing (host)")) shouldBe true)
+      ((out.contains("remotion-node: missing (host)")) shouldBe true)
+      ((out.contains("playwright: missing (host)")) shouldBe true)
+      ((out.contains("whisper-cpp: missing (host)")) shouldBe true)
+      ((out.contains("python-pillow: missing (host)")) shouldBe true)
+      ((out.contains("whisper.cpp model is missing: " + dir.resolve("models/missing.bin").normalize())) shouldBe true)
     }
   }
 
-  test("video inspect production registry reports missing docker image with pull guidance") {
+  "video inspect production registry reports missing docker image with pull guidance" in {
     _with_temp_dir("cozy-video-tool-probe-image-missing") { dir =>
       _write(dir.resolve("script.json"), _script_json)
       _write(
@@ -1199,15 +1221,15 @@ final class CozyVideoSpec extends AnyFunSuite {
         CozyVideo.VideoToolRegistry.production(probe)
       )
 
-      assert(out.contains("docker-toolchain: available (docker)"))
-      assert(out.contains("docker-image: missing (docker)"))
-      assert(out.contains("setup: Run: docker pull example/toolchain:dev"))
-      assert(out.contains("cozy-toolchain-image: unchecked (docker)"))
-      assert(!probe.commands.exists(_.take(3) == Vector("docker", "run", "--rm")))
+      ((out.contains("docker-toolchain: available (docker)")) shouldBe true)
+      ((out.contains("docker-image: missing (docker)")) shouldBe true)
+      ((out.contains("setup: Run: docker pull example/toolchain:dev")) shouldBe true)
+      ((out.contains("cozy-toolchain-image: unchecked (docker)")) shouldBe true)
+      ((!probe.commands.exists(_.take(3) == Vector("docker", "run", "--rm"))) shouldBe true)
     }
   }
 
-  test("video inspect docker mode check-tools focuses on docker image and voicevox") {
+  "video inspect docker mode check-tools focuses on docker image and voicevox" in {
     _with_temp_dir("cozy-video-tool-probe-docker-mode") { dir =>
       _write(dir.resolve("script.json"), _script_json)
       _write(
@@ -1241,25 +1263,25 @@ final class CozyVideoSpec extends AnyFunSuite {
         CozyVideo.VideoToolRegistry.production(probe)
       )
 
-      assert(out.contains("toolMode: docker"))
-      assert(out.contains("docker-image: available (docker)"))
-      assert(out.contains("cozy-toolchain-image: available (docker)"))
-      assert(out.contains("voicevox: missing (external-service)"))
-      assert(out.indexOf("docker-image: available") < out.indexOf("cozy-toolchain-image: available"))
-      assert(out.indexOf("cozy-toolchain-image: available") < out.indexOf("voicevox: missing"))
-      assert(out.contains("host.docker.internal"))
-      assert(out.contains("ffmpeg: unchecked (docker)"))
-      assert(out.contains("remotion-node: unchecked (docker)"))
-      assert(out.contains("playwright: unchecked (docker)"))
-      assert(out.contains("whisper-cpp: unchecked (docker)"))
-      assert(out.contains("python-pillow: unchecked (docker)"))
-      assert(!probe.commands.exists(_.headOption.contains("ffmpeg")))
-      assert(!probe.commands.exists(_.headOption.contains("node")))
-      assert(!probe.commands.exists(_.headOption.contains("python3")))
+      ((out.contains("toolMode: docker")) shouldBe true)
+      ((out.contains("docker-image: available (docker)")) shouldBe true)
+      ((out.contains("cozy-toolchain-image: available (docker)")) shouldBe true)
+      ((out.contains("voicevox: missing (external-service)")) shouldBe true)
+      ((out.indexOf("docker-image: available") < out.indexOf("cozy-toolchain-image: available")) shouldBe true)
+      ((out.indexOf("cozy-toolchain-image: available") < out.indexOf("voicevox: missing")) shouldBe true)
+      ((out.contains("host.docker.internal")) shouldBe true)
+      ((out.contains("ffmpeg: unchecked (docker)")) shouldBe true)
+      ((out.contains("remotion-node: unchecked (docker)")) shouldBe true)
+      ((out.contains("playwright: unchecked (docker)")) shouldBe true)
+      ((out.contains("whisper-cpp: unchecked (docker)")) shouldBe true)
+      ((out.contains("python-pillow: unchecked (docker)")) shouldBe true)
+      ((!probe.commands.exists(_.headOption.contains("ffmpeg"))) shouldBe true)
+      ((!probe.commands.exists(_.headOption.contains("node"))) shouldBe true)
+      ((!probe.commands.exists(_.headOption.contains("python3"))) shouldBe true)
     }
   }
 
-  test("video inspect docker mode reports image content check failure without failing inspect") {
+  "video inspect docker mode reports image content check failure without failing inspect" in {
     _with_temp_dir("cozy-video-toolchain-image-failure") { dir =>
       _write(dir.resolve("script.json"), _script_json)
       _write(
@@ -1289,14 +1311,14 @@ final class CozyVideoSpec extends AnyFunSuite {
         CozyVideo.VideoToolRegistry.production(probe)
       )
 
-      assert(out.contains("Cozy Video Inspect"))
-      assert(out.contains("cozy-toolchain-image: missing (docker)"))
-      assert(out.contains("missing command: whisper-cli"))
-      assert(out.contains("setup: Rebuild the image: docker build -t example/toolchain:dev docker/cozy-toolchain"))
+      ((out.contains("Cozy Video Inspect")) shouldBe true)
+      ((out.contains("cozy-toolchain-image: missing (docker)")) shouldBe true)
+      ((out.contains("missing command: whisper-cli")) shouldBe true)
+      ((out.contains("setup: Rebuild the image: docker build -t example/toolchain:dev docker/cozy-toolchain")) shouldBe true)
     }
   }
 
-  test("video inspect production registry reports invalid voicevox URL as missing") {
+  "video inspect production registry reports invalid voicevox URL as missing" in {
     _with_temp_dir("cozy-video-tool-probe-invalid-voicevox") { dir =>
       _write(dir.resolve("script.json"), _script_json)
       _write(
@@ -1319,14 +1341,14 @@ final class CozyVideoSpec extends AnyFunSuite {
         CozyVideo.VideoToolRegistry.production(probe)
       )
 
-      assert(out.contains("voicevox: missing (external-service)"))
-      assert(out.contains("VOICEVOX endpoint URL is invalid"))
-      assert(out.contains("setup: Set tools.voicevoxUrl or video.voicevox.url to a valid HTTP URL."))
-      assert(probe.httpGets.isEmpty)
+      ((out.contains("voicevox: missing (external-service)")) shouldBe true)
+      ((out.contains("VOICEVOX endpoint URL is invalid")) shouldBe true)
+      ((out.contains("setup: Set tools.voicevoxUrl or video.voicevox.url to a valid HTTP URL.")) shouldBe true)
+      ((probe.httpGets.isEmpty) shouldBe true)
     }
   }
 
-  test("video build dry-run can include production tool checks without failing on missing tools") {
+  "video build dry-run can include production tool checks without failing on missing tools" in {
     _with_temp_dir("cozy-video-build-check-tools") { dir =>
       _write(dir.resolve("script.json"), _script_json)
       _write(dir.resolve("video_project.json"), _project_json("script.json"))
@@ -1337,15 +1359,15 @@ final class CozyVideoSpec extends AnyFunSuite {
         CozyVideo.VideoToolRegistry.production(probe)
       )
 
-      assert(out.contains("Cozy Video Build Dry-Run"))
-      assert(out.contains("commands:"))
-      assert(out.contains("tool checks:"))
-      assert(out.contains("docker-toolchain: missing (docker)"))
-      assert(out.contains("voicevox: missing (external-service)"))
+      ((out.contains("Cozy Video Build Dry-Run")) shouldBe true)
+      ((out.contains("commands:")) shouldBe true)
+      ((out.contains("tool checks:")) shouldBe true)
+      ((out.contains("docker-toolchain: missing (docker)")) shouldBe true)
+      ((out.contains("voicevox: missing (external-service)")) shouldBe true)
     }
   }
 
-  test("video inspect supports stubbed tool registry for deterministic SPI tests") {
+  "video inspect supports stubbed tool registry for deterministic SPI tests" in {
     _with_temp_dir("cozy-video-stub-tools") { dir =>
       _write(dir.resolve("script.json"), _script_json)
       _write(dir.resolve("video_project.json"), _project_json("script.json"))
@@ -1357,13 +1379,13 @@ final class CozyVideoSpec extends AnyFunSuite {
 
       val out = CozyVideo.inspect(CozyVideo.InspectConfig(dir.resolve("video_project.json"), checkTools = true), registry)
 
-      assert(out.indexOf("alpha: available (host)") < out.indexOf("beta: missing (docker)"))
-      assert(out.indexOf("beta: missing (docker)") < out.indexOf("gamma: unchecked (external-service)"))
-      assert(out.contains("setup: install beta"))
+      ((out.indexOf("alpha: available (host)") < out.indexOf("beta: missing (docker)")) shouldBe true)
+      ((out.indexOf("beta: missing (docker)") < out.indexOf("gamma: unchecked (external-service)")) shouldBe true)
+      ((out.contains("setup: install beta")) shouldBe true)
     }
   }
 
-  test("cozy video inspect is wired through the Cozy CLI and help") {
+  "cozy video inspect is wired through the Cozy CLI and help" in {
     _with_temp_dir("cozy-video-cli") { dir =>
       _write(dir.resolve("script.json"), _script_json)
       _write(dir.resolve("video_project.json"), _project_json("script.json"))
@@ -1400,30 +1422,33 @@ final class CozyVideoSpec extends AnyFunSuite {
         )
       }
 
-      assert(out.contains("Cozy Video Inspect"))
-      assert(out.contains("part[1]: intro"))
-      assert(build.contains("Cozy Video Build Dry-Run"))
-      assert(build.contains("toolMode: host"))
-      assert(build.contains("dockerImage: cli-image"))
-      assert(render.contains("Cozy Video Render"))
-      assert(render.contains("part.intro: " + dir.resolve("build/parts/intro.mp4").normalize()))
-      assert(runner.commands.nonEmpty)
-      assert(rdf.contains("Cozy Video RDF"))
-      assert(Files.isRegularFile(dir.resolve("rdf/video.ttl")))
-      assert(help.contains("video inspect <project-file>"))
-      assert(help.contains("video build <project-file> [--dry-run]"))
-      assert(help.contains("video synthesize <script-file> --save <audio-dir>"))
-      assert(help.contains("video render <project-file> --renderer=remotion|simple-java2d"))
-      assert(help.contains("video transcribe <input-video> --save <dir>"))
-      assert(help.contains("video demo-script <input-video> --save <script-file>"))
-      assert(help.contains("video replay <script-file>"))
-      assert(help.contains("video rdf <project-file> --save <dir>"))
-      assert(help.contains("publish-video <slug>.video"))
-      assert(help.contains("--check-tools"))
+      ((out.contains("Cozy Video Inspect")) shouldBe true)
+      ((out.contains("part[1]: intro")) shouldBe true)
+      ((build.contains("Cozy Video Build Dry-Run")) shouldBe true)
+      ((build.contains("toolMode: host")) shouldBe true)
+      ((build.contains("dockerImage: cli-image")) shouldBe true)
+      ((render.contains("Cozy Video Render")) shouldBe true)
+      ((render.contains("part.intro: " + dir.resolve("build/parts/intro.mp4").normalize())) shouldBe true)
+      ((runner.commands.nonEmpty) shouldBe true)
+      ((rdf.contains("Cozy Video RDF")) shouldBe true)
+      ((Files.isRegularFile(dir.resolve("rdf/video.ttl"))) shouldBe true)
+      ((help.contains("video inspect <project-file>")) shouldBe true)
+      ((help.contains("video build <project-file> [--dry-run]")) shouldBe true)
+      ((help.contains("video synthesize <script-file> --save <audio-dir>")) shouldBe true)
+      ((help.contains("video render <project-file> --renderer=remotion|simple-java2d")) shouldBe true)
+      ((help.contains("video transcribe <input-video> --save <dir>")) shouldBe true)
+      ((help.contains("video demo-script <input-video> --save <script-file>")) shouldBe true)
+      ((help.contains("video replay <script-file>")) shouldBe true)
+      ((help.contains("video rdf <project-file> --save <dir>")) shouldBe true)
+      ((help.contains("publish-video <slug>.video")) shouldBe true)
+      ((help.contains("--check-tools")) shouldBe true)
     }
   }
 
-  test("video demo-script generates replay script from selector event log and transcript") {
+  }
+
+  "demo replay" which {
+  "video demo-script generates replay script from selector event log and transcript" in {
     _with_temp_dir("cozy-video-demo-script-events") { dir =>
       val input = dir.resolve("demo.mp4")
       val events = dir.resolve("events.json")
@@ -1456,20 +1481,20 @@ final class CozyVideoSpec extends AnyFunSuite {
 
       val out = CozyVideo.demoScript(CozyVideo.DemoScriptConfig(input, save, eventsFile = Some(events), transcriptFile = Some(transcript)))
 
-      assert(out.contains("Cozy Video Demo Script"))
-      assert(out.contains("manualReview: true"))
+      ((out.contains("Cozy Video Demo Script")) shouldBe true)
+      ((out.contains("manualReview: true")) shouldBe true)
       val json = parser.parse(_read(save)).toOption.get
-      assert(json.hcursor.downField("schema").as[String].toOption.contains("cozy.video.replay-script.v1"))
-      assert(json.hcursor.downField("manualReview").as[Boolean].toOption.contains(true))
-      assert(json.hcursor.downField("viewport").downField("width").as[Int].toOption.contains(1440))
+      ((json.hcursor.downField("schema").as[String].toOption.contains("cozy.video.replay-script.v1")) shouldBe true)
+      ((json.hcursor.downField("manualReview").as[Boolean].toOption.contains(true)) shouldBe true)
+      ((json.hcursor.downField("viewport").downField("width").as[Int].toOption.contains(1440)) shouldBe true)
       val steps = json.hcursor.downField("steps").focus.flatMap(_.asArray).get
-      assert(steps.map(_.hcursor.downField("kind").as[String].toOption.get).take(5) == Vector("goto", "click", "fill", "press", "wait"))
-      assert(steps.exists(_.hcursor.downField("note").as[String].toOption.contains("Open the start page")))
-      assert(json.hcursor.downField("sourceSha256").as[String].toOption.exists(_.nonEmpty))
+      ((steps.map(_.hcursor.downField("kind").as[String].toOption.get).take(5) == Vector("goto", "click", "fill", "press", "wait")) shouldBe true)
+      ((steps.exists(_.hcursor.downField("note").as[String].toOption.contains("Open the start page"))) shouldBe true)
+      ((json.hcursor.downField("sourceSha256").as[String].toOption.exists(_.nonEmpty)) shouldBe true)
     }
   }
 
-  test("video demo-script produces manual-review drafts for HAR and video-only inputs") {
+  "video demo-script produces manual-review drafts for HAR and video-only inputs" in {
     _with_temp_dir("cozy-video-demo-script-manual") { dir =>
       val input = dir.resolve("demo.mp4")
       val har = dir.resolve("demo.har")
@@ -1491,14 +1516,14 @@ final class CozyVideoSpec extends AnyFunSuite {
 
       val harjson = parser.parse(_read(dir.resolve("build/har-demo-script.json"))).toOption.get
       val videojson = parser.parse(_read(dir.resolve("build/video-only-demo-script.json"))).toOption.get
-      assert(harjson.hcursor.downField("manualReview").as[Boolean].toOption.contains(true))
-      assert(harjson.noSpaces.contains("http://example.test/home"))
-      assert(videojson.hcursor.downField("manualReview").as[Boolean].toOption.contains(true))
-      assert(videojson.noSpaces.contains("Manual review is required"))
+      ((harjson.hcursor.downField("manualReview").as[Boolean].toOption.contains(true)) shouldBe true)
+      ((harjson.noSpaces.contains("http://example.test/home")) shouldBe true)
+      ((videojson.hcursor.downField("manualReview").as[Boolean].toOption.contains(true)) shouldBe true)
+      ((videojson.noSpaces.contains("Manual review is required")) shouldBe true)
     }
   }
 
-  test("video demo-script validates inputs options and missing files") {
+  "video demo-script validates inputs options and missing files" in {
     _with_temp_dir("cozy-video-demo-script-errors") { dir =>
       val input = dir.resolve("demo.mp4")
       _write_bytes(input, Array[Byte](1, 2, 3))
@@ -1506,26 +1531,26 @@ final class CozyVideoSpec extends AnyFunSuite {
       val missinginput = intercept[RuntimeException] {
         CozyVideo.demoScript(CozyVideo.DemoScriptConfig(dir.resolve("missing.mp4"), dir.resolve("build/demo-script.json")))
       }
-      assert(missinginput.getMessage.contains("Missing input video"))
+      ((missinginput.getMessage.contains("Missing input video")) shouldBe true)
 
       val missingsave = intercept[RuntimeException] {
         CozyVideo.execute(List("video", "demo-script", input.toString), CozyVideo.VideoToolRegistry(Vector.empty))
       }
-      assert(missingsave.getMessage.contains("save"))
+      ((missingsave.getMessage.contains("save")) shouldBe true)
 
       val missingevents = intercept[RuntimeException] {
         CozyVideo.demoScript(CozyVideo.DemoScriptConfig(input, dir.resolve("build/demo-script.json"), eventsFile = Some(dir.resolve("missing-events.json"))))
       }
-      assert(missingevents.getMessage.contains("Missing selector event log"))
+      ((missingevents.getMessage.contains("Missing selector event log")) shouldBe true)
 
       val unknown = intercept[RuntimeException] {
         CozyVideo.execute(List("video", "demo-script", input.toString, "--save", dir.resolve("build/demo-script.json").toString, "--unknown"), CozyVideo.VideoToolRegistry(Vector.empty))
       }
-      assert(unknown.getMessage.contains("unknown"))
+      ((unknown.getMessage.contains("unknown")) shouldBe true)
     }
   }
 
-  test("video replay dry-runs and executes generated Playwright plans") {
+  "video replay dry-runs and executes generated Playwright plans" in {
     _with_temp_dir("cozy-video-replay") { dir =>
       val script = dir.resolve("build/demo-script.json")
       val output = dir.resolve("build/replay.webm")
@@ -1556,23 +1581,23 @@ final class CozyVideoSpec extends AnyFunSuite {
         runner
       )
 
-      assert(dryrun.contains("Cozy Video Replay Dry-Run"))
-      assert(dryrun.contains("'docker' 'run' '--rm'"))
-      assert(dryrun.contains("replay.playwright"))
-      assert(execute.contains("Cozy Video Replay"))
-      assert(execute.contains("toolMode: host"))
-      assert(runner.commands.size == 1)
-      assert(runner.commands.head.args.head == "node")
-      assert(Files.isRegularFile(output))
-      assert(Files.isRegularFile(dir.resolve("target/cozy-video/replay/demo-script/manifest.json")))
+      ((dryrun.contains("Cozy Video Replay Dry-Run")) shouldBe true)
+      ((dryrun.contains("'docker' 'run' '--rm'")) shouldBe true)
+      ((dryrun.contains("replay.playwright")) shouldBe true)
+      ((execute.contains("Cozy Video Replay")) shouldBe true)
+      ((execute.contains("toolMode: host")) shouldBe true)
+      ((runner.commands.size == 1) shouldBe true)
+      ((runner.commands.head.args.head == "node") shouldBe true)
+      ((Files.isRegularFile(output)) shouldBe true)
+      ((Files.isRegularFile(dir.resolve("target/cozy-video/replay/demo-script/manifest.json"))) shouldBe true)
       val manifest = _read(dir.resolve("target/cozy-video/replay/demo-script/manifest.json"))
-      assert(manifest.contains("cozy.video.replay-manifest.v1"))
-      assert(manifest.contains("abc123"))
-      assert(manifest.contains("replay.playwright"))
+      ((manifest.contains("cozy.video.replay-manifest.v1")) shouldBe true)
+      ((manifest.contains("abc123")) shouldBe true)
+      ((manifest.contains("replay.playwright")) shouldBe true)
     }
   }
 
-  test("video replay validates inputs runner failures and tool checks") {
+  "video replay validates inputs runner failures and tool checks" in {
     _with_temp_dir("cozy-video-replay-errors") { dir =>
       val script = dir.resolve("build/demo-script.json")
       _write(script, """{"schema":"cozy.video.replay-script.v1","steps":[{"kind":"goto","url":"http://example.test/"}]}""")
@@ -1580,22 +1605,22 @@ final class CozyVideoSpec extends AnyFunSuite {
       val missing = intercept[RuntimeException] {
         CozyVideo.replay(CozyVideo.ReplayConfig(dir.resolve("missing.json"), projectRootOverride = Some(dir)), CozyVideo.VideoToolRegistry(Vector.empty), ReplayRunner())
       }
-      assert(missing.getMessage.contains("Missing video replay script file"))
+      ((missing.getMessage.contains("Missing video replay script file")) shouldBe true)
 
       val unknown = intercept[RuntimeException] {
         CozyVideo.execute(List("video", "replay", script.toString, "--unknown"), CozyVideo.VideoToolRegistry(Vector.empty))
       }
-      assert(unknown.getMessage.contains("unknown"))
+      ((unknown.getMessage.contains("unknown")) shouldBe true)
 
       val failure = intercept[RuntimeException] {
         CozyVideo.replay(CozyVideo.ReplayConfig(script, toolMode = Some("host"), projectRootOverride = Some(dir)), CozyVideo.VideoToolRegistry(Vector.empty), ReplayRunner(fail = true))
       }
-      assert(failure.getMessage.contains("Playwright replay failed"))
+      ((failure.getMessage.contains("Playwright replay failed")) shouldBe true)
 
       val mp4output = intercept[RuntimeException] {
         CozyVideo.replay(CozyVideo.ReplayConfig(script, saveFile = Some(dir.resolve("build/replay.mp4")), toolMode = Some("host"), projectRootOverride = Some(dir)), CozyVideo.VideoToolRegistry(Vector.empty), ReplayRunner())
       }
-      assert(mp4output.getMessage.contains("must use .webm"))
+      ((mp4output.getMessage.contains("must use .webm")) shouldBe true)
 
       val hostcheck = intercept[RuntimeException] {
         CozyVideo.replay(
@@ -1604,12 +1629,12 @@ final class CozyVideoSpec extends AnyFunSuite {
           ReplayRunner()
         )
       }
-      assert(hostcheck.getMessage.contains("playwright"))
-      assert(hostcheck.getMessage.contains("install playwright"))
+      ((hostcheck.getMessage.contains("playwright")) shouldBe true)
+      ((hostcheck.getMessage.contains("install playwright")) shouldBe true)
     }
   }
 
-  test("video rdf includes replay script and replay manifest provenance") {
+  "video rdf includes replay script and replay manifest provenance" in {
     _with_temp_dir("cozy-video-rdf-replay") { dir =>
       _write(dir.resolve("script.json"), _script_json)
       _write(dir.resolve("video_project.json"), _project_json("script.json"))
@@ -1641,15 +1666,18 @@ final class CozyVideoSpec extends AnyFunSuite {
       CozyVideo.rdf(CozyVideo.RdfConfig(dir.resolve("video_project.json"), dir.resolve("rdf")))
 
       val turtle = _read(dir.resolve("rdf/video.ttl"))
-      assert(turtle.contains("cozy-video:VideoReplay"))
-      assert(turtle.contains("cozy-video:VideoReplayStep"))
-      assert(turtle.contains("cozy-video:sourceSha256 \"abc123\""))
-      assert(turtle.contains("cozy-video:selector \"#start\""))
-      assert(turtle.contains("cozy-video:artifactKind \"replay-manifest\""))
+      ((turtle.contains("cozy-video:VideoReplay")) shouldBe true)
+      ((turtle.contains("cozy-video:VideoReplayStep")) shouldBe true)
+      ((turtle.contains("cozy-video:sourceSha256 \"abc123\"")) shouldBe true)
+      ((turtle.contains("cozy-video:selector \"#start\"")) shouldBe true)
+      ((turtle.contains("cozy-video:artifactKind \"replay-manifest\"")) shouldBe true)
     }
   }
 
-  test("video publisher resolves .video descriptors from YAML and JSON") {
+  }
+
+  "video publication" which {
+  "video publisher resolves .video descriptors from YAML and JSON" in {
     _with_temp_dir("cozy-video-publisher-resolve") { dir =>
       val yamlpkg = dir.resolve("intro.video")
       _write(yamlpkg.resolve("index.dox"), "# Intro\n")
@@ -1670,15 +1698,15 @@ final class CozyVideoSpec extends AnyFunSuite {
         force = false
       ))
 
-      assert(yaml.name == "intro")
-      assert(yaml.title == "Intro Video")
-      assert(yaml.version == "0.1.0")
-      assert(yaml.articlePath == "index.dox")
-      assert(yaml.scriptPath == "script.json")
-      assert(yaml.renderer == "simple-java2d")
-      assert(yaml.toolMode == "docker")
-      assert(yaml.module == "textus")
-      assert(yaml.publicPath == "videos/intro.mp4")
+      ((yaml.name == "intro") shouldBe true)
+      ((yaml.title == "Intro Video") shouldBe true)
+      ((yaml.version == "0.1.0") shouldBe true)
+      ((yaml.articlePath == "index.dox") shouldBe true)
+      ((yaml.scriptPath == "script.json") shouldBe true)
+      ((yaml.renderer == "simple-java2d") shouldBe true)
+      ((yaml.toolMode == "docker") shouldBe true)
+      ((yaml.module == "textus") shouldBe true)
+      ((yaml.publicPath == "videos/intro.mp4") shouldBe true)
 
       val jsonpkg = dir.resolve("custom.video")
       _write(jsonpkg.resolve("article.dox"), "# Custom\n")
@@ -1704,18 +1732,18 @@ final class CozyVideoSpec extends AnyFunSuite {
         force = false
       ))
 
-      assert(json.name == "custom-video")
-      assert(json.version == "0.2.0")
-      assert(json.articlePath == "article.dox")
-      assert(json.scriptPath == "custom-script.json")
-      assert(json.renderer == "remotion")
-      assert(json.toolMode == "host")
-      assert(json.module == "custom-module")
-      assert(json.publicPath == "videos/custom.mp4")
+      ((json.name == "custom-video") shouldBe true)
+      ((json.version == "0.2.0") shouldBe true)
+      ((json.articlePath == "article.dox") shouldBe true)
+      ((json.scriptPath == "custom-script.json") shouldBe true)
+      ((json.renderer == "remotion") shouldBe true)
+      ((json.toolMode == "host") shouldBe true)
+      ((json.module == "custom-module") shouldBe true)
+      ((json.publicPath == "videos/custom.mp4") shouldBe true)
     }
   }
 
-  test("video publisher rejects .video.d source packages") {
+  "video publisher rejects .video.d source packages" in {
     _with_temp_dir("cozy-video-publisher-reject") { dir =>
       val pkg = dir.resolve("bad.video.d")
       Files.createDirectories(pkg)
@@ -1730,11 +1758,11 @@ final class CozyVideoSpec extends AnyFunSuite {
         ))
       }
 
-      assert(e.getMessage.contains("*.video.d is reserved"))
+      ((e.getMessage.contains("*.video.d is reserved")) shouldBe true)
     }
   }
 
-  test("publish-video writes warehouse video artifact and publication metadata outside source package") {
+  "publish-video writes warehouse video artifact and publication metadata outside source package" in {
     _with_temp_dir("cozy-video-publisher") { dir =>
       val pkg = dir.resolve("src/main/doxsite/concepts/tutorial.video")
       val publication = dir.resolve("src/main/publication")
@@ -1763,73 +1791,73 @@ final class CozyVideoSpec extends AnyFunSuite {
       )
 
       val artifact = warehouse.resolve("repository/video/textus/0.1.0/tutorial-0.1.0.mp4")
-      assert(result.warehouseArtifact == artifact.toAbsolutePath.normalize())
-      assert(Files.isRegularFile(artifact))
-      assert(Files.isRegularFile(artifact.resolveSibling("tutorial-0.1.0.manifest.json")))
-      assert(Files.isRegularFile(artifact.resolveSibling("tutorial-0.1.0.ttl")))
-      assert(Files.isRegularFile(artifact.resolveSibling("tutorial-0.1.0.jsonld")))
-      assert(Files.isRegularFile(artifact.resolveSibling("tutorial-0.1.0.srt")))
-      assert(Files.isRegularFile(artifact.resolveSibling("tutorial-0.1.0.transcript.json")))
-      assert(Files.isRegularFile(publication.resolve("tutorial.json")))
+      ((result.warehouseArtifact == artifact.toAbsolutePath.normalize()) shouldBe true)
+      ((Files.isRegularFile(artifact)) shouldBe true)
+      ((Files.isRegularFile(artifact.resolveSibling("tutorial-0.1.0.manifest.json"))) shouldBe true)
+      ((Files.isRegularFile(artifact.resolveSibling("tutorial-0.1.0.ttl"))) shouldBe true)
+      ((Files.isRegularFile(artifact.resolveSibling("tutorial-0.1.0.jsonld"))) shouldBe true)
+      ((Files.isRegularFile(artifact.resolveSibling("tutorial-0.1.0.srt"))) shouldBe true)
+      ((Files.isRegularFile(artifact.resolveSibling("tutorial-0.1.0.transcript.json"))) shouldBe true)
+      ((Files.isRegularFile(publication.resolve("tutorial.json"))) shouldBe true)
 
       val bundle = play.api.libs.json.Json.parse(_read(publication.resolve("tutorial.json")))
       val entries = (bundle \ "entries").as[Vector[play.api.libs.json.JsObject]]
       val paths = entries.map(entry => (entry \ "path").as[String]).toSet
-      assert(paths.contains("metadata/video/tutorial/0.1.0/manifest.json"))
-      assert(paths.contains("metadata/video/tutorial/0.1.0/rdf.json"))
-      assert(paths.contains("metadata/video/tutorial/latest.json"))
+      ((paths.contains("metadata/video/tutorial/0.1.0/manifest.json")) shouldBe true)
+      ((paths.contains("metadata/video/tutorial/0.1.0/rdf.json")) shouldBe true)
+      ((paths.contains("metadata/video/tutorial/latest.json")) shouldBe true)
       val video = entries.find(entry => (entry \ "path").as[String] == "metadata/videos/tutorial/metadata.json").get
       val videometadata = (video \ "metadata" \ "video")
-      assert((videometadata \ "type").as[String] == "video")
-      assert((videometadata \ "name").as[String] == "tutorial")
-      assert((videometadata \ "articlePath").as[String] == "index.dox")
-      assert((videometadata \ "sourcePackage").as[String] == "concepts/tutorial.video")
-      assert((videometadata \ "scriptPath").as[String] == "script.json")
-      assert((videometadata \ "artifact" \ "warehousePath").as[String] == "repository/video/textus/0.1.0/tutorial-0.1.0.mp4")
-      assert((videometadata \ "artifact" \ "publicPath").as[String] == "repository/video/textus/0.1.0/tutorial-0.1.0.mp4")
-      assert((videometadata \ "artifact" \ "sitePublicPath").as[String] == "videos/tutorial.mp4")
-      assert((videometadata \ "artifact" \ "repositoryPublicPath").as[String] == "repository/video/textus/0.1.0/tutorial-0.1.0.mp4")
-      assert((videometadata \ "rdf" \ "registryPath").as[String] == "metadata/video/tutorial/0.1.0/rdf")
-      assert((videometadata \ "rdf" \ "manifestPath").as[String] == "metadata/video/tutorial/0.1.0/manifest")
-      assert((videometadata \ "rdf" \ "latestPath").as[String] == "metadata/video/tutorial/latest")
-      assert((videometadata \ "rdf" \ "files").toOption.isEmpty)
-      assert((videometadata \ "captions" \ "warehousePath").as[String] == "repository/video/textus/0.1.0/tutorial-0.1.0.srt")
-      assert((videometadata \ "captions" \ "publicPath").as[String] == "repository/video/textus/0.1.0/tutorial-0.1.0.srt")
-      assert((videometadata \ "transcript" \ "warehousePath").as[String] == "repository/video/textus/0.1.0/tutorial-0.1.0.transcript.json")
-      assert((videometadata \ "transcript" \ "publicPath").as[String] == "repository/video/textus/0.1.0/tutorial-0.1.0.transcript.json")
-      assert(!play.api.libs.json.Json.stringify(videometadata.get).contains("target/cozy-video"))
+      (((videometadata \ "type").as[String] == "video") shouldBe true)
+      (((videometadata \ "name").as[String] == "tutorial") shouldBe true)
+      (((videometadata \ "articlePath").as[String] == "index.dox") shouldBe true)
+      (((videometadata \ "sourcePackage").as[String] == "concepts/tutorial.video") shouldBe true)
+      (((videometadata \ "scriptPath").as[String] == "script.json") shouldBe true)
+      (((videometadata \ "artifact" \ "warehousePath").as[String] == "repository/video/textus/0.1.0/tutorial-0.1.0.mp4") shouldBe true)
+      (((videometadata \ "artifact" \ "publicPath").as[String] == "repository/video/textus/0.1.0/tutorial-0.1.0.mp4") shouldBe true)
+      (((videometadata \ "artifact" \ "sitePublicPath").as[String] == "videos/tutorial.mp4") shouldBe true)
+      (((videometadata \ "artifact" \ "repositoryPublicPath").as[String] == "repository/video/textus/0.1.0/tutorial-0.1.0.mp4") shouldBe true)
+      (((videometadata \ "rdf" \ "registryPath").as[String] == "metadata/video/tutorial/0.1.0/rdf") shouldBe true)
+      (((videometadata \ "rdf" \ "manifestPath").as[String] == "metadata/video/tutorial/0.1.0/manifest") shouldBe true)
+      (((videometadata \ "rdf" \ "latestPath").as[String] == "metadata/video/tutorial/latest") shouldBe true)
+      (((videometadata \ "rdf" \ "files").toOption.isEmpty) shouldBe true)
+      (((videometadata \ "captions" \ "warehousePath").as[String] == "repository/video/textus/0.1.0/tutorial-0.1.0.srt") shouldBe true)
+      (((videometadata \ "captions" \ "publicPath").as[String] == "repository/video/textus/0.1.0/tutorial-0.1.0.srt") shouldBe true)
+      (((videometadata \ "transcript" \ "warehousePath").as[String] == "repository/video/textus/0.1.0/tutorial-0.1.0.transcript.json") shouldBe true)
+      (((videometadata \ "transcript" \ "publicPath").as[String] == "repository/video/textus/0.1.0/tutorial-0.1.0.transcript.json") shouldBe true)
+      ((!play.api.libs.json.Json.stringify(videometadata.get).contains("target/cozy-video")) shouldBe true)
 
       val rdfentry = entries.find(entry => (entry \ "path").as[String] == "metadata/video/tutorial/0.1.0/rdf.json").get
       val rdfmetadata = (rdfentry \ "metadata")
-      assert((rdfmetadata \ "type").as[String] == "video-rdf")
-      assert((rdfmetadata \ "registryPath").as[String] == "metadata/video/tutorial/0.1.0/rdf")
-      assert((rdfmetadata \ "files" \ "turtle" \ "warehousePath").as[String] == "repository/video/textus/0.1.0/tutorial-0.1.0.ttl")
-      assert((rdfmetadata \ "files" \ "jsonLd" \ "warehousePath").as[String] == "repository/video/textus/0.1.0/tutorial-0.1.0.jsonld")
-      assert((rdfmetadata \ "files" \ "manifest" \ "warehousePath").as[String] == "repository/video/textus/0.1.0/tutorial-0.1.0.rdf-manifest.json")
+      (((rdfmetadata \ "type").as[String] == "video-rdf") shouldBe true)
+      (((rdfmetadata \ "registryPath").as[String] == "metadata/video/tutorial/0.1.0/rdf") shouldBe true)
+      (((rdfmetadata \ "files" \ "turtle" \ "warehousePath").as[String] == "repository/video/textus/0.1.0/tutorial-0.1.0.ttl") shouldBe true)
+      (((rdfmetadata \ "files" \ "jsonLd" \ "warehousePath").as[String] == "repository/video/textus/0.1.0/tutorial-0.1.0.jsonld") shouldBe true)
+      (((rdfmetadata \ "files" \ "manifest" \ "warehousePath").as[String] == "repository/video/textus/0.1.0/tutorial-0.1.0.rdf-manifest.json") shouldBe true)
 
       val latestentry = entries.find(entry => (entry \ "path").as[String] == "metadata/video/tutorial/latest.json").get
-      assert((latestentry \ "metadata" \ "video" \ "version").as[String] == "0.1.0")
-      assert((latestentry \ "metadata" \ "video" \ "rdfPath").as[String] == "metadata/video/tutorial/0.1.0/rdf")
+      (((latestentry \ "metadata" \ "video" \ "version").as[String] == "0.1.0") shouldBe true)
+      (((latestentry \ "metadata" \ "video" \ "rdfPath").as[String] == "metadata/video/tutorial/0.1.0/rdf") shouldBe true)
 
       val artifactentry = entries.find(entry => (entry \ "path").as[String] == "metadata/artifacts/repository/tutorial.json").get
       val artifactfiles = (artifactentry \ "metadata" \ "artifact" \ "files").as[Vector[play.api.libs.json.JsObject]]
       val artifacttypes = artifactfiles.map(x => (x \ "type").as[String]).toSet
-      assert(artifacttypes.contains("video"))
-      assert(artifacttypes.contains("manifest"))
-      assert(artifacttypes.contains("turtle"))
-      assert(artifacttypes.contains("jsonld"))
-      assert(artifacttypes.contains("rdf-manifest"))
-      assert(artifacttypes.contains("captions"))
-      assert(artifacttypes.contains("transcript"))
+      ((artifacttypes.contains("video")) shouldBe true)
+      ((artifacttypes.contains("manifest")) shouldBe true)
+      ((artifacttypes.contains("turtle")) shouldBe true)
+      ((artifacttypes.contains("jsonld")) shouldBe true)
+      ((artifacttypes.contains("rdf-manifest")) shouldBe true)
+      ((artifacttypes.contains("captions")) shouldBe true)
+      ((artifacttypes.contains("transcript")) shouldBe true)
 
       val sourcefiles = Files.walk(pkg).iterator().asScala.toVector.filter(Files.isRegularFile(_)).map(_.getFileName.toString)
-      assert(!sourcefiles.exists(_.endsWith(".mp4")))
-      assert(!sourcefiles.exists(_.endsWith(".ttl")))
-      assert(!sourcefiles.exists(_.endsWith(".jsonld")))
-      assert(!sourcefiles.exists(_.endsWith(".srt")))
-      assert(runner.commands.exists(_.args.contains("python3")))
-      assert(runner.commands.exists(_.args.contains("ffmpeg")))
-      assert(runner.commands.exists(_.args.contains("ffprobe")))
+      ((!sourcefiles.exists(_.endsWith(".mp4"))) shouldBe true)
+      ((!sourcefiles.exists(_.endsWith(".ttl"))) shouldBe true)
+      ((!sourcefiles.exists(_.endsWith(".jsonld"))) shouldBe true)
+      ((!sourcefiles.exists(_.endsWith(".srt"))) shouldBe true)
+      ((runner.commands.exists(_.args.contains("python3"))) shouldBe true)
+      ((runner.commands.exists(_.args.contains("ffmpeg"))) shouldBe true)
+      ((runner.commands.exists(_.args.contains("ffprobe"))) shouldBe true)
 
       val exists = intercept[RuntimeException] {
         CozyVideoPublisher.publish(
@@ -1838,11 +1866,11 @@ final class CozyVideoSpec extends AnyFunSuite {
           PublishingRunner()
         )
       }
-      assert(exists.getMessage.contains("already exists"))
+      ((exists.getMessage.contains("already exists")) shouldBe true)
     }
   }
 
-  test("publish-video metadata is consumed by SmartDox site rendering") {
+  "publish-video metadata is consumed by SmartDox site rendering" in {
     _with_temp_dir("cozy-video-publisher-smartdox") { dir =>
       val doxsite = dir.resolve("src/main/doxsite")
       val pkg = doxsite.resolve("concepts/tutorial.video")
@@ -1883,43 +1911,53 @@ final class CozyVideoSpec extends AnyFunSuite {
         case m: org.goldenport.realm.Realm.StringData => m.string
       }.getOrElse("")
 
-      assert(article.contains("Tutorial"))
-      assert(article.contains("This is a video article."))
-      assert(article.contains("smartdox-video-publication"))
-      assert(article.contains("<video"))
-      assert(article.contains("src=\"/repository/video/textus/0.1.0/tutorial-0.1.0.mp4\""))
-      assert(result.get("antora.d/docs/concepts/modules/ROOT/pages/tutorial.video/index.adoc").isEmpty)
+      ((article.contains("Tutorial")) shouldBe true)
+      ((article.contains("This is a video article.")) shouldBe true)
+      ((article.contains("smartdox-video-publication")) shouldBe true)
+      ((article.contains("<video")) shouldBe true)
+      ((article.contains("src=\"/repository/video/textus/0.1.0/tutorial-0.1.0.mp4\"")) shouldBe true)
+      ((result.get("antora.d/docs/concepts/modules/ROOT/pages/tutorial.video/index.adoc").isEmpty) shouldBe true)
 
       val sourcefiles = Files.walk(pkg).iterator().asScala.toVector.filter(Files.isRegularFile(_)).map(_.getFileName.toString)
-      assert(!sourcefiles.exists(_.endsWith(".mp4")))
-      assert(!sourcefiles.exists(_.endsWith(".ttl")))
-      assert(!sourcefiles.exists(_.endsWith(".jsonld")))
-      assert(!sourcefiles.exists(_.endsWith(".srt")))
+      ((!sourcefiles.exists(_.endsWith(".mp4"))) shouldBe true)
+      ((!sourcefiles.exists(_.endsWith(".ttl"))) shouldBe true)
+      ((!sourcefiles.exists(_.endsWith(".jsonld"))) shouldBe true)
+      ((!sourcefiles.exists(_.endsWith(".srt"))) shouldBe true)
     }
   }
 
-  test("cozy toolchain Docker assets define expected BoK PDF and video checks") {
+  }
+
+  "toolchain assets" which {
+  "cozy toolchain Docker assets define expected BoK PDF and video checks" in {
     val root = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
     val dockerfile = _read(root.resolve("docker/cozy-toolchain/Dockerfile"))
     val script = _read(root.resolve("docker/cozy-toolchain/cozy-toolchain"))
 
-    assert(dockerfile.contains("asciidoctor-pdf"))
-    assert(dockerfile.contains("@antora/cli"))
-    assert(dockerfile.contains("ffmpeg"))
-    assert(dockerfile.contains("playwright"))
-    assert(dockerfile.contains("@remotion/renderer"))
-    assert(dockerfile.contains("python3-pil"))
-    assert(dockerfile.contains("whisper.cpp"))
-    assert(dockerfile.contains("ggml-base.bin"))
-    assert(dockerfile.contains("NODE_PATH"))
-    assert(script.contains("check_bok"))
-    assert(script.contains("check_pdf"))
-    assert(script.contains("check_video"))
-    assert(script.contains("node_with_global_modules"))
-    assert(script.contains("npm root -g"))
-    assert(script.contains("fs.existsSync(path)"))
-    assert(script.contains("kroki-server"))
-    assert(script.contains("exec \"$@\""))
+    ((dockerfile.contains("asciidoctor-pdf")) shouldBe true)
+    ((dockerfile.contains("@antora/cli")) shouldBe true)
+    ((dockerfile.contains("ffmpeg")) shouldBe true)
+    ((dockerfile.contains("playwright")) shouldBe true)
+    ((dockerfile.contains("@remotion/renderer")) shouldBe true)
+    ((dockerfile.contains("python3-pil")) shouldBe true)
+    ((dockerfile.contains("whisper.cpp")) shouldBe true)
+    ((dockerfile.contains("ggml-base.bin")) shouldBe true)
+    ((dockerfile.contains("NODE_PATH")) shouldBe true)
+    ((dockerfile.contains("FROM ${KROKI_IMAGE}")) shouldBe true)
+    ((script.contains("check_bok")) shouldBe true)
+    ((script.contains("check_pdf")) shouldBe true)
+    ((script.contains("check_kroki")) shouldBe true)
+    ((script.contains("check_video")) shouldBe true)
+    ((script.contains("node_with_global_modules")) shouldBe true)
+    ((script.contains("npm root -g")) shouldBe true)
+    ((script.contains("fs.existsSync(path)")) shouldBe true)
+    ((script.contains("kroki-server")) shouldBe true)
+    ((script.contains("SMARTDOX_KROKI_PORT=\"${SMARTDOX_KROKI_PORT:-9609}\"")) shouldBe true)
+    ((script.contains("cozy-toolchain check ${target}: ok")) shouldBe true)
+    ((script.contains("exec \"$@\"")) shouldBe true)
+  }
+  }
+
   }
 
   private def _with_temp_dir(name: String)(body: Path => Unit): Unit = {

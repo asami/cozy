@@ -460,6 +460,32 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
     }
   }
 
+    "pass the configured Cozy toolchain image to SmartDox Kroki execution" in {
+    _with_temp_dir("cozy-bok-smartdox-kroki-toolchain") { dir =>
+      Given("a BoK build with a configured Cozy toolchain image")
+      val runner = new EnvRecordingRunner
+      val config = CozyBok.BuildConfig.create(List(dir.toString, "--docker-image", "example/toolchain:dev"))
+
+      When("Cozy builds through SmartDox and Docker Antora")
+      CozyBok.build(config, runner)
+
+      Then("SmartDox host-side commands receive the toolchain image as Kroki Docker image")
+      val smartdoxenvs = runner.envs.filter(_.nonEmpty)
+      smartdoxenvs should have size 2
+      smartdoxenvs.foreach { env =>
+        env("SMARTDOX_KROKI_DOCKER_IMAGE") shouldBe "example/toolchain:dev"
+        env("SMARTDOX_PDF_DOCKER_IMAGE") shouldBe "example/toolchain:dev"
+        env("SMARTDOX_COZY_TOOLCHAIN_IMAGE") shouldBe "example/toolchain:dev"
+      }
+
+      And("Docker Antora starts the internal Kroki server on SmartDox's Antora port")
+      runner.commands.exists(cmd =>
+        cmd.contains("SMARTDOX_KROKI_PORT=9609") &&
+          cmd.contains("SMARTDOX_KROKI_DOCKER_IMAGE=example/toolchain:dev")
+      ) shouldBe true
+    }
+  }
+
     "use standard cozy docker image config when bok docker image is omitted" in {
     _with_temp_dir("cozy-bok-standard-docker") { dir =>
       Given("a project-level Cozy Docker image setting and no BoK-specific Docker image")
@@ -1299,6 +1325,15 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
       calls = calls :+ (command -> cwd)
       if (command.take(2) == Vector("dox", "site"))
         _write(cwd.resolve("doxsite.d/metadata/dashboard/site.json"), _dashboard_json)
+    }
+  }
+
+  private class EnvRecordingRunner extends RecordingRunner {
+    var envCalls = Vector.empty[(Vector[String], Path, Map[String, String])]
+    def envs: Vector[Map[String, String]] = envCalls.map(_._3)
+    override def run(command: Vector[String], cwd: Path, env: Map[String, String]): Unit = {
+      envCalls = envCalls :+ (command, cwd, env)
+      super.run(command, cwd)
     }
   }
 

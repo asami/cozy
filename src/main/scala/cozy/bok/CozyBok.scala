@@ -419,11 +419,18 @@ private[cozy] object CozyBok {
 
   trait Runner {
     def run(command: Vector[String], cwd: Path): Unit
+    def run(command: Vector[String], cwd: Path, env: Map[String, String]): Unit =
+      run(command, cwd)
   }
 
   object ProcessRunner extends Runner {
     def run(command: Vector[String], cwd: Path): Unit = {
       val exit = Process(command, cwd.toFile).!
+      if (exit != 0)
+        RAISE.invalidArgumentFault(s"Command failed with exit code ${exit}: ${command.mkString(" ")}")
+    }
+    override def run(command: Vector[String], cwd: Path, env: Map[String, String]): Unit = {
+      val exit = Process(command, cwd.toFile, env.toSeq: _*).!
       if (exit != 0)
         RAISE.invalidArgumentFault(s"Command failed with exit code ${exit}: ${command.mkString(" ")}")
     }
@@ -598,9 +605,9 @@ private[cozy] object CozyBok {
     _delete_directory(config.websitePath)
     if (config.arcadia.enabled)
       _delete_directory(config.arcadiaSitePath)
-    runner.run(_dox_antora_command(config), config.project)
+    runner.run(_dox_antora_command(config), config.project, _smartdox_toolchain_env(config))
     _run_antora(config, runner)
-    runner.run(_dox_site_command(config), config.project)
+    runner.run(_dox_site_command(config), config.project, _smartdox_toolchain_env(config))
     _normalize_doxsite_output(config)
     _delete_directory(config.project.resolve(s"doxsite-cache-${config.strategy}.d"))
     if (config.arcadia.enabled) {
@@ -934,6 +941,10 @@ private[cozy] object CozyBok {
       "docker",
       "run",
       "--rm",
+      "-e",
+      "SMARTDOX_KROKI_PORT=9609",
+      "-e",
+      s"SMARTDOX_KROKI_DOCKER_IMAGE=${config.dockerImage}",
       "-v",
       s"${config.project.toString}:/workspace",
       "-w",
@@ -943,6 +954,13 @@ private[cozy] object CozyBok {
       "antora-playbook.yml",
       "--to-dir",
       s"/workspace/${output}"
+    )
+
+  private def _smartdox_toolchain_env(config: BuildConfig): Map[String, String] =
+    Map(
+      "SMARTDOX_KROKI_DOCKER_IMAGE" -> config.dockerImage,
+      "SMARTDOX_PDF_DOCKER_IMAGE" -> config.dockerImage,
+      "SMARTDOX_COZY_TOOLCHAIN_IMAGE" -> config.dockerImage
     )
 
   private def _normalize_doxsite_output(config: BuildConfig): Unit =
