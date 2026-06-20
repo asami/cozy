@@ -32,7 +32,7 @@ into focused Cozy improvements.
 - [x] BK12-05: BoK build operational verification
 - [x] BK12-06: Publish dry-run operational verification
 - [x] BK12-07: Scaffold/document drift diagnostics
-- [ ] BK12-08: Upload workflow readiness
+- [x] BK12-08: Upload workflow readiness
 - [ ] BK12-09: Development findings and follow-up backlog
 - [ ] BK12-10: Phase closure
 
@@ -147,6 +147,18 @@ into focused Cozy improvements.
   Dashboard pages now compute CSS asset paths from the actual output depth, so
   root, locale-root, category, and special pages link to the shared Antora
   assets consistently.
+- 2026-06-21: Completed BK12-08 stage and upload workflow readiness.
+  `cozy bok stage .` copied `website.d` into the configured
+  `../bok-knowlegehub-website` staging directory and kept KnowledgeHub source
+  files clean, with only ignored generated directories present. `cozy bok
+  upload .` intentionally failed because `etc/website-upload.sh` is still a
+  project-owned placeholder; the diagnostic explains how to replace it with an
+  AWS sync / cache invalidation workflow and confirms that Cozy does not embed
+  hosting credentials or provider policy. Production `cozy bok publish .`
+  executed build and stage, then attempted upload and failed at the upload step
+  instead of silently skipping it. The publish manifest recorded
+  `stage=succeeded` and `upload=failed`, so the operational boundary is ready
+  while real hosting upload configuration remains a BK12-09 follow-up.
 
 ## References
 

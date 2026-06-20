@@ -89,14 +89,14 @@ Status: DONE
 
 ## BK12-08: Stage And Upload Workflow Readiness
 
-Status: OPEN
+Status: DONE
 
-- [ ] Define the KnowledgeHub stage workflow command shape.
-- [ ] Define the KnowledgeHub upload workflow command shape.
-- [ ] Keep upload provider implementation out of Cozy.
-- [ ] Confirm `bok.workflow.stage.command` failure diagnostics are actionable.
-- [ ] Confirm `bok.workflow.upload.command` failure diagnostics are actionable.
-- [ ] Confirm production publish cannot silently skip upload.
+- [x] Define the KnowledgeHub stage workflow command shape.
+- [x] Define the KnowledgeHub upload workflow command shape.
+- [x] Keep upload provider implementation out of Cozy.
+- [x] Confirm `bok.workflow.stage.command` failure diagnostics are actionable.
+- [x] Confirm `bok.workflow.upload.command` failure diagnostics are actionable.
+- [x] Confirm production publish cannot silently skip upload.
 
 ## BK12-09: Development Findings And Follow-Up Backlog
 
