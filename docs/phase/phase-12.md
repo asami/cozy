@@ -25,7 +25,7 @@ into focused Cozy improvements.
 ## Phase Items
 
 - [x] BK12-01: Phase 12 documentation opened
-- [ ] BK12-02: KnowledgeHub BoK source onboarding
+- [x] BK12-02: KnowledgeHub BoK source onboarding
 - [ ] BK12-03: BoK config alignment
 - [ ] BK12-04: Local Cozy command synchronization
 - [ ] BK12-05: BoK build operational verification
@@ -57,6 +57,10 @@ into focused Cozy improvements.
   `cozy` launcher is older than the repository implementation, and
   optional `bok.workflow.stage.command` is not configured while required
   `bok.workflow.upload.command` is still missing.
+- 2026-06-20: Completed BK12-02 source onboarding for KnowledgeHub. The
+  canonical source tree is `src/main/doxsite`, `STRUCTURE.md` is kept as a
+  human-readable source tree guide rather than build configuration, and legacy
+  generated `src/main/website` output was removed from the source tree.
 
 ## References
 

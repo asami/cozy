@@ -15,14 +15,15 @@ Status: DONE
 
 ## BK12-02: KnowledgeHub BoK Source Onboarding
 
-Status: OPEN
+Status: DONE
 
-- [ ] Confirm source files are intentionally tracked.
-- [ ] Confirm generated directories remain ignored.
-- [ ] Align `README.md` with actual KnowledgeHub BoK operation.
-- [ ] Align `STRUCTURE.md` with actual `concept/` and `technology/` categories.
-- [ ] Confirm `src/main/doxsite` contains the expected source categories,
+- [x] Confirm source files are intentionally tracked.
+- [x] Confirm generated directories remain ignored.
+- [x] Align `README.md` with actual KnowledgeHub BoK operation.
+- [x] Align `STRUCTURE.md` with actual `concept/` and `technology/` categories.
+- [x] Confirm `src/main/doxsite` contains the expected source categories,
       glossary, history, manual, RDF seeds, and CSS assets.
+- [x] Remove legacy generated `src/main/website` from the canonical source tree.
 
 ## BK12-03: BoK Config Alignment
 
