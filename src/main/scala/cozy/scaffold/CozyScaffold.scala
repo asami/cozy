@@ -1463,6 +1463,9 @@ private[cozy] object CozyScaffold {
       |  help, --help, -h
       |      Show this help and exit.
       |
+      |  version, --version
+      |      Show the Cozy runtime version and exit.
+      |
       |  init component --save <dir> [--config <file>] [--name <artifact>] [--component-name <name>] [--display-name <title>] [--organization <organization>] [--package <package>] [--version <version>] [--kind car|car-sar] [--bounded-context <name>] [--domain <name>] [--gitignore] [--readme] [--tests] [--no-project-files] [--overwrite-project-files]
       |    config keys: project.name, project.organization, project.component.*, project.scaffold.*, cml.package, cml.component.name
       |      Initialize a component project scaffold. Config-file values are read first; CLI options override them.

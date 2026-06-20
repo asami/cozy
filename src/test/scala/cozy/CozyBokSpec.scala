@@ -998,6 +998,7 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
     }
 
     Then("BoK publication command surfaces and dry-run support are documented")
+    help should include ("version, --version")
     help should include ("bok publish-video <project-dir> [--publication <dir>] [--warehouse <dir>]")
     help should include ("bok update-publication <project-dir> [--publication <dir>] [--warehouse <dir>]")
     help should include ("bok publish <project-dir> [--publication <dir>] [--warehouse <dir>]")

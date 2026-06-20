@@ -25,7 +25,7 @@ import scala.collection.JavaConverters._
  *  version Mar. 17, 2026
  *  version Apr. 29, 2026
  *  version May. 21, 2026
- * @version Jun. 19, 2026
+ * @version Jun. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 class Cozy(
@@ -78,7 +78,7 @@ class Cozy(
   }
 
   def executeDirect(args: Array[String]): Unit = {
-    if (!CozyBok.execute(args.toList) && !CozyVideo.execute(args.toList) && !_execute_init(args) && !_execute_car_sbt_project(args) && !_execute_publish_car(args) && !_execute_publish_sar(args) && !_execute_publish_project(args) && !_execute_publish_video(args) && !_execute_distribute_samples(args) && !_execute_index_warehouse(args) && !_execute_sbt_bridge(args) && !_execute_package_archive(args))
+    if (!_execute_version(args) && !CozyBok.execute(args.toList) && !CozyVideo.execute(args.toList) && !_execute_init(args) && !_execute_car_sbt_project(args) && !_execute_publish_car(args) && !_execute_publish_sar(args) && !_execute_publish_project(args) && !_execute_publish_video(args) && !_execute_distribute_samples(args) && !_execute_index_warehouse(args) && !_execute_sbt_bridge(args) && !_execute_package_archive(args))
       _to_repl_commandline(args) match {
         case Some(s) =>
           val c = _operation_call(Array(s))
@@ -87,6 +87,18 @@ class Cozy(
           execute(args)
       }
   }
+
+  private def _execute_version(args: Array[String]): Boolean =
+    args.toList match {
+      case "version" :: Nil =>
+        println(s"cozy ${org.simplemodeling.cozy.BuildInfo.version}")
+        true
+      case "--version" :: Nil =>
+        println(s"cozy ${org.simplemodeling.cozy.BuildInfo.version}")
+        true
+      case _ =>
+        false
+    }
 
   private def _is_cli_command(call: OperationCall): Boolean =
     call.argumentsAsString.headOption.fold(false)(_is_cli_command)
