@@ -1479,8 +1479,9 @@ private[cozy] object CozyScaffold {
       |  bok create --save <dir> [--name <name>] [--url <url>] [--language ja] [--no-project-files] [--overwrite-project-files]
       |      Create a SmartDox category-driven BoK source project scaffold without generated HTML, Arcadia assets, or site-structure.yaml.
       |
-      |  bok create-category <category-name> [--project <dir>] [--title <title>] [--description <text>] [--article <slug:title:purpose>] [--term <slug:title:definition>]
+      |  bok create-category <category-name> [--project <dir>] [--title <title>] [--description <text>] [--vision <text>] [--goal <text>] [--subgoal <text>] [--article <slug:title:purpose>] [--term <slug:title:definition>]
       |      Add a category, category index, and optional article or term seeds to a BoK source project.
+      |      --goal and --subgoal may be specified multiple times and are rendered on the Category Dashboard.
       |
       |  bok build [<project-dir>] [--strategy wip|draft|preview|production] [--docker-image <image>]
       |      Build BoK HTML under website.d using SmartDox and Antora through the configured Docker image.
@@ -1495,6 +1496,9 @@ private[cozy] object CozyScaffold {
       |  bok fix [<project-dir>] [--dry-run]
       |      Apply safe non-destructive BoK repairs, such as current Docker image and generated-directory .gitignore entries.
       |
+      |  bok guide [scenario]
+      |      Show scenario-based BoK operation guides. Use bok guide to list scenarios.
+      |
       |  bok publish-video <project-dir> [--publication <dir>] [--warehouse <dir>] [--version <version>] [--force]
       |      Publish all .video packages in a BoK source tree into src/main/publication and warehouse/repository/video.
       |
@@ -1505,8 +1509,9 @@ private[cozy] object CozyScaffold {
       |      Run update-publication, production BoK build, and the configured bok.workflow.upload.command.
       |      With --dry-run, print the planned steps and write a target manifest without changing publication, warehouse, or site output.
       |
-      |  bok preview [<project-dir>] [--port 8080]
+      |  bok preview [<project-dir>] [--port 8980]
       |      Serve website.d with python3 -m http.server for local preview.
+      |      Open http://127.0.0.1:<port>/ in a browser instead of opening generated HTML files directly.
       |
       |  bok stage [<project-dir>]
       |      Run the external command registered at bok.workflow.stage.command to stage generated website output.

@@ -4,7 +4,7 @@ import cozy.bok.CozyBok
 import cozy.video.CozyVideoSpec
 import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path}
+import java.nio.file.{Files, Path, Paths}
 import java.util.zip.ZipInputStream
 import scala.collection.JavaConverters._
 import io.circe.parser
@@ -70,6 +70,9 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
       _read(dir.resolve("conf/cozy/config.yaml")) should include ("website-stage.sh.proto")
       _read(dir.resolve("conf/cozy/config.yaml")) should not include ("missing-artifact-policy: warn")
       _read(dir.resolve("src/main/doxsite/site.conf")) should include ("""locale_mode = "single_locale_root"""")
+      _read(dir.resolve("src/main/doxsite/site.conf")) should include ("""vision = "Build a shared knowledge base for KnowledgeHub BoK."""")
+      _read(dir.resolve("src/main/doxsite/site.conf")) should include ("""goals = [""")
+      _read(dir.resolve("src/main/doxsite/site.conf")) should include ("""subgoals = [""")
       _read(dir.resolve("src/main/doxsite/site.conf")) should include ("output.scope.policy = home_only")
       _read(dir.resolve("etc/website-stage.sh.proto")) should include ("WEBSITE_STAGING_DIR")
       _read(dir.resolve("etc/website-stage.sh.proto")) should include ("rsync -av --checksum --delete")
@@ -114,6 +117,14 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
         "KnowledgeHub",
         "--description",
         "KnowledgeHub category.",
+        "--vision",
+        "Make KnowledgeHub concepts actionable.",
+        "--goal",
+        "Explain the core model.",
+        "--goal",
+        "Connect concepts to operations.",
+        "--subgoal",
+        "Maintain examples.",
         "--article",
         "knowledgehub-overview:KnowledgeHub Overview:Overview article.",
         "--term",
@@ -128,6 +139,13 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
       _read(dir.resolve("src/main/doxsite/knowledgehub/index.dox")) should include ("""<a href="knowledgehub-overview.html">KnowledgeHub Overview</a>""")
       _read(dir.resolve("src/main/doxsite/knowledgehub/index.dox")) should include ("""<a href="../glossary/knowledgehub/knowledgehub.html">KnowledgeHub</a>""")
       _read(dir.resolve("src/main/doxsite/knowledgehub/index.dox")) should include ("# Dashboard")
+      _read(dir.resolve("src/main/doxsite/knowledgehub/index.dox")) should include ("## Vision")
+      _read(dir.resolve("src/main/doxsite/knowledgehub/index.dox")) should include ("Make KnowledgeHub concepts actionable.")
+      _read(dir.resolve("src/main/doxsite/knowledgehub/index.dox")) should include ("## Goals")
+      _read(dir.resolve("src/main/doxsite/knowledgehub/index.dox")) should include ("- Explain the core model.")
+      _read(dir.resolve("src/main/doxsite/knowledgehub/index.dox")) should include ("- Connect concepts to operations.")
+      _read(dir.resolve("src/main/doxsite/knowledgehub/index.dox")) should include ("## Subgoals")
+      _read(dir.resolve("src/main/doxsite/knowledgehub/index.dox")) should include ("- Maintain examples.")
       _read(dir.resolve("src/main/doxsite/knowledgehub/index.dox")) should include ("""class="bok-metric-card"""")
       _read(dir.resolve("src/main/doxsite/knowledgehub/index.dox")) should include ("""class="bok-dashboard-chart"""")
       _read(dir.resolve("src/main/doxsite/knowledgehub/index.dox")) should include ("- Articles: 1")
@@ -135,6 +153,30 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
       _read(dir.resolve("src/main/doxsite/knowledgehub/knowledgehub-overview.dox")) should include ("published_at=")
       _read(dir.resolve("src/main/doxsite/glossary/knowledgehub/knowledgehub.dox")) should include ("published_at=")
       _read(dir.resolve("src/main/doxsite/glossary/knowledgehub/knowledgehub.dox")) should include ("reading=ナレッジハブ")
+      _read(dir.resolve("src/main/doxsite/knowledgehub/category.yaml")) should include ("""vision: "Make KnowledgeHub concepts actionable."""")
+      _read(dir.resolve("src/main/doxsite/knowledgehub/category.yaml")) should include ("goals:")
+      _read(dir.resolve("src/main/doxsite/knowledgehub/category.yaml")) should include ("""  - "Explain the core model."""")
+      _read(dir.resolve("src/main/doxsite/knowledgehub/category.yaml")) should include ("""  - "Connect concepts to operations."""")
+      _read(dir.resolve("src/main/doxsite/knowledgehub/category.yaml")) should include ("subgoals:")
+      _read(dir.resolve("src/main/doxsite/knowledgehub/category.yaml")) should include ("""  - "Maintain examples."""")
+    }
+  }
+
+    "use configured public preview port by default" in {
+    _with_temp_dir("cozy-bok-preview-config-port") { dir =>
+      Given("a BoK project with a public preview port setting")
+      _write(dir.resolve("conf/cozy/config.yaml"), "bok:\n  website: website.d\n  preview:\n    port: 8981\n")
+      _write(dir.resolve("website.d/index.html"), "<html></html>\n")
+      val runner = new RecordingRunner
+
+      When("Cozy starts preview without a CLI port")
+      val output = _capture {
+        CozyBok.preview(List(dir.toString), runner)
+      }
+
+      Then("the configured port is used")
+      output should include ("http://127.0.0.1:8981/")
+      runner.commands should contain (Vector("python3", "-m", "http.server", "8981"))
     }
   }
 
@@ -163,9 +205,35 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
     _with_temp_dir("cozy-bok-build") { dir =>
       Given("a BoK project with SmartDox source, glossary data, dashboard metadata, and a configured Docker image")
       _write(dir.resolve(".cozy/config.yaml"), "bok:\n  docker-image: smartdox-antora:test\n")
-      _write(dir.resolve("src/main/doxsite/site.conf"), "site {\n  output {\n    locale_mode = \"single_locale_root\"\n  }\n}\n")
+      _write(dir.resolve("src/main/doxsite/site.conf"),
+        """site {
+          |  metadata {
+          |    vision = "Make engineering knowledge operational."
+          |    goals = [
+          |      "Publish reusable knowledge",
+          |      "Support daily learning"
+          |    ]
+          |    subgoals = [
+          |      "Keep glossary current"
+          |    ]
+          |  }
+          |  output {
+          |    locale_mode = "single_locale_root"
+          |  }
+          |}
+          |""".stripMargin)
       _write(dir.resolve("src/main/doxsite/glossary/category.yaml"), "name: Glossary\ntitle: 用語集\ndescription: BoK全体で共有する用語集。\n")
-      _write(dir.resolve("src/main/doxsite/architecture/category.yaml"), "name: Architecture\ntitle: Architecture\ndescription: Architecture category.\n")
+      _write(dir.resolve("src/main/doxsite/architecture/category.yaml"),
+        """name: Architecture
+          |title: Architecture
+          |description: Architecture category.
+          |vision: Make architecture decisions traceable.
+          |goals:
+          |  - Explain architecture concepts
+          |  - Link concepts to runtime
+          |subgoals:
+          |  - Maintain architecture glossary
+          |""".stripMargin)
       _write(dir.resolve("src/main/doxsite/architecture/overview.dox"), "Overview\n========\n\n# HEAD\n\n## BRIEF\nArchitecture overview.\n")
       _write(dir.resolve("src/main/doxsite/glossary/architecture/runtime.dox"), "Runtime\n=======\n\n# HEAD\n\nreading=らんたいむ\n\n# Definition\nRuntime term.\n")
       _write(dir.resolve("src/main/doxsite/glossary/architecture/asuka.dox"), "あすか\n======\n\n# HEAD\n\n# Definition\nJapanese term.\n")
@@ -197,6 +265,12 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
       runner.commands should containWhere[Vector[String]](_.contains("/workspace/website.d"))
       And("the generated site renders dashboard, glossary, history, manual, and navigation conventions")
       _read(dir.resolve("website.d/index.html")) should include ("KnowledgeHub BoKのHome画面")
+      _read(dir.resolve("website.d/index.html")) should include ("<strong>Vision:</strong> Make engineering knowledge operational.")
+      _read(dir.resolve("website.d/index.html")) should include ("<strong>Goals:</strong>")
+      _read(dir.resolve("website.d/index.html")) should include ("Publish reusable knowledge")
+      _read(dir.resolve("website.d/index.html")) should include ("Support daily learning")
+      _read(dir.resolve("website.d/index.html")) should include ("<strong>Subgoals:</strong>")
+      _read(dir.resolve("website.d/index.html")) should include ("Keep glossary current")
       _read(dir.resolve("website.d/index.html")) should include ("""<div class="bok-metric-label">Categories</div>""")
       _read(dir.resolve("website.d/index.html")) should include ("""<div class="bok-metric-value">1</div>""")
       _read(dir.resolve("website.d/index.html")) should include ("""<div class="bok-metric-label">RDF Triples</div>""")
@@ -248,6 +322,10 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
       _read(dir.resolve("website.d/index.html")) should not include ("""class="navbar-item" href="manual/index.html"""")
       _read(dir.resolve("website.d/index.html")) should not include ("Lexicon")
       _read(dir.resolve("website.d/architecture/index.html")) should include ("""class="bok-dashboard-grid"""")
+      _read(dir.resolve("website.d/architecture/index.html")) should include ("<strong>Vision:</strong> Make architecture decisions traceable.")
+      _read(dir.resolve("website.d/architecture/index.html")) should include ("Explain architecture concepts")
+      _read(dir.resolve("website.d/architecture/index.html")) should include ("Link concepts to runtime")
+      _read(dir.resolve("website.d/architecture/index.html")) should include ("Maintain architecture glossary")
       _read(dir.resolve("website.d/architecture/index.html")) should include ("""class="bok-dashboard-chart"""")
       _read(dir.resolve("website.d/architecture/index.html")) should include ("""aria-label="Architecture item distribution"""")
       _read(dir.resolve("website.d/architecture/index.html")) should include ("""data-chart="distribution-ratio"""")
@@ -439,7 +517,29 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
         }
       }
 
-      "report BoK root, signals, and safe repair candidates" in {
+      "default doctor input to current directory" in {
+        Given("no explicit doctor project argument")
+        val expected = sys.env.get("PWD").map(Paths.get(_).toAbsolutePath.normalize).getOrElse(Paths.get(".").toAbsolutePath.normalize)
+
+        When("Cozy creates the doctor configuration")
+        val config = CozyBok.DoctorConfig.create(Nil, fix = false)
+
+        Then("the logical current directory is used as the inspection input")
+        config.input shouldBe expected
+      }
+
+      "default preview input to current directory" in {
+        Given("no explicit preview project argument")
+        val expected = sys.env.get("PWD").map(Paths.get(_).toAbsolutePath.normalize).getOrElse(Paths.get(".").toAbsolutePath.normalize)
+
+        When("Cozy creates the preview configuration")
+        val config = CozyBok.PreviewConfig.create(Nil)
+
+        Then("the logical current directory is used as the preview input")
+        config.input shouldBe expected
+      }
+
+      "report BoK root markers and safe repair candidates" in {
         _with_temp_dir("cozy-bok-doctor") { dir =>
           Given("a BoK project with a legacy Docker image and incomplete generated-directory ignores")
           _write(dir.resolve(".cozy/config.yaml"), "cozy:\n  docker-image: simplemodeling/cozy-toolchain:latest\nbok:\n  source: src/main/doxsite\n")
@@ -454,12 +554,34 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
           Then("the diagnostic identifies the root and the planned non-destructive repairs")
           output should include ("status: needs-fix")
           output should include (s"root: ${dir.toAbsolutePath.normalize}")
+          output should include ("bok root markers:")
           output should include ("src/main/doxsite/site.conf")
           output should include ("Legacy Docker image reference found")
           output should include ("Replace legacy Docker image")
           output should include ("Append generated/work directory ignores")
+          output should include ("next steps:")
+          output should include ("cozy bok build")
+          output should include ("cozy bok preview")
+          output should include ("http://127.0.0.1:8980/")
           _read(dir.resolve(".cozy/config.yaml")) should include ("simplemodeling/cozy-toolchain:latest")
           _read(dir.resolve(".gitignore")) should not include ("/website.d/")
+        }
+  }
+
+      "include configured preview port in doctor next steps" in {
+        _with_temp_dir("cozy-bok-doctor-preview-port") { dir =>
+          Given("a BoK project with a public preview port setting")
+          _write(dir.resolve("conf/cozy/config.yaml"), "bok:\n  preview:\n    port: 8982\n")
+          _write(dir.resolve("src/main/doxsite/site.conf"), "site {}\n")
+
+          When("Cozy inspects the BoK project")
+          val output = _capture {
+            CozyBok.doctor(CozyBok.DoctorConfig.create(List(dir.toString), fix = false))
+          }
+
+          Then("the next steps use the configured preview port")
+          output should include ("cozy bok preview")
+          output should include ("http://127.0.0.1:8982/")
         }
       }
 
@@ -999,12 +1121,59 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
 
     Then("BoK publication command surfaces and dry-run support are documented")
     help should include ("version, --version")
+    help should include ("--vision <text>")
+    help should include ("--goal <text>")
+    help should include ("--subgoal <text>")
     help should include ("bok publish-video <project-dir> [--publication <dir>] [--warehouse <dir>]")
     help should include ("bok update-publication <project-dir> [--publication <dir>] [--warehouse <dir>]")
     help should include ("bok publish <project-dir> [--publication <dir>] [--warehouse <dir>]")
     help should include ("bok doctor [<project-dir>] [--fix] [--dry-run]")
     help should include ("bok fix [<project-dir>] [--dry-run]")
+    help should include ("bok guide [scenario]")
+    help should include ("Open http://127.0.0.1:<port>/")
     help should include ("--dry-run")
+  }
+
+    "show scenario-based BoK operation guide" in {
+    Given("a user who wants to learn BoK operations by scenario")
+
+    When("Cozy renders the BoK guide index")
+    val overview = _capture {
+      CozyBok.execute(List("bok", "guide"))
+    }
+
+    Then("the guide lists operational scenarios")
+    overview should include ("Cozy BoK guide")
+    overview should include ("create-bok")
+    overview should include ("daily-build")
+    overview should include ("publish-dry-run")
+
+    When("Cozy renders a concrete scenario")
+    val scenario = _capture {
+      CozyBok.execute(List("bok", "guide", "daily-build"))
+    }
+
+    Then("the scenario describes the command sequence")
+    scenario should include ("Cozy BoK guide: daily-build")
+    scenario should include ("cozy bok doctor")
+    scenario should include ("Vision, Goals, and Subgoals")
+    scenario should include ("cozy bok build . --strategy preview")
+    scenario should include ("cozy bok preview . --port 8980")
+    scenario should include ("http://127.0.0.1:8980/")
+  }
+
+    "show preview usage without starting a server" in {
+    Given("a user asks for preview command help")
+    val runner = new RecordingRunner
+
+    When("Cozy renders preview usage")
+    val output = _capture {
+      CozyBok.preview(List("--help"), runner)
+    }
+
+    Then("usage is shown and no HTTP server command is executed")
+    output should include ("Usage: cozy bok preview [<project-dir>] [--port <port>]")
+    runner.commands shouldBe empty
   }
 
     "validate preview port as integer metadata" in {
@@ -1016,6 +1185,25 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
       }
       Then("the invalid port is rejected explicitly")
       e.getMessage should include ("not-int")
+    }
+  }
+
+    "announce local Web server preview URL" in {
+    _with_temp_dir("cozy-bok-preview-url") { dir =>
+      Given("a BoK project with generated website output")
+      _write(dir.resolve(".cozy/config.yaml"), "bok:\n  website: website.d\n")
+      _write(dir.resolve("website.d/index.html"), "<html></html>\n")
+      val runner = new RecordingRunner
+
+      When("Cozy starts the preview server")
+      val output = _capture {
+        CozyBok.preview(List(dir.toString, "--port", "8099"), runner)
+      }
+
+      Then("the local browser URL is shown instead of implying file-based inspection")
+      output should include ("http://127.0.0.1:8099/")
+      output should include ("instead of opening generated HTML files directly")
+      runner.commands should contain (Vector("python3", "-m", "http.server", "8099"))
     }
   }
 

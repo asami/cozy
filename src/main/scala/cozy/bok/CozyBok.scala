@@ -48,10 +48,17 @@ private[cozy] object CozyBok {
     name: String,
     title: String,
     description: String,
+    purpose: BokPurpose,
     articles: Vector[CategoryArticle],
     terms: Vector[CategoryTerm],
     policy: ProjectFilePolicy
   )
+  final case class BokPurpose(vision: Option[String], goals: Vector[String], subgoals: Vector[String]) {
+    def isEmpty: Boolean = vision.isEmpty && goals.isEmpty && subgoals.isEmpty
+  }
+  object BokPurpose {
+    val empty: BokPurpose = BokPurpose(None, Vector.empty, Vector.empty)
+  }
   final case class CategoryArticle(slug: String, title: String, purpose: String) {
     def fileName: String = s"${slug}.dox"
     def htmlName: String = s"${slug}.html"
@@ -62,10 +69,11 @@ private[cozy] object CozyBok {
     def htmlName(category: String): String = s"../glossary/${category}/${termPath}.html"
   }
   final case class DoctorConfig(input: Path, fix: Boolean, dryRun: Boolean)
+  final case class PreviewConfig(input: Path, port: Option[Int])
   private final case class BokInspection(
     input: Path,
     root: Option[Path],
-    signals: Vector[String],
+    markers: Vector[String],
     issues: Vector[String],
     fixes: Vector[BokFix]
   ) {
@@ -82,6 +90,7 @@ private[cozy] object CozyBok {
     slug: String,
     title: String,
     description: String,
+    purpose: BokPurpose,
     articles: Vector[CategoryPageItem],
     terms: Vector[CategoryPageItem]
   )
@@ -305,6 +314,18 @@ private[cozy] object CozyBok {
       spec.XString,
       spec.Multiplicity.ZeroMore
     )
+    private val _p_goal = spec.Parameter(
+      "goal",
+      spec.Parameter.PropertyKind,
+      spec.XString,
+      spec.Multiplicity.ZeroMore
+    )
+    private val _p_subgoal = spec.Parameter(
+      "subgoal",
+      spec.Parameter.PropertyKind,
+      spec.XString,
+      spec.Multiplicity.ZeroMore
+    )
 
     private val _create_request = spec.Request(
       _p_save,
@@ -323,6 +344,9 @@ private[cozy] object CozyBok {
       _p_project_dir_property,
       spec.Parameter.property("title"),
       spec.Parameter.property("description"),
+      spec.Parameter.property("vision"),
+      _p_goal,
+      _p_subgoal,
       spec.Parameter.property("kind"),
       spec.Parameter.propertyInt("order"),
       _p_article,
@@ -352,14 +376,8 @@ private[cozy] object CozyBok {
       spec.Parameter("dry-run", spec.Parameter.SwitchKind)
     )
 
-    private val _preview_request = spec.Request(
-      _p_project,
-      spec.Parameter.propertyInt("port")
-    )
-
     private val _workflow_request = spec.Request(_p_project)
     private val _doctor_request = spec.Request(
-      _p_project,
       spec.Parameter("fix", spec.Parameter.SwitchKind),
       spec.Parameter("dry-run", spec.Parameter.SwitchKind)
     )
@@ -368,7 +386,6 @@ private[cozy] object CozyBok {
     def category(args: List[String]): ParsedArgs = _parse("bok-create-category", _category_request, args)
     def build(args: List[String]): ParsedArgs = _parse("bok-build", _build_request, args)
     def publication(name: String, args: List[String]): ParsedArgs = _parse(s"bok-${name}", _publication_request, args)
-    def preview(args: List[String]): ParsedArgs = _parse("bok-preview", _preview_request, args)
     def workflow(name: String, args: List[String]): ParsedArgs = _parse(s"bok-${name}", _workflow_request, args)
     def doctor(args: List[String]): ParsedArgs = _parse("bok-doctor", _doctor_request, args)
 
@@ -387,6 +404,8 @@ private[cozy] object CozyBok {
   object SiteConfig {
     val empty: SiteConfig = SiteConfig(Map.empty, Map.empty)
   }
+
+  private val _default_preview_port = "8980"
 
   trait Runner {
     def run(command: Vector[String], cwd: Path): Unit
@@ -419,6 +438,12 @@ private[cozy] object CozyBok {
         true
       case "bok" :: "fix" :: rest =>
         doctor(DoctorConfig.create(rest, fix = true))
+        true
+      case "bok" :: "guide" :: rest =>
+        guide(rest)
+        true
+      case "bok" :: "tutorial" :: rest =>
+        guide(rest)
         true
       case "bok" :: "publish-video" :: rest =>
         publishVideo(PublicationConfig.create("publish-video", rest), CozyVideo.VoicevoxClient.default, CozyVideo.VideoProcessRunner.default)
@@ -474,10 +499,39 @@ private[cozy] object CozyBok {
       _apply_bok_fixes(inspection, config)
   }
 
+  def guide(args: List[String]): Unit = {
+    val scenario = args match {
+      case Nil => "overview"
+      case name :: Nil => name
+      case _ => RAISE.invalidArgumentFault(s"Usage: cozy bok guide [scenario]")
+    }
+    val normalized = scenario.toLowerCase(java.util.Locale.ROOT)
+    normalized match {
+      case "overview" | "list" =>
+        println("Cozy BoK guide")
+        println("Available scenarios:")
+        _bok_guide_scenarios.foreach { case (name, title, _) =>
+          println(s"  - ${name}: ${title}")
+        }
+        println()
+        println("Run: cozy bok guide <scenario>")
+      case "all" =>
+        _bok_guide_scenarios.foreach { case (name, title, lines) =>
+          _print_bok_guide_scenario(name, title, lines)
+          println()
+        }
+      case name =>
+        _bok_guide_scenarios.find(_._1 == name) match {
+          case Some((n, title, lines)) => _print_bok_guide_scenario(n, title, lines)
+          case None => RAISE.invalidArgumentFault(s"Unknown BoK guide scenario: ${scenario}")
+        }
+    }
+  }
+
   def createCategory(config: CategoryConfig): Unit = {
     val dir = config.project.resolve("src/main/doxsite").resolve(config.name)
-    _write(dir.resolve("category.yaml"), _category(_category_name(config.name), config.title, config.description), config.policy)
-    _write(dir.resolve("index.dox"), _category_index(config.name, config.title, config.description, config.articles, config.terms), config.policy)
+    _write(dir.resolve("category.yaml"), _category(_category_name(config.name), config.title, config.description, config.purpose), config.policy)
+    _write(dir.resolve("index.dox"), _category_index(config.name, config.title, config.description, config.purpose, config.articles, config.terms), config.policy)
     config.articles.foreach { article =>
       _write(dir.resolve(article.fileName), _article(article.title, article.purpose), config.policy)
     }
@@ -517,13 +571,22 @@ private[cozy] object CozyBok {
   }
 
   def preview(args: List[String], runner: Runner): Unit = {
-    val parsed = BokArgs.preview(args)
-    val project = _project(parsed)
-    val port = parsed.optionalInt("port").map(_.toString).getOrElse("8080")
-    parsed.validateNoUnrecognized()
+    if (args.exists(x => x == "--help" || x == "-h")) {
+      println("Usage: cozy bok preview [<project-dir>] [--port <port>]")
+      println("Serve generated website.d through a local Web server for browser preview.")
+      return
+    }
+    val previewconfig = PreviewConfig.create(args)
+    val project = _resolve_bok_project(previewconfig.input)
     val config = _load_config(project)
+    val port = previewconfig.port.map(_.toString).
+      orElse(config.value("bok.preview.port")).
+      getOrElse(_default_preview_port)
     val website = config.value("bok.website").getOrElse("website.d")
-    runner.run(Vector("python3", "-m", "http.server", port), project.resolve(website))
+    val websitepath = project.resolve(website).toAbsolutePath.normalize
+    println(s"Serving ${websitepath} at http://127.0.0.1:${port}/")
+    println("Use this local Web server instead of opening generated HTML files directly.")
+    runner.run(Vector("python3", "-m", "http.server", port), websitepath)
   }
 
   def runWorkflow(config: WorkflowConfig, runner: Runner): Unit =
@@ -1560,27 +1623,67 @@ private[cozy] object CozyBok {
       |  </aside>""".stripMargin
 
   private def _home_dashboard_toc_item(config: BuildConfig): String =
-    _dashboard(config).map(_ => """<li><a href="#dashboard">Dashboard</a></li>""").getOrElse("")
+    if (_dashboard(config).isDefined || !_bok_purpose(config).isEmpty)
+      """<li><a href="#dashboard">Dashboard</a></li>"""
+    else
+      ""
 
-  private def _home_dashboard(config: BuildConfig): String =
-    _dashboard(config).map { dashboard =>
+  private def _home_dashboard(config: BuildConfig): String = {
+    val purpose = _bok_purpose(config)
+    val dashboard = _dashboard(config)
+    if (dashboard.isEmpty && purpose.isEmpty)
+      ""
+    else
       s"""<div class="sect1" id="dashboard">
          |  <h2>Dashboard</h2>
          |  <div class="sectionbody">
-         |    ${_dashboard_cards(dashboard.counts, includecategories = true)}
-         |    ${_dashboard_rdf_cards(dashboard.rdf)}
-         |    ${_dashboard_distribution_chart(dashboard.counts, "BoK item distribution")}
-         |    ${_dashboard_increment_chart(dashboard.increments, "BoK additions")}
+         |    ${_purpose_dashboard(purpose)}
+         |    ${dashboard.map(x => _dashboard_cards(x.counts, includecategories = true)).getOrElse("")}
+         |    ${dashboard.map(x => _dashboard_rdf_cards(x.rdf)).getOrElse("")}
+         |    ${dashboard.map(x => _dashboard_distribution_chart(x.counts, "BoK item distribution")).getOrElse("")}
+         |    ${dashboard.map(x => _dashboard_increment_chart(x.increments, "BoK additions")).getOrElse("")}
          |  </div>
          |</div>""".stripMargin
-    }.getOrElse("")
+  }
 
-  private def _category_dashboard(config: BuildConfig, category: CategoryContent): String =
-    _dashboard(config).flatMap(_.categories.find(_.name == category.slug)).map { dashboard =>
+  private def _category_dashboard(config: BuildConfig, category: CategoryContent): String = {
+    val purpose = _purpose_dashboard(category.purpose)
+    val dashboard = _dashboard(config).flatMap(_.categories.find(_.name == category.slug)).map { dashboard =>
       s"""${_dashboard_cards(dashboard.counts, includecategories = false)}
          |${_dashboard_distribution_chart(dashboard.counts, s"${dashboard.title} item distribution")}
          |${_dashboard_increment_chart(dashboard.increments, s"${dashboard.title} additions")}""".stripMargin
-    }.getOrElse("<p>Dashboard metadata is not available.</p>")
+    }
+    if (purpose.nonEmpty || dashboard.isDefined)
+      purpose + dashboard.getOrElse("")
+    else
+      "<p>Dashboard metadata is not available.</p>"
+  }
+
+  private def _bok_purpose(config: BuildConfig): BokPurpose =
+    _site_purpose(_load_site_config(config.sourcePath))
+
+  private def _site_purpose(site: SiteConfig): BokPurpose =
+    BokPurpose(
+      site.value("site.metadata.vision"),
+      site.list("site.metadata.goals"),
+      site.list("site.metadata.subgoals")
+    )
+
+  private def _purpose_dashboard(purpose: BokPurpose): String =
+    if (purpose.isEmpty)
+      ""
+    else
+      s"""<div class="bok-purpose">
+         |  ${purpose.vision.map(x => s"""<p><strong>Vision:</strong> ${_html_escape(x)}</p>""").getOrElse("")}
+         |  ${_purpose_list("Goals", purpose.goals)}
+         |  ${_purpose_list("Subgoals", purpose.subgoals)}
+         |</div>""".stripMargin
+
+  private def _purpose_list(label: String, values: Vector[String]): String =
+    if (values.isEmpty)
+      ""
+    else
+      values.map(x => s"<li>${_html_escape(x)}</li>").mkString(s"<div><strong>${label}:</strong><ul>", "", "</ul></div>")
 
   private def _dashboard_cards(counts: DashboardCounts, includecategories: Boolean): String = {
     val categorycard =
@@ -1814,7 +1917,7 @@ private[cozy] object CozyBok {
       }.mkString("<ul>\n", "\n", "\n</ul>")
   }
 
-  private final case class CategorySummary(slug: String, title: String, description: String)
+  private final case class CategorySummary(slug: String, title: String, description: String, purpose: BokPurpose)
 
   private def _regular_category_summaries(source: Path): Vector[CategorySummary] =
     _category_summaries(source).filterNot(x => _is_special_category(x.slug))
@@ -1834,7 +1937,8 @@ private[cozy] object CozyBok {
             Some(CategorySummary(
               source.relativize(dir).toString,
               _yaml_value(category, "title").getOrElse(dir.getFileName.toString),
-              _yaml_description(category).getOrElse("")
+              _yaml_description(category).getOrElse(""),
+              _yaml_purpose(category)
             ))
           else
             None
@@ -1851,6 +1955,7 @@ private[cozy] object CozyBok {
         summary.slug,
         summary.title,
         summary.description,
+        summary.purpose,
         _article_page_items(dir),
         _glossary_page_items(source.resolve("glossary").resolve(summary.slug), summary.slug)
       )
@@ -1975,6 +2080,29 @@ private[cozy] object CozyBok {
         case Vector(a, _, c) if a.trim == "description:" && c.trim.startsWith("ja:") =>
           _unquote(c.trim.substring(3).trim)
       }
+    }
+  }
+
+  private def _yaml_purpose(file: Path): BokPurpose =
+    BokPurpose(
+      _yaml_value(file, "vision"),
+      _yaml_list(file, "goals"),
+      _yaml_list(file, "subgoals")
+    )
+
+  private def _yaml_list(file: Path, key: String): Vector[String] = {
+    val lines = Files.readAllLines(file, StandardCharsets.UTF_8).asScala.toVector
+    _yaml_value(file, key).map(_parse_inline_list).filter(_.nonEmpty).getOrElse {
+      lines.zipWithIndex.collectFirst {
+        case (line, i) if line.trim == s"${key}:" =>
+          val baseindent = line.takeWhile(_.isWhitespace).length
+          lines.drop(i + 1).takeWhile { raw =>
+            val trimmed = raw.trim
+            trimmed.isEmpty || raw.takeWhile(_.isWhitespace).length > baseindent
+          }.map(_.trim).collect {
+            case item if item.startsWith("-") => _unquote(item.drop(1).trim)
+          }.filter(_.nonEmpty)
+      }.getOrElse(Vector.empty)
     }
   }
 
@@ -2600,13 +2728,13 @@ private[cozy] object CozyBok {
 
   private def _inspect_bok(input: Path): BokInspection = {
     val root = _find_bok_root(input)
-    val signals = root.map(_bok_signals).getOrElse(Vector.empty)
+    val markers = root.map(_bok_markers).getOrElse(Vector.empty)
     val issues = root.map(_bok_issues).getOrElse(Vector(s"BoK root was not found from ${input.toAbsolutePath.normalize}"))
     val fixes = root.map(_bok_fixes).getOrElse(Vector.empty)
-    BokInspection(input.toAbsolutePath.normalize, root, signals, issues, fixes)
+    BokInspection(input.toAbsolutePath.normalize, root, markers, issues, fixes)
   }
 
-  private def _bok_signals(root: Path): Vector[String] =
+  private def _bok_markers(root: Path): Vector[String] =
     Vector(
       root.resolve(".cozy/config.yaml"),
       root.resolve(".cozy/config.yml"),
@@ -2678,6 +2806,74 @@ private[cozy] object CozyBok {
     createconfig ++ updatedocker ++ gitignorefix
   }
 
+  private val _bok_guide_scenarios: Vector[(String, String, Vector[String])] = Vector(
+    (
+      "create-bok",
+      "Create a new BoK project",
+      Vector(
+        "1. cozy bok create --save <project-dir> --name <name> --url <site-url> --language ja",
+        "2. cd <project-dir>",
+        "3. edit src/main/doxsite/site.conf and category sources",
+        "4. define BoK Vision, Goals, and Subgoals in src/main/doxsite/site.conf",
+        "5. define category Vision, Goals, and Subgoals in category.yaml when needed",
+        "6. cozy bok doctor",
+        "7. cozy bok build ."
+      )
+    ),
+    (
+      "daily-build",
+      "Inspect and build an existing BoK",
+      Vector(
+        "1. cd <project-dir>",
+        "2. cozy bok doctor",
+        "3. cozy bok fix --dry-run",
+        "4. update site.conf/category.yaml Vision, Goals, and Subgoals if operational intent changed",
+        "5. cozy bok build . --strategy preview",
+        s"6. cozy bok preview . --port ${_default_preview_port}",
+        s"7. open http://127.0.0.1:${_default_preview_port}/ in a browser; do not inspect website.d by file://"
+      )
+    ),
+    (
+      "publish-dry-run",
+      "Verify publication without side effects",
+      Vector(
+        "1. cd <project-dir>",
+        "2. configure bok.workflow.upload.command in .cozy/config.yaml or conf/cozy/config.yaml",
+        "3. cozy bok publish . --dry-run",
+        "4. inspect target/cozy-bok/publish/latest/manifest.json",
+        "5. run cozy bok publish . only after the plan is correct"
+      )
+    ),
+    (
+      "video-publication",
+      "Publish .video packages into the BoK registry",
+      Vector(
+        "1. create src/main/doxsite/<category>/<slug>.video/index.dox",
+        "2. create src/main/doxsite/<category>/<slug>.video/video.yaml",
+        "3. keep generated mp4/rdf/captions outside the .video source package",
+        "4. cozy bok publish-video . --warehouse <warehouse-dir>",
+        "5. cozy bok build . --strategy preview"
+      )
+    ),
+    (
+      "stage-upload",
+      "Connect project-owned staging and upload scripts",
+      Vector(
+        "1. copy etc/website-stage.sh.proto to etc/website-stage.sh when staging is needed",
+        "2. copy etc/website-upload.sh.proto to etc/website-upload.sh and edit the target",
+        "3. configure bok.workflow.stage.command and bok.workflow.upload.command",
+        "4. cozy bok stage .",
+        "5. cozy bok upload ."
+      )
+    )
+  )
+
+  private def _print_bok_guide_scenario(name: String, title: String, lines: Vector[String]): Unit = {
+    println(s"Cozy BoK guide: ${name}")
+    println(title)
+    lines.foreach(line => println(s"  ${line}"))
+  }
+
   private def _missing_gitignore_entries(root: Path): Vector[String] = {
     val path = root.resolve(".gitignore")
     val existing =
@@ -2702,10 +2898,24 @@ private[cozy] object CozyBok {
       case Some(root) => println(s"root: ${root}")
       case None => println("root: <not found>")
     }
-    _print_list("signals", inspection.signals)
+    _print_list("bok root markers", inspection.markers)
     _print_list("issues", inspection.issues)
     _print_list(if (config.fix && config.dryRun) "planned fixes" else "fixes", inspection.fixes.map(_.description))
+    _print_list("next steps", _bok_next_steps(inspection))
   }
+
+  private def _bok_next_steps(inspection: BokInspection): Vector[String] =
+    inspection.root.toVector.flatMap { root =>
+      val port = _bok_preview_port(root)
+      Vector(
+        s"Build generated site: cozy bok build ${root} --strategy preview",
+        s"Serve generated website.d through a local Web server: cozy bok preview ${root} --port ${port}",
+        s"Open http://127.0.0.1:${port}/ in a browser; do not inspect generated HTML through file://"
+      )
+    }
+
+  private def _bok_preview_port(root: Path): String =
+    _load_config(root).value("bok.preview.port").getOrElse(_default_preview_port)
 
   private def _print_list(label: String, values: Vector[String]): Unit = {
     println(s"${label}:")
@@ -2867,7 +3077,49 @@ private[cozy] object CozyBok {
     _parse_site_values(lines).collect {
       case (key, value) if value.startsWith("[") && value.endsWith("]") =>
         key -> _parse_inline_list(value)
+    } ++ _parse_site_block_lists(lines)
+
+  private def _parse_site_block_lists(lines: Vector[String]): Map[String, Vector[String]] = {
+    var stack = Vector.empty[(Int, String)]
+    var lists = Map.empty[String, Vector[String]]
+    var collecting: Option[(Int, String, Vector[String])] = None
+    lines.foreach { raw =>
+      val line = raw.takeWhile(_ != '#')
+      val trimmed = line.trim
+      collecting match {
+        case Some((baseindent, path, items)) =>
+          if (trimmed == "]") {
+            lists = lists.updated(path, items)
+            collecting = None
+          } else if (trimmed.startsWith("\"") || trimmed.startsWith("'") || trimmed.endsWith(",")) {
+            val item = _unquote(trimmed.stripSuffix(","))
+            if (item.nonEmpty)
+              collecting = Some((baseindent, path, items :+ item))
+          } else if (trimmed.nonEmpty && line.takeWhile(_.isWhitespace).length <= baseindent) {
+            lists = lists.updated(path, items)
+            collecting = None
+          }
+        case None =>
+          if (trimmed.nonEmpty && trimmed != "}") {
+            val indent = line.takeWhile(_.isWhitespace).length
+            if (trimmed.endsWith("{")) {
+              val key = trimmed.dropRight(1).trim
+              stack = stack.dropRight(stack.reverse.takeWhile(_._1 >= indent).length) :+ (indent -> key)
+            } else trimmed match {
+              case _assignment(key, value) if value == "[" =>
+                stack = stack.dropRight(stack.reverse.takeWhile(_._1 >= indent).length)
+                val path = (stack.map(_._2) :+ key).mkString(".")
+                collecting = Some((indent, path, Vector.empty))
+              case _ =>
+            }
+          }
+      }
     }
+    collecting.foreach { case (_, path, items) =>
+      lists = lists.updated(path, items)
+    }
+    lists
+  }
 
   private def _parse_inline_list(value: String): Vector[String] =
     value.stripPrefix("[").stripSuffix("]").split(",").toVector.map(x => _unquote(x.trim)).filter(_.nonEmpty)
@@ -2956,6 +3208,9 @@ private[cozy] object CozyBok {
        |    url = "${config.url}"
        |    in_language = ["${config.language}"]
        |    license = "CC-BY-SA-4.0"
+       |    vision = "Build a shared knowledge base for ${config.name}."
+       |    goals = ["Organize concepts and technology knowledge", "Keep knowledge searchable and reusable"]
+       |    subgoals = ["Maintain category dashboards", "Maintain glossary and history"]
        |  }
        |  navigation {
        |    mode = "category"
@@ -3016,18 +3271,25 @@ private[cozy] object CozyBok {
        |日本語単独運用のため、生成HTMLはサイトroot直下に配置します。
        |""".stripMargin
 
-  private def _category(name: String, title: String, description: String): String =
+  private def _category(
+    name: String,
+    title: String,
+    description: String,
+    purpose: BokPurpose = BokPurpose.empty
+  ): String =
     s"""name: ${name}
        |title: ${title}
        |description:
        |  en: ${description}
        |  ja: ${description}
+       |${_purpose_yaml(purpose)}
        |""".stripMargin
 
   private def _category_index(
     category: String,
     title: String,
     purpose: String,
+    bokpurpose: BokPurpose = BokPurpose.empty,
     articles: Vector[CategoryArticle] = Vector.empty,
     terms: Vector[CategoryTerm] = Vector.empty
   ): String =
@@ -3049,6 +3311,8 @@ private[cozy] object CozyBok {
        |
        |${purpose}
        |
+       |${_purpose_dox(bokpurpose)}
+       |
        |${_category_dashboard_cards(articles, terms)}
        |
        |## Summary
@@ -3069,6 +3333,32 @@ private[cozy] object CozyBok {
        |
        |このページはカテゴリの状態を集約するDashboardです。カテゴリ配下の記事、用語、運用上の注目点をここに集約します。
        |""".stripMargin
+
+  private def _purpose_yaml(purpose: BokPurpose): String =
+    if (purpose.isEmpty)
+      ""
+    else
+      Vector(
+        purpose.vision.map(x => s"vision: ${_yaml_quote(x)}"),
+        if (purpose.goals.nonEmpty) Some(_yaml_list_block("goals", purpose.goals)) else None,
+        if (purpose.subgoals.nonEmpty) Some(_yaml_list_block("subgoals", purpose.subgoals)) else None
+      ).flatten.mkString("", "\n", "\n")
+
+  private def _yaml_list_block(key: String, values: Vector[String]): String =
+    values.map(x => s"  - ${_yaml_quote(x)}").mkString(s"${key}:\n", "\n", "")
+
+  private def _yaml_quote(value: String): String =
+    "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+
+  private def _purpose_dox(purpose: BokPurpose): String =
+    if (purpose.isEmpty)
+      ""
+    else
+      Vector(
+        purpose.vision.map(x => s"## Vision\n${x}\n"),
+        if (purpose.goals.nonEmpty) Some(purpose.goals.mkString("## Goals\n- ", "\n- ", "\n")) else None,
+        if (purpose.subgoals.nonEmpty) Some(purpose.subgoals.mkString("## Subgoals\n- ", "\n- ", "\n")) else None
+      ).flatten.mkString("\n")
 
   private def _category_dashboard_cards(
     articles: Vector[CategoryArticle],
@@ -3210,7 +3500,7 @@ private[cozy] object CozyBok {
       |- `cozy bok create --save <dir>`: BoK source scaffoldを作成します。
       |- `cozy bok create-category <name> --project <dir>`: カテゴリDashboard、記事seed、用語seedを追加します。
       |- `cozy bok build <dir> --strategy wip`: SmartDox/Antoraを使って `website.d` を生成します。
-      |- `cozy bok preview <dir> --port 8080`: 生成済み `website.d` をローカル確認します。
+      |- `cozy bok preview <dir> --port 8980`: 生成済み `website.d` をローカル確認します。
       |
       |## Page Types
       |
@@ -3479,6 +3769,7 @@ private[cozy] object CozyBok {
         name,
         parsed.property("title").getOrElse(_titleize(name)),
         parsed.property("description").getOrElse(s"${_titleize(name)} category."),
+        BokPurpose(parsed.property("vision"), parsed.properties("goal"), parsed.properties("subgoal")),
         parsed.properties("article").map(_parse_category_article),
         parsed.properties("term").map(_parse_category_term),
         ProjectFilePolicy.create(parsed)
@@ -3488,15 +3779,60 @@ private[cozy] object CozyBok {
 
   object DoctorConfig {
     def create(args: List[String], fix: Boolean): DoctorConfig = {
-      val parsed = BokArgs.doctor(args)
-      val input = parsed.argument("project").map(_to_path).getOrElse(_logical_cwd)
-      parsed.validateNoUnrecognized()
+      var input: Option[Path] = None
+      var fixswitch = false
+      var dryrun = false
+      args.foreach {
+        case "--fix" => fixswitch = true
+        case "--dry-run" => dryrun = true
+        case x if x.startsWith("--") => RAISE.invalidArgumentFault(s"Unknown option: ${x}")
+        case x =>
+          if (input.isDefined)
+            RAISE.invalidArgumentFault(s"Unknown argument: ${x}")
+          input = Some(_to_path(x))
+      }
       DoctorConfig(
-        input,
-        fix || parsed.request.switches.exists(_.name == "fix"),
-        parsed.request.switches.exists(_.name == "dry-run")
+        input.getOrElse(_logical_cwd),
+        fix || fixswitch,
+        dryrun
       )
     }
+  }
+
+  object PreviewConfig {
+    def create(args: List[String]): PreviewConfig = {
+      var input: Option[Path] = None
+      var port: Option[Int] = None
+
+      def take(xs: List[String]): Unit =
+        xs match {
+          case Nil =>
+          case "--port" :: value :: rest =>
+            port = Some(_parse_port(value))
+            take(rest)
+          case "--port" :: Nil =>
+            RAISE.invalidArgumentFault("Missing --port <port>")
+          case x :: _ if x.startsWith("--port=") =>
+            RAISE.invalidArgumentFault("Use --port <port>, not --port=<port>")
+          case x :: _ if x.startsWith("--") =>
+            RAISE.invalidArgumentFault(s"Unknown option: ${x}")
+          case x :: rest =>
+            if (input.isDefined)
+              RAISE.invalidArgumentFault(s"Unknown argument: ${x}")
+            input = Some(_to_path(x))
+            take(rest)
+        }
+
+      take(args)
+      PreviewConfig(input.getOrElse(_logical_cwd), port)
+    }
+
+    private def _parse_port(value: String): Int =
+      try {
+        value.toInt
+      } catch {
+        case _: NumberFormatException => RAISE.invalidArgumentFault(s"Invalid --port <number>: ${value}")
+      }
   }
 
   private def _parse_category_article(value: String): CategoryArticle = {
