@@ -28,7 +28,7 @@ into focused Cozy improvements.
 - [x] BK12-01: Phase 12 documentation opened
 - [x] BK12-02: KnowledgeHub BoK source onboarding
 - [x] BK12-03: BoK config alignment
-- [ ] BK12-04: Local Cozy command synchronization
+- [x] BK12-04: Local Cozy command synchronization
 - [ ] BK12-05: BoK build operational verification
 - [ ] BK12-06: Publish dry-run operational verification
 - [ ] BK12-07: Scaffold/document drift diagnostics
@@ -67,6 +67,14 @@ into focused Cozy improvements.
   BoK operation settings in `conf/cozy/config.yaml`, keeps
   `.cozy/config.yaml` as an untracked local sensitive settings file, and keeps
   explicit project-owned stage/upload workflow commands.
+- 2026-06-20: Completed BK12-04 local Cozy command synchronization. The
+  operational PATH command is the Coursier-installed `cozy` launcher, local
+  `.cozy/launcher.yaml` remains an untracked sensitive runtime override, and
+  the launcher help now documents the config split between launcher settings
+  and BoK operation settings. Operational probing also confirmed that
+  `cozy bok publish` is available outside `sbt run`; `cozy bok publish --help`
+  currently starts the publish flow instead of rendering help, so that behavior
+  is left as a BK12-07/BK12-06 usability finding.
 
 ## References
 

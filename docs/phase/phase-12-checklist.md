@@ -39,12 +39,13 @@ Status: DONE
 
 ## BK12-04: Local Cozy Command Synchronization
 
-Status: OPEN
+Status: DONE
 
-- [ ] Identify why PATH `cozy` still uses older launcher behavior.
-- [ ] Define or update the local command synchronization procedure.
-- [ ] Ensure `cozy bok publish` is available outside `sbt run`.
-- [ ] Document the operational command path used by KnowledgeHub BoK.
+- [x] Identify why PATH `cozy` still uses older launcher behavior.
+- [x] Define or update the local command synchronization procedure.
+- [x] Ensure `cozy bok publish` is available outside `sbt run`.
+- [x] Document the operational command path used by KnowledgeHub BoK.
+- [x] Keep `.cozy/launcher.yaml` out of git as a local sensitive launcher file.
 
 ## BK12-05: BoK Build Operational Verification
 
