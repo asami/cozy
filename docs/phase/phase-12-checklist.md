@@ -49,13 +49,14 @@ Status: DONE
 
 ## BK12-05: BoK Build Operational Verification
 
-Status: OPEN
+Status: DONE
 
-- [ ] Run `cozy bok build /Users/asami/src/Project2026/bok-knowlegehub` from the
+- [x] Run `cozy bok build /Users/asami/src/Project2026/bok-knowlegehub` from the
       normal operational entrypoint.
-- [ ] Confirm `website.d`, `doxsite.d`, and `antora.d` are reproducible.
-- [ ] Confirm generated outputs remain untracked.
-- [ ] Record build diagnostics and usability gaps.
+- [x] Confirm `website.d`, `doxsite.d`, and `antora.d` are reproducible as
+      generated output directories.
+- [x] Confirm generated outputs remain untracked.
+- [x] Record build diagnostics and usability gaps.
 
 ## BK12-06: Publish Dry-Run Operational Verification
 
@@ -73,6 +74,12 @@ Status: OPEN
 Status: OPEN
 
 - [ ] Identify scaffold documentation drift found in KnowledgeHub operation.
+- [ ] Resolve or explicitly decide the missing `website.d/history/2026.html`
+      output from the present `src/main/doxsite/history/index.dox` source.
+- [ ] Resolve or explicitly decide the missing `website.d/manual/index.html`
+      output from the present `src/main/doxsite/manual/index.dox` source.
+- [ ] Decide whether the Antora `Missing component name in start page for site:
+      index.adoc` warning requires scaffold, config, or documentation changes.
 - [ ] Decide whether drift should be fixed in scaffold generation, diagnostics,
       or project documentation.
 - [ ] Add or update tests if Cozy scaffold behavior changes.

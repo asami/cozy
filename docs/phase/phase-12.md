@@ -29,7 +29,7 @@ into focused Cozy improvements.
 - [x] BK12-02: KnowledgeHub BoK source onboarding
 - [x] BK12-03: BoK config alignment
 - [x] BK12-04: Local Cozy command synchronization
-- [ ] BK12-05: BoK build operational verification
+- [x] BK12-05: BoK build operational verification
 - [ ] BK12-06: Publish dry-run operational verification
 - [ ] BK12-07: Scaffold/document drift diagnostics
 - [ ] BK12-08: Upload workflow readiness
@@ -75,6 +75,17 @@ into focused Cozy improvements.
   `cozy bok publish` is available outside `sbt run`; `cozy bok publish --help`
   currently starts the publish flow instead of rendering help, so that behavior
   is left as a BK12-07/BK12-06 usability finding.
+- 2026-06-20: Completed BK12-05 BoK build operational verification.
+  `cozy bok build . --strategy preview` succeeded from the KnowledgeHub root
+  through the normal PATH launcher. The build regenerated ignored `website.d`,
+  `doxsite.d`, and `antora.d` outputs, produced the operational Home, Concept,
+  Technology, Glossary, RDF, and Antora outputs, and left tracked KnowledgeHub
+  source files unchanged. BK12-05 completion is limited to build execution and
+  git-boundary verification. Antora emitted a non-fatal `Missing component name
+  in start page for site: index.adoc` warning, and `history` / `manual` sources
+  were present but not emitted as `website.d/history/2026.html` or
+  `website.d/manual/index.html`; those output-shape gaps are tracked explicitly
+  in BK12-07.
 
 ## References
 
