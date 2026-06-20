@@ -30,7 +30,7 @@ into focused Cozy improvements.
 - [x] BK12-03: BoK config alignment
 - [x] BK12-04: Local Cozy command synchronization
 - [x] BK12-05: BoK build operational verification
-- [ ] BK12-06: Publish dry-run operational verification
+- [x] BK12-06: Publish dry-run operational verification
 - [ ] BK12-07: Scaffold/document drift diagnostics
 - [ ] BK12-08: Upload workflow readiness
 - [ ] BK12-09: Development findings and follow-up backlog
@@ -86,6 +86,18 @@ into focused Cozy improvements.
   were present but not emitted as `website.d/history/2026.html` or
   `website.d/manual/index.html`; those output-shape gaps are tracked explicitly
   in BK12-07.
+- 2026-06-21: Completed BK12-06 publish dry-run operational verification.
+  `cozy bok publish . --dry-run` succeeded from the KnowledgeHub root through
+  the normal PATH launcher. The output listed update-publication, build, stage,
+  and upload plan steps, and wrote
+  `target/cozy-bok/publish/latest/manifest.json` with `dryRun=true`,
+  `strategy=production`, planned stage/upload commands, and a skipped
+  update-publication step because no `.video/` packages are currently present.
+  The dry-run did not create `src/main/publication` or `warehouse`, did not
+  update `website.d`, `doxsite.d`, or `antora.d`, and left tracked KnowledgeHub
+  source files unchanged. The existing `cozy bok publish --help` behavior still
+  needs BK12-07 usability review because it starts command parsing instead of
+  rendering help.
 
 ## References
 

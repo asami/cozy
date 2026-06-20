@@ -60,14 +60,14 @@ Status: DONE
 
 ## BK12-06: Publish Dry-Run Operational Verification
 
-Status: OPEN
+Status: DONE
 
-- [ ] Run `cozy bok publish /Users/asami/src/Project2026/bok-knowlegehub --dry-run`
+- [x] Run `cozy bok publish /Users/asami/src/Project2026/bok-knowlegehub --dry-run`
       from the normal operational entrypoint.
-- [ ] Confirm dry-run output is useful for operation planning.
-- [ ] If upload workflow is missing, decide whether current preflight behavior is
+- [x] Confirm dry-run output is useful for operation planning.
+- [x] If upload workflow is missing, decide whether current preflight behavior is
       acceptable.
-- [ ] Record any required Cozy improvement for dry-run usability.
+- [x] Record any required Cozy improvement for dry-run usability.
 
 ## BK12-07: Scaffold / Document Drift Diagnostics
 
@@ -80,6 +80,8 @@ Status: OPEN
       output from the present `src/main/doxsite/manual/index.dox` source.
 - [ ] Decide whether the Antora `Missing component name in start page for site:
       index.adoc` warning requires scaffold, config, or documentation changes.
+- [ ] Decide whether `cozy bok publish --help` should render help instead of
+      starting publish command parsing.
 - [ ] Decide whether drift should be fixed in scaffold generation, diagnostics,
       or project documentation.
 - [ ] Add or update tests if Cozy scaffold behavior changes.
