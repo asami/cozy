@@ -17,7 +17,8 @@ into focused Cozy improvements.
 ## Themes
 
 - Make the KnowledgeHub BoK source tree cleanly operable by `cozy bok`.
-- Align `.cozy/config.yaml`, generated scaffold docs, and current Cozy defaults.
+- Align `conf/cozy/config.yaml`, generated scaffold docs, and current Cozy
+  defaults.
 - Verify `bok build`, `bok stage`, `bok publish --dry-run`, and future upload
   workflow readiness.
 - Identify missing diagnostics or usability gaps from real operation.
@@ -26,7 +27,7 @@ into focused Cozy improvements.
 
 - [x] BK12-01: Phase 12 documentation opened
 - [x] BK12-02: KnowledgeHub BoK source onboarding
-- [ ] BK12-03: BoK config alignment
+- [x] BK12-03: BoK config alignment
 - [ ] BK12-04: Local Cozy command synchronization
 - [ ] BK12-05: BoK build operational verification
 - [ ] BK12-06: Publish dry-run operational verification
@@ -39,8 +40,9 @@ into focused Cozy improvements.
 
 - The KnowledgeHub BoK source tree is intentionally tracked while generated
   directories remain ignored.
-- KnowledgeHub `.cozy/config.yaml`, `README.md`, and `STRUCTURE.md` match the
-  current Cozy BoK operational model.
+- KnowledgeHub `conf/cozy/config.yaml`, `README.md`, and `STRUCTURE.md` match
+  the current Cozy BoK operational model, while `.cozy/config.yaml` remains
+  kept as an untracked local sensitive settings file.
 - The normal operational `cozy` command can run the required BoK workflow, not
   only `sbt run`.
 - `cozy bok build` works for the KnowledgeHub BoK from the operational entrypoint.
@@ -61,6 +63,10 @@ into focused Cozy improvements.
   canonical source tree is `src/main/doxsite`, `STRUCTURE.md` is kept as a
   human-readable source tree guide rather than build configuration, and legacy
   generated `src/main/website` output was removed from the source tree.
+- 2026-06-20: Completed BK12-03 config alignment. KnowledgeHub now keeps main
+  BoK operation settings in `conf/cozy/config.yaml`, keeps
+  `.cozy/config.yaml` as an untracked local sensitive settings file, and keeps
+  explicit project-owned stage/upload workflow commands.
 
 ## References
 

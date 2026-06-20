@@ -244,8 +244,8 @@ Purpose:
 
 - use `/Users/asami/src/Project2026/bok-knowlegehub` as a real BoK operation
   driver for `cozy bok`
-- align KnowledgeHub BoK source, `.cozy/config.yaml`, generated scaffold docs,
-  and current Cozy defaults
+- align KnowledgeHub BoK source, `conf/cozy/config.yaml`, generated scaffold
+  docs, and current Cozy defaults
 - verify `bok build`, `bok publish --dry-run`, and upload workflow readiness
 - convert operational friction into focused Cozy improvements and follow-up
   backlog

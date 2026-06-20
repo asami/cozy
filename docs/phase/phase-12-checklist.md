@@ -27,14 +27,15 @@ Status: DONE
 
 ## BK12-03: BoK Config Alignment
 
-Status: OPEN
+Status: DONE
 
-- [ ] Update KnowledgeHub `.cozy/config.yaml` to current Cozy BoK conventions.
-- [ ] Use canonical Docker image `ghcr.io/asami/cozy-toolchain:latest`.
-- [ ] Confirm `bok.source` matches `src/main/doxsite`.
-- [ ] Confirm `bok.website`, `bok.antora`, and `bok.doxsite` match generated
+- [x] Update KnowledgeHub `conf/cozy/config.yaml` to current Cozy BoK conventions.
+- [x] Keep `.cozy/config.yaml` out of git as a local sensitive settings file.
+- [x] Use canonical Docker image `ghcr.io/asami/cozy-toolchain:latest`.
+- [x] Confirm `bok.source` matches `src/main/doxsite`.
+- [x] Confirm `bok.website`, `bok.antora`, and `bok.doxsite` match generated
       output locations.
-- [ ] Keep stage and upload workflows explicit and project-owned.
+- [x] Keep stage and upload workflows explicit and project-owned.
 
 ## BK12-04: Local Cozy Command Synchronization
 
