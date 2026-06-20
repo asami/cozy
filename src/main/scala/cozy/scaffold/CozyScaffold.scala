@@ -1486,6 +1486,12 @@ private[cozy] object CozyScaffold {
       |  bok update [<project-dir>] [--strategy wip|draft|preview|production] [--docker-image <image>]
       |      Update the BoK output. In this version it runs the same generation flow as bok build.
       |
+      |  bok doctor [<project-dir>] [--fix] [--dry-run]
+      |      Inspect the specified path, resolve the actual BoK root, and report source/config/workflow drift.
+      |
+      |  bok fix [<project-dir>] [--dry-run]
+      |      Apply safe non-destructive BoK repairs, such as current Docker image and generated-directory .gitignore entries.
+      |
       |  bok publish-video <project-dir> [--publication <dir>] [--warehouse <dir>] [--version <version>] [--force]
       |      Publish all .video packages in a BoK source tree into src/main/publication and warehouse/repository/video.
       |
@@ -1499,8 +1505,8 @@ private[cozy] object CozyScaffold {
       |  bok preview [<project-dir>] [--port 8080]
       |      Serve website.d with python3 -m http.server for local preview.
       |
-      |  bok commit [<project-dir>]
-      |      Run the external command registered at bok.workflow.commit.command. Cozy does not perform built-in git operations.
+      |  bok stage [<project-dir>]
+      |      Run the external command registered at bok.workflow.stage.command to stage generated website output.
       |
       |  bok upload [<project-dir>]
       |      Run the external command registered at bok.workflow.upload.command. Cozy does not interpret upload targets or credentials.

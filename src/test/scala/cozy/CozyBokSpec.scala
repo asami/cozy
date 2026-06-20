@@ -39,6 +39,10 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
       dir.resolve("README.md") should beRegularFile
       dir.resolve("STRUCTURE.md") should beRegularFile
       dir.resolve("conf/cozy/config.yaml") should beRegularFile
+      dir.resolve("etc/website-stage.sh.proto") should beRegularFile
+      dir.resolve("etc/website-upload.sh.proto") should beRegularFile
+      dir.resolve("etc/website-stage.sh") shouldNot existPath
+      dir.resolve("etc/website-upload.sh") shouldNot existPath
       dir.resolve("src/main/doxsite/site.conf") should beRegularFile
       dir.resolve("src/main/doxsite/glossary/category.yaml") should beRegularFile
       dir.resolve("src/main/doxsite/glossary/index.dox") shouldNot existPath
@@ -60,9 +64,19 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
       _read(dir.resolve("src/main/doxsite/manual/index.dox")) should include ("cozy bok build")
       _read(dir.resolve("src/main/doxsite/manual/index.dox")) should include ("自動用語リンク対象外")
       _read(dir.resolve("conf/cozy/config.yaml")) should include ("cozy-toolchain")
+      _read(dir.resolve("conf/cozy/config.yaml")) should include ("website-staging")
+      _read(dir.resolve("conf/cozy/config.yaml")) should include ("workflow:")
+      _read(dir.resolve("conf/cozy/config.yaml")) should include ("stage:")
+      _read(dir.resolve("conf/cozy/config.yaml")) should include ("website-stage.sh.proto")
       _read(dir.resolve("conf/cozy/config.yaml")) should not include ("missing-artifact-policy: warn")
       _read(dir.resolve("src/main/doxsite/site.conf")) should include ("""locale_mode = "single_locale_root"""")
       _read(dir.resolve("src/main/doxsite/site.conf")) should include ("output.scope.policy = home_only")
+      _read(dir.resolve("etc/website-stage.sh.proto")) should include ("WEBSITE_STAGING_DIR")
+      _read(dir.resolve("etc/website-stage.sh.proto")) should include ("rsync -av --checksum --delete")
+      _read(dir.resolve("etc/website-upload.sh.proto")) should include ("WEBSITE_SOURCE_DIR=${WEBSITE_SOURCE_DIR:-website.d}")
+      _read(dir.resolve("etc/website-upload.sh.proto")) should include ("AWS_S3_URI")
+      _read(dir.resolve("etc/website-upload.sh.proto")) should include ("aws s3 sync")
+      _read(dir.resolve("etc/website-upload.sh.proto")) should include ("aws cloudfront create-invalidation")
       _read(dir.resolve("src/main/doxsite/index.dox")) should include ("published_at=")
       _read(dir.resolve("src/main/doxsite/history/index.dox")) should include ("published_at=")
       _read(dir.resolve("src/main/doxsite/manual/index.dox")) should include ("published_at=")
@@ -406,6 +420,74 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
 
     }
 
+    "inspect and repair BoK roots" which {
+      "resolve a nested doxsite path back to the BoK project root" in {
+        _with_temp_dir("cozy-bok-root-resolution") { dir =>
+          Given("a BoK project and a category path inside src/main/doxsite")
+          _write(dir.resolve(".cozy/config.yaml"), "bok:\n  docker-image: config-image\n")
+          _write(dir.resolve("src/main/doxsite/site.conf"), "site {}\n")
+          _write(dir.resolve("src/main/doxsite/concept/category.yaml"), "name: Concept\n")
+          val nested = dir.resolve("src/main/doxsite/concept")
+
+          When("build configuration is resolved from the nested path")
+          val config = CozyBok.BuildConfig.create(List(nested.toString))
+
+          Then("Cozy uses the BoK project root for all build paths")
+          config.project shouldBe dir.toAbsolutePath.normalize
+          config.sourcePath shouldBe dir.resolve("src/main/doxsite")
+          config.dockerImage shouldBe "config-image"
+        }
+      }
+
+      "report BoK root, signals, and safe repair candidates" in {
+        _with_temp_dir("cozy-bok-doctor") { dir =>
+          Given("a BoK project with a legacy Docker image and incomplete generated-directory ignores")
+          _write(dir.resolve(".cozy/config.yaml"), "cozy:\n  docker-image: simplemodeling/cozy-toolchain:latest\nbok:\n  source: src/main/doxsite\n")
+          _write(dir.resolve("src/main/doxsite/site.conf"), "site {}\n")
+          _write(dir.resolve(".gitignore"), "/target/\n")
+
+          When("Cozy inspects the BoK project in dry-run fix mode")
+          val output = _capture {
+            CozyBok.doctor(CozyBok.DoctorConfig.create(List(dir.resolve("src/main/doxsite").toString, "--fix", "--dry-run"), fix = false))
+          }
+
+          Then("the diagnostic identifies the root and the planned non-destructive repairs")
+          output should include ("status: needs-fix")
+          output should include (s"root: ${dir.toAbsolutePath.normalize}")
+          output should include ("src/main/doxsite/site.conf")
+          output should include ("Legacy Docker image reference found")
+          output should include ("Replace legacy Docker image")
+          output should include ("Append generated/work directory ignores")
+          _read(dir.resolve(".cozy/config.yaml")) should include ("simplemodeling/cozy-toolchain:latest")
+          _read(dir.resolve(".gitignore")) should not include ("/website.d/")
+        }
+      }
+
+      "apply safe BoK repairs without changing source content" in {
+        _with_temp_dir("cozy-bok-fix") { dir =>
+          Given("a BoK project whose operational config and generated-directory ignores are stale")
+          _write(dir.resolve(".cozy/config.yaml"), "cozy:\n  docker-image: simplemodeling/cozy-toolchain:latest\nbok:\n  source: src/main/doxsite\n")
+          _write(dir.resolve("src/main/doxsite/site.conf"), "site {}\n")
+          _write(dir.resolve("src/main/doxsite/concept/index.dox"), "Concept\n=======\n")
+          _write(dir.resolve(".gitignore"), "/target/\n")
+
+          When("Cozy applies safe BoK fixes")
+          _capture {
+            CozyBok.doctor(CozyBok.DoctorConfig.create(List(dir.toString), fix = true))
+          }
+
+          Then("the canonical Docker image and generated-directory ignores are updated")
+          _read(dir.resolve(".cozy/config.yaml")) should include ("ghcr.io/asami/cozy-toolchain:latest")
+          _read(dir.resolve(".cozy/config.yaml")) should not include ("simplemodeling/cozy-toolchain:latest")
+          _read(dir.resolve(".gitignore")) should include ("/website.d/")
+          _read(dir.resolve(".gitignore")) should include ("/doxsite.d/")
+          _read(dir.resolve(".gitignore")) should include ("/antora.d/")
+          And("the source article remains untouched")
+          _read(dir.resolve("src/main/doxsite/concept/index.dox")) shouldBe "Concept\n=======\n"
+        }
+      }
+    }
+
     "invoke SmartDox compatibility output" which {
     "use simplemodelingorg compatibility locale default from site.conf" in {
     _with_temp_dir("cozy-bok-simplemodeling") { dir =>
@@ -696,7 +778,7 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
       When("Cozy runs one-stop publish")
       CozyBok.publish(config, runner, CozyVideoSpec.RecordingVoicevoxClient(), CozyVideoSpec.PublishingRunner())
 
-      Then("publication update, site build, and upload execute in deterministic order")
+      Then("publication update, site build, optional stage skip, and upload execute in deterministic order")
       runner.commands should containWhere[Vector[String]](_.take(2) == Vector("dox", "antora"))
       runner.commands should containWhere[Vector[String]](_.take(2) == Vector("dox", "site"))
       runner.commands.last shouldBe Vector("sh", "-c", "etc/upload.sh")
@@ -919,6 +1001,8 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
     help should include ("bok publish-video <project-dir> [--publication <dir>] [--warehouse <dir>]")
     help should include ("bok update-publication <project-dir> [--publication <dir>] [--warehouse <dir>]")
     help should include ("bok publish <project-dir> [--publication <dir>] [--warehouse <dir>]")
+    help should include ("bok doctor [<project-dir>] [--fix] [--dry-run]")
+    help should include ("bok fix [<project-dir>] [--dry-run]")
     help should include ("--dry-run")
   }
 
@@ -937,38 +1021,38 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
     }
 
     "run configured workflows" which {
-    "require registered workflow commands for commit and upload" in {
+    "require registered workflow command for explicit stage execution" in {
     _with_temp_dir("cozy-bok-workflow-missing") { dir =>
-      Given("a BoK workflow command without a registered shell command")
-      When("Cozy resolves the workflow")
+      Given("a BoK stage command without a registered shell command")
+      When("Cozy resolves the explicit stage workflow")
       val e = intercept[Throwable] {
-        CozyBok.runWorkflow(CozyBok.WorkflowConfig.create("commit", List(dir.toString)), new RecordingRunner)
+        CozyBok.runWorkflow(CozyBok.WorkflowConfig.create("stage", List(dir.toString)), new RecordingRunner)
       }
-      Then("the missing workflow command is reported as configuration error")
-      e.getMessage should include ("bok.workflow.commit.command")
+      Then("the missing stage workflow command is reported as configuration error")
+      e.getMessage should include ("bok.workflow.stage.command")
     }
   }
 
-    "run only registered workflow command for commit and upload" in {
+    "run only registered workflow command for stage and upload" in {
     _with_temp_dir("cozy-bok-workflow") { dir =>
-      Given("registered commit and upload workflow commands")
+      Given("registered stage and upload workflow commands")
       _write(dir.resolve(".cozy/config.yaml"),
         """bok:
           |  workflow:
-          |    commit:
-          |      command: "etc/website-commit.sh"
+          |    stage:
+          |      command: "etc/website-stage.sh"
           |    upload:
           |      command: "etc/website-upload.sh"
           |""".stripMargin)
       val runner = new RecordingRunner
 
       When("Cozy runs the workflows")
-      CozyBok.runWorkflow(CozyBok.WorkflowConfig.create("commit", List(dir.toString)), runner)
+      CozyBok.runWorkflow(CozyBok.WorkflowConfig.create("stage", List(dir.toString)), runner)
       CozyBok.runWorkflow(CozyBok.WorkflowConfig.create("upload", List(dir.toString)), runner)
 
       Then("only the configured external workflow commands are executed")
       runner.commands shouldBe Vector(
-        Vector("sh", "-c", "etc/website-commit.sh"),
+        Vector("sh", "-c", "etc/website-stage.sh"),
         Vector("sh", "-c", "etc/website-upload.sh")
       )
     }

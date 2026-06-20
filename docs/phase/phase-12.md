@@ -18,8 +18,8 @@ into focused Cozy improvements.
 
 - Make the KnowledgeHub BoK source tree cleanly operable by `cozy bok`.
 - Align `.cozy/config.yaml`, generated scaffold docs, and current Cozy defaults.
-- Verify `bok build`, `bok publish --dry-run`, and future upload workflow
-  readiness.
+- Verify `bok build`, `bok stage`, `bok publish --dry-run`, and future upload
+  workflow readiness.
 - Identify missing diagnostics or usability gaps from real operation.
 
 ## Phase Items
@@ -55,7 +55,8 @@ into focused Cozy improvements.
   Initial exploration found that the source tree is untracked, generated
   directories are ignored, `cozy bok build` works through `sbt run`, the PATH
   `cozy` launcher is older than the repository implementation, and
-  `bok.workflow.upload.command` is not configured.
+  optional `bok.workflow.stage.command` is not configured while required
+  `bok.workflow.upload.command` is still missing.
 
 ## References
 

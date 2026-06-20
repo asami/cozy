@@ -61,6 +61,23 @@ private[cozy] object CozyBok {
     def fileName: String = s"${termPath}.dox"
     def htmlName(category: String): String = s"../glossary/${category}/${termPath}.html"
   }
+  final case class DoctorConfig(input: Path, fix: Boolean, dryRun: Boolean)
+  private final case class BokInspection(
+    input: Path,
+    root: Option[Path],
+    signals: Vector[String],
+    issues: Vector[String],
+    fixes: Vector[BokFix]
+  ) {
+    def status: String =
+      if (root.isEmpty)
+        "not-found"
+      else if (issues.isEmpty)
+        "ok"
+      else
+        "needs-fix"
+  }
+  private final case class BokFix(description: String, apply: () => Unit)
   private final case class CategoryContent(
     slug: String,
     title: String,
@@ -226,6 +243,7 @@ private[cozy] object CozyBok {
   final case class WorkflowConfig(project: Path, name: String, command: Vector[String])
   private final case class PublishStep(name: String, status: String, message: String)
   private final case class PublishPreflight(
+    stage: Option[WorkflowConfig],
     upload: WorkflowConfig,
     build: BuildConfig,
     packages: Vector[Path]
@@ -340,6 +358,11 @@ private[cozy] object CozyBok {
     )
 
     private val _workflow_request = spec.Request(_p_project)
+    private val _doctor_request = spec.Request(
+      _p_project,
+      spec.Parameter("fix", spec.Parameter.SwitchKind),
+      spec.Parameter("dry-run", spec.Parameter.SwitchKind)
+    )
 
     def create(args: List[String]): ParsedArgs = _parse("bok-create", _create_request, args)
     def category(args: List[String]): ParsedArgs = _parse("bok-create-category", _category_request, args)
@@ -347,6 +370,7 @@ private[cozy] object CozyBok {
     def publication(name: String, args: List[String]): ParsedArgs = _parse(s"bok-${name}", _publication_request, args)
     def preview(args: List[String]): ParsedArgs = _parse("bok-preview", _preview_request, args)
     def workflow(name: String, args: List[String]): ParsedArgs = _parse(s"bok-${name}", _workflow_request, args)
+    def doctor(args: List[String]): ParsedArgs = _parse("bok-doctor", _doctor_request, args)
 
     private def _parse(name: String, request: spec.Request, args: List[String]): ParsedArgs =
       ParsedArgs(request.build(CliRequest(name), args))
@@ -390,6 +414,12 @@ private[cozy] object CozyBok {
       case "bok" :: "update" :: rest =>
         build(BuildConfig.create(rest), ProcessRunner)
         true
+      case "bok" :: "doctor" :: rest =>
+        doctor(DoctorConfig.create(rest, fix = false))
+        true
+      case "bok" :: "fix" :: rest =>
+        doctor(DoctorConfig.create(rest, fix = true))
+        true
       case "bok" :: "publish-video" :: rest =>
         publishVideo(PublicationConfig.create("publish-video", rest), CozyVideo.VoicevoxClient.default, CozyVideo.VideoProcessRunner.default)
         true
@@ -402,8 +432,8 @@ private[cozy] object CozyBok {
       case "bok" :: "preview" :: rest =>
         preview(rest, ProcessRunner)
         true
-      case "bok" :: "commit" :: rest =>
-        runWorkflow(WorkflowConfig.create("commit", rest), ProcessRunner)
+      case "bok" :: "stage" :: rest =>
+        runWorkflow(WorkflowConfig.create("stage", rest), ProcessRunner)
         true
       case "bok" :: "upload" :: rest =>
         runWorkflow(WorkflowConfig.create("upload", rest), ProcessRunner)
@@ -416,7 +446,7 @@ private[cozy] object CozyBok {
 
   def create(config: CreateConfig): Unit = {
     val sitedir = config.save.resolve("src/main/doxsite")
-    _write(config.save.resolve("conf/cozy/config.yaml"), _cozy_config(), config.policy)
+    _write(config.save.resolve("conf/cozy/config.yaml"), _cozy_config(Some(config)), config.policy)
     _write(config.save.resolve("README.md"), _readme(config), config.policy)
     _write(config.save.resolve("STRUCTURE.md"), _structure(config), config.policy)
     _write(sitedir.resolve("site.conf"), _site_conf(config), config.policy)
@@ -432,7 +462,16 @@ private[cozy] object CozyBok {
     _write(sitedir.resolve("rdf/ontology/knowledgehub.ttl"), _ontology_ttl(config), config.policy)
     _write(sitedir.resolve("rdf/ontology/knowledgehub.jsonld"), _ontology_jsonld(), config.policy)
     _write(sitedir.resolve("assets/css/knowledgehub.css"), _css(), config.policy)
+    _write(config.save.resolve("etc/website-stage.sh.proto"), _website_stage_script(config), config.policy)
+    _write(config.save.resolve("etc/website-upload.sh.proto"), _website_upload_script(config), config.policy)
     _write_default_ui_bundle(config.save.resolve("src/main/antora-ui/build/ui-bundle.zip"), config.policy)
+  }
+
+  def doctor(config: DoctorConfig): Unit = {
+    val inspection = _inspect_bok(config.input)
+    _print_bok_inspection(inspection, config)
+    if (config.fix)
+      _apply_bok_fixes(inspection, config)
   }
 
   def createCategory(config: CategoryConfig): Unit = {
@@ -530,6 +569,7 @@ private[cozy] object CozyBok {
       PublishStep("preflight", "succeeded", "Publish preflight passed."),
       PublishStep("update-publication", if (preflight.packages.isEmpty) "skipped" else if (config.dryRun) "planned" else "pending", s"${preflight.packages.size} .video package(s)."),
       PublishStep("build", if (config.dryRun) "planned" else "pending", s"strategy=${preflight.build.strategy}"),
+      PublishStep("stage", preflight.stage.map(_ => if (config.dryRun) "planned" else "pending").getOrElse("skipped"), preflight.stage.map(_.command.mkString(" ")).getOrElse("No stage workflow configured.")),
       PublishStep("upload", if (config.dryRun) "planned" else "pending", preflight.upload.command.mkString(" "))
     )
     if (config.dryRun) {
@@ -555,6 +595,18 @@ private[cozy] object CozyBok {
         _publish_status("build", "succeeded")
         _write_publish_manifest(config, preflight, steps)
 
+        preflight.stage match {
+          case Some(stage) =>
+            _publish_status("stage", "start")
+            runWorkflow(stage, runner)
+            steps :+= PublishStep("stage", "succeeded", stage.command.mkString(" "))
+            _publish_status("stage", "succeeded")
+          case None =>
+            steps :+= PublishStep("stage", "skipped", "No stage workflow configured.")
+            _publish_status("stage", "skipped")
+        }
+        _write_publish_manifest(config, preflight, steps)
+
         _publish_status("upload", "start")
         runWorkflow(preflight.upload, runner)
         steps :+= PublishStep("upload", "succeeded", preflight.upload.command.mkString(" "))
@@ -572,7 +624,9 @@ private[cozy] object CozyBok {
   }
 
   private def _publish_preflight(config: PublicationConfig): PublishPreflight = {
+    val stage = WorkflowConfig.create("stage", List(config.project.toString))
     val upload = WorkflowConfig.create("upload", List(config.project.toString))
+    val optionalstage = if (stage.command.nonEmpty) Some(stage) else None
     _require_workflow(upload)
     val buildconfig = BuildConfig.create(List(
       config.project.toString,
@@ -588,7 +642,7 @@ private[cozy] object CozyBok {
     _reject_path_overlap("publication", config.publicationPath, "doxsite", buildconfig.doxsitePath)
     _reject_path_overlap("warehouse", config.warehousePath, "website", buildconfig.websitePath)
     _reject_path_overlap("warehouse", config.warehousePath, "doxsite", buildconfig.doxsitePath)
-    PublishPreflight(upload, buildconfig, packages)
+    PublishPreflight(optionalstage, upload, buildconfig, packages)
   }
 
   private def _validate_publish_path(name: String, path: Path, project: Path, source: Path): Unit = {
@@ -618,6 +672,8 @@ private[cozy] object CozyBok {
       "update-publication"
     else if (!steps.exists(_.name == "build"))
       "build"
+    else if (!steps.exists(_.name == "stage"))
+      "stage"
     else if (!steps.exists(_.name == "upload"))
       "upload"
     else
@@ -635,6 +691,7 @@ private[cozy] object CozyBok {
     println("steps:")
     println(s"- update-publication: ${preflight.packages.size} .video package(s)")
     println(s"- build: strategy=${preflight.build.strategy}")
+    println(s"- stage: ${preflight.stage.map(_.command.mkString(" ")).getOrElse("skipped")}")
     println(s"- upload: ${preflight.upload.command.mkString(" ")}")
     println(s"manifest: ${config.manifestPath}")
   }
@@ -666,6 +723,7 @@ private[cozy] object CozyBok {
         Json.fromValues(_dox_site_command(preflight.build).map(Json.fromString))
       ),
       "buildCommand" -> Json.fromValues(_dox_site_command(preflight.build).map(Json.fromString)),
+      "stageCommand" -> Json.fromValues(preflight.stage.toVector.flatMap(_.command).map(Json.fromString)),
       "uploadCommand" -> Json.fromValues(preflight.upload.command.map(Json.fromString)),
       "steps" -> Json.fromValues(steps.map(_publish_step_json))
     )
@@ -1960,6 +2018,9 @@ private[cozy] object CozyBok {
     Files.writeString(path, content, StandardCharsets.UTF_8)
   }
 
+  private def _read_text(path: Path): String =
+    Files.readString(path, StandardCharsets.UTF_8)
+
   private def _write_default_ui_bundle(path: Path, policy: ProjectFilePolicy): Unit =
     policy match {
       case ProjectFilePolicy.Skip =>
@@ -2425,15 +2486,43 @@ private[cozy] object CozyBok {
       |""".stripMargin
 
   private def _project(parsed: ParsedArgs): Path =
-    parsed.pathProperty("project-dir").
+    _resolve_bok_project(parsed.pathProperty("project-dir").
       orElse(parsed.pathProperty("project")).
-      orElse(parsed.argument("project").map(Paths.get(_).toAbsolutePath.normalize)).
-      getOrElse(Paths.get(".").toAbsolutePath.normalize)
+      orElse(parsed.argument("project").map(_to_path)).
+      getOrElse(_logical_cwd))
 
   private def _category_project(parsed: ParsedArgs): Path =
-    parsed.pathProperty("project-dir").
+    _resolve_bok_project(parsed.pathProperty("project-dir").
       orElse(parsed.pathProperty("project")).
-      getOrElse(Paths.get(".").toAbsolutePath.normalize)
+      getOrElse(_logical_cwd))
+
+  private def _resolve_bok_project(input: Path): Path =
+    _find_bok_root(input).getOrElse(input.toAbsolutePath.normalize)
+
+  private def _find_bok_root(input: Path): Option[Path] = {
+    val start = _existing_directory(input.toAbsolutePath.normalize)
+    Iterator.iterate(Option(start))(_.flatMap(x => Option(x.getParent))).
+      takeWhile(_.nonEmpty).
+      flatten.
+      find(_is_bok_root)
+  }
+
+  private def _existing_directory(path: Path): Path =
+    if (Files.isRegularFile(path))
+      Option(path.getParent).getOrElse(path)
+    else
+      path
+
+  private def _is_bok_root(path: Path): Boolean =
+    Files.isDirectory(path.resolve("src/main/doxsite")) ||
+      Files.isRegularFile(path.resolve("src/main/doxsite/site.conf")) ||
+      _has_bok_config(path)
+
+  private def _has_bok_config(path: Path): Boolean =
+    CozyProjectYamlConfig.operationDefaultFiles(path).filter(x => Files.isRegularFile(x)).exists { file =>
+      val content = _read_text(file)
+      content.contains("bok:") || content.contains("\"bok\"") || content.contains("bok.")
+    }
 
   private def _load_config(project: Path): CozyProjectYamlConfig.Config =
     CozyProjectYamlConfig.loadOperationDefaults(project)
@@ -2451,8 +2540,16 @@ private[cozy] object CozyBok {
   private def _to_path(value: Any): Path = value match {
     case m: java.io.File => m.toPath.toAbsolutePath.normalize
     case m: Path => m.toAbsolutePath.normalize
-    case m => Paths.get(m.toString).toAbsolutePath.normalize
+    case m =>
+      val path = Paths.get(m.toString)
+      if (path.isAbsolute)
+        path.normalize
+      else
+        _logical_cwd.resolve(path).normalize
   }
+
+  private def _logical_cwd: Path =
+    sys.env.get("PWD").map(Paths.get(_).toAbsolutePath.normalize).getOrElse(Paths.get(".").toAbsolutePath.normalize)
 
   private def _boolean(config: CozyProjectYamlConfig.Config, path: String, default: Boolean): Boolean =
     config.boolean(path).getOrElse(default)
@@ -2489,6 +2586,145 @@ private[cozy] object CozyBok {
       getOrElse(defaultpolicy)
     PublicationSettings(publication, warehouse, merge, missingpolicy)
   }
+
+  private val _generated_gitignore_entries = Vector(
+    "/target/",
+    "/website.d/",
+    "/doxsite.d/",
+    "/antora.d/",
+    "/repository.d/",
+    "/.bsp/",
+    "/.metals/",
+    "/.idea/"
+  )
+
+  private def _inspect_bok(input: Path): BokInspection = {
+    val root = _find_bok_root(input)
+    val signals = root.map(_bok_signals).getOrElse(Vector.empty)
+    val issues = root.map(_bok_issues).getOrElse(Vector(s"BoK root was not found from ${input.toAbsolutePath.normalize}"))
+    val fixes = root.map(_bok_fixes).getOrElse(Vector.empty)
+    BokInspection(input.toAbsolutePath.normalize, root, signals, issues, fixes)
+  }
+
+  private def _bok_signals(root: Path): Vector[String] =
+    Vector(
+      root.resolve(".cozy/config.yaml"),
+      root.resolve(".cozy/config.yml"),
+      root.resolve(".cozy/config.json"),
+      root.resolve(".cozy/config.conf"),
+      root.resolve("conf/cozy/config.yaml"),
+      root.resolve("conf/cozy/config.yml"),
+      root.resolve("conf/cozy/config.json"),
+      root.resolve("conf/cozy/config.conf"),
+      root.resolve("src/main/doxsite"),
+      root.resolve("src/main/doxsite/site.conf"),
+      root.resolve("src/main/publication")
+    ).filter(p => Files.exists(p)).map(p => root.relativize(p).toString)
+
+  private def _bok_issues(root: Path): Vector[String] = {
+    val configfiles = CozyProjectYamlConfig.operationDefaultFiles(root).filter(x => Files.isRegularFile(x))
+    val config = _load_config(root)
+    val missingconfig =
+      if (configfiles.isEmpty) Vector("Missing BoK config: .cozy/config.yaml or conf/cozy/config.yaml") else Vector.empty
+    val olddocker =
+      if (configfiles.exists(p => _read_text(p).contains("simplemodeling/cozy-toolchain:latest")))
+        Vector("Legacy Docker image reference found: simplemodeling/cozy-toolchain:latest")
+      else
+        Vector.empty
+    val missingsource =
+      if (!Files.isDirectory(root.resolve("src/main/doxsite")))
+        Vector("Missing BoK source directory: src/main/doxsite")
+      else
+        Vector.empty
+    val missingsite =
+      if (!Files.isRegularFile(root.resolve("src/main/doxsite/site.conf")))
+        Vector("Missing BoK site config: src/main/doxsite/site.conf")
+      else
+        Vector.empty
+    val missinggitignore = _missing_gitignore_entries(root)
+    val gitignoreissue =
+      if (missinggitignore.nonEmpty)
+        Vector(s"Generated/work directories are not fully ignored: ${missinggitignore.mkString(", ")}")
+      else
+        Vector.empty
+    val missingupload =
+      if (config.value("bok.workflow.upload.command").isEmpty)
+        Vector("Missing upload workflow command: bok.workflow.upload.command")
+      else
+        Vector.empty
+    missingconfig ++ olddocker ++ missingsource ++ missingsite ++ gitignoreissue ++ missingupload
+  }
+
+  private def _bok_fixes(root: Path): Vector[BokFix] = {
+    val configfiles = CozyProjectYamlConfig.operationDefaultFiles(root).filter(x => Files.isRegularFile(x))
+    val createconfig =
+      if (configfiles.isEmpty)
+        Vector(BokFix("Create .cozy/config.yaml with current BoK defaults", () => _write_text(root.resolve(".cozy/config.yaml"), _cozy_config())))
+      else
+        Vector.empty
+    val updatedocker =
+      configfiles.filter(p => _read_text(p).contains("simplemodeling/cozy-toolchain:latest")).map { path =>
+        BokFix(s"Replace legacy Docker image in ${root.relativize(path)}", () => {
+          val current = _read_text(path)
+          _write_text(path, current.replace("simplemodeling/cozy-toolchain:latest", _default_docker_image))
+        })
+      }.toVector
+    val gitignoreentries = _missing_gitignore_entries(root)
+    val gitignorefix =
+      if (gitignoreentries.nonEmpty)
+        Vector(BokFix("Append generated/work directory ignores to .gitignore", () => _append_gitignore_entries(root.resolve(".gitignore"), gitignoreentries)))
+      else
+        Vector.empty
+    createconfig ++ updatedocker ++ gitignorefix
+  }
+
+  private def _missing_gitignore_entries(root: Path): Vector[String] = {
+    val path = root.resolve(".gitignore")
+    val existing =
+      if (Files.isRegularFile(path))
+        Files.readAllLines(path, StandardCharsets.UTF_8).asScala.map(_.trim).filter(_.nonEmpty).toSet
+      else
+        Set.empty[String]
+    _generated_gitignore_entries.filterNot(existing.contains)
+  }
+
+  private def _append_gitignore_entries(path: Path, entries: Vector[String]): Unit = {
+    val current = if (Files.isRegularFile(path)) _read_text(path) else ""
+    val separator = if (current.isEmpty || current.endsWith("\n")) "" else "\n"
+    _write_text(path, current + separator + entries.mkString("\n") + "\n")
+  }
+
+  private def _print_bok_inspection(inspection: BokInspection, config: DoctorConfig): Unit = {
+    println("bok doctor")
+    println(s"input: ${inspection.input}")
+    println(s"status: ${inspection.status}")
+    inspection.root match {
+      case Some(root) => println(s"root: ${root}")
+      case None => println("root: <not found>")
+    }
+    _print_list("signals", inspection.signals)
+    _print_list("issues", inspection.issues)
+    _print_list(if (config.fix && config.dryRun) "planned fixes" else "fixes", inspection.fixes.map(_.description))
+  }
+
+  private def _print_list(label: String, values: Vector[String]): Unit = {
+    println(s"${label}:")
+    if (values.isEmpty)
+      println("  - none")
+    else
+      values.foreach(x => println(s"  - ${x}"))
+  }
+
+  private def _apply_bok_fixes(inspection: BokInspection, config: DoctorConfig): Unit =
+    inspection.root match {
+      case None =>
+        RAISE.invalidArgumentFault(s"Cannot fix because BoK root was not found from ${inspection.input}")
+      case Some(_) if config.dryRun =>
+        println("fix mode: dry-run")
+      case Some(_) =>
+        inspection.fixes.foreach(_.apply())
+        println(s"applied fixes: ${inspection.fixes.length}")
+    }
 
   private def _split_command(value: String): Vector[String] =
     value.trim.split("\\s+").toVector.filter(_.nonEmpty)
@@ -2645,6 +2881,9 @@ private[cozy] object CozyBok {
   }
 
   private def _cozy_config(): String =
+    _cozy_config(None)
+
+  private def _cozy_config(config: Option[CreateConfig]): String =
     s"""cozy:
        |  docker-image: ${_default_docker_image}
        |
@@ -2654,6 +2893,7 @@ private[cozy] object CozyBok {
        |  warehouse: warehouse
        |  strategy: production
        |  website: website.d
+       |  website-staging: ${config.map(_default_website_staging).getOrElse("../website-staging")}
        |  antora: antora.d
        |  doxsite: doxsite.d
        |  ui-bundle: src/main/antora-ui/build/ui-bundle.zip
@@ -2669,11 +2909,11 @@ private[cozy] object CozyBok {
        |    enabled: false
        |    items: []
        |  workflow:
-       |    commit:
+       |    stage:
+       |      # Copy etc/website-stage.sh.proto to etc/website-stage.sh and configure it.
        |      command: ""
        |    upload:
-       |      # Configure an external, project-owned upload command.
-       |      # Example: "etc/upload-site.sh"
+       |      # Copy etc/website-upload.sh.proto to etc/website-upload.sh and configure it.
        |      command: ""
        |""".stripMargin
 
@@ -3112,6 +3352,91 @@ private[cozy] object CozyBok {
       |}
       |""".stripMargin
 
+  private def _default_website_staging(config: CreateConfig): String = {
+    val name = Option(config.save.getFileName).map(_.toString).filter(_.nonEmpty).getOrElse("bok")
+    s"../${name}-website"
+  }
+
+  private def _website_stage_script(config: CreateConfig): String = {
+    val staging = _default_website_staging(config)
+    s"""#!/bin/sh
+       |set -eu
+       |
+       |# Prototype staging workflow.
+       |# Copy this file to etc/website-stage.sh, review the paths, and set it in
+       |# bok.workflow.stage.command when the project needs a persistent published
+       |# website working tree. Direct upload from website.d is usually simpler.
+       |
+       |PROJECT_DIR=$$(cd "$$(dirname "$$0")/.." && pwd)
+       |cd "$$PROJECT_DIR"
+       |
+       |WEBSITE_BUILD_DIR=$${WEBSITE_BUILD_DIR:-website.d}
+       |WEBSITE_STAGING_DIR=$${WEBSITE_STAGING_DIR:-$staging}
+       |
+       |if [ ! -d "$$WEBSITE_BUILD_DIR" ]; then
+       |  echo "Website build directory is missing: $$WEBSITE_BUILD_DIR" >&2
+       |  echo "Run: cozy bok build ." >&2
+       |  exit 2
+       |fi
+       |
+       |mkdir -p "$$WEBSITE_STAGING_DIR"
+       |rsync -av --checksum --delete "$$WEBSITE_BUILD_DIR"/ "$$WEBSITE_STAGING_DIR"/
+       |
+       |if [ -d "$$WEBSITE_STAGING_DIR/.git" ]; then
+       |  git -C "$$WEBSITE_STAGING_DIR" status --short
+       |fi
+       |""".stripMargin
+  }
+
+  private def _website_upload_script(config: CreateConfig): String =
+    """#!/bin/sh
+      |set -eu
+      |
+      |# Prototype upload workflow.
+      |# Copy this file to etc/website-upload.sh, set AWS_S3_URI, and set it in
+      |# bok.workflow.upload.command. The default uploads website.d directly. If the
+      |# project keeps a separate website staging tree, set WEBSITE_SOURCE_DIR to it.
+      |
+      |PROJECT_DIR=$(cd "$(dirname "$0")/.." && pwd)
+      |cd "$PROJECT_DIR"
+      |
+      |WEBSITE_SOURCE_DIR=${WEBSITE_SOURCE_DIR:-website.d}
+      |AWS_S3_URI=${AWS_S3_URI:-}
+      |AWS_CLOUDFRONT_DISTRIBUTION_ID=${AWS_CLOUDFRONT_DISTRIBUTION_ID:-}
+      |
+      |if [ ! -d "$WEBSITE_SOURCE_DIR" ]; then
+      |  echo "Website source directory is missing: $WEBSITE_SOURCE_DIR" >&2
+      |  echo "Run: cozy bok build ." >&2
+      |  echo "Or set WEBSITE_SOURCE_DIR to a directory prepared by cozy bok stage ." >&2
+      |  exit 2
+      |fi
+      |
+      |if [ -z "$AWS_S3_URI" ]; then
+      |  cat >&2 <<'MSG'
+      |AWS_S3_URI is not configured.
+      |
+      |Set AWS_S3_URI to the target bucket/prefix, for example:
+      |
+      |  AWS_S3_URI=s3://example-bucket/
+      |
+      |Optional cache purge:
+      |
+      |  AWS_CLOUDFRONT_DISTRIBUTION_ID=EXAMPLE123
+      |
+      |Cozy intentionally does not embed hosting credentials or provider policy.
+      |MSG
+      |  exit 2
+      |fi
+      |
+      |aws s3 sync "$WEBSITE_SOURCE_DIR/" "$AWS_S3_URI"
+      |
+      |if [ -n "$AWS_CLOUDFRONT_DISTRIBUTION_ID" ]; then
+      |  aws cloudfront create-invalidation \
+      |    --distribution-id "$AWS_CLOUDFRONT_DISTRIBUTION_ID" \
+      |    --paths "/*"
+      |fi
+      |""".stripMargin
+
   sealed trait ProjectFilePolicy
   object ProjectFilePolicy {
     case object Default extends ProjectFilePolicy
@@ -3157,6 +3482,19 @@ private[cozy] object CozyBok {
         parsed.properties("article").map(_parse_category_article),
         parsed.properties("term").map(_parse_category_term),
         ProjectFilePolicy.create(parsed)
+      )
+    }
+  }
+
+  object DoctorConfig {
+    def create(args: List[String], fix: Boolean): DoctorConfig = {
+      val parsed = BokArgs.doctor(args)
+      val input = parsed.argument("project").map(_to_path).getOrElse(_logical_cwd)
+      parsed.validateNoUnrecognized()
+      DoctorConfig(
+        input,
+        fix || parsed.request.switches.exists(_.name == "fix"),
+        parsed.request.switches.exists(_.name == "dry-run")
       )
     }
   }
@@ -3258,6 +3596,9 @@ private[cozy] object CozyBok {
     }
   }
 
+  private def _workflow_command(config: CozyProjectYamlConfig.Config, name: String): Vector[String] =
+    config.value(s"bok.workflow.${name}.command").map(x => Vector("sh", "-c", x)).getOrElse(Vector.empty)
+
   object WorkflowConfig {
     def create(name: String, args: List[String]): WorkflowConfig = {
       val parsed = BokArgs.workflow(name, args)
@@ -3267,7 +3608,7 @@ private[cozy] object CozyBok {
       WorkflowConfig(
         project,
         name,
-        config.value(s"bok.workflow.${name}.command").map(x => Vector("sh", "-c", x)).getOrElse(Vector.empty)
+        _workflow_command(config, name)
       )
     }
   }

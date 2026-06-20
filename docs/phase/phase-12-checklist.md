@@ -33,7 +33,7 @@ Status: OPEN
 - [ ] Confirm `bok.source` matches `src/main/doxsite`.
 - [ ] Confirm `bok.website`, `bok.antora`, and `bok.doxsite` match generated
       output locations.
-- [ ] Keep upload workflow explicit and project-owned.
+- [ ] Keep stage and upload workflows explicit and project-owned.
 
 ## BK12-04: Local Cozy Command Synchronization
 
@@ -75,12 +75,14 @@ Status: OPEN
 - [ ] Add or update tests if Cozy scaffold behavior changes.
 - [ ] Record residual drift as follow-up work when not fixed in Phase 12.
 
-## BK12-08: Upload Workflow Readiness
+## BK12-08: Stage And Upload Workflow Readiness
 
 Status: OPEN
 
+- [ ] Define the KnowledgeHub stage workflow command shape.
 - [ ] Define the KnowledgeHub upload workflow command shape.
 - [ ] Keep upload provider implementation out of Cozy.
+- [ ] Confirm `bok.workflow.stage.command` failure diagnostics are actionable.
 - [ ] Confirm `bok.workflow.upload.command` failure diagnostics are actionable.
 - [ ] Confirm production publish cannot silently skip upload.
 
@@ -90,7 +92,7 @@ Status: OPEN
 
 - [ ] Record operational findings from KnowledgeHub use.
 - [ ] Separate immediate Phase 12 fixes from future-phase candidates.
-- [ ] Track local command, config, scaffold, dry-run, and upload workflow gaps.
+- [ ] Track local command, config, scaffold, dry-run, stage, and upload workflow gaps.
 - [ ] Keep findings tied to reproducible BoK operation commands.
 
 ## BK12-10: Phase Closure
