@@ -14,7 +14,7 @@ import org.goldenport.test.matchers.SpecVocabulary
 
 /*
  * @since   Jun.  3, 2026
- * @version Jun. 20, 2026
+ * @version Jun. 21, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
@@ -131,7 +131,7 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
         "glossary/knowledgehub:KnowledgeHub:KnowledgeHub definition.:ナレッジハブ"
       )))
 
-      Then("the category, article, and glossary files are written with dashboard metadata")
+      Then("the category, article, and glossary files are written with source narrative metadata")
       dir.resolve("src/main/doxsite/knowledgehub/category.yaml") should beRegularFile
       dir.resolve("src/main/doxsite/knowledgehub/index.dox") should beRegularFile
       dir.resolve("src/main/doxsite/knowledgehub/knowledgehub-overview.dox") should beRegularFile
@@ -146,10 +146,6 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
       _read(dir.resolve("src/main/doxsite/knowledgehub/index.dox")) should include ("- Connect concepts to operations.")
       _read(dir.resolve("src/main/doxsite/knowledgehub/index.dox")) should include ("## Subgoals")
       _read(dir.resolve("src/main/doxsite/knowledgehub/index.dox")) should include ("- Maintain examples.")
-      _read(dir.resolve("src/main/doxsite/knowledgehub/index.dox")) should include ("""class="bok-metric-card"""")
-      _read(dir.resolve("src/main/doxsite/knowledgehub/index.dox")) should include ("""class="bok-dashboard-chart"""")
-      _read(dir.resolve("src/main/doxsite/knowledgehub/index.dox")) should include ("- Articles: 1")
-      _read(dir.resolve("src/main/doxsite/knowledgehub/index.dox")) should include ("- Terms: 1")
       _read(dir.resolve("src/main/doxsite/knowledgehub/knowledgehub-overview.dox")) should include ("published_at=")
       _read(dir.resolve("src/main/doxsite/glossary/knowledgehub/knowledgehub.dox")) should include ("published_at=")
       _read(dir.resolve("src/main/doxsite/glossary/knowledgehub/knowledgehub.dox")) should include ("reading=ナレッジハブ")
@@ -201,10 +197,9 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
 
   "Cozy BoK site build" should {
     "invoke SmartDox and render site" which {
-    "map strategy and use docker image from config" in {
+    "map strategy and render generated dashboards" in {
     _with_temp_dir("cozy-bok-build") { dir =>
-      Given("a BoK project with SmartDox source, glossary data, dashboard metadata, and a configured Docker image")
-      _write(dir.resolve(".cozy/config.yaml"), "bok:\n  docker-image: smartdox-antora:test\n")
+      Given("a BoK project with SmartDox source, glossary data, and dashboard metadata")
       _write(dir.resolve("src/main/doxsite/site.conf"),
         """site {
           |  metadata {
@@ -247,7 +242,7 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
       When("Cozy builds the BoK using the wip strategy")
       CozyBok.build(config, runner)
 
-      Then("the SmartDox commands receive normalized strategy, publication, repository, and Docker settings")
+      Then("the SmartDox commands receive normalized strategy, publication, and repository settings")
       config.strategy shouldBe "work-in-progress"
       runner.commands should containWhere[Vector[String]] { command =>
         command.take(4) == Vector("dox", "antora", "-strategy", "work-in-progress") &&
@@ -261,10 +256,9 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
           command.contains("-publication.rdf.missing.policy") &&
           command.last == "src/main/doxsite"
       }
-      runner.commands should containWhere[Vector[String]](_.contains("smartdox-antora:test"))
-      runner.commands should containWhere[Vector[String]](_.contains("/workspace/website.d"))
       And("the generated site renders dashboard, glossary, history, manual, and navigation conventions")
-      _read(dir.resolve("website.d/index.html")) should include ("KnowledgeHub BoKのHome画面")
+      _read(dir.resolve("website.d/index.html")) should include ("KnowledgeHub BoK Dashboard")
+      _read(dir.resolve("website.d/index.html")) should include ("BoK全体の状態、目的、カテゴリ、記事、用語、RDF、更新推移を集約するDashboard")
       _read(dir.resolve("website.d/index.html")) should include ("<strong>Vision:</strong> Make engineering knowledge operational.")
       _read(dir.resolve("website.d/index.html")) should include ("<strong>Goals:</strong>")
       _read(dir.resolve("website.d/index.html")) should include ("Publish reusable knowledge")
@@ -294,6 +288,11 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
       _read(dir.resolve("website.d/index.html")) should include ("""href="history/index.html"""")
       _read(dir.resolve("website.d/index.html")) should include ("""href="manual/index.html"""")
       _read(dir.resolve("website.d/index.html")) should include ("""class="bok-special-links"""")
+      dir.resolve("website.d/history/index.html") should beRegularFile
+      dir.resolve("website.d/manual/index.html") should beRegularFile
+      _read(dir.resolve("website.d/history/index.html")) should include ("BoK運用、更新履歴、公開履歴のDashboard")
+      _read(dir.resolve("website.d/manual/index.html")) should include ("Cozy BoK source and site operation manual")
+      _read(dir.resolve("website.d/manual/index.html")) should include ("Manualは自動用語リンク対象外")
       _read(dir.resolve("website.d/glossary/index.html")) should include ("""glossary/&lt;category&gt;/""")
       _read(dir.resolve("website.d/glossary/index.html")) should include ("""href="architecture/runtime.html"""")
       _read(dir.resolve("website.d/glossary/index.html")) should include ("""<div class="bok-metric-label">Terms</div>""")
@@ -321,6 +320,8 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
       _read(dir.resolve("website.d/index.html")) should not include ("""class="navbar-item" href="history/index.html"""")
       _read(dir.resolve("website.d/index.html")) should not include ("""class="navbar-item" href="manual/index.html"""")
       _read(dir.resolve("website.d/index.html")) should not include ("Lexicon")
+      _read(dir.resolve("website.d/architecture/index.html")) should include ("Architecture Dashboard")
+      _read(dir.resolve("website.d/architecture/index.html")) should include ("このカテゴリの目的、記事、用語、更新推移を集約するDashboard")
       _read(dir.resolve("website.d/architecture/index.html")) should include ("""class="bok-dashboard-grid"""")
       _read(dir.resolve("website.d/architecture/index.html")) should include ("<strong>Vision:</strong> Make architecture decisions traceable.")
       _read(dir.resolve("website.d/architecture/index.html")) should include ("Explain architecture concepts")
@@ -413,6 +414,7 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
       _read(dir.resolve("website.d/architecture/index.html")) should include ("""href="../history/2026.html">History</a>""")
       _read(dir.resolve("website.d/glossary/index.html")) should include ("""href="../history/2026.html">History</a>""")
       _read(dir.resolve("website.d/ja/glossary/index.html")) should include ("""href="../../history/2026.html">History</a>""")
+      dir.resolve("website.d/history/index.html") shouldNot existPath
     }
   }
 
@@ -1112,144 +1114,173 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
 
   "Cozy BoK command surface" should {
     "render help and parse metadata" which {
-    "list BoK publication path options in help" in {
-    Given("a user requesting Cozy help")
-    When("the help text is rendered")
-    val help = _capture {
-      Cozy.main(Array("--help"))
-    }
+      "list BoK publication path options in help" in {
+        Given("a user requesting Cozy help")
+        When("the help text is rendered")
+        val help = _capture {
+          Cozy.main(Array("--help"))
+        }
 
-    Then("BoK publication command surfaces and dry-run support are documented")
-    help should include ("version, --version")
-    help should include ("--vision <text>")
-    help should include ("--goal <text>")
-    help should include ("--subgoal <text>")
-    help should include ("bok publish-video <project-dir> [--publication <dir>] [--warehouse <dir>]")
-    help should include ("bok update-publication <project-dir> [--publication <dir>] [--warehouse <dir>]")
-    help should include ("bok publish <project-dir> [--publication <dir>] [--warehouse <dir>]")
-    help should include ("bok doctor [<project-dir>] [--fix] [--dry-run]")
-    help should include ("bok fix [<project-dir>] [--dry-run]")
-    help should include ("bok guide [scenario]")
-    help should include ("Open http://127.0.0.1:<port>/")
-    help should include ("--dry-run")
-  }
-
-    "show scenario-based BoK operation guide" in {
-    Given("a user who wants to learn BoK operations by scenario")
-
-    When("Cozy renders the BoK guide index")
-    val overview = _capture {
-      CozyBok.execute(List("bok", "guide"))
-    }
-
-    Then("the guide lists operational scenarios")
-    overview should include ("Cozy BoK guide")
-    overview should include ("create-bok")
-    overview should include ("daily-build")
-    overview should include ("publish-dry-run")
-
-    When("Cozy renders a concrete scenario")
-    val scenario = _capture {
-      CozyBok.execute(List("bok", "guide", "daily-build"))
-    }
-
-    Then("the scenario describes the command sequence")
-    scenario should include ("Cozy BoK guide: daily-build")
-    scenario should include ("cozy bok doctor")
-    scenario should include ("Vision, Goals, and Subgoals")
-    scenario should include ("cozy bok build . --strategy preview")
-    scenario should include ("cozy bok preview . --port 8980")
-    scenario should include ("http://127.0.0.1:8980/")
-  }
-
-    "show preview usage without starting a server" in {
-    Given("a user asks for preview command help")
-    val runner = new RecordingRunner
-
-    When("Cozy renders preview usage")
-    val output = _capture {
-      CozyBok.preview(List("--help"), runner)
-    }
-
-    Then("usage is shown and no HTTP server command is executed")
-    output should include ("Usage: cozy bok preview [<project-dir>] [--port <port>]")
-    runner.commands shouldBe empty
-  }
-
-    "validate preview port as integer metadata" in {
-    _with_temp_dir("cozy-bok-preview-port") { dir =>
-      Given("a BoK preview command with a non-integer port")
-      When("the preview command metadata is parsed")
-      val e = intercept[Throwable] {
-        CozyBok.preview(List(dir.toString, "--port", "not-int"), new RecordingRunner)
-      }
-      Then("the invalid port is rejected explicitly")
-      e.getMessage should include ("not-int")
-    }
-  }
-
-    "announce local Web server preview URL" in {
-    _with_temp_dir("cozy-bok-preview-url") { dir =>
-      Given("a BoK project with generated website output")
-      _write(dir.resolve(".cozy/config.yaml"), "bok:\n  website: website.d\n")
-      _write(dir.resolve("website.d/index.html"), "<html></html>\n")
-      val runner = new RecordingRunner
-
-      When("Cozy starts the preview server")
-      val output = _capture {
-        CozyBok.preview(List(dir.toString, "--port", "8099"), runner)
+        Then("BoK publication command surfaces and dry-run support are documented")
+        help should include ("version, --version")
+        help should include ("--vision <text>")
+        help should include ("--goal <text>")
+        help should include ("--subgoal <text>")
+        help should include ("bok publish-video <project-dir> [--publication <dir>] [--warehouse <dir>]")
+        help should include ("bok update-publication <project-dir> [--publication <dir>] [--warehouse <dir>]")
+        help should include ("bok publish <project-dir> [--publication <dir>] [--warehouse <dir>]")
+        help should include ("bok doctor [<project-dir>] [--fix] [--dry-run]")
+        help should include ("bok fix [<project-dir>] [--dry-run]")
+        help should include ("bok guide [scenario]")
+        help should include ("Open http://127.0.0.1:<port>/")
+        help should include ("--dry-run")
       }
 
-      Then("the local browser URL is shown instead of implying file-based inspection")
-      output should include ("http://127.0.0.1:8099/")
-      output should include ("instead of opening generated HTML files directly")
-      runner.commands should contain (Vector("python3", "-m", "http.server", "8099"))
-    }
-  }
+      "show scenario-based BoK operation guide" in {
+        Given("a user who wants to learn BoK operations by scenario")
 
+        When("Cozy renders the BoK guide index")
+        val overview = _capture {
+          CozyBok.execute(List("bok", "guide"))
+        }
+
+        Then("the guide lists operational scenarios")
+        overview should include ("Cozy BoK guide")
+        overview should include ("create-bok")
+        overview should include ("daily-build")
+        overview should include ("publish-dry-run")
+
+        When("Cozy renders a concrete scenario")
+        val scenario = _capture {
+          CozyBok.execute(List("bok", "guide", "daily-build"))
+        }
+
+        Then("the scenario describes the command sequence")
+        scenario should include ("Cozy BoK guide: daily-build")
+        scenario should include ("cozy bok doctor")
+        scenario should include ("Vision, Goals, and Subgoals")
+        scenario should include ("cozy bok build . --strategy preview")
+        scenario should include ("cozy bok preview . --port 8980")
+        scenario should include ("http://127.0.0.1:8980/")
+      }
+
+      "show preview usage without starting a server" in {
+        Given("a user asks for preview command help")
+        val runner = new RecordingRunner
+
+        When("Cozy renders preview usage")
+        val output = _capture {
+          CozyBok.preview(List("--help"), runner)
+        }
+
+        Then("usage is shown and no HTTP server command is executed")
+        output should include ("Usage: cozy bok preview [<project-dir>] [--port <port>]")
+        runner.commands shouldBe empty
+      }
+
+      "show publication and workflow usage without starting command execution" in {
+        Given("a user asks for BoK publication and workflow command help")
+
+        When("Cozy renders the command-specific help text")
+        val publish = _capture {
+          CozyBok.execute(List("bok", "publish", "--help"))
+        }
+        val publishvideo = _capture {
+          CozyBok.execute(List("bok", "publish-video", "--help"))
+        }
+        val update = _capture {
+          CozyBok.execute(List("bok", "update-publication", "--help"))
+        }
+        val stage = _capture {
+          CozyBok.execute(List("bok", "stage", "--help"))
+        }
+        val upload = _capture {
+          CozyBok.execute(List("bok", "upload", "--help"))
+        }
+
+        Then("usage is shown before argument parsing, preflight, or workflow execution")
+        publish should include ("Usage: cozy bok publish <project-dir>")
+        publish should include ("--dry-run")
+        publishvideo should include ("Usage: cozy bok publish-video <project-dir>")
+        update should include ("Usage: cozy bok update-publication <project-dir>")
+        stage should include ("Usage: cozy bok stage [<project-dir>]")
+        stage should include ("bok.workflow.stage.command")
+        upload should include ("Usage: cozy bok upload [<project-dir>]")
+        upload should include ("bok.workflow.upload.command")
+        publish should not include ("Missing bok workflow command")
+      }
+
+      "validate preview port as integer metadata" in {
+        _with_temp_dir("cozy-bok-preview-port") { dir =>
+          Given("a BoK preview command with a non-integer port")
+          When("the preview command metadata is parsed")
+          val e = intercept[Throwable] {
+            CozyBok.preview(List(dir.toString, "--port", "not-int"), new RecordingRunner)
+          }
+          Then("the invalid port is rejected explicitly")
+          e.getMessage should include ("not-int")
+        }
+      }
+
+      "announce local Web server preview URL" in {
+        _with_temp_dir("cozy-bok-preview-url") { dir =>
+          Given("a BoK project with generated website output")
+          _write(dir.resolve(".cozy/config.yaml"), "bok:\n  website: website.d\n")
+          _write(dir.resolve("website.d/index.html"), "<html></html>\n")
+          val runner = new RecordingRunner
+
+          When("Cozy starts the preview server")
+          val output = _capture {
+            CozyBok.preview(List(dir.toString, "--port", "8099"), runner)
+          }
+
+          Then("the local browser URL is shown instead of implying file-based inspection")
+          output should include ("http://127.0.0.1:8099/")
+          output should include ("instead of opening generated HTML files directly")
+          runner.commands should contain (Vector("python3", "-m", "http.server", "8099"))
+        }
+      }
     }
 
     "run configured workflows" which {
-    "require registered workflow command for explicit stage execution" in {
-    _with_temp_dir("cozy-bok-workflow-missing") { dir =>
-      Given("a BoK stage command without a registered shell command")
-      When("Cozy resolves the explicit stage workflow")
-      val e = intercept[Throwable] {
-        CozyBok.runWorkflow(CozyBok.WorkflowConfig.create("stage", List(dir.toString)), new RecordingRunner)
+      "require registered workflow command for explicit stage execution" in {
+        _with_temp_dir("cozy-bok-workflow-missing") { dir =>
+          Given("a BoK stage command without a registered shell command")
+          When("Cozy resolves the explicit stage workflow")
+          val e = intercept[Throwable] {
+            CozyBok.runWorkflow(CozyBok.WorkflowConfig.create("stage", List(dir.toString)), new RecordingRunner)
+          }
+          Then("the missing stage workflow command is reported as configuration error")
+          e.getMessage should include ("bok.workflow.stage.command")
+        }
       }
-      Then("the missing stage workflow command is reported as configuration error")
-      e.getMessage should include ("bok.workflow.stage.command")
+
+      "run only registered workflow command for stage and upload" in {
+        _with_temp_dir("cozy-bok-workflow") { dir =>
+          Given("registered stage and upload workflow commands")
+          _write(dir.resolve(".cozy/config.yaml"),
+            """bok:
+              |  workflow:
+              |    stage:
+              |      command: "etc/website-stage.sh"
+              |    upload:
+              |      command: "etc/website-upload.sh"
+              |""".stripMargin)
+          val runner = new RecordingRunner
+
+          When("Cozy runs the workflows")
+          CozyBok.runWorkflow(CozyBok.WorkflowConfig.create("stage", List(dir.toString)), runner)
+          CozyBok.runWorkflow(CozyBok.WorkflowConfig.create("upload", List(dir.toString)), runner)
+
+          Then("only the configured external workflow commands are executed")
+          runner.commands shouldBe Vector(
+            Vector("sh", "-c", "etc/website-stage.sh"),
+            Vector("sh", "-c", "etc/website-upload.sh")
+          )
+        }
+      }
     }
   }
-
-    "run only registered workflow command for stage and upload" in {
-    _with_temp_dir("cozy-bok-workflow") { dir =>
-      Given("registered stage and upload workflow commands")
-      _write(dir.resolve(".cozy/config.yaml"),
-        """bok:
-          |  workflow:
-          |    stage:
-          |      command: "etc/website-stage.sh"
-          |    upload:
-          |      command: "etc/website-upload.sh"
-          |""".stripMargin)
-      val runner = new RecordingRunner
-
-      When("Cozy runs the workflows")
-      CozyBok.runWorkflow(CozyBok.WorkflowConfig.create("stage", List(dir.toString)), runner)
-      CozyBok.runWorkflow(CozyBok.WorkflowConfig.create("upload", List(dir.toString)), runner)
-
-      Then("only the configured external workflow commands are executed")
-      runner.commands shouldBe Vector(
-        Vector("sh", "-c", "etc/website-stage.sh"),
-        Vector("sh", "-c", "etc/website-upload.sh")
-      )
-    }
-  }
-
-  }
-
-    }
 
   private val _video_script_json: String =
     """{

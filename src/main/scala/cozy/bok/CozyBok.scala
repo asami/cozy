@@ -5,7 +5,14 @@ import org.goldenport.cli.{Request => CliRequest}
 import org.goldenport.cli.spec
 import cozy.config.CozyProjectYamlConfig
 import cozy.video.{CozyVideo, CozyVideoPublisher}
+import org.smartdox.Dox
+import org.smartdox.parser.Dox2Parser
+import org.smartdox.transformers.Dox2HtmlTransformer
+import org.smartdox.transformers.LanguageFilterTransformer
+import org.smartdox.generator.{Context => SmartDoxContext}
+import org.goldenport.i18n.I18NContext
 import java.time.LocalDate
+import java.util.Locale
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 import java.util.zip.{ZipEntry, ZipOutputStream}
@@ -17,11 +24,13 @@ import io.circe.parser
 
 /*
  * @since   Jun.  3, 2026
- * @version Jun. 20, 2026
+ * @version Jun. 21, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyBok {
   private val _default_docker_image = "ghcr.io/asami/cozy-toolchain:latest"
+  private val _ui_resource_base = "cozy.bok.BokUi"
+  private val _ui_resource_config = I18NContext.ResourceBundleConfig.englishFallback
 
   sealed trait LocaleMode
   object LocaleMode {
@@ -208,6 +217,7 @@ private[cozy] object CozyBok {
     siteOutputScopePolicy: String,
     siteTitle: String,
     localeMode: LocaleMode,
+    defaultLocale: String,
     languages: Vector[String],
     arcadia: ArcadiaConfig,
     directAssets: DirectAssetsConfig,
@@ -445,11 +455,20 @@ private[cozy] object CozyBok {
       case "bok" :: "tutorial" :: rest =>
         guide(rest)
         true
+      case "bok" :: "publish-video" :: rest if _help_requested(rest) =>
+        _print_publication_usage("publish-video")
+        true
       case "bok" :: "publish-video" :: rest =>
         publishVideo(PublicationConfig.create("publish-video", rest), CozyVideo.VoicevoxClient.default, CozyVideo.VideoProcessRunner.default)
         true
+      case "bok" :: "update-publication" :: rest if _help_requested(rest) =>
+        _print_publication_usage("update-publication")
+        true
       case "bok" :: "update-publication" :: rest =>
         updatePublication(PublicationConfig.create("update-publication", rest), CozyVideo.VoicevoxClient.default, CozyVideo.VideoProcessRunner.default)
+        true
+      case "bok" :: "publish" :: rest if _help_requested(rest) =>
+        _print_publication_usage("publish")
         true
       case "bok" :: "publish" :: rest =>
         publish(PublicationConfig.create("publish", rest), ProcessRunner, CozyVideo.VoicevoxClient.default, CozyVideo.VideoProcessRunner.default)
@@ -457,8 +476,14 @@ private[cozy] object CozyBok {
       case "bok" :: "preview" :: rest =>
         preview(rest, ProcessRunner)
         true
+      case "bok" :: "stage" :: rest if _help_requested(rest) =>
+        _print_workflow_usage("stage")
+        true
       case "bok" :: "stage" :: rest =>
         runWorkflow(WorkflowConfig.create("stage", rest), ProcessRunner)
+        true
+      case "bok" :: "upload" :: rest if _help_requested(rest) =>
+        _print_workflow_usage("upload")
         true
       case "bok" :: "upload" :: rest =>
         runWorkflow(WorkflowConfig.create("upload", rest), ProcessRunner)
@@ -468,6 +493,30 @@ private[cozy] object CozyBok {
       case _ =>
         false
     }
+
+  private def _help_requested(args: List[String]): Boolean =
+    args.exists(x => x == "--help" || x == "-h")
+
+  private def _print_publication_usage(name: String): Unit = {
+    name match {
+      case "publish" =>
+        println("Usage: cozy bok publish <project-dir> [--publication <dir>] [--warehouse <dir>] [--version <version>] [--strategy production] [--force] [--dry-run]")
+        println("Run update-publication, build, optional stage, and configured upload workflow. Use --dry-run to print the plan without publication, warehouse, site, or upload side effects.")
+      case "publish-video" =>
+        println("Usage: cozy bok publish-video <project-dir> [--publication <dir>] [--warehouse <dir>] [--version <version>] [--force]")
+        println("Publish .video packages into the BoK publication registry and video warehouse.")
+      case "update-publication" =>
+        println("Usage: cozy bok update-publication <project-dir> [--publication <dir>] [--warehouse <dir>] [--version <version>] [--force]")
+        println("Update the BoK publication registry. V1 delegates to video publication.")
+      case other =>
+        RAISE.invalidArgumentFault(s"Unknown publication command: ${other}")
+    }
+  }
+
+  private def _print_workflow_usage(name: String): Unit = {
+    println(s"Usage: cozy bok ${name} [<project-dir>]")
+    println(s"Run the external command registered at bok.workflow.${name}.command.")
+  }
 
   def create(config: CreateConfig): Unit = {
     val sitedir = config.save.resolve("src/main/doxsite")
@@ -558,9 +607,7 @@ private[cozy] object CozyBok {
       runner.run(Vector("arcadia", "site", config.arcadia.source, config.arcadiaSite), config.project)
       _copy_directory(config.arcadiaSitePath, config.websitePath)
     }
-    _write_home_page(config)
-    _write_special_pages(config)
-    _write_category_pages(config)
+    _write_bok_pages(config)
     if (config.strategy == "production") {
       runner.run(Vector("dox", "site-mark", "-strategy", "production", "-output.scope.policy", "all", config.source), config.project)
       if (config.directAssets.enabled)
@@ -938,16 +985,33 @@ private[cozy] object CozyBok {
       }
     }
 
-  private def _write_home_page(config: BuildConfig): Unit =
-    _write_text(
-      config.websitePath.resolve("index.html"),
+  private def _write_bok_pages(config: BuildConfig): Unit =
+    config.localeMode match {
+      case LocaleMode.SingleLocaleRoot =>
+        _write_home_page(config, config.websitePath, config.defaultLocale)
+        _write_special_pages(config, config.websitePath, config.defaultLocale, writeLocalizedGlossaryIndexes = true)
+        _write_category_pages(config, config.websitePath, config.defaultLocale)
+      case LocaleMode.MultiLocaleSubdirs =>
+        config.languages.foreach { lang =>
+          val target = config.websitePath.resolve(lang)
+          _write_home_page(config, target, lang)
+          _write_special_pages(config, target, lang, writeLocalizedGlossaryIndexes = false)
+          _write_category_pages(config, target, lang)
+        }
+    }
+
+  private def _write_home_page(config: BuildConfig, target: Path, locale: String): Unit =
+    {
+      val page = target.resolve("index.html")
+      _write_text(
+        page,
       s"""<!doctype html>
-         |<html lang="ja">
+         |<html lang="${_html_escape(locale)}">
          |<head>
          |  <meta charset="utf-8">
          |  <meta name="viewport" content="width=device-width, initial-scale=1">
-         |  <title>${_html_escape(config.siteTitle)}</title>
-         |  <link rel="stylesheet" href="_/css/site.css">
+         |  <title>${_html_escape(_uif(locale, "home.document.title", config.siteTitle))}</title>
+         |  <link rel="stylesheet" href="${_html_escape(_site_asset_href(config, page, "_/css/site.css"))}">
          |</head>
          |<body class="article">
          |<header class="header">
@@ -962,7 +1026,7 @@ private[cozy] object CozyBok {
          |    </div>
          |    <div id="topbar-nav" class="navbar-menu">
          |      <div class="navbar-end">
-         |        <a class="navbar-item" href="index.html">Home</a>
+         |        <a class="navbar-item" href="index.html">${_html_escape(_ui(locale, "nav.home"))}</a>
          |        ${_home_nav_items(config)}
          |      </div>
          |    </div>
@@ -977,26 +1041,27 @@ private[cozy] object CozyBok {
          |      <nav class="breadcrumbs" aria-label="breadcrumbs">
          |        <ul>
          |          <li><a href="index.html">${_html_escape(config.siteTitle)}</a></li>
-         |          <li>Home</li>
+         |          <li>${_html_escape(_ui(locale, "dashboard"))}</li>
          |        </ul>
          |      </nav>
          |    </div>
          |    <div class="content">
-         |      ${_home_toc_panel(config)}
+         |      ${_home_toc_panel(config, locale)}
          |      <article class="doc">
-         |        <h1 class="page">${_html_escape(config.siteTitle)}</h1>
-         |        <p>KnowledgeHub BoKのHome画面です。登録済みカテゴリへ移動できます。</p>
+         |        <h1 class="page">${_html_escape(_uif(locale, "home.page.title", config.siteTitle))}</h1>
+         |        <p>${_html_escape(_ui(locale, "home.intro"))}</p>
          |        ${_home_dashboard(config)}
+         |        ${_source_narrative_section(config.sourcePath.resolve("index.dox"), locale)}
          |        <div class="sect1" id="categories">
-         |          <h2>カテゴリ</h2>
+         |          <h2>${_html_escape(_ui(locale, "category.portfolio"))}</h2>
          |          <div class="sectionbody">
-         |            ${_home_category_list(config)}
+         |            ${_home_category_list(config, locale)}
          |          </div>
          |        </div>
          |        <div class="sect1" id="operation-policy">
-         |          <h2>運用方針</h2>
+         |          <h2>${_html_escape(_ui(locale, "operation.policy"))}</h2>
          |          <div class="sectionbody">
-         |            <p>このBoKはSmartDox本文、Category、RDF素材、用語自動リンクを中心に運用します。</p>
+         |            <p>${_html_escape(_ui(locale, "operation.policy.body"))}</p>
          |          </div>
          |        </div>
          |      </article>
@@ -1006,42 +1071,89 @@ private[cozy] object CozyBok {
          |</body>
          |</html>
          |""".stripMargin
-    )
+      )
+    }
 
-  private def _write_category_pages(config: BuildConfig): Unit = {
+  private def _write_category_pages(config: BuildConfig, target: Path, locale: String): Unit = {
     val categories = _category_contents(config.sourcePath)
     categories.foreach { category =>
+      val page = target.resolve(category.slug).resolve("index.html")
       _write_text(
-        config.websitePath.resolve(category.slug).resolve("index.html"),
-        _category_html_page(config, category, categories)
+        page,
+        _category_html_page(config, category, categories, locale, page)
       )
     }
   }
 
-  private def _write_special_pages(config: BuildConfig): Unit = {
+  private def _write_special_pages(
+    config: BuildConfig,
+    target: Path,
+    locale: String,
+    writeLocalizedGlossaryIndexes: Boolean
+  ): Unit = {
     val categories = _category_contents(config.sourcePath)
-    val glossarybody = _glossary_dashboard_body(config, categories)
+    val glossarybody = _glossary_dashboard_body(config, categories, _language_index_root_prefix(config))
+    val historyhref = _latest_history_year_page(target.resolve("history"))
     _write_text(
-      config.websitePath.resolve("glossary").resolve("index.html"),
+      target.resolve("glossary").resolve("index.html"),
       _special_html_page(
         config,
         categories,
-        "Glossary",
-        "BoK全体で共有する用語と語彙のDashboard。",
+        locale,
+        target.resolve("glossary").resolve("index.html"),
+        _ui(locale, "glossary.title"),
+        _ui(locale, "glossary.description"),
         glossarybody
       )
     )
+    if (historyhref.isEmpty)
+      {
+        val historypage = target.resolve("history").resolve("index.html")
+        _write_text(
+          historypage,
+          _special_html_page_with_toc(
+          config,
+          categories,
+          locale,
+          historypage,
+          _ui(locale, "history.title"),
+          _ui(locale, "history.description"),
+          _history_dashboard_body(locale),
+          Vector("dashboard" -> "Dashboard", "timeline" -> "Timeline", "operation-notes" -> "Operation Notes")
+          )
+        )
+      }
+    val manualpage = target.resolve("manual").resolve("index.html")
     _write_text(
-      config.websitePath.resolve("ja").resolve("glossary").resolve("index.html"),
-      _localized_glossary_index_page(config, categories, "ja")
+      manualpage,
+      _special_html_page_with_toc(
+        config,
+        categories,
+        locale,
+        manualpage,
+        _ui(locale, "manual.title"),
+        _ui(locale, "manual.description"),
+        _manual_dashboard_body(locale),
+        Vector("dashboard" -> "Dashboard", "basic-operations" -> "Basic Operations", "page-types" -> "Page Types", "notes" -> "Notes")
+      )
     )
-    _write_text(
-      config.websitePath.resolve("en").resolve("glossary").resolve("index.html"),
-      _localized_glossary_index_page(config, categories, "en")
-    )
+    if (writeLocalizedGlossaryIndexes) {
+      _write_text(
+        target.resolve("ja").resolve("glossary").resolve("index.html"),
+        _localized_glossary_index_page(config, categories, "ja")
+      )
+      _write_text(
+        target.resolve("en").resolve("glossary").resolve("index.html"),
+        _localized_glossary_index_page(config, categories, "en")
+      )
+    }
   }
 
-  private def _glossary_dashboard_body(config: BuildConfig, categories: Vector[CategoryContent]): String = {
+  private def _glossary_dashboard_body(
+    config: BuildConfig,
+    categories: Vector[CategoryContent],
+    languagerootprefix: String
+  ): String = {
     val terms = categories.flatMap { category =>
       category.terms.map(term => category -> term)
     }
@@ -1057,7 +1169,7 @@ private[cozy] object CozyBok {
        |<div class="sect1" id="language-index">
        |  <h2>Language Index</h2>
        |  <div class="sectionbody">
-       |    ${_glossary_language_links(config)}
+       |    ${_glossary_language_links(config, languagerootprefix)}
        |  </div>
        |</div>
        |<div class="sect1" id="recent-terms">
@@ -1067,6 +1179,54 @@ private[cozy] object CozyBok {
        |  </div>
        |</div>""".stripMargin
   }
+
+  private def _history_dashboard_body(locale: String): String =
+    s"""<div class="sect1" id="timeline">
+       |  <h2>Timeline</h2>
+       |  <div class="sectionbody">
+       |    <p>${_html_escape(_ui(locale, "history.timeline.description"))}</p>
+       |    <ul>
+       |      <li>${_html_escape(_ui(locale, "history.timeline.item.started"))}</li>
+       |      <li>${_html_escape(_ui(locale, "history.timeline.item.record"))}</li>
+       |    </ul>
+       |  </div>
+       |</div>
+       |<div class="sect1" id="operation-notes">
+       |  <h2>Operation Notes</h2>
+       |  <div class="sectionbody">
+       |    <p>${_html_escape(_ui(locale, "history.operation.notes"))}</p>
+       |  </div>
+       |</div>""".stripMargin
+
+  private def _manual_dashboard_body(locale: String): String =
+    s"""<div class="sect1" id="basic-operations">
+       |  <h2>Basic Operations</h2>
+       |  <div class="sectionbody">
+       |    <ul>
+       |      <li><code>cozy bok doctor</code>: ${_html_escape(_ui(locale, "manual.operation.doctor"))}</li>
+       |      <li><code>cozy bok build . --strategy preview</code>: ${_html_escape(_ui(locale, "manual.operation.build"))}</li>
+       |      <li><code>cozy bok preview</code>: ${_html_escape(_ui(locale, "manual.operation.preview"))}</li>
+       |      <li><code>cozy bok publish . --dry-run</code>: ${_html_escape(_ui(locale, "manual.operation.publish.dryrun"))}</li>
+       |    </ul>
+       |  </div>
+       |</div>
+       |<div class="sect1" id="page-types">
+       |  <h2>Page Types</h2>
+       |  <div class="sectionbody">
+       |    <ul>
+       |      <li>Home Dashboard: ${_html_escape(_ui(locale, "manual.page.home"))}</li>
+       |      <li>Category Dashboard: ${_html_escape(_ui(locale, "manual.page.category"))}</li>
+       |      <li>Glossary: ${_html_escape(_ui(locale, "manual.page.glossary"))}</li>
+       |      <li>History: ${_html_escape(_ui(locale, "manual.page.history"))}</li>
+       |    </ul>
+       |  </div>
+       |</div>
+       |<div class="sect1" id="notes">
+       |  <h2>Notes</h2>
+       |  <div class="sectionbody">
+       |    <p>${_html_escape(_ui(locale, "manual.notes"))}</p>
+       |  </div>
+       |</div>""".stripMargin
 
   private def _glossary_metric_cards(
     categorycount: Int,
@@ -1091,12 +1251,18 @@ private[cozy] object CozyBok {
        |  </div>
        |</div>""".stripMargin
 
-  private def _glossary_language_links(config: BuildConfig): String = {
+  private def _language_index_root_prefix(config: BuildConfig): String =
+    config.localeMode match {
+      case LocaleMode.SingleLocaleRoot => "../"
+      case LocaleMode.MultiLocaleSubdirs => "../../"
+    }
+
+  private def _glossary_language_links(config: BuildConfig, rootprefix: String): String = {
     val langs = (config.languages ++ Vector("ja", "en")).distinct.filter(x => x == "ja" || x == "en")
     langs.map {
-      case "ja" => """<a class="bok-special-link" href="../ja/glossary/index.html">日本語索引ページ</a>"""
-      case "en" => """<a class="bok-special-link" href="../en/glossary/index.html">英語索引ページ</a>"""
-      case other => s"""<a class="bok-special-link" href="../${_html_escape(other)}/glossary/index.html">${_html_escape(other)} index page</a>"""
+      case "ja" => s"""<a class="bok-special-link" href="${rootprefix}ja/glossary/index.html">日本語索引ページ</a>"""
+      case "en" => s"""<a class="bok-special-link" href="${rootprefix}en/glossary/index.html">英語索引ページ</a>"""
+      case other => s"""<a class="bok-special-link" href="${rootprefix}${_html_escape(other)}/glossary/index.html">${_html_escape(other)} index page</a>"""
     }.mkString("""<div class="bok-special-links">""", "\n", "</div>")
   }
 
@@ -1310,17 +1476,40 @@ private[cozy] object CozyBok {
   private def _special_html_page(
     config: BuildConfig,
     categories: Vector[CategoryContent],
+    locale: String,
+    page: Path,
     title: String,
     description: String,
     body: String
   ): String =
+    _special_html_page_with_toc(
+      config,
+      categories,
+      locale,
+      page,
+      title,
+      description,
+      body,
+      Vector("dashboard" -> "Dashboard", "term-groups" -> "Term Groups", "language-index" -> "Language Index", "recent-terms" -> "Recent Terms")
+    )
+
+  private def _special_html_page_with_toc(
+    config: BuildConfig,
+    categories: Vector[CategoryContent],
+    locale: String,
+    page: Path,
+    title: String,
+    description: String,
+    body: String,
+    tocitems: Vector[(String, String)]
+  ): String =
     s"""<!doctype html>
-       |<html lang="ja">
+       |<html lang="${_html_escape(locale)}">
        |<head>
        |  <meta charset="utf-8">
        |  <meta name="viewport" content="width=device-width, initial-scale=1">
        |  <title>${_html_escape(title)} - ${_html_escape(config.siteTitle)}</title>
-       |  <link rel="stylesheet" href="../_/css/site.css">
+       |  <link rel="stylesheet" href="${_html_escape(_site_asset_href(config, page, "_/css/site.css"))}">
        |</head>
        |<body class="article">
        |${_category_header(config, categories)}
@@ -1338,14 +1527,14 @@ private[cozy] object CozyBok {
        |      </nav>
        |    </div>
        |    <div class="content">
-       |      ${_glossary_toc_panel(config)}
+       |      ${_special_toc_panel(config, tocitems)}
        |      <article class="doc">
        |        <h1 class="page">${_html_escape(title)}</h1>
        |        <p>${_html_escape(description)}</p>
        |        <div class="sect1" id="dashboard">
        |          <h2>Dashboard</h2>
        |          <div class="sectionbody">
-       |            <p>This is a special BoK Console page. It is linked from the right-side console, not from ordinary category navigation.</p>
+       |            <p>${_html_escape(_ui(locale, "special.console.description"))}</p>
        |          </div>
        |        </div>
        |        ${body}
@@ -1356,6 +1545,26 @@ private[cozy] object CozyBok {
        |</body>
        |</html>
        |""".stripMargin
+
+  private def _special_toc_panel(config: BuildConfig, tocitems: Vector[(String, String)]): String = {
+    val items = tocitems.map {
+      case (id, label) => s"""        <li><a href="#${_html_escape(id)}">${_html_escape(label)}</a></li>"""
+    }.mkString("\n")
+    s"""<aside class="toc sidebar" data-title="Contents" data-levels="2">
+       |    <div class="toc-menu">
+       |      <h3>On this page</h3>
+       |      <ul>
+       |${items}
+       |      </ul>
+       |      <div class="bok-special-links">
+       |        <h3>BoK Console</h3>
+       |        <a class="bok-special-link" href="../glossary/index.html">Glossary</a>
+       |        <a class="bok-special-link" href="${_html_escape(_history_href(config, "../"))}">History</a>
+       |        <a class="bok-special-link" href="../manual/index.html">Manual</a>
+       |      </div>
+       |    </div>
+       |  </aside>""".stripMargin
+  }
 
   private def _special_nav_container(config: BuildConfig, categories: Vector[CategoryContent]): String = {
     val items = categories.map { category =>
@@ -1420,15 +1629,17 @@ private[cozy] object CozyBok {
   private def _category_html_page(
     config: BuildConfig,
     category: CategoryContent,
-    categories: Vector[CategoryContent]
+    categories: Vector[CategoryContent],
+    locale: String,
+    page: Path
   ): String =
     s"""<!doctype html>
-       |<html lang="ja">
+       |<html lang="${_html_escape(locale)}">
        |<head>
        |  <meta charset="utf-8">
        |  <meta name="viewport" content="width=device-width, initial-scale=1">
-       |  <title>${_html_escape(category.title)} - ${_html_escape(config.siteTitle)}</title>
-       |  <link rel="stylesheet" href="../_/css/site.css">
+       |  <title>${_html_escape(_uif(locale, "category.document.title", category.title, config.siteTitle))}</title>
+       |  <link rel="stylesheet" href="${_html_escape(_site_asset_href(config, page, "_/css/site.css"))}">
        |</head>
        |<body class="article">
        |${_category_header(config, categories)}
@@ -1446,16 +1657,17 @@ private[cozy] object CozyBok {
        |      </nav>
        |    </div>
        |    <div class="content">
-       |      ${_category_toc_panel(config)}
+       |      ${_category_toc_panel(config, category, locale)}
        |      <article class="doc">
-       |        <h1 class="page">${_html_escape(category.title)}</h1>
-       |        <p>${_html_escape(category.description)}</p>
+       |        <h1 class="page">${_html_escape(_uif(locale, "category.page.title", category.title))}</h1>
+       |        <p>${_html_escape(_uif(locale, "category.intro", category.description))}</p>
        |        <div class="sect1" id="dashboard">
        |          <h2>Dashboard</h2>
        |          <div class="sectionbody">
-       |            ${_category_dashboard(config, category)}
+       |            ${_category_dashboard(config, category, locale)}
        |          </div>
        |        </div>
+       |        ${_source_narrative_section(config.sourcePath.resolve(category.slug).resolve("index.dox"), locale)}
        |        <div class="sect1" id="summary">
        |          <h2>Summary</h2>
        |          <div class="sectionbody">
@@ -1482,7 +1694,7 @@ private[cozy] object CozyBok {
        |        <div class="sect1" id="operation-notes">
        |          <h2>Operation Notes</h2>
        |          <div class="sectionbody">
-       |            <p>このページはカテゴリの状態を集約するDashboardです。カテゴリ配下の記事、用語、運用上の注目点をここに集約します。</p>
+       |            <p>${_html_escape(_ui(locale, "category.operation.notes"))}</p>
        |          </div>
        |        </div>
        |      </article>
@@ -1547,13 +1759,14 @@ private[cozy] object CozyBok {
        |  </div>""".stripMargin
   }
 
-  private def _category_toc_panel(config: BuildConfig): String =
+  private def _category_toc_panel(config: BuildConfig, category: CategoryContent, locale: String): String =
     s"""<aside class="toc sidebar" data-title="Contents" data-levels="2">
       |    <div class="toc-menu">
       |      <h3>On this page</h3>
-      |      <ul>
-      |        <li><a href="#dashboard">Dashboard</a></li>
-      |        <li><a href="#summary">Summary</a></li>
+       |      <ul>
+       |        <li><a href="#dashboard">Dashboard</a></li>
+       |        ${_source_narrative_toc_item(config.sourcePath.resolve(category.slug).resolve("index.dox"), locale)}
+       |        <li><a href="#summary">Summary</a></li>
       |        <li><a href="#articles">Articles</a></li>
       |        <li><a href="#terms">Terms</a></li>
       |      </ul>
@@ -1573,6 +1786,85 @@ private[cozy] object CozyBok {
       items.map { item =>
         s"""<li><a href="${_html_escape(item.href)}">${_html_escape(item.title)}</a>: ${_html_escape(item.brief)}</li>"""
       }.mkString("<ul>\n", "\n", "\n</ul>")
+
+  private def _source_narrative_section(path: Path, locale: String): String = {
+    val body = _source_narrative_html(path, locale)
+    if (body.isEmpty)
+      ""
+    else
+      s"""<div class="sect1" id="narrative">
+         |  <h2>Narrative</h2>
+         |  <div class="sectionbody">
+         |    ${body}
+         |  </div>
+         |</div>""".stripMargin
+  }
+
+  private def _source_narrative_toc_item(path: Path, locale: String): String =
+    if (_source_narrative_html(path, locale).nonEmpty)
+      """<li><a href="#narrative">Narrative</a></li>"""
+    else
+      ""
+
+  private def _source_narrative_html(path: Path, locale: String): String =
+    if (!Files.isRegularFile(path))
+      ""
+    else {
+      val content = Files.readString(path, StandardCharsets.UTF_8)
+      val dox = Dox2Parser.parseWithFilename(Dox2Parser.Config.default, path.toString, content)
+      val rule = Dox2HtmlTransformer.Rule(isDocument = false, isDefaultCss = false)
+      val context = _smartdox_context(locale)
+      val html = Dox2HtmlTransformer(context, rule).transform(_language_filter(dox, context)).take
+      _strip_dox_document_title(_dox_body_fragment(html)).trim
+    }
+
+  private def _language_filter(dox: Dox, context: SmartDoxContext): Dox =
+    Dox.transform(dox, new LanguageFilterTransformer(context.doxContext))
+
+  private def _smartdox_context(locale: String): SmartDoxContext =
+    SmartDoxContext.create().withTargetI18NContext(_to_locale(locale))
+
+  private def _to_locale(value: String): Locale =
+    Locale.forLanguageTag(value.replace('_', '-'))
+
+  private def _ui(locale: String, key: String): String =
+    _ui_context(_to_locale(locale)).message(key)
+
+  private def _uif(locale: String, key: String, args: Any*): String =
+    _ui_context(_to_locale(locale)).message(key, args: _*)
+
+  private def _ui_context(locale: Locale): I18NContext = {
+    val bundle = I18NContext.loadResourceBundle(_ui_resource_base, locale, _ui_resource_config)
+    I18NContext.default.copy(locale = locale, resourceBundle = bundle)
+  }
+
+  private def _site_asset_href(config: BuildConfig, page: Path, path: String): String =
+    _site_root_prefix(config, page) + path
+
+  private def _site_root_prefix(config: BuildConfig, page: Path): String = {
+    val pagedir = Option(page.getParent).getOrElse(config.websitePath)
+    val relative = config.websitePath.toAbsolutePath.normalize.relativize(pagedir.toAbsolutePath.normalize)
+    val depth =
+      if (relative.toString.isEmpty)
+        0
+      else
+        relative.iterator.asScala.length
+    if (depth == 0)
+      ""
+    else
+      "../" * depth
+  }
+
+  private def _strip_dox_document_title(html: String): String =
+    html.replaceFirst("""(?s)\A\s*<h1[^>]*>.*?</h1>\s*""", "")
+
+  private def _dox_body_fragment(html: String): String =
+    _regex_first(html, """(?s)<body>\s*<article[^>]*>(.*?)</article>\s*</body>""").
+      orElse(_regex_first(html, """(?s)<body[^>]*>(.*?)</body>""")).
+      getOrElse(html)
+
+  private def _regex_first(value: String, regex: String): Option[String] =
+    regex.r.findFirstMatchIn(value).map(_.group(1))
 
   private def _home_nav_items(config: BuildConfig): String =
     _regular_category_summaries(config.sourcePath).map { category =>
@@ -1604,14 +1896,15 @@ private[cozy] object CozyBok {
        |  </div>""".stripMargin
   }
 
-  private def _home_toc_panel(config: BuildConfig): String =
+  private def _home_toc_panel(config: BuildConfig, locale: String): String =
     s"""<aside class="toc sidebar" data-title="Contents" data-levels="2">
       |    <div class="toc-menu">
       |      <h3>On this page</h3>
-      |      <ul>
-      |        ${_home_dashboard_toc_item(config)}
-      |        <li><a href="#categories">カテゴリ</a></li>
-      |        <li><a href="#operation-policy">運用方針</a></li>
+       |      <ul>
+       |        ${_home_dashboard_toc_item(config)}
+       |        ${_source_narrative_toc_item(config.sourcePath.resolve("index.dox"), locale)}
+       |        <li><a href="#categories">Category Portfolio</a></li>
+      |        <li><a href="#operation-policy">Operation Policy</a></li>
       |      </ul>
       |      <div class="bok-special-links">
       |        <h3>BoK Console</h3>
@@ -1646,7 +1939,7 @@ private[cozy] object CozyBok {
          |</div>""".stripMargin
   }
 
-  private def _category_dashboard(config: BuildConfig, category: CategoryContent): String = {
+  private def _category_dashboard(config: BuildConfig, category: CategoryContent, locale: String): String = {
     val purpose = _purpose_dashboard(category.purpose)
     val dashboard = _dashboard(config).flatMap(_.categories.find(_.name == category.slug)).map { dashboard =>
       s"""${_dashboard_cards(dashboard.counts, includecategories = false)}
@@ -1656,7 +1949,7 @@ private[cozy] object CozyBok {
     if (purpose.nonEmpty || dashboard.isDefined)
       purpose + dashboard.getOrElse("")
     else
-      "<p>Dashboard metadata is not available.</p>"
+      s"<p>${_html_escape(_ui(locale, "dashboard.unavailable"))}</p>"
   }
 
   private def _bok_purpose(config: BuildConfig): BokPurpose =
@@ -1906,10 +2199,10 @@ private[cozy] object CozyBok {
       }
     }
 
-  private def _home_category_list(config: BuildConfig): String = {
+  private def _home_category_list(config: BuildConfig, locale: String): String = {
     val categories = _regular_category_summaries(config.sourcePath)
     if (categories.isEmpty)
-      "<p>カテゴリはまだ登録されていません。`cozy bok create-category` で追加します。</p>"
+      s"<p>${_html_escape(_ui(locale, "home.categories.empty"))}</p>"
     else
       categories.map { category =>
         val htmlclass = if (category.slug == "glossary") """ class="glossary"""" else ""
@@ -2971,6 +3264,16 @@ private[cozy] object CozyBok {
         }
     )
 
+  private def _default_locale(
+    config: CozyProjectYamlConfig.Config,
+    site: SiteConfig,
+    languages: Vector[String]
+  ): String =
+    config.value("site.output.default_locale").
+      orElse(config.value("bok.output.default_locale")).
+      orElse(site.value("site.output.default_locale")).
+      getOrElse(languages.headOption.getOrElse("ja"))
+
   private def _direct_assets(project: Path, config: CozyProjectYamlConfig.Config): DirectAssetsConfig = {
     val enabled = _boolean(config, "bok.direct-assets.enabled", false)
     val pairs = config.mapUnder("bok.direct-assets.items").toVector.sortBy(_._1)
@@ -3313,15 +3616,6 @@ private[cozy] object CozyBok {
        |
        |${_purpose_dox(bokpurpose)}
        |
-       |${_category_dashboard_cards(articles, terms)}
-       |
-       |## Summary
-       |
-       |- Category: ${title}
-       |- Purpose: ${purpose}
-       |- Articles: ${articles.size}
-       |- Terms: ${terms.size}
-       |
        |## Navigation
        |
        |- <a href="../index.html">BoK Home</a>
@@ -3359,43 +3653,6 @@ private[cozy] object CozyBok {
         if (purpose.goals.nonEmpty) Some(purpose.goals.mkString("## Goals\n- ", "\n- ", "\n")) else None,
         if (purpose.subgoals.nonEmpty) Some(purpose.subgoals.mkString("## Subgoals\n- ", "\n- ", "\n")) else None
       ).flatten.mkString("\n")
-
-  private def _category_dashboard_cards(
-    articles: Vector[CategoryArticle],
-    terms: Vector[CategoryTerm]
-  ): String =
-    _category_dashboard_cards(articles.size, terms.size)
-
-  private def _category_dashboard_cards(
-    articlecount: Int,
-    termcount: Int
-  ): String = {
-    val total = articlecount + termcount
-    val articlewidth = _dashboard_bar_width(articlecount, total)
-    val termwidth = _dashboard_bar_width(termcount, total)
-    s"""<div class="bok-dashboard-grid">
-       |  <div class="bok-metric-card">
-       |    <div class="bok-metric-label">Articles</div>
-       |    <div class="bok-metric-value">${articlecount}</div>
-       |    <div class="bok-metric-note">Category-owned articles</div>
-       |  </div>
-       |  <div class="bok-metric-card">
-       |    <div class="bok-metric-label">Terms</div>
-       |    <div class="bok-metric-value">${termcount}</div>
-       |    <div class="bok-metric-note">Terms in this category</div>
-       |  </div>
-       |  <div class="bok-metric-card">
-       |    <div class="bok-metric-label">Total Items</div>
-       |    <div class="bok-metric-value">${total}</div>
-       |    <div class="bok-metric-note">Articles + terms</div>
-       |  </div>
-       |</div>
-       |
-       |<div class="bok-dashboard-chart" aria-label="Category item distribution">
-       |  <div class="bok-chart-row"><span>Articles</span><div><b style="width:${articlewidth}%"></b></div><em>${articlecount}</em></div>
-       |  <div class="bok-chart-row"><span>Terms</span><div><b style="width:${termwidth}%"></b></div><em>${termcount}</em></div>
-       |</div>""".stripMargin
-  }
 
   private def _dashboard_bar_width(value: Int, total: Int): Int =
     if (total <= 0)
@@ -3869,6 +4126,7 @@ private[cozy] object CozyBok {
       val config = _load_config(project)
       val source = config.value("bok.source").getOrElse("src/main/doxsite")
       val site = _load_site_config(project.resolve(source))
+      val languages = _languages(config, site)
       val dockerimage =
         parsed.property("docker-image").
           orElse(config.value("bok.docker-image")).
@@ -3890,7 +4148,8 @@ private[cozy] object CozyBok {
         site.value("output.scope.policy").orElse(config.value("bok.output.scope.policy")).getOrElse("home_only"),
         site.value("site.metadata.name").getOrElse("KnowledgeHub BoK"),
         _locale_mode(config, site),
-        _languages(config, site),
+        _default_locale(config, site, languages),
+        languages,
         ArcadiaConfig(_boolean(config, "bok.arcadia.enabled", false), config.value("bok.arcadia.source").getOrElse("src/main/arcadiasite")),
         _direct_assets(project, config),
         _publication_settings(parsed, config, _strategy(parsed))

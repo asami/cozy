@@ -71,21 +71,21 @@ Status: DONE
 
 ## BK12-07: Scaffold / Document Drift Diagnostics
 
-Status: OPEN
+Status: DONE
 
-- [ ] Identify scaffold documentation drift found in KnowledgeHub operation.
-- [ ] Resolve or explicitly decide the missing `website.d/history/2026.html`
+- [x] Identify scaffold documentation drift found in KnowledgeHub operation.
+- [x] Resolve or explicitly decide the missing `website.d/history/2026.html`
       output from the present `src/main/doxsite/history/index.dox` source.
-- [ ] Resolve or explicitly decide the missing `website.d/manual/index.html`
+- [x] Resolve or explicitly decide the missing `website.d/manual/index.html`
       output from the present `src/main/doxsite/manual/index.dox` source.
-- [ ] Decide whether the Antora `Missing component name in start page for site:
+- [x] Decide whether the Antora `Missing component name in start page for site:
       index.adoc` warning requires scaffold, config, or documentation changes.
-- [ ] Decide whether `cozy bok publish --help` should render help instead of
+- [x] Decide whether `cozy bok publish --help` should render help instead of
       starting publish command parsing.
-- [ ] Decide whether drift should be fixed in scaffold generation, diagnostics,
+- [x] Decide whether drift should be fixed in scaffold generation, diagnostics,
       or project documentation.
-- [ ] Add or update tests if Cozy scaffold behavior changes.
-- [ ] Record residual drift as follow-up work when not fixed in Phase 12.
+- [x] Add or update tests if Cozy scaffold behavior changes.
+- [x] Record residual drift as follow-up work when not fixed in Phase 12.
 
 ## BK12-08: Stage And Upload Workflow Readiness
 

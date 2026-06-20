@@ -31,7 +31,7 @@ into focused Cozy improvements.
 - [x] BK12-04: Local Cozy command synchronization
 - [x] BK12-05: BoK build operational verification
 - [x] BK12-06: Publish dry-run operational verification
-- [ ] BK12-07: Scaffold/document drift diagnostics
+- [x] BK12-07: Scaffold/document drift diagnostics
 - [ ] BK12-08: Upload workflow readiness
 - [ ] BK12-09: Development findings and follow-up backlog
 - [ ] BK12-10: Phase closure
@@ -98,6 +98,55 @@ into focused Cozy improvements.
   source files unchanged. The existing `cozy bok publish --help` behavior still
   needs BK12-07 usability review because it starts command parsing instead of
   rendering help.
+- 2026-06-21: Completed BK12-07 scaffold/document drift diagnostics and
+  dashboard output cleanup. Home and category `index.html` pages are now
+  dashboard-first pages that keep SmartDox dashboard metadata as the source of
+  truth while presenting metric cards, distribution/cumulative charts, purpose
+  panels, category/article/term sections, and RDF status. Cozy now emits
+  `website.d/manual/index.html` and a fallback `website.d/history/index.html`
+  when SmartDox does not generate a yearly history page; if a yearly history
+  page exists, BoK Console links continue to prefer it. Command-specific help
+  for `cozy bok publish --help`, `publish-video --help`,
+  `update-publication --help`, `stage --help`, and `upload --help` now renders
+  usage without entering preflight or workflow execution. The non-fatal Antora
+  warning `Missing component name in start page for site: index.adoc` remains
+  a SmartDox/Antora playbook follow-up candidate for BK12-09 because the build
+  output is otherwise usable and Cozy should not mask the upstream diagnostic
+  without a clear playbook contract change.
+- 2026-06-21: Verified BK12-07 against the KnowledgeHub project through the
+  normal PATH `cozy` launcher. `cozy bok build . --strategy preview` produced
+  dashboard-first Home, Concept, and Technology pages plus
+  `website.d/manual/index.html` and `website.d/history/index.html`; generated
+  outputs remained ignored and tracked KnowledgeHub source files stayed clean.
+  `cozy bok publish --help`, `publish-video --help`,
+  `update-publication --help`, `stage --help`, and `upload --help` all rendered
+  usage text without starting publication preflight or workflow execution.
+- 2026-06-21: Refined the BK12-07 dashboard/source boundary. BoK and category
+  `index.dox` files are now treated as narrative sources for the generated
+  Home/Category Dashboard pages. Cozy keeps generated metric cards, charts,
+  counts, and aggregation in `website.d`, while scaffolded `index.dox` files
+  contain source metadata, purpose text, navigation, and operation notes only.
+- 2026-06-21: Corrected the narrative rendering approach. Cozy no longer
+  converts `index.dox` narrative lines with a local inline HTML parser; it
+  parses source documents through SmartDox `Dox2Parser` and renders narrative
+  fragments through `Dox2HtmlTransformer`. The executable contract was split
+  into `CozyBokDashboardSpec` so Dashboard/narrative behavior is specified
+  separately from the broader BoK workflow spec. Unit specs may validate Docker
+  image configuration values, but they do not execute Docker images; Docker
+  image runtime validation remains a scripted/runtime responsibility.
+- 2026-06-21: Made BoK locale handling explicit for Cozy-generated Dashboard
+  narrative fragments. `BuildConfig` now carries `defaultLocale` from
+  `site.output.default_locale` / `bok.output.default_locale`, and Cozy renders
+  narrative fragments from the single canonical `index.dox` through SmartDox's
+  locale-aware `LanguageFilterTransformer`. Multi-locale BoKs render localized
+  Dashboard pages under each configured locale subdirectory without adding
+  per-language index source files.
+- 2026-06-21: Fixed the generated Dashboard UI locale/resource boundary.
+  Cozy-generated UI messages now use Java `ResourceBundle` properties with
+  English as the explicit fallback and UTF-8 resource loading. Multi-locale
+  Dashboard pages now compute CSS asset paths from the actual output depth, so
+  root, locale-root, category, and special pages link to the shared Antora
+  assets consistently.
 
 ## References
 
