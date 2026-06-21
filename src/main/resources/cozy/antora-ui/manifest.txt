@@ -1,4 +1,6 @@
+css/bootstrap-grid.min.css
 css/site.css
+css/cozy-bok-dashboard.css
 font/roboto-cyrillic-400-italic.woff2
 font/roboto-cyrillic-400-normal.woff2
 font/roboto-cyrillic-500-italic.woff2

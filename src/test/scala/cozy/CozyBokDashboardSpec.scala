@@ -2,7 +2,8 @@ package cozy
 
 import cozy.bok.CozyBok
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path}
+import java.nio.file.{Files, Path, Paths}
+import java.util.zip.{ZipEntry, ZipInputStream, ZipOutputStream}
 import scala.collection.JavaConverters._
 import org.scalatest.GivenWhenThen
 import org.scalatest.wordspec.AnyWordSpec
@@ -78,9 +79,16 @@ class CozyBokDashboardSpec extends AnyWordSpec with GivenWhenThen with SpecVocab
 
           Then("the Home dashboard includes the SmartDox-rendered narrative section")
           val home = _read(dir.resolve("website.d/index.html"))
+          home should include ("""href="_/css/bootstrap-grid.min.css"""")
           home should include ("""href="_/css/site.css"""")
+          home should include ("""href="_/css/cozy-bok-dashboard.css"""")
+          _read(dir.resolve("website.d/architecture/index.html")) should include ("""href="../_/css/bootstrap-grid.min.css"""")
           _read(dir.resolve("website.d/architecture/index.html")) should include ("""href="../_/css/site.css"""")
-          home should include ("""class="bok-dashboard container-fluid"""")
+          _read(dir.resolve("website.d/architecture/index.html")) should include ("""href="../_/css/cozy-bok-dashboard.css"""")
+          home should include ("""class="bok-dashboard container-fluid bok-dashboard-command-center"""")
+          home should include ("""class="bok-dashboard-shell" id="dashboard"""")
+          home should include ("""class="bok-dashboard-hero"""")
+          home should include ("""class="bok-dashboard-hero-facts"""")
           home should include ("""class="body body-dashboard"""")
           home should not include ("""class="nav-container"""")
           home should not include ("""class="toc sidebar"""")
@@ -93,7 +101,7 @@ class CozyBokDashboardSpec extends AnyWordSpec with GivenWhenThen with SpecVocab
           home should include ("Quick Links")
           home should include ("Operation Focus")
           home should include ("Operate this BoK through source files and generated dashboard pages.")
-          val dashboardstart = home.indexOf("""class="bok-dashboard container-fluid"""")
+          val dashboardstart = home.indexOf("""class="bok-dashboard container-fluid bok-dashboard-command-center"""")
           val narrativestart = home.indexOf("""id="narrative"""")
           dashboardstart should be < narrativestart
           home.substring(dashboardstart, narrativestart) should not include ("Home narrative source text.")
@@ -104,6 +112,8 @@ class CozyBokDashboardSpec extends AnyWordSpec with GivenWhenThen with SpecVocab
           And("the Category dashboard includes the SmartDox-rendered narrative section")
           val category = _read(dir.resolve("website.d/architecture/index.html"))
           category should include ("""class="body body-dashboard"""")
+          category should include ("""class="bok-dashboard-shell" id="dashboard"""")
+          category should include ("""class="bok-dashboard-hero"""")
           category should not include ("""class="nav-container"""")
           category should not include ("""class="toc sidebar"""")
           category should include ("""id="narrative"""")
@@ -140,6 +150,78 @@ class CozyBokDashboardSpec extends AnyWordSpec with GivenWhenThen with SpecVocab
           _read(dir.resolve("src/main/doxsite/knowledgehub/index.dox")) should not include ("""class="bok-dashboard-chart"""")
           _read(dir.resolve("src/main/doxsite/knowledgehub/index.dox")) should not include ("- Articles: 1")
           _read(dir.resolve("src/main/doxsite/knowledgehub/index.dox")) should not include ("- Terms: 1")
+        }
+      }
+
+      "apply selectable color groups and right-aligned Category dropdown styling" in {
+        _with_temp_dir("cozy-bok-dashboard-theme") { dir =>
+          Given("a BoK source tree with a dashboard color group in site metadata")
+          _write(dir.resolve("src/main/doxsite/site.conf"),
+            """site {
+              |  metadata {
+              |    dashboard_color_group = "ocean"
+              |  }
+              |  output {
+              |    locale_mode = "single_locale_root"
+              |  }
+              |}
+              |""".stripMargin)
+          _write(dir.resolve("src/main/doxsite/index.dox"),
+            """Home
+              |======
+              |
+              |# Overview
+              |
+              |Home narrative.
+              |""".stripMargin)
+          _write(dir.resolve("src/main/doxsite/architecture/category.yaml"),
+            """name: Architecture
+              |title: Architecture
+              |description: Architecture category.
+              |""".stripMargin)
+          _write(dir.resolve("src/main/doxsite/architecture/index.dox"),
+            """Architecture
+              |============
+              |
+              |# Overview
+              |
+              |Architecture narrative.
+              |""".stripMargin)
+          _write_zip(dir.resolve("src/main/antora-ui/build/ui-bundle.zip"), Vector(
+            "css/cozy-bok-dashboard.css" -> "old dashboard css",
+            "css/bootstrap-grid.min.css" -> "old bootstrap grid"
+          ))
+          val config = CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview"))
+
+          When("Cozy builds the dashboard pages")
+          CozyBok.build(config, new DashboardRunner)
+
+          Then("the configured color group is applied to dashboard pages")
+          config.dashboardColorGroup shouldBe "ocean"
+          _read(dir.resolve("website.d/index.html")) should include ("""<body class="article bok-dashboard-theme-ocean">""")
+          _read(dir.resolve("website.d/architecture/index.html")) should include ("""<body class="article bok-dashboard-theme-ocean">""")
+
+          And("the generated CSS provides selectable groups and keeps the Category dropdown inside the viewport")
+          val css = _read(Paths.get("src/main/resources/cozy/antora-ui/css/cozy-bok-dashboard.css"))
+          css should include ("body.bok-dashboard-theme-aurora")
+          css should include ("body.bok-dashboard-theme-lagoon")
+          css should include ("body.bok-dashboard-theme-ocean")
+          css should include ("body.bok-dashboard-theme-ember")
+          css should include ("body.bok-dashboard-theme-slate")
+          css should include (".navbar-category-dropdown > .navbar-category-menu")
+          css should include ("left: auto")
+          css should include ("right: 0")
+          css should include ("max-width: min(22rem, calc(100vw - 1rem))")
+          css should not include ("right:auto;left:0")
+          _zip_text(dir.resolve("antora.d/ui-bundle.zip"), "css/cozy-bok-dashboard.css") should include ("body.bok-dashboard-theme-lagoon")
+          _zip_text(dir.resolve("antora.d/ui-bundle.zip"), "css/cozy-bok-dashboard.css") should not include ("old dashboard css")
+          _zip_text(dir.resolve("antora.d/ui-bundle.zip"), "css/bootstrap-grid.min.css") should include (".container-fluid")
+          _zip_text(dir.resolve("antora.d/ui-bundle.zip"), "css/bootstrap-grid.min.css") should not include ("old bootstrap grid")
+
+          And("the command line can override site metadata and invalid values fall back to the default")
+          CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview", "--dashboard-color-group", "ember")).dashboardColorGroup shouldBe "ember"
+          CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview", "--dashboard-color-group", "lagoon")).dashboardColorGroup shouldBe "lagoon"
+          CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview", "--dashboard-color-group", "unknown")).dashboardColorGroup shouldBe "aurora"
         }
       }
 
@@ -223,20 +305,27 @@ class CozyBokDashboardSpec extends AnyWordSpec with GivenWhenThen with SpecVocab
           config.defaultLocale shouldBe "ja"
           _read(dir.resolve("website.d/ja/index.html")) should include ("""<html lang="ja">""")
           _read(dir.resolve("website.d/en/index.html")) should include ("""<html lang="en">""")
+          _read(dir.resolve("website.d/ja/index.html")) should include ("""href="../_/css/bootstrap-grid.min.css"""")
           _read(dir.resolve("website.d/ja/index.html")) should include ("""href="../_/css/site.css"""")
+          _read(dir.resolve("website.d/ja/index.html")) should include ("""href="../_/css/cozy-bok-dashboard.css"""")
+          _read(dir.resolve("website.d/en/index.html")) should include ("""href="../_/css/bootstrap-grid.min.css"""")
           _read(dir.resolve("website.d/en/index.html")) should include ("""href="../_/css/site.css"""")
+          _read(dir.resolve("website.d/en/index.html")) should include ("""href="../_/css/cozy-bok-dashboard.css"""")
+          _read(dir.resolve("website.d/ja/concept/index.html")) should include ("""href="../../_/css/bootstrap-grid.min.css"""")
           _read(dir.resolve("website.d/ja/concept/index.html")) should include ("""href="../../_/css/site.css"""")
+          _read(dir.resolve("website.d/ja/concept/index.html")) should include ("""href="../../_/css/cozy-bok-dashboard.css"""")
+          _read(dir.resolve("website.d/en/concept/index.html")) should include ("""href="../../_/css/bootstrap-grid.min.css"""")
           _read(dir.resolve("website.d/en/concept/index.html")) should include ("""href="../../_/css/site.css"""")
           _read(dir.resolve("website.d/en/glossary/index.html")) should include ("""href="../../_/css/site.css"""")
           _read(dir.resolve("website.d/ja/index.html")) should include ("日本語ホーム本文")
           _read(dir.resolve("website.d/ja/index.html")) should not include ("English home narrative")
           _read(dir.resolve("website.d/en/index.html")) should include ("English home narrative")
           _read(dir.resolve("website.d/en/index.html")) should not include ("日本語ホーム本文")
-          _read(dir.resolve("website.d/en/index.html")) should include ("This dashboard aggregates the whole BoK status")
+          _read(dir.resolve("website.d/en/index.html")) should not include ("This dashboard aggregates the whole BoK status")
           _read(dir.resolve("website.d/en/index.html")) should not include ("BoK全体の状態")
           _read(dir.resolve("website.d/ja/concept/index.html")) should include ("日本語カテゴリ本文")
           _read(dir.resolve("website.d/en/concept/index.html")) should include ("English category narrative")
-          _read(dir.resolve("website.d/en/concept/index.html")) should include ("This dashboard aggregates this category")
+          _read(dir.resolve("website.d/en/concept/index.html")) should not include ("This dashboard aggregates this category")
           _read(dir.resolve("website.d/en/concept/index.html")) should not include ("このカテゴリの目的")
           _read(dir.resolve("website.d/en/glossary/index.html")) should include ("Dashboard for terms and vocabulary shared across the BoK.")
           _read(dir.resolve("website.d/en/glossary/index.html")) should not include ("BoK全体で共有する用語")
@@ -319,6 +408,38 @@ class CozyBokDashboardSpec extends AnyWordSpec with GivenWhenThen with SpecVocab
 
   private def _read(path: Path): String =
     new String(Files.readAllBytes(path), StandardCharsets.UTF_8)
+
+  private def _write_zip(path: Path, entries: Vector[(String, String)]): Path = {
+    Option(path.getParent).foreach(Files.createDirectories(_))
+    val out = new ZipOutputStream(Files.newOutputStream(path))
+    try {
+      entries.foreach {
+        case (name, content) =>
+          out.putNextEntry(new ZipEntry(name))
+          out.write(content.getBytes(StandardCharsets.UTF_8))
+          out.closeEntry()
+      }
+    } finally {
+      out.close()
+    }
+    path
+  }
+
+  private def _zip_text(path: Path, name: String): String = {
+    val in = new ZipInputStream(Files.newInputStream(path))
+    try {
+      var entry = in.getNextEntry
+      while (entry != null) {
+        if (entry.getName == name)
+          return new String(in.readAllBytes(), StandardCharsets.UTF_8)
+        in.closeEntry()
+        entry = in.getNextEntry
+      }
+      fail(s"Zip entry not found: $name")
+    } finally {
+      in.close()
+    }
+  }
 
   private def _delete(path: Path): Unit =
     if (Files.exists(path)) {

@@ -85,16 +85,43 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
       _read(dir.resolve("src/main/doxsite/manual/index.dox")) should include ("published_at=")
       _read(dir.resolve("README.md")) should not include ("site-structure")
       val css = _zip_text(dir.resolve("src/main/antora-ui/build/ui-bundle.zip"), "css/site.css")
+      val dashboardcss = _zip_text(dir.resolve("src/main/antora-ui/build/ui-bundle.zip"), "css/cozy-bok-dashboard.css")
+      val bootstrapgrid = _zip_text(dir.resolve("src/main/antora-ui/build/ui-bundle.zip"), "css/bootstrap-grid.min.css")
+      bootstrapgrid should include ("Bootstrap")
+      bootstrapgrid should include (".container-fluid")
+      bootstrapgrid should include (".row")
+      bootstrapgrid should include (".col-xl-8")
       css should include (".navbar-menu")
       css should include (".navbar-dropdown")
-      css should include (".navbar-dropdown-menu")
       css should include (".nav-container")
       css should include (".lang-toggle")
       css should include ("a.glossary")
       css should include (".bok-special-links")
       css should include (".bok-dashboard-grid")
+      css should include (".body.body-dashboard")
+      css should include ("radial-gradient")
+      css should include (".body-dashboard .toolbar")
+      css should include ("min-height:calc(100vh - 3.5rem)")
+      css should include ("#0b1220")
+      css should include ("0 30px 80px")
+      css should include (".bok-card:hover")
+      css should include (".bok-card-purpose")
+      css should include ("font-size:2.85rem")
+      css should include (".bok-purpose-tree")
+      css should include (".bok-purpose-goal")
+      css should include (".bok-purpose-subgoals")
+      css should include (".bok-category-matrix-link")
+      css should not include (".row{display:grid")
+      css should include (".card-title")
+      css should include (".bok-card-purpose::before")
       css should include (".bok-cumulative-line")
       css should include (".bok-index-nav")
+      dashboardcss should include ("Cozy BoK Dashboard")
+      dashboardcss should include (".body-dashboard .toolbar")
+      dashboardcss should include ("#0b1220")
+      dashboardcss should include ("0 30px 80px")
+      dashboardcss should include (".bok-dashboard-command-center")
+      dashboardcss should include (".bok-purpose-subgoal-copy")
       _zip_text(dir.resolve("src/main/antora-ui/build/ui-bundle.zip"), "js/site.js") should include ("navbar-burger")
       _zip_text(dir.resolve("src/main/antora-ui/build/ui-bundle.zip"), "img/menu.svg") should include ("<svg")
       _zip_bytes(dir.resolve("src/main/antora-ui/build/ui-bundle.zip"), "font/roboto-latin-400-normal.woff2") should not be empty
@@ -226,10 +253,10 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
           |description: Architecture category.
           |vision: Make architecture decisions traceable.
           |goals:
-          |  - Explain architecture concepts
-          |  - Link concepts to runtime
-          |subgoals:
-          |  - Maintain architecture glossary
+          |  - title: Explain architecture concepts
+          |    subgoals:
+          |      - Maintain architecture glossary
+          |  - title: Link concepts to runtime
           |""".stripMargin)
       _write(dir.resolve("src/main/doxsite/architecture/overview.dox"), "Overview\n========\n\n# HEAD\n\n## BRIEF\nArchitecture overview.\n")
       _write(dir.resolve("src/main/doxsite/glossary/architecture/runtime.dox"), "Runtime\n=======\n\n# HEAD\n\nreading=らんたいむ\n\n# Definition\nRuntime term.\n")
@@ -260,17 +287,23 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
       }
       And("the generated site renders dashboard, glossary, history, manual, and navigation conventions")
       _read(dir.resolve("website.d/index.html")) should include ("KnowledgeHub BoK Dashboard")
+      _read(dir.resolve("website.d/index.html")) should include ("""href="_/css/cozy-bok-dashboard.css"""")
       _read(dir.resolve("website.d/index.html")) should include ("BoK全体の状態、目的、カテゴリ、記事、用語、RDF、更新推移を集約するDashboard")
       _read(dir.resolve("website.d/index.html")) should include ("<strong>Vision:</strong> Make engineering knowledge operational.")
-      _read(dir.resolve("website.d/index.html")) should include ("<strong>Goals:</strong>")
+      _read(dir.resolve("website.d/index.html")) should include ("""class="bok-purpose-flat"""")
+      _read(dir.resolve("website.d/index.html")) should include ("""class="bok-purpose-flat-group"><strong>Goals</strong>""")
+      _read(dir.resolve("website.d/index.html")) should include ("""class="bok-purpose-flat-group"><strong>Subgoals</strong>""")
       _read(dir.resolve("website.d/index.html")) should include ("Publish reusable knowledge")
       _read(dir.resolve("website.d/index.html")) should include ("Support daily learning")
-      _read(dir.resolve("website.d/index.html")) should include ("<strong>Subgoals:</strong>")
       _read(dir.resolve("website.d/index.html")) should include ("Keep glossary current")
-      _read(dir.resolve("website.d/index.html")) should include ("""class="bok-dashboard container-fluid"""")
+      _read(dir.resolve("website.d/index.html")) should include ("""class="bok-dashboard container-fluid bok-dashboard-command-center"""")
+      _read(dir.resolve("website.d/index.html")) should include ("""class="bok-dashboard-shell" id="dashboard"""")
+      _read(dir.resolve("website.d/index.html")) should include ("""class="bok-dashboard-hero"""")
+      _read(dir.resolve("website.d/index.html")) should include ("""class="bok-dashboard-hero-facts"""")
       _read(dir.resolve("website.d/index.html")) should include ("""class="row g-3"""")
       _read(dir.resolve("website.d/index.html")) should include ("""class="col-12 col-xl-8"""")
       _read(dir.resolve("website.d/index.html")) should include ("""class="col-12 col-md-6 col-xl-4"""")
+      _zip_text(dir.resolve("antora.d/ui-bundle.zip"), "css/bootstrap-grid.min.css") should include ("Bootstrap Grid")
       _read(dir.resolve("website.d/index.html")) should include ("""class="card bok-card bok-card-purpose"""")
       _read(dir.resolve("website.d/index.html")) should include ("""class="card bok-card bok-card-readiness"""")
       _read(dir.resolve("website.d/index.html")) should include ("""class="card bok-card bok-card-kpi"""")
@@ -332,15 +365,19 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
       _read(dir.resolve("website.d/index.html")) should not include ("""class="navbar-item" href="glossary/index.html"""")
       _read(dir.resolve("website.d/index.html")) should not include ("""class="navbar-item" href="history/index.html"""")
       _read(dir.resolve("website.d/index.html")) should not include ("""class="navbar-item" href="manual/index.html"""")
-      _read(dir.resolve("website.d/index.html")) should include ("""<details class="navbar-dropdown">""")
-      _read(dir.resolve("website.d/index.html")) should include ("""<summary class="navbar-dropdown-toggle">カテゴリ</summary>""")
-      _read(dir.resolve("website.d/index.html")) should include ("""class="navbar-dropdown-menu"""")
-      _read(dir.resolve("website.d/index.html")) should include ("""class="navbar-dropdown-item" href="architecture/index.html">Architecture</a>""")
+      _read(dir.resolve("website.d/index.html")) should include ("""class="navbar-item has-dropdown is-hoverable navbar-category-nav navbar-category-dropdown"""")
+      _read(dir.resolve("website.d/index.html")) should include ("""class="navbar-link navbar-category-toggle" href="#">カテゴリ</a>""")
+      _read(dir.resolve("website.d/index.html")) should include ("""class="navbar-dropdown navbar-category-menu"""")
+      _read(dir.resolve("website.d/index.html")) should not include ("""class="navbar-category-link" href="architecture/index.html">Architecture</a>""")
+      _read(dir.resolve("website.d/index.html")) should include ("""class="navbar-item navbar-dropdown-item" href="architecture/index.html">Architecture</a>""")
       _read(dir.resolve("website.d/index.html")) should not include ("""class="navbar-item" href="architecture/index.html">Architecture</a>""")
+      _read(dir.resolve("website.d/index.html")) should include ("""class="bok-category-matrix-link" href="architecture/index.html">Architecture</a>""")
       _read(dir.resolve("website.d/index.html")) should not include ("Lexicon")
       _read(dir.resolve("website.d/architecture/index.html")) should include ("Architecture Dashboard")
       _read(dir.resolve("website.d/architecture/index.html")) should include ("このカテゴリの目的、記事、用語、更新推移を集約するDashboard")
-      _read(dir.resolve("website.d/architecture/index.html")) should include ("""class="bok-dashboard container-fluid"""")
+      _read(dir.resolve("website.d/architecture/index.html")) should include ("""class="bok-dashboard container-fluid bok-dashboard-command-center"""")
+      _read(dir.resolve("website.d/architecture/index.html")) should include ("""class="bok-dashboard-shell" id="dashboard"""")
+      _read(dir.resolve("website.d/architecture/index.html")) should include ("""class="bok-dashboard-hero"""")
       _read(dir.resolve("website.d/architecture/index.html")) should include ("""class="row g-3"""")
       _read(dir.resolve("website.d/architecture/index.html")) should include ("""class="card bok-card bok-card-purpose"""")
       _read(dir.resolve("website.d/architecture/index.html")) should include ("""class="card bok-card bok-card-readiness"""")
@@ -350,6 +387,8 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
       _read(dir.resolve("website.d/architecture/index.html")) should include ("""class="card bok-card bok-card-map"""")
       _read(dir.resolve("website.d/architecture/index.html")) should include ("""class="card bok-card bok-card-related"""")
       _read(dir.resolve("website.d/architecture/index.html")) should include ("<strong>Vision:</strong> Make architecture decisions traceable.")
+      _read(dir.resolve("website.d/architecture/index.html")) should include ("""class="bok-purpose-goal-head"><span class="bok-purpose-node-label">G1</span><strong>Explain architecture concepts</strong>""")
+      _read(dir.resolve("website.d/architecture/index.html")) should include ("""class="bok-purpose-node-label">S1</span><span class="bok-purpose-subgoal-copy"><small>G1を支援</small><span>Maintain architecture glossary</span>""")
       _read(dir.resolve("website.d/architecture/index.html")) should include ("Explain architecture concepts")
       _read(dir.resolve("website.d/architecture/index.html")) should include ("Link concepts to runtime")
       _read(dir.resolve("website.d/architecture/index.html")) should include ("Maintain architecture glossary")
@@ -372,7 +411,8 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
       _read(dir.resolve("website.d/architecture/index.html")) should not include ("""class="navbar-item" href="../glossary/index.html"""")
       _read(dir.resolve("website.d/architecture/index.html")) should not include ("""class="navbar-item" href="../history/index.html"""")
       _read(dir.resolve("website.d/architecture/index.html")) should not include ("""class="navbar-item" href="../manual/index.html"""")
-      _read(dir.resolve("website.d/architecture/index.html")) should include ("""class="navbar-dropdown-item" href="../architecture/index.html">Architecture</a>""")
+      _read(dir.resolve("website.d/architecture/index.html")) should include ("""class="navbar-item navbar-dropdown-item" href="../architecture/index.html">Architecture</a>""")
+      _read(dir.resolve("website.d/architecture/index.html")) should not include ("""class="navbar-category-link" href="../architecture/index.html">Architecture</a>""")
       _read(dir.resolve("website.d/architecture/index.html")) should not include ("""class="navbar-item" href="../architecture/index.html">Architecture</a>""")
       _read(dir.resolve("website.d/architecture/index.html")) should not include ("Lexicon")
       dir.resolve("src/main/antora-ui/build/ui-bundle.zip") should beRegularFile
@@ -985,7 +1025,7 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
       runner.commands.last shouldBe Vector("sh", "-c", "etc/upload.sh")
 
       And("the publish upload step receives workflow environment settings")
-      val uploadenv = runner.envCalls.collectFirst {
+      val uploadenv = runner.envcalls.collectFirst {
         case (Vector("sh", "-c", "etc/upload.sh"), _, env) => env
       }.getOrElse(Map.empty)
       uploadenv should contain ("AWS_S3_URI" -> "s3://publish.example/")
@@ -1425,10 +1465,10 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
   }
 
   private class EnvRecordingRunner extends RecordingRunner {
-    var envCalls = Vector.empty[(Vector[String], Path, Map[String, String])]
-    def envs: Vector[Map[String, String]] = envCalls.map(_._3)
+    var envcalls = Vector.empty[(Vector[String], Path, Map[String, String])]
+    def envs: Vector[Map[String, String]] = envcalls.map(_._3)
     override def run(command: Vector[String], cwd: Path, env: Map[String, String]): Unit = {
-      envCalls = envCalls :+ (command, cwd, env)
+      envcalls = envcalls :+ (command, cwd, env)
       super.run(command, cwd)
     }
   }
