@@ -368,7 +368,8 @@ private[cozy] object CozyBok {
     )
 
     private val _build_request = spec.Request(
-      _p_project,
+      _p_project_property,
+      _p_project_dir_property,
       spec.Parameter.property("strategy"),
       spec.Parameter.property("docker-image"),
       spec.Parameter.propertyFileOption("warehouse"),
@@ -394,13 +395,19 @@ private[cozy] object CozyBok {
 
     def create(args: List[String]): ParsedArgs = _parse("bok-create", _create_request, args)
     def category(args: List[String]): ParsedArgs = _parse("bok-create-category", _category_request, args)
-    def build(args: List[String]): ParsedArgs = _parse("bok-build", _build_request, args)
+    def build(args: List[String]): ParsedArgs = _parse("bok-build", _build_request, _normalize_optional_project_argument(args))
     def publication(name: String, args: List[String]): ParsedArgs = _parse(s"bok-${name}", _publication_request, args)
     def workflow(name: String, args: List[String]): ParsedArgs = _parse(s"bok-${name}", _workflow_request, args)
     def doctor(args: List[String]): ParsedArgs = _parse("bok-doctor", _doctor_request, args)
 
     private def _parse(name: String, request: spec.Request, args: List[String]): ParsedArgs =
       ParsedArgs(request.build(CliRequest(name), args))
+
+    private def _normalize_optional_project_argument(args: List[String]): List[String] =
+      args match {
+        case x :: xs if !x.startsWith("--") => "--project" :: x :: xs
+        case _ => args
+      }
   }
   final case class SiteConfig(values: Map[String, String], lists: Map[String, Vector[String]]) {
     def value(path: String): Option[String] = values.get(path).map(_.trim).filter(_.nonEmpty)
@@ -587,7 +594,7 @@ private[cozy] object CozyBok {
   def createCategory(config: CategoryConfig): Unit = {
     val dir = config.project.resolve("src/main/doxsite").resolve(config.name)
     _write(dir.resolve("category.yaml"), _category(_category_name(config.name), config.title, config.description, config.purpose), config.policy)
-    _write(dir.resolve("index.dox"), _category_index(config.name, config.title, config.description, config.purpose, config.articles, config.terms), config.policy)
+    _write(dir.resolve("index.dox"), _category_index(config.name, config.title, config.description, config.articles, config.terms), config.policy)
     config.articles.foreach { article =>
       _write(dir.resolve(article.fileName), _article(article.title, article.purpose), config.policy)
     }
@@ -1045,13 +1052,12 @@ private[cozy] object CozyBok {
          |    <div id="topbar-nav" class="navbar-menu">
          |      <div class="navbar-end">
          |        <a class="navbar-item" href="index.html">${_html_escape(_ui(locale, "nav.home"))}</a>
-         |        ${_home_nav_items(config)}
+         |        ${_category_nav_menu(locale, _regular_category_summaries(config.sourcePath), "")}
          |      </div>
          |    </div>
          |  </nav>
          |</header>
-         |<div class="body">
-         |  ${_home_nav_container(config)}
+         |<div class="body body-dashboard">
          |  <main class="article">
          |    <div class="toolbar" role="navigation">
          |      <button class="nav-toggle"></button>
@@ -1064,11 +1070,10 @@ private[cozy] object CozyBok {
          |      </nav>
          |    </div>
          |    <div class="content">
-         |      ${_home_toc_panel(config, locale)}
          |      <article class="doc">
          |        <h1 class="page">${_html_escape(_uif(locale, "home.page.title", config.siteTitle))}</h1>
          |        <p>${_html_escape(_ui(locale, "home.intro"))}</p>
-         |        ${_home_dashboard(config)}
+         |        ${_home_dashboard(config, locale)}
          |        ${_source_narrative_section(config.sourcePath.resolve("index.dox"), locale)}
          |        <div class="sect1" id="categories">
          |          <h2>${_html_escape(_ui(locale, "category.portfolio"))}</h2>
@@ -1222,7 +1227,7 @@ private[cozy] object CozyBok {
        |  <div class="sectionbody">
        |    <ul>
        |      <li><code>cozy bok doctor</code>: ${_html_escape(_ui(locale, "manual.operation.doctor"))}</li>
-       |      <li><code>cozy bok build . --strategy preview</code>: ${_html_escape(_ui(locale, "manual.operation.build"))}</li>
+       |      <li><code>cozy bok build --strategy preview</code>: ${_html_escape(_ui(locale, "manual.operation.build"))}</li>
        |      <li><code>cozy bok preview</code>: ${_html_escape(_ui(locale, "manual.operation.preview"))}</li>
        |      <li><code>cozy bok publish . --dry-run</code>: ${_html_escape(_ui(locale, "manual.operation.publish.dryrun"))}</li>
        |    </ul>
@@ -1530,7 +1535,7 @@ private[cozy] object CozyBok {
        |  <link rel="stylesheet" href="${_html_escape(_site_asset_href(config, page, "_/css/site.css"))}">
        |</head>
        |<body class="article">
-       |${_category_header(config, categories)}
+       |${_category_header(config, categories, locale)}
        |<div class="body">
        |  ${_special_nav_container(config, categories)}
        |  <main class="article">
@@ -1660,9 +1665,8 @@ private[cozy] object CozyBok {
        |  <link rel="stylesheet" href="${_html_escape(_site_asset_href(config, page, "_/css/site.css"))}">
        |</head>
        |<body class="article">
-       |${_category_header(config, categories)}
-       |<div class="body">
-       |  ${_category_nav_container(config, category, categories)}
+       |${_category_header(config, categories, locale)}
+       |<div class="body body-dashboard">
        |  <main class="article">
        |    <div class="toolbar" role="navigation">
        |      <button class="nav-toggle"></button>
@@ -1675,7 +1679,6 @@ private[cozy] object CozyBok {
        |      </nav>
        |    </div>
        |    <div class="content">
-       |      ${_category_toc_panel(config, category, locale)}
        |      <article class="doc">
        |        <h1 class="page">${_html_escape(_uif(locale, "category.page.title", category.title))}</h1>
        |        <p>${_html_escape(_uif(locale, "category.intro", category.description))}</p>
@@ -1723,10 +1726,7 @@ private[cozy] object CozyBok {
        |</html>
        |""".stripMargin
 
-  private def _category_header(config: BuildConfig, categories: Vector[CategoryContent]): String = {
-    val items = categories.map { category =>
-      s"""<a class="navbar-item" href="../${_html_escape(category.slug)}/index.html">${_html_escape(category.title)}</a>"""
-    }.mkString("\n        ")
+  private def _category_header(config: BuildConfig, categories: Vector[CategoryContent], locale: String): String = {
     s"""<header class="header">
        |  <nav class="navbar">
        |    <div class="navbar-brand">
@@ -1739,8 +1739,8 @@ private[cozy] object CozyBok {
        |    </div>
        |    <div id="topbar-nav" class="navbar-menu">
        |      <div class="navbar-end">
-       |        <a class="navbar-item" href="../index.html">Home</a>
-       |        ${items}
+       |        <a class="navbar-item" href="../index.html">${_html_escape(_ui(locale, "nav.home"))}</a>
+       |        ${_category_nav_menu(locale, categories.map(x => CategorySummary(x.slug, x.title, x.description, x.purpose)), "../")}
        |      </div>
        |    </div>
        |  </nav>
@@ -1884,10 +1884,20 @@ private[cozy] object CozyBok {
   private def _regex_first(value: String, regex: String): Option[String] =
     regex.r.findFirstMatchIn(value).map(_.group(1))
 
-  private def _home_nav_items(config: BuildConfig): String =
-    _regular_category_summaries(config.sourcePath).map { category =>
-      s"""<a class="navbar-item" href="${_html_escape(category.slug)}/index.html">${_html_escape(category.title)}</a>"""
-    }.mkString("\n        ")
+  private def _category_nav_menu(locale: String, categories: Vector[CategorySummary], prefix: String): String =
+    if (categories.isEmpty)
+      ""
+    else {
+      val items = categories.map { category =>
+        s"""<a class="navbar-dropdown-item" href="${_html_escape(prefix)}${_html_escape(category.slug)}/index.html">${_html_escape(category.title)}</a>"""
+      }.mkString("\n          ")
+      s"""<details class="navbar-dropdown">
+         |  <summary class="navbar-dropdown-toggle">${_html_escape(_ui(locale, "nav.categories"))}</summary>
+         |  <div class="navbar-dropdown-menu">
+         |          ${items}
+         |  </div>
+         |</details>""".stripMargin
+    }
 
   private def _home_nav_container(config: BuildConfig): String = {
     val items = _regular_category_summaries(config.sourcePath).map { category =>
@@ -1939,7 +1949,7 @@ private[cozy] object CozyBok {
     else
       ""
 
-  private def _home_dashboard(config: BuildConfig): String = {
+  private def _home_dashboard(config: BuildConfig, locale: String): String = {
     val purpose = _bok_purpose(config)
     val dashboard = _dashboard(config)
     if (dashboard.isEmpty && purpose.isEmpty)
@@ -1948,24 +1958,16 @@ private[cozy] object CozyBok {
       s"""<div class="sect1" id="dashboard">
          |  <h2>Dashboard</h2>
          |  <div class="sectionbody">
-         |    ${_purpose_dashboard(purpose)}
-         |    ${dashboard.map(x => _dashboard_cards(x.counts, includecategories = true)).getOrElse("")}
-         |    ${dashboard.map(x => _dashboard_rdf_cards(x.rdf)).getOrElse("")}
-         |    ${dashboard.map(x => _dashboard_distribution_chart(x.counts, "BoK item distribution")).getOrElse("")}
-         |    ${dashboard.map(x => _dashboard_increment_chart(x.increments, "BoK additions")).getOrElse("")}
+         |    ${_home_dashboard_grid(config, purpose, dashboard, locale)}
          |  </div>
          |</div>""".stripMargin
   }
 
   private def _category_dashboard(config: BuildConfig, category: CategoryContent, locale: String): String = {
-    val purpose = _purpose_dashboard(category.purpose)
-    val dashboard = _dashboard(config).flatMap(_.categories.find(_.name == category.slug)).map { dashboard =>
-      s"""${_dashboard_cards(dashboard.counts, includecategories = false)}
-         |${_dashboard_distribution_chart(dashboard.counts, s"${dashboard.title} item distribution")}
-         |${_dashboard_increment_chart(dashboard.increments, s"${dashboard.title} additions")}""".stripMargin
-    }
-    if (purpose.nonEmpty || dashboard.isDefined)
-      purpose + dashboard.getOrElse("")
+    val site = _dashboard(config)
+    val dashboard = site.flatMap(_.categories.find(_.name == category.slug))
+    if (!category.purpose.isEmpty || dashboard.isDefined)
+      _category_dashboard_grid(config, category, dashboard, site.map(_.rdf), locale)
     else
       s"<p>${_html_escape(_ui(locale, "dashboard.unavailable"))}</p>"
   }
@@ -1995,6 +1997,184 @@ private[cozy] object CozyBok {
       ""
     else
       values.map(x => s"<li>${_html_escape(x)}</li>").mkString(s"<div><strong>${label}:</strong><ul>", "", "</ul></div>")
+
+  private def _home_dashboard_grid(config: BuildConfig, purpose: BokPurpose, dashboard: Option[BokDashboard], locale: String): String = {
+    val cards = Vector[Option[String]](
+      Some(_dashboard_card("col-12 col-xl-8", "bok-card-purpose", _ui(locale, "dashboard.card.purpose"), _purpose_card_body(locale, purpose))),
+      Some(_dashboard_card("col-12 col-md-6 col-xl-4", "bok-card-readiness", _ui(locale, "dashboard.card.readiness"), _home_readiness_body(locale, config, dashboard))),
+      dashboard.map(x => _kpi_card(locale, "col-6 col-md-3", _ui(locale, "dashboard.kpi.categories"), x.counts.categoryCount.toString, _ui(locale, "dashboard.kpi.categories.note"))),
+      dashboard.map(x => _kpi_card(locale, "col-6 col-md-3", _ui(locale, "dashboard.kpi.articles"), x.counts.articleCount.toString, _ui(locale, "dashboard.kpi.articles.note"))),
+      dashboard.map(x => _kpi_card(locale, "col-6 col-md-3", _ui(locale, "dashboard.kpi.terms"), x.counts.glossaryTermCount.toString, _ui(locale, "dashboard.kpi.terms.note"))),
+      dashboard.map(x => _kpi_card(locale, "col-6 col-md-3", _ui(locale, "dashboard.kpi.rdf.triples"), x.rdf.tripleCount.toString, _ui(locale, "dashboard.kpi.rdf.triples.note"))),
+      dashboard.map(x => _dashboard_card("col-12 col-xl-8", "bok-card-chart", _ui(locale, "dashboard.card.growth"), _dashboard_increment_chart(locale, x.increments, _ui(locale, "dashboard.chart.bok.additions")))),
+      Some(_dashboard_card("col-12 col-xl-4", "bok-card-quality", _ui(locale, "dashboard.card.quality.alerts"), _quality_alerts_body(locale, dashboard.isDefined))),
+      dashboard.map(x => _dashboard_card("col-12 col-xl-7", "bok-card-matrix", _ui(locale, "dashboard.card.category.matrix"), _category_matrix_body(locale, x))),
+      dashboard.map(x => _dashboard_card("col-12 col-md-6 col-xl-3", "bok-card-activity", _ui(locale, "dashboard.card.recent.activity"), _recent_activity_body(locale, x.increments))),
+      Some(_dashboard_card("col-12 col-md-6 col-xl-2", "bok-card-actions", _ui(locale, "dashboard.card.next.actions"), _next_actions_body(locale, config)))
+    ).flatten
+    _dashboard_container(cards)
+  }
+
+  private def _category_dashboard_grid(
+    config: BuildConfig,
+    category: CategoryContent,
+    dashboard: Option[DashboardCategory],
+    rdf: Option[DashboardRdfSummary],
+    locale: String
+  ): String = {
+    val cards = Vector[Option[String]](
+      Some(_dashboard_card("col-12 col-xl-8", "bok-card-purpose", _ui(locale, "dashboard.card.category.purpose"), _purpose_card_body(locale, category.purpose))),
+      Some(_dashboard_card("col-12 col-md-6 col-xl-4", "bok-card-readiness", _ui(locale, "dashboard.card.category.readiness"), _category_readiness_body(locale, dashboard))),
+      dashboard.map(x => _kpi_card(locale, "col-6 col-md-3", _ui(locale, "dashboard.kpi.articles"), x.counts.articleCount.toString, _ui(locale, "dashboard.kpi.category.articles.note"))),
+      dashboard.map(x => _kpi_card(locale, "col-6 col-md-3", _ui(locale, "dashboard.kpi.terms"), x.counts.glossaryTermCount.toString, _ui(locale, "dashboard.kpi.category.terms.note"))),
+      rdf.map(x => _kpi_card(locale, "col-6 col-md-3", _ui(locale, "dashboard.kpi.rdf"), x.tripleCount.toString, _ui(locale, "dashboard.kpi.rdf.note"))),
+      Some(_kpi_card(locale, "col-6 col-md-3", _ui(locale, "dashboard.kpi.issues"), "0", _ui(locale, "dashboard.kpi.issues.note"))),
+      dashboard.map(x => _dashboard_card("col-12 col-xl-7", "bok-card-chart", _ui(locale, "dashboard.card.category.growth"), _dashboard_increment_chart(locale, x.increments, _uif(locale, "dashboard.chart.category.additions", x.title)))),
+      Some(_dashboard_card("col-12 col-xl-5", "bok-card-quality", _ui(locale, "dashboard.card.local.quality.alerts"), _quality_alerts_body(locale, dashboard.isDefined))),
+      Some(_dashboard_card("col-12 col-xl-6", "bok-card-map", _ui(locale, "dashboard.card.article.map"), _page_map_body(category.articles, _ui(locale, "dashboard.article.empty")))),
+      Some(_dashboard_card("col-12 col-xl-6", "bok-card-map", _ui(locale, "dashboard.card.term.map"), _page_map_body(category.terms, _ui(locale, "dashboard.term.empty")))),
+      Some(_dashboard_card("col-12 col-md-6", "bok-card-activity", _ui(locale, "dashboard.card.recent.changes"), _category_recent_changes_body(locale, category))),
+      Some(_dashboard_card("col-12 col-md-6", "bok-card-related", _ui(locale, "dashboard.card.related.knowledge"), _related_knowledge_body(locale, config, category)))
+    ).flatten
+    _dashboard_container(cards)
+  }
+
+  private def _dashboard_container(cards: Vector[String]): String =
+    cards.mkString("""<div class="bok-dashboard container-fluid"><div class="row g-3">""", "\n", "</div></div>")
+
+  private def _dashboard_card(column: String, semantic: String, title: String, body: String): String =
+    s"""<div class="${_html_escape(column)}">
+       |  <section class="card bok-card ${_html_escape(semantic)}">
+       |    <div class="card-body">
+       |      <h3 class="card-title">${_html_escape(title)}</h3>
+       |      ${body}
+       |    </div>
+       |  </section>
+       |</div>""".stripMargin
+
+  private def _kpi_card(locale: String, column: String, label: String, value: String, note: String): String =
+    _dashboard_card(
+      column,
+      "bok-card-kpi",
+      label,
+      s"""<div class="bok-kpi-value">${_html_escape(value)}</div>
+         |<div class="bok-kpi-label">${_html_escape(label)}</div>
+         |<div class="bok-kpi-note">${_html_escape(note)}</div>""".stripMargin
+    )
+
+  private def _purpose_card_body(locale: String, purpose: BokPurpose): String =
+    if (purpose.isEmpty)
+      s"""<p class="bok-card-muted">${_html_escape(_ui(locale, "dashboard.purpose.empty"))}</p>"""
+    else
+      s"""${purpose.vision.map(x => s"""<p class="bok-purpose-vision"><strong>${_html_escape(_ui(locale, "dashboard.purpose.vision"))}:</strong> ${_html_escape(x)}</p>""").getOrElse("")}
+         |${_limited_purpose_list(locale, _ui(locale, "dashboard.purpose.goals"), purpose.goals)}
+         |${_limited_purpose_list(locale, _ui(locale, "dashboard.purpose.subgoals"), purpose.subgoals)}""".stripMargin
+
+  private def _limited_purpose_list(locale: String, label: String, values: Vector[String]): String =
+    if (values.isEmpty)
+      ""
+    else {
+      val shown = values.take(3).map(x => s"<li>${_html_escape(x)}</li>").mkString
+      val more = if (values.size > 3) s"""<li class="bok-more">${_html_escape(_uif(locale, "dashboard.more", values.size - 3))}</li>""" else ""
+      s"""<div class="bok-purpose-list"><strong>${_html_escape(label)}:</strong><ul>${shown}${more}</ul></div>"""
+    }
+
+  private def _home_readiness_body(locale: String, config: BuildConfig, dashboard: Option[BokDashboard]): String =
+    _definition_list(Vector(
+      _ui(locale, "dashboard.readiness.strategy") -> config.strategy,
+      _ui(locale, "dashboard.readiness.scope") -> config.siteOutputScopePolicy,
+      _ui(locale, "dashboard.readiness.metadata") -> dashboard.map(_ => _ui(locale, "dashboard.status.available")).getOrElse(_ui(locale, "dashboard.status.missing")),
+      _ui(locale, "dashboard.readiness.issue.count") -> _ui(locale, "dashboard.status.zero.known")
+    ))
+
+  private def _category_readiness_body(locale: String, dashboard: Option[DashboardCategory]): String =
+    _definition_list(Vector(
+      _ui(locale, "dashboard.readiness.status") -> _ui(locale, "dashboard.status.active"),
+      _ui(locale, "dashboard.readiness.metadata") -> dashboard.map(_ => _ui(locale, "dashboard.status.available")).getOrElse(_ui(locale, "dashboard.status.missing")),
+      _ui(locale, "dashboard.readiness.freshness") -> dashboard.flatMap(_.increments.buckets.lastOption.map(_.label)).getOrElse(_ui(locale, "dashboard.activity.none")),
+      _ui(locale, "dashboard.readiness.issue.count") -> _ui(locale, "dashboard.status.zero.known")
+    ))
+
+  private def _definition_list(items: Vector[(String, String)]): String =
+    items.map {
+      case (label, value) =>
+        s"""<div class="bok-definition-row"><span>${_html_escape(label)}</span><strong>${_html_escape(value)}</strong></div>"""
+    }.mkString("""<div class="bok-definition-list">""", "", "</div>")
+
+  private def _quality_alerts_body(locale: String, metadataavailable: Boolean): String = {
+    val items =
+      if (metadataavailable)
+        Vector(_ui(locale, "dashboard.quality.no.critical"), _ui(locale, "dashboard.quality.diagnostics.available"))
+      else
+        Vector(_ui(locale, "dashboard.quality.metadata.missing"), _ui(locale, "dashboard.quality.refresh"))
+    items.take(5).map(x => s"""<li class="list-group-item"><span class="badge bok-badge-info">info</span>${_html_escape(x)}</li>""").
+      mkString("""<ul class="list-group bok-alert-list">""", "", "</ul>")
+  }
+
+  private def _category_matrix_body(locale: String, dashboard: BokDashboard): String = {
+    val rows =
+      if (dashboard.categories.isEmpty)
+        s"""<tr><td colspan="5">${_html_escape(_ui(locale, "dashboard.category.metadata.empty"))}</td></tr>"""
+      else
+        dashboard.categories.map { category =>
+          val freshness = category.increments.buckets.lastOption.map(_.label).getOrElse("-")
+          s"""<tr>
+             |  <td>${_html_escape(category.title)}</td>
+             |  <td>${category.counts.articleCount}</td>
+             |  <td>${category.counts.glossaryTermCount}</td>
+             |  <td>${category.counts.totalItemCount}</td>
+             |  <td>${_html_escape(freshness)}</td>
+             |</tr>""".stripMargin
+        }.mkString("\n")
+    s"""<table class="bok-matrix-table">
+       |  <thead><tr><th>${_html_escape(_ui(locale, "dashboard.matrix.category"))}</th><th>${_html_escape(_ui(locale, "dashboard.kpi.articles"))}</th><th>${_html_escape(_ui(locale, "dashboard.kpi.terms"))}</th><th>${_html_escape(_ui(locale, "dashboard.matrix.total"))}</th><th>${_html_escape(_ui(locale, "dashboard.readiness.freshness"))}</th></tr></thead>
+       |  <tbody>${rows}</tbody>
+       |</table>
+       |${_dashboard_distribution_chart(locale, dashboard.counts, _ui(locale, "dashboard.chart.item.distribution"))}""".stripMargin
+  }
+
+  private def _recent_activity_body(locale: String, increments: DashboardIncrements): String =
+    if (increments.buckets.isEmpty)
+      s"""<p class="bok-card-muted">${_html_escape(_ui(locale, "dashboard.activity.empty"))}</p>"""
+    else
+      increments.buckets.takeRight(5).reverse.map { bucket =>
+        s"""<li class="list-group-item"><time datetime="${_html_escape(bucket.startDate)}">${_html_escape(bucket.label)}</time><strong>+${bucket.count}</strong></li>"""
+      }.mkString("""<ul class="list-group bok-activity-list">""", "", "</ul>")
+
+  private def _next_actions_body(locale: String, config: BuildConfig): String = {
+    val project = if (config.project == _logical_cwd) "" else " <bok-root>"
+    Vector(
+      s"cozy bok build${project} --strategy preview",
+      s"cozy bok preview${project}",
+      s"cozy bok publish${project} --dry-run",
+      _ui(locale, "dashboard.action.fix.diagnostics")
+    ).map(x => s"<li><code>${_html_escape(x)}</code></li>").
+      mkString("<ol class=\"bok-action-list\">", "", "</ol>")
+  }
+
+  private def _page_map_body(items: Vector[CategoryPageItem], empty: String): String =
+    if (items.isEmpty)
+      s"""<p class="bok-card-muted">${_html_escape(empty)}</p>"""
+    else {
+      val shown = items.take(5).map { item =>
+        s"""<li class="list-group-item"><a href="${_html_escape(item.href)}">${_html_escape(item.title)}</a><span>${_html_escape(item.brief)}</span></li>"""
+      }.mkString
+      val more = if (items.size > 5) s"""<li class="list-group-item bok-more">+${items.size - 5} more</li>""" else ""
+      s"""<ul class="list-group bok-map-list">${shown}${more}</ul>"""
+    }
+
+  private def _category_recent_changes_body(locale: String, category: CategoryContent): String = {
+    val items = (category.articles ++ category.terms).sortBy(-_.modifiedAtMillis).take(5)
+    _page_map_body(items, _ui(locale, "dashboard.local.change.empty"))
+  }
+
+  private def _related_knowledge_body(locale: String, config: BuildConfig, category: CategoryContent): String =
+    s"""<ul class="list-group bok-related-list">
+       |  <li class="list-group-item"><a href="../glossary/index.html">${_html_escape(_ui(locale, "glossary.title"))}</a></li>
+       |  <li class="list-group-item"><a href="../glossary/${_html_escape(category.slug)}/index.html">${_html_escape(_uif(locale, "dashboard.related.category.terms", category.title))}</a></li>
+       |  <li class="list-group-item"><a href="${_html_escape(_history_href(config, "../"))}">${_html_escape(_ui(locale, "history.title"))}</a></li>
+       |  <li class="list-group-item"><a href="../manual/index.html">${_html_escape(_ui(locale, "manual.title"))}</a></li>
+       |</ul>""".stripMargin
 
   private def _dashboard_cards(counts: DashboardCounts, includecategories: Boolean): String = {
     val categorycard =
@@ -2026,15 +2206,15 @@ private[cozy] object CozyBok {
        |</div>""".stripMargin
   }
 
-  private def _dashboard_distribution_chart(counts: DashboardCounts, label: String): String = {
+  private def _dashboard_distribution_chart(locale: String, counts: DashboardCounts, label: String): String = {
     val articlecount = counts.articleCount
     val termcount = counts.glossaryTermCount
     val total = math.max(1, articlecount + termcount)
     val articlewidth = _dashboard_bar_width(articlecount, total)
     val termwidth = _dashboard_bar_width(termcount, total)
     s"""<div class="bok-dashboard-chart" aria-label="${_html_escape(label)}" data-chart="distribution-ratio">
-       |  <div class="bok-chart-row"><span>Articles</span><div><b style="width:${articlewidth}%"></b></div><em>${articlecount}</em></div>
-       |  <div class="bok-chart-row"><span>Terms</span><div><b style="width:${termwidth}%"></b></div><em>${termcount}</em></div>
+       |  <div class="bok-chart-row"><span>${_html_escape(_ui(locale, "dashboard.kpi.articles"))}</span><div><b style="width:${articlewidth}%"></b></div><em>${articlecount}</em></div>
+       |  <div class="bok-chart-row"><span>${_html_escape(_ui(locale, "dashboard.kpi.terms"))}</span><div><b style="width:${termwidth}%"></b></div><em>${termcount}</em></div>
        |</div>""".stripMargin
   }
 
@@ -2062,11 +2242,11 @@ private[cozy] object CozyBok {
        |  </div>
        |</div>""".stripMargin
 
-  private def _dashboard_increment_chart(increments: DashboardIncrements, label: String): String =
+  private def _dashboard_increment_chart(locale: String, increments: DashboardIncrements, label: String): String =
     if (increments.buckets.isEmpty)
-      """<p>No dashboard increment metadata yet.</p>"""
+      s"""<p>${_html_escape(_ui(locale, "dashboard.increment.empty"))}</p>"""
     else if (!increments.buckets.forall(_.hasBreakdown))
-      _dashboard_increment_total_chart(increments, label)
+      _dashboard_increment_total_chart(locale, increments, label)
     else {
       val cumulativearticles = increments.buckets.scanLeft(0)(_ + _.articleCount).tail
       val cumulativeterms = increments.buckets.scanLeft(0)(_ + _.glossaryTermCount).tail
@@ -2087,19 +2267,19 @@ private[cozy] object CozyBok {
         case ((bucket, value), index) =>
           val cx = x(index)
           val cy = y(value)
-          val title = s"${bucket.label}: cumulative articles ${value} (+${bucket.articleCount})"
+          val title = _uif(locale, "dashboard.chart.title.cumulative.articles", bucket.label, value, bucket.articleCount)
           f"""      <circle class="bok-cumulative-point-articles" cx="${cx}%.2f" cy="${cy}%.2f" r="2.8"><title>${_html_escape(title)}</title></circle>"""
       }.mkString("\n")
       val termmarkers = increments.buckets.zip(cumulativeterms).zipWithIndex.map {
         case ((bucket, value), index) =>
           val cx = x(index)
           val cy = y(value)
-          val title = s"${bucket.label}: cumulative terms ${value} (+${bucket.glossaryTermCount})"
+          val title = _uif(locale, "dashboard.chart.title.cumulative.terms", bucket.label, value, bucket.glossaryTermCount)
           f"""      <circle class="bok-cumulative-point-terms" cx="${cx}%.2f" cy="${cy}%.2f" r="2.8"><title>${_html_escape(title)}</title></circle>"""
       }.mkString("\n")
       val axis = points.map {
         case (bucket, (articlevalue, termvalue)) =>
-          s"""    <span><time datetime="${_html_escape(bucket.startDate)}">${_html_escape(bucket.label)}</time><em>A:${articlevalue} T:${termvalue}</em></span>"""
+          s"""    <span><time datetime="${_html_escape(bucket.startDate)}">${_html_escape(bucket.label)}</time><em>${_html_escape(_uif(locale, "dashboard.chart.axis.article.term", articlevalue, termvalue))}</em></span>"""
       }.mkString("\n")
       val range = s"${increments.buckets.head.startDate} - ${increments.buckets.last.endDate}"
       s"""<div class="bok-dashboard-chart" aria-label="${_html_escape(label)}" data-chart="cumulative-date" data-scale="${_html_escape(increments.scale)}">
@@ -2109,7 +2289,7 @@ private[cozy] object CozyBok {
          |      <span class="bok-cumulative-chart-range">${_html_escape(range)}</span>
          |      <span class="bok-cumulative-chart-scale">${_html_escape(increments.scale)}</span>
          |    </div>
-         |    <svg class="bok-cumulative-chart-svg" viewBox="0 0 100 100" role="img" aria-label="${_html_escape(label)} cumulative additions">
+         |    <svg class="bok-cumulative-chart-svg" viewBox="0 0 100 100" role="img" aria-label="${_html_escape(_uif(locale, "dashboard.chart.aria.cumulative", label))}">
          |      <line class="bok-cumulative-axis-x" x1="6" y1="88" x2="94" y2="88"></line>
          |      <line class="bok-cumulative-axis-y" x1="6" y1="12" x2="6" y2="88"></line>
          |      <polyline class="bok-cumulative-line bok-cumulative-line-articles" points="${articlecoordinates}"></polyline>
@@ -2120,8 +2300,8 @@ private[cozy] object CozyBok {
          |      </g>
          |    </svg>
          |    <div class="bok-cumulative-legend">
-         |      <span><i class="bok-cumulative-marker bok-cumulative-marker-articles"></i>Articles</span>
-         |      <span><i class="bok-cumulative-marker bok-cumulative-marker-terms"></i>Terms</span>
+         |      <span><i class="bok-cumulative-marker bok-cumulative-marker-articles"></i>${_html_escape(_ui(locale, "dashboard.kpi.articles"))}</span>
+         |      <span><i class="bok-cumulative-marker bok-cumulative-marker-terms"></i>${_html_escape(_ui(locale, "dashboard.kpi.terms"))}</span>
          |    </div>
          |    <div class="bok-cumulative-axis">
          |${axis}
@@ -2130,7 +2310,7 @@ private[cozy] object CozyBok {
          |</div>""".stripMargin
     }
 
-  private def _dashboard_increment_total_chart(increments: DashboardIncrements, label: String): String = {
+  private def _dashboard_increment_total_chart(locale: String, increments: DashboardIncrements, label: String): String = {
     val cumulativetotals = increments.buckets.scanLeft(0)(_ + _.count).tail
     val max = math.max(1, cumulativetotals.max)
     val pointcount = increments.buckets.length
@@ -2145,7 +2325,7 @@ private[cozy] object CozyBok {
       case ((bucket, value), index) =>
         val cx = x(index)
         val cy = y(value)
-        val title = s"${bucket.label}: cumulative total ${value} (+${bucket.count})"
+        val title = _uif(locale, "dashboard.chart.title.cumulative.total", bucket.label, value, bucket.count)
         f"""      <circle class="bok-cumulative-point-total" cx="${cx}%.2f" cy="${cy}%.2f" r="2.8"><title>${_html_escape(title)}</title></circle>"""
     }.mkString("\n")
     val axis = increments.buckets.zip(cumulativetotals).map {
@@ -2160,7 +2340,7 @@ private[cozy] object CozyBok {
        |      <span class="bok-cumulative-chart-range">${_html_escape(range)}</span>
        |      <span class="bok-cumulative-chart-scale">${_html_escape(increments.scale)}</span>
        |    </div>
-       |    <svg class="bok-cumulative-chart-svg" viewBox="0 0 100 100" role="img" aria-label="${_html_escape(label)} cumulative additions">
+       |    <svg class="bok-cumulative-chart-svg" viewBox="0 0 100 100" role="img" aria-label="${_html_escape(_uif(locale, "dashboard.chart.aria.cumulative", label))}">
        |      <line class="bok-cumulative-axis-x" x1="6" y1="88" x2="94" y2="88"></line>
        |      <line class="bok-cumulative-axis-y" x1="6" y1="12" x2="6" y2="88"></line>
        |      <polyline class="bok-cumulative-line bok-cumulative-line-total" points="${coordinates}"></polyline>
@@ -2169,7 +2349,7 @@ private[cozy] object CozyBok {
        |      </g>
        |    </svg>
        |    <div class="bok-cumulative-legend">
-       |      <span><i class="bok-cumulative-marker bok-cumulative-marker-total"></i>Total</span>
+       |      <span><i class="bok-cumulative-marker bok-cumulative-marker-total"></i>${_html_escape(_ui(locale, "dashboard.matrix.total"))}</span>
        |    </div>
        |    <div class="bok-cumulative-axis">
        |${axis}
@@ -2641,7 +2821,7 @@ private[cozy] object CozyBok {
       |""".stripMargin
 
   private def _default_ui_css(): String =
-    """body {
+    s"""body {
       |  margin: 0;
       |  color: #1f2933;
       |  background: #ffffff;
@@ -2694,6 +2874,8 @@ private[cozy] object CozyBok {
       |  font-size: 1.05rem;
       |}
       |
+${_navbar_dropdown_css("      |")}
+      |
       |main.article {
       |  min-width: 0;
       |  padding: 2rem 2rem 4rem;
@@ -2706,6 +2888,20 @@ private[cozy] object CozyBok {
       |  max-width: 88rem;
       |  margin: 0 auto;
       |  padding: 0 1rem;
+      |}
+      |
+      |.body-dashboard {
+      |  display: block;
+      |  max-width: 112rem;
+      |}
+      |
+      |.body-dashboard main.article {
+      |  padding-left: 0;
+      |  padding-right: 0;
+      |}
+      |
+      |.body-dashboard .content {
+      |  display: block;
       |}
       |
       |.nav,
@@ -2792,12 +2988,341 @@ private[cozy] object CozyBok {
       |  border-top: 1px solid #d8dee4;
       |}
       |
+      |.container-fluid {
+      |  width: 100%;
+      |  box-sizing: border-box;
+      |}
+      |
+      |.row {
+      |  display: grid;
+      |  grid-template-columns: repeat(12, minmax(0, 1fr));
+      |}
+      |
+      |.g-3 {
+      |  gap: 1rem;
+      |}
+      |
+      |.col-12 {
+      |  grid-column: span 12;
+      |}
+      |
+      |.col-6 {
+      |  grid-column: span 6;
+      |}
+      |
+      |@media (min-width: 48rem) {
+      |  .col-md-3 {
+      |    grid-column: span 3;
+      |  }
+      |
+      |  .col-md-6 {
+      |    grid-column: span 6;
+      |  }
+      |}
+      |
+      |@media (min-width: 75rem) {
+      |  .col-xl-2 {
+      |    grid-column: span 2;
+      |  }
+      |
+      |  .col-xl-3 {
+      |    grid-column: span 3;
+      |  }
+      |
+      |  .col-xl-4 {
+      |    grid-column: span 4;
+      |  }
+      |
+      |  .col-xl-5 {
+      |    grid-column: span 5;
+      |  }
+      |
+      |  .col-xl-6 {
+      |    grid-column: span 6;
+      |  }
+      |
+      |  .col-xl-7 {
+      |    grid-column: span 7;
+      |  }
+      |
+      |  .col-xl-8 {
+      |    grid-column: span 8;
+      |  }
+      |}
+      |
+      |.card {
+      |  height: 100%;
+      |  background: #ffffff;
+      |  border: 1px solid rgba(31, 41, 51, 0.08);
+      |  border-radius: 16px;
+      |  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+      |}
+      |
+      |.card-body {
+      |  padding: 1rem;
+      |}
+      |
+      |.card-title {
+      |  margin: 0 0 0.75rem;
+      |  color: #1f2933;
+      |  font-size: 0.95rem;
+      |  font-weight: 800;
+      |  letter-spacing: 0.01em;
+      |}
+      |
+      |.badge {
+      |  display: inline-flex;
+      |  align-items: center;
+      |  border-radius: 999px;
+      |  padding: 0.14rem 0.5rem;
+      |  font-size: 0.72rem;
+      |  font-weight: 700;
+      |}
+      |
+      |.list-group {
+      |  list-style: none;
+      |  margin: 0;
+      |  padding: 0;
+      |}
+      |
+      |.list-group-item {
+      |  display: flex;
+      |  align-items: center;
+      |  justify-content: space-between;
+      |  gap: 0.75rem;
+      |  padding: 0.48rem 0;
+      |  border-bottom: 1px solid #eef2f7;
+      |}
+      |
+      |.list-group-item:last-child {
+      |  border-bottom: 0;
+      |}
+      |
+      |.progress {
+      |  height: 0.45rem;
+      |  overflow: hidden;
+      |  background: #e9ecef;
+      |  border-radius: 999px;
+      |}
+      |
+      |.bok-dashboard {
+      |  margin: 1rem 0 1.75rem;
+      |}
+      |
+      |.bok-card {
+      |  position: relative;
+      |  overflow: hidden;
+      |}
+      |
+      |.bok-card::before {
+      |  content: "";
+      |  position: absolute;
+      |  inset: 0 auto 0 0;
+      |  width: 0.28rem;
+      |  background: #228be6;
+      |}
+      |
+      |.bok-card-purpose::before {
+      |  background: #0ca678;
+      |}
+      |
+      |.bok-card-readiness::before {
+      |  background: #f08c00;
+      |}
+      |
+      |.bok-card-kpi::before {
+      |  background: #5c7cfa;
+      |}
+      |
+      |.bok-card-chart::before {
+      |  background: #15aabf;
+      |}
+      |
+      |.bok-card-quality::before {
+      |  background: #e67700;
+      |}
+      |
+      |.bok-card-matrix::before,
+      |.bok-card-map::before {
+      |  background: #7048e8;
+      |}
+      |
+      |.bok-card-actions::before,
+      |.bok-card-related::before {
+      |  background: #495057;
+      |}
+      |
+      |.bok-purpose-vision {
+      |  margin: 0 0 0.65rem;
+      |  color: #243b53;
+      |  font-size: 1rem;
+      |}
+      |
+      |.bok-purpose-list {
+      |  margin-top: 0.45rem;
+      |}
+      |
+      |.bok-purpose-list ul,
+      |.bok-action-list {
+      |  margin: 0.25rem 0 0;
+      |  padding-left: 1.2rem;
+      |}
+      |
+      |.bok-more,
+      |.bok-card-muted {
+      |  color: #6c757d;
+      |}
+      |
+      |.bok-kpi-value {
+      |  color: #172b4d;
+      |  font-size: 2rem;
+      |  font-weight: 850;
+      |  line-height: 1;
+      |}
+      |
+      |.bok-kpi-label {
+      |  margin-top: 0.4rem;
+      |  color: #1f2933;
+      |  font-weight: 800;
+      |}
+      |
+      |.bok-kpi-note {
+      |  color: #687782;
+      |  font-size: 0.82rem;
+      |}
+      |
+      |.bok-definition-row {
+      |  display: flex;
+      |  align-items: center;
+      |  justify-content: space-between;
+      |  gap: 1rem;
+      |  padding: 0.38rem 0;
+      |  border-bottom: 1px solid #eef2f7;
+      |}
+      |
+      |.bok-definition-row span {
+      |  color: #687782;
+      |}
+      |
+      |.bok-definition-row strong {
+      |  color: #1f2933;
+      |  text-align: right;
+      |}
+      |
+      |.bok-badge-info {
+      |  color: #0b5cad;
+      |  background: #e7f5ff;
+      |}
+      |
+      |.bok-alert-list .list-group-item {
+      |  justify-content: flex-start;
+      |}
+      |
+      |.bok-matrix-table {
+      |  width: 100%;
+      |  border-collapse: collapse;
+      |  font-size: 0.86rem;
+      |}
+      |
+      |.bok-matrix-table th,
+      |.bok-matrix-table td {
+      |  padding: 0.45rem 0.35rem;
+      |  border-bottom: 1px solid #eef2f7;
+      |  text-align: left;
+      |}
+      |
+      |.bok-matrix-table th {
+      |  color: #52616b;
+      |  font-size: 0.75rem;
+      |  letter-spacing: 0.05em;
+      |  text-transform: uppercase;
+      |}
+      |
+      |.bok-map-list .list-group-item {
+      |  align-items: flex-start;
+      |  flex-direction: column;
+      |}
+      |
+      |.bok-map-list span {
+      |  color: #687782;
+      |  font-size: 0.82rem;
+      |}
+      |
+      |.bok-dashboard-grid {
+      |  display: grid;
+      |  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+      |  gap: 1rem;
+      |  margin: 1rem 0;
+      |}
+      |
+      |.bok-metric-card {
+      |  background: #ffffff;
+      |  border: 1px solid #e9ecef;
+      |  border-radius: 0.8rem;
+      |  padding: 1rem;
+      |  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+      |}
+      |
+      |.bok-metric-label {
+      |  color: #52616b;
+      |  font-size: 0.78rem;
+      |  font-weight: 700;
+      |  letter-spacing: 0.06em;
+      |  text-transform: uppercase;
+      |}
+      |
+      |.bok-metric-value {
+      |  color: #172b4d;
+      |  font-size: 1.9rem;
+      |  font-weight: 850;
+      |}
+      |
+      |.bok-metric-note {
+      |  color: #687782;
+      |  font-size: 0.82rem;
+      |}
+      |
+      |.bok-dashboard-chart[data-chart="distribution-ratio"] {
+      |  margin: 1rem 0 0;
+      |}
+      |
+      |.bok-chart-row {
+      |  display: grid;
+      |  grid-template-columns: 5rem minmax(0, 1fr) 2.5rem;
+      |  align-items: center;
+      |  gap: 0.6rem;
+      |  margin: 0.45rem 0;
+      |  color: #52616b;
+      |  font-size: 0.86rem;
+      |}
+      |
+      |.bok-chart-row div {
+      |  height: 0.55rem;
+      |  overflow: hidden;
+      |  background: #edf2f7;
+      |  border-radius: 999px;
+      |}
+      |
+      |.bok-chart-row b {
+      |  display: block;
+      |  height: 100%;
+      |  background: linear-gradient(90deg, #5c7cfa, #15aabf);
+      |  border-radius: 999px;
+      |}
+      |
+      |.bok-chart-row em {
+      |  color: #1f2933;
+      |  font-style: normal;
+      |  font-weight: 700;
+      |  text-align: right;
+      |}
+      |
       |.bok-dashboard-chart[data-chart="cumulative-date"] {
-      |  background: #fff;
-      |  border-radius: 0.7rem;
-      |  margin: 1rem 0 1.5rem;
-      |  padding: 1rem 1.1rem;
-      |  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+      |  background: transparent;
+      |  border-radius: 0;
+      |  margin: 0;
+      |  padding: 0;
+      |  box-shadow: none;
       |}
       |
       |.bok-cumulative-chart-head {
@@ -2923,6 +3448,69 @@ private[cozy] object CozyBok {
       |  font-weight: 700;
       |}
       |""".stripMargin
+
+
+  private def _navbar_dropdown_css(prefix: String): String =
+    s"""${prefix}.navbar-dropdown {
+       |${prefix}  position: relative;
+       |${prefix}}
+       |${prefix}
+       |${prefix}.navbar-dropdown-toggle {
+       |${prefix}  display: inline-flex;
+       |${prefix}  align-items: center;
+       |${prefix}  cursor: pointer;
+       |${prefix}  font-weight: 600;
+       |${prefix}  list-style: none;
+       |${prefix}  white-space: nowrap;
+       |${prefix}}
+       |${prefix}
+       |${prefix}.navbar-dropdown-toggle::-webkit-details-marker {
+       |${prefix}  display: none;
+       |${prefix}}
+       |${prefix}
+       |${prefix}.navbar-dropdown-toggle::after {
+       |${prefix}  content: "v";
+       |${prefix}  margin-left: 0.35rem;
+       |${prefix}  color: #52616b;
+       |${prefix}  font-size: 0.78rem;
+       |${prefix}}
+       |${prefix}
+       |${prefix}.navbar-dropdown-menu {
+       |${prefix}  position: absolute;
+       |${prefix}  top: calc(100% + 0.55rem);
+       |${prefix}  right: 0;
+       |${prefix}  z-index: 20;
+       |${prefix}  display: none;
+       |${prefix}  min-width: 14rem;
+       |${prefix}  max-height: min(70vh, 28rem);
+       |${prefix}  overflow-y: auto;
+       |${prefix}  padding: 0.45rem;
+       |${prefix}  background: #ffffff;
+       |${prefix}  border: 1px solid #d8dee4;
+       |${prefix}  border-radius: 0.8rem;
+       |${prefix}  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.16);
+       |${prefix}}
+       |${prefix}
+       |${prefix}.navbar-dropdown[open] .navbar-dropdown-menu {
+       |${prefix}  display: block;
+       |${prefix}}
+       |${prefix}
+       |${prefix}.navbar-dropdown-item {
+       |${prefix}  display: block;
+       |${prefix}  color: #1f2933;
+       |${prefix}  padding: 0.45rem 0.6rem;
+       |${prefix}  border-radius: 0.55rem;
+       |${prefix}  text-decoration: none;
+       |${prefix}  white-space: nowrap;
+       |${prefix}}
+       |${prefix}
+       |${prefix}.navbar-dropdown-item:hover,
+       |${prefix}.navbar-dropdown-item:focus {
+       |${prefix}  color: #0b5cad;
+       |${prefix}  background: #e7f5ff;
+       |${prefix}  text-decoration: none;
+       |${prefix}}
+       |""".stripMargin
 
   private def _project(parsed: ParsedArgs): Path =
     _resolve_bok_project(parsed.pathProperty("project-dir").
@@ -3128,7 +3716,7 @@ private[cozy] object CozyBok {
         "4. define BoK Vision, Goals, and Subgoals in src/main/doxsite/site.conf",
         "5. define category Vision, Goals, and Subgoals in category.yaml when needed",
         "6. cozy bok doctor",
-        "7. cozy bok build ."
+        "7. cozy bok build"
       )
     ),
     (
@@ -3139,9 +3727,9 @@ private[cozy] object CozyBok {
         "2. cozy bok doctor",
         "3. cozy bok fix --dry-run",
         "4. update site.conf/category.yaml Vision, Goals, and Subgoals if operational intent changed",
-        "5. cozy bok build . --strategy preview",
-        s"6. cozy bok preview . --port ${_default_preview_port}",
-        s"7. open http://127.0.0.1:${_default_preview_port}/ in a browser; do not inspect website.d by file://"
+        "5. cozy bok build --strategy preview",
+        s"6. cozy bok preview --port ${_default_preview_port}",
+        s"7. open http://127.0.0.1:${_default_preview_port}/ in a browser; use the local Web server instead of opening website.d directly"
       )
     ),
     (
@@ -3163,7 +3751,7 @@ private[cozy] object CozyBok {
         "2. create src/main/doxsite/<category>/<slug>.video/video.yaml",
         "3. keep generated mp4/rdf/captions outside the .video source package",
         "4. cozy bok publish-video . --warehouse <warehouse-dir>",
-        "5. cozy bok build . --strategy preview"
+        "5. cozy bok build --strategy preview"
       )
     ),
     (
@@ -3219,9 +3807,13 @@ private[cozy] object CozyBok {
     inspection.root.toVector.flatMap { root =>
       val port = _bok_preview_port(root)
       Vector(
-        s"Build generated site: cozy bok build ${root} --strategy preview",
-        s"Serve generated website.d through a local Web server: cozy bok preview ${root} --port ${port}",
-        s"Open http://127.0.0.1:${port}/ in a browser; do not inspect generated HTML through file://"
+        "Build generated site from the BoK root: cozy bok build --strategy preview",
+        "Build generated site from another directory: cozy bok build <bok-root> --strategy preview",
+        s"Serve website.d from the BoK root: cozy bok preview --port ${port}",
+        s"Serve website.d from another directory: cozy bok preview <bok-root> --port ${port}",
+        s"Open http://127.0.0.1:${port}/ in a browser; use the local Web server instead of opening generated HTML directly",
+        "Strategy states: draft -> wip (work-in-progress) -> preview -> production/publish",
+        "Strategy meaning: draft/wip are authoring states, preview is local/site verification, production is publish/upload readiness"
       )
     }
 
@@ -3564,9 +4156,9 @@ private[cozy] object CozyBok {
        |${config.name}
        |
        |## BRIEF
-       |${config.name} の全体状況、主要カテゴリ、運用入口を集約するDashboard。
+       |${config.name} の目的、対象範囲、運用方針を説明するHome narrative。
        |
-       |# Dashboard
+       |# Overview
        |
        |${config.name} is a BoK site for organizing KnowledgeHub concepts, book knowledge materialization, RDF vocabulary, and operation terms.
        |
@@ -3581,10 +4173,6 @@ private[cozy] object CozyBok {
        |- `glossary/index.dox`: BoK内で共有する用語集。
        |- `history/index.dox`: BoK運用の更新履歴。
        |- `manual/index.dox`: BoK運用マニュアル。
-       |
-       |## Category Overview
-       |
-       |カテゴリを追加すると、各カテゴリトップページはDashboardとして生成されます。
        |
        |## Operation Focus
        |
@@ -3610,7 +4198,6 @@ private[cozy] object CozyBok {
     category: String,
     title: String,
     purpose: String,
-    bokpurpose: BokPurpose = BokPurpose.empty,
     articles: Vector[CategoryArticle] = Vector.empty,
     terms: Vector[CategoryTerm] = Vector.empty
   ): String =
@@ -3628,11 +4215,9 @@ private[cozy] object CozyBok {
        |## BRIEF
        |${purpose}
        |
-       |# Dashboard
+       |# Overview
        |
        |${purpose}
-       |
-       |${_purpose_dox(bokpurpose)}
        |
        |## Navigation
        |
@@ -3643,7 +4228,7 @@ private[cozy] object CozyBok {
        |
        |## Operation Notes
        |
-       |このページはカテゴリの状態を集約するDashboardです。カテゴリ配下の記事、用語、運用上の注目点をここに集約します。
+       |このページはカテゴリの人間向け説明です。カテゴリの背景、対象範囲、運用上の注意点を本文として記述します。
        |""".stripMargin
 
   private def _purpose_yaml(purpose: BokPurpose): String =
@@ -3661,16 +4246,6 @@ private[cozy] object CozyBok {
 
   private def _yaml_quote(value: String): String =
     "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
-
-  private def _purpose_dox(purpose: BokPurpose): String =
-    if (purpose.isEmpty)
-      ""
-    else
-      Vector(
-        purpose.vision.map(x => s"## Vision\n${x}\n"),
-        if (purpose.goals.nonEmpty) Some(purpose.goals.mkString("## Goals\n- ", "\n- ", "\n")) else None,
-        if (purpose.subgoals.nonEmpty) Some(purpose.subgoals.mkString("## Subgoals\n- ", "\n- ", "\n")) else None
-      ).flatten.mkString("\n")
 
   private def _dashboard_bar_width(value: Int, total: Int): Int =
     if (total <= 0)
@@ -3940,7 +4515,7 @@ private[cozy] object CozyBok {
        |
        |if [ ! -d "$$WEBSITE_BUILD_DIR" ]; then
        |  echo "Website build directory is missing: $$WEBSITE_BUILD_DIR" >&2
-       |  echo "Run: cozy bok build ." >&2
+       |  echo "Run: cozy bok build" >&2
        |  exit 2
        |fi
        |
@@ -3973,7 +4548,7 @@ private[cozy] object CozyBok {
       |
       |if [ ! -d "$WEBSITE_SOURCE_DIR" ]; then
       |  echo "Website source directory is missing: $WEBSITE_SOURCE_DIR" >&2
-      |  echo "Run: cozy bok build ." >&2
+      |  echo "Run: cozy bok build" >&2
       |  echo "Or set WEBSITE_SOURCE_DIR via bok.workflow.upload.env.WEBSITE_SOURCE_DIR." >&2
       |  exit 2
       |fi

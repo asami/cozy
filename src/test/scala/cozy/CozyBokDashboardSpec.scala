@@ -35,18 +35,18 @@ class CozyBokDashboardSpec extends AnyWordSpec with GivenWhenThen with SpecVocab
               |## BRIEF
               |Home narrative brief.
               |
-              |# Dashboard
+              |# Overview
               |
               |Home narrative source text.
               |
               |## Quick Links
               |
-              |- `cozy bok build` keeps generated dashboard data out of source.
+              |- `cozy bok build` keeps generated dashboard metadata out of source.
               |- Raw text <script>alert("bad")</script> is content, not executable markup.
               |
               |## Operation Focus
               |
-              |Operate this BoK through source files and generated dashboards.
+              |Operate this BoK through source files and generated dashboard pages.
               |""".stripMargin)
           _write(dir.resolve("src/main/doxsite/architecture/category.yaml"),
             """name: Architecture
@@ -62,7 +62,7 @@ class CozyBokDashboardSpec extends AnyWordSpec with GivenWhenThen with SpecVocab
               |## BRIEF
               |Architecture narrative brief.
               |
-              |# Dashboard
+              |# Overview
               |
               |Architecture narrative source text.
               |
@@ -71,27 +71,44 @@ class CozyBokDashboardSpec extends AnyWordSpec with GivenWhenThen with SpecVocab
               |Make architecture decisions reviewable.
               |""".stripMargin)
           val config = CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview"))
-          val runner = new RecordingRunner
+          val runner = new DashboardRunner
 
           When("Cozy builds dashboard pages")
           CozyBok.build(config, runner)
 
           Then("the Home dashboard includes the SmartDox-rendered narrative section")
-          _read(dir.resolve("website.d/index.html")) should include ("""href="_/css/site.css"""")
+          val home = _read(dir.resolve("website.d/index.html"))
+          home should include ("""href="_/css/site.css"""")
           _read(dir.resolve("website.d/architecture/index.html")) should include ("""href="../_/css/site.css"""")
-          _read(dir.resolve("website.d/index.html")) should include ("""id="narrative"""")
-          _read(dir.resolve("website.d/index.html")) should include ("Home narrative source text.")
-          _read(dir.resolve("website.d/index.html")) should include ("Quick Links")
-          _read(dir.resolve("website.d/index.html")) should include ("Operation Focus")
-          _read(dir.resolve("website.d/index.html")) should include ("Operate this BoK through source files and generated dashboards.")
-          _read(dir.resolve("website.d/index.html")) should not include ("""<html><head>""")
-          _read(dir.resolve("website.d/index.html")) should not include ("""application/ld+json""")
+          home should include ("""class="bok-dashboard container-fluid"""")
+          home should include ("""class="body body-dashboard"""")
+          home should not include ("""class="nav-container"""")
+          home should not include ("""class="toc sidebar"""")
+          home should include ("""class="row g-3"""")
+          home should include ("""class="card bok-card bok-card-purpose"""")
+          home should include ("""class="card bok-card bok-card-kpi"""")
+          home should include ("""class="card bok-card bok-card-chart"""")
+          home should include ("""id="narrative"""")
+          home should include ("Home narrative source text.")
+          home should include ("Quick Links")
+          home should include ("Operation Focus")
+          home should include ("Operate this BoK through source files and generated dashboard pages.")
+          val dashboardstart = home.indexOf("""class="bok-dashboard container-fluid"""")
+          val narrativestart = home.indexOf("""id="narrative"""")
+          dashboardstart should be < narrativestart
+          home.substring(dashboardstart, narrativestart) should not include ("Home narrative source text.")
+          home should not include ("""<html><head>""")
+          home should not include ("""application/ld+json""")
           And("raw source markup is not passed through by Cozy's own inline HTML conversion")
           _read(dir.resolve("website.d/index.html")) should not include ("<script>alert")
           And("the Category dashboard includes the SmartDox-rendered narrative section")
-          _read(dir.resolve("website.d/architecture/index.html")) should include ("""id="narrative"""")
-          _read(dir.resolve("website.d/architecture/index.html")) should include ("Architecture narrative source text.")
-          _read(dir.resolve("website.d/architecture/index.html")) should include ("Make architecture decisions reviewable.")
+          val category = _read(dir.resolve("website.d/architecture/index.html"))
+          category should include ("""class="body body-dashboard"""")
+          category should not include ("""class="nav-container"""")
+          category should not include ("""class="toc sidebar"""")
+          category should include ("""id="narrative"""")
+          category should include ("Architecture narrative source text.")
+          category should include ("Make architecture decisions reviewable.")
         }
       }
 
@@ -116,7 +133,7 @@ class CozyBokDashboardSpec extends AnyWordSpec with GivenWhenThen with SpecVocab
           )))
 
           Then("the Category index remains source narrative rather than generated dashboard output")
-          _read(dir.resolve("src/main/doxsite/knowledgehub/index.dox")) should include ("# Dashboard")
+          _read(dir.resolve("src/main/doxsite/knowledgehub/index.dox")) should include ("# Overview")
           _read(dir.resolve("src/main/doxsite/knowledgehub/index.dox")) should include ("KnowledgeHub category.")
           _read(dir.resolve("src/main/doxsite/knowledgehub/index.dox")) should include ("## Navigation")
           _read(dir.resolve("src/main/doxsite/knowledgehub/index.dox")) should not include ("""class="bok-metric-card"""")
@@ -144,7 +161,7 @@ class CozyBokDashboardSpec extends AnyWordSpec with GivenWhenThen with SpecVocab
             """Home
               |======
               |
-              |# Dashboard
+              |# Overview
               |
               |<span lang="ja">日本語ホーム本文</span><span lang="en">English home narrative</span>
               |""".stripMargin)
@@ -179,7 +196,7 @@ class CozyBokDashboardSpec extends AnyWordSpec with GivenWhenThen with SpecVocab
             """Home
               |======
               |
-              |# Dashboard
+              |# Overview
               |
               |<span lang="ja">日本語ホーム本文</span><span lang="en">English home narrative</span>
               |""".stripMargin)
@@ -192,7 +209,7 @@ class CozyBokDashboardSpec extends AnyWordSpec with GivenWhenThen with SpecVocab
             """Concept
               |=======
               |
-              |# Dashboard
+              |# Overview
               |
               |<span lang="ja">日本語カテゴリ本文</span><span lang="en">English category narrative</span>
               |""".stripMargin)
@@ -235,6 +252,55 @@ class CozyBokDashboardSpec extends AnyWordSpec with GivenWhenThen with SpecVocab
     def run(command: Vector[String], cwd: Path): Unit =
       calls = calls :+ (command -> cwd)
   }
+
+  private class DashboardRunner extends RecordingRunner {
+    override def run(command: Vector[String], cwd: Path): Unit = {
+      super.run(command, cwd)
+      if (command.take(2) == Vector("dox", "site"))
+        _write(cwd.resolve("doxsite.d/metadata/dashboard/site.json"), _dashboard_json)
+    }
+  }
+
+  private def _dashboard_json: String =
+    """{
+      |  "counts": {
+      |    "category_count": 1,
+      |    "article_count": 1,
+      |    "glossary_term_count": 1,
+      |    "total_item_count": 2
+      |  },
+      |  "rdf": {
+      |    "resource_count": 2,
+      |    "triple_count": 8,
+      |    "subject_count": 4,
+      |    "predicate_count": 3
+      |  },
+      |  "increments": {
+      |    "scale": "day",
+      |    "buckets": [
+      |      {"label": "2026-06-21", "start_date": "2026-06-21", "end_date": "2026-06-21", "count": 2, "article_count": 1, "glossary_term_count": 1}
+      |    ]
+      |  },
+      |  "categories": [
+      |    {
+      |      "name": "architecture",
+      |      "title": "Architecture",
+      |      "counts": {
+      |        "category_count": 0,
+      |        "article_count": 1,
+      |        "glossary_term_count": 1,
+      |        "total_item_count": 2
+      |      },
+      |      "increments": {
+      |        "scale": "day",
+      |        "buckets": [
+      |          {"label": "2026-06-21", "start_date": "2026-06-21", "end_date": "2026-06-21", "count": 2, "article_count": 1, "glossary_term_count": 1}
+      |        ]
+      |      }
+      |    }
+      |  ]
+      |}
+      |""".stripMargin
 
   private def _with_temp_dir[A](prefix: String)(f: Path => A): A = {
     val dir = Files.createTempDirectory(prefix)
