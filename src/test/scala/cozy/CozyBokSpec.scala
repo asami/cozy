@@ -59,7 +59,12 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
       dir.resolve("website.d") shouldNot existPath
       _read(dir.resolve("src/main/doxsite/index.dox")) should startWith ("Home\n======")
       _read(dir.resolve("src/main/doxsite/index.dox")) should include ("# Overview")
+      _read(dir.resolve("src/main/doxsite/index.dox")) should include ("KnowledgeHub BoK のカテゴリ、用語、RDFから知識を探索するための短い導入。")
+      _read(dir.resolve("src/main/doxsite/index.dox")) should include ("KnowledgeHub BoKは、カテゴリ、用語、RDFのつながりから知識を探索するためのBoKです。")
       _read(dir.resolve("src/main/doxsite/index.dox")) should not include ("## Quick Links")
+      _read(dir.resolve("src/main/doxsite/index.dox")) should not include ("## BoK Console")
+      _read(dir.resolve("src/main/doxsite/index.dox")) should not include ("## Operation Focus")
+      _read(dir.resolve("src/main/doxsite/index.dox")) should not include ("日本語単独運用")
       _read(dir.resolve("src/main/doxsite/history/index.dox")) should include ("# Dashboard")
       _read(dir.resolve("src/main/doxsite/manual/index.dox")) should include ("# Dashboard")
       _read(dir.resolve("src/main/doxsite/manual/index.dox")) should include ("cozy bok build")
@@ -141,6 +146,26 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
       header should not include ("Lexicon")
     }
   }
+
+    "create an English Home scaffold when requested" in {
+      _with_temp_dir("cozy-bok-create-english") { dir =>
+        Given("a requested English BoK project")
+        When("Cozy creates the BoK source scaffold")
+        CozyBok.create(CozyBok.CreateConfig.create(List(
+          "--save",
+          dir.toString,
+          "--name",
+          "KnowledgeHub BoK",
+          "--language",
+          "en"
+        )))
+
+        Then("the Home narrative seed uses English reader-facing text")
+        _read(dir.resolve("src/main/doxsite/index.dox")) should include ("A short introduction for exploring KnowledgeHub BoK through categories, terms, and RDF.")
+        _read(dir.resolve("src/main/doxsite/index.dox")) should include ("KnowledgeHub BoK is a BoK site for exploring knowledge through categories, terms, and RDF relationships.")
+        _read(dir.resolve("src/main/doxsite/index.dox")) should not include ("カテゴリ、用語、RDFから知識を探索")
+      }
+    }
 
     "create a category with article and term seeds" in {
     _with_temp_dir("cozy-bok-create-category") { dir =>

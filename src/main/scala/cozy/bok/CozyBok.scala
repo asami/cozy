@@ -5,7 +5,7 @@ import org.goldenport.cli.{Request => CliRequest}
 import org.goldenport.cli.spec
 import cozy.config.CozyProjectYamlConfig
 import cozy.video.{CozyVideo, CozyVideoPublisher}
-import org.smartdox.Dox
+import org.smartdox.{Body, Document, Dox}
 import org.smartdox.parser.Dox2Parser
 import org.smartdox.transformers.Dox2HtmlTransformer
 import org.smartdox.transformers.LanguageFilterTransformer
@@ -2721,14 +2721,18 @@ private[cozy] object CozyBok {
     else {
       val content = Files.readString(path, StandardCharsets.UTF_8)
       val dox = Dox2Parser.parseWithFilename(Dox2Parser.Config.default, path.toString, content)
-      val rule = Dox2HtmlTransformer.Rule(isDocument = false, isDefaultCss = false)
+      val rule = Dox2HtmlTransformer.Rule(isDocument = false, sectionBaseNumber = Some(2), isDefaultCss = false)
       val context = _smartdox_context(locale)
-      val html = Dox2HtmlTransformer(context, rule).transform(_language_filter(dox, context)).take
-      _strip_dashboard_owned_narrative_sections(_strip_dox_document_title(_dox_body_fragment(html))).trim
+      val body = _source_narrative_dox(_language_filter(dox, context))
+      _rendered_body_fragment(Dox2HtmlTransformer(context, rule).transform(body).take).trim
     }
 
-  private def _strip_dashboard_owned_narrative_sections(html: String): String =
-    """(?is)<section>\s*<h[2-6]>\s*(Quick Links|Category Portfolio|Navigation|Operation Notes)\s*</h[2-6]>.*?</section>""".r.replaceAllIn(html, "")
+  private def _source_narrative_dox(dox: Dox): Dox =
+    dox match {
+      case m: Document => Dox.toDox(m.body.contents)
+      case m: Body => Dox.toDox(m.contents)
+      case m => m
+    }
 
   private def _language_filter(dox: Dox, context: SmartDoxContext): Dox =
     Dox.transform(dox, new LanguageFilterTransformer(context.doxContext))
@@ -2791,10 +2795,7 @@ private[cozy] object CozyBok {
       "../" * depth
   }
 
-  private def _strip_dox_document_title(html: String): String =
-    html.replaceFirst("""(?s)\A\s*<h1[^>]*>.*?</h1>\s*""", "")
-
-  private def _dox_body_fragment(html: String): String =
+  private def _rendered_body_fragment(html: String): String =
     _regex_first(html, """(?s)<body>\s*<article[^>]*>(.*?)</article>\s*</body>""").
       orElse(_regex_first(html, """(?s)<body[^>]*>(.*?)</body>""")).
       getOrElse(html)
@@ -6136,23 +6137,27 @@ private[cozy] object CozyBok {
        |${config.name}
        |
        |## BRIEF
-       |${config.name} の目的、対象範囲、運用方針を説明するHome narrative。
+       |${_site_index_brief(config)}
        |
        |# Overview
        |
-       |${config.name} is a BoK site for organizing KnowledgeHub concepts, book knowledge materialization, RDF vocabulary, and operation terms.
-       |
-       |## BoK Console
-       |
-       |- `glossary/index.dox`: BoK内で共有する用語集。
-       |- `history/index.dox`: BoK運用の更新履歴。
-       |- `manual/index.dox`: BoK運用マニュアル。
-       |
-       |## Operation Focus
-       |
-       |このBoKはSmartDox本文、Category、RDF素材、用語自動リンクを中心に運用します。
-       |日本語単独運用のため、生成HTMLはサイトroot直下に配置します。
+       |${_site_index_overview(config)}
        |""".stripMargin
+
+  private def _site_index_brief(config: CreateConfig): String =
+    if (_is_japanese(config.language))
+      s"${config.name} のカテゴリ、用語、RDFから知識を探索するための短い導入。"
+    else
+      s"A short introduction for exploring ${config.name} through categories, terms, and RDF."
+
+  private def _site_index_overview(config: CreateConfig): String =
+    if (_is_japanese(config.language))
+      s"${config.name}は、カテゴリ、用語、RDFのつながりから知識を探索するためのBoKです。"
+    else
+      s"${config.name} is a BoK site for exploring knowledge through categories, terms, and RDF relationships."
+
+  private def _is_japanese(language: String): Boolean =
+    language.toLowerCase(Locale.ROOT).startsWith("ja")
 
   private def _category(
     name: String,

@@ -82,7 +82,8 @@ Primary dashboard content:
 - Term Hub links from category and glossary panels.
 - RDF graph link focused on selected category or term.
 - Recent additions that are useful for reading, not operation.
-- Narrative overview from `index.dox` below the dashboard command surface.
+- Optional short reader overview from `index.dox` below the dashboard command
+  surface.
 
 Low priority for this actor:
 
@@ -241,7 +242,7 @@ The Home Dashboard should use this vertical and visual priority:
 | 5 | Quality And Connectivity | Knowledge Contributor, BoK Manager | Medium | Expose isolated terms, weak links, missing metadata, and stale areas. |
 | 6 | Portfolio / Growth | BoK Manager, Knowledge Contributor | Medium | Show balance and growth without replacing User navigation. |
 | 7 | Operation Readiness | Site Administrator, BoK Manager | Compact | Show build, preview, publication, and upload readiness. |
-| 8 | Narrative Overview | User | Supporting | Render `index.dox` narrative below dashboard cards. |
+| 8 | Optional Reader Overview | User | Supporting | Render only short reader-facing `index.dox` overview below dashboard cards when present. |
 
 Home dashboard implications:
 
@@ -257,8 +258,9 @@ Home dashboard implications:
 - Quality alerts should be close enough to User navigation to show knowledge
   health, but they should not dominate the page.
 - Operation readiness should use compact cards and status badges.
-- Narrative content is useful, but it should support the dashboard rather than
-  replace metadata-driven navigation.
+- Narrative content is optional and should be short. It should explain the BoK
+  to a reader, not repeat links, operation settings, generation policy, or
+  metadata already shown by Dashboard cards.
 
 ### Category Dashboard Screen Order
 
@@ -366,7 +368,7 @@ priority actor it serves.
 | Portfolio / growth | BoK Manager first, Knowledge Contributor second | Growth and category balance indicate direction and coverage. They follow User navigation because they are management signals. |
 | Recent activity | User, Knowledge Contributor | Users want recent useful additions. Knowledge Contributors want recent change context. The section should avoid operational noise. |
 | Operation readiness | Site Administrator first, BoK Manager second | Build, preview, stage, upload, and manifest state matter, but they are lower priority on a shared public dashboard. They should be compact and status-oriented. |
-| Narrative overview | User | `index.dox` provides human narrative. It belongs after metadata-driven entry points because the dashboard should first expose current BoK structure and state. |
+| Optional reader overview | User | `index.dox` may provide short human narrative. It belongs after metadata-driven entry points and must not repeat dashboard links, operation settings, generation policy, or readiness facts. |
 
 User use-case mapping:
 

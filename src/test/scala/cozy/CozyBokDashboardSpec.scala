@@ -39,15 +39,6 @@ class CozyBokDashboardSpec extends AnyWordSpec with GivenWhenThen with SpecVocab
               |# Overview
               |
               |Home narrative source text.
-              |
-              |## Quick Links
-              |
-              |- `cozy bok build` keeps generated dashboard metadata out of source.
-              |- Raw text <script>alert("bad")</script> is content, not executable markup.
-              |
-              |## Operation Focus
-              |
-              |Operate this BoK through source files and generated dashboard pages.
               |""".stripMargin)
           _write(dir.resolve("src/main/doxsite/architecture/category.yaml"),
             """name: Architecture
@@ -66,14 +57,6 @@ class CozyBokDashboardSpec extends AnyWordSpec with GivenWhenThen with SpecVocab
               |# Overview
               |
               |Architecture narrative source text.
-              |
-              |## Navigation
-              |
-              |- <a href="../index.html">BoK Home</a>
-              |
-              |## Operation Notes
-              |
-              |This generated guidance belongs to dashboard metadata, not narrative output.
               |
               |## Focus
               |
@@ -145,8 +128,6 @@ class CozyBokDashboardSpec extends AnyWordSpec with GivenWhenThen with SpecVocab
           home should include ("""data-bok-actors="site_administrator project_manager"""")
           home should include ("""data-bok-actors="reader contributor project_manager"""")
           home should not include ("Category Portfolio")
-          home should include ("Operation Focus")
-          home should include ("Operate this BoK through source files and generated dashboard pages.")
           val dashboardstart = home.indexOf("""class="bok-dashboard container-fluid bok-dashboard-command-center"""")
           val narrativestart = home.indexOf("""id="narrative"""")
           val notificationstart = home.indexOf("""bok-card-notification""")
@@ -156,12 +137,8 @@ class CozyBokDashboardSpec extends AnyWordSpec with GivenWhenThen with SpecVocab
           notificationstart should be < matrixstart
           matrixstart should be < readinessstart
           home.substring(dashboardstart, narrativestart) should not include ("Home narrative source text.")
-          home.substring(narrativestart) should not include ("keeps generated dashboard metadata out of source")
-          home.substring(narrativestart) should not include ("Quick Links")
           home should not include ("""<html><head>""")
           home should not include ("""application/ld+json""")
-          And("raw source markup is not passed through by Cozy's own inline HTML conversion")
-          _read(dir.resolve("website.d/index.html")) should not include ("<script>alert")
           And("the Category dashboard includes the SmartDox-rendered narrative section")
           val category = _read(dir.resolve("website.d/architecture/index.html"))
           category should include ("""class="body body-dashboard"""")
@@ -178,8 +155,6 @@ class CozyBokDashboardSpec extends AnyWordSpec with GivenWhenThen with SpecVocab
           category should not include ("""<a href="#narrative">Narrative</a>""")
           category should include ("Architecture narrative source text.")
           category should include ("Make architecture decisions reviewable.")
-          category.substring(category.indexOf("""id="narrative"""")) should not include ("Navigation")
-          category.substring(category.indexOf("""id="narrative"""")) should not include ("This generated guidance belongs to dashboard metadata")
         }
       }
 
