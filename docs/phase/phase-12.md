@@ -34,7 +34,8 @@ into focused Cozy improvements.
 - [x] BK12-07: Scaffold/document drift diagnostics
 - [x] BK12-08: Upload workflow readiness
 - [x] BK12-09: Development findings and follow-up backlog
-- [ ] BK12-10: Phase closure
+- [x] BK12-10: Term hub and term-centric RDF navigation
+- [ ] BK12-11: Phase closure
 
 ## Acceptance Criteria
 
@@ -50,6 +51,12 @@ into focused Cozy improvements.
   a concrete Phase 12 improvement for missing-upload workflow behavior.
 - Any discovered scaffold/config/document drift is captured as implementation
   work or follow-up backlog.
+- Term-centered BoK operation is specified and implemented enough that glossary
+  terms become navigation hubs for related articles, related terms, RDF
+  resources, video/publication references, and provenance instead of remaining
+  only flat glossary entries.
+- RDF exploration supports both whole-graph views and term-neighborhood
+  navigation from the term hub.
 
 ## Progress Notes
 
@@ -175,6 +182,41 @@ into focused Cozy improvements.
   `DoxSiteGeneratorSpec`, SmartDox `sbt test`, Cozy `CozyBokSpec`, Cozy
   `sbt test`, KnowledgeHub `cozy bok build . --strategy preview`, and the
   expected `cozy bok upload .` missing-`AWS_S3_URI` failure.
+- 2026-06-22: Added BK12-10 as the next Phase 12 work item. The intent is to
+  make terms the primary BoK hub: SmartDox should provide authoritative
+  term-centered metadata, Cozy should render term detail hub pages, and RDF
+  navigation should support `?term=<slug>` neighborhoods in addition to the
+  whole graph and category views.
+- 2026-06-22: Defined BoK Dashboard audience actors in
+  `docs/design/bok-dashboard-audience-actors.md`. The canonical actor set is
+  User, Knowledge Contributor, BoK Manager, and Site Administrator. The design
+  records each actor's dashboard questions, content priorities, and rendering
+  implications so future Dashboard work can separate knowledge navigation,
+  contribution quality, project management, and site operation concerns.
+- 2026-06-22: Reworked Cozy Dashboard rendering to match the single-dashboard
+  actor priority `User > Knowledge Contributor > BoK Manager > Site Administrator`.
+  Home Dashboard now places Knowledge Entry, Category Matrix, Term Dashboard,
+  and RDF Graph navigation before purpose, growth, readiness, and operational
+  actions. Category Dashboard now places Term Map, Article Map, and RDF entry
+  before category purpose/readiness. Dashboard cards now emit
+  `data-bok-actors` metadata so the rendered screen records which audience
+  needs each card serves without introducing actor-specific pages or tabs.
+- 2026-06-22: Added display-only Dashboard actor filtering. The default view is
+  `reader` (User), and optional
+  `?actor=all|reader|contributor|project_manager|site_administrator` URL state
+  can change visible cards without creating actor-specific pages or any
+  authorization semantics.
+- 2026-06-22: Completed BK12-10. SmartDox now emits
+  `metadata/glossary/terms.json` and adds term IDs to RDF graph metadata.
+  Cozy consumes that metadata to render `glossary/index.html` as a term
+  dashboard, preserves existing `glossary/<category>/<term>.html` URLs as Term
+  Hub pages, copies term metadata into `website.d/metadata`, and adds
+  `rdf/index.html?term=<term-id>` filtering. Focused SmartDox and Cozy
+  executable specs passed. KnowledgeHub build verification was run with
+  `cozy bok build . --strategy preview`; the current KnowledgeHub source has no
+  glossary term entries yet, so operational output verified empty
+  `metadata/glossary/terms.json` fallback behavior and the RDF/Glossary page
+  generation boundary.
 
 ## References
 

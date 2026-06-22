@@ -11,6 +11,7 @@ import org.smartdox.transformers.Dox2HtmlTransformer
 import org.smartdox.transformers.LanguageFilterTransformer
 import org.smartdox.generator.{Context => SmartDoxContext}
 import org.goldenport.i18n.I18NContext
+import java.net.URLEncoder
 import java.time.LocalDate
 import java.util.Locale
 import java.nio.charset.StandardCharsets
@@ -24,7 +25,7 @@ import io.circe.parser
 
 /*
  * @since   Jun.  3, 2026
- * @version Jun. 21, 2026
+ * @version Jun. 22, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyBok {
@@ -147,7 +148,8 @@ private[cozy] object CozyBok {
     name: String,
     title: String,
     counts: DashboardCounts,
-    increments: DashboardIncrements
+    increments: DashboardIncrements,
+    rdf: Option[DashboardRdfSummary]
   )
   private final case class BokDashboard(
     counts: DashboardCounts,
@@ -155,6 +157,37 @@ private[cozy] object CozyBok {
     increments: DashboardIncrements,
     categories: Vector[DashboardCategory]
   )
+
+  private final case class TermIndex(terms: Vector[TermEntry])
+  private final case class TermEntry(
+    id: String,
+    slug: String,
+    title: String,
+    reading: Option[String],
+    category: Option[String],
+    sourcePath: String,
+    publicPath: String,
+    definitionHtml: String,
+    summary: Option[String],
+    aliases: Vector[String],
+    articleRefs: Vector[TermReference],
+    termRefs: Vector[TermReference],
+    rdfRefs: Vector[TermRdfReference],
+    videoRefs: Vector[TermReference],
+    quality: TermQuality
+  ) {
+    def categorySlug: String = category.getOrElse("glossary")
+    def glossaryHref: String = publicPath.stripPrefix("glossary/")
+    def termHubHrefFromHome: String = publicPath
+    def termHubHrefFromCategory: String = "../" + publicPath
+    def rdfHrefFromHome: String = s"rdf/index.html?term=${_url_query_escape(id)}"
+    def rdfHrefFromGlossary: String = s"../rdf/index.html?term=${_url_query_escape(id)}"
+    def rdfHrefFromCategory: String = s"../rdf/index.html?term=${_url_query_escape(id)}"
+    def rdfHrefFromTerm: String = s"../../rdf/index.html?term=${_url_query_escape(id)}"
+  }
+  private final case class TermReference(title: String, path: String, relation: String)
+  private final case class TermRdfReference(resource: String, label: String, predicate: Option[String], direction: String)
+  private final case class TermQuality(isolated: Boolean, unreferenced: Boolean, weaklyconnected: Boolean)
 
   private implicit val _dashboard_counts_decoder: Decoder[DashboardCounts] = (c: HCursor) =>
     for {
@@ -202,7 +235,8 @@ private[cozy] object CozyBok {
       title <- c.downField("title").as[String]
       counts <- c.downField("counts").as[DashboardCounts]
       increments <- c.downField("increments").as[DashboardIncrements]
-    } yield DashboardCategory(name, title, counts, increments)
+      rdf <- c.downField("rdf").as[Option[DashboardRdfSummary]]
+    } yield DashboardCategory(name, title, counts, increments, rdf)
 
   private implicit val _bok_dashboard_decoder: Decoder[BokDashboard] = (c: HCursor) =>
     for {
@@ -211,6 +245,52 @@ private[cozy] object CozyBok {
       increments <- c.downField("increments").as[DashboardIncrements]
       categories <- c.downField("categories").as[Vector[DashboardCategory]]
     } yield BokDashboard(counts, rdf, increments, categories)
+
+  private implicit val _term_reference_decoder: Decoder[TermReference] = (c: HCursor) =>
+    for {
+      title <- c.downField("title").as[String]
+      path <- c.downField("path").as[String]
+      relation <- c.downField("relation").as[Option[String]]
+    } yield TermReference(title, path, relation.getOrElse("related"))
+
+  private implicit val _term_rdf_reference_decoder: Decoder[TermRdfReference] = (c: HCursor) =>
+    for {
+      resource <- c.downField("resource").as[String]
+      label <- c.downField("label").as[String]
+      predicate <- c.downField("predicate").as[Option[String]]
+      direction <- c.downField("direction").as[Option[String]]
+    } yield TermRdfReference(resource, label, predicate, direction.getOrElse("node"))
+
+  private implicit val _term_quality_decoder: Decoder[TermQuality] = (c: HCursor) =>
+    for {
+      isolated <- c.downField("isolated").as[Option[Boolean]]
+      unreferenced <- c.downField("unreferenced").as[Option[Boolean]]
+      weaklyconnected <- c.downField("weakly_connected").as[Option[Boolean]]
+    } yield TermQuality(isolated.getOrElse(false), unreferenced.getOrElse(false), weaklyconnected.getOrElse(false))
+
+  private implicit val _term_entry_decoder: Decoder[TermEntry] = (c: HCursor) =>
+    for {
+      id <- c.downField("id").as[String]
+      slug <- c.downField("slug").as[String]
+      title <- c.downField("title").as[String]
+      reading <- c.downField("reading").as[Option[String]]
+      category <- c.downField("category").as[Option[String]]
+      sourcepath <- c.downField("source_path").as[String]
+      publicpath <- c.downField("public_path").as[String]
+      definitionhtml <- c.downField("definition_html").as[String]
+      summary <- c.downField("summary").as[Option[String]]
+      aliases <- c.downField("aliases").as[Option[Vector[String]]]
+      articlerefs <- c.downField("article_refs").as[Option[Vector[TermReference]]]
+      termrefs <- c.downField("term_refs").as[Option[Vector[TermReference]]]
+      rdfrefs <- c.downField("rdf_refs").as[Option[Vector[TermRdfReference]]]
+      videorefs <- c.downField("video_refs").as[Option[Vector[TermReference]]]
+      quality <- c.downField("quality").as[Option[TermQuality]]
+    } yield TermEntry(id, slug, title, reading, category, sourcepath, publicpath, definitionhtml, summary, aliases.getOrElse(Vector.empty), articlerefs.getOrElse(Vector.empty), termrefs.getOrElse(Vector.empty), rdfrefs.getOrElse(Vector.empty), videorefs.getOrElse(Vector.empty), quality.getOrElse(TermQuality(false, false, false)))
+
+  private implicit val _term_index_decoder: Decoder[TermIndex] = (c: HCursor) =>
+    for {
+      terms <- c.downField("terms").as[Option[Vector[TermEntry]]]
+    } yield TermIndex(terms.getOrElse(Vector.empty))
 
   final case class BuildConfig(
     project: Path,
@@ -1128,12 +1208,6 @@ private[cozy] object CozyBok {
          |      <article class="doc">
          |        ${_home_dashboard(config, locale)}
          |        ${_source_narrative_section(config.sourcePath.resolve("index.dox"), locale)}
-         |        <div class="sect1" id="categories">
-         |          <h2>${_html_escape(_ui(locale, "category.portfolio"))}</h2>
-         |          <div class="sectionbody">
-         |            ${_home_category_list(config, locale)}
-         |          </div>
-         |        </div>
          |        <div class="sect1" id="operation-policy">
          |          <h2>${_html_escape(_ui(locale, "operation.policy"))}</h2>
          |          <div class="sectionbody">
@@ -1168,8 +1242,11 @@ private[cozy] object CozyBok {
     writeLocalizedGlossaryIndexes: Boolean
   ): Unit = {
     val categories = _category_contents(config.sourcePath)
-    val glossarybody = _glossary_dashboard_body(config, categories, _language_index_root_prefix(config))
+    val terms = _terms(config, categories)
+    val glossarybody = _glossary_dashboard_body(config, categories, terms, _language_index_root_prefix(config), locale)
     val historyhref = _latest_history_year_page(target.resolve("history"))
+    _write_rdf_page(config, target, locale, categories)
+    _write_term_hub_pages(config, target, locale, categories, terms)
     _write_text(
       target.resolve("glossary").resolve("index.html"),
       _special_html_page(
@@ -1182,12 +1259,11 @@ private[cozy] object CozyBok {
         glossarybody
       )
     )
-    if (historyhref.isEmpty)
-      {
-        val historypage = target.resolve("history").resolve("index.html")
-        _write_text(
-          historypage,
-          _special_html_page_with_toc(
+    if (historyhref.isEmpty) {
+      val historypage = target.resolve("history").resolve("index.html")
+      _write_text(
+        historypage,
+        _special_html_page_with_toc(
           config,
           categories,
           locale,
@@ -1196,9 +1272,9 @@ private[cozy] object CozyBok {
           _ui(locale, "history.description"),
           _history_dashboard_body(locale),
           Vector("dashboard" -> "Dashboard", "timeline" -> "Timeline", "operation-notes" -> "Operation Notes")
-          )
         )
-      }
+      )
+    }
     val manualpage = target.resolve("manual").resolve("index.html")
     _write_text(
       manualpage,
@@ -1225,31 +1301,54 @@ private[cozy] object CozyBok {
     }
   }
 
+  private def _write_rdf_page(config: BuildConfig, target: Path, locale: String, categories: Vector[CategoryContent]): Unit = {
+    _copy_rdf_publication_artifacts(config, target)
+    val page = target.resolve("rdf").resolve("index.html")
+    _write_text(
+      page,
+      _rdf_dedicated_page(config, categories, locale, page)
+    )
+  }
+
+  private def _copy_rdf_publication_artifacts(config: BuildConfig, target: Path): Unit = {
+    _copy_if_exists(config.doxsitePath.resolve("site.ttl"), target.resolve("rdf").resolve("site.ttl"))
+    _copy_if_exists(config.doxsitePath.resolve("site.jsonld"), target.resolve("rdf").resolve("site.jsonld"))
+    _copy_if_exists(config.doxsitePath.resolve("metadata/rdf/graph.json"), target.resolve("metadata/rdf/graph.json"))
+    _copy_if_exists(config.doxsitePath.resolve("metadata/glossary/terms.json"), target.resolve("metadata/glossary/terms.json"))
+  }
+
+  private def _copy_if_exists(source: Path, target: Path): Unit =
+    if (Files.isRegularFile(source)) {
+      Option(target.getParent).foreach(Files.createDirectories(_))
+      Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
+    }
+
   private def _glossary_dashboard_body(
     config: BuildConfig,
     categories: Vector[CategoryContent],
-    languagerootprefix: String
+    terms: Vector[TermEntry],
+    languagerootprefix: String,
+    locale: String
   ): String = {
-    val terms = categories.flatMap { category =>
-      category.terms.map(term => category -> term)
-    }
     val categorycount = categories.size
-    val categorieswithterms = categories.count(_.terms.nonEmpty)
-    s"""<div class="sect1" id="term-groups">
-       |  <h2>Term Groups</h2>
+    val categorieswithterms = terms.flatMap(_.category).distinct.size
+    s"""<div class="sect1 bok-term-dashboard" id="term-groups">
+       |  <h2>${_html_escape(_ui(locale, "term.dashboard.title"))}</h2>
        |  <div class="sectionbody">
-       |    <p>SmartDox連動用語は <code>glossary/&lt;category&gt;/</code> に配置します。</p>
+       |    <p>${_html_escape(_ui(locale, "term.dashboard.description"))}</p>
+       |    <p>${_html_escape(_ui(locale, "term.dashboard.source.path"))} <code>glossary/&lt;category&gt;/</code></p>
        |    ${_glossary_metric_cards(categorycount, categorieswithterms, terms.size)}
+       |    ${_term_group_cards(locale, terms, categories)}
        |  </div>
        |</div>
        |<div class="sect1" id="language-index">
-       |  <h2>Language Index</h2>
+       |  <h2>${_html_escape(_ui(locale, "term.language.index"))}</h2>
        |  <div class="sectionbody">
        |    ${_glossary_language_links(config, languagerootprefix)}
        |  </div>
        |</div>
        |<div class="sect1" id="recent-terms">
-       |  <h2>Recent Terms</h2>
+       |  <h2>${_html_escape(_ui(locale, "term.recent"))}</h2>
        |  <div class="sectionbody">
        |    ${_glossary_recent_terms(terms)}
        |  </div>
@@ -1304,6 +1403,628 @@ private[cozy] object CozyBok {
        |  </div>
        |</div>""".stripMargin
 
+  private def _rdf_dedicated_page(
+    config: BuildConfig,
+    categories: Vector[CategoryContent],
+    locale: String,
+    page: Path
+  ): String =
+    s"""<!doctype html>
+       |<html lang="${_html_escape(locale)}">
+       |<head>
+       |  <meta charset="utf-8">
+       |  <meta name="viewport" content="width=device-width, initial-scale=1">
+       |  <title>${_html_escape(_ui(locale, "rdf.graph.title"))} - ${_html_escape(config.siteTitle)}</title>
+       |${_site_css_links(config, page)}
+       |</head>
+       |<body class="article ${_html_escape(_dashboard_theme_class(config))}">
+       |${_category_header(config, categories, locale)}
+       |<div class="body body-dashboard bok-rdf-body">
+       |  <main class="article bok-rdf-main">
+       |    <div class="content">
+       |      <article class="doc bok-rdf-doc">
+       |        ${_rdf_workspace(locale)}
+       |      </article>
+       |    </div>
+       |  </main>
+       |</div>
+       |</body>
+       |</html>
+       |""".stripMargin
+
+  private def _rdf_workspace(locale: String): String =
+    s"""<section class="bok-rdf-workspace" data-graph="../metadata/rdf/graph.json" data-terms="../metadata/glossary/terms.json" data-triples="site.ttl">
+       |  <div class="bok-rdf-hero">
+       |    <div>
+       |      <span class="bok-dashboard-eyebrow">RDF</span>
+       |      <h1 class="page">${_html_escape(_ui(locale, "rdf.graph.title"))}</h1>
+       |      <p>${_html_escape(_ui(locale, "rdf.graph.description"))}</p>
+       |    </div>
+       |    <div class="bok-rdf-hero-actions">
+       |      <a href="../index.html">${_html_escape(_ui(locale, "nav.home"))}</a>
+       |      <a href="site.ttl">site.ttl</a>
+       |      <a href="site.jsonld">site.jsonld</a>
+       |      <a href="../metadata/rdf/graph.json">graph.json</a>
+       |    </div>
+       |  </div>
+       |  <div class="bok-rdf-toolbar">
+       |    <div class="bok-rdf-view-switch" role="tablist" aria-label="RDF views">
+       |      <button class="is-active" type="button" data-rdf-view="graph">${_html_escape(_ui(locale, "rdf.graph.view.graph"))}</button>
+       |      <button type="button" data-rdf-view="triples">${_html_escape(_ui(locale, "rdf.graph.view.triples"))}</button>
+       |    </div>
+       |    <label>${_html_escape(_ui(locale, "rdf.graph.category.filter"))}<input id="bok-rdf-category-filter" type="text" placeholder="category"></label>
+       |    <label>${_html_escape(_ui(locale, "rdf.graph.term.filter"))}<input id="bok-rdf-term-filter" type="text" placeholder="term"></label>
+       |    <span id="bok-rdf-viewer-status">${_html_escape(_ui(locale, "rdf.graph.loading"))}</span>
+       |  </div>
+       |  <div class="bok-rdf-panels">
+       |    <section class="bok-rdf-panel bok-rdf-panel-graph is-active" data-rdf-panel="graph" aria-label="${_html_escape(_ui(locale, "rdf.graph.view.graph"))}">
+       |      <div id="bok-rdf-viewer-graph" class="bok-rdf-viewer-graph"></div>
+       |    </section>
+       |    <section class="bok-rdf-panel bok-rdf-panel-triples" data-rdf-panel="triples" aria-label="${_html_escape(_ui(locale, "rdf.graph.view.triples"))}">
+       |      <div class="bok-rdf-triples-header">
+       |        <strong>${_html_escape(_ui(locale, "rdf.graph.triples.title"))}</strong>
+       |        <span id="bok-rdf-triples-status">${_html_escape(_ui(locale, "rdf.graph.triples.loading"))}</span>
+       |      </div>
+       |      <pre id="bok-rdf-triples-view" class="bok-rdf-triples-view"></pre>
+       |    </section>
+       |  </div>
+       |</section>
+       |<script>
+       |${_rdf_viewer_script(locale)}
+       |</script>""".stripMargin
+
+  private def _rdf_viewer_script(locale: String): String =
+    s"""(function() {
+       |  const root = document.querySelector('.bok-rdf-workspace');
+       |  const graphTarget = document.getElementById('bok-rdf-viewer-graph');
+       |  const graphStatus = document.getElementById('bok-rdf-viewer-status');
+       |  const triplesTarget = document.getElementById('bok-rdf-triples-view');
+       |  const triplesStatus = document.getElementById('bok-rdf-triples-status');
+       |  const input = document.getElementById('bok-rdf-category-filter');
+       |  const termInput = document.getElementById('bok-rdf-term-filter');
+       |  if (!root || !graphTarget || !graphStatus) return;
+       |  const params = new URLSearchParams(window.location.search);
+       |  const initialCategory = params.get('category') || '';
+       |  const initialTerm = params.get('term') || '';
+       |  let focusedNodeId = null;
+       |  if (input) input.value = initialCategory;
+       |  if (termInput) termInput.value = initialTerm;
+       |  function activate(view) {
+       |    document.querySelectorAll('[data-rdf-view]').forEach(function(button) {
+       |      button.classList.toggle('is-active', button.getAttribute('data-rdf-view') === view);
+       |    });
+       |    document.querySelectorAll('[data-rdf-panel]').forEach(function(panel) {
+       |      panel.classList.toggle('is-active', panel.getAttribute('data-rdf-panel') === view);
+       |    });
+       |  }
+       |  document.querySelectorAll('[data-rdf-view]').forEach(function(button) {
+       |    button.addEventListener('click', function() { activate(button.getAttribute('data-rdf-view')); });
+       |  });
+       |  function hasTerm(item, term) {
+       |    return !term || (item.terms || []).indexOf(term) >= 0;
+       |  }
+       |  function termLabel(termIndex, term) {
+       |    const item = termIndex[term];
+       |    return item ? (item.title || term) : term;
+       |  }
+       |  function renderGraph(data, category, term, termIndex) {
+    const allNodes = (data.nodes || []).slice().sort(function(a, b) {
+      const degree = (b.degree || 0) - (a.degree || 0);
+      return degree !== 0 ? degree : String(a.id || '').localeCompare(String(b.id || ''));
+    });
+    const allEdges = (data.edges || []).slice().sort(function(a, b) {
+      return String(a.source || '').localeCompare(String(b.source || '')) ||
+        String(a.target || '').localeCompare(String(b.target || '')) ||
+        String(a.predicate || a.label || '').localeCompare(String(b.predicate || b.label || ''));
+    });
+    const categoryNodeIds = new Set();
+    const termNodeIds = new Set();
+    allNodes.forEach(function(node) {
+      if (category && node.category === category) categoryNodeIds.add(node.id);
+      if (term && hasTerm(node, term)) termNodeIds.add(node.id);
+    });
+    const matchingEdges = allEdges.filter(function(edge) {
+      const matchesCategory = !category || edge.category === category || categoryNodeIds.has(edge.source) || categoryNodeIds.has(edge.target);
+      const matchesTerm = !term || hasTerm(edge, term) || termNodeIds.has(edge.source) || termNodeIds.has(edge.target);
+      return matchesCategory && matchesTerm;
+    });
+    const edgeNodeIds = new Set();
+    matchingEdges.forEach(function(edge) {
+      if (edge.source) edgeNodeIds.add(edge.source);
+      if (edge.target) edgeNodeIds.add(edge.target);
+    });
+    const matchingNodes = allNodes.filter(function(node) {
+      const matchesCategory = !category || node.category === category || edgeNodeIds.has(node.id);
+      const matchesTerm = !term || hasTerm(node, term) || edgeNodeIds.has(node.id);
+      return matchesCategory && matchesTerm;
+    }).slice(0, 120);
+    const nodeIds = new Set(matchingNodes.map(function(node) { return node.id; }));
+    const edges = matchingEdges.filter(function(edge) {
+      return nodeIds.has(edge.source) && nodeIds.has(edge.target);
+    }).slice(0, 180);
+    const focus = focusedNodeId && nodeIds.has(focusedNodeId) ? focusedNodeId : null;
+    if (focusedNodeId && !focus) focusedNodeId = null;
+    const focusGraph = focus ? focusedGraphSlice(focus, matchingNodes, edges) : {
+      nodes: matchingNodes,
+      edges: edges,
+      roles: {}
+    };
+    const visibleNodes = focusGraph.nodes;
+    const visibleEdges = focusGraph.edges;
+    graphStatus.textContent = visibleNodes.length + ' nodes / ' + visibleEdges.length + ' edges' + (focus ? ' / focus: ' + label(focus) : '') + (data.truncated ? ' (truncated)' : '');
+    graphTarget.innerHTML =
+      '<div class="bok-rdf-graph-summary">' +
+        '<span><b>' + visibleNodes.length + '</b>nodes</span>' +
+        '<span><b>' + visibleEdges.length + '</b>edges</span>' +
+        '<span><b>' + escapeHtml(category || 'all') + '</b>category</span>' +
+        '<span><b>' + escapeHtml(term ? termLabel(termIndex, term) : 'all') + '</b>term</span>' +
+      '</div>' +
+      '<div class="bok-rdf-focus-bar">' +
+        (focus ? '<span>${_javascript_string(_ui(locale, "rdf.graph.focus.node"))}: <b>' + escapeHtml(label(focus)) + '</b></span><button type="button" data-rdf-clear-focus="true">${_javascript_string(_ui(locale, "rdf.graph.focus.clear"))}</button>' : '<span>${_javascript_string(_ui(locale, "rdf.graph.focus.help"))}</span>') +
+      '</div>' +
+      '<div class="bok-rdf-graph-layout">' +
+        '<div class="bok-rdf-graph-canvas" data-rdf-graph-canvas="true"></div>' +
+        '<div class="bok-rdf-graph-detail"><h2>Nodes</h2><div class="bok-rdf-node-cloud">' + visibleNodes.map(function(node) {
+          const degree = node.degree == null ? '-' : node.degree;
+          const role = focusGraph.roles[node.id] || 'normal';
+          return '<button type="button" class="bok-rdf-node bok-rdf-node-' + escapeHtml(cssName(node.node_type || node.type || 'unknown')) + ' bok-rdf-node-role-' + escapeHtml(role) + '" data-rdf-focus-node="' + escapeHtml(node.id) + '"><strong>' + escapeHtml(node.label || label(node.id)) + '</strong><em>' + escapeHtml(node.category || '-') + ' / degree ' + escapeHtml(degree) + '</em></button>';
+        }).join('') + '</div></div>' +
+      '</div>';
+    const canvas = graphTarget.querySelector('[data-rdf-graph-canvas]');
+    if (!canvas) return;
+    if (visibleNodes.length === 0) {
+      canvas.innerHTML = '<div class="bok-rdf-empty">No graph nodes match the current filter.</div>';
+      return;
+    }
+    const clearButton = graphTarget.querySelector('[data-rdf-clear-focus]');
+    if (clearButton) clearButton.addEventListener('click', function() { focusedNodeId = null; renderGraph(data, category, term, termIndex); });
+    graphTarget.querySelectorAll('[data-rdf-focus-node]').forEach(function(button) {
+      button.addEventListener('click', function() {
+        const node = visibleNodes.filter(function(item) { return item.id === button.getAttribute('data-rdf-focus-node'); })[0];
+        if (node) showNodeDetail(node, visibleEdges);
+      });
+    });
+    renderGraphSvg(canvas, visibleNodes, visibleEdges, focusGraph.roles, focus);
+  }
+  function focusedGraphSlice(focus, nodes, edges) {
+    const nodeMap = {};
+    nodes.forEach(function(node) { nodeMap[node.id] = node; });
+    const near = new Set([focus]);
+    const oneHopEdges = [];
+    edges.forEach(function(edge) {
+      if (edge.source === focus && edge.target) {
+        near.add(edge.target);
+        oneHopEdges.push(edge);
+      }
+      if (edge.target === focus && edge.source) {
+        near.add(edge.source);
+        oneHopEdges.push(edge);
+      }
+    });
+    const visibleIds = new Set(Array.from(near));
+    const schemaEdges = [];
+    const schemaEdgeKeys = new Set();
+    for (let depth = 0; depth < 4; depth += 1) {
+      let changed = false;
+      edges.forEach(function(edge) {
+        const sourceVisible = visibleIds.has(edge.source);
+        const targetVisible = visibleIds.has(edge.target);
+        if (!sourceVisible && !targetVisible) return;
+        const sourceNode = nodeMap[edge.source];
+        const targetNode = nodeMap[edge.target];
+        const requiredFromSource = sourceVisible && isSchemaRequiredEdge(edge, sourceNode, 'outgoing');
+        const requiredFromTarget = targetVisible && isSchemaRequiredEdge(edge, targetNode, 'incoming');
+        if (!requiredFromSource && !requiredFromTarget) return;
+        const key = edgeKey(edge);
+        if (!schemaEdgeKeys.has(key)) {
+          schemaEdgeKeys.add(key);
+          schemaEdges.push(edge);
+        }
+        if (edge.source && !visibleIds.has(edge.source)) {
+          visibleIds.add(edge.source);
+          changed = true;
+        }
+        if (edge.target && !visibleIds.has(edge.target)) {
+          visibleIds.add(edge.target);
+          changed = true;
+        }
+      });
+      if (!changed) break;
+    }
+    const roles = {};
+    Array.from(visibleIds).forEach(function(id) { roles[id] = near.has(id) ? 'near' : 'schema'; });
+    roles[focus] = 'focus';
+    const visibleNodes = nodes.filter(function(node) { return visibleIds.has(node.id); }).slice(0, 100);
+    const visibleNodeIds = new Set(visibleNodes.map(function(node) { return node.id; }));
+    const visibleEdgeKeys = new Set();
+    const visibleEdges = [];
+    oneHopEdges.concat(schemaEdges).forEach(function(edge) {
+      const key = edgeKey(edge);
+      if (!visibleEdgeKeys.has(key) && visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target)) {
+        visibleEdgeKeys.add(key);
+        visibleEdges.push(edge);
+      }
+    });
+    return {nodes: visibleNodes, edges: visibleEdges.slice(0, 160), roles: roles};
+  }
+  function isSchemaRequiredEdge(edge, node, direction) {
+    if (!node) return isDefaultDescriptionPredicate(edge.predicate || edge.label);
+    const schemaPredicates = schemaRequiredPredicates(node, direction);
+    if (schemaPredicates.length === 0) return isDefaultDescriptionPredicate(edge.predicate || edge.label);
+    return schemaPredicates.some(function(predicate) { return predicateMatches(edge, predicate); });
+  }
+  function schemaRequiredPredicates(node, direction) {
+    const schema = node.schema || {};
+    let values = [];
+    [
+      node.requiredPredicates,
+      node.required_predicates,
+      node.descriptivePredicates,
+      node.descriptive_predicates,
+      schema.requiredPredicates,
+      schema.required_predicates,
+      schema.descriptivePredicates,
+      schema.descriptive_predicates,
+      schema[direction + 'RequiredPredicates'],
+      schema[direction + '_required_predicates']
+    ].forEach(function(item) { values = values.concat(asArray(item)); });
+    return values.map(function(value) { return String(value); }).filter(Boolean);
+  }
+  function schemaInterpretation(node) {
+    const schema = node.schema || {};
+    const profile = currentPredicateProfile();
+    const required = uniqueStrings([node.requiredPredicates, node.required_predicates, schema.requiredPredicates, schema.required_predicates]);
+    const descriptive = uniqueStrings([node.descriptivePredicates, node.descriptive_predicates, schema.descriptivePredicates, schema.descriptive_predicates]);
+    const outgoing = uniqueStrings([schema.outgoingRequiredPredicates, schema.outgoing_required_predicates]);
+    const incoming = uniqueStrings([schema.incomingRequiredPredicates, schema.incoming_required_predicates]);
+    const fallback = required.length + descriptive.length + outgoing.length + incoming.length === 0;
+    const schemaPredicates = uniqueStrings([required, descriptive, outgoing, incoming]);
+    return {
+      profile: profile.name || 'cncf-rdf-1.5-hop-v1',
+      entityType: node.node_type || node.type || 'unknown',
+      category: node.category || '-',
+      predicateRoles: fallback ? Object.keys(profile.roles || {}).sort() : predicateRoles(schemaPredicates, profile),
+      identityPredicates: profileRolePredicates(profile, 'identity'),
+      linkPredicates: profileRolePredicates(profile, 'link'),
+      hierarchyPredicates: profileRolePredicates(profile, 'hierarchy'),
+      provenancePredicates: profileRolePredicates(profile, 'provenance'),
+      requiredPredicates: required,
+      descriptivePredicates: descriptive,
+      outgoingRequiredPredicates: outgoing,
+      incomingRequiredPredicates: incoming,
+      fallback: fallback,
+      expansion: fallback ? 'predicate profile fallback' : 'node schema metadata'
+    };
+  }
+  function defaultPredicateProfile() {
+    return {
+      name: 'cncf-rdf-1.5-hop-v1',
+      roles: {
+        identity: [
+          'rdf:type',
+          'owl:sameAs',
+          'schema:sameAs',
+          'skos:exactMatch',
+          'skos:closeMatch',
+          'textus:primaryRdfAnchor'
+        ],
+        descriptive: [
+          'rdfs:label',
+          'rdfs:comment',
+          'skos:prefLabel',
+          'skos:altLabel',
+          'skos:definition',
+          'schema:name',
+          'schema:title',
+          'schema:description',
+          'schema:summary'
+        ],
+        link: [
+          'rdfs:seeAlso',
+          'schema:about',
+          'schema:url',
+          'schema:memberOf'
+        ],
+        hierarchy: [
+          'skos:broader',
+          'skos:narrower',
+          'dcterms:isPartOf',
+          'dcterms:hasPart',
+          'schema:isPartOf',
+          'schema:hasPart'
+        ],
+        provenance: [
+          'dcterms:source',
+          'prov:wasDerivedFrom',
+          'prov:generatedAtTime',
+          'rdfs:isDefinedBy'
+        ]
+      }
+    };
+  }
+  function activePredicateProfile(data) {
+    const base = defaultPredicateProfile();
+    const configured = (data && data.predicateProfile) || {};
+    const roles = {};
+    Object.keys(base.roles).forEach(function(role) {
+      roles[role] = configured.roles && Object.prototype.hasOwnProperty.call(configured.roles, role) ?
+        uniqueStrings([base.roles[role], configured.roles[role]]) :
+        uniqueStrings([base.roles[role]]);
+    });
+    if (configured.roles) {
+      Object.keys(configured.roles).forEach(function(role) {
+        if (!roles[role]) roles[role] = uniqueStrings([configured.roles[role]]);
+      });
+    }
+    return {
+      name: configured.name || base.name,
+      roles: roles
+    };
+  }
+  function currentPredicateProfile() {
+    return window.__bokRdfPredicateProfile || defaultPredicateProfile();
+  }
+  function profileRolePredicates(profile, role) {
+    return uniqueStrings([profile && profile.roles && profile.roles[role]]);
+  }
+  function profilePredicates(profile) {
+    const roles = (profile && profile.roles) || {};
+    return uniqueStrings(Object.keys(roles).map(function(role) { return roles[role]; }));
+  }
+  function predicateRoles(predicates, profile) {
+    const roles = (profile && profile.roles) || {};
+    const result = [];
+    Object.keys(roles).sort().forEach(function(role) {
+      const rolePredicates = profileRolePredicates(profile, role);
+      const matched = predicates.some(function(predicate) {
+        return rolePredicates.some(function(candidate) {
+          return predicateKey(predicate) === predicateKey(candidate);
+        });
+      });
+      if (matched) result.push(role);
+    });
+    return result;
+  }
+  function uniqueStrings(values) {
+    const seen = new Set();
+    const result = [];
+    values.forEach(function(item) {
+      asArray(item).forEach(function(value) {
+        const text = String(value || '').trim();
+        if (text && !seen.has(text)) {
+          seen.add(text);
+          result.push(text);
+        }
+      });
+    });
+    return result;
+  }
+  function renderSchemaInterpretation(node) {
+    const interpretation = schemaInterpretation(node);
+    return '<div class="bok-rdf-node-schema">' +
+      '<strong>${_javascript_string(_ui(locale, "rdf.graph.node.schema"))}</strong>' +
+      '<dl class="bok-rdf-node-schema-object">' +
+        schemaProperty('profile', interpretation.profile) +
+        schemaProperty('entityType', interpretation.entityType) +
+        schemaProperty('category', interpretation.category) +
+        schemaProperty('expansion', interpretation.expansion) +
+        schemaProperty('predicateRoles', interpretation.predicateRoles) +
+        schemaProperty('identityPredicates', interpretation.identityPredicates) +
+        schemaProperty('linkPredicates', interpretation.linkPredicates) +
+        schemaProperty('hierarchyPredicates', interpretation.hierarchyPredicates) +
+        schemaProperty('provenancePredicates', interpretation.provenancePredicates) +
+        schemaProperty('requiredPredicates', interpretation.requiredPredicates) +
+        schemaProperty('descriptivePredicates', interpretation.descriptivePredicates) +
+        schemaProperty('outgoingRequiredPredicates', interpretation.outgoingRequiredPredicates) +
+        schemaProperty('incomingRequiredPredicates', interpretation.incomingRequiredPredicates) +
+        schemaProperty('fallback', interpretation.fallback ? 'true' : 'false') +
+      '</dl>' +
+    '</div>';
+  }
+  function schemaProperty(name, value) {
+    const rendered = Array.isArray(value) ? (value.length ? value.map(function(item) {
+      return '<code>' + escapeHtml(item) + '</code>';
+    }).join(' ') : '<em>-</em>') : '<code>' + escapeHtml(value) + '</code>';
+    return '<dt>' + escapeHtml(name) + '</dt><dd>' + rendered + '</dd>';
+  }
+  function asArray(value) {
+    if (Array.isArray(value)) return value;
+    if (value == null) return [];
+    return [value];
+  }
+  function predicateMatches(edge, predicate) {
+    const expected = predicateKey(predicate);
+    return predicateKey(edge.predicate) === expected || predicateKey(edge.label) === expected;
+  }
+  function isDefaultDescriptionPredicate(predicate) {
+    const key = predicateKey(predicate);
+    return profilePredicates(currentPredicateProfile()).some(function(candidate) {
+      return predicateKey(candidate) === key;
+    });
+  }
+  function predicateKey(value) {
+    return String(value || '').split(/[\\/#:]/).filter(Boolean).pop().toLowerCase().replace(/[^a-z0-9]/g, '');
+  }
+  function edgeKey(edge) {
+    return String(edge.source || '') + '\\n' + String(edge.predicate || edge.label || '') + '\\n' + String(edge.target || '');
+  }
+  function showNodeDetail(node, edges) {
+    const canvas = graphTarget.querySelector('[data-rdf-graph-canvas]');
+    if (!canvas || !node) return;
+    let panel = canvas.querySelector('.bok-rdf-node-popover');
+    if (!panel) {
+      panel = document.createElement('aside');
+      panel.setAttribute('class', 'bok-rdf-node-popover');
+      panel.setAttribute('role', 'dialog');
+      panel.setAttribute('aria-label', '${_javascript_string(_ui(locale, "rdf.graph.node.detail"))}');
+      canvas.appendChild(panel);
+    }
+    const related = edges.filter(function(edge) { return edge.source === node.id || edge.target === node.id; }).slice(0, 6);
+    panel.hidden = false;
+    panel.innerHTML =
+      '<button type="button" class="bok-rdf-node-popover-close" data-rdf-node-popover-close="true" aria-label="${_javascript_string(_ui(locale, "rdf.graph.node.close"))}">×</button>' +
+      '<div class="bok-rdf-node-popover-eyebrow">${_javascript_string(_ui(locale, "rdf.graph.node.detail"))}</div>' +
+      '<h2>' + escapeHtml(node.label || label(node.id)) + '</h2>' +
+      '<dl>' +
+        '<dt>ID</dt><dd title="' + escapeHtml(node.id) + '">' + escapeHtml(node.id) + '</dd>' +
+        '<dt>Category</dt><dd>' + escapeHtml(node.category || '-') + '</dd>' +
+        '<dt>Type</dt><dd>' + escapeHtml(node.node_type || node.type || '-') + '</dd>' +
+        '<dt>Degree</dt><dd>' + escapeHtml(node.degree == null ? '-' : node.degree) + '</dd>' +
+      '</dl>' +
+      renderSchemaInterpretation(node) +
+      '<div class="bok-rdf-node-popover-actions"><button type="button" data-rdf-neighborhood="true">${_javascript_string(_ui(locale, "rdf.graph.node.neighborhood"))}</button></div>' +
+      '<div class="bok-rdf-node-popover-relations"><strong>${_javascript_string(_ui(locale, "rdf.graph.node.relations"))}</strong><ul>' +
+        (related.length ? related.map(function(edge) { return '<li>' + escapeHtml(label(edge.source)) + ' <b>' + escapeHtml(edge.label || label(edge.predicate)) + '</b> ' + escapeHtml(label(edge.target)) + '</li>'; }).join('') : '<li>-</li>') +
+      '</ul></div>';
+    const close = panel.querySelector('[data-rdf-node-popover-close]');
+    if (close) close.addEventListener('click', function() { panel.hidden = true; });
+    const focusButton = panel.querySelector('[data-rdf-neighborhood]');
+    if (focusButton) focusButton.addEventListener('click', function() {
+      focusedNodeId = node.id;
+      renderGraph(window.__bokRdfGraphData, input ? input.value.trim() : '', termInput ? termInput.value.trim() : '', window.__bokRdfTermIndex || {});
+    });
+  }
+  function renderGraphSvg(canvas, nodes, edges, roles, focus) {
+    const svgNs = "http://www.w3.org/2000/svg";
+    const width = 1120;
+    const height = 660;
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute('class', 'bok-rdf-graph-svg');
+    svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', 'RDF graph');
+    const defs = document.createElementNS(svgNs, 'defs');
+    const marker = document.createElementNS(svgNs, 'marker');
+    marker.setAttribute('id', 'bok-rdf-arrow');
+    marker.setAttribute('viewBox', '0 0 10 10');
+    marker.setAttribute('refX', '8');
+    marker.setAttribute('refY', '5');
+    marker.setAttribute('markerWidth', '6');
+    marker.setAttribute('markerHeight', '6');
+    marker.setAttribute('orient', 'auto-start-reverse');
+    const arrow = document.createElementNS(svgNs, 'path');
+    arrow.setAttribute('d', 'M 0 0 L 10 5 L 0 10 z');
+    arrow.setAttribute('class', 'bok-rdf-graph-arrow');
+    marker.appendChild(arrow);
+    defs.appendChild(marker);
+    svg.appendChild(defs);
+    const positions = {};
+    const cx = width / 2;
+    const cy = height / 2;
+    const rx = width * 0.38;
+    const ry = height * 0.32;
+    nodes.forEach(function(node, index) {
+      const angle = nodes.length === 1 ? -Math.PI / 2 : (2 * Math.PI * index / nodes.length) - Math.PI / 2;
+      positions[node.id] = {
+        x: nodes.length === 1 ? cx : cx + Math.cos(angle) * rx,
+        y: nodes.length === 1 ? cy : cy + Math.sin(angle) * ry
+      };
+    });
+    const edgeLayer = document.createElementNS(svgNs, 'g');
+    edgeLayer.setAttribute('class', 'bok-rdf-graph-edges');
+    edges.forEach(function(edge) {
+      const source = positions[edge.source];
+      const target = positions[edge.target];
+      if (!source || !target) return;
+      const line = document.createElementNS(svgNs, 'line');
+      line.setAttribute('class', 'bok-rdf-graph-edge');
+      line.setAttribute('x1', source.x);
+      line.setAttribute('y1', source.y);
+      line.setAttribute('x2', target.x);
+      line.setAttribute('y2', target.y);
+      line.setAttribute('marker-end', 'url(#bok-rdf-arrow)');
+      edgeLayer.appendChild(line);
+      const text = document.createElementNS(svgNs, 'text');
+      text.setAttribute('class', 'bok-rdf-graph-edge-label');
+      text.setAttribute('x', (source.x + target.x) / 2);
+      text.setAttribute('y', (source.y + target.y) / 2 - 6);
+      text.textContent = label(edge.label || edge.predicate || 'related');
+      edgeLayer.appendChild(text);
+    });
+    svg.appendChild(edgeLayer);
+    const nodeLayer = document.createElementNS(svgNs, 'g');
+    nodeLayer.setAttribute('class', 'bok-rdf-graph-nodes');
+    nodes.forEach(function(node) {
+      const point = positions[node.id];
+      const group = document.createElementNS(svgNs, 'g');
+      const role = roles[node.id] || 'normal';
+      group.setAttribute('class', 'bok-rdf-graph-node bok-rdf-graph-node-' + cssName(node.node_type || node.type || 'unknown') + ' bok-rdf-graph-node-role-' + role);
+      group.setAttribute('transform', 'translate(' + point.x + ' ' + point.y + ')');
+      group.setAttribute('data-rdf-focus-node', node.id);
+      group.setAttribute('tabindex', '0');
+      group.setAttribute('role', 'button');
+      const circle = document.createElementNS(svgNs, 'circle');
+      circle.setAttribute('r', Math.max(18, Math.min(34, 18 + (node.degree || 0) * 2)));
+      const title = document.createElementNS(svgNs, 'title');
+      title.textContent = (node.label || label(node.id)) + ' / ' + (node.category || '-');
+      const text = document.createElementNS(svgNs, 'text');
+      text.setAttribute('y', 48);
+      text.textContent = label(node.label || node.id);
+      group.appendChild(title);
+      group.appendChild(circle);
+      group.appendChild(text);
+      group.addEventListener('click', function() { showNodeDetail(node, edges); });
+      group.addEventListener('keydown', function(event) { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); showNodeDetail(node, edges); } });
+      nodeLayer.appendChild(group);
+    });
+    svg.appendChild(nodeLayer);
+    canvas.innerHTML = '';
+    canvas.appendChild(svg);
+  }
+  function renderTriples(text) {
+       |    if (!triplesTarget || !triplesStatus) return;
+       |    triplesTarget.textContent = text;
+       |    triplesStatus.textContent = text.split('\\n').filter(function(line) { return line.trim(); }).length + ' lines';
+       |  }
+       |  function label(value) {
+       |    const parts = String(value || '').split(/[\\/#]/).filter(Boolean);
+       |    return parts.length ? parts[parts.length - 1] : value;
+       |  }
+       |  function escapeHtml(value) {
+       |    return String(value == null ? '' : value).replace(/[&<>"']/g, function(c) {
+       |      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+       |    });
+       |  }
+       |  function cssName(value) {
+       |    return String(value == null ? 'unknown' : value).toLowerCase().replace(/[^a-z0-9_-]+/g, '-');
+       |  }
+       |  const graphPromise = fetch(root.getAttribute('data-graph')).then(function(response) {
+       |    if (!response.ok) throw new Error('missing graph metadata');
+       |    return response.json();
+       |  });
+       |  const termsPromise = fetch(root.getAttribute('data-terms')).then(function(response) {
+       |    if (!response.ok) return {terms: []};
+       |    return response.json();
+       |  }).catch(function() { return {terms: []}; });
+       |  Promise.all([graphPromise, termsPromise]).then(function(results) {
+       |    const data = results[0];
+       |    const terms = results[1];
+       |    const termIndex = {};
+       |    (terms.terms || []).forEach(function(term) {
+       |      if (term && term.id) termIndex[term.id] = term;
+       |    });
+       |    window.__bokRdfGraphData = data;
+       |    window.__bokRdfTermIndex = termIndex;
+       |    window.__bokRdfPredicateProfile = activePredicateProfile(data);
+       |    renderGraph(data, initialCategory, initialTerm, termIndex);
+       |    function refresh() { focusedNodeId = null; renderGraph(data, input ? input.value.trim() : '', termInput ? termInput.value.trim() : '', termIndex); }
+       |    if (input) input.addEventListener('input', refresh);
+       |    if (termInput) termInput.addEventListener('input', refresh);
+       |  }).catch(function() {
+       |    graphStatus.textContent = '${_javascript_string(_ui(locale, "rdf.graph.metadata.missing"))}';
+       |    graphTarget.innerHTML = '<div class="bok-rdf-empty">${_javascript_string(_ui(locale, "rdf.graph.metadata.missing"))}</div>';
+       |  });
+       |  if (triplesTarget) {
+       |    fetch(root.getAttribute('data-triples')).then(function(response) {
+       |      if (!response.ok) throw new Error('missing RDF triples');
+       |      return response.text();
+       |    }).then(renderTriples).catch(function() {
+       |      if (triplesStatus) triplesStatus.textContent = '${_javascript_string(_ui(locale, "rdf.graph.triples.missing"))}';
+       |      triplesTarget.textContent = '';
+       |    });
+       |  }
+       |}());""".stripMargin
+
   private def _glossary_metric_cards(
     categorycount: Int,
     categorieswithterms: Int,
@@ -1342,17 +2063,177 @@ private[cozy] object CozyBok {
     }.mkString("""<div class="bok-special-links">""", "\n", "</div>")
   }
 
-  private def _glossary_recent_terms(terms: Vector[(CategoryContent, CategoryPageItem)]): String =
+  private def _glossary_recent_terms(terms: Vector[TermEntry]): String =
     if (terms.isEmpty)
       "<p>No glossary terms yet.</p>"
     else
-      terms.sortBy { case (_, term) => -term.modifiedAtMillis }.take(10).map {
-        case (category, term) =>
-          s"""<li><a href="${_html_escape(_glossary_index_href(term.href))}">${_html_escape(term.title)}</a>: ${_html_escape(category.title)}</li>"""
+      terms.take(10).map { term =>
+        s"""<li><a href="${_html_escape(term.glossaryHref)}">${_html_escape(term.title)}</a>${_reading_label(term)}: ${_html_escape(term.categorySlug)}</li>"""
       }.mkString("<ol>\n", "\n", "\n</ol>")
 
   private def _glossary_index_href(href: String): String =
     href.stripPrefix("../glossary/").stripPrefix("glossary/")
+
+  private def _terms(config: BuildConfig, categories: Vector[CategoryContent]): Vector[TermEntry] =
+    _term_index(config).map(_.terms).filter(_.nonEmpty).getOrElse(_fallback_terms(categories))
+
+  private def _term_index(config: BuildConfig): Option[TermIndex] = {
+    val path = config.doxsitePath.resolve("metadata/glossary/terms.json")
+    if (!Files.isRegularFile(path))
+      None
+    else
+      parser.parse(Files.readString(path, StandardCharsets.UTF_8)).toOption.flatMap(_.as[TermIndex].toOption)
+  }
+
+  private def _fallback_terms(categories: Vector[CategoryContent]): Vector[TermEntry] =
+    categories.flatMap { category =>
+      category.terms.map { item =>
+        val slug = item.href.split('/').filter(_.nonEmpty).lastOption.getOrElse(item.title).stripSuffix(".html")
+        TermEntry(
+          s"${category.slug}:${slug}",
+          slug,
+          item.title,
+          item.reading,
+          Some(category.slug),
+          s"glossary/${category.slug}/${slug}.dox",
+          s"glossary/${category.slug}/${slug}.html",
+          s"<p>${_html_escape(item.brief)}</p>",
+          Some(item.brief),
+          Vector.empty,
+          Vector.empty,
+          Vector.empty,
+          Vector.empty,
+          Vector.empty,
+          TermQuality(isolated = true, unreferenced = true, weaklyconnected = true)
+        )
+      }
+    }.sortBy(x => (x.categorySlug, x.slug))
+
+  private def _term_group_cards(locale: String, terms: Vector[TermEntry], categories: Vector[CategoryContent]): String = {
+    val titles = categories.map(x => x.slug -> x.title).toMap
+    val cards = terms.groupBy(_.categorySlug).toVector.sortBy(_._1).map {
+      case (category, xs) =>
+        val title = titles.getOrElse(category, category)
+        val links = xs.sortBy(_.title).take(8).map { term =>
+          s"""<li><a href="${_html_escape(term.glossaryHref)}">${_html_escape(term.title)}</a>${_reading_label(term)} <a class="bok-term-rdf-mini" href="${_html_escape(term.rdfHrefFromGlossary)}">RDF</a></li>"""
+        }.mkString("<ul>", "", "</ul>")
+        val more = if (xs.size > 8) s"""<div class="bok-more">${_html_escape(_uif(locale, "dashboard.more", xs.size - 8))}</div>""" else ""
+        s"""<div class="bok-term-group-card"><h3><a href="../${_html_escape(category)}/index.html">${_html_escape(title)}</a></h3>${links}${more}</div>"""
+    }.mkString("\n")
+    s"""<div class="bok-term-group-grid">${cards}</div>"""
+  }
+
+  private def _write_term_hub_pages(
+    config: BuildConfig,
+    target: Path,
+    locale: String,
+    categories: Vector[CategoryContent],
+    terms: Vector[TermEntry]
+  ): Unit =
+    terms.foreach { term =>
+      val page = target.resolve(term.publicPath)
+      _write_text(page, _term_hub_page(config, categories, locale, page, term))
+    }
+
+  private def _term_hub_page(
+    config: BuildConfig,
+    categories: Vector[CategoryContent],
+    locale: String,
+    page: Path,
+    term: TermEntry
+  ): String =
+    s"""<!doctype html>
+       |<html lang="${_html_escape(locale)}">
+       |<head>
+       |  <meta charset="utf-8">
+       |  <meta name="viewport" content="width=device-width, initial-scale=1">
+       |  <title>${_html_escape(term.title)} - ${_html_escape(config.siteTitle)}</title>
+       |${_site_css_links(config, page)}
+       |</head>
+       |<body class="article ${_html_escape(_dashboard_theme_class(config))}">
+       |${_category_header(config, categories, locale, "../../")}
+       |<div class="body body-dashboard bok-term-hub-body">
+       |  <main class="article">
+       |    <div class="content">
+       |      <article class="doc">
+       |        ${_term_hub(term, locale)}
+       |      </article>
+       |    </div>
+       |  </main>
+       |</div>
+       |</body>
+       |</html>
+       |""".stripMargin
+
+  private def _term_hub(term: TermEntry, locale: String): String =
+    s"""<section class="bok-dashboard-shell bok-term-hub" id="term-hub">
+       |  <header class="bok-dashboard-hero">
+       |    <div class="bok-dashboard-hero-copy">
+       |      <p class="bok-dashboard-eyebrow">${_html_escape(_ui(locale, "term.hub.eyebrow"))}</p>
+       |      <h1 class="page">${_html_escape(term.title)}</h1>
+       |      <p class="bok-dashboard-lead">${_html_escape(term.summary.getOrElse(_ui(locale, "term.hub.description")))}</p>
+       |    </div>
+       |    <div class="bok-dashboard-hero-facts">
+       |      <span class="bok-dashboard-hero-fact"><strong>${_html_escape(term.categorySlug)}</strong><em>${_html_escape(_ui(locale, "dashboard.matrix.category"))}</em></span>
+       |      <span class="bok-dashboard-hero-fact"><strong>${term.rdfRefs.size}</strong><em>RDF</em></span>
+       |      <span class="bok-dashboard-hero-fact"><strong>${term.termRefs.size}</strong><em>${_html_escape(_ui(locale, "term.related.terms"))}</em></span>
+       |    </div>
+       |  </header>
+       |  <div class="bok-dashboard container-fluid bok-dashboard-command-center">
+       |    <div class="row g-3">
+       |      ${_dashboard_card("col-12 col-xl-7", "bok-card-purpose bok-card-term-definition", _ui(locale, "term.definition"), _term_definition_body(term))}
+       |      ${_dashboard_card("col-12 col-xl-5", "bok-card-readiness", _ui(locale, "term.quality"), _term_quality_body(term, locale))}
+       |      ${_dashboard_card("col-12 col-xl-6", "bok-card-related", _ui(locale, "term.rdf.resources"), _term_rdf_refs_body(term, locale))}
+       |      ${_dashboard_card("col-12 col-xl-3", "bok-card-map", _ui(locale, "term.related.articles"), _term_refs_body(term.articleRefs, locale))}
+       |      ${_dashboard_card("col-12 col-xl-3", "bok-card-map", _ui(locale, "term.related.terms"), _term_refs_body(term.termRefs, locale))}
+       |      ${_dashboard_card("col-12 col-xl-3", "bok-card-map", _ui(locale, "term.related.videos"), _term_refs_body(term.videoRefs, locale))}
+       |      ${_dashboard_card("col-12 col-xl-3", "bok-card-actions", _ui(locale, "dashboard.card.next.actions"), _term_actions_body(term, locale))}
+       |    </div>
+       |  </div>
+       |</section>""".stripMargin
+
+  private def _term_definition_body(term: TermEntry): String = {
+    val reading = term.reading.filterNot(_ == term.title).map(x => s"""<p class="bok-term-reading-large">${_html_escape(x)}</p>""").getOrElse("")
+    s"""${reading}<div class="bok-term-definition-html">${term.definitionHtml}</div>"""
+  }
+
+  private def _term_quality_body(term: TermEntry, locale: String): String = {
+    val flags = Vector(
+      term.quality.isolated -> _ui(locale, "term.quality.isolated"),
+      term.quality.unreferenced -> _ui(locale, "term.quality.unreferenced"),
+      term.quality.weaklyconnected -> _ui(locale, "term.quality.weakly.connected")
+    ).collect { case (true, label) => label }
+    if (flags.isEmpty)
+      s"""<p class="bok-card-muted">${_html_escape(_ui(locale, "term.quality.ok"))}</p>"""
+    else
+      flags.map(x => s"""<li class="list-group-item"><span class="badge bok-badge-info">info</span>${_html_escape(x)}</li>""").mkString("""<ul class="list-group bok-alert-list">""", "", "</ul>")
+  }
+
+  private def _term_rdf_refs_body(term: TermEntry, locale: String): String =
+    if (term.rdfRefs.isEmpty)
+      s"""<p class="bok-card-muted">${_html_escape(_ui(locale, "term.rdf.empty"))}</p>"""
+    else
+      term.rdfRefs.take(8).map { ref =>
+        val predicate = ref.predicate.map(x => s" <small>${_html_escape(_short_uri_label(x))}</small>").getOrElse("")
+        s"""<li class="list-group-item"><span>${_html_escape(ref.label)}</span>${predicate}<em>${_html_escape(ref.direction)}</em></li>"""
+      }.mkString("""<ul class="list-group bok-map-list">""", "", "</ul>")
+
+  private def _term_refs_body(refs: Vector[TermReference], locale: String): String =
+    if (refs.isEmpty)
+      s"""<p class="bok-card-muted">${_html_escape(_ui(locale, "term.refs.empty"))}</p>"""
+    else
+      refs.take(6).map(x => s"""<li class="list-group-item"><a href="${_html_escape(x.path)}">${_html_escape(x.title)}</a><span>${_html_escape(x.relation)}</span></li>""").mkString("""<ul class="list-group bok-map-list">""", "", "</ul>")
+
+  private def _term_actions_body(term: TermEntry, locale: String): String =
+    Vector(
+      _ui(locale, "term.action.open.rdf") -> term.rdfHrefFromTerm,
+      _ui(locale, "glossary.title") -> "../../glossary/index.html"
+    ).map { case (label, href) => s"""<li><a href="${_html_escape(href)}">${_html_escape(label)}</a></li>""" }.mkString("""<ol class="bok-action-list">""", "", "</ol>")
+
+  private def _short_uri_label(value: String): String = {
+    val a = value.split('#').lastOption.getOrElse(value)
+    a.split('/').filter(_.nonEmpty).lastOption.getOrElse(a)
+  }
 
   private def _localized_glossary_index_page(
     config: BuildConfig,
@@ -1492,6 +2373,11 @@ private[cozy] object CozyBok {
     term.reading.getOrElse(term.title)
 
   private def _reading_label(term: CategoryPageItem): String =
+    term.reading.filterNot(_ == term.title).map { reading =>
+      s""" <span class="bok-term-reading">(${_html_escape(reading)})</span>"""
+    }.getOrElse("")
+
+  private def _reading_label(term: TermEntry): String =
     term.reading.filterNot(_ == term.title).map { reading =>
       s""" <span class="bok-term-reading">(${_html_escape(reading)})</span>"""
     }.getOrElse("")
@@ -1737,35 +2623,6 @@ private[cozy] object CozyBok {
        |      <article class="doc">
        |        ${_category_dashboard(config, category, locale)}
        |        ${_source_narrative_section(config.sourcePath.resolve(category.slug).resolve("index.dox"), locale)}
-       |        <div class="sect1" id="summary">
-       |          <h2>Summary</h2>
-       |          <div class="sectionbody">
-       |            <ul>
-       |              <li>Category: ${_html_escape(category.title)}</li>
-       |              <li>Purpose: ${_html_escape(category.description)}</li>
-       |              <li>Articles: ${category.articles.size}</li>
-       |              <li>Terms: ${category.terms.size}</li>
-       |            </ul>
-       |          </div>
-       |        </div>
-       |        <div class="sect1" id="articles">
-       |          <h2>Articles</h2>
-       |          <div class="sectionbody">
-       |            ${_category_item_list(category.articles)}
-       |          </div>
-       |        </div>
-       |        <div class="sect1" id="terms">
-       |          <h2>Terms</h2>
-       |          <div class="sectionbody">
-       |            ${_category_item_list(category.terms)}
-       |          </div>
-       |        </div>
-       |        <div class="sect1" id="operation-notes">
-       |          <h2>Operation Notes</h2>
-       |          <div class="sectionbody">
-       |            <p>${_html_escape(_ui(locale, "category.operation.notes"))}</p>
-       |          </div>
-       |        </div>
        |      </article>
        |    </div>
        |  </main>
@@ -1774,11 +2631,16 @@ private[cozy] object CozyBok {
        |</html>
        |""".stripMargin
 
-  private def _category_header(config: BuildConfig, categories: Vector[CategoryContent], locale: String): String = {
+  private def _category_header(
+    config: BuildConfig,
+    categories: Vector[CategoryContent],
+    locale: String,
+    rootPrefix: String = "../"
+  ): String = {
     s"""<header class="header">
        |  <nav class="navbar">
        |    <div class="navbar-brand">
-       |      <a class="navbar-item" href="../index.html">${_html_escape(config.siteTitle)}</a>
+       |      <a class="navbar-item" href="${_html_escape(rootPrefix)}index.html">${_html_escape(config.siteTitle)}</a>
        |      <button class="navbar-burger" aria-controls="topbar-nav" aria-expanded="false" aria-label="Toggle main menu">
        |        <span></span>
        |        <span></span>
@@ -1787,8 +2649,8 @@ private[cozy] object CozyBok {
        |    </div>
        |    <div id="topbar-nav" class="navbar-menu">
        |      <div class="navbar-end">
-       |        <a class="navbar-item" href="../index.html">${_html_escape(_ui(locale, "nav.home"))}</a>
-       |        ${_category_nav_menu(locale, categories.map(x => CategorySummary(x.slug, x.title, x.description, x.purpose)), "../")}
+       |        <a class="navbar-item" href="${_html_escape(rootPrefix)}index.html">${_html_escape(_ui(locale, "nav.home"))}</a>
+       |        ${_category_nav_menu(locale, categories.map(x => CategorySummary(x.slug, x.title, x.description, x.purpose)), rootPrefix)}
        |      </div>
        |    </div>
        |  </nav>
@@ -1831,10 +2693,6 @@ private[cozy] object CozyBok {
       |      <h3>On this page</h3>
        |      <ul>
        |        <li><a href="#dashboard">Dashboard</a></li>
-       |        ${_source_narrative_toc_item(config.sourcePath.resolve(category.slug).resolve("index.dox"), locale)}
-       |        <li><a href="#summary">Summary</a></li>
-      |        <li><a href="#articles">Articles</a></li>
-      |        <li><a href="#terms">Terms</a></li>
       |      </ul>
       |      <div class="bok-special-links">
       |        <h3>BoK Console</h3>
@@ -1845,32 +2703,17 @@ private[cozy] object CozyBok {
       |    </div>
       |  </aside>""".stripMargin
 
-  private def _category_item_list(items: Vector[CategoryPageItem]): String =
-    if (items.isEmpty)
-      "<p>No entries yet.</p>"
-    else
-      items.map { item =>
-        s"""<li><a href="${_html_escape(item.href)}">${_html_escape(item.title)}</a>: ${_html_escape(item.brief)}</li>"""
-      }.mkString("<ul>\n", "\n", "\n</ul>")
-
   private def _source_narrative_section(path: Path, locale: String): String = {
     val body = _source_narrative_html(path, locale)
     if (body.isEmpty)
       ""
     else
-      s"""<div class="sect1" id="narrative">
-         |  <h2>Narrative</h2>
+      s"""<div class="bok-narrative-corner" id="narrative">
          |  <div class="sectionbody">
          |    ${body}
          |  </div>
          |</div>""".stripMargin
   }
-
-  private def _source_narrative_toc_item(path: Path, locale: String): String =
-    if (_source_narrative_html(path, locale).nonEmpty)
-      """<li><a href="#narrative">Narrative</a></li>"""
-    else
-      ""
 
   private def _source_narrative_html(path: Path, locale: String): String =
     if (!Files.isRegularFile(path))
@@ -1881,8 +2724,11 @@ private[cozy] object CozyBok {
       val rule = Dox2HtmlTransformer.Rule(isDocument = false, isDefaultCss = false)
       val context = _smartdox_context(locale)
       val html = Dox2HtmlTransformer(context, rule).transform(_language_filter(dox, context)).take
-      _strip_dox_document_title(_dox_body_fragment(html)).trim
+      _strip_dashboard_owned_narrative_sections(_strip_dox_document_title(_dox_body_fragment(html))).trim
     }
+
+  private def _strip_dashboard_owned_narrative_sections(html: String): String =
+    """(?is)<section>\s*<h[2-6]>\s*(Quick Links|Category Portfolio|Navigation|Operation Notes)\s*</h[2-6]>.*?</section>""".r.replaceAllIn(html, "")
 
   private def _language_filter(dox: Dox, context: SmartDoxContext): Dox =
     Dox.transform(dox, new LanguageFilterTransformer(context.doxContext))
@@ -1908,7 +2754,7 @@ private[cozy] object CozyBok {
   private def _dashboard_theme_class(config: BuildConfig): String =
     s"bok-dashboard-theme-${config.dashboardColorGroup}"
 
-  private val _dashboard_color_groups = Set("aurora", "lagoon", "ocean", "ember", "slate")
+  private val _dashboard_color_groups = Set("aurora", "lagoon", "meadow", "ocean", "ember", "slate")
 
   private def _dashboard_color_group(parsed: ParsedArgs, config: CozyProjectYamlConfig.Config, site: SiteConfig): String = {
     val raw =
@@ -2002,8 +2848,6 @@ private[cozy] object CozyBok {
       |      <h3>On this page</h3>
        |      <ul>
        |        ${_home_dashboard_toc_item(config)}
-       |        ${_source_narrative_toc_item(config.sourcePath.resolve("index.dox"), locale)}
-       |        <li><a href="#categories">Category Portfolio</a></li>
       |        <li><a href="#operation-policy">Operation Policy</a></li>
       |      </ul>
       |      <div class="bok-special-links">
@@ -2047,18 +2891,19 @@ private[cozy] object CozyBok {
     val site = _dashboard(config)
     val dashboard = site.flatMap(_.categories.find(_.name == category.slug))
     if (!category.purpose.isEmpty || dashboard.isDefined) {
+      val categoryrdf = dashboard.flatMap(_.rdf)
       val hero = _dashboard_hero(
         _uif(locale, "category.page.title", category.title),
         _uif(locale, "category.intro", category.description),
         Vector(
           _ui(locale, "dashboard.kpi.articles") -> dashboard.map(_.counts.articleCount.toString).getOrElse(category.articles.size.toString),
           _ui(locale, "dashboard.kpi.terms") -> dashboard.map(_.counts.glossaryTermCount.toString).getOrElse(category.terms.size.toString),
-          _ui(locale, "dashboard.kpi.rdf") -> site.map(_.rdf.tripleCount.toString).getOrElse("-")
+          _ui(locale, "dashboard.kpi.rdf") -> categoryrdf.map(_.tripleCount.toString).getOrElse("-")
         )
       )
       s"""<section class="bok-dashboard-shell" id="dashboard">
          |  ${hero}
-         |  ${_category_dashboard_grid(config, category, dashboard, site.map(_.rdf), locale)}
+         |  ${_category_dashboard_grid(config, category, dashboard, categoryrdf, locale)}
          |</section>""".stripMargin
     }
     else
@@ -2128,19 +2973,19 @@ private[cozy] object CozyBok {
 
   private def _home_dashboard_grid(config: BuildConfig, purpose: BokPurpose, dashboard: Option[BokDashboard], locale: String): String = {
     val cards = Vector[Option[String]](
-      Some(_dashboard_card("col-12 col-xl-8", "bok-card-purpose", _ui(locale, "dashboard.card.purpose"), _purpose_card_body(locale, purpose))),
-      Some(_dashboard_card("col-12 col-md-6 col-xl-4", "bok-card-readiness", _ui(locale, "dashboard.card.readiness"), _home_readiness_body(locale, config, dashboard))),
+      dashboard.map(x => _dashboard_card("col-12", "bok-card-activity bok-card-notification", _ui(locale, "dashboard.card.recent.activity"), _recent_activity_body(locale, config, x.increments), Vector("reader", "contributor", "project_manager"))),
+      if (purpose.isEmpty) None else Some(_dashboard_card("col-12 col-xl-8", "bok-card-purpose", _ui(locale, "dashboard.card.vision"), _purpose_card_body(locale, purpose), Vector("reader", "contributor", "project_manager"))),
+      dashboard.map(x => _dashboard_card(if (purpose.isEmpty) "col-12 col-xl-7" else "col-12 col-xl-4", "bok-card-matrix", _ui(locale, "dashboard.card.category.matrix"), _category_matrix_body(locale, x), Vector("reader", "contributor", "project_manager"))),
       dashboard.map(x => _kpi_card(locale, "col-6 col-md-3", _ui(locale, "dashboard.kpi.categories"), x.counts.categoryCount.toString, _ui(locale, "dashboard.kpi.categories.note"))),
       dashboard.map(x => _kpi_card(locale, "col-6 col-md-3", _ui(locale, "dashboard.kpi.articles"), x.counts.articleCount.toString, _ui(locale, "dashboard.kpi.articles.note"))),
-      dashboard.map(x => _kpi_card(locale, "col-6 col-md-3", _ui(locale, "dashboard.kpi.terms"), x.counts.glossaryTermCount.toString, _ui(locale, "dashboard.kpi.terms.note"))),
-      dashboard.map(x => _kpi_card(locale, "col-6 col-md-3", _ui(locale, "dashboard.kpi.rdf.triples"), x.rdf.tripleCount.toString, _ui(locale, "dashboard.kpi.rdf.triples.note"))),
-      dashboard.map(x => _dashboard_card("col-12 col-xl-8", "bok-card-chart", _ui(locale, "dashboard.card.growth"), _dashboard_increment_chart(locale, x.increments, _ui(locale, "dashboard.chart.bok.additions")))),
-      Some(_dashboard_card("col-12 col-xl-4", "bok-card-quality", _ui(locale, "dashboard.card.quality.alerts"), _quality_alerts_body(locale, dashboard.isDefined))),
-      dashboard.map(x => _dashboard_card("col-12 col-xl-7", "bok-card-matrix", _ui(locale, "dashboard.card.category.matrix"), _category_matrix_body(locale, x))),
-      dashboard.map(x => _dashboard_card("col-12 col-md-6 col-xl-3", "bok-card-activity", _ui(locale, "dashboard.card.recent.activity"), _recent_activity_body(locale, x.increments))),
-      Some(_dashboard_card("col-12 col-md-6 col-xl-2", "bok-card-actions", _ui(locale, "dashboard.card.next.actions"), _next_actions_body(locale, config)))
+      dashboard.map(x => _kpi_card_link("col-6 col-md-3", _ui(locale, "dashboard.kpi.terms"), x.counts.glossaryTermCount.toString, _ui(locale, "dashboard.kpi.terms.note"), "glossary/index.html")),
+      dashboard.map(x => _kpi_card_link("col-6 col-md-3", _ui(locale, "dashboard.kpi.rdf.triples"), x.rdf.tripleCount.toString, _ui(locale, "dashboard.kpi.rdf.triples.note"), "rdf/index.html")),
+      Some(_dashboard_card("col-12 col-xl-5", "bok-card-quality", _ui(locale, "dashboard.card.quality.alerts"), _quality_alerts_body(locale, dashboard.isDefined), Vector("contributor", "project_manager"))),
+      dashboard.map(x => _dashboard_card("col-12 col-xl-8", "bok-card-chart", _ui(locale, "dashboard.card.growth"), _dashboard_increment_chart(locale, x.increments, _ui(locale, "dashboard.chart.bok.additions")), Vector("project_manager", "contributor"))),
+      Some(_dashboard_card("col-12 col-md-6 col-xl-3", "bok-card-readiness", _ui(locale, "dashboard.card.readiness"), _home_readiness_body(locale, config, dashboard), Vector("site_administrator", "project_manager"))),
+      Some(_dashboard_card("col-12 col-md-6 col-xl-3", "bok-card-actions", _ui(locale, "dashboard.card.next.actions"), _next_actions_body(locale, config), Vector("site_administrator", "project_manager")))
     ).flatten
-    _dashboard_container(cards)
+    _dashboard_container(locale, cards)
   }
 
   private def _category_dashboard_grid(
@@ -2151,34 +2996,241 @@ private[cozy] object CozyBok {
     locale: String
   ): String = {
     val cards = Vector[Option[String]](
-      Some(_dashboard_card("col-12 col-xl-8", "bok-card-purpose", _ui(locale, "dashboard.card.category.purpose"), _purpose_card_body(locale, category.purpose))),
-      Some(_dashboard_card("col-12 col-md-6 col-xl-4", "bok-card-readiness", _ui(locale, "dashboard.card.category.readiness"), _category_readiness_body(locale, dashboard))),
+      if (category.purpose.isEmpty) None else Some(_dashboard_card("col-12 col-xl-8", "bok-card-purpose", _ui(locale, "dashboard.card.category.vision"), _purpose_card_body(locale, category.purpose), Vector("reader", "contributor", "project_manager"))),
+      Some(_dashboard_card("col-12 col-xl-6", "bok-card-map", _ui(locale, "dashboard.card.term.map"), _page_map_body(category.terms, _ui(locale, "dashboard.term.empty")), Vector("reader", "contributor", "project_manager"))),
+      Some(_dashboard_card("col-12 col-xl-6", "bok-card-map", _ui(locale, "dashboard.card.article.map"), _page_map_body(category.articles, _ui(locale, "dashboard.article.empty")), Vector("reader", "contributor", "project_manager"))),
+      rdf.map(x => _kpi_card_link("col-6 col-md-3", _ui(locale, "dashboard.kpi.rdf"), x.tripleCount.toString, _ui(locale, "dashboard.kpi.rdf.note"), s"../rdf/index.html?category=${_url_query_escape(category.slug)}")),
       dashboard.map(x => _kpi_card(locale, "col-6 col-md-3", _ui(locale, "dashboard.kpi.articles"), x.counts.articleCount.toString, _ui(locale, "dashboard.kpi.category.articles.note"))),
       dashboard.map(x => _kpi_card(locale, "col-6 col-md-3", _ui(locale, "dashboard.kpi.terms"), x.counts.glossaryTermCount.toString, _ui(locale, "dashboard.kpi.category.terms.note"))),
-      rdf.map(x => _kpi_card(locale, "col-6 col-md-3", _ui(locale, "dashboard.kpi.rdf"), x.tripleCount.toString, _ui(locale, "dashboard.kpi.rdf.note"))),
       Some(_kpi_card(locale, "col-6 col-md-3", _ui(locale, "dashboard.kpi.issues"), "0", _ui(locale, "dashboard.kpi.issues.note"))),
-      dashboard.map(x => _dashboard_card("col-12 col-xl-7", "bok-card-chart", _ui(locale, "dashboard.card.category.growth"), _dashboard_increment_chart(locale, x.increments, _uif(locale, "dashboard.chart.category.additions", x.title)))),
-      Some(_dashboard_card("col-12 col-xl-5", "bok-card-quality", _ui(locale, "dashboard.card.local.quality.alerts"), _quality_alerts_body(locale, dashboard.isDefined))),
-      Some(_dashboard_card("col-12 col-xl-6", "bok-card-map", _ui(locale, "dashboard.card.article.map"), _page_map_body(category.articles, _ui(locale, "dashboard.article.empty")))),
-      Some(_dashboard_card("col-12 col-xl-6", "bok-card-map", _ui(locale, "dashboard.card.term.map"), _page_map_body(category.terms, _ui(locale, "dashboard.term.empty")))),
-      Some(_dashboard_card("col-12 col-md-6", "bok-card-activity", _ui(locale, "dashboard.card.recent.changes"), _category_recent_changes_body(locale, category))),
-      Some(_dashboard_card("col-12 col-md-6", "bok-card-related", _ui(locale, "dashboard.card.related.knowledge"), _related_knowledge_body(locale, config, category)))
+      Some(_dashboard_card("col-12 col-xl-5", "bok-card-quality", _ui(locale, "dashboard.card.local.quality.alerts"), _quality_alerts_body(locale, dashboard.isDefined), Vector("contributor", "project_manager"))),
+      dashboard.map(x => _dashboard_card("col-12 col-xl-7", "bok-card-chart", _ui(locale, "dashboard.card.category.growth"), _dashboard_increment_chart(locale, x.increments, _uif(locale, "dashboard.chart.category.additions", x.title)), Vector("project_manager", "contributor"))),
+      Some(_dashboard_card("col-12 col-md-6 col-xl-3", "bok-card-readiness", _ui(locale, "dashboard.card.category.readiness"), _category_readiness_body(locale, dashboard), Vector("site_administrator", "project_manager"))),
+      Some(_dashboard_card("col-12 col-md-6 col-xl-4", "bok-card-activity", _ui(locale, "dashboard.card.recent.changes"), _category_recent_changes_body(locale, category), Vector("reader", "contributor", "project_manager"))),
+      Some(_dashboard_card("col-12 col-md-6 col-xl-5", "bok-card-related", _ui(locale, "dashboard.card.related.knowledge"), _related_knowledge_body(locale, config, category), Vector("reader", "contributor", "project_manager")))
     ).flatten
-    _dashboard_container(cards)
+    _dashboard_container(locale, cards)
   }
 
-  private def _dashboard_container(cards: Vector[String]): String =
-    cards.mkString("""<div class="bok-dashboard container-fluid bok-dashboard-command-center"><div class="row g-3">""", "\n", "</div></div>")
+  private def _dashboard_container(locale: String, cards: Vector[String]): String = {
+    val defaultactor = "reader"
+    cards.mkString(
+      s"""<div class="bok-dashboard container-fluid bok-dashboard-command-center" data-bok-dashboard="true" data-bok-default-actor="${defaultactor}" data-bok-default-card-mode="hide" data-bok-status-all="${_html_escape(_uif(locale, "dashboard.actor.status.all", cards.size.toString))}" data-bok-status-filtered="${_html_escape(_ui(locale, "dashboard.actor.status.filtered"))}" data-bok-status-dimmed="${_html_escape(_ui(locale, "dashboard.actor.status.dimmed"))}">
+         |  ${_dashboard_actor_filter(locale, cards, defaultactor)}
+         |  <div class="row g-3">""".stripMargin,
+      "\n",
+      s"""  </div>
+         |  ${_dashboard_actor_filter_script}
+         |</div>""".stripMargin
+    )
+  }
 
-  private def _dashboard_card(column: String, semantic: String, title: String, body: String): String =
-    s"""<div class="${_html_escape(column)}">
-       |  <section class="card bok-card ${_html_escape(semantic)}">
+  private def _dashboard_actor_filter(locale: String, cards: Vector[String], defaultactor: String): String = {
+    val cardcount = cards.size
+    val defaultcount = _dashboard_actor_count(cards, defaultactor)
+    val buttons = Vector(
+      "all" -> _ui(locale, "dashboard.actor.all"),
+      "reader" -> _ui(locale, "dashboard.actor.reader"),
+      "contributor" -> _ui(locale, "dashboard.actor.contributor"),
+      "project_manager" -> _ui(locale, "dashboard.actor.project.manager"),
+      "site_administrator" -> _ui(locale, "dashboard.actor.site.administrator")
+    ).map {
+      case (key, label) =>
+        val pressed = if (key == defaultactor) "true" else "false"
+        s"""<button type="button" class="bok-dashboard-actor-button${if (key == defaultactor) " is-active" else ""}" data-bok-actor-filter="${_html_escape(key)}" aria-pressed="${pressed}">${_html_escape(label)}</button>"""
+    }.mkString("\n")
+    val modebuttons = Vector(
+      "hide" -> _ui(locale, "dashboard.actor.mode.hide"),
+      "dim" -> _ui(locale, "dashboard.actor.mode.dim")
+    ).map {
+      case (key, label) =>
+        val pressed = if (key == "hide") "true" else "false"
+        s"""<button type="button" class="bok-dashboard-actor-mode-button${if (key == "hide") " is-active" else ""}" data-bok-actor-mode="${_html_escape(key)}" aria-pressed="${pressed}">${_html_escape(label)}</button>"""
+    }.mkString("\n")
+    s"""<div class="bok-dashboard-actor-filter" role="group" aria-label="${_html_escape(_ui(locale, "dashboard.actor.filter"))}">
+       |  <span class="bok-dashboard-actor-filter-label">${_html_escape(_ui(locale, "dashboard.actor.filter"))}</span>
+       |  ${buttons}
+       |  <span class="bok-dashboard-actor-mode-label">${_html_escape(_ui(locale, "dashboard.actor.mode"))}</span>
+       |  ${modebuttons}
+       |  <span class="bok-dashboard-actor-status" data-bok-actor-status="true">${_html_escape(_uif(locale, "dashboard.actor.status.filtered", defaultcount.toString, cardcount.toString, _ui(locale, "dashboard.actor.reader")))}</span>
+      |</div>""".stripMargin
+  }
+
+  private def _dashboard_actor_count(cards: Vector[String], actor: String): Int =
+    if (actor == "all" || actor == "site_administrator")
+      cards.size
+    else
+      cards.count { x =>
+        val marker = "data-bok-actors=\""
+        val start = x.indexOf(marker)
+        if (start < 0)
+          false
+        else {
+          val rest = x.substring(start + marker.length)
+          val end = rest.indexOf('"')
+          val value = if (end >= 0) rest.substring(0, end) else rest
+          value.split("\\s+").contains(actor)
+        }
+      }
+
+  private def _dashboard_actor_filter_script: String =
+    """<script>
+      |(function () {
+      |  var validActors = ["all", "reader", "contributor", "project_manager", "site_administrator"];
+      |  var validModes = ["hide", "dim"];
+      |
+      |  function defaultActor(root) {
+      |    var value = root.getAttribute("data-bok-default-actor") || "reader";
+      |    return validActors.indexOf(value) >= 0 ? value : "reader";
+      |  }
+      |
+      |  function actorFromUrl(root) {
+      |    try {
+      |      var params = new URLSearchParams(window.location.search);
+      |      var fallback = defaultActor(root);
+      |      var value = params.get("actor") || fallback;
+      |      return validActors.indexOf(value) >= 0 ? value : fallback;
+      |    } catch (e) {
+      |      return defaultActor(root);
+      |    }
+      |  }
+      |
+      |  function modeFromUrl() {
+      |    try {
+      |      var params = new URLSearchParams(window.location.search);
+      |      var value = params.get("display") || "hide";
+      |      return validModes.indexOf(value) >= 0 ? value : "hide";
+      |    } catch (e) {
+      |      return "hide";
+      |    }
+      |  }
+      |
+      |  function updateUrl(root, actor, mode) {
+      |    if (!window.history || !window.history.replaceState) return;
+      |    try {
+      |      var url = new URL(window.location.href);
+      |      if (actor === defaultActor(root)) {
+      |        url.searchParams.delete("actor");
+      |      } else {
+      |        url.searchParams.set("actor", actor);
+      |      }
+      |      if (mode === "hide") {
+      |        url.searchParams.delete("display");
+      |      } else {
+      |        url.searchParams.set("display", mode);
+      }
+      |      window.history.replaceState({}, "", url.toString());
+      |    } catch (e) {
+      |    }
+      |  }
+      |
+      |  function format(template, values) {
+      |    return template.replace(/\{(\d+)\}/g, function (_, index) {
+      |      return values[index] || "";
+      |    });
+      |  }
+      |
+      |  function actorLabel(root, actor) {
+      |    var button = root.querySelector("[data-bok-actor-filter='" + actor + "']");
+      |    return button ? button.textContent : actor;
+      |  }
+      |
+      |  function ensureActorChips(root) {
+      |    root.querySelectorAll(".bok-card[data-bok-actors]").forEach(function (card) {
+      |      if (card.querySelector(".bok-card-actor-chips")) return;
+      |      var actors = (card.getAttribute("data-bok-actors") || "").split(/\s+/).filter(Boolean);
+      |      if (actors.length === 0) return;
+      |      var chips = document.createElement("div");
+      |      chips.className = "bok-card-actor-chips";
+      |      actors.forEach(function (actor) {
+      |        var chip = document.createElement("span");
+      |        chip.textContent = actorLabel(root, actor);
+      |        chips.appendChild(chip);
+      |      });
+      |      var title = card.querySelector(".card-title");
+      |      if (title) {
+      |        title.insertAdjacentElement("afterend", chips);
+      |      }
+      |    });
+      |  }
+      |
+      |  function applyActor(root, actor, mode, updateLocation) {
+      |    root.setAttribute("data-bok-current-actor", actor);
+      |    root.setAttribute("data-bok-card-mode", mode);
+      |    root.querySelectorAll("[data-bok-actor-filter]").forEach(function (button) {
+      |      var selected = button.getAttribute("data-bok-actor-filter") === actor;
+      |      button.classList.toggle("is-active", selected);
+      |      button.setAttribute("aria-pressed", selected ? "true" : "false");
+      |    });
+      |    root.querySelectorAll("[data-bok-actor-mode]").forEach(function (button) {
+      |      var selected = button.getAttribute("data-bok-actor-mode") === mode;
+      |      button.classList.toggle("is-active", selected);
+      |      button.setAttribute("aria-pressed", selected ? "true" : "false");
+      |    });
+      |    root.querySelectorAll(".bok-card[data-bok-actors]").forEach(function (card) {
+      |      var actors = (card.getAttribute("data-bok-actors") || "").split(/\s+/);
+      |      var matches = actor === "all" || actor === "site_administrator" || actors.indexOf(actor) >= 0;
+      |      var hide = !matches && mode === "hide";
+      |      var dim = !matches && mode === "dim";
+      |      var wrapper = card.closest("[data-bok-card]") || card;
+      |      wrapper.hidden = hide;
+      |      wrapper.classList.toggle("is-bok-filter-hidden", hide);
+      |      wrapper.classList.toggle("is-bok-filter-dimmed", dim);
+      |    });
+      |    var cards = Array.prototype.slice.call(root.querySelectorAll(".bok-card[data-bok-actors]"));
+      |    var total = cards.length;
+      |    var matching = cards.filter(function (card) {
+      |      var actors = (card.getAttribute("data-bok-actors") || "").split(/\s+/);
+      |      return actor === "all" || actor === "site_administrator" || actors.indexOf(actor) >= 0;
+      |    }).length;
+      |    var visible = cards.filter(function (card) {
+      |      return !(card.closest("[data-bok-card]") || card).hidden;
+      |    }).length;
+      |    var status = root.querySelector("[data-bok-actor-status]");
+      |    if (status) {
+      |      if (actor === "all" || actor === "site_administrator") {
+      |        status.textContent = (root.getAttribute("data-bok-status-all") || format("All {0} cards are visible.", [String(total)])).replace("{0}", String(total));
+      |      } else if (mode === "dim") {
+      |        status.textContent = format(root.getAttribute("data-bok-status-dimmed") || "{2}: highlighting {0} of {1} cards.", [String(matching), String(total), actorLabel(root, actor)]);
+      |      } else {
+      |        status.textContent = format(root.getAttribute("data-bok-status-filtered") || "{2}: showing {0} of {1} cards.", [String(visible), String(total), actorLabel(root, actor)]);
+      |      }
+      |    }
+      |    if (updateLocation) updateUrl(root, actor, mode);
+      |  }
+      |
+      |  document.querySelectorAll("[data-bok-dashboard]").forEach(function (root) {
+      |    ensureActorChips(root);
+      |    applyActor(root, actorFromUrl(root), modeFromUrl(), false);
+      |    root.querySelectorAll("[data-bok-actor-filter]").forEach(function (button) {
+      |      button.addEventListener("click", function () {
+      |        applyActor(root, button.getAttribute("data-bok-actor-filter") || defaultActor(root), root.getAttribute("data-bok-card-mode") || "hide", true);
+      |      });
+      |    });
+      |    root.querySelectorAll("[data-bok-actor-mode]").forEach(function (button) {
+      |      button.addEventListener("click", function () {
+      |        applyActor(root, root.getAttribute("data-bok-current-actor") || defaultActor(root), button.getAttribute("data-bok-actor-mode") || "hide", true);
+      |      });
+      |    });
+      |  });
+      |}());
+      |</script>""".stripMargin
+
+  private def _dashboard_card(column: String, semantic: String, title: String, body: String, actors: Vector[String] = Vector.empty): String = {
+    val actorattr =
+      if (actors.isEmpty)
+        ""
+      else
+        s""" data-bok-actors="${_html_escape(actors.mkString(" "))}""""
+    s"""<div class="${_html_escape(column)}" data-bok-card="true">
+       |  <section class="card bok-card ${_html_escape(semantic)}"${actorattr}>
        |    <div class="card-body">
        |      <h3 class="card-title">${_html_escape(title)}</h3>
        |      ${body}
        |    </div>
        |  </section>
        |</div>""".stripMargin
+  }
 
   private def _kpi_card(locale: String, column: String, label: String, value: String, note: String): String =
     _dashboard_card(
@@ -2187,14 +3239,28 @@ private[cozy] object CozyBok {
       label,
       s"""<div class="bok-kpi-value">${_html_escape(value)}</div>
          |<div class="bok-kpi-label">${_html_escape(label)}</div>
-         |<div class="bok-kpi-note">${_html_escape(note)}</div>""".stripMargin
+         |<div class="bok-kpi-note">${_html_escape(note)}</div>""".stripMargin,
+      Vector("reader", "contributor", "project_manager")
+    )
+
+  private def _kpi_card_link(column: String, label: String, value: String, note: String, href: String): String =
+    _dashboard_card(
+      column,
+      "bok-card-kpi bok-card-kpi-link",
+      label,
+      s"""<a class="bok-kpi-link" href="${_html_escape(href)}">
+         |  <span class="bok-kpi-value">${_html_escape(value)}</span>
+         |  <span class="bok-kpi-label">${_html_escape(label)}</span>
+         |  <span class="bok-kpi-note">${_html_escape(note)}</span>
+         |</a>""".stripMargin,
+      Vector("reader", "contributor", "project_manager")
     )
 
   private def _purpose_card_body(locale: String, purpose: BokPurpose): String =
     if (purpose.isEmpty)
-      s"""<p class="bok-card-muted">${_html_escape(_ui(locale, "dashboard.purpose.empty"))}</p>"""
+      ""
     else
-      s"""${purpose.vision.map(x => s"""<p class="bok-purpose-vision"><strong>${_html_escape(_ui(locale, "dashboard.purpose.vision"))}:</strong> ${_html_escape(x)}</p>""").getOrElse("")}
+      s"""${purpose.vision.map(x => s"""<div class="bok-purpose-vision-panel"><span class="bok-purpose-node-label">V</span><span class="bok-purpose-vision-copy"><small>${_html_escape(_ui(locale, "dashboard.purpose.vision"))}</small><strong>${_html_escape(x)}</strong></span></div>""").getOrElse("")}
          |${_purpose_tree(locale, purpose)}""".stripMargin
 
   private def _purpose_tree(locale: String, purpose: BokPurpose): String =
@@ -2283,34 +3349,48 @@ private[cozy] object CozyBok {
   }
 
   private def _category_matrix_body(locale: String, dashboard: BokDashboard): String = {
-    val rows =
+    val cards =
       if (dashboard.categories.isEmpty)
-        s"""<tr><td colspan="5">${_html_escape(_ui(locale, "dashboard.category.metadata.empty"))}</td></tr>"""
+        s"""<p class="bok-card-muted">${_html_escape(_ui(locale, "dashboard.category.metadata.empty"))}</p>"""
       else
         dashboard.categories.map { category =>
           val freshness = category.increments.buckets.lastOption.map(_.label).getOrElse("-")
-          s"""<tr>
-             |  <td><a class="bok-category-matrix-link" href="${_html_escape(category.name)}/index.html">${_html_escape(category.title)}</a></td>
-             |  <td>${category.counts.articleCount}</td>
-             |  <td>${category.counts.glossaryTermCount}</td>
-             |  <td>${category.counts.totalItemCount}</td>
-             |  <td>${_html_escape(freshness)}</td>
-             |</tr>""".stripMargin
+          val rdfvalue = category.rdf.map(_.tripleCount.toString).getOrElse("-")
+          s"""<div class="bok-category-summary-card">
+             |  <a class="bok-category-summary-title" href="${_html_escape(category.name)}/index.html">${_html_escape(category.title)}</a>
+             |  <span class="bok-category-summary-freshness">${_html_escape(_ui(locale, "dashboard.readiness.freshness"))}: ${_html_escape(freshness)}</span>
+             |  <span class="bok-category-summary-metrics">
+             |    <span><b>${category.counts.articleCount}</b>${_html_escape(_ui(locale, "dashboard.kpi.articles"))}</span>
+             |    <span><b>${category.counts.glossaryTermCount}</b>${_html_escape(_ui(locale, "dashboard.kpi.terms"))}</span>
+             |    <a class="bok-category-rdf-link" href="rdf/index.html?category=${_html_escape(_url_query_escape(category.name))}"><b>${_html_escape(rdfvalue)}</b>${_html_escape(_ui(locale, "dashboard.kpi.rdf"))}</a>
+             |  </span>
+             |</div>""".stripMargin
         }.mkString("\n")
-    s"""<table class="bok-matrix-table">
-       |  <thead><tr><th>${_html_escape(_ui(locale, "dashboard.matrix.category"))}</th><th>${_html_escape(_ui(locale, "dashboard.kpi.articles"))}</th><th>${_html_escape(_ui(locale, "dashboard.kpi.terms"))}</th><th>${_html_escape(_ui(locale, "dashboard.matrix.total"))}</th><th>${_html_escape(_ui(locale, "dashboard.readiness.freshness"))}</th></tr></thead>
-       |  <tbody>${rows}</tbody>
-       |</table>
+    s"""<div class="bok-category-summary-grid">
+       |  ${cards}
+       |</div>
        |${_dashboard_distribution_chart(locale, dashboard.counts, _ui(locale, "dashboard.chart.item.distribution"))}""".stripMargin
   }
 
-  private def _recent_activity_body(locale: String, increments: DashboardIncrements): String =
+  private def _recent_activity_body(locale: String, config: BuildConfig, increments: DashboardIncrements): String =
     if (increments.buckets.isEmpty)
-      s"""<p class="bok-card-muted">${_html_escape(_ui(locale, "dashboard.activity.empty"))}</p>"""
-    else
-      increments.buckets.takeRight(5).reverse.map { bucket =>
+      s"""<div class="bok-notification-summary">
+         |  <span>${_html_escape(_ui(locale, "dashboard.activity.history.check"))}</span>
+         |  <strong>0</strong>
+         |</div>
+         |<p class="bok-card-muted">${_html_escape(_ui(locale, "dashboard.activity.empty"))}</p>
+         |<p class="bok-card-link"><a href="${_html_escape(_history_href(config, ""))}">${_html_escape(_ui(locale, "dashboard.activity.open.history"))}</a></p>""".stripMargin
+    else {
+      val latest = increments.buckets.last
+      s"""<div class="bok-notification-summary">
+         |  <span>${_html_escape(_uif(locale, "dashboard.activity.latest", latest.label))}</span>
+         |  <strong>+${latest.count}</strong>
+         |</div>
+         |${increments.buckets.takeRight(5).reverse.map { bucket =>
         s"""<li class="list-group-item"><time datetime="${_html_escape(bucket.startDate)}">${_html_escape(bucket.label)}</time><strong>+${bucket.count}</strong></li>"""
-      }.mkString("""<ul class="list-group bok-activity-list">""", "", "</ul>")
+      }.mkString("""<ul class="list-group bok-activity-list">""", "", "</ul>")}
+         |<p class="bok-card-link"><a href="${_html_escape(_history_href(config, ""))}">${_html_escape(_ui(locale, "dashboard.activity.open.history"))}</a></p>""".stripMargin
+    }
 
   private def _next_actions_body(locale: String, config: BuildConfig): String = {
     val project = if (config.project == _logical_cwd) "" else " <bok-root>"
@@ -2322,6 +3402,16 @@ private[cozy] object CozyBok {
     ).map(x => s"<li><code>${_html_escape(x)}</code></li>").
       mkString("<ol class=\"bok-action-list\">", "", "</ol>")
   }
+
+  private def _quick_links_body(locale: String, config: BuildConfig, prefix: String): String =
+    Vector(
+      _ui(locale, "glossary.title") -> s"${prefix}glossary/index.html",
+      _ui(locale, "history.title") -> _history_href(config, prefix),
+      _ui(locale, "manual.title") -> s"${prefix}manual/index.html"
+    ).map {
+      case (label, href) =>
+        s"""<li class="list-group-item"><a href="${_html_escape(href)}">${_html_escape(label)}</a></li>"""
+    }.mkString("""<ul class="list-group bok-quick-links-list">""", "", "</ul>")
 
   private def _page_map_body(items: Vector[CategoryPageItem], empty: String): String =
     if (items.isEmpty)
@@ -2343,6 +3433,7 @@ private[cozy] object CozyBok {
     s"""<ul class="list-group bok-related-list">
        |  <li class="list-group-item"><a href="../glossary/index.html">${_html_escape(_ui(locale, "glossary.title"))}</a></li>
        |  <li class="list-group-item"><a href="../glossary/${_html_escape(category.slug)}/index.html">${_html_escape(_uif(locale, "dashboard.related.category.terms", category.title))}</a></li>
+       |  <li class="list-group-item"><a href="../rdf/index.html?category=${_html_escape(_url_query_escape(category.slug))}">${_html_escape(_ui(locale, "rdf.graph.title"))}</a></li>
        |  <li class="list-group-item"><a href="${_html_escape(_history_href(config, "../"))}">${_html_escape(_ui(locale, "history.title"))}</a></li>
        |  <li class="list-group-item"><a href="../manual/index.html">${_html_escape(_ui(locale, "manual.title"))}</a></li>
        |</ul>""".stripMargin
@@ -2839,6 +3930,21 @@ private[cozy] object CozyBok {
       case '\'' => "&#39;"
       case c => c.toString
     }
+
+  private def _javascript_string(value: String): String =
+    value.flatMap {
+      case '\\' => "\\\\"
+      case '\'' => "\\'"
+      case '"' => "\\\""
+      case '\n' => "\\n"
+      case '\r' => "\\r"
+      case '\t' => "\\t"
+      case c if c.isControl => f"\\u${c.toInt}%04x"
+      case c => c.toString
+    }
+
+  private def _url_query_escape(value: String): String =
+    URLEncoder.encode(value, StandardCharsets.UTF_8.name)
 
   private def _delete_directory(path: Path): Unit =
     if (Files.exists(path)) {
@@ -3380,6 +4486,7 @@ private[cozy] object CozyBok {
       |  background: #7048e8;
       |}
       |
+      |.bok-card-quick-links::before,
       |.bok-card-actions::before,
       |.bok-card-related::before {
       |  background: #495057;
@@ -3389,6 +4496,37 @@ private[cozy] object CozyBok {
       |  margin: 0 0 0.65rem;
       |  color: #243b53;
       |  font-size: 1rem;
+      |}
+      |
+      |.bok-purpose-vision-panel {
+      |  display: flex;
+      |  align-items: flex-start;
+      |  gap: 0.7rem;
+      |  margin: 0 0 0.85rem;
+      |  padding: 0.9rem 0.95rem 0.95rem 1rem;
+      |  border: 1px solid rgba(255, 255, 255, 0.18);
+      |  border-radius: 16px;
+      |  background: rgba(255, 255, 255, 0.16);
+      |  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.14);
+      |}
+      |
+      |.bok-purpose-vision-copy {
+      |  display: grid;
+      |  gap: 0.18rem;
+      |  min-width: 0;
+      |}
+      |
+      |.bok-purpose-vision-copy small {
+      |  color: #bfdbfe;
+      |  font-size: 0.66rem;
+      |  font-weight: 900;
+      |  letter-spacing: 0.08em;
+      |  text-transform: uppercase;
+      |}
+      |
+      |.bok-purpose-vision-copy strong {
+      |  color: #fff;
+      |  line-height: 1.45;
       |}
       |
       |.bok-purpose-list {
@@ -3726,6 +4864,70 @@ private[cozy] object CozyBok {
       |  text-decoration: underline;
       |}
       |
+      |.bok-category-summary-grid {
+      |  display: grid;
+      |  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+      |  gap: 0.75rem;
+      |  margin-bottom: 1rem;
+      |}
+      |
+      |.bok-category-summary-card {
+      |  display: grid;
+      |  gap: 0.45rem;
+      |  padding: 0.9rem;
+      |  color: #1f2937;
+      |  text-decoration: none;
+      |  background: #ffffff;
+      |  border: 1px solid #e0e7ff;
+      |  border-radius: 18px;
+      |  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+      |}
+      |
+      |.bok-category-summary-card:hover,
+      |.bok-category-summary-card:focus {
+      |  color: #0f4f9f;
+      |  text-decoration: none;
+      |  transform: translateY(-1px);
+      |  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.13);
+      |}
+      |
+      |.bok-category-summary-title {
+      |  color: #111827;
+      |  font-size: 1rem;
+      |  font-weight: 900;
+      |}
+      |
+      |.bok-category-summary-freshness {
+      |  color: #64748b;
+      |  font-size: 0.78rem;
+      |}
+      |
+      |.bok-category-summary-metrics {
+      |  display: grid;
+      |  grid-template-columns: repeat(3, minmax(0, 1fr));
+      |  gap: 0.45rem;
+      |}
+      |
+      |.bok-category-summary-metrics span {
+      |  display: flex;
+      |  min-height: 3.1rem;
+      |  flex-direction: column;
+      |  justify-content: center;
+      |  padding: 0.45rem;
+      |  color: #475569;
+      |  background: #f8fafc;
+      |  border-radius: 12px;
+      |  text-align: center;
+      |  font-size: 0.72rem;
+      |  font-weight: 800;
+      |}
+      |
+      |.bok-category-summary-metrics b {
+      |  color: #0f172a;
+      |  font-size: 1.25rem;
+      |  line-height: 1;
+      |}
+      |
       |.body.body-dashboard {
       |  max-width: 118rem;
       |  background: radial-gradient(circle at top left, rgba(92, 124, 250, 0.18), transparent 24rem), linear-gradient(135deg, #f4f7fb 0, #eef4ff 48%, #f8fafc 100%);
@@ -3863,6 +5065,7 @@ private[cozy] object CozyBok {
       |  background: linear-gradient(160deg, #ffffff, #faf8ff);
       |}
       |
+      |.bok-card-quick-links,
       |.bok-card-actions,
       |.bok-card-related {
       |  background: linear-gradient(160deg, #ffffff, #f8fafc);
@@ -4888,7 +6091,7 @@ private[cozy] object CozyBok {
        |    url = "${config.url}"
        |    in_language = ["${config.language}"]
        |    license = "CC-BY-SA-4.0"
-       |    # Select one of: aurora, lagoon, ocean, ember, slate
+       |    # Select one of: aurora, lagoon, meadow, ocean, ember, slate
        |    dashboard_color_group = "aurora"
        |    vision = "Build a shared knowledge base for ${config.name}."
        |    goals = [
@@ -4938,12 +6141,6 @@ private[cozy] object CozyBok {
        |# Overview
        |
        |${config.name} is a BoK site for organizing KnowledgeHub concepts, book knowledge materialization, RDF vocabulary, and operation terms.
-       |
-       |## Quick Links
-       |
-       |- <a href="glossary/index.html">Glossary</a>: BoK全体で共有する用語と語彙。
-       |- <a href="history/index.html">History</a>: BoK運用と更新履歴。
-       |- <a href="manual/index.html">Manual</a>: BoK運用手順とページ種別の説明。
        |
        |## BoK Console
        |
@@ -4995,17 +6192,6 @@ private[cozy] object CozyBok {
        |# Overview
        |
        |${purpose}
-       |
-       |## Navigation
-       |
-       |- <a href="../index.html">BoK Home</a>
-       |- <a href="../glossary/index.html">Glossary</a>
-       |- <a href="../history/index.html">History</a>
-       |${_article_links(articles)}${_term_links(category, terms)}
-       |
-       |## Operation Notes
-       |
-       |このページはカテゴリの人間向け説明です。カテゴリの背景、対象範囲、運用上の注意点を本文として記述します。
        |""".stripMargin
 
   private def _purpose_yaml(purpose: BokPurpose): String =
@@ -5153,22 +6339,6 @@ private[cozy] object CozyBok {
        |BoKの標準ページはDashboardとして扱い、通常記事とは異なる情報集約ページにします。Glossary、History、Manualはカテゴリ一覧ではなくBoK Consoleとして扱います。
        |Manualは運用手順ページなので、SmartDoxの自動用語リンク対象外です。
        |""".stripMargin
-
-  private def _article_links(articles: Vector[CategoryArticle]): String =
-    if (articles.isEmpty)
-      ""
-    else
-      articles.map {
-        article => s"""- <a href="${_html_escape(article.htmlName)}">${_html_escape(article.title)}</a>"""
-      }.mkString("\n# 記事\n\n", "\n", "\n")
-
-  private def _term_links(category: String, terms: Vector[CategoryTerm]): String =
-    if (terms.isEmpty)
-      ""
-    else
-      terms.map { term =>
-        s"""- <a href="${_html_escape(term.htmlName(category))}">${_html_escape(term.title)}</a>"""
-      }.mkString("\n# 用語\n\n", "\n", "\n")
 
   private def _category_name(name: String): String =
     name.split("[^A-Za-z0-9]+").toVector.filter(_.nonEmpty).map { part =>

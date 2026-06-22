@@ -112,7 +112,38 @@ Status: DONE
 - [x] Update KnowledgeHub upload workflow configuration and script without adding real hosting secrets.
 - [x] Backlog only the real `AWS_S3_URI` / CloudFront values and production upload confirmation.
 
-## BK12-10: Phase Closure
+## BK12-10: Term Hub And Term-Centric RDF Navigation
+
+Status: DONE
+
+- [x] Treat glossary terms as the primary BoK knowledge hub, not just as a
+      supporting index.
+- [x] Define SmartDox-owned term metadata as the source of truth for Cozy
+      rendering.
+- [x] Generate or consume term metadata that connects each term to category,
+      article references, related terms, RDF resources, video/publication
+      references, and history where available.
+- [x] Add a term-centric detail page model for
+      `glossary/<category>/<term>.html`.
+- [x] Render each term detail page as a hub with definition, reading, aliases,
+      related articles, related terms, RDF triples/resources, video links, and
+      history/provenance sections when metadata is present.
+- [x] Keep `glossary/index.html` as the term dashboard and improve navigation
+      from term dashboard to term detail pages.
+- [x] Add dashboard/category/article links from term references to term hub
+      pages.
+- [x] Extend `rdf/index.html` navigation to accept `?term=<slug>` and show the
+      neighborhood around the selected term.
+- [x] Expose isolated terms, unreferenced terms, and weakly connected terms as
+      diagnostics or quality alerts.
+- [x] Do not make Cozy re-parse `.dox` source to calculate term relationships;
+      SmartDox metadata remains authoritative.
+- [x] Add executable specs for term hub page generation and term-centric RDF
+      navigation.
+- [x] Verify the behavior with KnowledgeHub using `cozy bok build . --strategy
+      preview`.
+
+## BK12-11: Phase Closure
 
 Status: OPEN
 

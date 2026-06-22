@@ -11,7 +11,7 @@ import org.goldenport.test.matchers.SpecVocabulary
 
 /*
  * @since   Jun. 21, 2026
- * @version Jun. 21, 2026
+ * @version Jun. 22, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokDashboardSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
@@ -67,6 +67,14 @@ class CozyBokDashboardSpec extends AnyWordSpec with GivenWhenThen with SpecVocab
               |
               |Architecture narrative source text.
               |
+              |## Navigation
+              |
+              |- <a href="../index.html">BoK Home</a>
+              |
+              |## Operation Notes
+              |
+              |This generated guidance belongs to dashboard metadata, not narrative output.
+              |
               |## Focus
               |
               |Make architecture decisions reviewable.
@@ -86,6 +94,31 @@ class CozyBokDashboardSpec extends AnyWordSpec with GivenWhenThen with SpecVocab
           _read(dir.resolve("website.d/architecture/index.html")) should include ("""href="../_/css/site.css"""")
           _read(dir.resolve("website.d/architecture/index.html")) should include ("""href="../_/css/cozy-bok-dashboard.css"""")
           home should include ("""class="bok-dashboard container-fluid bok-dashboard-command-center"""")
+          home should include ("""data-bok-dashboard="true" data-bok-default-actor="reader" data-bok-default-card-mode="hide"""")
+          home should include ("""data-bok-actor-filter="all" aria-pressed="false"""")
+          home should include ("""data-bok-actor-filter="reader" aria-pressed="true"""")
+          home should include ("""data-bok-actor-filter="contributor" aria-pressed="false"""")
+          home should include ("""data-bok-actor-filter="project_manager" aria-pressed="false"""")
+          home should include ("""data-bok-actor-filter="site_administrator" aria-pressed="false"""")
+          home should include ("""data-bok-actor-mode="hide" aria-pressed="true"""")
+          home should include ("""data-bok-actor-mode="dim" aria-pressed="false"""")
+          home should include ("""data-bok-status-all=""")
+          home should include ("""data-bok-status-filtered="{2}:""")
+          home should include ("""data-bok-status-dimmed="{2}:""")
+          home should include ("""data-bok-actor-status="true"""")
+          home should include ("""data-bok-card="true"""")
+          home should include ("""URLSearchParams(window.location.search)""")
+          home should include ("""function defaultActor(root)""")
+          home should include ("""actor === "all"""")
+          home should include ("""actor === "site_administrator"""")
+          home should include ("""var validModes = ["hide", "dim"]""")
+          home should include ("""params.get("display") || "hide"""")
+          home should include ("""root.setAttribute("data-bok-card-mode", mode)""")
+          home should include ("""wrapper.classList.toggle("is-bok-filter-hidden", hide)""")
+          home should include ("""wrapper.classList.toggle("is-bok-filter-dimmed", dim)""")
+          home should include ("""bok-card-actor-chips""")
+          home should include ("""ensureActorChips(root)""")
+          home should include ("""format(root.getAttribute("data-bok-status-filtered")""")
           home should include ("""class="bok-dashboard-shell" id="dashboard"""")
           home should include ("""class="bok-dashboard-hero"""")
           home should include ("""class="bok-dashboard-hero-facts"""")
@@ -93,18 +126,38 @@ class CozyBokDashboardSpec extends AnyWordSpec with GivenWhenThen with SpecVocab
           home should not include ("""class="nav-container"""")
           home should not include ("""class="toc sidebar"""")
           home should include ("""class="row g-3"""")
-          home should include ("""class="card bok-card bok-card-purpose"""")
+          home should not include ("""class="card bok-card bok-card-purpose"""")
           home should include ("""class="card bok-card bok-card-kpi"""")
           home should include ("""class="card bok-card bok-card-chart"""")
+          home should include ("""class="card bok-card bok-card-activity bok-card-notification"""")
+          home should include ("""class="bok-notification-summary"""")
           home should include ("""id="narrative"""")
+          home should not include ("""<h2>Narrative</h2>""")
+          home should not include ("""<a href="#narrative">Narrative</a>""")
           home should include ("Home narrative source text.")
-          home should include ("Quick Links")
+          home should not include ("""bok-card-knowledge-entry""")
+          home should include ("""class="bok-kpi-link" href="glossary/index.html"""")
+          home should include ("""href="rdf/index.html"""")
+          home should include ("""href="history/index.html"""")
+          home should include ("""href="architecture/index.html">Architecture</a>""")
+          home should include ("""data-bok-actors="contributor project_manager"""")
+          home should include ("""data-bok-actors="project_manager contributor"""")
+          home should include ("""data-bok-actors="site_administrator project_manager"""")
+          home should include ("""data-bok-actors="reader contributor project_manager"""")
+          home should not include ("Category Portfolio")
           home should include ("Operation Focus")
           home should include ("Operate this BoK through source files and generated dashboard pages.")
           val dashboardstart = home.indexOf("""class="bok-dashboard container-fluid bok-dashboard-command-center"""")
           val narrativestart = home.indexOf("""id="narrative"""")
+          val notificationstart = home.indexOf("""bok-card-notification""")
+          val matrixstart = home.indexOf("""bok-card-matrix""")
+          val readinessstart = home.indexOf("""bok-card-readiness""")
           dashboardstart should be < narrativestart
+          notificationstart should be < matrixstart
+          matrixstart should be < readinessstart
           home.substring(dashboardstart, narrativestart) should not include ("Home narrative source text.")
+          home.substring(narrativestart) should not include ("keeps generated dashboard metadata out of source")
+          home.substring(narrativestart) should not include ("Quick Links")
           home should not include ("""<html><head>""")
           home should not include ("""application/ld+json""")
           And("raw source markup is not passed through by Cozy's own inline HTML conversion")
@@ -114,11 +167,19 @@ class CozyBokDashboardSpec extends AnyWordSpec with GivenWhenThen with SpecVocab
           category should include ("""class="body body-dashboard"""")
           category should include ("""class="bok-dashboard-shell" id="dashboard"""")
           category should include ("""class="bok-dashboard-hero"""")
+          category should include ("""class="card bok-card bok-card-map" data-bok-actors="reader contributor project_manager"""")
+          category should include ("""data-bok-actors="site_administrator project_manager"""")
+          category should include ("""href="../rdf/index.html?category=architecture"""")
+          category should not include ("""class="card bok-card bok-card-purpose"""")
           category should not include ("""class="nav-container"""")
           category should not include ("""class="toc sidebar"""")
           category should include ("""id="narrative"""")
+          category should not include ("""<h2>Narrative</h2>""")
+          category should not include ("""<a href="#narrative">Narrative</a>""")
           category should include ("Architecture narrative source text.")
           category should include ("Make architecture decisions reviewable.")
+          category.substring(category.indexOf("""id="narrative"""")) should not include ("Navigation")
+          category.substring(category.indexOf("""id="narrative"""")) should not include ("This generated guidance belongs to dashboard metadata")
         }
       }
 
@@ -145,7 +206,8 @@ class CozyBokDashboardSpec extends AnyWordSpec with GivenWhenThen with SpecVocab
           Then("the Category index remains source narrative rather than generated dashboard output")
           _read(dir.resolve("src/main/doxsite/knowledgehub/index.dox")) should include ("# Overview")
           _read(dir.resolve("src/main/doxsite/knowledgehub/index.dox")) should include ("KnowledgeHub category.")
-          _read(dir.resolve("src/main/doxsite/knowledgehub/index.dox")) should include ("## Navigation")
+          _read(dir.resolve("src/main/doxsite/knowledgehub/index.dox")) should not include ("## Navigation")
+          _read(dir.resolve("src/main/doxsite/knowledgehub/index.dox")) should not include ("## Operation Notes")
           _read(dir.resolve("src/main/doxsite/knowledgehub/index.dox")) should not include ("""class="bok-metric-card"""")
           _read(dir.resolve("src/main/doxsite/knowledgehub/index.dox")) should not include ("""class="bok-dashboard-chart"""")
           _read(dir.resolve("src/main/doxsite/knowledgehub/index.dox")) should not include ("- Articles: 1")
@@ -160,6 +222,15 @@ class CozyBokDashboardSpec extends AnyWordSpec with GivenWhenThen with SpecVocab
             """site {
               |  metadata {
               |    dashboard_color_group = "ocean"
+              |    vision = "Make KnowledgeHub useful from the first screen."
+              |    goals = [
+              |      "Help readers find terms",
+              |      "Help contributors improve weak links"
+              |    ]
+              |    subgoals = [
+              |      "Show RDF graph navigation",
+              |      "Keep operational cards compact"
+              |    ]
               |  }
               |  output {
               |    locale_mode = "single_locale_root"
@@ -198,21 +269,62 @@ class CozyBokDashboardSpec extends AnyWordSpec with GivenWhenThen with SpecVocab
 
           Then("the configured color group is applied to dashboard pages")
           config.dashboardColorGroup shouldBe "ocean"
-          _read(dir.resolve("website.d/index.html")) should include ("""<body class="article bok-dashboard-theme-ocean">""")
+          val home = _read(dir.resolve("website.d/index.html"))
+          home should include ("""<body class="article bok-dashboard-theme-ocean">""")
+          home should include ("""<h3 class="card-title">BoK Vision</h3>""")
+          home should include ("Make KnowledgeHub useful from the first screen.")
+          home.indexOf("""bok-card-notification""") should be < home.indexOf("""bok-card-purpose""")
+          home.indexOf("""bok-card-purpose""") should be < home.indexOf("""bok-card-matrix""")
+          home.indexOf("""bok-card-purpose""") should be < home.indexOf("""bok-card-readiness""")
           _read(dir.resolve("website.d/architecture/index.html")) should include ("""<body class="article bok-dashboard-theme-ocean">""")
 
           And("the generated CSS provides selectable groups and keeps the Category dropdown inside the viewport")
           val css = _read(Paths.get("src/main/resources/cozy/antora-ui/css/cozy-bok-dashboard.css"))
           css should include ("body.bok-dashboard-theme-aurora")
           css should include ("body.bok-dashboard-theme-lagoon")
+          css should include ("body.bok-dashboard-theme-meadow")
           css should include ("body.bok-dashboard-theme-ocean")
           css should include ("body.bok-dashboard-theme-ember")
           css should include ("body.bok-dashboard-theme-slate")
+          css should include ("Card accents: keep the surface border stable and draw an outer highlight ring")
+          css should include ("--bok-card-accent")
+          css should include ("--bok-card-ring")
+          css should include ("0 0 0 4px var(--bok-card-ring)")
+          css should include ("0 0 0 9px var(--bok-card-ring-glow)")
+          css should include ("transform: translateY(-5px) scale(1.006)")
+          css should include (".bok-card::before")
+          css should include ("display: none")
+          css should include (".bok-dashboard-actor-mode-button")
+          css should include ("[data-bok-card].is-bok-filter-hidden")
+          css should include ("display: none !important")
+          css should include ("[data-bok-card].is-bok-filter-dimmed")
+          css should include ("filter: grayscale(.82) saturate(.4)")
+          css should include (""".bok-dashboard[data-bok-current-actor="site_administrator"] .bok-card-actor-chips""")
           css should include (".navbar-category-dropdown > .navbar-category-menu")
           css should include ("left: auto")
           css should include ("right: 0")
           css should include ("max-width: min(22rem, calc(100vw - 1rem))")
           css should not include ("right:auto;left:0")
+          css should include ("Contrast guard")
+          css should include (".body-dashboard .bok-card:not(.bok-card-purpose)")
+          css should include ("color: #0f172a !important;")
+          css should include (".body-dashboard .bok-card-purpose")
+          css should include ("color: #f8fafc !important;")
+          css should include (".bok-rdf-workspace")
+          css should include (".bok-rdf-view-switch")
+          css should include (".bok-rdf-panel")
+          css should include (".bok-rdf-panels")
+          css should include (".bok-rdf-graph-canvas")
+          css should include (".bok-rdf-graph-svg")
+          css should include (".bok-rdf-graph-edge")
+          css should include (".bok-rdf-graph-node")
+          css should include (".bok-rdf-node-popover")
+          css should include (".bok-rdf-node-popover-actions")
+          css should include (".bok-rdf-node-schema")
+          css should include (".bok-rdf-node-schema-object")
+          css should include (".bok-rdf-graph-node-role-focus")
+          css should include (".bok-rdf-graph-node-role-schema")
+          css should include (".bok-rdf-triples-view")
           _zip_text(dir.resolve("antora.d/ui-bundle.zip"), "css/cozy-bok-dashboard.css") should include ("body.bok-dashboard-theme-lagoon")
           _zip_text(dir.resolve("antora.d/ui-bundle.zip"), "css/cozy-bok-dashboard.css") should not include ("old dashboard css")
           _zip_text(dir.resolve("antora.d/ui-bundle.zip"), "css/bootstrap-grid.min.css") should include (".container-fluid")
@@ -221,6 +333,7 @@ class CozyBokDashboardSpec extends AnyWordSpec with GivenWhenThen with SpecVocab
           And("the command line can override site metadata and invalid values fall back to the default")
           CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview", "--dashboard-color-group", "ember")).dashboardColorGroup shouldBe "ember"
           CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview", "--dashboard-color-group", "lagoon")).dashboardColorGroup shouldBe "lagoon"
+          CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview", "--dashboard-color-group", "meadow")).dashboardColorGroup shouldBe "meadow"
           CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview", "--dashboard-color-group", "unknown")).dashboardColorGroup shouldBe "aurora"
         }
       }
@@ -345,8 +458,12 @@ class CozyBokDashboardSpec extends AnyWordSpec with GivenWhenThen with SpecVocab
   private class DashboardRunner extends RecordingRunner {
     override def run(command: Vector[String], cwd: Path): Unit = {
       super.run(command, cwd)
-      if (command.take(2) == Vector("dox", "site"))
+      if (command.take(2) == Vector("dox", "site")) {
         _write(cwd.resolve("doxsite.d/metadata/dashboard/site.json"), _dashboard_json)
+        _write(cwd.resolve("doxsite.d/metadata/rdf/graph.json"), _rdf_graph_json)
+        _write(cwd.resolve("doxsite.d/site.ttl"), "@prefix ex: <https://example.com/> .\n")
+        _write(cwd.resolve("doxsite.d/site.jsonld"), "{\"@graph\":[]}\n")
+      }
     }
   }
 
@@ -380,6 +497,12 @@ class CozyBokDashboardSpec extends AnyWordSpec with GivenWhenThen with SpecVocab
       |        "glossary_term_count": 1,
       |        "total_item_count": 2
       |      },
+      |      "rdf": {
+      |        "resource_count": 2,
+      |        "triple_count": 7,
+      |        "subject_count": 2,
+      |        "predicate_count": 3
+      |      },
       |      "increments": {
       |        "scale": "day",
       |        "buckets": [
@@ -390,6 +513,20 @@ class CozyBokDashboardSpec extends AnyWordSpec with GivenWhenThen with SpecVocab
       |  ]
       |}
       |""".stripMargin
+
+  private def _rdf_graph_json: String =
+    """{
+      |  "nodes": [
+      |    {"id": "https://www.simplemodeling.org/architecture/overview", "label": "overview", "node_type": "uri", "category": "architecture", "degree": 1},
+      |    {"id": "https://schema.org/name", "label": "name", "node_type": "uri", "category": null, "degree": 1}
+      |  ],
+      |  "edges": [
+      |    {"source": "https://www.simplemodeling.org/architecture/overview", "target": "https://schema.org/name", "predicate": "https://schema.org/name", "label": "name", "category": "architecture"}
+      |  ],
+      |  "truncated": false
+      |}
+      |""".stripMargin
+
 
   private def _with_temp_dir[A](prefix: String)(f: Path => A): A = {
     val dir = Files.createTempDirectory(prefix)
