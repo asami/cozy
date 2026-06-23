@@ -35,7 +35,7 @@ into focused Cozy improvements.
 - [x] BK12-08: Upload workflow readiness
 - [x] BK12-09: Development findings and follow-up backlog
 - [x] BK12-10: Term hub and term-centric RDF navigation
-- [ ] BK12-11: CAR product and NictKnowledgeHub project integration
+- [x] BK12-11: CAR product and NictKnowledgeHub project integration
 - [ ] BK12-12: Scenario knowledge management
 - [ ] BK12-13: Phase closure
 
@@ -228,6 +228,44 @@ into focused Cozy improvements.
   concrete BoK operation target. BK12-12 tracks scenarios as first-class BoK
   knowledge, starting with simple scenarios, use cases, and persona plus
   journey scenarios.
+- 2026-06-23: Completed BK12-11 CAR product and NictKnowledgeHub integration.
+  Cozy now supports `.car-product/` source packages as BoK product knowledge,
+  registers CAR product metadata under `src/main/publication`, records
+  warehouse/public CAR artifact references without building or publishing CAR
+  artifacts, and keeps `cozy publish-car` as the explicit CAR artifact
+  publication path. KnowledgeHub now contains a
+  `nict-knowledgehub.car-product/` source package that references the external
+  sibling project `../nict-knowledgehub`.
+- 2026-06-23: Extended BK12-11 for loose CAR catalog coupling. A
+  `.car-product/` package can now omit the CAR product version and let Cozy
+  resolve the effective version and artifact file from
+  `warehouse/repository/catalog/car/<module>.yaml`, which is produced by the
+  `publish-car` deployment flow. This supports three patterns: developing a
+  CAR product source package inside a BoK, keeping only non-sensitive external
+  linkage metadata in `.car-product/`, and using `.cozy/config.*` for local
+  sensitive path overrides such as `bok.projects.<ref>.path`. BoK publication
+  metadata remains a consumer of the catalog and never builds or deploys the
+  CAR artifact.
+- 2026-06-23: Added CML model vocabulary linkage to BK12-11. CAR product
+  publication metadata now records CML-defined model elements as BoK knowledge
+  hooks, starting with Entity, Value, Powertype, and Statemachine definitions.
+  The default CML source is the linked CAR project
+  `src/main/cozy/<module>.cml`, and `.car-product/product.yaml` can assign the
+  glossary category used for generated term IDs and links. This captures the
+  core Cozy technical pattern: CML model definitions are not just build input;
+  they are glossary-linked BoK knowledge elements. KnowledgeHub now maps
+  NictKnowledgeHub's `KnowledgeItem` entity to the `technology:knowledge-item`
+  glossary term link in both publication metadata and the CAR product article.
+- 2026-06-23: Extended BK12-11 to use model-compiler metadata as the primary
+  CML knowledge source. `modeler-scala` generation now emits
+  `target/cozy/model-metadata.json|yaml`, and `publish-car` places CML sidecars
+  in `warehouse/repository/catalog/car/<module>.cml` plus
+  `<module>.model-metadata.json|yaml`. BoK CAR product publication now reads
+  warehouse model metadata first, falls back to direct external-project CML scan
+  only when sidecars are absent, and renders CML-derived provisional Term Hub
+  pages marked `generated-from-cml` / `needs-curation` without overwriting
+  hand-written glossary term pages. Focused validation passed with
+  `sbt --batch "testOnly cozy.CozyBokCarProductSpec cozy.modeler.ModelerGenerationSpec"`.
 
 ## References
 

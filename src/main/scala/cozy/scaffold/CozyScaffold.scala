@@ -13,7 +13,7 @@ import scala.collection.JavaConverters._
 /*
  * @since   May. 20, 2026
  *  version May. 25, 2026
- * @version Jun. 20, 2026
+ * @version Jun. 23, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyScaffold {
@@ -1502,8 +1502,11 @@ private[cozy] object CozyScaffold {
       |  bok publish-video <project-dir> [--publication <dir>] [--warehouse <dir>] [--version <version>] [--force]
       |      Publish all .video packages in a BoK source tree into src/main/publication and warehouse/repository/video.
       |
+      |  bok publish-car-products <project-dir> [--publication <dir>] [--warehouse <dir>] [--version <version>] [--force]
+      |      Register all .car-product packages in a BoK source tree into src/main/publication. Use publish-car for CAR artifacts.
+      |
       |  bok update-publication <project-dir> [--publication <dir>] [--warehouse <dir>] [--version <version>] [--force]
-      |      Update BoK publication registry metadata. In this version it publishes .video packages.
+      |      Update BoK publication registry metadata for .video and .car-product packages.
       |
       |  bok publish <project-dir> [--publication <dir>] [--warehouse <dir>] [--version <version>] [--strategy production] [--force] [--dry-run]
       |      Run update-publication, production BoK build, and the configured bok.workflow.upload.command.

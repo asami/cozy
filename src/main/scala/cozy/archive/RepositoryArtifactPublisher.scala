@@ -6,6 +6,7 @@ import java.security.MessageDigest
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 
+import cozy.modeler.CmlModelMetadata
 import cozy.config.CozyProjectYamlConfig
 import cozy.runtime.CozyCliArgs
 import org.goldenport.RAISE
@@ -14,7 +15,7 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   May. 20, 2026
- * @version Jun.  8, 2026
+ * @version Jun. 23, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object RepositoryArtifactPublisher {
@@ -48,6 +49,8 @@ private[cozy] object RepositoryArtifactPublisher {
       writeText(publiccatalog, catalog.toYaml)
       writeText(metadatapath, metadata)
     }
+    if (policy.kind == "car")
+      _publish_car_cml_sidecars(projectdir, warehouse, name)
   }
 
   def projectConfig(projectdir: Path): CozyProjectYamlConfig.Config = {
@@ -244,4 +247,20 @@ private[cozy] object RepositoryArtifactPublisher {
   private def _delete_if_exists(path: Path): Unit =
     Files.deleteIfExists(path)
 
+  private def _publish_car_cml_sidecars(projectdir: Path, warehouse: Path, name: String): Unit = {
+    val source = projectdir.resolve("src/main/cozy").resolve(s"$name.cml").toAbsolutePath.normalize()
+    if (Files.isRegularFile(source)) {
+      val catalogdir = warehouse.resolve("repository/catalog/car")
+      val targetcml = catalogdir.resolve(s"$name.cml")
+      Files.createDirectories(catalogdir)
+      Files.copy(source, targetcml, StandardCopyOption.REPLACE_EXISTING)
+      CmlModelMetadata.write(
+        source,
+        catalogdir.resolve(s"$name.model-metadata.json"),
+        catalogdir.resolve(s"$name.model-metadata.yaml"),
+        s"src/main/cozy/$name.cml",
+        "cml"
+      )
+    }
+  }
 }

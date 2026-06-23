@@ -279,7 +279,7 @@ private[cozy] object CozyBok {
       title <- c.downField("title").as[String]
       reading <- c.downField("reading").as[Option[String]]
       category <- c.downField("category").as[Option[String]]
-      sourcepath <- c.downField("source_path").as[String]
+      sourcePath <- c.downField("source_path").as[String]
       publicpath <- c.downField("public_path").as[String]
       definitionhtml <- c.downField("definition_html").as[String]
       summary <- c.downField("summary").as[Option[String]]
@@ -289,7 +289,7 @@ private[cozy] object CozyBok {
       rdfrefs <- c.downField("rdf_refs").as[Option[Vector[TermRdfReference]]]
       videorefs <- c.downField("video_refs").as[Option[Vector[TermReference]]]
       quality <- c.downField("quality").as[Option[TermQuality]]
-    } yield TermEntry(id, slug, title, reading, category, sourcepath, publicpath, definitionhtml, summary, aliases.getOrElse(Vector.empty), articlerefs.getOrElse(Vector.empty), termrefs.getOrElse(Vector.empty), rdfrefs.getOrElse(Vector.empty), videorefs.getOrElse(Vector.empty), quality.getOrElse(TermQuality(false, false, false)))
+    } yield TermEntry(id, slug, title, reading, category, sourcePath, publicpath, definitionhtml, summary, aliases.getOrElse(Vector.empty), articlerefs.getOrElse(Vector.empty), termrefs.getOrElse(Vector.empty), rdfrefs.getOrElse(Vector.empty), videorefs.getOrElse(Vector.empty), quality.getOrElse(TermQuality(false, false, false)))
 
   private implicit val _term_index_decoder: Decoder[TermIndex] = (c: HCursor) =>
     for {
@@ -358,8 +358,11 @@ private[cozy] object CozyBok {
     stage: Option[WorkflowConfig],
     upload: WorkflowConfig,
     build: BuildConfig,
-    packages: Vector[Path]
-  )
+    videoPackages: Vector[Path],
+    carProductPackages: Vector[Path]
+  ) {
+    def packageCount: Int = videoPackages.size + carProductPackages.size
+  }
   private final case class ParsedArgs(request: CliRequest) {
     def argument(name: String): Option[String] =
       request.arguments.find(_.name == name).map(_.asString).map(_.trim).filter(_.nonEmpty)
@@ -574,6 +577,12 @@ private[cozy] object CozyBok {
       case "bok" :: "publish-video" :: rest =>
         publishVideo(PublicationConfig.create("publish-video", rest), CozyVideo.VoicevoxClient.default, CozyVideo.VideoProcessRunner.default)
         true
+      case "bok" :: "publish-car-products" :: rest if _help_requested(rest) =>
+        _print_publication_usage("publish-car-products")
+        true
+      case "bok" :: "publish-car-products" :: rest =>
+        publishCarProducts(PublicationConfig.create("publish-car-products", rest))
+        true
       case "bok" :: "update-publication" :: rest if _help_requested(rest) =>
         _print_publication_usage("update-publication")
         true
@@ -618,9 +627,12 @@ private[cozy] object CozyBok {
       case "publish-video" =>
         println("Usage: cozy bok publish-video <project-dir> [--publication <dir>] [--warehouse <dir>] [--version <version>] [--force]")
         println("Publish .video packages into the BoK publication registry and video warehouse.")
+      case "publish-car-products" =>
+        println("Usage: cozy bok publish-car-products <project-dir> [--publication <dir>] [--warehouse <dir>] [--version <version>] [--force]")
+        println("Register .car-product packages into the BoK publication registry. CAR artifact publishing remains the responsibility of cozy publish-car.")
       case "update-publication" =>
         println("Usage: cozy bok update-publication <project-dir> [--publication <dir>] [--warehouse <dir>] [--version <version>] [--force]")
-        println("Update the BoK publication registry. V1 delegates to video publication.")
+        println("Update the BoK publication registry for .video and .car-product packages.")
       case other =>
         RAISE.invalidArgumentFault(s"Unknown publication command: ${other}")
     }
@@ -774,12 +786,16 @@ private[cozy] object CozyBok {
   ): Vector[CozyVideoPublisher.PublishVideoResult] =
     _publish_video_packages(config, voicevox, videorunner)
 
+  def publishCarProducts(config: PublicationConfig): Vector[CozyCarProductPublisher.PublishCarProductResult] =
+    _publish_car_product_packages(config)
+
   def updatePublication(
     config: PublicationConfig,
     voicevox: CozyVideo.VoicevoxClient,
     videorunner: CozyVideo.VideoProcessRunner
-  ): Vector[CozyVideoPublisher.PublishVideoResult] =
-    publishVideo(config, voicevox, videorunner)
+  ): Vector[String] =
+    publishVideo(config, voicevox, videorunner).map(_.video.name) ++
+      publishCarProducts(config).map(_.product.name)
 
   def publish(
     config: PublicationConfig,
@@ -790,7 +806,7 @@ private[cozy] object CozyBok {
     val preflight = _publish_preflight(config)
     val planned = Vector(
       PublishStep("preflight", "succeeded", "Publish preflight passed."),
-      PublishStep("update-publication", if (preflight.packages.isEmpty) "skipped" else if (config.dryRun) "planned" else "pending", s"${preflight.packages.size} .video package(s)."),
+      PublishStep("update-publication", if (preflight.packageCount == 0) "skipped" else if (config.dryRun) "planned" else "pending", _publication_package_message(preflight)),
       PublishStep("build", if (config.dryRun) "planned" else "pending", s"strategy=${preflight.build.strategy}"),
       PublishStep("stage", preflight.stage.map(_ => if (config.dryRun) "planned" else "pending").getOrElse("skipped"), preflight.stage.map(_.command.mkString(" ")).getOrElse("No stage workflow configured.")),
       PublishStep("upload", if (config.dryRun) "planned" else "pending", preflight.upload.command.mkString(" "))
@@ -801,8 +817,8 @@ private[cozy] object CozyBok {
     } else {
       var steps = Vector(PublishStep("preflight", "succeeded", "Publish preflight passed."))
       try {
-        if (preflight.packages.isEmpty) {
-          steps :+= PublishStep("update-publication", "skipped", "No .video packages to publish.")
+        if (preflight.packageCount == 0) {
+          steps :+= PublishStep("update-publication", "skipped", "No publication packages to publish.")
           _publish_status("update-publication", "skipped")
         } else {
           _publish_status("update-publication", "start")
@@ -857,7 +873,8 @@ private[cozy] object CozyBok {
       "--warehouse", config.warehousePath.toString,
       "--publication", config.publicationPath.toString
     ))
-    val packages = if (config.videoEnabled) _video_packages(config) else Vector.empty
+    val videopackages = if (config.videoEnabled) _video_packages(config) else Vector.empty
+    val carproducts = _car_product_packages(config)
     _validate_publish_path("publication", config.publicationPath, config.project, config.sourcePath)
     _validate_publish_path("warehouse", config.warehousePath, config.project, config.sourcePath)
     _reject_path_overlap("publication", config.publicationPath, "warehouse", config.warehousePath)
@@ -865,7 +882,7 @@ private[cozy] object CozyBok {
     _reject_path_overlap("publication", config.publicationPath, "doxsite", buildconfig.doxsitePath)
     _reject_path_overlap("warehouse", config.warehousePath, "website", buildconfig.websitePath)
     _reject_path_overlap("warehouse", config.warehousePath, "doxsite", buildconfig.doxsitePath)
-    PublishPreflight(optionalstage, upload, buildconfig, packages)
+    PublishPreflight(optionalstage, upload, buildconfig, videopackages, carproducts)
   }
 
   private def _validate_publish_path(name: String, path: Path, project: Path, source: Path): Unit = {
@@ -912,7 +929,7 @@ private[cozy] object CozyBok {
     println(s"warehouse: ${config.warehousePath}")
     println(s"strategy: ${config.strategy}")
     println("steps:")
-    println(s"- update-publication: ${preflight.packages.size} .video package(s)")
+    println(s"- update-publication: ${_publication_package_message(preflight)}")
     println(s"- build: strategy=${preflight.build.strategy}")
     println(s"- stage: ${preflight.stage.map(_.command.mkString(" ")).getOrElse("skipped")}")
     println(s"- upload: ${preflight.upload.command.mkString(" ")}")
@@ -935,8 +952,9 @@ private[cozy] object CozyBok {
       "dryRun" -> Json.fromBoolean(config.dryRun),
       "force" -> Json.fromBoolean(config.force),
       "videoEnabled" -> Json.fromBoolean(config.videoEnabled),
-      "videoPackages" -> Json.fromValues(preflight.packages.map(x => Json.fromString(x.toString))),
-      "publicationArtifacts" -> Json.fromValues(preflight.packages.map(x => Json.obj(
+      "videoPackages" -> Json.fromValues(preflight.videoPackages.map(x => Json.fromString(x.toString))),
+      "carProductPackages" -> Json.fromValues(preflight.carProductPackages.map(x => Json.fromString(x.toString))),
+      "publicationArtifacts" -> Json.fromValues(_publication_packages(preflight).map(x => Json.obj(
         "sourcePackage" -> Json.fromString(x.toString),
         "registryRoot" -> Json.fromString(config.publicationPath.toString),
         "warehouseRoot" -> Json.fromString(config.warehousePath.toString)
@@ -982,6 +1000,23 @@ private[cozy] object CozyBok {
         )
       }
 
+  private def _publish_car_product_packages(config: PublicationConfig): Vector[CozyCarProductPublisher.PublishCarProductResult] = {
+    val bokconfig = _load_config(config.project)
+    _car_product_packages(config).map { packagedir =>
+      CozyCarProductPublisher.publish(
+        CozyCarProductPublisher.PublishCarProductConfig(
+          packagedir,
+          config.publicationPath,
+          config.warehousePath,
+          config.version,
+          config.force,
+          config.project,
+          bokconfig
+        )
+      )
+    }
+  }
+
   private def _video_packages(config: PublicationConfig): Vector[Path] = {
     if (!Files.isDirectory(config.sourcePath))
       RAISE.invalidArgumentFault(s"Missing BoK source directory: ${config.sourcePath}")
@@ -1003,6 +1038,40 @@ private[cozy] object CozyBok {
 
   private def _has_video_descriptor(path: Path): Boolean =
     Vector("video.yaml", "video.yml", "video.json").exists(x => Files.isRegularFile(path.resolve(x)))
+
+  private def _car_product_packages(config: PublicationConfig): Vector[Path] = {
+    if (!Files.isDirectory(config.sourcePath))
+      RAISE.invalidArgumentFault(s"Missing BoK source directory: ${config.sourcePath}")
+    _car_product_package_dirs(config.sourcePath)
+  }
+
+  private def _car_product_package_dirs(sourcePath: Path): Vector[Path] = {
+    if (!Files.isDirectory(sourcePath))
+      return Vector.empty
+    val stream = Files.walk(sourcePath)
+    try {
+      val dirs = stream.iterator.asScala.toVector.filter(Files.isDirectory(_)).map(_.toAbsolutePath.normalize())
+      dirs.find(_.getFileName.toString.endsWith(".car-product.d")).foreach { path =>
+        RAISE.invalidArgumentFault(s"*.car-product.d is reserved for generated/work directories: $path")
+      }
+      dirs.filter(_.getFileName.toString.endsWith(".car-product")).sortBy(_.toString).map { path =>
+        if (!_has_car_product_descriptor(path))
+          RAISE.invalidArgumentFault(s"Missing product descriptor in .car-product package: $path")
+        path
+      }
+    } finally {
+      stream.close()
+    }
+  }
+
+  private def _has_car_product_descriptor(path: Path): Boolean =
+    Vector("product.yaml", "product.yml", "product.json").exists(x => Files.isRegularFile(path.resolve(x)))
+
+  private def _publication_packages(preflight: PublishPreflight): Vector[Path] =
+    preflight.videoPackages ++ preflight.carProductPackages
+
+  private def _publication_package_message(preflight: PublishPreflight): String =
+    s"${preflight.videoPackages.size} .video package(s), ${preflight.carProductPackages.size} .car-product package(s)"
 
   private def _run_antora(config: BuildConfig, runner: Runner): Unit = {
     config.localeMode match {
@@ -1244,6 +1313,7 @@ private[cozy] object CozyBok {
     val terms = _terms(config, categories)
     val glossarybody = _glossary_dashboard_body(config, categories, terms, _language_index_root_prefix(config), locale)
     val historyhref = _latest_history_year_page(target.resolve("history"))
+    _write_car_product_pages(config, target, locale, categories)
     _write_rdf_page(config, target, locale, categories)
     _write_term_hub_pages(config, target, locale, categories, terms)
     _write_text(
@@ -1322,6 +1392,141 @@ private[cozy] object CozyBok {
       _rdf_node_detail_page(config, categories, locale, nodepage)
     )
   }
+
+  private def _write_car_product_pages(
+    config: BuildConfig,
+    target: Path,
+    locale: String,
+    categories: Vector[CategoryContent]
+  ): Unit = {
+    val bokconfig = _load_config(config.project)
+    _car_product_package_dirs(config.sourcePath).foreach { packagedir =>
+      val product = CozyCarProductPublisher.resolve(
+        CozyCarProductPublisher.PublishCarProductConfig(
+          packagedir,
+          config.publication.publicationPath(config.project),
+          config.publication.warehousePath(config.project),
+          None,
+          force = false,
+          config.project,
+          bokconfig
+        )
+      )
+      val artifact = config.publication.warehousePath(config.project).resolve(product.warehousePath)
+      val articlebody = _source_narrative_html(product.article, locale)
+      val page = target.resolve(product.publicationpath).resolve("index.html")
+      val cmlbody = _car_product_cml_html(product, page, target)
+      val pagebody =
+        s"""<div class="sect1 car-product-overview">
+           |  <h2>Product</h2>
+           |  <div class="sectionbody">
+           |    <dl>
+           |      <dt>Type</dt><dd>CAR</dd>
+           |      <dt>Module</dt><dd>${_html_escape(product.module)}</dd>
+           |      <dt>Version</dt><dd>${_html_escape(product.version)}</dd>
+           |      <dt>Project</dt><dd>${_html_escape(product.projectref.getOrElse(product.projectmode))}</dd>
+           |      <dt>Artifact status</dt><dd>${if (Files.isRegularFile(artifact)) "published" else "missing"}</dd>
+           |    </dl>
+           |    <p><a href="${_html_escape(_relative_href(target.resolve(product.publicationpath).resolve("index.html"), target.resolve("repository").resolve(product.name).resolve("index.html")))}">Repository artifact metadata</a></p>
+           |  </div>
+           |</div>
+           |${cmlbody}
+           |${articlebody}""".stripMargin
+      _write_text(
+        page,
+        _special_html_page(
+          config,
+          categories,
+          locale,
+          page,
+          product.title,
+          product.summary.getOrElse("CAR product."),
+          pagebody
+        )
+      )
+      _write_cml_term_pages(config, target, locale, categories, product)
+    }
+  }
+
+  private def _car_product_cml_html(product: CozyCarProductPublisher.ResolvedCarProduct, page: Path, target: Path): String =
+    product.cml.filter(_.elements.nonEmpty).map { cml =>
+      val rows = cml.elements.map { element =>
+        val href = _relative_href(page, target.resolve(element.glossarypath))
+        val summary = element.descriptive.summary.orElse(element.descriptive.description).getOrElse("")
+        s"""<tr>
+           |  <td>${_html_escape(element.kind)}</td>
+           |  <td>${_html_escape(element.name)}</td>
+           |  <td><a href="${_html_escape(href)}">${_html_escape(element.termid)}</a></td>
+           |  <td>${_html_escape(summary)}</td>
+           |</tr>""".stripMargin
+      }.mkString("\n")
+      val metadata = cml.modelmetadatapath.map(path =>
+        s"""<p class="bok-car-product-cml-source">Source: ${_html_escape(cml.sourcekind)} <code>${_html_escape(path.getFileName.toString)}</code></p>"""
+      ).getOrElse(s"""<p class="bok-car-product-cml-source">Source: ${_html_escape(cml.sourcekind)} <code>${_html_escape(cml.sourceprojectrelativepath)}</code></p>""")
+      s"""<div class="sect1 car-product-cml-glossary">
+         |  <h2>CML Model Vocabulary</h2>
+         |  <div class="sectionbody">
+         |    <p>CMLで定義したEntity, Value, Powertype, StatemachineはBoK用語集と連動する知識要素として扱います。</p>
+         |    ${metadata}
+         |    <table class="table table-sm bok-car-product-cml-table">
+         |      <thead><tr><th>Kind</th><th>Name</th><th>Glossary term</th><th>Description</th></tr></thead>
+         |      <tbody>
+         |${rows}
+         |      </tbody>
+         |    </table>
+         |  </div>
+         |</div>""".stripMargin
+    }.getOrElse("")
+
+  private def _write_cml_term_pages(
+    config: BuildConfig,
+    target: Path,
+    locale: String,
+    categories: Vector[CategoryContent],
+    product: CozyCarProductPublisher.ResolvedCarProduct
+  ): Unit =
+    product.cml.foreach { cml =>
+      cml.elements.foreach { element =>
+        val page = target.resolve(element.glossarypath)
+        if (!Files.exists(page)) {
+          val producthref = _relative_href(page, target.resolve(product.publicationpath).resolve("index.html"))
+          val rdfhref = _relative_href(page, target.resolve("rdf").resolve("index.html")) + s"?term=${_html_escape(element.termid)}"
+          val description = element.descriptive.description.orElse(element.descriptive.summary).orElse(element.descriptive.brief)
+          val descriptive =
+            description.map(text =>
+              s"""<div class="bok-term-cml-description"><h2>Descriptive Attributes</h2><p>${_html_escape(text)}</p></div>"""
+            ).getOrElse("")
+          val narrative =
+            element.narrative.map(text =>
+              s"""<div class="bok-term-cml-narrative"><h2>CML-derived narrative</h2><p>${_html_escape(text)}</p></div>"""
+            ).getOrElse("")
+          val body =
+            s"""<div class="bok-term-hub bok-term-generated-from-cml">
+               |  <div class="alert alert-warning">Status: generated-from-cml / needs-curation. Hand-written glossary terms take precedence when available.</div>
+               |  <dl>
+               |    <dt>Term ID</dt><dd>${_html_escape(element.termid)}</dd>
+               |    <dt>CML kind</dt><dd>${_html_escape(element.kind)}</dd>
+               |    <dt>CAR product</dt><dd><a href="${_html_escape(producthref)}">${_html_escape(product.title)}</a></dd>
+               |  </dl>
+               |  ${descriptive}
+               |  ${narrative}
+               |  <p><a class="btn btn-sm btn-outline-primary" href="${_html_escape(rdfhref)}">RDF graph</a></p>
+               |</div>""".stripMargin
+          _write_text(
+            page,
+            _special_html_page(
+              config,
+              categories,
+              locale,
+              page,
+              element.descriptive.label,
+              description.getOrElse("CML-derived glossary term."),
+              body
+            )
+          )
+        }
+      }
+    }
 
   private def _copy_rdf_publication_artifacts(config: BuildConfig, target: Path): Unit = {
     _copy_if_exists(config.doxsitePath.resolve("site.ttl"), target.resolve("rdf").resolve("site.ttl"))
@@ -3444,6 +3649,9 @@ private[cozy] object CozyBok {
 
   private def _site_asset_href(config: BuildConfig, page: Path, path: String): String =
     _site_root_prefix(config, page) + path
+
+  private def _relative_href(page: Path, destination: Path): String =
+    page.toAbsolutePath.normalize.getParent.relativize(destination.toAbsolutePath.normalize).toString.replace(java.io.File.separatorChar, '/')
 
   private def _site_css_links(config: BuildConfig, page: Path): String =
     s"""  <link rel="stylesheet" href="${_html_escape(_site_asset_href(config, page, "_/css/bootstrap-grid.min.css"))}">

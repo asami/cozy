@@ -25,7 +25,7 @@ import scala.collection.JavaConverters._
  *  version Mar. 17, 2026
  *  version Apr. 29, 2026
  *  version May. 21, 2026
- * @version Jun. 20, 2026
+ * @version Jun. 23, 2026
  * @author  ASAMI, Tomoharu
  */
 class Cozy(
@@ -78,7 +78,7 @@ class Cozy(
   }
 
   def executeDirect(args: Array[String]): Unit = {
-    if (!_execute_version(args) && !CozyBok.execute(args.toList) && !CozyVideo.execute(args.toList) && !_execute_init(args) && !_execute_car_sbt_project(args) && !_execute_publish_car(args) && !_execute_publish_sar(args) && !_execute_publish_project(args) && !_execute_publish_video(args) && !_execute_distribute_samples(args) && !_execute_index_warehouse(args) && !_execute_sbt_bridge(args) && !_execute_package_archive(args))
+    if (!_execute_version(args) && !CozyBok.execute(args.toList) && !CozyVideo.execute(args.toList) && !_execute_modeler_scala(args) && !_execute_init(args) && !_execute_car_sbt_project(args) && !_execute_publish_car(args) && !_execute_publish_sar(args) && !_execute_publish_project(args) && !_execute_publish_video(args) && !_execute_distribute_samples(args) && !_execute_index_warehouse(args) && !_execute_sbt_bridge(args) && !_execute_package_archive(args))
       _to_repl_commandline(args) match {
         case Some(s) =>
           val c = _operation_call(Array(s))
@@ -207,6 +207,37 @@ class Cozy(
       case _ =>
         false
     }
+
+  private def _execute_modeler_scala(args: Array[String]): Boolean =
+    _leading_command(args) match {
+      case Some((command @ ("modeler-scala" | "modeler-scala-value"), rest)) =>
+        val normalized = _normalize_first_positional_path(rest)
+        val repl = (Vector(command) ++ _convert_args(normalized)).mkString(" ")
+        interpreter.execute(_operation_call(Array(repl)))
+        _write_model_metadata(normalized)
+        true
+      case _ =>
+        false
+    }
+
+  private def _write_model_metadata(args: List[String]): Unit = {
+    val save = _save_path(args)
+    val input = args.find(!_.startsWith("-")).map(Paths.get(_).toAbsolutePath.normalize())
+    for {
+      savedir <- save
+      source <- input
+      if Files.isRegularFile(source)
+      if Files.exists(savedir)
+    } {
+      val metadir = savedir.resolve("target/cozy")
+      cozy.modeler.CmlModelMetadata.write(
+        source,
+        metadir.resolve("model-metadata.json"),
+        metadir.resolve("model-metadata.yaml"),
+        "cml"
+      )
+    }
+  }
 
   private def _execute_init(args: Array[String]): Boolean =
     _leading_command(args) match {

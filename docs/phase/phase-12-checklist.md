@@ -145,19 +145,28 @@ Status: DONE
 
 ## BK12-11: CAR Product And NictKnowledgeHub Project Integration
 
-Status: OPEN
+Status: DONE
 
-- [ ] Define how CAR products are represented as BoK knowledge.
-- [ ] Define the boundary between CAR product metadata, publication metadata,
+- [x] Define how CAR products are represented as BoK knowledge.
+- [x] Define the boundary between CAR product metadata, publication metadata,
       warehouse artifacts, and narrative BoK articles.
-- [ ] Add the NictKnowledgeHub project as a concrete Phase 12 operational
+- [x] Add the NictKnowledgeHub project as a concrete Phase 12 operational
       target alongside KnowledgeHub.
-- [ ] Confirm whether NictKnowledgeHub uses the same BoK source layout and
+- [x] Confirm whether NictKnowledgeHub uses the same BoK source layout and
       operation conventions as KnowledgeHub.
-- [ ] Identify required Cozy changes for CAR product pages, product metadata,
+- [x] Identify required Cozy changes for CAR product pages, product metadata,
       artifact links, and RDF references.
-- [ ] Verify the approach with a concrete NictKnowledgeHub source or fixture.
-- [ ] Keep generated CAR artifacts outside BoK source directories.
+- [x] Verify the approach with a concrete NictKnowledgeHub source or fixture.
+- [x] Keep generated CAR artifacts outside BoK source directories.
+- [x] Generate CML `model-metadata` sidecars from the modeler generation path.
+- [x] Publish CAR CML sidecars under `warehouse/repository/catalog/car`.
+- [x] Publish CAR model metadata sidecars as JSON and YAML.
+- [x] Prefer warehouse model metadata over direct external project CML scan.
+- [x] Keep direct CML scan only as a fallback.
+- [x] Register CML model elements, descriptive attributes, and narrative in
+      CAR product publication metadata.
+- [x] Render CML-derived provisional term hub pages without overwriting
+      hand-written glossary term pages.
 
 ## BK12-12: Scenario Knowledge Management
 
