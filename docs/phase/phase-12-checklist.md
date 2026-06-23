@@ -149,7 +149,7 @@ Status: DONE
 
 - [x] Define how CAR products are represented as BoK knowledge.
 - [x] Define the boundary between CAR product metadata, publication metadata,
-      warehouse artifacts, and narrative BoK articles.
+      artifact repository contents, and narrative BoK articles.
 - [x] Add the NictKnowledgeHub project as a concrete Phase 12 operational
       target alongside KnowledgeHub.
 - [x] Confirm whether NictKnowledgeHub uses the same BoK source layout and
@@ -159,14 +159,27 @@ Status: DONE
 - [x] Verify the approach with a concrete NictKnowledgeHub source or fixture.
 - [x] Keep generated CAR artifacts outside BoK source directories.
 - [x] Generate CML `model-metadata` sidecars from the modeler generation path.
-- [x] Publish CAR CML sidecars under `warehouse/repository/catalog/car`.
+- [x] Publish CAR CML sidecars under `repository/catalog/car` for BoK
+      repository-root operation and `<warehouse>/repository/catalog/car` for
+      external warehouse operation.
 - [x] Publish CAR model metadata sidecars as JSON and YAML.
-- [x] Prefer warehouse model metadata over direct external project CML scan.
+- [x] Prefer repository model metadata over direct external project CML scan.
 - [x] Keep direct CML scan only as a fallback.
 - [x] Register CML model elements, descriptive attributes, and narrative in
       CAR product publication metadata.
 - [x] Render CML-derived provisional term hub pages without overwriting
       hand-written glossary term pages.
+- [x] Support project-local public repository root mode with `bok.repository`.
+- [x] Support `bok.repository` values that point to a non-`repository`
+      physical directory while preserving public `/repository/...` paths.
+- [x] Keep KnowledgeHub `repository/` out of git while making it a staging and
+      upload target.
+- [x] Keep explicit `--repository <dir>` available for direct repository-root
+      operation.
+- [x] Keep explicit `--warehouse <dir>` available for parent warehouse operation
+      where the public repository lives under `<warehouse>/repository`.
+- [x] Avoid `repository/repository/...` paths when project-local repository mode
+      is enabled.
 
 ## BK12-12: Scenario Knowledge Management
 

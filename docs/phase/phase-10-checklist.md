@@ -18,7 +18,7 @@ Status: DONE
 Status: DONE
 
 - [x] Add BoK publication settings under `bok.*` in `conf/cozy/config.*` and `.cozy/config.*`.
-- [x] Support `bok.warehouse`, `bok.publication`, `bok.source`, `bok.strategy`.
+- [x] Support `bok.repository`, `bok.publication`, `bok.source`, `bok.strategy`.
 - [x] Support `bok.rdf.merge-publication-artifacts`.
 - [x] Support `bok.rdf.missing-artifact-policy`.
 - [x] Support `bok.video.enabled` and `bok.video.force`.
@@ -46,7 +46,7 @@ Status: DONE
 - [x] Exclude or reject `.video.d/` as generated/work directory naming.
 - [x] Call existing `CozyVideoPublisher.publish` for each discovered package.
 - [x] Write BoK-facing metadata to `src/main/publication`.
-- [x] Write generated video artifacts to `warehouse/repository/video`.
+- [x] Write generated video artifacts to the configured artifact repository.
 - [x] Ensure generated MP4/RDF/caption/transcript artifacts are never written under `.video/` source packages.
 
 ## BK10-05: One-Stop BoK Publish Flow

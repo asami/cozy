@@ -27,7 +27,7 @@ import io.circe.parser
 
 /*
  * @since   Jun.  3, 2026
- * @version Jun. 23, 2026
+ * @version Jun. 24, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyBok {
@@ -329,18 +329,23 @@ private[cozy] object CozyBok {
   final case class DirectAsset(source: String, destination: String)
   final case class PublicationSettings(
     path: String,
-    warehouse: String,
+    warehouse: Option[String],
+    repository: String,
     mergeRdf: Boolean,
     missingRdfPolicy: String
   ) {
     def publicationPath(project: Path): Path = project.resolve(path).toAbsolutePath.normalize()
-    def warehousePath(project: Path): Path = project.resolve(warehouse).toAbsolutePath.normalize()
+    def warehousePath(project: Path): Option[Path] = warehouse.map(project.resolve(_).toAbsolutePath.normalize())
+    def repositoryPath(project: Path): Path = project.resolve(repository).toAbsolutePath.normalize()
+    def artifactBasePath(project: Path): Path = repositoryPath(project)
+    def publicationRepositoryBasePath(project: Path): Path = repositoryPath(project)
   }
   final case class PublicationConfig(
     project: Path,
     source: String,
     publication: String,
-    warehouse: String,
+    warehouse: Option[String],
+    repository: String,
     version: Option[String],
     force: Boolean,
     videoEnabled: Boolean,
@@ -349,7 +354,9 @@ private[cozy] object CozyBok {
   ) {
     def sourcePath: Path = project.resolve(source).toAbsolutePath.normalize()
     def publicationPath: Path = project.resolve(publication).toAbsolutePath.normalize()
-    def warehousePath: Path = project.resolve(warehouse).toAbsolutePath.normalize()
+    def warehousePath: Option[Path] = warehouse.map(project.resolve(_).toAbsolutePath.normalize())
+    def repositoryPath: Path = project.resolve(repository).toAbsolutePath.normalize()
+    def artifactBasePath: Path = repositoryPath
     def manifestPath: Path = project.resolve("target/cozy-bok/publish/latest/manifest.json").toAbsolutePath.normalize()
   }
   final case class WorkflowConfig(project: Path, name: String, command: Vector[String], env: Map[String, String])
@@ -470,6 +477,7 @@ private[cozy] object CozyBok {
       spec.Parameter.property("docker-image"),
       spec.Parameter.property("dashboard-color-group"),
       spec.Parameter.propertyFileOption("warehouse"),
+      spec.Parameter.propertyFileOption("repository"),
       spec.Parameter.propertyFileOption("publication"),
       spec.Parameter.property("rdf-missing-artifact-policy")
     )
@@ -477,6 +485,7 @@ private[cozy] object CozyBok {
     private val _publication_request = spec.Request(
       _p_project,
       spec.Parameter.propertyFileOption("warehouse"),
+      spec.Parameter.propertyFileOption("repository"),
       spec.Parameter.propertyFileOption("publication"),
       spec.Parameter.property("version"),
       spec.Parameter.property("strategy"),
@@ -622,16 +631,16 @@ private[cozy] object CozyBok {
   private def _print_publication_usage(name: String): Unit = {
     name match {
       case "publish" =>
-        println("Usage: cozy bok publish <project-dir> [--publication <dir>] [--warehouse <dir>] [--version <version>] [--strategy production] [--force] [--dry-run]")
-        println("Run update-publication, build, optional stage, and configured upload workflow. Use --dry-run to print the plan without publication, warehouse, site, or upload side effects.")
+        println("Usage: cozy bok publish <project-dir> [--publication <dir>] [--repository <dir>] [--warehouse <dir>] [--version <version>] [--strategy production] [--force] [--dry-run]")
+        println("Run update-publication, build, optional stage, and configured upload workflow. Use --dry-run to print the plan without publication, repository, site, or upload side effects.")
       case "publish-video" =>
-        println("Usage: cozy bok publish-video <project-dir> [--publication <dir>] [--warehouse <dir>] [--version <version>] [--force]")
-        println("Publish .video packages into the BoK publication registry and video warehouse.")
+        println("Usage: cozy bok publish-video <project-dir> [--publication <dir>] [--repository <dir>] [--warehouse <dir>] [--version <version>] [--force]")
+        println("Publish .video packages into the BoK publication registry and artifact repository.")
       case "publish-car-products" =>
-        println("Usage: cozy bok publish-car-products <project-dir> [--publication <dir>] [--warehouse <dir>] [--version <version>] [--force]")
+        println("Usage: cozy bok publish-car-products <project-dir> [--publication <dir>] [--repository <dir>] [--warehouse <dir>] [--version <version>] [--force]")
         println("Register .car-product packages into the BoK publication registry. CAR artifact publishing remains the responsibility of cozy publish-car.")
       case "update-publication" =>
-        println("Usage: cozy bok update-publication <project-dir> [--publication <dir>] [--warehouse <dir>] [--version <version>] [--force]")
+        println("Usage: cozy bok update-publication <project-dir> [--publication <dir>] [--repository <dir>] [--warehouse <dir>] [--version <version>] [--force]")
         println("Update the BoK publication registry for .video and .car-product packages.")
       case other =>
         RAISE.invalidArgumentFault(s"Unknown publication command: ${other}")
@@ -867,21 +876,30 @@ private[cozy] object CozyBok {
     val upload = WorkflowConfig.create("upload", List(config.project.toString))
     val optionalstage = if (stage.command.nonEmpty) Some(stage) else None
     _require_workflow(upload)
-    val buildconfig = BuildConfig.create(List(
+    val buildargs = List(
       config.project.toString,
       "--strategy", config.strategy,
-      "--warehouse", config.warehousePath.toString,
+      "--repository", config.repositoryPath.toString,
       "--publication", config.publicationPath.toString
-    ))
+    )
+    val buildconfig = BuildConfig.create(buildargs)
     val videopackages = if (config.videoEnabled) _video_packages(config) else Vector.empty
     val carproducts = _car_product_packages(config)
     _validate_publish_path("publication", config.publicationPath, config.project, config.sourcePath)
-    _validate_publish_path("warehouse", config.warehousePath, config.project, config.sourcePath)
-    _reject_path_overlap("publication", config.publicationPath, "warehouse", config.warehousePath)
+    config.warehousePath match {
+      case Some(warehousepath) if config.repositoryPath == warehousepath.resolve("repository").toAbsolutePath.normalize() =>
+        _validate_publish_path("warehouse", warehousepath, config.project, config.sourcePath)
+      case Some(warehousepath) =>
+        _validate_publish_path("warehouse", warehousepath, config.project, config.sourcePath)
+        _validate_publish_path("repository", config.repositoryPath, config.project, config.sourcePath)
+      case None =>
+        _validate_publish_path("repository", config.repositoryPath, config.project, config.sourcePath)
+    }
+    _reject_path_overlap("publication", config.publicationPath, "artifact repository", config.repositoryPath)
     _reject_path_overlap("publication", config.publicationPath, "website", buildconfig.websitePath)
     _reject_path_overlap("publication", config.publicationPath, "doxsite", buildconfig.doxsitePath)
-    _reject_path_overlap("warehouse", config.warehousePath, "website", buildconfig.websitePath)
-    _reject_path_overlap("warehouse", config.warehousePath, "doxsite", buildconfig.doxsitePath)
+    _reject_path_overlap("artifact repository", config.repositoryPath, "website", buildconfig.websitePath)
+    _reject_path_overlap("artifact repository", config.repositoryPath, "doxsite", buildconfig.doxsitePath)
     PublishPreflight(optionalstage, upload, buildconfig, videopackages, carproducts)
   }
 
@@ -926,7 +944,8 @@ private[cozy] object CozyBok {
     println("bok publish dry-run")
     println(s"project: ${config.project}")
     println(s"publication: ${config.publicationPath}")
-    println(s"warehouse: ${config.warehousePath}")
+    config.warehousePath.foreach(path => println(s"warehouse: ${path}"))
+    println(s"repository: ${config.repositoryPath}")
     println(s"strategy: ${config.strategy}")
     println("steps:")
     println(s"- update-publication: ${_publication_package_message(preflight)}")
@@ -947,7 +966,8 @@ private[cozy] object CozyBok {
       "project" -> Json.fromString(config.project.toString),
       "source" -> Json.fromString(config.sourcePath.toString),
       "publication" -> Json.fromString(config.publicationPath.toString),
-      "warehouse" -> Json.fromString(config.warehousePath.toString),
+      "warehouse" -> Json.fromString(config.warehousePath.map(_.toString).getOrElse("")),
+      "repository" -> Json.fromString(config.repositoryPath.toString),
       "strategy" -> Json.fromString(config.strategy),
       "dryRun" -> Json.fromBoolean(config.dryRun),
       "force" -> Json.fromBoolean(config.force),
@@ -957,7 +977,8 @@ private[cozy] object CozyBok {
       "publicationArtifacts" -> Json.fromValues(_publication_packages(preflight).map(x => Json.obj(
         "sourcePackage" -> Json.fromString(x.toString),
         "registryRoot" -> Json.fromString(config.publicationPath.toString),
-        "warehouseRoot" -> Json.fromString(config.warehousePath.toString)
+        "warehouseRoot" -> Json.fromString(config.warehousePath.map(_.toString).getOrElse("")),
+        "repositoryRoot" -> Json.fromString(config.repositoryPath.toString)
       ))),
       "buildCommands" -> Json.arr(
         Json.fromValues(_dox_antora_command(preflight.build).map(Json.fromString)),
@@ -991,9 +1012,10 @@ private[cozy] object CozyBok {
           CozyVideoPublisher.PublishVideoConfig(
             packagedir,
             config.publicationPath,
-            config.warehousePath,
+            config.artifactBasePath,
             config.version,
-            config.force
+            config.force,
+            Some(config.repositoryPath)
           ),
           voicevox,
           videorunner
@@ -1007,11 +1029,12 @@ private[cozy] object CozyBok {
         CozyCarProductPublisher.PublishCarProductConfig(
           packagedir,
           config.publicationPath,
-          config.warehousePath,
+          config.artifactBasePath,
           config.version,
           config.force,
           config.project,
-          bokconfig
+          bokconfig,
+          Some(config.repositoryPath)
         )
       )
     }
@@ -1104,7 +1127,7 @@ private[cozy] object CozyBok {
     )
     if (includerdf && config.publication.mergeRdf)
       base ++ Vector(
-        "-publication.repository", config.publication.warehousePath(config.project).toString,
+        "-publication.repository", config.publication.publicationRepositoryBasePath(config.project).toString,
         "-publication.rdf.missing.policy", config.publication.missingRdfPolicy
       )
     else
@@ -1401,18 +1424,18 @@ private[cozy] object CozyBok {
   ): Unit = {
     val bokconfig = _load_config(config.project)
     _car_product_package_dirs(config.sourcePath).foreach { packagedir =>
-      val product = CozyCarProductPublisher.resolve(
-        CozyCarProductPublisher.PublishCarProductConfig(
-          packagedir,
-          config.publication.publicationPath(config.project),
-          config.publication.warehousePath(config.project),
-          None,
-          force = false,
-          config.project,
-          bokconfig
-        )
+      val publishconfig = CozyCarProductPublisher.PublishCarProductConfig(
+        packagedir,
+        config.publication.publicationPath(config.project),
+        config.publication.artifactBasePath(config.project),
+        None,
+        force = false,
+        config.project,
+        bokconfig,
+        Some(config.publication.repositoryPath(config.project))
       )
-      val artifact = config.publication.warehousePath(config.project).resolve(product.warehousePath)
+      val product = CozyCarProductPublisher.resolve(publishconfig)
+      val artifact = CozyCarProductPublisher.artifactPath(publishconfig, product.warehousePath)
       val articlebody = _source_narrative_html(product.article, locale)
       val page = target.resolve(product.publicationpath).resolve("index.html")
       val cmlbody = _car_product_cml_html(product, page, target)
@@ -6536,23 +6559,44 @@ private[cozy] object CozyBok {
       map(_.toString).
       orElse(config.value("bok.publication")).
       getOrElse("src/main/publication")
-    val warehouse = parsed.pathProperty("warehouse").
-      map(_.toString).
-      orElse(config.value("bok.warehouse")).
-      getOrElse("warehouse")
+    val (warehouse, repository) = _publication_artifact_roots(parsed, config)
     val merge = _boolean(config, "bok.rdf.merge-publication-artifacts", true)
     val defaultpolicy = if (strategy == "production") "fail" else "warn"
     val missingpolicy = parsed.property("rdf-missing-artifact-policy").
       orElse(config.value("bok.rdf.missing-artifact-policy")).
       getOrElse(defaultpolicy)
-    PublicationSettings(publication, warehouse, merge, missingpolicy)
+    PublicationSettings(publication, warehouse, repository, merge, missingpolicy)
   }
+
+  private def _publication_artifact_roots(
+    parsed: ParsedArgs,
+    config: CozyProjectYamlConfig.Config
+  ): (Option[String], String) = {
+    val clirepository = parsed.pathProperty("repository").map(_.toString)
+    val cliwarehouse = parsed.pathProperty("warehouse").map(_.toString)
+    val configrepository = config.value("bok.repository")
+    val configwarehouse = config.value("bok.warehouse")
+    val warehouse = if (clirepository.isDefined || configrepository.isDefined)
+      cliwarehouse
+    else
+      cliwarehouse.orElse(configwarehouse)
+    val repository = clirepository.
+      orElse(cliwarehouse.map(_repository_under_warehouse)).
+      orElse(configrepository).
+      orElse(configwarehouse.map(_repository_under_warehouse)).
+      getOrElse("repository")
+    warehouse -> repository
+  }
+
+  private def _repository_under_warehouse(warehouse: String): String =
+    Paths.get(warehouse).resolve("repository").toString
 
   private val _generated_gitignore_entries = Vector(
     "/target/",
     "/website.d/",
     "/doxsite.d/",
     "/antora.d/",
+    "/repository/",
     "/repository.d/",
     "/.bsp/",
     "/.metals/",
@@ -6799,7 +6843,7 @@ private[cozy] object CozyBok {
         "1. create src/main/doxsite/<category>/<slug>.video/index.dox",
         "2. create src/main/doxsite/<category>/<slug>.video/video.yaml",
         "3. keep generated mp4/rdf/captions outside the .video source package",
-        "4. cozy bok publish-video . --warehouse <warehouse-dir>",
+        "4. cozy bok publish-video .",
         "5. cozy bok build --strategy preview"
       )
     ),
@@ -7167,7 +7211,7 @@ private[cozy] object CozyBok {
        |bok:
        |  source: src/main/doxsite
        |  publication: src/main/publication
-       |  warehouse: warehouse
+       |  repository: repository
        |  strategy: production
        |  website: website.d
        |  website-staging: ${config.map(_default_website_staging).getOrElse("../website-staging")}
@@ -7498,7 +7542,7 @@ private[cozy] object CozyBok {
          |- `doxsite.d/`
          |- `antora.d/`
          |- `target/`
-         |- `warehouse/`
+         |- `repository/`
          |
          |## Page Types
          |
@@ -7591,7 +7635,7 @@ private[cozy] object CozyBok {
          |- `doxsite.d/`
          |- `antora.d/`
          |- `target/`
-         |- `warehouse/`
+         |- `repository/`
          |
          |## Page Types
          |
@@ -7780,7 +7824,8 @@ private[cozy] object CozyBok {
        |PROJECT_DIR=$$(cd "$$(dirname "$$0")/.." && pwd)
        |cd "$$PROJECT_DIR"
        |
-       |WEBSITE_BUILD_DIR=$${WEBSITE_BUILD_DIR:-website.d}
+       |WEBSITE_BUILD_DIR=$${WEBSITE_SOURCE_DIR:-website.d}
+       |REPOSITORY_SOURCE_DIR=$${REPOSITORY_SOURCE_DIR:-repository}
        |WEBSITE_STAGING_DIR=$${WEBSITE_STAGING_DIR:-$staging}
        |
        |if [ ! -d "$$WEBSITE_BUILD_DIR" ]; then
@@ -7791,6 +7836,13 @@ private[cozy] object CozyBok {
        |
        |mkdir -p "$$WEBSITE_STAGING_DIR"
        |rsync -av --checksum --delete "$$WEBSITE_BUILD_DIR"/ "$$WEBSITE_STAGING_DIR"/
+       |
+       |if [ -d "$$REPOSITORY_SOURCE_DIR" ]; then
+       |  mkdir -p "$$WEBSITE_STAGING_DIR/repository"
+       |  rsync -av --checksum "$$REPOSITORY_SOURCE_DIR"/ "$$WEBSITE_STAGING_DIR/repository"/
+       |else
+       |  echo "Repository source directory is not present; skipping artifact repository staging: $$REPOSITORY_SOURCE_DIR" >&2
+       |fi
        |
        |if [ -d "$$WEBSITE_STAGING_DIR/.git" ]; then
        |  git -C "$$WEBSITE_STAGING_DIR" status --short
@@ -7812,6 +7864,7 @@ private[cozy] object CozyBok {
       |cd "$PROJECT_DIR"
       |
       |WEBSITE_SOURCE_DIR=${WEBSITE_SOURCE_DIR:-website.d}
+      |REPOSITORY_SOURCE_DIR=${REPOSITORY_SOURCE_DIR:-repository}
       |AWS_S3_URI=${AWS_S3_URI:-}
       |AWS_S3_SYNC_DELETE=${AWS_S3_SYNC_DELETE:-true}
       |AWS_CLOUDFRONT_DISTRIBUTION_ID=${AWS_CLOUDFRONT_DISTRIBUTION_ID:-}
@@ -7851,9 +7904,19 @@ private[cozy] object CozyBok {
       |fi
       |
       |if [ "$AWS_S3_SYNC_DELETE" = "true" ]; then
-      |  aws s3 sync "$WEBSITE_SOURCE_DIR"/ "$AWS_S3_URI" --delete
+      |  aws s3 sync "$WEBSITE_SOURCE_DIR"/ "$AWS_S3_URI" --delete --exclude "repository/*"
       |else
-      |  aws s3 sync "$WEBSITE_SOURCE_DIR"/ "$AWS_S3_URI"
+      |  aws s3 sync "$WEBSITE_SOURCE_DIR"/ "$AWS_S3_URI" --exclude "repository/*"
+      |fi
+      |
+      |if [ -d "$WEBSITE_SOURCE_DIR/repository" ]; then
+      |  aws s3 sync "$WEBSITE_SOURCE_DIR/repository"/ "$AWS_S3_URI/repository/"
+      |fi
+      |
+      |if [ -d "$REPOSITORY_SOURCE_DIR" ]; then
+      |  aws s3 sync "$REPOSITORY_SOURCE_DIR"/ "$AWS_S3_URI/repository/"
+      |else
+      |  echo "Repository source directory is not present; skipping artifact repository upload: $REPOSITORY_SOURCE_DIR" >&2
       |fi
       |
       |if [ -n "$AWS_CLOUDFRONT_DISTRIBUTION_ID" ]; then
@@ -8047,10 +8110,7 @@ private[cozy] object CozyBok {
         map(_.toString).
         orElse(config.value("bok.publication")).
         getOrElse("src/main/publication")
-      val warehouse = parsed.pathProperty("warehouse").
-        map(_.toString).
-        orElse(config.value("bok.warehouse")).
-        getOrElse("warehouse")
+      val (warehouse, repository) = _publication_artifact_roots(parsed, config)
       val force = parsed.request.switches.exists(_.name == "force") || _boolean(config, "bok.video.force", false)
       val videoenabled = _boolean(config, "bok.video.enabled", true)
       val dryrun = parsed.request.switches.exists(_.name == "dry-run")
@@ -8061,6 +8121,7 @@ private[cozy] object CozyBok {
         config.value("bok.source").getOrElse("src/main/doxsite"),
         publication,
         warehouse,
+        repository,
         parsed.property("version"),
         force,
         videoenabled,
@@ -8073,8 +8134,15 @@ private[cozy] object CozyBok {
   private def _workflow_command(config: CozyProjectYamlConfig.Config, name: String): Vector[String] =
     config.value(s"bok.workflow.${name}.command").map(x => Vector("sh", "-c", x)).getOrElse(Vector.empty)
 
-  private def _workflow_env(config: CozyProjectYamlConfig.Config, name: String): Map[String, String] =
-    config.mapUnder(s"bok.workflow.${name}.env")
+  private def _workflow_env(config: CozyProjectYamlConfig.Config, name: String): Map[String, String] = {
+    val defaults = Map(
+      "WEBSITE_SOURCE_DIR" -> config.value("bok.website").getOrElse("website.d"),
+      "REPOSITORY_SOURCE_DIR" -> config.value("bok.repository").
+        orElse(config.value("bok.warehouse").map(_repository_under_warehouse)).
+        getOrElse("repository")
+    ) ++ (if (name == "stage") config.value("bok.website-staging").map("WEBSITE_STAGING_DIR" -> _).toMap else Map.empty)
+    defaults ++ config.mapUnder(s"bok.workflow.${name}.env")
+  }
 
   object WorkflowConfig {
     def create(name: String, args: List[String]): WorkflowConfig = {

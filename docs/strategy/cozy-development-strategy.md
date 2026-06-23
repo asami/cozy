@@ -206,7 +206,7 @@ Status: closed.
 
 Purpose:
 
-- integrate BoK source, publication registry, warehouse artifacts, and
+- integrate BoK source, publication registry, artifact repository contents, and
   SmartDox site generation under `cozy bok`
 - add BoK-level video publication and publication update commands
 - make `bok build` consume registered publication metadata and merge registered
@@ -228,7 +228,7 @@ Purpose:
   operation
 - add dry-run, preflight, operation manifest, and step-level diagnostics
 - keep upload implementation as a project-owned external workflow command
-- preserve Phase 10 source, publication registry, warehouse, and site output
+- preserve Phase 10 source, publication registry, artifact repository, and site output
   boundaries
 
 Primary reference:

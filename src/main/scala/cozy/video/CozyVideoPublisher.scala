@@ -15,7 +15,7 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   Jun. 19, 2026
- * @version Jun. 19, 2026
+ * @version Jun. 24, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoPublisher {
@@ -28,7 +28,8 @@ private[cozy] object CozyVideoPublisher {
     saveDir: Path,
     warehouseDir: Path,
     version: Option[String],
-    force: Boolean
+    force: Boolean,
+    repositoryDir: Option[Path] = None
   )
   object PublishVideoConfig {
     def create(args: List[String]): PublishVideoConfig = {
@@ -254,7 +255,7 @@ private[cozy] object CozyVideoPublisher {
     val source = workspace.resolve("build/final.mp4").normalize()
     if (!Files.isRegularFile(source))
       RAISE.invalidArgumentFault(s"Video build did not create final output: $source")
-    val target = config.warehouseDir.resolve(video.warehousePath).toAbsolutePath.normalize()
+    val target = _repository_artifact_path(config, video.warehousePath)
     if (Files.exists(target) && !config.force)
       RAISE.invalidArgumentFault(s"Video warehouse artifact already exists: $target. Use --force to replace it.")
     Files.createDirectories(target.getParent)
@@ -267,6 +268,16 @@ private[cozy] object CozyVideoPublisher {
     _copy_sidecar_if_present(workspace.resolve("build/transcript.json"), target.resolveSibling(s"${video.name}-${video.version}.transcript.json"))
     target
   }
+
+  private def _repository_artifact_path(config: PublishVideoConfig, warehousepath: String): Path =
+    config.repositoryDir match {
+      case Some(repositorydir) if warehousepath == "repository" =>
+        repositorydir.toAbsolutePath.normalize()
+      case Some(repositorydir) if warehousepath.startsWith("repository/") =>
+        repositorydir.resolve(warehousepath.stripPrefix("repository/")).toAbsolutePath.normalize()
+      case _ =>
+        config.warehouseDir.resolve(warehousepath).toAbsolutePath.normalize()
+    }
 
   private def _publish_metadata(
     config: PublishVideoConfig,

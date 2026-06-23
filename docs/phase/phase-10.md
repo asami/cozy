@@ -6,7 +6,7 @@ Start date: 2026-06-19
 
 ## Goal
 
-Integrate the Cozy BoK, video publication, publication registry, warehouse, and
+Integrate the Cozy BoK, video publication, publication registry, artifact repository, and
 SmartDox site outputs so BoK construction, verification, and publication can be
 operated through the `cozy bok` command family.
 
@@ -55,7 +55,7 @@ Out of scope:
 ## Acceptance Criteria
 
 - `cozy bok publish-video <project-dir>` publishes all registered `.video/`
-  packages into `src/main/publication` and `warehouse/repository/video`.
+  packages into `src/main/publication` and the configured artifact repository.
 - `cozy bok update-publication <project-dir>` provides the future publication
   update entry point and handles video packages in v1.
 - `cozy bok publish <project-dir>` runs publication update, production build,
@@ -89,7 +89,7 @@ Closure summary:
 - `cozy bok publish-video`, `update-publication`, and `publish` provide the
   BoK-level publication operation surface.
 - `.video/` source packages are discovered from BoK source trees and published
-  into `src/main/publication` plus `warehouse/repository/video` without writing
+  into `src/main/publication` plus the configured artifact repository without writing
   generated artifacts back into source packages.
 - `bok build` passes publication metadata and repository context to SmartDox,
   and SmartDox can merge registered Turtle RDF artifacts into the site graph.

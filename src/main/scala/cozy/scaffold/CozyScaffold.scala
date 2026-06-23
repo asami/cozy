@@ -13,7 +13,7 @@ import scala.collection.JavaConverters._
 /*
  * @since   May. 20, 2026
  *  version May. 25, 2026
- * @version Jun. 23, 2026
+ * @version Jun. 24, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyScaffold {
@@ -1499,18 +1499,18 @@ private[cozy] object CozyScaffold {
       |  bok guide [scenario]
       |      Show scenario-based BoK operation guides. Use bok guide to list scenarios.
       |
-      |  bok publish-video <project-dir> [--publication <dir>] [--warehouse <dir>] [--version <version>] [--force]
-      |      Publish all .video packages in a BoK source tree into src/main/publication and warehouse/repository/video.
+      |  bok publish-video <project-dir> [--publication <dir>] [--repository <dir>] [--warehouse <dir>] [--version <version>] [--force]
+      |      Publish all .video packages in a BoK source tree into src/main/publication and the artifact repository.
       |
-      |  bok publish-car-products <project-dir> [--publication <dir>] [--warehouse <dir>] [--version <version>] [--force]
+      |  bok publish-car-products <project-dir> [--publication <dir>] [--repository <dir>] [--warehouse <dir>] [--version <version>] [--force]
       |      Register all .car-product packages in a BoK source tree into src/main/publication. Use publish-car for CAR artifacts.
       |
-      |  bok update-publication <project-dir> [--publication <dir>] [--warehouse <dir>] [--version <version>] [--force]
+      |  bok update-publication <project-dir> [--publication <dir>] [--repository <dir>] [--warehouse <dir>] [--version <version>] [--force]
       |      Update BoK publication registry metadata for .video and .car-product packages.
       |
-      |  bok publish <project-dir> [--publication <dir>] [--warehouse <dir>] [--version <version>] [--strategy production] [--force] [--dry-run]
+      |  bok publish <project-dir> [--publication <dir>] [--repository <dir>] [--warehouse <dir>] [--version <version>] [--strategy production] [--force] [--dry-run]
       |      Run update-publication, production BoK build, and the configured bok.workflow.upload.command.
-      |      With --dry-run, print the planned steps and write a target manifest without changing publication, warehouse, or site output.
+      |      With --dry-run, print the planned steps and write a target manifest without changing publication, repository, or site output.
       |
       |  bok preview [<project-dir>] [--port 8980]
       |      Serve website.d with python3 -m http.server for local preview.

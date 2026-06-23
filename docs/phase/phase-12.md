@@ -231,7 +231,7 @@ into focused Cozy improvements.
 - 2026-06-23: Completed BK12-11 CAR product and NictKnowledgeHub integration.
   Cozy now supports `.car-product/` source packages as BoK product knowledge,
   registers CAR product metadata under `src/main/publication`, records
-  warehouse/public CAR artifact references without building or publishing CAR
+  repository/public CAR artifact references without building or publishing CAR
   artifacts, and keeps `cozy publish-car` as the explicit CAR artifact
   publication path. KnowledgeHub now contains a
   `nict-knowledgehub.car-product/` source package that references the external
@@ -239,8 +239,9 @@ into focused Cozy improvements.
 - 2026-06-23: Extended BK12-11 for loose CAR catalog coupling. A
   `.car-product/` package can now omit the CAR product version and let Cozy
   resolve the effective version and artifact file from
-  `warehouse/repository/catalog/car/<module>.yaml`, which is produced by the
-  `publish-car` deployment flow. This supports three patterns: developing a
+  `repository/catalog/car/<module>.yaml` in BoK repository-root operation, or
+  `<warehouse>/repository/catalog/car/<module>.yaml` in external warehouse
+  operation. The catalog is produced by the `publish-car` deployment flow. This supports three patterns: developing a
   CAR product source package inside a BoK, keeping only non-sensitive external
   linkage metadata in `.car-product/`, and using `.cozy/config.*` for local
   sensitive path overrides such as `bok.projects.<ref>.path`. BoK publication
@@ -259,13 +260,32 @@ into focused Cozy improvements.
 - 2026-06-23: Extended BK12-11 to use model-compiler metadata as the primary
   CML knowledge source. `modeler-scala` generation now emits
   `target/cozy/model-metadata.json|yaml`, and `publish-car` places CML sidecars
-  in `warehouse/repository/catalog/car/<module>.cml` plus
+  in `repository/catalog/car/<module>.cml` plus
   `<module>.model-metadata.json|yaml`. BoK CAR product publication now reads
-  warehouse model metadata first, falls back to direct external-project CML scan
+  repository model metadata first, falls back to direct external-project CML scan
   only when sidecars are absent, and renders CML-derived provisional Term Hub
   pages marked `generated-from-cml` / `needs-curation` without overwriting
   hand-written glossary term pages. Focused validation passed with
   `sbt --batch "testOnly cozy.CozyBokCarProductSpec cozy.modeler.ModelerGenerationSpec"`.
+- 2026-06-23: Added project-local public repository root mode for
+  KnowledgeHub. `bok.repository` now makes BoK publication, video, and CAR
+  product metadata resolve artifacts under the configured public repository
+  root while keeping public paths as `/repository/...` and avoiding
+  `repository/repository/...` duplication. The configured root may be the
+  canonical project-local `repository/` directory or another local directory
+  such as `public-repository`; Cozy maps physical artifact access to that
+  directory, and SmartDox resolves publication metadata paths with
+  `repository/...` prefix awareness instead of requiring a generated symlink.
+  `repository/` is ignored by git and treated as a public artifact repository
+  for staging/upload, while `src/main/publication` remains the BoK-facing
+  metadata source of truth. `--repository <dir>` and `bok.repository` point
+  directly to the physical repository root; `--warehouse <dir>` and
+  `bok.warehouse` point to a parent warehouse whose public repository is
+  `<dir>/repository`. KnowledgeHub validation passed with
+  `cozy bok doctor`, `cozy bok update-publication`,
+  `cozy bok build --strategy preview`, and `cozy bok stage`; the current CAR
+  artifact is not deployed yet, so the generated product metadata correctly
+  reports a missing artifact in the artifact repository.
 
 ## References
 

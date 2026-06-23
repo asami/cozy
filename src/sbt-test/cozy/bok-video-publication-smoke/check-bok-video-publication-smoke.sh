@@ -130,7 +130,7 @@ VIDEO
 cat > bok.d/.cozy/config.yaml <<'CONFIG'
 bok:
   docker-image: fake-antora:latest
-  warehouse: warehouse
+  repository: repository
   publication: src/main/publication
   workflow:
     upload:
@@ -151,6 +151,7 @@ test -f bok.d/target/cozy-bok/publish/latest/manifest.json
 grep '"dryRun" : true' bok.d/target/cozy-bok/publish/latest/manifest.json
 grep '"status" : "planned"' bok.d/target/cozy-bok/publish/latest/manifest.json
 test ! -f bok.d/src/main/publication/tutorial.json
+test ! -d bok.d/repository
 test ! -d bok.d/warehouse
 test ! -d bok.d/website.d
 test ! -d bok.d/doxsite.d
@@ -160,11 +161,11 @@ sbt -Dcozy.version="$cozy_version" --batch \
   "runMain cozy.Cozy bok publish bok.d --force --strategy production"
 
 test -f bok.d/src/main/publication/tutorial.json
-test -f bok.d/warehouse/repository/video/textus/0.1.0/tutorial-0.1.0.mp4
-test -f bok.d/warehouse/repository/video/textus/0.1.0/tutorial-0.1.0.ttl
-test -f bok.d/warehouse/repository/video/textus/0.1.0/tutorial-0.1.0.jsonld
-test -f bok.d/warehouse/repository/video/textus/0.1.0/tutorial-0.1.0.rdf-manifest.json
-test -f bok.d/warehouse/repository/video/textus/0.1.0/tutorial-0.1.0.manifest.json
+test -f bok.d/repository/video/textus/0.1.0/tutorial-0.1.0.mp4
+test -f bok.d/repository/video/textus/0.1.0/tutorial-0.1.0.ttl
+test -f bok.d/repository/video/textus/0.1.0/tutorial-0.1.0.jsonld
+test -f bok.d/repository/video/textus/0.1.0/tutorial-0.1.0.rdf-manifest.json
+test -f bok.d/repository/video/textus/0.1.0/tutorial-0.1.0.manifest.json
 test -f bok.d/website.d/index.html
 test -f bok.d/target/uploaded.txt
 

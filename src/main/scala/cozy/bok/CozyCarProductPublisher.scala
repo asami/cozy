@@ -14,7 +14,7 @@ import java.security.MessageDigest
 
 /*
  * @since   Jun. 23, 2026
- * @version Jun. 23, 2026
+ * @version Jun. 24, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyCarProductPublisher {
@@ -29,7 +29,8 @@ private[cozy] object CozyCarProductPublisher {
     version: Option[String],
     force: Boolean,
     bokprojectdir: Path,
-    bokconfig: CozyProjectYamlConfig.Config
+    bokconfig: CozyProjectYamlConfig.Config,
+    repositorydir: Option[Path] = None
   )
 
   final case class ProductDescriptor(
@@ -172,9 +173,12 @@ private[cozy] object CozyCarProductPublisher {
 
   def publish(config: PublishCarProductConfig): PublishCarProductResult = {
     val product = resolve(config)
-    val artifact = config.warehousedir.resolve(product.warehousePath).toAbsolutePath.normalize()
+    val artifact = artifactPath(config, product.warehousePath)
     _publish_metadata(config, product, artifact)
   }
+
+  def artifactPath(config: PublishCarProductConfig, warehousepath: String): Path =
+    _repository_artifact_path(config, warehousepath)
 
   def resolve(config: PublishCarProductConfig): ResolvedCarProduct = {
     val packagedir = config.packagedir.toAbsolutePath.normalize()
@@ -207,7 +211,7 @@ private[cozy] object CozyCarProductPublisher {
     val versionsource =
       if (config.version.nonEmpty) "cli"
       else if (descriptor.version.exists(_.trim.nonEmpty)) "descriptor"
-      else if (catalogversion.nonEmpty) "warehouse-catalog"
+      else if (catalogversion.nonEmpty) "repository-catalog"
       else "default"
     val cml = _resolve_cml_info(config, descriptor, projectpath, module)
     ResolvedCarProduct(
@@ -383,7 +387,7 @@ private[cozy] object CozyCarProductPublisher {
     version: RepositoryArtifactCatalogVersion
   ): JsObject = {
     val warehousepath = version.file.getOrElse(s"repository/car/${product.module}/${version.version}/${product.module}-${version.version}.car")
-    val artifact = config.warehousedir.resolve(warehousepath).toAbsolutePath.normalize()
+    val artifact = _repository_artifact_path(config, warehousepath)
     val exists = Files.isRegularFile(artifact)
     val base = Json.obj(
       "layer" -> "repository",
@@ -410,7 +414,7 @@ private[cozy] object CozyCarProductPublisher {
   private def _catalog_summary_json(config: PublishCarProductConfig, product: ResolvedCarProduct): JsValue =
     product.catalog.map { info =>
       Json.obj(
-        "source" -> "warehouse-catalog",
+        "source" -> "repository-catalog",
         "path" -> _warehouse_relative_path(config, info.path),
         "artifactId" -> info.catalog.artifactId,
         "status" -> Json.toJson(info.catalog.status.getOrElse("")),
@@ -465,13 +469,13 @@ private[cozy] object CozyCarProductPublisher {
       val projectdir = product.projectref.map(ref => s"<${ref}>").getOrElse("<project-dir>")
       Vector(Json.obj(
         "severity" -> "warning",
-        "message" -> s"CAR artifact is not registered in warehouse: ${product.warehousePath}",
+        "message" -> s"CAR artifact is not registered in artifact repository: ${product.warehousePath}",
         "action" -> s"Run cozy publish-car ${projectdir} --warehouse <warehouse-dir> --name ${product.module} --version ${product.version}"
       ))
     }
 
   private def _load_catalog(config: PublishCarProductConfig, module: String): Option[(Path, RepositoryArtifactCatalog)] = {
-    val path = config.warehousedir.resolve("repository/catalog/car").resolve(s"$module.yaml").toAbsolutePath.normalize()
+    val path = _repository_catalog_dir(config).resolve(s"$module.yaml").toAbsolutePath.normalize()
     if (Files.isRegularFile(path))
       Some(path -> RepositoryArtifactCatalog.load(path))
     else
@@ -508,7 +512,7 @@ private[cozy] object CozyCarProductPublisher {
     module: String,
     glossarycategory: String
   ): Option[ProductCmlInfo] = {
-    val catalogdir = config.warehousedir.resolve("repository/catalog/car").toAbsolutePath.normalize()
+    val catalogdir = _repository_catalog_dir(config)
     val candidates = Vector(
       catalogdir.resolve(s"$module.model-metadata.json"),
       catalogdir.resolve(s"$module.model-metadata.yaml")
@@ -541,7 +545,7 @@ private[cozy] object CozyCarProductPublisher {
         source,
         if (sourcepath.trim.isEmpty) "" else sourcepath,
         glossarycategory,
-        "warehouse-model-metadata",
+        "repository-model-metadata",
         Some(path),
         elements
       )
@@ -649,16 +653,42 @@ private[cozy] object CozyCarProductPublisher {
   }
 
   private def _warehouse_relative_path(config: PublishCarProductConfig, path: Path): String = {
-    val root = config.warehousedir.toAbsolutePath.normalize()
     val target = path.toAbsolutePath.normalize()
-    if (target.startsWith(root))
-      root.relativize(target).toString.replace(java.io.File.separatorChar, '/')
-    else
-      target.getFileName.toString
+    config.repositorydir.flatMap { repositorydir =>
+      val root = repositorydir.toAbsolutePath.normalize()
+      if (target.startsWith(root))
+        Some("repository/" + root.relativize(target).toString.replace(java.io.File.separatorChar, '/'))
+      else
+        None
+    }.getOrElse {
+      val root = config.warehousedir.toAbsolutePath.normalize()
+      if (target.startsWith(root))
+        root.relativize(target).toString.replace(java.io.File.separatorChar, '/')
+      else
+        target.getFileName.toString
+    }
   }
 
   private def _cml_public_source_path(config: PublishCarProductConfig, cml: ProductCmlInfo): String =
     cml.modelmetadatapath.map(_warehouse_relative_path(config, _)).getOrElse(cml.sourceprojectrelativepath)
+
+  private def _repository_artifact_path(config: PublishCarProductConfig, warehousepath: String): Path =
+    config.repositorydir match {
+      case Some(repositorydir) if warehousepath == "repository" =>
+        repositorydir.toAbsolutePath.normalize()
+      case Some(repositorydir) if warehousepath.startsWith("repository/") =>
+        repositorydir.resolve(warehousepath.stripPrefix("repository/")).toAbsolutePath.normalize()
+      case _ =>
+        config.warehousedir.resolve(warehousepath).toAbsolutePath.normalize()
+    }
+
+  private def _repository_catalog_dir(config: PublishCarProductConfig): Path =
+    config.repositorydir match {
+      case Some(repositorydir) =>
+        repositorydir.resolve("catalog/car").toAbsolutePath.normalize()
+      case None =>
+        config.warehousedir.resolve("repository/catalog/car").toAbsolutePath.normalize()
+    }
 
   private def _sha256(path: Path): String = {
     val digest = MessageDigest.getInstance("SHA-256")
