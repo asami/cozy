@@ -86,4 +86,3 @@ For glossary terms:
 - `brief` is acceptable and may feed effective summary when explicit `summary`
   is absent.
 - body content remains the term definition / descriptive body.
-
