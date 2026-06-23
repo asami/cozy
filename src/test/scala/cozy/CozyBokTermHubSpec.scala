@@ -10,7 +10,8 @@ import org.goldenport.test.matchers.SpecVocabulary
 
 /*
  * @since   Jun. 22, 2026
- * @version Jun. 22, 2026
+ *  version Jun. 22, 2026
+ * @version Jun. 23, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokTermHubSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
@@ -38,15 +39,13 @@ class CozyBokTermHubSpec extends AnyWordSpec with GivenWhenThen with SpecVocabul
               |# Overview
               |Architecture narrative.
               |""".stripMargin)
-          _write(dir.resolve("src/main/doxsite/glossary/architecture/runtime.dox"),
-            """Runtime
-              |=======
+          _write(dir.resolve("src/main/doxsite/glossary/architecture/runtime.md"),
+            """---
+              |title: Runtime
+              |brief: Runtime markdown term brief.
+              |reading: らんたいむ
+              |---
               |
-              |# HEAD
-              |
-              |reading=らんたいむ
-              |
-              |# Definition
               |Runtime source definition.
               |""".stripMargin)
           val config = CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview"))
@@ -108,15 +107,13 @@ class CozyBokTermHubSpec extends AnyWordSpec with GivenWhenThen with SpecVocabul
               |description: Architecture category.
               |""".stripMargin)
           _write(dir.resolve("src/main/doxsite/architecture/index.dox"), "Architecture\n============\n")
-          _write(dir.resolve("src/main/doxsite/glossary/architecture/runtime.dox"),
-            """Runtime
-              |=======
+          _write(dir.resolve("src/main/doxsite/glossary/architecture/runtime.md"),
+            """---
+              |title: Runtime
+              |brief: Runtime markdown term brief.
+              |reading: らんたいむ
+              |---
               |
-              |# HEAD
-              |
-              |reading=らんたいむ
-              |
-              |# Definition
               |Runtime source definition.
               |""".stripMargin)
           val config = CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview"))
@@ -126,8 +123,10 @@ class CozyBokTermHubSpec extends AnyWordSpec with GivenWhenThen with SpecVocabul
 
           Then("the Glossary dashboard and Term Hub still render without failing")
           _read(dir.resolve("website.d/glossary/index.html")) should include ("href=\"architecture/runtime.html\"")
+          _read(dir.resolve("website.d/glossary/index.html")) should include ("らんたいむ")
           _read(dir.resolve("website.d/glossary/architecture/runtime.html")) should include ("class=\"bok-dashboard-shell bok-term-hub\"")
-          _read(dir.resolve("website.d/glossary/architecture/runtime.html")) should include ("Category entry.")
+          _read(dir.resolve("website.d/glossary/architecture/runtime.html")) should include ("Runtime markdown term brief.")
+          _read(dir.resolve("website.d/glossary/architecture/runtime.html")) should include ("らんたいむ")
         }
       }
     }

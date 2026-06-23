@@ -56,12 +56,12 @@ often too large because it pulls unrelated graph structure into the view.
 `1.5+hop` is the compromise: direct neighborhood first, then schema-required
 meaning triples only.
 
-## TKE Information Entity Schema Basis
+## TKE Information Entity Model Basis
 
-The schema used by `1.5+hop` is expected to start from the Information entity
-schema used by TKE. That schema is not copied into Cozy or CNCF as a concrete
-class dependency. Instead, its meaning is projected into RDF node schema
-metadata.
+The Information framework used by `1.5+hop` is expected to start from the
+Information entity model used by TKE. That model is not copied into Cozy or CNCF
+as a concrete class dependency. Instead, its meaning is projected into concrete
+Information schemas and RDF node schema metadata.
 
 In practice, TKE Information fields such as RDF anchors, information links,
 identifiers, classification, source evidence, review state, and RDF note define
@@ -85,14 +85,21 @@ The RDF graph page should behave as follows:
 
 1. The default graph view shows the full filtered graph, or category/term
    filtered graph when URL query parameters are present.
-2. Clicking an RDF node opens a floating detail panel.
-3. The detail panel shows node facts such as ID, category, type, degree, and
-   related edges.
-4. The detail panel provides an explicit action: "Show 1.5+hop neighborhood
-   graph".
-5. Activating that action replaces the graph canvas with the schema-aware
-   focused neighborhood graph.
-6. Reset focus returns to the previous full filtered graph.
+2. Clicking an RDF node opens a floating detail panel for quick inspection.
+3. The detail panel shows node facts such as ID, category, type, connections,
+   Information View interpretation, and related edge examples. The
+   interpretation should be displayed as nested `informationView`,
+   `information`, `schema`, and `predicate` property groups rather than as one
+   flat dotted-property list.
+4. The detail panel provides explicit actions to open the 1.5+hop neighborhood
+   graph and the full-page RDF node detail.
+5. Activating the neighborhood action replaces the graph canvas with the
+   Information View guided focused neighborhood graph.
+6. The full-page detail lives at `rdf/node.html?id=<node-iri>` and uses the
+   same `metadata/rdf/graph.json` source as the graph viewer. It is intended
+   for long IRI values, larger Information View interpretation, and complete
+   related-edge review.
+7. Reset focus returns to the previous full filtered graph.
 
 Clicking a node should not immediately switch the whole graph to the focused
 view. The click is inspection; the focused neighborhood is an explicit action.
@@ -100,23 +107,62 @@ view. The click is inspection; the focused neighborhood is an explicit action.
 ## Schema Metadata
 
 Each RDF graph node may carry schema metadata that declares which predicates are
-needed to describe that node. This metadata is the RDF-facing projection of an
-Information schema, not an RDF ontology replacement.
+needed to describe that node. This metadata is the RDF-facing projection of one
+concrete Information schema inside the 1.5+hop Information View framework, not
+an RDF ontology replacement.
 
-Graph metadata may also carry a shared predicate profile. Cozy currently uses
-`cncf-rdf-1.5-hop-v1` as the built-in fallback profile and prefers
-`graph.json` `predicateProfile` when it is present.
+The canonical Cozy-side schema note is
+`docs/design/bok-rdf-1-5-hop-schema.md`. In short, `informationView` is the RDF-node-as-Information framework,
+`informationView.concept` names the `1.5+hop` expansion semantics,
+`informationView.informationSchemas` contains the concrete Information schemas
+selected per node, and `informationView.predicateProfile` is the supporting role
+map used by those schemas.
+
+Graph metadata may carry an explicit Information View. Cozy currently uses
+`cncf-rdf-1.5-hop-information-view-v1` as the built-in Information View,
+`1.5+hop` as its concept, and `cncf-rdf-1.5-hop-v1` as the built-in fallback
+predicate profile. It prefers `graph.json` Information View metadata when
+present.
 
 ```json
 {
-  "predicateProfile": {
-    "name": "cncf-rdf-1.5-hop-v1",
-    "roles": {
+  "informationView": {
+    "name": "cncf-rdf-1.5-hop-information-view-v1",
+    "label": "CNCF RDF 1.5+hop Information View",
+    "concept": "1.5+hop",
+    "attributes": [
+        "information.schema",
+        "information.type",
+        "information.category",
+        "information.identity",
+        "information.description",
+        "information.links",
+        "information.hierarchy",
+        "information.provenance",
+        "schema.required",
+        "schema.directional",
+        "schema.expansion"
+    ],
+    "informationSchemas": [
+      {
+        "name": "rdf-resource-information-v1",
+        "label": "RDF Resource Information",
+        "match": {
+          "nodeTypes": ["uri", "literal"]
+        },
+        "requiredPredicates": ["rdf:type"],
+        "descriptivePredicates": ["rdfs:label", "schema:name"]
+      }
+    ],
+    "predicateProfile": {
+      "name": "cncf-rdf-1.5-hop-v1",
+      "roles": {
       "identity": ["rdf:type", "owl:sameAs", "schema:sameAs"],
       "descriptive": ["rdfs:label", "rdfs:comment", "schema:name"],
       "link": ["rdfs:seeAlso", "schema:about"],
       "hierarchy": ["skos:broader", "skos:narrower"],
-      "provenance": ["dcterms:source", "prov:wasDerivedFrom"]
+        "provenance": ["dcterms:source", "prov:wasDerivedFrom"]
+      }
     }
   }
 }
@@ -130,6 +176,7 @@ Supported metadata field names in the current Cozy viewer are:
   "label": "Resource",
   "node_type": "uri",
   "category": "concept",
+  "informationSchema": "rdf-resource-information-v1",
   "requiredPredicates": ["rdf:type", "rdfs:label", "skos:definition"],
   "descriptivePredicates": ["schema:name", "schema:description"],
   "schema": {
@@ -157,13 +204,14 @@ Given a focused RDF node `F`:
 1. Include `F`.
 2. Include all 1-hop edges where `F` is source or target.
 3. Include the opposite endpoint nodes of those 1-hop edges.
-4. For every visible node, inspect its schema-required predicates.
-5. Include only edges whose predicate matches the node's required or
-   descriptive predicate set.
-6. Include newly reached nodes from those schema-required edges.
-7. Repeat schema-required expansion with a small hard limit to avoid infinite
-   expansion.
-8. Mark nodes by role:
+4. For every visible node, select its concrete Information schema.
+5. Inspect node-level predicates and selected Information-schema-required
+   predicates.
+6. Include only edges whose predicate matches the required or descriptive
+   predicate set.
+7. Include newly reached nodes from those required edges.
+8. Repeat required expansion with a small hard limit to avoid infinite expansion.
+9. Mark nodes by role:
    - `focus`: the selected RDF node;
    - `near`: the focused node and direct 1-hop nodes;
    - `schema`: nodes pulled in only because schema-required triples need them.
@@ -248,7 +296,7 @@ The current Cozy RDF page implements:
 - SVG graph rendering from `metadata/rdf/graph.json`;
 - click-to-open floating RDF node detail panel;
 - explicit `1.5+hop` focused neighborhood action;
-- schema-aware expansion using available node schema metadata;
+- Information View guided expansion using available node schema metadata;
 - fallback descriptive predicates when schema metadata is absent;
 - role classes for focused, near, and schema-expanded nodes.
 

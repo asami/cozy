@@ -10,6 +10,7 @@ import org.smartdox.parser.Dox2Parser
 import org.smartdox.transformers.Dox2HtmlTransformer
 import org.smartdox.transformers.LanguageFilterTransformer
 import org.smartdox.generator.{Context => SmartDoxContext}
+import org.smartdox.metadata.DocumentMetaData
 import org.goldenport.i18n.I18NContext
 import java.net.URLEncoder
 import java.time.LocalDate
@@ -19,13 +20,14 @@ import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 import java.util.zip.{ZipEntry, ZipInputStream, ZipOutputStream}
 import scala.collection.JavaConverters._
 import scala.util.matching.Regex
+import scala.util.control.NonFatal
 import scala.sys.process._
 import io.circe.{Decoder, HCursor, Json}
 import io.circe.parser
 
 /*
  * @since   Jun.  3, 2026
- * @version Jun. 22, 2026
+ * @version Jun. 23, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyBok {
@@ -104,6 +106,8 @@ private[cozy] object CozyBok {
         "needs-fix"
   }
   private final case class BokFix(description: String, apply: () => Unit)
+  private final case class DoxMetadataSectionIssue(path: Path, line: Int, heading: String)
+  private final case class MarkdownMetadataIssue(path: Path, message: String)
   private final case class CategoryContent(
     slug: String,
     title: String,
@@ -637,7 +641,7 @@ private[cozy] object CozyBok {
     _write(sitedir.resolve("glossary/category.yaml"), _category("Glossary", "用語集", "BoK全体で共有する用語集。"), config.policy)
     _write(sitedir.resolve("history/category.yaml"), _category("History", "History", "BoK運用と更新履歴。"), config.policy)
     _write(sitedir.resolve("history/index.dox"), _history_index(), config.policy)
-    _write(sitedir.resolve("manual/index.dox"), _manual_index(), config.policy)
+    _write(sitedir.resolve("manual/local-rules.dox"), _manual_local_rules(config), config.policy)
     _write(sitedir.resolve("rdf/site.ttl"), _site_ttl(config), config.policy)
     _write(sitedir.resolve("rdf/site.jsonld"), _site_jsonld(config), config.policy)
     _write(sitedir.resolve("rdf/schema/knowledgehub.ttl"), _schema_ttl(config), config.policy)
@@ -1187,6 +1191,7 @@ private[cozy] object CozyBok {
          |    <div id="topbar-nav" class="navbar-menu">
          |      <div class="navbar-end">
          |        <a class="navbar-item" href="index.html">${_html_escape(_ui(locale, "nav.home"))}</a>
+         |        ${_bok_nav_menu(config, locale, "")}
          |        ${_category_nav_menu(locale, _regular_category_summaries(config.sourcePath), "")}
          |      </div>
          |    </div>
@@ -1207,13 +1212,7 @@ private[cozy] object CozyBok {
          |    <div class="content">
          |      <article class="doc">
          |        ${_home_dashboard(config, locale)}
-         |        ${_source_narrative_section(config.sourcePath.resolve("index.dox"), locale)}
-         |        <div class="sect1" id="operation-policy">
-         |          <h2>${_html_escape(_ui(locale, "operation.policy"))}</h2>
-         |          <div class="sectionbody">
-         |            <p>${_html_escape(_ui(locale, "operation.policy.body"))}</p>
-         |          </div>
-         |        </div>
+         |        ${_source_narrative_section(_source_document(config.sourcePath, "index"), locale)}
          |      </article>
          |    </div>
          |  </main>
@@ -1276,18 +1275,27 @@ private[cozy] object CozyBok {
       )
     }
     val manualpage = target.resolve("manual").resolve("index.html")
+    val manualbody = _source_narrative_html(_manual_index(locale), "cozy-bok-manual.dox", locale)
     _write_text(
       manualpage,
-      _special_html_page_with_toc(
+      _manual_html_page(
         config,
         categories,
         locale,
         manualpage,
         _ui(locale, "manual.title"),
         _ui(locale, "manual.description"),
-        _manual_dashboard_body(locale),
-        Vector("dashboard" -> "Dashboard", "basic-operations" -> "Basic Operations", "page-types" -> "Page Types", "notes" -> "Notes")
+        manualbody
       )
+    )
+    _write_manual_source_page(
+      config,
+      categories,
+      locale,
+      target,
+      "local-rules",
+      "Local Rules",
+      "Project-local BoK operation rules."
     )
     if (writeLocalizedGlossaryIndexes) {
       _write_text(
@@ -1307,6 +1315,11 @@ private[cozy] object CozyBok {
     _write_text(
       page,
       _rdf_dedicated_page(config, categories, locale, page)
+    )
+    val nodepage = target.resolve("rdf").resolve("node.html")
+    _write_text(
+      nodepage,
+      _rdf_node_detail_page(config, categories, locale, nodepage)
     )
   }
 
@@ -1373,6 +1386,34 @@ private[cozy] object CozyBok {
        |  </div>
        |</div>""".stripMargin
 
+  private def _write_manual_source_page(
+    config: BuildConfig,
+    categories: Vector[CategoryContent],
+    locale: String,
+    target: Path,
+    name: String,
+    title: String,
+    description: String
+  ): Unit = {
+    val source = config.sourcePath.resolve("manual").resolve(s"${name}.dox")
+    val body = _source_narrative_html(source, locale)
+    if (body.nonEmpty) {
+      val page = target.resolve("manual").resolve(s"${name}.html")
+      _write_text(
+        page,
+        _manual_html_page(
+          config,
+          categories,
+          locale,
+          page,
+          title,
+          description,
+          body
+        )
+      )
+    }
+  }
+
   private def _manual_dashboard_body(locale: String): String =
     s"""<div class="sect1" id="basic-operations">
        |  <h2>Basic Operations</h2>
@@ -1432,6 +1473,57 @@ private[cozy] object CozyBok {
        |</html>
        |""".stripMargin
 
+  private def _rdf_node_detail_page(
+    config: BuildConfig,
+    categories: Vector[CategoryContent],
+    locale: String,
+    page: Path
+  ): String =
+    s"""<!doctype html>
+       |<html lang="${_html_escape(locale)}">
+       |<head>
+       |  <meta charset="utf-8">
+       |  <meta name="viewport" content="width=device-width, initial-scale=1">
+       |  <title>${_html_escape(_ui(locale, "rdf.graph.node.full.detail"))} - ${_html_escape(config.siteTitle)}</title>
+       |${_site_css_links(config, page)}
+       |</head>
+       |<body class="article ${_html_escape(_dashboard_theme_class(config))}">
+       |${_category_header(config, categories, locale)}
+       |<div class="body body-dashboard bok-rdf-body">
+       |  <main class="article bok-rdf-main">
+       |    <div class="content">
+       |      <article class="doc bok-rdf-doc">
+       |        ${_rdf_node_detail_workspace(locale)}
+       |      </article>
+       |    </div>
+       |  </main>
+       |</div>
+       |</body>
+       |</html>
+       |""".stripMargin
+
+  private def _rdf_node_detail_workspace(locale: String): String =
+    s"""<section class="bok-rdf-node-page" data-graph="../metadata/rdf/graph.json">
+       |  <div class="bok-rdf-hero">
+       |    <div>
+       |      <span class="bok-dashboard-eyebrow">RDF</span>
+       |      <h1 class="page">${_html_escape(_ui(locale, "rdf.graph.node.full.detail"))}</h1>
+       |      <p>${_html_escape(_ui(locale, "rdf.graph.node.full.description"))}</p>
+       |    </div>
+       |    <div class="bok-rdf-hero-actions">
+       |      <a href="index.html">${_html_escape(_ui(locale, "rdf.graph.title"))}</a>
+       |      <a href="site.ttl">site.ttl</a>
+       |      <a href="site.jsonld">site.jsonld</a>
+       |      <a href="../metadata/rdf/graph.json">graph.json</a>
+       |    </div>
+       |  </div>
+       |  <div id="bok-rdf-node-page-status" class="bok-rdf-node-page-status">${_html_escape(_ui(locale, "rdf.graph.loading"))}</div>
+       |  <div id="bok-rdf-node-page-content" class="bok-rdf-node-page-content"></div>
+       |</section>
+       |<script>
+       |${_rdf_node_detail_script(locale)}
+       |</script>""".stripMargin
+
   private def _rdf_workspace(locale: String): String =
     s"""<section class="bok-rdf-workspace" data-graph="../metadata/rdf/graph.json" data-terms="../metadata/glossary/terms.json" data-triples="site.ttl">
        |  <div class="bok-rdf-hero">
@@ -1450,6 +1542,7 @@ private[cozy] object CozyBok {
        |  <div class="bok-rdf-toolbar">
        |    <div class="bok-rdf-view-switch" role="tablist" aria-label="RDF views">
        |      <button class="is-active" type="button" data-rdf-view="graph">${_html_escape(_ui(locale, "rdf.graph.view.graph"))}</button>
+       |      <button type="button" data-rdf-view="information">${_html_escape(_ui(locale, "rdf.graph.view.information"))}</button>
        |      <button type="button" data-rdf-view="triples">${_html_escape(_ui(locale, "rdf.graph.view.triples"))}</button>
        |    </div>
        |    <label>${_html_escape(_ui(locale, "rdf.graph.category.filter"))}<input id="bok-rdf-category-filter" type="text" placeholder="category"></label>
@@ -1459,6 +1552,9 @@ private[cozy] object CozyBok {
        |  <div class="bok-rdf-panels">
        |    <section class="bok-rdf-panel bok-rdf-panel-graph is-active" data-rdf-panel="graph" aria-label="${_html_escape(_ui(locale, "rdf.graph.view.graph"))}">
        |      <div id="bok-rdf-viewer-graph" class="bok-rdf-viewer-graph"></div>
+       |    </section>
+       |    <section class="bok-rdf-panel bok-rdf-panel-information" data-rdf-panel="information" aria-label="${_html_escape(_ui(locale, "rdf.graph.view.information"))}">
+       |      <div id="bok-rdf-information-view" class="bok-rdf-information-view"></div>
        |    </section>
        |    <section class="bok-rdf-panel bok-rdf-panel-triples" data-rdf-panel="triples" aria-label="${_html_escape(_ui(locale, "rdf.graph.view.triples"))}">
        |      <div class="bok-rdf-triples-header">
@@ -1473,6 +1569,255 @@ private[cozy] object CozyBok {
        |${_rdf_viewer_script(locale)}
        |</script>""".stripMargin
 
+  private def _rdf_node_detail_script(locale: String): String =
+    s"""(function() {
+       |  const root = document.querySelector('.bok-rdf-node-page');
+       |  const status = document.getElementById('bok-rdf-node-page-status');
+       |  const content = document.getElementById('bok-rdf-node-page-content');
+       |  if (!root || !status || !content) return;
+       |  const params = new URLSearchParams(window.location.search);
+       |  const nodeId = params.get('id') || params.get('node') || '';
+       |  function escapeHtml(value) {
+       |    return String(value == null ? '' : value).replace(/[&<>"']/g, function(c) {
+       |      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+       |    });
+       |  }
+       |  function compactRdfLabel(value) {
+       |    const text = String(value || '');
+       |    const prefixes = rdfNamespacePrefixes();
+       |    for (let i = 0; i < prefixes.length; i += 1) {
+       |      const prefix = prefixes[i][0];
+       |      const iri = prefixes[i][1];
+       |      if (text.indexOf(iri) === 0) return prefix + ':' + text.substring(iri.length);
+       |    }
+       |    const parts = text.split(/[\\/#]/).filter(Boolean);
+       |    return parts.length ? parts[parts.length - 1] : text;
+       |  }
+       |  function compactNodeLabel(node) {
+       |    const label = String((node && node.label) || '').trim();
+       |    const id = String((node && node.id) || '').trim();
+       |    if (id && (label === id || label.indexOf('http://') === 0 || label.indexOf('https://') === 0)) return compactRdfLabel(id);
+       |    return label || compactRdfLabel(id) || '-';
+       |  }
+       |  function rdfNamespacePrefixes() {
+       |    return [
+       |      ['rdf', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#'],
+       |      ['rdfs', 'http://www.w3.org/2000/01/rdf-schema#'],
+       |      ['owl', 'http://www.w3.org/2002/07/owl#'],
+       |      ['skos', 'http://www.w3.org/2004/02/skos/core#'],
+       |      ['dcterms', 'http://purl.org/dc/terms/'],
+       |      ['schema', 'https://schema.org/'],
+       |      ['prov', 'http://www.w3.org/ns/prov#'],
+       |      ['textus', 'https://www.simplemodeling.org/ns/textus#'],
+       |      ['bok', 'https://www.simplemodeling.org/bok/']
+       |    ];
+       |  }
+       |  function asArray(value) {
+       |    if (Array.isArray(value)) return value;
+       |    if (value == null) return [];
+       |    return [value];
+       |  }
+       |  function uniqueStrings(values) {
+       |    const seen = new Set();
+       |    const result = [];
+       |    values.forEach(function(item) {
+       |      asArray(item).forEach(function(value) {
+       |        const text = String(value || '').trim();
+       |        if (text && !seen.has(text)) { seen.add(text); result.push(text); }
+       |      });
+       |    });
+       |    return result;
+       |  }
+       |  function defaultPredicateProfile() {
+       |    return {
+       |      name: 'cncf-rdf-1.5-hop-v1',
+       |      roles: {
+       |        identity: ['rdf:type', 'owl:sameAs', 'schema:sameAs', 'skos:exactMatch', 'skos:closeMatch', 'textus:primaryRdfAnchor'],
+       |        descriptive: ['rdfs:label', 'rdfs:comment', 'skos:prefLabel', 'skos:altLabel', 'skos:definition', 'schema:name', 'schema:title', 'schema:description', 'schema:summary'],
+       |        link: ['rdfs:seeAlso', 'schema:about', 'schema:url', 'schema:memberOf'],
+       |        hierarchy: ['skos:broader', 'skos:narrower', 'dcterms:isPartOf', 'dcterms:hasPart', 'schema:isPartOf', 'schema:hasPart'],
+       |        provenance: ['dcterms:source', 'prov:wasDerivedFrom', 'prov:generatedAtTime', 'rdfs:isDefinedBy']
+       |      }
+       |    };
+       |  }
+       |  function activePredicateProfile(data) {
+       |    const base = defaultPredicateProfile();
+       |    const configured = (data && data.informationView && data.informationView.predicateProfile) || {};
+       |    const roles = {};
+       |    Object.keys(base.roles).forEach(function(role) {
+       |      roles[role] = configured.roles && Object.prototype.hasOwnProperty.call(configured.roles, role) ?
+       |        uniqueStrings([base.roles[role], configured.roles[role]]) : uniqueStrings([base.roles[role]]);
+       |    });
+       |    if (configured.roles) {
+       |      Object.keys(configured.roles).forEach(function(role) {
+       |        if (!roles[role]) roles[role] = uniqueStrings([configured.roles[role]]);
+       |      });
+       |    }
+       |    return {name: configured.name || base.name, roles: roles};
+       |  }
+       |  function defaultInformationView() {
+       |    return {
+       |      name: 'cncf-rdf-1.5-hop-information-view-v1',
+       |      label: 'CNCF RDF 1.5+hop Information View',
+       |      concept: '1.5+hop',
+       |      informationSchemas: [{
+       |        name: 'rdf-resource-information-v1',
+       |        label: 'RDF Resource Information',
+       |        match: {nodeTypes: ['uri', 'literal']},
+       |        requiredPredicates: ['rdf:type'],
+       |        descriptivePredicates: ['rdfs:label', 'skos:prefLabel', 'schema:name'],
+       |        outgoingRequiredPredicates: [],
+       |        incomingRequiredPredicates: []
+       |      }],
+       |      predicateProfile: defaultPredicateProfile()
+       |    };
+       |  }
+       |  function activeInformationView(data) {
+       |    const base = defaultInformationView();
+       |    const configured = (data && data.informationView) || {};
+       |    return {
+       |      name: configured.name || base.name,
+       |      label: configured.label || base.label,
+       |      concept: configured.concept || base.concept,
+       |      informationSchemas: asArray(configured.informationSchemas || configured.information_schemas || base.informationSchemas),
+       |      predicateProfile: activePredicateProfile(data)
+       |    };
+       |  }
+       |  function selectedInformationSchema(node, informationView) {
+       |    const candidates = asArray(informationView.informationSchemas);
+       |    const safeNode = node || {};
+       |    const schema = safeNode.schema || {};
+       |    const requested = String(schema.informationSchema || schema.information_schema || safeNode.informationSchema || safeNode.information_schema || '').trim();
+       |    if (requested) {
+       |      const direct = candidates.filter(function(item) { return String(item.name || item.id || '') === requested || String(item.label || '') === requested; })[0];
+       |      if (direct) return direct;
+       |    }
+       |    const nodeType = String(safeNode.informationType || safeNode.information_type || safeNode.node_type || safeNode.type || '').trim();
+       |    const category = String(safeNode.category || '').trim();
+       |    const matched = candidates.filter(function(item) {
+       |      const match = item.match || {};
+       |      const nodeTypes = uniqueStrings([item.nodeTypes, item.node_types, match.nodeTypes, match.node_types]);
+       |      const categories = uniqueStrings([item.categories, match.categories]);
+       |      const typeOk = nodeTypes.length === 0 || nodeTypes.indexOf(nodeType) >= 0;
+       |      const categoryOk = categories.length === 0 || categories.indexOf(category) >= 0;
+       |      return typeOk && categoryOk;
+       |    })[0];
+       |    return matched || candidates[0] || {};
+       |  }
+       |  function informationSchemaPredicates(informationSchema, kind) {
+       |    if (!informationSchema) return [];
+       |    const schema = informationSchema.schema || {};
+       |    const fields = {
+       |      required: [informationSchema.requiredPredicates, informationSchema.required_predicates, schema.requiredPredicates, schema.required_predicates],
+       |      descriptive: [informationSchema.descriptivePredicates, informationSchema.descriptive_predicates, schema.descriptivePredicates, schema.descriptive_predicates],
+       |      outgoing: [informationSchema.outgoingRequiredPredicates, informationSchema.outgoing_required_predicates, schema.outgoingRequiredPredicates, schema.outgoing_required_predicates],
+       |      incoming: [informationSchema.incomingRequiredPredicates, informationSchema.incoming_required_predicates, schema.incomingRequiredPredicates, schema.incoming_required_predicates]
+       |    };
+       |    return uniqueStrings(fields[kind] || []);
+       |  }
+       |  function profileRolePredicates(profile, role) {
+       |    return uniqueStrings([profile && profile.roles && profile.roles[role]]);
+       |  }
+       |  function interpretation(node, data) {
+       |    const schema = node.schema || {};
+       |    const view = activeInformationView(data);
+       |    const profile = view.predicateProfile || activePredicateProfile(data);
+       |    const informationSchema = selectedInformationSchema(node, view);
+       |    const required = uniqueStrings([informationSchemaPredicates(informationSchema, 'required'), node.requiredPredicates, node.required_predicates, schema.requiredPredicates, schema.required_predicates]);
+       |    const descriptive = uniqueStrings([informationSchemaPredicates(informationSchema, 'descriptive'), node.descriptivePredicates, node.descriptive_predicates, schema.descriptivePredicates, schema.descriptive_predicates]);
+       |    const outgoing = uniqueStrings([informationSchemaPredicates(informationSchema, 'outgoing'), schema.outgoingRequiredPredicates, schema.outgoing_required_predicates]);
+       |    const incoming = uniqueStrings([informationSchemaPredicates(informationSchema, 'incoming'), schema.incomingRequiredPredicates, schema.incoming_required_predicates]);
+       |    return {
+       |      informationView: {
+       |        name: view.name || '-',
+       |        concept: view.concept || '1.5+hop',
+       |        label: view.label || '-',
+       |        predicateProfile: profile.name || 'cncf-rdf-1.5-hop-v1'
+       |      },
+       |      information: {
+       |        schema: informationSchema.name || informationSchema.id || 'rdf-resource-information-v1',
+       |        schemaLabel: informationSchema.label || informationSchema.name || informationSchema.id || 'RDF Resource Information',
+       |        type: node.informationType || node.information_type || node.node_type || node.type || 'unknown',
+       |        category: node.category || '-',
+       |        identity: profileRolePredicates(profile, 'identity'),
+       |        description: uniqueStrings([profileRolePredicates(profile, 'descriptive'), descriptive]),
+       |        links: profileRolePredicates(profile, 'link'),
+       |        hierarchy: profileRolePredicates(profile, 'hierarchy'),
+       |        provenance: profileRolePredicates(profile, 'provenance')
+       |      },
+       |      schema: {
+       |        required: required,
+       |        nodeDescription: descriptive,
+       |        directional: uniqueStrings([outgoing, incoming]),
+       |        expansion: required.length + descriptive.length + outgoing.length + incoming.length === 0 ? 'predicate profile fallback' : 'node schema metadata'
+       |      },
+       |      predicate: {
+       |        roles: Object.keys(profile.roles || {}).sort()
+       |      }
+       |    };
+       |  }
+       |  function cssName(value) {
+       |    return String(value == null ? 'unknown' : value).toLowerCase().replace(/[^a-z0-9_-]+/g, '-');
+       |  }
+       |  function propertyList(items) {
+       |    return Object.keys(items).map(function(key) {
+       |      const value = items[key];
+       |      if (value && typeof value === 'object' && !Array.isArray(value)) {
+       |        return '<section class="bok-rdf-node-schema-group bok-rdf-node-schema-group-' + escapeHtml(cssName(key)) + '">' +
+       |          '<h3>' + escapeHtml(key) + '</h3>' +
+       |          '<dl class="bok-rdf-node-schema-object">' + propertyList(value) + '</dl>' +
+       |        '</section>';
+       |      }
+       |      const rendered = Array.isArray(value) ? (value.length ? value.map(function(x) { return '<code>' + escapeHtml(x) + '</code>'; }).join(' ') : '<em>-</em>') : '<code>' + escapeHtml(value) + '</code>';
+       |      return '<dt>' + escapeHtml(key) + '</dt><dd>' + rendered + '</dd>';
+       |    }).join('');
+       |  }
+       |  function edgeItem(edge) {
+       |    const direction = edge.source === nodeId ? 'outgoing' : (edge.target === nodeId ? 'incoming' : 'related');
+       |    return '<li><span>' + escapeHtml(direction) + '</span><code title="' + escapeHtml(edge.source || '') + '">' + escapeHtml(compactRdfLabel(edge.source)) + '</code> <b>' + escapeHtml(compactRdfLabel(edge.label || edge.predicate)) + '</b> <code title="' + escapeHtml(edge.target || '') + '">' + escapeHtml(compactRdfLabel(edge.target)) + '</code></li>';
+       |  }
+       |  function render(data) {
+       |    if (!nodeId) {
+       |      status.textContent = '${_javascript_string(_ui(locale, "rdf.graph.node.missing.id"))}';
+       |      return;
+       |    }
+       |    const nodes = data.nodes || [];
+       |    const edges = data.edges || [];
+       |    const node = nodes.filter(function(item) { return item.id === nodeId; })[0];
+       |    if (!node) {
+       |      status.textContent = '${_javascript_string(_ui(locale, "rdf.graph.node.not.found"))}';
+       |      content.innerHTML = '<p class="bok-rdf-empty"><code>' + escapeHtml(nodeId) + '</code></p>';
+       |      return;
+       |    }
+       |    const related = edges.filter(function(edge) { return edge.source === node.id || edge.target === node.id; });
+       |    status.textContent = compactNodeLabel(node) + ' / ' + related.length + ' ${_javascript_string(_ui(locale, "rdf.graph.node.connections"))}';
+       |    content.innerHTML =
+       |      '<div class="bok-rdf-node-detail-grid">' +
+       |        '<section class="bok-rdf-node-detail-card bok-rdf-node-detail-card-main">' +
+       |          '<span class="bok-dashboard-eyebrow">Information</span>' +
+       |          '<h2>' + escapeHtml(compactNodeLabel(node)) + '</h2>' +
+       |          '<dl class="bok-rdf-node-detail-dl">' +
+       |            '<dt>Compact label</dt><dd><code>' + escapeHtml(compactNodeLabel(node)) + '</code></dd>' +
+       |            '<dt>Full IRI</dt><dd class="bok-rdf-node-full-iri" title="' + escapeHtml(node.id) + '">' + escapeHtml(node.id) + '</dd>' +
+       |            '<dt>Source label</dt><dd>' + escapeHtml(node.label || '-') + '</dd>' +
+       |            '<dt>Category</dt><dd>' + escapeHtml(node.category || '-') + '</dd>' +
+       |            '<dt>Type</dt><dd>' + escapeHtml(node.node_type || node.type || '-') + '</dd>' +
+       |            '<dt>${_javascript_string(_ui(locale, "rdf.graph.node.connections"))}</dt><dd>' + escapeHtml(node.degree == null ? related.length : node.degree) + '</dd>' +
+       |          '</dl>' +
+       |          '<div class="bok-rdf-node-detail-actions"><a href="index.html?node=' + encodeURIComponent(node.id || '') + '">${_javascript_string(_ui(locale, "rdf.graph.node.neighborhood"))}</a><a href="index.html">${_javascript_string(_ui(locale, "rdf.graph.title"))}</a></div>' +
+       |        '</section>' +
+       |        '<section class="bok-rdf-node-detail-card"><h2>${_javascript_string(_ui(locale, "rdf.graph.node.schema"))}</h2><div class="bok-rdf-node-schema-groups">' + propertyList(interpretation(node, data)) + '</div></section>' +
+       |        '<section class="bok-rdf-node-detail-card bok-rdf-node-detail-card-relations"><h2>${_javascript_string(_ui(locale, "rdf.graph.node.relations"))}</h2><ul>' + (related.length ? related.map(edgeItem).join('') : '<li>-</li>') + '</ul></section>' +
+       |      '</div>';
+       |  }
+       |  fetch(root.getAttribute('data-graph')).then(function(response) {
+       |    if (!response.ok) throw new Error('missing graph metadata');
+       |    return response.json();
+       |  }).then(render).catch(function() {
+       |    status.textContent = '${_javascript_string(_ui(locale, "rdf.graph.metadata.missing"))}';
+       |  });
+       |})();""".stripMargin
+
   private def _rdf_viewer_script(locale: String): String =
     s"""(function() {
        |  const root = document.querySelector('.bok-rdf-workspace');
@@ -1480,13 +1825,15 @@ private[cozy] object CozyBok {
        |  const graphStatus = document.getElementById('bok-rdf-viewer-status');
        |  const triplesTarget = document.getElementById('bok-rdf-triples-view');
        |  const triplesStatus = document.getElementById('bok-rdf-triples-status');
+       |  const informationTarget = document.getElementById('bok-rdf-information-view');
        |  const input = document.getElementById('bok-rdf-category-filter');
        |  const termInput = document.getElementById('bok-rdf-term-filter');
        |  if (!root || !graphTarget || !graphStatus) return;
        |  const params = new URLSearchParams(window.location.search);
        |  const initialCategory = params.get('category') || '';
        |  const initialTerm = params.get('term') || '';
-       |  let focusedNodeId = null;
+       |  const initialNode = params.get('node') || '';
+       |  let focusedNodeId = initialNode;
        |  if (input) input.value = initialCategory;
        |  if (termInput) termInput.value = initialTerm;
        |  function activate(view) {
@@ -1551,7 +1898,7 @@ private[cozy] object CozyBok {
     };
     const visibleNodes = focusGraph.nodes;
     const visibleEdges = focusGraph.edges;
-    graphStatus.textContent = visibleNodes.length + ' nodes / ' + visibleEdges.length + ' edges' + (focus ? ' / focus: ' + label(focus) : '') + (data.truncated ? ' (truncated)' : '');
+    graphStatus.textContent = visibleNodes.length + ' nodes / ' + visibleEdges.length + ' edges' + (focus ? ' / focus: ' + compactRdfLabel(focus) : '') + (data.truncated ? ' (truncated)' : '');
     graphTarget.innerHTML =
       '<div class="bok-rdf-graph-summary">' +
         '<span><b>' + visibleNodes.length + '</b>nodes</span>' +
@@ -1560,14 +1907,14 @@ private[cozy] object CozyBok {
         '<span><b>' + escapeHtml(term ? termLabel(termIndex, term) : 'all') + '</b>term</span>' +
       '</div>' +
       '<div class="bok-rdf-focus-bar">' +
-        (focus ? '<span>${_javascript_string(_ui(locale, "rdf.graph.focus.node"))}: <b>' + escapeHtml(label(focus)) + '</b></span><button type="button" data-rdf-clear-focus="true">${_javascript_string(_ui(locale, "rdf.graph.focus.clear"))}</button>' : '<span>${_javascript_string(_ui(locale, "rdf.graph.focus.help"))}</span>') +
+        (focus ? '<span>${_javascript_string(_ui(locale, "rdf.graph.focus.node"))}: <b>' + escapeHtml(compactRdfLabel(focus)) + '</b></span><button type="button" data-rdf-clear-focus="true">${_javascript_string(_ui(locale, "rdf.graph.focus.clear"))}</button>' : '<span>${_javascript_string(_ui(locale, "rdf.graph.focus.help"))}</span>') +
       '</div>' +
       '<div class="bok-rdf-graph-layout">' +
         '<div class="bok-rdf-graph-canvas" data-rdf-graph-canvas="true"></div>' +
         '<div class="bok-rdf-graph-detail"><h2>Nodes</h2><div class="bok-rdf-node-cloud">' + visibleNodes.map(function(node) {
           const degree = node.degree == null ? '-' : node.degree;
           const role = focusGraph.roles[node.id] || 'normal';
-          return '<button type="button" class="bok-rdf-node bok-rdf-node-' + escapeHtml(cssName(node.node_type || node.type || 'unknown')) + ' bok-rdf-node-role-' + escapeHtml(role) + '" data-rdf-focus-node="' + escapeHtml(node.id) + '"><strong>' + escapeHtml(node.label || label(node.id)) + '</strong><em>' + escapeHtml(node.category || '-') + ' / degree ' + escapeHtml(degree) + '</em></button>';
+          return '<button type="button" class="bok-rdf-node bok-rdf-node-' + escapeHtml(cssName(node.node_type || node.type || 'unknown')) + ' bok-rdf-node-role-' + escapeHtml(role) + '" data-rdf-focus-node="' + escapeHtml(node.id) + '"><strong>' + escapeHtml(compactNodeLabel(node)) + '</strong><em>' + escapeHtml(node.category || '-') + ' / connections ' + escapeHtml(degree) + '</em></button>';
         }).join('') + '</div></div>' +
       '</div>';
     const canvas = graphTarget.querySelector('[data-rdf-graph-canvas]');
@@ -1585,6 +1932,47 @@ private[cozy] object CozyBok {
       });
     });
     renderGraphSvg(canvas, visibleNodes, visibleEdges, focusGraph.roles, focus);
+    renderInformationView(visibleNodes, visibleEdges, focusGraph.roles, focus);
+  }
+  function renderInformationView(nodes, edges, roles, focus) {
+    if (!informationTarget) return;
+    const sortedNodes = nodes.slice().sort(function(a, b) {
+      const roleOrder = {focus: 0, near: 1, schema: 2, normal: 3};
+      const ar = roleOrder[roles[a.id] || 'normal'] == null ? 9 : roleOrder[roles[a.id] || 'normal'];
+      const br = roleOrder[roles[b.id] || 'normal'] == null ? 9 : roleOrder[roles[b.id] || 'normal'];
+      return ar - br || String(a.category || '').localeCompare(String(b.category || '')) || String(compactNodeLabel(a)).localeCompare(String(compactNodeLabel(b)));
+    });
+    const edgeCounts = {};
+    edges.forEach(function(edge) {
+      if (edge.source) edgeCounts[edge.source] = (edgeCounts[edge.source] || 0) + 1;
+      if (edge.target) edgeCounts[edge.target] = (edgeCounts[edge.target] || 0) + 1;
+    });
+    informationTarget.innerHTML =
+      '<div class="bok-rdf-information-header">' +
+        '<div><span class="bok-dashboard-eyebrow">Information</span><h2>${_javascript_string(_ui(locale, "rdf.graph.view.information"))}</h2><p>${_javascript_string(_ui(locale, "rdf.graph.information.description"))}</p></div>' +
+        '<div class="bok-rdf-information-summary"><span><b>' + sortedNodes.length + '</b>Information</span><span><b>' + edges.length + '</b>edges</span></div>' +
+      '</div>' +
+      '<div class="bok-rdf-information-grid">' +
+        (sortedNodes.length ? sortedNodes.map(function(node) { return informationCard(node, edgeCounts[node.id] || 0, roles[node.id] || 'normal', focus); }).join('') : '<div class="bok-rdf-empty">No Information nodes match the current filter.</div>') +
+      '</div>';
+  }
+  function informationCard(node, connections, role, focus) {
+    const interpretation = schemaInterpretation(node);
+    const roleLabel = role === 'focus' ? 'focus' : (role === 'near' ? 'near' : (role === 'schema' ? 'schema' : 'visible'));
+    const category = node.category || '-';
+    const type = node.node_type || node.type || '-';
+    return '<article class="bok-rdf-information-card bok-rdf-information-card-' + escapeHtml(cssName(roleLabel)) + '">' +
+      '<div class="bok-rdf-information-card-head"><span>' + escapeHtml(roleLabel) + '</span><a href="node.html?id=' + encodeURIComponent(node.id || '') + '">${_javascript_string(_ui(locale, "rdf.graph.node.full.detail"))}</a></div>' +
+      '<h3 title="' + escapeHtml(node.id || '') + '">' + escapeHtml(compactNodeLabel(node)) + '</h3>' +
+      '<dl>' +
+        '<dt>Category</dt><dd>' + escapeHtml(category) + '</dd>' +
+        '<dt>Type</dt><dd>' + escapeHtml(type) + '</dd>' +
+        '<dt>${_javascript_string(_ui(locale, "rdf.graph.node.connections"))}</dt><dd>' + escapeHtml(node.degree == null ? connections : node.degree) + '</dd>' +
+        '<dt>Schema</dt><dd><code>' + escapeHtml(interpretation.informationSchema) + '</code></dd>' +
+        '<dt>Expansion</dt><dd>' + escapeHtml(interpretation.expansion) + '</dd>' +
+      '</dl>' +
+      '<div class="bok-rdf-information-card-actions"><a href="index.html?node=' + encodeURIComponent(node.id || '') + '">${_javascript_string(_ui(locale, "rdf.graph.node.neighborhood"))}</a></div>' +
+    '</article>';
   }
   function focusedGraphSlice(focus, nodes, edges) {
     const nodeMap = {};
@@ -1653,10 +2041,50 @@ private[cozy] object CozyBok {
     if (schemaPredicates.length === 0) return isDefaultDescriptionPredicate(edge.predicate || edge.label);
     return schemaPredicates.some(function(predicate) { return predicateMatches(edge, predicate); });
   }
+  function selectedInformationSchema(node) {
+    const informationView = currentInformationView();
+    const candidates = asArray(informationView.informationSchemas);
+    const safeNode = node || {};
+    const nodeSchema = safeNode.schema || {};
+    const requested = String(nodeSchema.informationSchema || nodeSchema.information_schema || safeNode.informationSchema || safeNode.information_schema || '').trim();
+    if (requested) {
+      const direct = candidates.filter(function(item) {
+        return String(item.name || item.id || '') === requested || String(item.label || '') === requested;
+      })[0];
+      if (direct) return direct;
+    }
+    const nodeType = String(safeNode.informationType || safeNode.information_type || safeNode.node_type || safeNode.type || '').trim();
+    const category = String(safeNode.category || '').trim();
+    const matched = candidates.filter(function(item) {
+      const match = item.match || {};
+      const nodeTypes = uniqueStrings([item.nodeTypes, item.node_types, match.nodeTypes, match.node_types]);
+      const categories = uniqueStrings([item.categories, match.categories]);
+      const typeOk = nodeTypes.length === 0 || nodeTypes.indexOf(nodeType) >= 0;
+      const categoryOk = categories.length === 0 || categories.indexOf(category) >= 0;
+      return typeOk && categoryOk;
+    })[0];
+    if (matched) return matched;
+    return candidates[0] || {};
+  }
+  function informationSchemaPredicates(informationSchema, kind) {
+    if (!informationSchema) return [];
+    const schema = informationSchema.schema || {};
+    const fields = {
+      required: [informationSchema.requiredPredicates, informationSchema.required_predicates, schema.requiredPredicates, schema.required_predicates],
+      descriptive: [informationSchema.descriptivePredicates, informationSchema.descriptive_predicates, schema.descriptivePredicates, schema.descriptive_predicates],
+      outgoing: [informationSchema.outgoingRequiredPredicates, informationSchema.outgoing_required_predicates, schema.outgoingRequiredPredicates, schema.outgoing_required_predicates],
+      incoming: [informationSchema.incomingRequiredPredicates, informationSchema.incoming_required_predicates, schema.incomingRequiredPredicates, schema.incoming_required_predicates]
+    };
+    return uniqueStrings(fields[kind] || []);
+  }
   function schemaRequiredPredicates(node, direction) {
     const schema = node.schema || {};
+    const informationSchema = selectedInformationSchema(node);
     let values = [];
     [
+      informationSchemaPredicates(informationSchema, 'required'),
+      informationSchemaPredicates(informationSchema, 'descriptive'),
+      informationSchemaPredicates(informationSchema, direction),
       node.requiredPredicates,
       node.required_predicates,
       node.descriptivePredicates,
@@ -1672,28 +2100,94 @@ private[cozy] object CozyBok {
   }
   function schemaInterpretation(node) {
     const schema = node.schema || {};
-    const profile = currentPredicateProfile();
-    const required = uniqueStrings([node.requiredPredicates, node.required_predicates, schema.requiredPredicates, schema.required_predicates]);
-    const descriptive = uniqueStrings([node.descriptivePredicates, node.descriptive_predicates, schema.descriptivePredicates, schema.descriptive_predicates]);
-    const outgoing = uniqueStrings([schema.outgoingRequiredPredicates, schema.outgoing_required_predicates]);
-    const incoming = uniqueStrings([schema.incomingRequiredPredicates, schema.incoming_required_predicates]);
+    const informationView = currentInformationView();
+    const profile = informationView.predicateProfile || currentPredicateProfile();
+    const informationSchema = selectedInformationSchema(node);
+    const required = uniqueStrings([informationSchemaPredicates(informationSchema, 'required'), node.requiredPredicates, node.required_predicates, schema.requiredPredicates, schema.required_predicates]);
+    const descriptive = uniqueStrings([informationSchemaPredicates(informationSchema, 'descriptive'), node.descriptivePredicates, node.descriptive_predicates, schema.descriptivePredicates, schema.descriptive_predicates]);
+    const outgoing = uniqueStrings([informationSchemaPredicates(informationSchema, 'outgoing'), schema.outgoingRequiredPredicates, schema.outgoing_required_predicates]);
+    const incoming = uniqueStrings([informationSchemaPredicates(informationSchema, 'incoming'), schema.incomingRequiredPredicates, schema.incoming_required_predicates]);
     const fallback = required.length + descriptive.length + outgoing.length + incoming.length === 0;
     const schemaPredicates = uniqueStrings([required, descriptive, outgoing, incoming]);
+    const identityPredicates = profileRolePredicates(profile, 'identity');
+    const descriptivePredicates = uniqueStrings([profileRolePredicates(profile, 'descriptive'), descriptive]);
+    const linkPredicates = profileRolePredicates(profile, 'link');
+    const hierarchyPredicates = profileRolePredicates(profile, 'hierarchy');
+    const provenancePredicates = profileRolePredicates(profile, 'provenance');
     return {
+      informationViewName: informationView.name || 'cncf-rdf-1.5-hop-information-view-v1',
+      informationViewConcept: informationView.concept || '1.5+hop',
+      informationSchema: informationSchema.name || informationSchema.id || 'rdf-resource-information-v1',
+      informationSchemaLabel: informationSchema.label || informationSchema.name || informationSchema.id || 'RDF Resource Information',
       profile: profile.name || 'cncf-rdf-1.5-hop-v1',
-      entityType: node.node_type || node.type || 'unknown',
+      informationViewLabel: informationView.label || 'CNCF RDF 1.5+hop Information View',
+      informationType: node.informationType || node.information_type || node.node_type || node.type || 'unknown',
       category: node.category || '-',
       predicateRoles: fallback ? Object.keys(profile.roles || {}).sort() : predicateRoles(schemaPredicates, profile),
-      identityPredicates: profileRolePredicates(profile, 'identity'),
-      linkPredicates: profileRolePredicates(profile, 'link'),
-      hierarchyPredicates: profileRolePredicates(profile, 'hierarchy'),
-      provenancePredicates: profileRolePredicates(profile, 'provenance'),
+      identityPredicates: identityPredicates,
+      descriptivePredicates: descriptivePredicates,
+      linkPredicates: linkPredicates,
+      hierarchyPredicates: hierarchyPredicates,
+      provenancePredicates: provenancePredicates,
       requiredPredicates: required,
-      descriptivePredicates: descriptive,
+      nodeDescriptivePredicates: descriptive,
       outgoingRequiredPredicates: outgoing,
       incomingRequiredPredicates: incoming,
       fallback: fallback,
       expansion: fallback ? 'predicate profile fallback' : 'node schema metadata'
+    };
+  }
+  function defaultInformationView() {
+    return {
+      name: 'cncf-rdf-1.5-hop-information-view-v1',
+      label: 'CNCF RDF 1.5+hop Information View',
+      concept: '1.5+hop',
+      attributes: [
+          'information.schema',
+          'information.type',
+          'information.category',
+          'information.identity',
+          'information.description',
+          'information.links',
+          'information.hierarchy',
+          'information.provenance',
+          'schema.required',
+          'schema.directional',
+          'schema.expansion'
+      ],
+      defaultInformationSchema: 'rdf-resource-information-v1',
+      informationSchemas: [
+        {
+          name: 'rdf-resource-information-v1',
+          label: 'RDF Resource Information',
+          match: {
+            nodeTypes: ['uri', 'literal']
+          },
+          requiredPredicates: ['rdf:type'],
+          descriptivePredicates: ['rdfs:label', 'skos:prefLabel', 'schema:name'],
+          outgoingRequiredPredicates: [],
+          incomingRequiredPredicates: []
+        }
+      ],
+      predicateProfile: defaultPredicateProfile(),
+      predicateRoleAttributes: {
+        identity: 'information.identity',
+        descriptive: 'information.description',
+        link: 'information.links',
+        hierarchy: 'information.hierarchy',
+        provenance: 'information.provenance'
+      },
+      nodePredicateFields: {
+        required: ['requiredPredicates', 'schema.requiredPredicates'],
+        descriptive: ['descriptivePredicates', 'schema.descriptivePredicates'],
+        outgoing: ['schema.outgoingRequiredPredicates'],
+        incoming: ['schema.incomingRequiredPredicates']
+      },
+      expansion: {
+        base: 'direct 1-hop',
+        plus: 'schema-required descriptive triples',
+        limit: 3
+      }
     };
   }
   function defaultPredicateProfile() {
@@ -1744,7 +2238,7 @@ private[cozy] object CozyBok {
   }
   function activePredicateProfile(data) {
     const base = defaultPredicateProfile();
-    const configured = (data && data.predicateProfile) || {};
+    const configured = (data && data.informationView && data.informationView.predicateProfile) || {};
     const roles = {};
     Object.keys(base.roles).forEach(function(role) {
       roles[role] = configured.roles && Object.prototype.hasOwnProperty.call(configured.roles, role) ?
@@ -1761,8 +2255,29 @@ private[cozy] object CozyBok {
       roles: roles
     };
   }
+  function activeInformationView(data) {
+    const base = defaultInformationView();
+    const configured = (data && data.informationView) || {};
+    const profile = activePredicateProfile(data);
+    const informationSchemas = configured.informationSchemas || configured.information_schemas || base.informationSchemas;
+    return {
+      name: configured.name || base.name,
+      label: configured.label || base.label,
+      concept: configured.concept || base.concept,
+      attributes: configured.attributes || base.attributes,
+      defaultInformationSchema: configured.defaultInformationSchema || configured.default_information_schema || base.defaultInformationSchema,
+      informationSchemas: asArray(informationSchemas),
+      predicateProfile: profile,
+      predicateRoleAttributes: configured.predicateRoleAttributes || base.predicateRoleAttributes,
+      nodePredicateFields: configured.nodePredicateFields || base.nodePredicateFields,
+      expansion: configured.expansion || base.expansion
+    };
+  }
   function currentPredicateProfile() {
     return window.__bokRdfPredicateProfile || defaultPredicateProfile();
+  }
+  function currentInformationView() {
+    return window.__bokRdfInformationView || defaultInformationView();
   }
   function profileRolePredicates(profile, role) {
     return uniqueStrings([profile && profile.roles && profile.roles[role]]);
@@ -1803,23 +2318,44 @@ private[cozy] object CozyBok {
     const interpretation = schemaInterpretation(node);
     return '<div class="bok-rdf-node-schema">' +
       '<strong>${_javascript_string(_ui(locale, "rdf.graph.node.schema"))}</strong>' +
-      '<dl class="bok-rdf-node-schema-object">' +
-        schemaProperty('profile', interpretation.profile) +
-        schemaProperty('entityType', interpretation.entityType) +
-        schemaProperty('category', interpretation.category) +
-        schemaProperty('expansion', interpretation.expansion) +
-        schemaProperty('predicateRoles', interpretation.predicateRoles) +
-        schemaProperty('identityPredicates', interpretation.identityPredicates) +
-        schemaProperty('linkPredicates', interpretation.linkPredicates) +
-        schemaProperty('hierarchyPredicates', interpretation.hierarchyPredicates) +
-        schemaProperty('provenancePredicates', interpretation.provenancePredicates) +
-        schemaProperty('requiredPredicates', interpretation.requiredPredicates) +
-        schemaProperty('descriptivePredicates', interpretation.descriptivePredicates) +
-        schemaProperty('outgoingRequiredPredicates', interpretation.outgoingRequiredPredicates) +
-        schemaProperty('incomingRequiredPredicates', interpretation.incomingRequiredPredicates) +
-        schemaProperty('fallback', interpretation.fallback ? 'true' : 'false') +
-      '</dl>' +
+      '<div class="bok-rdf-node-schema-groups">' +
+        schemaGroup('informationView', [
+          ['name', interpretation.informationViewName],
+          ['concept', interpretation.informationViewConcept],
+          ['label', interpretation.informationViewLabel],
+          ['predicateProfile', interpretation.profile]
+        ]) +
+        schemaGroup('information', [
+          ['schema', interpretation.informationSchema],
+          ['schemaLabel', interpretation.informationSchemaLabel],
+          ['type', interpretation.informationType],
+          ['category', interpretation.category],
+          ['identity', interpretation.identityPredicates],
+          ['description', interpretation.descriptivePredicates],
+          ['links', interpretation.linkPredicates],
+          ['hierarchy', interpretation.hierarchyPredicates],
+          ['provenance', interpretation.provenancePredicates]
+        ]) +
+        schemaGroup('schema', [
+          ['required', interpretation.requiredPredicates],
+          ['nodeDescription', interpretation.nodeDescriptivePredicates],
+          ['directional', uniqueStrings([interpretation.outgoingRequiredPredicates, interpretation.incomingRequiredPredicates])],
+          ['expansion', interpretation.expansion],
+          ['fallback', interpretation.fallback ? 'true' : 'false']
+        ]) +
+        schemaGroup('predicate', [
+          ['roles', interpretation.predicateRoles]
+        ]) +
+      '</div>' +
     '</div>';
+  }
+  function schemaGroup(name, entries) {
+    return '<section class="bok-rdf-node-schema-group bok-rdf-node-schema-group-' + escapeHtml(cssName(name)) + '">' +
+      '<h3>' + escapeHtml(name) + '</h3>' +
+      '<dl class="bok-rdf-node-schema-object">' +
+        entries.map(function(entry) { return schemaProperty(entry[0], entry[1]); }).join('') +
+      '</dl>' +
+    '</section>';
   }
   function schemaProperty(name, value) {
     const rendered = Array.isArray(value) ? (value.length ? value.map(function(item) {
@@ -1864,17 +2400,19 @@ private[cozy] object CozyBok {
     panel.innerHTML =
       '<button type="button" class="bok-rdf-node-popover-close" data-rdf-node-popover-close="true" aria-label="${_javascript_string(_ui(locale, "rdf.graph.node.close"))}">×</button>' +
       '<div class="bok-rdf-node-popover-eyebrow">${_javascript_string(_ui(locale, "rdf.graph.node.detail"))}</div>' +
-      '<h2>' + escapeHtml(node.label || label(node.id)) + '</h2>' +
+      '<h2>' + escapeHtml(compactNodeLabel(node)) + '</h2>' +
+      '<div class="bok-rdf-node-popover-actions bok-rdf-node-popover-actions-primary"><button type="button" data-rdf-neighborhood="true">${_javascript_string(_ui(locale, "rdf.graph.node.neighborhood"))}</button><a href="node.html?id=' + encodeURIComponent(node.id || '') + '">${_javascript_string(_ui(locale, "rdf.graph.node.full.detail"))}</a></div>' +
       '<dl>' +
-        '<dt>ID</dt><dd title="' + escapeHtml(node.id) + '">' + escapeHtml(node.id) + '</dd>' +
+        '<dt>Compact label</dt><dd class="bok-rdf-node-compact-label" title="' + escapeHtml(compactNodeLabel(node)) + '"><code>' + escapeHtml(compactNodeLabel(node)) + '</code></dd>' +
+        '<dt>Full IRI</dt><dd class="bok-rdf-node-full-iri" title="' + escapeHtml(node.id) + '">' + escapeHtml(node.id) + '</dd>' +
+        '<dt>Source label</dt><dd>' + escapeHtml(node.label || '-') + '</dd>' +
         '<dt>Category</dt><dd>' + escapeHtml(node.category || '-') + '</dd>' +
         '<dt>Type</dt><dd>' + escapeHtml(node.node_type || node.type || '-') + '</dd>' +
-        '<dt>Degree</dt><dd>' + escapeHtml(node.degree == null ? '-' : node.degree) + '</dd>' +
+        '<dt>${_javascript_string(_ui(locale, "rdf.graph.node.connections"))}</dt><dd>' + escapeHtml(node.degree == null ? '-' : node.degree) + '</dd>' +
       '</dl>' +
       renderSchemaInterpretation(node) +
-      '<div class="bok-rdf-node-popover-actions"><button type="button" data-rdf-neighborhood="true">${_javascript_string(_ui(locale, "rdf.graph.node.neighborhood"))}</button></div>' +
       '<div class="bok-rdf-node-popover-relations"><strong>${_javascript_string(_ui(locale, "rdf.graph.node.relations"))}</strong><ul>' +
-        (related.length ? related.map(function(edge) { return '<li>' + escapeHtml(label(edge.source)) + ' <b>' + escapeHtml(edge.label || label(edge.predicate)) + '</b> ' + escapeHtml(label(edge.target)) + '</li>'; }).join('') : '<li>-</li>') +
+        (related.length ? related.map(function(edge) { return '<li>' + escapeHtml(compactRdfLabel(edge.source)) + ' <b>' + escapeHtml(compactRdfLabel(edge.label || edge.predicate)) + '</b> ' + escapeHtml(compactRdfLabel(edge.target)) + '</li>'; }).join('') : '<li>-</li>') +
       '</ul></div>';
     const close = panel.querySelector('[data-rdf-node-popover-close]');
     if (close) close.addEventListener('click', function() { panel.hidden = true; });
@@ -1938,7 +2476,7 @@ private[cozy] object CozyBok {
       text.setAttribute('class', 'bok-rdf-graph-edge-label');
       text.setAttribute('x', (source.x + target.x) / 2);
       text.setAttribute('y', (source.y + target.y) / 2 - 6);
-      text.textContent = label(edge.label || edge.predicate || 'related');
+      text.textContent = compactRdfLabel(edge.label || edge.predicate || 'related');
       edgeLayer.appendChild(text);
     });
     svg.appendChild(edgeLayer);
@@ -1956,10 +2494,10 @@ private[cozy] object CozyBok {
       const circle = document.createElementNS(svgNs, 'circle');
       circle.setAttribute('r', Math.max(18, Math.min(34, 18 + (node.degree || 0) * 2)));
       const title = document.createElementNS(svgNs, 'title');
-      title.textContent = (node.label || label(node.id)) + ' / ' + (node.category || '-');
+      title.textContent = compactNodeLabel(node) + ' / ' + (node.category || '-') + ' / ' + String(node.id || '');
       const text = document.createElementNS(svgNs, 'text');
       text.setAttribute('y', 48);
-      text.textContent = label(node.label || node.id);
+      text.textContent = compactNodeLabel(node);
       group.appendChild(title);
       group.appendChild(circle);
       group.appendChild(text);
@@ -1979,6 +2517,44 @@ private[cozy] object CozyBok {
        |  function label(value) {
        |    const parts = String(value || '').split(/[\\/#]/).filter(Boolean);
        |    return parts.length ? parts[parts.length - 1] : value;
+       |  }
+       |  function compactNodeLabel(node) {
+       |    if (!node) return '';
+       |    return compactRdfLabel(node.id || node.label || '');
+       |  }
+       |  function compactRdfLabel(value) {
+       |    const text = String(value || '');
+       |    const compact = compactUri(text);
+       |    if (compact) return compact;
+       |    return label(text);
+       |  }
+       |  function compactUri(value) {
+       |    const text = String(value || '');
+       |    const prefixes = rdfNamespacePrefixes();
+       |    for (let i = 0; i < prefixes.length; i += 1) {
+       |      if (text.indexOf(prefixes[i][1]) === 0) {
+       |        const local = text.substring(prefixes[i][1].length);
+       |        return local ? prefixes[i][0] + ':' + local : prefixes[i][0] + ':';
+       |      }
+       |    }
+       |    const compact = text.match(/^([A-Za-z][A-Za-z0-9_-]*):(.+)$$/);
+       |    return compact && !/^https?:/.test(text) ? text : '';
+       |  }
+       |  function rdfNamespacePrefixes() {
+       |    return [
+       |      ['rdf', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#'],
+       |      ['rdfs', 'http://www.w3.org/2000/01/rdf-schema#'],
+       |      ['owl', 'http://www.w3.org/2002/07/owl#'],
+       |      ['xsd', 'http://www.w3.org/2001/XMLSchema#'],
+       |      ['skos', 'http://www.w3.org/2004/02/skos/core#'],
+       |      ['dcterms', 'http://purl.org/dc/terms/'],
+       |      ['prov', 'http://www.w3.org/ns/prov#'],
+       |      ['schema', 'https://schema.org/'],
+       |      ['bok', 'https://www.simplemodeling.org/bok/'],
+       |      ['cozy-video', 'https://www.simplemodeling.org/ns/cozy/video#'],
+       |      ['textus', 'https://www.simplemodeling.org/ns/textus#'],
+       |      ['sm', 'https://www.simplemodeling.org/']
+       |    ];
        |  }
        |  function escapeHtml(value) {
        |    return String(value == null ? '' : value).replace(/[&<>"']/g, function(c) {
@@ -2006,6 +2582,7 @@ private[cozy] object CozyBok {
        |    window.__bokRdfGraphData = data;
        |    window.__bokRdfTermIndex = termIndex;
        |    window.__bokRdfPredicateProfile = activePredicateProfile(data);
+       |    window.__bokRdfInformationView = activeInformationView(data);
        |    renderGraph(data, initialCategory, initialTerm, termIndex);
        |    function refresh() { focusedNodeId = null; renderGraph(data, input ? input.value.trim() : '', termInput ? termInput.value.trim() : '', termIndex); }
        |    if (input) input.addEventListener('input', refresh);
@@ -2510,6 +3087,51 @@ private[cozy] object CozyBok {
        |</html>
        |""".stripMargin
 
+  private def _manual_html_page(
+    config: BuildConfig,
+    categories: Vector[CategoryContent],
+    locale: String,
+    page: Path,
+    title: String,
+    description: String,
+    body: String
+  ): String =
+    s"""<!doctype html>
+       |<html lang="${_html_escape(locale)}">
+       |<head>
+       |  <meta charset="utf-8">
+       |  <meta name="viewport" content="width=device-width, initial-scale=1">
+       |  <title>${_html_escape(title)} - ${_html_escape(config.siteTitle)}</title>
+       |${_site_css_links(config, page)}
+       |</head>
+       |<body class="article ${_html_escape(_dashboard_theme_class(config))}">
+       |${_category_header(config, categories, locale)}
+       |<div class="body">
+       |  ${_special_nav_container(config, categories)}
+       |  <main class="article">
+       |    <div class="toolbar" role="navigation">
+       |      <button class="nav-toggle"></button>
+       |      <a href="../index.html" class="home-link"></a>
+       |      <nav class="breadcrumbs" aria-label="breadcrumbs">
+       |        <ul>
+       |          <li><a href="../index.html">${_html_escape(config.siteTitle)}</a></li>
+       |          <li>${_html_escape(title)}</li>
+       |        </ul>
+       |      </nav>
+       |    </div>
+       |    <div class="content">
+       |      <article class="doc">
+       |        <h1 class="page">${_html_escape(title)}</h1>
+       |        <p>${_html_escape(description)}</p>
+       |        ${body}
+       |      </article>
+       |    </div>
+       |  </main>
+       |</div>
+       |</body>
+       |</html>
+       |""".stripMargin
+
   private def _special_toc_panel(config: BuildConfig, tocitems: Vector[(String, String)]): String = {
     val items = tocitems.map {
       case (id, label) => s"""        <li><a href="#${_html_escape(id)}">${_html_escape(label)}</a></li>"""
@@ -2622,7 +3244,7 @@ private[cozy] object CozyBok {
        |    <div class="content">
        |      <article class="doc">
        |        ${_category_dashboard(config, category, locale)}
-       |        ${_source_narrative_section(config.sourcePath.resolve(category.slug).resolve("index.dox"), locale)}
+       |        ${_source_narrative_section(_source_document(config.sourcePath.resolve(category.slug), "index"), locale)}
        |      </article>
        |    </div>
        |  </main>
@@ -2650,6 +3272,7 @@ private[cozy] object CozyBok {
        |    <div id="topbar-nav" class="navbar-menu">
        |      <div class="navbar-end">
        |        <a class="navbar-item" href="${_html_escape(rootPrefix)}index.html">${_html_escape(_ui(locale, "nav.home"))}</a>
+       |        ${_bok_nav_menu(config, locale, rootPrefix)}
        |        ${_category_nav_menu(locale, categories.map(x => CategorySummary(x.slug, x.title, x.description, x.purpose)), rootPrefix)}
        |      </div>
        |    </div>
@@ -2703,7 +3326,39 @@ private[cozy] object CozyBok {
       |    </div>
       |  </aside>""".stripMargin
 
-  private def _source_narrative_section(path: Path, locale: String): String = {
+  private val _source_document_suffixes = Vector(".dox", ".md", ".markdown")
+
+  private def _source_document(dir: Path, stem: String): Option[Path] =
+    _source_document_suffixes.
+      map(suffix => dir.resolve(s"${stem}${suffix}")).
+      find(Files.isRegularFile(_))
+
+  private def _is_source_document(path: Path): Boolean =
+    _source_document_suffixes.exists(path.getFileName.toString.endsWith)
+
+  private def _is_markdown_source_document(path: Path): Boolean = {
+    val name = path.getFileName.toString.toLowerCase(java.util.Locale.ROOT)
+    name.endsWith(".md") || name.endsWith(".markdown")
+  }
+
+  private def _is_index_source_document(path: Path): Boolean = {
+    val name = path.getFileName.toString
+    _source_document_suffixes.exists(suffix => name == s"index${suffix}")
+  }
+
+  private def _source_document_html_href(rel: String): String =
+    _source_document_suffixes.
+      find(rel.endsWith).
+      map(suffix => rel.dropRight(suffix.length) + ".html").
+      getOrElse(rel + ".html")
+
+  private def _source_document_stem(name: String): String =
+    _source_document_suffixes.
+      find(name.endsWith).
+      map(suffix => name.dropRight(suffix.length)).
+      getOrElse(name)
+
+  private def _source_narrative_section(path: Option[Path], locale: String): String = {
     val body = _source_narrative_html(path, locale)
     if (body.isEmpty)
       ""
@@ -2715,17 +3370,31 @@ private[cozy] object CozyBok {
          |</div>""".stripMargin
   }
 
+  private def _source_narrative_html(path: Option[Path], locale: String): String =
+    path.filter(Files.isRegularFile(_)).map { source =>
+      val content = Files.readString(source, StandardCharsets.UTF_8)
+      _source_narrative_html(content, source.toString, locale, !_is_markdown_source_document(source))
+    }.getOrElse("")
+
   private def _source_narrative_html(path: Path, locale: String): String =
-    if (!Files.isRegularFile(path))
-      ""
-    else {
-      val content = Files.readString(path, StandardCharsets.UTF_8)
-      val dox = Dox2Parser.parseWithFilename(Dox2Parser.Config.default, path.toString, content)
-      val rule = Dox2HtmlTransformer.Rule(isDocument = false, sectionBaseNumber = Some(2), isDefaultCss = false)
-      val context = _smartdox_context(locale)
-      val body = _source_narrative_dox(_language_filter(dox, context))
-      _rendered_body_fragment(Dox2HtmlTransformer(context, rule).transform(body).take).trim
-    }
+    _source_narrative_html(Option(path), locale)
+
+  private def _source_narrative_html(content: String, name: String, locale: String): String =
+    _source_narrative_html(content, name, locale, applyLanguageFilter = true)
+
+  private def _source_narrative_html(
+    content: String,
+    name: String,
+    locale: String,
+    applyLanguageFilter: Boolean
+  ): String = {
+    val dox = Dox2Parser.parseWithFilename(Dox2Parser.Config.default, name, content)
+    val rule = Dox2HtmlTransformer.Rule(isDocument = false, sectionBaseNumber = Some(2), isDefaultCss = false)
+    val context = _smartdox_context(locale)
+    val filtered = if (applyLanguageFilter) _language_filter(dox, context) else dox
+    val body = _source_narrative_dox(filtered)
+    _rendered_body_fragment(Dox2HtmlTransformer(context, rule).transform(body).take).trim
+  }
 
   private def _source_narrative_dox(dox: Dox): Dox =
     dox match {
@@ -2818,6 +3487,16 @@ private[cozy] object CozyBok {
          |</div>""".stripMargin
     }
 
+  private def _bok_nav_menu(config: BuildConfig, locale: String, prefix: String): String =
+    s"""<div class="navbar-item has-dropdown is-hoverable navbar-bok-nav navbar-bok-dropdown" aria-label="${_html_escape(_ui(locale, "nav.bok"))}">
+       |  <a class="navbar-link navbar-bok-toggle" href="#">${_html_escape(_ui(locale, "nav.bok"))}</a>
+       |  <div class="navbar-dropdown navbar-bok-menu">
+       |    <a class="navbar-item navbar-dropdown-item" href="${_html_escape(prefix)}glossary/index.html">${_html_escape(_ui(locale, "glossary.title"))}</a>
+       |    <a class="navbar-item navbar-dropdown-item" href="${_html_escape(_history_href(config, prefix))}">${_html_escape(_ui(locale, "history.title"))}</a>
+       |    <a class="navbar-item navbar-dropdown-item" href="${_html_escape(prefix)}manual/index.html">${_html_escape(_ui(locale, "manual.title"))}</a>
+       |  </div>
+       |</div>""".stripMargin
+
   private def _home_nav_container(config: BuildConfig): String = {
     val items = _regular_category_summaries(config.sourcePath).map { category =>
       s"""<li class="nav-item" data-depth="1"><a class="nav-link" href="${_html_escape(category.slug)}/index.html">${_html_escape(category.title)}</a></li>"""
@@ -2846,11 +3525,10 @@ private[cozy] object CozyBok {
   private def _home_toc_panel(config: BuildConfig, locale: String): String =
     s"""<aside class="toc sidebar" data-title="Contents" data-levels="2">
       |    <div class="toc-menu">
-      |      <h3>On this page</h3>
+       |      <h3>On this page</h3>
        |      <ul>
        |        ${_home_dashboard_toc_item(config)}
-      |        <li><a href="#operation-policy">Operation Policy</a></li>
-      |      </ul>
+       |      </ul>
       |      <div class="bok-special-links">
       |        <h3>BoK Console</h3>
       |        <a class="bok-special-link" href="glossary/index.html">Glossary</a>
@@ -2869,12 +3547,13 @@ private[cozy] object CozyBok {
   private def _home_dashboard(config: BuildConfig, locale: String): String = {
     val purpose = _bok_purpose(config)
     val dashboard = _dashboard(config)
+    val metadata = _dox_metadata(_source_document(config.sourcePath, "index"))
     if (dashboard.isEmpty && purpose.isEmpty)
       ""
     else {
       val hero = _dashboard_hero(
-        _uif(locale, "home.page.title", config.siteTitle),
-        _ui(locale, "home.intro"),
+        _effective_headline(metadata, locale).getOrElse(_uif(locale, "home.page.title", config.siteTitle)),
+        _effective_brief(metadata, locale).getOrElse(_ui(locale, "home.intro")),
         Vector(
           _ui(locale, "dashboard.kpi.categories") -> dashboard.map(_.counts.categoryCount.toString).getOrElse("-"),
           _ui(locale, "dashboard.kpi.articles") -> dashboard.map(_.counts.articleCount.toString).getOrElse("-"),
@@ -2891,11 +3570,12 @@ private[cozy] object CozyBok {
   private def _category_dashboard(config: BuildConfig, category: CategoryContent, locale: String): String = {
     val site = _dashboard(config)
     val dashboard = site.flatMap(_.categories.find(_.name == category.slug))
+    val metadata = _dox_metadata(_source_document(config.sourcePath.resolve(category.slug), "index"))
     if (!category.purpose.isEmpty || dashboard.isDefined) {
       val categoryrdf = dashboard.flatMap(_.rdf)
       val hero = _dashboard_hero(
-        _uif(locale, "category.page.title", category.title),
-        _uif(locale, "category.intro", category.description),
+        _effective_headline(metadata, locale).getOrElse(_uif(locale, "category.page.title", category.title)),
+        _effective_brief(metadata, locale).getOrElse(_uif(locale, "category.intro", category.description)),
         Vector(
           _ui(locale, "dashboard.kpi.articles") -> dashboard.map(_.counts.articleCount.toString).getOrElse(category.articles.size.toString),
           _ui(locale, "dashboard.kpi.terms") -> dashboard.map(_.counts.glossaryTermCount.toString).getOrElse(category.terms.size.toString),
@@ -3000,7 +3680,7 @@ private[cozy] object CozyBok {
       if (category.purpose.isEmpty) None else Some(_dashboard_card("col-12 col-xl-8", "bok-card-purpose", _ui(locale, "dashboard.card.category.vision"), _purpose_card_body(locale, category.purpose), Vector("reader", "contributor", "project_manager"))),
       Some(_dashboard_card("col-12 col-xl-6", "bok-card-map", _ui(locale, "dashboard.card.term.map"), _page_map_body(category.terms, _ui(locale, "dashboard.term.empty")), Vector("reader", "contributor", "project_manager"))),
       Some(_dashboard_card("col-12 col-xl-6", "bok-card-map", _ui(locale, "dashboard.card.article.map"), _page_map_body(category.articles, _ui(locale, "dashboard.article.empty")), Vector("reader", "contributor", "project_manager"))),
-      rdf.map(x => _kpi_card_link("col-6 col-md-3", _ui(locale, "dashboard.kpi.rdf"), x.tripleCount.toString, _ui(locale, "dashboard.kpi.rdf.note"), s"../rdf/index.html?category=${_url_query_escape(category.slug)}")),
+      rdf.map(x => _category_rdf_kpi_card(locale, category, x)),
       dashboard.map(x => _kpi_card(locale, "col-6 col-md-3", _ui(locale, "dashboard.kpi.articles"), x.counts.articleCount.toString, _ui(locale, "dashboard.kpi.category.articles.note"))),
       dashboard.map(x => _kpi_card(locale, "col-6 col-md-3", _ui(locale, "dashboard.kpi.terms"), x.counts.glossaryTermCount.toString, _ui(locale, "dashboard.kpi.category.terms.note"))),
       Some(_kpi_card(locale, "col-6 col-md-3", _ui(locale, "dashboard.kpi.issues"), "0", _ui(locale, "dashboard.kpi.issues.note"))),
@@ -3008,7 +3688,7 @@ private[cozy] object CozyBok {
       dashboard.map(x => _dashboard_card("col-12 col-xl-7", "bok-card-chart", _ui(locale, "dashboard.card.category.growth"), _dashboard_increment_chart(locale, x.increments, _uif(locale, "dashboard.chart.category.additions", x.title)), Vector("project_manager", "contributor"))),
       Some(_dashboard_card("col-12 col-md-6 col-xl-3", "bok-card-readiness", _ui(locale, "dashboard.card.category.readiness"), _category_readiness_body(locale, dashboard), Vector("site_administrator", "project_manager"))),
       Some(_dashboard_card("col-12 col-md-6 col-xl-4", "bok-card-activity", _ui(locale, "dashboard.card.recent.changes"), _category_recent_changes_body(locale, category), Vector("reader", "contributor", "project_manager"))),
-      Some(_dashboard_card("col-12 col-md-6 col-xl-5", "bok-card-related", _ui(locale, "dashboard.card.related.knowledge"), _related_knowledge_body(locale, config, category), Vector("reader", "contributor", "project_manager")))
+      Some(_dashboard_card("col-12 col-md-6 col-xl-5", "bok-card-related", _ui(locale, "dashboard.card.related.knowledge"), _related_knowledge_body(locale, config, category, rdf), Vector("reader", "contributor", "project_manager")))
     ).flatten
     _dashboard_container(locale, cards)
   }
@@ -3356,14 +4036,14 @@ private[cozy] object CozyBok {
       else
         dashboard.categories.map { category =>
           val freshness = category.increments.buckets.lastOption.map(_.label).getOrElse("-")
-          val rdfvalue = category.rdf.map(_.tripleCount.toString).getOrElse("-")
+          val rdfitem = _category_rdf_metric(locale, category)
           s"""<div class="bok-category-summary-card">
              |  <a class="bok-category-summary-title" href="${_html_escape(category.name)}/index.html">${_html_escape(category.title)}</a>
              |  <span class="bok-category-summary-freshness">${_html_escape(_ui(locale, "dashboard.readiness.freshness"))}: ${_html_escape(freshness)}</span>
              |  <span class="bok-category-summary-metrics">
              |    <span><b>${category.counts.articleCount}</b>${_html_escape(_ui(locale, "dashboard.kpi.articles"))}</span>
              |    <span><b>${category.counts.glossaryTermCount}</b>${_html_escape(_ui(locale, "dashboard.kpi.terms"))}</span>
-             |    <a class="bok-category-rdf-link" href="rdf/index.html?category=${_html_escape(_url_query_escape(category.name))}"><b>${_html_escape(rdfvalue)}</b>${_html_escape(_ui(locale, "dashboard.kpi.rdf"))}</a>
+             |    ${rdfitem}
              |  </span>
              |</div>""".stripMargin
         }.mkString("\n")
@@ -3430,14 +4110,32 @@ private[cozy] object CozyBok {
     _page_map_body(items, _ui(locale, "dashboard.local.change.empty"))
   }
 
-  private def _related_knowledge_body(locale: String, config: BuildConfig, category: CategoryContent): String =
+  private def _related_knowledge_body(locale: String, config: BuildConfig, category: CategoryContent, rdf: Option[DashboardRdfSummary]): String = {
+    val rdfitem =
+      rdf.filter(_.tripleCount > 0).
+        map(_ => s"""  <li class="list-group-item"><a href="../rdf/index.html?category=${_html_escape(_url_query_escape(category.slug))}">${_html_escape(_ui(locale, "rdf.graph.title"))}</a></li>""").
+        getOrElse("")
     s"""<ul class="list-group bok-related-list">
        |  <li class="list-group-item"><a href="../glossary/index.html">${_html_escape(_ui(locale, "glossary.title"))}</a></li>
        |  <li class="list-group-item"><a href="../glossary/${_html_escape(category.slug)}/index.html">${_html_escape(_uif(locale, "dashboard.related.category.terms", category.title))}</a></li>
-       |  <li class="list-group-item"><a href="../rdf/index.html?category=${_html_escape(_url_query_escape(category.slug))}">${_html_escape(_ui(locale, "rdf.graph.title"))}</a></li>
+       |${rdfitem}
        |  <li class="list-group-item"><a href="${_html_escape(_history_href(config, "../"))}">${_html_escape(_ui(locale, "history.title"))}</a></li>
        |  <li class="list-group-item"><a href="../manual/index.html">${_html_escape(_ui(locale, "manual.title"))}</a></li>
        |</ul>""".stripMargin
+  }
+
+  private def _category_rdf_metric(locale: String, category: DashboardCategory): String = {
+    val value = category.rdf.map(_.tripleCount.toString).getOrElse("-")
+    category.rdf.filter(_.tripleCount > 0).
+      map(_ => s"""<a class="bok-category-rdf-link" href="rdf/index.html?category=${_html_escape(_url_query_escape(category.name))}"><b>${_html_escape(value)}</b>${_html_escape(_ui(locale, "dashboard.kpi.rdf"))}</a>""").
+      getOrElse(s"""<span class="bok-category-rdf-value"><b>${_html_escape(value)}</b>${_html_escape(_ui(locale, "dashboard.kpi.rdf"))}</span>""")
+  }
+
+  private def _category_rdf_kpi_card(locale: String, category: CategoryContent, rdf: DashboardRdfSummary): String =
+    if (rdf.tripleCount > 0)
+      _kpi_card_link("col-6 col-md-3", _ui(locale, "dashboard.kpi.rdf"), rdf.tripleCount.toString, _ui(locale, "dashboard.kpi.rdf.note"), s"../rdf/index.html?category=${_url_query_escape(category.slug)}")
+    else
+      _kpi_card(locale, "col-6 col-md-3", _ui(locale, "dashboard.kpi.rdf"), rdf.tripleCount.toString, _ui(locale, "dashboard.kpi.rdf.note"))
 
   private def _dashboard_cards(counts: DashboardCounts, includecategories: Boolean): String = {
     val categorycard =
@@ -3723,17 +4421,15 @@ private[cozy] object CozyBok {
       try {
         stream.iterator.asScala.toVector.
           filter(Files.isRegularFile(_)).
-          filter(_.getFileName.toString.endsWith(".dox")).
-          filterNot(_.getFileName.toString == "index.dox").
+          filter(_is_source_document).
+          filterNot(_is_index_source_document).
           filterNot(x => dir.relativize(x).toString.replace(java.io.File.separatorChar, '/').startsWith("glossary/")).
           map { file =>
             val rel = dir.relativize(file).toString.replace(java.io.File.separatorChar, '/')
-            val href = rel.stripSuffix(".dox") + ".html"
-            val content = Files.readString(file, StandardCharsets.UTF_8)
             CategoryPageItem(
-              href,
-              _dox_title(content, file),
-              _dox_brief(content),
+              _source_document_html_href(rel),
+              _dox_title(file),
+              _dox_brief(file),
               _modified_at_millis(file)
             )
           }.sortBy(_.href)
@@ -3750,18 +4446,18 @@ private[cozy] object CozyBok {
       try {
         stream.iterator.asScala.toVector.
           filter(Files.isRegularFile(_)).
-          filter(_.getFileName.toString.endsWith(".dox")).
-          filterNot(_.getFileName.toString == "index.dox").
+          filter(_is_source_document).
+          filterNot(_is_index_source_document).
           map { file =>
             val rel = dir.relativize(file).toString.replace(java.io.File.separatorChar, '/')
-            val href = s"../glossary/${category}/${rel.stripSuffix(".dox")}.html"
+            val href = s"../glossary/${category}/${_source_document_html_href(rel)}"
             val content = Files.readString(file, StandardCharsets.UTF_8)
             CategoryPageItem(
               href,
-              _dox_title(content, file),
-              _dox_brief(content),
+              _dox_title(file),
+              _dox_brief(file),
               _modified_at_millis(file),
-              _dox_reading(content)
+              _dox_reading(file)
             )
           }.sortBy(_.href)
       } finally {
@@ -3769,10 +4465,23 @@ private[cozy] object CozyBok {
       }
     }
 
-  private def _dox_title(content: String, file: Path): String =
-    content.linesIterator.map(_.trim).find(_.nonEmpty).getOrElse(_titleize(file.getFileName.toString.stripSuffix(".dox")))
+  private def _dox_title(file: Path): String = {
+    val content = Files.readString(file, StandardCharsets.UTF_8)
+    val metadata = _dox_metadata(file)
+    _effective_headline(metadata, "en").
+      orElse(metadata.flatMap(_.getTitleStringDefault).filter(_.nonEmpty)).
+      getOrElse(content.linesIterator.map(_.trim).find(_.nonEmpty).getOrElse(_titleize(_source_document_stem(file.getFileName.toString))))
+  }
 
-  private def _dox_brief(content: String): String = {
+  private def _dox_brief(file: Path): String = {
+    val metadata = _dox_metadata(file)
+    _dox_metadata_property_string(metadata, Vector("brief", "summary", "description")).
+      orElse(_markdown_front_matter_value(file, Vector("brief", "summary", "description"))).
+      orElse(_effective_brief(metadata, "en")).
+      getOrElse(_dox_brief_fallback(Files.readString(file, StandardCharsets.UTF_8)))
+  }
+
+  private def _dox_brief_fallback(content: String): String = {
     val lines = content.linesIterator.toVector
     lines.zipWithIndex.collectFirst {
       case (line, i) if line.trim == "## BRIEF" =>
@@ -3780,8 +4489,76 @@ private[cozy] object CozyBok {
     }.filter(_.nonEmpty).getOrElse("Category entry.")
   }
 
-  private def _dox_reading(content: String): Option[String] =
-    _dox_head_value(content, Vector("reading", "yomi", "読み"))
+  private def _dox_metadata(file: Option[Path]): Option[DocumentMetaData] =
+    file.flatMap(_dox_metadata)
+
+  private def _dox_metadata(file: Path): Option[DocumentMetaData] =
+    if (Files.isRegularFile(file)) {
+      val content = Files.readString(file, StandardCharsets.UTF_8)
+      val filename = file.getFileName.toString
+      val suffix = filename.lastIndexOf('.') match {
+        case n if n >= 0 => filename.substring(n + 1).toLowerCase(Locale.ROOT)
+        case _ => ""
+      }
+      val config = suffix match {
+        case "md" | "markdown" => Dox2Parser.Config.markdown
+        case _ => Dox2Parser.Config.default
+      }
+      val dox = Dox2Parser.parseWithFilename(config, file.toString, content)
+      _dox_metadata_from_dox(dox)
+    } else {
+      None
+    }
+
+  private def _dox_metadata_from_dox(dox: Dox): Option[DocumentMetaData] =
+    Dox.getMetadata(dox).flatMap(_.toOption).orElse {
+      dox.elements.toStream.flatMap(_dox_metadata_from_dox).headOption
+    }
+
+  private def _effective_headline(metadata: Option[DocumentMetaData], locale: String): Option[String] =
+    metadata.flatMap(_.getEffectiveHeadlineString(_to_locale(locale))).filter(_.nonEmpty)
+
+  private def _effective_brief(metadata: Option[DocumentMetaData], locale: String): Option[String] =
+    metadata.flatMap(_.getEffectiveBriefString(_to_locale(locale))).filter(_.nonEmpty)
+
+  private def _dox_reading(file: Path): Option[String] = {
+    val content = Files.readString(file, StandardCharsets.UTF_8)
+    _dox_metadata_property_string(_dox_metadata(file), Vector("reading", "yomi", "読み")).
+      orElse(_markdown_front_matter_value(file, Vector("reading", "yomi", "読み"))).
+      orElse(_dox_head_value(content, Vector("reading", "yomi", "読み")))
+  }
+
+  private def _markdown_front_matter_value(file: Path, keys: Vector[String]): Option[String] =
+    if (!_is_markdown_source_document(file))
+      None
+    else {
+      val lines = Files.readAllLines(file, StandardCharsets.UTF_8).asScala.toVector
+      if (!lines.headOption.exists(_.trim == "---"))
+        None
+      else {
+        val keyset = keys.map(_.toLowerCase(Locale.ROOT)).toSet
+        lines.zipWithIndex.drop(1).find(_._1.trim == "---").flatMap { case (_, end) =>
+          lines.slice(1, end).collectFirst {
+            case line if line.contains(":") && keyset.contains(line.takeWhile(_ != ':').trim.toLowerCase(Locale.ROOT)) =>
+              _unquote(line.dropWhile(_ != ':').drop(1).trim)
+          }.filter(_.nonEmpty)
+        }
+      }
+    }
+
+  private def _dox_metadata_property_string(metadata: Option[DocumentMetaData], keys: Vector[String]): Option[String] =
+    metadata.flatMap(_.properties).flatMap { hocon =>
+      keys.toStream.flatMap { key =>
+        try {
+          if (hocon.hasPath(key))
+            Some(hocon.getString(key)).filter(_.nonEmpty)
+          else
+            None
+        } catch {
+          case NonFatal(_) => None
+        }
+      }.headOption
+    }
 
   private def _dox_head_value(content: String, keys: Vector[String]): Option[String] = {
     val keyset = keys.toSet
@@ -4118,6 +4895,14 @@ private[cozy] object CozyBok {
       |    <div id="topbar-nav" class="navbar-menu">
       |      <div class="navbar-end">
       |        <a class="navbar-item" href="{{siteRootPath}}/index.html">Home</a>
+      |        <div class="navbar-item has-dropdown is-hoverable navbar-bok-nav navbar-bok-dropdown" aria-label="BoK">
+      |          <a class="navbar-link navbar-bok-toggle" href="#">BoK</a>
+      |          <div class="navbar-dropdown navbar-bok-menu">
+      |            <a class="navbar-item navbar-dropdown-item" href="{{siteRootPath}}/glossary/index.html">Glossary</a>
+      |            <a class="navbar-item navbar-dropdown-item" href="{{siteRootPath}}/history/index.html">History</a>
+      |            <a class="navbar-item navbar-dropdown-item" href="{{siteRootPath}}/manual/index.html">BoK Manual</a>
+      |          </div>
+      |        </div>
       |      </div>
       |    </div>
       |  </nav>
@@ -4820,35 +5605,64 @@ private[cozy] object CozyBok {
       |  font-weight: 700;
       |}
       |
-      |.navbar-category-dropdown {
+      |.navbar-category-dropdown,
+      |.navbar-bok-dropdown {
       |  position: relative;
       |}
       |
-      |.navbar-category-dropdown > .navbar-category-toggle {
+      |.navbar-category-dropdown > .navbar-category-toggle,
+      |.navbar-bok-dropdown > .navbar-bok-toggle {
       |  color: #fff;
       |  font-weight: 700;
       |}
       |
-      |.navbar-category-dropdown > .navbar-category-menu {
+      |.navbar-category-dropdown > .navbar-category-menu,
+      |.navbar-bok-dropdown > .navbar-bok-menu {
+      |  min-width: 14rem;
+      |  padding: 0.45rem;
+      |  border: 1px solid rgba(148, 163, 184, 0.28);
+      |  border-radius: 16px;
+      |  background: #0f172a;
+      |  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.30);
       |  left: auto;
       |  right: 0;
       |  max-width: min(22rem, calc(100vw - 1rem));
       |}
       |
-      |.navbar-category-dropdown:hover > .navbar-category-menu,
-      |.navbar-category-dropdown:focus-within > .navbar-category-menu {
+      |.navbar-dropdown-item {
       |  display: block;
+      |  padding: 0.55rem 0.7rem;
+      |  border-radius: 11px;
+      |  color: #e0f2fe !important;
+      |  font-weight: 800;
+      |  text-decoration: none !important;
+      |}
+      |
+      |.navbar-dropdown-item:hover {
+      |  color: #ffffff !important;
+      |  background: rgba(56, 189, 248, 0.16);
+      |}
+      |
+      |.navbar-category-dropdown:hover > .navbar-category-menu,
+      |.navbar-category-dropdown:focus-within > .navbar-category-menu,
+      |.navbar-bok-dropdown:hover > .navbar-bok-menu,
+      |.navbar-bok-dropdown:focus-within > .navbar-bok-menu {
+      |  display: grid;
+      |  gap: 0.18rem;
       |}
       |
       |@media screen and (max-width: 1023.5px) {
-      |  .navbar-category-dropdown > .navbar-category-toggle {
+      |  .navbar-category-dropdown > .navbar-category-toggle,
+      |  .navbar-bok-dropdown > .navbar-bok-toggle {
       |    color: #1f2933;
       |  }
       |
-      |  .navbar-category-dropdown > .navbar-category-menu {
+      |  .navbar-category-dropdown > .navbar-category-menu,
+      |  .navbar-bok-dropdown > .navbar-bok-menu {
       |    position: static;
       |    display: block;
       |    width: 100%;
+      |    background: #ffffff;
       |    margin: 0.25rem 0 0.5rem;
       |    border-radius: 0.5rem;
       |    box-shadow: none;
@@ -5220,13 +6034,15 @@ private[cozy] object CozyBok {
       |  --bs-gutter-y: 1.15rem;
       |}
       |
-      |.navbar-category-nav {
+      |.navbar-category-nav,
+      |.navbar-bok-nav {
       |  display: inline-flex;
       |  align-items: center;
       |  margin-left: 0.3rem;
       |}
       |
-      |.navbar-category-dropdown > .navbar-category-toggle {
+      |.navbar-category-dropdown > .navbar-category-toggle,
+      |.navbar-bok-dropdown > .navbar-bok-toggle {
       |  min-height: 2.2rem;
       |  padding: 0.35rem 0.85rem;
       |  color: #fff !important;
@@ -5237,7 +6053,9 @@ private[cozy] object CozyBok {
       |}
       |
       |.navbar-category-dropdown > .navbar-category-toggle:hover,
-      |.navbar-category-dropdown > .navbar-category-toggle:focus {
+      |.navbar-category-dropdown > .navbar-category-toggle:focus,
+      |.navbar-bok-dropdown > .navbar-bok-toggle:hover,
+      |.navbar-bok-dropdown > .navbar-bok-toggle:focus {
       |  color: #fff !important;
       |  background: rgba(255, 255, 255, 0.22);
       |  text-decoration: none;
@@ -5532,6 +6350,7 @@ private[cozy] object CozyBok {
     "/.metals/",
     "/.idea/"
   )
+  private val _dox_metadata_section_names = Set("HEAD", "HEADLINE", "BRIEF", "SUMMARY", "DESCRIPTION", "LEAD", "ABSTRACT", "REMARKS", "TOOLTIP")
 
   private def _inspect_bok(input: Path): BokInspection = {
     val root = _find_bok_root(input)
@@ -5587,7 +6406,13 @@ private[cozy] object CozyBok {
         Vector("Missing upload workflow command: bok.workflow.upload.command")
       else
         Vector.empty
-    missingconfig ++ olddocker ++ missingsource ++ missingsite ++ gitignoreissue ++ missingupload
+    val doxissues = _dox_metadata_section_issues(root).map { issue =>
+      s"SmartDox Dox metadata section heading must be followed by a blank line: ${root.relativize(issue.path)}:${issue.line} ${issue.heading}"
+    }
+    val markdownissues = _markdown_metadata_issues(root).map { issue =>
+      s"Markdown front matter metadata issue: ${root.relativize(issue.path)}: ${issue.message}"
+    }
+    missingconfig ++ olddocker ++ missingsource ++ missingsite ++ gitignoreissue ++ missingupload ++ doxissues ++ markdownissues
   }
 
   private def _bok_fixes(root: Path): Vector[BokFix] = {
@@ -5610,7 +6435,115 @@ private[cozy] object CozyBok {
         Vector(BokFix("Append generated/work directory ignores to .gitignore", () => _append_gitignore_entries(root.resolve(".gitignore"), gitignoreentries)))
       else
         Vector.empty
-    createconfig ++ updatedocker ++ gitignorefix
+    val doxfixes = _dox_metadata_section_issues(root).groupBy(_.path).toVector.sortBy(_._1.toString).map {
+      case (path, issues) =>
+        val description =
+          if (issues.size == 1)
+            s"Insert blank line after SmartDox metadata section heading in ${root.relativize(path)}:${issues.head.line}"
+          else
+            s"Insert blank lines after ${issues.size} SmartDox metadata section headings in ${root.relativize(path)}"
+        BokFix(description, () => _fix_dox_metadata_section_spacing(path))
+    }
+    createconfig ++ updatedocker ++ gitignorefix ++ doxfixes
+  }
+
+  private def _dox_metadata_section_issues(root: Path): Vector[DoxMetadataSectionIssue] = {
+    val source = root.resolve("src/main/doxsite")
+    if (!Files.isDirectory(source))
+      Vector.empty
+    else {
+      val stream = Files.walk(source)
+      try {
+        stream.iterator.asScala.toVector.
+          filter(path => Files.isRegularFile(path) && path.getFileName.toString.endsWith(".dox")).
+          flatMap(_dox_metadata_section_issues_in_file)
+      } finally {
+        stream.close()
+      }
+    }
+  }
+
+  private def _dox_metadata_section_issues_in_file(path: Path): Vector[DoxMetadataSectionIssue] = {
+    val lines = Files.readAllLines(path, StandardCharsets.UTF_8).asScala.toVector
+    lines.zipWithIndex.flatMap {
+      case (line, index) =>
+        _dox_metadata_section_heading(line) match {
+          case Some(heading) if index + 1 >= lines.length || lines(index + 1).trim.nonEmpty =>
+            Some(DoxMetadataSectionIssue(path, index + 1, heading))
+          case _ =>
+            None
+        }
+    }
+  }
+
+  private def _dox_metadata_section_heading(line: String): Option[String] = {
+    val trimmed = line.trim
+    val markerlength = trimmed.takeWhile(c => c == '#' || c == '*').length
+    if (markerlength > 0 && trimmed.length > markerlength && trimmed.charAt(markerlength) == ' ') {
+      val name = trimmed.drop(markerlength + 1).trim
+      if (_dox_metadata_section_names.contains(name))
+        Some(trimmed)
+      else
+        None
+    } else
+      None
+  }
+
+  private def _markdown_metadata_issues(root: Path): Vector[MarkdownMetadataIssue] = {
+    val source = root.resolve("src/main/doxsite")
+    if (!Files.isDirectory(source))
+      Vector.empty
+    else {
+      val stream = Files.walk(source)
+      try {
+        stream.iterator.asScala.toVector.
+          filter(path => Files.isRegularFile(path) && _is_markdown_source_document(path)).
+          flatMap(_markdown_metadata_issues_in_file)
+      } finally {
+        stream.close()
+      }
+    }
+  }
+
+  private def _markdown_metadata_issues_in_file(path: Path): Vector[MarkdownMetadataIssue] = {
+    val lines = Files.readAllLines(path, StandardCharsets.UTF_8).asScala.toVector
+    if (lines.headOption.exists(_.trim == "---")) {
+      val end = lines.zipWithIndex.drop(1).find(_._1.trim == "---").map(_._2)
+      end match {
+        case Some(n) =>
+          val keys = lines.slice(1, n).flatMap { line =>
+            val trimmed = line.trim
+            if (trimmed.startsWith("#") || !trimmed.contains(":"))
+              None
+            else
+              Some(trimmed.takeWhile(_ != ':').trim.toLowerCase(java.util.Locale.ROOT))
+          }.toSet
+          val title = keys.contains("title") || keys.contains("headline")
+          val brief = keys.contains("brief") || keys.contains("summary") || keys.contains("description")
+          Vector(
+            if (title) None else Some(MarkdownMetadataIssue(path, "front matter should include title or headline")),
+            if (brief) None else Some(MarkdownMetadataIssue(path, "front matter should include brief, summary, or description"))
+          ).flatten
+        case None =>
+          Vector(MarkdownMetadataIssue(path, "front matter starts with --- but has no closing ---"))
+      }
+    } else {
+      Vector.empty
+    }
+  }
+
+  private def _fix_dox_metadata_section_spacing(path: Path): Unit = {
+    val original = Files.readAllLines(path, StandardCharsets.UTF_8).asScala.toVector
+    val fixed = original.zipWithIndex.flatMap {
+      case (line, index) =>
+        val needsblank = _dox_metadata_section_heading(line).isDefined &&
+          (index + 1 >= original.length || original(index + 1).trim.nonEmpty)
+        if (needsblank)
+          Vector(line, "")
+        else
+          Vector(line)
+    }
+    _write_text(path, fixed.mkString("\n") + "\n")
   }
 
   private val _bok_guide_scenarios: Vector[(String, String, Vector[String])] = Vector(
@@ -6128,16 +7061,7 @@ private[cozy] object CozyBok {
     s"""Home
        |======
        |
-       |# HEAD
-       |
-       |status=work-in-progress
-       |published_at=${_today}
-       |
-       |## HEADLINE
-       |${config.name}
-       |
-       |## BRIEF
-       |${_site_index_brief(config)}
+       |${_dox_head(config.name, _site_index_brief(config))}
        |
        |# Overview
        |
@@ -6183,21 +7107,27 @@ private[cozy] object CozyBok {
     s"""${title}
        |======
        |
-       |# HEAD
-       |
-       |status=work-in-progress
-       |published_at=${_today}
-       |
-       |## HEADLINE
-       |${title}
-       |
-       |## BRIEF
-       |${purpose}
+       |${_dox_head(title, purpose)}
        |
        |# Overview
        |
        |${purpose}
        |""".stripMargin
+
+  private def _dox_head(headline: String, brief: String): String =
+    s"""# HEAD
+       |
+       |status=work-in-progress
+       |published_at=${_today}
+       |
+       |${_dox_metadata_section("HEADLINE", headline)}
+       |
+       |${_dox_metadata_section("BRIEF", brief)}""".stripMargin
+
+  private def _dox_metadata_section(name: String, body: String): String =
+    s"""## ${name}
+       |
+       |${body}""".stripMargin
 
   private def _purpose_yaml(purpose: BokPurpose): String =
     if (purpose.isEmpty)
@@ -6236,16 +7166,7 @@ private[cozy] object CozyBok {
     s"""用語集
       |======
       |
-      |# HEAD
-      |
-      |status=work-in-progress
-      |published_at=${_today}
-      |
-      |## HEADLINE
-      |用語集
-      |
-      |## BRIEF
-      |BoK全体で共有する用語と概念のDashboard。
+      |${_dox_head("用語集", "BoK全体で共有する用語と概念のDashboard。")}
       |
       |# Dashboard
       |
@@ -6270,16 +7191,7 @@ private[cozy] object CozyBok {
     s"""History
       |=======
       |
-      |# HEAD
-      |
-      |status=work-in-progress
-      |published_at=${_today}
-      |
-      |## HEADLINE
-      |History
-      |
-      |## BRIEF
-      |BoK運用、更新履歴、公開履歴のDashboard。
+      |${_dox_head("History", "BoK運用、更新履歴、公開履歴のDashboard。")}
       |
       |# Dashboard
       |
@@ -6299,51 +7211,247 @@ private[cozy] object CozyBok {
       |公開、構成変更、カテゴリ追加、重要な用語変更はここに記録します。
       |""".stripMargin
 
-  private def _manual_index(): String =
-    s"""BoK Manual
-      |==========
-      |
-      |# HEAD
-      |
-      |status=work-in-progress
-      |published_at=${_today}
-      |
-      |## HEADLINE
-      |BoK Manual
-      |
-      |## BRIEF
-      |Cozy BoK source and site operation manual.
-      |
-      |# Dashboard
-      |
-      |このManualはBoKの作成、カテゴリ追加、ビルド、プレビュー、公開準備の入口です。
-      |
-      |## Quick Links
-      |
-      |- <a href="../index.html">BoK Home</a>
-      |- <a href="../glossary/index.html">Glossary</a>
-      |- <a href="../history/index.html">History</a>
-      |
-      |## Basic Operations
-      |
-      |- `cozy bok create --save <dir>`: BoK source scaffoldを作成します。
-      |- `cozy bok create-category <name> --project <dir>`: カテゴリDashboard、記事seed、用語seedを追加します。
-      |- `cozy bok build <dir> --strategy wip`: SmartDox/Antoraを使って `website.d` を生成します。
-      |- `cozy bok preview <dir> --port 8980`: 生成済み `website.d` をローカル確認します。
-      |
-      |## Page Types
-      |
-      |- Home: BoK全体Dashboard。
-      |- Category Dashboard: カテゴリ単位のKPI、記事、用語、運用メモ。
-      |- Glossary: BoK全体の語彙Dashboard。
-      |- History: BoK運用と公開履歴Dashboard。
-      |- Manual: BoK運用手順の入口。
-      |
-       |## Operation Notes
-       |
-       |BoKの標準ページはDashboardとして扱い、通常記事とは異なる情報集約ページにします。Glossary、History、Manualはカテゴリ一覧ではなくBoK Consoleとして扱います。
-       |Manualは運用手順ページなので、SmartDoxの自動用語リンク対象外です。
-       |""".stripMargin
+  private def _manual_index(locale: String): String =
+    if (_is_japanese(locale))
+      s"""BoK Manual
+         |==========
+         |
+         |${_dox_head("BoK Manual", "Cozy BoK source and site operation manual.")}
+         |
+         |# Dashboard
+         |
+         |このManualは、BoK標準運用の手順と責務分担をまとめる技術マニュアルです。プロジェクト固有のルールは Local Rules に記録します。
+         |
+         |## Quick Links
+         |
+         |- <a href="../index.html">BoK Home</a>
+         |- <a href="../glossary/index.html">Glossary</a>
+         |- <a href="../history/index.html">History</a>
+         |- <a href="local-rules.html">Local Rules</a>
+         |
+         |## Basic Operations
+         |
+         |- `cozy bok create --save <dir>`: BoK source scaffoldを作成します。
+         |- `cozy bok create-category <name> --project <dir>`: カテゴリDashboard、記事seed、用語seedを追加します。
+         |- `cozy bok doctor <dir>`: BoK source treeを検査します。
+         |- `cozy bok build <dir> --strategy preview`: SmartDox/Antoraを使って `website.d` を生成します。
+         |- `cozy bok preview <dir> --port <port>`: 生成済み `website.d` をローカルWebサーバーで確認します。
+         |- `cozy bok publish <dir> --dry-run`: 公開前の計画と副作用境界を確認します。
+         |
+         |## Source Document Formats
+         |
+         |BoKのsource文書形式はGitHub MarkdownとSmartDoxです。一般のKnowledge ContributorにはGitHub Markdownを推奨します。記事本文を通常のMarkdownとして書けるため、GitHub上の編集、レビュー、Pull Requestとの相性が良いからです。
+         |
+         |BoKのフル機能を使いたい上級者にはSmartDoxを推奨します。SmartDoxはBoK metadata、用語連携、RDF連携、SmartDox固有の構造化表現を扱えます。
+         |
+         |マルチリンガルBoKはSmartDoxのみを対象にします。GitHub Markdownは単一言語の通常記事向けとして扱います。
+         |
+         |## Actor Operations
+         |
+         |BoK運用では、Knowledge Contributor、BoK管理者、サイト管理者の責務を分けます。Knowledge Contributorは、ある知識のKnowledge OwnerとしてGit sourceを編集します。自分がownerではない知識への修正はPull Requestで提案します。BoK管理者とサイト管理者はPull Requestを境界にレビュー、merge、公開判断を行います。
+         |
+         |### 知識提供者 / Knowledge Contributor
+         |
+         |1. 自分がKnowledge Ownerである記事、用語、カテゴリ、RDF seedなどのGit sourceを編集します。
+         |2. ownerではない知識への修正は、作業branchで差分を作りPull Requestとして提案します。
+         |3. `cozy bok doctor` で構造、メタデータ、リンク、用語、RDFの基本品質を確認します。
+         |4. `cozy bok build --strategy preview` と `cozy bok preview` でDashboard、Category Pages、Glossary、Term Hub、RDF Graph、Recent Changesを確認します。
+         |5. Git commitし、作業branchをpushします。
+         |6. 必要に応じてPull Requestを作成し、該当Knowledge OwnerまたはBoK管理者へレビューを依頼します。
+         |
+         |### BoK管理者 / BoK Manager
+         |
+         |1. Pull Requestを受け取り、内容、構造、用語、RDF、整合性をレビューします。
+         |2. 必要に応じてPull Request上で修正依頼し、承認後にmainへmergeします。
+         |3. `cozy bok publish --dry-run` で公開前のビルド、配備、検証計画を確認します。
+         |4. 高品質で一貫性のある知識だけを公開フローへ渡します。
+         |
+         |### サイト管理者 / Site Administrator
+         |
+         |1. ホスティング環境、upload設定、secret、アクセス制御を管理します。
+         |2. 公開対象の変更はPull Requestで確認できる状態を前提に、stage/upload workflowを運用します。
+         |3. 監視、バックアップ、障害対応、キャッシュ削除などのサイト運用を担当します。
+         |
+         |## Source / Generated Boundary
+         |
+         |Knowledge Contributorが編集するのはGit sourceだけです。Knowledge Ownerである知識は直接保守し、ownerではない知識はPull Requestで提案します。
+         |
+         |### 編集するSource
+         |
+         |- `src/main/doxsite/**/*.dox`
+         |- `src/main/doxsite/**/*.md`
+         |- `src/main/doxsite/**/category.yaml`
+         |- `src/main/doxsite/glossary/**/*.dox`
+         |- `src/main/doxsite/rdf/**` when RDF seed is project-owned
+         |
+         |### 生成物は編集しない
+         |
+         |- `website.d/`
+         |- `doxsite.d/`
+         |- `antora.d/`
+         |- `target/`
+         |- `warehouse/`
+         |
+         |## Page Types
+         |
+         |- Home: BoK全体Dashboard。
+         |- Category Dashboard: カテゴリ単位のKPI、記事、用語、運用メモ。
+         |- Glossary: BoK全体の語彙Dashboard。
+         |- History: BoK運用と公開履歴Dashboard。
+         |- Manual: BoK運用手順の入口。
+         |
+         |## Operation Notes
+         |
+         |BoKの標準ページはDashboardとして扱い、通常記事とは異なる情報集約ページにします。Glossary、History、Manualはカテゴリ一覧ではなくBoK Consoleとして扱います。
+         |Manualは運用手順ページなので、SmartDoxの自動用語リンク対象外です。
+         |""".stripMargin
+    else
+      s"""BoK Manual
+         |==========
+         |
+         |${_dox_head("BoK Manual", "Cozy BoK source and site operation manual.")}
+         |
+         |# Dashboard
+         |
+         |This manual describes the standard BoK operation workflow and responsibilities. Project-local rules belong to Local Rules.
+         |
+         |## Quick Links
+         |
+         |- <a href="../index.html">BoK Home</a>
+         |- <a href="../glossary/index.html">Glossary</a>
+         |- <a href="../history/index.html">History</a>
+         |- <a href="local-rules.html">Local Rules</a>
+         |
+         |## Basic Operations
+         |
+         |- `cozy bok create --save <dir>`: Create a BoK source scaffold.
+         |- `cozy bok create-category <name> --project <dir>`: Add a category dashboard, article seed, and term seed.
+         |- `cozy bok doctor <dir>`: Inspect the BoK source tree.
+         |- `cozy bok build <dir> --strategy preview`: Generate `website.d` through SmartDox and Antora.
+         |- `cozy bok preview <dir> --port <port>`: Serve generated `website.d` through a local Web server.
+         |- `cozy bok publish <dir> --dry-run`: Verify the publication plan and side-effect boundary.
+         |
+         |## Source Document Formats
+         |
+         |BoK source documents can be written in GitHub Markdown or SmartDox. GitHub Markdown is recommended for general Knowledge Contributors because it keeps ordinary article authoring close to GitHub editing, review, and Pull Request workflows.
+         |
+         |SmartDox is recommended for advanced contributors who need the full BoK feature set: BoK metadata, glossary linkage, RDF linkage, and SmartDox-specific structured authoring.
+         |
+         |Multilingual BoK authoring is SmartDox-only. GitHub Markdown is treated as the normal single-language article format.
+         |
+         |## Actor Operations
+         |
+         |BoK operation separates responsibilities among Knowledge Contributors, BoK Managers, and Site Administrators. A Knowledge Contributor is the Knowledge Owner for some knowledge. For knowledge they own, they edit Git source and push a branch. For knowledge they do not own, they propose changes through a Pull Request. BoK Managers and Site Administrators use Pull Requests as the review, merge, and publication decision boundary.
+         |
+         |### Knowledge Contributor
+         |
+         |1. Edit Git source for knowledge they own, such as articles, terms, categories, and RDF seeds.
+         |2. For knowledge they do not own, prepare the change on a working branch and propose it through a Pull Request.
+         |3. Run `cozy bok doctor` to check structure, metadata, links, terms, and RDF basics.
+         |4. Run `cozy bok build --strategy preview` and `cozy bok preview` to verify dashboards, category pages, glossary, term hub, RDF graph, and recent changes.
+         |5. Commit and push the working branch.
+         |6. Open a Pull Request when ownership review, BoK Manager review, or publication review is needed.
+         |
+         |### BoK Manager
+         |
+         |1. Review Pull Requests for content, structure, terms, RDF, and consistency.
+         |2. Request fixes in the Pull Request when needed, then merge approved changes into main.
+         |3. Run `cozy bok publish --dry-run` to verify the publication plan.
+         |4. Pass only consistent, high-quality knowledge to the publication flow.
+         |
+         |### Site Administrator
+         |
+         |1. Manage hosting, upload settings, secrets, and access control.
+         |2. Operate stage/upload workflows after the publication change is reviewable through Pull Requests.
+         |3. Handle monitoring, backups, incident response, and cache invalidation.
+         |
+         |## Source / Generated Boundary
+         |
+         |Knowledge Contributors edit Git source only. They maintain knowledge they own directly and propose changes to knowledge they do not own through Pull Requests.
+         |
+         |### Editable Source
+         |
+         |- `src/main/doxsite/**/*.dox`
+         |- `src/main/doxsite/**/*.md`
+         |- `src/main/doxsite/**/category.yaml`
+         |- `src/main/doxsite/glossary/**/*.dox`
+         |- `src/main/doxsite/rdf/**` when RDF seed is project-owned
+         |
+         |### Do Not Edit Generated Artifacts
+         |
+         |- `website.d/`
+         |- `doxsite.d/`
+         |- `antora.d/`
+         |- `target/`
+         |- `warehouse/`
+         |
+         |## Page Types
+         |
+         |- Home: whole-BoK dashboard.
+         |- Category Dashboard: category-local KPI, articles, terms, and operation notes.
+         |- Glossary: BoK-wide vocabulary dashboard.
+         |- History: BoK operation and publication history dashboard.
+         |- Manual: BoK operation entry point.
+         |
+         |## Operation Notes
+         |
+         |Standard BoK pages are dashboards, not ordinary articles. Glossary, History, and Manual are BoK console pages rather than normal categories.
+         |Manual pages are excluded from automatic glossary linking.
+         |""".stripMargin
+
+  private def _manual_local_rules(config: CreateConfig): String =
+    if (_is_japanese(config.language))
+      s"""Local Rules
+         |===========
+         |
+         |${_dox_head("Local Rules", s"${config.name} project-local BoK operation rules.")}
+         |
+         |# Dashboard
+         |
+         |このページは`${config.name}`固有の運用ルールを記録します。BoK標準運用は現在のCozy runtimeが持つ標準Manualから生成されます。
+         |
+         |## Project Scope
+         |
+         |- BoK name: `${config.name}`
+         |- Source root: `src/main/doxsite`
+         |- Generated outputs: `website.d`, `doxsite.d`, `antora.d`, `target`
+         |
+         |## Local Rules
+         |
+         |- このBoK固有のカテゴリ、レビュー基準、公開判断、アップロード手順をここに記録します。
+         |- 機微情報やsecretは`.cozy/`または外部の安全な管理場所に置きます。
+         |
+         |## Upload And Publication
+         |
+         |- `cozy bok publish --dry-run`で公開計画を確認します。
+         |- 実uploadはプロジェクト所有のworkflow scriptで行います。
+         |""".stripMargin
+    else
+      s"""Local Rules
+         |===========
+         |
+         |${_dox_head("Local Rules", s"${config.name} project-local BoK operation rules.")}
+         |
+         |# Dashboard
+         |
+         |This page records operation rules specific to `${config.name}`. The standard BoK workflow is generated from the current Cozy runtime manual.
+         |
+         |## Project Scope
+         |
+         |- BoK name: `${config.name}`
+         |- Source root: `src/main/doxsite`
+         |- Generated outputs: `website.d`, `doxsite.d`, `antora.d`, `target`
+         |
+         |## Local Rules
+         |
+         |- Record project-specific categories, review criteria, publication decisions, and upload procedures here.
+         |- Keep sensitive values and secrets in `.cozy/` or another safe external location.
+         |
+         |## Upload And Publication
+         |
+         |- Run `cozy bok publish --dry-run` to verify the publication plan.
+         |- Actual upload is handled by project-owned workflow scripts.
+         |""".stripMargin
 
   private def _category_name(name: String): String =
     name.split("[^A-Za-z0-9]+").toVector.filter(_.nonEmpty).map { part =>
@@ -6357,16 +7465,7 @@ private[cozy] object CozyBok {
     s"""${title}
        |======
        |
-       |# HEAD
-       |
-       |status=work-in-progress
-       |published_at=${_today}
-       |
-       |## HEADLINE
-       |${title}
-       |
-       |## BRIEF
-       |${purpose}
+       |${_dox_head(title, purpose)}
        |
        |# 目的
        |

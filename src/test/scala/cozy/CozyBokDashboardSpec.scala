@@ -11,7 +11,7 @@ import org.goldenport.test.matchers.SpecVocabulary
 
 /*
  * @since   Jun. 21, 2026
- * @version Jun. 22, 2026
+ * @version Jun. 23, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokDashboardSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
@@ -33,7 +33,12 @@ class CozyBokDashboardSpec extends AnyWordSpec with GivenWhenThen with SpecVocab
               |
               |# HEAD
               |
+              |## HEADLINE
+              |
+              |Home Source Headline
+              |
               |## BRIEF
+              |
               |Home narrative brief.
               |
               |# Overview
@@ -51,7 +56,12 @@ class CozyBokDashboardSpec extends AnyWordSpec with GivenWhenThen with SpecVocab
               |
               |# HEAD
               |
+              |## HEADLINE
+              |
+              |Architecture Source Headline
+              |
               |## BRIEF
+              |
               |Architecture narrative brief.
               |
               |# Overview
@@ -114,10 +124,16 @@ class CozyBokDashboardSpec extends AnyWordSpec with GivenWhenThen with SpecVocab
           home should include ("""class="card bok-card bok-card-chart"""")
           home should include ("""class="card bok-card bok-card-activity bok-card-notification"""")
           home should include ("""class="bok-notification-summary"""")
+          home should include ("Home Source Headline")
+          home should include ("Home narrative brief.")
           home should include ("""id="narrative"""")
           home should not include ("""<h2>Narrative</h2>""")
           home should not include ("""<a href="#narrative">Narrative</a>""")
           home should include ("Home narrative source text.")
+          home should include ("""class="bok-category-rdf-link" href="rdf/index.html?category=architecture"><b>7</b>RDF</a>""")
+          home should include ("""class="bok-category-rdf-value"><b>0</b>RDF</span>""")
+          home should not include ("""href="rdf/index.html?category=concept"><b>0</b>RDF</a>""")
+          home should not include ("""class="bok-category-rdf-link" href="rdf/index.html"><b>0</b>RDF</a>""")
           home should not include ("""bok-card-knowledge-entry""")
           home should include ("""class="bok-kpi-link" href="glossary/index.html"""")
           home should include ("""href="rdf/index.html"""")
@@ -144,6 +160,8 @@ class CozyBokDashboardSpec extends AnyWordSpec with GivenWhenThen with SpecVocab
           category should include ("""class="body body-dashboard"""")
           category should include ("""class="bok-dashboard-shell" id="dashboard"""")
           category should include ("""class="bok-dashboard-hero"""")
+          category should include ("Architecture Source Headline")
+          category should include ("Architecture narrative brief.")
           category should include ("""class="card bok-card bok-card-map" data-bok-actors="reader contributor project_manager"""")
           category should include ("""data-bok-actors="site_administrator project_manager"""")
           category should include ("""href="../rdf/index.html?category=architecture"""")
@@ -155,6 +173,84 @@ class CozyBokDashboardSpec extends AnyWordSpec with GivenWhenThen with SpecVocab
           category should not include ("""<a href="#narrative">Narrative</a>""")
           category should include ("Architecture narrative source text.")
           category should include ("Make architecture decisions reviewable.")
+        }
+      }
+
+      "render Markdown source documents through SmartDox Dox metadata" in {
+        _with_temp_dir("cozy-bok-dashboard-markdown") { dir =>
+          Given("a BoK source tree whose Home, Category, and article sources are GitHub Markdown")
+          _write(dir.resolve("src/main/doxsite/site.conf"),
+            """site {
+              |  output {
+              |    locale_mode = "single_locale_root"
+              |  }
+              |}
+              |""".stripMargin)
+          _write(dir.resolve("src/main/doxsite/index.md"),
+            """---
+              |title: Markdown Home
+              |headline: Markdown Home Headline
+              |brief: Markdown home brief.
+              |status: work-in-progress
+              |---
+              |
+              |# Overview
+              |
+              |Markdown home source text with **bold** knowledge and [a reference](https://example.com).
+              |""".stripMargin)
+          _write(dir.resolve("src/main/doxsite/architecture/category.yaml"),
+            """name: Architecture
+              |title: Architecture
+              |description: Architecture category.
+              |""".stripMargin)
+          _write(dir.resolve("src/main/doxsite/architecture/index.md"),
+            """# HEAD
+              |
+              |status=work-in-progress
+              |
+              |## HEADLINE
+              |
+              |Architecture Markdown Headline
+              |
+              |## BRIEF
+              |
+              |Architecture markdown brief.
+              |
+              |# Overview
+              |
+              |Architecture markdown narrative.
+              |""".stripMargin)
+          _write(dir.resolve("src/main/doxsite/architecture/guide.md"),
+            """---
+              |headline: Architecture Guide
+              |brief: Guide from Markdown front matter.
+              |---
+              |
+              |# Architecture Guide
+              |
+              |- first point
+              |- second point
+              |""".stripMargin)
+
+          When("Cozy builds dashboard pages")
+          CozyBok.build(CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview")), new DashboardRunner)
+
+          Then("the Home dashboard uses Markdown front matter through Dox metadata")
+          val home = _read(dir.resolve("website.d/index.html"))
+          home should include ("Markdown Home Headline")
+          home should include ("Markdown home brief.")
+          home should include ("Markdown home source text")
+          home should include ("bold")
+          home should include ("https://example.com")
+
+          And("the Category dashboard and article map accept Markdown sources")
+          val category = _read(dir.resolve("website.d/architecture/index.html"))
+          category should include ("Architecture Markdown Headline")
+          category should include ("Architecture markdown brief.")
+          category should include ("Architecture markdown narrative.")
+          category should include ("""href="guide.html"""")
+          category should include ("Architecture Guide")
+          category should include ("Guide from Markdown front matter.")
         }
       }
 
@@ -276,6 +372,11 @@ class CozyBokDashboardSpec extends AnyWordSpec with GivenWhenThen with SpecVocab
           css should include ("filter: grayscale(.82) saturate(.4)")
           css should include (""".bok-dashboard[data-bok-current-actor="site_administrator"] .bok-card-actor-chips""")
           css should include (".navbar-category-dropdown > .navbar-category-menu")
+          css should include (".navbar-bok-dropdown > .navbar-bok-menu")
+          css should include (".navbar-bok-dropdown:hover > .navbar-bok-menu")
+          css should include ("background: #0f172a")
+          css should include ("color: #e0f2fe !important")
+          css should include (".navbar-dropdown-item:hover")
           css should include ("left: auto")
           css should include ("right: 0")
           css should include ("max-width: min(22rem, calc(100vw - 1rem))")
@@ -294,9 +395,18 @@ class CozyBokDashboardSpec extends AnyWordSpec with GivenWhenThen with SpecVocab
           css should include (".bok-rdf-graph-edge")
           css should include (".bok-rdf-graph-node")
           css should include (".bok-rdf-node-popover")
+          css should include (".bok-rdf-node-popover dd.bok-rdf-node-compact-label")
+          css should include (".bok-rdf-node-popover dd.bok-rdf-node-full-iri")
+          css should include ("overflow-wrap: anywhere")
           css should include (".bok-rdf-node-popover-actions")
+          css should include (".bok-rdf-node-popover-actions-primary")
+          css should include (".body-dashboard .bok-narrative-corner")
+          css should include (".body-dashboard .doc > .sect1")
           css should include (".bok-rdf-node-schema")
+          css should include (".bok-rdf-node-schema-groups")
+          css should include (".bok-rdf-node-schema-group")
           css should include (".bok-rdf-node-schema-object")
+          css should include (".bok-rdf-node-schema-object code")
           css should include (".bok-rdf-graph-node-role-focus")
           css should include (".bok-rdf-graph-node-role-schema")
           css should include (".bok-rdf-triples-view")
@@ -477,6 +587,28 @@ class CozyBokDashboardSpec extends AnyWordSpec with GivenWhenThen with SpecVocab
       |        "triple_count": 7,
       |        "subject_count": 2,
       |        "predicate_count": 3
+      |      },
+      |      "increments": {
+      |        "scale": "day",
+      |        "buckets": [
+      |          {"label": "2026-06-21", "start_date": "2026-06-21", "end_date": "2026-06-21", "count": 2, "article_count": 1, "glossary_term_count": 1}
+      |        ]
+      |      }
+      |    },
+      |    {
+      |      "name": "concept",
+      |      "title": "Concept",
+      |      "counts": {
+      |        "category_count": 0,
+      |        "article_count": 1,
+      |        "glossary_term_count": 1,
+      |        "total_item_count": 2
+      |      },
+      |      "rdf": {
+      |        "resource_count": 0,
+      |        "triple_count": 0,
+      |        "subject_count": 0,
+      |        "predicate_count": 0
       |      },
       |      "increments": {
       |        "scale": "day",

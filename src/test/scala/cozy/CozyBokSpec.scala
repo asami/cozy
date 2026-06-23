@@ -14,7 +14,7 @@ import org.goldenport.test.matchers.SpecVocabulary
 
 /*
  * @since   Jun.  3, 2026
- * @version Jun. 22, 2026
+ * @version Jun. 23, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
@@ -48,7 +48,8 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
       dir.resolve("src/main/doxsite/glossary/index.dox") shouldNot existPath
       dir.resolve("src/main/doxsite/history/category.yaml") should beRegularFile
       dir.resolve("src/main/doxsite/history/index.dox") should beRegularFile
-      dir.resolve("src/main/doxsite/manual/index.dox") should beRegularFile
+      dir.resolve("src/main/doxsite/manual/index.dox") shouldNot existPath
+      dir.resolve("src/main/doxsite/manual/local-rules.dox") should beRegularFile
       dir.resolve("src/main/doxsite/rdf/site.ttl") should beRegularFile
       And("the scaffold contains site UI assets")
       dir.resolve("src/main/doxsite/assets/css/knowledgehub.css") should beRegularFile
@@ -58,6 +59,10 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
       dir.resolve("src/main/doxsite/site-structure.yaml") shouldNot existPath
       dir.resolve("website.d") shouldNot existPath
       _read(dir.resolve("src/main/doxsite/index.dox")) should startWith ("Home\n======")
+      _read(dir.resolve("src/main/doxsite/index.dox")) should include ("## HEADLINE\n\nKnowledgeHub BoK")
+      _read(dir.resolve("src/main/doxsite/index.dox")) should include ("## BRIEF\n\nKnowledgeHub BoK のカテゴリ、用語、RDFから知識を探索するための短い導入。")
+      _read(dir.resolve("src/main/doxsite/index.dox")) should not include ("## HEADLINE\nKnowledgeHub BoK")
+      _read(dir.resolve("src/main/doxsite/index.dox")) should not include ("## BRIEF\nKnowledgeHub BoK のカテゴリ")
       _read(dir.resolve("src/main/doxsite/index.dox")) should include ("# Overview")
       _read(dir.resolve("src/main/doxsite/index.dox")) should include ("KnowledgeHub BoK のカテゴリ、用語、RDFから知識を探索するための短い導入。")
       _read(dir.resolve("src/main/doxsite/index.dox")) should include ("KnowledgeHub BoKは、カテゴリ、用語、RDFのつながりから知識を探索するためのBoKです。")
@@ -66,9 +71,10 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
       _read(dir.resolve("src/main/doxsite/index.dox")) should not include ("## Operation Focus")
       _read(dir.resolve("src/main/doxsite/index.dox")) should not include ("日本語単独運用")
       _read(dir.resolve("src/main/doxsite/history/index.dox")) should include ("# Dashboard")
-      _read(dir.resolve("src/main/doxsite/manual/index.dox")) should include ("# Dashboard")
-      _read(dir.resolve("src/main/doxsite/manual/index.dox")) should include ("cozy bok build")
-      _read(dir.resolve("src/main/doxsite/manual/index.dox")) should include ("自動用語リンク対象外")
+      _read(dir.resolve("src/main/doxsite/manual/local-rules.dox")) should include ("Local Rules")
+      _read(dir.resolve("src/main/doxsite/manual/local-rules.dox")) should include ("KnowledgeHub BoK")
+      _read(dir.resolve("src/main/doxsite/manual/local-rules.dox")) should include ("src/main/doxsite")
+      _read(dir.resolve("src/main/doxsite/manual/local-rules.dox")) should include (".cozy/")
       _read(dir.resolve("conf/cozy/config.yaml")) should include ("cozy-toolchain")
       _read(dir.resolve("conf/cozy/config.yaml")) should include ("website-staging")
       _read(dir.resolve("conf/cozy/config.yaml")) should include ("workflow:")
@@ -88,7 +94,6 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
       _read(dir.resolve("etc/website-upload.sh.proto")) should include ("aws cloudfront create-invalidation")
       _read(dir.resolve("src/main/doxsite/index.dox")) should include ("published_at=")
       _read(dir.resolve("src/main/doxsite/history/index.dox")) should include ("published_at=")
-      _read(dir.resolve("src/main/doxsite/manual/index.dox")) should include ("published_at=")
       _read(dir.resolve("README.md")) should not include ("site-structure")
       val css = _zip_text(dir.resolve("src/main/antora-ui/build/ui-bundle.zip"), "css/site.css")
       val dashboardcss = _zip_text(dir.resolve("src/main/antora-ui/build/ui-bundle.zip"), "css/cozy-bok-dashboard.css")
@@ -140,9 +145,11 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
       _zip_text(dir.resolve("src/main/antora-ui/build/ui-bundle.zip"), "img/menu.svg") should include ("<svg")
       _zip_bytes(dir.resolve("src/main/antora-ui/build/ui-bundle.zip"), "font/roboto-latin-400-normal.woff2") should not be empty
       val header = _zip_text(dir.resolve("src/main/antora-ui/build/ui-bundle.zip"), "partials/header-content.hbs")
-      header should not include ("""href="{{siteRootPath}}/glossary/index.html">Glossary</a>""")
-      header should not include ("""href="{{siteRootPath}}/history/index.html">History</a>""")
-      header should not include ("""href="{{siteRootPath}}/manual/index.html">Manual</a>""")
+      header should include ("""class="navbar-item has-dropdown is-hoverable navbar-bok-nav navbar-bok-dropdown"""")
+      header should include ("""class="navbar-link navbar-bok-toggle" href="#">BoK</a>""")
+      header should include ("""class="navbar-item navbar-dropdown-item" href="{{siteRootPath}}/glossary/index.html">Glossary</a>""")
+      header should include ("""class="navbar-item navbar-dropdown-item" href="{{siteRootPath}}/history/index.html">History</a>""")
+      header should include ("""class="navbar-item navbar-dropdown-item" href="{{siteRootPath}}/manual/index.html">BoK Manual</a>""")
       header should not include ("Lexicon")
     }
   }
@@ -199,6 +206,12 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
       dir.resolve("src/main/doxsite/knowledgehub/index.dox") should beRegularFile
       dir.resolve("src/main/doxsite/knowledgehub/knowledgehub-overview.dox") should beRegularFile
       dir.resolve("src/main/doxsite/glossary/knowledgehub/knowledgehub.dox") should beRegularFile
+      _read(dir.resolve("src/main/doxsite/knowledgehub/index.dox")) should include ("## HEADLINE\n\nKnowledgeHub")
+      _read(dir.resolve("src/main/doxsite/knowledgehub/index.dox")) should include ("## BRIEF\n\nKnowledgeHub category.")
+      _read(dir.resolve("src/main/doxsite/knowledgehub/index.dox")) should not include ("## HEADLINE\nKnowledgeHub")
+      _read(dir.resolve("src/main/doxsite/knowledgehub/index.dox")) should not include ("## BRIEF\nKnowledgeHub category.")
+      _read(dir.resolve("src/main/doxsite/knowledgehub/knowledgehub-overview.dox")) should include ("## HEADLINE\n\nKnowledgeHub Overview")
+      _read(dir.resolve("src/main/doxsite/knowledgehub/knowledgehub-overview.dox")) should include ("## BRIEF\n\nOverview article.")
       _read(dir.resolve("src/main/doxsite/knowledgehub/index.dox")) should include ("# Overview")
       _read(dir.resolve("src/main/doxsite/knowledgehub/index.dox")) should include ("KnowledgeHub category.")
       _read(dir.resolve("src/main/doxsite/knowledgehub/index.dox")) should not include ("## Navigation")
@@ -296,6 +309,15 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
           |  - title: Link concepts to runtime
           |""".stripMargin)
       _write(dir.resolve("src/main/doxsite/architecture/overview.dox"), "Overview\n========\n\n# HEAD\n\n## BRIEF\nArchitecture overview.\n")
+      _write(dir.resolve("src/main/doxsite/manual/index.dox"),
+        """Stale Manual
+          |============
+          |
+          |# Dashboard
+          |
+          |This stale project-local manual source must not override the Cozy-owned standard manual.
+          |""".stripMargin)
+      _write(dir.resolve("src/main/doxsite/manual/local-rules.dox"), "Local Rules\n===========\n\n# Overview\n\nKnowledgeHub BoK project-local operation rules.\n\n## Project Scope\n\nSource root is `src/main/doxsite`.\n")
       _write(dir.resolve("src/main/doxsite/glossary/architecture/runtime.dox"), "Runtime\n=======\n\n# HEAD\n\nreading=らんたいむ\n\n# Definition\nRuntime term.\n")
       _write(dir.resolve("src/main/doxsite/glossary/architecture/asuka.dox"), "あすか\n======\n\n# HEAD\n\n# Definition\nJapanese term.\n")
       _write(dir.resolve("src/main/doxsite/glossary/architecture/cloud.dox"), "Cloud\n=======\n\n# HEAD\n\n# Definition\nEnglish-only term.\n")
@@ -385,11 +407,26 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
       _read(dir.resolve("website.d/index.html")) should not include ("""class="nav-container"""")
       _read(dir.resolve("website.d/index.html")) should not include ("""class="toc sidebar"""")
       _read(dir.resolve("website.d/index.html")) should not include ("""class="bok-special-links"""")
+      _read(dir.resolve("website.d/index.html")) should not include ("""id="operation-policy"""")
+      _read(dir.resolve("website.d/index.html")) should not include ("Operation Policy")
+      _read(dir.resolve("website.d/index.html")) should not include ("このBoKはSmartDox本文")
       dir.resolve("website.d/history/index.html") should beRegularFile
       dir.resolve("website.d/manual/index.html") should beRegularFile
+      dir.resolve("website.d/manual/local-rules.html") should beRegularFile
       _read(dir.resolve("website.d/history/index.html")) should include ("BoK運用、更新履歴、公開履歴のDashboard")
       _read(dir.resolve("website.d/manual/index.html")) should include ("Cozy BoK source and site operation manual")
-      _read(dir.resolve("website.d/manual/index.html")) should include ("Manualは自動用語リンク対象外")
+      _read(dir.resolve("website.d/manual/index.html")) should not include ("This stale project-local manual source")
+      _read(dir.resolve("website.d/manual/index.html")) should include ("GitHub Markdown")
+      _read(dir.resolve("website.d/manual/index.html")) should include ("SmartDox")
+      _read(dir.resolve("website.d/manual/index.html")) should include ("マルチリンガル")
+      _read(dir.resolve("website.d/manual/index.html")) should include ("Knowledge Contributor")
+      _read(dir.resolve("website.d/manual/index.html")) should include ("Knowledge Owner")
+      _read(dir.resolve("website.d/manual/index.html")) should include ("Pull Request")
+      _read(dir.resolve("website.d/manual/index.html")) should include ("BoK Manager")
+      _read(dir.resolve("website.d/manual/index.html")) should include ("Site Administrator")
+      _read(dir.resolve("website.d/manual/index.html")) should include ("local-rules.html")
+      _read(dir.resolve("website.d/manual/local-rules.html")) should include ("KnowledgeHub BoK")
+      _read(dir.resolve("website.d/manual/local-rules.html")) should include ("Project Scope")
       _read(dir.resolve("website.d/glossary/index.html")) should include ("""glossary/&lt;category&gt;/""")
       _read(dir.resolve("website.d/glossary/index.html")) should include ("""href="architecture/runtime.html"""")
       _read(dir.resolve("website.d/glossary/index.html")) should include ("""<div class="bok-metric-label">Terms</div>""")
@@ -416,6 +453,11 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
       _read(dir.resolve("website.d/index.html")) should not include ("""class="navbar-item" href="glossary/index.html"""")
       _read(dir.resolve("website.d/index.html")) should not include ("""class="navbar-item" href="history/index.html"""")
       _read(dir.resolve("website.d/index.html")) should not include ("""class="navbar-item" href="manual/index.html"""")
+      _read(dir.resolve("website.d/index.html")) should include ("""class="navbar-item has-dropdown is-hoverable navbar-bok-nav navbar-bok-dropdown"""")
+      _read(dir.resolve("website.d/index.html")) should include ("""class="navbar-link navbar-bok-toggle" href="#">BoK</a>""")
+      _read(dir.resolve("website.d/index.html")) should include ("""class="navbar-item navbar-dropdown-item" href="glossary/index.html">Glossary</a>""")
+      _read(dir.resolve("website.d/index.html")) should include ("""class="navbar-item navbar-dropdown-item" href="history/index.html">History</a>""")
+      _read(dir.resolve("website.d/index.html")) should include ("""class="navbar-item navbar-dropdown-item" href="manual/index.html">BoK Manual</a>""")
       _read(dir.resolve("website.d/index.html")) should include ("""class="navbar-item has-dropdown is-hoverable navbar-category-nav navbar-category-dropdown"""")
       _read(dir.resolve("website.d/index.html")) should include ("""class="navbar-link navbar-category-toggle" href="#">カテゴリ</a>""")
       _read(dir.resolve("website.d/index.html")) should include ("""class="navbar-dropdown navbar-category-menu"""")
@@ -429,6 +471,7 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
       _read(dir.resolve("website.d/index.html")) should include ("""<b>3</b>用語""")
       _read(dir.resolve("website.d/index.html")) should include ("""class="bok-category-rdf-link" href="rdf/index.html?category=architecture"><b>7</b>RDF</a>""")
       dir.resolve("website.d/rdf/index.html") should beRegularFile
+      dir.resolve("website.d/rdf/node.html") should beRegularFile
       dir.resolve("website.d/rdf/site.ttl") should beRegularFile
       dir.resolve("website.d/rdf/site.jsonld") should beRegularFile
       dir.resolve("website.d/metadata/rdf/graph.json") should beRegularFile
@@ -438,7 +481,14 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
       _read(dir.resolve("website.d/rdf/index.html")) should include ("""class="bok-rdf-panel bok-rdf-panel-graph is-active"""")
       _read(dir.resolve("website.d/rdf/index.html")) should include ("""class="bok-rdf-panel bok-rdf-panel-triples"""")
       _read(dir.resolve("website.d/rdf/index.html")) should include ("""data-rdf-view="graph"""")
+      _read(dir.resolve("website.d/rdf/index.html")) should include ("""data-rdf-view="information"""")
       _read(dir.resolve("website.d/rdf/index.html")) should include ("""data-rdf-view="triples"""")
+      _read(dir.resolve("website.d/rdf/index.html")) should include ("""data-rdf-panel="information"""")
+      _read(dir.resolve("website.d/rdf/index.html")) should include ("bok-rdf-information-view")
+      _read(dir.resolve("website.d/rdf/index.html")) should include ("renderInformationView")
+      _read(dir.resolve("website.d/rdf/index.html")) should include ("informationCard")
+      _read(dir.resolve("website.d/rdf/index.html")) should include ("bok-rdf-information-card")
+      _read(dir.resolve("website.d/rdf/index.html")) should include ("表示中のRDFノードをInformationとして一覧")
       _read(dir.resolve("website.d/rdf/index.html")) should include ("""data-graph="../metadata/rdf/graph.json"""")
       _read(dir.resolve("website.d/rdf/index.html")) should include ("""data-triples="site.ttl"""")
       _read(dir.resolve("website.d/rdf/index.html")) should include ("""data-rdf-graph-canvas="true"""")
@@ -447,19 +497,56 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
       _read(dir.resolve("website.d/rdf/index.html")) should include ("bok-rdf-graph-edge")
       _read(dir.resolve("website.d/rdf/index.html")) should include ("bok-rdf-node-popover")
       _read(dir.resolve("website.d/rdf/index.html")) should include ("""data-rdf-neighborhood="true"""")
+      _read(dir.resolve("website.d/rdf/index.html")) should include ("node.html?id=")
+      _read(dir.resolve("website.d/rdf/index.html")) should include ("RDFノード詳細")
       _read(dir.resolve("website.d/rdf/index.html")) should include ("focusedGraphSlice")
+      _read(dir.resolve("website.d/rdf/index.html")) should include ("compactRdfLabel")
+      _read(dir.resolve("website.d/rdf/index.html")) should include ("compactNodeLabel")
+      _read(dir.resolve("website.d/rdf/index.html")) should include ("rdfNamespacePrefixes")
+      _read(dir.resolve("website.d/rdf/index.html")) should include ("Compact label")
+      _read(dir.resolve("website.d/rdf/index.html")) should include ("Full IRI")
+      _read(dir.resolve("website.d/rdf/index.html")) should include ("bok-rdf-node-compact-label")
+      _read(dir.resolve("website.d/rdf/index.html")) should include ("bok-rdf-node-full-iri")
+      _read(dir.resolve("website.d/rdf/index.html")) should include ("['schema', 'https://schema.org/']")
+      _read(dir.resolve("website.d/rdf/index.html")) should include ("['bok', 'https://www.simplemodeling.org/bok/']")
       _read(dir.resolve("website.d/rdf/index.html")) should include ("schemaRequiredPredicates")
       _read(dir.resolve("website.d/rdf/index.html")) should include ("schemaInterpretation")
       _read(dir.resolve("website.d/rdf/index.html")) should include ("renderSchemaInterpretation")
+      _read(dir.resolve("website.d/rdf/index.html")) should include ("defaultInformationView")
+      _read(dir.resolve("website.d/rdf/index.html")) should include ("activeInformationView")
+      _read(dir.resolve("website.d/rdf/index.html")) should include ("currentInformationView")
+      _read(dir.resolve("website.d/rdf/index.html")) should include ("cncf-rdf-1.5-hop-information-view-v1")
+      _read(dir.resolve("website.d/rdf/index.html")) should include ("informationView")
+      _read(dir.resolve("website.d/rdf/index.html")) should include ("Information")
+      _read(dir.resolve("website.d/rdf/index.html")) should include ("Information View")
+      _read(dir.resolve("website.d/rdf/index.html")) should include ("informationView")
+      _read(dir.resolve("website.d/rdf/index.html")) should include ("informationSchemas")
+      _read(dir.resolve("website.d/rdf/index.html")) should include ("schemaGroup('informationView'")
+      _read(dir.resolve("website.d/rdf/index.html")) should include ("schemaGroup('information'")
+      _read(dir.resolve("website.d/rdf/index.html")) should include ("schemaGroup('schema'")
+      _read(dir.resolve("website.d/rdf/index.html")) should include ("schemaGroup('predicate'")
+      _read(dir.resolve("website.d/rdf/index.html")) should include ("information.identity")
+      _read(dir.resolve("website.d/rdf/index.html")) should include ("information.description")
+      _read(dir.resolve("website.d/rdf/index.html")) should not include ("RdfNodeEntity")
+      _read(dir.resolve("website.d/rdf/index.html")) should not include ("entity.identity")
+      _read(dir.resolve("website.d/rdf/index.html")) should not include ("informationObject")
+      _read(dir.resolve("website.d/rdf/index.html")) should not include ("schema-aware")
+      _read(dir.resolve("website.d/rdf/index.html")) should not include ("RDFノードを押す")
+      _read(dir.resolve("website.d/rdf/index.html")) should include ("schema.directional")
+      _read(dir.resolve("website.d/rdf/index.html")) should include ("schema.expansion")
       _read(dir.resolve("website.d/rdf/index.html")) should include ("defaultPredicateProfile")
       _read(dir.resolve("website.d/rdf/index.html")) should include ("activePredicateProfile")
+      _read(dir.resolve("website.d/rdf/index.html")) should include ("__bokRdfInformationView")
       _read(dir.resolve("website.d/rdf/index.html")) should include ("uniqueStrings([base.roles[role], configured.roles[role]])")
       _read(dir.resolve("website.d/rdf/index.html")) should include ("cncf-rdf-1.5-hop-v1")
       _read(dir.resolve("website.d/rdf/index.html")) should include ("textus:primaryRdfAnchor")
       _read(dir.resolve("website.d/rdf/index.html")) should include ("skos:exactMatch")
       _read(dir.resolve("website.d/rdf/index.html")) should include ("skos:closeMatch")
       _read(dir.resolve("website.d/rdf/index.html")) should include ("""class="bok-rdf-node-schema"""")
+      _read(dir.resolve("website.d/rdf/index.html")) should include ("bok-rdf-node-schema-groups")
+      _read(dir.resolve("website.d/rdf/index.html")) should include ("bok-rdf-node-schema-group")
       _read(dir.resolve("website.d/rdf/index.html")) should include ("""class="bok-rdf-node-schema-object"""")
+      _read(dir.resolve("website.d/rdf/index.html")) should include ("bok-rdf-node-popover-actions-primary")
       _read(dir.resolve("website.d/rdf/index.html")) should include ("predicateProfile")
       _read(dir.resolve("website.d/rdf/index.html")) should include ("predicateRoles")
       _read(dir.resolve("website.d/rdf/index.html")) should include ("identityPredicates")
@@ -476,7 +563,19 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
       _read(dir.resolve("website.d/rdf/index.html")) should not include ("""class="toc sidebar"""")
       _read(dir.resolve("website.d/rdf/index.html")) should not include ("""<h2>Dashboard</h2>""")
       _read(dir.resolve("website.d/rdf/index.html")) should include ("site.ttl")
+      _read(dir.resolve("website.d/rdf/node.html")) should include ("""class="bok-rdf-node-page"""")
+      _read(dir.resolve("website.d/rdf/node.html")) should include ("bok-rdf-node-detail-grid")
+      _read(dir.resolve("website.d/rdf/node.html")) should include ("informationView")
+      _read(dir.resolve("website.d/rdf/node.html")) should include ("predicateProfile")
+      _read(dir.resolve("website.d/rdf/node.html")) should include ("bok-rdf-node-schema-groups")
+      _read(dir.resolve("website.d/rdf/node.html")) should include ("接続数")
+      _read(dir.resolve("website.d/rdf/node.html")) should include ("index.html?node=")
       _read(dir.resolve("website.d/metadata/rdf/graph.json")) should include (""""category": "architecture"""")
+      _read(dir.resolve("website.d/metadata/rdf/graph.json")) should include (""""informationView"""")
+      _read(dir.resolve("website.d/metadata/rdf/graph.json")) should include (""""test-rdf-1.5-hop-information-view"""")
+      _read(dir.resolve("website.d/metadata/rdf/graph.json")) should include (""""informationView"""")
+      _read(dir.resolve("website.d/metadata/rdf/graph.json")) should include (""""informationSchemas"""")
+      _read(dir.resolve("website.d/metadata/rdf/graph.json")) should not include (""""informationObject"""")
       _read(dir.resolve("website.d/metadata/rdf/graph.json")) should include (""""predicateProfile"""")
       _read(dir.resolve("website.d/metadata/rdf/graph.json")) should include (""""test-rdf-1.5-hop-profile"""")
       _read(dir.resolve("website.d/index.html")) should not include ("Lexicon")
@@ -522,6 +621,11 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
       _read(dir.resolve("website.d/architecture/index.html")) should not include ("""class="navbar-item" href="../glossary/index.html"""")
       _read(dir.resolve("website.d/architecture/index.html")) should not include ("""class="navbar-item" href="../history/index.html"""")
       _read(dir.resolve("website.d/architecture/index.html")) should not include ("""class="navbar-item" href="../manual/index.html"""")
+      _read(dir.resolve("website.d/architecture/index.html")) should include ("""class="navbar-item has-dropdown is-hoverable navbar-bok-nav navbar-bok-dropdown"""")
+      _read(dir.resolve("website.d/architecture/index.html")) should include ("""class="navbar-link navbar-bok-toggle" href="#">BoK</a>""")
+      _read(dir.resolve("website.d/architecture/index.html")) should include ("""class="navbar-item navbar-dropdown-item" href="../glossary/index.html">Glossary</a>""")
+      _read(dir.resolve("website.d/architecture/index.html")) should include ("""class="navbar-item navbar-dropdown-item" href="../history/index.html">History</a>""")
+      _read(dir.resolve("website.d/architecture/index.html")) should include ("""class="navbar-item navbar-dropdown-item" href="../manual/index.html">BoK Manual</a>""")
       _read(dir.resolve("website.d/architecture/index.html")) should include ("""class="navbar-item navbar-dropdown-item" href="../architecture/index.html">Architecture</a>""")
       _read(dir.resolve("website.d/architecture/index.html")) should not include ("""class="navbar-category-link" href="../architecture/index.html">Architecture</a>""")
       _read(dir.resolve("website.d/architecture/index.html")) should not include ("""class="navbar-item" href="../architecture/index.html">Architecture</a>""")
@@ -808,6 +912,116 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
           Then("the next steps use the configured preview port")
           output should include ("cozy bok preview")
           output should include ("http://127.0.0.1:8982/")
+        }
+      }
+
+      "lint and repair SmartDox metadata section spacing" in {
+        _with_temp_dir("cozy-bok-doctor-dox-spacing") { dir =>
+          Given("a BoK project with Markdown-style SmartDox metadata sections")
+          _write(dir.resolve("conf/cozy/config.yaml"), "bok:\n  source: src/main/doxsite\n  workflow:\n    upload:\n      command: etc/upload.sh\n")
+          _write(dir.resolve("src/main/doxsite/site.conf"), "site {}\n")
+          _write(dir.resolve("src/main/doxsite/index.dox"),
+            """Home
+              |======
+              |
+              |# HEAD
+              |status=work-in-progress
+              |
+              |
+              |## HEADLINE
+              |KnowledgeHub
+              |
+              |## BRIEF
+              |KnowledgeHub brief.
+              |
+              |# Overview
+              |
+              |Body.
+              |""".stripMargin)
+
+          When("Cozy inspects the BoK source")
+          val output = _capture {
+            CozyBok.doctor(CozyBok.DoctorConfig.create(List(dir.toString), fix = false))
+          }
+
+          Then("the diagnostic reports Dox metadata sections that miss the required blank line")
+          output should include ("status: needs-fix")
+          output should include ("SmartDox Dox metadata section heading must be followed by a blank line")
+          output should include ("src/main/doxsite/index.dox:4 # HEAD")
+          output should include ("src/main/doxsite/index.dox:8 ## HEADLINE")
+          output should include ("src/main/doxsite/index.dox:11 ## BRIEF")
+
+          When("Cozy previews safe fixes")
+          val dryrun = _capture {
+            CozyBok.doctor(CozyBok.DoctorConfig.create(List(dir.toString, "--fix", "--dry-run"), fix = false))
+          }
+
+          Then("the dry-run lists the Dox spacing repair without modifying the source")
+          dryrun should include ("planned fixes:")
+          dryrun should include ("Insert blank lines after 3 SmartDox metadata section headings in src/main/doxsite/index.dox")
+          _read(dir.resolve("src/main/doxsite/index.dox")) should include ("## HEADLINE\nKnowledgeHub")
+
+          When("Cozy applies the safe fixes")
+          _capture {
+            CozyBok.doctor(CozyBok.DoctorConfig.create(List(dir.toString), fix = true))
+          }
+
+          Then("only the required blank lines are inserted for Dox metadata parsing")
+          val fixed = _read(dir.resolve("src/main/doxsite/index.dox"))
+          fixed should include ("# HEAD\n\nstatus=work-in-progress")
+          fixed should include ("## HEADLINE\n\nKnowledgeHub")
+          fixed should include ("## BRIEF\n\nKnowledgeHub brief.")
+          fixed should not include ("## HEADLINE\nKnowledgeHub")
+          fixed should not include ("## BRIEF\nKnowledgeHub brief.")
+        }
+      }
+
+      "lint Markdown front matter without applying SmartDox spacing rules" in {
+        _with_temp_dir("cozy-bok-doctor-markdown") { dir =>
+          Given("a BoK project with Markdown source front matter missing basic BoK metadata")
+          _write(dir.resolve("conf/cozy/config.yaml"), "bok:\n  source: src/main/doxsite\n  workflow:\n    upload:\n      command: etc/upload.sh\n")
+          _write(dir.resolve("src/main/doxsite/site.conf"), "site {}\n")
+          _write(dir.resolve("src/main/doxsite/index.md"),
+            """---
+              |title: Markdown Home
+              |---
+              |
+              |# Overview
+              |
+              |Markdown body.
+              |""".stripMargin)
+          _write(dir.resolve("src/main/doxsite/concept/article.md"),
+            """---
+              |headline: Concept Article
+              |brief: Concept article brief.
+              |---
+              |
+              |# Concept Article
+              |
+              |Markdown body.
+              |""".stripMargin)
+
+          When("Cozy inspects the BoK source")
+          val output = _capture {
+            CozyBok.doctor(CozyBok.DoctorConfig.create(List(dir.toString), fix = false))
+          }
+
+          Then("the diagnostic reports Markdown front matter issues separately from SmartDox Dox spacing")
+          output should include ("Markdown front matter metadata issue")
+          output should include ("src/main/doxsite/index.md: front matter should include brief, summary, or description")
+          output should not include ("src/main/doxsite/index.md:1 ---")
+          output should not include ("SmartDox Dox metadata section heading must be followed by a blank line: src/main/doxsite/index.md")
+
+          When("Cozy previews safe fixes")
+          val dryrun = _capture {
+            CozyBok.doctor(CozyBok.DoctorConfig.create(List(dir.toString, "--fix", "--dry-run"), fix = false))
+          }
+
+          Then("Markdown front matter is diagnostic-only and source text is unchanged")
+          dryrun should include ("Markdown front matter metadata issue")
+          dryrun should not include ("Insert blank lines after")
+          _read(dir.resolve("src/main/doxsite/index.md")) should include ("title: Markdown Home")
+          _read(dir.resolve("src/main/doxsite/index.md")) should not include ("brief:")
         }
       }
 
@@ -1680,12 +1894,29 @@ class CozyBokSpec extends AnyWordSpec with GivenWhenThen with SpecVocabulary {
 
   private def _rdf_graph_json: String =
     """{
-      |  "predicateProfile": {
-      |    "name": "test-rdf-1.5-hop-profile",
-      |    "roles": {
-      |      "identity": ["textus:primaryRdfAnchor"],
-      |      "link": ["rdfs:seeAlso"],
-      |      "provenance": ["prov:wasDerivedFrom"]
+      |  "informationView": {
+      |    "name": "test-rdf-1.5-hop-information-view",
+      |    "label": "Test Information View",
+      |    "concept": "1.5+hop",
+      |    "attributes": ["information.schema", "information.identity", "information.description", "schema.expansion"],
+      |    "informationSchemas": [
+      |      {
+      |        "name": "architecture-information-v1",
+      |        "label": "Architecture Information",
+      |        "match": {"categories": ["architecture"]},
+      |        "requiredPredicates": ["rdf:type"],
+      |        "descriptivePredicates": ["https://schema.org/description"],
+      |        "outgoingRequiredPredicates": ["https://schema.org/about"],
+      |        "incomingRequiredPredicates": ["https://schema.org/mentions"]
+      |      }
+      |    ],
+      |    "predicateProfile": {
+      |      "name": "test-rdf-1.5-hop-profile",
+      |      "roles": {
+      |        "identity": ["textus:primaryRdfAnchor"],
+      |        "link": ["rdfs:seeAlso"],
+      |        "provenance": ["prov:wasDerivedFrom"]
+      |      }
       |    }
       |  },
       |  "nodes": [
