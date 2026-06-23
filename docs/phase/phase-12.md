@@ -35,7 +35,9 @@ into focused Cozy improvements.
 - [x] BK12-08: Upload workflow readiness
 - [x] BK12-09: Development findings and follow-up backlog
 - [x] BK12-10: Term hub and term-centric RDF navigation
-- [ ] BK12-11: Phase closure
+- [ ] BK12-11: CAR product and NictKnowledgeHub project integration
+- [ ] BK12-12: Scenario knowledge management
+- [ ] BK12-13: Phase closure
 
 ## Acceptance Criteria
 
@@ -57,6 +59,10 @@ into focused Cozy improvements.
   only flat glossary entries.
 - RDF exploration supports both whole-graph views and term-neighborhood
   navigation from the term hub.
+- CAR product knowledge can be represented as BoK content and connected to the
+  NictKnowledgeHub project as an operational target.
+- Scenarios can be managed as first-class BoK knowledge items, starting with
+  simple scenarios, use cases, and persona plus journey scenarios.
 
 ## Progress Notes
 
@@ -217,6 +223,11 @@ into focused Cozy improvements.
   glossary term entries yet, so operational output verified empty
   `metadata/glossary/terms.json` fallback behavior and the RDF/Glossary page
   generation boundary.
+- 2026-06-23: Added BK12-11 and BK12-12 before Phase 12 closure. BK12-11 tracks
+  CAR product knowledge and NictKnowledgeHub project integration as the next
+  concrete BoK operation target. BK12-12 tracks scenarios as first-class BoK
+  knowledge, starting with simple scenarios, use cases, and persona plus
+  journey scenarios.
 
 ## References
 

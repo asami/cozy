@@ -143,7 +143,40 @@ Status: DONE
 - [x] Verify the behavior with KnowledgeHub using `cozy bok build . --strategy
       preview`.
 
-## BK12-11: Phase Closure
+## BK12-11: CAR Product And NictKnowledgeHub Project Integration
+
+Status: OPEN
+
+- [ ] Define how CAR products are represented as BoK knowledge.
+- [ ] Define the boundary between CAR product metadata, publication metadata,
+      warehouse artifacts, and narrative BoK articles.
+- [ ] Add the NictKnowledgeHub project as a concrete Phase 12 operational
+      target alongside KnowledgeHub.
+- [ ] Confirm whether NictKnowledgeHub uses the same BoK source layout and
+      operation conventions as KnowledgeHub.
+- [ ] Identify required Cozy changes for CAR product pages, product metadata,
+      artifact links, and RDF references.
+- [ ] Verify the approach with a concrete NictKnowledgeHub source or fixture.
+- [ ] Keep generated CAR artifacts outside BoK source directories.
+
+## BK12-12: Scenario Knowledge Management
+
+Status: OPEN
+
+- [ ] Treat scenarios as a first-class BoK knowledge type.
+- [ ] Define the common scenario metadata model.
+- [ ] Support simple scenarios.
+- [ ] Support use case scenarios.
+- [ ] Support persona plus journey scenarios.
+- [ ] Define how scenario knowledge links to terms, articles, RDF resources,
+      products, projects, and history.
+- [ ] Define how scenario pages appear in Dashboard, Category, Term Hub, and
+      RDF navigation.
+- [ ] Decide whether scenario source is SmartDox, Markdown, YAML metadata, or a
+      source package convention.
+- [ ] Add executable specs once the source and rendering contract is decided.
+
+## BK12-13: Phase Closure
 
 Status: OPEN
 
