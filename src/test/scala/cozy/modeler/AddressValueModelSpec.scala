@@ -1,36 +1,48 @@
 package cozy.modeler
 
 import java.nio.file.Paths
-import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.GivenWhenThen
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import org.goldenport.kaleidox.{Config => KaleidoxConfig, Model => KaleidoxModel}
 
 /*
  * @since   Mar. 25, 2026
- * @version May. 20, 2026
+ * @version Jun. 23, 2026
  * @author  ASAMI, Tomoharu
  */
-class AddressValueModelSpec extends AnyFunSuite {
+class AddressValueModelSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   private val _base = Paths.get("/Users/asami/src/dev2026/simplemodeling-model").toAbsolutePath.normalize()
   private val _address_cml = _base.resolve("src/main/cozy/address.cml")
   private val _snapshot = _base.resolve("docs/journal/2026/03/address-cml-pre-validation-snapshot.cml")
 
-  test("pre-validation snapshot builds a ValueModel") {
-    val model = KaleidoxModel.load(KaleidoxConfig.default.withoutLocation, _snapshot.toFile)
-    val valuemodel = model.getValueModel.getOrElse(fail("ValueModel is missing for snapshot"))
+  "Address value model parsing" should {
+    "preserve the pre-validation snapshot as a ValueModel" in {
+      Given("the historical address CML pre-validation snapshot")
+      val model = KaleidoxModel.load(KaleidoxConfig.default.withoutLocation, _snapshot.toFile)
 
-    assert(valuemodel.classes.nonEmpty, s"snapshot ValueModel is empty")
-    assert(valuemodel.classes.contains("Address"), s"snapshot missing Address")
-    assert(valuemodel.classes.contains("CountryCode"), s"snapshot missing CountryCode")
-  }
+      When("Kaleidox loads the snapshot")
+      val valuemodel = model.getValueModel.getOrElse(fail("ValueModel is missing for snapshot"))
 
-  test("address.cml keeps the same top-level ValueModel shape as the snapshot") {
-    val snapshotmodel = KaleidoxModel.load(KaleidoxConfig.default.withoutLocation, _snapshot.toFile)
-    val addressmodel = KaleidoxModel.load(KaleidoxConfig.default.withoutLocation, _address_cml.toFile)
+      Then("the snapshot exposes the expected value classes")
+      valuemodel.classes should not be empty
+      valuemodel.classes should contain key ("Address")
+      valuemodel.classes should contain key ("CountryCode")
+    }
 
-    val snapshotvalue = snapshotmodel.getValueModel.getOrElse(fail("snapshot ValueModel is missing"))
-    val addressvalue = addressmodel.getValueModel.getOrElse(fail("address.cml ValueModel is missing"))
+    "keep address.cml aligned with the snapshot top-level ValueModel shape" in {
+      Given("the current address.cml and its historical snapshot")
+      val snapshotmodel = KaleidoxModel.load(KaleidoxConfig.default.withoutLocation, _snapshot.toFile)
+      val addressmodel = KaleidoxModel.load(KaleidoxConfig.default.withoutLocation, _address_cml.toFile)
 
-    assert(addressvalue.classes.keySet == snapshotvalue.classes.keySet,
-      s"address.cml value classes differ from snapshot: address=${addressvalue.classes.keySet}, snapshot=${snapshotvalue.classes.keySet}")
+      When("both files are normalized into Kaleidox value models")
+      val snapshotvalue = snapshotmodel.getValueModel.getOrElse(fail("snapshot ValueModel is missing"))
+      val addressvalue = addressmodel.getValueModel.getOrElse(fail("address.cml ValueModel is missing"))
+
+      Then("the top-level value class set remains compatible")
+      withClue(s"address=${addressvalue.classes.keySet}, snapshot=${snapshotvalue.classes.keySet}") {
+        addressvalue.classes.keySet shouldBe snapshotvalue.classes.keySet
+      }
+    }
   }
 }

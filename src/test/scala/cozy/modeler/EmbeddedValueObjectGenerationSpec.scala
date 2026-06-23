@@ -1,56 +1,66 @@
 package cozy.modeler
 
-import java.nio.file.Files
-import java.nio.file.Path
 import java.nio.file.Paths
-import java.util.Comparator
-import org.scalatest.funsuite.AnyFunSuite
+import java.nio.file.Files
+import org.scalatest.GivenWhenThen
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Mar. 30, 2026
  *  version Apr. 20, 2026
  *  version May. 24, 2026
- * @version Jun.  4, 2026
+ * @version Jun. 23, 2026
  * @author  ASAMI, Tomoharu
  */
-class EmbeddedValueObjectGenerationSpec extends AnyFunSuite {
-  test("modeler-scala generates embedded value object collection attributes from 09.a sample") {
-    val input = Paths.get("/Users/asami/src/dev2026/cncf-samples/samples/09.a-aggregate-single-record-lab/src/main/cozy/order-single-record-aggregate.cml")
-    val out = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
-      .resolve("target/test-generated/modeler-scala-embedded-value-object")
-    _delete_recursively(out)
+class EmbeddedValueObjectGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
+  "Embedded value object generation" should {
+    "generate collection attributes from the 09.a sample" in {
+      Given("the 09.a aggregate single record sample CML")
+      val input = Paths.get("/Users/asami/src/dev2026/cncf-samples/samples/09.a-aggregate-single-record-lab/src/main/cozy/order-single-record-aggregate.cml")
+      val out = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+        .resolve("target/test-generated/modeler-scala-embedded-value-object")
+      delete_recursively(out)
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
+      When("Cozy generates Scala code for the sample")
+      cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
-    val generatedEntity = out.resolve(
-      "target/scala-3.3.7/src_managed/main/scala/org/sample/aggregatesinglerecord/entity/Order.scala"
-    )
-    val generatedValue = out.resolve(
-      "target/scala-3.3.7/src_managed/main/scala/org/sample/aggregatesinglerecord/value/OrderLine.scala"
-    )
-    assert(Files.exists(generatedEntity), s"generated entity file not found: $generatedEntity")
-    assert(Files.exists(generatedValue), s"generated value file not found: $generatedValue")
+      Then("the generated entity and value files exist")
+      val generatedentity = out.resolve(
+        "target/scala-3.3.7/src_managed/main/scala/org/sample/aggregatesinglerecord/entity/Order.scala"
+      )
+      val generatedvalue = out.resolve(
+        "target/scala-3.3.7/src_managed/main/scala/org/sample/aggregatesinglerecord/value/OrderLine.scala"
+      )
+      withClue(s"generated entity file not found: $generatedentity") {
+        Files.exists(generatedentity) shouldBe true
+      }
+      withClue(s"generated value file not found: $generatedvalue") {
+        Files.exists(generatedvalue) shouldBe true
+      }
 
-    val entityContent = Files.readString(generatedEntity)
-    val valueContent = Files.readString(generatedValue)
+      And("the collection value object mapping is preserved")
+      val entitycontent = Files.readString(generatedentity)
+      val valuecontent = Files.readString(generatedvalue)
 
-    assert(entityContent.contains("lines: Vector[OrderLine]"))
-    assert(entityContent.contains("case m: org.goldenport.record.RecordPresentable => m.toRecord()"))
-    assert(entityContent.contains("_record_get_vector_as_c[org.sample.aggregatesinglerecord.value.OrderLine](record, INPUT_KEYS_LINES).flatMap {"))
-    assert(valueContent.contains("case class OrderLine(name: Name, quantity: Int) extends org.goldenport.record.RecordPresentable"))
-    assert(valueContent.contains("given org.goldenport.convert.ValueReader[OrderLine]"))
-    assert(valueContent.contains("case m: Record => createC(m)"))
-  }
+      entitycontent should include ("lines: Vector[OrderLine]")
+      entitycontent should include ("case m: org.goldenport.record.RecordPresentable => m.toRecord()")
+      entitycontent should include ("_record_get_vector_as_c[org.sample.aggregatesinglerecord.value.OrderLine](record, INPUT_KEYS_LINES).flatMap {")
+      valuecontent should include ("case class OrderLine(name: Name, quantity: Int) extends org.goldenport.record.RecordPresentable")
+      valuecontent should include ("given org.goldenport.convert.ValueReader[OrderLine]")
+      valuecontent should include ("case m: Record => createC(m)")
+    }
 
-  test("modeler-scala generates single and optional embedded value object attributes") {
-    val out = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
-      .resolve("target/test-generated/modeler-scala-embedded-value-object-single")
-    _delete_recursively(out)
-    val input = out.resolve("single-record-object-attributes.cml")
-    Files.createDirectories(out)
-    Files.writeString(
-      input,
-      """# COMPONENT
+    "generate single and optional embedded value object attributes" in {
+      Given("a model with required and optional embedded value object fields")
+      val out = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+        .resolve("target/test-generated/modeler-scala-embedded-value-object-single")
+      delete_recursively(out)
+      val input = out.resolve("single-record-object-attributes.cml")
+      Files.createDirectories(out)
+      Files.writeString(
+        input,
+        """# COMPONENT
         |
         |## SingleRecordObjectAttributes
         |
@@ -82,32 +92,36 @@ class EmbeddedValueObjectGenerationSpec extends AnyFunSuite {
         || primaryLine | OrderLine | 1 |
         || optionalLine | OrderLine | ? |
         |""".stripMargin
-    )
+      )
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
+      When("Cozy generates Scala code")
+      cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
-    val generatedEntity = out.resolve(
-      "target/scala-3.3.7/src_managed/main/scala/org/sample/singlevalueobject/entity/Order.scala"
-    )
-    assert(Files.exists(generatedEntity), s"generated entity file not found: $generatedEntity")
+      Then("the generated entity preserves required and optional value object semantics")
+      val generatedentity = out.resolve(
+        "target/scala-3.3.7/src_managed/main/scala/org/sample/singlevalueobject/entity/Order.scala"
+      )
+      withClue(s"generated entity file not found: $generatedentity") {
+        Files.exists(generatedentity) shouldBe true
+      }
 
-    val entityContent = Files.readString(generatedEntity)
-    assert(entityContent.contains("primaryLine: OrderLine"))
-    assert(entityContent.contains("optionalLine: Option[OrderLine]"))
-    assert(entityContent.contains("_record_get_as_c[OrderLine](record, INPUT_KEYS_PRIMARY_LINE).flatMap {"))
-    assert(entityContent.contains("_record_get_as_c[org.sample.singlevalueobject.value.OrderLine](record, INPUT_KEYS_OPTIONAL_LINE).map(_ orElse optionalLine)"))
-  }
+      val entitycontent = Files.readString(generatedentity)
+      entitycontent should include ("primaryLine: OrderLine")
+      entitycontent should include ("optionalLine: Option[OrderLine]")
+      entitycontent should include ("_record_get_as_c[OrderLine](record, INPUT_KEYS_PRIMARY_LINE).flatMap {")
+      entitycontent should include ("_record_get_as_c[org.sample.singlevalueobject.value.OrderLine](record, INPUT_KEYS_OPTIONAL_LINE).map(_ orElse optionalLine)")
+    }
 
-
-  test("modeler-scala does not generate duplicate builder overloads for optional string attributes") {
-    val out = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
-      .resolve("target/test-generated/modeler-scala-optional-string-attribute")
-    _delete_recursively(out)
-    val input = out.resolve("optional-string-attribute.cml")
-    Files.createDirectories(out)
-    Files.writeString(
-      input,
-      """# COMPONENT
+    "avoid duplicate builder overloads for optional string attributes" in {
+      Given("an entity with an optional string attribute")
+      val out = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+        .resolve("target/test-generated/modeler-scala-optional-string-attribute")
+      delete_recursively(out)
+      val input = out.resolve("optional-string-attribute.cml")
+      Files.createDirectories(out)
+      Files.writeString(
+        input,
+        """# COMPONENT
         |
         |## OptionalStringAttribute
         |
@@ -127,31 +141,28 @@ class EmbeddedValueObjectGenerationSpec extends AnyFunSuite {
         || name | name | 1 |
         || nickname | string | ? |
         |""".stripMargin
-    )
+      )
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
+      When("Cozy generates Scala code")
+      cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
-    val generatedEntity = out.resolve(
-      "target/scala-3.3.7/src_managed/main/scala/org/sample/optionalstring/entity/Person.scala"
-    )
-    assert(Files.exists(generatedEntity), s"generated entity file not found: $generatedEntity")
+      Then("the generated builder contains one overload for each supported optional input shape")
+      val generatedentity = out.resolve(
+        "target/scala-3.3.7/src_managed/main/scala/org/sample/optionalstring/entity/Person.scala"
+      )
+      withClue(s"generated entity file not found: $generatedentity") {
+        Files.exists(generatedentity) shouldBe true
+      }
 
-    val entityContent = Files.readString(generatedEntity)
-    assert(entityContent.contains("nickname: Option[String]"))
-    assert(entityContent.contains("def withNickname(nickname: String): Person.Builder"))
-    assert(entityContent.contains("def withNickname(nickname: Option[String]): Person.Builder"))
-    assert(!entityContent.contains("String.parse(nickname)"))
-    assert(entityContent.indexOf("def withNickname(nickname: String): Person.Builder") ==
-      entityContent.lastIndexOf("def withNickname(nickname: String): Person.Builder"))
-  }
+      val entitycontent = Files.readString(generatedentity)
+      entitycontent should include ("nickname: Option[String]")
+      entitycontent should include ("def withNickname(nickname: String): Person.Builder")
+      entitycontent should include ("def withNickname(nickname: Option[String]): Person.Builder")
+      entitycontent should not include ("String.parse(nickname)")
 
-  private def _delete_recursively(path: Path): Unit = {
-    if (Files.exists(path)) {
-      val stream = Files.walk(path)
-      try
-        stream.sorted(Comparator.reverseOrder()).forEach(p => Files.deleteIfExists(p))
-      finally
-        stream.close()
+      And("the string overload is emitted only once")
+      entitycontent.indexOf("def withNickname(nickname: String): Person.Builder") shouldBe
+        entitycontent.lastIndexOf("def withNickname(nickname: String): Person.Builder")
     }
   }
 }

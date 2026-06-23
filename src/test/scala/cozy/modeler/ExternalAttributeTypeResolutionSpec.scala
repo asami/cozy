@@ -1,25 +1,28 @@
 package cozy.modeler
 
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path, Paths}
-import java.util.Comparator
-import org.scalatest.funsuite.AnyFunSuite
+import java.nio.file.{Files, Paths}
+import org.scalatest.GivenWhenThen
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Apr.  9, 2026
  *  version May. 21, 2026
- * @version Jun.  4, 2026
+ * @version Jun. 23, 2026
  * @author  ASAMI, Tomoharu
  */
-class ExternalAttributeTypeResolutionSpec extends AnyFunSuite {
-  test("modeler-scala keeps delegate value composition for textus UserProfile values") {
-    val out = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize().resolve("target/test-generated/modeler-scala-user-account-address")
-    _delete_recursively(out)
-    Files.createDirectories(out)
-    val input = out.resolve("user-profile.cml")
-    Files.writeString(
-      input,
-      """# COMPONENT
+class ExternalAttributeTypeResolutionSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
+  "External attribute type resolution" should {
+    "keep delegate value composition for textus UserProfile values" in {
+      Given("a UserProfile entity with optional delegate values")
+      val out = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize().resolve("target/test-generated/modeler-scala-user-account-address")
+      delete_recursively(out)
+      Files.createDirectories(out)
+      val input = out.resolve("user-profile.cml")
+      Files.writeString(
+        input,
+        """# COMPONENT
 
 ## UserAccount
 
@@ -76,28 +79,35 @@ extends = ["SimpleEntity"]
 |------------------+--------+--------------|
 | organizationName | string | ?            |
 """,
-      StandardCharsets.UTF_8
-    )
+        StandardCharsets.UTF_8
+      )
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
+      When("Cozy generates Scala code")
+      cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
-    val generated = out.resolve("target/scala-3.3.7/src_managed/main/scala/org/simplemodeling/textus/useraccount/entity/UserProfile.scala")
-    assert(Files.exists(generated), s"generated file not found: $generated")
-    val content = Files.readString(generated)
-    assert(content.contains("identityPresentation: Option[IdentityPresentation]"), s"IdentityPresentation delegate was not generated\n$content")
-    assert(content.contains("personalProfile: Option[PersonalProfile]"), s"PersonalProfile delegate was not generated\n$content")
-    assert(content.contains("organizationSupport: Option[OrganizationSupport]"), s"OrganizationSupport delegate was not generated\n$content")
-  }
+      Then("the generated entity keeps delegate fields as optional composed value objects")
+      val generated = out.resolve("target/scala-3.3.7/src_managed/main/scala/org/simplemodeling/textus/useraccount/entity/UserProfile.scala")
+      withClue(s"generated file not found: $generated") {
+        Files.exists(generated) shouldBe true
+      }
+      val content = Files.readString(generated)
+      withClue(content) {
+        content should include ("identityPresentation: Option[IdentityPresentation]")
+        content should include ("personalProfile: Option[PersonalProfile]")
+        content should include ("organizationSupport: Option[OrganizationSupport]")
+      }
+    }
 
 
-  test("modeler-scala preserves built-in urn/blob/clob runtime types") {
-    val out = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize().resolve("target/test-generated/modeler-scala-builtins")
-    _delete_recursively(out)
-    Files.createDirectories(out)
-    val input = out.resolve("builtins.cml")
-    Files.writeString(
-      input,
-      """# COMPONENT
+    "preserve built-in urn, blob, and clob runtime types" in {
+      Given("an entity that uses built-in external runtime datatypes")
+      val out = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize().resolve("target/test-generated/modeler-scala-builtins")
+      delete_recursively(out)
+      Files.createDirectories(out)
+      val input = out.resolve("builtins.cml")
+      Files.writeString(
+        input,
+        """# COMPONENT
 
 ## BuiltinTypeSpec
 
@@ -118,29 +128,36 @@ org.sample.builtin
 | payload | blob | ? |
 | description | clob | ? |
 """,
-      StandardCharsets.UTF_8
-    )
+        StandardCharsets.UTF_8
+      )
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
+      When("Cozy generates Scala code")
+      cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
-    val generated = out.resolve("target/scala-3.3.7/src_managed/main/scala/org/sample/builtin/entity/BuiltinHolder.scala")
-    assert(Files.exists(generated), s"generated file not found: $generated")
-    val content = Files.readString(generated)
-    assert(content.contains("resourceUrn: Urn"), s"URN type was collapsed in generated output\n$content")
-    assert(content.contains("payload: Option[BinaryBag]"), s"blob type was collapsed in generated output\n$content")
-    assert(content.contains("description: Option[TextBag]"), s"clob type was collapsed in generated output\n$content")
-  }
+      Then("the generated entity keeps each runtime datatype specialized")
+      val generated = out.resolve("target/scala-3.3.7/src_managed/main/scala/org/sample/builtin/entity/BuiltinHolder.scala")
+      withClue(s"generated file not found: $generated") {
+        Files.exists(generated) shouldBe true
+      }
+      val content = Files.readString(generated)
+      withClue(content) {
+        content should include ("resourceUrn: Urn")
+        content should include ("payload: Option[BinaryBag]")
+        content should include ("description: Option[TextBag]")
+      }
+    }
 
 
 
-  test("modeler-scala uses component package for value models") {
-    val out = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize().resolve("target/test-generated/modeler-scala-value-package")
-    _delete_recursively(out)
-    Files.createDirectories(out)
-    val input = out.resolve("address-package.cml")
-    Files.writeString(
-      input,
-      """# COMPONENT
+    "use the component package for value models" in {
+      Given("a value model with only a component package")
+      val out = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize().resolve("target/test-generated/modeler-scala-value-package")
+      delete_recursively(out)
+      Files.createDirectories(out)
+      val input = out.resolve("address-package.cml")
+      Files.writeString(
+        input,
+        """# COMPONENT
 
 ## SimpleModelingModel
 
@@ -158,23 +175,28 @@ org.simplemodeling.model
   type: String
   multiplicity: "1"
 """,
-      StandardCharsets.UTF_8
-    )
+        StandardCharsets.UTF_8
+      )
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
+      When("Cozy generates Scala code")
+      cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
-    val generated = out.resolve("target/scala-3.3.7/src_managed/main/scala/org/simplemodeling/model/value/Address.scala")
-    assert(Files.exists(generated), s"generated file not found: $generated")
-  }
+      Then("the value class is generated under the component package")
+      val generated = out.resolve("target/scala-3.3.7/src_managed/main/scala/org/simplemodeling/model/value/Address.scala")
+      withClue(s"generated file not found: $generated") {
+        Files.exists(generated) shouldBe true
+      }
+    }
 
-  test("modeler-scala supports DELEGATE section with required/optional composition") {
-    val out = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize().resolve("target/test-generated/modeler-scala-delegate-entity")
-    _delete_recursively(out)
-    Files.createDirectories(out)
-    val input = out.resolve("delegate-entity.cml")
-    Files.writeString(
-      input,
-      """# COMPONENT
+    "support DELEGATE section required and optional composition" in {
+      Given("an entity with required and optional delegate value composition")
+      val out = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize().resolve("target/test-generated/modeler-scala-delegate-entity")
+      delete_recursively(out)
+      Files.createDirectories(out)
+      val input = out.resolve("delegate-entity.cml")
+      Files.writeString(
+        input,
+        """# COMPONENT
 
 ## DelegateEntity
 
@@ -217,18 +239,22 @@ org.sample.delegateentity
 |------|------|--------------|
 | userAccountId | entityid | 1 |
 """,
-      StandardCharsets.UTF_8
-    )
+        StandardCharsets.UTF_8
+      )
 
-    cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
+      When("Cozy generates Scala code")
+      cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
-    val generated = out.resolve("target/scala-3.3.7/src_managed/main/scala/org/sample/delegateentity/entity/UserProfile.scala")
-    assert(Files.exists(generated), s"generated file not found: $generated")
-    val content = Files.readString(generated)
-    assert(content.contains("identityPresentation: IdentityPresentation"), s"required delegate should be generated as non-Option\n$content")
-    assert(content.contains("organizationSupport: Option[OrganizationSupport]"), s"optional delegate should be generated as Option\n$content")
+      Then("required delegates are generated as values and optional delegates as Option values")
+      val generated = out.resolve("target/scala-3.3.7/src_managed/main/scala/org/sample/delegateentity/entity/UserProfile.scala")
+      withClue(s"generated file not found: $generated") {
+        Files.exists(generated) shouldBe true
+      }
+      val content = Files.readString(generated)
+      withClue(content) {
+        content should include ("identityPresentation: IdentityPresentation")
+        content should include ("organizationSupport: Option[OrganizationSupport]")
+      }
+    }
   }
-  private def _delete_recursively(path: Path): Unit =
-    if (Files.exists(path))
-      Files.walk(path).sorted(Comparator.reverseOrder()).forEach(Files.delete)
 }
