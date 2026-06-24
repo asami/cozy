@@ -125,7 +125,7 @@ class CozyBokScenarioModelSpec
           usecase.flows(1).steps.head.actor shouldBe Some("Facility Manager")
 
           And("relationship directives are preserved for later model processing")
-          scenario.relationships should containWhere[ScenarioMetadata.ScenarioRelationship] { relationship =>
+          scenario.relationships should contain_where[ScenarioMetadata.ScenarioRelationship] { relationship =>
             relationship.relation == "extend" &&
               relationship.target == "UC-ROOM-WAITLIST" &&
               relationship.condition.contains("no room is available")

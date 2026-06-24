@@ -44,44 +44,44 @@ class CozyBokSpec
           Then(
             "the scaffold contains source, configuration, UI, manual, history, and RDF seed files"
           )
-          dir.resolve("README.md") should beRegularFile
-          dir.resolve("STRUCTURE.md") should beRegularFile
-          dir.resolve("conf/cozy/config.yaml") should beRegularFile
-          dir.resolve("etc/website-stage.sh.proto") should beRegularFile
-          dir.resolve("etc/website-upload.sh.proto") should beRegularFile
-          dir.resolve("etc/website-stage.sh") shouldNot existPath
-          dir.resolve("etc/website-upload.sh") shouldNot existPath
-          dir.resolve("src/main/doxsite/site.conf") should beRegularFile
+          dir.resolve("README.md") should be_regular_file
+          dir.resolve("STRUCTURE.md") should be_regular_file
+          dir.resolve("conf/cozy/config.yaml") should be_regular_file
+          dir.resolve("etc/website-stage.sh.proto") should be_regular_file
+          dir.resolve("etc/website-upload.sh.proto") should be_regular_file
+          dir.resolve("etc/website-stage.sh") shouldNot exist_path
+          dir.resolve("etc/website-upload.sh") shouldNot exist_path
+          dir.resolve("src/main/doxsite/site.conf") should be_regular_file
           dir.resolve(
             "src/main/doxsite/glossary/category.yaml"
-          ) should beRegularFile
-          dir.resolve("src/main/doxsite/glossary/index.dox") shouldNot existPath
+          ) should be_regular_file
+          dir.resolve("src/main/doxsite/glossary/index.dox") shouldNot exist_path
           dir.resolve(
             "src/main/doxsite/history/category.yaml"
-          ) should beRegularFile
-          dir.resolve("src/main/doxsite/history/index.dox") should beRegularFile
-          dir.resolve("src/main/doxsite/manual/index.dox") shouldNot existPath
+          ) should be_regular_file
+          dir.resolve("src/main/doxsite/history/index.dox") should be_regular_file
+          dir.resolve("src/main/doxsite/manual/index.dox") shouldNot exist_path
           dir.resolve(
             "src/main/doxsite/manual/local-rules.dox"
-          ) should beRegularFile
-          dir.resolve("src/main/doxsite/rdf/site.ttl") should beRegularFile
+          ) should be_regular_file
+          dir.resolve("src/main/doxsite/rdf/site.ttl") should be_regular_file
           And("the scaffold contains site UI assets")
           dir.resolve(
             "src/main/doxsite/assets/css/knowledgehub.css"
-          ) should beRegularFile
+          ) should be_regular_file
           dir.resolve(
             "src/main/antora-ui/build/ui-bundle.zip"
-          ) should beRegularFile
+          ) should be_regular_file
           And(
             "generated work directories are not created during scaffold creation"
           )
           dir.resolve(
             "src/main/doxsite/knowledgehub/category.yaml"
-          ) shouldNot existPath
+          ) shouldNot exist_path
           dir.resolve(
             "src/main/doxsite/site-structure.yaml"
-          ) shouldNot existPath
-          dir.resolve("website.d") shouldNot existPath
+          ) shouldNot exist_path
+          dir.resolve("website.d") shouldNot exist_path
           _read(dir.resolve("src/main/doxsite/index.dox")) should startWith(
             "Home\n======"
           )
@@ -366,16 +366,16 @@ class CozyBokSpec
           )
           dir.resolve(
             "src/main/doxsite/knowledgehub/category.yaml"
-          ) should beRegularFile
+          ) should be_regular_file
           dir.resolve(
             "src/main/doxsite/knowledgehub/index.dox"
-          ) should beRegularFile
+          ) should be_regular_file
           dir.resolve(
             "src/main/doxsite/knowledgehub/knowledgehub-overview.dox"
-          ) should beRegularFile
+          ) should be_regular_file
           dir.resolve(
             "src/main/doxsite/glossary/knowledgehub/knowledgehub.dox"
-          ) should beRegularFile
+          ) should be_regular_file
           _read(
             dir.resolve("src/main/doxsite/knowledgehub/index.dox")
           ) should include("## HEADLINE\n\nKnowledgeHub")
@@ -609,7 +609,7 @@ class CozyBokSpec
             "the SmartDox commands receive normalized strategy, publication, and repository settings"
           )
           config.strategy shouldBe "work-in-progress"
-          runner.commands should containWhere[Vector[String]] { command =>
+          runner.commands should contain_where[Vector[String]] { command =>
             command.take(4) == Vector(
               "dox",
               "antora",
@@ -619,7 +619,7 @@ class CozyBokSpec
             command.contains("-publication") &&
             command.last == "src/main/doxsite"
           }
-          runner.commands should containWhere[Vector[String]] { command =>
+          runner.commands should contain_where[Vector[String]] { command =>
             command.take(6) == Vector(
               "dox",
               "site",
@@ -835,9 +835,9 @@ class CozyBokSpec
           _read(
             dir.resolve("website.d/index.html")
           ) should not include ("このBoKはSmartDox本文")
-          dir.resolve("website.d/history/index.html") should beRegularFile
-          dir.resolve("website.d/manual/index.html") should beRegularFile
-          dir.resolve("website.d/manual/local-rules.html") should beRegularFile
+          dir.resolve("website.d/history/index.html") should be_regular_file
+          dir.resolve("website.d/manual/index.html") should be_regular_file
+          dir.resolve("website.d/manual/local-rules.html") should be_regular_file
           _read(dir.resolve("website.d/history/index.html")) should include(
             "BoK運用、更新履歴、公開履歴のDashboard"
           )
@@ -904,8 +904,8 @@ class CozyBokSpec
           _read(dir.resolve("website.d/glossary/index.html")) should include(
             """class="bok-special-links""""
           )
-          dir.resolve("website.d/ja/glossary/index.html") should beRegularFile
-          dir.resolve("website.d/en/glossary/index.html") should beRegularFile
+          dir.resolve("website.d/ja/glossary/index.html") should be_regular_file
+          dir.resolve("website.d/en/glossary/index.html") should be_regular_file
           _read(dir.resolve("website.d/ja/glossary/index.html")) should include(
             """href="#index-あ">あ</a>"""
           )
@@ -1005,11 +1005,11 @@ class CozyBokSpec
           _read(dir.resolve("website.d/index.html")) should include(
             """class="bok-category-rdf-link" href="rdf/index.html?category=architecture"><b>7</b>RDF</a>"""
           )
-          dir.resolve("website.d/rdf/index.html") should beRegularFile
-          dir.resolve("website.d/rdf/node.html") should beRegularFile
-          dir.resolve("website.d/rdf/site.ttl") should beRegularFile
-          dir.resolve("website.d/rdf/site.jsonld") should beRegularFile
-          dir.resolve("website.d/metadata/rdf/graph.json") should beRegularFile
+          dir.resolve("website.d/rdf/index.html") should be_regular_file
+          dir.resolve("website.d/rdf/node.html") should be_regular_file
+          dir.resolve("website.d/rdf/site.ttl") should be_regular_file
+          dir.resolve("website.d/rdf/site.jsonld") should be_regular_file
+          dir.resolve("website.d/metadata/rdf/graph.json") should be_regular_file
           _read(dir.resolve("website.d/rdf/index.html")) should include(
             "RDF Graph"
           )
@@ -1501,13 +1501,13 @@ class CozyBokSpec
           ) should not include ("Lexicon")
           dir.resolve(
             "src/main/antora-ui/build/ui-bundle.zip"
-          ) should beRegularFile
-          dir.resolve("doxsite.d/ja") shouldNot existPath
-          dir.resolve("doxsite.d/en") shouldNot existPath
+          ) should be_regular_file
+          dir.resolve("doxsite.d/ja") shouldNot exist_path
+          dir.resolve("doxsite.d/en") shouldNot exist_path
           dir.resolve(
             "doxsite-cache-work-in-progress.d/stale.error_msg"
-          ) shouldNot existPath
-          runner.commands should notContainWhere[Vector[String]](
+          ) shouldNot exist_path
+          runner.commands should not_contain_where[Vector[String]](
             _.headOption.contains("arcadia")
           )
         }
@@ -1637,7 +1637,7 @@ class CozyBokSpec
           _read(dir.resolve("website.d/ja/glossary/index.html")) should include(
             """href="../../history/2026.html">History</a>"""
           )
-          dir.resolve("website.d/history/index.html") shouldNot existPath
+          dir.resolve("website.d/history/index.html") shouldNot exist_path
         }
       }
 
@@ -2158,10 +2158,10 @@ class CozyBokSpec
           CozyBok.build(config, runner)
 
           Then("localized website outputs are planned for both ja and en")
-          runner.commands should containWhere[Vector[String]](
+          runner.commands should contain_where[Vector[String]](
             _.contains("/workspace/website.d/ja")
           )
-          runner.commands should containWhere[Vector[String]](
+          runner.commands should contain_where[Vector[String]](
             _.contains("/workspace/website.d/en")
           )
         }
@@ -2235,7 +2235,7 @@ class CozyBokSpec
               "src/main/doxsite"
             )
           )
-          dir.resolve("website.d/knowledge-graph/app.js") should beRegularFile
+          dir.resolve("website.d/knowledge-graph/app.js") should be_regular_file
         }
       }
 
@@ -2268,7 +2268,7 @@ class CozyBokSpec
           CozyBok.build(config, new RecordingRunner)
 
           Then("only BoK direct asset settings are applied")
-          dir.resolve("website.d/unrelated/app.js") shouldNot existPath
+          dir.resolve("website.d/unrelated/app.js") shouldNot exist_path
         }
       }
 
@@ -2478,10 +2478,10 @@ class CozyBokSpec
             "publication registry entries and repository video artifacts are created outside the source package"
           )
           results.size shouldBe 1
-          dir.resolve("src/main/publication/tutorial.json") should beRegularFile
+          dir.resolve("src/main/publication/tutorial.json") should be_regular_file
           dir.resolve(
             "repository/video/textus/0.1.0/tutorial-0.1.0.mp4"
-          ) should beRegularFile
+          ) should be_regular_file
           val sourcefiles = Files
             .walk(pkg)
             .iterator()
@@ -2489,10 +2489,10 @@ class CozyBokSpec
             .toVector
             .filter(Files.isRegularFile(_))
             .map(_.getFileName.toString)
-          sourcefiles should notContainWhere[String](_.endsWith(".mp4"))
-          sourcefiles should notContainWhere[String](_.endsWith(".ttl"))
-          sourcefiles should notContainWhere[String](_.endsWith(".jsonld"))
-          sourcefiles should notContainWhere[String](_.endsWith(".srt"))
+          sourcefiles should not_contain_where[String](_.endsWith(".mp4"))
+          sourcefiles should not_contain_where[String](_.endsWith(".ttl"))
+          sourcefiles should not_contain_where[String](_.endsWith(".jsonld"))
+          sourcefiles should not_contain_where[String](_.endsWith(".srt"))
         }
       }
 
@@ -2537,10 +2537,10 @@ class CozyBokSpec
             "no video publication registry or repository artifacts are written"
           )
           results shouldBe empty
-          dir.resolve("src/main/publication/tutorial.json") shouldNot existPath
+          dir.resolve("src/main/publication/tutorial.json") shouldNot exist_path
           dir.resolve(
             "repository/video/textus/0.1.0/tutorial-0.1.0.mp4"
-          ) shouldNot existPath
+          ) shouldNot exist_path
         }
       }
 
@@ -2612,10 +2612,10 @@ class CozyBokSpec
           )
           e.getMessage should include("Missing bok workflow command")
           runner.commands shouldBe empty
-          dir.resolve("src/main/publication/tutorial.json") shouldNot existPath
+          dir.resolve("src/main/publication/tutorial.json") shouldNot exist_path
           dir.resolve(
             "repository/video/textus/0.1.0/tutorial-0.1.0.mp4"
-          ) shouldNot existPath
+          ) shouldNot exist_path
         }
       }
 
@@ -2655,10 +2655,10 @@ class CozyBokSpec
           Then(
             "publication update, site build, optional stage skip, and upload execute in deterministic order"
           )
-          runner.commands should containWhere[Vector[String]](
+          runner.commands should contain_where[Vector[String]](
             _.take(2) == Vector("dox", "antora")
           )
-          runner.commands should containWhere[Vector[String]](
+          runner.commands should contain_where[Vector[String]](
             _.take(2) == Vector("dox", "site")
           )
           runner.commands.last shouldBe Vector("sh", "-c", "etc/upload.sh")
@@ -2729,11 +2729,11 @@ class CozyBokSpec
           out should include("build")
           out should include("upload")
           runner.commands shouldBe empty
-          dir.resolve("src/main/publication") shouldNot existPath
-          dir.resolve("repository") shouldNot existPath
-          dir.resolve("warehouse") shouldNot existPath
-          dir.resolve("website.d") shouldNot existPath
-          dir.resolve("doxsite.d") shouldNot existPath
+          dir.resolve("src/main/publication") shouldNot exist_path
+          dir.resolve("repository") shouldNot exist_path
+          dir.resolve("warehouse") shouldNot exist_path
+          dir.resolve("website.d") shouldNot exist_path
+          dir.resolve("doxsite.d") shouldNot exist_path
           val manifest = _manifest(dir)
           manifest.hcursor
             .downField("dryRun")
@@ -2958,7 +2958,7 @@ class CozyBokSpec
           runner.commands shouldBe empty
           dir.resolve(
             "target/cozy-bok/publish/latest/manifest.json"
-          ) shouldNot existPath
+          ) shouldNot exist_path
         }
       }
 
@@ -3052,7 +3052,7 @@ class CozyBokSpec
 
           Then("the upload failure is recorded as an upload step failure")
           e.getMessage should include("upload boom")
-          runner.commands should containWhere[Vector[String]](
+          runner.commands should contain_where[Vector[String]](
             _.take(2) == Vector("dox", "antora")
           )
           runner.commands should contain(Vector("sh", "-c", "etc/upload.sh"))

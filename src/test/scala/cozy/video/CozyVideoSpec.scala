@@ -3217,17 +3217,17 @@ final class CozyVideoSpec
             "repository/video/textus/0.1.0/tutorial-0.1.0.mp4"
           )
           result.warehouseArtifact shouldBe artifact.toAbsolutePath.normalize()
-          artifact should beRegularFile
+          artifact should be_regular_file
           artifact.resolveSibling(
             "tutorial-0.1.0.manifest.json"
-          ) should beRegularFile
-          artifact.resolveSibling("tutorial-0.1.0.ttl") should beRegularFile
-          artifact.resolveSibling("tutorial-0.1.0.jsonld") should beRegularFile
-          artifact.resolveSibling("tutorial-0.1.0.srt") should beRegularFile
+          ) should be_regular_file
+          artifact.resolveSibling("tutorial-0.1.0.ttl") should be_regular_file
+          artifact.resolveSibling("tutorial-0.1.0.jsonld") should be_regular_file
+          artifact.resolveSibling("tutorial-0.1.0.srt") should be_regular_file
           artifact.resolveSibling(
             "tutorial-0.1.0.transcript.json"
-          ) should beRegularFile
-          publication.resolve("tutorial.json") should beRegularFile
+          ) should be_regular_file
+          publication.resolve("tutorial.json") should be_regular_file
 
           And("the publication bundle registers stable metadata paths")
           val bundle = play.api.libs.json.Json
@@ -3343,17 +3343,17 @@ final class CozyVideoSpec
             .toVector
             .filter(Files.isRegularFile(_))
             .map(_.getFileName.toString)
-          sourcefiles should notContainWhere[String](_.endsWith(".mp4"))
-          sourcefiles should notContainWhere[String](_.endsWith(".ttl"))
-          sourcefiles should notContainWhere[String](_.endsWith(".jsonld"))
-          sourcefiles should notContainWhere[String](_.endsWith(".srt"))
-          runner.commands should containWhere[RecordingCommand](
+          sourcefiles should not_contain_where[String](_.endsWith(".mp4"))
+          sourcefiles should not_contain_where[String](_.endsWith(".ttl"))
+          sourcefiles should not_contain_where[String](_.endsWith(".jsonld"))
+          sourcefiles should not_contain_where[String](_.endsWith(".srt"))
+          runner.commands should contain_where[RecordingCommand](
             _.args.contains("python3")
           )
-          runner.commands should containWhere[RecordingCommand](
+          runner.commands should contain_where[RecordingCommand](
             _.args.contains("ffmpeg")
           )
-          runner.commands should containWhere[RecordingCommand](
+          runner.commands should contain_where[RecordingCommand](
             _.args.contains("ffprobe")
           )
 
@@ -3422,10 +3422,10 @@ final class CozyVideoSpec
           val artifact =
             repository.resolve("video/textus/0.1.0/tutorial-0.1.0.mp4")
           result.warehouseArtifact shouldBe artifact.toAbsolutePath.normalize()
-          artifact should beRegularFile
+          artifact should be_regular_file
           warehouse.resolve(
             "repository/video/textus/0.1.0/tutorial-0.1.0.mp4"
-          ) shouldNot existPath
+          ) shouldNot exist_path
 
           And("publication metadata keeps public repository-relative paths")
           val bundle = _read(publication.resolve("tutorial.json"))
@@ -3521,10 +3521,10 @@ final class CozyVideoSpec
             .toVector
             .filter(Files.isRegularFile(_))
             .map(_.getFileName.toString)
-          sourcefiles should notContainWhere[String](_.endsWith(".mp4"))
-          sourcefiles should notContainWhere[String](_.endsWith(".ttl"))
-          sourcefiles should notContainWhere[String](_.endsWith(".jsonld"))
-          sourcefiles should notContainWhere[String](_.endsWith(".srt"))
+          sourcefiles should not_contain_where[String](_.endsWith(".mp4"))
+          sourcefiles should not_contain_where[String](_.endsWith(".ttl"))
+          sourcefiles should not_contain_where[String](_.endsWith(".jsonld"))
+          sourcefiles should not_contain_where[String](_.endsWith(".srt"))
         }
       }
 

@@ -95,7 +95,7 @@ class CozyBokProjectSpec
           results.map(_.project.name) shouldBe Vector("nict-knowledgehub")
           dir.resolve(
             "src/main/publication/nict-knowledgehub.json"
-          ) should beRegularFile
+          ) should be_regular_file
           val bundle =
             _read(dir.resolve("src/main/publication/nict-knowledgehub.json"))
           bundle should include(
@@ -130,9 +130,9 @@ class CozyBokProjectSpec
             .toVector
             .filter(Files.isRegularFile(_))
             .map(_.getFileName.toString)
-          sourcefiles should notContainWhere[String](_.endsWith(".car"))
-          sourcefiles should notContainWhere[String](_.endsWith(".ttl"))
-          sourcefiles should notContainWhere[String](_.endsWith(".jsonld"))
+          sourcefiles should not_contain_where[String](_.endsWith(".car"))
+          sourcefiles should not_contain_where[String](_.endsWith(".ttl"))
+          sourcefiles should not_contain_where[String](_.endsWith(".jsonld"))
         }
       }
 
@@ -285,10 +285,10 @@ class CozyBokProjectSpec
           results.head.artifactexists shouldBe true
           dir.resolve(
             "repository/car/nict-knowledgehub/0.1.0/nict-knowledgehub-0.1.0.car"
-          ) shouldNot existPath
+          ) shouldNot exist_path
           dir.resolve(
             "warehouse/repository/car/nict-knowledgehub/0.1.0/nict-knowledgehub-0.1.0.car"
-          ) shouldNot existPath
+          ) shouldNot exist_path
           val bundle =
             _read(dir.resolve("src/main/publication/nict-knowledgehub.json"))
           bundle should include("\"versionSource\" : \"repository-catalog\"")
@@ -641,10 +641,10 @@ class CozyBokProjectSpec
           updated should contain("nict-knowledgehub")
           dir.resolve(
             "src/main/publication/nict-knowledgehub.json"
-          ) should beRegularFile
+          ) should be_regular_file
           dir.resolve(
             "warehouse/repository/car/nict-knowledgehub/0.1.0/nict-knowledgehub-0.1.0.car"
-          ) shouldNot existPath
+          ) shouldNot exist_path
         }
       }
 
@@ -708,8 +708,8 @@ class CozyBokProjectSpec
             "the plan and manifest include CAR project package counts without side effects"
           )
           out should include("0 .video package(s), 1 project package(s)")
-          dir.resolve("src/main/publication") shouldNot existPath
-          dir.resolve("warehouse") shouldNot existPath
+          dir.resolve("src/main/publication") shouldNot exist_path
+          dir.resolve("warehouse") shouldNot exist_path
           val manifest =
             _read(dir.resolve("target/cozy-bok/publish/latest/manifest.json"))
           manifest should include("projectPackages")
@@ -783,14 +783,14 @@ class CozyBokProjectSpec
             "the warehouse CAR catalog contains the CML source and machine-readable model metadata sidecars"
           )
           val catalogdir = warehouse.resolve("repository/catalog/car")
-          catalogdir.resolve("nict-knowledgehub.yaml") should beRegularFile
-          catalogdir.resolve("nict-knowledgehub.cml") should beRegularFile
+          catalogdir.resolve("nict-knowledgehub.yaml") should be_regular_file
+          catalogdir.resolve("nict-knowledgehub.cml") should be_regular_file
           catalogdir.resolve(
             "nict-knowledgehub.model-metadata.json"
-          ) should beRegularFile
+          ) should be_regular_file
           catalogdir.resolve(
             "nict-knowledgehub.model-metadata.yaml"
-          ) should beRegularFile
+          ) should be_regular_file
           val metadata =
             _read(catalogdir.resolve("nict-knowledgehub.model-metadata.json"))
           metadata should include("cozy.cml.model-metadata.v1")
@@ -1036,7 +1036,7 @@ class CozyBokProjectSpec
           termhub should include("Knowledge item narrative from CML.")
           dir.resolve(
             "warehouse/repository/car/nict-knowledgehub/0.1.0/nict-knowledgehub-0.1.0.car"
-          ) shouldNot existPath
+          ) shouldNot exist_path
         }
       }
     }
