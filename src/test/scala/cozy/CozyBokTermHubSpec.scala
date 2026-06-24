@@ -117,8 +117,8 @@ class CozyBokTermHubSpec
         }
       }
 
-      "fall back to source glossary items when terms metadata is absent" in {
-        _with_temp_dir("cozy-bok-term-fallback") { dir =>
+      "render empty term surfaces when terms metadata is absent" in {
+        _with_temp_dir("cozy-bok-term-empty-metadata") { dir =>
           Given("a BoK source tree whose SmartDox output has no terms.json")
           _write(
             dir.resolve("src/main/doxsite/site.conf"),
@@ -159,23 +159,16 @@ class CozyBokTermHubSpec
           CozyBok.build(config, new NoTermMetadataRunner)
 
           Then(
-            "the Glossary dashboard and Term Hub still render without failing"
+            "the Glossary dashboard renders an empty metadata-driven surface without rebuilding terms from source"
           )
-          _read(dir.resolve("website.d/glossary/index.html")) should include(
-            "href=\"architecture/runtime.html\""
-          )
-          _read(dir.resolve("website.d/glossary/index.html")) should include(
-            "らんたいむ"
-          )
-          _read(
+          val glossary = _read(dir.resolve("website.d/glossary/index.html"))
+          glossary should include("Term Dashboard")
+          glossary should include("No glossary terms yet.")
+          glossary should not include ("""href="architecture/runtime.html"""")
+          glossary should not include ("らんたいむ")
+          Files.exists(
             dir.resolve("website.d/glossary/architecture/runtime.html")
-          ) should include("class=\"bok-dashboard-shell bok-term-hub\"")
-          _read(
-            dir.resolve("website.d/glossary/architecture/runtime.html")
-          ) should include("Runtime markdown term brief.")
-          _read(
-            dir.resolve("website.d/glossary/architecture/runtime.html")
-          ) should include("らんたいむ")
+          ) shouldBe false
         }
       }
     }

@@ -17,12 +17,12 @@ import java.security.MessageDigest
  * @version Jun. 24, 2026
  * @author  ASAMI, Tomoharu
  */
-private[cozy] object CozyCarProductPublisher {
-  private val _schema = "cozy.bok.car-product.v1"
-  private val _descriptor_names = Vector("product.yaml", "product.yml", "product.json")
+private[cozy] object CozyBokProjectPublisher {
+  private val _schema = "cozy.bok.project.v1"
+  private val _descriptor_names = Vector("project.yaml", "project.yml", "project.json")
   private val _slug_pattern = "^[a-z0-9][a-z0-9-]*$".r
 
-  final case class PublishCarProductConfig(
+  final case class PublishProjectConfig(
     packagedir: Path,
     savedir: Path,
     warehousedir: Path,
@@ -33,51 +33,44 @@ private[cozy] object CozyCarProductPublisher {
     repositorydir: Option[Path] = None
   )
 
-  final case class ProductDescriptor(
-    product: ProductSection,
+  final case class ProjectDescriptor(
+    project: ProjectSection,
+    car: Option[CarSection],
+    cml: Option[CmlSection],
     title: Option[String],
     version: Option[String],
     summary: Option[String],
     article: Option[String],
     publication: Option[PublicationSection]
   )
-  object ProductDescriptor {
-    implicit val decoder: Decoder[ProductDescriptor] = (c: HCursor) =>
+  object ProjectDescriptor {
+    implicit val decoder: Decoder[ProjectDescriptor] = (c: HCursor) =>
       for {
-        product <- c.downField("product").as[ProductSection]
+        project <- c.downField("project").as[ProjectSection]
+        car <- c.downField("car").as[Option[CarSection]]
+        cml <- c.downField("cml").as[Option[CmlSection]]
         title <- c.downField("title").as[Option[String]]
         version <- c.downField("version").as[Option[String]]
         summary <- c.downField("summary").as[Option[String]]
         article <- c.downField("article").as[Option[String]]
         publication <- c.downField("publication").as[Option[PublicationSection]]
-      } yield ProductDescriptor(product, title, version, summary, article, publication)
+      } yield ProjectDescriptor(project, car, cml, title, version, summary, article, publication)
   }
 
-  final case class ProductSection(
-    producttype: String,
+  final case class ProjectSection(
+    projecttype: String,
     name: String,
-    project: Option[ProjectSection],
-    car: Option[CarSection],
-    cml: Option[CmlSection]
+    mode: Option[String],
+    ref: Option[String]
   )
-  object ProductSection {
-    implicit val decoder: Decoder[ProductSection] = (c: HCursor) =>
-      for {
-        producttype <- c.downField("type").as[String]
-        name <- c.downField("name").as[String]
-        project <- c.downField("project").as[Option[ProjectSection]]
-        car <- c.downField("car").as[Option[CarSection]]
-        cml <- c.downField("cml").as[Option[CmlSection]]
-      } yield ProductSection(producttype, name, project, car, cml)
-  }
-
-  final case class ProjectSection(mode: Option[String], ref: Option[String])
   object ProjectSection {
     implicit val decoder: Decoder[ProjectSection] = (c: HCursor) =>
       for {
+        projecttype <- c.downField("type").as[String]
+        name <- c.downField("name").as[String]
         mode <- c.downField("mode").as[Option[String]]
         ref <- c.downField("ref").as[Option[String]]
-      } yield ProjectSection(mode, ref)
+      } yield ProjectSection(projecttype, name, mode, ref)
   }
 
   final case class CarSection(module: Option[String])
@@ -107,11 +100,11 @@ private[cozy] object CozyCarProductPublisher {
       c.downField("path").as[Option[String]].map(PublicationSection.apply)
   }
 
-  final case class ResolvedCarProduct(
+  final case class ResolvedBokProject(
     packagedir: Path,
     slug: String,
     descriptorfile: Path,
-    descriptor: ProductDescriptor,
+    descriptor: ProjectDescriptor,
     name: String,
     title: String,
     version: String,
@@ -124,8 +117,8 @@ private[cozy] object CozyCarProductPublisher {
     projectpath: Option[Path],
     module: String,
     versionsource: String,
-    catalog: Option[ProductCatalogInfo],
-    cml: Option[ProductCmlInfo]
+    catalog: Option[ProjectCatalogInfo],
+    cml: Option[ProjectCmlInfo]
   ) {
     def warehousePath: String =
       catalog.flatMap(_.selectedversion).flatMap(_.file).getOrElse(s"repository/car/${module}/${version}/${module}-${version}.car")
@@ -133,13 +126,13 @@ private[cozy] object CozyCarProductPublisher {
       warehousePath
   }
 
-  final case class ProductCatalogInfo(
+  final case class ProjectCatalogInfo(
     path: Path,
     catalog: RepositoryArtifactCatalog,
     selectedversion: Option[RepositoryArtifactCatalogVersion]
   )
 
-  final case class ProductCmlInfo(
+  final case class ProjectCmlInfo(
     sourcepath: Path,
     sourceprojectrelativepath: String,
     glossarycategory: String,
@@ -164,49 +157,49 @@ private[cozy] object CozyCarProductPublisher {
     description: Option[String]
   )
 
-  final case class PublishCarProductResult(
-    product: ResolvedCarProduct,
+  final case class PublishProjectResult(
+    project: ResolvedBokProject,
     artifact: Path,
     artifactexists: Boolean,
     publicationbundle: Path
   )
 
-  def publish(config: PublishCarProductConfig): PublishCarProductResult = {
-    val product = resolve(config)
-    val artifact = artifactPath(config, product.warehousePath)
-    _publish_metadata(config, product, artifact)
+  def publish(config: PublishProjectConfig): PublishProjectResult = {
+    val project = resolve(config)
+    val artifact = artifactPath(config, project.warehousePath)
+    _publish_metadata(config, project, artifact)
   }
 
-  def artifactPath(config: PublishCarProductConfig, warehousepath: String): Path =
+  def artifactPath(config: PublishProjectConfig, warehousepath: String): Path =
     _repository_artifact_path(config, warehousepath)
 
-  def resolve(config: PublishCarProductConfig): ResolvedCarProduct = {
+  def resolve(config: PublishProjectConfig): ResolvedBokProject = {
     val packagedir = config.packagedir.toAbsolutePath.normalize()
-    _validate_package_dir(packagedir)
+    _validate_package_dir(config, packagedir)
     val descriptorfile = _descriptor_file(packagedir)
-    val descriptor = StructuredDocumentLoader.loadDocument[ProductDescriptor](InputSource(descriptorfile.toFile)).take
-    if (descriptor.product.producttype != "car")
-      RAISE.invalidArgumentFault(s"Unsupported product.type in CAR product package: ${descriptor.product.producttype}")
-    val slug = packagedir.getFileName.toString.stripSuffix(".car-product")
-    val name = _validate_slug(descriptor.product.name, "product.name")
+    val descriptor = StructuredDocumentLoader.loadDocument[ProjectDescriptor](InputSource(descriptorfile.toFile)).take
+    if (descriptor.project.projecttype != "car")
+      RAISE.invalidArgumentFault(s"Unsupported project.type in BoK project package: ${descriptor.project.projecttype}")
+    val slug = _validate_slug(packagedir.getFileName.toString, "project slug")
+    val category = _project_category(config, packagedir)
+    val name = _validate_slug(descriptor.project.name, "project.name")
     val title = descriptor.title.map(_.trim).filter(_.nonEmpty).getOrElse(name)
     val articlepath = _relative_path(descriptor.article.getOrElse("index.dox"), "article")
     val article = packagedir.resolve(articlepath).normalize()
     if (!Files.isRegularFile(article))
-      RAISE.invalidArgumentFault(s"Missing CAR product article source: $article")
-    val publicationpath = _validate_publication_path(descriptor.publication.flatMap(_.path).getOrElse(s"products/${name}"))
-    val project = descriptor.product.project.getOrElse(ProjectSection(Some("internal"), None))
-    val mode = project.mode.map(_.trim).filter(_.nonEmpty).getOrElse("internal")
+      RAISE.invalidArgumentFault(s"Missing CAR project article source: $article")
+    val publicationpath = _validate_publication_path(descriptor.publication.flatMap(_.path).getOrElse(s"projects/${category}/${slug}"))
+    val mode = descriptor.project.mode.map(_.trim).filter(_.nonEmpty).getOrElse("internal")
     if (mode != "internal" && mode != "external")
-      RAISE.invalidArgumentFault(s"Unsupported product.project.mode: $mode")
-    val projectpath = _resolve_project_path(config, mode, project.ref)
-    val module = _validate_slug(descriptor.product.car.flatMap(_.module).getOrElse(name), "product.car.module")
+      RAISE.invalidArgumentFault(s"Unsupported project.mode: $mode")
+    val projectpath = _resolve_project_path(config, mode, descriptor.project.ref)
+    val module = _validate_slug(descriptor.car.flatMap(_.module).getOrElse(name), "car.module")
     val catalog = _load_catalog(config, module)
     val catalogversion = catalog.flatMap { case (_, c) => _catalog_effective_version(c) }
     val explicitversion = config.version.orElse(descriptor.version).map(_.trim).filter(_.nonEmpty)
     val version = explicitversion.orElse(catalogversion).getOrElse("0.0.0-SNAPSHOT")
     val cataloginfo = catalog.map {
-      case (path, c) => ProductCatalogInfo(path, c, c.versions.find(_.version == version))
+      case (path, c) => ProjectCatalogInfo(path, c, c.versions.find(_.version == version))
     }
     val versionsource =
       if (config.version.nonEmpty) "cli"
@@ -214,7 +207,7 @@ private[cozy] object CozyCarProductPublisher {
       else if (catalogversion.nonEmpty) "repository-catalog"
       else "default"
     val cml = _resolve_cml_info(config, descriptor, projectpath, module)
-    ResolvedCarProduct(
+    ResolvedBokProject(
       packagedir,
       slug,
       descriptorfile,
@@ -227,7 +220,7 @@ private[cozy] object CozyCarProductPublisher {
       articlepath,
       publicationpath,
       mode,
-      project.ref.map(_.trim).filter(_.nonEmpty),
+      descriptor.project.ref.map(_.trim).filter(_.nonEmpty),
       projectpath,
       module,
       versionsource,
@@ -237,113 +230,113 @@ private[cozy] object CozyCarProductPublisher {
   }
 
   private def _publish_metadata(
-    config: PublishCarProductConfig,
-    product: ResolvedCarProduct,
+    config: PublishProjectConfig,
+    project: ResolvedBokProject,
     artifact: Path
-  ): PublishCarProductResult = {
+  ): PublishProjectResult = {
     val exists = Files.isRegularFile(artifact)
     CozyPublicationCompiler.publishMetadata(
       config.savedir,
-      product.name,
-      Some(product.publicationpath),
-      product.packagedir,
+      project.name,
+      Some(project.publicationpath),
+      project.packagedir,
       Vector(
-        s"metadata/catalog/products/car/${product.name}.json" -> _catalog_json(product),
-        s"metadata/products/car/${product.name}/metadata.json" -> _product_metadata_json(config, product, artifact, exists),
-        s"metadata/products/car/${product.name}/${product.version}/manifest.json" -> _manifest_json(config, product, artifact, exists),
-        s"metadata/products/car/${product.name}/latest.json" -> _latest_json(product),
-        s"metadata/artifacts/repository/${product.name}.json" -> _artifact_json(config, product, artifact, exists)
+        s"metadata/catalog/projects/car/${project.name}.json" -> _catalog_json(project),
+        s"metadata/projects/car/${project.name}/metadata.json" -> _project_metadata_json(config, project, artifact, exists),
+        s"metadata/projects/car/${project.name}/${project.version}/manifest.json" -> _manifest_json(config, project, artifact, exists),
+        s"metadata/projects/car/${project.name}/latest.json" -> _latest_json(project),
+        s"metadata/artifacts/repository/${project.name}.json" -> _artifact_json(config, project, artifact, exists)
       )
     )
-    PublishCarProductResult(product, artifact, exists, config.savedir.resolve(s"${product.name}.json"))
+    PublishProjectResult(project, artifact, exists, config.savedir.resolve(s"${project.name}.json"))
   }
 
-  private def _catalog_json(product: ResolvedCarProduct): JsValue =
+  private def _catalog_json(project: ResolvedBokProject): JsValue =
     Json.obj(
       "schema" -> _schema,
-      "type" -> "catalog-car-product",
-      "product" -> Json.obj(
+      "type" -> "catalog-bok-project",
+      "project" -> Json.obj(
         "type" -> "car",
-        "name" -> product.name,
-        "title" -> product.title,
-        "version" -> product.version,
-        "metadata" -> s"metadata/products/car/${product.name}/metadata",
-        "publicationPath" -> product.publicationpath
+        "name" -> project.name,
+        "title" -> project.title,
+        "version" -> project.version,
+        "metadata" -> s"metadata/projects/car/${project.name}/metadata",
+        "publicationPath" -> project.publicationpath
       )
     )
 
-  private def _product_metadata_json(config: PublishCarProductConfig, product: ResolvedCarProduct, artifact: Path, exists: Boolean): JsValue =
+  private def _project_metadata_json(config: PublishProjectConfig, project: ResolvedBokProject, artifact: Path, exists: Boolean): JsValue =
     Json.obj(
       "schema" -> _schema,
-      "type" -> "car-product-publication",
-      "product" -> (Json.obj(
+      "type" -> "bok-project-publication",
+      "project" -> (Json.obj(
         "type" -> "car",
-        "name" -> product.name,
-        "title" -> product.title,
-        "version" -> product.version,
-        "summary" -> Json.toJson(product.summary.getOrElse("")),
-        "articlePath" -> product.articlepath,
-        "publicationPath" -> product.publicationpath,
-        "sourcePackage" -> _project_relative_path(config.bokprojectdir, product.packagedir),
-        "descriptorPath" -> product.descriptorfile.getFileName.toString,
-        "descriptorSha256" -> _sha256(product.descriptorfile),
+        "name" -> project.name,
+        "title" -> project.title,
+        "version" -> project.version,
+        "summary" -> Json.toJson(project.summary.getOrElse("")),
+        "articlePath" -> project.articlepath,
+        "publicationPath" -> project.publicationpath,
+        "sourcePackage" -> _project_relative_path(config.bokprojectdir, project.packagedir),
+        "descriptorPath" -> project.descriptorfile.getFileName.toString,
+        "descriptorSha256" -> _sha256(project.descriptorfile),
         "project" -> Json.obj(
-          "mode" -> product.projectmode,
-          "ref" -> Json.toJson(product.projectref.getOrElse(""))
+          "mode" -> project.projectmode,
+          "ref" -> Json.toJson(project.projectref.getOrElse(""))
         ),
         "car" -> Json.obj(
-          "module" -> product.module
+          "module" -> project.module
         ),
-        "versionSource" -> product.versionsource,
-        "catalog" -> _catalog_summary_json(config, product),
-        "cml" -> _cml_json(config, product),
-        "artifact" -> _artifact_file_json(product, artifact, exists)
+        "versionSource" -> project.versionsource,
+        "catalog" -> _catalog_summary_json(config, project),
+        "cml" -> _cml_json(config, project),
+        "artifact" -> _artifact_file_json(project, artifact, exists)
       ))
     )
 
-  private def _manifest_json(config: PublishCarProductConfig, product: ResolvedCarProduct, artifact: Path, exists: Boolean): JsValue =
+  private def _manifest_json(config: PublishProjectConfig, project: ResolvedBokProject, artifact: Path, exists: Boolean): JsValue =
     Json.obj(
       "schema" -> _schema,
-      "type" -> "car-product-registry-manifest",
-      "product" -> Json.obj(
-        "name" -> product.name,
-        "title" -> product.title,
-        "version" -> product.version,
-        "metadataPath" -> s"metadata/products/car/${product.name}/metadata",
-        "latestPath" -> s"metadata/products/car/${product.name}/latest"
+      "type" -> "bok-project-registry-manifest",
+      "project" -> Json.obj(
+        "name" -> project.name,
+        "title" -> project.title,
+        "version" -> project.version,
+        "metadataPath" -> s"metadata/projects/car/${project.name}/metadata",
+        "latestPath" -> s"metadata/projects/car/${project.name}/latest"
       ),
-      "artifact" -> _artifact_file_json(product, artifact, exists),
-      "catalog" -> _catalog_summary_json(config, product),
-      "cml" -> _cml_json(config, product),
-      "diagnostics" -> JsArray(_diagnostics(product, exists))
+      "artifact" -> _artifact_file_json(project, artifact, exists),
+      "catalog" -> _catalog_summary_json(config, project),
+      "cml" -> _cml_json(config, project),
+      "diagnostics" -> JsArray(_diagnostics(project, exists))
     )
 
-  private def _latest_json(product: ResolvedCarProduct): JsValue =
+  private def _latest_json(project: ResolvedBokProject): JsValue =
     Json.obj(
       "schema" -> _schema,
-      "type" -> "car-product-latest",
-      "product" -> Json.obj(
-        "name" -> product.name,
-        "version" -> product.version,
-        "metadataPath" -> s"metadata/products/car/${product.name}/metadata",
-        "manifestPath" -> s"metadata/products/car/${product.name}/${product.version}/manifest"
+      "type" -> "bok-project-latest",
+      "project" -> Json.obj(
+        "name" -> project.name,
+        "version" -> project.version,
+        "metadataPath" -> s"metadata/projects/car/${project.name}/metadata",
+        "manifestPath" -> s"metadata/projects/car/${project.name}/${project.version}/manifest"
       )
     )
 
-  private def _artifact_json(config: PublishCarProductConfig, product: ResolvedCarProduct, artifact: Path, exists: Boolean): JsValue = {
-    val files = product.catalog.map { info =>
-      info.catalog.versions.map(_catalog_artifact_file_json(config, product, _))
-    }.getOrElse(Vector(_artifact_file_json(product, artifact, exists)))
+  private def _artifact_json(config: PublishProjectConfig, project: ResolvedBokProject, artifact: Path, exists: Boolean): JsValue = {
+    val files = project.catalog.map { info =>
+      info.catalog.versions.map(_catalog_artifact_file_json(config, project, _))
+    }.getOrElse(Vector(_artifact_file_json(project, artifact, exists)))
     val status =
       if (files.nonEmpty && files.forall(file => (file \ "status").asOpt[String].contains("published"))) "published" else "missing"
     Json.obj(
       "schema" -> _schema,
       "type" -> "repository-artifact",
       "project" -> Json.obj(
-        "name" -> product.name,
-        "title" -> product.title,
+        "name" -> project.name,
+        "title" -> project.title,
         "kind" -> "car",
-        "version" -> product.version
+        "version" -> project.version
       ),
       "artifact" -> Json.obj(
         "layer" -> "repository",
@@ -351,23 +344,23 @@ private[cozy] object CozyCarProductPublisher {
         "kinds" -> Json.arr(Json.obj(
           "type" -> "car",
           "versions" -> Json.toJson(files.map(file => (file \ "version").as[String])),
-          "latestRelease" -> product.version
+          "latestRelease" -> project.version
         )),
         "files" -> JsArray(files)
       )
     )
   }
 
-  private def _artifact_file_json(product: ResolvedCarProduct, artifact: Path, exists: Boolean): JsObject = {
+  private def _artifact_file_json(project: ResolvedBokProject, artifact: Path, exists: Boolean): JsObject = {
     val base = Json.obj(
       "layer" -> "repository",
       "type" -> "car",
-      "module" -> product.module,
-      "artifactId" -> product.module,
-      "version" -> product.version,
+      "module" -> project.module,
+      "artifactId" -> project.module,
+      "version" -> project.version,
       "extension" -> "car",
-      "warehousePath" -> product.warehousePath,
-      "publicPath" -> product.publicPath,
+      "warehousePath" -> project.warehousePath,
+      "publicPath" -> project.publicPath,
       "name" -> artifact.getFileName.toString,
       "expected" -> !exists,
       "status" -> (if (exists) "published" else "missing")
@@ -382,18 +375,18 @@ private[cozy] object CozyCarProductPublisher {
   }
 
   private def _catalog_artifact_file_json(
-    config: PublishCarProductConfig,
-    product: ResolvedCarProduct,
+    config: PublishProjectConfig,
+    project: ResolvedBokProject,
     version: RepositoryArtifactCatalogVersion
   ): JsObject = {
-    val warehousepath = version.file.getOrElse(s"repository/car/${product.module}/${version.version}/${product.module}-${version.version}.car")
+    val warehousepath = version.file.getOrElse(s"repository/car/${project.module}/${version.version}/${project.module}-${version.version}.car")
     val artifact = _repository_artifact_path(config, warehousepath)
     val exists = Files.isRegularFile(artifact)
     val base = Json.obj(
       "layer" -> "repository",
       "type" -> "car",
-      "module" -> product.module,
-      "artifactId" -> product.module,
+      "module" -> project.module,
+      "artifactId" -> project.module,
       "version" -> version.version,
       "extension" -> "car",
       "warehousePath" -> warehousepath,
@@ -411,8 +404,8 @@ private[cozy] object CozyCarProductPublisher {
       withchecksum
   }
 
-  private def _catalog_summary_json(config: PublishCarProductConfig, product: ResolvedCarProduct): JsValue =
-    product.catalog.map { info =>
+  private def _catalog_summary_json(config: PublishProjectConfig, project: ResolvedBokProject): JsValue =
+    project.catalog.map { info =>
       Json.obj(
         "source" -> "repository-catalog",
         "path" -> _warehouse_relative_path(config, info.path),
@@ -433,8 +426,8 @@ private[cozy] object CozyCarProductPublisher {
       )
     }.getOrElse(Json.obj("source" -> "descriptor"))
 
-  private def _cml_json(config: PublishCarProductConfig, product: ResolvedCarProduct): JsValue =
-    product.cml.map { cml =>
+  private def _cml_json(config: PublishProjectConfig, project: ResolvedBokProject): JsValue =
+    project.cml.map { cml =>
       Json.obj(
         "sourcePath" -> _cml_public_source_path(config, cml),
         "projectRelativePath" -> cml.sourceprojectrelativepath,
@@ -459,22 +452,22 @@ private[cozy] object CozyCarProductPublisher {
       )
     }.getOrElse(Json.obj(
       "status" -> "missing",
-      "message" -> "CML source is not registered for this CAR product."
+      "message" -> "CML source is not registered for this CAR project."
     ))
 
-  private def _diagnostics(product: ResolvedCarProduct, exists: Boolean): Vector[JsObject] =
+  private def _diagnostics(project: ResolvedBokProject, exists: Boolean): Vector[JsObject] =
     if (exists)
       Vector.empty
     else {
-      val projectdir = product.projectref.map(ref => s"<${ref}>").getOrElse("<project-dir>")
+      val projectdir = project.projectref.map(ref => s"<${ref}>").getOrElse("<project-dir>")
       Vector(Json.obj(
         "severity" -> "warning",
-        "message" -> s"CAR artifact is not registered in artifact repository: ${product.warehousePath}",
-        "action" -> s"Run cozy publish-car ${projectdir} --warehouse <warehouse-dir> --name ${product.module} --version ${product.version}"
+        "message" -> s"CAR artifact is not registered in artifact repository: ${project.warehousePath}",
+        "action" -> s"Run cozy publish-car ${projectdir} --warehouse <warehouse-dir> --name ${project.module} --version ${project.version}"
       ))
     }
 
-  private def _load_catalog(config: PublishCarProductConfig, module: String): Option[(Path, RepositoryArtifactCatalog)] = {
+  private def _load_catalog(config: PublishProjectConfig, module: String): Option[(Path, RepositoryArtifactCatalog)] = {
     val path = _repository_catalog_dir(config).resolve(s"$module.yaml").toAbsolutePath.normalize()
     if (Files.isRegularFile(path))
       Some(path -> RepositoryArtifactCatalog.load(path))
@@ -483,17 +476,17 @@ private[cozy] object CozyCarProductPublisher {
   }
 
   private def _resolve_cml_info(
-    config: PublishCarProductConfig,
-    descriptor: ProductDescriptor,
+    config: PublishProjectConfig,
+    descriptor: ProjectDescriptor,
     projectpath: Option[Path],
     module: String
-  ): Option[ProductCmlInfo] = {
-    val glossarycategory = descriptor.product.cml.flatMap(_.glossary).flatMap(_.category).map(_validate_slug(_, "product.cml.glossary.category")).getOrElse("cml")
+  ): Option[ProjectCmlInfo] = {
+    val glossarycategory = descriptor.cml.flatMap(_.glossary).flatMap(_.category).map(_validate_slug(_, "cml.glossary.category")).getOrElse("cml")
     _load_model_metadata(config, module, glossarycategory).orElse(projectpath.flatMap { projectdir =>
-      val sourcerelative = descriptor.product.cml.flatMap(_.source).map(_relative_path(_, "product.cml.source")).getOrElse(s"src/main/cozy/${module}.cml")
+      val sourcerelative = descriptor.cml.flatMap(_.source).map(_relative_path(_, "cml.source")).getOrElse(s"src/main/cozy/${module}.cml")
       val sourcepath = projectdir.resolve(sourcerelative).toAbsolutePath.normalize()
       if (Files.isRegularFile(sourcepath)) {
-        Some(ProductCmlInfo(
+        Some(ProjectCmlInfo(
           sourcepath,
           sourcerelative,
           glossarycategory,
@@ -508,10 +501,10 @@ private[cozy] object CozyCarProductPublisher {
   }
 
   private def _load_model_metadata(
-    config: PublishCarProductConfig,
+    config: PublishProjectConfig,
     module: String,
     glossarycategory: String
-  ): Option[ProductCmlInfo] = {
+  ): Option[ProjectCmlInfo] = {
     val catalogdir = _repository_catalog_dir(config)
     val candidates = Vector(
       catalogdir.resolve(s"$module.model-metadata.json"),
@@ -541,7 +534,7 @@ private[cozy] object CozyCarProductPublisher {
           c.downField("narrative").as[String].toOption.filter(_.trim.nonEmpty)
         )
       }.filter(_.name.nonEmpty)
-      ProductCmlInfo(
+      ProjectCmlInfo(
         source,
         if (sourcepath.trim.isEmpty) "" else sourcepath,
         glossarycategory,
@@ -580,51 +573,63 @@ private[cozy] object CozyCarProductPublisher {
     val files = _descriptor_names.map(packagedir.resolve).filter(Files.isRegularFile(_))
     files match {
       case Vector(x) => x
-      case Vector() => RAISE.invalidArgumentFault(s"Missing CAR product descriptor. Expected one of: ${_descriptor_names.mkString(", ")}")
-      case xs => RAISE.invalidArgumentFault(s"Multiple CAR product descriptors found: ${xs.map(_.getFileName.toString).mkString(", ")}")
+      case Vector() => RAISE.invalidArgumentFault(s"Missing CAR project descriptor. Expected one of: ${_descriptor_names.mkString(", ")}")
+      case xs => RAISE.invalidArgumentFault(s"Multiple CAR project descriptors found: ${xs.map(_.getFileName.toString).mkString(", ")}")
     }
   }
 
-  private def _validate_package_dir(path: Path): Unit = {
+  private def _validate_package_dir(config: PublishProjectConfig, path: Path): Unit = {
     val name = path.getFileName.toString
-    if (name.endsWith(".car-product.d"))
-      RAISE.invalidArgumentFault(s"*.car-product.d is reserved for generated/work directories, not CAR product source packages: $path")
-    if (!name.endsWith(".car-product"))
-      RAISE.invalidArgumentFault(s"CAR product source package directory must end with .car-product: $path")
+    if (name.endsWith(".car-product") || name.endsWith(".car-product.d"))
+      RAISE.invalidArgumentFault(s".car-product source packages are no longer supported. Use src/main/doxsite/projects/<category>/<slug>: $path")
     if (!Files.isDirectory(path))
-      RAISE.invalidArgumentFault(s"CAR product source package directory does not exist: $path")
+      RAISE.invalidArgumentFault(s"CAR project source package directory does not exist: $path")
+    _project_category(config, path)
+  }
+
+  private def _project_category(config: PublishProjectConfig, path: Path): String = {
+    val projects = config.bokprojectdir.resolve("src/main/doxsite/projects").toAbsolutePath.normalize()
+    val target = path.toAbsolutePath.normalize()
+    if (!target.startsWith(projects))
+      RAISE.invalidArgumentFault(s"BoK project package must be under src/main/doxsite/projects/<category>/<slug>: $path")
+    val relative = projects.relativize(target)
+    if (relative.getNameCount != 2)
+      RAISE.invalidArgumentFault(s"BoK project package must be src/main/doxsite/projects/<category>/<slug>: $path")
+    _validate_slug(relative.getName(0).toString, "project category")
   }
 
   private def _resolve_project_path(
-    config: PublishCarProductConfig,
+    config: PublishProjectConfig,
     mode: String,
     ref: Option[String]
   ): Option[Path] =
-    ref.map(_.trim).filter(_.nonEmpty).map { projectref =>
-      val path = config.bokconfig.value(s"bok.projects.${projectref}.path").map(value =>
+    ref.map(_.trim).filter(_.nonEmpty).flatMap { projectref =>
+      val pathoption = config.bokconfig.value(s"bok.projects.${projectref}.path").map(value =>
         config.bokprojectdir.resolve(value).toAbsolutePath.normalize()
-      ).getOrElse {
+      ).orElse {
         if (mode == "external")
-          RAISE.invalidArgumentFault(s"Missing BoK project reference path: bok.projects.${projectref}.path")
+          None
         else
-          config.bokprojectdir.resolve(projectref).toAbsolutePath.normalize()
+          Some(config.bokprojectdir.resolve(projectref).toAbsolutePath.normalize())
       }
-      if (!Files.isDirectory(path))
-        RAISE.invalidArgumentFault(s"CAR product project path does not exist: $path")
-      path
+      pathoption.map { path =>
+        if (!Files.isDirectory(path))
+          RAISE.invalidArgumentFault(s"CAR project path does not exist: $path")
+        path
+      }
     }
 
   private def _relative_path(value: String, label: String): String = {
     val path = Paths.get(value).normalize()
     if (path.isAbsolute || path.startsWith("..") || value.contains("\u0000"))
-      RAISE.invalidArgumentFault(s"Invalid CAR product $label path: $value")
+      RAISE.invalidArgumentFault(s"Invalid CAR project $label path: $value")
     path.toString
   }
 
   private def _validate_publication_path(value: String): String = {
     val normalized = value.trim.stripPrefix("/").stripSuffix("/")
     if (normalized.isEmpty || normalized.startsWith("metadata/") || normalized.startsWith("repository/") || normalized.contains(".."))
-      RAISE.invalidArgumentFault(s"Invalid CAR product publication.path: $value")
+      RAISE.invalidArgumentFault(s"Invalid CAR project publication.path: $value")
     normalized
   }
 
@@ -632,7 +637,7 @@ private[cozy] object CozyCarProductPublisher {
     val normalized = value.trim.toLowerCase(java.util.Locale.ROOT)
     normalized match {
       case _slug_pattern() => normalized
-      case _ => RAISE.invalidArgumentFault(s"Invalid CAR product ${label}: ${value}")
+      case _ => RAISE.invalidArgumentFault(s"Invalid CAR project ${label}: ${value}")
     }
   }
 
@@ -652,7 +657,7 @@ private[cozy] object CozyCarProductPublisher {
       target.getFileName.toString
   }
 
-  private def _warehouse_relative_path(config: PublishCarProductConfig, path: Path): String = {
+  private def _warehouse_relative_path(config: PublishProjectConfig, path: Path): String = {
     val target = path.toAbsolutePath.normalize()
     config.repositorydir.flatMap { repositorydir =>
       val root = repositorydir.toAbsolutePath.normalize()
@@ -669,10 +674,10 @@ private[cozy] object CozyCarProductPublisher {
     }
   }
 
-  private def _cml_public_source_path(config: PublishCarProductConfig, cml: ProductCmlInfo): String =
+  private def _cml_public_source_path(config: PublishProjectConfig, cml: ProjectCmlInfo): String =
     cml.modelmetadatapath.map(_warehouse_relative_path(config, _)).getOrElse(cml.sourceprojectrelativepath)
 
-  private def _repository_artifact_path(config: PublishCarProductConfig, warehousepath: String): Path =
+  private def _repository_artifact_path(config: PublishProjectConfig, warehousepath: String): Path =
     config.repositorydir match {
       case Some(repositorydir) if warehousepath == "repository" =>
         repositorydir.toAbsolutePath.normalize()
@@ -682,7 +687,7 @@ private[cozy] object CozyCarProductPublisher {
         config.warehousedir.resolve(warehousepath).toAbsolutePath.normalize()
     }
 
-  private def _repository_catalog_dir(config: PublishCarProductConfig): Path =
+  private def _repository_catalog_dir(config: PublishProjectConfig): Path =
     config.repositorydir match {
       case Some(repositorydir) =>
         repositorydir.resolve("catalog/car").toAbsolutePath.normalize()

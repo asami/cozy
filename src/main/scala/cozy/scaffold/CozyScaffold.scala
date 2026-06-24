@@ -1502,11 +1502,11 @@ private[cozy] object CozyScaffold {
       |  bok publish-video <project-dir> [--publication <dir>] [--repository <dir>] [--warehouse <dir>] [--version <version>] [--force]
       |      Publish all .video packages in a BoK source tree into src/main/publication and the artifact repository.
       |
-      |  bok publish-car-products <project-dir> [--publication <dir>] [--repository <dir>] [--warehouse <dir>] [--version <version>] [--force]
-      |      Register all .car-product packages in a BoK source tree into src/main/publication. Use publish-car for CAR artifacts.
+      |  bok publish-projects <project-dir> [--publication <dir>] [--repository <dir>] [--warehouse <dir>] [--version <version>] [--force]
+      |      Register all src/main/doxsite/projects/<category>/<slug> project knowledge packages into src/main/publication. Use publish-car for CAR artifacts.
       |
       |  bok update-publication <project-dir> [--publication <dir>] [--repository <dir>] [--warehouse <dir>] [--version <version>] [--force]
-      |      Update BoK publication registry metadata for .video and .car-product packages.
+      |      Update BoK publication registry metadata for .video and project knowledge packages.
       |
       |  bok publish <project-dir> [--publication <dir>] [--repository <dir>] [--warehouse <dir>] [--version <version>] [--strategy production] [--force] [--dry-run]
       |      Run update-publication, production BoK build, and the configured bok.workflow.upload.command.

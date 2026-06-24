@@ -14,16 +14,16 @@ import org.scalatest.wordspec.AnyWordSpec
  * @version Jun. 24, 2026
  * @author  ASAMI, Tomoharu
  */
-class CozyBokCarProductSpec
+class CozyBokProjectSpec
     extends AnyWordSpec
     with GivenWhenThen
     with CozySpecVocabulary {
-  "Cozy BoK CAR product publication" should {
-    "register CAR product source packages" which {
-      "discover .car-product packages and write publication registry metadata" in {
-        _with_temp_dir("cozy-bok-car-product") { dir =>
+  "Cozy BoK CAR project publication" should {
+    "register CAR project source packages" which {
+      "discover projects/<category>/<slug> packages and write publication registry metadata" in {
+        _with_temp_dir("cozy-bok-project") { dir =>
           Given(
-            "a BoK source tree with a CAR product package and an external CAR project reference"
+            "a BoK source tree with a CAR project package and an external CAR project reference"
           )
           val externalproject = dir.resolve("external/nict-knowledgehub")
           _write(
@@ -58,57 +58,56 @@ class CozyBokCarProductSpec
                |""".stripMargin
           )
           val pkg = dir.resolve(
-            "src/main/doxsite/concept/nict-knowledgehub.car-product"
+            "src/main/doxsite/projects/concept/nict-knowledgehub"
           )
           _write(
             pkg.resolve("index.dox"),
             "NictKnowledgeHub\n================\n"
           )
           _write(
-            pkg.resolve("product.yaml"),
-            """product:
+            pkg.resolve("project.yaml"),
+            """project:
               |  type: car
               |  name: nict-knowledgehub
-              |  project:
-              |    mode: external
-              |    ref: nict-knowledgehub
-              |  car:
-              |    module: nict-knowledgehub
+              |  mode: external
+              |  ref: nict-knowledgehub
+              |car:
+              |  module: nict-knowledgehub
               |title: NICT KnowledgeHub
               |version: 0.1.0
-              |summary: NICT KnowledgeHub CAR product.
+              |summary: NICT KnowledgeHub CAR project.
               |article: index.dox
               |publication:
-              |  path: products/nict-knowledgehub
+              |  path: projects/concept/nict-knowledgehub
               |""".stripMargin
           )
           val config = CozyBok.PublicationConfig.create(
-            "publish-car-products",
+            "publish-projects",
             List(dir.toString)
           )
 
-          When("Cozy registers CAR product publication metadata")
-          val results = CozyBok.publishCarProducts(config)
+          When("Cozy registers CAR project publication metadata")
+          val results = CozyBok.publishProjects(config)
 
           Then(
             "the publication registry is written without creating generated files inside the source package"
           )
-          results.map(_.product.name) shouldBe Vector("nict-knowledgehub")
+          results.map(_.project.name) shouldBe Vector("nict-knowledgehub")
           dir.resolve(
             "src/main/publication/nict-knowledgehub.json"
           ) should beRegularFile
           val bundle =
             _read(dir.resolve("src/main/publication/nict-knowledgehub.json"))
           bundle should include(
-            "metadata/products/car/nict-knowledgehub/metadata.json"
+            "metadata/projects/car/nict-knowledgehub/metadata.json"
           )
           bundle should include(
-            "metadata/products/car/nict-knowledgehub/0.1.0/manifest.json"
+            "metadata/projects/car/nict-knowledgehub/0.1.0/manifest.json"
           )
           bundle should include(
             "metadata/artifacts/repository/nict-knowledgehub.json"
           )
-          bundle should include("products/nict-knowledgehub")
+          bundle should include("projects/concept/nict-knowledgehub")
           bundle should include("\"status\" : \"missing\"")
           bundle should include(
             "CAR artifact is not registered in artifact repository"
@@ -138,9 +137,9 @@ class CozyBokCarProductSpec
       }
 
       "record published artifact metadata when the CAR already exists in the repository" in {
-        _with_temp_dir("cozy-bok-car-product-artifact") { dir =>
+        _with_temp_dir("cozy-bok-project-artifact") { dir =>
           Given(
-            "a CAR product package and a pre-existing repository CAR artifact"
+            "a CAR project package and a pre-existing repository CAR artifact"
           )
           val externalproject = dir.resolve("external/nict-knowledgehub")
           _write(
@@ -156,26 +155,25 @@ class CozyBokCarProductSpec
                |""".stripMargin
           )
           val pkg = dir.resolve(
-            "src/main/doxsite/concept/nict-knowledgehub.car-product"
+            "src/main/doxsite/projects/concept/nict-knowledgehub"
           )
           _write(
             pkg.resolve("index.dox"),
             "NictKnowledgeHub\n================\n"
           )
           _write(
-            pkg.resolve("product.yaml"),
-            """product:
+            pkg.resolve("project.yaml"),
+            """project:
               |  type: car
               |  name: nict-knowledgehub
-              |  project:
-              |    mode: external
-              |    ref: nict-knowledgehub
-              |  car:
-              |    module: nict-knowledgehub
+              |  mode: external
+              |  ref: nict-knowledgehub
+              |car:
+              |  module: nict-knowledgehub
               |title: NICT KnowledgeHub
               |version: 0.1.0
               |publication:
-              |  path: products/nict-knowledgehub
+              |  path: projects/concept/nict-knowledgehub
               |""".stripMargin
           )
           _write(
@@ -185,12 +183,12 @@ class CozyBokCarProductSpec
             "car-body"
           )
           val config = CozyBok.PublicationConfig.create(
-            "publish-car-products",
+            "publish-projects",
             List(dir.toString)
           )
 
-          When("Cozy registers CAR product publication metadata")
-          val results = CozyBok.publishCarProducts(config)
+          When("Cozy registers CAR project publication metadata")
+          val results = CozyBok.publishProjects(config)
 
           Then("the artifact is represented as a published repository artifact")
           results.head.artifactexists shouldBe true
@@ -205,9 +203,9 @@ class CozyBokCarProductSpec
       }
 
       "record project-local repository artifact metadata when bok.repository points to a separate directory" in {
-        _with_temp_dir("cozy-bok-car-product-local-repository") { dir =>
+        _with_temp_dir("cozy-bok-project-local-repository") { dir =>
           Given(
-            "a CAR product package and a project-local public repository artifact in a non-default directory"
+            "a CAR project package and a project-local public repository artifact in a non-default directory"
           )
           val externalproject = dir.resolve("external/nict-knowledgehub")
           _write(
@@ -224,25 +222,24 @@ class CozyBokCarProductSpec
                |""".stripMargin
           )
           val pkg = dir.resolve(
-            "src/main/doxsite/concept/nict-knowledgehub.car-product"
+            "src/main/doxsite/projects/concept/nict-knowledgehub"
           )
           _write(
             pkg.resolve("index.dox"),
             "NictKnowledgeHub\n================\n"
           )
           _write(
-            pkg.resolve("product.yaml"),
-            """product:
+            pkg.resolve("project.yaml"),
+            """project:
               |  type: car
               |  name: nict-knowledgehub
-              |  project:
-              |    mode: external
-              |    ref: nict-knowledgehub
-              |  car:
-              |    module: nict-knowledgehub
+              |  mode: external
+              |  ref: nict-knowledgehub
+              |car:
+              |  module: nict-knowledgehub
               |title: NICT KnowledgeHub
               |publication:
-              |  path: products/nict-knowledgehub
+              |  path: projects/concept/nict-knowledgehub
               |""".stripMargin
           )
           _write(
@@ -269,12 +266,12 @@ class CozyBokCarProductSpec
               |""".stripMargin
           )
           val config = CozyBok.PublicationConfig.create(
-            "publish-car-products",
+            "publish-projects",
             List(dir.toString)
           )
 
-          When("Cozy registers CAR product publication metadata")
-          val results = CozyBok.publishCarProducts(config)
+          When("Cozy registers CAR project publication metadata")
+          val results = CozyBok.publishProjects(config)
 
           Then(
             "the configured repository root is used while public metadata keeps repository paths"
@@ -308,9 +305,9 @@ class CozyBokCarProductSpec
       }
 
       "derive CAR version and artifact references from the repository catalog when descriptor version is omitted" in {
-        _with_temp_dir("cozy-bok-car-product-catalog") { dir =>
+        _with_temp_dir("cozy-bok-project-catalog") { dir =>
           Given(
-            "a CAR product package that relies on the repository CAR catalog"
+            "a CAR project package that relies on the repository CAR catalog"
           )
           val externalproject = dir.resolve("external/nict-knowledgehub")
           _write(
@@ -349,42 +346,41 @@ class CozyBokCarProductSpec
               |""".stripMargin
           )
           val pkg = dir.resolve(
-            "src/main/doxsite/concept/nict-knowledgehub.car-product"
+            "src/main/doxsite/projects/concept/nict-knowledgehub"
           )
           _write(
             pkg.resolve("index.dox"),
             "NictKnowledgeHub\n================\n"
           )
           _write(
-            pkg.resolve("product.yaml"),
-            """product:
+            pkg.resolve("project.yaml"),
+            """project:
               |  type: car
               |  name: nict-knowledgehub
-              |  project:
-              |    mode: external
-              |    ref: nict-knowledgehub
-              |  car:
-              |    module: nict-knowledgehub
+              |  mode: external
+              |  ref: nict-knowledgehub
+              |car:
+              |  module: nict-knowledgehub
               |title: NICT KnowledgeHub
-              |summary: NICT KnowledgeHub CAR product.
+              |summary: NICT KnowledgeHub CAR project.
               |article: index.dox
               |publication:
-              |  path: products/nict-knowledgehub
+              |  path: projects/concept/nict-knowledgehub
               |""".stripMargin
           )
           val config = CozyBok.PublicationConfig.create(
-            "publish-car-products",
+            "publish-projects",
             List(dir.toString)
           )
 
-          When("Cozy registers the product from the BoK package")
-          val results = CozyBok.publishCarProducts(config)
+          When("Cozy registers the CAR project from the BoK package")
+          val results = CozyBok.publishProjects(config)
 
           Then(
-            "the product version and artifact metadata are sourced from the repository catalog"
+            "the project version and artifact metadata are sourced from the repository catalog"
           )
-          results.head.product.version shouldBe "0.2.0"
-          results.head.product.versionsource shouldBe "repository-catalog"
+          results.head.project.version shouldBe "0.2.0"
+          results.head.project.versionsource shouldBe "repository-catalog"
           results.head.artifactexists shouldBe true
           val bundle =
             _read(dir.resolve("src/main/publication/nict-knowledgehub.json"))
@@ -397,8 +393,76 @@ class CozyBokCarProductSpec
         }
       }
 
+      "register external projects from repository metadata without a local project path" in {
+        _with_temp_dir("cozy-bok-project-catalog-only") { dir =>
+          Given(
+            "a CAR project package whose repository catalog has model metadata but no local external project path"
+          )
+          _write(
+            dir.resolve(
+              "repository/catalog/car/nict-knowledgehub.model-metadata.json"
+            ),
+            """{
+              |  "schema": "cozy.cml.model-metadata.v1",
+              |  "source": {
+              |    "path": "repository/catalog/car/nict-knowledgehub.cml",
+              |    "sha256": "catalog-only",
+              |    "compiler": "cozy-modeler",
+              |    "cozyVersion": "test"
+              |  },
+              |  "elements": [
+              |    {
+              |      "kind": "entity",
+              |      "name": "CatalogOnlyEntity",
+              |      "descriptive": {
+              |        "label": "Catalog Only Entity"
+              |      }
+              |    }
+              |  ]
+              |}
+              |""".stripMargin
+          )
+          val pkg = dir.resolve(
+            "src/main/doxsite/projects/concept/nict-knowledgehub"
+          )
+          _write(
+            pkg.resolve("index.dox"),
+            "NictKnowledgeHub\n================\n"
+          )
+          _write(
+            pkg.resolve("project.yaml"),
+            """project:
+              |  type: car
+              |  name: nict-knowledgehub
+              |  mode: external
+              |  ref: nict-knowledgehub
+              |car:
+              |  module: nict-knowledgehub
+              |title: NICT KnowledgeHub
+              |version: 0.1.0
+              |publication:
+              |  path: projects/concept/nict-knowledgehub
+              |""".stripMargin
+          )
+          val config = CozyBok.PublicationConfig.create(
+            "publish-projects",
+            List(dir.toString)
+          )
+
+          When("Cozy registers CAR project publication metadata")
+          CozyBok.publishProjects(config)
+
+          Then("the repository model metadata is enough to register the project")
+          val bundle =
+            _read(dir.resolve("src/main/publication/nict-knowledgehub.json"))
+          bundle should include("repository-model-metadata")
+          bundle should include("CatalogOnlyEntity")
+          bundle should not include ("Missing BoK project reference path")
+        }
+      }
+
       "resolve external project paths from local .cozy overrides" in {
-        _with_temp_dir("cozy-bok-car-product-local-config") { dir =>
+        _with_temp_dir("cozy-bok-project-local-config") { dir =>
           Given(
             "public config points to a non-local reference and .cozy contains the local sensitive path"
           )
@@ -424,40 +488,39 @@ class CozyBokCarProductSpec
                |""".stripMargin
           )
           val pkg = dir.resolve(
-            "src/main/doxsite/concept/nict-knowledgehub.car-product"
+            "src/main/doxsite/projects/concept/nict-knowledgehub"
           )
           _write(
             pkg.resolve("index.dox"),
             "NictKnowledgeHub\n================\n"
           )
           _write(
-            pkg.resolve("product.yaml"),
-            """product:
+            pkg.resolve("project.yaml"),
+            """project:
               |  type: car
               |  name: nict-knowledgehub
-              |  project:
-              |    mode: external
-              |    ref: nict-knowledgehub
-              |  car:
-              |    module: nict-knowledgehub
+              |  mode: external
+              |  ref: nict-knowledgehub
+              |car:
+              |  module: nict-knowledgehub
               |title: NICT KnowledgeHub
               |version: 0.1.0
               |publication:
-              |  path: products/nict-knowledgehub
+              |  path: projects/concept/nict-knowledgehub
               |""".stripMargin
           )
           val config = CozyBok.PublicationConfig.create(
-            "publish-car-products",
+            "publish-projects",
             List(dir.toString)
           )
 
-          When("Cozy resolves the CAR product reference")
-          val results = CozyBok.publishCarProducts(config)
+          When("Cozy resolves the CAR project reference")
+          val results = CozyBok.publishProjects(config)
 
           Then(
             "the local sensitive .cozy path overrides the public config path"
           )
-          results.head.product.projectpath.map(_.toString) shouldBe Some(
+          results.head.project.projectpath.map(_.toString) shouldBe Some(
             externalproject.toAbsolutePath.normalize().toString
           )
           val bundle =
@@ -470,34 +533,60 @@ class CozyBokCarProductSpec
       }
 
       "reject generated .car-product.d work directories" in {
-        _with_temp_dir("cozy-bok-car-product-workdir") { dir =>
+        _with_temp_dir("cozy-bok-project-workdir") { dir =>
           Given(
-            "a BoK source tree containing a reserved CAR product work directory"
+            "a BoK source tree containing a reserved CAR project work directory"
           )
           Files.createDirectories(
-            dir.resolve("src/main/doxsite/concept/generated.car-product.d")
+            dir.resolve("src/main/doxsite/projects/concept/generated.car-product.d")
           )
           val config = CozyBok.PublicationConfig.create(
-            "publish-car-products",
+            "publish-projects",
             List(dir.toString)
           )
 
-          When("Cozy discovers CAR product packages")
+          When("Cozy discovers CAR project packages")
           val e = intercept[Throwable] {
-            CozyBok.publishCarProducts(config)
+            CozyBok.publishProjects(config)
           }
 
           Then("the reserved generated/work directory naming is rejected")
-          e.getMessage should include("*.car-product.d is reserved")
+          e.getMessage should include(".car-product")
+        }
+      }
+
+      "reject project package directories without project descriptors" in {
+        _with_temp_dir("cozy-bok-project-missing-descriptor") { dir =>
+          Given(
+            "a projects/<category>/<slug> directory that looks like a project package but has no descriptor"
+          )
+          _write(
+            dir.resolve(
+              "src/main/doxsite/projects/concept/nict-knowledgehub/index.dox"
+            ),
+            "NictKnowledgeHub\n================\n"
+          )
+          val config = CozyBok.PublicationConfig.create(
+            "publish-projects",
+            List(dir.toString)
+          )
+
+          When("Cozy discovers CAR project packages")
+          val e = intercept[Throwable] {
+            CozyBok.publishProjects(config)
+          }
+
+          Then("the missing descriptor is reported explicitly")
+          e.getMessage should include("Missing project descriptor")
         }
       }
     }
 
-    "integrate CAR products with BoK publication commands" which {
-      "update-publication handles CAR products without invoking CAR artifact publishing" in {
-        _with_temp_dir("cozy-bok-car-product-update") { dir =>
+    "integrate CAR projects with BoK publication commands" which {
+      "update-publication handles CAR projects without invoking CAR artifact publishing" in {
+        _with_temp_dir("cozy-bok-project-update") { dir =>
           Given(
-            "a BoK source tree with one CAR product and no warehouse artifact"
+            "a BoK source tree with one CAR project and no warehouse artifact"
           )
           val externalproject = dir.resolve("external/nict-knowledgehub")
           _write(
@@ -513,26 +602,25 @@ class CozyBokCarProductSpec
                |""".stripMargin
           )
           val pkg = dir.resolve(
-            "src/main/doxsite/concept/nict-knowledgehub.car-product"
+            "src/main/doxsite/projects/concept/nict-knowledgehub"
           )
           _write(
             pkg.resolve("index.dox"),
             "NictKnowledgeHub\n================\n"
           )
           _write(
-            pkg.resolve("product.yaml"),
-            """product:
+            pkg.resolve("project.yaml"),
+            """project:
               |  type: car
               |  name: nict-knowledgehub
-              |  project:
-              |    mode: external
-              |    ref: nict-knowledgehub
-              |  car:
-              |    module: nict-knowledgehub
+              |  mode: external
+              |  ref: nict-knowledgehub
+              |car:
+              |  module: nict-knowledgehub
               |title: NICT KnowledgeHub
               |version: 0.1.0
               |publication:
-              |  path: products/nict-knowledgehub
+              |  path: projects/concept/nict-knowledgehub
               |""".stripMargin
           )
           val config = CozyBok.PublicationConfig.create(
@@ -560,9 +648,9 @@ class CozyBokCarProductSpec
         }
       }
 
-      "publish dry-run reports both video and CAR product packages" in {
-        _with_temp_dir("cozy-bok-car-product-dry-run") { dir =>
-          Given("a BoK project with upload workflow and a CAR product package")
+      "publish dry-run reports both video and CAR project packages" in {
+        _with_temp_dir("cozy-bok-project-dry-run") { dir =>
+          Given("a BoK project with upload workflow and a CAR project package")
           val externalproject = dir.resolve("external/nict-knowledgehub")
           _write(
             externalproject.resolve("build.sbt"),
@@ -580,26 +668,25 @@ class CozyBokCarProductSpec
                |""".stripMargin
           )
           val pkg = dir.resolve(
-            "src/main/doxsite/concept/nict-knowledgehub.car-product"
+            "src/main/doxsite/projects/concept/nict-knowledgehub"
           )
           _write(
             pkg.resolve("index.dox"),
             "NictKnowledgeHub\n================\n"
           )
           _write(
-            pkg.resolve("product.yaml"),
-            """product:
+            pkg.resolve("project.yaml"),
+            """project:
               |  type: car
               |  name: nict-knowledgehub
-              |  project:
-              |    mode: external
-              |    ref: nict-knowledgehub
-              |  car:
-              |    module: nict-knowledgehub
+              |  mode: external
+              |  ref: nict-knowledgehub
+              |car:
+              |  module: nict-knowledgehub
               |title: NICT KnowledgeHub
               |version: 0.1.0
               |publication:
-              |  path: products/nict-knowledgehub
+              |  path: projects/concept/nict-knowledgehub
               |""".stripMargin
           )
           val config = CozyBok.PublicationConfig.create(
@@ -618,15 +705,15 @@ class CozyBokCarProductSpec
           }
 
           Then(
-            "the plan and manifest include CAR product package counts without side effects"
+            "the plan and manifest include CAR project package counts without side effects"
           )
-          out should include("0 .video package(s), 1 .car-product package(s)")
+          out should include("0 .video package(s), 1 project package(s)")
           dir.resolve("src/main/publication") shouldNot existPath
           dir.resolve("warehouse") shouldNot existPath
           val manifest =
             _read(dir.resolve("target/cozy-bok/publish/latest/manifest.json"))
-          manifest should include("carProductPackages")
-          manifest should include("nict-knowledgehub.car-product")
+          manifest should include("projectPackages")
+          manifest should include("projects/concept/nict-knowledgehub")
           parser
             .parse(manifest)
             .fold(throw _, identity)
@@ -638,7 +725,7 @@ class CozyBokCarProductSpec
       }
 
       "publish-car writes CML and model-metadata sidecars into the warehouse catalog" in {
-        _with_temp_dir("cozy-bok-car-product-publish-car-sidecars") { dir =>
+        _with_temp_dir("cozy-bok-project-publish-car-sidecars") { dir =>
           Given(
             "a CAR project with a CML source file and a prebuilt CAR archive"
           )
@@ -721,10 +808,10 @@ class CozyBokCarProductSpec
         }
       }
 
-      "prefer repository model-metadata over direct CML scan for CAR product registration" in {
-        _with_temp_dir("cozy-bok-car-product-model-metadata-priority") { dir =>
+      "prefer repository model-metadata over direct CML scan for CAR project registration" in {
+        _with_temp_dir("cozy-bok-project-model-metadata-priority") { dir =>
           Given(
-            "a BoK CAR product whose repository catalog has generated model metadata"
+            "a BoK CAR project whose repository catalog has generated model metadata"
           )
           val externalproject = dir.resolve("external/nict-knowledgehub")
           _write(
@@ -776,38 +863,37 @@ class CozyBokCarProductSpec
               |""".stripMargin
           )
           val pkg = dir.resolve(
-            "src/main/doxsite/concept/nict-knowledgehub.car-product"
+            "src/main/doxsite/projects/concept/nict-knowledgehub"
           )
           _write(
             pkg.resolve("index.dox"),
             "NictKnowledgeHub\n================\n"
           )
           _write(
-            pkg.resolve("product.yaml"),
-            """product:
+            pkg.resolve("project.yaml"),
+            """project:
               |  type: car
               |  name: nict-knowledgehub
-              |  project:
-              |    mode: external
-              |    ref: nict-knowledgehub
-              |  car:
-              |    module: nict-knowledgehub
-              |  cml:
-              |    glossary:
-              |      category: technology
+              |  mode: external
+              |  ref: nict-knowledgehub
+              |car:
+              |  module: nict-knowledgehub
+              |cml:
+              |  glossary:
+              |    category: technology
               |title: NICT KnowledgeHub
               |version: 0.1.0
               |publication:
-              |  path: products/nict-knowledgehub
+              |  path: projects/concept/nict-knowledgehub
               |""".stripMargin
           )
           val config = CozyBok.PublicationConfig.create(
-            "publish-car-products",
+            "publish-projects",
             List(dir.toString)
           )
 
-          When("Cozy registers CAR product publication metadata")
-          CozyBok.publishCarProducts(config)
+          When("Cozy registers CAR project publication metadata")
+          CozyBok.publishProjects(config)
 
           Then(
             "the registry uses the repository model-metadata and does not fall back to direct CML scan"
@@ -822,29 +908,29 @@ class CozyBokCarProductSpec
         }
       }
 
-      "help lists CAR product publication commands" in {
+      "help lists CAR project publication commands" in {
         Given("the Cozy help surface")
         When("Cozy renders command help")
         val help = _capture {
           Cozy.main(Array("--help"))
         }
         val bokhelp = _capture {
-          CozyBok.execute(List("bok", "publish-car-products", "--help"))
+          CozyBok.execute(List("bok", "publish-projects", "--help"))
         }
 
-        Then("CAR product publication commands are discoverable")
-        help should include("bok publish-car-products <project-dir>")
-        help should include(".car-product")
-        bokhelp should include("Usage: cozy bok publish-car-products")
+        Then("CAR project publication commands are discoverable")
+        help should include("bok publish-projects <project-dir>")
+        help should include("projects/<category>/<slug>")
+        bokhelp should include("Usage: cozy bok publish-projects")
         bokhelp should include(
           "CAR artifact publishing remains the responsibility of cozy publish-car"
         )
       }
 
-      "build renders CAR product article pages at their publication path" in {
-        _with_temp_dir("cozy-bok-car-product-build") { dir =>
+      "build renders CAR project article pages at their publication path" in {
+        _with_temp_dir("cozy-bok-project-build") { dir =>
           Given(
-            "a BoK source tree with a CAR product package and publication path"
+            "a BoK source tree with a CAR project package and publication path"
           )
           val externalproject = dir.resolve("external/nict-knowledgehub")
           _write(
@@ -880,7 +966,7 @@ class CozyBokCarProductSpec
           )
           _write(dir.resolve("src/main/doxsite/index.dox"), "Home\n====\n")
           val pkg = dir.resolve(
-            "src/main/doxsite/concept/nict-knowledgehub.car-product"
+            "src/main/doxsite/projects/concept/nict-knowledgehub"
           )
           _write(
             pkg.resolve("index.dox"),
@@ -893,7 +979,7 @@ class CozyBokCarProductSpec
               |
               |## BRIEF
               |
-              |NICT KnowledgeHub CAR product.
+              |NICT KnowledgeHub CAR project.
               |
               |# Overview
               |
@@ -901,15 +987,14 @@ class CozyBokCarProductSpec
               |""".stripMargin
           )
           _write(
-            pkg.resolve("product.yaml"),
-            """product:
+            pkg.resolve("project.yaml"),
+            """project:
               |  type: car
               |  name: nict-knowledgehub
-              |  project:
-              |    mode: external
-              |    ref: nict-knowledgehub
-              |  car:
-              |    module: nict-knowledgehub
+              |  mode: external
+              |  ref: nict-knowledgehub
+              |car:
+              |  module: nict-knowledgehub
               |title: NICT KnowledgeHub
               |version: 0.1.0
               |summary: NICT KnowledgeHub CAR component project.
@@ -922,10 +1007,10 @@ class CozyBokCarProductSpec
           )
 
           When("Cozy builds the BoK site")
-          CozyBok.build(config, new CarProductBuildRunner)
+          CozyBok.build(config, new ProjectBuildRunner)
 
           Then(
-            "the CAR product article is rendered as a normal BoK page without generating CAR artifacts"
+            "the CAR project article is rendered as a normal BoK page without generating CAR artifacts"
           )
           val page = _read(
             dir.resolve(
@@ -990,7 +1075,7 @@ class CozyBokCarProductSpec
       commands :+= command
   }
 
-  private class CarProductBuildRunner extends RecordingRunner {
+  private class ProjectBuildRunner extends RecordingRunner {
     override def run(command: Vector[String], cwd: Path): Unit = {
       super.run(command, cwd)
       if (command.take(2) == Vector("dox", "site")) {

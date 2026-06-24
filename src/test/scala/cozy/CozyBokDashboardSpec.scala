@@ -677,7 +677,7 @@ class CozyBokDashboardSpec
           )
 
           When("Cozy builds the single-locale dashboard")
-          CozyBok.build(config, new RecordingRunner)
+          CozyBok.build(config, new LocaleFragmentRunner)
 
           Then(
             "the configured default locale selects the English narrative from the same index.dox"
@@ -745,7 +745,7 @@ class CozyBokDashboardSpec
           )
 
           When("Cozy builds the multi-locale dashboard pages")
-          CozyBok.build(config, new RecordingRunner)
+          CozyBok.build(config, new LocaleFragmentRunner)
 
           Then(
             "each locale output is generated from the same source index.dox with locale filtering"
@@ -860,6 +860,10 @@ class CozyBokDashboardSpec
           _rdf_graph_json
         )
         _write(
+          cwd.resolve("doxsite.d/metadata/documents/fragments.json"),
+          _document_fragments_json
+        )
+        _write(
           cwd.resolve("doxsite.d/site.ttl"),
           "@prefix ex: <https://example.com/> .\n"
         )
@@ -867,6 +871,46 @@ class CozyBokDashboardSpec
       }
     }
   }
+
+  private class LocaleFragmentRunner extends RecordingRunner {
+    override def run(command: Vector[String], cwd: Path): Unit = {
+      super.run(command, cwd)
+      if (command.take(2) == Vector("dox", "site")) {
+        _write(
+          cwd.resolve("doxsite.d/metadata/documents/fragments.json"),
+          _locale_document_fragments_json
+        )
+        _write(cwd.resolve("doxsite.d/site.ttl"), "@prefix ex: <https://example.com/> .\n")
+        _write(cwd.resolve("doxsite.d/site.jsonld"), "{\"@graph\":[]}\n")
+      }
+    }
+  }
+
+  private def _document_fragments_json: String =
+    """{
+      |  "fragments": [
+      |    {"source_path": "index.dox", "public_path": "index.html", "locale": "ja", "kind": "article", "category": null, "title": "Home", "headline": "Home Source Headline", "brief": "Home narrative brief.", "body_html": "<p>Home narrative source text.</p><p><a href=\"target.html\">site link</a> <a class=\"glossary\" href=\"glossary/architecture/runtime.html\">Runtime</a></p>"},
+      |    {"source_path": "index.dox", "public_path": "index.html", "locale": "en", "kind": "article", "category": null, "title": "Home", "headline": "Home Source Headline", "brief": "Home narrative brief.", "body_html": "<p>Home narrative source text.</p><p><a href=\"target.html\">site link</a> <a class=\"glossary\" href=\"glossary/architecture/runtime.html\">Runtime</a></p>"},
+      |    {"source_path": "architecture/index.dox", "public_path": "architecture/index.html", "locale": "ja", "kind": "article", "category": "architecture", "title": "Architecture", "headline": "Architecture Source Headline", "brief": "Architecture narrative brief.", "body_html": "<p>Architecture narrative source text.</p><h2>Focus</h2><p>Make architecture decisions reviewable.</p>"},
+      |    {"source_path": "architecture/index.dox", "public_path": "architecture/index.html", "locale": "en", "kind": "article", "category": "architecture", "title": "Architecture", "headline": "Architecture Source Headline", "brief": "Architecture narrative brief.", "body_html": "<p>Architecture narrative source text.</p><h2>Focus</h2><p>Make architecture decisions reviewable.</p>"},
+      |    {"source_path": "index.md", "public_path": "index.html", "locale": "ja", "kind": "article", "category": null, "title": "Markdown Home", "headline": "Markdown Home Headline", "brief": "Markdown home brief.", "body_html": "<p>Markdown home source text with <strong>bold</strong> knowledge and <a href=\"https://example.com\">a reference</a>.</p>"},
+      |    {"source_path": "index.md", "public_path": "index.html", "locale": "en", "kind": "article", "category": null, "title": "Markdown Home", "headline": "Markdown Home Headline", "brief": "Markdown home brief.", "body_html": "<p>Markdown home source text with <strong>bold</strong> knowledge and <a href=\"https://example.com\">a reference</a>.</p>"},
+      |    {"source_path": "architecture/index.md", "public_path": "architecture/index.html", "locale": "ja", "kind": "article", "category": "architecture", "title": "Architecture", "headline": "Architecture Markdown Headline", "brief": "Architecture markdown brief.", "body_html": "<p>Architecture markdown narrative.</p>"},
+      |    {"source_path": "architecture/index.md", "public_path": "architecture/index.html", "locale": "en", "kind": "article", "category": "architecture", "title": "Architecture", "headline": "Architecture Markdown Headline", "brief": "Architecture markdown brief.", "body_html": "<p>Architecture markdown narrative.</p>"}
+      |  ]
+      |}
+      |""".stripMargin
+
+  private def _locale_document_fragments_json: String =
+    """{
+      |  "fragments": [
+      |    {"source_path": "index.dox", "public_path": "index.html", "locale": "ja", "kind": "article", "category": null, "title": "Home", "headline": null, "brief": null, "body_html": "<p>日本語ホーム本文</p>"},
+      |    {"source_path": "index.dox", "public_path": "index.html", "locale": "en", "kind": "article", "category": null, "title": "Home", "headline": null, "brief": null, "body_html": "<p>English home narrative</p>"},
+      |    {"source_path": "concept/index.dox", "public_path": "concept/index.html", "locale": "ja", "kind": "article", "category": "concept", "title": "Concept", "headline": null, "brief": null, "body_html": "<p>日本語カテゴリ本文</p>"},
+      |    {"source_path": "concept/index.dox", "public_path": "concept/index.html", "locale": "en", "kind": "article", "category": "concept", "title": "Concept", "headline": null, "brief": null, "body_html": "<p>English category narrative</p>"}
+      |  ]
+      |}
+      |""".stripMargin
 
   private def _dashboard_json: String =
     """{

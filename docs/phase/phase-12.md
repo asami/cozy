@@ -35,8 +35,8 @@ into focused Cozy improvements.
 - [x] BK12-08: Upload workflow readiness
 - [x] BK12-09: Development findings and follow-up backlog
 - [x] BK12-10: Term hub and term-centric RDF navigation
-- [x] BK12-11: CAR product and NictKnowledgeHub project integration
-- [ ] BK12-12: Scenario knowledge management
+- [x] BK12-11: CAR project knowledge and NictKnowledgeHub project integration
+- [x] BK12-12: Scenario knowledge management
 - [ ] BK12-13: Phase closure
 
 ## Acceptance Criteria
@@ -59,7 +59,7 @@ into focused Cozy improvements.
   only flat glossary entries.
 - RDF exploration supports both whole-graph views and term-neighborhood
   navigation from the term hub.
-- CAR product knowledge can be represented as BoK content and connected to the
+- CAR project knowledge can be represented as BoK content and connected to the
   NictKnowledgeHub project as an operational target.
 - Scenarios can be managed as first-class BoK knowledge items, starting with
   simple scenarios, use cases, and persona plus journey scenarios.
@@ -224,52 +224,60 @@ into focused Cozy improvements.
   `metadata/glossary/terms.json` fallback behavior and the RDF/Glossary page
   generation boundary.
 - 2026-06-23: Added BK12-11 and BK12-12 before Phase 12 closure. BK12-11 tracks
-  CAR product knowledge and NictKnowledgeHub project integration as the next
+  CAR project knowledge and NictKnowledgeHub project integration as the next
   concrete BoK operation target. BK12-12 tracks scenarios as first-class BoK
   knowledge, starting with simple scenarios, use cases, and persona plus
   journey scenarios.
-- 2026-06-23: Completed BK12-11 CAR product and NictKnowledgeHub integration.
-  Cozy now supports `.car-product/` source packages as BoK product knowledge,
-  registers CAR product metadata under `src/main/publication`, records
+- 2026-06-23: Completed BK12-11 CAR project and NictKnowledgeHub integration.
+  Cozy supports project knowledge packages as BoK content, registers CAR
+  project metadata under `src/main/publication`, records
   repository/public CAR artifact references without building or publishing CAR
   artifacts, and keeps `cozy publish-car` as the explicit CAR artifact
-  publication path. KnowledgeHub now contains a
-  `nict-knowledgehub.car-product/` source package that references the external
-  sibling project `../nict-knowledgehub`.
+  publication path.
 - 2026-06-23: Extended BK12-11 for loose CAR catalog coupling. A
-  `.car-product/` package can now omit the CAR product version and let Cozy
+  project knowledge package can now omit the CAR project version and let Cozy
   resolve the effective version and artifact file from
   `repository/catalog/car/<module>.yaml` in BoK repository-root operation, or
   `<warehouse>/repository/catalog/car/<module>.yaml` in external warehouse
   operation. The catalog is produced by the `publish-car` deployment flow. This supports three patterns: developing a
-  CAR product source package inside a BoK, keeping only non-sensitive external
-  linkage metadata in `.car-product/`, and using `.cozy/config.*` for local
+  CAR project article inside a BoK, keeping only non-sensitive external
+  linkage metadata in `projects/<category>/<slug>/project.yaml`, and using `.cozy/config.*` for local
   sensitive path overrides such as `bok.projects.<ref>.path`. BoK publication
   metadata remains a consumer of the catalog and never builds or deploys the
   CAR artifact.
-- 2026-06-23: Added CML model vocabulary linkage to BK12-11. CAR product
+- 2026-06-23: Added CML model vocabulary linkage to BK12-11. CAR project
   publication metadata now records CML-defined model elements as BoK knowledge
   hooks, starting with Entity, Value, Powertype, and Statemachine definitions.
   The default CML source is the linked CAR project
-  `src/main/cozy/<module>.cml`, and `.car-product/product.yaml` can assign the
+  `src/main/cozy/<module>.cml`, and `projects/<category>/<slug>/project.yaml` can assign the
   glossary category used for generated term IDs and links. This captures the
   core Cozy technical pattern: CML model definitions are not just build input;
   they are glossary-linked BoK knowledge elements. KnowledgeHub now maps
   NictKnowledgeHub's `KnowledgeItem` entity to the `technology:knowledge-item`
-  glossary term link in both publication metadata and the CAR product article.
+  glossary term link in both publication metadata and the CAR project article.
+- 2026-06-24: Completed BK12-12 scenario knowledge management with semantics
+  owned by Cozy/Kaleidox. SmartDox normalizes SmartDox `.dox` HEAD properties
+  and Markdown YAML front matter into Dox IR plus `DocumentMetaData`; Cozy then
+  extracts `simple`, `use-case`, and `persona-journey` scenario metadata into
+  `metadata/scenarios/scenarios.json`. Cozy generates `scenarios/index.html`,
+  adds Home Dashboard and BoK menu scenario entry points, links Category
+  dashboards to category scenarios, and shows related scenarios in Term Hub
+  pages. Scenario source follows the glossary-style category layout
+  `src/main/doxsite/scenario/<category>/<scenario>.dox|md|markdown`; scenario
+  metadata outside that source tree remains normal article metadata.
 - 2026-06-23: Extended BK12-11 to use model-compiler metadata as the primary
   CML knowledge source. `modeler-scala` generation now emits
   `target/cozy/model-metadata.json|yaml`, and `publish-car` places CML sidecars
   in `repository/catalog/car/<module>.cml` plus
-  `<module>.model-metadata.json|yaml`. BoK CAR product publication now reads
+  `<module>.model-metadata.json|yaml`. BoK CAR project publication now reads
   repository model metadata first, falls back to direct external-project CML scan
   only when sidecars are absent, and renders CML-derived provisional Term Hub
   pages marked `generated-from-cml` / `needs-curation` without overwriting
   hand-written glossary term pages. Focused validation passed with
-  `sbt --batch "testOnly cozy.CozyBokCarProductSpec cozy.modeler.ModelerGenerationSpec"`.
+  `sbt --batch "testOnly cozy.CozyBokProjectSpec cozy.modeler.ModelerGenerationSpec"`.
 - 2026-06-23: Added project-local public repository root mode for
   KnowledgeHub. `bok.repository` now makes BoK publication, video, and CAR
-  product metadata resolve artifacts under the configured public repository
+  project metadata resolve artifacts under the configured public repository
   root while keeping public paths as `/repository/...` and avoiding
   `repository/repository/...` duplication. The configured root may be the
   canonical project-local `repository/` directory or another local directory
@@ -284,8 +292,28 @@ into focused Cozy improvements.
   `<dir>/repository`. KnowledgeHub validation passed with
   `cozy bok doctor`, `cozy bok update-publication`,
   `cozy bok build --strategy preview`, and `cozy bok stage`; the current CAR
-  artifact is not deployed yet, so the generated product metadata correctly
+  artifact is not deployed yet, so the generated project metadata correctly
   reports a missing artifact in the artifact repository.
+
+- 2026-06-24: Replaced `.car-product/` source packages with the canonical
+  project knowledge layout `src/main/doxsite/projects/<category>/<slug>/`.
+  Each package uses `project.yaml|yml|json` and is registered by
+  `cozy bok publish-projects`; `cozy bok update-publication` now processes
+  `.video/` packages plus project knowledge packages. `.car-product/` and
+  `.car-product.d/` are explicit errors because `*.d` remains reserved for
+  generated/work directories and project knowledge is no longer suffix-package
+  based.
+
+- 2026-06-24: Added the SmartDox document fragment handoff contract. SmartDox
+  now emits `metadata/documents/fragments.json` with localized HTML body
+  fragments after normal SmartDox site processing: SmartDox/Markdown parsing,
+  locale filtering, glossary auto-linking, `site:[...]` self-site link
+  resolution, and existing manual/special-page auto-link exclusions. Cozy Home
+  and Category Dashboard narrative now consumes those fragments instead of
+  re-parsing `.dox` or Markdown sources, and Cozy no longer reconstructs Term
+  Hub data from category source directories when `metadata/glossary/terms.json`
+  is absent. Scenario semantics remain Cozy/Kaleidox-owned and use SmartDox
+  parser output as input.
 
 ## References
 

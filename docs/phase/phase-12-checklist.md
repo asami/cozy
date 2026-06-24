@@ -143,18 +143,18 @@ Status: DONE
 - [x] Verify the behavior with KnowledgeHub using `cozy bok build . --strategy
       preview`.
 
-## BK12-11: CAR Product And NictKnowledgeHub Project Integration
+## BK12-11: CAR Project Knowledge And NictKnowledgeHub Project Integration
 
 Status: DONE
 
-- [x] Define how CAR products are represented as BoK knowledge.
-- [x] Define the boundary between CAR product metadata, publication metadata,
+- [x] Define how CAR projects are represented as BoK knowledge.
+- [x] Define the boundary between CAR project metadata, publication metadata,
       artifact repository contents, and narrative BoK articles.
 - [x] Add the NictKnowledgeHub project as a concrete Phase 12 operational
       target alongside KnowledgeHub.
 - [x] Confirm whether NictKnowledgeHub uses the same BoK source layout and
       operation conventions as KnowledgeHub.
-- [x] Identify required Cozy changes for CAR product pages, product metadata,
+- [x] Identify required Cozy changes for CAR project pages, project metadata,
       artifact links, and RDF references.
 - [x] Verify the approach with a concrete NictKnowledgeHub source or fixture.
 - [x] Keep generated CAR artifacts outside BoK source directories.
@@ -166,7 +166,7 @@ Status: DONE
 - [x] Prefer repository model metadata over direct external project CML scan.
 - [x] Keep direct CML scan only as a fallback.
 - [x] Register CML model elements, descriptive attributes, and narrative in
-      CAR product publication metadata.
+      CAR project publication metadata.
 - [x] Render CML-derived provisional term hub pages without overwriting
       hand-written glossary term pages.
 - [x] Support project-local public repository root mode with `bok.repository`.
@@ -180,23 +180,47 @@ Status: DONE
       where the public repository lives under `<warehouse>/repository`.
 - [x] Avoid `repository/repository/...` paths when project-local repository mode
       is enabled.
+- [x] Replace `.car-product/` with canonical
+      `src/main/doxsite/projects/<category>/<slug>/` project knowledge
+      packages.
+- [x] Require `project.yaml`, `project.yml`, or `project.json` descriptors in
+      project knowledge packages.
+- [x] Reject `.car-product/` and `.car-product.d/` as obsolete source-package
+      layouts.
+- [x] Add `cozy bok publish-projects` and remove the obsolete product-package
+      command surface.
+- [x] Register project metadata under `metadata/projects/car/...` and
+      `metadata/catalog/projects/car/...`.
 
 ## BK12-12: Scenario Knowledge Management
 
-Status: OPEN
+Status: DONE
 
-- [ ] Treat scenarios as a first-class BoK knowledge type.
-- [ ] Define the common scenario metadata model.
-- [ ] Support simple scenarios.
-- [ ] Support use case scenarios.
-- [ ] Support persona plus journey scenarios.
-- [ ] Define how scenario knowledge links to terms, articles, RDF resources,
+- [x] Treat scenarios as a first-class BoK knowledge type.
+- [x] Define the common scenario metadata model.
+- [x] Keep SmartDox responsible for Dox AST / `DocumentMetaData` only.
+- [x] Keep Cozy/Kaleidox responsible for scenario semantic extraction.
+- [x] Support simple scenarios.
+- [x] Support use case scenarios.
+- [x] Support persona plus journey scenarios.
+- [x] Define how scenario knowledge links to terms, articles, RDF resources,
       products, projects, and history.
-- [ ] Define how scenario pages appear in Dashboard, Category, Term Hub, and
+- [x] Define how scenario pages appear in Dashboard, Category, Term Hub, and
       RDF navigation.
-- [ ] Decide whether scenario source is SmartDox, Markdown, YAML metadata, or a
+- [x] Decide whether scenario source is SmartDox, Markdown, YAML metadata, or a
       source package convention.
-- [ ] Add executable specs once the source and rendering contract is decided.
+- [x] Use glossary-style source layout:
+      `src/main/doxsite/scenario/<category>/<scenario>.dox|md|markdown`.
+- [x] Add executable specs once the source and rendering contract is decided.
+- [x] Add SmartDox `metadata/documents/fragments.json` as the localized
+      document-fragment handoff contract.
+- [x] Keep SmartDox responsible for locale filtering, glossary auto-linking,
+      `site:[...]` self-site link resolution, and manual auto-link exclusions
+      before fragment emission.
+- [x] Make Cozy Home and Category Dashboard narrative consume SmartDox fragment
+      metadata instead of re-parsing BoK source documents.
+- [x] When `metadata/glossary/terms.json` is absent, render empty glossary/term
+      surfaces instead of reconstructing terms from category source directories.
 
 ## BK12-13: Phase Closure
 

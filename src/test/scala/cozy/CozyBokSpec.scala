@@ -3384,21 +3384,8 @@ class CozyBokSpec
     def commands: Vector[Vector[String]] = calls.map(_._1)
     def run(command: Vector[String], cwd: Path): Unit = {
       calls = calls :+ (command -> cwd)
-      if (command.take(2) == Vector("dox", "site")) {
-        _write(
-          cwd.resolve("doxsite.d/metadata/dashboard/site.json"),
-          _dashboard_json
-        )
-        _write(
-          cwd.resolve("doxsite.d/metadata/rdf/graph.json"),
-          _rdf_graph_json
-        )
-        _write(
-          cwd.resolve("doxsite.d/site.ttl"),
-          "@prefix ex: <https://example.com/> .\n"
-        )
-        _write(cwd.resolve("doxsite.d/site.jsonld"), "{\"@graph\":[]}\n")
-      }
+      if (command.take(2) == Vector("dox", "site"))
+        _write_smartdox_metadata(cwd)
     }
   }
 
@@ -3428,21 +3415,8 @@ class CozyBokSpec
       calls = calls :+ (command -> cwd)
       if (command == Vector("sh", "-c", "etc/upload.sh"))
         throw new RuntimeException("upload boom")
-      if (command.take(2) == Vector("dox", "site")) {
-        _write(
-          cwd.resolve("doxsite.d/metadata/dashboard/site.json"),
-          _dashboard_json
-        )
-        _write(
-          cwd.resolve("doxsite.d/metadata/rdf/graph.json"),
-          _rdf_graph_json
-        )
-        _write(
-          cwd.resolve("doxsite.d/site.ttl"),
-          "@prefix ex: <https://example.com/> .\n"
-        )
-        _write(cwd.resolve("doxsite.d/site.jsonld"), "{\"@graph\":[]}\n")
-      }
+      if (command.take(2) == Vector("dox", "site"))
+        _write_smartdox_metadata(cwd)
     }
   }
 
@@ -3470,6 +3444,26 @@ class CozyBokSpec
         "smartdox-generated-history-year\n"
       )
     }
+  }
+
+  private def _write_smartdox_metadata(cwd: Path): Unit = {
+    _write(
+      cwd.resolve("doxsite.d/metadata/dashboard/site.json"),
+      _dashboard_json
+    )
+    _write(
+      cwd.resolve("doxsite.d/metadata/rdf/graph.json"),
+      _rdf_graph_json
+    )
+    _write(
+      cwd.resolve("doxsite.d/metadata/glossary/terms.json"),
+      _terms_json
+    )
+    _write(
+      cwd.resolve("doxsite.d/site.ttl"),
+      "@prefix ex: <https://example.com/> .\n"
+    )
+    _write(cwd.resolve("doxsite.d/site.jsonld"), "{\"@graph\":[]}\n")
   }
 
   private def _dashboard_json: String =
@@ -3556,6 +3550,64 @@ class CozyBokSpec
       |    {"source": "https://www.simplemodeling.org/architecture/overview", "target": "https://schema.org/name", "predicate": "https://schema.org/name", "label": "name", "category": "architecture"}
       |  ],
       |  "truncated": false
+      |}
+      |""".stripMargin
+
+  private def _terms_json: String =
+    """{
+      |  "terms": [
+      |    {
+      |      "id": "architecture:runtime",
+      |      "slug": "runtime",
+      |      "title": "Runtime",
+      |      "reading": "らんたいむ",
+      |      "category": "architecture",
+      |      "source_path": "glossary/architecture/runtime.dox",
+      |      "public_path": "glossary/architecture/runtime.html",
+      |      "definition_html": "<p>Runtime term.</p>",
+      |      "summary": "Runtime term.",
+      |      "aliases": [],
+      |      "article_refs": [],
+      |      "term_refs": [],
+      |      "rdf_refs": [],
+      |      "video_refs": [],
+      |      "quality": {"isolated": false, "unreferenced": false, "weakly_connected": false}
+      |    },
+      |    {
+      |      "id": "architecture:asuka",
+      |      "slug": "asuka",
+      |      "title": "あすか",
+      |      "reading": "あすか",
+      |      "category": "architecture",
+      |      "source_path": "glossary/architecture/asuka.dox",
+      |      "public_path": "glossary/architecture/asuka.html",
+      |      "definition_html": "<p>Japanese term.</p>",
+      |      "summary": "Japanese term.",
+      |      "aliases": [],
+      |      "article_refs": [],
+      |      "term_refs": [],
+      |      "rdf_refs": [],
+      |      "video_refs": [],
+      |      "quality": {"isolated": false, "unreferenced": false, "weakly_connected": false}
+      |    },
+      |    {
+      |      "id": "architecture:cloud",
+      |      "slug": "cloud",
+      |      "title": "Cloud",
+      |      "reading": null,
+      |      "category": "architecture",
+      |      "source_path": "glossary/architecture/cloud.dox",
+      |      "public_path": "glossary/architecture/cloud.html",
+      |      "definition_html": "<p>English-only term.</p>",
+      |      "summary": "English-only term.",
+      |      "aliases": [],
+      |      "article_refs": [],
+      |      "term_refs": [],
+      |      "rdf_refs": [],
+      |      "video_refs": [],
+      |      "quality": {"isolated": false, "unreferenced": false, "weakly_connected": false}
+      |    }
+      |  ]
       |}
       |""".stripMargin
 

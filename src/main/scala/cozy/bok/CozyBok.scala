@@ -3,12 +3,12 @@ package cozy.bok
 import org.goldenport.RAISE
 import org.goldenport.cli.{Request => CliRequest}
 import org.goldenport.cli.spec
+import cozy.bok.scenario.ScenarioMetadata
 import cozy.config.CozyProjectYamlConfig
 import cozy.video.{CozyVideo, CozyVideoPublisher}
 import org.smartdox.{Body, Document, Dox}
 import org.smartdox.parser.Dox2Parser
 import org.smartdox.transformers.Dox2HtmlTransformer
-import org.smartdox.transformers.LanguageFilterTransformer
 import org.smartdox.generator.{Context => SmartDoxContext}
 import org.smartdox.metadata.DocumentMetaData
 import org.goldenport.i18n.I18NContext
@@ -162,6 +162,26 @@ private[cozy] object CozyBok {
     categories: Vector[DashboardCategory]
   )
 
+  private final case class ScenarioIndex(scenarios: Vector[ScenarioEntry])
+  private final case class ScenarioEntry(
+    id: String,
+    slug: String,
+    scenarioType: String,
+    title: String,
+    summary: Option[String],
+    category: Option[String],
+    sourcePath: String,
+    publicPath: String,
+    terms: Vector[String],
+    status: Option[String]
+  ) {
+    def categorySlug: String = category.getOrElse("scenario")
+    def hrefFromHome: String = publicPath
+    def hrefFromCategory: String = "../" + publicPath
+    def isRelatedTo(term: TermEntry): Boolean =
+      terms.exists(x => x == term.id || x == term.title || x == term.slug)
+  }
+
   private final case class TermIndex(terms: Vector[TermEntry])
   private final case class TermEntry(
     id: String,
@@ -192,6 +212,43 @@ private[cozy] object CozyBok {
   private final case class TermReference(title: String, path: String, relation: String)
   private final case class TermRdfReference(resource: String, label: String, predicate: Option[String], direction: String)
   private final case class TermQuality(isolated: Boolean, unreferenced: Boolean, weaklyconnected: Boolean)
+
+  private final case class DocumentFragmentIndex(fragments: Vector[DocumentFragment]) {
+    def get(sourcepath: String, locale: String): Option[DocumentFragment] =
+      fragments.find(x => x.sourcePath == sourcepath && x.locale == locale)
+  }
+  private final case class DocumentFragment(
+    sourcePath: String,
+    publicPath: String,
+    locale: String,
+    kind: Option[String],
+    category: Option[String],
+    title: Option[String],
+    headline: Option[String],
+    brief: Option[String],
+    bodyHtml: String
+  ) {
+    def effectiveHeadline: Option[String] = headline.orElse(title)
+    def effectiveBrief: Option[String] = brief
+  }
+
+  private implicit val _document_fragment_decoder: Decoder[DocumentFragment] = (c: HCursor) =>
+    for {
+      sourcepath <- c.downField("source_path").as[String]
+      publicpath <- c.downField("public_path").as[String]
+      locale <- c.downField("locale").as[String]
+      kind <- c.downField("kind").as[Option[String]]
+      category <- c.downField("category").as[Option[String]]
+      title <- c.downField("title").as[Option[String]]
+      headline <- c.downField("headline").as[Option[String]]
+      brief <- c.downField("brief").as[Option[String]]
+      bodyhtml <- c.downField("body_html").as[String]
+    } yield DocumentFragment(sourcepath, publicpath, locale, kind, category, title, headline, brief, bodyhtml)
+
+  private implicit val _document_fragment_index_decoder: Decoder[DocumentFragmentIndex] = (c: HCursor) =>
+    for {
+      fragments <- c.downField("fragments").as[Option[Vector[DocumentFragment]]]
+    } yield DocumentFragmentIndex(fragments.getOrElse(Vector.empty))
 
   private implicit val _dashboard_counts_decoder: Decoder[DashboardCounts] = (c: HCursor) =>
     for {
@@ -296,6 +353,25 @@ private[cozy] object CozyBok {
       terms <- c.downField("terms").as[Option[Vector[TermEntry]]]
     } yield TermIndex(terms.getOrElse(Vector.empty))
 
+  private implicit val _scenario_entry_decoder: Decoder[ScenarioEntry] = (c: HCursor) =>
+    for {
+      id <- c.downField("id").as[String]
+      slug <- c.downField("slug").as[String]
+      scenariotype <- c.downField("scenario_type").as[String]
+      title <- c.downField("title").as[String]
+      summary <- c.downField("summary").as[Option[String]]
+      category <- c.downField("category").as[Option[String]]
+      sourcepath <- c.downField("source_path").as[String]
+      publicpath <- c.downField("public_path").as[String]
+      terms <- c.downField("terms").as[Option[Vector[String]]]
+      status <- c.downField("status").as[Option[String]]
+    } yield ScenarioEntry(id, slug, scenariotype, title, summary, category, sourcepath, publicpath, terms.getOrElse(Vector.empty), status)
+
+  private implicit val _scenario_index_decoder: Decoder[ScenarioIndex] = (c: HCursor) =>
+    for {
+      scenarios <- c.downField("scenarios").as[Option[Vector[ScenarioEntry]]]
+    } yield ScenarioIndex(scenarios.getOrElse(Vector.empty))
+
   final case class BuildConfig(
     project: Path,
     source: String,
@@ -365,10 +441,10 @@ private[cozy] object CozyBok {
     stage: Option[WorkflowConfig],
     upload: WorkflowConfig,
     build: BuildConfig,
-    videoPackages: Vector[Path],
-    carProductPackages: Vector[Path]
+    videopackages: Vector[Path],
+    projectpackages: Vector[Path]
   ) {
-    def packageCount: Int = videoPackages.size + carProductPackages.size
+    def packageCount: Int = videopackages.size + projectpackages.size
   }
   private final case class ParsedArgs(request: CliRequest) {
     def argument(name: String): Option[String] =
@@ -586,11 +662,11 @@ private[cozy] object CozyBok {
       case "bok" :: "publish-video" :: rest =>
         publishVideo(PublicationConfig.create("publish-video", rest), CozyVideo.VoicevoxClient.default, CozyVideo.VideoProcessRunner.default)
         true
-      case "bok" :: "publish-car-products" :: rest if _help_requested(rest) =>
-        _print_publication_usage("publish-car-products")
+      case "bok" :: "publish-projects" :: rest if _help_requested(rest) =>
+        _print_publication_usage("publish-projects")
         true
-      case "bok" :: "publish-car-products" :: rest =>
-        publishCarProducts(PublicationConfig.create("publish-car-products", rest))
+      case "bok" :: "publish-projects" :: rest =>
+        publishProjects(PublicationConfig.create("publish-projects", rest))
         true
       case "bok" :: "update-publication" :: rest if _help_requested(rest) =>
         _print_publication_usage("update-publication")
@@ -636,12 +712,12 @@ private[cozy] object CozyBok {
       case "publish-video" =>
         println("Usage: cozy bok publish-video <project-dir> [--publication <dir>] [--repository <dir>] [--warehouse <dir>] [--version <version>] [--force]")
         println("Publish .video packages into the BoK publication registry and artifact repository.")
-      case "publish-car-products" =>
-        println("Usage: cozy bok publish-car-products <project-dir> [--publication <dir>] [--repository <dir>] [--warehouse <dir>] [--version <version>] [--force]")
-        println("Register .car-product packages into the BoK publication registry. CAR artifact publishing remains the responsibility of cozy publish-car.")
+      case "publish-projects" =>
+        println("Usage: cozy bok publish-projects <project-dir> [--publication <dir>] [--repository <dir>] [--warehouse <dir>] [--version <version>] [--force]")
+        println("Register src/main/doxsite/projects/<category>/<slug> project knowledge packages into the BoK publication registry. CAR artifact publishing remains the responsibility of cozy publish-car.")
       case "update-publication" =>
         println("Usage: cozy bok update-publication <project-dir> [--publication <dir>] [--repository <dir>] [--warehouse <dir>] [--version <version>] [--force]")
-        println("Update the BoK publication registry for .video and .car-product packages.")
+        println("Update the BoK publication registry for .video and project knowledge packages.")
       case other =>
         RAISE.invalidArgumentFault(s"Unknown publication command: ${other}")
     }
@@ -736,6 +812,7 @@ private[cozy] object CozyBok {
     _run_antora(config, runner)
     runner.run(_dox_site_command(config), config.project, _smartdox_toolchain_env(config))
     _normalize_doxsite_output(config)
+    _write_scenario_metadata(config)
     _delete_directory(config.project.resolve(s"doxsite-cache-${config.strategy}.d"))
     if (config.arcadia.enabled) {
       runner.run(Vector("arcadia", "site", config.arcadia.source, config.arcadiaSite), config.project)
@@ -795,8 +872,8 @@ private[cozy] object CozyBok {
   ): Vector[CozyVideoPublisher.PublishVideoResult] =
     _publish_video_packages(config, voicevox, videorunner)
 
-  def publishCarProducts(config: PublicationConfig): Vector[CozyCarProductPublisher.PublishCarProductResult] =
-    _publish_car_product_packages(config)
+  def publishProjects(config: PublicationConfig): Vector[CozyBokProjectPublisher.PublishProjectResult] =
+    _publish_project_packages(config)
 
   def updatePublication(
     config: PublicationConfig,
@@ -804,7 +881,7 @@ private[cozy] object CozyBok {
     videorunner: CozyVideo.VideoProcessRunner
   ): Vector[String] =
     publishVideo(config, voicevox, videorunner).map(_.video.name) ++
-      publishCarProducts(config).map(_.product.name)
+      publishProjects(config).map(_.project.name)
 
   def publish(
     config: PublicationConfig,
@@ -884,7 +961,7 @@ private[cozy] object CozyBok {
     )
     val buildconfig = BuildConfig.create(buildargs)
     val videopackages = if (config.videoEnabled) _video_packages(config) else Vector.empty
-    val carproducts = _car_product_packages(config)
+    val projects = _project_packages(config)
     _validate_publish_path("publication", config.publicationPath, config.project, config.sourcePath)
     config.warehousePath match {
       case Some(warehousepath) if config.repositoryPath == warehousepath.resolve("repository").toAbsolutePath.normalize() =>
@@ -900,7 +977,7 @@ private[cozy] object CozyBok {
     _reject_path_overlap("publication", config.publicationPath, "doxsite", buildconfig.doxsitePath)
     _reject_path_overlap("artifact repository", config.repositoryPath, "website", buildconfig.websitePath)
     _reject_path_overlap("artifact repository", config.repositoryPath, "doxsite", buildconfig.doxsitePath)
-    PublishPreflight(optionalstage, upload, buildconfig, videopackages, carproducts)
+    PublishPreflight(optionalstage, upload, buildconfig, videopackages, projects)
   }
 
   private def _validate_publish_path(name: String, path: Path, project: Path, source: Path): Unit = {
@@ -972,8 +1049,8 @@ private[cozy] object CozyBok {
       "dryRun" -> Json.fromBoolean(config.dryRun),
       "force" -> Json.fromBoolean(config.force),
       "videoEnabled" -> Json.fromBoolean(config.videoEnabled),
-      "videoPackages" -> Json.fromValues(preflight.videoPackages.map(x => Json.fromString(x.toString))),
-      "carProductPackages" -> Json.fromValues(preflight.carProductPackages.map(x => Json.fromString(x.toString))),
+      "videoPackages" -> Json.fromValues(preflight.videopackages.map(x => Json.fromString(x.toString))),
+      "projectPackages" -> Json.fromValues(preflight.projectpackages.map(x => Json.fromString(x.toString))),
       "publicationArtifacts" -> Json.fromValues(_publication_packages(preflight).map(x => Json.obj(
         "sourcePackage" -> Json.fromString(x.toString),
         "registryRoot" -> Json.fromString(config.publicationPath.toString),
@@ -1022,11 +1099,11 @@ private[cozy] object CozyBok {
         )
       }
 
-  private def _publish_car_product_packages(config: PublicationConfig): Vector[CozyCarProductPublisher.PublishCarProductResult] = {
+  private def _publish_project_packages(config: PublicationConfig): Vector[CozyBokProjectPublisher.PublishProjectResult] = {
     val bokconfig = _load_config(config.project)
-    _car_product_packages(config).map { packagedir =>
-      CozyCarProductPublisher.publish(
-        CozyCarProductPublisher.PublishCarProductConfig(
+    _project_packages(config).map { packagedir =>
+      CozyBokProjectPublisher.publish(
+        CozyBokProjectPublisher.PublishProjectConfig(
           packagedir,
           config.publicationPath,
           config.artifactBasePath,
@@ -1062,39 +1139,56 @@ private[cozy] object CozyBok {
   private def _has_video_descriptor(path: Path): Boolean =
     Vector("video.yaml", "video.yml", "video.json").exists(x => Files.isRegularFile(path.resolve(x)))
 
-  private def _car_product_packages(config: PublicationConfig): Vector[Path] = {
+  private def _project_packages(config: PublicationConfig): Vector[Path] = {
     if (!Files.isDirectory(config.sourcePath))
       RAISE.invalidArgumentFault(s"Missing BoK source directory: ${config.sourcePath}")
-    _car_product_package_dirs(config.sourcePath)
+    _project_package_dirs(config.sourcePath)
   }
 
-  private def _car_product_package_dirs(sourcePath: Path): Vector[Path] = {
-    if (!Files.isDirectory(sourcePath))
+  private def _project_package_dirs(sourcepath: Path): Vector[Path] = {
+    if (!Files.isDirectory(sourcepath))
       return Vector.empty
-    val stream = Files.walk(sourcePath)
+    val projects = sourcepath.resolve("projects").toAbsolutePath.normalize()
+    val stream = Files.walk(sourcepath)
     try {
       val dirs = stream.iterator.asScala.toVector.filter(Files.isDirectory(_)).map(_.toAbsolutePath.normalize())
-      dirs.find(_.getFileName.toString.endsWith(".car-product.d")).foreach { path =>
-        RAISE.invalidArgumentFault(s"*.car-product.d is reserved for generated/work directories: $path")
+      dirs.find(path => path.getFileName.toString.endsWith(".car-product") || path.getFileName.toString.endsWith(".car-product.d")).foreach { path =>
+        RAISE.invalidArgumentFault(s".car-product source packages are no longer supported. Use src/main/doxsite/projects/<category>/<slug>: $path")
       }
-      dirs.filter(_.getFileName.toString.endsWith(".car-product")).sortBy(_.toString).map { path =>
-        if (!_has_car_product_descriptor(path))
-          RAISE.invalidArgumentFault(s"Missing product descriptor in .car-product package: $path")
-        path
+      if (!Files.isDirectory(projects)) {
+        Vector.empty
+      } else {
+        val projectdirs = dirs.filter { path =>
+          path.startsWith(projects) && path != projects && projects.relativize(path).getNameCount == 2
+        }.sortBy(_.toString)
+        dirs.filter(path => path.startsWith(projects) && _has_project_descriptor(path)).foreach { path =>
+          val relative = projects.relativize(path)
+          if (relative.getNameCount != 2)
+            RAISE.invalidArgumentFault(s"Project knowledge package must be src/main/doxsite/projects/<category>/<slug>: $path")
+        }
+        projectdirs.map { path =>
+          if (!_has_project_descriptor(path))
+            RAISE.invalidArgumentFault(s"Missing project descriptor in project knowledge package: $path")
+          val relative = projects.relativize(path)
+          val category = relative.getName(0).toString
+          if (category.endsWith(".d"))
+            RAISE.invalidArgumentFault(s"Generated/work project category directories are not supported: $path")
+          path
+        }
       }
     } finally {
       stream.close()
     }
   }
 
-  private def _has_car_product_descriptor(path: Path): Boolean =
-    Vector("product.yaml", "product.yml", "product.json").exists(x => Files.isRegularFile(path.resolve(x)))
+  private def _has_project_descriptor(path: Path): Boolean =
+    Vector("project.yaml", "project.yml", "project.json").exists(x => Files.isRegularFile(path.resolve(x)))
 
   private def _publication_packages(preflight: PublishPreflight): Vector[Path] =
-    preflight.videoPackages ++ preflight.carProductPackages
+    preflight.videopackages ++ preflight.projectpackages
 
   private def _publication_package_message(preflight: PublishPreflight): String =
-    s"${preflight.videoPackages.size} .video package(s), ${preflight.carProductPackages.size} .car-product package(s)"
+    s"${preflight.videopackages.size} .video package(s), ${preflight.projectpackages.size} project package(s)"
 
   private def _run_antora(config: BuildConfig, runner: Runner): Unit = {
     config.localeMode match {
@@ -1304,7 +1398,7 @@ private[cozy] object CozyBok {
          |    <div class="content">
          |      <article class="doc">
          |        ${_home_dashboard(config, locale)}
-         |        ${_source_narrative_section(_source_document(config.sourcePath, "index"), locale)}
+         |        ${_source_narrative_section(config, _source_document(config.sourcePath, "index"), locale)}
          |      </article>
          |    </div>
          |  </main>
@@ -1333,11 +1427,12 @@ private[cozy] object CozyBok {
     writeLocalizedGlossaryIndexes: Boolean
   ): Unit = {
     val categories = _category_contents(config.sourcePath)
-    val terms = _terms(config, categories)
+    val terms = _terms(config)
     val glossarybody = _glossary_dashboard_body(config, categories, terms, _language_index_root_prefix(config), locale)
     val historyhref = _latest_history_year_page(target.resolve("history"))
-    _write_car_product_pages(config, target, locale, categories)
+    _write_project_pages(config, target, locale, categories)
     _write_rdf_page(config, target, locale, categories)
+    _write_scenario_page(config, target, locale, categories)
     _write_term_hub_pages(config, target, locale, categories, terms)
     _write_text(
       target.resolve("glossary").resolve("index.html"),
@@ -1403,7 +1498,7 @@ private[cozy] object CozyBok {
   }
 
   private def _write_rdf_page(config: BuildConfig, target: Path, locale: String, categories: Vector[CategoryContent]): Unit = {
-    _copy_rdf_publication_artifacts(config, target)
+    _copy_machine_metadata_artifacts(config, target)
     val page = target.resolve("rdf").resolve("index.html")
     _write_text(
       page,
@@ -1416,15 +1511,37 @@ private[cozy] object CozyBok {
     )
   }
 
-  private def _write_car_product_pages(
+  private def _write_scenario_page(
+    config: BuildConfig,
+    target: Path,
+    locale: String,
+    categories: Vector[CategoryContent]
+  ): Unit = {
+    val scenarios = _scenario_index(config).map(_.scenarios).getOrElse(Vector.empty)
+    val page = target.resolve("scenarios").resolve("index.html")
+    _write_text(
+      page,
+      _special_html_page(
+        config,
+        categories,
+        locale,
+        page,
+        _ui(locale, "scenario.title"),
+        _ui(locale, "scenario.description"),
+        _scenario_dashboard_body(locale, scenarios)
+      )
+    )
+  }
+
+  private def _write_project_pages(
     config: BuildConfig,
     target: Path,
     locale: String,
     categories: Vector[CategoryContent]
   ): Unit = {
     val bokconfig = _load_config(config.project)
-    _car_product_package_dirs(config.sourcePath).foreach { packagedir =>
-      val publishconfig = CozyCarProductPublisher.PublishCarProductConfig(
+    _project_package_dirs(config.sourcePath).foreach { packagedir =>
+      val publishconfig = CozyBokProjectPublisher.PublishProjectConfig(
         packagedir,
         config.publication.publicationPath(config.project),
         config.publication.artifactBasePath(config.project),
@@ -1434,23 +1551,23 @@ private[cozy] object CozyBok {
         bokconfig,
         Some(config.publication.repositoryPath(config.project))
       )
-      val product = CozyCarProductPublisher.resolve(publishconfig)
-      val artifact = CozyCarProductPublisher.artifactPath(publishconfig, product.warehousePath)
-      val articlebody = _source_narrative_html(product.article, locale)
-      val page = target.resolve(product.publicationpath).resolve("index.html")
-      val cmlbody = _car_product_cml_html(product, page, target)
+      val project = CozyBokProjectPublisher.resolve(publishconfig)
+      val artifact = CozyBokProjectPublisher.artifactPath(publishconfig, project.warehousePath)
+      val articlebody = _source_narrative_html(project.article, locale)
+      val page = target.resolve(project.publicationpath).resolve("index.html")
+      val cmlbody = _project_cml_html(project, page, target)
       val pagebody =
-        s"""<div class="sect1 car-product-overview">
+        s"""<div class="sect1 project-overview">
            |  <h2>Product</h2>
            |  <div class="sectionbody">
            |    <dl>
            |      <dt>Type</dt><dd>CAR</dd>
-           |      <dt>Module</dt><dd>${_html_escape(product.module)}</dd>
-           |      <dt>Version</dt><dd>${_html_escape(product.version)}</dd>
-           |      <dt>Project</dt><dd>${_html_escape(product.projectref.getOrElse(product.projectmode))}</dd>
+           |      <dt>Module</dt><dd>${_html_escape(project.module)}</dd>
+           |      <dt>Version</dt><dd>${_html_escape(project.version)}</dd>
+           |      <dt>Project</dt><dd>${_html_escape(project.projectref.getOrElse(project.projectmode))}</dd>
            |      <dt>Artifact status</dt><dd>${if (Files.isRegularFile(artifact)) "published" else "missing"}</dd>
            |    </dl>
-           |    <p><a href="${_html_escape(_relative_href(target.resolve(product.publicationpath).resolve("index.html"), target.resolve("repository").resolve(product.name).resolve("index.html")))}">Repository artifact metadata</a></p>
+           |    <p><a href="${_html_escape(_relative_href(target.resolve(project.publicationpath).resolve("index.html"), target.resolve("repository").resolve(project.name).resolve("index.html")))}">Repository artifact metadata</a></p>
            |  </div>
            |</div>
            |${cmlbody}
@@ -1462,17 +1579,17 @@ private[cozy] object CozyBok {
           categories,
           locale,
           page,
-          product.title,
-          product.summary.getOrElse("CAR product."),
+          project.title,
+          project.summary.getOrElse("CAR project."),
           pagebody
         )
       )
-      _write_cml_term_pages(config, target, locale, categories, product)
+      _write_cml_term_pages(config, target, locale, categories, project)
     }
   }
 
-  private def _car_product_cml_html(product: CozyCarProductPublisher.ResolvedCarProduct, page: Path, target: Path): String =
-    product.cml.filter(_.elements.nonEmpty).map { cml =>
+  private def _project_cml_html(project: CozyBokProjectPublisher.ResolvedBokProject, page: Path, target: Path): String =
+    project.cml.filter(_.elements.nonEmpty).map { cml =>
       val rows = cml.elements.map { element =>
         val href = _relative_href(page, target.resolve(element.glossarypath))
         val summary = element.descriptive.summary.orElse(element.descriptive.description).getOrElse("")
@@ -1484,14 +1601,14 @@ private[cozy] object CozyBok {
            |</tr>""".stripMargin
       }.mkString("\n")
       val metadata = cml.modelmetadatapath.map(path =>
-        s"""<p class="bok-car-product-cml-source">Source: ${_html_escape(cml.sourcekind)} <code>${_html_escape(path.getFileName.toString)}</code></p>"""
-      ).getOrElse(s"""<p class="bok-car-product-cml-source">Source: ${_html_escape(cml.sourcekind)} <code>${_html_escape(cml.sourceprojectrelativepath)}</code></p>""")
-      s"""<div class="sect1 car-product-cml-glossary">
+        s"""<p class="bok-project-cml-source">Source: ${_html_escape(cml.sourcekind)} <code>${_html_escape(path.getFileName.toString)}</code></p>"""
+      ).getOrElse(s"""<p class="bok-project-cml-source">Source: ${_html_escape(cml.sourcekind)} <code>${_html_escape(cml.sourceprojectrelativepath)}</code></p>""")
+      s"""<div class="sect1 project-cml-glossary">
          |  <h2>CML Model Vocabulary</h2>
          |  <div class="sectionbody">
          |    <p>CMLで定義したEntity, Value, Powertype, StatemachineはBoK用語集と連動する知識要素として扱います。</p>
          |    ${metadata}
-         |    <table class="table table-sm bok-car-product-cml-table">
+         |    <table class="table table-sm bok-project-cml-table">
          |      <thead><tr><th>Kind</th><th>Name</th><th>Glossary term</th><th>Description</th></tr></thead>
          |      <tbody>
          |${rows}
@@ -1506,13 +1623,13 @@ private[cozy] object CozyBok {
     target: Path,
     locale: String,
     categories: Vector[CategoryContent],
-    product: CozyCarProductPublisher.ResolvedCarProduct
+    project: CozyBokProjectPublisher.ResolvedBokProject
   ): Unit =
-    product.cml.foreach { cml =>
+    project.cml.foreach { cml =>
       cml.elements.foreach { element =>
         val page = target.resolve(element.glossarypath)
         if (!Files.exists(page)) {
-          val producthref = _relative_href(page, target.resolve(product.publicationpath).resolve("index.html"))
+          val projecthref = _relative_href(page, target.resolve(project.publicationpath).resolve("index.html"))
           val rdfhref = _relative_href(page, target.resolve("rdf").resolve("index.html")) + s"?term=${_html_escape(element.termid)}"
           val description = element.descriptive.description.orElse(element.descriptive.summary).orElse(element.descriptive.brief)
           val descriptive =
@@ -1529,7 +1646,7 @@ private[cozy] object CozyBok {
                |  <dl>
                |    <dt>Term ID</dt><dd>${_html_escape(element.termid)}</dd>
                |    <dt>CML kind</dt><dd>${_html_escape(element.kind)}</dd>
-               |    <dt>CAR product</dt><dd><a href="${_html_escape(producthref)}">${_html_escape(product.title)}</a></dd>
+               |    <dt>CAR project</dt><dd><a href="${_html_escape(projecthref)}">${_html_escape(project.title)}</a></dd>
                |  </dl>
                |  ${descriptive}
                |  ${narrative}
@@ -1551,11 +1668,12 @@ private[cozy] object CozyBok {
       }
     }
 
-  private def _copy_rdf_publication_artifacts(config: BuildConfig, target: Path): Unit = {
+  private def _copy_machine_metadata_artifacts(config: BuildConfig, target: Path): Unit = {
     _copy_if_exists(config.doxsitePath.resolve("site.ttl"), target.resolve("rdf").resolve("site.ttl"))
     _copy_if_exists(config.doxsitePath.resolve("site.jsonld"), target.resolve("rdf").resolve("site.jsonld"))
     _copy_if_exists(config.doxsitePath.resolve("metadata/rdf/graph.json"), target.resolve("metadata/rdf/graph.json"))
     _copy_if_exists(config.doxsitePath.resolve("metadata/glossary/terms.json"), target.resolve("metadata/glossary/terms.json"))
+    _copy_if_exists(config.doxsitePath.resolve("metadata/scenarios/scenarios.json"), target.resolve("metadata/scenarios/scenarios.json"))
   }
 
   private def _copy_if_exists(source: Path, target: Path): Unit =
@@ -1563,6 +1681,12 @@ private[cozy] object CozyBok {
       Option(target.getParent).foreach(Files.createDirectories(_))
       Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
     }
+
+  private def _write_scenario_metadata(config: BuildConfig): Unit =
+    ScenarioMetadata.write(
+      config.sourcePath,
+      config.doxsitePath.resolve("metadata/scenarios/scenarios.json")
+    )
 
   private def _glossary_dashboard_body(
     config: BuildConfig,
@@ -2879,8 +3003,8 @@ private[cozy] object CozyBok {
   private def _glossary_index_href(href: String): String =
     href.stripPrefix("../glossary/").stripPrefix("glossary/")
 
-  private def _terms(config: BuildConfig, categories: Vector[CategoryContent]): Vector[TermEntry] =
-    _term_index(config).map(_.terms).filter(_.nonEmpty).getOrElse(_fallback_terms(categories))
+  private def _terms(config: BuildConfig): Vector[TermEntry] =
+    _term_index(config).map(_.terms).filter(_.nonEmpty).getOrElse(Vector.empty)
 
   private def _term_index(config: BuildConfig): Option[TermIndex] = {
     val path = config.doxsitePath.resolve("metadata/glossary/terms.json")
@@ -2890,29 +3014,47 @@ private[cozy] object CozyBok {
       parser.parse(Files.readString(path, StandardCharsets.UTF_8)).toOption.flatMap(_.as[TermIndex].toOption)
   }
 
-  private def _fallback_terms(categories: Vector[CategoryContent]): Vector[TermEntry] =
-    categories.flatMap { category =>
-      category.terms.map { item =>
-        val slug = item.href.split('/').filter(_.nonEmpty).lastOption.getOrElse(item.title).stripSuffix(".html")
-        TermEntry(
-          s"${category.slug}:${slug}",
-          slug,
-          item.title,
-          item.reading,
-          Some(category.slug),
-          s"glossary/${category.slug}/${slug}.dox",
-          s"glossary/${category.slug}/${slug}.html",
-          s"<p>${_html_escape(item.brief)}</p>",
-          Some(item.brief),
-          Vector.empty,
-          Vector.empty,
-          Vector.empty,
-          Vector.empty,
-          Vector.empty,
-          TermQuality(isolated = true, unreferenced = true, weaklyconnected = true)
-        )
-      }
-    }.sortBy(x => (x.categorySlug, x.slug))
+  private def _scenario_index(config: BuildConfig): Option[ScenarioIndex] = {
+    val path = config.doxsitePath.resolve("metadata/scenarios/scenarios.json")
+    if (!Files.isRegularFile(path))
+      None
+    else
+      parser.parse(Files.readString(path, StandardCharsets.UTF_8)).toOption.flatMap(_.as[ScenarioIndex].toOption)
+  }
+
+  private def _scenario_dashboard_body(locale: String, scenarios: Vector[ScenarioEntry]): String =
+    if (scenarios.isEmpty)
+      s"""<p class="bok-card-muted">${_html_escape(_ui(locale, "scenario.empty"))}</p>"""
+    else {
+      val bytype = scenarios.groupBy(_.scenarioType).toVector.sortBy(_._1)
+      val metrics = bytype.map {
+        case (kind, xs) =>
+          s"""<div class="bok-metric-card"><div class="bok-metric-label">${_html_escape(kind)}</div><div class="bok-metric-value">${xs.size}</div><div class="bok-metric-note">${_html_escape(_ui(locale, "scenario.metric.note"))}</div></div>"""
+      }.mkString("""<div class="bok-dashboard-grid">""", "", "</div>")
+      val items = scenarios.take(30).map { scenario =>
+        val summary = scenario.summary.map(x => s"""<p>${_html_escape(x)}</p>""").getOrElse("")
+        val terms = if (scenario.terms.isEmpty) "" else scenario.terms.take(5).map(x => s"""<span class="badge bok-badge-info">${_html_escape(x)}</span>""").mkString(" ")
+        val href = s"../${scenario.hrefFromHome}"
+        s"""<li class="list-group-item" data-scenario-category="${_html_escape(scenario.categorySlug)}">
+           |  <a href="${_html_escape(href)}">${_html_escape(scenario.title)}</a>
+           |  <span>${_html_escape(scenario.scenarioType)}</span>
+           |  <code>${_html_escape(scenario.id)}</code>
+           |  ${summary}
+           |  <div class="bok-scenario-terms">${terms}</div>
+           |</li>""".stripMargin
+      }.mkString("""<ul class="list-group bok-map-list bok-scenario-list">""", "", "</ul>")
+      s"""${metrics}
+         |${items}
+         |<script>
+         |(() => {
+         |  const category = new URLSearchParams(window.location.search).get('category');
+         |  if (!category) return;
+         |  document.querySelectorAll('[data-scenario-category]').forEach((item) => {
+         |    item.hidden = item.dataset.scenarioCategory !== category;
+         |  });
+         |})();
+         |</script>""".stripMargin
+    }
 
   private def _term_group_cards(locale: String, terms: Vector[TermEntry], categories: Vector[CategoryContent]): String = {
     val titles = categories.map(x => x.slug -> x.title).toMap
@@ -2937,7 +3079,8 @@ private[cozy] object CozyBok {
   ): Unit =
     terms.foreach { term =>
       val page = target.resolve(term.publicPath)
-      _write_text(page, _term_hub_page(config, categories, locale, page, term))
+      val scenarios = _scenario_index(config).map(_.scenarios.filter(_.isRelatedTo(term))).getOrElse(Vector.empty)
+      _write_text(page, _term_hub_page(config, categories, locale, page, term, scenarios))
     }
 
   private def _term_hub_page(
@@ -2945,7 +3088,8 @@ private[cozy] object CozyBok {
     categories: Vector[CategoryContent],
     locale: String,
     page: Path,
-    term: TermEntry
+    term: TermEntry,
+    scenarios: Vector[ScenarioEntry]
   ): String =
     s"""<!doctype html>
        |<html lang="${_html_escape(locale)}">
@@ -2961,7 +3105,7 @@ private[cozy] object CozyBok {
        |  <main class="article">
        |    <div class="content">
        |      <article class="doc">
-       |        ${_term_hub(term, locale)}
+       |        ${_term_hub(term, locale, scenarios)}
        |      </article>
        |    </div>
        |  </main>
@@ -2970,7 +3114,7 @@ private[cozy] object CozyBok {
        |</html>
        |""".stripMargin
 
-  private def _term_hub(term: TermEntry, locale: String): String =
+  private def _term_hub(term: TermEntry, locale: String, scenarios: Vector[ScenarioEntry]): String =
     s"""<section class="bok-dashboard-shell bok-term-hub" id="term-hub">
        |  <header class="bok-dashboard-hero">
        |    <div class="bok-dashboard-hero-copy">
@@ -2992,6 +3136,7 @@ private[cozy] object CozyBok {
        |      ${_dashboard_card("col-12 col-xl-3", "bok-card-map", _ui(locale, "term.related.articles"), _term_refs_body(term.articleRefs, locale))}
        |      ${_dashboard_card("col-12 col-xl-3", "bok-card-map", _ui(locale, "term.related.terms"), _term_refs_body(term.termRefs, locale))}
        |      ${_dashboard_card("col-12 col-xl-3", "bok-card-map", _ui(locale, "term.related.videos"), _term_refs_body(term.videoRefs, locale))}
+       |      ${_dashboard_card("col-12 col-xl-3", "bok-card-map", _ui(locale, "term.related.scenarios"), _term_scenarios_body(scenarios, locale))}
        |      ${_dashboard_card("col-12 col-xl-3", "bok-card-actions", _ui(locale, "dashboard.card.next.actions"), _term_actions_body(term, locale))}
        |    </div>
        |  </div>
@@ -3028,6 +3173,14 @@ private[cozy] object CozyBok {
       s"""<p class="bok-card-muted">${_html_escape(_ui(locale, "term.refs.empty"))}</p>"""
     else
       refs.take(6).map(x => s"""<li class="list-group-item"><a href="${_html_escape(x.path)}">${_html_escape(x.title)}</a><span>${_html_escape(x.relation)}</span></li>""").mkString("""<ul class="list-group bok-map-list">""", "", "</ul>")
+
+  private def _term_scenarios_body(scenarios: Vector[ScenarioEntry], locale: String): String =
+    if (scenarios.isEmpty)
+      s"""<p class="bok-card-muted">${_html_escape(_ui(locale, "scenario.empty"))}</p>"""
+    else
+      scenarios.take(6).map { scenario =>
+        s"""<li class="list-group-item"><a href="../../${_html_escape(scenario.publicPath)}">${_html_escape(scenario.title)}</a><span>${_html_escape(scenario.scenarioType)}</span></li>"""
+      }.mkString("""<ul class="list-group bok-map-list">""", "", "</ul>")
 
   private def _term_actions_body(term: TermEntry, locale: String): String =
     Vector(
@@ -3472,7 +3625,7 @@ private[cozy] object CozyBok {
        |    <div class="content">
        |      <article class="doc">
        |        ${_category_dashboard(config, category, locale)}
-       |        ${_source_narrative_section(_source_document(config.sourcePath.resolve(category.slug), "index"), locale)}
+       |        ${_source_narrative_section(config, _source_document(config.sourcePath.resolve(category.slug), "index"), locale)}
        |      </article>
        |    </div>
        |  </main>
@@ -3586,8 +3739,8 @@ private[cozy] object CozyBok {
       map(suffix => name.dropRight(suffix.length)).
       getOrElse(name)
 
-  private def _source_narrative_section(path: Option[Path], locale: String): String = {
-    val body = _source_narrative_html(path, locale)
+  private def _source_narrative_section(config: BuildConfig, path: Option[Path], locale: String): String = {
+    val body = _source_document_fragment(config, path, locale).map(_.bodyHtml.trim).getOrElse("")
     if (body.isEmpty)
       ""
     else
@@ -3598,30 +3751,35 @@ private[cozy] object CozyBok {
          |</div>""".stripMargin
   }
 
+  private def _source_document_fragment(config: BuildConfig, path: Option[Path], locale: String): Option[DocumentFragment] =
+    for {
+      source <- path.filter(Files.isRegularFile(_))
+      rel <- _source_document_relative(config, source)
+      index <- _document_fragment_index(config)
+      fragment <- index.get(rel, locale)
+    } yield fragment
+
+  private def _source_document_relative(config: BuildConfig, source: Path): Option[String] =
+    try {
+      Some(config.sourcePath.relativize(source).toString.replace(java.io.File.separatorChar, '/'))
+    } catch {
+      case NonFatal(_) => None
+    }
+
   private def _source_narrative_html(path: Option[Path], locale: String): String =
     path.filter(Files.isRegularFile(_)).map { source =>
       val content = Files.readString(source, StandardCharsets.UTF_8)
-      _source_narrative_html(content, source.toString, locale, !_is_markdown_source_document(source))
+      _source_narrative_html(content, source.toString, locale)
     }.getOrElse("")
 
   private def _source_narrative_html(path: Path, locale: String): String =
     _source_narrative_html(Option(path), locale)
 
-  private def _source_narrative_html(content: String, name: String, locale: String): String =
-    _source_narrative_html(content, name, locale, applyLanguageFilter = true)
-
-  private def _source_narrative_html(
-    content: String,
-    name: String,
-    locale: String,
-    applyLanguageFilter: Boolean
-  ): String = {
+  private def _source_narrative_html(content: String, name: String, locale: String): String = {
     val dox = Dox2Parser.parseWithFilename(Dox2Parser.Config.default, name, content)
     val rule = Dox2HtmlTransformer.Rule(isDocument = false, sectionBaseNumber = Some(2), isDefaultCss = false)
-    val context = _smartdox_context(locale)
-    val filtered = if (applyLanguageFilter) _language_filter(dox, context) else dox
-    val body = _source_narrative_dox(filtered)
-    _rendered_body_fragment(Dox2HtmlTransformer(context, rule).transform(body).take).trim
+    val body = _source_narrative_dox(dox)
+    _rendered_body_fragment(Dox2HtmlTransformer(SmartDoxContext.create(), rule).transform(body).take).trim
   }
 
   private def _source_narrative_dox(dox: Dox): Dox =
@@ -3631,20 +3789,14 @@ private[cozy] object CozyBok {
       case m => m
     }
 
-  private def _language_filter(dox: Dox, context: SmartDoxContext): Dox =
-    Dox.transform(dox, new LanguageFilterTransformer(context.doxContext))
-
-  private def _smartdox_context(locale: String): SmartDoxContext =
-    SmartDoxContext.create().withTargetI18NContext(_to_locale(locale))
-
-  private def _to_locale(value: String): Locale =
-    Locale.forLanguageTag(value.replace('_', '-'))
-
   private def _ui(locale: String, key: String): String =
     _ui_context(_to_locale(locale)).message(key)
 
   private def _uif(locale: String, key: String, args: Any*): String =
     _ui_context(_to_locale(locale)).message(key, args: _*)
+
+  private def _to_locale(value: String): Locale =
+    Locale.forLanguageTag(value.replace('_', '-'))
 
   private def _ui_context(locale: Locale): I18NContext = {
     val bundle = I18NContext.loadResourceBundle(_ui_resource_base, locale, _ui_resource_config)
@@ -3723,6 +3875,7 @@ private[cozy] object CozyBok {
        |  <a class="navbar-link navbar-bok-toggle" href="#">${_html_escape(_ui(locale, "nav.bok"))}</a>
        |  <div class="navbar-dropdown navbar-bok-menu">
        |    <a class="navbar-item navbar-dropdown-item" href="${_html_escape(prefix)}glossary/index.html">${_html_escape(_ui(locale, "glossary.title"))}</a>
+       |    <a class="navbar-item navbar-dropdown-item" href="${_html_escape(prefix)}scenarios/index.html">${_html_escape(_ui(locale, "scenario.title"))}</a>
        |    <a class="navbar-item navbar-dropdown-item" href="${_html_escape(_history_href(config, prefix))}">${_html_escape(_ui(locale, "history.title"))}</a>
        |    <a class="navbar-item navbar-dropdown-item" href="${_html_escape(prefix)}manual/index.html">${_html_escape(_ui(locale, "manual.title"))}</a>
        |  </div>
@@ -3778,13 +3931,13 @@ private[cozy] object CozyBok {
   private def _home_dashboard(config: BuildConfig, locale: String): String = {
     val purpose = _bok_purpose(config)
     val dashboard = _dashboard(config)
-    val metadata = _dox_metadata(_source_document(config.sourcePath, "index"))
+    val fragment = _source_document_fragment(config, _source_document(config.sourcePath, "index"), locale)
     if (dashboard.isEmpty && purpose.isEmpty)
       ""
     else {
       val hero = _dashboard_hero(
-        _effective_headline(metadata, locale).getOrElse(_uif(locale, "home.page.title", config.siteTitle)),
-        _effective_brief(metadata, locale).getOrElse(_ui(locale, "home.intro")),
+        fragment.flatMap(_.effectiveHeadline).getOrElse(_uif(locale, "home.page.title", config.siteTitle)),
+        fragment.flatMap(_.effectiveBrief).getOrElse(_ui(locale, "home.intro")),
         Vector(
           _ui(locale, "dashboard.kpi.categories") -> dashboard.map(_.counts.categoryCount.toString).getOrElse("-"),
           _ui(locale, "dashboard.kpi.articles") -> dashboard.map(_.counts.articleCount.toString).getOrElse("-"),
@@ -3801,21 +3954,22 @@ private[cozy] object CozyBok {
   private def _category_dashboard(config: BuildConfig, category: CategoryContent, locale: String): String = {
     val site = _dashboard(config)
     val dashboard = site.flatMap(_.categories.find(_.name == category.slug))
-    val metadata = _dox_metadata(_source_document(config.sourcePath.resolve(category.slug), "index"))
+    val fragment = _source_document_fragment(config, _source_document(config.sourcePath.resolve(category.slug), "index"), locale)
+    val categoryterms = _category_term_page_items(config, category.slug)
     if (!category.purpose.isEmpty || dashboard.isDefined) {
       val categoryrdf = dashboard.flatMap(_.rdf)
       val hero = _dashboard_hero(
-        _effective_headline(metadata, locale).getOrElse(_uif(locale, "category.page.title", category.title)),
-        _effective_brief(metadata, locale).getOrElse(_uif(locale, "category.intro", category.description)),
+        fragment.flatMap(_.effectiveHeadline).getOrElse(_uif(locale, "category.page.title", category.title)),
+        fragment.flatMap(_.effectiveBrief).getOrElse(_uif(locale, "category.intro", category.description)),
         Vector(
           _ui(locale, "dashboard.kpi.articles") -> dashboard.map(_.counts.articleCount.toString).getOrElse(category.articles.size.toString),
-          _ui(locale, "dashboard.kpi.terms") -> dashboard.map(_.counts.glossaryTermCount.toString).getOrElse(category.terms.size.toString),
+          _ui(locale, "dashboard.kpi.terms") -> dashboard.map(_.counts.glossaryTermCount.toString).getOrElse(categoryterms.size.toString),
           _ui(locale, "dashboard.kpi.rdf") -> categoryrdf.map(_.tripleCount.toString).getOrElse("-")
         )
       )
       s"""<section class="bok-dashboard-shell" id="dashboard">
          |  ${hero}
-         |  ${_category_dashboard_grid(config, category, dashboard, categoryrdf, locale)}
+         |  ${_category_dashboard_grid(config, category, categoryterms, dashboard, categoryrdf, locale)}
          |</section>""".stripMargin
     }
     else
@@ -3884,6 +4038,7 @@ private[cozy] object CozyBok {
       values.map(x => s"<li>${_html_escape(x)}</li>").mkString(s"<div><strong>${label}:</strong><ul>", "", "</ul></div>")
 
   private def _home_dashboard_grid(config: BuildConfig, purpose: BokPurpose, dashboard: Option[BokDashboard], locale: String): String = {
+    val scenarios = _scenario_index(config).map(_.scenarios).getOrElse(Vector.empty)
     val cards = Vector[Option[String]](
       dashboard.map(x => _dashboard_card("col-12", "bok-card-activity bok-card-notification", _ui(locale, "dashboard.card.recent.activity"), _recent_activity_body(locale, config, x.increments), Vector("reader", "contributor", "project_manager"))),
       if (purpose.isEmpty) None else Some(_dashboard_card("col-12 col-xl-8", "bok-card-purpose", _ui(locale, "dashboard.card.vision"), _purpose_card_body(locale, purpose), Vector("reader", "contributor", "project_manager"))),
@@ -3892,6 +4047,7 @@ private[cozy] object CozyBok {
       dashboard.map(x => _kpi_card(locale, "col-6 col-md-3", _ui(locale, "dashboard.kpi.articles"), x.counts.articleCount.toString, _ui(locale, "dashboard.kpi.articles.note"))),
       dashboard.map(x => _kpi_card_link("col-6 col-md-3", _ui(locale, "dashboard.kpi.terms"), x.counts.glossaryTermCount.toString, _ui(locale, "dashboard.kpi.terms.note"), "glossary/index.html")),
       dashboard.map(x => _kpi_card_link("col-6 col-md-3", _ui(locale, "dashboard.kpi.rdf.triples"), x.rdf.tripleCount.toString, _ui(locale, "dashboard.kpi.rdf.triples.note"), "rdf/index.html")),
+      Some(_kpi_card_link("col-6 col-md-3", _ui(locale, "dashboard.kpi.scenarios"), scenarios.size.toString, _ui(locale, "dashboard.kpi.scenarios.note"), "scenarios/index.html")),
       Some(_dashboard_card("col-12 col-xl-5", "bok-card-quality", _ui(locale, "dashboard.card.quality.alerts"), _quality_alerts_body(locale, dashboard.isDefined), Vector("contributor", "project_manager"))),
       dashboard.map(x => _dashboard_card("col-12 col-xl-8", "bok-card-chart", _ui(locale, "dashboard.card.growth"), _dashboard_increment_chart(locale, x.increments, _ui(locale, "dashboard.chart.bok.additions")), Vector("project_manager", "contributor"))),
       Some(_dashboard_card("col-12 col-md-6 col-xl-3", "bok-card-readiness", _ui(locale, "dashboard.card.readiness"), _home_readiness_body(locale, config, dashboard), Vector("site_administrator", "project_manager"))),
@@ -3903,13 +4059,14 @@ private[cozy] object CozyBok {
   private def _category_dashboard_grid(
     config: BuildConfig,
     category: CategoryContent,
+    categoryTerms: Vector[CategoryPageItem],
     dashboard: Option[DashboardCategory],
     rdf: Option[DashboardRdfSummary],
     locale: String
   ): String = {
     val cards = Vector[Option[String]](
       if (category.purpose.isEmpty) None else Some(_dashboard_card("col-12 col-xl-8", "bok-card-purpose", _ui(locale, "dashboard.card.category.vision"), _purpose_card_body(locale, category.purpose), Vector("reader", "contributor", "project_manager"))),
-      Some(_dashboard_card("col-12 col-xl-6", "bok-card-map", _ui(locale, "dashboard.card.term.map"), _page_map_body(category.terms, _ui(locale, "dashboard.term.empty")), Vector("reader", "contributor", "project_manager"))),
+      Some(_dashboard_card("col-12 col-xl-6", "bok-card-map", _ui(locale, "dashboard.card.term.map"), _page_map_body(categoryTerms, _ui(locale, "dashboard.term.empty")), Vector("reader", "contributor", "project_manager"))),
       Some(_dashboard_card("col-12 col-xl-6", "bok-card-map", _ui(locale, "dashboard.card.article.map"), _page_map_body(category.articles, _ui(locale, "dashboard.article.empty")), Vector("reader", "contributor", "project_manager"))),
       rdf.map(x => _category_rdf_kpi_card(locale, category, x)),
       dashboard.map(x => _kpi_card(locale, "col-6 col-md-3", _ui(locale, "dashboard.kpi.articles"), x.counts.articleCount.toString, _ui(locale, "dashboard.kpi.category.articles.note"))),
@@ -4346,10 +4503,15 @@ private[cozy] object CozyBok {
       rdf.filter(_.tripleCount > 0).
         map(_ => s"""  <li class="list-group-item"><a href="../rdf/index.html?category=${_html_escape(_url_query_escape(category.slug))}">${_html_escape(_ui(locale, "rdf.graph.title"))}</a></li>""").
         getOrElse("")
+    val scenarioitem =
+      _scenario_index(config).map(_.scenarios.count(_.category.contains(category.slug))).filter(_ > 0).
+        map(count => s"""  <li class="list-group-item"><a href="../scenarios/index.html?category=${_html_escape(_url_query_escape(category.slug))}">${_html_escape(_uif(locale, "scenario.category.link", count.toString))}</a></li>""").
+        getOrElse("")
     s"""<ul class="list-group bok-related-list">
        |  <li class="list-group-item"><a href="../glossary/index.html">${_html_escape(_ui(locale, "glossary.title"))}</a></li>
        |  <li class="list-group-item"><a href="../glossary/${_html_escape(category.slug)}/index.html">${_html_escape(_uif(locale, "dashboard.related.category.terms", category.title))}</a></li>
        |${rdfitem}
+       |${scenarioitem}
        |  <li class="list-group-item"><a href="${_html_escape(_history_href(config, "../"))}">${_html_escape(_ui(locale, "history.title"))}</a></li>
        |  <li class="list-group-item"><a href="../manual/index.html">${_html_escape(_ui(locale, "manual.title"))}</a></li>
        |</ul>""".stripMargin
@@ -4549,6 +4711,25 @@ private[cozy] object CozyBok {
        |  </div>
        |</div>""".stripMargin
   }
+
+  private def _document_fragment_index(config: BuildConfig): Option[DocumentFragmentIndex] = {
+    val path = config.doxsitePath.resolve("metadata/documents/fragments.json")
+    if (!Files.isRegularFile(path))
+      None
+    else
+      parser.parse(Files.readString(path, StandardCharsets.UTF_8)).toOption.flatMap(_.as[DocumentFragmentIndex].toOption)
+  }
+
+  private def _category_term_page_items(config: BuildConfig, category: String): Vector[CategoryPageItem] =
+    _terms(config).filter(_.category.contains(category)).map { term =>
+      CategoryPageItem(
+        term.termHubHrefFromCategory,
+        term.title,
+        term.summary.getOrElse(""),
+        0L,
+        term.reading
+      )
+    }
 
   private def _dashboard(config: BuildConfig): Option[BokDashboard] = {
     val path = config.doxsitePath.resolve("metadata/dashboard/site.json")
