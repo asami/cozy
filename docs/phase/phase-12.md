@@ -333,18 +333,35 @@ into focused Cozy improvements.
   metadata to render `bibliography/index.html`, Home and Category reference
   links, Term Hub related references, and copied machine metadata. External
   reference lookup is explicit through `cozy bok search-bibliography`; BibTeX
-  cache update is explicit through `cozy bok update-bibliography`; ordinary
-  `bok build` remains network-independent.
+  cache update is available through `cozy bok update-bibliography`.
 
 - 2026-06-24: Extended BK12-13 with bibid-driven bibliography
   materialization. SmartDox now collects `bibliography.refs` and
   `references.bibliography` from BoK source documents, emits undefined bibids
   as unresolved `external-ref` entries, and accepts
-  `bibliography/<category>/*.bib` as `bibtex-only` entries. Cozy resolves
-  unresolved bibids only through explicit `cozy bok update-bibliography`, stores
-  fetched BibTeX under `target/cozy-bok/bibliography/cache`, and applies cached
-  data during later builds as `external-cache` metadata without rewriting source
-  files or performing network access in `bok build`.
+  `bibliography/<category>/*.bib` as `bibtex-only` entries. Cozy stores fetched
+  BibTeX under `target/cozy-bok/bibliography/cache`, applies cached data during
+  later builds as `external-cache` metadata, and never rewrites source files.
+
+- 2026-06-24: Updated BK12-13 build-time bibliography resolution. Normal
+  `cozy bok build` now resolves uncached `needs_resolution=true` bibids and
+  explicit `bibliography.bibtex.source_url` values after SmartDox emits
+  `bibliography.json`, writes fetched BibTeX into
+  `target/cozy-bok/bibliography/cache`, and fails if required external
+  bibliography cannot be resolved. Offline/cache-only builds use
+  `cozy bok build --no-bib-service`; they do not call external bibliography
+  services, report unresolved references as warnings, and still complete.
+  `cozy bok update-bibliography --report-only` / `--no-fetch` reports missing
+  cache entries without fetching.
+
+- 2026-06-25: Added local BibTeX resolver sources for BK12-13. Cozy now checks
+  BoK source bibliography `.bib` files, `repository/bibliography/*.bib`, and
+  `repository/catalog/bibliography/*.bib` before external bibliography
+  providers when resolving unresolved bibids or explicit BibTeX source
+  references. Broad `<repository-root>/**/*.bib` and project-root
+  `bibliography/**/*.bib` scans are intentionally excluded. `*.bib.dox` is a
+  curated BoK source format on the SmartDox/source side, while repository-side
+  BibTeX remains plain `.bib` resolver input.
 
 - 2026-06-24: Added BK12-13 through BK12-15 as remaining Phase 12 development
   candidates before closure. BK12-13 covers bibliography as a first-class BoK

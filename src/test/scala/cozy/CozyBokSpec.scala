@@ -13,7 +13,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jun.  3, 2026
- * @version Jun. 24, 2026
+ * @version Jun. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokSpec
@@ -3096,6 +3096,7 @@ class CozyBokSpec
         help should include("bok doctor [<project-dir>] [--fix] [--dry-run]")
         help should include("bok fix [<project-dir>] [--dry-run]")
         help should include("bok guide [scenario]")
+        help should include("--no-bib-service")
         help should include("Open http://127.0.0.1:<port>/")
         help should include("--dry-run")
       }
@@ -3124,6 +3125,7 @@ class CozyBokSpec
         scenario should include("cozy bok doctor")
         scenario should include("Vision, Goals, and Subgoals")
         scenario should include("cozy bok build --strategy preview")
+        scenario should include("--no-bib-service")
         scenario should include("cozy bok preview --port 8980")
         scenario should include("http://127.0.0.1:8980/")
       }
@@ -3183,6 +3185,8 @@ class CozyBokSpec
         )
         searchbibliography should include("Usage: cozy bok search-bibliography <query>")
         updatebibliography should include("Usage: cozy bok update-bibliography [<project-dir>]")
+        updatebibliography should include("--report-only")
+        updatebibliography should include("--no-fetch")
         stage should include("Usage: cozy bok stage [<project-dir>]")
         stage should include("bok.workflow.stage.command")
         upload should include("Usage: cozy bok upload [<project-dir>]")

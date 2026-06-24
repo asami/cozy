@@ -13,7 +13,7 @@ import io.circe.syntax._
 
 /*
  * @since   Jun. 24, 2026
- * @version Jun. 24, 2026
+ * @version Jun. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] final case class BibliographyIndex(entries: Vector[BibliographyEntry]) {
@@ -224,7 +224,7 @@ private[cozy] final case class BibliographySearchConfig(
   format: String
 )
 
-private[cozy] final case class BibliographyUpdateConfig(project: Path, force: Boolean)
+private[cozy] final case class BibliographyUpdateConfig(project: Path, force: Boolean, reportonly: Boolean)
 
 private[cozy] final case class BibliographySearchResult(
   provider: String,
@@ -254,6 +254,9 @@ private[cozy] trait BibliographySearchProvider {
 private[cozy] trait BibliographyBibtexFetcher {
   def fetch(sourceurl: String): Option[String]
   def fetchBibId(bibid: String): Option[String] = None
+  def fetchEntry(entry: BibliographyEntry): Option[String] =
+    entry.bibtex.sourceurl.flatMap(fetch).
+      orElse(if (entry.needsresolution) fetchBibId(entry.id) else None)
 }
 
 private[cozy] final case class BibliographySearchRegistry(providers: Vector[BibliographySearchProvider]) {

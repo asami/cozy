@@ -227,8 +227,11 @@ Status: DONE
 Status: DONE
 
 - [x] Treat bibliography entries as first-class BoK knowledge.
-- [x] Decide the canonical source layout for bibliography entries:
-      `src/main/doxsite/bibliography/<category>/<slug>.dox|md|markdown`.
+- [x] Decide the canonical source layout for bibliography entries, including
+      BoK-wide `src/main/doxsite/bibliography/<slug>.*` and category-local
+      `src/main/doxsite/bibliography/<category>/<slug>.*`.
+- [x] Support `*.bib.dox` as curated BoK bibliography source paired with
+      BibTeX supplement data.
 - [x] Decide that bibliography source is SmartDox or Markdown metadata plus
       narrative, with BibTeX as supplemental import/cache data.
 - [x] Define bibliography metadata: id, type, title, authors, date, publisher,
@@ -243,13 +246,22 @@ Status: DONE
 - [x] Collect `bibliography.refs` / `references.bibliography` bibid references
       from BoK source documents.
 - [x] Materialize undefined bibid references as unresolved `external-ref`
-      bibliography entries without network access during `bok build`.
-- [x] Accept `bibliography/<category>/*.bib` as BibTeX-only bibliography
-      entries and mark them as requiring curation.
-- [x] Resolve unresolved bibid entries through explicit
-      `cozy bok update-bibliography` cache updates without rewriting source.
+      bibliography entries from SmartDox metadata.
+- [x] Accept `bibliography/*.bib` and `bibliography/<category>/*.bib` as
+      BibTeX-only bibliography entries and mark them as requiring curation.
+- [x] Resolve unresolved bibid entries and explicit `bibtex.source_url`
+      entries during normal `cozy bok build`.
+- [x] Use local `.bib` files under `src/main/doxsite/bibliography`,
+      `repository/bibliography`, and `repository/catalog/bibliography` as
+      resolver sources before external bibliography providers.
+- [x] Exclude broad `<repository-root>/**/*.bib` and project-root
+      `bibliography/**/*.bib` scans from the resolver.
+- [x] Support offline/cache-only `cozy bok build --no-bib-service` with
+      warnings instead of external bibliography fetches.
+- [x] Keep explicit `cozy bok update-bibliography` cache updates and
+      `--report-only` / `--no-fetch` reporting without rewriting source.
 - [x] Apply cached BibTeX during later builds as effective bibliography
-      metadata while keeping `bok build` network-independent.
+      metadata.
 - [x] Add executable specs for SmartDox metadata/RDF generation and Cozy
       rendering/search/cache behavior.
 

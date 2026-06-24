@@ -28,7 +28,7 @@ import io.circe.parser
 
 /*
  * @since   Jun.  3, 2026
- * @version Jun. 24, 2026
+ * @version Jun. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyBok {
@@ -391,7 +391,8 @@ private[cozy] object CozyBok {
     arcadia: ArcadiaConfig,
     directAssets: DirectAssetsConfig,
     publication: PublicationSettings,
-    dashboardColorGroup: String
+    dashboardColorGroup: String,
+    bibliographyService: Boolean
   ) {
     def sourcepath: Path = project.resolve(source)
     def sourcePath: Path = sourcepath
@@ -557,7 +558,8 @@ private[cozy] object CozyBok {
       spec.Parameter.propertyFileOption("warehouse"),
       spec.Parameter.propertyFileOption("repository"),
       spec.Parameter.propertyFileOption("publication"),
-      spec.Parameter.property("rdf-missing-artifact-policy")
+      spec.Parameter.property("rdf-missing-artifact-policy"),
+      spec.Parameter("no-bib-service", spec.Parameter.SwitchKind)
     )
 
     private val _publication_request = spec.Request(
@@ -668,7 +670,8 @@ private[cozy] object CozyBok {
         _print_bibliography_update_usage()
         true
       case "bok" :: "update-bibliography" :: rest =>
-        println(updateBibliography(_update_bibliography_config(rest), BibliographyHttpBibtexFetcher))
+        val config = _update_bibliography_config(rest)
+        println(updateBibliography(config, _bibliography_fetcher(config.project, BibliographyHttpBibtexFetcher)))
         true
       case "bok" :: "publish-video" :: rest if _help_requested(rest) =>
         _print_publication_usage("publish-video")
@@ -748,8 +751,10 @@ private[cozy] object CozyBok {
   }
 
   private def _print_bibliography_update_usage(): Unit = {
-    println("Usage: cozy bok update-bibliography [<project-dir>] [--force]")
+    println("Usage: cozy bok update-bibliography [<project-dir>] [--force] [--report-only|--no-fetch]")
     println("Fetch explicit BibTeX/cache sources registered in bibliography metadata into target/cozy-bok/bibliography/cache.")
+    println("Local .bib files under repository/bibliography, repository/catalog/bibliography, or src/main/doxsite/bibliography are used before external providers.")
+    println("With --report-only or --no-fetch, report missing bibliography cache entries without external fetches.")
   }
 
   private def _search_bibliography_config(args: List[String]): BibliographySearchConfig = {
@@ -773,7 +778,11 @@ private[cozy] object CozyBok {
     val (options, values) = _parse_bibliography_options(normalized)
     if (values.nonEmpty)
       RAISE.invalidArgumentFault(s"Unknown bibliography update argument: ${values.head}")
-    BibliographyUpdateConfig(options.get("project").map(Paths.get(_)).getOrElse(Paths.get(".")), options.contains("force"))
+    BibliographyUpdateConfig(
+      options.get("project").map(Paths.get(_)).getOrElse(Paths.get(".")),
+      options.contains("force"),
+      options.contains("report-only") || options.contains("no-fetch")
+    )
   }
 
   private def _parse_bibliography_options(args: List[String]): (Map[String, String], List[String]) = {
@@ -873,34 +882,39 @@ private[cozy] object CozyBok {
       val index = parser.parse(Files.readString(metadata, StandardCharsets.UTF_8)).toOption.flatMap(_.as[BibliographyIndex].toOption).getOrElse(BibliographyIndex(Vector.empty))
       val cache = config.project.resolve("target/cozy-bok/bibliography/cache")
       var written = Vector.empty[Path]
+      var missing = Vector.empty[String]
       index.entries.foreach { entry =>
-        entry.bibtex.raw.foreach { raw =>
-          val path = cache.resolve(s"${_safe_file_name(entry.id)}.bib")
-          if (config.force || !Files.exists(path)) {
-            _write_text(path, raw)
-            written :+= path
-          }
-        }
-        entry.bibtex.sourceurl.foreach { url =>
-          val path = cache.resolve(s"${_safe_file_name(entry.id)}.bib")
-          if (config.force || !Files.exists(path)) {
-            fetcher.fetch(url).foreach { body =>
-              _write_text(path, body)
-              written :+= path
-            }
-          }
-        }
-        if (entry.needsresolution) {
-          val path = cache.resolve(s"${_safe_file_name(entry.id)}.bib")
-          if (config.force || !Files.exists(path)) {
-            fetcher.fetchBibId(entry.id).foreach { body =>
-              _write_text(path, body)
-              written :+= path
-            }
+        val path = cache.resolve(s"${_safe_file_name(entry.id)}.bib")
+        if (config.force || !Files.exists(path)) {
+          entry.bibtex.raw match {
+            case Some(raw) =>
+              if (!config.reportonly) {
+                _write_text(path, raw)
+                written :+= path
+              }
+            case None if config.reportonly =>
+              if (entry.bibtex.sourceurl.nonEmpty || entry.needsresolution)
+                missing :+= entry.id
+            case None =>
+              val body = fetcher.fetchEntry(entry)
+              body match {
+                case Some(value) =>
+                  _write_text(path, value)
+                  written :+= path
+                case None =>
+                  if (entry.bibtex.sourceurl.nonEmpty || entry.needsresolution)
+                    missing :+= entry.id
+              }
           }
         }
       }
-      if (written.isEmpty)
+      if (config.reportonly && missing.nonEmpty)
+        missing.distinct.map(x => s"bibliography cache missing: ${x}").mkString("\n")
+      else if (config.reportonly)
+        s"bibliography cache: complete (${cache})"
+      else if (missing.nonEmpty)
+        missing.distinct.map(x => s"bibliography cache unresolved: ${x}").mkString("\n")
+      else if (written.isEmpty)
         s"bibliography cache: no updates (${cache})"
       else
         written.map(path => s"bibliography cache: ${config.project.toAbsolutePath.normalize.relativize(path.toAbsolutePath.normalize)}").mkString("\n")
@@ -930,6 +944,46 @@ private[cozy] object CozyBok {
       val effective = BibliographyIndex(index.entries.map(_resolve_cached_bibliography_entry(config, _)))
       _write_text(config.doxsitePath.resolve("metadata/bibliography/bibliography.json"), effective.toJsonString)
     }
+
+  private def _resolve_bibliography_service_entries(config: BuildConfig, fetcher: BibliographyBibtexFetcher): Unit =
+    _bibliography_index(config).foreach { index =>
+      val missing = index.entries.flatMap(_ensure_bibliography_cache(config, _, fetcher)).distinct
+      if (missing.nonEmpty) {
+        val details = missing.map(x => s"unresolved bibliography reference: ${x}").mkString("\n")
+        if (config.bibliographyService)
+          RAISE.invalidArgumentFault(
+            s"${details}\nRun: cozy bok update-bibliography ${config.project} --force, or build with --no-bib-service to keep unresolved references as warnings."
+          )
+        else
+          println(s"warning: ${details}\nRun: cozy bok update-bibliography ${config.project}")
+      }
+    }
+
+  private def _ensure_bibliography_cache(config: BuildConfig, entry: BibliographyEntry, fetcher: BibliographyBibtexFetcher): Option[String] = {
+    val path = config.project.resolve("target/cozy-bok/bibliography/cache").resolve(s"${_safe_file_name(entry.id)}.bib")
+    if (_bibliography_source_needs_local_bib(entry)) {
+      fetcher.fetchEntry(entry).foreach(_write_text(path, _))
+      None
+    } else if (!entry.needsresolution && entry.bibtex.raw.isEmpty && entry.bibtex.sourceurl.isEmpty)
+      None
+    else if (Files.isRegularFile(path))
+      None
+    else if (entry.bibtex.raw.nonEmpty) {
+      _write_text(path, entry.bibtex.raw.get)
+      None
+    } else if (!config.bibliographyService)
+      Some(entry.id)
+    else {
+      val body =
+        fetcher.fetchEntry(entry)
+      body match {
+        case Some(value) =>
+          _write_text(path, value)
+          None
+        case None => Some(entry.id)
+      }
+    }
+  }
 
   private def _ensure_bibliography_metadata_handoff(config: BuildConfig): Unit =
     if (_source_declares_bibliography(config) && _bibliography_index(config).forall(_.entries.isEmpty))
@@ -986,7 +1040,11 @@ private[cozy] object CozyBok {
       val raw = Files.readString(path, StandardCharsets.UTF_8)
       BibliographyBibtexParser.parse(raw).map { fields =>
         val authors = fields.get("author").map(BibliographyBibtexParser.authors).getOrElse(entry.authors)
-        val title = fields.get("title").getOrElse(entry.title)
+        val title =
+          if (_is_bib_dox_source(entry))
+            entry.title
+          else
+            fields.get("title").getOrElse(entry.title)
         entry.copy(
           entrytype = fields.getOrElse("type", entry.entrytype),
           title = title,
@@ -1005,6 +1063,15 @@ private[cozy] object CozyBok {
     }
   }
 
+  private def _bibliography_source_needs_local_bib(entry: BibliographyEntry): Boolean =
+    _is_bib_dox_source(entry) &&
+      entry.bibtex.key.isEmpty &&
+      entry.bibtex.raw.isEmpty &&
+      entry.bibtex.sourceurl.isEmpty
+
+  private def _is_bib_dox_source(entry: BibliographyEntry): Boolean =
+    entry.sourcepath.toLowerCase(Locale.ROOT).endsWith(".bib.dox")
+
   def createCategory(config: CategoryConfig): Unit = {
     val dir = config.project.resolve("src/main/doxsite").resolve(config.name)
     _write(dir.resolve("category.yaml"), _category(_category_name(config.name), config.title, config.description, config.purpose), config.policy)
@@ -1018,7 +1085,10 @@ private[cozy] object CozyBok {
     }
   }
 
-  def build(config: BuildConfig, runner: Runner): Unit = {
+  def build(config: BuildConfig, runner: Runner): Unit =
+    build(config, runner, _bibliography_fetcher(config.project, BibliographyHttpBibtexFetcher))
+
+  def build(config: BuildConfig, runner: Runner, bibliographyfetcher: BibliographyBibtexFetcher): Unit = {
     val bibliographycache = _stash_bibliography_cache(config)
     _delete_directory(config.project.resolve("target"))
     _restore_bibliography_cache(config, bibliographycache)
@@ -1033,8 +1103,10 @@ private[cozy] object CozyBok {
     runner.run(_dox_site_command(config), config.project, _smartdox_toolchain_env(config))
     _normalize_doxsite_output(config)
     _write_scenario_metadata(config)
-    _write_effective_bibliography_metadata(config)
     _ensure_bibliography_metadata_handoff(config)
+    _write_effective_bibliography_metadata(config)
+    _resolve_bibliography_service_entries(config, bibliographyfetcher)
+    _write_effective_bibliography_metadata(config)
     _delete_directory(config.project.resolve(s"doxsite-cache-${config.strategy}.d"))
     if (config.arcadia.enabled) {
       runner.run(Vector("arcadia", "site", config.arcadia.source, config.arcadiaSite), config.project)
@@ -1048,6 +1120,166 @@ private[cozy] object CozyBok {
           _copy_directory(config.project.resolve(item.source), config.project.resolve(item.destination))
         }
     }
+  }
+
+  private def _bibliography_fetcher(project: Path, fallback: BibliographyBibtexFetcher): BibliographyBibtexFetcher = {
+    val config = _load_config(project)
+    val repository = config.value("bok.repository").
+      orElse(config.value("bok.warehouse").map(_repository_under_warehouse)).
+      getOrElse("repository")
+    new ProjectBibliographyBibtexFetcher(project.toAbsolutePath.normalize(), project.resolve(repository).toAbsolutePath.normalize(), fallback)
+  }
+
+  private class ProjectBibliographyBibtexFetcher(project: Path, repository: Path, fallback: BibliographyBibtexFetcher) extends BibliographyBibtexFetcher {
+    def fetch(sourceurl: String): Option[String] =
+      _local_source(sourceurl).orElse(if (_has_uri_scheme(sourceurl)) fallback.fetch(sourceurl) else None)
+
+    override def fetchBibId(bibid: String): Option[String] =
+      _local_bibid(bibid, None).orElse(fallback.fetchBibId(bibid))
+
+    override def fetchEntry(entry: BibliographyEntry): Option[String] =
+      entry.bibtex.sourceurl.flatMap(fetch).
+        orElse(_local_bibid(entry.id, entry.category)).
+        orElse(if (entry.needsresolution) fallback.fetchBibId(entry.id) else None)
+
+    private def _local_source(sourceurl: String): Option[String] = {
+      val candidates =
+        if (sourceurl.startsWith("repository/bibliography/"))
+          _local_source_candidate(repository.resolve("bibliography"), sourceurl.stripPrefix("repository/bibliography/"))
+        else if (sourceurl.startsWith("repository/catalog/bibliography/"))
+          _local_source_candidate(repository.resolve("catalog/bibliography"), sourceurl.stripPrefix("repository/catalog/bibliography/"))
+        else if (sourceurl.startsWith("bibliography/"))
+          _local_source_candidate(project.resolve("src/main/doxsite/bibliography"), sourceurl.stripPrefix("bibliography/"))
+        else if (_has_uri_scheme(sourceurl))
+          Vector.empty
+        else
+          Vector.empty
+      candidates.map(_.toAbsolutePath.normalize()).find(Files.isRegularFile(_)).flatMap(_read_bibtex_file)
+    }
+
+    private def _local_source_candidate(root: Path, relative: String): Vector[Path] = {
+      val normalizedroot = root.toAbsolutePath.normalize()
+      val path = normalizedroot.resolve(relative).toAbsolutePath.normalize()
+      val name = path.getFileName.toString.toLowerCase(Locale.ROOT)
+      if (path.startsWith(normalizedroot) && name.endsWith(".bib"))
+        Vector(path)
+      else
+        Vector.empty
+    }
+
+    private def _local_bibid(bibid: String, category: Option[String]): Option[String] =
+      _bibtex_files(category).flatMap(_read_bibtex_entries).find(_matches_bibid(_, bibid))
+
+    private def _bibtex_files(category: Option[String]): Vector[Path] =
+      Vector(
+        project.resolve("src/main/doxsite/bibliography"),
+        repository.resolve("bibliography"),
+        repository.resolve("catalog/bibliography")
+      ).distinct.flatMap(_bibtex_files_in(_, category))
+
+    private def _bibtex_files_in(root: Path, category: Option[String]): Vector[Path] =
+      if (!Files.isDirectory(root))
+        Vector.empty
+      else
+        category match {
+          case Some(value) =>
+            _bibtex_files_in_directory(root.resolve(value)) ++ _bibtex_files_in_directory(root)
+          case None =>
+            _bibtex_files_in_directory(root) ++ _category_bibtex_files_in(root)
+        }
+
+    private def _category_bibtex_files_in(root: Path): Vector[Path] = {
+      val stream = Files.list(root)
+      try {
+        stream.iterator().asScala.toVector.
+          filter(Files.isDirectory(_)).
+          sortBy(_.getFileName.toString).
+          flatMap(_bibtex_files_in_directory)
+      } finally {
+        stream.close()
+      }
+    }
+
+    private def _bibtex_files_in_directory(dir: Path): Vector[Path] =
+      if (!Files.isDirectory(dir))
+        Vector.empty
+      else {
+        val stream = Files.list(dir)
+        try {
+          stream.iterator().asScala.toVector.
+            filter(path => Files.isRegularFile(path) && path.getFileName.toString.toLowerCase(Locale.ROOT).endsWith(".bib")).
+            sortBy(_.getFileName.toString)
+        } finally {
+          stream.close()
+        }
+      }
+
+    private def _read_bibtex_file(path: Path): Option[String] =
+      try {
+        Some(Files.readString(path, StandardCharsets.UTF_8)).filter(_.trim.nonEmpty)
+      } catch {
+        case NonFatal(_) => None
+      }
+
+    private def _read_bibtex_entries(path: Path): Vector[String] =
+      _read_bibtex_file(path).map(_split_bibtex_entries).getOrElse(Vector.empty)
+
+    private def _split_bibtex_entries(text: String): Vector[String] = {
+      var entries = Vector.empty[String]
+      var i = 0
+      while (i < text.length) {
+        val start = text.indexOf('@', i)
+        if (start < 0)
+          i = text.length
+        else {
+          _entry_end(text, start) match {
+            case Some(end) =>
+              entries :+= text.substring(start, end)
+              i = end
+            case None =>
+              i = text.length
+          }
+        }
+      }
+      entries
+    }
+
+    private def _entry_end(text: String, start: Int): Option[Int] = {
+      val open = text.indexOf('{', start)
+      if (open < 0)
+        None
+      else {
+        var i = open + 1
+        var depth = 1
+        while (i < text.length && depth > 0) {
+          text.charAt(i) match {
+            case '{' => depth += 1
+            case '}' => depth -= 1
+            case _ =>
+          }
+          i += 1
+        }
+        if (depth == 0) Some(i) else None
+      }
+    }
+
+    private def _matches_bibid(entry: String, bibid: String): Boolean =
+      BibliographyBibtexParser.parse(entry).exists { fields =>
+        val normalized = _normalize_bibid(bibid)
+        val candidates = Vector(
+          fields.get("id").map("bib:" + _),
+          fields.get("doi").map("doi:" + _),
+          fields.get("isbn").map("isbn:" + _),
+          fields.get("url")
+        ).flatten.map(_normalize_bibid)
+        candidates.contains(normalized)
+      }
+
+    private def _normalize_bibid(value: String): String =
+      value.trim.toLowerCase(Locale.ROOT)
+
+    private def _has_uri_scheme(value: String): Boolean =
+      "^[A-Za-z][A-Za-z0-9+.-]*:.*$".r.pattern.matcher(value).matches()
   }
 
   def preview(args: List[String], runner: Runner): Unit = {
@@ -7458,8 +7690,9 @@ private[cozy] object CozyBok {
         "3. cozy bok fix --dry-run",
         "4. update site.conf/category.yaml Vision, Goals, and Subgoals if operational intent changed",
         "5. cozy bok build --strategy preview",
-        s"6. cozy bok preview --port ${_default_preview_port}",
-        s"7. open http://127.0.0.1:${_default_preview_port}/ in a browser; use the local Web server instead of opening website.d directly"
+        "6. use cozy bok build --strategy preview --no-bib-service for offline/cache-only bibliography builds",
+        s"7. cozy bok preview --port ${_default_preview_port}",
+        s"8. open http://127.0.0.1:${_default_preview_port}/ in a browser; use the local Web server instead of opening website.d directly"
       )
     ),
     (
@@ -8731,7 +8964,8 @@ private[cozy] object CozyBok {
         ArcadiaConfig(_boolean(config, "bok.arcadia.enabled", false), config.value("bok.arcadia.source").getOrElse("src/main/arcadiasite")),
         _direct_assets(project, config),
         _publication_settings(parsed, config, _strategy(parsed)),
-        _dashboard_color_group(parsed, config, site)
+        _dashboard_color_group(parsed, config, site),
+        !parsed.request.switches.exists(_.name == "no-bib-service")
       )
     }
   }

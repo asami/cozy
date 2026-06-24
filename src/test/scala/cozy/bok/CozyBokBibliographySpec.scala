@@ -3,6 +3,8 @@ package cozy.bok
 import cozy.CozySpecVocabulary
 
 import cozy.bok._
+import java.io.ByteArrayOutputStream
+import java.io.PrintStream
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
 import scala.collection.JavaConverters._
@@ -11,7 +13,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jun. 24, 2026
- * @version Jun. 24, 2026
+ * @version Jun. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokBibliographySpec
@@ -235,12 +237,187 @@ class CozyBokBibliographySpec
           }
 
           When("Cozy updates bibliography cache for unresolved bib ids")
-          val output = CozyBok.updateBibliography(BibliographyUpdateConfig(dir, force = false), fetcher)
+          val output = CozyBok.updateBibliography(BibliographyUpdateConfig(dir, force = false, reportonly = false), fetcher)
 
           Then("the cache is written and the source file remains unchanged")
           output should include("target/cozy-bok/bibliography/cache/doi-10-5555-design-patterns.bib")
           _read(dir.resolve("target/cozy-bok/bibliography/cache/doi-10-5555-design-patterns.bib")) should include("@book{gamma1995designpatterns")
           _read(source) shouldBe before
+        }
+      }
+
+      "resolve uncached external bib ids during normal build" in {
+        _with_temp_dir("cozy-bok-bibliography-build-fetch") { dir =>
+          Given("an unresolved SmartDox bibliography reference without a pre-existing cache")
+          _write(
+            dir.resolve("src/main/doxsite/site.conf"),
+            """site {
+              |  output {
+              |    locale_mode = "single_locale_root"
+              |    default_locale = "en"
+              |  }
+              |}
+              |""".stripMargin
+          )
+          _write(dir.resolve("src/main/doxsite/technology/category.yaml"), "name: Technology\ntitle: Technology\n")
+          _write(dir.resolve("src/main/doxsite/technology/index.dox"), "Technology\n==========\n")
+          val fetcher = new RecordingBibtexFetcher(Some("@book{gamma1995designpatterns, title={Design Patterns}, author={Gamma, Erich and Helm, Richard}, year={1995}, isbn={9780201633610}}\n"))
+          val config = CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview"))
+
+          When("Cozy builds through SmartDox and resolves bibliography metadata through the injected fetcher")
+          CozyBok.build(config, new UnresolvedBibliographyMetadataRunner, fetcher)
+
+          Then("the unresolved bib id is fetched into cache and rendered as effective bibliography")
+          fetcher.bibids should contain("doi:10.5555/design-patterns")
+          _read(dir.resolve("target/cozy-bok/bibliography/cache/doi-10-5555-design-patterns.bib")) should include("@book{gamma1995designpatterns")
+          val metadata = _read(dir.resolve("website.d/metadata/bibliography/bibliography.json"))
+          metadata should include("Design Patterns")
+          metadata should include("\"source_kind\" : \"external-cache\"")
+          metadata should include("\"needs_resolution\" : false")
+          _read(dir.resolve("website.d/bibliography/index.html")) should include("Design Patterns")
+        }
+      }
+
+      "resolve BoK bibliography .bib sources before external providers during build" in {
+        _with_temp_dir("cozy-bok-bibliography-build-local-bib") { dir =>
+          Given("an unresolved bibliography id and a matching .bib file in the BoK bibliography source tree")
+          _write(dir.resolve("src/main/doxsite/site.conf"), "site.output.locale_mode = single_locale_root\n")
+          _write(dir.resolve("src/main/doxsite/concept/category.yaml"), "name: Concept\ntitle: Concept\n")
+          _write(dir.resolve("src/main/doxsite/concept/index.dox"), "Concept\n=======\n")
+          _write(
+            dir.resolve("src/main/doxsite/bibliography/concept/design-patterns.bib"),
+            "@book{design-patterns, title={Design Patterns}, author={Gamma, Erich and Helm, Richard}, year={1994}}\n"
+          )
+          val config = CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview"))
+
+          When("Cozy builds with the default bibliography resolver")
+          CozyBok.build(config, new LocalBibidBibliographyMetadataRunner)
+
+          Then("the local .bib entry is cached and rendered as effective bibliography")
+          _read(dir.resolve("target/cozy-bok/bibliography/cache/bib-design-patterns.bib")) should include("@book{design-patterns")
+          val metadata = _read(dir.resolve("website.d/metadata/bibliography/bibliography.json"))
+          metadata should include("Design Patterns")
+          metadata should include("\"source_kind\" : \"external-cache\"")
+          metadata should include("\"needs_resolution\" : false")
+        }
+      }
+
+      "prefer category BoK bibliography .bib sources over global BoK bibliography .bib sources" in {
+        _with_temp_dir("cozy-bok-bibliography-build-category-bib") { dir =>
+          Given("an unresolved category bibliography id and both global and category BibTeX source files")
+          _write(dir.resolve("src/main/doxsite/site.conf"), "site.output.locale_mode = single_locale_root\n")
+          _write(dir.resolve("src/main/doxsite/concept/category.yaml"), "name: Concept\ntitle: Concept\n")
+          _write(dir.resolve("src/main/doxsite/concept/index.dox"), "Concept\n=======\n")
+          _write(
+            dir.resolve("src/main/doxsite/bibliography/design-patterns.bib"),
+            "@book{design-patterns, title={Global Design Patterns}, author={Global Author}, year={1994}}\n"
+          )
+          _write(
+            dir.resolve("src/main/doxsite/bibliography/concept/design-patterns.bib"),
+            "@book{design-patterns, title={Category Design Patterns}, author={Category Author}, year={1994}}\n"
+          )
+          val config = CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview"))
+
+          When("Cozy resolves bibliography during the build")
+          CozyBok.build(config, new LocalBibidBibliographyMetadataRunner)
+
+          Then("the category BibTeX source is used before the global source")
+          val cache = _read(dir.resolve("target/cozy-bok/bibliography/cache/bib-design-patterns.bib"))
+          cache should include("Category Design Patterns")
+          cache should not include("Global Design Patterns")
+        }
+      }
+
+      "supplement curated .bib.dox bibliography entries from matching local BibTeX without replacing curated metadata" in {
+        _with_temp_dir("cozy-bok-bibliography-bib-dox-supplement") { dir =>
+          Given("a curated bibliography .bib.dox handoff and a matching local BibTeX source")
+          _write(dir.resolve("src/main/doxsite/site.conf"), "site.output.locale_mode = single_locale_root\n")
+          _write(dir.resolve("src/main/doxsite/concept/category.yaml"), "name: Concept\ntitle: Concept\n")
+          _write(dir.resolve("src/main/doxsite/concept/index.dox"), "Concept\n=======\n")
+          _write(
+            dir.resolve("src/main/doxsite/bibliography/concept/design-patterns.bib"),
+            "@book{design-patterns, title={BibTeX Design Patterns}, author={Gamma, Erich and Helm, Richard}, year={1994}, isbn={9780201633610}}\n"
+          )
+          val config = CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview"))
+
+          When("Cozy builds effective bibliography metadata")
+          CozyBok.build(config, new BibDoxBibliographyMetadataRunner)
+
+          Then("the curated title remains authoritative")
+          val metadata = _read(dir.resolve("website.d/metadata/bibliography/bibliography.json"))
+          metadata should include("\"title\" : \"Curated Design Patterns\"")
+          metadata should not include("\"title\" : \"BibTeX Design Patterns\"")
+
+          And("the BibTeX fields supplement missing author and identifier data")
+          metadata should include("Gamma, Erich")
+          metadata should include("9780201633610")
+          metadata should include("\"needs_resolution\" : false")
+        }
+      }
+
+      "fail normal build when external bib ids cannot be resolved" in {
+        _with_temp_dir("cozy-bok-bibliography-build-fetch-failure") { dir =>
+          Given("an unresolved SmartDox bibliography reference and an unavailable bibliography service")
+          _write(dir.resolve("src/main/doxsite/site.conf"), "site.output.locale_mode = single_locale_root\n")
+          _write(dir.resolve("src/main/doxsite/technology/category.yaml"), "name: Technology\ntitle: Technology\n")
+          _write(dir.resolve("src/main/doxsite/technology/index.dox"), "Technology\n==========\n")
+          val config = CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview"))
+
+          When("Cozy builds with bibliography service enabled")
+          val error = intercept[Throwable] {
+            CozyBok.build(config, new UnresolvedBibliographyMetadataRunner, new RecordingBibtexFetcher(None))
+          }
+
+          Then("the unresolved bibliography reference is a build failure")
+          error.getMessage should include("unresolved bibliography reference: doi:10.5555/design-patterns")
+          error.getMessage should include("--no-bib-service")
+        }
+      }
+
+      "warn and finish offline build when external bib ids are not cached" in {
+        _with_temp_dir("cozy-bok-bibliography-build-offline") { dir =>
+          Given("an unresolved SmartDox bibliography reference and offline bibliography mode")
+          _write(dir.resolve("src/main/doxsite/site.conf"), "site.output.locale_mode = single_locale_root\n")
+          _write(dir.resolve("src/main/doxsite/technology/category.yaml"), "name: Technology\ntitle: Technology\n")
+          _write(dir.resolve("src/main/doxsite/technology/index.dox"), "Technology\n==========\n")
+          val fetcher = new RecordingBibtexFetcher(Some("@book{gamma1995designpatterns, title={Design Patterns}}\n"))
+          val config = CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview", "--no-bib-service"))
+
+          When("Cozy builds without bibliography service")
+          val output = _capture {
+            CozyBok.build(config, new UnresolvedBibliographyMetadataRunner, fetcher)
+          }
+
+          Then("the build succeeds with a warning and does not call the fetcher")
+          output should include("warning: unresolved bibliography reference: doi:10.5555/design-patterns")
+          fetcher.bibids shouldBe empty
+          _read(dir.resolve("website.d/metadata/bibliography/bibliography.json")) should include("\"needs_resolution\" : true")
+          _read(dir.resolve("website.d/bibliography/index.html")) should include("Unresolved")
+        }
+      }
+
+      "materialize embedded raw BibTeX during offline build without calling external providers" in {
+        _with_temp_dir("cozy-bok-bibliography-build-offline-raw") { dir =>
+          Given("SmartDox bibliography metadata containing raw BibTeX")
+          _write(dir.resolve("src/main/doxsite/site.conf"), "site.output.locale_mode = single_locale_root\n")
+          _write(dir.resolve("src/main/doxsite/concept/category.yaml"), "name: Concept\ntitle: Concept\n")
+          _write(dir.resolve("src/main/doxsite/concept/index.dox"), "Concept\n=======\n")
+          val fetcher = new RecordingBibtexFetcher(Some("@book{unexpected, title={Unexpected}}\n"))
+          val config = CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview", "--no-bib-service"))
+
+          When("Cozy builds without bibliography service")
+          val output = _capture {
+            CozyBok.build(config, new BibliographyRawMetadataRunner, fetcher)
+          }
+
+          Then("the embedded BibTeX is cached and applied without external fetches or warnings")
+          output should not include("warning: unresolved bibliography reference")
+          fetcher.urls shouldBe empty
+          fetcher.bibids shouldBe empty
+          _read(dir.resolve("target/cozy-bok/bibliography/cache/bib-design-patterns.bib")) should include("@book{gamma1994designpatterns")
+          val metadata = _read(dir.resolve("website.d/metadata/bibliography/bibliography.json"))
+          metadata should include("\"key\" : \"gamma1994designpatterns\"")
+          metadata should include("\"needs_resolution\" : false")
         }
       }
 
@@ -263,7 +440,7 @@ class CozyBokBibliographySpec
           val config = CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview"))
 
           When("Cozy builds pages after SmartDox emits the unresolved reference")
-          CozyBok.build(config, new UnresolvedBibliographyMetadataRunner)
+          CozyBok.build(config, new UnresolvedBibliographyMetadataRunner, new FailingBibtexFetcher)
 
           Then("the generated bibliography metadata and dashboard use cached effective fields")
           val metadata = _read(dir.resolve("website.d/metadata/bibliography/bibliography.json"))
@@ -277,7 +454,7 @@ class CozyBokBibliographySpec
       "fetch explicit BibTeX source URLs without rewriting source documents" in {
         _with_temp_dir("cozy-bok-bibliography-cache") { dir =>
           Given("existing bibliography metadata with a BibTeX source URL")
-          _write(dir.resolve("doxsite.d/metadata/bibliography/bibliography.json"), _bibliography_json)
+          _write(dir.resolve("doxsite.d/metadata/bibliography/bibliography.json"), _bibliography_source_url_json)
           val source = _write(dir.resolve("src/main/doxsite/bibliography/concept/design-patterns.dox"), "Design Patterns\n===============\n")
           val before = _read(source)
           val fetcher = new BibliographyBibtexFetcher {
@@ -286,7 +463,7 @@ class CozyBokBibliographySpec
           }
 
           When("Cozy updates the bibliography cache through the injected fetcher")
-          val output = CozyBok.updateBibliography(BibliographyUpdateConfig(dir, force = false), fetcher)
+          val output = CozyBok.updateBibliography(BibliographyUpdateConfig(dir, force = false, reportonly = false), fetcher)
 
           Then("the cache is written under target and the source file remains unchanged")
           output should include("target/cozy-bok/bibliography/cache/bib-design-patterns.bib")
@@ -294,7 +471,240 @@ class CozyBokBibliographySpec
           _read(source) shouldBe before
         }
       }
+
+      "report missing bibliography cache entries without fetching" in {
+        _with_temp_dir("cozy-bok-bibliography-report-only") { dir =>
+          Given("existing bibliography metadata with an unresolved DOI reference")
+          _write(dir.resolve("doxsite.d/metadata/bibliography/bibliography.json"), _unresolved_bibliography_json)
+          val fetcher = new RecordingBibtexFetcher(Some("@book{gamma1995designpatterns, title={Design Patterns}}\n"))
+
+          When("Cozy checks bibliography cache in report-only mode")
+          val output = CozyBok.updateBibliography(BibliographyUpdateConfig(dir, force = false, reportonly = true), fetcher)
+
+          Then("the missing bib id is reported without writing cache or calling the fetcher")
+          output should include("bibliography cache missing: doi:10.5555/design-patterns")
+          fetcher.bibids shouldBe empty
+          Files.exists(dir.resolve("target/cozy-bok/bibliography/cache/doi-10-5555-design-patterns.bib")) shouldBe false
+        }
+      }
+
+      "report explicit BibTeX source URL failures instead of claiming no updates" in {
+        _with_temp_dir("cozy-bok-bibliography-source-url-failure") { dir =>
+          Given("existing bibliography metadata with a BibTeX source URL that cannot be fetched")
+          _write(dir.resolve("doxsite.d/metadata/bibliography/bibliography.json"), _bibliography_source_url_json)
+          val fetcher = new RecordingBibtexFetcher(None)
+
+          When("Cozy updates bibliography cache through the unavailable source")
+          val output = CozyBok.updateBibliography(BibliographyUpdateConfig(dir, force = false, reportonly = false), fetcher)
+
+          Then("the unresolved cache entry is reported explicitly")
+          output should include("bibliography cache unresolved: bib:design-patterns")
+          output should not include("bibliography cache: no updates")
+          fetcher.urls should contain("https://example.com/design-patterns.bib")
+        }
+      }
+
+      "resolve repository .bib sources through the update-bibliography CLI" in {
+        _with_temp_dir("cozy-bok-bibliography-update-repository-bib") { dir =>
+          Given("an unresolved bibliography id and a matching .bib file in the configured repository")
+          _write(dir.resolve("conf/cozy/config.yaml"), "bok:\n  repository: repository\n")
+          _write(dir.resolve("doxsite.d/metadata/bibliography/bibliography.json"), _local_bibid_bibliography_json)
+          _write(
+            dir.resolve("repository/bibliography/design-patterns.bib"),
+            "@book{design-patterns, title={Design Patterns}, author={Gamma, Erich and Helm, Richard}, year={1994}}\n"
+          )
+
+          When("Cozy updates bibliography through the public CLI path")
+          val output = _capture {
+            CozyBok.execute(List("bok", "update-bibliography", dir.toString))
+          }
+
+          Then("the repository .bib entry is used as a resolver source before external providers")
+          output should include("target/cozy-bok/bibliography/cache/bib-design-patterns.bib")
+          _read(dir.resolve("target/cozy-bok/bibliography/cache/bib-design-patterns.bib")) should include("@book{design-patterns")
+        }
+      }
+
+      "prefer repository bibliography .bib sources over repository catalog bibliography .bib sources" in {
+        _with_temp_dir("cozy-bok-bibliography-update-repository-precedence") { dir =>
+          Given("matching BibTeX entries in repository bibliography and catalog bibliography")
+          _write(dir.resolve("conf/cozy/config.yaml"), "bok:\n  repository: repository\n")
+          _write(dir.resolve("doxsite.d/metadata/bibliography/bibliography.json"), _local_bibid_bibliography_json)
+          _write(
+            dir.resolve("repository/bibliography/design-patterns.bib"),
+            "@book{design-patterns, title={Repository Design Patterns}, author={Repository Author}, year={1994}}\n"
+          )
+          _write(
+            dir.resolve("repository/catalog/bibliography/design-patterns.bib"),
+            "@book{design-patterns, title={Catalog Design Patterns}, author={Catalog Author}, year={1994}}\n"
+          )
+
+          When("Cozy updates bibliography through the public CLI path")
+          _capture {
+            CozyBok.execute(List("bok", "update-bibliography", dir.toString))
+          }
+
+          Then("the repository bibliography source is used before catalog bibliography")
+          val cache = _read(dir.resolve("target/cozy-bok/bibliography/cache/bib-design-patterns.bib"))
+          cache should include("Repository Design Patterns")
+          cache should not include("Catalog Design Patterns")
+        }
+      }
+
+      "resolve repository catalog bibliography .bib sources as local resolver fallback" in {
+        _with_temp_dir("cozy-bok-bibliography-update-repository-catalog") { dir =>
+          Given("an unresolved bibliography id and a matching .bib file in repository catalog bibliography")
+          _write(dir.resolve("conf/cozy/config.yaml"), "bok:\n  repository: repository\n")
+          _write(dir.resolve("doxsite.d/metadata/bibliography/bibliography.json"), _local_bibid_bibliography_json)
+          _write(
+            dir.resolve("repository/catalog/bibliography/design-patterns.bib"),
+            "@book{design-patterns, title={Catalog Design Patterns}, author={Catalog Author}, year={1994}}\n"
+          )
+
+          When("Cozy updates bibliography through the public CLI path")
+          val output = _capture {
+            CozyBok.execute(List("bok", "update-bibliography", dir.toString))
+          }
+
+          Then("the catalog bibliography source is used before external providers")
+          output should include("target/cozy-bok/bibliography/cache/bib-design-patterns.bib")
+          _read(dir.resolve("target/cozy-bok/bibliography/cache/bib-design-patterns.bib")) should include("Catalog Design Patterns")
+        }
+      }
+
+      "ignore broad repository root and project root bibliography .bib files" in {
+        _with_temp_dir("cozy-bok-bibliography-update-repository-boundary") { dir =>
+          Given("matching BibTeX files outside the approved resolver source directories")
+          _write(dir.resolve("conf/cozy/config.yaml"), "bok:\n  repository: repository\n")
+          _write(dir.resolve("doxsite.d/metadata/bibliography/bibliography.json"), _local_bibid_bibliography_json)
+          _write(
+            dir.resolve("repository/design-patterns.bib"),
+            "@book{design-patterns, title={Repository Root Design Patterns}}\n"
+          )
+          _write(
+            dir.resolve("bibliography/design-patterns.bib"),
+            "@book{design-patterns, title={Project Root Design Patterns}}\n"
+          )
+
+          When("Cozy updates bibliography through the public CLI path")
+          val output = _capture {
+            CozyBok.execute(List("bok", "update-bibliography", dir.toString))
+          }
+
+          Then("the broad repository root and project root bibliography files are not resolver sources")
+          output should include("bibliography cache unresolved: bib:design-patterns")
+          Files.exists(dir.resolve("target/cozy-bok/bibliography/cache/bib-design-patterns.bib")) shouldBe false
+        }
+      }
+
+      "resolve explicit source URLs only from approved local bibliography paths" in {
+        _with_temp_dir("cozy-bok-bibliography-update-source-paths") { dir =>
+          Given("bibliography metadata pointing at repository catalog bibliography")
+          _write(dir.resolve("conf/cozy/config.yaml"), "bok:\n  repository: repository\n")
+          _write(dir.resolve("doxsite.d/metadata/bibliography/bibliography.json"), _bibliography_source_url_json("repository/catalog/bibliography/design-patterns.bib"))
+          _write(
+            dir.resolve("repository/catalog/bibliography/design-patterns.bib"),
+            "@book{gamma1994designpatterns, title={Catalog Design Patterns}}\n"
+          )
+
+          When("Cozy updates bibliography through the public CLI path")
+          val output = _capture {
+            CozyBok.execute(List("bok", "update-bibliography", dir.toString))
+          }
+
+          Then("the approved repository catalog source URL resolves")
+          output should include("target/cozy-bok/bibliography/cache/bib-design-patterns.bib")
+          _read(dir.resolve("target/cozy-bok/bibliography/cache/bib-design-patterns.bib")) should include("Catalog Design Patterns")
+        }
+      }
+
+      "reject explicit source URLs that escape approved local bibliography roots" in {
+        _with_temp_dir("cozy-bok-bibliography-update-source-path-escape") { dir =>
+          Given("bibliography metadata pointing through an approved prefix to an unapproved repository root file")
+          _write(dir.resolve("conf/cozy/config.yaml"), "bok:\n  repository: repository\n")
+          _write(dir.resolve("doxsite.d/metadata/bibliography/bibliography.json"), _bibliography_source_url_json("repository/bibliography/../design-patterns.bib"))
+          _write(
+            dir.resolve("repository/design-patterns.bib"),
+            "@book{gamma1994designpatterns, title={Repository Root Design Patterns}}\n"
+          )
+
+          When("Cozy updates bibliography through the public CLI path")
+          val output = _capture {
+            CozyBok.execute(List("bok", "update-bibliography", dir.toString))
+          }
+
+          Then("the path traversal source URL is rejected as outside the approved resolver roots")
+          output should include("bibliography cache unresolved: bib:design-patterns")
+          Files.exists(dir.resolve("target/cozy-bok/bibliography/cache/bib-design-patterns.bib")) shouldBe false
+        }
+      }
+
+      "treat embedded raw BibTeX as locally complete in report-only mode" in {
+        _with_temp_dir("cozy-bok-bibliography-report-only-raw") { dir =>
+          Given("existing bibliography metadata with embedded raw BibTeX")
+          _write(dir.resolve("doxsite.d/metadata/bibliography/bibliography.json"), _bibliography_raw_json)
+          val fetcher = new RecordingBibtexFetcher(Some("@book{unexpected, title={Unexpected}}\n"))
+
+          When("Cozy checks bibliography cache in report-only mode")
+          val output = CozyBok.updateBibliography(BibliographyUpdateConfig(dir, force = false, reportonly = true), fetcher)
+
+          Then("no external cache is reported missing because the BibTeX is already local metadata")
+          output should include("bibliography cache: complete")
+          fetcher.urls shouldBe empty
+          fetcher.bibids shouldBe empty
+        }
+      }
+
+      "resolve explicit BibTeX source URLs during normal build" in {
+        _with_temp_dir("cozy-bok-bibliography-build-source-url") { dir =>
+          Given("SmartDox bibliography metadata with an explicit BibTeX source URL")
+          _write(
+            dir.resolve("src/main/doxsite/site.conf"),
+            """site {
+              |  output {
+              |    locale_mode = "single_locale_root"
+              |    default_locale = "en"
+              |  }
+              |}
+              |""".stripMargin
+          )
+          _write(dir.resolve("src/main/doxsite/concept/category.yaml"), "name: Concept\ntitle: Concept\n")
+          _write(dir.resolve("src/main/doxsite/concept/index.dox"), "Concept\n=======\n")
+          val fetcher = new RecordingBibtexFetcher(Some("@book{gamma1994designpatterns, title={Design Patterns}, author={Gamma, Erich and Helm, Richard}, year={1994}}\n"))
+          val config = CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview"))
+
+          When("Cozy builds with bibliography service enabled")
+          CozyBok.build(config, new BibliographySourceUrlMetadataRunner, fetcher)
+
+          Then("the BibTeX source URL is fetched into cache and applied to effective metadata")
+          fetcher.urls should contain("https://example.com/design-patterns.bib")
+          _read(dir.resolve("target/cozy-bok/bibliography/cache/bib-design-patterns.bib")) should include("@book{gamma1994designpatterns")
+          val metadata = _read(dir.resolve("website.d/metadata/bibliography/bibliography.json"))
+          metadata should include("\"key\" : \"gamma1994designpatterns\"")
+          metadata should include("\"needs_resolution\" : false")
+        }
+      }
     }
+  }
+
+  private class RecordingBibtexFetcher(result: Option[String]) extends BibliographyBibtexFetcher {
+    var urls = Vector.empty[String]
+    var bibids = Vector.empty[String]
+    def fetch(sourceurl: String): Option[String] = {
+      urls :+= sourceurl
+      result
+    }
+    override def fetchBibId(bibid: String): Option[String] = {
+      bibids :+= bibid
+      result
+    }
+  }
+
+  private class FailingBibtexFetcher extends BibliographyBibtexFetcher {
+    def fetch(sourceurl: String): Option[String] =
+      throw new AssertionError(s"Unexpected bibliography source URL fetch: ${sourceurl}")
+    override def fetchBibId(bibid: String): Option[String] =
+      throw new AssertionError(s"Unexpected bibliography id fetch: ${bibid}")
   }
 
   private class UnresolvedBibliographyMetadataRunner extends CozyBok.Runner {
@@ -328,6 +738,54 @@ class CozyBokBibliographySpec
         _write(cwd.resolve("doxsite.d/metadata/rdf/graph.json"), _rdf_graph_json)
         _write(cwd.resolve("doxsite.d/metadata/glossary/terms.json"), _terms_json)
         _write(cwd.resolve("doxsite.d/metadata/bibliography/bibliography.json"), _bibliography_json)
+        _write(cwd.resolve("doxsite.d/site.ttl"), "@prefix ex: <https://example.com/> .\n")
+        _write(cwd.resolve("doxsite.d/site.jsonld"), "{\"@graph\":[]}\n")
+      }
+  }
+
+  private class BibliographySourceUrlMetadataRunner extends CozyBok.Runner {
+    def run(command: Vector[String], cwd: Path): Unit =
+      if (command.take(2) == Vector("dox", "site")) {
+        _write(cwd.resolve("doxsite.d/metadata/dashboard/site.json"), _dashboard_json)
+        _write(cwd.resolve("doxsite.d/metadata/rdf/graph.json"), _rdf_graph_json)
+        _write(cwd.resolve("doxsite.d/metadata/glossary/terms.json"), "{\"terms\": []}\n")
+        _write(cwd.resolve("doxsite.d/metadata/bibliography/bibliography.json"), _bibliography_source_url_json)
+        _write(cwd.resolve("doxsite.d/site.ttl"), "@prefix ex: <https://example.com/> .\n")
+        _write(cwd.resolve("doxsite.d/site.jsonld"), "{\"@graph\":[]}\n")
+      }
+  }
+
+  private class LocalBibidBibliographyMetadataRunner extends CozyBok.Runner {
+    def run(command: Vector[String], cwd: Path): Unit =
+      if (command.take(2) == Vector("dox", "site")) {
+        _write(cwd.resolve("doxsite.d/metadata/dashboard/site.json"), _dashboard_json)
+        _write(cwd.resolve("doxsite.d/metadata/rdf/graph.json"), _rdf_graph_json)
+        _write(cwd.resolve("doxsite.d/metadata/glossary/terms.json"), "{\"terms\": []}\n")
+        _write(cwd.resolve("doxsite.d/metadata/bibliography/bibliography.json"), _local_bibid_bibliography_json)
+        _write(cwd.resolve("doxsite.d/site.ttl"), "@prefix ex: <https://example.com/> .\n")
+        _write(cwd.resolve("doxsite.d/site.jsonld"), "{\"@graph\":[]}\n")
+      }
+  }
+
+  private class BibDoxBibliographyMetadataRunner extends CozyBok.Runner {
+    def run(command: Vector[String], cwd: Path): Unit =
+      if (command.take(2) == Vector("dox", "site")) {
+        _write(cwd.resolve("doxsite.d/metadata/dashboard/site.json"), _dashboard_json)
+        _write(cwd.resolve("doxsite.d/metadata/rdf/graph.json"), _rdf_graph_json)
+        _write(cwd.resolve("doxsite.d/metadata/glossary/terms.json"), "{\"terms\": []}\n")
+        _write(cwd.resolve("doxsite.d/metadata/bibliography/bibliography.json"), _bibliography_bib_dox_json)
+        _write(cwd.resolve("doxsite.d/site.ttl"), "@prefix ex: <https://example.com/> .\n")
+        _write(cwd.resolve("doxsite.d/site.jsonld"), "{\"@graph\":[]}\n")
+      }
+  }
+
+  private class BibliographyRawMetadataRunner extends CozyBok.Runner {
+    def run(command: Vector[String], cwd: Path): Unit =
+      if (command.take(2) == Vector("dox", "site")) {
+        _write(cwd.resolve("doxsite.d/metadata/dashboard/site.json"), _dashboard_json)
+        _write(cwd.resolve("doxsite.d/metadata/rdf/graph.json"), _rdf_graph_json)
+        _write(cwd.resolve("doxsite.d/metadata/glossary/terms.json"), "{\"terms\": []}\n")
+        _write(cwd.resolve("doxsite.d/metadata/bibliography/bibliography.json"), _bibliography_raw_json)
         _write(cwd.resolve("doxsite.d/site.ttl"), "@prefix ex: <https://example.com/> .\n")
         _write(cwd.resolve("doxsite.d/site.jsonld"), "{\"@graph\":[]}\n")
       }
@@ -456,11 +914,118 @@ class CozyBokBibliographySpec
       |    },
       |    "bibtex": {
       |      "key": "gamma1994designpatterns",
-      |      "entry_type": "book",
-      |      "source_url": "https://example.com/design-patterns.bib"
+      |      "entry_type": "book"
       |    },
       |    "body_html": "<p>A reference book for design patterns.</p>",
       |    "quality": {}
+      |  }]
+      |}
+      |""".stripMargin
+
+  private def _bibliography_source_url_json: String =
+    _bibliography_source_url_json("https://example.com/design-patterns.bib")
+
+  private def _bibliography_source_url_json(sourceurl: String): String =
+    s"""{
+      |  "entries": [{
+      |    "id": "bib:design-patterns",
+      |    "slug": "design-patterns",
+      |    "entry_type": "book",
+      |    "title": "Design Patterns",
+      |    "summary": "Reusable object-oriented design catalog.",
+      |    "category": "concept",
+      |    "source_path": "bibliography/concept/design-patterns.dox",
+      |    "public_path": "bibliography/concept/design-patterns.html",
+      |    "authors": ["Erich Gamma", "Richard Helm"],
+      |    "published_at": "1994-10-21",
+      |    "publisher": "Addison-Wesley",
+      |    "source_url": "https://example.com/design-patterns",
+      |    "accessed_at": "2026-06-24",
+      |    "terms": ["concept:pattern"],
+      |    "citation": "Gamma et al. Design Patterns.",
+      |    "identifiers": {
+      |      "isbn": "9780201633610"
+      |    },
+      |    "bibtex": {
+      |      "source_url": "${sourceurl}"
+      |    },
+      |    "body_html": "<p>A reference book for design patterns.</p>",
+      |    "quality": {}
+      |  }]
+      |}
+      |""".stripMargin
+
+  private def _bibliography_bib_dox_json: String =
+    """{
+      |  "entries": [{
+      |    "id": "bib:design-patterns",
+      |    "slug": "design-patterns",
+      |    "entry_type": "book",
+      |    "title": "Curated Design Patterns",
+      |    "summary": "Curated BoK reference source.",
+      |    "category": "concept",
+      |    "source_path": "bibliography/concept/design-patterns.bib.dox",
+      |    "public_path": "bibliography/concept/design-patterns.html",
+      |    "authors": [],
+      |    "terms": ["concept:pattern"],
+      |    "identifiers": {},
+      |    "bibtex": {},
+      |    "body_html": "<p>Curated BoK narrative.</p>",
+      |    "source_kind": "internal",
+      |    "needs_resolution": false,
+      |    "quality": {}
+      |  }]
+      |}
+      |""".stripMargin
+
+  private def _local_bibid_bibliography_json: String =
+    """{
+      |  "entries": [{
+      |    "id": "bib:design-patterns",
+      |    "slug": "design-patterns",
+      |    "entry_type": "book",
+      |    "title": "bib:design-patterns",
+      |    "summary": "Unresolved local bibliography reference.",
+      |    "category": "concept",
+      |    "source_path": "concept/article.md",
+      |    "public_path": "bibliography/concept/design-patterns.html",
+      |    "authors": [],
+      |    "terms": ["concept:pattern"],
+      |    "identifiers": {},
+      |    "bibtex": {},
+      |    "body_html": "",
+      |    "source_kind": "external-ref",
+      |    "refs": ["bib:design-patterns"],
+      |    "needs_resolution": true,
+      |    "quality": {"missing_citation": true, "missing_terms": false, "missing_source": false, "missing_narrative": true, "needs_curation": true}
+      |  }]
+      |}
+      |""".stripMargin
+
+  private def _bibliography_raw_json: String =
+    """{
+      |  "entries": [{
+      |    "id": "bib:design-patterns",
+      |    "slug": "design-patterns",
+      |    "entry_type": "book",
+      |    "title": "Design Patterns",
+      |    "summary": "Reusable object-oriented design catalog.",
+      |    "category": "concept",
+      |    "source_path": "bibliography/concept/design-patterns.bib",
+      |    "public_path": "bibliography/concept/design-patterns.html",
+      |    "authors": [],
+      |    "terms": ["concept:pattern"],
+      |    "identifiers": {
+      |      "isbn": "9780201633610"
+      |    },
+      |    "bibtex": {
+      |      "raw": "@book{gamma1994designpatterns, title={Design Patterns}, author={Gamma, Erich and Helm, Richard}, year={1994}}\n"
+      |    },
+      |    "body_html": "",
+      |    "source_kind": "bibtex-only",
+      |    "quality": {
+      |      "needs_curation": true
+      |    }
       |  }]
       |}
       |""".stripMargin
@@ -487,4 +1052,12 @@ class CozyBokBibliographySpec
 
   private def _read(path: Path): String =
     new String(Files.readAllBytes(path), StandardCharsets.UTF_8)
+
+  private def _capture(f: => Unit): String = {
+    val out = new ByteArrayOutputStream()
+    Console.withOut(new PrintStream(out, true, "UTF-8")) {
+      f
+    }
+    out.toString("UTF-8")
+  }
 }

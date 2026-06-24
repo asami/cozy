@@ -13,7 +13,7 @@ import scala.collection.JavaConverters._
 /*
  * @since   May. 20, 2026
  *  version May. 25, 2026
- * @version Jun. 24, 2026
+ * @version Jun. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyScaffold {
@@ -1483,8 +1483,10 @@ private[cozy] object CozyScaffold {
       |      Add a category, category index, and optional article or term seeds to a BoK source project.
       |      --goal and --subgoal may be specified multiple times and are rendered on the Category Dashboard.
       |
-      |  bok build [<project-dir>] [--strategy wip|draft|preview|production] [--docker-image <image>]
+      |  bok build [<project-dir>] [--strategy wip|draft|preview|production] [--docker-image <image>] [--no-bib-service]
       |      Build BoK HTML under website.d using SmartDox and Antora through the configured Docker image.
+      |      By default, unresolved external bibliography references are fetched into target/cozy-bok/bibliography/cache.
+      |      Use --no-bib-service for offline/cache-only builds; unresolved references are reported as warnings.
       |      The default Docker image is the standard Cozy toolchain image: ghcr.io/asami/cozy-toolchain:latest.
       |
       |  bok update [<project-dir>] [--strategy wip|draft|preview|production] [--docker-image <image>]
@@ -1511,8 +1513,10 @@ private[cozy] object CozyScaffold {
       |  bok search-bibliography <query> [--provider crossref|openlibrary|dblp|all] [--limit <n>] [--format text|json]
       |      Search external bibliography/reference providers without changing BoK source files.
       |
-      |  bok update-bibliography [<project-dir>] [--force]
+      |  bok update-bibliography [<project-dir>] [--force] [--report-only|--no-fetch]
       |      Fetch explicit BibTeX/cache sources registered in bibliography metadata into target/cozy-bok/bibliography/cache.
+      |      Local .bib files under repository/bibliography, repository/catalog/bibliography, or src/main/doxsite/bibliography are used before external providers.
+      |      With --report-only or --no-fetch, report missing bibliography cache entries without external fetches.
       |
       |  bok publish <project-dir> [--publication <dir>] [--repository <dir>] [--warehouse <dir>] [--version <version>] [--strategy production] [--force] [--dry-run]
       |      Run update-publication, production BoK build, and the configured bok.workflow.upload.command.
