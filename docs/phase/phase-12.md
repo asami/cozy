@@ -37,7 +37,7 @@ into focused Cozy improvements.
 - [x] BK12-10: Term hub and term-centric RDF navigation
 - [x] BK12-11: CAR project knowledge and NictKnowledgeHub project integration
 - [x] BK12-12: Scenario knowledge management
-- [ ] BK12-13: Bibliography knowledge management
+- [x] BK12-13: Bibliography knowledge management
 - [ ] BK12-14: Event knowledge management
 - [ ] BK12-15: Mono-Koto analysis knowledge model
 - [ ] BK12-16: Phase closure
@@ -324,6 +324,17 @@ into focused Cozy improvements.
   Hub data from category source directories when `metadata/glossary/terms.json`
   is absent. Scenario semantics remain Cozy/Kaleidox-owned and use SmartDox
   parser output as input.
+
+
+- 2026-06-24: Completed BK12-13 bibliography/reference knowledge management.
+  SmartDox now treats `bibliography/<category>/<slug>.dox|md|markdown` as
+  reference-source knowledge, emits `metadata/bibliography/bibliography.json`,
+  and exposes bibliography pages in the site RDF graph. Cozy consumes that
+  metadata to render `bibliography/index.html`, Home and Category reference
+  links, Term Hub related references, and copied machine metadata. External
+  reference lookup is explicit through `cozy bok search-bibliography`; BibTeX
+  cache update is explicit through `cozy bok update-bibliography`; ordinary
+  `bok build` remains network-independent.
 
 - 2026-06-24: Added BK12-13 through BK12-15 as remaining Phase 12 development
   candidates before closure. BK12-13 covers bibliography as a first-class BoK

@@ -1508,6 +1508,12 @@ private[cozy] object CozyScaffold {
       |  bok update-publication <project-dir> [--publication <dir>] [--repository <dir>] [--warehouse <dir>] [--version <version>] [--force]
       |      Update BoK publication registry metadata for .video and project knowledge packages.
       |
+      |  bok search-bibliography <query> [--provider crossref|openlibrary|dblp|all] [--limit <n>] [--format text|json]
+      |      Search external bibliography/reference providers without changing BoK source files.
+      |
+      |  bok update-bibliography [<project-dir>] [--force]
+      |      Fetch explicit BibTeX/cache sources registered in bibliography metadata into target/cozy-bok/bibliography/cache.
+      |
       |  bok publish <project-dir> [--publication <dir>] [--repository <dir>] [--warehouse <dir>] [--version <version>] [--strategy production] [--force] [--dry-run]
       |      Run update-publication, production BoK build, and the configured bok.workflow.upload.command.
       |      With --dry-run, print the planned steps and write a target manifest without changing publication, repository, or site output.

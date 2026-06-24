@@ -3157,6 +3157,12 @@ class CozyBokSpec
         val update = _capture {
           CozyBok.execute(List("bok", "update-publication", "--help"))
         }
+        val searchbibliography = _capture {
+          CozyBok.execute(List("bok", "search-bibliography", "--help"))
+        }
+        val updatebibliography = _capture {
+          CozyBok.execute(List("bok", "update-bibliography", "--help"))
+        }
         val stage = _capture {
           CozyBok.execute(List("bok", "stage", "--help"))
         }
@@ -3175,6 +3181,8 @@ class CozyBokSpec
         update should include(
           "Usage: cozy bok update-publication <project-dir>"
         )
+        searchbibliography should include("Usage: cozy bok search-bibliography <query>")
+        updatebibliography should include("Usage: cozy bok update-bibliography [<project-dir>]")
         stage should include("Usage: cozy bok stage [<project-dir>]")
         stage should include("bok.workflow.stage.command")
         upload should include("Usage: cozy bok upload [<project-dir>]")

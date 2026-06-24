@@ -224,22 +224,24 @@ Status: DONE
 
 ## BK12-13: Bibliography Knowledge Management
 
-Status: OPEN
+Status: DONE
 
-- [ ] Treat bibliography entries as first-class BoK knowledge.
-- [ ] Decide the canonical source layout for bibliography entries.
-- [ ] Decide whether bibliography source is SmartDox, Markdown, structured
-      document metadata, or a mixed source package convention.
-- [ ] Define bibliography metadata: id, title, authors, date, publisher, source
-      URL, DOI/ISBN/URN where applicable, category, terms, summary, and
-      citation text.
-- [ ] Define how bibliography entries link to terms, articles, scenarios,
-      projects, CML/model elements, and RDF resources.
-- [ ] Define SmartDox/Cozy responsibility boundaries for bibliography parsing
-      and semantic extraction.
-- [ ] Generate or consume bibliography metadata for Dashboard, Category, Term
-      Hub, and RDF navigation.
-- [ ] Add executable specs after the source and rendering contract is decided.
+- [x] Treat bibliography entries as first-class BoK knowledge.
+- [x] Decide the canonical source layout for bibliography entries:
+      `src/main/doxsite/bibliography/<category>/<slug>.dox|md|markdown`.
+- [x] Decide that bibliography source is SmartDox or Markdown metadata plus
+      narrative, with BibTeX as supplemental import/cache data.
+- [x] Define bibliography metadata: id, type, title, authors, date, publisher,
+      source URL, DOI/ISBN/URN where applicable, category, terms, summary,
+      citation text, and BibTeX supplement fields.
+- [x] Define how bibliography entries link to terms, Dashboard, Category,
+      Term Hub, and RDF navigation.
+- [x] Define SmartDox/Cozy responsibility boundaries for bibliography parsing,
+      metadata generation, UI rendering, external search, and cache update.
+- [x] Generate and consume bibliography metadata for Bibliography Dashboard,
+      Home Dashboard, Category related knowledge, Term Hub, and metadata copy.
+- [x] Add executable specs for SmartDox metadata/RDF generation and Cozy
+      rendering/search/cache behavior.
 
 ## BK12-14: Event Knowledge Management
 

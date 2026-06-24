@@ -4,6 +4,7 @@ import org.goldenport.RAISE
 import org.goldenport.cli.{Request => CliRequest}
 import org.goldenport.cli.spec
 import cozy.bok.scenario.ScenarioMetadata
+import cozy.bok.BibliographyEntry._
 import cozy.config.CozyProjectYamlConfig
 import cozy.video.{CozyVideo, CozyVideoPublisher}
 import org.smartdox.{Body, Document, Dox}
@@ -170,14 +171,14 @@ private[cozy] object CozyBok {
     title: String,
     summary: Option[String],
     category: Option[String],
-    sourcePath: String,
-    publicPath: String,
+    sourcepath: String,
+    publicpath: String,
     terms: Vector[String],
     status: Option[String]
   ) {
     def categorySlug: String = category.getOrElse("scenario")
-    def hrefFromHome: String = publicPath
-    def hrefFromCategory: String = "../" + publicPath
+    def hrefFromHome: String = publicpath
+    def hrefFromCategory: String = "../" + publicpath
     def isRelatedTo(term: TermEntry): Boolean =
       terms.exists(x => x == term.id || x == term.title || x == term.slug)
   }
@@ -189,8 +190,8 @@ private[cozy] object CozyBok {
     title: String,
     reading: Option[String],
     category: Option[String],
-    sourcePath: String,
-    publicPath: String,
+    sourcepath: String,
+    publicpath: String,
     definitionHtml: String,
     summary: Option[String],
     aliases: Vector[String],
@@ -201,9 +202,9 @@ private[cozy] object CozyBok {
     quality: TermQuality
   ) {
     def categorySlug: String = category.getOrElse("glossary")
-    def glossaryHref: String = publicPath.stripPrefix("glossary/")
-    def termHubHrefFromHome: String = publicPath
-    def termHubHrefFromCategory: String = "../" + publicPath
+    def glossaryHref: String = publicpath.stripPrefix("glossary/")
+    def termHubHrefFromHome: String = publicpath
+    def termHubHrefFromCategory: String = "../" + publicpath
     def rdfHrefFromHome: String = s"rdf/index.html?term=${_url_query_escape(id)}"
     def rdfHrefFromGlossary: String = s"../rdf/index.html?term=${_url_query_escape(id)}"
     def rdfHrefFromCategory: String = s"../rdf/index.html?term=${_url_query_escape(id)}"
@@ -215,18 +216,18 @@ private[cozy] object CozyBok {
 
   private final case class DocumentFragmentIndex(fragments: Vector[DocumentFragment]) {
     def get(sourcepath: String, locale: String): Option[DocumentFragment] =
-      fragments.find(x => x.sourcePath == sourcepath && x.locale == locale)
+      fragments.find(x => x.sourcepath == sourcepath && x.locale == locale)
   }
   private final case class DocumentFragment(
-    sourcePath: String,
-    publicPath: String,
+    sourcepath: String,
+    publicpath: String,
     locale: String,
     kind: Option[String],
     category: Option[String],
     title: Option[String],
     headline: Option[String],
     brief: Option[String],
-    bodyHtml: String
+    bodyhtml: String
   ) {
     def effectiveHeadline: Option[String] = headline.orElse(title)
     def effectiveBrief: Option[String] = brief
@@ -336,7 +337,7 @@ private[cozy] object CozyBok {
       title <- c.downField("title").as[String]
       reading <- c.downField("reading").as[Option[String]]
       category <- c.downField("category").as[Option[String]]
-      sourcePath <- c.downField("source_path").as[String]
+      sourcepath <- c.downField("source_path").as[String]
       publicpath <- c.downField("public_path").as[String]
       definitionhtml <- c.downField("definition_html").as[String]
       summary <- c.downField("summary").as[Option[String]]
@@ -346,7 +347,7 @@ private[cozy] object CozyBok {
       rdfrefs <- c.downField("rdf_refs").as[Option[Vector[TermRdfReference]]]
       videorefs <- c.downField("video_refs").as[Option[Vector[TermReference]]]
       quality <- c.downField("quality").as[Option[TermQuality]]
-    } yield TermEntry(id, slug, title, reading, category, sourcePath, publicpath, definitionhtml, summary, aliases.getOrElse(Vector.empty), articlerefs.getOrElse(Vector.empty), termrefs.getOrElse(Vector.empty), rdfrefs.getOrElse(Vector.empty), videorefs.getOrElse(Vector.empty), quality.getOrElse(TermQuality(false, false, false)))
+    } yield TermEntry(id, slug, title, reading, category, sourcepath, publicpath, definitionhtml, summary, aliases.getOrElse(Vector.empty), articlerefs.getOrElse(Vector.empty), termrefs.getOrElse(Vector.empty), rdfrefs.getOrElse(Vector.empty), videorefs.getOrElse(Vector.empty), quality.getOrElse(TermQuality(false, false, false)))
 
   private implicit val _term_index_decoder: Decoder[TermIndex] = (c: HCursor) =>
     for {
@@ -392,7 +393,8 @@ private[cozy] object CozyBok {
     publication: PublicationSettings,
     dashboardColorGroup: String
   ) {
-    def sourcePath: Path = project.resolve(source)
+    def sourcepath: Path = project.resolve(source)
+    def sourcePath: Path = sourcepath
     def websitePath: Path = project.resolve(website)
     def antoraPath: Path = project.resolve(antora)
     def doxsitePath: Path = project.resolve(doxsite)
@@ -428,7 +430,7 @@ private[cozy] object CozyBok {
     dryRun: Boolean,
     strategy: String
   ) {
-    def sourcePath: Path = project.resolve(source).toAbsolutePath.normalize()
+    def sourcepath: Path = project.resolve(source).toAbsolutePath.normalize()
     def publicationPath: Path = project.resolve(publication).toAbsolutePath.normalize()
     def warehousePath: Option[Path] = warehouse.map(project.resolve(_).toAbsolutePath.normalize())
     def repositoryPath: Path = project.resolve(repository).toAbsolutePath.normalize()
@@ -656,6 +658,18 @@ private[cozy] object CozyBok {
       case "bok" :: "tutorial" :: rest =>
         guide(rest)
         true
+      case "bok" :: "search-bibliography" :: rest if _help_requested(rest) =>
+        _print_bibliography_search_usage()
+        true
+      case "bok" :: "search-bibliography" :: rest =>
+        println(searchBibliography(_search_bibliography_config(rest), BibliographySearchRegistry.default))
+        true
+      case "bok" :: "update-bibliography" :: rest if _help_requested(rest) =>
+        _print_bibliography_update_usage()
+        true
+      case "bok" :: "update-bibliography" :: rest =>
+        println(updateBibliography(_update_bibliography_config(rest), BibliographyHttpBibtexFetcher))
+        true
       case "bok" :: "publish-video" :: rest if _help_requested(rest) =>
         _print_publication_usage("publish-video")
         true
@@ -728,6 +742,57 @@ private[cozy] object CozyBok {
     println(s"Run the external command registered at bok.workflow.${name}.command.")
   }
 
+  private def _print_bibliography_search_usage(): Unit = {
+    println("Usage: cozy bok search-bibliography <query> [--provider crossref|openlibrary|dblp|all] [--limit <n>] [--format text|json]")
+    println("Search external bibliography/reference providers. This command does not modify the BoK source tree.")
+  }
+
+  private def _print_bibliography_update_usage(): Unit = {
+    println("Usage: cozy bok update-bibliography [<project-dir>] [--force]")
+    println("Fetch explicit BibTeX/cache sources registered in bibliography metadata into target/cozy-bok/bibliography/cache.")
+  }
+
+  private def _search_bibliography_config(args: List[String]): BibliographySearchConfig = {
+    val (options, values) = _parse_bibliography_options(args)
+    val query = values.mkString(" ").trim
+    if (query.isEmpty)
+      RAISE.invalidArgumentFault("Usage: cozy bok search-bibliography <query> [--provider crossref|openlibrary|dblp|all] [--limit <n>] [--format text|json]")
+    val provider = options.getOrElse("provider", "all").toLowerCase(java.util.Locale.ROOT)
+    if (!Set("crossref", "openlibrary", "dblp", "all").contains(provider))
+      RAISE.invalidArgumentFault(s"Unsupported bibliography provider: ${provider}")
+    val limit = options.get("limit").map(x => try x.toInt catch { case NonFatal(_) => RAISE.invalidArgumentFault(s"Invalid --limit <n>: ${x}") }).getOrElse(10)
+    val format = options.getOrElse("format", "text").toLowerCase(java.util.Locale.ROOT)
+    BibliographySearchConfig(query, provider, limit, format)
+  }
+
+  private def _update_bibliography_config(args: List[String]): BibliographyUpdateConfig = {
+    val normalized = args match {
+      case x :: xs if !x.startsWith("--") => "--project" :: x :: xs
+      case _ => args
+    }
+    val (options, values) = _parse_bibliography_options(normalized)
+    if (values.nonEmpty)
+      RAISE.invalidArgumentFault(s"Unknown bibliography update argument: ${values.head}")
+    BibliographyUpdateConfig(options.get("project").map(Paths.get(_)).getOrElse(Paths.get(".")), options.contains("force"))
+  }
+
+  private def _parse_bibliography_options(args: List[String]): (Map[String, String], List[String]) = {
+    def _loop_(rest: List[String], options: Map[String, String], values: List[String]): (Map[String, String], List[String]) =
+      rest match {
+        case Nil => (options, values.reverse)
+        case arg :: tail if arg.startsWith("--") && arg.contains("=") =>
+          val Array(key, value) = arg.drop(2).split("=", 2)
+          _loop_(tail, options + (key -> value), values)
+        case "--force" :: tail => _loop_(tail, options + ("force" -> "true"), values)
+        case arg :: value :: tail if arg.startsWith("--") =>
+          _loop_(tail, options + (arg.drop(2) -> value), values)
+        case arg :: _ if arg.startsWith("--") =>
+          RAISE.invalidArgumentFault(s"Missing value for ${arg}")
+        case value :: tail => _loop_(tail, options, value :: values)
+      }
+    _loop_(args, Map.empty, Nil)
+  }
+
   def create(config: CreateConfig): Unit = {
     val sitedir = config.save.resolve("src/main/doxsite")
     _write(config.save.resolve("conf/cozy/config.yaml"), _cozy_config(Some(config)), config.policy)
@@ -784,6 +849,52 @@ private[cozy] object CozyBok {
           case Some((n, title, lines)) => _print_bok_guide_scenario(n, title, lines)
           case None => RAISE.invalidArgumentFault(s"Unknown BoK guide scenario: ${scenario}")
         }
+    }
+  }
+
+  def searchBibliography(config: BibliographySearchConfig, registry: BibliographySearchRegistry): String = {
+    val results = registry.search(config)
+    config.format match {
+      case "json" => _bibliography_search_json(results)
+      case "text" =>
+        if (results.isEmpty)
+          s"No bibliography candidates found for: ${config.query}"
+        else
+          results.map(_.text).mkString("\n\n")
+      case other => RAISE.invalidArgumentFault(s"Unsupported bibliography search format: ${other}")
+    }
+  }
+
+  def updateBibliography(config: BibliographyUpdateConfig, fetcher: BibliographyBibtexFetcher): String = {
+    val metadata = config.project.resolve("doxsite.d/metadata/bibliography/bibliography.json")
+    if (!Files.isRegularFile(metadata))
+      s"No bibliography metadata found: ${metadata}. Run cozy bok build first."
+    else {
+      val index = parser.parse(Files.readString(metadata, StandardCharsets.UTF_8)).toOption.flatMap(_.as[BibliographyIndex].toOption).getOrElse(BibliographyIndex(Vector.empty))
+      val cache = config.project.resolve("target/cozy-bok/bibliography/cache")
+      var written = Vector.empty[Path]
+      index.entries.foreach { entry =>
+        entry.bibtex.raw.foreach { raw =>
+          val path = cache.resolve(s"${_safe_file_name(entry.id)}.bib")
+          if (config.force || !Files.exists(path)) {
+            _write_text(path, raw)
+            written :+= path
+          }
+        }
+        entry.bibtex.sourceurl.foreach { url =>
+          val path = cache.resolve(s"${_safe_file_name(entry.id)}.bib")
+          if (config.force || !Files.exists(path)) {
+            fetcher.fetch(url).foreach { body =>
+              _write_text(path, body)
+              written :+= path
+            }
+          }
+        }
+      }
+      if (written.isEmpty)
+        s"bibliography cache: no updates (${cache})"
+      else
+        written.map(path => s"bibliography cache: ${config.project.toAbsolutePath.normalize.relativize(path.toAbsolutePath.normalize)}").mkString("\n")
     }
   }
 
@@ -962,15 +1073,15 @@ private[cozy] object CozyBok {
     val buildconfig = BuildConfig.create(buildargs)
     val videopackages = if (config.videoEnabled) _video_packages(config) else Vector.empty
     val projects = _project_packages(config)
-    _validate_publish_path("publication", config.publicationPath, config.project, config.sourcePath)
+    _validate_publish_path("publication", config.publicationPath, config.project, config.sourcepath)
     config.warehousePath match {
       case Some(warehousepath) if config.repositoryPath == warehousepath.resolve("repository").toAbsolutePath.normalize() =>
-        _validate_publish_path("warehouse", warehousepath, config.project, config.sourcePath)
+        _validate_publish_path("warehouse", warehousepath, config.project, config.sourcepath)
       case Some(warehousepath) =>
-        _validate_publish_path("warehouse", warehousepath, config.project, config.sourcePath)
-        _validate_publish_path("repository", config.repositoryPath, config.project, config.sourcePath)
+        _validate_publish_path("warehouse", warehousepath, config.project, config.sourcepath)
+        _validate_publish_path("repository", config.repositoryPath, config.project, config.sourcepath)
       case None =>
-        _validate_publish_path("repository", config.repositoryPath, config.project, config.sourcePath)
+        _validate_publish_path("repository", config.repositoryPath, config.project, config.sourcepath)
     }
     _reject_path_overlap("publication", config.publicationPath, "artifact repository", config.repositoryPath)
     _reject_path_overlap("publication", config.publicationPath, "website", buildconfig.websitePath)
@@ -1041,7 +1152,7 @@ private[cozy] object CozyBok {
     val json = Json.obj(
       "schema" -> Json.fromString("cozy.bok.publish-manifest.v1"),
       "project" -> Json.fromString(config.project.toString),
-      "source" -> Json.fromString(config.sourcePath.toString),
+      "source" -> Json.fromString(config.sourcepath.toString),
       "publication" -> Json.fromString(config.publicationPath.toString),
       "warehouse" -> Json.fromString(config.warehousePath.map(_.toString).getOrElse("")),
       "repository" -> Json.fromString(config.repositoryPath.toString),
@@ -1118,9 +1229,9 @@ private[cozy] object CozyBok {
   }
 
   private def _video_packages(config: PublicationConfig): Vector[Path] = {
-    if (!Files.isDirectory(config.sourcePath))
-      RAISE.invalidArgumentFault(s"Missing BoK source directory: ${config.sourcePath}")
-    val stream = Files.walk(config.sourcePath)
+    if (!Files.isDirectory(config.sourcepath))
+      RAISE.invalidArgumentFault(s"Missing BoK source directory: ${config.sourcepath}")
+    val stream = Files.walk(config.sourcepath)
     try {
       val dirs = stream.iterator.asScala.toVector.filter(Files.isDirectory(_)).map(_.toAbsolutePath.normalize())
       dirs.find(_.getFileName.toString.endsWith(".video.d")).foreach { path =>
@@ -1140,9 +1251,9 @@ private[cozy] object CozyBok {
     Vector("video.yaml", "video.yml", "video.json").exists(x => Files.isRegularFile(path.resolve(x)))
 
   private def _project_packages(config: PublicationConfig): Vector[Path] = {
-    if (!Files.isDirectory(config.sourcePath))
-      RAISE.invalidArgumentFault(s"Missing BoK source directory: ${config.sourcePath}")
-    _project_package_dirs(config.sourcePath)
+    if (!Files.isDirectory(config.sourcepath))
+      RAISE.invalidArgumentFault(s"Missing BoK source directory: ${config.sourcepath}")
+    _project_package_dirs(config.sourcepath)
   }
 
   private def _project_package_dirs(sourcepath: Path): Vector[Path] = {
@@ -1378,7 +1489,7 @@ private[cozy] object CozyBok {
          |      <div class="navbar-end">
          |        <a class="navbar-item" href="index.html">${_html_escape(_ui(locale, "nav.home"))}</a>
          |        ${_bok_nav_menu(config, locale, "")}
-         |        ${_category_nav_menu(locale, _regular_category_summaries(config.sourcePath), "")}
+         |        ${_category_nav_menu(locale, _regular_category_summaries(config.sourcepath), "")}
          |      </div>
          |    </div>
          |  </nav>
@@ -1398,7 +1509,7 @@ private[cozy] object CozyBok {
          |    <div class="content">
          |      <article class="doc">
          |        ${_home_dashboard(config, locale)}
-         |        ${_source_narrative_section(config, _source_document(config.sourcePath, "index"), locale)}
+         |        ${_source_narrative_section(config, _source_document(config.sourcepath, "index"), locale)}
          |      </article>
          |    </div>
          |  </main>
@@ -1410,7 +1521,7 @@ private[cozy] object CozyBok {
     }
 
   private def _write_category_pages(config: BuildConfig, target: Path, locale: String): Unit = {
-    val categories = _category_contents(config.sourcePath)
+    val categories = _category_contents(config.sourcepath)
     categories.foreach { category =>
       val page = target.resolve(category.slug).resolve("index.html")
       _write_text(
@@ -1426,13 +1537,14 @@ private[cozy] object CozyBok {
     locale: String,
     writeLocalizedGlossaryIndexes: Boolean
   ): Unit = {
-    val categories = _category_contents(config.sourcePath)
+    val categories = _category_contents(config.sourcepath)
     val terms = _terms(config)
     val glossarybody = _glossary_dashboard_body(config, categories, terms, _language_index_root_prefix(config), locale)
     val historyhref = _latest_history_year_page(target.resolve("history"))
     _write_project_pages(config, target, locale, categories)
     _write_rdf_page(config, target, locale, categories)
     _write_scenario_page(config, target, locale, categories)
+    _write_bibliography_page(config, target, locale, categories)
     _write_term_hub_pages(config, target, locale, categories, terms)
     _write_text(
       target.resolve("glossary").resolve("index.html"),
@@ -1533,6 +1645,28 @@ private[cozy] object CozyBok {
     )
   }
 
+  private def _write_bibliography_page(
+    config: BuildConfig,
+    target: Path,
+    locale: String,
+    categories: Vector[CategoryContent]
+  ): Unit = {
+    val entries = _bibliography_index(config).map(_.entries).getOrElse(Vector.empty)
+    val page = target.resolve("bibliography").resolve("index.html")
+    _write_text(
+      page,
+      _special_html_page(
+        config,
+        categories,
+        locale,
+        page,
+        _ui(locale, "bibliography.title"),
+        _ui(locale, "bibliography.description"),
+        _bibliography_dashboard_body(locale, entries)
+      )
+    )
+  }
+
   private def _write_project_pages(
     config: BuildConfig,
     target: Path,
@@ -1540,7 +1674,7 @@ private[cozy] object CozyBok {
     categories: Vector[CategoryContent]
   ): Unit = {
     val bokconfig = _load_config(config.project)
-    _project_package_dirs(config.sourcePath).foreach { packagedir =>
+    _project_package_dirs(config.sourcepath).foreach { packagedir =>
       val publishconfig = CozyBokProjectPublisher.PublishProjectConfig(
         packagedir,
         config.publication.publicationPath(config.project),
@@ -1673,6 +1807,7 @@ private[cozy] object CozyBok {
     _copy_if_exists(config.doxsitePath.resolve("site.jsonld"), target.resolve("rdf").resolve("site.jsonld"))
     _copy_if_exists(config.doxsitePath.resolve("metadata/rdf/graph.json"), target.resolve("metadata/rdf/graph.json"))
     _copy_if_exists(config.doxsitePath.resolve("metadata/glossary/terms.json"), target.resolve("metadata/glossary/terms.json"))
+    _copy_if_exists(config.doxsitePath.resolve("metadata/bibliography/bibliography.json"), target.resolve("metadata/bibliography/bibliography.json"))
     _copy_if_exists(config.doxsitePath.resolve("metadata/scenarios/scenarios.json"), target.resolve("metadata/scenarios/scenarios.json"))
   }
 
@@ -1684,7 +1819,7 @@ private[cozy] object CozyBok {
 
   private def _write_scenario_metadata(config: BuildConfig): Unit =
     ScenarioMetadata.write(
-      config.sourcePath,
+      config.sourcepath,
       config.doxsitePath.resolve("metadata/scenarios/scenarios.json")
     )
 
@@ -1747,7 +1882,7 @@ private[cozy] object CozyBok {
     title: String,
     description: String
   ): Unit = {
-    val source = config.sourcePath.resolve("manual").resolve(s"${name}.dox")
+    val source = config.sourcepath.resolve("manual").resolve(s"${name}.dox")
     val body = _source_narrative_html(source, locale)
     if (body.nonEmpty) {
       val page = target.resolve("manual").resolve(s"${name}.html")
@@ -3014,6 +3149,51 @@ private[cozy] object CozyBok {
       parser.parse(Files.readString(path, StandardCharsets.UTF_8)).toOption.flatMap(_.as[TermIndex].toOption)
   }
 
+  private def _bibliography_index(config: BuildConfig): Option[BibliographyIndex] = {
+    val path = config.doxsitePath.resolve("metadata/bibliography/bibliography.json")
+    if (!Files.isRegularFile(path))
+      None
+    else
+      parser.parse(Files.readString(path, StandardCharsets.UTF_8)).toOption.flatMap(_.as[BibliographyIndex].toOption)
+  }
+
+  private def _bibliography_dashboard_body(locale: String, entries: Vector[BibliographyEntry]): String =
+    if (entries.isEmpty)
+      s"""<p class="bok-card-muted">${_html_escape(_ui(locale, "bibliography.empty"))}</p>"""
+    else {
+      val bytype = entries.groupBy(_.entrytype).toVector.sortBy(_._1)
+      val metrics = bytype.map {
+        case (kind, xs) =>
+          s"""<div class="bok-metric-card"><div class="bok-metric-label">${_html_escape(kind)}</div><div class="bok-metric-value">${xs.size}</div><div class="bok-metric-note">${_html_escape(_ui(locale, "bibliography.metric.note"))}</div></div>"""
+      }.mkString("""<div class="bok-dashboard-grid">""", "", "</div>")
+      val items = entries.take(40).map { entry =>
+        val summary = entry.summary.map(x => s"""<p>${_html_escape(x)}</p>""").getOrElse("")
+        val authors = if (entry.authors.isEmpty) "" else s"""<span>${_html_escape(entry.authors.mkString(", "))}</span>"""
+        val identifiers = Vector(entry.identifiers.doi.map("DOI " + _), entry.identifiers.isbn.map("ISBN " + _), entry.identifiers.github.map("GitHub " + _)).flatten.mkString(", ")
+        val ids = if (identifiers.isEmpty) "" else s"""<code>${_html_escape(identifiers)}</code>"""
+        val source = entry.sourceurl.orElse(entry.identifiers.url).map(x => s"""<a href="${_html_escape(x)}">${_html_escape(_ui(locale, "bibliography.open.source"))}</a>""").getOrElse("")
+        s"""<li class="list-group-item" data-bibliography-category="${_html_escape(entry.categorySlug)}">
+           |  <a href="../${_html_escape(entry.publicpath)}">${_html_escape(entry.title)}</a>
+           |  <span>${_html_escape(entry.entrytype)}</span>
+           |  ${authors}
+           |  ${ids}
+           |  ${summary}
+           |  ${source}
+           |</li>""".stripMargin
+      }.mkString("""<ul class="list-group bok-map-list bok-bibliography-list">""", "", "</ul>")
+      s"""${metrics}
+         |${items}
+         |<script>
+         |(() => {
+         |  const category = new URLSearchParams(window.location.search).get('category');
+         |  if (!category) return;
+         |  document.querySelectorAll('[data-bibliography-category]').forEach((item) => {
+         |    item.hidden = item.dataset.bibliographyCategory !== category;
+         |  });
+         |})();
+         |</script>""".stripMargin
+    }
+
   private def _scenario_index(config: BuildConfig): Option[ScenarioIndex] = {
     val path = config.doxsitePath.resolve("metadata/scenarios/scenarios.json")
     if (!Files.isRegularFile(path))
@@ -3078,9 +3258,10 @@ private[cozy] object CozyBok {
     terms: Vector[TermEntry]
   ): Unit =
     terms.foreach { term =>
-      val page = target.resolve(term.publicPath)
+      val page = target.resolve(term.publicpath)
       val scenarios = _scenario_index(config).map(_.scenarios.filter(_.isRelatedTo(term))).getOrElse(Vector.empty)
-      _write_text(page, _term_hub_page(config, categories, locale, page, term, scenarios))
+      val bibliographies = _bibliography_index(config).map(_.entries.filter(_bibliography_related_to_term(_, term))).getOrElse(Vector.empty)
+      _write_text(page, _term_hub_page(config, categories, locale, page, term, scenarios, bibliographies))
     }
 
   private def _term_hub_page(
@@ -3089,7 +3270,8 @@ private[cozy] object CozyBok {
     locale: String,
     page: Path,
     term: TermEntry,
-    scenarios: Vector[ScenarioEntry]
+    scenarios: Vector[ScenarioEntry],
+    bibliographies: Vector[BibliographyEntry]
   ): String =
     s"""<!doctype html>
        |<html lang="${_html_escape(locale)}">
@@ -3105,7 +3287,7 @@ private[cozy] object CozyBok {
        |  <main class="article">
        |    <div class="content">
        |      <article class="doc">
-       |        ${_term_hub(term, locale, scenarios)}
+       |        ${_term_hub(term, locale, scenarios, bibliographies)}
        |      </article>
        |    </div>
        |  </main>
@@ -3114,7 +3296,7 @@ private[cozy] object CozyBok {
        |</html>
        |""".stripMargin
 
-  private def _term_hub(term: TermEntry, locale: String, scenarios: Vector[ScenarioEntry]): String =
+  private def _term_hub(term: TermEntry, locale: String, scenarios: Vector[ScenarioEntry], bibliographies: Vector[BibliographyEntry]): String =
     s"""<section class="bok-dashboard-shell bok-term-hub" id="term-hub">
        |  <header class="bok-dashboard-hero">
        |    <div class="bok-dashboard-hero-copy">
@@ -3137,6 +3319,7 @@ private[cozy] object CozyBok {
        |      ${_dashboard_card("col-12 col-xl-3", "bok-card-map", _ui(locale, "term.related.terms"), _term_refs_body(term.termRefs, locale))}
        |      ${_dashboard_card("col-12 col-xl-3", "bok-card-map", _ui(locale, "term.related.videos"), _term_refs_body(term.videoRefs, locale))}
        |      ${_dashboard_card("col-12 col-xl-3", "bok-card-map", _ui(locale, "term.related.scenarios"), _term_scenarios_body(scenarios, locale))}
+       |      ${_dashboard_card("col-12 col-xl-3", "bok-card-map", _ui(locale, "term.related.bibliography"), _term_bibliography_body(bibliographies, locale))}
        |      ${_dashboard_card("col-12 col-xl-3", "bok-card-actions", _ui(locale, "dashboard.card.next.actions"), _term_actions_body(term, locale))}
        |    </div>
        |  </div>
@@ -3179,14 +3362,59 @@ private[cozy] object CozyBok {
       s"""<p class="bok-card-muted">${_html_escape(_ui(locale, "scenario.empty"))}</p>"""
     else
       scenarios.take(6).map { scenario =>
-        s"""<li class="list-group-item"><a href="../../${_html_escape(scenario.publicPath)}">${_html_escape(scenario.title)}</a><span>${_html_escape(scenario.scenarioType)}</span></li>"""
+        s"""<li class="list-group-item"><a href="../../${_html_escape(scenario.publicpath)}">${_html_escape(scenario.title)}</a><span>${_html_escape(scenario.scenarioType)}</span></li>"""
       }.mkString("""<ul class="list-group bok-map-list">""", "", "</ul>")
+
+  private def _term_bibliography_body(entries: Vector[BibliographyEntry], locale: String): String =
+    if (entries.isEmpty)
+      s"""<p class="bok-card-muted">${_html_escape(_ui(locale, "bibliography.empty"))}</p>"""
+    else
+      entries.take(6).map { entry =>
+        s"""<li class="list-group-item"><a href="../../${_html_escape(entry.publicpath)}">${_html_escape(entry.title)}</a><span>${_html_escape(entry.entrytype)}</span></li>"""
+      }.mkString("""<ul class="list-group bok-map-list">""", "", "</ul>")
+
+  private def _bibliography_related_to_term(entry: BibliographyEntry, term: TermEntry): Boolean =
+    entry.terms.exists(x => x == term.id || x == term.title || x == term.slug)
 
   private def _term_actions_body(term: TermEntry, locale: String): String =
     Vector(
       _ui(locale, "term.action.open.rdf") -> term.rdfHrefFromTerm,
       _ui(locale, "glossary.title") -> "../../glossary/index.html"
     ).map { case (label, href) => s"""<li><a href="${_html_escape(href)}">${_html_escape(label)}</a></li>""" }.mkString("""<ol class="bok-action-list">""", "", "</ol>")
+
+  private def _bibliography_search_json(results: Vector[BibliographySearchResult]): String =
+    results.map { result =>
+      val authors = result.authors.map(_json_string).mkString("[", ", ", "]")
+      val fields = Vector(
+        "provider" -> Some(result.provider),
+        "bib_id" -> Some(result.bibid),
+        "bibtex_key" -> Some(result.bibtexkey),
+        "title" -> Some(result.title),
+        "year" -> result.year,
+        "doi" -> result.doi,
+        "isbn" -> result.isbn,
+        "source_url" -> result.sourceurl,
+        "entry_type" -> Some(result.entrytype)
+      ).collect { case (key, Some(value)) => s"${_json_string(key)}: ${_json_string(value)}" }
+      (fields :+ s"${_json_string("authors")}: ${authors}").mkString("{", ", ", "}")
+    }.mkString("{\n  \"candidates\": [\n    ", ",\n    ", "\n  ]\n}")
+
+  private def _json_string(value: String): String =
+    "\"" + value.flatMap {
+      case '\\' => "\\\\"
+      case '"' => "\\\""
+      case '\n' => "\\n"
+      case '\r' => "\\r"
+      case '\t' => "\\t"
+      case c if c < ' ' => ""
+      case c => c.toString
+    } + "\""
+
+  private def _safe_file_name(value: String): String =
+    value.replaceAll("[^A-Za-z0-9._-]+", "-").stripPrefix("-").stripSuffix("-") match {
+      case "" => "reference"
+      case x => x
+    }
 
   private def _short_uri_label(value: String): String = {
     val a = value.split('#').lastOption.getOrElse(value)
@@ -3625,7 +3853,7 @@ private[cozy] object CozyBok {
        |    <div class="content">
        |      <article class="doc">
        |        ${_category_dashboard(config, category, locale)}
-       |        ${_source_narrative_section(config, _source_document(config.sourcePath.resolve(category.slug), "index"), locale)}
+       |        ${_source_narrative_section(config, _source_document(config.sourcepath.resolve(category.slug), "index"), locale)}
        |      </article>
        |    </div>
        |  </main>
@@ -3740,7 +3968,7 @@ private[cozy] object CozyBok {
       getOrElse(name)
 
   private def _source_narrative_section(config: BuildConfig, path: Option[Path], locale: String): String = {
-    val body = _source_document_fragment(config, path, locale).map(_.bodyHtml.trim).getOrElse("")
+    val body = _source_document_fragment(config, path, locale).map(_.bodyhtml.trim).getOrElse("")
     if (body.isEmpty)
       ""
     else
@@ -3761,7 +3989,7 @@ private[cozy] object CozyBok {
 
   private def _source_document_relative(config: BuildConfig, source: Path): Option[String] =
     try {
-      Some(config.sourcePath.relativize(source).toString.replace(java.io.File.separatorChar, '/'))
+      Some(config.sourcepath.relativize(source).toString.replace(java.io.File.separatorChar, '/'))
     } catch {
       case NonFatal(_) => None
     }
@@ -3876,13 +4104,14 @@ private[cozy] object CozyBok {
        |  <div class="navbar-dropdown navbar-bok-menu">
        |    <a class="navbar-item navbar-dropdown-item" href="${_html_escape(prefix)}glossary/index.html">${_html_escape(_ui(locale, "glossary.title"))}</a>
        |    <a class="navbar-item navbar-dropdown-item" href="${_html_escape(prefix)}scenarios/index.html">${_html_escape(_ui(locale, "scenario.title"))}</a>
+       |    <a class="navbar-item navbar-dropdown-item" href="${_html_escape(prefix)}bibliography/index.html">${_html_escape(_ui(locale, "bibliography.title"))}</a>
        |    <a class="navbar-item navbar-dropdown-item" href="${_html_escape(_history_href(config, prefix))}">${_html_escape(_ui(locale, "history.title"))}</a>
        |    <a class="navbar-item navbar-dropdown-item" href="${_html_escape(prefix)}manual/index.html">${_html_escape(_ui(locale, "manual.title"))}</a>
        |  </div>
        |</div>""".stripMargin
 
   private def _home_nav_container(config: BuildConfig): String = {
-    val items = _regular_category_summaries(config.sourcePath).map { category =>
+    val items = _regular_category_summaries(config.sourcepath).map { category =>
       s"""<li class="nav-item" data-depth="1"><a class="nav-link" href="${_html_escape(category.slug)}/index.html">${_html_escape(category.title)}</a></li>"""
     }.mkString("\n          ")
     s"""<div class="nav-container" data-component="home" data-version="">
@@ -3931,7 +4160,7 @@ private[cozy] object CozyBok {
   private def _home_dashboard(config: BuildConfig, locale: String): String = {
     val purpose = _bok_purpose(config)
     val dashboard = _dashboard(config)
-    val fragment = _source_document_fragment(config, _source_document(config.sourcePath, "index"), locale)
+    val fragment = _source_document_fragment(config, _source_document(config.sourcepath, "index"), locale)
     if (dashboard.isEmpty && purpose.isEmpty)
       ""
     else {
@@ -3954,7 +4183,7 @@ private[cozy] object CozyBok {
   private def _category_dashboard(config: BuildConfig, category: CategoryContent, locale: String): String = {
     val site = _dashboard(config)
     val dashboard = site.flatMap(_.categories.find(_.name == category.slug))
-    val fragment = _source_document_fragment(config, _source_document(config.sourcePath.resolve(category.slug), "index"), locale)
+    val fragment = _source_document_fragment(config, _source_document(config.sourcepath.resolve(category.slug), "index"), locale)
     val categoryterms = _category_term_page_items(config, category.slug)
     if (!category.purpose.isEmpty || dashboard.isDefined) {
       val categoryrdf = dashboard.flatMap(_.rdf)
@@ -3994,7 +4223,7 @@ private[cozy] object CozyBok {
   }
 
   private def _bok_purpose(config: BuildConfig): BokPurpose =
-    _site_purpose(_load_site_config(config.sourcePath))
+    _site_purpose(_load_site_config(config.sourcepath))
 
   private def _site_purpose(site: SiteConfig): BokPurpose =
     _purpose_from_parts(
@@ -4039,6 +4268,7 @@ private[cozy] object CozyBok {
 
   private def _home_dashboard_grid(config: BuildConfig, purpose: BokPurpose, dashboard: Option[BokDashboard], locale: String): String = {
     val scenarios = _scenario_index(config).map(_.scenarios).getOrElse(Vector.empty)
+    val bibliographies = _bibliography_index(config).map(_.entries).getOrElse(Vector.empty)
     val cards = Vector[Option[String]](
       dashboard.map(x => _dashboard_card("col-12", "bok-card-activity bok-card-notification", _ui(locale, "dashboard.card.recent.activity"), _recent_activity_body(locale, config, x.increments), Vector("reader", "contributor", "project_manager"))),
       if (purpose.isEmpty) None else Some(_dashboard_card("col-12 col-xl-8", "bok-card-purpose", _ui(locale, "dashboard.card.vision"), _purpose_card_body(locale, purpose), Vector("reader", "contributor", "project_manager"))),
@@ -4048,6 +4278,7 @@ private[cozy] object CozyBok {
       dashboard.map(x => _kpi_card_link("col-6 col-md-3", _ui(locale, "dashboard.kpi.terms"), x.counts.glossaryTermCount.toString, _ui(locale, "dashboard.kpi.terms.note"), "glossary/index.html")),
       dashboard.map(x => _kpi_card_link("col-6 col-md-3", _ui(locale, "dashboard.kpi.rdf.triples"), x.rdf.tripleCount.toString, _ui(locale, "dashboard.kpi.rdf.triples.note"), "rdf/index.html")),
       Some(_kpi_card_link("col-6 col-md-3", _ui(locale, "dashboard.kpi.scenarios"), scenarios.size.toString, _ui(locale, "dashboard.kpi.scenarios.note"), "scenarios/index.html")),
+      Some(_kpi_card_link("col-6 col-md-3", _ui(locale, "dashboard.kpi.bibliography"), bibliographies.size.toString, _ui(locale, "dashboard.kpi.bibliography.note"), "bibliography/index.html")),
       Some(_dashboard_card("col-12 col-xl-5", "bok-card-quality", _ui(locale, "dashboard.card.quality.alerts"), _quality_alerts_body(locale, dashboard.isDefined), Vector("contributor", "project_manager"))),
       dashboard.map(x => _dashboard_card("col-12 col-xl-8", "bok-card-chart", _ui(locale, "dashboard.card.growth"), _dashboard_increment_chart(locale, x.increments, _ui(locale, "dashboard.chart.bok.additions")), Vector("project_manager", "contributor"))),
       Some(_dashboard_card("col-12 col-md-6 col-xl-3", "bok-card-readiness", _ui(locale, "dashboard.card.readiness"), _home_readiness_body(locale, config, dashboard), Vector("site_administrator", "project_manager"))),
@@ -4507,11 +4738,16 @@ private[cozy] object CozyBok {
       _scenario_index(config).map(_.scenarios.count(_.category.contains(category.slug))).filter(_ > 0).
         map(count => s"""  <li class="list-group-item"><a href="../scenarios/index.html?category=${_html_escape(_url_query_escape(category.slug))}">${_html_escape(_uif(locale, "scenario.category.link", count.toString))}</a></li>""").
         getOrElse("")
+    val bibliographyitem =
+      _bibliography_index(config).map(_.entries.count(_.category.contains(category.slug))).filter(_ > 0).
+        map(count => s"""  <li class="list-group-item"><a href="../bibliography/index.html?category=${_html_escape(_url_query_escape(category.slug))}">${_html_escape(_uif(locale, "bibliography.category.link", count.toString))}</a></li>""").
+        getOrElse("")
     s"""<ul class="list-group bok-related-list">
        |  <li class="list-group-item"><a href="../glossary/index.html">${_html_escape(_ui(locale, "glossary.title"))}</a></li>
        |  <li class="list-group-item"><a href="../glossary/${_html_escape(category.slug)}/index.html">${_html_escape(_uif(locale, "dashboard.related.category.terms", category.title))}</a></li>
        |${rdfitem}
        |${scenarioitem}
+       |${bibliographyitem}
        |  <li class="list-group-item"><a href="${_html_escape(_history_href(config, "../"))}">${_html_escape(_ui(locale, "history.title"))}</a></li>
        |  <li class="list-group-item"><a href="../manual/index.html">${_html_escape(_ui(locale, "manual.title"))}</a></li>
        |</ul>""".stripMargin
@@ -4771,7 +5007,7 @@ private[cozy] object CozyBok {
     }
 
   private def _home_category_list(config: BuildConfig, locale: String): String = {
-    val categories = _regular_category_summaries(config.sourcePath)
+    val categories = _regular_category_summaries(config.sourcepath)
     if (categories.isEmpty)
       s"<p>${_html_escape(_ui(locale, "home.categories.empty"))}</p>"
     else
