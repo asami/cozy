@@ -379,6 +379,13 @@ into focused Cozy improvements.
   `authors`, `citation`, `bibtex.raw`) and promote citation keys to top-level
   `key`; `bibtex.*` is limited to BibTeX supplement/import data.
 
+- 2026-06-25: Completed effective bibliography RDF synchronization. After
+  build-time provider/cache resolution, Cozy now merges inline citation-key
+  aliases such as `gamma1995designpatterns` into the resolved bibliography
+  entry, preserves the citation key in metadata/source references, and rewrites
+  generated Turtle/JSON-LD so public RDF contains the resolved bibliography
+  resource rather than stale unresolved alias nodes.
+
 - 2026-06-24: Added BK12-13 through BK12-15 as remaining Phase 12 development
   candidates before closure. BK12-13 covers bibliography as a first-class BoK
   knowledge type, BK12-14 covers event knowledge, and BK12-15 covers

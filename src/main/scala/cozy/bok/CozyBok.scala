@@ -16,6 +16,7 @@ import org.goldenport.i18n.I18NContext
 import java.net.URLEncoder
 import java.time.LocalDate
 import java.util.Locale
+import java.util.regex.Pattern
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 import java.util.zip.{ZipEntry, ZipInputStream, ZipOutputStream}
@@ -440,6 +441,7 @@ private[cozy] object CozyBok {
   }
   final case class WorkflowConfig(project: Path, name: String, command: Vector[String], env: Map[String, String])
   private final case class PublishStep(name: String, status: String, message: String)
+  private final case class BibliographyRdfAlias(aliastail: String, targettail: String, title: String)
   private final case class PublishPreflight(
     stage: Option[WorkflowConfig],
     upload: WorkflowConfig,
@@ -941,13 +943,17 @@ private[cozy] object CozyBok {
 
   private def _write_effective_bibliography_metadata(config: BuildConfig): Unit =
     _bibliography_index(config).foreach { index =>
-      val effective = BibliographyIndex(index.entries.map(_resolve_cached_bibliography_entry(config, _)))
+      val effective = _effective_bibliography_index(config, index)
       _write_text(config.doxsitePath.resolve("metadata/bibliography/bibliography.json"), effective.toJsonString)
     }
 
   private def _resolve_bibliography_service_entries(config: BuildConfig, fetcher: BibliographyBibtexFetcher): Unit =
     _bibliography_index(config).foreach { index =>
-      val missing = index.entries.flatMap(_ensure_bibliography_cache(config, _, fetcher)).distinct
+      val attempted = index.entries.flatMap(_ensure_bibliography_cache(config, _, fetcher)).distinct
+      val effective = _effective_bibliography_index(config, index)
+      val effectiveids = effective.entries.map(_.id).toSet
+      val unresolved = effective.entries.filter(_.needsresolution).map(_.id)
+      val missing = (attempted.filter(effectiveids.contains) ++ unresolved).distinct
       if (missing.nonEmpty) {
         val details = missing.map(x => s"unresolved bibliography reference: ${x}").mkString("\n")
         if (config.bibliographyService)
@@ -958,6 +964,346 @@ private[cozy] object CozyBok {
           println(s"warning: ${details}\nRun: cozy bok update-bibliography ${config.project}")
       }
     }
+
+  private def _effective_bibliography_index(config: BuildConfig, index: BibliographyIndex): BibliographyIndex = {
+    val resolved = index.entries.map(_resolve_cached_bibliography_entry(config, _))
+    BibliographyIndex(_merge_bibliography_citation_aliases(resolved))
+  }
+
+  private def _merge_bibliography_citation_aliases(entries: Vector[BibliographyEntry]): Vector[BibliographyEntry] = {
+    val aliases = entries.filter(_is_unresolved_bare_bibliography_citation)
+    val targetpairs = aliases.flatMap { alias =>
+      _bibliography_alias_target(alias, entries).map(_ -> alias)
+    }
+    val mappedaliases = targetpairs.map(_._2).toSet
+    val aliasbytarget = targetpairs.groupBy(_._1).map {
+      case (id, values) => id -> values.map(_._2)
+    }
+    entries.filterNot(mappedaliases.contains).map { entry =>
+      aliasbytarget.get(entry.id).map(_merge_bibliography_aliases(entry, _)).getOrElse(entry)
+    }
+  }
+
+  private def _is_unresolved_bare_bibliography_citation(entry: BibliographyEntry): Boolean =
+    entry.needsresolution && entry.sourcekind == "external-ref" && _is_bare_bibliography_citation_key(entry.id)
+
+  private def _is_bare_bibliography_citation_key(value: String): Boolean =
+    !value.contains(":")
+
+  private def _bibliography_alias_target(alias: BibliographyEntry, entries: Vector[BibliographyEntry]): Option[String] = {
+    val candidates = entries.filter { entry =>
+      entry.id != alias.id &&
+        !entry.needsresolution &&
+        _same_bibliography_reference_source(alias, entry)
+    }
+    candidates match {
+      case Vector(entry) => Some(entry.id)
+      case _ => None
+    }
+  }
+
+  private def _same_bibliography_reference_source(a: BibliographyEntry, b: BibliographyEntry): Boolean = {
+    val asources = _bibliography_reference_sources(a)
+    val bsources = _bibliography_reference_sources(b)
+    asources.nonEmpty && asources.exists(bsources.contains)
+  }
+
+  private def _bibliography_reference_sources(entry: BibliographyEntry): Set[(String, Option[String])] =
+    if (entry.sourcerefs.nonEmpty)
+      entry.sourcerefs.map(ref => ref.sourcepath -> ref.category).toSet
+    else if (entry.sourcepath.nonEmpty && !entry.sourcepath.startsWith("bibliography/"))
+      Set(entry.sourcepath -> entry.category)
+    else
+      Set.empty
+
+  private def _merge_bibliography_aliases(entry: BibliographyEntry, aliases: Vector[BibliographyEntry]): BibliographyEntry = {
+    val aliaskeys = aliases.map(_.id).filter(_is_bare_bibliography_citation_key)
+    val key =
+      if ((entry.key.isEmpty || entry.sourcekind == "external-cache") && aliaskeys.nonEmpty)
+        Some(aliaskeys.head)
+      else
+        entry.key
+    entry.copy(
+      key = key,
+      refs = _distinct_preserving_order(entry.refs ++ aliases.flatMap(alias => alias.refs ++ Vector(alias.id))),
+      sourcerefs = _distinct_bibliography_source_refs(entry.sourcerefs ++ aliases.flatMap(_.sourcerefs))
+    )
+  }
+
+  private def _distinct_preserving_order(values: Vector[String]): Vector[String] =
+    values.foldLeft(Vector.empty[String]) { (acc, x) =>
+      if (acc.contains(x)) acc else acc :+ x
+    }
+
+  private def _distinct_bibliography_source_refs(values: Vector[BibliographySourceRef]): Vector[BibliographySourceRef] =
+    values.foldLeft(Vector.empty[BibliographySourceRef]) { (acc, x) =>
+      if (acc.exists(y => y.sourcepath == x.sourcepath && y.publicpath == x.publicpath && y.category == x.category && y.citationkey == x.citationkey && y.ordinal == x.ordinal))
+        acc
+      else
+        acc :+ x
+    }
+
+  private def _sync_effective_bibliography_rdf(config: BuildConfig): Unit =
+    _bibliography_index(config).foreach { index =>
+      val aliases = _bibliography_rdf_aliases(index)
+      if (aliases.nonEmpty) {
+        _sync_effective_bibliography_turtle(config.doxsitePath.resolve("site.ttl"), aliases)
+        _sync_effective_bibliography_jsonld(config.doxsitePath.resolve("site.jsonld"), aliases)
+      }
+    }
+
+  private def _bibliography_rdf_aliases(index: BibliographyIndex): Vector[BibliographyRdfAlias] =
+    index.entries.flatMap { entry =>
+      _bibliography_alias_refs(entry).map { alias =>
+        BibliographyRdfAlias(
+          s"bibliography/${entry.categorySlug}/${_safe_file_name(alias)}",
+          _html_path_without_suffix(entry.publicpath),
+          entry.title
+        )
+      }
+    }
+
+  private def _bibliography_alias_refs(entry: BibliographyEntry): Vector[String] =
+    _distinct_preserving_order(entry.refs ++ entry.key.toVector).
+      filter(ref => ref != entry.id && _is_bare_bibliography_citation_key(ref))
+
+  private def _html_path_without_suffix(path: String): String =
+    path.stripSuffix(".html")
+
+  private def _sync_effective_bibliography_turtle(path: Path, aliases: Vector[BibliographyRdfAlias]): Unit =
+    if (Files.isRegularFile(path)) {
+      val text = Files.readString(path, StandardCharsets.UTF_8)
+      val replacements = _bibliography_turtle_replacements(text, aliases)
+      if (replacements.nonEmpty || aliases.nonEmpty) {
+        val source = if (replacements.nonEmpty) _remove_turtle_subject_blocks(text, replacements.keySet) else text
+        val replaced = replacements.foldLeft(source) {
+          case (acc, (from, to)) => acc.replace(s"<${from}>", s"<${to}>")
+        }
+        val rewritten = _deduplicate_turtle_subject_blocks(replaced)
+        val cleaned = _replace_turtle_bibliography_placeholders(rewritten, aliases)
+        _write_text(path, cleaned)
+      }
+    }
+
+  private def _bibliography_turtle_replacements(text: String, aliases: Vector[BibliographyRdfAlias]): Map[String, String] =
+    aliases.flatMap { alias =>
+      _find_rdf_iri(text, alias.aliastail).flatMap { aliasiri =>
+        _find_rdf_iri(text, alias.targettail).map { targetiri =>
+          val resource = aliasiri -> targetiri
+          val pages = _find_rdf_iris(text, s"${alias.aliastail}.html").map { pageiri =>
+            pageiri -> pageiri.replace(alias.aliastail, alias.targettail)
+          }
+          resource +: pages
+        }
+      }.getOrElse(Vector.empty)
+    }.toMap
+
+  private def _find_rdf_iri(text: String, tail: String): Option[String] =
+    _find_rdf_iris(text, tail).headOption
+
+  private def _find_rdf_iris(text: String, tail: String): Vector[String] = {
+    val pattern = ("(?i)<([^>]*" + Pattern.quote(tail) + ")>").r
+    pattern.findAllMatchIn(text).map(_.group(1)).toVector.distinct
+  }
+
+  private def _remove_turtle_subject_blocks(text: String, subjects: Set[String]): String = {
+    val lines = text.split("(?<=\\n)", -1).toVector
+    val builder = new StringBuilder
+    var i = 0
+    while (i < lines.length) {
+      _turtle_subject_iri(lines(i)) match {
+        case Some(iri) if subjects.contains(iri) =>
+          i += 1
+          while (i < lines.length && _turtle_subject_iri(lines(i)).isEmpty)
+            i += 1
+        case _ =>
+          builder.append(lines(i))
+          i += 1
+      }
+    }
+    builder.toString
+  }
+
+  private def _turtle_subject_iri(line: String): Option[String] = {
+    val subject = "^<([^>]+)>\\s+.*".r
+    line.trim match {
+      case subject(iri) => Some(iri)
+      case _ => None
+    }
+  }
+
+  private def _deduplicate_turtle_subject_blocks(text: String): String = {
+    val blocks = _turtle_blocks(text)
+    val grouped = blocks.collect { case (Some(iri), block) => iri -> block }.groupBy(_._1).map {
+      case (iri, values) => iri -> values.map(_._2)
+    }
+    blocks.foldLeft((Set.empty[String], Vector.empty[String])) {
+      case ((seen, acc), (None, block)) => seen -> (acc :+ block)
+      case ((seen, acc), (Some(iri), _)) if seen.contains(iri) => seen -> acc
+      case ((seen, acc), (Some(iri), _)) =>
+        val selected = _preferred_turtle_subject_block(grouped.getOrElse(iri, Vector.empty))
+        (seen + iri) -> (acc :+ selected)
+    }._2.mkString
+  }
+
+  private def _preferred_turtle_subject_block(blocks: Vector[String]): String =
+    blocks.find(_is_resolved_turtle_subject_block).orElse(blocks.lastOption).getOrElse("")
+
+  private def _is_resolved_turtle_subject_block(block: String): Boolean =
+    block.contains("http://purl.org/dc/terms/source") ||
+      block.contains("dcterms:source") ||
+      !block.contains("Unresolved bibliography reference")
+
+  private def _replace_turtle_bibliography_placeholders(text: String, aliases: Vector[BibliographyRdfAlias]): String =
+    _turtle_blocks(text).map {
+      case (Some(iri), block) =>
+        aliases.find(alias => _ends_with_ignore_case(iri, alias.targettail)).
+          map(alias => _replace_bibliography_placeholder_text(block, alias.title)).
+          getOrElse(block)
+      case (_, block) =>
+        block
+    }.mkString
+
+  private def _replace_bibliography_placeholder_text(text: String, title: String): String =
+    "Unresolved bibliography reference[^\"]*".r.replaceAllIn(text, java.util.regex.Matcher.quoteReplacement(_escape_rdf_string(title)))
+
+  private def _escape_rdf_string(value: String): String =
+    value.replace("\\", "\\\\").replace("\"", "\\\"")
+
+  private def _turtle_blocks(text: String): Vector[(Option[String], String)] = {
+    val lines = text.split("(?<=\\n)", -1).toVector
+    var blocks = Vector.empty[(Option[String], String)]
+    var currentiri: Option[String] = None
+    val current = new StringBuilder
+    lines.foreach { line =>
+      _turtle_subject_iri(line) match {
+        case Some(iri) =>
+          if (current.nonEmpty)
+            blocks :+= currentiri -> current.toString
+          current.clear()
+          currentiri = Some(iri)
+          current.append(line)
+        case None =>
+          current.append(line)
+      }
+    }
+    if (current.nonEmpty)
+      blocks :+= currentiri -> current.toString
+    blocks
+  }
+
+  private def _sync_effective_bibliography_jsonld(path: Path, aliases: Vector[BibliographyRdfAlias]): Unit =
+    if (Files.isRegularFile(path)) {
+      val text = Files.readString(path, StandardCharsets.UTF_8)
+      parser.parse(text).toOption.foreach { json =>
+        val replacements = _bibliography_jsonld_replacements(json, aliases)
+        if (replacements.nonEmpty || aliases.nonEmpty) {
+          val rewritten = _rewrite_jsonld_ids(json, replacements)
+          val cleaned = _replace_jsonld_bibliography_placeholders(rewritten, aliases)
+          _write_text(path, cleaned.spaces2 + "\n")
+        }
+      }
+    }
+
+  private def _bibliography_jsonld_replacements(json: Json, aliases: Vector[BibliographyRdfAlias]): Map[String, String] = {
+    val ids = _jsonld_ids(json)
+    aliases.flatMap { alias =>
+      ids.find(_ends_with_ignore_case(_, alias.aliastail)).flatMap { aliasid =>
+        ids.find(_ends_with_ignore_case(_, alias.targettail)).map { targetid =>
+          val resource = aliasid -> targetid
+          val pages = ids.filter(_ends_with_ignore_case(_, s"${alias.aliastail}.html")).map { pageid =>
+            pageid -> pageid.replace(alias.aliastail, alias.targettail)
+          }
+          resource +: pages
+        }
+      }.getOrElse(Vector.empty)
+    }.toMap
+  }
+
+  private def _ends_with_ignore_case(value: String, suffix: String): Boolean =
+    value.toLowerCase(Locale.ROOT).endsWith(suffix.toLowerCase(Locale.ROOT))
+
+  private def _jsonld_ids(json: Json): Vector[String] =
+    json.arrayOrObject(
+      json.asString.toVector,
+      _.flatMap(_jsonld_ids).toVector,
+      obj => obj.toVector.flatMap {
+        case ("@id", value) => value.asString.toVector ++ _jsonld_ids(value)
+        case (_, value) => _jsonld_ids(value)
+      }.toVector
+    ).distinct
+
+  private def _rewrite_jsonld_ids(json: Json, replacements: Map[String, String]): Json =
+    json.arrayOrObject(
+      json,
+      values => Json.fromValues(values.map(_rewrite_jsonld_ids(_, replacements))),
+      obj => Json.obj(obj.toVector.flatMap {
+        case ("@graph", value) =>
+          Some("@graph" -> _rewrite_jsonld_graph(value, replacements))
+        case ("@id", value) =>
+          Some("@id" -> value.asString.flatMap(replacements.get).map(Json.fromString).getOrElse(_rewrite_jsonld_ids(value, replacements)))
+        case (key, value) =>
+          Some(key -> _rewrite_jsonld_ids(value, replacements))
+      }: _*)
+    )
+
+  private def _rewrite_jsonld_graph(json: Json, replacements: Map[String, String]): Json =
+    json.asArray.map { values =>
+      val rewritten = values.flatMap { value =>
+        val id = value.hcursor.downField("@id").as[String].toOption
+        if (id.exists(replacements.contains))
+          None
+        else
+          Some(_rewrite_jsonld_ids(value, replacements))
+      }
+      Json.fromValues(_deduplicate_jsonld_graph_nodes(rewritten.toVector))
+    }.getOrElse(_rewrite_jsonld_ids(json, replacements))
+
+  private def _replace_jsonld_bibliography_placeholders(json: Json, aliases: Vector[BibliographyRdfAlias]): Json =
+    _replace_jsonld_bibliography_placeholders(json, aliases, None)
+
+  private def _replace_jsonld_bibliography_placeholders(json: Json, aliases: Vector[BibliographyRdfAlias], title: Option[String]): Json =
+    json.arrayOrObject(
+      json.asString.map(value => Json.fromString(if (title.exists(_ => _is_unresolved_bibliography_placeholder(value))) title.get else value)).getOrElse(json),
+      values => Json.fromValues(values.map(_replace_jsonld_bibliography_placeholders(_, aliases, title))),
+      obj => {
+        val id = obj("@id").flatMap(_.asString)
+        val nexttitle = id.flatMap(value => aliases.find(alias => _ends_with_ignore_case(value, alias.targettail)).map(_.title)).orElse(title)
+        Json.obj(obj.toVector.map {
+          case (key, value) => key -> _replace_jsonld_bibliography_placeholders(value, aliases, nexttitle)
+        }: _*)
+      }
+    )
+
+  private def _deduplicate_jsonld_graph_nodes(values: Vector[Json]): Vector[Json] = {
+    val grouped = values.flatMap { value =>
+      value.hcursor.downField("@id").as[String].toOption.map(_ -> value)
+    }.groupBy(_._1).map {
+      case (id, xs) => id -> xs.map(_._2)
+    }
+    values.foldLeft((Set.empty[String], Vector.empty[Json])) { (state, value) =>
+      val (seen, acc) = state
+      value.hcursor.downField("@id").as[String].toOption match {
+        case Some(id) if seen.contains(id) =>
+          seen -> acc
+        case Some(id) =>
+          val selected = _preferred_jsonld_graph_node(grouped.getOrElse(id, Vector.empty))
+          (seen + id) -> (acc :+ selected)
+        case None =>
+          seen -> (acc :+ value)
+      }
+    }._2
+  }
+
+  private def _preferred_jsonld_graph_node(values: Vector[Json]): Json =
+    values.find(_is_resolved_jsonld_graph_node).orElse(values.lastOption).getOrElse(Json.Null)
+
+  private def _is_resolved_jsonld_graph_node(value: Json): Boolean = {
+    val text = value.noSpaces
+    text.contains("dcterms:source") ||
+      text.contains("http://purl.org/dc/terms/source") ||
+      !text.contains("Unresolved bibliography reference")
+  }
 
   private def _ensure_bibliography_cache(config: BuildConfig, entry: BibliographyEntry, fetcher: BibliographyBibtexFetcher): Option[String] = {
     val path = config.project.resolve("target/cozy-bok/bibliography/cache").resolve(s"${_safe_file_name(entry.id)}.bib")
@@ -1049,6 +1395,7 @@ private[cozy] object CozyBok {
         entry.copy(
           entrytype = fields.getOrElse("type", entry.entrytype),
           title = title,
+          summary = _resolved_bibliography_summary(entry),
           authors = if (authors.nonEmpty) authors else entry.authors,
           publishedat = entry.publishedat.orElse(fields.get("year")),
           publisher = entry.publisher.orElse(fields.get("publisher")),
@@ -1064,6 +1411,12 @@ private[cozy] object CozyBok {
       }.getOrElse(entry)
     }
   }
+
+  private def _resolved_bibliography_summary(entry: BibliographyEntry): Option[String] =
+    entry.summary.filterNot(_is_unresolved_bibliography_placeholder)
+
+  private def _is_unresolved_bibliography_placeholder(value: String): Boolean =
+    value.trim.toLowerCase(Locale.ROOT).startsWith("unresolved bibliography reference")
 
   private def _bibliography_source_needs_local_bib(entry: BibliographyEntry): Boolean =
     _is_curated_bibliography_source(entry) &&
@@ -1111,6 +1464,7 @@ private[cozy] object CozyBok {
     _write_effective_bibliography_metadata(config)
     _resolve_bibliography_service_entries(config, bibliographyfetcher)
     _write_effective_bibliography_metadata(config)
+    _sync_effective_bibliography_rdf(config)
     _delete_directory(config.project.resolve(s"doxsite-cache-${config.strategy}.d"))
     if (config.arcadia.enabled) {
       runner.run(Vector("arcadia", "site", config.arcadia.source, config.arcadiaSite), config.project)

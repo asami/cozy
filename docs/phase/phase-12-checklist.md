@@ -262,6 +262,8 @@ Status: DONE
       `--report-only` / `--no-fetch` reporting without rewriting source.
 - [x] Apply cached BibTeX during later builds as effective bibliography
       metadata.
+- [x] Sync effective bibliography metadata back into generated site RDF so
+      resolved provider entries replace inline citation-key alias nodes.
 - [x] Add executable specs for SmartDox metadata/RDF generation and Cozy
       rendering/search/cache behavior.
 

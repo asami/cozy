@@ -278,6 +278,49 @@ class CozyBokBibliographySpec
         }
       }
 
+      "merge inline citation keys with a resolved provider bibliography reference from the same source document" in {
+        _with_temp_dir("cozy-bok-bibliography-build-provider-alias") { dir =>
+          Given("a source document that contains a provider-qualified bibliography reference and a prose citation key")
+          _write(dir.resolve("src/main/doxsite/site.conf"), "site.output.locale_mode = single_locale_root\n")
+          _write(dir.resolve("src/main/doxsite/technology/category.yaml"), "name: Technology\ntitle: Technology\n")
+          _write(dir.resolve("src/main/doxsite/technology/index.dox"), "Technology\n==========\n")
+          val fetcher = new SelectiveBibtexFetcher(Map(
+            "openlibrary:works/OL31219436W" ->
+              "@book{openlibraryworksol31219436w, title={Design Patterns}, author={Gamma, Erich and Helm, Richard and Johnson, Ralph and Vlissides, John}, year={1995}, isbn={9780201633610}}\n"
+          ))
+          val config = CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview"))
+
+          When("Cozy builds and resolves the provider reference")
+          CozyBok.build(config, new ProviderAndInlineCitationBibliographyMetadataRunner, fetcher)
+
+          Then("the inline citation key is treated as an alias of the resolved provider entry")
+          fetcher.bibids should contain("openlibrary:works/OL31219436W")
+          val metadata = _read(dir.resolve("website.d/metadata/bibliography/bibliography.json"))
+          metadata should include("Design Patterns")
+          metadata should include("\"id\" : \"openlibrary:works/OL31219436W\"")
+          metadata should include("\"key\" : \"gamma1995designpatterns\"")
+          metadata should include("\"citation_key\" : \"gamma1995designpatterns\"")
+          metadata should include("\"needs_resolution\" : false")
+          metadata should not include("\"id\" : \"gamma1995designpatterns\"")
+          metadata should not include("Unresolved bibliography reference")
+
+          And("the bibliography RDF is synchronized to the effective reference")
+          val turtle = _read(dir.resolve("doxsite.d/site.ttl"))
+          turtle should include("<https://www.simplemodeling.org/bibliography/technology/openlibrary-works-OL31219436W>")
+          turtle should not include("gamma1995designpatterns")
+          turtle should not include("Unresolved bibliography reference")
+          val jsonld = _read(dir.resolve("doxsite.d/site.jsonld"))
+          jsonld should include("openlibrary-works-OL31219436W")
+          jsonld should not include("gamma1995designpatterns")
+          jsonld should not include("Unresolved bibliography reference")
+
+          And("the bibliography dashboard renders the single effective reference")
+          val bibliography = _read(dir.resolve("website.d/bibliography/index.html"))
+          bibliography should include("Design Patterns")
+          bibliography should not include("Unresolved")
+        }
+      }
+
       "resolve BoK bibliography .bib sources before external providers during build" in {
         _with_temp_dir("cozy-bok-bibliography-build-local-bib") { dir =>
           Given("an unresolved bibliography id and a matching .bib file in the BoK bibliography source tree")
@@ -700,6 +743,19 @@ class CozyBokBibliographySpec
     }
   }
 
+  private class SelectiveBibtexFetcher(results: Map[String, String]) extends BibliographyBibtexFetcher {
+    var urls = Vector.empty[String]
+    var bibids = Vector.empty[String]
+    def fetch(sourceurl: String): Option[String] = {
+      urls :+= sourceurl
+      results.get(sourceurl)
+    }
+    override def fetchBibId(bibid: String): Option[String] = {
+      bibids :+= bibid
+      results.get(bibid)
+    }
+  }
+
   private class FailingBibtexFetcher extends BibliographyBibtexFetcher {
     def fetch(sourceurl: String): Option[String] =
       throw new AssertionError(s"Unexpected bibliography source URL fetch: ${sourceurl}")
@@ -716,6 +772,18 @@ class CozyBokBibliographySpec
         _write(cwd.resolve("doxsite.d/metadata/bibliography/bibliography.json"), _unresolved_bibliography_json)
         _write(cwd.resolve("doxsite.d/site.ttl"), "@prefix ex: <https://example.com/> .\n")
         _write(cwd.resolve("doxsite.d/site.jsonld"), "{\"@graph\":[]}\n")
+      }
+  }
+
+  private class ProviderAndInlineCitationBibliographyMetadataRunner extends CozyBok.Runner {
+    def run(command: Vector[String], cwd: Path): Unit =
+      if (command.take(2) == Vector("dox", "site")) {
+        _write(cwd.resolve("doxsite.d/metadata/dashboard/site.json"), _dashboard_json)
+        _write(cwd.resolve("doxsite.d/metadata/rdf/graph.json"), _rdf_graph_json)
+        _write(cwd.resolve("doxsite.d/metadata/glossary/terms.json"), "{\"terms\": []}\n")
+        _write(cwd.resolve("doxsite.d/metadata/bibliography/bibliography.json"), _provider_and_inline_citation_bibliography_json)
+        _write(cwd.resolve("doxsite.d/site.ttl"), _provider_and_inline_citation_site_ttl)
+        _write(cwd.resolve("doxsite.d/site.jsonld"), _provider_and_inline_citation_site_jsonld)
       }
   }
 
@@ -886,6 +954,100 @@ class CozyBokBibliographySpec
       |    "refs": ["doi:10.5555/design-patterns"],
       |    "needs_resolution": true,
       |    "quality": {"missing_citation": true, "missing_terms": true, "missing_source": false, "missing_narrative": true, "needs_curation": true}
+      |  }]
+      |}
+      |""".stripMargin
+
+  private def _provider_and_inline_citation_bibliography_json: String =
+    """{
+      |  "entries": [{
+      |    "id": "openlibrary:works/OL31219436W",
+      |    "slug": "openlibrary-works-ol31219436w",
+      |    "entry_type": "book",
+      |    "title": "openlibrary:works/OL31219436W",
+      |    "summary": "Unresolved bibliography reference from technology/index.dox",
+      |    "category": "technology",
+      |    "source_path": "technology/index.dox",
+      |    "public_path": "bibliography/technology/openlibrary-works-ol31219436w.html",
+      |    "authors": [],
+      |    "terms": [],
+      |    "identifiers": {},
+      |    "bibtex": {},
+      |    "body_html": "",
+      |    "source_kind": "external-ref",
+      |    "refs": ["openlibrary:works/OL31219436W"],
+      |    "source_refs": [{
+      |      "source_path": "technology/index.dox",
+      |      "public_path": "technology/index.html",
+      |      "category": "technology",
+      |      "citation_key": "openlibrary:works/OL31219436W",
+      |      "ordinal": 1
+      |    }],
+      |    "needs_resolution": true,
+      |    "quality": {"missing_citation": true, "missing_terms": true, "missing_source": false, "missing_narrative": true, "needs_curation": true}
+      |  }, {
+      |    "id": "gamma1995designpatterns",
+      |    "slug": "gamma1995designpatterns",
+      |    "entry_type": "book",
+      |    "title": "gamma1995designpatterns",
+      |    "summary": "Unresolved inline citation key.",
+      |    "category": "technology",
+      |    "source_path": "technology/index.dox",
+      |    "public_path": "bibliography/technology/gamma1995designpatterns.html",
+      |    "authors": [],
+      |    "terms": [],
+      |    "identifiers": {},
+      |    "bibtex": {},
+      |    "body_html": "",
+      |    "source_kind": "external-ref",
+      |    "refs": ["gamma1995designpatterns"],
+      |    "source_refs": [{
+      |      "source_path": "technology/index.dox",
+      |      "public_path": "technology/index.html",
+      |      "category": "technology",
+      |      "citation_key": "gamma1995designpatterns",
+      |      "ordinal": 2
+      |    }],
+      |    "needs_resolution": true,
+      |    "quality": {"missing_citation": true, "missing_terms": true, "missing_source": false, "missing_narrative": true, "needs_curation": true}
+      |  }]
+      |}
+      |""".stripMargin
+
+  private def _provider_and_inline_citation_site_ttl: String =
+    """@prefix dcterms: <http://purl.org/dc/terms/> .
+      |@prefix schema: <https://schema.org/> .
+      |<https://www.simplemodeling.org/bibliography/technology/openlibrary-works-OL31219436W> dcterms:type "other" ;
+      |  schema:description "Unresolved bibliography reference." .
+      |<https://www.simplemodeling.org/bibliography/technology/openlibrary-works-OL31219436W> dcterms:type "book" ;
+      |  dcterms:source <https://openlibrary.org/works/OL31219436W> .
+      |<https://www.simplemodeling.org/ja/bibliography/technology/gamma1995designpatterns.html> dcterms:type dcterms:BibliographicResource .
+      |<https://www.simplemodeling.org/ja/bibliography/technology/openlibrary-works-OL31219436W.html> dcterms:type dcterms:BibliographicResource .
+      |<https://www.simplemodeling.org/technology/index> dcterms:references <https://www.simplemodeling.org/bibliography/technology/gamma1995designpatterns>, <https://www.simplemodeling.org/bibliography/technology/openlibrary-works-OL31219436W> ;
+      |  schema:citation <https://www.simplemodeling.org/bibliography/technology/gamma1995designpatterns>, <https://www.simplemodeling.org/bibliography/technology/openlibrary-works-OL31219436W> .
+      |""".stripMargin
+
+  private def _provider_and_inline_citation_site_jsonld: String =
+    """{
+      |  "@graph": [{
+      |    "@id": "https://www.simplemodeling.org/bibliography/technology/gamma1995designpatterns",
+      |    "schema:description": "Unresolved bibliography reference."
+      |  }, {
+      |    "@id": "https://www.simplemodeling.org/bibliography/technology/openlibrary-works-OL31219436W",
+      |    "schema:description": "Unresolved bibliography reference."
+      |  }, {
+      |    "@id": "https://www.simplemodeling.org/bibliography/technology/openlibrary-works-OL31219436W",
+      |    "dcterms:source": {"@id": "https://openlibrary.org/works/OL31219436W"}
+      |  }, {
+      |    "@id": "https://www.simplemodeling.org/ja/bibliography/technology/gamma1995designpatterns.html",
+      |    "dcterms:type": {"@id": "dcterms:BibliographicResource"}
+      |  }, {
+      |    "@id": "https://www.simplemodeling.org/ja/bibliography/technology/openlibrary-works-OL31219436W.html",
+      |    "dcterms:type": {"@id": "dcterms:BibliographicResource"}
+      |  }, {
+      |    "@id": "https://www.simplemodeling.org/technology/index",
+      |    "schema:citation": [{"@id": "https://www.simplemodeling.org/bibliography/technology/gamma1995designpatterns"}, {"@id": "https://www.simplemodeling.org/bibliography/technology/openlibrary-works-OL31219436W"}],
+      |    "dcterms:references": [{"@id": "https://www.simplemodeling.org/bibliography/technology/gamma1995designpatterns"}, {"@id": "https://www.simplemodeling.org/bibliography/technology/openlibrary-works-OL31219436W"}]
       |  }]
       |}
       |""".stripMargin
