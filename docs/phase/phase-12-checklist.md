@@ -222,7 +222,60 @@ Status: DONE
 - [x] When `metadata/glossary/terms.json` is absent, render empty glossary/term
       surfaces instead of reconstructing terms from category source directories.
 
-## BK12-13: Phase Closure
+## BK12-13: Bibliography Knowledge Management
+
+Status: OPEN
+
+- [ ] Treat bibliography entries as first-class BoK knowledge.
+- [ ] Decide the canonical source layout for bibliography entries.
+- [ ] Decide whether bibliography source is SmartDox, Markdown, structured
+      document metadata, or a mixed source package convention.
+- [ ] Define bibliography metadata: id, title, authors, date, publisher, source
+      URL, DOI/ISBN/URN where applicable, category, terms, summary, and
+      citation text.
+- [ ] Define how bibliography entries link to terms, articles, scenarios,
+      projects, CML/model elements, and RDF resources.
+- [ ] Define SmartDox/Cozy responsibility boundaries for bibliography parsing
+      and semantic extraction.
+- [ ] Generate or consume bibliography metadata for Dashboard, Category, Term
+      Hub, and RDF navigation.
+- [ ] Add executable specs after the source and rendering contract is decided.
+
+## BK12-14: Event Knowledge Management
+
+Status: OPEN
+
+- [ ] Treat events as first-class BoK knowledge.
+- [ ] Define event metadata: id, title, type, time or period, actors,
+      participants, location, related terms, related scenarios, and evidence.
+- [ ] Decide the canonical source layout for event knowledge.
+- [ ] Define how event knowledge relates to History pages without duplicating
+      History responsibilities.
+- [ ] Define how event knowledge relates to CML/statemachine event concepts.
+- [ ] Define how events appear in Dashboard, Category, Term Hub, Scenario, and
+      RDF navigation.
+- [ ] Define SmartDox/Cozy responsibility boundaries for event source parsing
+      and semantic extraction.
+- [ ] Add executable specs after the source and rendering contract is decided.
+
+## BK12-15: Mono-Koto Analysis Knowledge Model
+
+Status: OPEN
+
+- [ ] Define "mono" as thing/object/entity-oriented knowledge.
+- [ ] Define "koto" as event/fact/activity/process-oriented knowledge.
+- [ ] Define how mono-koto analysis organizes terms, articles, scenarios,
+      events, projects, CML elements, and RDF resources.
+- [ ] Define Dashboard and Term Hub views that expose mono-koto structure
+      without overwhelming normal users.
+- [ ] Define how mono-koto analysis maps to RDF Information View / 1.5+hop
+      navigation.
+- [ ] Decide whether mono-koto classification is manually authored,
+      metadata-derived, model-derived, or mixed.
+- [ ] Add design documentation before implementation.
+- [ ] Add executable specs after the model and source contract are decided.
+
+## BK12-16: Phase Closure
 
 Status: OPEN
 

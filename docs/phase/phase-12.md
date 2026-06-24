@@ -37,7 +37,10 @@ into focused Cozy improvements.
 - [x] BK12-10: Term hub and term-centric RDF navigation
 - [x] BK12-11: CAR project knowledge and NictKnowledgeHub project integration
 - [x] BK12-12: Scenario knowledge management
-- [ ] BK12-13: Phase closure
+- [ ] BK12-13: Bibliography knowledge management
+- [ ] BK12-14: Event knowledge management
+- [ ] BK12-15: Mono-Koto analysis knowledge model
+- [ ] BK12-16: Phase closure
 
 ## Acceptance Criteria
 
@@ -63,6 +66,13 @@ into focused Cozy improvements.
   NictKnowledgeHub project as an operational target.
 - Scenarios can be managed as first-class BoK knowledge items, starting with
   simple scenarios, use cases, and persona plus journey scenarios.
+- Bibliography can be managed as a first-class BoK knowledge type and connected
+  to terms, articles, projects, scenarios, and RDF references.
+- Events can be managed as BoK knowledge and connected to scenarios, history,
+  RDF resources, and model/CML event concepts.
+- "Mono-koto" analysis can distinguish "thing" knowledge from "event/fact"
+  knowledge and use that distinction to organize terms, scenarios, events,
+  projects, and RDF navigation.
 
 ## Progress Notes
 
@@ -314,6 +324,12 @@ into focused Cozy improvements.
   Hub data from category source directories when `metadata/glossary/terms.json`
   is absent. Scenario semantics remain Cozy/Kaleidox-owned and use SmartDox
   parser output as input.
+
+- 2026-06-24: Added BK12-13 through BK12-15 as remaining Phase 12 development
+  candidates before closure. BK12-13 covers bibliography as a first-class BoK
+  knowledge type, BK12-14 covers event knowledge, and BK12-15 covers
+  mono-koto analysis as the organizing distinction between things and events /
+  facts in BoK knowledge modeling.
 
 ## References
 
