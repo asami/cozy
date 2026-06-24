@@ -230,8 +230,8 @@ Status: DONE
 - [x] Decide the canonical source layout for bibliography entries, including
       BoK-wide `src/main/doxsite/bibliography/<slug>.*` and category-local
       `src/main/doxsite/bibliography/<category>/<slug>.*`.
-- [x] Support `*.bib.dox` as curated BoK bibliography source paired with
-      BibTeX supplement data.
+- [x] Support `*.bib.dox` / `*.bib.md` as curated BoK bibliography source paired with
+      BibTeX supplement data and prefix-free metadata.
 - [x] Decide that bibliography source is SmartDox or Markdown metadata plus
       narrative, with BibTeX as supplemental import/cache data.
 - [x] Define bibliography metadata: id, type, title, authors, date, publisher,

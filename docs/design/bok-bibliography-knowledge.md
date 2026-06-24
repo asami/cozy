@@ -12,22 +12,21 @@ sources used by a BoK.
 Canonical source files live under:
 
 ```text
-src/main/doxsite/bibliography/<slug>.dox
-src/main/doxsite/bibliography/<slug>.md
-src/main/doxsite/bibliography/<slug>.markdown
 src/main/doxsite/bibliography/<slug>.bib.dox
+src/main/doxsite/bibliography/<slug>.bib.md
+src/main/doxsite/bibliography/<slug>.bib.markdown
 src/main/doxsite/bibliography/<slug>.bib
-src/main/doxsite/bibliography/<category>/<slug>.dox
-src/main/doxsite/bibliography/<category>/<slug>.md
-src/main/doxsite/bibliography/<category>/<slug>.markdown
 src/main/doxsite/bibliography/<category>/<slug>.bib.dox
+src/main/doxsite/bibliography/<category>/<slug>.bib.md
+src/main/doxsite/bibliography/<category>/<slug>.bib.markdown
 src/main/doxsite/bibliography/<category>/<slug>.bib
 ```
 
-SmartDox `.dox` uses `HEAD` / properties. Markdown uses YAML front matter. Both
-are parsed by SmartDox and normalized into Dox IR plus `DocumentMetaData`.
-`*.bib.dox` is a BoK bibliography source entry whose suffix signals that the
-entry is paired with or backed by BibTeX. Plain `*.bib` files are accepted as
+SmartDox `*.bib.dox` uses `HEAD` / properties. Markdown `*.bib.md` and
+`*.bib.markdown` use YAML front matter. Both are parsed by SmartDox and
+normalized into Dox IR plus `DocumentMetaData`. The `*.bib.*` suffix signals
+that the document is a BoK bibliography source entry paired with or backed by
+BibTeX. Plain `*.bib` files are accepted as
 BibTeX-only entries, but they are marked as `source_kind=bibtex-only` and
 `needs_curation=true` because they lack BoK narrative and term-positioning text.
 
@@ -38,32 +37,49 @@ before BoK-wide files.
 
 ## Metadata
 
-Common metadata is stored under `bibliography.*`:
+Common metadata is stored directly in bibliography source metadata:
 
-- `bibliography.id`
-- `bibliography.type`: `book`, `article`, `paper`, `standard`, `web-page`,
+- `id`
+- `type`: `book`, `article`, `paper`, `standard`, `web-page`,
   `repository`, `dataset`, `video`, `specification`, or `other`
-- `bibliography.title`
-- `bibliography.summary`
-- `bibliography.authors`
-- `bibliography.published_at`
-- `bibliography.publisher`
-- `bibliography.source_url`
-- `bibliography.accessed_at`
-- `bibliography.terms`
-- `bibliography.citation`
-- `bibliography.identifiers.doi`, `isbn`, `issn`, `url`, `urn`, `arxiv`,
-  `github`, `wikidata`
-- `bibliography.bibtex.key`, `entry_type`, `source_url`, `raw`
+- `title`
+- `summary`
+- `authors`
+- `published_at`
+- `publisher`
+- `source_url`
+- `accessed_at`
+- `terms`
+- `citation`
+- `identifiers.doi`, `identifiers.isbn`, `identifiers.issn`, `identifiers.url`, `identifiers.urn`,
+  `identifiers.arxiv`, `identifiers.github`, `identifiers.wikidata`
+- `key`, `bibtex.entry_type`, `bibtex.source_url`, `bibtex.raw`
 
-Documents that cite bibliography knowledge may use either of these metadata
-keys:
+Documents cite bibliography knowledge inline with:
+
+```dox
+This article uses the pattern catalog bib:[gamma1995designpatterns].
+```
+
+`bib:[...]` uses a prose citation key. SmartDox resolves it in this order:
+
+1. `id`
+2. `key`
+3. `.bib` citation key
+
+`id` is the BoK-internal canonical ID. For example,
+`bib:design-patterns` identifies the bibliography entry, while
+`gamma1995designpatterns` is the normal prose citation key used in article
+text.
+
+Structured references are still available for generated metadata or tools:
 
 - `bibliography.refs`
 - `references.bibliography`
 
-Each reference is a provider-qualified `bibid`, for example `bib:local-id`,
-`doi:10.1145/...`, `isbn:978...`, `openlibrary:works/...`, or `dblp:...`.
+Each structured reference may be a provider-qualified `bibid`, for example
+`bib:local-id`, `doi:10.1145/...`, `isbn:978...`,
+`openlibrary:works/...`, or `dblp:...`.
 
 BibTeX is supplemental import/cache data. It is not the BoK source of truth.
 BoK source metadata and narrative take precedence over BibTeX-derived values.
@@ -81,18 +97,35 @@ SmartDox generates:
 doxsite.d/metadata/bibliography/bibliography.json
 ```
 
+Each bibliography entry may include `source_refs`, which record where an entry
+is cited:
+
+- `source_path`
+- `public_path`
+- `category`
+- `citation_key`
+- `ordinal`
+
+SmartDox also renders inline `bib:[...]` as citation links, appends a page-local
+References/Bibliography section for article pages, and emits site RDF triples
+from the article node to the bibliography node using `schema:citation` and
+`dcterms:references`. Bibliography entry pages themselves do not receive a
+References section.
+
 Cozy consumes that metadata for:
 
 - Bibliography Dashboard: `website.d/bibliography/index.html`
 - Home Dashboard reference KPI
 - Category related-knowledge links
 - Term Hub related references
+- Bibliography detail `Cited by` lists
 - generated metadata copy under `website.d/metadata/bibliography/`
 
 Cozy does not re-parse `.dox` or Markdown bibliography source during `bok build`.
 It only validates the SmartDox handoff boundary: if BoK source declares
-`bibliography.refs`, `bibliography/*.bib`, `bibliography/<category>/*.bib`,
-or bibliography source documents and
+inline `bib:[...]` citations, `bibliography.refs`,
+`bibliography/*.bib`, `bibliography/<category>/*.bib`, or bibliography source
+documents and
 `doxsite.d/metadata/bibliography/bibliography.json` is empty after `dox site`,
 Cozy fails explicitly. Cozy must not call the SmartDox library directly to
 regenerate `doxsite.d`, because that would split the `dox antora` and `dox site`
@@ -136,14 +169,15 @@ documents remain the preferred source of truth because they can add BoK-specific
 summary, term links, RDF links, and narrative. Local `.bib` files are resolver
 inputs alongside external services.
 
-When the same `bibid` appears in `*.bib.dox` and `.bib`, the `*.bib.dox`
-metadata and body are authoritative. BibTeX fields supplement only missing
+When the same `bibid` appears in `*.bib.dox` / `*.bib.md` /
+`*.bib.markdown` and `.bib`, the curated bibliography document metadata and
+body are authoritative. BibTeX fields supplement only missing
 metadata such as authors, publication year, DOI, ISBN, URL, and citation. If a
-`*.bib.dox` entry has `bibliography.bibtex.raw`, that embedded BibTeX is used
-first. If it has `bibliography.bibtex.source_url`, that source is resolved.
+curated bibliography entry has `bibtex.raw`, that embedded BibTeX is used
+first. If it has `bibtex.source_url`, that source is resolved.
 Otherwise a matching local `.bib` entry may supplement it.
 
-Accepted local `bibliography.bibtex.source_url` prefixes are:
+Accepted local `bibtex.source_url` prefixes are:
 
 - `bibliography/...` for `src/main/doxsite/bibliography/...`
 - `repository/bibliography/...` for `<repository-root>/bibliography/...`
@@ -177,7 +211,7 @@ target/cozy-bok/bibliography/cache/
 The cache is generated state and is not Git-managed.
 
 `cozy bok update-bibliography` reads unresolved `bibid` entries and explicit
-`bibliography.bibtex.source_url` values from `bibliography.json`, fetches the
+`bibtex.source_url` values from `bibliography.json`, fetches the
 corresponding BibTeX through local resolver sources or the configured
 provider/fetcher, and writes cache files only. It does not rewrite BoK source
 documents. `--report-only` and `--no-fetch` report missing cache entries without

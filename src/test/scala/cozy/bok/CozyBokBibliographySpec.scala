@@ -73,6 +73,9 @@ class CozyBokBibliographySpec
           detail should include("Design Patterns")
           detail should include("DOI 10.5555/design-patterns")
           detail should include("Bibliography")
+          detail should include("Cited by")
+          detail should include("concept/article.html")
+          detail should include("gamma1995designpatterns")
 
           And("the Home dashboard exposes reference knowledge as a first-class entry")
           val home = _read(dir.resolve("website.d/index.html"))
@@ -110,14 +113,11 @@ class CozyBokBibliographySpec
             dir.resolve("src/main/doxsite/technology/index.md"),
             """---
               |title: Technology
-              |bibliography:
-              |  refs:
-              |    - openlibrary:works/OL31219436W
               |---
               |
               |# Technology
               |
-              |This category cites an external bibliography id.
+              |This category cites an external bibliography id with bib:[gamma1995designpatterns].
               |""".stripMargin
           )
           val config = CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview"))
@@ -166,15 +166,15 @@ class CozyBokBibliographySpec
           BibliographySearchRegistry(Vector(provider))
         )
 
-        Then("the text output gives a usable bib id and BibTeX key candidate")
+        Then("the text output gives a usable bib id and citation key candidate")
         text should include("Design Patterns")
         text should include("bib-id: doi:10.5555/design-patterns")
-        text should include("bibtex-key: gamma1994designpatterns")
+        text should include("citation-key: gamma1994designpatterns")
         text should include("DOI 10.5555/design-patterns")
 
         And("the JSON output remains deterministic for tool consumption")
         json should include("\"candidates\"")
-        json should include("\"bibtex_key\": \"gamma1994designpatterns\"")
+        json should include("\"citation_key\": \"gamma1994designpatterns\"")
         json should include("\"isbn\": \"9780201633610\"")
       }
 
@@ -455,7 +455,7 @@ class CozyBokBibliographySpec
         _with_temp_dir("cozy-bok-bibliography-cache") { dir =>
           Given("existing bibliography metadata with a BibTeX source URL")
           _write(dir.resolve("doxsite.d/metadata/bibliography/bibliography.json"), _bibliography_source_url_json)
-          val source = _write(dir.resolve("src/main/doxsite/bibliography/concept/design-patterns.dox"), "Design Patterns\n===============\n")
+          val source = _write(dir.resolve("src/main/doxsite/bibliography/concept/design-patterns.bib.dox"), "Design Patterns\n===============\n")
           val before = _read(source)
           val fetcher = new BibliographyBibtexFetcher {
             def fetch(sourceurl: String): Option[String] =
@@ -894,12 +894,13 @@ class CozyBokBibliographySpec
     """{
       |  "entries": [{
       |    "id": "bib:design-patterns",
+      |    "key": "gamma1995designpatterns",
       |    "slug": "design-patterns",
       |    "entry_type": "book",
       |    "title": "Design Patterns",
       |    "summary": "Reusable object-oriented design catalog.",
       |    "category": "concept",
-      |    "source_path": "bibliography/concept/design-patterns.dox",
+      |    "source_path": "bibliography/concept/design-patterns.bib.dox",
       |    "public_path": "bibliography/concept/design-patterns.html",
       |    "authors": ["Erich Gamma", "Richard Helm"],
       |    "published_at": "1994-10-21",
@@ -908,12 +909,18 @@ class CozyBokBibliographySpec
       |    "accessed_at": "2026-06-24",
       |    "terms": ["concept:pattern"],
       |    "citation": "Gamma et al. Design Patterns.",
+      |    "source_refs": [{
+      |      "source_path": "concept/article.md",
+      |      "public_path": "concept/article.html",
+      |      "category": "concept",
+      |      "citation_key": "gamma1995designpatterns",
+      |      "ordinal": 1
+      |    }],
       |    "identifiers": {
       |      "doi": "10.5555/design-patterns",
       |      "isbn": "9780201633610"
       |    },
       |    "bibtex": {
-      |      "key": "gamma1994designpatterns",
       |      "entry_type": "book"
       |    },
       |    "body_html": "<p>A reference book for design patterns.</p>",
@@ -934,7 +941,7 @@ class CozyBokBibliographySpec
       |    "title": "Design Patterns",
       |    "summary": "Reusable object-oriented design catalog.",
       |    "category": "concept",
-      |    "source_path": "bibliography/concept/design-patterns.dox",
+      |    "source_path": "bibliography/concept/design-patterns.bib.dox",
       |    "public_path": "bibliography/concept/design-patterns.html",
       |    "authors": ["Erich Gamma", "Richard Helm"],
       |    "published_at": "1994-10-21",

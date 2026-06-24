@@ -32,10 +32,17 @@ private[cozy] final case class BibliographyIdentifiers(
 )
 
 private[cozy] final case class BibliographyBibtex(
-  key: Option[String],
   entrytype: Option[String],
   sourceurl: Option[String],
   raw: Option[String]
+)
+
+private[cozy] final case class BibliographySourceRef(
+  sourcepath: String,
+  publicpath: String,
+  category: Option[String],
+  citationkey: String,
+  ordinal: Int
 )
 
 private[cozy] final case class BibliographyQuality(
@@ -53,6 +60,7 @@ private[cozy] object BibliographyQuality {
 
 private[cozy] final case class BibliographyEntry(
   id: String,
+  key: Option[String],
   slug: String,
   entrytype: String,
   title: String,
@@ -72,6 +80,7 @@ private[cozy] final case class BibliographyEntry(
   bodyhtml: String,
   sourcekind: String,
   refs: Vector[String],
+  sourcerefs: Vector[BibliographySourceRef],
   needsresolution: Boolean,
   quality: BibliographyQuality
 ) {
@@ -104,7 +113,6 @@ private[cozy] object BibliographyEntry {
     } yield BibliographyIdentifiers(doi, isbn, issn, url, urn, arxiv, github, wikidata)
 
   implicit val _bibtex_encoder: Encoder[BibliographyBibtex] = (x: BibliographyBibtex) => Json.obj(
-    "key" -> x.key.asJson,
     "entry_type" -> x.entrytype.asJson,
     "source_url" -> x.sourceurl.asJson,
     "raw" -> x.raw.asJson
@@ -112,11 +120,27 @@ private[cozy] object BibliographyEntry {
 
   implicit val _bibtex_decoder: Decoder[BibliographyBibtex] = (c: HCursor) =>
     for {
-      key <- c.downField("key").as[Option[String]]
       entrytype <- c.downField("entry_type").as[Option[String]]
       sourceurl <- c.downField("source_url").as[Option[String]]
       raw <- c.downField("raw").as[Option[String]]
-    } yield BibliographyBibtex(key, entrytype, sourceurl, raw)
+    } yield BibliographyBibtex(entrytype, sourceurl, raw)
+
+  implicit val _source_ref_encoder: Encoder[BibliographySourceRef] = (x: BibliographySourceRef) => Json.obj(
+    "source_path" -> x.sourcepath.asJson,
+    "public_path" -> x.publicpath.asJson,
+    "category" -> x.category.asJson,
+    "citation_key" -> x.citationkey.asJson,
+    "ordinal" -> x.ordinal.asJson
+  )
+
+  implicit val _source_ref_decoder: Decoder[BibliographySourceRef] = (c: HCursor) =>
+    for {
+      sourcepath <- c.downField("source_path").as[String]
+      publicpath <- c.downField("public_path").as[String]
+      category <- c.downField("category").as[Option[String]]
+      citationkey <- c.downField("citation_key").as[String]
+      ordinal <- c.downField("ordinal").as[Option[Int]]
+    } yield BibliographySourceRef(sourcepath, publicpath, category, citationkey, ordinal.getOrElse(0))
 
   implicit val _quality_encoder: Encoder[BibliographyQuality] = (x: BibliographyQuality) => Json.obj(
     "missing_citation" -> x.missingcitation.asJson,
@@ -139,6 +163,7 @@ private[cozy] object BibliographyEntry {
 
   implicit val _entry_encoder: Encoder[BibliographyEntry] = (x: BibliographyEntry) => Json.obj(
     "id" -> x.id.asJson,
+    "key" -> x.key.asJson,
     "slug" -> x.slug.asJson,
     "entry_type" -> x.entrytype.asJson,
     "title" -> x.title.asJson,
@@ -158,6 +183,7 @@ private[cozy] object BibliographyEntry {
     "body_html" -> x.bodyhtml.asJson,
     "source_kind" -> x.sourcekind.asJson,
     "refs" -> x.refs.asJson,
+    "source_refs" -> x.sourcerefs.asJson,
     "needs_resolution" -> x.needsresolution.asJson,
     "quality" -> x.quality.asJson
   )
@@ -165,6 +191,7 @@ private[cozy] object BibliographyEntry {
   implicit val _entry_decoder: Decoder[BibliographyEntry] = (c: HCursor) =>
     for {
       id <- c.downField("id").as[String]
+      key <- c.downField("key").as[Option[String]]
       slug <- c.downField("slug").as[String]
       entrytype <- c.downField("entry_type").as[String]
       title <- c.downField("title").as[String]
@@ -184,10 +211,12 @@ private[cozy] object BibliographyEntry {
       bodyhtml <- c.downField("body_html").as[Option[String]]
       sourcekind <- c.downField("source_kind").as[Option[String]]
       refs <- c.downField("refs").as[Option[Vector[String]]]
+      sourcerefs <- c.downField("source_refs").as[Option[Vector[BibliographySourceRef]]]
       needsresolution <- c.downField("needs_resolution").as[Option[Boolean]]
       quality <- c.downField("quality").as[Option[BibliographyQuality]]
     } yield BibliographyEntry(
       id,
+      key,
       slug,
       entrytype,
       title,
@@ -203,10 +232,11 @@ private[cozy] object BibliographyEntry {
       terms.getOrElse(Vector.empty),
       citation,
       identifiers.getOrElse(BibliographyIdentifiers(None, None, None, None, None, None, None, None)),
-      bibtex.getOrElse(BibliographyBibtex(None, None, None, None)),
+      bibtex.getOrElse(BibliographyBibtex(None, None, None)),
       bodyhtml.getOrElse(""),
       sourcekind.getOrElse("internal"),
       refs.getOrElse(Vector(id)),
+      sourcerefs.getOrElse(Vector.empty),
       needsresolution.getOrElse(false),
       quality.getOrElse(BibliographyQuality.empty)
     )
@@ -229,7 +259,7 @@ private[cozy] final case class BibliographyUpdateConfig(project: Path, force: Bo
 private[cozy] final case class BibliographySearchResult(
   provider: String,
   bibid: String,
-  bibtexkey: String,
+  citationkey: String,
   title: String,
   authors: Vector[String],
   year: Option[String],
@@ -242,7 +272,7 @@ private[cozy] final case class BibliographySearchResult(
     val author = if (authors.isEmpty) "-" else authors.mkString(", ")
     val ids = Vector(doi.map(x => s"DOI ${x}"), isbn.map(x => s"ISBN ${x}")).flatten.mkString(", ")
     val suffix = if (ids.isEmpty) "" else s" [${ids}]"
-    s"${provider}: ${title} (${year.getOrElse("n.d.")})\n  bib-id: ${bibid}\n  bibtex-key: ${bibtexkey}\n  authors: ${author}${suffix}"
+    s"${provider}: ${title} (${year.getOrElse("n.d.")})\n  bib-id: ${bibid}\n  citation-key: ${citationkey}\n  authors: ${author}${suffix}"
   }
 }
 
@@ -301,7 +331,7 @@ private[cozy] object BibliographyHttpSearchProvider {
             val family = ac.downField("family").as[String].toOption.getOrElse("")
             Some(s"${given} ${family}".trim).filter(_.nonEmpty)
           }
-          Some(BibliographySearchResult(name, doi.map("doi:" + _).getOrElse(_slug(title)), _bibtex_key(authors.headOption, year, title), title, authors, year, doi, None, c.downField("URL").as[String].toOption, "article"))
+          Some(BibliographySearchResult(name, doi.map("doi:" + _).getOrElse(_slug(title)), _citation_key(authors.headOption, year, title), title, authors, year, doi, None, c.downField("URL").as[String].toOption, "article"))
         })
       }.getOrElse(Vector.empty)
   }
@@ -317,7 +347,7 @@ private[cozy] object BibliographyHttpSearchProvider {
           val year = c.downField("first_publish_year").as[Int].toOption.map(_.toString)
           val isbn = c.downField("isbn").as[Vector[String]].toOption.flatMap(_.headOption)
           val key = c.downField("key").as[String].toOption.map(_.stripPrefix("/"))
-          Some(BibliographySearchResult(name, key.map("openlibrary:" + _).orElse(isbn.map("isbn:" + _)).getOrElse(_slug(title)), _bibtex_key(authors.headOption, year, title), title, authors, year, None, isbn, key.map("https://openlibrary.org/" + _), "book"))
+          Some(BibliographySearchResult(name, key.map("openlibrary:" + _).orElse(isbn.map("isbn:" + _)).getOrElse(_slug(title)), _citation_key(authors.headOption, year, title), title, authors, year, None, isbn, key.map("https://openlibrary.org/" + _), "book"))
         })
       }.getOrElse(Vector.empty)
   }
@@ -332,7 +362,7 @@ private[cozy] object BibliographyHttpSearchProvider {
           val authors = _dblp_authors(info.downField("authors").downField("author").focus)
           val year = info.downField("year").as[String].toOption
           val key = info.downField("key").as[String].toOption.getOrElse(_slug(title))
-          Some(BibliographySearchResult(name, if (key.startsWith("dblp:")) key else "dblp:" + key, _bibtex_key(authors.headOption, year, title), title, authors, year, None, None, info.downField("url").as[String].toOption, "paper"))
+          Some(BibliographySearchResult(name, if (key.startsWith("dblp:")) key else "dblp:" + key, _citation_key(authors.headOption, year, title), title, authors, year, None, None, info.downField("url").as[String].toOption, "paper"))
         })
       }.getOrElse(Vector.empty)
   }
@@ -356,7 +386,7 @@ private[cozy] object BibliographyHttpSearchProvider {
 
   private def _url(value: String): String = URLEncoder.encode(value, StandardCharsets.UTF_8.name())
   private def _slug(value: String): String = value.toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9]+", "-").stripPrefix("-").stripSuffix("-")
-  private def _bibtex_key(author: Option[String], year: Option[String], title: String): String = {
+  private def _citation_key(author: Option[String], year: Option[String], title: String): String = {
     val a = author.map(x => x.split("\\s+").lastOption.getOrElse(x)).getOrElse("ref").toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9]+", "")
     val y = year.getOrElse("nd")
     val t = _slug(title).split('-').take(3).mkString("")
@@ -397,7 +427,7 @@ private[cozy] object BibliographyHttpBibtexFetcher extends BibliographyBibtexFet
         val c = json.hcursor
         c.downField("title").as[String].toOption.map { title =>
           val year = c.downField("publish_date").as[String].toOption.flatMap(_year)
-          val key = _safe_bibtex_key(bibid)
+          val key = _safe_citation_key(bibid)
           val fields = Vector(
             Some(s"  title = {${_bibtex_escape(title)}}"),
             year.map(x => s"  year = {$x}"),
@@ -411,7 +441,7 @@ private[cozy] object BibliographyHttpBibtexFetcher extends BibliographyBibtexFet
   private def _year(value: String): Option[String] =
     """([0-9]{4})""".r.findFirstIn(value)
 
-  private def _safe_bibtex_key(value: String): String =
+  private def _safe_citation_key(value: String): String =
     value.replaceAll("[^A-Za-z0-9]+", "").toLowerCase(java.util.Locale.ROOT) match {
       case "" => "reference"
       case x => x

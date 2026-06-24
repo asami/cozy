@@ -1024,6 +1024,7 @@ private[cozy] object CozyBok {
           trimmed.startsWith("references.bibliography") ||
           trimmed == "bibliography:" ||
           trimmed == "references:" ||
+          trimmed.contains("bib:[") ||
           trimmed.startsWith("bibid") ||
           trimmed.startsWith("bibids")
       }
@@ -1041,7 +1042,7 @@ private[cozy] object CozyBok {
       BibliographyBibtexParser.parse(raw).map { fields =>
         val authors = fields.get("author").map(BibliographyBibtexParser.authors).getOrElse(entry.authors)
         val title =
-          if (_is_bib_dox_source(entry))
+          if (_is_curated_bibliography_source(entry))
             entry.title
           else
             fields.get("title").getOrElse(entry.title)
@@ -1054,7 +1055,8 @@ private[cozy] object CozyBok {
           sourceurl = entry.sourceurl.orElse(fields.get("url")),
           citation = entry.citation.orElse(BibliographyBibtexParser.citation(fields)),
           identifiers = entry.identifiers.copy(doi = entry.identifiers.doi.orElse(fields.get("doi")), isbn = entry.identifiers.isbn.orElse(fields.get("isbn")), url = entry.identifiers.url.orElse(fields.get("url"))),
-          bibtex = entry.bibtex.copy(key = entry.bibtex.key.orElse(fields.get("id")), entrytype = entry.bibtex.entrytype.orElse(fields.get("type")), raw = Some(raw)),
+          key = entry.key.orElse(fields.get("id")),
+          bibtex = entry.bibtex.copy(entrytype = entry.bibtex.entrytype.orElse(fields.get("type")), raw = Some(raw)),
           sourcekind = if (entry.sourcekind == "external-ref") "external-cache" else entry.sourcekind,
           needsresolution = false,
           quality = entry.quality.copy(missingcitation = false, missingsource = false, missingnarrative = entry.bodyhtml.trim.isEmpty, needscuration = entry.bodyhtml.trim.isEmpty)
@@ -1064,13 +1066,15 @@ private[cozy] object CozyBok {
   }
 
   private def _bibliography_source_needs_local_bib(entry: BibliographyEntry): Boolean =
-    _is_bib_dox_source(entry) &&
-      entry.bibtex.key.isEmpty &&
+    _is_curated_bibliography_source(entry) &&
+      entry.key.isEmpty &&
       entry.bibtex.raw.isEmpty &&
       entry.bibtex.sourceurl.isEmpty
 
-  private def _is_bib_dox_source(entry: BibliographyEntry): Boolean =
-    entry.sourcepath.toLowerCase(Locale.ROOT).endsWith(".bib.dox")
+  private def _is_curated_bibliography_source(entry: BibliographyEntry): Boolean = {
+    val source = entry.sourcepath.toLowerCase(Locale.ROOT)
+    source.endsWith(".bib.dox") || source.endsWith(".bib.md") || source.endsWith(".bib.markdown")
+  }
 
   def createCategory(config: CategoryConfig): Unit = {
     val dir = config.project.resolve("src/main/doxsite").resolve(config.name)
@@ -3610,6 +3614,7 @@ private[cozy] object CozyBok {
   private def _bibliography_entry_body(locale: String, entry: BibliographyEntry, rootprefix: String): String = {
     val summary = entry.summary.map(x => s"""<p>${_html_escape(x)}</p>""").getOrElse("")
     val body = if (entry.bodyhtml.trim.isEmpty) "" else s"""<section><h2>${_html_escape(_ui(locale, "bibliography.narrative"))}</h2>${entry.bodyhtml}</section>"""
+    val citedby = _bibliography_cited_by_body(locale, entry, rootprefix)
     val source = entry.sourceurl.orElse(entry.identifiers.url).map { url =>
       s"""<a href="${_html_escape(url)}">${_html_escape(_ui(locale, "bibliography.open.source"))}</a>"""
     }.getOrElse("-")
@@ -3630,6 +3635,7 @@ private[cozy] object CozyBok {
        |  <h2>${_html_escape(_ui(locale, "bibliography.metadata"))}</h2>
        |  <dl>
        |    <dt>ID</dt><dd><code>${_html_escape(entry.id)}</code></dd>
+       |    <dt>Key</dt><dd><code>${_html_escape(entry.key.getOrElse("-"))}</code></dd>
        |    <dt>Type</dt><dd>${_html_escape(entry.entrytype)}</dd>
        |    <dt>Source kind</dt><dd>${_html_escape(entry.sourcekind)}</dd>
        |    <dt>Status</dt><dd>${_html_escape(resolution)}</dd>
@@ -3642,8 +3648,24 @@ private[cozy] object CozyBok {
        |    <dt>Dashboard</dt><dd><a href="${_html_escape(rootprefix)}bibliography/index.html">${_html_escape(_ui(locale, "bibliography.title"))}</a></dd>
        |  </dl>
        |</section>
+       |${citedby}
        |${body}""".stripMargin
   }
+
+  private def _bibliography_cited_by_body(locale: String, entry: BibliographyEntry, rootprefix: String): String =
+    if (entry.sourcerefs.isEmpty)
+      ""
+    else {
+      val items = entry.sourcerefs.sortBy(x => (x.sourcepath, x.ordinal, x.citationkey)).map { ref =>
+        val href = rootprefix + ref.publicpath
+        val category = ref.category.map(x => s""" <span class="badge bok-badge-info">${_html_escape(x)}</span>""").getOrElse("")
+        s"""<li><a href="${_html_escape(href)}">${_html_escape(ref.sourcepath)}</a>${category} <code>${_html_escape(ref.citationkey)}</code></li>"""
+      }.mkString("\n")
+      s"""<section class="bok-bibliography-cited-by">
+         |  <h2>${_html_escape(_ui(locale, "bibliography.cited.by"))}</h2>
+         |  <ul>${items}</ul>
+         |</section>""".stripMargin
+    }
 
   private def _scenario_index(config: BuildConfig): Option[ScenarioIndex] = {
     val path = config.doxsitePath.resolve("metadata/scenarios/scenarios.json")
@@ -3840,7 +3862,7 @@ private[cozy] object CozyBok {
       val fields = Vector(
         "provider" -> Some(result.provider),
         "bib_id" -> Some(result.bibid),
-        "bibtex_key" -> Some(result.bibtexkey),
+        "citation_key" -> Some(result.citationkey),
         "title" -> Some(result.title),
         "year" -> result.year,
         "doi" -> result.doi,

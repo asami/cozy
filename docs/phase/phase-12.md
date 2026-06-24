@@ -327,17 +327,20 @@ into focused Cozy improvements.
 
 
 - 2026-06-24: Completed BK12-13 bibliography/reference knowledge management.
-  SmartDox now treats `bibliography/<category>/<slug>.dox|md|markdown` as
-  reference-source knowledge, emits `metadata/bibliography/bibliography.json`,
-  and exposes bibliography pages in the site RDF graph. Cozy consumes that
-  metadata to render `bibliography/index.html`, Home and Category reference
-  links, Term Hub related references, and copied machine metadata. External
-  reference lookup is explicit through `cozy bok search-bibliography`; BibTeX
-  cache update is available through `cozy bok update-bibliography`.
+  SmartDox now emits `metadata/bibliography/bibliography.json` for BoK
+  reference-source knowledge and exposes bibliography pages in the site RDF
+  graph. Canonical curated source uses suffix-based files such as `*.bib.dox`,
+  `*.bib.md`, and `*.bib.markdown`; plain `.bib` remains BibTeX-only resolver
+  input. Cozy consumes that metadata to render `bibliography/index.html`, Home
+  and Category reference links, Term Hub related references, and copied machine
+  metadata. External reference lookup is explicit through
+  `cozy bok search-bibliography`; BibTeX cache update is available through
+  `cozy bok update-bibliography`.
 
 - 2026-06-24: Extended BK12-13 with bibid-driven bibliography
-  materialization. SmartDox now collects `bibliography.refs` and
-  `references.bibliography` from BoK source documents, emits undefined bibids
+  materialization. SmartDox now collects inline `bib:[...]` citations plus
+  structured `bibliography.refs` and `references.bibliography` references from
+  BoK source documents, emits undefined bibids
   as unresolved `external-ref` entries, and accepts
   `bibliography/<category>/*.bib` as `bibtex-only` entries. Cozy stores fetched
   BibTeX under `target/cozy-bok/bibliography/cache`, applies cached data during
@@ -345,7 +348,7 @@ into focused Cozy improvements.
 
 - 2026-06-24: Updated BK12-13 build-time bibliography resolution. Normal
   `cozy bok build` now resolves uncached `needs_resolution=true` bibids and
-  explicit `bibliography.bibtex.source_url` values after SmartDox emits
+  explicit `bibtex.source_url` values after SmartDox emits
   `bibliography.json`, writes fetched BibTeX into
   `target/cozy-bok/bibliography/cache`, and fails if required external
   bibliography cannot be resolved. Offline/cache-only builds use
@@ -359,9 +362,22 @@ into focused Cozy improvements.
   `repository/catalog/bibliography/*.bib` before external bibliography
   providers when resolving unresolved bibids or explicit BibTeX source
   references. Broad `<repository-root>/**/*.bib` and project-root
-  `bibliography/**/*.bib` scans are intentionally excluded. `*.bib.dox` is a
-  curated BoK source format on the SmartDox/source side, while repository-side
-  BibTeX remains plain `.bib` resolver input.
+  `bibliography/**/*.bib` scans are intentionally excluded. `*.bib.dox` /
+  `*.bib.md` are curated BoK source formats on the SmartDox/source side, while
+  repository-side BibTeX remains plain `.bib` resolver input.
+
+- 2026-06-25: Completed BK12-13 inline citation handoff. SmartDox now treats
+  `bib:[citation-key]` as the standard article citation syntax, resolves it by
+  `id`, `key`, or `.bib` citation key, records
+  cited source locations as `source_refs`, renders inline citation links and an
+  article References section, and emits article-to-bibliography RDF triples via
+  `schema:citation` and `dcterms:references`. Cozy remains a metadata consumer
+  and renders bibliography detail `Cited by` lists from SmartDox `source_refs`.
+
+- 2026-06-25: Simplified curated bibliography metadata. `*.bib.dox` and
+  `*.bib.md` now use prefix-free source metadata (`id`, `key`, `type`,
+  `authors`, `citation`, `bibtex.raw`) and promote citation keys to top-level
+  `key`; `bibtex.*` is limited to BibTeX supplement/import data.
 
 - 2026-06-24: Added BK12-13 through BK12-15 as remaining Phase 12 development
   candidates before closure. BK12-13 covers bibliography as a first-class BoK
