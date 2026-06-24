@@ -336,6 +336,16 @@ into focused Cozy improvements.
   cache update is explicit through `cozy bok update-bibliography`; ordinary
   `bok build` remains network-independent.
 
+- 2026-06-24: Extended BK12-13 with bibid-driven bibliography
+  materialization. SmartDox now collects `bibliography.refs` and
+  `references.bibliography` from BoK source documents, emits undefined bibids
+  as unresolved `external-ref` entries, and accepts
+  `bibliography/<category>/*.bib` as `bibtex-only` entries. Cozy resolves
+  unresolved bibids only through explicit `cozy bok update-bibliography`, stores
+  fetched BibTeX under `target/cozy-bok/bibliography/cache`, and applies cached
+  data during later builds as `external-cache` metadata without rewriting source
+  files or performing network access in `bok build`.
+
 - 2026-06-24: Added BK12-13 through BK12-15 as remaining Phase 12 development
   candidates before closure. BK12-13 covers bibliography as a first-class BoK
   knowledge type, BK12-14 covers event knowledge, and BK12-15 covers

@@ -240,6 +240,16 @@ Status: DONE
       metadata generation, UI rendering, external search, and cache update.
 - [x] Generate and consume bibliography metadata for Bibliography Dashboard,
       Home Dashboard, Category related knowledge, Term Hub, and metadata copy.
+- [x] Collect `bibliography.refs` / `references.bibliography` bibid references
+      from BoK source documents.
+- [x] Materialize undefined bibid references as unresolved `external-ref`
+      bibliography entries without network access during `bok build`.
+- [x] Accept `bibliography/<category>/*.bib` as BibTeX-only bibliography
+      entries and mark them as requiring curation.
+- [x] Resolve unresolved bibid entries through explicit
+      `cozy bok update-bibliography` cache updates without rewriting source.
+- [x] Apply cached BibTeX during later builds as effective bibliography
+      metadata while keeping `bok build` network-independent.
 - [x] Add executable specs for SmartDox metadata/RDF generation and Cozy
       rendering/search/cache behavior.
 

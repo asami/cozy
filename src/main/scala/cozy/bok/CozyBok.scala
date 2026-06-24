@@ -890,11 +890,118 @@ private[cozy] object CozyBok {
             }
           }
         }
+        if (entry.needsresolution) {
+          val path = cache.resolve(s"${_safe_file_name(entry.id)}.bib")
+          if (config.force || !Files.exists(path)) {
+            fetcher.fetchBibId(entry.id).foreach { body =>
+              _write_text(path, body)
+              written :+= path
+            }
+          }
+        }
       }
       if (written.isEmpty)
         s"bibliography cache: no updates (${cache})"
       else
         written.map(path => s"bibliography cache: ${config.project.toAbsolutePath.normalize.relativize(path.toAbsolutePath.normalize)}").mkString("\n")
+    }
+  }
+
+
+  private def _stash_bibliography_cache(config: BuildConfig): Option[Path] = {
+    val cache = config.project.resolve("target/cozy-bok/bibliography/cache")
+    if (!Files.isDirectory(cache))
+      None
+    else {
+      val tmp = Files.createTempDirectory("cozy-bibliography-cache")
+      _copy_directory(cache, tmp.resolve("cache"))
+      Some(tmp.resolve("cache"))
+    }
+  }
+
+  private def _restore_bibliography_cache(config: BuildConfig, cache: Option[Path]): Unit =
+    cache.foreach { source =>
+      if (Files.isDirectory(source))
+        _copy_directory(source, config.project.resolve("target/cozy-bok/bibliography/cache"))
+    }
+
+  private def _write_effective_bibliography_metadata(config: BuildConfig): Unit =
+    _bibliography_index(config).foreach { index =>
+      val effective = BibliographyIndex(index.entries.map(_resolve_cached_bibliography_entry(config, _)))
+      _write_text(config.doxsitePath.resolve("metadata/bibliography/bibliography.json"), effective.toJsonString)
+    }
+
+  private def _ensure_bibliography_metadata_handoff(config: BuildConfig): Unit =
+    if (_source_declares_bibliography(config) && _bibliography_index(config).forall(_.entries.isEmpty))
+      _raise_missing_bibliography_handoff()
+
+  private def _raise_missing_bibliography_handoff(): Unit =
+      RAISE.invalidArgumentFault(
+        "SmartDox bibliography metadata was not generated even though BoK source declares bibliography references or BibTeX sources. " +
+          "Update the dox/SmartDox runtime used by cozy bok build, or run through a launcher that provides SmartDox bibliography support."
+      )
+
+  private def _source_declares_bibliography(config: BuildConfig): Boolean = {
+    val root = config.project.resolve("src/main/doxsite")
+    if (!Files.isDirectory(root))
+      false
+    else {
+      val stream = Files.walk(root)
+      try {
+        stream.iterator.asScala.exists { path =>
+          Files.isRegularFile(path) && _source_declares_bibliography(path, root)
+        }
+      } finally {
+        stream.close()
+      }
+    }
+  }
+
+  private def _source_declares_bibliography(path: Path, root: Path): Boolean = {
+    val relative = root.relativize(path).toString.replace(java.io.File.separatorChar, '/')
+    val name = path.getFileName.toString.toLowerCase(java.util.Locale.ROOT)
+    if (relative.startsWith("bibliography/") && (name.endsWith(".dox") || name.endsWith(".md") || name.endsWith(".markdown") || name.endsWith(".bib")))
+      true
+    else if (name.endsWith(".dox") || name.endsWith(".md") || name.endsWith(".markdown")) {
+      val text = Files.readString(path, StandardCharsets.UTF_8)
+      text.split("\\r?\\n").exists { line =>
+        val trimmed = line.trim
+        trimmed.startsWith("bibliography.refs") ||
+          trimmed.startsWith("references.bibliography") ||
+          trimmed == "bibliography:" ||
+          trimmed == "references:" ||
+          trimmed.startsWith("bibid") ||
+          trimmed.startsWith("bibids")
+      }
+    } else {
+      false
+    }
+  }
+
+  private def _resolve_cached_bibliography_entry(config: BuildConfig, entry: BibliographyEntry): BibliographyEntry = {
+    val path = config.project.resolve("target/cozy-bok/bibliography/cache").resolve(s"${_safe_file_name(entry.id)}.bib")
+    if (!Files.isRegularFile(path))
+      entry
+    else {
+      val raw = Files.readString(path, StandardCharsets.UTF_8)
+      BibliographyBibtexParser.parse(raw).map { fields =>
+        val authors = fields.get("author").map(BibliographyBibtexParser.authors).getOrElse(entry.authors)
+        val title = fields.get("title").getOrElse(entry.title)
+        entry.copy(
+          entrytype = fields.getOrElse("type", entry.entrytype),
+          title = title,
+          authors = if (authors.nonEmpty) authors else entry.authors,
+          publishedat = entry.publishedat.orElse(fields.get("year")),
+          publisher = entry.publisher.orElse(fields.get("publisher")),
+          sourceurl = entry.sourceurl.orElse(fields.get("url")),
+          citation = entry.citation.orElse(BibliographyBibtexParser.citation(fields)),
+          identifiers = entry.identifiers.copy(doi = entry.identifiers.doi.orElse(fields.get("doi")), isbn = entry.identifiers.isbn.orElse(fields.get("isbn")), url = entry.identifiers.url.orElse(fields.get("url"))),
+          bibtex = entry.bibtex.copy(key = entry.bibtex.key.orElse(fields.get("id")), entrytype = entry.bibtex.entrytype.orElse(fields.get("type")), raw = Some(raw)),
+          sourcekind = if (entry.sourcekind == "external-ref") "external-cache" else entry.sourcekind,
+          needsresolution = false,
+          quality = entry.quality.copy(missingcitation = false, missingsource = false, missingnarrative = entry.bodyhtml.trim.isEmpty, needscuration = entry.bodyhtml.trim.isEmpty)
+        )
+      }.getOrElse(entry)
     }
   }
 
@@ -912,7 +1019,9 @@ private[cozy] object CozyBok {
   }
 
   def build(config: BuildConfig, runner: Runner): Unit = {
+    val bibliographycache = _stash_bibliography_cache(config)
     _delete_directory(config.project.resolve("target"))
+    _restore_bibliography_cache(config, bibliographycache)
     _delete_directory(config.project.resolve(s"doxsite-cache-${config.strategy}.d"))
     _delete_directory(config.doxsitePath)
     _delete_directory(config.antoraPath)
@@ -924,6 +1033,8 @@ private[cozy] object CozyBok {
     runner.run(_dox_site_command(config), config.project, _smartdox_toolchain_env(config))
     _normalize_doxsite_output(config)
     _write_scenario_metadata(config)
+    _write_effective_bibliography_metadata(config)
+    _ensure_bibliography_metadata_handoff(config)
     _delete_directory(config.project.resolve(s"doxsite-cache-${config.strategy}.d"))
     if (config.arcadia.enabled) {
       runner.run(Vector("arcadia", "site", config.arcadia.source, config.arcadiaSite), config.project)
@@ -1665,7 +1776,29 @@ private[cozy] object CozyBok {
         _bibliography_dashboard_body(locale, entries)
       )
     )
+    _write_bibliography_entry_pages(config, target, locale, categories, entries)
   }
+
+  private def _write_bibliography_entry_pages(
+    config: BuildConfig,
+    target: Path,
+    locale: String,
+    categories: Vector[CategoryContent],
+    entries: Vector[BibliographyEntry]
+  ): Unit =
+    entries.foreach { entry =>
+      val page = target.resolve(entry.publicpath)
+      _write_text(
+        page,
+        _bibliography_entry_html_page(
+          config,
+          categories,
+          locale,
+          page,
+          entry
+        )
+      )
+    }
 
   private def _write_project_pages(
     config: BuildConfig,
@@ -3172,9 +3305,12 @@ private[cozy] object CozyBok {
         val identifiers = Vector(entry.identifiers.doi.map("DOI " + _), entry.identifiers.isbn.map("ISBN " + _), entry.identifiers.github.map("GitHub " + _)).flatten.mkString(", ")
         val ids = if (identifiers.isEmpty) "" else s"""<code>${_html_escape(identifiers)}</code>"""
         val source = entry.sourceurl.orElse(entry.identifiers.url).map(x => s"""<a href="${_html_escape(x)}">${_html_escape(_ui(locale, "bibliography.open.source"))}</a>""").getOrElse("")
+        val resolution = if (entry.needsresolution) s"""<span class="badge bok-badge-warning">${_html_escape(_ui(locale, "bibliography.unresolved"))}</span>""" else ""
         s"""<li class="list-group-item" data-bibliography-category="${_html_escape(entry.categorySlug)}">
            |  <a href="../${_html_escape(entry.publicpath)}">${_html_escape(entry.title)}</a>
            |  <span>${_html_escape(entry.entrytype)}</span>
+           |  <span class="badge bok-badge-info">${_html_escape(entry.sourcekind)}</span>
+           |  ${resolution}
            |  ${authors}
            |  ${ids}
            |  ${summary}
@@ -3193,6 +3329,89 @@ private[cozy] object CozyBok {
          |})();
          |</script>""".stripMargin
     }
+
+  private def _bibliography_entry_html_page(
+    config: BuildConfig,
+    categories: Vector[CategoryContent],
+    locale: String,
+    page: Path,
+    entry: BibliographyEntry
+  ): String = {
+    val rootprefix = _site_root_prefix(config, page)
+    val body = _bibliography_entry_body(locale, entry, rootprefix)
+    s"""<!doctype html>
+       |<html lang="${_html_escape(locale)}">
+       |<head>
+       |  <meta charset="utf-8">
+       |  <meta name="viewport" content="width=device-width, initial-scale=1">
+       |  <title>${_html_escape(entry.title)} - ${_html_escape(config.siteTitle)}</title>
+       |${_site_css_links(config, page)}
+       |</head>
+       |<body class="article ${_html_escape(_dashboard_theme_class(config))}">
+       |${_category_header(config, categories, locale, rootprefix)}
+       |<div class="body">
+       |  <main class="article">
+       |    <div class="toolbar" role="navigation">
+       |      <button class="nav-toggle"></button>
+       |      <a href="${_html_escape(rootprefix)}index.html" class="home-link"></a>
+       |      <nav class="breadcrumbs" aria-label="breadcrumbs">
+       |        <ul>
+       |          <li><a href="${_html_escape(rootprefix)}index.html">${_html_escape(config.siteTitle)}</a></li>
+       |          <li><a href="${_html_escape(rootprefix)}bibliography/index.html">${_html_escape(_ui(locale, "bibliography.title"))}</a></li>
+       |          <li>${_html_escape(entry.title)}</li>
+       |        </ul>
+       |      </nav>
+       |    </div>
+       |    <div class="content">
+       |      <article class="doc bok-bibliography-entry">
+       |        <h1 class="page">${_html_escape(entry.title)}</h1>
+       |        ${body}
+       |      </article>
+       |    </div>
+       |  </main>
+       |</div>
+       |</body>
+       |</html>
+       |""".stripMargin
+  }
+
+  private def _bibliography_entry_body(locale: String, entry: BibliographyEntry, rootprefix: String): String = {
+    val summary = entry.summary.map(x => s"""<p>${_html_escape(x)}</p>""").getOrElse("")
+    val body = if (entry.bodyhtml.trim.isEmpty) "" else s"""<section><h2>${_html_escape(_ui(locale, "bibliography.narrative"))}</h2>${entry.bodyhtml}</section>"""
+    val source = entry.sourceurl.orElse(entry.identifiers.url).map { url =>
+      s"""<a href="${_html_escape(url)}">${_html_escape(_ui(locale, "bibliography.open.source"))}</a>"""
+    }.getOrElse("-")
+    val resolution = if (entry.needsresolution) _ui(locale, "bibliography.unresolved") else "resolved"
+    val identifiers = Vector(
+      entry.identifiers.doi.map("DOI " + _),
+      entry.identifiers.isbn.map("ISBN " + _),
+      entry.identifiers.issn.map("ISSN " + _),
+      entry.identifiers.url.map("URL " + _),
+      entry.identifiers.github.map("GitHub " + _),
+      entry.identifiers.wikidata.map("Wikidata " + _)
+    ).flatten
+    val authorbody = if (entry.authors.isEmpty) "-" else entry.authors.map(_html_escape).mkString(", ")
+    val termbody = if (entry.terms.isEmpty) "-" else entry.terms.map(_html_escape).mkString(", ")
+    val identifierbody = if (identifiers.isEmpty) "-" else identifiers.map(x => s"<code>${_html_escape(x)}</code>").mkString(" ")
+    s"""${summary}
+       |<section>
+       |  <h2>${_html_escape(_ui(locale, "bibliography.metadata"))}</h2>
+       |  <dl>
+       |    <dt>ID</dt><dd><code>${_html_escape(entry.id)}</code></dd>
+       |    <dt>Type</dt><dd>${_html_escape(entry.entrytype)}</dd>
+       |    <dt>Source kind</dt><dd>${_html_escape(entry.sourcekind)}</dd>
+       |    <dt>Status</dt><dd>${_html_escape(resolution)}</dd>
+       |    <dt>Authors</dt><dd>${authorbody}</dd>
+       |    <dt>Published</dt><dd>${_html_escape(entry.publishedat.getOrElse("-"))}</dd>
+       |    <dt>Publisher</dt><dd>${_html_escape(entry.publisher.getOrElse("-"))}</dd>
+       |    <dt>Identifiers</dt><dd>${identifierbody}</dd>
+       |    <dt>Terms</dt><dd>${termbody}</dd>
+       |    <dt>Source</dt><dd>${source}</dd>
+       |    <dt>Dashboard</dt><dd><a href="${_html_escape(rootprefix)}bibliography/index.html">${_html_escape(_ui(locale, "bibliography.title"))}</a></dd>
+       |  </dl>
+       |</section>
+       |${body}""".stripMargin
+  }
 
   private def _scenario_index(config: BuildConfig): Option[ScenarioIndex] = {
     val path = config.doxsitePath.resolve("metadata/scenarios/scenarios.json")
@@ -3370,7 +3589,8 @@ private[cozy] object CozyBok {
       s"""<p class="bok-card-muted">${_html_escape(_ui(locale, "bibliography.empty"))}</p>"""
     else
       entries.take(6).map { entry =>
-        s"""<li class="list-group-item"><a href="../../${_html_escape(entry.publicpath)}">${_html_escape(entry.title)}</a><span>${_html_escape(entry.entrytype)}</span></li>"""
+        val resolution = if (entry.needsresolution) s" / ${_ui(locale, "bibliography.unresolved")}" else ""
+        s"""<li class="list-group-item"><a href="../../${_html_escape(entry.publicpath)}">${_html_escape(entry.title)}</a><span>${_html_escape(entry.entrytype + " / " + entry.sourcekind + resolution)}</span></li>"""
       }.mkString("""<ul class="list-group bok-map-list">""", "", "</ul>")
 
   private def _bibliography_related_to_term(entry: BibliographyEntry, term: TermEntry): Boolean =
@@ -3411,7 +3631,7 @@ private[cozy] object CozyBok {
     } + "\""
 
   private def _safe_file_name(value: String): String =
-    value.replaceAll("[^A-Za-z0-9._-]+", "-").stripPrefix("-").stripSuffix("-") match {
+    value.replaceAll("[^A-Za-z0-9_-]+", "-").stripPrefix("-").stripSuffix("-") match {
       case "" => "reference"
       case x => x
     }
