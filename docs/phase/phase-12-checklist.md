@@ -302,20 +302,24 @@ Status: DONE
 
 ## BK12-15: Mono-Koto Analysis Knowledge Model
 
-Status: OPEN
+Status: DONE
 
-- [ ] Define "mono" as thing/object/entity-oriented knowledge.
-- [ ] Define "koto" as event/fact/activity/process-oriented knowledge.
-- [ ] Define how mono-koto analysis organizes terms, articles, scenarios,
+- [x] Define "mono" as thing/object/entity-oriented knowledge.
+- [x] Define "koto" as event/fact/activity/process-oriented knowledge.
+- [x] Define how mono-koto analysis organizes terms, articles, scenarios,
       events, projects, CML elements, and RDF resources.
-- [ ] Define Dashboard and Term Hub views that expose mono-koto structure
+- [x] Define Dashboard and Term Hub views that expose mono-koto structure
       without overwhelming normal users.
-- [ ] Define how mono-koto analysis maps to RDF Information View / 1.5+hop
+- [x] Define how mono-koto analysis maps to RDF Information View / 1.5+hop
       navigation.
-- [ ] Decide whether mono-koto classification is manually authored,
+- [x] Decide whether mono-koto classification is manually authored,
       metadata-derived, model-derived, or mixed.
-- [ ] Add design documentation before implementation.
-- [ ] Add executable specs after the model and source contract are decided.
+- [x] Add design documentation before implementation.
+- [x] Add executable specs after the model and source contract are decided.
+- [x] Keep SmartDox as the glossary metadata source of truth.
+- [x] Keep Cozy responsible for derived mono/koto classification, CML alignment
+      diagnostics, and rendering.
+- [x] Do not auto-generate, auto-update, or auto-rewrite CML/source files in v1.
 
 ## BK12-16: Phase Closure
 

@@ -289,6 +289,14 @@ the reserved pseudo-type `void`.
 inputs.  Use powertype references instead of unconstrained `string` when the
 field is a state, category, selector, or other finite vocabulary.
 
+Active top-level target:
+
+- `# RULE`
+
+`RULE` is intended to become a top-level structural domain, but it is not part
+of the implemented/frozen supported set until parser/modeler behavior and
+working specifications are added.
+
 ---
 
 ## 4. ENTITY
@@ -520,6 +528,79 @@ Mapped metadata:
 Generated output:
 
 - `DomainComponent.eventReceptionDefinitions`
+
+---
+
+## 6A. RULE DSL
+
+`RULE` is the active target for a top-level structural domain alongside
+`ENTITY`, `VALUE`, `POWERTYPE`, and `STATEMACHINE`. It represents detailed
+business, validation, calculation, policy, and flow rules when BoK-level rule
+knowledge needs executable or modeler-level precision.
+
+BoK may describe a rule term at the knowledge level. CML owns the detailed rule
+definition when the rule needs exact expressions, guards, validation logic,
+operation contracts, or state machine integration.
+
+Standard `rule.kind` values:
+
+| `rule.kind` | Meaning | Typical CML owner |
+| --- | --- | --- |
+| `constraint` | Invariant or domain constraint that must hold. | Entity, Value, Aggregate |
+| `validation` | Input, value, or state validation rule. | Attribute, Value, Operation input |
+| `guard` | Condition that controls state transition or operation execution. | Statemachine transition, Operation |
+| `derivation` | Calculation or derived-value rule. | Value, Entity attribute, Operation |
+| `operation` | Business processing rule. This is not the structural `OPERATION` section. | Service Operation, Component |
+| `policy` | Permission, access, or governance rule. | Component, Service, Operation |
+| `classification` | Rule that classifies an instance into a type, powertype, or category. | Powertype, Entity, Value |
+| `workflow` | Rule about progression order or lifecycle flow. | Scenario alignment, Statemachine |
+| `mapping` | Transformation or correspondence rule. | Integration, Adapter, Value mapping |
+
+Recommended structured form:
+
+```text
+### RULE
+#### ReservationAvailability
+- KIND :: constraint
+- STATEMENT :: Reservation is valid only when the requested time slot is available.
+- APPLIES_TO :: Reservation
+- EXPRESSION :: reservation.requestedSlot.isAvailable
+```
+
+Equivalent configuration-style form:
+
+```text
+kind = constraint
+statement = "Reservation is valid only when the requested time slot is available."
+applies_to = ["Reservation"]
+expression = "reservation.requestedSlot.isAvailable"
+```
+
+State machine guards are a specialized rule use case. Existing transition
+`GUARD` syntax remains valid:
+
+```text
+####### TRANSITION
+- TO :: Approved
+- ON :: approve
+- GUARD :: reviewerApproved
+```
+
+Interpretation:
+
+- a transition `GUARD` is classified as `rule.kind=guard`
+- a single identifier remains a guard reference
+- any other expression remains an expression guard
+- exact guard semantics belong to CML/modeler, not BoK term metadata
+
+BoK-to-CML alignment:
+
+- BoK `term_type=rule` records the rule's name, meaning, scope, evidence, and
+  related terms/scenarios.
+- CML `RULE` or specialized CML metadata records the precise rule definition.
+- Model metadata should expose `rule.kind` so Cozy can show rule linkage and
+  diagnostics in Term Hub and RDF Information View.
+- Cozy must not infer executable rule semantics from BoK prose.
 
 ---
 

@@ -39,7 +39,7 @@ into focused Cozy improvements.
 - [x] BK12-12: Scenario knowledge management
 - [x] BK12-13: Bibliography knowledge management
 - [x] BK12-14: Event / actor / role glossary term types
-- [ ] BK12-15: Mono-Koto analysis knowledge model
+- [x] BK12-15: Mono-Koto analysis knowledge model
 - [ ] BK12-16: Phase closure
 
 ## Acceptance Criteria
@@ -404,6 +404,26 @@ into focused Cozy improvements.
   `src/main/doxsite/glossary/technology/`; the currently installed PATH
   `dox` runtime must be updated before those samples appear in operational
   `cozy bok build` output.
+
+- 2026-06-25: Completed BK12-15 mono-koto analysis as a display and diagnostic
+  model. `term_type=event` is derived as koto, while `concept`, `actor`, and
+  `role` are derived as mono. Cozy now exposes mono/koto counts in the Glossary
+  Dashboard, shows mono/koto classification, CML linkage, related scenarios,
+  and alignment diagnostics in Term Hub pages, and projects the same
+  term-centered analysis into RDF Information View node details. CML elements
+  remain linked metadata rather than `term_type` values; generated-from-CML
+  Term Hubs are shown as bottom-up findings that need curation. Glossary terms
+  may link to CML Entity, Value, Powertype, Statemachine, and Rule elements as
+  `cml.*` linkage/provenance without turning those CML kinds into BoK
+  `term_type` values. The active CML grammar now records `RULE` as a top-level
+  structural target beside `ENTITY`, `VALUE`, `POWERTYPE`, and `STATEMACHINE`,
+  with `rule.kind` classifying constraint, validation, guard, derivation,
+  operation, policy, classification, workflow, and mapping rules.
+  BK12-15 does not auto-generate CML, update glossary source, resolve
+  mismatches automatically, or model program-level state machines in BoK. When
+  mono-koto analysis needs precise states, transitions, guards, or operations,
+  the BoK records the domain-level event/scenario context and links to CML,
+  while CML owns the detailed statemachine model.
 
 - 2026-06-24: Added BK12-13 through BK12-15 as remaining Phase 12 development
   candidates before closure. BK12-13 covers bibliography as a first-class BoK

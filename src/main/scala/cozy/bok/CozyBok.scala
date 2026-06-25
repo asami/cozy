@@ -208,6 +208,7 @@ private[cozy] object CozyBok {
     rdfRefs: Vector[TermRdfReference],
     videoRefs: Vector[TermReference],
     termType: String,
+    cml: Vector[TermCmlLink],
     event: Option[TermEvent],
     actor: Option[TermActor],
     role: Option[TermRole],
@@ -221,9 +222,17 @@ private[cozy] object CozyBok {
     def rdfHrefFromGlossary: String = s"../rdf/index.html?term=${_url_query_escape(id)}"
     def rdfHrefFromCategory: String = s"../rdf/index.html?term=${_url_query_escape(id)}"
     def rdfHrefFromTerm: String = s"../../rdf/index.html?term=${_url_query_escape(id)}"
+    def monoKotoKind: String =
+      termType match {
+        case "event" => "koto"
+        case "rule" => "rule"
+        case _ => "mono"
+      }
+    def cmlLinks: Vector[TermCmlLink] = (cml ++ event.toVector.flatMap(_.cmlLinks)).distinct
   }
   private final case class TermReference(title: String, path: String, relation: String)
   private final case class TermRdfReference(resource: String, label: String, predicate: Option[String], direction: String)
+  private final case class TermCmlLink(kind: String, value: String)
   private final case class TermEvent(
     occurredAt: Option[String],
     startAt: Option[String],
@@ -237,7 +246,14 @@ private[cozy] object CozyBok {
     cmlEvent: Option[String],
     cmlComponent: Option[String],
     cmlStatemachine: Option[String]
-  )
+  ) {
+    def cmlLinks: Vector[TermCmlLink] =
+      Vector(
+        cmlComponent.map(TermCmlLink("component", _)),
+        cmlEvent.map(TermCmlLink("event", _)),
+        cmlStatemachine.map(TermCmlLink("statemachine", _))
+      ).flatten
+  }
   private final case class TermActor(roles: Vector[String], organization: Option[String], description: Option[String])
   private final case class TermRole(actors: Vector[String], responsibilities: Vector[String], permissions: Vector[String])
   private final case class TermQuality(isolated: Boolean, unreferenced: Boolean, weaklyconnected: Boolean)
@@ -351,6 +367,30 @@ private[cozy] object CozyBok {
       direction <- c.downField("direction").as[Option[String]]
     } yield TermRdfReference(resource, label, predicate, direction.getOrElse("node"))
 
+  private val _term_cml_short_keys: Vector[String] =
+    Vector("entity", "value", "powertype", "statemachine", "rule", "event", "operation", "component", "service")
+
+  private def _decode_term_cml_links(json: Option[Json]): Vector[TermCmlLink] =
+    json.toVector.flatMap(_decode_term_cml_links)
+
+  private def _decode_term_cml_links(json: Json): Vector[TermCmlLink] =
+    json.asArray.map(_.toVector.flatMap(_decode_term_cml_links)).getOrElse {
+      val cursor = json.hcursor
+      val kind = cursor.downField("kind").as[Option[String]].getOrElse(None)
+      val value = Vector(
+        cursor.downField("name").as[Option[String]].getOrElse(None),
+        cursor.downField("element_ref").as[Option[String]].getOrElse(None),
+        cursor.downField("value").as[Option[String]].getOrElse(None)
+      ).flatten.headOption
+      val direct = (kind, value) match {
+        case (Some(k), Some(v)) => Vector(TermCmlLink(k, v))
+        case _ => Vector.empty
+      }
+      val shorthand = _term_cml_short_keys.flatMap { key =>
+        cursor.downField(key).as[Option[String]].getOrElse(None).map(TermCmlLink(key, _))
+      }
+      direct ++ shorthand
+    }
 
   private implicit val _term_event_decoder: Decoder[TermEvent] = (c: HCursor) =>
     for {
@@ -410,7 +450,7 @@ private[cozy] object CozyBok {
       actor <- c.downField("actor").as[Option[TermActor]]
       role <- c.downField("role").as[Option[TermRole]]
       quality <- c.downField("quality").as[Option[TermQuality]]
-    } yield TermEntry(id, slug, title, reading, category, sourcepath, publicpath, definitionhtml, summary, aliases.getOrElse(Vector.empty), articlerefs.getOrElse(Vector.empty), termrefs.getOrElse(Vector.empty), rdfrefs.getOrElse(Vector.empty), videorefs.getOrElse(Vector.empty), termtype.getOrElse("concept"), event, actor, role, quality.getOrElse(TermQuality(false, false, false)))
+    } yield TermEntry(id, slug, title, reading, category, sourcepath, publicpath, definitionhtml, summary, aliases.getOrElse(Vector.empty), articlerefs.getOrElse(Vector.empty), termrefs.getOrElse(Vector.empty), rdfrefs.getOrElse(Vector.empty), videorefs.getOrElse(Vector.empty), termtype.getOrElse("concept"), _decode_term_cml_links(c.downField("cml").focus), event, actor, role, quality.getOrElse(TermQuality(false, false, false)))
 
   private implicit val _term_index_decoder: Decoder[TermIndex] = (c: HCursor) =>
     for {
@@ -2560,6 +2600,8 @@ private[cozy] object CozyBok {
                |  <dl>
                |    <dt>Term ID</dt><dd>${_html_escape(element.termid)}</dd>
                |    <dt>CML kind</dt><dd>${_html_escape(element.kind)}</dd>
+               |    <dt>${_html_escape(_ui(locale, "term.analysis.kind"))}</dt><dd>${_html_escape(_mono_koto_label(_cml_analysis_kind(element.kind), locale))}</dd>
+               |    <dt>${_html_escape(_ui(locale, "term.analysis.cml.linkage"))}</dt><dd>${_html_escape(element.name)}</dd>
                |    <dt>CAR project</dt><dd><a href="${_html_escape(projecthref)}">${_html_escape(project.title)}</a></dd>
                |  </dl>
                |  ${descriptive}
@@ -2616,7 +2658,8 @@ private[cozy] object CozyBok {
       s"""<p>${_html_escape(_ui(locale, "term.dashboard.description"))}</p>
          |<p>${_html_escape(_ui(locale, "term.dashboard.source.path"))} <code>glossary/&lt;category&gt;/</code></p>
          |${_glossary_metric_cards(categorycount, categorieswithterms, terms.size)}
-         |${_term_type_summary_cards(locale, terms)}""".stripMargin
+         |${_term_type_summary_cards(locale, terms)}
+         |${_mono_koto_summary_cards(locale, terms)}""".stripMargin
     s"""<div class="bok-dashboard container-fluid bok-dashboard-command-center bok-term-dashboard">
        |  <div class="row g-3">
        |    ${_dashboard_card("col-12 col-xl-4", "bok-card-kpi bok-card-glossary-summary", _ui(locale, "term.dashboard.title"), summary, Vector("reader", "contributor", "project_manager"))}
@@ -2804,7 +2847,7 @@ private[cozy] object CozyBok {
        |""".stripMargin
 
   private def _rdf_node_detail_workspace(locale: String): String =
-    s"""<section class="bok-rdf-node-page" data-graph="../metadata/rdf/graph.json">
+    s"""<section class="bok-rdf-node-page" data-graph="../metadata/rdf/graph.json" data-terms="../metadata/glossary/terms.json">
        |  <div class="bok-rdf-hero">
        |    <div>
        |      <span class="bok-dashboard-eyebrow">RDF</span>
@@ -2880,6 +2923,7 @@ private[cozy] object CozyBok {
        |  if (!root || !status || !content) return;
        |  const params = new URLSearchParams(window.location.search);
        |  const nodeId = params.get('id') || params.get('node') || '';
+       |  let termIndex = {};
        |  function escapeHtml(value) {
        |    return String(value == null ? '' : value).replace(/[&<>"']/g, function(c) {
        |      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
@@ -2930,6 +2974,38 @@ private[cozy] object CozyBok {
        |      });
        |    });
        |    return result;
+       |  }
+       |  function nodeTerms(node) {
+       |    return asArray((node && node.terms) || []).map(function(term) { return termIndex[term]; }).filter(Boolean);
+       |  }
+       |  function termAnalysisKind(term) {
+       |    if (term && term.term_type === 'event') return '${_javascript_string(_ui(locale, "term.analysis.koto"))}';
+       |    if (term && term.term_type === 'rule') return '${_javascript_string(_ui(locale, "term.analysis.rule"))}';
+       |    return '${_javascript_string(_ui(locale, "term.analysis.mono"))}';
+       |  }
+       |  function termGeneralCmlLinks(term) {
+       |    const keys = ['entity', 'value', 'powertype', 'statemachine', 'rule', 'event', 'operation', 'component', 'service'];
+       |    const result = [];
+       |    asArray(term && term.cml).forEach(function(item) {
+       |      if (!item || typeof item !== 'object') return;
+       |      if (item.kind && (item.name || item.element_ref || item.value)) result.push(item.kind + ': ' + (item.name || item.element_ref || item.value));
+       |      keys.forEach(function(key) { if (item[key]) result.push(key + ': ' + item[key]); });
+       |    });
+       |    return result;
+       |  }
+       |  function termCmlLinks(term) {
+       |    const event = term && term.event ? term.event : {};
+       |    return termGeneralCmlLinks(term).concat([
+       |      ['component', event.cml_component],
+       |      ['event', event.cml_event],
+       |      ['statemachine', event.cml_statemachine]
+       |    ].filter(function(item) { return item[1]; }).map(function(item) { return item[0] + ': ' + item[1]; }));
+       |  }
+       |  function nodeMonoKotoValues(node) {
+       |    return uniqueStrings(nodeTerms(node).map(function(term) { return termAnalysisKind(term); }));
+       |  }
+       |  function nodeCmlLinkValues(node) {
+       |    return uniqueStrings(nodeTerms(node).map(termCmlLinks));
        |  }
        |  function defaultPredicateProfile() {
        |    return {
@@ -3048,6 +3124,10 @@ private[cozy] object CozyBok {
        |        hierarchy: profileRolePredicates(profile, 'hierarchy'),
        |        provenance: profileRolePredicates(profile, 'provenance')
        |      },
+       |      monoKoto: {
+       |        classification: nodeMonoKotoValues(node),
+       |        cmlLinkage: nodeCmlLinkValues(node)
+       |      },
        |      schema: {
        |        required: required,
        |        nodeDescription: descriptive,
@@ -3093,6 +3173,8 @@ private[cozy] object CozyBok {
        |      return;
        |    }
        |    const related = edges.filter(function(edge) { return edge.source === node.id || edge.target === node.id; });
+       |    const monokoto = nodeMonoKotoValues(node);
+       |    const cmllinks = nodeCmlLinkValues(node);
        |    status.textContent = compactNodeLabel(node) + ' / ' + related.length + ' ${_javascript_string(_ui(locale, "rdf.graph.node.connections"))}';
        |    content.innerHTML =
        |      '<div class="bok-rdf-node-detail-grid">' +
@@ -3105,6 +3187,8 @@ private[cozy] object CozyBok {
        |            '<dt>Source label</dt><dd>' + escapeHtml(node.label || '-') + '</dd>' +
        |            '<dt>Category</dt><dd>' + escapeHtml(node.category || '-') + '</dd>' +
        |            '<dt>Type</dt><dd>' + escapeHtml(node.node_type || node.type || '-') + '</dd>' +
+       |            '<dt>${_javascript_string(_ui(locale, "term.analysis.kind"))}</dt><dd>' + escapeHtml(monokoto.length ? monokoto.join(', ') : '-') + '</dd>' +
+       |            '<dt>${_javascript_string(_ui(locale, "term.analysis.cml.linkage"))}</dt><dd>' + escapeHtml(cmllinks.length ? cmllinks.join(', ') : '-') + '</dd>' +
        |            '<dt>${_javascript_string(_ui(locale, "rdf.graph.node.connections"))}</dt><dd>' + escapeHtml(node.degree == null ? related.length : node.degree) + '</dd>' +
        |          '</dl>' +
        |          '<div class="bok-rdf-node-detail-actions"><a href="index.html?node=' + encodeURIComponent(node.id || '') + '">${_javascript_string(_ui(locale, "rdf.graph.node.neighborhood"))}</a><a href="index.html">${_javascript_string(_ui(locale, "rdf.graph.title"))}</a></div>' +
@@ -3113,10 +3197,21 @@ private[cozy] object CozyBok {
        |        '<section class="bok-rdf-node-detail-card bok-rdf-node-detail-card-relations"><h2>${_javascript_string(_ui(locale, "rdf.graph.node.relations"))}</h2><ul>' + (related.length ? related.map(edgeItem).join('') : '<li>-</li>') + '</ul></section>' +
        |      '</div>';
        |  }
-       |  fetch(root.getAttribute('data-graph')).then(function(response) {
+       |  const graphPromise = fetch(root.getAttribute('data-graph')).then(function(response) {
        |    if (!response.ok) throw new Error('missing graph metadata');
        |    return response.json();
-       |  }).then(render).catch(function() {
+       |  });
+       |  const termsPromise = fetch(root.getAttribute('data-terms')).then(function(response) {
+       |    if (!response.ok) return {terms: []};
+       |    return response.json();
+       |  }).catch(function() { return {terms: []}; });
+       |  Promise.all([graphPromise, termsPromise]).then(function(results) {
+       |    const terms = results[1];
+       |    (terms.terms || []).forEach(function(term) {
+       |      if (term && term.id) termIndex[term.id] = term;
+       |    });
+       |    render(results[0]);
+       |  }).catch(function() {
        |    status.textContent = '${_javascript_string(_ui(locale, "rdf.graph.metadata.missing"))}';
        |  });
        |})();""".stripMargin
@@ -3157,6 +3252,42 @@ private[cozy] object CozyBok {
        |  function termLabel(termIndex, term) {
        |    const item = termIndex[term];
        |    return item ? (item.title || term) : term;
+       |  }
+       |  function activeTermIndex() {
+       |    return window.__bokRdfTermIndex || {};
+       |  }
+       |  function nodeTerms(node) {
+       |    const index = activeTermIndex();
+       |    return asArray((node && node.terms) || []).map(function(term) { return index[term]; }).filter(Boolean);
+       |  }
+       |  function termAnalysisKind(term) {
+       |    if (term && term.term_type === 'event') return '${_javascript_string(_ui(locale, "term.analysis.koto"))}';
+       |    if (term && term.term_type === 'rule') return '${_javascript_string(_ui(locale, "term.analysis.rule"))}';
+       |    return '${_javascript_string(_ui(locale, "term.analysis.mono"))}';
+       |  }
+       |  function termGeneralCmlLinks(term) {
+       |    const keys = ['entity', 'value', 'powertype', 'statemachine', 'rule', 'event', 'operation', 'component', 'service'];
+       |    const result = [];
+       |    asArray(term && term.cml).forEach(function(item) {
+       |      if (!item || typeof item !== 'object') return;
+       |      if (item.kind && (item.name || item.element_ref || item.value)) result.push(item.kind + ': ' + (item.name || item.element_ref || item.value));
+       |      keys.forEach(function(key) { if (item[key]) result.push(key + ': ' + item[key]); });
+       |    });
+       |    return result;
+       |  }
+       |  function termCmlLinks(term) {
+       |    const event = term && term.event ? term.event : {};
+       |    return termGeneralCmlLinks(term).concat([
+       |      ['component', event.cml_component],
+       |      ['event', event.cml_event],
+       |      ['statemachine', event.cml_statemachine]
+       |    ].filter(function(item) { return item[1]; }).map(function(item) { return item[0] + ': ' + item[1]; }));
+       |  }
+       |  function nodeMonoKotoValues(node) {
+       |    return uniqueStrings(nodeTerms(node).map(function(term) { return termAnalysisKind(term); }));
+       |  }
+       |  function nodeCmlLinkValues(node) {
+       |    return uniqueStrings(nodeTerms(node).map(termCmlLinks));
        |  }
        |  function renderGraph(data, category, term, termIndex) {
     const allNodes = (data.nodes || []).slice().sort(function(a, b) {
@@ -3265,12 +3396,16 @@ private[cozy] object CozyBok {
     const roleLabel = role === 'focus' ? 'focus' : (role === 'near' ? 'near' : (role === 'schema' ? 'schema' : 'visible'));
     const category = node.category || '-';
     const type = node.node_type || node.type || '-';
+    const monokoto = nodeMonoKotoValues(node);
+    const cmllinks = nodeCmlLinkValues(node);
     return '<article class="bok-rdf-information-card bok-rdf-information-card-' + escapeHtml(cssName(roleLabel)) + '">' +
       '<div class="bok-rdf-information-card-head"><span>' + escapeHtml(roleLabel) + '</span><a href="node.html?id=' + encodeURIComponent(node.id || '') + '">${_javascript_string(_ui(locale, "rdf.graph.node.full.detail"))}</a></div>' +
       '<h3 title="' + escapeHtml(node.id || '') + '">' + escapeHtml(compactNodeLabel(node)) + '</h3>' +
       '<dl>' +
         '<dt>Category</dt><dd>' + escapeHtml(category) + '</dd>' +
         '<dt>Type</dt><dd>' + escapeHtml(type) + '</dd>' +
+        '<dt>${_javascript_string(_ui(locale, "term.analysis.kind"))}</dt><dd>' + escapeHtml(monokoto.length ? monokoto.join(', ') : '-') + '</dd>' +
+        '<dt>${_javascript_string(_ui(locale, "term.analysis.cml.linkage"))}</dt><dd>' + escapeHtml(cmllinks.length ? cmllinks.join(', ') : '-') + '</dd>' +
         '<dt>${_javascript_string(_ui(locale, "rdf.graph.node.connections"))}</dt><dd>' + escapeHtml(node.degree == null ? connections : node.degree) + '</dd>' +
         '<dt>Schema</dt><dd><code>' + escapeHtml(interpretation.informationSchema) + '</code></dd>' +
         '<dt>Expansion</dt><dd>' + escapeHtml(interpretation.expansion) + '</dd>' +
@@ -3640,6 +3775,10 @@ private[cozy] object CozyBok {
           ['hierarchy', interpretation.hierarchyPredicates],
           ['provenance', interpretation.provenancePredicates]
         ]) +
+        schemaGroup('monoKoto', [
+          ['classification', nodeMonoKotoValues(node)],
+          ['cmlLinkage', nodeCmlLinkValues(node)]
+        ]) +
         schemaGroup('schema', [
           ['required', interpretation.requiredPredicates],
           ['nodeDescription', interpretation.nodeDescriptivePredicates],
@@ -3691,6 +3830,8 @@ private[cozy] object CozyBok {
   function showNodeDetail(node, edges) {
     const canvas = graphTarget.querySelector('[data-rdf-graph-canvas]');
     if (!canvas || !node) return;
+    const monokoto = nodeMonoKotoValues(node);
+    const cmllinks = nodeCmlLinkValues(node);
     let panel = canvas.querySelector('.bok-rdf-node-popover');
     if (!panel) {
       panel = document.createElement('aside');
@@ -3712,6 +3853,8 @@ private[cozy] object CozyBok {
         '<dt>Source label</dt><dd>' + escapeHtml(node.label || '-') + '</dd>' +
         '<dt>Category</dt><dd>' + escapeHtml(node.category || '-') + '</dd>' +
         '<dt>Type</dt><dd>' + escapeHtml(node.node_type || node.type || '-') + '</dd>' +
+        '<dt>${_javascript_string(_ui(locale, "term.analysis.kind"))}</dt><dd>' + escapeHtml(monokoto.length ? monokoto.join(', ') : '-') + '</dd>' +
+        '<dt>${_javascript_string(_ui(locale, "term.analysis.cml.linkage"))}</dt><dd>' + escapeHtml(cmllinks.length ? cmllinks.join(', ') : '-') + '</dd>' +
         '<dt>${_javascript_string(_ui(locale, "rdf.graph.node.connections"))}</dt><dd>' + escapeHtml(node.degree == null ? '-' : node.degree) + '</dd>' +
       '</dl>' +
       renderSchemaInterpretation(node) +
@@ -3909,11 +4052,21 @@ private[cozy] object CozyBok {
 
   private def _term_type_summary_cards(locale: String, terms: Vector[TermEntry]): String = {
     val counts = terms.groupBy(_.termType).mapValues(_.size).toMap
-    val items = Vector("concept", "event", "actor", "role").map { termtype =>
+    val items = Vector("concept", "event", "actor", "role", "rule").map { termtype =>
       val count = counts.getOrElse(termtype, 0)
       s"""<span class="bok-term-type-summary-item"><b>${count}</b>${_html_escape(_term_type_label(termtype, locale))}</span>"""
     }.mkString("\n")
     s"""<div class="bok-term-type-summary">${items}</div>"""
+  }
+
+  private def _mono_koto_summary_cards(locale: String, terms: Vector[TermEntry]): String = {
+    val counts = terms.groupBy(_.monoKotoKind).mapValues(_.size).toMap
+    val diagnostics = terms.count(_.cmlLinks.isEmpty)
+    val items = Vector("mono", "koto", "rule").map { kind =>
+      val count = counts.getOrElse(kind, 0)
+      s"""<span class="bok-term-type-summary-item"><b>${count}</b>${_html_escape(_mono_koto_label(kind, locale))}</span>"""
+    } :+ s"""<span class="bok-term-type-summary-item"><b>${diagnostics}</b>${_html_escape(_ui(locale, "term.analysis.unlinked"))}</span>"""
+    s"""<div class="bok-term-type-summary bok-mono-koto-summary"><strong>${_html_escape(_ui(locale, "term.analysis"))}</strong>${items.mkString("\n")}</div>"""
   }
 
   private def _glossary_metric_cards(
@@ -4348,6 +4501,7 @@ private[cozy] object CozyBok {
        |    <div class="bok-dashboard-hero-facts">
        |      <span class="bok-dashboard-hero-fact"><strong>${_html_escape(term.categorySlug)}</strong><em>${_html_escape(_ui(locale, "dashboard.matrix.category"))}</em></span>
        |      <span class="bok-dashboard-hero-fact"><strong>${_html_escape(_term_type_label(term.termType, locale))}</strong><em>${_html_escape(_ui(locale, "term.type"))}</em></span>
+       |      <span class="bok-dashboard-hero-fact"><strong>${_html_escape(_mono_koto_label(term.monoKotoKind, locale))}</strong><em>${_html_escape(_ui(locale, "term.analysis.kind"))}</em></span>
        |      <span class="bok-dashboard-hero-fact"><strong>${term.rdfRefs.size}</strong><em>RDF</em></span>
        |      <span class="bok-dashboard-hero-fact"><strong>${term.termRefs.size}</strong><em>${_html_escape(_ui(locale, "term.related.terms"))}</em></span>
        |    </div>
@@ -4355,6 +4509,7 @@ private[cozy] object CozyBok {
        |  <div class="bok-dashboard container-fluid bok-dashboard-command-center">
        |    <div class="row g-3">
        |      ${_dashboard_card("col-12 col-xl-7", "bok-card-purpose bok-card-term-definition", _ui(locale, "term.definition"), _term_definition_body(term))}
+       |      ${_dashboard_card("col-12 col-xl-5", "bok-card-analysis bok-card-mono-koto", _ui(locale, "term.analysis"), _term_analysis_body(term, scenarios, locale))}
        |      ${_term_type_cards(term, locale)}
        |      ${_dashboard_card("col-12 col-xl-5", "bok-card-readiness", _ui(locale, "term.quality"), _term_quality_body(term, locale))}
        |      ${_dashboard_card("col-12 col-xl-6", "bok-card-related", _ui(locale, "term.rdf.resources"), _term_rdf_refs_body(term, locale))}
@@ -4383,7 +4538,49 @@ private[cozy] object CozyBok {
     case "event" => _ui(locale, "term.type.event")
     case "actor" => _ui(locale, "term.type.actor")
     case "role" => _ui(locale, "term.type.role")
+    case "rule" => _ui(locale, "term.type.rule")
     case _ => _ui(locale, "term.type.concept")
+  }
+
+  private def _mono_koto_label(value: String, locale: String): String = value match {
+    case "koto" => _ui(locale, "term.analysis.koto")
+    case "rule" => _ui(locale, "term.analysis.rule")
+    case _ => _ui(locale, "term.analysis.mono")
+  }
+
+  private def _term_analysis_body(term: TermEntry, scenarios: Vector[ScenarioEntry], locale: String): String = {
+    val cmlvalues = term.cmlLinks.map(x => s"${x.kind}: ${x.value}")
+    val diagnostics = _term_analysis_diagnostics(term, scenarios, locale)
+    val rows = Vector(
+      _ui(locale, "term.analysis.kind") -> Vector(_mono_koto_label(term.monoKotoKind, locale)),
+      _ui(locale, "term.type") -> Vector(_term_type_label(term.termType, locale)),
+      _ui(locale, "term.analysis.cml.linkage") -> cmlvalues,
+      _ui(locale, "term.related.scenarios") -> scenarios.map(_.title),
+      _ui(locale, "term.analysis.diagnostics") -> diagnostics
+    )
+    _term_metadata_table(rows, locale)
+  }
+
+  private def _term_analysis_diagnostics(term: TermEntry, scenarios: Vector[ScenarioEntry], locale: String): Vector[String] = {
+    val cml = if (term.cmlLinks.isEmpty) Vector(_ui(locale, "term.analysis.diagnostic.cml.missing")) else Vector.empty
+    val scenario =
+      if (term.termType == "event" && scenarios.isEmpty && term.event.forall(_.scenarios.isEmpty))
+        Vector(_ui(locale, "term.analysis.diagnostic.scenario.missing"))
+      else
+        Vector.empty
+    val mismatch =
+      if (term.cmlLinks.nonEmpty && term.cmlLinks.forall(x => _cml_analysis_kind(x.kind) != term.monoKotoKind))
+        Vector(_ui(locale, "term.analysis.diagnostic.classification.mismatch"))
+      else
+        Vector.empty
+    val result = cml ++ scenario ++ mismatch
+    if (result.isEmpty) Vector(_ui(locale, "term.analysis.diagnostic.ok")) else result
+  }
+
+  private def _cml_analysis_kind(kind: String): String = kind match {
+    case "event" | "operation" | "statemachine" => "koto"
+    case "rule" => "rule"
+    case _ => "mono"
   }
 
   private def _term_event_body(event: TermEvent, locale: String): String = {
