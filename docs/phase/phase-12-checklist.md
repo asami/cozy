@@ -243,6 +243,12 @@ Status: DONE
       metadata generation, UI rendering, external search, and cache update.
 - [x] Generate and consume bibliography metadata for Bibliography Dashboard,
       Home Dashboard, Category related knowledge, Term Hub, and metadata copy.
+- [x] Support inline `bib:[citation-key]` citations in SmartDox/Markdown
+      article bodies.
+- [x] Render article-local References sections from inline citations and
+      structured bibliography references.
+- [x] Emit article-to-bibliography RDF links with `schema:citation` and
+      `dcterms:references`.
 - [x] Collect `bibliography.refs` / `references.bibliography` bibid references
       from BoK source documents.
 - [x] Materialize undefined bibid references as unresolved `external-ref`
@@ -264,6 +270,8 @@ Status: DONE
       metadata.
 - [x] Sync effective bibliography metadata back into generated site RDF so
       resolved provider entries replace inline citation-key alias nodes.
+- [x] Treat `id` as the BoK canonical bibliography ID and `key` as the prose
+      citation key; keep `bibtex.*` limited to BibTeX supplement/import data.
 - [x] Add executable specs for SmartDox metadata/RDF generation and Cozy
       rendering/search/cache behavior.
 

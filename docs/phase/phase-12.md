@@ -386,6 +386,15 @@ into focused Cozy improvements.
   generated Turtle/JSON-LD so public RDF contains the resolved bibliography
   resource rather than stale unresolved alias nodes.
 
+- 2026-06-25: Confirmed BK12-13 scope as complete through source, citation,
+  resolver, UI, and RDF boundaries. Curated bibliography source can be authored
+  as prefix-free `*.bib.dox` / `*.bib.md`, BibTeX-only source can participate
+  as local resolver/curation input, prose references use `bib:[citation-key]`,
+  normal `bok build` resolves required external/cache bibliography data, and
+  `--no-bib-service` keeps offline builds cache-only with warnings. Remaining
+  Phase 12 development work now moves to event knowledge and mono-koto
+  analysis rather than bibliography mechanics.
+
 - 2026-06-24: Added BK12-13 through BK12-15 as remaining Phase 12 development
   candidates before closure. BK12-13 covers bibliography as a first-class BoK
   knowledge type, BK12-14 covers event knowledge, and BK12-15 covers
