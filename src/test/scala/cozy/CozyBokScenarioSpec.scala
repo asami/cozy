@@ -9,7 +9,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jun. 24, 2026
- * @version Jun. 24, 2026
+ * @version Jun. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokScenarioSpec
@@ -89,6 +89,11 @@ class CozyBokScenarioSpec
           Then("the scenario dashboard is generated as a BoK special page")
           val scenarios = _read(dir.resolve("website.d/scenarios/index.html"))
           scenarios should include("Scenarios")
+          scenarios should include("""<body class="article bok-dashboard-theme-paper">""")
+          scenarios should include("""class="body body-dashboard bok-scenario-body"""")
+          scenarios should include("""class="bok-dashboard-shell bok-scenario-dashboard"""")
+          scenarios should include("""class="bok-scenario-grid"""")
+          scenarios should include("""class="bok-scenario-tile"""")
           scenarios should include("Reserve a meeting room")
           scenarios should include("use-case")
           scenarios should include("UC-ROOM-RESERVE")
@@ -96,6 +101,8 @@ class CozyBokScenarioSpec
           scenarios should include("""href="../scenario/concept/reserve-room.html"""")
           scenarios should include("""data-scenario-category="concept"""")
           scenarios should include("new URLSearchParams(window.location.search).get('category')")
+          scenarios should not include ("""class="nav-container"""")
+          scenarios should not include ("""class="toc sidebar"""")
           _read(
             dir.resolve("website.d/metadata/scenarios/scenarios.json")
           ) should include("UC-ROOM-RESERVE")

@@ -14,7 +14,7 @@ import org.smartdox.generator.{Context => SmartDoxContext}
 import org.smartdox.metadata.DocumentMetaData
 import org.goldenport.i18n.I18NContext
 import java.net.URLEncoder
-import java.time.LocalDate
+import java.time.{Instant, LocalDate, ZoneOffset}
 import java.util.Locale
 import java.util.regex.Pattern
 import java.nio.charset.StandardCharsets
@@ -149,6 +149,13 @@ private[cozy] object CozyBok {
   private final case class DashboardIncrements(
     scale: String,
     buckets: Vector[DashboardBucket]
+  )
+  private final case class DashboardRecentItem(
+    href: String,
+    title: String,
+    category: Option[String],
+    kindkey: String,
+    modifiedatmillis: Long
   )
   private final case class DashboardCategory(
     name: String,
@@ -2249,14 +2256,13 @@ private[cozy] object CozyBok {
     _write_term_hub_pages(config, target, locale, categories, terms)
     _write_text(
       target.resolve("glossary").resolve("index.html"),
-      _special_html_page(
+      _glossary_dedicated_page(
         config,
         categories,
         locale,
         target.resolve("glossary").resolve("index.html"),
-        _ui(locale, "glossary.title"),
-        _ui(locale, "glossary.description"),
-        glossarybody
+        glossarybody,
+        terms
       )
     )
     if (historyhref.isEmpty) {
@@ -2334,14 +2340,12 @@ private[cozy] object CozyBok {
     val page = target.resolve("scenarios").resolve("index.html")
     _write_text(
       page,
-      _special_html_page(
+      _scenario_dedicated_page(
         config,
         categories,
         locale,
         page,
-        _ui(locale, "scenario.title"),
-        _ui(locale, "scenario.description"),
-        _scenario_dashboard_body(locale, scenarios)
+        scenarios
       )
     )
   }
@@ -2356,14 +2360,12 @@ private[cozy] object CozyBok {
     val page = target.resolve("bibliography").resolve("index.html")
     _write_text(
       page,
-      _special_html_page(
+      _bibliography_dedicated_page(
         config,
         categories,
         locale,
         page,
-        _ui(locale, "bibliography.title"),
-        _ui(locale, "bibliography.description"),
-        _bibliography_dashboard_body(locale, entries)
+        entries
       )
     )
     _write_bibliography_entry_pages(config, target, locale, categories, entries)
@@ -2555,28 +2557,61 @@ private[cozy] object CozyBok {
   ): String = {
     val categorycount = categories.size
     val categorieswithterms = terms.flatMap(_.category).distinct.size
-    s"""<div class="sect1 bok-term-dashboard" id="term-groups">
-       |  <h2>${_html_escape(_ui(locale, "term.dashboard.title"))}</h2>
-       |  <div class="sectionbody">
-       |    <p>${_html_escape(_ui(locale, "term.dashboard.description"))}</p>
-       |    <p>${_html_escape(_ui(locale, "term.dashboard.source.path"))} <code>glossary/&lt;category&gt;/</code></p>
-       |    ${_glossary_metric_cards(categorycount, categorieswithterms, terms.size)}
-       |    ${_term_group_cards(locale, terms, categories)}
-       |  </div>
-       |</div>
-       |<div class="sect1" id="language-index">
-       |  <h2>${_html_escape(_ui(locale, "term.language.index"))}</h2>
-       |  <div class="sectionbody">
-       |    ${_glossary_language_links(config, languagerootprefix)}
-       |  </div>
-       |</div>
-       |<div class="sect1" id="recent-terms">
-       |  <h2>${_html_escape(_ui(locale, "term.recent"))}</h2>
-       |  <div class="sectionbody">
-       |    ${_glossary_recent_terms(terms)}
+    val summary =
+      s"""<p>${_html_escape(_ui(locale, "term.dashboard.description"))}</p>
+         |<p>${_html_escape(_ui(locale, "term.dashboard.source.path"))} <code>glossary/&lt;category&gt;/</code></p>
+         |${_glossary_metric_cards(categorycount, categorieswithterms, terms.size)}""".stripMargin
+    s"""<div class="bok-dashboard container-fluid bok-dashboard-command-center bok-term-dashboard">
+       |  <div class="row g-3">
+       |    ${_dashboard_card("col-12 col-xl-4", "bok-card-kpi bok-card-glossary-summary", _ui(locale, "term.dashboard.title"), summary, Vector("reader", "contributor", "project_manager"))}
+       |    ${_dashboard_card("col-12 col-xl-8", "bok-card-map bok-card-glossary-map", _ui(locale, "term.dashboard.title"), s"""<div id="term-groups">${_term_group_cards(locale, terms, categories)}</div>""", Vector("reader", "contributor", "project_manager"))}
+       |    ${_dashboard_card("col-12 col-md-6", "bok-card-map bok-card-glossary-language", _ui(locale, "term.language.index"), s"""<div id="language-index">${_glossary_language_links(config, languagerootprefix)}</div>""", Vector("reader"))}
+       |    ${_dashboard_card("col-12 col-md-6", "bok-card-activity bok-card-glossary-recent", _ui(locale, "term.recent"), s"""<div id="recent-terms">${_glossary_recent_terms(terms)}</div>""", Vector("reader", "contributor"))}
        |  </div>
        |</div>""".stripMargin
   }
+
+  private def _glossary_dedicated_page(
+    config: BuildConfig,
+    categories: Vector[CategoryContent],
+    locale: String,
+    page: Path,
+    glossarybody: String,
+    terms: Vector[TermEntry]
+  ): String =
+    s"""<!doctype html>
+       |<html lang="${_html_escape(locale)}">
+       |<head>
+       |  <meta charset="utf-8">
+       |  <meta name="viewport" content="width=device-width, initial-scale=1">
+       |  <title>${_html_escape(_ui(locale, "glossary.title"))} - ${_html_escape(config.siteTitle)}</title>
+       |${_site_css_links(config, page)}
+       |</head>
+       |<body class="article ${_html_escape(_support_dashboard_theme_class)}">
+       |${_category_header(config, categories, locale)}
+       |<div class="body body-dashboard bok-glossary-body">
+       |  <main class="article bok-glossary-main">
+       |    <div class="content">
+       |      <article class="doc bok-glossary-doc">
+       |        <section class="bok-dashboard-shell bok-glossary-dashboard" id="dashboard">
+       |          ${_dashboard_hero(
+                    _ui(locale, "glossary.title"),
+                    _ui(locale, "glossary.description"),
+                    Vector(
+                      _ui(locale, "dashboard.kpi.terms") -> terms.size.toString,
+                      _ui(locale, "dashboard.matrix.category") -> terms.flatMap(_.category).distinct.size.toString,
+                      "RDF" -> terms.map(_.rdfRefs.size).sum.toString
+                    )
+                  )}
+       |          ${glossarybody}
+       |        </section>
+       |      </article>
+       |    </div>
+       |  </main>
+       |</div>
+       |</body>
+       |</html>
+       |""".stripMargin
 
   private def _history_dashboard_body(locale: String): String =
     s"""<div class="sect1" id="timeline">
@@ -2668,7 +2703,7 @@ private[cozy] object CozyBok {
        |  <title>${_html_escape(_ui(locale, "rdf.graph.title"))} - ${_html_escape(config.siteTitle)}</title>
        |${_site_css_links(config, page)}
        |</head>
-       |<body class="article ${_html_escape(_dashboard_theme_class(config))}">
+       |<body class="article ${_html_escape(_support_dashboard_theme_class)}">
        |${_category_header(config, categories, locale)}
        |<div class="body body-dashboard bok-rdf-body">
        |  <main class="article bok-rdf-main">
@@ -2697,7 +2732,7 @@ private[cozy] object CozyBok {
        |  <title>${_html_escape(_ui(locale, "rdf.graph.node.full.detail"))} - ${_html_escape(config.siteTitle)}</title>
        |${_site_css_links(config, page)}
        |</head>
-       |<body class="article ${_html_escape(_dashboard_theme_class(config))}">
+       |<body class="article ${_html_escape(_support_dashboard_theme_class)}">
        |${_category_header(config, categories, locale)}
        |<div class="body body-dashboard bok-rdf-body">
        |  <main class="article bok-rdf-main">
@@ -2751,22 +2786,24 @@ private[cozy] object CozyBok {
        |  </div>
        |  <div class="bok-rdf-toolbar">
        |    <div class="bok-rdf-view-switch" role="tablist" aria-label="RDF views">
-       |      <button class="is-active" type="button" data-rdf-view="graph">${_html_escape(_ui(locale, "rdf.graph.view.graph"))}</button>
-       |      <button type="button" data-rdf-view="information">${_html_escape(_ui(locale, "rdf.graph.view.information"))}</button>
-       |      <button type="button" data-rdf-view="triples">${_html_escape(_ui(locale, "rdf.graph.view.triples"))}</button>
+       |      <button class="is-active" type="button" role="tab" aria-selected="true" aria-controls="bok-rdf-panel-graph" data-rdf-view="graph">${_html_escape(_ui(locale, "rdf.graph.view.graph"))}</button>
+       |      <button type="button" role="tab" aria-selected="false" aria-controls="bok-rdf-panel-information" data-rdf-view="information">${_html_escape(_ui(locale, "rdf.graph.view.information"))}</button>
+       |      <button type="button" role="tab" aria-selected="false" aria-controls="bok-rdf-panel-triples" data-rdf-view="triples">${_html_escape(_ui(locale, "rdf.graph.view.triples"))}</button>
        |    </div>
        |    <label>${_html_escape(_ui(locale, "rdf.graph.category.filter"))}<input id="bok-rdf-category-filter" type="text" placeholder="category"></label>
        |    <label>${_html_escape(_ui(locale, "rdf.graph.term.filter"))}<input id="bok-rdf-term-filter" type="text" placeholder="term"></label>
        |    <span id="bok-rdf-viewer-status">${_html_escape(_ui(locale, "rdf.graph.loading"))}</span>
        |  </div>
        |  <div class="bok-rdf-panels">
-       |    <section class="bok-rdf-panel bok-rdf-panel-graph is-active" data-rdf-panel="graph" aria-label="${_html_escape(_ui(locale, "rdf.graph.view.graph"))}">
+       |    <section id="bok-rdf-panel-graph" class="bok-rdf-panel bok-rdf-panel-graph is-active" data-rdf-panel="graph" role="tabpanel" aria-label="${_html_escape(_ui(locale, "rdf.graph.view.graph"))}">
+       |      <h2 class="bok-rdf-panel-title">${_html_escape(_ui(locale, "rdf.graph.view.graph"))}</h2>
        |      <div id="bok-rdf-viewer-graph" class="bok-rdf-viewer-graph"></div>
        |    </section>
-       |    <section class="bok-rdf-panel bok-rdf-panel-information" data-rdf-panel="information" aria-label="${_html_escape(_ui(locale, "rdf.graph.view.information"))}">
+       |    <section id="bok-rdf-panel-information" class="bok-rdf-panel bok-rdf-panel-information" data-rdf-panel="information" role="tabpanel" aria-label="${_html_escape(_ui(locale, "rdf.graph.view.information"))}">
+       |      <h2 class="bok-rdf-panel-title">${_html_escape(_ui(locale, "rdf.graph.view.information"))}</h2>
        |      <div id="bok-rdf-information-view" class="bok-rdf-information-view"></div>
        |    </section>
-       |    <section class="bok-rdf-panel bok-rdf-panel-triples" data-rdf-panel="triples" aria-label="${_html_escape(_ui(locale, "rdf.graph.view.triples"))}">
+       |    <section id="bok-rdf-panel-triples" class="bok-rdf-panel bok-rdf-panel-triples" data-rdf-panel="triples" role="tabpanel" aria-label="${_html_escape(_ui(locale, "rdf.graph.view.triples"))}">
        |      <div class="bok-rdf-triples-header">
        |        <strong>${_html_escape(_ui(locale, "rdf.graph.triples.title"))}</strong>
        |        <span id="bok-rdf-triples-status">${_html_escape(_ui(locale, "rdf.graph.triples.loading"))}</span>
@@ -3049,6 +3086,7 @@ private[cozy] object CozyBok {
        |  function activate(view) {
        |    document.querySelectorAll('[data-rdf-view]').forEach(function(button) {
        |      button.classList.toggle('is-active', button.getAttribute('data-rdf-view') === view);
+       |      button.setAttribute('aria-selected', button.getAttribute('data-rdf-view') === view ? 'true' : 'false');
        |    });
        |    document.querySelectorAll('[data-rdf-panel]').forEach(function(panel) {
        |      panel.classList.toggle('is-active', panel.getAttribute('data-rdf-panel') === view);
@@ -3880,15 +3918,60 @@ private[cozy] object CozyBok {
       parser.parse(Files.readString(path, StandardCharsets.UTF_8)).toOption.flatMap(_.as[BibliographyIndex].toOption)
   }
 
+  private def _bibliography_dedicated_page(
+    config: BuildConfig,
+    categories: Vector[CategoryContent],
+    locale: String,
+    page: Path,
+    entries: Vector[BibliographyEntry]
+  ): String =
+    s"""<!doctype html>
+       |<html lang="${_html_escape(locale)}">
+       |<head>
+       |  <meta charset="utf-8">
+       |  <meta name="viewport" content="width=device-width, initial-scale=1">
+       |  <title>${_html_escape(_ui(locale, "bibliography.title"))} - ${_html_escape(config.siteTitle)}</title>
+       |${_site_css_links(config, page)}
+       |</head>
+       |<body class="article ${_html_escape(_support_dashboard_theme_class)}">
+       |${_category_header(config, categories, locale)}
+       |<div class="body body-dashboard bok-bibliography-body">
+       |  <main class="article bok-bibliography-main">
+       |    <div class="content">
+       |      <article class="doc bok-bibliography-doc">
+       |        <section class="bok-dashboard-shell bok-bibliography-dashboard" id="dashboard">
+       |          ${_dashboard_hero(
+                    _ui(locale, "bibliography.title"),
+                    _ui(locale, "bibliography.description"),
+                    Vector(
+                      _ui(locale, "bibliography.metric.total") -> entries.size.toString,
+                      _ui(locale, "bibliography.metric.types") -> entries.map(_.entrytype).distinct.size.toString,
+                      _ui(locale, "bibliography.metric.unresolved") -> entries.count(_.needsresolution).toString
+                    )
+                  )}
+       |          ${_bibliography_dashboard_body(locale, entries)}
+       |        </section>
+       |      </article>
+       |    </div>
+       |  </main>
+       |</div>
+       |</body>
+       |</html>
+       |""".stripMargin
+
   private def _bibliography_dashboard_body(locale: String, entries: Vector[BibliographyEntry]): String =
     if (entries.isEmpty)
-      s"""<p class="bok-card-muted">${_html_escape(_ui(locale, "bibliography.empty"))}</p>"""
+      s"""<div class="bok-dashboard container-fluid bok-dashboard-command-center">
+         |  <div class="row g-3">
+         |    ${_dashboard_card("col-12", "bok-card-map bok-card-bibliography-map", _ui(locale, "bibliography.title"), s"""<p class="bok-card-muted">${_html_escape(_ui(locale, "bibliography.empty"))}</p>""", Vector("reader", "contributor", "project_manager"))}
+         |  </div>
+         |</div>""".stripMargin
     else {
       val bytype = entries.groupBy(_.entrytype).toVector.sortBy(_._1)
       val metrics = bytype.map {
         case (kind, xs) =>
           s"""<div class="bok-metric-card"><div class="bok-metric-label">${_html_escape(kind)}</div><div class="bok-metric-value">${xs.size}</div><div class="bok-metric-note">${_html_escape(_ui(locale, "bibliography.metric.note"))}</div></div>"""
-      }.mkString("""<div class="bok-dashboard-grid">""", "", "</div>")
+      }.mkString("""<div class="bok-dashboard-grid bok-bibliography-metrics">""", "", "</div>")
       val items = entries.take(40).map { entry =>
         val summary = entry.summary.map(x => s"""<p>${_html_escape(x)}</p>""").getOrElse("")
         val authors = if (entry.authors.isEmpty) "" else s"""<span>${_html_escape(entry.authors.mkString(", "))}</span>"""
@@ -3896,19 +3979,24 @@ private[cozy] object CozyBok {
         val ids = if (identifiers.isEmpty) "" else s"""<code>${_html_escape(identifiers)}</code>"""
         val source = entry.sourceurl.orElse(entry.identifiers.url).map(x => s"""<a href="${_html_escape(x)}">${_html_escape(_ui(locale, "bibliography.open.source"))}</a>""").getOrElse("")
         val resolution = if (entry.needsresolution) s"""<span class="badge bok-badge-warning">${_html_escape(_ui(locale, "bibliography.unresolved"))}</span>""" else ""
-        s"""<li class="list-group-item" data-bibliography-category="${_html_escape(entry.categorySlug)}">
-           |  <a href="../${_html_escape(entry.publicpath)}">${_html_escape(entry.title)}</a>
-           |  <span>${_html_escape(entry.entrytype)}</span>
-           |  <span class="badge bok-badge-info">${_html_escape(entry.sourcekind)}</span>
-           |  ${resolution}
-           |  ${authors}
-           |  ${ids}
+        s"""<article class="bok-bibliography-tile" data-bibliography-category="${_html_escape(entry.categorySlug)}">
+           |  <div class="bok-bibliography-tile-head">
+           |    <span>${_html_escape(entry.entrytype)}</span>
+           |    <span class="badge bok-badge-info">${_html_escape(entry.sourcekind)}</span>
+           |    ${resolution}
+           |  </div>
+           |  <h3><a href="../${_html_escape(entry.publicpath)}">${_html_escape(entry.title)}</a></h3>
+           |  <div class="bok-bibliography-meta">${authors}${ids}</div>
            |  ${summary}
-           |  ${source}
-           |</li>""".stripMargin
-      }.mkString("""<ul class="list-group bok-map-list bok-bibliography-list">""", "", "</ul>")
-      s"""${metrics}
-         |${items}
+           |  <div class="bok-bibliography-actions">${source}</div>
+           |</article>""".stripMargin
+      }.mkString("""<div class="bok-bibliography-grid">""", "", "</div>")
+      s"""<div class="bok-dashboard container-fluid bok-dashboard-command-center">
+         |  <div class="row g-3">
+         |    ${_dashboard_card("col-12 col-xl-4", "bok-card-kpi bok-card-bibliography-summary", _ui(locale, "bibliography.metric.summary"), metrics, Vector("reader", "contributor", "project_manager"))}
+         |    ${_dashboard_card("col-12 col-xl-8", "bok-card-map bok-card-bibliography-map", _ui(locale, "bibliography.title"), items, Vector("reader", "contributor", "project_manager"))}
+         |  </div>
+         |</div>
          |<script>
          |(() => {
          |  const category = new URLSearchParams(window.location.search).get('category');
@@ -3937,7 +4025,7 @@ private[cozy] object CozyBok {
        |  <title>${_html_escape(entry.title)} - ${_html_escape(config.siteTitle)}</title>
        |${_site_css_links(config, page)}
        |</head>
-       |<body class="article ${_html_escape(_dashboard_theme_class(config))}">
+       |<body class="article">
        |${_category_header(config, categories, locale, rootprefix)}
        |<div class="body">
        |  <main class="article">
@@ -3984,23 +4072,31 @@ private[cozy] object CozyBok {
     val authorbody = if (entry.authors.isEmpty) "-" else entry.authors.map(_html_escape).mkString(", ")
     val termbody = if (entry.terms.isEmpty) "-" else entry.terms.map(_html_escape).mkString(", ")
     val identifierbody = if (identifiers.isEmpty) "-" else identifiers.map(x => s"<code>${_html_escape(x)}</code>").mkString(" ")
+    val rows = Vector(
+      _ui(locale, "bibliography.metadata.id") -> s"<code>${_html_escape(entry.id)}</code>",
+      _ui(locale, "bibliography.metadata.key") -> s"<code>${_html_escape(entry.key.getOrElse("-"))}</code>",
+      _ui(locale, "bibliography.metadata.type") -> _html_escape(entry.entrytype),
+      _ui(locale, "bibliography.metadata.source.kind") -> _html_escape(entry.sourcekind),
+      _ui(locale, "bibliography.metadata.status") -> _html_escape(resolution),
+      _ui(locale, "bibliography.metadata.authors") -> authorbody,
+      _ui(locale, "bibliography.metadata.published") -> _html_escape(entry.publishedat.getOrElse("-")),
+      _ui(locale, "bibliography.metadata.publisher") -> _html_escape(entry.publisher.getOrElse("-")),
+      _ui(locale, "bibliography.metadata.identifiers") -> identifierbody,
+      _ui(locale, "bibliography.metadata.terms") -> termbody,
+      _ui(locale, "bibliography.metadata.source") -> source,
+      _ui(locale, "bibliography.metadata.dashboard") ->
+        s"""<a href="${_html_escape(rootprefix)}bibliography/index.html">${_html_escape(_ui(locale, "bibliography.title"))}</a>"""
+    ).map { case (label, value) =>
+      s"""<tr><th scope="row">${_html_escape(label)}</th><td>${value}</td></tr>"""
+    }.mkString("\n")
     s"""${summary}
        |<section>
        |  <h2>${_html_escape(_ui(locale, "bibliography.metadata"))}</h2>
-       |  <dl>
-       |    <dt>ID</dt><dd><code>${_html_escape(entry.id)}</code></dd>
-       |    <dt>Key</dt><dd><code>${_html_escape(entry.key.getOrElse("-"))}</code></dd>
-       |    <dt>Type</dt><dd>${_html_escape(entry.entrytype)}</dd>
-       |    <dt>Source kind</dt><dd>${_html_escape(entry.sourcekind)}</dd>
-       |    <dt>Status</dt><dd>${_html_escape(resolution)}</dd>
-       |    <dt>Authors</dt><dd>${authorbody}</dd>
-       |    <dt>Published</dt><dd>${_html_escape(entry.publishedat.getOrElse("-"))}</dd>
-       |    <dt>Publisher</dt><dd>${_html_escape(entry.publisher.getOrElse("-"))}</dd>
-       |    <dt>Identifiers</dt><dd>${identifierbody}</dd>
-       |    <dt>Terms</dt><dd>${termbody}</dd>
-       |    <dt>Source</dt><dd>${source}</dd>
-       |    <dt>Dashboard</dt><dd><a href="${_html_escape(rootprefix)}bibliography/index.html">${_html_escape(_ui(locale, "bibliography.title"))}</a></dd>
-       |  </dl>
+       |  <table class="table bok-bibliography-metadata-table">
+       |    <tbody>
+       |${rows}
+       |    </tbody>
+       |  </table>
        |</section>
        |${citedby}
        |${body}""".stripMargin
@@ -4029,29 +4125,80 @@ private[cozy] object CozyBok {
       parser.parse(Files.readString(path, StandardCharsets.UTF_8)).toOption.flatMap(_.as[ScenarioIndex].toOption)
   }
 
+  private def _scenario_dedicated_page(
+    config: BuildConfig,
+    categories: Vector[CategoryContent],
+    locale: String,
+    page: Path,
+    scenarios: Vector[ScenarioEntry]
+  ): String =
+    s"""<!doctype html>
+       |<html lang="${_html_escape(locale)}">
+       |<head>
+       |  <meta charset="utf-8">
+       |  <meta name="viewport" content="width=device-width, initial-scale=1">
+       |  <title>${_html_escape(_ui(locale, "scenario.title"))} - ${_html_escape(config.siteTitle)}</title>
+       |${_site_css_links(config, page)}
+       |</head>
+       |<body class="article ${_html_escape(_support_dashboard_theme_class)}">
+       |${_category_header(config, categories, locale)}
+       |<div class="body body-dashboard bok-scenario-body">
+       |  <main class="article bok-scenario-main">
+       |    <div class="content">
+       |      <article class="doc bok-scenario-doc">
+       |        <section class="bok-dashboard-shell bok-scenario-dashboard" id="dashboard">
+       |          ${_dashboard_hero(
+                    _ui(locale, "scenario.title"),
+                    _ui(locale, "scenario.description"),
+                    Vector(
+                      _ui(locale, "scenario.metric.total") -> scenarios.size.toString,
+                      _ui(locale, "scenario.metric.types") -> scenarios.map(_.scenarioType).distinct.size.toString,
+                      _ui(locale, "scenario.metric.categories") -> scenarios.flatMap(_.category).distinct.size.toString
+                    )
+                  )}
+       |          ${_scenario_dashboard_body(locale, scenarios)}
+       |        </section>
+       |      </article>
+       |    </div>
+       |  </main>
+       |</div>
+       |</body>
+       |</html>
+       |""".stripMargin
+
   private def _scenario_dashboard_body(locale: String, scenarios: Vector[ScenarioEntry]): String =
     if (scenarios.isEmpty)
-      s"""<p class="bok-card-muted">${_html_escape(_ui(locale, "scenario.empty"))}</p>"""
+      s"""<div class="bok-dashboard container-fluid bok-dashboard-command-center">
+         |  <div class="row g-3">
+         |    ${_dashboard_card("col-12", "bok-card-map bok-card-scenario-map", _ui(locale, "scenario.title"), s"""<p class="bok-card-muted">${_html_escape(_ui(locale, "scenario.empty"))}</p>""", Vector("reader", "contributor", "project_manager"))}
+         |  </div>
+         |</div>""".stripMargin
     else {
       val bytype = scenarios.groupBy(_.scenarioType).toVector.sortBy(_._1)
       val metrics = bytype.map {
         case (kind, xs) =>
           s"""<div class="bok-metric-card"><div class="bok-metric-label">${_html_escape(kind)}</div><div class="bok-metric-value">${xs.size}</div><div class="bok-metric-note">${_html_escape(_ui(locale, "scenario.metric.note"))}</div></div>"""
-      }.mkString("""<div class="bok-dashboard-grid">""", "", "</div>")
+      }.mkString("""<div class="bok-dashboard-grid bok-scenario-metrics">""", "", "</div>")
       val items = scenarios.take(30).map { scenario =>
         val summary = scenario.summary.map(x => s"""<p>${_html_escape(x)}</p>""").getOrElse("")
         val terms = if (scenario.terms.isEmpty) "" else scenario.terms.take(5).map(x => s"""<span class="badge bok-badge-info">${_html_escape(x)}</span>""").mkString(" ")
         val href = s"../${scenario.hrefFromHome}"
-        s"""<li class="list-group-item" data-scenario-category="${_html_escape(scenario.categorySlug)}">
-           |  <a href="${_html_escape(href)}">${_html_escape(scenario.title)}</a>
-           |  <span>${_html_escape(scenario.scenarioType)}</span>
-           |  <code>${_html_escape(scenario.id)}</code>
+        s"""<article class="bok-scenario-tile" data-scenario-category="${_html_escape(scenario.categorySlug)}">
+           |  <div class="bok-scenario-tile-head">
+           |    <span>${_html_escape(scenario.scenarioType)}</span>
+           |    <code>${_html_escape(scenario.id)}</code>
+           |  </div>
+           |  <h3><a href="${_html_escape(href)}">${_html_escape(scenario.title)}</a></h3>
            |  ${summary}
            |  <div class="bok-scenario-terms">${terms}</div>
-           |</li>""".stripMargin
-      }.mkString("""<ul class="list-group bok-map-list bok-scenario-list">""", "", "</ul>")
-      s"""${metrics}
-         |${items}
+           |</article>""".stripMargin
+      }.mkString("""<div class="bok-scenario-grid">""", "", "</div>")
+      s"""<div class="bok-dashboard container-fluid bok-dashboard-command-center">
+         |  <div class="row g-3">
+         |    ${_dashboard_card("col-12 col-xl-4", "bok-card-kpi bok-card-scenario-summary", _ui(locale, "scenario.metric.summary"), metrics, Vector("reader", "contributor", "project_manager"))}
+         |    ${_dashboard_card("col-12 col-xl-8", "bok-card-map bok-card-scenario-map", _ui(locale, "scenario.title"), items, Vector("reader", "contributor", "project_manager"))}
+         |  </div>
+         |</div>
          |<script>
          |(() => {
          |  const category = new URLSearchParams(window.location.search).get('category');
@@ -4108,7 +4255,7 @@ private[cozy] object CozyBok {
        |  <title>${_html_escape(term.title)} - ${_html_escape(config.siteTitle)}</title>
        |${_site_css_links(config, page)}
        |</head>
-       |<body class="article ${_html_escape(_dashboard_theme_class(config))}">
+       |<body class="article ${_html_escape(_support_dashboard_theme_class)}">
        |${_category_header(config, categories, locale, "../../")}
        |<div class="body body-dashboard bok-term-hub-body">
        |  <main class="article">
@@ -4274,7 +4421,7 @@ private[cozy] object CozyBok {
        |  <link rel="stylesheet" href="../../_/css/site.css">
        |  <link rel="stylesheet" href="../../_/css/cozy-bok-dashboard.css">
        |</head>
-       |<body class="article ${_html_escape(_dashboard_theme_class(config))}">
+       |<body class="article ${_html_escape(_support_dashboard_theme_class)}">
        |<div class="body">
        |  <main class="article">
        |    <div class="toolbar" role="navigation">
@@ -4489,7 +4636,7 @@ private[cozy] object CozyBok {
        |  <title>${_html_escape(title)} - ${_html_escape(config.siteTitle)}</title>
        |${_site_css_links(config, page)}
        |</head>
-       |<body class="article ${_html_escape(_dashboard_theme_class(config))}">
+       |<body class="article ${_html_escape(_support_dashboard_theme_class)}">
        |${_category_header(config, categories, locale)}
        |<div class="body">
        |  ${_special_nav_container(config, categories)}
@@ -4541,7 +4688,7 @@ private[cozy] object CozyBok {
        |  <title>${_html_escape(title)} - ${_html_escape(config.siteTitle)}</title>
        |${_site_css_links(config, page)}
        |</head>
-       |<body class="article ${_html_escape(_dashboard_theme_class(config))}">
+       |<body class="article ${_html_escape(_support_dashboard_theme_class)}">
        |${_category_header(config, categories, locale)}
        |<div class="body">
        |  ${_special_nav_container(config, categories)}
@@ -4664,7 +4811,7 @@ private[cozy] object CozyBok {
        |  <title>${_html_escape(_uif(locale, "category.document.title", category.title, config.siteTitle))}</title>
        |${_site_css_links(config, page)}
        |</head>
-       |<body class="article ${_html_escape(_dashboard_theme_class(config))}">
+       |<body class="article ${_html_escape(_category_dashboard_theme_class(config))}">
        |${_category_header(config, categories, locale)}
        |<div class="body body-dashboard">
        |  <main class="article">
@@ -4863,7 +5010,24 @@ private[cozy] object CozyBok {
   private def _dashboard_theme_class(config: BuildConfig): String =
     s"bok-dashboard-theme-${config.dashboardColorGroup}"
 
-  private val _dashboard_color_groups = Set("aurora", "lagoon", "meadow", "ocean", "ember", "slate")
+  private def _category_dashboard_theme_class(config: BuildConfig): String =
+    s"bok-dashboard-theme-${_category_dashboard_color_group(config.dashboardColorGroup)}"
+
+  private def _support_dashboard_theme_class: String =
+    "bok-dashboard-theme-paper"
+
+  private def _category_dashboard_color_group(group: String): String =
+    group match {
+      case "aurora" => "lagoon"
+      case "lagoon" => "meadow"
+      case "meadow" => "lagoon"
+      case "ocean" => "sand"
+      case "ember" => "slate"
+      case "slate" => "aurora"
+      case _ => "lagoon"
+    }
+
+  private val _dashboard_color_groups = Set("aurora", "lagoon", "meadow", "ocean", "ember", "slate", "sand")
 
   private def _dashboard_color_group(parsed: ParsedArgs, config: CozyProjectYamlConfig.Config, site: SiteConfig): String = {
     val raw =
@@ -5098,7 +5262,7 @@ private[cozy] object CozyBok {
     val scenarios = _scenario_index(config).map(_.scenarios).getOrElse(Vector.empty)
     val bibliographies = _bibliography_index(config).map(_.entries).getOrElse(Vector.empty)
     val cards = Vector[Option[String]](
-      dashboard.map(x => _dashboard_card("col-12", "bok-card-activity bok-card-notification", _ui(locale, "dashboard.card.recent.activity"), _recent_activity_body(locale, config, x.increments), Vector("reader", "contributor", "project_manager"))),
+      dashboard.map(x => _recent_activity_card(config, locale, x, _home_recent_items(config))),
       if (purpose.isEmpty) None else Some(_dashboard_card("col-12 col-xl-8", "bok-card-purpose", _ui(locale, "dashboard.card.vision"), _purpose_card_body(locale, purpose), Vector("reader", "contributor", "project_manager"))),
       dashboard.map(x => _dashboard_card(if (purpose.isEmpty) "col-12 col-xl-7" else "col-12 col-xl-4", "bok-card-matrix", _ui(locale, "dashboard.card.category.matrix"), _category_matrix_body(locale, x), Vector("reader", "contributor", "project_manager"))),
       dashboard.map(x => _kpi_card(locale, "col-6 col-md-3", _ui(locale, "dashboard.kpi.categories"), x.counts.categoryCount.toString, _ui(locale, "dashboard.kpi.categories.note"))),
@@ -5107,10 +5271,10 @@ private[cozy] object CozyBok {
       dashboard.map(x => _kpi_card_link("col-6 col-md-3", _ui(locale, "dashboard.kpi.rdf.triples"), x.rdf.tripleCount.toString, _ui(locale, "dashboard.kpi.rdf.triples.note"), "rdf/index.html")),
       Some(_kpi_card_link("col-6 col-md-3", _ui(locale, "dashboard.kpi.scenarios"), scenarios.size.toString, _ui(locale, "dashboard.kpi.scenarios.note"), "scenarios/index.html")),
       Some(_kpi_card_link("col-6 col-md-3", _ui(locale, "dashboard.kpi.bibliography"), bibliographies.size.toString, _ui(locale, "dashboard.kpi.bibliography.note"), "bibliography/index.html")),
-      Some(_dashboard_card("col-12 col-xl-5", "bok-card-quality", _ui(locale, "dashboard.card.quality.alerts"), _quality_alerts_body(locale, dashboard.isDefined), Vector("contributor", "project_manager"))),
+      Some(_dashboard_card("col-12 col-xl-4", "bok-card-quality", _ui(locale, "dashboard.card.quality.alerts"), _quality_alerts_body(locale, dashboard.isDefined), Vector("contributor", "project_manager"))),
       dashboard.map(x => _dashboard_card("col-12 col-xl-8", "bok-card-chart", _ui(locale, "dashboard.card.growth"), _dashboard_increment_chart(locale, x.increments, _ui(locale, "dashboard.chart.bok.additions")), Vector("project_manager", "contributor"))),
-      Some(_dashboard_card("col-12 col-md-6 col-xl-3", "bok-card-readiness", _ui(locale, "dashboard.card.readiness"), _home_readiness_body(locale, config, dashboard), Vector("site_administrator", "project_manager"))),
-      Some(_dashboard_card("col-12 col-md-6 col-xl-3", "bok-card-actions", _ui(locale, "dashboard.card.next.actions"), _next_actions_body(locale, config), Vector("site_administrator", "project_manager")))
+      Some(_dashboard_card("col-12 col-md-6 col-xl-6", "bok-card-readiness", _ui(locale, "dashboard.card.readiness"), _home_readiness_body(locale, config, dashboard), Vector("site_administrator", "project_manager"))),
+      Some(_dashboard_card("col-12 col-md-6 col-xl-6", "bok-card-actions", _ui(locale, "dashboard.card.next.actions"), _next_actions_body(locale, config), Vector("site_administrator", "project_manager")))
     ).flatten
     _dashboard_container(locale, cards)
   }
@@ -5124,7 +5288,7 @@ private[cozy] object CozyBok {
     locale: String
   ): String = {
     val cards = Vector[Option[String]](
-      if (category.purpose.isEmpty) None else Some(_dashboard_card("col-12 col-xl-8", "bok-card-purpose", _ui(locale, "dashboard.card.category.vision"), _purpose_card_body(locale, category.purpose), Vector("reader", "contributor", "project_manager"))),
+      if (category.purpose.isEmpty) None else Some(_dashboard_card("col-12 col-xl-8", "bok-card-purpose bok-card-category-purpose", _ui(locale, "dashboard.card.category.vision"), _purpose_card_body(locale, category.purpose), Vector("reader", "contributor", "project_manager"))),
       Some(_dashboard_card("col-12 col-xl-6", "bok-card-map", _ui(locale, "dashboard.card.term.map"), _page_map_body(categoryTerms, _ui(locale, "dashboard.term.empty")), Vector("reader", "contributor", "project_manager"))),
       Some(_dashboard_card("col-12 col-xl-6", "bok-card-map", _ui(locale, "dashboard.card.article.map"), _page_map_body(category.articles, _ui(locale, "dashboard.article.empty")), Vector("reader", "contributor", "project_manager"))),
       rdf.map(x => _category_rdf_kpi_card(locale, category, x)),
@@ -5134,7 +5298,7 @@ private[cozy] object CozyBok {
       Some(_dashboard_card("col-12 col-xl-5", "bok-card-quality", _ui(locale, "dashboard.card.local.quality.alerts"), _quality_alerts_body(locale, dashboard.isDefined), Vector("contributor", "project_manager"))),
       dashboard.map(x => _dashboard_card("col-12 col-xl-7", "bok-card-chart", _ui(locale, "dashboard.card.category.growth"), _dashboard_increment_chart(locale, x.increments, _uif(locale, "dashboard.chart.category.additions", x.title)), Vector("project_manager", "contributor"))),
       Some(_dashboard_card("col-12 col-md-6 col-xl-3", "bok-card-readiness", _ui(locale, "dashboard.card.category.readiness"), _category_readiness_body(locale, dashboard), Vector("site_administrator", "project_manager"))),
-      Some(_dashboard_card("col-12 col-md-6 col-xl-4", "bok-card-activity", _ui(locale, "dashboard.card.recent.changes"), _category_recent_changes_body(locale, category), Vector("reader", "contributor", "project_manager"))),
+      Some(_recent_activity_card(config, locale, category)),
       Some(_dashboard_card("col-12 col-md-6 col-xl-5", "bok-card-related", _ui(locale, "dashboard.card.related.knowledge"), _related_knowledge_body(locale, config, category, rdf), Vector("reader", "contributor", "project_manager")))
     ).flatten
     _dashboard_container(locale, cards)
@@ -5156,7 +5320,7 @@ private[cozy] object CozyBok {
   private def _dashboard_actor_filter(locale: String, cards: Vector[String], defaultactor: String): String = {
     val cardcount = cards.size
     val defaultcount = _dashboard_actor_count(cards, defaultactor)
-    val buttons = Vector(
+    val actoroptions = Vector(
       "all" -> _ui(locale, "dashboard.actor.all"),
       "reader" -> _ui(locale, "dashboard.actor.reader"),
       "contributor" -> _ui(locale, "dashboard.actor.contributor"),
@@ -5164,22 +5328,24 @@ private[cozy] object CozyBok {
       "site_administrator" -> _ui(locale, "dashboard.actor.site.administrator")
     ).map {
       case (key, label) =>
-        val pressed = if (key == defaultactor) "true" else "false"
-        s"""<button type="button" class="bok-dashboard-actor-button${if (key == defaultactor) " is-active" else ""}" data-bok-actor-filter="${_html_escape(key)}" aria-pressed="${pressed}">${_html_escape(label)}</button>"""
+        val selected = if (key == defaultactor) " selected" else ""
+        s"""<option value="${_html_escape(key)}"${selected}>${_html_escape(label)}</option>"""
     }.mkString("\n")
-    val modebuttons = Vector(
+    val modeoptions = Vector(
       "hide" -> _ui(locale, "dashboard.actor.mode.hide"),
       "dim" -> _ui(locale, "dashboard.actor.mode.dim")
     ).map {
       case (key, label) =>
-        val pressed = if (key == "hide") "true" else "false"
-        s"""<button type="button" class="bok-dashboard-actor-mode-button${if (key == "hide") " is-active" else ""}" data-bok-actor-mode="${_html_escape(key)}" aria-pressed="${pressed}">${_html_escape(label)}</button>"""
+        val selected = if (key == "hide") " selected" else ""
+        s"""<option value="${_html_escape(key)}"${selected}>${_html_escape(label)}</option>"""
     }.mkString("\n")
     s"""<div class="bok-dashboard-actor-filter" role="group" aria-label="${_html_escape(_ui(locale, "dashboard.actor.filter"))}">
-       |  <span class="bok-dashboard-actor-filter-label">${_html_escape(_ui(locale, "dashboard.actor.filter"))}</span>
-       |  ${buttons}
-       |  <span class="bok-dashboard-actor-mode-label">${_html_escape(_ui(locale, "dashboard.actor.mode"))}</span>
-       |  ${modebuttons}
+       |  <label class="bok-dashboard-actor-select-label"><span>${_html_escape(_ui(locale, "dashboard.actor.filter"))}</span><select class="bok-dashboard-actor-select" data-bok-actor-filter aria-label="${_html_escape(_ui(locale, "dashboard.actor.filter"))}">
+       |${actoroptions}
+       |  </select></label>
+       |  <label class="bok-dashboard-actor-select-label bok-dashboard-actor-mode-select-label"><span>${_html_escape(_ui(locale, "dashboard.actor.mode"))}</span><select class="bok-dashboard-actor-select" data-bok-actor-mode aria-label="${_html_escape(_ui(locale, "dashboard.actor.mode"))}">
+       |${modeoptions}
+       |  </select></label>
        |  <span class="bok-dashboard-actor-status" data-bok-actor-status="true">${_html_escape(_uif(locale, "dashboard.actor.status.filtered", defaultcount.toString, cardcount.toString, _ui(locale, "dashboard.actor.reader")))}</span>
       |</div>""".stripMargin
   }
@@ -5259,6 +5425,11 @@ private[cozy] object CozyBok {
       |  }
       |
       |  function actorLabel(root, actor) {
+      |    var select = root.querySelector("select[data-bok-actor-filter]");
+      |    if (select) {
+      |      var option = select.querySelector("option[value='" + actor + "']");
+      |      if (option) return option.textContent;
+      |    }
       |    var button = root.querySelector("[data-bok-actor-filter='" + actor + "']");
       |    return button ? button.textContent : actor;
       |  }
@@ -5285,15 +5456,23 @@ private[cozy] object CozyBok {
       |  function applyActor(root, actor, mode, updateLocation) {
       |    root.setAttribute("data-bok-current-actor", actor);
       |    root.setAttribute("data-bok-card-mode", mode);
-      |    root.querySelectorAll("[data-bok-actor-filter]").forEach(function (button) {
-      |      var selected = button.getAttribute("data-bok-actor-filter") === actor;
-      |      button.classList.toggle("is-active", selected);
-      |      button.setAttribute("aria-pressed", selected ? "true" : "false");
+      |    root.querySelectorAll("[data-bok-actor-filter]").forEach(function (control) {
+      |      if (control.tagName === "SELECT") {
+      |        control.value = actor;
+      |      } else {
+      |        var selected = control.getAttribute("data-bok-actor-filter") === actor;
+      |        control.classList.toggle("is-active", selected);
+      |        control.setAttribute("aria-pressed", selected ? "true" : "false");
+      |      }
       |    });
-      |    root.querySelectorAll("[data-bok-actor-mode]").forEach(function (button) {
-      |      var selected = button.getAttribute("data-bok-actor-mode") === mode;
-      |      button.classList.toggle("is-active", selected);
-      |      button.setAttribute("aria-pressed", selected ? "true" : "false");
+      |    root.querySelectorAll("[data-bok-actor-mode]").forEach(function (control) {
+      |      if (control.tagName === "SELECT") {
+      |        control.value = mode;
+      |      } else {
+      |        var selected = control.getAttribute("data-bok-actor-mode") === mode;
+      |        control.classList.toggle("is-active", selected);
+      |        control.setAttribute("aria-pressed", selected ? "true" : "false");
+      |      }
       |    });
       |    root.querySelectorAll(".bok-card[data-bok-actors]").forEach(function (card) {
       |      var actors = (card.getAttribute("data-bok-actors") || "").split(/\s+/);
@@ -5330,14 +5509,18 @@ private[cozy] object CozyBok {
       |  document.querySelectorAll("[data-bok-dashboard]").forEach(function (root) {
       |    ensureActorChips(root);
       |    applyActor(root, actorFromUrl(root), modeFromUrl(), false);
-      |    root.querySelectorAll("[data-bok-actor-filter]").forEach(function (button) {
-      |      button.addEventListener("click", function () {
-      |        applyActor(root, button.getAttribute("data-bok-actor-filter") || defaultActor(root), root.getAttribute("data-bok-card-mode") || "hide", true);
+      |    root.querySelectorAll("[data-bok-actor-filter]").forEach(function (control) {
+      |      var eventName = control.tagName === "SELECT" ? "change" : "click";
+      |      control.addEventListener(eventName, function () {
+      |        var value = control.tagName === "SELECT" ? control.value : control.getAttribute("data-bok-actor-filter");
+      |        applyActor(root, value || defaultActor(root), root.getAttribute("data-bok-card-mode") || "hide", true);
       |      });
       |    });
-      |    root.querySelectorAll("[data-bok-actor-mode]").forEach(function (button) {
-      |      button.addEventListener("click", function () {
-      |        applyActor(root, root.getAttribute("data-bok-current-actor") || defaultActor(root), button.getAttribute("data-bok-actor-mode") || "hide", true);
+      |    root.querySelectorAll("[data-bok-actor-mode]").forEach(function (control) {
+      |      var eventName = control.tagName === "SELECT" ? "change" : "click";
+      |      control.addEventListener(eventName, function () {
+      |        var value = control.tagName === "SELECT" ? control.value : control.getAttribute("data-bok-actor-mode");
+      |        applyActor(root, root.getAttribute("data-bok-current-actor") || defaultActor(root), value || "hide", true);
       |      });
       |    });
       |  });
@@ -5355,6 +5538,30 @@ private[cozy] object CozyBok {
        |    <div class="card-body">
        |      <h3 class="card-title">${_html_escape(title)}</h3>
        |      ${body}
+       |    </div>
+       |  </section>
+       |</div>""".stripMargin
+  }
+
+  private def _recent_activity_card(config: BuildConfig, locale: String, dashboard: BokDashboard, fallbackitems: Vector[DashboardRecentItem]): String = {
+    val actorattr = """ data-bok-actors="reader contributor project_manager""""
+    s"""<div class="col-12" data-bok-card="true">
+       |  <section class="card bok-card bok-card-activity bok-card-notification"${actorattr}>
+       |    <div class="card-body">
+       |      <h3 class="card-title bok-card-title-with-action"><span>${_html_escape(_ui(locale, "dashboard.card.recent.activity"))}</span><a class="bok-card-title-link" href="${_html_escape(_history_href(config, ""))}">${_html_escape(_ui(locale, "dashboard.activity.open.history"))}</a></h3>
+       |      ${_recent_activity_body(locale, dashboard.increments, fallbackitems, true)}
+       |    </div>
+       |  </section>
+       |</div>""".stripMargin
+  }
+
+  private def _recent_activity_card(config: BuildConfig, locale: String, category: CategoryContent): String = {
+    val actorattr = """ data-bok-actors="reader contributor project_manager""""
+    s"""<div class="col-12 col-md-6 col-xl-4" data-bok-card="true">
+       |  <section class="card bok-card bok-card-activity bok-card-notification"${actorattr}>
+       |    <div class="card-body">
+       |      <h3 class="card-title bok-card-title-with-action"><span>${_html_escape(_ui(locale, "dashboard.card.recent.changes"))}</span><a class="bok-card-title-link" href="${_html_escape(_history_href(config, "../"))}">${_html_escape(_ui(locale, "dashboard.activity.open.history"))}</a></h3>
+       |      ${_recent_activity_body(locale, DashboardIncrements("day", Vector.empty), _category_recent_items(config, category), false)}
        |    </div>
        |  </section>
        |</div>""".stripMargin
@@ -5398,10 +5605,13 @@ private[cozy] object CozyBok {
       _flat_purpose_body(locale, purpose.flatGoals, purpose.flatSubgoals)
 
   private def _flat_purpose_body(locale: String, goals: Vector[String], subgoals: Vector[String]): String =
-    Vector(
-      if (goals.nonEmpty) Some(_purpose_flat_list(locale, "dashboard.purpose.goals", goals)) else None,
-      if (subgoals.nonEmpty) Some(_purpose_flat_list(locale, "dashboard.purpose.subgoals", subgoals)) else None
-    ).flatten.mkString("""<div class="bok-purpose-flat">""", "", "</div>")
+    if (goals.isEmpty && subgoals.isEmpty)
+      ""
+    else
+      Vector(
+        if (goals.nonEmpty) Some(_purpose_flat_list(locale, "dashboard.purpose.goals", goals)) else None,
+        if (subgoals.nonEmpty) Some(_purpose_flat_list(locale, "dashboard.purpose.subgoals", subgoals)) else None
+      ).flatten.mkString("""<div class="bok-purpose-flat">""", "", "</div>")
 
   private def _purpose_flat_list(locale: String, labelkey: String, values: Vector[String]): String =
     values.take(5).zipWithIndex.map {
@@ -5440,7 +5650,7 @@ private[cozy] object CozyBok {
           s"""<div class="bok-more">${_html_escape(_uif(locale, "dashboard.more", goals.filterNot(_.isEmpty).size - 3))}</div>"""
         else
           ""
-      s"""<div class="bok-purpose-tree">${body}${moregoals}</div>"""
+      s"""<div class="bok-purpose-tree"><div class="bok-purpose-tree-label"><span class="bok-purpose-node-label">G</span><strong>${_html_escape(_ui(locale, "dashboard.purpose.goals"))}</strong></div>${body}${moregoals}</div>"""
     }
   }
 
@@ -5500,25 +5710,131 @@ private[cozy] object CozyBok {
        |${_dashboard_distribution_chart(locale, dashboard.counts, _ui(locale, "dashboard.chart.item.distribution"))}""".stripMargin
   }
 
-  private def _recent_activity_body(locale: String, config: BuildConfig, increments: DashboardIncrements): String =
-    if (increments.buckets.isEmpty)
-      s"""<div class="bok-notification-summary">
-         |  <span>${_html_escape(_ui(locale, "dashboard.activity.history.check"))}</span>
-         |  <strong>0</strong>
-         |</div>
-         |<p class="bok-card-muted">${_html_escape(_ui(locale, "dashboard.activity.empty"))}</p>
-         |<p class="bok-card-link"><a href="${_html_escape(_history_href(config, ""))}">${_html_escape(_ui(locale, "dashboard.activity.open.history"))}</a></p>""".stripMargin
-    else {
-      val latest = increments.buckets.last
-      s"""<div class="bok-notification-summary">
-         |  <span>${_html_escape(_uif(locale, "dashboard.activity.latest", latest.label))}</span>
-         |  <strong>+${latest.count}</strong>
-         |</div>
-         |${increments.buckets.takeRight(5).reverse.map { bucket =>
-        s"""<li class="list-group-item"><time datetime="${_html_escape(bucket.startDate)}">${_html_escape(bucket.label)}</time><strong>+${bucket.count}</strong></li>"""
-      }.mkString("""<ul class="list-group bok-activity-list">""", "", "</ul>")}
-         |<p class="bok-card-link"><a href="${_html_escape(_history_href(config, ""))}">${_html_escape(_ui(locale, "dashboard.activity.open.history"))}</a></p>""".stripMargin
+  private def _recent_activity_body(locale: String, increments: DashboardIncrements, fallbackitems: Vector[DashboardRecentItem] = Vector.empty, includecategory: Boolean = false): String =
+    if (fallbackitems.nonEmpty)
+      _recent_activity_fallback_body(locale, fallbackitems, includecategory)
+    else
+      _recent_activity_buckets(increments) match {
+        case Vector() =>
+          s"""<p class="bok-card-muted">${_html_escape(_ui(locale, "dashboard.activity.empty"))}</p>"""
+        case buckets =>
+          s"""${buckets.map { bucket =>
+            s"""<li class="list-group-item"><time datetime="${_html_escape(bucket.startDate)}">${_html_escape(bucket.label)}</time><span class="bok-activity-kind">${_html_escape(_recent_activity_bucket_kind(locale, bucket))}</span><span>${_html_escape(_uif(locale, "dashboard.activity.count", bucket.count.toString))}</span></li>"""
+          }.mkString("""<ul class="list-group bok-activity-list">""", "", "</ul>")}"""
+      }
+
+  private def _recent_activity_fallback_body(locale: String, items: Vector[DashboardRecentItem], includecategory: Boolean): String =
+    s"""${items.map { item =>
+      val date = Instant.ofEpochMilli(item.modifiedatmillis).atZone(ZoneOffset.UTC).toLocalDate.toString
+      val category = if (includecategory) s"""<span class="bok-activity-category">${_html_escape(item.category.getOrElse("-"))}</span>""" else ""
+      s"""<li class="list-group-item"><time datetime="${_html_escape(date)}">${_html_escape(date)}</time><span class="bok-activity-kind">${_html_escape(_ui(locale, item.kindkey))}</span>${category}<a href="${_html_escape(item.href)}">${_html_escape(item.title)}</a></li>"""
+    }.mkString(s"""<ul class="list-group bok-activity-list${if (includecategory) " bok-activity-list-with-category" else ""}">""", "", "</ul>")}"""
+
+  private def _recent_activity_bucket_kind(locale: String, bucket: DashboardBucket): String = {
+    val kinds = Vector(
+      (bucket.articleCount > 0) -> _ui(locale, "dashboard.activity.kind.article"),
+      (bucket.glossaryTermCount > 0) -> _ui(locale, "dashboard.activity.kind.term")
+    ).collect { case (true, label) => label }
+    if (kinds.isEmpty)
+      _ui(locale, "dashboard.activity.kind.update")
+    else
+      kinds.mkString(" / ")
+  }
+
+  private def _recent_activity_buckets(increments: DashboardIncrements): Vector[DashboardBucket] = {
+    val active = increments.buckets.filter(_.count > 0)
+    val dated = active.flatMap(bucket => _dashboard_bucket_date(bucket).map(_ -> bucket))
+    if (dated.nonEmpty) {
+      val latestdate = dated.maxBy(_._1.toEpochDay)._1
+      val cutoff = latestdate.minusMonths(1)
+      dated.
+        filter {
+          case (date, _) => !date.isBefore(cutoff) && !date.isAfter(latestdate)
+        }.
+        sortBy(_._1.toEpochDay).
+        map(_._2).
+        takeRight(5).
+        reverse
+    } else {
+      active.takeRight(5).reverse
     }
+  }
+
+  private def _dashboard_bucket_date(bucket: DashboardBucket): Option[LocalDate] =
+    _parse_local_date(bucket.endDate).orElse(_parse_local_date(bucket.startDate))
+
+  private def _parse_local_date(value: String): Option[LocalDate] =
+    try {
+      Some(LocalDate.parse(value))
+    } catch {
+      case NonFatal(_) => None
+    }
+
+  private def _home_recent_items(config: BuildConfig): Vector[DashboardRecentItem] = {
+    val categories = _category_contents(config.sourcepath)
+    val categorylabels = categories.map(x => x.slug -> x.title).toMap
+    val contentitems = categories.flatMap { category =>
+      val articles = category.articles.map { item =>
+        DashboardRecentItem(s"${category.slug}/${item.href}", item.title, Some(category.title), "dashboard.activity.kind.article", item.modifiedAtMillis)
+      }
+      val terms = category.terms.map { item =>
+        DashboardRecentItem(item.href.stripPrefix("../"), item.title, Some(category.title), "dashboard.activity.kind.term", item.modifiedAtMillis)
+      }
+      articles ++ terms
+    }
+    val scenarioitems = _scenario_index(config).map(_.scenarios.map { item =>
+      DashboardRecentItem(item.hrefFromHome, item.title, item.category.map(x => categorylabels.getOrElse(x, x)), "dashboard.activity.kind.scenario", _source_modified_at_millis(config, item.sourcepath))
+    }).getOrElse(Vector.empty)
+    val bibliographyitems = _bibliography_index(config).map(_.entries.map { item =>
+      DashboardRecentItem(item.publicpath, item.title, item.category.map(x => categorylabels.getOrElse(x, x)), "dashboard.activity.kind.bibliography", _source_modified_at_millis(config, item.sourcepath))
+    }).getOrElse(Vector.empty)
+    val items = (contentitems ++ scenarioitems ++ bibliographyitems).groupBy(_.href).values.map(_.maxBy(_.modifiedatmillis)).toVector
+    val dated = items.flatMap(item => _modified_date(item.modifiedatmillis).map(_ -> item))
+    if (dated.nonEmpty) {
+      val latestdate = dated.maxBy(_._1.toEpochDay)._1
+      val cutoff = latestdate.minusMonths(1)
+      dated.
+        filter {
+          case (date, _) => !date.isBefore(cutoff) && !date.isAfter(latestdate)
+        }.
+        sortBy(_._1.toEpochDay).
+        map(_._2).
+        takeRight(5).
+        reverse
+    } else {
+      Vector.empty
+    }
+  }
+
+  private def _category_recent_items(config: BuildConfig, category: CategoryContent): Vector[DashboardRecentItem] = {
+    val articles = category.articles.map { item =>
+      DashboardRecentItem(item.href, item.title, Some(category.title), "dashboard.activity.kind.article", item.modifiedAtMillis)
+    }
+    val terms = category.terms.map { item =>
+      DashboardRecentItem(item.href, item.title, Some(category.title), "dashboard.activity.kind.term", item.modifiedAtMillis)
+    }
+    val scenarios = _scenario_index(config).map(_.scenarios.filter(_.category.contains(category.slug)).map { item =>
+      DashboardRecentItem(item.hrefFromCategory, item.title, Some(category.title), "dashboard.activity.kind.scenario", _source_modified_at_millis(config, item.sourcepath))
+    }).getOrElse(Vector.empty)
+    val bibliographies = _bibliography_index(config).map(_.entries.filter(_.category.contains(category.slug)).map { item =>
+      DashboardRecentItem("../" + item.publicpath, item.title, Some(category.title), "dashboard.activity.kind.bibliography", _source_modified_at_millis(config, item.sourcepath))
+    }).getOrElse(Vector.empty)
+    (articles ++ terms ++ scenarios ++ bibliographies).sortBy(-_.modifiedatmillis).take(5)
+  }
+
+  private def _source_modified_at_millis(config: BuildConfig, sourcepath: String): Long = {
+    val path = config.sourcepath.resolve(sourcepath)
+    if (Files.isRegularFile(path))
+      _modified_at_millis(path)
+    else
+      0L
+  }
+
+  private def _modified_date(millis: Long): Option[LocalDate] =
+    if (millis <= 0L)
+      None
+    else
+      Some(Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate)
 
   private def _next_actions_body(locale: String, config: BuildConfig): String = {
     val project = if (config.project == _logical_cwd) "" else " <bok-root>"
@@ -5551,11 +5867,6 @@ private[cozy] object CozyBok {
       val more = if (items.size > 5) s"""<li class="list-group-item bok-more">+${items.size - 5} more</li>""" else ""
       s"""<ul class="list-group bok-map-list">${shown}${more}</ul>"""
     }
-
-  private def _category_recent_changes_body(locale: String, category: CategoryContent): String = {
-    val items = (category.articles ++ category.terms).sortBy(-_.modifiedAtMillis).take(5)
-    _page_map_body(items, _ui(locale, "dashboard.local.change.empty"))
-  }
 
   private def _related_knowledge_body(locale: String, config: BuildConfig, category: CategoryContent, rdf: Option[DashboardRdfSummary]): String = {
     val rdfitem =
@@ -6791,6 +7102,79 @@ private[cozy] object CozyBok {
       |  line-height: 1.45;
       |}
       |
+      |.bok-card-category-purpose .card-body {
+      |  gap: 0.48rem !important;
+      |  padding: 0.82rem 0.95rem 0.86rem !important;
+      |}
+      |
+      |.bok-card-category-purpose .bok-purpose-vision-panel {
+      |  gap: 0.5rem;
+      |  margin-bottom: 0;
+      |  padding: 0.62rem 0.68rem 0.68rem;
+      |  border-radius: 14px;
+      |  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.10);
+      |}
+      |
+      |.bok-card-category-purpose .bok-purpose-vision-copy {
+      |  gap: 0.08rem;
+      |}
+      |
+      |.bok-card-category-purpose .bok-purpose-vision-copy strong {
+      |  line-height: 1.35;
+      |}
+      |
+      |.bok-card-category-purpose .bok-purpose-tree {
+      |  gap: 0.46rem;
+      |  margin-top: 0.42rem;
+      |  padding: 0.56rem 0.6rem 0.62rem;
+      |  border: 1px solid rgba(255, 255, 255, 0.20);
+      |  border-radius: 14px;
+      |  background: rgba(255, 255, 255, 0.10);
+      |  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
+      |}
+      |
+      |.bok-purpose-tree-label {
+      |  display: flex;
+      |  align-items: center;
+      |  gap: 0.5rem;
+      |  color: #fff;
+      |  font-size: 0.72rem;
+      |  font-weight: 900;
+      |  letter-spacing: 0.08em;
+      |  text-transform: uppercase;
+      |}
+      |
+      |.bok-card-category-purpose .bok-purpose-goal {
+      |  gap: 0.42rem;
+      |  padding: 0.58rem 0.68rem 0.62rem 0.78rem !important;
+      |  border-radius: 14px;
+      |  border: 1px solid rgba(255, 255, 255, 0.32);
+      |  background: rgba(255, 255, 255, 0.18);
+      |  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.06), 0 8px 18px rgba(0, 0, 0, 0.10);
+      |}
+      |
+      |.bok-card-category-purpose .bok-purpose-goal::before {
+      |  left: 0.52rem;
+      |  top: 2.35rem;
+      |  bottom: 0.72rem;
+      |  width: 2px;
+      |  background: rgba(255, 255, 255, 0.24);
+      |}
+      |
+      |.bok-card-category-purpose .bok-purpose-goal-head {
+      |  gap: 0.45rem;
+      |}
+      |
+      |.bok-card-category-purpose .bok-purpose-subgoals {
+      |  margin: 0.42rem 0 0 1.72rem;
+      |  gap: 0.32rem;
+      |}
+      |
+      |.bok-card-category-purpose .bok-purpose-subgoals li::before {
+      |  left: -1rem;
+      |  width: 0.72rem;
+      |}
+      |
       |.bok-purpose-list {
       |  margin-top: 0.45rem;
       |}
@@ -7090,6 +7474,10 @@ private[cozy] object CozyBok {
       |.navbar-bok-dropdown > .navbar-bok-toggle {
       |  color: #fff;
       |  font-weight: 700;
+      |  background: transparent;
+      |  border: 0;
+      |  border-radius: 0;
+      |  box-shadow: none;
       |}
       |
       |.navbar-category-dropdown > .navbar-category-menu,
@@ -7287,9 +7675,116 @@ private[cozy] object CozyBok {
       |  opacity: 0.48;
       |}
       |
+      |/* KPI cards: centered highlight numbers read better as dashboard metrics. */
+      |.body-dashboard .bok-card-kpi .card-body {
+      |  align-items: center !important;
+      |  text-align: center;
+      |}
+      |
+      |.body-dashboard .bok-card-kpi .bok-kpi-link {
+      |  justify-items: center;
+      |  text-align: center;
+      |}
+      |
+      |.body-dashboard .bok-card-kpi .bok-kpi-value,
+      |.body-dashboard .bok-card-kpi .bok-kpi-label,
+      |.body-dashboard .bok-card-kpi .bok-kpi-note {
+      |  width: 100%;
+      |  text-align: center;
+      |}
+      |
+      |/* Dashboard hero: separate marker, title, and summary as distinct zones. */
+      |.body-dashboard .bok-dashboard-hero-copy {
+      |  display: grid !important;
+      |  align-content: center;
+      |  gap: 1.1rem;
+      |}
+      |
+      |.body-dashboard .bok-dashboard-eyebrow {
+      |  margin: 0 !important;
+      |  align-self: start;
+      |}
+      |
+      |.body-dashboard .bok-dashboard-hero h1.page {
+      |  margin: 0.2rem 0 0.1rem !important;
+      |}
+      |
+      |.body-dashboard .bok-dashboard-lead {
+      |  max-width: 58rem;
+      |  margin: 0.2rem 0 0 !important;
+      |  padding: 0.85rem 0 0.15rem 1.05rem;
+      |  border-left: 4px solid rgba(191, 231, 255, 0.48);
+      |  line-height: 1.78;
+      |}
+      |
+      |/* Layout corrections: use full-width separators and keep Recent Changes compact. */
+      |.body-dashboard .bok-card .card-title {
+      |  width: 100%;
+      |  padding-bottom: 0.56rem !important;
+      |  border-bottom: 1px solid rgba(148, 163, 184, 0.28);
+      |}
+      |
+      |.body-dashboard .bok-card-purpose .card-title {
+      |  border-bottom-color: rgba(255, 255, 255, 0.24);
+      |}
+      |
+      |.body-dashboard .bok-card-notification .card-body {
+      |  display: grid !important;
+      |  grid-template-columns: minmax(10rem, 13rem) minmax(0, 1fr) auto;
+      |  gap: 0.6rem 0.85rem !important;
+      |  align-items: center;
+      |}
+      |
+      |.body-dashboard .bok-card-notification .card-title {
+      |  grid-column: 1 / -1;
+      |  padding-bottom: 0 !important;
+      |  border-bottom: 0;
+      |}
+      |
+      |.body-dashboard .bok-card-notification .bok-activity-list {
+      |  display: flex !important;
+      |  flex-wrap: wrap;
+      |  gap: 0.42rem;
+      |  margin: 0;
+      |}
+      |
+      |.body-dashboard .bok-card-notification .bok-activity-list .list-group-item {
+      |  display: inline-flex;
+      |  align-items: center;
+      |  gap: 0.35rem;
+      |  width: auto;
+      |  margin: 0;
+      |  padding: 0.34rem 0.55rem;
+      |  border: 1px solid rgba(20, 184, 166, 0.22);
+      |  border-radius: 999px;
+      |  background: rgba(255, 255, 255, 0.74);
+      |  font-size: 0.82rem;
+      |  line-height: 1.2;
+      |}
+      |
+      |.body-dashboard .bok-card-notification .bok-activity-list .list-group-item a,
+      |.body-dashboard .bok-card-notification .bok-activity-list .list-group-item time {
+      |  white-space: nowrap;
+      |}
+      |
+      |@media (max-width: 64rem) {
+      |  .body-dashboard .bok-card-notification .card-body {
+      |    grid-template-columns: 1fr;
+      |    align-items: stretch;
+      |  }
+      |
+      |  .body-dashboard .bok-card-notification .bok-card-link {
+      |    white-space: normal;
+      |  }
+      |}
+      |
       |.bok-card-purpose {
       |  color: #f8fafc;
       |  background: linear-gradient(135deg, #0f766e 0, #0f4f78 100%);
+      |}
+      |
+      |.bok-card-category-purpose {
+      |  min-height: auto;
       |}
       |
       |.bok-card-purpose .card-title,
@@ -7520,11 +8015,12 @@ private[cozy] object CozyBok {
       |.navbar-category-dropdown > .navbar-category-toggle,
       |.navbar-bok-dropdown > .navbar-bok-toggle {
       |  min-height: 2.2rem;
-      |  padding: 0.35rem 0.85rem;
+      |  padding: 0.5rem 0.75rem;
       |  color: #fff !important;
-      |  background: rgba(255, 255, 255, 0.12);
-      |  border: 1px solid rgba(255, 255, 255, 0.18);
-      |  border-radius: 999px;
+      |  background: transparent;
+      |  border: 0;
+      |  border-radius: 0;
+      |  box-shadow: none;
       |  font-weight: 800;
       |}
       |
@@ -7533,8 +8029,9 @@ private[cozy] object CozyBok {
       |.navbar-bok-dropdown > .navbar-bok-toggle:hover,
       |.navbar-bok-dropdown > .navbar-bok-toggle:focus {
       |  color: #fff !important;
-      |  background: rgba(255, 255, 255, 0.22);
-      |  text-decoration: none;
+      |  background: transparent;
+      |  text-decoration: underline;
+      |  text-underline-offset: 0.18rem;
       |}
       |
       |@media (max-width: 64rem) {

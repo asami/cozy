@@ -9,7 +9,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jun. 22, 2026
- * @version Jun. 24, 2026
+ * @version Jun. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokTermHubSpec
@@ -68,14 +68,21 @@ class CozyBokTermHubSpec
             "the Glossary page becomes a term dashboard driven by SmartDox metadata"
           )
           val glossary = _read(dir.resolve("website.d/glossary/index.html"))
+          glossary should include("""<body class="article bok-dashboard-theme-paper">""")
+          glossary should include("""class="body body-dashboard bok-glossary-body"""")
+          glossary should include("""class="bok-dashboard-shell bok-glossary-dashboard"""")
           glossary should include("Term Dashboard")
           glossary should include("glossary/&lt;category&gt;/")
           glossary should include("class=\"bok-term-group-grid\"")
+          glossary should include("bok-card-glossary-summary")
+          glossary should include("bok-card-glossary-map")
           glossary should include("href=\"architecture/runtime.html\"")
           glossary should include(
             "href=\"../rdf/index.html?term=architecture%3Aruntime\""
           )
           glossary should include("RDF")
+          glossary should not include ("""class="nav-container"""")
+          glossary should not include ("""class="toc sidebar"""")
 
           And(
             "the Term Hub keeps the existing term URL and shows definition, RDF, and quality cards"
@@ -162,6 +169,8 @@ class CozyBokTermHubSpec
             "the Glossary dashboard renders an empty metadata-driven surface without rebuilding terms from source"
           )
           val glossary = _read(dir.resolve("website.d/glossary/index.html"))
+          glossary should include("""<body class="article bok-dashboard-theme-paper">""")
+          glossary should include("""class="body body-dashboard bok-glossary-body"""")
           glossary should include("Term Dashboard")
           glossary should include("No glossary terms yet.")
           glossary should not include ("""href="architecture/runtime.html"""")

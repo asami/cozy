@@ -101,72 +101,61 @@
 }
 .bok-dashboard-actor-filter {
   display: flex;
-  flex-wrap: wrap;
-  gap: .55rem;
+  flex-wrap: nowrap;
+  gap: .7rem;
   align-items: center;
   margin: 0 0 1.15rem;
-  padding: .68rem .78rem;
+  padding: .54rem .68rem;
   border: 1px solid rgba(255,255,255,.14);
-  border-radius: 999px;
+  border-radius: 20px;
   background: rgba(15,23,42,.42);
   box-shadow: 0 12px 32px rgba(0,0,0,.20) inset;
 }
-.bok-dashboard-actor-filter-label {
-  margin: 0 .2rem 0 .15rem;
+.bok-dashboard-actor-select-label {
+  display: inline-flex;
+  align-items: center;
+  gap: .42rem;
+  min-width: 0;
+  margin: 0;
+  white-space: nowrap;
+}
+.bok-dashboard-actor-select-label span {
   color: #cbd5e1;
   font-size: .72rem;
   font-weight: 900;
   letter-spacing: .12em;
   text-transform: uppercase;
 }
-.bok-dashboard-actor-mode-label {
-  margin: 0 .1rem 0 .35rem;
-  color: #cbd5e1;
+.bok-dashboard-actor-mode-select-label span {
   font-size: .68rem;
-  font-weight: 900;
   letter-spacing: .1em;
-  text-transform: uppercase;
 }
-.bok-dashboard-actor-button {
+.bok-dashboard-actor-select {
+  min-width: 8.5rem;
+  max-width: 13rem;
   appearance: none;
   border: 1px solid rgba(203,213,225,.34);
   border-radius: 999px;
-  padding: .42rem .78rem;
+  padding: .42rem 2rem .42rem .72rem;
   color: #e2e8f0;
-  background: rgba(255,255,255,.08);
+  background:
+    linear-gradient(45deg, transparent 50%, #dbeafe 50%) right .82rem center / .42rem .42rem no-repeat,
+    linear-gradient(135deg, #dbeafe 50%, transparent 50%) right .55rem center / .42rem .42rem no-repeat,
+    rgba(255,255,255,.08);
   font-size: .78rem;
   font-weight: 850;
-  letter-spacing: .02em;
   cursor: pointer;
-  transition: transform .16s ease, box-shadow .16s ease, background .16s ease, color .16s ease;
 }
-.bok-dashboard-actor-mode-button {
-  appearance: none;
-  border: 1px solid rgba(203,213,225,.26);
-  border-radius: 999px;
-  padding: .36rem .66rem;
-  color: #dbeafe;
-  background: rgba(255,255,255,.06);
-  font-size: .72rem;
-  font-weight: 850;
-  cursor: pointer;
-  transition: transform .16s ease, box-shadow .16s ease, background .16s ease, color .16s ease;
-}
-.bok-dashboard-actor-button:hover,
-.bok-dashboard-actor-button:focus,
-.bok-dashboard-actor-mode-button:hover,
-.bok-dashboard-actor-mode-button:focus {
-  transform: translateY(-1px);
+.bok-dashboard-actor-select:focus {
+  outline: none;
   color: #fff;
-  background: rgba(255,255,255,.16);
-  box-shadow: 0 10px 24px rgba(0,0,0,.18);
+  border-color: rgba(255,255,255,.72);
+  background-color: rgba(255,255,255,.14);
+  box-shadow: 0 0 0 3px rgba(255,255,255,.12);
 }
-.bok-dashboard-actor-button.is-active,
-.bok-dashboard-actor-mode-button.is-active {
-  color: #071923;
-  border-color: rgba(255,255,255,.82);
-  background: var(--bok-dashboard-accent, #22c55e);
-  box-shadow: 0 0 0 3px rgba(255,255,255,.12), 0 14px 28px rgba(0,0,0,.22);
+.bok-dashboard-actor-select option {
+  color: #0f172a;
+  background: #f8fafc;
 }
 .bok-dashboard-actor-status {
   margin-left: auto;
@@ -177,6 +166,16 @@
   border-radius: 999px;
   font-size: .78rem;
   font-weight: 800;
+}
+@media (max-width: 64rem) {
+  .bok-dashboard-actor-filter {
+    flex-wrap: wrap;
+    border-radius: 18px;
+  }
+  .bok-dashboard-actor-status {
+    flex: 1 1 100%;
+    margin-left: 0;
+  }
 }
 [data-bok-card].is-bok-filter-hidden {
   display: none !important;
@@ -221,6 +220,9 @@
 }
 .bok-card-purpose {
   min-height: 24rem;
+}
+.bok-card-category-purpose {
+  min-height: auto;
 }
 .bok-card-readiness {
   min-height: 24rem;
@@ -478,6 +480,22 @@ body.bok-dashboard-theme-slate {
   --bok-dashboard-accent: #94a3b8;
   --bok-dashboard-kpi: #1e293b;
 }
+body.bok-dashboard-theme-sand {
+  --bok-dashboard-page-bg: #fbf4e8;
+  --bok-dashboard-page-image: radial-gradient(circle at 12% 4%, rgba(253,230,138,.34), transparent 24rem), radial-gradient(circle at 86% 14%, rgba(251,191,36,.20), transparent 28rem), linear-gradient(135deg, #fbf4e8 0, #fff7ed 48%, #fef3c7 100%);
+  --bok-dashboard-hero-bg: radial-gradient(circle at 8% 12%, rgba(255,251,235,.64), transparent 20rem), radial-gradient(circle at 84% 18%, rgba(253,230,138,.34), transparent 22rem), linear-gradient(135deg, #fef3c7 0%, #fed7aa 48%, #fde68a 100%);
+  --bok-dashboard-purpose-bg: linear-gradient(135deg, #fffbeb 0, #fef3c7 52%, #fed7aa 100%);
+  --bok-dashboard-accent: #d97706;
+  --bok-dashboard-kpi: #92400e;
+}
+body.bok-dashboard-theme-paper {
+  --bok-dashboard-page-bg: #f8fafc;
+  --bok-dashboard-page-image: radial-gradient(circle at 12% 0, rgba(219,234,254,.58), transparent 24rem), radial-gradient(circle at 88% 12%, rgba(226,232,240,.54), transparent 28rem), linear-gradient(135deg, #f8fafc 0, #ffffff 46%, #eef6ff 100%);
+  --bok-dashboard-hero-bg: radial-gradient(circle at 8% 12%, rgba(255,255,255,.72), transparent 20rem), radial-gradient(circle at 84% 18%, rgba(219,234,254,.44), transparent 22rem), linear-gradient(135deg, #ffffff 0%, #f8fafc 52%, #eff6ff 100%);
+  --bok-dashboard-purpose-bg: linear-gradient(135deg, #ffffff 0, #f8fafc 52%, #eff6ff 100%);
+  --bok-dashboard-accent: #3b82f6;
+  --bok-dashboard-kpi: #1d4ed8;
+}
 body[class*="bok-dashboard-theme-"] .body.body-dashboard {
   background: var(--bok-dashboard-page-bg) !important;
   background-image: var(--bok-dashboard-page-image) !important;
@@ -525,6 +543,162 @@ body.bok-dashboard-theme-meadow .bok-purpose-goal {
 }
 body.bok-dashboard-theme-meadow .bok-purpose-node-label {
   background: rgba(34,197,94,.16);
+}
+body.bok-dashboard-theme-sand .bok-dashboard-hero,
+body.bok-dashboard-theme-sand .bok-card-purpose {
+  color: #78350f !important;
+}
+body.bok-dashboard-theme-sand .bok-dashboard-hero h1.page,
+body.bok-dashboard-theme-sand .bok-dashboard-hero-fact strong,
+body.bok-dashboard-theme-sand .bok-dashboard-hero-fact em,
+body.bok-dashboard-theme-sand .bok-dashboard-lead,
+body.bok-dashboard-theme-sand .bok-dashboard-eyebrow,
+body.bok-dashboard-theme-sand .bok-card-purpose .card-title,
+body.bok-dashboard-theme-sand .bok-card-purpose .bok-purpose-vision,
+body.bok-dashboard-theme-sand .bok-card-purpose .bok-purpose-list strong,
+body.bok-dashboard-theme-sand .bok-card-purpose .bok-more,
+body.bok-dashboard-theme-sand .bok-purpose-goal-head strong,
+body.bok-dashboard-theme-sand .bok-purpose-subgoals li,
+body.bok-dashboard-theme-sand .bok-purpose-node-label {
+  color: #78350f !important;
+}
+body.bok-dashboard-theme-sand .bok-dashboard-eyebrow {
+  background: rgba(255,255,255,.46);
+  border-color: rgba(180,83,9,.25);
+}
+body.bok-dashboard-theme-sand .bok-dashboard-hero-fact,
+body.bok-dashboard-theme-sand .bok-purpose-goal {
+  background: rgba(255,255,255,.48);
+  border-color: rgba(180,83,9,.20);
+}
+body.bok-dashboard-theme-sand .bok-purpose-node-label {
+  background: rgba(217,119,6,.14);
+}
+body.bok-dashboard-theme-sand .bok-dashboard-command-center {
+  border-color: rgba(217,119,6,.18);
+  background: rgba(255,251,235,.70);
+  box-shadow: 0 18px 54px rgba(146,64,14,.10), 0 0 0 1px rgba(255,255,255,.62) inset;
+}
+body.bok-dashboard-theme-sand .bok-dashboard-command-center .bok-card {
+  border-color: rgba(217,119,6,.16) !important;
+  box-shadow: 0 14px 34px rgba(146,64,14,.10) !important;
+}
+body.bok-dashboard-theme-sand .bok-dashboard-command-center .bok-card:hover,
+body.bok-dashboard-theme-sand .bok-dashboard-command-center .bok-card:focus-within {
+  box-shadow:
+    0 20px 46px rgba(146,64,14,.14),
+    0 0 0 4px var(--bok-card-ring),
+    0 0 0 9px var(--bok-card-ring-glow) !important;
+}
+body.bok-dashboard-theme-sand .bok-dashboard-actor-filter {
+  border-color: rgba(217,119,6,.20);
+  background: rgba(255,247,237,.82);
+  box-shadow: 0 10px 28px rgba(146,64,14,.08) inset;
+}
+body.bok-dashboard-theme-sand .bok-dashboard-actor-select-label span,
+body.bok-dashboard-theme-sand .bok-dashboard-actor-status {
+  color: #78350f;
+}
+body.bok-dashboard-theme-sand .bok-dashboard-actor-status {
+  background: rgba(255,255,255,.58);
+  border-color: rgba(217,119,6,.22);
+}
+body.bok-dashboard-theme-sand .bok-dashboard-actor-select {
+  color: #78350f;
+  border-color: rgba(217,119,6,.28);
+  background:
+    linear-gradient(45deg, transparent 50%, #92400e 50%) right .82rem center / .42rem .42rem no-repeat,
+    linear-gradient(135deg, #92400e 50%, transparent 50%) right .55rem center / .42rem .42rem no-repeat,
+    rgba(255,255,255,.72);
+}
+body.bok-dashboard-theme-sand .bok-dashboard-actor-select:focus {
+  color: #78350f;
+  border-color: rgba(217,119,6,.62);
+  background-color: rgba(255,255,255,.88);
+  box-shadow: 0 0 0 3px rgba(217,119,6,.14);
+}
+body.bok-dashboard-theme-sand .bok-card-kpi,
+body.bok-dashboard-theme-sand .bok-card-chart {
+  background: linear-gradient(160deg, #ffffff 0, #fff7ed 100%) !important;
+}
+body.bok-dashboard-theme-sand .bok-card-matrix,
+body.bok-dashboard-theme-sand .bok-card-map {
+  background: linear-gradient(160deg, #ffffff 0, #fffbeb 100%) !important;
+}
+body.bok-dashboard-theme-paper .bok-dashboard-hero,
+body.bok-dashboard-theme-paper .bok-card-purpose {
+  color: #0f172a !important;
+  border-color: rgba(148,163,184,.24);
+  box-shadow: 0 16px 36px rgba(15,23,42,.08), 0 0 0 1px rgba(255,255,255,.78) inset;
+}
+body.bok-dashboard-theme-paper .bok-dashboard-hero h1.page,
+body.bok-dashboard-theme-paper .bok-dashboard-hero-fact strong,
+body.bok-dashboard-theme-paper .bok-dashboard-hero-fact em,
+body.bok-dashboard-theme-paper .bok-dashboard-lead,
+body.bok-dashboard-theme-paper .bok-dashboard-eyebrow,
+body.bok-dashboard-theme-paper .bok-card-purpose .card-title,
+body.bok-dashboard-theme-paper .bok-card-purpose .bok-purpose-vision,
+body.bok-dashboard-theme-paper .bok-card-purpose .bok-purpose-list strong,
+body.bok-dashboard-theme-paper .bok-card-purpose .bok-more,
+body.bok-dashboard-theme-paper .bok-purpose-goal-head strong,
+body.bok-dashboard-theme-paper .bok-purpose-subgoals li,
+body.bok-dashboard-theme-paper .bok-purpose-flat-group > strong,
+body.bok-dashboard-theme-paper .bok-purpose-flat-list li,
+body.bok-dashboard-theme-paper .bok-purpose-node-label {
+  color: #0f172a !important;
+}
+body.bok-dashboard-theme-paper .bok-dashboard-eyebrow {
+  background: rgba(255,255,255,.82);
+  border-color: rgba(59,130,246,.22);
+}
+body.bok-dashboard-theme-paper .bok-dashboard-hero-fact,
+body.bok-dashboard-theme-paper .bok-purpose-goal,
+body.bok-dashboard-theme-paper .bok-purpose-flat-group {
+  background: rgba(255,255,255,.74);
+  border-color: rgba(148,163,184,.24);
+}
+body.bok-dashboard-theme-paper .bok-purpose-node-label {
+  background: rgba(59,130,246,.10);
+}
+body.bok-dashboard-theme-paper .body-dashboard .doc {
+  color: #0f172a !important;
+}
+body.bok-dashboard-theme-paper .bok-dashboard-shell::before {
+  background:
+    linear-gradient(rgba(15,23,42,.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15,23,42,.045) 1px, transparent 1px);
+}
+body.bok-dashboard-theme-paper .bok-dashboard-command-center {
+  border-color: rgba(203,213,225,.42);
+  background: rgba(255,255,255,.72);
+  box-shadow: 0 18px 56px rgba(15,23,42,.08), 0 0 0 1px rgba(255,255,255,.78) inset;
+}
+body.bok-dashboard-theme-paper .bok-dashboard-command-center .bok-card {
+  box-shadow: 0 14px 34px rgba(15,23,42,.10) !important;
+}
+body.bok-dashboard-theme-paper .bok-dashboard-command-center .bok-card:hover,
+body.bok-dashboard-theme-paper .bok-dashboard-command-center .bok-card:focus-within {
+  box-shadow:
+    0 20px 46px rgba(15,23,42,.14),
+    0 0 0 4px var(--bok-card-ring),
+    0 0 0 9px var(--bok-card-ring-glow) !important;
+}
+body.bok-dashboard-theme-paper .bok-dashboard-actor-filter {
+  border-color: rgba(203,213,225,.38);
+  background: rgba(255,255,255,.76);
+  box-shadow: 0 10px 28px rgba(15,23,42,.06) inset;
+}
+body.bok-dashboard-theme-paper .bok-dashboard-actor-select-label span,
+body.bok-dashboard-theme-paper .bok-dashboard-actor-status {
+  color: #334155;
+}
+body.bok-dashboard-theme-paper .bok-dashboard-actor-select {
+  color: #0f172a;
+  border-color: rgba(148,163,184,.38);
+  background:
+    linear-gradient(45deg, transparent 50%, #475569 50%) right .82rem center / .42rem .42rem no-repeat,
+    linear-gradient(135deg, #475569 50%, transparent 50%) right .55rem center / .42rem .42rem no-repeat,
+    rgba(255,255,255,.82);
 }
 body[class*="bok-dashboard-theme-"] .navbar-category-dropdown > .navbar-category-menu,
 body[class*="bok-dashboard-theme-"] .navbar-bok-dropdown > .navbar-bok-menu {
@@ -830,6 +1004,56 @@ body.bok-dashboard-theme-meadow .body-dashboard .bok-card-purpose .bok-purpose-u
 body.bok-dashboard-theme-meadow .body-dashboard .bok-card-purpose .bok-more,
 body.bok-dashboard-theme-meadow .body-dashboard .bok-card-purpose .bok-purpose-subgoal-copy small {
   color: #14532d !important;
+}
+body.bok-dashboard-theme-sand .body-dashboard .bok-card-purpose,
+body.bok-dashboard-theme-sand .body-dashboard .bok-card-purpose .card-body,
+body.bok-dashboard-theme-sand .body-dashboard .bok-card-purpose p,
+body.bok-dashboard-theme-sand .body-dashboard .bok-card-purpose li,
+body.bok-dashboard-theme-sand .body-dashboard .bok-card-purpose span,
+body.bok-dashboard-theme-sand .body-dashboard .bok-card-purpose strong,
+body.bok-dashboard-theme-sand .body-dashboard .bok-card-purpose b,
+body.bok-dashboard-theme-sand .body-dashboard .bok-card-purpose a,
+body.bok-dashboard-theme-sand .body-dashboard .bok-card-purpose .card-title,
+body.bok-dashboard-theme-sand .body-dashboard .bok-card-purpose .bok-purpose-vision,
+body.bok-dashboard-theme-sand .body-dashboard .bok-card-purpose .bok-purpose-vision-copy small,
+body.bok-dashboard-theme-sand .body-dashboard .bok-card-purpose .bok-purpose-vision-copy strong,
+body.bok-dashboard-theme-sand .body-dashboard .bok-card-purpose .bok-purpose-goal-head strong,
+body.bok-dashboard-theme-sand .body-dashboard .bok-card-purpose .bok-purpose-flat-group > strong,
+body.bok-dashboard-theme-sand .body-dashboard .bok-card-purpose .bok-purpose-flat-list li,
+body.bok-dashboard-theme-sand .body-dashboard .bok-card-purpose .bok-purpose-subgoals li,
+body.bok-dashboard-theme-sand .body-dashboard .bok-card-purpose .bok-purpose-subgoal-copy span,
+body.bok-dashboard-theme-sand .body-dashboard .bok-card-purpose .bok-purpose-unassigned,
+body.bok-dashboard-theme-sand .body-dashboard .bok-card-purpose .bok-more,
+body.bok-dashboard-theme-sand .body-dashboard .bok-card-purpose .bok-purpose-subgoal-copy small {
+  color: #78350f !important;
+}
+body.bok-dashboard-theme-sand .body-dashboard .bok-card-purpose .bok-purpose-vision-panel,
+body.bok-dashboard-theme-sand .body-dashboard .bok-card-purpose .bok-purpose-goal,
+body.bok-dashboard-theme-sand .body-dashboard .bok-card-purpose .bok-purpose-flat-group,
+body.bok-dashboard-theme-sand .body-dashboard .bok-card-purpose .bok-purpose-unassigned {
+  background: rgba(255,255,255,.56);
+  border-color: rgba(180,83,9,.22);
+}
+body.bok-dashboard-theme-sand .body-dashboard .bok-card-purpose .bok-purpose-node-label {
+  color: #78350f !important;
+  background: rgba(217,119,6,.16);
+}
+body.bok-dashboard-theme-sand .body-dashboard .bok-card-purpose .bok-purpose-tree-label {
+  color: #78350f !important;
+}
+body.bok-dashboard-theme-sand .body-dashboard .bok-card-category-purpose .bok-purpose-tree {
+  background: rgba(255,255,255,.36);
+  border-color: rgba(180,83,9,.26);
+  box-shadow: 0 8px 18px rgba(146,64,14,.06);
+}
+body.bok-dashboard-theme-sand .body-dashboard .bok-card-category-purpose .bok-purpose-goal {
+  background: rgba(255,255,255,.62);
+  border-color: rgba(180,83,9,.38);
+  box-shadow: 0 0 0 3px rgba(180,83,9,.09), 0 8px 18px rgba(146,64,14,.08);
+}
+body.bok-dashboard-theme-sand .body-dashboard .bok-card-category-purpose .bok-purpose-goal::before,
+body.bok-dashboard-theme-sand .body-dashboard .bok-card-category-purpose .bok-purpose-subgoals li::before {
+  background: rgba(180,83,9,.34);
 }
 
 /* Dedicated RDF workspace. This page intentionally avoids Antora article
@@ -1373,6 +1597,31 @@ body.bok-dashboard-theme-meadow .bok-rdf-hero-actions a {
 }
 
 /* Term Hub */
+.bok-glossary-body .toolbar,
+.bok-glossary-body .nav-container,
+.bok-glossary-body aside.toc.sidebar {
+  display: none !important;
+}
+.bok-glossary-main,
+.bok-glossary-body .content,
+.bok-glossary-doc {
+  max-width: none !important;
+}
+.bok-glossary-dashboard {
+  max-width: 118rem;
+}
+.bok-card-glossary-summary .bok-dashboard-grid {
+  grid-template-columns: 1fr;
+}
+.bok-card-glossary-map .bok-term-group-grid {
+  margin-top: 0;
+}
+.bok-card-glossary-recent ol {
+  display: grid;
+  gap: .45rem;
+  margin: 0;
+  padding-left: 1.1rem;
+}
 .bok-term-dashboard .bok-term-group-grid,
 .bok-term-group-grid {
   display: grid;
@@ -1504,18 +1753,24 @@ body.bok-dashboard-theme-meadow .bok-rdf-hero-actions a {
 }
 .bok-card-notification .card-body {
   display: grid;
-  grid-template-columns: minmax(10rem, 14rem) minmax(0, 1fr) auto;
-  gap: .75rem;
+  grid-template-columns: minmax(10rem, 13rem) minmax(0, 1fr) auto;
+  gap: .6rem .85rem;
   align-items: center;
   min-height: 0 !important;
   padding: .72rem .9rem !important;
 }
 .bok-card-notification .card-title {
+  grid-column: 1 / -1;
   margin: 0 !important;
 }
-.bok-card-notification .bok-activity-list,
 .bok-card-notification .bok-card-muted {
   display: none;
+}
+.bok-card-notification .bok-activity-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .42rem;
+  margin: 0;
 }
 .bok-card-notification .bok-card-link {
   margin: 0;
@@ -1577,6 +1832,68 @@ body.bok-dashboard-theme-meadow .bok-rdf-hero-actions a {
 .bok-purpose-vision-copy strong {
   color: #ffffff !important;
   line-height: 1.45;
+}
+.bok-card-category-purpose .card-body {
+  gap: .48rem !important;
+  padding: .82rem .95rem .86rem !important;
+}
+.bok-card-category-purpose .bok-purpose-vision-panel {
+  gap: .5rem;
+  margin-bottom: 0;
+  padding: .62rem .68rem .68rem;
+  border-radius: 14px;
+  box-shadow: 0 8px 18px rgba(0,0,0,.10);
+}
+.bok-card-category-purpose .bok-purpose-vision-copy {
+  gap: .08rem;
+}
+.bok-card-category-purpose .bok-purpose-vision-copy strong {
+  line-height: 1.35;
+}
+.bok-card-category-purpose .bok-purpose-tree {
+  gap: .46rem;
+  margin-top: .42rem;
+  padding: .56rem .6rem .62rem;
+  border: 1px solid rgba(255,255,255,.20);
+  border-radius: 14px;
+  background: rgba(255,255,255,.10);
+  box-shadow: 0 8px 18px rgba(0,0,0,.08);
+}
+.bok-purpose-tree-label {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  color: #fff;
+  font-size: .72rem;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.bok-card-category-purpose .bok-purpose-goal {
+  gap: .42rem;
+  padding: .58rem .68rem .62rem .78rem !important;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.32);
+  background: rgba(255,255,255,.18);
+  box-shadow: 0 0 0 3px rgba(255,255,255,.06), 0 8px 18px rgba(0,0,0,.10);
+}
+.bok-card-category-purpose .bok-purpose-goal::before {
+  left: .52rem;
+  top: 2.35rem;
+  bottom: .72rem;
+  width: 2px;
+  background: rgba(255,255,255,.24);
+}
+.bok-card-category-purpose .bok-purpose-goal-head {
+  gap: .45rem;
+}
+.bok-card-category-purpose .bok-purpose-subgoals {
+  margin: .42rem 0 0 1.72rem;
+  gap: .32rem;
+}
+.bok-card-category-purpose .bok-purpose-subgoals li::before {
+  left: -1rem;
+  width: .72rem;
 }
 body.bok-dashboard-theme-meadow .bok-purpose-vision-panel {
   background: rgba(255,255,255,.46);
@@ -1924,4 +2241,398 @@ body.bok-dashboard-theme-meadow .bok-purpose-vision-copy strong {
     background: #ffffff;
     box-shadow: none;
   }
+}
+
+/* Dashboard readability refinements. */
+.body-dashboard .bok-card .card-title {
+  gap: .72rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.body-dashboard .bok-card .card-title::before {
+  flex: 0 0 auto;
+}
+.body-dashboard .bok-card .card-body {
+  display: flex;
+  flex-direction: column;
+  gap: .82rem;
+}
+.body-dashboard .bok-card .card-title + * {
+  margin-top: .12rem;
+}
+.body-dashboard .bok-card .card-title.bok-card-title-with-action {
+  justify-content: flex-start;
+}
+.body-dashboard .bok-card .card-title.bok-card-title-with-action > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.body-dashboard .bok-card .bok-card-title-link {
+  flex: 0 0 auto;
+  margin-left: auto;
+  color: #0f766e;
+  font-size: .75rem;
+  font-weight: 900;
+  letter-spacing: .04em;
+  text-decoration: none;
+  text-transform: none;
+}
+.body-dashboard .bok-card .bok-card-title-link:hover,
+.body-dashboard .bok-card .bok-card-title-link:focus {
+  color: #0f4f46;
+  text-decoration: underline;
+  text-underline-offset: .18rem;
+}
+.body-dashboard .bok-kpi-link,
+.body-dashboard .bok-kpi-value,
+.body-dashboard .bok-kpi-label,
+.body-dashboard .bok-kpi-note {
+  display: block;
+}
+.body-dashboard .bok-kpi-link {
+  display: grid;
+  gap: .42rem;
+}
+.body-dashboard .bok-kpi-value {
+  margin-bottom: .22rem;
+}
+.body-dashboard .bok-kpi-label {
+  margin-bottom: .18rem;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+.body-dashboard .bok-kpi-note {
+  line-height: 1.45;
+}
+
+/* Scenario dashboard page. */
+.bok-scenario-body .toolbar,
+.bok-scenario-body .nav-container,
+.bok-scenario-body aside.toc.sidebar {
+  display: none !important;
+}
+.bok-scenario-main,
+.bok-scenario-body .content,
+.bok-scenario-doc {
+  max-width: none !important;
+}
+.bok-scenario-dashboard {
+  max-width: 118rem;
+}
+.bok-scenario-metrics {
+  grid-template-columns: 1fr;
+}
+.bok-scenario-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: .9rem;
+}
+.bok-scenario-tile {
+  display: grid;
+  gap: .6rem;
+  padding: .95rem;
+  color: #0f172a;
+  background: linear-gradient(160deg, #ffffff, #f8fafc);
+  border: 1px solid rgba(148,163,184,.24);
+  border-radius: 18px;
+}
+.bok-scenario-tile-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .45rem;
+  align-items: center;
+  justify-content: space-between;
+  color: #64748b;
+  font-size: .78rem;
+  font-weight: 850;
+}
+.bok-scenario-tile h3 {
+  margin: 0;
+  font-size: 1.04rem;
+  line-height: 1.35;
+}
+.bok-scenario-tile p {
+  margin: 0;
+  color: #475569;
+  line-height: 1.55;
+}
+.bok-scenario-terms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem;
+}
+
+/* Bibliography dashboard page. */
+.bok-bibliography-body .toolbar,
+.bok-bibliography-body .nav-container,
+.bok-bibliography-body aside.toc.sidebar {
+  display: none !important;
+}
+.bok-bibliography-main,
+.bok-bibliography-body .content,
+.bok-bibliography-doc {
+  max-width: none !important;
+}
+.bok-bibliography-dashboard {
+  max-width: 118rem;
+}
+.bok-bibliography-metrics {
+  grid-template-columns: 1fr;
+}
+.bok-bibliography-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: .9rem;
+}
+.bok-bibliography-tile {
+  display: grid;
+  gap: .65rem;
+  padding: .95rem;
+  color: #1f2937;
+  background: linear-gradient(160deg, #ffffff 0, #f8fafc 100%);
+  border: 1px solid rgba(148,163,184,.22);
+  border-radius: 18px;
+  box-shadow: 0 12px 28px rgba(15,23,42,.08);
+}
+.bok-bibliography-tile-head,
+.bok-bibliography-meta,
+.bok-bibliography-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .42rem;
+  align-items: center;
+}
+.bok-bibliography-tile-head > span:first-child {
+  color: #0f766e;
+  font-size: .72rem;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.bok-bibliography-tile h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.35;
+}
+.bok-bibliography-tile h3 a {
+  color: #0f172a;
+  text-decoration: none;
+}
+.bok-bibliography-tile h3 a:hover {
+  text-decoration: underline;
+}
+.bok-bibliography-meta {
+  color: #475569;
+  font-size: .82rem;
+}
+.bok-bibliography-meta code {
+  white-space: normal;
+}
+.bok-bibliography-tile p {
+  margin: 0;
+  color: #475569;
+  line-height: 1.55;
+}
+.bok-bibliography-actions a {
+  font-weight: 850;
+}
+
+/* RDF tabbed workspace. */
+.bok-rdf-panel-title {
+  margin: 0 0 .85rem;
+  color: #0f172a;
+  font-size: .92rem;
+  font-weight: 950;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.bok-rdf-view-switch {
+  border: 1px solid rgba(255,255,255,.16);
+}
+.bok-rdf-view-switch button[role="tab"] {
+  min-width: 7.4rem;
+}
+.bok-rdf-view-switch button[aria-selected="true"] {
+  color: #0f172a;
+  background: #f8fafc;
+}
+
+/* Header navigation should read as navigation text, not rounded action buttons. */
+.navbar-category-dropdown > .navbar-category-toggle,
+.navbar-bok-dropdown > .navbar-bok-toggle {
+  min-height: 0 !important;
+  padding: .5rem .75rem !important;
+  color: inherit !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+.navbar-category-dropdown > .navbar-category-toggle:hover,
+.navbar-category-dropdown > .navbar-category-toggle:focus,
+.navbar-bok-dropdown > .navbar-bok-toggle:hover,
+.navbar-bok-dropdown > .navbar-bok-toggle:focus {
+  color: inherit !important;
+  background: transparent !important;
+  text-decoration: underline;
+  text-underline-offset: .18rem;
+}
+@media (max-width: 64rem) {
+  .navbar-category-dropdown > .navbar-category-toggle,
+  .navbar-bok-dropdown > .navbar-bok-toggle {
+    width: 100%;
+    justify-content: flex-start;
+    color: #1f2933 !important;
+  }
+}
+
+/* KPI cards: centered highlight numbers read better as dashboard metrics. */
+.body-dashboard .bok-card-kpi .card-body {
+  align-items: center !important;
+  text-align: center;
+}
+.body-dashboard .bok-card-kpi .bok-kpi-link {
+  justify-items: center;
+  text-align: center;
+}
+.body-dashboard .bok-card-kpi .bok-kpi-value,
+.body-dashboard .bok-card-kpi .bok-kpi-label,
+.body-dashboard .bok-card-kpi .bok-kpi-note {
+  width: 100%;
+  text-align: center;
+}
+
+/* Dashboard hero: separate marker, title, and summary as distinct zones. */
+.body-dashboard .bok-dashboard-hero-copy {
+  display: grid !important;
+  align-content: center;
+  gap: 1.1rem;
+}
+.body-dashboard .bok-dashboard-eyebrow {
+  margin: 0 !important;
+  align-self: start;
+}
+.body-dashboard .bok-dashboard-hero h1.page {
+  margin: .2rem 0 .1rem !important;
+}
+.body-dashboard .bok-dashboard-lead {
+  max-width: 58rem;
+  margin: .2rem 0 0 !important;
+  padding: .85rem 0 .15rem 1.05rem;
+  border-left: 4px solid rgba(191,231,255,.48);
+  line-height: 1.78;
+}
+
+/* Layout corrections: use full-width separators and keep Recent Changes compact. */
+.body-dashboard .bok-card .card-title {
+  width: 100%;
+  padding-bottom: .56rem !important;
+  border-bottom: 1px solid rgba(148,163,184,.28);
+}
+.body-dashboard .bok-card-purpose .card-title {
+  border-bottom-color: rgba(255,255,255,.24);
+}
+.body-dashboard .bok-card-notification .card-body {
+  grid-template-columns: minmax(10rem, 13rem) minmax(0, 1fr) auto;
+  gap: .6rem .85rem !important;
+}
+.body-dashboard .bok-card-notification .card-title {
+  grid-column: 1 / -1;
+  padding-bottom: 0 !important;
+  border-bottom: 0;
+}
+.body-dashboard .bok-card-notification .bok-activity-list {
+  display: grid;
+  gap: .2rem;
+  margin: 0;
+}
+.body-dashboard .bok-card-notification .bok-activity-list .list-group-item {
+  display: grid;
+  grid-template-columns: 6.3rem 5.1rem minmax(0, 1fr);
+  align-items: center;
+  gap: .58rem;
+  width: 100%;
+  margin: 0;
+  padding: .32rem 0;
+  border: 0;
+  border-bottom: 1px solid rgba(148,163,184,.22);
+  border-radius: 0;
+  background: transparent;
+  font-size: .82rem;
+  line-height: 1.35;
+}
+.body-dashboard .bok-card-notification .bok-activity-list-with-category .list-group-item {
+  grid-template-columns: 6.3rem 5.1rem minmax(5.8rem, .55fr) minmax(0, 1fr);
+}
+.body-dashboard .bok-card-notification .bok-activity-list .list-group-item a,
+.body-dashboard .bok-card-notification .bok-activity-list .list-group-item time {
+  white-space: nowrap;
+}
+.body-dashboard .bok-card-notification .bok-activity-list .list-group-item time {
+  color: #64748b;
+  font-size: .76rem;
+  font-weight: 850;
+}
+.body-dashboard .bok-card-notification .bok-activity-kind {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  padding: .12rem .42rem;
+  border-radius: 999px;
+  color: #0f766e;
+  background: rgba(20,184,166,.14);
+  font-size: .72rem;
+  font-weight: 850;
+  white-space: nowrap;
+}
+.body-dashboard .bok-card-notification .bok-activity-category {
+  display: block;
+  min-width: 0;
+  color: #334155;
+  font-size: .78rem;
+  font-weight: 850;
+  white-space: nowrap;
+}
+.body-dashboard .bok-card-notification .bok-activity-list .list-group-item span,
+.body-dashboard .bok-card-notification .bok-activity-list .list-group-item a {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.body-dashboard .bok-card-notification .bok-card-link-compact {
+  margin-top: .2rem;
+  font-size: .78rem;
+  text-align: right;
+}
+@media (max-width: 64rem) {
+  .body-dashboard .bok-card-notification .card-body {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+  .body-dashboard .bok-card-notification .bok-card-link {
+    white-space: normal;
+  }
+}
+
+.bok-bibliography-entry .bok-bibliography-metadata-table {
+  width: 100%;
+  margin: 1rem 0 1.35rem;
+  border-collapse: collapse;
+  font-size: .94rem;
+}
+.bok-bibliography-entry .bok-bibliography-metadata-table th,
+.bok-bibliography-entry .bok-bibliography-metadata-table td {
+  padding: .55rem .75rem;
+  border-top: 1px solid rgba(148,163,184,.36);
+  vertical-align: top;
+}
+.bok-bibliography-entry .bok-bibliography-metadata-table th {
+  width: 12rem;
+  color: #334155;
+  background: rgba(248,250,252,.72);
+  font-weight: 800;
+}
+.bok-bibliography-entry .bok-bibliography-metadata-table td {
+  color: #1f2937;
 }

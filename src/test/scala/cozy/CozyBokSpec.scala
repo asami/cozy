@@ -261,6 +261,24 @@ class CozyBokSpec
           dashboardcss should include(".bok-purpose-vision-panel")
           dashboardcss should include(".bok-purpose-vision-copy")
           dashboardcss should include(".bok-purpose-subgoal-copy")
+          dashboardcss should include(".navbar-category-dropdown > .navbar-category-toggle")
+          dashboardcss should include("background: transparent")
+          dashboardcss should include("border-radius: 0")
+          dashboardcss should include(
+            "KPI cards: centered highlight numbers read better as dashboard metrics"
+          )
+          dashboardcss should include("align-items: center !important")
+          dashboardcss should include(
+            "Dashboard hero: separate marker, title, and summary as distinct zones"
+          )
+          dashboardcss should include("gap: 1.1rem")
+          dashboardcss should include("border-left: 4px solid rgba(191,231,255,.48)")
+          dashboardcss should include(
+            "Layout corrections: use full-width separators and keep Recent Changes compact"
+          )
+          dashboardcss should include(
+            "grid-template-columns: minmax(10rem, 13rem) minmax(0, 1fr) auto"
+          )
           _zip_text(
             dir.resolve("src/main/antora-ui/build/ui-bundle.zip"),
             "js/site.js"
@@ -727,8 +745,11 @@ class CozyBokSpec
           _read(dir.resolve("website.d/index.html")) should include(
             """class="card bok-card bok-card-activity bok-card-notification""""
           )
-          _read(dir.resolve("website.d/index.html")) should include(
+          _read(dir.resolve("website.d/index.html")) should not include (
             """class="bok-notification-summary""""
+          )
+          _read(dir.resolve("website.d/index.html")) should include(
+            """class="bok-activity-kind""""
           )
           _read(dir.resolve("website.d/index.html")) should include(
             """class="card bok-card bok-card-actions""""
@@ -961,13 +982,16 @@ class CozyBokSpec
             """class="navbar-link navbar-bok-toggle" href="#">BoK</a>"""
           )
           _read(dir.resolve("website.d/index.html")) should include(
-            """class="navbar-item navbar-dropdown-item" href="glossary/index.html">Glossary</a>"""
+            """class="navbar-item navbar-dropdown-item" href="glossary/index.html">用語集</a>"""
           )
           _read(dir.resolve("website.d/index.html")) should include(
-            """class="navbar-item navbar-dropdown-item" href="history/index.html">History</a>"""
+            """class="navbar-item navbar-dropdown-item" href="history/index.html">履歴</a>"""
           )
           _read(dir.resolve("website.d/index.html")) should include(
-            """class="navbar-item navbar-dropdown-item" href="manual/index.html">BoK Manual</a>"""
+            """class="navbar-item navbar-dropdown-item" href="manual/index.html">BoKマニュアル</a>"""
+          )
+          _read(dir.resolve("website.d/index.html")) should include(
+            """class="navbar-item navbar-dropdown-item" href="bibliography/index.html">参考情報</a>"""
           )
           _read(dir.resolve("website.d/index.html")) should include(
             """class="navbar-item has-dropdown is-hoverable navbar-category-nav navbar-category-dropdown""""
@@ -1014,6 +1038,9 @@ class CozyBokSpec
             "RDF Graph"
           )
           _read(dir.resolve("website.d/rdf/index.html")) should include(
+            """<body class="article bok-dashboard-theme-paper">"""
+          )
+          _read(dir.resolve("website.d/rdf/index.html")) should include(
             """class="body body-dashboard bok-rdf-body""""
           )
           _read(dir.resolve("website.d/rdf/index.html")) should include(
@@ -1029,6 +1056,9 @@ class CozyBokSpec
             """data-rdf-view="graph""""
           )
           _read(dir.resolve("website.d/rdf/index.html")) should include(
+            """role="tab" aria-selected="true" aria-controls="bok-rdf-panel-graph" data-rdf-view="graph""""
+          )
+          _read(dir.resolve("website.d/rdf/index.html")) should include(
             """data-rdf-view="information""""
           )
           _read(dir.resolve("website.d/rdf/index.html")) should include(
@@ -1036,6 +1066,9 @@ class CozyBokSpec
           )
           _read(dir.resolve("website.d/rdf/index.html")) should include(
             """data-rdf-panel="information""""
+          )
+          _read(dir.resolve("website.d/rdf/index.html")) should include(
+            """data-rdf-panel="triples" role="tabpanel""""
           )
           _read(dir.resolve("website.d/rdf/index.html")) should include(
             "bok-rdf-information-view"
@@ -1345,7 +1378,10 @@ class CozyBokSpec
           ) should include("""class="row g-3"""")
           _read(
             dir.resolve("website.d/architecture/index.html")
-          ) should include("""class="card bok-card bok-card-purpose"""")
+          ) should include("""class="card bok-card bok-card-purpose bok-card-category-purpose"""")
+          _read(
+            dir.resolve("website.d/architecture/index.html")
+          ) should include("""class="col-12 col-xl-8"""")
           _read(
             dir.resolve("website.d/architecture/index.html")
           ) should include("""class="card bok-card bok-card-readiness"""")
@@ -1377,6 +1413,9 @@ class CozyBokSpec
           _read(
             dir.resolve("website.d/architecture/index.html")
           ) should include("""class="bok-purpose-vision-panel"""")
+          _read(
+            dir.resolve("website.d/architecture/index.html")
+          ) should include("""class="bok-purpose-tree-label"><span class="bok-purpose-node-label">G</span><strong>Goals</strong>""")
           _read(
             dir.resolve("website.d/architecture/index.html")
           ) should include("Make architecture decisions traceable.")
@@ -1447,7 +1486,7 @@ class CozyBokSpec
           ) should not include ("""class="toc sidebar"""")
           _read(
             dir.resolve("website.d/architecture/index.html")
-          ) should include("""<a href="../glossary/index.html">Glossary</a>""")
+          ) should include("""<a href="../glossary/index.html">用語集</a>""")
           _read(
             dir.resolve("website.d/architecture/index.html")
           ) should include("""href="../glossary/architecture/runtime.html"""")
@@ -1473,17 +1512,22 @@ class CozyBokSpec
           _read(
             dir.resolve("website.d/architecture/index.html")
           ) should include(
-            """class="navbar-item navbar-dropdown-item" href="../glossary/index.html">Glossary</a>"""
+            """class="navbar-item navbar-dropdown-item" href="../glossary/index.html">用語集</a>"""
           )
           _read(
             dir.resolve("website.d/architecture/index.html")
           ) should include(
-            """class="navbar-item navbar-dropdown-item" href="../history/index.html">History</a>"""
+            """class="navbar-item navbar-dropdown-item" href="../history/index.html">履歴</a>"""
           )
           _read(
             dir.resolve("website.d/architecture/index.html")
           ) should include(
-            """class="navbar-item navbar-dropdown-item" href="../manual/index.html">BoK Manual</a>"""
+            """class="navbar-item navbar-dropdown-item" href="../manual/index.html">BoKマニュアル</a>"""
+          )
+          _read(
+            dir.resolve("website.d/architecture/index.html")
+          ) should include(
+            """class="navbar-item navbar-dropdown-item" href="../bibliography/index.html">参考情報</a>"""
           )
           _read(
             dir.resolve("website.d/architecture/index.html")
@@ -1630,9 +1674,9 @@ class CozyBokSpec
           )
           _read(
             dir.resolve("website.d/architecture/index.html")
-          ) should include("""href="../history/2026.html">History</a>""")
+          ) should include("""href="../history/2026.html">履歴</a>""")
           _read(dir.resolve("website.d/glossary/index.html")) should include(
-            """href="../history/2026.html">History</a>"""
+            """href="../history/2026.html">履歴</a>"""
           )
           _read(dir.resolve("website.d/ja/glossary/index.html")) should include(
             """href="../../history/2026.html">History</a>"""

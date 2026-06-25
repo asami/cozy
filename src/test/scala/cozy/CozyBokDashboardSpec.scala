@@ -1,8 +1,10 @@
 package cozy
 
 import cozy.bok.CozyBok
+import java.time.Instant
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
+import java.nio.file.attribute.FileTime
 import java.util.zip.{ZipEntry, ZipInputStream, ZipOutputStream}
 import scala.collection.JavaConverters._
 import org.scalatest.GivenWhenThen
@@ -10,7 +12,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jun. 21, 2026
- * @version Jun. 24, 2026
+ * @version Jun. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokDashboardSpec
@@ -58,6 +60,7 @@ class CozyBokDashboardSpec
             """name: Architecture
               |title: Architecture
               |description: Architecture category.
+              |vision: "Keep architecture knowledge compact and navigable."
               |""".stripMargin
           )
           _write(
@@ -115,26 +118,15 @@ class CozyBokDashboardSpec
             """data-bok-dashboard="true" data-bok-default-actor="reader" data-bok-default-card-mode="hide""""
           )
           home should include(
-            """data-bok-actor-filter="all" aria-pressed="false""""
+            """<select class="bok-dashboard-actor-select" data-bok-actor-filter"""
           )
+          home should include("""<option value="reader" selected>""")
+          home should include("""<option value="site_administrator">""")
           home should include(
-            """data-bok-actor-filter="reader" aria-pressed="true""""
+            """<select class="bok-dashboard-actor-select" data-bok-actor-mode"""
           )
-          home should include(
-            """data-bok-actor-filter="contributor" aria-pressed="false""""
-          )
-          home should include(
-            """data-bok-actor-filter="project_manager" aria-pressed="false""""
-          )
-          home should include(
-            """data-bok-actor-filter="site_administrator" aria-pressed="false""""
-          )
-          home should include(
-            """data-bok-actor-mode="hide" aria-pressed="true""""
-          )
-          home should include(
-            """data-bok-actor-mode="dim" aria-pressed="false""""
-          )
+          home should include("""<option value="hide" selected>""")
+          home should include("""<option value="dim">""")
           home should include("""data-bok-status-all=""")
           home should include("""data-bok-status-filtered="{2}:""")
           home should include("""data-bok-status-dimmed="{2}:""")
@@ -146,6 +138,11 @@ class CozyBokDashboardSpec
           home should include("""actor === "site_administrator"""")
           home should include("""var validModes = ["hide", "dim"]""")
           home should include("""params.get("display") || "hide"""")
+          home should include(
+            """control.tagName === "SELECT" ? "change" : "click"""
+          )
+          home should include("""control.value = actor""")
+          home should include("""control.value = mode""")
           home should include(
             """root.setAttribute("data-bok-card-mode", mode)"""
           )
@@ -173,7 +170,23 @@ class CozyBokDashboardSpec
           home should include(
             """class="card bok-card bok-card-activity bok-card-notification""""
           )
-          home should include("""class="bok-notification-summary"""")
+          home should not include ("""class="bok-notification-summary"""")
+          home should include ("""class="card-title bok-card-title-with-action"""")
+          home should include ("""class="bok-card-title-link" href="history/index.html"""")
+          home should include("""class="list-group bok-activity-list"""")
+          home should include("""class="bok-activity-kind"""")
+          home should include(
+            """<div class="col-12 col-xl-4" data-bok-card="true">
+  <section class="card bok-card bok-card-quality""""
+          )
+          home should include(
+            """<div class="col-12 col-md-6 col-xl-6" data-bok-card="true">
+  <section class="card bok-card bok-card-readiness""""
+          )
+          home should include(
+            """<div class="col-12 col-md-6 col-xl-6" data-bok-card="true">
+  <section class="card bok-card bok-card-actions""""
+          )
           home should include("Home Source Headline")
           home should include("Home narrative brief.")
           home should include("""id="narrative"""")
@@ -220,6 +233,16 @@ class CozyBokDashboardSpec
           dashboardstart should be < narrativestart
           notificationstart should be < matrixstart
           matrixstart should be < readinessstart
+          val notification = home.substring(notificationstart, matrixstart)
+          notification should include ("2026-06-23")
+          notification should include ("2026-06-22")
+          notification should include ("2026-06-21")
+          notification should include ("2026-06-20")
+          notification should include ("2026-06-19")
+          notification should include ("""class="bok-activity-kind"""")
+          notification should not include ("2026-06-18")
+          notification should not include ("2026-06-17")
+          notification should not include ("2026-05-01")
           home.substring(
             dashboardstart,
             narrativestart
@@ -254,6 +277,125 @@ class CozyBokDashboardSpec
           category should not include ("""<a href="#narrative">Narrative</a>""")
           category should include("Architecture narrative source text.")
           category should include("Make architecture decisions reviewable.")
+        }
+      }
+
+      "fallback to source document activity when dashboard increment metadata is empty" in {
+        _with_temp_dir("cozy-bok-dashboard-recent-fallback") { dir =>
+          Given("a BoK source tree with recent source documents and empty dashboard increments")
+          _write(
+            dir.resolve("src/main/doxsite/site.conf"),
+            """site {
+              |  output {
+              |    locale_mode = "single_locale_root"
+              |  }
+              |}
+              |""".stripMargin
+          )
+          _write(
+            dir.resolve("src/main/doxsite/architecture/category.yaml"),
+            """name: Architecture
+              |title: Architecture
+              |description: Architecture category.
+              |vision: "Keep architecture changes visible."
+              |""".stripMargin
+          )
+          val categoryindex = dir.resolve("src/main/doxsite/architecture/index.dox")
+          _write(
+            categoryindex,
+            """Architecture
+              |============
+              |
+              |# Overview
+              |
+              |Architecture category top.
+              |""".stripMargin
+          )
+          _touch(categoryindex, "2026-06-24T00:00:00Z")
+          Vector(
+            "old" -> "2026-05-01T00:00:00Z",
+            "sixth" -> "2026-06-18T00:00:00Z",
+            "fifth" -> "2026-06-19T00:00:00Z",
+            "fourth" -> "2026-06-20T00:00:00Z",
+            "third" -> "2026-06-21T00:00:00Z",
+            "second" -> "2026-06-22T00:00:00Z",
+            "first" -> "2026-06-23T00:00:00Z"
+          ).foreach {
+            case (name, instant) =>
+              val file = dir.resolve(s"src/main/doxsite/architecture/${name}.dox")
+              _write(
+                file,
+                s"""Recent ${name}
+                   |=============
+                   |
+                   |# Overview
+                   |
+                   |Recent ${name} body.
+                   |""".stripMargin
+              )
+              _touch(file, instant)
+          }
+          val scenario = dir.resolve("src/main/doxsite/scenario/architecture/recent-scenario.dox")
+          _write(
+            scenario,
+            """# HEAD
+              |
+              |title = "Recent Scenario"
+              |brief = "Recent scenario summary."
+              |scenario.type = "simple"
+              |scenario.id = "scenario:recent"
+              |
+              |# Overview
+              |
+              |- [start] Reader: open scenario knowledge
+              |""".stripMargin
+          )
+          _touch(scenario, "2026-06-24T00:00:00Z")
+          val bibliography = dir.resolve("src/main/doxsite/bibliography/architecture/recent-reference.bib.dox")
+          _write(
+            bibliography,
+            """Recent Reference
+              |================
+              |
+              |# Overview
+              |
+              |Reference knowledge.
+              |""".stripMargin
+          )
+          _touch(bibliography, "2026-06-25T00:00:00Z")
+          val config = CozyBok.BuildConfig.create(
+            List(dir.toString, "--strategy", "preview")
+          )
+
+          When("Cozy builds the dashboard")
+          CozyBok.build(config, new EmptyIncrementsDashboardRunner)
+
+          Then("the Home recent changes card shows the latest five source documents")
+          val home = _read(dir.resolve("website.d/index.html"))
+          val notificationstart = home.indexOf("""bok-card-notification""")
+          val matrixstart = home.indexOf("""bok-card-matrix""")
+          val notification = home.substring(notificationstart, matrixstart)
+          notification should include ("Recent Reference")
+          notification should include ("Recent Scenario")
+          notification should include ("Recent first")
+          notification should include ("Recent second")
+          notification should include ("Recent third")
+          notification should include ("""class="bok-activity-category">Architecture</span>""")
+          notification should include ("""bok-activity-list-with-category"""")
+          notification should not include ("Recent fourth")
+          notification should not include ("Recent fifth")
+          notification should not include ("Recent sixth")
+          notification should not include ("Recent old")
+
+          And("the Category recent changes card includes category-local scenario and bibliography metadata")
+          val category = _read(dir.resolve("website.d/architecture/index.html"))
+          val categorystart = category.indexOf("""bok-card-notification""")
+          val categoryend = category.indexOf("""bok-card-related""")
+          val categorynotification = category.substring(categorystart, categoryend)
+          categorynotification should include ("Recent Reference")
+          categorynotification should include ("Recent Scenario")
+          categorynotification should include ("""../bibliography/architecture/recent-reference.html""")
+          categorynotification should include ("""../scenario/architecture/recent-scenario.html""")
         }
       }
 
@@ -496,14 +638,16 @@ class CozyBokDashboardSpec
           home.indexOf("""bok-card-purpose""") should be < home.indexOf(
             """bok-card-readiness"""
           )
-          _read(
+          val category = _read(
             dir.resolve("website.d/architecture/index.html")
-          ) should include(
-            """<body class="article bok-dashboard-theme-ocean">"""
           )
+          category should include(
+            """<body class="article bok-dashboard-theme-sand">"""
+          )
+          category should include("""class="card bok-card bok-card-activity bok-card-notification"""")
 
           And(
-            "the generated CSS provides selectable groups and keeps the Category dropdown inside the viewport"
+            "the generated CSS provides dashboard groups and keeps the Category dropdown inside the viewport"
           )
           val css = _read(
             Paths.get(
@@ -516,6 +660,27 @@ class CozyBokDashboardSpec
           css should include("body.bok-dashboard-theme-ocean")
           css should include("body.bok-dashboard-theme-ember")
           css should include("body.bok-dashboard-theme-slate")
+          css should include("body.bok-dashboard-theme-sand")
+          css should include("body.bok-dashboard-theme-sand .bok-dashboard-command-center")
+          css should include("background: rgba(255,251,235,.70)")
+          css should include("body.bok-dashboard-theme-sand .bok-dashboard-actor-filter")
+          css should include("background: rgba(255,247,237,.82)")
+          css should include("body.bok-dashboard-theme-sand .bok-dashboard-actor-select")
+          css should include("body.bok-dashboard-theme-sand .body-dashboard .bok-card-purpose .bok-purpose-vision-copy strong")
+          css should include("color: #78350f !important")
+          css should include(".bok-card-category-purpose .bok-purpose-vision-panel")
+          css should include(".bok-card-category-purpose .bok-purpose-tree")
+          css should include(".bok-purpose-tree-label")
+          css should include(".bok-card-category-purpose .bok-purpose-goal")
+          css should include(".bok-card-category-purpose {\n  min-height: auto")
+          css should include("padding: .82rem .95rem .86rem")
+          css should include("padding: .56rem .6rem .62rem")
+          css should include("body.bok-dashboard-theme-sand .body-dashboard .bok-card-category-purpose .bok-purpose-tree")
+          css should include("body.bok-dashboard-theme-sand .body-dashboard .bok-card-category-purpose .bok-purpose-goal")
+          css should include("body.bok-dashboard-theme-paper")
+          css should include("body.bok-dashboard-theme-paper .bok-dashboard-command-center")
+          css should include("background: rgba(255,255,255,.72)")
+          css should include("body.bok-dashboard-theme-paper .bok-dashboard-command-center .bok-card")
           css should include(
             "Card accents: keep the surface border stable and draw an outer highlight ring"
           )
@@ -526,7 +691,9 @@ class CozyBokDashboardSpec
           css should include("transform: translateY(-5px) scale(1.006)")
           css should include(".bok-card::before")
           css should include("display: none")
-          css should include(".bok-dashboard-actor-mode-button")
+          css should include(".bok-dashboard-actor-select-label")
+          css should include(".bok-dashboard-actor-select")
+          css should include("flex-wrap: nowrap")
           css should include("[data-bok-card].is-bok-filter-hidden")
           css should include("display: none !important")
           css should include("[data-bok-card].is-bok-filter-dimmed")
@@ -553,7 +720,10 @@ class CozyBokDashboardSpec
           css should include("color: #f8fafc !important;")
           css should include(".bok-rdf-workspace")
           css should include(".bok-rdf-view-switch")
+          css should include("""button[role="tab"]""")
+          css should include("""button[aria-selected="true"]""")
           css should include(".bok-rdf-panel")
+          css should include(".bok-rdf-panel-title")
           css should include(".bok-rdf-panels")
           css should include(".bok-rdf-graph-canvas")
           css should include(".bok-rdf-graph-svg")
@@ -577,6 +747,38 @@ class CozyBokDashboardSpec
           css should include(".bok-rdf-graph-node-role-focus")
           css should include(".bok-rdf-graph-node-role-schema")
           css should include(".bok-rdf-triples-view")
+          css should include("Dashboard readability refinements")
+          css should include("white-space: nowrap")
+          css should include(
+            "KPI cards: centered highlight numbers read better as dashboard metrics"
+          )
+          css should include(".body-dashboard .bok-card-kpi .card-body")
+          css should include("align-items: center !important")
+          css should include("text-align: center")
+          css should include(
+            "Dashboard hero: separate marker, title, and summary as distinct zones"
+          )
+          css should include(".body-dashboard .bok-dashboard-hero-copy")
+          css should include("gap: 1.1rem")
+          css should include("border-left: 4px solid rgba(191,231,255,.48)")
+          css should include(
+            "Layout corrections: use full-width separators and keep Recent Changes compact"
+          )
+          css should include("border-bottom: 1px solid rgba(148,163,184,.28)")
+          css should include(
+            "grid-template-columns: minmax(10rem, 13rem) minmax(0, 1fr) auto"
+          )
+          css should include(".body-dashboard .bok-card-notification .bok-activity-list")
+          css should include("grid-template-columns: 6.3rem 5.1rem minmax(0, 1fr)")
+          css should include(".bok-activity-list-with-category")
+          css should include(".body-dashboard .bok-card-notification .bok-activity-category")
+          css should include(".body-dashboard .bok-card-notification .bok-activity-kind")
+          css should include(".body-dashboard .bok-card .bok-card-title-link")
+          css should include(".bok-scenario-grid")
+          css should include(".bok-scenario-tile")
+          css should include("Header navigation should read as navigation text")
+          css should include("background: transparent !important")
+          css should include("border-radius: 0 !important")
           _zip_text(
             dir.resolve("antora.d/ui-bundle.zip"),
             "css/cozy-bok-dashboard.css"
@@ -872,6 +1074,35 @@ class CozyBokDashboardSpec
     }
   }
 
+  private class EmptyIncrementsDashboardRunner extends RecordingRunner {
+    override def run(command: Vector[String], cwd: Path): Unit = {
+      super.run(command, cwd)
+      if (command.take(2) == Vector("dox", "site")) {
+        _write(
+          cwd.resolve("doxsite.d/metadata/dashboard/site.json"),
+          _empty_increments_dashboard_json
+        )
+        _write(
+          cwd.resolve("doxsite.d/metadata/rdf/graph.json"),
+          _rdf_graph_json
+        )
+        _write(
+          cwd.resolve("doxsite.d/metadata/documents/fragments.json"),
+          """{"fragments": []}"""
+        )
+        _write(
+          cwd.resolve("doxsite.d/metadata/bibliography/bibliography.json"),
+          _recent_bibliography_json
+        )
+        _write(
+          cwd.resolve("doxsite.d/site.ttl"),
+          "@prefix ex: <https://example.com/> .\n"
+        )
+        _write(cwd.resolve("doxsite.d/site.jsonld"), "{\"@graph\":[]}\n")
+      }
+    }
+  }
+
   private class LocaleFragmentRunner extends RecordingRunner {
     override def run(command: Vector[String], cwd: Path): Unit = {
       super.run(command, cwd)
@@ -929,7 +1160,14 @@ class CozyBokDashboardSpec
       |  "increments": {
       |    "scale": "day",
       |    "buckets": [
-      |      {"label": "2026-06-21", "start_date": "2026-06-21", "end_date": "2026-06-21", "count": 2, "article_count": 1, "glossary_term_count": 1}
+      |      {"label": "2026-05-01", "start_date": "2026-05-01", "end_date": "2026-05-01", "count": 9, "article_count": 9, "glossary_term_count": 0},
+      |      {"label": "2026-06-17", "start_date": "2026-06-17", "end_date": "2026-06-17", "count": 0, "article_count": 0, "glossary_term_count": 0},
+      |      {"label": "2026-06-18", "start_date": "2026-06-18", "end_date": "2026-06-18", "count": 1, "article_count": 1, "glossary_term_count": 0},
+      |      {"label": "2026-06-19", "start_date": "2026-06-19", "end_date": "2026-06-19", "count": 2, "article_count": 1, "glossary_term_count": 1},
+      |      {"label": "2026-06-20", "start_date": "2026-06-20", "end_date": "2026-06-20", "count": 3, "article_count": 2, "glossary_term_count": 1},
+      |      {"label": "2026-06-21", "start_date": "2026-06-21", "end_date": "2026-06-21", "count": 4, "article_count": 2, "glossary_term_count": 2},
+      |      {"label": "2026-06-22", "start_date": "2026-06-22", "end_date": "2026-06-22", "count": 5, "article_count": 3, "glossary_term_count": 2},
+      |      {"label": "2026-06-23", "start_date": "2026-06-23", "end_date": "2026-06-23", "count": 6, "article_count": 3, "glossary_term_count": 3}
       |    ]
       |  },
       |  "categories": [
@@ -981,6 +1219,51 @@ class CozyBokDashboardSpec
       |}
       |""".stripMargin
 
+  private def _empty_increments_dashboard_json: String =
+    """{
+      |  "counts": {
+      |    "category_count": 1,
+      |    "article_count": 7,
+      |    "glossary_term_count": 0,
+      |    "total_item_count": 7
+      |  },
+      |  "rdf": {
+      |    "resource_count": 0,
+      |    "triple_count": 0,
+      |    "subject_count": 0,
+      |    "predicate_count": 0
+      |  },
+      |  "increments": {
+      |    "scale": "day",
+      |    "buckets": []
+      |  },
+      |  "categories": []
+      |}
+      |""".stripMargin
+
+  private def _recent_bibliography_json: String =
+    """{
+      |  "entries": [
+      |    {
+      |      "id": "bib:recent-reference",
+      |      "key": "recentReference",
+      |      "slug": "recent-reference",
+      |      "entry_type": "book",
+      |      "title": "Recent Reference",
+      |      "summary": "Recent reference summary.",
+      |      "category": "architecture",
+      |      "source_path": "bibliography/architecture/recent-reference.bib.dox",
+      |      "public_path": "bibliography/architecture/recent-reference.html",
+      |      "authors": ["Example Author"],
+      |      "published_at": "2026",
+      |      "source_kind": "internal",
+      |      "refs": ["bib:recent-reference"],
+      |      "needs_resolution": false
+      |    }
+      |  ]
+      |}
+      |""".stripMargin
+
   private def _rdf_graph_json: String =
     """{
       |  "nodes": [
@@ -1008,6 +1291,9 @@ class CozyBokDashboardSpec
     Files.write(path, content.getBytes(StandardCharsets.UTF_8))
     path
   }
+
+  private def _touch(path: Path, instant: String): Unit =
+    Files.setLastModifiedTime(path, FileTime.from(Instant.parse(instant)))
 
   private def _read(path: Path): String =
     new String(Files.readAllBytes(path), StandardCharsets.UTF_8)
