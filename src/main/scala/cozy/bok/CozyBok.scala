@@ -207,6 +207,10 @@ private[cozy] object CozyBok {
     termRefs: Vector[TermReference],
     rdfRefs: Vector[TermRdfReference],
     videoRefs: Vector[TermReference],
+    termType: String,
+    event: Option[TermEvent],
+    actor: Option[TermActor],
+    role: Option[TermRole],
     quality: TermQuality
   ) {
     def categorySlug: String = category.getOrElse("glossary")
@@ -220,6 +224,22 @@ private[cozy] object CozyBok {
   }
   private final case class TermReference(title: String, path: String, relation: String)
   private final case class TermRdfReference(resource: String, label: String, predicate: Option[String], direction: String)
+  private final case class TermEvent(
+    occurredAt: Option[String],
+    startAt: Option[String],
+    endAt: Option[String],
+    location: Option[String],
+    actors: Vector[String],
+    roles: Vector[String],
+    participants: Vector[String],
+    scenarios: Vector[String],
+    evidence: Vector[String],
+    cmlEvent: Option[String],
+    cmlComponent: Option[String],
+    cmlStatemachine: Option[String]
+  )
+  private final case class TermActor(roles: Vector[String], organization: Option[String], description: Option[String])
+  private final case class TermRole(actors: Vector[String], responsibilities: Vector[String], permissions: Vector[String])
   private final case class TermQuality(isolated: Boolean, unreferenced: Boolean, weaklyconnected: Boolean)
 
   private final case class DocumentFragmentIndex(fragments: Vector[DocumentFragment]) {
@@ -331,6 +351,37 @@ private[cozy] object CozyBok {
       direction <- c.downField("direction").as[Option[String]]
     } yield TermRdfReference(resource, label, predicate, direction.getOrElse("node"))
 
+
+  private implicit val _term_event_decoder: Decoder[TermEvent] = (c: HCursor) =>
+    for {
+      occurredat <- c.downField("occurred_at").as[Option[String]]
+      startat <- c.downField("start_at").as[Option[String]]
+      endat <- c.downField("end_at").as[Option[String]]
+      location <- c.downField("location").as[Option[String]]
+      actors <- c.downField("actors").as[Option[Vector[String]]]
+      roles <- c.downField("roles").as[Option[Vector[String]]]
+      participants <- c.downField("participants").as[Option[Vector[String]]]
+      scenarios <- c.downField("scenarios").as[Option[Vector[String]]]
+      evidence <- c.downField("evidence").as[Option[Vector[String]]]
+      cmlevent <- c.downField("cml_event").as[Option[String]]
+      cmlcomponent <- c.downField("cml_component").as[Option[String]]
+      cmlstatemachine <- c.downField("cml_statemachine").as[Option[String]]
+    } yield TermEvent(occurredat, startat, endat, location, actors.getOrElse(Vector.empty), roles.getOrElse(Vector.empty), participants.getOrElse(Vector.empty), scenarios.getOrElse(Vector.empty), evidence.getOrElse(Vector.empty), cmlevent, cmlcomponent, cmlstatemachine)
+
+  private implicit val _term_actor_decoder: Decoder[TermActor] = (c: HCursor) =>
+    for {
+      roles <- c.downField("roles").as[Option[Vector[String]]]
+      organization <- c.downField("organization").as[Option[String]]
+      description <- c.downField("description").as[Option[String]]
+    } yield TermActor(roles.getOrElse(Vector.empty), organization, description)
+
+  private implicit val _term_role_decoder: Decoder[TermRole] = (c: HCursor) =>
+    for {
+      actors <- c.downField("actors").as[Option[Vector[String]]]
+      responsibilities <- c.downField("responsibilities").as[Option[Vector[String]]]
+      permissions <- c.downField("permissions").as[Option[Vector[String]]]
+    } yield TermRole(actors.getOrElse(Vector.empty), responsibilities.getOrElse(Vector.empty), permissions.getOrElse(Vector.empty))
+
   private implicit val _term_quality_decoder: Decoder[TermQuality] = (c: HCursor) =>
     for {
       isolated <- c.downField("isolated").as[Option[Boolean]]
@@ -354,8 +405,12 @@ private[cozy] object CozyBok {
       termrefs <- c.downField("term_refs").as[Option[Vector[TermReference]]]
       rdfrefs <- c.downField("rdf_refs").as[Option[Vector[TermRdfReference]]]
       videorefs <- c.downField("video_refs").as[Option[Vector[TermReference]]]
+      termtype <- c.downField("term_type").as[Option[String]]
+      event <- c.downField("event").as[Option[TermEvent]]
+      actor <- c.downField("actor").as[Option[TermActor]]
+      role <- c.downField("role").as[Option[TermRole]]
       quality <- c.downField("quality").as[Option[TermQuality]]
-    } yield TermEntry(id, slug, title, reading, category, sourcepath, publicpath, definitionhtml, summary, aliases.getOrElse(Vector.empty), articlerefs.getOrElse(Vector.empty), termrefs.getOrElse(Vector.empty), rdfrefs.getOrElse(Vector.empty), videorefs.getOrElse(Vector.empty), quality.getOrElse(TermQuality(false, false, false)))
+    } yield TermEntry(id, slug, title, reading, category, sourcepath, publicpath, definitionhtml, summary, aliases.getOrElse(Vector.empty), articlerefs.getOrElse(Vector.empty), termrefs.getOrElse(Vector.empty), rdfrefs.getOrElse(Vector.empty), videorefs.getOrElse(Vector.empty), termtype.getOrElse("concept"), event, actor, role, quality.getOrElse(TermQuality(false, false, false)))
 
   private implicit val _term_index_decoder: Decoder[TermIndex] = (c: HCursor) =>
     for {
@@ -2560,7 +2615,8 @@ private[cozy] object CozyBok {
     val summary =
       s"""<p>${_html_escape(_ui(locale, "term.dashboard.description"))}</p>
          |<p>${_html_escape(_ui(locale, "term.dashboard.source.path"))} <code>glossary/&lt;category&gt;/</code></p>
-         |${_glossary_metric_cards(categorycount, categorieswithterms, terms.size)}""".stripMargin
+         |${_glossary_metric_cards(categorycount, categorieswithterms, terms.size)}
+         |${_term_type_summary_cards(locale, terms)}""".stripMargin
     s"""<div class="bok-dashboard container-fluid bok-dashboard-command-center bok-term-dashboard">
        |  <div class="row g-3">
        |    ${_dashboard_card("col-12 col-xl-4", "bok-card-kpi bok-card-glossary-summary", _ui(locale, "term.dashboard.title"), summary, Vector("reader", "contributor", "project_manager"))}
@@ -3850,6 +3906,16 @@ private[cozy] object CozyBok {
        |  }
        |}());""".stripMargin
 
+
+  private def _term_type_summary_cards(locale: String, terms: Vector[TermEntry]): String = {
+    val counts = terms.groupBy(_.termType).mapValues(_.size).toMap
+    val items = Vector("concept", "event", "actor", "role").map { termtype =>
+      val count = counts.getOrElse(termtype, 0)
+      s"""<span class="bok-term-type-summary-item"><b>${count}</b>${_html_escape(_term_type_label(termtype, locale))}</span>"""
+    }.mkString("\n")
+    s"""<div class="bok-term-type-summary">${items}</div>"""
+  }
+
   private def _glossary_metric_cards(
     categorycount: Int,
     categorieswithterms: Int,
@@ -4216,7 +4282,8 @@ private[cozy] object CozyBok {
       case (category, xs) =>
         val title = titles.getOrElse(category, category)
         val links = xs.sortBy(_.title).take(8).map { term =>
-          s"""<li><a href="${_html_escape(term.glossaryHref)}">${_html_escape(term.title)}</a>${_reading_label(term)} <a class="bok-term-rdf-mini" href="${_html_escape(term.rdfHrefFromGlossary)}">RDF</a></li>"""
+          val typelabel = if (term.termType == "concept") "" else s""" <span class="badge bok-badge-info">${_html_escape(_term_type_label(term.termType, locale))}</span>"""
+          s"""<li><a href="${_html_escape(term.glossaryHref)}">${_html_escape(term.title)}</a>${_reading_label(term)}${typelabel} <a class="bok-term-rdf-mini" href="${_html_escape(term.rdfHrefFromGlossary)}">RDF</a></li>"""
         }.mkString("<ul>", "", "</ul>")
         val more = if (xs.size > 8) s"""<div class="bok-more">${_html_escape(_uif(locale, "dashboard.more", xs.size - 8))}</div>""" else ""
         s"""<div class="bok-term-group-card"><h3><a href="../${_html_escape(category)}/index.html">${_html_escape(title)}</a></h3>${links}${more}</div>"""
@@ -4280,6 +4347,7 @@ private[cozy] object CozyBok {
        |    </div>
        |    <div class="bok-dashboard-hero-facts">
        |      <span class="bok-dashboard-hero-fact"><strong>${_html_escape(term.categorySlug)}</strong><em>${_html_escape(_ui(locale, "dashboard.matrix.category"))}</em></span>
+       |      <span class="bok-dashboard-hero-fact"><strong>${_html_escape(_term_type_label(term.termType, locale))}</strong><em>${_html_escape(_ui(locale, "term.type"))}</em></span>
        |      <span class="bok-dashboard-hero-fact"><strong>${term.rdfRefs.size}</strong><em>RDF</em></span>
        |      <span class="bok-dashboard-hero-fact"><strong>${term.termRefs.size}</strong><em>${_html_escape(_ui(locale, "term.related.terms"))}</em></span>
        |    </div>
@@ -4287,6 +4355,7 @@ private[cozy] object CozyBok {
        |  <div class="bok-dashboard container-fluid bok-dashboard-command-center">
        |    <div class="row g-3">
        |      ${_dashboard_card("col-12 col-xl-7", "bok-card-purpose bok-card-term-definition", _ui(locale, "term.definition"), _term_definition_body(term))}
+       |      ${_term_type_cards(term, locale)}
        |      ${_dashboard_card("col-12 col-xl-5", "bok-card-readiness", _ui(locale, "term.quality"), _term_quality_body(term, locale))}
        |      ${_dashboard_card("col-12 col-xl-6", "bok-card-related", _ui(locale, "term.rdf.resources"), _term_rdf_refs_body(term, locale))}
        |      ${_dashboard_card("col-12 col-xl-3", "bok-card-map", _ui(locale, "term.related.articles"), _term_refs_body(term.articleRefs, locale))}
@@ -4298,6 +4367,63 @@ private[cozy] object CozyBok {
        |    </div>
        |  </div>
        |</section>""".stripMargin
+
+
+  private def _term_type_cards(term: TermEntry, locale: String): String = term.termType match {
+    case "event" =>
+      term.event.map(x => _dashboard_card("col-12 col-xl-5", "bok-card-related bok-card-term-type", _ui(locale, "term.type.event"), _term_event_body(x, locale))).getOrElse("")
+    case "actor" =>
+      term.actor.map(x => _dashboard_card("col-12 col-xl-5", "bok-card-related bok-card-term-type", _ui(locale, "term.type.actor"), _term_actor_body(x, locale))).getOrElse("")
+    case "role" =>
+      term.role.map(x => _dashboard_card("col-12 col-xl-5", "bok-card-related bok-card-term-type", _ui(locale, "term.type.role"), _term_role_body(x, locale))).getOrElse("")
+    case _ => ""
+  }
+
+  private def _term_type_label(value: String, locale: String): String = value match {
+    case "event" => _ui(locale, "term.type.event")
+    case "actor" => _ui(locale, "term.type.actor")
+    case "role" => _ui(locale, "term.type.role")
+    case _ => _ui(locale, "term.type.concept")
+  }
+
+  private def _term_event_body(event: TermEvent, locale: String): String = {
+    val rows = Vector(
+      _ui(locale, "term.event.occurred.at") -> event.occurredAt.toVector,
+      _ui(locale, "term.event.period") -> Vector(event.startAt.toVector.mkString, event.endAt.toVector.mkString).filter(_.nonEmpty),
+      _ui(locale, "term.event.location") -> event.location.toVector,
+      _ui(locale, "term.event.actors") -> event.actors,
+      _ui(locale, "term.event.roles") -> event.roles,
+      _ui(locale, "term.event.participants") -> event.participants,
+      _ui(locale, "term.event.scenarios") -> event.scenarios,
+      _ui(locale, "term.event.evidence") -> event.evidence,
+      _ui(locale, "term.event.cml") -> Vector(event.cmlComponent, event.cmlEvent, event.cmlStatemachine).flatten
+    )
+    _term_metadata_table(rows, locale)
+  }
+
+  private def _term_actor_body(actor: TermActor, locale: String): String =
+    _term_metadata_table(Vector(
+      _ui(locale, "term.actor.organization") -> actor.organization.toVector,
+      _ui(locale, "term.actor.roles") -> actor.roles,
+      _ui(locale, "term.actor.description") -> actor.description.toVector
+    ), locale)
+
+  private def _term_role_body(role: TermRole, locale: String): String =
+    _term_metadata_table(Vector(
+      _ui(locale, "term.role.actors") -> role.actors,
+      _ui(locale, "term.role.responsibilities") -> role.responsibilities,
+      _ui(locale, "term.role.permissions") -> role.permissions
+    ), locale)
+
+  private def _term_metadata_table(rows: Vector[(String, Vector[String])], locale: String): String = {
+    val body = rows.collect { case (label, values) if values.nonEmpty =>
+      s"""<tr><th>${_html_escape(label)}</th><td>${values.map(_html_escape).mkString("<br>")}</td></tr>"""
+    }.mkString("\n")
+    if (body.isEmpty)
+      s"""<p class="bok-card-muted">${_html_escape(_ui(locale, "term.type.metadata.empty"))}</p>"""
+    else
+      s"""<table class="table table-sm bok-metadata-table"><tbody>${body}</tbody></table>"""
+  }
 
   private def _term_definition_body(term: TermEntry): String = {
     val reading = term.reading.filterNot(_ == term.title).map(x => s"""<p class="bok-term-reading-large">${_html_escape(x)}</p>""").getOrElse("")
@@ -7233,6 +7359,40 @@ private[cozy] object CozyBok {
       |
       |.bok-alert-list .list-group-item {
       |  justify-content: flex-start;
+      |}
+      |
+      |.bok-term-type-summary {
+      |  display: grid;
+      |  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+      |  gap: 0.55rem;
+      |  margin-top: 0.8rem;
+      |}
+      |
+      |.bok-term-type-summary-item {
+      |  display: flex;
+      |  align-items: baseline;
+      |  justify-content: space-between;
+      |  gap: 0.5rem;
+      |  padding: 0.55rem 0.7rem;
+      |  border: 1px solid rgba(130, 105, 70, 0.18);
+      |  border-radius: 12px;
+      |  background: rgba(255, 255, 255, 0.58);
+      |}
+      |
+      |.bok-term-type-summary-item b {
+      |  font-size: 1.2rem;
+      |}
+      |
+      |.bok-card-term-type .bok-metadata-table {
+      |  margin-bottom: 0;
+      |}
+      |
+      |.bok-card-term-type .bok-metadata-table th {
+      |  width: 34%;
+      |  color: var(--bok-muted);
+      |  font-size: 0.78rem;
+      |  text-transform: uppercase;
+      |  letter-spacing: 0.05em;
       |}
       |
       |.bok-matrix-table {

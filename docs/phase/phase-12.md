@@ -38,7 +38,7 @@ into focused Cozy improvements.
 - [x] BK12-11: CAR project knowledge and NictKnowledgeHub project integration
 - [x] BK12-12: Scenario knowledge management
 - [x] BK12-13: Bibliography knowledge management
-- [ ] BK12-14: Event knowledge management
+- [x] BK12-14: Event / actor / role glossary term types
 - [ ] BK12-15: Mono-Koto analysis knowledge model
 - [ ] BK12-16: Phase closure
 
@@ -68,8 +68,8 @@ into focused Cozy improvements.
   simple scenarios, use cases, and persona plus journey scenarios.
 - Bibliography can be managed as a first-class BoK knowledge type and connected
   to terms, articles, projects, scenarios, and RDF references.
-- Events can be managed as BoK knowledge and connected to scenarios, history,
-  RDF resources, and model/CML event concepts.
+- Events, actors, and roles can be managed as glossary term types and connected
+  to scenarios, history, RDF resources, and model/CML event concepts.
 - "Mono-koto" analysis can distinguish "thing" knowledge from "event/fact"
   knowledge and use that distinction to organize terms, scenarios, events,
   projects, and RDF navigation.
@@ -392,14 +392,24 @@ into focused Cozy improvements.
   as local resolver/curation input, prose references use `bib:[citation-key]`,
   normal `bok build` resolves required external/cache bibliography data, and
   `--no-bib-service` keeps offline builds cache-only with warnings. Remaining
-  Phase 12 development work now moves to event knowledge and mono-koto
-  analysis rather than bibliography mechanics.
+  Phase 12 development work now moves to glossary-based event/actor/role term
+  types and mono-koto analysis rather than bibliography mechanics.
+
+- 2026-06-25: Completed BK12-14 as glossary term type integration rather than
+  a new event source root. SmartDox now emits `term_type` and event / actor /
+  role metadata through `metadata/glossary/terms.json`, with missing
+  `term_type` defaulting to `concept`. Cozy consumes the extended term metadata
+  to render Term Hub variants and glossary dashboard counts without parsing
+  glossary source directly. KnowledgeHub operational samples were added under
+  `src/main/doxsite/glossary/technology/`; the currently installed PATH
+  `dox` runtime must be updated before those samples appear in operational
+  `cozy bok build` output.
 
 - 2026-06-24: Added BK12-13 through BK12-15 as remaining Phase 12 development
   candidates before closure. BK12-13 covers bibliography as a first-class BoK
-  knowledge type, BK12-14 covers event knowledge, and BK12-15 covers
-  mono-koto analysis as the organizing distinction between things and events /
-  facts in BoK knowledge modeling.
+  knowledge type, BK12-14 covers event / actor / role glossary term types, and
+  BK12-15 covers mono-koto analysis as the organizing distinction between
+  things and events / facts in BoK knowledge modeling.
 
 ## References
 

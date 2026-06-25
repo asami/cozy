@@ -275,22 +275,30 @@ Status: DONE
 - [x] Add executable specs for SmartDox metadata/RDF generation and Cozy
       rendering/search/cache behavior.
 
-## BK12-14: Event Knowledge Management
+## BK12-14: Event / Actor / Role Glossary Term Types
 
-Status: OPEN
+Status: DONE
 
-- [ ] Treat events as first-class BoK knowledge.
-- [ ] Define event metadata: id, title, type, time or period, actors,
-      participants, location, related terms, related scenarios, and evidence.
-- [ ] Decide the canonical source layout for event knowledge.
-- [ ] Define how event knowledge relates to History pages without duplicating
-      History responsibilities.
-- [ ] Define how event knowledge relates to CML/statemachine event concepts.
-- [ ] Define how events appear in Dashboard, Category, Term Hub, Scenario, and
-      RDF navigation.
-- [ ] Define SmartDox/Cozy responsibility boundaries for event source parsing
-      and semantic extraction.
-- [ ] Add executable specs after the source and rendering contract is decided.
+- [x] Treat events as glossary term types, not as a separate BoK source root.
+- [x] Treat actors and roles as glossary term types alongside concepts.
+- [x] Keep canonical source layout under
+      `src/main/doxsite/glossary/<category>/<slug>.dox|md|markdown`.
+- [x] Add unprefixed `term_type` metadata with standard values `concept`,
+      `event`, `actor`, and `role`.
+- [x] Default missing `term_type` to `concept`.
+- [x] Define event metadata for time or period, actors, roles, participants,
+      location, related scenarios, evidence, and CML event/component/state
+      machine references.
+- [x] Define actor metadata for roles, organization, and description.
+- [x] Define role metadata for actors, responsibilities, and permissions.
+- [x] Keep `history/` as BoK operation/publication history rather than event
+      source.
+- [x] Extend SmartDox-owned `metadata/glossary/terms.json` with term type and
+      type-specific metadata.
+- [x] Keep Cozy as a metadata consumer that renders Term Hub variants and
+      glossary dashboard counts without parsing glossary source directly.
+- [x] Add executable specs for SmartDox glossary metadata emission and Cozy
+      Term Hub / dashboard rendering.
 
 ## BK12-15: Mono-Koto Analysis Knowledge Model
 

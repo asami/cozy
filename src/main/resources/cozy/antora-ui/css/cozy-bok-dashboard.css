@@ -2636,3 +2636,37 @@ body.bok-dashboard-theme-meadow .bok-purpose-vision-copy strong {
 .bok-bibliography-entry .bok-bibliography-metadata-table td {
   color: #1f2937;
 }
+
+.bok-term-type-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+  gap: .55rem;
+  margin-top: .8rem;
+}
+
+.bok-term-type-summary-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: .5rem;
+  padding: .55rem .7rem;
+  border: 1px solid rgba(130, 105, 70, .18);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .58);
+}
+
+.bok-term-type-summary-item b {
+  font-size: 1.2rem;
+}
+
+.bok-card-term-type .bok-metadata-table {
+  margin-bottom: 0;
+}
+
+.bok-card-term-type .bok-metadata-table th {
+  width: 34%;
+  color: var(--bok-muted);
+  font-size: .78rem;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}

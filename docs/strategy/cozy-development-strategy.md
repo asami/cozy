@@ -249,8 +249,8 @@ Purpose:
 - verify `bok build`, `bok publish --dry-run`, and upload workflow readiness
 - convert operational friction into focused Cozy improvements and follow-up
   backlog
-- expand BoK knowledge types from terms, projects, scenarios, and bibliography
-  toward events and mono-koto analysis
+- expand BoK knowledge types from terms, projects, scenarios, bibliography, and
+  event / actor / role term types toward mono-koto analysis
 
 Primary reference:
 
@@ -291,8 +291,8 @@ diagnostics, and external upload workflow boundaries.
 
 Current Phase 12 priority is KnowledgeHub BoK operational onboarding. The
 active driver project is `/Users/asami/src/Project2026/bok-knowlegehub`.
-Remaining Phase 12 development candidates include event knowledge and
-mono-koto analysis before closure.
+Remaining Phase 12 development candidates include mono-koto analysis before
+closure.
 
 Candidate directions after Phase 12 include:
 
