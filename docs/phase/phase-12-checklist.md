@@ -323,11 +323,11 @@ Status: DONE
 
 ## BK12-16: Phase Closure
 
-Status: OPEN
+Status: DONE
 
-- [ ] Confirm all BK12 items are complete or explicitly deferred.
-- [ ] Confirm KnowledgeHub BoK build verification passes.
-- [ ] Confirm dry-run verification passes or is documented as a known issue.
-- [ ] Update `docs/phase/phase-12.md` closure section.
-- [ ] Set `docs/phase/README.md` active phase to none or the next phase.
-- [ ] Mark Phase 12 closed in strategy.
+- [x] Confirm all BK12 items are complete or explicitly deferred.
+- [x] Confirm KnowledgeHub BoK build verification passes.
+- [x] Confirm dry-run verification passes or is documented as a known issue.
+- [x] Update `docs/phase/phase-12.md` closure section.
+- [x] Set `docs/phase/README.md` active phase to none or the next phase.
+- [x] Mark Phase 12 closed in strategy.

@@ -4,8 +4,8 @@ Purpose: engineering work management.
 
 Current phase:
 
-- Active phase: `phase-12.md`: KnowledgeHub BoK Operational Onboarding
-- Most recent closed phase: `phase-11.md`: BoK Publication and Upload Workflow Productionization
+- Active phase: none
+- Most recent closed phase: `phase-12.md`: KnowledgeHub BoK Operational Onboarding
 
 Belongs:
 

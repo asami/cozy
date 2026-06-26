@@ -238,7 +238,7 @@ Primary reference:
 
 ### Phase 12: KnowledgeHub BoK Operational Onboarding
 
-Status: active.
+Status: closed.
 
 Purpose:
 
@@ -289,10 +289,10 @@ Phase 11 completed BoK publication and upload workflow productionization.
 `cozy bok publish` now has dry-run, preflight, operation manifest, step-level
 diagnostics, and external upload workflow boundaries.
 
-Current Phase 12 priority is KnowledgeHub BoK operational onboarding. The
-active driver project is `/Users/asami/src/Project2026/bok-knowlegehub`.
-Remaining Phase 12 development candidates include mono-koto analysis before
-closure.
+Phase 12 completed KnowledgeHub BoK operational onboarding. The driver project
+was `/Users/asami/src/Project2026/bok-knowlegehub`, and the phase closed after
+production build, CloudFront serving, upload workflow, and ignored generated
+state were operationally verified.
 
 Candidate directions after Phase 12 include:
 

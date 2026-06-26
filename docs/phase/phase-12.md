@@ -1,6 +1,6 @@
 # Phase 12: KnowledgeHub BoK Operational Onboarding
 
-Status: active
+Status: closed
 
 Start date: 2026-06-20
 
@@ -40,7 +40,7 @@ into focused Cozy improvements.
 - [x] BK12-13: Bibliography knowledge management
 - [x] BK12-14: Event / actor / role glossary term types
 - [x] BK12-15: Mono-Koto analysis knowledge model
-- [ ] BK12-16: Phase closure
+- [x] BK12-16: Phase closure
 
 ## Acceptance Criteria
 
@@ -430,6 +430,14 @@ into focused Cozy improvements.
   knowledge type, BK12-14 covers event / actor / role glossary term types, and
   BK12-15 covers mono-koto analysis as the organizing distinction between
   things and events / facts in BoK knowledge modeling.
+
+- 2026-06-27: Closed Phase 12. KnowledgeHub production build, CloudFront
+  serving, and upload workflow were operationally verified against
+  `/Users/asami/src/Project2026/bok-knowlegehub`. The final generated-state
+  check showed only ignored operational output directories:
+  `.cozy/`, `antora.d/`, `doxsite.d/`, `target/`, `website.backup/`, and
+  `website.d/`. All BK12 items are complete or explicitly bounded by their
+  recorded v1 non-goals.
 
 ## References
 
