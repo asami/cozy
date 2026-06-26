@@ -13,7 +13,7 @@ import scala.collection.JavaConverters._
 /*
  * @since   May. 20, 2026
  *  version May. 25, 2026
- * @version Jun. 25, 2026
+ * @version Jun. 27, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyScaffold {
@@ -1531,6 +1531,7 @@ private[cozy] object CozyScaffold {
       |
       |  bok upload [<project-dir>]
       |      Run the external command registered at bok.workflow.upload.command. Cozy does not interpret upload targets or credentials.
+      |      When bok.backup.enabled is true, website.d is backed up before upload. Defaults: enabled=false, dir=website.backup, compressed=true.
       |
       |  video inspect <project-file> [--check-tools] [--tool-mode=<docker|host>] [--docker-image=<image>]
       |      Inspect a video project file and print a deterministic project, part, script, and tool-check plan.

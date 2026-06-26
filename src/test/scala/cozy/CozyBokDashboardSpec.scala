@@ -12,7 +12,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jun. 21, 2026
- * @version Jun. 25, 2026
+ * @version Jun. 27, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokDashboardSpec
@@ -85,6 +85,26 @@ class CozyBokDashboardSpec
               |## Focus
               |
               |Make architecture decisions reviewable.
+              |""".stripMargin
+          )
+          _write(
+            dir.resolve("src/main/doxsite/architecture/overview.dox"),
+            """Architecture Overview
+              |=====================
+              |
+              |# HEAD
+              |
+              |## HEADLINE
+              |
+              |Architecture Overview
+              |
+              |## BRIEF
+              |
+              |Overview article.
+              |
+              |# Overview
+              |
+              |Architecture overview source text.
               |""".stripMargin
           )
           val config = CozyBok.BuildConfig.create(
@@ -166,6 +186,25 @@ class CozyBokDashboardSpec
           home should include("""class="row g-3"""")
           home should not include ("""class="card bok-card bok-card-purpose"""")
           home should include("""class="card bok-card bok-card-kpi"""")
+          home should include("""class="card bok-card bok-card-analysis-entry"""")
+          home should include("""class="bok-analysis-entry-flow"""")
+          home should include("""class="bok-analysis-entry-analysis"""")
+          home should include("""class="bok-analysis-entry-relation"""")
+          home should include("""class="bok-analysis-entry-arrow-column bok-analysis-entry-input-arrows"""")
+          home should include("""class="bok-analysis-entry-column bok-analysis-entry-inputs"""")
+          home should include("""class="bok-analysis-entry-center"""")
+          home should include("""bok-analysis-entry-mono-koto-process""")
+          home should include("""class="bok-analysis-entry-output-relation"""")
+          home should include("""class="bok-analysis-entry-arrow-column bok-analysis-entry-output-arrows"""")
+          home should include("""class="bok-analysis-entry-column bok-analysis-entry-outputs"""")
+          home should include("""href="articles/index.html"""")
+          home should include("""href="glossary/index.html"""")
+          home should include("""href="scenarios/index.html"""")
+          home should include("""href="projects/index.html"""")
+          home should include("""bok-analysis-entry-article""")
+          home should include("""bok-analysis-entry-project""")
+          home should include("""bok-analysis-entry-rdf""")
+          home should include("""href="rdf/index.html"""")
           home should include("""class="card bok-card bok-card-chart"""")
           home should include(
             """class="card bok-card bok-card-activity bok-card-notification""""
@@ -173,7 +212,9 @@ class CozyBokDashboardSpec
           home should not include ("""class="bok-notification-summary"""")
           home should include ("""class="card-title bok-card-title-with-action"""")
           home should include ("""class="bok-card-title-link" href="history/index.html"""")
-          home should include("""class="list-group bok-activity-list"""")
+          home should include(
+            """class="list-group bok-activity-list bok-activity-list-with-category""""
+          )
           home should include("""class="bok-activity-kind"""")
           home should include(
             """<div class="col-12 col-xl-4" data-bok-card="true">
@@ -189,6 +230,12 @@ class CozyBokDashboardSpec
           )
           home should include("Home Source Headline")
           home should include("Home narrative brief.")
+          val articles = _read(dir.resolve("website.d/articles/index.html"))
+          articles should include("""class="bok-dashboard-shell bok-article-dashboard"""")
+          articles should include("""class="bok-article-grid"""")
+          articles should include("""data-article-category="architecture"""")
+          articles should include("""href="../architecture/overview.html"""")
+          articles should include("""new URLSearchParams(window.location.search).get('category')""")
           home should include("""id="narrative"""")
           home should not include ("""<h2>Narrative</h2>""")
           home should not include ("""<a href="#narrative">Narrative</a>""")
@@ -210,6 +257,11 @@ class CozyBokDashboardSpec
           home should include(
             """href="architecture/index.html">Architecture</a>"""
           )
+          home.indexOf(
+            """href="architecture/index.html">Architecture</a>"""
+          ) should be < home.indexOf(
+            """href="concept/index.html">Concept</a>"""
+          )
           home should include(
             """data-bok-actors="contributor project_manager""""
           )
@@ -228,21 +280,18 @@ class CozyBokDashboardSpec
           )
           val narrativestart = home.indexOf("""id="narrative"""")
           val notificationstart = home.indexOf("""bok-card-notification""")
+          val analysisstart = home.indexOf("""bok-card-analysis-entry""")
           val matrixstart = home.indexOf("""bok-card-matrix""")
           val readinessstart = home.indexOf("""bok-card-readiness""")
           dashboardstart should be < narrativestart
           notificationstart should be < matrixstart
+          notificationstart should be < analysisstart
+          analysisstart should be < matrixstart
           matrixstart should be < readinessstart
           val notification = home.substring(notificationstart, matrixstart)
-          notification should include ("2026-06-23")
-          notification should include ("2026-06-22")
-          notification should include ("2026-06-21")
-          notification should include ("2026-06-20")
-          notification should include ("2026-06-19")
           notification should include ("""class="bok-activity-kind"""")
-          notification should not include ("2026-06-18")
-          notification should not include ("2026-06-17")
-          notification should not include ("2026-05-01")
+          notification should include ("""class="bok-activity-category">Architecture</span>""")
+          notification should include ("""href="architecture/overview.html">Architecture Overview</a>""")
           home.substring(
             dashboardstart,
             narrativestart
@@ -263,6 +312,15 @@ class CozyBokDashboardSpec
           category should include(
             """class="card bok-card bok-card-map" data-bok-actors="reader contributor project_manager""""
           )
+          category should include("""class="card bok-card bok-card-analysis-entry"""")
+          category should include("""href="../articles/index.html?category=architecture"""")
+          category should include("""href="../glossary/architecture/index.html"""")
+          category should include("""href="../scenarios/index.html?category=architecture"""")
+          category should include("""href="../projects/index.html?category=architecture"""")
+          category should include("""bok-analysis-entry-article""")
+          category should include("""bok-analysis-entry-project""")
+          category should include("""bok-analysis-entry-rdf""")
+          category should include("""href="../rdf/index.html?category=architecture"""")
           category should include(
             """data-bok-actors="site_administrator project_manager""""
           )
@@ -277,6 +335,60 @@ class CozyBokDashboardSpec
           category should not include ("""<a href="#narrative">Narrative</a>""")
           category should include("Architecture narrative source text.")
           category should include("Make architecture decisions reviewable.")
+        }
+      }
+
+      "omit empty SmartDox document fragments from narrative sections" in {
+        _with_temp_dir("cozy-bok-dashboard-empty-narrative") { dir =>
+          Given("a Category source whose SmartDox fragment has no article body")
+          _write(
+            dir.resolve("src/main/doxsite/site.conf"),
+            """site {
+              |  output {
+              |    locale_mode = "single_locale_root"
+              |  }
+              |}
+              |""".stripMargin
+          )
+          _write(
+            dir.resolve("src/main/doxsite/index.dox"),
+            """Home
+              |======
+              |
+              |# Overview
+              |
+              |Home narrative source text.
+              |""".stripMargin
+          )
+          _write(
+            dir.resolve("src/main/doxsite/architecture/category.yaml"),
+            """name: Architecture
+              |title: Architecture
+              |description: Architecture category.
+              |""".stripMargin
+          )
+          _write(
+            dir.resolve("src/main/doxsite/architecture/index.dox"),
+            """Architecture
+              |============
+              |""".stripMargin
+          )
+          val config = CozyBok.BuildConfig.create(
+            List(dir.toString, "--strategy", "preview")
+          )
+
+          When("Cozy builds dashboard pages from SmartDox document fragments")
+          CozyBok.build(config, new EmptyCategoryDocumentFragmentRunner)
+
+          Then("the Home narrative remains visible")
+          val home = _read(dir.resolve("website.d/index.html"))
+          home should include("""class="bok-narrative-corner" id="narrative"""")
+          home should include("Home narrative source text.")
+
+          And("the empty Category fragment does not leave a blank narrative card")
+          val category = _read(dir.resolve("website.d/architecture/index.html"))
+          category should not include ("""class="bok-narrative-corner" id="narrative"""")
+          category should not include ("<article></article>")
         }
       }
 
@@ -335,6 +447,20 @@ class CozyBokDashboardSpec
               )
               _touch(file, instant)
           }
+          val term = dir.resolve("src/main/doxsite/glossary/architecture/recent-term.dox")
+          _write(
+            term,
+            """# HEAD
+              |
+              |title = "Wrong Source Heading"
+              |brief = "Source term brief."
+              |
+              |# Overview
+              |
+              |Term source body.
+              |""".stripMargin
+          )
+          _touch(term, "2026-06-24T12:00:00Z")
           val scenario = dir.resolve("src/main/doxsite/scenario/architecture/recent-scenario.dox")
           _write(
             scenario,
@@ -376,12 +502,15 @@ class CozyBokDashboardSpec
           val matrixstart = home.indexOf("""bok-card-matrix""")
           val notification = home.substring(notificationstart, matrixstart)
           notification should include ("Recent Reference")
+          notification should include ("Recent Term Metadata")
+          notification should include ("""glossary/architecture/recent-term.html""")
+          notification should not include ("Wrong Source Heading")
           notification should include ("Recent Scenario")
           notification should include ("Recent first")
           notification should include ("Recent second")
-          notification should include ("Recent third")
           notification should include ("""class="bok-activity-category">Architecture</span>""")
           notification should include ("""bok-activity-list-with-category"""")
+          notification should not include ("Recent third")
           notification should not include ("Recent fourth")
           notification should not include ("Recent fifth")
           notification should not include ("Recent sixth")
@@ -393,6 +522,9 @@ class CozyBokDashboardSpec
           val categoryend = category.indexOf("""bok-card-related""")
           val categorynotification = category.substring(categorystart, categoryend)
           categorynotification should include ("Recent Reference")
+          categorynotification should include ("Recent Term Metadata")
+          categorynotification should include ("""../glossary/architecture/recent-term.html""")
+          categorynotification should not include ("Wrong Source Heading")
           categorynotification should include ("Recent Scenario")
           categorynotification should include ("""../bibliography/architecture/recent-reference.html""")
           categorynotification should include ("""../scenario/architecture/recent-scenario.html""")
@@ -633,6 +765,9 @@ class CozyBokDashboardSpec
             """bok-card-purpose"""
           )
           home.indexOf("""bok-card-purpose""") should be < home.indexOf(
+            """bok-card-analysis-entry"""
+          )
+          home.indexOf("""bok-card-analysis-entry""") should be < home.indexOf(
             """bok-card-matrix"""
           )
           home.indexOf("""bok-card-purpose""") should be < home.indexOf(
@@ -644,7 +779,15 @@ class CozyBokDashboardSpec
           category should include(
             """<body class="article bok-dashboard-theme-sand">"""
           )
-          category should include("""class="card bok-card bok-card-activity bok-card-notification"""")
+          category.indexOf("""bok-card-category-purpose""") should be < category.indexOf(
+            """bok-card-analysis-entry"""
+          )
+          category.indexOf("""bok-card-analysis-entry""") should be < category.indexOf(
+            """bok-card-map"""
+          )
+          category should not include (
+            """class="card bok-card bok-card-activity bok-card-notification""""
+          )
 
           And(
             "the generated CSS provides dashboard groups and keeps the Category dropdown inside the viewport"
@@ -668,13 +811,21 @@ class CozyBokDashboardSpec
           css should include("body.bok-dashboard-theme-sand .bok-dashboard-actor-select")
           css should include("body.bok-dashboard-theme-sand .body-dashboard .bok-card-purpose .bok-purpose-vision-copy strong")
           css should include("color: #78350f !important")
+          css should include(".bok-card-purpose {\n  min-height: auto")
+          css should include("height: fit-content")
+          css should include(".bok-purpose-flat {\n  display: grid")
+          css should include("gap: .56rem")
+          css should include("padding: .62rem .72rem .66rem")
           css should include(".bok-card-category-purpose .bok-purpose-vision-panel")
           css should include(".bok-card-category-purpose .bok-purpose-tree")
           css should include(".bok-purpose-tree-label")
           css should include(".bok-card-category-purpose .bok-purpose-goal")
           css should include(".bok-card-category-purpose {\n  min-height: auto")
-          css should include("padding: .82rem .95rem .86rem")
-          css should include("padding: .56rem .6rem .62rem")
+          css should include("height: fit-content")
+          css should include("[data-bok-card]:has(.bok-card-category-purpose)")
+          css should include("padding: .72rem .88rem .62rem")
+          css should include("padding: .42rem .52rem .44rem")
+          css should include("padding: .46rem .58rem .48rem .68rem")
           css should include("body.bok-dashboard-theme-sand .body-dashboard .bok-card-category-purpose .bok-purpose-tree")
           css should include("body.bok-dashboard-theme-sand .body-dashboard .bok-card-category-purpose .bok-purpose-goal")
           css should include("body.bok-dashboard-theme-paper")
@@ -755,6 +906,29 @@ class CozyBokDashboardSpec
           css should include(".body-dashboard .bok-card-kpi .card-body")
           css should include("align-items: center !important")
           css should include("text-align: center")
+          css should include(".bok-card-analysis-entry")
+          css should include(".bok-analysis-entry-flow")
+          css should include("grid-template-columns: max-content max-content")
+          css should include("width: fit-content")
+          css should include("max-width: 100%")
+          css should include("margin: .45rem auto 0")
+          css should include(".bok-analysis-entry-analysis")
+          css should include(".bok-analysis-entry-relation")
+          css should include("grid-template-columns: 13.2rem 2.2rem 13.2rem")
+          css should include(".bok-analysis-entry-output-relation")
+          css should include("grid-template-columns: 2.2rem 13.2rem")
+          css should include(".bok-analysis-entry-arrow-column")
+          css should include("width: 2.2rem")
+          css should include("white-space: nowrap")
+          css should include("@media (max-width: 48rem)")
+          css should include(".bok-analysis-entry-center")
+          css should include(".bok-analysis-entry-column")
+          css should include("grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr))")
+          css should include(".bok-analysis-entry-tile")
+          css should include(".bok-analysis-entry-static")
+          css should include(".bok-analysis-entry-mono-koto-process")
+          css should include(".bok-analysis-entry-project")
+          css should include(".bok-analysis-entry-rdf")
           css should include(
             "Dashboard hero: separate marker, title, and summary as distinct zones"
           )
@@ -1074,6 +1248,17 @@ class CozyBokDashboardSpec
     }
   }
 
+  private class EmptyCategoryDocumentFragmentRunner extends DashboardRunner {
+    override def run(command: Vector[String], cwd: Path): Unit = {
+      super.run(command, cwd)
+      if (command.take(2) == Vector("dox", "site"))
+        _write(
+          cwd.resolve("doxsite.d/metadata/documents/fragments.json"),
+          _empty_category_document_fragments_json
+        )
+    }
+  }
+
   private class EmptyIncrementsDashboardRunner extends RecordingRunner {
     override def run(command: Vector[String], cwd: Path): Unit = {
       super.run(command, cwd)
@@ -1089,6 +1274,10 @@ class CozyBokDashboardSpec
         _write(
           cwd.resolve("doxsite.d/metadata/documents/fragments.json"),
           """{"fragments": []}"""
+        )
+        _write(
+          cwd.resolve("doxsite.d/metadata/glossary/terms.json"),
+          _recent_terms_json
         )
         _write(
           cwd.resolve("doxsite.d/metadata/bibliography/bibliography.json"),
@@ -1128,6 +1317,15 @@ class CozyBokDashboardSpec
       |    {"source_path": "index.md", "public_path": "index.html", "locale": "en", "kind": "article", "category": null, "title": "Markdown Home", "headline": "Markdown Home Headline", "brief": "Markdown home brief.", "body_html": "<p>Markdown home source text with <strong>bold</strong> knowledge and <a href=\"https://example.com\">a reference</a>.</p>"},
       |    {"source_path": "architecture/index.md", "public_path": "architecture/index.html", "locale": "ja", "kind": "article", "category": "architecture", "title": "Architecture", "headline": "Architecture Markdown Headline", "brief": "Architecture markdown brief.", "body_html": "<p>Architecture markdown narrative.</p>"},
       |    {"source_path": "architecture/index.md", "public_path": "architecture/index.html", "locale": "en", "kind": "article", "category": "architecture", "title": "Architecture", "headline": "Architecture Markdown Headline", "brief": "Architecture markdown brief.", "body_html": "<p>Architecture markdown narrative.</p>"}
+      |  ]
+      |}
+      |""".stripMargin
+
+  private def _empty_category_document_fragments_json: String =
+    """{
+      |  "fragments": [
+      |    {"source_path": "index.dox", "public_path": "index.html", "locale": "ja", "kind": "article", "category": null, "title": "Home", "headline": "Home", "brief": null, "body_html": "<p>Home narrative source text.</p>"},
+      |    {"source_path": "architecture/index.dox", "public_path": "architecture/index.html", "locale": "ja", "kind": "article", "category": "architecture", "title": "Architecture", "headline": "Architecture", "brief": null, "body_html": "<html><head><style type=\"text/css\"><!-- h1 { color: black } --></style><script type=\"application/ld+json\">{}</script></head><body><article></article></body></html>"}
       |  ]
       |}
       |""".stripMargin
@@ -1172,28 +1370,6 @@ class CozyBokDashboardSpec
       |  },
       |  "categories": [
       |    {
-      |      "name": "architecture",
-      |      "title": "Architecture",
-      |      "counts": {
-      |        "category_count": 0,
-      |        "article_count": 1,
-      |        "glossary_term_count": 1,
-      |        "total_item_count": 2
-      |      },
-      |      "rdf": {
-      |        "resource_count": 2,
-      |        "triple_count": 7,
-      |        "subject_count": 2,
-      |        "predicate_count": 3
-      |      },
-      |      "increments": {
-      |        "scale": "day",
-      |        "buckets": [
-      |          {"label": "2026-06-21", "start_date": "2026-06-21", "end_date": "2026-06-21", "count": 2, "article_count": 1, "glossary_term_count": 1}
-      |        ]
-      |      }
-      |    },
-      |    {
       |      "name": "concept",
       |      "title": "Concept",
       |      "counts": {
@@ -1207,6 +1383,28 @@ class CozyBokDashboardSpec
       |        "triple_count": 0,
       |        "subject_count": 0,
       |        "predicate_count": 0
+      |      },
+      |      "increments": {
+      |        "scale": "day",
+      |        "buckets": [
+      |          {"label": "2026-06-21", "start_date": "2026-06-21", "end_date": "2026-06-21", "count": 2, "article_count": 1, "glossary_term_count": 1}
+      |        ]
+      |      }
+      |    },
+      |    {
+      |      "name": "architecture",
+      |      "title": "Architecture",
+      |      "counts": {
+      |        "category_count": 0,
+      |        "article_count": 1,
+      |        "glossary_term_count": 1,
+      |        "total_item_count": 2
+      |      },
+      |      "rdf": {
+      |        "resource_count": 2,
+      |        "triple_count": 7,
+      |        "subject_count": 2,
+      |        "predicate_count": 3
       |      },
       |      "increments": {
       |        "scale": "day",
@@ -1259,6 +1457,31 @@ class CozyBokDashboardSpec
       |      "source_kind": "internal",
       |      "refs": ["bib:recent-reference"],
       |      "needs_resolution": false
+      |    }
+      |  ]
+      |}
+      |""".stripMargin
+
+  private def _recent_terms_json: String =
+    """{
+      |  "terms": [
+      |    {
+      |      "id": "architecture:recent-term",
+      |      "slug": "recent-term",
+      |      "title": "Recent Term Metadata",
+      |      "reading": null,
+      |      "category": "architecture",
+      |      "source_path": "glossary/architecture/recent-term.dox",
+      |      "public_path": "glossary/architecture/recent-term.html",
+      |      "definition_html": "<p>Recent term definition.</p>",
+      |      "summary": "Recent term summary.",
+      |      "aliases": [],
+      |      "article_refs": [],
+      |      "term_refs": [],
+      |      "rdf_refs": [],
+      |      "video_refs": [],
+      |      "term_type": "concept",
+      |      "quality": {"isolated": false, "unreferenced": false, "weakly_connected": false}
       |    }
       |  ]
       |}

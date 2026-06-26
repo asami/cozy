@@ -11,7 +11,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jun. 23, 2026
- * @version Jun. 24, 2026
+ * @version Jun. 27, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokProjectSpec
@@ -1034,6 +1034,15 @@ class CozyBokProjectSpec
           termhub should include("Knowledge item summary from CML.")
           termhub should include("CML-derived narrative")
           termhub should include("Knowledge item narrative from CML.")
+          val index = _read(dir.resolve("website.d/projects/index.html"))
+          index should include("NICT KnowledgeHub")
+          index should include("NICT KnowledgeHub CAR component project.")
+          index should include("""data-project-category="concept"""")
+          index should include("""href="../textus/components/nict-knowledgehub/index.html"""")
+          index should include("nict-knowledgehub")
+          val home = _read(dir.resolve("website.d/index.html"))
+          home should include("""href="projects/index.html"""")
+          home should include("プロジェクト")
           dir.resolve(
             "warehouse/repository/car/nict-knowledgehub/0.1.0/nict-knowledgehub-0.1.0.car"
           ) shouldNot exist_path

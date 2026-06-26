@@ -14,7 +14,8 @@ import org.smartdox.generator.{Context => SmartDoxContext}
 import org.smartdox.metadata.DocumentMetaData
 import org.goldenport.i18n.I18NContext
 import java.net.URLEncoder
-import java.time.{Instant, LocalDate, ZoneOffset}
+import java.time.{Instant, LocalDate, LocalDateTime, YearMonth, ZoneOffset}
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.regex.Pattern
 import java.nio.charset.StandardCharsets
@@ -29,7 +30,7 @@ import io.circe.parser
 
 /*
  * @since   Jun.  3, 2026
- * @version Jun. 25, 2026
+ * @version Jun. 27, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyBok {
@@ -124,6 +125,13 @@ private[cozy] object CozyBok {
     brief: String,
     modifiedAtMillis: Long,
     reading: Option[String] = None
+  )
+  private final case class ArticleIndexItem(
+    categorySlug: String,
+    categoryTitle: String,
+    hrefFromArticleIndex: String,
+    title: String,
+    brief: String
   )
   private final case class DashboardCounts(
     categoryCount: Int,
@@ -541,8 +549,16 @@ private[cozy] object CozyBok {
     def artifactBasePath: Path = repositoryPath
     def manifestPath: Path = project.resolve("target/cozy-bok/publish/latest/manifest.json").toAbsolutePath.normalize()
   }
-  final case class WorkflowConfig(project: Path, name: String, command: Vector[String], env: Map[String, String])
+  final case class WorkflowConfig(
+    project: Path,
+    name: String,
+    command: Vector[String],
+    env: Map[String, String],
+    backup: Option[WebsiteBackupConfig] = None
+  )
+  final case class WebsiteBackupConfig(source: Path, root: Path, compressed: Boolean)
   private final case class PublishStep(name: String, status: String, message: String)
+  private final case class WebsiteBackupSnapshot(path: Path, yearMonth: YearMonth, order: String)
   private final case class BibliographyRdfAlias(aliastail: String, targettail: String, title: String)
   private final case class PublishPreflight(
     stage: Option[WorkflowConfig],
@@ -847,6 +863,8 @@ private[cozy] object CozyBok {
   private def _print_workflow_usage(name: String): Unit = {
     println(s"Usage: cozy bok ${name} [<project-dir>]")
     println(s"Run the external command registered at bok.workflow.${name}.command.")
+    if (name == "upload")
+      println("When bok.backup.enabled is true, website.d is backed up before upload. Defaults: enabled=false, dir=website.backup, compressed=true.")
   }
 
   private def _print_bibliography_search_usage(): Unit = {
@@ -1153,6 +1171,82 @@ private[cozy] object CozyBok {
         _sync_effective_bibliography_jsonld(config.doxsitePath.resolve("site.jsonld"), aliases)
       }
     }
+
+  private def _sync_effective_bibliography_fragments(config: BuildConfig): Unit =
+    _bibliography_index(config).foreach { index =>
+      val entries = index.entries.filterNot(_.needsresolution)
+      val path = config.doxsitePath.resolve("metadata/documents/fragments.json")
+      if (entries.nonEmpty && Files.isRegularFile(path))
+        parser.parse(Files.readString(path, StandardCharsets.UTF_8)).toOption.foreach { json =>
+          _write_text(path, _rewrite_bibliography_fragment_json(json, entries).spaces2 + "\n")
+        }
+    }
+
+  private def _rewrite_bibliography_fragment_json(json: Json, entries: Vector[BibliographyEntry]): Json =
+    json.arrayOrObject(
+      json,
+      values => Json.fromValues(values.map(_rewrite_bibliography_fragment_json(_, entries))),
+      obj => {
+        val fields = obj.toVector
+        val sourcepath = fields.find(_._1 == "source_path").flatMap(_._2.asString)
+        val locale = fields.find(_._1 == "locale").flatMap(_._2.asString).getOrElse("en")
+        Json.obj(fields.map {
+          case ("body_html", value) =>
+            "body_html" -> value.asString.
+              map(body => Json.fromString(_rewrite_bibliography_fragment_body(sourcepath, locale, body, entries))).
+              getOrElse(_rewrite_bibliography_fragment_json(value, entries))
+          case (key, value) =>
+            key -> _rewrite_bibliography_fragment_json(value, entries)
+        }: _*)
+      }
+    )
+
+  private def _rewrite_bibliography_fragment_body(sourcepath: Option[String], locale: String, body: String, entries: Vector[BibliographyEntry]): String = {
+    val normalized = _normalize_bibliography_fragment_heading(locale, body)
+    sourcepath.map { source =>
+      val references = entries.flatMap { entry =>
+        entry.sourcerefs.filter(_.sourcepath == source).map(_ -> entry)
+      }
+      references.foldLeft(normalized) {
+        case (html, (ref, entry)) => _rewrite_bibliography_reference_item(html, ref, entry)
+      }
+    }.getOrElse(normalized)
+  }
+
+  private def _normalize_bibliography_fragment_heading(locale: String, body: String): String = {
+    val title = _html_escape(_ui(locale, "bibliography.title"))
+    body.
+      replace("<h2>参考文献</h2>", s"<h2>${title}</h2>").
+      replace("<h2>参考情報</h2>", s"<h2>${title}</h2>").
+      replace("<h2>参照情報</h2>", s"<h2>${title}</h2>")
+  }
+
+  private def _rewrite_bibliography_reference_item(html: String, ref: BibliographySourceRef, entry: BibliographyEntry): String = {
+    val key = Pattern.quote(_html_escape(ref.citationkey))
+    val pattern = Pattern.compile(
+      s"""(?is)<li>(\\s*\\[\\d+\\]\\s*)<a class="bibliography-reference" href="[^"]*">${key}</a>\\.\\s*Unresolved bibliography reference[^<]*</li>"""
+    )
+    val matcher = pattern.matcher(html)
+    val buffer = new StringBuffer
+    while (matcher.find()) {
+      val replacement =
+        s"""<li>${matcher.group(1)}<a class="bibliography-reference" href="${_html_escape(_relative_href(ref.publicpath, entry.publicpath))}">${_html_escape(_bibliography_citation_label(entry))}</a>.</li>"""
+      matcher.appendReplacement(buffer, java.util.regex.Matcher.quoteReplacement(replacement))
+    }
+    matcher.appendTail(buffer)
+    buffer.toString
+  }
+
+  private def _relative_href(frompublicpath: String, targetpublicpath: String): String = {
+    val depth = frompublicpath.split('/').dropRight(1).length
+    ("../" * depth) + targetpublicpath
+  }
+
+  private def _bibliography_citation_label(entry: BibliographyEntry): String =
+    entry.citation.
+      filter(_.trim.nonEmpty).
+      orElse(entry.key.map(key => s"${entry.title} [${key}]")).
+      getOrElse(entry.title)
 
   private def _bibliography_rdf_aliases(index: BibliographyIndex): Vector[BibliographyRdfAlias] =
     index.entries.flatMap { entry =>
@@ -1566,6 +1660,7 @@ private[cozy] object CozyBok {
     _write_effective_bibliography_metadata(config)
     _resolve_bibliography_service_entries(config, bibliographyfetcher)
     _write_effective_bibliography_metadata(config)
+    _sync_effective_bibliography_fragments(config)
     _sync_effective_bibliography_rdf(config)
     _delete_directory(config.project.resolve(s"doxsite-cache-${config.strategy}.d"))
     if (config.arcadia.enabled) {
@@ -1762,8 +1857,10 @@ private[cozy] object CozyBok {
   }
 
   def runWorkflow(config: WorkflowConfig, runner: Runner): Unit =
-    if (_require_workflow(config))
+    if (_require_workflow(config)) {
+      config.backup.foreach(_backup_website)
       runner.run(config.command, config.project, config.env)
+    }
 
   private def _require_workflow(config: WorkflowConfig): Boolean =
     if (config.command.isEmpty)
@@ -1778,6 +1875,116 @@ private[cozy] object CozyBok {
       )
     else
       true
+
+  private def _backup_website(config: WebsiteBackupConfig): Unit = {
+    _validate_website_backup_config(config)
+    if (!Files.isDirectory(config.source))
+      RAISE.invalidArgumentFault(s"Website backup source directory is missing: ${config.source}")
+    val now = LocalDateTime.now()
+    val snapshotdir = _website_backup_snapshot_dir(config.root, now)
+    Files.createDirectories(snapshotdir)
+    val sourcename = config.source.getFileName.toString
+    if (config.compressed)
+      _zip_directory(config.source, snapshotdir.resolve(s"${sourcename}.zip"), sourcename)
+    else
+      _copy_directory(config.source, snapshotdir.resolve(sourcename))
+    _rotate_website_backups(config.root, YearMonth.from(now))
+  }
+
+  private def _validate_website_backup_config(config: WebsiteBackupConfig): Unit =
+    if (config.root == config.source || config.root.startsWith(config.source))
+      RAISE.invalidArgumentFault(
+        s"Website backup directory must be outside the website source directory: backup=${config.root}, source=${config.source}"
+      )
+
+  private def _website_backup_snapshot_dir(root: Path, now: LocalDateTime): Path = {
+    val basedir = root.
+      resolve(f"${now.getYear}%04d").
+      resolve(f"${now.getMonthValue}%02d").
+      resolve(f"${now.getDayOfMonth}%02d")
+    val basename = now.format(DateTimeFormatter.ofPattern("HHmmss"))
+    Iterator.from(0).map { index =>
+      val name = if (index == 0) basename else f"${basename}-${index}%02d"
+      basedir.resolve(name)
+    }.find(path => !Files.exists(path)).get
+  }
+
+  private def _zip_directory(source: Path, zip: Path, rootname: String): Unit = {
+    Option(zip.getParent).foreach(Files.createDirectories(_))
+    val out = new ZipOutputStream(Files.newOutputStream(zip))
+    try {
+      val stream = Files.walk(source)
+      try {
+        stream.iterator.asScala.toVector.sortBy(_.toString).filter(Files.isRegularFile(_)).foreach { path =>
+          val rel = source.relativize(path).toString.replace(java.io.File.separatorChar, '/')
+          out.putNextEntry(new ZipEntry(s"${rootname}/${rel}"))
+          Files.copy(path, out)
+          out.closeEntry()
+        }
+      } finally {
+        stream.close()
+      }
+    } finally {
+      out.close()
+    }
+  }
+
+  private def _rotate_website_backups(root: Path, current: YearMonth): Unit = {
+    val snapshots = _website_backup_snapshots(root)
+    val first = snapshots.headOption.map(_.path).toSet
+    val monthlylast = snapshots.groupBy(_.yearMonth).collect {
+      case (yearmonth, xs) if yearmonth != current =>
+        xs.last.path
+    }.toSet
+    val currentmonth = snapshots.filter(_.yearMonth == current).map(_.path).toSet
+    val keep = first ++ monthlylast ++ currentmonth
+    snapshots.map(_.path).filterNot(keep.contains).foreach(_delete_directory)
+  }
+
+  private def _website_backup_snapshots(root: Path): Vector[WebsiteBackupSnapshot] =
+    if (!Files.isDirectory(root))
+      Vector.empty
+    else
+      _directory_children(root).flatMap { yearpath =>
+        val year = yearpath.getFileName.toString
+        if (!year.matches("\\d{4}"))
+          Vector.empty
+        else
+          _directory_children(yearpath).flatMap { monthpath =>
+            val month = monthpath.getFileName.toString
+            if (!month.matches("\\d{2}"))
+              Vector.empty
+            else
+              _directory_children(monthpath).flatMap { daypath =>
+                val day = daypath.getFileName.toString
+                if (!day.matches("\\d{2}"))
+                  Vector.empty
+                else
+                  _directory_children(daypath).filter(_is_website_backup_snapshot).map { snapshot =>
+                    val yearmonth = YearMonth.of(year.toInt, month.toInt)
+                    WebsiteBackupSnapshot(snapshot, yearmonth, s"${year}${month}${day}${snapshot.getFileName}")
+                  }
+              }
+          }
+      }.sortBy(_.order)
+
+  private def _directory_children(path: Path): Vector[Path] =
+    if (!Files.isDirectory(path))
+      Vector.empty
+    else {
+      val stream = Files.list(path)
+      try {
+        stream.iterator.asScala.toVector.filter(Files.isDirectory(_)).sortBy(_.toString)
+      } finally {
+        stream.close()
+      }
+    }
+
+  private def _is_website_backup_snapshot(path: Path): Boolean =
+    Files.isDirectory(path) && (
+      Files.exists(path.resolve("website.d")) ||
+      Files.exists(path.resolve("website.d.zip"))
+    )
 
   def publishVideo(
     config: PublicationConfig,
@@ -2344,6 +2551,7 @@ private[cozy] object CozyBok {
     val terms = _terms(config)
     val glossarybody = _glossary_dashboard_body(config, categories, terms, _language_index_root_prefix(config), locale)
     val historyhref = _latest_history_year_page(target.resolve("history"))
+    _write_article_page(config, target, locale, categories)
     _write_project_pages(config, target, locale, categories)
     _write_rdf_page(config, target, locale, categories)
     _write_scenario_page(config, target, locale, categories)
@@ -2425,6 +2633,138 @@ private[cozy] object CozyBok {
     )
   }
 
+  private def _write_article_page(
+    config: BuildConfig,
+    target: Path,
+    locale: String,
+    categories: Vector[CategoryContent]
+  ): Unit = {
+    val page = target.resolve("articles").resolve("index.html")
+    _write_text(
+      page,
+      _article_index_page(config, categories, locale, page)
+    )
+  }
+
+  private def _article_index_page(
+    config: BuildConfig,
+    categories: Vector[CategoryContent],
+    locale: String,
+    page: Path
+  ): String = {
+    val articles = _article_index_items(config, categories, locale)
+    val articlecount = articles.size
+    val categorycount = articles.map(_.categorySlug).distinct.size
+    s"""<!doctype html>
+       |<html lang="${_html_escape(locale)}">
+       |<head>
+       |  <meta charset="utf-8">
+       |  <meta name="viewport" content="width=device-width, initial-scale=1">
+       |  <title>${_html_escape(_ui(locale, "dashboard.kpi.articles"))} - ${_html_escape(config.siteTitle)}</title>
+       |${_site_css_links(config, page)}
+       |</head>
+       |<body class="article ${_html_escape(_support_dashboard_theme_class)}">
+       |${_category_header(config, categories, locale)}
+       |<div class="body body-dashboard bok-article-body">
+       |  <main class="article bok-article-main">
+       |    <div class="content">
+       |      <article class="doc bok-article-doc">
+       |        <section class="bok-dashboard-shell bok-article-dashboard" id="dashboard">
+       |          ${_dashboard_hero(
+                    _ui(locale, "dashboard.kpi.articles"),
+                    _ui(locale, "dashboard.kpi.articles.note"),
+                    Vector(
+                      _ui(locale, "dashboard.kpi.articles") -> articlecount.toString,
+                      _ui(locale, "dashboard.kpi.categories") -> categorycount.toString
+                    )
+                  )}
+       |          ${_article_dashboard_body(locale, articles)}
+       |        </section>
+       |      </article>
+       |    </div>
+       |  </main>
+       |</div>
+       |</body>
+       |</html>
+       |""".stripMargin
+  }
+
+  private def _article_index_items(config: BuildConfig, categories: Vector[CategoryContent], locale: String): Vector[ArticleIndexItem] = {
+    val sourceitems = categories.flatMap { category =>
+      category.articles.map { article =>
+        ArticleIndexItem(
+          category.slug,
+          category.title,
+          s"../${category.slug}/${article.href}",
+          article.title,
+          article.brief
+        )
+      }
+    }
+    val sourcehrefs = sourceitems.map(_.hrefFromArticleIndex).toSet
+    val categorytitles = categories.map(x => x.slug -> x.title).toMap
+    val fragmentitems = _document_fragment_index(config).toVector.flatMap(_.fragments).filter { fragment =>
+      fragment.locale == locale &&
+      fragment.category.nonEmpty &&
+      _is_article_fragment_public_path(fragment.publicpath)
+    }.map { fragment =>
+      val category = fragment.category.get
+      ArticleIndexItem(
+        category,
+        categorytitles.getOrElse(category, _titleize(category)),
+        s"../${fragment.publicpath}",
+        fragment.effectiveHeadline.getOrElse(_titleize(_source_document_stem(Paths.get(fragment.publicpath).getFileName.toString))),
+        fragment.effectiveBrief.getOrElse("")
+      )
+    }.filterNot(x => sourcehrefs.contains(x.hrefFromArticleIndex))
+    (sourceitems ++ fragmentitems).sortBy(x => (x.categorySlug, x.title, x.hrefFromArticleIndex))
+  }
+
+  private def _is_article_fragment_public_path(value: String): Boolean = {
+    val path = value.stripPrefix("/")
+    path.endsWith(".html") &&
+    !path.startsWith("glossary/") &&
+    !path.startsWith("history/") &&
+    !path.startsWith("manual/") &&
+    !path.startsWith("scenario/") &&
+    !path.startsWith("scenarios/") &&
+    !path.startsWith("projects/") &&
+    !path.startsWith("bibliography/") &&
+    path != "index.html"
+  }
+
+  private def _article_dashboard_body(locale: String, articles: Vector[ArticleIndexItem]): String = {
+    val articlecards = articles.map { article =>
+      val brief = if (article.brief.trim.isEmpty) "" else s"""<p>${_html_escape(article.brief)}</p>"""
+      s"""<article class="bok-article-tile" data-article-category="${_html_escape(article.categorySlug)}">
+         |  <div class="bok-article-tile-head">
+         |    <span class="badge bok-badge-info">${_html_escape(article.categoryTitle)}</span>
+         |  </div>
+         |  <h3><a href="${_html_escape(article.hrefFromArticleIndex)}">${_html_escape(article.title)}</a></h3>
+         |  ${brief}
+         |</article>""".stripMargin
+    }
+    val body =
+      if (articlecards.isEmpty)
+        s"""<p class="bok-card-muted">${_html_escape(_ui(locale, "dashboard.article.empty"))}</p>"""
+      else
+        articlecards.mkString("""<div class="bok-article-grid">""", "\n", "</div>")
+    s"""<div class="bok-dashboard container-fluid bok-dashboard-command-center">
+       |  <div class="row g-3">
+       |    ${_dashboard_card("col-12", "bok-card-map bok-card-article-map", _ui(locale, "dashboard.card.article.map"), body, Vector("reader", "contributor", "project_manager"))}
+       |  </div>
+       |</div>
+       |<script>
+       |(() => {
+       |  const category = new URLSearchParams(window.location.search).get('category');
+       |  if (!category) return;
+       |  document.querySelectorAll('[data-article-category]').forEach((item) => {
+       |    item.hidden = item.dataset.articleCategory !== category;
+       |  });
+       |})();
+       |</script>""".stripMargin
+  }
+
   private def _write_scenario_page(
     config: BuildConfig,
     target: Path,
@@ -2493,20 +2833,10 @@ private[cozy] object CozyBok {
     locale: String,
     categories: Vector[CategoryContent]
   ): Unit = {
-    val bokconfig = _load_config(config.project)
-    _project_package_dirs(config.sourcepath).foreach { packagedir =>
-      val publishconfig = CozyBokProjectPublisher.PublishProjectConfig(
-        packagedir,
-        config.publication.publicationPath(config.project),
-        config.publication.artifactBasePath(config.project),
-        None,
-        force = false,
-        config.project,
-        bokconfig,
-        Some(config.publication.repositoryPath(config.project))
-      )
-      val project = CozyBokProjectPublisher.resolve(publishconfig)
-      val artifact = CozyBokProjectPublisher.artifactPath(publishconfig, project.warehousePath)
+    val projects = _resolved_project_packages(config)
+    _write_project_index_page(config, target, locale, categories, projects)
+    projects.foreach { project =>
+      val artifact = _project_artifact_path(config, project)
       val articlebody = _source_narrative_html(project.article, locale)
       val page = target.resolve(project.publicationpath).resolve("index.html")
       val cmlbody = _project_cml_html(project, page, target)
@@ -2539,6 +2869,147 @@ private[cozy] object CozyBok {
         )
       )
       _write_cml_term_pages(config, target, locale, categories, project)
+    }
+  }
+
+  private def _resolved_project_packages(config: BuildConfig): Vector[CozyBokProjectPublisher.ResolvedBokProject] = {
+    val bokconfig = _load_config(config.project)
+    _project_package_dirs(config.sourcepath).map { packagedir =>
+      val publishconfig = CozyBokProjectPublisher.PublishProjectConfig(
+        packagedir,
+        config.publication.publicationPath(config.project),
+        config.publication.artifactBasePath(config.project),
+        None,
+        force = false,
+        config.project,
+        bokconfig,
+        Some(config.publication.repositoryPath(config.project))
+      )
+      CozyBokProjectPublisher.resolve(publishconfig)
+    }
+  }
+
+  private def _write_project_index_page(
+    config: BuildConfig,
+    target: Path,
+    locale: String,
+    categories: Vector[CategoryContent],
+    projects: Vector[CozyBokProjectPublisher.ResolvedBokProject]
+  ): Unit = {
+    val page = target.resolve("projects/index.html")
+    _write_text(
+      page,
+      _project_index_page(config, categories, locale, page, target, projects)
+    )
+  }
+
+  private def _project_index_page(
+    config: BuildConfig,
+    categories: Vector[CategoryContent],
+    locale: String,
+    page: Path,
+    target: Path,
+    projects: Vector[CozyBokProjectPublisher.ResolvedBokProject]
+  ): String =
+    s"""<!doctype html>
+       |<html lang="${_html_escape(locale)}">
+       |<head>
+       |  <meta charset="utf-8">
+       |  <meta name="viewport" content="width=device-width, initial-scale=1">
+       |  <title>${_html_escape(_ui(locale, "project.title"))} - ${_html_escape(config.siteTitle)}</title>
+       |${_site_css_links(config, page)}
+       |</head>
+       |<body class="article ${_html_escape(_support_dashboard_theme_class)}">
+       |${_category_header(config, categories, locale)}
+       |<div class="body body-dashboard bok-project-body">
+       |  <main class="article bok-project-main">
+       |    <div class="content">
+       |      <article class="doc bok-project-doc">
+       |        <section class="bok-dashboard-shell bok-project-dashboard" id="dashboard">
+       |          ${_dashboard_hero(
+                    _ui(locale, "project.title"),
+                    _ui(locale, "project.description"),
+                    Vector(
+                      _ui(locale, "project.metric.total") -> projects.size.toString,
+                      _ui(locale, "project.metric.categories") -> projects.map(_project_category(config, _)).distinct.size.toString
+                    )
+                  )}
+       |          ${_project_dashboard_body(config, locale, page, target, projects)}
+       |        </section>
+       |      </article>
+       |    </div>
+       |  </main>
+       |</div>
+       |</body>
+       |</html>
+       |""".stripMargin
+
+  private def _project_dashboard_body(
+    config: BuildConfig,
+    locale: String,
+    page: Path,
+    target: Path,
+    projects: Vector[CozyBokProjectPublisher.ResolvedBokProject]
+  ): String =
+    if (projects.isEmpty)
+      s"""<div class="bok-dashboard container-fluid bok-dashboard-command-center">
+         |  <div class="row g-3">
+         |    ${_dashboard_card("col-12", "bok-card-map bok-card-project-map", _ui(locale, "project.title"), s"""<p class="bok-card-muted">${_html_escape(_ui(locale, "project.empty"))}</p>""", Vector("reader", "contributor", "project_manager"))}
+         |  </div>
+         |</div>""".stripMargin
+    else {
+      val categories = projects.groupBy(x => _project_category(config, x)).toVector.sortBy(_._1)
+      val metrics = categories.map {
+        case (category, xs) =>
+          s"""<div class="bok-metric-card"><div class="bok-metric-label">${_html_escape(category)}</div><div class="bok-metric-value">${xs.size}</div><div class="bok-metric-note">${_html_escape(_ui(locale, "project.metric.note"))}</div></div>"""
+      }.mkString("""<div class="bok-dashboard-grid bok-project-metrics">""", "", "</div>")
+      val items = projects.take(30).map { project =>
+        val category = _project_category(config, project)
+        val summary = project.summary.map(x => s"""<p>${_html_escape(x)}</p>""").getOrElse("")
+        val href = _relative_href(page, target.resolve(project.publicationpath).resolve("index.html"))
+        s"""<article class="bok-project-tile" data-project-category="${_html_escape(category)}">
+           |  <div class="bok-project-tile-head">
+           |    <span>${_html_escape(project.descriptor.project.projecttype)}</span>
+           |    <code>${_html_escape(project.module)}</code>
+           |  </div>
+           |  <h3><a href="${_html_escape(href)}">${_html_escape(project.title)}</a></h3>
+           |  ${summary}
+           |  <div class="bok-project-meta"><span>${_html_escape(project.version)}</span><span>${_html_escape(project.projectmode)}</span></div>
+           |</article>""".stripMargin
+      }.mkString("""<div class="bok-project-grid">""", "", "</div>")
+      s"""<div class="bok-dashboard container-fluid bok-dashboard-command-center">
+         |  <div class="row g-3">
+         |    ${_dashboard_card("col-12 col-xl-4", "bok-card-kpi bok-card-project-summary", _ui(locale, "project.metric.summary"), metrics, Vector("reader", "contributor", "project_manager"))}
+         |    ${_dashboard_card("col-12 col-xl-8", "bok-card-map bok-card-project-map", _ui(locale, "project.title"), items, Vector("reader", "contributor", "project_manager"))}
+         |  </div>
+         |</div>
+         |<script>
+         |(() => {
+         |  const category = new URLSearchParams(window.location.search).get('category');
+         |  if (!category) return;
+         |  document.querySelectorAll('[data-project-category]').forEach((item) => {
+         |    item.hidden = item.dataset.projectCategory !== category;
+         |  });
+         |})();
+         |</script>""".stripMargin
+    }
+
+  private def _project_category(config: BuildConfig, project: CozyBokProjectPublisher.ResolvedBokProject): String = {
+    val projects = config.sourcepath.resolve("projects").toAbsolutePath.normalize()
+    val relative = projects.relativize(project.packagedir.toAbsolutePath.normalize())
+    if (relative.getNameCount >= 1) relative.getName(0).toString else "project"
+  }
+
+  private def _project_artifact_path(config: BuildConfig, project: CozyBokProjectPublisher.ResolvedBokProject): Path = {
+    val repository = config.publication.repositoryPath(config.project)
+    val warehouse = config.publication.artifactBasePath(config.project)
+    project.warehousePath match {
+      case "repository" =>
+        repository.toAbsolutePath.normalize()
+      case path if path.startsWith("repository/") =>
+        repository.resolve(path.stripPrefix("repository/")).toAbsolutePath.normalize()
+      case path =>
+        warehouse.resolve(path).toAbsolutePath.normalize()
     }
   }
 
@@ -5266,7 +5737,9 @@ private[cozy] object CozyBok {
       getOrElse(name)
 
   private def _source_narrative_section(config: BuildConfig, path: Option[Path], locale: String): String = {
-    val body = _source_document_fragment(config, path, locale).map(_.bodyhtml.trim).getOrElse("")
+    val body = _source_document_fragment(config, path, locale).
+      map(x => _effective_document_fragment_body(x.bodyhtml)).
+      getOrElse("")
     if (body.isEmpty)
       ""
     else
@@ -5275,6 +5748,41 @@ private[cozy] object CozyBok {
          |    ${body}
          |  </div>
          |</div>""".stripMargin
+  }
+
+  private def _effective_document_fragment_body(body: String): String = {
+    val trimmed = body.trim
+    if (trimmed.isEmpty)
+      ""
+    else if (trimmed.toLowerCase(Locale.ROOT).startsWith("<html"))
+      _article_body(trimmed).map(_empty_html_to_blank).getOrElse(_empty_html_to_blank(trimmed))
+    else
+      _empty_html_to_blank(trimmed)
+  }
+
+  private def _article_body(html: String): Option[String] = {
+    val pattern = Pattern.compile("(?is)<article\\b[^>]*>(.*)</article>")
+    val matcher = pattern.matcher(html)
+    if (matcher.find())
+      Some(matcher.group(1).trim)
+    else
+      None
+  }
+
+  private def _empty_html_to_blank(html: String): String =
+    if (_is_effectively_empty_html(html))
+      ""
+    else
+      html
+
+  private def _is_effectively_empty_html(html: String): Boolean = {
+    val text = html.
+      replaceAll("(?is)<script\\b[^>]*>.*?</script>", "").
+      replaceAll("(?is)<style\\b[^>]*>.*?</style>", "").
+      replaceAll("(?is)<[^>]+>", "").
+      replace("&nbsp;", " ").
+      trim
+    text.isEmpty
   }
 
   private def _source_document_fragment(config: BuildConfig, path: Option[Path], locale: String): Option[DocumentFragment] =
@@ -5418,7 +5926,9 @@ private[cozy] object CozyBok {
        |  <a class="navbar-link navbar-bok-toggle" href="#">${_html_escape(_ui(locale, "nav.bok"))}</a>
        |  <div class="navbar-dropdown navbar-bok-menu">
        |    <a class="navbar-item navbar-dropdown-item" href="${_html_escape(prefix)}glossary/index.html">${_html_escape(_ui(locale, "glossary.title"))}</a>
+       |    <a class="navbar-item navbar-dropdown-item" href="${_html_escape(prefix)}articles/index.html">${_html_escape(_ui(locale, "dashboard.kpi.articles"))}</a>
        |    <a class="navbar-item navbar-dropdown-item" href="${_html_escape(prefix)}scenarios/index.html">${_html_escape(_ui(locale, "scenario.title"))}</a>
+       |    <a class="navbar-item navbar-dropdown-item" href="${_html_escape(prefix)}projects/index.html">${_html_escape(_ui(locale, "project.title"))}</a>
        |    <a class="navbar-item navbar-dropdown-item" href="${_html_escape(prefix)}bibliography/index.html">${_html_escape(_ui(locale, "bibliography.title"))}</a>
        |    <a class="navbar-item navbar-dropdown-item" href="${_html_escape(_history_href(config, prefix))}">${_html_escape(_ui(locale, "history.title"))}</a>
        |    <a class="navbar-item navbar-dropdown-item" href="${_html_escape(prefix)}manual/index.html">${_html_escape(_ui(locale, "manual.title"))}</a>
@@ -5584,16 +6094,22 @@ private[cozy] object CozyBok {
   private def _home_dashboard_grid(config: BuildConfig, purpose: BokPurpose, dashboard: Option[BokDashboard], locale: String): String = {
     val scenarios = _scenario_index(config).map(_.scenarios).getOrElse(Vector.empty)
     val bibliographies = _bibliography_index(config).map(_.entries).getOrElse(Vector.empty)
+    val termcount = dashboard.map(_.counts.glossaryTermCount).getOrElse(_terms(config).size)
+    val articlecount = dashboard.map(_.counts.articleCount).getOrElse(0)
+    val rdfcount = dashboard.map(_.rdf.tripleCount).getOrElse(0)
+    val projectcount = _project_package_dirs(config.sourcepath).size
     val cards = Vector[Option[String]](
       dashboard.map(x => _recent_activity_card(config, locale, x, _home_recent_items(config))),
       if (purpose.isEmpty) None else Some(_dashboard_card("col-12 col-xl-8", "bok-card-purpose", _ui(locale, "dashboard.card.vision"), _purpose_card_body(locale, purpose), Vector("reader", "contributor", "project_manager"))),
+      Some(_analysis_entry_card(locale, termcount, articlecount, scenarios.size, projectcount, rdfcount, "articles/index.html", "glossary/index.html", "scenarios/index.html", "projects/index.html", "rdf/index.html")),
       dashboard.map(x => _dashboard_card(if (purpose.isEmpty) "col-12 col-xl-7" else "col-12 col-xl-4", "bok-card-matrix", _ui(locale, "dashboard.card.category.matrix"), _category_matrix_body(locale, x), Vector("reader", "contributor", "project_manager"))),
       dashboard.map(x => _kpi_card(locale, "col-6 col-md-3", _ui(locale, "dashboard.kpi.categories"), x.counts.categoryCount.toString, _ui(locale, "dashboard.kpi.categories.note"))),
       dashboard.map(x => _kpi_card(locale, "col-6 col-md-3", _ui(locale, "dashboard.kpi.articles"), x.counts.articleCount.toString, _ui(locale, "dashboard.kpi.articles.note"))),
       dashboard.map(x => _kpi_card_link("col-6 col-md-3", _ui(locale, "dashboard.kpi.terms"), x.counts.glossaryTermCount.toString, _ui(locale, "dashboard.kpi.terms.note"), "glossary/index.html")),
       dashboard.map(x => _kpi_card_link("col-6 col-md-3", _ui(locale, "dashboard.kpi.rdf.triples"), x.rdf.tripleCount.toString, _ui(locale, "dashboard.kpi.rdf.triples.note"), "rdf/index.html")),
       Some(_kpi_card_link("col-6 col-md-3", _ui(locale, "dashboard.kpi.scenarios"), scenarios.size.toString, _ui(locale, "dashboard.kpi.scenarios.note"), "scenarios/index.html")),
-      Some(_kpi_card_link("col-6 col-md-3", _ui(locale, "dashboard.kpi.bibliography"), bibliographies.size.toString, _ui(locale, "dashboard.kpi.bibliography.note"), "bibliography/index.html")),
+      Some(_kpi_card_link("col-6 col-md-3", _ui(locale, "project.title"), projectcount.toString, _ui(locale, "project.kpi.note"), "projects/index.html")),
+      Some(_kpi_card_link("col-6 col-md-3", _ui(locale, "dashboard.kpi.bibliography"), bibliographies.size.toString, _ui(locale, "dashboard.kpi.bibliography.note"), "bibliography/index.html", Vector("contributor", "project_manager"))),
       Some(_dashboard_card("col-12 col-xl-4", "bok-card-quality", _ui(locale, "dashboard.card.quality.alerts"), _quality_alerts_body(locale, dashboard.isDefined), Vector("contributor", "project_manager"))),
       dashboard.map(x => _dashboard_card("col-12 col-xl-8", "bok-card-chart", _ui(locale, "dashboard.card.growth"), _dashboard_increment_chart(locale, x.increments, _ui(locale, "dashboard.chart.bok.additions")), Vector("project_manager", "contributor"))),
       Some(_dashboard_card("col-12 col-md-6 col-xl-6", "bok-card-readiness", _ui(locale, "dashboard.card.readiness"), _home_readiness_body(locale, config, dashboard), Vector("site_administrator", "project_manager"))),
@@ -5610,18 +6126,29 @@ private[cozy] object CozyBok {
     rdf: Option[DashboardRdfSummary],
     locale: String
   ): String = {
+    val categoryscenarios = _scenario_index(config).map(_.scenarios.filter(_.category.contains(category.slug))).getOrElse(Vector.empty)
+    val categoryprojects = _project_package_dirs(config.sourcepath).count { path =>
+      val projects = config.sourcepath.resolve("projects").toAbsolutePath.normalize()
+      val relative = projects.relativize(path.toAbsolutePath.normalize())
+      relative.getNameCount >= 1 && relative.getName(0).toString == category.slug
+    }
+    val categoryarticlecount = dashboard.map(_.counts.articleCount).getOrElse(category.articles.size)
+    val categoryrdfcount = rdf.map(_.tripleCount).getOrElse(0)
     val cards = Vector[Option[String]](
       if (category.purpose.isEmpty) None else Some(_dashboard_card("col-12 col-xl-8", "bok-card-purpose bok-card-category-purpose", _ui(locale, "dashboard.card.category.vision"), _purpose_card_body(locale, category.purpose), Vector("reader", "contributor", "project_manager"))),
+      Some(_analysis_entry_card(locale, categoryTerms.size, categoryarticlecount, categoryscenarios.size, categoryprojects, categoryrdfcount, s"../articles/index.html?category=${_url_query_escape(category.slug)}", s"../glossary/${category.slug}/index.html", s"../scenarios/index.html?category=${_url_query_escape(category.slug)}", s"../projects/index.html?category=${_url_query_escape(category.slug)}", s"../rdf/index.html?category=${_url_query_escape(category.slug)}")),
       Some(_dashboard_card("col-12 col-xl-6", "bok-card-map", _ui(locale, "dashboard.card.term.map"), _page_map_body(categoryTerms, _ui(locale, "dashboard.term.empty")), Vector("reader", "contributor", "project_manager"))),
       Some(_dashboard_card("col-12 col-xl-6", "bok-card-map", _ui(locale, "dashboard.card.article.map"), _page_map_body(category.articles, _ui(locale, "dashboard.article.empty")), Vector("reader", "contributor", "project_manager"))),
       rdf.map(x => _category_rdf_kpi_card(locale, category, x)),
       dashboard.map(x => _kpi_card(locale, "col-6 col-md-3", _ui(locale, "dashboard.kpi.articles"), x.counts.articleCount.toString, _ui(locale, "dashboard.kpi.category.articles.note"))),
       dashboard.map(x => _kpi_card(locale, "col-6 col-md-3", _ui(locale, "dashboard.kpi.terms"), x.counts.glossaryTermCount.toString, _ui(locale, "dashboard.kpi.category.terms.note"))),
+      Some(_kpi_card_link("col-6 col-md-3", _ui(locale, "dashboard.kpi.scenarios"), categoryscenarios.size.toString, _ui(locale, "dashboard.kpi.scenarios.note"), s"../scenarios/index.html?category=${_url_query_escape(category.slug)}")),
+      Some(_kpi_card_link("col-6 col-md-3", _ui(locale, "project.title"), categoryprojects.toString, _ui(locale, "project.kpi.note"), s"../projects/index.html?category=${_url_query_escape(category.slug)}")),
       Some(_kpi_card(locale, "col-6 col-md-3", _ui(locale, "dashboard.kpi.issues"), "0", _ui(locale, "dashboard.kpi.issues.note"))),
       Some(_dashboard_card("col-12 col-xl-5", "bok-card-quality", _ui(locale, "dashboard.card.local.quality.alerts"), _quality_alerts_body(locale, dashboard.isDefined), Vector("contributor", "project_manager"))),
       dashboard.map(x => _dashboard_card("col-12 col-xl-7", "bok-card-chart", _ui(locale, "dashboard.card.category.growth"), _dashboard_increment_chart(locale, x.increments, _uif(locale, "dashboard.chart.category.additions", x.title)), Vector("project_manager", "contributor"))),
       Some(_dashboard_card("col-12 col-md-6 col-xl-3", "bok-card-readiness", _ui(locale, "dashboard.card.category.readiness"), _category_readiness_body(locale, dashboard), Vector("site_administrator", "project_manager"))),
-      Some(_recent_activity_card(config, locale, category)),
+      _recent_activity_card(config, locale, category),
       Some(_dashboard_card("col-12 col-md-6 col-xl-5", "bok-card-related", _ui(locale, "dashboard.card.related.knowledge"), _related_knowledge_body(locale, config, category, rdf), Vector("reader", "contributor", "project_manager")))
     ).flatten
     _dashboard_container(locale, cards)
@@ -5878,16 +6405,21 @@ private[cozy] object CozyBok {
        |</div>""".stripMargin
   }
 
-  private def _recent_activity_card(config: BuildConfig, locale: String, category: CategoryContent): String = {
+  private def _recent_activity_card(config: BuildConfig, locale: String, category: CategoryContent): Option[String] = {
+    val items = _category_recent_items(config, category)
+    if (items.isEmpty)
+      None
+    else {
     val actorattr = """ data-bok-actors="reader contributor project_manager""""
-    s"""<div class="col-12 col-md-6 col-xl-4" data-bok-card="true">
+    Some(s"""<div class="col-12 col-md-6 col-xl-4" data-bok-card="true">
        |  <section class="card bok-card bok-card-activity bok-card-notification"${actorattr}>
        |    <div class="card-body">
        |      <h3 class="card-title bok-card-title-with-action"><span>${_html_escape(_ui(locale, "dashboard.card.recent.changes"))}</span><a class="bok-card-title-link" href="${_html_escape(_history_href(config, "../"))}">${_html_escape(_ui(locale, "dashboard.activity.open.history"))}</a></h3>
-       |      ${_recent_activity_body(locale, DashboardIncrements("day", Vector.empty), _category_recent_items(config, category), false)}
+       |      ${_recent_activity_body(locale, DashboardIncrements("day", Vector.empty), items, false)}
        |    </div>
        |  </section>
-       |</div>""".stripMargin
+       |</div>""".stripMargin)
+    }
   }
 
   private def _kpi_card(locale: String, column: String, label: String, value: String, note: String): String =
@@ -5901,7 +6433,7 @@ private[cozy] object CozyBok {
       Vector("reader", "contributor", "project_manager")
     )
 
-  private def _kpi_card_link(column: String, label: String, value: String, note: String, href: String): String =
+  private def _kpi_card_link(column: String, label: String, value: String, note: String, href: String, actors: Vector[String] = Vector("reader", "contributor", "project_manager")): String =
     _dashboard_card(
       column,
       "bok-card-kpi bok-card-kpi-link",
@@ -5911,8 +6443,74 @@ private[cozy] object CozyBok {
          |  <span class="bok-kpi-label">${_html_escape(label)}</span>
          |  <span class="bok-kpi-note">${_html_escape(note)}</span>
          |</a>""".stripMargin,
+      actors
+    )
+
+  private def _analysis_entry_card(
+    locale: String,
+    termcount: Int,
+    articlecount: Int,
+    scenariocount: Int,
+    projectcount: Int,
+    rdfcount: Int,
+    articleHref: String,
+    glossaryHref: String,
+    scenarioHref: String,
+    projectHref: String,
+    rdfHref: String
+  ): String =
+    _dashboard_card(
+      "col-12",
+      "bok-card-analysis-entry",
+      _ui(locale, "dashboard.card.analysis.entry"),
+      s"""<p class="bok-analysis-entry-lead">${_html_escape(_ui(locale, "dashboard.analysis.entry.description"))}</p>
+         |<div class="bok-analysis-entry-flow">
+         |  <div class="bok-analysis-entry-analysis">
+         |    <div class="bok-analysis-entry-group-title">${_html_escape(_ui(locale, "dashboard.analysis.entry.mono.koto.title"))}</div>
+         |    <div class="bok-analysis-entry-relation">
+         |      <div class="bok-analysis-entry-column bok-analysis-entry-inputs">
+         |        ${_analysis_entry_tile(Some(articleHref), _ui(locale, "dashboard.kpi.articles"), _ui(locale, "dashboard.analysis.entry.article.note"), _uif(locale, "dashboard.analysis.entry.count.articles", articlecount.toString), "article")}
+         |        ${_analysis_entry_tile(Some(scenarioHref), _ui(locale, "scenario.title"), _ui(locale, "dashboard.analysis.entry.scenario.note"), _uif(locale, "dashboard.analysis.entry.count.scenarios", scenariocount.toString), "scenario")}
+         |      </div>
+         |      <div class="bok-analysis-entry-arrow-column bok-analysis-entry-input-arrows" aria-hidden="true">
+         |        <span class="bok-analysis-entry-arrow">➜</span>
+         |        <span class="bok-analysis-entry-arrow">➜</span>
+         |      </div>
+         |      <div class="bok-analysis-entry-center">
+         |        ${_analysis_entry_tile(Some(glossaryHref), _ui(locale, "glossary.title"), _ui(locale, "dashboard.analysis.entry.glossary.note"), _uif(locale, "dashboard.analysis.entry.count.terms", termcount.toString), "mono-koto-process")}
+         |      </div>
+         |    </div>
+         |  </div>
+         |  <div class="bok-analysis-entry-output-relation">
+         |    <div class="bok-analysis-entry-arrow-column bok-analysis-entry-output-arrows" aria-hidden="true">
+         |      <span class="bok-analysis-entry-arrow">➜</span>
+         |      <span class="bok-analysis-entry-arrow">➜</span>
+         |    </div>
+         |    <div class="bok-analysis-entry-column bok-analysis-entry-outputs">
+         |      ${_analysis_entry_tile(Some(rdfHref), _ui(locale, "dashboard.kpi.rdf.triples"), _ui(locale, "dashboard.analysis.entry.rdf.note"), _uif(locale, "dashboard.analysis.entry.count.rdf", rdfcount.toString), "rdf")}
+         |      ${_analysis_entry_tile(Some(projectHref), _ui(locale, "project.title"), _ui(locale, "dashboard.analysis.entry.project.note"), _uif(locale, "dashboard.analysis.entry.count.projects", projectcount.toString), "project")}
+         |    </div>
+         |  </div>
+         |</div>""".stripMargin,
       Vector("reader", "contributor", "project_manager")
     )
+
+  private def _analysis_entry_tile(href: Option[String], title: String, note: String, count: String, kind: String): String = {
+    val body =
+      s"""  <span class="bok-analysis-entry-kicker">${_html_escape(count)}</span>
+         |  <strong>${_html_escape(title)}</strong>
+         |  <em>${_html_escape(note)}</em>""".stripMargin
+    href match {
+      case Some(value) =>
+        s"""<a class="bok-analysis-entry-tile bok-analysis-entry-${_html_escape(kind)}" href="${_html_escape(value)}">
+           |${body}
+           |</a>""".stripMargin
+      case None =>
+        s"""<div class="bok-analysis-entry-tile bok-analysis-entry-${_html_escape(kind)} bok-analysis-entry-static">
+           |${body}
+           |</div>""".stripMargin
+    }
+  }
 
   private def _purpose_card_body(locale: String, purpose: BokPurpose): String =
     if (purpose.isEmpty)
@@ -6014,7 +6612,7 @@ private[cozy] object CozyBok {
       if (dashboard.categories.isEmpty)
         s"""<p class="bok-card-muted">${_html_escape(_ui(locale, "dashboard.category.metadata.empty"))}</p>"""
       else
-        dashboard.categories.map { category =>
+        dashboard.categories.sortBy(_.name).map { category =>
           val freshness = category.increments.buckets.lastOption.map(_.label).getOrElse("-")
           val rdfitem = _category_rdf_metric(locale, category)
           s"""<div class="bok-category-summary-card">
@@ -6096,22 +6694,20 @@ private[cozy] object CozyBok {
   private def _home_recent_items(config: BuildConfig): Vector[DashboardRecentItem] = {
     val categories = _category_contents(config.sourcepath)
     val categorylabels = categories.map(x => x.slug -> x.title).toMap
-    val contentitems = categories.flatMap { category =>
+    val articleitems = categories.flatMap { category =>
       val articles = category.articles.map { item =>
         DashboardRecentItem(s"${category.slug}/${item.href}", item.title, Some(category.title), "dashboard.activity.kind.article", item.modifiedAtMillis)
       }
-      val terms = category.terms.map { item =>
-        DashboardRecentItem(item.href.stripPrefix("../"), item.title, Some(category.title), "dashboard.activity.kind.term", item.modifiedAtMillis)
-      }
-      articles ++ terms
+      articles
     }
+    val termitems = _recent_term_items_from_home(config, categories)
     val scenarioitems = _scenario_index(config).map(_.scenarios.map { item =>
       DashboardRecentItem(item.hrefFromHome, item.title, item.category.map(x => categorylabels.getOrElse(x, x)), "dashboard.activity.kind.scenario", _source_modified_at_millis(config, item.sourcepath))
     }).getOrElse(Vector.empty)
     val bibliographyitems = _bibliography_index(config).map(_.entries.map { item =>
       DashboardRecentItem(item.publicpath, item.title, item.category.map(x => categorylabels.getOrElse(x, x)), "dashboard.activity.kind.bibliography", _source_modified_at_millis(config, item.sourcepath))
     }).getOrElse(Vector.empty)
-    val items = (contentitems ++ scenarioitems ++ bibliographyitems).groupBy(_.href).values.map(_.maxBy(_.modifiedatmillis)).toVector
+    val items = (articleitems ++ termitems ++ scenarioitems ++ bibliographyitems).groupBy(_.href).values.map(_.maxBy(_.modifiedatmillis)).toVector
     val dated = items.flatMap(item => _modified_date(item.modifiedatmillis).map(_ -> item))
     if (dated.nonEmpty) {
       val latestdate = dated.maxBy(_._1.toEpochDay)._1
@@ -6133,9 +6729,7 @@ private[cozy] object CozyBok {
     val articles = category.articles.map { item =>
       DashboardRecentItem(item.href, item.title, Some(category.title), "dashboard.activity.kind.article", item.modifiedAtMillis)
     }
-    val terms = category.terms.map { item =>
-      DashboardRecentItem(item.href, item.title, Some(category.title), "dashboard.activity.kind.term", item.modifiedAtMillis)
-    }
+    val terms = _recent_term_items_from_category(config, category)
     val scenarios = _scenario_index(config).map(_.scenarios.filter(_.category.contains(category.slug)).map { item =>
       DashboardRecentItem(item.hrefFromCategory, item.title, Some(category.title), "dashboard.activity.kind.scenario", _source_modified_at_millis(config, item.sourcepath))
     }).getOrElse(Vector.empty)
@@ -6143,6 +6737,39 @@ private[cozy] object CozyBok {
       DashboardRecentItem("../" + item.publicpath, item.title, Some(category.title), "dashboard.activity.kind.bibliography", _source_modified_at_millis(config, item.sourcepath))
     }).getOrElse(Vector.empty)
     (articles ++ terms ++ scenarios ++ bibliographies).sortBy(-_.modifiedatmillis).take(5)
+  }
+
+  private def _recent_term_items_from_home(config: BuildConfig, categories: Vector[CategoryContent]): Vector[DashboardRecentItem] = {
+    val categorylabels = categories.map(x => x.slug -> x.title).toMap
+    val terms = _terms(config)
+    if (terms.nonEmpty)
+      terms.map { term =>
+        DashboardRecentItem(
+          term.termHubHrefFromHome,
+          term.title,
+          term.category.map(x => categorylabels.getOrElse(x, x)),
+          "dashboard.activity.kind.term",
+          _source_modified_at_millis(config, term.sourcepath)
+        )
+      }
+    else
+      Vector.empty
+  }
+
+  private def _recent_term_items_from_category(config: BuildConfig, category: CategoryContent): Vector[DashboardRecentItem] = {
+    val terms = _terms(config).filter(_.category.contains(category.slug))
+    if (terms.nonEmpty)
+      terms.map { term =>
+        DashboardRecentItem(
+          term.termHubHrefFromCategory,
+          term.title,
+          Some(category.title),
+          "dashboard.activity.kind.term",
+          _source_modified_at_millis(config, term.sourcepath)
+        )
+      }
+    else
+      Vector.empty
   }
 
   private def _source_modified_at_millis(config: BuildConfig, sourcepath: String): Long = {
@@ -6204,11 +6831,23 @@ private[cozy] object CozyBok {
       _bibliography_index(config).map(_.entries.count(_.category.contains(category.slug))).filter(_ > 0).
         map(count => s"""  <li class="list-group-item"><a href="../bibliography/index.html?category=${_html_escape(_url_query_escape(category.slug))}">${_html_escape(_uif(locale, "bibliography.category.link", count.toString))}</a></li>""").
         getOrElse("")
+    val projectitem = {
+      val count = _project_package_dirs(config.sourcepath).count { path =>
+        val projects = config.sourcepath.resolve("projects").toAbsolutePath.normalize()
+        val relative = projects.relativize(path.toAbsolutePath.normalize())
+        relative.getNameCount >= 1 && relative.getName(0).toString == category.slug
+      }
+      if (count > 0)
+        s"""  <li class="list-group-item"><a href="../projects/index.html?category=${_html_escape(_url_query_escape(category.slug))}">${_html_escape(_uif(locale, "project.category.link", count.toString))}</a></li>"""
+      else
+        ""
+    }
     s"""<ul class="list-group bok-related-list">
        |  <li class="list-group-item"><a href="../glossary/index.html">${_html_escape(_ui(locale, "glossary.title"))}</a></li>
        |  <li class="list-group-item"><a href="../glossary/${_html_escape(category.slug)}/index.html">${_html_escape(_uif(locale, "dashboard.related.category.terms", category.title))}</a></li>
        |${rdfitem}
        |${scenarioitem}
+       |${projectitem}
        |${bibliographyitem}
        |  <li class="list-group-item"><a href="${_html_escape(_history_href(config, "../"))}">${_html_escape(_ui(locale, "history.title"))}</a></li>
        |  <li class="list-group-item"><a href="../manual/index.html">${_html_escape(_ui(locale, "manual.title"))}</a></li>
@@ -7369,6 +8008,245 @@ private[cozy] object CozyBok {
       |  background: #5c7cfa;
       |}
       |
+      |.bok-card-analysis-entry {
+      |  background: linear-gradient(135deg, rgba(236,253,245,.96), rgba(239,246,255,.94)) !important;
+      |}
+      |
+      |.bok-card-analysis-entry::before {
+      |  background: #10b981;
+      |}
+      |
+      |.bok-analysis-entry-lead {
+      |  margin: 0 0 .42rem;
+      |  color: #334155;
+      |  font-size: .84rem;
+      |  font-weight: 750;
+      |  line-height: 1.36;
+      |}
+      |
+      |.bok-analysis-entry-grid {
+      |  display: grid;
+      |  grid-template-columns: repeat(2, minmax(0, 1fr));
+      |  gap: .9rem;
+      |}
+      |
+      |.bok-analysis-entry-flow {
+      |  display: grid;
+      |  grid-template-columns: max-content max-content;
+      |  align-items: stretch;
+      |  gap: .18rem;
+      |  width: fit-content;
+      |  max-width: 100%;
+      |  margin: .45rem auto 0;
+      |}
+      |
+      |.bok-analysis-entry-analysis {
+      |  display: grid;
+      |  gap: .24rem;
+      |  padding: .32rem;
+      |  border: 1px solid rgba(16,185,129,.18);
+      |  border-radius: 16px;
+      |  background: linear-gradient(135deg, rgba(236,253,245,.56), rgba(255,255,255,.62));
+      |}
+      |
+      |.bok-analysis-entry-group-title {
+      |  color: #0f766e;
+      |  font-size: .72rem;
+      |  font-weight: 950;
+      |  letter-spacing: .08em;
+      |  text-transform: uppercase;
+      |}
+      |
+      |.bok-analysis-entry-relation {
+      |  display: grid;
+      |  grid-template-columns: 13.2rem 2.2rem 13.2rem;
+      |  align-items: stretch;
+      |  gap: .16rem;
+      |}
+      |
+      |.bok-analysis-entry-output-relation {
+      |  display: grid;
+      |  grid-template-columns: 2.2rem 13.2rem;
+      |  align-items: stretch;
+      |  gap: .16rem;
+      |}
+      |
+      |.bok-analysis-entry-column {
+      |  display: grid;
+      |  gap: .24rem;
+      |}
+      |
+      |.bok-analysis-entry-center {
+      |  display: grid;
+      |}
+      |
+      |.bok-analysis-entry-center .bok-analysis-entry-tile {
+      |  min-height: 100%;
+      |  align-content: center;
+      |  border-color: rgba(16,185,129,.42);
+      |  background: linear-gradient(135deg, rgba(236,253,245,.96), rgba(255,255,255,.88));
+      |  box-shadow: 0 22px 46px rgba(6,95,70,.16);
+      |}
+      |
+      |.bok-analysis-entry-mono-koto-process {
+      |  outline: 2px solid rgba(16,185,129,.18);
+      |  outline-offset: 2px;
+      |}
+      |
+      |.bok-analysis-entry-arrow {
+      |  display: grid;
+      |  place-items: center;
+      |  color: #0f766e;
+      |  font-size: 1.78rem;
+      |  font-weight: 1000;
+      |  line-height: 1;
+      |}
+      |
+      |.bok-analysis-entry-arrow-column {
+      |  display: grid;
+      |  gap: .16rem;
+      |  align-items: stretch;
+      |  justify-items: center;
+      |  width: 2.2rem;
+      |}
+      |
+      |.bok-analysis-entry-arrow-column .bok-analysis-entry-arrow {
+      |  min-height: 5.2rem;
+      |}
+      |
+      |.bok-analysis-entry-tile {
+      |  display: grid;
+      |  gap: .2rem;
+      |  min-width: 0;
+      |  min-height: 5.2rem;
+      |  padding: .54rem .66rem;
+      |  color: #0f172a !important;
+      |  text-decoration: none !important;
+      |  border: 1px solid rgba(15,118,110,.18);
+      |  border-radius: 16px;
+      |  background: rgba(255,255,255,.78);
+      |  box-shadow: 0 14px 30px rgba(15,23,42,.10);
+      |  transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+      |}
+      |
+      |.bok-analysis-entry-analysis .bok-analysis-entry-tile,
+      |.bok-analysis-entry-analysis .bok-analysis-entry-arrow-column .bok-analysis-entry-arrow {
+      |  min-height: 3.95rem;
+      |}
+      |
+      |.bok-analysis-entry-analysis .bok-analysis-entry-tile {
+      |  padding: .42rem .54rem;
+      |}
+      |
+      |.bok-analysis-entry-analysis .bok-analysis-entry-tile strong {
+      |  font-size: .98rem;
+      |}
+      |
+      |.bok-analysis-entry-analysis .bok-analysis-entry-tile em {
+      |  font-size: .8rem;
+      |  line-height: 1.16;
+      |}
+      |
+      |.bok-analysis-entry-tile:hover,
+      |.bok-analysis-entry-tile:focus {
+      |  transform: translateY(-2px);
+      |  border-color: rgba(16,185,129,.45);
+      |  box-shadow: 0 20px 42px rgba(15,23,42,.16);
+      |}
+      |
+      |.bok-analysis-entry-static {
+      |  cursor: default;
+      |}
+      |
+      |.bok-analysis-entry-static:hover,
+      |.bok-analysis-entry-static:focus {
+      |  transform: none;
+      |  border-color: rgba(15,118,110,.18);
+      |  box-shadow: 0 14px 30px rgba(15,23,42,.10);
+      |}
+      |
+      |.bok-analysis-entry-tile strong {
+      |  color: #0f172a;
+      |  font-size: 1.04rem;
+      |  font-weight: 950;
+      |  letter-spacing: -.03em;
+      |  white-space: nowrap;
+      |}
+      |
+      |.bok-analysis-entry-tile em {
+      |  color: #475569;
+      |  font-style: normal;
+      |  font-weight: 750;
+      |  line-height: 1.22;
+      |  font-size: .84rem;
+      |}
+      |
+      |.bok-analysis-entry-kicker {
+      |  width: max-content;
+      |  padding: .14rem .38rem;
+      |  color: #065f46;
+      |  background: rgba(16,185,129,.14);
+      |  border-radius: 999px;
+      |  font-size: .64rem;
+      |  font-weight: 900;
+      |  letter-spacing: .05em;
+      |}
+      |
+      |.bok-analysis-entry-scenario .bok-analysis-entry-kicker {
+      |  color: #1d4ed8;
+      |  background: rgba(59,130,246,.14);
+      |}
+      |
+      |.bok-analysis-entry-article .bok-analysis-entry-kicker {
+      |  color: #9a3412;
+      |  background: rgba(251,146,60,.16);
+      |}
+      |
+      |.bok-analysis-entry-project .bok-analysis-entry-kicker {
+      |  color: #6d28d9;
+      |  background: rgba(167,139,250,.18);
+      |}
+      |
+      |.bok-analysis-entry-rdf .bok-analysis-entry-kicker {
+      |  color: #0e7490;
+      |  background: rgba(34,211,238,.18);
+      |}
+      |
+      |.bok-article-grid {
+      |  display: grid;
+      |  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+      |  gap: .75rem;
+      |}
+      |
+      |.bok-article-tile {
+      |  display: grid;
+      |  gap: .45rem;
+      |  padding: .9rem 1rem;
+      |  border: 1px solid rgba(148,163,184,.24);
+      |  border-radius: 18px;
+      |  background: rgba(255,255,255,.78);
+      |  box-shadow: 0 12px 28px rgba(15,23,42,.08);
+      |}
+      |
+      |.bok-article-tile-head {
+      |  display: flex;
+      |  gap: .45rem;
+      |  align-items: center;
+      |}
+      |
+      |.bok-article-tile h3 {
+      |  margin: 0;
+      |  font-size: 1.08rem;
+      |  line-height: 1.3;
+      |}
+      |
+      |.bok-article-tile p {
+      |  margin: 0;
+      |  color: #475569;
+      |  font-weight: 650;
+      |  line-height: 1.45;
+      |}
+      |
       |.bok-card-chart::before {
       |  background: #15aabf;
       |}
@@ -7426,14 +8304,14 @@ private[cozy] object CozyBok {
       |}
       |
       |.bok-card-category-purpose .card-body {
-      |  gap: 0.48rem !important;
-      |  padding: 0.82rem 0.95rem 0.86rem !important;
+      |  gap: 0.34rem !important;
+      |  padding: 0.72rem 0.88rem 0.62rem !important;
       |}
       |
       |.bok-card-category-purpose .bok-purpose-vision-panel {
-      |  gap: 0.5rem;
+      |  gap: 0.42rem;
       |  margin-bottom: 0;
-      |  padding: 0.62rem 0.68rem 0.68rem;
+      |  padding: 0.54rem 0.62rem 0.56rem;
       |  border-radius: 14px;
       |  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.10);
       |}
@@ -7447,9 +8325,9 @@ private[cozy] object CozyBok {
       |}
       |
       |.bok-card-category-purpose .bok-purpose-tree {
-      |  gap: 0.46rem;
-      |  margin-top: 0.42rem;
-      |  padding: 0.56rem 0.6rem 0.62rem;
+      |  gap: 0.34rem;
+      |  margin-top: 0.3rem;
+      |  padding: 0.42rem 0.52rem 0.44rem;
       |  border: 1px solid rgba(255, 255, 255, 0.20);
       |  border-radius: 14px;
       |  background: rgba(255, 255, 255, 0.10);
@@ -7468,8 +8346,8 @@ private[cozy] object CozyBok {
       |}
       |
       |.bok-card-category-purpose .bok-purpose-goal {
-      |  gap: 0.42rem;
-      |  padding: 0.58rem 0.68rem 0.62rem 0.78rem !important;
+      |  gap: 0.34rem;
+      |  padding: 0.46rem 0.58rem 0.48rem 0.68rem !important;
       |  border-radius: 14px;
       |  border: 1px solid rgba(255, 255, 255, 0.32);
       |  background: rgba(255, 255, 255, 0.18);
@@ -7478,8 +8356,8 @@ private[cozy] object CozyBok {
       |
       |.bok-card-category-purpose .bok-purpose-goal::before {
       |  left: 0.52rem;
-      |  top: 2.35rem;
-      |  bottom: 0.72rem;
+      |  top: 2.08rem;
+      |  bottom: 0.56rem;
       |  width: 2px;
       |  background: rgba(255, 255, 255, 0.24);
       |}
@@ -7489,8 +8367,8 @@ private[cozy] object CozyBok {
       |}
       |
       |.bok-card-category-purpose .bok-purpose-subgoals {
-      |  margin: 0.42rem 0 0 1.72rem;
-      |  gap: 0.32rem;
+      |  margin: 0.3rem 0 0 1.55rem;
+      |  gap: 0.24rem;
       |}
       |
       |.bok-card-category-purpose .bok-purpose-subgoals li::before {
@@ -8142,6 +9020,12 @@ private[cozy] object CozyBok {
       |
       |.bok-card-category-purpose {
       |  min-height: auto;
+      |  height: fit-content;
+      |  align-self: start;
+      |}
+      |
+      |[data-bok-card]:has(.bok-card-category-purpose) {
+      |  align-self: start;
       |}
       |
       |.bok-card-purpose .card-title,
@@ -8236,6 +9120,32 @@ private[cozy] object CozyBok {
       |}
       |
       |@media (max-width: 48rem) {
+      |  .bok-analysis-entry-flow {
+      |    grid-template-columns: 1fr;
+      |  }
+      |
+      |  .bok-analysis-entry-relation {
+      |    grid-template-columns: 1fr;
+      |  }
+      |
+      |  .bok-analysis-entry-output-relation {
+      |    grid-template-columns: 1fr;
+      |  }
+      |
+      |  .bok-analysis-entry-column {
+      |    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+      |  }
+      |
+      |  .bok-analysis-entry-arrow-column {
+      |    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+      |  }
+      |
+      |  .bok-analysis-entry-arrow {
+      |    transform: rotate(90deg);
+      |  }
+      |}
+      |
+      |@media (max-width: 48rem) {
       |  .body.body-dashboard {
       |    border-radius: 0;
       |    padding: 0.75rem;
@@ -8247,6 +9157,26 @@ private[cozy] object CozyBok {
       |
       |  .bok-kpi-value {
       |    font-size: 2.2rem;
+      |  }
+      |
+      |  .bok-analysis-entry-grid {
+      |    grid-template-columns: 1fr;
+      |  }
+      |
+      |  .bok-analysis-entry-column {
+      |    grid-template-columns: 1fr;
+      |  }
+      |
+      |  .bok-analysis-entry-arrow-column {
+      |    grid-template-columns: 1fr;
+      |  }
+      |
+      |  .bok-analysis-entry-tile {
+      |    min-height: 7.2rem;
+      |  }
+      |
+      |  .bok-analysis-entry-arrow-column .bok-analysis-entry-arrow {
+      |    min-height: 2.2rem;
       |  }
       |}
       |
@@ -8331,7 +9261,7 @@ private[cozy] object CozyBok {
       |  text-align: center;
       |  background: rgba(255, 255, 255, 0.12);
       |  border: 1px solid rgba(255, 255, 255, 0.18);
-      |  border-radius: 20px;
+      |  border-radius: 16px;
       |}
       |
       |.bok-dashboard-hero-fact strong {
@@ -9315,6 +10245,10 @@ private[cozy] object CozyBok {
        |  strategy: production
        |  website: website.d
        |  website-staging: ${config.map(_default_website_staging).getOrElse("../website-staging")}
+       |  backup:
+       |    enabled: false
+       |    dir: website.backup
+       |    compressed: true
        |  antora: antora.d
        |  doxsite: doxsite.d
        |  ui-bundle: src/main/antora-ui/build/ui-bundle.zip
@@ -10251,12 +11185,32 @@ private[cozy] object CozyBok {
       val project = _project(parsed)
       parsed.validateNoUnrecognized()
       val config = _load_config(project)
+      val env = _workflow_env(config, name)
       WorkflowConfig(
         project,
         name,
         _workflow_command(config, name),
-        _workflow_env(config, name)
+        env,
+        _workflow_backup_config(project, config, name, env)
       )
     }
   }
+
+  private def _workflow_backup_config(
+    project: Path,
+    config: CozyProjectYamlConfig.Config,
+    name: String,
+    env: Map[String, String]
+  ): Option[WebsiteBackupConfig] =
+    if (name == "upload" && _boolean(config, "bok.backup.enabled", false)) {
+      val source = project.resolve(env.getOrElse("WEBSITE_SOURCE_DIR", config.value("bok.website").getOrElse("website.d"))).toAbsolutePath.normalize()
+      val root = project.resolve(
+        config.value("bok.backup.dir").
+          orElse(config.value("bok.backup.path")).
+          getOrElse("website.backup")
+      ).toAbsolutePath.normalize()
+      Some(WebsiteBackupConfig(source, root, _boolean(config, "bok.backup.compressed", true)))
+    } else {
+      None
+    }
 }

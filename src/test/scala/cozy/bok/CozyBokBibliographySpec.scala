@@ -13,7 +13,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jun. 24, 2026
- * @version Jun. 25, 2026
+ * @version Jun. 27, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokBibliographySpec
@@ -333,6 +333,13 @@ class CozyBokBibliographySpec
           val bibliography = _read(dir.resolve("website.d/bibliography/index.html"))
           bibliography should include("Design Patterns")
           bibliography should not include("Unresolved")
+
+          And("the SmartDox document fragment References section is synchronized before dashboard rendering")
+          val fragments = _read(dir.resolve("doxsite.d/metadata/documents/fragments.json"))
+          fragments should include("Design Patterns")
+          fragments should include("bibliography-reference")
+          fragments should include("../bibliography/technology/openlibrary-works-ol31219436w.html")
+          fragments should not include("Unresolved bibliography reference")
         }
       }
 
@@ -797,6 +804,7 @@ class CozyBokBibliographySpec
         _write(cwd.resolve("doxsite.d/metadata/rdf/graph.json"), _rdf_graph_json)
         _write(cwd.resolve("doxsite.d/metadata/glossary/terms.json"), "{\"terms\": []}\n")
         _write(cwd.resolve("doxsite.d/metadata/bibliography/bibliography.json"), _provider_and_inline_citation_bibliography_json)
+        _write(cwd.resolve("doxsite.d/metadata/documents/fragments.json"), _provider_and_inline_citation_document_fragments_json)
         _write(cwd.resolve("doxsite.d/site.ttl"), _provider_and_inline_citation_site_ttl)
         _write(cwd.resolve("doxsite.d/site.jsonld"), _provider_and_inline_citation_site_jsonld)
       }
@@ -1025,6 +1033,22 @@ class CozyBokBibliographySpec
       |    }],
       |    "needs_resolution": true,
       |    "quality": {"missing_citation": true, "missing_terms": true, "missing_source": false, "missing_narrative": true, "needs_curation": true}
+      |  }]
+      |}
+      |""".stripMargin
+
+  private def _provider_and_inline_citation_document_fragments_json: String =
+    """{
+      |  "fragments": [{
+      |    "source_path": "technology/index.dox",
+      |    "public_path": "technology/index.html",
+      |    "locale": "en",
+      |    "kind": "article",
+      |    "category": "technology",
+      |    "title": "Technology",
+      |    "headline": "Technology",
+      |    "brief": "Technology references.",
+      |    "body_html": "<p>Technology cites <a class=\"bibliography-citation\" href=\"../bibliography/technology/gamma1995designpatterns.html\">[gamma1995designpatterns]</a>.</p><section><h2>References</h2><ol><li>[1] <a class=\"bibliography-reference\" href=\"../bibliography/technology/openlibrary-works-ol31219436w.html\">openlibrary:works/OL31219436W</a>. Unresolved bibliography reference from technology/index.dox</li><li>[2] <a class=\"bibliography-reference\" href=\"../bibliography/technology/gamma1995designpatterns.html\">gamma1995designpatterns</a>. Unresolved bibliography reference from technology/index.dox</li></ol></section>"
       |  }]
       |}
       |""".stripMargin
