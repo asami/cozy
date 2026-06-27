@@ -106,6 +106,7 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         buildsbtcontent should include ("cozyPublishCar.value")
         buildsbtcontent should include ("publishLocal := {")
         buildsbtcontent should include ("cozyPublishLocalCar.value")
+        buildsbtcontent should include ("""cozyDelegateCommand := Seq("cozy")""")
         buildsbtcontent should not include ("junit-interface")
         buildsbtcontent should not include ("cats-core")
         buildsbtcontent should not include ("kittens")
@@ -135,7 +136,10 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         formdescriptorcontent should include ("type: textarea")
         Files.exists(out.resolve("src/main/scala/domain/impl/ComponentFactory.scala")) shouldBe true
         pluginssbtcontent should include ("""addSbtPlugin("org.goldenport" % "sbt-cozy"""")
+        pluginssbtcontent should include (""""SimpleModeling.org" at "https://www.simplemodeling.org/repository/maven"""")
+        pluginssbtcontent should include ("SBT_COZY_VERSION")
         pluginssbtcontent should include ("0.1.10")
+        pluginssbtcontent should include ("""addSbtPlugin("org.goldenport" % "sbt-cozy" % sbtCozyVersion)""")
       }
 
       "car-sbt-project preserves differing project files by writing bak files" in {

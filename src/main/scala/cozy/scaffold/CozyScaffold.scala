@@ -646,8 +646,11 @@ private[cozy] object CozyScaffold {
       |""".stripMargin
 
   private[cozy] def carPluginsSbt(): String =
-    s"""resolvers += Resolver.defaultLocal
-       |addSbtPlugin("org.goldenport" % "sbt-cozy" % "${_default_sbt_cozy_version}")
+    s"""resolvers += "SimpleModeling.org" at "https://www.simplemodeling.org/repository/maven"
+       |resolvers += Resolver.defaultLocal
+       |
+       |val sbtCozyVersion = sys.props.getOrElse("sbt.cozy.version", sys.env.getOrElse("SBT_COZY_VERSION", "${_default_sbt_cozy_version}"))
+       |addSbtPlugin("org.goldenport" % "sbt-cozy" % sbtCozyVersion)
        |""".stripMargin
 
   private[cozy] def carSampleCml(scaffold: CarScaffoldConfig = CarScaffoldConfig.create(Nil, Paths.get("sample"))): String =
