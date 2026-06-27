@@ -6,7 +6,7 @@ sample_dir=/Users/asami/src/dev2026/cncf-samples/samples/06-cqrs
 out_dir="$script_dir/out.d"
 cml_file="$sample_dir/src/main/cozy/cqrs.cml"
 server_log="$out_dir/server.log"
-item_id="org-sample-entity-item-$(date +%s)000-scripted111"
+item_id="major-minor-entity-item-$(date +%s)000-scripted111"
 demo_dst_dir="$out_dir/src/main/scala/org/sample/cqrs"
 demo_src="$demo_dst_dir/CqrsSplitDemo.scala"
 

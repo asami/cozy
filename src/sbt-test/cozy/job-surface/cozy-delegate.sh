@@ -1,11 +1,20 @@
 #!/bin/sh
 set -eu
 
-export COZY_PROJECT_DIR="${COZY_PROJECT_DIR:-/Users/asami/src/dev2025/cozy}"
+export COZY_USE_DEVELOPMENT="${COZY_USE_DEVELOPMENT:-true}"
 
 if [ "${1-}" = "modeler-scala" ]; then
   shift
-  exec /Users/asami/src/dev2026/cncf-samples/bin/cozy car-sbt-project "$@"
+  if [ -n "${CNCF_VERSION:-}" ]; then
+    set -- "$@" --cncf-version "$CNCF_VERSION"
+  fi
+  if [ -n "${SIMPLEMODELING_MODEL_VERSION:-}" ]; then
+    set -- "$@" --simplemodeling-model-version "$SIMPLEMODELING_MODEL_VERSION"
+  fi
+  if [ -n "${CNCF_COLLABORATOR_API_VERSION:-}" ]; then
+    set -- "$@" --cncf-collaborator-api-version "$CNCF_COLLABORATOR_API_VERSION"
+  fi
+  exec cozy car-sbt-project "$@"
 else
-  exec /Users/asami/src/dev2026/cncf-samples/bin/cozy "$@"
+  exec cozy "$@"
 fi

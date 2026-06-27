@@ -18,7 +18,7 @@ import scala.collection.JavaConverters._
  */
 private[cozy] object CozyScaffold {
   private val _default_sbt_version = "1.9.7"
-  private val _default_sbt_cozy_version = "0.1.9-SNAPSHOT"
+  private val _default_sbt_cozy_version = "0.1.10"
 
   case class CarDependencyVersions(
     cncfVersion: String,

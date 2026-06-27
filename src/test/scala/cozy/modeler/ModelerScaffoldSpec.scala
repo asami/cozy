@@ -14,7 +14,7 @@ import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 
 /*
  * @since   Jun. 23, 2026
- * @version Jun. 23, 2026
+ * @version Jun. 27, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -135,7 +135,7 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         formdescriptorcontent should include ("type: textarea")
         Files.exists(out.resolve("src/main/scala/domain/impl/ComponentFactory.scala")) shouldBe true
         pluginssbtcontent should include ("""addSbtPlugin("org.goldenport" % "sbt-cozy"""")
-        pluginssbtcontent should include ("0.1.9-SNAPSHOT")
+        pluginssbtcontent should include ("0.1.10")
       }
 
       "car-sbt-project preserves differing project files by writing bak files" in {

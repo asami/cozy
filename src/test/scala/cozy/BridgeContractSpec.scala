@@ -4,16 +4,17 @@ import java.nio.file.{Files, Path, Paths}
 import scala.collection.JavaConverters._
 import cozy.runtime.CozySbtBridge
 import play.api.libs.json.Json
+import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Apr. 23, 2026
  *  version May. 20, 2026
- * @version Jun. 18, 2026
+ * @version Jun. 27, 2026
  * @author  ASAMI, Tomoharu
  */
-final class BridgeContractSpec extends AnyWordSpec with Matchers {
+final class BridgeContractSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   private val _base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
   private val _contract_dir = _base.resolve("bridge").resolve("sbt-bridge").resolve("v1")
 
@@ -160,6 +161,40 @@ final class BridgeContractSpec extends AnyWordSpec with Matchers {
 
         Files.isRegularFile(warehouse.resolve("repository/car/sample-component/0.1.0/sample-component-0.1.0.car")) shouldBe true
         Files.isRegularFile(warehouse.resolve("repository/catalog/car/sample-component.yaml")) shouldBe true
+      }
+    }
+
+    "accept inline request option from sbt-cozy delegates" in {
+      Given("an sbt-cozy delegate request written with --request=<file>")
+      _with_temp_dir("cozy-bridge-inline-request") { dir =>
+        val projectdir = dir.resolve("project")
+        val warehouse = dir.resolve("warehouse")
+        val car = _write(dir.resolve("input/sample-inline.car"), "car-body")
+        _write_project_yaml(projectdir, "sample-inline-component")
+        val request = _write(
+          dir.resolve("request.json"),
+          s"""{
+             |  "version": "v1",
+             |  "action": "publish-car",
+             |  "arguments": [
+             |    "${projectdir.toString}",
+             |    "--warehouse", "${warehouse.toString}",
+             |    "--name", "sample-inline-component",
+             |    "--version", "0.1.0",
+             |    "--car", "${car.toString}"
+             |  ],
+             |  "settings": {}
+             |}
+             |""".stripMargin
+        )
+
+        When("the bridge executes the inline request option")
+        CozySbtBridge.execute(List("v1", s"--request=${request.toString}"))
+
+        Then("the runtime reads the request and publishes the CAR artifact")
+        Files.isRegularFile(warehouse.resolve("repository/car/sample-inline-component/0.1.0/sample-inline-component-0.1.0.car")) shouldBe true
+        And("the artifact catalog is published through the same request")
+        Files.isRegularFile(warehouse.resolve("repository/catalog/car/sample-inline-component.yaml")) shouldBe true
       }
     }
 

@@ -1,7 +1,6 @@
 #!/bin/sh
 set -eu
 
-export COZY_PROJECT_DIR="${COZY_PROJECT_DIR:-/Users/asami/src/dev2025/cozy}"
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
 SAMPLE_DIR=/Users/asami/src/dev2026/cncf-samples/samples/09.b-aggregate-relation-boundary-model
@@ -20,6 +19,12 @@ ThisBuild / organization := "org.sample"
 ThisBuild / version := "0.1.0-SNAPSHOT"
 ThisBuild / scalaVersion := "3.3.7"
 
+val cncfVersion = sys.props.getOrElse("cncf.version", sys.env.getOrElse("CNCF_VERSION", "0.4.12-SNAPSHOT"))
+val simplemodelingModelVersion = sys.props.getOrElse(
+  "simplemodeling.model.version",
+  sys.env.getOrElse("SIMPLEMODELING_MODEL_VERSION", "0.1.8-SNAPSHOT")
+)
+
 lazy val root = (project in file("."))
   .enablePlugins(org.goldenport.cozy.CozyPlugin)
   .settings(
@@ -27,16 +32,19 @@ lazy val root = (project in file("."))
     scalacOptions ++= Seq("-deprecation", "-feature", "-unchecked"),
     cozyGeneratorBackend := "cozy",
     cozyDelegateProjectDir := None,
-    cozyDelegateCommand := Seq("/Users/asami/src/dev2026/cncf-samples/bin/cozy"),
+    cozyDelegateCommand := Seq("cozy"),
     resolvers ++= Seq(
       Resolver.defaultLocal,
       Resolver.mavenLocal,
       "SimpleModeling.org" at "https://www.simplemodeling.org/maven"
     ),
     libraryDependencies ++= Seq(
-      "org.goldenport" %% "goldenport-cncf" % "0.4.7-SNAPSHOT",
+      "org.goldenport" %% "goldenport-cncf" % cncfVersion,
       "org.goldenport" %% "goldenport-core" % "0.3.7-SNAPSHOT",
-      "org.simplemodeling" %% "simplemodeling-model" % "0.1.7-SNAPSHOT"
+      "org.simplemodeling" %% "simplemodeling-model" % simplemodelingModelVersion
+    ),
+    dependencyOverrides ++= Seq(
+      "org.simplemodeling" %% "simplemodeling-model" % simplemodelingModelVersion
     ),
     cozyManifestMetadata ++= Map(
       "component" -> "aggregate-relation-boundary-sample",
@@ -48,8 +56,10 @@ lazy val root = (project in file("."))
 EOF
 
 cat > "$PROJECT_DIR/plugins.sbt" <<'EOF'
+resolvers += "SimpleModeling.org" at "https://www.simplemodeling.org/repository/maven"
 resolvers += Resolver.defaultLocal
-addSbtPlugin("org.goldenport" % "sbt-cozy" % "0.1.2")
+val sbtCozyVersion = sys.props.getOrElse("sbt.cozy.version", sys.env.getOrElse("SBT_COZY_VERSION", "0.1.10"))
+addSbtPlugin("org.goldenport" % "sbt-cozy" % sbtCozyVersion)
 EOF
 
 cat > "$PROJECT_DIR/build.properties" <<'EOF'
@@ -221,8 +231,6 @@ object RelationBoundaryAggregateDemo:
       throw new IllegalStateException(s"Missing id in response: $text")
     }
 EOF
-
-/Users/asami/src/dev2026/cncf-samples/bin/setup cozy >/dev/null
 
 cd "$OUT_DIR"
 sbt --batch -Dsbt.server.autostart=false -Dsbt.supershell=false clean compile

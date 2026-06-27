@@ -13,7 +13,7 @@ import java.nio.file.{Files, Path, Paths}
 
 /*
  * @since   May. 20, 2026
- * @version Jun. 19, 2026
+ * @version Jun. 27, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozySbtBridge {
@@ -115,9 +115,19 @@ private[cozy] object CozySbtBridge {
     }
 
   private def _required_path(args: List[String], key: String): Path =
-    CozyCliArgs.parse(spec.Parameter.propertyFileOption(key))(args).
+    CozyCliArgs.parse(spec.Parameter.propertyFileOption(key))(_normalize_property(args, key)).
       pathProperty(key).
       getOrElse(RAISE.invalidArgumentFault(s"Missing --${key}"))
+
+  private def _normalize_property(args: List[String], key: String): List[String] = {
+    val prefix = s"--$key="
+    args.flatMap {
+      case x if x.startsWith(prefix) =>
+        List(s"--$key", x.drop(prefix.length))
+      case x =>
+        List(x)
+    }
+  }
 
   private[cozy] final case class BridgeRequestView(
     version: String,
