@@ -15,9 +15,9 @@ organization := "org.simplemodeling"
 
 name := "cozy"
 
-version := "0.2.23"
+version := "0.2.24-SNAPSHOT"
 
-lazy val cncfVersion = "0.4.11"
+lazy val cncfVersion = "0.4.12"
 
 lazy val simpleModelingModelVersion = "0.1.7"
 
@@ -154,6 +154,10 @@ useCoursier := false
 
 lazy val exportClasspath = taskKey[Unit]("Export full classpath to a file")
 
+lazy val validateCozyPublishMetadata = taskKey[Unit]("Validate Cozy release publish metadata against public runtime catalogs.")
+
+lazy val publishCozyRuntimeCatalog = taskKey[Unit]("Publish Cozy runtime catalog metadata for the current release.")
+
 exportClasspath := {
   val cp = (Compile / fullClasspath).value.files
   val out = (Compile / target).value / "classpath.txt"
@@ -195,6 +199,146 @@ def ensurePublishLocalAllowed(version: String): Unit = {
     sys.error(s"Refusing to publishLocal release cozy version $version. Use publish for public release versions.")
 }
 
+def publicWarehouseRoot(base: File): File =
+  base.toPath.resolve("../../maven-repository").normalize.toFile
+
+def cozyRuntimeCatalogSource(base: File): File =
+  base / "src" / "main" / "warehouse" / "repository" / "cozy" / "runtime-catalog.yaml"
+
+def cozyRuntimeCatalogWarehouse(base: File): File =
+  publicWarehouseRoot(base) / "repository" / "cozy" / "runtime-catalog.yaml"
+
+def catalogScalar(catalog: File, key: String): Option[String] = {
+  val text = IO.read(catalog)
+  val pattern = ("""(?m)^\s*""" + java.util.regex.Pattern.quote(key) + """:\s*"?([^"#\n]+)"?\s*(?:#.*)?$""").r
+  pattern.findFirstMatchIn(text).map(_.group(1).trim)
+}
+
+def catalogContainsVersion(catalog: File, version: String): Boolean = {
+  val text = IO.read(catalog)
+  val pattern = ("""(?m)^\s*-\s*version:\s*"?""" + java.util.regex.Pattern.quote(version) + """"?\s*$""").r
+  pattern.findFirstIn(text).nonEmpty
+}
+
+def catalogContainsModule(catalog: File, module: String): Boolean = {
+  val text = IO.read(catalog)
+  val pattern = ("""(?m)^\s*module:\s*""" + java.util.regex.Pattern.quote(module) + """\s*$""").r
+  pattern.findFirstIn(text).nonEmpty
+}
+
+def requireCatalogValue(catalog: File, key: String, expected: String): Unit = {
+  val actual = catalogScalar(catalog, key)
+    .getOrElse(sys.error(s"${catalog.getPath} is missing $key"))
+  if (actual != expected)
+    sys.error(s"${catalog.getPath} $key must be $expected, but was $actual")
+}
+
+def replaceCatalogScalar(text: String, key: String, value: String): String = {
+  val pattern = ("""(?m)^(\s*)""" + java.util.regex.Pattern.quote(key) + """:.*$""").r
+  if (pattern.findFirstIn(text).isEmpty)
+    sys.error(s"Cozy runtime catalog is missing $key")
+  pattern.replaceFirstIn(text, "$1" + key + ": " + value)
+}
+
+def utcNowIso(): String = {
+  val formatter = java.time.format.DateTimeFormatter.ISO_INSTANT
+  formatter.format(java.time.Instant.now())
+}
+
+def appendCozyRuntimeVersion(text: String, version: String, publishedAt: String): String = {
+  if (catalogContainsVersionText(text, version)) {
+    text
+  } else {
+    val stanza =
+      s"""  - version: $version
+         |    channel: stable
+         |    status: active
+         |    scalaBinaryVersion: "2.12"
+         |    module: org.simplemodeling:cozy_2.12:$version
+         |    publishedAt: $publishedAt
+         |""".stripMargin
+    text.stripSuffix("\n") + "\n" + stanza
+  }
+}
+
+def catalogContainsVersionText(text: String, version: String): Boolean = {
+  val pattern = ("""(?m)^\s*-\s*version:\s*"?""" + java.util.regex.Pattern.quote(version) + """"?\s*$""").r
+  pattern.findFirstIn(text).nonEmpty
+}
+
+publishCozyRuntimeCatalog := {
+  val currentVersion = version.value
+  val log = streams.value.log
+  if (currentVersion.endsWith("-SNAPSHOT")) {
+    log.info(s"Skipping Cozy runtime catalog publication for SNAPSHOT version $currentVersion")
+  } else {
+    val allowNonLatest =
+      sys.props.get("cozy.publish.allowNonLatest").exists(_.toBoolean) ||
+      sys.env.get("COZY_PUBLISH_ALLOW_NON_LATEST").exists(_.toBoolean)
+    val sourceCatalog = cozyRuntimeCatalogSource(baseDirectory.value)
+    val warehouseCatalog = cozyRuntimeCatalogWarehouse(baseDirectory.value)
+    if (!sourceCatalog.isFile)
+      sys.error(s"Cozy source runtime catalog is missing: ${sourceCatalog.getPath}")
+    val now = utcNowIso()
+    val existing = IO.read(sourceCatalog)
+    val withHeader =
+      if (allowNonLatest) {
+        replaceCatalogScalar(existing, "generatedAt", now)
+      } else {
+        val generated = replaceCatalogScalar(existing, "generatedAt", now)
+        val recommended = replaceCatalogScalar(generated, "recommended", currentVersion)
+        replaceCatalogScalar(recommended, "latestStable", currentVersion)
+      }
+    val updated = appendCozyRuntimeVersion(withHeader, currentVersion, now)
+    if (updated != existing) {
+      IO.write(sourceCatalog, updated)
+      log.info(s"Published Cozy runtime catalog entry $currentVersion to ${sourceCatalog.getPath}")
+    } else {
+      log.info(s"Cozy runtime catalog already contains $currentVersion")
+    }
+    IO.createDirectory(warehouseCatalog.getParentFile)
+    IO.write(warehouseCatalog, updated)
+    log.info(s"Synchronized Cozy runtime catalog to ${warehouseCatalog.getPath}")
+  }
+}
+
+validateCozyPublishMetadata := {
+  val currentVersion = version.value
+  val log = streams.value.log
+  if (currentVersion.endsWith("-SNAPSHOT")) {
+    log.info(s"Skipping Cozy release metadata validation for SNAPSHOT version $currentVersion")
+  } else {
+    val allowNonLatest =
+      sys.props.get("cozy.publish.allowNonLatest").exists(_.toBoolean) ||
+      sys.env.get("COZY_PUBLISH_ALLOW_NON_LATEST").exists(_.toBoolean)
+    val warehouse = publicWarehouseRoot(baseDirectory.value)
+    val cozySourceCatalog = cozyRuntimeCatalogSource(baseDirectory.value)
+    val cozyCatalog = cozyRuntimeCatalogWarehouse(baseDirectory.value)
+    val cncfCatalog = warehouse / "repository" / "textus" / "runtime-catalog.yaml"
+    if (!cozySourceCatalog.isFile)
+      sys.error(s"Cozy source runtime catalog is missing: ${cozySourceCatalog.getPath}")
+    if (!cozyCatalog.isFile)
+      sys.error(s"Cozy runtime catalog is missing: ${cozyCatalog.getPath}")
+    if (!cncfCatalog.isFile)
+      sys.error(s"CNCF runtime catalog is missing: ${cncfCatalog.getPath}")
+    if (allowNonLatest) {
+      log.warn("Skipping Cozy latest metadata checks because cozy.publish.allowNonLatest/COZY_PUBLISH_ALLOW_NON_LATEST is true.")
+    } else {
+      requireCatalogValue(cozyCatalog, "recommended", currentVersion)
+      requireCatalogValue(cozyCatalog, "latestStable", currentVersion)
+      requireCatalogValue(cncfCatalog, "recommended", cncfVersion)
+      requireCatalogValue(cncfCatalog, "latestStable", cncfVersion)
+    }
+    if (!catalogContainsVersion(cozyCatalog, currentVersion))
+      sys.error(s"${cozyCatalog.getPath} must contain version $currentVersion")
+    val cozyModule = s"org.simplemodeling:cozy_2.12:$currentVersion"
+    if (!catalogContainsModule(cozyCatalog, cozyModule))
+      sys.error(s"${cozyCatalog.getPath} must contain module $cozyModule")
+    if (!catalogContainsVersion(cncfCatalog, cncfVersion))
+      sys.error(s"${cncfCatalog.getPath} must contain CNCF runtime version $cncfVersion")
+  }
+}
+
 publish / skip := {
   ensurePublishAllowed(version.value)
   false
@@ -206,6 +350,8 @@ publishLocal / skip := {
 }
 
 publish / packagedArtifacts := {
+  publishCozyRuntimeCatalog.value
+  validateCozyPublishMetadata.value
   cozyPublishCoursierChannel.value
   (publish / packagedArtifacts).value
 }
