@@ -15,7 +15,7 @@ organization := "org.simplemodeling"
 
 name := "cozy"
 
-version := "0.2.23-SNAPSHOT"
+version := "0.2.23"
 
 lazy val cncfVersion = "0.4.11"
 
@@ -61,7 +61,7 @@ resolvers += Resolver.file("Local Ivy", file(Path.userHome.absolutePath + "/.ivy
 resolvers += Resolver.defaultLocal
 
 // override arcadia
-libraryDependencies += "org.goldenport" %% "goldenport-scala-lib" % "2.3.29-SNAPSHOT"
+libraryDependencies += "org.goldenport" %% "goldenport-scala-lib" % "2.3.29"
 
 // override kaleidox
 libraryDependencies += "org.goldenport" %% "goldenport-record" % "2.2.5"
@@ -70,12 +70,12 @@ libraryDependencies += "org.goldenport" %% "goldenport-record" % "2.2.5"
 // libraryDependencies += "org.goldenport" %% "goldenport-sexpr" % "2.0.13"
 
 // override kaleidox
-libraryDependencies += "org.smartdox" %% "smartdox" % "2.4.15-SNAPSHOT"
+libraryDependencies += "org.smartdox" %% "smartdox" % "2.4.15"
 
 libraryDependencies += "org.goldenport" %% "kaleidox" % "0.6.16"
 
 val simplemodelerVersion =
-  sys.props.getOrElse("simplemodeler.version", sys.env.getOrElse("SIMPLEMODELER_VERSION", "1.1.21-SNAPSHOT"))
+  sys.props.getOrElse("simplemodeler.version", sys.env.getOrElse("SIMPLEMODELER_VERSION", "1.1.21"))
 
 libraryDependencies += "org.simplemodeling" %% "simplemodeler" % simplemodelerVersion
 
