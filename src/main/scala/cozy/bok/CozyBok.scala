@@ -30,7 +30,7 @@ import io.circe.parser
 
 /*
  * @since   Jun.  3, 2026
- * @version Jun. 27, 2026
+ * @version Jun. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyBok {
@@ -190,6 +190,7 @@ private[cozy] object CozyBok {
     sourcepath: String,
     publicpath: String,
     terms: Vector[String],
+    tags: Vector[String],
     status: Option[String]
   ) {
     def categorySlug: String = category.getOrElse("scenario")
@@ -220,7 +221,8 @@ private[cozy] object CozyBok {
     event: Option[TermEvent],
     actor: Option[TermActor],
     role: Option[TermRole],
-    quality: TermQuality
+    quality: TermQuality,
+    tags: Vector[String]
   ) {
     def categorySlug: String = category.getOrElse("glossary")
     def glossaryHref: String = publicpath.stripPrefix("glossary/")
@@ -279,7 +281,8 @@ private[cozy] object CozyBok {
     title: Option[String],
     headline: Option[String],
     brief: Option[String],
-    bodyhtml: String
+    bodyhtml: String,
+    tags: Vector[String]
   ) {
     def effectiveHeadline: Option[String] = headline.orElse(title)
     def effectiveBrief: Option[String] = brief
@@ -296,12 +299,103 @@ private[cozy] object CozyBok {
       headline <- c.downField("headline").as[Option[String]]
       brief <- c.downField("brief").as[Option[String]]
       bodyhtml <- c.downField("body_html").as[String]
-    } yield DocumentFragment(sourcepath, publicpath, locale, kind, category, title, headline, brief, bodyhtml)
+      tags <- c.downField("tags").as[Option[Vector[String]]]
+    } yield DocumentFragment(sourcepath, publicpath, locale, kind, category, title, headline, brief, bodyhtml, tags.getOrElse(Vector.empty))
 
   private implicit val _document_fragment_index_decoder: Decoder[DocumentFragmentIndex] = (c: HCursor) =>
     for {
       fragments <- c.downField("fragments").as[Option[Vector[DocumentFragment]]]
     } yield DocumentFragmentIndex(fragments.getOrElse(Vector.empty))
+
+  private final case class TagIndex(tags: Vector[TagEntry]) {
+    def isEmpty: Boolean = tags.isEmpty
+    def forCategory(category: String): TagIndex =
+      TagIndex(tags.flatMap { tag =>
+        val refs = tag.refs.filter(_.category.contains(category))
+        if (refs.isEmpty) None else Some(tag.copy(refs = refs))
+      })
+    def namespaces: Vector[String] =
+      tags.flatMap(_.namespace).distinct.sorted
+  }
+  private final case class TagEntry(
+    id: String,
+    key: String,
+    segments: Vector[String],
+    namespace: Option[String],
+    parent: Option[String],
+    slug: String,
+    label: String,
+    title: Option[String],
+    summary: Option[String],
+    aliases: Vector[String],
+    locale: Option[String],
+    sourcepath: Option[String],
+    publicpath: String,
+    bodyhtml: Option[String],
+    refs: Vector[TagReference],
+    children: Vector[String]
+  ) {
+    def count: Int = refs.size
+    def effectiveTitle: String = title.getOrElse(key)
+  }
+  private final case class TagReference(kind: String, title: String, href: String, category: Option[String])
+
+  private implicit val _tag_reference_decoder: Decoder[TagReference] = (c: HCursor) =>
+    for {
+      kind <- c.downField("kind").as[Option[String]]
+      title <- c.downField("title").as[Option[String]]
+      href <- c.downField("public_path").as[Option[String]]
+      legacyhref <- c.downField("href").as[Option[String]]
+      category <- c.downField("category").as[Option[String]]
+    } yield TagReference(kind.getOrElse("document"), title.getOrElse(href.orElse(legacyhref).getOrElse("Untitled")), href.orElse(legacyhref).getOrElse("#"), category)
+
+  private implicit val _tag_entry_decoder: Decoder[TagEntry] = (c: HCursor) =>
+    for {
+      key0 <- c.downField("key").as[Option[String]]
+      id0 <- c.downField("id").as[Option[String]]
+      segments0 <- c.downField("segments").as[Option[Vector[String]]]
+      namespace <- c.downField("namespace").as[Option[String]]
+      parent <- c.downField("parent").as[Option[String]]
+      slug0 <- c.downField("slug").as[Option[String]]
+      label <- c.downField("label").as[Option[String]]
+      title <- c.downField("title").as[Option[String]]
+      summary <- c.downField("summary").as[Option[String]]
+      aliases <- c.downField("aliases").as[Option[Vector[String]]]
+      locale <- c.downField("locale").as[Option[String]]
+      sourcepath <- c.downField("source_path").as[Option[String]]
+      publicpath0 <- c.downField("public_path").as[Option[String]]
+      bodyhtml <- c.downField("body_html").as[Option[String]]
+      refs <- c.downField("refs").as[Option[Vector[TagReference]]]
+      children <- c.downField("children").as[Option[Vector[String]]]
+    } yield {
+      val rawkey = key0.orElse(id0.map(_.stripPrefix("tag:"))).getOrElse(label.getOrElse("tag"))
+      val key = _tag_key(rawkey)
+      val segments = segments0.map(_.map(_tag_segment).filter(_.nonEmpty)).filter(_.nonEmpty).getOrElse(key.split('.').toVector)
+      val slug = slug0.map(_tag_slug_path).getOrElse(segments.mkString("/"))
+      TagEntry(
+        id0.getOrElse(s"tag:${key}"),
+        key,
+        segments,
+        namespace.orElse(segments.headOption),
+        parent.orElse(if (segments.size > 1) Some(s"tag:${segments.dropRight(1).mkString(".")}") else None),
+        slug,
+        label.getOrElse(segments.lastOption.getOrElse(key)),
+        title,
+        summary,
+        aliases.getOrElse(Vector.empty),
+        locale,
+        sourcepath,
+        publicpath0.getOrElse(s"tags/${slug}.html"),
+        bodyhtml,
+        refs.getOrElse(Vector.empty),
+        children.getOrElse(Vector.empty)
+      )
+    }
+
+  private implicit val _tag_index_decoder: Decoder[TagIndex] = (c: HCursor) =>
+    for {
+      tags <- c.downField("tags").as[Option[Vector[TagEntry]]]
+    } yield TagIndex(tags.getOrElse(Vector.empty))
 
   private implicit val _dashboard_counts_decoder: Decoder[DashboardCounts] = (c: HCursor) =>
     for {
@@ -458,7 +552,8 @@ private[cozy] object CozyBok {
       actor <- c.downField("actor").as[Option[TermActor]]
       role <- c.downField("role").as[Option[TermRole]]
       quality <- c.downField("quality").as[Option[TermQuality]]
-    } yield TermEntry(id, slug, title, reading, category, sourcepath, publicpath, definitionhtml, summary, aliases.getOrElse(Vector.empty), articlerefs.getOrElse(Vector.empty), termrefs.getOrElse(Vector.empty), rdfrefs.getOrElse(Vector.empty), videorefs.getOrElse(Vector.empty), termtype.getOrElse("concept"), _decode_term_cml_links(c.downField("cml").focus), event, actor, role, quality.getOrElse(TermQuality(false, false, false)))
+      tags <- c.downField("tags").as[Option[Vector[String]]]
+    } yield TermEntry(id, slug, title, reading, category, sourcepath, publicpath, definitionhtml, summary, aliases.getOrElse(Vector.empty), articlerefs.getOrElse(Vector.empty), termrefs.getOrElse(Vector.empty), rdfrefs.getOrElse(Vector.empty), videorefs.getOrElse(Vector.empty), termtype.getOrElse("concept"), _decode_term_cml_links(c.downField("cml").focus), event, actor, role, quality.getOrElse(TermQuality(false, false, false)), tags.getOrElse(Vector.empty))
 
   private implicit val _term_index_decoder: Decoder[TermIndex] = (c: HCursor) =>
     for {
@@ -476,8 +571,9 @@ private[cozy] object CozyBok {
       sourcepath <- c.downField("source_path").as[String]
       publicpath <- c.downField("public_path").as[String]
       terms <- c.downField("terms").as[Option[Vector[String]]]
+      tags <- c.downField("tags").as[Option[Vector[String]]]
       status <- c.downField("status").as[Option[String]]
-    } yield ScenarioEntry(id, slug, scenariotype, title, summary, category, sourcepath, publicpath, terms.getOrElse(Vector.empty), status)
+    } yield ScenarioEntry(id, slug, scenariotype, title, summary, category, sourcepath, publicpath, terms.getOrElse(Vector.empty), tags.getOrElse(Vector.empty), status)
 
   private implicit val _scenario_index_decoder: Decoder[ScenarioIndex] = (c: HCursor) =>
     for {
@@ -2556,6 +2652,7 @@ private[cozy] object CozyBok {
     _write_rdf_page(config, target, locale, categories)
     _write_scenario_page(config, target, locale, categories)
     _write_bibliography_page(config, target, locale, categories)
+    _write_tag_pages(config, target, locale, categories)
     _write_term_hub_pages(config, target, locale, categories, terms)
     _write_text(
       target.resolve("glossary").resolve("index.html"),
@@ -2826,6 +2923,35 @@ private[cozy] object CozyBok {
         )
       )
     }
+
+  private def _write_tag_pages(
+    config: BuildConfig,
+    target: Path,
+    locale: String,
+    categories: Vector[CategoryContent]
+  ): Unit = {
+    val index = _tag_index(config, locale)
+    val page = target.resolve("tags").resolve("index.html")
+    _write_text(
+      page,
+      _tag_dedicated_page(config, categories, locale, page, index, None)
+    )
+    index.namespaces.foreach { namespace =>
+      val namespacepage = target.resolve("tags").resolve(namespace).resolve("index.html")
+      val namespaceindex = TagIndex(index.tags.filter(_.namespace.contains(namespace)))
+      _write_text(
+        namespacepage,
+        _tag_dedicated_page(config, categories, locale, namespacepage, namespaceindex, None)
+      )
+    }
+    index.tags.foreach { tag =>
+      val tagpage = target.resolve(tag.publicpath)
+      _write_text(
+        tagpage,
+        _tag_dedicated_page(config, categories, locale, tagpage, TagIndex(Vector(tag)), Some(tag))
+      )
+    }
+  }
 
   private def _write_project_pages(
     config: BuildConfig,
@@ -3102,6 +3228,7 @@ private[cozy] object CozyBok {
     _copy_if_exists(config.doxsitePath.resolve("metadata/glossary/terms.json"), target.resolve("metadata/glossary/terms.json"))
     _copy_if_exists(config.doxsitePath.resolve("metadata/bibliography/bibliography.json"), target.resolve("metadata/bibliography/bibliography.json"))
     _copy_if_exists(config.doxsitePath.resolve("metadata/scenarios/scenarios.json"), target.resolve("metadata/scenarios/scenarios.json"))
+    _copy_if_exists(config.doxsitePath.resolve("metadata/tags/tags.json"), target.resolve("metadata/tags/tags.json"))
   }
 
   private def _copy_if_exists(source: Path, target: Path): Unit =
@@ -4608,6 +4735,250 @@ private[cozy] object CozyBok {
       parser.parse(Files.readString(path, StandardCharsets.UTF_8)).toOption.flatMap(_.as[BibliographyIndex].toOption)
   }
 
+  private def _tag_index(config: BuildConfig, locale: String): TagIndex =
+    _tag_handoff_index(config, locale).getOrElse(_usage_derived_tag_index(config, locale))
+
+  private def _tag_handoff_index(config: BuildConfig, locale: String): Option[TagIndex] = {
+    val path = config.doxsitePath.resolve("metadata/tags/tags.json")
+    if (!Files.isRegularFile(path))
+      None
+    else
+      parser.parse(Files.readString(path, StandardCharsets.UTF_8)).toOption.flatMap(_.as[TagIndex].toOption).map { index =>
+        val tags = index.tags.
+          filter(tag => tag.locale.forall(_ == locale)).
+          map(tag => tag.copy(refs = _distinct_tag_refs(tag.refs))).
+          sortBy(tag => (tag.key, tag.publicpath))
+        TagIndex(tags)
+      }
+  }
+
+  private def _usage_derived_tag_index(config: BuildConfig, locale: String): TagIndex = {
+    val documentrefs = _document_fragment_index(config).toVector.flatMap(_.fragments).filter(_.locale == locale).flatMap { fragment =>
+      val title = fragment.effectiveHeadline.orElse(fragment.effectiveBrief).getOrElse(fragment.publicpath)
+      _tag_refs(fragment.tags, TagReference(fragment.kind.getOrElse("article"), title, fragment.publicpath, fragment.category))
+    }
+    val termrefs = _terms(config).flatMap { term =>
+      _tag_refs(term.tags, TagReference("term", term.title, term.publicpath, term.category))
+    }
+    val scenariorefs = _scenario_index(config).toVector.flatMap(_.scenarios).flatMap { scenario =>
+      _tag_refs(scenario.tags, TagReference("scenario", scenario.title, scenario.publicpath, scenario.category))
+    }
+    val bibliographyrefs = _bibliography_index(config).toVector.flatMap(_.entries).flatMap { entry =>
+      _tag_refs(entry.tags, TagReference("bibliography", entry.title, entry.publicpath, entry.category))
+    }
+    val entries = (documentrefs ++ termrefs ++ scenariorefs ++ bibliographyrefs).
+      groupBy(_._1).
+      toVector.
+      map { case (key, refs) =>
+        val distinctrefs = _distinct_tag_refs(refs.map(_._2))
+        _tag_entry_from_usage(key, distinctrefs)
+      }.
+      sortBy(x => (x.key, x.publicpath))
+    TagIndex(entries)
+  }
+
+  private def _tag_refs(tags: Vector[String], ref: TagReference): Vector[(String, TagReference)] =
+    tags.map(tag => _tag_key(tag, ref.category)).filter(_.nonEmpty).distinct.map(_ -> ref)
+
+  private def _tag_chips(config: BuildConfig, page: Path, tags: Vector[String], category: Option[String], locale: String): String = {
+    val chips = tags.map(tag => _tag_key(tag, category)).filter(_.nonEmpty).distinct.map { key =>
+      val entry = _tag_entry_from_usage(key, Vector.empty)
+      val href = _relative_href(page, config.websitePath.resolve(entry.publicpath))
+      s"""<a class="bok-tag-chip" href="${_html_escape(href)}"><span>${_html_escape(entry.effectiveTitle)}</span></a>"""
+    }
+    if (chips.isEmpty)
+      ""
+    else
+      chips.mkString(s"""<div class="bok-tag-chip-list" aria-label="${_html_escape(_ui(locale, "tag.title"))}">""", "", "</div>")
+  }
+
+  private def _distinct_tag_refs(refs: Vector[TagReference]): Vector[TagReference] =
+    refs.distinct.sortBy(x => (x.kind, x.category.getOrElse(""), x.title, x.href))
+
+  private def _tag_entry_from_usage(key: String, refs: Vector[TagReference]): TagEntry = {
+    val segments = key.split('.').toVector.filter(_.nonEmpty)
+    val slug = segments.mkString("/")
+    TagEntry(
+      _tag_id(key),
+      key,
+      segments,
+      segments.headOption,
+      if (segments.size > 1) Some(s"tag:${segments.dropRight(1).mkString(".")}") else None,
+      slug,
+      segments.lastOption.getOrElse(key),
+      Some(key),
+      None,
+      Vector.empty,
+      None,
+      None,
+      s"tags/${slug}.html",
+      None,
+      refs,
+      Vector.empty
+    )
+  }
+
+  private def _tag_id(value: String): String =
+    s"tag:${_tag_key(value)}"
+
+  private def _tag_key(value: String): String =
+    _tag_key(value, None)
+
+  private def _tag_key(value: String, category: Option[String]): String = {
+    val segments = value.trim.split("[./]+").toVector.map(_tag_segment).filter(_.nonEmpty)
+    val normalized = segments.mkString(".")
+    if (normalized.isEmpty)
+      ""
+    else if (segments.size > 1)
+      normalized
+    else
+      category.map(c => Vector(_tag_segment(c), normalized).filter(_.nonEmpty).mkString(".")).filter(_.nonEmpty).getOrElse(normalized)
+  }
+
+  private def _tag_segment(value: String): String =
+    value.trim.toLowerCase(Locale.ROOT).replaceAll("\\s+", "-").
+      replaceAll("[\\\\/]+", "-").
+      replaceAll("[^\\p{L}\\p{N}_-]+", "-").
+      stripPrefix("-").
+      stripSuffix("-")
+
+  private def _tag_slug(value: String): String = {
+    _tag_key(value).replace('.', '-') match {
+      case "" => "tag"
+      case x => x
+    }
+  }
+
+  private def _tag_slug_path(value: String): String =
+    value.trim.split("[./]+").toVector.map(_tag_segment).filter(_.nonEmpty).mkString("/") match {
+      case "" => "tag"
+      case x => x
+    }
+
+  private def _tag_dedicated_page(
+    config: BuildConfig,
+    categories: Vector[CategoryContent],
+    locale: String,
+    page: Path,
+    index: TagIndex,
+    focus: Option[TagEntry]
+  ): String = {
+    val title = focus.map(_.effectiveTitle).getOrElse(_ui(locale, "tag.title"))
+    val description = focus.map(tag => tag.summary.getOrElse(_uif(locale, "tag.detail.description", tag.effectiveTitle))).getOrElse(_ui(locale, "tag.description"))
+    s"""<!doctype html>
+       |<html lang="${_html_escape(locale)}">
+       |<head>
+       |  <meta charset="utf-8">
+       |  <meta name="viewport" content="width=device-width, initial-scale=1">
+       |  <title>${_html_escape(title)} - ${_html_escape(config.siteTitle)}</title>
+       |${_site_css_links(config, page)}
+       |</head>
+       |<body class="article ${_html_escape(_support_dashboard_theme_class)}">
+       |${_category_header(config, categories, locale)}
+       |<div class="body body-dashboard bok-tag-body">
+       |  <main class="article bok-tag-main">
+       |    <div class="content">
+       |      <article class="doc bok-tag-doc">
+       |        <section class="bok-dashboard-shell bok-tag-dashboard" id="dashboard">
+       |          ${_dashboard_hero(
+                    title,
+                    description,
+                    Vector(
+                      _ui(locale, "tag.metric.total") -> index.tags.size.toString,
+                      _ui(locale, "tag.metric.references") -> index.tags.map(_.count).sum.toString,
+                      _ui(locale, "tag.metric.types") -> index.tags.flatMap(_.refs.map(_.kind)).distinct.size.toString
+                    )
+                  )}
+       |          ${_tag_dashboard_body(config, page, locale, index, focus)}
+       |        </section>
+       |      </article>
+       |    </div>
+       |  </main>
+       |</div>
+       |</body>
+       |</html>
+       |""".stripMargin
+  }
+
+  private def _tag_dashboard_body(config: BuildConfig, page: Path, locale: String, index: TagIndex, focus: Option[TagEntry]): String =
+    if (index.isEmpty)
+      s"""<div class="bok-dashboard container-fluid bok-dashboard-command-center">
+         |  <div class="row g-3">
+         |    ${_dashboard_card("col-12", "bok-card-map bok-card-tag-map", _ui(locale, "tag.title"), s"""<p class="bok-card-muted">${_html_escape(_ui(locale, "tag.empty"))}</p>""", Vector("reader", "contributor", "project_manager"))}
+         |  </div>
+         |</div>""".stripMargin
+    else {
+      val tagcloud = index.tags.map { tag =>
+        val href = _relative_href(page, config.websitePath.resolve(tag.publicpath))
+        s"""<a class="bok-tag-chip" href="${_html_escape(href)}"><span>${_html_escape(tag.effectiveTitle)}</span><strong>${tag.count}</strong></a>"""
+      }.mkString("""<div class="bok-tag-cloud">""", "", "</div>")
+      val refs = focus match {
+        case Some(tag) => _tag_definition_body(tag) + _tag_refs_body(config, page, locale, tag.refs)
+        case None => _tag_overview_body(config, page, locale, index.tags)
+      }
+      s"""<div class="bok-dashboard container-fluid bok-dashboard-command-center">
+         |  <div class="row g-3">
+         |    ${_dashboard_card("col-12 col-xl-4", "bok-card-kpi bok-card-tag-summary", _ui(locale, "tag.metric.summary"), tagcloud, Vector("reader", "contributor", "project_manager"))}
+         |    ${_dashboard_card("col-12 col-xl-8", "bok-card-map bok-card-tag-map", focus.map(_.effectiveTitle).getOrElse(_ui(locale, "tag.title")), refs, Vector("reader", "contributor", "project_manager"))}
+         |  </div>
+         |</div>
+         |<script>
+         |(() => {
+         |  const category = new URLSearchParams(window.location.search).get('category');
+         |  if (!category) return;
+         |  document.querySelectorAll('[data-tag-categories]').forEach((item) => {
+         |    item.hidden = !item.dataset.tagCategories.split(' ').includes(category);
+         |  });
+         |  document.querySelectorAll('[data-tag-category]').forEach((item) => {
+         |    item.hidden = item.dataset.tagCategory !== category;
+         |  });
+         |})();
+         |</script>""".stripMargin
+    }
+
+  private def _tag_definition_body(tag: TagEntry): String =
+    tag.bodyhtml.filter(_.trim.nonEmpty).map { html =>
+      s"""<section class="bok-tag-definition">${html}</section>"""
+    }.getOrElse("")
+
+  private def _tag_overview_body(config: BuildConfig, page: Path, locale: String, tags: Vector[TagEntry]): String =
+    tags.take(40).map { tag =>
+      val kindsummary = tag.refs.groupBy(_.kind).toVector.sortBy(_._1).map { case (kind, refs) =>
+        s"${kind}: ${refs.size}"
+      }.mkString(", ")
+      val categories = tag.refs.flatMap(_.category).distinct.sorted.mkString(" ")
+      val href = _relative_href(page, config.websitePath.resolve(tag.publicpath))
+      s"""<article class="bok-tag-tile" data-tag-categories="${_html_escape(categories)}">
+         |  <h3><a href="${_html_escape(href)}">${_html_escape(tag.effectiveTitle)}</a></h3>
+         |  <code>${_html_escape(tag.key)}</code>
+         |  <p>${_html_escape(_uif(locale, "tag.reference.count", tag.count.toString))}</p>
+         |  <code>${_html_escape(kindsummary)}</code>
+         |</article>""".stripMargin
+    }.mkString("""<div class="bok-tag-grid">""", "", "</div>")
+
+  private def _tag_refs_body(config: BuildConfig, page: Path, locale: String, refs: Vector[TagReference]): String =
+    refs.groupBy(_.kind).toVector.sortBy(_._1).map { case (kind, xs) =>
+      val items = xs.take(20).map { ref =>
+        val category = ref.category.map(x => s""" <span class="badge bok-badge-info">${_html_escape(x)}</span>""").getOrElse("")
+        val categorydata = ref.category.map(x => s""" data-tag-category="${_html_escape(x)}"""").getOrElse("")
+        val href = _relative_href(page, config.websitePath.resolve(ref.href))
+        s"""<li class="list-group-item"${categorydata}><a href="${_html_escape(href)}">${_html_escape(ref.title)}</a>${category}<span>${_html_escape(kind)}</span></li>"""
+      }.mkString("\n")
+      s"""<section class="bok-tag-reference-group">
+         |  <h3>${_html_escape(_tag_kind_label(kind, locale))}</h3>
+         |  <ul class="list-group bok-map-list">${items}</ul>
+         |</section>""".stripMargin
+    }.mkString("\n")
+
+  private def _tag_kind_label(kind: String, locale: String): String =
+    kind match {
+      case "term" => _ui(locale, "dashboard.kpi.terms")
+      case "scenario" => _ui(locale, "scenario.title")
+      case "bibliography" => _ui(locale, "bibliography.title")
+      case "article" | "document" => _ui(locale, "dashboard.kpi.articles")
+      case other => other
+    }
+
   private def _bibliography_dedicated_page(
     config: BuildConfig,
     categories: Vector[CategoryContent],
@@ -4706,7 +5077,7 @@ private[cozy] object CozyBok {
     entry: BibliographyEntry
   ): String = {
     val rootprefix = _site_root_prefix(config, page)
-    val body = _bibliography_entry_body(locale, entry, rootprefix)
+    val body = _bibliography_entry_body(config, page, locale, entry, rootprefix)
     s"""<!doctype html>
        |<html lang="${_html_escape(locale)}">
        |<head>
@@ -4743,8 +5114,9 @@ private[cozy] object CozyBok {
        |""".stripMargin
   }
 
-  private def _bibliography_entry_body(locale: String, entry: BibliographyEntry, rootprefix: String): String = {
+  private def _bibliography_entry_body(config: BuildConfig, page: Path, locale: String, entry: BibliographyEntry, rootprefix: String): String = {
     val summary = entry.summary.map(x => s"""<p>${_html_escape(x)}</p>""").getOrElse("")
+    val tagchips = _tag_chips(config, page, entry.tags, entry.category, locale)
     val body = if (entry.bodyhtml.trim.isEmpty) "" else s"""<section><h2>${_html_escape(_ui(locale, "bibliography.narrative"))}</h2>${entry.bodyhtml}</section>"""
     val citedby = _bibliography_cited_by_body(locale, entry, rootprefix)
     val source = entry.sourceurl.orElse(entry.identifiers.url).map { url =>
@@ -4780,6 +5152,7 @@ private[cozy] object CozyBok {
       s"""<tr><th scope="row">${_html_escape(label)}</th><td>${value}</td></tr>"""
     }.mkString("\n")
     s"""${summary}
+       |${tagchips}
        |<section>
        |  <h2>${_html_escape(_ui(locale, "bibliography.metadata"))}</h2>
        |  <table class="table bok-bibliography-metadata-table">
@@ -4846,7 +5219,7 @@ private[cozy] object CozyBok {
                       _ui(locale, "scenario.metric.categories") -> scenarios.flatMap(_.category).distinct.size.toString
                     )
                   )}
-       |          ${_scenario_dashboard_body(locale, scenarios)}
+       |          ${_scenario_dashboard_body(config, page, locale, scenarios)}
        |        </section>
        |      </article>
        |    </div>
@@ -4856,7 +5229,7 @@ private[cozy] object CozyBok {
        |</html>
        |""".stripMargin
 
-  private def _scenario_dashboard_body(locale: String, scenarios: Vector[ScenarioEntry]): String =
+  private def _scenario_dashboard_body(config: BuildConfig, page: Path, locale: String, scenarios: Vector[ScenarioEntry]): String =
     if (scenarios.isEmpty)
       s"""<div class="bok-dashboard container-fluid bok-dashboard-command-center">
          |  <div class="row g-3">
@@ -4872,6 +5245,7 @@ private[cozy] object CozyBok {
       val items = scenarios.take(30).map { scenario =>
         val summary = scenario.summary.map(x => s"""<p>${_html_escape(x)}</p>""").getOrElse("")
         val terms = if (scenario.terms.isEmpty) "" else scenario.terms.take(5).map(x => s"""<span class="badge bok-badge-info">${_html_escape(x)}</span>""").mkString(" ")
+        val tagchips = _tag_chips(config, page, scenario.tags, scenario.category, locale)
         val href = s"../${scenario.hrefFromHome}"
         s"""<article class="bok-scenario-tile" data-scenario-category="${_html_escape(scenario.categorySlug)}">
            |  <div class="bok-scenario-tile-head">
@@ -4881,6 +5255,7 @@ private[cozy] object CozyBok {
            |  <h3><a href="${_html_escape(href)}">${_html_escape(scenario.title)}</a></h3>
            |  ${summary}
            |  <div class="bok-scenario-terms">${terms}</div>
+           |  ${tagchips}
            |</article>""".stripMargin
       }.mkString("""<div class="bok-scenario-grid">""", "", "</div>")
       s"""<div class="bok-dashboard container-fluid bok-dashboard-command-center">
@@ -4952,7 +5327,7 @@ private[cozy] object CozyBok {
        |  <main class="article">
        |    <div class="content">
        |      <article class="doc">
-       |        ${_term_hub(term, locale, scenarios, bibliographies)}
+       |        ${_term_hub(config, page, term, locale, scenarios, bibliographies)}
        |      </article>
        |    </div>
        |  </main>
@@ -4961,13 +5336,14 @@ private[cozy] object CozyBok {
        |</html>
        |""".stripMargin
 
-  private def _term_hub(term: TermEntry, locale: String, scenarios: Vector[ScenarioEntry], bibliographies: Vector[BibliographyEntry]): String =
+  private def _term_hub(config: BuildConfig, page: Path, term: TermEntry, locale: String, scenarios: Vector[ScenarioEntry], bibliographies: Vector[BibliographyEntry]): String =
     s"""<section class="bok-dashboard-shell bok-term-hub" id="term-hub">
        |  <header class="bok-dashboard-hero">
        |    <div class="bok-dashboard-hero-copy">
        |      <p class="bok-dashboard-eyebrow">${_html_escape(_ui(locale, "term.hub.eyebrow"))}</p>
        |      <h1 class="page">${_html_escape(term.title)}</h1>
        |      <p class="bok-dashboard-lead">${_html_escape(term.summary.getOrElse(_ui(locale, "term.hub.description")))}</p>
+       |      ${_tag_chips(config, page, term.tags, term.category, locale)}
        |    </div>
        |    <div class="bok-dashboard-hero-facts">
        |      <span class="bok-dashboard-hero-fact"><strong>${_html_escape(term.categorySlug)}</strong><em>${_html_escape(_ui(locale, "dashboard.matrix.category"))}</em></span>
@@ -5930,6 +6306,7 @@ private[cozy] object CozyBok {
        |    <a class="navbar-item navbar-dropdown-item" href="${_html_escape(prefix)}scenarios/index.html">${_html_escape(_ui(locale, "scenario.title"))}</a>
        |    <a class="navbar-item navbar-dropdown-item" href="${_html_escape(prefix)}projects/index.html">${_html_escape(_ui(locale, "project.title"))}</a>
        |    <a class="navbar-item navbar-dropdown-item" href="${_html_escape(prefix)}bibliography/index.html">${_html_escape(_ui(locale, "bibliography.title"))}</a>
+       |    <a class="navbar-item navbar-dropdown-item" href="${_html_escape(prefix)}tags/index.html">${_html_escape(_ui(locale, "tag.title"))}</a>
        |    <a class="navbar-item navbar-dropdown-item" href="${_html_escape(_history_href(config, prefix))}">${_html_escape(_ui(locale, "history.title"))}</a>
        |    <a class="navbar-item navbar-dropdown-item" href="${_html_escape(prefix)}manual/index.html">${_html_escape(_ui(locale, "manual.title"))}</a>
        |  </div>
@@ -6098,6 +6475,7 @@ private[cozy] object CozyBok {
     val articlecount = dashboard.map(_.counts.articleCount).getOrElse(0)
     val rdfcount = dashboard.map(_.rdf.tripleCount).getOrElse(0)
     val projectcount = _project_package_dirs(config.sourcepath).size
+    val tagcount = _tag_index(config, locale).tags.size
     val cards = Vector[Option[String]](
       dashboard.map(x => _recent_activity_card(config, locale, x, _home_recent_items(config))),
       if (purpose.isEmpty) None else Some(_dashboard_card("col-12 col-xl-8", "bok-card-purpose", _ui(locale, "dashboard.card.vision"), _purpose_card_body(locale, purpose), Vector("reader", "contributor", "project_manager"))),
@@ -6109,6 +6487,7 @@ private[cozy] object CozyBok {
       dashboard.map(x => _kpi_card_link("col-6 col-md-3", _ui(locale, "dashboard.kpi.rdf.triples"), x.rdf.tripleCount.toString, _ui(locale, "dashboard.kpi.rdf.triples.note"), "rdf/index.html")),
       Some(_kpi_card_link("col-6 col-md-3", _ui(locale, "dashboard.kpi.scenarios"), scenarios.size.toString, _ui(locale, "dashboard.kpi.scenarios.note"), "scenarios/index.html")),
       Some(_kpi_card_link("col-6 col-md-3", _ui(locale, "project.title"), projectcount.toString, _ui(locale, "project.kpi.note"), "projects/index.html")),
+      Some(_kpi_card_link("col-6 col-md-3", _ui(locale, "tag.title"), tagcount.toString, _ui(locale, "tag.kpi.note"), "tags/index.html")),
       Some(_kpi_card_link("col-6 col-md-3", _ui(locale, "dashboard.kpi.bibliography"), bibliographies.size.toString, _ui(locale, "dashboard.kpi.bibliography.note"), "bibliography/index.html", Vector("contributor", "project_manager"))),
       Some(_dashboard_card("col-12 col-xl-4", "bok-card-quality", _ui(locale, "dashboard.card.quality.alerts"), _quality_alerts_body(locale, dashboard.isDefined), Vector("contributor", "project_manager"))),
       dashboard.map(x => _dashboard_card("col-12 col-xl-8", "bok-card-chart", _ui(locale, "dashboard.card.growth"), _dashboard_increment_chart(locale, x.increments, _ui(locale, "dashboard.chart.bok.additions")), Vector("project_manager", "contributor"))),
@@ -6134,6 +6513,7 @@ private[cozy] object CozyBok {
     }
     val categoryarticlecount = dashboard.map(_.counts.articleCount).getOrElse(category.articles.size)
     val categoryrdfcount = rdf.map(_.tripleCount).getOrElse(0)
+    val categorytagcount = _tag_index(config, locale).forCategory(category.slug).tags.size
     val cards = Vector[Option[String]](
       if (category.purpose.isEmpty) None else Some(_dashboard_card("col-12 col-xl-8", "bok-card-purpose bok-card-category-purpose", _ui(locale, "dashboard.card.category.vision"), _purpose_card_body(locale, category.purpose), Vector("reader", "contributor", "project_manager"))),
       Some(_analysis_entry_card(locale, categoryTerms.size, categoryarticlecount, categoryscenarios.size, categoryprojects, categoryrdfcount, s"../articles/index.html?category=${_url_query_escape(category.slug)}", s"../glossary/${category.slug}/index.html", s"../scenarios/index.html?category=${_url_query_escape(category.slug)}", s"../projects/index.html?category=${_url_query_escape(category.slug)}", s"../rdf/index.html?category=${_url_query_escape(category.slug)}")),
@@ -6144,6 +6524,7 @@ private[cozy] object CozyBok {
       dashboard.map(x => _kpi_card(locale, "col-6 col-md-3", _ui(locale, "dashboard.kpi.terms"), x.counts.glossaryTermCount.toString, _ui(locale, "dashboard.kpi.category.terms.note"))),
       Some(_kpi_card_link("col-6 col-md-3", _ui(locale, "dashboard.kpi.scenarios"), categoryscenarios.size.toString, _ui(locale, "dashboard.kpi.scenarios.note"), s"../scenarios/index.html?category=${_url_query_escape(category.slug)}")),
       Some(_kpi_card_link("col-6 col-md-3", _ui(locale, "project.title"), categoryprojects.toString, _ui(locale, "project.kpi.note"), s"../projects/index.html?category=${_url_query_escape(category.slug)}")),
+      Some(_kpi_card_link("col-6 col-md-3", _ui(locale, "tag.title"), categorytagcount.toString, _ui(locale, "tag.kpi.note"), s"../tags/index.html?category=${_url_query_escape(category.slug)}")),
       Some(_kpi_card(locale, "col-6 col-md-3", _ui(locale, "dashboard.kpi.issues"), "0", _ui(locale, "dashboard.kpi.issues.note"))),
       Some(_dashboard_card("col-12 col-xl-5", "bok-card-quality", _ui(locale, "dashboard.card.local.quality.alerts"), _quality_alerts_body(locale, dashboard.isDefined), Vector("contributor", "project_manager"))),
       dashboard.map(x => _dashboard_card("col-12 col-xl-7", "bok-card-chart", _ui(locale, "dashboard.card.category.growth"), _dashboard_increment_chart(locale, x.increments, _uif(locale, "dashboard.chart.category.additions", x.title)), Vector("project_manager", "contributor"))),

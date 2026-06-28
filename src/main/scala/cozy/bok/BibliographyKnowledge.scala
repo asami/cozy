@@ -13,7 +13,7 @@ import io.circe.syntax._
 
 /*
  * @since   Jun. 24, 2026
- * @version Jun. 25, 2026
+ * @version Jun. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] final case class BibliographyIndex(entries: Vector[BibliographyEntry]) {
@@ -82,7 +82,8 @@ private[cozy] final case class BibliographyEntry(
   refs: Vector[String],
   sourcerefs: Vector[BibliographySourceRef],
   needsresolution: Boolean,
-  quality: BibliographyQuality
+  quality: BibliographyQuality,
+  tags: Vector[String]
 ) {
   def categorySlug: String = category.getOrElse("bibliography")
   def isUnresolved: Boolean = needsresolution
@@ -185,7 +186,8 @@ private[cozy] object BibliographyEntry {
     "refs" -> x.refs.asJson,
     "source_refs" -> x.sourcerefs.asJson,
     "needs_resolution" -> x.needsresolution.asJson,
-    "quality" -> x.quality.asJson
+    "quality" -> x.quality.asJson,
+    "tags" -> x.tags.asJson
   )
 
   implicit val _entry_decoder: Decoder[BibliographyEntry] = (c: HCursor) =>
@@ -214,6 +216,7 @@ private[cozy] object BibliographyEntry {
       sourcerefs <- c.downField("source_refs").as[Option[Vector[BibliographySourceRef]]]
       needsresolution <- c.downField("needs_resolution").as[Option[Boolean]]
       quality <- c.downField("quality").as[Option[BibliographyQuality]]
+      tags <- c.downField("tags").as[Option[Vector[String]]]
     } yield BibliographyEntry(
       id,
       key,
@@ -238,7 +241,8 @@ private[cozy] object BibliographyEntry {
       refs.getOrElse(Vector(id)),
       sourcerefs.getOrElse(Vector.empty),
       needsresolution.getOrElse(false),
-      quality.getOrElse(BibliographyQuality.empty)
+      quality.getOrElse(BibliographyQuality.empty),
+      tags.getOrElse(Vector.empty)
     )
 
   implicit val _index_decoder: Decoder[BibliographyIndex] = (c: HCursor) =>

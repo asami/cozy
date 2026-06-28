@@ -16,7 +16,7 @@ import org.smartdox.parser.Dox2Parser
 
 /*
  * @since   Jun. 24, 2026
- * @version Jun. 24, 2026
+ * @version Jun. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 final case class ScenarioMetadata(scenarios: Vector[ScenarioMetadata.ScenarioEntry] = Vector.empty)
@@ -39,6 +39,7 @@ object ScenarioMetadata {
     sourcePath: String,
     publicPath: String,
     terms: Vector[String] = Vector.empty,
+    tags: Vector[String] = Vector.empty,
     status: Option[String] = None,
     quality: ScenarioQuality = ScenarioQuality.empty,
     steps: Vector[ScenarioStep] = Vector.empty,
@@ -188,6 +189,7 @@ object ScenarioMetadata {
         orElse(_metadata_string(metadata, "scenario.summary", "summary", "description"))
       val category = _metadata_string(metadata, "scenario.category", "category").orElse(document.category)
       val terms = _metadata_string_list(metadata, "scenario.terms", "terms")
+      val tags = _metadata_string_list(metadata, "scenario.tags", "tags")
       val status = _metadata_string(metadata, "scenario.status", "status")
       val sections = _sections(document.dox.body.contents)
       val steps = if (scenariotype == "simple") _steps(document.dox.body.contents) else Vector.empty
@@ -205,6 +207,7 @@ object ScenarioMetadata {
         document.sourcepath,
         document.publicpath,
         terms,
+        tags,
         status,
         ScenarioQuality(terms.isEmpty, terms.isEmpty, scenariotype == "use-case" && flows.isEmpty),
         steps,

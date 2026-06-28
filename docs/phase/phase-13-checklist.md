@@ -1,0 +1,151 @@
+# Phase 13 Checklist
+
+This checklist is the authoritative progress tracker for BoK tag knowledge
+navigation from 2026-06-28 onward.
+
+## BK13-01: Phase 13 Documentation
+
+Status: DONE
+
+- [x] Add `docs/phase/phase-13.md`.
+- [x] Add `docs/phase/phase-13-checklist.md`.
+- [x] Add Phase 13 to `docs/strategy/cozy-development-strategy.md`.
+- [x] Set `docs/phase/README.md` current phase to Phase 13.
+- [x] Record Phase 13 as "BoK Tag Knowledge Navigation".
+
+## BK13-02: Tag Model And Responsibility Boundary
+
+Status: DONE
+
+- [x] Define tag as a lightweight cross-cutting label.
+- [x] Keep tags distinct from categories.
+- [x] Keep tags distinct from glossary terms.
+- [x] Define canonical tag ID / slug normalization.
+- [x] Define `.` separated canonical hierarchical tag keys.
+- [x] Define `/tags/<segment>/<leaf>.html` hierarchical public URLs.
+- [x] Define namespace pages such as `/tags/<namespace>/index.html`.
+- [x] Normalize short category-scoped tags such as `yyy` to `category.yyy`.
+- [x] Treat dotted tags such as `xxx.yyy` as explicit hierarchical tags
+      without category prefix injection.
+- [x] Record that the first tag segment can be either a category slug or a
+      functional namespace.
+- [x] Define display label, category context, and counts.
+- [x] Define duplicate and collision handling.
+- [x] Decide how tags attach to articles, terms, scenarios, projects,
+      bibliography entries, history entries, and publication metadata.
+- [x] Record SmartDox and Cozy responsibility boundaries.
+
+## BK13-03: SmartDox Tag Metadata Handoff
+
+Status: DONE
+
+- [x] Confirm SmartDox source metadata key for document tags.
+- [x] Ensure Markdown front matter and SmartDox HEAD properties expose tags
+      through machine-readable metadata.
+- [x] Ensure localized document fragments preserve source tag context.
+- [x] Emit dedicated `metadata/tags/tags.json` as the tag handoff contract.
+- [x] Define optional tag definition sources under `src/main/doxsite/tags/**`.
+- [x] Merge tag definitions with usage-derived tags without requiring every tag
+      to have a definition source.
+- [x] Add SmartDox executable specs if SmartDox metadata emission changes.
+
+## BK13-04: Cozy Tag Index Reader
+
+Status: IN PROGRESS
+
+- [x] Add Cozy tag metadata model.
+- [x] Read document tags from SmartDox metadata.
+- [x] Read dedicated `metadata/tags/tags.json` when the SmartDox handoff exists.
+- [x] Fall back to usage-derived tags when `tags.json` is absent.
+- [x] Read Cozy-owned tags from scenario metadata.
+- [ ] Read Cozy-owned tags from project metadata.
+- [x] Read bibliography tags from bibliography metadata.
+- [x] Read glossary term tags from `terms.json` when present.
+- [x] Preserve empty-tag fallback behavior.
+- [x] Keep Cozy from re-parsing `.dox` or Markdown source bodies.
+
+## BK13-05: Tag Dashboard And Tag Hub Rendering
+
+Status: IN PROGRESS
+
+- [x] Generate `tags/index.html`.
+- [x] Generate `tags/<tag>.html`.
+- [x] Generate hierarchical tag pages such as `tags/<namespace>/<leaf>.html`.
+- [x] Generate namespace pages such as `tags/<namespace>/index.html`.
+- [x] Show counts by knowledge type.
+- [x] Show related articles.
+- [x] Show related terms.
+- [x] Show related scenarios.
+- [ ] Show related projects.
+- [x] Show related bibliography entries.
+- [ ] Show related RDF links.
+- [x] Keep page layout usable on desktop and mobile.
+
+## BK13-06: Dashboard And Knowledge-Page Tag Links
+
+Status: IN PROGRESS
+
+- [x] Add compact tag summary to Home Dashboard.
+- [x] Add compact tag summary to Category Dashboard.
+- [x] Add tag marks / tag chips to Cozy-owned knowledge page headers when
+      metadata exists.
+- [ ] Add tags to article/dashboard pages when metadata exists.
+- [x] Add tags to Term Hub pages when metadata exists.
+- [x] Add tags to Scenario pages when metadata exists.
+- [ ] Add tags to Project pages when metadata exists.
+- [x] Add tags to Bibliography pages when metadata exists.
+- [ ] Avoid noisy empty sections when no tag metadata exists.
+
+## BK13-07: RDF Tag Navigation
+
+Status: TODO
+
+- [ ] Add tag filter or tag-neighborhood entry point to RDF Information View.
+- [ ] Define tag RDF node or relationship representation.
+- [ ] Link tag pages to RDF filtered views.
+- [ ] Ensure existing category and term RDF filters remain compatible.
+- [ ] Add executable specs for tag RDF navigation.
+
+## BK13-08: KnowledgeHub Operational Verification
+
+Status: TODO
+
+- [ ] Add representative tags to KnowledgeHub source.
+- [ ] Run `cozy bok build . --strategy preview`.
+- [ ] Confirm Home Dashboard tag summary.
+- [ ] Confirm Category Dashboard tag summary.
+- [ ] Confirm `tags/index.html`.
+- [ ] Confirm at least one `tags/<tag>.html`.
+- [ ] Confirm `technology.review` from a category-scoped short tag.
+- [ ] Confirm `workflow.review` from an explicit hierarchical tag.
+- [ ] Confirm `tags/technology/index.html` and `tags/technology/review.html`.
+- [ ] Confirm `tags/workflow/index.html` and `tags/workflow/review.html`.
+- [ ] Confirm tag links from article, scenario, project, bibliography, and term
+      surfaces where sample metadata exists.
+- [ ] Confirm generated directories remain ignored.
+
+## BK13-09: Tests And Executable Specs
+
+Status: TODO
+
+- [x] Add focused Cozy tag specs.
+- [x] Add SmartDox specs if SmartDox metadata changes.
+- [x] Add specs for hierarchical tag URLs.
+- [x] Add specs for category prefix normalization.
+- [x] Add specs for explicit namespace tags.
+- [x] Add specs for tag marks / tag chips on Cozy-owned knowledge pages.
+- [x] Add specs for tag resource list pages.
+- [x] Run focused tag specs.
+- [x] Run `sbt --batch test`.
+- [x] Run `git diff --check`.
+
+## BK13-10: Phase Closure
+
+Status: TODO
+
+- [ ] Confirm all BK13 items are complete or explicitly bounded.
+- [ ] Confirm validation passed.
+- [ ] Confirm KnowledgeHub operational verification passed.
+- [ ] Update `docs/phase/phase-13.md` closure section.
+- [ ] Set `docs/phase/README.md` active phase to none.
+- [ ] Mark Phase 13 closed in strategy.

@@ -8,7 +8,7 @@ resolvers += "Local Maven Repository" at ("file://" + Path.userHome.absolutePath
 
 useCoursier := false
 
-libraryDependencies += "org.simplemodeling" %% "cozy" % sys.props.getOrElse("cozy.version", "0.2.20-SNAPSHOT")
+libraryDependencies += "org.simplemodeling" %% "cozy" % sys.props.getOrElse("cozy.version", "0.2.23")
 
 dependencyOverrides ++= Seq(
   "org.scala-lang.modules" %% "scala-xml" % "2.1.0",

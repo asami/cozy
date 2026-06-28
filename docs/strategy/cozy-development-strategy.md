@@ -257,6 +257,24 @@ Primary reference:
 - `docs/phase/phase-12.md`
 - `docs/phase/phase-12-checklist.md`
 
+### Phase 13: BoK Tag Knowledge Navigation
+
+Status: active.
+
+Purpose:
+
+- make tags a first-class BoK navigation surface
+- keep tags distinct from categories and glossary terms
+- connect articles, terms, scenarios, projects, bibliography entries, history,
+  and RDF resources through lightweight cross-cutting labels
+- render tag dashboards, tag hub pages, and tag-aware RDF navigation
+- preserve empty-tag fallback behavior for existing BoK projects
+
+Primary reference:
+
+- `docs/phase/phase-13.md`
+- `docs/phase/phase-13-checklist.md`
+
 ### Future Phase: Model-Driven CAR Project Scaffolding
 
 Purpose:
@@ -267,8 +285,8 @@ Purpose:
 
 ## Current Priority
 
-Phase 6, Phase 7, Phase 8, Phase 9, Phase 10, and Phase 11 are closed. Phase
-12 is active.
+Phase 6, Phase 7, Phase 8, Phase 9, Phase 10, Phase 11, and Phase 12 are
+closed. Phase 13 is active.
 
 Phase 8 completed the first-class `cozy video` workflow: structured
 project/script parsing, inspect, dry-run artifact/command planning, dependency
@@ -294,7 +312,12 @@ was `/Users/asami/src/Project2026/bok-knowlegehub`, and the phase closed after
 production build, CloudFront serving, upload workflow, and ignored generated
 state were operationally verified.
 
-Candidate directions after Phase 12 include:
+Phase 13 implements BoK tag knowledge navigation. Tags are lightweight
+cross-cutting labels that connect articles, terms, scenarios, projects,
+bibliography entries, history, and RDF resources without replacing categories
+or glossary terms.
+
+Candidate directions after Phase 13 include:
 
 - BoK publication and Component Repository public pages
 - Video publication registration follow-up, if richer article/navigation

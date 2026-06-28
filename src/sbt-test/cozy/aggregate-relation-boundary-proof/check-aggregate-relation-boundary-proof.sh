@@ -19,7 +19,7 @@ ThisBuild / organization := "org.sample"
 ThisBuild / version := "0.1.0-SNAPSHOT"
 ThisBuild / scalaVersion := "3.3.7"
 
-val cncfVersion = sys.props.getOrElse("cncf.version", sys.env.getOrElse("CNCF_VERSION", "0.4.12-SNAPSHOT"))
+val cncfVersion = sys.props.getOrElse("cncf.version", sys.env.getOrElse("CNCF_VERSION", "0.4.12"))
 val simplemodelingModelVersion = sys.props.getOrElse(
   "simplemodeling.model.version",
   sys.env.getOrElse("SIMPLEMODELING_MODEL_VERSION", "0.1.8-SNAPSHOT")
