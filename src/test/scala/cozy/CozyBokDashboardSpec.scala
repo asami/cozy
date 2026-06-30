@@ -12,7 +12,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jun. 21, 2026
- * @version Jun. 27, 2026
+ * @version Jun. 29, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokDashboardSpec
@@ -185,7 +185,9 @@ class CozyBokDashboardSpec
           home should not include ("""class="toc sidebar"""")
           home should include("""class="row g-3"""")
           home should not include ("""class="card bok-card bok-card-purpose"""")
-          home should include("""class="card bok-card bok-card-kpi"""")
+          home should include("""class="card bok-card bok-card-kpi bok-card-kpi-link"""")
+          home should include("""class="card bok-card bok-card-matrix" id="categories"""")
+          home should include("""href="category/index.html"""")
           home should include("""class="card bok-card bok-card-analysis-entry"""")
           home should include("""class="bok-analysis-entry-flow"""")
           home should include("""class="bok-analysis-entry-analysis"""")
@@ -236,6 +238,10 @@ class CozyBokDashboardSpec
           articles should include("""data-article-category="architecture"""")
           articles should include("""href="../architecture/overview.html"""")
           articles should include("""new URLSearchParams(window.location.search).get('category')""")
+          val categoryindex = _read(dir.resolve("website.d/category/index.html"))
+          categoryindex should include("""class="bok-dashboard-shell bok-category-index-dashboard"""")
+          categoryindex should include("""href="../architecture/index.html"""")
+          categoryindex should include("""href="../rdf/index.html?category=architecture"""")
           home should include("""id="narrative"""")
           home should not include ("""<h2>Narrative</h2>""")
           home should not include ("""<a href="#narrative">Narrative</a>""")

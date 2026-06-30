@@ -30,7 +30,8 @@ import io.circe.parser
 
 /*
  * @since   Jun.  3, 2026
- * @version Jun. 28, 2026
+ *  version Jun. 28, 2026
+ * @version Jul.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyBok {
@@ -125,6 +126,13 @@ private[cozy] object CozyBok {
     brief: String,
     modifiedAtMillis: Long,
     reading: Option[String] = None
+  )
+  private final case class LocalizedGlossaryItem(
+    href: String,
+    title: String,
+    reading: Option[String],
+    categorySlug: String,
+    categoryTitle: String
   )
   private final case class ArticleIndexItem(
     categorySlug: String,
@@ -2489,14 +2497,28 @@ private[cozy] object CozyBok {
         _write_default_ui_bundle(config.uiBundlePath, ProjectFilePolicy.Default)
       if (Files.isRegularFile(config.uiBundlePath)) {
         Files.createDirectories(target)
-        _copy_ui_bundle_with_cozy_assets(config.uiBundlePath, target.resolve("ui-bundle.zip"))
+        _copy_ui_bundle_with_cozy_assets(config, config.uiBundlePath, target.resolve("ui-bundle.zip"))
+        _write_text(
+          target.resolve("supplemental-ui/partials/header-content.hbs"),
+          _default_ui_header(config)
+        )
       }
     }
 
-  private def _copy_ui_bundle_with_cozy_assets(source: Path, target: Path): Unit = {
+  private def _copy_ui_bundle_with_cozy_assets(config: BuildConfig, source: Path, target: Path): Unit = {
     val assets = Vector(
-      "css/bootstrap-grid.min.css" -> "cozy/antora-ui/css/bootstrap-grid.min.css",
-      "css/cozy-bok-dashboard.css" -> "cozy/antora-ui/css/cozy-bok-dashboard.css"
+      "layouts/default.hbs" -> Left(_default_ui_layout()),
+      "layouts/404.hbs" -> Left(_default_ui_layout()),
+      "partials/header-content.hbs" -> Left(_default_ui_header(config)),
+      "partials/nav.hbs" -> Left(_default_ui_nav()),
+      "partials/nav-menu.hbs" -> Left(_default_ui_nav_menu()),
+      "partials/nav-tree.hbs" -> Left(_default_ui_nav_tree()),
+      "helpers/eq.js" -> Left(_default_ui_eq_helper()),
+      "helpers/increment.js" -> Left(_default_ui_increment_helper()),
+      "helpers/or.js" -> Left(_default_ui_or_helper()),
+      "helpers/relativize.js" -> Left(_default_ui_relativize_helper()),
+      "css/bootstrap-grid.min.css" -> Right("cozy/antora-ui/css/bootstrap-grid.min.css"),
+      "css/cozy-bok-dashboard.css" -> Right("cozy/antora-ui/css/cozy-bok-dashboard.css")
     )
     val assetnames = assets.map(_._1).toSet
     val tmp = Files.createTempFile(Option(target.getParent).getOrElse(Paths.get(".")), "ui-bundle-", ".zip")
@@ -2518,9 +2540,14 @@ private[cozy] object CozyBok {
         }
         assets.foreach {
           case (name, resource) =>
-            _resource_bytes(resource) match {
-              case Some(bytes) => _zip_bytes(out, name, bytes)
-              case None => RAISE.noReachDefect
+            resource match {
+              case Left(text) =>
+                _zip_text(out, name, text)
+              case Right(path) =>
+                _resource_bytes(path) match {
+                  case Some(bytes) => _zip_bytes(out, name, bytes)
+                  case None => RAISE.noReachDefect
+                }
             }
         }
       } finally {
@@ -2647,6 +2674,7 @@ private[cozy] object CozyBok {
     val terms = _terms(config)
     val glossarybody = _glossary_dashboard_body(config, categories, terms, _language_index_root_prefix(config), locale)
     val historyhref = _latest_history_year_page(target.resolve("history"))
+    _write_category_index_page(config, target, locale, categories)
     _write_article_page(config, target, locale, categories)
     _write_project_pages(config, target, locale, categories)
     _write_rdf_page(config, target, locale, categories)
@@ -2704,6 +2732,7 @@ private[cozy] object CozyBok {
       "Local Rules",
       "Project-local BoK operation rules."
     )
+    _post_process_knowledge_pages(config, target, locale, categories)
     if (writeLocalizedGlossaryIndexes) {
       _write_text(
         target.resolve("ja").resolve("glossary").resolve("index.html"),
@@ -2714,6 +2743,99 @@ private[cozy] object CozyBok {
         _localized_glossary_index_page(config, categories, "en")
       )
     }
+  }
+
+  private def _post_process_knowledge_pages(
+    config: BuildConfig,
+    target: Path,
+    locale: String,
+    categories: Vector[CategoryContent]
+  ): Unit = {
+    _remove_category_index_nav_items(target, categories)
+    _inject_article_tag_chips(config, target, locale)
+  }
+
+  private def _remove_category_index_nav_items(target: Path, categories: Vector[CategoryContent]): Unit =
+    categories.foreach { category =>
+      val dir = target.resolve(category.slug)
+      if (Files.isDirectory(dir)) {
+        val stream = Files.walk(dir)
+        try {
+          stream.iterator.asScala.toVector.
+            filter(Files.isRegularFile(_)).
+            filter(_.getFileName.toString.endsWith(".html")).
+            filterNot(_.getFileName.toString == "index.html").
+            foreach { page =>
+              val content = Files.readString(page, StandardCharsets.UTF_8)
+              val title = Pattern.quote(_html_escape(category.title))
+              val regex = ("""(?s)\s*<li class="nav-item" data-depth="1">\s*<a class="nav-link" href="index\.html">""" + title + """</a>\s*</li>""").r
+              val updated = regex.replaceAllIn(content, "")
+              if (updated != content)
+                _write_text(page, updated)
+            }
+        } finally {
+          stream.close()
+        }
+      }
+    }
+
+  private def _inject_article_tag_chips(config: BuildConfig, target: Path, locale: String): Unit = {
+    val tagsbyhref = _tag_index(config, locale).tags.flatMap { tag =>
+      tag.refs.collect {
+        case ref if _is_article_tag_ref(ref) => ref.href -> tag
+      }
+    }.groupBy(_._1).map {
+      case (href, xs) => href -> xs.map(_._2).distinct.sortBy(_.key)
+    }
+    tagsbyhref.foreach {
+      case (href, tags) =>
+        val page = target.resolve(href)
+        if (Files.isRegularFile(page)) {
+          val content = Files.readString(page, StandardCharsets.UTF_8)
+          if (!content.contains("bok-article-tag-chip-list")) {
+            val chips = _tag_chips_for_entries(target, page, tags, locale)
+            val updated = _insert_after_page_title(content, chips)
+            if (updated != content)
+              _write_text(page, updated)
+          }
+        }
+    }
+  }
+
+  private def _is_article_tag_ref(ref: TagReference): Boolean =
+    ref.kind == "article" || ref.kind == "document"
+
+  private def _tag_chips_for_entries(target: Path, page: Path, tags: Vector[TagEntry], locale: String): String = {
+    val groups = tags.groupBy(_tag_parent_label).toVector.sortBy(_._1).map {
+      case (namespace, entries) =>
+        val links = entries.sortBy(_.key).map { tag =>
+          val href = _relative_href(page, target.resolve(tag.publicpath))
+          val label = tag.segments.lastOption.filter(_.nonEmpty).getOrElse(tag.label)
+          s"""<a class="bok-article-tag-leaf" href="${_html_escape(href)}">${_html_escape(label)}</a>"""
+        }.mkString
+        s"""<div class="bok-article-tag-group"><span class="bok-article-tag-namespace">${_html_escape(namespace)}</span><span class="bok-article-tag-leaves">${links}</span></div>"""
+    }.mkString
+    s"""<div class="bok-article-tag-bar bok-article-tag-chip-list" aria-label="${_html_escape(_ui(locale, "tag.title"))}">${groups}</div>"""
+  }
+
+  private def _tag_parent_label(tag: TagEntry): String =
+    tag.segments.dropRight(1).mkString(".") match {
+      case "" => tag.namespace.getOrElse("tags")
+      case x => x
+    }
+
+  private def _insert_after_page_title(content: String, html: String): String = {
+    val heading = """(?s)(<h1 class="page"[^>]*>.*?</h1>)""".r
+    heading.findFirstMatchIn(content).map { m =>
+      heading.replaceFirstIn(content, Regex.quoteReplacement(m.group(1) + "\n" + html))
+    }.getOrElse(content)
+  }
+
+  private def _insert_before_article_end(content: String, html: String): String = {
+    val end = """(?s)</article>""".r
+    end.findFirstMatchIn(content).map { _ =>
+      end.replaceFirstIn(content, Regex.quoteReplacement(html + "\n</article>"))
+    }.getOrElse(content + "\n" + html)
   }
 
   private def _write_rdf_page(config: BuildConfig, target: Path, locale: String, categories: Vector[CategoryContent]): Unit = {
@@ -2728,6 +2850,69 @@ private[cozy] object CozyBok {
       nodepage,
       _rdf_node_detail_page(config, categories, locale, nodepage)
     )
+  }
+
+  private def _write_category_index_page(
+    config: BuildConfig,
+    target: Path,
+    locale: String,
+    categories: Vector[CategoryContent]
+  ): Unit = {
+    val page = target.resolve("category").resolve("index.html")
+    _write_text(
+      page,
+      _category_index_page(config, categories, locale, page)
+    )
+  }
+
+  private def _category_index_page(
+    config: BuildConfig,
+    categories: Vector[CategoryContent],
+    locale: String,
+    page: Path
+  ): String = {
+    val dashboard = _dashboard(config)
+    val articlecount = _source_article_count(config)
+    val termcount = dashboard.map(_.counts.glossaryTermCount).getOrElse(_terms(config).size)
+    val rdfcount = dashboard.map(_.rdf.tripleCount).getOrElse(0)
+    s"""<!doctype html>
+       |<html lang="${_html_escape(locale)}">
+       |<head>
+       |  <meta charset="utf-8">
+       |  <meta name="viewport" content="width=device-width, initial-scale=1">
+       |  <title>${_html_escape(_ui(locale, "dashboard.kpi.categories"))} - ${_html_escape(config.siteTitle)}</title>
+       |${_site_css_links(config, page)}
+       |</head>
+       |<body class="article ${_html_escape(_support_dashboard_theme_class)}">
+       |${_category_header(config, categories, locale)}
+       |<div class="body body-dashboard bok-category-index-body">
+       |  <main class="article bok-category-index-main">
+       |    <div class="content">
+       |      <article class="doc bok-category-index-doc">
+       |        <section class="bok-dashboard-shell bok-category-index-dashboard" id="dashboard">
+       |          ${_dashboard_hero(
+                    _ui(locale, "dashboard.kpi.categories"),
+                    _ui(locale, "dashboard.kpi.categories.note"),
+                    Vector(
+                      _ui(locale, "dashboard.kpi.categories") -> categories.size.toString,
+                      _ui(locale, "dashboard.kpi.articles") -> articlecount.toString,
+                      _ui(locale, "dashboard.kpi.terms") -> termcount.toString,
+                      _ui(locale, "dashboard.kpi.rdf.triples") -> rdfcount.toString
+                    )
+                  )}
+       |          <div class="bok-dashboard container-fluid bok-dashboard-command-center">
+       |            <div class="row g-3">
+       |              ${_dashboard_card("col-12", "bok-card-matrix", _ui(locale, "dashboard.card.category.matrix"), dashboard.map(_category_matrix_body(config, locale, _, "../")).getOrElse(_category_source_matrix_body(locale, categories, "../")), Vector("reader", "contributor", "project_manager"))}
+       |            </div>
+       |          </div>
+       |        </section>
+       |      </article>
+       |    </div>
+       |  </main>
+       |</div>
+       |</body>
+       |</html>
+       |""".stripMargin
   }
 
   private def _write_article_page(
@@ -2946,11 +3131,41 @@ private[cozy] object CozyBok {
     }
     index.tags.foreach { tag =>
       val tagpage = target.resolve(tag.publicpath)
-      _write_text(
-        tagpage,
-        _tag_dedicated_page(config, categories, locale, tagpage, TagIndex(Vector(tag)), Some(tag))
-      )
+      if (tag.sourcepath.exists(_.startsWith("tags/")) && Files.isRegularFile(tagpage))
+        _post_process_tag_antora_page(config, tagpage, locale, tag)
+      else
+        _write_text(
+          tagpage,
+          _tag_dedicated_page(config, categories, locale, tagpage, TagIndex(Vector(tag)), Some(tag))
+        )
     }
+  }
+
+  private def _post_process_tag_antora_page(
+    config: BuildConfig,
+    page: Path,
+    locale: String,
+    tag: TagEntry
+  ): Unit = {
+    val content = Files.readString(page, StandardCharsets.UTF_8)
+    val withproperties =
+      if (content.contains("bok-tag-detail-properties"))
+        content
+      else
+        _insert_after_page_title(content, _tag_detail_properties(tag, locale))
+    val updated =
+      if (withproperties.contains("bok-tag-detail-links"))
+        withproperties
+      else {
+        val links =
+          s"""<section class="bok-tag-detail-section bok-tag-detail-links" id="links">
+             |  <h2>${_html_escape(_ui(locale, "tag.detail.links"))}</h2>
+             |  ${_tag_refs_body(config, page, locale, tag.refs)}
+             |</section>""".stripMargin
+        _insert_before_article_end(withproperties, links)
+      }
+    if (updated != content)
+      _write_text(page, updated)
   }
 
   private def _write_project_pages(
@@ -4735,8 +4950,31 @@ private[cozy] object CozyBok {
       parser.parse(Files.readString(path, StandardCharsets.UTF_8)).toOption.flatMap(_.as[BibliographyIndex].toOption)
   }
 
-  private def _tag_index(config: BuildConfig, locale: String): TagIndex =
-    _tag_handoff_index(config, locale).getOrElse(_usage_derived_tag_index(config, locale))
+  private def _tag_index(config: BuildConfig, locale: String): TagIndex = {
+    val usage = _usage_derived_tag_index(config, locale)
+    _tag_handoff_index(config, locale).map(_merge_tag_indexes(_, usage)).getOrElse(usage)
+  }
+
+  private def _merge_tag_indexes(handoff: TagIndex, usage: TagIndex): TagIndex = {
+    val handoffbykey = handoff.tags.map(x => x.key -> x).toMap
+    val usagebykey = usage.tags.map(x => x.key -> x).toMap
+    val entries = (handoffbykey.keySet ++ usagebykey.keySet).toVector.map { key =>
+      (handoffbykey.get(key), usagebykey.get(key)) match {
+        case (Some(handofftag), Some(usagetag)) =>
+          handofftag.copy(
+            refs = _distinct_tag_refs(handofftag.refs ++ usagetag.refs),
+            children = (handofftag.children ++ usagetag.children).distinct.sorted
+          )
+        case (Some(handofftag), None) =>
+          handofftag.copy(refs = _distinct_tag_refs(handofftag.refs))
+        case (None, Some(usagetag)) =>
+          usagetag.copy(refs = _distinct_tag_refs(usagetag.refs))
+        case _ =>
+          _tag_entry_from_usage(key, Vector.empty)
+      }
+    }.sortBy(x => (x.key, x.publicpath))
+    TagIndex(entries)
+  }
 
   private def _tag_handoff_index(config: BuildConfig, locale: String): Option[TagIndex] = {
     val path = config.doxsitePath.resolve("metadata/tags/tags.json")
@@ -4862,9 +5100,20 @@ private[cozy] object CozyBok {
     page: Path,
     index: TagIndex,
     focus: Option[TagEntry]
+  ): String =
+    focus.map(tag => _tag_detail_page(config, categories, locale, page, tag)).getOrElse(
+      _tag_index_page(config, categories, locale, page, index)
+    )
+
+  private def _tag_index_page(
+    config: BuildConfig,
+    categories: Vector[CategoryContent],
+    locale: String,
+    page: Path,
+    index: TagIndex
   ): String = {
-    val title = focus.map(_.effectiveTitle).getOrElse(_ui(locale, "tag.title"))
-    val description = focus.map(tag => tag.summary.getOrElse(_uif(locale, "tag.detail.description", tag.effectiveTitle))).getOrElse(_ui(locale, "tag.description"))
+    val title = _ui(locale, "tag.title")
+    val description = _ui(locale, "tag.description")
     s"""<!doctype html>
        |<html lang="${_html_escape(locale)}">
        |<head>
@@ -4889,7 +5138,7 @@ private[cozy] object CozyBok {
                       _ui(locale, "tag.metric.types") -> index.tags.flatMap(_.refs.map(_.kind)).distinct.size.toString
                     )
                   )}
-       |          ${_tag_dashboard_body(config, page, locale, index, focus)}
+       |          ${_tag_dashboard_body(config, page, locale, index)}
        |        </section>
        |      </article>
        |    </div>
@@ -4900,7 +5149,113 @@ private[cozy] object CozyBok {
        |""".stripMargin
   }
 
-  private def _tag_dashboard_body(config: BuildConfig, page: Path, locale: String, index: TagIndex, focus: Option[TagEntry]): String =
+  private def _tag_detail_page(
+    config: BuildConfig,
+    categories: Vector[CategoryContent],
+    locale: String,
+    page: Path,
+    tag: TagEntry
+  ): String = {
+    val title = _tag_display_title(tag)
+    val description = tag.summary.getOrElse(_uif(locale, "tag.detail.description", title))
+    val prefix = _site_root_prefix(config, page)
+    val hierarchy = _tag_breadcrumb_items(prefix, tag, title)
+    s"""<!doctype html>
+       |<html lang="${_html_escape(locale)}">
+       |<head>
+       |  <meta charset="utf-8">
+       |  <meta name="viewport" content="width=device-width, initial-scale=1">
+       |  <title>${_html_escape(title)} - ${_html_escape(config.siteTitle)}</title>
+       |${_site_css_links(config, page)}
+       |</head>
+       |<body class="article ${_html_escape(_support_dashboard_theme_class)}">
+       |${_category_header(config, categories, locale)}
+       |<div class="body bok-tag-detail-body">
+       |  ${_special_nav_container(config, categories, prefix)}
+       |  <main class="article">
+       |    <div class="toolbar" role="navigation">
+       |      <button class="nav-toggle"></button>
+       |      <a href="${_html_escape(prefix)}index.html" class="home-link"></a>
+       |      <nav class="breadcrumbs" aria-label="breadcrumbs">
+       |        <ul>
+       |          <li><a href="${_html_escape(prefix)}index.html">${_html_escape(config.siteTitle)}</a></li>
+       |          <li><a href="${_html_escape(prefix)}tags/index.html">${_html_escape(_ui(locale, "tag.title"))}</a></li>
+       |          ${hierarchy}
+       |        </ul>
+       |      </nav>
+       |    </div>
+       |    <div class="content">
+       |      ${_tag_detail_toc_panel(config, prefix, locale)}
+       |      <article class="doc bok-tag-detail-doc">
+       |        <header class="bok-tag-detail-header">
+       |          <h1 class="page">${_html_escape(title)}</h1>
+       |          <p class="bok-tag-detail-lead">${_html_escape(description)}</p>
+       |          ${_tag_detail_properties(tag, locale)}
+       |        </header>
+       |        <section class="bok-tag-detail-section bok-tag-detail-purpose" id="purpose">
+       |          <h2>${_html_escape(_ui(locale, "tag.detail.purpose"))}</h2>
+       |          ${_tag_purpose_body(tag, locale)}
+       |        </section>
+       |        <section class="bok-tag-detail-section bok-tag-detail-links" id="links">
+       |          <h2>${_html_escape(_ui(locale, "tag.detail.links"))}</h2>
+       |          ${_tag_refs_body(config, page, locale, tag.refs)}
+       |        </section>
+       |      </article>
+       |    </div>
+       |  </main>
+       |</div>
+       |</body>
+       |</html>
+       |""".stripMargin
+  }
+
+  private def _tag_breadcrumb_items(prefix: String, tag: TagEntry, title: String): String = {
+    val namespace = tag.namespace.orElse(tag.segments.headOption).getOrElse("")
+    val namespaceitem =
+      if (namespace.isEmpty)
+        ""
+      else
+        s"""<li><a href="${_html_escape(prefix)}tags/${_html_escape(namespace)}/index.html">${_html_escape(namespace)}</a></li>"""
+    val intermediate = tag.segments.drop(1).dropRight(1).map { segment =>
+      s"""<li>${_html_escape(_tag_segment_display_label(segment))}</li>"""
+    }.mkString
+    s"${namespaceitem}${intermediate}<li>${_html_escape(title)}</li>"
+  }
+
+  private def _tag_detail_properties(tag: TagEntry, locale: String): String =
+    s"""<table class="tableblock frame-all grid-all stretch bok-tag-detail-properties">
+       |  <tbody>
+       |    <tr><th>${_html_escape(_ui(locale, "tag.detail.fqn"))}</th><td><code>${_html_escape(tag.key)}</code></td></tr>
+       |  </tbody>
+       |</table>""".stripMargin
+
+  private def _tag_display_title(tag: TagEntry): String =
+    tag.label.trim match {
+      case "" => tag.segments.lastOption.getOrElse(tag.key)
+      case x => x
+    }
+
+  private def _tag_segment_display_label(segment: String): String =
+    segment.trim
+
+  private def _tag_detail_toc_panel(config: BuildConfig, prefix: String, locale: String): String =
+    s"""<aside class="toc sidebar" data-title="Contents" data-levels="2">
+       |  <div class="toc-menu">
+       |    <h3>On this page</h3>
+       |    <ul>
+       |      <li><a href="#purpose">${_html_escape(_ui(locale, "tag.detail.purpose"))}</a></li>
+       |      <li><a href="#links">${_html_escape(_ui(locale, "tag.detail.links"))}</a></li>
+       |    </ul>
+       |    <div class="bok-special-links">
+       |      <h3>BoK Console</h3>
+       |      <a class="bok-special-link" href="${_html_escape(prefix)}tags/index.html">${_html_escape(_ui(locale, "tag.title"))}</a>
+       |      <a class="bok-special-link" href="${_html_escape(prefix)}glossary/index.html">${_html_escape(_ui(locale, "glossary.title"))}</a>
+       |      <a class="bok-special-link" href="${_html_escape(_history_href(config, prefix))}">${_html_escape(_ui(locale, "history.title"))}</a>
+       |    </div>
+       |  </div>
+       |</aside>""".stripMargin
+
+  private def _tag_dashboard_body(config: BuildConfig, page: Path, locale: String, index: TagIndex): String =
     if (index.isEmpty)
       s"""<div class="bok-dashboard container-fluid bok-dashboard-command-center">
          |  <div class="row g-3">
@@ -4908,18 +5263,12 @@ private[cozy] object CozyBok {
          |  </div>
          |</div>""".stripMargin
     else {
-      val tagcloud = index.tags.map { tag =>
-        val href = _relative_href(page, config.websitePath.resolve(tag.publicpath))
-        s"""<a class="bok-tag-chip" href="${_html_escape(href)}"><span>${_html_escape(tag.effectiveTitle)}</span><strong>${tag.count}</strong></a>"""
-      }.mkString("""<div class="bok-tag-cloud">""", "", "</div>")
-      val refs = focus match {
-        case Some(tag) => _tag_definition_body(tag) + _tag_refs_body(config, page, locale, tag.refs)
-        case None => _tag_overview_body(config, page, locale, index.tags)
-      }
+      val tagtree = _tag_tree_body(config, page, index.tags)
+      val refs = _tag_overview_body(config, page, locale, index.tags)
       s"""<div class="bok-dashboard container-fluid bok-dashboard-command-center">
          |  <div class="row g-3">
-         |    ${_dashboard_card("col-12 col-xl-4", "bok-card-kpi bok-card-tag-summary", _ui(locale, "tag.metric.summary"), tagcloud, Vector("reader", "contributor", "project_manager"))}
-         |    ${_dashboard_card("col-12 col-xl-8", "bok-card-map bok-card-tag-map", focus.map(_.effectiveTitle).getOrElse(_ui(locale, "tag.title")), refs, Vector("reader", "contributor", "project_manager"))}
+         |    ${_dashboard_card("col-12 col-xl-4", "bok-card-map bok-card-tag-summary", _ui(locale, "tag.metric.summary"), tagtree, Vector("reader", "contributor", "project_manager"))}
+         |    ${_dashboard_card("col-12 col-xl-8", "bok-card-map bok-card-tag-map", _ui(locale, "tag.title"), refs, Vector("reader", "contributor", "project_manager"))}
          |  </div>
          |</div>
          |<script>
@@ -4936,10 +5285,44 @@ private[cozy] object CozyBok {
          |</script>""".stripMargin
     }
 
-  private def _tag_definition_body(tag: TagEntry): String =
+  private def _tag_purpose_body(tag: TagEntry, locale: String): String =
     tag.bodyhtml.filter(_.trim.nonEmpty).map { html =>
       s"""<section class="bok-tag-definition">${html}</section>"""
-    }.getOrElse("")
+    }.getOrElse(s"""<p>${_html_escape(tag.summary.getOrElse(_uif(locale, "tag.detail.description", tag.effectiveTitle)))}</p>""")
+
+  private def _tag_tree_body(config: BuildConfig, page: Path, tags: Vector[TagEntry]): String = {
+    val bynamespace = tags.groupBy(tag => tag.segments.headOption.getOrElse(tag.namespace.getOrElse("")))
+    val items = bynamespace.toVector.sortBy(_._1).map { case (namespace, xs) =>
+      val namespacehref =
+        if (namespace.isEmpty) "#"
+        else _relative_href(page, config.websitePath.resolve(s"tags/${namespace}/index.html"))
+      val namespacebody = _tag_tree_children(config, page, xs, 1)
+      s"""<li><a class="bok-tag-tree-namespace" href="${_html_escape(namespacehref)}">${_html_escape(if (namespace.isEmpty) "tags" else namespace)}</a>${namespacebody}</li>"""
+    }.mkString
+    s"""<nav class="bok-tag-tree" aria-label="tag tree"><ul>${items}</ul></nav>"""
+  }
+
+  private def _tag_tree_children(config: BuildConfig, page: Path, tags: Vector[TagEntry], depth: Int): String = {
+    val branches = tags.filter(_.segments.length > depth).groupBy(_.segments(depth)).toVector.sortBy(_._1).map {
+      case (segment, xs) =>
+        val exact = xs.find(_.segments.length == depth + 1)
+        val children = xs.filter(_.segments.length > depth + 1)
+        val label = exact.map(_tag_display_title).getOrElse(_tag_segment_display_label(segment))
+        if (children.isEmpty)
+          exact.map { tag =>
+            val href = _relative_href(page, config.websitePath.resolve(tag.publicpath))
+            s"""<li class="bok-tag-tree-leaf"><a href="${_html_escape(href)}">${_html_escape(label)}</a><span>${tag.count}</span></li>"""
+          }.getOrElse("")
+        else {
+          val heading = exact.map { tag =>
+            val href = _relative_href(page, config.websitePath.resolve(tag.publicpath))
+            s"""<a class="bok-tag-tree-segment" href="${_html_escape(href)}">${_html_escape(label)}</a><span>${tag.count}</span>"""
+          }.getOrElse(s"""<span class="bok-tag-tree-segment">${_html_escape(label)}</span>""")
+          s"""<li class="bok-tag-tree-branch"><div class="bok-tag-tree-branch-heading">${heading}</div>${_tag_tree_children(config, page, children, depth + 1)}</li>"""
+        }
+    }
+    branches.mkString("<ul>", "", "</ul>")
+  }
 
   private def _tag_overview_body(config: BuildConfig, page: Path, locale: String, tags: Vector[TagEntry]): String =
     tags.take(40).map { tag =>
@@ -4949,7 +5332,7 @@ private[cozy] object CozyBok {
       val categories = tag.refs.flatMap(_.category).distinct.sorted.mkString(" ")
       val href = _relative_href(page, config.websitePath.resolve(tag.publicpath))
       s"""<article class="bok-tag-tile" data-tag-categories="${_html_escape(categories)}">
-         |  <h3><a href="${_html_escape(href)}">${_html_escape(tag.effectiveTitle)}</a></h3>
+         |  <h3><a href="${_html_escape(href)}">${_html_escape(_tag_display_title(tag))}</a></h3>
          |  <code>${_html_escape(tag.key)}</code>
          |  <p>${_html_escape(_uif(locale, "tag.reference.count", tag.count.toString))}</p>
          |  <code>${_html_escape(kindsummary)}</code>
@@ -5299,9 +5682,11 @@ private[cozy] object CozyBok {
   ): Unit =
     terms.foreach { term =>
       val page = target.resolve(term.publicpath)
-      val scenarios = _scenario_index(config).map(_.scenarios.filter(_.isRelatedTo(term))).getOrElse(Vector.empty)
-      val bibliographies = _bibliography_index(config).map(_.entries.filter(_bibliography_related_to_term(_, term))).getOrElse(Vector.empty)
-      _write_text(page, _term_hub_page(config, categories, locale, page, term, scenarios, bibliographies))
+      if (!(term.sourcepath.startsWith("glossary/") && Files.isRegularFile(page))) {
+        val scenarios = _scenario_index(config).map(_.scenarios.filter(_.isRelatedTo(term))).getOrElse(Vector.empty)
+        val bibliographies = _bibliography_index(config).map(_.entries.filter(_bibliography_related_to_term(_, term))).getOrElse(Vector.empty)
+        _write_text(page, _term_hub_page(config, categories, locale, page, term, scenarios, bibliographies))
+      }
     }
 
   private def _term_hub_page(
@@ -5571,8 +5956,16 @@ private[cozy] object CozyBok {
     categories: Vector[CategoryContent],
     lang: String
   ): String = {
-    val terms = _localized_glossary_terms(lang, categories.flatMap { category =>
-      category.terms.map(term => category -> term)
+    val categorytitles = categories.map(x => x.slug -> x.title).toMap
+    val terms = _localized_glossary_terms(lang, _terms(config).map { term =>
+      val categoryslug = term.categorySlug
+      LocalizedGlossaryItem(
+        s"../../${term.publicpath}",
+        term.title,
+        term.reading,
+        categoryslug,
+        categorytitles.getOrElse(categoryslug, categoryslug)
+      )
     })
     val title = lang match {
       case "ja" => "日本語 Glossary 索引"
@@ -5592,6 +5985,7 @@ private[cozy] object CozyBok {
        |  <link rel="stylesheet" href="../../_/css/cozy-bok-dashboard.css">
        |</head>
        |<body class="article ${_html_escape(_support_dashboard_theme_class)}">
+       |${_category_header(config, categories, lang, "../../")}
        |<div class="body">
        |  <main class="article">
        |    <div class="toolbar" role="navigation">
@@ -5632,18 +6026,18 @@ private[cozy] object CozyBok {
 
   private def _localized_glossary_terms(
     lang: String,
-    terms: Vector[(CategoryContent, CategoryPageItem)]
-  ): Vector[(CategoryContent, CategoryPageItem)] =
+    terms: Vector[LocalizedGlossaryItem]
+  ): Vector[LocalizedGlossaryItem] =
     lang match {
-      case "ja" => terms.filter { case (_, term) => _has_japanese_character(_ja_index_text(term)) }
+      case "ja" => terms.filter(term => _has_japanese_character(_ja_index_text(term)))
       case _ => terms
     }
 
   private def _localized_glossary_index_nav(
     lang: String,
-    terms: Vector[(CategoryContent, CategoryPageItem)]
+    terms: Vector[LocalizedGlossaryItem]
   ): String = {
-    val grouped = terms.groupBy { case (_, term) => _localized_index_key(lang, term) }
+    val grouped = terms.groupBy(term => _localized_index_key(lang, term))
     _localized_index_keys(lang).map { key =>
       if (grouped.get(key).exists(_.nonEmpty))
         s"""<a class="bok-index-link" href="#${_html_escape(_localized_index_anchor(key))}">${_html_escape(key)}</a>"""
@@ -5654,21 +6048,19 @@ private[cozy] object CozyBok {
 
   private def _localized_glossary_index_sections(
     lang: String,
-    terms: Vector[(CategoryContent, CategoryPageItem)]
+    terms: Vector[LocalizedGlossaryItem]
   ): String =
     if (terms.isEmpty)
       "<p>No glossary terms yet.</p>"
     else {
       val keys = _localized_index_keys(lang)
-      val grouped = terms.groupBy { case (_, term) => _localized_index_key(lang, term) }
+      val grouped = terms.groupBy(term => _localized_index_key(lang, term))
       val activekeys = keys.filter(key => grouped.get(key).exists(_.nonEmpty))
       activekeys.map { key =>
-        val items = grouped.getOrElse(key, Vector.empty).sortBy { case (category, term) =>
-          (_localized_index_sort_key(lang, term), category.slug)
-        }.map {
-          case (category, term) =>
-            val href = s"../../glossary/${_glossary_index_href(term.href)}"
-            s"""<li><a href="${_html_escape(href)}">${_html_escape(term.title)}</a>${_reading_label(term)}: ${_html_escape(category.title)}</li>"""
+        val items = grouped.getOrElse(key, Vector.empty).sortBy { term =>
+          (_localized_index_sort_key(lang, term), term.categorySlug)
+        }.map { term =>
+            s"""<li><a href="${_html_escape(term.href)}">${_html_escape(_localized_term_title(lang, term))}</a>${_localized_reading_label(lang, term)}: ${_html_escape(term.categoryTitle)}</li>"""
         }.mkString("<ul>\n", "\n", "\n</ul>")
         s"""<section class="bok-index-section" id="${_html_escape(_localized_index_anchor(key))}">
            |  <h3>${_html_escape(key)}</h3>
@@ -5687,21 +6079,35 @@ private[cozy] object CozyBok {
         ('A' to 'Z').map(_.toString).toVector :+ "Other"
     }
 
-  private def _localized_index_key(lang: String, term: CategoryPageItem): String =
+  private def _localized_index_key(lang: String, term: LocalizedGlossaryItem): String =
     lang match {
       case "ja" => _ja_index_key(_ja_index_text(term))
       case "en" => _en_index_key(term.title)
       case _ => _en_index_key(term.title)
     }
 
-  private def _localized_index_sort_key(lang: String, term: CategoryPageItem): String =
+  private def _localized_index_sort_key(lang: String, term: LocalizedGlossaryItem): String =
     lang match {
       case "ja" => _ja_index_text(term)
       case _ => term.title.toLowerCase(java.util.Locale.ROOT)
     }
 
-  private def _ja_index_text(term: CategoryPageItem): String =
+  private def _ja_index_text(term: LocalizedGlossaryItem): String =
     term.reading.getOrElse(term.title)
+
+  private def _localized_term_title(lang: String, term: LocalizedGlossaryItem): String =
+    lang match {
+      case "ja" => term.reading.getOrElse(term.title)
+      case _ => term.title
+    }
+
+  private def _localized_reading_label(lang: String, term: LocalizedGlossaryItem): String =
+    if (_localized_term_title(lang, term) == term.reading.getOrElse(""))
+      ""
+    else
+      term.reading.filterNot(_ == term.title).map { reading =>
+        s""" <span class="bok-term-reading">(${_html_escape(reading)})</span>"""
+      }.getOrElse("")
 
   private def _reading_label(term: CategoryPageItem): String =
     term.reading.filterNot(_ == term.title).map { reading =>
@@ -5906,9 +6312,9 @@ private[cozy] object CozyBok {
        |  </aside>""".stripMargin
   }
 
-  private def _special_nav_container(config: BuildConfig, categories: Vector[CategoryContent]): String = {
+  private def _special_nav_container(config: BuildConfig, categories: Vector[CategoryContent], prefix: String = "../"): String = {
     val items = categories.map { category =>
-      s"""<li class="nav-item" data-depth="1"><a class="nav-link" href="../${_html_escape(category.slug)}/index.html">${_html_escape(category.title)}</a></li>"""
+      s"""<li class="nav-item" data-depth="1"><a class="nav-link" href="${_html_escape(prefix)}${_html_escape(category.slug)}/index.html">${_html_escape(category.title)}</a></li>"""
     }.mkString("\n                  ")
     s"""<div class="nav-container" data-component="home" data-version="">
        |    <aside class="nav">
@@ -5916,7 +6322,7 @@ private[cozy] object CozyBok {
        |        <div class="nav-panel-menu is-active" data-panel="menu">
        |          <nav class="nav-menu">
        |            <button class="nav-menu-toggle" aria-label="Toggle expand/collapse all" style="display: none"></button>
-       |            <h3 class="title"><a href="../index.html">${_html_escape(config.siteTitle)}</a></h3>
+       |            <h3 class="title"><a href="${_html_escape(prefix)}index.html">${_html_escape(config.siteTitle)}</a></h3>
        |            <ul class="nav-list">
        |              <li class="nav-item" data-depth="0">
        |                <ul class="nav-list">
@@ -6363,6 +6769,7 @@ private[cozy] object CozyBok {
     val purpose = _bok_purpose(config)
     val dashboard = _dashboard(config)
     val fragment = _source_document_fragment(config, _source_document(config.sourcepath, "index"), locale)
+    val articlecount = _source_article_count(config)
     if (dashboard.isEmpty && purpose.isEmpty)
       ""
     else {
@@ -6371,7 +6778,8 @@ private[cozy] object CozyBok {
         fragment.flatMap(_.effectiveBrief).getOrElse(_ui(locale, "home.intro")),
         Vector(
           _ui(locale, "dashboard.kpi.categories") -> dashboard.map(_.counts.categoryCount.toString).getOrElse("-"),
-          _ui(locale, "dashboard.kpi.articles") -> dashboard.map(_.counts.articleCount.toString).getOrElse("-"),
+          _ui(locale, "dashboard.kpi.articles") -> articlecount.toString,
+          _ui(locale, "dashboard.kpi.terms") -> dashboard.map(_.counts.glossaryTermCount.toString).getOrElse("-"),
           _ui(locale, "dashboard.kpi.rdf.triples") -> dashboard.map(_.rdf.tripleCount.toString).getOrElse("-")
         )
       )
@@ -6387,13 +6795,14 @@ private[cozy] object CozyBok {
     val dashboard = site.flatMap(_.categories.find(_.name == category.slug))
     val fragment = _source_document_fragment(config, _source_document(config.sourcepath.resolve(category.slug), "index"), locale)
     val categoryterms = _category_term_page_items(config, category.slug)
+    val categoryarticlecount = category.articles.size
     if (!category.purpose.isEmpty || dashboard.isDefined) {
       val categoryrdf = dashboard.flatMap(_.rdf)
       val hero = _dashboard_hero(
         fragment.flatMap(_.effectiveHeadline).getOrElse(_uif(locale, "category.page.title", category.title)),
         fragment.flatMap(_.effectiveBrief).getOrElse(_uif(locale, "category.intro", category.description)),
         Vector(
-          _ui(locale, "dashboard.kpi.articles") -> dashboard.map(_.counts.articleCount.toString).getOrElse(category.articles.size.toString),
+          _ui(locale, "dashboard.kpi.articles") -> categoryarticlecount.toString,
           _ui(locale, "dashboard.kpi.terms") -> dashboard.map(_.counts.glossaryTermCount.toString).getOrElse(categoryterms.size.toString),
           _ui(locale, "dashboard.kpi.rdf") -> categoryrdf.map(_.tripleCount.toString).getOrElse("-")
         )
@@ -6472,7 +6881,7 @@ private[cozy] object CozyBok {
     val scenarios = _scenario_index(config).map(_.scenarios).getOrElse(Vector.empty)
     val bibliographies = _bibliography_index(config).map(_.entries).getOrElse(Vector.empty)
     val termcount = dashboard.map(_.counts.glossaryTermCount).getOrElse(_terms(config).size)
-    val articlecount = dashboard.map(_.counts.articleCount).getOrElse(0)
+    val articlecount = _source_article_count(config)
     val rdfcount = dashboard.map(_.rdf.tripleCount).getOrElse(0)
     val projectcount = _project_package_dirs(config.sourcepath).size
     val tagcount = _tag_index(config, locale).tags.size
@@ -6480,9 +6889,9 @@ private[cozy] object CozyBok {
       dashboard.map(x => _recent_activity_card(config, locale, x, _home_recent_items(config))),
       if (purpose.isEmpty) None else Some(_dashboard_card("col-12 col-xl-8", "bok-card-purpose", _ui(locale, "dashboard.card.vision"), _purpose_card_body(locale, purpose), Vector("reader", "contributor", "project_manager"))),
       Some(_analysis_entry_card(locale, termcount, articlecount, scenarios.size, projectcount, rdfcount, "articles/index.html", "glossary/index.html", "scenarios/index.html", "projects/index.html", "rdf/index.html")),
-      dashboard.map(x => _dashboard_card(if (purpose.isEmpty) "col-12 col-xl-7" else "col-12 col-xl-4", "bok-card-matrix", _ui(locale, "dashboard.card.category.matrix"), _category_matrix_body(locale, x), Vector("reader", "contributor", "project_manager"))),
-      dashboard.map(x => _kpi_card(locale, "col-6 col-md-3", _ui(locale, "dashboard.kpi.categories"), x.counts.categoryCount.toString, _ui(locale, "dashboard.kpi.categories.note"))),
-      dashboard.map(x => _kpi_card(locale, "col-6 col-md-3", _ui(locale, "dashboard.kpi.articles"), x.counts.articleCount.toString, _ui(locale, "dashboard.kpi.articles.note"))),
+      dashboard.map(x => _dashboard_card(if (purpose.isEmpty) "col-12 col-xl-7" else "col-12 col-xl-4", "bok-card-matrix", _ui(locale, "dashboard.card.category.matrix"), _category_matrix_body(config, locale, x), Vector("reader", "contributor", "project_manager"), Some("categories"))),
+      dashboard.map(x => _kpi_card_link("col-6 col-md-3", _ui(locale, "dashboard.kpi.categories"), x.counts.categoryCount.toString, _ui(locale, "dashboard.kpi.categories.note"), "category/index.html")),
+      dashboard.map(_ => _kpi_card_link("col-6 col-md-3", _ui(locale, "dashboard.kpi.articles"), articlecount.toString, _ui(locale, "dashboard.kpi.articles.note"), "articles/index.html")),
       dashboard.map(x => _kpi_card_link("col-6 col-md-3", _ui(locale, "dashboard.kpi.terms"), x.counts.glossaryTermCount.toString, _ui(locale, "dashboard.kpi.terms.note"), "glossary/index.html")),
       dashboard.map(x => _kpi_card_link("col-6 col-md-3", _ui(locale, "dashboard.kpi.rdf.triples"), x.rdf.tripleCount.toString, _ui(locale, "dashboard.kpi.rdf.triples.note"), "rdf/index.html")),
       Some(_kpi_card_link("col-6 col-md-3", _ui(locale, "dashboard.kpi.scenarios"), scenarios.size.toString, _ui(locale, "dashboard.kpi.scenarios.note"), "scenarios/index.html")),
@@ -6490,7 +6899,10 @@ private[cozy] object CozyBok {
       Some(_kpi_card_link("col-6 col-md-3", _ui(locale, "tag.title"), tagcount.toString, _ui(locale, "tag.kpi.note"), "tags/index.html")),
       Some(_kpi_card_link("col-6 col-md-3", _ui(locale, "dashboard.kpi.bibliography"), bibliographies.size.toString, _ui(locale, "dashboard.kpi.bibliography.note"), "bibliography/index.html", Vector("contributor", "project_manager"))),
       Some(_dashboard_card("col-12 col-xl-4", "bok-card-quality", _ui(locale, "dashboard.card.quality.alerts"), _quality_alerts_body(locale, dashboard.isDefined), Vector("contributor", "project_manager"))),
-      dashboard.map(x => _dashboard_card("col-12 col-xl-8", "bok-card-chart", _ui(locale, "dashboard.card.growth"), _dashboard_increment_chart(locale, x.increments, _ui(locale, "dashboard.chart.bok.additions")), Vector("project_manager", "contributor"))),
+      dashboard.map { x =>
+        val increments = _article_adjusted_increments(x.increments, x.counts.articleCount - articlecount)
+        _dashboard_card("col-12 col-xl-8", "bok-card-chart", _ui(locale, "dashboard.card.growth"), _dashboard_increment_chart(locale, increments, _ui(locale, "dashboard.chart.bok.additions")), Vector("project_manager", "contributor"))
+      },
       Some(_dashboard_card("col-12 col-md-6 col-xl-6", "bok-card-readiness", _ui(locale, "dashboard.card.readiness"), _home_readiness_body(locale, config, dashboard), Vector("site_administrator", "project_manager"))),
       Some(_dashboard_card("col-12 col-md-6 col-xl-6", "bok-card-actions", _ui(locale, "dashboard.card.next.actions"), _next_actions_body(locale, config), Vector("site_administrator", "project_manager")))
     ).flatten
@@ -6511,7 +6923,7 @@ private[cozy] object CozyBok {
       val relative = projects.relativize(path.toAbsolutePath.normalize())
       relative.getNameCount >= 1 && relative.getName(0).toString == category.slug
     }
-    val categoryarticlecount = dashboard.map(_.counts.articleCount).getOrElse(category.articles.size)
+    val categoryarticlecount = category.articles.size
     val categoryrdfcount = rdf.map(_.tripleCount).getOrElse(0)
     val categorytagcount = _tag_index(config, locale).forCategory(category.slug).tags.size
     val cards = Vector[Option[String]](
@@ -6520,14 +6932,17 @@ private[cozy] object CozyBok {
       Some(_dashboard_card("col-12 col-xl-6", "bok-card-map", _ui(locale, "dashboard.card.term.map"), _page_map_body(categoryTerms, _ui(locale, "dashboard.term.empty")), Vector("reader", "contributor", "project_manager"))),
       Some(_dashboard_card("col-12 col-xl-6", "bok-card-map", _ui(locale, "dashboard.card.article.map"), _page_map_body(category.articles, _ui(locale, "dashboard.article.empty")), Vector("reader", "contributor", "project_manager"))),
       rdf.map(x => _category_rdf_kpi_card(locale, category, x)),
-      dashboard.map(x => _kpi_card(locale, "col-6 col-md-3", _ui(locale, "dashboard.kpi.articles"), x.counts.articleCount.toString, _ui(locale, "dashboard.kpi.category.articles.note"))),
+      dashboard.map(_ => _kpi_card(locale, "col-6 col-md-3", _ui(locale, "dashboard.kpi.articles"), categoryarticlecount.toString, _ui(locale, "dashboard.kpi.category.articles.note"))),
       dashboard.map(x => _kpi_card(locale, "col-6 col-md-3", _ui(locale, "dashboard.kpi.terms"), x.counts.glossaryTermCount.toString, _ui(locale, "dashboard.kpi.category.terms.note"))),
       Some(_kpi_card_link("col-6 col-md-3", _ui(locale, "dashboard.kpi.scenarios"), categoryscenarios.size.toString, _ui(locale, "dashboard.kpi.scenarios.note"), s"../scenarios/index.html?category=${_url_query_escape(category.slug)}")),
       Some(_kpi_card_link("col-6 col-md-3", _ui(locale, "project.title"), categoryprojects.toString, _ui(locale, "project.kpi.note"), s"../projects/index.html?category=${_url_query_escape(category.slug)}")),
       Some(_kpi_card_link("col-6 col-md-3", _ui(locale, "tag.title"), categorytagcount.toString, _ui(locale, "tag.kpi.note"), s"../tags/index.html?category=${_url_query_escape(category.slug)}")),
       Some(_kpi_card(locale, "col-6 col-md-3", _ui(locale, "dashboard.kpi.issues"), "0", _ui(locale, "dashboard.kpi.issues.note"))),
       Some(_dashboard_card("col-12 col-xl-5", "bok-card-quality", _ui(locale, "dashboard.card.local.quality.alerts"), _quality_alerts_body(locale, dashboard.isDefined), Vector("contributor", "project_manager"))),
-      dashboard.map(x => _dashboard_card("col-12 col-xl-7", "bok-card-chart", _ui(locale, "dashboard.card.category.growth"), _dashboard_increment_chart(locale, x.increments, _uif(locale, "dashboard.chart.category.additions", x.title)), Vector("project_manager", "contributor"))),
+      dashboard.map { x =>
+        val increments = _article_adjusted_increments(x.increments, x.counts.articleCount - categoryarticlecount)
+        _dashboard_card("col-12 col-xl-7", "bok-card-chart", _ui(locale, "dashboard.card.category.growth"), _dashboard_increment_chart(locale, increments, _uif(locale, "dashboard.chart.category.additions", x.title)), Vector("project_manager", "contributor"))
+      },
       Some(_dashboard_card("col-12 col-md-6 col-xl-3", "bok-card-readiness", _ui(locale, "dashboard.card.category.readiness"), _category_readiness_body(locale, dashboard), Vector("site_administrator", "project_manager"))),
       _recent_activity_card(config, locale, category),
       Some(_dashboard_card("col-12 col-md-6 col-xl-5", "bok-card-related", _ui(locale, "dashboard.card.related.knowledge"), _related_knowledge_body(locale, config, category, rdf), Vector("reader", "contributor", "project_manager")))
@@ -6758,14 +7173,15 @@ private[cozy] object CozyBok {
       |}());
       |</script>""".stripMargin
 
-  private def _dashboard_card(column: String, semantic: String, title: String, body: String, actors: Vector[String] = Vector.empty): String = {
+  private def _dashboard_card(column: String, semantic: String, title: String, body: String, actors: Vector[String] = Vector.empty, anchorId: Option[String] = None): String = {
     val actorattr =
       if (actors.isEmpty)
         ""
       else
         s""" data-bok-actors="${_html_escape(actors.mkString(" "))}""""
+    val idattr = anchorId.map(x => s""" id="${_html_escape(x)}"""").getOrElse("")
     s"""<div class="${_html_escape(column)}" data-bok-card="true">
-       |  <section class="card bok-card ${_html_escape(semantic)}"${actorattr}>
+       |  <section class="card bok-card ${_html_escape(semantic)}"${idattr}${actorattr}>
        |    <div class="card-body">
        |      <h3 class="card-title">${_html_escape(title)}</h3>
        |      ${body}
@@ -6988,29 +7404,72 @@ private[cozy] object CozyBok {
       mkString("""<ul class="list-group bok-alert-list">""", "", "</ul>")
   }
 
-  private def _category_matrix_body(locale: String, dashboard: BokDashboard): String = {
+  private def _category_matrix_body(config: BuildConfig, locale: String, dashboard: BokDashboard, prefix: String = ""): String = {
+    val articlecounts = _category_contents(config.sourcepath).map(x => x.slug -> x.articles.size).toMap
     val cards =
       if (dashboard.categories.isEmpty)
         s"""<p class="bok-card-muted">${_html_escape(_ui(locale, "dashboard.category.metadata.empty"))}</p>"""
       else
         dashboard.categories.sortBy(_.name).map { category =>
           val freshness = category.increments.buckets.lastOption.map(_.label).getOrElse("-")
-          val rdfitem = _category_rdf_metric(locale, category)
+          val rdfitem = _category_rdf_metric(locale, category, prefix)
+          val articlecount = articlecounts.getOrElse(category.name, category.counts.articleCount)
           s"""<div class="bok-category-summary-card">
-             |  <a class="bok-category-summary-title" href="${_html_escape(category.name)}/index.html">${_html_escape(category.title)}</a>
+             |  <a class="bok-category-summary-title" href="${_html_escape(prefix)}${_html_escape(category.name)}/index.html">${_html_escape(category.title)}</a>
              |  <span class="bok-category-summary-freshness">${_html_escape(_ui(locale, "dashboard.readiness.freshness"))}: ${_html_escape(freshness)}</span>
              |  <span class="bok-category-summary-metrics">
-             |    <span><b>${category.counts.articleCount}</b>${_html_escape(_ui(locale, "dashboard.kpi.articles"))}</span>
+             |    <span><b>${articlecount}</b>${_html_escape(_ui(locale, "dashboard.kpi.articles"))}</span>
              |    <span><b>${category.counts.glossaryTermCount}</b>${_html_escape(_ui(locale, "dashboard.kpi.terms"))}</span>
              |    ${rdfitem}
              |  </span>
              |</div>""".stripMargin
         }.mkString("\n")
+    val counts = dashboard.counts.copy(articleCount = _source_article_count(config))
     s"""<div class="bok-category-summary-grid">
        |  ${cards}
        |</div>
-       |${_dashboard_distribution_chart(locale, dashboard.counts, _ui(locale, "dashboard.chart.item.distribution"))}""".stripMargin
+       |${_dashboard_distribution_chart(locale, counts, _ui(locale, "dashboard.chart.item.distribution"))}""".stripMargin
   }
+
+  private def _category_source_matrix_body(locale: String, categories: Vector[CategoryContent], prefix: String): String = {
+    val cards =
+      if (categories.isEmpty)
+        s"""<p class="bok-card-muted">${_html_escape(_ui(locale, "dashboard.category.metadata.empty"))}</p>"""
+      else
+        categories.sortBy(_.slug).map { category =>
+          s"""<div class="bok-category-summary-card">
+             |  <a class="bok-category-summary-title" href="${_html_escape(prefix)}${_html_escape(category.slug)}/index.html">${_html_escape(category.title)}</a>
+             |  <span class="bok-category-summary-freshness">${_html_escape(_ui(locale, "dashboard.readiness.freshness"))}: -</span>
+             |  <span class="bok-category-summary-metrics">
+             |    <span><b>${category.articles.size}</b>${_html_escape(_ui(locale, "dashboard.kpi.articles"))}</span>
+             |    <span><b>${category.terms.size}</b>${_html_escape(_ui(locale, "dashboard.kpi.terms"))}</span>
+             |    <span class="bok-category-rdf-value"><b>-</b>${_html_escape(_ui(locale, "dashboard.kpi.rdf"))}</span>
+             |  </span>
+             |</div>""".stripMargin
+        }.mkString("\n")
+    s"""<div class="bok-category-summary-grid">
+       |  ${cards}
+       |</div>""".stripMargin
+  }
+
+  private def _article_adjusted_increments(increments: DashboardIncrements, overcount: Int): DashboardIncrements =
+    if (overcount <= 0)
+      increments
+    else {
+      var remaining = overcount
+      val buckets = increments.buckets.map { bucket =>
+        val removed = math.min(remaining, bucket.articleCount)
+        remaining = remaining - removed
+        if (removed == 0)
+          bucket
+        else
+          bucket.copy(
+            count = math.max(0, bucket.count - removed),
+            articleCount = math.max(0, bucket.articleCount - removed)
+          )
+      }
+      increments.copy(buckets = buckets)
+    }
 
   private def _recent_activity_body(locale: String, increments: DashboardIncrements, fallbackitems: Vector[DashboardRecentItem] = Vector.empty, includecategory: Boolean = false): String =
     if (fallbackitems.nonEmpty)
@@ -7235,10 +7694,10 @@ private[cozy] object CozyBok {
        |</ul>""".stripMargin
   }
 
-  private def _category_rdf_metric(locale: String, category: DashboardCategory): String = {
+  private def _category_rdf_metric(locale: String, category: DashboardCategory, prefix: String = ""): String = {
     val value = category.rdf.map(_.tripleCount.toString).getOrElse("-")
     category.rdf.filter(_.tripleCount > 0).
-      map(_ => s"""<a class="bok-category-rdf-link" href="rdf/index.html?category=${_html_escape(_url_query_escape(category.name))}"><b>${_html_escape(value)}</b>${_html_escape(_ui(locale, "dashboard.kpi.rdf"))}</a>""").
+      map(_ => s"""<a class="bok-category-rdf-link" href="${_html_escape(prefix)}rdf/index.html?category=${_html_escape(_url_query_escape(category.name))}"><b>${_html_escape(value)}</b>${_html_escape(_ui(locale, "dashboard.kpi.rdf"))}</a>""").
       getOrElse(s"""<span class="bok-category-rdf-value"><b>${_html_escape(value)}</b>${_html_escape(_ui(locale, "dashboard.kpi.rdf"))}</span>""")
   }
 
@@ -7542,6 +8001,9 @@ private[cozy] object CozyBok {
         _glossary_page_items(source.resolve("glossary").resolve(summary.slug), summary.slug)
       )
     }
+
+  private def _source_article_count(config: BuildConfig): Int =
+    _category_contents(config.sourcepath).map(_.articles.size).sum
 
   private def _article_page_items(dir: Path): Vector[CategoryPageItem] =
     if (!Files.isDirectory(dir))
@@ -7905,7 +8367,12 @@ private[cozy] object CozyBok {
       _zip_text(out, "layouts/default.hbs", _default_ui_layout())
       _zip_text(out, "layouts/404.hbs", _default_ui_layout())
       _zip_text(out, "partials/header-content.hbs", _default_ui_header())
+      _zip_text(out, "partials/nav.hbs", _default_ui_nav())
+      _zip_text(out, "partials/nav-menu.hbs", _default_ui_nav_menu())
+      _zip_text(out, "partials/nav-tree.hbs", _default_ui_nav_tree())
       _zip_text(out, "partials/footer-content.hbs", "")
+      _zip_text(out, "helpers/eq.js", _default_ui_eq_helper())
+      _zip_text(out, "helpers/increment.js", _default_ui_increment_helper())
       _zip_text(out, "helpers/or.js", _default_ui_or_helper())
       _zip_text(out, "helpers/relativize.js", _default_ui_relativize_helper())
       _zip_default_ui_assets(out)
@@ -7964,25 +8431,7 @@ private[cozy] object CozyBok {
       |<body class="article">
       |  {{> header-content}}
       |  <div class="body">
-      |    <div class="nav-container"{{#if page.component}} data-component="{{page.component.name}}" data-version="{{page.version}}"{{/if}}>
-      |      <aside class="nav">
-      |        <div class="panels">
-      |          <div class="nav-panel-menu is-active" data-panel="menu">
-      |            <nav class="nav-menu">
-      |              <button class="nav-menu-toggle" aria-label="Toggle expand/collapse all" style="display: none"></button>
-      |              <h3 class="title"><a href="{{siteRootPath}}/index.html">{{site.title}}</a></h3>
-      |              <ul class="nav-list">
-      |                <li class="nav-item" data-depth="0">
-      |                  <ul class="nav-list">
-      |                    <li class="nav-item" data-depth="1"><a class="nav-link" href="{{siteRootPath}}/index.html">Home</a></li>
-      |                  </ul>
-      |                </li>
-      |              </ul>
-      |            </nav>
-      |          </div>
-      |        </div>
-      |      </aside>
-      |    </div>
+      |{{> nav}}
       |    <main class="article">
       |      <div class="toolbar" role="navigation">
       |        <button class="nav-toggle"></button>
@@ -8011,6 +8460,54 @@ private[cozy] object CozyBok {
       |</html>
       |""".stripMargin
 
+  private def _default_ui_nav(): String =
+    """    <div class="nav-container"{{#if page.component}} data-component="{{page.component.name}}" data-version="{{page.version}}"{{/if}}>
+      |      <aside class="nav">
+      |        <div class="panels">
+      |{{> nav-menu}}
+      |        </div>
+      |      </aside>
+      |    </div>
+      |""".stripMargin
+
+  private def _default_ui_nav_menu(): String =
+    """{{#with page.navigation}}
+      |          <div class="nav-panel-menu is-active" data-panel="menu">
+      |            <nav class="nav-menu">
+      |              <button class="nav-menu-toggle" aria-label="Toggle expand/collapse all" style="display: none"></button>
+      |              {{#with @root.page.componentVersion}}
+      |              <h3 class="title"><a href="{{{relativize ./url}}}">{{./title}}</a></h3>
+      |              {{/with}}
+      |{{> nav-tree navigation=this}}
+      |            </nav>
+      |          </div>
+      |{{/with}}
+      |""".stripMargin
+
+  private def _default_ui_nav_tree(): String =
+    """{{#if navigation.length}}
+      |              <ul class="nav-list">
+      |                {{#each navigation}}
+      |                <li class="nav-item{{#if (eq ./url @root.page.url)}} is-current-page{{/if}}" data-depth="{{or ../level 0}}">
+      |                  {{#if ./content}}
+      |                  {{#if ./items.length}}
+      |                  <button class="nav-item-toggle"></button>
+      |                  {{/if}}
+      |                  {{#if ./url}}
+      |                  <a class="nav-link" href="
+      |                    {{~#if (eq ./urlType 'internal')}}{{{relativize ./url}}}
+      |                    {{~else}}{{{./url}}}{{~/if}}">{{{./content}}}</a>
+      |                  {{else}}
+      |                  <span class="nav-text">{{{./content}}}</span>
+      |                  {{/if}}
+      |                  {{/if}}
+      |{{> nav-tree navigation=./items level=(increment ../level)}}
+      |                </li>
+      |                {{/each}}
+      |              </ul>
+      |{{/if}}
+      |""".stripMargin
+
   private def _default_ui_header(): String =
     """<header class="header">
       |  <nav class="navbar">
@@ -8037,6 +8534,43 @@ private[cozy] object CozyBok {
       |    </div>
       |  </nav>
       |</header>
+      |""".stripMargin
+
+  private def _default_ui_header(config: BuildConfig): String = {
+    val locale = config.defaultLocale
+    val prefix = "{{siteRootPath}}/"
+    s"""<header class="header">
+       |  <nav class="navbar">
+       |    <div class="navbar-brand">
+       |      <a class="navbar-item" href="{{siteRootPath}}/index.html">{{site.title}}</a>
+       |      <button class="navbar-burger" aria-controls="topbar-nav" aria-expanded="false" aria-label="Toggle main menu">
+       |        <span></span>
+       |        <span></span>
+       |        <span></span>
+       |      </button>
+       |    </div>
+       |    <div id="topbar-nav" class="navbar-menu">
+       |      <div class="navbar-end">
+       |        <a class="navbar-item" href="{{siteRootPath}}/index.html">${_html_escape(_ui(locale, "nav.home"))}</a>
+       |        ${_bok_nav_menu(config, locale, prefix)}
+       |        ${_category_nav_menu(locale, _regular_category_summaries(config.sourcepath), prefix)}
+       |      </div>
+       |    </div>
+       |  </nav>
+       |</header>
+       |""".stripMargin
+  }
+
+  private def _default_ui_eq_helper(): String =
+    """'use strict'
+      |
+      |module.exports = (a, b) => a === b
+      |""".stripMargin
+
+  private def _default_ui_increment_helper(): String =
+    """'use strict'
+      |
+      |module.exports = (value) => (value || 0) + 1
       |""".stripMargin
 
   private def _default_ui_or_helper(): String =
@@ -8879,6 +9413,208 @@ private[cozy] object CozyBok {
       |.bok-map-list span {
       |  color: #687782;
       |  font-size: 0.82rem;
+      |}
+      |
+      |.bok-tag-tree ul {
+      |  margin: 0;
+      |  padding-left: 1rem;
+      |  list-style: none;
+      |}
+      |
+      |.bok-tag-tree > ul {
+      |  padding-left: 0;
+      |}
+      |
+      |.bok-tag-tree li {
+      |  margin: 0.35rem 0;
+      |}
+      |
+      |.bok-tag-tree li li {
+      |  display: flex;
+      |  align-items: center;
+      |  justify-content: space-between;
+      |  gap: 0.75rem;
+      |  padding: 0.32rem 0;
+      |  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+      |}
+      |
+      |.bok-tag-tree a {
+      |  color: #174ea6;
+      |  font-weight: 750;
+      |  text-decoration: none;
+      |}
+      |
+      |.bok-tag-tree span {
+      |  min-width: 2rem;
+      |  color: #52616b;
+      |  font-size: 0.78rem;
+      |  font-weight: 800;
+      |  text-align: right;
+      |}
+      |
+      |.bok-tag-tree-branch > ul {
+      |  padding-left: 0.9rem;
+      |}
+      |
+      |.bok-tag-tree-branch-heading {
+      |  display: flex;
+      |  align-items: center;
+      |  justify-content: space-between;
+      |  gap: 0.75rem;
+      |}
+      |
+      |.bok-tag-tree .bok-tag-tree-segment {
+      |  display: block;
+      |  min-width: 0;
+      |  margin: 0.38rem 0 0.2rem;
+      |  color: #334155;
+      |  font-size: 0.78rem;
+      |  font-weight: 900;
+      |  text-align: left;
+      |}
+      |
+      |a.bok-tag-tree-segment {
+      |  text-decoration: none;
+      |}
+      |
+      |.bok-tag-tree-namespace {
+      |  display: inline-flex;
+      |  margin: 0.35rem 0;
+      |  color: #102a43 !important;
+      |  font-size: 0.88rem;
+      |  letter-spacing: 0.04em;
+      |  text-transform: uppercase;
+      |}
+      |
+      |.bok-tag-detail-doc {
+      |  padding-top: 1.5rem;
+      |}
+      |
+      |.bok-tag-chip-list {
+      |  display: flex;
+      |  flex-wrap: wrap;
+      |  gap: 0.38rem;
+      |  align-items: center;
+      |}
+      |
+      |.bok-tag-chip {
+      |  display: inline-flex;
+      |  align-items: center;
+      |  gap: 0.32rem;
+      |  min-height: 1.55rem;
+      |  padding: 0.18rem 0.52rem;
+      |  border: 1px solid rgba(37, 99, 235, 0.18);
+      |  border-radius: 999px;
+      |  background: linear-gradient(135deg, rgba(219, 234, 254, 0.92), rgba(236, 253, 245, 0.88));
+      |  color: #1d4ed8;
+      |  font-size: 0.72rem;
+      |  font-weight: 850;
+      |  letter-spacing: 0.01em;
+      |  line-height: 1;
+      |  text-decoration: none;
+      |  box-shadow: 0 5px 14px rgba(15, 23, 42, 0.06);
+      |}
+      |
+      |.bok-tag-chip:hover {
+      |  border-color: rgba(37, 99, 235, 0.34);
+      |  color: #174ea6;
+      |  text-decoration: none;
+      |}
+      |
+      |.bok-tag-chip strong {
+      |  display: inline-flex;
+      |  align-items: center;
+      |  justify-content: center;
+      |  min-width: 1.1rem;
+      |  height: 1.1rem;
+      |  padding: 0 0.28rem;
+      |  border-radius: 999px;
+      |  background: rgba(37, 99, 235, 0.12);
+      |  color: #1e3a8a;
+      |  font-size: 0.66rem;
+      |}
+      |
+      |.bok-article-tag-bar {
+      |  display: flex;
+      |  flex-wrap: wrap;
+      |  gap: 0.45rem 0.8rem;
+      |  align-items: center;
+      |  margin: -0.2rem 0 0.8rem;
+      |  padding: 0.46rem 0.62rem;
+      |  border: 1px solid rgba(148, 163, 184, 0.20);
+      |  border-radius: 14px;
+      |  background: rgba(248, 250, 252, 0.78);
+      |}
+      |
+      |.bok-article-tag-group {
+      |  display: inline-flex;
+      |  flex-wrap: wrap;
+      |  gap: 0.42rem;
+      |  align-items: center;
+      |  padding: 0.22rem 0.32rem 0.22rem 0.22rem;
+      |  border: 1px solid rgba(37, 99, 235, 0.12);
+      |  border-radius: 999px;
+      |  background: rgba(239, 246, 255, 0.72);
+      |  color: #334155;
+      |  font-size: 0.82rem;
+      |  line-height: 1.35;
+      |}
+      |
+      |.bok-article-tag-namespace {
+      |  display: inline-flex;
+      |  align-items: center;
+      |  min-height: 1.55rem;
+      |  padding: 0.16rem 0.62rem;
+      |  border: 1px solid rgba(15, 23, 42, 0.08);
+      |  border-radius: 999px;
+      |  background: rgba(255, 255, 255, 0.78);
+      |  color: #334155;
+      |  font-weight: 900;
+      |}
+      |
+      |.bok-article-tag-leaves {
+      |  display: inline-flex;
+      |  flex-wrap: wrap;
+      |  gap: 0.32rem;
+      |  align-items: center;
+      |}
+      |
+      |.bok-article-tag-leaf {
+      |  display: inline-flex;
+      |  align-items: center;
+      |  min-height: 1.55rem;
+      |  padding: 0.16rem 0.56rem;
+      |  border: 1px solid rgba(37, 99, 235, 0.18);
+      |  border-radius: 999px;
+      |  background: rgba(219, 234, 254, 0.72);
+      |  color: #1d4ed8;
+      |  font-weight: 820;
+      |  text-decoration: none;
+      |}
+      |
+      |.bok-article-tag-leaf:hover {
+      |  color: #174ea6;
+      |  text-decoration: underline;
+      |}
+      |
+      |.bok-tag-detail-lead {
+      |  max-width: 46rem;
+      |  margin: 0.75rem 0 1rem;
+      |  color: #52616b;
+      |  font-size: 1rem;
+      |  line-height: 1.65;
+      |}
+      |
+      |.bok-tag-detail-section {
+      |  margin: 2rem 0;
+      |}
+      |
+      |.bok-tag-detail-section h2 {
+      |  margin: 0 0 0.75rem;
+      |}
+      |
+      |.bok-tag-reference-group {
+      |  margin: 1.25rem 0;
       |}
       |
       |.bok-dashboard-grid {

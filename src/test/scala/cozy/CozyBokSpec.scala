@@ -14,7 +14,8 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jun.  3, 2026
- * @version Jun. 27, 2026
+ *  version Jun. 27, 2026
+ * @version Jul.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokSpec
@@ -296,6 +297,26 @@ class CozyBokSpec
             dir.resolve("src/main/antora-ui/build/ui-bundle.zip"),
             "js/site.js"
           ) should include("navbar-burger")
+          _zip_text(
+            dir.resolve("src/main/antora-ui/build/ui-bundle.zip"),
+            "layouts/default.hbs"
+          ) should include("{{> nav}}")
+          _zip_text(
+            dir.resolve("src/main/antora-ui/build/ui-bundle.zip"),
+            "partials/nav-menu.hbs"
+          ) should include("{{#with page.navigation}}")
+          _zip_text(
+            dir.resolve("src/main/antora-ui/build/ui-bundle.zip"),
+            "partials/nav-tree.hbs"
+          ) should include("""{{> nav-tree navigation=./items level=(increment ../level)}}""")
+          _zip_text(
+            dir.resolve("src/main/antora-ui/build/ui-bundle.zip"),
+            "helpers/eq.js"
+          ) should include("a === b")
+          _zip_text(
+            dir.resolve("src/main/antora-ui/build/ui-bundle.zip"),
+            "helpers/increment.js"
+          ) should include("+ 1")
           _zip_text(
             dir.resolve("src/main/antora-ui/build/ui-bundle.zip"),
             "img/menu.svg"
@@ -680,6 +701,9 @@ class CozyBokSpec
             "BoK全体の状態、目的、カテゴリ、記事、用語、RDF、更新推移を集約するDashboard"
           )
           _read(dir.resolve("website.d/index.html")) should include(
+            """<span class="bok-dashboard-hero-fact"><strong>3</strong><em>用語</em></span>"""
+          )
+          _read(dir.resolve("website.d/index.html")) should include(
             """class="bok-purpose-vision-panel""""
           )
           _read(dir.resolve("website.d/index.html")) should include(
@@ -731,6 +755,21 @@ class CozyBokSpec
             dir.resolve("antora.d/ui-bundle.zip"),
             "css/bootstrap-grid.min.css"
           ) should include("Bootstrap Grid")
+          val antoraheader = _zip_text(
+            dir.resolve("antora.d/ui-bundle.zip"),
+            "partials/header-content.hbs"
+          )
+          antoraheader should include("""class="navbar-item has-dropdown is-hoverable navbar-bok-nav navbar-bok-dropdown"""")
+          antoraheader should include("""{{siteRootPath}}/glossary/index.html""")
+          antoraheader should include("""{{siteRootPath}}/architecture/index.html""")
+          antoraheader should not include ("""href="{{siteRootPath}}/history/index.html">History</a>
+        <a class="navbar-item" href="{{siteRootPath}}/glossary/index.html">用語集</a>""")
+          val supplementalheader = _read(
+            dir.resolve("antora.d/supplemental-ui/partials/header-content.hbs")
+          )
+          supplementalheader should include("""class="navbar-item has-dropdown is-hoverable navbar-bok-nav navbar-bok-dropdown"""")
+          supplementalheader should include("""{{siteRootPath}}/glossary/index.html""")
+          supplementalheader should include("""{{siteRootPath}}/architecture/index.html""")
           _read(dir.resolve("website.d/index.html")) should include(
             """class="card bok-card bok-card-purpose""""
           )
@@ -744,7 +783,7 @@ class CozyBokSpec
             dir.resolve("website.d/index.html")
           ) should not include ("""bok-card-knowledge-entry""")
           _read(dir.resolve("website.d/index.html")) should include(
-            """class="card bok-card bok-card-kpi""""
+            """class="card bok-card bok-card-kpi bok-card-kpi-link""""
           )
           _read(dir.resolve("website.d/index.html")) should include(
             """class="card bok-card bok-card-chart""""
@@ -786,10 +825,10 @@ class CozyBokSpec
             dir.resolve("website.d/index.html")
           ).indexOf("""bok-card-readiness""")
           _read(dir.resolve("website.d/index.html")) should include(
-            """<div class="bok-kpi-label">カテゴリ</div>"""
+            """<span class="bok-kpi-label">カテゴリ</span>"""
           )
           _read(dir.resolve("website.d/index.html")) should include(
-            """<div class="bok-kpi-value">1</div>"""
+            """<span class="bok-kpi-value">1</span>"""
           )
           _read(dir.resolve("website.d/index.html")) should include(
             """class="bok-kpi-link" href="glossary/index.html""""
@@ -941,6 +980,15 @@ class CozyBokSpec
           dir.resolve("website.d/ja/glossary/index.html") should be_regular_file
           dir.resolve("website.d/en/glossary/index.html") should be_regular_file
           _read(dir.resolve("website.d/ja/glossary/index.html")) should include(
+            """<header class="header">"""
+          )
+          _read(dir.resolve("website.d/ja/glossary/index.html")) should include(
+            "navbar-bok-nav"
+          )
+          _read(dir.resolve("website.d/ja/glossary/index.html")) should include(
+            "navbar-category-nav"
+          )
+          _read(dir.resolve("website.d/ja/glossary/index.html")) should include(
             """href="#index-あ">あ</a>"""
           )
           _read(dir.resolve("website.d/ja/glossary/index.html")) should include(
@@ -959,7 +1007,12 @@ class CozyBokSpec
             """href="../../glossary/architecture/runtime.html""""
           )
           _read(dir.resolve("website.d/ja/glossary/index.html")) should include(
-            """<span class="bok-term-reading">(らんたいむ)</span>"""
+            """>らんたいむ</a>: Architecture"""
+          )
+          _read(
+            dir.resolve("website.d/ja/glossary/index.html")
+          ) should not include (
+            """Runtime</a> <span class="bok-term-reading">(らんたいむ)</span>"""
           )
           _read(
             dir.resolve("website.d/ja/glossary/index.html")

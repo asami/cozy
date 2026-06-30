@@ -275,6 +275,32 @@ Primary reference:
 - `docs/phase/phase-13.md`
 - `docs/phase/phase-13-checklist.md`
 
+### Phase 14: SIE Integration
+
+Status: planned.
+
+Purpose:
+
+- make SIE (`textus-semantic-integration-engine`) a first-class integration
+  surface for Cozy BoK and CAR/SAR publication workflows
+- publish a BoK KnowledgeSource manifest at
+  `metadata/cncf/knowledge-source.json` so SIE can ingest generated BoK sites
+  without scraping rendered HTML
+- connect BoK project metadata, SIE CAR/SAR repository catalog entries, and
+  SIE-derived RDF / Information metadata
+- keep Cozy responsible for BoK publication integration, validation,
+  diagnostics, and UI navigation
+- keep SIE responsible for semantic integration runtime behavior and
+  Information-schema materialization
+- verify KnowledgeHub with at least one SIE-linked project without mutating
+  published release coordinates
+
+Primary reference:
+
+- `docs/phase/phase-14.md`
+- `docs/phase/phase-14-checklist.md`
+- `docs/journal/2026/06/bok-sie-integration-handoff-2026-06-28.md`
+
 ### Future Phase: Model-Driven CAR Project Scaffolding
 
 Purpose:
@@ -286,7 +312,7 @@ Purpose:
 ## Current Priority
 
 Phase 6, Phase 7, Phase 8, Phase 9, Phase 10, Phase 11, and Phase 12 are
-closed. Phase 13 is active.
+closed. Phase 13 is active. Phase 14 is planned.
 
 Phase 8 completed the first-class `cozy video` workflow: structured
 project/script parsing, inspect, dry-run artifact/command planning, dependency
@@ -317,8 +343,17 @@ cross-cutting labels that connect articles, terms, scenarios, projects,
 bibliography entries, history, and RDF resources without replacing categories
 or glossary terms.
 
+Phase 14 will integrate SIE with Cozy BoK and CAR/SAR publication workflows.
+The first concrete contract is
+`metadata/cncf/knowledge-source.json`, which lets SIE ingest generated BoK
+sites through metadata resources instead of rendered HTML. The boundary is
+explicit: Cozy publishes and validates BoK/SIE metadata for navigation and
+diagnostics, while SIE remains responsible for semantic integration runtime
+behavior and Information-schema materialization.
+
 Candidate directions after Phase 13 include:
 
+- SIE integration
 - BoK publication and Component Repository public pages
 - Video publication registration follow-up, if richer article/navigation
   integration is needed

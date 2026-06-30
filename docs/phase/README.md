@@ -5,6 +5,7 @@ Purpose: engineering work management.
 Current phase:
 
 - Active phase: `phase-13.md`: BoK Tag Knowledge Navigation
+- Next planned phase: `phase-14.md`: SIE Integration
 - Most recent closed phase: `phase-12.md`: KnowledgeHub BoK Operational Onboarding
 
 Belongs:

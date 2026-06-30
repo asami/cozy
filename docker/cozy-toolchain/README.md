@@ -12,6 +12,17 @@ Release tags use `YYYY.MM.DD`. If a same-day rebuild is required, use
 `YYYY.MM.DD-N`. The `latest` tag must point only to the latest validated release
 image.
 
+Development and pre-release validation can use the current Cozy SNAPSHOT
+version as an image tag. Do not push SNAPSHOT tags as validated releases.
+
+```bash
+docker build \
+  -t ghcr.io/asami/cozy-toolchain:0.2.24-SNAPSHOT \
+  docker/cozy-toolchain
+
+docker run --rm ghcr.io/asami/cozy-toolchain:0.2.24-SNAPSHOT cozy-toolchain check all
+```
+
 Build:
 
 ```bash
@@ -74,6 +85,15 @@ The wrapper passes through unknown commands, so tools remain directly runnable:
 docker run --rm ghcr.io/asami/cozy-toolchain:latest antora --version
 docker run --rm ghcr.io/asami/cozy-toolchain:latest ffmpeg -version
 docker run --rm ghcr.io/asami/cozy-toolchain:latest python3 -c 'import PIL; print(PIL.__version__)'
+```
+
+The wrapper also exposes the image-level `svg-pages-to-pdf` command used by
+Textus toolchain integrations:
+
+```bash
+docker run --rm -v "$PWD:/work" -w /work \
+  ghcr.io/asami/cozy-toolchain:0.2.24-SNAPSHOT \
+  svg-pages-to-pdf --out print.pdf page-001.svg page-002.svg
 ```
 
 VOICEVOX Engine is not included. Cozy checks and uses VOICEVOX as an external HTTP service.

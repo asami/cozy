@@ -25,7 +25,7 @@ import scala.collection.JavaConverters._
  *  version Mar. 17, 2026
  *  version Apr. 29, 2026
  *  version May. 21, 2026
- * @version Jun. 23, 2026
+ * @version Jun. 30, 2026
  * @author  ASAMI, Tomoharu
  */
 class Cozy(
@@ -867,12 +867,15 @@ object Cozy {
 
 private object CozyOperationConfig {
   def withPdfDefaults(args: List[String]): List[String] =
+    withPdfDefaults(args, _invocation_directory)
+
+  private[cozy] def withPdfDefaults(args: List[String], root: Path): List[String] =
     _pdf_property_options.foldLeft(args) {
       case (z, (property, option)) =>
         if (_has_option(z, option))
           z
         else
-          _value(property).fold(z)(v => z :+ option :+ v)
+          _value(root, property).fold(z)(v => z :+ option :+ v)
     }
 
   private val _pdf_property_options = Vector(
@@ -886,20 +889,38 @@ private object CozyOperationConfig {
     "docker-image" -> "--docker-image"
   )
 
-  private def _value(name: String): Option[String] = {
-    val key = _normalize(name)
-    val keys =
-      if (key == "docker.image")
-        Vector(s"pdf.$key", s"smartdox.pdf.$key", s"cozy.pdf.$key", "cozy.docker.image")
-      else
-        Vector(s"pdf.$key", s"smartdox.pdf.$key", s"cozy.pdf.$key")
-    _config_files.foldLeft(Option.empty[String]) { (z, file) =>
+  private def _value(root: Path, name: String): Option[String] = {
+    val keys = _config_keys(name)
+    _config_files(root).foldLeft(Option.empty[String]) { (z, file) =>
       _load(file).flatMap(m => keys.toStream.flatMap(m.get).lastOption).orElse(z)
     }
   }
 
-  private def _config_files: Vector[Path] =
-    cozy.config.CozyProjectYamlConfig.operationDefaultFiles(Paths.get(".").toAbsolutePath.normalize)
+  private def _config_keys(name: String): Vector[String] = {
+    val canonical = name.trim.toLowerCase.replace('_', '-')
+    val dotted = _normalize(name)
+    val suffixes =
+      if (canonical == dotted)
+        Vector(canonical)
+      else
+        Vector(canonical, dotted)
+    val bases = suffixes.flatMap(key => Vector(s"pdf.$key", s"smartdox.pdf.$key", s"cozy.pdf.$key"))
+    if (canonical == "docker-image" || dotted == "docker.image")
+      bases :+ "cozy.docker.image"
+    else
+      bases
+  }
+
+  private def _config_files(root: Path): Vector[Path] =
+    cozy.config.CozyProjectYamlConfig.operationDefaultFiles(root.toAbsolutePath.normalize)
+
+  private def _invocation_directory: Path =
+    sys.env.get("COZY_INVOCATION_DIR").
+      filter(_.nonEmpty).
+      map(Paths.get(_)).
+      getOrElse(Paths.get(sys.props("user.dir"))).
+      toAbsolutePath.
+      normalize()
 
   private def _load(path: Path): Option[Map[String, String]] =
     if (!Files.isRegularFile(path))

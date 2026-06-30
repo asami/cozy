@@ -10,7 +10,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jun. 28, 2026
- * @version Jun. 28, 2026
+ * @version Jul.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokTagSpec
@@ -70,6 +70,10 @@ class CozyBokTagSpec
           tags should include_html("Tags")
           tags should include_html("technology.review")
           tags should include_html("workflow.review")
+          tags should include_html("workflow.review.checklist")
+          tags should include_html("bok-tag-tree")
+          tags should include_html("Tag Tree")
+          tags should include_html("class=\"bok-tag-tree-segment\" href=\"workflow/review.html\">review</a>")
           tags should include_html("data-tag-categories=\"technology\"")
           tags should include_html("new URLSearchParams(window.location.search).get('category')")
 
@@ -77,23 +81,40 @@ class CozyBokTagSpec
           val namespace = _read(dir.resolve("website.d/tags/technology/index.html"))
           namespace should include_html("technology.review")
           val review = _read(dir.resolve("website.d/tags/technology/review.html"))
-          review should include_html("Technology review resources.")
-          review should include_html("Review tag definition.")
-          review should include_html("Scenarios")
-          review should include_html("Bibliography")
-          review should include_html("Terms")
-          review should include_html("Articles")
+          review should include_html("Antora tag article.")
+          review should include_html("Review tag definition from Antora.")
+          review should include_html("Purpose")
+          review should include_html("""<tr><th>FQN</th><td><code>technology.review</code></td></tr>""")
+          review should include_html("Linked knowledge")
           review should include_html("Knowledge Review")
           review should include_html("Design Patterns")
           review should include_html("Architecture Pattern")
-          review should include_html("Technology Overview")
-          _read(dir.resolve("website.d/tags/workflow/review.html")) should include_html("Workflow Review")
+          review should include_html("Review Article")
+          review should not(include_html("bok-dashboard-shell"))
+          val workflowreview = _read(dir.resolve("website.d/tags/workflow/review.html"))
+          workflowreview should include_html("""<h1 class="page">review</h1>""")
+          workflowreview should include_html("""<tr><th>FQN</th><td><code>workflow.review</code></td></tr>""")
+          val checklist = _read(dir.resolve("website.d/tags/workflow/review/checklist.html"))
+          checklist should include_html("""<h1 class="page">checklist</h1>""")
+          checklist should include_html("""<tr><th>FQN</th><td><code>workflow.review.checklist</code></td></tr>""")
+          _read(dir.resolve("website.d/tags/knowledge/graph.html")) should include_html("Architecture Pattern")
+          val termpage = _read(dir.resolve("website.d/glossary/technology/architecture-pattern.html"))
+          termpage should include_html("Antora term article.")
+          termpage should include_html("knowledge.graph")
+          termpage should not(include_html("bok-term-hub"))
 
           And("Home and Category dashboards expose the tag navigation entry point")
           _read(dir.resolve("website.d/index.html")) should include_html("href=\"tags/index.html\"")
           _read(dir.resolve("website.d/technology/index.html")) should include_html(
             "href=\"../tags/index.html?category=technology\""
           )
+
+          And("generated article pages expose tag chips and omit category index self links from Antora navigation")
+          val article = _read(dir.resolve("website.d/technology/review-article.html"))
+          article should include_html("bok-article-tag-chip-list")
+          article should include_html("bok-article-tag-namespace\">technology</span>")
+          article should include_html("class=\"bok-article-tag-leaf\" href=\"../tags/technology/review.html\">review</a>")
+          article should not(include_html("href=\"index.html\">Technology</a>"))
 
           And("Cozy publishes the SmartDox tag handoff metadata")
           _read(dir.resolve("website.d/metadata/tags/tags.json")) should include_html("technology.review")
@@ -114,7 +135,11 @@ class CozyBokTagSpec
           val tags = _read(dir.resolve("website.d/tags/index.html"))
           tags should include_html("technology.review")
           _read(dir.resolve("website.d/tags/technology/index.html")) should include_html("technology.review")
-          _read(dir.resolve("website.d/tags/technology/review.html")) should include_html("Technology Overview")
+          val review = _read(dir.resolve("website.d/tags/technology/review.html"))
+          review should include_html("""<h1 class="page">review</h1>""")
+          review should include_html("""<li><a href="../../tags/technology/index.html">technology</a></li>""")
+          review should include_html("""<tr><th>FQN</th><td><code>technology.review</code></td></tr>""")
+          review should include_html("Technology Overview")
 
           And("no SmartDox tag handoff metadata is invented by Cozy")
           Files.exists(dir.resolve("website.d/metadata/tags/tags.json")) shouldBe false
@@ -133,6 +158,9 @@ class CozyBokTagSpec
         _write(cwd.resolve("doxsite.d/metadata/bibliography/bibliography.json"), _bibliography_json)
         if (writetagindex)
           _write(cwd.resolve("doxsite.d/metadata/tags/tags.json"), _tags_json)
+        _write(cwd.resolve("website.d/tags/technology/review.html"), _tag_antora_html)
+        _write(cwd.resolve("website.d/technology/review-article.html"), _article_antora_html)
+        _write(cwd.resolve("website.d/glossary/technology/architecture-pattern.html"), _term_antora_html)
         _write(cwd.resolve("doxsite.d/site.ttl"), "@prefix ex: <https://example.com/> .\n")
         _write(cwd.resolve("doxsite.d/site.jsonld"), "{\"@graph\":[]}\n")
       }
@@ -205,7 +233,7 @@ class CozyBokTagSpec
       |    "source_path": "glossary/technology/architecture-pattern.dox",
       |    "public_path": "glossary/technology/architecture-pattern.html",
       |    "definition_html": "<p>Pattern term.</p>",
-      |    "tags": ["review"]
+      |    "tags": ["review", "knowledge.graph"]
       |  }]
       |}
       |""".stripMargin
@@ -244,6 +272,7 @@ class CozyBokTagSpec
       |    "public_path": "tags/technology/review.html",
       |    "body_html": "<p>Review tag definition.</p>",
       |    "refs": [
+      |      {"kind": "article", "title": "Review Article", "public_path": "technology/review-article.html", "category": "technology"},
       |      {"kind": "article", "title": "Technology Overview", "public_path": "technology/index.html", "category": "technology"},
       |      {"kind": "scenario", "title": "Knowledge Review", "public_path": "scenario/technology/review.html", "category": "technology"},
       |      {"kind": "term", "title": "Architecture Pattern", "public_path": "glossary/technology/architecture-pattern.html", "category": "technology"},
@@ -266,8 +295,87 @@ class CozyBokTagSpec
       |      {"kind": "scenario", "title": "Knowledge Review", "public_path": "scenario/technology/review.html", "category": "technology"}
       |    ],
       |    "children": []
+      |  }, {
+      |    "id": "tag:workflow.review.checklist",
+      |    "key": "workflow.review.checklist",
+      |    "segments": ["workflow", "review", "checklist"],
+      |    "namespace": "workflow",
+      |    "parent": "tag:workflow.review",
+      |    "slug": "workflow/review/checklist",
+      |    "label": "checklist",
+      |    "title": "Workflow Review Checklist",
+      |    "summary": "Workflow review checklist resources.",
+      |    "locale": "en",
+      |    "public_path": "tags/workflow/review/checklist.html",
+      |    "refs": [
+      |      {"kind": "article", "title": "Review Article", "public_path": "technology/review-article.html", "category": "technology"}
+      |    ],
+      |    "children": []
       |  }]
       |}
+      |""".stripMargin
+
+  private def _tag_antora_html: String =
+    """<!doctype html>
+      |<html lang="en">
+      |<head><meta charset="utf-8"><title>technology.review</title></head>
+      |<body class="article">
+      |<div class="body">
+      |<main class="article">
+      |<div class="content">
+      |<article class="doc">
+      |<h1 class="page">technology.review</h1>
+      |<div class="sect1"><h2>Purpose</h2><div class="sectionbody"><p>Antora tag article.</p><p>Review tag definition from Antora.</p></div></div>
+      |</article>
+      |</div>
+      |</main>
+      |</div>
+      |</body>
+      |</html>
+      |""".stripMargin
+
+  private def _article_antora_html: String =
+    """<!doctype html>
+      |<html lang="en">
+      |<head><meta charset="utf-8"><title>Review Article</title></head>
+      |<body class="article">
+      |<div class="body">
+      |<main class="article">
+      |<div class="content">
+      |<article class="doc">
+      |<h1 class="page">Review Article</h1>
+      |<p>Generated article body.</p>
+      |</article>
+      |</div>
+      |<div class="nav-container">
+      |<li class="nav-item" data-depth="1">
+      |<a class="nav-link" href="index.html">Technology</a>
+      |</li>
+      |</div>
+      |</main>
+      |</div>
+      |</body>
+      |</html>
+      |""".stripMargin
+
+  private def _term_antora_html: String =
+    """<!doctype html>
+      |<html lang="en">
+      |<head><meta charset="utf-8"><title>Architecture Pattern</title></head>
+      |<body class="article">
+      |<div class="body">
+      |<main class="article">
+      |<div class="content">
+      |<article class="doc">
+      |<h1 class="page">Architecture Pattern</h1>
+      |<p>Antora term article.</p>
+      |<p><a class="bok-tag-chip" href="../../tags/knowledge/graph.html">knowledge.graph</a></p>
+      |</article>
+      |</div>
+      |</main>
+      |</div>
+      |</body>
+      |</html>
       |""".stripMargin
 
   private def _with_temp_dir[A](name: String)(f: Path => A): A = {

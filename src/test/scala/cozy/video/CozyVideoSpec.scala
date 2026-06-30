@@ -14,7 +14,8 @@ import cozy.CozySpecVocabulary
 
 /*
  * @since   Jun. 18, 2026
- * @version Jun. 24, 2026
+ *  version Jun. 24, 2026
+ * @version Jul.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoSpec
@@ -3558,6 +3559,11 @@ final class CozyVideoSpec
         script should include("check_pdf")
         script should include("check_kroki")
         script should include("check_video")
+        script should include("svg_pages_to_pdf")
+        script should include("svg-pages-to-pdf")
+        script should include("Usage: svg-pages-to-pdf --out output.pdf")
+        script should include("SVG file not found")
+        script should include("preferCSSPageSize")
         script should include("node_with_global_modules")
         script should include("npm root -g")
         script should include("fs.existsSync(path)")
