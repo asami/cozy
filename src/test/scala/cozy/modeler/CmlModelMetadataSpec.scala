@@ -8,7 +8,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jun. 23, 2026
- * @version Jun. 23, 2026
+ * @version Jul.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 class CmlModelMetadataSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -54,6 +54,76 @@ class CmlModelMetadataSpec extends AnyWordSpec with Matchers with GivenWhenThen 
       metadata should include ("\"cozyVersion\"")
       metadata should include ("\"rdfCandidates\"")
       Files.readString(yaml) should include ("termId: \"concept:knowledge-item\"")
+    }
+
+    "extract operation summary and description from operation child sections" in {
+      Given("a CML source file with operation SUMMARY and DESCRIPTION sections")
+      val dir = Files.createTempDirectory("cozy-cml-model-metadata-operation")
+      val source = dir.resolve("src/main/cozy/sample.cml")
+      Files.createDirectories(source.getParent)
+      Files.writeString(
+        source,
+        """# COMPONENT
+          |
+          |## Sample
+          |
+          |### SUMMARY
+          |
+          |Sample component.
+          |
+          |# SERVICE
+          |
+          |## Knowledge
+          |
+          |### SUMMARY
+          |
+          |Knowledge service.
+          |
+          |### OPERATION
+          |
+          |#### ingestKnowledge
+          |
+          |##### SUMMARY
+          |
+          |Ingest a knowledge item.
+          |
+          |##### DESCRIPTION
+          |
+          |Ingests authored or imported knowledge content.
+          |
+          |##### TYPE
+          |
+          |COMMAND
+          |
+          |##### INPUT
+          |
+          |###### TYPE
+          |
+          |IngestKnowledge
+          |
+          |##### OUTPUT
+          |
+          |###### TYPE
+          |
+          |IngestKnowledgeResult
+          |""".stripMargin,
+        StandardCharsets.UTF_8
+      )
+      val json = dir.resolve("target/model-metadata.json")
+      val yaml = dir.resolve("target/model-metadata.yaml")
+
+      When("Cozy writes model metadata")
+      CmlModelMetadata.write(source, json, yaml, "src/main/cozy/sample.cml", "concept")
+
+      Then("the operation descriptive fields are present in the surface metadata")
+      val metadata = Files.readString(json)
+      metadata should include ("\"name\" : \"ingestKnowledge\"")
+      metadata should include ("\"summary\" : \"Ingest a knowledge item.\"")
+      metadata should include ("\"description\" : \"Ingests authored or imported knowledge content.\"")
+      metadata should include ("\"operationType\" : \"COMMAND\"")
+      metadata should include ("\"inputType\" : \"IngestKnowledge\"")
+      metadata should include ("\"outputType\" : \"IngestKnowledgeResult\"")
+      Files.readString(yaml) should include ("summary: \"Ingest a knowledge item.\"")
     }
   }
 }

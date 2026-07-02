@@ -12,7 +12,8 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jun. 21, 2026
- * @version Jun. 29, 2026
+ *  version Jun. 29, 2026
+ * @version Jul.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokDashboardSpec
@@ -237,6 +238,7 @@ class CozyBokDashboardSpec
           articles should include("""class="bok-article-grid"""")
           articles should include("""data-article-category="architecture"""")
           articles should include("""href="../architecture/overview.html"""")
+          articles should not include ("""<h3><a href="../architecture/index.html">Architecture</a></h3>""")
           articles should include("""new URLSearchParams(window.location.search).get('category')""")
           val categoryindex = _read(dir.resolve("website.d/category/index.html"))
           categoryindex should include("""class="bok-dashboard-shell bok-category-index-dashboard"""")
@@ -341,6 +343,94 @@ class CozyBokDashboardSpec
           category should not include ("""<a href="#narrative">Narrative</a>""")
           category should include("Architecture narrative source text.")
           category should include("Make architecture decisions reviewable.")
+        }
+      }
+
+      "use source fragment summary as Home hero brief" in {
+        _with_temp_dir("cozy-bok-dashboard-summary-fragment") { dir =>
+          Given(
+            "a BoK source tree whose generated Home fragment has summary but no brief"
+          )
+          _write(
+            dir.resolve("src/main/doxsite/site.conf"),
+            """site {
+              |  output {
+              |    locale_mode = "single_locale_root"
+              |  }
+              |}
+              |""".stripMargin
+          )
+          _write(
+            dir.resolve("src/main/doxsite/index.dox"),
+            """Home
+              |======
+              |
+              |# HEAD
+              |
+              |## HEADLINE
+              |
+              |KnowledgeHub
+              |""".stripMargin
+          )
+          val config = CozyBok.BuildConfig.create(
+            List(dir.toString, "--strategy", "preview")
+          )
+
+          When("Cozy builds the Home dashboard")
+          CozyBok.build(config, new SummaryFragmentRunner)
+
+          Then(
+            "the Home dashboard lead uses the fragment summary as its effective brief"
+          )
+          val home = _read(dir.resolve("website.d/index.html"))
+          home should include("""<h1 class="page">KnowledgeHub</h1>""")
+          home should include("KnowledgeHub project summary from fragment metadata.")
+          home should not include ("BoK全体の状態")
+        }
+      }
+
+      "use source summary when Home fragment is absent" in {
+        _with_temp_dir("cozy-bok-dashboard-source-summary") { dir =>
+          Given(
+            "a BoK source tree with a Home summary and no generated Home document fragment"
+          )
+          _write(
+            dir.resolve("src/main/doxsite/site.conf"),
+            """site {
+              |  output {
+              |    locale_mode = "single_locale_root"
+              |  }
+              |}
+              |""".stripMargin
+          )
+          _write(
+            dir.resolve("src/main/doxsite/index.dox"),
+            """Home
+              |======
+              |
+              |# HEAD
+              |
+              |## HEADLINE
+              |
+              |KnowledgeHub
+              |
+              |## SUMMARY
+              |
+              |KnowledgeHub project summary from source.
+              |""".stripMargin
+          )
+          val config = CozyBok.BuildConfig.create(
+            List(dir.toString, "--strategy", "preview")
+          )
+
+          When("Cozy builds the Home dashboard")
+          CozyBok.build(config, new NoDocumentFragmentRunner)
+
+          Then("the Home dashboard lead falls back to the source summary")
+          val home = _read(dir.resolve("website.d/index.html"))
+          home should include("""<h1 class="page">KnowledgeHub</h1>""")
+          home should include("KnowledgeHub project summary from source.")
+          home should not include ("BoK全体の状態")
         }
       }
 
@@ -876,6 +966,8 @@ class CozyBokDashboardSpec
           css should include(".body-dashboard .bok-card-purpose")
           css should include("color: #f8fafc !important;")
           css should include(".bok-rdf-workspace")
+          css should include(".bok-rdf-tabbar")
+          css should include(".bok-rdf-filterbar")
           css should include(".bok-rdf-view-switch")
           css should include("""button[role="tab"]""")
           css should include("""button[aria-selected="true"]""")
@@ -1254,6 +1346,38 @@ class CozyBokDashboardSpec
     }
   }
 
+  private class SummaryFragmentRunner extends DashboardRunner {
+    override def run(command: Vector[String], cwd: Path): Unit = {
+      super.run(command, cwd)
+      if (command.take(2) == Vector("dox", "site"))
+        _write(
+          cwd.resolve("doxsite.d/metadata/documents/fragments.json"),
+          _summary_document_fragments_json
+        )
+    }
+  }
+
+  private class NoDocumentFragmentRunner extends RecordingRunner {
+    override def run(command: Vector[String], cwd: Path): Unit = {
+      super.run(command, cwd)
+      if (command.take(2) == Vector("dox", "site")) {
+        _write(
+          cwd.resolve("doxsite.d/metadata/dashboard/site.json"),
+          _dashboard_json
+        )
+        _write(
+          cwd.resolve("doxsite.d/metadata/rdf/graph.json"),
+          _rdf_graph_json
+        )
+        _write(
+          cwd.resolve("doxsite.d/site.ttl"),
+          "@prefix ex: <https://example.com/> .\n"
+        )
+        _write(cwd.resolve("doxsite.d/site.jsonld"), "{\"@graph\":[]}\n")
+      }
+    }
+  }
+
   private class EmptyCategoryDocumentFragmentRunner extends DashboardRunner {
     override def run(command: Vector[String], cwd: Path): Unit = {
       super.run(command, cwd)
@@ -1323,6 +1447,14 @@ class CozyBokDashboardSpec
       |    {"source_path": "index.md", "public_path": "index.html", "locale": "en", "kind": "article", "category": null, "title": "Markdown Home", "headline": "Markdown Home Headline", "brief": "Markdown home brief.", "body_html": "<p>Markdown home source text with <strong>bold</strong> knowledge and <a href=\"https://example.com\">a reference</a>.</p>"},
       |    {"source_path": "architecture/index.md", "public_path": "architecture/index.html", "locale": "ja", "kind": "article", "category": "architecture", "title": "Architecture", "headline": "Architecture Markdown Headline", "brief": "Architecture markdown brief.", "body_html": "<p>Architecture markdown narrative.</p>"},
       |    {"source_path": "architecture/index.md", "public_path": "architecture/index.html", "locale": "en", "kind": "article", "category": "architecture", "title": "Architecture", "headline": "Architecture Markdown Headline", "brief": "Architecture markdown brief.", "body_html": "<p>Architecture markdown narrative.</p>"}
+      |  ]
+      |}
+      |""".stripMargin
+
+  private def _summary_document_fragments_json: String =
+    """{
+      |  "fragments": [
+      |    {"source_path": "index.html", "public_path": "index.html", "locale": "ja", "kind": "article", "category": null, "title": "Home", "headline": "KnowledgeHub", "brief": null, "summary": "KnowledgeHub project summary from fragment metadata.", "description": "Description should not be used before summary.", "body_html": "<p>Home narrative source text.</p>"}
       |  ]
       |}
       |""".stripMargin

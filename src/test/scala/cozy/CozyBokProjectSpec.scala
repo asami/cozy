@@ -11,7 +11,8 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jun. 23, 2026
- * @version Jun. 27, 2026
+ *  version Jun. 27, 2026
+ * @version Jul.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokProjectSpec
@@ -32,7 +33,67 @@ class CozyBokProjectSpec
           )
           _write(
             externalproject.resolve("src/main/cozy/nict-knowledgehub.cml"),
-            """# ENTITY
+            """# COMPONENT
+              |
+              |## NictKnowledgeHub
+              |
+              |### SUMMARY
+              |
+              |NICT KnowledgeHub component.
+              |
+              |# SERVICE
+              |
+              |## Knowledge
+              |
+              |### SUMMARY
+              |
+              |KnowledgeHub service operations.
+              |
+              |### OPERATION
+              |
+              |#### ingestKnowledge
+              |
+              |##### SUMMARY
+              |Ingest a knowledge item.
+              |
+              |##### DESCRIPTION
+              |Ingests authored or imported knowledge content.
+              |
+              |##### TYPE
+              |COMMAND
+              |
+              |##### INPUT
+              |
+              |###### TYPE
+              |IngestKnowledge
+              |
+              |##### OUTPUT
+              |
+              |###### TYPE
+              |IngestKnowledgeResult
+              |
+              |#### searchKnowledge
+              |
+              |##### SUMMARY
+              |Search knowledge items.
+              |
+              |##### DESCRIPTION
+              |Searches KnowledgeHub items by query text.
+              |
+              |##### TYPE
+              |QUERY
+              |
+              |##### INPUT
+              |
+              |###### TYPE
+              |SearchKnowledge
+              |
+              |##### OUTPUT
+              |
+              |###### TYPE
+              |SearchKnowledgeResult
+              |
+              |# ENTITY
               |
               |## KnowledgeItem
               |
@@ -54,6 +115,7 @@ class CozyBokProjectSpec
             s"""bok:
                |  projects:
                |    nict-knowledgehub:
+               |      repository: path
                |      path: ${externalproject.toString}
                |""".stripMargin
           )
@@ -108,11 +170,13 @@ class CozyBokProjectSpec
             "metadata/artifacts/repository/nict-knowledgehub.json"
           )
           bundle should include("projects/concept/nict-knowledgehub")
-          bundle should include("\"status\" : \"missing\"")
-          bundle should include(
+          bundle should include("\"status\" : \"source-only\"")
+          bundle should include("\"status\" : \"undistributed\"")
+          bundle should include("\"sourceOnly\" : true")
+          bundle should not include (
             "CAR artifact is not registered in artifact repository"
           )
-          bundle should include("Run cozy publish-car <nict-knowledgehub>")
+          bundle should not include ("Run cozy publish-car <nict-knowledgehub>")
           bundle should not include (externalproject.toAbsolutePath
             .normalize()
             .toString)
@@ -304,6 +368,143 @@ class CozyBokProjectSpec
         }
       }
 
+      "resolve project repository local from the CNCF local repository using project name and latest artifact version" in {
+        _with_temp_dir("cozy-bok-project-local-repository-keyword") { dir =>
+          Given(
+            "a BoK CAR project configured to read a development CAR from the local CNCF repository"
+          )
+          val oldhome = System.getProperty("user.home")
+          System.setProperty("user.home", dir.resolve("home").toString)
+          try {
+            val localrepo = dir.resolve("home/.cncf/local/repository")
+            _write(
+              localrepo.resolve(
+                "car/nict-knowledgehub/0.3.0-SNAPSHOT/nict-knowledgehub-0.3.0-SNAPSHOT.car"
+              ),
+              "local-car-body"
+            )
+            _write(
+              dir.resolve("conf/cozy/config.yaml"),
+              """bok:
+                |  projects:
+                |    nict-knowledgehub:
+                |      repository: local
+                |""".stripMargin
+            )
+            val pkg = dir.resolve(
+              "src/main/doxsite/projects/concept/nict-knowledgehub"
+            )
+            _write(
+              pkg.resolve("index.dox"),
+              "NictKnowledgeHub\n================\n"
+            )
+            _write(
+              pkg.resolve("project.yaml"),
+              """project:
+                |  type: car
+                |  name: nict-knowledgehub
+                |  mode: external
+                |  ref: nict-knowledgehub
+                |title: NICT KnowledgeHub
+                |publication:
+                |  path: projects/concept/nict-knowledgehub
+                |""".stripMargin
+            )
+            val config = CozyBok.PublicationConfig.create(
+              "publish-projects",
+              List(dir.toString)
+            )
+
+            When("Cozy registers CAR project publication metadata")
+            val results = CozyBok.publishProjects(config)
+
+            Then(
+              "the local repository keyword supplies the CAR name, latest artifact version, and artifact path"
+            )
+            results.head.project.module shouldBe "nict-knowledgehub"
+            results.head.project.version shouldBe "0.3.0-SNAPSHOT"
+            results.head.project.versionsource shouldBe "repository-artifact"
+            results.head.artifact shouldBe localrepo
+              .resolve(
+                "car/nict-knowledgehub/0.3.0-SNAPSHOT/nict-knowledgehub-0.3.0-SNAPSHOT.car"
+              )
+              .toAbsolutePath
+              .normalize()
+            results.head.artifactexists shouldBe true
+            val bundle =
+              _read(dir.resolve("src/main/publication/nict-knowledgehub.json"))
+            bundle should include("0.3.0-SNAPSHOT")
+            bundle should include("\"versionSource\" : \"repository-artifact\"")
+            bundle should include(
+              "repository/car/nict-knowledgehub/0.3.0-SNAPSHOT/nict-knowledgehub-0.3.0-SNAPSHOT.car"
+            )
+          } finally {
+            if (oldhome == null)
+              System.clearProperty("user.home")
+            else
+              System.setProperty("user.home", oldhome)
+          }
+        }
+      }
+
+      "resolve explicit path project repository from the configured development directory" in {
+        _with_temp_dir("cozy-bok-project-path-repository-keyword") { dir =>
+          Given(
+            "a BoK CAR project configured to read CML directly from a project directory"
+          )
+          val externalproject = dir.resolve("external/nict-knowledgehub")
+          _write(
+            externalproject.resolve("src/main/cozy/nict-knowledgehub.cml"),
+            """# ENTITY
+              |
+              |## PathModeEntity
+              |""".stripMargin
+          )
+          _write(
+            dir.resolve("conf/cozy/config.yaml"),
+            s"""bok:
+               |  projects:
+               |    nict-knowledgehub:
+               |      repository: path
+               |      path: ${externalproject.toString}
+               |""".stripMargin
+          )
+          val pkg = dir.resolve(
+            "src/main/doxsite/projects/concept/nict-knowledgehub"
+          )
+          _write(
+            pkg.resolve("index.dox"),
+            "NictKnowledgeHub\n================\n"
+          )
+          _write(
+            pkg.resolve("project.yaml"),
+            """project:
+              |  type: car
+              |  name: nict-knowledgehub
+              |  mode: external
+              |  ref: nict-knowledgehub
+              |version: 0.1.0-SNAPSHOT
+              |title: NICT KnowledgeHub
+              |publication:
+              |  path: projects/concept/nict-knowledgehub
+              |""".stripMargin
+          )
+          val config = CozyBok.PublicationConfig.create(
+            "publish-projects",
+            List(dir.toString)
+          )
+
+          When("Cozy registers CAR project publication metadata")
+          CozyBok.publishProjects(config)
+
+          Then("the path repository keyword enables direct CML scanning")
+          val bundle =
+            _read(dir.resolve("src/main/publication/nict-knowledgehub.json"))
+          bundle should include("direct-cml-scan")
+          bundle should include("PathModeEntity")
+        }
+      }
+
       "derive CAR version and artifact references from the repository catalog when descriptor version is omitted" in {
         _with_temp_dir("cozy-bok-project-catalog") { dir =>
           Given(
@@ -410,7 +611,13 @@ class CozyBokProjectSpec
               |    "compiler": "cozy-modeler",
               |    "cozyVersion": "test"
               |  },
-              |  "elements": [
+              |  "surface": {
+              |    "component": {
+              |      "name": "CatalogComponent",
+              |      "services": []
+              |    }
+              |  },
+              |  "modelElements": [
               |    {
               |      "kind": "entity",
               |      "name": "CatalogOnlyEntity",
@@ -484,6 +691,7 @@ class CozyBokProjectSpec
             s"""bok:
                |  projects:
                |    nict-knowledgehub:
+               |      repository: path
                |      path: ${externalproject.toString}
                |""".stripMargin
           )
@@ -598,6 +806,7 @@ class CozyBokProjectSpec
             s"""bok:
                |  projects:
                |    nict-knowledgehub:
+               |      repository: path
                |      path: ${externalproject.toString}
                |""".stripMargin
           )
@@ -661,6 +870,7 @@ class CozyBokProjectSpec
             s"""bok:
                |  projects:
                |    nict-knowledgehub:
+               |      repository: path
                |      path: ${externalproject.toString}
                |  workflow:
                |    upload:
@@ -845,7 +1055,13 @@ class CozyBokProjectSpec
               |    "compiler": "cozy-modeler",
               |    "cozyVersion": "test"
               |  },
-              |  "elements": [
+              |  "surface": {
+              |    "component": {
+              |      "name": "CatalogComponent",
+              |      "services": []
+              |    }
+              |  },
+              |  "modelElements": [
               |    {
               |      "kind": "entity",
               |      "name": "CatalogEntity",
@@ -939,7 +1155,67 @@ class CozyBokProjectSpec
           )
           _write(
             externalproject.resolve("src/main/cozy/nict-knowledgehub.cml"),
-            """# ENTITY
+            """# COMPONENT
+              |
+              |## NictKnowledgeHub
+              |
+              |### SUMMARY
+              |
+              |NICT KnowledgeHub component.
+              |
+              |# SERVICE
+              |
+              |## Knowledge
+              |
+              |### SUMMARY
+              |
+              |KnowledgeHub service operations.
+              |
+              |### OPERATION
+              |
+              |#### ingestKnowledge
+              |
+              |##### SUMMARY
+              |Ingest a knowledge item.
+              |
+              |##### DESCRIPTION
+              |Ingests authored or imported knowledge content.
+              |
+              |##### TYPE
+              |COMMAND
+              |
+              |##### INPUT
+              |
+              |###### TYPE
+              |IngestKnowledge
+              |
+              |##### OUTPUT
+              |
+              |###### TYPE
+              |IngestKnowledgeResult
+              |
+              |#### searchKnowledge
+              |
+              |##### SUMMARY
+              |Search knowledge items.
+              |
+              |##### DESCRIPTION
+              |Searches KnowledgeHub items by query text.
+              |
+              |##### TYPE
+              |QUERY
+              |
+              |##### INPUT
+              |
+              |###### TYPE
+              |SearchKnowledge
+              |
+              |##### OUTPUT
+              |
+              |###### TYPE
+              |SearchKnowledgeResult
+              |
+              |# ENTITY
               |
               |## KnowledgeItem
               |
@@ -957,6 +1233,7 @@ class CozyBokProjectSpec
             s"""bok:
                |  projects:
                |    nict-knowledgehub:
+               |      repository: path
                |      path: ${externalproject.toString}
                |""".stripMargin
           )
@@ -965,6 +1242,36 @@ class CozyBokProjectSpec
             "site { output { locale_mode = \"single_locale_root\" } }\n"
           )
           _write(dir.resolve("src/main/doxsite/index.dox"), "Home\n====\n")
+          val termsjson =
+            """{
+              |  "terms": [
+              |    {
+              |      "id": "technology:knowledge-item",
+              |      "slug": "knowledge-item",
+              |      "title": "Knowledge Item",
+              |      "reading": null,
+              |      "category": "technology",
+              |      "source_path": "glossary/technology/knowledge-item.dox",
+              |      "public_path": "glossary/technology/knowledge-item.html",
+              |      "definition_html": "<p>Knowledge Item term definition.</p>",
+              |      "summary": "Glossary term linked to a CML entity.",
+              |      "aliases": [],
+              |      "term_type": "concept",
+              |      "cml": [
+              |        {"kind": "entity", "value": "KnowledgeItem"},
+              |        {"kind": "operation", "value": "ingestKnowledge"}
+              |      ],
+              |      "article_refs": [],
+              |      "term_refs": [],
+              |      "rdf_refs": [],
+              |      "video_refs": [],
+              |      "quality": {"isolated": false, "unreferenced": false, "weakly_connected": false}
+              |    }
+              |  ]
+              |}
+              |""".stripMargin
+          _write(dir.resolve("src/main/doxsite/metadata/glossary/terms.json"), termsjson)
+          _write(dir.resolve("doxsite.d/metadata/glossary/terms.json"), termsjson)
           val pkg = dir.resolve(
             "src/main/doxsite/projects/concept/nict-knowledgehub"
           )
@@ -1018,25 +1325,95 @@ class CozyBokProjectSpec
             )
           )
           page should include("NICT KnowledgeHub")
+          page should include("""<body class="bok-project-page""")
+          page should not include ("""<body class="article""")
+          page should include("プロジェクトDashboard")
+          page should include("""class="bok-project-detail-dashboard"""")
+          page should include("プロダクトメタデータ")
+          page should not include ("知識リンク")
+          page should include("提供インターフェース")
+          page should not include ("Component / Service / Operation")
+          page should include("""class="bok-project-component-tree"""")
+          page should include("""class="bok-project-service-branch"""")
+          page should include("""class="bok-project-operation-branch"""")
+          page should include("Component")
+          page should include("Service")
+          page should include("Operation")
+          page should include("Knowledge")
+          page should include("ingestKnowledge")
+          page should include("searchKnowledge")
+          page should include("Ingest a knowledge item.")
+          page should include("Search knowledge items.")
+          page should not include ("CML metadataからserviceは検出されていません。")
+          page should not include ("CML metadataからoperationは検出されていません。")
           page should include("NictKnowledgeHub CAR Product article body.")
-          page should include("Artifact status")
-          page should include("missing")
-          page should include("CML Model Vocabulary")
-          page should include("CMLで定義したEntity, Value, Powertype, Statemachine")
+          page should include("配布成果物")
+          page should include("配布済")
+          page should include("未配布")
+          page should include("配布予定成果物")
+          page should include("配布済成果物")
+          page should include("配布済成果物は見つかりません。")
+          page should include("CAR 1")
+          page should include("SAR 0")
+          page should include("JAR 0")
+          page should include("repository/car/nict-knowledgehub/0.1.0/nict-knowledgehub-0.1.0.car")
+          page should include("CMLモデル要素")
+          page should include("種別内訳")
+          page should include("Entity 1")
+          page should include("CML要素と用語定義リンク")
+          page should include("CMLソース")
+          page should include("nict-knowledgehub.cml")
+          page should include("src/main/cozy/nict-knowledgehub.cml")
+          page should not include ("Source: direct-cml-scan")
+          page should include("対象モデル要素")
+          page should include("BoK用語リンク")
+          page should include("あり")
+          page should include("なし")
+          page should include("Component(0/1)")
+          page should include("Service(0/1)")
+          page should include("Operation(1/2)")
+          page should include("Entity(1/1)")
+          page.indexOf("Component(0/1)") should be < page.indexOf("Service(0/1)")
+          page.indexOf("Service(0/1)") should be < page.indexOf("Operation(1/2)")
+          page.indexOf("Operation(1/2)") should be < page.indexOf("Entity(1/1)")
+          page should include("""id="project-cml-panel-entity" class="bok-project-cml-tab-panel is-active"""")
+          page should include("""data-project-cml-panel="Component" hidden""")
+          page should include("<span class=\"bok-project-unlinked-term\">-</span>")
+          page should include("""<thead><tr><th>モデル要素</th><th>BoK用語</th><th>シグネチャ</th><th>説明</th></tr></thead>""")
+          page should include("""<thead><tr><th>モデル要素</th><th>BoK用語</th><th>説明</th></tr></thead>""")
+          page should not include ("<th>区分</th>")
+          page should not include ("<th>役割</th>")
+          page should not include ("<th>機能</th>")
+          page should include("提供インターフェース")
+          page should include("COMMAND: IngestKnowledge -&gt; IngestKnowledgeResult")
+          page should include("<td>Ingest a knowledge item.</td>")
+          page should include("<td>Search knowledge items.</td>")
+          page should not include ("機能 COMMAND: IngestKnowledge -&gt; IngestKnowledgeResult")
+          page should not include ("COMMAND / IngestKnowledge / IngestKnowledgeResult")
+          page should not include ("提供operation COMMAND / IngestKnowledge / IngestKnowledgeResult")
           page should include("KnowledgeItem")
+          page should include("Knowledge Item")
+          page should include("glossary/technology/knowledge-item.html")
           page should include("Knowledge item summary from CML.")
-          page should include("glossary/cml/knowledge-item.html")
-          val termhub =
-            _read(dir.resolve("website.d/glossary/cml/knowledge-item.html"))
-          termhub should include("generated-from-cml")
-          termhub should include("needs-curation")
-          termhub should include("Descriptive Attributes")
-          termhub should include("Knowledge item summary from CML.")
-          termhub should include("CML-derived narrative")
-          termhub should include("Knowledge item narrative from CML.")
+          dir.resolve("website.d/glossary/cml/knowledge-item.html") shouldNot exist_path
           val index = _read(dir.resolve("website.d/projects/index.html"))
           index should include("NICT KnowledgeHub")
           index should include("NICT KnowledgeHub CAR component project.")
+          index should include("公開・連携状況")
+          index should include("配布成果物")
+          index should include("配布済 0")
+          index should include("未配布 1")
+          index should include("成果物種別")
+          index should include("CAR 1")
+          index should include("SAR 0")
+          index should include("JAR 0")
+          index should include("BoK内プロジェクト 0")
+          index should include("外部プロジェクト 1")
+          index should include("プロジェクト配置: 外部プロジェクト")
+          index should include("CMLモデル要素 1")
+          index should include("種別内訳")
+          index should include("Entity 1")
+          index should include("""class="bok-project-status bok-project-status-source-only"""")
           index should include("""data-project-category="concept"""")
           index should include("""href="../textus/components/nict-knowledgehub/index.html"""")
           index should include("nict-knowledgehub")

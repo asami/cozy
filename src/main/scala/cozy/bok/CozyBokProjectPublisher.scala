@@ -11,10 +11,12 @@ import io.circe.{Decoder, HCursor}
 import play.api.libs.json.{JsArray, JsObject, JsValue, Json}
 import java.nio.file.{Files, Path, Paths}
 import java.security.MessageDigest
+import scala.collection.JavaConverters._
 
 /*
  * @since   Jun. 23, 2026
- * @version Jun. 24, 2026
+ *  version Jun. 24, 2026
+ * @version Jul.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyBokProjectPublisher {
@@ -115,6 +117,7 @@ private[cozy] object CozyBokProjectPublisher {
     projectmode: String,
     projectref: Option[String],
     projectpath: Option[Path],
+    reference: ProjectReference,
     module: String,
     versionsource: String,
     catalog: Option[ProjectCatalogInfo],
@@ -132,13 +135,56 @@ private[cozy] object CozyBokProjectPublisher {
     selectedversion: Option[RepositoryArtifactCatalogVersion]
   )
 
+  final case class ProjectReference(
+    mode: String,
+    projectpath: Option[Path],
+    repositorydir: Option[Path]
+  ) {
+    def isSourceOnly: Boolean = mode == "path"
+  }
+
   final case class ProjectCmlInfo(
     sourcepath: Path,
     sourceprojectrelativepath: String,
     glossarycategory: String,
     sourcekind: String,
     modelmetadatapath: Option[Path],
-    elements: Vector[CmlModelElement]
+    surface: CmlProjectSurface,
+    modelElements: Vector[CmlModelElement]
+  )
+
+  final case class CmlProjectSurface(
+    component: Option[CmlComponentSurface]
+  )
+
+  final case class CmlComponentSurface(
+    name: String,
+    termid: String,
+    glossarypath: String,
+    descriptive: CmlDescriptive,
+    narrative: Option[String],
+    services: Vector[CmlServiceSurface]
+  )
+
+  final case class CmlServiceSurface(
+    name: String,
+    termid: String,
+    glossarypath: String,
+    descriptive: CmlDescriptive,
+    narrative: Option[String],
+    operations: Vector[CmlOperationSurface]
+  )
+
+  final case class CmlOperationSurface(
+    name: String,
+    termid: String,
+    glossarypath: String,
+    descriptive: CmlDescriptive,
+    narrative: Option[String],
+    operationtype: Option[String],
+    inputtype: Option[String],
+    outputtype: Option[String],
+    implementation: Vector[String]
   )
 
   final case class CmlModelElement(
@@ -166,12 +212,12 @@ private[cozy] object CozyBokProjectPublisher {
 
   def publish(config: PublishProjectConfig): PublishProjectResult = {
     val project = resolve(config)
-    val artifact = artifactPath(config, project.warehousePath)
+    val artifact = _repository_artifact_path(config, project.reference, project.warehousePath)
     _publish_metadata(config, project, artifact)
   }
 
   def artifactPath(config: PublishProjectConfig, warehousepath: String): Path =
-    _repository_artifact_path(config, warehousepath)
+    _repository_artifact_path(config, ProjectReference("public", None, config.repositorydir), warehousepath)
 
   def resolve(config: PublishProjectConfig): ResolvedBokProject = {
     val packagedir = config.packagedir.toAbsolutePath.normalize()
@@ -192,21 +238,26 @@ private[cozy] object CozyBokProjectPublisher {
     val mode = descriptor.project.mode.map(_.trim).filter(_.nonEmpty).getOrElse("internal")
     if (mode != "internal" && mode != "external")
       RAISE.invalidArgumentFault(s"Unsupported project.mode: $mode")
-    val projectpath = _resolve_project_path(config, mode, descriptor.project.ref)
-    val module = _validate_slug(descriptor.car.flatMap(_.module).getOrElse(name), "car.module")
-    val catalog = _load_catalog(config, module)
+    val module = _resolve_project_car(config, descriptor, name)
+    val reference = _resolve_project_reference(config, mode, descriptor.project.ref, module)
+    val catalog = _load_catalog(config, reference, module)
     val catalogversion = catalog.flatMap { case (_, c) => _catalog_effective_version(c) }
-    val explicitversion = config.version.orElse(descriptor.version).map(_.trim).filter(_.nonEmpty)
-    val version = explicitversion.orElse(catalogversion).getOrElse("0.0.0-SNAPSHOT")
+    val artifactversion = _repository_latest_artifact_version(config, reference, module)
+    val configuredversion = _resolve_project_version(config, descriptor)
+    val explicitversion = config.version.orElse(configuredversion).map(_.trim).filter(_.nonEmpty)
+    val descriptorversion = descriptor.version.map(_.trim).filter(_.nonEmpty)
+    val version = explicitversion.orElse(catalogversion).orElse(artifactversion).orElse(descriptorversion).getOrElse("0.0.0-SNAPSHOT")
     val cataloginfo = catalog.map {
       case (path, c) => ProjectCatalogInfo(path, c, c.versions.find(_.version == version))
     }
     val versionsource =
       if (config.version.nonEmpty) "cli"
-      else if (descriptor.version.exists(_.trim.nonEmpty)) "descriptor"
+      else if (configuredversion.nonEmpty) "project-config"
       else if (catalogversion.nonEmpty) "repository-catalog"
+      else if (artifactversion.nonEmpty) "repository-artifact"
+      else if (descriptorversion.nonEmpty) "descriptor"
       else "default"
-    val cml = _resolve_cml_info(config, descriptor, projectpath, module)
+    val cml = _resolve_cml_info(config, descriptor, reference, module)
     ResolvedBokProject(
       packagedir,
       slug,
@@ -221,7 +272,8 @@ private[cozy] object CozyBokProjectPublisher {
       publicationpath,
       mode,
       descriptor.project.ref.map(_.trim).filter(_.nonEmpty),
-      projectpath,
+      reference.projectpath,
+      reference,
       module,
       versionsource,
       cataloginfo,
@@ -328,7 +380,9 @@ private[cozy] object CozyBokProjectPublisher {
       info.catalog.versions.map(_catalog_artifact_file_json(config, project, _))
     }.getOrElse(Vector(_artifact_file_json(project, artifact, exists)))
     val status =
-      if (files.nonEmpty && files.forall(file => (file \ "status").asOpt[String].contains("published"))) "published" else "missing"
+      if (project.reference.isSourceOnly) "source-only"
+      else if (files.nonEmpty && files.forall(file => (file \ "status").asOpt[String].contains("published"))) "published"
+      else "missing"
     Json.obj(
       "schema" -> _schema,
       "type" -> "repository-artifact",
@@ -362,8 +416,9 @@ private[cozy] object CozyBokProjectPublisher {
       "warehousePath" -> project.warehousePath,
       "publicPath" -> project.publicPath,
       "name" -> artifact.getFileName.toString,
-      "expected" -> !exists,
-      "status" -> (if (exists) "published" else "missing")
+      "expected" -> (!exists && !project.reference.isSourceOnly),
+      "status" -> (if (project.reference.isSourceOnly && !exists) "undistributed" else if (exists) "published" else "missing"),
+      "sourceOnly" -> project.reference.isSourceOnly
     )
     if (exists)
       base ++ Json.obj(
@@ -380,7 +435,7 @@ private[cozy] object CozyBokProjectPublisher {
     version: RepositoryArtifactCatalogVersion
   ): JsObject = {
     val warehousepath = version.file.getOrElse(s"repository/car/${project.module}/${version.version}/${project.module}-${version.version}.car")
-    val artifact = _repository_artifact_path(config, warehousepath)
+    val artifact = _repository_artifact_path(config, project.reference, warehousepath)
     val exists = Files.isRegularFile(artifact)
     val base = Json.obj(
       "layer" -> "repository",
@@ -408,7 +463,7 @@ private[cozy] object CozyBokProjectPublisher {
     project.catalog.map { info =>
       Json.obj(
         "source" -> "repository-catalog",
-        "path" -> _warehouse_relative_path(config, info.path),
+        "path" -> _warehouse_relative_path(config, project.reference, info.path),
         "artifactId" -> info.catalog.artifactId,
         "status" -> Json.toJson(info.catalog.status.getOrElse("")),
         "recommended" -> Json.toJson(info.catalog.recommended.getOrElse("")),
@@ -429,34 +484,78 @@ private[cozy] object CozyBokProjectPublisher {
   private def _cml_json(config: PublishProjectConfig, project: ResolvedBokProject): JsValue =
     project.cml.map { cml =>
       Json.obj(
-        "sourcePath" -> _cml_public_source_path(config, cml),
+        "sourcePath" -> _cml_public_source_path(config, project, cml),
         "projectRelativePath" -> cml.sourceprojectrelativepath,
         "sourceKind" -> cml.sourcekind,
-        "modelMetadataPath" -> Json.toJson(cml.modelmetadatapath.map(_warehouse_relative_path(config, _)).getOrElse("")),
+        "modelMetadataPath" -> Json.toJson(cml.modelmetadatapath.map(_warehouse_relative_path(config, project.reference, _)).getOrElse("")),
         "glossaryCategory" -> cml.glossarycategory,
-        "modelElements" -> JsArray(cml.elements.map { element =>
-          Json.obj(
-            "kind" -> element.kind,
-            "name" -> element.name,
-            "termId" -> element.termid,
-            "glossaryPath" -> element.glossarypath,
-            "descriptive" -> Json.obj(
-              "label" -> element.descriptive.label,
-              "brief" -> Json.toJson(element.descriptive.brief.getOrElse("")),
-              "summary" -> Json.toJson(element.descriptive.summary.getOrElse("")),
-              "description" -> Json.toJson(element.descriptive.description.getOrElse(""))
-            ),
-            "narrative" -> Json.toJson(element.narrative.getOrElse(""))
-          )
-        })
+        "surface" -> _cml_surface_json(cml.surface),
+        "modelElements" -> JsArray(cml.modelElements.map(_cml_model_element_json))
       )
     }.getOrElse(Json.obj(
       "status" -> "missing",
       "message" -> "CML source is not registered for this CAR project."
     ))
 
+  private def _cml_surface_json(surface: CmlProjectSurface): JsObject =
+    surface.component match {
+      case Some(x) => Json.obj("component" -> _cml_component_json(x))
+      case None => Json.obj("component" -> Json.obj())
+    }
+
+  private def _cml_component_json(component: CmlComponentSurface): JsObject =
+    Json.obj(
+      "name" -> component.name,
+      "termId" -> component.termid,
+      "glossaryPath" -> component.glossarypath,
+      "descriptive" -> _cml_descriptive_json(component.descriptive),
+      "narrative" -> Json.toJson(component.narrative.getOrElse("")),
+      "services" -> JsArray(component.services.map(_cml_service_json))
+    )
+
+  private def _cml_service_json(service: CmlServiceSurface): JsObject =
+    Json.obj(
+      "name" -> service.name,
+      "termId" -> service.termid,
+      "glossaryPath" -> service.glossarypath,
+      "descriptive" -> _cml_descriptive_json(service.descriptive),
+      "narrative" -> Json.toJson(service.narrative.getOrElse("")),
+      "operations" -> JsArray(service.operations.map(_cml_operation_json))
+    )
+
+  private def _cml_operation_json(operation: CmlOperationSurface): JsObject =
+    Json.obj(
+      "name" -> operation.name,
+      "termId" -> operation.termid,
+      "glossaryPath" -> operation.glossarypath,
+      "descriptive" -> _cml_descriptive_json(operation.descriptive),
+      "narrative" -> Json.toJson(operation.narrative.getOrElse("")),
+      "operationType" -> Json.toJson(operation.operationtype.getOrElse("")),
+      "inputType" -> Json.toJson(operation.inputtype.getOrElse("")),
+      "outputType" -> Json.toJson(operation.outputtype.getOrElse("")),
+      "implementation" -> Json.toJson(operation.implementation)
+    )
+
+  private def _cml_model_element_json(element: CmlModelElement): JsObject =
+    Json.obj(
+      "kind" -> element.kind,
+      "name" -> element.name,
+      "termId" -> element.termid,
+      "glossaryPath" -> element.glossarypath,
+      "descriptive" -> _cml_descriptive_json(element.descriptive),
+      "narrative" -> Json.toJson(element.narrative.getOrElse(""))
+    )
+
+  private def _cml_descriptive_json(descriptive: CmlDescriptive): JsObject =
+    Json.obj(
+      "label" -> descriptive.label,
+      "brief" -> Json.toJson(descriptive.brief.getOrElse("")),
+      "summary" -> Json.toJson(descriptive.summary.getOrElse("")),
+      "description" -> Json.toJson(descriptive.description.getOrElse(""))
+    )
+
   private def _diagnostics(project: ResolvedBokProject, exists: Boolean): Vector[JsObject] =
-    if (exists)
+    if (exists || project.reference.isSourceOnly)
       Vector.empty
     else {
       val projectdir = project.projectref.map(ref => s"<${ref}>").getOrElse("<project-dir>")
@@ -467,8 +566,31 @@ private[cozy] object CozyBokProjectPublisher {
       ))
     }
 
-  private def _load_catalog(config: PublishProjectConfig, module: String): Option[(Path, RepositoryArtifactCatalog)] = {
-    val path = _repository_catalog_dir(config).resolve(s"$module.yaml").toAbsolutePath.normalize()
+
+  private def _repository_latest_artifact_version(
+    config: PublishProjectConfig,
+    reference: ProjectReference,
+    module: String
+  ): Option[String] =
+    _repository_dir(config, reference).flatMap { repositorydir =>
+      val moduledir = repositorydir.resolve(s"car/${module}").toAbsolutePath.normalize()
+      if (!Files.isDirectory(moduledir))
+        None
+      else {
+        val stream = Files.list(moduledir)
+        try {
+          val versions = stream.iterator().asScala.toVector.filter(Files.isDirectory(_)).map(_.getFileName.toString).filter(_.trim.nonEmpty).filter { version =>
+            Files.isRegularFile(moduledir.resolve(s"${version}/${module}-${version}.car"))
+          }
+          versions.sorted.lastOption
+        } finally {
+          stream.close()
+        }
+      }
+    }
+
+  private def _load_catalog(config: PublishProjectConfig, reference: ProjectReference, module: String): Option[(Path, RepositoryArtifactCatalog)] = {
+    val path = _repository_catalog_dir(config, reference).resolve(s"$module.yaml").toAbsolutePath.normalize()
     if (Files.isRegularFile(path))
       Some(path -> RepositoryArtifactCatalog.load(path))
     else
@@ -478,11 +600,11 @@ private[cozy] object CozyBokProjectPublisher {
   private def _resolve_cml_info(
     config: PublishProjectConfig,
     descriptor: ProjectDescriptor,
-    projectpath: Option[Path],
+    reference: ProjectReference,
     module: String
   ): Option[ProjectCmlInfo] = {
     val glossarycategory = descriptor.cml.flatMap(_.glossary).flatMap(_.category).map(_validate_slug(_, "cml.glossary.category")).getOrElse("cml")
-    _load_model_metadata(config, module, glossarycategory).orElse(projectpath.flatMap { projectdir =>
+    _load_model_metadata(config, reference, module, glossarycategory).orElse(reference.projectpath.flatMap { projectdir =>
       val sourcerelative = descriptor.cml.flatMap(_.source).map(_relative_path(_, "cml.source")).getOrElse(s"src/main/cozy/${module}.cml")
       val sourcepath = projectdir.resolve(sourcerelative).toAbsolutePath.normalize()
       if (Files.isRegularFile(sourcepath)) {
@@ -492,6 +614,7 @@ private[cozy] object CozyBokProjectPublisher {
           glossarycategory,
           "direct-cml-scan",
           None,
+          _cml_surface(sourcepath, glossarycategory),
           _cml_model_elements(sourcepath, glossarycategory)
         ))
       } else {
@@ -502,10 +625,11 @@ private[cozy] object CozyBokProjectPublisher {
 
   private def _load_model_metadata(
     config: PublishProjectConfig,
+    reference: ProjectReference,
     module: String,
     glossarycategory: String
   ): Option[ProjectCmlInfo] = {
-    val catalogdir = _repository_catalog_dir(config)
+    val catalogdir = _repository_catalog_dir(config, reference)
     val candidates = Vector(
       catalogdir.resolve(s"$module.model-metadata.json"),
       catalogdir.resolve(s"$module.model-metadata.yaml")
@@ -514,39 +638,27 @@ private[cozy] object CozyBokProjectPublisher {
       val json = StructuredDocumentLoader.loadJson(InputSource(path.toFile)).take
       val sourcepath = json.hcursor.downField("source").downField("path").as[String].getOrElse("")
       val source = if (sourcepath.trim.isEmpty) path else Paths.get(sourcepath).toAbsolutePath.normalize()
-      val elements = json.hcursor.downField("elements").as[Vector[io.circe.Json]].getOrElse(Vector.empty).map { element =>
-        val c = element.hcursor
-        val name = c.downField("name").as[String].getOrElse("")
-        val kind = c.downField("kind").as[String].getOrElse("unknown")
-        val slug = _slugify(name)
-        val descriptive = c.downField("descriptive")
-        CmlModelElement(
-          kind,
-          name,
-          c.downField("termId").as[String].getOrElse(s"${glossarycategory}:${slug}"),
-          c.downField("glossaryPath").as[String].getOrElse(s"glossary/${glossarycategory}/${slug}.html"),
-          CmlDescriptive(
-            descriptive.downField("label").as[String].getOrElse(name),
-            descriptive.downField("brief").as[String].toOption.filter(_.nonEmpty),
-            descriptive.downField("summary").as[String].toOption.filter(_.nonEmpty),
-            descriptive.downField("description").as[String].toOption.filter(_.nonEmpty)
-          ),
-          c.downField("narrative").as[String].toOption.filter(_.trim.nonEmpty)
-        )
-      }.filter(_.name.nonEmpty)
+      val surface = _read_cml_surface(json.hcursor.downField("surface"), glossarycategory)
+      val elements = json.hcursor.downField("modelElements").as[Vector[io.circe.Json]].getOrElse(Vector.empty).flatMap(element =>
+        _read_cml_model_element(element.hcursor, glossarycategory)
+      )
       ProjectCmlInfo(
         source,
         if (sourcepath.trim.isEmpty) "" else sourcepath,
         glossarycategory,
         "repository-model-metadata",
         Some(path),
+        surface,
         elements
       )
     }
   }
 
+  private def _cml_surface(sourcepath: Path, glossarycategory: String): CmlProjectSurface =
+    _convert_surface(CmlModelMetadata.fromCml(sourcepath, glossarycategory).surface)
+
   private def _cml_model_elements(sourcepath: Path, glossarycategory: String): Vector[CmlModelElement] = {
-    CmlModelMetadata.fromCml(sourcepath, glossarycategory).elements.map { element =>
+    CmlModelMetadata.fromCml(sourcepath, glossarycategory).modelElements.map { element =>
       CmlModelElement(
         element.kind,
         element.name,
@@ -562,6 +674,131 @@ private[cozy] object CozyBokProjectPublisher {
       )
     }.distinct
   }
+
+  private def _convert_surface(surface: CmlModelMetadata.Surface): CmlProjectSurface =
+    CmlProjectSurface(surface.component.map { component =>
+      CmlComponentSurface(
+        component.name,
+        component.termid,
+        component.glossarypath,
+        _convert_descriptive(component.descriptive),
+        component.narrative,
+        component.services.map(service =>
+          CmlServiceSurface(
+            service.name,
+            service.termid,
+            service.glossarypath,
+            _convert_descriptive(service.descriptive),
+            service.narrative,
+            service.operations.map(operation =>
+              CmlOperationSurface(
+                operation.name,
+                operation.termid,
+                operation.glossarypath,
+                _convert_descriptive(operation.descriptive),
+                operation.narrative,
+                operation.operationtype,
+                operation.inputtype,
+                operation.outputtype,
+                operation.implementation
+              )
+            )
+          )
+        )
+      )
+    })
+
+  private def _convert_descriptive(descriptive: CmlModelMetadata.Descriptive): CmlDescriptive =
+    CmlDescriptive(
+      descriptive.label,
+      descriptive.brief,
+      descriptive.summary,
+      descriptive.description
+    )
+
+  private def _read_cml_surface(cursor: io.circe.ACursor, glossarycategory: String): CmlProjectSurface =
+    CmlProjectSurface(_read_cml_component(cursor.downField("component"), glossarycategory))
+
+  private def _read_cml_component(cursor: io.circe.ACursor, glossarycategory: String): Option[CmlComponentSurface] = {
+    val name = cursor.downField("name").as[String].getOrElse("")
+    if (name.trim.isEmpty)
+      None
+    else {
+      val services = cursor.downField("services").as[Vector[io.circe.Json]].getOrElse(Vector.empty).flatMap(service =>
+        _read_cml_service(service.hcursor, glossarycategory)
+      )
+      Some(CmlComponentSurface(
+        name,
+        cursor.downField("termId").as[String].getOrElse(s"${glossarycategory}:${_slugify(name)}"),
+        cursor.downField("glossaryPath").as[String].getOrElse(s"glossary/${glossarycategory}/${_slugify(name)}.html"),
+        _read_cml_descriptive(cursor.downField("descriptive"), name),
+        cursor.downField("narrative").as[String].toOption.filter(_.trim.nonEmpty),
+        services
+      ))
+    }
+  }
+
+  private def _read_cml_service(cursor: io.circe.ACursor, glossarycategory: String): Option[CmlServiceSurface] = {
+    val name = cursor.downField("name").as[String].getOrElse("")
+    if (name.trim.isEmpty)
+      None
+    else {
+      val operations = cursor.downField("operations").as[Vector[io.circe.Json]].getOrElse(Vector.empty).flatMap(operation =>
+        _read_cml_operation(operation.hcursor, glossarycategory)
+      )
+      Some(CmlServiceSurface(
+        name,
+        cursor.downField("termId").as[String].getOrElse(s"${glossarycategory}:${_slugify(name)}"),
+        cursor.downField("glossaryPath").as[String].getOrElse(s"glossary/${glossarycategory}/${_slugify(name)}.html"),
+        _read_cml_descriptive(cursor.downField("descriptive"), name),
+        cursor.downField("narrative").as[String].toOption.filter(_.trim.nonEmpty),
+        operations
+      ))
+    }
+  }
+
+  private def _read_cml_operation(cursor: io.circe.ACursor, glossarycategory: String): Option[CmlOperationSurface] = {
+    val name = cursor.downField("name").as[String].getOrElse("")
+    if (name.trim.isEmpty)
+      None
+    else
+      Some(CmlOperationSurface(
+        name,
+        cursor.downField("termId").as[String].getOrElse(s"${glossarycategory}:${_slugify(name)}"),
+        cursor.downField("glossaryPath").as[String].getOrElse(s"glossary/${glossarycategory}/${_slugify(name)}.html"),
+        _read_cml_descriptive(cursor.downField("descriptive"), name),
+        cursor.downField("narrative").as[String].toOption.filter(_.trim.nonEmpty),
+        cursor.downField("operationType").as[String].toOption.filter(_.trim.nonEmpty),
+        cursor.downField("inputType").as[String].toOption.filter(_.trim.nonEmpty),
+        cursor.downField("outputType").as[String].toOption.filter(_.trim.nonEmpty),
+        cursor.downField("implementation").as[Vector[String]].getOrElse(Vector.empty).filter(_.trim.nonEmpty)
+      ))
+  }
+
+  private def _read_cml_model_element(cursor: io.circe.ACursor, glossarycategory: String): Option[CmlModelElement] = {
+    val name = cursor.downField("name").as[String].getOrElse("")
+    if (name.trim.isEmpty)
+      None
+    else {
+      val kind = cursor.downField("kind").as[String].getOrElse("unknown")
+      Some(CmlModelElement(
+        kind,
+        name,
+        cursor.downField("termId").as[String].getOrElse(s"${glossarycategory}:${_slugify(name)}"),
+        cursor.downField("glossaryPath").as[String].getOrElse(s"glossary/${glossarycategory}/${_slugify(name)}.html"),
+        _read_cml_descriptive(cursor.downField("descriptive"), name),
+        cursor.downField("narrative").as[String].toOption.filter(_.trim.nonEmpty)
+      ))
+    }
+  }
+
+  private def _read_cml_descriptive(cursor: io.circe.ACursor, fallbacklabel: String): CmlDescriptive =
+    CmlDescriptive(
+      cursor.downField("label").as[String].getOrElse(fallbacklabel),
+      cursor.downField("brief").as[String].toOption.filter(_.nonEmpty),
+      cursor.downField("summary").as[String].toOption.filter(_.nonEmpty),
+      cursor.downField("description").as[String].toOption.filter(_.nonEmpty)
+    )
 
   private def _catalog_effective_version(catalog: RepositoryArtifactCatalog): Option[String] = {
     val selectors = Vector(catalog.recommended, catalog.latestStable, catalog.latestSnapshot).flatten
@@ -598,6 +835,49 @@ private[cozy] object CozyBokProjectPublisher {
     _validate_slug(relative.getName(0).toString, "project category")
   }
 
+
+
+  private def _resolve_project_version(
+    config: PublishProjectConfig,
+    descriptor: ProjectDescriptor
+  ): Option[String] =
+    descriptor.project.ref.map(_.trim).filter(_.nonEmpty).flatMap(x =>
+      config.bokconfig.value(s"bok.projects.${x}.version").map(_.trim).filter(_.nonEmpty)
+    )
+
+  private def _resolve_project_car(
+    config: PublishProjectConfig,
+    descriptor: ProjectDescriptor,
+    projectname: String
+  ): String = {
+    val projectref = descriptor.project.ref.map(_.trim).filter(_.nonEmpty)
+    val configured = projectref.flatMap(x => config.bokconfig.value(s"bok.projects.${x}.car"))
+    _validate_slug(configured.orElse(descriptor.car.flatMap(_.module)).getOrElse(projectname), "car.module")
+  }
+
+  private def _resolve_project_reference(
+    config: PublishProjectConfig,
+    mode: String,
+    ref: Option[String],
+    module: String
+  ): ProjectReference = {
+    val projectref = ref.map(_.trim).filter(_.nonEmpty)
+    val repository = projectref.flatMap(x => config.bokconfig.value(s"bok.projects.${x}.repository").map(_.trim).filter(_.nonEmpty)).getOrElse("public")
+    repository match {
+      case "public" =>
+        ProjectReference(repository, None, config.repositorydir)
+      case "local" =>
+        ProjectReference(repository, None, Some(_cncf_local_repository_dir()))
+      case "path" =>
+        val projectpath = _resolve_project_path(config, mode, projectref)
+        if (projectpath.isEmpty)
+          RAISE.invalidArgumentFault(s"CAR project repository 'path' requires bok.projects.${projectref.getOrElse(module)}.path")
+        ProjectReference(repository, projectpath, None)
+      case other =>
+        RAISE.invalidArgumentFault(s"Unsupported BoK project repository for ${projectref.getOrElse(module)}: $other")
+    }
+  }
+
   private def _resolve_project_path(
     config: PublishProjectConfig,
     mode: String,
@@ -618,6 +898,9 @@ private[cozy] object CozyBokProjectPublisher {
         path
       }
     }
+
+  private def _cncf_local_repository_dir(): Path =
+    Paths.get(System.getProperty("user.home"), ".cncf", "local", "repository").toAbsolutePath.normalize()
 
   private def _relative_path(value: String, label: String): String = {
     val path = Paths.get(value).normalize()
@@ -657,9 +940,9 @@ private[cozy] object CozyBokProjectPublisher {
       target.getFileName.toString
   }
 
-  private def _warehouse_relative_path(config: PublishProjectConfig, path: Path): String = {
+  private def _warehouse_relative_path(config: PublishProjectConfig, reference: ProjectReference, path: Path): String = {
     val target = path.toAbsolutePath.normalize()
-    config.repositorydir.flatMap { repositorydir =>
+    reference.repositorydir.orElse(config.repositorydir).flatMap { repositorydir =>
       val root = repositorydir.toAbsolutePath.normalize()
       if (target.startsWith(root))
         Some("repository/" + root.relativize(target).toString.replace(java.io.File.separatorChar, '/'))
@@ -674,11 +957,11 @@ private[cozy] object CozyBokProjectPublisher {
     }
   }
 
-  private def _cml_public_source_path(config: PublishProjectConfig, cml: ProjectCmlInfo): String =
-    cml.modelmetadatapath.map(_warehouse_relative_path(config, _)).getOrElse(cml.sourceprojectrelativepath)
+  private def _cml_public_source_path(config: PublishProjectConfig, project: ResolvedBokProject, cml: ProjectCmlInfo): String =
+    cml.modelmetadatapath.map(_warehouse_relative_path(config, project.reference, _)).getOrElse(cml.sourceprojectrelativepath)
 
-  private def _repository_artifact_path(config: PublishProjectConfig, warehousepath: String): Path =
-    config.repositorydir match {
+  private def _repository_artifact_path(config: PublishProjectConfig, reference: ProjectReference, warehousepath: String): Path =
+    reference.repositorydir.orElse(config.repositorydir) match {
       case Some(repositorydir) if warehousepath == "repository" =>
         repositorydir.toAbsolutePath.normalize()
       case Some(repositorydir) if warehousepath.startsWith("repository/") =>
@@ -687,13 +970,18 @@ private[cozy] object CozyBokProjectPublisher {
         config.warehousedir.resolve(warehousepath).toAbsolutePath.normalize()
     }
 
-  private def _repository_catalog_dir(config: PublishProjectConfig): Path =
-    config.repositorydir match {
-      case Some(repositorydir) =>
-        repositorydir.resolve("catalog/car").toAbsolutePath.normalize()
-      case None =>
-        config.warehousedir.resolve("repository/catalog/car").toAbsolutePath.normalize()
+  private def _repository_dir(config: PublishProjectConfig, reference: ProjectReference): Option[Path] =
+    reference.repositorydir.orElse(config.repositorydir).map(_.toAbsolutePath.normalize()).orElse {
+      if (reference.mode == "path")
+        None
+      else
+        Some(config.warehousedir.resolve("repository").toAbsolutePath.normalize())
     }
+
+  private def _repository_catalog_dir(config: PublishProjectConfig, reference: ProjectReference): Path =
+    _repository_dir(config, reference).map(_.resolve("catalog/car").toAbsolutePath.normalize()).getOrElse(
+      config.warehousedir.resolve("repository/catalog/car").toAbsolutePath.normalize()
+    )
 
   private def _sha256(path: Path): String = {
     val digest = MessageDigest.getInstance("SHA-256")

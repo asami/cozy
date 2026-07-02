@@ -51,7 +51,7 @@ Status: DONE
 
 Status: DONE
 
-- [x] Run `cozy bok build /Users/asami/src/Project2026/bok-knowlegehub` from the
+- [x] Run `cozy bok build /Users/asami/src/Project2026/bok-knowledgehub` from the
       normal operational entrypoint.
 - [x] Confirm `website.d`, `doxsite.d`, and `antora.d` are reproducible as
       generated output directories.
@@ -62,7 +62,7 @@ Status: DONE
 
 Status: DONE
 
-- [x] Run `cozy bok publish /Users/asami/src/Project2026/bok-knowlegehub --dry-run`
+- [x] Run `cozy bok publish /Users/asami/src/Project2026/bok-knowledgehub --dry-run`
       from the normal operational entrypoint.
 - [x] Confirm dry-run output is useful for operation planning.
 - [x] If upload workflow is missing, decide whether current preflight behavior is

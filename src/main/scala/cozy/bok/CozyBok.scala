@@ -31,7 +31,7 @@ import io.circe.parser
 /*
  * @since   Jun.  3, 2026
  *  version Jun. 28, 2026
- * @version Jul.  1, 2026
+ * @version Jul.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyBok {
@@ -139,7 +139,8 @@ private[cozy] object CozyBok {
     categoryTitle: String,
     hrefFromArticleIndex: String,
     title: String,
-    brief: String
+    brief: String,
+    termExtraction: TermExtraction
   )
   private final case class DashboardCounts(
     categoryCount: Int,
@@ -199,7 +200,8 @@ private[cozy] object CozyBok {
     publicpath: String,
     terms: Vector[String],
     tags: Vector[String],
-    status: Option[String]
+    status: Option[String],
+    termExtraction: TermExtraction
   ) {
     def categorySlug: String = category.getOrElse("scenario")
     def hrefFromHome: String = publicpath
@@ -225,6 +227,7 @@ private[cozy] object CozyBok {
     rdfRefs: Vector[TermRdfReference],
     videoRefs: Vector[TermReference],
     termType: String,
+    resourceType: Option[String],
     cml: Vector[TermCmlLink],
     event: Option[TermEvent],
     actor: Option[TermActor],
@@ -275,6 +278,29 @@ private[cozy] object CozyBok {
   private final case class TermActor(roles: Vector[String], organization: Option[String], description: Option[String])
   private final case class TermRole(actors: Vector[String], responsibilities: Vector[String], permissions: Vector[String])
   private final case class TermQuality(isolated: Boolean, unreferenced: Boolean, weaklyconnected: Boolean)
+  private final case class TermExtraction(status: Option[String], planned: Option[Boolean]) {
+    def isPlanned: Boolean =
+      planned.getOrElse(true) && !status.map(_normalize_status).exists(x => x == "skipped" || x == "out-of-scope")
+    def isExtracted: Boolean =
+      status.map(_normalize_status).exists(x => x == "extracted" || x == "done" || x == "complete" || x == "completed")
+    private def _normalize_status(value: String): String =
+      value.trim.toLowerCase.replace('_', '-')
+  }
+
+  private object TermExtraction {
+    val empty: TermExtraction = TermExtraction(None, None)
+  }
+
+  private def _decode_term_extraction(c: HCursor): Decoder.Result[TermExtraction] =
+    for {
+      obj <- c.downField("workflow").downField("term").as[Option[TermExtraction]]
+    } yield obj.getOrElse(TermExtraction.empty)
+
+  private implicit val _term_extraction_decoder: Decoder[TermExtraction] = (c: HCursor) =>
+    for {
+      status <- c.downField("status").as[Option[String]]
+      planned <- c.downField("planned").as[Option[Boolean]]
+    } yield TermExtraction(status, planned)
 
   private final case class DocumentFragmentIndex(fragments: Vector[DocumentFragment]) {
     def get(sourcepath: String, locale: String): Option[DocumentFragment] =
@@ -289,11 +315,14 @@ private[cozy] object CozyBok {
     title: Option[String],
     headline: Option[String],
     brief: Option[String],
+    summary: Option[String],
+    description: Option[String],
     bodyhtml: String,
-    tags: Vector[String]
+    tags: Vector[String],
+    termExtraction: TermExtraction
   ) {
     def effectiveHeadline: Option[String] = headline.orElse(title)
-    def effectiveBrief: Option[String] = brief
+    def effectiveBrief: Option[String] = brief.orElse(summary).orElse(description)
   }
 
   private implicit val _document_fragment_decoder: Decoder[DocumentFragment] = (c: HCursor) =>
@@ -306,9 +335,12 @@ private[cozy] object CozyBok {
       title <- c.downField("title").as[Option[String]]
       headline <- c.downField("headline").as[Option[String]]
       brief <- c.downField("brief").as[Option[String]]
+      summary <- c.downField("summary").as[Option[String]]
+      description <- c.downField("description").as[Option[String]]
       bodyhtml <- c.downField("body_html").as[String]
       tags <- c.downField("tags").as[Option[Vector[String]]]
-    } yield DocumentFragment(sourcepath, publicpath, locale, kind, category, title, headline, brief, bodyhtml, tags.getOrElse(Vector.empty))
+      termextraction <- _decode_term_extraction(c)
+    } yield DocumentFragment(sourcepath, publicpath, locale, kind, category, title, headline, brief, summary, description, bodyhtml, tags.getOrElse(Vector.empty), termextraction)
 
   private implicit val _document_fragment_index_decoder: Decoder[DocumentFragmentIndex] = (c: HCursor) =>
     for {
@@ -556,12 +588,14 @@ private[cozy] object CozyBok {
       rdfrefs <- c.downField("rdf_refs").as[Option[Vector[TermRdfReference]]]
       videorefs <- c.downField("video_refs").as[Option[Vector[TermReference]]]
       termtype <- c.downField("term_type").as[Option[String]]
+      resourcetype <- c.downField("resource_type").as[Option[String]]
+      resourceobjecttype <- c.downField("resource").downField("type").as[Option[String]]
       event <- c.downField("event").as[Option[TermEvent]]
       actor <- c.downField("actor").as[Option[TermActor]]
       role <- c.downField("role").as[Option[TermRole]]
       quality <- c.downField("quality").as[Option[TermQuality]]
       tags <- c.downField("tags").as[Option[Vector[String]]]
-    } yield TermEntry(id, slug, title, reading, category, sourcepath, publicpath, definitionhtml, summary, aliases.getOrElse(Vector.empty), articlerefs.getOrElse(Vector.empty), termrefs.getOrElse(Vector.empty), rdfrefs.getOrElse(Vector.empty), videorefs.getOrElse(Vector.empty), termtype.getOrElse("concept"), _decode_term_cml_links(c.downField("cml").focus), event, actor, role, quality.getOrElse(TermQuality(false, false, false)), tags.getOrElse(Vector.empty))
+    } yield TermEntry(id, slug, title, reading, category, sourcepath, publicpath, definitionhtml, summary, aliases.getOrElse(Vector.empty), articlerefs.getOrElse(Vector.empty), termrefs.getOrElse(Vector.empty), rdfrefs.getOrElse(Vector.empty), videorefs.getOrElse(Vector.empty), termtype.getOrElse(""), resourcetype.orElse(resourceobjecttype), _decode_term_cml_links(c.downField("cml").focus), event, actor, role, quality.getOrElse(TermQuality(false, false, false)), tags.getOrElse(Vector.empty))
 
   private implicit val _term_index_decoder: Decoder[TermIndex] = (c: HCursor) =>
     for {
@@ -581,7 +615,8 @@ private[cozy] object CozyBok {
       terms <- c.downField("terms").as[Option[Vector[String]]]
       tags <- c.downField("tags").as[Option[Vector[String]]]
       status <- c.downField("status").as[Option[String]]
-    } yield ScenarioEntry(id, slug, scenariotype, title, summary, category, sourcepath, publicpath, terms.getOrElse(Vector.empty), tags.getOrElse(Vector.empty), status)
+      termextraction <- _decode_term_extraction(c)
+    } yield ScenarioEntry(id, slug, scenariotype, title, summary, category, sourcepath, publicpath, terms.getOrElse(Vector.empty), tags.getOrElse(Vector.empty), status, termextraction)
 
   private implicit val _scenario_index_decoder: Decoder[ScenarioIndex] = (c: HCursor) =>
     for {
@@ -2710,7 +2745,9 @@ private[cozy] object CozyBok {
       )
     }
     val manualpage = target.resolve("manual").resolve("index.html")
-    val manualbody = _source_narrative_html(_manual_index(locale), "cozy-bok-manual.dox", locale)
+    val manualbody = _manual_body_with_anchors(
+      _source_narrative_html(_manual_index(locale), "cozy-bok-manual.dox", locale)
+    )
     _write_text(
       manualpage,
       _manual_html_page(
@@ -2979,7 +3016,8 @@ private[cozy] object CozyBok {
           category.title,
           s"../${category.slug}/${article.href}",
           article.title,
-          article.brief
+          article.brief,
+          TermExtraction.empty
         )
       }
     }
@@ -2988,7 +3026,8 @@ private[cozy] object CozyBok {
     val fragmentitems = _document_fragment_index(config).toVector.flatMap(_.fragments).filter { fragment =>
       fragment.locale == locale &&
       fragment.category.nonEmpty &&
-      _is_article_fragment_public_path(fragment.publicpath)
+      _is_article_fragment_public_path(fragment.publicpath) &&
+      !fragment.category.exists(category => _is_category_index_fragment_public_path(fragment.publicpath, category))
     }.map { fragment =>
       val category = fragment.category.get
       ArticleIndexItem(
@@ -2996,11 +3035,15 @@ private[cozy] object CozyBok {
         categorytitles.getOrElse(category, _titleize(category)),
         s"../${fragment.publicpath}",
         fragment.effectiveHeadline.getOrElse(_titleize(_source_document_stem(Paths.get(fragment.publicpath).getFileName.toString))),
-        fragment.effectiveBrief.getOrElse("")
+        fragment.effectiveBrief.getOrElse(""),
+        fragment.termExtraction
       )
     }.filterNot(x => sourcehrefs.contains(x.hrefFromArticleIndex))
     (sourceitems ++ fragmentitems).sortBy(x => (x.categorySlug, x.title, x.hrefFromArticleIndex))
   }
+
+  private def _is_category_index_fragment_public_path(value: String, category: String): Boolean =
+    value.stripPrefix("/") == s"${category}/index.html"
 
   private def _is_article_fragment_public_path(value: String): Boolean = {
     val path = value.stripPrefix("/")
@@ -3016,6 +3059,11 @@ private[cozy] object CozyBok {
   }
 
   private def _article_dashboard_body(locale: String, articles: Vector[ArticleIndexItem]): String = {
+    val progress = _term_extraction_progress_card(
+      locale,
+      articles.count(x => x.termExtraction.isPlanned && _is_term_extraction_done(x.termExtraction)),
+      articles.count(_.termExtraction.isPlanned)
+    )
     val articlecards = articles.map { article =>
       val brief = if (article.brief.trim.isEmpty) "" else s"""<p>${_html_escape(article.brief)}</p>"""
       s"""<article class="bok-article-tile" data-article-category="${_html_escape(article.categorySlug)}">
@@ -3033,6 +3081,7 @@ private[cozy] object CozyBok {
         articlecards.mkString("""<div class="bok-article-grid">""", "\n", "</div>")
     s"""<div class="bok-dashboard container-fluid bok-dashboard-command-center">
        |  <div class="row g-3">
+       |    ${_dashboard_card("col-12 col-xl-4", "bok-card-kpi bok-card-term-extraction-progress", _ui(locale, "term.extraction.progress.title"), progress, Vector("contributor", "project_manager"))}
        |    ${_dashboard_card("col-12", "bok-card-map bok-card-article-map", _ui(locale, "dashboard.card.article.map"), body, Vector("reader", "contributor", "project_manager"))}
        |  </div>
        |</div>
@@ -3177,39 +3226,30 @@ private[cozy] object CozyBok {
     val projects = _resolved_project_packages(config)
     _write_project_index_page(config, target, locale, categories, projects)
     projects.foreach { project =>
-      val artifact = _project_artifact_path(config, project)
       val articlebody = _source_narrative_html(project.article, locale)
       val page = target.resolve(project.publicationpath).resolve("index.html")
-      val cmlbody = _project_cml_html(project, page, target)
+      val cmlbody = _project_model_terms_html(config, locale, project, page, target)
+      val surfacebody = _project_component_surface_html(locale, project)
+      val dashboardbody = _project_detail_dashboard(config, locale, project)
+      val narrativebody = _project_narrative_html(locale, articlebody)
       val pagebody =
-        s"""<div class="sect1 project-overview">
-           |  <h2>Product</h2>
-           |  <div class="sectionbody">
-           |    <dl>
-           |      <dt>Type</dt><dd>CAR</dd>
-           |      <dt>Module</dt><dd>${_html_escape(project.module)}</dd>
-           |      <dt>Version</dt><dd>${_html_escape(project.version)}</dd>
-           |      <dt>Project</dt><dd>${_html_escape(project.projectref.getOrElse(project.projectmode))}</dd>
-           |      <dt>Artifact status</dt><dd>${if (Files.isRegularFile(artifact)) "published" else "missing"}</dd>
-           |    </dl>
-           |    <p><a href="${_html_escape(_relative_href(target.resolve(project.publicationpath).resolve("index.html"), target.resolve("repository").resolve(project.name).resolve("index.html")))}">Repository artifact metadata</a></p>
-           |  </div>
-           |</div>
+        s"""${dashboardbody}
+           |${surfacebody}
            |${cmlbody}
-           |${articlebody}""".stripMargin
+           |${narrativebody}""".stripMargin
       _write_text(
         page,
-        _special_html_page(
+        _project_html_page(
           config,
           categories,
           locale,
           page,
+          target,
           project.title,
           project.summary.getOrElse("CAR project."),
           pagebody
         )
       )
-      _write_cml_term_pages(config, target, locale, categories, project)
     }
   }
 
@@ -3300,14 +3340,34 @@ private[cozy] object CozyBok {
          |</div>""".stripMargin
     else {
       val categories = projects.groupBy(x => _project_category(config, x)).toVector.sortBy(_._1)
+      val artifactrecords = projects.flatMap(project => _project_artifact_records(config, project))
+      val plannedartifactcount = artifactrecords.size
+      val currentartifactcount = artifactrecords.count(_.exists)
+      val missingartifactcount = plannedartifactcount - currentartifactcount
+      val plannedartifacttypes = _project_artifact_type_counts(artifactrecords)
+      val modecounts = _project_mode_counts(projects)
+      val cmlelementcount = projects.flatMap(_.cml.toVector).map(_.modelElements.size).sum
+      val cmlelementkinds = _project_cml_element_kind_counts(projects)
       val metrics = categories.map {
         case (category, xs) =>
           s"""<div class="bok-metric-card"><div class="bok-metric-label">${_html_escape(category)}</div><div class="bok-metric-value">${xs.size}</div><div class="bok-metric-note">${_html_escape(_ui(locale, "project.metric.note"))}</div></div>"""
       }.mkString("""<div class="bok-dashboard-grid bok-project-metrics">""", "", "</div>")
+      val health = (Vector(
+        s"""<li><span>${_html_escape(_ui(locale, "project.label.distribution.artifacts"))}${_project_artifact_availability_counts_html(locale, currentartifactcount, missingartifactcount)}</span><b>${plannedartifactcount}</b></li>""",
+        s"""<li><span>${_html_escape(_ui(locale, "project.label.artifact.kind.counts"))}${_project_artifact_type_counts_html(locale, plannedartifacttypes)}</span><b>${plannedartifactcount}</b></li>"""
+      ) :+ s"""<li><span>${_html_escape(_ui(locale, "project.label.placement"))}${_project_mode_counts_html(locale, modecounts)}</span><b>${projects.size}</b></li>""" :+ s"""<li><span>${_html_escape(_ui(locale, "project.label.cml.terms"))}${_project_cml_element_kind_counts_html(locale, cmlelementkinds)}</span><b>${cmlelementcount}</b></li>""").mkString("""<ul class="bok-project-health-list">""", "", "</ul>")
       val items = projects.take(30).map { project =>
         val category = _project_category(config, project)
         val summary = project.summary.map(x => s"""<p>${_html_escape(x)}</p>""").getOrElse("")
         val href = _relative_href(page, target.resolve(project.publicationpath).resolve("index.html"))
+        val artifactrecords = _project_artifact_records(config, project)
+        val plannedartifactcount = artifactrecords.size
+        val currentartifactcount = artifactrecords.count(_.exists)
+        val missingartifactcount = plannedartifactcount - currentartifactcount
+        val plannedartifacttypes = _project_artifact_type_counts(artifactrecords)
+        val artifactstatus = _project_artifact_status(config, project)
+        val cmlcount = project.cml.map(_.modelElements.size).getOrElse(0)
+        val cmlkinds = _project_cml_element_kind_counts(Vector(project))
         s"""<article class="bok-project-tile" data-project-category="${_html_escape(category)}">
            |  <div class="bok-project-tile-head">
            |    <span>${_html_escape(project.descriptor.project.projecttype)}</span>
@@ -3315,13 +3375,16 @@ private[cozy] object CozyBok {
            |  </div>
            |  <h3><a href="${_html_escape(href)}">${_html_escape(project.title)}</a></h3>
            |  ${summary}
-           |  <div class="bok-project-meta"><span>${_html_escape(project.version)}</span><span>${_html_escape(project.projectmode)}</span></div>
+           |  <div class="bok-project-meta"><span>${_html_escape(project.version)}</span><span>${_html_escape(_ui(locale, "project.label.placement"))}: ${_html_escape(_project_mode_label(locale, project.projectmode))}</span><span>${_html_escape(_ui(locale, "project.label.distribution.artifacts"))} ${plannedartifactcount}</span><span class="bok-project-status bok-project-status-${_html_escape(_tag_segment(artifactstatus))}">${_html_escape(_ui(locale, "project.label.distributed.artifacts"))} ${currentartifactcount}</span><span>${_html_escape(_ui(locale, "project.label.undistributed.artifacts"))} ${missingartifactcount}</span><span>${_html_escape(_ui(locale, "project.label.cml.terms"))} ${cmlcount}</span></div>
+           |  <div class="bok-project-artifact-kind-line"><span>${_html_escape(_ui(locale, "project.label.artifact.kind.counts"))}</span>${_project_artifact_type_counts_html(locale, plannedartifacttypes)}</div>
+           |  ${_project_cml_element_kind_counts_inline_html(locale, cmlkinds)}
            |</article>""".stripMargin
       }.mkString("""<div class="bok-project-grid">""", "", "</div>")
       s"""<div class="bok-dashboard container-fluid bok-dashboard-command-center">
          |  <div class="row g-3">
-         |    ${_dashboard_card("col-12 col-xl-4", "bok-card-kpi bok-card-project-summary", _ui(locale, "project.metric.summary"), metrics, Vector("reader", "contributor", "project_manager"))}
-         |    ${_dashboard_card("col-12 col-xl-8", "bok-card-map bok-card-project-map", _ui(locale, "project.title"), items, Vector("reader", "contributor", "project_manager"))}
+         |    ${_dashboard_card("col-12 col-xl-6", "bok-card-kpi bok-card-project-summary", _ui(locale, "project.metric.summary"), metrics, Vector("reader", "contributor", "project_manager"))}
+         |    ${_dashboard_card("col-12 col-xl-6", "bok-card-map bok-card-project-health", _ui(locale, "project.card.health"), health, Vector("reader", "contributor", "project_manager"))}
+         |    ${_dashboard_card("col-12", "bok-card-map bok-card-project-map", _ui(locale, "project.title"), items, Vector("reader", "contributor", "project_manager"))}
          |  </div>
          |</div>
          |<script>
@@ -3341,10 +3404,15 @@ private[cozy] object CozyBok {
     if (relative.getNameCount >= 1) relative.getName(0).toString else "project"
   }
 
-  private def _project_artifact_path(config: BuildConfig, project: CozyBokProjectPublisher.ResolvedBokProject): Path = {
+  private final case class ProjectArtifactRecord(artifacttype: String, warehousepath: String, path: Path, exists: Boolean)
+
+  private def _project_artifact_path(config: BuildConfig, project: CozyBokProjectPublisher.ResolvedBokProject): Path =
+    _project_artifact_path(config, project.warehousePath)
+
+  private def _project_artifact_path(config: BuildConfig, warehousepath: String): Path = {
     val repository = config.publication.repositoryPath(config.project)
     val warehouse = config.publication.artifactBasePath(config.project)
-    project.warehousePath match {
+    warehousepath match {
       case "repository" =>
         repository.toAbsolutePath.normalize()
       case path if path.startsWith("repository/") =>
@@ -3354,87 +3422,474 @@ private[cozy] object CozyBok {
     }
   }
 
-  private def _project_cml_html(project: CozyBokProjectPublisher.ResolvedBokProject, page: Path, target: Path): String =
-    project.cml.filter(_.elements.nonEmpty).map { cml =>
-      val rows = cml.elements.map { element =>
-        val href = _relative_href(page, target.resolve(element.glossarypath))
-        val summary = element.descriptive.summary.orElse(element.descriptive.description).getOrElse("")
-        s"""<tr>
-           |  <td>${_html_escape(element.kind)}</td>
-           |  <td>${_html_escape(element.name)}</td>
-           |  <td><a href="${_html_escape(href)}">${_html_escape(element.termid)}</a></td>
-           |  <td>${_html_escape(summary)}</td>
-           |</tr>""".stripMargin
-      }.mkString("\n")
-      val metadata = cml.modelmetadatapath.map(path =>
-        s"""<p class="bok-project-cml-source">Source: ${_html_escape(cml.sourcekind)} <code>${_html_escape(path.getFileName.toString)}</code></p>"""
-      ).getOrElse(s"""<p class="bok-project-cml-source">Source: ${_html_escape(cml.sourcekind)} <code>${_html_escape(cml.sourceprojectrelativepath)}</code></p>""")
-      s"""<div class="sect1 project-cml-glossary">
-         |  <h2>CML Model Vocabulary</h2>
-         |  <div class="sectionbody">
-         |    <p>CMLで定義したEntity, Value, Powertype, StatemachineはBoK用語集と連動する知識要素として扱います。</p>
-         |    ${metadata}
-         |    <table class="table table-sm bok-project-cml-table">
-         |      <thead><tr><th>Kind</th><th>Name</th><th>Glossary term</th><th>Description</th></tr></thead>
-         |      <tbody>
-         |${rows}
-         |      </tbody>
-         |    </table>
+  private def _project_artifact_status(config: BuildConfig, project: CozyBokProjectPublisher.ResolvedBokProject): String =
+    if (project.reference.isSourceOnly) "source-only"
+    else if (Files.isRegularFile(_project_artifact_path(config, project))) "published"
+    else "missing"
+
+  private def _project_artifact_records(config: BuildConfig, project: CozyBokProjectPublisher.ResolvedBokProject): Vector[ProjectArtifactRecord] = {
+    val paths = project.catalog.map { info =>
+      info.catalog.versions.map { version =>
+        version.file.getOrElse(s"repository/car/${project.module}/${version.version}/${project.module}-${version.version}.car")
+      }
+    }.getOrElse(Vector(project.warehousePath))
+    paths.distinct.map { warehousepath =>
+      val path = _project_artifact_path(config, warehousepath)
+      ProjectArtifactRecord(_project_artifact_type(warehousepath), warehousepath, path, Files.isRegularFile(path))
+    }
+  }
+
+  private def _project_artifact_type(warehousepath: String): String = {
+    val name = Paths.get(warehousepath).getFileName.toString.toLowerCase(Locale.ROOT)
+    if (name.endsWith(".jar")) "jar"
+    else if (name.endsWith(".sar")) "sar"
+    else if (name.endsWith(".car")) "car"
+    else "other"
+  }
+
+  private def _project_artifact_type_counts(records: Vector[ProjectArtifactRecord]): Vector[(String, Int)] = {
+    val grouped = records.groupBy(_.artifacttype).map {
+      case (kind, xs) => kind -> xs.size
+    }
+    _project_artifact_type_order.map(kind => kind -> grouped.getOrElse(kind, 0)).toVector
+  }
+
+  private val _project_artifact_type_order: Vector[String] =
+    Vector("car", "sar", "jar")
+
+  private def _project_artifact_type_counts_html(locale: String, counts: Vector[(String, Int)]): String =
+    counts.map {
+      case (kind, count) =>
+        s"""<span>${_html_escape(_project_artifact_type_label(kind))} ${count}</span>"""
+    }.mkString(s"""<span class="bok-project-artifact-kind-counts" aria-label="${_html_escape(_ui(locale, "project.label.artifact.kind.counts"))}">""", "", "</span>")
+
+  private def _project_artifact_type_label(kind: String): String =
+    kind.toUpperCase(Locale.ROOT)
+
+  private def _project_artifact_availability_counts_html(locale: String, distributed: Int, undistributed: Int): String =
+    Vector(
+      _ui(locale, "project.label.distributed.artifacts") -> distributed,
+      _ui(locale, "project.label.undistributed.artifacts") -> undistributed
+    ).map {
+      case (label, count) =>
+        s"""<span>${_html_escape(label)} ${count}</span>"""
+    }.mkString(s"""<span class="bok-project-artifact-availability-counts" aria-label="${_html_escape(_ui(locale, "project.label.distribution.availability"))}">""", "", "</span>")
+
+  private def _project_artifact_status_label(locale: String, status: String): String =
+    status match {
+      case "published" => _ui(locale, "project.status.published")
+      case "missing" => _ui(locale, "project.status.missing")
+      case "source-only" => _ui(locale, "project.status.source.only")
+      case other => other
+    }
+
+  private def _project_artifact_status_summary_label(locale: String, status: String): String =
+    status match {
+      case "published" => _ui(locale, "project.status.summary.published")
+      case "missing" => _ui(locale, "project.status.summary.missing")
+      case "source-only" => _ui(locale, "project.status.summary.source.only")
+      case other => other
+    }
+
+  private def _project_artifact_status_fact_label(locale: String, status: String): String =
+    status match {
+      case "published" => _ui(locale, "project.status.fact.published")
+      case "missing" => _ui(locale, "project.status.fact.missing")
+      case "source-only" => _ui(locale, "project.status.fact.source.only")
+      case other => other
+    }
+
+  private def _project_mode_label(locale: String, mode: String): String =
+    mode match {
+      case "external" => _ui(locale, "project.mode.external")
+      case "internal" => _ui(locale, "project.mode.internal")
+      case "local" => _ui(locale, "project.mode.internal")
+      case other => other
+    }
+
+  private def _project_mode_counts(projects: Vector[CozyBokProjectPublisher.ResolvedBokProject]): Vector[(String, Int)] = {
+    val grouped = projects.groupBy(_.projectmode).map {
+      case (mode, xs) => mode -> xs.size
+    }
+    _project_mode_order.map(mode => mode -> grouped.getOrElse(mode, 0)).toVector
+  }
+
+  private val _project_mode_order: Vector[String] =
+    Vector("internal", "external")
+
+  private def _project_mode_counts_html(locale: String, counts: Vector[(String, Int)]): String =
+    counts.map {
+      case (mode, count) =>
+        s"""<span>${_html_escape(_project_mode_label(locale, mode))} ${count}</span>"""
+    }.mkString(s"""<span class="bok-project-mode-counts" aria-label="${_html_escape(_ui(locale, "project.label.placement"))}">""", "", "</span>")
+
+  private def _project_cml_element_kind_counts(projects: Vector[CozyBokProjectPublisher.ResolvedBokProject]): Vector[(String, Int)] =
+    projects.flatMap(_.cml.toVector).flatMap(_.modelElements).groupBy(_.kind).toVector.map {
+      case (kind, xs) => kind -> xs.size
+    }.sortBy(_._1)
+
+  private def _project_cml_element_kind_counts_html(locale: String, counts: Vector[(String, Int)]): String =
+    if (counts.isEmpty)
+      ""
+    else
+      counts.map {
+        case (kind, count) =>
+          s"""<span>${_html_escape(_project_cml_element_kind_label(kind))} ${count}</span>"""
+      }.mkString(s"""<span class="bok-project-cml-kind-counts" aria-label="${_html_escape(_ui(locale, "project.label.cml.kind.counts"))}">""", "", "</span>")
+
+  private def _project_cml_element_kind_label(kind: String): String =
+    kind.split("[-_]").filter(_.nonEmpty).map { part =>
+      part.head.toUpper + part.tail
+    }.mkString(" ")
+
+  private def _project_cml_element_kind_counts_inline_html(locale: String, counts: Vector[(String, Int)]): String =
+    if (counts.isEmpty)
+      ""
+    else
+      s"""<div class="bok-project-cml-kind-line"><span>${_html_escape(_ui(locale, "project.label.cml.kind.counts"))}</span>${_project_cml_element_kind_counts_html(locale, counts)}</div>"""
+
+  private def _project_artifact_records_html(locale: String, planned: Vector[ProjectArtifactRecord], current: Vector[ProjectArtifactRecord]): String = {
+    val plannedcounts = _project_artifact_type_counts(planned)
+    val currentcounts = _project_artifact_type_counts(current)
+    val planneditems =
+      if (planned.isEmpty)
+        s"""<li>${_html_escape(_ui(locale, "project.artifacts.none.planned"))}</li>"""
+      else
+        planned.map(record => s"""<li><code>${_html_escape(record.warehousepath)}</code></li>""").mkString
+    val currentitems =
+      if (current.isEmpty)
+        s"""<li>${_html_escape(_ui(locale, "project.artifacts.none.current"))}</li>"""
+      else
+        current.map(record => s"""<li><code>${_html_escape(record.warehousepath)}</code></li>""").mkString
+    s"""<div class="bok-project-artifact-lists">
+       |  <div><h4>${_html_escape(_ui(locale, "project.label.planned.artifacts"))}</h4><div class="bok-project-artifact-kind-line"><span>${_html_escape(_ui(locale, "project.label.planned.artifact.kind.counts"))}</span>${_project_artifact_type_counts_html(locale, plannedcounts)}</div><ul>${planneditems}</ul></div>
+       |  <div><h4>${_html_escape(_ui(locale, "project.label.current.artifacts"))}</h4><div class="bok-project-artifact-kind-line"><span>${_html_escape(_ui(locale, "project.label.current.artifact.kind.counts"))}</span>${_project_artifact_type_counts_html(locale, currentcounts)}</div><ul>${currentitems}</ul></div>
+       |</div>""".stripMargin
+  }
+
+  private def _project_detail_dashboard(
+    config: BuildConfig,
+    locale: String,
+    project: CozyBokProjectPublisher.ResolvedBokProject
+  ): String = {
+    val artifactrecords = _project_artifact_records(config, project)
+    val plannedartifacts = artifactrecords
+    val currentartifacts = artifactrecords.filter(_.exists)
+    val missingartifactcount = plannedartifacts.size - currentartifacts.size
+    val cmlcount = project.cml.map(_.modelElements.size).getOrElse(0)
+    val cmlkinds = _project_cml_element_kind_counts(Vector(project))
+    val source = project.projectref.getOrElse(project.projectmode)
+    val facts = Vector(
+      _ui(locale, "project.label.type") -> project.descriptor.project.projecttype,
+      _ui(locale, "project.label.version") -> project.version,
+      _ui(locale, "project.label.distribution.artifacts") -> plannedartifacts.size.toString,
+      _ui(locale, "project.label.distributed.artifacts") -> currentartifacts.size.toString,
+      _ui(locale, "project.label.undistributed.artifacts") -> missingartifactcount.toString,
+      _ui(locale, "project.label.cml.terms") -> cmlcount.toString
+    ).map {
+      case (label, value) =>
+        s"""<span class="bok-project-fact"><strong>${_html_escape(value)}</strong><em>${_html_escape(label)}</em></span>"""
+    }.mkString
+    val sourceonlynotice =
+      if (project.reference.isSourceOnly)
+        s"""<p class="bok-project-source-only-note">${_html_escape(_ui(locale, "project.artifacts.source.only"))}</p>"""
+      else
+        ""
+    val product =
+      s"""<dl class="bok-project-detail-dl">
+         |  <dt>${_html_escape(_ui(locale, "project.label.module"))}</dt><dd><code>${_html_escape(project.module)}</code></dd>
+         |  <dt>${_html_escape(_ui(locale, "project.label.placement"))}</dt><dd>${_html_escape(_project_mode_label(locale, project.projectmode))}</dd>
+         |  <dt>${_html_escape(_ui(locale, "project.label.source.project"))}</dt><dd>${_html_escape(source)}</dd>
+         |  <dt>${_html_escape(_ui(locale, "project.label.version.source"))}</dt><dd>${_html_escape(project.versionsource)}</dd>
+         |  <dt>${_html_escape(_ui(locale, "project.label.package"))}</dt><dd><code>${_html_escape(config.sourcepath.relativize(project.packagedir).toString.replace(java.io.File.separatorChar, '/'))}</code></dd>
+         |</dl>
+         |${sourceonlynotice}
+         |${_project_artifact_records_html(locale, plannedartifacts, currentartifacts)}
+         |${_project_cml_element_kind_counts_inline_html(locale, cmlkinds)}""".stripMargin
+    s"""<section class="bok-project-detail-dashboard" id="project-dashboard">
+       |  <div class="bok-project-detail-hero">
+       |    <div>
+       |      <p class="bok-dashboard-eyebrow">${_html_escape(_ui(locale, "project.card.dashboard"))}</p>
+       |      <h2>${_html_escape(project.title)}</h2>
+       |      <p>${_html_escape(project.summary.getOrElse("CAR project."))}</p>
+       |    </div>
+       |    <div class="bok-project-facts">${facts}</div>
+       |  </div>
+       |  <div class="bok-dashboard container-fluid bok-dashboard-command-center">
+       |    <div class="row g-3">
+       |      ${_dashboard_card("col-12", "bok-card-map bok-card-project-overview", _ui(locale, "project.card.product.metadata"), product, Vector("reader", "contributor", "project_manager"))}
+       |    </div>
+       |  </div>
+       |</section>""".stripMargin
+  }
+
+  private def _project_component_surface_html(locale: String, project: CozyBokProjectPublisher.ResolvedBokProject): String = {
+    def operationItems(xs: Vector[CozyBokProjectPublisher.CmlOperationSurface]): String =
+      if (xs.isEmpty)
+        s"""<p class="bok-project-empty-note">${_html_escape(_ui(locale, "project.surface.no.operations"))}</p>"""
+      else
+        xs.map { element =>
+          val summary = _project_descriptive_summary(element.descriptive)
+          val function = _project_operation_function(locale, element)
+          val functionhtml = if (function.isEmpty) "" else s"""<span><code>${_html_escape(function)}</code></span>"""
+          val summaryhtml = if (summary.isEmpty) "" else s"""<span>${_html_escape(summary)}</span>"""
+          s"""<li><strong>${_html_escape(element.name)}</strong>${functionhtml}${summaryhtml}</li>"""
+        }.mkString("""<ul class="bok-project-operation-list">""", "", "</ul>")
+    def serviceNode(service: CozyBokProjectPublisher.CmlServiceSurface): String = {
+      val summary = service.descriptive.summary.orElse(service.descriptive.brief).orElse(service.descriptive.description).getOrElse("")
+      s"""<li class="bok-project-service-node">
+         |  <div class="bok-project-node-head"><span>Service</span><strong>${_html_escape(service.name)}</strong></div>
+         |  ${if (summary.isEmpty) "" else s"""<p>${_html_escape(summary)}</p>"""}
+         |  <div class="bok-project-operation-branch">
+         |    <div class="bok-project-node-head bok-project-node-head-sub"><span>Operation</span></div>
+         |    ${operationItems(service.operations)}
          |  </div>
-         |</div>""".stripMargin
+         |</li>""".stripMargin
+    }
+    def componentTree(component: CozyBokProjectPublisher.CmlComponentSurface): String = {
+      val summary = component.descriptive.summary.orElse(component.descriptive.brief).orElse(component.descriptive.description).getOrElse("")
+      val servicebranch =
+        if (component.services.isEmpty)
+          s"""<div class="bok-project-service-branch">
+             |  <div class="bok-project-node-head bok-project-node-head-sub"><span>Service</span></div>
+             |  <p class="bok-project-empty-note">${_html_escape(_ui(locale, "project.surface.no.services"))}</p>
+             |</div>""".stripMargin
+        else
+          component.services.map(serviceNode).mkString("""<ul class="bok-project-service-branch">""", "", "</ul>")
+      s"""<article class="bok-project-component-tree">
+         |  <div class="bok-project-node-head"><span>Component</span><strong><code>${_html_escape(component.name)}</code></strong></div>
+         |  ${if (summary.isEmpty) "" else s"""<p>${_html_escape(summary)}</p>"""}
+         |  ${servicebranch}
+         |</article>""".stripMargin
+    }
+    val surface = project.cml.flatMap(_.surface.component).map(componentTree).getOrElse {
+      s"""<article class="bok-project-component-tree">
+         |  <div class="bok-project-node-head"><span>Component</span><strong><code>${_html_escape(project.module)}</code></strong></div>
+         |  <p class="bok-project-empty-note">${_html_escape(_ui(locale, "project.surface.no.component"))}</p>
+         |</article>""".stripMargin
+    }
+    s"""<section class="bok-project-section bok-project-surface" id="project-surface">
+       |  <div class="bok-project-section-head">
+       |    <h2>${_html_escape(_ui(locale, "project.section.surface"))}</h2>
+       |    <p>${_html_escape(_ui(locale, "project.section.surface.description"))}</p>
+       |  </div>
+       |  ${surface}
+       |</section>""".stripMargin
+  }
+
+  private final case class ProjectCmlTermRow(
+    kind: String,
+    name: String,
+    terms: Vector[TermEntry],
+    function: String,
+    summary: String
+  )
+
+  private def _project_model_terms_html(config: BuildConfig, locale: String, project: CozyBokProjectPublisher.ResolvedBokProject, page: Path, target: Path): String =
+    project.cml.map { cml =>
+      val terms = _terms(config)
+      val termrows = _project_cml_term_rows(locale, cml, terms)
+      val linkedcount = termrows.count(_.terms.nonEmpty)
+      val unlinkedcount = termrows.size - linkedcount
+      def row_html(row: ProjectCmlTermRow, includesignature: Boolean): String = {
+        val termhtml =
+          if (row.terms.isEmpty)
+            s"""<span class="bok-project-unlinked-term">-</span>"""
+          else
+            row.terms.map { term =>
+              val href = _relative_href(page, target.resolve(term.publicpath))
+              s"""<a href="${_html_escape(href)}">${_html_escape(term.title)}</a>"""
+            }.mkString("""<span class="bok-project-linked-terms">""", "", "</span>")
+        val signaturecell =
+          if (includesignature)
+            s"""  <td>${_html_escape(row.function)}</td>
+               |""".stripMargin
+          else
+            ""
+        s"""<tr>
+           |  <td>${_html_escape(row.name)}</td>
+           |  <td>${termhtml}</td>
+           |${signaturecell}  <td>${_html_escape(row.summary)}</td>
+           |</tr>""".stripMargin
+      }
+      val preferredkinds = Vector("Component", "Service", "Operation", "Entity")
+      val actualkinds = termrows.map(_.kind).distinct
+      val tabkinds = preferredkinds.filter(actualkinds.contains) ++ actualkinds.filterNot(preferredkinds.contains)
+      val initialkind = tabkinds.find(_ == "Entity").orElse(tabkinds.headOption)
+      val tabbuttons = tabkinds.map { kind =>
+          val rows = termrows.filter(_.kind == kind)
+          val termcount = rows.flatMap(_.terms.map(_.id)).distinct.size
+          val modelcount = rows.size
+          val active = initialkind.contains(kind)
+          val tabid = s"project-cml-tab-${_tag_segment(kind)}"
+          val panelid = s"project-cml-panel-${_tag_segment(kind)}"
+          s"""<button type="button" role="tab" id="${_html_escape(tabid)}" aria-selected="${active}" aria-controls="${_html_escape(panelid)}" class="${if (active) "is-active" else ""}" data-project-cml-tab="${_html_escape(kind)}">${_html_escape(kind)}(${termcount}/${modelcount})</button>"""
+      }.mkString("\n")
+      val tabpanels = tabkinds.map { kind =>
+          val includesignature = kind == "Operation"
+          val rows = termrows.filter(_.kind == kind).map(row_html(_, includesignature)).mkString("\n")
+          val headers =
+            if (includesignature)
+              s"""<th>${_html_escape(_ui(locale, "project.model.name"))}</th><th>${_html_escape(_ui(locale, "project.model.term"))}</th><th>${_html_escape(_ui(locale, "project.model.function"))}</th><th>${_html_escape(_ui(locale, "project.model.description"))}</th>"""
+            else
+              s"""<th>${_html_escape(_ui(locale, "project.model.name"))}</th><th>${_html_escape(_ui(locale, "project.model.term"))}</th><th>${_html_escape(_ui(locale, "project.model.description"))}</th>"""
+          val active = initialkind.contains(kind)
+          val tabid = s"project-cml-tab-${_tag_segment(kind)}"
+          val panelid = s"project-cml-panel-${_tag_segment(kind)}"
+          s"""<section id="${_html_escape(panelid)}" class="bok-project-cml-tab-panel ${if (active) "is-active" else ""}" role="tabpanel" aria-labelledby="${_html_escape(tabid)}" data-project-cml-panel="${_html_escape(kind)}"${if (active) "" else " hidden"}>
+             |  <div class="bok-project-table-wrap">
+             |    <table class="table table-sm bok-project-cml-table">
+             |      <thead><tr>${headers}</tr></thead>
+             |      <tbody>
+             |${rows}
+             |      </tbody>
+             |    </table>
+             |  </div>
+             |</section>""".stripMargin
+      }.mkString("\n")
+      val summarycards =
+        s"""<div class="bok-project-cml-link-summary">
+           |  <article class="bok-project-cml-summary-card bok-project-cml-summary-total">
+           |    <strong>${termrows.size}</strong>
+           |    <span>${_html_escape(_ui(locale, "project.model.count.total"))}</span>
+           |  </article>
+           |  <article class="bok-project-cml-summary-card bok-project-cml-summary-breakdown">
+           |    <span>${_html_escape(_ui(locale, "project.model.count.term.links"))}</span>
+           |    <dl>
+           |      <dt>${_html_escape(_ui(locale, "project.model.count.linked"))}</dt><dd>${linkedcount}</dd>
+           |      <dt>${_html_escape(_ui(locale, "project.model.count.unlinked"))}</dt><dd>${unlinkedcount}</dd>
+           |    </dl>
+           |  </article>
+           |</div>""".stripMargin
+      val sources = _project_cml_source_cards(locale, cml)
+      if (termrows.isEmpty)
+        ""
+      else
+        s"""<section class="bok-project-section project-cml-glossary" id="project-model-terms">
+           |  <div class="bok-project-section-head">
+           |    <h2>${_html_escape(_ui(locale, "project.section.model.terms"))}</h2>
+           |    <p>${_html_escape(_ui(locale, "project.section.model.terms.description"))}</p>
+           |  </div>
+           |  ${summarycards}
+           |  ${sources}
+           |  <div class="bok-project-cml-tabs" data-project-cml-tabs>
+           |    <div class="bok-project-cml-tablist" role="tablist" aria-label="${_html_escape(_ui(locale, "project.section.model.terms"))}">
+           |${tabbuttons}
+           |    </div>
+           |${tabpanels}
+           |  </div>
+           |  <script>
+           |(() => {
+           |  document.querySelectorAll('[data-project-cml-tabs]').forEach((root) => {
+           |    const tabs = Array.from(root.querySelectorAll('[data-project-cml-tab]'));
+           |    const panels = Array.from(root.querySelectorAll('[data-project-cml-panel]'));
+           |    tabs.forEach((tab) => {
+           |      tab.addEventListener('click', () => {
+           |        const name = tab.dataset.projectCmlTab;
+           |        tabs.forEach((x) => {
+           |          const active = x === tab;
+           |          x.classList.toggle('is-active', active);
+           |          x.setAttribute('aria-selected', active ? 'true' : 'false');
+           |        });
+           |        panels.forEach((panel) => {
+           |          const active = panel.dataset.projectCmlPanel === name;
+           |          panel.classList.toggle('is-active', active);
+           |          panel.hidden = !active;
+           |        });
+           |      });
+           |    });
+           |  });
+           |})();
+           |  </script>
+           |</section>""".stripMargin
     }.getOrElse("")
 
-  private def _write_cml_term_pages(
-    config: BuildConfig,
-    target: Path,
-    locale: String,
-    categories: Vector[CategoryContent],
-    project: CozyBokProjectPublisher.ResolvedBokProject
-  ): Unit =
-    project.cml.foreach { cml =>
-      cml.elements.foreach { element =>
-        val page = target.resolve(element.glossarypath)
-        if (!Files.exists(page)) {
-          val projecthref = _relative_href(page, target.resolve(project.publicationpath).resolve("index.html"))
-          val rdfhref = _relative_href(page, target.resolve("rdf").resolve("index.html")) + s"?term=${_html_escape(element.termid)}"
-          val description = element.descriptive.description.orElse(element.descriptive.summary).orElse(element.descriptive.brief)
-          val descriptive =
-            description.map(text =>
-              s"""<div class="bok-term-cml-description"><h2>Descriptive Attributes</h2><p>${_html_escape(text)}</p></div>"""
-            ).getOrElse("")
-          val narrative =
-            element.narrative.map(text =>
-              s"""<div class="bok-term-cml-narrative"><h2>CML-derived narrative</h2><p>${_html_escape(text)}</p></div>"""
-            ).getOrElse("")
-          val body =
-            s"""<div class="bok-term-hub bok-term-generated-from-cml">
-               |  <div class="alert alert-warning">Status: generated-from-cml / needs-curation. Hand-written glossary terms take precedence when available.</div>
-               |  <dl>
-               |    <dt>Term ID</dt><dd>${_html_escape(element.termid)}</dd>
-               |    <dt>CML kind</dt><dd>${_html_escape(element.kind)}</dd>
-               |    <dt>${_html_escape(_ui(locale, "term.analysis.kind"))}</dt><dd>${_html_escape(_mono_koto_label(_cml_analysis_kind(element.kind), locale))}</dd>
-               |    <dt>${_html_escape(_ui(locale, "term.analysis.cml.linkage"))}</dt><dd>${_html_escape(element.name)}</dd>
-               |    <dt>CAR project</dt><dd><a href="${_html_escape(projecthref)}">${_html_escape(project.title)}</a></dd>
-               |  </dl>
-               |  ${descriptive}
-               |  ${narrative}
-               |  <p><a class="btn btn-sm btn-outline-primary" href="${_html_escape(rdfhref)}">RDF graph</a></p>
-               |</div>""".stripMargin
-          _write_text(
-            page,
-            _special_html_page(
-              config,
-              categories,
-              locale,
-              page,
-              element.descriptive.label,
-              description.getOrElse("CML-derived glossary term."),
-              body
-            )
+  private def _project_cml_source_cards(locale: String, cml: CozyBokProjectPublisher.ProjectCmlInfo): String = {
+    val path = cml.sourceprojectrelativepath
+    val name = Option(java.nio.file.Paths.get(path).getFileName).map(_.toString).getOrElse(path)
+    s"""<div class="bok-project-cml-sources" aria-label="${_html_escape(_ui(locale, "project.model.source.title"))}">
+       |  <article class="bok-project-cml-source-card">
+       |    <span>${_html_escape(_ui(locale, "project.model.source.title"))}</span>
+       |    <strong>${_html_escape(name)}</strong>
+       |    <code>${_html_escape(path)}</code>
+       |  </article>
+       |</div>""".stripMargin
+  }
+
+  private def _project_cml_term_rows(locale: String, cml: CozyBokProjectPublisher.ProjectCmlInfo, terms: Vector[TermEntry]): Vector[ProjectCmlTermRow] = {
+    def linkedterms(kind: String, name: String): Vector[TermEntry] =
+      terms.filter(term => term.cmlLinks.exists(link => _project_cml_link_matches(link, kind, name)))
+    val surface = cml.surface.component.toVector.flatMap { component =>
+      val componentrow = ProjectCmlTermRow(
+        "Component",
+        component.name,
+        linkedterms("component", component.name),
+        "",
+        _project_descriptive_summary(component.descriptive)
+      )
+      val servicerows = component.services.flatMap { service =>
+        val servicerow = ProjectCmlTermRow(
+          "Service",
+          service.name,
+          linkedterms("service", service.name),
+          "",
+          _project_descriptive_summary(service.descriptive)
+        )
+        val operationrows = service.operations.map { operation =>
+          ProjectCmlTermRow(
+            "Operation",
+            operation.name,
+            linkedterms("operation", operation.name),
+            _project_operation_function(locale, operation),
+            _project_descriptive_summary(operation.descriptive)
           )
         }
+        servicerow +: operationrows
       }
+      componentrow +: servicerows
     }
+    val model = cml.modelElements.map { element =>
+      ProjectCmlTermRow(
+        _project_cml_element_kind_label(element.kind),
+        element.name,
+        linkedterms(element.kind, element.name),
+        "",
+        _project_descriptive_summary(element.descriptive)
+      )
+    }
+    surface ++ model
+  }
+
+  private def _project_descriptive_summary(descriptive: CozyBokProjectPublisher.CmlDescriptive): String =
+    descriptive.summary.orElse(descriptive.description).orElse(descriptive.brief).getOrElse("")
+
+  private def _project_operation_function(locale: String, operation: CozyBokProjectPublisher.CmlOperationSurface): String = {
+    val input = operation.inputtype.getOrElse(_ui(locale, "project.surface.operation.input.unspecified"))
+    val output = operation.outputtype.getOrElse(_ui(locale, "project.surface.operation.output.unspecified"))
+    operation.operationtype match {
+      case Some(kind) => s"${kind}: ${input} -> ${output}"
+      case None => s"${input} -> ${output}"
+    }
+  }
+
+  private def _project_cml_link_matches(link: TermCmlLink, kind: String, name: String): Boolean = {
+    def normalize(x: String): String =
+      x.trim.toLowerCase(Locale.ROOT).replace("_", "-")
+    normalize(link.kind) == normalize(kind) && normalize(link.value) == normalize(name)
+  }
+
+  private def _project_narrative_html(locale: String, articlebody: String): String =
+    if (articlebody.trim.isEmpty)
+      ""
+    else
+      s"""<section class="bok-project-section bok-project-narrative" id="project-narrative">
+         |  <div class="bok-project-section-head">
+         |    <h2>${_html_escape(_ui(locale, "project.section.narrative"))}</h2>
+         |  </div>
+         |  <div class="bok-project-narrative-body">
+         |${articlebody}
+         |  </div>
+         |</section>""".stripMargin
 
   private def _copy_machine_metadata_artifacts(config: BuildConfig, target: Path): Unit = {
     _copy_if_exists(config.doxsitePath.resolve("site.ttl"), target.resolve("rdf").resolve("site.ttl"))
@@ -3465,18 +3920,18 @@ private[cozy] object CozyBok {
     languagerootprefix: String,
     locale: String
   ): String = {
-    val categorycount = categories.size
-    val categorieswithterms = terms.flatMap(_.category).distinct.size
-    val summary =
-      s"""<p>${_html_escape(_ui(locale, "term.dashboard.description"))}</p>
-         |<p>${_html_escape(_ui(locale, "term.dashboard.source.path"))} <code>glossary/&lt;category&gt;/</code></p>
-         |${_glossary_metric_cards(categorycount, categorieswithterms, terms.size)}
-         |${_term_type_summary_cards(locale, terms)}
-         |${_mono_koto_summary_cards(locale, terms)}""".stripMargin
+    val dashboard = _dashboard(config)
+    val projects = _safe_resolved_project_packages(config)
     s"""<div class="bok-dashboard container-fluid bok-dashboard-command-center bok-term-dashboard">
        |  <div class="row g-3">
-       |    ${_dashboard_card("col-12 col-xl-4", "bok-card-kpi bok-card-glossary-summary", _ui(locale, "term.dashboard.title"), summary, Vector("reader", "contributor", "project_manager"))}
-       |    ${_dashboard_card("col-12 col-xl-8", "bok-card-map bok-card-glossary-map", _ui(locale, "term.dashboard.title"), s"""<div id="term-groups">${_term_group_cards(locale, terms, categories)}</div>""", Vector("reader", "contributor", "project_manager"))}
+       |    ${_dashboard_card("col-12", "bok-card-kpi bok-card-glossary-summary", _ui(locale, "term.dashboard.summary.title"), _glossary_metric_cards(locale, categories.size, categories.count(_.terms.nonEmpty), terms), Vector("reader", "contributor", "project_manager"))}
+       |    ${_dashboard_card("col-12", "bok-card-map bok-card-mono-koto-workflow", _ui(locale, "term.analysis.workflow.title"), _glossary_mono_koto_workflow(config, locale, terms), Vector("reader", "contributor", "project_manager"))}
+       |    ${_dashboard_card("col-12", "bok-card-map bok-card-glossary-analysis-routes", _ui(locale, "term.analysis.routes"), _glossary_type_analysis_routes(locale, terms), Vector("reader", "contributor", "project_manager"))}
+       |    ${_dashboard_card("col-12 col-xl-6", "bok-card-map bok-card-glossary-usage", _ui(locale, "term.usage.title"), _glossary_usage_card(locale, terms), Vector("reader", "contributor", "project_manager"))}
+       |    ${_dashboard_card("col-12 col-xl-6", "bok-card-map bok-card-glossary-rdf", _ui(locale, "term.rdf.connection.title"), s"""<div id="term-rdf-connections">${_glossary_rdf_connection_card(locale, terms, dashboard)}</div>""", Vector("reader", "contributor", "project_manager"))}
+       |    ${_dashboard_card("col-12 col-xl-6", "bok-card-map bok-card-glossary-project", _ui(locale, "term.project.connection.title"), s"""<div id="term-project-connections">${_glossary_project_connection_card(locale, terms, projects)}</div>""", Vector("reader", "contributor", "project_manager"))}
+       |    ${_dashboard_card("col-12", "bok-card-map bok-card-glossary-type-issues", _ui(locale, "term.analysis.missing"), s"""<div id="term-issue-list">${_glossary_type_issue_terms(locale, terms)}</div>""", Vector("contributor", "project_manager"))}
+       |    ${_dashboard_card("col-12", "bok-card-map bok-card-glossary-map", _ui(locale, "term.dashboard.groups.title"), s"""<div id="term-groups">${_term_group_cards(locale, terms, categories)}</div>""", Vector("reader", "contributor", "project_manager"))}
        |    ${_dashboard_card("col-12 col-md-6", "bok-card-map bok-card-glossary-language", _ui(locale, "term.language.index"), s"""<div id="language-index">${_glossary_language_links(config, languagerootprefix)}</div>""", Vector("reader"))}
        |    ${_dashboard_card("col-12 col-md-6", "bok-card-activity bok-card-glossary-recent", _ui(locale, "term.recent"), s"""<div id="recent-terms">${_glossary_recent_terms(terms)}</div>""", Vector("reader", "contributor"))}
        |  </div>
@@ -3601,6 +4056,12 @@ private[cozy] object CozyBok {
        |  </div>
        |</div>""".stripMargin
 
+  private def _manual_body_with_anchors(body: String): String =
+    body.replace(
+      "<h3>Glossary Term Classification</h3>",
+      """<h3 id="glossary-term-classification">Glossary Term Classification</h3>"""
+    )
+
   private def _rdf_dedicated_page(
     config: BuildConfig,
     categories: Vector[CategoryContent],
@@ -3696,12 +4157,14 @@ private[cozy] object CozyBok {
        |      <a href="../metadata/rdf/graph.json">graph.json</a>
        |    </div>
        |  </div>
-       |  <div class="bok-rdf-toolbar">
+       |  <div class="bok-rdf-tabbar">
        |    <div class="bok-rdf-view-switch" role="tablist" aria-label="RDF views">
        |      <button class="is-active" type="button" role="tab" aria-selected="true" aria-controls="bok-rdf-panel-graph" data-rdf-view="graph">${_html_escape(_ui(locale, "rdf.graph.view.graph"))}</button>
-       |      <button type="button" role="tab" aria-selected="false" aria-controls="bok-rdf-panel-information" data-rdf-view="information">${_html_escape(_ui(locale, "rdf.graph.view.information"))}</button>
+       |      <button type="button" role="tab" aria-selected="false" aria-controls="bok-rdf-panel-nodes" data-rdf-view="nodes">${_html_escape(_ui(locale, "rdf.graph.view.nodes"))}</button>
        |      <button type="button" role="tab" aria-selected="false" aria-controls="bok-rdf-panel-triples" data-rdf-view="triples">${_html_escape(_ui(locale, "rdf.graph.view.triples"))}</button>
        |    </div>
+       |  </div>
+       |  <div class="bok-rdf-filterbar">
        |    <label>${_html_escape(_ui(locale, "rdf.graph.category.filter"))}<input id="bok-rdf-category-filter" type="text" placeholder="category"></label>
        |    <label>${_html_escape(_ui(locale, "rdf.graph.term.filter"))}<input id="bok-rdf-term-filter" type="text" placeholder="term"></label>
        |    <span id="bok-rdf-viewer-status">${_html_escape(_ui(locale, "rdf.graph.loading"))}</span>
@@ -3711,9 +4174,9 @@ private[cozy] object CozyBok {
        |      <h2 class="bok-rdf-panel-title">${_html_escape(_ui(locale, "rdf.graph.view.graph"))}</h2>
        |      <div id="bok-rdf-viewer-graph" class="bok-rdf-viewer-graph"></div>
        |    </section>
-       |    <section id="bok-rdf-panel-information" class="bok-rdf-panel bok-rdf-panel-information" data-rdf-panel="information" role="tabpanel" aria-label="${_html_escape(_ui(locale, "rdf.graph.view.information"))}">
-       |      <h2 class="bok-rdf-panel-title">${_html_escape(_ui(locale, "rdf.graph.view.information"))}</h2>
-       |      <div id="bok-rdf-information-view" class="bok-rdf-information-view"></div>
+       |    <section id="bok-rdf-panel-nodes" class="bok-rdf-panel bok-rdf-panel-nodes" data-rdf-panel="nodes" role="tabpanel" aria-label="${_html_escape(_ui(locale, "rdf.graph.view.nodes"))}">
+       |      <h2 class="bok-rdf-panel-title">${_html_escape(_ui(locale, "rdf.graph.view.nodes"))}</h2>
+       |      <div id="bok-rdf-node-list-view" class="bok-rdf-node-list-view"></div>
        |    </section>
        |    <section id="bok-rdf-panel-triples" class="bok-rdf-panel bok-rdf-panel-triples" data-rdf-panel="triples" role="tabpanel" aria-label="${_html_escape(_ui(locale, "rdf.graph.view.triples"))}">
        |      <div class="bok-rdf-triples-header">
@@ -4036,7 +4499,7 @@ private[cozy] object CozyBok {
        |  const graphStatus = document.getElementById('bok-rdf-viewer-status');
        |  const triplesTarget = document.getElementById('bok-rdf-triples-view');
        |  const triplesStatus = document.getElementById('bok-rdf-triples-status');
-       |  const informationTarget = document.getElementById('bok-rdf-information-view');
+       |  const nodeListTarget = document.getElementById('bok-rdf-node-list-view');
        |  const input = document.getElementById('bok-rdf-category-filter');
        |  const termInput = document.getElementById('bok-rdf-term-filter');
        |  if (!root || !graphTarget || !graphStatus) return;
@@ -4159,11 +4622,6 @@ private[cozy] object CozyBok {
       '</div>' +
       '<div class="bok-rdf-graph-layout">' +
         '<div class="bok-rdf-graph-canvas" data-rdf-graph-canvas="true"></div>' +
-        '<div class="bok-rdf-graph-detail"><h2>Nodes</h2><div class="bok-rdf-node-cloud">' + visibleNodes.map(function(node) {
-          const degree = node.degree == null ? '-' : node.degree;
-          const role = focusGraph.roles[node.id] || 'normal';
-          return '<button type="button" class="bok-rdf-node bok-rdf-node-' + escapeHtml(cssName(node.node_type || node.type || 'unknown')) + ' bok-rdf-node-role-' + escapeHtml(role) + '" data-rdf-focus-node="' + escapeHtml(node.id) + '"><strong>' + escapeHtml(compactNodeLabel(node)) + '</strong><em>' + escapeHtml(node.category || '-') + ' / connections ' + escapeHtml(degree) + '</em></button>';
-        }).join('') + '</div></div>' +
       '</div>';
     const canvas = graphTarget.querySelector('[data-rdf-graph-canvas]');
     if (!canvas) return;
@@ -4180,10 +4638,10 @@ private[cozy] object CozyBok {
       });
     });
     renderGraphSvg(canvas, visibleNodes, visibleEdges, focusGraph.roles, focus);
-    renderInformationView(visibleNodes, visibleEdges, focusGraph.roles, focus);
+    renderNodeListView(visibleNodes, visibleEdges, focusGraph.roles, focus);
   }
-  function renderInformationView(nodes, edges, roles, focus) {
-    if (!informationTarget) return;
+  function renderNodeListView(nodes, edges, roles, focus) {
+    if (!nodeListTarget) return;
     const sortedNodes = nodes.slice().sort(function(a, b) {
       const roleOrder = {focus: 0, near: 1, schema: 2, normal: 3};
       const ar = roleOrder[roles[a.id] || 'normal'] == null ? 9 : roleOrder[roles[a.id] || 'normal'];
@@ -4195,24 +4653,24 @@ private[cozy] object CozyBok {
       if (edge.source) edgeCounts[edge.source] = (edgeCounts[edge.source] || 0) + 1;
       if (edge.target) edgeCounts[edge.target] = (edgeCounts[edge.target] || 0) + 1;
     });
-    informationTarget.innerHTML =
-      '<div class="bok-rdf-information-header">' +
-        '<div><span class="bok-dashboard-eyebrow">Information</span><h2>${_javascript_string(_ui(locale, "rdf.graph.view.information"))}</h2><p>${_javascript_string(_ui(locale, "rdf.graph.information.description"))}</p></div>' +
-        '<div class="bok-rdf-information-summary"><span><b>' + sortedNodes.length + '</b>Information</span><span><b>' + edges.length + '</b>edges</span></div>' +
+    nodeListTarget.innerHTML =
+      '<div class="bok-rdf-node-list-header">' +
+        '<div><span class="bok-dashboard-eyebrow">RDF nodes</span><h2>${_javascript_string(_ui(locale, "rdf.graph.view.nodes"))}</h2><p>${_javascript_string(_ui(locale, "rdf.graph.nodes.description"))}</p></div>' +
+        '<div class="bok-rdf-node-list-summary"><span><b>' + sortedNodes.length + '</b>nodes</span><span><b>' + edges.length + '</b>edges</span></div>' +
       '</div>' +
-      '<div class="bok-rdf-information-grid">' +
-        (sortedNodes.length ? sortedNodes.map(function(node) { return informationCard(node, edgeCounts[node.id] || 0, roles[node.id] || 'normal', focus); }).join('') : '<div class="bok-rdf-empty">No Information nodes match the current filter.</div>') +
+      '<div class="bok-rdf-node-list-grid">' +
+        (sortedNodes.length ? sortedNodes.map(function(node) { return nodeListCard(node, edgeCounts[node.id] || 0, roles[node.id] || 'normal', focus); }).join('') : '<div class="bok-rdf-empty">No RDF nodes match the current filter.</div>') +
       '</div>';
   }
-  function informationCard(node, connections, role, focus) {
+  function nodeListCard(node, connections, role, focus) {
     const interpretation = schemaInterpretation(node);
     const roleLabel = role === 'focus' ? 'focus' : (role === 'near' ? 'near' : (role === 'schema' ? 'schema' : 'visible'));
     const category = node.category || '-';
     const type = node.node_type || node.type || '-';
     const monokoto = nodeMonoKotoValues(node);
     const cmllinks = nodeCmlLinkValues(node);
-    return '<article class="bok-rdf-information-card bok-rdf-information-card-' + escapeHtml(cssName(roleLabel)) + '">' +
-      '<div class="bok-rdf-information-card-head"><span>' + escapeHtml(roleLabel) + '</span><a href="node.html?id=' + encodeURIComponent(node.id || '') + '">${_javascript_string(_ui(locale, "rdf.graph.node.full.detail"))}</a></div>' +
+    return '<article class="bok-rdf-node-list-card bok-rdf-node-list-card-' + escapeHtml(cssName(roleLabel)) + '">' +
+      '<div class="bok-rdf-node-list-card-head"><span>' + escapeHtml(roleLabel) + '</span><a href="node.html?id=' + encodeURIComponent(node.id || '') + '">${_javascript_string(_ui(locale, "rdf.graph.node.full.detail"))}</a></div>' +
       '<h3 title="' + escapeHtml(node.id || '') + '">' + escapeHtml(compactNodeLabel(node)) + '</h3>' +
       '<dl>' +
         '<dt>Category</dt><dd>' + escapeHtml(category) + '</dd>' +
@@ -4223,7 +4681,7 @@ private[cozy] object CozyBok {
         '<dt>Schema</dt><dd><code>' + escapeHtml(interpretation.informationSchema) + '</code></dd>' +
         '<dt>Expansion</dt><dd>' + escapeHtml(interpretation.expansion) + '</dd>' +
       '</dl>' +
-      '<div class="bok-rdf-information-card-actions"><a href="index.html?node=' + encodeURIComponent(node.id || '') + '">${_javascript_string(_ui(locale, "rdf.graph.node.neighborhood"))}</a></div>' +
+      '<div class="bok-rdf-node-list-card-actions"><a href="index.html?node=' + encodeURIComponent(node.id || '') + '">${_javascript_string(_ui(locale, "rdf.graph.node.neighborhood"))}</a></div>' +
     '</article>';
   }
   function focusedGraphSlice(focus, nodes, edges) {
@@ -4882,28 +5340,840 @@ private[cozy] object CozyBok {
     s"""<div class="bok-term-type-summary bok-mono-koto-summary"><strong>${_html_escape(_ui(locale, "term.analysis"))}</strong>${items.mkString("\n")}</div>"""
   }
 
-  private def _glossary_metric_cards(
-    categorycount: Int,
-    categorieswithterms: Int,
-    termcount: Int
-  ): String =
-    s"""<div class="bok-dashboard-grid">
-       |  <div class="bok-metric-card">
-       |    <div class="bok-metric-label">Terms</div>
-       |    <div class="bok-metric-value">${termcount}</div>
-       |    <div class="bok-metric-note">Total glossary terms</div>
-       |  </div>
-       |  <div class="bok-metric-card">
-       |    <div class="bok-metric-label">Groups</div>
-       |    <div class="bok-metric-value">${categorycount}</div>
-       |    <div class="bok-metric-note">Category groups</div>
-       |  </div>
-       |  <div class="bok-metric-card">
-       |    <div class="bok-metric-label">Active Groups</div>
-       |    <div class="bok-metric-value">${categorieswithterms}</div>
-       |    <div class="bok-metric-note">Groups with terms</div>
+  private def _glossary_mono_koto_workflow(config: BuildConfig, locale: String, terms: Vector[TermEntry]): String = {
+    val termcount = terms.size
+    val extraction = _glossary_candidate_extraction_progress(config, terms)
+    val candidateactual = extraction.actual
+    val candidateplanned = extraction.planned
+    val definedactual = terms.count(_is_term_basic_defined)
+    val classifiedactual = terms.count(_is_term_classified)
+    val rdfconnected = terms.count(_.rdfRefs.nonEmpty)
+    val cmlconnected = terms.count(_.cmlLinks.nonEmpty)
+    val stages = Vector(
+      WorkflowStage("01", "extract", candidateactual, candidateplanned, extraction.systemError, extraction.systemErrorFiles, Vector("article.dashboard" -> "../articles/index.html", "scenario.dashboard" -> "../scenarios/index.html"), _workflow_source_detail(locale, extraction.missing)),
+      WorkflowStage("02", "define", definedactual, Some(termcount), Vector("recent.terms" -> "#term-recent-terms"), _workflow_definition_detail(locale, terms)),
+      WorkflowStage("03", "classify", classifiedactual, Some(termcount), Vector("check.types" -> "#term-analysis-routes"), _workflow_refine_detail(locale, terms)),
+      WorkflowStage("04", "rdf", rdfconnected, Some(termcount), Vector("connect.rdf" -> "#term-rdf-connections"), _workflow_term_detail(locale, "rdf", terms.filter(_.rdfRefs.isEmpty))),
+      WorkflowStage("05", "cml", cmlconnected, Some(termcount), Vector("connect.cml" -> "#term-project-connections"), _workflow_term_detail(locale, "cml", terms.filter(_.cmlLinks.isEmpty)))
+    )
+    val systemerrorfiles = stages.flatMap(_.systemErrorFiles).distinct
+    val systemerror = if (stages.exists(_.systemError)) _workflow_system_error(locale, systemerrorfiles) else ""
+    s"""<div class="bok-mono-koto-workflow">
+       |  <p class="bok-mono-koto-lead">${_html_escape(_ui(locale, "term.analysis.workflow.lead"))}</p>
+       |  ${systemerror}
+       |  <div class="bok-workflow-stage-grid">
+       |    ${stages.map(_workflow_stage_card(locale, _)).mkString("\n")}
        |  </div>
        |</div>""".stripMargin
+  }
+
+  private final case class WorkflowStage(
+    step: String,
+    key: String,
+    actual: Int,
+    planned: Option[Int],
+    systemError: Boolean,
+    systemErrorFiles: Vector[String],
+    actions: Vector[(String, String)],
+    detailHtml: String
+  )
+
+  private object WorkflowStage {
+    def apply(step: String, key: String, actual: Int, planned: Option[Int], actions: Vector[(String, String)], detailHtml: String): WorkflowStage =
+      WorkflowStage(step, key, actual, planned, false, Vector.empty, actions, detailHtml)
+  }
+
+  private final case class WorkflowSourceStatus(kind: String, title: String, href: String)
+
+  private final case class WorkflowExtractionProgress(
+    actual: Int,
+    planned: Option[Int],
+    missing: Vector[WorkflowSourceStatus],
+    systemError: Boolean,
+    systemErrorFiles: Vector[String]
+  )
+
+  private def _glossary_candidate_extraction_progress(
+    config: BuildConfig,
+    terms: Vector[TermEntry]
+  ): WorkflowExtractionProgress = {
+    val articleindex = _document_fragment_index(config)
+    val scenarioindex = _scenario_index(config)
+    val systemerror = articleindex.isEmpty || scenarioindex.isEmpty
+    val systemerrorfiles =
+      Vector(
+        articleindex.isEmpty -> "doxsite.d/metadata/documents/fragments.json",
+        scenarioindex.isEmpty -> "doxsite.d/metadata/scenarios/scenarios.json"
+      ).collect {
+        case (true, path) => path
+      }
+    val articles = articleindex.map(_.fragments.filter(_is_candidate_extraction_article)).getOrElse(Vector.empty)
+    val scenarios = scenarioindex.map(_.scenarios).getOrElse(Vector.empty)
+    val plannedarticles = articles.count(_.termExtraction.isPlanned)
+    val plannedscenarios = scenarios.count(_.termExtraction.isPlanned)
+    val extractedarticles = articles.count { article =>
+      article.termExtraction.isPlanned &&
+      _is_term_extraction_done(article.termExtraction)
+    }
+    val extractedscenarios = scenarios.count { scenario =>
+      scenario.termExtraction.isPlanned &&
+      _is_term_extraction_done(scenario.termExtraction)
+    }
+    val planned = plannedarticles + plannedscenarios
+    val actual = extractedarticles + extractedscenarios
+    val missingarticles = articles.filter { article =>
+      article.termExtraction.isPlanned &&
+      !_is_term_extraction_done(article.termExtraction)
+    }.map { article =>
+      WorkflowSourceStatus("article", article.effectiveHeadline.getOrElse(article.publicpath), "../" + article.publicpath)
+    }
+    val missingscenarios = scenarios.filter { scenario =>
+      scenario.termExtraction.isPlanned &&
+      !_is_term_extraction_done(scenario.termExtraction)
+    }.map { scenario =>
+      WorkflowSourceStatus("scenario", scenario.title, "../" + scenario.publicpath)
+    }
+    WorkflowExtractionProgress(actual, if (planned > 0) Some(planned) else None, missingarticles ++ missingscenarios, systemerror, systemerrorfiles)
+  }
+
+  private def _is_candidate_extraction_article(fragment: DocumentFragment): Boolean = {
+    val source = _normalize_bok_path(fragment.sourcepath)
+    val publicpath = _normalize_bok_path(fragment.publicpath)
+    fragment.category.nonEmpty &&
+    !source.startsWith("glossary/") &&
+    !source.startsWith("scenario/") &&
+    !source.startsWith("scenarios/") &&
+    !source.startsWith("history/") &&
+    !source.startsWith("manual/") &&
+    !source.endsWith("/index.dox") &&
+    !source.endsWith("/index.md") &&
+    !publicpath.endsWith("/index.html")
+  }
+
+  private def _normalize_bok_path(value: String): String =
+    value.stripPrefix("./").stripPrefix("../").stripPrefix("website.d/").stripPrefix("src/main/doxsite/")
+
+  private def _is_term_extraction_done(progress: TermExtraction): Boolean =
+    progress.isExtracted
+
+  private def _workflow_stage_card(locale: String, stage: WorkflowStage): String = {
+    val planned = stage.planned.filter(_ > 0)
+    val planneddisplay = planned.map(_.toString).getOrElse("-")
+    val percent = planned.map(x => math.max(0, math.min(100, stage.actual * 100 / x))).getOrElse(0)
+    val statushtml =
+      if (stage.systemError)
+        _workflow_stage_status(locale, "system.error")
+      else planned match {
+        case None => _workflow_stage_status(locale, "system.error")
+        case Some(x) if stage.actual >= x => _workflow_stage_status(locale, "complete")
+        case Some(_) => _workflow_stage_status(locale, "incomplete")
+      }
+    s"""<article class="bok-workflow-stage bok-workflow-stage-${_html_escape(stage.step)}">
+       |  <div class="bok-workflow-stage-head">
+       |    <span>${_html_escape(stage.step)}</span>
+       |    <strong>${_html_escape(_ui(locale, s"term.analysis.workflow.${stage.key}.title"))}</strong>
+       |  </div>
+       |  <div class="bok-workflow-stage-metric">
+       |    <b>${stage.actual} / ${_html_escape(planneddisplay)}</b>
+       |    <span>${_html_escape(_ui(locale, "term.analysis.workflow.metric.actual.planned"))}</span>
+       |  </div>
+       |  <div class="bok-workflow-progress" aria-label="${_html_escape(_ui(locale, "term.analysis.workflow.progress"))}"><span style="width:${percent}%"></span></div>
+       |  ${statushtml}
+       |  <p>${_html_escape(_ui(locale, s"term.analysis.workflow.${stage.key}.description"))}</p>
+       |  ${stage.detailHtml}
+       |  ${_workflow_stage_actions(locale, stage.actions)}
+       |</article>""".stripMargin
+  }
+
+  private def _is_mono_koto_classified(termtype: String): Boolean =
+    termtype match {
+      case "unclassified" => false
+      case "concept" | "entity" | "actor" | "role" | "resource" | "artifact" => true
+      case "event" | "action" | "process" | "task" | "rule" | "state" | "scenario" => true
+      case _ => false
+    }
+
+  private def _is_term_classified(term: TermEntry): Boolean =
+    _normalized_term_type(term.termType) != "unclassified"
+
+  private def _is_term_basic_defined(term: TermEntry): Boolean = {
+    val hasdefinition = _strip_html(term.definitionHtml).trim.nonEmpty || term.summary.exists(_.trim.nonEmpty)
+    term.title.trim.nonEmpty && hasdefinition
+  }
+
+  private def _strip_html(value: String): String =
+    value.replaceAll("<[^>]+>", " ").replaceAll("\\s+", " ")
+
+  private def _workflow_stage_actions(locale: String, links: Vector[(String, String)]): String =
+    links.map {
+      case (key, href) =>
+        s"""<a class="bok-workflow-action" href="${_html_escape(href)}">${_html_escape(_ui(locale, s"term.analysis.workflow.action.${key}"))}</a>"""
+    }.mkString("""<div class="bok-workflow-actions">""", "", "</div>")
+
+  private def _workflow_system_error(locale: String, files: Vector[String]): String = {
+    val details =
+      if (files.isEmpty)
+        ""
+      else
+        files.map(x => s"""<li><code>${_html_escape(x)}</code></li>""").mkString(
+          s"""<div class="bok-workflow-system-error-files"><span>${_html_escape(_ui(locale, "term.analysis.workflow.system.error.files"))}</span><ul>""",
+          "",
+          "</ul></div>"
+        )
+    s"""<div class="bok-workflow-system-error">
+       |  <strong>${_html_escape(_ui(locale, "term.analysis.workflow.system.error.title"))}</strong>
+       |  <p>${_html_escape(_ui(locale, "term.analysis.workflow.system.error.description"))}</p>
+       |  ${details}
+       |  <p class="bok-workflow-system-error-repair">${_html_escape(_ui(locale, "term.analysis.workflow.system.error.repair"))}</p>
+       |</div>""".stripMargin
+  }
+
+  private def _workflow_stage_status(locale: String, key: String): String =
+    s"""<div class="bok-workflow-stage-status bok-workflow-stage-status-${_html_escape(key)}">${_html_escape(_ui(locale, s"term.analysis.workflow.status.${key}"))}</div>"""
+
+  private def _workflow_source_detail(locale: String, missing: Vector[WorkflowSourceStatus]): String =
+    _workflow_missing_detail(locale, missing.size, missing.take(4).map { source =>
+      val label = _ui(locale, s"term.analysis.workflow.source.${source.kind}")
+      s"""<li><a href="${_html_escape(source.href)}">${_html_escape(source.title)}</a><span>${_html_escape(label)}</span></li>"""
+    })
+
+  private def _workflow_term_detail(locale: String, key: String, missing: Vector[TermEntry]): String =
+    _workflow_missing_detail(locale, missing.size, missing.take(4).map { term =>
+      s"""<li><a href="${_html_escape(term.glossaryHref)}">${_html_escape(term.title)}</a><span>${_html_escape(_ui(locale, s"term.analysis.workflow.detail.${key}"))}</span></li>"""
+    })
+
+  private def _workflow_refine_detail(locale: String, terms: Vector[TermEntry]): String = {
+    val missing = terms.filter(x => _normalized_term_type(x.termType) == "unclassified")
+    val summary = _workflow_refine_summary(locale, terms)
+    _workflow_missing_detail(locale, missing.size, missing.take(4).map { term =>
+      s"""<li><a href="${_html_escape(term.glossaryHref)}">${_html_escape(term.title)}</a><span>${_html_escape(_ui(locale, "term.analysis.workflow.detail.refine"))}</span></li>"""
+    }, summary)
+  }
+
+  private def _workflow_definition_detail(locale: String, terms: Vector[TermEntry]): String = {
+    val missing = terms.filterNot(_is_term_basic_defined)
+    _workflow_missing_detail(locale, missing.size, missing.take(4).map { term =>
+      s"""<li><a href="${_html_escape(term.glossaryHref)}">${_html_escape(term.title)}</a><span>${_html_escape(_term_definition_issue_label(locale, term))}</span></li>"""
+    })
+  }
+
+  private def _term_definition_issue_label(locale: String, term: TermEntry): String = {
+    val hasdefinition = _strip_html(term.definitionHtml).trim.nonEmpty || term.summary.exists(_.trim.nonEmpty)
+    if (!hasdefinition)
+      _ui(locale, "term.analysis.workflow.detail.define.basic")
+    else
+      _ui(locale, "term.analysis.workflow.detail.define")
+  }
+
+  private def _workflow_refine_summary(locale: String, terms: Vector[TermEntry]): String = {
+    val counts = terms.groupBy(x => _mono_koto_group_for_type(_normalized_term_type(x.termType))).map {
+      case (k, v) => k -> v.size
+    }
+    val groups = Vector("mono", "koto", "unclassified")
+    val items = groups.map { group =>
+      val count = counts.getOrElse(group, 0)
+      s"""<span class="bok-term-type-chip">${_html_escape(_ui(locale, s"term.analysis.workflow.group.${group}"))} ${count}</span>"""
+    }.mkString
+    s"""<div class="bok-workflow-refinement-split"><section><h4>${_html_escape(_ui(locale, "term.analysis.workflow.refine.breakdown"))}</h4><div class="bok-term-type-chip-list">${items}</div></section></div>"""
+  }
+
+  private def _mono_koto_group_for_type(termtype: String): String =
+    termtype match {
+      case "concept" | "entity" | "actor" | "role" | "resource" | "artifact" => "mono"
+      case "event" | "action" | "process" | "task" | "state" | "scenario" | "rule" => "koto"
+      case _ => "unclassified"
+    }
+
+  private def _workflow_missing_detail(locale: String, missingcount: Int, items: Vector[String], extraHtml: String = ""): String = {
+    val title =
+      if (missingcount == 0)
+        _ui(locale, "term.analysis.workflow.detail.none")
+      else
+        _uif(locale, "term.analysis.workflow.detail.missing", missingcount.toString)
+    val list =
+      if (items.isEmpty)
+        ""
+      else
+        s"""<ul>${items.mkString}</ul>"""
+    s"""<div class="bok-workflow-detail"><strong>${_html_escape(title)}</strong>${extraHtml}${list}</div>"""
+  }
+
+  private def _term_extraction_progress_card(locale: String, actual: Int, planned: Int): String = {
+    val percent = if (planned <= 0) 0 else math.max(0, math.min(100, actual * 100 / planned))
+    val statushtml =
+      if (planned <= 0)
+        _workflow_stage_status(locale, "system.error")
+      else if (actual >= planned)
+        _workflow_stage_status(locale, "complete")
+      else
+        _workflow_stage_status(locale, "incomplete")
+    s"""<div class="bok-term-extraction-progress">
+       |  <div class="bok-workflow-stage-metric">
+       |    <b>${actual} / ${if (planned <= 0) "-" else planned.toString}</b>
+       |    <span>${_html_escape(_ui(locale, "term.analysis.workflow.metric.actual.planned"))}</span>
+       |  </div>
+       |  <div class="bok-workflow-progress" aria-label="${_html_escape(_ui(locale, "term.analysis.workflow.progress"))}"><span style="width:${percent}%"></span></div>
+       |  ${statushtml}
+       |  <p>${_html_escape(_ui(locale, "term.extraction.progress.description"))}</p>
+       |</div>""".stripMargin
+  }
+
+  private def _glossary_rdf_connection_card(
+    locale: String,
+    terms: Vector[TermEntry],
+    dashboard: Option[BokDashboard]
+  ): String = {
+    val termcount = terms.size
+    val linkedterms = terms.count(_.rdfRefs.nonEmpty)
+    val rdfrefs = terms.flatMap(_.rdfRefs)
+    val externaluris = rdfrefs.count(ref => ref.resource.startsWith("http://") || ref.resource.startsWith("https://"))
+    val triples = dashboard.map(_.rdf.tripleCount.toString).getOrElse("-")
+    val nodes = dashboard.map(_.rdf.resourceCount.toString).getOrElse("-")
+    val breakdown = _rdf_connection_breakdown(locale, rdfrefs)
+    s"""<div class="bok-connection-card bok-connection-card-rdf">
+       |  <p>${_html_escape(_ui(locale, "term.rdf.connection.lead"))}</p>
+       |  <div class="bok-connection-metrics">
+       |    ${_connection_metric(_ui(locale, "term.rdf.metric.linked.terms"), s"${linkedterms} / ${termcount}", _ui(locale, "term.rdf.metric.linked.terms.note"))}
+       |    ${_connection_metric(_ui(locale, "term.rdf.metric.triples"), triples, _ui(locale, "term.rdf.metric.triples.note"))}
+       |    ${_connection_metric(_ui(locale, "term.rdf.metric.nodes"), nodes, _ui(locale, "term.rdf.metric.nodes.note"))}
+       |    ${_connection_metric(_ui(locale, "term.rdf.metric.external"), externaluris.toString, _ui(locale, "term.rdf.metric.external.note"))}
+       |  </div>
+       |  <div class="bok-connection-breakdown">
+       |    <strong>${_html_escape(_ui(locale, "term.rdf.breakdown"))}</strong>
+       |    ${breakdown}
+       |  </div>
+       |  <p class="bok-connection-checkpoints">${_html_escape(_ui(locale, "term.rdf.checkpoints"))}</p>
+       |  <div class="bok-special-links"><a class="bok-special-link" href="../rdf/index.html">${_html_escape(_ui(locale, "rdf.graph.title"))}</a></div>
+       |</div>""".stripMargin
+  }
+
+  private def _glossary_usage_card(locale: String, terms: Vector[TermEntry]): String = {
+    val termcount = terms.size
+    val articleused = terms.count(_.articleRefs.nonEmpty)
+    val scenarioused = terms.count(_.event.exists(_.scenarios.nonEmpty))
+    val relatedused = terms.count(_.termRefs.nonEmpty)
+    val unused = terms.filterNot(_is_term_used_in_bok)
+    val unusedlist =
+      if (unused.isEmpty)
+        s"""<p class="bok-card-muted">${_html_escape(_ui(locale, "term.usage.unused.none"))}</p>"""
+      else
+        unused.take(6).map { term =>
+          s"""<li><a href="${_html_escape(term.glossaryHref)}">${_html_escape(term.title)}</a></li>"""
+        }.mkString("""<ul class="list-group bok-alert-list">""", "", "</ul>")
+    s"""<div class="bok-connection-card bok-connection-card-usage">
+       |  <p>${_html_escape(_ui(locale, "term.usage.lead"))}</p>
+       |  <div class="bok-connection-metrics">
+       |    ${_connection_metric(_ui(locale, "term.usage.metric.article"), s"${articleused} / ${termcount}", _ui(locale, "term.usage.metric.article.note"))}
+       |    ${_connection_metric(_ui(locale, "term.usage.metric.scenario"), s"${scenarioused} / ${termcount}", _ui(locale, "term.usage.metric.scenario.note"))}
+       |    ${_connection_metric(_ui(locale, "term.usage.metric.related"), s"${relatedused} / ${termcount}", _ui(locale, "term.usage.metric.related.note"))}
+       |    ${_connection_metric(_ui(locale, "term.usage.metric.unused"), unused.size.toString, _ui(locale, "term.usage.metric.unused.note"))}
+       |  </div>
+       |  <div class="bok-connection-breakdown">
+       |    <strong>${_html_escape(_ui(locale, "term.usage.unused.title"))}</strong>
+       |    ${unusedlist}
+       |  </div>
+       |</div>""".stripMargin
+  }
+
+  private def _is_term_used_in_bok(term: TermEntry): Boolean =
+    term.articleRefs.nonEmpty ||
+      term.event.exists(_.scenarios.nonEmpty) ||
+      term.termRefs.nonEmpty
+
+  private def _glossary_project_connection_card(
+    locale: String,
+    terms: Vector[TermEntry],
+    projects: Vector[CozyBokProjectPublisher.ResolvedBokProject]
+  ): String = {
+    val termcount = terms.size
+    val cmllinkedterms = terms.count(_.cmlLinks.nonEmpty)
+    val projectlinkedterms = terms.count(_.cmlLinks.nonEmpty)
+    val sourceonlyprojects = projects.count(_.projectmode == "source-only")
+    val breakdown = _cml_connection_breakdown(locale, terms.flatMap(_.cmlLinks))
+    val linkedterms = _project_connected_term_list(locale, terms.filter(_.cmlLinks.nonEmpty))
+    s"""<div class="bok-connection-card bok-connection-card-project">
+       |  <p>${_html_escape(_ui(locale, "term.project.connection.lead"))}</p>
+       |  <div class="bok-connection-metrics">
+       |    ${_connection_metric(_ui(locale, "term.project.metric.cml.linked.terms"), s"${cmllinkedterms} / ${termcount}", _ui(locale, "term.project.metric.cml.linked.terms.note"))}
+       |    ${_connection_metric(_ui(locale, "term.project.metric.project.linked.terms"), projectlinkedterms.toString, _ui(locale, "term.project.metric.project.linked.terms.note"))}
+       |    ${_connection_metric(_ui(locale, "term.project.metric.projects"), projects.size.toString, _ui(locale, "term.project.metric.projects.note"))}
+       |    ${_connection_metric(_ui(locale, "term.project.metric.source.only"), sourceonlyprojects.toString, _ui(locale, "term.project.metric.source.only.note"))}
+       |  </div>
+       |  <div class="bok-connection-breakdown">
+       |    <strong>${_html_escape(_ui(locale, "term.project.cml.breakdown"))}</strong>
+       |    ${breakdown}
+       |  </div>
+       |  <div class="bok-connection-breakdown">
+       |    <strong>${_html_escape(_ui(locale, "term.project.connected.terms"))}</strong>
+       |    ${linkedterms}
+       |  </div>
+       |  <p class="bok-connection-checkpoints">${_html_escape(_ui(locale, "term.project.checkpoints"))}</p>
+       |  <p class="bok-connection-note">${_html_escape(_ui(locale, "term.project.source.only.note"))}</p>
+       |  <p class="bok-connection-note">${_html_escape(_ui(locale, "term.project.cml.note"))}</p>
+       |  <div class="bok-special-links"><a class="bok-special-link" href="../projects/index.html">${_html_escape(_ui(locale, "project.title"))}</a></div>
+       |</div>""".stripMargin
+  }
+
+  private def _project_connected_term_list(locale: String, terms: Vector[TermEntry]): String = {
+    if (terms.isEmpty)
+      s"""<p class="bok-connection-note">${_html_escape(_ui(locale, "term.project.connected.terms.empty"))}</p>"""
+    else
+      terms.sortBy(_.title).take(8).map { term =>
+        val kinds = term.cmlLinks.map(_.kind).distinct.map { kind =>
+          s"""<span class="bok-connection-chip"><b>${_html_escape(_cml_kind_label(locale, kind))}</b></span>"""
+        }.mkString
+        s"""<li><a href="${_html_escape(term.glossaryHref)}">${_html_escape(term.title)}</a><span class="bok-connection-chip-list">${kinds}</span></li>"""
+      }.mkString("""<ul class="bok-project-connected-term-list">""", "", "</ul>")
+  }
+
+  private def _connection_metric(label: String, value: String, note: String): String =
+    s"""<div class="bok-connection-metric">
+       |  <span>${_html_escape(label)}</span>
+       |  <b>${_html_escape(value)}</b>
+       |  <em>${_html_escape(note)}</em>
+       |</div>""".stripMargin
+
+  private def _rdf_connection_breakdown(locale: String, refs: Vector[TermRdfReference]): String = {
+    val counts = Vector(
+      "outgoing" -> refs.count(_.direction == "outgoing"),
+      "incoming" -> refs.count(_.direction == "incoming"),
+      "identity" -> refs.count(ref => _rdf_predicate_group(ref.predicate) == "identity"),
+      "description" -> refs.count(ref => _rdf_predicate_group(ref.predicate) == "description"),
+      "hierarchy" -> refs.count(ref => _rdf_predicate_group(ref.predicate) == "hierarchy"),
+      "provenance" -> refs.count(ref => _rdf_predicate_group(ref.predicate) == "provenance")
+    )
+    _connection_breakdown_chips(locale, counts)
+  }
+
+  private def _rdf_predicate_group(predicate: Option[String]): String = {
+    val p = predicate.getOrElse("").toLowerCase(Locale.ROOT)
+    if (p.contains("sameas") || p.contains("exactmatch") || p.contains("closematch") || p.contains("primaryrdfanchor") || p.endsWith("type"))
+      "identity"
+    else if (p.contains("label") || p.contains("comment") || p.contains("description") || p.contains("definition"))
+      "description"
+    else if (p.contains("broader") || p.contains("narrower") || p.contains("subclass") || p.contains("partof"))
+      "hierarchy"
+    else if (p.contains("source") || p.contains("provenance") || p.contains("wasderivedfrom") || p.contains("evidence"))
+      "provenance"
+    else
+      "links"
+  }
+
+  private def _cml_connection_breakdown(locale: String, links: Vector[TermCmlLink]): String = {
+    val kinds = Vector("entity", "value", "powertype", "event", "operation", "statemachine", "rule", "component", "service")
+    val counts = kinds.map(kind => _cml_kind_label(locale, kind) -> links.count(_.kind == kind))
+    _connection_breakdown_chips(locale, counts)
+  }
+
+  private def _cml_kind_label(locale: String, kind: String): String =
+    kind match {
+      case "entity" => "entity"
+      case "value" => "value"
+      case "powertype" => "powertype"
+      case "event" => "event"
+      case "operation" => "operation"
+      case "statemachine" => "statemachine"
+      case "rule" => "rule"
+      case "component" => "component"
+      case "service" => "service"
+      case other => other
+    }
+
+  private def _connection_breakdown_chips(locale: String, counts: Vector[(String, Int)]): String =
+    counts.map {
+      case (label, count) =>
+        s"""<span class="bok-connection-chip"><b>${_html_escape(label)}</b><em>${count}</em></span>"""
+    }.mkString("""<div class="bok-connection-chip-list">""", "", "</div>")
+
+  private def _safe_resolved_project_packages(config: BuildConfig): Vector[CozyBokProjectPublisher.ResolvedBokProject] =
+    try {
+      _resolved_project_packages(config)
+    } catch {
+      case NonFatal(_) => Vector.empty
+    }
+
+  private def _term_type_chip_list(termtypes: Vector[String], locale: String): String =
+    termtypes.map { termtype =>
+      s"""<span class="bok-term-type-chip bok-term-type-chip-${_html_escape(termtype)}">${_html_escape(_term_type_label(termtype, locale))}</span>"""
+    }.mkString("""<div class="bok-term-type-chip-list">""", "", "</div>")
+
+  private val _term_type_route_groups: Vector[(String, Vector[String])] =
+    Vector(
+      "unclassified" -> Vector("unclassified"),
+      "mono" -> Vector("concept", "entity", "actor", "role", "resource", "artifact"),
+      "koto" -> Vector("event", "action", "process", "task", "rule", "state", "scenario")
+    )
+
+  private val _term_type_route_order: Vector[String] =
+    _term_type_route_groups.flatMap(_._2)
+
+  private def _glossary_type_analysis_routes(locale: String, terms: Vector[TermEntry]): String = {
+    val grouped = terms.groupBy(x => _normalized_term_type(x.termType)).withDefaultValue(Vector.empty)
+    val sections = _term_type_route_groups.map {
+      case (kind, termtypes) =>
+        val count = termtypes.map(t => grouped(t).size).sum
+        val issuecount = termtypes.flatMap(t => grouped(t)).map(_glossary_term_issues(_, locale).size).sum
+        val routes = termtypes.map(_glossary_type_analysis_route_card(locale, grouped, _)).mkString("\n")
+        s"""<section class="bok-term-analysis-route-group bok-term-analysis-route-group-${_html_escape(kind)}">
+           |  <div class="bok-term-analysis-route-group-head">
+           |    <div>
+           |      <span class="badge bok-badge-info">${_html_escape(_term_type_route_group_label(kind, locale))}</span>
+           |      <h4>${_html_escape(_ui(locale, s"term.analysis.route.group.${kind}.title"))}</h4>
+           |      <p>${_html_escape(_ui(locale, s"term.analysis.route.group.${kind}.description"))}</p>
+           |    </div>
+           |    <dl>
+           |      <dt>${_html_escape(_ui(locale, "term.metric.terms"))}</dt><dd>${count}</dd>
+           |      <dt>${_html_escape(_ui(locale, "term.analysis.route.issue.count"))}</dt><dd>${issuecount}</dd>
+           |    </dl>
+           |  </div>
+           |  <div class="bok-term-analysis-route-grid">${routes}</div>
+           |</section>""".stripMargin
+    }.mkString("\n")
+    s"""<div id="term-analysis-routes" class="bok-term-analysis-route-groups">${sections}</div>"""
+  }
+
+  private def _glossary_type_analysis_route_card(
+    locale: String,
+    grouped: Map[String, Vector[TermEntry]],
+    termtype: String
+  ): String = {
+    val xs = grouped.getOrElse(termtype, Vector.empty).sortBy(x => (-_glossary_term_score(x), x.title))
+    val examples = _glossary_route_term_links(xs.take(3))
+    val issuecount = xs.map(_glossary_term_issues(_, locale).size).sum
+    s"""<article class="bok-term-analysis-route bok-term-analysis-route-${_html_escape(termtype)}">
+       |  <div class="bok-term-analysis-route-head">
+       |    <span class="badge bok-badge-info">${_html_escape(_term_type_label(termtype, locale))}</span>
+       |    <strong>${xs.size}</strong>
+       |  </div>
+       |  <p>${_html_escape(_ui(locale, s"term.analysis.route.${termtype}.description"))}</p>
+       |  <dl class="bok-term-analysis-route-checkpoints">
+       |    <dt>${_html_escape(_ui(locale, "term.analysis.route.checkpoints"))}</dt>
+       |    <dd>${_html_escape(_ui(locale, s"term.analysis.route.${termtype}.checkpoints"))}</dd>
+       |    <dt>${_html_escape(_ui(locale, "term.analysis.route.issue.count"))}</dt>
+       |    <dd>${issuecount}</dd>
+       |  </dl>
+       |  ${examples}
+       |  <div class="bok-workflow-actions"><a class="bok-workflow-action" href="../manual/index.html#glossary-term-classification">${_html_escape(_ui(locale, "term.analysis.route.manual"))}</a></div>
+       |</article>""".stripMargin
+  }
+
+  private def _is_entity_nesting_relation(value: String): Boolean = {
+    val v = Option(value).map(_.trim.toLowerCase.replace("_", "-")).getOrElse("")
+    v == "parent" ||
+      v == "child" ||
+      v == "part-of" ||
+      v == "has-part" ||
+      v == "contains" ||
+      v == "contained-by" ||
+      v == "broader" ||
+      v == "narrower"
+  }
+
+  private val _operation_target_order: Vector[String] =
+    Vector("entity", "file", "url", "external-id", "rdf-node", "artifact", "message-event", "job-task", "none")
+
+  private val _operation_target_groups: Vector[(String, Vector[String])] =
+    Vector(
+      "managed" -> Vector("entity", "artifact", "message-event", "job-task"),
+      "addressable" -> Vector("file", "url", "external-id", "rdf-node"),
+      "none" -> Vector("none")
+    )
+
+  private def _glossary_operation_target_card(locale: String, terms: Vector[TermEntry]): String = {
+    s"""<div id="term-operation-targets" class="bok-operation-targets">
+       |  <p class="bok-card-lead">${_html_escape(_ui(locale, "term.operation.targets.lead"))}</p>
+       |  <div class="bok-software-term-grid">
+       |    ${_space_knowledge_panel(locale, terms)}
+       |    ${_space_term_panel(locale, terms)}
+       |    ${_space_project_panel(locale, terms)}
+       |  </div>
+       |  <div class="bok-workflow-actions">
+       |    <a class="bok-workflow-action" href="#term-project-connections">${_html_escape(_ui(locale, "term.operation.targets.action.project"))}</a>
+       |    <a class="bok-workflow-action" href="#term-rdf-connections">${_html_escape(_ui(locale, "term.operation.targets.action.rdf"))}</a>
+       |    <a class="bok-workflow-action" href="#term-analysis-routes">${_html_escape(_ui(locale, "term.operation.targets.action.types"))}</a>
+       |  </div>
+       |</div>""".stripMargin
+  }
+
+  private def _space_knowledge_panel(locale: String, terms: Vector[TermEntry]): String = {
+    val articlelinked = terms.count(_.articleRefs.nonEmpty)
+    val scenariolinked = terms.count(_.event.exists(_.scenarios.nonEmpty))
+    val rdflinked = terms.count(_.rdfRefs.nonEmpty)
+    val relationlinked = terms.count(_.termRefs.nonEmpty)
+    s"""<section class="bok-software-term-panel bok-software-term-panel-knowledge">
+       |  <div class="bok-software-term-panel-head">
+       |    <span>${_html_escape(_ui(locale, "term.space.knowledge.eyebrow"))}</span>
+       |    <h4>${_html_escape(_ui(locale, "term.space.knowledge.title"))}</h4>
+       |    <strong>${terms.size}</strong>
+       |  </div>
+       |  <p>${_html_escape(_ui(locale, "term.space.knowledge.description"))}</p>
+       |  <dl class="bok-software-term-metrics">
+       |    <dt>${_html_escape(_ui(locale, "term.space.metric.article"))}</dt><dd>${articlelinked}</dd>
+       |    <dt>${_html_escape(_ui(locale, "term.space.metric.scenario"))}</dt><dd>${scenariolinked}</dd>
+       |    <dt>${_html_escape(_ui(locale, "term.space.metric.rdf"))}</dt><dd>${rdflinked}</dd>
+       |    <dt>${_html_escape(_ui(locale, "term.space.metric.term.relation"))}</dt><dd>${relationlinked}</dd>
+       |  </dl>
+       |</section>""".stripMargin
+  }
+
+  private def _space_term_panel(locale: String, allterms: Vector[TermEntry]): String = {
+    val terms = allterms.filter(_is_resource_term)
+    val entityterms = terms.filter(term => _effective_resource_type(term).contains("entity"))
+    val typedterms = terms.filter(term => _effective_resource_type(term).isDefined)
+    val untypedterms = terms.filter(term => _effective_resource_type(term).isEmpty)
+    val nonentitychips = _resource_type_order.filterNot(_ == "entity").map { resourceType =>
+      val count = terms.count(term => _effective_resource_type(term).contains(resourceType))
+      s"""<span class="bok-software-target-chip"><b>${_html_escape(_ui(locale, s"term.resource.type.${resourceType}.label"))}</b><em>${count}</em></span>"""
+    }.mkString("""<div class="bok-software-target-chip-list">""", "", "</div>")
+    s"""<section class="bok-software-term-panel bok-software-term-panel-entity">
+       |  <div class="bok-software-term-panel-head">
+       |    <span>${_html_escape(_ui(locale, "term.space.term.eyebrow"))}</span>
+       |    <h4>${_html_escape(_ui(locale, "term.space.term.title"))}</h4>
+       |    <strong>${terms.size}</strong>
+       |  </div>
+       |  <p>${_html_escape(_ui(locale, "term.space.term.description"))}</p>
+       |  <dl class="bok-software-term-metrics">
+       |    <dt>${_html_escape(_ui(locale, "term.project.metric.resource.entity"))}</dt><dd>${entityterms.size}</dd>
+       |    <dt>${_html_escape(_ui(locale, "term.project.metric.resource.typed"))}</dt><dd>${typedterms.size}</dd>
+       |    <dt>${_html_escape(_ui(locale, "term.project.metric.resource.untyped"))}</dt><dd>${untypedterms.size}</dd>
+       |  </dl>
+       |  ${nonentitychips}
+       |  ${_glossary_route_term_links(terms.sortBy(x => (-_glossary_term_score(x), x.title)).take(4))}
+       |</section>""".stripMargin
+  }
+
+  private def _space_project_panel(locale: String, terms: Vector[TermEntry]): String = {
+    val actorroleterms = terms.filter(term => Set("actor", "role").contains(_normalized_term_type(term.termType)))
+    val actorroleentity = actorroleterms.count(_.cmlLinks.exists(x => _normalize_token(x.kind) == "entity"))
+    val cmlentity = terms.count(_.cmlLinks.exists(x => _normalize_token(x.kind) == "entity"))
+    val cmlother = terms.count(term => term.cmlLinks.exists(x => _normalize_token(x.kind) != "entity"))
+    val artifact = terms.count(term => _effective_resource_type(term).contains("artifact"))
+    s"""<section class="bok-software-term-panel bok-software-term-panel-non-entity">
+       |  <div class="bok-software-term-panel-head">
+       |    <span>${_html_escape(_ui(locale, "term.space.project.eyebrow"))}</span>
+       |    <h4>${_html_escape(_ui(locale, "term.space.project.title"))}</h4>
+       |    <strong>${cmlentity + cmlother + artifact}</strong>
+       |  </div>
+       |  <p>${_html_escape(_ui(locale, "term.space.project.description"))}</p>
+       |  <dl class="bok-software-term-metrics">
+       |    <dt>${_html_escape(_ui(locale, "term.project.metric.mapping.cml.entity"))}</dt><dd>${cmlentity}</dd>
+       |    <dt>${_html_escape(_ui(locale, "term.project.metric.mapping.cml.other"))}</dt><dd>${cmlother}</dd>
+       |    <dt>${_html_escape(_ui(locale, "term.project.metric.actor.role.entity"))}</dt><dd>${actorroleentity}</dd>
+       |    <dt>${_html_escape(_ui(locale, "term.project.metric.mapping.publication"))}</dt><dd>${artifact}</dd>
+       |  </dl>
+       |  ${_glossary_route_term_links(terms.filter(_.cmlLinks.nonEmpty).sortBy(x => (-_glossary_term_score(x), x.title)).take(4))}
+       |</section>""".stripMargin
+  }
+
+  private val _resource_type_order: Vector[String] =
+    Vector("entity", "file", "url", "external_id", "rdf_node", "artifact", "dataset", "service_endpoint")
+
+  private def _is_resource_term(term: TermEntry): Boolean =
+    _normalized_term_type(term.termType) == "resource" ||
+      _effective_resource_type(term).isDefined
+
+  private def _effective_resource_type(term: TermEntry): Option[String] =
+    term.resourceType.map(_normalize_token).orElse {
+      _normalized_term_type(term.termType) match {
+        case "entity" => Some("entity")
+        case "artifact" => Some("artifact")
+        case _ => None
+      }
+    }.map(_.replace("-", "_"))
+
+  private def _term_matches_operation_target(term: TermEntry, target: String): Boolean = {
+    val matches = _operation_targets_for_term(term)
+    target match {
+      case "none" => matches.isEmpty
+      case _ => matches.contains(target)
+    }
+  }
+
+  private def _operation_targets_for_term(term: TermEntry): Set[String] = {
+    val termtype = _normalized_term_type(term.termType)
+    val cmlkinds = term.cmlLinks.map(x => _normalize_token(x.kind)).toSet
+    val rdfresources = term.rdfRefs.map(_.resource)
+    Set.empty[String] ++
+      _operation_target_if(termtype == "entity" || cmlkinds.contains("entity"), "entity") ++
+      _operation_target_if(termtype == "artifact" || cmlkinds.contains("artifact"), "artifact") ++
+      _operation_target_if(termtype == "event" || cmlkinds.contains("event"), "message-event") ++
+      _operation_target_if(termtype == "task" || cmlkinds.contains("operation"), "job-task") ++
+      _operation_target_if(term.rdfRefs.nonEmpty, "rdf-node") ++
+      _operation_target_if(rdfresources.exists(_looks_like_url), "url") ++
+      _operation_target_if(rdfresources.exists(_looks_like_external_id), "external-id") ++
+      _operation_target_if(rdfresources.exists(_looks_like_file_target), "file")
+  }
+
+  private def _operation_target_if(condition: Boolean, value: String): Set[String] =
+    if (condition) Set(value) else Set.empty
+
+  private def _normalize_token(value: String): String =
+    Option(value).map(_.trim.toLowerCase(Locale.ROOT).replace("_", "-")).getOrElse("")
+
+  private def _looks_like_url(value: String): Boolean = {
+    val v = Option(value).map(_.trim.toLowerCase(Locale.ROOT)).getOrElse("")
+    v.startsWith("http://") || v.startsWith("https://")
+  }
+
+  private def _looks_like_external_id(value: String): Boolean = {
+    val v = Option(value).map(_.trim.toLowerCase(Locale.ROOT)).getOrElse("")
+    v.contains("wikidata.org/entity/") ||
+      v.contains("doi.org/") ||
+      v.startsWith("doi:") ||
+      v.startsWith("isbn:") ||
+      v.startsWith("orcid:")
+  }
+
+  private def _looks_like_file_target(value: String): Boolean = {
+    val v = Option(value).map(_.trim.toLowerCase(Locale.ROOT)).getOrElse("")
+    v.startsWith("file:") ||
+      v.startsWith("/") ||
+      v.endsWith(".pdf") ||
+      v.endsWith(".dox") ||
+      v.endsWith(".md") ||
+      v.endsWith(".json") ||
+      v.endsWith(".ttl") ||
+      v.endsWith(".jsonld")
+  }
+
+  private def _normalized_term_type(value: String): String =
+    if (Option(value).map(_.trim).getOrElse("").isEmpty)
+      "unclassified"
+    else
+      value.trim
+
+  private def _term_type_route_group_label(value: String, locale: String): String = value match {
+    case "unclassified" => _ui(locale, "term.type.unclassified")
+    case other => _mono_koto_label(other, locale)
+  }
+
+  private def _glossary_route_term_links(terms: Vector[TermEntry]): String =
+    if (terms.isEmpty)
+      """<p class="bok-card-muted">-</p>"""
+    else
+      terms.map { term =>
+        s"""<li><a href="${_html_escape(term.glossaryHref)}">${_html_escape(term.title)}</a>${_reading_label(term)}</li>"""
+      }.mkString("""<ul class="list-group bok-map-list bok-term-analysis-route-terms">""", "", "</ul>")
+
+  private def _glossary_type_issue_terms(locale: String, terms: Vector[TermEntry]): String = {
+    val groups = _term_type_route_order.flatMap { termtype =>
+      val rows = terms.filter(x => _normalized_term_type(x.termType) == termtype).flatMap { term =>
+        val issues = _glossary_term_issues(term, locale)
+        if (issues.isEmpty)
+          None
+        else
+          Some(
+            s"""<li class="list-group-item">
+               |  <a href="${_html_escape(term.glossaryHref)}">${_html_escape(term.title)}</a>
+               |  <span>${issues.map(_html_escape).mkString(", ")}</span>
+               |</li>""".stripMargin
+          )
+      }
+      if (rows.isEmpty)
+        None
+      else
+        Some(
+          s"""<section class="bok-term-type-issue-group bok-term-type-issue-group-${_html_escape(termtype)}">
+             |  <h4>${_html_escape(_term_type_label(termtype, locale))}</h4>
+             |  ${rows.take(6).mkString("""<ul class="list-group bok-alert-list">""", "", "</ul>")}
+             |</section>""".stripMargin
+        )
+    }
+    if (groups.isEmpty)
+      s"""<p class="bok-card-muted">${_html_escape(_ui(locale, "term.analysis.missing.none"))}</p>"""
+    else
+      groups.mkString("""<div class="bok-term-type-issue-grid">""", "\n", "</div>")
+  }
+
+  private def _glossary_term_score(term: TermEntry): Int =
+    term.rdfRefs.size * 3 +
+      term.articleRefs.size * 3 +
+      term.termRefs.size * 2 +
+      term.videoRefs.size +
+      term.cmlLinks.size * 2 +
+      term.tags.size
+
+  private def _glossary_term_issues(term: TermEntry, locale: String): Vector[String] = {
+    val quality = Vector(
+      term.quality.isolated -> _ui(locale, "term.quality.isolated"),
+      term.quality.unreferenced -> _ui(locale, "term.quality.unreferenced"),
+      term.quality.weaklyconnected -> _ui(locale, "term.quality.weakly.connected")
+    ).collect { case (true, label) => label }
+    val typeissues = _normalized_term_type(term.termType) match {
+      case "unclassified" =>
+        Vector(_ui(locale, "term.analysis.issue.unclassified"))
+      case "event" =>
+        val event = term.event
+        Vector(
+          event.forall(_.scenarios.isEmpty) -> _ui(locale, "term.analysis.issue.event.scenario.missing"),
+          event.forall(_.actors.isEmpty) -> _ui(locale, "term.analysis.issue.event.actor.missing"),
+          event.forall(_.roles.isEmpty) -> _ui(locale, "term.analysis.issue.event.role.missing"),
+          !term.cmlLinks.exists(x => x.kind == "event" || x.kind == "statemachine") -> _ui(locale, "term.analysis.issue.event.cml.missing")
+        ).collect { case (true, label) => label }
+      case "actor" =>
+        Vector(
+          term.actor.forall(_.roles.isEmpty) -> _ui(locale, "term.analysis.issue.actor.role.missing"),
+          (term.termRefs.isEmpty && term.articleRefs.isEmpty) -> _ui(locale, "term.analysis.issue.actor.usage.missing")
+        ).collect { case (true, label) => label }
+      case "role" =>
+        Vector(
+          term.role.forall(_.actors.isEmpty) -> _ui(locale, "term.analysis.issue.role.actor.missing"),
+          term.role.forall(_.responsibilities.isEmpty) -> _ui(locale, "term.analysis.issue.role.responsibility.missing"),
+          term.role.forall(_.permissions.isEmpty) -> _ui(locale, "term.analysis.issue.role.permission.missing")
+        ).collect { case (true, label) => label }
+      case "rule" =>
+        Vector(
+          !term.cmlLinks.exists(_.kind == "rule") -> _ui(locale, "term.analysis.issue.rule.cml.missing"),
+          (term.articleRefs.isEmpty && term.rdfRefs.isEmpty) -> _ui(locale, "term.analysis.issue.rule.evidence.missing")
+        ).collect { case (true, label) => label }
+      case _ =>
+        Vector(
+          term.rdfRefs.isEmpty -> _ui(locale, "term.analysis.issue.concept.rdf.missing"),
+          term.articleRefs.isEmpty -> _ui(locale, "term.analysis.issue.concept.article.missing"),
+          term.cmlLinks.isEmpty -> _ui(locale, "term.analysis.issue.concept.cml.missing")
+        ).collect { case (true, label) => label }
+    }
+    (typeissues ++ quality).distinct
+  }
+
+  private def _glossary_metric_cards(
+    locale: String,
+    categorycount: Int,
+    categorieswithterms: Int,
+    terms: Vector[TermEntry]
+  ): String = {
+    val termcount = terms.size
+    val typecount = terms.map(_.termType).filter(_.nonEmpty).distinct.size
+    val rdfcount = terms.map(_.rdfRefs.size).sum
+    val articlecount = terms.map(_.articleRefs.size).sum
+    val cmlcount = terms.map(_.cmlLinks.size).sum
+    val rdfconnected = terms.count(_.rdfRefs.nonEmpty)
+    val articleconnected = terms.count(_.articleRefs.nonEmpty)
+    val cmlconnected = terms.count(_.cmlLinks.nonEmpty)
+    s"""<div class="bok-dashboard-grid bok-glossary-summary-metrics">
+       |  ${_glossary_metric_card(_ui(locale, "term.metric.terms"), termcount.toString, _ui(locale, "term.metric.terms.note"))}
+       |  ${_glossary_metric_card(_ui(locale, "term.metric.categories"), categorycount.toString, _uif(locale, "term.metric.categories.note", categorieswithterms.toString))}
+       |  ${_glossary_metric_card(_ui(locale, "term.metric.types"), typecount.toString, _ui(locale, "term.metric.types.note"))}
+       |  ${_glossary_metric_card(_ui(locale, "term.metric.rdf.links"), rdfcount.toString, _ui(locale, "term.metric.rdf.links.note"))}
+       |  ${_glossary_metric_card(_ui(locale, "term.metric.article.links"), articlecount.toString, _ui(locale, "term.metric.article.links.note"))}
+       |  ${_glossary_metric_card(_ui(locale, "term.metric.cml.links"), cmlcount.toString, _ui(locale, "term.metric.cml.links.note"))}
+       |</div>
+       |<div class="bok-glossary-connection-rates">
+       |  ${_glossary_connection_rate(_ui(locale, "term.metric.rdf.connected"), rdfconnected, termcount)}
+       |  ${_glossary_connection_rate(_ui(locale, "term.metric.article.connected"), articleconnected, termcount)}
+       |  ${_glossary_connection_rate(_ui(locale, "term.metric.cml.connected"), cmlconnected, termcount)}
+       |</div>""".stripMargin
+  }
+
+  private def _glossary_metric_card(label: String, value: String, note: String): String =
+    s"""<div class="bok-metric-card">
+       |  <div class="bok-metric-label">${_html_escape(label)}</div>
+       |  <div class="bok-metric-value">${_html_escape(value)}</div>
+       |  <div class="bok-metric-note">${_html_escape(note)}</div>
+       |</div>""".stripMargin
+
+  private def _glossary_connection_rate(label: String, connected: Int, total: Int): String =
+    s"""<span class="bok-glossary-connection-rate"><b>${_html_escape(label)}</b><span>${connected} / ${total}</span></span>"""
 
   private def _language_index_root_prefix(config: BuildConfig): String =
     config.localeMode match {
@@ -4935,12 +6205,19 @@ private[cozy] object CozyBok {
     _term_index(config).map(_.terms).filter(_.nonEmpty).getOrElse(Vector.empty)
 
   private def _term_index(config: BuildConfig): Option[TermIndex] = {
-    val path = config.doxsitePath.resolve("metadata/glossary/terms.json")
+    val paths = Vector(
+      config.doxsitePath.resolve("metadata/glossary/terms.json"),
+      config.sourcepath.resolve("metadata/glossary/terms.json")
+    ).distinct
+    val indexes = paths.flatMap(_read_term_index)
+    indexes.find(_.terms.nonEmpty).orElse(indexes.headOption)
+  }
+
+  private def _read_term_index(path: Path): Option[TermIndex] =
     if (!Files.isRegularFile(path))
       None
     else
       parser.parse(Files.readString(path, StandardCharsets.UTF_8)).toOption.flatMap(_.as[TermIndex].toOption)
-  }
 
   private def _bibliography_index(config: BuildConfig): Option[BibliographyIndex] = {
     val path = config.doxsitePath.resolve("metadata/bibliography/bibliography.json")
@@ -5616,10 +6893,16 @@ private[cozy] object CozyBok {
     if (scenarios.isEmpty)
       s"""<div class="bok-dashboard container-fluid bok-dashboard-command-center">
          |  <div class="row g-3">
+         |    ${_dashboard_card("col-12 col-xl-4", "bok-card-kpi bok-card-term-extraction-progress", _ui(locale, "term.extraction.progress.title"), _term_extraction_progress_card(locale, 0, 0), Vector("contributor", "project_manager"))}
          |    ${_dashboard_card("col-12", "bok-card-map bok-card-scenario-map", _ui(locale, "scenario.title"), s"""<p class="bok-card-muted">${_html_escape(_ui(locale, "scenario.empty"))}</p>""", Vector("reader", "contributor", "project_manager"))}
          |  </div>
          |</div>""".stripMargin
     else {
+      val progress = _term_extraction_progress_card(
+        locale,
+        scenarios.count(x => x.termExtraction.isPlanned && _is_term_extraction_done(x.termExtraction)),
+        scenarios.count(_.termExtraction.isPlanned)
+      )
       val bytype = scenarios.groupBy(_.scenarioType).toVector.sortBy(_._1)
       val metrics = bytype.map {
         case (kind, xs) =>
@@ -5643,6 +6926,7 @@ private[cozy] object CozyBok {
       }.mkString("""<div class="bok-scenario-grid">""", "", "</div>")
       s"""<div class="bok-dashboard container-fluid bok-dashboard-command-center">
          |  <div class="row g-3">
+         |    ${_dashboard_card("col-12 col-xl-4", "bok-card-kpi bok-card-term-extraction-progress", _ui(locale, "term.extraction.progress.title"), progress, Vector("contributor", "project_manager"))}
          |    ${_dashboard_card("col-12 col-xl-4", "bok-card-kpi bok-card-scenario-summary", _ui(locale, "scenario.metric.summary"), metrics, Vector("reader", "contributor", "project_manager"))}
          |    ${_dashboard_card("col-12 col-xl-8", "bok-card-map bok-card-scenario-map", _ui(locale, "scenario.title"), items, Vector("reader", "contributor", "project_manager"))}
          |  </div>
@@ -5767,9 +7051,18 @@ private[cozy] object CozyBok {
   }
 
   private def _term_type_label(value: String, locale: String): String = value match {
+    case "unclassified" => _ui(locale, "term.type.unclassified")
     case "event" => _ui(locale, "term.type.event")
     case "actor" => _ui(locale, "term.type.actor")
     case "role" => _ui(locale, "term.type.role")
+    case "entity" => _ui(locale, "term.type.entity")
+    case "resource" => _ui(locale, "term.type.resource")
+    case "artifact" => _ui(locale, "term.type.artifact")
+    case "action" => _ui(locale, "term.type.action")
+    case "process" => _ui(locale, "term.type.process")
+    case "task" => _ui(locale, "term.type.task")
+    case "scenario" => _ui(locale, "term.type.scenario")
+    case "state" => _ui(locale, "term.type.state")
     case "rule" => _ui(locale, "term.type.rule")
     case _ => _ui(locale, "term.type.concept")
   }
@@ -5967,11 +7260,11 @@ private[cozy] object CozyBok {
         categorytitles.getOrElse(categoryslug, categoryslug)
       )
     })
-    val title = lang match {
-      case "ja" => "日本語 Glossary 索引"
-      case "en" => "English Glossary 索引"
-      case other => s"${other} Glossary 索引"
-    }
+    val uilang = config.defaultLocale
+    val title = _localized_glossary_index_title(uilang, lang)
+    val description = _localized_glossary_index_description(uilang, lang)
+    val indexheading = _localized_glossary_index_heading(uilang)
+    val termsheading = _localized_glossary_terms_heading(uilang)
     val indexnav = _localized_glossary_index_nav(lang, terms)
     val sections = _localized_glossary_index_sections(lang, terms)
     s"""<!doctype html>
@@ -5985,7 +7278,7 @@ private[cozy] object CozyBok {
        |  <link rel="stylesheet" href="../../_/css/cozy-bok-dashboard.css">
        |</head>
        |<body class="article ${_html_escape(_support_dashboard_theme_class)}">
-       |${_category_header(config, categories, lang, "../../")}
+       |${_category_header(config, categories, uilang, "../../")}
        |<div class="body">
        |  <main class="article">
        |    <div class="toolbar" role="navigation">
@@ -6002,15 +7295,15 @@ private[cozy] object CozyBok {
        |      ${_localized_glossary_toc_panel(config)}
        |      <article class="doc">
        |        <h1 class="page">${_html_escape(title)}</h1>
-       |        <p>This page is a language-specific entry point for glossary browsing.</p>
+       |        <p>${_html_escape(description)}</p>
        |        <div class="sect1" id="index">
-       |          <h2>索引</h2>
+       |          <h2>${_html_escape(indexheading)}</h2>
        |          <div class="sectionbody">
        |            ${indexnav}
        |          </div>
        |        </div>
        |        <div class="sect1" id="terms">
-       |          <h2>Terms</h2>
+       |          <h2>${_html_escape(termsheading)}</h2>
        |          <div class="sectionbody">
        |            ${sections}
        |          </div>
@@ -6023,6 +7316,51 @@ private[cozy] object CozyBok {
        |</html>
        |""".stripMargin
   }
+
+  private def _localized_glossary_index_title(
+    uilang: String,
+    indexlang: String
+  ): String =
+    uilang match {
+      case "ja" =>
+        indexlang match {
+          case "ja" => "日本語用語索引"
+          case "en" => "英語用語索引"
+          case other => s"${other} 用語索引"
+        }
+      case _ =>
+        indexlang match {
+          case "ja" => "Japanese Glossary Index"
+          case "en" => "English Glossary Index"
+          case other => s"${other} Glossary Index"
+        }
+    }
+
+  private def _localized_glossary_index_description(
+    uilang: String,
+    indexlang: String
+  ): String =
+    uilang match {
+      case "ja" =>
+        indexlang match {
+          case "ja" => "日本語で用語を探すための索引ページです。"
+          case "en" => "英語表記の用語を探すための索引ページです。"
+          case other => s"${other} 表記の用語を探すための索引ページです。"
+        }
+      case _ => "This page is a language-specific entry point for glossary browsing."
+    }
+
+  private def _localized_glossary_index_heading(uilang: String): String =
+    uilang match {
+      case "ja" => "索引"
+      case _ => "Index"
+    }
+
+  private def _localized_glossary_terms_heading(uilang: String): String =
+    uilang match {
+      case "ja" => "用語"
+      case _ => "Terms"
+    }
 
   private def _localized_glossary_terms(
     lang: String,
@@ -6060,7 +7398,9 @@ private[cozy] object CozyBok {
         val items = grouped.getOrElse(key, Vector.empty).sortBy { term =>
           (_localized_index_sort_key(lang, term), term.categorySlug)
         }.map { term =>
-            s"""<li><a href="${_html_escape(term.href)}">${_html_escape(_localized_term_title(lang, term))}</a>${_localized_reading_label(lang, term)}: ${_html_escape(term.categoryTitle)}</li>"""
+          val category =
+            s""" <span class="bok-index-term-category">[${_html_escape(term.categoryTitle)}]</span>"""
+          s"""<li><a href="${_html_escape(term.href)}">${_html_escape(_localized_term_title(lang, term))}</a>${_localized_reading_label(lang, term)}${category}</li>"""
         }.mkString("<ul>\n", "\n", "\n</ul>")
         s"""<section class="bok-index-section" id="${_html_escape(_localized_index_anchor(key))}">
            |  <h3>${_html_escape(key)}</h3>
@@ -6246,6 +7586,49 @@ private[cozy] object CozyBok {
        |</body>
        |</html>
        |""".stripMargin
+
+  private def _project_html_page(
+    config: BuildConfig,
+    categories: Vector[CategoryContent],
+    locale: String,
+    page: Path,
+    target: Path,
+    title: String,
+    description: String,
+    body: String
+  ): String = {
+    val homehref = _relative_href(page, target.resolve("index.html"))
+    val projectshref = _relative_href(page, target.resolve("projects").resolve("index.html"))
+    val rootprefix = homehref.stripSuffix("index.html")
+    s"""<!doctype html>
+       |<html lang="${_html_escape(locale)}">
+       |<head>
+       |  <meta charset="utf-8">
+       |  <meta name="viewport" content="width=device-width, initial-scale=1">
+       |  <title>${_html_escape(title)} - ${_html_escape(config.siteTitle)}</title>
+       |${_site_css_links(config, page)}
+       |</head>
+       |<body class="bok-project-page ${_html_escape(_support_dashboard_theme_class)}">
+       |${_category_header(config, categories, locale, rootprefix)}
+       |<main class="bok-project-page-main">
+       |  <nav class="bok-project-breadcrumbs" aria-label="breadcrumbs">
+       |    <a href="${_html_escape(homehref)}">${_html_escape(config.siteTitle)}</a>
+       |    <span>/</span>
+       |    <a href="${_html_escape(projectshref)}">${_html_escape(_ui(locale, "project.title"))}</a>
+       |    <span>/</span>
+       |    <span>${_html_escape(title)}</span>
+       |  </nav>
+       |  <header class="bok-project-page-title">
+       |    <p class="bok-dashboard-eyebrow">${_html_escape(_ui(locale, "project.page.eyebrow"))}</p>
+       |    <h1>${_html_escape(title)}</h1>
+       |    <p>${_html_escape(description)}</p>
+       |  </header>
+       |  ${body}
+       |</main>
+       |</body>
+       |</html>
+       |""".stripMargin
+  }
 
   private def _manual_html_page(
     config: BuildConfig,
@@ -6572,8 +7955,16 @@ private[cozy] object CozyBok {
       source <- path.filter(Files.isRegularFile(_))
       rel <- _source_document_relative(config, source)
       index <- _document_fragment_index(config)
-      fragment <- index.get(rel, locale)
+      fragment <- index.get(rel, locale).orElse(_source_document_fragment_by_public_path(index, rel, locale))
     } yield fragment
+
+  private def _source_document_fragment_by_public_path(index: DocumentFragmentIndex, sourcepath: String, locale: String): Option[DocumentFragment] =
+    _source_document_public_path(sourcepath).flatMap(index.get(_, locale))
+
+  private def _source_document_public_path(sourcepath: String): Option[String] =
+    _source_document_suffixes.find(sourcepath.endsWith).map { suffix =>
+      sourcepath.stripSuffix(suffix) + ".html"
+    }
 
   private def _source_document_relative(config: BuildConfig, source: Path): Option[String] =
     try {
@@ -6768,14 +8159,15 @@ private[cozy] object CozyBok {
   private def _home_dashboard(config: BuildConfig, locale: String): String = {
     val purpose = _bok_purpose(config)
     val dashboard = _dashboard(config)
-    val fragment = _source_document_fragment(config, _source_document(config.sourcepath, "index"), locale)
+    val sourcedocument = _source_document(config.sourcepath, "index")
+    val fragment = _source_document_fragment(config, sourcedocument, locale)
     val articlecount = _source_article_count(config)
     if (dashboard.isEmpty && purpose.isEmpty)
       ""
     else {
       val hero = _dashboard_hero(
-        fragment.flatMap(_.effectiveHeadline).getOrElse(_uif(locale, "home.page.title", config.siteTitle)),
-        fragment.flatMap(_.effectiveBrief).getOrElse(_ui(locale, "home.intro")),
+        fragment.flatMap(_.effectiveHeadline).orElse(sourcedocument.map(_dox_title)).getOrElse(_uif(locale, "home.page.title", config.siteTitle)),
+        fragment.flatMap(_.effectiveBrief).orElse(sourcedocument.map(_dox_brief)).getOrElse(_ui(locale, "home.intro")),
         Vector(
           _ui(locale, "dashboard.kpi.categories") -> dashboard.map(_.counts.categoryCount.toString).getOrElse("-"),
           _ui(locale, "dashboard.kpi.articles") -> articlecount.toString,
@@ -6793,14 +8185,15 @@ private[cozy] object CozyBok {
   private def _category_dashboard(config: BuildConfig, category: CategoryContent, locale: String): String = {
     val site = _dashboard(config)
     val dashboard = site.flatMap(_.categories.find(_.name == category.slug))
-    val fragment = _source_document_fragment(config, _source_document(config.sourcepath.resolve(category.slug), "index"), locale)
+    val sourcedocument = _source_document(config.sourcepath.resolve(category.slug), "index")
+    val fragment = _source_document_fragment(config, sourcedocument, locale)
     val categoryterms = _category_term_page_items(config, category.slug)
     val categoryarticlecount = category.articles.size
     if (!category.purpose.isEmpty || dashboard.isDefined) {
       val categoryrdf = dashboard.flatMap(_.rdf)
       val hero = _dashboard_hero(
-        fragment.flatMap(_.effectiveHeadline).getOrElse(_uif(locale, "category.page.title", category.title)),
-        fragment.flatMap(_.effectiveBrief).getOrElse(_uif(locale, "category.intro", category.description)),
+        fragment.flatMap(_.effectiveHeadline).orElse(sourcedocument.map(_dox_title)).getOrElse(_uif(locale, "category.page.title", category.title)),
+        fragment.flatMap(_.effectiveBrief).orElse(sourcedocument.map(_dox_brief)).getOrElse(_uif(locale, "category.intro", category.description)),
         Vector(
           _ui(locale, "dashboard.kpi.articles") -> categoryarticlecount.toString,
           _ui(locale, "dashboard.kpi.terms") -> dashboard.map(_.counts.glossaryTermCount.toString).getOrElse(categoryterms.size.toString),
@@ -8075,8 +9468,9 @@ private[cozy] object CozyBok {
 
   private def _dox_brief_fallback(content: String): String = {
     val lines = content.linesIterator.toVector
+    val sectionnames = Set("## BRIEF", "## SUMMARY", "## DESCRIPTION")
     lines.zipWithIndex.collectFirst {
-      case (line, i) if line.trim == "## BRIEF" =>
+      case (line, i) if sectionnames.contains(line.trim) =>
         lines.drop(i + 1).map(_.trim).find(_.nonEmpty).getOrElse("")
     }.filter(_.nonEmpty).getOrElse("Category entry.")
   }
@@ -9351,11 +10745,395 @@ private[cozy] object CozyBok {
       |  justify-content: flex-start;
       |}
       |
+      |.bok-card-glossary-summary .bok-dashboard-grid {
+      |  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+      |  margin: 0.95rem 0 0;
+      |}
+      |
+      |.bok-card-glossary-summary .card-body {
+      |  min-height: 0 !important;
+      |}
+      |
+      |.bok-glossary-summary-metrics {
+      |  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+      |}
+      |
+      |.bok-glossary-connection-rates {
+      |  display: grid;
+      |  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+      |  gap: 0.55rem;
+      |  margin-top: 0.85rem;
+      |}
+      |
+      |.bok-glossary-connection-rate {
+      |  display: flex;
+      |  align-items: center;
+      |  justify-content: space-between;
+      |  gap: 0.75rem;
+      |  padding: 0.58rem 0.72rem;
+      |  border: 1px solid rgba(59, 130, 246, 0.18);
+      |  border-radius: 12px;
+      |  color: #1e293b;
+      |  background: rgba(239, 246, 255, 0.72);
+      |}
+      |
+      |.bok-glossary-connection-rate b {
+      |  color: #334155;
+      |}
+      |
+      |.bok-glossary-connection-rate span {
+      |  color: #0f172a;
+      |  font-weight: 900;
+      |}
+      |
+      |.bok-mono-koto-workflow {
+      |  display: grid;
+      |  gap: 0.9rem;
+      |}
+      |
+      |.bok-mono-koto-lead {
+      |  margin: 0;
+      |  color: #1e293b;
+      |  font-weight: 750;
+      |}
+      |
+      |.bok-workflow-stage-grid {
+      |  display: grid;
+      |  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+      |  gap: 0.85rem;
+      |}
+      |
+      |.bok-workflow-stage {
+      |  position: relative;
+      |  min-height: 13rem;
+      |  display: flex;
+      |  flex-direction: column;
+      |  gap: 0.72rem;
+      |  padding: 0.95rem;
+      |  overflow: hidden;
+      |  border: 1px solid rgba(148, 163, 184, 0.22);
+      |  border-radius: 18px;
+      |  color: #0f172a;
+      |  background: linear-gradient(160deg, rgba(255,255,255,.96), rgba(239,246,255,.82));
+      |  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+      |}
+      |
+      |.bok-workflow-stage::before {
+      |  content: "";
+      |  position: absolute;
+      |  inset: 0 0 auto;
+      |  height: 0.32rem;
+      |  background: #3b82f6;
+      |}
+      |
+      |.bok-workflow-stage-head {
+      |  display: flex;
+      |  align-items: flex-start;
+      |  gap: 0.62rem;
+      |}
+      |
+      |.bok-workflow-stage-head span {
+      |  display: inline-flex;
+      |  flex: 0 0 auto;
+      |  align-items: center;
+      |  justify-content: center;
+      |  width: 2rem;
+      |  height: 2rem;
+      |  border: 2px solid rgba(255, 255, 255, 0.92);
+      |  border-radius: 999px;
+      |  color: #fff !important;
+      |  background: #0f172a;
+      |  font-size: 0.78rem;
+      |  font-weight: 950;
+      |  line-height: 1;
+      |  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+      |  box-shadow: 0 5px 14px rgba(15, 23, 42, 0.22);
+      |}
+      |
+      |.bok-workflow-stage-head strong {
+      |  color: #1e293b;
+      |  font-size: 0.92rem;
+      |  line-height: 1.35;
+      |}
+      |
+      |.bok-workflow-stage-metric {
+      |  display: flex;
+      |  align-items: baseline;
+      |  justify-content: space-between;
+      |  gap: 0.75rem;
+      |  padding: 0.62rem 0.72rem;
+      |  border-radius: 14px;
+      |  background: rgba(219, 234, 254, 0.72);
+      |}
+      |
+      |.bok-workflow-stage-metric b {
+      |  color: #0f172a;
+      |  font-size: 1.75rem;
+      |  font-weight: 950;
+      |  line-height: 1;
+      |  letter-spacing: -0.04em;
+      |}
+      |
+      |.bok-workflow-stage-metric span {
+      |  color: #475569;
+      |  font-size: 0.76rem;
+      |  font-weight: 850;
+      |  text-align: right;
+      |}
+      |
+      |.bok-workflow-stage p {
+      |  margin: 0;
+      |  color: #475569;
+      |  font-size: 0.86rem;
+      |  line-height: 1.55;
+      |}
+      |
+      |.bok-workflow-stage .bok-term-type-chip-list {
+      |  margin-top: auto;
+      |}
+      |
+      |.bok-workflow-actions {
+      |  display: flex;
+      |  flex-wrap: wrap;
+      |  gap: 0.45rem;
+      |  margin-top: auto;
+      |  padding-top: 0.25rem;
+      |}
+      |
+      |.bok-workflow-action {
+      |  display: inline-flex;
+      |  align-items: center;
+      |  justify-content: center;
+      |  min-height: 2rem;
+      |  padding: 0.42rem 0.62rem;
+      |  border: 1px solid rgba(37, 99, 235, 0.18);
+      |  border-radius: 999px;
+      |  color: #1d4ed8;
+      |  background: rgba(255, 255, 255, 0.74);
+      |  font-size: 0.75rem;
+      |  font-weight: 850;
+      |  line-height: 1.2;
+      |  text-decoration: none;
+      |}
+      |
+      |.bok-workflow-action:hover {
+      |  color: #1e40af;
+      |  border-color: rgba(37, 99, 235, 0.34);
+      |  background: rgba(219, 234, 254, 0.82);
+      |  text-decoration: none;
+      |}
+      |
+      |.bok-workflow-refinement-split {
+      |  display: grid;
+      |  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+      |  gap: 0.55rem;
+      |  margin-top: auto;
+      |}
+      |
+      |.bok-workflow-refinement-split h4 {
+      |  margin: 0 0 0.38rem;
+      |  color: #334155;
+      |  font-size: 0.78rem;
+      |  font-weight: 950;
+      |}
+      |
+      |.bok-workflow-refinement-split .bok-term-type-chip-list {
+      |  margin-top: 0;
+      |}
+      |
+      |.bok-workflow-refinement-split .bok-term-type-chip {
+      |  min-height: 1.45rem;
+      |  padding: 0.12rem 0.45rem;
+      |  font-size: 0.72rem;
+      |}
+      |
+      |.bok-connection-card {
+      |  display: grid;
+      |  gap: 0.85rem;
+      |}
+      |
+      |.bok-connection-card > p {
+      |  margin: 0;
+      |}
+      |
+      |.bok-connection-metrics {
+      |  display: grid;
+      |  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+      |  gap: 0.65rem;
+      |}
+      |
+      |.bok-connection-metric {
+      |  display: grid;
+      |  gap: 0.25rem;
+      |  min-height: 7.4rem;
+      |  padding: 0.78rem;
+      |  border: 1px solid rgba(148, 163, 184, 0.22);
+      |  border-radius: 16px;
+      |  background: rgba(255, 255, 255, 0.74);
+      |}
+      |
+      |.bok-connection-metric span {
+      |  color: #475569;
+      |  font-size: 0.76rem;
+      |  font-weight: 900;
+      |}
+      |
+      |.bok-connection-metric b {
+      |  color: #0f172a;
+      |  font-size: 1.95rem;
+      |  font-weight: 950;
+      |  line-height: 1;
+      |  letter-spacing: -0.04em;
+      |}
+      |
+      |.bok-connection-metric em {
+      |  color: #64748b;
+      |  font-size: 0.72rem;
+      |  font-style: normal;
+      |  font-weight: 750;
+      |}
+      |
+      |.bok-connection-breakdown {
+      |  display: grid;
+      |  gap: 0.45rem;
+      |}
+      |
+      |.bok-connection-breakdown > strong {
+      |  color: #334155;
+      |}
+      |
+      |.bok-connection-chip-list {
+      |  display: flex;
+      |  flex-wrap: wrap;
+      |  gap: 0.38rem;
+      |}
+      |
+      |.bok-connection-chip {
+      |  display: inline-flex;
+      |  align-items: center;
+      |  gap: 0.42rem;
+      |  padding: 0.18rem 0.52rem;
+      |  border: 1px solid rgba(148, 163, 184, 0.24);
+      |  border-radius: 999px;
+      |  background: rgba(248, 250, 252, 0.86);
+      |}
+      |
+      |.bok-connection-chip b {
+      |  color: #334155;
+      |  font-size: 0.76rem;
+      |}
+      |
+      |.bok-connection-chip em {
+      |  color: #0f172a;
+      |  font-style: normal;
+      |  font-weight: 950;
+      |}
+      |
+      |.bok-connection-checkpoints,
+      |.bok-connection-note {
+      |  padding: 0.62rem 0.72rem;
+      |  border-radius: 12px;
+      |  background: rgba(239, 246, 255, 0.68);
+      |  color: #334155;
+      |  font-weight: 750;
+      |}
+      |
+      |.bok-connection-note {
+      |  background: rgba(255, 247, 237, 0.78);
+      |}
+      |
+      |.bok-mono-koto-steps {
+      |  display: grid;
+      |  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+      |  gap: 0.85rem;
+      |  margin: 0;
+      |  padding: 0;
+      |  list-style: none;
+      |}
+      |
+      |.bok-mono-koto-steps > li {
+      |  position: relative;
+      |  padding: 0.9rem 0.95rem 0.95rem;
+      |  border: 1px solid rgba(130, 105, 70, 0.18);
+      |  border-radius: 14px;
+      |  background: rgba(255, 255, 255, 0.68);
+      |}
+      |
+      |.bok-mono-koto-steps > li > strong {
+      |  display: block;
+      |  margin-bottom: 0.38rem;
+      |  color: #1f2937;
+      |}
+      |
+      |.bok-mono-koto-steps p {
+      |  margin: 0.3rem 0 0;
+      |}
+      |
+      |.bok-mono-koto-refinement-grid {
+      |  display: grid;
+      |  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+      |  gap: 0.65rem;
+      |  margin-top: 0.65rem;
+      |}
+      |
+      |.bok-mono-koto-refinement-grid section {
+      |  padding: 0.72rem;
+      |  border: 1px solid rgba(59, 130, 246, 0.16);
+      |  border-radius: 12px;
+      |  background: rgba(239, 246, 255, 0.58);
+      |}
+      |
+      |.bok-mono-koto-refinement-grid h4 {
+      |  margin: 0 0 0.3rem;
+      |  color: #334155;
+      |  font-size: 0.92rem;
+      |}
+      |
+      |.bok-term-type-chip-list {
+      |  display: flex;
+      |  flex-wrap: wrap;
+      |  gap: 0.38rem;
+      |  margin-top: 0.6rem;
+      |}
+      |
+      |.bok-term-type-chip {
+      |  display: inline-flex;
+      |  align-items: center;
+      |  min-height: 1.65rem;
+      |  padding: 0.18rem 0.55rem;
+      |  color: #0f172a;
+      |  background: rgba(255, 255, 255, 0.82);
+      |  border: 1px solid rgba(148, 163, 184, 0.28);
+      |  border-radius: 999px;
+      |  font-size: 0.78rem;
+      |  font-weight: 850;
+      |}
+      |
+      |.bok-mono-koto-principle {
+      |  margin: 0;
+      |  padding: 0.72rem 0.85rem;
+      |  color: #334155;
+      |  background: rgba(255, 247, 237, 0.82);
+      |  border: 1px solid rgba(251, 146, 60, 0.22);
+      |  border-radius: 14px;
+      |  font-weight: 750;
+      |}
+      |
+      |.bok-mono-koto-cml-note {
+      |  margin: 0;
+      |  padding: 0.72rem 0.85rem;
+      |  color: #1e3a8a;
+      |  background: rgba(219, 234, 254, 0.78);
+      |  border: 1px solid rgba(37, 99, 235, 0.18);
+      |  border-radius: 14px;
+      |  font-weight: 750;
+      |}
+      |
       |.bok-term-type-summary {
       |  display: grid;
-      |  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+      |  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
       |  gap: 0.55rem;
-      |  margin-top: 0.8rem;
+      |  margin-top: 0.9rem;
       |}
       |
       |.bok-term-type-summary-item {
@@ -9371,6 +11149,130 @@ private[cozy] object CozyBok {
       |
       |.bok-term-type-summary-item b {
       |  font-size: 1.2rem;
+      |}
+      |
+      |.bok-mono-koto-summary {
+      |  align-items: stretch;
+      |  padding-top: 0.75rem;
+      |  border-top: 1px solid rgba(130, 105, 70, 0.16);
+      |}
+      |
+      |.bok-mono-koto-summary > strong {
+      |  display: flex;
+      |  align-items: center;
+      |  color: #334155;
+      |}
+      |
+      |.bok-term-analysis-route-grid,
+      |.bok-term-type-issue-grid {
+      |  display: grid;
+      |  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+      |  gap: 0.85rem;
+      |}
+      |
+      |.bok-term-analysis-route-groups {
+      |  display: grid;
+      |  gap: 1rem;
+      |}
+      |
+      |.bok-term-analysis-route-group {
+      |  display: grid;
+      |  gap: 0.85rem;
+      |  padding: 0.95rem;
+      |  border: 1px solid rgba(148, 163, 184, 0.20);
+      |  border-radius: 18px;
+      |  background: rgba(248, 250, 252, 0.72);
+      |}
+      |
+      |.bok-term-analysis-route-group-head {
+      |  display: flex;
+      |  align-items: flex-start;
+      |  justify-content: space-between;
+      |  gap: 1rem;
+      |  padding-bottom: 0.75rem;
+      |  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+      |}
+      |
+      |.bok-term-analysis-route-group-head h4 {
+      |  margin: 0.35rem 0 0.2rem;
+      |  color: #1e293b;
+      |  font-size: 1.08rem;
+      |}
+      |
+      |.bok-term-analysis-route-group-head p {
+      |  margin: 0;
+      |  color: #64748b;
+      |}
+      |
+      |.bok-term-analysis-route-group-head dl {
+      |  display: grid;
+      |  grid-template-columns: auto auto;
+      |  gap: 0.22rem 0.65rem;
+      |  min-width: 9rem;
+      |  margin: 0;
+      |  padding: 0.55rem 0.65rem;
+      |  border-radius: 12px;
+      |  background: rgba(219, 234, 254, 0.62);
+      |}
+      |
+      |.bok-term-analysis-route-group-head dt {
+      |  color: #64748b;
+      |  font-size: 0.72rem;
+      |  font-weight: 850;
+      |}
+      |
+      |.bok-term-analysis-route-group-head dd {
+      |  margin: 0;
+      |  color: #0f172a;
+      |  font-weight: 950;
+      |  text-align: right;
+      |}
+      |
+      |.bok-term-analysis-route,
+      |.bok-term-type-issue-group {
+      |  border: 1px solid rgba(130, 105, 70, 0.18);
+      |  border-radius: 12px;
+      |  background: rgba(255, 255, 255, 0.62);
+      |  padding: 0.9rem;
+      |}
+      |
+      |.bok-term-analysis-route-head {
+      |  display: flex;
+      |  align-items: center;
+      |  justify-content: space-between;
+      |  gap: 0.75rem;
+      |  margin-bottom: 0.65rem;
+      |}
+      |
+      |.bok-term-analysis-route-head strong {
+      |  font-size: 1.45rem;
+      |  color: #1f2937;
+      |}
+      |
+      |.bok-term-analysis-route-checkpoints {
+      |  margin: 0.7rem 0;
+      |}
+      |
+      |.bok-term-analysis-route-checkpoints dt {
+      |  color: #64748b;
+      |  font-size: 0.78rem;
+      |  font-weight: 800;
+      |}
+      |
+      |.bok-term-analysis-route-checkpoints dd {
+      |  margin: 0 0 0.45rem;
+      |}
+      |
+      |.bok-index-term-category {
+      |  color: var(--bok-muted, #64748b);
+      |  font-size: 0.88rem;
+      |  font-weight: 800;
+      |  white-space: nowrap;
+      |}
+      |
+      |.bok-term-type-issue-group h4 {
+      |  margin: 0 0 0.6rem;
+      |  font-size: 0.95rem;
       |}
       |
       |.bok-card-term-type .bok-metadata-table {
@@ -11649,6 +13551,17 @@ private[cozy] object CozyBok {
          |
          |マルチリンガルBoKはSmartDoxのみを対象にします。GitHub Markdownは単一言語の通常記事向けとして扱います。
          |
+         |## Glossary Term Classification
+         |
+         |用語分類は、未分類の候補を確認し、モノ/コトの補助線で整理した上で、BoK内での役割に基づいて用語タイプを決める作業です。
+         |
+         |1. 未分類の用語を確認します。
+         |2. 記事、シナリオ、参考資料、Project/CML情報から、その語がBoK内で何を担うかを確認します。
+         |3. 存在として扱う対象は、concept、entity、actor、role、resource、artifactから選びます。
+         |4. 起きる、行う、変化する、制御する対象は、event、action、process、task、rule、state、scenarioから選びます。
+         |5. 判定に迷う場合は未分類のまま残し、根拠記事や関連用語を先に整備します。
+         |6. 分類後は用語ハブで定義、関連記事、RDF接続、Project/CML接続を確認します。
+         |
          |## Actor Operations
          |
          |BoK運用では、Knowledge Contributor、BoK管理者、サイト管理者の責務を分けます。Knowledge Contributorは、ある知識のKnowledge OwnerとしてGit sourceを編集します。自分がownerではない知識への修正はPull Requestで提案します。BoK管理者とサイト管理者はPull Requestを境界にレビュー、merge、公開判断を行います。
@@ -11741,6 +13654,17 @@ private[cozy] object CozyBok {
          |SmartDox is recommended for advanced contributors who need the full BoK feature set: BoK metadata, glossary linkage, RDF linkage, and SmartDox-specific structured authoring.
          |
          |Multilingual BoK authoring is SmartDox-only. GitHub Markdown is treated as the normal single-language article format.
+         |
+         |## Glossary Term Classification
+         |
+         |Term classification starts from unclassified candidates, uses mono/koto as an analysis aid, and then assigns a term type based on the term's role in the BoK knowledge space.
+         |
+         |1. Review unclassified terms.
+         |2. Check articles, scenarios, bibliography, and Project/CML metadata to understand the term's role.
+         |3. For existence-like terms, choose concept, entity, actor, role, resource, or artifact.
+         |4. For terms that happen, are performed, change, or control decisions, choose event, action, process, task, rule, state, or scenario.
+         |5. Keep uncertain candidates unclassified until evidence, related articles, or related terms are clearer.
+         |6. After classification, verify definition, related articles, RDF links, and Project/CML links in the Term Hub.
          |
          |## Actor Operations
          |

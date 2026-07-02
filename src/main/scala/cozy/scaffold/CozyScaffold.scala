@@ -13,12 +13,13 @@ import scala.collection.JavaConverters._
 /*
  * @since   May. 20, 2026
  *  version May. 25, 2026
- * @version Jun. 27, 2026
+ *  version Jun. 27, 2026
+ * @version Jul.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyScaffold {
   private val _default_sbt_version = "1.9.7"
-  private val _default_sbt_cozy_version = "0.1.10"
+  private val _default_sbt_cozy_version = "0.1.11-SNAPSHOT"
 
   case class CarDependencyVersions(
     cncfVersion: String,
@@ -397,14 +398,6 @@ private[cozy] object CozyScaffold {
       |      "boundedContext" -> "${scaffold.boundedContext}",
       |      "domain" -> "${scaffold.domain}"
       |    ),
-      |    publish := {
-      |      val _ = cozyPublishCar.value
-      |      ()
-      |    },
-      |    publishLocal := {
-      |      val _ = cozyPublishLocalCar.value
-      |      ()
-      |    },
       |
       |    Compile / sourceGenerators += Def.task {
       |      val out = (Compile / sourceManaged).value / "${scaffold.packageName.split("\\.").mkString("\" / \"")}" / "meta" / "BuildVersion.scala"
@@ -504,13 +497,13 @@ private[cozy] object CozyScaffold {
       |  .settings(
       |    name := "${scaffold.artifactName}",
       |    publish := {
-      |      val _ = (component / cozyPublishCar).value
-      |      val _ = (subsystem / cozyPublishSar).value
+      |      val _ = (component / publish).value
+      |      val _ = (subsystem / publish).value
       |      ()
       |    },
       |    publishLocal := {
-      |      val _ = (component / cozyPublishLocalCar).value
-      |      val _ = (subsystem / cozyPublishLocalSar).value
+      |      val _ = (component / publishLocal).value
+      |      val _ = (subsystem / publishLocal).value
       |      ()
       |    }
       |  )
@@ -531,14 +524,6 @@ private[cozy] object CozyScaffold {
       |      "boundedContext" -> "${scaffold.boundedContext}",
       |      "domain" -> "${scaffold.domain}"
       |    ),
-      |    publish := {
-      |      val _ = cozyPublishCar.value
-      |      ()
-      |    },
-      |    publishLocal := {
-      |      val _ = cozyPublishLocalCar.value
-      |      ()
-      |    },
       |    cozyBundleFactoryClassName := None,
       |    Compile / resourceGenerators += Def.task {
       |      cozyBundleFactoryClassName.value.map { classname =>
@@ -563,14 +548,6 @@ private[cozy] object CozyScaffold {
       |      "org.goldenport" %% "goldenport-cncf" % cncfVersion,
       |      "org.scalatest" %% "scalatest" % "3.2.19" % Test
       |    ),
-      |    publish := {
-      |      val _ = cozyPublishSar.value
-      |      ()
-      |    },
-      |    publishLocal := {
-      |      val _ = cozyPublishLocalSar.value
-      |      ()
-      |    },
       |    Test / fork := false
       |  )
       |

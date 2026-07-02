@@ -14,7 +14,8 @@ import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 
 /*
  * @since   Jun. 23, 2026
- * @version Jun. 27, 2026
+ *  version Jun. 27, 2026
+ * @version Jul.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -102,10 +103,8 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         buildsbtcontent should not include ("CNCF_SAMPLES_ROOT")
         buildsbtcontent should include ("""libraryDependencies += "org.goldenport" %% "goldenport-cncf" % cncfVersion""")
         buildsbtcontent should include ("""libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.10" % Test""")
-        buildsbtcontent should include ("publish := {")
-        buildsbtcontent should include ("cozyPublishCar.value")
-        buildsbtcontent should include ("publishLocal := {")
-        buildsbtcontent should include ("cozyPublishLocalCar.value")
+        buildsbtcontent should not include ("cozyPublishCar.value")
+        buildsbtcontent should not include ("cozyPublishLocalCar.value")
         buildsbtcontent should include ("""cozyDelegateCommand := Seq("cozy")""")
         buildsbtcontent should not include ("junit-interface")
         buildsbtcontent should not include ("cats-core")
@@ -138,7 +137,7 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         pluginssbtcontent should include ("""addSbtPlugin("org.goldenport" % "sbt-cozy"""")
         pluginssbtcontent should include (""""SimpleModeling.org" at "https://www.simplemodeling.org/repository/maven"""")
         pluginssbtcontent should include ("SBT_COZY_VERSION")
-        pluginssbtcontent should include ("0.1.10")
+        pluginssbtcontent should include ("0.1.11-SNAPSHOT")
         pluginssbtcontent should include ("""addSbtPlugin("org.goldenport" % "sbt-cozy" % sbtCozyVersion)""")
       }
 
@@ -258,10 +257,14 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         rootbuildcontent should include ("lazy val cozyBundleFactoryClassName = settingKey[Option[String]]")
         rootbuildcontent should include (""""org.goldenport" %% "goldenport-cncf" % cncfVersion""")
         rootbuildcontent should include (""""org.scalatest" %% "scalatest" % "3.2.19" % Test""")
-        rootbuildcontent should include ("(component / cozyPublishCar).value")
-        rootbuildcontent should include ("(subsystem / cozyPublishSar).value")
-        rootbuildcontent should include ("(component / cozyPublishLocalCar).value")
-        rootbuildcontent should include ("(subsystem / cozyPublishLocalSar).value")
+        rootbuildcontent should include ("(component / publish).value")
+        rootbuildcontent should include ("(subsystem / publish).value")
+        rootbuildcontent should include ("(component / publishLocal).value")
+        rootbuildcontent should include ("(subsystem / publishLocal).value")
+        rootbuildcontent should not include ("cozyPublishCar.value")
+        rootbuildcontent should not include ("cozyPublishSar.value")
+        rootbuildcontent should not include ("cozyPublishLocalCar.value")
+        rootbuildcontent should not include ("cozyPublishLocalSar.value")
         rootbuildcontent should not include ("simplemodeling-model")
         rootbuildcontent should not include ("cncf-collaborator-api")
         rootbuildcontent should not include ("dependencyOverrides")
@@ -454,8 +457,8 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         buildsbtcontent should include ("""version := "0.1.0-SNAPSHOT"""")
         buildsbtcontent should include ("""libraryDependencies += "org.goldenport" %% "goldenport-cncf" % cncfVersion""")
         buildsbtcontent should include ("""libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.10" % Test""")
-        buildsbtcontent should include ("cozyPublishCar.value")
-        buildsbtcontent should include ("cozyPublishLocalCar.value")
+        buildsbtcontent should not include ("cozyPublishCar.value")
+        buildsbtcontent should not include ("cozyPublishLocalCar.value")
         buildsbtcontent should not include ("dependencyOverrides")
         projectyamlcontent should include ("""name: "textus-knowledge-editor"""")
         projectyamlcontent should include ("""title: "Textus Knowledge Editor"""")

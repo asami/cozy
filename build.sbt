@@ -75,7 +75,7 @@ libraryDependencies += "org.smartdox" %% "smartdox" % "2.4.15"
 libraryDependencies += "org.goldenport" %% "kaleidox" % "0.6.16"
 
 val simplemodelerVersion =
-  sys.props.getOrElse("simplemodeler.version", sys.env.getOrElse("SIMPLEMODELER_VERSION", "1.1.21"))
+  sys.props.getOrElse("simplemodeler.version", sys.env.getOrElse("SIMPLEMODELER_VERSION", "1.1.22-SNAPSHOT"))
 
 libraryDependencies += "org.simplemodeling" %% "simplemodeler" % simplemodelerVersion
 

@@ -44,8 +44,17 @@ Derived mono-koto classification:
 | `role` | mono | role as a responsibility/permission structure |
 
 New `term_type` values are intentionally not introduced in v1. Candidate future
-values such as `state`, `process`, `activity`, `rule`, `artifact`, and `place`
-remain extension candidates.
+values such as `entity`, `resource`, `artifact`, `state`, `process`, `task`,
+`activity`, `rule`, and `place` remain extension candidates.
+
+Mono-koto extraction may use a rough grammar aid: noun-like expressions are
+mono candidates and verb-like expressions are koto candidates. This is only a
+starting point. The final `term_type` is decided by the role of the term in the
+BoK knowledge space, and a term may move between mono and koto during curation.
+
+See `docs/notes/bok-glossary-cml-classification-alignment.md` for the current
+working alignment between BoK glossary classification and CML/CNCF
+classification.
 
 ## Scenario Relationship
 
@@ -98,6 +107,13 @@ model element. Typical authoring links are:
 - Statemachine
 - Rule
 
+In CML/CNCF, `entity` means a persistent, identifiable domain object. Its
+runtime/modeling purpose is classified by `entityKind`, currently including
+`master`, `document`, `workflow`, `task`, `actor`, `asset`, and `system`.
+Legacy `operationKind = "resource"` / `"task"` remains a compatibility bridge;
+new BoK explanations should prefer `entityKind` when describing persistent
+object classification.
+
 These CML element kinds are not added to `term_type`. A term keeps its BoK role
 such as `concept`, `event`, `actor`, or `role`, and records the CML element as
 linkage/provenance. For example, a concept term may link to a CML Entity, a
@@ -120,6 +136,11 @@ Current Cozy metadata already exposes event-level CML fields:
 - `event.cml_event`
 - `event.cml_component`
 - `event.cml_statemachine`
+
+When a koto term becomes persistent in CML, it may still be modeled as an
+Entity. Typical examples are workflow-like and task-like entities. This does
+not change the BoK semantic classification; it only records the CML
+representation.
 
 CML kind is interpreted for display:
 

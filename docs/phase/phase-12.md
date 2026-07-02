@@ -6,13 +6,13 @@ Start date: 2026-06-20
 
 ## Goal
 
-Use `/Users/asami/src/Project2026/bok-knowlegehub` as a real BoK operation
+Use `/Users/asami/src/Project2026/bok-knowledgehub` as a real BoK operation
 driver for `cozy bok`, identify operational friction, and convert the findings
 into focused Cozy improvements.
 
 ## Target Project
 
-- `/Users/asami/src/Project2026/bok-knowlegehub`
+- `/Users/asami/src/Project2026/bok-knowledgehub`
 
 ## Themes
 
@@ -172,7 +172,7 @@ into focused Cozy improvements.
   assets consistently.
 - 2026-06-21: Completed BK12-08 stage and upload workflow readiness.
   `cozy bok stage .` copied `website.d` into the configured
-  `../bok-knowlegehub-website` staging directory and kept KnowledgeHub source
+  `../bok-knowledgehub-website` staging directory and kept KnowledgeHub source
   files clean, with only ignored generated directories present. `cozy bok
   upload .` intentionally failed because `etc/website-upload.sh` is still a
   project-owned placeholder; the diagnostic explains how to replace it with an
@@ -433,7 +433,7 @@ into focused Cozy improvements.
 
 - 2026-06-27: Closed Phase 12. KnowledgeHub production build, CloudFront
   serving, and upload workflow were operationally verified against
-  `/Users/asami/src/Project2026/bok-knowlegehub`. The final generated-state
+  `/Users/asami/src/Project2026/bok-knowledgehub`. The final generated-state
   check showed only ignored operational output directories:
   `.cozy/`, `antora.d/`, `doxsite.d/`, `target/`, `website.backup/`, and
   `website.d/`. All BK12 items are complete or explicitly bounded by their
@@ -443,4 +443,4 @@ into focused Cozy improvements.
 
 - `docs/strategy/cozy-development-strategy.md`
 - `docs/phase/phase-12-checklist.md`
-- `/Users/asami/src/Project2026/bok-knowlegehub`
+- `/Users/asami/src/Project2026/bok-knowledgehub`

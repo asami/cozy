@@ -9,7 +9,8 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jun. 22, 2026
- * @version Jun. 25, 2026
+ *  version Jun. 25, 2026
+ * @version Jul.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokTermHubSpec
@@ -71,10 +72,26 @@ class CozyBokTermHubSpec
           glossary should include("""<body class="article bok-dashboard-theme-paper">""")
           glossary should include("""class="body body-dashboard bok-glossary-body"""")
           glossary should include("""class="bok-dashboard-shell bok-glossary-dashboard"""")
-          glossary should include("Term Dashboard")
-          glossary should include("glossary/&lt;category&gt;/")
+          glossary should include("用語グループ")
+          glossary should not include ("glossary/&lt;category&gt;/")
+          glossary should include("RDF接続")
+          glossary should include("RDF接続済み用語")
+          glossary should include("RDFトリプル")
+          glossary should include("プロジェクト接続")
+          glossary should include("CML接続済み用語")
+          glossary should include("用語活用")
+          glossary should include("開発ディレクトリ直読み")
+          glossary should include("entityKind")
+          glossary should include("bok-workflow-actions")
+          glossary should include("href=\"../articles/index.html\"")
+          glossary should include("href=\"#term-analysis-routes\"")
+          glossary should include("href=\"#term-rdf-connections\"")
+          glossary should include("href=\"#term-project-connections\"")
           glossary should include("class=\"bok-term-group-grid\"")
           glossary should include("bok-card-glossary-summary")
+          glossary should include("用語数")
+          glossary should include("カテゴリ数")
+          glossary should include("用語タイプ数")
           glossary should include("bok-card-glossary-map")
           glossary should include("href=\"architecture/runtime.html\"")
           glossary should include(
@@ -171,7 +188,6 @@ class CozyBokTermHubSpec
           val glossary = _read(dir.resolve("website.d/glossary/index.html"))
           glossary should include("""<body class="article bok-dashboard-theme-paper">""")
           glossary should include("""class="body body-dashboard bok-glossary-body"""")
-          glossary should include("Term Dashboard")
           glossary should include("No glossary terms yet.")
           glossary should not include ("""href="architecture/runtime.html"""")
           glossary should not include ("らんたいむ")

@@ -9,7 +9,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jun. 25, 2026
- * @version Jun. 25, 2026
+ * @version Jul.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokMonoKotoSpec
@@ -72,10 +72,21 @@ class CozyBokMonoKotoSpec
 
           Then("the Glossary dashboard summarizes term types and mono/koto analysis")
           val glossary = _read(dir.resolve("website.d/glossary/index.html"))
-          glossary should include_html("Mono/Koto Analysis")
+          glossary should include_html("Glossary Workflow")
+          glossary should include_html("Candidate extraction")
+          glossary should include_html("Done / target")
+          glossary should include_html("Term definition")
+          glossary should include_html("Term classification")
+          glossary should include_html("Type group breakdown")
           glossary should include_html("Mono")
           glossary should include_html("Koto")
-          glossary should include_html("No CML linkage")
+          glossary should include_html("Term Usage")
+          glossary should include_html("RDF connection")
+          glossary should include_html("CML connection")
+          glossary should include_html("entityKind")
+          glossary should include_html("Term Classification")
+          glossary should include_html("Missing Analysis")
+          glossary should include_html("No event/scenario reference")
           glossary should include_html("Architecture Review")
           glossary should include_html("Knowledge Owner")
           glossary should include_html("Reviewer")
@@ -110,7 +121,7 @@ class CozyBokMonoKotoSpec
           rule should include_html("Rule")
           rule should include_html("rule: ReviewApprovalRule")
 
-          And("the RDF viewer exposes mono/koto and CML linkage in Information View")
+          And("the RDF viewer exposes mono/koto and CML linkage in the node view")
           val rdf = _read(dir.resolve("website.d/rdf/index.html"))
           rdf should include_html("nodeMonoKotoValues")
           rdf should include_html("nodeCmlLinkValues")
@@ -123,7 +134,7 @@ class CozyBokMonoKotoSpec
         }
       }
 
-      "render CML-derived provisional Term Hubs as bottom-up alignment findings" in {
+      "render CML elements as project metadata without auto-generating glossary terms" in {
         _with_temp_dir("cozy-bok-cml-derived-mono-koto") { dir =>
           Given("a BoK source tree with CAR project metadata generated from CML")
           val externalproject = dir.resolve("external/nict-knowledgehub")
@@ -147,6 +158,7 @@ class CozyBokMonoKotoSpec
             s"""bok:
                |  projects:
                |    nict-knowledgehub:
+               |      repository: path
                |      path: ${externalproject.toString}
                |""".stripMargin
           )
@@ -178,23 +190,30 @@ class CozyBokMonoKotoSpec
               |""".stripMargin
           )
 
-          When("Cozy registers project metadata and builds generated CML term pages")
+          When("Cozy registers project metadata and builds the project page")
           CozyBok.publishProjects(CozyBok.PublicationConfig.create("publish-projects", List(dir.toString)))
           CozyBok.build(
             CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview")),
             new EmptyMetadataRunner
           )
 
-          Then("CML-only elements are displayed as generated-from-cml findings")
-          val entity = _read(dir.resolve("website.d/glossary/cml/knowledge-item.html"))
-          entity should include_html("generated-from-cml")
-          entity should include_html("Mono/Koto")
-          entity should include_html("Mono")
-          entity should include_html("CML linkage")
-          val statemachine =
-            _read(dir.resolve("website.d/glossary/cml/knowledge-lifecycle.html"))
-          statemachine should include_html("generated-from-cml")
-          statemachine should include_html("Koto")
+          Then("CML-only elements are displayed as unlinked model elements, not generated terms")
+          val page = _read(dir.resolve("website.d/projects/technology/nict-knowledgehub/index.html"))
+          page should include("""class="bok-project-cml-tabs"""")
+          page should include("""class="bok-project-cml-source-card"""")
+          page should include_html("nict-knowledgehub.cml")
+          page should include_html("src/main/cozy/nict-knowledgehub.cml")
+          page should not include ("Source: direct-cml-scan")
+          page should include("bok-project-cml-summary-total")
+          page should include("bok-project-cml-summary-breakdown")
+          page should include("""<span class="bok-project-unlinked-term">-</span>""")
+          page should not include ("No linked glossary term")
+          page should not include ("Role")
+          page should not include ("Layer")
+          page should include_html("KnowledgeItem")
+          page should include_html("KnowledgeLifecycle")
+          dir.resolve("website.d/glossary/cml/knowledge-item.html") shouldNot exist_path
+          dir.resolve("website.d/glossary/cml/knowledge-lifecycle.html") shouldNot exist_path
         }
       }
     }

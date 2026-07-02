@@ -15,7 +15,7 @@ import org.scalatest.wordspec.AnyWordSpec
 /*
  * @since   Jun.  3, 2026
  *  version Jun. 27, 2026
- * @version Jul.  1, 2026
+ * @version Jul.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokSpec
@@ -267,6 +267,7 @@ class CozyBokSpec
           )
           css should include(".bok-cumulative-line")
           css should include(".bok-index-nav")
+          dashboardcss should include(".bok-index-term-category")
           dashboardcss should include("Cozy BoK Dashboard")
           dashboardcss should include(".body-dashboard .toolbar")
           dashboardcss should include("#0b1220")
@@ -953,17 +954,29 @@ class CozyBokSpec
           _read(
             dir.resolve("website.d/manual/local-rules.html")
           ) should include("Project Scope")
-          _read(dir.resolve("website.d/glossary/index.html")) should include(
+          _read(dir.resolve("website.d/glossary/index.html")) should not include (
             """glossary/&lt;category&gt;/"""
           )
           _read(dir.resolve("website.d/glossary/index.html")) should include(
             """href="architecture/runtime.html""""
           )
           _read(dir.resolve("website.d/glossary/index.html")) should include(
-            """<div class="bok-metric-label">Terms</div>"""
+            """<div class="bok-metric-label">用語数</div>"""
           )
           _read(dir.resolve("website.d/glossary/index.html")) should include(
             """<div class="bok-metric-value">3</div>"""
+          )
+          _read(dir.resolve("website.d/glossary/index.html")) should include(
+            """<div class="bok-metric-label">カテゴリ数</div>"""
+          )
+          _read(dir.resolve("website.d/glossary/index.html")) should include(
+            """<div class="bok-metric-label">用語タイプ数</div>"""
+          )
+          _read(dir.resolve("website.d/glossary/index.html")) should include(
+            """<div class="bok-metric-label">RDF接続数</div>"""
+          )
+          _read(dir.resolve("website.d/glossary/index.html")) should include(
+            """class="bok-glossary-connection-rate""""
           )
           _read(dir.resolve("website.d/glossary/index.html")) should include(
             """href="../ja/glossary/index.html">日本語索引ページ</a>"""
@@ -989,6 +1002,18 @@ class CozyBokSpec
             "navbar-category-nav"
           )
           _read(dir.resolve("website.d/ja/glossary/index.html")) should include(
+            "日本語用語索引"
+          )
+          _read(dir.resolve("website.d/ja/glossary/index.html")) should include(
+            "日本語で用語を探すための索引ページです。"
+          )
+          _read(dir.resolve("website.d/ja/glossary/index.html")) should include(
+            """<h2>用語</h2>"""
+          )
+          _read(
+            dir.resolve("website.d/ja/glossary/index.html")
+          ) should not include ("This page is a language-specific entry point")
+          _read(dir.resolve("website.d/ja/glossary/index.html")) should include(
             """href="#index-あ">あ</a>"""
           )
           _read(dir.resolve("website.d/ja/glossary/index.html")) should include(
@@ -1007,6 +1032,11 @@ class CozyBokSpec
             """href="../../glossary/architecture/runtime.html""""
           )
           _read(dir.resolve("website.d/ja/glossary/index.html")) should include(
+            """>らんたいむ</a> <span class="bok-index-term-category">[Architecture]</span>"""
+          )
+          _read(
+            dir.resolve("website.d/ja/glossary/index.html")
+          ) should not include (
             """>らんたいむ</a>: Architecture"""
           )
           _read(
@@ -1017,6 +1047,26 @@ class CozyBokSpec
           _read(
             dir.resolve("website.d/ja/glossary/index.html")
           ) should not include ("""href="../../glossary/architecture/cloud.html"""")
+          _read(dir.resolve("website.d/en/glossary/index.html")) should include(
+            "英語用語索引"
+          )
+          _read(dir.resolve("website.d/en/glossary/index.html")) should include(
+            "英語表記の用語を探すための索引ページです。"
+          )
+          _read(dir.resolve("website.d/en/glossary/index.html")) should include(
+            """<h2>索引</h2>"""
+          )
+          _read(dir.resolve("website.d/en/glossary/index.html")) should include(
+            """<h2>用語</h2>"""
+          )
+          _read(
+            dir.resolve("website.d/en/glossary/index.html")
+          ) should not include (
+            "This page is a language-specific entry point"
+          )
+          _read(dir.resolve("website.d/en/glossary/index.html")) should include(
+            """<span class="bok-index-term-category">[Architecture]</span>"""
+          )
           _read(dir.resolve("website.d/en/glossary/index.html")) should include(
             """href="#index-c">C</a>"""
           )
@@ -1122,37 +1172,52 @@ class CozyBokSpec
             """class="bok-rdf-panel bok-rdf-panel-triples""""
           )
           _read(dir.resolve("website.d/rdf/index.html")) should include(
+            """class="bok-rdf-tabbar""""
+          )
+          _read(dir.resolve("website.d/rdf/index.html")) should include(
+            """class="bok-rdf-filterbar""""
+          )
+          _read(dir.resolve("website.d/rdf/index.html")) should not include (
+            """class="bok-rdf-toolbar""""
+          )
+          _read(dir.resolve("website.d/rdf/index.html")) should include(
             """data-rdf-view="graph""""
           )
           _read(dir.resolve("website.d/rdf/index.html")) should include(
             """role="tab" aria-selected="true" aria-controls="bok-rdf-panel-graph" data-rdf-view="graph""""
           )
           _read(dir.resolve("website.d/rdf/index.html")) should include(
-            """data-rdf-view="information""""
+            """aria-controls="bok-rdf-panel-nodes" data-rdf-view="nodes""""
           )
           _read(dir.resolve("website.d/rdf/index.html")) should include(
             """data-rdf-view="triples""""
           )
           _read(dir.resolve("website.d/rdf/index.html")) should include(
-            """data-rdf-panel="information""""
+            """data-rdf-panel="nodes""""
           )
           _read(dir.resolve("website.d/rdf/index.html")) should include(
             """data-rdf-panel="triples" role="tabpanel""""
           )
           _read(dir.resolve("website.d/rdf/index.html")) should include(
-            "bok-rdf-information-view"
+            "bok-rdf-node-list-view"
           )
           _read(dir.resolve("website.d/rdf/index.html")) should include(
-            "renderInformationView"
+            "renderNodeListView"
           )
           _read(dir.resolve("website.d/rdf/index.html")) should include(
-            "informationCard"
+            "nodeListCard"
           )
           _read(dir.resolve("website.d/rdf/index.html")) should include(
-            "bok-rdf-information-card"
+            "bok-rdf-node-list-card"
+          )
+          _read(dir.resolve("website.d/rdf/index.html")) should not include (
+            "bok-rdf-graph-detail"
+          )
+          _read(dir.resolve("website.d/rdf/index.html")) should not include (
+            "bok-rdf-node-cloud"
           )
           _read(dir.resolve("website.d/rdf/index.html")) should include(
-            "表示中のRDFノードをInformationとして一覧"
+            "表示中のRDFノードを一覧"
           )
           _read(dir.resolve("website.d/rdf/index.html")) should include(
             """data-graph="../metadata/rdf/graph.json""""

@@ -10,7 +10,7 @@ import org.goldenport.parser.LogicalSection
 
 /*
  * @since   Jun. 23, 2026
- * @version Jun. 23, 2026
+ * @version Jul.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CmlModelMetadata {
@@ -18,27 +18,31 @@ private[cozy] object CmlModelMetadata {
 
   final case class ModelMetadata(
     source: Source,
-    elements: Vector[Element]
+    surface: Surface,
+    modelElements: Vector[Element]
   ) {
     def toJson: JsObject =
       Json.obj(
         "schema" -> _schema,
         "source" -> source.toJson,
-        "elements" -> JsArray(elements.map(_.toJson))
+        "surface" -> surface.toJson,
+        "modelElements" -> JsArray(modelElements.map(_.toJson))
       )
 
     def toJsonString: String =
       Json.prettyPrint(toJson)
 
     def toYamlString: String = {
-      val body = elements.map(_.toYaml("  ")).mkString
+      val body = modelElements.map(_.toYaml("  ")).mkString
       s"""schema: ${_schema}
          |source:
          |  path: ${_yaml_scalar(source.path)}
          |  sha256: ${source.sha256}
          |  compiler: ${_yaml_scalar(source.compiler)}
          |  cozyVersion: ${_yaml_scalar(source.cozyversion)}
-         |elements:
+         |surface:
+         |${surface.toYaml("  ")}
+         |modelElements:
          |${body}""".stripMargin
     }
   }
@@ -56,6 +60,127 @@ private[cozy] object CmlModelMetadata {
         "compiler" -> compiler,
         "cozyVersion" -> cozyversion
       )
+  }
+
+  final case class Surface(
+    component: Option[ComponentSurface]
+  ) {
+    def toJson: JsObject =
+      component match {
+        case Some(x) => Json.obj("component" -> x.toJson)
+        case None => Json.obj("component" -> Json.obj())
+      }
+
+    def toYaml(indent: String): String =
+      component.map { x =>
+        s"""${indent}component:
+           |${x.toYaml(indent + "  ")}""".stripMargin
+      }.getOrElse(s"${indent}component: {}\n")
+  }
+
+  final case class ComponentSurface(
+    name: String,
+    termid: String,
+    glossarypath: String,
+    descriptive: Descriptive,
+    narrative: Option[String],
+    services: Vector[ServiceSurface]
+  ) {
+    def toJson: JsObject =
+      Json.obj(
+        "name" -> name,
+        "termId" -> termid,
+        "glossaryPath" -> glossarypath,
+        "descriptive" -> descriptive.toJson,
+        "narrative" -> Json.toJson(narrative.getOrElse("")),
+        "services" -> JsArray(services.map(_.toJson))
+      )
+
+    def toYaml(indent: String): String =
+      s"""${indent}name: ${_yaml_scalar(name)}
+         |${indent}termId: ${_yaml_scalar(termid)}
+         |${indent}glossaryPath: ${_yaml_scalar(glossarypath)}
+         |${indent}descriptive:
+         |${indent}  label: ${_yaml_scalar(descriptive.label)}
+         |${indent}  brief: ${_yaml_scalar(descriptive.brief.getOrElse(""))}
+         |${indent}  summary: ${_yaml_scalar(descriptive.summary.getOrElse(""))}
+         |${indent}  description: ${_yaml_scalar(descriptive.description.getOrElse(""))}
+         |${indent}narrative: ${_yaml_scalar(narrative.getOrElse(""))}
+         |${indent}services:
+         |${services.map(_.toYaml(indent + "  ")).mkString}""".stripMargin
+  }
+
+  final case class ServiceSurface(
+    name: String,
+    termid: String,
+    glossarypath: String,
+    descriptive: Descriptive,
+    narrative: Option[String],
+    operations: Vector[OperationSurface]
+  ) {
+    def toJson: JsObject =
+      Json.obj(
+        "name" -> name,
+        "termId" -> termid,
+        "glossaryPath" -> glossarypath,
+        "descriptive" -> descriptive.toJson,
+        "narrative" -> Json.toJson(narrative.getOrElse("")),
+        "operations" -> JsArray(operations.map(_.toJson))
+      )
+
+    def toYaml(indent: String): String =
+      s"""${indent}- name: ${_yaml_scalar(name)}
+         |${indent}  termId: ${_yaml_scalar(termid)}
+         |${indent}  glossaryPath: ${_yaml_scalar(glossarypath)}
+         |${indent}  descriptive:
+         |${indent}    label: ${_yaml_scalar(descriptive.label)}
+         |${indent}    brief: ${_yaml_scalar(descriptive.brief.getOrElse(""))}
+         |${indent}    summary: ${_yaml_scalar(descriptive.summary.getOrElse(""))}
+         |${indent}    description: ${_yaml_scalar(descriptive.description.getOrElse(""))}
+         |${indent}  narrative: ${_yaml_scalar(narrative.getOrElse(""))}
+         |${indent}  operations:
+         |${operations.map(_.toYaml(indent + "    ")).mkString}""".stripMargin
+  }
+
+  final case class OperationSurface(
+    name: String,
+    termid: String,
+    glossarypath: String,
+    descriptive: Descriptive,
+    narrative: Option[String],
+    operationtype: Option[String],
+    inputtype: Option[String],
+    outputtype: Option[String],
+    implementation: Vector[String]
+  ) {
+    def toJson: JsObject =
+      Json.obj(
+        "name" -> name,
+        "termId" -> termid,
+        "glossaryPath" -> glossarypath,
+        "descriptive" -> descriptive.toJson,
+        "narrative" -> Json.toJson(narrative.getOrElse("")),
+        "operationType" -> Json.toJson(operationtype.getOrElse("")),
+        "inputType" -> Json.toJson(inputtype.getOrElse("")),
+        "outputType" -> Json.toJson(outputtype.getOrElse("")),
+        "implementation" -> Json.toJson(implementation)
+      )
+
+    def toYaml(indent: String): String =
+      s"""${indent}- name: ${_yaml_scalar(name)}
+         |${indent}  termId: ${_yaml_scalar(termid)}
+         |${indent}  glossaryPath: ${_yaml_scalar(glossarypath)}
+         |${indent}  descriptive:
+         |${indent}    label: ${_yaml_scalar(descriptive.label)}
+         |${indent}    brief: ${_yaml_scalar(descriptive.brief.getOrElse(""))}
+         |${indent}    summary: ${_yaml_scalar(descriptive.summary.getOrElse(""))}
+         |${indent}    description: ${_yaml_scalar(descriptive.description.getOrElse(""))}
+         |${indent}  narrative: ${_yaml_scalar(narrative.getOrElse(""))}
+         |${indent}  operationType: ${_yaml_scalar(operationtype.getOrElse(""))}
+         |${indent}  inputType: ${_yaml_scalar(inputtype.getOrElse(""))}
+         |${indent}  outputType: ${_yaml_scalar(outputtype.getOrElse(""))}
+         |${indent}  implementation: ${_yaml_list(implementation)}
+         |""".stripMargin
   }
 
   final case class Element(
@@ -130,7 +255,8 @@ private[cozy] object CmlModelMetadata {
         compiler = "cozy-modeler",
         cozyversion = org.simplemodeling.cozy.BuildInfo.version
       ),
-      elements = _elements(normalized, glossarycategory)
+      surface = _surface(normalized, glossarycategory),
+      modelElements = _model_elements(normalized, glossarycategory)
     )
   }
 
@@ -146,7 +272,8 @@ private[cozy] object CmlModelMetadata {
         compiler = "cozy-modeler",
         cozyversion = org.simplemodeling.cozy.BuildInfo.version
       ),
-      elements = _elements(model, glossarycategory)
+      surface = Surface(None),
+      modelElements = _model_elements(model, glossarycategory)
     )
   }
 
@@ -178,42 +305,82 @@ private[cozy] object CmlModelMetadata {
 
   private case class Section(kind: String, name: String, lines: Vector[String])
 
-  private def _elements(model: KaleidoxModel, glossarycategory: String): Vector[Element] =
+  private def _model_elements(model: KaleidoxModel, glossarycategory: String): Vector[Element] =
     model.divisions.toVector.flatMap {
       case d: KaleidoxModel.EntityDivision => _logical_section_elements("entity", d.section, glossarycategory)
       case d: KaleidoxModel.ValueDivision => _logical_section_elements("value", d.section, glossarycategory)
       case d: KaleidoxModel.PowertypeDivision => _logical_section_elements("powertype", d.section, glossarycategory)
       case d: KaleidoxModel.StateMachineDivision => _logical_section_elements("statemachine", d.section, glossarycategory)
-      case d: KaleidoxModel.ServiceDivision => _logical_section_elements("service", d.section, glossarycategory)
-      case d: KaleidoxModel.OperationDivision => _logical_section_elements("operation", d.section, glossarycategory)
       case _ => Vector.empty
     }
 
+  private def _component_surface(section: LogicalSection, glossarycategory: String, services: Vector[ServiceSurface]): ComponentSurface = {
+    val base = _logical_element("component", section, glossarycategory)
+    ComponentSurface(
+      base.name,
+      base.termid,
+      base.glossarypath,
+      base.descriptive,
+      base.narrative,
+      services
+    )
+  }
+
+  private def _service_surface(section: LogicalSection, glossarycategory: String): ServiceSurface = {
+    val base = _logical_element("service", section, glossarycategory)
+    val operations = _child_sections(section, "OPERATION").flatMap(_.blocks.sections.toVector).map(_operation_surface(_, glossarycategory))
+    ServiceSurface(
+      base.name,
+      base.termid,
+      base.glossarypath,
+      base.descriptive,
+      base.narrative,
+      operations
+    )
+  }
+
+  private def _operation_surface(section: LogicalSection, glossarycategory: String): OperationSurface = {
+    val base = _logical_element("operation", section, glossarycategory)
+    OperationSurface(
+      base.name,
+      base.termid,
+      base.glossarypath,
+      base.descriptive,
+      base.narrative,
+      _child_text(section, "TYPE"),
+      _child_property(section, "INPUT", "type").orElse(_child_child_text(section, "INPUT", "TYPE")).orElse(_operation_direct_property(section, "input")),
+      _child_property(section, "OUTPUT", "type").orElse(_child_child_text(section, "OUTPUT", "TYPE")).orElse(_operation_direct_property(section, "output")).orElse(_operation_direct_property(section, "result")),
+      _child_texts(section, "IMPLEMENTATION")
+    )
+  }
+
   private def _logical_section_elements(kind: String, root: LogicalSection, glossarycategory: String): Vector[Element] =
-    root.blocks.sections.toVector.filterNot(s => _narrative_keys.contains(s.keyForModel.toLowerCase(java.util.Locale.ROOT))).map { section =>
-      val fields = _logical_fields(section)
-      val summary = fields.get("summary").orElse(fields.get("brief"))
-      val description = fields.get("description")
-      val narrative = fields.get("narrative").orElse(fields.get("remarks")).orElse(_logical_free_narrative(section))
-      val slug = _slugify(section.nameForModel)
-      Element(
-        kind,
+    root.blocks.sections.toVector.filterNot(s => _narrative_keys.contains(s.keyForModel.toLowerCase(java.util.Locale.ROOT))).map(_logical_element(kind, _, glossarycategory)).distinct
+
+  private def _logical_element(kind: String, section: LogicalSection, glossarycategory: String): Element = {
+    val fields = _logical_fields(section)
+    val summary = fields.get("summary").orElse(fields.get("brief"))
+    val description = fields.get("description")
+    val narrative = fields.get("narrative").orElse(fields.get("remarks")).orElse(_logical_free_narrative(section))
+    val slug = _slugify(section.nameForModel)
+    Element(
+      kind,
+      section.nameForModel,
+      s"${glossarycategory}:${slug}",
+      s"glossary/${glossarycategory}/${slug}.html",
+      Descriptive(
         section.nameForModel,
-        s"${glossarycategory}:${slug}",
-        s"glossary/${glossarycategory}/${slug}.html",
-        Descriptive(
-          section.nameForModel,
-          fields.get("brief"),
-          summary,
-          description.orElse(summary)
-        ),
-        narrative.filter(_.trim.nonEmpty),
-        relationships = _field_list(fields, "relationship", "relationships"),
-        constraints = _field_list(fields, "constraint", "constraints"),
-        implementation = _field_list(fields, "implementation"),
-        rdfcandidates = _field_list(fields, "rdf", "rdf candidates", "rdfcandidates")
-      )
-    }.distinct
+        fields.get("brief"),
+        summary,
+        description.orElse(summary)
+      ),
+      narrative.filter(_.trim.nonEmpty),
+      relationships = _field_list(fields, "relationship", "relationships"),
+      constraints = _field_list(fields, "constraint", "constraints"),
+      implementation = _field_list(fields, "implementation"),
+      rdfcandidates = _field_list(fields, "rdf", "rdf candidates", "rdfcandidates")
+    )
+  }
 
   private val _narrative_keys = Set(
     "headline",
@@ -226,6 +393,47 @@ private[cozy] object CmlModelMetadata {
     "remarks",
     "tooltip"
   )
+
+  private def _same_section_key(section: LogicalSection, name: String): Boolean =
+    section.keyForModel.equalsIgnoreCase(name) || section.nameForModel.equalsIgnoreCase(name)
+
+  private def _child_sections(section: LogicalSection, childname: String): Vector[LogicalSection] =
+    section.blocks.sections.toVector.filter(child => _same_section_key(child, childname))
+
+  private def _child_text(section: LogicalSection, childname: String): Option[String] =
+    _child_sections(section, childname).headOption.flatMap { child =>
+      child.blocks.text.linesIterator.map(_.trim).find(_.nonEmpty)
+    }
+
+  private def _child_texts(section: LogicalSection, childname: String): Vector[String] =
+    _child_sections(section, childname).flatMap { child =>
+      child.blocks.text.linesIterator.map(_.trim).filter(_.nonEmpty).toVector
+    }
+
+  private def _child_property(section: LogicalSection, childname: String, propertyname: String): Option[String] =
+    _child_sections(section, childname).headOption.flatMap(child => _property_value(child.blocks.text, propertyname))
+
+  private def _child_child_text(section: LogicalSection, childname: String, grandchildname: String): Option[String] =
+    _child_sections(section, childname).headOption.flatMap(_child_text(_, grandchildname))
+
+  private def _operation_direct_property(section: LogicalSection, propertyname: String): Option[String] =
+    _property_value(section.blocks.text, propertyname).orElse(_property_value(section.blocks.lines.text, propertyname))
+
+  private def _property_value(text: String, propertyname: String): Option[String] = {
+    val prefix = s"${propertyname.toLowerCase} ::"
+    text.linesIterator.map(_.trim).flatMap {
+      case line if line.startsWith("-") =>
+        val s = line.drop(1).trim
+        if (s.toLowerCase(java.util.Locale.ROOT).startsWith(prefix))
+          Some(s.drop(prefix.length).trim)
+        else
+          None
+      case line if line.toLowerCase(java.util.Locale.ROOT).startsWith(prefix) =>
+        Some(line.drop(prefix.length).trim)
+      case _ =>
+        None
+    }.find(_.nonEmpty)
+  }
 
   private def _logical_fields(section: LogicalSection): Map[String, String] =
     section.blocks.sections.toVector.flatMap { child =>
@@ -241,7 +449,145 @@ private[cozy] object CmlModelMetadata {
     if (text.isEmpty) None else Some(text)
   }
 
-  private def _elements(source: Path, glossarycategory: String): Vector[Element] = {
+  private def _surface(source: Path, glossarycategory: String): Surface = {
+    val lines = Files.readAllLines(source, StandardCharsets.UTF_8).asScala.toVector
+    val component = _raw_named_blocks(lines, 1, "COMPONENT", 2).headOption.map { block =>
+      val base = _raw_element("component", block.name, block.lines, glossarycategory)
+      ComponentSurface(
+        base.name,
+        base.termid,
+        base.glossarypath,
+        base.descriptive,
+        base.narrative,
+        _raw_services(lines, glossarycategory)
+      )
+    }
+    Surface(component)
+  }
+
+  private def _raw_services(lines: Vector[String], glossarycategory: String): Vector[ServiceSurface] =
+    _raw_named_blocks(lines, 1, "SERVICE", 2).map { block =>
+      val base = _raw_element("service", block.name, block.lines, glossarycategory)
+      ServiceSurface(
+        base.name,
+        base.termid,
+        base.glossarypath,
+        base.descriptive,
+        base.narrative,
+        _raw_operations(block.lines, glossarycategory)
+      )
+    }
+
+  private def _raw_operations(lines: Vector[String], glossarycategory: String): Vector[OperationSurface] =
+    _raw_named_blocks(lines, 3, "OPERATION", 4).map { block =>
+      val base = _raw_element("operation", block.name, block.lines, glossarycategory, 5)
+      OperationSurface(
+        base.name,
+        base.termid,
+        base.glossarypath,
+        base.descriptive,
+        base.narrative,
+        _raw_child_text(block.lines, 5, "TYPE"),
+        _raw_child_property(block.lines, 5, "INPUT", "type").orElse(_raw_child_child_text(block.lines, 5, "INPUT", "TYPE")).orElse(_raw_direct_property(block.lines, "input")),
+        _raw_child_property(block.lines, 5, "OUTPUT", "type").orElse(_raw_child_child_text(block.lines, 5, "OUTPUT", "TYPE")).orElse(_raw_direct_property(block.lines, "output")).orElse(_raw_direct_property(block.lines, "result")),
+        _raw_child_texts(block.lines, 5, "IMPLEMENTATION")
+      )
+    }
+
+  private case class RawBlock(name: String, lines: Vector[String])
+
+  private def _raw_named_blocks(lines: Vector[String], sectionlevel: Int, sectionname: String, itemlevel: Int): Vector[RawBlock] = {
+    val sectionprefix = "#" * sectionlevel + " "
+    val itemprefix = "#" * itemlevel + " "
+    var insection = false
+    var current = Option.empty[(String, Vector[String])]
+    var blocks = Vector.empty[RawBlock]
+    def flush(): Unit =
+      current.foreach { case (name, body) => blocks :+= RawBlock(name, body) }
+    lines.foreach { line =>
+      val trimmed = line.trim
+      if (trimmed.startsWith(sectionprefix) && !trimmed.startsWith(sectionprefix + "#")) {
+        if (insection)
+          flush()
+        insection = trimmed.drop(sectionprefix.length).trim.equalsIgnoreCase(sectionname)
+        current = None
+      } else if (insection && trimmed.startsWith(itemprefix) && !trimmed.startsWith(itemprefix + "#")) {
+        flush()
+        val name = trimmed.drop(itemprefix.length).trim
+        current = if (name.isEmpty) None else Some(name -> Vector.empty)
+      } else if (insection && _heading_level(trimmed).exists(_ <= sectionlevel)) {
+        flush()
+        current = None
+        insection = false
+      } else if (insection) {
+        current = current.map { case (name, body) => name -> (body :+ line) }
+      }
+    }
+    if (insection)
+      flush()
+    blocks.distinct
+  }
+
+  private def _heading_level(trimmed: String): Option[Int] = {
+    val count = trimmed.takeWhile(_ == '#').length
+    if (count > 0 && trimmed.drop(count).startsWith(" ")) Some(count) else None
+  }
+
+  private def _raw_element(kind: String, name: String, lines: Vector[String], glossarycategory: String, fieldlevel: Int = 3): Element = {
+    val fields = _fields(lines, fieldlevel)
+    val summary = fields.get("summary").orElse(fields.get("brief"))
+    val description = fields.get("description")
+    val narrative = fields.get("narrative").orElse(fields.get("remarks")).orElse(_free_narrative(lines, fieldlevel))
+    val slug = _slugify(name)
+    Element(
+      kind = kind,
+      name = name,
+      termid = s"${glossarycategory}:${slug}",
+      glossarypath = s"glossary/${glossarycategory}/${slug}.html",
+      descriptive = Descriptive(
+        label = name,
+        brief = fields.get("brief"),
+        summary = summary,
+        description = description.orElse(summary)
+      ),
+      narrative = narrative.filter(_.trim.nonEmpty),
+      relationships = _field_list(fields, "relationship", "relationships"),
+      constraints = _field_list(fields, "constraint", "constraints"),
+      implementation = _field_list(fields, "implementation"),
+      rdfcandidates = _field_list(fields, "rdf", "rdf candidates", "rdfcandidates")
+    )
+  }
+
+  private def _raw_child_text(lines: Vector[String], level: Int, childname: String): Option[String] =
+    _raw_child_block(lines, level, childname).flatMap(_.lines.map(_.trim).find(_.nonEmpty))
+
+  private def _raw_child_texts(lines: Vector[String], level: Int, childname: String): Vector[String] =
+    _raw_child_block(lines, level, childname).map(_.lines.map(_.trim).filter(_.nonEmpty)).getOrElse(Vector.empty)
+
+  private def _raw_child_property(lines: Vector[String], level: Int, childname: String, propertyname: String): Option[String] =
+    _raw_child_block(lines, level, childname).flatMap(block => _property_value(block.lines.mkString("\n"), propertyname))
+
+  private def _raw_child_child_text(lines: Vector[String], level: Int, childname: String, grandchildname: String): Option[String] =
+    _raw_child_block(lines, level, childname).flatMap(block => _raw_child_text(block.lines, level + 1, grandchildname))
+
+  private def _raw_direct_property(lines: Vector[String], propertyname: String): Option[String] =
+    _property_value(lines.mkString("\n"), propertyname)
+
+  private def _raw_child_block(lines: Vector[String], level: Int, childname: String): Option[RawBlock] =
+    _raw_section_block(lines, level, childname)
+
+  private def _raw_section_block(lines: Vector[String], level: Int, childname: String): Option[RawBlock] = {
+    val prefix = "#" * level + " "
+    val index = lines.indexWhere(line => line.trim.equalsIgnoreCase(prefix + childname))
+    if (index < 0)
+      None
+    else {
+      val body = lines.drop(index + 1).takeWhile(line => _heading_level(line.trim).forall(_ > level))
+      Some(RawBlock(childname, body))
+    }
+  }
+
+  private def _model_elements(source: Path, glossarycategory: String): Vector[Element] = {
     val sections = _sections(source)
     sections.map { section =>
       val fields = _fields(section.lines)
@@ -278,9 +624,7 @@ private[cozy] object CmlModelMetadata {
       "powertype" -> "powertype",
       "statemachine" -> "statemachine",
       "state-machine" -> "statemachine",
-      "state machine" -> "statemachine",
-      "service" -> "service",
-      "operation" -> "operation"
+      "state machine" -> "statemachine"
     )
     var currentkind = Option.empty[String]
     var current = Option.empty[(String, String, Vector[String])]
@@ -310,7 +654,9 @@ private[cozy] object CmlModelMetadata {
     sections.distinct
   }
 
-  private def _fields(lines: Vector[String]): Map[String, String] = {
+  private def _fields(lines: Vector[String], level: Int = 3): Map[String, String] = {
+    val prefix = "#" * level + " "
+    val childprefix = prefix + "#"
     var current = Option.empty[(String, Vector[String])]
     var fields = Vector.empty[(String, String)]
     def flush(): Unit =
@@ -321,9 +667,9 @@ private[cozy] object CmlModelMetadata {
       }
     lines.foreach { line =>
       val trimmed = line.trim
-      if (trimmed.startsWith("### ")) {
+      if (trimmed.startsWith(prefix) && !trimmed.startsWith(childprefix)) {
         flush()
-        current = Some(trimmed.drop(4).trim.toLowerCase(java.util.Locale.ROOT) -> Vector.empty)
+        current = Some(trimmed.drop(prefix.length).trim.toLowerCase(java.util.Locale.ROOT) -> Vector.empty)
       } else {
         current = current.map { case (name, body) => name -> (body :+ line) }
       }
@@ -332,8 +678,9 @@ private[cozy] object CmlModelMetadata {
     fields.toMap
   }
 
-  private def _free_narrative(lines: Vector[String]): Option[String] = {
-    val body = lines.takeWhile(line => !line.trim.startsWith("### ")).mkString("\n").trim
+  private def _free_narrative(lines: Vector[String], level: Int = 3): Option[String] = {
+    val prefix = "#" * level + " "
+    val body = lines.takeWhile(line => !line.trim.startsWith(prefix)).mkString("\n").trim
     if (body.isEmpty) None else Some(body)
   }
 

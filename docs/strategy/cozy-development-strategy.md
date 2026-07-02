@@ -242,7 +242,7 @@ Status: closed.
 
 Purpose:
 
-- use `/Users/asami/src/Project2026/bok-knowlegehub` as a real BoK operation
+- use `/Users/asami/src/Project2026/bok-knowledgehub` as a real BoK operation
   driver for `cozy bok`
 - align KnowledgeHub BoK source, `conf/cozy/config.yaml`, generated scaffold
   docs, and current Cozy defaults
@@ -334,7 +334,7 @@ Phase 11 completed BoK publication and upload workflow productionization.
 diagnostics, and external upload workflow boundaries.
 
 Phase 12 completed KnowledgeHub BoK operational onboarding. The driver project
-was `/Users/asami/src/Project2026/bok-knowlegehub`, and the phase closed after
+was `/Users/asami/src/Project2026/bok-knowledgehub`, and the phase closed after
 production build, CloudFront serving, upload workflow, and ignored generated
 state were operationally verified.
 
