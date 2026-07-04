@@ -14,7 +14,7 @@ import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 
 /*
  * @since   Jun. 23, 2026
- * @version Jun. 23, 2026
+ * @version Jul.  5, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -663,7 +663,7 @@ class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with GivenWhe
       }
       }
 
-      "modeler-scala emits AwsComponent S3 inline values with key long and boolean fields" in {
+      "modeler-scala emits AwsComponent S3 inline values with key long boolean and double fields" in {
         Given("a CML source model for Scala component generation")
         val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
         val input = base.resolve("target/test-generated/modeler-scala-aws-s3-inline-values.dox")
@@ -731,6 +731,7 @@ class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with GivenWhe
           || bucketName | string  | 1            |
           || key        | string  | 1            |
           || deleted    | boolean | 1            |
+          || confidence | double  | 1            |
           |# ENTITY
           |## S3Object
           |### ATTRIBUTE
@@ -770,6 +771,12 @@ class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with GivenWhe
       }
         withClue(s"boolean String builder did not use Consequence.toBoolean\n$content") {
         content should include ("Consequence.toBoolean")
+      }
+        withClue(s"double field was not generated as Scala Double\n$content") {
+        content should include ("confidence: Double")
+      }
+        withClue(s"double String builder did not use Consequence.toDouble\n$content") {
+        content should include ("Consequence.toDouble")
       }
       }
 
