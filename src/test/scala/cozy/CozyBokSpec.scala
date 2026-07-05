@@ -15,7 +15,7 @@ import org.scalatest.wordspec.AnyWordSpec
 /*
  * @since   Jun.  3, 2026
  *  version Jun. 27, 2026
- * @version Jul.  2, 2026
+ * @version Jul.  6, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokSpec
@@ -136,7 +136,7 @@ class CozyBokSpec
             dir.resolve("src/main/doxsite/manual/local-rules.dox")
           ) should include(".cozy/")
           _read(dir.resolve("conf/cozy/config.yaml")) should include(
-            "cozy-toolchain"
+            "textus-toolchain"
           )
           _read(dir.resolve("conf/cozy/config.yaml")) should include(
             "repository: repository"
@@ -1867,19 +1867,19 @@ class CozyBokSpec
         }
       }
 
-      "default to the standard Cozy toolchain Docker image" in {
+      "default to the standard Textus toolchain Docker image" in {
         _with_temp_dir("cozy-bok-default-docker") { dir =>
           Given("a BoK project without Docker image settings")
           When("build configuration is resolved")
           val config = CozyBok.BuildConfig.create(List(dir.toString))
-          Then("the canonical Cozy toolchain image is selected")
-          config.dockerImage shouldBe "ghcr.io/asami/cozy-toolchain:latest"
+          Then("the canonical Textus toolchain image is selected")
+          config.dockerImage shouldBe "ghcr.io/asami/textus-toolchain:latest"
         }
       }
 
-      "pass the configured Cozy toolchain image to SmartDox Kroki execution" in {
+      "pass the configured Textus toolchain image to SmartDox Kroki execution" in {
         _with_temp_dir("cozy-bok-smartdox-kroki-toolchain") { dir =>
-          Given("a BoK build with a configured Cozy toolchain image")
+          Given("a BoK build with a configured Textus toolchain image")
           val runner = new EnvRecordingRunner
           val config = CozyBok.BuildConfig.create(
             List(dir.toString, "--docker-image", "example/toolchain:dev")
@@ -2298,7 +2298,7 @@ class CozyBokSpec
             "the canonical Docker image and generated-directory ignores are updated"
           )
           _read(dir.resolve(".cozy/config.yaml")) should include(
-            "ghcr.io/asami/cozy-toolchain:latest"
+            "ghcr.io/asami/textus-toolchain:latest"
           )
           _read(
             dir.resolve(".cozy/config.yaml")

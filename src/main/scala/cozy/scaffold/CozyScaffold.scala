@@ -14,7 +14,7 @@ import scala.collection.JavaConverters._
  * @since   May. 20, 2026
  *  version May. 25, 2026
  *  version Jun. 27, 2026
- * @version Jul.  1, 2026
+ * @version Jul.  6, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyScaffold {
@@ -128,6 +128,10 @@ private[cozy] object CozyScaffold {
 
   final case class CarScaffoldConfig(
     componentName: String,
+    serviceName: String,
+    entityName: String,
+    commandOperationName: String,
+    queryOperationName: String,
     packageName: String,
     artifactName: String,
     organization: String,
@@ -139,6 +143,17 @@ private[cozy] object CozyScaffold {
     tests: Boolean
   ) {
     def componentClassStem: String = componentName
+    def serviceClassStem: String = serviceName
+    def entityClassStem: String = entityName
+    def commandOperationClassStem: String = commandOperationName
+    def queryOperationClassStem: String = queryOperationName
+
+    def serviceSlug: String = CarScaffoldConfig.kebab(serviceName)
+    def entitySlug: String = CarScaffoldConfig.kebab(entityName)
+    def commandOperationSlug: String = CarScaffoldConfig.kebab(commandOperationName)
+    def queryOperationSlug: String = CarScaffoldConfig.kebab(queryOperationName)
+    def commandResultName: String = s"${commandOperationClassStem}Result"
+    def queryResultName: String = s"${queryOperationClassStem}Result"
 
     def modelFileName: String =
       if (isDefault) "sample.cml" else s"${artifactName}.cml"
@@ -151,6 +166,10 @@ private[cozy] object CozyScaffold {
 
     def isDefault: Boolean =
       componentName == "Sample" &&
+      serviceName == "Notice" &&
+      entityName == "Notice" &&
+      commandOperationName == "PostNotice" &&
+      queryOperationName == "SearchNotices" &&
       packageName == "domain" &&
       artifactName == "sample" &&
       organization == "com.example" &&
@@ -161,6 +180,11 @@ private[cozy] object CozyScaffold {
   object CarScaffoldConfig {
     private val _value_options = Set(
       "component",
+      "service-name",
+      "entity",
+      "entity-name",
+      "command-operation",
+      "query-operation",
       "package",
       "name",
       "organization",
@@ -185,6 +209,10 @@ private[cozy] object CozyScaffold {
       style: ProjectLayoutStyle = ProjectLayoutStyle.CarOnly
     ): CarScaffoldConfig = {
       val component = _option(args, "component").map(_class_name).getOrElse("Sample")
+      val service = _option(args, "service-name").map(_class_name).getOrElse("Notice")
+      val entity = _option(args, "entity").orElse(_option(args, "entity-name")).map(_class_name).getOrElse("Notice")
+      val commandoperation = _option(args, "command-operation").map(_class_name).getOrElse("PostNotice")
+      val queryoperation = _option(args, "query-operation").map(_class_name).getOrElse("SearchNotices")
       val artifact = _option(args, "name").orElse {
         if (component != "Sample")
           Some(_kebab(component))
@@ -196,6 +224,10 @@ private[cozy] object CozyScaffold {
       }.getOrElse("sample")
       CarScaffoldConfig(
         component,
+        service,
+        entity,
+        commandoperation,
+        queryoperation,
         _option(args, "package").getOrElse("domain"),
         artifact,
         _option(args, "organization").getOrElse("com.example"),
@@ -220,8 +252,11 @@ private[cozy] object CozyScaffold {
         case x => x
       }
 
-    private def _kebab(p: String): String =
+    private[scaffold] def kebab(p: String): String =
       p.replaceAll("([a-z0-9])([A-Z])", "$1-$2").toLowerCase(java.util.Locale.ROOT)
+
+    private def _kebab(p: String): String =
+      kebab(p)
   }
 
   final case class ComponentInitConfig(
@@ -270,6 +305,23 @@ private[cozy] object CozyScaffold {
         orElse(config.value("project.component.name")).
         getOrElse(artifact)
       val component = _class_name(rawcomponent)
+      val service = _option(args, "service-name").
+        orElse(config.value("cml.service.name")).
+        map(_class_name).
+        getOrElse("Notice")
+      val entity = _option(args, "entity").
+        orElse(_option(args, "entity-name")).
+        orElse(config.value("cml.entity.name")).
+        map(_class_name).
+        getOrElse("Notice")
+      val commandoperation = _option(args, "command-operation").
+        orElse(config.value("cml.operation.command")).
+        map(_class_name).
+        getOrElse("PostNotice")
+      val queryoperation = _option(args, "query-operation").
+        orElse(config.value("cml.operation.query")).
+        map(_class_name).
+        getOrElse("SearchNotices")
       val packagename = _option(args, "package").
         orElse(config.value("cml.package")).
         orElse(config.value("project.scalaPackage")).
@@ -294,6 +346,10 @@ private[cozy] object CozyScaffold {
         getOrElse("default")
       val scaffold = CarScaffoldConfig(
         component,
+        service,
+        entity,
+        commandoperation,
+        queryoperation,
         packagename,
         artifact,
         organization,
@@ -398,6 +454,14 @@ private[cozy] object CozyScaffold {
       |      "boundedContext" -> "${scaffold.boundedContext}",
       |      "domain" -> "${scaffold.domain}"
       |    ),
+      |    publish := {
+      |      val _ = cozyPublishCar.value
+      |      ()
+      |    },
+      |    publishLocal := {
+      |      val _ = cozyPublishLocalCar.value
+      |      ()
+      |    },
       |
       |    Compile / sourceGenerators += Def.task {
       |      val out = (Compile / sourceManaged).value / "${scaffold.packageName.split("\\.").mkString("\" / \"")}" / "meta" / "BuildVersion.scala"
@@ -645,105 +709,114 @@ private[cozy] object CozyScaffold {
       |
       |### COMPONENTLET
       |
-      |#### public-notice
+      |#### public-${scaffold.serviceSlug}
       |
-      |#### notice-admin
+      |#### ${scaffold.serviceSlug}-admin
       |
       |# COMPONENTLET
       |
-      |## public-notice
+      |## public-${scaffold.serviceSlug}
       |
       |- component :: ${scaffold.componentName}
       |- kind :: participant
       |
       |### DESCRIPTION
       |
-      |Public notice participant for posting and reading notices and emitting notice.posted.
+      |Public ${scaffold.serviceName} participant.
       |
       |# COMPONENTLET
       |
-      |## notice-admin
+      |## ${scaffold.serviceSlug}-admin
       |
       |- component :: ${scaffold.componentName}
       |- kind :: participant
       |
       |### DESCRIPTION
       |
-      |Notice admin participant for accepting notice.posted and updating Notice state.
+      |Administrative ${scaffold.serviceName} participant.
       |
       |# SERVICE
       |
-      |## Notice
+      |## ${scaffold.serviceName}
       |
       |### DESCRIPTION
       |
-      |Operations for posting and reading notices without login.
+      |Operations for ${scaffold.serviceName}.
       |
       |### OPERATION
       |
-      |#### postNotice
+      |#### ${scaffold.commandOperationName}
       |
       |- type :: COMMAND
-      |- input :: PostNotice
-      |- output :: PostNoticeResult
+      |- input :: ${scaffold.commandOperationClassStem}
+      |- output :: ${scaffold.commandResultName}
       |
       |##### IMPLEMENTATION
       |entity-create
       |
       |##### ENTITY
-      |Notice
+      |${scaffold.entityName}
       |
-      |#### searchNotices
+      |#### ${scaffold.queryOperationName}
       |
       |- type :: QUERY
-      |- input :: SearchNotices
-      |- output :: SearchNoticesResult
+      |- input :: ${scaffold.queryOperationClassStem}
+      |- output :: ${scaffold.queryResultName}
       |
       |##### IMPLEMENTATION
       |entity-search
       |
       |##### ENTITY
-      |Notice
+      |${scaffold.entityName}
       |
       |# ENTITY
       |
-      |## Notice
+      |## ${scaffold.entityName}
       |
       |### Attribute
       |
-      || name          | type     | multiplicity |
-      ||---------------+----------+--------------|
-      || id            | entityid | 1            |
-      || senderName    | string   | 1            |
-      || recipientName | string   | ?            |
-      || subject       | string   | 1            |
-      || body          | string   | 1            |
+      || name        | type     | multiplicity |
+      ||-------------+----------+--------------|
+      || id          | entityid | 1            |
+      || title       | string   | 1            |
+      || description | string   | ?            |
       |
       |# COMMAND
       |
-      |## PostNotice
+      |## ${scaffold.commandOperationClassStem}
       |
       |### Attribute
       |
-      || name          | type   | multiplicity |
-      ||---------------+--------+--------------|
-      || senderName    | string | 1            |
-      || recipientName | string | ?            |
-      || subject       | string | 1            |
-      || body          | string | 1            |
+      || name        | type   | multiplicity |
+      ||-------------+--------+--------------|
+      || title       | string | 1            |
+      || description | string | ?            |
       |
       |# QUERY
       |
-      |## SearchNotices
+      |## ${scaffold.queryOperationClassStem}
       |
       |### Attribute
       |
-      || name          | type   | multiplicity |
-      ||---------------+--------+--------------|
-      || recipientName | string | ?            |
-      || text          | string | ?            |
-      || offset        | int    | ?            |
-      || limit         | int    | ?            |
+      || name   | type   | multiplicity |
+      ||--------+--------+--------------|
+      || text   | string | ?            |
+      || offset | int    | ?            |
+      || limit  | int    | ?            |
+      |
+      |# VALUE
+      |
+      |## ${scaffold.commandResultName}
+      |
+      |### EXTENDS
+      |
+      |OperationResult
+      |
+      |## ${scaffold.queryResultName}
+      |
+      |### EXTENDS
+      |
+      |OperationResult
       |""".stripMargin
 
   private[cozy] def carWebDescriptorYaml(
@@ -765,23 +838,22 @@ private[cozy] object CozyScaffold {
 
   private def _default_car_web_descriptor_yaml(scaffold: CarScaffoldConfig): String =
     s"""expose:
-      |  ${scaffold.artifactName}.notice.post-notice: protected
-      |  ${scaffold.artifactName}.notice.search-notices: public
+      |  ${scaffold.artifactName}.${scaffold.serviceSlug}.${scaffold.commandOperationSlug}: protected
+      |  ${scaffold.artifactName}.${scaffold.serviceSlug}.${scaffold.queryOperationSlug}: public
       |form:
-      |  ${scaffold.artifactName}.notice.post-notice:
+      |  ${scaffold.artifactName}.${scaffold.serviceSlug}.${scaffold.commandOperationSlug}:
       |    enabled: true
-      |    successRedirect: /web/$${component}/admin/entities/notice/$${result.id}
+      |    successRedirect: /web/$${component}/admin/entities/${scaffold.entitySlug}/$${result.id}
       |    stayOnError: true
       |    controls:
-      |      body:
+      |      description:
       |        type: textarea
-      |        required: true
-      |  ${scaffold.artifactName}.notice.search-notices:
+      |  ${scaffold.artifactName}.${scaffold.serviceSlug}.${scaffold.queryOperationSlug}:
       |    enabled: true
-      |    successRedirect: /web/$${component}/admin/entities/notice
+      |    successRedirect: /web/$${component}/admin/entities/${scaffold.entitySlug}
       |    stayOnError: true
       |admin:
-      |  entity.notice:
+      |  entity.${scaffold.entitySlug}:
       |    totalCount: optional
       |""".stripMargin
 
@@ -810,6 +882,9 @@ private[cozy] object CozyScaffold {
     scaffold: CarScaffoldConfig = CarScaffoldConfig.create(Nil, Paths.get("sample"))
   ): String = {
     val component = scaffold.componentClassStem
+    val service = scaffold.serviceClassStem
+    val command = scaffold.commandOperationClassStem
+    val query = scaffold.queryOperationClassStem
     s"""package ${scaffold.packageName}.impl
       |
       |import ${scaffold.packageName}.${component}Component
@@ -826,7 +901,7 @@ private[cozy] object CozyScaffold {
       |abstract class ${component}ParticipantFactoryBase extends ${component}Component.Factory {
       |  protected final val shared_services =
       |    Vector(
-      |      ${component}Component.NoticeService,
+      |      ${component}Component.${service}Service,
       |      ${component}Component.AggregateService,
       |      ${component}Component.ViewService,
       |      ${component}Component.EntityService
@@ -838,7 +913,7 @@ private[cozy] object CozyScaffold {
       |  ): Component.Core =
       |    spec_create(name, componentid, shared_services)
       |
-      |  override val Notice: ${component}Component.NoticeServiceFactory = DefaultNoticeServiceFactory()
+      |  override val ${service}: ${component}Component.${service}ServiceFactory = Default${service}ServiceFactory()
       |  override val aggregate: ${component}Component.AggregateServiceFactory = AggregateServiceFactoryImpl()
       |  override val view: ${component}Component.ViewServiceFactory = ViewServiceFactoryImpl()
       |  override val entity: ${component}Component.EntityServiceFactory = DefaultEntityServiceFactory()
@@ -857,24 +932,24 @@ private[cozy] object CozyScaffold {
       |    component_core(${component}Component.name, ${component}Component.componentId)
       |}
       |
-      |final class DefaultNoticeServiceFactory extends ${component}Component.NoticeServiceFactory {
-      |  import ${component}Component.NoticeService.*
+      |final class Default${service}ServiceFactory extends ${component}Component.${service}ServiceFactory {
+      |  import ${component}Component.${service}Service.*
       |
-      |  override def createPostNoticeActionCall(
+      |  override def create${command}ActionCall(
       |    core: org.goldenport.cncf.action.ActionCall.Core,
-      |    action: PostNotice
-      |  ): PostNoticeActionCall =
-      |    PostNoticeActionCall(core, action)
+      |    action: ${command}
+      |  ): ${command}ActionCall =
+      |    ${command}ActionCall(core, action)
       |
-      |  override def createSearchNoticesActionCall(
+      |  override def create${query}ActionCall(
       |    core: org.goldenport.cncf.action.ActionCall.Core,
-      |    action: SearchNotices
-      |  ): SearchNoticesActionCall =
-      |    SearchNoticesActionCall(core, action)
+      |    action: ${query}
+      |  ): ${query}ActionCall =
+      |    ${query}ActionCall(core, action)
       |  }
       |
-      |object DefaultNoticeServiceFactory {
-      |  def apply(): DefaultNoticeServiceFactory = new DefaultNoticeServiceFactory()
+      |object Default${service}ServiceFactory {
+      |  def apply(): Default${service}ServiceFactory = new Default${service}ServiceFactory()
       |  }
       |
       |final class DefaultEntityServiceFactory extends ${component}Component.EntityServiceFactory
@@ -1446,11 +1521,11 @@ private[cozy] object CozyScaffold {
       |  version, --version
       |      Show the Cozy runtime version and exit.
       |
-      |  init component --save <dir> [--config <file>] [--name <artifact>] [--component-name <name>] [--display-name <title>] [--organization <organization>] [--package <package>] [--version <version>] [--kind car|car-sar] [--bounded-context <name>] [--domain <name>] [--gitignore] [--readme] [--tests] [--no-project-files] [--overwrite-project-files]
-      |    config keys: project.name, project.organization, project.component.*, project.scaffold.*, cml.package, cml.component.name
+      |  init component --save <dir> [--config <file>] [--name <artifact>] [--component-name <name>] [--service-name <name>] [--entity <name>] [--command-operation <name>] [--query-operation <name>] [--display-name <title>] [--organization <organization>] [--package <package>] [--version <version>] [--kind car|car-sar] [--bounded-context <name>] [--domain <name>] [--gitignore] [--readme] [--tests] [--no-project-files] [--overwrite-project-files]
+      |    config keys: project.name, project.organization, project.component.*, project.scaffold.*, cml.package, cml.component.name, cml.service.name, cml.entity.name, cml.operation.command, cml.operation.query
       |      Initialize a component project scaffold. Config-file values are read first; CLI options override them.
       |
-      |  car-sbt-project [model-file] --save <dir> [--style car|car-sar] [--component <name>] [--package <package>] [--name <artifact>] [--organization <organization>] [--version <version>] [--bounded-context <name>] [--domain <name>] [--gitignore] [--readme] [--tests] [--no-project-files] [--overwrite-project-files]
+      |  car-sbt-project [model-file] --save <dir> [--style car|car-sar] [--component <name>] [--service-name <name>] [--entity <name>] [--command-operation <name>] [--query-operation <name>] [--package <package>] [--name <artifact>] [--organization <organization>] [--version <version>] [--bounded-context <name>] [--domain <name>] [--gitignore] [--readme] [--tests] [--no-project-files] [--overwrite-project-files]
       |      Generate an sbt project scaffold. `car` creates a single CAR component project.
       |      `car-sar` creates an application root with `component/` and `subsystem/`.
       |      When model-file is omitted, create a scaffold sample model.
@@ -1467,7 +1542,7 @@ private[cozy] object CozyScaffold {
       |      Build BoK HTML under website.d using SmartDox and Antora through the configured Docker image.
       |      By default, unresolved external bibliography references are fetched into target/cozy-bok/bibliography/cache.
       |      Use --no-bib-service for offline/cache-only builds; unresolved references are reported as warnings.
-      |      The default Docker image is the standard Cozy toolchain image: ghcr.io/asami/cozy-toolchain:latest.
+      |      The default Docker image is the standard Textus toolchain image: ghcr.io/asami/textus-toolchain:latest.
       |
       |  bok update [<project-dir>] [--strategy wip|draft|preview|production] [--docker-image <image>]
       |      Update the BoK output. In this version it runs the same generation flow as bok build.
@@ -1520,7 +1595,7 @@ private[cozy] object CozyScaffold {
       |
       |  video build <project-file> [--dry-run] [--check-tools] [--tool-mode=<docker|host>] [--docker-image=<image>]
       |      Assemble already-rendered part MP4 files into the project final output, or print the plan with --dry-run.
-      |      Docker mode wraps Remotion, Playwright, ffmpeg, whisper.cpp, and Python/Pillow helper steps in the configured Cozy toolchain image.
+      |      Docker mode wraps Remotion, Playwright, ffmpeg, whisper.cpp, and Python/Pillow helper steps in the configured Textus toolchain image.
       |
       |  video synthesize <script-file> --save <audio-dir> [--voicevox-url=<url>]
       |      Generate VOICEVOX scene WAV files, a combined WAV, and manifest.json.

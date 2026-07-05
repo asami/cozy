@@ -25,7 +25,8 @@ import scala.collection.JavaConverters._
  *  version Mar. 17, 2026
  *  version Apr. 29, 2026
  *  version May. 21, 2026
- * @version Jun. 30, 2026
+ *  version Jun. 30, 2026
+ * @version Jul.  6, 2026
  * @author  ASAMI, Tomoharu
  */
 class Cozy(
@@ -784,6 +785,10 @@ object Cozy {
     ): CarScaffoldConfig =
       CozyScaffold.CarScaffoldConfig(
         componentname,
+        "Notice",
+        "Notice",
+        "PostNotice",
+        "SearchNotices",
         packagename,
         artifactname,
         organization,
@@ -795,7 +800,40 @@ object Cozy {
         tests
       )
 
-    def unapply(value: CarScaffoldConfig): Option[(String, String, String, String, String, String, String, Boolean, Boolean, Boolean)] =
+    def apply(
+      componentname: String,
+      servicename: String,
+      entityname: String,
+      commandoperationname: String,
+      queryoperationname: String,
+      packagename: String,
+      artifactname: String,
+      organization: String,
+      version: String,
+      boundedcontext: String,
+      domain: String,
+      gitignore: Boolean,
+      readme: Boolean,
+      tests: Boolean
+    ): CarScaffoldConfig =
+      CozyScaffold.CarScaffoldConfig(
+        componentname,
+        servicename,
+        entityname,
+        commandoperationname,
+        queryoperationname,
+        packagename,
+        artifactname,
+        organization,
+        version,
+        boundedcontext,
+        domain,
+        gitignore,
+        readme,
+        tests
+      )
+
+    def unapply(value: CarScaffoldConfig): Option[(String, String, String, String, String, String, String, String, String, String, String, Boolean, Boolean, Boolean)] =
       CozyScaffold.CarScaffoldConfig.unapply(value)
 
     def isFlagOption(p: String): Boolean =

@@ -71,7 +71,7 @@ Out of scope:
   category index, article seeds, and term seeds without requiring hand-written
   directory setup.
 - `cozy bok build <dir> --strategy wip` generates `website.d` through
-  SmartDox and Antora using the configured Cozy toolchain Docker image.
+  SmartDox and Antora using the configured Textus toolchain Docker image.
 - A Japanese single-locale BoK does not leave `website.d/ja`, `doxsite.d/ja`,
   or `doxsite.d/en`.
 - Home, category, article, and glossary pages are reachable from local preview.

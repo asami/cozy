@@ -31,7 +31,7 @@ Status: DONE
 
 - [x] Update KnowledgeHub `conf/cozy/config.yaml` to current Cozy BoK conventions.
 - [x] Keep `.cozy/config.yaml` out of git as a local sensitive settings file.
-- [x] Use canonical Docker image `ghcr.io/asami/cozy-toolchain:latest`.
+- [x] Use canonical Docker image `ghcr.io/asami/textus-toolchain:latest`.
 - [x] Confirm `bok.source` matches `src/main/doxsite`.
 - [x] Confirm `bok.website`, `bok.antora`, and `bok.doxsite` match generated
       output locations.

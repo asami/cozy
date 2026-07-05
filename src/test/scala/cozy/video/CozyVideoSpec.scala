@@ -15,7 +15,7 @@ import cozy.CozySpecVocabulary
 /*
  * @since   Jun. 18, 2026
  *  version Jun. 24, 2026
- * @version Jul.  1, 2026
+ * @version Jul.  6, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoSpec
@@ -463,7 +463,7 @@ final class CozyVideoSpec
             s"$dir:/workspace",
             "-w",
             "/workspace",
-            "ghcr.io/asami/cozy-toolchain:latest"
+            "ghcr.io/asami/textus-toolchain:latest"
           )) shouldBe true)
           ((runner.commands(0).args.contains("ffmpeg")) shouldBe true)
           ((runner
@@ -723,7 +723,7 @@ final class CozyVideoSpec
                 .resolve("build/parts/intro.mp4")
                 .normalize()}",
            |  "toolMode": "docker",
-           |  "dockerImage": "ghcr.io/asami/cozy-toolchain:latest"
+           |  "dockerImage": "ghcr.io/asami/textus-toolchain:latest"
            |}
            |""".stripMargin
           )
@@ -732,7 +732,7 @@ final class CozyVideoSpec
             s"""{
            |  "outputPath": "${dir.resolve("build/final.mp4").normalize()}",
            |  "toolMode": "docker",
-           |  "dockerImage": "ghcr.io/asami/cozy-toolchain:latest",
+           |  "dockerImage": "ghcr.io/asami/textus-toolchain:latest",
            |  "concatListPath": "${dir
                 .resolve("target/cozy-video/ffmpeg/concat.txt")
                 .normalize()}",
@@ -936,7 +936,7 @@ final class CozyVideoSpec
           ((out.contains("Cozy Video Transcribe")) shouldBe true)
           ((out.contains("toolMode: docker")) shouldBe true)
           ((out.contains(
-            "modelPath: /opt/cozy/models/ggml-base.bin"
+            "modelPath: /opt/textus/models/ggml-base.bin"
           )) shouldBe true)
           ((Files.isRegularFile(save.resolve("audio.wav"))) shouldBe true)
           ((Files.isRegularFile(save.resolve("transcript.json"))) shouldBe true)
@@ -961,10 +961,10 @@ final class CozyVideoSpec
             s"${dir.toAbsolutePath.normalize}:/workspace",
             "-w",
             "/workspace",
-            "ghcr.io/asami/cozy-toolchain:latest"
+            "ghcr.io/asami/textus-toolchain:latest"
           )) shouldBe true)
           ((runner.commands.exists(
-            _.args.contains("/opt/cozy/models/ggml-base.bin")
+            _.args.contains("/opt/textus/models/ggml-base.bin")
           )) shouldBe true)
         }
       }
@@ -1456,7 +1456,7 @@ final class CozyVideoSpec
             s"$dir:/workspace",
             "-w",
             "/workspace",
-            "ghcr.io/asami/cozy-toolchain:latest"
+            "ghcr.io/asami/textus-toolchain:latest"
           )) shouldBe true)
           ((runner.commands.head.args.contains("node")) shouldBe true)
           ((runner.commands.head.args.exists(
@@ -1617,7 +1617,7 @@ final class CozyVideoSpec
             s"$dir:/workspace",
             "-w",
             "/workspace",
-            "ghcr.io/asami/cozy-toolchain:latest"
+            "ghcr.io/asami/textus-toolchain:latest"
           )) shouldBe true)
           ((runner.commands(0).args.contains("python3")) shouldBe true)
           ((runner
@@ -2084,7 +2084,7 @@ final class CozyVideoSpec
                 "docker",
                 "image",
                 "inspect",
-                "ghcr.io/asami/cozy-toolchain:latest"
+                "ghcr.io/asami/textus-toolchain:latest"
               ) -> CozyVideo.VideoCommandResult(0, "[]", ""),
               Vector("ffmpeg", "-version") -> CozyVideo
                 .VideoCommandResult(0, "ffmpeg", ""),
@@ -2290,7 +2290,7 @@ final class CozyVideoSpec
             "setup: Run: docker pull example/toolchain:dev"
           )) shouldBe true)
           ((out.contains(
-            "cozy-toolchain-image: unchecked (docker)"
+            "textus-toolchain-image: unchecked (docker)"
           )) shouldBe true)
           ((!probe.commands.exists(
             _.take(3) == Vector("docker", "run", "--rm")
@@ -2335,11 +2335,11 @@ final class CozyVideoSpec
                 "run",
                 "--rm",
                 "example/toolchain:dev",
-                "cozy-toolchain",
+                "textus-toolchain",
                 "check",
                 "video"
               ) -> CozyVideo
-                .VideoCommandResult(0, "cozy-toolchain check video: ok\n", "")
+                .VideoCommandResult(0, "textus-toolchain check video: ok\n", "")
             ),
             httpResults = Map(
               "http://voicevox.example/version" -> CozyVideo.VideoHttpResult(
@@ -2361,13 +2361,13 @@ final class CozyVideoSpec
           ((out.contains("toolMode: docker")) shouldBe true)
           ((out.contains("docker-image: available (docker)")) shouldBe true)
           ((out.contains(
-            "cozy-toolchain-image: available (docker)"
+            "textus-toolchain-image: available (docker)"
           )) shouldBe true)
           ((out.contains("voicevox: missing (external-service)")) shouldBe true)
           ((out.indexOf("docker-image: available") < out.indexOf(
-            "cozy-toolchain-image: available"
+            "textus-toolchain-image: available"
           )) shouldBe true)
-          ((out.indexOf("cozy-toolchain-image: available") < out.indexOf(
+          ((out.indexOf("textus-toolchain-image: available") < out.indexOf(
             "voicevox: missing"
           )) shouldBe true)
           ((out.contains("host.docker.internal")) shouldBe true)
@@ -2424,7 +2424,7 @@ final class CozyVideoSpec
                 "run",
                 "--rm",
                 "example/toolchain:dev",
-                "cozy-toolchain",
+                "textus-toolchain",
                 "check",
                 "video"
               ) -> CozyVideo.VideoCommandResult(
@@ -2445,11 +2445,11 @@ final class CozyVideoSpec
 
           ((out.contains("Cozy Video Inspect")) shouldBe true)
           ((out.contains(
-            "cozy-toolchain-image: missing (docker)"
+            "textus-toolchain-image: missing (docker)"
           )) shouldBe true)
           ((out.contains("missing command: whisper-cli")) shouldBe true)
           ((out.contains(
-            "setup: Rebuild the image: docker build -t example/toolchain:dev docker/cozy-toolchain"
+            "setup: Rebuild and publish the Textus toolchain image in textus-toolchain-runner, then run: docker pull example/toolchain:dev"
           )) shouldBe true)
         }
       }
@@ -3038,7 +3038,7 @@ final class CozyVideoSpec
             """{
           |  "schema": "cozy.video.replay-manifest.v1",
           |  "toolMode": "host",
-          |  "dockerImage": "ghcr.io/asami/cozy-toolchain:latest",
+          |  "dockerImage": "ghcr.io/asami/textus-toolchain:latest",
           |  "outputVideo": "build/replay.webm"
           |}
           |""".stripMargin
@@ -3529,51 +3529,6 @@ final class CozyVideoSpec
         }
       }
 
-    }
-
-    "toolchain assets" which {
-      "cozy toolchain Docker assets define expected BoK PDF and video checks" in {
-        Given("the Cozy toolchain Dockerfile and wrapper script")
-        val root = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
-        val dockerfile = _read(root.resolve("docker/cozy-toolchain/Dockerfile"))
-        val script = _read(root.resolve("docker/cozy-toolchain/cozy-toolchain"))
-
-        Then(
-          "the Dockerfile includes the BoK, PDF, and video runtime dependencies"
-        )
-        dockerfile should include("asciidoctor-pdf")
-        dockerfile should include("@antora/cli")
-        dockerfile should include("ffmpeg")
-        dockerfile should include("playwright")
-        dockerfile should include("@remotion/renderer")
-        dockerfile should include("python3-pil")
-        dockerfile should include("whisper.cpp")
-        dockerfile should include("ggml-base.bin")
-        dockerfile should include("NODE_PATH")
-        dockerfile should include("FROM ${KROKI_IMAGE}")
-
-        And(
-          "the wrapper exposes deterministic toolchain checks and command pass-through"
-        )
-        script should include("check_bok")
-        script should include("check_pdf")
-        script should include("check_kroki")
-        script should include("check_video")
-        script should include("svg_pages_to_pdf")
-        script should include("svg-pages-to-pdf")
-        script should include("Usage: svg-pages-to-pdf --out output.pdf")
-        script should include("SVG file not found")
-        script should include("preferCSSPageSize")
-        script should include("node_with_global_modules")
-        script should include("npm root -g")
-        script should include("fs.existsSync(path)")
-        script should include("kroki-server")
-        script should include(
-          "SMARTDOX_KROKI_PORT=\"${SMARTDOX_KROKI_PORT:-9609}\""
-        )
-        script should include("cozy-toolchain check ${target}: ok")
-        script should include("exec \"$@\"")
-      }
     }
 
   }

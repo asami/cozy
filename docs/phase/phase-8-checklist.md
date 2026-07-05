@@ -93,13 +93,13 @@ Status: DONE
       mode and `host` as an explicit fallback mode.
 - [x] Resolve Docker image precedence from CLI `--docker-image`, video project
       `tools.dockerImage`, `video.docker-image`, `cozy.docker-image`, then the
-      standard Cozy toolchain image.
+      standard Textus toolchain image.
 - [x] Plan Docker-wrapped command previews for Remotion, Playwright/Chromium,
       ffmpeg/ffprobe, Node/npm-based video tooling, whisper.cpp, transcription
-      model/data, and fonts from the configured Cozy toolchain Docker image.
+      model/data, and fonts from the configured Textus toolchain Docker image.
 - [x] Keep VOICEVOX Engine outside the image and access it through
       `video.voicevox.url`.
-- [x] Provide setup hints for `docker pull ghcr.io/asami/cozy-toolchain:latest`
+- [x] Provide setup hints for `docker pull ghcr.io/asami/textus-toolchain:latest`
       and for `host.docker.internal` or compose service URLs when VOICEVOX is
       unreachable from Docker.
 
@@ -108,9 +108,10 @@ Status: DONE
 Status: DONE
 
 - [x] Identify or create the repository/release process that owns
-      `ghcr.io/asami/cozy-toolchain`.
+      `ghcr.io/asami/textus-toolchain`.
 - [x] Decide whether the image definition lives in Cozy, SmartDox, or a shared
-      toolchain repository, and document that ownership.
+      toolchain repository, and document that ownership. Current ownership is
+      `textus-toolchain-runner/docker/textus-toolchain`.
 - [x] Use the current SmartDox `smartdox-pdf` dependency image as the baseline
       for the unified toolchain unless a better existing owner is found.
 - [x] Include the BoK/PDF dependency set already needed by Cozy: SmartDox PDF
@@ -128,15 +129,15 @@ Status: DONE
       rendering paths while keeping host Python/Pillow optional.
 - [x] Do not include VOICEVOX Engine in the image.
 - [x] Keep `simplemodeling/smartdox-pdf:latest` compatibility or document a
-      transition path to `ghcr.io/asami/cozy-toolchain:latest`.
+      transition path to `ghcr.io/asami/textus-toolchain:latest`.
 - [x] Add image validation commands or documented checks that verify BoK,
       SmartDox PDF, and video dependency sets inside the image.
-- [x] Document the expected image tag used by Phase 8 development and smoke
-      tests, with `ghcr.io/asami/cozy-toolchain:latest` as the standard image.
-- [x] Release the Phase 8 image to GitHub Container Registry as
-      `ghcr.io/asami/cozy-toolchain:2026.06.19` and update `latest` to the
+- [x] Document the expected image tag used by current development and smoke
+      tests, with `ghcr.io/asami/textus-toolchain:latest` as the standard image.
+- [x] Release the current image through `textus-toolchain-runner` as
+      `ghcr.io/asami/textus-toolchain:<version>` and update `latest` to the
       same validated image digest.
-- [x] Verify the pushed release image from GHCR with `cozy-toolchain check all`
+- [x] Verify the pushed release image from GHCR with `textus-toolchain check all`
       and Docker-mode real smoke through `video inspect`, `video render`, and
       `video build`.
 

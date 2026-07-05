@@ -8,8 +8,9 @@ Close date: 2026-06-19
 ## Goal
 
 Make `cozy video` a first-class Cozy workflow for scripted video production and
-video knowledge extraction, and formalize the unified Cozy toolchain Docker
-image used by BoK, PDF, and video workflows.
+video knowledge extraction, and formalize the unified toolchain Docker image
+used by BoK, PDF, and video workflows. The image was initially developed in
+Cozy and is now owned by `textus-toolchain-runner`.
 
 Phase 8 connects video production and recorded demo knowledge extraction to
 Cozy's engineering knowledge compiler and publication toolchain. Cozy owns
@@ -19,12 +20,14 @@ points. External media tools remain responsible for rendering, capture, speech
 synthesis, transcription, and encoding.
 
 The standard tool execution model is Docker-first for heavy publication and
-media dependencies. Phase 8 turns the existing BoK/PDF dependency-image line
-into a documented `ghcr.io/asami/cozy-toolchain` image that covers BoK HTML
-generation, SmartDox PDF generation, and video rendering. Remotion,
+media dependencies. Phase 8 originally turned the existing BoK/PDF
+dependency-image line into a documented `ghcr.io/asami/cozy-toolchain` image
+that covered BoK HTML generation, SmartDox PDF generation, and video rendering.
+Current Cozy consumes the successor `ghcr.io/asami/textus-toolchain` image,
+owned by `textus-toolchain-runner`. Remotion,
 Playwright/Chromium, ffmpeg/ffprobe, whisper.cpp, transcription model/data,
 Python/Pillow helper rendering, Node/npm dependencies, and fonts should run
-from the configured Cozy toolchain Docker image. VOICEVOX remains an external
+from the configured Textus toolchain Docker image. VOICEVOX remains an external
 HTTP service and is not bundled into the toolchain image.
 
 ## Scope
@@ -50,10 +53,10 @@ In scope:
 - Docker toolchain execution for Remotion, Playwright, ffmpeg/ffprobe, Node,
   Python/Pillow, whisper.cpp, and related video rendering/transcription
   dependencies
-- Cozy toolchain Docker image development, documentation, and validation for
+- Textus toolchain Docker image development, documentation, and validation for
   BoK, SmartDox PDF, and video production dependencies
 - migration path from the current SmartDox PDF dependency image to the unified
-  Cozy toolchain image
+  Textus toolchain image
 - VOICEVOX HTTP endpoint configuration and connectivity checks
 - VOICEVOX synthesis orchestration
 - Remotion primary renderer invocation
@@ -86,7 +89,7 @@ Out of scope:
 - [x] VDO-05: Dry-run and inspect implemented
 - [x] VDO-06: External tool checks implemented
 - [x] VDO-06B: Docker toolchain mode implemented
-- [x] VDO-06C: Unified Cozy toolchain Docker image developed
+- [x] VDO-06C: Unified toolchain Docker image developed
 - [x] VDO-07: VOICEVOX synthesis implemented
 - [x] VDO-08: Remotion renderer adapter implemented
 - [x] VDO-09: Java2D simple renderer implemented
@@ -108,7 +111,7 @@ Out of scope:
   status with setup hints.
 - `cozy video inspect <project-file> --check-tools` can report Docker
   toolchain availability separately from VOICEVOX HTTP connectivity.
-- The configured Cozy toolchain Docker image has a documented build path and
+- The configured Textus toolchain Docker image has a documented build path and
   includes the BoK/PDF/video dependency set required by Cozy: SmartDox PDF
   dependencies, Antora-capable Node tooling, ffmpeg/ffprobe, Remotion runtime
   dependencies, Playwright Chromium, Python/Pillow, whisper.cpp, transcription
@@ -149,7 +152,7 @@ Out of scope:
 - Missing external tools fail with clear install/setup guidance.
 - Existing `cozy bok`, publication, scaffold, and sbt-bridge behavior remains
   compatible.
-- `cozy bok build` can continue to use the configured Cozy toolchain image, and
+- `cozy bok build` can continue to use the configured Textus toolchain image, and
   SmartDox PDF image compatibility remains available during transition.
 
 ## Decisions
@@ -157,12 +160,11 @@ Out of scope:
 - Remotion is the primary renderer.
 - Java2D is a simple/fallback renderer only; pixel-perfect legacy compatibility
   is not required.
-- Video rendering dependencies run through the configured Cozy toolchain Docker
+- Video rendering dependencies run through the configured Textus toolchain Docker
   image by default.
-- Phase 8 includes the unified Cozy toolchain image definition, build
+- Phase 8 includes the unified toolchain image definition, build
   documentation, and validation checks for BoK, SmartDox PDF, and video
-  workflows. If the image definition lives outside the Cozy repository, Phase 8
-  must still record the owning repository and release path.
+  workflows. Current ownership is recorded as `textus-toolchain-runner`.
 - A single operational image is preferred over separate BoK/PDF/video images.
   Compatibility tags or configuration aliases may remain during migration.
 - VOICEVOX is integrated only through HTTP, with the endpoint configured by
@@ -219,12 +221,16 @@ implemented Docker-based video path.
   Docker image precedence, defaults to Docker mode, wraps planned Remotion,
   Playwright, ffmpeg, and Python/Pillow helper steps in the configured Cozy
   toolchain image, and keeps VOICEVOX as an external HTTP service.
-- 2026-06-18: Completed VDO-06C unified Cozy toolchain image definition.
-  Cozy now owns `docker/cozy-toolchain`, using the SmartDox PDF image line as
+- 2026-06-18: Completed VDO-06C unified toolchain image definition. Cozy
+  initially owned `docker/cozy-toolchain`, using the SmartDox PDF image line as
   the baseline and extending it with Antora, ffmpeg/ffprobe, Remotion,
   Playwright Chromium, Python/Pillow, whisper.cpp, and the standard
-  `ggml-base.bin` model. Docker-mode `--check-tools` validates the image
-  contents with `cozy-toolchain check video`; VOICEVOX remains external.
+  `ggml-base.bin` model. Docker-mode `--check-tools` validated the image
+  contents with `cozy-toolchain check video`; VOICEVOX remained external.
+- 2026-07-06: Toolchain image ownership moved from Cozy to
+  `textus-toolchain-runner`. Current Cozy consumes
+  `ghcr.io/asami/textus-toolchain:latest`, and the Dockerfile/wrapper sources
+  live under `textus-toolchain-runner/docker/textus-toolchain`.
 - 2026-06-18: Completed VDO-07 VOICEVOX synthesis. `cozy video synthesize`
   now reads structured script files, resolves VOICEVOX speakers through the
   external HTTP service, generates scene WAV files, inserts lead/tail silence,
@@ -295,9 +301,9 @@ implemented Docker-based video path.
 - 2026-06-19: Closed Phase 8. The checklist has no remaining open VDO items;
   deferred work is explicitly outside the Phase 8 boundary and should be planned
   as a later BoK/video publication phase.
-- 2026-06-19: Released the Phase 8 Cozy toolchain image to GitHub Container
-  Registry. The canonical image is `ghcr.io/asami/cozy-toolchain`, with release
-  tag `2026.06.19`, floating tag `latest`, and registry digest
+- 2026-06-19: Released the Phase 8 legacy Cozy-owned toolchain image to GitHub
+  Container Registry. The legacy image was `ghcr.io/asami/cozy-toolchain`, with
+  release tag `2026.06.19`, floating tag `latest`, and registry digest
   `sha256:5948924af5a8c6ac56fbf39931acbb958ad7a5ca078f3a9b7f22700e4d8f5057`.
   Validation covered `cozy-toolchain check all`, Docker-mode `video inspect
   --check-tools`, `video render --renderer=simple-java2d --check-tools`, and

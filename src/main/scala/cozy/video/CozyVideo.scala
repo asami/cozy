@@ -24,7 +24,8 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Jun. 18, 2026
- * @version Jun. 19, 2026
+ *  version Jun. 19, 2026
+ * @version Jul.  6, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideo {
@@ -268,7 +269,7 @@ private[cozy] object CozyVideo {
       }
   }
   object VideoToolSettings {
-    val DEFAULT_DOCKER_IMAGE = "ghcr.io/asami/cozy-toolchain:latest"
+    val DEFAULT_DOCKER_IMAGE = "ghcr.io/asami/textus-toolchain:latest"
     val DEFAULT_VOICEVOX_URL = "http://127.0.0.1:50021"
 
     implicit val decoder: Decoder[VideoToolSettings] = (c: HCursor) =>
@@ -612,7 +613,7 @@ private[cozy] object CozyVideo {
     def production(probe: VideoToolProbe): VideoToolRegistry = VideoToolRegistry(Vector(
       DockerToolchainProvider(probe),
       DockerImageProvider(probe),
-      CozyToolchainImageProvider(probe),
+      TextusToolchainImageProvider(probe),
       VoicevoxProvider(probe),
       FfmpegProvider(probe),
       RemotionNodeProvider(probe),
@@ -826,49 +827,49 @@ private[cozy] object CozyVideo {
     }
   }
 
-  final case class CozyToolchainImageProvider(probe: VideoToolProbe) extends VideoToolProvider {
+  final case class TextusToolchainImageProvider(probe: VideoToolProbe) extends VideoToolProvider {
     def check(context: VideoToolContext): VideoToolCheck = {
       val image = context.execution.dockerImage
       if (context.execution.toolMode == VideoToolMode.Host)
         return VideoToolCheck(
-          "cozy-toolchain-image",
+          "textus-toolchain-image",
           VideoToolMode.Docker,
           VideoToolStatus.Unchecked,
-          s"Cozy toolchain image content is not required in host tool mode: $image."
+          s"Textus toolchain image content is not required in host tool mode: $image."
         )
       val docker = probe.command(Vector("docker", "version", "--format", "{{.Server.Version}}"), context.projectRoot)
       if (!docker.isSuccess)
         return VideoToolCheck(
-          "cozy-toolchain-image",
+          "textus-toolchain-image",
           VideoToolMode.Docker,
           VideoToolStatus.Unchecked,
-          s"Cozy toolchain image content was not checked because Docker is unavailable: $image.",
+          s"Textus toolchain image content was not checked because Docker is unavailable: $image.",
           Some("Start Docker, then run: docker pull " + image)
         )
       val inspect = probe.command(Vector("docker", "image", "inspect", image), context.projectRoot)
       if (!inspect.isSuccess)
         return VideoToolCheck(
-          "cozy-toolchain-image",
+          "textus-toolchain-image",
           VideoToolMode.Docker,
           VideoToolStatus.Unchecked,
-          s"Cozy toolchain image content was not checked because the image is unavailable: $image.",
+          s"Textus toolchain image content was not checked because the image is unavailable: $image.",
           Some("Run: docker pull " + image)
         )
-      val result = probe.command(Vector("docker", "run", "--rm", image, "cozy-toolchain", "check", "video"), context.projectRoot)
+      val result = probe.command(Vector("docker", "run", "--rm", image, "textus-toolchain", "check", "video"), context.projectRoot)
       if (result.isSuccess)
         VideoToolCheck(
-          "cozy-toolchain-image",
+          "textus-toolchain-image",
           VideoToolMode.Docker,
           VideoToolStatus.Available,
-          s"Cozy toolchain video dependencies are available in Docker image: $image."
+          s"Textus toolchain video dependencies are available in Docker image: $image."
         )
       else
         VideoToolCheck(
-          "cozy-toolchain-image",
+          "textus-toolchain-image",
           VideoToolMode.Docker,
           VideoToolStatus.Missing,
-          _message(s"Cozy toolchain video dependency check failed in Docker image: $image.", result),
-          Some("Rebuild the image: docker build -t " + image + " docker/cozy-toolchain")
+          _message(s"Textus toolchain video dependency check failed in Docker image: $image.", result),
+          Some("Rebuild and publish the Textus toolchain image in textus-toolchain-runner, then run: docker pull " + image)
         )
     }
   }
@@ -1144,7 +1145,7 @@ private[cozy] object CozyVideo {
   private val _supported_part_types = Set("dialogue", "storyboard", "web-demo")
   private val _supported_renderers = Set("remotion", "simple-java2d")
   private val _docker_managed_tools = Set("remotion", "playwright", "ffmpeg", "ffprobe", "node", "npm", "whisper-cpp", "python-pillow")
-  private val _docker_whisper_model = "/opt/cozy/models/ggml-base.bin"
+  private val _docker_whisper_model = "/opt/textus/models/ggml-base.bin"
   private val _property_options = Set("tool-mode", "docker-image", "save", "voicevox-url", "renderer", "part", "whisper-model", "events", "har", "trace", "transcript")
   private val _default_sample_rate = 24000
   private val _video_rdf_namespace = "https://www.simplemodeling.org/ns/cozy/video#"
@@ -1877,7 +1878,7 @@ private[cozy] object CozyVideo {
     if (checks.nonEmpty) {
       val required =
         execution.toolMode match {
-          case VideoToolMode.Docker => Set("docker-toolchain", "docker-image", "cozy-toolchain-image")
+          case VideoToolMode.Docker => Set("docker-toolchain", "docker-image", "textus-toolchain-image")
           case VideoToolMode.Host =>
             renderer match {
               case "remotion" => Set("remotion-node")
@@ -1895,7 +1896,7 @@ private[cozy] object CozyVideo {
     if (checks.nonEmpty) {
       val required =
         execution.toolMode match {
-          case VideoToolMode.Docker => Set("docker-toolchain", "docker-image", "cozy-toolchain-image")
+          case VideoToolMode.Docker => Set("docker-toolchain", "docker-image", "textus-toolchain-image")
           case VideoToolMode.Host => Set("ffmpeg")
           case VideoToolMode.ExternalService => Set.empty[String]
         }
@@ -1909,7 +1910,7 @@ private[cozy] object CozyVideo {
     if (checks.nonEmpty) {
       val required =
         execution.toolMode match {
-          case VideoToolMode.Docker => Set("docker-toolchain", "docker-image", "cozy-toolchain-image")
+          case VideoToolMode.Docker => Set("docker-toolchain", "docker-image", "textus-toolchain-image")
           case VideoToolMode.Host => Set("ffmpeg", "whisper-cpp")
           case VideoToolMode.ExternalService => Set.empty[String]
         }
@@ -1923,7 +1924,7 @@ private[cozy] object CozyVideo {
     if (checks.nonEmpty) {
       val required =
         execution.toolMode match {
-          case VideoToolMode.Docker => Set("docker-toolchain", "docker-image", "cozy-toolchain-image")
+          case VideoToolMode.Docker => Set("docker-toolchain", "docker-image", "textus-toolchain-image")
           case VideoToolMode.Host => Set("playwright")
           case VideoToolMode.ExternalService => Set.empty[String]
         }

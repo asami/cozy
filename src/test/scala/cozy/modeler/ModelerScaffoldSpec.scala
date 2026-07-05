@@ -15,7 +15,7 @@ import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 /*
  * @since   Jun. 23, 2026
  *  version Jun. 27, 2026
- * @version Jul.  1, 2026
+ * @version Jul.  6, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -103,8 +103,8 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         buildsbtcontent should not include ("CNCF_SAMPLES_ROOT")
         buildsbtcontent should include ("""libraryDependencies += "org.goldenport" %% "goldenport-cncf" % cncfVersion""")
         buildsbtcontent should include ("""libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.10" % Test""")
-        buildsbtcontent should not include ("cozyPublishCar.value")
-        buildsbtcontent should not include ("cozyPublishLocalCar.value")
+        buildsbtcontent should include ("cozyPublishCar.value")
+        buildsbtcontent should include ("cozyPublishLocalCar.value")
         buildsbtcontent should include ("""cozyDelegateCommand := Seq("cozy")""")
         buildsbtcontent should not include ("junit-interface")
         buildsbtcontent should not include ("cats-core")
@@ -457,8 +457,8 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         buildsbtcontent should include ("""version := "0.1.0-SNAPSHOT"""")
         buildsbtcontent should include ("""libraryDependencies += "org.goldenport" %% "goldenport-cncf" % cncfVersion""")
         buildsbtcontent should include ("""libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.10" % Test""")
-        buildsbtcontent should not include ("cozyPublishCar.value")
-        buildsbtcontent should not include ("cozyPublishLocalCar.value")
+        buildsbtcontent should include ("cozyPublishCar.value")
+        buildsbtcontent should include ("cozyPublishLocalCar.value")
         buildsbtcontent should not include ("dependencyOverrides")
         projectyamlcontent should include ("""name: "textus-knowledge-editor"""")
         projectyamlcontent should include ("""title: "Textus Knowledge Editor"""")
@@ -516,6 +516,100 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         projectyamlcontent should include ("""scalaPackage: "org.override.component"""")
         modelcontent should include ("## OverrideComponent")
         modelcontent should include ("org.override.component")
+      }
+
+      "init component accepts service entity and operation scaffold parameters" in {
+        Given("a modeler scaffold source or requested project layout")
+        val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+        val out = base.resolve("target/test-generated/init-component-surface-parameters")
+        delete_recursively(out)
+        Files.createDirectories(out.getParent)
+
+        When("Cozy generates the project scaffold")
+        cozy.Cozy.main(Array(
+        "init",
+        "component",
+        "--save", out.toString.toString,
+        "--name", "textus-art-scene",
+        "--component-name", "ArtScene",
+        "--service-name", "ExhibitionCandidate",
+        "--entity", "Exhibition",
+        "--command-operation", "RegisterFacility",
+        "--query-operation", "ListCandidates",
+        "--display-name", "Textus Art Scene",
+        "--organization", "org.textus",
+        "--package", "org.simplemodeling.textus.artscene",
+        "--version", "0.1.0-SNAPSHOT"
+        ))
+
+        val modelcontent = Files.readString(out.resolve("src/main/cozy/textus-art-scene.cml"))
+        val factorycontent = Files.readString(out.resolve("src/main/scala/org/simplemodeling/textus/artscene/impl/ComponentFactory.scala"))
+        val webcontent = Files.readString(out.resolve("src/main/web-inf/form.yaml"))
+        Then("the generated project files satisfy the scaffold contract")
+        modelcontent should include ("## ArtScene")
+        modelcontent should include ("## ExhibitionCandidate")
+        modelcontent should include ("## Exhibition")
+        modelcontent should include ("#### RegisterFacility")
+        modelcontent should include ("#### ListCandidates")
+        modelcontent should include ("- input :: RegisterFacility")
+        modelcontent should include ("- output :: RegisterFacilityResult")
+        modelcontent should include ("- input :: ListCandidates")
+        modelcontent should include ("- output :: ListCandidatesResult")
+        modelcontent should include ("## RegisterFacilityResult")
+        modelcontent should include ("## ListCandidatesResult")
+        modelcontent should include ("OperationResult")
+        factorycontent should include ("override val ExhibitionCandidate: ArtSceneComponent.ExhibitionCandidateServiceFactory")
+        factorycontent should include ("final class DefaultExhibitionCandidateServiceFactory")
+        factorycontent should include ("override def createRegisterFacilityActionCall")
+        factorycontent should include ("override def createListCandidatesActionCall")
+        webcontent should include ("textus-art-scene.exhibition-candidate.register-facility")
+        webcontent should include ("textus-art-scene.exhibition-candidate.list-candidates")
+        webcontent should include ("entity.exhibition")
+      }
+
+      "init component reads service entity and operation scaffold parameters from config" in {
+        Given("a modeler scaffold source or requested project layout")
+        val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+        val out = base.resolve("target/test-generated/init-component-surface-config")
+        delete_recursively(out)
+        Files.createDirectories(out.getParent)
+        val config = base.resolve("target/test-generated/init-component-surface-config.yaml")
+        Files.writeString(
+        config,
+        """project:
+          |  name: textus-art-scene
+          |  organization: org.textus
+          |  component:
+          |    displayName: Textus Art Scene
+          |    version: 0.1.0-SNAPSHOT
+          |    kind: car
+          |cml:
+          |  package: org.simplemodeling.textus.artscene
+          |  component:
+          |    name: ArtScene
+          |  service:
+          |    name: ExhibitionCandidate
+          |  entity:
+          |    name: Exhibition
+          |  operation:
+          |    command: RegisterFacility
+          |    query: ListCandidates
+          |""".stripMargin,
+        StandardCharsets.UTF_8
+        )
+
+        When("Cozy generates the project scaffold")
+        cozy.Cozy.main(Array("init", "component", "--save", out.toString.toString, "--config", config.toString.toString))
+
+        val modelcontent = Files.readString(out.resolve("src/main/cozy/textus-art-scene.cml"))
+        Then("the generated project files satisfy the scaffold contract")
+        modelcontent should include ("## ArtScene")
+        modelcontent should include ("## ExhibitionCandidate")
+        modelcontent should include ("## Exhibition")
+        modelcontent should include ("#### RegisterFacility")
+        modelcontent should include ("#### ListCandidates")
+        modelcontent should include ("## RegisterFacilityResult")
+        modelcontent should include ("## ListCandidatesResult")
       }
 
       "init component can create a CAR plus SAR application layout" in {
@@ -610,6 +704,9 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         help should include ("Commands:")
         help should include ("init component")
         help should include ("car-sbt-project")
+        help should include ("--service-name")
+        help should include ("--command-operation")
+        help should include ("--query-operation")
         help should include ("--style car|car-sar")
         help should include ("modeler-scala")
         help should include ("package-car")

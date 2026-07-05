@@ -31,11 +31,11 @@ import io.circe.parser
 /*
  * @since   Jun.  3, 2026
  *  version Jun. 28, 2026
- * @version Jul.  2, 2026
+ * @version Jul.  6, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyBok {
-  private val _default_docker_image = "ghcr.io/asami/cozy-toolchain:latest"
+  private val _default_docker_image = "ghcr.io/asami/textus-toolchain:latest"
   private val _ui_resource_base = "cozy.bok.BokUi"
   private val _ui_resource_config = I18NContext.ResourceBundleConfig.englishFallback
 

@@ -143,7 +143,7 @@ Purpose:
 - support source-project and published-site project separation by default
 - use SmartDox category-driven structure without `site-structure.yaml`
 - support Japanese single-locale BoK operation with root `website.d` output
-- use the standard Cozy toolchain Docker image for Antora-based HTML generation
+- use the standard Textus toolchain Docker image for Antora-based HTML generation
 
 Primary reference:
 
@@ -159,15 +159,16 @@ Purpose:
 - make scripted video production a first-class Cozy workflow
 - transform recorded demos into transcript, caption, RDF, and Playwright
   replay assets
-- formalize and validate the unified Cozy toolchain Docker image used by BoK,
+- formalize and validate the unified Textus toolchain Docker image used by BoK,
   SmartDox PDF, and video workflows
-- use the Cozy toolchain Docker image for BoK HTML generation, SmartDox PDF
+- use the Textus toolchain Docker image for BoK HTML generation, SmartDox PDF
   rendering, video capture, encoding, Node, Remotion, Playwright,
   ffmpeg/ffprobe, whisper.cpp, transcription model/data, and related heavy
   dependencies while keeping Cozy responsible for orchestration and knowledge
   outputs
-- own the unified `ghcr.io/asami/cozy-toolchain` image in the Cozy repository,
-  using the current SmartDox PDF dependency image line as the baseline
+- consume the unified `ghcr.io/asami/textus-toolchain` image owned by
+  `textus-toolchain-runner`, using the current SmartDox PDF dependency image
+  line as the baseline
 - integrate VOICEVOX as an external HTTP service rather than bundling it into
   the toolchain image
 - generate RDF source files from video projects, scripts, timing metadata, and
@@ -316,7 +317,7 @@ closed. Phase 13 is active. Phase 14 is planned.
 
 Phase 8 completed the first-class `cozy video` workflow: structured
 project/script parsing, inspect, dry-run artifact/command planning, dependency
-checks, Docker-first toolchain mode, unified Cozy toolchain image definition,
+checks, Docker-first toolchain mode, unified Textus toolchain image consumption,
 VOICEVOX synthesis, rendering, final muxing/encoding, transcription, replay
 generation, RDF output, and `.video` publication metadata handoff to SmartDox.
 
