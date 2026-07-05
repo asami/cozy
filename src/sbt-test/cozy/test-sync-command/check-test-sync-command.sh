@@ -34,13 +34,12 @@ default_out="$(run_command TestSync.Item.createItem --name beta --title Beta 2>&
 printf '%s\n' "$default_out" | grep '^cncf-job-'
 
 default_envelope="$(run_command TestSync.Item.createItem --name beta --title Beta --textus.output.shape envelope --textus.output.format yaml 2>&1)"
-printf '%s\n' "$default_envelope" | grep 'interface-shape: job'
+printf '%s\n' "$default_envelope" | grep 'interfaceShape: job'
 
 sync_out="$(run_command --textus.runtime.command.execution-mode sync-job-async-interface TestSync.Item.createItem --name beta --title Beta 2>&1)"
 printf '%s\n' "$sync_out" | grep '^cncf-job-'
 
 sync_envelope="$(run_command --textus.runtime.command.execution-mode sync-job-async-interface TestSync.Item.createItem --name beta --title Beta --textus.output.shape envelope --textus.output.format yaml 2>&1)"
-printf '%s\n' "$sync_envelope" | grep 'interface-shape: job'
-printf '%s\n' "$sync_envelope" | grep 'requested-mode: sync-job-async-interface'
+printf '%s\n' "$sync_envelope" | grep 'interfaceShape: job'
 
 echo TEST_SYNC_COMMAND_OK

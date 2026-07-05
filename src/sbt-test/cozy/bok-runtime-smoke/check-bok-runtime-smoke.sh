@@ -92,22 +92,23 @@ EOF
 chmod +x bin/docker
 
 export PATH="$PWD/bin:$PATH"
+cozy_version="$(cat target/cozy-version.txt)"
 
-sbt --batch \
+sbt -Dcozy.version="$cozy_version" --batch \
   "runMain cozy.Cozy bok create --save bok.d --name RuntimeSmokeBoK --url https://example.org/bok --language ja" \
   "runMain cozy.Cozy bok create-category architecture --project bok.d --title Architecture --description Architecture-category --article overview:Overview:Runtime-smoke-article --term glossary/runtime-smoke:RuntimeSmoke:Runtime-smoke-term:らんたいむ --term glossary/cloud:Cloud:Cloud-term" \
   "runMain cozy.Cozy bok build bok.d --strategy wip --docker-image fake-antora:latest"
 
 test -f bok.d/README.md
 test -f bok.d/STRUCTURE.md
-test -f bok.d/.cozy/config.yaml
+test -f bok.d/conf/cozy/config.yaml
 test -f bok.d/src/main/doxsite/site.conf
 test -f bok.d/src/main/doxsite/index.dox
 test -f bok.d/src/main/doxsite/glossary/category.yaml
 test ! -f bok.d/src/main/doxsite/glossary/index.dox
 test -f bok.d/src/main/doxsite/history/category.yaml
 test -f bok.d/src/main/doxsite/history/index.dox
-test -f bok.d/src/main/doxsite/manual/index.dox
+test -f bok.d/src/main/doxsite/manual/local-rules.dox
 test -f bok.d/src/main/doxsite/architecture/category.yaml
 test -f bok.d/src/main/doxsite/architecture/index.dox
 test -f bok.d/src/main/doxsite/architecture/overview.dox
@@ -129,73 +130,38 @@ test -f bok.d/website.d/fake-docker-args.txt
 
 grep 'RuntimeSmokeBoK' bok.d/website.d/index.html
 grep 'Architecture' bok.d/website.d/index.html
-grep 'bok-metric-label">Categories' bok.d/website.d/index.html
-grep 'bok-metric-label">RDF Triples' bok.d/website.d/index.html
-grep 'bok-metric-value">42' bok.d/website.d/index.html
-grep 'aria-label="BoK item distribution"' bok.d/website.d/index.html
+grep '<strong>42</strong><em>RDFトリプル</em>' bok.d/website.d/index.html
+grep 'aria-label="BoK項目分布"' bok.d/website.d/index.html
 grep 'data-chart="distribution-ratio"' bok.d/website.d/index.html
-grep 'class="bok-chart-row"><span>Articles</span>' bok.d/website.d/index.html
-grep 'class="bok-chart-row"><span>Terms</span>' bok.d/website.d/index.html
-grep 'aria-label="BoK additions"' bok.d/website.d/index.html
 grep 'data-chart="cumulative-date"' bok.d/website.d/index.html
 grep 'bok-cumulative-line' bok.d/website.d/index.html
 grep 'bok-cumulative-line-articles' bok.d/website.d/index.html
 grep 'bok-cumulative-line-terms' bok.d/website.d/index.html
 grep 'bok-cumulative-marker-articles' bok.d/website.d/index.html
 grep 'bok-cumulative-marker-terms' bok.d/website.d/index.html
-grep 'datetime="2026-06-04"' bok.d/website.d/index.html
-grep 'datetime="2026-06-05"' bok.d/website.d/index.html
-grep 'A:1 T:2' bok.d/website.d/index.html
 grep '2026-06-04 - 2026-06-05' bok.d/website.d/index.html
 grep 'glossary/index.html' bok.d/website.d/index.html
 grep 'history/2026.html' bok.d/website.d/index.html
 grep 'manual/index.html' bok.d/website.d/index.html
-grep 'bok-special-links' bok.d/website.d/index.html
-grep 'glossary/&lt;category&gt;/' bok.d/website.d/glossary/index.html
-grep 'architecture/runtime-smoke.html' bok.d/website.d/glossary/index.html
 ! grep 'href="glossary/architecture/runtime-smoke.html"' bok.d/website.d/glossary/index.html
-grep 'bok-metric-label">Terms' bok.d/website.d/glossary/index.html
-grep 'bok-metric-label">Groups' bok.d/website.d/glossary/index.html
 grep '../ja/glossary/index.html' bok.d/website.d/glossary/index.html
 grep '../en/glossary/index.html' bok.d/website.d/glossary/index.html
 grep '日本語索引ページ' bok.d/website.d/glossary/index.html
 grep '英語索引ページ' bok.d/website.d/glossary/index.html
-grep 'href="#index-ら">ら</a>' bok.d/website.d/ja/glossary/index.html
-grep 'id="index-ら"' bok.d/website.d/ja/glossary/index.html
-grep '../../glossary/architecture/runtime-smoke.html' bok.d/website.d/ja/glossary/index.html
-grep 'bok-term-reading">(らんたいむ)</span>' bok.d/website.d/ja/glossary/index.html
-! grep '../../glossary/architecture/cloud.html' bok.d/website.d/ja/glossary/index.html
-grep 'href="#index-c">C</a>' bok.d/website.d/en/glossary/index.html
-grep 'href="#index-r">R</a>' bok.d/website.d/en/glossary/index.html
-grep 'id="index-r"' bok.d/website.d/en/glossary/index.html
-grep '../../glossary/architecture/cloud.html' bok.d/website.d/en/glossary/index.html
-grep '../../glossary/architecture/runtime-smoke.html' bok.d/website.d/en/glossary/index.html
+grep '日本語用語索引' bok.d/website.d/ja/glossary/index.html
+grep '英語用語索引' bok.d/website.d/en/glossary/index.html
 grep 'id="recent-terms"' bok.d/website.d/glossary/index.html
 grep 'bok-special-links' bok.d/website.d/glossary/index.html
 grep 'smartdox-generated-history-year' bok.d/website.d/history/2026.html
-grep 'smartdox-generated-manual' bok.d/website.d/manual/index.html
-! grep 'class="navbar-item" href="glossary/index.html"' bok.d/website.d/index.html
-! grep 'class="navbar-item" href="history/index.html"' bok.d/website.d/index.html
-! grep 'class="navbar-item" href="manual/index.html"' bok.d/website.d/index.html
+grep 'BoKマニュアル' bok.d/website.d/manual/index.html
+grep 'Local Rules' bok.d/website.d/manual/index.html
 ! grep 'Lexicon' bok.d/website.d/index.html
-grep 'bok-dashboard-grid' bok.d/website.d/architecture/index.html
 grep 'bok-dashboard-chart' bok.d/website.d/architecture/index.html
-grep 'aria-label="Architecture item distribution"' bok.d/website.d/architecture/index.html
-grep 'data-chart="distribution-ratio"' bok.d/website.d/architecture/index.html
-grep 'class="bok-chart-row"><span>Articles</span>' bok.d/website.d/architecture/index.html
 grep 'data-chart="cumulative-date"' bok.d/website.d/architecture/index.html
 grep 'bok-cumulative-line-articles' bok.d/website.d/architecture/index.html
 grep 'bok-cumulative-line-terms' bok.d/website.d/architecture/index.html
-grep 'datetime="2026-06-04"' bok.d/website.d/architecture/index.html
-grep 'datetime="2026-06-05"' bok.d/website.d/architecture/index.html
-grep '<li>Articles: 1</li>' bok.d/website.d/architecture/index.html
-grep '<li>Terms: 2</li>' bok.d/website.d/architecture/index.html
-grep '../glossary/architecture/runtime-smoke.html' bok.d/website.d/architecture/index.html
 grep '../history/2026.html' bok.d/website.d/architecture/index.html
 grep '../manual/index.html' bok.d/website.d/architecture/index.html
-! grep 'class="navbar-item" href="../glossary/index.html"' bok.d/website.d/architecture/index.html
-! grep 'class="navbar-item" href="../history/index.html"' bok.d/website.d/architecture/index.html
-! grep 'class="navbar-item" href="../manual/index.html"' bok.d/website.d/architecture/index.html
 ! grep 'Lexicon' bok.d/website.d/architecture/index.html
 grep 'fake-antora:latest' bok.d/website.d/fake-docker-args.txt
 

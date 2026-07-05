@@ -1,7 +1,7 @@
 schemaVersion: 1
-generatedAt: 2026-06-27T07:51:13.368008Z
-recommended: 0.2.23
-latestStable: 0.2.23
+generatedAt: 2026-07-05T13:50:54.195570Z
+recommended: 0.2.24
+latestStable: 0.2.24
 latestSnapshot:
 mavenRepositories:
   - https://www.simplemodeling.org/repository/maven
@@ -44,3 +44,9 @@ versions:
     scalaBinaryVersion: "2.12"
     module: org.simplemodeling:cozy_2.12:0.2.23
     publishedAt: 2026-06-27T07:41:44.998865Z
+  - version: 0.2.24
+    channel: stable
+    status: active
+    scalaBinaryVersion: "2.12"
+    module: org.simplemodeling:cozy_2.12:0.2.24
+    publishedAt: 2026-07-05T13:50:31.902977Z

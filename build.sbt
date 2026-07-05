@@ -15,9 +15,9 @@ organization := "org.simplemodeling"
 
 name := "cozy"
 
-version := "0.2.24-SNAPSHOT"
+version := "0.2.24"
 
-lazy val cncfVersion = "0.4.12"
+lazy val cncfVersion = "0.4.13"
 
 lazy val simpleModelingModelVersion = "0.1.7"
 
@@ -75,7 +75,7 @@ libraryDependencies += "org.smartdox" %% "smartdox" % "2.4.15"
 libraryDependencies += "org.goldenport" %% "kaleidox" % "0.6.16"
 
 val simplemodelerVersion =
-  sys.props.getOrElse("simplemodeler.version", sys.env.getOrElse("SIMPLEMODELER_VERSION", "1.1.22-SNAPSHOT"))
+  sys.props.getOrElse("simplemodeler.version", sys.env.getOrElse("SIMPLEMODELER_VERSION", "1.1.22"))
 
 libraryDependencies += "org.simplemodeling" %% "simplemodeler" % simplemodelerVersion
 
@@ -383,7 +383,9 @@ lazy val root = (project in file(".")).
     buildInfoPackage := "org.simplemodeling.cozy",
     scriptedBufferLog := false,
     scriptedLaunchOpts ++= Seq(
-      s"-Dcozy.version=${version.value}"
+      s"-Dcozy.version=${version.value}",
+      s"-Dcncf.version=${cncfVersion}",
+      s"-Dsimplemodeling.model.version=${simpleModelingModelVersion}"
     ),
     scriptedDependencies := Def.taskDyn {
       val v = version.value

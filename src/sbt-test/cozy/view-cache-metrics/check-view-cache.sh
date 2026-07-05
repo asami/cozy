@@ -23,13 +23,13 @@ Compile / unmanagedSourceDirectories := Seq(
 Compile / managedSourceDirectories := Nil
 
 libraryDependencies ++= Seq(
-  "org.goldenport" %% "goldenport-cncf" % "0.4.7-SNAPSHOT",
-  "org.simplemodeling" %% "simplemodeling-model" % "0.1.7-SNAPSHOT",
-  "org.goldenport" % "cncf-collaborator-api" % "0.1.0-SNAPSHOT"
+  "org.goldenport" %% "goldenport-cncf" % sys.props.getOrElse("cncf.version", "0.4.12"),
+  "org.simplemodeling" %% "simplemodeling-model" % "0.1.7",
+  "org.goldenport" % "cncf-collaborator-api" % "0.1.0"
 )
 
 dependencyOverrides ++= Seq(
-  "org.goldenport" % "cncf-collaborator-api" % "0.1.0-SNAPSHOT",
+  "org.goldenport" % "cncf-collaborator-api" % "0.1.0",
   "org.scala-lang.modules" %% "scala-xml" % "2.1.0",
   "org.scala-lang.modules" %% "scala-parser-combinators" % "2.3.0"
 )

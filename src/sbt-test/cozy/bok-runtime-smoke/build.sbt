@@ -8,7 +8,17 @@ resolvers += "Local Maven Repository" at ("file://" + Path.userHome.absolutePath
 
 useCoursier := false
 
-libraryDependencies += "org.simplemodeling" %% "cozy" % sys.props.getOrElse("cozy.version", "0.2.23")
+Global / onLoad := {
+  val previous = (Global / onLoad).value
+  state =>
+    val state1 = previous(state)
+    val cozyversion = sys.props("cozy.version")
+    IO.createDirectory(file("target"))
+    IO.write(file("target/cozy-version.txt"), cozyversion)
+    state1
+}
+
+libraryDependencies += "org.simplemodeling" %% "cozy" % sys.props("cozy.version")
 
 dependencyOverrides ++= Seq(
   "org.scala-lang.modules" %% "scala-xml" % "2.1.0",

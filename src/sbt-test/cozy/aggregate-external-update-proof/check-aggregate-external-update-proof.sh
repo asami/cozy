@@ -22,7 +22,7 @@ ThisBuild / scalaVersion := "3.3.7"
 val cncfVersion = sys.props.getOrElse("cncf.version", sys.env.getOrElse("CNCF_VERSION", "0.4.12"))
 val simplemodelingModelVersion = sys.props.getOrElse(
   "simplemodeling.model.version",
-  sys.env.getOrElse("SIMPLEMODELING_MODEL_VERSION", "0.1.8-SNAPSHOT")
+  sys.env.getOrElse("SIMPLEMODELING_MODEL_VERSION", "0.1.7")
 )
 
 lazy val root = (project in file("."))
@@ -36,11 +36,11 @@ lazy val root = (project in file("."))
     resolvers ++= Seq(
       Resolver.defaultLocal,
       Resolver.mavenLocal,
-      "SimpleModeling.org" at "https://www.simplemodeling.org/maven"
+      "SimpleModeling.org" at "https://www.simplemodeling.org/repository/maven"
     ),
     libraryDependencies ++= Seq(
       "org.goldenport" %% "goldenport-cncf" % cncfVersion,
-      "org.goldenport" %% "goldenport-core" % "0.3.7-SNAPSHOT",
+      "org.goldenport" %% "goldenport-core" % "0.3.7",
       "org.simplemodeling" %% "simplemodeling-model" % simplemodelingModelVersion
     ),
     dependencyOverrides ++= Seq(
