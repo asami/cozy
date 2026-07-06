@@ -137,7 +137,7 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         pluginssbtcontent should include ("""addSbtPlugin("org.goldenport" % "sbt-cozy"""")
         pluginssbtcontent should include (""""SimpleModeling.org" at "https://www.simplemodeling.org/repository/maven"""")
         pluginssbtcontent should include ("SBT_COZY_VERSION")
-        pluginssbtcontent should include ("0.1.11-SNAPSHOT")
+        pluginssbtcontent should include ("0.1.11")
         pluginssbtcontent should include ("""addSbtPlugin("org.goldenport" % "sbt-cozy" % sbtCozyVersion)""")
       }
 
@@ -549,6 +549,7 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         modelcontent should include ("## ArtScene")
         modelcontent should include ("## ExhibitionCandidate")
         modelcontent should include ("## Exhibition")
+        modelcontent should include ("| name        | name     | 1")
         modelcontent should include ("#### RegisterFacility")
         modelcontent should include ("#### ListCandidates")
         modelcontent should include ("- input :: RegisterFacility")
@@ -606,6 +607,7 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         modelcontent should include ("## ArtScene")
         modelcontent should include ("## ExhibitionCandidate")
         modelcontent should include ("## Exhibition")
+        modelcontent should include ("| name        | name     | 1")
         modelcontent should include ("#### RegisterFacility")
         modelcontent should include ("#### ListCandidates")
         modelcontent should include ("## RegisterFacilityResult")
@@ -704,6 +706,8 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         help should include ("Commands:")
         help should include ("init component")
         help should include ("car-sbt-project")
+        help should include ("lint build")
+        help should include ("lint cml")
         help should include ("--service-name")
         help should include ("--command-operation")
         help should include ("--query-operation")

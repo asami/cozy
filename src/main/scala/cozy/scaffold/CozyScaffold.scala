@@ -19,7 +19,7 @@ import scala.collection.JavaConverters._
  */
 private[cozy] object CozyScaffold {
   private val _default_sbt_version = "1.9.7"
-  private val _default_sbt_cozy_version = "0.1.11-SNAPSHOT"
+  private val _default_sbt_cozy_version = "0.1.11"
 
   case class CarDependencyVersions(
     cncfVersion: String,
@@ -778,8 +778,8 @@ private[cozy] object CozyScaffold {
       || name        | type     | multiplicity |
       ||-------------+----------+--------------|
       || id          | entityid | 1            |
-      || title       | string   | 1            |
-      || description | string   | ?            |
+      || name        | name     | 1            |
+      || description | ${scaffold.entityName}Description | ?            |
       |
       |# COMMAND
       |
@@ -789,8 +789,8 @@ private[cozy] object CozyScaffold {
       |
       || name        | type   | multiplicity |
       ||-------------+--------+--------------|
-      || title       | string | 1            |
-      || description | string | ?            |
+      || name        | name   | 1            |
+      || description | ${scaffold.entityName}Description | ?            |
       |
       |# QUERY
       |
@@ -805,6 +805,14 @@ private[cozy] object CozyScaffold {
       || limit  | int    | ?            |
       |
       |# VALUE
+      |
+      |## ${scaffold.entityName}Description
+      |
+      |### Attribute
+      |
+      || name  | type   | multiplicity |
+      ||-------+--------+--------------|
+      || value | string | 1            |
       |
       |## ${scaffold.commandResultName}
       |
@@ -1530,6 +1538,12 @@ private[cozy] object CozyScaffold {
       |      `car-sar` creates an application root with `component/` and `subsystem/`.
       |      When model-file is omitted, create a scaffold sample model.
       |      By default, existing differing project files are written as .bak files.
+      |
+      |  lint build <project-root> [--format text|json] [--strict]
+      |      Lint project/plugins.sbt and build.sbt for Cozy build wiring, including sbt-cozy plugin freshness.
+      |
+      |  lint cml <path> [--format text|json]
+      |      Lint one CML file or a directory of CML files for CAR modeling smells.
       |
       |  bok create --save <dir> [--name <name>] [--url <url>] [--language ja] [--no-project-files] [--overwrite-project-files]
       |      Create a SmartDox category-driven BoK source project scaffold without generated HTML, Arcadia assets, or site-structure.yaml.

@@ -19,7 +19,7 @@ ThisBuild / organization := "org.sample"
 ThisBuild / version := "0.1.0-SNAPSHOT"
 ThisBuild / scalaVersion := "3.3.7"
 
-val cncfVersion = sys.props.getOrElse("cncf.version", sys.env.getOrElse("CNCF_VERSION", "0.4.12"))
+val cncfVersion = sys.props.getOrElse("cncf.version", sys.env.getOrElse("CNCF_VERSION", "0.4.13"))
 val simplemodelingModelVersion = sys.props.getOrElse(
   "simplemodeling.model.version",
   sys.env.getOrElse("SIMPLEMODELING_MODEL_VERSION", "0.1.7")
@@ -58,7 +58,7 @@ EOF
 cat > "$PROJECT_DIR/plugins.sbt" <<'EOF'
 resolvers += "SimpleModeling.org" at "https://www.simplemodeling.org/repository/maven"
 resolvers += Resolver.defaultLocal
-val sbtCozyVersion = sys.props.getOrElse("sbt.cozy.version", sys.env.getOrElse("SBT_COZY_VERSION", "0.1.10"))
+val sbtCozyVersion = sys.props.getOrElse("sbt.cozy.version", sys.env.getOrElse("SBT_COZY_VERSION", "0.1.11"))
 addSbtPlugin("org.goldenport" % "sbt-cozy" % sbtCozyVersion)
 EOF
 

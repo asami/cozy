@@ -8,6 +8,7 @@ import org.goldenport.kaleidox.Kaleidox
 import org.goldenport.kaleidox.http.HttpHandle
 import cozy.archive.CozyArchivePackager
 import cozy.bok.CozyBok
+import cozy.lint.{CozyBuildLint, CozyCmlLint}
 import cozy.publication.{CozyPublicationCompiler, CozySampleDistributor, CozyWarehouseIndexer}
 import cozy.runtime.{CozyRuntime, CozySbtBridge}
 import cozy.scaffold.CozyScaffold
@@ -79,7 +80,7 @@ class Cozy(
   }
 
   def executeDirect(args: Array[String]): Unit = {
-    if (!_execute_version(args) && !CozyBok.execute(args.toList) && !CozyVideo.execute(args.toList) && !_execute_modeler_scala(args) && !_execute_init(args) && !_execute_car_sbt_project(args) && !_execute_publish_car(args) && !_execute_publish_sar(args) && !_execute_publish_project(args) && !_execute_publish_video(args) && !_execute_distribute_samples(args) && !_execute_index_warehouse(args) && !_execute_sbt_bridge(args) && !_execute_package_archive(args))
+    if (!_execute_version(args) && !_execute_lint(args) && !CozyBok.execute(args.toList) && !CozyVideo.execute(args.toList) && !_execute_modeler_scala(args) && !_execute_init(args) && !_execute_car_sbt_project(args) && !_execute_publish_car(args) && !_execute_publish_sar(args) && !_execute_publish_project(args) && !_execute_publish_video(args) && !_execute_distribute_samples(args) && !_execute_index_warehouse(args) && !_execute_sbt_bridge(args) && !_execute_package_archive(args))
       _to_repl_commandline(args) match {
         case Some(s) =>
           val c = _operation_call(Array(s))
@@ -97,6 +98,26 @@ class Cozy(
       case "--version" :: Nil =>
         println(s"cozy ${org.simplemodeling.cozy.BuildInfo.version}")
         true
+      case _ =>
+        false
+    }
+
+  private def _execute_lint(args: Array[String]): Boolean =
+    _leading_command(args) match {
+      case Some(("lint", "build" :: rest)) =>
+        val exitcode = CozyBuildLint.execute(rest)
+        if (exitcode != 0)
+          sys.exit(exitcode)
+        true
+      case Some(("lint", "cml" :: rest)) =>
+        val exitcode = CozyCmlLint.execute(rest)
+        if (exitcode != 0)
+          sys.exit(exitcode)
+        true
+      case Some(("lint", Nil)) =>
+        RAISE.invalidArgumentFault("Missing lint target: build or cml")
+      case Some(("lint", target :: _)) =>
+        RAISE.invalidArgumentFault(s"Unsupported lint target: ${target}")
       case _ =>
         false
     }

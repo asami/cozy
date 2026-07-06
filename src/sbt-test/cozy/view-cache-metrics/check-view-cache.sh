@@ -23,7 +23,7 @@ Compile / unmanagedSourceDirectories := Seq(
 Compile / managedSourceDirectories := Nil
 
 libraryDependencies ++= Seq(
-  "org.goldenport" %% "goldenport-cncf" % sys.props.getOrElse("cncf.version", "0.4.12"),
+  "org.goldenport" %% "goldenport-cncf" % sys.props.getOrElse("cncf.version", "0.4.13"),
   "org.simplemodeling" %% "simplemodeling-model" % "0.1.7",
   "org.goldenport" % "cncf-collaborator-api" % "0.1.0"
 )
