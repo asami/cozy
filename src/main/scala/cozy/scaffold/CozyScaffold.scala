@@ -425,8 +425,6 @@ private[cozy] object CozyScaffold {
       |val scala3Version = "3.3.7"
       |val cncfVersion = "${versions.cncfVersion}"
       |
-      |lazy val cozyBundleFactoryClassName = settingKey[Option[String]]("Optional Component.BundleFactory implementation class for ServiceLoader discovery.")
-      |
       |lazy val root = project
       |  .in(file("."))
       |  .enablePlugins(org.goldenport.cozy.CozyPlugin)
@@ -474,20 +472,6 @@ private[cozy] object CozyScaffold {
       |      IO.createDirectory(out.getParentFile)
       |      IO.write(out, content)
       |      Seq(out)
-      |    }.taskValue,
-      |
-      |    cozyBundleFactoryClassName := {
-      |      val source = baseDirectory.value / "src" / "main" / "scala" / "${scaffold.packageName.split("\\.").mkString("\" / \"")}" / "impl" / "ComponentFactory.scala"
-      |      if (source.isFile) Some("${scaffold.serviceLoaderClassName}") else None
-      |    },
-      |
-      |    Compile / resourceGenerators += Def.task {
-      |      cozyBundleFactoryClassName.value.map { classname =>
-      |        val out = (Compile / resourceManaged).value / "META-INF" / "services" / "org.goldenport.cncf.component.Component$$BundleFactory"
-      |        IO.createDirectory(out.getParentFile)
-      |        IO.write(out, classname + "\\n")
-      |        out
-      |      }.toSeq
       |    }.taskValue
       |  )
       |""".stripMargin
@@ -541,7 +525,6 @@ private[cozy] object CozyScaffold {
       |
       |val scala3Version = "3.3.7"
       |val cncfVersion = "${versions.cncfVersion}"
-      |lazy val cozyBundleFactoryClassName = settingKey[Option[String]]("Optional Component.BundleFactory implementation class for ServiceLoader discovery.")
       |
       |lazy val commonSettings = Seq(
       |  organization := "${scaffold.organization}",
@@ -588,15 +571,6 @@ private[cozy] object CozyScaffold {
       |      "boundedContext" -> "${scaffold.boundedContext}",
       |      "domain" -> "${scaffold.domain}"
       |    ),
-      |    cozyBundleFactoryClassName := None,
-      |    Compile / resourceGenerators += Def.task {
-      |      cozyBundleFactoryClassName.value.map { classname =>
-      |        val out = (Compile / resourceManaged).value / "META-INF" / "services" / "org.goldenport.cncf.component.Component$$BundleFactory"
-      |        IO.createDirectory(out.getParentFile)
-      |        IO.write(out, classname + "\\n")
-      |        out
-      |      }.toSeq
-      |    }.taskValue,
       |    Test / fork := false
       |  )
       |

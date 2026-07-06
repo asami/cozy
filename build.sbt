@@ -56,10 +56,6 @@ resolvers += "SimpleModeling.org" at "https://www.simplemodeling.org/repository/
 
 // resolvers += "Asami Maven Repository" at "http://www.asamioffice.com/maven"
 
-resolvers += Resolver.file("Local Ivy", file(Path.userHome.absolutePath + "/.ivy2/local"))(Resolver.ivyStylePatterns)
-
-resolvers += Resolver.defaultLocal
-
 // override arcadia
 libraryDependencies += "org.goldenport" %% "goldenport-scala-lib" % "2.3.29"
 

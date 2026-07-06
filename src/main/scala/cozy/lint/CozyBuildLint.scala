@@ -1,6 +1,7 @@
 package cozy.lint
 
 import org.goldenport.RAISE
+import java.net.HttpURLConnection
 import java.net.URI
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
@@ -37,6 +38,16 @@ private[cozy] object CozyBuildLint {
   )
 
   private final case class PluginDeclaration(path: Path, line: Int, version: String)
+  private[cozy] final case class DependencyDeclaration(
+    path: Path,
+    line: Int,
+    group: String,
+    artifact: String,
+    version: String
+  )
+  private[cozy] trait PublicArtifactAvailability {
+    def exists(dependency: DependencyDeclaration): Option[Boolean]
+  }
 
   def execute(args: List[String]): Int = {
     val config = Config.create(args)
@@ -60,9 +71,17 @@ private[cozy] object CozyBuildLint {
   }
 
   private[cozy] def lint(path: Path): Vector[Finding] =
-    lint(path, _latest_sbt_cozy_version())
+    lint(path, _latest_sbt_cozy_version(), SimpleModelingPublicArtifactAvailability)
 
-  private[cozy] def lint(path: Path, latestVersion: Option[String]): Vector[Finding] = {
+  private[cozy] def lint(path: Path, latestversion: Option[String]): Vector[Finding] = {
+    lint(path, latestversion, SimpleModelingPublicArtifactAvailability)
+  }
+
+  private[cozy] def lint(
+    path: Path,
+    latestversion: Option[String],
+    publicartifacts: PublicArtifactAvailability
+  ): Vector[Finding] = {
     val project = path.toAbsolutePath.normalize()
     val root =
       if (Files.isDirectory(project))
@@ -74,7 +93,7 @@ private[cozy] object CozyBuildLint {
       root.resolve("build.sbt")
     )
     val declarations = candidates.flatMap(_plugin_declarations)
-    if (declarations.isEmpty)
+    val pluginfindings = if (declarations.isEmpty)
       Vector(Finding(
         Level.Warn,
         "build.sbt-cozy-plugin",
@@ -83,7 +102,8 @@ private[cozy] object CozyBuildLint {
         1
       ))
     else
-      declarations.flatMap(_version_findings(_, latestVersion))
+      declarations.flatMap(_version_findings(_, latestversion))
+    pluginfindings ++ _public_dependency_findings(root, publicartifacts)
   }
 
   private[cozy] def toJson(findings: Seq[Finding]): String =
@@ -178,8 +198,143 @@ private[cozy] object CozyBuildLint {
       literal.findFirstMatchIn(line).
         orElse(sysfallback.findFirstMatchIn(line)).
         map(x => x.group(1) -> x.group(2))
+    }.toMap ++ _multiline_string_variables(lines)
+  }
+
+  private def _multiline_string_variables(lines: Vector[String]): Map[String, String] = {
+    val sysfallback = """\b(?:val|lazy\s+val)\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*sys\.props\.getOrElse\([^"]*"[^"]+"\s*,\s*sys\.env\.getOrElse\([^"]*"[^"]+"\s*,\s*"([^"]+)""".r
+    _logical_lines(lines).flatMap { line =>
+      sysfallback.findFirstMatchIn(line).map(x => x.group(1) -> x.group(2))
     }.toMap
   }
+
+  private def _public_dependency_findings(root: Path, publicartifacts: PublicArtifactAvailability): Vector[Finding] = {
+    val build = root.resolve("build.sbt")
+    _dependency_declarations(build).flatMap { dependency =>
+      publicartifacts.exists(dependency) match {
+        case Some(true) =>
+          Vector(Finding(
+            Level.Ok,
+            "build.public-dependency",
+            s"${dependency.group}:${dependency.artifact}:${dependency.version} is available in the public SimpleModeling Maven repository.",
+            dependency.path,
+            dependency.line
+          ))
+        case Some(false) =>
+          Vector(Finding(
+            Level.Warn,
+            "build.public-dependency",
+            s"${dependency.group}:${dependency.artifact}:${dependency.version} is not available in the public SimpleModeling Maven repository; publish it before publishing this project.",
+            dependency.path,
+            dependency.line
+          ))
+        case None =>
+          Vector(Finding(
+            Level.Warn,
+            "build.public-dependency",
+            s"Could not verify ${dependency.group}:${dependency.artifact}:${dependency.version} in the public SimpleModeling Maven repository.",
+            dependency.path,
+            dependency.line
+          ))
+      }
+    }
+  }
+
+  private def _dependency_declarations(path: Path): Vector[DependencyDeclaration] =
+    if (!Files.isRegularFile(path))
+      Vector.empty
+    else {
+      val lines = Files.readAllLines(path, StandardCharsets.UTF_8).asScala.toVector
+      val variables = _string_variables(lines)
+      val scalabinaryversion = _scala_binary_version(lines).getOrElse("2.12")
+      lines.zipWithIndex.flatMap {
+        case (line, i) =>
+          val n = i + 1
+          _dependency_declaration(path, n, line, variables, scalabinaryversion)
+      }.filter(x => _is_public_simplemodeling_repository_group(x.group)).
+        groupBy(x => (x.group, x.artifact, x.version)).
+        values.
+        map(_.maxBy(_.line)).
+        toVector.
+        sortBy(x => (x.path.toString, x.line, x.group, x.artifact, x.version))
+    }
+
+  private def _dependency_declaration(
+    path: Path,
+    line: Int,
+    text: String,
+    variables: Map[String, String],
+    scalabinaryversion: String
+  ): Option[DependencyDeclaration] = {
+    val active = _strip_line_comment(text)
+    if (active.trim.isEmpty) {
+      None
+    } else {
+      val cross = """"([^"]+)"\s*%%\s*"([^"]+)"\s*%\s*("[^"]+"|[A-Za-z_][A-Za-z0-9_]*)""".r
+      val direct = """"([^"]+)"\s*%\s*"([^"]+)"\s*%\s*("[^"]+"|[A-Za-z_][A-Za-z0-9_]*)""".r
+      cross.findFirstMatchIn(active).flatMap { m =>
+        _dependency_version(m.group(3), variables).map { version =>
+          DependencyDeclaration(path, line, m.group(1), s"${m.group(2)}_${scalabinaryversion}", version)
+        }
+      }.orElse {
+        direct.findFirstMatchIn(active).flatMap { m =>
+          _dependency_version(m.group(3), variables).map { version =>
+            DependencyDeclaration(path, line, m.group(1), m.group(2), version)
+          }
+        }
+      }
+    }
+  }
+
+  private def _strip_line_comment(text: String): String = {
+    val builder = new StringBuilder
+    var instring = false
+    var escaped = false
+    var i = 0
+    while (i < text.length) {
+      val c = text.charAt(i)
+      if (!instring && c == '/' && i + 1 < text.length && text.charAt(i + 1) == '/')
+        return builder.toString
+      builder.append(c)
+      if (escaped)
+        escaped = false
+      else if (c == '\\')
+        escaped = true
+      else if (c == '"')
+        instring = !instring
+      i += 1
+    }
+    builder.toString
+  }
+
+  private def _is_public_simplemodeling_repository_group(group: String): Boolean =
+    group == "org.simplemodeling" ||
+    group == "org.goldenport" ||
+    group == "org.smartdox"
+
+  private def _dependency_version(token: String, variables: Map[String, String]): Option[String] =
+    if (token.startsWith("\"") && token.endsWith("\""))
+      Some(token.substring(1, token.length - 1))
+    else
+      variables.get(token)
+
+  private def _scala_binary_version(lines: Vector[String]): Option[String] = {
+    val pattern = """scalaVersion\s*:=\s*"([0-9]+)\.([0-9]+)\.[^"]+"""".r
+    _logical_lines(lines).flatMap { line =>
+      pattern.findFirstMatchIn(line).map(x => s"${x.group(1)}.${x.group(2)}")
+    }.headOption
+  }
+
+  private def _logical_lines(lines: Vector[String]): Vector[String] =
+    _logical_lines_with_line_numbers(lines).map(_._1)
+
+  private def _logical_lines_with_line_numbers(lines: Vector[String]): Vector[(String, Int)] =
+    lines.indices.toVector.flatMap { i =>
+      val one = lines(i)
+      val two = if (i + 1 < lines.length) s"${lines(i)} ${lines(i + 1)}" else one
+      val three = if (i + 2 < lines.length) s"${lines(i)} ${lines(i + 1)} ${lines(i + 2)}" else two
+      Vector(one, two, three).distinct.map(_ -> (i + 1))
+    }
 
   private def _latest_sbt_cozy_version(): Option[String] = {
     val versions = _metadata_versions() ++ _local_sbt_cozy_versions()
@@ -295,5 +450,30 @@ private[cozy] object CozyBuildLint {
         RAISE.invalidArgumentFault(s"Unsupported lint format: ${format}")
       Config(Paths.get(values.head), format, strict)
     }
+  }
+
+  private object SimpleModelingPublicArtifactAvailability extends PublicArtifactAvailability {
+    def exists(dependency: DependencyDeclaration): Option[Boolean] = {
+      val group = dependency.group.replace('.', '/')
+      val base = s"https://www.simplemodeling.org/repository/maven/${group}/${dependency.artifact}/${dependency.version}"
+      val pom = s"${base}/${dependency.artifact}-${dependency.version}.pom"
+      val jar = s"${base}/${dependency.artifact}-${dependency.version}.jar"
+      for {
+        pomexists <- _http_exists(pom)
+        jarexists <- _http_exists(jar)
+      } yield pomexists && jarexists
+    }
+
+    private def _http_exists(url: String): Option[Boolean] =
+      try {
+        val connection = URI.create(url).toURL.openConnection().asInstanceOf[HttpURLConnection]
+        connection.setRequestMethod("HEAD")
+        connection.setConnectTimeout(3000)
+        connection.setReadTimeout(3000)
+        val code = connection.getResponseCode
+        Some(code >= 200 && code < 300)
+      } catch {
+        case NonFatal(_) => None
+      }
   }
 }

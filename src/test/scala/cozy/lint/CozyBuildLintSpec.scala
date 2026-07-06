@@ -144,6 +144,157 @@ class CozyBuildLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
         json should include(""""level":"OK"""")
       }
     }
+
+    "verify SimpleModeling dependencies against the public repository" in {
+      _with_temp_dir("cozy-build-lint-public-dependency") { dir =>
+        Given("a project that depends on a published SimpleModeling artifact")
+        _write_plugins(dir, """addSbtPlugin("org.goldenport" % "sbt-cozy" % "0.1.11")""")
+        _write(
+          dir.resolve("build.sbt"),
+          """scalaVersion := "2.12.18"
+            |libraryDependencies += "org.simplemodeling" %% "simplemodeler" % "1.1.22"
+            |""".stripMargin
+        )
+
+        When("Cozy lints public dependency availability")
+        val findings = CozyBuildLint.lint(
+          dir,
+          Some("0.1.11"),
+          _public_artifacts("org.simplemodeling:simplemodeler_2.12:1.1.22" -> true)
+        )
+
+        Then("the public dependency check is OK")
+        findings.find(_.code == "build.public-dependency").map(_.level) shouldBe Some(CozyBuildLint.Level.Ok)
+      }
+    }
+
+    "warn when a SimpleModeling dependency is not published" in {
+      _with_temp_dir("cozy-build-lint-missing-public-dependency") { dir =>
+        Given("a project that depends on an unpublished SimpleModeling artifact")
+        _write_plugins(dir, """addSbtPlugin("org.goldenport" % "sbt-cozy" % "0.1.11")""")
+        _write(
+          dir.resolve("build.sbt"),
+          """scalaVersion := "2.12.18"
+            |libraryDependencies += "org.simplemodeling" %% "simplemodeler" % "1.1.99"
+            |""".stripMargin
+        )
+
+        When("Cozy lints public dependency availability")
+        val findings = CozyBuildLint.lint(
+          dir,
+          Some("0.1.11"),
+          _public_artifacts("org.simplemodeling:simplemodeler_2.12:1.1.99" -> false)
+        )
+
+        Then("the missing public dependency is a warning")
+        findings.find(_.code == "build.public-dependency").map(_.level) shouldBe Some(CozyBuildLint.Level.Warn)
+      }
+    }
+
+    "warn when only the public POM is available" in {
+      _with_temp_dir("cozy-build-lint-pom-without-jar") { dir =>
+        Given("a project whose dependency has a public POM but no binary artifact")
+        _write_plugins(dir, """addSbtPlugin("org.goldenport" % "sbt-cozy" % "0.1.11")""")
+        _write(
+          dir.resolve("build.sbt"),
+          """scalaVersion := "2.12.18"
+            |libraryDependencies += "org.simplemodeling" %% "simplemodeler" % "1.1.99"
+            |""".stripMargin
+        )
+
+        When("Cozy lints public dependency availability")
+        val findings = CozyBuildLint.lint(
+          dir,
+          Some("0.1.11"),
+          _public_artifacts("org.simplemodeling:simplemodeler_2.12:1.1.99" -> false)
+        )
+
+        Then("the incomplete publication is a warning")
+        findings.find(_.code == "build.public-dependency").map(_.level) shouldBe Some(CozyBuildLint.Level.Warn)
+      }
+    }
+
+    "verify Goldenport and SmartDox dependencies against the public repository" in {
+      _with_temp_dir("cozy-build-lint-public-repository-groups") { dir =>
+        Given("a project that depends on Goldenport and SmartDox artifacts from the public repository")
+        _write_plugins(dir, """addSbtPlugin("org.goldenport" % "sbt-cozy" % "0.1.11")""")
+        _write(
+          dir.resolve("build.sbt"),
+          """scalaVersion := "2.12.18"
+            |libraryDependencies += "org.goldenport" %% "kaleidox" % "0.6.16"
+            |libraryDependencies += "org.smartdox" %% "smartdox" % "2.4.15"
+            |""".stripMargin
+        )
+
+        When("Cozy lints public dependency availability")
+        val findings = CozyBuildLint.lint(
+          dir,
+          Some("0.1.11"),
+          _public_artifacts(
+            "org.goldenport:kaleidox_2.12:0.6.16" -> true,
+            "org.smartdox:smartdox_2.12:2.4.15" -> true
+          )
+        )
+
+        Then("both public dependency checks are OK")
+        findings.filter(_.code == "build.public-dependency").map(_.level) shouldBe Vector(
+          CozyBuildLint.Level.Ok,
+          CozyBuildLint.Level.Ok
+        )
+      }
+    }
+
+    "ignore commented out dependency declarations" in {
+      _with_temp_dir("cozy-build-lint-commented-dependency") { dir =>
+        Given("a project with a commented out SimpleModeling repository dependency")
+        _write_plugins(dir, """addSbtPlugin("org.goldenport" % "sbt-cozy" % "0.1.11")""")
+        _write(
+          dir.resolve("build.sbt"),
+          """scalaVersion := "2.12.18"
+            |// libraryDependencies += "org.goldenport" %% "goldenport-sexpr" % "2.0.13"
+            |libraryDependencies += "org.goldenport" %% "kaleidox" % "0.6.16"
+            |""".stripMargin
+        )
+
+        When("Cozy lints public dependency availability")
+        val findings = CozyBuildLint.lint(
+          dir,
+          Some("0.1.11"),
+          _public_artifacts("org.goldenport:kaleidox_2.12:0.6.16" -> true)
+        )
+
+        Then("only active dependencies are checked")
+        val dependencyfindings = findings.filter(_.code == "build.public-dependency")
+        dependencyfindings should have size 1
+        dependencyfindings.head.message should include("kaleidox")
+      }
+    }
+
+    "resolve multiline fallback versions in SimpleModeling dependency declarations" in {
+      _with_temp_dir("cozy-build-lint-public-dependency-variable") { dir =>
+        Given("a project that declares a SimpleModeling dependency version through a multiline fallback")
+        _write_plugins(dir, """addSbtPlugin("org.goldenport" % "sbt-cozy" % "0.1.11")""")
+        _write(
+          dir.resolve("build.sbt"),
+          """scalaVersion := "2.12.18"
+            |val simplemodelerVersion =
+            |  sys.props.getOrElse("simplemodeler.version", sys.env.getOrElse("SIMPLEMODELER_VERSION", "1.1.22"))
+            |libraryDependencies += "org.simplemodeling" %% "simplemodeler" % simplemodelerVersion
+            |""".stripMargin
+        )
+
+        When("Cozy lints public dependency availability")
+        val findings = CozyBuildLint.lint(
+          dir,
+          Some("0.1.11"),
+          _public_artifacts("org.simplemodeling:simplemodeler_2.12:1.1.22" -> true)
+        )
+
+        Then("the dependency version is resolved and checked")
+        val dependencyfindings = findings.filter(_.code == "build.public-dependency")
+        dependencyfindings.map(_.level) shouldBe Vector(CozyBuildLint.Level.Ok)
+      }
+    }
   }
 
   private def _write_plugins(dir: Path, content: String): Path =
@@ -169,6 +320,14 @@ class CozyBuildLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
     Files.createDirectories(path.getParent)
     Files.write(path, content.getBytes(StandardCharsets.UTF_8))
     path
+  }
+
+  private def _public_artifacts(values: (String, Boolean)*): CozyBuildLint.PublicArtifactAvailability = {
+    val map = values.toMap
+    new CozyBuildLint.PublicArtifactAvailability {
+      def exists(dependency: CozyBuildLint.DependencyDeclaration): Option[Boolean] =
+        map.get(s"${dependency.group}:${dependency.artifact}:${dependency.version}")
+    }
   }
 
   private def _delete(path: Path): Unit =
