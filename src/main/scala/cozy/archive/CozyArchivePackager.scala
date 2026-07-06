@@ -15,7 +15,8 @@ import scala.sys.process._
 /*
  * @since   May. 20, 2026
  *  version May. 22, 2026
- * @version Jun. 18, 2026
+ *  version Jun. 18, 2026
+ * @version Jul.  6, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArchivePackager {
@@ -41,7 +42,7 @@ private[cozy] object CozyArchivePackager {
     val component = _value(args, "component").orElse(manifestmetadata.get("component")).getOrElse(RAISE.invalidArgumentFault("Missing --component"))
     val packagemetadata = _car_package_metadata(manifestmetadata, component)
     val extensionmap = packagemetadata.extensions ++ _string_map(args, "extensions")
-    val configmap = _string_map(args, "config")
+    val configmap = config.mapUnder("project.component.config") ++ _string_map(args, "config")
     val entities = _entity_descriptors(args)
     _write_archive(
       save,

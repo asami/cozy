@@ -16,7 +16,8 @@ import play.api.libs.json.Json
 /*
  * @since   May. 20, 2026
  *  version May. 22, 2026
- * @version Jun. 18, 2026
+ *  version Jun. 18, 2026
+ * @version Jul.  6, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyArchivePackagerSpec extends AnyFunSuite {
@@ -148,6 +149,35 @@ class CozyArchivePackagerSpec extends AnyFunSuite {
       assert(manifest.contains("provided:"))
       assert(manifest.contains("shared:"))
       assert(manifest.contains("\"org.postgresql:postgresql:42.7.3\""))
+    }
+  }
+
+  test("package-car writes project component config into component descriptor") {
+    _with_temp_dir("cozy-car-project-component-config") { dir =>
+      val projectdir = dir.resolve("project")
+      val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
+      val archive = dir.resolve("out/sample.car")
+      _write(
+        projectdir.resolve("project.yaml"),
+        """project:
+          |  component:
+          |    config:
+          |      textus.component.art-scene.datastores.application.policy: local-default
+          |""".stripMargin
+      )
+
+      CozyArchivePackager.buildCar(List(
+        "--save", archive.toString,
+        "--project-dir", projectdir.toString,
+        "--main-jar", mainjar.toString,
+        "--name", "sample-component",
+        "--version", "0.1.0",
+        "--component", "sample-component"
+      ))
+
+      val descriptor = Json.parse(_zip_text(archive, "component-descriptor.json"))
+      val config = descriptor \ "config"
+      assert((config \ "textus.component.art-scene.datastores.application.policy").as[String] == "local-default")
     }
   }
 

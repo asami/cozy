@@ -1504,7 +1504,7 @@ private[cozy] object CozyScaffold {
       |      Show the Cozy runtime version and exit.
       |
       |  init component --save <dir> [--config <file>] [--name <artifact>] [--component-name <name>] [--service-name <name>] [--entity <name>] [--command-operation <name>] [--query-operation <name>] [--display-name <title>] [--organization <organization>] [--package <package>] [--version <version>] [--kind car|car-sar] [--bounded-context <name>] [--domain <name>] [--gitignore] [--readme] [--tests] [--no-project-files] [--overwrite-project-files]
-      |    config keys: project.name, project.organization, project.component.*, project.scaffold.*, cml.package, cml.component.name, cml.service.name, cml.entity.name, cml.operation.command, cml.operation.query
+      |    config keys: project.name, project.organization, project.component.*, project.component.config.*, project.scaffold.*, cml.package, cml.component.name, cml.service.name, cml.entity.name, cml.operation.command, cml.operation.query
       |      Initialize a component project scaffold. Config-file values are read first; CLI options override them.
       |
       |  car-sbt-project [model-file] --save <dir> [--style car|car-sar] [--component <name>] [--service-name <name>] [--entity <name>] [--command-operation <name>] [--query-operation <name>] [--package <package>] [--name <artifact>] [--organization <organization>] [--version <version>] [--bounded-context <name>] [--domain <name>] [--gitignore] [--readme] [--tests] [--no-project-files] [--overwrite-project-files]
