@@ -14,7 +14,7 @@ import scala.collection.JavaConverters._
  * @since   May. 20, 2026
  *  version May. 25, 2026
  *  version Jun. 27, 2026
- * @version Jul.  6, 2026
+ * @version Jul.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyScaffold {
@@ -1514,10 +1514,19 @@ private[cozy] object CozyScaffold {
       |      By default, existing differing project files are written as .bak files.
       |
       |  lint build <project-root> [--format text|json] [--strict]
-      |      Lint project/plugins.sbt and build.sbt for Cozy build wiring, including sbt-cozy plugin freshness.
+      |      Lint project/plugins.sbt and build.sbt for Cozy build wiring, including sbt-cozy plugin freshness and CAR ABI manifest compatibility when present.
       |
       |  lint cml <path> [--format text|json]
       |      Lint one CML file or a directory of CML files for CAR modeling smells.
+      |
+      |  lint abi <car|manifest|project-root> [--baseline <car|manifest>] [--format text|json] [--strict]
+      |      Lint CAR ABI manifest compatibility. CAR ABI is the public component contract; JVM class-file ABI is not the primary lint surface.
+      |
+      |  lint car <project-root> [--baseline <car|manifest>] [--format text|json] [--strict] [--no-abi]
+      |      Run integrated CAR project lint by aggregating build, CML, and ABI lint findings. Use --no-abi for early checks before an ABI manifest exists.
+      |
+      |  car lint <project-root> [--baseline <car|manifest>] [--format text|json] [--strict] [--no-abi]
+      |      Alias for lint car.
       |
       |  bok create --save <dir> [--name <name>] [--url <url>] [--language ja] [--no-project-files] [--overwrite-project-files]
       |      Create a SmartDox category-driven BoK source project scaffold without generated HTML, Arcadia assets, or site-structure.yaml.
@@ -1611,8 +1620,8 @@ private[cozy] object CozyScaffold {
       |  modeler-scala-value <model-file> --save <dir>
       |      Generate value/domain model Scala sources without a component.
       |
-      |  package-car --save <file> --main-jar <file> --name <name> --version <version> [--component <component>] [--project-dir <dir>] [--car-dir <dir>] [--entities <spec>]
-      |      Build a CAR archive. Project CAR policy comes from --project-dir/project.yaml, --project-dir/conf/cozy/config.yaml, and --project-dir/.cozy/config.yaml.
+      |  package-car --save <file> --main-jar <file> --name <name> --version <version> [--component <component>] [--project-dir <dir>] [--car-dir <dir>] [--entities <spec>] [--abi-manifest <file>]
+      |      Build a CAR archive with abi-manifest.json. Project CAR policy comes from --project-dir/project.yaml, --project-dir/conf/cozy/config.yaml, and --project-dir/.cozy/config.yaml.
       |
       |  package-sar --save <file> --source-dir <dir> --name <name> --version <version>
       |      Build a SAR archive.

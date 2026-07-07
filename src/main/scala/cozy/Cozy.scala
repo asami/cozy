@@ -8,7 +8,7 @@ import org.goldenport.kaleidox.Kaleidox
 import org.goldenport.kaleidox.http.HttpHandle
 import cozy.archive.CozyArchivePackager
 import cozy.bok.CozyBok
-import cozy.lint.{CozyBuildLint, CozyCmlLint}
+import cozy.lint.{CozyBuildLint, CozyCarAbiLint, CozyCarLint, CozyCmlLint}
 import cozy.publication.{CozyPublicationCompiler, CozySampleDistributor, CozyWarehouseIndexer}
 import cozy.runtime.{CozyRuntime, CozySbtBridge}
 import cozy.scaffold.CozyScaffold
@@ -27,7 +27,7 @@ import scala.collection.JavaConverters._
  *  version Apr. 29, 2026
  *  version May. 21, 2026
  *  version Jun. 30, 2026
- * @version Jul.  6, 2026
+ * @version Jul.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 class Cozy(
@@ -114,8 +114,23 @@ class Cozy(
         if (exitcode != 0)
           sys.exit(exitcode)
         true
+      case Some(("lint", "abi" :: rest)) =>
+        val exitcode = CozyCarAbiLint.execute(rest)
+        if (exitcode != 0)
+          sys.exit(exitcode)
+        true
+      case Some(("lint", "car" :: rest)) =>
+        val exitcode = CozyCarLint.execute(rest)
+        if (exitcode != 0)
+          sys.exit(exitcode)
+        true
+      case Some(("car", "lint" :: rest)) =>
+        val exitcode = CozyCarLint.execute(rest)
+        if (exitcode != 0)
+          sys.exit(exitcode)
+        true
       case Some(("lint", Nil)) =>
-        RAISE.invalidArgumentFault("Missing lint target: build or cml")
+        RAISE.invalidArgumentFault("Missing lint target: build, cml, abi, or car")
       case Some(("lint", target :: _)) =>
         RAISE.invalidArgumentFault(s"Unsupported lint target: ${target}")
       case _ =>

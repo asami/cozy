@@ -16,7 +16,7 @@ import scala.sys.process._
  * @since   May. 20, 2026
  *  version May. 22, 2026
  *  version Jun. 18, 2026
- * @version Jul.  6, 2026
+ * @version Jul.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArchivePackager {
@@ -44,6 +44,9 @@ private[cozy] object CozyArchivePackager {
     val extensionmap = packagemetadata.extensions ++ _string_map(args, "extensions")
     val configmap = config.mapUnder("project.component.config") ++ _string_map(args, "config")
     val entities = _entity_descriptors(args)
+    val abimanifest = _path(args, "abi-manifest").getOrElse {
+      _write_temp("abi-manifest", _abi_manifest_json(name, version, packagemetadata.component, entities))
+    }
     _write_archive(
       save,
       Vector(
@@ -57,6 +60,7 @@ private[cozy] object CozyArchivePackager {
         assemblydescriptor.toVector.map(_ -> "assembly-descriptor.yaml") ++
         _web_entries(webdir) ++
         webinfdescriptors ++
+        Vector(abimanifest -> "abi-manifest.json") ++
         Vector(_write_temp("component-descriptor", _component_descriptor_json(name, version, packagemetadata.component, extensionmap, configmap, entities)) -> "component-descriptor.json"),
       Vector("component", "lib", "spi", "config", "web")
     )
@@ -616,6 +620,34 @@ private[cozy] object CozyArchivePackager {
   private def _component_descriptor_override(extensions: Map[String, String]): Option[String] =
     extensions.get("componentDescriptorJson").map(_.trim).filter(_.nonEmpty)
 
+  private def _abi_manifest_json(
+    name: String,
+    version: String,
+    component: String,
+    entities: Vector[EntityDescriptor]
+  ): String =
+    s"""{
+       |  "format": "cozy.car.abi-manifest.v1",
+       |  "car": {
+       |    "name": ${_json_string(name)},
+       |    "version": ${_json_string(version)}
+       |  },
+       |  "abi": {
+       |    "version": 1,
+       |    "exports": {
+       |      "components": [
+       |        {
+       |          "name": ${_json_string(component)}
+       |        }
+       |      ],
+       |      "operations": [],
+       |      "entities": ${_abi_json_entities(entities)}
+       |    },
+       |    "dependencies": []
+       |  }
+       |}
+       |""".stripMargin
+
   private final case class EntityDescriptor(
     name: String,
     usageKind: Option[String],
@@ -647,6 +679,11 @@ private[cozy] object CozyArchivePackager {
 
   private def _json_entities(xs: Vector[EntityDescriptor]): String =
     xs.map(_json_entity).mkString("[", ", ", "]")
+
+  private def _abi_json_entities(xs: Vector[EntityDescriptor]): String =
+    xs.map { entity =>
+      s"""{"name": ${_json_string(entity.name)}, "fields": []}"""
+    }.mkString("[", ", ", "]")
 
   private def _json_entity(entity: EntityDescriptor): String = {
     val fields = Vector(
@@ -726,6 +763,7 @@ private[cozy] object CozyArchivePackager {
     spec.Parameter.propertyFileOption("form-descriptor"),
     spec.Parameter.propertyFileOption("admin-descriptor"),
     spec.Parameter.propertyFileOption("assembly-descriptor"),
+    spec.Parameter.propertyFileOption("abi-manifest"),
     spec.Parameter.propertyFileOption("source-dir"),
     spec.Parameter.property("source-files"),
     spec.Parameter.property("extension-jars"),

@@ -10,7 +10,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Jul.  6, 2026
- * @version Jul.  6, 2026
+ * @version Jul.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyBuildLint {
@@ -82,6 +82,25 @@ private[cozy] object CozyBuildLint {
     latestversion: Option[String],
     publicartifacts: PublicArtifactAvailability
   ): Vector[Finding] = {
+    lint(path, latestversion, publicartifacts, includeabi = true)
+  }
+
+  private[cozy] def lintBuildOnly(
+    path: Path,
+    latestversion: Option[String],
+    publicartifacts: PublicArtifactAvailability
+  ): Vector[Finding] =
+    lint(path, latestversion, publicartifacts, includeabi = false)
+
+  private[cozy] def lintBuildOnly(path: Path): Vector[Finding] =
+    lintBuildOnly(path, _latest_sbt_cozy_version(), SimpleModelingPublicArtifactAvailability)
+
+  private def lint(
+    path: Path,
+    latestversion: Option[String],
+    publicartifacts: PublicArtifactAvailability,
+    includeabi: Boolean
+  ): Vector[Finding] = {
     val project = path.toAbsolutePath.normalize()
     val root =
       if (Files.isDirectory(project))
@@ -103,8 +122,24 @@ private[cozy] object CozyBuildLint {
       ))
     else
       declarations.flatMap(_version_findings(_, latestversion))
-    pluginfindings ++ _public_dependency_findings(root, publicartifacts)
+    val basefindings = pluginfindings ++ _public_dependency_findings(root, publicartifacts)
+    if (includeabi)
+      basefindings ++ _abi_findings(root)
+    else
+      basefindings
   }
+
+  private def _abi_findings(root: Path): Vector[Finding] =
+    CozyCarAbiLint.lintBuildProject(root).map { f =>
+      Finding(_level(f.level), f.code, f.message, f.path, f.line)
+    }
+
+  private def _level(level: CozyCarAbiLint.Level): Level =
+    level match {
+      case CozyCarAbiLint.Level.Ok => Level.Ok
+      case CozyCarAbiLint.Level.Fail => Level.Fail
+      case CozyCarAbiLint.Level.Warn => Level.Warn
+    }
 
   private[cozy] def toJson(findings: Seq[Finding]): String =
     s"""{"findings":[${findings.map(_finding_json).mkString(",")}]}"""

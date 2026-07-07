@@ -10,19 +10,22 @@ import java.util.zip.{ZipEntry, ZipFile, ZipOutputStream}
 import scala.collection.JavaConverters._
 
 import cozy.archive.CozyArchivePackager
+import org.scalatest.GivenWhenThen
 import org.scalatest.funsuite.AnyFunSuite
-import play.api.libs.json.Json
+import org.scalatest.matchers.should.Matchers
+import play.api.libs.json.{Json, JsValue}
 
 /*
  * @since   May. 20, 2026
  *  version May. 22, 2026
  *  version Jun. 18, 2026
- * @version Jul.  6, 2026
+ * @version Jul.  7, 2026
  * @author  ASAMI, Tomoharu
  */
-class CozyArchivePackagerSpec extends AnyFunSuite {
+class CozyArchivePackagerSpec extends AnyFunSuite with Matchers with GivenWhenThen {
   test("package-car writes descriptor-first CAR layout") {
     _with_temp_dir("cozy-car") { dir =>
+      Given("component artifacts, CAR source content, and public entity descriptors")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
       val libjar = _write(dir.resolve("artifacts/dep.jar"), "dep")
       val spijar = _write(dir.resolve("artifacts/spi.jar"), "spi")
@@ -36,6 +39,7 @@ class CozyArchivePackagerSpec extends AnyFunSuite {
       val assembly = _write(dir.resolve("assembly-descriptor.yaml"), "subsystem: sample-component\ncomponents:\n  - name: sample-component\n")
       val archive = dir.resolve("out/sample.car")
 
+      When("Cozy packages the component as a CAR")
       CozyArchivePackager.buildCar(List(
         "--save", archive.toString,
         "--main-jar", mainjar.toString,
@@ -54,31 +58,47 @@ class CozyArchivePackagerSpec extends AnyFunSuite {
 
       val entries = _zip_entries(archive)
       val descriptor = _zip_text(archive, "component-descriptor.json")
+      val abimanifest = _zip_text(archive, "abi-manifest.json")
+      val abijson = Json.parse(abimanifest)
       val webdescriptor = _zip_text(archive, "web/web.yaml")
-      assert(entries.contains("component-descriptor.json"))
-      assert(entries.contains("component/main.jar"))
-      assert(entries.contains("lib/dep.jar"))
-      assert(entries.contains("spi/spi.jar"))
-      assert(entries.contains("config/default.conf"))
-      assert(entries.contains("component-dependencies.yaml"))
-      assert(!entries.contains("cozy/component-dependencies.yaml"))
-      assert(entries.contains("assembly-descriptor.yaml"))
-      assert(entries.contains("web/web.yaml"))
-      assert(entries.contains("web/cwitter/index.html"))
-      assert(webdescriptor == Files.readString(carwebdescriptor))
-      assert(!webdescriptor.contains("from-web-app"))
-      assert(!entries.contains("component.d/provider.car"))
-      assert(entries.contains("manual/component.md"))
-      assert(!entries.contains("docs/guide/intro.md"))
-      assert(!entries.contains("meta/manifest.json"))
-      assert(descriptor.contains(""""entities": ["""))
-      assert(descriptor.contains(""""entity": "Notice""""))
-      assert(descriptor.contains(""""usageKind": "public-content""""))
-      assert(descriptor.contains(""""operationKind": "resource""""))
-      assert(descriptor.contains(""""applicationDomain": "cms""""))
-      assert(descriptor.contains(""""entity": "SalesOrder""""))
-      assert(descriptor.contains(""""usageKind": "business-object""""))
-      assert(descriptor.contains(""""applicationDomain": "business""""))
+
+      Then("descriptor-first CAR entries are written without deprecated paths")
+      entries should contain ("component-descriptor.json")
+      entries should contain ("abi-manifest.json")
+      entries should contain ("component/main.jar")
+      entries should contain ("lib/dep.jar")
+      entries should contain ("spi/spi.jar")
+      entries should contain ("config/default.conf")
+      entries should contain ("component-dependencies.yaml")
+      entries should not contain "cozy/component-dependencies.yaml"
+      entries should contain ("assembly-descriptor.yaml")
+      entries should contain ("web/web.yaml")
+      entries should contain ("web/cwitter/index.html")
+      entries should contain ("manual/component.md")
+      entries should not contain "docs/guide/intro.md"
+      entries should not contain "meta/manifest.json"
+      entries should not contain "component.d/provider.car"
+
+      And("CAR source web descriptors override web source descriptors")
+      webdescriptor shouldBe Files.readString(carwebdescriptor)
+      webdescriptor should not include "from-web-app"
+
+      And("the component descriptor carries public entity metadata")
+      descriptor should include (""""entities": [""")
+      descriptor should include (""""entity": "Notice"""")
+      descriptor should include (""""usageKind": "public-content"""")
+      descriptor should include (""""operationKind": "resource"""")
+      descriptor should include (""""applicationDomain": "cms"""")
+      descriptor should include (""""entity": "SalesOrder"""")
+      descriptor should include (""""usageKind": "business-object"""")
+      descriptor should include (""""applicationDomain": "business"""")
+
+      And("the generated ABI manifest carries the CAR coordinate, exported component, and exported entities")
+      (abijson \ "format").as[String] shouldBe "cozy.car.abi-manifest.v1"
+      (abijson \ "car" \ "name").as[String] shouldBe "sample-component"
+      (abijson \ "car" \ "version").as[String] shouldBe "0.1.0"
+      (abijson \ "abi" \ "exports" \ "components").as[Seq[JsValue]].map(x => (x \ "name").as[String]) should contain ("sample-component")
+      (abijson \ "abi" \ "exports" \ "entities").as[Seq[JsValue]].map(x => (x \ "name").as[String]) should contain allOf ("Notice", "SalesOrder")
     }
   }
 

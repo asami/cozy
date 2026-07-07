@@ -15,7 +15,7 @@ import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 /*
  * @since   Jun. 23, 2026
  *  version Jun. 27, 2026
- * @version Jul.  6, 2026
+ * @version Jul.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -708,6 +708,8 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         help should include ("car-sbt-project")
         help should include ("lint build")
         help should include ("lint cml")
+        help should include ("lint abi")
+        help should include ("lint car")
         help should include ("--service-name")
         help should include ("--command-operation")
         help should include ("--query-operation")
