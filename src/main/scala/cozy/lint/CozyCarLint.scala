@@ -102,8 +102,11 @@ private[cozy] object CozyCarLint {
       case "text" => println(toText(config.path, findings))
       case other => RAISE.invalidArgumentFault(s"Unsupported lint format: ${other}")
     }
-    if (findings.exists(_.level == Level.Fail) || (config.strict && findings.exists(_.level == Level.Warn))) 1 else 0
+    if (findings.exists(_.level == Level.Fail) || (config.strict && findings.exists(_strict_warning))) 1 else 0
   }
+
+  private def _strict_warning(finding: Finding): Boolean =
+    finding.level == Level.Warn && finding.code != "abi.baseline.missing"
 
   private[cozy] def toJson(findings: Seq[Finding]): String =
     s"""{"findings":[${findings.map(_finding_json).mkString(",")}]}"""

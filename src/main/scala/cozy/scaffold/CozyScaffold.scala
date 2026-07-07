@@ -1521,6 +1521,8 @@ private[cozy] object CozyScaffold {
       |
       |  lint abi <car|manifest|project-root> [--baseline <car|manifest>] [--format text|json] [--strict]
       |      Lint CAR ABI manifest compatibility. CAR ABI is the public component contract; JVM class-file ABI is not the primary lint surface.
+      |      Without --baseline, Cozy looks for src/main/car/<version>/abi-manifest.json, target/cozy/abi-baseline.json, or target/abi-baseline.json.
+      |      Missing baseline is a warning, even in strict mode, so the first ABI release can start operation.
       |
       |  lint car <project-root> [--baseline <car|manifest>] [--format text|json] [--strict] [--no-abi]
       |      Run integrated CAR project lint by aggregating build, CML, and ABI lint findings. Use --no-abi for early checks before an ABI manifest exists.
@@ -1621,7 +1623,7 @@ private[cozy] object CozyScaffold {
       |      Generate value/domain model Scala sources without a component.
       |
       |  package-car --save <file> --main-jar <file> --name <name> --version <version> [--component <component>] [--project-dir <dir>] [--car-dir <dir>] [--entities <spec>] [--abi-manifest <file>]
-      |      Build a CAR archive with abi-manifest.json. Project CAR policy comes from --project-dir/project.yaml, --project-dir/conf/cozy/config.yaml, and --project-dir/.cozy/config.yaml.
+      |      Build a CAR archive with abi-manifest.json. Explicit --abi-manifest overrides src/main/car/abi-manifest.json; versioned src/main/car/<version>/abi-manifest.json files are lint baselines only.
       |
       |  package-sar --save <file> --source-dir <dir> --name <name> --version <version>
       |      Build a SAR archive.

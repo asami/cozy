@@ -94,15 +94,18 @@ private[cozy] object CozyCarAbiLint {
       case "text" => println(toText(config.path, findings))
       case other => RAISE.invalidArgumentFault(s"Unsupported lint format: ${other}")
     }
-    if (findings.exists(_.level == Level.Fail) || (config.strict && findings.exists(_.level == Level.Warn))) 1 else 0
+    if (findings.exists(_.level == Level.Fail) || (config.strict && findings.exists(_strict_warning))) 1 else 0
   }
+
+  private def _strict_warning(finding: Finding): Boolean =
+    finding.level == Level.Warn && finding.code != "abi.baseline.missing"
 
   private[cozy] def lint(path: Path, baseline: Option[Path]): Vector[Finding] = {
     val current = _manifest(path)
     current match {
-      case Left(finding) => Vector(finding)
+      case Left(finding) => Vector(_project_missing_manifest_warning(path).getOrElse(finding))
       case Right((currentpath, currentmanifest)) =>
-        val basepath = baseline.orElse(_baseline_manifest_path(path))
+        val basepath = baseline.orElse(_baseline_manifest_path(path, currentpath, currentmanifest))
         val manifestfinding = Finding(
           Level.Ok,
           "abi.manifest",
@@ -136,18 +139,32 @@ private[cozy] object CozyCarAbiLint {
   private[cozy] def lintBuildProject(projectroot: Path): Vector[Finding] = {
     val root = projectroot.toAbsolutePath.normalize()
     _current_manifest_path(root) match {
-      case Some(path) => lint(path, _baseline_manifest_path(root))
+      case Some(path) => lint(path, None)
       case None if _is_car_project(root) =>
         Vector(Finding(
           Level.Warn,
           "abi.manifest.missing",
-          "CAR project has no generated ABI manifest. Run package-car or provide target/cozy/abi-manifest.json before release lint.",
+          "CAR project has no ABI manifest. Run package-car, provide src/main/car/abi-manifest.json, or provide target/cozy/abi-manifest.json before release lint.",
           root,
           1
         ))
       case None =>
         Vector.empty
     }
+  }
+
+  private def _project_missing_manifest_warning(path: Path): Option[Finding] = {
+    val normalized = path.toAbsolutePath.normalize()
+    if (Files.isDirectory(normalized) && _is_car_project(normalized))
+      Some(Finding(
+        Level.Warn,
+        "abi.manifest.missing",
+        "CAR project has no ABI manifest. Run package-car, provide src/main/car/abi-manifest.json, or provide target/cozy/abi-manifest.json before release lint.",
+        normalized,
+        1
+      ))
+    else
+      None
   }
 
   private[cozy] def compare(
@@ -377,6 +394,7 @@ private[cozy] object CozyCarAbiLint {
     val candidates =
       if (Files.isDirectory(normalized))
         Vector(
+          normalized.resolve("src/main/car/abi-manifest.json"),
           normalized.resolve("target/cozy/abi-manifest.json"),
           normalized.resolve("target/abi-manifest.json"),
           normalized.resolve("abi-manifest.json")
@@ -386,13 +404,58 @@ private[cozy] object CozyCarAbiLint {
     candidates.find(Files.isRegularFile(_))
   }
 
-  private def _baseline_manifest_path(root: Path): Option[Path] = {
-    val normalized = if (Files.isDirectory(root)) root.toAbsolutePath.normalize() else Option(root.getParent).getOrElse(root).toAbsolutePath.normalize()
+  private def _baseline_manifest_path(
+    root: Path,
+    currentpath: Path,
+    currentmanifest: AbiManifest
+  ): Option[Path] = {
+    val normalized = _project_root_for(root).orElse(_project_root_for(currentpath)).getOrElse {
+      if (Files.isDirectory(root)) root.toAbsolutePath.normalize() else Option(root.getParent).getOrElse(root).toAbsolutePath.normalize()
+    }
+    _versioned_baseline_manifest_path(normalized, currentmanifest.car.version).orElse {
     Vector(
       normalized.resolve("target/cozy/abi-baseline.json"),
-      normalized.resolve("target/abi-baseline.json"),
-      normalized.resolve("src/main/car/abi-baseline.json")
+      normalized.resolve("target/abi-baseline.json")
     ).find(Files.isRegularFile(_))
+    }
+  }
+
+  private def _project_root_for(path: Path): Option[Path] = {
+    val normalized = path.toAbsolutePath.normalize()
+    val start = if (Files.isDirectory(normalized)) normalized else Option(normalized.getParent).getOrElse(normalized)
+    Iterator.iterate[Option[Path]](Some(start))(_.flatMap(p => Option(p.getParent))).
+      takeWhile(_.isDefined).
+      flatten.
+      find(_is_project_root)
+  }
+
+  private def _is_project_root(path: Path): Boolean =
+    Files.isRegularFile(path.resolve("project.yaml")) ||
+      Files.isRegularFile(path.resolve("build.sbt")) ||
+      Files.isDirectory(path.resolve("src/main/car"))
+
+  private def _versioned_baseline_manifest_path(root: Path, currentversion: String): Option[Path] = {
+    val cardir = root.resolve("src/main/car")
+    if (!Files.isDirectory(cardir))
+      None
+    else {
+      val current = _semver(currentversion)
+      val stream = Files.list(cardir)
+      try {
+        stream.iterator().asScala.toVector.flatMap { dir =>
+          val dirname = dir.getFileName.toString
+          val manifest = dir.resolve("abi-manifest.json")
+          for {
+            version <- _release_semver(dirname)
+            currentversion <- current
+            if version < currentversion
+            if Files.isRegularFile(manifest)
+          } yield version -> manifest
+        }.sortBy(_._1).lastOption.map(_._2)
+      } finally {
+        stream.close()
+      }
+    }
   }
 
   private def _is_car_project(root: Path): Boolean =
@@ -520,7 +583,7 @@ private[cozy] object CozyCarAbiLint {
   private final case class VersionPolicy(mode: VersionMode, finding: Option[Finding])
   private object VersionPolicy {
     def create(baseline: String, current: String, currentpath: Path): VersionPolicy =
-      (_version(baseline), _version(current)) match {
+      (_semver(baseline), _semver(current)) match {
         case (Some(b), Some(c)) if c.major > b.major => VersionPolicy(VersionMode.Major, None)
         case (Some(b), Some(c)) if c.major == b.major && c.minor > b.minor => VersionPolicy(VersionMode.Minor, None)
         case (Some(b), Some(c)) if c.major == b.major && c.minor == b.minor && c.patch >= b.patch => VersionPolicy(VersionMode.Patch, None)
@@ -529,16 +592,30 @@ private[cozy] object CozyCarAbiLint {
         case _ =>
           VersionPolicy(VersionMode.Invalid, Some(Finding(Level.Fail, "abi.version.invalid", s"Could not parse baseline/current versions as SemVer: ${baseline} -> ${current}.", currentpath, 1)))
       }
+  }
+  private def _semver(value: String): Option[Version] = {
+    val pattern = """^(\d+)\.(\d+)\.(\d+).*$""".r
+    value match {
+      case pattern(major, minor, patch) => Some(Version(major.toInt, minor.toInt, patch.toInt))
+      case _ => None
+    }
+  }
 
-    private def _version(value: String): Option[Version] = {
-      val pattern = """^(\d+)\.(\d+)\.(\d+).*$""".r
+  private def _release_semver(value: String): Option[Version] =
+    if (value.toUpperCase.contains("SNAPSHOT"))
+      None
+    else {
+      val pattern = """^(\d+)\.(\d+)\.(\d+)$""".r
       value match {
         case pattern(major, minor, patch) => Some(Version(major.toInt, minor.toInt, patch.toInt))
         case _ => None
       }
     }
+
+  private final case class Version(major: Int, minor: Int, patch: Int) extends Ordered[Version] {
+    def compare(that: Version): Int =
+      Ordering.Tuple3[Int, Int, Int].compare((major, minor, patch), (that.major, that.minor, that.patch))
   }
-  private final case class Version(major: Int, minor: Int, patch: Int)
 
   private final case class Config(path: Path, baseline: Option[Path], format: String, strict: Boolean)
   private object Config {

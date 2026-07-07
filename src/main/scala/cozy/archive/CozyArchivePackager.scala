@@ -44,7 +44,10 @@ private[cozy] object CozyArchivePackager {
     val extensionmap = packagemetadata.extensions ++ _string_map(args, "extensions")
     val configmap = config.mapUnder("project.component.config") ++ _string_map(args, "config")
     val entities = _entity_descriptors(args)
-    val abimanifest = _path(args, "abi-manifest").getOrElse {
+    val abimanifest = _path(args, "abi-manifest").orElse(_source_abi_manifest(cardir)).map { path =>
+      _validate_abi_manifest_coordinate(path, name, version)
+      path
+    }.getOrElse {
       _write_temp("abi-manifest", _abi_manifest_json(name, version, packagemetadata.component, entities))
     }
     _write_archive(
@@ -535,7 +538,17 @@ private[cozy] object CozyArchivePackager {
   }
 
   private def _car_entries(cardir: Option[Path]): Vector[(Path, String)] =
-    cardir.toVector.flatMap(_archive_sources(_))
+    cardir.toVector.flatMap(_archive_sources(_)).filterNot { case (_, rel) =>
+      rel == "abi-manifest.json" || _is_historical_abi_manifest(rel)
+    }
+
+  private def _source_abi_manifest(cardir: Option[Path]): Option[Path] =
+    cardir.map(_.resolve("abi-manifest.json")).filter(Files.isRegularFile(_))
+
+  private def _is_historical_abi_manifest(relative: String): Boolean = {
+    val pattern = """^\d+\.\d+\.\d+[^/]*/abi-manifest\.json$""".r
+    pattern.pattern.matcher(relative).matches()
+  }
 
   private def _web_entries(webdir: Option[Path]): Vector[(Path, String)] =
     webdir.toVector.flatMap { dir =>
@@ -648,6 +661,20 @@ private[cozy] object CozyArchivePackager {
        |}
        |""".stripMargin
 
+  private def _validate_abi_manifest_coordinate(
+    path: Path,
+    name: String,
+    version: String
+  ): Unit = {
+    val text = Files.readString(path, StandardCharsets.UTF_8)
+    val json = Try(Json.parse(text)).getOrElse(RAISE.invalidArgumentFault(s"Invalid ABI manifest JSON: ${path}"))
+    val car = (json \ "car").getOrElse(Json.obj())
+    val manifestname = _json_string_value(car, "name").orElse(_json_string_value(json, "name")).getOrElse("unknown")
+    val manifestversion = _json_string_value(car, "version").orElse(_json_string_value(json, "version")).getOrElse("0.0.0")
+    if (manifestname != name || manifestversion != version)
+      RAISE.invalidArgumentFault(s"ABI manifest ${path} declares ${manifestname}:${manifestversion}, but package-car is building ${name}:${version}.")
+  }
+
   private final case class EntityDescriptor(
     name: String,
     usageKind: Option[String],
@@ -741,6 +768,9 @@ private[cozy] object CozyArchivePackager {
     case JsString(s) => s
     case other => Json.stringify(other)
   }
+
+  private def _json_string_value(json: JsValue, key: String): Option[String] =
+    (json \ key).asOpt[String].map(_.trim).filter(_.nonEmpty)
 
   private def _value(args: List[String], key: String): Option[String] = {
     _parsed(args).property(key)

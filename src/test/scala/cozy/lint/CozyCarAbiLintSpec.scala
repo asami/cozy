@@ -1,5 +1,6 @@
 package cozy.lint
 
+import java.io.{ByteArrayOutputStream, PrintStream}
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
 import java.util.zip.{ZipEntry, ZipOutputStream}
@@ -117,6 +118,23 @@ class CozyCarAbiLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
       }
     }
 
+    "allow the first ABI baseline missing warning in strict mode" in {
+      _with_temp_dir("cozy-car-abi-first-baseline") { dir =>
+        Given("a CAR ABI manifest from the first release that starts ABI operation")
+        val current = _write_manifest(dir.resolve("current.json"), _manifest("1.4.0"))
+
+        When("Cozy lints the CAR ABI in strict mode without a baseline")
+        val out = new ByteArrayOutputStream()
+        val exitcode = Console.withOut(new PrintStream(out, true, StandardCharsets.UTF_8.name())) {
+          CozyCarAbiLint.execute(List(current.toString, "--strict"))
+        }
+
+        Then("the missing baseline remains a warning but does not stop the initial release")
+        exitcode shouldBe 0
+        out.toString(StandardCharsets.UTF_8.name()) should include ("abi.baseline.missing")
+      }
+    }
+
     "participate in build lint for CAR projects" in {
       _with_temp_dir("cozy-car-abi-build-lint") { dir =>
         Given("a CAR project that has a generated ABI manifest")
@@ -130,6 +148,57 @@ class CozyCarAbiLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
 
         Then("ABI manifest lint is included in build lint")
         findings.find(_.code == "abi.manifest").map(_.level) shouldBe Some(CozyBuildLint.Level.Ok)
+      }
+    }
+
+    "warn when a CAR project root has no current ABI manifest" in {
+      _with_temp_dir("cozy-car-abi-current-missing") { dir =>
+        Given("a CAR project before an ABI manifest has been generated or authored")
+        _write(dir.resolve("project.yaml"), "project:\n  name: sample\n  type: car\n")
+
+        When("Cozy lints the project ABI")
+        val findings = CozyCarAbiLint.lint(dir, None)
+
+        Then("the missing current manifest is a warning for project-root lint")
+        findings.find(_.code == "abi.manifest.missing").map(_.level) shouldBe Some(CozyCarAbiLint.Level.Warn)
+      }
+    }
+
+    "prefer the highest source versioned baseline over generated target baselines" in {
+      _with_temp_dir("cozy-car-abi-source-versioned-baseline") { dir =>
+        Given("a CAR project with source-managed release baselines and target-generated fallback baselines")
+        _write(dir.resolve("project.yaml"), "project:\n  name: sample\n  type: car\n")
+        _write_manifest(dir.resolve("src/main/car/1.3.0/abi-manifest.json"), _manifest("1.3.0", changedinput = true))
+        _write_manifest(dir.resolve("src/main/car/1.4.0/abi-manifest.json"), _manifest("1.4.0"))
+        _write_manifest(dir.resolve("target/cozy/abi-baseline.json"), _manifest("1.3.0", changedinput = true))
+        _write_manifest(dir.resolve("target/cozy/abi-manifest.json"), _manifest("1.4.1"))
+
+        When("Cozy lints the project ABI without an explicit baseline")
+        val findings = CozyCarAbiLint.lint(dir, None)
+
+        Then("the nearest lower source-managed release manifest is used as the compatibility baseline")
+        findings.find(_.code == "abi.compatibility.patch").map(_.level) shouldBe Some(CozyCarAbiLint.Level.Ok)
+        findings.exists(_.code == "abi.operation.changed") shouldBe false
+      }
+    }
+
+    "ignore top-level current and non-release manifests when selecting automatic baselines" in {
+      _with_temp_dir("cozy-car-abi-source-baseline-filter") { dir =>
+        Given("a CAR project with a source current manifest and ineligible baseline directories")
+        _write(dir.resolve("project.yaml"), "project:\n  name: sample\n  type: car\n")
+        _write_manifest(dir.resolve("src/main/car/abi-manifest.json"), _manifest("1.4.1"))
+        _write_manifest(dir.resolve("src/main/car/1.4.1/abi-manifest.json"), _manifest("1.4.1", changedinput = true))
+        _write_manifest(dir.resolve("src/main/car/1.4.2/abi-manifest.json"), _manifest("1.4.2", changedinput = true))
+        _write_manifest(dir.resolve("src/main/car/1.4.0-SNAPSHOT/abi-manifest.json"), _manifest("1.4.0", changedinput = true))
+        _write_manifest(dir.resolve("src/main/car/latest/abi-manifest.json"), _manifest("1.4.0", changedinput = true))
+        _write_manifest(dir.resolve("src/main/car/1.3.9/abi-manifest.json"), _manifest("1.3.9"))
+
+        When("Cozy lints the project ABI without an explicit baseline")
+        val findings = CozyCarAbiLint.lint(dir, None)
+
+        Then("only the highest lower released SemVer directory is eligible")
+        findings.exists(_.level == CozyCarAbiLint.Level.Fail) shouldBe false
+        findings.exists(_.code == "abi.baseline.missing") shouldBe false
       }
     }
 

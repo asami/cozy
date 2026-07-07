@@ -102,6 +102,88 @@ class CozyArchivePackagerSpec extends AnyFunSuite with Matchers with GivenWhenTh
     }
   }
 
+  test("package-car embeds source-managed current ABI manifest and excludes historical baselines") {
+    _with_temp_dir("cozy-car-source-abi") { dir =>
+      Given("a CAR source directory with current and historical ABI manifests")
+      val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
+      val cardir = dir.resolve("src/main/car")
+      val currentabi = _write(cardir.resolve("abi-manifest.json"), _abi_manifest("sample-component", "0.1.0", "source-component"))
+      _write(cardir.resolve("0.0.9/abi-manifest.json"), _abi_manifest("sample-component", "0.0.9", "old-component"))
+      _write(cardir.resolve("manual/component.md"), "# component")
+      val archive = dir.resolve("out/sample.car")
+
+      When("Cozy packages the CAR")
+      CozyArchivePackager.buildCar(List(
+        "--save", archive.toString,
+        "--main-jar", mainjar.toString,
+        "--car-dir", cardir.toString,
+        "--name", "sample-component",
+        "--version", "0.1.0",
+        "--component", "generated-component"
+      ))
+
+      val entries = _zip_entries(archive)
+
+      Then("the current source-managed ABI manifest is embedded at the CAR top level")
+      _zip_text(archive, "abi-manifest.json") shouldBe Files.readString(currentabi)
+
+      And("historical baseline manifests are not archived as current CAR content")
+      entries should not contain "0.0.9/abi-manifest.json"
+      entries should contain ("manual/component.md")
+    }
+  }
+
+  test("package-car lets an explicit ABI manifest override the source-managed current manifest") {
+    _with_temp_dir("cozy-car-explicit-abi") { dir =>
+      Given("a CAR source manifest and an explicit ABI manifest")
+      val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
+      val cardir = dir.resolve("src/main/car")
+      _write(cardir.resolve("abi-manifest.json"), _abi_manifest("sample-component", "0.1.0", "source-component"))
+      val explicitabi = _write(dir.resolve("abi/explicit.json"), _abi_manifest("sample-component", "0.1.0", "explicit-component"))
+      val archive = dir.resolve("out/sample.car")
+
+      When("Cozy packages the CAR with --abi-manifest")
+      CozyArchivePackager.buildCar(List(
+        "--save", archive.toString,
+        "--main-jar", mainjar.toString,
+        "--car-dir", cardir.toString,
+        "--abi-manifest", explicitabi.toString,
+        "--name", "sample-component",
+        "--version", "0.1.0",
+        "--component", "generated-component"
+      ))
+
+      Then("the explicit ABI manifest is embedded")
+      _zip_text(archive, "abi-manifest.json") shouldBe Files.readString(explicitabi)
+    }
+  }
+
+  test("package-car rejects ABI manifests whose coordinate does not match the CAR") {
+    _with_temp_dir("cozy-car-abi-coordinate") { dir =>
+      Given("a source-managed ABI manifest with a stale version")
+      val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
+      val cardir = dir.resolve("src/main/car")
+      _write(cardir.resolve("abi-manifest.json"), _abi_manifest("sample-component", "0.0.9", "source-component"))
+      val archive = dir.resolve("out/sample.car")
+
+      When("Cozy packages a different CAR version")
+      val ex = intercept[Throwable] {
+        CozyArchivePackager.buildCar(List(
+          "--save", archive.toString,
+          "--main-jar", mainjar.toString,
+          "--car-dir", cardir.toString,
+          "--name", "sample-component",
+          "--version", "0.1.0",
+          "--component", "generated-component"
+        ))
+      }
+
+      Then("the stale ABI manifest is rejected before archive creation")
+      ex.getMessage should include ("declares sample-component:0.0.9")
+      ex.getMessage should include ("building sample-component:0.1.0")
+    }
+  }
+
   test("package-car prefers structured component descriptor override") {
     _with_temp_dir("cozy-car-componentlet") { dir =>
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
@@ -119,10 +201,10 @@ class CozyArchivePackagerSpec extends AnyFunSuite with Matchers with GivenWhenTh
       ))
 
       val descriptor = _zip_text(archive, "component-descriptor.json")
-      assert(descriptor == descriptorjson)
-      assert(descriptor.contains("\"componentlets\""))
-      assert(descriptor.contains("\"name\":\"notice-admin\""))
-      assert(descriptor.contains("\"name\":\"public-notice\""))
+      descriptor shouldBe descriptorjson
+      descriptor should include ("\"componentlets\"")
+      descriptor should include ("\"name\":\"notice-admin\"")
+      descriptor should include ("\"name\":\"public-notice\"")
     }
   }
 
@@ -162,13 +244,13 @@ class CozyArchivePackagerSpec extends AnyFunSuite with Matchers with GivenWhenTh
       val entries = _zip_entries(archive)
       val manifest = _zip_text(archive, "component-dependencies.yaml")
       val descriptor = _zip_text(archive, "component-descriptor.json")
-      assert(entries.contains("component-dependencies.yaml"))
-      assert(!entries.contains("cozy/component-dependencies.yaml"))
-      assert(!entries.contains("lib/dep.jar"))
-      assert(descriptor.contains(""""component": "policy-component""""))
-      assert(manifest.contains("provided:"))
-      assert(manifest.contains("shared:"))
-      assert(manifest.contains("\"org.postgresql:postgresql:42.7.3\""))
+      entries should contain ("component-dependencies.yaml")
+      entries should not contain "cozy/component-dependencies.yaml"
+      entries should not contain "lib/dep.jar"
+      descriptor should include (""""component": "policy-component"""")
+      manifest should include ("provided:")
+      manifest should include ("shared:")
+      manifest should include ("\"org.postgresql:postgresql:42.7.3\"")
     }
   }
 
@@ -197,7 +279,7 @@ class CozyArchivePackagerSpec extends AnyFunSuite with Matchers with GivenWhenTh
 
       val descriptor = Json.parse(_zip_text(archive, "component-descriptor.json"))
       val config = descriptor \ "config"
-      assert((config \ "textus.component.art-scene.datastores.application.policy").as[String] == "local-default")
+      (config \ "textus.component.art-scene.datastores.application.policy").as[String] shouldBe "local-default"
     }
   }
 
@@ -242,12 +324,12 @@ class CozyArchivePackagerSpec extends AnyFunSuite with Matchers with GivenWhenTh
       ))
 
       val entries = _zip_entries(archive)
-      assert(entries.contains("web/WEB-INF/web.yaml"))
-      assert(entries.contains("web/WEB-INF/form.yaml"))
-      assert(entries.contains("web/WEB-INF/admin.yaml"))
-      assert(!entries.contains("web/web.yaml"))
-      assert(!entries.contains("component-dependencies.yaml"))
-      assert(!entries.contains("lib/dep.jar"))
+      entries should contain ("web/WEB-INF/web.yaml")
+      entries should contain ("web/WEB-INF/form.yaml")
+      entries should contain ("web/WEB-INF/admin.yaml")
+      entries should not contain "web/web.yaml"
+      entries should not contain "component-dependencies.yaml"
+      entries should not contain "lib/dep.jar"
     }
   }
 
@@ -296,9 +378,9 @@ class CozyArchivePackagerSpec extends AnyFunSuite with Matchers with GivenWhenTh
       }
 
       val entries = _zip_entries(archive)
-      assert(!stderr.toString(StandardCharsets.UTF_8.name()).contains("CNCF runtime catalog is unavailable"))
-      assert(!entries.contains("lib/goldenport-cncf_3.jar"))
-      assert(_zip_text(archive, "component-dependencies.yaml").contains("org.postgresql:postgresql:42.7.3"))
+      stderr.toString(StandardCharsets.UTF_8.name()) should not include "CNCF runtime catalog is unavailable"
+      entries should not contain "lib/goldenport-cncf_3.jar"
+      _zip_text(archive, "component-dependencies.yaml") should include ("org.postgresql:postgresql:42.7.3")
     }
   }
 
@@ -336,7 +418,7 @@ class CozyArchivePackagerSpec extends AnyFunSuite with Matchers with GivenWhenTh
         "--component", "sample-component"
       ))
 
-      assert(Files.exists(archive))
+      Files.exists(archive) shouldBe true
     }
   }
 
@@ -376,9 +458,9 @@ class CozyArchivePackagerSpec extends AnyFunSuite with Matchers with GivenWhenTh
         ))
       }
 
-      assert(error.getMessage.contains("below"))
-      assert(error.getMessage.contains("0.4.8"))
-      assert(error.getMessage.contains("0.4.9"))
+      error.getMessage should include ("below")
+      error.getMessage should include ("0.4.8")
+      error.getMessage should include ("0.4.9")
     }
   }
 
@@ -418,9 +500,9 @@ class CozyArchivePackagerSpec extends AnyFunSuite with Matchers with GivenWhenTh
         ))
       }
 
-      assert(error.getMessage.contains("maximum"))
-      assert(error.getMessage.contains("0.4.10"))
-      assert(error.getMessage.contains("0.4.9"))
+      error.getMessage should include ("maximum")
+      error.getMessage should include ("0.4.10")
+      error.getMessage should include ("0.4.9")
     }
   }
 
@@ -461,8 +543,8 @@ class CozyArchivePackagerSpec extends AnyFunSuite with Matchers with GivenWhenTh
         ))
       }
 
-      assert(error.getMessage.contains("excluded"))
-      assert(error.getMessage.contains("0.4.10"))
+      error.getMessage should include ("excluded")
+      error.getMessage should include ("0.4.10")
     }
   }
 
@@ -505,8 +587,8 @@ class CozyArchivePackagerSpec extends AnyFunSuite with Matchers with GivenWhenTh
         ))
       }
 
-      assert(error.getMessage.contains("packaging.car.runtime.cncf.tested"))
-      assert(error.getMessage.contains("0.4.10"))
+      error.getMessage should include ("packaging.car.runtime.cncf.tested")
+      error.getMessage should include ("0.4.10")
     }
   }
 
@@ -567,8 +649,8 @@ class CozyArchivePackagerSpec extends AnyFunSuite with Matchers with GivenWhenTh
             "--component", "sample-component"
           ))
         }
-        assert(ex.getMessage.contains("base-provided"))
-        assert(ex.getMessage.contains("org.postgresql:postgresql:42.7.3"))
+        ex.getMessage should include ("base-provided")
+        ex.getMessage should include ("org.postgresql:postgresql:42.7.3")
       } finally {
         server.stop(0)
       }
@@ -600,7 +682,7 @@ class CozyArchivePackagerSpec extends AnyFunSuite with Matchers with GivenWhenTh
       ))
 
       val entries = _zip_entries(archive)
-      assert(entries.contains("lib/dep.jar"))
+      entries should contain ("lib/dep.jar")
     }
   }
 
@@ -644,11 +726,11 @@ class CozyArchivePackagerSpec extends AnyFunSuite with Matchers with GivenWhenTh
       ))
 
       val manifest = _zip_text(archive, "component-dependencies.yaml")
-      assert(!manifest.contains("goldenport-cncf"))
-      assert(!manifest.contains("cats-core"))
-      assert(manifest.contains("\"org.postgresql:postgresql:42.7.3\""))
-      assert(manifest.contains("\"com.example:legacy-driver:1.2.0\""))
-      assert(manifest.contains("repositories:"))
+      manifest should not include "goldenport-cncf"
+      manifest should not include "cats-core"
+      manifest should include ("\"org.postgresql:postgresql:42.7.3\"")
+      manifest should include ("\"com.example:legacy-driver:1.2.0\"")
+      manifest should include ("repositories:")
     }
   }
 
@@ -687,8 +769,8 @@ class CozyArchivePackagerSpec extends AnyFunSuite with Matchers with GivenWhenTh
           "--component", "sample-component"
         ))
       }
-      assert(ex.getMessage.contains("base-provided"))
-      assert(ex.getMessage.contains("org.typelevel:cats-core_3:2.10.0"))
+      ex.getMessage should include ("base-provided")
+      ex.getMessage should include ("org.typelevel:cats-core_3:2.10.0")
     }
   }
 
@@ -736,8 +818,8 @@ class CozyArchivePackagerSpec extends AnyFunSuite with Matchers with GivenWhenTh
           "--component", "sample-component"
         ))
       }
-      assert(ex.getMessage.contains("base-provided"))
-      assert(ex.getMessage.contains("org.typelevel:cats-core_3:2.10.0"))
+      ex.getMessage should include ("base-provided")
+      ex.getMessage should include ("org.typelevel:cats-core_3:2.10.0")
     }
   }
 
@@ -771,8 +853,8 @@ class CozyArchivePackagerSpec extends AnyFunSuite with Matchers with GivenWhenTh
         ))
       }
 
-      assert(Files.isRegularFile(archive))
-      assert(stderr.toString(StandardCharsets.UTF_8.name()).contains("CNCF runtime catalog is unavailable"))
+      Files.isRegularFile(archive) shouldBe true
+      stderr.toString(StandardCharsets.UTF_8.name()) should include ("CNCF runtime catalog is unavailable")
     }
   }
 
@@ -818,8 +900,8 @@ class CozyArchivePackagerSpec extends AnyFunSuite with Matchers with GivenWhenTh
           "--component", "sample-component"
         ))
       }
-      assert(ex.getMessage.contains("base-provided"))
-      assert(ex.getMessage.contains("org.typelevel:cats-core_3:2.10.0"))
+      ex.getMessage should include ("base-provided")
+      ex.getMessage should include ("org.typelevel:cats-core_3:2.10.0")
     }
   }
 
@@ -840,11 +922,11 @@ class CozyArchivePackagerSpec extends AnyFunSuite with Matchers with GivenWhenTh
       ))
 
       val entries = _zip_entries(archive)
-      assert(entries.contains("subsystem-descriptor.yaml"))
-      assert(entries.contains("extension/grpc.jar"))
-      assert(entries.contains("config/application.conf"))
-      assert(!entries.contains("subsystem/subsystem-descriptor.yaml"))
-      assert(!entries.contains("meta/manifest.json"))
+      entries should contain ("subsystem-descriptor.yaml")
+      entries should contain ("extension/grpc.jar")
+      entries should contain ("config/application.conf")
+      entries should not contain "subsystem/subsystem-descriptor.yaml"
+      entries should not contain "meta/manifest.json"
     }
   }
 
@@ -876,6 +958,33 @@ class CozyArchivePackagerSpec extends AnyFunSuite with Matchers with GivenWhenTh
     }
     path
   }
+
+  private def _abi_manifest(
+    name: String,
+    version: String,
+    component: String
+  ): String =
+    s"""{
+       |  "format": "cozy.car.abi-manifest.v1",
+       |  "car": {
+       |    "name": "$name",
+       |    "version": "$version"
+       |  },
+       |  "abi": {
+       |    "version": 1,
+       |    "exports": {
+       |      "components": [
+       |        {
+       |          "name": "$component"
+       |        }
+       |      ],
+       |      "operations": [],
+       |      "entities": []
+       |    },
+       |    "dependencies": []
+       |  }
+       |}
+       |""".stripMargin
 
   private def _zip_entries(path: Path): Set[String] = {
     val zip = new ZipFile(path.toFile)

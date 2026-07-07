@@ -51,6 +51,20 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
       }
     }
 
+    "warn when ABI manifest is absent from integrated CAR lint" in {
+      _with_temp_dir("cozy-car-lint-missing-abi") { dir =>
+        Given("a CAR project that has not produced a current ABI manifest yet")
+        _write_project(dir)
+        Files.createDirectories(dir.resolve("src/main/car"))
+
+        When("Cozy runs integrated CAR lint")
+        val findings = CozyCarLint.lint(dir, None, noabi = false)
+
+        Then("the ABI category reports a warning instead of a hard failure")
+        findings.find(_.code == "abi.manifest.missing").map(_.level) shouldBe Some(CozyCarLint.Level.Warn)
+      }
+    }
+
     "render category in JSON findings" in {
       _with_temp_dir("cozy-car-lint-json") { dir =>
         Given("a CAR project with an ABI manifest")
@@ -67,9 +81,9 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
       }
     }
 
-    "treat warnings as failures in strict mode" in {
+    "allow missing ABI baseline warnings in strict mode for the first ABI release" in {
       _with_temp_dir("cozy-car-lint-strict") { dir =>
-        Given("a CAR project whose ABI manifest has no baseline")
+        Given("a CAR project whose ABI manifest starts ABI operation without a baseline")
         _write_project(dir)
         _write_manifest(dir.resolve("target/cozy/abi-manifest.json"), _manifest("1.4.0"))
 
@@ -79,8 +93,8 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
           CozyCarLint.execute(List(dir.toString, "--strict"))
         }
 
-        Then("the baseline warning makes the command fail")
-        exitcode shouldBe 1
+        Then("the baseline warning is visible but does not stop the initial ABI release")
+        exitcode shouldBe 0
         out.toString(StandardCharsets.UTF_8.name()) should include ("abi.baseline.missing")
       }
     }
