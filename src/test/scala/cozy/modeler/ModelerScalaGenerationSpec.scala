@@ -11,10 +11,12 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.goldenport.kaleidox.{Config => KaleidoxConfig, Model => KaleidoxModel}
 import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
+import org.simplemodeling.model.MStructuredDataType
 
 /*
  * @since   Jun. 23, 2026
- * @version Jul.  5, 2026
+ *  version Jul.  5, 2026
+ * @version Jul.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -373,6 +375,159 @@ class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with GivenWhe
         content should include ("declarationOrder = 2")
         content should include ("declarationOrder = 3")
         count_token(content, "priority = 0") >= 4 shouldBe true
+      }
+
+      "modeler-scala keeps ArtScene scalar datastore columns for datatypes and value objects" in {
+        Given("an ArtScene-like CML model with scalar datatypes and single-field values")
+        val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+        val input = base.resolve("target/test-generated/artscene-datastore-shape.cml")
+        val out = base.resolve("target/test-generated/artscene-datastore-shape-out")
+        delete_recursively(out)
+        write_file(input,
+        """# COMPONENT
+          |
+          |## ArtSceneSample
+          |
+          |### PACKAGE
+          |
+          |domain
+          |
+          |# ENTITY
+          |
+          |## Exhibition
+          |
+          |### ATTRIBUTE
+          |
+          || name             | type             | multiplicity |
+          ||------------------+------------------+--------------|
+          || title            | ExhibitionTitle  | 1            |
+          || periodEnd        | ExhibitionDate   | 1            |
+          || fetchSource      | FetchSource      | 1            |
+          || sourceConfidence | SourceConfidence | ?            |
+          || catalogLabel     | CatalogLabel     | 1            |
+          || displayPeriod    | DisplayPeriod    | 1            |
+          || publishedOn      | localdate        | 1            |
+          |
+          |# DATATYPE
+          |
+          |## ExhibitionDate
+          |
+          |### ATTRIBUTE
+          |
+          || name  | type   | multiplicity |
+          ||-------+--------+--------------|
+          || value | string | 1            |
+          |
+          |## ExhibitionTitle
+          |
+          |### ATTRIBUTE
+          |
+          || name  | type   | multiplicity |
+          ||-------+--------+--------------|
+          || value | string | 1            |
+          |
+          |## FetchSource
+          |
+          |### ATTRIBUTE
+          |
+          || name  | type   | multiplicity |
+          ||-------+--------+--------------|
+          || value | string | 1            |
+          |
+          |## SourceConfidence
+          |
+          |### ATTRIBUTE
+          |
+          || name  | type | multiplicity |
+          ||-------+------+--------------|
+          || value | int  | 1            |
+          |
+          |## DisplayPeriod
+          |
+          |### ATTRIBUTE
+          |
+          || name  | type   | multiplicity |
+          ||-------+--------+--------------|
+          || start | string | 1            |
+          || end   | string | 1            |
+          |
+          |# VALUE
+          |
+          |## CatalogLabel
+          |
+          |### ATTRIBUTE
+          |
+          || name  | type   | multiplicity |
+          ||-------+--------+--------------|
+          || value | string | 1            |
+          |""".stripMargin)
+
+        When("Cozy generates Scala source from the model")
+        cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString))
+
+        val cataloglabel = out.resolve("target/scala-3.3.7/src_managed/main/scala/domain/value/CatalogLabel.scala")
+        val cataloglabelcontent = Files.readString(cataloglabel)
+        Then("single-field values keep external records but expose scalar datastore values")
+        cataloglabelcontent should include ("def toRecord(): Record")
+        cataloglabelcontent should include ("\"value\" -> _to_external_value(value)")
+        cataloglabelcontent should include ("def toDataStore(): String")
+        cataloglabelcontent should not include ("def toDataStore(): Record")
+
+        val displayperiod = out.resolve("target/scala-3.3.7/src_managed/main/scala/domain/datatype/DisplayPeriod.scala")
+        val displayperiodcontent = Files.readString(displayperiod)
+        And("complex datatypes are generated as structured datatype classes")
+        displayperiodcontent should include ("package domain.datatype")
+        displayperiodcontent should include ("case class DisplayPeriod(")
+        displayperiodcontent should include ("start: String")
+        displayperiodcontent should include ("end: String")
+        displayperiodcontent should include ("def toRecord(): Record")
+        displayperiodcontent should include ("def toDataStore(): Record")
+        displayperiodcontent should include ("\"start\" -> _to_data_store_value(start)")
+        displayperiodcontent should include ("\"end\" -> _to_data_store_value(end)")
+
+        val exhibition = out.resolve("target/scala-3.3.7/src_managed/main/scala/domain/entity/Exhibition.scala")
+        val exhibitioncontent = Files.readString(exhibition)
+        exhibitioncontent should include ("periodEnd: String")
+        exhibitioncontent should include ("fetchSource: String")
+        exhibitioncontent should include ("sourceConfidence: Option[Int]")
+        exhibitioncontent should include ("displayPeriod: DisplayPeriod")
+        And("entity datastore conversion delegates value objects and structured datatypes to datastore values")
+        exhibitioncontent should include ("case m: domain.value.CatalogLabel => m.toDataStore()")
+        exhibitioncontent should include ("case m: domain.datatype.DisplayPeriod => m.toDataStore()")
+        exhibitioncontent should include ("case m: Option[?] => m.map(_to_data_store_value)")
+        exhibitioncontent should include ("\"periodEnd\" -> _to_data_store_value(periodEnd)")
+        exhibitioncontent should include ("\"fetchSource\" -> _to_data_store_value(fetchSource)")
+        exhibitioncontent should include ("\"sourceConfidence\" -> _to_data_store_value(sourceConfidence)")
+        exhibitioncontent should include ("\"catalogLabel\" -> _to_data_store_value(catalogLabel)")
+        exhibitioncontent should include ("\"displayPeriod\" -> _to_data_store_value(displayPeriod)")
+        exhibitioncontent should include ("\"publishedOn\" -> _to_data_store_value(publishedOn)")
+      }
+
+      "modeler-scala projects complex datatypes as structured datatype objects" in {
+        Given("a CML model with a multi-attribute DATATYPE")
+        val source =
+        """# DATATYPE
+          |
+          |## DisplayPeriod
+          |
+          |### ATTRIBUTE
+          |
+          || name  | type   | multiplicity |
+          ||-------+--------+--------------|
+          || start | string | 1            |
+          || end   | string | 1            |
+          |""".stripMargin
+        val model = KaleidoxModel.parseWitoutLocation(KaleidoxConfig.log.debug, source)
+
+        When("Cozy projects the model into SimpleModeling classes")
+        val simplemodel = Modeler.ModelBuilder(model).build()
+
+        Then("the complex datatype remains a datatype-package model object")
+        val datatype = simplemodel.elements.collectFirst {
+          case m: MStructuredDataType if m.name == "DisplayPeriod" => m
+        }.get
+        datatype.packageName shouldBe "domain.datatype"
+        datatype.attributes.map(_.name) shouldBe List("start", "end")
       }
 
       "modeler-scala recognizes filebundle as a builtin datatype" in {

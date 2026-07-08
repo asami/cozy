@@ -48,7 +48,8 @@ import scala.collection.mutable
  *  version May. 13, 2025
  *  version Feb. 27, 2026
  *  version Mar. 31, 2026
- * @version May. 24, 2026
+ *  version May. 24, 2026
+ * @version Jul.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
@@ -1235,7 +1236,7 @@ object Modeler {
     private def _resolve_object_attribute_type(
       pkg: MPackageRef,
       p: String
-    ): Option[MObjectAttributeType] = {
+    ): Option[MAttributeType] = {
       val raw = p.trim
       if (raw.isEmpty)
         None
@@ -1260,12 +1261,20 @@ object Modeler {
     private def _resolve_local_object_attribute_type(
       pkg: MPackageRef,
       simple: String
-    ): Option[MObjectAttributeType] =
+    ): Option[MAttributeType] =
       value.classes.get(simple).
         map(x => MObjectAttributeType(MObjectRef(MPackageRef(_value_package_name(x)), simple))).
         orElse(powertype.classes.get(simple).map(x => MObjectAttributeType(MObjectRef(MPackageRef(x.packageName), simple)))).
-        orElse(datatype.classes.get(simple).map(_ => MObjectAttributeType(MObjectRef(MPackageRef(_datatype_package_name("domain")), simple)))).
+        orElse(datatype.classes.get(simple).map(_datatype_attribute_type)).
         orElse(entity.classes.get(simple).map(x => MObjectAttributeType(_object_ref(x.packageName, simple))))
+
+    private def _datatype_attribute_type(p: DataTypeClass): MAttributeType =
+      p match {
+        case m: DataTypeClass.Plain =>
+          MDataType(m.description.designation, m.datatype, MPackageRef(_datatype_package_name(m.packageName)), m.description, resolveDeclaredType = false)
+        case m: DataTypeClass.Complex =>
+          MObjectAttributeType(MObjectRef(MPackageRef(_datatype_package_name(m.packageName)), m.name))
+      }
 
     private def _is_builtin_raw_type(
       p: String
@@ -1344,14 +1353,46 @@ object Modeler {
       MAssociation(designation, description, Some(pkg), objectref, kind, multiplicity, collaborations)
     }
 
-    private def _datatype(p: DataTypeClass): MDataType = p match {
+    private def _datatype(p: DataTypeClass): MElement = p match {
       case m: DataTypeClass.Plain =>
         val pkg = MPackageRef(_datatype_package_name(m.packageName))
         val desc = m.description
         val datatype = m.datatype
-        MDataType(desc.designation, datatype, pkg, desc)
-      case m: DataTypeClass.Complex => ???
+        MDataType(desc.designation, datatype, pkg, desc, resolveDeclaredType = false)
+      case m: DataTypeClass.Complex =>
+        val pkg = MPackageRef(_datatype_package_name(m.packageName))
+        MStructuredDataType(
+          description = m.description,
+          affiliation = pkg,
+          stereotypes = Nil,
+          base = None,
+          traits = Nil,
+          powertypes = Nil,
+          attributes = _datatype_attributes(pkg, m),
+          operations = Nil
+        )
     }
+
+    private def _datatype_attributes(
+      pkg: MPackageRef,
+      p: DataTypeClass.Complex
+    ): List[MAttribute] =
+      p.constitutes.values.toList.map {
+        case m: DataTypeClass.Plain =>
+          val designation = m.description.designation
+          MAttribute(
+            designation,
+            MDataType(designation, m.datatype, pkg, m.description, resolveDeclaredType = false),
+            MOne,
+            Nil,
+            None,
+            false,
+            None,
+            description = m.description
+          )
+        case m: DataTypeClass.Complex =>
+          RAISE.syntaxErrorFault(s"Nested complex DATATYPE '${m.name}' is not supported yet.")
+      }
 
     private def _value(p: ValueClass): MValue = {
       val desc = Description.name(p.name)
