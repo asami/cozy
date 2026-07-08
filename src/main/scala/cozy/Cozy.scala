@@ -16,6 +16,7 @@ import cozy.video.{CozyVideo, CozyVideoPublisher}
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 import scala.collection.JavaConverters._
+import scala.util.control.NonFatal
 
 /*
  * @since   Dec.  4, 2021
@@ -27,7 +28,7 @@ import scala.collection.JavaConverters._
  *  version Apr. 29, 2026
  *  version May. 21, 2026
  *  version Jun. 30, 2026
- * @version Jul.  7, 2026
+ * @version Jul.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 class Cozy(
@@ -531,6 +532,13 @@ class Cozy(
       modelcontent,
       policy
     )
+    val cardir = dir.resolve("src/main/car")
+    Files.createDirectories(cardir)
+    _write_project_file(
+      cardir.resolve("component-descriptor.json"),
+      Cozy.carComponentDescriptorJson(scaffold),
+      policy
+    )
     val webdir = dir.resolve("src/main/web-inf")
     Files.createDirectories(webdir)
     _write_project_file(
@@ -638,6 +646,13 @@ class Cozy(
       map(Files.readString(_, StandardCharsets.UTF_8)).
       getOrElse(Cozy.carSarSampleCml(scaffold))
     _write_project_file(samplemodel, modelcontent, policy)
+    val cardir = componentdir.resolve("src/main/car")
+    Files.createDirectories(cardir)
+    _write_project_file(
+      cardir.resolve("component-descriptor.json"),
+      Cozy.carComponentDescriptorJson(scaffold),
+      policy
+    )
     val webdir = componentdir.resolve("src/main/web-inf")
     Files.createDirectories(webdir)
     _write_project_file(
@@ -914,6 +929,7 @@ object Cozy {
   private[cozy] def carSarRepositoryDReadme(appname: String): String = CozyScaffold.carSarRepositoryDReadme(appname)
   private[cozy] def carSarScriptsReadme(appname: String): String = CozyScaffold.carSarScriptsReadme(appname)
   private[cozy] def carPluginsSbt(): String = CozyScaffold.carPluginsSbt()
+  private[cozy] def carComponentDescriptorJson(scaffold: CarScaffoldConfig = CarScaffoldConfig.create(Nil, Paths.get("sample"))): String = CozyScaffold.carComponentDescriptorJson(scaffold)
   private[cozy] def carSampleCml(scaffold: CarScaffoldConfig = CarScaffoldConfig.create(Nil, Paths.get("sample"))): String = CozyScaffold.carSampleCml(scaffold)
   private[cozy] def carWebDescriptorYaml(modelpath: Option[Path] = None, scaffold: CarScaffoldConfig = CarScaffoldConfig.create(Nil, Paths.get("sample"))): String = CozyScaffold.carWebDescriptorYaml(modelpath, scaffold)
   private[cozy] def carWebAppYaml(scaffold: CarScaffoldConfig = CarScaffoldConfig.create(Nil, Paths.get("sample"))): String = CozyScaffold.carWebAppYaml(scaffold)
@@ -933,7 +949,37 @@ object Cozy {
   val WebOperationClass: CozyRuntime.WebOperationClass.type = CozyRuntime.WebOperationClass
 
   def build(args: Array[String]): Cozy = CozyRuntime.build(args)
-  def main(args: Array[String]): Unit = CozyRuntime.main(args)
+
+  def main(args: Array[String]): Unit = {
+    val preflight = CozyCliPreflight.parse(args)
+    CozyCliLogging.configure(preflight.outputPolicy)
+    if (!executePreflightCli(preflight))
+      CozyRuntime.main(args)
+  }
+
+  private[cozy] def executePreflightCli(preflight: CozyCliPreflight): Boolean =
+    preflight.jsonLintCommand.fold(false) {
+      case (label, args) =>
+        _execute_json_lint(label, args)
+    }
+
+  private def _execute_json_lint(label: String, args: List[String]): Boolean = {
+    try {
+      val exitcode = label match {
+        case "build" => CozyBuildLint.execute(args)
+        case "cml" => CozyCmlLint.execute(args)
+        case "abi" => CozyCarAbiLint.execute(args)
+        case "car" => CozyCarLint.execute(args)
+      }
+      if (exitcode != 0)
+        sys.exit(exitcode)
+    } catch {
+      case NonFatal(e) =>
+        System.err.println(s"cozy lint ${label} failed: ${e.getMessage}")
+        sys.exit(1)
+    }
+    true
+  }
 
   private[cozy] def _save_path(args: List[String]): Option[Path] = CozyRuntime.savePath(args)
   private[cozy] def _cli_path(value: String): Path = CozyRuntime.cliPath(value)

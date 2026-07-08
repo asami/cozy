@@ -11,7 +11,7 @@ import scala.collection.JavaConverters._
 
 import cozy.archive.CozyArchivePackager
 import org.scalatest.GivenWhenThen
-import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.{Json, JsValue}
 
@@ -19,11 +19,12 @@ import play.api.libs.json.{Json, JsValue}
  * @since   May. 20, 2026
  *  version May. 22, 2026
  *  version Jun. 18, 2026
- * @version Jul.  7, 2026
+ * @version Jul.  8, 2026
  * @author  ASAMI, Tomoharu
  */
-class CozyArchivePackagerSpec extends AnyFunSuite with Matchers with GivenWhenThen {
-  test("package-car writes descriptor-first CAR layout") {
+class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenThen {
+  "Cozy archive packager" should {
+    "write descriptor-first CAR layout" in {
     _with_temp_dir("cozy-car") { dir =>
       Given("component artifacts, CAR source content, and public entity descriptors")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
@@ -102,7 +103,7 @@ class CozyArchivePackagerSpec extends AnyFunSuite with Matchers with GivenWhenTh
     }
   }
 
-  test("package-car embeds source-managed current ABI manifest and excludes historical baselines") {
+    "embed source-managed current ABI manifest and exclude historical baselines" in {
     _with_temp_dir("cozy-car-source-abi") { dir =>
       Given("a CAR source directory with current and historical ABI manifests")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
@@ -133,7 +134,90 @@ class CozyArchivePackagerSpec extends AnyFunSuite with Matchers with GivenWhenTh
     }
   }
 
-  test("package-car lets an explicit ABI manifest override the source-managed current manifest") {
+    "embed source-managed component descriptor" in {
+    _with_temp_dir("cozy-car-source-component-descriptor") { dir =>
+      Given("a CAR source directory with a source-managed component descriptor")
+      val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
+      val cardir = dir.resolve("src/main/car")
+      val sourcedescriptor = _write(
+        cardir.resolve("component-descriptor.json"),
+        """{
+          |  "name": "sample-component",
+          |  "version": "0.1.0",
+          |  "component": "source-component",
+          |  "extensions": {
+          |    "source": "scaffold"
+          |  }
+          |}
+          |""".stripMargin
+      )
+      _write(cardir.resolve("manual/component.md"), "# component")
+      val archive = dir.resolve("out/sample.car")
+
+      When("Cozy packages the CAR")
+      CozyArchivePackager.buildCar(List(
+        "--save", archive.toString,
+        "--main-jar", mainjar.toString,
+        "--car-dir", cardir.toString,
+        "--name", "sample-component",
+        "--version", "0.1.0",
+        "--component", "source-component"
+      ))
+
+      Then("the source-managed component descriptor is embedded at the CAR top level")
+      _zip_text(archive, "component-descriptor.json") shouldBe Files.readString(sourcedescriptor)
+
+      And("the source descriptor is not duplicated as ordinary CAR source content")
+      _zip_entries(archive).count(_ == "component-descriptor.json") shouldBe 1
+      _zip_entries(archive) should contain ("manual/component.md")
+    }
+  }
+
+    "let componentlet metadata override source-managed component descriptor" in {
+    _with_temp_dir("cozy-car-componentlet-source-descriptor") { dir =>
+      Given("a CAR source descriptor and packaging metadata that declares componentlets")
+      val projectdir = dir.resolve("project")
+      val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
+      val cardir = projectdir.resolve("src/main/car")
+      _write(
+        cardir.resolve("component-descriptor.json"),
+        """{
+          |  "name": "sample-component",
+          |  "version": "0.1.0",
+          |  "component": "sample-component"
+          |}
+          |""".stripMargin
+      )
+      _write(
+        projectdir.resolve("project.yaml"),
+        """packaging:
+          |  car:
+          |    manifest_metadata:
+          |      componentlets: notice-admin
+          |      componentlet.notice-admin.kind: componentlet
+          |""".stripMargin
+      )
+      val archive = dir.resolve("out/sample.car")
+
+      When("Cozy packages the CAR")
+      CozyArchivePackager.buildCar(List(
+        "--save", archive.toString,
+        "--project-dir", projectdir.toString,
+        "--main-jar", mainjar.toString,
+        "--name", "sample-component",
+        "--version", "0.1.0",
+        "--component", "sample-component"
+      ))
+
+      Then("the structured descriptor generated from componentlet metadata is embedded")
+      val descriptor = _zip_text(archive, "component-descriptor.json")
+      descriptor should include ("\"componentlets\"")
+      descriptor should include ("\"version\":\"0.1.0\"")
+      descriptor should include ("\"name\":\"notice-admin\"")
+    }
+  }
+
+    "let an explicit ABI manifest override the source-managed current manifest" in {
     _with_temp_dir("cozy-car-explicit-abi") { dir =>
       Given("a CAR source manifest and an explicit ABI manifest")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
@@ -158,7 +242,7 @@ class CozyArchivePackagerSpec extends AnyFunSuite with Matchers with GivenWhenTh
     }
   }
 
-  test("package-car rejects ABI manifests whose coordinate does not match the CAR") {
+    "reject ABI manifests whose coordinate does not match the CAR" in {
     _with_temp_dir("cozy-car-abi-coordinate") { dir =>
       Given("a source-managed ABI manifest with a stale version")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
@@ -184,12 +268,12 @@ class CozyArchivePackagerSpec extends AnyFunSuite with Matchers with GivenWhenTh
     }
   }
 
-  test("package-car prefers structured component descriptor override") {
+    "prefer structured component descriptor override" in {
     _with_temp_dir("cozy-car-componentlet") { dir =>
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
       val archive = dir.resolve("out/sample.car")
       val descriptorjson =
-        """{"component":{"name":"sample-component","kind":"component","isPrimary":"true"},"componentlets":[{"name":"notice-admin","kind":"componentlet"},{"name":"public-notice","kind":"componentlet"}]}"""
+        """{"component":{"name":"sample-component","version":"0.1.0","kind":"component","isPrimary":"true"},"componentlets":[{"name":"notice-admin","kind":"componentlet"},{"name":"public-notice","kind":"componentlet"}]}"""
 
       CozyArchivePackager.buildCar(List(
         "--save", archive.toString,
@@ -208,7 +292,29 @@ class CozyArchivePackagerSpec extends AnyFunSuite with Matchers with GivenWhenTh
     }
   }
 
-  test("package-car reads project packaging policy and writes dependency manifest") {
+    "reject structured component descriptor override without version" in {
+    _with_temp_dir("cozy-car-componentlet-version") { dir =>
+      val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
+      val archive = dir.resolve("out/sample.car")
+      val descriptorjson =
+        """{"component":{"name":"sample-component","kind":"component"},"componentlets":[]}"""
+
+      val ex = intercept[IllegalArgumentException] {
+        CozyArchivePackager.buildCar(List(
+          "--save", archive.toString,
+          "--main-jar", mainjar.toString,
+          "--name", "sample-component",
+          "--version", "0.1.0",
+          "--component", "sample-component",
+          "--extensions", s"""{"componentDescriptorJson":${Json.stringify(Json.toJson(descriptorjson))}}"""
+        ))
+      }
+
+      ex.getMessage should include ("componentDescriptorJson must declare CAR version")
+    }
+  }
+
+    "read project packaging policy and write dependency manifest" in {
     _with_temp_dir("cozy-car-project-policy") { dir =>
       val projectdir = dir.resolve("project")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
@@ -254,7 +360,7 @@ class CozyArchivePackagerSpec extends AnyFunSuite with Matchers with GivenWhenTh
     }
   }
 
-  test("package-car writes project component config into component descriptor") {
+    "write project component config into component descriptor" in {
     _with_temp_dir("cozy-car-project-component-config") { dir =>
       val projectdir = dir.resolve("project")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
@@ -283,7 +389,7 @@ class CozyArchivePackagerSpec extends AnyFunSuite with Matchers with GivenWhenTh
     }
   }
 
-  test("package-car accepts CNCF runtime requirement while defaulting project CAR policy") {
+    "accept CNCF runtime requirement while defaulting project CAR policy" in {
     _with_temp_dir("cozy-car-runtime-requirement") { dir =>
       val projectdir = dir.resolve("project")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
@@ -333,7 +439,7 @@ class CozyArchivePackagerSpec extends AnyFunSuite with Matchers with GivenWhenTh
     }
   }
 
-  test("package-car reads CNCF runtime descriptor from lib jar without embedding dependencies") {
+    "read CNCF runtime descriptor from lib jar without embedding dependencies" in {
     _with_temp_dir("cozy-car-runtime-descriptor-jar") { dir =>
       val projectdir = dir.resolve("project")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
@@ -384,7 +490,7 @@ class CozyArchivePackagerSpec extends AnyFunSuite with Matchers with GivenWhenTh
     }
   }
 
-  test("package-car accepts CNCF runtime version above declared minimum") {
+    "accept CNCF runtime version above declared minimum" in {
     _with_temp_dir("cozy-car-runtime-minimum-compatible") { dir =>
       val projectdir = dir.resolve("project")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
@@ -422,7 +528,7 @@ class CozyArchivePackagerSpec extends AnyFunSuite with Matchers with GivenWhenTh
     }
   }
 
-  test("package-car rejects CNCF runtime version below declared minimum") {
+    "reject CNCF runtime version below declared minimum" in {
     _with_temp_dir("cozy-car-runtime-minimum-too-low") { dir =>
       val projectdir = dir.resolve("project")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
@@ -464,7 +570,7 @@ class CozyArchivePackagerSpec extends AnyFunSuite with Matchers with GivenWhenTh
     }
   }
 
-  test("package-car rejects CNCF runtime version above declared maximum") {
+    "reject CNCF runtime version above declared maximum" in {
     _with_temp_dir("cozy-car-runtime-maximum-exceeded") { dir =>
       val projectdir = dir.resolve("project")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
@@ -506,7 +612,7 @@ class CozyArchivePackagerSpec extends AnyFunSuite with Matchers with GivenWhenTh
     }
   }
 
-  test("package-car rejects excluded CNCF runtime version") {
+    "reject excluded CNCF runtime version" in {
     _with_temp_dir("cozy-car-runtime-excluded") { dir =>
       val projectdir = dir.resolve("project")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
@@ -548,7 +654,7 @@ class CozyArchivePackagerSpec extends AnyFunSuite with Matchers with GivenWhenTh
     }
   }
 
-  test("package-car rejects CNCF runtime tested list that omits resolved runtime descriptor") {
+    "reject CNCF runtime tested list that omits resolved runtime descriptor" in {
     _with_temp_dir("cozy-car-runtime-tested-mismatch") { dir =>
       val projectdir = dir.resolve("project")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
@@ -592,7 +698,7 @@ class CozyArchivePackagerSpec extends AnyFunSuite with Matchers with GivenWhenTh
     }
   }
 
-  test("package-car prefers explicit runtime catalog URL over runtime jar descriptor") {
+    "prefer explicit runtime catalog URL over runtime jar descriptor" in {
     _with_temp_dir("cozy-car-runtime-catalog-url") { dir =>
       val projectdir = dir.resolve("project")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
@@ -657,7 +763,7 @@ class CozyArchivePackagerSpec extends AnyFunSuite with Matchers with GivenWhenTh
     }
   }
 
-  test("package-car embeds dependency jars only when project policy enables them") {
+    "embed dependency jars only when project policy enables them" in {
     _with_temp_dir("cozy-car-include-dependencies") { dir =>
       val projectdir = dir.resolve("project")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
@@ -686,7 +792,7 @@ class CozyArchivePackagerSpec extends AnyFunSuite with Matchers with GivenWhenTh
     }
   }
 
-  test("package-car writes only component-owned dependencies with CNCF runtime requirement") {
+    "write only component-owned dependencies with CNCF runtime requirement" in {
     _with_temp_dir("cozy-car-component-owned-deps") { dir =>
       val projectdir = dir.resolve("project")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
@@ -734,7 +840,7 @@ class CozyArchivePackagerSpec extends AnyFunSuite with Matchers with GivenWhenTh
     }
   }
 
-  test("package-car rejects dependencies already provided by CNCF runtime catalog") {
+    "reject dependencies already provided by CNCF runtime catalog" in {
     _with_temp_dir("cozy-car-base-provided-overlap") { dir =>
       val projectdir = dir.resolve("project")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
@@ -774,7 +880,7 @@ class CozyArchivePackagerSpec extends AnyFunSuite with Matchers with GivenWhenTh
     }
   }
 
-  test("package-car prefers exported CNCF runtime catalog from configured runtime project") {
+    "prefer exported CNCF runtime catalog from configured runtime project" in {
     _with_temp_dir("cozy-car-exported-runtime-catalog") { dir =>
       val projectdir = dir.resolve("project")
       val runtimedir = dir.resolve("cncf-runtime")
@@ -823,7 +929,7 @@ class CozyArchivePackagerSpec extends AnyFunSuite with Matchers with GivenWhenTh
     }
   }
 
-  test("package-car warns and continues when CNCF runtime catalog is unavailable") {
+    "warn and continue when CNCF runtime catalog is unavailable" in {
     _with_temp_dir("cozy-car-missing-runtime-catalog") { dir =>
       val projectdir = dir.resolve("project")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
@@ -858,7 +964,7 @@ class CozyArchivePackagerSpec extends AnyFunSuite with Matchers with GivenWhenTh
     }
   }
 
-  test("package-car can query configured CNCF command for runtime descriptor") {
+    "query configured CNCF command for runtime descriptor" in {
     _with_temp_dir("cozy-car-runtime-descriptor-command") { dir =>
       val projectdir = dir.resolve("project")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
@@ -905,7 +1011,7 @@ class CozyArchivePackagerSpec extends AnyFunSuite with Matchers with GivenWhenTh
     }
   }
 
-  test("package-sar writes descriptor at SAR top level") {
+    "write descriptor at SAR top level" in {
     _with_temp_dir("cozy-sar") { dir =>
       val sourcedir = dir.resolve("src")
       _write(sourcedir.resolve("subsystem-descriptor.yaml"), "subsystem: textus-identity\n")
@@ -928,6 +1034,8 @@ class CozyArchivePackagerSpec extends AnyFunSuite with Matchers with GivenWhenTh
       entries should not contain "subsystem/subsystem-descriptor.yaml"
       entries should not contain "meta/manifest.json"
     }
+  }
+
   }
 
   private def _with_temp_dir[A](prefix: String)(f: Path => A): A = {

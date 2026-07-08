@@ -11,7 +11,7 @@ import play.api.libs.json.Json
 
 /*
  * @since   Jul.  7, 2026
- * @version Jul.  7, 2026
+ * @version Jul.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -98,7 +98,86 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
         out.toString(StandardCharsets.UTF_8.name()) should include ("abi.baseline.missing")
       }
     }
+
+    "write only JSON to stdout through the CLI in JSON format" in {
+      _with_temp_dir("cozy-car-lint-json-stdout") { dir =>
+        Given("a CAR project with build metadata and no ABI requirement for this lint run")
+        _write_project(dir)
+
+        When("Cozy runs CAR lint through the CLI in JSON format")
+        val captured = _capture_process_io {
+          cozy.Cozy.main(Array("lint", "car", dir.toString, "--format", "json", "--no-abi"))
+        }
+
+        Then("stdout is a single JSON object without logback or human report text")
+        val stdout = captured.stdout.trim
+        stdout should startWith ("{")
+        stdout should endWith ("}")
+        stdout.linesIterator.size shouldBe 1
+        Json.parse(stdout)
+        stdout should not include "logback"
+        stdout should not include "OK "
+      }
+    }
+
+    "decide JSON output policy before runtime initialization" in {
+      _with_temp_dir("cozy-car-lint-json-preflight") { dir =>
+        Given("a JSON CAR lint command with command arguments")
+        val args = Array("lint", "car", dir.toString, "--format", "json", "--no-abi")
+
+        When("Cozy performs the preflight parse")
+        val preflight = cozy.CozyCliPreflight.parse(args)
+
+        Then("the output policy is machine JSON and lint arguments are preserved for the renderer")
+        preflight.outputPolicy.stdoutMode shouldBe cozy.StdoutMode.MachineJson
+        preflight.jsonLintCommand shouldBe Some("car" -> List(dir.toString, "--format", "json", "--no-abi"))
+      }
+    }
+
+    "configure Cozy logging before Kaleidox runtime initialization" in {
+      val configkey = "logback.configurationFile"
+      val statuskey = "logback.statusListenerClass"
+      val oldconfig = Option(System.getProperty(configkey))
+      val oldstatus = Option(System.getProperty(statuskey))
+      try {
+        Given("a JSON CLI output policy before runtime is built")
+        System.clearProperty(configkey)
+        System.clearProperty(statuskey)
+        val preflight = cozy.CozyCliPreflight.parse(Array("lint", "car", ".", "--format", "json"))
+
+        When("Cozy configures logging from the preflight policy")
+        cozy.CozyCliLogging.configure(preflight.outputPolicy)
+
+        Then("Cozy owns the logback configuration used by embedded Kaleidox")
+        System.getProperty(configkey) should include ("cozy-logback.xml")
+        System.getProperty(statuskey) shouldBe "ch.qos.logback.core.status.NopStatusListener"
+      } finally {
+        _restore_system_property(configkey, oldconfig)
+        _restore_system_property(statuskey, oldstatus)
+      }
+    }
+
+    "accept equals-form JSON format through the CLI" in {
+      _with_temp_dir("cozy-car-lint-json-equals") { dir =>
+        Given("a CAR project with build metadata")
+        _write_project(dir)
+
+        When("Cozy runs CAR lint with --format=json")
+        val captured = _capture_process_io {
+          cozy.Cozy.main(Array("lint", "car", dir.toString, "--format=json", "--no-abi"))
+        }
+
+        Then("stdout remains directly parseable JSON")
+        Json.parse(captured.stdout.trim)
+      }
+    }
   }
+
+  private def _restore_system_property(name: String, value: Option[String]): Unit =
+    value match {
+      case Some(v) => System.setProperty(name, v)
+      case None => System.clearProperty(name)
+    }
 
   private def _write_project(dir: Path): Unit = {
     _write(dir.resolve("project.yaml"), "project:\n  name: sample\n")
@@ -152,6 +231,33 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
     finally _delete(dir)
   }
 
+  private def _capture_process_io(body: => Unit): CozyCarLintCapturedIo = {
+    val stdout = new ByteArrayOutputStream()
+    val stderr = new ByteArrayOutputStream()
+    val oldout = System.out
+    val olderr = System.err
+    val outps = new PrintStream(stdout, true, StandardCharsets.UTF_8.name())
+    val errps = new PrintStream(stderr, true, StandardCharsets.UTF_8.name())
+    try {
+      System.setOut(outps)
+      System.setErr(errps)
+      Console.withOut(outps) {
+        Console.withErr(errps) {
+          body
+        }
+      }
+      CozyCarLintCapturedIo(
+        stdout.toString(StandardCharsets.UTF_8.name()),
+        stderr.toString(StandardCharsets.UTF_8.name())
+      )
+    } finally {
+      System.setOut(oldout)
+      System.setErr(olderr)
+      outps.close()
+      errps.close()
+    }
+  }
+
   private def _delete(path: Path): Unit =
     if (Files.exists(path)) {
       val stream = Files.walk(path)
@@ -159,3 +265,5 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
       finally stream.close()
     }
 }
+
+private final case class CozyCarLintCapturedIo(stdout: String, stderr: String)

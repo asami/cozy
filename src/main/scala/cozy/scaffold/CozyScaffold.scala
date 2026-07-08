@@ -14,7 +14,7 @@ import scala.collection.JavaConverters._
  * @since   May. 20, 2026
  *  version May. 25, 2026
  *  version Jun. 27, 2026
- * @version Jul.  7, 2026
+ * @version Jul.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyScaffold {
@@ -519,6 +519,9 @@ private[cozy] object CozyScaffold {
   private def _yaml_string(value: String): String =
     "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 
+  private def _json_string(value: String): String =
+    "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+
   private[cozy] def carSarBuildSbt(scaffold: CarScaffoldConfig, versions: CarDependencyVersions): String =
     s"""import org.goldenport.cozy.CozyPlugin.autoImport._
       |import sbt.Keys.*
@@ -800,6 +803,16 @@ private[cozy] object CozyScaffold {
       |
       |OperationResult
       |""".stripMargin
+
+  private[cozy] def carComponentDescriptorJson(
+    scaffold: CarScaffoldConfig = CarScaffoldConfig.create(Nil, Paths.get("sample"))
+  ): String =
+    s"""{
+       |  "name": ${_json_string(scaffold.artifactName)},
+       |  "version": ${_json_string(scaffold.version)},
+       |  "component": ${_json_string(scaffold.artifactName)}
+       |}
+       |""".stripMargin
 
   private[cozy] def carWebDescriptorYaml(
     modelpath: Option[Path] = None,

@@ -16,7 +16,7 @@ import scala.sys.process._
  * @since   May. 20, 2026
  *  version May. 22, 2026
  *  version Jun. 18, 2026
- * @version Jul.  7, 2026
+ * @version Jul.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArchivePackager {
@@ -40,7 +40,7 @@ private[cozy] object CozyArchivePackager {
     val version = _required_value(args, "version")
     val manifestmetadata = config.mapUnder("packaging.car.manifest_metadata")
     val component = _value(args, "component").orElse(manifestmetadata.get("component")).getOrElse(RAISE.invalidArgumentFault("Missing --component"))
-    val packagemetadata = _car_package_metadata(manifestmetadata, component)
+    val packagemetadata = _car_package_metadata(manifestmetadata, component, version)
     val extensionmap = packagemetadata.extensions ++ _string_map(args, "extensions")
     val configmap = config.mapUnder("project.component.config") ++ _string_map(args, "config")
     val entities = _entity_descriptors(args)
@@ -50,6 +50,15 @@ private[cozy] object CozyArchivePackager {
     }.getOrElse {
       _write_temp("abi-manifest", _abi_manifest_json(name, version, packagemetadata.component, entities))
     }
+    val componentdescriptor = _component_descriptor_override(extensionmap, name, version, packagemetadata.component).
+      map(_write_temp("component-descriptor", _)).
+      orElse(_source_component_descriptor(cardir).map { path =>
+        _validate_component_descriptor(Files.readString(path), name, version, packagemetadata.component, "component-descriptor.json")
+        path
+      }).
+      getOrElse {
+        _write_temp("component-descriptor", _component_descriptor_json(name, version, packagemetadata.component, extensionmap, configmap, entities))
+      }
     _write_archive(
       save,
       Vector(
@@ -64,7 +73,7 @@ private[cozy] object CozyArchivePackager {
         _web_entries(webdir) ++
         webinfdescriptors ++
         Vector(abimanifest -> "abi-manifest.json") ++
-        Vector(_write_temp("component-descriptor", _component_descriptor_json(name, version, packagemetadata.component, extensionmap, configmap, entities)) -> "component-descriptor.json"),
+        Vector(componentdescriptor -> "component-descriptor.json"),
       Vector("component", "lib", "spi", "config", "web")
     )
   }
@@ -453,7 +462,11 @@ private[cozy] object CozyArchivePackager {
     extensions: Map[String, String]
   )
 
-  private def _car_package_metadata(metadata: Map[String, String], defaultcomponent: String): CarPackageMetadata = {
+  private def _car_package_metadata(
+    metadata: Map[String, String],
+    defaultcomponent: String,
+    version: String
+  ): CarPackageMetadata = {
     val component = metadata.getOrElse("component", defaultcomponent)
     val componentletnames = _componentlet_names(metadata)
     val reservedkeys = Set("component", "componentlets") ++ metadata.keySet.filter(_.startsWith("componentlet."))
@@ -462,7 +475,7 @@ private[cozy] object CozyArchivePackager {
       if (componentletnames.isEmpty)
         passthroughextensions
       else
-        passthroughextensions + ("componentDescriptorJson" -> _component_descriptor_override_json(component, passthroughextensions, componentletnames, metadata))
+        passthroughextensions + ("componentDescriptorJson" -> _component_descriptor_override_json(component, version, passthroughextensions, componentletnames, metadata))
     CarPackageMetadata(component, extensions)
   }
 
@@ -486,6 +499,7 @@ private[cozy] object CozyArchivePackager {
 
   private def _component_descriptor_override_json(
     component: String,
+    version: String,
     extensions: Map[String, String],
     componentletnames: Vector[String],
     metadata: Map[String, String]
@@ -499,7 +513,7 @@ private[cozy] object CozyArchivePackager {
       val jsonfields = (Map("name" -> name, "kind" -> fields.getOrElse("kind", "componentlet")) ++ fields).toVector.sortBy(_._1)
       jsonfields.map { case (key, value) => s"${_json_string(key)}:${_json_string(value)}" }.mkString("{", ",", "}")
     }
-    s"""{"component":{"name":${_json_string(component)},"kind":"component","isPrimary":"true"},"componentlets":[${componentlets.mkString(",")}],"extensions":${_json_map(extensions)}}"""
+    s"""{"component":{"name":${_json_string(component)},"version":${_json_string(version)},"kind":"component","isPrimary":"true"},"componentlets":[${componentlets.mkString(",")}],"extensions":${_json_map(extensions)}}"""
   }
 
   def buildSar(args: List[String]): Unit = {
@@ -539,11 +553,16 @@ private[cozy] object CozyArchivePackager {
 
   private def _car_entries(cardir: Option[Path]): Vector[(Path, String)] =
     cardir.toVector.flatMap(_archive_sources(_)).filterNot { case (_, rel) =>
-      rel == "abi-manifest.json" || _is_historical_abi_manifest(rel)
+      rel == "abi-manifest.json" ||
+        rel == "component-descriptor.json" ||
+        _is_historical_abi_manifest(rel)
     }
 
   private def _source_abi_manifest(cardir: Option[Path]): Option[Path] =
     cardir.map(_.resolve("abi-manifest.json")).filter(Files.isRegularFile(_))
+
+  private def _source_component_descriptor(cardir: Option[Path]): Option[Path] =
+    cardir.map(_.resolve("component-descriptor.json")).filter(Files.isRegularFile(_))
 
   private def _is_historical_abi_manifest(relative: String): Boolean = {
     val pattern = """^\d+\.\d+\.\d+[^/]*/abi-manifest\.json$""".r
@@ -617,7 +636,7 @@ private[cozy] object CozyArchivePackager {
     config: Map[String, String],
     entities: Vector[EntityDescriptor]
   ): String =
-    _component_descriptor_override(extensions).getOrElse {
+    _component_descriptor_override(extensions, name, version, component).getOrElse {
     val effectiveextensions = extensions - "componentDescriptorJson"
       s"""{
          |  "name": ${_json_string(name)},
@@ -630,8 +649,43 @@ private[cozy] object CozyArchivePackager {
          |""".stripMargin
     }
 
-  private def _component_descriptor_override(extensions: Map[String, String]): Option[String] =
-    extensions.get("componentDescriptorJson").map(_.trim).filter(_.nonEmpty)
+  private def _component_descriptor_override(
+    extensions: Map[String, String],
+    name: String,
+    version: String,
+    component: String
+  ): Option[String] =
+    extensions.get("componentDescriptorJson").map(_.trim).filter(_.nonEmpty).map { text =>
+      _validate_component_descriptor(text, name, version, component, "componentDescriptorJson")
+      text
+    }
+
+  private def _validate_component_descriptor(
+    text: String,
+    name: String,
+    version: String,
+    component: String,
+    label: String
+  ): Unit = {
+    val json = Try(Json.parse(text)).getOrElse(RAISE.invalidArgumentFault(s"${label} must be valid JSON."))
+    val componentjson = (json \ "component").toOption.collect { case o: JsObject => o }.getOrElse(Json.obj())
+    val descriptorname =
+      _json_string_value(componentjson, "name").orElse(_json_string_value(json, "name"))
+    val descriptorversion =
+      _json_string_value(componentjson, "version").orElse(_json_string_value(json, "version"))
+    val descriptorcomponent =
+      _json_string_value(componentjson, "component")
+        .orElse(_json_string_value(componentjson, "componentName"))
+        .orElse(_json_string_value(json, "component"))
+        .orElse(_json_string_value(json, "componentName"))
+        .orElse(descriptorname)
+    if (!descriptorname.contains(name))
+      RAISE.invalidArgumentFault(s"${label} must declare CAR name '${name}'.")
+    if (!descriptorversion.contains(version))
+      RAISE.invalidArgumentFault(s"${label} must declare CAR version '${version}'.")
+    if (!descriptorcomponent.contains(component))
+      RAISE.invalidArgumentFault(s"${label} must declare component '${component}'.")
+  }
 
   private def _abi_manifest_json(
     name: String,
