@@ -16,7 +16,7 @@ import scala.sys.process._
  * @since   May. 20, 2026
  *  version May. 22, 2026
  *  version Jun. 18, 2026
- * @version Jul.  8, 2026
+ * @version Jul.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArchivePackager {
@@ -670,17 +670,17 @@ private[cozy] object CozyArchivePackager {
     val json = Try(Json.parse(text)).getOrElse(RAISE.invalidArgumentFault(s"${label} must be valid JSON."))
     val componentjson = (json \ "component").toOption.collect { case o: JsObject => o }.getOrElse(Json.obj())
     val descriptorname =
-      _json_string_value(componentjson, "name").orElse(_json_string_value(json, "name"))
+      _json_string_value(json, "name").orElse(_json_string_value(componentjson, "name"))
     val descriptorversion =
-      _json_string_value(componentjson, "version").orElse(_json_string_value(json, "version"))
+      _json_string_value(json, "version").orElse(_json_string_value(componentjson, "version"))
     val descriptorcomponent =
-      _json_string_value(componentjson, "component")
-        .orElse(_json_string_value(componentjson, "componentName"))
-        .orElse(_json_string_value(json, "component"))
+      _json_string_value(json, "component")
         .orElse(_json_string_value(json, "componentName"))
+        .orElse(_json_string_value(componentjson, "component"))
+        .orElse(_json_string_value(componentjson, "componentName"))
         .orElse(descriptorname)
-    if (!descriptorname.contains(name))
-      RAISE.invalidArgumentFault(s"${label} must declare CAR name '${name}'.")
+    if (!descriptorname.exists(value => value == name || value == component))
+      RAISE.invalidArgumentFault(s"${label} must declare CAR name '${name}' or component name '${component}'.")
     if (!descriptorversion.contains(version))
       RAISE.invalidArgumentFault(s"${label} must declare CAR version '${version}'.")
     if (!descriptorcomponent.contains(component))

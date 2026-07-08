@@ -19,7 +19,7 @@ import play.api.libs.json.{Json, JsValue}
  * @since   May. 20, 2026
  *  version May. 22, 2026
  *  version Jun. 18, 2026
- * @version Jul.  8, 2026
+ * @version Jul.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -289,6 +289,26 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
       descriptor should include ("\"componentlets\"")
       descriptor should include ("\"name\":\"notice-admin\"")
       descriptor should include ("\"name\":\"public-notice\"")
+    }
+  }
+
+    "accept descriptor override whose name is the component name" in {
+    _with_temp_dir("cozy-car-component-descriptor-component-name") { dir =>
+      val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
+      val archive = dir.resolve("out/sample-component-0.1.0.car")
+      val descriptorjson =
+        """{"component":{"name":"sample-component","version":"0.1.0","kind":"component"},"componentlets":[]}"""
+
+      CozyArchivePackager.buildCar(List(
+        "--save", archive.toString,
+        "--main-jar", mainjar.toString,
+        "--name", "sample-component-0.1.0",
+        "--version", "0.1.0",
+        "--component", "sample-component",
+        "--extensions", s"""{"componentDescriptorJson":${Json.stringify(Json.toJson(descriptorjson))}}"""
+      ))
+
+      _zip_text(archive, "component-descriptor.json") shouldBe descriptorjson
     }
   }
 
