@@ -10,7 +10,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Jul.  6, 2026
- * @version Jul.  7, 2026
+ * @version Jul. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyBuildLint {
@@ -82,7 +82,7 @@ private[cozy] object CozyBuildLint {
     latestversion: Option[String],
     publicartifacts: PublicArtifactAvailability
   ): Vector[Finding] = {
-    lint(path, latestversion, publicartifacts, includeabi = true)
+    _lint(path, latestversion, publicartifacts, includeabi = true)
   }
 
   private[cozy] def lintBuildOnly(
@@ -90,12 +90,12 @@ private[cozy] object CozyBuildLint {
     latestversion: Option[String],
     publicartifacts: PublicArtifactAvailability
   ): Vector[Finding] =
-    lint(path, latestversion, publicartifacts, includeabi = false)
+    _lint(path, latestversion, publicartifacts, includeabi = false)
 
   private[cozy] def lintBuildOnly(path: Path): Vector[Finding] =
     lintBuildOnly(path, _latest_sbt_cozy_version(), SimpleModelingPublicArtifactAvailability)
 
-  private def lint(
+  private def _lint(
     path: Path,
     latestversion: Option[String],
     publicartifacts: PublicArtifactAvailability,
@@ -287,12 +287,16 @@ private[cozy] object CozyBuildLint {
           val n = i + 1
           _dependency_declaration(path, n, line, variables, scalabinaryversion)
       }.filter(x => _is_public_simplemodeling_repository_group(x.group)).
+        filterNot(_is_snapshot_dependency).
         groupBy(x => (x.group, x.artifact, x.version)).
         values.
         map(_.maxBy(_.line)).
         toVector.
         sortBy(x => (x.path.toString, x.line, x.group, x.artifact, x.version))
     }
+
+  private def _is_snapshot_dependency(dependency: DependencyDeclaration): Boolean =
+    dependency.version.endsWith("-SNAPSHOT")
 
   private def _dependency_declaration(
     path: Path,

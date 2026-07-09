@@ -9,7 +9,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jul.  6, 2026
- * @version Jul.  6, 2026
+ * @version Jul. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBuildLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -188,6 +188,29 @@ class CozyBuildLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
 
         Then("the missing public dependency is a warning")
         findings.find(_.code == "build.public-dependency").map(_.level) shouldBe Some(CozyBuildLint.Level.Warn)
+      }
+    }
+
+    "ignore SNAPSHOT dependencies for public repository availability lint" in {
+      _with_temp_dir("cozy-build-lint-snapshot-public-dependency") { dir =>
+        Given("a CAR project that uses a development SNAPSHOT runtime dependency")
+        _write_plugins(dir, """addSbtPlugin("org.goldenport" % "sbt-cozy" % "0.1.11")""")
+        _write(
+          dir.resolve("build.sbt"),
+          """scalaVersion := "2.12.18"
+            |libraryDependencies += "org.goldenport" %% "goldenport-cncf" % "0.5.0-SNAPSHOT"
+            |""".stripMargin
+        )
+
+        When("Cozy lints public dependency availability")
+        val findings = CozyBuildLint.lint(
+          dir,
+          Some("0.1.11"),
+          _public_artifacts("org.goldenport:goldenport-cncf_2.12:0.5.0-SNAPSHOT" -> false)
+        )
+
+        Then("the development dependency does not produce a public dependency warning")
+        findings.filter(_.code == "build.public-dependency") shouldBe empty
       }
     }
 
