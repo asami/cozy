@@ -49,7 +49,7 @@ import scala.collection.mutable
  *  version Feb. 27, 2026
  *  version Mar. 31, 2026
  *  version May. 24, 2026
- * @version Jul.  9, 2026
+ * @version Jul. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
@@ -1636,7 +1636,7 @@ object Modeler {
       val eventsubs = _event_subscription_definitions()
       val aggregates = _aggregate_definitions(entities)
       val views = _view_definitions(entities)
-      val operations = _operation_definitions()
+      val operations = _operation_definitions() ++ _entity_operation_definitions(entities)
       val components = _component_definitions(pkg)
       val subsystems = _subsystem_definitions(pkg)
       val entitydescs = _entity_runtime_descriptors(entities)
@@ -2921,6 +2921,87 @@ object Modeler {
             )
           }
         )
+      }
+
+    private def _entity_operation_definitions(
+      entities: Vector[MEntity]
+    ): Vector[MComponent.OperationDefinition] =
+      entities.flatMap(_entity_operation_definitions).sortBy(_.name)
+
+    private def _entity_operation_definitions(
+      entity: MEntity
+    ): Vector[MComponent.OperationDefinition] = {
+      val title = StringUtils.makeTitle(entity.name)
+      val fields = _entity_update_operation_fields(entity)
+      Vector(
+        _entity_update_operation_definition(s"update$title", entity, fields),
+        _entity_update_operation_definition(s"update${title}Record", entity, fields)
+      )
+    }
+
+    private def _entity_update_operation_definition(
+      name: String,
+      entity: MEntity,
+      fields: Vector[MComponent.OperationField]
+    ): MComponent.OperationDefinition =
+      MComponent.OperationDefinition(
+        name = name,
+        kind = "COMMAND",
+        entityName = Some(entity.name),
+        inputType = entity.name,
+        outputType = "unit",
+        inputValueKind = "ENTITY_UPDATE",
+        parameters = fields
+      )
+
+    private def _entity_update_operation_fields(
+      entity: MEntity
+    ): Vector[MComponent.OperationField] =
+      entity.attributes.
+        map(_entity_operation_field).
+        toVector
+
+    private def _entity_operation_field(
+      p: MAttribute
+    ): MComponent.OperationField =
+      MComponent.OperationField(
+        name = p.name,
+        datatype = _operation_field_datatype(p.attributeType),
+        multiplicity = _entity_update_operation_multiplicity(p),
+        label = p.web.label.orElse(p.designation.labelI18N.map(_.c)),
+        controlType = p.web.controlType,
+        placeholder = p.web.placeholder,
+        help = p.web.help,
+        required = p.web.required,
+        confidentiality = p.confidentiality
+      )
+
+    private def _entity_update_operation_multiplicity(
+      p: MAttribute
+    ): String =
+      if (p.name == "id")
+        p.multiplicity.mark
+      else
+        p.multiplicity.mark match {
+          case "1" => "?"
+          case "+" => "*"
+          case mark => mark
+        }
+
+    private def _operation_field_datatype(
+      p: MAttributeType
+    ): String =
+      p match {
+        case m: MDataType =>
+          m.datatype match {
+            case org.goldenport.record.v2.XString =>
+              Option(m.name).map(_.trim).filter(_.nonEmpty).getOrElse("string")
+            case datatype => datatype.name
+          }
+        case m: MObjectAttributeType => m.ref.objectName
+        case m: MObject => m.name
+        case m: MObjectRef => m.objectName
+        case _ => Option(p.name).map(_.trim).filter(_.nonEmpty).getOrElse("string")
       }
 
     private def _normalized_service_operation_definitions: Vector[OperationModel.NormalizedOperationDefinition] =

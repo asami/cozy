@@ -15,8 +15,7 @@ import org.simplemodeling.model.MStructuredDataType
 
 /*
  * @since   Jun. 23, 2026
- *  version Jul.  5, 2026
- * @version Jul.  9, 2026
+ * @version Jul. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -235,6 +234,67 @@ class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with GivenWhe
         content should include ("""baseContent = org.simplemodeling.model.value.BaseContent.simple("content")""")
         content should include ("""label = Some(org.goldenport.datatype.I18nLabel("Content"))""")
         content should include ("""web = org.goldenport.schema.WebColumn(controlType = Some("textarea"), required = Some(true), placeholder = Some("Notice content"), help = Some("Main notice text."), validation = org.goldenport.schema.WebValidationHints(minLength = Some(1)))""")
+      }
+
+      "modeler-scala preserves repeated powertype metadata for entity update record operations" in {
+        Given("a CML source model with a repeated powertype entity attribute")
+        val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+        val input = base.resolve("target/test-generated/modeler-scala-update-record-repeated-powertype.cml")
+        val out = base.resolve("target/test-generated/modeler-scala-update-record-repeated-powertype")
+        delete_recursively(out)
+        write_file(input,
+        """# COMPONENT
+          |
+          |## Domain
+          |
+          |### PACKAGE
+          |
+          |domain
+          |
+          |# ENTITY
+          |
+          |## Facility
+          |
+          |### ATTRIBUTE
+          |
+          || name          | type        | multiplicity |
+          ||---------------+-------------+--------------|
+          || id            | entityid    | 1            |
+          || name          | name        | 1            |
+          || fetch_methods | FetchMethod | *            |
+          |
+          |# POWERTYPE
+          |
+          |## FetchMethod
+          |
+          |package = domain.value
+          |
+          || name            | label           |
+          ||-----------------+-----------------|
+          || official_driver | Official Driver |
+          || museum_or_jp    | Museum.or.jp    |
+          || ai_web_tools    | AI Web Tools    |
+          |""".stripMargin)
+
+        When("Cozy generates Scala source from the model")
+        cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
+
+        val generated = out.resolve(
+        "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+        )
+        Then("the generated update-record operation metadata preserves the entity attribute contract")
+        withClue(s"generated file not found: $generated") {
+        Files.exists(generated) shouldBe true
+      }
+        val content = Files.readString(generated)
+        content should include ("object UpdateFacilityRecordOperation extends OperationDefinition")
+        content should include ("content = org.goldenport.value.BaseContent.simple(\"id\")")
+        content should include ("multiplicity = org.goldenport.schema.Multiplicity.One")
+        content should include ("content = org.goldenport.value.BaseContent.simple(\"name\")")
+        content should include ("multiplicity = org.goldenport.schema.Multiplicity.ZeroOne")
+        content should include ("content = org.goldenport.value.BaseContent.simple(\"fetch_methods\")")
+        content should include ("datatype = org.goldenport.schema.DataType.Named(\"fetchmethod\")")
+        content should include ("multiplicity = org.goldenport.schema.Multiplicity.ZeroMore")
       }
 
       "modeler-scala generates toDataStore with db column names" in {
