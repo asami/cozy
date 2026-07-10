@@ -1,7 +1,7 @@
 # CML Grammar (Latest, Cozy)
 
 status=active-latest-spec
-updated_at=2026-05-22
+updated_at=2026-07-11
 target=/Users/asami/src/dev2025/cozy
 
 ## 1. Scope
@@ -944,6 +944,86 @@ Mapped metadata:
 - `componentlets`
 - `extensionPoints`
 - `extensionBindings`
+
+#### 9.1.1 SERVICE SPI Properties (Active Target Extension)
+
+`COMPONENT / SERVICE / <name>` describes how an existing top-level service
+participates in component composition and SPI exposure. The top-level
+`SERVICE / <name>` definition remains the source of operation structure.
+
+Canonical Literate Model form:
+
+```text
+# COMPONENT
+
+## Scraper
+
+### SERVICE
+
+#### Scraping
+
+Reusable scraping service.
+
+- standard-spi :: cncf.web-content-fetcher
+- direction :: provides
+- socket :: true
+- api-name :: TextusScraper
+
+#### AiRunners
+
+- standard-spi :: cncf.ai-runner
+- direction :: requires
+- multiplicity :: *
+- required :: true
+```
+
+Properties:
+
+| property | values | meaning |
+|---|---|---|
+| `standard-spi` | CNCF contract id | Existing CNCF standard SPI implemented or required by this service entry. |
+| `direction` | `provides`, `requires` | Port direction. Default is `provides`. |
+| `socket` | `true`, `false` | Generate a component-specific typed API plus both single and set sockets. Default is `false`. |
+| `multiplicity` | `1`, `?`, `*` | Required-side cardinality. Default is `1`. |
+| `required` | `true`, `false` | With `*`, require at least one provider. Default is `false`. |
+| `api-name` | identifier | Optional generated component-specific API name override. |
+
+Provider combinations:
+
+| `standard-spi` | `socket` | generated/exposed contract |
+|---|---:|---|
+| absent | absent or `false` | Ordinary service only. |
+| present | `false` | Standard SPI only. |
+| absent | `true` | Component-specific API only. |
+| present | `true` | Standard SPI and component-specific API. |
+
+Socket cardinality policy:
+
+- Every CNCF standard SPI contract publishes both a single socket and socket
+  set.
+- `socket :: true` generates both forms for the component-specific API.
+- Providers do not restrict consumers to one form.
+- A required entry with `multiplicity :: 1` uses the required single socket.
+- A required entry with `multiplicity :: ?` uses the optional single socket.
+- A required entry with `multiplicity :: *` uses the socket set.
+- `multiplicity :: *` plus `required :: true` requires a non-empty socket set.
+
+Validation rules:
+
+1. A `provides` entry must reference a top-level service with the same name,
+   unless a future explicit adapter mapping says otherwise.
+2. `standard-spi` must resolve to a CNCF-owned SPI contract.
+3. A provided service claiming `standard-spi` must satisfy the standard
+   contract or supply an explicit adapter implementation.
+4. `multiplicity` and `required` apply only to `requires` entries.
+5. `api-name` requires `socket :: true`.
+6. `socket :: true` creates a component-owned contract; it does not create or
+   modify a type under `org.goldenport.cncf.spi`.
+7. A service may both implement `standard-spi` and request its own socket.
+
+The parser normalizes property names case-insensitively according to the normal
+CML metadata rules. Narrative text under each service entry remains descriptive
+context and must not override metadata properties.
 
 ### 9.2 COMPONENTLET
 
