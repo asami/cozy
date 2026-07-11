@@ -15,7 +15,7 @@ import org.simplemodeling.model.MStructuredDataType
 
 /*
  * @since   Jun. 23, 2026
- * @version Jul. 10, 2026
+ * @version Jul. 11, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -147,10 +147,49 @@ class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with GivenWhe
         withClue(s"generated file not found: $generated") {
         Files.exists(generated) shouldBe true
       }
+
         val content = Files.readString(generated)
         content should include ("case class BlogPost(override val id: EntityId")
         content should include ("nameAttributes: NameAttributes")
         content should not include ("slug:")
+      }
+
+      "modeler-scala generates a typed component API proxy and socket set" in {
+        Given("a CML component that provides and consumes a component-specific SPI API")
+        val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+        val input = base.resolve("src/test/resources/modeler/component-api-contract.cml")
+        val out = base.resolve("target/test-generated/modeler-scala-component-api-contract")
+        delete_recursively(out)
+        Files.createDirectories(out.getParent)
+
+        When("Cozy generates the Scala component source")
+        cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString))
+
+        val generated = out.resolve(
+          "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+        )
+        val content = Files.readString(generated)
+        val api = Files.readString(out.resolve(
+          "target/scala-3.3.7/src_managed/main/scala/domain/api/TextusScraperApi.scala"
+        ))
+
+        Then("the generated facade exposes typed operations through a binding-aware proxy")
+        api should include ("trait TextusScraperApi")
+        api should include ("request: domain.value.ScrapeRequest")
+        api should include ("Consequence[domain.value.ScrapeResponse]")
+        api should include ("extends SpiBoundProvider[TextusScraperApi]")
+        api should include ("binding.invoke(SpiOperationSelector(\"scrape\", Some(\"Scraping\"))")
+
+        And("the same contract supplies single and set sockets to consuming components")
+        api should include ("final class Socket(")
+        api should include ("final class SocketSet(")
+        content should include ("new domain.api.TextusScraperApi.SocketSet(\"Scrapers\", true)")
+        content should include ("protected final def scrapers(")
+        content should include ("private val _scrapers_component_api_socket")
+        content should include ("new domain.api.TextusScraperApi.Socket(\"PrimaryScraper\", true)")
+        content should include ("protected final def primary_scraper: domain.api.TextusScraperApi")
+        content should include ("new domain.api.TextusScraperApi.Socket(\"OptionalScraper\", false)")
+        content should include ("protected final def optional_scraper: Option[domain.api.TextusScraperApi]")
       }
 
       "modeler-scala carries derived entity attributes as schema-visible aliases" in {

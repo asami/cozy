@@ -49,7 +49,7 @@ import scala.collection.mutable
  *  version Feb. 27, 2026
  *  version Mar. 31, 2026
  *  version May. 24, 2026
- * @version Jul. 10, 2026
+ * @version Jul. 11, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
@@ -2406,7 +2406,8 @@ object Modeler {
         domainQualities = Vector.empty,
         domainConstraints = Vector.empty,
         domainUseCases = Vector.empty,
-        useCases = p.useCases.map(_component_use_case_definition)
+        useCases = p.useCases.map(_component_use_case_definition),
+        services = p.services.map(_component_service_definition)
       )
     }
 
@@ -2424,7 +2425,27 @@ object Modeler {
         domainQualities = Vector.empty,
         domainConstraints = Vector.empty,
         domainUseCases = Vector.empty,
-        useCases = Vector.empty
+        useCases = Vector.empty,
+        services = Vector.empty
+      )
+    }
+
+    private def _component_service_definition(
+      p: ComponentSubsystemModel.ComponentServiceDefinition
+    ): MComponent.ComponentServiceDefinition = {
+      if (p.spiDirection == "provides" && p.spiSocket && !service.classes.contains(p.name))
+        RAISE.syntaxErrorFault(
+          s"Component service '${p.name}' publishes a component API but no top-level SERVICE definition exists."
+        )
+      MComponent.ComponentServiceDefinition(
+        name = p.name,
+        spiStandard = p.spiStandard,
+        spiDirection = p.spiDirection,
+        spiSocket = p.spiSocket,
+        spiMultiplicity = p.spiMultiplicity,
+        spiRequired = p.spiRequired,
+        spiApiName = p.spiApiName,
+        spiComponentApi = p.spiComponentApi
       )
     }
 

@@ -1,0 +1,76 @@
+# COMPONENT
+
+## Domain
+
+### PACKAGE
+
+domain
+
+### SERVICE
+
+#### Scraping
+
+- spi-direction :: provides
+- spi-socket :: true
+- spi-api-name :: TextusScraper
+
+#### Scrapers
+
+- spi-direction :: requires
+- spi-component-api :: domain.api.TextusScraperApi
+- spi-multiplicity :: "*"
+- spi-required :: true
+
+#### PrimaryScraper
+
+- spi-direction :: requires
+- spi-component-api :: domain.api.TextusScraperApi
+- spi-multiplicity :: "1"
+
+#### OptionalScraper
+
+- spi-direction :: requires
+- spi-component-api :: domain.api.TextusScraperApi
+- spi-multiplicity :: "?"
+
+# VALUE
+
+## ScrapeRequest
+
+### ATTRIBUTE
+
+| name | type   | multiplicity |
+|------+--------+--------------|
+| url  | string | 1            |
+
+## ScrapeResponse
+
+### ATTRIBUTE
+
+| name | type   | multiplicity |
+|------+--------+--------------|
+| body | string | 1            |
+
+# SERVICE
+
+## Scraping
+
+### OPERATION
+
+#### scrape
+
+##### TYPE
+
+QUERY
+
+##### INPUT
+
+###### TYPE
+
+ScrapeRequest
+
+##### OUTPUT
+
+###### TYPE
+
+ScrapeResponse

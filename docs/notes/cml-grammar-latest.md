@@ -964,33 +964,34 @@ Canonical Literate Model form:
 
 Reusable scraping service.
 
-- standard-spi :: cncf.web-content-fetcher
-- direction :: provides
-- socket :: true
-- api-name :: TextusScraper
+- spi-standard :: cncf.web-content-fetcher
+- spi-direction :: provides
+- spi-socket :: true
+- spi-api-name :: TextusScraper
 
 #### AiRunners
 
-- standard-spi :: cncf.ai-runner
-- direction :: requires
-- multiplicity :: *
-- required :: true
+- spi-standard :: cncf.ai-runner
+- spi-direction :: requires
+- spi-multiplicity :: *
+- spi-required :: true
 ```
 
 Properties:
 
 | property | values | meaning |
 |---|---|---|
-| `standard-spi` | CNCF contract id | Existing CNCF standard SPI implemented or required by this service entry. |
-| `direction` | `provides`, `requires` | Port direction. Default is `provides`. |
-| `socket` | `true`, `false` | Generate a component-specific typed API plus both single and set sockets. Default is `false`. |
-| `multiplicity` | `1`, `?`, `*` | Required-side cardinality. Default is `1`. |
-| `required` | `true`, `false` | With `*`, require at least one provider. Default is `false`. |
-| `api-name` | identifier | Optional generated component-specific API name override. |
+| `spi-standard` | CNCF contract id | Existing CNCF standard SPI implemented or required by this service entry. |
+| `spi-direction` | `provides`, `requires` | Port direction. Default is `provides`. |
+| `spi-socket` | `true`, `false` | Generate a component-specific typed API plus both single and set sockets. Default is `false`. |
+| `spi-multiplicity` | `1`, `?`, `*` | Required-side cardinality. Default is `1`. |
+| `spi-required` | `true`, `false` | With `*`, require at least one provider. Default is `false`. |
+| `spi-api-name` | identifier | Optional generated component-specific API name override. |
+| `spi-component-api` | qualified type name | Component-specific API required by a consumer service entry. |
 
 Provider combinations:
 
-| `standard-spi` | `socket` | generated/exposed contract |
+| `spi-standard` | `spi-socket` | generated/exposed contract |
 |---|---:|---|
 | absent | absent or `false` | Ordinary service only. |
 | present | `false` | Standard SPI only. |
@@ -1001,25 +1002,25 @@ Socket cardinality policy:
 
 - Every CNCF standard SPI contract publishes both a single socket and socket
   set.
-- `socket :: true` generates both forms for the component-specific API.
+- `spi-socket :: true` generates both forms for the component-specific API.
 - Providers do not restrict consumers to one form.
-- A required entry with `multiplicity :: 1` uses the required single socket.
-- A required entry with `multiplicity :: ?` uses the optional single socket.
-- A required entry with `multiplicity :: *` uses the socket set.
-- `multiplicity :: *` plus `required :: true` requires a non-empty socket set.
+- A required entry with `spi-multiplicity :: 1` uses the required single socket.
+- A required entry with `spi-multiplicity :: ?` uses the optional single socket.
+- A required entry with `spi-multiplicity :: *` uses the socket set.
+- `spi-multiplicity :: *` plus `spi-required :: true` requires a non-empty socket set.
 
 Validation rules:
 
 1. A `provides` entry must reference a top-level service with the same name,
    unless a future explicit adapter mapping says otherwise.
-2. `standard-spi` must resolve to a CNCF-owned SPI contract.
-3. A provided service claiming `standard-spi` must satisfy the standard
+2. `spi-standard` must resolve to a CNCF-owned SPI contract.
+3. A provided service claiming `spi-standard` must satisfy the standard
    contract or supply an explicit adapter implementation.
-4. `multiplicity` and `required` apply only to `requires` entries.
-5. `api-name` requires `socket :: true`.
-6. `socket :: true` creates a component-owned contract; it does not create or
+4. `spi-multiplicity` and `spi-required` apply only to `requires` entries.
+5. `spi-api-name` requires `spi-socket :: true`.
+6. `spi-socket :: true` creates a component-owned contract; it does not create or
    modify a type under `org.goldenport.cncf.spi`.
-7. A service may both implement `standard-spi` and request its own socket.
+7. A service may both implement `spi-standard` and request its own socket.
 
 The parser normalizes property names case-insensitively according to the normal
 CML metadata rules. Narrative text under each service entry remains descriptive
