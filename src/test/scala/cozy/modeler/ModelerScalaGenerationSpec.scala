@@ -12,10 +12,12 @@ import org.scalatest.wordspec.AnyWordSpec
 import org.goldenport.kaleidox.{Config => KaleidoxConfig, Model => KaleidoxModel}
 import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 import org.simplemodeling.model.MStructuredDataType
+import play.api.libs.json.Json
 
 /*
  * @since   Jun. 23, 2026
- * @version Jul. 11, 2026
+ *  version Jul. 11, 2026
+ * @version Jul. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -163,7 +165,16 @@ class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with GivenWhe
         Files.createDirectories(out.getParent)
 
         When("Cozy generates the Scala component source")
-        cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString))
+        cozy.Cozy.main(Array(
+          "modeler-scala",
+          input.toString,
+          "--save",
+          out.toString,
+          "--component-module",
+          "component-api-contract",
+          "--component-version",
+          "0.1.0-SNAPSHOT"
+        ))
 
         val generated = out.resolve(
           "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
@@ -193,6 +204,32 @@ class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with GivenWhe
         content should include ("protected final def primary_scraper: domain.api.TextusScraperApi")
         content should include ("new domain.api.TextusScraperApi.Socket(\"OptionalScraper\", false)")
         content should include ("protected final def optional_scraper: Option[domain.api.TextusScraperApi]")
+
+        And("the generated descriptor records provided and required API metadata")
+        val descriptor = Json.parse(Files.readString(out.resolve("target/cozy/component-api-descriptor.json")))
+        (descriptor \ "schemaVersion").as[String] shouldBe "cncf.component-api.v1"
+        (descriptor \ "component" \ "name").as[String] shouldBe "component-api-contract"
+        (descriptor \ "component" \ "version").as[String] shouldBe "0.1.0-SNAPSHOT"
+        val provided = (descriptor \ "provided").as[Vector[play.api.libs.json.JsObject]].head
+        (provided \ "contract").as[String] shouldBe "Domain.Scraping"
+        (provided \ "apiClass").as[String] shouldBe "domain.api.TextusScraperApi"
+        (provided \ "version").as[String] shouldBe "0.1.0-SNAPSHOT"
+        (provided \ "artifactPath").as[String] shouldBe "spi/component-api-contract-api.jar"
+        (provided \ "abiHash").as[String] should startWith("sha256:")
+        (provided \ "publicTypes").as[Vector[play.api.libs.json.JsObject]].map(x => (x \ "className").as[String]) should contain allOf (
+          "domain.api.TextusScraperApi",
+          "domain.api.TextusScraperApi$Proxy",
+          "domain.api.TextusScraperApi$Socket",
+          "domain.api.TextusScraperApi$SocketSet",
+          "domain.value.ScrapeRequest",
+          "domain.value.ScrapeResponse"
+        )
+        val required = (descriptor \ "required").as[Vector[play.api.libs.json.JsObject]]
+        required.map(x => ((x \ "service").as[String], (x \ "multiplicity").as[String], (x \ "required").as[Boolean])) should contain allOf (
+          (("Scrapers", "*", true)),
+          (("PrimaryScraper", "1", true)),
+          (("OptionalScraper", "?", false))
+        )
       }
 
       "modeler-scala carries derived entity attributes as schema-visible aliases" in {

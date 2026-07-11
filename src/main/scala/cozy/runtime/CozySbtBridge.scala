@@ -13,7 +13,8 @@ import java.nio.file.{Files, Path, Paths}
 
 /*
  * @since   May. 20, 2026
- * @version Jun. 27, 2026
+ *  version Jun. 27, 2026
+ * @version Jul. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozySbtBridge {
@@ -62,7 +63,7 @@ private[cozy] object CozySbtBridge {
         command match {
           case "modeler-scala" =>
             val cozy = Cozy.build(Array.empty)
-            cozy.executeDirect((command :: rest).toArray)
+            cozy.executeDirect((command :: (rest ++ _component_api_args(settings))).toArray)
           case "car-sbt-project" =>
             val cozy = Cozy.build(Array.empty)
             val config = _generation_config(settings)
@@ -90,6 +91,17 @@ private[cozy] object CozySbtBridge {
       "--cncf-collaborator-api-version", versions.cncfCollaboratorApiVersion
     )
   }
+
+  private def _component_api_args(settings: Map[String, String]): List[String] =
+    Vector(
+      "component.module" -> "--component-module",
+      "component.version" -> "--component-version"
+    ).flatMap { case (key, option) =>
+      settings.get(key).map(value => Vector(option, value)).getOrElse(Vector.empty)
+    }.toList
+
+  private[cozy] def componentApiArgsForTest(settings: Map[String, String]): List[String] =
+    _component_api_args(settings)
 
   private[cozy] def versionArgsForTest(settings: Map[String, String], projectdir: Path): List[String] =
     _version_args(_generation_config(settings + (_sbt_project_dir_setting -> projectdir.toString)))

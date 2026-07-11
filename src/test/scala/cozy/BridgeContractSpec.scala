@@ -11,7 +11,8 @@ import org.scalatest.wordspec.AnyWordSpec
 /*
  * @since   Apr. 23, 2026
  *  version May. 20, 2026
- * @version Jun. 27, 2026
+ *  version Jun. 27, 2026
+ * @version Jul. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 final class BridgeContractSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -132,6 +133,23 @@ final class BridgeContractSpec extends AnyWordSpec with Matchers with GivenWhenT
         args should contain allElementsOf List("--simplemodeling-model-version", "0.1.7")
         args should contain allElementsOf List("--cncf-collaborator-api-version", "0.1.0")
       }
+    }
+
+    "forward component module and version settings to model generation" in {
+      Given("an sbt bridge generation request with build identity settings")
+      val settings = Map(
+        "component.module" -> "textus-scraper",
+        "component.version" -> "0.1.0-SNAPSHOT"
+      )
+
+      When("the bridge converts the settings to modeler arguments")
+      val args = CozySbtBridge.componentApiArgsForTest(settings)
+
+      Then("the modeler receives both component identity values")
+      args shouldBe List(
+        "--component-module", "textus-scraper",
+        "--component-version", "0.1.0-SNAPSHOT"
+      )
     }
 
     "dispatch publish-car through the bridge runtime" in {

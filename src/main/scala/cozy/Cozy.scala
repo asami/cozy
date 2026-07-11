@@ -28,7 +28,7 @@ import scala.util.control.NonFatal
  *  version Apr. 29, 2026
  *  version May. 21, 2026
  *  version Jun. 30, 2026
- * @version Jul.  8, 2026
+ * @version Jul. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 class Cozy(
@@ -253,6 +253,7 @@ class Cozy(
         val repl = (Vector(command) ++ _convert_args(normalized)).mkString(" ")
         interpreter.execute(_operation_call(Array(repl)))
         _write_model_metadata(normalized)
+        _write_component_api_descriptor(normalized)
         true
       case _ =>
         false
@@ -275,6 +276,32 @@ class Cozy(
         "cml"
       )
     }
+  }
+
+  private def _write_component_api_descriptor(args: List[String]): Unit =
+    _save_path(args).foreach { savedir =>
+      val modelpath = savedir.resolve("target/cozy/component-api-model.json")
+      if (Files.isRegularFile(modelpath)) {
+        val module = _option_value(args, "component-module")
+          .getOrElse(RAISE.invalidArgumentFault("Component API generation requires --component-module"))
+        val version = _option_value(args, "component-version")
+          .getOrElse(RAISE.invalidArgumentFault("Component API generation requires --component-version"))
+        cozy.modeler.ComponentApiDescriptor.write(
+          modelpath,
+          savedir.resolve("target/cozy/component-api-descriptor.json"),
+          module,
+          version
+        )
+      }
+    }
+
+  private def _option_value(args: List[String], name: String): Option[String] = {
+    val option = s"--$name"
+    val prefix = s"$option="
+    args.zipWithIndex.collectFirst {
+      case (value, _) if value.startsWith(prefix) => value.drop(prefix.length)
+      case (value, index) if value == option && index + 1 < args.length => args(index + 1)
+    }.map(_.trim).filter(_.nonEmpty)
   }
 
   private def _execute_init(args: Array[String]): Boolean =

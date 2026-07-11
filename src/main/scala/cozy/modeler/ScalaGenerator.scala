@@ -5,12 +5,15 @@ import org.simplemodeling.SimpleModeler.Config
 import org.simplemodeling.SimpleModeler.Context
 import org.simplemodeling.SimpleModeler.transformer.maker.PContext
 import org.simplemodeling.SimpleModeler.transformers.Scala3RealmTransformer
+import org.simplemodeling.SimpleModeler.generator.componentapi.ComponentApiContractMetadata
 import org.goldenport.sexpr._
 import org.goldenport.cli.Environment
+import org.goldenport.realm.Realm
 
 /*
  * @since   May.  5, 2025
- * @version May.  5, 2025
+ *  version May.  5, 2025
+ * @version Jul. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 class ScalaGenerator(
@@ -26,6 +29,16 @@ class ScalaGenerator(
 
   def generate(p: MPackage): STree = {
     val r = _transformer.transform(model)
-    STree(r.realm)
+    val metadata = ComponentApiContractMetadata.generate(model) match {
+      case Right(document) => document
+      case Left(message) => org.goldenport.RAISE.invalidArgumentFault(message)
+    }
+    if (metadata.isEmpty)
+      STree(r.realm)
+    else {
+      val builder = Realm.Builder()
+      builder.set("target/cozy/component-api-model.json", metadata.toCanonicalJson)
+      STree(r.realm + builder.build())
+    }
   }
 }
