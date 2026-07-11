@@ -177,8 +177,9 @@ class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with GivenWhe
         api should include ("trait TextusScraperApi")
         api should include ("request: domain.value.ScrapeRequest")
         api should include ("Consequence[domain.value.ScrapeResponse]")
+        api should include ("def scrape(request: domain.value.ScrapeRequest)")
         api should include ("extends SpiBoundProvider[TextusScraperApi]")
-        api should include ("binding.invoke(SpiOperationSelector(\"scrape\", Some(\"Scraping\"))")
+        api should include ("binding.invoke(SpiOperationSelector(\"Scrape\", Some(\"Scraping\"))")
 
         And("the same contract supplies single and set sockets to consuming components")
         api should include ("final class Socket(")
