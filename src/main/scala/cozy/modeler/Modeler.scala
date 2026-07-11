@@ -2929,20 +2929,41 @@ object Modeler {
           childEntityBindings = operationRelationshipBindings.get(x.name).map(_.childEntityBindings).getOrElse(Vector.empty),
           associationBinding = operationRelationshipBindings.get(x.name).flatMap(_.associationBinding),
           parameters = x.parameters.map { p =>
-            MComponent.OperationField(
-              name = p.name,
-              datatype = p.datatype,
-              multiplicity = p.multiplicity,
-              label = p.label.orElse(Some(_humanize_field_name(p.name))),
-              controlType = p.controlType.orElse(_operation_control_type(p.name, p.datatype)),
-              placeholder = p.placeholder,
-              help = p.help,
-              required = p.required,
-              confidentiality = p.confidentiality
-            )
-          }
+            _operation_field(p)
+          },
+          resultFields = _value_input_field_map.get(x.outputType).getOrElse(Vector.empty).map(_result_operation_field)
         )
       }
+
+    private def _operation_field(
+      p: OperationModel.FieldDefinition
+    ): MComponent.OperationField =
+      MComponent.OperationField(
+        name = p.name,
+        datatype = p.datatype,
+        multiplicity = p.multiplicity,
+        label = p.label.orElse(Some(_humanize_field_name(p.name))),
+        controlType = p.controlType.orElse(_operation_control_type(p.name, p.datatype)),
+        placeholder = p.placeholder,
+        help = p.help,
+        required = p.required,
+        confidentiality = p.confidentiality
+      )
+
+    private def _result_operation_field(
+      p: OperationModel.FieldDefinition
+    ): MComponent.OperationField =
+      MComponent.OperationField(
+        name = p.name,
+        datatype = p.datatype,
+        multiplicity = p.multiplicity,
+        label = p.label,
+        controlType = p.controlType,
+        placeholder = p.placeholder,
+        help = p.help,
+        required = p.required,
+        confidentiality = p.confidentiality
+      )
 
     private def _entity_operation_definitions(
       entities: Vector[MEntity]

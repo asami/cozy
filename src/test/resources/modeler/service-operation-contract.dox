@@ -28,9 +28,9 @@ OperationResult
 
 ### ATTRIBUTE
 
-| name    | type   | multiplicity |
-|---------+--------+--------------|
-| message | string | 1            |
+| name    | type   | multiplicity | confidentiality |
+|---------+--------+--------------+-----------------|
+| message | string | 1            | internal        |
 
 # SERVICE
 

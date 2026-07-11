@@ -672,6 +672,7 @@ class ModelerServiceOperationSpec extends AnyWordSpec with Matchers with GivenWh
         content should include ("""outputDescription = Some("Structured result returned by greeting.")""")
         content should include ("""inputValueKind = "QUERY_VALUE"""")
         content should include ("""parameters = Vector(org.goldenport.cncf.operation.CmlOperationField(name = "name", datatype = "name", multiplicity = "1", label = Some("Name"))""")
+        content should include ("""resultFields = Vector(org.goldenport.cncf.operation.CmlOperationField(name = "message", datatype = "string", multiplicity = "1", confidentiality = Some("internal"))""")
         content should include ("""Precondition: The caller provides a resolvable greeting target.""")
         content should include ("""Postcondition: A greeting result is returned without mutating state.""")
         content should include ("""Rules:""")
