@@ -3234,7 +3234,7 @@ private[cozy] object CozyBok {
       val cmlbody = _project_model_terms_html(config, locale, project, page, target)
       val surfacebody = _project_component_surface_html(locale, project)
       val dashboardbody = _project_detail_dashboard(config, locale, project)
-      val repositorybody = _project_repository_car_html(config, locale, project)
+      val repositorybody = _project_repository_car_html(config, locale, project, page, target)
       val narrativebody = _project_narrative_html(locale, articlebody)
       val pagebody =
         s"""${dashboardbody}
@@ -3419,6 +3419,9 @@ private[cozy] object CozyBok {
     versions: Vector[RepositoryCarVersion]
   ) {
     def title: String = artifactid
+    def publicPath: String = s"repository/car/${artifactid}/index.html"
+    def versionPublicPath(version: RepositoryCarVersion): String =
+      s"repository/car/${artifactid}/${version.version}.html"
     def effectiveVersion: Option[String] =
       recommended.orElse(lateststable).orElse(latestsnapshot).orElse(versions.headOption.map(_.version))
     def toJson: Json =
@@ -3432,6 +3435,7 @@ private[cozy] object CozyBok {
         "source_path" -> Json.fromString(sourcepath),
         "versions" -> versions.map(_.toJson).asJson
       )
+    def toJsonString: String = toJson.spaces2 + "\n"
   }
 
   private final case class RepositoryCarVersion(
@@ -3465,11 +3469,19 @@ private[cozy] object CozyBok {
       )
   }
 
-  private def _write_repository_car_metadata(config: BuildConfig): Unit =
+  private def _write_repository_car_metadata(config: BuildConfig): Unit = {
+    val index = _repository_car_index(config)
     _write_text(
       config.doxsitePath.resolve("metadata/repository/car/index.json"),
-      _repository_car_index(config).toJsonString
+      index.toJsonString
     )
+    index.entries.foreach { entry =>
+      _write_text(
+        config.doxsitePath.resolve("metadata/repository/car").resolve(s"${entry.artifactid}.json"),
+        entry.toJsonString
+      )
+    }
+  }
 
   private def _write_repository_car_page(
     config: BuildConfig,
@@ -3477,6 +3489,8 @@ private[cozy] object CozyBok {
     locale: String,
     categories: Vector[CategoryContent]
   ): Unit = {
+    val index = _repository_car_index(config)
+    val projects = _resolved_project_packages(config)
     val page = target.resolve("repository").resolve("car").resolve("index.html")
     _write_text(
       page,
@@ -3487,9 +3501,39 @@ private[cozy] object CozyBok {
         page,
         _repository_car_title(locale),
         _repository_car_description(locale),
-        _repository_car_dashboard_body(config, locale, page)
+        _repository_car_dashboard_body(config, locale, page, target, index)
       )
     )
+    index.entries.foreach { entry =>
+      val modulepage = target.resolve(entry.publicPath)
+      _write_text(
+        modulepage,
+        _special_html_page(
+          config,
+          categories,
+          locale,
+          modulepage,
+          entry.artifactid,
+          _repository_car_module_description(locale, entry),
+          _repository_car_module_body(target, modulepage, locale, entry, projects)
+        )
+      )
+      entry.versions.foreach { version =>
+        val versionpage = target.resolve(entry.versionPublicPath(version))
+        _write_text(
+          versionpage,
+          _special_html_page(
+            config,
+            categories,
+            locale,
+            versionpage,
+            s"${entry.artifactid} ${version.version}",
+            _repository_car_version_description(locale, entry, version),
+            _repository_car_version_body(target, versionpage, locale, entry, version, projects)
+          )
+        )
+      }
+    }
   }
 
   private def _repository_car_index(config: BuildConfig): RepositoryCarIndex = {
@@ -3637,8 +3681,13 @@ private[cozy] object CozyBok {
       checksumsha256 = version.checksumSha256
     )
 
-  private def _repository_car_dashboard_body(config: BuildConfig, locale: String, page: Path): String = {
-    val index = _repository_car_index(config)
+  private def _repository_car_dashboard_body(
+    config: BuildConfig,
+    locale: String,
+    page: Path,
+    target: Path,
+    index: RepositoryCarIndex
+  ): String = {
     val rows =
       if (index.entries.isEmpty)
         s"""<p class="bok-card-muted">${_html_escape(_repository_car_empty(locale))}</p>"""
@@ -3648,8 +3697,9 @@ private[cozy] object CozyBok {
           val versions = entry.versions.size.toString
           val source = entry.sourcepath
           val aliases = if (entry.aliases.isEmpty) "-" else entry.aliases.mkString(", ")
+          val href = _relative_href(page, target.resolve(entry.publicPath))
           s"""<tr>
-             |  <td><code>${_html_escape(entry.artifactid)}</code></td>
+             |  <td><a href="${_html_escape(href)}"><code>${_html_escape(entry.artifactid)}</code></a></td>
              |  <td>${_html_escape(version)}</td>
              |  <td>${_html_escape(versions)}</td>
              |  <td>${_html_escape(aliases)}</td>
@@ -3685,14 +3735,18 @@ private[cozy] object CozyBok {
   private def _project_repository_car_html(
     config: BuildConfig,
     locale: String,
-    project: CozyBokProjectPublisher.ResolvedBokProject
+    project: CozyBokProjectPublisher.ResolvedBokProject,
+    page: Path,
+    target: Path
   ): String =
     project.catalog.map { info =>
       val versions = info.catalog.versions.map { version =>
         val current = info.selectedversion.exists(_.version == version.version)
         val file = version.file.getOrElse("")
+        val versionpage = target.resolve("repository").resolve("car").resolve(info.catalog.artifactId).resolve(s"${version.version}.html")
+        val versionhref = _relative_href(page, versionpage)
         s"""<tr>
-           |  <td>${if (current) s"""<strong>${_html_escape(version.version)}</strong>""" else _html_escape(version.version)}</td>
+           |  <td><a href="${_html_escape(versionhref)}">${if (current) s"""<strong>${_html_escape(version.version)}</strong>""" else _html_escape(version.version)}</a></td>
            |  <td>${_html_escape(version.channel.getOrElse("-"))}</td>
            |  <td>${_html_escape(version.status.getOrElse("active"))}</td>
            |  <td><code>${_html_escape(file)}</code></td>
@@ -3715,6 +3769,120 @@ private[cozy] object CozyBok {
          |</section>""".stripMargin
     }.getOrElse("")
 
+  private def _repository_car_module_body(
+    target: Path,
+    page: Path,
+    locale: String,
+    entry: RepositoryCarEntry,
+    projects: Vector[CozyBokProjectPublisher.ResolvedBokProject]
+  ): String = {
+    val relatedprojects = _repository_car_related_projects(entry, projects)
+    val versionrows = entry.versions.map { version =>
+      val href = _relative_href(page, target.resolve(entry.versionPublicPath(version)))
+      val selected = entry.effectiveVersion.contains(version.version)
+      s"""<tr>
+         |  <td><a href="${_html_escape(href)}">${if (selected) s"""<strong>${_html_escape(version.version)}</strong>""" else _html_escape(version.version)}</a></td>
+         |  <td>${_html_escape(version.channel.getOrElse("-"))}</td>
+         |  <td>${_html_escape(version.status.getOrElse("active"))}</td>
+         |  <td><code>${_html_escape(version.file.getOrElse("-"))}</code></td>
+         |</tr>""".stripMargin
+    }.mkString("\n")
+    s"""<section class="bok-project-section bok-repository-car-detail" id="repository-car-detail">
+       |  ${_repository_car_properties_table(locale, Vector(
+              _repository_car_catalog_label(locale) -> s"<code>${_html_escape(entry.sourcepath)}</code>",
+              _repository_car_latest_label(locale) -> _html_escape(entry.effectiveVersion.getOrElse("-")),
+              _repository_car_status_label(locale) -> _html_escape(entry.status.getOrElse("active")),
+              _repository_car_aliases_label(locale) -> _html_escape(if (entry.aliases.isEmpty) "-" else entry.aliases.mkString(", "))
+            ))}
+       |  <h2>${_html_escape(_repository_car_versions_label(locale))}</h2>
+       |  <div class="bok-project-table-wrap">
+       |    <table class="table table-sm bok-project-cml-table">
+       |      <thead><tr><th>${_html_escape(_repository_car_version_label(locale))}</th><th>${_html_escape(_repository_car_channel_label(locale))}</th><th>${_html_escape(_repository_car_status_label(locale))}</th><th>${_html_escape(_repository_car_file_label(locale))}</th></tr></thead>
+       |      <tbody>
+       |${versionrows}
+       |      </tbody>
+       |    </table>
+       |  </div>
+       |  ${_repository_car_related_projects_html(target, page, locale, relatedprojects)}
+       |</section>""".stripMargin
+  }
+
+  private def _repository_car_version_body(
+    target: Path,
+    page: Path,
+    locale: String,
+    entry: RepositoryCarEntry,
+    version: RepositoryCarVersion,
+    projects: Vector[CozyBokProjectPublisher.ResolvedBokProject]
+  ): String = {
+    val relatedprojects = _repository_car_related_projects(entry, projects)
+    val runtime =
+      Vector(
+        version.runtimecncfminimum.map(x => "minimum" -> x),
+        version.runtimecncfmaximum.map(x => "maximum" -> x),
+        if (version.runtimecncftested.isEmpty) None else Some("tested" -> version.runtimecncftested.mkString(", "))
+      ).flatten.map { case (label, value) =>
+        s"${_html_escape(label)}: ${_html_escape(value)}"
+      }.mkString("<br>")
+    s"""<section class="bok-project-section bok-repository-car-version" id="repository-car-version">
+       |  ${_repository_car_properties_table(locale, Vector(
+              _repository_car_catalog_label(locale) -> s"<code>${_html_escape(entry.sourcepath)}</code>",
+              _repository_car_version_label(locale) -> _html_escape(version.version),
+              _repository_car_channel_label(locale) -> _html_escape(version.channel.getOrElse("-")),
+              _repository_car_status_label(locale) -> _html_escape(version.status.getOrElse("active")),
+              _repository_car_component_label(locale) -> _html_escape(version.component.getOrElse("-")),
+              _repository_car_published_at_label(locale) -> _html_escape(version.publishedat.getOrElse("-")),
+              _repository_car_file_label(locale) -> s"<code>${_html_escape(version.file.getOrElse("-"))}</code>",
+              _repository_car_runtime_label(locale) -> (if (runtime.isEmpty) "-" else runtime),
+              _repository_car_checksum_label(locale) -> _html_escape(version.checksumsha256.getOrElse("-"))
+            ))}
+       |  ${_repository_car_related_projects_html(target, page, locale, relatedprojects)}
+       |</section>""".stripMargin
+  }
+
+  private def _repository_car_properties_table(locale: String, rows: Vector[(String, String)]): String = {
+    val body = rows.map { case (label, value) =>
+      s"""<tr><th>${_html_escape(label)}</th><td>${value}</td></tr>"""
+    }.mkString("\n")
+    s"""<div class="bok-project-table-wrap">
+       |  <table class="table table-sm bok-project-cml-table">
+       |    <tbody>
+       |${body}
+       |    </tbody>
+       |  </table>
+       |</div>""".stripMargin
+  }
+
+  private def _repository_car_related_projects_html(
+    target: Path,
+    page: Path,
+    locale: String,
+    projects: Vector[CozyBokProjectPublisher.ResolvedBokProject]
+  ): String =
+    if (projects.isEmpty)
+      s"""<p class="bok-card-muted">${_html_escape(_repository_car_no_related_project(locale))}</p>"""
+    else {
+      val items = projects.map { project =>
+        val href = _relative_href(page, target.resolve(project.publicationpath).resolve("index.html"))
+        s"""<li><a href="${_html_escape(href)}">${_html_escape(project.title)}</a></li>"""
+      }.mkString("\n")
+      s"""<section class="bok-project-section bok-repository-car-projects" id="repository-car-projects">
+         |  <h2>${_html_escape(_repository_car_related_project_label(locale))}</h2>
+         |  <ul>
+         |${items}
+         |  </ul>
+         |</section>""".stripMargin
+    }
+
+  private def _repository_car_related_projects(
+    entry: RepositoryCarEntry,
+    projects: Vector[CozyBokProjectPublisher.ResolvedBokProject]
+  ): Vector[CozyBokProjectPublisher.ResolvedBokProject] =
+    projects.filter { project =>
+      project.module == entry.artifactid ||
+        project.catalog.exists(_.catalog.artifactId == entry.artifactid)
+    }.sortBy(_.publicationpath)
+
   private def _repository_car_title(locale: String): String =
     locale match {
       case "ja" => "CARリポジトリ"
@@ -3731,6 +3899,18 @@ private[cozy] object CozyBok {
     locale match {
       case "ja" => "このProjectに対応するrepository CAR catalogと公開versionです。"
       case _ => "Repository CAR catalog versions associated with this Project."
+    }
+
+  private def _repository_car_module_description(locale: String, entry: RepositoryCarEntry): String =
+    locale match {
+      case "ja" => s"${entry.artifactid} のCAR catalogと公開versionです。"
+      case _ => s"CAR catalog and published versions for ${entry.artifactid}."
+    }
+
+  private def _repository_car_version_description(locale: String, entry: RepositoryCarEntry, version: RepositoryCarVersion): String =
+    locale match {
+      case "ja" => s"${entry.artifactid} ${version.version} の公開CAR version情報です。"
+      case _ => s"Published CAR version information for ${entry.artifactid} ${version.version}."
     }
 
   private def _repository_car_empty(locale: String): String =
@@ -3785,6 +3965,42 @@ private[cozy] object CozyBok {
     locale match {
       case "ja" => "カタログ"
       case _ => "Catalog"
+    }
+
+  private def _repository_car_component_label(locale: String): String =
+    locale match {
+      case "ja" => "Component"
+      case _ => "Component"
+    }
+
+  private def _repository_car_published_at_label(locale: String): String =
+    locale match {
+      case "ja" => "公開日時"
+      case _ => "Published at"
+    }
+
+  private def _repository_car_runtime_label(locale: String): String =
+    locale match {
+      case "ja" => "Runtime"
+      case _ => "Runtime"
+    }
+
+  private def _repository_car_checksum_label(locale: String): String =
+    locale match {
+      case "ja" => "Checksum"
+      case _ => "Checksum"
+    }
+
+  private def _repository_car_related_project_label(locale: String): String =
+    locale match {
+      case "ja" => "関連Project"
+      case _ => "Related Projects"
+    }
+
+  private def _repository_car_no_related_project(locale: String): String =
+    locale match {
+      case "ja" => "関連Projectはまだありません。"
+      case _ => "No related Project is available."
     }
 
   private def _project_relative_path(project: Path, path: Path): String =
@@ -4295,7 +4511,7 @@ private[cozy] object CozyBok {
     _copy_if_exists(config.doxsitePath.resolve("metadata/bibliography/bibliography.json"), target.resolve("metadata/bibliography/bibliography.json"))
     _copy_if_exists(config.doxsitePath.resolve("metadata/scenarios/scenarios.json"), target.resolve("metadata/scenarios/scenarios.json"))
     _copy_if_exists(config.doxsitePath.resolve("metadata/tags/tags.json"), target.resolve("metadata/tags/tags.json"))
-    _copy_if_exists(config.doxsitePath.resolve("metadata/repository/car/index.json"), target.resolve("metadata/repository/car/index.json"))
+    _copy_directory(config.doxsitePath.resolve("metadata/repository/car"), target.resolve("metadata/repository/car"))
   }
 
   private def _copy_if_exists(source: Path, target: Path): Unit =

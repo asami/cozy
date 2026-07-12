@@ -1565,6 +1565,12 @@ class CozyBokProjectSpec
           _read(
             dir.resolve("website.d/metadata/repository/car/index.json")
           ) should include(""""artifact_id" : "nict-knowledgehub"""")
+          _read(
+            dir.resolve("doxsite.d/metadata/repository/car/nict-knowledgehub.json")
+          ) should include(""""artifact_id" : "nict-knowledgehub"""")
+          _read(
+            dir.resolve("website.d/metadata/repository/car/nict-knowledgehub.json")
+          ) should include(""""source_path" : "repository/catalog/car/nict-knowledgehub.yaml"""")
 
           And("repository CAR catalog entries have a dedicated index page")
           val index = _read(dir.resolve("website.d/repository/car/index.html"))
@@ -1573,6 +1579,21 @@ class CozyBokProjectSpec
           index should include("textus-sie")
           index should include("nict-kh")
           index should include("repository/catalog/car/nict-knowledgehub.yaml")
+          index should include("nict-knowledgehub/index.html")
+
+          And("repository CAR module and version pages link back to the Project")
+          val modulepage = _read(dir.resolve("website.d/repository/car/nict-knowledgehub/index.html"))
+          modulepage should include("repository/catalog/car/nict-knowledgehub.yaml")
+          modulepage should include("0.2.0.html")
+          modulepage should include("0.3.0-SNAPSHOT.html")
+          modulepage should include("関連Project")
+          modulepage should include("NICT KnowledgeHub")
+          val versionpage = _read(dir.resolve("website.d/repository/car/nict-knowledgehub/0.2.0.html"))
+          versionpage should include("NictKnowledgeHub")
+          versionpage should include("2026-07-13T00:00:00Z")
+          versionpage should include("minimum: 0.5.0")
+          versionpage should include("repository/car/nict-knowledgehub/0.2.0/nict-knowledgehub-0.2.0.car")
+          versionpage should include("NICT KnowledgeHub")
 
           And("project detail page exposes the associated repository CAR versions")
           val page = _read(
@@ -1583,6 +1604,7 @@ class CozyBokProjectSpec
           page should include("CARリポジトリ")
           page should include("repository/car/nict-knowledgehub/0.2.0/nict-knowledgehub-0.2.0.car")
           page should include("repository/catalog/car/nict-knowledgehub.yaml")
+          page should include("repository/car/nict-knowledgehub/0.2.0.html")
         }
       }
 
