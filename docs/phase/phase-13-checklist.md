@@ -141,29 +141,29 @@ Status: TODO
 
 ## BK13-11: Component Repository CAR Knowledge
 
-Status: TODO
+Status: IN PROGRESS
 
-- [ ] Define Project as the BoK knowledge item for program development and CAR
+- [x] Define Project as the BoK knowledge item for program development and CAR
       provider responsibility.
-- [ ] Define repository CAR knowledge as published CAR artifact knowledge
+- [x] Define repository CAR knowledge as published CAR artifact knowledge
       sourced from repository catalog metadata.
-- [ ] Keep `src/main/doxsite/projects/<category>/<slug>/project.yaml|yml|json`
+- [x] Keep `src/main/doxsite/projects/<category>/<slug>/project.yaml|yml|json`
       as the Project knowledge source of truth.
-- [ ] Read CAR catalog metadata from `repository/catalog/car/*.yaml|json` in
+- [x] Read CAR catalog metadata from `repository/catalog/car/*.yaml|json` in
       BoK repository-root operation.
 - [ ] Read CAR catalog metadata from
       `<warehouse>/repository/catalog/car/*.yaml|json` in warehouse operation.
-- [ ] Preserve repository catalog metadata as the artifact source of truth;
+- [x] Preserve repository catalog metadata as the artifact source of truth;
       do not scan CAR artifact directories as source.
-- [ ] Generate `metadata/repository/car/index.json`.
-- [ ] Generate `metadata/repository/car/<module>.json`.
-- [ ] Generate `repository/car/index.html`.
-- [ ] Generate `repository/car/<module>/index.html`.
-- [ ] Generate `repository/car/<module>/<version>.html`.
-- [ ] Link Project pages to related published CAR versions.
-- [ ] Link CAR pages back to related Project pages when `project_ref` or
+- [x] Generate `metadata/repository/car/index.json`.
+- [x] Generate `metadata/repository/car/<module>.json`.
+- [x] Generate `repository/car/index.html`.
+- [x] Generate `repository/car/<module>/index.html`.
+- [x] Generate `repository/car/<module>/<version>.html`.
+- [x] Link Project pages to related published CAR versions.
+- [x] Link CAR pages back to related Project pages when `project_ref` or
       descriptor metadata can resolve the relationship.
-- [ ] Show CAR catalog path, artifact path, version, latest/recommended status,
+- [x] Show CAR catalog path, artifact path, version, latest/recommended status,
       checksum, and publication status where metadata exists.
 - [ ] Show component descriptor metadata when available.
 - [ ] Show ABI manifest metadata when available.
@@ -171,19 +171,19 @@ Status: TODO
 - [ ] Show model metadata sidecar links when available.
 - [ ] Inherit or merge tags and terms from Project metadata into related CAR
       entries without replacing explicit CAR metadata.
-- [ ] Add tag resource page links to related CAR entries.
+- [x] Add tag resource page links to related CAR entries.
 - [ ] Add Term Hub / RDF navigation hooks for CAR-related terms where metadata
       exists.
 - [ ] Diagnose catalog entries without Project links as unlinked published CARs.
 - [ ] Diagnose Project CAR references without catalog entries as unpublished or
       unresolved CAR artifacts.
-- [ ] Keep CAR build and `publish-car` out of `bok build`; BoK build only
+- [x] Keep CAR build and `publish-car` out of `bok build`; BoK build only
       consumes existing repository metadata.
 - [ ] Add `CozyBokRepositoryCarSpec`.
-- [ ] Extend `CozyBokProjectSpec` for Project-to-CAR page links.
+- [x] Extend `CozyBokProjectSpec` for Project-to-CAR page links.
 - [ ] Extend `CozyBokTagSpec` for tag pages that include CAR resources.
 - [ ] Verify with KnowledgeHub using at least one repository CAR catalog entry.
-- [ ] Record that Phase 14 SIE CAR/SAR catalog integration builds on this
+- [x] Record that Phase 14 SIE CAR/SAR catalog integration builds on this
       generic CAR knowledge layer rather than replacing it.
 
 ## BK13-12: Phase Closure

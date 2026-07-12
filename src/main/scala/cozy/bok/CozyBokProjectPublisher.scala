@@ -16,7 +16,7 @@ import scala.collection.JavaConverters._
 /*
  * @since   Jun. 23, 2026
  *  version Jun. 24, 2026
- * @version Jul.  1, 2026
+ * @version Jul. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyBokProjectPublisher {
@@ -42,6 +42,8 @@ private[cozy] object CozyBokProjectPublisher {
     title: Option[String],
     version: Option[String],
     summary: Option[String],
+    terms: Vector[String],
+    tags: Vector[String],
     article: Option[String],
     publication: Option[PublicationSection]
   )
@@ -54,9 +56,11 @@ private[cozy] object CozyBokProjectPublisher {
         title <- c.downField("title").as[Option[String]]
         version <- c.downField("version").as[Option[String]]
         summary <- c.downField("summary").as[Option[String]]
+        terms <- c.downField("terms").as[Option[Vector[String]]]
+        tags <- c.downField("tags").as[Option[Vector[String]]]
         article <- c.downField("article").as[Option[String]]
         publication <- c.downField("publication").as[Option[PublicationSection]]
-      } yield ProjectDescriptor(project, car, cml, title, version, summary, article, publication)
+      } yield ProjectDescriptor(project, car, cml, title, version, summary, terms.getOrElse(Vector.empty), tags.getOrElse(Vector.empty), article, publication)
   }
 
   final case class ProjectSection(
@@ -120,6 +124,8 @@ private[cozy] object CozyBokProjectPublisher {
     reference: ProjectReference,
     module: String,
     versionsource: String,
+    terms: Vector[String],
+    tags: Vector[String],
     catalog: Option[ProjectCatalogInfo],
     cml: Option[ProjectCmlInfo]
   ) {
@@ -276,6 +282,8 @@ private[cozy] object CozyBokProjectPublisher {
       reference,
       module,
       versionsource,
+      descriptor.terms.map(_.trim).filter(_.nonEmpty).distinct,
+      descriptor.tags.map(_.trim).filter(_.nonEmpty).distinct,
       cataloginfo,
       cml
     )
@@ -327,6 +335,8 @@ private[cozy] object CozyBokProjectPublisher {
         "title" -> project.title,
         "version" -> project.version,
         "summary" -> Json.toJson(project.summary.getOrElse("")),
+        "terms" -> Json.toJson(project.terms),
+        "tags" -> Json.toJson(project.tags),
         "articlePath" -> project.articlepath,
         "publicationPath" -> project.publicationpath,
         "sourcePackage" -> _project_relative_path(config.bokprojectdir, project.packagedir),

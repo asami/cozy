@@ -114,6 +114,12 @@ Out of scope:
   while repository CAR knowledge represents published CAR artifact versions
   from `repository/catalog/car`. Cozy should connect the two through metadata
   and pages without building, publishing, or ad hoc scanning CAR artifacts.
+- 2026-07-13: Implemented the first BK13-11 repository CAR knowledge slices.
+  Cozy now materializes repository CAR index/module metadata, renders CAR
+  index/module/version pages, links Project and published CAR knowledge in both
+  directions, and includes Project-derived tag navigation for related CARs.
+  Warehouse catalog discovery, sidecar detail, diagnostics, Term/RDF hooks, and
+  KnowledgeHub operational verification remain open.
 
 ## References
 

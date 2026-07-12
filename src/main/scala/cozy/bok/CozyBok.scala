@@ -3252,6 +3252,8 @@ private[cozy] object CozyBok {
           target,
           project.title,
           project.summary.getOrElse("CAR project."),
+          project.tags,
+          Some(_project_category(config, project)),
           pagebody
         )
       )
@@ -6881,6 +6883,7 @@ private[cozy] object CozyBok {
   }
 
   private def _usage_derived_tag_index(config: BuildConfig, locale: String): TagIndex = {
+    val projects = _safe_resolved_project_packages(config)
     val documentrefs = _document_fragment_index(config).toVector.flatMap(_.fragments).filter(_.locale == locale).flatMap { fragment =>
       val title = fragment.effectiveHeadline.orElse(fragment.effectiveBrief).getOrElse(fragment.publicpath)
       _tag_refs(fragment.tags, TagReference(fragment.kind.getOrElse("article"), title, fragment.publicpath, fragment.category))
@@ -6894,7 +6897,17 @@ private[cozy] object CozyBok {
     val bibliographyrefs = _bibliography_index(config).toVector.flatMap(_.entries).flatMap { entry =>
       _tag_refs(entry.tags, TagReference("bibliography", entry.title, entry.publicpath, entry.category))
     }
-    val entries = (documentrefs ++ termrefs ++ scenariorefs ++ bibliographyrefs).
+    val projectrefs = projects.flatMap { project =>
+      val category = Some(_project_category(config, project))
+      _tag_refs(project.tags, TagReference("project", project.title, s"${project.publicationpath}/index.html", category))
+    }
+    val repositorycarrefs = _repository_car_index(config).entries.flatMap { entry =>
+      _repository_car_related_projects(entry, projects).flatMap { project =>
+        val category = Some(_project_category(config, project))
+        _tag_refs(project.tags, TagReference("repository-car", entry.title, entry.publicPath, category))
+      }
+    }
+    val entries = (documentrefs ++ termrefs ++ scenariorefs ++ bibliographyrefs ++ projectrefs ++ repositorycarrefs).
       groupBy(_._1).
       toVector.
       map { case (key, refs) =>
@@ -7248,6 +7261,8 @@ private[cozy] object CozyBok {
       case "term" => _ui(locale, "dashboard.kpi.terms")
       case "scenario" => _ui(locale, "scenario.title")
       case "bibliography" => _ui(locale, "bibliography.title")
+      case "project" => _ui(locale, "project.title")
+      case "repository-car" => _repository_car_title(locale)
       case "article" | "document" => _ui(locale, "dashboard.kpi.articles")
       case other => other
     }
@@ -8208,11 +8223,14 @@ private[cozy] object CozyBok {
     target: Path,
     title: String,
     description: String,
+    tags: Vector[String],
+    category: Option[String],
     body: String
   ): String = {
     val homehref = _relative_href(page, target.resolve("index.html"))
     val projectshref = _relative_href(page, target.resolve("projects").resolve("index.html"))
     val rootprefix = homehref.stripSuffix("index.html")
+    val tagchips = _tag_chips(config, page, tags, category, locale)
     s"""<!doctype html>
        |<html lang="${_html_escape(locale)}">
        |<head>
@@ -8235,6 +8253,7 @@ private[cozy] object CozyBok {
        |    <p class="bok-dashboard-eyebrow">${_html_escape(_ui(locale, "project.page.eyebrow"))}</p>
        |    <h1>${_html_escape(title)}</h1>
        |    <p>${_html_escape(description)}</p>
+       |    ${tagchips}
        |  </header>
        |  ${body}
        |</main>

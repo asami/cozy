@@ -138,6 +138,10 @@ class CozyBokProjectSpec
               |title: NICT KnowledgeHub
               |version: 0.1.0
               |summary: NICT KnowledgeHub CAR project.
+              |terms:
+              |  - semantic integration
+              |tags:
+              |  - sie
               |article: index.dox
               |publication:
               |  path: projects/concept/nict-knowledgehub
@@ -187,6 +191,8 @@ class CozyBokProjectSpec
           bundle should include("\"kind\" : \"value\"")
           bundle should include("\"kind\" : \"powertype\"")
           bundle should include("\"kind\" : \"statemachine\"")
+          bundle should include(""""terms" : [ "semantic integration" ]""")
+          bundle should include(""""tags" : [ "sie" ]""")
           val sourcefiles = Files
             .walk(pkg)
             .iterator()
@@ -1480,6 +1486,10 @@ class CozyBokProjectSpec
               |title: NICT KnowledgeHub
               |version: 0.2.0
               |summary: NICT KnowledgeHub CAR component project.
+              |terms:
+              |  - semantic integration
+              |tags:
+              |  - sie
               |publication:
               |  path: textus/components/nict-knowledgehub
               |""".stripMargin
@@ -1605,6 +1615,13 @@ class CozyBokProjectSpec
           page should include("repository/car/nict-knowledgehub/0.2.0/nict-knowledgehub-0.2.0.car")
           page should include("repository/catalog/car/nict-knowledgehub.yaml")
           page should include("repository/car/nict-knowledgehub/0.2.0.html")
+          page should include("tags/technology/sie.html")
+
+          And("tag resource pages include related Project and repository CAR entries")
+          val tagpage = _read(dir.resolve("website.d/tags/technology/sie.html"))
+          tagpage should include("NICT KnowledgeHub")
+          tagpage should include("repository/car/nict-knowledgehub/index.html")
+          tagpage should include("CARリポジトリ")
         }
       }
 
