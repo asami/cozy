@@ -16,7 +16,7 @@ import scala.sys.process._
  * @since   May. 20, 2026
  *  version May. 22, 2026
  *  version Jun. 18, 2026
- * @version Jul.  9, 2026
+ * @version Jul. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArchivePackager {
@@ -30,7 +30,9 @@ private[cozy] object CozyArchivePackager {
     _validate_cncf_runtime_metadata(projectdir, config, validationjars)
     val libjars = if (_include_dependencies(projectdir, config)) alllibjars else Vector.empty
     val spijars = _paths(args, "spi-jars")
+    _validate_unique_spi_jars(spijars)
     val cardir = _path(args, "car-dir").orElse(_car_dir(projectdir, config))
+    val componentapidescriptor = _path(args, "component-api-descriptor").orElse(_source_component_api_descriptor(cardir))
     val defaultconf = _path(args, "default-conf").orElse(cardir.map(_.resolve("config/default.conf")).filter(Files.isRegularFile(_)))
     val dependencymanifest = _path(args, "dependency-manifest").orElse(_dependency_manifest(projectdir, config, validationjars))
     val webdir = _path(args, "web-dir").orElse(projectdir.map(_.resolve("src/main/web")).filter(Files.isDirectory(_)))
@@ -38,6 +40,8 @@ private[cozy] object CozyArchivePackager {
     val assemblydescriptor = _path(args, "assembly-descriptor").orElse(cardir.map(_.resolve("assembly-descriptor.yaml")).filter(Files.isRegularFile(_)))
     val name = _required_value(args, "name")
     val version = _required_value(args, "version")
+    val componentapiartifacts = componentapidescriptor.toVector.flatMap(_component_api_artifact_paths(_, name, version))
+    _validate_component_api_artifacts(componentapiartifacts, spijars)
     val manifestmetadata = config.mapUnder("packaging.car.manifest_metadata")
     val component = _value(args, "component").orElse(manifestmetadata.get("component")).getOrElse(RAISE.invalidArgumentFault("Missing --component"))
     val packagemetadata = _car_package_metadata(manifestmetadata, component, version)
@@ -70,6 +74,7 @@ private[cozy] object CozyArchivePackager {
         defaultconf.toVector.map(_ -> "config/default.conf") ++
         dependencymanifest.toVector.map(_ -> "component-dependencies.yaml") ++
         assemblydescriptor.toVector.map(_ -> "assembly-descriptor.yaml") ++
+        componentapidescriptor.toVector.map(_ -> "component-api-descriptor.json") ++
         _web_entries(webdir) ++
         webinfdescriptors ++
         Vector(abimanifest -> "abi-manifest.json") ++
@@ -555,6 +560,7 @@ private[cozy] object CozyArchivePackager {
     cardir.toVector.flatMap(_archive_sources(_)).filterNot { case (_, rel) =>
       rel == "abi-manifest.json" ||
         rel == "component-descriptor.json" ||
+        rel == "component-api-descriptor.json" ||
         _is_historical_abi_manifest(rel)
     }
 
@@ -563,6 +569,46 @@ private[cozy] object CozyArchivePackager {
 
   private def _source_component_descriptor(cardir: Option[Path]): Option[Path] =
     cardir.map(_.resolve("component-descriptor.json")).filter(Files.isRegularFile(_))
+
+  private def _source_component_api_descriptor(cardir: Option[Path]): Option[Path] =
+    cardir.map(_.resolve("component-api-descriptor.json")).filter(Files.isRegularFile(_))
+
+  private def _component_api_artifact_paths(path: Path, name: String, version: String): Vector[String] = {
+    val json = Json.parse(Files.readString(path, StandardCharsets.UTF_8))
+    val schemaversion = (json \ "schemaVersion").asOpt[String]
+    val componentname = (json \ "component" \ "name").asOpt[String]
+    val componentversion = (json \ "component" \ "version").asOpt[String]
+    if (schemaversion != Some("cncf.component-api.v1"))
+      RAISE.invalidArgumentFault(s"component-api-descriptor.json must use schema cncf.component-api.v1: ${path}")
+    if (componentname != Some(name) || componentversion != Some(version))
+      RAISE.invalidArgumentFault(
+        s"component-api-descriptor.json declares ${componentname.getOrElse("<missing>")}:${componentversion.getOrElse("<missing>")}, but package-car is building ${name}:${version}."
+      )
+    (json \ "provided").asOpt[Vector[JsObject]].getOrElse(Vector.empty).map { provided =>
+      val artifactpath = (provided \ "artifactPath").asOpt[String].map(_.trim).filter(_.nonEmpty).getOrElse {
+        RAISE.invalidArgumentFault(s"component-api-descriptor.json provided API is missing artifactPath: ${path}")
+      }
+      val normalized = Paths.get(artifactpath).normalize().toString.replace('\\', '/')
+      if (normalized != artifactpath || !artifactpath.startsWith("spi/") || artifactpath.count(_ == '/') != 1)
+        RAISE.invalidArgumentFault(s"Component API artifactPath must be a direct child of spi/: ${artifactpath}")
+      artifactpath
+    }.distinct
+  }
+
+  private def _validate_unique_spi_jars(spijars: Vector[Path]): Unit = {
+    val duplicates = spijars.groupBy(_.getFileName.toString).collect {
+      case (name, paths) if paths.size > 1 => s"${name}: ${paths.mkString(", ")}"
+    }.toVector.sorted
+    if (duplicates.nonEmpty)
+      RAISE.invalidArgumentFault(s"CAR SPI JAR names must be unique: ${duplicates.mkString("; ")}")
+  }
+
+  private def _validate_component_api_artifacts(artifactpaths: Vector[String], spijars: Vector[Path]): Unit = {
+    val packagedpaths = spijars.map(path => s"spi/${path.getFileName}").toSet
+    val missing = artifactpaths.filterNot(packagedpaths.contains)
+    if (missing.nonEmpty)
+      RAISE.invalidArgumentFault(s"Component API descriptor artifacts are missing from CAR SPI JARs: ${missing.mkString(", ")}")
+  }
 
   private def _is_historical_abi_manifest(relative: String): Boolean = {
     val pattern = """^\d+\.\d+\.\d+[^/]*/abi-manifest\.json$""".r
@@ -839,6 +885,7 @@ private[cozy] object CozyArchivePackager {
     spec.Parameter.propertyFileOption("project-dir"),
     spec.Parameter.propertyFileOption("lib-jars"),
     spec.Parameter.propertyFileOption("spi-jars"),
+    spec.Parameter.propertyFileOption("component-api-descriptor"),
     spec.Parameter.propertyFileOption("car-dir"),
     spec.Parameter.propertyFileOption("default-conf"),
     spec.Parameter.propertyFileOption("dependency-manifest"),
