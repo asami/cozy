@@ -9,7 +9,8 @@ import org.scalatest.wordspec.AnyWordSpec
 /*
  * @since   Apr.  9, 2026
  *  version May. 21, 2026
- * @version Jun. 23, 2026
+ *  version Jun. 23, 2026
+ * @version Jul. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 class ExternalAttributeTypeResolutionSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -144,6 +145,61 @@ org.sample.builtin
         content should include ("resourceUrn: Urn")
         content should include ("payload: Option[BinaryBag]")
         content should include ("description: Option[TextBag]")
+      }
+    }
+
+    "generate the built-in record datatype as the CNCF Record runtime type" in {
+      Given("a value model with required, optional, and repeated record attributes")
+      val out = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize().resolve("target/test-generated/modeler-scala-record-builtin")
+      delete_recursively(out)
+      Files.createDirectories(out)
+      val input = out.resolve("record-builtin.cml")
+      Files.writeString(
+        input,
+        """# COMPONENT
+
+## RecordBuiltinSpec
+
+### PACKAGE
+
+org.sample.recordbuiltin
+
+# VALUE
+
+## RecordEnvelope
+
+### ATTRIBUTE
+
+| name             | type   | multiplicity |
+|------------------+--------+--------------|
+| payload          | record | 1            |
+| optional_payload | record | ?            |
+| required_records | record | +            |
+| records          | record | *            |
+""",
+        StandardCharsets.UTF_8
+      )
+
+      When("Cozy generates Scala code")
+      cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString))
+
+      Then("the generated value uses Record without a generated datatype wrapper")
+      val generated = out.resolve("target/scala-3.3.7/src_managed/main/scala/org/sample/recordbuiltin/value/RecordEnvelope.scala")
+      withClue(s"generated file not found: $generated") {
+        Files.exists(generated) shouldBe true
+      }
+      val content = Files.readString(generated)
+      withClue(content) {
+        content should include ("payload: Record")
+        content should include ("optional_payload: Option[Record]")
+        content should include ("required_records: NonEmptyVector[Record]")
+        content should include ("records: Vector[Record]")
+        content should include ("required_records: Option[NonEmptyVector[Record]]")
+        content should include ("case m: cats.data.NonEmptyVector[?] => m.toVector.map(_to_external_value)")
+        content should include ("case Some(xs) => Consequence.successOrPropertyNotFound(PROP_REQUIRED_RECORDS, NonEmptyVector.fromVector(xs))")
+        content should include ("case None => Consequence.successOrPropertyNotFound(PROP_REQUIRED_RECORDS, required_records)")
+        content should not include ("NonEmptyVector.fromVector(xs).map(Some(_))")
+        content should not include ("org.goldenport.datatype.Record")
       }
     }
 

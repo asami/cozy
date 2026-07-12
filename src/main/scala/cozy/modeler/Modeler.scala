@@ -49,7 +49,7 @@ import scala.collection.mutable
  *  version Feb. 27, 2026
  *  version Mar. 31, 2026
  *  version May. 24, 2026
- * @version Jul. 11, 2026
+ * @version Jul. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
@@ -1197,6 +1197,7 @@ object Modeler {
     ): Option[MAttributeType] = {
       val normalized = p.trim.toLowerCase(java.util.Locale.ROOT)
       val datatype: Option[org.goldenport.record.v2.DataType] = normalized match {
+        case "record" => None
         case "entityid" => Some(org.goldenport.record.v2.XEntityId)
         case "year" => Some(org.goldenport.record.v2.XYear)
         case "yearmonth" => Some(org.goldenport.record.v2.XYearMonth)
@@ -1212,6 +1213,7 @@ object Modeler {
       }
       datatype.map(MDataType(_)).orElse {
         normalized match {
+          case "record" => Some(MObjectAttributeType(MObjectRef.record))
           case "name" => Some(MObjectAttributeType(MObjectRef.create("org.goldenport.datatype.Name")))
           case "identifier" => Some(MObjectAttributeType(MObjectRef.create("org.goldenport.datatype.Identifier")))
           case "text" => Some(MObjectAttributeType(MObjectRef.create("org.goldenport.datatype.Text")))
