@@ -151,7 +151,7 @@ Status: IN PROGRESS
       as the Project knowledge source of truth.
 - [x] Read CAR catalog metadata from `repository/catalog/car/*.yaml|json` in
       BoK repository-root operation.
-- [ ] Read CAR catalog metadata from
+- [x] Read CAR catalog metadata from
       `<warehouse>/repository/catalog/car/*.yaml|json` in warehouse operation.
 - [x] Preserve repository catalog metadata as the artifact source of truth;
       do not scan CAR artifact directories as source.
@@ -179,7 +179,7 @@ Status: IN PROGRESS
       unresolved CAR artifacts.
 - [x] Keep CAR build and `publish-car` out of `bok build`; BoK build only
       consumes existing repository metadata.
-- [ ] Add `CozyBokRepositoryCarSpec`.
+- [x] Add `CozyBokRepositoryCarSpec`.
 - [x] Extend `CozyBokProjectSpec` for Project-to-CAR page links.
 - [ ] Extend `CozyBokTagSpec` for tag pages that include CAR resources.
 - [ ] Verify with KnowledgeHub using at least one repository CAR catalog entry.

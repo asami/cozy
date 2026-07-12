@@ -124,6 +124,10 @@ Out of scope:
   repository CAR metadata and maintainer dashboard. Catalog entries without a
   Project and Project definitions without a published catalog are reported
   separately; connected Project/CAR pairs remain outside the diagnostic set.
+- 2026-07-13: Fixed the warehouse CAR catalog route with a dedicated executable
+  specification. `--warehouse <dir>` resolves the catalog source to
+  `<warehouse>/repository/catalog/car`, and the generated metadata and CAR
+  knowledge pages preserve the warehouse-relative catalog provenance.
 
 ## References
 
