@@ -269,6 +269,9 @@ Purpose:
 - connect articles, terms, scenarios, projects, bibliography entries, history,
   and RDF resources through lightweight cross-cutting labels
 - render tag dashboards, tag hub pages, and tag-aware RDF navigation
+- connect Project knowledge to Component Repository CAR artifact knowledge
+  through repository catalog metadata, CAR version pages, descriptors, ABI
+  manifests, CML sidecars, and model metadata
 - preserve empty-tag fallback behavior for existing BoK projects
 
 Primary reference:
@@ -342,7 +345,9 @@ state were operationally verified.
 Phase 13 implements BoK tag knowledge navigation. Tags are lightweight
 cross-cutting labels that connect articles, terms, scenarios, projects,
 bibliography entries, history, and RDF resources without replacing categories
-or glossary terms.
+or glossary terms. Phase 13 also completes the generic Project-to-Component
+Repository CAR knowledge layer before the SIE-specific Phase 14 catalog
+integration.
 
 Phase 14 will integrate SIE with Cozy BoK and CAR/SAR publication workflows.
 The first concrete contract is

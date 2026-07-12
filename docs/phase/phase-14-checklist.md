@@ -74,6 +74,8 @@ Status: TODO
 
 Status: TODO
 
+- [ ] Reuse the generic Component Repository CAR knowledge layer from BK13-11
+      for CAR catalog reading, Project-to-CAR links, and CAR artifact pages.
 - [ ] Read SIE CAR/SAR catalog entries through the existing repository catalog
       boundary.
 - [ ] Link SIE artifact versions from Project pages.

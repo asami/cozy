@@ -26,6 +26,9 @@ In scope:
 - Home and Category Dashboard tag summaries
 - Term Hub, Scenario, Project, Bibliography, and Article tag marks / tag chips
 - RDF Information View tag filtering and tag-related navigation
+- Component Repository CAR knowledge pages that connect Project knowledge to
+  published CAR catalog entries, versions, descriptors, ABI manifests, CML
+  sidecars, and model metadata
 - executable specs for tag metadata consumption and generated pages
 
 Out of scope:
@@ -35,6 +38,9 @@ Out of scope:
 - automatic tag generation from body text
 - tag governance workflow, approval, or moderation
 - external tag recommendation services
+- building or publishing CAR artifacts as part of BoK build
+- scanning repository artifact directories as source instead of using repository
+  catalog metadata
 
 ## Phase Items
 
@@ -47,7 +53,8 @@ Out of scope:
 - [ ] BK13-07: RDF tag navigation
 - [ ] BK13-08: KnowledgeHub operational verification
 - [ ] BK13-09: Tests and executable specs
-- [ ] BK13-10: Phase closure
+- [ ] BK13-11: Component Repository CAR knowledge
+- [ ] BK13-12: Phase closure
 
 ## Acceptance Criteria
 
@@ -69,6 +76,11 @@ Out of scope:
 - Existing Term Hub, Scenario, Project, Bibliography, RDF, and Dashboard pages
   keep their current behavior when no tag metadata exists.
 - Tag rendering is deterministic and covered by executable specs.
+- Project pages expose related published CAR artifacts when repository catalog
+  metadata exists.
+- Repository CAR pages expose CAR versions, catalog paths, descriptors, ABI
+  manifests, CML sidecars, model metadata, related project links, terms, tags,
+  and diagnostics without building or publishing CAR artifacts.
 
 ## Progress Notes
 
@@ -96,9 +108,16 @@ Out of scope:
   sibling SmartDox worktree. SmartDox document fragments now preserve source
   tags and emit `metadata/tags/tags.json` with usage-derived tags, optional
   `tags/**` definitions, hierarchical keys, and resource references.
+- 2026-07-13: Added BK13-11 to cover Component Repository CAR knowledge before
+  the SIE-specific Phase 14 catalog integration. The generic contract is that
+  Project knowledge represents the program-development / CAR-provider unit,
+  while repository CAR knowledge represents published CAR artifact versions
+  from `repository/catalog/car`. Cozy should connect the two through metadata
+  and pages without building, publishing, or ad hoc scanning CAR artifacts.
 
 ## References
 
 - `docs/strategy/cozy-development-strategy.md`
 - `docs/phase/phase-13-checklist.md`
 - `docs/phase/phase-12.md`
+- `docs/journal/2026/07/bok-component-repository-car-knowledge-plan-2026-07-13.md`
