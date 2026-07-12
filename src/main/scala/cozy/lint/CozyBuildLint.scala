@@ -10,7 +10,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Jul.  6, 2026
- * @version Jul. 10, 2026
+ * @version Jul. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyBuildLint {
@@ -94,6 +94,9 @@ private[cozy] object CozyBuildLint {
 
   private[cozy] def lintBuildOnly(path: Path): Vector[Finding] =
     lintBuildOnly(path, _latest_sbt_cozy_version(), SimpleModelingPublicArtifactAvailability)
+
+  private[cozy] def lintBuildOnly(path: Path, latestversion: Option[String]): Vector[Finding] =
+    lintBuildOnly(path, latestversion, SimpleModelingPublicArtifactAvailability)
 
   private def _lint(
     path: Path,

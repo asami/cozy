@@ -5,7 +5,7 @@ import java.nio.file.{Files, Path, Paths}
 
 /*
  * @since   Jul.  7, 2026
- * @version Jul.  7, 2026
+ * @version Jul. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyCarLint {
@@ -39,9 +39,35 @@ private[cozy] object CozyCarLint {
     _render(config, findings)
   }
 
+  private[cozy] def execute(args: List[String], latestversion: Option[String]): Int = {
+    val config = Config.create(args)
+    val findings = lint(config.path, config.baseline, config.noAbi, latestversion)
+    _render(config, findings)
+  }
+
   private[cozy] def lint(projectroot: Path, baseline: Option[Path], noabi: Boolean): Vector[Finding] = {
     val root = _project_root(projectroot)
     val buildfindings = CozyBuildLint.lintBuildOnly(root).map(_build_finding)
+    _lint(root, baseline, noabi, buildfindings)
+  }
+
+  private[cozy] def lint(
+    projectroot: Path,
+    baseline: Option[Path],
+    noabi: Boolean,
+    latestversion: Option[String]
+  ): Vector[Finding] = {
+    val root = _project_root(projectroot)
+    val buildfindings = CozyBuildLint.lintBuildOnly(root, latestversion).map(_build_finding)
+    _lint(root, baseline, noabi, buildfindings)
+  }
+
+  private def _lint(
+    root: Path,
+    baseline: Option[Path],
+    noabi: Boolean,
+    buildfindings: Vector[Finding]
+  ): Vector[Finding] = {
     val cmlfindings = _cml_path(root).toVector.flatMap(path => CozyCmlLint.lint(path).map(_cml_finding))
     val abifindings =
       if (noabi)

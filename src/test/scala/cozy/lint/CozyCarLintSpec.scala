@@ -11,7 +11,7 @@ import play.api.libs.json.Json
 
 /*
  * @since   Jul.  7, 2026
- * @version Jul.  8, 2026
+ * @version Jul. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -90,7 +90,7 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
         When("Cozy runs integrated CAR lint in strict mode")
         val out = new ByteArrayOutputStream()
         val exitcode = Console.withOut(new PrintStream(out, true, StandardCharsets.UTF_8.name())) {
-          CozyCarLint.execute(List(dir.toString, "--strict"))
+          CozyCarLint.execute(List(dir.toString, "--strict"), Some("0.1.11"))
         }
 
         Then("the baseline warning is visible but does not stop the initial ABI release")
