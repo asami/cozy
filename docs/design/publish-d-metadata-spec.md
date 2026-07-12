@@ -140,6 +140,13 @@ project:
   description: Tutorial samples for Cozy Textus users.
 ```
 
+CAR projects may identify the CML source used for repository catalog sidecars:
+
+```yaml
+cml:
+  source: src/main/cozy/textus-tutorial.cml
+```
+
 For `sample-multi`, each child sample can define its own `project.yaml`:
 
 ```yaml
@@ -159,10 +166,35 @@ Meaning:
 | `project.path` | Optional SmartDox site logical article path without language prefix. |
 | `project.summary` | Short project summary for catalogs, cards, and overview pages. |
 | `project.description` | Longer project description for generated pages and metadata consumers. |
+| `cml.source` | Optional project-relative CAR CML source used for catalog sidecars. |
 
 The legacy top-level keys `name`, `title`, `kind`, `path`, `summary`, and `description` are also accepted for compact files.
 
 Only `project.yaml` and `project.yml` are auto-detected. `publication.yaml` is intentionally not auto-detected in v1 because the current model is one project to one publication. If multiple publications become necessary, a separate `publications/` structure should be added explicitly.
+
+## CAR CML Source Resolution
+
+`publish-car` and `cozy lint car` use one shared CML source contract. Resolution
+order is:
+
+1. explicit `cml.source` from project metadata;
+2. canonical `src/main/cozy/<artifact-id>.cml`;
+3. the only `.cml` file under `src/main/cozy`.
+
+An explicit source must be a project-relative `.cml` file and must remain
+inside the project root. An invalid explicit source never falls back. If no
+source exists, or multiple noncanonical sources remain, CAR lint and
+publication fail with a deterministic diagnostic.
+
+The artifact name supplied to `publish-car` must equal `project.name` or its
+legacy top-level `name` equivalent. This keeps CAR lint, canonical CML
+resolution, archive paths, and catalog identity on one source of truth.
+
+The selected CML is parsed before warehouse mutation. Successful CAR
+publication therefore always writes the artifact-named CML sidecar plus JSON
+and YAML model metadata under `repository/catalog/car`. The metadata
+`source.path` preserves the actual project-relative source identity even when
+the catalog sidecar uses the artifact name.
 
 `conf/cozy/config.yaml` is for Git-managed Cozy operation defaults. `.cozy/config.yaml` is the Git-ignored local override. They can contain output paths, sample directory mapping, source manifest excludes, and warehouse indexing settings. They are intentionally not the primary place for public descriptive metadata.
 

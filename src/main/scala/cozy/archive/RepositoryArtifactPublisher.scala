@@ -12,13 +12,20 @@ import cozy.runtime.CozyCliArgs
 import org.goldenport.RAISE
 import org.goldenport.cli.spec
 import scala.collection.JavaConverters._
+import scala.util.control.NonFatal
 
 /*
  * @since   May. 20, 2026
- * @version Jun. 23, 2026
+ *  version Jun. 23, 2026
+ * @version Jul. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object RepositoryArtifactPublisher {
+  private final case class PreparedCarCmlSidecars(
+    source: Path,
+    metadata: CmlModelMetadata.ModelMetadata
+  )
+
   final case class Policy(
     kind: String,
     archiveOption: String,
@@ -34,6 +41,9 @@ private[cozy] object RepositoryArtifactPublisher {
     val name = requiredValue(args, "name")
     val version = requiredValue(args, "version")
     val sourcearchive = path(args, policy.archiveOption).getOrElse(policy.buildArchive(args))
+    val carsidecars =
+      if (policy.kind == "car") Some(_prepare_car_cml_sidecars(projectdir, name))
+      else None
     val target = _publish_archive(warehouse, name, version, sourcearchive, policy)
     val catalog = _updated_catalog(projectdir, warehouse, name, version, target, args, policy)
     val sourcecatalog = sourceCatalogPath(projectdir, policy.kind, name)
@@ -49,8 +59,7 @@ private[cozy] object RepositoryArtifactPublisher {
       writeText(publiccatalog, catalog.toYaml)
       writeText(metadatapath, metadata)
     }
-    if (policy.kind == "car")
-      _publish_car_cml_sidecars(projectdir, warehouse, name)
+    carsidecars.foreach(_publish_car_cml_sidecars(warehouse, name, _))
   }
 
   def projectConfig(projectdir: Path): CozyProjectYamlConfig.Config = {
@@ -247,20 +256,27 @@ private[cozy] object RepositoryArtifactPublisher {
   private def _delete_if_exists(path: Path): Unit =
     Files.deleteIfExists(path)
 
-  private def _publish_car_cml_sidecars(projectdir: Path, warehouse: Path, name: String): Unit = {
-    val source = projectdir.resolve("src/main/cozy").resolve(s"$name.cml").toAbsolutePath.normalize()
-    if (Files.isRegularFile(source)) {
-      val catalogdir = warehouse.resolve("repository/catalog/car")
-      val targetcml = catalogdir.resolve(s"$name.cml")
-      Files.createDirectories(catalogdir)
-      Files.copy(source, targetcml, StandardCopyOption.REPLACE_EXISTING)
-      CmlModelMetadata.write(
-        source,
-        catalogdir.resolve(s"$name.model-metadata.json"),
-        catalogdir.resolve(s"$name.model-metadata.yaml"),
-        s"src/main/cozy/$name.cml",
-        "cml"
+  private def _prepare_car_cml_sidecars(projectdir: Path, name: String): PreparedCarCmlSidecars = {
+    val resolved = CarCmlSourceResolver.resolve(projectdir, name).fold(
+      issue => RAISE.invalidArgumentFault(s"${issue.code}: ${issue.message}"),
+      identity
+    )
+    try {
+      PreparedCarCmlSidecars(
+        resolved.source,
+        CmlModelMetadata.fromCml(resolved.source, resolved.projectrelativepath, "cml")
       )
+    } catch {
+      case NonFatal(e) =>
+        RAISE.invalidArgumentFault(s"car.cml.metadata.generation_failed: Could not generate CML model metadata from ${resolved.projectrelativepath}: ${Option(e.getMessage).getOrElse(e.getClass.getSimpleName)}")
     }
+  }
+
+  private def _publish_car_cml_sidecars(warehouse: Path, name: String, sidecars: PreparedCarCmlSidecars): Unit = {
+    val catalogdir = warehouse.resolve("repository/catalog/car")
+    Files.createDirectories(catalogdir)
+    Files.copy(sidecars.source, catalogdir.resolve(s"$name.cml"), StandardCopyOption.REPLACE_EXISTING)
+    writeText(catalogdir.resolve(s"$name.model-metadata.json"), sidecars.metadata.toJsonString)
+    writeText(catalogdir.resolve(s"$name.model-metadata.yaml"), sidecars.metadata.toYamlString)
   }
 }

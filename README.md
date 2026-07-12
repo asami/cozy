@@ -127,6 +127,29 @@ standard repository layout below it:
 <warehouse>/repository/catalog/sar/<artifact>.yaml
 ```
 
+CAR publication also writes the component specification sidecars:
+
+```text
+<warehouse>/repository/catalog/car/<artifact>.cml
+<warehouse>/repository/catalog/car/<artifact>.model-metadata.json
+<warehouse>/repository/catalog/car/<artifact>.model-metadata.yaml
+```
+
+Cozy resolves the CAR CML source from `cml.source` in `project.yaml`, then
+`src/main/cozy/<artifact>.cml`, then a single `.cml` file under
+`src/main/cozy`. A missing or ambiguous source fails publication before the
+warehouse is changed. Use an explicit source when a project has multiple CML
+files or intentionally uses a noncanonical file name:
+
+```yaml
+cml:
+  source: src/main/cozy/ai.cml
+```
+
+The `--name` passed to `publish-car` must match `project.name` (or the legacy
+top-level `name`). Cozy rejects mismatched artifact identities before changing
+the warehouse.
+
 For local CNCF development, use the sbt-cozy tasks `cozyPublishLocalCar` and
 `cozyPublishLocalSar`. They call these Cozy commands with `~/.cncf/local`
 as the warehouse root. Cozy itself does not provide separate

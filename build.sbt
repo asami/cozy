@@ -15,7 +15,7 @@ organization := "org.simplemodeling"
 
 name := "cozy"
 
-version := "0.2.25"
+version := "0.2.26-SNAPSHOT"
 
 lazy val cncfVersion = "0.5.0"
 

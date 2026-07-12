@@ -12,155 +12,253 @@ import org.scalatest.wordspec.AnyWordSpec
  * @since   Apr. 23, 2026
  *  version May. 20, 2026
  *  version Jun. 27, 2026
- * @version Jul. 12, 2026
+ * @version Jul. 13, 2026
  * @author  ASAMI, Tomoharu
  */
-final class BridgeContractSpec extends AnyWordSpec with Matchers with GivenWhenThen {
-  private val _base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
-  private val _contract_dir = _base.resolve("bridge").resolve("sbt-bridge").resolve("v1")
+final class BridgeContractSpec
+    extends AnyWordSpec
+    with Matchers
+    with GivenWhenThen {
+  private val _base =
+    Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+  private val _contract_dir =
+    _base.resolve("bridge").resolve("sbt-bridge").resolve("v1")
 
   "sbt-bridge v1 contract" should {
-    "provide canonical fixture files" in {
-      val files = Vector(
-        "README.md",
-        "contract.json",
-        "request-generate.json",
-        "request-package-car.json",
-        "request-package-sar.json",
-        "request-publish-car.json",
-        "request-publish-sar.json",
-        "request-publish-project.json",
-        "request-publish-video.json",
-        "request-distribute-samples.json",
-        "request-index-warehouse.json",
-        "response-success.json",
-        "response-error.json"
-      )
-      files.foreach { name =>
-        Files.isRegularFile(_contract_dir.resolve(name)) shouldBe true
+    "describe the wire contract" which {
+      "provides canonical fixture files" in {
+        Given("the versioned bridge contract directory")
+        val files = Vector(
+          "README.md",
+          "contract.json",
+          "request-generate.json",
+          "request-package-car.json",
+          "request-package-sar.json",
+          "request-publish-car.json",
+          "request-publish-sar.json",
+          "request-publish-project.json",
+          "request-publish-video.json",
+          "request-distribute-samples.json",
+          "request-index-warehouse.json",
+          "response-success.json",
+          "response-error.json"
+        )
+        When("the canonical fixture set is inspected")
+
+        Then("every request and response fixture is present")
+        files.foreach { name =>
+          Files.isRegularFile(_contract_dir.resolve(name)) shouldBe true
+        }
       }
-    }
 
-    "load canonical request fixtures through the real bridge parser" in {
-      val generate = CozySbtBridge.loadRequestForTest(_contract_dir.resolve("request-generate.json"))
-      val car = CozySbtBridge.loadRequestForTest(_contract_dir.resolve("request-package-car.json"))
-      val sar = CozySbtBridge.loadRequestForTest(_contract_dir.resolve("request-package-sar.json"))
-      val publishcar = CozySbtBridge.loadRequestForTest(_contract_dir.resolve("request-publish-car.json"))
-      val publishsar = CozySbtBridge.loadRequestForTest(_contract_dir.resolve("request-publish-sar.json"))
-      val publish = CozySbtBridge.loadRequestForTest(_contract_dir.resolve("request-publish-project.json"))
-      val publishvideo = CozySbtBridge.loadRequestForTest(_contract_dir.resolve("request-publish-video.json"))
-      val samples = CozySbtBridge.loadRequestForTest(_contract_dir.resolve("request-distribute-samples.json"))
-      val warehouse = CozySbtBridge.loadRequestForTest(_contract_dir.resolve("request-index-warehouse.json"))
+      "loads canonical request fixtures through the real bridge parser" in {
+        Given("canonical request fixtures for every bridge action")
 
-      generate.version shouldBe "v1"
-      generate.action shouldBe "generate"
-      generate.arguments.head shouldBe "modeler-scala"
-      car.action shouldBe "package-car"
-      car.arguments should contain allElementsOf Vector("--project-dir", "/tmp/sample-project")
-      sar.action shouldBe "package-sar"
-      publishcar.action shouldBe "publish-car"
-      publishcar.arguments should contain allElementsOf Vector("--warehouse", "/tmp/warehouse")
-      publishsar.action shouldBe "publish-sar"
-      publishsar.arguments should contain allElementsOf Vector("--sar", "/tmp/sample-subsystem.sar")
-      publish.action shouldBe "publish-project"
-      publish.arguments should contain allElementsOf Vector("--kind", "car")
-      publishvideo.action shouldBe "publish-video"
-      publishvideo.arguments should contain allElementsOf Vector("--warehouse", "/tmp/warehouse")
-      samples.action shouldBe "distribute-samples"
-      samples.arguments should contain allElementsOf Vector("--name", "textus-tutorial")
-      samples.arguments should contain allElementsOf Vector("--path", "textus/tutorial/textus-tutorial")
-      samples.arguments should contain ("--dry-run")
-      warehouse.action shouldBe "index-warehouse"
-      warehouse.arguments should contain allElementsOf Vector("--maven-coordinates", "org.example:textus-tutorial_3")
-      warehouse.arguments should contain allElementsOf Vector("--repository-modules", "textus-tutorial")
-      warehouse.arguments should contain allElementsOf Vector("--download-samples", "textus-tutorial")
-    }
-
-    "render canonical success and error compatibility envelopes" in {
-      val success = Json.parse(CozySbtBridge.renderSuccessEnvelopeForTest("generate"))
-      val error = Json.parse(CozySbtBridge.renderErrorEnvelopeForTest("generate", "Bridge command failed with a diagnostic message."))
-      val successfixture = Json.parse(Files.readString(_contract_dir.resolve("response-success.json")))
-      val errorfixture = Json.parse(Files.readString(_contract_dir.resolve("response-error.json")))
-
-      success shouldBe successfixture
-      error shouldBe errorfixture
-    }
-
-    "resolve generation version settings with bridge overrides taking precedence" in {
-      _with_temp_dir("cozy-bridge-generation-settings") { dir =>
-        _write(
-          dir.resolve(".cozy/config.yaml"),
-          """generation:
-            |  versions:
-            |    cncf: 0.4.10
-            |    simplemodeling_model: 0.1.7
-            |    cncf_collaborator_api: 0.1.0
-            |""".stripMargin
+        When("the runtime parser loads each fixture")
+        val generate = CozySbtBridge.loadRequestForTest(
+          _contract_dir.resolve("request-generate.json")
+        )
+        val car = CozySbtBridge.loadRequestForTest(
+          _contract_dir.resolve("request-package-car.json")
+        )
+        val sar = CozySbtBridge.loadRequestForTest(
+          _contract_dir.resolve("request-package-sar.json")
+        )
+        val publishcar = CozySbtBridge.loadRequestForTest(
+          _contract_dir.resolve("request-publish-car.json")
+        )
+        val publishsar = CozySbtBridge.loadRequestForTest(
+          _contract_dir.resolve("request-publish-sar.json")
+        )
+        val publish = CozySbtBridge.loadRequestForTest(
+          _contract_dir.resolve("request-publish-project.json")
+        )
+        val publishvideo = CozySbtBridge.loadRequestForTest(
+          _contract_dir.resolve("request-publish-video.json")
+        )
+        val samples = CozySbtBridge.loadRequestForTest(
+          _contract_dir.resolve("request-distribute-samples.json")
+        )
+        val warehouse = CozySbtBridge.loadRequestForTest(
+          _contract_dir.resolve("request-index-warehouse.json")
         )
 
-        val args = CozySbtBridge.versionArgsForTest(
-          Map("generation.versions.cncf" -> "0.4.11"),
-          dir
+        Then("each fixture preserves its action and representative arguments")
+        generate.version shouldBe "v1"
+        generate.action shouldBe "generate"
+        generate.arguments.head shouldBe "modeler-scala"
+        car.action shouldBe "package-car"
+        car.arguments should contain allElementsOf Vector(
+          "--project-dir",
+          "/tmp/sample-project"
         )
-
-        args should contain allElementsOf List("--cncf-version", "0.4.11")
-        args should contain allElementsOf List("--simplemodeling-model-version", "0.1.7")
-        args should contain allElementsOf List("--cncf-collaborator-api-version", "0.1.0")
+        sar.action shouldBe "package-sar"
+        publishcar.action shouldBe "publish-car"
+        publishcar.arguments should contain allElementsOf Vector(
+          "--warehouse",
+          "/tmp/warehouse"
+        )
+        publishsar.action shouldBe "publish-sar"
+        publishsar.arguments should contain allElementsOf Vector(
+          "--sar",
+          "/tmp/sample-subsystem.sar"
+        )
+        publish.action shouldBe "publish-project"
+        publish.arguments should contain allElementsOf Vector("--kind", "car")
+        publishvideo.action shouldBe "publish-video"
+        publishvideo.arguments should contain allElementsOf Vector(
+          "--warehouse",
+          "/tmp/warehouse"
+        )
+        samples.action shouldBe "distribute-samples"
+        samples.arguments should contain allElementsOf Vector(
+          "--name",
+          "textus-tutorial"
+        )
+        samples.arguments should contain allElementsOf Vector(
+          "--path",
+          "textus/tutorial/textus-tutorial"
+        )
+        samples.arguments should contain("--dry-run")
+        warehouse.action shouldBe "index-warehouse"
+        warehouse.arguments should contain allElementsOf Vector(
+          "--maven-coordinates",
+          "org.example:textus-tutorial_3"
+        )
+        warehouse.arguments should contain allElementsOf Vector(
+          "--repository-modules",
+          "textus-tutorial"
+        )
+        warehouse.arguments should contain allElementsOf Vector(
+          "--download-samples",
+          "textus-tutorial"
+        )
       }
-    }
 
-    "use sbt project dir setting as generation config base" in {
-      _with_temp_dir("cozy-bridge-generation-project-dir") { dir =>
-        val projectdir = dir.resolve("consumer")
-        _write(
-          projectdir.resolve(".cozy/config.yaml"),
-          """generation:
-            |  versions:
-            |    cncf: 0.4.10
-            |    simplemodeling_model: 0.1.7
-            |    cncf_collaborator_api: 0.1.0
-            |""".stripMargin
+      "renders canonical success and error compatibility envelopes" in {
+        Given("the canonical response fixtures")
+        val successfixture = Json.parse(
+          Files.readString(_contract_dir.resolve("response-success.json"))
+        )
+        val errorfixture = Json.parse(
+          Files.readString(_contract_dir.resolve("response-error.json"))
         )
 
-        val args = CozySbtBridge.versionArgsForSettingsForTest(
-          Map(
-            "sbt.project_dir" -> projectdir.toString,
-            "generation.versions.cncf" -> "0.4.11"
+        When("the bridge renders success and error envelopes")
+        val success =
+          Json.parse(CozySbtBridge.renderSuccessEnvelopeForTest("generate"))
+        val error = Json.parse(
+          CozySbtBridge.renderErrorEnvelopeForTest(
+            "generate",
+            "Bridge command failed with a diagnostic message."
           )
         )
 
-        args should contain allElementsOf List("--cncf-version", "0.4.11")
-        args should contain allElementsOf List("--simplemodeling-model-version", "0.1.7")
-        args should contain allElementsOf List("--cncf-collaborator-api-version", "0.1.0")
+        Then("the rendered envelopes match the wire fixtures")
+        success shouldBe successfixture
+        error shouldBe errorfixture
       }
     }
 
-    "forward component module and version settings to model generation" in {
-      Given("an sbt bridge generation request with build identity settings")
-      val settings = Map(
-        "component.module" -> "textus-scraper",
-        "component.version" -> "0.1.0-SNAPSHOT"
-      )
+    "resolve generation configuration" which {
+      "lets bridge overrides take precedence over project defaults" in {
+        _with_temp_dir("cozy-bridge-generation-settings") { dir =>
+          Given("project-local generation version defaults")
+          _write(
+            dir.resolve(".cozy/config.yaml"),
+            """generation:
+            |  versions:
+            |    cncf: 0.4.10
+            |    simplemodeling_model: 0.1.7
+            |    cncf_collaborator_api: 0.1.0
+            |""".stripMargin
+          )
 
-      When("the bridge converts the settings to modeler arguments")
-      val args = CozySbtBridge.componentApiArgsForTest(settings)
+          When("the bridge supplies a CNCF version override")
+          val args = CozySbtBridge.versionArgsForTest(
+            Map("generation.versions.cncf" -> "0.4.11"),
+            dir
+          )
 
-      Then("the modeler receives both component identity values")
-      args shouldBe List(
-        "--component-module", "textus-scraper",
-        "--component-version", "0.1.0-SNAPSHOT"
-      )
+          Then("the override and remaining defaults become modeler arguments")
+          args should contain allElementsOf List("--cncf-version", "0.4.11")
+          args should contain allElementsOf List(
+            "--simplemodeling-model-version",
+            "0.1.7"
+          )
+          args should contain allElementsOf List(
+            "--cncf-collaborator-api-version",
+            "0.1.0"
+          )
+        }
+      }
+
+      "uses the sbt project directory as the generation config base" in {
+        _with_temp_dir("cozy-bridge-generation-project-dir") { dir =>
+          Given("generation defaults under the sbt consumer project")
+          val projectdir = dir.resolve("consumer")
+          _write(
+            projectdir.resolve(".cozy/config.yaml"),
+            """generation:
+            |  versions:
+            |    cncf: 0.4.10
+            |    simplemodeling_model: 0.1.7
+            |    cncf_collaborator_api: 0.1.0
+            |""".stripMargin
+          )
+
+          When("the bridge resolves settings for that project")
+          val args = CozySbtBridge.versionArgsForSettingsForTest(
+            Map(
+              "sbt.project_dir" -> projectdir.toString,
+              "generation.versions.cncf" -> "0.4.11"
+            )
+          )
+
+          Then("the project defaults and bridge override are combined")
+          args should contain allElementsOf List("--cncf-version", "0.4.11")
+          args should contain allElementsOf List(
+            "--simplemodeling-model-version",
+            "0.1.7"
+          )
+          args should contain allElementsOf List(
+            "--cncf-collaborator-api-version",
+            "0.1.0"
+          )
+        }
+      }
+
+      "forward component module and version settings to model generation" in {
+        Given("an sbt bridge generation request with build identity settings")
+        val settings = Map(
+          "component.module" -> "textus-scraper",
+          "component.version" -> "0.1.0-SNAPSHOT"
+        )
+
+        When("the bridge converts the settings to modeler arguments")
+        val args = CozySbtBridge.componentApiArgsForTest(settings)
+
+        Then("the modeler receives both component identity values")
+        args shouldBe List(
+          "--component-module",
+          "textus-scraper",
+          "--component-version",
+          "0.1.0-SNAPSHOT"
+        )
+      }
     }
 
-    "dispatch publish-car through the bridge runtime" in {
-      _with_temp_dir("cozy-bridge-publish-car") { dir =>
-        val projectdir = dir.resolve("project")
-        val warehouse = dir.resolve("warehouse")
-        val car = _write(dir.resolve("input/sample.car"), "car-body")
-        _write_project_yaml(projectdir, "sample-component")
-        val request = _write(
-          dir.resolve("request.json"),
-          s"""{
+    "dispatch publication requests" which {
+      "dispatches publish-car through the bridge runtime" in {
+        _with_temp_dir("cozy-bridge-publish-car") { dir =>
+          Given("a publish-car bridge request and a valid CAR project")
+          val projectdir = dir.resolve("project")
+          val warehouse = dir.resolve("warehouse")
+          val car = _write(dir.resolve("input/sample.car"), "car-body")
+          _write_project_yaml(projectdir, "sample-component")
+          val request = _write(
+            dir.resolve("request.json"),
+            s"""{
              |  "version": "v1",
              |  "action": "publish-car",
              |  "arguments": [
@@ -173,25 +271,33 @@ final class BridgeContractSpec extends AnyWordSpec with Matchers with GivenWhenT
              |  "settings": {}
              |}
              |""".stripMargin
-        )
+          )
 
-        CozySbtBridge.execute(List("v1", "--request", request.toString))
+          When("the bridge executes the request")
+          CozySbtBridge.execute(List("v1", "--request", request.toString))
 
-        Files.isRegularFile(warehouse.resolve("repository/car/sample-component/0.1.0/sample-component-0.1.0.car")) shouldBe true
-        Files.isRegularFile(warehouse.resolve("repository/catalog/car/sample-component.yaml")) shouldBe true
+          Then("the CAR and its catalog are published")
+          Files.isRegularFile(
+            warehouse.resolve(
+              "repository/car/sample-component/0.1.0/sample-component-0.1.0.car"
+            )
+          ) shouldBe true
+          Files.isRegularFile(
+            warehouse.resolve("repository/catalog/car/sample-component.yaml")
+          ) shouldBe true
+        }
       }
-    }
 
-    "accept inline request option from sbt-cozy delegates" in {
-      Given("an sbt-cozy delegate request written with --request=<file>")
-      _with_temp_dir("cozy-bridge-inline-request") { dir =>
-        val projectdir = dir.resolve("project")
-        val warehouse = dir.resolve("warehouse")
-        val car = _write(dir.resolve("input/sample-inline.car"), "car-body")
-        _write_project_yaml(projectdir, "sample-inline-component")
-        val request = _write(
-          dir.resolve("request.json"),
-          s"""{
+      "accepts the inline request option from sbt-cozy delegates" in {
+        Given("an sbt-cozy delegate request written with --request=<file>")
+        _with_temp_dir("cozy-bridge-inline-request") { dir =>
+          val projectdir = dir.resolve("project")
+          val warehouse = dir.resolve("warehouse")
+          val car = _write(dir.resolve("input/sample-inline.car"), "car-body")
+          _write_project_yaml(projectdir, "sample-inline-component")
+          val request = _write(
+            dir.resolve("request.json"),
+            s"""{
              |  "version": "v1",
              |  "action": "publish-car",
              |  "arguments": [
@@ -204,27 +310,36 @@ final class BridgeContractSpec extends AnyWordSpec with Matchers with GivenWhenT
              |  "settings": {}
              |}
              |""".stripMargin
-        )
+          )
 
-        When("the bridge executes the inline request option")
-        CozySbtBridge.execute(List("v1", s"--request=${request.toString}"))
+          When("the bridge executes the inline request option")
+          CozySbtBridge.execute(List("v1", s"--request=${request.toString}"))
 
-        Then("the runtime reads the request and publishes the CAR artifact")
-        Files.isRegularFile(warehouse.resolve("repository/car/sample-inline-component/0.1.0/sample-inline-component-0.1.0.car")) shouldBe true
-        And("the artifact catalog is published through the same request")
-        Files.isRegularFile(warehouse.resolve("repository/catalog/car/sample-inline-component.yaml")) shouldBe true
+          Then("the runtime reads the request and publishes the CAR artifact")
+          Files.isRegularFile(
+            warehouse.resolve(
+              "repository/car/sample-inline-component/0.1.0/sample-inline-component-0.1.0.car"
+            )
+          ) shouldBe true
+          And("the artifact catalog is published through the same request")
+          Files.isRegularFile(
+            warehouse.resolve(
+              "repository/catalog/car/sample-inline-component.yaml"
+            )
+          ) shouldBe true
+        }
       }
-    }
 
-    "dispatch publish-sar through the bridge runtime" in {
-      _with_temp_dir("cozy-bridge-publish-sar") { dir =>
-        val projectdir = dir.resolve("project")
-        val warehouse = dir.resolve("warehouse")
-        val sar = _write(dir.resolve("input/sample.sar"), "sar-body")
-        _write_project_yaml(projectdir, "sample-subsystem")
-        val request = _write(
-          dir.resolve("request.json"),
-          s"""{
+      "dispatches publish-sar through the bridge runtime" in {
+        _with_temp_dir("cozy-bridge-publish-sar") { dir =>
+          Given("a publish-sar bridge request and a prebuilt SAR")
+          val projectdir = dir.resolve("project")
+          val warehouse = dir.resolve("warehouse")
+          val sar = _write(dir.resolve("input/sample.sar"), "sar-body")
+          _write_project_yaml(projectdir, "sample-subsystem")
+          val request = _write(
+            dir.resolve("request.json"),
+            s"""{
              |  "version": "v1",
              |  "action": "publish-sar",
              |  "arguments": [
@@ -237,12 +352,21 @@ final class BridgeContractSpec extends AnyWordSpec with Matchers with GivenWhenT
              |  "settings": {}
              |}
              |""".stripMargin
-        )
+          )
 
-        CozySbtBridge.execute(List("v1", "--request", request.toString))
+          When("the bridge executes the request")
+          CozySbtBridge.execute(List("v1", "--request", request.toString))
 
-        Files.isRegularFile(warehouse.resolve("repository/sar/sample-subsystem/0.1.0/sample-subsystem-0.1.0.sar")) shouldBe true
-        Files.isRegularFile(warehouse.resolve("repository/catalog/sar/sample-subsystem.yaml")) shouldBe true
+          Then("the SAR and its catalog are published")
+          Files.isRegularFile(
+            warehouse.resolve(
+              "repository/sar/sample-subsystem/0.1.0/sample-subsystem-0.1.0.sar"
+            )
+          ) shouldBe true
+          Files.isRegularFile(
+            warehouse.resolve("repository/catalog/sar/sample-subsystem.yaml")
+          ) shouldBe true
+        }
       }
     }
   }
@@ -252,7 +376,13 @@ final class BridgeContractSpec extends AnyWordSpec with Matchers with GivenWhenT
     try {
       body(dir)
     } finally {
-      Files.walk(dir).iterator().asScala.toVector.reverse.foreach(Files.deleteIfExists)
+      Files
+        .walk(dir)
+        .iterator()
+        .asScala
+        .toVector
+        .reverse
+        .foreach(Files.deleteIfExists)
     }
   }
 
@@ -262,7 +392,7 @@ final class BridgeContractSpec extends AnyWordSpec with Matchers with GivenWhenT
     path
   }
 
-  private def _write_project_yaml(projectdir: Path, name: String): Unit =
+  private def _write_project_yaml(projectdir: Path, name: String): Unit = {
     _write(
       projectdir.resolve("project.yaml"),
       s"""name: $name
@@ -278,4 +408,9 @@ final class BridgeContractSpec extends AnyWordSpec with Matchers with GivenWhenT
          |          - 0.4.8
          |""".stripMargin
     )
+    _write(
+      projectdir.resolve(s"src/main/cozy/${name}.cml"),
+      s"# COMPONENT\n\n## ${name}\n"
+    )
+  }
 }
