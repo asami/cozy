@@ -1,0 +1,170 @@
+package cozy.archive
+
+import java.nio.charset.StandardCharsets
+import java.nio.file.{Files, Path, StandardCopyOption}
+import java.util.zip.ZipFile
+
+import scala.collection.JavaConverters._
+
+import cozy.config.CozyProjectYamlConfig
+import org.goldenport.RAISE
+import play.api.libs.json._
+
+/*
+ * @since   Jul. 12, 2026
+ * @version Jul. 12, 2026
+ * @author  ASAMI, Tomoharu
+ */
+private[cozy] object ComponentApiDependencyResolver {
+  def resolve(args: List[String]): Unit = {
+    val consumerdescriptor = _required_path(args, "consumer-descriptor")
+    val outputdir = _required_path(args, "output-dir")
+    val assemblydescriptor = _path(args, "assembly-descriptor")
+    val dependencies = _values(args, "dependency").map(_parse_dependency)
+    resolve(consumerdescriptor, dependencies, outputdir, assemblydescriptor)
+  }
+
+  private[cozy] def resolve(
+    consumerdescriptor: Path,
+    dependencies: Vector[Dependency],
+    outputdir: Path,
+    assemblydescriptor: Option[Path]
+  ): Vector[Path] = {
+    val consumer = _load_descriptor(Files.readString(consumerdescriptor, StandardCharsets.UTF_8), consumerdescriptor.toString)
+    val providers = dependencies.flatMap(_load_provider)
+    assemblydescriptor.foreach(_validate_assembly_dependencies(_, dependencies))
+    val selected = consumer.required.flatMap { requirement =>
+      val apimatches = providers.filter(_.provided.apiClass == requirement.apiClass)
+      val matches = requirement.abiHash.map(hash => apimatches.filter(_.provided.abiHash == hash)).getOrElse(apimatches)
+      if (apimatches.nonEmpty && matches.isEmpty)
+        RAISE.invalidArgumentFault(
+          s"Required component API ABI is incompatible: ${requirement.apiClass}:${requirement.abiHash.getOrElse("<unspecified>")}"
+        )
+      matches match {
+        case Vector(provider) => Vector(provider)
+        case Vector() if !requirement.required => Vector.empty
+        case Vector() =>
+          RAISE.invalidArgumentFault(s"Required component API is not provided by declared CAR dependencies: ${requirement.apiClass}")
+        case xs =>
+          RAISE.invalidArgumentFault(
+            s"Required component API is provided ambiguously: ${requirement.apiClass} (${xs.map(_.dependency.name).mkString(", ")})"
+          )
+      }
+    }.foldLeft(Vector.empty[Provider]) { (z, provider) =>
+      if (z.exists(x => x.provided.apiClass == provider.provided.apiClass && x.provided.abiHash == provider.provided.abiHash)) z
+      else z :+ provider
+    }
+    _replace_directory(outputdir)
+    selected.map(_extract_api_jar(_, outputdir))
+  }
+
+  private def _load_provider(dependency: Dependency): Vector[Provider] = {
+    val archive = new ZipFile(dependency.archive.toFile)
+    try {
+      val entry = Option(archive.getEntry("component-api-descriptor.json")).getOrElse {
+        RAISE.invalidArgumentFault(s"Dependency CAR has no component-api-descriptor.json: ${dependency.archive}")
+      }
+      val input = archive.getInputStream(entry)
+      val descriptor = try _load_descriptor(new String(input.readAllBytes(), StandardCharsets.UTF_8), dependency.archive.toString)
+      finally input.close()
+      if (descriptor.component.name != dependency.name || descriptor.component.version != dependency.version)
+        RAISE.invalidArgumentFault(
+          s"Dependency CAR descriptor declares ${descriptor.component.name}:${descriptor.component.version}, expected ${dependency.name}:${dependency.version}"
+        )
+      descriptor.provided.map { provided =>
+        if (provided.abiHash.trim.isEmpty)
+          RAISE.invalidArgumentFault(s"Provided component API has no ABI hash: ${provided.apiClass}")
+        Provider(dependency, provided)
+      }
+    } finally {
+      archive.close()
+    }
+  }
+
+  private def _extract_api_jar(provider: Provider, outputdir: Path): Path = {
+    val archive = new ZipFile(provider.dependency.archive.toFile)
+    try {
+      val entry = Option(archive.getEntry(provider.provided.artifactPath)).getOrElse {
+        RAISE.invalidArgumentFault(
+          s"Dependency CAR API artifact is missing: ${provider.dependency.name}:${provider.dependency.version}:${provider.provided.artifactPath}"
+        )
+      }
+      val destination = outputdir.resolve(provider.dependency.name).resolve(provider.dependency.version).resolve(Path.of(provider.provided.artifactPath).getFileName)
+      Files.createDirectories(destination.getParent)
+      val input = archive.getInputStream(entry)
+      try Files.copy(input, destination, StandardCopyOption.REPLACE_EXISTING)
+      finally input.close()
+      destination
+    } finally {
+      archive.close()
+    }
+  }
+
+  private def _validate_assembly_dependencies(path: Path, dependencies: Vector[Dependency]): Unit = {
+    val config = CozyProjectYamlConfig.load(path)
+    val components = config.json.flatMap(_.hcursor.downField("components").focus).flatMap(_.asArray).getOrElse(Vector.empty)
+    val coordinates = components.flatMap { component =>
+      val cursor = component.hcursor
+      for {
+        name <- cursor.get[String]("name").toOption
+        version <- cursor.get[String]("version").toOption
+      } yield name -> version
+    }.toMap
+    val missing = dependencies.filterNot(dependency => coordinates.get(dependency.name).contains(dependency.version))
+    if (missing.nonEmpty)
+      RAISE.invalidArgumentFault(
+        s"assembly-descriptor.yaml must contain declared CAR dependencies: ${missing.map(x => s"${x.name}:${x.version}").mkString(", ")}"
+      )
+  }
+
+  private def _load_descriptor(text: String, source: String): Descriptor =
+    Json.parse(text).validate[Descriptor] match {
+      case JsSuccess(value, _) if value.schemaVersion == "cncf.component-api.v1" => value
+      case JsSuccess(value, _) => RAISE.invalidArgumentFault(s"Unsupported component API descriptor schema in ${source}: ${value.schemaVersion}")
+      case JsError(errors) =>
+        RAISE.invalidArgumentFault(s"Invalid component API descriptor ${source}: ${errors.mkString("; ")}")
+    }
+
+  private def _replace_directory(path: Path): Unit = {
+    if (Files.exists(path)) {
+      val stream = Files.walk(path)
+      try stream.iterator().asScala.toVector.sortBy(_.getNameCount)(Ordering[Int].reverse).foreach(Files.deleteIfExists(_))
+      finally stream.close()
+    }
+    Files.createDirectories(path)
+  }
+
+  private def _parse_dependency(value: String): Dependency =
+    value.split("\\t", 3).toVector match {
+      case Vector(name, version, archive) => Dependency(name, version, Path.of(archive).toAbsolutePath.normalize())
+      case _ => RAISE.invalidArgumentFault(s"Invalid component API dependency argument: ${value}")
+    }
+
+  private def _values(args: List[String], key: String): Vector[String] =
+    args.zipWithIndex.collect {
+      case (value, index) if value == s"--${key}" && index + 1 < args.length => args(index + 1)
+    }.toVector
+
+  private def _path(args: List[String], key: String): Option[Path] =
+    _values(args, key).headOption.map(value => Path.of(value).toAbsolutePath.normalize())
+
+  private def _required_path(args: List[String], key: String): Path =
+    _path(args, key).getOrElse(RAISE.invalidArgumentFault(s"Missing --${key}"))
+
+  private final case class ComponentCoordinate(name: String, version: String)
+  private object ComponentCoordinate { implicit val reads: Reads[ComponentCoordinate] = Json.reads[ComponentCoordinate] }
+  private final case class RequiredApi(apiClass: String, required: Boolean, abiHash: Option[String])
+  private object RequiredApi { implicit val reads: Reads[RequiredApi] = Json.reads[RequiredApi] }
+  private final case class ProvidedApi(apiClass: String, artifactPath: String, abiHash: String)
+  private object ProvidedApi { implicit val reads: Reads[ProvidedApi] = Json.reads[ProvidedApi] }
+  private final case class Descriptor(
+    schemaVersion: String,
+    component: ComponentCoordinate,
+    provided: Vector[ProvidedApi],
+    required: Vector[RequiredApi]
+  )
+  private object Descriptor { implicit val reads: Reads[Descriptor] = Json.reads[Descriptor] }
+
+  private[cozy] final case class Dependency(name: String, version: String, archive: Path)
+  private final case class Provider(dependency: Dependency, provided: ProvidedApi)
+}

@@ -3,7 +3,7 @@ package cozy.runtime
 import org.goldenport.RAISE
 import org.goldenport.cli.spec
 import cozy.Cozy
-import cozy.archive.{ComponentApiJarPackager, CozyArchivePackager, CozyCarPublisher, CozySarPublisher}
+import cozy.archive.{ComponentApiDependencyResolver, ComponentApiJarPackager, CozyArchivePackager, CozyCarPublisher, CozySarPublisher}
 import cozy.config.CozyProjectYamlConfig
 import cozy.publication.{CozyPublicationCompiler, CozySampleDistributor, CozyWarehouseIndexer}
 import cozy.video.CozyVideoPublisher
@@ -38,6 +38,8 @@ private[cozy] object CozySbtBridge {
         CozyArchivePackager.buildCar(request.arguments.toList)
       case "component-api-jar" =>
         ComponentApiJarPackager.build(request.arguments.toList)
+      case "resolve-component-api-dependencies" =>
+        ComponentApiDependencyResolver.resolve(request.arguments.toList)
       case "package-sar" =>
         CozyArchivePackager.buildSar(request.arguments.toList)
       case "publish-car" =>
