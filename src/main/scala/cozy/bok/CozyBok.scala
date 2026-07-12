@@ -3405,9 +3405,30 @@ private[cozy] object CozyBok {
          |</script>""".stripMargin
     }
 
-  private final case class RepositoryCarIndex(entries: Vector[RepositoryCarEntry]) {
+  private final case class RepositoryCarIndex(
+    entries: Vector[RepositoryCarEntry],
+    diagnostics: Vector[RepositoryCarDiagnostic]
+  ) {
     def toJsonString: String =
-      Json.obj("entries" -> entries.map(_.toJson).asJson).spaces2 + "\n"
+      Json.obj(
+        "entries" -> entries.map(_.toJson).asJson,
+        "diagnostics" -> diagnostics.map(_.toJson).asJson
+      ).spaces2 + "\n"
+  }
+
+  private final case class RepositoryCarDiagnostic(
+    code: String,
+    artifactid: String,
+    projectpath: Option[String],
+    projecttitle: Option[String]
+  ) {
+    def toJson: Json =
+      Json.obj(
+        "code" -> Json.fromString(code),
+        "artifact_id" -> Json.fromString(artifactid),
+        "project_path" -> projectpath.asJson,
+        "project_title" -> projecttitle.asJson
+      )
   }
 
   private final case class RepositoryCarEntry(
@@ -3542,7 +3563,35 @@ private[cozy] object CozyBok {
     val entries = _repository_car_catalog_paths(config).flatMap { path =>
       _read_repository_car_catalog(config, path)
     }.sortBy(_.artifactid)
-    RepositoryCarIndex(entries)
+    val diagnostics = _repository_car_diagnostics(config, entries, _safe_resolved_project_packages(config))
+    RepositoryCarIndex(entries, diagnostics)
+  }
+
+  private def _repository_car_diagnostics(
+    config: BuildConfig,
+    entries: Vector[RepositoryCarEntry],
+    projects: Vector[CozyBokProjectPublisher.ResolvedBokProject]
+  ): Vector[RepositoryCarDiagnostic] = {
+    val catalogdiagnostics = entries.flatMap { entry =>
+      if (_repository_car_related_projects(entry, projects).nonEmpty)
+        None
+      else
+        Some(RepositoryCarDiagnostic("catalog-without-project", entry.artifactid, None, None))
+    }
+    val projectdiagnostics = projects.flatMap { project =>
+      if (entries.exists(entry => _repository_car_related_projects(entry, Vector(project)).nonEmpty))
+        None
+      else
+        Some(
+          RepositoryCarDiagnostic(
+            "project-without-catalog",
+            project.module,
+            Some(_project_relative_path(config.project, project.descriptorfile)),
+            Some(project.title)
+          )
+        )
+    }
+    (catalogdiagnostics ++ projectdiagnostics).sortBy(x => (x.code, x.artifactid, x.projectpath.getOrElse("")))
   }
 
   private def _repository_car_catalog_paths(config: BuildConfig): Vector[Path] = {
@@ -3717,6 +3766,7 @@ private[cozy] object CozyBok {
            |  </table>
            |</div>""".stripMargin
       }
+    val diagnostics = _repository_car_diagnostics_html(locale, index.diagnostics)
     s"""<section class="bok-dashboard-shell bok-repository-car-dashboard" id="dashboard">
        |  ${_dashboard_hero(
               _repository_car_title(locale),
@@ -3729,10 +3779,33 @@ private[cozy] object CozyBok {
        |  <div class="bok-dashboard container-fluid bok-dashboard-command-center">
        |    <div class="row g-3">
        |      ${_dashboard_card("col-12", "bok-card-map bok-card-project-map", _repository_car_title(locale), rows, Vector("reader", "contributor", "project_manager"))}
+       |      ${diagnostics}
        |    </div>
        |  </div>
        |</section>""".stripMargin
   }
+
+  private def _repository_car_diagnostics_html(locale: String, diagnostics: Vector[RepositoryCarDiagnostic]): String =
+    if (diagnostics.isEmpty)
+      ""
+    else {
+      val items = diagnostics.map { diagnostic =>
+        val subject = diagnostic.projecttitle.getOrElse(diagnostic.artifactid)
+        val detail = diagnostic.projectpath.map(x => s" <code>${_html_escape(x)}</code>").getOrElse("")
+        s"""<li><strong>${_html_escape(subject)}</strong><span>${_html_escape(_repository_car_diagnostic_message(locale, diagnostic.code))}${detail}</span></li>"""
+      }.mkString("\n")
+      val body =
+        s"""<ul class="bok-repository-car-diagnostic-list">
+           |${items}
+           |</ul>""".stripMargin
+      _dashboard_card(
+        "col-12",
+        "bok-card-map bok-card-project-issues",
+        _repository_car_diagnostics_label(locale),
+        body,
+        Vector("contributor", "project_manager")
+      )
+    }
 
   private def _project_repository_car_html(
     config: BuildConfig,
@@ -4003,6 +4076,21 @@ private[cozy] object CozyBok {
     locale match {
       case "ja" => "関連Projectはまだありません。"
       case _ => "No related Project is available."
+    }
+
+  private def _repository_car_diagnostics_label(locale: String): String =
+    locale match {
+      case "ja" => "Project/CAR接続診断"
+      case _ => "Project/CAR Connection Diagnostics"
+    }
+
+  private def _repository_car_diagnostic_message(locale: String, code: String): String =
+    (locale, code) match {
+      case ("ja", "catalog-without-project") => "公開CARに対応するProject定義がありません。"
+      case ("ja", "project-without-catalog") => "Projectに対応する公開CAR catalogがありません。"
+      case (_, "catalog-without-project") => "The published CAR has no related Project definition."
+      case (_, "project-without-catalog") => "The Project has no corresponding published CAR catalog."
+      case _ => code
     }
 
   private def _project_relative_path(project: Path, path: Path): String =

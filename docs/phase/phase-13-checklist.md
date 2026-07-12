@@ -174,8 +174,8 @@ Status: IN PROGRESS
 - [x] Add tag resource page links to related CAR entries.
 - [ ] Add Term Hub / RDF navigation hooks for CAR-related terms where metadata
       exists.
-- [ ] Diagnose catalog entries without Project links as unlinked published CARs.
-- [ ] Diagnose Project CAR references without catalog entries as unpublished or
+- [x] Diagnose catalog entries without Project links as unlinked published CARs.
+- [x] Diagnose Project CAR references without catalog entries as unpublished or
       unresolved CAR artifacts.
 - [x] Keep CAR build and `publish-car` out of `bok build`; BoK build only
       consumes existing repository metadata.

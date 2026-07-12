@@ -1432,10 +1432,10 @@ class CozyBokProjectSpec
         }
       }
 
-      "build materializes repository CAR catalog knowledge" in {
+      "build materializes repository CAR catalog knowledge and diagnoses Project connection gaps" in {
         _with_temp_dir("cozy-bok-repository-car-build") { dir =>
           Given(
-            "a BoK source tree with repository CAR catalogs and a project linked to one catalog"
+            "a BoK source tree with linked and unlinked repository CAR catalogs plus an unpublished Project"
           )
           val externalproject = dir.resolve("external/nict-knowledgehub")
           _write(
@@ -1492,6 +1492,31 @@ class CozyBokProjectSpec
               |  - sie
               |publication:
               |  path: textus/components/nict-knowledgehub
+              |""".stripMargin
+          )
+          val unpublishedpkg = dir.resolve(
+            "src/main/doxsite/projects/technology/unpublished-car"
+          )
+          _write(
+            unpublishedpkg.resolve("index.dox"),
+            """Unpublished CAR
+              |===============
+              |
+              |A Project whose CAR has not been published.
+              |""".stripMargin
+          )
+          _write(
+            unpublishedpkg.resolve("project.yaml"),
+            """project:
+              |  type: car
+              |  name: unpublished-car
+              |  mode: internal
+              |car:
+              |  module: unpublished-car
+              |title: Unpublished CAR Project
+              |version: 0.1.0
+              |publication:
+              |  path: projects/technology/unpublished-car
               |""".stripMargin
           )
           _write(
@@ -1570,6 +1595,19 @@ class CozyBokProjectSpec
           metadata should include(""""runtime"""")
           metadata should include(""""minimum" : "0.5.0"""")
           metadata should not include ("nict-knowledgehub.cml")
+          val diagnosticjson = parser.parse(metadata).fold(throw _, identity).
+            hcursor.downField("diagnostics").as[Vector[io.circe.Json]].fold(throw _, identity)
+          val diagnostics = diagnosticjson.map { json =>
+            val cursor = json.hcursor
+            (
+              cursor.downField("code").as[String].fold(throw _, identity),
+              cursor.downField("artifact_id").as[String].fold(throw _, identity)
+            )
+          }.toSet
+          diagnostics should contain("catalog-without-project" -> "textus-sie")
+          diagnostics should contain("project-without-catalog" -> "unpublished-car")
+          diagnostics should not contain ("catalog-without-project" -> "nict-knowledgehub")
+          metadata.indexOf("catalog-without-project") should be < metadata.indexOf("project-without-catalog")
 
           And("repository CAR metadata is copied to the website")
           _read(
@@ -1590,6 +1628,10 @@ class CozyBokProjectSpec
           index should include("nict-kh")
           index should include("repository/catalog/car/nict-knowledgehub.yaml")
           index should include("nict-knowledgehub/index.html")
+          index should include("Project/CAR接続診断")
+          index should include("公開CARに対応するProject定義がありません。")
+          index should include("Projectに対応する公開CAR catalogがありません。")
+          index should include("Unpublished CAR Project")
 
           And("repository CAR module and version pages link back to the Project")
           val modulepage = _read(dir.resolve("website.d/repository/car/nict-knowledgehub/index.html"))

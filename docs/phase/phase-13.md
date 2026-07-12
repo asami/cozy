@@ -118,8 +118,12 @@ Out of scope:
   Cozy now materializes repository CAR index/module metadata, renders CAR
   index/module/version pages, links Project and published CAR knowledge in both
   directions, and includes Project-derived tag navigation for related CARs.
-  Warehouse catalog discovery, sidecar detail, diagnostics, Term/RDF hooks, and
-  KnowledgeHub operational verification remain open.
+  Warehouse catalog discovery, sidecar detail, Term/RDF hooks, and KnowledgeHub
+  operational verification remain open.
+- 2026-07-13: Added deterministic Project/CAR connection diagnostics to the
+  repository CAR metadata and maintainer dashboard. Catalog entries without a
+  Project and Project definitions without a published catalog are reported
+  separately; connected Project/CAR pairs remain outside the diagnostic set.
 
 ## References
 
