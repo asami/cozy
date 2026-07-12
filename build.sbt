@@ -15,9 +15,9 @@ organization := "org.simplemodeling"
 
 name := "cozy"
 
-version := "0.2.25-SNAPSHOT"
+version := "0.2.25"
 
-lazy val cncfVersion = "0.4.13"
+lazy val cncfVersion = "0.5.0"
 
 lazy val simpleModelingModelVersion = "0.1.7"
 
@@ -57,7 +57,7 @@ resolvers += "SimpleModeling.org" at "https://www.simplemodeling.org/repository/
 // resolvers += "Asami Maven Repository" at "http://www.asamioffice.com/maven"
 
 // override arcadia
-libraryDependencies += "org.goldenport" %% "goldenport-scala-lib" % "2.3.29"
+libraryDependencies += "org.goldenport" %% "goldenport-scala-lib" % "2.3.30"
 
 // override kaleidox
 libraryDependencies += "org.goldenport" %% "goldenport-record" % "2.2.5"
@@ -66,12 +66,12 @@ libraryDependencies += "org.goldenport" %% "goldenport-record" % "2.2.5"
 // libraryDependencies += "org.goldenport" %% "goldenport-sexpr" % "2.0.13"
 
 // override kaleidox
-libraryDependencies += "org.smartdox" %% "smartdox" % "2.4.15"
+libraryDependencies += "org.smartdox" %% "smartdox" % "2.4.16"
 
-libraryDependencies += "org.goldenport" %% "kaleidox" % "0.6.17-SNAPSHOT"
+libraryDependencies += "org.goldenport" %% "kaleidox" % "0.6.17"
 
 val simplemodelerVersion =
-  sys.props.getOrElse("simplemodeler.version", sys.env.getOrElse("SIMPLEMODELER_VERSION", "1.1.23-SNAPSHOT"))
+  sys.props.getOrElse("simplemodeler.version", sys.env.getOrElse("SIMPLEMODELER_VERSION", "1.1.23"))
 
 libraryDependencies += "org.simplemodeling" %% "simplemodeler" % simplemodelerVersion
 
@@ -151,6 +151,8 @@ useCoursier := false
 lazy val exportClasspath = taskKey[Unit]("Export full classpath to a file")
 
 lazy val validateCozyPublishMetadata = taskKey[Unit]("Validate Cozy release publish metadata against public runtime catalogs.")
+
+lazy val validateCozyPublishPrerequisites = taskKey[Unit]("Validate external runtime metadata before publishing the Cozy runtime catalog.")
 
 lazy val publishCozyRuntimeCatalog = taskKey[Unit]("Publish Cozy runtime catalog metadata for the current release.")
 
@@ -298,6 +300,33 @@ publishCozyRuntimeCatalog := {
   }
 }
 
+validateCozyPublishPrerequisites := {
+  val currentVersion = version.value
+  val log = streams.value.log
+  if (currentVersion.endsWith("-SNAPSHOT")) {
+    log.info(s"Skipping Cozy release metadata prerequisite validation for SNAPSHOT version $currentVersion")
+  } else {
+    val allowNonLatest =
+      sys.props.get("cozy.publish.allowNonLatest").exists(_.toBoolean) ||
+      sys.env.get("COZY_PUBLISH_ALLOW_NON_LATEST").exists(_.toBoolean)
+    val warehouse = publicWarehouseRoot(baseDirectory.value)
+    val cozySourceCatalog = cozyRuntimeCatalogSource(baseDirectory.value)
+    val cncfCatalog = warehouse / "repository" / "textus" / "runtime-catalog.yaml"
+    if (!cozySourceCatalog.isFile)
+      sys.error(s"Cozy source runtime catalog is missing: ${cozySourceCatalog.getPath}")
+    if (!cncfCatalog.isFile)
+      sys.error(s"CNCF runtime catalog is missing: ${cncfCatalog.getPath}")
+    if (allowNonLatest) {
+      log.warn("Skipping Cozy latest metadata checks because cozy.publish.allowNonLatest/COZY_PUBLISH_ALLOW_NON_LATEST is true.")
+    } else {
+      requireCatalogValue(cncfCatalog, "recommended", cncfVersion)
+      requireCatalogValue(cncfCatalog, "latestStable", cncfVersion)
+    }
+    if (!catalogContainsVersion(cncfCatalog, cncfVersion))
+      sys.error(s"${cncfCatalog.getPath} must contain CNCF runtime version $cncfVersion")
+  }
+}
+
 validateCozyPublishMetadata := {
   val currentVersion = version.value
   val log = streams.value.log
@@ -307,31 +336,20 @@ validateCozyPublishMetadata := {
     val allowNonLatest =
       sys.props.get("cozy.publish.allowNonLatest").exists(_.toBoolean) ||
       sys.env.get("COZY_PUBLISH_ALLOW_NON_LATEST").exists(_.toBoolean)
-    val warehouse = publicWarehouseRoot(baseDirectory.value)
-    val cozySourceCatalog = cozyRuntimeCatalogSource(baseDirectory.value)
     val cozyCatalog = cozyRuntimeCatalogWarehouse(baseDirectory.value)
-    val cncfCatalog = warehouse / "repository" / "textus" / "runtime-catalog.yaml"
-    if (!cozySourceCatalog.isFile)
-      sys.error(s"Cozy source runtime catalog is missing: ${cozySourceCatalog.getPath}")
     if (!cozyCatalog.isFile)
       sys.error(s"Cozy runtime catalog is missing: ${cozyCatalog.getPath}")
-    if (!cncfCatalog.isFile)
-      sys.error(s"CNCF runtime catalog is missing: ${cncfCatalog.getPath}")
     if (allowNonLatest) {
       log.warn("Skipping Cozy latest metadata checks because cozy.publish.allowNonLatest/COZY_PUBLISH_ALLOW_NON_LATEST is true.")
     } else {
       requireCatalogValue(cozyCatalog, "recommended", currentVersion)
       requireCatalogValue(cozyCatalog, "latestStable", currentVersion)
-      requireCatalogValue(cncfCatalog, "recommended", cncfVersion)
-      requireCatalogValue(cncfCatalog, "latestStable", cncfVersion)
     }
     if (!catalogContainsVersion(cozyCatalog, currentVersion))
       sys.error(s"${cozyCatalog.getPath} must contain version $currentVersion")
-    val cozyModule = s"org.simplemodeling:cozy_2.12:$currentVersion"
-    if (!catalogContainsModule(cozyCatalog, cozyModule))
-      sys.error(s"${cozyCatalog.getPath} must contain module $cozyModule")
-    if (!catalogContainsVersion(cncfCatalog, cncfVersion))
-      sys.error(s"${cncfCatalog.getPath} must contain CNCF runtime version $cncfVersion")
+    val cozypublishedmodule = s"org.simplemodeling:cozy_2.12:$currentVersion"
+    if (!catalogContainsModule(cozyCatalog, cozypublishedmodule))
+      sys.error(s"${cozyCatalog.getPath} must contain module $cozypublishedmodule")
   }
 }
 
@@ -346,9 +364,12 @@ publishLocal / skip := {
 }
 
 publish / packagedArtifacts := {
-  publishCozyRuntimeCatalog.value
-  validateCozyPublishMetadata.value
-  cozyPublishCoursierChannel.value
+  Def.sequential(
+    validateCozyPublishPrerequisites,
+    publishCozyRuntimeCatalog,
+    validateCozyPublishMetadata,
+    cozyPublishCoursierChannel
+  ).value
   (publish / packagedArtifacts).value
 }
 
