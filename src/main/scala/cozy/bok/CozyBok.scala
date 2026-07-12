@@ -3439,6 +3439,7 @@ private[cozy] object CozyBok {
     lateststable: Option[String],
     latestsnapshot: Option[String],
     sourcepath: String,
+    sidecars: RepositoryCarSidecars,
     versions: Vector[RepositoryCarVersion]
   ) {
     def title: String = artifactid
@@ -3456,9 +3457,24 @@ private[cozy] object CozyBok {
         "latest_stable" -> lateststable.asJson,
         "latest_snapshot" -> latestsnapshot.asJson,
         "source_path" -> Json.fromString(sourcepath),
+        "sidecars" -> sidecars.toJson,
         "versions" -> versions.map(_.toJson).asJson
       )
     def toJsonString: String = toJson.spaces2 + "\n"
+  }
+
+  private final case class RepositoryCarSidecars(
+    cml: Option[String],
+    modelmetadatajson: Option[String],
+    modelmetadatayaml: Option[String]
+  ) {
+    def paths: Vector[String] = Vector(cml, modelmetadatajson, modelmetadatayaml).flatten
+    def toJson: Json =
+      Json.obj(
+        "cml" -> cml.asJson,
+        "model_metadata_json" -> modelmetadatajson.asJson,
+        "model_metadata_yaml" -> modelmetadatayaml.asJson
+      )
   }
 
   private final case class RepositoryCarVersion(
@@ -3514,6 +3530,7 @@ private[cozy] object CozyBok {
   ): Unit = {
     val index = _repository_car_index(config)
     val projects = _resolved_project_packages(config)
+    _copy_repository_car_sidecars(config, target, index)
     val page = target.resolve("repository").resolve("car").resolve("index.html")
     _write_text(
       page,
@@ -3613,7 +3630,7 @@ private[cozy] object CozyBok {
 
   private def _is_repository_car_catalog_file(path: Path): Boolean = {
     val name = path.getFileName.toString.toLowerCase(Locale.ROOT)
-    !name.endsWith(".model-metadata.json") &&
+    !name.contains(".model-metadata.") &&
       (name.endsWith(".yaml") || name.endsWith(".yml") || name.endsWith(".json"))
   }
 
@@ -3715,8 +3732,40 @@ private[cozy] object CozyBok {
       lateststable = catalog.latestStable,
       latestsnapshot = catalog.latestSnapshot,
       sourcepath = _project_relative_path(config.project, path),
+      sidecars = _repository_car_sidecars(config, path, catalog.artifactId),
       versions = catalog.versions.map(_repository_car_version)
     )
+
+  private def _repository_car_sidecars(
+    config: BuildConfig,
+    catalogpath: Path,
+    artifactid: String
+  ): RepositoryCarSidecars = {
+    val catalogdir = catalogpath.getParent
+    def _sidecar_(suffix: String): Option[String] = {
+      val path = catalogdir.resolve(s"${artifactid}${suffix}")
+      if (Files.isRegularFile(path)) Some(_repository_car_public_path(config, path)) else None
+    }
+    RepositoryCarSidecars(
+      _sidecar_(".cml"),
+      _sidecar_(".model-metadata.json"),
+      _sidecar_(".model-metadata.yaml")
+    )
+  }
+
+  private def _repository_car_public_path(config: BuildConfig, path: Path): String = {
+    val repository = config.publication.repositoryPath(config.project)
+    val relative = repository.relativize(path.toAbsolutePath.normalize()).toString.replace(java.io.File.separatorChar, '/')
+    s"repository/${relative}"
+  }
+
+  private def _copy_repository_car_sidecars(config: BuildConfig, target: Path, index: RepositoryCarIndex): Unit = {
+    val repository = config.publication.repositoryPath(config.project)
+    index.entries.flatMap(_.sidecars.paths).distinct.foreach { publicpath =>
+      val relative = publicpath.stripPrefix("repository/")
+      _copy_if_exists(repository.resolve(relative), target.resolve(publicpath))
+    }
+  }
 
   private def _repository_car_version(version: _root_.cozy.archive.RepositoryArtifactCatalogVersion): RepositoryCarVersion =
     RepositoryCarVersion(
@@ -3867,7 +3916,8 @@ private[cozy] object CozyBok {
               _repository_car_catalog_label(locale) -> s"<code>${_html_escape(entry.sourcepath)}</code>",
               _repository_car_latest_label(locale) -> _html_escape(entry.effectiveVersion.getOrElse("-")),
               _repository_car_status_label(locale) -> _html_escape(entry.status.getOrElse("active")),
-              _repository_car_aliases_label(locale) -> _html_escape(if (entry.aliases.isEmpty) "-" else entry.aliases.mkString(", "))
+              _repository_car_aliases_label(locale) -> _html_escape(if (entry.aliases.isEmpty) "-" else entry.aliases.mkString(", ")),
+              _repository_car_sidecars_label(locale) -> _repository_car_sidecar_links(target, page, locale, entry.sidecars)
             ))}
        |  <h2>${_html_escape(_repository_car_versions_label(locale))}</h2>
        |  <div class="bok-project-table-wrap">
@@ -3909,7 +3959,8 @@ private[cozy] object CozyBok {
               _repository_car_published_at_label(locale) -> _html_escape(version.publishedat.getOrElse("-")),
               _repository_car_file_label(locale) -> s"<code>${_html_escape(version.file.getOrElse("-"))}</code>",
               _repository_car_runtime_label(locale) -> (if (runtime.isEmpty) "-" else runtime),
-              _repository_car_checksum_label(locale) -> _html_escape(version.checksumsha256.getOrElse("-"))
+              _repository_car_checksum_label(locale) -> _html_escape(version.checksumsha256.getOrElse("-")),
+              _repository_car_sidecars_label(locale) -> _repository_car_sidecar_links(target, page, locale, entry.sidecars)
             ))}
        |  ${_repository_car_related_projects_html(target, page, locale, relatedprojects)}
        |</section>""".stripMargin
@@ -4064,6 +4115,35 @@ private[cozy] object CozyBok {
     locale match {
       case "ja" => "Checksum"
       case _ => "Checksum"
+    }
+
+  private def _repository_car_sidecars_label(locale: String): String =
+    locale match {
+      case "ja" => "関連metadata"
+      case _ => "Related metadata"
+    }
+
+  private def _repository_car_sidecar_links(
+    target: Path,
+    page: Path,
+    locale: String,
+    sidecars: RepositoryCarSidecars
+  ): String = {
+    val items = Vector(
+      sidecars.cml.map("CML" -> _),
+      sidecars.modelmetadatajson.map(_repository_car_model_metadata_label(locale, "JSON") -> _),
+      sidecars.modelmetadatayaml.map(_repository_car_model_metadata_label(locale, "YAML") -> _)
+    ).flatten.map { case (label, publicpath) =>
+      val href = _relative_href(page, target.resolve(publicpath))
+      s"""<a href="${_html_escape(href)}">${_html_escape(label)}</a>"""
+    }
+    if (items.isEmpty) "-" else items.mkString("<br>")
+  }
+
+  private def _repository_car_model_metadata_label(locale: String, format: String): String =
+    locale match {
+      case "ja" => s"モデルメタデータ (${format})"
+      case _ => s"Model metadata (${format})"
     }
 
   private def _repository_car_related_project_label(locale: String): String =

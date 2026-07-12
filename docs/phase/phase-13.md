@@ -128,6 +128,10 @@ Out of scope:
   specification. `--warehouse <dir>` resolves the catalog source to
   `<warehouse>/repository/catalog/car`, and the generated metadata and CAR
   knowledge pages preserve the warehouse-relative catalog provenance.
+- 2026-07-13: Added public CML and model metadata sidecar handoff for repository
+  CAR knowledge. Cozy resolves only the fixed files produced by `publish-car`,
+  copies them under `website.d/repository/catalog/car`, and links them from CAR
+  module/version pages. Model metadata YAML is excluded from catalog parsing.
 
 ## References
 

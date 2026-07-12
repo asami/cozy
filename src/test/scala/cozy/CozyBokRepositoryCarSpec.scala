@@ -39,6 +39,18 @@ class CozyBokRepositoryCarSpec
               |    file: repository/car/textus-sie/0.1.0/textus-sie-0.1.0.car
               |""".stripMargin
           )
+          _write(
+            warehouse.resolve("repository/catalog/car/textus-sie.cml"),
+            "# COMPONENT\n\n## TextusSie\n"
+          )
+          _write(
+            warehouse.resolve("repository/catalog/car/textus-sie.model-metadata.json"),
+            "{\"schema\":\"cozy.cml.model-metadata.v1\"}\n"
+          )
+          _write(
+            warehouse.resolve("repository/catalog/car/textus-sie.model-metadata.yaml"),
+            "schema: cozy.cml.model-metadata.v1\n"
+          )
           val config = CozyBok.BuildConfig.create(
             List(
               dir.toString,
@@ -58,12 +70,24 @@ class CozyBokRepositoryCarSpec
           val metadata = _read(dir.resolve("doxsite.d/metadata/repository/car/index.json"))
           metadata should include(""""artifact_id" : "textus-sie"""")
           metadata should include(""""source_path" : "warehouse/repository/catalog/car/textus-sie.yaml"""")
+          metadata should include(""""cml" : "repository/catalog/car/textus-sie.cml"""")
+          metadata should include(""""model_metadata_json" : "repository/catalog/car/textus-sie.model-metadata.json"""")
+          metadata should include(""""model_metadata_yaml" : "repository/catalog/car/textus-sie.model-metadata.yaml"""")
 
-          And("the generated website exposes the warehouse CAR knowledge entry")
+          And("the generated website exposes the CAR entry and its public sidecars")
           _read(dir.resolve("website.d/metadata/repository/car/index.json")) should include("textus-sie")
           val page = _read(dir.resolve("website.d/repository/car/index.html"))
           page should include("textus-sie")
           page should include("warehouse/repository/catalog/car/textus-sie.yaml")
+          dir.resolve("website.d/repository/catalog/car/textus-sie.cml") should be_regular_file
+          dir.resolve("website.d/repository/catalog/car/textus-sie.model-metadata.json") should be_regular_file
+          dir.resolve("website.d/repository/catalog/car/textus-sie.model-metadata.yaml") should be_regular_file
+          val modulepage = _read(dir.resolve("website.d/repository/car/textus-sie/index.html"))
+          modulepage should include("../../catalog/car/textus-sie.cml")
+          modulepage should include("モデルメタデータ (JSON)")
+          modulepage should include("モデルメタデータ (YAML)")
+          val versionpage = _read(dir.resolve("website.d/repository/car/textus-sie/0.1.0.html"))
+          versionpage should include("../../catalog/car/textus-sie.cml")
         }
       }
     }

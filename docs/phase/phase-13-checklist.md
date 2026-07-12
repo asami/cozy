@@ -167,8 +167,8 @@ Status: IN PROGRESS
       checksum, and publication status where metadata exists.
 - [ ] Show component descriptor metadata when available.
 - [ ] Show ABI manifest metadata when available.
-- [ ] Show CML sidecar links when available.
-- [ ] Show model metadata sidecar links when available.
+- [x] Show CML sidecar links when available.
+- [x] Show model metadata sidecar links when available.
 - [ ] Inherit or merge tags and terms from Project metadata into related CAR
       entries without replacing explicit CAR metadata.
 - [x] Add tag resource page links to related CAR entries.
