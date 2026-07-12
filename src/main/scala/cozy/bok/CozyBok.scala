@@ -27,11 +27,12 @@ import scala.util.control.NonFatal
 import scala.sys.process._
 import io.circe.{Decoder, HCursor, Json}
 import io.circe.parser
+import io.circe.syntax._
 
 /*
  * @since   Jun.  3, 2026
  *  version Jun. 28, 2026
- * @version Jul.  6, 2026
+ * @version Jul. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyBok {
@@ -1801,6 +1802,7 @@ private[cozy] object CozyBok {
     _write_effective_bibliography_metadata(config)
     _sync_effective_bibliography_fragments(config)
     _sync_effective_bibliography_rdf(config)
+    _write_repository_car_metadata(config)
     _delete_directory(config.project.resolve(s"doxsite-cache-${config.strategy}.d"))
     if (config.arcadia.enabled) {
       runner.run(Vector("arcadia", "site", config.arcadia.source, config.arcadiaSite), config.project)
@@ -2712,6 +2714,7 @@ private[cozy] object CozyBok {
     _write_category_index_page(config, target, locale, categories)
     _write_article_page(config, target, locale, categories)
     _write_project_pages(config, target, locale, categories)
+    _write_repository_car_page(config, target, locale, categories)
     _write_rdf_page(config, target, locale, categories)
     _write_scenario_page(config, target, locale, categories)
     _write_bibliography_page(config, target, locale, categories)
@@ -3231,11 +3234,13 @@ private[cozy] object CozyBok {
       val cmlbody = _project_model_terms_html(config, locale, project, page, target)
       val surfacebody = _project_component_surface_html(locale, project)
       val dashboardbody = _project_detail_dashboard(config, locale, project)
+      val repositorybody = _project_repository_car_html(config, locale, project)
       val narrativebody = _project_narrative_html(locale, articlebody)
       val pagebody =
         s"""${dashboardbody}
            |${surfacebody}
            |${cmlbody}
+           |${repositorybody}
            |${narrativebody}""".stripMargin
       _write_text(
         page,
@@ -3396,6 +3401,397 @@ private[cozy] object CozyBok {
          |  });
          |})();
          |</script>""".stripMargin
+    }
+
+  private final case class RepositoryCarIndex(entries: Vector[RepositoryCarEntry]) {
+    def toJsonString: String =
+      Json.obj("entries" -> entries.map(_.toJson).asJson).spaces2 + "\n"
+  }
+
+  private final case class RepositoryCarEntry(
+    artifactid: String,
+    aliases: Vector[String],
+    status: Option[String],
+    recommended: Option[String],
+    lateststable: Option[String],
+    latestsnapshot: Option[String],
+    sourcepath: String,
+    versions: Vector[RepositoryCarVersion]
+  ) {
+    def title: String = artifactid
+    def effectiveVersion: Option[String] =
+      recommended.orElse(lateststable).orElse(latestsnapshot).orElse(versions.headOption.map(_.version))
+    def toJson: Json =
+      Json.obj(
+        "artifact_id" -> Json.fromString(artifactid),
+        "aliases" -> aliases.asJson,
+        "status" -> status.asJson,
+        "recommended" -> recommended.asJson,
+        "latest_stable" -> lateststable.asJson,
+        "latest_snapshot" -> latestsnapshot.asJson,
+        "source_path" -> Json.fromString(sourcepath),
+        "versions" -> versions.map(_.toJson).asJson
+      )
+  }
+
+  private final case class RepositoryCarVersion(
+    version: String,
+    channel: Option[String],
+    status: Option[String],
+    component: Option[String],
+    publishedat: Option[String],
+    file: Option[String],
+    runtimecncfminimum: Option[String],
+    runtimecncfmaximum: Option[String],
+    runtimecncftested: Vector[String],
+    checksumsha256: Option[String]
+  ) {
+    def toJson: Json =
+      Json.obj(
+        "version" -> Json.fromString(version),
+        "channel" -> channel.asJson,
+        "status" -> status.asJson,
+        "component" -> component.asJson,
+        "published_at" -> publishedat.asJson,
+        "file" -> file.asJson,
+        "runtime" -> Json.obj(
+          "cncf" -> Json.obj(
+            "minimum" -> runtimecncfminimum.asJson,
+            "maximum" -> runtimecncfmaximum.asJson,
+            "tested" -> runtimecncftested.asJson
+          )
+        ),
+        "checksum" -> Json.obj("sha256" -> checksumsha256.asJson)
+      )
+  }
+
+  private def _write_repository_car_metadata(config: BuildConfig): Unit =
+    _write_text(
+      config.doxsitePath.resolve("metadata/repository/car/index.json"),
+      _repository_car_index(config).toJsonString
+    )
+
+  private def _write_repository_car_page(
+    config: BuildConfig,
+    target: Path,
+    locale: String,
+    categories: Vector[CategoryContent]
+  ): Unit = {
+    val page = target.resolve("repository").resolve("car").resolve("index.html")
+    _write_text(
+      page,
+      _special_html_page(
+        config,
+        categories,
+        locale,
+        page,
+        _repository_car_title(locale),
+        _repository_car_description(locale),
+        _repository_car_dashboard_body(config, locale, page)
+      )
+    )
+  }
+
+  private def _repository_car_index(config: BuildConfig): RepositoryCarIndex = {
+    val entries = _repository_car_catalog_paths(config).flatMap { path =>
+      _read_repository_car_catalog(config, path)
+    }.sortBy(_.artifactid)
+    RepositoryCarIndex(entries)
+  }
+
+  private def _repository_car_catalog_paths(config: BuildConfig): Vector[Path] = {
+    val dir = config.publication.repositoryPath(config.project).resolve("catalog/car")
+    if (!Files.isDirectory(dir))
+      Vector.empty
+    else {
+      val stream = Files.walk(dir)
+      try {
+        stream.iterator.asScala.toVector.
+          filter(Files.isRegularFile(_)).
+          filter(path => _is_repository_car_catalog_file(path)).
+          sortBy(_.toAbsolutePath.normalize.toString)
+      } finally {
+        stream.close()
+      }
+    }
+  }
+
+  private def _is_repository_car_catalog_file(path: Path): Boolean = {
+    val name = path.getFileName.toString.toLowerCase(Locale.ROOT)
+    !name.endsWith(".model-metadata.json") &&
+      (name.endsWith(".yaml") || name.endsWith(".yml") || name.endsWith(".json"))
+  }
+
+  private def _read_repository_car_catalog(config: BuildConfig, path: Path): Option[RepositoryCarEntry] =
+    _load_repository_car_catalog(path) match {
+      case catalog if catalog.kind == "car" => Some(_repository_car_entry(config, path, catalog))
+      case _ => None
+    }
+
+  private def _load_repository_car_catalog(path: Path): _root_.cozy.archive.RepositoryArtifactCatalog = {
+    val name = path.getFileName.toString.toLowerCase(Locale.ROOT)
+    if (name.endsWith(".json"))
+      _repository_car_catalog_from_json(path)
+    else
+      _root_.cozy.RepositoryArtifactCatalog.load(path)
+  }
+
+  private def _repository_car_catalog_from_json(path: Path): _root_.cozy.archive.RepositoryArtifactCatalog = {
+    val json = parser.parse(Files.readString(path, StandardCharsets.UTF_8)).fold(throw _, identity)
+    val c = json.hcursor
+    def string(name: String): Option[String] =
+      c.downField(name).as[Option[String]].getOrElse(None)
+    def strings(name: String): Vector[String] =
+      c.downField(name).as[Option[Vector[String]]].getOrElse(None).getOrElse(Vector.empty)
+    val versions =
+      c.downField("versions").as[Option[Vector[Json]]].getOrElse(None).getOrElse(Vector.empty).map { value =>
+        val vc = value.hcursor
+        def vstring(name: String): Option[String] =
+          vc.downField(name).as[Option[String]].getOrElse(None)
+        val runtime = vc.downField("runtime").downField("cncf")
+        val tested = runtime.downField("tested").as[Option[Vector[String]]].getOrElse(None).getOrElse(Vector.empty)
+        val requirement =
+          if (
+            runtime.downField("minimum").as[Option[String]].getOrElse(None).isEmpty &&
+              runtime.downField("maximum").as[Option[String]].getOrElse(None).isEmpty &&
+              runtime.downField("excluded").as[Option[Vector[String]]].getOrElse(None).getOrElse(Vector.empty).isEmpty &&
+              tested.isEmpty
+          )
+            None
+          else
+            Some(
+              _root_.cozy.RepositoryArtifactRuntimeRequirement(
+                runtime.downField("minimum").as[Option[String]].getOrElse(None),
+                runtime.downField("maximum").as[Option[String]].getOrElse(None),
+                runtime.downField("excluded").as[Option[Vector[String]]].getOrElse(None).getOrElse(Vector.empty),
+                tested
+              )
+            )
+        _root_.cozy.RepositoryArtifactCatalogVersion(
+          vstring("version").getOrElse(""),
+          vstring("channel"),
+          vstring("status"),
+          vstring("component"),
+          vstring("publishedAt").orElse(vstring("published_at")),
+          vstring("file"),
+          requirement,
+          vc.downField("checksum").downField("sha256").as[Option[String]].getOrElse(None).orElse(vstring("checksumSha256"))
+        )
+      }
+    val catalog = _root_.cozy.RepositoryArtifactCatalog(
+      string("schemaVersion").getOrElse("1"),
+      string("kind").getOrElse("car"),
+      string("artifactId").orElse(string("artifact_id")).getOrElse(""),
+      string("recommended"),
+      string("latestStable").orElse(string("latest_stable")),
+      string("latestSnapshot").orElse(string("latest_snapshot")),
+      string("status"),
+      strings("aliases"),
+      versions
+    ).validate
+    _validate_repository_car_json_source_path(catalog, path)
+    catalog
+  }
+
+  private def _validate_repository_car_json_source_path(
+    catalog: _root_.cozy.archive.RepositoryArtifactCatalog,
+    path: Path
+  ): Unit = {
+    val filename = path.getFileName.toString
+    val stem = filename.stripSuffix(".json")
+    if (stem != catalog.artifactId)
+      RAISE.invalidArgumentFault(s"Catalog filename does not match artifactId: $filename != ${catalog.artifactId}")
+    Option(path.getParent).flatMap(parent => Option(parent.getFileName)).foreach { kind =>
+      if (kind.toString != catalog.kind)
+        RAISE.invalidArgumentFault(s"Catalog path kind does not match catalog kind: $kind != ${catalog.kind}")
+    }
+  }
+
+  private def _repository_car_entry(
+    config: BuildConfig,
+    path: Path,
+    catalog: _root_.cozy.archive.RepositoryArtifactCatalog
+  ): RepositoryCarEntry =
+    RepositoryCarEntry(
+      artifactid = catalog.artifactId,
+      aliases = catalog.aliases,
+      status = catalog.status,
+      recommended = catalog.recommended,
+      lateststable = catalog.latestStable,
+      latestsnapshot = catalog.latestSnapshot,
+      sourcepath = _project_relative_path(config.project, path),
+      versions = catalog.versions.map(_repository_car_version)
+    )
+
+  private def _repository_car_version(version: _root_.cozy.archive.RepositoryArtifactCatalogVersion): RepositoryCarVersion =
+    RepositoryCarVersion(
+      version = version.version,
+      channel = version.channel,
+      status = version.status,
+      component = version.component,
+      publishedat = version.publishedAt,
+      file = version.file,
+      runtimecncfminimum = version.runtime.flatMap(_.minimum),
+      runtimecncfmaximum = version.runtime.flatMap(_.maximum),
+      runtimecncftested = version.runtime.map(_.tested).getOrElse(Vector.empty),
+      checksumsha256 = version.checksumSha256
+    )
+
+  private def _repository_car_dashboard_body(config: BuildConfig, locale: String, page: Path): String = {
+    val index = _repository_car_index(config)
+    val rows =
+      if (index.entries.isEmpty)
+        s"""<p class="bok-card-muted">${_html_escape(_repository_car_empty(locale))}</p>"""
+      else {
+        val body = index.entries.map { entry =>
+          val version = entry.effectiveVersion.getOrElse("-")
+          val versions = entry.versions.size.toString
+          val source = entry.sourcepath
+          val aliases = if (entry.aliases.isEmpty) "-" else entry.aliases.mkString(", ")
+          s"""<tr>
+             |  <td><code>${_html_escape(entry.artifactid)}</code></td>
+             |  <td>${_html_escape(version)}</td>
+             |  <td>${_html_escape(versions)}</td>
+             |  <td>${_html_escape(aliases)}</td>
+             |  <td><code>${_html_escape(source)}</code></td>
+             |</tr>""".stripMargin
+        }.mkString("\n")
+        s"""<div class="bok-project-table-wrap">
+           |  <table class="table table-sm bok-project-cml-table">
+           |    <thead><tr><th>CAR</th><th>${_html_escape(_repository_car_latest_label(locale))}</th><th>${_html_escape(_repository_car_versions_label(locale))}</th><th>${_html_escape(_repository_car_aliases_label(locale))}</th><th>${_html_escape(_repository_car_catalog_label(locale))}</th></tr></thead>
+           |    <tbody>
+           |${body}
+           |    </tbody>
+           |  </table>
+           |</div>""".stripMargin
+      }
+    s"""<section class="bok-dashboard-shell bok-repository-car-dashboard" id="dashboard">
+       |  ${_dashboard_hero(
+              _repository_car_title(locale),
+              _repository_car_description(locale),
+              Vector(
+                "CAR" -> index.entries.size.toString,
+                _repository_car_versions_label(locale) -> index.entries.map(_.versions.size).sum.toString
+              )
+            )}
+       |  <div class="bok-dashboard container-fluid bok-dashboard-command-center">
+       |    <div class="row g-3">
+       |      ${_dashboard_card("col-12", "bok-card-map bok-card-project-map", _repository_car_title(locale), rows, Vector("reader", "contributor", "project_manager"))}
+       |    </div>
+       |  </div>
+       |</section>""".stripMargin
+  }
+
+  private def _project_repository_car_html(
+    config: BuildConfig,
+    locale: String,
+    project: CozyBokProjectPublisher.ResolvedBokProject
+  ): String =
+    project.catalog.map { info =>
+      val versions = info.catalog.versions.map { version =>
+        val current = info.selectedversion.exists(_.version == version.version)
+        val file = version.file.getOrElse("")
+        s"""<tr>
+           |  <td>${if (current) s"""<strong>${_html_escape(version.version)}</strong>""" else _html_escape(version.version)}</td>
+           |  <td>${_html_escape(version.channel.getOrElse("-"))}</td>
+           |  <td>${_html_escape(version.status.getOrElse("active"))}</td>
+           |  <td><code>${_html_escape(file)}</code></td>
+           |</tr>""".stripMargin
+      }.mkString("\n")
+      s"""<section class="bok-project-section bok-project-repository-cars" id="project-repository-cars">
+         |  <div class="bok-project-section-head">
+         |    <h2>${_html_escape(_repository_car_title(locale))}</h2>
+         |    <p>${_html_escape(_repository_car_project_description(locale))}</p>
+         |  </div>
+         |  <div class="bok-project-table-wrap">
+         |    <table class="table table-sm bok-project-cml-table">
+         |      <thead><tr><th>${_html_escape(_repository_car_version_label(locale))}</th><th>${_html_escape(_repository_car_channel_label(locale))}</th><th>${_html_escape(_repository_car_status_label(locale))}</th><th>${_html_escape(_repository_car_file_label(locale))}</th></tr></thead>
+         |      <tbody>
+         |${versions}
+         |      </tbody>
+         |    </table>
+         |  </div>
+         |  <p class="bok-card-muted"><code>${_html_escape(_project_relative_path(config.project, info.path))}</code></p>
+         |</section>""".stripMargin
+    }.getOrElse("")
+
+  private def _repository_car_title(locale: String): String =
+    locale match {
+      case "ja" => "CARリポジトリ"
+      case _ => "Repository CARs"
+    }
+
+  private def _repository_car_description(locale: String): String =
+    locale match {
+      case "ja" => "repository/catalog/car で管理される公開済みCARを知識化した一覧です。"
+      case _ => "Published CAR knowledge entries from repository/catalog/car."
+    }
+
+  private def _repository_car_project_description(locale: String): String =
+    locale match {
+      case "ja" => "このProjectに対応するrepository CAR catalogと公開versionです。"
+      case _ => "Repository CAR catalog versions associated with this Project."
+    }
+
+  private def _repository_car_empty(locale: String): String =
+    locale match {
+      case "ja" => "Repository CAR catalogはまだありません。"
+      case _ => "No repository CAR catalog entries are available."
+    }
+
+  private def _repository_car_latest_label(locale: String): String =
+    locale match {
+      case "ja" => "代表version"
+      case _ => "Selected version"
+    }
+
+  private def _repository_car_versions_label(locale: String): String =
+    locale match {
+      case "ja" => "Versions数"
+      case _ => "Versions"
+    }
+
+  private def _repository_car_version_label(locale: String): String =
+    locale match {
+      case "ja" => "Version"
+      case _ => "Version"
+    }
+
+  private def _repository_car_channel_label(locale: String): String =
+    locale match {
+      case "ja" => "チャネル"
+      case _ => "Channel"
+    }
+
+  private def _repository_car_status_label(locale: String): String =
+    locale match {
+      case "ja" => "状態"
+      case _ => "Status"
+    }
+
+  private def _repository_car_file_label(locale: String): String =
+    locale match {
+      case "ja" => "ファイル"
+      case _ => "File"
+    }
+
+  private def _repository_car_aliases_label(locale: String): String =
+    locale match {
+      case "ja" => "別名"
+      case _ => "Aliases"
+    }
+
+  private def _repository_car_catalog_label(locale: String): String =
+    locale match {
+      case "ja" => "カタログ"
+      case _ => "Catalog"
+    }
+
+  private def _project_relative_path(project: Path, path: Path): String =
+    try {
+      project.toAbsolutePath.normalize.relativize(path.toAbsolutePath.normalize).toString.replace(java.io.File.separatorChar, '/')
+    } catch {
+      case NonFatal(_) => path.toString
     }
 
   private def _project_category(config: BuildConfig, project: CozyBokProjectPublisher.ResolvedBokProject): String = {
@@ -3899,6 +4295,7 @@ private[cozy] object CozyBok {
     _copy_if_exists(config.doxsitePath.resolve("metadata/bibliography/bibliography.json"), target.resolve("metadata/bibliography/bibliography.json"))
     _copy_if_exists(config.doxsitePath.resolve("metadata/scenarios/scenarios.json"), target.resolve("metadata/scenarios/scenarios.json"))
     _copy_if_exists(config.doxsitePath.resolve("metadata/tags/tags.json"), target.resolve("metadata/tags/tags.json"))
+    _copy_if_exists(config.doxsitePath.resolve("metadata/repository/car/index.json"), target.resolve("metadata/repository/car/index.json"))
   }
 
   private def _copy_if_exists(source: Path, target: Path): Unit =
