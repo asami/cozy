@@ -2843,7 +2843,7 @@ private[cozy] object CozyBok {
   }
 
   private def _is_antora_knowledge_tag_ref(ref: TagReference): Boolean =
-    ref.kind == "article" || ref.kind == "document" || ref.kind == "term"
+    ref.kind == "article" || ref.kind == "document" || ref.kind == "term" || ref.kind == "scenario"
 
   private def _knowledge_tag_chips_for_entries(target: Path, page: Path, tags: Vector[TagEntry], locale: String): String = {
     val groups = tags.groupBy(_tag_parent_label).toVector.sortBy(_._1).map {
@@ -7419,7 +7419,8 @@ private[cozy] object CozyBok {
   }
 
   private def _distinct_tag_refs(refs: Vector[TagReference]): Vector[TagReference] =
-    refs.distinct.sortBy(x => (x.kind, x.category.getOrElse(""), x.title, x.href))
+    refs.groupBy(x => (x.kind, x.href)).values.map(_.last).toVector.
+      sortBy(x => (x.kind, x.category.getOrElse(""), x.title, x.href))
 
   private def _tag_entry_from_usage(key: String, refs: Vector[TagReference]): TagEntry = {
     val segments = key.split('.').toVector.filter(_.nonEmpty)

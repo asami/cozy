@@ -125,7 +125,9 @@ Status: IN PROGRESS
 - [x] Confirm `tags/knowledge/index.html` and `tags/knowledge/search.html`.
 - [x] Confirm tag links from article and term surfaces where tagged metadata
       exists.
-- [ ] Confirm tag links from scenario, project, and bibliography surfaces with
+- [x] Confirm tag links from a scenario detail page with representative tagged
+      KnowledgeHub metadata.
+- [x] Confirm tag links from project and bibliography detail pages with
       representative tagged KnowledgeHub metadata.
 - [x] Confirm generated directories remain ignored.
 

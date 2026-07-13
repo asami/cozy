@@ -183,6 +183,16 @@ Out of scope:
   `project-without-catalog`. BK13-11 operational closure therefore still needs
   one published repository CAR catalog entry; Cozy does not synthesize one
   during `bok build`.
+- 2026-07-13: Added representative Project, Scenario, and curated Bibliography
+  tags to KnowledgeHub. SmartDox now preserves curated bibliography tags in
+  `bibliography.json` and identifies their tag references as Bibliography
+  resources at the canonical detail-page path. Cozy merges producer and
+  effective-metadata references by resource identity, so the tag page lists
+  Design Patterns once. Project, Scenario, and Bibliography detail-page links
+  passed the operational check. The published Scenario detail page carries its
+  `workflow.review` tag chip, and SmartDox selects the first component that
+  actually has a root index as the Antora site start page instead of selecting
+  an index-less Bibliography component.
 
 ## References
 

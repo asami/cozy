@@ -104,6 +104,8 @@ class CozyBokTagSpec
           review should include_html("Linked knowledge")
           review should include_html("Knowledge Review")
           review should include_html("Design Patterns")
+          review should not(include_html("Imported Design Patterns Label"))
+          "Design Patterns".r.findAllIn(review).size shouldBe 1
           review should include_html("Architecture Pattern")
           review should include_html("Review Article")
           review should include_html("Repository CARs")
@@ -135,6 +137,15 @@ class CozyBokTagSpec
           termpage should include_html("bok-knowledge-tag-namespace\">technology</span>")
           termpage should include_html(
             "class=\"bok-knowledge-tag-leaf\" href=\"../../tags/technology/review.html\">review</a>"
+          )
+
+          And("SmartDox-owned scenario pages expose scenario tag chips")
+          val scenariopage = _read(dir.resolve("website.d/scenario/technology/review.html"))
+          scenariopage should include_html("Antora scenario article.")
+          scenariopage should include_html("bok-knowledge-tag-chip-list")
+          scenariopage should include_html("bok-knowledge-tag-namespace\">workflow</span>")
+          scenariopage should include_html(
+            "class=\"bok-knowledge-tag-leaf\" href=\"../../tags/workflow/review.html\">review</a>"
           )
 
           And("tag pages connect to RDF graph metadata through the canonical tag filter")
@@ -231,6 +242,7 @@ class CozyBokTagSpec
         _write(cwd.resolve("website.d/tags/technology/review.html"), _tag_antora_html)
         _write(cwd.resolve("website.d/technology/review-article.html"), _article_antora_html)
         _write(cwd.resolve("website.d/glossary/technology/architecture-pattern.html"), _term_antora_html)
+        _write(cwd.resolve("website.d/scenario/technology/review.html"), _scenario_antora_html)
         _write(cwd.resolve("doxsite.d/site.ttl"), "@prefix ex: <https://example.com/> .\n")
         _write(cwd.resolve("doxsite.d/site.jsonld"), "{\"@graph\":[]}\n")
       }
@@ -388,7 +400,7 @@ class CozyBokTagSpec
       |      {"kind": "article", "title": "Technology Overview", "public_path": "technology/index.html", "category": "technology"},
       |      {"kind": "scenario", "title": "Knowledge Review", "public_path": "scenario/technology/review.html", "category": "technology"},
       |      {"kind": "term", "title": "Architecture Pattern", "public_path": "glossary/technology/architecture-pattern.html", "category": "technology"},
-      |      {"kind": "bibliography", "title": "Design Patterns", "public_path": "bibliography/technology/design-patterns.html", "category": "technology"}
+      |      {"kind": "bibliography", "title": "Imported Design Patterns Label", "public_path": "bibliography/technology/design-patterns.html", "category": "technology"}
       |    ],
       |    "children": []
       |  }, {
@@ -481,6 +493,25 @@ class CozyBokTagSpec
       |<article class="doc">
       |<h1 class="page">Architecture Pattern</h1>
       |<p>Antora term article.</p>
+      |</article>
+      |</div>
+      |</main>
+      |</div>
+      |</body>
+      |</html>
+      |""".stripMargin
+
+  private def _scenario_antora_html: String =
+    """<!doctype html>
+      |<html lang="en">
+      |<head><meta charset="utf-8"><title>Knowledge Review</title></head>
+      |<body class="article">
+      |<div class="body">
+      |<main class="article">
+      |<div class="content">
+      |<article class="doc">
+      |<h1 class="page">Knowledge Review</h1>
+      |<p>Antora scenario article.</p>
       |</article>
       |</div>
       |</main>
