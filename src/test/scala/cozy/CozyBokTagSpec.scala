@@ -122,10 +122,20 @@ class CozyBokTagSpec
           checklist should include_html("""<h1 class="page">checklist</h1>""")
           checklist should include_html("""<tr><th>FQN</th><td><code>workflow.review.checklist</code></td></tr>""")
           _read(dir.resolve("website.d/tags/knowledge/graph.html")) should include_html("Architecture Pattern")
+
+          And("SmartDox-owned term pages expose hierarchical tag chips without replacing Antora content")
           val termpage = _read(dir.resolve("website.d/glossary/technology/architecture-pattern.html"))
           termpage should include_html("Antora term article.")
-          termpage should include_html("knowledge.graph")
           termpage should not(include_html("bok-term-hub"))
+          termpage should include_html("bok-knowledge-tag-chip-list")
+          termpage should include_html("bok-knowledge-tag-namespace\">knowledge</span>")
+          termpage should include_html(
+            "class=\"bok-knowledge-tag-leaf\" href=\"../../tags/knowledge/graph.html\">graph</a>"
+          )
+          termpage should include_html("bok-knowledge-tag-namespace\">technology</span>")
+          termpage should include_html(
+            "class=\"bok-knowledge-tag-leaf\" href=\"../../tags/technology/review.html\">review</a>"
+          )
 
           And("tag pages connect to RDF graph metadata through the canonical tag filter")
           val rdf = _read(dir.resolve("website.d/rdf/index.html"))
@@ -141,11 +151,13 @@ class CozyBokTagSpec
             "href=\"../tags/index.html?category=technology\""
           )
 
-          And("generated article pages expose tag chips and omit category index self links from Antora navigation")
+          And(
+            "SmartDox-owned article pages expose tag chips while navigation omits category index self links"
+          )
           val article = _read(dir.resolve("website.d/technology/review-article.html"))
-          article should include_html("bok-article-tag-chip-list")
-          article should include_html("bok-article-tag-namespace\">technology</span>")
-          article should include_html("class=\"bok-article-tag-leaf\" href=\"../tags/technology/review.html\">review</a>")
+          article should include_html("bok-knowledge-tag-chip-list")
+          article should include_html("bok-knowledge-tag-namespace\">technology</span>")
+          article should include_html("class=\"bok-knowledge-tag-leaf\" href=\"../tags/technology/review.html\">review</a>")
           article should not(include_html("href=\"index.html\">Technology</a>"))
 
           And("Cozy publishes the SmartDox tag handoff metadata")
@@ -191,8 +203,8 @@ class CozyBokTagSpec
           Then("the article remains available without an empty tag container")
           val article = _read(dir.resolve("website.d/technology/review-article.html"))
           article should include_html("Generated article body.")
-          article should not(include_html("bok-article-tag-chip-list"))
-          article should not(include_html("bok-article-tags"))
+          article should not(include_html("bok-knowledge-tag-chip-list"))
+          article should not(include_html("bok-knowledge-tags"))
 
           And("the tag dashboard reports its empty state without inventing a leaf page")
           _read(dir.resolve("website.d/tags/index.html")) should include_html(
@@ -469,7 +481,6 @@ class CozyBokTagSpec
       |<article class="doc">
       |<h1 class="page">Architecture Pattern</h1>
       |<p>Antora term article.</p>
-      |<p><a class="bok-tag-chip" href="../../tags/knowledge/graph.html">knowledge.graph</a></p>
       |</article>
       |</div>
       |</main>

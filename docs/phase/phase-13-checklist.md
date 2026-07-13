@@ -108,21 +108,26 @@ Status: IN PROGRESS
 
 ## BK13-08: KnowledgeHub Operational Verification
 
-Status: TODO
+Status: IN PROGRESS
 
-- [ ] Add representative tags to KnowledgeHub source.
-- [ ] Run `cozy bok build . --strategy preview`.
-- [ ] Confirm Home Dashboard tag summary.
-- [ ] Confirm Category Dashboard tag summary.
-- [ ] Confirm `tags/index.html`.
-- [ ] Confirm at least one `tags/<tag>.html`.
-- [ ] Confirm `technology.review` from a category-scoped short tag.
-- [ ] Confirm `workflow.review` from an explicit hierarchical tag.
-- [ ] Confirm `tags/technology/index.html` and `tags/technology/review.html`.
-- [ ] Confirm `tags/workflow/index.html` and `tags/workflow/review.html`.
-- [ ] Confirm tag links from article, scenario, project, bibliography, and term
-      surfaces where sample metadata exists.
-- [ ] Confirm generated directories remain ignored.
+- [x] Add representative tags to KnowledgeHub source.
+- [x] Run `cozy bok build . --strategy preview --no-bib-service` with the
+      current development runtime.
+- [x] Confirm Home Dashboard tag summary.
+- [x] Confirm Category Dashboard tag summary.
+- [x] Confirm `tags/index.html`.
+- [x] Confirm at least one `tags/<tag>.html`.
+- [x] Confirm `technology.embedding` and `technology.rdf` from
+      category-scoped short tags.
+- [x] Confirm `knowledge.search` from an explicit hierarchical tag.
+- [x] Confirm `tags/technology/index.html`,
+      `tags/technology/embedding.html`, and `tags/technology/rdf.html`.
+- [x] Confirm `tags/knowledge/index.html` and `tags/knowledge/search.html`.
+- [x] Confirm tag links from article and term surfaces where tagged metadata
+      exists.
+- [ ] Confirm tag links from scenario, project, and bibliography surfaces with
+      representative tagged KnowledgeHub metadata.
+- [x] Confirm generated directories remain ignored.
 
 ## BK13-09: Tests And Executable Specs
 

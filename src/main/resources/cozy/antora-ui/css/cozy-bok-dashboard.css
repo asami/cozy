@@ -4672,7 +4672,7 @@ a.bok-tag-tree-segment {
   font-size: .66rem;
 }
 
-.bok-article-tag-bar {
+.bok-knowledge-tag-bar {
   display: flex;
   flex-wrap: wrap;
   gap: .45rem .8rem;
@@ -4684,7 +4684,7 @@ a.bok-tag-tree-segment {
   background: rgba(248,250,252,.78);
 }
 
-.bok-article-tag-group {
+.bok-knowledge-tag-group {
   display: inline-flex;
   flex-wrap: wrap;
   gap: .42rem;
@@ -4698,7 +4698,7 @@ a.bok-tag-tree-segment {
   line-height: 1.35;
 }
 
-.bok-article-tag-namespace {
+.bok-knowledge-tag-namespace {
   display: inline-flex;
   align-items: center;
   min-height: 1.55rem;
@@ -4710,14 +4710,14 @@ a.bok-tag-tree-segment {
   font-weight: 900;
 }
 
-.bok-article-tag-leaves {
+.bok-knowledge-tag-leaves {
   display: inline-flex;
   flex-wrap: wrap;
   gap: .32rem;
   align-items: center;
 }
 
-.bok-article-tag-leaf {
+.bok-knowledge-tag-leaf {
   display: inline-flex;
   align-items: center;
   min-height: 1.55rem;
@@ -4730,7 +4730,7 @@ a.bok-tag-tree-segment {
   text-decoration: none;
 }
 
-.bok-article-tag-leaf:hover {
+.bok-knowledge-tag-leaf:hover {
   color: #174ea6;
   text-decoration: underline;
 }

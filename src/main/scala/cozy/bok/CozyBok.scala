@@ -2792,7 +2792,7 @@ private[cozy] object CozyBok {
     categories: Vector[CategoryContent]
   ): Unit = {
     _remove_category_index_nav_items(target, categories)
-    _inject_article_tag_chips(config, target, locale)
+    _inject_antora_knowledge_tag_chips(config, target, locale)
   }
 
   private def _remove_category_index_nav_items(target: Path, categories: Vector[CategoryContent]): Unit =
@@ -2819,10 +2819,10 @@ private[cozy] object CozyBok {
       }
     }
 
-  private def _inject_article_tag_chips(config: BuildConfig, target: Path, locale: String): Unit = {
+  private def _inject_antora_knowledge_tag_chips(config: BuildConfig, target: Path, locale: String): Unit = {
     val tagsbyhref = _tag_index(config, locale).tags.flatMap { tag =>
       tag.refs.collect {
-        case ref if _is_article_tag_ref(ref) => ref.href -> tag
+        case ref if _is_antora_knowledge_tag_ref(ref) => ref.href -> tag
       }
     }.groupBy(_._1).map {
       case (href, xs) => href -> xs.map(_._2).distinct.sortBy(_.key)
@@ -2832,8 +2832,8 @@ private[cozy] object CozyBok {
         val page = target.resolve(href)
         if (Files.isRegularFile(page)) {
           val content = Files.readString(page, StandardCharsets.UTF_8)
-          if (!content.contains("bok-article-tag-chip-list")) {
-            val chips = _tag_chips_for_entries(target, page, tags, locale)
+          if (!content.contains("bok-knowledge-tag-chip-list")) {
+            val chips = _knowledge_tag_chips_for_entries(target, page, tags, locale)
             val updated = _insert_after_page_title(content, chips)
             if (updated != content)
               _write_text(page, updated)
@@ -2842,20 +2842,20 @@ private[cozy] object CozyBok {
     }
   }
 
-  private def _is_article_tag_ref(ref: TagReference): Boolean =
-    ref.kind == "article" || ref.kind == "document"
+  private def _is_antora_knowledge_tag_ref(ref: TagReference): Boolean =
+    ref.kind == "article" || ref.kind == "document" || ref.kind == "term"
 
-  private def _tag_chips_for_entries(target: Path, page: Path, tags: Vector[TagEntry], locale: String): String = {
+  private def _knowledge_tag_chips_for_entries(target: Path, page: Path, tags: Vector[TagEntry], locale: String): String = {
     val groups = tags.groupBy(_tag_parent_label).toVector.sortBy(_._1).map {
       case (namespace, entries) =>
         val links = entries.sortBy(_.key).map { tag =>
           val href = _relative_href(page, target.resolve(tag.publicpath))
           val label = tag.segments.lastOption.filter(_.nonEmpty).getOrElse(tag.label)
-          s"""<a class="bok-article-tag-leaf" href="${_html_escape(href)}">${_html_escape(label)}</a>"""
+          s"""<a class="bok-knowledge-tag-leaf" href="${_html_escape(href)}">${_html_escape(label)}</a>"""
         }.mkString
-        s"""<div class="bok-article-tag-group"><span class="bok-article-tag-namespace">${_html_escape(namespace)}</span><span class="bok-article-tag-leaves">${links}</span></div>"""
+        s"""<div class="bok-knowledge-tag-group"><span class="bok-knowledge-tag-namespace">${_html_escape(namespace)}</span><span class="bok-knowledge-tag-leaves">${links}</span></div>"""
     }.mkString
-    s"""<div class="bok-article-tag-bar bok-article-tag-chip-list" aria-label="${_html_escape(_ui(locale, "tag.title"))}">${groups}</div>"""
+    s"""<div class="bok-knowledge-tag-bar bok-knowledge-tag-chip-list" aria-label="${_html_escape(_ui(locale, "tag.title"))}">${groups}</div>"""
   }
 
   private def _tag_parent_label(tag: TagEntry): String =
@@ -12590,7 +12590,7 @@ private[cozy] object CozyBok {
       |  font-size: 0.66rem;
       |}
       |
-      |.bok-article-tag-bar {
+      |.bok-knowledge-tag-bar {
       |  display: flex;
       |  flex-wrap: wrap;
       |  gap: 0.45rem 0.8rem;
@@ -12602,7 +12602,7 @@ private[cozy] object CozyBok {
       |  background: rgba(248, 250, 252, 0.78);
       |}
       |
-      |.bok-article-tag-group {
+      |.bok-knowledge-tag-group {
       |  display: inline-flex;
       |  flex-wrap: wrap;
       |  gap: 0.42rem;
@@ -12616,7 +12616,7 @@ private[cozy] object CozyBok {
       |  line-height: 1.35;
       |}
       |
-      |.bok-article-tag-namespace {
+      |.bok-knowledge-tag-namespace {
       |  display: inline-flex;
       |  align-items: center;
       |  min-height: 1.55rem;
@@ -12628,14 +12628,14 @@ private[cozy] object CozyBok {
       |  font-weight: 900;
       |}
       |
-      |.bok-article-tag-leaves {
+      |.bok-knowledge-tag-leaves {
       |  display: inline-flex;
       |  flex-wrap: wrap;
       |  gap: 0.32rem;
       |  align-items: center;
       |}
       |
-      |.bok-article-tag-leaf {
+      |.bok-knowledge-tag-leaf {
       |  display: inline-flex;
       |  align-items: center;
       |  min-height: 1.55rem;
@@ -12648,7 +12648,7 @@ private[cozy] object CozyBok {
       |  text-decoration: none;
       |}
       |
-      |.bok-article-tag-leaf:hover {
+      |.bok-knowledge-tag-leaf:hover {
       |  color: #174ea6;
       |  text-decoration: underline;
       |}

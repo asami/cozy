@@ -171,6 +171,18 @@ Out of scope:
   in `CozyBokTagSpec`. Untagged articles remain unchanged, no empty tag chip
   container or leaf page is generated, and the tag dashboard uses its explicit
   empty state.
+- 2026-07-13: Verified the current development runtime against KnowledgeHub in
+  preview and offline-bibliography mode. Category-scoped `embedding` and `rdf`
+  become `technology.embedding` and `technology.rdf`, explicit
+  `knowledge.search` retains its namespace, Home and Category dashboards link
+  to the tag tree, and article and SmartDox-owned term pages link to existing
+  hierarchical tag pages. The operational check exposed and fixed the missing
+  tag-chip post-processing for SmartDox-owned term pages.
+- 2026-07-13: KnowledgeHub Project/CML knowledge renders from the external
+  `nict-knowledgehub` source, but repository CAR metadata reports
+  `project-without-catalog`. BK13-11 operational closure therefore still needs
+  one published repository CAR catalog entry; Cozy does not synthesize one
+  during `bok build`.
 
 ## References
 
