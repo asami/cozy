@@ -132,6 +132,10 @@ Out of scope:
   CAR knowledge. Cozy resolves only the fixed files produced by `publish-car`,
   copies them under `website.d/repository/catalog/car`, and links them from CAR
   module/version pages. Model metadata YAML is excluded from catalog parsing.
+- 2026-07-13: Added CAR archive metadata handoff for repository CAR knowledge.
+  Cozy reads top-level `component-descriptor.json` and `abi-manifest.json` from
+  catalog-selected CAR artifacts, preserves their JSON in module metadata, and
+  shows concise descriptor and ABI summaries on CAR module/version pages.
 
 ## References
 

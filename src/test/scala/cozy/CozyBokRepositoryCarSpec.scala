@@ -3,6 +3,7 @@ package cozy
 import cozy.bok.CozyBok
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
+import java.util.zip.{ZipEntry, ZipOutputStream}
 import scala.collection.JavaConverters._
 import org.scalatest.GivenWhenThen
 import org.scalatest.wordspec.AnyWordSpec
@@ -51,6 +52,9 @@ class CozyBokRepositoryCarSpec
             warehouse.resolve("repository/catalog/car/textus-sie.model-metadata.yaml"),
             "schema: cozy.cml.model-metadata.v1\n"
           )
+          _write_car_archive(
+            warehouse.resolve("repository/car/textus-sie/0.1.0/textus-sie-0.1.0.car")
+          )
           val config = CozyBok.BuildConfig.create(
             List(
               dir.toString,
@@ -73,6 +77,10 @@ class CozyBokRepositoryCarSpec
           metadata should include(""""cml" : "repository/catalog/car/textus-sie.cml"""")
           metadata should include(""""model_metadata_json" : "repository/catalog/car/textus-sie.model-metadata.json"""")
           metadata should include(""""model_metadata_yaml" : "repository/catalog/car/textus-sie.model-metadata.yaml"""")
+          metadata should include("\"component_descriptor\" : {")
+          metadata should include(""""component" : "TextusSie"""")
+          metadata should include("\"abi_manifest\" : {")
+          metadata should include(""""format" : "cozy.car.abi-manifest.v1"""")
 
           And("the generated website exposes the CAR entry and its public sidecars")
           _read(dir.resolve("website.d/metadata/repository/car/index.json")) should include("textus-sie")
@@ -86,8 +94,14 @@ class CozyBokRepositoryCarSpec
           modulepage should include("../../catalog/car/textus-sie.cml")
           modulepage should include("モデルメタデータ (JSON)")
           modulepage should include("モデルメタデータ (YAML)")
+          modulepage should include("コンポーネント記述子")
+          modulepage should include("textus-sie 0.1.0 / TextusSie / entities 1")
+          modulepage should include("ABIマニフェスト")
+          modulepage should include("ABI 1 / components 1 / operations 1 / entities 1")
           val versionpage = _read(dir.resolve("website.d/repository/car/textus-sie/0.1.0.html"))
           versionpage should include("../../catalog/car/textus-sie.cml")
+          versionpage should include("コンポーネント記述子")
+          versionpage should include("ABIマニフェスト")
         }
       }
     }
@@ -141,6 +155,48 @@ class CozyBokRepositoryCarSpec
 
   private def _read(path: Path): String =
     new String(Files.readAllBytes(path), StandardCharsets.UTF_8)
+
+  private def _write_car_archive(path: Path): Path = {
+    Option(path.getParent).foreach(Files.createDirectories(_))
+    val zip = new ZipOutputStream(Files.newOutputStream(path))
+    try {
+      def _entry_(name: String, content: String): Unit = {
+        zip.putNextEntry(new ZipEntry(name))
+        zip.write(content.getBytes(StandardCharsets.UTF_8))
+        zip.closeEntry()
+      }
+      _entry_(
+        "component-descriptor.json",
+        """{
+          |  "name": "textus-sie",
+          |  "version": "0.1.0",
+          |  "component": "TextusSie",
+          |  "entities": [{"entity": "KnowledgeItem"}]
+          |}
+          |""".stripMargin
+      )
+      _entry_(
+        "abi-manifest.json",
+        """{
+          |  "format": "cozy.car.abi-manifest.v1",
+          |  "car": {"name": "textus-sie", "version": "0.1.0"},
+          |  "abi": {
+          |    "version": 1,
+          |    "exports": {
+          |      "components": [{"name": "TextusSie"}],
+          |      "operations": [{"name": "knowledge.search", "kind": "query"}],
+          |      "entities": [{"name": "KnowledgeItem", "fields": []}]
+          |    },
+          |    "dependencies": []
+          |  }
+          |}
+          |""".stripMargin
+      )
+    } finally {
+      zip.close()
+    }
+    path
+  }
 
   private def _delete(path: Path): Unit =
     if (Files.exists(path)) {

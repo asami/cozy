@@ -165,8 +165,8 @@ Status: IN PROGRESS
       descriptor metadata can resolve the relationship.
 - [x] Show CAR catalog path, artifact path, version, latest/recommended status,
       checksum, and publication status where metadata exists.
-- [ ] Show component descriptor metadata when available.
-- [ ] Show ABI manifest metadata when available.
+- [x] Show component descriptor metadata when available.
+- [x] Show ABI manifest metadata when available.
 - [x] Show CML sidecar links when available.
 - [x] Show model metadata sidecar links when available.
 - [ ] Inherit or merge tags and terms from Project metadata into related CAR

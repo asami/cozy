@@ -20,7 +20,7 @@ import java.util.Locale
 import java.util.regex.Pattern
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths, StandardCopyOption}
-import java.util.zip.{ZipEntry, ZipInputStream, ZipOutputStream}
+import java.util.zip.{ZipEntry, ZipFile, ZipInputStream, ZipOutputStream}
 import scala.collection.JavaConverters._
 import scala.util.matching.Regex
 import scala.util.control.NonFatal
@@ -3487,7 +3487,9 @@ private[cozy] object CozyBok {
     runtimecncfminimum: Option[String],
     runtimecncfmaximum: Option[String],
     runtimecncftested: Vector[String],
-    checksumsha256: Option[String]
+    checksumsha256: Option[String],
+    componentdescriptor: Option[Json],
+    abimanifest: Option[Json]
   ) {
     def toJson: Json =
       Json.obj(
@@ -3504,9 +3506,16 @@ private[cozy] object CozyBok {
             "tested" -> runtimecncftested.asJson
           )
         ),
-        "checksum" -> Json.obj("sha256" -> checksumsha256.asJson)
+        "checksum" -> Json.obj("sha256" -> checksumsha256.asJson),
+        "component_descriptor" -> componentdescriptor.asJson,
+        "abi_manifest" -> abimanifest.asJson
       )
   }
+
+  private final case class RepositoryCarArchiveMetadata(
+    componentdescriptor: Option[Json],
+    abimanifest: Option[Json]
+  )
 
   private def _write_repository_car_metadata(config: BuildConfig): Unit = {
     val index = _repository_car_index(config)
@@ -3733,7 +3742,7 @@ private[cozy] object CozyBok {
       latestsnapshot = catalog.latestSnapshot,
       sourcepath = _project_relative_path(config.project, path),
       sidecars = _repository_car_sidecars(config, path, catalog.artifactId),
-      versions = catalog.versions.map(_repository_car_version)
+      versions = catalog.versions.map(_repository_car_version(config, _))
     )
 
   private def _repository_car_sidecars(
@@ -3767,7 +3776,11 @@ private[cozy] object CozyBok {
     }
   }
 
-  private def _repository_car_version(version: _root_.cozy.archive.RepositoryArtifactCatalogVersion): RepositoryCarVersion =
+  private def _repository_car_version(
+    config: BuildConfig,
+    version: _root_.cozy.archive.RepositoryArtifactCatalogVersion
+  ): RepositoryCarVersion = {
+    val archive = _repository_car_archive_metadata(config, version.file)
     RepositoryCarVersion(
       version = version.version,
       channel = version.channel,
@@ -3778,8 +3791,40 @@ private[cozy] object CozyBok {
       runtimecncfminimum = version.runtime.flatMap(_.minimum),
       runtimecncfmaximum = version.runtime.flatMap(_.maximum),
       runtimecncftested = version.runtime.map(_.tested).getOrElse(Vector.empty),
-      checksumsha256 = version.checksumSha256
+      checksumsha256 = version.checksumSha256,
+      componentdescriptor = archive.componentdescriptor,
+      abimanifest = archive.abimanifest
     )
+  }
+
+  private def _repository_car_archive_metadata(
+    config: BuildConfig,
+    file: Option[String]
+  ): RepositoryCarArchiveMetadata =
+    file.map(_project_artifact_path(config, _)).filter(Files.isRegularFile(_)).map { path =>
+      val zip = new ZipFile(path.toFile)
+      try {
+        def _json_entry_(name: String): Option[Json] =
+          Option(zip.getEntry(name)).map { entry =>
+            val in = zip.getInputStream(entry)
+            try {
+              val text = new String(in.readAllBytes(), StandardCharsets.UTF_8)
+              parser.parse(text).fold(
+                error => RAISE.invalidArgumentFault(s"Invalid repository CAR metadata JSON: ${path}!/${name}: ${error.message}"),
+                identity
+              )
+            } finally {
+              in.close()
+            }
+          }
+        RepositoryCarArchiveMetadata(
+          _json_entry_("component-descriptor.json"),
+          _json_entry_("abi-manifest.json")
+        )
+      } finally {
+        zip.close()
+      }
+    }.getOrElse(RepositoryCarArchiveMetadata(None, None))
 
   private def _repository_car_dashboard_body(
     config: BuildConfig,
@@ -3901,6 +3946,10 @@ private[cozy] object CozyBok {
     projects: Vector[CozyBokProjectPublisher.ResolvedBokProject]
   ): String = {
     val relatedprojects = _repository_car_related_projects(entry, projects)
+    val archivemetadatarows = entry.effectiveVersion.
+      flatMap(selected => entry.versions.find(_.version == selected)).
+      map(_repository_car_archive_metadata_rows(locale, _)).
+      getOrElse(Vector.empty)
     val versionrows = entry.versions.map { version =>
       val href = _relative_href(page, target.resolve(entry.versionPublicPath(version)))
       val selected = entry.effectiveVersion.contains(version.version)
@@ -3918,7 +3967,7 @@ private[cozy] object CozyBok {
               _repository_car_status_label(locale) -> _html_escape(entry.status.getOrElse("active")),
               _repository_car_aliases_label(locale) -> _html_escape(if (entry.aliases.isEmpty) "-" else entry.aliases.mkString(", ")),
               _repository_car_sidecars_label(locale) -> _repository_car_sidecar_links(target, page, locale, entry.sidecars)
-            ))}
+            ) ++ archivemetadatarows)}
        |  <h2>${_html_escape(_repository_car_versions_label(locale))}</h2>
        |  <div class="bok-project-table-wrap">
        |    <table class="table table-sm bok-project-cml-table">
@@ -3961,7 +4010,7 @@ private[cozy] object CozyBok {
               _repository_car_runtime_label(locale) -> (if (runtime.isEmpty) "-" else runtime),
               _repository_car_checksum_label(locale) -> _html_escape(version.checksumsha256.getOrElse("-")),
               _repository_car_sidecars_label(locale) -> _repository_car_sidecar_links(target, page, locale, entry.sidecars)
-            ))}
+            ) ++ _repository_car_archive_metadata_rows(locale, version))}
        |  ${_repository_car_related_projects_html(target, page, locale, relatedprojects)}
        |</section>""".stripMargin
   }
@@ -4144,6 +4193,61 @@ private[cozy] object CozyBok {
     locale match {
       case "ja" => s"モデルメタデータ (${format})"
       case _ => s"Model metadata (${format})"
+    }
+
+  private def _repository_car_archive_metadata_rows(
+    locale: String,
+    version: RepositoryCarVersion
+  ): Vector[(String, String)] =
+    Vector(
+      version.componentdescriptor.map(json =>
+        _repository_car_component_descriptor_label(locale) -> _repository_car_component_descriptor_summary(json)
+      ),
+      version.abimanifest.map(json =>
+        _repository_car_abi_manifest_label(locale) -> _repository_car_abi_manifest_summary(json)
+      )
+    ).flatten
+
+  private def _repository_car_component_descriptor_summary(json: Json): String = {
+    val cursor = json.hcursor
+    val name = cursor.get[String]("name").toOption.
+      orElse(cursor.downField("component").get[String]("name").toOption).
+      getOrElse("-")
+    val version = cursor.get[String]("version").toOption.
+      orElse(cursor.downField("component").get[String]("version").toOption).
+      getOrElse("-")
+    val component = cursor.get[String]("component").toOption.
+      orElse(cursor.get[String]("componentName").toOption).
+      orElse(cursor.downField("component").get[String]("componentName").toOption).
+      getOrElse(name)
+    val entitycount = cursor.downField("entities").as[Vector[Json]].toOption.map(_.size).getOrElse(0)
+    _html_escape(s"${name} ${version} / ${component} / entities ${entitycount}")
+  }
+
+  private def _repository_car_abi_manifest_summary(json: Json): String = {
+    val cursor = json.hcursor
+    val car = cursor.downField("car")
+    val abi = cursor.downField("abi")
+    val exports = abi.downField("exports")
+    val name = car.get[String]("name").toOption.getOrElse("-")
+    val version = car.get[String]("version").toOption.getOrElse("-")
+    val abiversion = abi.get[Int]("version").toOption.getOrElse(1)
+    def _count_(field: String): Int = exports.downField(field).as[Vector[Json]].toOption.map(_.size).getOrElse(0)
+    _html_escape(
+      s"${name} ${version} / ABI ${abiversion} / components ${_count_("components")} / operations ${_count_("operations")} / entities ${_count_("entities")}"
+    )
+  }
+
+  private def _repository_car_component_descriptor_label(locale: String): String =
+    locale match {
+      case "ja" => "コンポーネント記述子"
+      case _ => "Component descriptor"
+    }
+
+  private def _repository_car_abi_manifest_label(locale: String): String =
+    locale match {
+      case "ja" => "ABIマニフェスト"
+      case _ => "ABI manifest"
     }
 
   private def _repository_car_related_project_label(locale: String): String =
