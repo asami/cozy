@@ -1488,8 +1488,10 @@ class CozyBokProjectSpec
               |summary: NICT KnowledgeHub CAR component project.
               |terms:
               |  - semantic integration
+              |  - knowledge model
               |tags:
               |  - sie
+              |  - knowledge
               |publication:
               |  path: textus/components/nict-knowledgehub
               |""".stripMargin
@@ -1529,6 +1531,12 @@ class CozyBokProjectSpec
               |latestSnapshot: 0.3.0-SNAPSHOT
               |aliases:
               |  - nict-kh
+              |tags:
+              |  - workflow.review
+              |  - sie
+              |terms:
+              |  - Repository CAR
+              |  - semantic integration
               |versions:
               |  - version: 0.2.0
               |    channel: stable
@@ -1554,6 +1562,8 @@ class CozyBokProjectSpec
               |  "artifactId": "textus-sie",
               |  "latest_stable": "0.1.0",
               |  "aliases": ["semantic-integration-engine"],
+              |  "tags": ["platform.sie"],
+              |  "terms": ["semantic integration engine"],
               |  "versions": [
               |    {
               |      "version": "0.1.0",
@@ -1595,7 +1605,19 @@ class CozyBokProjectSpec
           metadata should include(""""runtime"""")
           metadata should include(""""minimum" : "0.5.0"""")
           metadata should not include ("nict-knowledgehub.cml")
-          val diagnosticjson = parser.parse(metadata).fold(throw _, identity).
+          And("explicit CAR tags and terms remain first while Project metadata supplements them")
+          val metadatajson = parser.parse(metadata).fold(throw _, identity)
+          val carentries = metadatajson.hcursor.downField("entries").as[Vector[io.circe.Json]].fold(throw _, identity)
+          def _car_entry_(artifactid: String): io.circe.Json =
+            carentries.find(_.hcursor.get[String]("artifact_id").toOption.contains(artifactid)).
+              getOrElse(fail(s"Missing repository CAR metadata entry: ${artifactid}"))
+          val nictentry = _car_entry_("nict-knowledgehub")
+          nictentry.hcursor.get[Vector[String]]("tags").fold(throw _, identity) shouldBe Vector("workflow.review", "sie", "knowledge")
+          nictentry.hcursor.get[Vector[String]]("terms").fold(throw _, identity) shouldBe Vector("Repository CAR", "semantic integration", "knowledge model")
+          val textussieentry = _car_entry_("textus-sie")
+          textussieentry.hcursor.get[Vector[String]]("tags").fold(throw _, identity) shouldBe Vector("platform.sie")
+          textussieentry.hcursor.get[Vector[String]]("terms").fold(throw _, identity) shouldBe Vector("semantic integration engine")
+          val diagnosticjson = metadatajson.
             hcursor.downField("diagnostics").as[Vector[io.circe.Json]].fold(throw _, identity)
           val diagnostics = diagnosticjson.map { json =>
             val cursor = json.hcursor
@@ -1638,6 +1660,10 @@ class CozyBokProjectSpec
           modulepage should include("repository/catalog/car/nict-knowledgehub.yaml")
           modulepage should include("0.2.0.html")
           modulepage should include("0.3.0-SNAPSHOT.html")
+          modulepage should include("../../../tags/workflow/review.html")
+          modulepage should include("../../../tags/technology/sie.html")
+          modulepage should include("../../../tags/technology/knowledge.html")
+          modulepage should include("Repository CAR, semantic integration, knowledge model")
           modulepage should include("関連Project")
           modulepage should include("NICT KnowledgeHub")
           val versionpage = _read(dir.resolve("website.d/repository/car/nict-knowledgehub/0.2.0.html"))
@@ -1664,6 +1690,12 @@ class CozyBokProjectSpec
           tagpage should include("NICT KnowledgeHub")
           tagpage should include("repository/car/nict-knowledgehub/index.html")
           tagpage should include("CARリポジトリ")
+          val explicittagpage = _read(dir.resolve("website.d/tags/workflow/review.html"))
+          explicittagpage should include("repository/car/nict-knowledgehub/index.html")
+          val unlinkedtagpage = _read(dir.resolve("website.d/tags/platform/sie.html"))
+          unlinkedtagpage should include("repository/car/textus-sie/index.html")
+          val inheritedtagpage = _read(dir.resolve("website.d/tags/technology/knowledge.html"))
+          inheritedtagpage should include("repository/car/nict-knowledgehub/index.html")
         }
       }
 

@@ -3440,6 +3440,8 @@ private[cozy] object CozyBok {
   private final case class RepositoryCarEntry(
     artifactid: String,
     aliases: Vector[String],
+    tags: Vector[String],
+    terms: Vector[String],
     status: Option[String],
     recommended: Option[String],
     lateststable: Option[String],
@@ -3458,6 +3460,8 @@ private[cozy] object CozyBok {
       Json.obj(
         "artifact_id" -> Json.fromString(artifactid),
         "aliases" -> aliases.asJson,
+        "tags" -> tags.asJson,
+        "terms" -> terms.asJson,
         "status" -> status.asJson,
         "recommended" -> recommended.asJson,
         "latest_stable" -> lateststable.asJson,
@@ -3578,7 +3582,7 @@ private[cozy] object CozyBok {
           modulepage,
           entry.artifactid,
           _repository_car_module_description(locale, entry),
-          _repository_car_module_body(target, modulepage, locale, entry, projects)
+          _repository_car_module_body(config, target, modulepage, locale, entry, projects)
         )
       )
       entry.versions.foreach { version =>
@@ -3592,7 +3596,7 @@ private[cozy] object CozyBok {
             versionpage,
             s"${entry.artifactid} ${version.version}",
             _repository_car_version_description(locale, entry, version),
-            _repository_car_version_body(target, versionpage, locale, entry, version, projects)
+            _repository_car_version_body(config, target, versionpage, locale, entry, version, projects)
           )
         )
       }
@@ -3600,11 +3604,23 @@ private[cozy] object CozyBok {
   }
 
   private def _repository_car_index(config: BuildConfig): RepositoryCarIndex = {
+    val projects = _safe_resolved_project_packages(config)
     val entries = _repository_car_catalog_paths(config).flatMap { path =>
       _read_repository_car_catalog(config, path)
-    }.sortBy(_.artifactid)
-    val diagnostics = _repository_car_diagnostics(config, entries, _safe_resolved_project_packages(config))
+    }.map(_repository_car_merge_project_metadata(_, projects)).sortBy(_.artifactid)
+    val diagnostics = _repository_car_diagnostics(config, entries, projects)
     RepositoryCarIndex(entries, diagnostics)
+  }
+
+  private def _repository_car_merge_project_metadata(
+    entry: RepositoryCarEntry,
+    projects: Vector[CozyBokProjectPublisher.ResolvedBokProject]
+  ): RepositoryCarEntry = {
+    val relatedprojects = _repository_car_related_projects(entry, projects)
+    entry.copy(
+      tags = (entry.tags ++ relatedprojects.flatMap(_.tags)).distinct,
+      terms = (entry.terms ++ relatedprojects.flatMap(_.terms)).distinct
+    )
   }
 
   private def _repository_car_diagnostics(
@@ -3809,7 +3825,9 @@ private[cozy] object CozyBok {
       string("latestSnapshot").orElse(string("latest_snapshot")),
       string("status"),
       strings("aliases"),
-      versions
+      versions,
+      strings("tags"),
+      strings("terms")
     ).validate
     _validate_repository_car_json_source_path(catalog, path)
     catalog
@@ -3837,6 +3855,8 @@ private[cozy] object CozyBok {
     RepositoryCarEntry(
       artifactid = catalog.artifactId,
       aliases = catalog.aliases,
+      tags = catalog.tags,
+      terms = catalog.terms,
       status = catalog.status,
       recommended = catalog.recommended,
       lateststable = catalog.latestStable,
@@ -4053,6 +4073,7 @@ private[cozy] object CozyBok {
     }.getOrElse("")
 
   private def _repository_car_module_body(
+    config: BuildConfig,
     target: Path,
     page: Path,
     locale: String,
@@ -4060,6 +4081,7 @@ private[cozy] object CozyBok {
     projects: Vector[CozyBokProjectPublisher.ResolvedBokProject]
   ): String = {
     val relatedprojects = _repository_car_related_projects(entry, projects)
+    val category = relatedprojects.headOption.map(project => _project_category(config, project))
     val archivemetadatarows = entry.effectiveVersion.
       flatMap(selected => entry.versions.find(_.version == selected)).
       map(_repository_car_archive_metadata_rows(locale, _)).
@@ -4080,6 +4102,8 @@ private[cozy] object CozyBok {
               _repository_car_latest_label(locale) -> _html_escape(entry.effectiveVersion.getOrElse("-")),
               _repository_car_status_label(locale) -> _html_escape(entry.status.getOrElse("active")),
               _repository_car_aliases_label(locale) -> _html_escape(if (entry.aliases.isEmpty) "-" else entry.aliases.mkString(", ")),
+              _repository_car_tags_label(locale) -> _repository_car_tag_links(target, page, entry.tags, category),
+              _repository_car_terms_label(locale) -> _html_escape(if (entry.terms.isEmpty) "-" else entry.terms.mkString(", ")),
               _repository_car_sidecars_label(locale) -> _repository_car_sidecar_links(target, page, locale, entry.sidecars)
             ) ++ archivemetadatarows)}
        |  <h2>${_html_escape(_repository_car_versions_label(locale))}</h2>
@@ -4096,6 +4120,7 @@ private[cozy] object CozyBok {
   }
 
   private def _repository_car_version_body(
+    config: BuildConfig,
     target: Path,
     page: Path,
     locale: String,
@@ -4104,6 +4129,7 @@ private[cozy] object CozyBok {
     projects: Vector[CozyBokProjectPublisher.ResolvedBokProject]
   ): String = {
     val relatedprojects = _repository_car_related_projects(entry, projects)
+    val category = relatedprojects.headOption.map(project => _project_category(config, project))
     val runtime =
       Vector(
         version.runtimecncfminimum.map(x => "minimum" -> x),
@@ -4123,6 +4149,8 @@ private[cozy] object CozyBok {
               _repository_car_file_label(locale) -> s"<code>${_html_escape(version.file.getOrElse("-"))}</code>",
               _repository_car_runtime_label(locale) -> (if (runtime.isEmpty) "-" else runtime),
               _repository_car_checksum_label(locale) -> _html_escape(version.checksumsha256.getOrElse("-")),
+              _repository_car_tags_label(locale) -> _repository_car_tag_links(target, page, entry.tags, category),
+              _repository_car_terms_label(locale) -> _html_escape(if (entry.terms.isEmpty) "-" else entry.terms.mkString(", ")),
               _repository_car_sidecars_label(locale) -> _repository_car_sidecar_links(target, page, locale, entry.sidecars)
             ) ++ _repository_car_archive_metadata_rows(locale, version))}
        |  ${_repository_car_related_projects_html(target, page, locale, relatedprojects)}
@@ -4248,6 +4276,32 @@ private[cozy] object CozyBok {
     locale match {
       case "ja" => "別名"
       case _ => "Aliases"
+    }
+
+  private def _repository_car_tags_label(locale: String): String =
+    locale match {
+      case "ja" => "タグ"
+      case _ => "Tags"
+    }
+
+  private def _repository_car_tag_links(
+    target: Path,
+    page: Path,
+    tags: Vector[String],
+    category: Option[String]
+  ): String = {
+    val links = tags.map(_tag_key(_, category)).filter(_.nonEmpty).distinct.map { key =>
+      val tag = _tag_entry_from_usage(key, Vector.empty)
+      val href = _relative_href(page, target.resolve(tag.publicpath))
+      s"""<a class="bok-tag-chip" href="${_html_escape(href)}">${_html_escape(tag.effectiveTitle)}</a>"""
+    }
+    if (links.isEmpty) "-" else links.mkString(" ")
+  }
+
+  private def _repository_car_terms_label(locale: String): String =
+    locale match {
+      case "ja" => "用語"
+      case _ => "Terms"
     }
 
   private def _repository_car_catalog_label(locale: String): String =
@@ -7302,10 +7356,8 @@ private[cozy] object CozyBok {
       _tag_refs(project.tags, TagReference("project", project.title, s"${project.publicationpath}/index.html", category))
     }
     val repositorycarrefs = _repository_car_index(config).entries.flatMap { entry =>
-      _repository_car_related_projects(entry, projects).flatMap { project =>
-        val category = Some(_project_category(config, project))
-        _tag_refs(project.tags, TagReference("repository-car", entry.title, entry.publicPath, category))
-      }
+      val category = _repository_car_related_projects(entry, projects).headOption.map(_project_category(config, _))
+      _tag_refs(entry.tags, TagReference("repository-car", entry.title, entry.publicPath, category))
     }
     val entries = (documentrefs ++ termrefs ++ scenariorefs ++ bibliographyrefs ++ projectrefs ++ repositorycarrefs).
       groupBy(_._1).

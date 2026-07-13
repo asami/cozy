@@ -140,6 +140,10 @@ Out of scope:
   archives. Existing CAR files report missing descriptor/ABI entries and
   catalog-coordinate mismatches, while catalog versions whose artifact is not
   locally available remain outside archive-internal diagnostics.
+- 2026-07-13: Added repository CAR tags and terms. Catalog-level metadata is
+  authoritative and remains first, related Project metadata supplements it
+  with duplicate removal, and effective CAR tags link bidirectionally with
+  hierarchical tag resource pages.
 
 ## References
 

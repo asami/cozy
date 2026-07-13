@@ -5,7 +5,7 @@ import java.nio.file.{Files, Path}
 
 /*
  * @since   May. 20, 2026
- * @version May. 20, 2026
+ * @version Jul. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 final case class RepositoryArtifactCatalog(
@@ -17,7 +17,9 @@ final case class RepositoryArtifactCatalog(
   latestSnapshot: Option[String],
   status: Option[String],
   aliases: Vector[String],
-  versions: Vector[RepositoryArtifactCatalogVersion]
+  versions: Vector[RepositoryArtifactCatalogVersion],
+  tags: Vector[String] = Vector.empty,
+  terms: Vector[String] = Vector.empty
 ) {
   def validate: RepositoryArtifactCatalog = {
     RepositoryArtifactCatalog.validate(this, None)
@@ -74,7 +76,9 @@ object RepositoryArtifactCatalog {
       latestSnapshot = _non_empty(root.get("latestSnapshot")),
       status = _non_empty(root.get("status")),
       aliases = parsed.lists.get("aliases").getOrElse(_csv(root.get("aliases"))),
-      versions = versions
+      versions = versions,
+      tags = parsed.lists.get("tags").getOrElse(_csv(root.get("tags"))),
+      terms = parsed.lists.get("terms").getOrElse(_csv(root.get("terms")))
     ).validate
   }
 
@@ -103,6 +107,8 @@ object RepositoryArtifactCatalog {
         _optional_line("latestSnapshot", catalog.latestSnapshot) ++
         _optional_line("status", catalog.status) ++
         _list_lines("aliases", catalog.aliases, 0) ++
+        _list_lines("tags", catalog.tags, 0) ++
+        _list_lines("terms", catalog.terms, 0) ++
         Vector("versions:") ++
         catalog.versions.flatMap(_version_lines)
     lines.mkString("\n") + "\n"

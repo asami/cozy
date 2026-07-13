@@ -243,7 +243,9 @@ private[cozy] object RepositoryArtifactPublisher {
       latestSnapshot = None,
       status = existing.status.orElse(Some("active")),
       aliases = existing.aliases,
-      versions = versions
+      versions = versions,
+      tags = existing.tags,
+      terms = existing.terms
     ).validate
   }
 

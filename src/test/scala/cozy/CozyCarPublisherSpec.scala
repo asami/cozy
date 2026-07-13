@@ -316,6 +316,10 @@ class CozyCarPublisherSpec
           |status: active
           |aliases:
           |  - sample-old
+          |tags:
+          |  - platform.component
+          |terms:
+          |  - Sample Component
           |versions:
           |  - version: 0.0.9
           |    channel: stable
@@ -365,6 +369,8 @@ class CozyCarPublisherSpec
           catalog.recommended shouldBe Some("0.0.9")
           catalog.latestStable shouldBe Some("0.1.0")
           catalog.aliases shouldBe Vector("sample-old")
+          catalog.tags shouldBe Vector("platform.component")
+          catalog.terms shouldBe Vector("Sample Component")
           val metadata = Files.readString(
             warehouse.resolve(
               "repository/car/sample-component/maven-metadata.xml"

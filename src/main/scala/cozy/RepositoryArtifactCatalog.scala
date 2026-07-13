@@ -4,7 +4,7 @@ import java.nio.file.Path
 
 /*
  * @since   May. 20, 2026
- * @version May. 20, 2026
+ * @version Jul. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 object RepositoryArtifactCatalog {
@@ -17,7 +17,9 @@ object RepositoryArtifactCatalog {
     latestsnapshot: Option[String],
     status: Option[String],
     aliases: Vector[String],
-    versions: Vector[RepositoryArtifactCatalogVersion]
+    versions: Vector[RepositoryArtifactCatalogVersion],
+    tags: Vector[String] = Vector.empty,
+    terms: Vector[String] = Vector.empty
   ): RepositoryArtifactCatalog =
     _root_.cozy.archive.RepositoryArtifactCatalog(
       schemaversion,
@@ -28,13 +30,17 @@ object RepositoryArtifactCatalog {
       latestsnapshot,
       status,
       aliases,
-      versions
+      versions,
+      tags,
+      terms
     )
 
   def unapply(value: RepositoryArtifactCatalog): Option[
     (String, String, String, Option[String], Option[String], Option[String], Option[String], Vector[String], Vector[RepositoryArtifactCatalogVersion])
-  ] =
-    _root_.cozy.archive.RepositoryArtifactCatalog.unapply(value)
+  ] = {
+    // Keep the established extractor arity while tags and terms remain additive fields.
+    Some((value.schemaVersion, value.kind, value.artifactId, value.recommended, value.latestStable, value.latestSnapshot, value.status, value.aliases, value.versions))
+  }
 
   def load(path: Path): RepositoryArtifactCatalog =
     _root_.cozy.archive.RepositoryArtifactCatalog.load(path)
