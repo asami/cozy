@@ -53,7 +53,7 @@ Out of scope:
 
 - [x] BK14-01: Phase 14 documentation opened
 - [x] BK14-02: SIE responsibility boundary and integration contract
-- [ ] BK14-03: BoK KnowledgeSource manifest output
+- [x] BK14-03: BoK KnowledgeSource manifest output
 - [ ] BK14-04: SIE project metadata and publication registry integration
 - [ ] BK14-05: SIE CAR/SAR repository catalog integration
 - [ ] BK14-06: SIE runtime / launcher development configuration validation
@@ -106,6 +106,10 @@ Out of scope:
   `cncf.knowledge-source.v1` envelope for both BoK input and SIE projection
   handoff. Cozy owns publication integration and diagnostics; SIE owns semantic
   materialization. BK14-03 is the next implementation item.
+- 2026-07-13: Completed BK14-03. Cozy now publishes a deterministic
+  `metadata/cncf/knowledge-source.json`, lists only generated glossary/RDF
+  resources, resolves site identity from `site.metadata`, and fails explicitly
+  when authored glossary terms lack the SmartDox metadata handoff.
 
 ## References
 

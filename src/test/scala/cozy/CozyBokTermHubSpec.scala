@@ -174,7 +174,7 @@ class CozyBokTermHubSpec
         }
       }
 
-      "render empty term surfaces when terms metadata is absent" in {
+      "reject authored terms when SmartDox terms metadata is absent" in {
         _with_temp_dir("cozy-bok-term-empty-metadata") { dir =>
           Given("a BoK source tree whose SmartDox output has no terms.json")
           _write(
@@ -213,20 +213,15 @@ class CozyBokTermHubSpec
           )
 
           When("Cozy builds without SmartDox term metadata")
-          CozyBok.build(config, new NoTermMetadataRunner)
+          val error = intercept[Throwable] {
+            CozyBok.build(config, new NoTermMetadataRunner)
+          }
 
           Then(
-            "the Glossary dashboard renders an empty metadata-driven surface without rebuilding terms from source"
+            "the missing producer handoff is reported without rebuilding terms from source"
           )
-          val glossary = _read(dir.resolve("website.d/glossary/index.html"))
-          glossary should include("""<body class="article bok-dashboard-theme-paper">""")
-          glossary should include("""class="body body-dashboard bok-glossary-body"""")
-          glossary should include("No glossary terms yet.")
-          glossary should not include ("""href="architecture/runtime.html"""")
-          glossary should not include ("らんたいむ")
-          Files.exists(
-            dir.resolve("website.d/glossary/architecture/runtime.html")
-          ) shouldBe false
+          error.getMessage should include("SmartDox glossary metadata was not generated")
+          error.getMessage should include("Cozy does not reconstruct the missing terms.json handoff")
         }
       }
     }

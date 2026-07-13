@@ -34,29 +34,29 @@ Status: DONE
 
 ## BK14-03: BoK KnowledgeSource Manifest Output
 
-Status: TODO
+Status: DONE
 
-- [ ] Generate `website.d/metadata/cncf/knowledge-source.json`.
-- [ ] Use public URL path `/metadata/cncf/knowledge-source.json`.
-- [ ] Use `schemaVersion = cncf.knowledge-source.v1`.
-- [ ] Use `kind = bok-site`.
-- [ ] Resolve `sourceRef.kind = bok-site`.
-- [ ] Resolve manifest `id` and `sourceRef.value` from the BoK publication or
+- [x] Generate `website.d/metadata/cncf/knowledge-source.json`.
+- [x] Use public URL path `/metadata/cncf/knowledge-source.json`.
+- [x] Use `schemaVersion = cncf.knowledge-source.v1`.
+- [x] Use `kind = bok-site`.
+- [x] Resolve `sourceRef.kind = bok-site`.
+- [x] Resolve manifest `id` and `sourceRef.value` from the BoK publication or
       site key.
-- [ ] Resolve `sourceRef.uri` from the configured public site base URL when
+- [x] Resolve `sourceRef.uri` from the configured public site base URL when
       available.
-- [ ] Include `glossary-terms` resource when
+- [x] Include `glossary-terms` resource when
       `metadata/glossary/terms.json` is emitted.
-- [ ] Preserve the current `metadata/glossary/terms.json` top-level
+- [x] Preserve the current `metadata/glossary/terms.json` top-level
       `{ "terms": [] }` shape for SIE v1.
-- [ ] Include `rdf-jsonld` only when `site.jsonld` is generated.
-- [ ] Include `rdf-turtle` only when `site.ttl` is generated.
-- [ ] Include `rdf-graph-summary` only when `metadata/rdf/graph.json` is
+- [x] Include `rdf-jsonld` only when `site.jsonld` is generated.
+- [x] Include `rdf-turtle` only when `site.ttl` is generated.
+- [x] Include `rdf-graph-summary` only when `metadata/rdf/graph.json` is
       generated.
-- [ ] Keep all `resources[].href` values relative to the site base URI.
-- [ ] Do not publish `/.well-known/cncf-knowledge.json` for this slice.
-- [ ] Do not copy rendered HTML into the manifest.
-- [ ] Add diagnostics if an expected required metadata resource is missing.
+- [x] Keep all `resources[].href` values relative to the site base URI.
+- [x] Do not publish `/.well-known/cncf-knowledge.json` for this slice.
+- [x] Do not copy rendered HTML into the manifest.
+- [x] Add diagnostics if an expected required metadata resource is missing.
 
 ## BK14-04: SIE Project Metadata And Publication Registry Integration
 

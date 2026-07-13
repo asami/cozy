@@ -48,6 +48,12 @@ and `sourceRef.kind = bok-site`. Resource `href` values are relative to the
 KnowledgeSource base URI. The manifest declares only files that were actually
 published.
 
+`site.metadata.id` is the canonical manifest `id` and `sourceRef.value`.
+`site.metadata.key` is accepted as a compatibility alias. If neither is set,
+Cozy derives a deterministic identifier from `site.metadata.name`.
+`site.metadata.url` supplies `sourceRef.uri` and is normalized as a site base
+URI with a trailing slash.
+
 The first required resource kind is `glossary-terms` when
 `metadata/glossary/terms.json` exists. RDF resources use the existing
 `rdf-jsonld`, `rdf-turtle`, and `rdf-graph-summary` kinds. Rendered HTML and a

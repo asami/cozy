@@ -636,6 +636,8 @@ private[cozy] object CozyBok {
     dockerImage: String,
     siteOutputScopePolicy: String,
     siteTitle: String,
+    siteId: String,
+    siteUrl: Option[String],
     localeMode: LocaleMode,
     defaultLocale: String,
     languages: Vector[String],
@@ -700,6 +702,13 @@ private[cozy] object CozyBok {
   private final case class PublishStep(name: String, status: String, message: String)
   private final case class WebsiteBackupSnapshot(path: Path, yearMonth: YearMonth, order: String)
   private final case class BibliographyRdfAlias(aliastail: String, targettail: String, title: String)
+  private final case class KnowledgeSourceResource(kind: String, href: String, mediaType: String) {
+    def toJson: Json = Json.obj(
+      "kind" -> Json.fromString(kind),
+      "href" -> Json.fromString(href),
+      "mediaType" -> Json.fromString(mediaType)
+    )
+  }
   private final case class PublishPreflight(
     stage: Option[WorkflowConfig],
     upload: WorkflowConfig,
@@ -2629,6 +2638,8 @@ private[cozy] object CozyBok {
           _write_special_pages(config, target, lang, writeLocalizedGlossaryIndexes = false)
           _write_category_pages(config, target, lang)
         }
+        // Machine-readable publication paths remain canonical across locale modes.
+        _copy_machine_metadata_artifacts(config, config.websitePath)
     }
 
   private def _write_home_page(config: BuildConfig, target: Path, locale: String): Unit =
@@ -4988,6 +4999,58 @@ private[cozy] object CozyBok {
     _copy_if_exists(config.doxsitePath.resolve("metadata/scenarios/scenarios.json"), target.resolve("metadata/scenarios/scenarios.json"))
     _copy_if_exists(config.doxsitePath.resolve("metadata/tags/tags.json"), target.resolve("metadata/tags/tags.json"))
     _copy_directory(config.doxsitePath.resolve("metadata/repository/car"), target.resolve("metadata/repository/car"))
+    _write_knowledge_source_manifest(config, target)
+  }
+
+  private def _write_knowledge_source_manifest(config: BuildConfig, target: Path): Unit = {
+    val terms = target.resolve("metadata/glossary/terms.json")
+    if (_source_declares_glossary_terms(config) && !Files.isRegularFile(terms))
+      RAISE.invalidArgumentFault(
+        "SmartDox glossary metadata was not generated even though BoK source declares glossary terms. " +
+          "Update the dox/SmartDox runtime used by cozy bok build; Cozy does not reconstruct the missing terms.json handoff."
+      )
+    val resources = Vector(
+      KnowledgeSourceResource("glossary-terms", "metadata/glossary/terms.json", "application/json"),
+      KnowledgeSourceResource("rdf-jsonld", "rdf/site.jsonld", "application/ld+json"),
+      KnowledgeSourceResource("rdf-turtle", "rdf/site.ttl", "text/turtle"),
+      KnowledgeSourceResource("rdf-graph-summary", "metadata/rdf/graph.json", "application/json")
+    ).filter(x => Files.isRegularFile(target.resolve(x.href)))
+    val sourceref = Json.obj(
+      (Vector(
+        "kind" -> Json.fromString("bok-site"),
+        "value" -> Json.fromString(config.siteId)
+      ) ++ config.siteUrl.map(x => "uri" -> Json.fromString(x))).toSeq: _*
+    )
+    val manifest = Json.obj(
+      "schemaVersion" -> Json.fromString("cncf.knowledge-source.v1"),
+      "kind" -> Json.fromString("bok-site"),
+      "id" -> Json.fromString(config.siteId),
+      "label" -> Json.fromString(config.siteTitle),
+      "sourceRef" -> sourceref,
+      "resources" -> Json.fromValues(resources.map(_.toJson))
+    )
+    _write_text(
+      target.resolve("metadata/cncf/knowledge-source.json"),
+      manifest.spaces2 + "\n"
+    )
+  }
+
+  private def _source_declares_glossary_terms(config: BuildConfig): Boolean = {
+    val root = config.sourcepath.resolve("glossary")
+    if (!Files.isDirectory(root))
+      false
+    else {
+      val stream = Files.walk(root)
+      try {
+        stream.iterator.asScala.exists { path =>
+          Files.isRegularFile(path) &&
+          _is_source_document(path) &&
+          !_is_index_source_document(path)
+        }
+      } finally {
+        stream.close()
+      }
+    }
   }
 
   private def _copy_if_exists(source: Path, target: Path): Unit =
@@ -14481,6 +14544,7 @@ private[cozy] object CozyBok {
   private def _site_conf(config: CreateConfig): String =
     s"""site {
        |  metadata {
+       |    id = "${_site_identifier(config.name)}"
        |    name = "${config.name}"
        |    url = "${config.url}"
        |    in_language = ["${config.language}"]
@@ -15298,6 +15362,13 @@ private[cozy] object CozyBok {
       val source = config.value("bok.source").getOrElse("src/main/doxsite")
       val site = _load_site_config(project.resolve(source))
       val languages = _languages(config, site)
+      val sitetitle = site.value("site.metadata.name").getOrElse("KnowledgeHub BoK")
+      val siteid = site.value("site.metadata.id").
+        orElse(site.value("site.metadata.key")).
+        map(_site_identifier).
+        filter(_.nonEmpty).
+        getOrElse(_site_identifier(sitetitle))
+      val siteurl = site.value("site.metadata.url").flatMap(_site_base_uri)
       val dockerimage =
         parsed.property("docker-image").
           orElse(config.value("bok.docker-image")).
@@ -15317,7 +15388,9 @@ private[cozy] object CozyBok {
         _strategy(parsed),
         dockerimage,
         site.value("output.scope.policy").orElse(config.value("bok.output.scope.policy")).getOrElse("home_only"),
-        site.value("site.metadata.name").getOrElse("KnowledgeHub BoK"),
+        sitetitle,
+        siteid,
+        siteurl,
         _locale_mode(config, site),
         _default_locale(config, site, languages),
         languages,
@@ -15329,6 +15402,20 @@ private[cozy] object CozyBok {
       )
     }
   }
+
+  private def _site_identifier(value: String): String =
+    value.trim.toLowerCase(Locale.ROOT).
+      replaceAll("[^\\p{L}\\p{N}]+", "-").
+      stripPrefix("-").
+      stripSuffix("-") match {
+        case "" => "bok-site"
+        case x => x
+      }
+
+  private def _site_base_uri(value: String): Option[String] =
+    Option(value).map(_.trim).filter(_.nonEmpty).map { x =>
+      if (x.endsWith("/")) x else x + "/"
+    }
 
   object PublicationConfig {
     def create(name: String, args: List[String]): PublicationConfig = {
