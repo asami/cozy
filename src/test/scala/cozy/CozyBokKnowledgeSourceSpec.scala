@@ -11,7 +11,7 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   Jul. 13, 2026
- * @version Jul. 13, 2026
+ * @version Jul. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokKnowledgeSourceSpec
@@ -48,7 +48,7 @@ class CozyBokKnowledgeSourceSpec
             ("rdf-turtle", "rdf/site.ttl", "text/turtle"),
             ("rdf-graph-summary", "metadata/rdf/graph.json", "application/json")
           )
-          _resources(manifest).map(_._2).forall(x => !x.startsWith("/") && !x.contains("://")) shouldBe true
+          _resources_should_be_relative(manifest)
           dir.resolve("website.d/.well-known/cncf-knowledge.json") shouldNot exist_path
         }
       }
@@ -65,6 +65,50 @@ class CozyBokKnowledgeSourceSpec
           _resources(_parse_json(dir.resolve("website.d/metadata/cncf/knowledge-source.json"))) shouldBe Vector(
             ("glossary-terms", "metadata/glossary/terms.json", "application/json")
           )
+        }
+      }
+
+      "lists CAR and SAR publication metadata without rendered HTML discovery" in {
+        _with_temp_dir("cozy-bok-knowledge-source-components") { dir =>
+          Given("a BoK site whose generated metadata contains component publication records")
+          _write_site_source(dir, glossaryterm = false)
+
+          When("Cozy builds the public BoK site")
+          CozyBok.build(
+            _build_config(dir),
+            new MetadataRunner(includeterms = false, includerdf = false, includecomponents = true)
+          )
+
+          Then("the manifest identifies every component metadata layer with relative resources")
+          val manifest = _parse_json(dir.resolve("website.d/metadata/cncf/knowledge-source.json"))
+          _resources(manifest) shouldBe Vector(
+            ("component-catalog-project", "metadata/catalog/projects/textus-example.json", "application/json"),
+            ("component-project-metadata", "metadata/projects/textus-example/metadata.json", "application/json"),
+            ("component-repository-artifact", "metadata/artifacts/repository/textus-example.json", "application/json"),
+            ("component-release-history", "metadata/releases/textus-example.json", "application/json"),
+            ("component-catalog-project", "metadata/catalog/projects/textus-runtime.json", "application/json"),
+            ("component-project-metadata", "metadata/projects/textus-runtime/metadata.json", "application/json"),
+            ("component-repository-artifact", "metadata/artifacts/repository/textus-runtime.json", "application/json"),
+            ("component-release-history", "metadata/releases/textus-runtime.json", "application/json")
+          )
+          _resources_should_be_relative(manifest)
+
+          And("every advertised document retains the live Cozy publication schema and identity")
+          Vector("textus-example" -> "car", "textus-runtime" -> "sar").foreach { case (name, _) =>
+            Vector(
+              s"metadata/catalog/projects/$name.json" -> "catalog-project",
+              s"metadata/projects/$name/metadata.json" -> "project-metadata",
+              s"metadata/artifacts/repository/$name.json" -> "repository-artifact",
+              s"metadata/releases/$name.json" -> "release-history"
+            ).foreach { case (href, documenttype) =>
+              val path = dir.resolve("website.d").resolve(href)
+              path should be_regular_file
+              val document = _parse_json(path)
+              document.hcursor.get[String]("schema") shouldBe Right("cozy.publish-project.v1")
+              document.hcursor.get[String]("type") shouldBe Right(documenttype)
+              document.hcursor.downField("project").get[String]("name") shouldBe Right(name)
+            }
+          }
         }
       }
 
@@ -140,7 +184,11 @@ class CozyBokKnowledgeSourceSpec
     }
   }
 
-  private class MetadataRunner(includeterms: Boolean, includerdf: Boolean) extends CozyBok.Runner {
+  private class MetadataRunner(
+      includeterms: Boolean,
+      includerdf: Boolean,
+      includecomponents: Boolean = false
+  ) extends CozyBok.Runner {
     def run(command: Vector[String], cwd: Path): Unit =
       if (command.take(2) == Vector("dox", "site")) {
         if (includeterms)
@@ -150,8 +198,84 @@ class CozyBokKnowledgeSourceSpec
           _write(cwd.resolve("doxsite.d/site.jsonld"), "{\"@graph\":[]}\n")
           _write(cwd.resolve("doxsite.d/site.ttl"), "@prefix ex: <https://example.com/> .\n")
         }
+        if (includecomponents) {
+          Vector("textus-example" -> "car", "textus-runtime" -> "sar").foreach { case (name, kind) =>
+            _write(cwd.resolve(s"doxsite.d/metadata/catalog/projects/$name.json"), _component_catalog_json(name, kind))
+            _write(cwd.resolve(s"doxsite.d/metadata/projects/$name/metadata.json"), _component_project_json(name, kind))
+            _write(cwd.resolve(s"doxsite.d/metadata/artifacts/repository/$name.json"), _component_artifact_json(name, kind))
+            _write(cwd.resolve(s"doxsite.d/metadata/releases/$name.json"), _component_release_json(name, kind))
+          }
+          _write(
+            cwd.resolve("doxsite.d/metadata/projects/not-a-component/metadata.json"),
+            """{"schema":"cozy.publish-project.v1","type":"project-metadata","project":{"name":"not-a-component","kind":"application"}}""" + "\n"
+          )
+        }
       }
   }
+
+  private def _component_catalog_json(name: String, kind: String): String =
+    s"""{
+       |  "schema": "cozy.publish-project.v1",
+       |  "type": "catalog-project",
+       |  "project": {
+       |    "name": "$name",
+       |    "title": "$name",
+       |    "kind": "$kind",
+       |    "metadata": "metadata/projects/$name/metadata"
+       |  }
+       |}
+       |""".stripMargin
+
+  private def _component_project_json(name: String, kind: String): String =
+    s"""{
+       |  "schema": "cozy.publish-project.v1",
+       |  "type": "project-metadata",
+       |  "project": {
+       |    "name": "$name",
+       |    "title": "$name",
+       |    "kind": "$kind",
+       |    "organization": "org.textus",
+       |    "version": "0.2.0-SNAPSHOT",
+       |    "scalaVersion": "3.3.8",
+       |    "sbtVersion": "1.9.7",
+       |    "buildSettings": {
+       |      "cozyPlugin": true,
+       |      "cozyPackaging": "$kind",
+       |      "cncfVersion": "0.5.1-SNAPSHOT",
+       |      "cncfDependency": true,
+       |      "sbtCozyPlugin": true
+       |    }
+       |  },
+       |  "publication": {"path": "components/$name"}
+       |}
+       |""".stripMargin
+
+  private def _component_artifact_json(name: String, kind: String): String =
+    s"""{
+       |  "schema": "cozy.publish-project.v1",
+       |  "type": "repository-artifact",
+       |  "project": {"name": "$name", "title": "$name", "kind": "$kind"},
+       |  "artifact": {
+       |    "layer": "repository",
+       |    "status": "available",
+       |    "kinds": [{"type": "$kind", "versions": ["0.2.0"], "latestRelease": "0.2.0"}],
+       |    "files": [{"type": "$kind", "version": "0.2.0", "publicPath": "repository/$kind/$name/0.2.0/$name-0.2.0.$kind"}]
+       |  }
+       |}
+       |""".stripMargin
+
+  private def _component_release_json(name: String, kind: String): String =
+    s"""{
+       |  "schema": "cozy.publish-project.v1",
+       |  "type": "release-history",
+       |  "project": {"name": "$name", "title": "$name", "kind": "$kind"},
+       |  "release": {
+       |    "name": "$name",
+       |    "latest": "0.2.0",
+       |    "versions": [{"version": "0.2.0", "artifacts": []}]
+       |  }
+       |}
+       |""".stripMargin
 
   private def _build_config(dir: Path): CozyBok.BuildConfig =
     CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview"))
@@ -197,6 +321,12 @@ class CozyBokKnowledgeSourceSpec
         cursor.get[String]("href").fold(throw _, identity),
         cursor.get[String]("mediaType").fold(throw _, identity)
       )
+    }
+
+  private def _resources_should_be_relative(json: Json): Unit =
+    _resources(json).map(_._2).foreach { href =>
+      href should not startWith "/"
+      href should not include "://"
     }
 
   private def _parse_json(path: Path): Json =

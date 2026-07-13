@@ -31,7 +31,7 @@ import io.circe.syntax._
 
 /*
  * @since   Jun.  3, 2026
- * @version Jul. 13, 2026
+ * @version Jul. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyBok {
@@ -699,13 +699,13 @@ private[cozy] object CozyBok {
   )
   final case class WebsiteBackupConfig(source: Path, root: Path, compressed: Boolean)
   private final case class PublishStep(name: String, status: String, message: String)
-  private final case class WebsiteBackupSnapshot(path: Path, yearMonth: YearMonth, order: String)
+  private final case class WebsiteBackupSnapshot(path: Path, yearmonth: YearMonth, order: String)
   private final case class BibliographyRdfAlias(aliastail: String, targettail: String, title: String)
-  private final case class KnowledgeSourceResource(kind: String, href: String, mediaType: String) {
+  private final case class KnowledgeSourceResource(kind: String, href: String, mediatype: String) {
     def toJson: Json = Json.obj(
       "kind" -> Json.fromString(kind),
       "href" -> Json.fromString(href),
-      "mediaType" -> Json.fromString(mediaType)
+      "mediaType" -> Json.fromString(mediatype)
     )
   }
   private final case class PublishPreflight(
@@ -2111,11 +2111,11 @@ private[cozy] object CozyBok {
   private def _rotate_website_backups(root: Path, current: YearMonth): Unit = {
     val snapshots = _website_backup_snapshots(root)
     val first = snapshots.headOption.map(_.path).toSet
-    val monthlylast = snapshots.groupBy(_.yearMonth).collect {
+    val monthlylast = snapshots.groupBy(_.yearmonth).collect {
       case (yearmonth, xs) if yearmonth != current =>
         xs.last.path
     }.toSet
-    val currentmonth = snapshots.filter(_.yearMonth == current).map(_.path).toSet
+    val currentmonth = snapshots.filter(_.yearmonth == current).map(_.path).toSet
     val keep = first ++ monthlylast ++ currentmonth
     snapshots.map(_.path).filterNot(keep.contains).foreach(_delete_directory)
   }
@@ -5475,6 +5475,10 @@ private[cozy] object CozyBok {
     _copy_if_exists(config.doxsitePath.resolve("metadata/scenarios/scenarios.json"), target.resolve("metadata/scenarios/scenarios.json"))
     _copy_if_exists(config.doxsitePath.resolve("metadata/tags/tags.json"), target.resolve("metadata/tags/tags.json"))
     _copy_directory(config.doxsitePath.resolve("metadata/repository/car"), target.resolve("metadata/repository/car"))
+    _copy_directory(config.doxsitePath.resolve("metadata/catalog/projects"), target.resolve("metadata/catalog/projects"))
+    _copy_directory(config.doxsitePath.resolve("metadata/projects"), target.resolve("metadata/projects"))
+    _copy_directory(config.doxsitePath.resolve("metadata/artifacts/repository"), target.resolve("metadata/artifacts/repository"))
+    _copy_directory(config.doxsitePath.resolve("metadata/releases"), target.resolve("metadata/releases"))
     _sync_sie_metadata(config, target)
     _write_knowledge_source_manifest(config, target)
   }
@@ -5513,7 +5517,8 @@ private[cozy] object CozyBok {
       KnowledgeSourceResource("rdf-jsonld", "rdf/site.jsonld", "application/ld+json"),
       KnowledgeSourceResource("rdf-turtle", "rdf/site.ttl", "text/turtle"),
       KnowledgeSourceResource("rdf-graph-summary", "metadata/rdf/graph.json", "application/json")
-    ).filter(x => Files.isRegularFile(target.resolve(x.href)))
+    ).filter(x => Files.isRegularFile(target.resolve(x.href))) ++
+      _knowledge_source_component_resources(target)
     val sourceref = Json.obj(
       (Vector(
         "kind" -> Json.fromString("bok-site"),
@@ -5532,6 +5537,56 @@ private[cozy] object CozyBok {
       target.resolve("metadata/cncf/knowledge-source.json"),
       manifest.spaces2 + "\n"
     )
+  }
+
+  private def _knowledge_source_component_resources(target: Path): Vector[KnowledgeSourceResource] = {
+    val projectroot = target.resolve("metadata/projects")
+    if (!Files.isDirectory(projectroot))
+      Vector.empty
+    else {
+      val stream = Files.walk(projectroot)
+      try {
+        stream.iterator.asScala.toVector.
+          filter(path =>
+            Files.isRegularFile(path) &&
+              path.getFileName.toString == "metadata.json" &&
+              Option(path.getParent).flatMap(x => Option(x.getParent)).contains(projectroot)
+          ).
+          flatMap(_knowledge_source_component_identity).
+          sorted.
+          flatMap { name =>
+            Vector(
+              KnowledgeSourceResource("component-catalog-project", s"metadata/catalog/projects/$name.json", "application/json"),
+              KnowledgeSourceResource("component-project-metadata", s"metadata/projects/$name/metadata.json", "application/json"),
+              KnowledgeSourceResource("component-repository-artifact", s"metadata/artifacts/repository/$name.json", "application/json"),
+              KnowledgeSourceResource("component-release-history", s"metadata/releases/$name.json", "application/json")
+            ).filter(x => Files.isRegularFile(target.resolve(x.href)))
+          }
+      } finally {
+        stream.close()
+      }
+    }
+  }
+
+  private def _knowledge_source_component_identity(path: Path): Option[String] = {
+    val json = parser.parse(Files.readString(path, StandardCharsets.UTF_8)).fold(
+      error => RAISE.invalidArgumentFault(s"Invalid Cozy component project metadata JSON: $path: ${error.message}"),
+      identity
+    )
+    val cursor = json.hcursor
+    val schema = cursor.get[String]("schema").toOption
+    val metadatatype = cursor.get[String]("type").toOption
+    val project = cursor.downField("project")
+    val name = project.get[String]("name").toOption.map(_.trim).filter(_.nonEmpty)
+    val kind = project.get[String]("kind").toOption.map(_.trim.toLowerCase(Locale.ROOT))
+    val canonicalname = Option(path.getParent).flatMap(x => Option(x.getFileName)).map(_.toString)
+    (schema, metadatatype, name, kind) match {
+      case (Some("cozy.publish-project.v1"), Some("project-metadata"), Some(componentname), Some(componentkind))
+          if canonicalname.contains(componentname) && (componentkind == "car" || componentkind == "sar") =>
+        Some(componentname)
+      case _ =>
+        None
+    }
   }
 
   private def _source_declares_glossary_terms(config: BuildConfig): Boolean = {
@@ -7274,7 +7329,7 @@ private[cozy] object CozyBok {
       case _ => "unclassified"
     }
 
-  private def _workflow_missing_detail(locale: String, missingcount: Int, items: Vector[String], extraHtml: String = ""): String = {
+  private def _workflow_missing_detail(locale: String, missingcount: Int, items: Vector[String], extrahtml: String = ""): String = {
     val title =
       if (missingcount == 0)
         _ui(locale, "term.analysis.workflow.detail.none")
@@ -7285,7 +7340,7 @@ private[cozy] object CozyBok {
         ""
       else
         s"""<ul>${items.mkString}</ul>"""
-    s"""<div class="bok-workflow-detail"><strong>${_html_escape(title)}</strong>${extraHtml}${list}</div>"""
+    s"""<div class="bok-workflow-detail"><strong>${_html_escape(title)}</strong>${extrahtml}${list}</div>"""
   }
 
   private def _term_extraction_progress_card(locale: String, actual: Int, planned: Int): String = {
@@ -10337,13 +10392,13 @@ private[cozy] object CozyBok {
       |}());
       |</script>""".stripMargin
 
-  private def _dashboard_card(column: String, semantic: String, title: String, body: String, actors: Vector[String] = Vector.empty, anchorId: Option[String] = None): String = {
+  private def _dashboard_card(column: String, semantic: String, title: String, body: String, actors: Vector[String] = Vector.empty, anchorid: Option[String] = None): String = {
     val actorattr =
       if (actors.isEmpty)
         ""
       else
         s""" data-bok-actors="${_html_escape(actors.mkString(" "))}""""
-    val idattr = anchorId.map(x => s""" id="${_html_escape(x)}"""").getOrElse("")
+    val idattr = anchorid.map(x => s""" id="${_html_escape(x)}"""").getOrElse("")
     s"""<div class="${_html_escape(column)}" data-bok-card="true">
        |  <section class="card bok-card ${_html_escape(semantic)}"${idattr}${actorattr}>
        |    <div class="card-body">

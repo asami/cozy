@@ -60,6 +60,32 @@ The first required resource kind is `glossary-terms` when
 `/.well-known/cncf-knowledge.json` compatibility document are not part of this
 contract.
 
+When Cozy publication metadata exists, the manifest lists each generated
+component record with these resource kinds:
+
+- `component-catalog-project` for
+  `metadata/catalog/projects/<name>.json`;
+- `component-project-metadata` for
+  `metadata/projects/<name>/metadata.json`;
+- `component-repository-artifact` for
+  `metadata/artifacts/repository/<name>.json`;
+- `component-release-history` for
+  `metadata/releases/<name>.json`.
+
+These resources retain the `cozy.publish-project.v1` schema and are copied as
+machine-readable metadata into the public BoK target. Cozy lists only files
+that exist and uses paths relative to the KnowledgeSource base URI. SIE joins
+the records by the canonical component name and does not inspect rendered HTML
+or CAR/SAR archive content during metadata ingestion.
+
+The current `cozy.publish-project.v1` producer includes identity, descriptive
+project fields, versions, build settings, publication placement, repository
+files, and release history. Runtime compatibility, service/operation
+capabilities, component dependencies, source commit provenance, and release
+publication timestamps are not part of the current four-resource output. SIE
+must represent their absence as optional-data warnings until Cozy extends the
+producer or the manifest advertises another authoritative resource.
+
 ## SIE To Cozy Handoff
 
 An SIE-linked Project or publication points to an explicit SIE handoff base.
