@@ -64,9 +64,22 @@ generator issue: generated aggregate operations can refer to an unqualified
 entity type such as `Notice`. That generator defect is independent of metadata
 ownership and is deferred to the model-driven scaffold follow-up.
 
+## Post-Closure Maintenance
+
+Verified on 2026-07-14 without reopening Phase 15:
+
+- integrated CAR lint includes a documentation category;
+- deterministic checks cover the packaged reference manual, user guide, and
+  component/service/operation descriptions used by generated Help;
+- `src/main/car/manual/*` is the canonical source-managed CAR manual subtree;
+- CNCF generated Help owns CLI, Help, Manual, OpenAPI, and MCP route navigation,
+  rather than requiring route URLs to be duplicated in CML prose;
+- Cozy full tests passed with 495 successful tests.
+
 ## References
 
 - `docs/phase/phase-15-checklist.md`
 - `docs/design/car-project-metadata-ownership.md`
 - `docs/spec/car-project-scaffold.md`
 - `docs/notes/publication-bridge/car-component-project.md`
+- `docs/design/car-documentation-lint.md`

@@ -8,7 +8,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Jul.  7, 2026
- * @version Jul. 13, 2026
+ * @version Jul. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyCarLint {
@@ -73,12 +73,13 @@ private[cozy] object CozyCarLint {
   ): Vector[Finding] = {
     val cmlsourcefindings = _car_cml_source_findings(root)
     val cmlfindings = _cml_path(root).toVector.flatMap(path => CozyCmlLint.lint(path).map(_cml_finding))
+    val documentationfindings = CozyCarDocumentationLint.lint(root).map(_documentation_finding)
     val abifindings =
       if (noabi)
         Vector.empty
       else
         CozyCarAbiLint.lint(root, baseline).map(_abi_finding)
-    (buildfindings ++ cmlsourcefindings ++ cmlfindings ++ abifindings).sortBy(x => (x.category, x.path.toString, x.line, x.code, x.message))
+    (buildfindings ++ cmlsourcefindings ++ cmlfindings ++ documentationfindings ++ abifindings).sortBy(x => (x.category, x.path.toString, x.line, x.code, x.message))
   }
 
   private def _car_cml_source_findings(root: Path): Vector[Finding] = {
@@ -128,6 +129,9 @@ private[cozy] object CozyCarLint {
   private def _abi_finding(finding: CozyCarAbiLint.Finding): Finding =
     Finding(_level(finding.level), "abi", finding.code, finding.message, finding.path, finding.line)
 
+  private def _documentation_finding(finding: CozyCarDocumentationLint.Finding): Finding =
+    Finding(_level(finding.level), "documentation", finding.code, finding.message, finding.path, finding.line)
+
   private def _level(level: CozyBuildLint.Level): Level =
     level match {
       case CozyBuildLint.Level.Ok => Level.Ok
@@ -146,6 +150,12 @@ private[cozy] object CozyCarLint {
       case CozyCarAbiLint.Level.Ok => Level.Ok
       case CozyCarAbiLint.Level.Fail => Level.Fail
       case CozyCarAbiLint.Level.Warn => Level.Warn
+    }
+
+  private def _level(level: CozyCarDocumentationLint.Level): Level =
+    level match {
+      case CozyCarDocumentationLint.Level.Ok => Level.Ok
+      case CozyCarDocumentationLint.Level.Warn => Level.Warn
     }
 
   private def _render(config: Config, findings: Vector[Finding]): Int = {

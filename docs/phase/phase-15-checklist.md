@@ -56,3 +56,17 @@ Status: DONE
   and dependencies through SBT.
 - [x] Full `sbt --batch test` passes in Cozy.
 - [x] `git diff --check` passes and Phase 15 evidence is recorded.
+
+## Post-Closure Maintenance: CAR Documentation Lint
+
+Status: DONE
+
+- [x] Keep Phase 15 closed.
+- [x] Add reference manual, user guide, and generated-Help description checks
+      to integrated CAR lint.
+- [x] Treat `src/main/car/manual/*` as the canonical packaged manual source.
+- [x] Keep framework-owned CLI, Help, Manual, OpenAPI, and MCP navigation in
+      CNCF generated Help instead of requiring duplicated CML route prose.
+- [x] Verify strict lint blocks incomplete documentation while ordinary lint
+      reports documentation debt as warnings.
+- [x] Run focused and full Cozy specifications.

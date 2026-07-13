@@ -1542,7 +1542,7 @@ private[cozy] object CozyScaffold {
       |      Missing baseline is a warning, even in strict mode, so the first ABI release can start operation.
       |
       |  lint car <project-root> [--baseline <car|manifest>] [--format text|json] [--strict] [--no-abi]
-      |      Run integrated CAR project lint by aggregating build, CML, and ABI lint findings. Use --no-abi for early checks before an ABI manifest exists.
+      |      Run integrated CAR project lint by aggregating build, CML, documentation, and ABI findings. Documentation lint checks the reference manual, user guide, and CML descriptions used by generated Help. CNCF runtime owns CLI, Help, Manual, OpenAPI, and MCP navigation. Use --no-abi for early checks before an ABI manifest exists.
       |
       |  car lint <project-root> [--baseline <car|manifest>] [--format text|json] [--strict] [--no-abi]
       |      Alias for lint car.

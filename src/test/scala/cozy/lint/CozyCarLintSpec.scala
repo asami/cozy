@@ -11,16 +11,16 @@ import play.api.libs.json.Json
 
 /*
  * @since   Jul.  7, 2026
- * @version Jul. 13, 2026
+ * @version Jul. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "Cozy CAR lint" should {
     "aggregate project findings" which {
-      "includes build CML and ABI findings" in {
+      "includes build CML documentation and ABI findings" in {
         _with_temp_dir("cozy-car-lint-aggregate") { dir =>
           Given(
-            "a CAR project with build files, CML source, and an ABI manifest"
+            "a CAR project with build files, documentation, CML source, and an ABI manifest"
           )
           _write_project(dir)
           _write_cml(dir)
@@ -32,10 +32,11 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
           When("Cozy runs integrated CAR lint")
           val findings = CozyCarLint.lint(dir, None, noabi = false)
 
-          Then("the result includes build, CML, and ABI categories")
+          Then("the result includes build, CML, documentation, and ABI categories")
           findings.map(_.category).toSet should contain("build")
           findings.map(_.category).toSet should contain("cml")
           findings.map(_.category).toSet should contain("abi")
+          findings.map(_.category).toSet should contain("documentation")
           findings
             .find(_.code == "cml.domain.string-attribute")
             .map(_.level) shouldBe Some(CozyCarLint.Level.Fail)
@@ -43,6 +44,90 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
             .find(_.code == "abi.baseline.missing")
             .map(_.level) shouldBe Some(CozyCarLint.Level.Warn)
           findings.exists(_.code.startsWith("car.cml.source.")) shouldBe false
+          findings
+            .find(_.code == "car.documentation.component-help.missing")
+            .map(_.level) shouldBe Some(CozyCarLint.Level.Warn)
+        }
+      }
+
+      "accepts complete CAR documentation and descriptive generated-help metadata" in {
+        _with_temp_dir("cozy-car-lint-documentation-complete") { dir =>
+          Given("a CAR project with a packaged reference manual, user guide, and descriptive CML metadata")
+          _write_project(dir)
+          _write_valid_cml(dir)
+
+          When("Cozy runs integrated CAR lint")
+          val findings = CozyCarLint.lint(dir, None, noabi = true)
+
+          Then("the documentation category confirms all deterministic documentation contracts")
+          val documentation = findings.filter(_.category == "documentation")
+          documentation should not be empty
+          documentation.exists(_.level == CozyCarLint.Level.Warn) shouldBe false
+          documentation.map(_.code) should contain allOf (
+            "car.documentation.reference-manual.present",
+            "car.documentation.user-guide.present",
+            "car.documentation.component.description.present",
+            "car.documentation.service.description.present",
+            "car.documentation.operation.description.present"
+          )
+        }
+      }
+
+      "warns when manuals and generated-help descriptions are absent" in {
+        _with_temp_dir("cozy-car-lint-documentation-missing") { dir =>
+          Given("a CAR project without manuals and with an undescribed component")
+          _write_project_without_documentation(dir)
+          _write_valid_cml_without_documentation(dir)
+
+          When("Cozy runs integrated CAR lint")
+          val findings = CozyCarLint.lint(dir, None, noabi = true)
+
+          Then("the documentation category identifies each missing publication and description")
+          val warnings = findings.filter(x => x.category == "documentation" && x.level == CozyCarLint.Level.Warn)
+          warnings.map(_.code) should contain allOf (
+            "car.documentation.reference-manual.missing",
+            "car.documentation.user-guide.missing",
+            "car.documentation.component.description.missing"
+          )
+        }
+      }
+
+      "warns when service and operation descriptions are too thin" in {
+        _with_temp_dir("cozy-car-lint-documentation-thin") { dir =>
+          Given("a CAR project whose component is described but whose service and operation help is terse")
+          _write_project(dir)
+          _write(
+            dir.resolve("src/main/cozy/sample.cml"),
+            _component_help +
+              """
+                |# SERVICE
+                |
+                |## Catalog
+                |
+                |### SUMMARY
+                |
+                |Catalog.
+                |
+                |### OPERATION
+                |
+                |#### findItem
+                |
+                |##### SUMMARY
+                |
+                |Find item.
+                |""".stripMargin
+          )
+
+          When("Cozy runs integrated CAR lint")
+          val findings = CozyCarLint.lint(dir, None, noabi = true)
+
+          Then("service and operation help is reported independently from component help")
+          val warnings = findings.filter(x => x.category == "documentation" && x.level == CozyCarLint.Level.Warn)
+          warnings.map(_.code) should contain allOf (
+            "car.documentation.service.description.thin",
+            "car.documentation.operation.description.thin"
+          )
+          warnings.map(_.code) should not contain "car.documentation.component.description.thin"
         }
       }
 
@@ -100,6 +185,7 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
           findings.exists(_.category == "abi") shouldBe false
           findings.exists(_.category == "build") shouldBe true
           findings.exists(_.category == "cml") shouldBe true
+          findings.exists(_.category == "documentation") shouldBe true
         }
       }
 
@@ -145,11 +231,39 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
           findings.exists(x =>
             (x \ "category").as[String] == "abi"
           ) shouldBe true
+          findings.exists(x =>
+            (x \ "category").as[String] == "documentation"
+          ) shouldBe true
         }
       }
     }
 
     "provide the command-line contract" which {
+      "fails strict lint when CAR documentation is incomplete" in {
+        _with_temp_dir("cozy-car-lint-documentation-strict") { dir =>
+          Given("a CAR project with missing manuals and incomplete generated-help descriptions")
+          _write_project_without_documentation(dir)
+          _write_valid_cml_without_documentation(dir)
+
+          When("Cozy runs integrated CAR lint in strict mode without ABI checks")
+          val out = new ByteArrayOutputStream()
+          val exitcode = Console.withOut(
+            new PrintStream(out, true, StandardCharsets.UTF_8.name())
+          ) {
+            CozyCarLint.execute(
+              List(dir.toString, "--strict", "--no-abi"),
+              Some("0.1.11")
+            )
+          }
+
+          Then("documentation warnings block release readiness")
+          exitcode shouldBe 1
+          out.toString(StandardCharsets.UTF_8.name()) should include(
+            "car.documentation.reference-manual.missing"
+          )
+        }
+      }
+
       "allows missing ABI baseline warnings in strict mode for the first ABI release" in {
         _with_temp_dir("cozy-car-lint-strict") { dir =>
           Given(
@@ -284,6 +398,18 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
     }
 
   private def _write_project(dir: Path): Unit = {
+    _write_project_without_documentation(dir)
+    _write(
+      dir.resolve("src/main/car/manual/index.md"),
+      "# Sample Reference Manual\n\nReference semantics, configuration, operations, errors, and examples.\n"
+    )
+    _write(
+      dir.resolve("src/main/web/docs/user-guide.md"),
+      "# Sample User Guide\n\nTask-oriented setup, first invocation, daily workflows, and troubleshooting.\n"
+    )
+  }
+
+  private def _write_project_without_documentation(dir: Path): Unit = {
     _write(dir.resolve("project.yaml"), "project:\n  name: sample\n")
     _write(
       dir.resolve("project/plugins.sbt"),
@@ -309,8 +435,41 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   private def _write_valid_cml(dir: Path): Unit =
     _write(
       dir.resolve("src/main/cozy/sample.cml"),
+      _component_help +
+        """
+          |# SERVICE
+          |
+          |## Catalog
+          |
+          |### DESCRIPTION
+          |
+          |Provides catalog lookup behavior for users who need to find a registered item.
+          |
+          |### OPERATION
+          |
+          |#### findItem
+          |
+          |##### DESCRIPTION
+          |
+          |Finds one registered item by its stable identifier and explains a missing result.
+          |""".stripMargin
+    )
+
+  private def _write_valid_cml_without_documentation(dir: Path): Unit =
+    _write(
+      dir.resolve("src/main/cozy/sample.cml"),
       "# COMPONENT\n\n## Sample\n"
     )
+
+  private def _component_help: String =
+    """# COMPONENT
+      |
+      |## SampleCatalog
+      |
+      |### DESCRIPTION
+      |
+      |Sample coordinates the complete catalog workflow and explains how users find registered items.
+      |""".stripMargin
 
   private def _manifest(version: String): String =
     s"""{

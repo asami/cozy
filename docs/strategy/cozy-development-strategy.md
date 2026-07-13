@@ -345,6 +345,12 @@ exact development dependencies, descriptor metadata, and runtime compatibility.
 Generated SBT files project this metadata and do not use the runtime minimum as
 the compile dependency version.
 
+Post-closure CAR documentation maintenance adds documentation findings to
+integrated `cozy lint car`. The deterministic lint verifies a packaged reference
+manual, a user guide, and descriptive component/service/operation metadata. CNCF
+generated Help remains responsible for CLI, Help, Manual, OpenAPI, and MCP route
+navigation, so CAR authors do not duplicate framework-owned URLs in CML prose.
+
 Phase 8 completed the first-class `cozy video` workflow: structured
 project/script parsing, inspect, dry-run artifact/command planning, dependency
 checks, Docker-first toolchain mode, unified Textus toolchain image consumption,
