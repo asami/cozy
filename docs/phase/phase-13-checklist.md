@@ -108,7 +108,7 @@ Status: DONE
 
 ## BK13-08: KnowledgeHub Operational Verification
 
-Status: IN PROGRESS
+Status: DONE
 
 - [x] Add representative tags to KnowledgeHub source.
 - [x] Run `cozy bok build . --strategy preview --no-bib-service` with the
@@ -148,7 +148,7 @@ Status: DONE
 
 ## BK13-11: Component Repository CAR Knowledge
 
-Status: IN PROGRESS
+Status: DONE
 
 - [x] Define Project as the BoK knowledge item for program development and CAR
       provider responsibility.
@@ -193,7 +193,7 @@ Status: IN PROGRESS
 - [x] Add `CozyBokRepositoryCarSpec`.
 - [x] Extend `CozyBokProjectSpec` for Project-to-CAR page links.
 - [x] Extend `CozyBokTagSpec` for tag pages that include CAR resources.
-- [ ] Verify with KnowledgeHub using at least one repository CAR catalog entry.
+- [x] Verify with KnowledgeHub using at least one repository CAR catalog entry.
 - [x] Record that Phase 14 SIE CAR/SAR catalog integration builds on this
       generic CAR knowledge layer rather than replacing it.
 

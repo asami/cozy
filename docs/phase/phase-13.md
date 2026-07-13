@@ -51,9 +51,9 @@ Out of scope:
 - [x] BK13-05: Tag dashboard and tag hub rendering
 - [x] BK13-06: Dashboard and knowledge-page tag links
 - [x] BK13-07: RDF tag navigation
-- [ ] BK13-08: KnowledgeHub operational verification
+- [x] BK13-08: KnowledgeHub operational verification
 - [x] BK13-09: Tests and executable specs
-- [ ] BK13-11: Component Repository CAR knowledge
+- [x] BK13-11: Component Repository CAR knowledge
 - [ ] BK13-12: Phase closure
 
 ## Acceptance Criteria
@@ -164,6 +164,16 @@ Out of scope:
   source-backed knowledge resource to its tags with `dcterms:subject`. The
   effective tag graph is shared by `site.ttl`, `site.jsonld`, and the Cozy RDF
   graph metadata handoff.
+- 2026-07-13: Completed KnowledgeHub repository CAR operational verification
+  with the `nict-knowledgehub` Project and an ignored
+  `repository/catalog/car/nict-knowledgehub.yaml` catalog entry. The preview
+  build generated repository CAR index/module/version metadata and pages,
+  preserved Project-to-CAR and CAR-to-Project navigation, inherited
+  `technology.embedding` and `technology.rdf` tags, represented the absent CAR
+  archive as an unpublished artifact, and kept repository/build output outside
+  Git tracking. The temporary catalog was removed after verification so an
+  unpublished artifact does not remain in normal KnowledgeHub builds; Phase 14
+  will repeat the route with an actually published SIE CAR catalog.
 - 2026-07-13: Reconciled the Project tag checklist with the implemented
   metadata consumer and executable specification. Project metadata contributes
   canonical tag references, Project pages render tag links, and tag resource
