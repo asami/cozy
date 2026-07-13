@@ -149,6 +149,10 @@ Out of scope:
   filtered view, while each Term Hub lists related repository CAR modules.
   Unresolved CAR terms remain readable plain text rather than creating derived
   glossary entries in Cozy.
+- 2026-07-13: Added dedicated hierarchical tag executable coverage for
+  repository CAR resources. SmartDox tag definitions and Cozy-owned CAR tags
+  merge on the canonical tag page, which groups the CAR resource and links to
+  its repository module page.
 
 ## References
 

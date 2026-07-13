@@ -10,7 +10,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jun. 28, 2026
- * @version Jul.  1, 2026
+ * @version Jul. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokTagSpec
@@ -21,7 +21,9 @@ class CozyBokTagSpec
     "consume hierarchical tag metadata from BoK handoff metadata" which {
       "render namespace pages and tag resource pages from canonical tag keys" in {
         _with_temp_dir("cozy-bok-tags") { dir =>
-          Given("a BoK source tree and SmartDox metadata with explicit tags")
+          Given(
+            "a BoK source tree, SmartDox metadata with explicit tags, and a tagged repository CAR"
+          )
           _write(
             dir.resolve("src/main/doxsite/site.conf"),
             """site {
@@ -60,6 +62,20 @@ class CozyBokTagSpec
               |- Reviewer: reviews knowledge.
               |""".stripMargin
           )
+          _write(
+            dir.resolve("repository/catalog/car/review-runtime.yaml"),
+            """schemaVersion: 1
+              |kind: car
+              |artifactId: review-runtime
+              |recommended: 1.0.0
+              |tags:
+              |  - technology.review
+              |versions:
+              |  - version: 1.0.0
+              |    channel: stable
+              |    file: repository/car/review-runtime/1.0.0/review-runtime-1.0.0.car
+              |""".stripMargin
+          )
           val config = CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview"))
 
           When("Cozy builds BoK pages from generated metadata")
@@ -90,6 +106,11 @@ class CozyBokTagSpec
           review should include_html("Design Patterns")
           review should include_html("Architecture Pattern")
           review should include_html("Review Article")
+          review should include_html("Repository CARs")
+          review should include_html("review-runtime")
+          review should include_html(
+            "href=\"../../repository/car/review-runtime/index.html\""
+          )
           review should not(include_html("bok-dashboard-shell"))
           val workflowreview = _read(dir.resolve("website.d/tags/workflow/review.html"))
           workflowreview should include_html("""<h1 class="page">review</h1>""")

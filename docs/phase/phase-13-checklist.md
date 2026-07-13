@@ -185,7 +185,7 @@ Status: IN PROGRESS
       consumes existing repository metadata.
 - [x] Add `CozyBokRepositoryCarSpec`.
 - [x] Extend `CozyBokProjectSpec` for Project-to-CAR page links.
-- [ ] Extend `CozyBokTagSpec` for tag pages that include CAR resources.
+- [x] Extend `CozyBokTagSpec` for tag pages that include CAR resources.
 - [ ] Verify with KnowledgeHub using at least one repository CAR catalog entry.
 - [x] Record that Phase 14 SIE CAR/SAR catalog integration builds on this
       generic CAR knowledge layer rather than replacing it.
