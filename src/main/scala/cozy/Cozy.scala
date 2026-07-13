@@ -28,7 +28,7 @@ import scala.util.control.NonFatal
  *  version Apr. 29, 2026
  *  version May. 21, 2026
  *  version Jun. 30, 2026
- * @version Jul. 12, 2026
+ * @version Jul. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 class Cozy(
@@ -194,20 +194,20 @@ class Cozy(
 
   private def _normalize_first_positional_path(args: List[String]): List[String] = {
     @annotation.tailrec
-    def go(xs: List[String], z: Vector[String], done: Boolean): List[String] = xs match {
+    def _go_(xs: List[String], z: Vector[String], done: Boolean): List[String] = xs match {
       case Nil => z.toList
       case x :: xx if x.startsWith("--save=") =>
-        go(xx, z :+ x, done)
+        _go_(xx, z :+ x, done)
       case x :: y :: yy if x == "--save" =>
-        go(yy, z :+ x :+ y, done)
+        _go_(yy, z :+ x :+ y, done)
       case x :: xx if x.startsWith("-") =>
-        go(xx, z :+ x, done)
+        _go_(xx, z :+ x, done)
       case x :: xx if !done =>
-        go(xx, z :+ Cozy._cli_path(x).toString, done = true)
+        _go_(xx, z :+ Cozy._cli_path(x).toString, done = true)
       case x :: xx =>
-        go(xx, z :+ x, done)
+        _go_(xx, z :+ x, done)
     }
-    go(args, Vector.empty, done = false)
+    _go_(args, Vector.empty, done = false)
   }
 
   private def _execute_car_sbt_project(args: Array[String]): Boolean =
@@ -241,6 +241,8 @@ class Cozy(
           case CozyScaffold.ProjectLayoutStyle.CarSar =>
             _materialize_car_sar_sbt_project(save, policy, versions, scaffold, modelpath)
         }
+        val init = Cozy.ComponentInitConfig(save, style, scaffold, scaffold.componentName)
+        _materialize_car_project_yaml(projectsave, policy, versions, init)
         true
       case _ =>
         false
@@ -416,26 +418,26 @@ class Cozy(
 
   private def _convert_args(args: List[String]): Vector[String] = {
     @annotation.tailrec
-    def go(xs: List[String], z: Vector[String]): Vector[String] = xs match {
+    def _go_(xs: List[String], z: Vector[String]): Vector[String] = xs match {
       case Nil => z
       case x :: xx if x.startsWith(":") =>
-        go(xx, z :+ x)
+        _go_(xx, z :+ x)
       case x :: xx if x.startsWith("--") =>
         _split_option(x.drop(2)) match {
           case Some((name, value)) =>
-            go(xx, z :+ s":$name" :+ _quote(value))
+            _go_(xx, z :+ s":$name" :+ _quote(value))
           case None =>
             xx match {
               case y :: yy if !y.startsWith("-") =>
-                go(yy, z :+ s":${x.drop(2)}" :+ _quote(y))
+                _go_(yy, z :+ s":${x.drop(2)}" :+ _quote(y))
               case _ =>
-                go(xx, z :+ s":${x.drop(2)}")
+                _go_(xx, z :+ s":${x.drop(2)}")
             }
         }
       case x :: xx =>
-        go(xx, z :+ _quote(x))
+        _go_(xx, z :+ _quote(x))
     }
-    go(args, Vector.empty)
+    _go_(args, Vector.empty)
   }
 
   private def _split_option(p: String): Option[(String, String)] = {
@@ -548,6 +550,11 @@ class Cozy(
       Cozy.carPluginsSbt(),
       policy
     )
+    _write_project_file(
+      projectdir.resolve("ProjectYamlBuild.scala"),
+      Cozy.carProjectYamlBuildScala(),
+      policy
+    )
     val cozydir = dir.resolve("src/main/cozy")
     Files.createDirectories(cozydir)
     val samplemodel = cozydir.resolve(scaffold.modelFileName)
@@ -561,11 +568,6 @@ class Cozy(
     )
     val cardir = dir.resolve("src/main/car")
     Files.createDirectories(cardir)
-    _write_project_file(
-      cardir.resolve("component-descriptor.json"),
-      Cozy.carComponentDescriptorJson(scaffold),
-      policy
-    )
     val webdir = dir.resolve("src/main/web-inf")
     Files.createDirectories(webdir)
     _write_project_file(
@@ -664,6 +666,11 @@ class Cozy(
       Cozy.carPluginsSbt(),
       policy
     )
+    _write_project_file(
+      projectdir.resolve("ProjectYamlBuild.scala"),
+      Cozy.carProjectYamlBuildScala(),
+      policy
+    )
 
     val componentdir = dir.resolve("component")
     val cozydir = componentdir.resolve(s"src/main/cozy")
@@ -675,11 +682,6 @@ class Cozy(
     _write_project_file(samplemodel, modelcontent, policy)
     val cardir = componentdir.resolve("src/main/car")
     Files.createDirectories(cardir)
-    _write_project_file(
-      cardir.resolve("component-descriptor.json"),
-      Cozy.carComponentDescriptorJson(scaffold),
-      policy
-    )
     val webdir = componentdir.resolve("src/main/web-inf")
     Files.createDirectories(webdir)
     _write_project_file(
@@ -948,6 +950,7 @@ object Cozy {
   private[cozy] def appNameFromPath(path: Path): String = CozyScaffold.appNameFromPath(path)
   private[cozy] def carBuildSbt(): String = CozyScaffold.carBuildSbt()
   private[cozy] def carBuildSbt(versions: CarDependencyVersions, scaffold: CarScaffoldConfig): String = CozyScaffold.carBuildSbt(versions, scaffold)
+  private[cozy] def carProjectYamlBuildScala(): String = CozyScaffold.carProjectYamlBuildScala()
   private[cozy] def carProjectYaml(init: ComponentInitConfig, versions: CarDependencyVersions): String = CozyScaffold.carProjectYaml(init, versions)
   private[cozy] def carSarBuildSbt(scaffold: CarScaffoldConfig, versions: CarDependencyVersions): String = CozyScaffold.carSarBuildSbt(scaffold, versions)
   private[cozy] def carSarReadme(scaffold: CarScaffoldConfig): String = CozyScaffold.carSarReadme(scaffold)
@@ -956,7 +959,6 @@ object Cozy {
   private[cozy] def carSarRepositoryDReadme(appname: String): String = CozyScaffold.carSarRepositoryDReadme(appname)
   private[cozy] def carSarScriptsReadme(appname: String): String = CozyScaffold.carSarScriptsReadme(appname)
   private[cozy] def carPluginsSbt(): String = CozyScaffold.carPluginsSbt()
-  private[cozy] def carComponentDescriptorJson(scaffold: CarScaffoldConfig = CarScaffoldConfig.create(Nil, Paths.get("sample"))): String = CozyScaffold.carComponentDescriptorJson(scaffold)
   private[cozy] def carSampleCml(scaffold: CarScaffoldConfig = CarScaffoldConfig.create(Nil, Paths.get("sample"))): String = CozyScaffold.carSampleCml(scaffold)
   private[cozy] def carWebDescriptorYaml(modelpath: Option[Path] = None, scaffold: CarScaffoldConfig = CarScaffoldConfig.create(Nil, Paths.get("sample"))): String = CozyScaffold.carWebDescriptorYaml(modelpath, scaffold)
   private[cozy] def carWebAppYaml(scaffold: CarScaffoldConfig = CarScaffoldConfig.create(Nil, Paths.get("sample"))): String = CozyScaffold.carWebAppYaml(scaffold)

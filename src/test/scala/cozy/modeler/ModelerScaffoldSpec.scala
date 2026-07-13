@@ -11,12 +11,11 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.goldenport.kaleidox.{Config => KaleidoxConfig, Model => KaleidoxModel}
 import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
-import play.api.libs.json.Json
 
 /*
  * @since   Jun. 23, 2026
  *  version Jun. 27, 2026
- * @version Jul.  8, 2026
+ * @version Jul. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -34,7 +33,9 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         cozy.Cozy.main(Array("car-sbt-project", input.toString, "--save", out.toString.toString))
 
         val buildsbt = out.resolve("build.sbt")
+        val projectyaml = out.resolve("project.yaml")
         val pluginssbt = out.resolve("project/plugins.sbt")
+        val projectyamlbuild = out.resolve("project/ProjectYamlBuild.scala")
         val buildproperties = out.resolve("project/build.properties")
         val launcher = out.resolve("bin/launcher")
         val commonscript = out.resolve("scripts/cncf-common.sh")
@@ -43,11 +44,17 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         val runserverdebugscript = out.resolve("scripts/run-server-debug.sh")
         val webappdescriptor = out.resolve("src/main/web-inf/web.yaml")
         val formdescriptor = out.resolve("src/main/web-inf/form.yaml")
-        val componentdescriptor = out.resolve("src/main/car/component-descriptor.json")
+        val sourcecomponentdescriptor = out.resolve("src/main/car/component-descriptor.json")
         val samplecml = out.resolve("src/main/cozy/sample.cml")
         Then("the generated project files satisfy the scaffold contract")
         withClue(s"build.sbt not found: $buildsbt") {
         Files.exists(buildsbt) shouldBe true
+      }
+        withClue(s"project.yaml not found: $projectyaml") {
+        Files.exists(projectyaml) shouldBe true
+      }
+        withClue(s"ProjectYamlBuild.scala not found: $projectyamlbuild") {
+        Files.exists(projectyamlbuild) shouldBe true
       }
         withClue(s"plugins.sbt not found: $pluginssbt") {
         Files.exists(pluginssbt) shouldBe true
@@ -76,8 +83,8 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         withClue(s"form descriptor not found: $formdescriptor") {
         Files.exists(formdescriptor) shouldBe true
       }
-        withClue(s"component descriptor not found: $componentdescriptor") {
-        Files.exists(componentdescriptor) shouldBe true
+        withClue(s"source component descriptor must be packaging-derived: $sourcecomponentdescriptor") {
+        Files.exists(sourcecomponentdescriptor) shouldBe false
       }
         withClue(s"sample model not found: $samplecml") {
         Files.exists(samplecml) shouldBe true
@@ -95,22 +102,25 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         Files.isExecutable(runserverdebugscript) shouldBe true
       }
         val buildsbtcontent = Files.readString(buildsbt)
+        val projectyamlcontent = Files.readString(projectyaml)
+        val projectyamlbuildcontent = Files.readString(projectyamlbuild)
         val pluginssbtcontent = Files.readString(pluginssbt)
         val updateclasspathcontent = Files.readString(updateclasspathscript)
         val runservercontent = Files.readString(runserverscript)
         val runserverdebugcontent = Files.readString(runserverdebugscript)
         val formdescriptorcontent = Files.readString(formdescriptor)
-        val componentdescriptorjson = Json.parse(Files.readString(componentdescriptor))
         buildsbtcontent should include ("enablePlugins(org.goldenport.cozy.CozyPlugin)")
         buildsbtcontent should not include ("lazy val packageCar = taskKey[File]")
         buildsbtcontent should not include ("""target.value / "car" / s"${name.value}-${version.value}.car"""")
-        buildsbtcontent should include ("""val cncfVersion = """)
+        buildsbtcontent should not include ("""val cncfVersion = """)
         buildsbtcontent should not include ("configuredVersion")
         buildsbtcontent should not include ("CNCF_SAMPLES_ROOT")
-        buildsbtcontent should include ("""libraryDependencies += "org.goldenport" %% "goldenport-cncf" % cncfVersion""")
-        buildsbtcontent should include ("""libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.10" % Test""")
-        buildsbtcontent should include ("cozyPublishCar.value")
-        buildsbtcontent should include ("cozyPublishLocalCar.value")
+        buildsbtcontent should include ("libraryDependencies ++= ProjectYamlBuild.dependencies")
+        buildsbtcontent should include ("project.organization")
+        buildsbtcontent should include ("project.component.version")
+        buildsbtcontent should include ("build.scalaVersion")
+        buildsbtcontent should not include ("cozyPublishCar.value")
+        buildsbtcontent should not include ("cozyPublishLocalCar.value")
         buildsbtcontent should include ("""cozyDelegateCommand := Seq("cozy")""")
         buildsbtcontent should not include ("junit-interface")
         buildsbtcontent should not include ("cats-core")
@@ -124,10 +134,18 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         buildsbtcontent should not include ("dependencyOverrides")
         buildsbtcontent should not include ("simpleModelingModelVersion")
         buildsbtcontent should not include ("cncfCollaboratorApiVersion")
-        buildsbtcontent should include ("object BuildVersion")
+        buildsbtcontent should not include ("object BuildVersion")
         buildsbtcontent should not include ("lazy val cozyBundleFactoryClassName = settingKey[Option[String]]")
         buildsbtcontent should not include ("""Some("domain.impl.ComponentFactory")""")
         buildsbtcontent should not include ("org.goldenport.cncf.component.Component$BundleFactory")
+        projectyamlcontent should include ("""scalaVersion: "3.3.8"""")
+        projectyamlcontent should include ("org.goldenport::goldenport-cncf:")
+        projectyamlcontent should include ("org.scalatest::scalatest:3.2.10")
+        projectyamlcontent should include ("manifest_metadata:")
+        projectyamlcontent should include ("minimum:")
+        projectyamlcontent should include ("tested:")
+        projectyamlbuildcontent should include ("object ProjectYamlBuild")
+        projectyamlbuildcontent should include ("build.dependencies.$scope")
         updateclasspathcontent should include ("sbt --batch 'export Runtime / fullClasspath'")
         val commonscriptcontent = Files.readString(commonscript)
         commonscriptcontent should include ("CNCF_VERSION_FILE")
@@ -139,14 +157,11 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         formdescriptorcontent should include ("sample.notice.post-notice")
         formdescriptorcontent should include ("successRedirect: /web/${component}/admin/entities/notice/${result.id}")
         formdescriptorcontent should include ("type: textarea")
-        (componentdescriptorjson \ "name").as[String] shouldBe "sample"
-        (componentdescriptorjson \ "version").as[String] shouldBe "0.0.1-SNAPSHOT"
-        (componentdescriptorjson \ "component").as[String] shouldBe "sample"
         Files.exists(out.resolve("src/main/scala/domain/impl/ComponentFactory.scala")) shouldBe true
         pluginssbtcontent should include ("""addSbtPlugin("org.goldenport" % "sbt-cozy"""")
         pluginssbtcontent should include (""""SimpleModeling.org" at "https://www.simplemodeling.org/repository/maven"""")
         pluginssbtcontent should include ("SBT_COZY_VERSION")
-        pluginssbtcontent should include ("0.1.11")
+        pluginssbtcontent should include ("0.1.14")
         pluginssbtcontent should include ("""addSbtPlugin("org.goldenport" % "sbt-cozy" % sbtCozyVersion)""")
       }
 
@@ -226,7 +241,7 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         val pluginssbt = out.resolve("project/plugins.sbt")
         val componentmodel = out.resolve("component/src/main/cozy/car-sar-sbt-project.cml")
         val componentweb = out.resolve("component/src/main/web-inf/form.yaml")
-        val componentdescriptor = out.resolve("component/src/main/car/component-descriptor.json")
+        val sourcecomponentdescriptor = out.resolve("component/src/main/car/component-descriptor.json")
         val subsystemdescriptor = out.resolve("subsystem/subsystem-descriptor.yaml")
         val repositorydreadme = out.resolve("repository.d/README.md")
         val subsystemscriptsreadme = out.resolve("subsystem/scripts/README.md")
@@ -245,8 +260,8 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         withClue(s"component web descriptor not found: $componentweb") {
         Files.exists(componentweb) shouldBe true
       }
-        withClue(s"component descriptor not found: $componentdescriptor") {
-        Files.exists(componentdescriptor) shouldBe true
+        withClue(s"source component descriptor must be packaging-derived: $sourcecomponentdescriptor") {
+        Files.exists(sourcecomponentdescriptor) shouldBe false
       }
         withClue(s"subsystem descriptor not found: $subsystemdescriptor") {
         Files.exists(subsystemdescriptor) shouldBe true
@@ -265,17 +280,18 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
       }
 
         val rootbuildcontent = Files.readString(rootbuild)
-        val componentdescriptorjson = Json.parse(Files.readString(componentdescriptor))
         val subsystemdescriptorcontent = Files.readString(subsystemdescriptor)
         rootbuildcontent should include ("lazy val component = project")
         rootbuildcontent should include ("lazy val subsystem = project")
         rootbuildcontent should not include ("lazy val cozyBundleFactoryClassName = settingKey[Option[String]]")
-        rootbuildcontent should include (""""org.goldenport" %% "goldenport-cncf" % cncfVersion""")
-        rootbuildcontent should include (""""org.scalatest" %% "scalatest" % "3.2.19" % Test""")
+        rootbuildcontent should include ("libraryDependencies ++= ProjectYamlBuild.dependencies(componentMetadata)")
+        rootbuildcontent should include ("build.scalaVersion")
         rootbuildcontent should include ("(component / publish).value")
         rootbuildcontent should include ("(subsystem / publish).value")
         rootbuildcontent should include ("(component / publishLocal).value")
         rootbuildcontent should include ("(subsystem / publishLocal).value")
+        rootbuildcontent should include ("val componentpublication =")
+        rootbuildcontent should include ("val subsystempublication =")
         rootbuildcontent should not include ("cozyPublishCar.value")
         rootbuildcontent should not include ("cozyPublishSar.value")
         rootbuildcontent should not include ("cozyPublishLocalCar.value")
@@ -287,10 +303,7 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         rootbuildcontent should not include ("cncfCollaboratorApiVersion")
         rootbuildcontent should not include ("org.goldenport.cncf.component.Component$BundleFactory")
         rootbuildcontent should include ("cozyGenerateApp")
-        rootbuildcontent should include ("""name := "car-sar-sbt-project""")
-        (componentdescriptorjson \ "name").as[String] shouldBe "car-sar-sbt-project"
-        (componentdescriptorjson \ "version").as[String] shouldBe "0.0.1-SNAPSHOT"
-        (componentdescriptorjson \ "component").as[String] shouldBe "car-sar-sbt-project"
+        rootbuildcontent should include ("project.name")
         subsystemdescriptorcontent should include ("subsystem: car-sar-sbt-project")
         subsystemdescriptorcontent should include ("name: car-sar-sbt-project")
         subsystemdescriptorcontent should include ("name: textus-user-account")
@@ -319,13 +332,17 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         cozy.Cozy.main(Array("car-sbt-project", "--save", out.toString.toString))
 
         val buildsbt = out.resolve("build.sbt")
+        val projectyaml = out.resolve("project.yaml")
         val pluginssbt = out.resolve("project/plugins.sbt")
         val samplecml = out.resolve("src/main/cozy/sample.cml")
         val webdescriptor = out.resolve("src/main/web-inf/form.yaml")
-        val componentdescriptor = out.resolve("src/main/car/component-descriptor.json")
+        val sourcecomponentdescriptor = out.resolve("src/main/car/component-descriptor.json")
         Then("the generated project files satisfy the scaffold contract")
         withClue(s"build.sbt not found: $buildsbt") {
         Files.exists(buildsbt) shouldBe true
+      }
+        withClue(s"project.yaml not found: $projectyaml") {
+        Files.exists(projectyaml) shouldBe true
       }
         withClue(s"plugins.sbt not found: $pluginssbt") {
         Files.exists(pluginssbt) shouldBe true
@@ -336,8 +353,8 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         withClue(s"web descriptor not found: $webdescriptor") {
         Files.exists(webdescriptor) shouldBe true
       }
-        withClue(s"component descriptor not found: $componentdescriptor") {
-        Files.exists(componentdescriptor) shouldBe true
+        withClue(s"source component descriptor must be packaging-derived: $sourcecomponentdescriptor") {
+        Files.exists(sourcecomponentdescriptor) shouldBe false
       }
       }
 
@@ -365,17 +382,21 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         ))
 
         val buildsbt = out.resolve("build.sbt")
+        val projectyaml = out.resolve("project.yaml")
         val model = out.resolve("src/main/cozy/textus-user-notification.cml")
         val factory = out.resolve("src/main/scala/org/simplemodeling/textus/usernotification/impl/ComponentFactory.scala")
         val readme = out.resolve("README.md")
         val gitignore = out.resolve(".gitignore")
         val spec = out.resolve("src/test/scala/org/simplemodeling/textus/usernotification/ComponentFactorySpec.scala")
         val webdescriptor = out.resolve("src/main/web-inf/form.yaml")
-        val componentdescriptor = out.resolve("src/main/car/component-descriptor.json")
+        val sourcecomponentdescriptor = out.resolve("src/main/car/component-descriptor.json")
 
         Then("the generated project files satisfy the scaffold contract")
         withClue(s"build.sbt not found: $buildsbt") {
         Files.exists(buildsbt) shouldBe true
+      }
+        withClue(s"project.yaml not found: $projectyaml") {
+        Files.exists(projectyaml) shouldBe true
       }
         withClue(s"model not found: $model") {
         Files.exists(model) shouldBe true
@@ -392,30 +413,32 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         withClue(s"ComponentFactorySpec not found: $spec") {
         Files.exists(spec) shouldBe true
       }
-        withClue(s"component descriptor not found: $componentdescriptor") {
-        Files.exists(componentdescriptor) shouldBe true
+        withClue(s"source component descriptor must be packaging-derived: $sourcecomponentdescriptor") {
+        Files.exists(sourcecomponentdescriptor) shouldBe false
       }
 
         val buildsbtcontent = Files.readString(buildsbt)
+        val projectyamlcontent = Files.readString(projectyaml)
         val modelcontent = Files.readString(model)
         val factorycontent = Files.readString(factory)
         val webcontent = Files.readString(webdescriptor)
-        val componentdescriptorjson = Json.parse(Files.readString(componentdescriptor))
-        buildsbtcontent should include ("""organization := "org.textus"""")
-        buildsbtcontent should include ("""name := "textus-user-notification"""")
-        buildsbtcontent should include ("""version := "0.1.0-SNAPSHOT"""")
-        buildsbtcontent should include ("""cozyManifestMetadata ++= Map(""")
-        buildsbtcontent should include ("),")
-        buildsbtcontent should include ("""package org.simplemodeling.textus.usernotification.meta""")
+        buildsbtcontent should include ("ProjectYamlBuild.requiredValue")
+        buildsbtcontent should include ("libraryDependencies ++= ProjectYamlBuild.dependencies")
+        buildsbtcontent should not include ("""organization := "org.textus"""")
+        buildsbtcontent should not include ("""name := "textus-user-notification"""")
+        buildsbtcontent should not include ("""version := "0.1.0-SNAPSHOT"""")
+        buildsbtcontent should not include ("object BuildVersion")
         buildsbtcontent should not include ("""Some("org.simplemodeling.textus.usernotification.impl.ComponentFactory")""")
+        projectyamlcontent should include ("""organization: "org.textus"""")
+        projectyamlcontent should include ("""name: "textus-user-notification"""")
+        projectyamlcontent should include ("""version: "0.1.0-SNAPSHOT"""")
+        projectyamlcontent should include ("""boundedContext: "user-notification"""")
+        projectyamlcontent should include ("""domain: "notification"""")
         modelcontent should include ("## UserNotification")
         modelcontent should include ("org.simplemodeling.textus.usernotification")
         factorycontent should include ("package org.simplemodeling.textus.usernotification.impl")
         factorycontent should include ("import org.simplemodeling.textus.usernotification.UserNotificationComponent")
         webcontent should include ("textus-user-notification.notice.post-notice")
-        (componentdescriptorjson \ "name").as[String] shouldBe "textus-user-notification"
-        (componentdescriptorjson \ "version").as[String] shouldBe "0.1.0-SNAPSHOT"
-        (componentdescriptorjson \ "component").as[String] shouldBe "textus-user-notification"
         Files.readString(gitignore) should include ("target/")
         Files.readString(readme) should include ("textus-user-notification")
         Files.readString(spec) should include ("new impl.ComponentFactory()")
@@ -454,11 +477,12 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
 
         val buildsbt = out.resolve("build.sbt")
         val projectyaml = out.resolve("project.yaml")
+        val projectyamlbuild = out.resolve("project/ProjectYamlBuild.scala")
         val model = out.resolve("src/main/cozy/textus-knowledge-editor.cml")
         val factory = out.resolve("src/main/scala/org/goldenport/textus/knowledge/editor/impl/ComponentFactory.scala")
         val spec = out.resolve("src/test/scala/org/goldenport/textus/knowledge/editor/ComponentFactorySpec.scala")
         val readme = out.resolve("README.md")
-        val componentdescriptor = out.resolve("src/main/car/component-descriptor.json")
+        val sourcecomponentdescriptor = out.resolve("src/main/car/component-descriptor.json")
 
         Then("the generated project files satisfy the scaffold contract")
         withClue(s"build.sbt not found: $buildsbt") {
@@ -466,6 +490,9 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
       }
         withClue(s"project.yaml not found: $projectyaml") {
         Files.exists(projectyaml) shouldBe true
+      }
+        withClue(s"ProjectYamlBuild.scala not found: $projectyamlbuild") {
+        Files.exists(projectyamlbuild) shouldBe true
       }
         withClue(s"model not found: $model") {
         Files.exists(model) shouldBe true
@@ -479,30 +506,30 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         withClue(s"README not found: $readme") {
         Files.exists(readme) shouldBe true
       }
-        withClue(s"component descriptor not found: $componentdescriptor") {
-        Files.exists(componentdescriptor) shouldBe true
+        withClue(s"source component descriptor must be packaging-derived: $sourcecomponentdescriptor") {
+        Files.exists(sourcecomponentdescriptor) shouldBe false
       }
 
         val buildsbtcontent = Files.readString(buildsbt)
         val projectyamlcontent = Files.readString(projectyaml)
         val modelcontent = Files.readString(model)
-        val componentdescriptorjson = Json.parse(Files.readString(componentdescriptor))
-        buildsbtcontent should include ("""organization := "org.goldenport"""")
-        buildsbtcontent should include ("""name := "textus-knowledge-editor"""")
-        buildsbtcontent should include ("""version := "0.1.0-SNAPSHOT"""")
-        buildsbtcontent should include ("""libraryDependencies += "org.goldenport" %% "goldenport-cncf" % cncfVersion""")
-        buildsbtcontent should include ("""libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.10" % Test""")
-        buildsbtcontent should include ("cozyPublishCar.value")
-        buildsbtcontent should include ("cozyPublishLocalCar.value")
+        buildsbtcontent should include ("ProjectYamlBuild.requiredValue")
+        buildsbtcontent should include ("libraryDependencies ++= ProjectYamlBuild.dependencies")
+        buildsbtcontent should not include ("""organization := "org.goldenport"""")
+        buildsbtcontent should not include ("""name := "textus-knowledge-editor"""")
+        buildsbtcontent should not include ("""version := "0.1.0-SNAPSHOT"""")
+        buildsbtcontent should not include ("cozyPublishCar.value")
+        buildsbtcontent should not include ("cozyPublishLocalCar.value")
         buildsbtcontent should not include ("dependencyOverrides")
         projectyamlcontent should include ("""name: "textus-knowledge-editor"""")
         projectyamlcontent should include ("""title: "Textus Knowledge Editor"""")
         projectyamlcontent should include ("""scalaPackage: "org.goldenport.textus.knowledge.editor"""")
+        projectyamlcontent should include ("""scalaVersion: "3.3.8"""")
+        projectyamlcontent should include ("org.goldenport::goldenport-cncf:")
+        projectyamlcontent should include ("org.scalatest::scalatest:3.2.10")
+        projectyamlcontent should include ("manifest_metadata:")
         projectyamlcontent should include ("""minimum: """)
         projectyamlcontent should include ("""modules:""")
-        (componentdescriptorjson \ "name").as[String] shouldBe "textus-knowledge-editor"
-        (componentdescriptorjson \ "version").as[String] shouldBe "0.1.0-SNAPSHOT"
-        (componentdescriptorjson \ "component").as[String] shouldBe "textus-knowledge-editor"
         modelcontent should include ("## TextusKnowledgeEditor")
         modelcontent should include ("org.goldenport.textus.knowledge.editor")
       }
@@ -547,9 +574,13 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         val projectyamlcontent = Files.readString(out.resolve("project.yaml"))
         val modelcontent = Files.readString(out.resolve("src/main/cozy/override-artifact.cml"))
         Then("the generated project files satisfy the scaffold contract")
-        buildsbtcontent should include ("""organization := "org.override"""")
-        buildsbtcontent should include ("""name := "override-artifact"""")
-        buildsbtcontent should include ("""version := "0.2.0-SNAPSHOT"""")
+        buildsbtcontent should include ("ProjectYamlBuild.requiredValue")
+        buildsbtcontent should not include ("""organization := "org.override"""")
+        buildsbtcontent should not include ("""name := "override-artifact"""")
+        buildsbtcontent should not include ("""version := "0.2.0-SNAPSHOT"""")
+        projectyamlcontent should include ("""organization: "org.override"""")
+        projectyamlcontent should include ("""name: "override-artifact"""")
+        projectyamlcontent should include ("""version: "0.2.0-SNAPSHOT"""")
         projectyamlcontent should include ("""title: "Override Component"""")
         projectyamlcontent should include ("""scalaPackage: "org.override.component"""")
         modelcontent should include ("## OverrideComponent")
@@ -673,13 +704,16 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         Then("the generated project files satisfy the scaffold contract")
         Files.exists(out.resolve("build.sbt")) shouldBe true
         Files.exists(out.resolve("component/src/main/cozy/textus-knowledge-editor.cml")) shouldBe true
-        Files.exists(out.resolve("component/src/main/car/component-descriptor.json")) shouldBe true
+        Files.exists(out.resolve("component/src/main/car/component-descriptor.json")) shouldBe false
         Files.exists(out.resolve("component/src/main/web-inf/web.yaml")) shouldBe true
         Files.exists(out.resolve("component/src/main/web-inf/form.yaml")) shouldBe true
         Files.exists(out.resolve("component/project.yaml")) shouldBe true
+        Files.exists(out.resolve("project/ProjectYamlBuild.scala")) shouldBe true
         Files.exists(out.resolve("subsystem/subsystem-descriptor.yaml")) shouldBe true
         val projectyamlcontent = Files.readString(out.resolve("component/project.yaml"))
         projectyamlcontent should include ("""name: "textus-knowledge-editor"""")
+        projectyamlcontent should include ("""scalaVersion: "3.3.8"""")
+        projectyamlcontent should include ("org.goldenport::goldenport-cncf:")
         projectyamlcontent should include ("""packaging:""")
       }
 

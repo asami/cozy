@@ -305,6 +305,28 @@ Primary reference:
 - `docs/phase/phase-14-checklist.md`
 - `docs/journal/2026/06/bok-sie-integration-handoff-2026-06-28.md`
 
+### Phase 15: CAR Project Metadata Centralization
+
+Status: closed.
+
+Purpose:
+
+- make each generated CAR independently buildable from its own `project.yaml`;
+- centralize CAR identity, Scala version, exact development dependencies,
+  descriptor metadata, and runtime compatibility;
+- distinguish the exact CNCF version used for development from the CNCF
+  runtime versions required by the CAR;
+- keep generated `build.sbt` files limited to SBT/Cozy projection and wiring;
+- apply the same contract to `init component`, `car-sbt-project`, `car`, and
+  `car-sar` layouts.
+
+Primary reference:
+
+- `docs/phase/phase-15.md`
+- `docs/phase/phase-15-checklist.md`
+- `docs/design/car-project-metadata-ownership.md`
+- `docs/spec/car-project-scaffold.md`
+
 ### Future Phase: Model-Driven CAR Project Scaffolding
 
 Purpose:
@@ -315,8 +337,13 @@ Purpose:
 
 ## Current Priority
 
-Phase 6, Phase 7, Phase 8, Phase 9, Phase 10, Phase 11, and Phase 12 are
-closed. Phase 13 and Phase 14 are closed. No phase is currently active.
+Phase 6 through Phase 15 are closed. No phase is currently active.
+
+Phase 15 completed CAR project metadata centralization. Cozy scaffolds now
+generate `project.yaml` as the CAR-local source of identity, Scala version,
+exact development dependencies, descriptor metadata, and runtime compatibility.
+Generated SBT files project this metadata and do not use the runtime minimum as
+the compile dependency version.
 
 Phase 8 completed the first-class `cozy video` workflow: structured
 project/script parsing, inspect, dry-run artifact/command planning, dependency
@@ -357,7 +384,7 @@ explicit: Cozy publishes and validates BoK/SIE metadata for navigation and
 diagnostics, while SIE remains responsible for semantic integration runtime
 behavior and Information-schema materialization.
 
-Current Phase 14 directions include:
+Current follow-up directions include:
 
 - BoK KnowledgeSource manifest output and SIE ingestion
 - BoK publication and Component Repository public pages

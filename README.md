@@ -115,6 +115,33 @@ CLI tooling will be provided in future releases.
 cozy generate --input model.cml --out src/generated
 ```
 
+### Scaffold a CAR project
+
+`cozy init component` and `cozy car-sbt-project` generate CAR-local build
+metadata in `project.yaml`. The generated project uses Scala 3.3.8 and records
+exact compile/test dependencies separately from CNCF runtime compatibility:
+
+```yaml
+build:
+  scalaVersion: "3.3.8"
+  dependencies:
+    compile:
+      - "org.goldenport::goldenport-cncf:<development-version>"
+
+packaging:
+  car:
+    runtime:
+      cncf:
+        minimum: "<required-version>"
+```
+
+The generated `build.sbt` reads identity and build settings from this file.
+`project/ProjectYamlBuild.scala` performs dependency-coordinate conversion, and
+`sbt-cozy` owns standard CAR `publish` and `publishLocal` delegation.
+The scaffold does not write a source `component-descriptor.json`; CAR packaging
+derives that descriptor from the current `project.yaml` identity so a version
+change has only one metadata source to update.
+
 ### Publish CAR/SAR artifacts
 
 Cozy `publish-car` and `publish-sar` accept any warehouse root and write the

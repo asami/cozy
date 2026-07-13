@@ -43,6 +43,8 @@ Typical structure:
 component-project/
   build.sbt
   project.yaml
+  project/
+    ProjectYamlBuild.scala
   conf/cozy/config.yaml
   .cozy/config.yaml
   src/
@@ -61,7 +63,7 @@ CAR-root files live under `src/main/car` when using sbt-cozy defaults.
 
 # Project Metadata And Configuration
 
-Public metadata goes in `project.yaml`:
+CAR identity, build metadata, and public metadata go in `project.yaml`:
 
 ```yaml
 project:
@@ -71,20 +73,40 @@ project:
   kind: car
   summary: User account component for Cozy Textus.
   description: Provides the public metadata used by SmartDox and publication catalogs.
+
+build:
+  scalaVersion: "3.3.8"
+  dependencies:
+    compile:
+      - "org.goldenport::goldenport-cncf:0.5.0"
+    test:
+      - "org.scalatest::scalatest:3.2.10"
+
+packaging:
+  kind: car
+  car:
+    manifest_metadata:
+      boundedContext: user-account
+      domain: identity
+    runtime:
+      cncf:
+        minimum: "0.5.0"
+        excluded: []
+        tested:
+          - "0.5.0"
 ```
+
+The exact compile dependency records the CNCF version used to develop the CAR.
+The runtime block records the compatibility requirement and validation evidence.
+Generated `build.sbt` files project these values and do not redefine them.
+Generated source trees do not carry `src/main/car/component-descriptor.json`;
+the packaging bridge derives it from the current project identity.
 
 Git-managed operation settings go in `conf/cozy/config.yaml`; local overrides go in `.cozy/config.yaml`:
 
 ```yaml
 publication:
   output: /Users/asami/src/dev2025/simplemodeling-org/src/main/publication
-
-packaging:
-  kind: car
-  car:
-    source_dir: src/main/car
-    manifest_metadata:
-      component: textus-user-account
 
 warehouse:
   repository: /Users/asami/src/maven-repository

@@ -14,12 +14,12 @@ import scala.collection.JavaConverters._
  * @since   May. 20, 2026
  *  version May. 25, 2026
  *  version Jun. 27, 2026
- * @version Jul.  8, 2026
+ * @version Jul. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyScaffold {
   private val _default_sbt_version = "1.9.7"
-  private val _default_sbt_cozy_version = "0.1.11"
+  private val _default_sbt_cozy_version = "0.1.14"
 
   case class CarDependencyVersions(
     cncfVersion: String,
@@ -422,58 +422,68 @@ private[cozy] object CozyScaffold {
     s"""import org.goldenport.cozy.CozyPlugin.autoImport._
       |import sbt.Keys.*
       |
-      |val scala3Version = "3.3.7"
-      |val cncfVersion = "${versions.cncfVersion}"
-      |
       |lazy val root = project
       |  .in(file("."))
       |  .enablePlugins(org.goldenport.cozy.CozyPlugin)
       |  .settings(
-      |    organization := "${scaffold.organization}",
-      |    name := "${scaffold.artifactName}",
-      |    version := "${scaffold.version}",
-      |
-      |    scalaVersion := scala3Version,
+      |    organization := ProjectYamlBuild.requiredValue(cozyProjectMetadata.value, "project.organization"),
+      |    name := ProjectYamlBuild.requiredValue(cozyProjectMetadata.value, "project.name"),
+      |    version := ProjectYamlBuild.requiredValue(cozyProjectMetadata.value, "project.component.version"),
+      |    scalaVersion := ProjectYamlBuild.requiredValue(cozyProjectMetadata.value, "build.scalaVersion"),
       |    useCoursier := false,
       |
       |    resolvers += Resolver.defaultLocal,
       |    resolvers += Resolver.file("Local Ivy", file(Path.userHome.absolutePath + "/.ivy2/local"))(Resolver.ivyStylePatterns),
       |    resolvers += "Local Maven Repository" at ("file://" + Path.userHome.absolutePath + "/.m2/repository"),
       |    resolvers += "SimpleModeling.org" at "https://www.simplemodeling.org/repository/maven",
-      |
-      |    libraryDependencies += "org.goldenport" %% "goldenport-cncf" % cncfVersion,
-      |    libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.10" % Test,
+      |    libraryDependencies ++= ProjectYamlBuild.dependencies(cozyProjectMetadata.value),
       |
       |    cozyGeneratorBackend := "cozy",
       |    cozyDelegateProjectDir := None,
       |    cozyDelegateCommand := Seq("cozy"),
-      |    cozyManifestMetadata ++= Map(
-      |      "component" -> "${scaffold.artifactName}",
-      |      "boundedContext" -> "${scaffold.boundedContext}",
-      |      "domain" -> "${scaffold.domain}"
-      |    ),
-      |    publish := {
-      |      val _ = cozyPublishCar.value
-      |      ()
-      |    },
-      |    publishLocal := {
-      |      val _ = cozyPublishLocalCar.value
-      |      ()
-      |    },
-      |
-      |    Compile / sourceGenerators += Def.task {
-      |      val out = (Compile / sourceManaged).value / "${scaffold.packageName.split("\\.").mkString("\" / \"")}" / "meta" / "BuildVersion.scala"
-      |      val content =
-      |        "package ${scaffold.packageName}.meta\\n\\nobject BuildVersion {\\n" +
-      |          "  val name: String = \\"" + name.value + "\\"\\n" +
-      |          "  val version: String = \\"" + version.value + "\\"\\n" +
-      |          "  val scalaVersion: String = \\"" + scalaVersion.value + "\\"\\n" +
-      |          "}\\n"
-      |      IO.createDirectory(out.getParentFile)
-      |      IO.write(out, content)
-      |      Seq(out)
-      |    }.taskValue
+      |    cozyManifestMetadata ++=
+      |      cozyProjectMetadata.value.mapUnder("packaging.car.manifest_metadata") ++
+      |        Map("component" -> ProjectYamlBuild.requiredValue(cozyProjectMetadata.value, "project.component.name"))
       |  )
+      |""".stripMargin
+
+  private[cozy] def carProjectYamlBuildScala(): String =
+    """import org.goldenport.cozy.CozyProjectConfig
+      |import sbt._
+      |
+      |object ProjectYamlBuild {
+      |  def load(file: File): CozyProjectConfig =
+      |    CozyProjectConfig.load(file)
+      |
+      |  def requiredValue(config: CozyProjectConfig, path: String): String =
+      |    config.value(path).getOrElse(sys.error(s"$path is required in project.yaml"))
+      |
+      |  def dependencies(config: CozyProjectConfig): Seq[ModuleID] =
+      |    _dependencies(config, "compile", None) ++
+      |      _dependencies(config, "test", Some(Test))
+      |
+      |  private def _dependencies(
+      |    config: CozyProjectConfig,
+      |    scope: String,
+      |    configuration: Option[Configuration]
+      |  ): Seq[ModuleID] =
+      |    config.list(s"build.dependencies.$scope").map { coordinate =>
+      |      val module = _module(coordinate)
+      |      configuration.fold(module)(module % _)
+      |    }
+      |
+      |  private def _module(coordinate: String): ModuleID =
+      |    coordinate.split(":", -1).toList match {
+      |      case organization :: "" :: artifact :: version :: Nil =>
+      |        organization %% artifact % version
+      |      case organization :: artifact :: version :: Nil =>
+      |        organization % artifact % version
+      |      case _ =>
+      |        sys.error(
+      |          s"Invalid project.yaml dependency '$coordinate'; expected organization:artifact:version or organization::artifact:version"
+      |        )
+      |    }
+      |}
       |""".stripMargin
 
   private[cozy] def carProjectYaml(
@@ -493,6 +503,14 @@ private[cozy] object CozyScaffold {
       |    displayName: ${_yaml_string(init.displayName)}
       |    version: ${_yaml_string(scaffold.version)}
       |
+      |build:
+      |  scalaVersion: "3.3.8"
+      |  dependencies:
+      |    compile:
+      |      - ${_yaml_string(s"org.goldenport::goldenport-cncf:${versions.cncfVersion}")}
+      |    test:
+      |      - "org.scalatest::scalatest:3.2.10"
+      |
       |publication:
       |  source_manifest:
       |    enabled: false
@@ -500,6 +518,9 @@ private[cozy] object CozyScaffold {
       |packaging:
       |  kind: car
       |  car:
+      |    manifest_metadata:
+      |      boundedContext: ${_yaml_string(scaffold.boundedContext)}
+      |      domain: ${_yaml_string(scaffold.domain)}
       |    runtime:
       |      cncf:
       |        minimum: ${_yaml_string(versions.cncfVersion)}
@@ -526,13 +547,12 @@ private[cozy] object CozyScaffold {
     s"""import org.goldenport.cozy.CozyPlugin.autoImport._
       |import sbt.Keys.*
       |
-      |val scala3Version = "3.3.7"
-      |val cncfVersion = "${versions.cncfVersion}"
+      |lazy val componentMetadata = ProjectYamlBuild.load(file("component/project.yaml"))
       |
       |lazy val commonSettings = Seq(
-      |  organization := "${scaffold.organization}",
-      |  version := "${scaffold.version}",
-      |  scalaVersion := scala3Version,
+      |  organization := ProjectYamlBuild.requiredValue(componentMetadata, "project.organization"),
+      |  version := ProjectYamlBuild.requiredValue(componentMetadata, "project.component.version"),
+      |  scalaVersion := ProjectYamlBuild.requiredValue(componentMetadata, "build.scalaVersion"),
       |  useCoursier := false,
       |  resolvers += Resolver.defaultLocal,
       |  resolvers += Resolver.file("Local Ivy", file(Path.userHome.absolutePath + "/.ivy2/local"))(Resolver.ivyStylePatterns),
@@ -545,15 +565,17 @@ private[cozy] object CozyScaffold {
       |  .aggregate(component, subsystem)
       |  .settings(commonSettings)
       |  .settings(
-      |    name := "${scaffold.artifactName}",
+      |    name := ProjectYamlBuild.requiredValue(componentMetadata, "project.name"),
       |    publish := {
-      |      val _ = (component / publish).value
-      |      val _ = (subsystem / publish).value
+      |      val componentpublication = (component / publish).value
+      |      val subsystempublication = (subsystem / publish).value
+      |      val _ = (componentpublication, subsystempublication)
       |      ()
       |    },
       |    publishLocal := {
-      |      val _ = (component / publishLocal).value
-      |      val _ = (subsystem / publishLocal).value
+      |      val componentpublication = (component / publishLocal).value
+      |      val subsystempublication = (subsystem / publishLocal).value
+      |      val _ = (componentpublication, subsystempublication)
       |      ()
       |    }
       |  )
@@ -563,17 +585,12 @@ private[cozy] object CozyScaffold {
       |  .enablePlugins(org.goldenport.cozy.CozyPlugin)
       |  .settings(commonSettings)
       |  .settings(
-      |    name := "${scaffold.artifactName}",
+      |    name := ProjectYamlBuild.requiredValue(componentMetadata, "project.name"),
       |    cozyGeneratorBackend := "cozy",
-      |    libraryDependencies ++= Seq(
-      |      "org.goldenport" %% "goldenport-cncf" % cncfVersion,
-      |      "org.scalatest" %% "scalatest" % "3.2.19" % Test
-      |    ),
-      |    cozyManifestMetadata ++= Map(
-      |      "component" -> "${scaffold.artifactName}",
-      |      "boundedContext" -> "${scaffold.boundedContext}",
-      |      "domain" -> "${scaffold.domain}"
-      |    ),
+      |    libraryDependencies ++= ProjectYamlBuild.dependencies(componentMetadata),
+      |    cozyManifestMetadata ++=
+      |      componentMetadata.mapUnder("packaging.car.manifest_metadata") ++
+      |        Map("component" -> ProjectYamlBuild.requiredValue(componentMetadata, "project.component.name")),
       |    Test / fork := false
       |  )
       |
@@ -582,13 +599,10 @@ private[cozy] object CozyScaffold {
       |  .enablePlugins(org.goldenport.cozy.CozyPlugin)
       |  .settings(commonSettings)
       |  .settings(
-      |    name := "${scaffold.artifactName}-subsystem",
+      |    name := ProjectYamlBuild.requiredValue(componentMetadata, "project.name") + "-subsystem",
       |    cozyPackaging := "sar",
       |    cozySourceDir := baseDirectory.value,
-      |    libraryDependencies ++= Seq(
-      |      "org.goldenport" %% "goldenport-cncf" % cncfVersion,
-      |      "org.scalatest" %% "scalatest" % "3.2.19" % Test
-      |    ),
+      |    libraryDependencies ++= ProjectYamlBuild.dependencies(componentMetadata),
       |    Test / fork := false
       |  )
       |
@@ -804,16 +818,6 @@ private[cozy] object CozyScaffold {
       |OperationResult
       |""".stripMargin
 
-  private[cozy] def carComponentDescriptorJson(
-    scaffold: CarScaffoldConfig = CarScaffoldConfig.create(Nil, Paths.get("sample"))
-  ): String =
-    s"""{
-       |  "name": ${_json_string(scaffold.artifactName)},
-       |  "version": ${_json_string(scaffold.version)},
-       |  "component": ${_json_string(scaffold.artifactName)}
-       |}
-       |""".stripMargin
-
   private[cozy] def carWebDescriptorYaml(
     modelpath: Option[Path] = None,
     scaffold: CarScaffoldConfig = CarScaffoldConfig.create(Nil, Paths.get("sample"))
@@ -991,7 +995,7 @@ private[cozy] object CozyScaffold {
       |- `sbt compile`
       |- `sbt cozyBuildCAR`
       |
-      |Generated Scala sources are written under `target/scala-3.3.7/src_managed/main/scala`.
+      |Generated Scala sources are written under `target/scala-3.3.8/src_managed/main/scala`.
       |""".stripMargin
 
   private[cozy] def carComponentFactorySpecSource(scaffold: CarScaffoldConfig): String =

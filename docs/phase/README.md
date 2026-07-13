@@ -6,7 +6,7 @@ Current phase:
 
 - Active phase: none
 - Next planned phase: none
-- Most recent closed phase: `phase-14.md`: SIE Integration
+- Most recent closed phase: `phase-15.md`: CAR Project Metadata Centralization
 
 Belongs:
 
