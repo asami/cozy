@@ -10,7 +10,7 @@ import org.scalatest.wordspec.AnyWordSpec
 /*
  * @since   Jun. 22, 2026
  *  version Jun. 25, 2026
- * @version Jul.  2, 2026
+ * @version Jul. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokTermHubSpec
@@ -56,6 +56,20 @@ class CozyBokTermHubSpec
               |---
               |
               |Runtime source definition.
+              |""".stripMargin
+          )
+          _write(
+            dir.resolve("repository/catalog/car/runtime-car.yaml"),
+            """schemaVersion: 1
+              |kind: car
+              |artifactId: runtime-car
+              |recommended: 1.0.0
+              |terms:
+              |  - architecture:runtime
+              |versions:
+              |  - version: 1.0.0
+              |    channel: stable
+              |    file: repository/car/runtime-car/1.0.0/runtime-car-1.0.0.car
               |""".stripMargin
           )
           val config = CozyBok.BuildConfig.create(
@@ -123,6 +137,25 @@ class CozyBokTermHubSpec
             "href=\"../../rdf/index.html?term=architecture%3Aruntime\""
           )
           term should not include ("Runtime source definition")
+
+          And(
+            "repository CAR terms connect the Term Hub and filtered RDF navigation"
+          )
+          term should include("CARリポジトリ")
+          term should include("runtime-car")
+          term should include("1.0.0")
+          term should include(
+            "href=\"../../repository/car/runtime-car/index.html\""
+          )
+          val car =
+            _read(dir.resolve("website.d/repository/car/runtime-car/index.html"))
+          car should include("Runtime")
+          car should include(
+            "href=\"../../../glossary/architecture/runtime.html\""
+          )
+          car should include(
+            "href=\"../../../rdf/index.html?term=architecture%3Aruntime\""
+          )
 
           And("the RDF viewer accepts the term metadata and term query surface")
           val rdf = _read(dir.resolve("website.d/rdf/index.html"))

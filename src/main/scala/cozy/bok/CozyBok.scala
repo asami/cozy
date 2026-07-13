@@ -4103,7 +4103,7 @@ private[cozy] object CozyBok {
               _repository_car_status_label(locale) -> _html_escape(entry.status.getOrElse("active")),
               _repository_car_aliases_label(locale) -> _html_escape(if (entry.aliases.isEmpty) "-" else entry.aliases.mkString(", ")),
               _repository_car_tags_label(locale) -> _repository_car_tag_links(target, page, entry.tags, category),
-              _repository_car_terms_label(locale) -> _html_escape(if (entry.terms.isEmpty) "-" else entry.terms.mkString(", ")),
+              _repository_car_terms_label(locale) -> _repository_car_term_links(config, target, page, entry.terms),
               _repository_car_sidecars_label(locale) -> _repository_car_sidecar_links(target, page, locale, entry.sidecars)
             ) ++ archivemetadatarows)}
        |  <h2>${_html_escape(_repository_car_versions_label(locale))}</h2>
@@ -4150,7 +4150,7 @@ private[cozy] object CozyBok {
               _repository_car_runtime_label(locale) -> (if (runtime.isEmpty) "-" else runtime),
               _repository_car_checksum_label(locale) -> _html_escape(version.checksumsha256.getOrElse("-")),
               _repository_car_tags_label(locale) -> _repository_car_tag_links(target, page, entry.tags, category),
-              _repository_car_terms_label(locale) -> _html_escape(if (entry.terms.isEmpty) "-" else entry.terms.mkString(", ")),
+              _repository_car_terms_label(locale) -> _repository_car_term_links(config, target, page, entry.terms),
               _repository_car_sidecars_label(locale) -> _repository_car_sidecar_links(target, page, locale, entry.sidecars)
             ) ++ _repository_car_archive_metadata_rows(locale, version))}
        |  ${_repository_car_related_projects_html(target, page, locale, relatedprojects)}
@@ -4303,6 +4303,25 @@ private[cozy] object CozyBok {
       case "ja" => "用語"
       case _ => "Terms"
     }
+
+  private def _repository_car_term_links(
+    config: BuildConfig,
+    target: Path,
+    page: Path,
+    references: Vector[String]
+  ): String = {
+    val terms = _terms(config)
+    val links = references.distinct.map { reference =>
+      terms.find(_term_reference_matches(reference, _)) match {
+        case Some(term) =>
+          val termhref = _relative_href(page, target.resolve(term.publicpath))
+          val rdfhref = s"${_relative_href(page, target.resolve("rdf/index.html"))}?term=${_url_query_escape(term.id)}"
+          s"""<span class="bok-repository-car-term"><a href="${_html_escape(termhref)}">${_html_escape(term.title)}</a><a class="bok-term-rdf-mini" href="${_html_escape(rdfhref)}">RDF</a></span>"""
+        case None => _html_escape(reference)
+      }
+    }
+    if (links.isEmpty) "-" else links.mkString(", ")
+  }
 
   private def _repository_car_catalog_label(locale: String): String =
     locale match {
@@ -8049,7 +8068,8 @@ private[cozy] object CozyBok {
       if (!(term.sourcepath.startsWith("glossary/") && Files.isRegularFile(page))) {
         val scenarios = _scenario_index(config).map(_.scenarios.filter(_.isRelatedTo(term))).getOrElse(Vector.empty)
         val bibliographies = _bibliography_index(config).map(_.entries.filter(_bibliography_related_to_term(_, term))).getOrElse(Vector.empty)
-        _write_text(page, _term_hub_page(config, categories, locale, page, term, scenarios, bibliographies))
+        val repositorycars = _repository_car_index(config).entries.filter(_repository_car_related_to_term(_, term))
+        _write_text(page, _term_hub_page(config, categories, locale, page, term, scenarios, bibliographies, repositorycars))
       }
     }
 
@@ -8060,7 +8080,8 @@ private[cozy] object CozyBok {
     page: Path,
     term: TermEntry,
     scenarios: Vector[ScenarioEntry],
-    bibliographies: Vector[BibliographyEntry]
+    bibliographies: Vector[BibliographyEntry],
+    repositorycars: Vector[RepositoryCarEntry]
   ): String =
     s"""<!doctype html>
        |<html lang="${_html_escape(locale)}">
@@ -8076,7 +8097,7 @@ private[cozy] object CozyBok {
        |  <main class="article">
        |    <div class="content">
        |      <article class="doc">
-       |        ${_term_hub(config, page, term, locale, scenarios, bibliographies)}
+       |        ${_term_hub(config, page, term, locale, scenarios, bibliographies, repositorycars)}
        |      </article>
        |    </div>
        |  </main>
@@ -8085,7 +8106,15 @@ private[cozy] object CozyBok {
        |</html>
        |""".stripMargin
 
-  private def _term_hub(config: BuildConfig, page: Path, term: TermEntry, locale: String, scenarios: Vector[ScenarioEntry], bibliographies: Vector[BibliographyEntry]): String =
+  private def _term_hub(
+    config: BuildConfig,
+    page: Path,
+    term: TermEntry,
+    locale: String,
+    scenarios: Vector[ScenarioEntry],
+    bibliographies: Vector[BibliographyEntry],
+    repositorycars: Vector[RepositoryCarEntry]
+  ): String =
     s"""<section class="bok-dashboard-shell bok-term-hub" id="term-hub">
        |  <header class="bok-dashboard-hero">
        |    <div class="bok-dashboard-hero-copy">
@@ -8114,6 +8143,7 @@ private[cozy] object CozyBok {
        |      ${_dashboard_card("col-12 col-xl-3", "bok-card-map", _ui(locale, "term.related.videos"), _term_refs_body(term.videoRefs, locale))}
        |      ${_dashboard_card("col-12 col-xl-3", "bok-card-map", _ui(locale, "term.related.scenarios"), _term_scenarios_body(scenarios, locale))}
        |      ${_dashboard_card("col-12 col-xl-3", "bok-card-map", _ui(locale, "term.related.bibliography"), _term_bibliography_body(bibliographies, locale))}
+       |      ${_dashboard_card("col-12 col-xl-3", "bok-card-map bok-card-repository-car", _repository_car_title(locale), _term_repository_cars_body(config, page, repositorycars, locale))}
        |      ${_dashboard_card("col-12 col-xl-3", "bok-card-actions", _ui(locale, "dashboard.card.next.actions"), _term_actions_body(term, locale))}
        |    </div>
        |  </div>
@@ -8276,8 +8306,28 @@ private[cozy] object CozyBok {
         s"""<li class="list-group-item"><a href="../../${_html_escape(entry.publicpath)}">${_html_escape(entry.title)}</a><span>${_html_escape(entry.entrytype + " / " + entry.sourcekind + resolution)}</span></li>"""
       }.mkString("""<ul class="list-group bok-map-list">""", "", "</ul>")
 
+  private def _term_repository_cars_body(
+    config: BuildConfig,
+    page: Path,
+    entries: Vector[RepositoryCarEntry],
+    locale: String
+  ): String =
+    if (entries.isEmpty)
+      s"""<p class="bok-card-muted">${_html_escape(_repository_car_empty(locale))}</p>"""
+    else
+      entries.take(6).map { entry =>
+        val href = _relative_href(page, config.websitePath.resolve(entry.publicPath))
+        s"""<li class="list-group-item"><a href="${_html_escape(href)}">${_html_escape(entry.title)}</a><span>${_html_escape(entry.effectiveVersion.getOrElse("-"))}</span></li>"""
+      }.mkString("""<ul class="list-group bok-map-list">""", "", "</ul>")
+
+  private def _repository_car_related_to_term(entry: RepositoryCarEntry, term: TermEntry): Boolean =
+    entry.terms.exists(_term_reference_matches(_, term))
+
+  private def _term_reference_matches(value: String, term: TermEntry): Boolean =
+    value == term.id || value == term.title || value == term.slug || term.aliases.contains(value)
+
   private def _bibliography_related_to_term(entry: BibliographyEntry, term: TermEntry): Boolean =
-    entry.terms.exists(x => x == term.id || x == term.title || x == term.slug)
+    entry.terms.exists(_term_reference_matches(_, term))
 
   private def _term_actions_body(term: TermEntry, locale: String): String =
     Vector(

@@ -172,7 +172,7 @@ Status: IN PROGRESS
 - [x] Inherit or merge tags and terms from Project metadata into related CAR
       entries without replacing explicit CAR metadata.
 - [x] Add tag resource page links to related CAR entries.
-- [ ] Add Term Hub / RDF navigation hooks for CAR-related terms where metadata
+- [x] Add Term Hub / RDF navigation hooks for CAR-related terms where metadata
       exists.
 - [x] Diagnose catalog entries without Project links as unlinked published CARs.
 - [x] Diagnose Project CAR references without catalog entries as unpublished or

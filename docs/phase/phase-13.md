@@ -144,6 +144,11 @@ Out of scope:
   authoritative and remains first, related Project metadata supplements it
   with duplicate removal, and effective CAR tags link bidirectionally with
   hierarchical tag resource pages.
+- 2026-07-13: Connected repository CAR terms to SmartDox glossary metadata.
+  CAR module and version pages link resolved terms to their Term Hub and RDF
+  filtered view, while each Term Hub lists related repository CAR modules.
+  Unresolved CAR terms remain readable plain text rather than creating derived
+  glossary entries in Cozy.
 
 ## References
 
