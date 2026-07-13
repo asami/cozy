@@ -199,11 +199,11 @@ Status: DONE
 
 ## BK13-12: Phase Closure
 
-Status: TODO
+Status: DONE
 
-- [ ] Confirm all BK13 items are complete or explicitly bounded.
-- [ ] Confirm validation passed.
-- [ ] Confirm KnowledgeHub operational verification passed.
-- [ ] Update `docs/phase/phase-13.md` closure section.
-- [ ] Set `docs/phase/README.md` active phase to none.
-- [ ] Mark Phase 13 closed in strategy.
+- [x] Confirm all BK13 items are complete or explicitly bounded.
+- [x] Confirm validation passed.
+- [x] Confirm KnowledgeHub operational verification passed.
+- [x] Update `docs/phase/phase-13.md` closure section.
+- [x] Set `docs/phase/README.md` active phase to Phase 14.
+- [x] Mark Phase 13 closed in strategy.

@@ -260,7 +260,7 @@ Primary reference:
 
 ### Phase 13: BoK Tag Knowledge Navigation
 
-Status: active.
+Status: closed.
 
 Purpose:
 
@@ -281,7 +281,7 @@ Primary reference:
 
 ### Phase 14: SIE Integration
 
-Status: planned.
+Status: active.
 
 Purpose:
 
@@ -316,7 +316,7 @@ Purpose:
 ## Current Priority
 
 Phase 6, Phase 7, Phase 8, Phase 9, Phase 10, Phase 11, and Phase 12 are
-closed. Phase 13 is active. Phase 14 is planned.
+closed. Phase 13 is closed. Phase 14 is active.
 
 Phase 8 completed the first-class `cozy video` workflow: structured
 project/script parsing, inspect, dry-run artifact/command planning, dependency
@@ -342,14 +342,14 @@ was `/Users/asami/src/Project2026/bok-knowledgehub`, and the phase closed after
 production build, CloudFront serving, upload workflow, and ignored generated
 state were operationally verified.
 
-Phase 13 implements BoK tag knowledge navigation. Tags are lightweight
+Phase 13 implemented BoK tag knowledge navigation. Tags are lightweight
 cross-cutting labels that connect articles, terms, scenarios, projects,
 bibliography entries, history, and RDF resources without replacing categories
 or glossary terms. Phase 13 also completes the generic Project-to-Component
 Repository CAR knowledge layer before the SIE-specific Phase 14 catalog
 integration.
 
-Phase 14 will integrate SIE with Cozy BoK and CAR/SAR publication workflows.
+Phase 14 integrates SIE with Cozy BoK and CAR/SAR publication workflows.
 The first concrete contract is
 `metadata/cncf/knowledge-source.json`, which lets SIE ingest generated BoK
 sites through metadata resources instead of rendered HTML. The boundary is
@@ -357,9 +357,9 @@ explicit: Cozy publishes and validates BoK/SIE metadata for navigation and
 diagnostics, while SIE remains responsible for semantic integration runtime
 behavior and Information-schema materialization.
 
-Candidate directions after Phase 13 include:
+Current Phase 14 directions include:
 
-- SIE integration
+- BoK KnowledgeSource manifest output and SIE ingestion
 - BoK publication and Component Repository public pages
 - Video publication registration follow-up, if richer article/navigation
   integration is needed

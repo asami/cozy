@@ -1,8 +1,10 @@
 # Phase 13: BoK Tag Knowledge Navigation
 
-Status: active
+Status: closed
 
 Start date: 2026-06-28
+
+End date: 2026-07-13
 
 ## Goal
 
@@ -54,7 +56,7 @@ Out of scope:
 - [x] BK13-08: KnowledgeHub operational verification
 - [x] BK13-09: Tests and executable specs
 - [x] BK13-11: Component Repository CAR knowledge
-- [ ] BK13-12: Phase closure
+- [x] BK13-12: Phase closure
 
 ## Acceptance Criteria
 
@@ -209,6 +211,22 @@ Out of scope:
   `workflow.review` tag chip, and SmartDox selects the first component that
   actually has a root index as the Antora site start page instead of selecting
   an index-less Bibliography component.
+
+## Closure
+
+Phase 13 closed on 2026-07-13 after hierarchical tag metadata, tag dashboards
+and detail pages, knowledge-page tag chips, RDF tag resources, and generic
+Project-to-Component Repository CAR knowledge were implemented and covered by
+executable specs. SmartDox full validation passed with 191 tests and 4 ignored;
+the final Cozy repository CAR, Project, and tag focused validation passed with
+23 tests. KnowledgeHub preview operation confirmed tag navigation, tag RDF,
+Project/CAR bidirectional links, and ignored generated-output boundaries.
+
+SIE-specific CAR/SAR catalog operation, the BoK KnowledgeSource manifest, and
+SIE RDF/Information handoff remain Phase 14 responsibilities. The temporary
+unpublished KnowledgeHub CAR catalog used to exercise the generic consumer was
+removed after verification; Phase 14 must verify the route again with an
+actually published SIE artifact.
 
 ## References
 

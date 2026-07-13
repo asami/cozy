@@ -1,8 +1,8 @@
 # Phase 14: SIE Integration
 
-Status: planned
+Status: active
 
-Start date: TBD
+Start date: 2026-07-13
 
 ## Goal
 
@@ -98,6 +98,10 @@ Out of scope:
   first concrete contract is `metadata/cncf/knowledge-source.json`, which lets
   SIE ingest BoK glossary and RDF metadata resources without reading rendered
   HTML.
+- 2026-07-13: Activated Phase 14 after Phase 13 closed its generic tag and
+  Component Repository CAR knowledge layer. BK14-02 is the first active design
+  boundary; SIE-specific catalog and runtime behavior must reuse rather than
+  duplicate the Phase 13 infrastructure.
 
 ## References
 
