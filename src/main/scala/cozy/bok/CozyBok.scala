@@ -3246,10 +3246,12 @@ private[cozy] object CozyBok {
       val cmlbody = _project_model_terms_html(config, locale, project, page, target)
       val surfacebody = _project_component_surface_html(locale, project)
       val dashboardbody = _project_detail_dashboard(config, locale, project)
+      val siebody = _project_sie_handoff_html(locale, project)
       val repositorybody = _project_repository_car_html(config, locale, project, page, target)
       val narrativebody = _project_narrative_html(locale, articlebody)
       val pagebody =
         s"""${dashboardbody}
+           |${siebody}
            |${surfacebody}
            |${cmlbody}
            |${repositorybody}
@@ -3271,6 +3273,28 @@ private[cozy] object CozyBok {
       )
     }
   }
+
+  private def _project_sie_handoff_html(
+    locale: String,
+    project: CozyBokProjectPublisher.ResolvedBokProject
+  ): String =
+    project.sie.map { sie =>
+      val componentrow = sie.component.map { component =>
+        s"""  <dt>${_html_escape(_ui(locale, "project.label.sie.component"))}</dt><dd><code>${_html_escape(component)}</code></dd>
+           |""".stripMargin
+      }.getOrElse("")
+      s"""<section class="bok-project-section bok-project-sie" id="project-sie">
+         |  <div class="bok-project-section-head">
+         |    <h2>${_html_escape(_ui(locale, "project.section.sie"))}</h2>
+         |    <p>${_html_escape(_ui(locale, "project.section.sie.description"))}</p>
+         |  </div>
+         |  <dl class="bok-project-detail-dl">
+         |    <dt>${_html_escape(_ui(locale, "project.label.sie.projection"))}</dt><dd><code>${_html_escape(sie.projection)}</code></dd>
+         |${componentrow}    <dt>${_html_escape(_ui(locale, "project.label.sie.handoff"))}</dt><dd><a href="${_html_escape(sie.handoffbase)}">${_html_escape(sie.handoffbase)}</a></dd>
+         |    <dt>${_html_escape(_ui(locale, "project.label.sie.manifest"))}</dt><dd><a href="${_html_escape(sie.manifest)}">${_html_escape(sie.manifest)}</a></dd>
+         |  </dl>
+         |</section>""".stripMargin
+    }.getOrElse("")
 
   private def _resolved_project_packages(config: BuildConfig): Vector[CozyBokProjectPublisher.ResolvedBokProject] = {
     val bokconfig = _load_config(config.project)

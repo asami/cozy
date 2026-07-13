@@ -112,7 +112,7 @@ Status: TODO
 
 Status: TODO
 
-- [ ] Add SIE-linked Project page sections.
+- [x] Add SIE-linked Project page sections.
 - [ ] Add SIE linkage to Term Hub when terms carry CML/SIE metadata.
 - [ ] Add SIE-linked entries to tag resource pages.
 - [ ] Add SIE neighborhood entry points in RDF Information View.
@@ -153,7 +153,7 @@ Status: TODO
 - [ ] Assert no `/.well-known/cncf-knowledge.json` output is required.
 - [ ] Keep existing `terms.json` specs unchanged unless the current contract is
       actually broken.
-- [ ] Add SIE project metadata consumption specs.
+- [x] Add SIE project metadata consumption specs.
 - [ ] Add SIE repository catalog link specs.
 - [ ] Add SIE RDF handoff specs.
 - [ ] Add SIE UI navigation specs.

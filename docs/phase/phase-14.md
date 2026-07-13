@@ -114,6 +114,9 @@ Out of scope:
   stable projection identifier, optional component artifact, and HTTP(S)
   KnowledgeSource handoff base. Local SIE source paths remain private Cozy
   configuration and are excluded from publication metadata.
+- 2026-07-13: Added SIE linkage to Project detail pages. Cozy renders the
+  registered projection, component, handoff base, and KnowledgeSource manifest
+  without fetching or interpreting external SIE resources during `bok build`.
 
 ## References
 

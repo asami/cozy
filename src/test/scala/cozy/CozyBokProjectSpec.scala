@@ -817,6 +817,25 @@ class CozyBokProjectSpec
 
           And("private local SIE paths are not copied into public metadata")
           bundle should not include (localpath.toString)
+
+          When("Cozy builds the SIE-linked Project page")
+          val runner = new ProjectBuildRunner
+          CozyBok.build(
+            CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview", "--no-bib-service")),
+            runner
+          )
+
+          Then("the Project page exposes the registered SIE linkage without invoking an SIE client")
+          val page = _read(dir.resolve("website.d/projects/technology/nict-knowledgehub/index.html"))
+          page should include("SIE linkage")
+          page should include("<code>nict-knowledgehub</code>")
+          page should include("<code>textus-semantic-integration-engine</code>")
+          page should include("href=\"https://sie.example.com/nict-knowledgehub/\"")
+          page should include("href=\"https://sie.example.com/nict-knowledgehub/metadata/cncf/knowledge-source.json\"")
+          runner.commands.count(_.take(2) == Vector("dox", "antora")) shouldBe 1
+          runner.commands.count(_.take(2) == Vector("dox", "site")) shouldBe 1
+          runner.commands.flatten should not contain ("https://sie.example.com/nict-knowledgehub/")
+          runner.commands.flatten should not contain ("https://sie.example.com/nict-knowledgehub/metadata/cncf/knowledge-source.json")
         }
       }
 
@@ -1838,6 +1857,17 @@ class CozyBokProjectSpec
 
   private def _write_sie_project_source(dir: Path, handoffbase: String): Path = {
     val localpath = dir.resolve("target/sie/projections/nict-knowledgehub")
+    _write(
+      dir.resolve("src/main/doxsite/site.conf"),
+      """site {
+        |  output {
+        |    locale_mode = "single_locale_root"
+        |    default_locale = "en"
+        |  }
+        |}
+        |""".stripMargin
+    )
+    _write(dir.resolve("src/main/doxsite/index.dox"), "Home\n====\n")
     _write(
       dir.resolve("conf/cozy/config.yaml"),
       s"""bok:
