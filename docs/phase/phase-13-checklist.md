@@ -98,10 +98,10 @@ Status: DONE
 
 ## BK13-07: RDF Tag Navigation
 
-Status: IN PROGRESS
+Status: DONE
 
 - [x] Add tag filter or tag-neighborhood entry point to RDF Information View.
-- [ ] Define tag RDF node or relationship representation.
+- [x] Define tag RDF node or relationship representation.
 - [x] Link tag pages to RDF filtered views.
 - [x] Ensure existing category and term RDF filters remain compatible.
 - [x] Add executable specs for tag RDF navigation.

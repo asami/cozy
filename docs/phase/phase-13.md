@@ -50,7 +50,7 @@ Out of scope:
 - [x] BK13-04: Cozy tag index reader
 - [x] BK13-05: Tag dashboard and tag hub rendering
 - [x] BK13-06: Dashboard and knowledge-page tag links
-- [ ] BK13-07: RDF tag navigation
+- [x] BK13-07: RDF tag navigation
 - [ ] BK13-08: KnowledgeHub operational verification
 - [x] BK13-09: Tests and executable specs
 - [ ] BK13-11: Component Repository CAR knowledge
@@ -157,7 +157,13 @@ Out of scope:
   carries canonical tags on source-backed RDF nodes and propagates them to
   edges; Cozy tag pages link to `rdf/index.html?tag=<canonical-key>` and the RDF
   Information View combines tag filtering with its existing category and term
-  filters. Modeling tags as RDF resources or predicates remains open.
+  filters.
+- 2026-07-13: Completed the RDF tag model. SmartDox emits canonical tag-page
+  resources as `schema:DefinedTerm`, identifies them with the canonical tag
+  key, connects hierarchical tags with `dcterms:isPartOf`, and links each
+  source-backed knowledge resource to its tags with `dcterms:subject`. The
+  effective tag graph is shared by `site.ttl`, `site.jsonld`, and the Cozy RDF
+  graph metadata handoff.
 - 2026-07-13: Reconciled the Project tag checklist with the implemented
   metadata consumer and executable specification. Project metadata contributes
   canonical tag references, Project pages render tag links, and tag resource
