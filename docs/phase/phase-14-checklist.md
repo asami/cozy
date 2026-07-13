@@ -90,88 +90,89 @@ Status: DONE
 
 ## BK14-06: SIE Runtime And Launcher Development Configuration Validation
 
-Status: TODO
+Status: DONE
 
-- [ ] Document launcher development settings used for SIE integration tests.
-- [ ] Verify development Cozy, CNCF, Textus, and SIE runtime paths without
+- [x] Document launcher development settings used for SIE integration tests.
+- [x] Verify development Cozy, CNCF, Textus, and SIE runtime paths without
       mutating published release coordinates.
-- [ ] Add diagnostics that show which launcher/runtime path is active.
-- [ ] Add validation commands for SIE development and release operation.
-- [ ] Keep release-version fixes behind SNAPSHOT version changes.
+- [x] Use each launcher's native diagnostics to show which launcher/runtime
+      path is active; Cozy runtime does not reconstruct launcher config.
+- [x] Add validation commands for SIE development and release operation.
+- [x] Keep release-version fixes behind SNAPSHOT version changes.
 
 ## BK14-07: SIE RDF And Information Metadata Handoff
 
-Status: TODO
+Status: DONE
 
-- [ ] Define SIE RDF / Information metadata files consumed by Cozy.
-- [ ] Merge SIE RDF handoff into BoK RDF Information View without re-extraction.
-- [ ] Show SIE Information-centered nodes and anchors in RDF node details.
-- [ ] Link SIE Information nodes to terms, scenarios, projects, and tags where
+- [x] Define SIE RDF / Information metadata files consumed by Cozy.
+- [x] Merge SIE RDF handoff into BoK RDF Information View without re-extraction.
+- [x] Show SIE Information-centered nodes and anchors in RDF node details.
+- [x] Link SIE Information nodes to terms, scenarios, projects, and tags where
       metadata exists.
-- [ ] Add diagnostics when SIE RDF handoff is expected but missing.
-- [ ] Treat `rdf_refs` in `terms.json` as supplementary evidence or
+- [x] Add diagnostics when SIE RDF handoff is expected but missing.
+- [x] Treat `rdf_refs` in `terms.json` as supplementary evidence or
       relationship candidates, not confirmed RDF anchors by default.
 
 ## BK14-08: BoK UI Navigation For SIE-Linked Knowledge
 
-Status: TODO
+Status: DONE
 
 - [x] Add SIE-linked Project page sections.
-- [ ] Add SIE linkage to Term Hub when terms carry CML/SIE metadata.
-- [ ] Add SIE-linked entries to tag resource pages.
-- [ ] Add SIE neighborhood entry points in RDF Information View.
-- [ ] Keep UI fallback empty when no SIE metadata exists.
+- [x] Add SIE linkage to Term Hub when terms carry CML/SIE metadata.
+- [x] Add SIE-linked entries to tag resource pages.
+- [x] Add SIE neighborhood entry points in RDF Information View.
+- [x] Keep UI fallback empty when no SIE metadata exists.
 
 ## BK14-09: KnowledgeHub Operational Verification
 
-Status: TODO
+Status: DONE
 
-- [ ] Add or identify one KnowledgeHub SIE-linked project.
-- [ ] Run `cozy bok build . --strategy preview`.
-- [ ] Confirm `website.d/metadata/cncf/knowledge-source.json` exists.
-- [ ] Confirm manifest-backed SIE ingestion uses
+- [x] Add or identify one KnowledgeHub SIE-linked project.
+- [x] Run `cozy bok build . --strategy preview`.
+- [x] Confirm `website.d/metadata/cncf/knowledge-source.json` exists.
+- [x] Confirm manifest-backed SIE ingestion uses
       `/metadata/cncf/knowledge-source.json`.
-- [ ] Confirm SIE ingestion reports `warningCount = 0` for the generated site.
-- [ ] Confirm SIE ingestion `termCount` matches `terms.json`.
-- [ ] Confirm SIE ingestion can produce `knowledgeSpaceState = frame_only` with
+- [x] Confirm SIE ingestion reports `warningCount = 0` for the generated site.
+- [x] Confirm SIE ingestion `termCount` matches `terms.json`.
+- [x] Confirm SIE ingestion can produce `knowledgeSpaceState = frame_only` with
       `registerKnowledgeSpace=false`.
-- [ ] Confirm SIE ingestion includes a knowledge frame when
+- [x] Confirm SIE ingestion includes a knowledge frame when
       `includeKnowledgeFrame=true`.
-- [ ] Confirm Project page SIE linkage.
-- [ ] Confirm Term Hub and Tag navigation for SIE-linked metadata.
-- [ ] Confirm RDF Information View exposes SIE-linked nodes when metadata exists.
-- [ ] Confirm missing SIE metadata diagnostics are explicit.
-- [ ] Confirm generated directories remain ignored.
+- [x] Confirm Project page SIE linkage.
+- [x] Confirm Term Hub and Tag navigation for SIE-linked metadata.
+- [x] Confirm RDF Information View exposes SIE-linked nodes when metadata exists.
+- [x] Confirm missing SIE metadata diagnostics are explicit.
+- [x] Confirm generated directories remain ignored.
 
 ## BK14-10: Tests And Executable Specs
 
-Status: TODO
+Status: DONE
 
 - [x] Add focused Cozy SIE integration specs.
-- [ ] Add BoK KnowledgeSource manifest generation specs.
-- [ ] Assert manifest has `resources[].kind = glossary-terms`.
-- [ ] Assert manifest has
+- [x] Add BoK KnowledgeSource manifest generation specs.
+- [x] Assert manifest has `resources[].kind = glossary-terms`.
+- [x] Assert manifest has
       `resources[].href = metadata/glossary/terms.json`.
-- [ ] Assert manifest `resources.href` values are relative paths, not absolute
+- [x] Assert manifest `resources.href` values are relative paths, not absolute
       URLs.
-- [ ] Assert no `/.well-known/cncf-knowledge.json` output is required.
-- [ ] Keep existing `terms.json` specs unchanged unless the current contract is
+- [x] Assert no `/.well-known/cncf-knowledge.json` output is required.
+- [x] Keep existing `terms.json` specs unchanged unless the current contract is
       actually broken.
 - [x] Add SIE project metadata consumption specs.
 - [x] Add SIE repository catalog link specs.
-- [ ] Add SIE RDF handoff specs.
-- [ ] Add SIE UI navigation specs.
-- [ ] Run focused SIE specs.
-- [ ] Run `sbt --batch test`.
-- [ ] Run `git diff --check`.
+- [x] Add SIE RDF handoff specs.
+- [x] Add SIE UI navigation specs.
+- [x] Run focused SIE specs.
+- [x] Run `sbt --batch test`.
+- [x] Run `git diff --check`.
 
 ## BK14-11: Phase Closure
 
-Status: TODO
+Status: DONE
 
-- [ ] Confirm all BK14 items are complete or explicitly bounded.
-- [ ] Confirm validation passed.
-- [ ] Confirm KnowledgeHub operational verification passed.
-- [ ] Update `docs/phase/phase-14.md` closure section.
-- [ ] Set `docs/phase/README.md` active phase to the next phase or none.
-- [ ] Mark Phase 14 closed in strategy.
+- [x] Confirm all BK14 items are complete or explicitly bounded.
+- [x] Confirm validation passed.
+- [x] Confirm KnowledgeHub operational verification passed.
+- [x] Update `docs/phase/phase-14.md` closure section.
+- [x] Set `docs/phase/README.md` active phase to the next phase or none.
+- [x] Mark Phase 14 closed in strategy.

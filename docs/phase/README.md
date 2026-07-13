@@ -4,9 +4,9 @@ Purpose: engineering work management.
 
 Current phase:
 
-- Active phase: `phase-14.md`: SIE Integration
+- Active phase: none
 - Next planned phase: none
-- Most recent closed phase: `phase-13.md`: BoK Tag Knowledge Navigation
+- Most recent closed phase: `phase-14.md`: SIE Integration
 
 Belongs:
 

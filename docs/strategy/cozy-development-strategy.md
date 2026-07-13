@@ -281,7 +281,7 @@ Primary reference:
 
 ### Phase 14: SIE Integration
 
-Status: active.
+Status: closed.
 
 Purpose:
 
@@ -316,7 +316,7 @@ Purpose:
 ## Current Priority
 
 Phase 6, Phase 7, Phase 8, Phase 9, Phase 10, Phase 11, and Phase 12 are
-closed. Phase 13 is closed. Phase 14 is active.
+closed. Phase 13 and Phase 14 are closed. No phase is currently active.
 
 Phase 8 completed the first-class `cozy video` workflow: structured
 project/script parsing, inspect, dry-run artifact/command planning, dependency

@@ -11,7 +11,6 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jun. 23, 2026
- *  version Jun. 27, 2026
  * @version Jul. 13, 2026
  * @author  ASAMI, Tomoharu
  */
@@ -871,6 +870,29 @@ class CozyBokProjectSpec
           technologytag should include("../../projects/technology/nict-knowledgehub/index.html")
           val workflowtag = _read(dir.resolve("website.d/tags/workflow/review.html"))
           workflowtag should include("NICT KnowledgeHub")
+          And("manifest-declared SIE Information metadata is merged into the effective BoK metadata and UI")
+          val integration = _read(dir.resolve("website.d/metadata/sie/integration.json"))
+          integration should include("cozy.bok.sie-integration.v1")
+          integration should include("knowledge-item-information-v1")
+          integration should include("knowledge-item-001")
+          integration should not include (localpath.toString)
+          val graph = _read(dir.resolve("website.d/metadata/rdf/graph.json"))
+          graph should include("knowledge-item-information-v1")
+          graph should include("knowledge-item-001")
+          graph should include("\"projection\" : \"nict-knowledgehub\"")
+          page should include("SIE Information")
+          page should include("Knowledge Item Information")
+          val termpage = _read(dir.resolve("website.d/glossary/technology/knowledge-item.html"))
+          termpage should include("SmartDox term narrative")
+          termpage should include("bok-term-sie-information")
+          termpage should include("Knowledge Item Information")
+          val scenariopage = _read(dir.resolve("website.d/scenario/technology/knowledge-review.html"))
+          scenariopage should include("SmartDox scenario narrative")
+          scenariopage should include("bok-scenario-sie-information")
+          scenariopage should include("Knowledge Item Information")
+          technologytag should include("Knowledge Item Information")
+          technologytag should include("sie-information")
+          _read(dir.resolve("website.d/rdf/node.html")) should include("<dt>Projection</dt>")
           runner.commands.count(_.take(2) == Vector("dox", "antora")) shouldBe 1
           runner.commands.count(_.take(2) == Vector("dox", "site")) shouldBe 1
           runner.commands.flatten should not contain ("https://sie.example.com/nict-knowledgehub/")
@@ -905,6 +927,268 @@ class CozyBokProjectSpec
         }
       }
 
+      "diagnose a configured local handoff whose manifest is missing" in {
+        _with_temp_dir("cozy-bok-sie-handoff-missing") { dir =>
+          Given("an SIE-linked Project with an explicit local handoff path but no handoff manifest")
+          val localpath = _write_sie_project_source(dir, "https://sie.example.com/nict-knowledgehub/")
+          Files.delete(localpath.resolve("metadata/cncf/knowledge-source.json"))
+
+          When("Cozy builds without contacting the public SIE service")
+          val runner = new ProjectBuildRunner
+          CozyBok.build(
+            CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview", "--no-bib-service")),
+            runner
+          )
+
+          Then("the machine-readable integration metadata and Project page expose the stable missing-handoff diagnostic")
+          val integration = _read(dir.resolve("website.d/metadata/sie/integration.json"))
+          integration should include("sie.handoff.missing")
+          integration should include("metadata/cncf/knowledge-source.json")
+          integration should not include (localpath.toString)
+          val page = _read(dir.resolve("website.d/projects/technology/nict-knowledgehub/index.html"))
+          page should include("SIE integration diagnostics")
+          page should include("sie.handoff.missing")
+          runner.commands.flatten should not contain ("https://sie.example.com/nict-knowledgehub/metadata/cncf/knowledge-source.json")
+        }
+      }
+
+      "reject non-local resource hrefs at the SIE handoff boundary" in {
+        Vector(
+          "information-schema" -> "../private.json",
+          "information-schema" -> "https://sie.example.com/private.json",
+          "future-optional" -> "https://sie.example.com/future.json"
+        ).zipWithIndex.foreach { case ((resourcekind, invalidhref), index) =>
+          _with_temp_dir(s"cozy-bok-sie-handoff-path-${index}") { dir =>
+            Given(s"an SIE manifest that declares non-local resource href ${invalidhref}")
+            val localpath = _write_sie_project_source(dir, "https://sie.example.com/nict-knowledgehub/")
+            _write(
+              localpath.resolve("metadata/cncf/knowledge-source.json"),
+              s"""{
+                 |  "schemaVersion": "cncf.knowledge-source.v1",
+                 |  "kind": "sie-projection",
+                 |  "id": "nict-knowledgehub",
+                 |  "sourceRef": {"kind": "sie-projection", "value": "nict-knowledgehub"},
+                 |  "resources": [
+                 |    {"kind": "${resourcekind}", "href": "${invalidhref}", "mediaType": "application/json"}
+                 |  ]
+                 |}
+                 |""".stripMargin
+            )
+
+            When("Cozy validates the handoff during build")
+            CozyBok.build(
+              CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview", "--no-bib-service")),
+              new ProjectBuildRunner
+            )
+
+            Then("the href is reported as invalid and no local path is published")
+            val integration = _read(dir.resolve("website.d/metadata/sie/integration.json"))
+            integration should include("sie.handoff.invalid")
+            integration should include("safe relative path")
+            integration should not include (localpath.toString)
+          }
+        }
+      }
+
+      "reject duplicate singleton resources in an SIE handoff" in {
+        _with_temp_dir("cozy-bok-sie-handoff-duplicate") { dir =>
+          Given("an SIE manifest that declares two information schema resources")
+          val localpath = _write_sie_project_source(dir, "https://sie.example.com/nict-knowledgehub/")
+          val manifestpath = localpath.resolve("metadata/cncf/knowledge-source.json")
+          val manifest = _read(manifestpath).replace(
+            """{"kind": "information-schema", "href": "metadata/sie/information-schema.json", "mediaType": "application/json"},""",
+            """{"kind": "information-schema", "href": "metadata/sie/information-schema.json", "mediaType": "application/json"},
+              |    {"kind": "information-schema", "href": "metadata/sie/information-schema.json", "mediaType": "application/json"},""".stripMargin
+          )
+          _write(manifestpath, manifest)
+
+          When("Cozy validates the handoff during build")
+          CozyBok.build(
+            CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview", "--no-bib-service")),
+            new ProjectBuildRunner
+          )
+
+          Then("the duplicate kind is reported instead of selecting one declaration")
+          val integration = _read(dir.resolve("website.d/metadata/sie/integration.json"))
+          integration should include("sie.handoff.invalid")
+          integration should include("must be declared at most once: information-schema")
+          integration should not include (localpath.toString)
+        }
+      }
+
+      "skip an unknown optional resource without reading its href" in {
+        _with_temp_dir("cozy-bok-sie-handoff-optional-resource") { dir =>
+          Given("an SIE manifest that declares an unknown optional resource whose file is absent")
+          val localpath = _write_sie_project_source(dir, "https://sie.example.com/nict-knowledgehub/")
+          val manifestpath = localpath.resolve("metadata/cncf/knowledge-source.json")
+          val manifest = _read(manifestpath).replace(
+            """    {"kind": "rdf-graph-summary", "href": "metadata/rdf/graph.json", "mediaType": "application/json"}""",
+            """    {"kind": "rdf-graph-summary", "href": "metadata/rdf/graph.json", "mediaType": "application/json"},
+              |    {"kind": "future-optional", "href": "private/missing.json", "mediaType": "application/json"}""".stripMargin
+          )
+          _write(manifestpath, manifest)
+
+          When("Cozy validates the handoff during build")
+          CozyBok.build(
+            CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview", "--no-bib-service")),
+            new ProjectBuildRunner
+          )
+
+          Then("the unknown kind is warning-only and does not authorize a filesystem read")
+          val integration = _read(dir.resolve("website.d/metadata/sie/integration.json"))
+          integration should include("sie.handoff.resource.unsupported")
+          integration should include("future-optional")
+          integration should not include ("sie.handoff.resource.missing")
+        }
+      }
+
+      "require mediaType on every SIE handoff resource" in {
+        _with_temp_dir("cozy-bok-sie-handoff-media-type") { dir =>
+          Given("an SIE manifest resource without mediaType")
+          val localpath = _write_sie_project_source(dir, "https://sie.example.com/nict-knowledgehub/")
+          val manifestpath = localpath.resolve("metadata/cncf/knowledge-source.json")
+          val manifest = _read(manifestpath).replace(
+            """{"kind": "information-schema", "href": "metadata/sie/information-schema.json", "mediaType": "application/json"}""",
+            """{"kind": "information-schema", "href": "metadata/sie/information-schema.json"}"""
+          )
+          _write(manifestpath, manifest)
+
+          When("Cozy validates the manifest envelope")
+          CozyBok.build(
+            CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview", "--no-bib-service")),
+            new ProjectBuildRunner
+          )
+
+          Then("the malformed resource is rejected before handoff files are loaded")
+          val integration = _read(dir.resolve("website.d/metadata/sie/integration.json"))
+          integration should include("sie.handoff.invalid")
+          integration should include("require kind, href, and mediaType")
+        }
+      }
+
+      "exclude Information instances that reference an undefined schema" in {
+        _with_temp_dir("cozy-bok-sie-handoff-undefined-schema") { dir =>
+          Given("an SIE Information instance that names a schema absent from its handoff")
+          val localpath = _write_sie_project_source(dir, "https://sie.example.com/nict-knowledgehub/")
+          val instancespath = localpath.resolve("metadata/sie/information-instances.json")
+          _write(
+            instancespath,
+            _read(instancespath).replace(
+              "\"schema\": \"knowledge-item-information-v1\"",
+              "\"schema\": \"undefined-information-v1\""
+            )
+          )
+
+          When("Cozy validates Information instances against the declared schema resource")
+          CozyBok.build(
+            CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview", "--no-bib-service")),
+            new ProjectBuildRunner
+          )
+
+          Then("the invalid instance is diagnosed and omitted from effective SIE metadata")
+          val integration = _read(dir.resolve("website.d/metadata/sie/integration.json"))
+          integration should include("references undefined schema: undefined-information-v1")
+          integration should not include ("\"id\" : \"knowledge-item-001\"")
+          _read(dir.resolve("website.d/glossary/technology/knowledge-item.html")) should not include (
+            "bok-term-sie-information"
+          )
+        }
+      }
+
+      "reject duplicate Information instance ids" in {
+        _with_temp_dir("cozy-bok-sie-handoff-duplicate-instance") { dir =>
+          Given("an SIE Information resource with two entries that share one logical id")
+          val localpath = _write_sie_project_source(dir, "https://sie.example.com/nict-knowledgehub/")
+          val instancespath = localpath.resolve("metadata/sie/information-instances.json")
+          val instance = """    {
+                           |      "id": "knowledge-item-001",
+                           |      "schema": "knowledge-item-information-v1",
+                           |      "label": "Knowledge Item Information",
+                           |      "summary": "SIE materialized knowledge item.",
+                           |      "rdfNode": "https://example.com/knowledge-item",
+                           |      "category": "technology",
+                           |      "termRefs": ["technology:knowledge-item"],
+                           |      "scenarioRefs": ["scenario:knowledge-review"],
+                           |      "projectRefs": ["nict-knowledgehub"],
+                           |      "tags": ["technology.sie", "workflow.review"]
+                           |    }""".stripMargin
+          _write(
+            instancespath,
+            _read(instancespath).replace(instance, s"${instance},\n${instance}")
+          )
+
+          When("Cozy decodes the Information instance collection")
+          CozyBok.build(
+            CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview", "--no-bib-service")),
+            new ProjectBuildRunner
+          )
+
+          Then("the duplicate identity is rejected instead of being merged or repeated")
+          val integration = _read(dir.resolve("website.d/metadata/sie/integration.json"))
+          integration should include("Information instance ids must be unique: knowledge-item-001")
+          integration should not include ("\"id\" : \"knowledge-item-001\"")
+        }
+      }
+
+      "reject a manifest resource that escapes through a symbolic link" in {
+        _with_temp_dir("cozy-bok-sie-handoff-symbolic-link") { dir =>
+          Given("a manifest-local path whose symbolic link resolves outside the SIE handoff root")
+          val localpath = _write_sie_project_source(dir, "https://sie.example.com/nict-knowledgehub/")
+          val externalpath = dir.resolve("outside-information-schema.json")
+          _write(externalpath, "{}\n")
+          val linkpath = localpath.resolve("metadata/sie/outside-information-schema.json")
+          Files.createSymbolicLink(linkpath, externalpath)
+          val manifestpath = localpath.resolve("metadata/cncf/knowledge-source.json")
+          _write(
+            manifestpath,
+            _read(manifestpath).replace(
+              "metadata/sie/information-schema.json",
+              "metadata/sie/outside-information-schema.json"
+            )
+          )
+
+          When("Cozy resolves the declared resource below the trusted handoff root")
+          CozyBok.build(
+            CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview", "--no-bib-service")),
+            new ProjectBuildRunner
+          )
+
+          Then("the symlink escape is rejected without publishing the external path")
+          val integration = _read(dir.resolve("website.d/metadata/sie/integration.json"))
+          integration should include("sie.handoff.invalid")
+          integration should include("safe relative path")
+          integration should not include (externalpath.toString)
+        }
+      }
+
+      "fail when duplicate RDF edges carry conflicting metadata" in {
+        _with_temp_dir("cozy-bok-sie-handoff-edge-conflict") { dir =>
+          Given("an SIE graph summary with one edge identity and two different metadata records")
+          val localpath = _write_sie_project_source(dir, "https://sie.example.com/nict-knowledgehub/")
+          val graphpath = localpath.resolve("metadata/rdf/graph.json")
+          val edge = """{"source": "https://example.com/knowledge-item", "target": "https://schema.org/name", "predicate": "https://schema.org/name", "label": "name", "category": "technology"}"""
+          _write(
+            graphpath,
+            _read(graphpath).replace(
+              edge,
+              s"""${edge},
+                 |    {"source": "https://example.com/knowledge-item", "target": "https://schema.org/name", "predicate": "https://schema.org/name", "label": "name", "category": "concept"}""".stripMargin
+            )
+          )
+
+          When("Cozy merges the SIE graph summary into the SmartDox graph")
+          val e = intercept[Throwable] {
+            CozyBok.build(
+              CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview", "--no-bib-service")),
+              new ProjectBuildRunner
+            )
+          }
+
+          Then("the conflicting edge is reported instead of choosing one record")
+          e.getMessage should include("Conflicting RDF graph edge metadata")
+        }
+      }
+
       "keep relation tag links inside each locale subtree" in {
         _with_temp_dir("cozy-bok-sie-project-multi-locale") { dir =>
           Given("an SIE-linked BoK Project published into Japanese and English locale subdirectories")
@@ -929,13 +1213,17 @@ class CozyBokProjectSpec
             new ProjectBuildRunner
           )
 
-          Then("tag links stay within the locale that owns the Project page")
+          Then("Project, tag tree, and SIE Information links stay within the owning locale")
           Vector("ja", "en").foreach { locale =>
             val page = _read(dir.resolve(s"website.d/${locale}/projects/technology/nict-knowledgehub/index.html"))
             page should include("href=\"../../../tags/technology/sie.html\"")
             page should include("href=\"../../../tags/workflow/review.html\"")
             dir.resolve(s"website.d/${locale}/tags/technology/sie.html") should exist_path
             dir.resolve(s"website.d/${locale}/tags/workflow/review.html") should exist_path
+            val tagindex = _read(dir.resolve(s"website.d/${locale}/tags/index.html"))
+            tagindex should include("href=\"technology/index.html\"")
+            val tagpage = _read(dir.resolve(s"website.d/${locale}/tags/technology/sie.html"))
+            tagpage should include("href=\"../../rdf/node.html?id=https%3A%2F%2Fexample.com%2Fknowledge-item\"")
           }
         }
       }
@@ -2175,7 +2463,23 @@ class CozyBokProjectSpec
   private class ProjectBuildRunner extends RecordingRunner {
     override def run(command: Vector[String], cwd: Path): Unit = {
       super.run(command, cwd)
+      if (command.headOption.contains("docker") && Files.isRegularFile(cwd.resolve("src/main/doxsite/glossary/technology/knowledge-item.dox"))) {
+        _write(
+          cwd.resolve("website.d/glossary/technology/knowledge-item.html"),
+          "<html><body><article><h1 class=\"page\">Knowledge Item</h1><p>SmartDox term narrative</p></article></body></html>\n"
+        )
+        _write(
+          cwd.resolve("website.d/scenario/technology/knowledge-review.html"),
+          "<html><body><article><h1 class=\"page\">Knowledge Review Scenario</h1><p>SmartDox scenario narrative</p></article></body></html>\n"
+        )
+      }
       if (command.take(2) == Vector("dox", "site")) {
+        val sourceterms = cwd.resolve("src/main/doxsite/metadata/glossary/terms.json")
+        if (Files.isRegularFile(sourceterms))
+          _write(
+            cwd.resolve("doxsite.d/metadata/glossary/terms.json"),
+            _read(sourceterms)
+          )
         _write(
           cwd.resolve("doxsite.d/metadata/dashboard/site.json"),
           _dashboard_json
@@ -2185,6 +2489,7 @@ class CozyBokProjectSpec
           "@prefix ex: <https://example.com/> .\n"
         )
         _write(cwd.resolve("doxsite.d/site.jsonld"), "{\"@graph\":[]}\n")
+        _write(cwd.resolve("doxsite.d/metadata/rdf/graph.json"), "{\"nodes\":[],\"edges\":[],\"truncated\":false}\n")
       }
     }
   }
@@ -2207,6 +2512,20 @@ class CozyBokProjectSpec
         |""".stripMargin
     )
     _write(dir.resolve("src/main/doxsite/index.dox"), "Home\n====\n")
+    _write(
+      dir.resolve("src/main/doxsite/glossary/technology/knowledge-item.dox"),
+      """Knowledge Item
+        |==============
+        |
+        |# HEAD
+        |
+        |term_type = concept
+        |
+        |# BODY
+        |
+        |SmartDox term narrative.
+        |""".stripMargin
+    )
     if (withcomponentcatalog)
       _write(
         dir.resolve("repository/catalog/car/textus-semantic-integration-engine.json"),
@@ -2289,6 +2608,7 @@ class CozyBokProjectSpec
          |        path: ${localpath.toString}
          |""".stripMargin
     )
+    _write_sie_handoff(localpath)
     val pkg = dir.resolve("src/main/doxsite/projects/technology/nict-knowledgehub")
     _write(pkg.resolve("index.dox"), "NictKnowledgeHub\n================\n")
     _write(
@@ -2320,6 +2640,89 @@ class CozyBokProjectSpec
          |""".stripMargin
     )
     localpath
+  }
+
+  private def _write_sie_handoff(root: Path): Unit = {
+    _write(
+      root.resolve("metadata/cncf/knowledge-source.json"),
+      """{
+        |  "schemaVersion": "cncf.knowledge-source.v1",
+        |  "kind": "sie-projection",
+        |  "id": "nict-knowledgehub",
+        |  "sourceRef": {"kind": "sie-projection", "value": "nict-knowledgehub"},
+        |  "resources": [
+        |    {"kind": "sie-provenance", "href": "metadata/sie/provenance.json", "mediaType": "application/json"},
+        |    {"kind": "information-schema", "href": "metadata/sie/information-schema.json", "mediaType": "application/json"},
+        |    {"kind": "information-instances", "href": "metadata/sie/information-instances.json", "mediaType": "application/json"},
+        |    {"kind": "rdf-graph-summary", "href": "metadata/rdf/graph.json", "mediaType": "application/json"}
+        |  ]
+        |}
+        |""".stripMargin
+    )
+    _write(
+      root.resolve("metadata/sie/provenance.json"),
+      """{
+        |  "schemaVersion": "sie.provenance.v1",
+        |  "projection": "nict-knowledgehub",
+        |  "projectRef": "nict-knowledgehub",
+        |  "producer": "textus-semantic-integration-engine",
+        |  "generatedAt": "2026-07-13T00:00:00Z"
+        |}
+        |""".stripMargin
+    )
+    _write(
+      root.resolve("metadata/sie/information-schema.json"),
+      """{
+        |  "schemaVersion": "sie.information-schema.v1",
+        |  "projection": "nict-knowledgehub",
+        |  "informationSchemas": [
+        |    {
+        |      "name": "knowledge-item-information-v1",
+        |      "label": "Knowledge Item Information",
+        |      "match": {"categories": ["technology"]},
+        |      "requiredPredicates": ["rdf:type"],
+        |      "descriptivePredicates": ["rdfs:label"]
+        |    }
+        |  ]
+        |}
+        |""".stripMargin
+    )
+    _write(
+      root.resolve("metadata/sie/information-instances.json"),
+      """{
+        |  "schemaVersion": "sie.information-instances.v1",
+        |  "projection": "nict-knowledgehub",
+        |  "instances": [
+        |    {
+        |      "id": "knowledge-item-001",
+        |      "schema": "knowledge-item-information-v1",
+        |      "label": "Knowledge Item Information",
+        |      "summary": "SIE materialized knowledge item.",
+        |      "rdfNode": "https://example.com/knowledge-item",
+        |      "category": "technology",
+        |      "termRefs": ["technology:knowledge-item"],
+        |      "scenarioRefs": ["scenario:knowledge-review"],
+        |      "projectRefs": ["nict-knowledgehub"],
+        |      "tags": ["technology.sie", "workflow.review"]
+        |    }
+        |  ]
+        |}
+        |""".stripMargin
+    )
+    _write(
+      root.resolve("metadata/rdf/graph.json"),
+      """{
+        |  "nodes": [
+        |    {"id": "https://example.com/knowledge-item", "label": "Knowledge Item", "node_type": "uri", "category": "technology", "degree": 1, "terms": ["technology:knowledge-item"], "tags": ["technology.sie"]},
+        |    {"id": "https://schema.org/name", "label": "name", "node_type": "uri", "degree": 1}
+        |  ],
+        |  "edges": [
+        |    {"source": "https://example.com/knowledge-item", "target": "https://schema.org/name", "predicate": "https://schema.org/name", "label": "name", "category": "technology"}
+        |  ],
+        |  "truncated": false
+        |}
+        |""".stripMargin
+    )
   }
 
   private def _sie_component_catalog_json(version: String): String =

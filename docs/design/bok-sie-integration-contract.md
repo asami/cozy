@@ -127,10 +127,9 @@ The manifest may declare these resource kinds:
 - `information-instances`: SIE-owned materialized Information metadata;
 - `rdf-jsonld`, `rdf-turtle`, and `rdf-graph-summary`: SIE-derived RDF output.
 
-BK14-07 defines the resource file paths and JSON schemas. Until a resource kind
-is defined there, Cozy may report it but must not interpret its semantic
-content. Cozy consumes only manifest-declared resources and must not regenerate
-an absent resource.
+BK14-07 defines the resource file paths, JSON schemas, merge precedence, and
+effective metadata output in `bok-sie-information-handoff.md`. Cozy consumes
+only manifest-declared resources and must not regenerate an absent resource.
 
 ## Compatibility
 

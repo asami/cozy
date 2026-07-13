@@ -19,7 +19,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.regex.Pattern
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path, Paths, StandardCopyOption}
+import java.nio.file.{Files, LinkOption, Path, Paths, StandardCopyOption}
 import java.util.zip.{ZipEntry, ZipFile, ZipInputStream, ZipOutputStream}
 import scala.collection.JavaConverters._
 import scala.util.matching.Regex
@@ -31,7 +31,6 @@ import io.circe.syntax._
 
 /*
  * @since   Jun.  3, 2026
- *  version Jun. 28, 2026
  * @version Jul. 13, 2026
  * @author  ASAMI, Tomoharu
  */
@@ -1210,6 +1209,34 @@ private[cozy] object CozyBok {
         _copy_directory(source, config.project.resolve("target/cozy-bok/bibliography/cache"))
     }
 
+  private final case class PreservedSieHandoff(destination: Path, source: Path)
+
+  private def _stash_sie_handoffs(config: BuildConfig): Vector[PreservedSieHandoff] = {
+    val projectroot = config.project.toAbsolutePath.normalize
+    val targetroot = projectroot.resolve("target").normalize
+    val paths = _load_config(config.project).values.toVector.collect {
+      case (key, value) if key.startsWith("bok.projects.") && key.endsWith(".sie.path") =>
+        val path = Paths.get(value)
+        if (path.isAbsolute) path.normalize else projectroot.resolve(path).normalize
+    }.distinct.filter(path => path.startsWith(targetroot) && Files.isDirectory(path)).sortBy(_.toString)
+    paths.map { path =>
+      val tmp = Files.createTempDirectory("cozy-sie-handoff")
+      val source = tmp.resolve("handoff")
+      _copy_sie_handoff_directory(path, source)
+      PreservedSieHandoff(path, source)
+    }
+  }
+
+  private def _restore_sie_handoffs(handoffs: Vector[PreservedSieHandoff]): Unit =
+    handoffs.foreach { handoff =>
+      try {
+        if (Files.isDirectory(handoff.source))
+          _copy_sie_handoff_directory(handoff.source, handoff.destination)
+      } finally {
+        Option(handoff.source.getParent).foreach(_delete_directory)
+      }
+    }
+
   private def _write_effective_bibliography_metadata(config: BuildConfig): Unit =
     _bibliography_index(config).foreach { index =>
       val effective = _effective_bibliography_index(config, index)
@@ -1792,8 +1819,10 @@ private[cozy] object CozyBok {
 
   def build(config: BuildConfig, runner: Runner, bibliographyfetcher: BibliographyBibtexFetcher): Unit = {
     val bibliographycache = _stash_bibliography_cache(config)
+    val siehandoffs = _stash_sie_handoffs(config)
     _delete_directory(config.project.resolve("target"))
     _restore_bibliography_cache(config, bibliographycache)
+    _restore_sie_handoffs(siehandoffs)
     _delete_directory(config.project.resolve(s"doxsite-cache-${config.strategy}.d"))
     _delete_directory(config.doxsitePath)
     _delete_directory(config.antoraPath)
@@ -2625,6 +2654,30 @@ private[cozy] object CozyBok {
       }
     }
 
+  // Preserve links so handoff validation sees the same trust boundary after target cleanup.
+  private def _copy_sie_handoff_directory(source: Path, dest: Path): Unit =
+    if (Files.exists(source)) {
+      val stream = Files.walk(source)
+      try {
+        stream.iterator.asScala.foreach { path =>
+          val rel = source.relativize(path)
+          val target = dest.resolve(rel)
+          if (Files.isSymbolicLink(path)) {
+            Option(target.getParent).foreach(Files.createDirectories(_))
+            Files.deleteIfExists(target)
+            Files.createSymbolicLink(target, Files.readSymbolicLink(path))
+          } else if (Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS))
+            Files.createDirectories(target)
+          else {
+            Option(target.getParent).foreach(Files.createDirectories(_))
+            Files.copy(path, target, LinkOption.NOFOLLOW_LINKS, StandardCopyOption.REPLACE_EXISTING)
+          }
+        }
+      } finally {
+        stream.close()
+      }
+    }
+
   private def _write_bok_pages(config: BuildConfig): Unit =
     config.localeMode match {
       case LocaleMode.SingleLocaleRoot =>
@@ -2805,6 +2858,8 @@ private[cozy] object CozyBok {
   ): Unit = {
     _remove_category_index_nav_items(target, categories)
     _inject_antora_knowledge_tag_chips(config, target, locale)
+    _inject_antora_sie_term_links(config, target, locale)
+    _inject_antora_sie_scenario_links(config, target, locale)
   }
 
   private def _remove_category_index_nav_items(target: Path, categories: Vector[CategoryContent]): Unit =
@@ -2851,6 +2906,44 @@ private[cozy] object CozyBok {
               _write_text(page, updated)
           }
         }
+    }
+  }
+
+  private def _inject_antora_sie_term_links(config: BuildConfig, target: Path, locale: String): Unit = {
+    val index = _sie_index(config)
+    _terms(config).foreach { term =>
+      val instances = _sie_information_for_term(index, term)
+      val page = target.resolve(term.publicpath)
+      if (instances.nonEmpty && Files.isRegularFile(page)) {
+        val content = Files.readString(page, StandardCharsets.UTF_8)
+        if (!content.contains("bok-term-sie-information")) {
+          val section = _sie_information_section(config, page, locale, instances, "bok-term-sie-information")
+          val updated = _insert_before_article_end(content, section)
+          if (updated != content)
+            _write_text(page, updated)
+        }
+      }
+    }
+  }
+
+  private def _inject_antora_sie_scenario_links(config: BuildConfig, target: Path, locale: String): Unit = {
+    val instances = _sie_index(config).informationinstances
+    _scenario_index(config).toVector.flatMap(_.scenarios).foreach { scenario =>
+      val related = instances.filter { instance =>
+        instance.scenariorefs.exists { ref =>
+          ref == scenario.id || ref == scenario.slug || ref == scenario.publicpath
+        }
+      }.sortBy(x => (x.label, x.id, x.projection))
+      val page = target.resolve(scenario.publicpath)
+      if (related.nonEmpty && Files.isRegularFile(page)) {
+        val content = Files.readString(page, StandardCharsets.UTF_8)
+        if (!content.contains("bok-scenario-sie-information")) {
+          val section = _sie_information_section(config, page, locale, related, "bok-scenario-sie-information")
+          val updated = _insert_before_article_end(content, section)
+          if (updated != content)
+            _write_text(page, updated)
+        }
+      }
     }
   }
 
@@ -3283,6 +3376,7 @@ private[cozy] object CozyBok {
     target: Path
   ): String =
     project.sie.map { sie =>
+      val integration = _sie_index(config).forProject(project)
       val componentrow = sie.component.map { component =>
         s"""  <dt>${_html_escape(_ui(locale, "project.label.sie.component"))}</dt><dd><code>${_html_escape(component)}</code></dd>
            |""".stripMargin
@@ -3293,6 +3387,9 @@ private[cozy] object CozyBok {
       }.getOrElse("")
       val artifacts = _project_sie_artifacts_html(locale, sie, page, target)
       val relations = _project_sie_relations_html(config, locale, project, page, target)
+      val information = integration.toVector.flatMap(_.informationinstances)
+      val informationbody = _sie_information_section(config, page, locale, information, "bok-project-sie-information")
+      val diagnosticsbody = integration.map(_project_sie_diagnostics_html(locale, _)).getOrElse("")
       s"""<section class="bok-project-section bok-project-sie" id="project-sie">
          |  <div class="bok-project-section-head">
          |    <h2>${_html_escape(_ui(locale, "project.section.sie"))}</h2>
@@ -3304,9 +3401,27 @@ private[cozy] object CozyBok {
          |    <dt>${_html_escape(_ui(locale, "project.label.sie.manifest"))}</dt><dd><a href="${_html_escape(sie.manifest)}">${_html_escape(sie.manifest)}</a></dd>
          |  </dl>
          |  ${artifacts}
+         |  ${informationbody}
+         |  ${diagnosticsbody}
          |  ${relations}
          |</section>""".stripMargin
     }.getOrElse("")
+
+  private def _project_sie_diagnostics_html(
+    locale: String,
+    projection: CozyBokSieHandoff.Projection
+  ): String =
+    if (projection.diagnostics.isEmpty)
+      ""
+    else {
+      val items = projection.diagnostics.map { diagnostic =>
+        s"""<li class="bok-sie-diagnostic bok-sie-diagnostic-${_html_escape(diagnostic.severity)}"><code>${_html_escape(diagnostic.code)}</code> ${_html_escape(diagnostic.message)}</li>"""
+      }.mkString
+      s"""<section class="bok-project-sie-diagnostics" id="project-sie-diagnostics">
+         |  <h3>${_html_escape(_ui(locale, "project.section.sie.diagnostics"))}</h3>
+         |  <ul>${items}</ul>
+         |</section>""".stripMargin
+    }
 
   private def _project_sie_artifacts_html(
     locale: String,
@@ -3400,6 +3515,53 @@ private[cozy] object CozyBok {
       ""
     else
       s"""<div class="bok-project-sie-relation"><h4>${_html_escape(title)}</h4><ul>${items}</ul></div>"""
+
+  private def _sie_information_for_term(
+    index: CozyBokSieHandoff.Index,
+    term: TermEntry
+  ): Vector[CozyBokSieHandoff.InformationInstance] =
+    index.informationinstances.filter(instance => instance.termrefs.exists(_term_reference_matches(_, term))).
+      sortBy(x => (x.label, x.id, x.projection))
+
+  private def _sie_information_section(
+    config: BuildConfig,
+    page: Path,
+    locale: String,
+    instances: Vector[CozyBokSieHandoff.InformationInstance],
+    cssclass: String
+  ): String =
+    if (instances.isEmpty)
+      ""
+    else {
+      val target = _locale_website_root(config, locale)
+      val items = instances.sortBy(x => (x.label, x.id, x.projection)).map { instance =>
+        val rdfhref = s"${_relative_href(page, target.resolve("rdf/node.html"))}?id=${_url_query_escape(instance.graphNodeId)}"
+        val projecthref = _relative_href(page, target.resolve(instance.projectpath))
+        s"""<li><a href="${_html_escape(rdfhref)}">${_html_escape(instance.label)}</a> <code>${_html_escape(instance.schema)}</code> <span>${_html_escape(instance.projection)}</span> <a href="${_html_escape(projecthref)}">${_html_escape(_ui(locale, "project.title"))}</a></li>"""
+      }.mkString
+      s"""<section class="${_html_escape(cssclass)}" id="${_html_escape(cssclass)}">
+         |  <h3>${_html_escape(_ui(locale, "project.section.sie.information"))}</h3>
+         |  <ul>${items}</ul>
+         |</section>""".stripMargin
+    }
+
+  private def _term_sie_information_card(
+    config: BuildConfig,
+    page: Path,
+    term: TermEntry,
+    locale: String
+  ): String = {
+    val instances = _sie_information_for_term(_sie_index(config), term)
+    if (instances.isEmpty)
+      ""
+    else
+      _dashboard_card(
+        "col-12 col-xl-6",
+        "bok-card-related bok-card-sie-information",
+        _ui(locale, "project.section.sie.information"),
+        _sie_information_section(config, page, locale, instances, "bok-term-sie-information")
+      )
+  }
 
   private def _resolved_project_packages(config: BuildConfig): Vector[CozyBokProjectPublisher.ResolvedBokProject] = {
     val bokconfig = _load_config(config.project)
@@ -5313,7 +5475,30 @@ private[cozy] object CozyBok {
     _copy_if_exists(config.doxsitePath.resolve("metadata/scenarios/scenarios.json"), target.resolve("metadata/scenarios/scenarios.json"))
     _copy_if_exists(config.doxsitePath.resolve("metadata/tags/tags.json"), target.resolve("metadata/tags/tags.json"))
     _copy_directory(config.doxsitePath.resolve("metadata/repository/car"), target.resolve("metadata/repository/car"))
+    _sync_sie_metadata(config, target)
     _write_knowledge_source_manifest(config, target)
+  }
+
+  private def _sie_index(config: BuildConfig): CozyBokSieHandoff.Index =
+    CozyBokSieHandoff.load(config.project, _load_config(config.project), _safe_resolved_project_packages(config))
+
+  private def _sync_sie_metadata(config: BuildConfig, target: Path): Unit = {
+    val index = _sie_index(config)
+    if (!index.isEmpty) {
+      _write_text(target.resolve("metadata/sie/integration.json"), index.toJson.spaces2 + "\n")
+      val graphpath = target.resolve("metadata/rdf/graph.json")
+      if (Files.isRegularFile(graphpath)) {
+        val graph = parser.parse(Files.readString(graphpath, StandardCharsets.UTF_8)).fold(
+          error => RAISE.invalidArgumentFault(s"Invalid BoK RDF graph metadata: ${error.message}"),
+          identity
+        )
+        val merged = CozyBokSieHandoff.mergeGraph(graph, index).fold(
+          message => RAISE.invalidArgumentFault(s"Invalid SIE RDF handoff: ${message}"),
+          identity
+        )
+        _write_text(graphpath, merged.spaces2 + "\n")
+      }
+    }
   }
 
   private def _write_knowledge_source_manifest(config: BuildConfig, target: Path): Unit = {
@@ -5849,7 +6034,7 @@ private[cozy] object CozyBok {
        |    const descriptive = uniqueStrings([informationSchemaPredicates(informationSchema, 'descriptive'), node.descriptivePredicates, node.descriptive_predicates, schema.descriptivePredicates, schema.descriptive_predicates]);
        |    const outgoing = uniqueStrings([informationSchemaPredicates(informationSchema, 'outgoing'), schema.outgoingRequiredPredicates, schema.outgoing_required_predicates]);
        |    const incoming = uniqueStrings([informationSchemaPredicates(informationSchema, 'incoming'), schema.incomingRequiredPredicates, schema.incoming_required_predicates]);
-       |    return {
+       |    const result = {
        |      informationView: {
        |        name: view.name || '-',
        |        concept: view.concept || '1.5+hop',
@@ -5881,6 +6066,17 @@ private[cozy] object CozyBok {
        |        roles: Object.keys(profile.roles || {}).sort()
        |      }
        |    };
+       |    if (node.sie) {
+       |      result.sie = {
+       |        projection: node.sie.projection || '-',
+       |        informationId: node.sie.informationId || node.sie.information_id || '-',
+       |        termRefs: node.sie.termRefs || node.sie.term_refs || [],
+       |        scenarioRefs: node.sie.scenarioRefs || node.sie.scenario_refs || [],
+       |        projectRefs: node.sie.projectRefs || node.sie.project_refs || [],
+       |        tags: node.sie.tags || []
+       |      };
+       |    }
+       |    return result;
        |  }
        |  function cssName(value) {
        |    return String(value == null ? 'unknown' : value).toLowerCase().replace(/[^a-z0-9_-]+/g, '-');
@@ -5918,6 +6114,7 @@ private[cozy] object CozyBok {
        |    const related = edges.filter(function(edge) { return edge.source === node.id || edge.target === node.id; });
        |    const monokoto = nodeMonoKotoValues(node);
        |    const cmllinks = nodeCmlLinkValues(node);
+       |    const sie = node.sie || {};
        |    status.textContent = compactNodeLabel(node) + ' / ' + related.length + ' ${_javascript_string(_ui(locale, "rdf.graph.node.connections"))}';
        |    content.innerHTML =
        |      '<div class="bok-rdf-node-detail-grid">' +
@@ -5932,6 +6129,7 @@ private[cozy] object CozyBok {
        |            '<dt>Type</dt><dd>' + escapeHtml(node.node_type || node.type || '-') + '</dd>' +
        |            '<dt>${_javascript_string(_ui(locale, "term.analysis.kind"))}</dt><dd>' + escapeHtml(monokoto.length ? monokoto.join(', ') : '-') + '</dd>' +
        |            '<dt>${_javascript_string(_ui(locale, "term.analysis.cml.linkage"))}</dt><dd>' + escapeHtml(cmllinks.length ? cmllinks.join(', ') : '-') + '</dd>' +
+       |            (node.sie ? '<dt>${_javascript_string(_ui(locale, "project.label.sie.projection"))}</dt><dd>' + escapeHtml(sie.projection || '-') + '</dd>' : '') +
        |            '<dt>${_javascript_string(_ui(locale, "rdf.graph.node.connections"))}</dt><dd>' + escapeHtml(node.degree == null ? related.length : node.degree) + '</dd>' +
        |          '</dl>' +
        |          '<div class="bok-rdf-node-detail-actions"><a href="index.html?node=' + encodeURIComponent(node.id || '') + '">${_javascript_string(_ui(locale, "rdf.graph.node.neighborhood"))}</a><a href="index.html">${_javascript_string(_ui(locale, "rdf.graph.title"))}</a></div>' +
@@ -5993,10 +6191,12 @@ private[cozy] object CozyBok {
        |    button.addEventListener('click', function() { activate(button.getAttribute('data-rdf-view')); });
        |  });
        |  function hasTerm(item, term) {
-       |    return !term || (item.terms || []).indexOf(term) >= 0;
+       |    const sieTerms = item && item.sie ? (item.sie.termRefs || item.sie.term_refs || []) : [];
+       |    return !term || (item.terms || []).indexOf(term) >= 0 || sieTerms.indexOf(term) >= 0;
        |  }
        |  function hasTag(item, tag) {
-       |    return !tag || (item.tags || []).indexOf(tag) >= 0;
+       |    const sieTags = item && item.sie ? (item.sie.tags || []) : [];
+       |    return !tag || (item.tags || []).indexOf(tag) >= 0 || sieTags.indexOf(tag) >= 0;
        |  }
        |  function termLabel(termIndex, term) {
        |    const item = termIndex[term];
@@ -6504,6 +6704,7 @@ private[cozy] object CozyBok {
   }
   function renderSchemaInterpretation(node) {
     const interpretation = schemaInterpretation(node);
+    const sie = node.sie || {};
     return '<div class="bok-rdf-node-schema">' +
       '<strong>${_javascript_string(_ui(locale, "rdf.graph.node.schema"))}</strong>' +
       '<div class="bok-rdf-node-schema-groups">' +
@@ -6528,6 +6729,14 @@ private[cozy] object CozyBok {
           ['classification', nodeMonoKotoValues(node)],
           ['cmlLinkage', nodeCmlLinkValues(node)]
         ]) +
+        (node.sie ? schemaGroup('sie', [
+          ['projection', sie.projection || '-'],
+          ['informationId', sie.informationId || sie.information_id || '-'],
+          ['termRefs', sie.termRefs || sie.term_refs || []],
+          ['scenarioRefs', sie.scenarioRefs || sie.scenario_refs || []],
+          ['projectRefs', sie.projectRefs || sie.project_refs || []],
+          ['tags', sie.tags || []]
+        ]) : '') +
         schemaGroup('schema', [
           ['required', interpretation.requiredPredicates],
           ['nodeDescription', interpretation.nodeDescriptivePredicates],
@@ -6581,6 +6790,7 @@ private[cozy] object CozyBok {
     if (!canvas || !node) return;
     const monokoto = nodeMonoKotoValues(node);
     const cmllinks = nodeCmlLinkValues(node);
+    const sie = node.sie || {};
     let panel = canvas.querySelector('.bok-rdf-node-popover');
     if (!panel) {
       panel = document.createElement('aside');
@@ -6604,6 +6814,7 @@ private[cozy] object CozyBok {
         '<dt>Type</dt><dd>' + escapeHtml(node.node_type || node.type || '-') + '</dd>' +
         '<dt>${_javascript_string(_ui(locale, "term.analysis.kind"))}</dt><dd>' + escapeHtml(monokoto.length ? monokoto.join(', ') : '-') + '</dd>' +
         '<dt>${_javascript_string(_ui(locale, "term.analysis.cml.linkage"))}</dt><dd>' + escapeHtml(cmllinks.length ? cmllinks.join(', ') : '-') + '</dd>' +
+        (node.sie ? '<dt>${_javascript_string(_ui(locale, "project.label.sie.projection"))}</dt><dd>' + escapeHtml(sie.projection || '-') + '</dd>' : '') +
         '<dt>${_javascript_string(_ui(locale, "rdf.graph.node.connections"))}</dt><dd>' + escapeHtml(node.degree == null ? '-' : node.degree) + '</dd>' +
       '</dl>' +
       renderSchemaInterpretation(node) +
@@ -7769,7 +7980,18 @@ private[cozy] object CozyBok {
       val category = _repository_car_related_projects(entry, projects).headOption.map(_project_category(config, _))
       _tag_refs(entry.tags, TagReference("repository-car", entry.title, entry.publicPath, category))
     }
-    val entries = (documentrefs ++ termrefs ++ scenariorefs ++ bibliographyrefs ++ projectrefs ++ repositorycarrefs).
+    val sieinformationrefs = _sie_index(config).informationinstances.flatMap { instance =>
+      _tag_refs(
+        instance.tags,
+        TagReference(
+          "sie-information",
+          instance.label,
+          s"rdf/node.html?id=${_url_query_escape(instance.graphNodeId)}",
+          instance.category
+        )
+      )
+    }
+    val entries = (documentrefs ++ termrefs ++ scenariorefs ++ bibliographyrefs ++ projectrefs ++ repositorycarrefs ++ sieinformationrefs).
       groupBy(_._1).
       toVector.
       map { case (key, refs) =>
@@ -7783,11 +8005,14 @@ private[cozy] object CozyBok {
   private def _tag_refs(tags: Vector[String], ref: TagReference): Vector[(String, TagReference)] =
     tags.map(tag => _tag_key(tag, ref.category)).filter(_.nonEmpty).distinct.map(_ -> ref)
 
-  private def _tag_chips(config: BuildConfig, page: Path, tags: Vector[String], category: Option[String], locale: String): String = {
-    val target = config.localeMode match {
+  private def _locale_website_root(config: BuildConfig, locale: String): Path =
+    config.localeMode match {
       case LocaleMode.SingleLocaleRoot => config.websitePath
       case LocaleMode.MultiLocaleSubdirs => config.websitePath.resolve(locale)
     }
+
+  private def _tag_chips(config: BuildConfig, page: Path, tags: Vector[String], category: Option[String], locale: String): String = {
+    val target = _locale_website_root(config, locale)
     val chips = tags.map(tag => _tag_key(tag, category)).filter(_.nonEmpty).distinct.map { key =>
       val entry = _tag_entry_from_usage(key, Vector.empty)
       val href = _relative_href(page, target.resolve(entry.publicpath))
@@ -8039,7 +8264,7 @@ private[cozy] object CozyBok {
          |  </div>
          |</div>""".stripMargin
     else {
-      val tagtree = _tag_tree_body(config, page, index.tags)
+      val tagtree = _tag_tree_body(config, page, locale, index.tags)
       val refs = _tag_overview_body(config, page, locale, index.tags)
       s"""<div class="bok-dashboard container-fluid bok-dashboard-command-center">
          |  <div class="row g-3">
@@ -8066,19 +8291,20 @@ private[cozy] object CozyBok {
       s"""<section class="bok-tag-definition">${html}</section>"""
     }.getOrElse(s"""<p>${_html_escape(tag.summary.getOrElse(_uif(locale, "tag.detail.description", tag.effectiveTitle)))}</p>""")
 
-  private def _tag_tree_body(config: BuildConfig, page: Path, tags: Vector[TagEntry]): String = {
+  private def _tag_tree_body(config: BuildConfig, page: Path, locale: String, tags: Vector[TagEntry]): String = {
+    val target = _locale_website_root(config, locale)
     val bynamespace = tags.groupBy(tag => tag.segments.headOption.getOrElse(tag.namespace.getOrElse("")))
     val items = bynamespace.toVector.sortBy(_._1).map { case (namespace, xs) =>
       val namespacehref =
         if (namespace.isEmpty) "#"
-        else _relative_href(page, config.websitePath.resolve(s"tags/${namespace}/index.html"))
-      val namespacebody = _tag_tree_children(config, page, xs, 1)
+        else _relative_href(page, target.resolve(s"tags/${namespace}/index.html"))
+      val namespacebody = _tag_tree_children(page, target, xs, 1)
       s"""<li><a class="bok-tag-tree-namespace" href="${_html_escape(namespacehref)}">${_html_escape(if (namespace.isEmpty) "tags" else namespace)}</a>${namespacebody}</li>"""
     }.mkString
     s"""<nav class="bok-tag-tree" aria-label="tag tree"><ul>${items}</ul></nav>"""
   }
 
-  private def _tag_tree_children(config: BuildConfig, page: Path, tags: Vector[TagEntry], depth: Int): String = {
+  private def _tag_tree_children(page: Path, target: Path, tags: Vector[TagEntry], depth: Int): String = {
     val branches = tags.filter(_.segments.length > depth).groupBy(_.segments(depth)).toVector.sortBy(_._1).map {
       case (segment, xs) =>
         val exact = xs.find(_.segments.length == depth + 1)
@@ -8086,27 +8312,28 @@ private[cozy] object CozyBok {
         val label = exact.map(_tag_display_title).getOrElse(_tag_segment_display_label(segment))
         if (children.isEmpty)
           exact.map { tag =>
-            val href = _relative_href(page, config.websitePath.resolve(tag.publicpath))
+            val href = _relative_href(page, target.resolve(tag.publicpath))
             s"""<li class="bok-tag-tree-leaf"><a href="${_html_escape(href)}">${_html_escape(label)}</a><span>${tag.count}</span></li>"""
           }.getOrElse("")
         else {
           val heading = exact.map { tag =>
-            val href = _relative_href(page, config.websitePath.resolve(tag.publicpath))
+            val href = _relative_href(page, target.resolve(tag.publicpath))
             s"""<a class="bok-tag-tree-segment" href="${_html_escape(href)}">${_html_escape(label)}</a><span>${tag.count}</span>"""
           }.getOrElse(s"""<span class="bok-tag-tree-segment">${_html_escape(label)}</span>""")
-          s"""<li class="bok-tag-tree-branch"><div class="bok-tag-tree-branch-heading">${heading}</div>${_tag_tree_children(config, page, children, depth + 1)}</li>"""
+          s"""<li class="bok-tag-tree-branch"><div class="bok-tag-tree-branch-heading">${heading}</div>${_tag_tree_children(page, target, children, depth + 1)}</li>"""
         }
     }
     branches.mkString("<ul>", "", "</ul>")
   }
 
-  private def _tag_overview_body(config: BuildConfig, page: Path, locale: String, tags: Vector[TagEntry]): String =
+  private def _tag_overview_body(config: BuildConfig, page: Path, locale: String, tags: Vector[TagEntry]): String = {
+    val target = _locale_website_root(config, locale)
     tags.take(40).map { tag =>
       val kindsummary = tag.refs.groupBy(_.kind).toVector.sortBy(_._1).map { case (kind, refs) =>
         s"${kind}: ${refs.size}"
       }.mkString(", ")
       val categories = tag.refs.flatMap(_.category).distinct.sorted.mkString(" ")
-      val href = _relative_href(page, config.websitePath.resolve(tag.publicpath))
+      val href = _relative_href(page, target.resolve(tag.publicpath))
       s"""<article class="bok-tag-tile" data-tag-categories="${_html_escape(categories)}">
          |  <h3><a href="${_html_escape(href)}">${_html_escape(_tag_display_title(tag))}</a></h3>
          |  <code>${_html_escape(tag.key)}</code>
@@ -8114,13 +8341,18 @@ private[cozy] object CozyBok {
          |  <code>${_html_escape(kindsummary)}</code>
          |</article>""".stripMargin
     }.mkString("""<div class="bok-tag-grid">""", "", "</div>")
+  }
 
-  private def _tag_refs_body(config: BuildConfig, page: Path, locale: String, refs: Vector[TagReference]): String =
+  private def _tag_refs_body(config: BuildConfig, page: Path, locale: String, refs: Vector[TagReference]): String = {
+    val target = _locale_website_root(config, locale)
     refs.groupBy(_.kind).toVector.sortBy(_._1).map { case (kind, xs) =>
       val items = xs.take(20).map { ref =>
         val category = ref.category.map(x => s""" <span class="badge bok-badge-info">${_html_escape(x)}</span>""").getOrElse("")
         val categorydata = ref.category.map(x => s""" data-tag-category="${_html_escape(x)}"""").getOrElse("")
-        val href = _relative_href(page, config.websitePath.resolve(ref.href))
+        val queryindex = ref.href.indexOf('?')
+        val pathpart = if (queryindex < 0) ref.href else ref.href.substring(0, queryindex)
+        val querypart = if (queryindex < 0) "" else ref.href.substring(queryindex)
+        val href = _relative_href(page, target.resolve(pathpart)) + querypart
         s"""<li class="list-group-item"${categorydata}><a href="${_html_escape(href)}">${_html_escape(ref.title)}</a>${category}<span>${_html_escape(kind)}</span></li>"""
       }.mkString("\n")
       s"""<section class="bok-tag-reference-group">
@@ -8128,6 +8360,7 @@ private[cozy] object CozyBok {
          |  <ul class="list-group bok-map-list">${items}</ul>
          |</section>""".stripMargin
     }.mkString("\n")
+  }
 
   private def _tag_kind_label(kind: String, locale: String): String =
     kind match {
@@ -8136,6 +8369,7 @@ private[cozy] object CozyBok {
       case "bibliography" => _ui(locale, "bibliography.title")
       case "project" => _ui(locale, "project.title")
       case "repository-car" => _repository_car_title(locale)
+      case "sie-information" => _ui(locale, "project.section.sie.information")
       case "article" | "document" => _ui(locale, "dashboard.kpi.articles")
       case other => other
     }
@@ -8546,6 +8780,7 @@ private[cozy] object CozyBok {
        |      ${_dashboard_card("col-12 col-xl-3", "bok-card-map", _ui(locale, "term.related.scenarios"), _term_scenarios_body(scenarios, locale))}
        |      ${_dashboard_card("col-12 col-xl-3", "bok-card-map", _ui(locale, "term.related.bibliography"), _term_bibliography_body(bibliographies, locale))}
        |      ${_dashboard_card("col-12 col-xl-3", "bok-card-map bok-card-repository-car", _repository_car_title(locale), _term_repository_cars_body(config, page, repositorycars, locale))}
+       |      ${_term_sie_information_card(config, page, term, locale)}
        |      ${_dashboard_card("col-12 col-xl-3", "bok-card-actions", _ui(locale, "dashboard.card.next.actions"), _term_actions_body(term, locale))}
        |    </div>
        |  </div>

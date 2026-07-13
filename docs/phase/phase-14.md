@@ -1,6 +1,6 @@
 # Phase 14: SIE Integration
 
-Status: active
+Status: closed
 
 Start date: 2026-07-13
 
@@ -56,12 +56,12 @@ Out of scope:
 - [x] BK14-03: BoK KnowledgeSource manifest output
 - [x] BK14-04: SIE project metadata and publication registry integration
 - [x] BK14-05: SIE CAR/SAR repository catalog integration
-- [ ] BK14-06: SIE runtime / launcher development configuration validation
-- [ ] BK14-07: SIE RDF and Information metadata handoff
-- [ ] BK14-08: BoK UI navigation for SIE-linked knowledge
-- [ ] BK14-09: KnowledgeHub operational verification
-- [ ] BK14-10: Tests and executable specs
-- [ ] BK14-11: Phase closure
+- [x] BK14-06: SIE runtime / launcher development configuration validation
+- [x] BK14-07: SIE RDF and Information metadata handoff
+- [x] BK14-08: BoK UI navigation for SIE-linked knowledge
+- [x] BK14-09: KnowledgeHub operational verification
+- [x] BK14-10: Tests and executable specs
+- [x] BK14-11: Phase closure
 
 ## Acceptance Criteria
 
@@ -133,6 +133,31 @@ Out of scope:
   referenced development-local CARs join the generic CAR knowledge pages
   without exposing local paths, while conflicting catalogs for one artifact
   identity fail explicitly.
+- 2026-07-13: Completed BK14-06 using launcher-native diagnostics rather than a
+  duplicate Cozy runtime parser. Development validation selected Cozy
+  `0.2.26-SNAPSHOT`, CNCF `0.5.1-SNAPSHOT`, the Textus-to-CNCF development
+  route, and the SIE component development classpath without changing release
+  coordinates. Development and release commands are recorded in
+  `docs/design/bok-sie-runtime-validation.md`.
+- 2026-07-13: Completed BK14-07 and BK14-08. Cozy now validates the
+  manifest-declared SIE projection handoff, merges Information schemas and
+  instances into effective RDF graph metadata, and adds SIE navigation to
+  Project, Antora-owned Term/Scenario, Tag, and RDF node pages. Invalid,
+  duplicate, unsafe, missing, and stale handoff inputs produce stable
+  diagnostics without leaking local paths or causing external HTTP reads.
+- 2026-07-13: Completed BK14-09 against
+  `/Users/asami/src/Project2026/bok-knowledgehub`. The current Cozy development
+  runtime generated the KnowledgeSource manifest, and the current SIE
+  operation ingested two terms with `warningCount = 0`, returned
+  `knowledgeSpaceState = frame_only`, and included a KnowledgeFrame. The
+  SIE-linked NICT KnowledgeHub Project then exposed two Information instances
+  through Project, Term, Tag, and RDF navigation. Missing-manifest diagnostics
+  were also verified before restoring the successful generated site.
+- 2026-07-13: Closed Phase 14 after focused SIE/BoK specs passed and the full
+  Cozy test suite completed with 490 tests and no failures. The final
+  KnowledgeHub preview build published one SIE projection, two Information
+  instances, effective RDF metadata, Project/Term/Tag navigation, and no SIE
+  diagnostics. `git diff --check` also passed for the closing changes.
 
 ## References
 
@@ -141,5 +166,8 @@ Out of scope:
 - `docs/phase/phase-13.md`
 - `docs/journal/2026/06/bok-sie-integration-handoff-2026-06-28.md`
 - `docs/design/bok-sie-integration-contract.md`
+- `docs/design/bok-sie-runtime-validation.md`
+- `docs/design/bok-sie-information-handoff.md`
+- `docs/design/bok-sie-operational-validation.md`
 - `docs/design/bok-rdf-1-5-hop-schema.md`
 - `docs/notes/bok-rdf-1-5-hop-neighborhood.md`
