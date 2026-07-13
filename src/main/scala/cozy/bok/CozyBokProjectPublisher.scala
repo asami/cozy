@@ -9,6 +9,7 @@ import cozy.modeler.CmlModelMetadata
 import cozy.publication.CozyPublicationCompiler
 import io.circe.{Decoder, HCursor}
 import play.api.libs.json.{JsArray, JsObject, JsValue, Json}
+import java.net.URI
 import java.nio.file.{Files, Path, Paths}
 import java.security.MessageDigest
 import scala.collection.JavaConverters._
@@ -39,6 +40,7 @@ private[cozy] object CozyBokProjectPublisher {
     project: ProjectSection,
     car: Option[CarSection],
     cml: Option[CmlSection],
+    sie: Option[SieSection],
     title: Option[String],
     version: Option[String],
     summary: Option[String],
@@ -53,6 +55,7 @@ private[cozy] object CozyBokProjectPublisher {
         project <- c.downField("project").as[ProjectSection]
         car <- c.downField("car").as[Option[CarSection]]
         cml <- c.downField("cml").as[Option[CmlSection]]
+        sie <- c.downField("sie").as[Option[SieSection]]
         title <- c.downField("title").as[Option[String]]
         version <- c.downField("version").as[Option[String]]
         summary <- c.downField("summary").as[Option[String]]
@@ -60,7 +63,7 @@ private[cozy] object CozyBokProjectPublisher {
         tags <- c.downField("tags").as[Option[Vector[String]]]
         article <- c.downField("article").as[Option[String]]
         publication <- c.downField("publication").as[Option[PublicationSection]]
-      } yield ProjectDescriptor(project, car, cml, title, version, summary, terms.getOrElse(Vector.empty), tags.getOrElse(Vector.empty), article, publication)
+      } yield ProjectDescriptor(project, car, cml, sie, title, version, summary, terms.getOrElse(Vector.empty), tags.getOrElse(Vector.empty), article, publication)
   }
 
   final case class ProjectSection(
@@ -100,6 +103,20 @@ private[cozy] object CozyBokProjectPublisher {
       c.downField("category").as[Option[String]].map(CmlGlossarySection.apply)
   }
 
+  final case class SieSection(
+    projection: String,
+    component: Option[String],
+    handoffbase: String
+  )
+  object SieSection {
+    implicit val decoder: Decoder[SieSection] = (c: HCursor) =>
+      for {
+        projection <- c.downField("projection").as[String]
+        component <- c.downField("component").as[Option[String]]
+        handoffbase <- c.downField("handoff_base").as[String]
+      } yield SieSection(projection, component, handoffbase)
+  }
+
   final case class PublicationSection(path: Option[String])
   object PublicationSection {
     implicit val decoder: Decoder[PublicationSection] = (c: HCursor) =>
@@ -127,7 +144,8 @@ private[cozy] object CozyBokProjectPublisher {
     terms: Vector[String],
     tags: Vector[String],
     catalog: Option[ProjectCatalogInfo],
-    cml: Option[ProjectCmlInfo]
+    cml: Option[ProjectCmlInfo],
+    sie: Option[ProjectSieInfo]
   ) {
     def warehousePath: String =
       catalog.flatMap(_.selectedversion).flatMap(_.file).getOrElse(s"repository/car/${module}/${version}/${module}-${version}.car")
@@ -139,6 +157,13 @@ private[cozy] object CozyBokProjectPublisher {
     path: Path,
     catalog: RepositoryArtifactCatalog,
     selectedversion: Option[RepositoryArtifactCatalogVersion]
+  )
+
+  final case class ProjectSieInfo(
+    projection: String,
+    component: Option[String],
+    handoffbase: String,
+    manifest: String
   )
 
   final case class ProjectReference(
@@ -264,6 +289,7 @@ private[cozy] object CozyBokProjectPublisher {
       else if (descriptorversion.nonEmpty) "descriptor"
       else "default"
     val cml = _resolve_cml_info(config, descriptor, reference, module)
+    val sie = descriptor.sie.map(_resolve_sie_info)
     ResolvedBokProject(
       packagedir,
       slug,
@@ -285,7 +311,8 @@ private[cozy] object CozyBokProjectPublisher {
       descriptor.terms.map(_.trim).filter(_.nonEmpty).distinct,
       descriptor.tags.map(_.trim).filter(_.nonEmpty).distinct,
       cataloginfo,
-      cml
+      cml,
+      sie
     )
   }
 
@@ -352,6 +379,7 @@ private[cozy] object CozyBokProjectPublisher {
         "versionSource" -> project.versionsource,
         "catalog" -> _catalog_summary_json(config, project),
         "cml" -> _cml_json(config, project),
+        "sie" -> _sie_json(project),
         "artifact" -> _artifact_file_json(project, artifact, exists)
       ))
     )
@@ -370,6 +398,7 @@ private[cozy] object CozyBokProjectPublisher {
       "artifact" -> _artifact_file_json(project, artifact, exists),
       "catalog" -> _catalog_summary_json(config, project),
       "cml" -> _cml_json(config, project),
+      "sie" -> _sie_json(project),
       "diagnostics" -> JsArray(_diagnostics(project, exists))
     )
 
@@ -506,6 +535,17 @@ private[cozy] object CozyBokProjectPublisher {
       "status" -> "missing",
       "message" -> "CML source is not registered for this CAR project."
     ))
+
+  private def _sie_json(project: ResolvedBokProject): JsValue =
+    project.sie.map { sie =>
+      Json.obj(
+        "status" -> "registered",
+        "projection" -> sie.projection,
+        "component" -> Json.toJson(sie.component.getOrElse("")),
+        "handoffBase" -> sie.handoffbase,
+        "manifest" -> sie.manifest
+      )
+    }.getOrElse(Json.obj("status" -> "not-configured"))
 
   private def _cml_surface_json(surface: CmlProjectSurface): JsObject =
     surface.component match {
@@ -854,6 +894,38 @@ private[cozy] object CozyBokProjectPublisher {
     descriptor.project.ref.map(_.trim).filter(_.nonEmpty).flatMap(x =>
       config.bokconfig.value(s"bok.projects.${x}.version").map(_.trim).filter(_.nonEmpty)
     )
+
+  private def _resolve_sie_info(section: SieSection): ProjectSieInfo = {
+    val projection = section.projection.trim
+    if (projection.isEmpty)
+      RAISE.invalidArgumentFault("SIE project metadata requires sie.projection")
+    val component = section.component.map(_.trim).filter(_.nonEmpty).map(_validate_slug(_, "sie.component"))
+    val handoffbase = _normalize_sie_handoff_base(section.handoffbase)
+    ProjectSieInfo(
+      projection,
+      component,
+      handoffbase,
+      URI.create(handoffbase).resolve("metadata/cncf/knowledge-source.json").toString
+    )
+  }
+
+  private def _normalize_sie_handoff_base(value: String): String = {
+    val raw = value.trim
+    val uri =
+      try URI.create(raw)
+      catch {
+        case _: IllegalArgumentException =>
+          RAISE.invalidArgumentFault(s"Invalid SIE handoff base URI: $value")
+      }
+    val scheme = Option(uri.getScheme).map(_.toLowerCase).getOrElse("")
+    val authority = Option(uri.getRawAuthority).filter(_.nonEmpty)
+    if (!uri.isAbsolute || authority.isEmpty || (scheme != "http" && scheme != "https"))
+      RAISE.invalidArgumentFault(s"SIE handoff base must be an absolute HTTP(S) URI: $value")
+    if (uri.getRawQuery != null || uri.getRawFragment != null)
+      RAISE.invalidArgumentFault(s"SIE handoff base must not contain a query or fragment: $value")
+    val normalized = uri.normalize().toString
+    if (normalized.endsWith("/")) normalized else normalized + "/"
+  }
 
   private def _resolve_project_car(
     config: PublishProjectConfig,

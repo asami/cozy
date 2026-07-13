@@ -60,10 +60,10 @@ Status: DONE
 
 ## BK14-04: SIE Project Metadata And Publication Registry Integration
 
-Status: TODO
+Status: IN PROGRESS
 
-- [ ] Define BoK project metadata fields for SIE-linked projects.
-- [ ] Register SIE projects through `src/main/doxsite/projects/<category>/<slug>`
+- [x] Define BoK project metadata fields for SIE-linked projects.
+- [x] Register SIE projects through `src/main/doxsite/projects/<category>/<slug>`
       and publication metadata.
 - [ ] Link SIE project metadata to CML, glossary terms, scenarios, tags, and RDF
       where metadata exists.

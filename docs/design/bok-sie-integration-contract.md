@@ -66,6 +66,24 @@ An SIE-linked Project or publication points to an explicit SIE handoff base.
 Cozy reads `metadata/cncf/knowledge-source.json` below that base. Cozy does not
 scan an SIE source repository or infer outputs from directory names.
 
+An SIE-linked BoK Project declares this public authoring metadata in its
+`project.yaml`:
+
+```yaml
+sie:
+  projection: nict-knowledgehub
+  component: textus-semantic-integration-engine
+  handoff_base: https://sie.example.com/nict-knowledgehub/
+```
+
+`projection` is the stable SIE projection identifier. `component` is an
+optional CAR artifact identifier. `handoff_base` is an absolute HTTP(S) URI;
+it must have an authority and must not contain a query or fragment. Cozy
+normalizes the base and derives the manifest URI by resolving
+`metadata/cncf/knowledge-source.json`. Local SIE source or generated-output
+paths belong under private `conf/cozy` project configuration and are never
+copied into publication metadata.
+
 The SIE handoff reuses the `cncf.knowledge-source.v1` envelope with:
 
 - `kind = sie-projection`;

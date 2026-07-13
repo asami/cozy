@@ -796,6 +796,53 @@ class CozyBokProjectSpec
       }
     }
 
+    "publish SIE Project handoff metadata" which {
+      "normalize the public handoff and exclude private local paths" in {
+        _with_temp_dir("cozy-bok-sie-project") { dir =>
+          Given("an SIE-linked BoK Project with public handoff metadata and a private local projection path")
+          val localpath = _write_sie_project_source(
+            dir,
+            "https://sie.example.com/projections/../nict-knowledgehub"
+          )
+
+          When("Cozy registers the Project in the publication registry")
+          CozyBok.publishProjects(CozyBok.PublicationConfig.create("publish-projects", List(dir.toString)))
+
+          Then("the publication metadata contains the normalized SIE projection and manifest contract")
+          val bundle = _read(dir.resolve("src/main/publication/nict-knowledgehub.json"))
+          bundle should include(""""projection" : "nict-knowledgehub"""")
+          bundle should include(""""component" : "textus-semantic-integration-engine"""")
+          bundle should include(""""handoffBase" : "https://sie.example.com/nict-knowledgehub/"""")
+          bundle should include(""""manifest" : "https://sie.example.com/nict-knowledgehub/metadata/cncf/knowledge-source.json"""")
+
+          And("private local SIE paths are not copied into public metadata")
+          bundle should not include (localpath.toString)
+        }
+      }
+
+      "reject handoff values that cannot be safe HTTP resource bases" in {
+        Vector(
+          "https://sie.example.com/nict-knowledgehub?token=private",
+          "https://sie.example.com/nict-knowledgehub#projection",
+          "http:relative"
+        ).foreach { handoffbase =>
+          _with_temp_dir("cozy-bok-sie-project-invalid-handoff") { dir =>
+            Given(s"an SIE-linked BoK Project with invalid handoff base $handoffbase")
+            _write_sie_project_source(dir, handoffbase)
+
+            When("Cozy registers the Project in the publication registry")
+            val error = intercept[Throwable] {
+              CozyBok.publishProjects(CozyBok.PublicationConfig.create("publish-projects", List(dir.toString)))
+            }
+
+            Then("the invalid public handoff is rejected before publication metadata is written")
+            error.getMessage should include("SIE handoff base")
+            dir.resolve("src/main/publication/nict-knowledgehub.json") shouldNot exist_path
+          }
+        }
+      }
+    }
+
     "integrate CAR projects with BoK publication commands" which {
       "update-publication handles CAR projects without invoking CAR artifact publishing" in {
         _with_temp_dir("cozy-bok-project-update") { dir =>
@@ -1787,6 +1834,40 @@ class CozyBokProjectSpec
         _write(cwd.resolve("doxsite.d/site.jsonld"), "{\"@graph\":[]}\n")
       }
     }
+  }
+
+  private def _write_sie_project_source(dir: Path, handoffbase: String): Path = {
+    val localpath = dir.resolve("target/sie/projections/nict-knowledgehub")
+    _write(
+      dir.resolve("conf/cozy/config.yaml"),
+      s"""bok:
+         |  projects:
+         |    nict-knowledgehub:
+         |      sie:
+         |        path: ${localpath.toString}
+         |""".stripMargin
+    )
+    val pkg = dir.resolve("src/main/doxsite/projects/technology/nict-knowledgehub")
+    _write(pkg.resolve("index.dox"), "NictKnowledgeHub\n================\n")
+    _write(
+      pkg.resolve("project.yaml"),
+      s"""project:
+         |  type: car
+         |  name: nict-knowledgehub
+         |  mode: external
+         |  ref: nict-knowledgehub
+         |car:
+         |  module: nict-knowledgehub
+         |sie:
+         |  projection: nict-knowledgehub
+         |  component: textus-semantic-integration-engine
+         |  handoff_base: ${handoffbase}
+         |title: NICT KnowledgeHub
+         |version: 0.1.0
+         |article: index.dox
+         |""".stripMargin
+    )
+    localpath
   }
 
   private def _with_temp_dir[A](prefix: String)(f: Path => A): A = {

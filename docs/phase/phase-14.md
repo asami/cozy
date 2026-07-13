@@ -110,6 +110,10 @@ Out of scope:
   `metadata/cncf/knowledge-source.json`, lists only generated glossary/RDF
   resources, resolves site identity from `site.metadata`, and fails explicitly
   when authored glossary terms lack the SmartDox metadata handoff.
+- 2026-07-13: Started BK14-04 by defining public SIE Project metadata for a
+  stable projection identifier, optional component artifact, and HTTP(S)
+  KnowledgeSource handoff base. Local SIE source paths remain private Cozy
+  configuration and are excluded from publication metadata.
 
 ## References
 
