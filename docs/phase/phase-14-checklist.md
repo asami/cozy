@@ -72,17 +72,21 @@ Status: DONE
 
 ## BK14-05: SIE CAR/SAR Repository Catalog Integration
 
-Status: TODO
+Status: DONE
 
-- [ ] Reuse the generic Component Repository CAR knowledge layer from BK13-11
+- [x] Reuse the generic Component Repository CAR knowledge layer from BK13-11
       for CAR catalog reading, Project-to-CAR links, and CAR artifact pages.
-- [ ] Read SIE CAR/SAR catalog entries through the existing repository catalog
+- [x] Read SIE CAR/SAR catalog entries through the existing repository catalog
       boundary.
-- [ ] Link SIE artifact versions from Project pages.
-- [ ] Validate recommended/latest stable SIE artifact metadata.
-- [ ] Preserve repository/catalog as metadata source; do not scan artifact
+- [x] Link SIE artifact versions from Project pages.
+- [x] Validate recommended/latest stable SIE artifact metadata.
+- [x] Preserve repository/catalog as metadata source; do not scan artifact
       directories as source.
-- [ ] Add executable specs for SIE repository catalog links and diagnostics.
+- [x] Materialize explicitly referenced development-local CAR catalogs through
+      the generic CAR knowledge surface without publishing local paths.
+- [x] Reject conflicting CAR/SAR catalogs for one artifact identity instead of
+      selecting a repository by filesystem order.
+- [x] Add executable specs for SIE repository catalog links and diagnostics.
 
 ## BK14-06: SIE Runtime And Launcher Development Configuration Validation
 
@@ -154,7 +158,7 @@ Status: TODO
 - [ ] Keep existing `terms.json` specs unchanged unless the current contract is
       actually broken.
 - [x] Add SIE project metadata consumption specs.
-- [ ] Add SIE repository catalog link specs.
+- [x] Add SIE repository catalog link specs.
 - [ ] Add SIE RDF handoff specs.
 - [ ] Add SIE UI navigation specs.
 - [ ] Run focused SIE specs.

@@ -812,9 +812,17 @@ class CozyBokProjectSpec
           val bundle = _read(dir.resolve("src/main/publication/nict-knowledgehub.json"))
           bundle should include(""""projection" : "nict-knowledgehub"""")
           bundle should include(""""component" : "textus-semantic-integration-engine"""")
+          bundle should include(""""subsystem" : "nict-knowledgehub-runtime"""")
           bundle should include(""""handoffBase" : "https://sie.example.com/nict-knowledgehub/"""")
           bundle should include(""""manifest" : "https://sie.example.com/nict-knowledgehub/metadata/cncf/knowledge-source.json"""")
+          bundle should include(""""kind" : "car"""")
+          bundle should include(""""kind" : "sar"""")
+          bundle should include(""""recommended" : "0.1.0"""")
+          bundle should include(""""recommended" : "1.0.0"""")
           bundle should not include ("sie.project.component.unresolved")
+          bundle should not include ("sie.project.subsystem.unresolved")
+          bundle should not include ("sie.project.artifact.recommended.missing")
+          bundle should not include ("sie.project.artifact.latest-stable.missing")
 
           And("private local SIE paths are not copied into public metadata")
           bundle should not include (localpath.toString)
@@ -831,8 +839,23 @@ class CozyBokProjectSpec
           page should include("SIE linkage")
           page should include("<code>nict-knowledgehub</code>")
           page should include("<code>textus-semantic-integration-engine</code>")
+          page should include("<code>nict-knowledgehub-runtime</code>")
           page should include("href=\"https://sie.example.com/nict-knowledgehub/\"")
           page should include("href=\"https://sie.example.com/nict-knowledgehub/metadata/cncf/knowledge-source.json\"")
+          page should include("../../../repository/car/textus-semantic-integration-engine/0.1.0.html")
+          page should include("../../../repository/sar/nict-knowledgehub-runtime/1.0.0.html")
+          page should include("Recommended")
+          page should include("Latest stable")
+          And("the resolved SAR catalog has deterministic index, module, and version pages linked back to the Project")
+          val sarindex = dir.resolve("website.d/repository/sar/index.html")
+          val sarmodule = dir.resolve("website.d/repository/sar/nict-knowledgehub-runtime/index.html")
+          val sarversion = dir.resolve("website.d/repository/sar/nict-knowledgehub-runtime/1.0.0.html")
+          sarindex should exist_path
+          sarmodule should exist_path
+          sarversion should exist_path
+          _read(sarindex) should include("nict-knowledgehub-runtime")
+          _read(sarmodule) should include("1.0.0.html")
+          _read(sarversion) should include("../../../projects/technology/nict-knowledgehub/index.html")
           And("the SIE Project reuses the generic CML, term, scenario, tag, and RDF relations")
           page should include("Related BoK knowledge")
           page should include("#project-model-terms")
@@ -917,6 +940,131 @@ class CozyBokProjectSpec
         }
       }
 
+      "materialize generic CAR pages from a development repository" in {
+        _with_temp_dir("cozy-bok-sie-project-local-component") { dir =>
+          Given("an SIE-linked Project whose component and subsystem catalogs come from the CNCF local repository")
+          val oldhome = System.getProperty("user.home")
+          System.setProperty("user.home", dir.resolve("home").toString)
+          try {
+            val localrepo = dir.resolve("home/.cncf/local/repository")
+            val localpath = _write_sie_project_source(
+              dir,
+              "https://sie.example.com/nict-knowledgehub/",
+              withcomponentcatalog = false,
+              withsubsystemcatalog = false
+            )
+            _write(
+              localrepo.resolve("catalog/car/textus-semantic-integration-engine.json"),
+              _sie_component_catalog_json("0.1.0")
+            )
+            _write(
+              localrepo.resolve("catalog/sar/nict-knowledgehub-runtime.json"),
+              _sie_subsystem_catalog_json("1.0.0")
+            )
+            _write(
+              dir.resolve("conf/cozy/config.yaml"),
+              s"""bok:
+                 |  projects:
+                 |    nict-knowledgehub:
+                 |      repository: local
+                 |      sie:
+                 |        path: ${localpath.toString}
+                 |""".stripMargin
+            )
+
+            When("Cozy builds repository knowledge from the resolved SIE artifacts")
+            CozyBok.build(
+              CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview", "--no-bib-service")),
+              new ProjectBuildRunner
+            )
+
+            Then("the local SIE component is included in the generic CAR index and version pages")
+            val projectpage = _read(dir.resolve("website.d/projects/technology/nict-knowledgehub/index.html"))
+            projectpage should include("../../../repository/car/textus-semantic-integration-engine/0.1.0.html")
+            val carindex = dir.resolve("website.d/repository/car/index.html")
+            val carversion = dir.resolve("website.d/repository/car/textus-semantic-integration-engine/0.1.0.html")
+            carindex should exist_path
+            carversion should exist_path
+            _read(carindex) should include("textus-semantic-integration-engine")
+            _read(carversion) should include("../../../projects/technology/nict-knowledgehub/index.html")
+            _read(carversion) should not include (localrepo.toString)
+          } finally {
+            if (oldhome == null)
+              System.clearProperty("user.home")
+            else
+              System.setProperty("user.home", oldhome)
+          }
+        }
+      }
+
+      "reject conflicting SIE catalogs for one artifact identity" in {
+        _with_temp_dir("cozy-bok-sie-project-conflicting-subsystem") { dir =>
+          Given("public and local SIE Projects resolve different SAR catalogs with the same artifact id")
+          val oldhome = System.getProperty("user.home")
+          System.setProperty("user.home", dir.resolve("home").toString)
+          try {
+            val localrepo = dir.resolve("home/.cncf/local/repository")
+            val localpath = _write_sie_project_source(dir, "https://sie.example.com/nict-knowledgehub/")
+            _write(
+              localrepo.resolve("catalog/car/textus-semantic-integration-engine.json"),
+              _sie_component_catalog_json("0.1.0")
+            )
+            _write(
+              localrepo.resolve("catalog/sar/nict-knowledgehub-runtime.json"),
+              _sie_subsystem_catalog_json("2.0.0")
+            )
+            val pkg = dir.resolve("src/main/doxsite/projects/technology/nict-local")
+            _write(pkg.resolve("index.dox"), "NictLocal\n=========\n")
+            _write(
+              pkg.resolve("project.yaml"),
+              """project:
+                |  type: car
+                |  name: nict-local
+                |  mode: external
+                |  ref: nict-local
+                |car:
+                |  module: nict-local
+                |sie:
+                |  projection: nict-local
+                |  component: textus-semantic-integration-engine
+                |  subsystem: nict-knowledgehub-runtime
+                |  handoff_base: https://sie.example.com/nict-local/
+                |title: NICT Local
+                |version: 0.1.0
+                |article: index.dox
+                |""".stripMargin
+            )
+            _write(
+              dir.resolve("conf/cozy/config.yaml"),
+              s"""bok:
+                 |  projects:
+                 |    nict-knowledgehub:
+                 |      sie:
+                 |        path: ${localpath.toString}
+                 |    nict-local:
+                 |      repository: local
+                 |""".stripMargin
+            )
+
+            When("Cozy builds the shared SIE repository knowledge pages")
+            val error = intercept[Throwable] {
+              CozyBok.build(
+                CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview", "--no-bib-service")),
+                new ProjectBuildRunner
+              )
+            }
+
+            Then("the conflicting catalog identity is rejected instead of selecting one path arbitrarily")
+            error.getMessage should include("Conflicting repository SAR catalogs for SIE artifact: nict-knowledgehub-runtime")
+          } finally {
+            if (oldhome == null)
+              System.clearProperty("user.home")
+            else
+              System.setProperty("user.home", oldhome)
+          }
+        }
+      }
+
       "diagnose an SIE component that is absent from the repository catalog" in {
         _with_temp_dir("cozy-bok-sie-project-unresolved-component") { dir =>
           Given("an SIE-linked BoK Project whose component has no repository catalog entry")
@@ -932,7 +1080,7 @@ class CozyBokProjectSpec
           Then("the public manifest reports a stable unresolved-component diagnostic without leaking local paths")
           val bundle = _read(dir.resolve("src/main/publication/nict-knowledgehub.json"))
           bundle should include(""""code" : "sie.project.component.unresolved"""")
-          bundle should include("SIE component is not registered in the repository catalog: textus-semantic-integration-engine")
+          bundle should include("SIE component is not registered in the repository CAR catalog: textus-semantic-integration-engine")
           bundle should include("repository/catalog/car/textus-semantic-integration-engine.yaml")
           bundle should not include (localpath.toString)
         }
@@ -969,6 +1117,59 @@ class CozyBokProjectSpec
             val bundle = _read(dir.resolve("src/main/publication/nict-knowledgehub.json"))
             bundle should include(""""code" : "sie.project.component.unresolved"""")
           }
+        }
+      }
+
+      "diagnose an SIE subsystem that is absent from the repository catalog" in {
+        _with_temp_dir("cozy-bok-sie-project-unresolved-subsystem") { dir =>
+          Given("an SIE-linked BoK Project whose subsystem has no repository SAR catalog entry")
+          _write_sie_project_source(
+            dir,
+            "https://sie.example.com/nict-knowledgehub/",
+            withsubsystemcatalog = false
+          )
+
+          When("Cozy registers the Project in the publication registry")
+          CozyBok.publishProjects(CozyBok.PublicationConfig.create("publish-projects", List(dir.toString)))
+
+          Then("the public manifest reports a stable unresolved-subsystem diagnostic")
+          val bundle = _read(dir.resolve("src/main/publication/nict-knowledgehub.json"))
+          bundle should include(""""code" : "sie.project.subsystem.unresolved"""")
+          bundle should include("SIE subsystem is not registered in the repository SAR catalog: nict-knowledgehub-runtime")
+          bundle should include("repository/catalog/sar/nict-knowledgehub-runtime.yaml")
+        }
+      }
+
+      "diagnose missing recommended and latest-stable selectors" in {
+        _with_temp_dir("cozy-bok-sie-project-missing-selectors") { dir =>
+          Given("an SIE-linked BoK Project whose SAR catalog has versions but no release selectors")
+          _write_sie_project_source(dir, "https://sie.example.com/nict-knowledgehub/")
+          _write(
+            dir.resolve("repository/catalog/sar/nict-knowledgehub-runtime.json"),
+            """{
+              |  "schemaVersion": "1",
+              |  "kind": "sar",
+              |  "artifactId": "nict-knowledgehub-runtime",
+              |  "versions": [
+              |    {
+              |      "version": "1.0.0",
+              |      "channel": "stable",
+              |      "file": "repository/sar/nict-knowledgehub-runtime/1.0.0/nict-knowledgehub-runtime-1.0.0.sar"
+              |    }
+              |  ]
+              |}
+              |""".stripMargin
+          )
+
+          When("Cozy registers the Project in the publication registry")
+          CozyBok.publishProjects(CozyBok.PublicationConfig.create("publish-projects", List(dir.toString)))
+
+          Then("the public manifest reports both missing selector diagnostics")
+          val bundle = _read(dir.resolve("src/main/publication/nict-knowledgehub.json"))
+          bundle should include(""""code" : "sie.project.artifact.recommended.missing"""")
+          bundle should include(""""code" : "sie.project.artifact.latest-stable.missing"""")
+          bundle should include("Set recommended in repository/catalog/sar/nict-knowledgehub-runtime")
+          bundle should include("Set latestStable in repository/catalog/sar/nict-knowledgehub-runtime")
         }
       }
 
@@ -1991,7 +2192,8 @@ class CozyBokProjectSpec
   private def _write_sie_project_source(
     dir: Path,
     handoffbase: String,
-    withcomponentcatalog: Boolean = true
+    withcomponentcatalog: Boolean = true,
+    withsubsystemcatalog: Boolean = true
   ): Path = {
     val localpath = dir.resolve("target/sie/projections/nict-knowledgehub")
     _write(
@@ -2008,20 +2210,12 @@ class CozyBokProjectSpec
     if (withcomponentcatalog)
       _write(
         dir.resolve("repository/catalog/car/textus-semantic-integration-engine.json"),
-        """{
-          |  "schemaVersion": "1",
-          |  "kind": "car",
-          |  "artifactId": "textus-semantic-integration-engine",
-          |  "latestStable": "0.1.0",
-          |  "versions": [
-          |    {
-          |      "version": "0.1.0",
-          |      "channel": "stable",
-          |      "file": "repository/car/textus-semantic-integration-engine/0.1.0/textus-semantic-integration-engine-0.1.0.car"
-          |    }
-          |  ]
-          |}
-          |""".stripMargin
+        _sie_component_catalog_json("0.1.0")
+      )
+    if (withsubsystemcatalog)
+      _write(
+        dir.resolve("repository/catalog/sar/nict-knowledgehub-runtime.json"),
+        _sie_subsystem_catalog_json("1.0.0")
       )
     _write(
       dir.resolve("repository/catalog/car/nict-knowledgehub.model-metadata.json"),
@@ -2109,6 +2303,7 @@ class CozyBokProjectSpec
          |sie:
          |  projection: nict-knowledgehub
          |  component: textus-semantic-integration-engine
+         |  subsystem: nict-knowledgehub-runtime
          |  handoff_base: ${handoffbase}
          |title: NICT KnowledgeHub
          |version: 0.1.0
@@ -2126,6 +2321,42 @@ class CozyBokProjectSpec
     )
     localpath
   }
+
+  private def _sie_component_catalog_json(version: String): String =
+    s"""{
+       |  "schemaVersion": "1",
+       |  "kind": "car",
+       |  "artifactId": "textus-semantic-integration-engine",
+       |  "recommended": "${version}",
+       |  "latestStable": "${version}",
+       |  "versions": [
+       |    {
+       |      "version": "${version}",
+       |      "channel": "stable",
+       |      "file": "repository/car/textus-semantic-integration-engine/${version}/textus-semantic-integration-engine-${version}.car"
+       |    }
+       |  ]
+       |}
+       |""".stripMargin
+
+  private def _sie_subsystem_catalog_json(version: String): String =
+    s"""{
+       |  "schemaVersion": "1",
+       |  "kind": "sar",
+       |  "artifactId": "nict-knowledgehub-runtime",
+       |  "recommended": "${version}",
+       |  "latestStable": "${version}",
+       |  "status": "active",
+       |  "versions": [
+       |    {
+       |      "version": "${version}",
+       |      "channel": "stable",
+       |      "status": "active",
+       |      "file": "repository/sar/nict-knowledgehub-runtime/${version}/nict-knowledgehub-runtime-${version}.sar"
+       |    }
+       |  ]
+       |}
+       |""".stripMargin
 
   private def _with_temp_dir[A](prefix: String)(f: Path => A): A = {
     val dir = Files.createTempDirectory(prefix)

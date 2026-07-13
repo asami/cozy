@@ -107,6 +107,7 @@ private[cozy] object CozyBokProjectPublisher {
   final case class SieSection(
     projection: String,
     component: Option[String],
+    subsystem: Option[String],
     handoffbase: String
   )
   object SieSection {
@@ -114,8 +115,9 @@ private[cozy] object CozyBokProjectPublisher {
       for {
         projection <- c.downField("projection").as[String]
         component <- c.downField("component").as[Option[String]]
+        subsystem <- c.downField("subsystem").as[Option[String]]
         handoffbase <- c.downField("handoff_base").as[String]
-      } yield SieSection(projection, component, handoffbase)
+      } yield SieSection(projection, component, subsystem, handoffbase)
   }
 
   final case class PublicationSection(path: Option[String])
@@ -163,8 +165,17 @@ private[cozy] object CozyBokProjectPublisher {
   final case class ProjectSieInfo(
     projection: String,
     component: Option[String],
+    subsystem: Option[String],
     handoffbase: String,
-    manifest: String
+    manifest: String,
+    artifacts: Vector[ProjectSieArtifactInfo]
+  )
+
+  final case class ProjectSieArtifactInfo(
+    kind: String,
+    artifactId: String,
+    path: Path,
+    catalog: RepositoryArtifactCatalog
   )
 
   final case class ProjectReference(
@@ -290,7 +301,7 @@ private[cozy] object CozyBokProjectPublisher {
       else if (descriptorversion.nonEmpty) "descriptor"
       else "default"
     val cml = _resolve_cml_info(config, descriptor, reference, module)
-    val sie = descriptor.sie.map(_resolve_sie_info)
+    val sie = descriptor.sie.map(_resolve_sie_info(config, reference, _))
     ResolvedBokProject(
       packagedir,
       slug,
@@ -380,7 +391,7 @@ private[cozy] object CozyBokProjectPublisher {
         "versionSource" -> project.versionsource,
         "catalog" -> _catalog_summary_json(config, project),
         "cml" -> _cml_json(config, project),
-        "sie" -> _sie_json(project),
+        "sie" -> _sie_json(config, project),
         "artifact" -> _artifact_file_json(project, artifact, exists)
       ))
     )
@@ -399,7 +410,7 @@ private[cozy] object CozyBokProjectPublisher {
       "artifact" -> _artifact_file_json(project, artifact, exists),
       "catalog" -> _catalog_summary_json(config, project),
       "cml" -> _cml_json(config, project),
-      "sie" -> _sie_json(project),
+      "sie" -> _sie_json(config, project),
       "diagnostics" -> JsArray(_diagnostics(config, project, exists))
     )
 
@@ -537,16 +548,40 @@ private[cozy] object CozyBokProjectPublisher {
       "message" -> "CML source is not registered for this CAR project."
     ))
 
-  private def _sie_json(project: ResolvedBokProject): JsValue =
+  private def _sie_json(config: PublishProjectConfig, project: ResolvedBokProject): JsValue =
     project.sie.map { sie =>
       Json.obj(
         "status" -> "registered",
         "projection" -> sie.projection,
         "component" -> Json.toJson(sie.component.getOrElse("")),
+        "subsystem" -> Json.toJson(sie.subsystem.getOrElse("")),
         "handoffBase" -> sie.handoffbase,
-        "manifest" -> sie.manifest
+        "manifest" -> sie.manifest,
+        "artifacts" -> JsArray(sie.artifacts.map(_sie_artifact_json(config, project, _)))
       )
     }.getOrElse(Json.obj("status" -> "not-configured"))
+
+  private def _sie_artifact_json(
+    config: PublishProjectConfig,
+    project: ResolvedBokProject,
+    artifact: ProjectSieArtifactInfo
+  ): JsObject =
+    Json.obj(
+      "kind" -> artifact.kind,
+      "artifactId" -> artifact.artifactId,
+      "catalogPath" -> _warehouse_relative_path(config, project.reference, artifact.path),
+      "recommended" -> Json.toJson(artifact.catalog.recommended.getOrElse("")),
+      "latestStable" -> Json.toJson(artifact.catalog.latestStable.getOrElse("")),
+      "latestSnapshot" -> Json.toJson(artifact.catalog.latestSnapshot.getOrElse("")),
+      "versions" -> JsArray(artifact.catalog.versions.map { version =>
+        Json.obj(
+          "version" -> version.version,
+          "channel" -> Json.toJson(version.channel.getOrElse("")),
+          "status" -> Json.toJson(version.status.getOrElse("active")),
+          "file" -> Json.toJson(version.file.getOrElse(""))
+        )
+      })
+    )
 
   private def _cml_surface_json(surface: CmlProjectSurface): JsObject =
     surface.component match {
@@ -621,35 +656,53 @@ private[cozy] object CozyBokProjectPublisher {
         "action" -> s"Run cozy publish-car ${projectdir} --warehouse <warehouse-dir> --name ${project.module} --version ${project.version}"
       ))
       }
-    artifactdiagnostics ++ _sie_component_diagnostics(config, project)
+    artifactdiagnostics ++ _sie_artifact_diagnostics(config, project)
   }
 
-  private def _sie_component_diagnostics(
+  private def _sie_artifact_diagnostics(
     config: PublishProjectConfig,
     project: ResolvedBokProject
   ): Vector[JsObject] =
-    project.sie.toVector.flatMap(_.component.toVector).filterNot { component =>
-      _sie_component_catalog_exists(config, project.reference, component)
-    }.map { component =>
-      Json.obj(
-        "code" -> "sie.project.component.unresolved",
-        "severity" -> "warning",
-        "message" -> s"SIE component is not registered in the repository catalog: ${component}",
-        "action" -> s"Register repository/catalog/car/${component}.yaml, .yml, or .json before publishing the SIE-linked Project."
-      )
+    project.sie.toVector.flatMap { sie =>
+      val unresolved = Vector(
+        sie.component.map("car" -> _),
+        sie.subsystem.map("sar" -> _)
+      ).flatten.filterNot { case (kind, artifactid) =>
+        sie.artifacts.exists(x => x.kind == kind && x.artifactId == artifactid)
+      }.map { case (kind, artifactid) =>
+        val subject = if (kind == "car") "component" else "subsystem"
+        Json.obj(
+          "code" -> s"sie.project.${subject}.unresolved",
+          "severity" -> "warning",
+          "message" -> s"SIE ${subject} is not registered in the repository ${kind.toUpperCase} catalog: ${artifactid}",
+          "action" -> s"Register repository/catalog/${kind}/${artifactid}.yaml, .yml, or .json before publishing the SIE-linked Project."
+        )
+      }
+      val selectors = sie.artifacts.flatMap { artifact =>
+        Vector(
+          if (artifact.catalog.recommended.isEmpty)
+            Some(_sie_selector_diagnostic(artifact, "recommended"))
+          else
+            None,
+          if (artifact.catalog.latestStable.isEmpty)
+            Some(_sie_selector_diagnostic(artifact, "latest-stable"))
+          else
+            None
+        ).flatten
+      }
+      unresolved ++ selectors
     }
 
-  private def _sie_component_catalog_exists(
-    config: PublishProjectConfig,
-    reference: ProjectReference,
-    component: String
-  ): Boolean = {
-    val catalogdir = _repository_catalog_dir(config, reference)
-    Vector("yaml", "yml", "json").exists { extension =>
-      val path = catalogdir.resolve(s"${component}.${extension}")
-      Files.isRegularFile(path) && Try(RepositoryArtifactCatalog.load(path)).toOption.exists(_.artifactId == component)
-    }
-  }
+  private def _sie_selector_diagnostic(
+    artifact: ProjectSieArtifactInfo,
+    selector: String
+  ): JsObject =
+    Json.obj(
+      "code" -> s"sie.project.artifact.${selector}.missing",
+      "severity" -> "warning",
+      "message" -> s"SIE ${artifact.kind.toUpperCase} catalog ${artifact.artifactId} has no ${selector} selector.",
+      "action" -> s"Set ${if (selector == "latest-stable") "latestStable" else selector} in repository/catalog/${artifact.kind}/${artifact.artifactId}.yaml, .yml, or .json."
+    )
 
 
   private def _repository_latest_artifact_version(
@@ -675,11 +728,7 @@ private[cozy] object CozyBokProjectPublisher {
     }
 
   private def _load_catalog(config: PublishProjectConfig, reference: ProjectReference, module: String): Option[(Path, RepositoryArtifactCatalog)] = {
-    val path = _repository_catalog_dir(config, reference).resolve(s"$module.yaml").toAbsolutePath.normalize()
-    if (Files.isRegularFile(path))
-      Some(path -> RepositoryArtifactCatalog.load(path))
-    else
-      None
+    _resolve_repository_catalog(config, reference, "car", module).map(x => x.path -> x.catalog)
   }
 
   private def _resolve_cml_info(
@@ -714,7 +763,7 @@ private[cozy] object CozyBokProjectPublisher {
     module: String,
     glossarycategory: String
   ): Option[ProjectCmlInfo] = {
-    val catalogdir = _repository_catalog_dir(config, reference)
+    val catalogdir = _repository_catalog_dir(config, reference, "car")
     val candidates = Vector(
       catalogdir.resolve(s"$module.model-metadata.json"),
       catalogdir.resolve(s"$module.model-metadata.yaml")
@@ -930,18 +979,44 @@ private[cozy] object CozyBokProjectPublisher {
       config.bokconfig.value(s"bok.projects.${x}.version").map(_.trim).filter(_.nonEmpty)
     )
 
-  private def _resolve_sie_info(section: SieSection): ProjectSieInfo = {
+  private def _resolve_sie_info(
+    config: PublishProjectConfig,
+    reference: ProjectReference,
+    section: SieSection
+  ): ProjectSieInfo = {
     val projection = section.projection.trim
     if (projection.isEmpty)
       RAISE.invalidArgumentFault("SIE project metadata requires sie.projection")
     val component = section.component.map(_.trim).filter(_.nonEmpty).map(_validate_slug(_, "sie.component"))
+    val subsystem = section.subsystem.map(_.trim).filter(_.nonEmpty).map(_validate_slug(_, "sie.subsystem"))
     val handoffbase = _normalize_sie_handoff_base(section.handoffbase)
+    val artifacts = Vector(
+      component.flatMap(_resolve_repository_catalog(config, reference, "car", _)),
+      subsystem.flatMap(_resolve_repository_catalog(config, reference, "sar", _))
+    ).flatten
     ProjectSieInfo(
       projection,
       component,
+      subsystem,
       handoffbase,
-      URI.create(handoffbase).resolve("metadata/cncf/knowledge-source.json").toString
+      URI.create(handoffbase).resolve("metadata/cncf/knowledge-source.json").toString,
+      artifacts
     )
+  }
+
+  private def _resolve_repository_catalog(
+    config: PublishProjectConfig,
+    reference: ProjectReference,
+    kind: String,
+    artifactid: String
+  ): Option[ProjectSieArtifactInfo] = {
+    val catalogdir = _repository_catalog_dir(config, reference, kind)
+    Vector("yaml", "yml", "json").iterator.map(extension => catalogdir.resolve(s"${artifactid}.${extension}")).
+      find(Files.isRegularFile(_)).flatMap { path =>
+        Try(RepositoryArtifactCatalog.load(path)).toOption.
+          filter(catalog => catalog.kind == kind && catalog.artifactId == artifactid).
+          map(ProjectSieArtifactInfo(kind, artifactid, path, _))
+      }
   }
 
   private def _normalize_sie_handoff_base(value: String): String = {
@@ -1095,9 +1170,13 @@ private[cozy] object CozyBokProjectPublisher {
         Some(config.warehousedir.resolve("repository").toAbsolutePath.normalize())
     }
 
-  private def _repository_catalog_dir(config: PublishProjectConfig, reference: ProjectReference): Path =
-    _repository_dir(config, reference).map(_.resolve("catalog/car").toAbsolutePath.normalize()).getOrElse(
-      config.warehousedir.resolve("repository/catalog/car").toAbsolutePath.normalize()
+  private def _repository_catalog_dir(
+    config: PublishProjectConfig,
+    reference: ProjectReference,
+    kind: String = "car"
+  ): Path =
+    _repository_dir(config, reference).map(_.resolve(s"catalog/${kind}").toAbsolutePath.normalize()).getOrElse(
+      config.warehousedir.resolve(s"repository/catalog/${kind}").toAbsolutePath.normalize()
     )
 
   private def _sha256(path: Path): String = {

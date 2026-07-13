@@ -55,7 +55,7 @@ Out of scope:
 - [x] BK14-02: SIE responsibility boundary and integration contract
 - [x] BK14-03: BoK KnowledgeSource manifest output
 - [x] BK14-04: SIE project metadata and publication registry integration
-- [ ] BK14-05: SIE CAR/SAR repository catalog integration
+- [x] BK14-05: SIE CAR/SAR repository catalog integration
 - [ ] BK14-06: SIE runtime / launcher development configuration validation
 - [ ] BK14-07: SIE RDF and Information metadata handoff
 - [ ] BK14-08: BoK UI navigation for SIE-linked knowledge
@@ -125,6 +125,14 @@ Out of scope:
   Project CML, glossary term, scenario, tag, and RDF relationships. Project
   pages expose those relations without creating an SIE-specific knowledge
   index; SIE-owned Information/RDF resources remain in BK14-07.
+- 2026-07-13: Completed BK14-05. `sie.component` resolves a CAR and optional
+  `sie.subsystem` resolves a SAR through repository catalog metadata only.
+  Project pages link catalog versions, referenced SARs receive index/module/
+  version pages, and unresolved artifacts or missing release selectors produce
+  stable diagnostics without scanning artifact directories. Explicitly
+  referenced development-local CARs join the generic CAR knowledge pages
+  without exposing local paths, while conflicting catalogs for one artifact
+  identity fail explicitly.
 
 ## References
 

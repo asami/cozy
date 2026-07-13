@@ -2726,6 +2726,7 @@ private[cozy] object CozyBok {
     _write_article_page(config, target, locale, categories)
     _write_project_pages(config, target, locale, categories)
     _write_repository_car_page(config, target, locale, categories)
+    _write_sie_repository_sar_pages(config, target, locale, categories)
     _write_rdf_page(config, target, locale, categories)
     _write_scenario_page(config, target, locale, categories)
     _write_bibliography_page(config, target, locale, categories)
@@ -3286,6 +3287,11 @@ private[cozy] object CozyBok {
         s"""  <dt>${_html_escape(_ui(locale, "project.label.sie.component"))}</dt><dd><code>${_html_escape(component)}</code></dd>
            |""".stripMargin
       }.getOrElse("")
+      val subsystemrow = sie.subsystem.map { subsystem =>
+        s"""  <dt>${_html_escape(_ui(locale, "project.label.sie.subsystem"))}</dt><dd><code>${_html_escape(subsystem)}</code></dd>
+           |""".stripMargin
+      }.getOrElse("")
+      val artifacts = _project_sie_artifacts_html(locale, sie, page, target)
       val relations = _project_sie_relations_html(config, locale, project, page, target)
       s"""<section class="bok-project-section bok-project-sie" id="project-sie">
          |  <div class="bok-project-section-head">
@@ -3294,12 +3300,51 @@ private[cozy] object CozyBok {
          |  </div>
          |  <dl class="bok-project-detail-dl">
          |    <dt>${_html_escape(_ui(locale, "project.label.sie.projection"))}</dt><dd><code>${_html_escape(sie.projection)}</code></dd>
-         |${componentrow}    <dt>${_html_escape(_ui(locale, "project.label.sie.handoff"))}</dt><dd><a href="${_html_escape(sie.handoffbase)}">${_html_escape(sie.handoffbase)}</a></dd>
+         |${componentrow}${subsystemrow}    <dt>${_html_escape(_ui(locale, "project.label.sie.handoff"))}</dt><dd><a href="${_html_escape(sie.handoffbase)}">${_html_escape(sie.handoffbase)}</a></dd>
          |    <dt>${_html_escape(_ui(locale, "project.label.sie.manifest"))}</dt><dd><a href="${_html_escape(sie.manifest)}">${_html_escape(sie.manifest)}</a></dd>
          |  </dl>
+         |  ${artifacts}
          |  ${relations}
          |</section>""".stripMargin
     }.getOrElse("")
+
+  private def _project_sie_artifacts_html(
+    locale: String,
+    sie: CozyBokProjectPublisher.ProjectSieInfo,
+    page: Path,
+    target: Path
+  ): String =
+    if (sie.artifacts.isEmpty)
+      ""
+    else {
+      val rows = sie.artifacts.sortBy(x => (x.kind, x.artifactId)).flatMap { artifact =>
+        artifact.catalog.versions.map { version =>
+          val versionpage = target.resolve("repository").resolve(artifact.kind).resolve(artifact.artifactId).resolve(s"${version.version}.html")
+          val versionhref = _relative_href(page, versionpage)
+          val recommended = if (artifact.catalog.recommended.contains(version.version)) _ui(locale, "project.label.sie.recommended") else ""
+          val lateststable = if (artifact.catalog.latestStable.contains(version.version)) _ui(locale, "project.label.sie.latest.stable") else ""
+          val selectors = Vector(recommended, lateststable).filter(_.nonEmpty).mkString(", ")
+          s"""<tr>
+             |  <td>${_html_escape(artifact.kind.toUpperCase(Locale.ROOT))}</td>
+             |  <td><code>${_html_escape(artifact.artifactId)}</code></td>
+             |  <td><a href="${_html_escape(versionhref)}">${_html_escape(version.version)}</a></td>
+             |  <td>${_html_escape(version.channel.getOrElse("-"))}</td>
+             |  <td>${_html_escape(if (selectors.isEmpty) "-" else selectors)}</td>
+             |</tr>""".stripMargin
+        }
+      }.mkString("\n")
+      s"""<section class="bok-project-sie-artifacts" id="project-sie-artifacts">
+         |  <h3>${_html_escape(_ui(locale, "project.section.sie.artifacts"))}</h3>
+         |  <div class="bok-project-table-wrap">
+         |    <table class="table table-sm bok-project-cml-table">
+         |      <thead><tr><th>${_html_escape(_ui(locale, "project.label.sie.artifact.kind"))}</th><th>${_html_escape(_ui(locale, "project.label.sie.artifact"))}</th><th>${_html_escape(_repository_car_version_label(locale))}</th><th>${_html_escape(_repository_car_channel_label(locale))}</th><th>${_html_escape(_ui(locale, "project.label.sie.selectors"))}</th></tr></thead>
+         |      <tbody>
+         |${rows}
+         |      </tbody>
+         |    </table>
+         |  </div>
+         |</section>""".stripMargin
+    }
 
   private def _project_sie_relations_html(
     config: BuildConfig,
@@ -3533,6 +3578,13 @@ private[cozy] object CozyBok {
       )
   }
 
+  private final case class RepositoryCatalogSource(
+    path: Path,
+    repositoryroot: Path,
+    sourcepath: String,
+    catalog: _root_.cozy.archive.RepositoryArtifactCatalog
+  )
+
   private final case class RepositoryCarEntry(
     artifactid: String,
     aliases: Vector[String],
@@ -3543,6 +3595,7 @@ private[cozy] object CozyBok {
     lateststable: Option[String],
     latestsnapshot: Option[String],
     sourcepath: String,
+    repositoryroot: Path,
     sidecars: RepositoryCarSidecars,
     versions: Vector[RepositoryCarVersion]
   ) {
@@ -3653,7 +3706,7 @@ private[cozy] object CozyBok {
   ): Unit = {
     val index = _repository_car_index(config)
     val projects = _resolved_project_packages(config)
-    _copy_repository_car_sidecars(config, target, index)
+    _copy_repository_car_sidecars(target, index)
     val page = target.resolve("repository").resolve("car").resolve("index.html")
     _write_text(
       page,
@@ -3699,14 +3752,265 @@ private[cozy] object CozyBok {
     }
   }
 
+  private def _write_sie_repository_sar_pages(
+    config: BuildConfig,
+    target: Path,
+    locale: String,
+    categories: Vector[CategoryContent]
+  ): Unit = {
+    val projects = _resolved_project_packages(config)
+    val artifacts = _sie_repository_catalog_sources(config, projects, "sar")
+    if (artifacts.nonEmpty) {
+      val indexpage = target.resolve("repository/sar/index.html")
+      _write_text(
+        indexpage,
+        _special_html_page(
+          config,
+          categories,
+          locale,
+          indexpage,
+          _sie_repository_sar_title(locale),
+          _sie_repository_sar_description(locale),
+          _sie_repository_sar_index_body(target, indexpage, locale, artifacts)
+        )
+      )
+      artifacts.foreach { artifact =>
+        val artifactid = artifact.catalog.artifactId
+        val relatedprojects = _sie_repository_artifact_related_projects("sar", artifactid, projects)
+        val modulepage = target.resolve("repository/sar").resolve(artifactid).resolve("index.html")
+        _write_text(
+          modulepage,
+          _special_html_page(
+            config,
+            categories,
+            locale,
+            modulepage,
+            artifactid,
+            _sie_repository_sar_module_description(locale, artifactid),
+            _sie_repository_sar_module_body(target, modulepage, locale, artifact, relatedprojects)
+          )
+        )
+        artifact.catalog.versions.foreach { version =>
+          val versionpage = target.resolve("repository/sar").resolve(artifactid).resolve(s"${version.version}.html")
+          _write_text(
+            versionpage,
+            _special_html_page(
+              config,
+              categories,
+              locale,
+              versionpage,
+              s"${artifactid} ${version.version}",
+              _sie_repository_sar_version_description(locale, artifactid, version.version),
+              _sie_repository_sar_version_body(target, versionpage, locale, artifact, version, relatedprojects)
+            )
+          )
+        }
+      }
+    }
+  }
+
+  private def _sie_repository_sar_index_body(
+    target: Path,
+    page: Path,
+    locale: String,
+    artifacts: Vector[RepositoryCatalogSource]
+  ): String = {
+    val rows = artifacts.map { artifact =>
+      val artifactid = artifact.catalog.artifactId
+      val href = _relative_href(page, target.resolve("repository/sar").resolve(artifactid).resolve("index.html"))
+      s"""<tr>
+         |  <td><a href="${_html_escape(href)}"><code>${_html_escape(artifactid)}</code></a></td>
+         |  <td>${_html_escape(artifact.catalog.recommended.getOrElse("-"))}</td>
+         |  <td>${_html_escape(artifact.catalog.latestStable.getOrElse("-"))}</td>
+         |  <td>${artifact.catalog.versions.size}</td>
+         |  <td><code>${_html_escape(_repository_catalog_public_source(artifact))}</code></td>
+         |</tr>""".stripMargin
+    }.mkString("\n")
+    val table =
+      s"""<div class="bok-project-table-wrap">
+         |  <table class="table table-sm bok-project-cml-table">
+         |    <thead><tr><th>SAR</th><th>${_html_escape(_ui(locale, "project.label.sie.recommended"))}</th><th>${_html_escape(_ui(locale, "project.label.sie.latest.stable"))}</th><th>${_html_escape(_repository_car_versions_label(locale))}</th><th>${_html_escape(_repository_car_catalog_label(locale))}</th></tr></thead>
+         |    <tbody>
+         |${rows}
+         |    </tbody>
+         |  </table>
+         |</div>""".stripMargin
+    s"""<section class="bok-dashboard-shell bok-repository-car-dashboard" id="dashboard">
+       |  ${_dashboard_hero(
+            _sie_repository_sar_title(locale),
+            _sie_repository_sar_description(locale),
+            Vector(
+              "SAR" -> artifacts.size.toString,
+              _repository_car_versions_label(locale) -> artifacts.map(_.catalog.versions.size).sum.toString
+            )
+          )}
+       |  <div class="bok-dashboard container-fluid bok-dashboard-command-center">
+       |    <div class="row g-3">
+       |      ${_dashboard_card("col-12", "bok-card-map bok-card-project-map", _sie_repository_sar_title(locale), table, Vector("reader", "contributor", "project_manager"))}
+       |    </div>
+       |  </div>
+       |</section>""".stripMargin
+  }
+
+  private def _sie_repository_sar_module_body(
+    target: Path,
+    page: Path,
+    locale: String,
+    artifact: RepositoryCatalogSource,
+    projects: Vector[CozyBokProjectPublisher.ResolvedBokProject]
+  ): String = {
+    val artifactid = artifact.catalog.artifactId
+    val versionrows = artifact.catalog.versions.map { version =>
+      val href = _relative_href(page, target.resolve("repository/sar").resolve(artifactid).resolve(s"${version.version}.html"))
+      s"""<tr>
+         |  <td><a href="${_html_escape(href)}">${_html_escape(version.version)}</a></td>
+         |  <td>${_html_escape(version.channel.getOrElse("-"))}</td>
+         |  <td>${_html_escape(version.status.getOrElse("active"))}</td>
+         |  <td><code>${_html_escape(version.file.getOrElse("-"))}</code></td>
+         |</tr>""".stripMargin
+    }.mkString("\n")
+    s"""<section class="bok-project-section bok-repository-car-detail" id="repository-sar-detail">
+       |  ${_repository_car_properties_table(locale, Vector(
+            _repository_car_catalog_label(locale) -> s"<code>${_html_escape(_repository_catalog_public_source(artifact))}</code>",
+            _ui(locale, "project.label.sie.recommended") -> _html_escape(artifact.catalog.recommended.getOrElse("-")),
+            _ui(locale, "project.label.sie.latest.stable") -> _html_escape(artifact.catalog.latestStable.getOrElse("-")),
+            _repository_car_status_label(locale) -> _html_escape(artifact.catalog.status.getOrElse("active"))
+          ))}
+       |  <h2>${_html_escape(_repository_car_versions_label(locale))}</h2>
+       |  <div class="bok-project-table-wrap">
+       |    <table class="table table-sm bok-project-cml-table">
+       |      <thead><tr><th>${_html_escape(_repository_car_version_label(locale))}</th><th>${_html_escape(_repository_car_channel_label(locale))}</th><th>${_html_escape(_repository_car_status_label(locale))}</th><th>${_html_escape(_repository_car_file_label(locale))}</th></tr></thead>
+       |      <tbody>
+       |${versionrows}
+       |      </tbody>
+       |    </table>
+       |  </div>
+       |  ${_repository_car_related_projects_html(target, page, locale, projects)}
+       |</section>""".stripMargin
+  }
+
+  private def _sie_repository_sar_version_body(
+    target: Path,
+    page: Path,
+    locale: String,
+    artifact: RepositoryCatalogSource,
+    version: _root_.cozy.archive.RepositoryArtifactCatalogVersion,
+    projects: Vector[CozyBokProjectPublisher.ResolvedBokProject]
+  ): String =
+    s"""<section class="bok-project-section bok-repository-car-version" id="repository-sar-version">
+       |  ${_repository_car_properties_table(locale, Vector(
+            _repository_car_catalog_label(locale) -> s"<code>${_html_escape(_repository_catalog_public_source(artifact))}</code>",
+            _repository_car_version_label(locale) -> _html_escape(version.version),
+            _repository_car_channel_label(locale) -> _html_escape(version.channel.getOrElse("-")),
+            _repository_car_status_label(locale) -> _html_escape(version.status.getOrElse("active")),
+            _repository_car_file_label(locale) -> s"<code>${_html_escape(version.file.getOrElse("-"))}</code>"
+          ))}
+       |  ${_repository_car_related_projects_html(target, page, locale, projects)}
+       |</section>""".stripMargin
+
+  private def _sie_repository_artifact_related_projects(
+    kind: String,
+    artifactid: String,
+    projects: Vector[CozyBokProjectPublisher.ResolvedBokProject]
+  ): Vector[CozyBokProjectPublisher.ResolvedBokProject] =
+    projects.filter(_.sie.exists(_.artifacts.exists(x => x.kind == kind && x.artifactId == artifactid))).sortBy(_.publicationpath)
+
+  private def _sie_repository_sar_title(locale: String): String =
+    locale match {
+      case "ja" => "SIE SARリポジトリ"
+      case _ => "SIE Repository SARs"
+    }
+
+  private def _sie_repository_sar_description(locale: String): String =
+    locale match {
+      case "ja" => "SIE Projectが明示参照するrepository/catalog/sarの公開SARです。"
+      case _ => "Published repository/catalog/sar entries explicitly referenced by SIE Projects."
+    }
+
+  private def _sie_repository_sar_module_description(locale: String, artifactid: String): String =
+    locale match {
+      case "ja" => s"${artifactid} のSIE SAR catalogと公開versionです。"
+      case _ => s"SIE SAR catalog and published versions for ${artifactid}."
+    }
+
+  private def _sie_repository_sar_version_description(locale: String, artifactid: String, version: String): String =
+    locale match {
+      case "ja" => s"${artifactid} ${version} の公開SIE SAR version情報です。"
+      case _ => s"Published SIE SAR version information for ${artifactid} ${version}."
+    }
+
   private def _repository_car_index(config: BuildConfig): RepositoryCarIndex = {
     val projects = _safe_resolved_project_packages(config)
-    val entries = _repository_car_catalog_paths(config).flatMap { path =>
-      _read_repository_car_catalog(config, path)
-    }.map(_repository_car_merge_project_metadata(_, projects)).sortBy(_.artifactid)
+    val sources = _deduplicate_repository_catalog_sources(
+      config,
+      "car",
+      _repository_car_catalog_paths(config).flatMap(_read_repository_car_catalog(config, _)) ++
+        projects.flatMap(_.sie.toVector.flatMap(_.artifacts)).filter(_.kind == "car").map { artifact =>
+          _repository_catalog_source(config, artifact.path, artifact.catalog)
+        }
+    )
+    val entries = sources.map(_repository_car_entry).
+      map(_repository_car_merge_project_metadata(_, projects)).
+      sortBy(_.artifactid)
     val diagnostics = _repository_car_diagnostics(config, entries, projects)
     RepositoryCarIndex(entries, diagnostics)
   }
+
+  private def _sie_repository_catalog_sources(
+    config: BuildConfig,
+    projects: Vector[CozyBokProjectPublisher.ResolvedBokProject],
+    kind: String
+  ): Vector[RepositoryCatalogSource] =
+    _deduplicate_repository_catalog_sources(
+      config,
+      kind,
+      projects.flatMap(_.sie.toVector.flatMap(_.artifacts)).filter(_.kind == kind).map { artifact =>
+        _repository_catalog_source(config, artifact.path, artifact.catalog)
+      }
+    )
+
+  private def _deduplicate_repository_catalog_sources(
+    config: BuildConfig,
+    kind: String,
+    sources: Vector[RepositoryCatalogSource]
+  ): Vector[RepositoryCatalogSource] = {
+    val publicrepository = config.publication.repositoryPath(config.project).toAbsolutePath.normalize
+    sources.groupBy(_.catalog.artifactId).toVector.sortBy(_._1).map { case (artifactid, candidates) =>
+      val catalogs = candidates.map(_.catalog).distinct
+      if (catalogs.size > 1)
+        RAISE.invalidArgumentFault(s"Conflicting repository ${kind.toUpperCase(Locale.ROOT)} catalogs for SIE artifact: ${artifactid}")
+      candidates.distinct.sortBy { candidate =>
+        val priority = if (candidate.repositoryroot == publicrepository) 0 else 1
+        (priority, candidate.path.toAbsolutePath.normalize.toString)
+      }.head
+    }
+  }
+
+  private def _repository_catalog_source(
+    config: BuildConfig,
+    path: Path,
+    catalog: _root_.cozy.archive.RepositoryArtifactCatalog
+  ): RepositoryCatalogSource = {
+    val normalizedpath = path.toAbsolutePath.normalize
+    val kinddir = normalizedpath.getParent
+    val catalogdir = Option(kinddir).flatMap(x => Option(x.getParent)).getOrElse(
+      RAISE.invalidArgumentFault(s"Repository catalog has no catalog root: ${path}")
+    )
+    if (catalogdir.getFileName.toString != "catalog")
+      RAISE.invalidArgumentFault(s"Repository catalog must be under repository/catalog/${catalog.kind}: ${path}")
+    val repositoryroot = catalogdir.getParent
+    val projectroot = config.project.toAbsolutePath.normalize
+    val sourcepath =
+      if (normalizedpath.startsWith(projectroot))
+        projectroot.relativize(normalizedpath).toString.replace(java.io.File.separatorChar, '/')
+      else {
+        val relative = repositoryroot.relativize(normalizedpath).toString.replace(java.io.File.separatorChar, '/')
+        s"repository/${relative}"
+      }
+    RepositoryCatalogSource(normalizedpath, repositoryroot, sourcepath, catalog)
+  }
+
+  private def _repository_catalog_public_source(source: RepositoryCatalogSource): String = source.sourcepath
 
   private def _repository_car_merge_project_metadata(
     entry: RepositoryCarEntry,
@@ -3856,9 +4160,9 @@ private[cozy] object CozyBok {
       (name.endsWith(".yaml") || name.endsWith(".yml") || name.endsWith(".json"))
   }
 
-  private def _read_repository_car_catalog(config: BuildConfig, path: Path): Option[RepositoryCarEntry] =
+  private def _read_repository_car_catalog(config: BuildConfig, path: Path): Option[RepositoryCatalogSource] =
     _load_repository_car_catalog(path) match {
-      case catalog if catalog.kind == "car" => Some(_repository_car_entry(config, path, catalog))
+      case catalog if catalog.kind == "car" => Some(_repository_catalog_source(config, path, catalog))
       case _ => None
     }
 
@@ -3867,33 +4171,32 @@ private[cozy] object CozyBok {
   }
 
   private def _repository_car_entry(
-    config: BuildConfig,
-    path: Path,
-    catalog: _root_.cozy.archive.RepositoryArtifactCatalog
+    source: RepositoryCatalogSource
   ): RepositoryCarEntry =
     RepositoryCarEntry(
-      artifactid = catalog.artifactId,
-      aliases = catalog.aliases,
-      tags = catalog.tags,
-      terms = catalog.terms,
-      status = catalog.status,
-      recommended = catalog.recommended,
-      lateststable = catalog.latestStable,
-      latestsnapshot = catalog.latestSnapshot,
-      sourcepath = _project_relative_path(config.project, path),
-      sidecars = _repository_car_sidecars(config, path, catalog.artifactId),
-      versions = catalog.versions.map(_repository_car_version(config, _))
+      artifactid = source.catalog.artifactId,
+      aliases = source.catalog.aliases,
+      tags = source.catalog.tags,
+      terms = source.catalog.terms,
+      status = source.catalog.status,
+      recommended = source.catalog.recommended,
+      lateststable = source.catalog.latestStable,
+      latestsnapshot = source.catalog.latestSnapshot,
+      sourcepath = _repository_catalog_public_source(source),
+      repositoryroot = source.repositoryroot,
+      sidecars = _repository_car_sidecars(source.repositoryroot, source.path, source.catalog.artifactId),
+      versions = source.catalog.versions.map(_repository_car_version(source.repositoryroot, _))
     )
 
   private def _repository_car_sidecars(
-    config: BuildConfig,
+    repositoryroot: Path,
     catalogpath: Path,
     artifactid: String
   ): RepositoryCarSidecars = {
     val catalogdir = catalogpath.getParent
     def _sidecar_(suffix: String): Option[String] = {
       val path = catalogdir.resolve(s"${artifactid}${suffix}")
-      if (Files.isRegularFile(path)) Some(_repository_car_public_path(config, path)) else None
+      if (Files.isRegularFile(path)) Some(_repository_car_public_path(repositoryroot, path)) else None
     }
     RepositoryCarSidecars(
       _sidecar_(".cml"),
@@ -3902,25 +4205,25 @@ private[cozy] object CozyBok {
     )
   }
 
-  private def _repository_car_public_path(config: BuildConfig, path: Path): String = {
-    val repository = config.publication.repositoryPath(config.project)
-    val relative = repository.relativize(path.toAbsolutePath.normalize()).toString.replace(java.io.File.separatorChar, '/')
+  private def _repository_car_public_path(repositoryroot: Path, path: Path): String = {
+    val relative = repositoryroot.relativize(path.toAbsolutePath.normalize()).toString.replace(java.io.File.separatorChar, '/')
     s"repository/${relative}"
   }
 
-  private def _copy_repository_car_sidecars(config: BuildConfig, target: Path, index: RepositoryCarIndex): Unit = {
-    val repository = config.publication.repositoryPath(config.project)
-    index.entries.flatMap(_.sidecars.paths).distinct.foreach { publicpath =>
-      val relative = publicpath.stripPrefix("repository/")
-      _copy_if_exists(repository.resolve(relative), target.resolve(publicpath))
+  private def _copy_repository_car_sidecars(target: Path, index: RepositoryCarIndex): Unit = {
+    index.entries.foreach { entry =>
+      entry.sidecars.paths.distinct.foreach { publicpath =>
+        val relative = publicpath.stripPrefix("repository/")
+        _copy_if_exists(entry.repositoryroot.resolve(relative), target.resolve(publicpath))
+      }
     }
   }
 
   private def _repository_car_version(
-    config: BuildConfig,
+    repositoryroot: Path,
     version: _root_.cozy.archive.RepositoryArtifactCatalogVersion
   ): RepositoryCarVersion = {
-    val archive = _repository_car_archive_metadata(config, version.file)
+    val archive = _repository_car_archive_metadata(repositoryroot, version.file)
     RepositoryCarVersion(
       version = version.version,
       channel = version.channel,
@@ -3939,10 +4242,10 @@ private[cozy] object CozyBok {
   }
 
   private def _repository_car_archive_metadata(
-    config: BuildConfig,
+    repositoryroot: Path,
     file: Option[String]
   ): RepositoryCarArchiveMetadata =
-    file.map(_project_artifact_path(config, _)).filter(Files.isRegularFile(_)).map { path =>
+    file.map(_repository_catalog_artifact_path(repositoryroot, _)).filter(Files.isRegularFile(_)).map { path =>
       val zip = new ZipFile(path.toFile)
       try {
         def _json_entry_(name: String): Option[Json] =
@@ -3967,6 +4270,9 @@ private[cozy] object CozyBok {
         zip.close()
       }
     }.getOrElse(RepositoryCarArchiveMetadata(None, None, available = false))
+
+  private def _repository_catalog_artifact_path(repositoryroot: Path, value: String): Path =
+    repositoryroot.resolve(value.stripPrefix("repository/")).toAbsolutePath.normalize
 
   private def _repository_car_dashboard_body(
     config: BuildConfig,
@@ -4216,7 +4522,8 @@ private[cozy] object CozyBok {
   ): Vector[CozyBokProjectPublisher.ResolvedBokProject] =
     projects.filter { project =>
       project.module == entry.artifactid ||
-        project.catalog.exists(_.catalog.artifactId == entry.artifactid)
+        project.catalog.exists(_.catalog.artifactId == entry.artifactid) ||
+        project.sie.exists(_.artifacts.exists(x => x.kind == "car" && x.artifactId == entry.artifactid))
     }.sortBy(_.publicationpath)
 
   private def _repository_car_title(locale: String): String =

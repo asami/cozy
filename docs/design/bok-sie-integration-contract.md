@@ -73,16 +73,35 @@ An SIE-linked BoK Project declares this public authoring metadata in its
 sie:
   projection: nict-knowledgehub
   component: textus-semantic-integration-engine
+  subsystem: nict-knowledgehub-runtime
   handoff_base: https://sie.example.com/nict-knowledgehub/
 ```
 
 `projection` is the stable SIE projection identifier. `component` is an
-optional CAR artifact identifier. `handoff_base` is an absolute HTTP(S) URI;
-it must have an authority and must not contain a query or fragment. Cozy
-normalizes the base and derives the manifest URI by resolving
+optional CAR artifact identifier. `subsystem` is an optional SAR artifact
+identifier. Cozy resolves both identifiers only from the canonical repository
+catalog boundary: `repository/catalog/car/<component>.*` and
+`repository/catalog/sar/<subsystem>.*`. It does not scan CAR/SAR artifact
+directories. `handoff_base` is an absolute HTTP(S) URI; it must have an
+authority and must not contain a query or fragment. Cozy normalizes the base
+and derives the manifest URI by resolving
 `metadata/cncf/knowledge-source.json`. Local SIE source or generated-output
 paths belong under private `conf/cozy` project configuration and are never
 copied into publication metadata.
+
+Resolved SIE artifact metadata retains catalog kind, artifact identifier,
+catalog path, version list, and the `recommended`, `latestStable`, and
+`latestSnapshot` selectors. Project pages link resolved CAR and SAR versions.
+The generic Component Repository CAR pages remain the CAR knowledge surface.
+SAR index, module, and version pages are generated for SARs explicitly
+referenced by SIE Projects and link back to those Projects. Historical or
+unreferenced SAR catalogs are not discovered by scanning artifact storage.
+An explicitly referenced CAR in a development-local repository is also
+materialized through the generic CAR knowledge surface; its local filesystem
+root is never published. If multiple configured repositories provide different
+catalog content for the same artifact identifier, Cozy rejects the build rather
+than choosing one repository by path order. Byte-equivalent catalog content is
+deduplicated deterministically.
 
 An SIE-linked Project remains a normal BoK Project. Cozy resolves its existing
 `terms`, `tags`, and CML model metadata through the generic Project knowledge
@@ -146,6 +165,9 @@ stable diagnostic categories:
 | `sie.handoff.stale` | warning | Declared provenance does not match the expected Project/publication input. |
 | `sie.handoff.freshness-unknown` | warning | Provenance is insufficient to determine freshness. |
 | `sie.project.component.unresolved` | warning | An SIE-linked Project names a component that is absent from the repository CAR catalog. |
+| `sie.project.subsystem.unresolved` | warning | An SIE-linked Project names a subsystem that is absent from the repository SAR catalog. |
+| `sie.project.artifact.recommended.missing` | warning | A resolved SIE CAR/SAR catalog has no recommended selector. |
+| `sie.project.artifact.latest-stable.missing` | warning | A resolved SIE CAR/SAR catalog has no latest stable selector. |
 
 Strict validation may promote stale or unknown freshness warnings to errors.
 Diagnostics identify the configured handoff, manifest, resource kind, and
