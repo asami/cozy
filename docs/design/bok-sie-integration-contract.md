@@ -137,6 +137,7 @@ stable diagnostic categories:
 | `sie.handoff.resource.unsupported` | warning | An optional resource kind is unknown. |
 | `sie.handoff.stale` | warning | Declared provenance does not match the expected Project/publication input. |
 | `sie.handoff.freshness-unknown` | warning | Provenance is insufficient to determine freshness. |
+| `sie.project.component.unresolved` | warning | An SIE-linked Project names a component that is absent from the repository CAR catalog. |
 
 Strict validation may promote stale or unknown freshness warnings to errors.
 Diagnostics identify the configured handoff, manifest, resource kind, and

@@ -13,6 +13,7 @@ import java.net.URI
 import java.nio.file.{Files, Path, Paths}
 import java.security.MessageDigest
 import scala.collection.JavaConverters._
+import scala.util.Try
 
 /*
  * @since   Jun. 23, 2026
@@ -399,7 +400,7 @@ private[cozy] object CozyBokProjectPublisher {
       "catalog" -> _catalog_summary_json(config, project),
       "cml" -> _cml_json(config, project),
       "sie" -> _sie_json(project),
-      "diagnostics" -> JsArray(_diagnostics(project, exists))
+      "diagnostics" -> JsArray(_diagnostics(config, project, exists))
     )
 
   private def _latest_json(project: ResolvedBokProject): JsValue =
@@ -604,17 +605,51 @@ private[cozy] object CozyBokProjectPublisher {
       "description" -> Json.toJson(descriptive.description.getOrElse(""))
     )
 
-  private def _diagnostics(project: ResolvedBokProject, exists: Boolean): Vector[JsObject] =
-    if (exists || project.reference.isSourceOnly)
-      Vector.empty
-    else {
+  private def _diagnostics(
+    config: PublishProjectConfig,
+    project: ResolvedBokProject,
+    exists: Boolean
+  ): Vector[JsObject] = {
+    val artifactdiagnostics =
+      if (exists || project.reference.isSourceOnly)
+        Vector.empty
+      else {
       val projectdir = project.projectref.map(ref => s"<${ref}>").getOrElse("<project-dir>")
       Vector(Json.obj(
         "severity" -> "warning",
         "message" -> s"CAR artifact is not registered in artifact repository: ${project.warehousePath}",
         "action" -> s"Run cozy publish-car ${projectdir} --warehouse <warehouse-dir> --name ${project.module} --version ${project.version}"
       ))
+      }
+    artifactdiagnostics ++ _sie_component_diagnostics(config, project)
+  }
+
+  private def _sie_component_diagnostics(
+    config: PublishProjectConfig,
+    project: ResolvedBokProject
+  ): Vector[JsObject] =
+    project.sie.toVector.flatMap(_.component.toVector).filterNot { component =>
+      _sie_component_catalog_exists(config, project.reference, component)
+    }.map { component =>
+      Json.obj(
+        "code" -> "sie.project.component.unresolved",
+        "severity" -> "warning",
+        "message" -> s"SIE component is not registered in the repository catalog: ${component}",
+        "action" -> s"Register repository/catalog/car/${component}.yaml, .yml, or .json before publishing the SIE-linked Project."
+      )
     }
+
+  private def _sie_component_catalog_exists(
+    config: PublishProjectConfig,
+    reference: ProjectReference,
+    component: String
+  ): Boolean = {
+    val catalogdir = _repository_catalog_dir(config, reference)
+    Vector("yaml", "yml", "json").exists { extension =>
+      val path = catalogdir.resolve(s"${component}.${extension}")
+      Files.isRegularFile(path) && Try(RepositoryArtifactCatalog.load(path)).toOption.exists(_.artifactId == component)
+    }
+  }
 
 
   private def _repository_latest_artifact_version(

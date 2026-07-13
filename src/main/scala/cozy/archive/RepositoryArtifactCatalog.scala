@@ -2,6 +2,8 @@ package cozy.archive
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
+import io.circe.{HCursor, Json}
+import io.circe.parser
 
 /*
  * @since   May. 20, 2026
@@ -61,7 +63,15 @@ object RepositoryArtifactCatalog {
   private val _valid_channels = Set("stable", "snapshot")
 
   def load(path: Path): RepositoryArtifactCatalog =
-    parse(new String(Files.readAllBytes(path), StandardCharsets.UTF_8)).validateSourcePath(path)
+    {
+      val text = new String(Files.readAllBytes(path), StandardCharsets.UTF_8)
+      val catalog =
+        if (path.getFileName.toString.toLowerCase(java.util.Locale.ROOT).endsWith(".json"))
+          _parse_json(text)
+        else
+          parse(text)
+      catalog.validateSourcePath(path)
+    }
 
   def parse(text: String): RepositoryArtifactCatalog = {
     val parsed = YamlParser.parse(text)
@@ -139,7 +149,7 @@ object RepositoryArtifactCatalog {
 
   private def _validate_source_path(catalog: RepositoryArtifactCatalog, path: Path): Unit = {
     val filename = path.getFileName.toString
-    val stem = filename.stripSuffix(".yaml").stripSuffix(".yml")
+    val stem = filename.stripSuffix(".yaml").stripSuffix(".yml").stripSuffix(".json")
     _require(stem == catalog.artifactId, s"Catalog filename does not match artifactId: $filename != ${catalog.artifactId}")
     Option(path.getParent).flatMap(parent => Option(parent.getFileName)).foreach { kind =>
       _require(kind.toString == catalog.kind, s"Catalog path kind does not match catalog kind: $kind != ${catalog.kind}")
@@ -220,6 +230,56 @@ object RepositoryArtifactCatalog {
     else
       t
   }
+
+  private def _parse_json(text: String): RepositoryArtifactCatalog = {
+    val json = parser.parse(text).fold(throw _, identity)
+    val cursor = json.hcursor
+    val versions = cursor.downField("versions").as[Option[Vector[Json]]].getOrElse(None).getOrElse(Vector.empty).map { value =>
+      val versioncursor = value.hcursor
+      RepositoryArtifactCatalogVersion(
+        version = _json_string(versioncursor, "version").getOrElse(""),
+        channel = _json_string(versioncursor, "channel"),
+        status = _json_string(versioncursor, "status"),
+        component = _json_string(versioncursor, "component"),
+        publishedAt = _json_string(versioncursor, "publishedAt").orElse(_json_string(versioncursor, "published_at")),
+        file = _json_string(versioncursor, "file"),
+        runtime = _json_runtime(versioncursor),
+        checksumSha256 = versioncursor.downField("checksum").downField("sha256").as[Option[String]].getOrElse(None).
+          orElse(_json_string(versioncursor, "checksumSha256"))
+      )
+    }
+    RepositoryArtifactCatalog(
+      schemaVersion = _json_string(cursor, "schemaVersion").getOrElse("1"),
+      kind = _json_string(cursor, "kind").getOrElse(""),
+      artifactId = _json_string(cursor, "artifactId").orElse(_json_string(cursor, "artifact_id")).getOrElse(""),
+      recommended = _json_string(cursor, "recommended"),
+      latestStable = _json_string(cursor, "latestStable").orElse(_json_string(cursor, "latest_stable")),
+      latestSnapshot = _json_string(cursor, "latestSnapshot").orElse(_json_string(cursor, "latest_snapshot")),
+      status = _json_string(cursor, "status"),
+      aliases = _json_strings(cursor, "aliases"),
+      versions = versions,
+      tags = _json_strings(cursor, "tags"),
+      terms = _json_strings(cursor, "terms")
+    ).validate
+  }
+
+  private def _json_runtime(cursor: HCursor): Option[RepositoryArtifactRuntimeRequirement] = {
+    val runtime = cursor.downField("runtime").downField("cncf")
+    val minimum = runtime.downField("minimum").as[Option[String]].getOrElse(None)
+    val maximum = runtime.downField("maximum").as[Option[String]].getOrElse(None)
+    val excluded = runtime.downField("excluded").as[Option[Vector[String]]].getOrElse(None).getOrElse(Vector.empty)
+    val tested = runtime.downField("tested").as[Option[Vector[String]]].getOrElse(None).getOrElse(Vector.empty)
+    if (minimum.isEmpty && maximum.isEmpty && excluded.isEmpty && tested.isEmpty)
+      None
+    else
+      Some(RepositoryArtifactRuntimeRequirement(minimum, maximum, excluded, tested))
+  }
+
+  private def _json_string(cursor: HCursor, name: String): Option[String] =
+    cursor.downField(name).as[Option[String]].getOrElse(None)
+
+  private def _json_strings(cursor: HCursor, name: String): Vector[String] =
+    cursor.downField(name).as[Option[Vector[String]]].getOrElse(None).getOrElse(Vector.empty)
 
   private def _require(condition: Boolean, message: => String): Unit =
     if (!condition)

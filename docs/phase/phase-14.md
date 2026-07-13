@@ -117,6 +117,10 @@ Out of scope:
 - 2026-07-13: Added SIE linkage to Project detail pages. Cozy renders the
   registered projection, component, handoff base, and KnowledgeSource manifest
   without fetching or interpreting external SIE resources during `bok build`.
+- 2026-07-13: Added static SIE component-reference diagnostics. Publication
+  metadata warns with `sie.project.component.unresolved` when the declared
+  component is absent from the repository CAR catalog and does not expose
+  private local SIE paths.
 
 ## References
 

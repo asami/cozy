@@ -814,6 +814,7 @@ class CozyBokProjectSpec
           bundle should include(""""component" : "textus-semantic-integration-engine"""")
           bundle should include(""""handoffBase" : "https://sie.example.com/nict-knowledgehub/"""")
           bundle should include(""""manifest" : "https://sie.example.com/nict-knowledgehub/metadata/cncf/knowledge-source.json"""")
+          bundle should not include ("sie.project.component.unresolved")
 
           And("private local SIE paths are not copied into public metadata")
           bundle should not include (localpath.toString)
@@ -836,6 +837,61 @@ class CozyBokProjectSpec
           runner.commands.count(_.take(2) == Vector("dox", "site")) shouldBe 1
           runner.commands.flatten should not contain ("https://sie.example.com/nict-knowledgehub/")
           runner.commands.flatten should not contain ("https://sie.example.com/nict-knowledgehub/metadata/cncf/knowledge-source.json")
+        }
+      }
+
+      "diagnose an SIE component that is absent from the repository catalog" in {
+        _with_temp_dir("cozy-bok-sie-project-unresolved-component") { dir =>
+          Given("an SIE-linked BoK Project whose component has no repository catalog entry")
+          val localpath = _write_sie_project_source(
+            dir,
+            "https://sie.example.com/nict-knowledgehub/",
+            withcomponentcatalog = false
+          )
+
+          When("Cozy registers the Project in the publication registry")
+          CozyBok.publishProjects(CozyBok.PublicationConfig.create("publish-projects", List(dir.toString)))
+
+          Then("the public manifest reports a stable unresolved-component diagnostic without leaking local paths")
+          val bundle = _read(dir.resolve("src/main/publication/nict-knowledgehub.json"))
+          bundle should include(""""code" : "sie.project.component.unresolved"""")
+          bundle should include("SIE component is not registered in the repository catalog: textus-semantic-integration-engine")
+          bundle should include("repository/catalog/car/textus-semantic-integration-engine.yaml")
+          bundle should not include (localpath.toString)
+        }
+      }
+
+      "diagnose malformed and mismatched SIE component catalogs as unresolved" in {
+        Vector(
+          "malformed" -> "{ not-json",
+          "mismatched" ->
+            """{
+              |  "schemaVersion": "1",
+              |  "kind": "car",
+              |  "artifactId": "another-component",
+              |  "versions": []
+              |}
+              |""".stripMargin
+        ).foreach { case (label, catalogbody) =>
+          _with_temp_dir(s"cozy-bok-sie-project-${label}-component") { dir =>
+            Given(s"an SIE-linked BoK Project with a ${label} component catalog")
+            _write_sie_project_source(
+              dir,
+              "https://sie.example.com/nict-knowledgehub/",
+              withcomponentcatalog = false
+            )
+            _write(
+              dir.resolve("repository/catalog/car/textus-semantic-integration-engine.json"),
+              catalogbody
+            )
+
+            When("Cozy registers the Project in the publication registry")
+            CozyBok.publishProjects(CozyBok.PublicationConfig.create("publish-projects", List(dir.toString)))
+
+            Then("the invalid catalog does not satisfy the SIE component reference")
+            val bundle = _read(dir.resolve("src/main/publication/nict-knowledgehub.json"))
+            bundle should include(""""code" : "sie.project.component.unresolved"""")
+          }
         }
       }
 
@@ -1855,7 +1911,11 @@ class CozyBokProjectSpec
     }
   }
 
-  private def _write_sie_project_source(dir: Path, handoffbase: String): Path = {
+  private def _write_sie_project_source(
+    dir: Path,
+    handoffbase: String,
+    withcomponentcatalog: Boolean = true
+  ): Path = {
     val localpath = dir.resolve("target/sie/projections/nict-knowledgehub")
     _write(
       dir.resolve("src/main/doxsite/site.conf"),
@@ -1868,6 +1928,24 @@ class CozyBokProjectSpec
         |""".stripMargin
     )
     _write(dir.resolve("src/main/doxsite/index.dox"), "Home\n====\n")
+    if (withcomponentcatalog)
+      _write(
+        dir.resolve("repository/catalog/car/textus-semantic-integration-engine.json"),
+        """{
+          |  "schemaVersion": "1",
+          |  "kind": "car",
+          |  "artifactId": "textus-semantic-integration-engine",
+          |  "latestStable": "0.1.0",
+          |  "versions": [
+          |    {
+          |      "version": "0.1.0",
+          |      "channel": "stable",
+          |      "file": "repository/car/textus-semantic-integration-engine/0.1.0/textus-semantic-integration-engine-0.1.0.car"
+          |    }
+          |  ]
+          |}
+          |""".stripMargin
+      )
     _write(
       dir.resolve("conf/cozy/config.yaml"),
       s"""bok:

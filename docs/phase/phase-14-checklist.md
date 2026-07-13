@@ -67,8 +67,8 @@ Status: IN PROGRESS
       and publication metadata.
 - [ ] Link SIE project metadata to CML, glossary terms, scenarios, tags, and RDF
       where metadata exists.
-- [ ] Keep external SIE source paths in local config rather than public source.
-- [ ] Add diagnostics for unresolved SIE project refs.
+- [x] Keep external SIE source paths in local config rather than public source.
+- [x] Add diagnostics for unresolved SIE project refs.
 
 ## BK14-05: SIE CAR/SAR Repository Catalog Integration
 

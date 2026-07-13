@@ -8,7 +8,8 @@ import org.scalatest.funsuite.AnyFunSuite
 
 /*
  * @since   May. 20, 2026
- * @version May. 20, 2026
+ *  version May. 20, 2026
+ * @version Jul. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 class RepositoryArtifactCatalogSpec extends AnyFunSuite {
@@ -213,6 +214,34 @@ class RepositoryArtifactCatalogSpec extends AnyFunSuite {
         RepositoryArtifactCatalog.load(wrongkindpath)
       }
       assert(ex2.getMessage.contains("path kind"))
+    }
+  }
+
+  test("load and validate JSON catalog through the canonical loader") {
+    _with_temp_dir("repository-artifact-json-catalog") { dir =>
+      val path = dir.resolve("src/main/catalog/car/sample-component.json")
+      _write(
+        path,
+        """{
+          |  "schemaVersion": "1",
+          |  "kind": "car",
+          |  "artifactId": "sample-component",
+          |  "latestStable": "0.1.0",
+          |  "tags": ["platform.sie"],
+          |  "versions": [{
+          |    "version": "0.1.0",
+          |    "channel": "stable",
+          |    "file": "repository/car/sample-component/0.1.0/sample-component-0.1.0.car"
+          |  }]
+          |}
+          |""".stripMargin
+      )
+
+      val catalog = RepositoryArtifactCatalog.load(path)
+
+      assert(catalog.artifactId == "sample-component")
+      assert(catalog.latestStable.contains("0.1.0"))
+      assert(catalog.tags == Vector("platform.sie"))
     }
   }
 
