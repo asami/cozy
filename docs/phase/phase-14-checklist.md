@@ -60,12 +60,12 @@ Status: DONE
 
 ## BK14-04: SIE Project Metadata And Publication Registry Integration
 
-Status: IN PROGRESS
+Status: DONE
 
 - [x] Define BoK project metadata fields for SIE-linked projects.
 - [x] Register SIE projects through `src/main/doxsite/projects/<category>/<slug>`
       and publication metadata.
-- [ ] Link SIE project metadata to CML, glossary terms, scenarios, tags, and RDF
+- [x] Link SIE project metadata to CML, glossary terms, scenarios, tags, and RDF
       where metadata exists.
 - [x] Keep external SIE source paths in local config rather than public source.
 - [x] Add diagnostics for unresolved SIE project refs.
@@ -143,7 +143,7 @@ Status: TODO
 
 Status: TODO
 
-- [ ] Add focused Cozy SIE integration specs.
+- [x] Add focused Cozy SIE integration specs.
 - [ ] Add BoK KnowledgeSource manifest generation specs.
 - [ ] Assert manifest has `resources[].kind = glossary-terms`.
 - [ ] Assert manifest has

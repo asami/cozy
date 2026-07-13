@@ -84,6 +84,14 @@ normalizes the base and derives the manifest URI by resolving
 paths belong under private `conf/cozy` project configuration and are never
 copied into publication metadata.
 
+An SIE-linked Project remains a normal BoK Project. Cozy resolves its existing
+`terms`, `tags`, and CML model metadata through the generic Project knowledge
+model. Related scenarios are derived from shared glossary-term references, and
+RDF navigation is derived from the resolved terms. Cozy does not create a
+second SIE-specific term, scenario, tag, or RDF index. SIE-owned Information and
+RDF resources declared by the handoff manifest remain the separate BK14-07
+contract.
+
 The SIE handoff reuses the `cncf.knowledge-source.v1` envelope with:
 
 - `kind = sie-projection`;

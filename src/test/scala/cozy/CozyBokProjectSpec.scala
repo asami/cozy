@@ -833,10 +833,87 @@ class CozyBokProjectSpec
           page should include("<code>textus-semantic-integration-engine</code>")
           page should include("href=\"https://sie.example.com/nict-knowledgehub/\"")
           page should include("href=\"https://sie.example.com/nict-knowledgehub/metadata/cncf/knowledge-source.json\"")
+          And("the SIE Project reuses the generic CML, term, scenario, tag, and RDF relations")
+          page should include("Related BoK knowledge")
+          page should include("#project-model-terms")
+          page should include("Knowledge Item")
+          page should include("../../../glossary/technology/knowledge-item.html")
+          page should include("Knowledge Review Scenario")
+          page should include("../../../scenario/technology/knowledge-review.html")
+          page should include("../../../tags/technology/sie.html")
+          page should include("../../../tags/workflow/review.html")
+          page should include("../../../rdf/index.html?term=technology%3Aknowledge-item")
+          val technologytag = _read(dir.resolve("website.d/tags/technology/sie.html"))
+          technologytag should include("NICT KnowledgeHub")
+          technologytag should include("../../projects/technology/nict-knowledgehub/index.html")
+          val workflowtag = _read(dir.resolve("website.d/tags/workflow/review.html"))
+          workflowtag should include("NICT KnowledgeHub")
           runner.commands.count(_.take(2) == Vector("dox", "antora")) shouldBe 1
           runner.commands.count(_.take(2) == Vector("dox", "site")) shouldBe 1
           runner.commands.flatten should not contain ("https://sie.example.com/nict-knowledgehub/")
           runner.commands.flatten should not contain ("https://sie.example.com/nict-knowledgehub/metadata/cncf/knowledge-source.json")
+        }
+      }
+
+      "omit CML relation links when the Project has no model rows" in {
+        _with_temp_dir("cozy-bok-sie-project-empty-model") { dir =>
+          Given("an SIE-linked BoK Project whose CML metadata contains no model rows")
+          _write_sie_project_source(dir, "https://sie.example.com/nict-knowledgehub/")
+          _write(
+            dir.resolve("repository/catalog/car/nict-knowledgehub.model-metadata.json"),
+            """{
+              |  "source": {"path": "src/main/cozy/nict-knowledgehub.cml"},
+              |  "modelElements": []
+              |}
+              |""".stripMargin
+          )
+
+          When("Cozy builds the SIE-linked Project page")
+          CozyBok.build(
+            CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview", "--no-bib-service")),
+            new ProjectBuildRunner
+          )
+
+          Then("the SIE handoff remains visible without a broken CML section link")
+          val page = _read(dir.resolve("website.d/projects/technology/nict-knowledgehub/index.html"))
+          page should include("SIE linkage")
+          page should not include ("href=\"#project-model-terms\"")
+          page should not include ("id=\"project-model-terms\"")
+        }
+      }
+
+      "keep relation tag links inside each locale subtree" in {
+        _with_temp_dir("cozy-bok-sie-project-multi-locale") { dir =>
+          Given("an SIE-linked BoK Project published into Japanese and English locale subdirectories")
+          _write_sie_project_source(dir, "https://sie.example.com/nict-knowledgehub/")
+          _write(
+            dir.resolve("src/main/doxsite/site.conf"),
+            """site {
+              |  metadata {
+              |    in_language = ["ja", "en"]
+              |  }
+              |  output {
+              |    locale_mode = "multi_locale_subdirs"
+              |    default_locale = "ja"
+              |  }
+              |}
+              |""".stripMargin
+          )
+
+          When("Cozy builds each localized SIE Project page")
+          CozyBok.build(
+            CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview", "--no-bib-service")),
+            new ProjectBuildRunner
+          )
+
+          Then("tag links stay within the locale that owns the Project page")
+          Vector("ja", "en").foreach { locale =>
+            val page = _read(dir.resolve(s"website.d/${locale}/projects/technology/nict-knowledgehub/index.html"))
+            page should include("href=\"../../../tags/technology/sie.html\"")
+            page should include("href=\"../../../tags/workflow/review.html\"")
+            dir.resolve(s"website.d/${locale}/tags/technology/sie.html") should exist_path
+            dir.resolve(s"website.d/${locale}/tags/workflow/review.html") should exist_path
+          }
         }
       }
 
@@ -1947,6 +2024,69 @@ class CozyBokProjectSpec
           |""".stripMargin
       )
     _write(
+      dir.resolve("repository/catalog/car/nict-knowledgehub.model-metadata.json"),
+      """{
+        |  "source": {"path": "src/main/cozy/nict-knowledgehub.cml"},
+        |  "modelElements": [
+        |    {
+        |      "kind": "Entity",
+        |      "name": "KnowledgeItem",
+        |      "termId": "technology:knowledge-item",
+        |      "glossaryPath": "glossary/technology/knowledge-item.html",
+        |      "descriptive": {"label": "Knowledge Item", "summary": "Knowledge represented by SIE."}
+        |    }
+        |  ]
+        |}
+        |""".stripMargin
+    )
+    val termsjson =
+      """{
+        |  "terms": [
+        |    {
+        |      "id": "technology:knowledge-item",
+        |      "slug": "knowledge-item",
+        |      "title": "Knowledge Item",
+        |      "category": "technology",
+        |      "source_path": "glossary/technology/knowledge-item.dox",
+        |      "public_path": "glossary/technology/knowledge-item.html",
+        |      "definition_html": "<p>Knowledge represented by SIE.</p>",
+        |      "summary": "Glossary term linked to an SIE Project CML entity.",
+        |      "aliases": [],
+        |      "term_type": "concept",
+        |      "cml": [{"kind": "entity", "value": "KnowledgeItem"}],
+        |      "article_refs": [],
+        |      "term_refs": [],
+        |      "rdf_refs": [{"resource": "https://example.com/knowledge-item", "label": "Knowledge Item RDF", "predicate": "schema:about", "direction": "outgoing"}],
+        |      "video_refs": [],
+        |      "quality": {"isolated": false, "unreferenced": false, "weakly_connected": false},
+        |      "tags": ["sie"]
+        |    }
+        |  ]
+        |}
+        |""".stripMargin
+    _write(dir.resolve("src/main/doxsite/metadata/glossary/terms.json"), termsjson)
+    _write(dir.resolve("doxsite.d/metadata/glossary/terms.json"), termsjson)
+    _write(
+      dir.resolve("src/main/doxsite/scenario/technology/knowledge-review.md"),
+      """---
+        |title: Knowledge Review Scenario
+        |brief: Review an SIE knowledge item.
+        |scenario:
+        |  type: use-case
+        |  id: scenario:knowledge-review
+        |  terms:
+        |    - technology:knowledge-item
+        |tags:
+        |  - workflow.review
+        |status: published
+        |---
+        |
+        |# UseCase
+        |
+        |## Knowledge Review Scenario
+        |""".stripMargin
+    )
+    _write(
       dir.resolve("conf/cozy/config.yaml"),
       s"""bok:
          |  projects:
@@ -1972,6 +2112,15 @@ class CozyBokProjectSpec
          |  handoff_base: ${handoffbase}
          |title: NICT KnowledgeHub
          |version: 0.1.0
+         |summary: SIE-linked KnowledgeHub Project.
+         |terms:
+         |  - technology:knowledge-item
+         |tags:
+         |  - sie
+         |  - workflow.review
+         |cml:
+         |  glossary:
+         |    category: technology
          |article: index.dox
          |""".stripMargin
     )

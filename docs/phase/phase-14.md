@@ -54,7 +54,7 @@ Out of scope:
 - [x] BK14-01: Phase 14 documentation opened
 - [x] BK14-02: SIE responsibility boundary and integration contract
 - [x] BK14-03: BoK KnowledgeSource manifest output
-- [ ] BK14-04: SIE project metadata and publication registry integration
+- [x] BK14-04: SIE project metadata and publication registry integration
 - [ ] BK14-05: SIE CAR/SAR repository catalog integration
 - [ ] BK14-06: SIE runtime / launcher development configuration validation
 - [ ] BK14-07: SIE RDF and Information metadata handoff
@@ -121,6 +121,10 @@ Out of scope:
   metadata warns with `sie.project.component.unresolved` when the declared
   component is absent from the repository CAR catalog and does not expose
   private local SIE paths.
+- 2026-07-13: Completed BK14-04. SIE-linked Projects now reuse the generic
+  Project CML, glossary term, scenario, tag, and RDF relationships. Project
+  pages expose those relations without creating an SIE-specific knowledge
+  index; SIE-owned Information/RDF resources remain in BK14-07.
 
 ## References
 

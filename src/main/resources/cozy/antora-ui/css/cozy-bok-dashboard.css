@@ -3105,6 +3105,65 @@ body.bok-dashboard-theme-meadow .bok-purpose-vision-copy strong {
   color: #475569;
   line-height: 1.55;
 }
+.bok-project-sie-relations {
+  display: grid;
+  gap: .45rem;
+  padding: .85rem;
+  border: 1px solid rgba(14,116,144,.16);
+  border-radius: 16px;
+  background: linear-gradient(145deg, rgba(236,254,255,.74), rgba(248,250,252,.94));
+}
+.bok-project-sie-relations > h3,
+.bok-project-sie-relations > p,
+.bok-project-sie-relation h4,
+.bok-project-sie-relation ul {
+  margin: 0;
+}
+.bok-project-sie-relations > h3 {
+  color: #164e63;
+  font-size: 1rem;
+}
+.bok-project-sie-relations > p {
+  color: #475569;
+  font-size: .84rem;
+  line-height: 1.5;
+}
+.bok-project-sie-relation-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: .55rem;
+  margin-top: .25rem;
+}
+.bok-project-sie-relation {
+  min-width: 0;
+  padding: .68rem .72rem;
+  border: 1px solid rgba(148,163,184,.20);
+  border-radius: 12px;
+  background: rgba(255,255,255,.82);
+}
+.bok-project-sie-relation h4 {
+  margin-bottom: .38rem;
+  color: #334155;
+  font-size: .76rem;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+}
+.bok-project-sie-relation ul {
+  display: grid;
+  gap: .28rem;
+  padding: 0;
+  list-style: none;
+}
+.bok-project-sie-relation a {
+  overflow-wrap: anywhere;
+  color: #1d4ed8;
+  font-size: .82rem;
+  font-weight: 850;
+  text-decoration: none;
+}
+.bok-project-sie-relation a:hover {
+  text-decoration: underline;
+}
 .bok-project-component-tree {
   display: grid;
   gap: .75rem;

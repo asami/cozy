@@ -3246,7 +3246,7 @@ private[cozy] object CozyBok {
       val cmlbody = _project_model_terms_html(config, locale, project, page, target)
       val surfacebody = _project_component_surface_html(locale, project)
       val dashboardbody = _project_detail_dashboard(config, locale, project)
-      val siebody = _project_sie_handoff_html(locale, project)
+      val siebody = _project_sie_handoff_html(config, locale, project, page, target)
       val repositorybody = _project_repository_car_html(config, locale, project, page, target)
       val narrativebody = _project_narrative_html(locale, articlebody)
       val pagebody =
@@ -3275,14 +3275,18 @@ private[cozy] object CozyBok {
   }
 
   private def _project_sie_handoff_html(
+    config: BuildConfig,
     locale: String,
-    project: CozyBokProjectPublisher.ResolvedBokProject
+    project: CozyBokProjectPublisher.ResolvedBokProject,
+    page: Path,
+    target: Path
   ): String =
     project.sie.map { sie =>
       val componentrow = sie.component.map { component =>
         s"""  <dt>${_html_escape(_ui(locale, "project.label.sie.component"))}</dt><dd><code>${_html_escape(component)}</code></dd>
            |""".stripMargin
       }.getOrElse("")
+      val relations = _project_sie_relations_html(config, locale, project, page, target)
       s"""<section class="bok-project-section bok-project-sie" id="project-sie">
          |  <div class="bok-project-section-head">
          |    <h2>${_html_escape(_ui(locale, "project.section.sie"))}</h2>
@@ -3293,8 +3297,64 @@ private[cozy] object CozyBok {
          |${componentrow}    <dt>${_html_escape(_ui(locale, "project.label.sie.handoff"))}</dt><dd><a href="${_html_escape(sie.handoffbase)}">${_html_escape(sie.handoffbase)}</a></dd>
          |    <dt>${_html_escape(_ui(locale, "project.label.sie.manifest"))}</dt><dd><a href="${_html_escape(sie.manifest)}">${_html_escape(sie.manifest)}</a></dd>
          |  </dl>
+         |  ${relations}
          |</section>""".stripMargin
     }.getOrElse("")
+
+  private def _project_sie_relations_html(
+    config: BuildConfig,
+    locale: String,
+    project: CozyBokProjectPublisher.ResolvedBokProject,
+    page: Path,
+    target: Path
+  ): String = {
+    val terms = _terms(config)
+    val directterms = terms.filter(term => project.terms.exists(_term_reference_matches(_, term)))
+    val cmlrows = project.cml.toVector.flatMap(_project_cml_term_rows(locale, _, terms))
+    val cmlterms = cmlrows.flatMap(_.terms)
+    val relatedterms = (directterms ++ cmlterms).groupBy(_.id).values.map(_.head).toVector.sortBy(_.title)
+    val scenarios = _scenario_index(config).toVector.flatMap(_.scenarios).
+      filter(scenario => relatedterms.exists(scenario.isRelatedTo)).sortBy(_.title)
+    val termitems = relatedterms.map { term =>
+      val href = _relative_href(page, target.resolve(term.publicpath))
+      s"""<li><a href="${_html_escape(href)}">${_html_escape(term.title)}</a></li>"""
+    }.mkString
+    val scenarioitems = scenarios.map { scenario =>
+      val href = _relative_href(page, target.resolve(scenario.publicpath))
+      s"""<li><a href="${_html_escape(href)}">${_html_escape(scenario.title)}</a></li>"""
+    }.mkString
+    val rdfitems = relatedterms.filter(_.rdfRefs.nonEmpty).map { term =>
+      val href = s"${_relative_href(page, target.resolve("rdf/index.html"))}?term=${_url_query_escape(term.id)}"
+      s"""<li><a href="${_html_escape(href)}">${_html_escape(term.title)}</a></li>"""
+    }.mkString
+    val cmlitem =
+      if (cmlrows.nonEmpty)
+        s"""<li><a href="#project-model-terms">${_html_escape(_ui(locale, "project.section.model.terms"))}</a></li>"""
+      else
+        ""
+    val tagchips = _tag_chips(config, page, project.tags, Some(_project_category(config, project)), locale)
+    val groups = Vector(
+      _project_sie_relation_group(_ui(locale, "project.section.model.terms"), cmlitem),
+      _project_sie_relation_group(_ui(locale, "glossary.title"), termitems),
+      _project_sie_relation_group(_ui(locale, "term.related.scenarios"), scenarioitems),
+      if (tagchips.isEmpty) "" else s"""<div class="bok-project-sie-relation"><h4>${_html_escape(_ui(locale, "tag.title"))}</h4>${tagchips}</div>""",
+      _project_sie_relation_group(_ui(locale, "term.rdf.resources"), rdfitems)
+    ).filter(_.nonEmpty).mkString
+    if (groups.isEmpty)
+      ""
+    else
+      s"""<div class="bok-project-sie-relations">
+         |    <h3>${_html_escape(_ui(locale, "project.section.sie.relations"))}</h3>
+         |    <p>${_html_escape(_ui(locale, "project.section.sie.relations.description"))}</p>
+         |    <div class="bok-project-sie-relation-grid">${groups}</div>
+         |  </div>""".stripMargin
+  }
+
+  private def _project_sie_relation_group(title: String, items: String): String =
+    if (items.isEmpty)
+      ""
+    else
+      s"""<div class="bok-project-sie-relation"><h4>${_html_escape(title)}</h4><ul>${items}</ul></div>"""
 
   private def _resolved_project_packages(config: BuildConfig): Vector[CozyBokProjectPublisher.ResolvedBokProject] = {
     val bokconfig = _load_config(config.project)
@@ -7417,9 +7477,13 @@ private[cozy] object CozyBok {
     tags.map(tag => _tag_key(tag, ref.category)).filter(_.nonEmpty).distinct.map(_ -> ref)
 
   private def _tag_chips(config: BuildConfig, page: Path, tags: Vector[String], category: Option[String], locale: String): String = {
+    val target = config.localeMode match {
+      case LocaleMode.SingleLocaleRoot => config.websitePath
+      case LocaleMode.MultiLocaleSubdirs => config.websitePath.resolve(locale)
+    }
     val chips = tags.map(tag => _tag_key(tag, category)).filter(_.nonEmpty).distinct.map { key =>
       val entry = _tag_entry_from_usage(key, Vector.empty)
-      val href = _relative_href(page, config.websitePath.resolve(entry.publicpath))
+      val href = _relative_href(page, target.resolve(entry.publicpath))
       s"""<a class="bok-tag-chip" href="${_html_escape(href)}"><span>${_html_escape(entry.effectiveTitle)}</span></a>"""
     }
     if (chips.isEmpty)
