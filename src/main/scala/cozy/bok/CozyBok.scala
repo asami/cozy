@@ -3419,6 +3419,9 @@ private[cozy] object CozyBok {
   private final case class RepositoryCarDiagnostic(
     code: String,
     artifactid: String,
+    version: Option[String],
+    metadataname: Option[String],
+    metadataversion: Option[String],
     projectpath: Option[String],
     projecttitle: Option[String]
   ) {
@@ -3426,6 +3429,9 @@ private[cozy] object CozyBok {
       Json.obj(
         "code" -> Json.fromString(code),
         "artifact_id" -> Json.fromString(artifactid),
+        "version" -> version.asJson,
+        "metadata_name" -> metadataname.asJson,
+        "metadata_version" -> metadataversion.asJson,
         "project_path" -> projectpath.asJson,
         "project_title" -> projecttitle.asJson
       )
@@ -3489,7 +3495,8 @@ private[cozy] object CozyBok {
     runtimecncftested: Vector[String],
     checksumsha256: Option[String],
     componentdescriptor: Option[Json],
-    abimanifest: Option[Json]
+    abimanifest: Option[Json],
+    archiveavailable: Boolean
   ) {
     def toJson: Json =
       Json.obj(
@@ -3514,7 +3521,14 @@ private[cozy] object CozyBok {
 
   private final case class RepositoryCarArchiveMetadata(
     componentdescriptor: Option[Json],
-    abimanifest: Option[Json]
+    abimanifest: Option[Json],
+    available: Boolean
+  )
+
+  private final case class RepositoryCarMetadataCoordinate(
+    name: Option[String],
+    version: Option[String],
+    expectedname: String
   )
 
   private def _write_repository_car_metadata(config: BuildConfig): Unit = {
@@ -3602,7 +3616,10 @@ private[cozy] object CozyBok {
       if (_repository_car_related_projects(entry, projects).nonEmpty)
         None
       else
-        Some(RepositoryCarDiagnostic("catalog-without-project", entry.artifactid, None, None))
+        Some(RepositoryCarDiagnostic("catalog-without-project", entry.artifactid, None, None, None, None, None))
+    }
+    val archivemetadata = entries.flatMap { entry =>
+      entry.versions.flatMap(_repository_car_archive_diagnostics(entry.artifactid, _))
     }
     val projectdiagnostics = projects.flatMap { project =>
       if (entries.exists(entry => _repository_car_related_projects(entry, Vector(project)).nonEmpty))
@@ -3612,13 +3629,97 @@ private[cozy] object CozyBok {
           RepositoryCarDiagnostic(
             "project-without-catalog",
             project.module,
+            None,
+            None,
+            None,
             Some(_project_relative_path(config.project, project.descriptorfile)),
             Some(project.title)
           )
         )
     }
-    (catalogdiagnostics ++ projectdiagnostics).sortBy(x => (x.code, x.artifactid, x.projectpath.getOrElse("")))
+    (catalogdiagnostics ++ archivemetadata ++ projectdiagnostics).
+      sortBy(x => (x.code, x.artifactid, x.version.getOrElse(""), x.projectpath.getOrElse("")))
   }
+
+  private def _repository_car_archive_diagnostics(
+    artifactid: String,
+    version: RepositoryCarVersion
+  ): Vector[RepositoryCarDiagnostic] =
+    if (!version.archiveavailable)
+      Vector.empty
+    else {
+      def _diagnostic_(
+        code: String,
+        coordinate: Option[RepositoryCarMetadataCoordinate]
+      ): RepositoryCarDiagnostic =
+        RepositoryCarDiagnostic(
+          code,
+          artifactid,
+          Some(version.version),
+          coordinate.flatMap(_.name),
+          coordinate.flatMap(_.version),
+          None,
+          None
+        )
+      val componentdescriptor = version.componentdescriptor match {
+        case None => Vector(_diagnostic_("archive-without-component-descriptor", None))
+        case Some(json) =>
+          val coordinate = _repository_car_component_descriptor_coordinate(artifactid, version, json)
+          if (_repository_car_coordinate_mismatches(version.version, coordinate))
+            Vector(_diagnostic_("component-descriptor-coordinate-mismatch", coordinate))
+          else
+            Vector.empty
+      }
+      val abimanifest = version.abimanifest match {
+        case None => Vector(_diagnostic_("archive-without-abi-manifest", None))
+        case Some(json) =>
+          val coordinate = _repository_car_abi_manifest_coordinate(artifactid, json)
+          if (_repository_car_coordinate_mismatches(version.version, coordinate))
+            Vector(_diagnostic_("abi-manifest-coordinate-mismatch", coordinate))
+          else
+            Vector.empty
+      }
+      componentdescriptor ++ abimanifest
+    }
+
+  private def _repository_car_component_descriptor_coordinate(
+    artifactid: String,
+    catalogversion: RepositoryCarVersion,
+    json: Json
+  ): Option[RepositoryCarMetadataCoordinate] = {
+    val cursor = json.hcursor
+    val topname = cursor.get[String]("name").toOption
+    val componentname = cursor.downField("component").get[String]("name").toOption
+    val name = topname.orElse(componentname)
+    val version = cursor.get[String]("version").toOption.
+      orElse(cursor.downField("component").get[String]("version").toOption)
+    val expectedname = if (topname.isDefined) artifactid else catalogversion.component.getOrElse(artifactid)
+    if (name.isDefined || version.isDefined)
+      Some(RepositoryCarMetadataCoordinate(name, version, expectedname))
+    else
+      None
+  }
+
+  private def _repository_car_abi_manifest_coordinate(
+    artifactid: String,
+    json: Json
+  ): Option[RepositoryCarMetadataCoordinate] = {
+    val car = json.hcursor.downField("car")
+    val name = car.get[String]("name").toOption
+    val version = car.get[String]("version").toOption
+    if (name.isDefined || version.isDefined)
+      Some(RepositoryCarMetadataCoordinate(name, version, artifactid))
+    else
+      None
+  }
+
+  private def _repository_car_coordinate_mismatches(
+    version: String,
+    coordinate: Option[RepositoryCarMetadataCoordinate]
+  ): Boolean =
+    coordinate.exists { value =>
+      value.name.exists(_ != value.expectedname) || value.version.exists(_ != version)
+    }
 
   private def _repository_car_catalog_paths(config: BuildConfig): Vector[Path] = {
     val dir = config.publication.repositoryPath(config.project).resolve("catalog/car")
@@ -3793,7 +3894,8 @@ private[cozy] object CozyBok {
       runtimecncftested = version.runtime.map(_.tested).getOrElse(Vector.empty),
       checksumsha256 = version.checksumSha256,
       componentdescriptor = archive.componentdescriptor,
-      abimanifest = archive.abimanifest
+      abimanifest = archive.abimanifest,
+      archiveavailable = archive.available
     )
   }
 
@@ -3819,12 +3921,13 @@ private[cozy] object CozyBok {
           }
         RepositoryCarArchiveMetadata(
           _json_entry_("component-descriptor.json"),
-          _json_entry_("abi-manifest.json")
+          _json_entry_("abi-manifest.json"),
+          available = true
         )
       } finally {
         zip.close()
       }
-    }.getOrElse(RepositoryCarArchiveMetadata(None, None))
+    }.getOrElse(RepositoryCarArchiveMetadata(None, None, available = false))
 
   private def _repository_car_dashboard_body(
     config: BuildConfig,
@@ -3884,9 +3987,20 @@ private[cozy] object CozyBok {
       ""
     else {
       val items = diagnostics.map { diagnostic =>
-        val subject = diagnostic.projecttitle.getOrElse(diagnostic.artifactid)
-        val detail = diagnostic.projectpath.map(x => s" <code>${_html_escape(x)}</code>").getOrElse("")
-        s"""<li><strong>${_html_escape(subject)}</strong><span>${_html_escape(_repository_car_diagnostic_message(locale, diagnostic.code))}${detail}</span></li>"""
+        val subject = diagnostic.projecttitle.getOrElse(
+          diagnostic.version.map(x => s"${diagnostic.artifactid} ${x}").getOrElse(diagnostic.artifactid)
+        )
+        val coordinate =
+          if (diagnostic.metadataname.isDefined || diagnostic.metadataversion.isDefined)
+            Some(
+              s"${_repository_car_metadata_coordinate_label(locale)}: " +
+                Vector(diagnostic.metadataname, diagnostic.metadataversion).flatten.mkString(" ")
+            )
+          else
+            None
+        val details = Vector(diagnostic.projectpath, coordinate).flatten.
+          map(x => s" <code>${_html_escape(x)}</code>").mkString
+        s"""<li><strong>${_html_escape(subject)}</strong><span>${_html_escape(_repository_car_diagnostic_message(locale, diagnostic.code))}${details}</span></li>"""
       }.mkString("\n")
       val body =
         s"""<ul class="bok-repository-car-diagnostic-list">
@@ -4264,16 +4378,30 @@ private[cozy] object CozyBok {
 
   private def _repository_car_diagnostics_label(locale: String): String =
     locale match {
-      case "ja" => "Project/CAR接続診断"
-      case _ => "Project/CAR Connection Diagnostics"
+      case "ja" => "CARリポジトリ診断"
+      case _ => "CAR Repository Diagnostics"
+    }
+
+  private def _repository_car_metadata_coordinate_label(locale: String): String =
+    locale match {
+      case "ja" => "metadata座標"
+      case _ => "metadata coordinate"
     }
 
   private def _repository_car_diagnostic_message(locale: String, code: String): String =
     (locale, code) match {
       case ("ja", "catalog-without-project") => "公開CARに対応するProject定義がありません。"
       case ("ja", "project-without-catalog") => "Projectに対応する公開CAR catalogがありません。"
+      case ("ja", "archive-without-component-descriptor") => "CARにcomponent-descriptor.jsonがありません。"
+      case ("ja", "archive-without-abi-manifest") => "CARにabi-manifest.jsonがありません。"
+      case ("ja", "component-descriptor-coordinate-mismatch") => "component descriptorの座標がcatalogと一致しません。"
+      case ("ja", "abi-manifest-coordinate-mismatch") => "ABI manifestの座標がcatalogと一致しません。"
       case (_, "catalog-without-project") => "The published CAR has no related Project definition."
       case (_, "project-without-catalog") => "The Project has no corresponding published CAR catalog."
+      case (_, "archive-without-component-descriptor") => "The CAR does not contain component-descriptor.json."
+      case (_, "archive-without-abi-manifest") => "The CAR does not contain abi-manifest.json."
+      case (_, "component-descriptor-coordinate-mismatch") => "The component descriptor coordinate does not match the catalog."
+      case (_, "abi-manifest-coordinate-mismatch") => "The ABI manifest coordinate does not match the catalog."
       case _ => code
     }
 

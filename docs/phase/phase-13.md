@@ -136,6 +136,10 @@ Out of scope:
   Cozy reads top-level `component-descriptor.json` and `abi-manifest.json` from
   catalog-selected CAR artifacts, preserves their JSON in module metadata, and
   shows concise descriptor and ABI summaries on CAR module/version pages.
+- 2026-07-13: Added maintainer diagnostics for incomplete or inconsistent CAR
+  archives. Existing CAR files report missing descriptor/ABI entries and
+  catalog-coordinate mismatches, while catalog versions whose artifact is not
+  locally available remain outside archive-internal diagnostics.
 
 ## References
 

@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
 import java.util.zip.{ZipEntry, ZipOutputStream}
 import scala.collection.JavaConverters._
+import io.circe.parser
 import org.scalatest.GivenWhenThen
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -105,6 +106,86 @@ class CozyBokRepositoryCarSpec
         }
       }
     }
+    "diagnose CAR archive metadata" which {
+      "report missing and mismatched descriptor coordinates without rejecting the build" in {
+        _with_temp_dir("cozy-bok-repository-car-diagnostics") { dir =>
+          Given("a repository catalog with incomplete, mismatched, and unavailable CAR archives")
+          _write(
+            dir.resolve("src/main/doxsite/site.conf"),
+            "site { output { locale_mode = \"single_locale_root\" } }\n"
+          )
+          _write(dir.resolve("src/main/doxsite/index.dox"), "Home\n====\n")
+          _write(
+            dir.resolve("repository/catalog/car/sample-car.yaml"),
+            """schemaVersion: 1
+              |kind: car
+              |artifactId: sample-car
+              |recommended: 0.2.0
+              |versions:
+              |  - version: 0.1.0
+              |    file: repository/car/sample-car/0.1.0/sample-car-0.1.0.car
+              |  - version: 0.2.0
+              |    file: repository/car/sample-car/0.2.0/sample-car-0.2.0.car
+              |  - version: 0.3.0
+              |    component: SampleComponent
+              |    file: repository/car/sample-car/0.3.0/sample-car-0.3.0.car
+              |  - version: 0.4.0
+              |    file: repository/car/sample-car/0.4.0/sample-car-0.4.0.car
+              |""".stripMargin
+          )
+          _write_car_archive_entries(
+            dir.resolve("repository/car/sample-car/0.1.0/sample-car-0.1.0.car"),
+            None,
+            None
+          )
+          _write_car_archive_entries(
+            dir.resolve("repository/car/sample-car/0.2.0/sample-car-0.2.0.car"),
+            Some("""{"name":"other-car","version":"9.0.0","component":"Other"}"""),
+            Some("""{"car":{"name":"other-car","version":"9.0.0"},"abi":{"version":1,"exports":{}}}""")
+          )
+          _write_car_archive_entries(
+            dir.resolve("repository/car/sample-car/0.3.0/sample-car-0.3.0.car"),
+            Some("""{"component":{"name":"SampleComponent","version":"0.3.0","kind":"component"}}"""),
+            Some("""{"car":{"name":"sample-car","version":"0.3.0"},"abi":{"version":1,"exports":{}}}""")
+          )
+          val config = CozyBok.BuildConfig.create(
+            List(dir.toString, "--strategy", "preview", "--no-bib-service")
+          )
+
+          When("Cozy builds repository CAR knowledge")
+          CozyBok.build(config, new RepositoryCarBuildRunner)
+
+          Then("machine metadata distinguishes missing entries from coordinate mismatches")
+          val metadata = parser.parse(
+            _read(dir.resolve("doxsite.d/metadata/repository/car/index.json"))
+          ).fold(throw _, identity)
+          val diagnostics = metadata.hcursor.downField("diagnostics").as[Vector[io.circe.Json]].fold(throw _, identity)
+          val codes = diagnostics.map { diagnostic =>
+            val cursor = diagnostic.hcursor
+            (
+              cursor.get[String]("code").fold(throw _, identity),
+              cursor.get[Option[String]]("version").fold(throw _, identity)
+            )
+          }.toSet
+          codes should contain("archive-without-component-descriptor" -> Some("0.1.0"))
+          codes should contain("archive-without-abi-manifest" -> Some("0.1.0"))
+          codes should contain("component-descriptor-coordinate-mismatch" -> Some("0.2.0"))
+          codes should contain("abi-manifest-coordinate-mismatch" -> Some("0.2.0"))
+          codes should not contain ("component-descriptor-coordinate-mismatch" -> Some("0.3.0"))
+          codes should not contain ("archive-without-component-descriptor" -> Some("0.4.0"))
+          diagnostics.map(_.noSpaces).mkString should include("\"metadata_name\":\"other-car\"")
+          diagnostics.map(_.noSpaces).mkString should include("\"metadata_version\":\"9.0.0\"")
+
+          And("the maintainer diagnostic card explains the archive problems")
+          val page = _read(dir.resolve("website.d/repository/car/index.html"))
+          page should include("CARリポジトリ診断")
+          page should include("CARにcomponent-descriptor.jsonがありません。")
+          page should include("ABI manifestの座標がcatalogと一致しません。")
+          page should include("metadata座標")
+          page should include("data-bok-actors=\"contributor project_manager\"")
+        }
+      }
+    }
   }
 
   private class RepositoryCarBuildRunner extends CozyBok.Runner {
@@ -157,16 +238,9 @@ class CozyBokRepositoryCarSpec
     new String(Files.readAllBytes(path), StandardCharsets.UTF_8)
 
   private def _write_car_archive(path: Path): Path = {
-    Option(path.getParent).foreach(Files.createDirectories(_))
-    val zip = new ZipOutputStream(Files.newOutputStream(path))
-    try {
-      def _entry_(name: String, content: String): Unit = {
-        zip.putNextEntry(new ZipEntry(name))
-        zip.write(content.getBytes(StandardCharsets.UTF_8))
-        zip.closeEntry()
-      }
-      _entry_(
-        "component-descriptor.json",
+    _write_car_archive_entries(
+      path,
+      Some(
         """{
           |  "name": "textus-sie",
           |  "version": "0.1.0",
@@ -174,9 +248,8 @@ class CozyBokRepositoryCarSpec
           |  "entities": [{"entity": "KnowledgeItem"}]
           |}
           |""".stripMargin
-      )
-      _entry_(
-        "abi-manifest.json",
+      ),
+      Some(
         """{
           |  "format": "cozy.car.abi-manifest.v1",
           |  "car": {"name": "textus-sie", "version": "0.1.0"},
@@ -192,6 +265,24 @@ class CozyBokRepositoryCarSpec
           |}
           |""".stripMargin
       )
+    )
+  }
+
+  private def _write_car_archive_entries(
+    path: Path,
+    componentdescriptor: Option[String],
+    abimanifest: Option[String]
+  ): Path = {
+    Option(path.getParent).foreach(Files.createDirectories(_))
+    val zip = new ZipOutputStream(Files.newOutputStream(path))
+    try {
+      def _entry_(name: String, content: String): Unit = {
+        zip.putNextEntry(new ZipEntry(name))
+        zip.write(content.getBytes(StandardCharsets.UTF_8))
+        zip.closeEntry()
+      }
+      componentdescriptor.foreach(_entry_("component-descriptor.json", _))
+      abimanifest.foreach(_entry_("abi-manifest.json", _))
     } finally {
       zip.close()
     }

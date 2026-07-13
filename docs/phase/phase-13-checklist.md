@@ -177,6 +177,10 @@ Status: IN PROGRESS
 - [x] Diagnose catalog entries without Project links as unlinked published CARs.
 - [x] Diagnose Project CAR references without catalog entries as unpublished or
       unresolved CAR artifacts.
+- [x] Diagnose existing CAR archives without component descriptor or ABI
+      manifest metadata.
+- [x] Diagnose component descriptor and ABI manifest coordinates that differ
+      from the repository catalog coordinate.
 - [x] Keep CAR build and `publish-car` out of `bok build`; BoK build only
       consumes existing repository metadata.
 - [x] Add `CozyBokRepositoryCarSpec`.

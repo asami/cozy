@@ -1628,7 +1628,7 @@ class CozyBokProjectSpec
           index should include("nict-kh")
           index should include("repository/catalog/car/nict-knowledgehub.yaml")
           index should include("nict-knowledgehub/index.html")
-          index should include("Project/CAR接続診断")
+          index should include("CARリポジトリ診断")
           index should include("公開CARに対応するProject定義がありません。")
           index should include("Projectに対応する公開CAR catalogがありません。")
           index should include("Unpublished CAR Project")
