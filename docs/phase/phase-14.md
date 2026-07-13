@@ -52,7 +52,7 @@ Out of scope:
 ## Phase Items
 
 - [x] BK14-01: Phase 14 documentation opened
-- [ ] BK14-02: SIE responsibility boundary and integration contract
+- [x] BK14-02: SIE responsibility boundary and integration contract
 - [ ] BK14-03: BoK KnowledgeSource manifest output
 - [ ] BK14-04: SIE project metadata and publication registry integration
 - [ ] BK14-05: SIE CAR/SAR repository catalog integration
@@ -102,6 +102,10 @@ Out of scope:
   Component Repository CAR knowledge layer. BK14-02 is the first active design
   boundary; SIE-specific catalog and runtime behavior must reuse rather than
   duplicate the Phase 13 infrastructure.
+- 2026-07-13: Completed BK14-02 with a shared
+  `cncf.knowledge-source.v1` envelope for both BoK input and SIE projection
+  handoff. Cozy owns publication integration and diagnostics; SIE owns semantic
+  materialization. BK14-03 is the next implementation item.
 
 ## References
 
@@ -109,5 +113,6 @@ Out of scope:
 - `docs/phase/phase-14-checklist.md`
 - `docs/phase/phase-13.md`
 - `docs/journal/2026/06/bok-sie-integration-handoff-2026-06-28.md`
+- `docs/design/bok-sie-integration-contract.md`
 - `docs/design/bok-rdf-1-5-hop-schema.md`
 - `docs/notes/bok-rdf-1-5-hop-neighborhood.md`

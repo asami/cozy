@@ -14,23 +14,23 @@ Status: DONE
 
 ## BK14-02: SIE Responsibility Boundary And Integration Contract
 
-Status: TODO
+Status: DONE
 
-- [ ] Define SIE as `textus-semantic-integration-engine` in Cozy docs.
-- [ ] Record the SIE baseline commit for BoK KnowledgeSource ingestion:
+- [x] Define SIE as `textus-semantic-integration-engine` in Cozy docs.
+- [x] Record the SIE baseline commit for BoK KnowledgeSource ingestion:
       `64e035d Add BoK KnowledgeSource ingestion`.
-- [ ] Keep Cozy responsible for BoK publication integration, validation,
+- [x] Keep Cozy responsible for BoK publication integration, validation,
       diagnostics, and UI navigation.
-- [ ] Keep SIE responsible for semantic integration runtime behavior.
-- [ ] Keep SIE responsible for Information-schema materialization.
-- [ ] Keep SIE responsible for reading BoK metadata resources through the
+- [x] Keep SIE responsible for semantic integration runtime behavior.
+- [x] Keep SIE responsible for Information-schema materialization.
+- [x] Keep SIE responsible for reading BoK metadata resources through the
       BoK KnowledgeSource route.
-- [ ] Define the machine-readable metadata handoff Cozy consumes from SIE.
-- [ ] Define the machine-readable BoK KnowledgeSource manifest that Cozy emits
+- [x] Define the machine-readable metadata handoff Cozy consumes from SIE.
+- [x] Define the machine-readable BoK KnowledgeSource manifest that Cozy emits
       for SIE.
-- [ ] Define missing, stale, and incompatible SIE handoff diagnostics.
-- [ ] Record that Cozy must not silently regenerate SIE semantic outputs.
-- [ ] Record that SIE must not scrape rendered BoK HTML for this integration.
+- [x] Define missing, stale, and incompatible SIE handoff diagnostics.
+- [x] Record that Cozy must not silently regenerate SIE semantic outputs.
+- [x] Record that SIE must not scrape rendered BoK HTML for this integration.
 
 ## BK14-03: BoK KnowledgeSource Manifest Output
 
