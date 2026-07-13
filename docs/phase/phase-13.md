@@ -158,6 +158,10 @@ Out of scope:
   edges; Cozy tag pages link to `rdf/index.html?tag=<canonical-key>` and the RDF
   Information View combines tag filtering with its existing category and term
   filters. Modeling tags as RDF resources or predicates remains open.
+- 2026-07-13: Reconciled the Project tag checklist with the implemented
+  metadata consumer and executable specification. Project metadata contributes
+  canonical tag references, Project pages render tag links, and tag resource
+  pages group and link related Projects.
 
 ## References
 

@@ -58,7 +58,7 @@ Status: IN PROGRESS
 - [x] Read dedicated `metadata/tags/tags.json` when the SmartDox handoff exists.
 - [x] Fall back to usage-derived tags when `tags.json` is absent.
 - [x] Read Cozy-owned tags from scenario metadata.
-- [ ] Read Cozy-owned tags from project metadata.
+- [x] Read Cozy-owned tags from project metadata.
 - [x] Read bibliography tags from bibliography metadata.
 - [x] Read glossary term tags from `terms.json` when present.
 - [x] Preserve empty-tag fallback behavior.
@@ -76,7 +76,7 @@ Status: IN PROGRESS
 - [x] Show related articles.
 - [x] Show related terms.
 - [x] Show related scenarios.
-- [ ] Show related projects.
+- [x] Show related projects.
 - [x] Show related bibliography entries.
 - [ ] Show related RDF links.
 - [x] Keep page layout usable on desktop and mobile.
@@ -92,7 +92,7 @@ Status: IN PROGRESS
 - [ ] Add tags to article/dashboard pages when metadata exists.
 - [x] Add tags to Term Hub pages when metadata exists.
 - [x] Add tags to Scenario pages when metadata exists.
-- [ ] Add tags to Project pages when metadata exists.
+- [x] Add tags to Project pages when metadata exists.
 - [x] Add tags to Bibliography pages when metadata exists.
 - [ ] Avoid noisy empty sections when no tag metadata exists.
 
