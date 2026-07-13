@@ -83,7 +83,7 @@ Status: DONE
 
 ## BK13-06: Dashboard And Knowledge-Page Tag Links
 
-Status: IN PROGRESS
+Status: DONE
 
 - [x] Add compact tag summary to Home Dashboard.
 - [x] Add compact tag summary to Category Dashboard.
@@ -94,7 +94,7 @@ Status: IN PROGRESS
 - [x] Add tags to Scenario pages when metadata exists.
 - [x] Add tags to Project pages when metadata exists.
 - [x] Add tags to Bibliography pages when metadata exists.
-- [ ] Avoid noisy empty sections when no tag metadata exists.
+- [x] Avoid noisy empty sections when no tag metadata exists.
 
 ## BK13-07: RDF Tag Navigation
 

@@ -49,7 +49,7 @@ Out of scope:
 - [x] BK13-03: SmartDox tag metadata handoff
 - [x] BK13-04: Cozy tag index reader
 - [x] BK13-05: Tag dashboard and tag hub rendering
-- [ ] BK13-06: Dashboard and knowledge-page tag links
+- [x] BK13-06: Dashboard and knowledge-page tag links
 - [ ] BK13-07: RDF tag navigation
 - [ ] BK13-08: KnowledgeHub operational verification
 - [x] BK13-09: Tests and executable specs
@@ -167,6 +167,10 @@ Out of scope:
   pages link to RDF filtered views, and BK13-04, BK13-05, and BK13-09 now match
   their completed checklists. Empty-tag presentation and tag RDF resource
   modeling remain open in BK13-06 and BK13-07.
+- 2026-07-13: Completed BK13-06 by fixing the empty-tag presentation contract
+  in `CozyBokTagSpec`. Untagged articles remain unchanged, no empty tag chip
+  container or leaf page is generated, and the tag dashboard uses its explicit
+  empty state.
 
 ## References
 

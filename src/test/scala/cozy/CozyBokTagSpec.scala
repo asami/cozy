@@ -178,6 +178,32 @@ class CozyBokTagSpec
         }
       }
     }
+    "omit empty tag presentation when tag metadata is absent" which {
+      "preserve an untagged article without generating tag containers or leaf pages" in {
+        _with_temp_dir("cozy-bok-tags-empty") { dir =>
+          Given("SmartDox metadata contains an article fragment without tag metadata")
+          _write_minimal_source(dir)
+          val config = CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview"))
+
+          When("Cozy builds tag and article pages without tag metadata")
+          CozyBok.build(config, new NoTagMetadataRunner)
+
+          Then("the article remains available without an empty tag container")
+          val article = _read(dir.resolve("website.d/technology/review-article.html"))
+          article should include_html("Generated article body.")
+          article should not(include_html("bok-article-tag-chip-list"))
+          article should not(include_html("bok-article-tags"))
+
+          And("the tag dashboard reports its empty state without inventing a leaf page")
+          _read(dir.resolve("website.d/tags/index.html")) should include_html(
+            "No tag metadata yet."
+          )
+          Files.exists(
+            dir.resolve("website.d/tags/technology/review.html")
+          ) shouldBe false
+        }
+      }
+    }
   }
 
   private class TagMetadataRunner(writetagindex: Boolean = true) extends CozyBok.Runner {
@@ -193,6 +219,22 @@ class CozyBokTagSpec
         _write(cwd.resolve("website.d/tags/technology/review.html"), _tag_antora_html)
         _write(cwd.resolve("website.d/technology/review-article.html"), _article_antora_html)
         _write(cwd.resolve("website.d/glossary/technology/architecture-pattern.html"), _term_antora_html)
+        _write(cwd.resolve("doxsite.d/site.ttl"), "@prefix ex: <https://example.com/> .\n")
+        _write(cwd.resolve("doxsite.d/site.jsonld"), "{\"@graph\":[]}\n")
+      }
+  }
+
+  private class NoTagMetadataRunner extends CozyBok.Runner {
+    def run(command: Vector[String], cwd: Path): Unit =
+      if (command.take(2) == Vector("dox", "site")) {
+        _write(cwd.resolve("doxsite.d/metadata/dashboard/site.json"), _dashboard_json)
+        _write(cwd.resolve("doxsite.d/metadata/rdf/graph.json"), """{"nodes": [], "edges": [], "truncated": false}
+          |""".stripMargin)
+        _write(
+          cwd.resolve("doxsite.d/metadata/documents/fragments.json"),
+          _fragments_without_tags_json
+        )
+        _write(cwd.resolve("website.d/technology/review-article.html"), _article_antora_html)
         _write(cwd.resolve("doxsite.d/site.ttl"), "@prefix ex: <https://example.com/> .\n")
         _write(cwd.resolve("doxsite.d/site.jsonld"), "{\"@graph\":[]}\n")
       }
@@ -260,6 +302,23 @@ class CozyBokTagSpec
       |    "brief": "Tagged article.",
       |    "body_html": "<p>Tagged article.</p>",
       |    "tags": ["review"]
+      |  }]
+      |}
+      |""".stripMargin
+
+  private def _fragments_without_tags_json: String =
+    """{
+      |  "fragments": [{
+      |    "source_path": "technology/review-article.dox",
+      |    "public_path": "technology/review-article.html",
+      |    "locale": "en",
+      |    "kind": "article",
+      |    "category": "technology",
+      |    "title": "Review Article",
+      |    "headline": "Review Article",
+      |    "brief": "Untagged article.",
+      |    "body_html": "<p>Generated article body.</p>",
+      |    "tags": []
       |  }]
       |}
       |""".stripMargin
