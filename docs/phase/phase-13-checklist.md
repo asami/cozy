@@ -98,13 +98,13 @@ Status: IN PROGRESS
 
 ## BK13-07: RDF Tag Navigation
 
-Status: TODO
+Status: IN PROGRESS
 
-- [ ] Add tag filter or tag-neighborhood entry point to RDF Information View.
+- [x] Add tag filter or tag-neighborhood entry point to RDF Information View.
 - [ ] Define tag RDF node or relationship representation.
-- [ ] Link tag pages to RDF filtered views.
-- [ ] Ensure existing category and term RDF filters remain compatible.
-- [ ] Add executable specs for tag RDF navigation.
+- [x] Link tag pages to RDF filtered views.
+- [x] Ensure existing category and term RDF filters remain compatible.
+- [x] Add executable specs for tag RDF navigation.
 
 ## BK13-08: KnowledgeHub Operational Verification
 

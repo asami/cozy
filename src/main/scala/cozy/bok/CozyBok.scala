@@ -3212,6 +3212,7 @@ private[cozy] object CozyBok {
         val links =
           s"""<section class="bok-tag-detail-section bok-tag-detail-links" id="links">
              |  <h2>${_html_escape(_ui(locale, "tag.detail.links"))}</h2>
+             |  ${_tag_rdf_link(config, page, locale, tag)}
              |  ${_tag_refs_body(config, page, locale, tag.refs)}
              |</section>""".stripMargin
         _insert_before_article_end(withproperties, links)
@@ -5255,6 +5256,7 @@ private[cozy] object CozyBok {
        |  <div class="bok-rdf-filterbar">
        |    <label>${_html_escape(_ui(locale, "rdf.graph.category.filter"))}<input id="bok-rdf-category-filter" type="text" placeholder="category"></label>
        |    <label>${_html_escape(_ui(locale, "rdf.graph.term.filter"))}<input id="bok-rdf-term-filter" type="text" placeholder="term"></label>
+       |    <label>${_html_escape(_ui(locale, "tag.title"))}<input id="bok-rdf-tag-filter" type="text" placeholder="tag"></label>
        |    <span id="bok-rdf-viewer-status">${_html_escape(_ui(locale, "rdf.graph.loading"))}</span>
        |  </div>
        |  <div class="bok-rdf-panels">
@@ -5590,14 +5592,17 @@ private[cozy] object CozyBok {
        |  const nodeListTarget = document.getElementById('bok-rdf-node-list-view');
        |  const input = document.getElementById('bok-rdf-category-filter');
        |  const termInput = document.getElementById('bok-rdf-term-filter');
+       |  const tagInput = document.getElementById('bok-rdf-tag-filter');
        |  if (!root || !graphTarget || !graphStatus) return;
        |  const params = new URLSearchParams(window.location.search);
        |  const initialCategory = params.get('category') || '';
        |  const initialTerm = params.get('term') || '';
+       |  const initialTag = params.get('tag') || '';
        |  const initialNode = params.get('node') || '';
        |  let focusedNodeId = initialNode;
        |  if (input) input.value = initialCategory;
        |  if (termInput) termInput.value = initialTerm;
+       |  if (tagInput) tagInput.value = initialTag;
        |  function activate(view) {
        |    document.querySelectorAll('[data-rdf-view]').forEach(function(button) {
        |      button.classList.toggle('is-active', button.getAttribute('data-rdf-view') === view);
@@ -5612,6 +5617,9 @@ private[cozy] object CozyBok {
        |  });
        |  function hasTerm(item, term) {
        |    return !term || (item.terms || []).indexOf(term) >= 0;
+       |  }
+       |  function hasTag(item, tag) {
+       |    return !tag || (item.tags || []).indexOf(tag) >= 0;
        |  }
        |  function termLabel(termIndex, term) {
        |    const item = termIndex[term];
@@ -5653,7 +5661,7 @@ private[cozy] object CozyBok {
        |  function nodeCmlLinkValues(node) {
        |    return uniqueStrings(nodeTerms(node).map(termCmlLinks));
        |  }
-       |  function renderGraph(data, category, term, termIndex) {
+       |  function renderGraph(data, category, term, tag, termIndex) {
     const allNodes = (data.nodes || []).slice().sort(function(a, b) {
       const degree = (b.degree || 0) - (a.degree || 0);
       return degree !== 0 ? degree : String(a.id || '').localeCompare(String(b.id || ''));
@@ -5665,14 +5673,17 @@ private[cozy] object CozyBok {
     });
     const categoryNodeIds = new Set();
     const termNodeIds = new Set();
+    const tagNodeIds = new Set();
     allNodes.forEach(function(node) {
       if (category && node.category === category) categoryNodeIds.add(node.id);
       if (term && hasTerm(node, term)) termNodeIds.add(node.id);
+      if (tag && hasTag(node, tag)) tagNodeIds.add(node.id);
     });
     const matchingEdges = allEdges.filter(function(edge) {
       const matchesCategory = !category || edge.category === category || categoryNodeIds.has(edge.source) || categoryNodeIds.has(edge.target);
       const matchesTerm = !term || hasTerm(edge, term) || termNodeIds.has(edge.source) || termNodeIds.has(edge.target);
-      return matchesCategory && matchesTerm;
+      const matchesTag = !tag || hasTag(edge, tag) || tagNodeIds.has(edge.source) || tagNodeIds.has(edge.target);
+      return matchesCategory && matchesTerm && matchesTag;
     });
     const edgeNodeIds = new Set();
     matchingEdges.forEach(function(edge) {
@@ -5682,7 +5693,8 @@ private[cozy] object CozyBok {
     const matchingNodes = allNodes.filter(function(node) {
       const matchesCategory = !category || node.category === category || edgeNodeIds.has(node.id);
       const matchesTerm = !term || hasTerm(node, term) || edgeNodeIds.has(node.id);
-      return matchesCategory && matchesTerm;
+      const matchesTag = !tag || hasTag(node, tag) || edgeNodeIds.has(node.id);
+      return matchesCategory && matchesTerm && matchesTag;
     }).slice(0, 120);
     const nodeIds = new Set(matchingNodes.map(function(node) { return node.id; }));
     const edges = matchingEdges.filter(function(edge) {
@@ -5704,6 +5716,7 @@ private[cozy] object CozyBok {
         '<span><b>' + visibleEdges.length + '</b>edges</span>' +
         '<span><b>' + escapeHtml(category || 'all') + '</b>category</span>' +
         '<span><b>' + escapeHtml(term ? termLabel(termIndex, term) : 'all') + '</b>term</span>' +
+        '<span><b>' + escapeHtml(tag || 'all') + '</b>tag</span>' +
       '</div>' +
       '<div class="bok-rdf-focus-bar">' +
         (focus ? '<span>${_javascript_string(_ui(locale, "rdf.graph.focus.node"))}: <b>' + escapeHtml(compactRdfLabel(focus)) + '</b></span><button type="button" data-rdf-clear-focus="true">${_javascript_string(_ui(locale, "rdf.graph.focus.clear"))}</button>' : '<span>${_javascript_string(_ui(locale, "rdf.graph.focus.help"))}</span>') +
@@ -5718,7 +5731,7 @@ private[cozy] object CozyBok {
       return;
     }
     const clearButton = graphTarget.querySelector('[data-rdf-clear-focus]');
-    if (clearButton) clearButton.addEventListener('click', function() { focusedNodeId = null; renderGraph(data, category, term, termIndex); });
+    if (clearButton) clearButton.addEventListener('click', function() { focusedNodeId = null; renderGraph(data, category, term, tag, termIndex); });
     graphTarget.querySelectorAll('[data-rdf-focus-node]').forEach(function(button) {
       button.addEventListener('click', function() {
         const node = visibleNodes.filter(function(item) { return item.id === button.getAttribute('data-rdf-focus-node'); })[0];
@@ -6225,7 +6238,7 @@ private[cozy] object CozyBok {
     const focusButton = panel.querySelector('[data-rdf-neighborhood]');
     if (focusButton) focusButton.addEventListener('click', function() {
       focusedNodeId = node.id;
-      renderGraph(window.__bokRdfGraphData, input ? input.value.trim() : '', termInput ? termInput.value.trim() : '', window.__bokRdfTermIndex || {});
+      renderGraph(window.__bokRdfGraphData, input ? input.value.trim() : '', termInput ? termInput.value.trim() : '', tagInput ? tagInput.value.trim() : '', window.__bokRdfTermIndex || {});
     });
   }
   function renderGraphSvg(canvas, nodes, edges, roles, focus) {
@@ -6389,10 +6402,11 @@ private[cozy] object CozyBok {
        |    window.__bokRdfTermIndex = termIndex;
        |    window.__bokRdfPredicateProfile = activePredicateProfile(data);
        |    window.__bokRdfInformationView = activeInformationView(data);
-       |    renderGraph(data, initialCategory, initialTerm, termIndex);
-       |    function refresh() { focusedNodeId = null; renderGraph(data, input ? input.value.trim() : '', termInput ? termInput.value.trim() : '', termIndex); }
+       |    renderGraph(data, initialCategory, initialTerm, initialTag, termIndex);
+       |    function refresh() { focusedNodeId = null; renderGraph(data, input ? input.value.trim() : '', termInput ? termInput.value.trim() : '', tagInput ? tagInput.value.trim() : '', termIndex); }
        |    if (input) input.addEventListener('input', refresh);
        |    if (termInput) termInput.addEventListener('input', refresh);
+       |    if (tagInput) tagInput.addEventListener('input', refresh);
        |  }).catch(function() {
        |    graphStatus.textContent = '${_javascript_string(_ui(locale, "rdf.graph.metadata.missing"))}';
        |    graphTarget.innerHTML = '<div class="bok-rdf-empty">${_javascript_string(_ui(locale, "rdf.graph.metadata.missing"))}</div>';
@@ -7572,6 +7586,7 @@ private[cozy] object CozyBok {
        |        </section>
        |        <section class="bok-tag-detail-section bok-tag-detail-links" id="links">
        |          <h2>${_html_escape(_ui(locale, "tag.detail.links"))}</h2>
+       |          ${_tag_rdf_link(config, page, locale, tag)}
        |          ${_tag_refs_body(config, page, locale, tag.refs)}
        |        </section>
        |      </article>
@@ -7602,6 +7617,11 @@ private[cozy] object CozyBok {
        |    <tr><th>${_html_escape(_ui(locale, "tag.detail.fqn"))}</th><td><code>${_html_escape(tag.key)}</code></td></tr>
        |  </tbody>
        |</table>""".stripMargin
+
+  private def _tag_rdf_link(config: BuildConfig, page: Path, locale: String, tag: TagEntry): String = {
+    val href = s"${_relative_href(page, config.websitePath.resolve("rdf/index.html"))}?tag=${_url_query_escape(tag.key)}"
+    s"""<p class="bok-tag-rdf-link"><a href="${_html_escape(href)}">${_html_escape(_ui(locale, "rdf.graph.title"))}</a></p>"""
+  }
 
   private def _tag_display_title(tag: TagEntry): String =
     tag.label.trim match {

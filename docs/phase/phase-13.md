@@ -153,6 +153,11 @@ Out of scope:
   repository CAR resources. SmartDox tag definitions and Cozy-owned CAR tags
   merge on the canonical tag page, which groups the CAR resource and links to
   its repository module page.
+- 2026-07-13: Added RDF tag navigation handoff. SmartDox graph metadata now
+  carries canonical tags on source-backed RDF nodes and propagates them to
+  edges; Cozy tag pages link to `rdf/index.html?tag=<canonical-key>` and the RDF
+  Information View combines tag filtering with its existing category and term
+  filters. Modeling tags as RDF resources or predicates remains open.
 
 ## References
 

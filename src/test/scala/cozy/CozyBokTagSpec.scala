@@ -111,6 +111,9 @@ class CozyBokTagSpec
           review should include_html(
             "href=\"../../repository/car/review-runtime/index.html\""
           )
+          review should include_html(
+            "href=\"../../rdf/index.html?tag=technology.review\""
+          )
           review should not(include_html("bok-dashboard-shell"))
           val workflowreview = _read(dir.resolve("website.d/tags/workflow/review.html"))
           workflowreview should include_html("""<h1 class="page">review</h1>""")
@@ -123,6 +126,14 @@ class CozyBokTagSpec
           termpage should include_html("Antora term article.")
           termpage should include_html("knowledge.graph")
           termpage should not(include_html("bok-term-hub"))
+
+          And("tag pages connect to RDF graph metadata through the canonical tag filter")
+          val rdf = _read(dir.resolve("website.d/rdf/index.html"))
+          rdf should include_html("bok-rdf-tag-filter")
+          rdf should include_html("params.get('tag')")
+          rdf should include_html("function hasTag(item, tag)")
+          rdf should include_html("hasTag(edge, tag)")
+          rdf should include_html("hasTag(node, tag)")
 
           And("Home and Category dashboards expose the tag navigation entry point")
           _read(dir.resolve("website.d/index.html")) should include_html("href=\"tags/index.html\"")
@@ -224,7 +235,16 @@ class CozyBokTagSpec
       |""".stripMargin
 
   private def _rdf_graph_json: String =
-    """{"nodes": [], "edges": []}
+    """{
+      |  "nodes": [
+      |    {"id": "https://www.simplemodeling.org/technology/review-article", "label": "Review Article", "node_type": "uri", "category": "technology", "degree": 1, "terms": [], "tags": ["technology.review"]},
+      |    {"id": "https://example.com/review", "label": "review", "node_type": "uri", "category": "technology", "degree": 1, "terms": [], "tags": ["technology.review"]}
+      |  ],
+      |  "edges": [
+      |    {"source": "https://www.simplemodeling.org/technology/review-article", "target": "https://example.com/review", "predicate": "https://schema.org/about", "label": "about", "category": "technology", "terms": [], "tags": ["technology.review"]}
+      |  ],
+      |  "truncated": false
+      |}
       |""".stripMargin
 
   private def _fragments_json: String =
