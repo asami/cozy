@@ -51,7 +51,7 @@ Status: DONE
 
 ## BK13-04: Cozy Tag Index Reader
 
-Status: IN PROGRESS
+Status: DONE
 
 - [x] Add Cozy tag metadata model.
 - [x] Read document tags from SmartDox metadata.
@@ -66,7 +66,7 @@ Status: IN PROGRESS
 
 ## BK13-05: Tag Dashboard And Tag Hub Rendering
 
-Status: IN PROGRESS
+Status: DONE
 
 - [x] Generate `tags/index.html`.
 - [x] Generate `tags/<tag>.html`.
@@ -78,7 +78,7 @@ Status: IN PROGRESS
 - [x] Show related scenarios.
 - [x] Show related projects.
 - [x] Show related bibliography entries.
-- [ ] Show related RDF links.
+- [x] Show related RDF links.
 - [x] Keep page layout usable on desktop and mobile.
 
 ## BK13-06: Dashboard And Knowledge-Page Tag Links
@@ -89,7 +89,7 @@ Status: IN PROGRESS
 - [x] Add compact tag summary to Category Dashboard.
 - [x] Add tag marks / tag chips to Cozy-owned knowledge page headers when
       metadata exists.
-- [ ] Add tags to article/dashboard pages when metadata exists.
+- [x] Add tags to article pages when metadata exists.
 - [x] Add tags to Term Hub pages when metadata exists.
 - [x] Add tags to Scenario pages when metadata exists.
 - [x] Add tags to Project pages when metadata exists.
@@ -126,7 +126,7 @@ Status: TODO
 
 ## BK13-09: Tests And Executable Specs
 
-Status: TODO
+Status: DONE
 
 - [x] Add focused Cozy tag specs.
 - [x] Add SmartDox specs if SmartDox metadata changes.
