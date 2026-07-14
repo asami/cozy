@@ -50,10 +50,6 @@ Returns a greeting for the supplied name.
 
 QUERY
 
-##### SUMMARY
-
-Return a greeting.
-
 ##### DESCRIPTION
 
 Returns a greeting message for the supplied name.

@@ -140,7 +140,8 @@ private[cozy] object CozyScaffold {
     domain: String,
     gitignore: Boolean,
     readme: Boolean,
-    tests: Boolean
+    tests: Boolean,
+    mcpReadyService: Boolean = false
   ) {
     def componentClassStem: String = componentName
     def serviceClassStem: String = serviceName
@@ -192,7 +193,7 @@ private[cozy] object CozyScaffold {
       "bounded-context",
       "domain"
     )
-    private val _switch_options = Set("gitignore", "readme", "tests")
+    private val _switch_options = Set("gitignore", "readme", "tests", "mcp-ready-service")
 
     def isFlagOption(p: String): Boolean =
       _value_options.exists(x => p == s"--${x}")
@@ -236,7 +237,8 @@ private[cozy] object CozyScaffold {
         _option(args, "domain").getOrElse("default"),
         args.contains("--gitignore"),
         args.contains("--readme"),
-        args.contains("--tests")
+        args.contains("--tests"),
+        args.contains("--mcp-ready-service")
       )
     }
 
@@ -358,7 +360,8 @@ private[cozy] object CozyScaffold {
         domain,
         args.contains("--gitignore") || config.boolean("project.scaffold.gitignore").getOrElse(false),
         args.contains("--readme") || config.boolean("project.scaffold.readme").getOrElse(false),
-        args.contains("--tests") || config.boolean("project.scaffold.tests").getOrElse(false)
+        args.contains("--tests") || config.boolean("project.scaffold.tests").getOrElse(false),
+        args.contains("--mcp-ready-service") || config.boolean("cml.service.mcpReady").getOrElse(false)
       )
       ComponentInitConfig(save, style, scaffold, displayname)
     }
@@ -884,6 +887,8 @@ private[cozy] object CozyScaffold {
     val service = scaffold.serviceClassStem
     val command = scaffold.commandOperationClassStem
     val query = scaffold.queryOperationClassStem
+    val mcpreadyservices =
+      if (scaffold.mcpReadyService) s"Set(${_scala_string(service)})" else "Set.empty"
     s"""package ${scaffold.packageName}.impl
       |
       |import ${scaffold.packageName}.${component}Component
@@ -918,7 +923,10 @@ private[cozy] object CozyScaffold {
       |  override val entity: ${component}Component.EntityServiceFactory = DefaultEntityServiceFactory()
       |}
       |
-      |final class ${component}PrimaryComponent extends ${component}Component
+      |final class ${component}PrimaryComponent extends ${component}Component {
+      |  override def mcpReadyServices: Set[String] =
+      |    ${mcpreadyservices}
+      |}
       |
       |object ${component}PrimaryFactory extends ${component}ParticipantFactoryBase with Component.PrimaryComponentFactory {
       |  override protected def create_Component(params: ComponentCreate): Component =
@@ -970,6 +978,9 @@ private[cozy] object CozyScaffold {
       |}
       |""".stripMargin
   }
+
+  private def _scala_string(value: String): String =
+    "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 
   private[cozy] def carGitignore(): String =
     """target/
@@ -1520,7 +1531,7 @@ private[cozy] object CozyScaffold {
       |  version, --version
       |      Show the Cozy runtime version and exit.
       |
-      |  init component --save <dir> [--config <file>] [--name <artifact>] [--component-name <name>] [--service-name <name>] [--entity <name>] [--command-operation <name>] [--query-operation <name>] [--display-name <title>] [--organization <organization>] [--package <package>] [--version <version>] [--kind car|car-sar] [--bounded-context <name>] [--domain <name>] [--gitignore] [--readme] [--tests] [--no-project-files] [--overwrite-project-files]
+      |  init component --save <dir> [--config <file>] [--name <artifact>] [--component-name <name>] [--service-name <name>] [--entity <name>] [--command-operation <name>] [--query-operation <name>] [--display-name <title>] [--organization <organization>] [--package <package>] [--version <version>] [--kind car|car-sar] [--bounded-context <name>] [--domain <name>] [--gitignore] [--readme] [--tests] [--mcp-ready-service] [--no-project-files] [--overwrite-project-files]
       |    config keys: project.name, project.organization, project.component.*, project.component.config.*, project.scaffold.*, cml.package, cml.component.name, cml.service.name, cml.entity.name, cml.operation.command, cml.operation.query
       |      Initialize a component project scaffold. Config-file values are read first; CLI options override them.
       |

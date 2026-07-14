@@ -49,7 +49,7 @@ import scala.collection.mutable
  *  version Feb. 27, 2026
  *  version Mar. 31, 2026
  *  version May. 24, 2026
- * @version Jul. 13, 2026
+ * @version Jul. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
@@ -1984,7 +1984,7 @@ object Modeler {
         Some(OperationModel.NormalizedOperationDefinition(
           name = p.name,
           kind = kind,
-          summary = p.summary,
+          summary = p.summary.orElse(p.description),
           execution = p.execution,
           implementation = p.implementation,
           entityName = p.entityName,

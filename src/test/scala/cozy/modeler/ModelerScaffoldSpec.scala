@@ -608,7 +608,8 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         "--display-name", "Textus Art Scene",
         "--organization", "org.textus",
         "--package", "org.simplemodeling.textus.artscene",
-        "--version", "0.1.0-SNAPSHOT"
+        "--version", "0.1.0-SNAPSHOT",
+        "--mcp-ready-service"
         ))
 
         val modelcontent = Files.readString(out.resolve("src/main/cozy/textus-art-scene.cml"))
@@ -629,6 +630,8 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         modelcontent should include ("## ListCandidatesResult")
         modelcontent should include ("OperationResult")
         factorycontent should include ("override val ExhibitionCandidate: ArtSceneComponent.ExhibitionCandidateServiceFactory")
+        factorycontent should include ("override def mcpReadyServices: Set[String]")
+        factorycontent should include ("Set(\"ExhibitionCandidate\")")
         factorycontent should include ("final class DefaultExhibitionCandidateServiceFactory")
         factorycontent should include ("override def createRegisterFacilityActionCall")
         factorycontent should include ("override def createListCandidatesActionCall")

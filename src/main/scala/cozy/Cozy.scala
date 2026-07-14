@@ -877,7 +877,8 @@ object Cozy {
         domain,
         gitignore,
         readme,
-        tests
+        tests,
+        false
       )
 
     def apply(
@@ -910,10 +911,11 @@ object Cozy {
         domain,
         gitignore,
         readme,
-        tests
+        tests,
+        false
       )
 
-    def unapply(value: CarScaffoldConfig): Option[(String, String, String, String, String, String, String, String, String, String, String, Boolean, Boolean, Boolean)] =
+    def unapply(value: CarScaffoldConfig): Option[(String, String, String, String, String, String, String, String, String, String, String, Boolean, Boolean, Boolean, Boolean)] =
       CozyScaffold.CarScaffoldConfig.unapply(value)
 
     def isFlagOption(p: String): Boolean =

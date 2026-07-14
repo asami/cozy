@@ -14,7 +14,7 @@ import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 
 /*
  * @since   Jun. 23, 2026
- * @version Jun. 23, 2026
+ * @version Jul. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerServiceOperationSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -661,7 +661,7 @@ class ModelerServiceOperationSpec extends AnyWordSpec with Matchers with GivenWh
         Then("the operation contract is accepted or rejected according to the specification")
         content should include ("""name = "greeting"""")
         content should include ("""kind = "QUERY"""")
-        content should include ("""summary = Some("Return a greeting.")""")
+        content should include ("""summary = Some("Returns a greeting message for the supplied name.")""")
         content should include ("""entityName = Some("Person")""")
         content should include ("""visibility = Some("public")""")
         content should include ("""inputType = "GreetingQuery"""")
