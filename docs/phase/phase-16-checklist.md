@@ -126,6 +126,9 @@ Status: OPEN
       other opaque text values.
 - [ ] Add executable specifications for classification diagnostics, predefined
       text types, boundary lengths, and invalid text values.
+- [x] Replace the pending `TextSpec` coverage with executable current-runtime
+      boundary, invalid-control-character, and value-preservation
+      specifications; keep canonical CML `text` classification open.
 - [x] Replace the pending `I18nTitleSpec` coverage with executable single-locale
       construction, multi-locale codec, locale fallback, and preservation
       specifications.

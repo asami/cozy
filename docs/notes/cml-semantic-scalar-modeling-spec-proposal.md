@@ -80,6 +80,13 @@ This is intentionally asymmetric. CML does not need a scalar and I18N version
 of every semantic text type. The type's domain meaning determines whether it is
 localized.
 
+The current `Text` runtime is a separate observed baseline, not yet the
+accepted CML `text` contract. It is nonlocalized, accepts Scala string lengths
+from 0 through 8192, preserves printable source text, and rejects control
+characters such as newline. That last rule means Phase 16 must not assume the
+existing runtime type is already suitable for narrative or multiline body
+text.
+
 Consequently, model authors normally select meaning (`title`, `label`,
 `description`, `message`, or another accepted display-text type), not storage
 cardinality. The generator supplies the locale-aware structure. Explicit

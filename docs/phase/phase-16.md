@@ -258,6 +258,10 @@ Current evidence:
   of every stored locale entry as executable baseline behavior;
 - `simplemodeling-lib` `NameSpec` now fixes the nonlocalized generic name
   range at 1 through 256 characters and its validation failure boundary;
+- `simplemodeling-lib` `TextSpec` now fixes the current nonlocalized runtime
+  range at 0 through 8192 Scala string length units, exact printable-value
+  preservation, and rejection of newline/control-character input; this is
+  evidence for the catalog audit, not yet the accepted CML `text` contract;
 - existing dirty work in both driver repositories remains untouched while the
   Cozy-side contract is being established.
 
