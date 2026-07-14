@@ -192,7 +192,7 @@ Verification evidence:
 
 Stage Status:
 
-- Current status: OPEN
+- Current status: IN PROGRESS
 - Owner: cozy-modeler and cncf-runtime
 - Checklist basis: `CML16-06`
 - Update rule: update when `CML16-06` catalog ownership or implementation
@@ -203,6 +203,14 @@ Focus:
 - establish the CNCF-owned predefined Result catalog;
 - add Cozy type resolution and metadata projection;
 - verify `UnitResult` and `IntResult` end to end.
+
+Current evidence:
+
+- CNCF owns `OperationResult`, `UnitResult`, and `IntResult` runtime classes;
+- CNCF `PredefinedResultCatalog` fixes the initial exact, case-sensitive
+  catalog and `IntResult.value: int` payload schema;
+- Cozy catalog transport, selected-runtime resolution, validation, and metadata
+  projection remain open.
 
 ## Stage 16.5: Semantic Scalar and Text Range Modeling
 
