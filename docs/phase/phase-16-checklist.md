@@ -103,7 +103,7 @@ Status: OPEN
 - [x] Establish natural I18N as the modeling goal: ordinary user-visible
       semantic text becomes locale-aware without hand-built locale containers,
       while technical identity text remains explicitly nonlocalized.
-- [ ] Fix `title` as one locale-aware type that accepts both one locale entry
+- [x] Fix `title` as one locale-aware type that accepts both one locale entry
       and multiple locale entries; do not introduce separate scalar-title and
       I18N-title concepts.
 - [ ] Audit `string`, `text`, label, description, message, and related families
@@ -126,7 +126,7 @@ Status: OPEN
       other opaque text values.
 - [ ] Add executable specifications for classification diagnostics, predefined
       text types, boundary lengths, and invalid text values.
-- [ ] Replace the pending `I18nTitleSpec` coverage with executable single-locale
+- [x] Replace the pending `I18nTitleSpec` coverage with executable single-locale
       construction, multi-locale codec, locale fallback, and preservation
       specifications.
 

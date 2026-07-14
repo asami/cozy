@@ -126,6 +126,11 @@ wraps `I18nString`, whose non-empty entry vector represents both cardinalities:
 - display lookup chooses an effective entry without changing the stored entry
   vector.
 
+These baseline behaviors are executable in `simplemodeling-lib`
+`I18nTitleSpec`: plain construction keeps one locale entry, structured codec
+round-trips every locale entry, and display fallback does not mutate the
+stored multilingual value.
+
 Phase 16 must decide which remaining families are canonical CML types and which
 are framework metadata concepts before changing driver source.
 

@@ -253,6 +253,9 @@ Current evidence:
 - every item has a provisional structural category, localization direction,
   and confirmed-or-domain-decision state in
   `docs/notes/cml-semantic-scalar-driver-inventory.md`;
+- `simplemodeling-lib` `I18nTitleSpec` now fixes single-locale construction,
+  multi-locale codec round-trip, effective locale fallback, and preservation
+  of every stored locale entry as executable baseline behavior;
 - existing dirty work in both driver repositories remains untouched while the
   Cozy-side contract is being established.
 
