@@ -262,6 +262,9 @@ Current evidence:
   range at 0 through 8192 Scala string length units, exact printable-value
   preservation, and rejection of newline/control-character input; this is
   evidence for the catalog audit, not yet the accepted CML `text` contract;
+- `simplemodeling-lib` `I18nStringSpec` now fixes execution-locale binding for
+  plain input, ordered multi-locale JSON round-trip, non-destructive effective
+  fallback, and escaped leading-brace input as the shared I18N codec baseline;
 - existing dirty work in both driver repositories remains untouched while the
   Cozy-side contract is being established.
 

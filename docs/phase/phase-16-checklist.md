@@ -129,6 +129,9 @@ Status: OPEN
 - [x] Replace the pending `TextSpec` coverage with executable current-runtime
       boundary, invalid-control-character, and value-preservation
       specifications; keep canonical CML `text` classification open.
+- [x] Replace the pending `I18nStringSpec` coverage with executable plain
+      locale binding, structured round-trip, effective fallback, and escaped
+      leading-brace specifications.
 - [x] Replace the pending `I18nTitleSpec` coverage with executable single-locale
       construction, multi-locale codec, locale fallback, and preservation
       specifications.

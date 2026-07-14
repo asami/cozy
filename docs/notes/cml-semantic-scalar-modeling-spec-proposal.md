@@ -143,6 +143,12 @@ These baseline behaviors are executable in `simplemodeling-lib`
 round-trips every locale entry, and display fallback does not mutate the
 stored multilingual value.
 
+The underlying `I18nStringSpec` fixes the shared codec boundary independently
+of `title`: plain decoding creates one execution-locale entry, structured JSON
+preserves all ordered locale/value entries, display fallback leaves storage
+unchanged, and a leading brace in plain text is escaped rather than parsed as
+JSON. Duplicate-locale acceptance and normalization remain catalog decisions.
+
 Phase 16 must decide which remaining families are canonical CML types and which
 are framework metadata concepts before changing driver source.
 
