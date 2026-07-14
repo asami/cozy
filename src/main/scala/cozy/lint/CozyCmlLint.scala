@@ -1,13 +1,13 @@
 package cozy.lint
 
 import org.goldenport.RAISE
-import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 import scala.collection.JavaConverters._
+import cozy.modeler.CmlModelInspection
 
 /*
  * @since   Jul.  6, 2026
- * @version Jul.  6, 2026
+ * @version Jul. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyCmlLint {
@@ -31,21 +31,6 @@ private[cozy] object CozyCmlLint {
     line: Int
   )
 
-  private sealed trait CmlSection
-  private object CmlSection {
-    case object Entity extends CmlSection
-    case object Value extends CmlSection
-  }
-
-  private final case class Attribute(
-    section: CmlSection,
-    owner: String,
-    name: String,
-    typeName: String,
-    path: Path,
-    line: Int
-  )
-
   def execute(args: List[String]): Int = {
     val config = Config.create(args)
     val findings = lint(config.path)
@@ -61,31 +46,33 @@ private[cozy] object CozyCmlLint {
     lintFiles(_cml_files(path.toAbsolutePath.normalize()))
 
   private[cozy] def lintFiles(paths: Seq[Path]): Vector[Finding] = {
-    val attrs = paths.toVector.flatMap(_attributes)
+    val attrs = paths.toVector.flatMap { path =>
+      CmlModelInspection.load(path).attributes.map(path -> _)
+    }
     val entityfindings = attrs.collect {
-      case a if a.section == CmlSection.Entity && _is_string_type(a.typeName) =>
+      case (path, a) if a.kind == CmlModelInspection.DeclarationKind.Entity && a.isRawString =>
         Finding(
           Level.Fail,
           "cml.domain.string-attribute",
           s"${a.owner}.${a.name} uses raw string; define a dedicated value type or an existing semantic datatype.",
-          a.path,
+          path,
           a.line
         )
     }
     val valuefindings = attrs.
-      filter(_.section == CmlSection.Value).
-      groupBy(x => (x.path, x.owner)).
+      filter(_._2.kind == CmlModelInspection.DeclarationKind.Value).
+      groupBy { case (path, attribute) => (path, attribute.owner) }.
       toVector.
       sortBy { case ((path, owner), _) => (path.toString, owner) }.
       flatMap {
-        case (_, xs) if _is_single_string_value(xs) => Vector.empty
+        case (_, xs) if _is_single_string_value(xs.map(_._2)) => Vector.empty
         case (_, xs) =>
-          xs.filter(x => _is_string_type(x.typeName)).map { a =>
+          xs.filter(_._2.isRawString).map { case (path, a) =>
             Finding(
               Level.Warn,
               "cml.value.string-attribute",
               s"${a.owner}.${a.name} uses raw string; prefer an explicit value type unless this is the single internal value representation.",
-              a.path,
+              path,
               a.line
             )
           }
@@ -137,86 +124,8 @@ private[cozy] object CozyCmlLint {
       RAISE.invalidArgumentFault(s"CML path not found: ${path}")
     }
 
-  private def _attributes(path: Path): Vector[Attribute] = {
-    var section: Option[CmlSection] = None
-    var owner: Option[String] = None
-    var inattributes = false
-    val builder = Vector.newBuilder[Attribute]
-    val lines = Files.readAllLines(path, StandardCharsets.UTF_8).asScala.toVector
-    lines.zipWithIndex.foreach {
-      case (raw, i) =>
-        val line = raw.trim
-        _heading(line) match {
-          case Some((1, title)) =>
-            section = _section(title)
-            owner = None
-            inattributes = false
-          case Some((2, title)) =>
-            if (section.isDefined) {
-              owner = Some(title)
-              inattributes = false
-            }
-          case Some((3, title)) =>
-            inattributes = section.isDefined && title.equalsIgnoreCase("Attribute")
-          case Some((level, _)) if level <= 3 =>
-            inattributes = false
-          case _ =>
-            if (inattributes) {
-              for {
-                s <- section
-                o <- owner
-                row <- _attribute_row(line)
-              } {
-                builder += Attribute(s, o, row._1, row._2, path, i + 1)
-              }
-            }
-        }
-    }
-    builder.result()
-  }
-
-  private def _heading(line: String): Option[(Int, String)] = {
-    val level = line.takeWhile(_ == '#').length
-    if (level > 0 && line.drop(level).startsWith(" "))
-      Some((level, line.drop(level).trim))
-    else
-      None
-  }
-
-  private def _section(title: String): Option[CmlSection] =
-    title.trim.toUpperCase(java.util.Locale.ROOT) match {
-      case "ENTITY" | "DOMAIN ENTITY" => Some(CmlSection.Entity)
-      case "VALUE" | "DOMAIN VALUE" => Some(CmlSection.Value)
-      case _ => None
-    }
-
-  private def _attribute_row(line: String): Option[(String, String)] =
-    if (!line.startsWith("|"))
-      None
-    else {
-      val cells = line.stripPrefix("|").stripSuffix("|").split("\\|").toVector.map(_.trim)
-      if (cells.length < 2)
-        None
-      else {
-        val name = cells(0)
-        val typename = cells(1)
-        val normalizedname = name.toLowerCase(java.util.Locale.ROOT)
-        val normalizedtype = typename.toLowerCase(java.util.Locale.ROOT)
-        if (name.isEmpty || typename.isEmpty || (normalizedname == "name" && normalizedtype == "type") || name.forall(c => c == '-' || c == '+'))
-          None
-        else
-          Some(name -> typename)
-      }
-    }
-
-  private def _is_string_type(p: String): Boolean =
-    p.trim match {
-      case "string" | "String" | "java.lang.String" => true
-      case _ => false
-    }
-
-  private def _is_single_string_value(xs: Seq[Attribute]): Boolean =
-    xs.length == 1 && xs.head.name == "value" && _is_string_type(xs.head.typeName)
+  private def _is_single_string_value(xs: Seq[CmlModelInspection.Attribute]): Boolean =
+    xs.length == 1 && xs.head.name == "value" && xs.head.isRawString
 
   private final case class Config(path: Path, format: String)
   private object Config {

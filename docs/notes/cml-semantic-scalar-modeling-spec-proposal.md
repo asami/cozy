@@ -177,7 +177,11 @@ and runtime boundaries must project them consistently to:
 
 ## 7. Driver Inventory Direction
 
-The following are investigation starting points, not accepted migrations.
+The complete AST-backed inventory and provisional per-item classification are
+maintained in `cml-semantic-scalar-driver-inventory.md`. It records 19
+string-only Datatypes in `textus-user-notification`, 16 in
+`textus-user-account`, and no string-only Values in either current driver.
+The following are the remaining investigation themes, not accepted migrations.
 
 ### textus-user-notification
 

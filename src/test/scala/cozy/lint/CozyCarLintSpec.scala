@@ -11,7 +11,7 @@ import play.api.libs.json.Json
 
 /*
  * @since   Jul.  7, 2026
- * @version Jul. 14, 2026
+ * @version Jul. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -427,8 +427,9 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
         |
         |### Attribute
         |
-        || name | type |
-        || email | String |
+        || name  | type   | multiplicity |
+        ||-------+--------+--------------|
+        || email | string | 1            |
         |""".stripMargin
     )
 

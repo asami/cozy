@@ -86,10 +86,16 @@ Status: DONE
 
 Status: OPEN
 
-- [ ] Inventory every string-only `VALUE` and `DATATYPE` in both driver CARs.
-- [ ] Classify each item as predefined scalar, constrained domain scalar,
-      composite Value, powertype, statemachine-owned state, or intentional
-      opaque text.
+- [x] Inventory every string-only `VALUE` and `DATATYPE` in both driver CARs
+      through the normalized CML AST/model API, with 35 Datatypes and no
+      string-only Values recorded in
+      `docs/notes/cml-semantic-scalar-driver-inventory.md`.
+- [ ] Finalize classification of each item as predefined scalar, constrained
+      domain scalar, composite Value, powertype, statemachine-owned state, or
+      intentional opaque text.
+  - [x] Record a provisional category, localization direction, and decision
+        state for all 35 current driver Datatypes.
+  - [ ] Resolve the domain-decision rows before changing driver source.
 - [ ] Define when a finite vocabulary uses `POWERTYPE` and when lifecycle state
       requires `STATEMACHINE`.
 - [ ] Confirm the CML predefined text catalog using existing `name = Name` and

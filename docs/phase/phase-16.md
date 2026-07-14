@@ -219,7 +219,7 @@ Current evidence:
 
 Stage Status:
 
-- Current status: OPEN
+- Current status: IN PROGRESS
 - Owner: cozy-modeler
 - Checklist basis: `CML16-07`
 - Update rule: update when the scalar inventory, predefined type catalog, or
@@ -241,6 +241,20 @@ Focus:
 - define explicit text length constraints for scalar and per-locale I18N values
   and preserve locale entries and constraints through generated metadata and
   runtime boundaries.
+
+Current evidence:
+
+- `CmlModelInspection` loads the shared Kaleidox CML AST/model and inventories
+  normalized Value and Datatype declarations without Markdown-table or
+  description-list text reparsing;
+- the current driver inventory contains 19 string-only Datatypes in
+  `textus-user-notification`, 16 in `textus-user-account`, and no string-only
+  Values;
+- every item has a provisional structural category, localization direction,
+  and confirmed-or-domain-decision state in
+  `docs/notes/cml-semantic-scalar-driver-inventory.md`;
+- existing dirty work in both driver repositories remains untouched while the
+  Cozy-side contract is being established.
 
 ## Stage 16.6: Scaffold and Migration
 

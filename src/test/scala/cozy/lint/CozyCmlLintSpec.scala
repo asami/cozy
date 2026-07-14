@@ -8,7 +8,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jul.  6, 2026
- * @version Jul.  6, 2026
+ * @version Jul. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyCmlLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -31,12 +31,13 @@ class CozyCmlLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
             |""".stripMargin
         )
 
-        When("Cozy lints the CML")
+        When("Cozy lints the normalized CML AST model")
         val findings = CozyCmlLint.lint(path)
 
         Then("the entity string attribute is a FAIL")
         findings.map(_.code) should contain("cml.domain.string-attribute")
         findings.find(_.code == "cml.domain.string-attribute").map(_.level) shouldBe Some(CozyCmlLint.Level.Fail)
+        findings.find(_.code == "cml.domain.string-attribute").map(_.line) shouldBe Some(10)
       }
     }
 
