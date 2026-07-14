@@ -192,7 +192,7 @@ Verification evidence:
 
 Stage Status:
 
-- Current status: IN PROGRESS
+- Current status: DONE
 - Owner: cozy-modeler and cncf-runtime
 - Checklist basis: `CML16-06`
 - Update rule: update when `CML16-06` catalog ownership or implementation
@@ -209,8 +209,11 @@ Current evidence:
 - CNCF owns `OperationResult`, `UnitResult`, and `IntResult` runtime classes;
 - CNCF `PredefinedResultCatalog` fixes the initial exact, case-sensitive
   catalog and `IntResult.value: int` payload schema;
-- Cozy catalog transport, selected-runtime resolution, validation, and metadata
-  projection remain open.
+- CNCF embeds the canonical catalog in its runtime descriptor and sbt-cozy
+  transports that descriptor from the resolved runtime JAR into generation;
+- Cozy verifies the selected runtime version, resolves exact catalog names,
+  rejects unknown or raw scalar outputs, and projects catalog-backed
+  `resultFields` for `UnitResult` and `IntResult`.
 
 ## Stage 16.5: Semantic Scalar and Text Range Modeling
 

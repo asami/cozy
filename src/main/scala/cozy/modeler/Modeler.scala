@@ -53,7 +53,9 @@ import scala.collection.mutable
  * @version Jul. 15, 2026
  * @author  ASAMI, Tomoharu
  */
-class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
+class Modeler(
+  predefinedresultcatalog: PredefinedResultCatalog = PredefinedResultCatalog.empty
+) extends org.goldenport.kaleidox.extension.modeler.Modeler {
   import Modeler._
 
   def explain(model: SimpleModel): Vector[ExplainEntry] =
@@ -386,11 +388,11 @@ class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
   }
 
   private def _make_model(p: KaleidoxModel): SimpleModel = {
-    ModelBuilder(p).build()
+    ModelBuilder(p, predefinedresultcatalog).build()
   }
 
   private def _make_model_value(p: KaleidoxModel): SimpleModel = {
-    ModelBuilder(p).buildValue()
+    ModelBuilder(p, predefinedresultcatalog).buildValue()
   }
 
   def generateScala(
@@ -892,6 +894,7 @@ object Modeler {
     service: ServiceModel,
     event: EventModel,
     operation: OperationModel,
+    predefinedresultcatalog: PredefinedResultCatalog = PredefinedResultCatalog.empty,
     cmlDeclaredTypeNames: Set[String] = Set.empty,
     relationships: Vector[MComponent.RelationshipDefinition] = Vector.empty,
     operationRelationshipBindings: Map[String, OperationRelationshipBinding] = Map.empty,
@@ -1888,11 +1891,11 @@ object Modeler {
         entity.classes.keySet ++
         datatype.classes.keySet ++
         cmlDeclaredTypeNames ++
-        _builtin_service_operation_type_names
+        _builtin_service_operation_input_type_names ++
+        predefinedresultcatalog.names
 
-    private lazy val _builtin_service_operation_type_names: Set[String] =
+    private lazy val _builtin_service_operation_input_type_names: Set[String] =
       Set(
-        "OperationResult",
         "CommandAction",
         "QueryAction"
       )
@@ -2189,6 +2192,10 @@ object Modeler {
     ): Unit =
       if (_is_void_service_operation_type(tpe)) {
         ()
+      } else if (role == "OUTPUT" && _raw_service_operation_scalar_type_names.contains(tpe.toLowerCase(java.util.Locale.ROOT))) {
+        RAISE.syntaxErrorFault(
+          s"Operation '$opname' OUTPUT TYPE '$tpe' is a raw scalar; use a declared Result value or CNCF predefined Result."
+        )
       } else if (_service_operation_type_names.contains(tpe)) {
         ()
       } else {
@@ -2197,6 +2204,20 @@ object Modeler {
 
     private def _is_void_service_operation_type(tpe: String): Boolean =
       tpe.equalsIgnoreCase("void")
+
+    private lazy val _raw_service_operation_scalar_type_names: Set[String] =
+      Set(
+        "boolean",
+        "byte",
+        "short",
+        "int",
+        "integer",
+        "long",
+        "float",
+        "double",
+        "decimal",
+        "string"
+      )
 
     private def _validate_service_operation_input_kind(
       opname: String,
@@ -3050,9 +3071,20 @@ object Modeler {
           parameters = x.parameters.map { p =>
             _operation_field(p)
           },
-          resultFields = _value_input_field_map.get(x.outputType).getOrElse(Vector.empty).map(_result_operation_field)
+          resultFields = _operation_result_fields(x.outputType)
         )
       }
+
+    private def _operation_result_fields(outputtype: String): Vector[MComponent.OperationField] =
+      _value_input_field_map.get(outputtype).map(_.map(_result_operation_field)).orElse {
+        predefinedresultcatalog.get(outputtype).map(_.resultfields.map { field =>
+          MComponent.OperationField(
+            name = field.name,
+            datatype = field.datatype,
+            multiplicity = field.multiplicity
+          )
+        })
+      }.getOrElse(Vector.empty)
 
     private def _operation_field(
       p: OperationModel.FieldDefinition
@@ -4027,7 +4059,13 @@ object Modeler {
     }
   }
   object ModelBuilder {
-    def apply(p: KaleidoxModel): ModelBuilder = {
+    def apply(p: KaleidoxModel): ModelBuilder =
+      apply(p, PredefinedResultCatalog.empty)
+
+    def apply(
+      p: KaleidoxModel,
+      predefinedresultcatalog: PredefinedResultCatalog
+    ): ModelBuilder = {
       val relationships = RelationshipCml.relationshipDefinitions(p)
       val operationbindings = RelationshipCml.operationBindings(p, relationships)
       val leafcontracts = _service_operation_leaf_contracts(p)
@@ -4042,6 +4080,7 @@ object Modeler {
         p.getServiceModel.getOrElse(ServiceModel.empty),
         p.eventModel,
         p.takeOperationModel,
+        predefinedresultcatalog,
         _cml_declared_type_names(p),
         relationships,
         operationbindings,

@@ -626,7 +626,7 @@ class ModelerServiceOperationSpec extends AnyWordSpec with Matchers with GivenWh
         Files.createDirectories(out.getParent)
 
         When("Cozy parses or generates the service operation model")
-        cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
+        run_modeler_scala(input, out)
 
         val generated = out.resolve(
         "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
@@ -652,7 +652,7 @@ class ModelerServiceOperationSpec extends AnyWordSpec with Matchers with GivenWh
         Files.createDirectories(out.getParent)
 
         When("Cozy parses or generates the service operation model")
-        cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
+        run_modeler_scala(input, out)
 
         val generated = out.resolve(
         "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
@@ -687,7 +687,7 @@ class ModelerServiceOperationSpec extends AnyWordSpec with Matchers with GivenWh
         Files.createDirectories(out.getParent)
 
         When("Cozy parses or generates the service operation model")
-        cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
+        run_modeler_scala(input, out)
 
         val generated = out.resolve(
         "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
@@ -711,7 +711,7 @@ class ModelerServiceOperationSpec extends AnyWordSpec with Matchers with GivenWh
         Files.createDirectories(out.getParent)
 
         When("Cozy parses or generates the service operation model")
-        cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
+        run_modeler_scala(input, out)
 
         val generated = out.resolve(
         "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
@@ -733,7 +733,7 @@ class ModelerServiceOperationSpec extends AnyWordSpec with Matchers with GivenWh
         Files.createDirectories(out.getParent)
 
         When("Cozy parses or generates the service operation model")
-        cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
+        run_modeler_scala(input, out)
 
         val generated = out.resolve(
         "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
@@ -754,7 +754,7 @@ class ModelerServiceOperationSpec extends AnyWordSpec with Matchers with GivenWh
         Files.createDirectories(out.getParent)
 
         When("Cozy parses or generates the service operation model")
-        cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
+        run_modeler_scala(input, out)
 
         val generated = out.resolve(
         "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
@@ -775,7 +775,7 @@ class ModelerServiceOperationSpec extends AnyWordSpec with Matchers with GivenWh
         Files.createDirectories(out.getParent)
 
         When("Cozy parses or generates the service operation model")
-        cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
+        run_modeler_scala(input, out)
 
         val generated = out.resolve(
         "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
@@ -797,7 +797,7 @@ class ModelerServiceOperationSpec extends AnyWordSpec with Matchers with GivenWh
         Files.createDirectories(out.getParent)
 
         When("Cozy parses or generates the service operation model")
-        cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
+        run_modeler_scala(input, out)
 
         val generated = out.resolve(
         "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
@@ -916,7 +916,7 @@ class ModelerServiceOperationSpec extends AnyWordSpec with Matchers with GivenWh
           |""".stripMargin)
 
         When("Cozy parses or generates the service operation model")
-        cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
+        run_modeler_scala(input, out)
 
         val generated = out.resolve(
         "target/scala-3.3.7/src_managed/main/scala/org/simplemodeling/textus/mcprag/StructuredKnowledgeComponent.scala"
@@ -944,7 +944,7 @@ class ModelerServiceOperationSpec extends AnyWordSpec with Matchers with GivenWh
         Files.createDirectories(out.getParent)
 
         When("Cozy parses or generates the service operation model")
-        cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
+        run_modeler_scala(input, out)
 
         val generated = out.resolve(
         "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
@@ -1130,7 +1130,7 @@ class ModelerServiceOperationSpec extends AnyWordSpec with Matchers with GivenWh
         )
 
         When("Cozy parses or generates the service operation model")
-        cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
+        run_modeler_scala(input, out)
 
         val generated = out.resolve(
         "target/scala-3.3.7/src_managed/main/scala/domain/DemoComponent.scala"
@@ -1231,7 +1231,7 @@ class ModelerServiceOperationSpec extends AnyWordSpec with Matchers with GivenWh
         )
 
         When("Cozy parses or generates the service operation model")
-        cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
+        run_modeler_scala(input, out)
 
         val generated = out.resolve(
         "target/scala-3.3.7/src_managed/main/scala/domain/DemoComponent.scala"
@@ -1339,7 +1339,7 @@ class ModelerServiceOperationSpec extends AnyWordSpec with Matchers with GivenWh
         )
 
         When("Cozy parses or generates the service operation model")
-        cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
+        run_modeler_scala(input, out)
 
         val generated = out.resolve(
         "target/scala-3.3.7/src_managed/main/scala/domain/EventDrivenComponent.scala"

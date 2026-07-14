@@ -28,7 +28,7 @@ import scala.util.control.NonFatal
  *  version Apr. 29, 2026
  *  version May. 21, 2026
  *  version Jun. 30, 2026
- * @version Jul. 14, 2026
+ * @version Jul. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 class Cozy(
@@ -66,9 +66,14 @@ class Cozy(
     case _ => createInterpreter()
   }
 
-  def createInterpreter(): Kaleidox = {
+  def createInterpreter(): Kaleidox =
+    _create_interpreter(modeler.PredefinedResultCatalog.empty)
+
+  private def _create_interpreter(
+    predefinedresultcatalog: modeler.PredefinedResultCatalog
+  ): Kaleidox = {
     val kconfig = org.goldenport.kaleidox.Config.create(environment).
-      setModeler(new modeler.Modeler()).
+      setModeler(new modeler.Modeler(predefinedresultcatalog)).
       setPrompt("cozy> ")
     new Kaleidox(kconfig, environment)
   }
@@ -252,13 +257,24 @@ class Cozy(
     _leading_command(args) match {
       case Some((command @ ("modeler-scala" | "modeler-scala-value"), rest)) =>
         val normalized = _normalize_first_positional_path(rest)
+        val catalog = _predefined_result_catalog(normalized)
         val repl = (Vector(command) ++ _convert_args(normalized)).mkString(" ")
-        interpreter.execute(_operation_call(Array(repl)))
+        _create_interpreter(catalog).execute(_operation_call(Array(repl)))
         _write_model_metadata(normalized)
         _write_component_api_descriptor(normalized)
         true
       case _ =>
         false
+    }
+
+  private def _predefined_result_catalog(args: List[String]): modeler.PredefinedResultCatalog =
+    (_option_value(args, "cncf-runtime-descriptor"), _option_value(args, "cncf-version")) match {
+      case (Some(descriptor), Some(version)) =>
+        modeler.PredefinedResultCatalog.loadRuntimeDescriptor(Paths.get(descriptor).toAbsolutePath.normalize(), version)
+      case (None, _) =>
+        modeler.PredefinedResultCatalog.empty
+      case (Some(_), None) =>
+        RAISE.invalidArgumentFault("--cncf-runtime-descriptor requires --cncf-version")
     }
 
   private def _write_model_metadata(args: List[String]): Unit = {

@@ -268,6 +268,14 @@ operation output types.
 CNCF owns runtime classes, serialization, and payload schemas. Cozy owns CML
 resolution, validation, generation mapping, and emitted operation metadata.
 
+The selected runtime transports this catalog in
+`META-INF/cncf/runtime.yaml` under `predefinedResults`. The descriptor embeds
+the CNCF-owned canonical catalog resource; Cozy does not maintain a second
+predefined Result list. During sbt-cozy generation, the descriptor is extracted
+from the resolved CNCF runtime JAR and passed through the existing bridge
+settings. Cozy verifies that the descriptor version equals the selected CNCF
+version before using its exact Result names and field definitions.
+
 ## 10. Compatibility Grammar
 
 Top-level input compatibility sections remain accepted:

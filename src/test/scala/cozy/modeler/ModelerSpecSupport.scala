@@ -11,7 +11,7 @@ import org.scalatest.matchers.should.Matchers
 
 /*
  * @since   Jun. 23, 2026
- * @version Jun. 23, 2026
+ * @version Jul. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ModelerSpecSupport extends Matchers {
@@ -24,7 +24,16 @@ trait ModelerSpecSupport extends Matchers {
     try {
       Console.withOut(outps) {
         Console.withErr(errps) {
-          cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
+          cozy.Cozy.main(Array(
+            "modeler-scala",
+            input.toString,
+            "--save",
+            out.toString.toString,
+            "--cncf-version",
+            "0.5.1-SNAPSHOT",
+            "--cncf-runtime-descriptor",
+            test_cncf_runtime_descriptor.toString
+          ))
         }
       }
     } finally {
@@ -33,6 +42,9 @@ trait ModelerSpecSupport extends Matchers {
     }
     outbuffer.toString(StandardCharsets.UTF_8.name()) + "\n" + errbuffer.toString(StandardCharsets.UTF_8.name())
   }
+
+  protected def test_cncf_runtime_descriptor: Path =
+    Path.of(sys.props("user.dir")).toAbsolutePath.normalize().resolve("src/test/resources/cncf/runtime-with-predefined-results.yaml")
 
   protected def write_file(path: Path, content: String): Unit = {
     Files.createDirectories(path.getParent)

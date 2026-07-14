@@ -17,7 +17,7 @@ name := "cozy"
 
 version := "0.3.0-SNAPSHOT"
 
-lazy val cncfVersion = "0.5.0"
+lazy val cncfVersion = "0.5.1-SNAPSHOT"
 
 lazy val simpleModelingModelVersion = "0.1.7"
 

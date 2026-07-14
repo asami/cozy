@@ -12,7 +12,7 @@ import org.scalatest.wordspec.AnyWordSpec
  * @since   Apr. 23, 2026
  *  version May. 20, 2026
  *  version Jun. 27, 2026
- * @version Jul. 13, 2026
+ * @version Jul. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 final class BridgeContractSpec
@@ -191,6 +191,23 @@ final class BridgeContractSpec
             "0.1.0"
           )
         }
+      }
+
+      "carry the selected CNCF runtime descriptor into delegated generation" in {
+        Given("bridge settings with an extracted CNCF runtime descriptor")
+        val descriptor = "/tmp/cncf-runtime.yaml"
+
+        When("the bridge constructs modeler version arguments")
+        val args = CozySbtBridge.versionArgsForSettingsForTest(Map(
+          "generation.versions.cncf" -> "0.5.0",
+          "runtime.cncf.descriptor" -> descriptor
+        ))
+
+        Then("the descriptor path accompanies the selected CNCF version")
+        args should contain allElementsOf List(
+          "--cncf-version", "0.5.0",
+          "--cncf-runtime-descriptor", descriptor
+        )
       }
 
       "uses the sbt project directory as the generation config base" in {

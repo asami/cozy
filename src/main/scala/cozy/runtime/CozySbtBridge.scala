@@ -14,7 +14,7 @@ import java.nio.file.{Files, Path, Paths}
 /*
  * @since   May. 20, 2026
  *  version Jun. 27, 2026
- * @version Jul. 12, 2026
+ * @version Jul. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozySbtBridge {
@@ -89,11 +89,12 @@ private[cozy] object CozySbtBridge {
 
   private def _version_args(config: CozyProjectYamlConfig.Config): List[String] = {
     val versions = Cozy.CarDependencyVersions.create(Nil, config)
-    List(
+    val base = List(
       "--cncf-version", versions.cncfVersion,
       "--simplemodeling-model-version", versions.simpleModelingModelVersion,
       "--cncf-collaborator-api-version", versions.cncfCollaboratorApiVersion
     )
+    config.value("runtime.cncf.descriptor").map(path => base ++ List("--cncf-runtime-descriptor", path)).getOrElse(base)
   }
 
   private def _component_api_args(settings: Map[String, String]): List[String] =

@@ -1,0 +1,36 @@
+schemaVersion: 1
+runtime: cncf
+version: 0.5.1-SNAPSHOT
+scalaBinaryVersion: "3"
+module: org.goldenport:goldenport-cncf_3:0.5.1-SNAPSHOT
+baseProvided: []
+predefinedResults: {
+    "schemaVersion": "cncf.predefined-result.v1",
+    "resultNames": [
+      "OperationResult",
+      "UnitResult",
+      "IntResult"
+    ],
+    "results": {
+      "OperationResult": {
+        "runtimeClassName": "org.goldenport.cncf.service.OperationResult",
+        "fields": []
+      },
+      "UnitResult": {
+        "runtimeClassName": "org.goldenport.cncf.service.UnitResult",
+        "fields": []
+      },
+      "IntResult": {
+        "runtimeClassName": "org.goldenport.cncf.service.IntResult",
+        "fields": [
+          "value"
+        ],
+        "fieldDefinitions": {
+          "value": {
+            "datatype": "int",
+            "multiplicity": "1"
+          }
+        }
+      }
+    }
+  }

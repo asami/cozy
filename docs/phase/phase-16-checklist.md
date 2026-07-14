@@ -72,15 +72,15 @@ Status: DONE
 
 ## CML16-06: CML/CNCF Predefined Results
 
-Status: IN PROGRESS
+Status: DONE
 
 - [x] Define CNCF runtime ownership for the predefined Result catalog.
 - [x] Provide and verify `UnitResult` in CNCF.
 - [x] Provide and verify `IntResult` with `value: int` in CNCF.
-- [ ] Make Cozy resolve the selected CNCF Result catalog.
-- [ ] Reject unknown predefined Result names.
-- [ ] Reject raw scalar operation output types.
-- [ ] Emit catalog-backed Result field metadata.
+- [x] Make Cozy resolve the selected CNCF Result catalog.
+- [x] Reject unknown predefined Result names.
+- [x] Reject raw scalar operation output types.
+- [x] Emit catalog-backed Result field metadata.
 
 ## CML16-07: Semantic Scalar and Text Range Contract
 

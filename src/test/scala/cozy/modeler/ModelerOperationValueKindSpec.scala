@@ -22,7 +22,7 @@ class ModelerOperationValueKindSpec extends AnyWordSpec with Matchers with Given
       write_file(input, _valid_contract)
 
       When("Cozy generates the component operation definitions")
-      cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString))
+      run_modeler_scala(input, out)
 
       Then("the AST properties select stable command/query metadata")
       val generated = out.resolve("target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala")
