@@ -98,8 +98,8 @@ Status: OPEN
   - [ ] Resolve the domain-decision rows before changing driver source.
 - [ ] Define when a finite vocabulary uses `POWERTYPE` and when lifecycle state
       requires `STATEMACHINE`.
-- [ ] Confirm the CML predefined text catalog using existing `name = Name` and
-      `title = I18nTitle` semantics as the baseline.
+- [x] Confirm the CML predefined text catalog baseline from existing
+      `name = Name` and `title = I18nTitle` semantics.
 - [x] Establish natural I18N as the modeling goal: ordinary user-visible
       semantic text becomes locale-aware without hand-built locale containers,
       while technical identity text remains explicitly nonlocalized.

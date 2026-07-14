@@ -256,6 +256,8 @@ Current evidence:
 - `simplemodeling-lib` `I18nTitleSpec` now fixes single-locale construction,
   multi-locale codec round-trip, effective locale fallback, and preservation
   of every stored locale entry as executable baseline behavior;
+- `simplemodeling-lib` `NameSpec` now fixes the nonlocalized generic name
+  range at 1 through 256 characters and its validation failure boundary;
 - existing dirty work in both driver repositories remains untouched while the
   Cozy-side contract is being established.
 

@@ -71,6 +71,11 @@ The existing baseline is:
 - `title`: one locale-aware `I18nTitle` that stores either a single locale
   entry or multiple locale entries.
 
+`simplemodeling-lib` executable specifications fix both sides of this
+baseline. `NameSpec` accepts lengths 1 through 256, rejects values outside
+that range through `Consequence`, and preserves the nonlocalized source value.
+`I18nTitleSpec` covers single- and multi-locale behavior separately.
+
 This is intentionally asymmetric. CML does not need a scalar and I18N version
 of every semantic text type. The type's domain meaning determines whether it is
 localized.
