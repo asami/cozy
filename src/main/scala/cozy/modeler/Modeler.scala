@@ -23,6 +23,7 @@ import org.goldenport.kaleidox.model.OperationModel
 import org.goldenport.kaleidox.model.ServiceModel
 import org.goldenport.kaleidox.model.ValueModel
 import org.goldenport.kaleidox.model.CmlExpressionGuard
+import org.goldenport.kaleidox.CmlSectionFormat
 import org.goldenport.kaleidox.model.SchemaModel.SchemaClass
 import org.goldenport.kaleidox.model.EntityModel.EntityClass
 import org.goldenport.kaleidox.model.DataTypeModel.DataTypeClass
@@ -49,7 +50,7 @@ import scala.collection.mutable
  *  version Feb. 27, 2026
  *  version Mar. 31, 2026
  *  version May. 24, 2026
- * @version Jul. 14, 2026
+ * @version Jul. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler() extends org.goldenport.kaleidox.extension.modeler.Modeler {
@@ -1417,12 +1418,54 @@ object Modeler {
       )
     }
 
-    private def _service_inline_values: Vector[ValueClass] =
+    private case class LocalValueDefinition(
+      servicename: String,
+      operationname: String,
+      direction: String,
+      valueclass: ValueClass
+    )
+
+    private lazy val _service_inline_value_definitions: Vector[LocalValueDefinition] =
       service.classes.values.toVector.flatMap { svc =>
         svc.operations.operations.values.toVector.flatMap { op =>
-          Vector(op.input.value, op.output.value).flatten
+          Vector(
+            op.input.value.map(LocalValueDefinition(svc.name, op.name, "INPUT", _)),
+            op.output.value.map(LocalValueDefinition(svc.name, op.name, "OUTPUT", _))
+          ).flatten
         }
       }
+
+    private lazy val _service_inline_values: Vector[ValueClass] = {
+      val definitions = _service_inline_value_definitions
+      definitions.groupBy(_.valueclass.name).
+        collect { case (name, xs) if xs.size > 1 => name -> xs }.
+        toVector.
+        sortBy(_._1).
+        headOption.
+        foreach { case (name, xs) =>
+          val owners = xs.map(_local_value_context).mkString("; ")
+          RAISE.syntaxErrorFault(s"Operation-local VALUE '$name' is defined more than once: $owners.")
+        }
+      definitions.filter(x => value.classes.contains(x.valueclass.name)).sortBy(_.valueclass.name).headOption.foreach { definition =>
+        val name = definition.valueclass.name
+        val top = value.classes.get(name).map(_value_source_context).getOrElse("top-level declaration")
+        RAISE.syntaxErrorFault(
+          s"Operation-local VALUE '$name' conflicts with a top-level VALUE definition: ${_local_value_context(definition)}; $top."
+        )
+      }
+      definitions.map(_.valueclass)
+    }
+
+    private def _local_value_context(p: LocalValueDefinition): String = {
+      val component = componentSubsystem.components.map(_.name).distinct match {
+        case Vector(name) => s"component '$name', "
+        case _ => ""
+      }
+      s"${component}service '${p.servicename}', operation '${p.operationname}' ${p.direction}${_value_location(p.valueclass)}"
+    }
+
+    private def _value_source_context(p: ValueClass): String =
+      s"top-level VALUE '${p.name}'${_value_location(p)}"
 
     private def _powertype(p: PowertypeClass): MPowertype = {
       val desc = p.description
@@ -1832,14 +1875,14 @@ object Modeler {
       if (xs.isEmpty) None else Some(xs.mkString(", "))
     }
 
-    private lazy val _operation_input_value_map: Map[String, OperationModel.InputValueDefinition] =
+    private lazy val _legacy_input_value_definition_map: Map[String, OperationModel.InputValueDefinition] =
       operation.values.map(x => x.name -> x).toMap
 
     private lazy val _value_input_field_map: Map[String, Vector[OperationModel.FieldDefinition]] =
       (value.classes.values.toVector ++ _service_inline_values).map(x => x.name -> _operation_fields(x)).toMap
 
     private lazy val _service_operation_type_names: Set[String] =
-      _operation_input_value_map.keySet ++
+      _legacy_input_value_definition_map.keySet ++
         value.classes.keySet ++
         _service_inline_values.map(_.name).toSet ++
         entity.classes.keySet ++
@@ -1855,7 +1898,11 @@ object Modeler {
       )
 
     private def _operation_fields(p: ValueClass): Vector[OperationModel.FieldDefinition] =
-      p.schemaClass.attributes.map(_operation_field)
+      p.schemaClass.slots.flatMap {
+        case m: SchemaModel.Attribute => Some(_operation_field(m))
+        case m: SchemaModel.Id => Some(_operation_field(m))
+        case _ => None
+      }
 
     private def _operation_field(p: SchemaModel.Attribute): OperationModel.FieldDefinition =
       OperationModel.FieldDefinition(
@@ -1870,6 +1917,13 @@ object Modeler {
         confidentiality = p.confidentiality
       )
 
+    private def _operation_field(p: SchemaModel.Id): OperationModel.FieldDefinition =
+      OperationModel.FieldDefinition(
+        name = p.name,
+        datatype = p.domain.datatype.name,
+        multiplicity = p.domain.multiplicity.mark
+      )
+
     private lazy val _normalized_operation_map: Map[String, OperationModel.NormalizedOperationDefinition] =
       operation.normalizedOperations.map(_with_input_value_parameters).map(x => x.name -> x).toMap
 
@@ -1879,7 +1933,7 @@ object Modeler {
       if (p.parameters.nonEmpty)
         p
       else
-        _operation_input_value_map.get(p.inputType).
+        _legacy_input_value_definition_map.get(p.inputType).
           map(v => p.copy(parameters = v.fields)).
           getOrElse(p)
 
@@ -1968,18 +2022,15 @@ object Modeler {
         )
         _validate_service_operation_type_reference(p.name, "INPUT", inputtype)
         _validate_service_operation_type_reference(p.name, "OUTPUT", outputtype)
-        val inputvalue = _operation_input_value_map.get(inputtype)
-        val inputvaluekind = inputvalue.map(_.kind).getOrElse {
-          kind match {
-            case OperationModel.OperationKind.Command => OperationModel.InputValueKind.CommandValue
-            case OperationModel.OperationKind.Query => OperationModel.InputValueKind.QueryValue
-          }
-        }
+        val legacyinput = _legacy_input_value_definition_map.get(inputtype)
+        val inputvaluekind = p.input.value.
+          map(_local_service_operation_input_kind(p.name, kind, _)).
+          getOrElse(_resolve_service_operation_input_kind(p.name, inputtype, kind, legacyinput))
         val parameters =
           if (p.parameters.nonEmpty)
             p.parameters
           else
-            inputvalue.map(_.fields).orElse(_value_input_field_map.get(inputtype)).getOrElse(Vector.empty)
+            legacyinput.map(_.fields).orElse(_value_input_field_map.get(inputtype)).getOrElse(Vector.empty)
         _validate_service_operation_input_kind(p.name, kind, inputvaluekind)
         Some(OperationModel.NormalizedOperationDefinition(
           name = p.name,
@@ -2006,6 +2057,72 @@ object Modeler {
           parameters = parameters
         ))
       }
+    }
+
+    private def _local_service_operation_input_kind(
+      operationname: String,
+      operationkind: OperationModel.OperationKind,
+      valueclass: ValueClass
+    ): OperationModel.InputValueKind = {
+      valueclass.getProperty("input-kind").foreach { _ =>
+        RAISE.syntaxErrorFault(s"Operation '$operationname' local INPUT must not declare input-kind.${_value_location(valueclass)}")
+      }
+      val resolved = _input_value_kind(operationkind)
+      _compatibility_value_input_kind(valueclass).foreach { compatibility =>
+        _validate_service_operation_input_kind(operationname, operationkind, compatibility)
+      }
+      resolved
+    }
+
+    private def _resolve_service_operation_input_kind(
+      operationname: String,
+      inputtype: String,
+      operationkind: OperationModel.OperationKind,
+      legacyinput: Option[OperationModel.InputValueDefinition]
+    ): OperationModel.InputValueKind =
+      legacyinput.map(_.kind).
+        orElse(value.get(inputtype).map(_top_level_value_input_kind(operationname, _))).
+        getOrElse(_input_value_kind(operationkind))
+
+    private def _top_level_value_input_kind(
+      operationname: String,
+      valueclass: ValueClass
+    ): OperationModel.InputValueKind =
+      valueclass.getProperty("input-kind") match {
+        case Some(value) =>
+          OperationModel.InputValueKind.parse(value).getOrElse(
+            RAISE.syntaxErrorFault(s"Top-level VALUE '${valueclass.name}' input-kind must be COMMAND or QUERY: $value${_value_location(valueclass)}")
+          )
+        case None =>
+          _compatibility_value_input_kind(valueclass).getOrElse(
+            RAISE.syntaxErrorFault(s"Operation '$operationname' INPUT Value '${valueclass.name}' requires input-kind=COMMAND|QUERY.${_value_location(valueclass)}")
+          )
+      }
+
+    private def _value_location(p: ValueClass): String =
+      p.sourceLocation.map(_.show).filterNot(_ == "[]").map(x => s" $x").getOrElse("")
+
+    private def _compatibility_value_input_kind(
+      p: ValueClass
+    ): Option[OperationModel.InputValueKind] = {
+      val propertyparents = p.getProperty("extends").toVector.flatMap(_.split("[,\n]").toVector.map(_.trim).filter(_.nonEmpty))
+      val kinds = (p.schemaClass.features.parentsName ++ propertyparents).flatMap {
+        case name if name.equalsIgnoreCase("CommandAction") => Some(OperationModel.InputValueKind.CommandValue)
+        case name if name.equalsIgnoreCase("QueryAction") => Some(OperationModel.InputValueKind.QueryValue)
+        case _ => None
+      }.distinct
+      kinds match {
+        case Nil => None
+        case one :: Nil => Some(one)
+        case _ => RAISE.syntaxErrorFault(s"VALUE '${p.name}' cannot extend both CommandAction and QueryAction.${_value_location(p)}")
+      }
+    }
+
+    private def _input_value_kind(
+      p: OperationModel.OperationKind
+    ): OperationModel.InputValueKind = p match {
+      case OperationModel.OperationKind.Command => OperationModel.InputValueKind.CommandValue
+      case OperationModel.OperationKind.Query => OperationModel.InputValueKind.QueryValue
     }
 
     private def _has_service_operation_contract(
@@ -3974,8 +4091,9 @@ object Modeler {
       operation: LogicalSection,
       propertyname: String
     ): Option[String] =
-      _property_value(operation.blocks.text, propertyname).
-        orElse(_property_value(operation.blocks.lines.text, propertyname))
+      CmlSectionFormat.directKeyValues(operation).collectFirst {
+        case (key, value) if _same_property_key(key, propertyname) => value.trim
+      }.filter(_.nonEmpty)
 
     private def _child_text(
       section: LogicalSection,
@@ -3991,7 +4109,7 @@ object Modeler {
       propertyname: String
     ): Option[String] =
       _child_sections(section, childname).headOption.flatMap { child =>
-        _property_value(child.blocks.text, propertyname)
+        _operation_direct_property(child, propertyname)
       }
 
     private def _child_sections(
@@ -4001,23 +4119,6 @@ object Modeler {
       section.blocks.sections.toVector.filter { child =>
         _same_section_key(child, childname)
       }
-
-    private def _property_value(
-      text: String,
-      propertyname: String
-    ): Option[String] = {
-      val prefix = s"${propertyname.toLowerCase} ::"
-      text.linesIterator.map(_.trim).flatMap {
-        case line if line.startsWith("-") =>
-          val body = line.drop(1).trim
-          if (body.toLowerCase.startsWith(prefix))
-            Some(body.drop(prefix.length).trim).filter(_.nonEmpty)
-          else
-            None
-        case _ =>
-          None
-      }.toSeq.headOption
-    }
 
     private def _cml_declared_type_names(p: KaleidoxModel): Set[String] = {
       val typesections = Set("QUERY", "COMMAND", "VALUE", "ENTITY", "DATATYPE")
@@ -4042,5 +4143,8 @@ object Modeler {
     private def _same_section_key(section: LogicalSection, name: String): Boolean =
       _normalize_section_key(section) == name.toUpperCase.filter(_.isLetterOrDigit) ||
         section.nameForModel.toUpperCase.filter(_.isLetterOrDigit) == name.toUpperCase.filter(_.isLetterOrDigit)
+
+    private def _same_property_key(lhs: String, rhs: String): Boolean =
+      lhs.toUpperCase.filter(_.isLetterOrDigit) == rhs.toUpperCase.filter(_.isLetterOrDigit)
   }
 }

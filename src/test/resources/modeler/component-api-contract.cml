@@ -37,6 +37,8 @@ domain
 
 ## ScrapeRequest
 
+- input-kind :: QUERY
+
 ### ATTRIBUTE
 
 | name | type   | multiplicity |

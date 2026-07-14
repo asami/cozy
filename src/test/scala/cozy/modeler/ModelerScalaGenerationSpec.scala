@@ -17,7 +17,7 @@ import play.api.libs.json.Json
 /*
  * @since   Jun. 23, 2026
  *  version Jul. 11, 2026
- * @version Jul. 12, 2026
+ * @version Jul. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -1269,6 +1269,8 @@ class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with GivenWhe
           |# VALUE
           |
           |## RegisterOrder
+          |
+          |- input-kind :: COMMAND
           |
           |### ATTRIBUTE
           |

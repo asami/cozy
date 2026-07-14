@@ -25,3 +25,9 @@ Current notes:
 - `bok-glossary-cml-classification-alignment.md`: working alignment between
   BoK glossary term classification, mono-koto analysis, and CML/CNCF entity
   classification.
+- `cml-operation-value-refactoring-spec-proposal.md`: provisional Phase 16
+  grammar for reusable and operation-local input/output Values and predefined
+  Results.
+- `cml-semantic-scalar-modeling-spec-proposal.md`: provisional Phase 16
+  classification for predefined text types, constrained domain scalars,
+  powertypes, statemachines, and string value ranges.

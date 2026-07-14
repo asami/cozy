@@ -1,6 +1,6 @@
 # Cozy Development Strategy
 
-Date: 2026-05-12
+Date: 2026-07-15
 
 Status: active
 
@@ -327,6 +327,54 @@ Primary reference:
 - `docs/design/car-project-metadata-ownership.md`
 - `docs/spec/car-project-scaffold.md`
 
+### Phase 16: CML Value and Datatype Refactoring
+
+Status: open.
+
+Documentation workflow:
+
+- preserve point-in-time investigations and decisions in `docs/journal`;
+- keep the latest implementation specification in `docs/notes`;
+- implement and verify them with executable specifications and driver CARs;
+- promote verified contracts to `docs/design`, `docs/spec`, and accepted
+  grammar documents after implementation.
+
+Purpose:
+
+- restore `VALUE` as the single structural concept for operation payloads;
+- define reusable command/query inputs as `# VALUE` plus `input-kind`;
+- reject operation-kind and input-kind mismatches deterministically;
+- support anonymous and named operation-local input Values;
+- support anonymous and named operation-local output Results;
+- resolve simple outputs such as `UnitResult` and `IntResult` through a
+  CNCF-owned predefined Result catalog;
+- retain top-level `# COMMAND`, `# QUERY`, current inline Values, and operation
+  convenience forms as explicitly tested compatibility grammar;
+- move new scaffold output to canonical Value grammar and migrate a
+  representative CAR without silent API/ABI changes;
+- use `textus-user-notification` as the primary migration driver and
+  `textus-user-account` as the larger operation-contract and literate-metadata
+  regression driver;
+- audit string-only Values and Datatypes in both drivers instead of preserving
+  nominal wrappers without model semantics;
+- model finite vocabularies as powertypes and transition-owned lifecycle state
+  with statemachines;
+- use the existing `name = Name` and `title = I18nTitle` semantics as the
+  predefined text baseline, classify remaining text families from the same
+  model, and carry explicit text-length constraints through generation and
+  runtime metadata;
+- keep `title` as one locale-aware value structure capable of holding either a
+  single locale entry or multiple locale entries;
+- model localized label/title/text values as I18N data with preserved locale
+  entries and explicit fallback policy, not as an incidental `string` wrapper.
+
+Primary reference:
+
+- `docs/phase/phase-16.md`
+- `docs/phase/phase-16-checklist.md`
+- `docs/journal/2026/07/cml-operation-value-refactoring-discussion-2026-07-15.md`
+- `docs/notes/cml-operation-value-refactoring-spec-proposal.md`
+
 ### Future Phase: Model-Driven CAR Project Scaffolding
 
 Purpose:
@@ -335,9 +383,105 @@ Purpose:
   Notice-template-driven
 - connect scaffold options to generated CML, factory overrides, and web metadata
 
+### Future Phase: Profile-Driven Video Scaffolding
+
+Purpose:
+
+- add a first-class video scaffold command, provisionally
+  `cozy video scaffold`, that creates a valid Git-managed `<slug>.video/`
+  source package;
+- generate `index.dox`, `video.yaml`, the initial script/storyboard, and an
+  `assets/` contract that can be inspected and built by the existing
+  `cozy video` workflow;
+- vary the initial scene composition by profile rather than forcing every
+  video into one template;
+- provide at least an explanation profile and an
+  explanation-demo-explanation profile, with room for additional profiles
+  after their composition contracts are specified;
+- keep profiles responsible for sequence, section roles, timing defaults, and
+  asset slots, not for embedding third-party media;
+- extract the reusable visual-effect vocabulary demonstrated by the local
+  `0714.techfirst.lt` video source into renderer-owned effect primitives and
+  named profiles instead of leaving scene scripts dependent on a project-local
+  effect tool;
+- support reusable transition primitives such as fade, film-burn, slide,
+  wipe/soft-wipe, cross-zoom, linear/zoom blur, flip, dreamy zoom, ripple, and
+  cross-warp where the renderer implements them;
+- support reusable background, text-motion, and accent primitives such as
+  flow/roadmap lines, spring pop/stagger, fade rise, underline sweep, and
+  scanline;
+- compose primitives into three independent purpose profiles:
+  section-start visual effects, summary visual effects, and final-page visual
+  effects;
+- provide a section-start profile based on the left-to-right line sweep used
+  by `0714.techfirst.lt`, without requiring a standalone section title page;
+- provide a summary profile that introduces the summary, keeps overview and
+  conclusion content on one page, and can emphasize the conclusion after the
+  overview;
+- provide a final-page profile that clearly signals completion with an End
+  card, controlled entrance/hold behavior, and an optional completion chime,
+  without presenting new explanatory content;
+- keep composition profiles and visual-effect profiles orthogonal so an
+  explanation or explanation-demo-explanation scaffold can choose each of the
+  three visual roles independently;
+- write the selected effect profiles into scaffolded `video.yaml` rather than
+  hard-coding them into generated scene JSON;
+- generate license-safe placeholder frames for every visual asset slot by
+  default;
+- do not copy, download, or reference the video assets currently published
+  below `0714.techfirst.lt/assets` from the default scaffold because their
+  redistribution license is not established;
+- render the placeholder frame when an optional asset slot has no project
+  file, and render the configured image when the project supplies the expected
+  file under `assets/` or maps the slot to an explicit project-local path;
+- keep asset files and their license/provenance declarations owned by the
+  generated video project, and fail clearly when an explicitly configured
+  required asset is missing or unreadable;
+- make scaffold output deterministic and cover each profile, placeholder-only
+  rendering, configured-asset rendering, and missing-asset diagnostics with
+  executable specifications;
+- cover effect-profile selection, deterministic primitive expansion, unknown
+  profile diagnostics, and renderer capability diagnostics with executable
+  specifications.
+
+Initial scaffold configuration shape:
+
+```yaml
+profile: explanation-demo-explanation
+visual-effects:
+  section-start: line-sweep
+  summary: overview-and-conclusion
+  final-page: end-card
+assets:
+  # Project-owned image files may be assigned to generated asset slots.
+```
+
+Initial boundary:
+
+- no network asset fetching during scaffold or build;
+- no bundled copyrighted sample media;
+- no automatic license inference;
+- effect profiles resolve to renderer-neutral primitives before rendering;
+- renderer adapters report unsupported primitives explicitly and do not
+  silently substitute unrelated effects;
+- existing video renderers consume resolved asset slots and expanded effect
+  primitives without introducing a renderer implementation per composition
+  profile.
+
 ## Current Priority
 
-Phase 6 through Phase 15 are closed. No phase is currently active.
+Phase 6 through Phase 15 are closed. Phase 16 is active.
+
+Phase 16 refactors CML around a coherent operation Value model. Reusable input
+Values declare `input-kind`, one-use input and output Values may be defined
+inside an operation, and simple output contracts resolve through CNCF-owned
+predefined Results. Compatibility grammar remains readable while new scaffold
+output moves to the canonical form. `textus-user-notification` establishes the
+first migration contract, and `textus-user-account` verifies the same contract
+against the broader identity lifecycle and existing literate metadata. The
+same drivers are used to remove nominal string wrappers, introduce the proper
+powertype/statemachine models, and establish precise predefined text and length
+contracts for both scalar and I18N data.
 
 Phase 15 completed CAR project metadata centralization. Cozy scaffolds now
 generate `project.yaml` as the CAR-local source of identity, Scala version,
@@ -392,8 +536,13 @@ behavior and Information-schema materialization.
 
 Current follow-up directions include:
 
+- Phase 16 CML operation Value refactoring
 - BoK KnowledgeSource manifest output and SIE ingestion
 - BoK publication and Component Repository public pages
+- Profile-driven video scaffolding with explanation and
+  explanation-demo-explanation composition profiles, license-safe placeholder
+  frames, project-owned asset injection, and independently selectable section
+  start, summary, and final-page visual-effect profiles
 - Video publication registration follow-up, if richer article/navigation
   integration is needed
 - Knowledge source compiler expansion

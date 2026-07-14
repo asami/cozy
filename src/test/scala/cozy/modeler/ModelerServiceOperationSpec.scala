@@ -14,7 +14,7 @@ import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 
 /*
  * @since   Jun. 23, 2026
- * @version Jul. 14, 2026
+ * @version Jul. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerServiceOperationSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -32,7 +32,7 @@ class ModelerServiceOperationSpec extends AnyWordSpec with Matchers with GivenWh
         Then("the operation contract is accepted or rejected according to the specification")
         normalized.exists(x => x.name == "createOrder" && x.kind.toString == "Command" && x.inputType == "CreateOrder") shouldBe true
         normalized.exists(x => x.name == "getOrder" && x.kind.toString == "Query" && x.inputType == "GetOrder") shouldBe true
-        normalized.exists(x => x.name == "savePerson" && x.inputType == "SavePersonInput") shouldBe true
+        normalized.exists(x => x.name == "savePerson" && x.inputType == "SavePersonCommand") shouldBe true
         normalized.find(_.name == "createOrder").flatMap(_.precondition) shouldBe Some("Customer can submit a new order.")
         normalized.find(_.name == "createOrder").flatMap(_.postcondition) shouldBe Some("The order creation request is accepted.")
         normalized.find(_.name == "createOrder").exists(_.rules.nonEmpty) shouldBe true
