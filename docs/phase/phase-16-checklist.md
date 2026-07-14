@@ -132,6 +132,9 @@ Status: OPEN
 - [x] Replace the pending `I18nStringSpec` coverage with executable plain
       locale binding, structured round-trip, effective fallback, and escaped
       leading-brace specifications.
+- [x] Replace the pending `I18nMessageSpec` coverage with executable direct
+      entry construction and fixed display-priority specifications; record its
+      non-codec representation as a legacy exception.
 - [x] Replace the pending `I18nTitleSpec` coverage with executable single-locale
       construction, multi-locale codec, locale fallback, and preservation
       specifications.

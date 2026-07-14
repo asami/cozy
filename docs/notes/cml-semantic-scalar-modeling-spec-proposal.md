@@ -149,6 +149,13 @@ preserves all ordered locale/value entries, display fallback leaves storage
 unchanged, and a leading brace in plain text is escaped rather than parsed as
 JSON. Duplicate-locale acceptance and normalization remain catalog decisions.
 
+`I18nMessage` is currently a legacy exception to that shared wrapper model. It
+owns `NonEmptyVector[(Locale, String)]` directly, has no `I18nString` codec,
+and selects display text through a fixed root, English, Japanese preference
+before falling back to the first entry. Phase 16 records this behavior for
+compatibility analysis but does not accept it as the canonical CML `message`
+contract.
+
 Phase 16 must decide which remaining families are canonical CML types and which
 are framework metadata concepts before changing driver source.
 

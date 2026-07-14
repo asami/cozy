@@ -265,6 +265,9 @@ Current evidence:
 - `simplemodeling-lib` `I18nStringSpec` now fixes execution-locale binding for
   plain input, ordered multi-locale JSON round-trip, non-destructive effective
   fallback, and escaped leading-brace input as the shared I18N codec baseline;
+- `simplemodeling-lib` `I18nMessageSpec` now fixes the legacy direct-entry
+  representation and root, English, Japanese, first-entry display priority;
+  this remains compatibility evidence rather than the accepted CML `message`;
 - existing dirty work in both driver repositories remains untouched while the
   Cozy-side contract is being established.
 
