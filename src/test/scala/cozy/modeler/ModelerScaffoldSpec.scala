@@ -9,13 +9,11 @@ import scala.collection.JavaConverters._
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import org.goldenport.kaleidox.{Config => KaleidoxConfig, Model => KaleidoxModel}
-import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 
 /*
  * @since   Jun. 23, 2026
  *  version Jun. 27, 2026
- * @version Jul. 14, 2026
+ * @version Jul. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -350,6 +348,12 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         withClue(s"sample model not found: $samplecml") {
         Files.exists(samplecml) shouldBe true
       }
+        val modelcontent = Files.readString(samplecml)
+        modelcontent should include ("# VALUE")
+        modelcontent should include ("- input-kind :: COMMAND")
+        modelcontent should include ("- input-kind :: QUERY")
+        modelcontent should not include ("# COMMAND")
+        modelcontent should not include ("# QUERY")
         withClue(s"web descriptor not found: $webdescriptor") {
         Files.exists(webdescriptor) shouldBe true
       }
@@ -622,6 +626,10 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         modelcontent should include ("| name        | name     | 1")
         modelcontent should include ("#### RegisterFacility")
         modelcontent should include ("#### ListCandidates")
+        modelcontent should include ("## RegisterFacility\n\n- input-kind :: COMMAND")
+        modelcontent should include ("## ListCandidates\n\n- input-kind :: QUERY")
+        modelcontent should not include ("# COMMAND")
+        modelcontent should not include ("# QUERY")
         modelcontent should include ("- input :: RegisterFacility")
         modelcontent should include ("- output :: RegisterFacilityResult")
         modelcontent should include ("- input :: ListCandidates")

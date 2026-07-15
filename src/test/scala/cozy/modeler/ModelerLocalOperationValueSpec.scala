@@ -22,14 +22,14 @@ class ModelerLocalOperationValueSpec extends AnyWordSpec with Matchers with Give
         cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString))
 
         Then("the generated names, value kind, parameters, and result fields use one normalized contract")
-        val component = Files.readString(out.resolve("target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"))
+        val component = Files.readString(out.resolve("target/scala-3.3.8/src_managed/main/scala/domain/DomainComponent.scala"))
         component should include ("""inputType = "SearchNotificationsQuery"""")
         component should include ("""outputType = "SearchNotificationsResult"""")
         component should include ("""inputValueKind = "QUERY_VALUE"""")
         component should include ("""name = "text"""")
         component should include ("""name = "total"""")
-        Files.exists(out.resolve("target/scala-3.3.7/src_managed/main/scala/domain/value/SearchNotificationsQuery.scala")) shouldBe true
-        Files.exists(out.resolve("target/scala-3.3.7/src_managed/main/scala/domain/value/SearchNotificationsResult.scala")) shouldBe true
+        Files.exists(out.resolve("target/scala-3.3.8/src_managed/main/scala/domain/value/SearchNotificationsQuery.scala")) shouldBe true
+        Files.exists(out.resolve("target/scala-3.3.8/src_managed/main/scala/domain/value/SearchNotificationsResult.scala")) shouldBe true
       }
 
       "generate explicitly named input and output Values" in {
@@ -40,14 +40,14 @@ class ModelerLocalOperationValueSpec extends AnyWordSpec with Matchers with Give
         cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString))
 
         Then("the explicit local names are used consistently")
-        val component = Files.readString(out.resolve("target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"))
+        val component = Files.readString(out.resolve("target/scala-3.3.8/src_managed/main/scala/domain/DomainComponent.scala"))
         component should include ("""inputType = "NotificationRegistration"""")
         component should include ("""outputType = "NotificationReceipt"""")
         component should include ("""inputValueKind = "COMMAND_VALUE"""")
         component should include ("""parameters = Vector(org.goldenport.cncf.operation.CmlOperationField(name = "id"""")
         component should include ("""resultFields = Vector(org.goldenport.cncf.operation.CmlOperationField(name = "id"""")
-        Files.exists(out.resolve("target/scala-3.3.7/src_managed/main/scala/domain/value/NotificationRegistration.scala")) shouldBe true
-        Files.exists(out.resolve("target/scala-3.3.7/src_managed/main/scala/domain/value/NotificationReceipt.scala")) shouldBe true
+        Files.exists(out.resolve("target/scala-3.3.8/src_managed/main/scala/domain/value/NotificationRegistration.scala")) shouldBe true
+        Files.exists(out.resolve("target/scala-3.3.8/src_managed/main/scala/domain/value/NotificationReceipt.scala")) shouldBe true
       }
     }
 

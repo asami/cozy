@@ -11,7 +11,8 @@ import play.api.libs.json.Json
 /*
  * @since   May. 12, 2026
  *  version May. 16, 2026
- * @version Jun. 10, 2026
+ *  version Jun. 10, 2026
+ * @version Jul. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 final class PublicationCompilerSpec extends AnyFunSuite {
@@ -84,7 +85,7 @@ final class PublicationCompilerSpec extends AnyFunSuite {
         |  .in(file("."))
         |  .settings(
         |    name := "sample-publication",
-        |    scalaVersion := "3.3.7"
+        |    scalaVersion := "3.3.8"
         |  )
         |""".stripMargin,
       StandardCharsets.UTF_8
@@ -132,7 +133,7 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     assert((projectjson \ "project" \ "kind").as[String] == "sample-single")
     assert((projectjson \ "project" \ "organization").as[String] == "org.example")
     assert((projectjson \ "project" \ "version").as[String] == "0.1.0")
-    assert((projectjson \ "project" \ "scalaVersion").as[String] == "3.3.7")
+    assert((projectjson \ "project" \ "scalaVersion").as[String] == "3.3.8")
     assert((projectjson \ "project" \ "sbtVersion").as[String] == "1.11.7")
 
     val manifestjson = _entry(out1, "metadata/source-manifest/sample-publication.json")

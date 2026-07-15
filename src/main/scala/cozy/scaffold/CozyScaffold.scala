@@ -14,7 +14,7 @@ import scala.collection.JavaConverters._
  * @since   May. 20, 2026
  *  version May. 25, 2026
  *  version Jun. 27, 2026
- * @version Jul. 14, 2026
+ * @version Jul. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyScaffold {
@@ -775,9 +775,11 @@ private[cozy] object CozyScaffold {
       || name        | name     | 1            |
       || description | ${scaffold.entityName}Description | ?            |
       |
-      |# COMMAND
+      |# VALUE
       |
       |## ${scaffold.commandOperationClassStem}
+      |
+      |- input-kind :: COMMAND
       |
       |### Attribute
       |
@@ -786,9 +788,9 @@ private[cozy] object CozyScaffold {
       || name        | name   | 1            |
       || description | ${scaffold.entityName}Description | ?            |
       |
-      |# QUERY
-      |
       |## ${scaffold.queryOperationClassStem}
+      |
+      |- input-kind :: QUERY
       |
       |### Attribute
       |
@@ -797,8 +799,6 @@ private[cozy] object CozyScaffold {
       || text   | string | ?            |
       || offset | int    | ?            |
       || limit  | int    | ?            |
-      |
-      |# VALUE
       |
       |## ${scaffold.entityName}Description
       |

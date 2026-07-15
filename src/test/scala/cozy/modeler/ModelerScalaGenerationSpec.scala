@@ -34,7 +34,7 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
         val generated = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/DomainComponent.scala"
         )
         val content = Files.readString(generated)
         Then("the generated Scala code preserves the model semantics")
@@ -63,10 +63,10 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
         val generated = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/entity/Person.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/entity/Person.scala"
         )
         val notgeneratedsimpleentity = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/entity/SimpleEntity.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/entity/SimpleEntity.scala"
         )
         Then("the generated Scala code preserves the model semantics")
         withClue(s"SimpleEntity must not be generated: $notgeneratedsimpleentity") {
@@ -93,7 +93,7 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         content should include ("""copy(content = contentv)""")
 
         val generatedcreate = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/entity/create/Person.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/entity/create/Person.scala"
         )
         withClue(s"generated file not found: $generatedcreate") {
         Files.exists(generatedcreate) shouldBe true
@@ -142,7 +142,7 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
         val generated = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/entity/BlogPost.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/entity/BlogPost.scala"
         )
         Then("the generated Scala code preserves the model semantics")
         withClue(s"generated file not found: $generated") {
@@ -176,11 +176,11 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         ))
 
         val generated = out.resolve(
-          "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+          "target/scala-3.3.8/src_managed/main/scala/domain/DomainComponent.scala"
         )
         val content = Files.readString(generated)
         val api = Files.readString(out.resolve(
-          "target/scala-3.3.7/src_managed/main/scala/domain/api/TextusScraperApi.scala"
+          "target/scala-3.3.8/src_managed/main/scala/domain/api/TextusScraperApi.scala"
         ))
 
         Then("the generated facade exposes typed operations through a binding-aware proxy")
@@ -243,7 +243,7 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
         val generated = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/entity/Notice.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/entity/Notice.scala"
         )
         val content = Files.readString(generated)
         Then("the generated Scala code preserves the model semantics")
@@ -267,7 +267,7 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         content should include ("""_record_with_derived_target_aliases(record, "ownerId", List("ownerId", "authorId"))""")
 
         val generatedquery = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/entity/query/Notice.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/entity/query/Notice.scala"
         )
         withClue(s"generated file not found: $generatedquery") {
         Files.exists(generatedquery) shouldBe true
@@ -292,13 +292,13 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
         val generated = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/entity/Notice.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/entity/Notice.scala"
         )
         val generatedcreate = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/entity/create/Notice.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/entity/create/Notice.scala"
         )
         val generatedupdate = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/entity/update/Notice.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/entity/update/Notice.scala"
         )
         val content = Files.readString(generated)
         val createcontent = Files.readString(generatedcreate)
@@ -396,7 +396,7 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
         val generated = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/DomainComponent.scala"
         )
         Then("the generated update-record operation metadata preserves the entity attribute contract")
         withClue(s"generated file not found: $generated") {
@@ -425,7 +425,7 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
         val generated = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/entity/Person.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/entity/Person.scala"
         )
         val content = Files.readString(generated)
         Then("the generated Scala code preserves the model semantics")
@@ -450,7 +450,7 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         content should include ("""web = org.goldenport.schema.WebColumn(controlType = Some("textarea"), required = Some(false))""")
 
         val generatedcreate = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/entity/create/Person.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/entity/create/Person.scala"
         )
         withClue(s"generated file not found: $generatedcreate") {
         Files.exists(generatedcreate) shouldBe true
@@ -459,7 +459,7 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         createcontent should include ("val schema: org.goldenport.schema.Schema = domain.entity.Person.schema")
 
         val generatedquery = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/entity/query/Person.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/entity/query/Person.scala"
         )
         withClue(s"generated file not found: $generatedquery") {
         Files.exists(generatedquery) shouldBe true
@@ -468,7 +468,7 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         querycontent should include ("val schema: org.goldenport.schema.Schema = domain.entity.Person.schema")
 
         val generatedupdate = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/entity/update/Person.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/entity/update/Person.scala"
         )
         withClue(s"generated file not found: $generatedupdate") {
         Files.exists(generatedupdate) shouldBe true
@@ -489,7 +489,7 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
         val generated = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/DomainComponent.scala"
         )
         val content = Files.readString(generated)
         Then("the generated Scala code preserves the model semantics")
@@ -515,7 +515,7 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
         val generated = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/DomainComponent.scala"
         )
         val content = Files.readString(generated)
         Then("the generated Scala code preserves the model semantics")
@@ -535,7 +535,7 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
         val generated = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/DomainComponent.scala"
         )
         val content = Files.readString(generated)
         Then("the generated Scala code preserves the model semantics")
@@ -641,7 +641,7 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         When("Cozy generates Scala source from the model")
         cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString))
 
-        val cataloglabel = out.resolve("target/scala-3.3.7/src_managed/main/scala/domain/value/CatalogLabel.scala")
+        val cataloglabel = out.resolve("target/scala-3.3.8/src_managed/main/scala/domain/value/CatalogLabel.scala")
         val cataloglabelcontent = Files.readString(cataloglabel)
         Then("single-field values keep external records but expose scalar datastore values")
         cataloglabelcontent should include ("def toRecord(): Record")
@@ -649,7 +649,7 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         cataloglabelcontent should include ("def toDataStore(): String")
         cataloglabelcontent should not include ("def toDataStore(): Record")
 
-        val displayperiod = out.resolve("target/scala-3.3.7/src_managed/main/scala/domain/datatype/DisplayPeriod.scala")
+        val displayperiod = out.resolve("target/scala-3.3.8/src_managed/main/scala/domain/datatype/DisplayPeriod.scala")
         val displayperiodcontent = Files.readString(displayperiod)
         And("complex datatypes are generated as structured datatype classes")
         displayperiodcontent should include ("package domain.datatype")
@@ -661,7 +661,7 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         displayperiodcontent should include ("\"start\" -> _to_data_store_value(start)")
         displayperiodcontent should include ("\"end\" -> _to_data_store_value(end)")
 
-        val exhibition = out.resolve("target/scala-3.3.7/src_managed/main/scala/domain/entity/Exhibition.scala")
+        val exhibition = out.resolve("target/scala-3.3.8/src_managed/main/scala/domain/entity/Exhibition.scala")
         val exhibitioncontent = Files.readString(exhibition)
         exhibitioncontent should include ("periodEnd: String")
         exhibitioncontent should include ("fetchSource: String")
@@ -789,7 +789,7 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         output should not include ("Unknown CML attribute type")
       }
         val generated = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/FileBundleSampleComponent.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/FileBundleSampleComponent.scala"
         )
         val content = Files.readString(generated)
         content should include ("""datatype = "filebundle"""")
@@ -807,7 +807,7 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
         val generated = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/DomainComponent.scala"
         )
         val content = Files.readString(generated)
         Then("the generated Scala code preserves the model semantics")
@@ -862,7 +862,7 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
         val generated = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/DomainComponent.scala"
         )
         val content = Files.readString(generated)
         Then("the generated Scala code preserves the model semantics")
@@ -925,7 +925,7 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
         val generated = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/DomainComponent.scala"
         )
         Then("the generated component declares CNCF runtime descriptors for the entity")
         Files.exists(generated) shouldBe true
@@ -1078,13 +1078,13 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
         val component = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/org/simplemodeling/textus/aws/AwsComponentComponent.scala"
+        "target/scala-3.3.8/src_managed/main/scala/org/simplemodeling/textus/aws/AwsComponentComponent.scala"
         )
         val put = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/org/simplemodeling/textus/aws/value/PutS3Object.scala"
+        "target/scala-3.3.8/src_managed/main/scala/org/simplemodeling/textus/aws/value/PutS3Object.scala"
         )
         val deleteresult = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/org/simplemodeling/textus/aws/value/DeleteS3ObjectResult.scala"
+        "target/scala-3.3.8/src_managed/main/scala/org/simplemodeling/textus/aws/value/DeleteS3ObjectResult.scala"
         )
         Then("the generated Scala code preserves the model semantics")
         withClue(s"generated component not found: $component") {
@@ -1149,7 +1149,7 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
         val generated = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/org/simplemodeling/textus/blog/entity/create/BlogPost.scala"
+        "target/scala-3.3.8/src_managed/main/scala/org/simplemodeling/textus/blog/entity/create/BlogPost.scala"
         )
         val content = Files.readString(generated)
         Then("the generated Scala code preserves the model semantics")
@@ -1179,7 +1179,7 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
         val generated = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/PersonComponent.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/PersonComponent.scala"
         )
         val content = Files.readString(generated)
         Then("the generated Scala code preserves the model semantics")
@@ -1207,7 +1207,7 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
         val generated = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/textus/user/account/DomainComponent.scala"
+        "target/scala-3.3.8/src_managed/main/scala/textus/user/account/DomainComponent.scala"
         )
         val content = Files.readString(generated)
         Then("the generated Scala code preserves the model semantics")
@@ -1227,7 +1227,7 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
         val generated = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/DomainComponent.scala"
         )
         val content = Files.readString(generated)
         Then("the generated Scala code preserves the model semantics")
@@ -1252,7 +1252,7 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
         val generated = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/DomainComponent.scala"
         )
         val content = Files.readString(generated)
         Then("the generated Scala code preserves the model semantics")
@@ -1404,7 +1404,7 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
         val generated = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/DomainComponent.scala"
         )
         val content = Files.readString(generated)
         Then("the generated Scala code preserves the model semantics")
@@ -1494,7 +1494,7 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
         val generated = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/DomainComponent.scala"
         )
         val content = Files.readString(generated)
         Then("the generated Scala code preserves the model semantics")

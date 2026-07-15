@@ -212,7 +212,7 @@ class ModelerServiceOperationSpec extends AnyWordSpec with Matchers with GivenWh
         withClue(s"unexpected output: $output") {
         output should not include ("is not defined")
       }
-        val component = out.resolve("target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala")
+        val component = out.resolve("target/scala-3.3.8/src_managed/main/scala/domain/DomainComponent.scala")
         val content = Files.readString(component)
         content should include ("name = \"greeting\"")
         content should include ("""execution = Some("async-job")""")
@@ -269,7 +269,7 @@ class ModelerServiceOperationSpec extends AnyWordSpec with Matchers with GivenWh
         withClue(s"unexpected output: $output") {
         output should not include ("is not defined")
       }
-        val component = out.resolve("target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala")
+        val component = out.resolve("target/scala-3.3.8/src_managed/main/scala/domain/DomainComponent.scala")
         val content = Files.readString(component)
         content should include ("inputType = \"GreetingQuery\"")
         content should include ("outputType = \"GreetingResult\"")
@@ -392,8 +392,8 @@ class ModelerServiceOperationSpec extends AnyWordSpec with Matchers with GivenWh
         withClue(s"unexpected output: $output") {
         output should not include ("is not defined")
       }
-        val component = out.resolve("target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala")
-        val powertype = out.resolve("target/scala-3.3.7/src_managed/main/scala/domain/value/BookRecordState.scala")
+        val component = out.resolve("target/scala-3.3.8/src_managed/main/scala/domain/DomainComponent.scala")
+        val powertype = out.resolve("target/scala-3.3.8/src_managed/main/scala/domain/value/BookRecordState.scala")
         val componentcontent = Files.readString(component)
         val powertypecontent = Files.readString(powertype)
         componentcontent should include ("inputType = \"ListBooks\"")
@@ -629,7 +629,7 @@ class ModelerServiceOperationSpec extends AnyWordSpec with Matchers with GivenWh
         run_modeler_scala(input, out)
 
         val generated = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/DomainComponent.scala"
         )
         val content = Files.readString(generated)
         Then("the operation contract is accepted or rejected according to the specification")
@@ -655,7 +655,7 @@ class ModelerServiceOperationSpec extends AnyWordSpec with Matchers with GivenWh
         run_modeler_scala(input, out)
 
         val generated = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/DomainComponent.scala"
         )
         val content = Files.readString(generated)
         Then("the operation contract is accepted or rejected according to the specification")
@@ -690,7 +690,7 @@ class ModelerServiceOperationSpec extends AnyWordSpec with Matchers with GivenWh
         run_modeler_scala(input, out)
 
         val generated = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/DomainComponent.scala"
         )
         val content = Files.readString(generated)
         Then("the operation contract is accepted or rejected according to the specification")
@@ -714,7 +714,7 @@ class ModelerServiceOperationSpec extends AnyWordSpec with Matchers with GivenWh
         run_modeler_scala(input, out)
 
         val generated = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/DomainComponent.scala"
         )
         val content = Files.readString(generated)
         Then("the operation contract is accepted or rejected according to the specification")
@@ -736,7 +736,7 @@ class ModelerServiceOperationSpec extends AnyWordSpec with Matchers with GivenWh
         run_modeler_scala(input, out)
 
         val generated = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/DomainComponent.scala"
         )
         val content = Files.readString(generated)
         Then("the operation contract is accepted or rejected according to the specification")
@@ -757,7 +757,7 @@ class ModelerServiceOperationSpec extends AnyWordSpec with Matchers with GivenWh
         run_modeler_scala(input, out)
 
         val generated = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/DomainComponent.scala"
         )
         val content = Files.readString(generated)
         Then("the operation contract is accepted or rejected according to the specification")
@@ -778,7 +778,7 @@ class ModelerServiceOperationSpec extends AnyWordSpec with Matchers with GivenWh
         run_modeler_scala(input, out)
 
         val generated = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/DomainComponent.scala"
         )
         val content = Files.readString(generated)
         Then("the operation contract is accepted or rejected according to the specification")
@@ -800,7 +800,7 @@ class ModelerServiceOperationSpec extends AnyWordSpec with Matchers with GivenWh
         run_modeler_scala(input, out)
 
         val generated = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/DomainComponent.scala"
         )
         val content = Files.readString(generated)
         Then("the operation contract is accepted or rejected according to the specification")
@@ -919,7 +919,7 @@ class ModelerServiceOperationSpec extends AnyWordSpec with Matchers with GivenWh
         run_modeler_scala(input, out)
 
         val generated = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/org/simplemodeling/textus/mcprag/StructuredKnowledgeComponent.scala"
+        "target/scala-3.3.8/src_managed/main/scala/org/simplemodeling/textus/mcprag/StructuredKnowledgeComponent.scala"
         )
         val content = Files.readString(generated)
         Then("the operation contract is accepted or rejected according to the specification")
@@ -947,13 +947,13 @@ class ModelerServiceOperationSpec extends AnyWordSpec with Matchers with GivenWh
         run_modeler_scala(input, out)
 
         val generated = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/DomainComponent.scala"
         )
         val generatedinput = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/value/GreetingQuery.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/value/GreetingQuery.scala"
         )
         val generatedoutput = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/value/GreetingResult.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/value/GreetingResult.scala"
         )
         Then("the operation contract is accepted or rejected according to the specification")
         withClue(s"generated input value not found: $generatedinput") {
@@ -1133,16 +1133,16 @@ class ModelerServiceOperationSpec extends AnyWordSpec with Matchers with GivenWh
         run_modeler_scala(input, out)
 
         val generated = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/DemoComponent.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/DemoComponent.scala"
         )
         val generatedview = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/entity/view/Item.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/entity/view/Item.scala"
         )
         val generatedviewsummary = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/entity/view/summary/Item.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/entity/view/summary/Item.scala"
         )
         val generatedviewdetail = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/entity/view/detail/Item.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/entity/view/detail/Item.scala"
         )
         Then("the operation contract is accepted or rejected according to the specification")
         withClue(s"generated view file not found: $generatedview") {
@@ -1234,7 +1234,7 @@ class ModelerServiceOperationSpec extends AnyWordSpec with Matchers with GivenWh
         run_modeler_scala(input, out)
 
         val generated = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/DemoComponent.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/DemoComponent.scala"
         )
         val content = Files.readString(generated)
         Then("the operation contract is accepted or rejected according to the specification")
@@ -1342,7 +1342,7 @@ class ModelerServiceOperationSpec extends AnyWordSpec with Matchers with GivenWh
         run_modeler_scala(input, out)
 
         val generated = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/EventDrivenComponent.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/EventDrivenComponent.scala"
         )
         val content = Files.readString(generated)
         Then("the operation contract is accepted or rejected according to the specification")

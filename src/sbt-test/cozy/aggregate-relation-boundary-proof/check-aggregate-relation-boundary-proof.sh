@@ -17,7 +17,7 @@ import org.goldenport.cozy.CozyPlugin.autoImport._
 
 ThisBuild / organization := "org.sample"
 ThisBuild / version := "0.1.0-SNAPSHOT"
-ThisBuild / scalaVersion := "3.3.7"
+ThisBuild / scalaVersion := "3.3.8"
 
 val cncfVersion = sys.props.getOrElse("cncf.version", sys.env.getOrElse("CNCF_VERSION", "0.4.13"))
 val simplemodelingModelVersion = sys.props.getOrElse(

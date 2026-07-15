@@ -6,7 +6,7 @@ rm -rf src/main/scala/domain/impl
 mkdir -p src/main/scala/domain
 
 cat > build.sbt <<'SBT'
-ThisBuild / scalaVersion := "3.3.7"
+ThisBuild / scalaVersion := "3.3.8"
 
 resolvers += "GitHab releases 2020" at "https://raw.github.com/asami/maven-repository/2020/releases"
 resolvers += "GitHab releases" at "https://raw.github.com/asami/maven-repository/2025/releases"

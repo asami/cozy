@@ -14,7 +14,7 @@ import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 
 /*
  * @since   Jun. 23, 2026
- * @version Jun. 23, 2026
+ * @version Jul. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 class KaleidoxCmlParsingSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -152,7 +152,7 @@ class KaleidoxCmlParsingSpec extends AnyWordSpec with Matchers with GivenWhenThe
         cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
         val generated = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/domain/entity/CountryCode.scala"
+        "target/scala-3.3.8/src_managed/main/scala/domain/entity/CountryCode.scala"
         )
         val content = Files.readString(generated)
         Then("the parsed model exposes the expected normalized semantics")

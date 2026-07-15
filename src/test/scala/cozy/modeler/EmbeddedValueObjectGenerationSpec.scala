@@ -10,7 +10,8 @@ import org.scalatest.wordspec.AnyWordSpec
  * @since   Mar. 30, 2026
  *  version Apr. 20, 2026
  *  version May. 24, 2026
- * @version Jun. 23, 2026
+ *  version Jun. 23, 2026
+ * @version Jul. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 class EmbeddedValueObjectGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -27,10 +28,10 @@ class EmbeddedValueObjectGenerationSpec extends AnyWordSpec with Matchers with G
 
       Then("the generated entity and value files exist")
       val generatedentity = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/org/sample/aggregatesinglerecord/entity/Order.scala"
+        "target/scala-3.3.8/src_managed/main/scala/org/sample/aggregatesinglerecord/entity/Order.scala"
       )
       val generatedvalue = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/org/sample/aggregatesinglerecord/value/OrderLine.scala"
+        "target/scala-3.3.8/src_managed/main/scala/org/sample/aggregatesinglerecord/value/OrderLine.scala"
       )
       withClue(s"generated entity file not found: $generatedentity") {
         Files.exists(generatedentity) shouldBe true
@@ -99,7 +100,7 @@ class EmbeddedValueObjectGenerationSpec extends AnyWordSpec with Matchers with G
 
       Then("the generated entity preserves required and optional value object semantics")
       val generatedentity = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/org/sample/singlevalueobject/entity/Order.scala"
+        "target/scala-3.3.8/src_managed/main/scala/org/sample/singlevalueobject/entity/Order.scala"
       )
       withClue(s"generated entity file not found: $generatedentity") {
         Files.exists(generatedentity) shouldBe true
@@ -148,7 +149,7 @@ class EmbeddedValueObjectGenerationSpec extends AnyWordSpec with Matchers with G
 
       Then("the generated builder contains one overload for each supported optional input shape")
       val generatedentity = out.resolve(
-        "target/scala-3.3.7/src_managed/main/scala/org/sample/optionalstring/entity/Person.scala"
+        "target/scala-3.3.8/src_managed/main/scala/org/sample/optionalstring/entity/Person.scala"
       )
       withClue(s"generated entity file not found: $generatedentity") {
         Files.exists(generatedentity) shouldBe true

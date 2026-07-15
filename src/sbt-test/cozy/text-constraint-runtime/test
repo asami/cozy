@@ -1,0 +1,4 @@
+> runMain cozy.Cozy car-sbt-project text-constraint.cml --save=out.d
+> runMain cozy.Cozy modeler-scala text-constraint.cml --save=generated.d
+$ exists out.d/build.sbt
+$ exec sh check-text-constraint-runtime.sh

@@ -134,6 +134,8 @@ Status: OPEN
       other opaque text values.
 - [ ] Add executable specifications for classification diagnostics, predefined
       text types, boundary lengths, and invalid text values.
+- [x] Compile generated Scala 3.3.8 and execute Create/Update text-length
+      validation for multiple locales and `DescriptiveAttributes` fields.
 - [x] Replace the pending `TextSpec` coverage with executable current-runtime
       boundary, invalid-control-character, and value-preservation
       specifications; keep canonical CML `text` classification open.
@@ -175,10 +177,10 @@ Status: OPEN
 
 Status: OPEN
 
-- [ ] Make new scaffolds emit `# VALUE` plus `input-kind` for reusable inputs.
+- [x] Make new scaffolds emit `# VALUE` plus `input-kind` for reusable inputs.
 - [ ] Make new scaffolds prefer local Values for one-use input/output schemas.
 - [ ] Make new scaffolds use predefined Results for simple outputs.
-- [ ] Stop emitting top-level `# COMMAND` and `# QUERY` in new CML.
+- [x] Stop emitting top-level `# COMMAND` and `# QUERY` in new CML.
 - [ ] Keep legacy top-level and inline forms readable.
 - [ ] Add compatibility diagnostics for intentional generated-name or ABI
       changes.

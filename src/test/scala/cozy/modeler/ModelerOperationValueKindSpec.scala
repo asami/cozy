@@ -25,7 +25,7 @@ class ModelerOperationValueKindSpec extends AnyWordSpec with Matchers with Given
       run_modeler_scala(input, out)
 
       Then("the AST properties select stable command/query metadata")
-      val generated = out.resolve("target/scala-3.3.7/src_managed/main/scala/domain/DomainComponent.scala")
+      val generated = out.resolve("target/scala-3.3.8/src_managed/main/scala/domain/DomainComponent.scala")
       val content = Files.readString(generated)
       content should include ("""name = "createGreeting"""")
       content should include ("""inputType = "CreateGreeting"""")

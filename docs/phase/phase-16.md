@@ -301,6 +301,10 @@ Current evidence:
   constraints to generated Scala validation and Web hints, while
   `MAttribute.Web` no longer injects domain validation and localized values are
   checked entry by entry;
+- the generated Scala 3.3.8 contract is compiled and executed by scripted
+  coverage for Create and Update models, including every locale entry and the
+  `NameAttributes` title plus `DescriptiveAttributes` headline, summary, and
+  description boundaries;
 - existing dirty work in both driver repositories remains untouched while the
   Cozy-side contract is being established.
 
@@ -316,6 +320,9 @@ Stage Status:
 Focus:
 
 - emit canonical Value grammar from Cozy scaffolds;
+- `car-sbt-project` and `init component` now emit reusable command and query
+  inputs under `# VALUE` with explicit `input-kind`, and executable scaffold
+  specifications reject new top-level `# COMMAND` and `# QUERY` output;
 - retain read compatibility for legacy CML;
 - migrate `textus-user-notification` as the primary representative CAR;
 - validate `textus-user-account` as the larger operation-contract regression

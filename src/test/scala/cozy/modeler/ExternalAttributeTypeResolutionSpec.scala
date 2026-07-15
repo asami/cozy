@@ -10,7 +10,7 @@ import org.scalatest.wordspec.AnyWordSpec
  * @since   Apr.  9, 2026
  *  version May. 21, 2026
  *  version Jun. 23, 2026
- * @version Jul. 13, 2026
+ * @version Jul. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 class ExternalAttributeTypeResolutionSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -87,7 +87,7 @@ extends = ["SimpleEntity"]
       cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
       Then("the generated entity keeps delegate fields as optional composed value objects")
-      val generated = out.resolve("target/scala-3.3.7/src_managed/main/scala/org/simplemodeling/textus/useraccount/entity/UserProfile.scala")
+      val generated = out.resolve("target/scala-3.3.8/src_managed/main/scala/org/simplemodeling/textus/useraccount/entity/UserProfile.scala")
       withClue(s"generated file not found: $generated") {
         Files.exists(generated) shouldBe true
       }
@@ -136,7 +136,7 @@ org.sample.builtin
       cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
       Then("the generated entity keeps each runtime datatype specialized")
-      val generated = out.resolve("target/scala-3.3.7/src_managed/main/scala/org/sample/builtin/entity/BuiltinHolder.scala")
+      val generated = out.resolve("target/scala-3.3.8/src_managed/main/scala/org/sample/builtin/entity/BuiltinHolder.scala")
       withClue(s"generated file not found: $generated") {
         Files.exists(generated) shouldBe true
       }
@@ -184,7 +184,7 @@ org.sample.recordbuiltin
       cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString))
 
       Then("the generated value uses Record without a generated datatype wrapper")
-      val generated = out.resolve("target/scala-3.3.7/src_managed/main/scala/org/sample/recordbuiltin/value/RecordEnvelope.scala")
+      val generated = out.resolve("target/scala-3.3.8/src_managed/main/scala/org/sample/recordbuiltin/value/RecordEnvelope.scala")
       withClue(s"generated file not found: $generated") {
         Files.exists(generated) shouldBe true
       }
@@ -238,7 +238,7 @@ org.simplemodeling.model
       cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
       Then("the value class is generated under the component package")
-      val generated = out.resolve("target/scala-3.3.7/src_managed/main/scala/org/simplemodeling/model/value/Address.scala")
+      val generated = out.resolve("target/scala-3.3.8/src_managed/main/scala/org/simplemodeling/model/value/Address.scala")
       withClue(s"generated file not found: $generated") {
         Files.exists(generated) shouldBe true
       }
@@ -302,7 +302,7 @@ org.sample.delegateentity
       cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
       Then("required delegates are generated as values and optional delegates as Option values")
-      val generated = out.resolve("target/scala-3.3.7/src_managed/main/scala/org/sample/delegateentity/entity/UserProfile.scala")
+      val generated = out.resolve("target/scala-3.3.8/src_managed/main/scala/org/sample/delegateentity/entity/UserProfile.scala")
       withClue(s"generated file not found: $generated") {
         Files.exists(generated) shouldBe true
       }
