@@ -231,9 +231,9 @@ Status: OPEN
         strings with the predefined semantic catalog.
   - [x] Keep unresolved login, actor, session, client, hash/token, suspension,
         device, and user-agent contracts as explicit domain-decision wrappers.
-- [ ] Compare account generated operation metadata and API/ABI across the
+- [x] Compare account generated operation metadata and API/ABI across the
       migration.
-- [ ] Verify that account use-case, precondition, postcondition, rule, and
+- [x] Verify that account use-case, precondition, postcondition, rule, and
       scenario metadata survives Value normalization unchanged.
 - [x] Replace notification audience kind, channel, and priority with the
       accepted closed powertype vocabularies.

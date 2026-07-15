@@ -5,14 +5,17 @@ import java.nio.file.{Files, Path}
 import java.security.MessageDigest
 import scala.collection.JavaConverters._
 import play.api.libs.json.{JsArray, JsObject, Json}
-import org.goldenport.kaleidox.{Config => KaleidoxConfig, Model => KaleidoxModel}
+import org.smartdox.{Body, Dl, Document, Dox, Fragment, Section => DoxSection}
+import org.smartdox.parser.Dox2Parser
+import org.goldenport.kaleidox.{CmlSectionFormat, Config => KaleidoxConfig, Model => KaleidoxModel}
+import org.goldenport.kaleidox.model.OperationModel
 import org.goldenport.kaleidox.model.DataTypeModel.DataTypeClass
 import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex, Constraint}
 import org.goldenport.parser.LogicalSection
 
 /*
  * @since   Jun. 23, 2026
- * @version Jul. 15, 2026
+ * @version Jul. 16, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CmlModelMetadata {
@@ -192,6 +195,7 @@ private[cozy] object CmlModelMetadata {
     glossarypath: String,
     descriptive: Descriptive,
     narrative: Option[String],
+    inputkind: Option[String] = None,
     relationships: Vector[String] = Vector.empty,
     constraints: Vector[String] = Vector.empty,
     implementation: Vector[String] = Vector.empty,
@@ -208,6 +212,7 @@ private[cozy] object CmlModelMetadata {
         "glossaryPath" -> glossarypath,
         "descriptive" -> descriptive.toJson,
         "narrative" -> Json.toJson(narrative.getOrElse("")),
+        "inputKind" -> Json.toJson(inputkind.getOrElse("")),
         "relationships" -> Json.toJson(relationships),
         "constraints" -> Json.toJson(constraints),
         "implementation" -> Json.toJson(implementation),
@@ -231,6 +236,7 @@ private[cozy] object CmlModelMetadata {
          |${indent}    summary: ${_yaml_scalar(descriptive.summary.getOrElse(""))}
          |${indent}    description: ${_yaml_scalar(descriptive.description.getOrElse(""))}
          |${indent}  narrative: ${_yaml_scalar(narrative.getOrElse(""))}
+         |${indent}  inputKind: ${_yaml_scalar(inputkind.getOrElse(""))}
          |${indent}  relationships: ${_yaml_list(relationships)}
          |${indent}  constraints: ${_yaml_list(constraints)}
          |${indent}  implementation: ${_yaml_list(implementation)}
@@ -298,7 +304,7 @@ private[cozy] object CmlModelMetadata {
         cozyversion = org.simplemodeling.cozy.BuildInfo.version
       ),
       surface = _surface(normalized, glossarycategory),
-      modelElements = _with_ast_datatype_contracts(_model_elements(normalized, glossarycategory), model)
+      modelElements = _with_ast_contracts(_model_elements(normalized, glossarycategory), model)
     )
   }
 
@@ -315,7 +321,7 @@ private[cozy] object CmlModelMetadata {
         cozyversion = org.simplemodeling.cozy.BuildInfo.version
       ),
       surface = Surface(None),
-      modelElements = _model_elements(model, glossarycategory)
+      modelElements = _with_ast_contracts(_model_elements(model, glossarycategory), model)
     )
   }
 
@@ -346,6 +352,42 @@ private[cozy] object CmlModelMetadata {
   }
 
   private case class Section(kind: String, name: String, lines: Vector[String])
+
+  private def _with_ast_contracts(
+    elements: Vector[Element],
+    model: KaleidoxModel
+  ): Vector[Element] =
+    _with_ast_datatype_contracts(_with_ast_operation_value_contracts(elements, model), model)
+
+  private def _with_ast_operation_value_contracts(
+    elements: Vector[Element],
+    model: KaleidoxModel
+  ): Vector[Element] = {
+    val legacy = model.takeOperationModel.values.map { value =>
+      (_legacy_element_kind(value.kind) -> value.name) -> _input_kind_name(value.kind)
+    }.toMap
+    val canonical = model.getValueModel.toVector.flatMap(_.classes.values).flatMap { value =>
+      value.getProperty("input-kind").flatMap(OperationModel.InputValueKind.parse).map { kind =>
+        ("value" -> value.name) -> _input_kind_name(kind)
+      }
+    }.toMap
+    val inputkinds = legacy ++ canonical
+    elements.map { element =>
+      inputkinds.get(element.kind.trim.toLowerCase(java.util.Locale.ROOT) -> element.name).
+        map(kind => element.copy(kind = "value", inputkind = Some(kind))).
+        getOrElse(element)
+    }
+  }
+
+  private def _legacy_element_kind(p: OperationModel.InputValueKind): String = p match {
+    case OperationModel.InputValueKind.CommandValue => "command"
+    case OperationModel.InputValueKind.QueryValue => "query"
+  }
+
+  private def _input_kind_name(p: OperationModel.InputValueKind): String = p match {
+    case OperationModel.InputValueKind.CommandValue => "command"
+    case OperationModel.InputValueKind.QueryValue => "query"
+  }
 
   private def _with_ast_datatype_contracts(
     elements: Vector[Element],
@@ -781,7 +823,24 @@ private[cozy] object CmlModelMetadata {
   private def _free_narrative(lines: Vector[String], level: Int = 3): Option[String] = {
     val prefix = "#" * level + " "
     val body = lines.takeWhile(line => !line.trim.startsWith(prefix)).mkString("\n").trim
-    if (body.isEmpty) None else Some(body)
+    val narrative = _ast_narrative(body)
+    if (narrative.isEmpty) None else Some(narrative)
+  }
+
+  private def _ast_narrative(p: String): String = {
+    val dox = Dox2Parser.parse(KaleidoxConfig.default.doxConfig, p)
+    _top_level_contents(dox).filterNot(_is_property_node).map(_.toText.trim).filter(_.nonEmpty).mkString("\n").trim
+  }
+
+  private def _is_property_node(p: Dox): Boolean =
+    p.isInstanceOf[Dl] || CmlSectionFormat.directKeyValues(DoxSection(Nil, List(p))).nonEmpty
+
+  private def _top_level_contents(p: Dox): Vector[Dox] = p match {
+    case m: Document => m.body.contents.toVector
+    case m: Body => m.contents.toVector
+    case m: Fragment => m.contents.toVector
+    case m: DoxSection => m.contents.toVector
+    case m => Vector(m)
   }
 
   private def _field_list(fields: Map[String, String], names: String*): Vector[String] =

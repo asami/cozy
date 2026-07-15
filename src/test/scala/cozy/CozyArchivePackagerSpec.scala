@@ -19,7 +19,7 @@ import play.api.libs.json.{Json, JsValue}
  * @since   May. 20, 2026
  *  version May. 22, 2026
  *  version Jun. 18, 2026
- * @version Jul. 15, 2026
+ * @version Jul. 16, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -187,7 +187,9 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
         "CreateNotice", "CreateNoticeResult", "GetNotice", "NoticeResult"
       )
       val createnotice = types.find(x => (x \ "name").as[String] == "CreateNotice").get
-      (createnotice \ "kind").as[String] shouldBe "command"
+      (createnotice \ "kind").as[String] shouldBe "value"
+      val getnotice = types.find(x => (x \ "name").as[String] == "GetNotice").get
+      (getnotice \ "kind").as[String] shouldBe "value"
       (createnotice \ "fields").as[Seq[JsValue]].head shouldBe Json.obj(
         "name" -> "title",
         "type" -> "string",

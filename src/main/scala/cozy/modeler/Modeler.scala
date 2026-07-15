@@ -1197,9 +1197,22 @@ object Modeler {
 
     private def _attribute_type_constraints(
       p: SchemaModel.Attribute
+    ): Vector[org.goldenport.record.v2.Constraint] =
+      p.rawTypeName.toVector.flatMap(_operation_type_constraints)
+
+    private def _with_operation_field_type_constraints(
+      p: OperationModel.FieldDefinition
+    ): OperationModel.FieldDefinition = {
+      val inherited = _operation_type_constraints(p.datatype)
+      val existingkeys = p.typeConstraints.map(_constraint_key).toSet
+      p.copy(typeConstraints = p.typeConstraints ++ inherited.filterNot(x => existingkeys.contains(_constraint_key(x))))
+    }
+
+    private def _operation_type_constraints(
+      rawtypename: String
     ): Vector[org.goldenport.record.v2.Constraint] = {
-      val inherited = p.rawTypeName.toVector.flatMap(_datatype_constraints)
-      val predefined = p.rawTypeName.flatMap(PredefinedScalarCatalog.get).toVector.flatMap(_.constraints)
+      val inherited = _datatype_constraints(rawtypename)
+      val predefined = PredefinedScalarCatalog.get(rawtypename).toVector.flatMap(_.constraints)
       val inheritedkeys = inherited.map(_constraint_key).toSet
       inherited ++ predefined.filterNot(x => inheritedkeys.contains(_constraint_key(x)))
     }
@@ -1898,7 +1911,9 @@ object Modeler {
     }
 
     private lazy val _legacy_input_value_definition_map: Map[String, OperationModel.InputValueDefinition] =
-      operation.values.map(x => x.name -> x).toMap
+      operation.values.map { value =>
+        value.name -> value.copy(fields = value.fields.map(_with_operation_field_type_constraints))
+      }.toMap
 
     private lazy val _value_input_field_map: Map[String, Vector[OperationModel.FieldDefinition]] =
       (value.classes.values.toVector ++ _service_inline_values).map(x => x.name -> _operation_fields(x)).toMap

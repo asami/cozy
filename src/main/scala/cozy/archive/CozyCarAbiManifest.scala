@@ -8,7 +8,7 @@ import scala.util.Try
 
 /*
  * @since   Jul. 15, 2026
- * @version Jul. 15, 2026
+ * @version Jul. 16, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyCarAbiManifest {
@@ -100,10 +100,16 @@ private[cozy] object CozyCarAbiManifest {
         val name = _required_string(modelelement, "name", "type")
         Json.obj(
           "name" -> name,
-          "kind" -> _required_string(modelelement, "kind", s"type '${name}'"),
+          "kind" -> _canonical_type_kind(_required_string(modelelement, "kind", s"type '${name}'")),
           "fields" -> JsArray(_fields(modelelement, s"type '${name}'"))
         )
       }
+
+  private def _canonical_type_kind(p: String): String =
+    p.trim.toLowerCase(java.util.Locale.ROOT) match {
+      case "command" | "query" => "value"
+      case value => value
+    }
 
   private def _entities(metadata: JsValue): Vector[JsObject] =
     (metadata \ "modelElements").asOpt[JsArray].map(_.value.toVector).getOrElse(Vector.empty).

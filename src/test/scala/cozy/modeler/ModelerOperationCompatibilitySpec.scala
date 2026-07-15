@@ -8,7 +8,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jul. 15, 2026
- * @version Jul. 15, 2026
+ * @version Jul. 16, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerOperationCompatibilitySpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -18,11 +18,16 @@ class ModelerOperationCompatibilitySpec extends AnyWordSpec with Matchers with G
       val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
       val input = base.resolve("target/test-generated/operation-compatibility/top-level.cml")
       val out = base.resolve("target/test-generated/operation-compatibility/top-level-out")
+      val canonicalinput = base.resolve("target/test-generated/operation-compatibility/top-level-canonical.cml")
+      val canonicalout = base.resolve("target/test-generated/operation-compatibility/top-level-canonical-out")
       delete_recursively(out)
+      delete_recursively(canonicalout)
       write_file(input, _top_level_contract)
+      write_file(canonicalinput, _canonical_top_level_contract)
 
       When("Cozy generates the component operation metadata")
       run_modeler_scala(input, out)
+      run_modeler_scala(canonicalinput, canonicalout)
 
       Then("the legacy definitions use the same command and query Value metadata as canonical inputs")
       val component = Files.readString(_component_path(out))
@@ -32,6 +37,9 @@ class ModelerOperationCompatibilitySpec extends AnyWordSpec with Matchers with G
       component should include ("""name = "searchGreetings"""")
       component should include ("""inputType = "SearchGreetings"""")
       component should include ("""inputValueKind = "QUERY_VALUE"""")
+
+      And("compatibility syntax produces the same generated component contract as canonical Values")
+      component shouldBe Files.readString(_component_path(canonicalout))
     }
 
     "normalize legacy service-scoped named inline Values" in {
@@ -80,6 +88,64 @@ class ModelerOperationCompatibilitySpec extends AnyWordSpec with Matchers with G
       |# QUERY
       |
       |## SearchGreetings
+      |
+      |### ATTRIBUTE
+      |
+      || name | type | multiplicity |
+      ||------+------|--------------|
+      || name | name | ?            |
+      |
+      |# SERVICE
+      |
+      |## Greeting
+      |
+      |### OPERATION
+      |
+      |#### createGreeting
+      |
+      |##### TYPE
+      |COMMAND
+      |##### INPUT
+      |###### TYPE
+      |CreateGreeting
+      |##### OUTPUT
+      |###### TYPE
+      |OperationResult
+      |
+      |#### searchGreetings
+      |
+      |##### TYPE
+      |QUERY
+      |##### INPUT
+      |###### TYPE
+      |SearchGreetings
+      |##### OUTPUT
+      |###### TYPE
+      |OperationResult
+      |""".stripMargin
+
+  private val _canonical_top_level_contract =
+    """# COMPONENT
+      |
+      |## Domain
+      |
+      |### PACKAGE
+      |
+      |domain
+      |
+      |# VALUE
+      |
+      |## CreateGreeting
+      |- input-kind :: COMMAND
+      |
+      |### ATTRIBUTE
+      |
+      || name | type | multiplicity |
+      ||------+------|--------------|
+      || name | name | 1            |
+      |
+      |## SearchGreetings
+      |- input-kind :: QUERY
       |
       |### ATTRIBUTE
       |

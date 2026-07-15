@@ -563,6 +563,32 @@ Account semantic-scalar verification update on 2026-07-15:
 The implementation decision and remaining domain boundaries are recorded in
 `docs/journal/2026/07/cml-account-semantic-scalar-migration-2026-07-15.md`.
 
+Account operation Value verification update on 2026-07-16:
+
+- all 20 authored account operation inputs migrated from legacy top-level
+  command/query sections to canonical Values with explicit `input-kind`;
+- a reconstructed legacy worktree and the canonical worktree were regenerated
+  with the same current Cozy implementation and Scala 3.3.8;
+- generated `UserAccountComponent.scala` and `abi-manifest.json` are
+  byte-for-byte identical across the migration;
+- normalized `model-metadata.json` is exactly equal after excluding only the
+  differing source path and source digest, proving that use-case,
+  precondition, postcondition, rule, scenario, descriptive, and narrative
+  metadata survives unchanged;
+- the canonical grammar adds 20 generated top-level Value classes and removes
+  no generated source;
+- Cozy now applies datatype constraints and canonical Value/input-kind
+  metadata identically to legacy and canonical operation inputs, and removes
+  structural properties from narrative through the CML/SmartDox AST;
+- executable verification passed with 37 focused Cozy tests, 550 full Cozy
+  tests, seven Scala 3.3.8 generated-runtime scripted tests, 34 SimpleModeler
+  tests, and 87 User Account tests;
+- clean Account CAR packaging succeeds and CAR lint reports no deterministic
+  FAIL.
+
+The detailed comparison and artifact hashes are recorded in
+`docs/journal/2026/07/cml-account-operation-value-migration-2026-07-16.md`.
+
 ## Stage 16.7: Verification and Closure
 
 Stage Status:
