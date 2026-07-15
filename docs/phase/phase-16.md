@@ -275,6 +275,10 @@ Current evidence:
   ordered structured round-trip, while `DescriptiveAttributesSpec` fixes
   non-destructive effective description fallback through `I18nString`;
   description-specific range and multiline policy remain open;
+- `simplemodeling-lib` `I18nBriefSpec` now fixes plain construction and ordered
+  structured round-trip, while `DescriptiveAttributesSpec` fixes
+  non-destructive locale selection for the existing headline and brief fields;
+  distinct headline and brief range policy remains open;
 - existing dirty work in both driver repositories remains untouched while the
   Cozy-side contract is being established.
 

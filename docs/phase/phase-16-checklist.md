@@ -142,6 +142,10 @@ Status: OPEN
       and structured shared-codec specifications, and extend
       `DescriptiveAttributesSpec` with effective fallback and preservation;
       keep the canonical CML `description` constraints open.
+- [x] Replace the pending `I18nBriefSpec` coverage with executable plain and
+      structured shared-codec specifications, and verify locale-aware headline
+      and brief selection through `DescriptiveAttributesSpec`; keep distinct
+      CML headline and brief constraints open.
 - [x] Replace the pending `I18nTitleSpec` coverage with executable single-locale
       construction, multi-locale codec, locale fallback, and preservation
       specifications.

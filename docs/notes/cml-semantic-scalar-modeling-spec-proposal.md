@@ -171,6 +171,14 @@ The current runtime wrapper does not define a description-specific length,
 multiline, normalization, or empty-value policy. Phase 16 accepts this behavior
 as runtime evidence, not yet as the canonical CML `description` contract.
 
+`I18nBrief` follows the same shared wrapper model and currently backs both the
+`headline` and `brief` fields in `DescriptiveAttributes`. Plain construction and
+structured round-trip preserve its `I18nString`, while effective headline and
+brief accessors select display locales without collapsing stored entries. The
+runtime wrapper does not yet distinguish headline and brief ranges or define
+their length, normalization, or empty-value policy, so this remains baseline
+evidence rather than the accepted CML field contract.
+
 Phase 16 must decide which remaining families are canonical CML types and which
 are framework metadata concepts before changing driver source.
 
