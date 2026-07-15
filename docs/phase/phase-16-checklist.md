@@ -290,7 +290,7 @@ Status: OPEN
 - [x] Verify generated driver source contains no primitive `String`,
       `Condition[String]`, or `Update[String]` fallback for fields classified
       as nominal, predefined, powertype, statemachine, or structured types.
-- [ ] Verify nominal scalars reject invalid construction and round-trip through
+- [x] Verify nominal scalars reject invalid construction and round-trip through
       scalar codec, datastore, Record, form, REST/OpenAPI, and Help surfaces.
 - [x] Verify `VALUE`, plain `DATATYPE`, complex `DATATYPE`, `POWERTYPE`, and
       `STATEMACHINE` retain distinct generated and serialized contracts.

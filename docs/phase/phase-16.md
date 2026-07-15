@@ -695,14 +695,32 @@ Distinct CML model-kind verification on 2026-07-16:
   `MNominalDataType`, `MStructuredDataType`, `MPowertype`, and
   an entity-bound `MStateMachineRef` rather than collapsing them to their
   common string or record representations;
-- generated serialization remains distinct: Value and complex Datatype use
-  record contracts, plain Datatype uses a validated nominal scalar contract,
-  Powertype uses a closed scalar vocabulary, and Statemachine becomes CNCF
-  lifecycle topology metadata rather than another serialized value class;
+- generated representation remains distinct: the verified multi-field Value
+  and complex Datatype use Record contracts; all Values retain a Record API
+  boundary, while a single-field datatype-backed Value may use a scalar
+  `toDataStore()` representation. Plain Datatype uses a validated nominal
+  scalar contract, Powertype uses a closed scalar vocabulary, and Statemachine
+  becomes CNCF lifecycle topology metadata rather than another serialized
+  value class;
 - the `cozy/model-kind-runtime` scripted fixture compiles the generated source
   with Scala 3.3.8 and executes Value/Datatype `Record` and datastore
   projection, nominal scalar codec and reader, Powertype logical/database
   decoding, and CNCF Statemachine definition/transition metadata.
+
+Nominal scalar boundary verification on 2026-07-16:
+
+- the Scala 3.3.8 `cozy/text-constraint-runtime` fixture now generates one
+  constrained `LoginName` Datatype and one query operation that consumes it;
+- direct construction, `ValueReader`, Circe scalar decoding, `Record`, and
+  datastore projection all preserve the nominal value and reject inputs that
+  violate the authored length or pattern constraints;
+- generated operation request construction decodes the same nominal type from
+  a `Record` and rejects invalid REST-style record input at that boundary;
+- generated entity Create/Query/Update schema, operation Help, automatic
+  REST/OpenAPI, and the standard HTML form all project the same required
+  `5..12` length and `^user.+$` pattern contract;
+- the expanded scripted specification compiles all generated component source
+  and passes eight executable tests.
 
 ## Stage 16.7: Verification and Closure
 

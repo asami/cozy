@@ -1,3 +1,11 @@
+# COMPONENT
+
+## TextConstraint
+
+### PACKAGE
+
+domain
+
 # DATATYPE
 
 ## LoginName
@@ -7,6 +15,50 @@
 | name  | type   | multiplicity | min-length | max-length | pattern  |
 |-------+--------+--------------+------------+------------+----------|
 | value | string | 1            | 5          | 12         | ^user.+$ |
+
+# SERVICE
+
+## AccountLookup
+
+### OPERATION
+
+#### lookupAccount
+
+##### TYPE
+
+QUERY
+
+##### INPUT
+
+###### VALUE
+
+####### LookupAccountQuery
+
+######## EXTENDS
+
+QueryAction
+
+######## ATTRIBUTE
+
+| name      | type      | multiplicity |
+|-----------+-----------+--------------|
+| loginName | LoginName | 1            |
+
+##### OUTPUT
+
+###### VALUE
+
+####### LookupAccountResult
+
+######## EXTENDS
+
+OperationResult
+
+######## ATTRIBUTE
+
+| name    | type   | multiplicity |
+|---------+--------+--------------|
+| message | string | 1            |
 
 # ENTITY
 

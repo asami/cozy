@@ -3,7 +3,14 @@ import java.util.Locale
 import cats.data.NonEmptyVector
 import domain.datatype.LoginName
 import io.circe.{Decoder, Json}
+import io.circe.parser.parse
+import org.goldenport.cncf.component.{ComponentCreate, ComponentOrigin}
+import org.goldenport.cncf.http.StaticFormAppRenderer
+import org.goldenport.cncf.openapi.OpenApiProjector
+import org.goldenport.cncf.projection.HelpProjection
+import org.goldenport.cncf.subsystem.DefaultSubsystemFactory
 import org.goldenport.datatype.{EmailAddress, I18nBrief, I18nDescription, I18nString, I18nSummary, I18nText, I18nTitle, Identifier, IpAddress, PhoneNumber}
+import org.goldenport.record.Record
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -114,9 +121,19 @@ final class GeneratedTextConstraintSpec extends AnyWordSpec with Matchers with G
       val decoded = summon[Decoder[LoginName]].decodeJson(Json.fromString("user_carol"))
 
       Then("construction, ValueReader, codec, and datastore projection use the nominal scalar contract")
+      loginname.toRecord().getString("value") shouldBe Some("user_alice")
       loginname.toDataStore() shouldBe "user_alice"
       read shouldBe LoginName("user_bob")
       decoded shouldBe Right(LoginName("user_carol"))
+
+      And("generated operation request construction preserves the same scalar boundary")
+      val request = domain.value.LookupAccountQuery
+        .createC(Record.dataAuto("loginName" -> "user_dave"))
+        .TAKE
+      request.loginName shouldBe LoginName("user_dave")
+      domain.value.LookupAccountQuery
+        .createC(Record.dataAuto("loginName" -> "invalid"))
+        .isSuccess shouldBe false
 
       And("every construction boundary enforces the declared constraints")
       val short = the[IllegalArgumentException] thrownBy LoginName("user")
@@ -144,6 +161,54 @@ final class GeneratedTextConstraintSpec extends AnyWordSpec with Matchers with G
       domain.entity.create.Notice.schema shouldBe domain.entity.Notice.schema
       domain.entity.query.Notice.schema shouldBe domain.entity.Notice.schema
       domain.entity.update.Notice.schema shouldBe domain.entity.Notice.schema
+    }
+
+    "project one nominal scalar contract through generated operation surfaces" in {
+      Given("a generated query operation whose required input uses the constrained LoginName datatype")
+      val subsystem = DefaultSubsystemFactory.default(Some("command"))
+      val component = new domain.impl.ComponentFactory()
+        .create(ComponentCreate(subsystem, ComponentOrigin.Repository("text-constraint-runtime")))
+        .primary
+      subsystem.add(component)
+
+      When("CNCF projects Help, automatic OpenAPI, and the HTML operation form")
+      val selector = s"${component.name}.accountLookup.lookupAccount"
+      val help = HelpProjection.projectModel(component, Some(selector))
+      val openapi = parse(OpenApiProjector.forSubsystem(subsystem)).fold(
+        error => fail(s"OpenAPI JSON parse failed: ${error.getMessage}"),
+        identity
+      )
+      val form = StaticFormAppRenderer()
+        .renderOperationForm(subsystem, component.name, "accountLookup", "lookupAccount")
+        .map(_.body)
+        .getOrElse(fail("generated nominal scalar operation form is missing"))
+
+      Then("Help exposes the nominal datatype and its authored validation contract")
+      help.details("argumentDetails") shouldBe Vector(
+        "loginName: loginname 1 [min-length=5, max-length=12, pattern=^user.+$]"
+      )
+
+      And("automatic OpenAPI projects the same required scalar constraints")
+      val request = openapi.hcursor
+        .downField("paths")
+        .downField("/rest/v1/text-constraint/account-lookup/lookup-account")
+        .downField("POST")
+        .downField("requestBody")
+        .downField("content")
+        .downField("application/json")
+        .downField("schema")
+      request.get[Vector[String]]("required") shouldBe Right(Vector("loginName"))
+      val loginname = request.downField("properties").downField("loginName")
+      loginname.get[Int]("minLength") shouldBe Right(5)
+      loginname.get[Int]("maxLength") shouldBe Right(12)
+      loginname.get[String]("pattern") shouldBe Right("^user.+$")
+
+      And("the standard HTML form uses the same required nominal scalar boundary")
+      form should include ("""name="loginName"""")
+      form should include ("""required""")
+      form should include ("""minlength="5"""")
+      form should include ("""maxlength="12"""")
+      form should include ("""pattern="^user.+$"""")
     }
   }
 
