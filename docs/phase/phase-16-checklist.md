@@ -184,9 +184,13 @@ Status: OPEN
 - [x] Keep legacy top-level and inline forms readable.
 - [x] Add compatibility diagnostics for intentional generated-name or ABI
       changes.
-- [ ] Migrate `textus-user-notification` after the new grammar is implemented.
-- [ ] Compare notification generated operation metadata and API/ABI across the
+- [x] Migrate `textus-user-notification` after the new grammar is implemented.
+- [x] Compare notification generated operation metadata and API/ABI across the
       migration.
+- [x] Route notification preference writes through the CNCF generated-create
+      `entity_upsert` DSL with deterministic subject/type/channel identity.
+- [x] Verify 16 concurrent writes converge on one EntityId and one persistent
+      preference row through atomic datastore save.
 - [ ] Migrate or validate `textus-user-account` after the primary migration is
       stable.
 - [ ] Compare account generated operation metadata and API/ABI across the
@@ -211,8 +215,8 @@ Status: OPEN
 - [x] Run focused Modeler operation and Value executable specifications.
 - [x] Run scaffold executable specifications.
 - [x] Run full `sbt --batch test` in Cozy.
-- [ ] Generate and validate at least one command and one query CAR.
-- [ ] Run focused and full tests in `textus-user-notification`.
+- [x] Generate and validate at least one command and one query CAR.
+- [x] Run focused and full tests in `textus-user-notification`.
 - [ ] Run focused and full tests in `textus-user-account`.
 - [ ] Run CAR lint for both driver projects.
 - [ ] Run `git diff --check`.

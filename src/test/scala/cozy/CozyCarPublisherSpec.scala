@@ -14,7 +14,7 @@ import org.scalatest.wordspec.AnyWordSpec
 /*
  * @since   May. 20, 2026
  *  version Jun.  4, 2026
- * @version Jul. 13, 2026
+ * @version Jul. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyCarPublisherSpec
@@ -186,6 +186,15 @@ class CozyCarPublisherSpec
           val projectdir = dir.resolve("project")
           val warehouse = dir.resolve("warehouse")
           val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
+          val modelmetadata = _write(
+            dir.resolve("target/cozy/model-metadata.json"),
+            """{
+              |  "schema": "cozy.cml.model-metadata.v1",
+              |  "surface": {"component": {"services": []}},
+              |  "modelElements": []
+              |}
+              |""".stripMargin
+          )
           _write_project_yaml(projectdir, "sample-component")
           _write(
             projectdir.resolve("src/main/car/web/web.yaml"),
@@ -206,6 +215,8 @@ class CozyCarPublisherSpec
               "0.1.1-SNAPSHOT",
               "--main-jar",
               mainjar.toString,
+              "--model-metadata",
+              modelmetadata.toString,
               "--component",
               "sample-component"
             )

@@ -19,7 +19,7 @@ import play.api.libs.json.{Json, JsValue}
  * @since   May. 20, 2026
  *  version May. 22, 2026
  *  version Jun. 18, 2026
- * @version Jul.  9, 2026
+ * @version Jul. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -100,6 +100,67 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
       (abijson \ "car" \ "version").as[String] shouldBe "0.1.0"
       (abijson \ "abi" \ "exports" \ "components").as[Seq[JsValue]].map(x => (x \ "name").as[String]) should contain ("sample-component")
       (abijson \ "abi" \ "exports" \ "entities").as[Seq[JsValue]].map(x => (x \ "name").as[String]) should contain allOf ("Notice", "SalesOrder")
+    }
+  }
+
+    "merge compatible ABI surfaces from multiple generated CML metadata files" in {
+    _with_temp_dir("cozy-car-multiple-model-metadata-abi") { dir =>
+      Given("two generated CML metadata files with distinct operation and entity exports")
+      val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
+      val first = _write(dir.resolve("target/cozy/model-metadata/model-001.json"), _model_metadata)
+      val second = _write(dir.resolve("target/cozy/model-metadata/model-002.json"), _secondary_model_metadata)
+      val archive = dir.resolve("out/sample.car")
+
+      When("Cozy packages both metadata documents into one CAR ABI")
+      CozyArchivePackager.buildCar(List(
+        "--save", archive.toString,
+        "--main-jar", mainjar.toString,
+        "--model-metadata", s"${first},${second}",
+        "--name", "sample-component",
+        "--version", "0.1.0",
+        "--component", "sample-component"
+      ))
+
+      Then("the ABI contains each distinct authored operation and entity once")
+      val exports = Json.parse(_zip_text(archive, "abi-manifest.json")) \ "abi" \ "exports"
+      (exports \ "operations").as[Seq[JsValue]].map(x => (x \ "name").as[String]) should
+        contain theSameElementsAs Seq("createNotice", "getNotice", "archiveNotice")
+      (exports \ "entities").as[Seq[JsValue]].map(x => (x \ "name").as[String]) should
+        contain theSameElementsAs Seq("Notice", "NoticeArchive")
+    }
+  }
+
+    "derive exported operation signatures and entities from CML model metadata" in {
+    _with_temp_dir("cozy-car-model-metadata-abi") { dir =>
+      Given("generated CML model metadata with two operations and one entity")
+      val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
+      val metadata = _write(dir.resolve("target/cozy/model-metadata.json"), _model_metadata)
+      val archive = dir.resolve("out/sample.car")
+      val abisidecar = dir.resolve("target/cozy/abi-manifest.json")
+
+      When("Cozy packages the CAR without an explicit ABI manifest")
+      CozyArchivePackager.buildCar(List(
+        "--save", archive.toString,
+        "--main-jar", mainjar.toString,
+        "--model-metadata", metadata.toString,
+        "--abi-manifest-output", abisidecar.toString,
+        "--name", "sample-component",
+        "--version", "0.1.0",
+        "--component", "sample-component"
+      ))
+
+      Then("the generated ABI manifest describes the CML operation surface")
+      val exports = Json.parse(_zip_text(archive, "abi-manifest.json")) \ "abi" \ "exports"
+      val operations = (exports \ "operations").as[Seq[JsValue]]
+      operations.map(x => (x \ "name").as[String]) should contain theSameElementsAs Seq("createNotice", "getNotice")
+      operations.find(x => (x \ "name").as[String] == "createNotice").get shouldBe Json.obj(
+        "name" -> "createNotice",
+        "kind" -> "COMMAND",
+        "input" -> "CreateNotice",
+        "output" -> "CreateNoticeResult"
+      )
+      (exports \ "entities").as[Seq[JsValue]].map(x => (x \ "name").as[String]) shouldBe Seq("Notice")
+      Files.readString(abisidecar) shouldBe _zip_text(archive, "abi-manifest.json")
     }
   }
 
@@ -219,11 +280,12 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
 
     "let an explicit ABI manifest override the source-managed current manifest" in {
     _with_temp_dir("cozy-car-explicit-abi") { dir =>
-      Given("a CAR source manifest and an explicit ABI manifest")
+      Given("generated metadata, a CAR source manifest, and an explicit ABI manifest")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
       val cardir = dir.resolve("src/main/car")
       _write(cardir.resolve("abi-manifest.json"), _abi_manifest("sample-component", "0.1.0", "source-component"))
       val explicitabi = _write(dir.resolve("abi/explicit.json"), _abi_manifest("sample-component", "0.1.0", "explicit-component"))
+      val metadata = _write(dir.resolve("target/cozy/model-metadata.json"), _model_metadata)
       val archive = dir.resolve("out/sample.car")
 
       When("Cozy packages the CAR with --abi-manifest")
@@ -232,6 +294,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
         "--main-jar", mainjar.toString,
         "--car-dir", cardir.toString,
         "--abi-manifest", explicitabi.toString,
+        "--model-metadata", metadata.toString,
         "--name", "sample-component",
         "--version", "0.1.0",
         "--component", "generated-component"
@@ -239,6 +302,31 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
 
       Then("the explicit ABI manifest is embedded")
       _zip_text(archive, "abi-manifest.json") shouldBe Files.readString(explicitabi)
+    }
+  }
+
+    "reject generated model metadata with an unsupported schema" in {
+    _with_temp_dir("cozy-car-invalid-model-metadata") { dir =>
+      Given("generated metadata whose schema is not the CML metadata contract")
+      val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
+      val metadata = _write(dir.resolve("target/cozy/model-metadata.json"), "{\"schema\":\"other.v1\"}\n")
+      val archive = dir.resolve("out/sample.car")
+
+      When("Cozy packages the CAR without an explicit ABI manifest")
+      val ex = intercept[Throwable] {
+        CozyArchivePackager.buildCar(List(
+          "--save", archive.toString,
+          "--main-jar", mainjar.toString,
+          "--model-metadata", metadata.toString,
+          "--name", "sample-component",
+          "--version", "0.1.0",
+          "--component", "sample-component"
+        ))
+      }
+
+      Then("the unsupported metadata is rejected instead of producing a skeletal ABI")
+      ex.getMessage should include("must declare schema 'cozy.cml.model-metadata.v1'")
+      archive.toFile.exists() shouldBe false
     }
   }
 
@@ -783,6 +871,31 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
     }
   }
 
+    "reject a CML CAR whose generated model metadata side output is missing" in {
+    _with_temp_dir("cozy-car-missing-model-metadata") { dir =>
+      Given("a CML CAR project without an explicit ABI or generated model metadata")
+      val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
+      _write(dir.resolve("src/main/cozy/sample.cml"), "# COMPONENT\n\n## Sample\n")
+      val archive = dir.resolve("out/sample.car")
+
+      When("Cozy packages the project")
+      val ex = intercept[Throwable] {
+        CozyArchivePackager.buildCar(List(
+          "--save", archive.toString,
+          "--main-jar", mainjar.toString,
+          "--project-dir", dir.toString,
+          "--name", "sample-component",
+          "--version", "0.1.0",
+          "--component", "sample-component"
+        ))
+      }
+
+      Then("packaging fails instead of silently creating a skeletal ABI")
+      ex.getMessage should include("requires generated model metadata")
+      archive.toFile.exists() shouldBe false
+    }
+  }
+
     "embed dependency jars only when project policy enables them" in {
     _with_temp_dir("cozy-car-include-dependencies") { dir =>
       val projectdir = dir.resolve("project")
@@ -1113,6 +1226,67 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
        |  }
        |}
        |""".stripMargin
+
+  private def _model_metadata: String =
+    """{
+      |  "schema": "cozy.cml.model-metadata.v1",
+      |  "surface": {
+      |    "component": {
+      |      "name": "Sample",
+      |      "services": [
+      |        {
+      |          "name": "Notice",
+      |          "operations": [
+      |            {
+      |              "name": "createNotice",
+      |              "operationType": "COMMAND",
+      |              "inputType": "CreateNotice",
+      |              "outputType": "CreateNoticeResult"
+      |            },
+      |            {
+      |              "name": "getNotice",
+      |              "operationType": "QUERY",
+      |              "inputType": "GetNotice",
+      |              "outputType": "NoticeResult"
+      |            }
+      |          ]
+      |        }
+      |      ]
+      |    }
+      |  },
+      |  "modelElements": [
+      |    {"kind": "entity", "name": "Notice"},
+      |    {"kind": "value", "name": "CreateNotice"}
+      |  ]
+      |}
+      |""".stripMargin
+
+  private def _secondary_model_metadata: String =
+    """{
+      |  "schema": "cozy.cml.model-metadata.v1",
+      |  "surface": {
+      |    "component": {
+      |      "name": "Sample",
+      |      "services": [
+      |        {
+      |          "name": "Archive",
+      |          "operations": [
+      |            {
+      |              "name": "archiveNotice",
+      |              "operationType": "COMMAND",
+      |              "inputType": "ArchiveNotice",
+      |              "outputType": "ArchiveNoticeResult"
+      |            }
+      |          ]
+      |        }
+      |      ]
+      |    }
+      |  },
+      |  "modelElements": [
+      |    {"kind": "entity", "name": "NoticeArchive"}
+      |  ]
+      |}
+      |""".stripMargin
 
   private def _zip_entries(path: Path): Set[String] = {
     val zip = new ZipFile(path.toFile)

@@ -16,7 +16,7 @@ import scala.sys.process._
  * @since   May. 20, 2026
  *  version May. 22, 2026
  *  version Jun. 18, 2026
- * @version Jul. 12, 2026
+ * @version Jul. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArchivePackager {
@@ -38,6 +38,7 @@ private[cozy] object CozyArchivePackager {
     val webdir = _path(args, "web-dir").orElse(projectdir.map(_.resolve("src/main/web")).filter(Files.isDirectory(_)))
     val webinfdescriptors = _web_inf_descriptors(args, projectdir, config)
     val assemblydescriptor = _path(args, "assembly-descriptor").orElse(cardir.map(_.resolve("assembly-descriptor.yaml")).filter(Files.isRegularFile(_)))
+    val modelmetadata = _paths(args, "model-metadata")
     val name = _required_value(args, "name")
     val version = _required_value(args, "version")
     val componentapiartifacts = componentapidescriptor.toVector.flatMap(_component_api_artifact_paths(_, name, version))
@@ -52,8 +53,18 @@ private[cozy] object CozyArchivePackager {
       _validate_abi_manifest_coordinate(path, name, version)
       path
     }.getOrElse {
-      _write_temp("abi-manifest", _abi_manifest_json(name, version, packagemetadata.component, entities))
+      val content =
+        if (modelmetadata.nonEmpty)
+          CozyCarAbiManifest.create(modelmetadata, name, version, packagemetadata.component)
+        else if (_has_cml_sources(projectdir))
+          RAISE.invalidArgumentFault(
+            s"CML CAR '${name}' requires generated model metadata when no explicit or source-managed ABI manifest is available."
+          )
+        else
+          _abi_manifest_json(name, version, packagemetadata.component, entities)
+      _write_temp("abi-manifest", content)
     }
+    _path(args, "abi-manifest-output").foreach(path => _write_text(path, Files.readString(abimanifest, StandardCharsets.UTF_8)))
     val componentdescriptor = _component_descriptor_override(extensionmap, name, version, packagemetadata.component).
       map(_write_temp("component-descriptor", _)).
       orElse(_source_component_descriptor(cardir).map { path =>
@@ -567,6 +578,18 @@ private[cozy] object CozyArchivePackager {
   private def _source_abi_manifest(cardir: Option[Path]): Option[Path] =
     cardir.map(_.resolve("abi-manifest.json")).filter(Files.isRegularFile(_))
 
+  private def _has_cml_sources(projectdir: Option[Path]): Boolean =
+    projectdir.exists { root =>
+      val sourcedir = root.resolve("src/main/cozy")
+      if (!Files.isDirectory(sourcedir))
+        false
+      else {
+        val stream = Files.walk(sourcedir)
+        try stream.iterator().asScala.exists(path => Files.isRegularFile(path) && path.getFileName.toString.endsWith(".cml"))
+        finally stream.close()
+      }
+    }
+
   private def _source_component_descriptor(cardir: Option[Path]): Option[Path] =
     cardir.map(_.resolve("component-descriptor.json")).filter(Files.isRegularFile(_))
 
@@ -777,9 +800,9 @@ private[cozy] object CozyArchivePackager {
 
   private final case class EntityDescriptor(
     name: String,
-    usageKind: Option[String],
-    operationKind: Option[String],
-    applicationDomain: Option[String]
+    usagekind: Option[String],
+    operationkind: Option[String],
+    applicationdomain: Option[String]
   )
 
   private def _entity_descriptors(args: List[String]): Vector[EntityDescriptor] =
@@ -798,9 +821,9 @@ private[cozy] object CozyArchivePackager {
     }.toMap
     EntityDescriptor(
       name = name,
-      usageKind = kv.get("usageKind").orElse(kv.get("usage_kind")).orElse(kv.get("entityUsage")).orElse(kv.get("entity_usage")),
-      operationKind = kv.get("operationKind").orElse(kv.get("operation_kind")).orElse(kv.get("entityOperationKind")).orElse(kv.get("entity_operation_kind")),
-      applicationDomain = kv.get("applicationDomain").orElse(kv.get("application_domain")).orElse(kv.get("entityApplicationDomain")).orElse(kv.get("entity_application_domain"))
+      usagekind = kv.get("usageKind").orElse(kv.get("usage_kind")).orElse(kv.get("entityUsage")).orElse(kv.get("entity_usage")),
+      operationkind = kv.get("operationKind").orElse(kv.get("operation_kind")).orElse(kv.get("entityOperationKind")).orElse(kv.get("entity_operation_kind")),
+      applicationdomain = kv.get("applicationDomain").orElse(kv.get("application_domain")).orElse(kv.get("entityApplicationDomain")).orElse(kv.get("entity_application_domain"))
     )
   }
 
@@ -815,9 +838,9 @@ private[cozy] object CozyArchivePackager {
   private def _json_entity(entity: EntityDescriptor): String = {
     val fields = Vector(
       Some("entity" -> entity.name),
-      entity.usageKind.map("usageKind" -> _),
-      entity.operationKind.map("operationKind" -> _),
-      entity.applicationDomain.map("applicationDomain" -> _)
+      entity.usagekind.map("usageKind" -> _),
+      entity.operationkind.map("operationKind" -> _),
+      entity.applicationdomain.map("applicationDomain" -> _)
     ).flatten
     fields.map { case (k, v) => s"${_json_string(k)}: ${_json_string(v)}" }.mkString("{", ", ", "}")
   }
@@ -895,6 +918,8 @@ private[cozy] object CozyArchivePackager {
     spec.Parameter.propertyFileOption("admin-descriptor"),
     spec.Parameter.propertyFileOption("assembly-descriptor"),
     spec.Parameter.propertyFileOption("abi-manifest"),
+    spec.Parameter.propertyFileOption("abi-manifest-output"),
+    spec.Parameter.propertyFileOption("model-metadata"),
     spec.Parameter.propertyFileOption("source-dir"),
     spec.Parameter.property("source-files"),
     spec.Parameter.property("extension-jars"),

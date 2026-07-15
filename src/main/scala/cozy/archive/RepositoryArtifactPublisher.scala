@@ -17,7 +17,7 @@ import scala.util.control.NonFatal
 /*
  * @since   May. 20, 2026
  *  version Jun. 23, 2026
- * @version Jul. 13, 2026
+ * @version Jul. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object RepositoryArtifactPublisher {
@@ -127,6 +127,7 @@ private[cozy] object RepositoryArtifactPublisher {
     spec.Parameter.propertyFileOption("form-descriptor"),
     spec.Parameter.propertyFileOption("admin-descriptor"),
     spec.Parameter.propertyFileOption("assembly-descriptor"),
+    spec.Parameter.propertyFileOption("model-metadata"),
     spec.Parameter.property("extensions"),
     spec.Parameter.property("config"),
     spec.Parameter.property("entities"),

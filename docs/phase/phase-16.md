@@ -350,6 +350,47 @@ Focus:
 - replace string-only wrappers according to the accepted classification and
   compare generated validation, storage, form, and API contracts.
 
+Verification update on 2026-07-15:
+
+- `textus-user-notification` migrated all 13 authored operation inputs from
+  legacy top-level command/query sections to canonical Values with explicit
+  `input-kind`;
+- generated component source and all 13 model-metadata operation signatures
+  remained identical across the migration;
+- Cozy now derives the default CAR ABI operation surface from generated CML
+  model metadata, while explicit and source-managed ABI manifests retain
+  precedence;
+- the reconstructed baseline and current ABI exports were identical, with 13
+  authored service operations and four entity identities;
+- the CAR manifest and `target/cozy/abi-manifest.json` sidecar were identical;
+- executable verification passed with 526 Cozy tests, 73 sbt-cozy tests,
+  1,703 CNCF tests, and 19 notification tests;
+- CML CAR packaging now requires generated model metadata when no explicit or
+  source-managed ABI exists, and incremental sbt-cozy generation regenerates
+  missing metadata side output instead of reusing only generated Scala;
+- notification preference writes now enforce subject ownership, support
+  privileged administration, and derive one stable EntityId from each
+  subject/type/channel identity;
+- the preference write path now uses the generated create shape through the
+  CNCF internal `entity_upsert` DSL, and 16 concurrent writes converge on the
+  same persistent identity and one row;
+- CNCF `DataStore.save` now delegates one atomic dialect upsert statement to
+  SQLite or MySQL instead of issuing a read-before-write existence check;
+- create/update authorization is selected from the row loaded inside the same
+  process-local EntityStore identity lock as the upsert, preventing a competing
+  writer from retaining stale create authorization; EntitySpace cache
+  publication completes inside that lock so an earlier writer cannot overwrite
+  a later cached value;
+- notification creation, read, and dismissal timestamps use the CNCF
+  `ExecutionContext` clock and are covered by a fixed-clock executable spec;
+- notification CAR lint has no deterministic FAIL, while strict release lint
+  still reports the expected development-state warnings for the SNAPSHOT
+  sbt-cozy plugin, unpublished dependency, absent release ABI baseline, and
+  non-standard ServiceLoader declaration.
+
+The detailed decision and evidence are recorded in
+`docs/journal/2026/07/cml-notification-operation-value-migration-2026-07-15.md`.
+
 ## Stage 16.7: Verification and Closure
 
 Stage Status:
