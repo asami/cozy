@@ -173,6 +173,14 @@ These types are nonlocalized semantic scalars. They do not participate in
 `DescriptiveAttributes` fallback and they do not imply account verification,
 allowed-locale, or deployment-policy decisions.
 
+The notification driver also uses predefined `localtime` directly for quiet
+hours. Generated Scala uses `java.time.LocalTime`; external and datastore forms
+use ISO local-time text, and malformed clock values are rejected at generated
+input construction. The pair defines a same-day or midnight-crossing interval
+in the separately declared preference time zone. Interval completeness and
+daylight-saving policy remain domain/application decisions rather than parser
+behavior.
+
 The accepted catalog must define runtime type, normalization, empty-value
 policy, minimum length, maximum length, serialization, datastore mapping, and
 form/API schema. A type name alone must not imply undocumented limits.

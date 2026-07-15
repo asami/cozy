@@ -458,6 +458,21 @@ Notification finite-vocabulary update on 2026-07-15:
 The vocabulary decision is recorded in
 `docs/journal/2026/07/cml-notification-powertype-migration-2026-07-15.md`.
 
+Notification quiet-hours update on 2026-07-15:
+
+- the string-backed `UserNotificationQuietHours` wrapper was removed;
+- preference entity and command fields now use predefined `localtime` and
+  generate `java.time.LocalTime` consistently;
+- ISO local-time parsing rejects malformed values at generated input
+  construction;
+- executable notification behavior verifies a `22:00` to `07:00` UTC interval
+  defers a `23:30` notification until the next `07:00`;
+- interval completeness and daylight-saving policy remain follow-up domain
+  decisions.
+
+The decision is recorded in
+`docs/journal/2026/07/cml-notification-quiet-hours-localtime-migration-2026-07-15.md`.
+
 Account semantic-scalar verification update on 2026-07-15:
 
 - Cozy now owns one executable predefined scalar catalog for localized

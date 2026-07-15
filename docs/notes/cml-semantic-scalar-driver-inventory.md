@@ -93,20 +93,21 @@ does not decide the category.
 | `UserNotificationProviderMessageId` | intentional opaque text | nonlocalized | Confirmed direction | Define provider-scoped identity and maximum length. |
 | `UserNotificationErrorCode` | constrained domain scalar | nonlocalized | Confirmed direction | Define provider/code namespace and syntax. |
 | `UserNotificationErrorMessage` | constrained technical text | nonlocalized | Confirmed direction | Define bounded diagnostic length and confidentiality; do not localize provider text automatically. |
-| `UserNotificationQuietHours` | predefined or constrained time scalar | nonlocalized | Confirmed direction | Replace textual time with parser-backed local-time semantics. |
-| `UserNotificationLocale` | predefined locale scalar | nonlocalized | Confirmed direction | Define locale-tag normalization and allowed-locale policy. |
-| `UserNotificationTimeZone` | predefined timezone scalar | nonlocalized | Confirmed direction | Use canonical zone identifiers and reject unknown zones. |
+| `UserNotificationQuietHours` | predefined `localtime` | nonlocalized | Implemented | Entity and operation fields use parser-backed `LocalTime`; interval policy remains application-owned. |
+| `UserNotificationLocale` | predefined locale scalar | nonlocalized | Implemented | Entity and operation fields use predefined `locale`; deployment policy still defines the allowed locale set. |
+| `UserNotificationTimeZone` | predefined timezone scalar | nonlocalized | Implemented | Entity and operation fields use predefined `timezone`; deployment policy still defines the allowed zone set. |
 
 The notification audience kind, channel, and priority are implemented as
 generated powertypes. The primary unresolved notification decisions are
 whether notification type is closed, how notification lifecycle transitions
 are modeled, the separate delivery-attempt result contract, and whether body
-text uses the canonical message or general text contract. Delivery provider
-remains open and provider-extensible.
+text uses the canonical message or general text contract. Quiet-hour fields use
+the predefined parser-backed `localtime` contract. Delivery provider remains
+open and provider-extensible.
 
 ## 5. textus-user-account
 
-| Current DATATYPE | Provisional class | Localization | Decision state | Required follow-up |
+| Model concept | Classification | Localization | Decision state | Required follow-up |
 |---|---|---|---|---|
 | `UserAccountTitle` | predefined `title` | locale-aware | Implemented | Uses the single/multi-locale `I18nTitle` contract and catalog length constraints. |
 | `UserAccountEmailAddress` | predefined email scalar | nonlocalized | Implemented | Uses `EmailAddress` parsing, domain normalization, and catalog length constraints without conflating identity verification. |

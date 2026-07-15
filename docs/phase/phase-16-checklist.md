@@ -241,9 +241,11 @@ Status: OPEN
       powertypes and reject undeclared values at generated input boundaries.
 - [ ] Generate notification lifecycle status from a statemachine and use a
       separate closed type for delivery-attempt results.
-- [ ] Replace notification quiet-hours strings with `localtime`, canonical
-      locale/time-zone/URI fields with predefined types, and JSON-in-string
-      audience/metadata fields with structured values.
+- [x] Replace notification quiet-hours strings with predefined `localtime` in
+      both entity and operation Value fields.
+- [x] Use predefined locale and timezone types for notification preferences.
+- [ ] Resolve the notification action-reference URI policy and replace
+      JSON-in-string audience/metadata fields with structured values.
 - [ ] Version both driver CARs for the deliberate generated-source and
       contract break instead of adding compatibility adapters.
 - [ ] Compare generated validation, datastore, form, REST/OpenAPI, and Help
