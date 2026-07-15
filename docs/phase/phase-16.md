@@ -310,7 +310,11 @@ Current evidence:
   scaffolded `ComponentFactory` under Scala 3.3.8;
 - the focused bridge, local-Value, predefined-Result, and scaffold
   specifications pass 41 tests, the scaffold compiles through the normal
-  sbt-cozy path under Scala 3.3.8, and the full Cozy suite passes 519 tests;
+  sbt-cozy path under Scala 3.3.8, and the full Cozy suite passes 521 tests;
+- executable compatibility coverage keeps legacy top-level `# COMMAND` and
+  `# QUERY` inputs plus service-scoped named inline Values readable and
+  normalizes them to the same generated operation metadata as canonical
+  Values;
 - the generated Scala 3.3.8 contract is compiled and executed by scripted
   coverage for Create and Update models, including every locale entry and the
   `NameAttributes` title plus `DescriptiveAttributes` headline, summary, and
