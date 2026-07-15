@@ -78,6 +78,25 @@ that exist and uses paths relative to the KnowledgeSource base URI. SIE joins
 the records by the canonical component name and does not inspect rendered HTML
 or CAR/SAR archive content during metadata ingestion.
 
+Repository catalogs also publish existence-only indexes when at least one
+eligible entry exists:
+
+```text
+metadata/cncf/component-references/car.json
+metadata/cncf/component-references/sar.json
+```
+
+The KnowledgeSource advertises each file as
+`kind = component-reference-index`. The document uses
+`schemaVersion = cncf.component-reference-index.v1` and carries repository
+identity, kind, versions, source path, public evidence path, tags, and terms.
+The CAR index comes from the generic BoK repository CAR layer. The SAR index
+contains only repository SAR catalogs explicitly referenced by an SIE Project;
+Cozy does not scan SAR archive storage. These records establish that a CAR or
+SAR exists, but do not claim usage, capability, or dependency detail owned by
+CBD Support. A complete four-resource component profile remains authoritative
+when both forms are present.
+
 The current `cozy.publish-project.v1` producer includes identity, descriptive
 project fields, versions, build settings, publication placement, repository
 files, and release history. Runtime compatibility, service/operation

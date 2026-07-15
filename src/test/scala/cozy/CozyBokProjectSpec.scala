@@ -11,7 +11,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jun. 23, 2026
- * @version Jul. 13, 2026
+ * @version Jul. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokProjectSpec
@@ -1276,6 +1276,17 @@ class CozyBokProjectSpec
             _read(carindex) should include("textus-semantic-integration-engine")
             _read(carversion) should include("../../../projects/technology/nict-knowledgehub/index.html")
             _read(carversion) should not include (localrepo.toString)
+
+            And("the KnowledgeSource publishes CAR and SAR existence indexes without CBD detail")
+            val carreferences = _read(dir.resolve("website.d/metadata/cncf/component-references/car.json"))
+            val sarreferences = _read(dir.resolve("website.d/metadata/cncf/component-references/sar.json"))
+            carreferences should include("cncf.component-reference-index.v1")
+            carreferences should include("textus-semantic-integration-engine")
+            sarreferences should include("cncf.component-reference-index.v1")
+            sarreferences should include("nict-knowledgehub-runtime")
+            val knowledgesource = _read(dir.resolve("website.d/metadata/cncf/knowledge-source.json"))
+            knowledgesource should include("metadata/cncf/component-references/car.json")
+            knowledgesource should include("metadata/cncf/component-references/sar.json")
           } finally {
             if (oldhome == null)
               System.clearProperty("user.home")

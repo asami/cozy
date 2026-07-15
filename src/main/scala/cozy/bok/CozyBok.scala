@@ -31,7 +31,7 @@ import io.circe.syntax._
 
 /*
  * @since   Jun.  3, 2026
- * @version Jul. 14, 2026
+ * @version Jul. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyBok {
@@ -1841,6 +1841,7 @@ private[cozy] object CozyBok {
     _sync_effective_bibliography_fragments(config)
     _sync_effective_bibliography_rdf(config)
     _write_repository_car_metadata(config)
+    _write_component_reference_metadata(config)
     _delete_directory(config.project.resolve(s"doxsite-cache-${config.strategy}.d"))
     if (config.arcadia.enabled) {
       runner.run(Vector("arcadia", "site", config.arcadia.source, config.arcadiaSite), config.project)
@@ -3719,6 +3720,67 @@ private[cozy] object CozyBok {
       ).spaces2 + "\n"
   }
 
+  private final case class ComponentReferenceIndex(
+    kind: String,
+    entries: Vector[ComponentReferenceEntry]
+  ) {
+    def toJsonString: String =
+      Json.obj(
+        "schemaVersion" -> Json.fromString("cncf.component-reference-index.v1"),
+        "kind" -> Json.fromString(kind),
+        "entries" -> entries.map(_.toJson).asJson
+      ).spaces2 + "\n"
+  }
+
+  private final case class ComponentReferenceEntry(
+    name: String,
+    title: String,
+    kind: String,
+    aliases: Vector[String],
+    tags: Vector[String],
+    terms: Vector[String],
+    status: Option[String],
+    recommended: Option[String],
+    lateststable: Option[String],
+    latestsnapshot: Option[String],
+    sourcepath: String,
+    versions: Vector[ComponentReferenceVersion]
+  ) {
+    def toJson: Json =
+      Json.obj(
+        "name" -> Json.fromString(name),
+        "title" -> Json.fromString(title),
+        "kind" -> Json.fromString(kind),
+        "aliases" -> aliases.asJson,
+        "tags" -> tags.asJson,
+        "terms" -> terms.asJson,
+        "status" -> status.asJson,
+        "recommended" -> recommended.asJson,
+        "latest_stable" -> lateststable.asJson,
+        "latest_snapshot" -> latestsnapshot.asJson,
+        "source_path" -> Json.fromString(sourcepath),
+        "public_path" -> Json.fromString(s"repository/$kind/$name/index.html"),
+        "versions" -> versions.map(_.toJson).asJson
+      )
+  }
+
+  private final case class ComponentReferenceVersion(
+    version: String,
+    channel: Option[String],
+    status: Option[String],
+    publishedat: Option[String],
+    file: Option[String]
+  ) {
+    def toJson: Json =
+      Json.obj(
+        "version" -> Json.fromString(version),
+        "channel" -> channel.asJson,
+        "status" -> status.asJson,
+        "published_at" -> publishedat.asJson,
+        "file" -> file.asJson
+      )
+  }
+
   private final case class RepositoryCarDiagnostic(
     code: String,
     artifactid: String,
@@ -3858,6 +3920,78 @@ private[cozy] object CozyBok {
         entry.toJsonString
       )
     }
+  }
+
+  private def _write_component_reference_metadata(config: BuildConfig): Unit = {
+    val indexes = Vector(
+      _car_component_reference_index(config),
+      _sar_component_reference_index(config)
+    )
+    indexes.filter(_.entries.nonEmpty).foreach { index =>
+      _write_text(
+        config.doxsitePath.resolve("metadata/cncf/component-references").resolve(s"${index.kind}.json"),
+        index.toJsonString
+      )
+    }
+  }
+
+  private def _car_component_reference_index(config: BuildConfig): ComponentReferenceIndex =
+    ComponentReferenceIndex(
+      "car",
+      _repository_car_index(config).entries.map { entry =>
+        ComponentReferenceEntry(
+          name = entry.artifactid,
+          title = entry.title,
+          kind = "car",
+          aliases = entry.aliases,
+          tags = entry.tags,
+          terms = entry.terms,
+          status = entry.status,
+          recommended = entry.recommended,
+          lateststable = entry.lateststable,
+          latestsnapshot = entry.latestsnapshot,
+          sourcepath = entry.sourcepath,
+          versions = entry.versions.map { version =>
+            ComponentReferenceVersion(
+              version.version,
+              version.channel,
+              version.status,
+              version.publishedat,
+              version.file
+            )
+          }
+        )
+      }
+    )
+
+  private def _sar_component_reference_index(config: BuildConfig): ComponentReferenceIndex = {
+    val projects = _safe_resolved_project_packages(config)
+    val entries = _sie_repository_catalog_sources(config, projects, "sar").map { source =>
+      val catalog = source.catalog
+      ComponentReferenceEntry(
+        name = catalog.artifactId,
+        title = catalog.artifactId,
+        kind = "sar",
+        aliases = catalog.aliases,
+        tags = catalog.tags,
+        terms = catalog.terms,
+        status = catalog.status,
+        recommended = catalog.recommended,
+        lateststable = catalog.latestStable,
+        latestsnapshot = catalog.latestSnapshot,
+        sourcepath = source.sourcepath,
+        versions = catalog.versions.map { version =>
+          ComponentReferenceVersion(
+            version.version,
+            version.channel,
+            version.status,
+            version.publishedAt,
+            version.file
+          )
+        }
+      )
+    }
+    ComponentReferenceIndex("sar", entries)
   }
 
   private def _write_repository_car_page(
@@ -5475,6 +5609,7 @@ private[cozy] object CozyBok {
     _copy_if_exists(config.doxsitePath.resolve("metadata/scenarios/scenarios.json"), target.resolve("metadata/scenarios/scenarios.json"))
     _copy_if_exists(config.doxsitePath.resolve("metadata/tags/tags.json"), target.resolve("metadata/tags/tags.json"))
     _copy_directory(config.doxsitePath.resolve("metadata/repository/car"), target.resolve("metadata/repository/car"))
+    _copy_directory(config.doxsitePath.resolve("metadata/cncf/component-references"), target.resolve("metadata/cncf/component-references"))
     _copy_directory(config.doxsitePath.resolve("metadata/catalog/projects"), target.resolve("metadata/catalog/projects"))
     _copy_directory(config.doxsitePath.resolve("metadata/projects"), target.resolve("metadata/projects"))
     _copy_directory(config.doxsitePath.resolve("metadata/artifacts/repository"), target.resolve("metadata/artifacts/repository"))
@@ -5516,7 +5651,9 @@ private[cozy] object CozyBok {
       KnowledgeSourceResource("glossary-terms", "metadata/glossary/terms.json", "application/json"),
       KnowledgeSourceResource("rdf-jsonld", "rdf/site.jsonld", "application/ld+json"),
       KnowledgeSourceResource("rdf-turtle", "rdf/site.ttl", "text/turtle"),
-      KnowledgeSourceResource("rdf-graph-summary", "metadata/rdf/graph.json", "application/json")
+      KnowledgeSourceResource("rdf-graph-summary", "metadata/rdf/graph.json", "application/json"),
+      KnowledgeSourceResource("component-reference-index", "metadata/cncf/component-references/car.json", "application/json"),
+      KnowledgeSourceResource("component-reference-index", "metadata/cncf/component-references/sar.json", "application/json")
     ).filter(x => Files.isRegularFile(target.resolve(x.href))) ++
       _knowledge_source_component_resources(target)
     val sourceref = Json.obj(
