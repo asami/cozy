@@ -29,6 +29,14 @@ both `textus-user-notification` and `textus-user-account`, so the grammar is
 verified against compact notification flows and a larger identity lifecycle
 rather than against parser-only fixtures.
 
+Compatibility preservation applies to the operation Value grammar, not to the
+current Scala lowering of plain `DATATYPE` declarations. Phase 16 deliberately
+redefines a plain `DATATYPE` as a nominal scalar: generated Scala uses a
+distinct validated type, while its canonical Wire and datastore
+representations remain scalar. This is an explicit breaking generated-source
+contract with no feature flag, legacy `String` adapter, implicit conversion,
+or dual scalar/object codec. A complex `DATATYPE` remains a structured type.
+
 ## Development Drivers
 
 `textus-user-notification` is the primary migration driver:
@@ -84,6 +92,10 @@ In scope:
   `IntResult`;
 - a classification rule for `VALUE`, `DATATYPE`, `POWERTYPE`,
   `STATEMACHINE`, and predefined scalar types;
+- a nominal-scalar model and Scala generator contract for plain `DATATYPE`
+  declarations, including typed Create, Read, Query, and Update surfaces;
+- scalar codecs and datastore projection for nominal scalars, with named
+  schema identity, underlying datatype, and constraints preserved;
 - an inventory and migration of string-only wrappers in both driver CARs;
 - predefined text types such as `name`, `title`, and `text`, with explicit
   normalization and length contracts;
@@ -107,6 +119,8 @@ In scope:
 Out of scope:
 
 - removing compatibility grammar in Phase 16;
+- compatibility adapters for the former plain-`DATATYPE` to Scala `String`
+  lowering;
 - making Cozy own CNCF Result runtime implementation;
 - unrelated CML domain, entity, relationship, event, or use-case redesign;
 - replacing opaque identifiers, hashes, secrets, or external references with
@@ -228,6 +242,14 @@ Stage Status:
 Focus:
 
 - classify each string-only Value and Datatype in both driver CARs;
+- redefine each accepted plain Datatype as a nominal scalar instead of
+  lowering its attributes to the underlying Scala primitive;
+- add the corresponding SimpleModeler model element and Cozy projection, then
+  generate validated Scala case classes, `ValueReader`, scalar codecs,
+  presentation, scalar datastore conversion, and named schema metadata;
+- propagate nominal types through required, optional, repeated, Create, Read,
+  Query, and Update forms without `String`, `Condition[String]`, or
+  `Update[String]` fallback;
 - use powertypes for finite vocabularies and statemachines for transition-owned
   lifecycle state;
 - use predefined `name`, `title`, `text`, identifier, URI, locale, and timezone
@@ -309,8 +331,8 @@ Current evidence:
   from that CML, and the generated model sources compile together with the
   scaffolded `ComponentFactory` under Scala 3.3.8;
 - the focused bridge, local-Value, predefined-Result, and scaffold
-  specifications pass 41 tests, the scaffold compiles through the normal
-  sbt-cozy path under Scala 3.3.8, and the full Cozy suite passes 522 tests;
+  specifications pass, the scaffold compiles through the normal sbt-cozy path
+  under Scala 3.3.8, and the full Cozy suite passes 545 tests;
 - executable compatibility coverage keeps legacy top-level `# COMMAND` and
   `# QUERY` inputs plus service-scoped named inline Values readable and
   normalizes them to the same generated operation metadata as canonical
@@ -322,14 +344,25 @@ Current evidence:
   coverage for Create and Update models, including every locale entry and the
   `NameAttributes` title plus `DescriptiveAttributes` headline, summary, and
   description boundaries;
-- existing dirty work in both driver repositories remains untouched while the
-  Cozy-side contract is being established.
+- plain Datatypes now project through Cozy to SimpleModeler nominal-scalar
+  model elements and generate validated distinct Scala types with scalar
+  `ValueReader`, Circe, datastore, and Record boundaries;
+- nominal identity is preserved through required, optional, repeated, Create,
+  Read, Query, and Update forms, and executable generation coverage rejects
+  primitive `String`, `Condition[String]`, and `Update[String]` fallback;
+- text `min` and `max` are numeric-only; textual constraints use
+  `min-length`/`max-length`, with single scalar diagnostics referring to the
+  value and collection/I18N diagnostics referring to entries;
+- generated query models no longer assume a Circe codec for shared
+  SimpleModeling values whose own runtime contract does not provide one;
+- both driver repositories now exercise the Cozy-side nominal scalar and
+  predefined text contracts as migration drivers.
 
 ## Stage 16.6: Scaffold and Migration
 
 Stage Status:
 
-- Current status: OPEN
+- Current status: IN PROGRESS
 - Owner: cozy-scaffold
 - Checklist basis: `CML16-08`
 - Update rule: update when `CML16-08` scaffold or migration evidence changes
@@ -349,6 +382,14 @@ Focus:
   normalization;
 - replace string-only wrappers according to the accepted classification and
   compare generated validation, storage, form, and API contracts.
+- migrate both driver operation inputs and entity surfaces to the same
+  predefined, nominal, powertype, statemachine, or structured types;
+- remove driver-owned handwritten scalar wrapper classes after generated
+  nominal types are available;
+- replace notification JSON-in-string fields with structured values and split
+  notification lifecycle state from delivery-attempt result state;
+- treat resulting Scala/API/ABI changes as explicit versioned breaking changes
+  rather than preserving the former generated `String` contract.
 
 Verification update on 2026-07-15:
 
@@ -391,6 +432,41 @@ Verification update on 2026-07-15:
 The detailed decision and evidence are recorded in
 `docs/journal/2026/07/cml-notification-operation-value-migration-2026-07-15.md`.
 
+Account semantic-scalar verification update on 2026-07-15:
+
+- Cozy now owns one executable predefined scalar catalog for localized
+  descriptive roles and low-ambiguity account scalar aliases;
+- `textus-user-account` uses predefined `title`, `email`, `phone`, `locale`,
+  `timezone`, and `ip-address` types instead of nominal string wrappers;
+- generated entity, Create, Update, query, datastore, and operation boundaries
+  use `I18nTitle`, `EmailAddress`, `PhoneNumber`, `Locale`, `TimeZone`, and
+  `IpAddress` directly;
+- locale and timezone external/datastore projections are canonical BCP 47 tags
+  and zone IDs rather than JVM `toString` representations;
+- `PhoneNumber` requires canonical E.164 identity and normalizes explicitly
+  international input without guessing a country code;
+- unresolved login, actor, session, client, hash/token, suspension, device, and
+  user-agent contracts remain domain-decision wrappers rather than being
+  replaced by broader types;
+- generated Scala 3.3.8 compilation and all 86 account tests pass;
+- notification clean generation and all 19 notification tests pass;
+- simplemodeling-lib passes 368 tests with 124 pending, SimpleModeler passes 32
+  tests, simplemodeling-model passes 44 tests with 27 pending, and Cozy passes
+  545 tests;
+- the four sample projects previously blocked by unresolved `sbt-cozy 0.1.10`
+  now use 0.1.14 and compile successfully under Scala 3.3.8;
+- Account CAR packaging produces a descriptor with name, version, and
+  component plus a readable ABI manifest;
+- CAR lint reports no deterministic FAIL for either account or notification.
+  Remaining warnings cover SNAPSHOT build tooling, absent release ABI
+  baselines, notification publication prerequisites/ServiceLoader policy, and
+  existing account ComponentFactory internal-DSL migration debt.
+- `git diff --check` passes in every repository touched by this validation
+  slice.
+
+The implementation decision and remaining domain boundaries are recorded in
+`docs/journal/2026/07/cml-account-semantic-scalar-migration-2026-07-15.md`.
+
 ## Stage 16.7: Verification and Closure
 
 Stage Status:
@@ -414,8 +490,9 @@ Phase 16 closes only when every required item in
 `docs/phase/phase-16-checklist.md` is checked, the accepted grammar has been
 promoted out of notes, the semantic scalar and I18N contracts are specified,
 Cozy focused and full specifications pass, predefined Results are verified
-against CNCF runtime ownership, and both driver CARs preserve or explicitly
-version their generated contracts.
+against CNCF runtime ownership, plain Datatypes generate nominal Scala types
+without primitive fallback, and both driver CARs explicitly version and verify
+their breaking generated contracts.
 
 ## References
 

@@ -11,7 +11,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.goldenport.kaleidox.{Config => KaleidoxConfig, Model => KaleidoxModel}
 import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
-import org.simplemodeling.model.MStructuredDataType
+import org.simplemodeling.model.{MNominalDataType, MStructuredDataType}
 import play.api.libs.json.Json
 
 /*
@@ -321,7 +321,7 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         content should include ("""label = Some(org.goldenport.datatype.I18nLabel("Content"))""")
         content should include ("""web = org.goldenport.schema.WebColumn(controlType = Some("textarea"), required = Some(true), placeholder = Some("Notice content"), help = Some("Main notice text."), validation = org.goldenport.schema.WebValidationHints(minLength = Some(1)))""")
         content should include (
-          """require(_text_constraint_values(senderName).forall(_.length >= 1), "senderName entries must have length >= 1")"""
+          """require(_text_constraint_values(senderName).forall(_.length >= 1), "senderName must have length >= 1")"""
         )
         content should include (
           """require(_text_constraint_values(nameAttributes.title).forall(_.length <= 80), "title entries must have length <= 80")"""
@@ -553,8 +553,8 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         count_token(content, "priority = 0") >= 4 shouldBe true
       }
 
-      "modeler-scala keeps ArtScene scalar datastore columns for datatypes and value objects" in {
-        Given("an ArtScene-like CML model with scalar datatypes and single-field values")
+      "modeler-scala projects plain datatypes as constrained nominal scalars" in {
+        Given("an ArtScene-like CML model with constrained nominal scalars and record values")
         val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
         val input = base.resolve("target/test-generated/artscene-datastore-shape.cml")
         val out = base.resolve("target/test-generated/artscene-datastore-shape-out")
@@ -598,9 +598,9 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
           |
           |### ATTRIBUTE
           |
-          || name  | type   | multiplicity |
-          ||-------+--------+--------------|
-          || value | string | 1            |
+          || name  | type   | multiplicity | min-length | max-length | pattern       |
+          ||-------+--------+--------------+------------+------------+---------------|
+          || value | string | 1            | 3          | 80         | ^item.+$      |
           |
           |## FetchSource
           |
@@ -641,9 +641,46 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         When("Cozy generates Scala source from the model")
         cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString))
 
+        val model = KaleidoxModel.parseWitoutLocation(KaleidoxConfig.log.debug, Files.readString(input))
+        val simplemodel = Modeler.ModelBuilder(model).build()
+        val exhibitiontitlemodel = simplemodel.elements.collectFirst {
+          case m: MNominalDataType if m.name == "ExhibitionTitle" => m
+        }.get
+        Then("the CML AST projects the underlying type and constraints into a nominal scalar model")
+        exhibitiontitlemodel.packageName shouldBe "domain.datatype"
+        exhibitiontitlemodel.datatype shouldBe org.goldenport.record.v2.XString
+        exhibitiontitlemodel.constraints.map(_.name) should contain allOf ("min_length", "max_length", "pattern")
+        exhibitiontitlemodel.constraints.map(_.value) should contain allOf (3, 80, "^item.+$")
+
+        val nominaldatatypes = Vector(
+          "ExhibitionDate" -> "String",
+          "ExhibitionTitle" -> "String",
+          "FetchSource" -> "String",
+          "SourceConfidence" -> "Int"
+        )
+        nominaldatatypes.foreach { case (name, underlying) =>
+          val source = out.resolve(s"target/scala-3.3.8/src_managed/main/scala/domain/datatype/$name.scala")
+          val content = Files.readString(source)
+          And(s"the plain datatype $name is generated as a scalar nominal type")
+          content should include ("package domain.datatype")
+          content should include (s"case class $name(value: $underlying")
+          content should include ("extends org.simplemodeling.model.value.NominalScalar")
+          content should include (s"def toDataStore(): $underlying")
+          content should include (s"ValueReader[$name]")
+          content should include (s"given Codec[$name] = Codec.from(")
+          content should not include ("derives Codec.AsObject")
+        }
+
+        val exhibitiontitle = out.resolve("target/scala-3.3.8/src_managed/main/scala/domain/datatype/ExhibitionTitle.scala")
+        val exhibitiontitlecontent = Files.readString(exhibitiontitle)
+        And("nominal scalar construction enforces the declared text constraints")
+        exhibitiontitlecontent should include ("_text_constraint_values(value).forall(_.length >= 3)")
+        exhibitiontitlecontent should include ("_text_constraint_values(value).forall(_.length <= 80)")
+        exhibitiontitlecontent should include ("_text_constraint_values(value).forall(_.matches(\"^item.+$\"))")
+
         val cataloglabel = out.resolve("target/scala-3.3.8/src_managed/main/scala/domain/value/CatalogLabel.scala")
         val cataloglabelcontent = Files.readString(cataloglabel)
-        Then("single-field values keep external records but expose scalar datastore values")
+        And("single-field values keep external records but expose scalar datastore values")
         cataloglabelcontent should include ("def toRecord(): Record")
         cataloglabelcontent should include ("\"value\" -> _to_external_value(value)")
         cataloglabelcontent should include ("def toDataStore(): String")
@@ -663,11 +700,20 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
 
         val exhibition = out.resolve("target/scala-3.3.8/src_managed/main/scala/domain/entity/Exhibition.scala")
         val exhibitioncontent = Files.readString(exhibition)
-        exhibitioncontent should include ("periodEnd: String")
-        exhibitioncontent should include ("fetchSource: String")
-        exhibitioncontent should include ("sourceConfidence: Option[Int]")
+        And("entity fields retain nominal scalar identity")
+        exhibitioncontent should include ("title: ExhibitionTitle")
+        exhibitioncontent should include ("periodEnd: ExhibitionDate")
+        exhibitioncontent should include ("fetchSource: FetchSource")
+        exhibitioncontent should include ("sourceConfidence: Option[SourceConfidence]")
         exhibitioncontent should include ("displayPeriod: DisplayPeriod")
+        And("referencing fields project nominal scalar identity and constraints into generated schema")
+        exhibitioncontent should include ("datatype = org.goldenport.schema.DataType.Named(\"ExhibitionTitle\")")
+        exhibitioncontent should include ("validation = org.goldenport.schema.WebValidationHints(minLength = Some(3), maxLength = Some(80), pattern = Some(\"^item.+$\"))")
         And("entity datastore conversion delegates value objects and structured datatypes to datastore values")
+        exhibitioncontent should include ("case m: domain.datatype.ExhibitionDate => m.toDataStore()")
+        exhibitioncontent should include ("case m: domain.datatype.ExhibitionTitle => m.toDataStore()")
+        exhibitioncontent should include ("case m: domain.datatype.FetchSource => m.toDataStore()")
+        exhibitioncontent should include ("case m: domain.datatype.SourceConfidence => m.toDataStore()")
         exhibitioncontent should include ("case m: domain.value.CatalogLabel => m.toDataStore()")
         exhibitioncontent should include ("case m: domain.datatype.DisplayPeriod => m.toDataStore()")
         exhibitioncontent should include ("case m: Option[?] => m.map(_to_data_store_value)")

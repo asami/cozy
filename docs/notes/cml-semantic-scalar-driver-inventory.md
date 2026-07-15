@@ -106,13 +106,13 @@ message or general text contract.
 
 | Current DATATYPE | Provisional class | Localization | Decision state | Required follow-up |
 |---|---|---|---|---|
-| `UserAccountTitle` | predefined `title` | locale-aware | Confirmed direction | Apply the single/multi-locale `I18nTitle` contract and title length. |
-| `UserAccountEmailAddress` | predefined email scalar | nonlocalized | Confirmed direction | Define parser, normalization, and length without conflating identity verification. |
+| `UserAccountTitle` | predefined `title` | locale-aware | Implemented | Uses the single/multi-locale `I18nTitle` contract and catalog length constraints. |
+| `UserAccountEmailAddress` | predefined email scalar | nonlocalized | Implemented | Uses `EmailAddress` parsing, domain normalization, and catalog length constraints without conflating identity verification. |
 | `UserAccountLoginName` | predefined `name` or constrained domain scalar | nonlocalized | Domain decision | Define case, allowed characters, uniqueness, and whether generic `Name` is sufficiently narrow. |
 | `UserAccountExternalSubjectId` | intentional opaque text | nonlocalized | Confirmed direction | Define issuer scope, normalization policy, and maximum length. |
-| `UserAccountPhoneNumber` | predefined phone scalar | nonlocalized | Confirmed direction | Define canonical international representation and validation. |
-| `UserAccountLocale` | predefined locale scalar | nonlocalized | Confirmed direction | Define locale-tag normalization and allowed-locale policy. |
-| `UserAccountTimeZone` | predefined timezone scalar | nonlocalized | Confirmed direction | Use canonical zone identifiers and reject unknown zones. |
+| `UserAccountPhoneNumber` | predefined phone scalar | nonlocalized | Implemented | Removes visual separators and requires canonical international E.164 identity. |
+| `UserAccountLocale` | predefined locale scalar | nonlocalized | Implemented | Uses `Locale` and serializes its external/datastore form as a BCP 47 language tag; allowed-locale policy remains deployment-owned. |
+| `UserAccountTimeZone` | predefined timezone scalar | nonlocalized | Implemented | Uses `TimeZone`, validates known identifiers, and serializes the canonical zone ID. |
 | `UserAccountSuspendedBy` | intentional opaque identifier | nonlocalized | Confirmed direction | Bind to the actor/account identifier contract. |
 | `UserAccountSuspensionReason` | constrained domain text | single-locale record text | Domain decision | Define audit-text length and whether translated display is a separate concept. |
 | `UserAccountPasswordHash` | intentional opaque secret text | nonlocalized | Confirmed direction | Define algorithm-aware format/length, redaction, and no-display policy. |
@@ -120,21 +120,25 @@ message or general text contract.
 | `UserAccountTokenHash` | intentional opaque secret text | nonlocalized | Confirmed direction | Define algorithm-aware format/length, redaction, and no-display policy. |
 | `UserAccountClientId` | constrained domain identifier | nonlocalized | Confirmed direction | Define client namespace, syntax, and maximum length. |
 | `UserAccountDeviceInfo` | constrained technical text or structured Value | nonlocalized | Domain decision | Decide whether bounded raw device text is sufficient or stable fields justify a Value. |
-| `UserAccountIpAddress` | predefined IP address scalar | nonlocalized | Confirmed direction | Support IPv4/IPv6 parsing and canonical serialization. |
+| `UserAccountIpAddress` | predefined IP address scalar | nonlocalized | Implemented | Uses `IpAddress` with IPv4/IPv6 parsing and canonical serialization. |
 | `UserAccountUserAgent` | constrained technical text | nonlocalized | Confirmed direction | Define bounded length, control-character policy, and no-I18N behavior. |
 
 The primary unresolved account decisions are login-name normalization,
 suspension-reason localization, and whether device information remains bounded
-technical text or becomes a structured Value.
+technical text or becomes a structured Value. Hash/token redaction and actor,
+session, and client identifier contracts also remain domain-specific work; they
+must not be collapsed to a broader predefined scalar merely because their
+current representation is one string.
 
 ## 6. Next Implementation Boundary
 
-The next CML16-07 slice should turn confirmed directions into executable type
-catalog and classification diagnostics before modifying either driver source.
-It should begin with low-ambiguity predefined scalars (`title`, URL/URI,
-locale, timezone, email, phone, and IP address) and finite notification
-vocabularies. State-machine design, open provider/type registries, structured
-JSON payloads, and account device information remain explicit domain decisions.
+The first CML16-07 implementation slice established the executable predefined
+catalog and migrated the low-ambiguity account scalars: `title`, `email`,
+`phone`, `locale`, `timezone`, and `ip-address`. Subsequent slices should
+resolve finite notification vocabularies and the remaining driver-specific
+contracts. State-machine design, open provider/type registries, structured JSON
+payloads, secret redaction, and account device information remain explicit
+domain decisions.
 
 Driver migration starts only after the selected type contracts define:
 

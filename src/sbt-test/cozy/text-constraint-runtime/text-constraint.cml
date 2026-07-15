@@ -1,3 +1,13 @@
+# DATATYPE
+
+## LoginName
+
+### ATTRIBUTE
+
+| name  | type   | multiplicity | min-length | max-length | pattern  |
+|-------+--------+--------------+------------+------------+----------|
+| value | string | 1            | 5          | 12         | ^user.+$ |
+
 # ENTITY
 
 ## Notice
@@ -8,11 +18,15 @@ extends = ["SimpleEntity"]
 
 ### ATTRIBUTE
 
-| name          | type   | multiplicity | min-length | max-length |
-|---------------+--------+--------------+------------+------------|
-| senderName    | string | 1            | 1          |            |
-| recipientName | string | 1            | 1          |            |
-| title         | string | 1            | 1          | 8          |
-| headline      | string | ?            | 2          | 8          |
-| summary       | string | ?            | 2          | 8          |
-| description   | string | ?            | 2          | 8          |
+| name          | type        | multiplicity | min-length | max-length |
+|---------------+-------------+--------------+------------+------------|
+| senderName    | string      | 1            | 1          |            |
+| recipientName | string      | 1            | 1          |            |
+| loginName     | LoginName   | 1            |            |            |
+| title         | title       | 1            | 1          | 8          |
+| headline      | headline    | ?            | 2          | 8          |
+| summary       | summary     | ?            | 2          | 8          |
+| description   | description | ?            | 2          | 8          |
+| email         | email       | 1            |            |            |
+| phone         | phone       | ?            |            |            |
+| ipAddress     | ip-address  | ?            |            |            |

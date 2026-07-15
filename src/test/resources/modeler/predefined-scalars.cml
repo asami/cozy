@@ -1,0 +1,31 @@
+# COMPONENT
+
+## Domain
+
+### PACKAGE
+
+domain
+
+# ENTITY
+
+## Profile
+
+### features
+
+extends = ["SimpleEntity"]
+
+### ATTRIBUTE
+
+| name        | type        | multiplicity |
+|-------------+-------------+--------------|
+| id          | entityid    | 1            |
+| name        | name        | 1            |
+| title       | title       | 1            |
+| headline    | headline    | ?            |
+| summary     | summary     | ?            |
+| description | description | ?            |
+| email       | email       | 1            |
+| phone       | phone       | ?            |
+| ipAddress   | ip-address  | ?            |
+| locale      | locale      | ?            |
+| timeZone    | timezone    | ?            |

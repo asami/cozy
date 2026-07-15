@@ -45,6 +45,8 @@ final class CmlModelInspectionSpec extends AnyWordSpec with Matchers with GivenW
         "value" -> "DisplayName",
         "datatype" -> "MessageCode"
       )
+      result.stringscalars.find(_.name == "DisplayName").flatMap(_.suggestedtype) shouldBe Some("name")
+      result.stringscalars.find(_.name == "MessageCode").flatMap(_.suggestedtype) shouldBe None
     }
 
     "expose normalized entity and Value attributes for CML lint" in {

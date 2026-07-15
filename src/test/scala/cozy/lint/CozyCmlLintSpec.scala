@@ -118,6 +118,88 @@ class CozyCmlLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
       }
     }
 
+    "reject string-only Datatypes that duplicate predefined scalars" in {
+      _with_temp_dir("cozy-cml-lint-predefined-wrapper") { dir =>
+        Given("a title Datatype that only wraps a string")
+        val path = _write(
+          dir.resolve("model.cml"),
+          """# DATATYPE
+            |
+            |## UserAccountTitle
+            |
+            |### Attribute
+            |
+            || name  | type   | multiplicity |
+            ||-------+--------+--------------|
+            || value | string | 1            |
+            |""".stripMargin
+        )
+
+        When("Cozy lints the normalized Datatype")
+        val findings = CozyCmlLint.lint(path)
+
+        Then("the nominal wrapper fails with the predefined replacement")
+        findings.map(_.code) should contain("cml.datatype.predefined-scalar-wrapper")
+        findings.find(_.code == "cml.datatype.predefined-scalar-wrapper").map(_.message) should contain(
+          "UserAccountTitle only wraps string and duplicates predefined 'title'; use the predefined type directly."
+        )
+        And("the finding points to the Datatype declaration")
+        findings.find(_.code == "cml.datatype.predefined-scalar-wrapper").map(_.line) shouldBe Some(3)
+      }
+    }
+
+    "warn when a string-only Datatype has no distinct declared contract" in {
+      _with_temp_dir("cozy-cml-lint-nominal-wrapper") { dir =>
+        Given("an unclassified Datatype that only wraps a string")
+        val path = _write(
+          dir.resolve("model.cml"),
+          """# DATATYPE
+            |
+            |## ProviderPayload
+            |
+            |### Attribute
+            |
+            || name  | type   | multiplicity |
+            ||-------+--------+--------------|
+            || value | string | 1            |
+            |""".stripMargin
+        )
+
+        When("Cozy lints the normalized Datatype")
+        val findings = CozyCmlLint.lint(path)
+
+        Then("the missing scalar contract remains visible as debt")
+        findings.map(_.code) should contain("cml.datatype.nominal-string-wrapper")
+        findings.find(_.code == "cml.datatype.nominal-string-wrapper").map(_.level) shouldBe Some(CozyCmlLint.Level.Warn)
+      }
+    }
+
+    "not replace a narrower token hash with the generic token type" in {
+      _with_temp_dir("cozy-cml-lint-token-hash") { dir =>
+        Given("a token hash Datatype whose algorithm contract is not declared yet")
+        val path = _write(
+          dir.resolve("model.cml"),
+          """# DATATYPE
+            |
+            |## UserAccountTokenHash
+            |
+            |### Attribute
+            |
+            || name  | type   | multiplicity |
+            ||-------+--------+--------------|
+            || value | string | 1            |
+            |""".stripMargin
+        )
+
+        When("Cozy lints the narrower scalar")
+        val findings = CozyCmlLint.lint(path)
+
+        Then("the missing contract is warned without a lossy replacement")
+        findings.map(_.code) should contain("cml.datatype.nominal-string-wrapper")
+        findings.map(_.code) should not contain "cml.datatype.predefined-scalar-wrapper"
+      }
+    }
+
     "render machine readable JSON findings" in {
       _with_temp_dir("cozy-cml-lint-json") { dir =>
         Given("an entity CML with a raw string attribute")

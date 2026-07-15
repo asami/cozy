@@ -96,6 +96,27 @@ Status: OPEN
   - [x] Record a provisional category, localization direction, and decision
         state for all 35 current driver Datatypes.
   - [ ] Resolve the domain-decision rows before changing driver source.
+- [x] Decide that accepted plain `DATATYPE` declarations become nominal
+      scalars and that the former generated Scala `String` contract is not
+      preserved through a feature flag, adapter, implicit conversion, or dual
+      codec.
+- [x] Add a SimpleModeler nominal-scalar model element and make Cozy project
+      each plain `DATATYPE` to that element; keep complex Datatypes structured.
+- [x] Generate a validated nominal Scala case class, constructor/parser,
+      `ValueReader`, scalar codec, presentation, and scalar datastore
+      conversion for every plain `DATATYPE`.
+- [ ] Preserve nominal type identity, underlying datatype, and constraints in
+      generated schema, operation metadata, Help, and OpenAPI projections.
+- [x] Propagate nominal types through required, optional, repeated, Create,
+      Read, Query, and Update forms without primitive fallback.
+- [x] Replace the existing executable expectation that ArtScene-like scalar
+      Datatypes generate `String`, `Condition[String]`, or `Update[String]`
+      fields with nominal-scalar expectations.
+- [x] Accept canonical predefined scalars directly and reject redundant wrapper
+      declarations.
+- [ ] Define an explicit accepted-domain-scalar contract so a valid nominal
+      Datatype does not remain a warning merely because its representation is
+      string-backed.
 - [x] Define when a finite vocabulary uses `POWERTYPE` and when lifecycle state
       requires `STATEMACHINE`, including open registries and externally owned
       lifecycle state.
@@ -191,8 +212,12 @@ Status: OPEN
       `entity_upsert` DSL with deterministic subject/type/channel identity.
 - [x] Verify 16 concurrent writes converge on one EntityId and one persistent
       preference row through atomic datastore save.
-- [ ] Migrate or validate `textus-user-account` after the primary migration is
+- [x] Migrate or validate `textus-user-account` after the primary migration is
       stable.
+  - [x] Replace title, email, phone, locale, timezone, and IP address nominal
+        strings with the predefined semantic catalog.
+  - [x] Keep unresolved login, actor, session, client, hash/token, suspension,
+        device, and user-agent contracts as explicit domain-decision wrappers.
 - [ ] Compare account generated operation metadata and API/ABI across the
       migration.
 - [ ] Verify that account use-case, precondition, postcondition, rule, and
@@ -205,6 +230,18 @@ Status: OPEN
       types plus explicit length constraints in both drivers.
 - [ ] Keep domain-specific scalar wrappers only where the accepted inventory
       records additional semantics.
+- [ ] Use the generated nominal types for those domain-specific scalars and
+      remove handwritten scalar-wrapper source from both drivers.
+- [ ] Apply the same semantic type to each account entity field and matching
+      command/query field; eliminate the current entity-only typing split.
+- [ ] Replace notification audience kind, channel, and priority with
+      powertypes, notification lifecycle status with a statemachine, and
+      delivery-attempt result status with a separate closed type.
+- [ ] Replace notification quiet-hours strings with `localtime`, canonical
+      locale/time-zone/URI fields with predefined types, and JSON-in-string
+      audience/metadata fields with structured values.
+- [ ] Version both driver CARs for the deliberate generated-source and
+      contract break instead of adding compatibility adapters.
 - [ ] Compare generated validation, datastore, form, REST/OpenAPI, and Help
       contracts across both driver migrations.
 
@@ -217,10 +254,19 @@ Status: OPEN
 - [x] Run full `sbt --batch test` in Cozy.
 - [x] Generate and validate at least one command and one query CAR.
 - [x] Run focused and full tests in `textus-user-notification`.
-- [ ] Run focused and full tests in `textus-user-account`.
-- [ ] Run CAR lint for both driver projects.
-- [ ] Run `git diff --check`.
-- [ ] Record verification evidence in `docs/phase/phase-16.md`.
+- [x] Run focused and full tests in `textus-user-account` (86 tests passed).
+- [x] Run CAR lint for both driver projects; both have no deterministic FAIL,
+      with development-state and deferred implementation warnings recorded.
+- [ ] Verify generated driver source contains no primitive `String`,
+      `Condition[String]`, or `Update[String]` fallback for fields classified
+      as nominal, predefined, powertype, statemachine, or structured types.
+- [ ] Verify nominal scalars reject invalid construction and round-trip through
+      scalar codec, datastore, Record, form, REST/OpenAPI, and Help surfaces.
+- [ ] Verify `VALUE`, plain `DATATYPE`, complex `DATATYPE`, `POWERTYPE`, and
+      `STATEMACHINE` retain distinct generated and serialized contracts.
+- [x] Run `git diff --check` across all repositories touched by the Phase 16
+      scalar/I18N and driver validation slice.
+- [x] Record verification evidence in `docs/phase/phase-16.md`.
 - [ ] Promote verified responsibilities and invariants from notes to
       `docs/design`.
 - [ ] Promote verified behavior from notes to `docs/spec` and the accepted CML

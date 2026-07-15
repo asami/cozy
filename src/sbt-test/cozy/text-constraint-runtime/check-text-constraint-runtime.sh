@@ -6,6 +6,7 @@ mkdir -p out.d/src/test/scala
 cp verify/GeneratedTextConstraintSpec.scala out.d/src/test/scala/GeneratedTextConstraintSpec.scala
 mkdir -p out.d/src/main/scala/domain
 cp -R generated.d/target/scala-3.3.8/src_managed/main/scala/domain/entity out.d/src/main/scala/domain/entity
+cp -R generated.d/target/scala-3.3.8/src_managed/main/scala/domain/datatype out.d/src/main/scala/domain/datatype
 rm -f out.d/src/main/cozy/sample.cml
 (
   cd out.d

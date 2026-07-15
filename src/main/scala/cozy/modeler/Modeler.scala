@@ -1146,10 +1146,11 @@ object Modeler {
       val atype = _resolve_attribute_type(pkg, p)
       val multiplicity = MMultiplicity(column.multiplicity)
       val web = _web(p.web)
-      val constraints: List[MConstraint] = column.constraints.map(RConstraint)
+      val constraints: List[MConstraint] = p.domain.constraints.map(RConstraint).toList
+      val typeconstraints: List[MConstraint] = _attribute_type_constraints(p).map(RConstraint).toList
       val readonly = false
       val description = Description.empty
-      MAttribute(designation, atype, multiplicity, constraints, Some(column), readonly, p.derived, web = web, description = description, confidentiality = p.confidentiality)
+      MAttribute(designation, atype, multiplicity, constraints, Some(column), readonly, p.derived, web = web, description = description, confidentiality = p.confidentiality, typeConstraints = typeconstraints)
     }
 
     private def _web(p: SchemaModel.Attribute.Web): MAttribute.Web =
@@ -1176,8 +1177,12 @@ object Modeler {
     private def _resolve_attribute_type(
       pkg: MPackageRef,
       p: SchemaModel.Attribute
-    ): MAttributeType =
-      if (p.domain.datatype == org.goldenport.record.v2.XString) {
+    ): MAttributeType = {
+      val predefined = p.rawTypeName.
+        flatMap(PredefinedScalarCatalog.get).
+        flatMap(_.runtimeclassname).
+        map(x => MObjectAttributeType(MObjectRef.create(x)))
+      predefined.getOrElse(if (p.domain.datatype == org.goldenport.record.v2.XString) {
         p.rawTypeName match {
           case Some(raw) =>
             _builtin_attribute_type(pkg, raw).
@@ -1187,7 +1192,35 @@ object Modeler {
           case None => MDataType(p.domain.datatype)
         }
       } else
-        MDataType(p.domain.datatype)
+        MDataType(p.domain.datatype))
+    }
+
+    private def _attribute_type_constraints(
+      p: SchemaModel.Attribute
+    ): Vector[org.goldenport.record.v2.Constraint] = {
+      val inherited = p.rawTypeName.toVector.flatMap(_datatype_constraints)
+      val predefined = p.rawTypeName.flatMap(PredefinedScalarCatalog.get).toVector.flatMap(_.constraints)
+      val inheritedkeys = inherited.map(_constraint_key).toSet
+      inherited ++ predefined.filterNot(x => inheritedkeys.contains(_constraint_key(x)))
+    }
+
+    private def _datatype_constraints(
+      rawtypename: String
+    ): Vector[org.goldenport.record.v2.Constraint] = {
+      val simple = rawtypename.split("\\.").last
+      datatype.classes.get(simple).toVector.flatMap {
+        case m: DataTypeClass.Plain => m.constraints
+        case _: DataTypeClass.Complex => Nil
+      }
+    }
+
+    private def _constraint_key(p: org.goldenport.record.v2.Constraint): String = p match {
+      case _: org.goldenport.record.v2.CMinLength => "min-length"
+      case _: org.goldenport.record.v2.CMaxLength => "max-length"
+      case _: org.goldenport.record.v2.CFormat => "format"
+      case _: org.goldenport.record.v2.CRegex => "pattern"
+      case _ => p.label
+    }
 
     private def _builtin_attribute_type(
       pkg: MPackageRef,
@@ -1212,13 +1245,7 @@ object Modeler {
       datatype.map(MDataType(_)).orElse {
         normalized match {
           case "record" => Some(MObjectAttributeType(MObjectRef.record))
-          case "name" => Some(MObjectAttributeType(MObjectRef.create("org.goldenport.datatype.Name")))
-          case "identifier" => Some(MObjectAttributeType(MObjectRef.create("org.goldenport.datatype.Identifier")))
           case "text" => Some(MObjectAttributeType(MObjectRef.create("org.goldenport.datatype.Text")))
-          case "token" => Some(MObjectAttributeType(MObjectRef.create("org.goldenport.datatype.Token")))
-          case "url" => Some(MObjectAttributeType(MObjectRef.create("java.net.URL")))
-          case "uri" => Some(MObjectAttributeType(MObjectRef.create("java.net.URI")))
-          case "urn" => Some(MObjectAttributeType(MObjectRef.create("org.goldenport.datatype.Urn")))
           case "blob" => Some(MObjectAttributeType(MObjectRef.create("org.goldenport.bag.BinaryBag")))
           case "clob" => Some(MObjectAttributeType(MObjectRef.create("org.goldenport.bag.TextBag")))
           case "datetime" | "date_time" => Some(MObjectAttributeType(MObjectRef.create("java.time.ZonedDateTime")))
@@ -1226,9 +1253,9 @@ object Modeler {
           case "localdate" => Some(MObjectAttributeType(MObjectRef.create("java.time.LocalDate")))
           case "localtime" => Some(MObjectAttributeType(MObjectRef.create("java.time.LocalTime")))
           case "localdatetime" => Some(MObjectAttributeType(MObjectRef.create("java.time.LocalDateTime")))
-          case "locale" => Some(MObjectAttributeType(MObjectRef.create("java.util.Locale")))
-          case "timezone" => Some(MObjectAttributeType(MObjectRef.create("java.util.TimeZone")))
-          case _ => None
+          case _ => PredefinedScalarCatalog.get(normalized).
+            flatMap(_.runtimeclassname).
+            map(x => MObjectAttributeType(MObjectRef.create(x)))
         }
       }
     }
@@ -1271,7 +1298,9 @@ object Modeler {
     private def _datatype_attribute_type(p: DataTypeClass): MAttributeType =
       p match {
         case m: DataTypeClass.Plain =>
-          MDataType(m.description.designation, m.datatype, MPackageRef(_datatype_package_name(m.packageName)), m.description, resolveDeclaredType = false)
+          MObjectAttributeType(
+            MObjectRef(MPackageRef(_datatype_package_name(m.packageName)), m.name)
+          )
         case m: DataTypeClass.Complex =>
           MObjectAttributeType(MObjectRef(MPackageRef(_datatype_package_name(m.packageName)), m.name))
       }
@@ -1287,13 +1316,7 @@ object Modeler {
 
     private def _is_string_format_raw_type(p: String): Boolean = {
       val normalized = p.trim.toLowerCase(java.util.Locale.ROOT)
-      Set(
-        "email",
-        "uuid",
-        "phone",
-        "tel",
-        "e164"
-      ).contains(normalized)
+      normalized == "uuid" || PredefinedScalarCatalog.get(normalized).exists(_.format.isDefined)
     }
 
     private def _associations(pkg: MPackageRef, p: SchemaClass): List[MAssociation] =
@@ -1356,9 +1379,12 @@ object Modeler {
     private def _datatype(p: DataTypeClass): MElement = p match {
       case m: DataTypeClass.Plain =>
         val pkg = MPackageRef(_datatype_package_name(m.packageName))
-        val desc = m.description
-        val datatype = m.datatype
-        MDataType(desc.designation, datatype, pkg, desc, resolveDeclaredType = false)
+        MNominalDataType(
+          description = m.description,
+          affiliation = pkg,
+          datatype = m.datatype,
+          constraints = m.constraints.map(RConstraint)
+        )
       case m: DataTypeClass.Complex =>
         val pkg = MPackageRef(_datatype_package_name(m.packageName))
         MStructuredDataType(

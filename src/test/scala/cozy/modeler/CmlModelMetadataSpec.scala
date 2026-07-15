@@ -127,6 +127,56 @@ class CmlModelMetadataSpec extends AnyWordSpec with Matchers with GivenWhenThen 
       Files.readString(yaml) should include ("type: \"entityid\"")
     }
 
+    "preserve nominal scalar identity underlying type and constraints from the CML AST" in {
+      Given("a constrained plain DATATYPE declaration")
+      val dir = Files.createTempDirectory("cozy-cml-model-metadata-nominal-scalar")
+      val source = dir.resolve("src/main/cozy/sample.cml")
+      Files.createDirectories(source.getParent)
+      Files.writeString(
+        source,
+        """# DATATYPE
+          |
+          |## LoginName
+          |
+          |### ATTRIBUTE
+          |
+          || name  | type   | multiplicity | min-length | max-length | pattern  |
+          ||-------+--------+--------------+------------+------------+----------|
+          || value | string | 1            | 5          | 32         | ^user.+$ |
+          |""".stripMargin,
+        StandardCharsets.UTF_8
+      )
+      val json = dir.resolve("target/model-metadata.json")
+      val yaml = dir.resolve("target/model-metadata.yaml")
+
+      When("Cozy writes public model metadata")
+      CmlModelMetadata.write(source, json, yaml, "src/main/cozy/sample.cml", "concept")
+
+      Then("the AST-backed datatype contract identifies its nominal scalar representation")
+      val element = (Json.parse(Files.readString(json)) \ "modelElements").as[Seq[JsValue]].head
+      (element \ "kind").as[String] shouldBe "datatype"
+      (element \ "name").as[String] shouldBe "LoginName"
+      (element \ "representation").as[String] shouldBe "nominal-scalar"
+      (element \ "underlyingType").as[String] shouldBe "string"
+      (element \ "constraints").as[Seq[String]] should contain theSameElementsAs Seq(
+        "min-length=5",
+        "max-length=32",
+        "pattern=^user.+$"
+      )
+
+      And("the scalar value field keeps the same underlying and constraint contract")
+      val field = (element \ "fields").as[Seq[JsValue]].head
+      (field \ "name").as[String] shouldBe "value"
+      (field \ "type").as[String] shouldBe "string"
+      (field \ "constraints").as[Seq[String]] should contain theSameElementsAs Seq(
+        "min-length=5",
+        "max-length=32",
+        "pattern=^user.+$"
+      )
+      Files.readString(yaml) should include ("representation: \"nominal-scalar\"")
+      Files.readString(yaml) should include ("underlyingType: \"string\"")
+    }
+
     "extract operation summary and description from operation child sections" in {
       Given("a CML source file with operation SUMMARY and DESCRIPTION sections")
       val dir = Files.createTempDirectory("cozy-cml-model-metadata-operation")

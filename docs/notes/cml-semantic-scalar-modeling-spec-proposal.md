@@ -136,6 +136,21 @@ Other parser-backed families such as `identifier`, `url`, `uri`, `locale`, and
 `timezone` remain non-generic scalar concepts rather than members of this
 descriptive-text matrix.
 
+The implemented low-ambiguity account catalog additionally fixes these
+provider-independent runtime boundaries:
+
+- `email` uses `EmailAddress`, preserves the local part, and normalizes the
+  domain;
+- `phone` uses `PhoneNumber`, removes visual separators, normalizes an explicit
+  `00` international prefix, and requires an E.164 country code;
+- `locale` uses `java.util.Locale` and serializes as a BCP 47 language tag;
+- `timezone` uses `java.util.TimeZone` and serializes as its canonical ID;
+- `ip-address` uses `IpAddress` and canonical IPv4/IPv6 serialization.
+
+These types are nonlocalized semantic scalars. They do not participate in
+`DescriptiveAttributes` fallback and they do not imply account verification,
+allowed-locale, or deployment-policy decisions.
+
 The accepted catalog must define runtime type, normalization, empty-value
 policy, minimum length, maximum length, serialization, datastore mapping, and
 form/API schema. A type name alone must not imply undocumented limits.
@@ -312,6 +327,12 @@ The following are the remaining investigation themes, not accepted migrations.
   payloads require identifier/opaque/structured-data classification.
 
 ### textus-user-account
+
+The low-ambiguity migration is implemented for display title, email address,
+phone number, locale, timezone, and IP address. Generated Create, Update,
+datastore, and operation paths use the semantic runtime types, and external
+locale/timezone values use canonical string forms. The remaining bullets are
+domain decisions rather than incomplete aliases for those implemented types.
 
 - account status and session/credential lifecycle fields require
   powertype/statemachine classification;

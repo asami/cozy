@@ -47,7 +47,10 @@ class EmbeddedValueObjectGenerationSpec extends AnyWordSpec with Matchers with G
       entitycontent should include ("lines: Vector[OrderLine]")
       entitycontent should include ("case m: org.goldenport.record.RecordPresentable => m.toRecord()")
       entitycontent should include ("_record_get_vector_as_c[org.sample.aggregatesinglerecord.value.OrderLine](record, INPUT_KEYS_LINES).flatMap {")
-      valuecontent should include ("case class OrderLine(name: Name, quantity: Int) extends org.goldenport.record.RecordPresentable")
+      valuecontent should include ("case class OrderLine(name: Name")
+      valuecontent should include ("quantity: Int) extends org.goldenport.record.RecordPresentable")
+      valuecontent should not include "name entries must have length >= 1"
+      valuecontent should not include "name entries must have length <= 256"
       valuecontent should include ("given org.goldenport.convert.ValueReader[OrderLine]")
       valuecontent should include ("case m: Record => createC(m)")
     }

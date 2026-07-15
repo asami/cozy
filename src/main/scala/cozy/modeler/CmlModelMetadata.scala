@@ -5,7 +5,9 @@ import java.nio.file.{Files, Path}
 import java.security.MessageDigest
 import scala.collection.JavaConverters._
 import play.api.libs.json.{JsArray, JsObject, Json}
-import org.goldenport.kaleidox.{Model => KaleidoxModel}
+import org.goldenport.kaleidox.{Config => KaleidoxConfig, Model => KaleidoxModel}
+import org.goldenport.kaleidox.model.DataTypeModel.DataTypeClass
+import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex, Constraint}
 import org.goldenport.parser.LogicalSection
 
 /*
@@ -194,7 +196,9 @@ private[cozy] object CmlModelMetadata {
     constraints: Vector[String] = Vector.empty,
     implementation: Vector[String] = Vector.empty,
     rdfcandidates: Vector[String] = Vector.empty,
-    fields: Vector[Field] = Vector.empty
+    fields: Vector[Field] = Vector.empty,
+    representation: Option[String] = None,
+    underlyingtype: Option[String] = None
   ) {
     def toJson: JsObject =
       Json.obj(
@@ -208,7 +212,9 @@ private[cozy] object CmlModelMetadata {
         "constraints" -> Json.toJson(constraints),
         "implementation" -> Json.toJson(implementation),
         "rdfCandidates" -> Json.toJson(rdfcandidates),
-        "fields" -> JsArray(fields.map(_.toJson))
+        "fields" -> JsArray(fields.map(_.toJson)),
+        "representation" -> Json.toJson(representation.getOrElse("")),
+        "underlyingType" -> Json.toJson(underlyingtype.getOrElse(""))
       )
 
     def toYaml(indent: String): String = {
@@ -229,6 +235,8 @@ private[cozy] object CmlModelMetadata {
          |${indent}  constraints: ${_yaml_list(constraints)}
          |${indent}  implementation: ${_yaml_list(implementation)}
          |${indent}  rdfCandidates: ${_yaml_list(rdfcandidates)}
+         |${indent}  representation: ${_yaml_scalar(representation.getOrElse(""))}
+         |${indent}  underlyingType: ${_yaml_scalar(underlyingtype.getOrElse(""))}
          |${indent}  fields: ${fieldsyaml}
          |""".stripMargin
     }
@@ -237,7 +245,8 @@ private[cozy] object CmlModelMetadata {
   final case class Field(
     name: String,
     typename: String,
-    multiplicity: String
+    multiplicity: String,
+    constraints: Vector[String] = Vector.empty
   ) {
     def required: Boolean =
       !Set("?", "*", "0..1", "0..*").contains(multiplicity.trim)
@@ -247,7 +256,8 @@ private[cozy] object CmlModelMetadata {
         "name" -> name,
         "type" -> typename,
         "multiplicity" -> multiplicity,
-        "required" -> required
+        "required" -> required,
+        "constraints" -> Json.toJson(constraints)
       )
 
     def toYaml(indent: String): String =
@@ -255,6 +265,7 @@ private[cozy] object CmlModelMetadata {
          |${indent}  type: ${_yaml_scalar(typename)}
          |${indent}  multiplicity: ${_yaml_scalar(multiplicity)}
          |${indent}  required: ${required}
+         |${indent}  constraints: ${_yaml_list(constraints)}
          |""".stripMargin
   }
 
@@ -278,6 +289,7 @@ private[cozy] object CmlModelMetadata {
 
   def fromCml(source: Path, sourcepath: String, glossarycategory: String): ModelMetadata = {
     val normalized = source.toAbsolutePath.normalize()
+    val model = KaleidoxModel.load(KaleidoxConfig.default, normalized.toFile)
     ModelMetadata(
       Source(
         path = sourcepath,
@@ -286,7 +298,7 @@ private[cozy] object CmlModelMetadata {
         cozyversion = org.simplemodeling.cozy.BuildInfo.version
       ),
       surface = _surface(normalized, glossarycategory),
-      modelElements = _model_elements(normalized, glossarycategory)
+      modelElements = _with_ast_datatype_contracts(_model_elements(normalized, glossarycategory), model)
     )
   }
 
@@ -335,6 +347,44 @@ private[cozy] object CmlModelMetadata {
 
   private case class Section(kind: String, name: String, lines: Vector[String])
 
+  private def _with_ast_datatype_contracts(
+    elements: Vector[Element],
+    model: KaleidoxModel
+  ): Vector[Element] = {
+    val datatypes = model.takeDataTypeModel.classes
+    elements.map { element =>
+      if (element.kind == "datatype")
+        datatypes.get(element.name).fold(element)(_with_ast_datatype_contract(element, _))
+      else
+        element
+    }
+  }
+
+  private def _with_ast_datatype_contract(
+    element: Element,
+    datatype: DataTypeClass
+  ): Element =
+    datatype match {
+      case m: DataTypeClass.Plain =>
+        val constraints = m.constraints.map(_constraint_text).toVector
+        element.copy(
+          constraints = constraints,
+          fields = Vector(Field("value", m.datatype.name, "1", constraints)),
+          representation = Some("nominal-scalar"),
+          underlyingtype = Some(m.datatype.name)
+        )
+      case _: DataTypeClass.Complex =>
+        element.copy(representation = Some("structured"))
+    }
+
+  private def _constraint_text(p: Constraint): String = p match {
+    case m: CMinLength => s"min-length=${m.length}"
+    case m: CMaxLength => s"max-length=${m.length}"
+    case m: CRegex => s"pattern=${m.regex.regex}"
+    case m: CFormat => s"format=${m.format}"
+    case m => m.label
+  }
+
   private def _model_elements(model: KaleidoxModel, glossarycategory: String): Vector[Element] =
     model.divisions.toVector.flatMap {
       case d: KaleidoxModel.EntityDivision => _logical_section_elements("entity", d.section, glossarycategory)
@@ -342,7 +392,23 @@ private[cozy] object CmlModelMetadata {
       case d: KaleidoxModel.PowertypeDivision => _logical_section_elements("powertype", d.section, glossarycategory)
       case d: KaleidoxModel.StateMachineDivision => _logical_section_elements("statemachine", d.section, glossarycategory)
       case _ => Vector.empty
-    }
+    } ++ model.takeDataTypeModel.classes.values.toVector.map(_ast_datatype_element(_, glossarycategory))
+
+  private def _ast_datatype_element(
+    datatype: DataTypeClass,
+    glossarycategory: String
+  ): Element = {
+    val slug = _slugify(datatype.name)
+    val base = Element(
+      kind = "datatype",
+      name = datatype.name,
+      termid = s"${glossarycategory}:${slug}",
+      glossarypath = s"glossary/${glossarycategory}/${slug}.html",
+      descriptive = Descriptive(datatype.name, None, None, None),
+      narrative = None
+    )
+    _with_ast_datatype_contract(base, datatype)
+  }
 
   private def _component_surface(section: LogicalSection, glossarycategory: String, services: Vector[ServiceSurface]): ComponentSurface = {
     val base = _logical_element("component", section, glossarycategory)

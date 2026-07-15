@@ -357,6 +357,11 @@ Purpose:
   regression driver;
 - audit string-only Values and Datatypes in both drivers instead of preserving
   nominal wrappers without model semantics;
+- redefine accepted plain Datatypes as generated nominal scalar types with
+  scalar Wire/datastore representation, without preserving the former Scala
+  `String` source contract or adding a compatibility mode;
+- propagate nominal types through entity and operation surfaces and validate
+  the breaking migration in both driver CARs;
 - model finite vocabularies as powertypes and transition-owned lifecycle state
   with statemachines;
 - use the existing `name = Name` and `title = I18nTitle` semantics as the

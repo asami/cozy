@@ -42,7 +42,10 @@ private[cozy] object CmlModelInspection {
   final case class StringScalar(
     kind: DeclarationKind,
     name: String,
-    representation: String
+    representation: String,
+    line: Int,
+    suggestedtype: Option[String],
+    replacementrecommended: Boolean
   )
 
   final case class Result(
@@ -66,14 +69,30 @@ private[cozy] object CmlModelInspection {
     }
     val valuescalars = model.getValueModel.toVector.flatMap(_.classes.values).flatMap { value =>
       val attributes = value.schemaClass.attributes
-      if (attributes.length == 1 && attributes.head.name == "value" && _is_raw_string(attributes.head))
-        Some(StringScalar(DeclarationKind.Value, value.name, "value:string"))
-      else
+      if (attributes.length == 1 && attributes.head.name == "value" && _is_raw_string(attributes.head)) {
+        val suggestion = PredefinedScalarCatalog.suggestion(value.name)
+        Some(StringScalar(
+          DeclarationKind.Value,
+          value.name,
+          "value:string",
+          declarationlines.getOrElse(DeclarationKind.Value -> value.name, 1),
+          suggestion.map(_.name),
+          suggestion.exists(_.replacementrecommended)
+        ))
+      } else
         None
     }
     val datatypescalars = model.takeDataTypeModel.classes.values.toVector.flatMap {
       case datatype if _is_string_datatype(datatype) =>
-        Some(StringScalar(DeclarationKind.Datatype, datatype.name, "value:string"))
+        val suggestion = PredefinedScalarCatalog.suggestion(datatype.name)
+        Some(StringScalar(
+          DeclarationKind.Datatype,
+          datatype.name,
+          "value:string",
+          declarationlines.getOrElse(DeclarationKind.Datatype -> datatype.name, 1),
+          suggestion.map(_.name),
+          suggestion.exists(_.replacementrecommended)
+        ))
       case _ =>
         None
     }
@@ -151,6 +170,8 @@ private[cozy] object CmlModelInspection {
         _declaration_lines(DeclarationKind.Entity, division.section)
       case division: KaleidoxModel.ValueDivision =>
         _declaration_lines(DeclarationKind.Value, division.section)
+      case division: KaleidoxModel.DataTypeDivision =>
+        _declaration_lines(DeclarationKind.Datatype, division.section)
       case _ =>
         Vector.empty
     }.toMap

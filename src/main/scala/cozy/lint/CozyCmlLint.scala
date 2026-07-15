@@ -46,8 +46,9 @@ private[cozy] object CozyCmlLint {
     lintFiles(_cml_files(path.toAbsolutePath.normalize()))
 
   private[cozy] def lintFiles(paths: Seq[Path]): Vector[Finding] = {
-    val attrs = paths.toVector.flatMap { path =>
-      CmlModelInspection.load(path).attributes.map(path -> _)
+    val inspections = paths.toVector.map(path => path -> CmlModelInspection.load(path))
+    val attrs = inspections.flatMap { case (path, inspection) =>
+      inspection.attributes.map(path -> _)
     }
     val entityfindings = attrs.collect {
       case (path, a) if a.kind == CmlModelInspection.DeclarationKind.Entity && a.isRawString =>
@@ -77,7 +78,27 @@ private[cozy] object CozyCmlLint {
             )
           }
       }
-    (entityfindings ++ valuefindings).sortBy(x => (x.path.toString, x.line, x.code))
+    val datatypescalarfindings = inspections.flatMap { case (path, inspection) =>
+      inspection.stringscalars.collect {
+        case scalar if scalar.kind == CmlModelInspection.DeclarationKind.Datatype && scalar.replacementrecommended =>
+          Finding(
+            Level.Fail,
+            "cml.datatype.predefined-scalar-wrapper",
+            s"${scalar.name} only wraps string and duplicates predefined '${scalar.suggestedtype.get}'; use the predefined type directly.",
+            path,
+            scalar.line
+          )
+        case scalar if scalar.kind == CmlModelInspection.DeclarationKind.Datatype =>
+          Finding(
+            Level.Warn,
+            "cml.datatype.nominal-string-wrapper",
+            s"${scalar.name} only wraps string and does not declare a distinct scalar contract; use a constrained Value or an accepted predefined type.",
+            path,
+            scalar.line
+          )
+      }
+    }
+    (entityfindings ++ valuefindings ++ datatypescalarfindings).sortBy(x => (x.path.toString, x.line, x.code))
   }
 
   private[cozy] def toJson(findings: Seq[Finding]): String =
