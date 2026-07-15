@@ -243,6 +243,10 @@ Status: OPEN
       powertype/statemachine models.
 - [ ] Replace generic string fields with appropriate predefined semantic text
       types plus explicit length constraints in both drivers.
+  - [x] Replace account request-only password and token strings with predefined
+        `password` / `token`, including explicit role-specific length bounds.
+  - [ ] Define and apply the remaining account and notification domain-scalar
+        normalization and length contracts.
 - [x] Keep domain-specific scalar wrappers only where the accepted inventory
       records additional semantics.
 - [x] Use the generated nominal types for those domain-specific scalars and

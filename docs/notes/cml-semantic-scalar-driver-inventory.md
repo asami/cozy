@@ -144,6 +144,16 @@ powertype. The ten remaining domain-scalar rows are likewise CML-owned and
 generate their nominal Scala types; no parallel handwritten wrapper source is
 kept in the account component.
 
+Request-only authentication material is now modeled separately from those
+persisted domain scalars. Plain passwords use predefined `password` with a
+1..1024 request boundary. Login identifiers, challenge IDs, verification
+codes, and proof/reset/refresh values use predefined `token` with role-specific
+maximums from 255 through 8192. Login identifiers use `token` because the
+command accepts either a login name or an email address, which is broader than
+the lexical `identifier` contract. These values remain nonlocalized and secret
+where authored; password-strength policy and redaction remain separate
+responsibilities.
+
 ## 6. Next Implementation Boundary
 
 The first CML16-07 implementation slice established the executable predefined

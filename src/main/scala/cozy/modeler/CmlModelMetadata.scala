@@ -8,6 +8,7 @@ import play.api.libs.json.{JsArray, JsObject, Json}
 import org.smartdox.{Body, Dl, Document, Dox, Fragment, Section => DoxSection}
 import org.smartdox.parser.Dox2Parser
 import org.goldenport.kaleidox.{CmlSectionFormat, Config => KaleidoxConfig, Model => KaleidoxModel}
+import org.goldenport.kaleidox.model.ComponentSubsystemModel
 import org.goldenport.kaleidox.model.OperationModel
 import org.goldenport.kaleidox.model.DataTypeModel.DataTypeClass
 import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex, Constraint}
@@ -89,7 +90,9 @@ private[cozy] object CmlModelMetadata {
     glossarypath: String,
     descriptive: Descriptive,
     narrative: Option[String],
-    services: Vector[ServiceSurface]
+    services: Vector[ServiceSurface],
+    actors: Vector[ActorSurface] = Vector.empty,
+    useCases: Vector[UseCaseSurface] = Vector.empty
   ) {
     def toJson: JsObject =
       Json.obj(
@@ -98,7 +101,9 @@ private[cozy] object CmlModelMetadata {
         "glossaryPath" -> glossarypath,
         "descriptive" -> descriptive.toJson,
         "narrative" -> Json.toJson(narrative.getOrElse("")),
-        "services" -> JsArray(services.map(_.toJson))
+        "services" -> JsArray(services.map(_.toJson)),
+        "actors" -> JsArray(actors.map(_.toJson)),
+        "useCases" -> JsArray(useCases.map(_.toJson))
       )
 
     def toYaml(indent: String): String =
@@ -111,8 +116,131 @@ private[cozy] object CmlModelMetadata {
          |${indent}  summary: ${_yaml_scalar(descriptive.summary.getOrElse(""))}
          |${indent}  description: ${_yaml_scalar(descriptive.description.getOrElse(""))}
          |${indent}narrative: ${_yaml_scalar(narrative.getOrElse(""))}
+         |${indent}actors:
+         |${_yaml_records(actors.map(_.toYaml(indent + "  ")), indent + "  ")}
+         |${indent}useCases:
+         |${_yaml_records(useCases.map(_.toYaml(indent + "  ")), indent + "  ")}
          |${indent}services:
-         |${services.map(_.toYaml(indent + "  ")).mkString}""".stripMargin
+         |${_yaml_records(services.map(_.toYaml(indent + "  ")), indent + "  ")}""".stripMargin
+  }
+
+  final case class ActorSurface(
+    name: String,
+    kind: Option[String],
+    summary: Option[String],
+    description: Option[String]
+  ) {
+    def toJson: JsObject =
+      Json.obj(
+        "name" -> name,
+        "kind" -> Json.toJson(kind.getOrElse("")),
+        "summary" -> Json.toJson(summary.getOrElse("")),
+        "description" -> Json.toJson(description.getOrElse(""))
+      )
+
+    def toYaml(indent: String): String =
+      s"""${indent}- name: ${_yaml_scalar(name)}
+         |${indent}  kind: ${_yaml_scalar(kind.getOrElse(""))}
+         |${indent}  summary: ${_yaml_scalar(summary.getOrElse(""))}
+         |${indent}  description: ${_yaml_scalar(description.getOrElse(""))}
+         |""".stripMargin
+  }
+
+  final case class ActorReferenceSurface(
+    name: String,
+    role: String,
+    targetKind: String
+  ) {
+    def toJson: JsObject =
+      Json.obj(
+        "name" -> name,
+        "role" -> role,
+        "targetKind" -> targetKind
+      )
+
+    def toYaml(indent: String): String =
+      s"""${indent}- name: ${_yaml_scalar(name)}
+         |${indent}  role: ${_yaml_scalar(role)}
+         |${indent}  targetKind: ${_yaml_scalar(targetKind)}
+         |""".stripMargin
+  }
+
+  final case class UseCaseFlowSurface(
+    name: String,
+    kind: String,
+    summary: Option[String],
+    description: Option[String],
+    steps: Vector[String],
+    alternates: Vector[String],
+    exceptions: Vector[String]
+  ) {
+    def toJson: JsObject =
+      Json.obj(
+        "name" -> name,
+        "kind" -> kind,
+        "summary" -> Json.toJson(summary.getOrElse("")),
+        "description" -> Json.toJson(description.getOrElse("")),
+        "steps" -> Json.toJson(steps),
+        "alternates" -> Json.toJson(alternates),
+        "exceptions" -> Json.toJson(exceptions)
+      )
+
+    def toYaml(indent: String): String =
+      s"""${indent}- name: ${_yaml_scalar(name)}
+         |${indent}  kind: ${_yaml_scalar(kind)}
+         |${indent}  summary: ${_yaml_scalar(summary.getOrElse(""))}
+         |${indent}  description: ${_yaml_scalar(description.getOrElse(""))}
+         |${indent}  steps: ${_yaml_list(steps)}
+         |${indent}  alternates: ${_yaml_list(alternates)}
+         |${indent}  exceptions: ${_yaml_list(exceptions)}
+         |""".stripMargin
+  }
+
+  final case class UseCaseSurface(
+    name: String,
+    id: Option[String],
+    summary: Option[String],
+    description: Option[String],
+    goal: Option[String],
+    precondition: Option[String],
+    postcondition: Option[String],
+    trigger: Option[String],
+    priority: Option[String],
+    status: Option[String],
+    actorReferences: Vector[ActorReferenceSurface],
+    flows: Vector[UseCaseFlowSurface]
+  ) {
+    def toJson: JsObject =
+      Json.obj(
+        "name" -> name,
+        "id" -> Json.toJson(id.getOrElse("")),
+        "summary" -> Json.toJson(summary.getOrElse("")),
+        "description" -> Json.toJson(description.getOrElse("")),
+        "goal" -> Json.toJson(goal.getOrElse("")),
+        "precondition" -> Json.toJson(precondition.getOrElse("")),
+        "postcondition" -> Json.toJson(postcondition.getOrElse("")),
+        "trigger" -> Json.toJson(trigger.getOrElse("")),
+        "priority" -> Json.toJson(priority.getOrElse("")),
+        "status" -> Json.toJson(status.getOrElse("")),
+        "actorReferences" -> JsArray(actorReferences.map(_.toJson)),
+        "flows" -> JsArray(flows.map(_.toJson))
+      )
+
+    def toYaml(indent: String): String =
+      s"""${indent}- name: ${_yaml_scalar(name)}
+         |${indent}  id: ${_yaml_scalar(id.getOrElse(""))}
+         |${indent}  summary: ${_yaml_scalar(summary.getOrElse(""))}
+         |${indent}  description: ${_yaml_scalar(description.getOrElse(""))}
+         |${indent}  goal: ${_yaml_scalar(goal.getOrElse(""))}
+         |${indent}  precondition: ${_yaml_scalar(precondition.getOrElse(""))}
+         |${indent}  postcondition: ${_yaml_scalar(postcondition.getOrElse(""))}
+         |${indent}  trigger: ${_yaml_scalar(trigger.getOrElse(""))}
+         |${indent}  priority: ${_yaml_scalar(priority.getOrElse(""))}
+         |${indent}  status: ${_yaml_scalar(status.getOrElse(""))}
+         |${indent}  actorReferences:
+         |${_yaml_records(actorReferences.map(_.toYaml(indent + "    ")), indent + "    ")}
+         |${indent}  flows:
+         |${_yaml_records(flows.map(_.toYaml(indent + "    ")), indent + "    ")}""".stripMargin
   }
 
   final case class ServiceSurface(
@@ -303,7 +431,7 @@ private[cozy] object CmlModelMetadata {
         compiler = "cozy-modeler",
         cozyversion = org.simplemodeling.cozy.BuildInfo.version
       ),
-      surface = _surface(normalized, glossarycategory),
+      surface = _surface(normalized, glossarycategory, model),
       modelElements = _with_ast_contracts(_model_elements(normalized, glossarycategory), model)
     )
   }
@@ -587,7 +715,7 @@ private[cozy] object CmlModelMetadata {
     if (text.isEmpty) None else Some(text)
   }
 
-  private def _surface(source: Path, glossarycategory: String): Surface = {
+  private def _surface(source: Path, glossarycategory: String, model: KaleidoxModel): Surface = {
     val lines = Files.readAllLines(source, StandardCharsets.UTF_8).asScala.toVector
     val component = _raw_named_blocks(lines, 1, "COMPONENT", 2).headOption.map { block =>
       val base = _raw_element("component", block.name, block.lines, glossarycategory)
@@ -597,11 +725,81 @@ private[cozy] object CmlModelMetadata {
         base.glossarypath,
         base.descriptive,
         base.narrative,
-        _raw_services(lines, glossarycategory)
+        _raw_services(lines, glossarycategory),
+        _actor_surfaces(model),
+        _use_case_surfaces(model, block.name)
       )
     }
     Surface(component)
   }
+
+  private def _actor_surfaces(model: KaleidoxModel): Vector[ActorSurface] =
+    model.takeActorModel.actors.map { actor =>
+      ActorSurface(actor.name, actor.kind, actor.summary, actor.description)
+    }
+
+  private def _use_case_surfaces(model: KaleidoxModel, componentname: String): Vector[UseCaseSurface] = {
+    val subsystem = model.takeComponentSubsystemModel
+    val scoped = subsystem.components.filter(_.name == componentname).flatMap(_.useCases)
+    val usecases = _deduplicate_use_cases(scoped ++ subsystem.useCases)
+    val localactors = model.takeActorModel.actors.map(_.name).toSet
+    usecases.map(_use_case_surface(_, localactors))
+  }
+
+  private def _deduplicate_use_cases(
+    p: Vector[ComponentSubsystemModel.UseCaseDefinition]
+  ): Vector[ComponentSubsystemModel.UseCaseDefinition] =
+    p.foldLeft(Vector.empty[ComponentSubsystemModel.UseCaseDefinition]) { (z, x) =>
+      if (z.exists(_.name == x.name)) z else z :+ x
+    }
+
+  private def _use_case_surface(
+    p: ComponentSubsystemModel.UseCaseDefinition,
+    localactors: Set[String]
+  ): UseCaseSurface =
+    UseCaseSurface(
+      name = p.name,
+      id = p.id,
+      summary = p.summary,
+      description = p.description,
+      goal = p.goal,
+      precondition = p.precondition,
+      postcondition = p.postcondition,
+      trigger = p.trigger,
+      priority = p.priority,
+      status = p.status,
+      actorReferences = _actor_reference_surfaces(p, localactors),
+      flows = p.scenarios.map { flow =>
+        UseCaseFlowSurface(
+          flow.name,
+          flow.kind,
+          flow.summary,
+          flow.description,
+          flow.steps,
+          flow.alternates,
+          flow.exceptions
+        )
+      }
+    )
+
+  private def _actor_reference_surfaces(
+    p: ComponentSubsystemModel.UseCaseDefinition,
+    localactors: Set[String]
+  ): Vector[ActorReferenceSurface] =
+    Vector(
+      "actor" -> p.actor,
+      "primary" -> p.primaryActor,
+      "secondary" -> p.secondaryActor,
+      "supporting" -> p.supportingActor,
+      "stakeholder" -> p.stakeholder
+    ).flatMap { case (role, names) =>
+      names.toVector.flatMap(_split_actor_names).map { name =>
+        ActorReferenceSurface(name, role, if (localactors.contains(name)) "actor" else "external")
+      }
+    }
+
+  private def _split_actor_names(p: String): Vector[String] =
+    p.split("[,\\n]").toVector.map(_.trim).filter(_.nonEmpty)
 
   private def _raw_services(lines: Vector[String], glossarycategory: String): Vector[ServiceSurface] =
     _raw_named_blocks(lines, 1, "SERVICE", 2).map { block =>
@@ -899,6 +1097,12 @@ private[cozy] object CmlModelMetadata {
       "[]"
     else
       values.map(_yaml_scalar).mkString("[", ", ", "]")
+
+  private def _yaml_records(values: Vector[String], indent: String): String =
+    if (values.isEmpty)
+      s"${indent}[]\n"
+    else
+      values.mkString
 
   private def _yaml_scalar(value: String): String =
     "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n") + "\""

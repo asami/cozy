@@ -208,6 +208,110 @@ class CmlModelMetadataSpec extends AnyWordSpec with Matchers with GivenWhenThen 
       Files.readString(yaml) should include ("underlyingType: \"string\"")
     }
 
+    "preserve typed actors and use cases in the component surface" in {
+      Given("a component with local and external actors plus a canonical main flow")
+      val dir = Files.createTempDirectory("cozy-cml-model-metadata-actor-use-case")
+      val source = dir.resolve("src/main/cozy/sample.cml")
+      Files.createDirectories(source.getParent)
+      Files.writeString(
+        source,
+        """# COMPONENT
+          |
+          |## ArtScene
+          |
+          |### USE CASE
+          |
+          |#### personal_planning
+          |
+          |##### ID
+          |
+          |UC-ART-001
+          |
+          |##### PRIMARY ACTOR
+          |
+          |ExhibitionVisitor
+          |
+          |##### SUPPORTING ACTOR
+          |
+          |TextusUserNotification
+          |
+          |##### SUMMARY
+          |
+          |Plan one exhibition visit.
+          |
+          |##### GOAL
+          |
+          |Choose an exhibition intentionally.
+          |
+          |##### TRIGGER
+          |
+          |The visitor opens today's candidates.
+          |
+          |##### PRIORITY
+          |
+          |high
+          |
+          |##### STATUS
+          |
+          |approved
+          |
+          |##### MAIN FLOW
+          |
+          |###### choose_exhibition
+          |
+          |1. The visitor reviews candidates.
+          |2. The visitor records a decision.
+          |
+          |# ACTOR
+          |
+          |## ExhibitionVisitor
+          |
+          |### KIND
+          |
+          |human
+          |
+          |### DESCRIPTION
+          |
+          |A person planning exhibition visits.
+          |""".stripMargin,
+        StandardCharsets.UTF_8
+      )
+
+      When("Cozy writes the canonical model sidecar")
+      val metadata = CmlModelMetadata.fromCml(source, "src/main/cozy/sample.cml", "concept")
+
+      Then("the component surface contains the typed local actor")
+      val component = metadata.surface.component.getOrElse(fail("Component surface is missing"))
+      component.actors shouldBe Vector(CmlModelMetadata.ActorSurface(
+        "ExhibitionVisitor",
+        Some("human"),
+        None,
+        Some("A person planning exhibition visits.")
+      ))
+
+      And("the use case preserves its contract, resolved actor references, and flow")
+      val usecase = component.useCases.headOption.getOrElse(fail("UseCase surface is missing"))
+      usecase.name shouldBe "personal_planning"
+      usecase.id shouldBe Some("UC-ART-001")
+      usecase.trigger shouldBe Some("The visitor opens today's candidates.")
+      usecase.priority shouldBe Some("high")
+      usecase.status shouldBe Some("approved")
+      usecase.actorReferences should contain allOf (
+        CmlModelMetadata.ActorReferenceSurface("ExhibitionVisitor", "primary", "actor"),
+        CmlModelMetadata.ActorReferenceSurface("TextusUserNotification", "supporting", "external")
+      )
+      usecase.flows.map(_.kind) shouldBe Vector("main")
+      usecase.flows.head.steps shouldBe Vector(
+        "The visitor reviews candidates.",
+        "The visitor records a decision."
+      )
+
+      And("the JSON and YAML sidecars expose the same additive contract")
+      metadata.toJsonString should include ("\"targetKind\" : \"external\"")
+      metadata.toYamlString should include ("useCases:")
+      metadata.toYamlString should include ("id: \"UC-ART-001\"")
+    }
+
     "extract operation summary and description from operation child sections" in {
       Given("a CML source file with operation SUMMARY and DESCRIPTION sections")
       val dir = Files.createTempDirectory("cozy-cml-model-metadata-operation")

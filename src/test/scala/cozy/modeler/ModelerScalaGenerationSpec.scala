@@ -1252,6 +1252,109 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         content should include ("\"name\" -> \"identity\"")
       }
 
+      "modeler-scala preserves ArtScene actor and use-case models" in {
+        Given("an ArtScene-like component with typed actors and a canonical use-case flow")
+        val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+        val input = base.resolve("target/test-generated/modeler-art-scene-use-case.dox")
+        val out = base.resolve("target/test-generated/modeler-art-scene-use-case-out")
+        delete_recursively(out)
+        write_file(input,
+        """# COMPONENT
+          |
+          |## ArtScene
+          |
+          |### PACKAGE
+          |
+          |org.simplemodeling.textus.artscene
+          |
+          |### USE CASE
+          |
+          |#### personal_planning
+          |
+          |##### ID
+          |
+          |UC-ART-001
+          |
+          |##### PRIMARY ACTOR
+          |
+          |ExhibitionVisitor
+          |
+          |##### SUPPORTING ACTOR
+          |
+          |TextusUserNotification, CatalogOperator
+          |
+          |##### GOAL
+          |
+          |Plan an exhibition visit.
+          |
+          |##### TRIGGER
+          |
+          |The visitor opens today's candidates.
+          |
+          |##### PRIORITY
+          |
+          |high
+          |
+          |##### STATUS
+          |
+          |approved
+          |
+          |##### MAIN FLOW
+          |
+          |###### daily_planning
+          |
+          |1. The visitor reviews today's candidates.
+          |2. The system preserves the visit decision.
+          |
+          |# ACTOR
+          |
+          |## ExhibitionVisitor
+          |
+          |### KIND
+          |
+          |human
+          |
+          |### DESCRIPTION
+          |
+          |A person planning exhibition visits.
+          |
+          |## CatalogOperator
+          |
+          |### KIND
+          |
+          |human
+          |
+          |# ENTITY
+          |
+          |## Exhibition
+          |
+          |### ATTRIBUTE
+          |
+          || name | type   | multiplicity |
+          ||------+--------+--------------|
+          || id   | string | 1            |
+          |""".stripMargin)
+
+        When("Cozy generates the component contract")
+        cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString))
+
+        Then("actor definitions and resolved use-case references remain structured metadata")
+        val generated = out.resolve(
+          "target/scala-3.3.8/src_managed/main/scala/org/simplemodeling/textus/artscene/ArtSceneComponent.scala"
+        )
+        val content = Files.readString(generated)
+        content should include ("\"actors\" -> Vector(")
+        content should include ("\"name\" -> \"ExhibitionVisitor\"")
+        content should include ("\"id\" -> \"UC-ART-001\"")
+        content should include ("\"trigger\" -> \"The visitor opens today's candidates.\"")
+        content should include ("\"priority\" -> \"high\"")
+        content should include ("\"status\" -> \"approved\"")
+        content should include ("\"name\" -> \"ExhibitionVisitor\", \"role\" -> \"primary\", \"target_kind\" -> \"actor\"")
+        content should include ("\"name\" -> \"TextusUserNotification\", \"role\" -> \"supporting\", \"target_kind\" -> \"external\"")
+        content should include ("\"name\" -> \"CatalogOperator\", \"role\" -> \"supporting\", \"target_kind\" -> \"actor\"")
+        content should include ("\"kind\" -> \"main\"")
+      }
+
       "modeler-scala emits component in configured package" in {
         Given("a CML source model for Scala component generation")
         val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()

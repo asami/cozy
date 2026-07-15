@@ -22,6 +22,7 @@ import org.goldenport.kaleidox.model.ComponentSubsystemModel
 import org.goldenport.kaleidox.model.OperationModel
 import org.goldenport.kaleidox.model.ServiceModel
 import org.goldenport.kaleidox.model.ValueModel
+import org.goldenport.kaleidox.model.actor.ActorModel
 import org.goldenport.kaleidox.model.CmlExpressionGuard
 import org.goldenport.kaleidox.CmlSectionFormat
 import org.goldenport.kaleidox.model.SchemaModel.SchemaClass
@@ -890,6 +891,7 @@ object Modeler {
     value: ValueModel,
     powertype: PowertypeModel,
     stateMachine: StateMachineModel,
+    actor: ActorModel,
     componentSubsystem: ComponentSubsystemModel,
     service: ServiceModel,
     event: EventModel,
@@ -2568,6 +2570,9 @@ object Modeler {
     ): MComponent.ComponentDefinition = {
       MComponent.ComponentDefinition(
         name = p.name,
+        actors = actor.actors.map { a =>
+          MComponent.ActorDefinition(a.name, a.kind, a.summary, a.description)
+        },
         coordinates = p.coordinates.map { c =>
           MComponent.ComponentCoordinate(
             group = c.group,
@@ -2593,6 +2598,9 @@ object Modeler {
     ): MComponent.ComponentDefinition = {
       MComponent.ComponentDefinition(
         name = pkg.name,
+        actors = actor.actors.map { a =>
+          MComponent.ActorDefinition(a.name, a.kind, a.summary, a.description)
+        },
         coordinates = Vector.empty,
         componentlets = _unbound_componentlet_names(),
         extensionPoints = _unbound_extension_point_names(),
@@ -2711,6 +2719,7 @@ object Modeler {
     ): MComponent.UseCaseDefinition =
       MComponent.UseCaseDefinition(
         name = p.name,
+        id = p.id,
         summary = p.summary,
         description = p.description,
         actor = p.actor,
@@ -2721,9 +2730,14 @@ object Modeler {
         goal = p.goal,
         precondition = p.precondition,
         postcondition = p.postcondition,
+        trigger = p.trigger,
+        priority = p.priority,
+        status = p.status,
+        actorReferences = _actor_references(p.actor, p.primaryActor, p.secondaryActor, p.supportingActor, p.stakeholder),
         scenarios = p.scenarios.map { s =>
           MComponent.UseCaseScenario(
             name = s.name,
+            kind = s.kind,
             summary = s.summary,
             description = s.description,
             steps = s.steps,
@@ -2738,6 +2752,7 @@ object Modeler {
     ): MComponent.UseCaseDefinition =
       MComponent.UseCaseDefinition(
         name = p.name,
+        id = p.id,
         summary = p.summary,
         description = p.description,
         actor = p.actor,
@@ -2748,9 +2763,14 @@ object Modeler {
         goal = p.goal,
         precondition = p.precondition,
         postcondition = p.postcondition,
+        trigger = p.trigger,
+        priority = p.priority,
+        status = p.status,
+        actorReferences = _actor_references(p.actor, p.primaryActor, p.secondaryActor, p.supportingActor, p.stakeholder),
         scenarios = p.scenarios.map { s =>
           MComponent.UseCaseScenario(
             name = s.name,
+            kind = s.kind,
             summary = s.summary,
             description = s.description,
             steps = s.steps,
@@ -2759,6 +2779,34 @@ object Modeler {
           )
         }
       )
+
+    private def _actor_references(
+      actorref: Option[String],
+      primaryactor: Option[String],
+      secondaryactor: Option[String],
+      supportingactor: Option[String],
+      stakeholder: Option[String]
+    ): Vector[MComponent.ActorReference] = {
+      val localnames = actor.actors.map(_.name).toSet
+      Vector(
+        "actor" -> actorref,
+        "primary" -> primaryactor,
+        "secondary" -> secondaryactor,
+        "supporting" -> supportingactor,
+        "stakeholder" -> stakeholder
+      ).flatMap { case (role, names) =>
+        names.toVector.flatMap(_split_actor_names).map { name =>
+          MComponent.ActorReference(
+            name = name,
+            role = role,
+            targetKind = if (localnames.contains(name)) "actor" else "external"
+          )
+        }
+      }
+    }
+
+    private def _split_actor_names(p: String): Vector[String] =
+      p.split("[,\\n]").toVector.map(_.trim).filter(_.nonEmpty)
 
     private def _componentlet_names_for_component(
       p: ComponentSubsystemModel.ComponentDefinition
@@ -4161,6 +4209,7 @@ object Modeler {
         p.getValueModel.getOrElse(ValueModel.empty),
         p.takePowertypeModel,
         p.takeStateMachineModel,
+        p.takeActorModel,
         p.takeComponentSubsystemModel,
         p.getServiceModel.getOrElse(ServiceModel.empty),
         p.eventModel,

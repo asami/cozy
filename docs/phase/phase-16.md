@@ -655,6 +655,22 @@ Domain-scalar ownership audit on 2026-07-16:
 The audit is recorded in
 `docs/journal/2026/07/cml-domain-scalar-generated-ownership-audit-2026-07-16.md`.
 
+Account authentication request scalar update on 2026-07-16:
+
+- request-only password fields now use the predefined nonlocalized `Password`
+  runtime type with an explicit 1..1024 input boundary;
+- login identifiers, challenge IDs, verification codes, and
+  proof/reset/refresh values use predefined `Token` with role-specific bounds;
+- login identifiers intentionally do not use the narrower lexical
+  `Identifier`, because the command accepts login names or email addresses;
+- generated Scala constructors, operation metadata, and Web validation hints
+  carry the same authored constraints without primitive `String` fallback;
+- password strength and confidentiality-aware redaction remain separate
+  policy/runtime responsibilities.
+
+The decision is recorded in
+`docs/journal/2026/07/cml-account-authentication-request-scalar-boundary-2026-07-16.md`.
+
 ## Stage 16.7: Verification and Closure
 
 Stage Status:

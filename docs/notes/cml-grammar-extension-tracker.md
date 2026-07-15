@@ -54,6 +54,11 @@ Supported items:
 - `PRECONDITION`
 - `POSTCONDITION`
 - `SCENARIO`
+- `ID`
+- `TRIGGER`
+- `PRIORITY`
+- `STATUS`
+- `MAIN FLOW`, `ALTERNATE FLOW`, and `EXCEPTION FLOW`
 
 Intent:
 
@@ -156,6 +161,11 @@ Current rule:
 - `STAKEHOLDER`
 
 belong to `USE CASE`.
+
+Top-level `# ACTOR` sections now define typed Actor model elements. UseCase
+actor fields remain role references and generated metadata marks each target as
+a local actor or an external participant. The CML sidecar exposes the same
+contract as `surface.component.actors` and `surface.component.useCases`.
 
 Rationale:
 
