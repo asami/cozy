@@ -19,6 +19,7 @@ QueryAction
 | name | type | multiplicity |
 |------+------|--------------|
 | name | name | 1            |
+| body | text | 1            |
 
 ## GreetingResult
 

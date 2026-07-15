@@ -14,7 +14,7 @@ import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 
 /*
  * @since   Jun. 23, 2026
- * @version Jul. 15, 2026
+ * @version Jul. 16, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerServiceOperationSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -671,7 +671,9 @@ class ModelerServiceOperationSpec extends AnyWordSpec with Matchers with GivenWh
         content should include ("""outputSummary = Some("Greeting result payload.")""")
         content should include ("""outputDescription = Some("Structured result returned by greeting.")""")
         content should include ("""inputValueKind = "QUERY_VALUE"""")
-        content should include ("""parameters = Vector(org.goldenport.cncf.operation.CmlOperationField(name = "name", datatype = "name", multiplicity = "1", label = Some("Name"))""")
+        content should include ("""parameters = Vector(org.goldenport.cncf.operation.CmlOperationField(name = "name", datatype = "name", multiplicity = "1", label = Some("Name"), validation = org.goldenport.schema.WebValidationHints(minLength = Some(1), maxLength = Some(256)))""")
+        content should include ("""org.goldenport.cncf.operation.CmlOperationField(name = "body", datatype = "text", multiplicity = "1", label = Some("Body"), controlType = Some("textarea"), validation = org.goldenport.schema.WebValidationHints(minLength = Some(1), maxLength = Some(8192)))""")
+        content should include ("""ParameterDefinition(content = org.goldenport.value.BaseContent.simple("body"), kind = ParameterDefinition.Kind.Property, domain = org.goldenport.schema.ValueDomain(datatype = org.goldenport.schema.DataType.Named("text"), multiplicity = org.goldenport.schema.Multiplicity.One), web = org.goldenport.schema.WebColumn(controlType = Some("textarea"), required = Some(true), validation = org.goldenport.schema.WebValidationHints(minLength = Some(1), maxLength = Some(8192)), confidentiality = org.goldenport.schema.DataConfidentiality.Public)""")
         content should include ("""resultFields = Vector(org.goldenport.cncf.operation.CmlOperationField(name = "message", datatype = "string", multiplicity = "1", confidentiality = Some("internal"))""")
         content should include ("""Precondition: The caller provides a resolvable greeting target.""")
         content should include ("""Postcondition: A greeting result is returned without mutating state.""")

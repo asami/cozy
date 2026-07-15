@@ -1,7 +1,7 @@
 # CML Semantic Scalar Modeling Specification Proposal
 
 status=proposal
-updated_at=2026-07-15
+updated_at=2026-07-16
 target_phase=16
 
 ## 1. Problem
@@ -298,6 +298,24 @@ I18N contracts must define:
 
 Fallback returns an effective display value. It must not collapse or overwrite
 the stored multilingual value.
+
+The implemented boundary representations are intentionally distinct:
+
+- API `Record` values use either a plain string input or a locale map such as
+  `{ "ja": "通知", "en": "Notification" }`; generated `toRecord` preserves
+  every locale instead of applying `displayMessage`;
+- datastore values use the shared `StringCodex` storage form, including the
+  ordered `entries` representation when more than one locale must be stored;
+- display and template logic reads the typed I18N value and calls
+  `displayMessage` with the current `ExecutionContext` locale explicitly;
+- generated entity `toDataStore` applies the datastore conversion to
+  `NameAttributes` and `DescriptiveAttributes` fields as well as direct model
+  fields, so title, headline, summary, and description cannot be collapsed by
+  a generic external-value conversion.
+
+The API locale map and datastore codec are structural contracts. `Record.getString`
+is not a valid way to read them for presentation because it stringifies the
+container rather than selecting an effective locale.
 
 ## 6. Text Value Range
 

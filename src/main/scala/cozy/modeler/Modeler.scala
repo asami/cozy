@@ -50,7 +50,7 @@ import scala.collection.mutable
  *  version Feb. 27, 2026
  *  version Mar. 31, 2026
  *  version May. 24, 2026
- * @version Jul. 15, 2026
+ * @version Jul. 16, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler(
@@ -1936,14 +1936,17 @@ object Modeler {
         placeholder = p.web.placeholder,
         help = p.web.help,
         required = p.web.required,
-        confidentiality = p.confidentiality
+        confidentiality = p.confidentiality,
+        constraints = p.domain.constraints.toVector,
+        typeConstraints = _attribute_type_constraints(p).toVector
       )
 
     private def _operation_field(p: SchemaModel.Id): OperationModel.FieldDefinition =
       OperationModel.FieldDefinition(
         name = p.name,
         datatype = p.domain.datatype.name,
-        multiplicity = p.domain.multiplicity.mark
+        multiplicity = p.domain.multiplicity.mark,
+        constraints = p.domain.constraints.toVector
       )
 
     private lazy val _normalized_operation_map: Map[String, OperationModel.NormalizedOperationDefinition] =
@@ -3117,7 +3120,9 @@ object Modeler {
         placeholder = p.placeholder,
         help = p.help,
         required = p.required,
-        confidentiality = p.confidentiality
+        confidentiality = p.confidentiality,
+        constraints = p.constraints.map(RConstraint).toList,
+        typeConstraints = p.typeConstraints.map(RConstraint).toList
       )
 
     private def _result_operation_field(
@@ -3132,7 +3137,9 @@ object Modeler {
         placeholder = p.placeholder,
         help = p.help,
         required = p.required,
-        confidentiality = p.confidentiality
+        confidentiality = p.confidentiality,
+        constraints = p.constraints.map(RConstraint).toList,
+        typeConstraints = p.typeConstraints.map(RConstraint).toList
       )
 
     private def _entity_operation_definitions(
@@ -3185,7 +3192,9 @@ object Modeler {
         placeholder = p.web.placeholder,
         help = p.web.help,
         required = p.web.required,
-        confidentiality = p.confidentiality
+        confidentiality = p.confidentiality,
+        constraints = p.constraints,
+        typeConstraints = p.typeConstraints
       )
 
     private def _entity_update_operation_multiplicity(

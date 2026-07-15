@@ -504,11 +504,26 @@ Notification body update on 2026-07-16:
   locale-tagged entries through generated datastore encoding;
 - generated validation applies the 1..8192 default range independently to
   every locale entry;
-- recipient-facing projection selects body text with the CNCF
-  `ExecutionContext` locale without mutating the stored multilingual value.
+- generated operation and Schema metadata retain canonical `text`, required
+  multiplicity, and the same per-locale range;
+- Help and automatic REST/OpenAPI project those constraints, with REST
+  accepting a plain string or a locale map;
+- generated API `Record` output and datastore encoding both preserve every
+  locale entry, while recipient-facing presentation selects effective text
+  explicitly with the CNCF `ExecutionContext` locale;
+- generated datastore conversion now treats inherited `NameAttributes` and
+  `DescriptiveAttributes` as datastore values, preventing title, headline,
+  summary, and description from passing through display-oriented conversion;
+- focused verification passed for simplemodeling-lib I18N codecs (10 tests),
+  SimpleModeler Value generation (11 tests), Cozy operation generation (27
+  tests), CNCF Help/OpenAPI projection (5 tests), and notification operation
+  metadata plus behavior (24 tests across two suites).
 
 The decision is recorded in
 `docs/journal/2026/07/cml-notification-body-text-migration-2026-07-16.md`.
+
+The operation metadata and structural boundary decision is recorded in
+`docs/journal/2026/07/cml-text-operation-boundary-projection-2026-07-16.md`.
 
 Account semantic-scalar verification update on 2026-07-15:
 
