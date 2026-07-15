@@ -156,6 +156,13 @@ before falling back to the first entry. Phase 16 records this behavior for
 compatibility analysis but does not accept it as the canonical CML `message`
 contract.
 
+`I18nLabel` follows the shared wrapper model: plain construction stores one
+root-locale entry, plain encoding remains concise, and structured encoding
+round-trips all locale/value entries through `I18nString`. Existing schema and
+model metadata already use this type for labels. Phase 16 therefore accepts it
+as the runtime baseline for locale-aware labels, while CML field-type exposure,
+length, and normalization policy remain open.
+
 Phase 16 must decide which remaining families are canonical CML types and which
 are framework metadata concepts before changing driver source.
 

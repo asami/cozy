@@ -135,6 +135,9 @@ Status: OPEN
 - [x] Replace the pending `I18nMessageSpec` coverage with executable direct
       entry construction and fixed display-priority specifications; record its
       non-codec representation as a legacy exception.
+- [x] Replace the pending `I18nLabelSpec` coverage with executable plain and
+      structured shared-codec specifications; accept `I18nLabel` as the
+      locale-aware runtime label baseline.
 - [x] Replace the pending `I18nTitleSpec` coverage with executable single-locale
       construction, multi-locale codec, locale fallback, and preservation
       specifications.

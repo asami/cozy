@@ -268,6 +268,9 @@ Current evidence:
 - `simplemodeling-lib` `I18nMessageSpec` now fixes the legacy direct-entry
   representation and root, English, Japanese, first-entry display priority;
   this remains compatibility evidence rather than the accepted CML `message`;
+- `simplemodeling-lib` `I18nLabelSpec` now fixes plain construction and ordered
+  structured round-trip through `I18nString`, establishing the locale-aware
+  runtime label baseline without deciding field exposure or text constraints;
 - existing dirty work in both driver repositories remains untouched while the
   Cozy-side contract is being established.
 
