@@ -309,6 +309,15 @@ Current evidence:
   structured round-trip; cross-checking CNCF SD-01B classifies it as localized
   plain narrative text, while `ContentBody` remains a single document body and
   its `I18nText` overload is only a display projection or compatibility input;
+- canonical CML `text` now resolves through the predefined scalar catalog to
+  `I18nText`, with a default 1..8192 character range applied independently to
+  every locale entry;
+- SimpleModeler now applies inherited predefined-scalar constraints to
+  generated Value, Create, and Update validation, while constrained nominal
+  scalar attributes continue to delegate validation to their nominal type;
+- executable Scala 3.3.8 coverage constructs plain and multi-locale `text`,
+  preserves all locale entries, and rejects empty or overlong entries at both
+  Create and Update boundaries;
 - SimpleModeler generated `derived=content` aliases now return `ContentBody`
   and omit the obsolete locale overload, keeping generated entity APIs aligned
   with SD-01B;
@@ -485,6 +494,21 @@ Notification action-reference update on 2026-07-15:
 
 The decision is recorded in
 `docs/journal/2026/07/cml-notification-action-reference-uri-migration-2026-07-15.md`.
+
+Notification body update on 2026-07-16:
+
+- the string-backed `UserNotificationBody` wrapper was removed;
+- notification entity and command fields now use canonical predefined `text`
+  and generate `I18nText` consistently;
+- plain input creates one root-locale entry and structured input preserves all
+  locale-tagged entries through generated datastore encoding;
+- generated validation applies the 1..8192 default range independently to
+  every locale entry;
+- recipient-facing projection selects body text with the CNCF
+  `ExecutionContext` locale without mutating the stored multilingual value.
+
+The decision is recorded in
+`docs/journal/2026/07/cml-notification-body-text-migration-2026-07-16.md`.
 
 Account semantic-scalar verification update on 2026-07-15:
 

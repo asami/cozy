@@ -3,7 +3,7 @@ import java.util.Locale
 import cats.data.NonEmptyVector
 import domain.datatype.LoginName
 import io.circe.{Decoder, Json}
-import org.goldenport.datatype.{EmailAddress, I18nBrief, I18nDescription, I18nString, I18nSummary, I18nTitle, Identifier, IpAddress, PhoneNumber}
+import org.goldenport.datatype.{EmailAddress, I18nBrief, I18nDescription, I18nString, I18nSummary, I18nText, I18nTitle, Identifier, IpAddress, PhoneNumber}
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -21,7 +21,8 @@ final class GeneratedTextConstraintSpec extends AnyWordSpec with Matchers with G
         title = I18nTitle("Title"),
         headline = I18nBrief("Lead"),
         summary = I18nSummary("Brief"),
-        description = I18nDescription("Detail")
+        description = I18nDescription("Detail"),
+        narrative = I18nText("Notice")
       )
 
       Then("construction succeeds")
@@ -29,6 +30,33 @@ final class GeneratedTextConstraintSpec extends AnyWordSpec with Matchers with G
       notice.email.value shouldBe "alice@example.com"
       notice.phone.map(_.value) shouldBe Some("+819012345678")
       notice.ipAddress.map(_.value) shouldBe Some("192.0.2.10")
+      notice.narrative.toI18nString.entries.toVector shouldBe Vector(Locale.ROOT -> "Notice")
+    }
+
+    "validate every locale entry in plain narrative text" in {
+      Given("plain narrative text with English and Japanese entries")
+      val valid = I18nText(_i18n(Locale.ENGLISH -> "Notice", Locale.JAPANESE -> "通知本文"))
+      val invalid = I18nText(_i18n(Locale.ENGLISH -> "Notice", Locale.JAPANESE -> "長すぎる通知本文文字列"))
+
+      When("the generated create and update models are constructed")
+      val created = _create_notice(narrative = valid)
+      val updated = _update_notice(
+        DescriptiveAttributesUpdate(),
+        narrative = Update.set(valid)
+      )
+
+      Then("both boundaries preserve every locale entry")
+      created.narrative shouldBe valid
+      updated.narrative shouldBe Update.set(valid)
+
+      And("both boundaries reject an invalid locale entry")
+      val createfailure = the[IllegalArgumentException] thrownBy _create_notice(narrative = invalid)
+      createfailure.getMessage should include("narrative entries must have length <= 8")
+      val updatefailure = the[IllegalArgumentException] thrownBy _update_notice(
+        DescriptiveAttributesUpdate(),
+        narrative = Update.set(invalid)
+      )
+      updatefailure.getMessage should include("narrative entries must have length <= 8")
     }
 
     "validate every locale entry in create values" in {
@@ -92,9 +120,9 @@ final class GeneratedTextConstraintSpec extends AnyWordSpec with Matchers with G
 
       And("every construction boundary enforces the declared constraints")
       val short = the[IllegalArgumentException] thrownBy LoginName("user")
-      short.getMessage should include("value entries must have length >= 5")
+      short.getMessage should include("value must have length >= 5")
       val pattern = the[IllegalArgumentException] thrownBy LoginName("admin_alice")
-      pattern.getMessage should include("value entries must match ^user.+$")
+      pattern.getMessage should include("value must match ^user.+$")
       summon[org.goldenport.convert.ValueReader[LoginName]].readC("user_name_too_long").isSuccess shouldBe false
       summon[Decoder[LoginName]].decodeJson(Json.fromString("invalid")).isLeft shouldBe true
     }
@@ -123,7 +151,8 @@ final class GeneratedTextConstraintSpec extends AnyWordSpec with Matchers with G
     title: I18nTitle = I18nTitle("Title"),
     headline: I18nBrief = I18nBrief("Lead"),
     summary: I18nSummary = I18nSummary("Brief"),
-    description: I18nDescription = I18nDescription("Detail")
+    description: I18nDescription = I18nDescription("Detail"),
+    narrative: I18nText = I18nText("Notice")
   ): domain.entity.create.Notice =
     domain.entity.create.Notice(
       id = None,
@@ -151,13 +180,15 @@ final class GeneratedTextConstraintSpec extends AnyWordSpec with Matchers with G
       senderName = "Alice",
       recipientName = "Bob",
       loginName = LoginName("user_alice"),
+      narrative = narrative,
       email = EmailAddress.parse("alice@EXAMPLE.COM").TAKE,
       phone = Some(PhoneNumber.parse("+81 90-1234-5678").TAKE),
       ipAddress = Some(IpAddress.parse("192.0.2.10").TAKE)
     )
 
   private def _update_notice(
-    descriptiveattributes: DescriptiveAttributesUpdate
+    descriptiveattributes: DescriptiveAttributesUpdate,
+    narrative: Update[I18nText] = Update.noop
   ): domain.entity.update.Notice =
     domain.entity.update.Notice(
       id = Update.noop,
@@ -174,6 +205,7 @@ final class GeneratedTextConstraintSpec extends AnyWordSpec with Matchers with G
       senderName = Update.noop,
       recipientName = Update.noop,
       loginName = Update.noop,
+      narrative = narrative,
       email = Update.noop,
       phone = Update.noop,
       ipAddress = Update.noop

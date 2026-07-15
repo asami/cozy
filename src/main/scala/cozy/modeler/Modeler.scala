@@ -1245,7 +1245,6 @@ object Modeler {
       datatype.map(MDataType(_)).orElse {
         normalized match {
           case "record" => Some(MObjectAttributeType(MObjectRef.record))
-          case "text" => Some(MObjectAttributeType(MObjectRef.create("org.goldenport.datatype.Text")))
           case "blob" => Some(MObjectAttributeType(MObjectRef.create("org.goldenport.bag.BinaryBag")))
           case "clob" => Some(MObjectAttributeType(MObjectRef.create("org.goldenport.bag.TextBag")))
           case "datetime" | "date_time" => Some(MObjectAttributeType(MObjectRef.create("java.time.ZonedDateTime")))

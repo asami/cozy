@@ -37,6 +37,7 @@ private[cozy] object PredefinedScalarCatalog {
     _object("abstract", "org.goldenport.datatype.I18nSummary", 1, 2048, localized = true, Some("DescriptiveAttributes"), Set("abstract")),
     _object("remarks", "org.goldenport.datatype.I18nSummary", 1, 2048, localized = true, Some("DescriptiveAttributes"), Set("remarks")),
     _object("description", "org.goldenport.datatype.I18nDescription", 1, 8192, localized = true, Some("DescriptiveAttributes"), Set("description")),
+    _object("text", "org.goldenport.datatype.I18nText", 1, 8192, localized = true, None, Set("text", "body", "message"), replacementrecommended = false),
     _object("identifier", "org.goldenport.datatype.Identifier", 1, 1000, localized = false, None, Set("identifier", "externalid", "external subject id"), replacementrecommended = false),
     _object("token", "org.goldenport.datatype.Token", 1, 256, localized = false, None, Set("token", "tokenhash", "passwordhash", "sessionreference", "clientid"), replacementrecommended = false),
     _object("url", "java.net.URL", 1, 2048, localized = false, None, Set("url"), format = Some("url")),

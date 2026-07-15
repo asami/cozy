@@ -119,12 +119,11 @@ This is intentionally asymmetric. CML does not need a scalar and I18N version
 of every semantic text type. The type's domain meaning determines whether it is
 localized.
 
-The current `Text` runtime is a separate observed baseline, not yet the
-accepted CML `text` contract. It is nonlocalized, accepts Scala string lengths
-from 0 through 8192, preserves printable source text, and rejects control
-characters such as newline. That last rule means Phase 16 must not assume the
-existing runtime type is already suitable for narrative or multiline body
-text.
+The nonlocalized `Text` runtime remains historical runtime evidence and is not
+the CML `text` contract. Canonical CML `text` resolves to locale-aware
+`I18nText`, accepts plain input as one root-locale entry, accepts structured
+multi-locale input through the shared `I18nString` codec, and applies a default
+length range of 1 through 8192 independently to every locale entry.
 
 Consequently, model authors normally select meaning (`title`, `label`,
 `description`, `message`, or another accepted display-text type), not storage
@@ -142,7 +141,7 @@ The semantic text family is classified by role rather than storage shape:
 | `headline`, `brief` | `I18nBrief` | `DescriptiveAttributes.headline` and `brief` | Accepted shared runtime family; role-specific ranges open |
 | `summary`, `lead`, `abstract`, `remarks` | `I18nSummary` | Corresponding `DescriptiveAttributes` fields | Accepted shared runtime family; role-specific ranges open |
 | `description` | `I18nDescription` | `DescriptiveAttributes.description` | Accepted locale-aware runtime baseline; range open |
-| plain narrative `text` | `I18nText` | Not a `ContentBody` replacement | Accepted locale-aware runtime baseline; CML name and range open |
+| plain narrative `text` | `I18nText` | Not a `ContentBody` replacement | Implemented locale-aware predefined type; 1..8192 per locale entry |
 | user-facing `message` | `I18nMessage` legacy behavior | No canonical `DescriptiveAttributes` field | Legacy runtime evidence only; canonical codec and range open |
 | document body | `ContentBody` | `ContentAttributes.content` | Accepted single-document-body boundary |
 
@@ -277,8 +276,9 @@ canonical multilingual storage contract. A CML field that owns localized plain
 text may use the `I18nText` family, while Blog, article, and document body fields
 remain `ContentBody`.
 
-Phase 16 must decide which remaining families are canonical CML types and which
-are framework metadata concepts before changing driver source.
+`text` is now a canonical CML predefined type. The remaining family decisions
+concern `message` and domain-specific text contracts, not the storage shape of
+plain narrative text.
 
 Stable symbolic names, login names, identifiers, hashes, and protocol tokens
 are normally nonlocalized. User-visible labels, titles, descriptions,
@@ -419,11 +419,11 @@ Phase 16 should cover:
 - opaque hash/token redaction;
 - driver metadata, datastore, form, REST/OpenAPI, and Help projection.
 
-## 10. Compatibility and Migration
+## 10. Breaking Migration
 
-Existing string-only wrappers remain readable during Phase 16. Migration is
-explicit and evidence-driven; Cozy does not infer a powertype, statemachine, or
-I18N contract from a class name alone.
+Phase 16 does not retain compatibility aliases for removed string-only wrappers.
+Migration is explicit and evidence-driven; Cozy does not infer a powertype,
+statemachine, or I18N contract from a class name alone.
 
 For each driver type, the migration ledger records:
 

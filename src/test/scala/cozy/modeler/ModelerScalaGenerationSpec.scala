@@ -16,7 +16,7 @@ import play.api.libs.json.Json
 
 /*
  * @since   Jun. 23, 2026
- * @version Jul. 15, 2026
+ * @version Jul. 16, 2026
  * @author  ASAMI, Tomoharu
  */
 final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -447,7 +447,7 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         content should include ("""label = Some(org.goldenport.datatype.I18nLabel("Display Name"))""")
         content should include ("""label = Some(org.goldenport.datatype.I18nLabel("Body"))""")
         content should include ("""web = org.goldenport.schema.WebColumn(required = Some(true))""")
-        content should include ("""web = org.goldenport.schema.WebColumn(controlType = Some("textarea"), required = Some(false))""")
+        content should include ("""web = org.goldenport.schema.WebColumn(controlType = Some("textarea"), required = Some(false), validation = org.goldenport.schema.WebValidationHints(minLength = Some(1), maxLength = Some(8192)))""")
 
         val generatedcreate = out.resolve(
         "target/scala-3.3.8/src_managed/main/scala/domain/entity/create/Person.scala"

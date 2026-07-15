@@ -83,7 +83,7 @@ does not decide the category.
 | `UserNotificationType` | powertype or constrained domain scalar | nonlocalized | Domain decision | Decide whether notification types are closed, versioned, or application-extensible. |
 | `UserNotificationChannel` | powertype | nonlocalized | Implemented | Uses `in_app`, `email`, `sms`, and `push`; provider variability remains in the open provider contract. |
 | `UserNotificationTitle` | predefined `title` | locale-aware | Implemented | Uses the single/multi-locale `I18nTitle` contract and catalog length constraints. |
-| `UserNotificationBody` | predefined message/text | locale-aware | Domain decision | Select canonical `message` or `text` semantics and per-locale length. |
+| `UserNotificationBody` | predefined `text` | locale-aware | Implemented | Wrapper removed; notification body uses `I18nText` with 1..8192 characters per locale entry. |
 | `UserNotificationPriority` | powertype | nonlocalized | Implemented | Uses the ordered `low`, `normal`, `high`, and `urgent` vocabulary. |
 | `UserNotificationStatus` | statemachine-owned state | nonlocalized | Domain decision | Separate notification and delivery-attempt lifecycles if their transitions differ. |
 | `UserNotificationDedupeKey` | intentional opaque text | nonlocalized | Confirmed direction | Define normalization, uniqueness scope, and maximum length. |
@@ -100,10 +100,10 @@ does not decide the category.
 The notification audience kind, channel, and priority are implemented as
 generated powertypes. The primary unresolved notification decisions are
 whether notification type is closed, how notification lifecycle transitions
-are modeled, the separate delivery-attempt result contract, and whether body
-text uses the canonical message or general text contract. Quiet-hour fields use
-the predefined parser-backed `localtime` contract. Delivery provider remains
-open and provider-extensible.
+are modeled, and the separate delivery-attempt result contract. Body uses the
+canonical locale-aware `text` contract. Quiet-hour fields use the predefined
+parser-backed `localtime` contract. Delivery provider remains open and
+provider-extensible.
 
 ## 5. textus-user-account
 

@@ -27,6 +27,7 @@ extends = ["SimpleEntity"]
 | headline      | headline    | ?            | 2          | 8          |
 | summary       | summary     | ?            | 2          | 8          |
 | description   | description | ?            | 2          | 8          |
+| narrative     | text        | 1            | 2          | 8          |
 | email         | email       | 1            |            |            |
 | phone         | phone       | ?            |            |            |
 | ipAddress     | ip-address  | ?            |            |            |

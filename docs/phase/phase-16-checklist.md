@@ -132,6 +132,9 @@ Status: OPEN
 - [x] Audit `string`, `text`, label, description, message, and related families
       against that baseline without requiring artificial scalar/I18N pairs;
       record their runtime role matrix and legacy/open boundaries.
+- [x] Define canonical `text` as locale-aware `I18nText` with plain and
+      structured multi-locale input and a default 1..8192 range per locale
+      entry; do not use the historical nonlocalized `Text` runtime.
 - [x] Connect the descriptive text families to `DescriptiveAttributes`, keeping
       stored locale-aware values separate from non-destructive `effective*`
       display fallback.
@@ -158,6 +161,9 @@ Status: OPEN
       text types, boundary lengths, and invalid text values.
 - [x] Compile generated Scala 3.3.8 and execute Create/Update text-length
       validation for multiple locales and `DescriptiveAttributes` fields.
+- [x] Apply inherited predefined-scalar constraints at generated Value,
+      Create, and Update construction boundaries while leaving nominal scalar
+      validation owned by the nominal type itself.
 - [x] Replace the pending `TextSpec` coverage with executable current-runtime
       boundary, invalid-control-character, and value-preservation
       specifications; keep canonical CML `text` classification open.
@@ -246,6 +252,9 @@ Status: OPEN
 - [x] Use predefined locale and timezone types for notification preferences.
 - [x] Replace the notification action-reference string wrapper with predefined
       `uri`, preserving relative application routes and absolute URIs.
+- [x] Replace the notification body string wrapper with predefined `text`,
+      preserve all locale entries through generated datastore encoding, and
+      select presentation text through the execution locale.
 - [ ] Replace JSON-in-string audience/metadata fields with structured values.
 - [ ] Version both driver CARs for the deliberate generated-source and
       contract break instead of adding compatibility adapters.

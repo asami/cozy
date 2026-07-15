@@ -7,7 +7,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jul. 15, 2026
- * @version Jul. 15, 2026
+ * @version Jul. 16, 2026
  * @author  ASAMI, Tomoharu
  */
 final class PredefinedScalarGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -34,19 +34,19 @@ final class PredefinedScalarGenerationSpec extends AnyWordSpec with Matchers wit
       content should include("locale: Option[Locale]")
       content should include("timeZone: Option[TimeZone]")
 
-      And("default domain ranges are projected to Web schema without duplicate entity validation")
+      And("default domain ranges are projected to Web schema and generated construction validation")
       content should include("WebValidationHints(minLength = Some(1), maxLength = Some(256))")
       content should include("WebValidationHints(minLength = Some(1), maxLength = Some(512))")
       content should include("WebValidationHints(minLength = Some(1), maxLength = Some(2048))")
       content should include("WebValidationHints(minLength = Some(1), maxLength = Some(8192))")
       content should include("WebValidationHints(minLength = Some(3), maxLength = Some(254))")
       content should include("WebValidationHints(minLength = Some(2), maxLength = Some(45))")
-      content should not include "_text_constraint_values(nameAttributes.title)"
-      content should not include "_text_constraint_values(descriptiveAttributes.headline)"
-      content should not include "_text_constraint_values(descriptiveAttributes.summary)"
-      content should not include "_text_constraint_values(descriptiveAttributes.description)"
-      content should not include "email entries must be valid email values"
-      content should not include "phone entries must be valid phone values"
+      content should include("_text_constraint_values(nameAttributes.title)")
+      content should include("_text_constraint_values(descriptiveAttributes.headline)")
+      content should include("_text_constraint_values(descriptiveAttributes.summary)")
+      content should include("_text_constraint_values(descriptiveAttributes.description)")
+      content should include("email must be valid email values")
+      content should include("phone must be valid phone values")
       content should not include "unsupported constraint: format:"
     }
   }

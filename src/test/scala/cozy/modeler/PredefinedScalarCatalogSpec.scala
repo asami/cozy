@@ -40,6 +40,20 @@ final class PredefinedScalarCatalogSpec extends AnyWordSpec with Matchers with G
       entries.last.runtimeclassname shouldBe Some("org.goldenport.datatype.IpAddress")
     }
 
+    "define plain narrative text as a locale-aware bounded scalar" in {
+      Given("the canonical CML text name")
+
+      When("its predefined scalar entry is resolved")
+      val entry = PredefinedScalarCatalog.get("text").get
+
+      Then("plain and multi-locale input share the I18nText contract")
+      entry.runtimeclassname shouldBe Some("org.goldenport.datatype.I18nText")
+      entry.localized shouldBe true
+      entry.minlength shouldBe Some(1)
+      entry.maxlength shouldBe Some(8192)
+      entry.attributegroup shouldBe None
+    }
+
     "suggest predefined types for nominal driver wrapper names" in {
       Given("driver-specific datatype names that only add a prefix")
       val names = Vector("UserAccountTitle", "UserAccountEmailAddress", "UserAccountPhoneNumber", "UserAccountIpAddress")
