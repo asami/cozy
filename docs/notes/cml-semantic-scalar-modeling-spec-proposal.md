@@ -85,6 +85,20 @@ Apply the boundary in this order:
 The class name `Status`, `Type`, `Kind`, or `Provider` is not enough to choose a
 construct. Vocabulary closure and transition ownership are required evidence.
 
+The implemented notification driver application fixes three closed selector
+contracts:
+
+- audience kind: `direct`, `multicast`, `broadcast`;
+- channel: `in_app`, `email`, `sms`, `push`;
+- priority: `low`, `normal`, `high`, `urgent`.
+
+These are generated CML powertypes and reject undeclared values. The declared
+snake_case name is their external and datastore representation. Channel
+providers remain an open, independent contract, so adding a provider does not
+extend the channel vocabulary. Notification type remains open pending its
+registry decision. Notification lifecycle and delivery-attempt result state
+are not selectors in this contract and remain separate state-modeling work.
+
 ## 4. Text Semantic Axis
 
 Raw `string` is the least precise text contract. CML should expose semantic

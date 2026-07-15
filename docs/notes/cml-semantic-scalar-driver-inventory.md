@@ -75,16 +75,16 @@ does not decide the category.
 
 ## 4. textus-user-notification
 
-| Current DATATYPE | Provisional class | Localization | Decision state | Required follow-up |
+| Model concept | Classification | Localization | Decision state | Required follow-up |
 |---|---|---|---|---|
-| `UserNotificationAudienceKind` | powertype | nonlocalized | Confirmed direction | Define direct, multicast, and broadcast vocabulary. |
+| `UserNotificationAudienceKind` | powertype | nonlocalized | Implemented | Uses the closed `direct`, `multicast`, and `broadcast` vocabulary. |
 | `UserNotificationAccountSubjectId` | constrained domain scalar | nonlocalized | Confirmed direction | Bind to the account subject identifier contract and length. |
 | `UserNotificationAudienceQueryJson` | intentional opaque text | nonlocalized | Domain decision | Prefer structured `record`/JSON when the query schema is stable; otherwise constrain payload size. |
 | `UserNotificationType` | powertype or constrained domain scalar | nonlocalized | Domain decision | Decide whether notification types are closed, versioned, or application-extensible. |
-| `UserNotificationChannel` | powertype | nonlocalized | Confirmed direction | Define email, SMS, push, in-app, and extension policy. |
+| `UserNotificationChannel` | powertype | nonlocalized | Implemented | Uses `in_app`, `email`, `sms`, and `push`; provider variability remains in the open provider contract. |
 | `UserNotificationTitle` | predefined `title` | locale-aware | Confirmed direction | Apply the single/multi-locale `I18nTitle` contract and title length. |
 | `UserNotificationBody` | predefined message/text | locale-aware | Domain decision | Select canonical `message` or `text` semantics and per-locale length. |
-| `UserNotificationPriority` | powertype | nonlocalized | Confirmed direction | Define the finite priority vocabulary and ordering semantics. |
+| `UserNotificationPriority` | powertype | nonlocalized | Implemented | Uses the ordered `low`, `normal`, `high`, and `urgent` vocabulary. |
 | `UserNotificationStatus` | statemachine-owned state | nonlocalized | Domain decision | Separate notification and delivery-attempt lifecycles if their transitions differ. |
 | `UserNotificationDedupeKey` | intentional opaque text | nonlocalized | Confirmed direction | Define normalization, uniqueness scope, and maximum length. |
 | `UserNotificationActionUrl` | predefined URL/URI scalar | nonlocalized | Confirmed direction | Select URL versus URI and allowed scheme policy. |
@@ -97,10 +97,12 @@ does not decide the category.
 | `UserNotificationLocale` | predefined locale scalar | nonlocalized | Confirmed direction | Define locale-tag normalization and allowed-locale policy. |
 | `UserNotificationTimeZone` | predefined timezone scalar | nonlocalized | Confirmed direction | Use canonical zone identifiers and reject unknown zones. |
 
-The primary unresolved notification decisions are whether notification type and
-delivery provider are closed vocabularies, whether notification and delivery
-statuses need distinct state machines, and whether body text uses the canonical
-message or general text contract.
+The notification audience kind, channel, and priority are implemented as
+generated powertypes. The primary unresolved notification decisions are
+whether notification type is closed, how notification lifecycle transitions
+are modeled, the separate delivery-attempt result contract, and whether body
+text uses the canonical message or general text contract. Delivery provider
+remains open and provider-extensible.
 
 ## 5. textus-user-account
 
@@ -134,8 +136,9 @@ current representation is one string.
 
 The first CML16-07 implementation slice established the executable predefined
 catalog and migrated the low-ambiguity account scalars: `title`, `email`,
-`phone`, `locale`, `timezone`, and `ip-address`. Subsequent slices should
-resolve finite notification vocabularies and the remaining driver-specific
+`phone`, `locale`, `timezone`, and `ip-address`. The notification audience,
+channel, and priority vocabularies are now generated powertypes. Subsequent
+slices should resolve lifecycle state and the remaining driver-specific
 contracts. State-machine design, open provider/type registries, structured JSON
 payloads, secret redaction, and account device information remain explicit
 domain decisions.

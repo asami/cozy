@@ -223,8 +223,10 @@ Status: OPEN
       migration.
 - [ ] Verify that account use-case, precondition, postcondition, rule, and
       scenario metadata survives Value normalization unchanged.
-- [ ] Replace notification finite vocabularies and lifecycle state with the
-      accepted powertype/statemachine models.
+- [x] Replace notification audience kind, channel, and priority with the
+      accepted closed powertype vocabularies.
+- [ ] Replace notification lifecycle state with the accepted statemachine
+      model and delivery-attempt result status with a separate closed type.
 - [ ] Replace account finite vocabularies and lifecycle state with the accepted
       powertype/statemachine models.
 - [ ] Replace generic string fields with appropriate predefined semantic text
@@ -235,9 +237,10 @@ Status: OPEN
       remove handwritten scalar-wrapper source from both drivers.
 - [ ] Apply the same semantic type to each account entity field and matching
       command/query field; eliminate the current entity-only typing split.
-- [ ] Replace notification audience kind, channel, and priority with
-      powertypes, notification lifecycle status with a statemachine, and
-      delivery-attempt result status with a separate closed type.
+- [x] Generate notification audience kind, channel, and priority as
+      powertypes and reject undeclared values at generated input boundaries.
+- [ ] Generate notification lifecycle status from a statemachine and use a
+      separate closed type for delivery-attempt results.
 - [ ] Replace notification quiet-hours strings with `localtime`, canonical
       locale/time-zone/URI fields with predefined types, and JSON-in-string
       audience/metadata fields with structured values.

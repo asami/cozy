@@ -439,6 +439,25 @@ Verification update on 2026-07-15:
 The detailed decision and evidence are recorded in
 `docs/journal/2026/07/cml-notification-operation-value-migration-2026-07-15.md`.
 
+Notification finite-vocabulary update on 2026-07-15:
+
+- `UserNotificationAudienceKind` is a generated powertype with `direct`,
+  `multicast`, and `broadcast` values;
+- `UserNotificationChannel` is a generated powertype with `in_app`, `email`,
+  `sms`, and `push` values, while provider variability remains an open provider
+  contract;
+- `UserNotificationPriority` is a generated powertype with `low`, `normal`,
+  `high`, and `urgent` values;
+- the canonical external spelling is the declared snake_case value and no
+  compatibility alias is retained for `in-app`;
+- notification lifecycle status and delivery-attempt result status remain
+  separate follow-up work because they have different transition ownership;
+- generated Scala 3.3.8 compilation succeeds and executable specifications
+  reject undeclared values.
+
+The vocabulary decision is recorded in
+`docs/journal/2026/07/cml-notification-powertype-migration-2026-07-15.md`.
+
 Account semantic-scalar verification update on 2026-07-15:
 
 - Cozy now owns one executable predefined scalar catalog for localized
