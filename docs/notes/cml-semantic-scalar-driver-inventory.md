@@ -114,13 +114,13 @@ provider-extensible.
 |---|---|---|---|---|
 | `UserAccountTitle` | predefined `title` | locale-aware | Implemented | Uses the single/multi-locale `I18nTitle` contract and catalog length constraints. |
 | `UserAccountEmailAddress` | predefined email scalar | nonlocalized | Implemented | Uses `EmailAddress` parsing, domain normalization, and catalog length constraints without conflating identity verification. |
-| `UserAccountLoginName` | predefined `name` or constrained domain scalar | nonlocalized | Domain decision | Define case, allowed characters, uniqueness, and whether generic `Name` is sufficiently narrow. |
+| `UserAccountLoginName` | predefined `name` or constrained domain scalar | nonlocalized | Domain decision | Entity, registration, and lookup fields use the same domain type; define case, allowed characters, uniqueness, and whether generic `Name` is sufficiently narrow. |
 | `UserAccountExternalSubjectId` | intentional opaque text | nonlocalized | Confirmed direction | Define issuer scope, normalization policy, and maximum length. |
 | `UserAccountPhoneNumber` | predefined phone scalar | nonlocalized | Implemented | Removes visual separators and requires canonical international E.164 identity. |
 | `UserAccountLocale` | predefined locale scalar | nonlocalized | Implemented | Uses `Locale` and serializes its external/datastore form as a BCP 47 language tag; allowed-locale policy remains deployment-owned. |
 | `UserAccountTimeZone` | predefined timezone scalar | nonlocalized | Implemented | Uses `TimeZone`, validates known identifiers, and serializes the canonical zone ID. |
 | `UserAccountSuspendedBy` | intentional opaque identifier | nonlocalized | Confirmed direction | Bind to the actor/account identifier contract. |
-| `UserAccountSuspensionReason` | constrained domain text | single-locale record text | Domain decision | Define audit-text length and whether translated display is a separate concept. |
+| `UserAccountSuspensionReason` | constrained domain text | single-locale record text | Domain decision | Entity and status-update fields use the same domain type; define audit-text length and whether translated display is a separate concept. |
 | `UserAccountPasswordHash` | intentional opaque secret text | nonlocalized | Confirmed direction | Define algorithm-aware format/length, redaction, and no-display policy. |
 | `UserAccountSessionReference` | intentional opaque text | nonlocalized | Confirmed direction | Define session identity scope, entropy assumptions, and length. |
 | `UserAccountTokenHash` | intentional opaque secret text | nonlocalized | Confirmed direction | Define algorithm-aware format/length, redaction, and no-display policy. |

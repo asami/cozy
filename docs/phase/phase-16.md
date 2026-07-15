@@ -629,6 +629,17 @@ Account lifecycle modeling update on 2026-07-16:
 The decision is recorded in
 `docs/journal/2026/07/cml-account-lifecycle-modeling-2026-07-16.md`.
 
+Account operation semantic-type alignment update on 2026-07-16:
+
+- registration and login-name lookup Values now use
+  `UserAccountLoginName`, matching `UserAccount.loginName`;
+- status-update suspension reason now uses
+  `UserAccountSuspensionReason`, matching
+  `UserAccount.suspensionReason`;
+- generated metadata specifications verify that matching entity and operation
+  concepts no longer split into semantic entity types and generic operation
+  strings.
+
 ## Stage 16.7: Verification and Closure
 
 Stage Status:

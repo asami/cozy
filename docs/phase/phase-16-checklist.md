@@ -247,7 +247,7 @@ Status: OPEN
       records additional semantics.
 - [ ] Use the generated nominal types for those domain-specific scalars and
       remove handwritten scalar-wrapper source from both drivers.
-- [ ] Apply the same semantic type to each account entity field and matching
+- [x] Apply the same semantic type to each account entity field and matching
       command/query field; eliminate the current entity-only typing split.
 - [x] Generate notification audience kind, channel, and priority as
       powertypes and reject undeclared values at generated input boundaries.
