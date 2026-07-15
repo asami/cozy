@@ -49,18 +49,29 @@ private[cozy] object CozyCarAbiLint {
   )
   final case class AbiExports(
     components: Vector[AbiComponent],
+    services: Vector[AbiService],
     operations: Vector[AbiOperation],
+    types: Vector[AbiType],
     entities: Vector[AbiEntity]
   )
   final case class AbiComponent(
     name: String
   )
+  final case class AbiService(
+    name: String
+  )
   final case class AbiOperation(
+    service: Option[String],
     name: String,
     kind: String,
     input: Option[String],
     output: Option[String],
     execution: Option[String]
+  )
+  final case class AbiType(
+    name: String,
+    kind: String,
+    fields: Vector[AbiField]
   )
   final case class AbiEntity(
     name: String,
@@ -69,6 +80,7 @@ private[cozy] object CozyCarAbiLint {
   final case class AbiField(
     name: String,
     typeName: String,
+    multiplicity: Option[String],
     required: Boolean
   )
   final case class AbiDependency(
@@ -119,7 +131,11 @@ private[cozy] object CozyCarAbiLint {
             _manifest(p) match {
               case Left(finding) => Vector(manifestfinding, finding) ++ surfacewarnings
               case Right((baselinepath, baselinemanifest)) =>
-                (manifestfinding +: compare(baselinemanifest, currentmanifest, baselinepath, currentpath)) ++ surfacewarnings
+                val baselinecoordinatefindings = _retained_baseline_coordinate_findings(baselinepath, baselinemanifest)
+                if (baselinecoordinatefindings.nonEmpty)
+                  (manifestfinding +: baselinecoordinatefindings) ++ surfacewarnings
+                else
+                  (manifestfinding +: compare(baselinemanifest, currentmanifest, baselinepath, currentpath)) ++ surfacewarnings
             }
           case None =>
             Vector(
@@ -173,32 +189,46 @@ private[cozy] object CozyCarAbiLint {
     baselinepath: Path,
     currentpath: Path
   ): Vector[Finding] = {
-    val policy = VersionPolicy.create(baseline.car.version, current.car.version, currentpath)
-    policy.finding.toVector ++ {
-      policy.mode match {
-        case VersionMode.Major => _breaking_changes(baseline, current, baselinepath, currentpath).map { f =>
-          f.copy(level = Level.Ok, message = s"Major version permits breaking ABI change: ${f.message}")
+    val coordinatefindings =
+      if (baseline.car.name == current.car.name)
+        Vector.empty
+      else
+        Vector(Finding(
+          Level.Fail,
+          "abi.car.name.changed",
+          s"Baseline CAR '${baseline.car.name}' cannot be compared with current CAR '${current.car.name}'.",
+          currentpath,
+          1
+        ))
+    if (coordinatefindings.nonEmpty)
+      coordinatefindings
+    else {
+      val policy = VersionPolicy.create(baseline.car.version, current.car.version, currentpath)
+      policy.finding.toVector ++ {
+        policy.mode match {
+          case VersionMode.Major => _breaking_changes(baseline, current, baselinepath, currentpath).map { f =>
+            f.copy(level = Level.Ok, message = s"Major version permits breaking ABI change: ${f.message}")
+          }
+          case VersionMode.Minor =>
+            _breaking_changes(baseline, current, baselinepath, currentpath) ++
+              _minor_additions(baseline, current, currentpath)
+          case VersionMode.Patch =>
+            val breaking = _breaking_changes(baseline, current, baselinepath, currentpath)
+            val additions = _minor_additions(baseline, current, currentpath)
+            val allchanges = breaking ++ additions
+            if (allchanges.isEmpty)
+              Vector(Finding(
+                Level.Ok,
+                "abi.compatibility.patch",
+                "Patch version keeps the CAR ABI unchanged.",
+                currentpath,
+                1
+              ))
+            else
+              allchanges.map(f => f.copy(level = Level.Fail, code = s"abi.patch.${f.code.stripPrefix("abi.")}"))
+          case VersionMode.Invalid =>
+            Vector.empty
         }
-        case VersionMode.Minor =>
-          _breaking_changes(baseline, current, baselinepath, currentpath) ++
-            _minor_additions(baseline, current, currentpath)
-        case VersionMode.Patch =>
-          val breaking = _breaking_changes(baseline, current, baselinepath, currentpath)
-          val additions = _minor_additions(baseline, current, currentpath)
-          val dependencychanges = _dependency_changes(baseline, current, currentpath)
-          val allchanges = breaking ++ additions ++ dependencychanges
-          if (allchanges.isEmpty)
-            Vector(Finding(
-              Level.Ok,
-              "abi.compatibility.patch",
-              "Patch version keeps the CAR ABI unchanged.",
-              currentpath,
-              1
-            ))
-          else
-            allchanges.map(f => f.copy(level = Level.Fail, code = s"abi.patch.${f.code.stripPrefix("abi.")}"))
-        case VersionMode.Invalid =>
-          Vector.empty
       }
     }
   }
@@ -215,8 +245,14 @@ private[cozy] object CozyCarAbiLint {
       Finding(Level.Fail, "abi.component.removed", s"Exported component '${name}' was removed.", currentpath, 1)
     }
 
-    val baseops = baseline.abi.exports.operations.map(x => x.name -> x).toMap
-    val currentops = current.abi.exports.operations.map(x => x.name -> x).toMap
+    val baseservices = baseline.abi.exports.services.map(x => x.name -> x).toMap
+    val currentservices = current.abi.exports.services.map(x => x.name -> x).toMap
+    val removedservices = baseservices.keys.toVector.filterNot(currentservices.contains).sorted.map { name =>
+      Finding(Level.Fail, "abi.service.removed", s"Exported service '${name}' was removed.", currentpath, 1)
+    }
+
+    val baseops = baseline.abi.exports.operations.map(x => _operation_id(x) -> x).toMap
+    val currentops = current.abi.exports.operations.map(x => _operation_id(x) -> x).toMap
     val removedops = baseops.keys.toVector.filterNot(currentops.contains).sorted.map { name =>
       Finding(Level.Fail, "abi.operation.removed", s"Exported operation '${name}' was removed.", currentpath, 1)
     }
@@ -234,6 +270,25 @@ private[cozy] object CozyCarAbiLint {
       )
     }
 
+    val basetypes = baseline.abi.exports.types.map(x => x.name -> x).toMap
+    val currenttypes = current.abi.exports.types.map(x => x.name -> x).toMap
+    val removedtypes = basetypes.keys.toVector.filterNot(currenttypes.contains).sorted.map { name =>
+      Finding(Level.Fail, "abi.type.removed", s"Exported type '${name}' was removed.", currentpath, 1)
+    }
+    val changedtypes = basetypes.keys.toVector.sorted.flatMap { name =>
+      for {
+        b <- basetypes.get(name)
+        c <- currenttypes.get(name)
+      } yield {
+        val kindchange =
+          if (b.kind != c.kind)
+            Vector(Finding(Level.Fail, "abi.type.kind.changed", s"Exported type '${name}' changed kind from '${b.kind}' to '${c.kind}'.", currentpath, 1))
+          else
+            Vector.empty
+        kindchange ++ _field_breaking_changes("type", name, b.fields, c.fields, currentpath)
+      }
+    }.flatten
+
     val baseentities = baseline.abi.exports.entities.map(x => x.name -> x).toMap
     val currententities = current.abi.exports.entities.map(x => x.name -> x).toMap
     val removedentities = baseentities.keys.toVector.filterNot(currententities.contains).sorted.map { name =>
@@ -246,7 +301,7 @@ private[cozy] object CozyCarAbiLint {
       } yield _entity_breaking_changes(name, b, c, currentpath)
     }.flatten
 
-    removedcomponents ++ removedops ++ changedops ++ removedentities ++ changedfields ++ _dependency_narrowing(baseline, current, currentpath)
+    removedcomponents ++ removedservices ++ removedops ++ changedops ++ removedtypes ++ changedtypes ++ removedentities ++ changedfields ++ _dependency_range_changes(baseline, current, currentpath)
   }
 
   private def _entity_breaking_changes(
@@ -254,24 +309,38 @@ private[cozy] object CozyCarAbiLint {
     baseline: AbiEntity,
     current: AbiEntity,
     currentpath: Path
+  ): Vector[Finding] =
+    _field_breaking_changes("entity", entityname, baseline.fields, current.fields, currentpath)
+
+  private def _field_breaking_changes(
+    ownerkind: String,
+    ownername: String,
+    baselinefields: Vector[AbiField],
+    currentfields: Vector[AbiField],
+    currentpath: Path
   ): Vector[Finding] = {
-    val basefields = baseline.fields.map(x => x.name -> x).toMap
-    val currentfields = current.fields.map(x => x.name -> x).toMap
-    val removed = basefields.keys.toVector.filterNot(currentfields.contains).sorted.map { name =>
-      Finding(Level.Fail, "abi.entity.field.removed", s"Exported entity '${entityname}' field '${name}' was removed.", currentpath, 1)
+    val basefields = baselinefields.map(x => x.name -> x).toMap
+    val currentfieldsbyname = currentfields.map(x => x.name -> x).toMap
+    val codeprefix = s"abi.${ownerkind}.field"
+    val ownerlabel = s"Exported ${ownerkind} '${ownername}'"
+    val removed = basefields.keys.toVector.filterNot(currentfieldsbyname.contains).sorted.map { name =>
+      Finding(Level.Fail, s"${codeprefix}.removed", s"${ownerlabel} field '${name}' was removed.", currentpath, 1)
     }
     val changed = basefields.keys.toVector.flatMap { name =>
       for {
         b <- basefields.get(name)
-        c <- currentfields.get(name)
-        if b.typeName != c.typeName || b.required != c.required
-      } yield Finding(Level.Fail, "abi.entity.field.changed", s"Exported entity '${entityname}' field '${name}' changed type or required contract.", currentpath, 1)
+        c <- currentfieldsbyname.get(name)
+        if b.typeName != c.typeName || _effective_multiplicity(b) != _effective_multiplicity(c) || b.required != c.required
+      } yield Finding(Level.Fail, s"${codeprefix}.changed", s"${ownerlabel} field '${name}' changed type, multiplicity, or required contract.", currentpath, 1)
     }
-    val requiredadded = currentfields.values.toVector.filter(x => !basefields.contains(x.name) && x.required).sortBy(_.name).map { field =>
-      Finding(Level.Fail, "abi.entity.field.required-added", s"Exported entity '${entityname}' added required field '${field.name}'.", currentpath, 1)
+    val requiredadded = currentfieldsbyname.values.toVector.filter(x => !basefields.contains(x.name) && x.required).sortBy(_.name).map { field =>
+      Finding(Level.Fail, s"${codeprefix}.required-added", s"${ownerlabel} added required field '${field.name}'.", currentpath, 1)
     }
     removed ++ changed ++ requiredadded
   }
+
+  private def _effective_multiplicity(field: AbiField): String =
+    field.multiplicity.getOrElse(if (field.required) "1" else "0..1")
 
   private def _minor_additions(
     baseline: AbiManifest,
@@ -283,9 +352,26 @@ private[cozy] object CozyCarAbiLint {
       Finding(Level.Ok, "abi.component.added", s"Exported component '${component.name}' was added.", currentpath, 1)
     }
 
-    val baseops = baseline.abi.exports.operations.map(_.name).toSet
-    val addedops = current.abi.exports.operations.filterNot(x => baseops.contains(x.name)).sortBy(_.name).map { op =>
-      Finding(Level.Ok, "abi.operation.added", s"Exported operation '${op.name}' was added.", currentpath, 1)
+    val baseservices = baseline.abi.exports.services.map(_.name).toSet
+    val addedservices = current.abi.exports.services.filterNot(x => baseservices.contains(x.name)).sortBy(_.name).map { service =>
+      Finding(Level.Ok, "abi.service.added", s"Exported service '${service.name}' was added.", currentpath, 1)
+    }
+
+    val baseops = baseline.abi.exports.operations.map(_operation_id).toSet
+    val addedops = current.abi.exports.operations.filterNot(x => baseops.contains(_operation_id(x))).sortBy(_operation_id).map { op =>
+      Finding(Level.Ok, "abi.operation.added", s"Exported operation '${_operation_id(op)}' was added.", currentpath, 1)
+    }
+    val basetypes = baseline.abi.exports.types.map(x => x.name -> x).toMap
+    val addedtypes = current.abi.exports.types.filterNot(x => basetypes.contains(x.name)).sortBy(_.name).map { tpe =>
+      Finding(Level.Ok, "abi.type.added", s"Exported type '${tpe.name}' was added.", currentpath, 1)
+    }
+    val optionaltypefields = current.abi.exports.types.flatMap { tpe =>
+      basetypes.get(tpe.name).toVector.flatMap { base =>
+        val basefields = base.fields.map(_.name).toSet
+        tpe.fields.filter(x => !basefields.contains(x.name) && !x.required).sortBy(_.name).map { field =>
+          Finding(Level.Ok, "abi.type.field.optional-added", s"Exported type '${tpe.name}' added optional field '${field.name}'.", currentpath, 1)
+        }
+      }
     }
     val baseentities = baseline.abi.exports.entities.map(x => x.name -> x).toMap
     val addedentities = current.abi.exports.entities.filterNot(x => baseentities.contains(x.name)).sortBy(_.name).map { entity =>
@@ -299,7 +385,10 @@ private[cozy] object CozyCarAbiLint {
         }
       }
     }
-    addedcomponents ++ addedops ++ addedentities ++ optionalfields ++ _dependency_changes(baseline, current, currentpath).map(_.copy(level = Level.Ok))
+    val dependencyadditions = _dependency_changes(baseline, current, currentpath).
+      filterNot(_.code == "abi.dependency.range-changed").
+      map(_.copy(level = Level.Ok))
+    addedcomponents ++ addedservices ++ addedops ++ addedtypes ++ optionaltypefields ++ addedentities ++ optionalfields ++ dependencyadditions
   }
 
   private def _surface_warnings(manifest: AbiManifest, currentpath: Path): Vector[Finding] = {
@@ -317,7 +406,7 @@ private[cozy] object CozyCarAbiLint {
       Vector.empty
   }
 
-  private def _dependency_narrowing(
+  private def _dependency_range_changes(
     baseline: AbiManifest,
     current: AbiManifest,
     currentpath: Path
@@ -347,6 +436,9 @@ private[cozy] object CozyCarAbiLint {
 
   private def _operation_signature(op: AbiOperation): (String, Option[String], Option[String], Option[String]) =
     (op.kind, op.input, op.output, op.execution)
+
+  private def _operation_id(op: AbiOperation): String =
+    op.service.map(x => s"${x}.${op.name}").getOrElse(op.name)
 
   private def _operation_signature_changes(baseline: AbiOperation, current: AbiOperation): Vector[String] =
     Vector(
@@ -475,6 +567,38 @@ private[cozy] object CozyCarAbiLint {
     }
   }
 
+  private def _retained_baseline_coordinate_findings(
+    path: Path,
+    manifest: AbiManifest
+  ): Vector[Finding] = {
+    val versiondir = Option(path.getParent)
+    val cardir = versiondir.flatMap(x => Option(x.getParent))
+    val maindir = cardir.flatMap(x => Option(x.getParent))
+    val srcdir = maindir.flatMap(x => Option(x.getParent))
+    val retainedversion = for {
+      version <- _path_filename(versiondir)
+      car <- _path_filename(cardir)
+      main <- _path_filename(maindir)
+      src <- _path_filename(srcdir)
+      if src == "src"
+      if main == "main"
+      if car == "car"
+      if _release_semver(version).isDefined
+    } yield version
+    retainedversion.filterNot(_ == manifest.car.version).toVector.map { version =>
+      Finding(
+        Level.Fail,
+        "abi.baseline.version-mismatch",
+        s"Retained baseline directory version '${version}' does not match manifest CAR version '${manifest.car.version}'.",
+        path,
+        1
+      )
+    }
+  }
+
+  private def _path_filename(path: Option[Path]): Option[String] =
+    path.flatMap(x => Option(x.getFileName)).map(_.toString)
+
   private def _is_car_project(root: Path): Boolean =
     _is_car_project_yaml(root.resolve("project.yaml")) ||
       Files.isRegularFile(root.resolve("build.sbt")) && Files.isDirectory(root.resolve("src/main/cozy")) ||
@@ -515,7 +639,9 @@ private[cozy] object CozyCarAbiLint {
   private def _exports(json: JsValue): AbiExports =
     AbiExports(
       (json \ "components").asOpt[JsArray].map(_.value.toVector).getOrElse(Vector.empty).map(_component),
+      (json \ "services").asOpt[JsArray].map(_.value.toVector).getOrElse(Vector.empty).map(_service),
       (json \ "operations").asOpt[JsArray].map(_.value.toVector).getOrElse(Vector.empty).map(_operation),
+      (json \ "types").asOpt[JsArray].map(_.value.toVector).getOrElse(Vector.empty).map(_type),
       (json \ "entities").asOpt[JsArray].map(_.value.toVector).getOrElse(Vector.empty).map(_entity)
     )
 
@@ -524,13 +650,26 @@ private[cozy] object CozyCarAbiLint {
       _string(json, "name").orElse(_string(json, "component")).getOrElse("")
     )
 
+  private def _service(json: JsValue): AbiService =
+    AbiService(
+      _string(json, "name").orElse(_string(json, "service")).getOrElse("")
+    )
+
   private def _operation(json: JsValue): AbiOperation =
     AbiOperation(
+      _string(json, "service"),
       _string(json, "name").getOrElse(""),
       _string(json, "kind").getOrElse("operation"),
       _string(json, "input"),
       _string(json, "output"),
       _string(json, "execution")
+    )
+
+  private def _type(json: JsValue): AbiType =
+    AbiType(
+      _string(json, "name").getOrElse(""),
+      _string(json, "kind").getOrElse("value"),
+      (json \ "fields").asOpt[JsArray].map(_.value.toVector).getOrElse(Vector.empty).map(_field)
     )
 
   private def _entity(json: JsValue): AbiEntity =
@@ -543,6 +682,7 @@ private[cozy] object CozyCarAbiLint {
     AbiField(
       _string(json, "name").getOrElse(""),
       _string(json, "type").orElse(_string(json, "typeName")).getOrElse("Any"),
+      _string(json, "multiplicity"),
       _boolean(json, "required").getOrElse(true)
     )
 
@@ -601,6 +741,8 @@ private[cozy] object CozyCarAbiLint {
   private object VersionPolicy {
     def create(baseline: String, current: String, currentpath: Path): VersionPolicy =
       (_semver(baseline), _semver(current)) match {
+        case (Some(b), Some(c)) if c < b =>
+          VersionPolicy(VersionMode.Invalid, Some(Finding(Level.Fail, "abi.version.regression", s"Current version ${current} is not a SemVer-compatible upgrade from baseline ${baseline}.", currentpath, 1)))
         case (Some(b), Some(c)) if c.major > b.major => VersionPolicy(VersionMode.Major, None)
         case (Some(b), Some(c)) if c.major == b.major && c.minor > b.minor => VersionPolicy(VersionMode.Minor, None)
         case (Some(b), Some(c)) if c.major == b.major && c.minor == b.minor && c.patch >= b.patch => VersionPolicy(VersionMode.Patch, None)
@@ -611,28 +753,71 @@ private[cozy] object CozyCarAbiLint {
       }
   }
   private def _semver(value: String): Option[Version] = {
-    val pattern = """^(\d+)\.(\d+)\.(\d+).*$""".r
+    val pattern = """^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$""".r
     value match {
-      case pattern(major, minor, patch) => Some(Version(major.toInt, minor.toInt, patch.toInt))
+      case pattern(major, minor, patch, prerelease) =>
+        val identifiers = Option(prerelease).toVector.flatMap(_.split('.'))
+        if (identifiers.exists(x => _is_numeric_identifier(x) && x.length > 1 && x.startsWith("0")))
+          None
+        else
+          Some(Version(BigInt(major), BigInt(minor), BigInt(patch), identifiers))
       case _ => None
     }
   }
 
   private def _release_semver(value: String): Option[Version] =
-    if (value.toUpperCase.contains("SNAPSHOT"))
+    if (value.toUpperCase(java.util.Locale.ROOT).contains("SNAPSHOT"))
       None
-    else {
-      val pattern = """^(\d+)\.(\d+)\.(\d+)$""".r
-      value match {
-        case pattern(major, minor, patch) => Some(Version(major.toInt, minor.toInt, patch.toInt))
-        case _ => None
-      }
+    else
+      _semver(value)
+
+  private final case class Version(
+    major: BigInt,
+    minor: BigInt,
+    patch: BigInt,
+    prerelease: Vector[String]
+  ) extends Ordered[Version] {
+    def compare(that: Version): Int = {
+      val core = Ordering.Tuple3[BigInt, BigInt, BigInt].compare((major, minor, patch), (that.major, that.minor, that.patch))
+      if (core != 0)
+        core
+      else
+        _compare_prerelease(prerelease, that.prerelease)
+    }
+  }
+
+  private def _compare_prerelease(lhs: Vector[String], rhs: Vector[String]): Int =
+    (lhs.isEmpty, rhs.isEmpty) match {
+      case (true, true) => 0
+      case (true, false) => 1
+      case (false, true) => -1
+      case (false, false) => _compare_prerelease_identifiers(lhs, rhs)
     }
 
-  private final case class Version(major: Int, minor: Int, patch: Int) extends Ordered[Version] {
-    def compare(that: Version): Int =
-      Ordering.Tuple3[Int, Int, Int].compare((major, minor, patch), (that.major, that.minor, that.patch))
-  }
+  @annotation.tailrec
+  private def _compare_prerelease_identifiers(lhs: Vector[String], rhs: Vector[String]): Int =
+    (lhs.headOption, rhs.headOption) match {
+      case (None, None) => 0
+      case (None, Some(_)) => -1
+      case (Some(_), None) => 1
+      case (Some(l), Some(r)) =>
+        val comparison = _compare_prerelease_identifier(l, r)
+        if (comparison == 0)
+          _compare_prerelease_identifiers(lhs.tail, rhs.tail)
+        else
+          comparison
+    }
+
+  private def _compare_prerelease_identifier(lhs: String, rhs: String): Int =
+    (_is_numeric_identifier(lhs), _is_numeric_identifier(rhs)) match {
+      case (true, true) => BigInt(lhs).compare(BigInt(rhs))
+      case (true, false) => -1
+      case (false, true) => 1
+      case (false, false) => lhs.compareTo(rhs)
+    }
+
+  private def _is_numeric_identifier(value: String): Boolean =
+    value.nonEmpty && value.forall(x => x >= '0' && x <= '9')
 
   private final case class Config(path: Path, baseline: Option[Path], format: String, strict: Boolean)
   private object Config {

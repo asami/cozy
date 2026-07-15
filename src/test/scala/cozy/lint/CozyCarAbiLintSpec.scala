@@ -132,6 +132,133 @@ class CozyCarAbiLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
       }
     }
 
+    "compare service-qualified operation identities" in {
+      _with_temp_dir("cozy-car-abi-qualified-operation") { dir =>
+        Given("a baseline that exports the same operation name from two services")
+        val baseline = _write_manifest(dir.resolve("baseline.json"), _full_surface_manifest("1.4.0"))
+        val current = _write_manifest(dir.resolve("current.json"), _full_surface_manifest("1.5.0", secondaryservice = false))
+
+        When("Cozy compares the full CAR ABI surface")
+        val findings = CozyCarAbiLint.lint(current, Some(baseline))
+
+        Then("removing one service does not hide its operation behind the remaining operation name")
+        findings.find(_.code == "abi.service.removed").map(_.level) shouldBe Some(CozyCarAbiLint.Level.Fail)
+        val removed = findings.find(_.code == "abi.operation.removed").getOrElse(fail("qualified operation removal is missing"))
+        removed.level shouldBe CozyCarAbiLint.Level.Fail
+        removed.message should include ("Audit.lookup")
+      }
+    }
+
+    "reject request and response type field contract changes" in {
+      _with_temp_dir("cozy-car-abi-type-field") { dir =>
+        Given("a full-surface baseline and a minor upgrade that changes request-field multiplicity")
+        val baseline = _write_manifest(dir.resolve("baseline.json"), _full_surface_manifest("1.4.0"))
+        val current = _write_manifest(dir.resolve("current.json"), _full_surface_manifest("1.5.0", multiplicity = "0..1"))
+
+        When("Cozy compares the generated type surface")
+        val findings = CozyCarAbiLint.lint(current, Some(baseline))
+
+        Then("the changed multiplicity is a breaking type-field change")
+        findings.find(_.code == "abi.type.field.changed").map(_.level) shouldBe Some(CozyCarAbiLint.Level.Fail)
+      }
+    }
+
+    "normalize legacy fields that omit default multiplicity" in {
+      _with_temp_dir("cozy-car-abi-legacy-multiplicity") { dir =>
+        Given("a legacy baseline with required fields and a patch manifest that writes explicit single multiplicity")
+        val baseline = _write_manifest(dir.resolve("baseline.json"), _manifest("1.4.0"))
+        val explicitmultiplicity = _manifest("1.4.1").replace(
+          "\"required\": true",
+          "\"multiplicity\": \"1\",\n              \"required\": true"
+        )
+        val current = _write_manifest(dir.resolve("current.json"), explicitmultiplicity)
+
+        When("Cozy compares the legacy and canonical field forms")
+        val findings = CozyCarAbiLint.lint(current, Some(baseline))
+
+        Then("omitting the historical default does not create a false breaking change")
+        findings.find(_.code == "abi.compatibility.patch").map(_.level) shouldBe Some(CozyCarAbiLint.Level.Ok)
+        findings.exists(_.code == "abi.patch.entity.field.changed") shouldBe false
+      }
+    }
+
+    "report one dependency-range change for a patch upgrade" in {
+      _with_temp_dir("cozy-car-abi-dependency-range") { dir =>
+        Given("a patch upgrade that changes one component ABI dependency range")
+        val baseline = _write_manifest(dir.resolve("baseline.json"), _with_dependency(_manifest("1.4.0"), "[1.0.0,2.0.0)"))
+        val current = _write_manifest(dir.resolve("current.json"), _with_dependency(_manifest("1.4.1"), "[1.0.0,3.0.0)"))
+
+        When("Cozy compares the dependency surface")
+        val findings = CozyCarAbiLint.lint(current, Some(baseline))
+
+        Then("the changed range is rejected once without duplicate diagnostics")
+        val rangechanges = findings.filter(_.code == "abi.patch.dependency.range-changed")
+        rangechanges should have size 1
+        rangechanges.head.level shouldBe CozyCarAbiLint.Level.Fail
+      }
+    }
+
+    "reject one added dependency in a patch upgrade" in {
+      _with_temp_dir("cozy-car-abi-dependency-added") { dir =>
+        Given("a patch upgrade that adds one component ABI dependency")
+        val baseline = _write_manifest(dir.resolve("baseline.json"), _manifest("1.4.0"))
+        val current = _write_manifest(dir.resolve("current.json"), _with_dependency(_manifest("1.4.1"), "[1.0.0,2.0.0)"))
+
+        When("Cozy compares the dependency surface")
+        val findings = CozyCarAbiLint.lint(current, Some(baseline))
+
+        Then("the added dependency is rejected once at patch level")
+        val additions = findings.filter(_.code == "abi.patch.dependency.added")
+        additions should have size 1
+        additions.head.level shouldBe CozyCarAbiLint.Level.Fail
+      }
+    }
+
+    "order SemVer prerelease qualifiers before the final release" in {
+      _with_temp_dir("cozy-car-abi-semver-final") { dir =>
+        Given("an ABI baseline from a prerelease and the unchanged final release")
+        val baseline = _write_manifest(dir.resolve("baseline.json"), _manifest("1.4.0-rc.1"))
+        val current = _write_manifest(dir.resolve("current.json"), _manifest("1.4.0"))
+
+        When("Cozy evaluates the qualifier-aware version policy")
+        val findings = CozyCarAbiLint.lint(current, Some(baseline))
+
+        Then("the final release is a valid successor at the same core version")
+        findings.find(_.code == "abi.compatibility.patch").map(_.level) shouldBe Some(CozyCarAbiLint.Level.Ok)
+        findings.exists(_.code == "abi.version.regression") shouldBe false
+      }
+    }
+
+    "reject a prerelease behind its released ABI baseline" in {
+      _with_temp_dir("cozy-car-abi-semver-regression") { dir =>
+        Given("a final ABI baseline and a current SNAPSHOT at the same core version")
+        val baseline = _write_manifest(dir.resolve("baseline.json"), _manifest("1.4.0"))
+        val current = _write_manifest(dir.resolve("current.json"), _manifest("1.4.0-SNAPSHOT"))
+
+        When("Cozy evaluates the qualifier-aware version policy")
+        val findings = CozyCarAbiLint.lint(current, Some(baseline))
+
+        Then("the prerelease is rejected as a version regression")
+        findings.find(_.code == "abi.version.regression").map(_.level) shouldBe Some(CozyCarAbiLint.Level.Fail)
+      }
+    }
+
+    "reject a baseline retained for another CAR" in {
+      _with_temp_dir("cozy-car-abi-name-mismatch") { dir =>
+        Given("an ABI baseline whose CAR identity differs from the current manifest")
+        val othermanifest = _manifest("1.4.0").replace("textus-user-account", "textus-other-component")
+        val baseline = _write_manifest(dir.resolve("baseline.json"), othermanifest)
+        val current = _write_manifest(dir.resolve("current.json"), _manifest("1.5.0"))
+
+        When("Cozy starts compatibility comparison")
+        val findings = CozyCarAbiLint.lint(current, Some(baseline))
+
+        Then("the unrelated baseline is rejected before SemVer policy is applied")
+        findings.find(_.code == "abi.car.name.changed").map(_.level) shouldBe Some(CozyCarAbiLint.Level.Fail)
+        findings.exists(_.code == "abi.compatibility.patch") shouldBe false
+      }
+    }
+
     "read a manifest from a CAR archive" in {
       _with_temp_dir("cozy-car-abi-archive") { dir =>
         Given("a CAR archive that contains abi-manifest.json")
@@ -227,6 +354,39 @@ class CozyCarAbiLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
         Then("only the highest lower released SemVer directory is eligible")
         findings.exists(_.level == CozyCarAbiLint.Level.Fail) shouldBe false
         findings.exists(_.code == "abi.baseline.missing") shouldBe false
+      }
+    }
+
+    "select the nearest retained prerelease baseline by full SemVer order" in {
+      _with_temp_dir("cozy-car-abi-prerelease-baseline") { dir =>
+        Given("a CAR project with retained release-candidate and older final ABI baselines")
+        _write(dir.resolve("project.yaml"), "project:\n  name: sample\n  type: car\n")
+        _write_manifest(dir.resolve("src/main/car/1.3.9/abi-manifest.json"), _manifest("1.3.9"))
+        _write_manifest(dir.resolve("src/main/car/1.4.0-rc.2/abi-manifest.json"), _manifest("1.4.0-rc.2", changedinput = true))
+        _write_manifest(dir.resolve("target/cozy/abi-manifest.json"), _manifest("1.4.0-rc.10"))
+
+        When("Cozy discovers the source-managed baseline")
+        val findings = CozyCarAbiLint.lint(dir, None)
+
+        Then("numeric qualifier order selects the nearest release candidate instead of the older final version")
+        findings.find(_.code == "abi.patch.operation.changed").map(_.level) shouldBe Some(CozyCarAbiLint.Level.Fail)
+        findings.exists(_.code == "abi.baseline.missing") shouldBe false
+      }
+    }
+
+    "reject a stale retained-baseline directory coordinate" in {
+      _with_temp_dir("cozy-car-abi-retained-coordinate") { dir =>
+        Given("a retained baseline whose directory and manifest declare different versions")
+        _write(dir.resolve("project.yaml"), "project:\n  name: sample\n  type: car\n")
+        _write_manifest(dir.resolve("src/main/car/1.4.0/abi-manifest.json"), _manifest("1.3.0"))
+        _write_manifest(dir.resolve("target/cozy/abi-manifest.json"), _manifest("1.4.1"))
+
+        When("Cozy discovers the source-managed baseline")
+        val findings = CozyCarAbiLint.lint(dir, None)
+
+        Then("the stale retained coordinate is rejected before ABI comparison")
+        findings.find(_.code == "abi.baseline.version-mismatch").map(_.level) shouldBe Some(CozyCarAbiLint.Level.Fail)
+        findings.exists(_.code == "abi.compatibility.patch") shouldBe false
       }
     }
 
@@ -375,6 +535,97 @@ class CozyCarAbiLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
        |  }
        |}
        |""".stripMargin
+
+  private def _full_surface_manifest(
+    version: String,
+    secondaryservice: Boolean = true,
+    multiplicity: String = "1"
+  ): String = {
+    val secondaryservicejson =
+      if (secondaryservice)
+        """,
+          |        {
+          |          "name": "Audit"
+          |        }""".stripMargin
+      else
+        ""
+    val secondaryoperationjson =
+      if (secondaryservice)
+        """,
+          |        {
+          |          "service": "Audit",
+          |          "name": "lookup",
+          |          "kind": "QUERY",
+          |          "input": "LookupRequest",
+          |          "output": "LookupResponse"
+          |        }""".stripMargin
+      else
+        ""
+    s"""{
+       |  "format": "cozy.car.abi-manifest.v1",
+       |  "car": {
+       |    "name": "textus-user-account",
+       |    "version": "$version"
+       |  },
+       |  "abi": {
+       |    "version": 1,
+       |    "exports": {
+       |      "components": [
+       |        {
+       |          "name": "user-account"
+       |        }
+       |      ],
+       |      "services": [
+       |        {
+       |          "name": "Catalog"
+       |        }$secondaryservicejson
+       |      ],
+       |      "operations": [
+       |        {
+       |          "service": "Catalog",
+       |          "name": "lookup",
+       |          "kind": "QUERY",
+       |          "input": "LookupRequest",
+       |          "output": "LookupResponse"
+       |        }$secondaryoperationjson
+       |      ],
+       |      "types": [
+       |        {
+       |          "name": "LookupRequest",
+       |          "kind": "query",
+       |          "fields": [
+       |            {
+       |              "name": "id",
+       |              "type": "String",
+       |              "multiplicity": "$multiplicity",
+       |              "required": true
+       |            }
+       |          ]
+       |        },
+       |        {
+       |          "name": "LookupResponse",
+       |          "kind": "value",
+       |          "fields": []
+       |        }
+       |      ],
+       |      "entities": []
+       |    },
+       |    "dependencies": []
+       |  }
+       |}
+       |""".stripMargin
+  }
+
+  private def _with_dependency(manifest: String, abirange: String): String =
+    manifest.replace(
+      "\"dependencies\": []",
+      s""""dependencies": [
+         |      {
+         |        "name": "textus-shared-contract",
+         |        "abiRange": "$abirange"
+         |      }
+         |    ]""".stripMargin
+    )
 
   private def _write_manifest(path: Path, text: String): Path =
     _write(path, text)
