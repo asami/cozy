@@ -338,23 +338,28 @@ and runtime boundaries must project them consistently to:
 
 ## 7. Driver Inventory Direction
 
-The complete AST-backed inventory and provisional per-item classification are
-maintained in `cml-semantic-scalar-driver-inventory.md`. It records 19
-string-only Datatypes in `textus-user-notification`, 16 in
-`textus-user-account`, and no string-only Values in either current driver.
+The complete AST-backed inventory and current per-item classification are
+maintained in `cml-semantic-scalar-driver-inventory.md`. It records the original
+semantic-scalar concepts together with their implemented or unresolved state.
 The following are the remaining investigation themes, not accepted migrations.
 
 ### textus-user-notification
 
-- audience kind, channel, priority, and status require
-  powertype/statemachine classification;
+- notification lifecycle status requires statemachine classification and a
+  separate delivery-attempt result contract;
 - notification type and delivery provider require a closed-versus-extensible
   vocabulary decision;
-- title, body, error message, and user-visible message fields require scalar
+- body, error message, and other user-visible message fields require scalar
   versus I18N classification and length contracts;
-- action URL, locale, and timezone should use semantic predefined types;
 - account subject ID, dedupe key, provider message ID, error code, and JSON
   payloads require identifier/opaque/structured-data classification.
+
+Audience kind, channel, and priority use generated powertypes. Notification
+title uses predefined `title`; quiet-hour, locale, timezone, and
+action-reference fields use predefined `localtime`, `locale`, `timezone`, and
+`uri` contracts respectively. An action reference is a URI rather than an
+absolute-only URL because application-relative routes are part of the
+notification contract.
 
 ### textus-user-account
 

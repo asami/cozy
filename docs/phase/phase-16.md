@@ -473,6 +473,19 @@ Notification quiet-hours update on 2026-07-15:
 The decision is recorded in
 `docs/journal/2026/07/cml-notification-quiet-hours-localtime-migration-2026-07-15.md`.
 
+Notification action-reference update on 2026-07-15:
+
+- the string-backed `UserNotificationActionReference` wrapper was removed;
+- notification entity and command fields now use predefined `uri` and generate
+  `java.net.URI` consistently;
+- relative application routes and absolute URIs are both preserved;
+- malformed URI syntax is rejected at generated input construction;
+- authorization for the resolved target remains an application/runtime policy,
+  not a URI parsing concern.
+
+The decision is recorded in
+`docs/journal/2026/07/cml-notification-action-reference-uri-migration-2026-07-15.md`.
+
 Account semantic-scalar verification update on 2026-07-15:
 
 - Cozy now owns one executable predefined scalar catalog for localized

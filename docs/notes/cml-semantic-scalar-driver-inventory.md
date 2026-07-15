@@ -82,12 +82,12 @@ does not decide the category.
 | `UserNotificationAudienceQueryJson` | intentional opaque text | nonlocalized | Domain decision | Prefer structured `record`/JSON when the query schema is stable; otherwise constrain payload size. |
 | `UserNotificationType` | powertype or constrained domain scalar | nonlocalized | Domain decision | Decide whether notification types are closed, versioned, or application-extensible. |
 | `UserNotificationChannel` | powertype | nonlocalized | Implemented | Uses `in_app`, `email`, `sms`, and `push`; provider variability remains in the open provider contract. |
-| `UserNotificationTitle` | predefined `title` | locale-aware | Confirmed direction | Apply the single/multi-locale `I18nTitle` contract and title length. |
+| `UserNotificationTitle` | predefined `title` | locale-aware | Implemented | Uses the single/multi-locale `I18nTitle` contract and catalog length constraints. |
 | `UserNotificationBody` | predefined message/text | locale-aware | Domain decision | Select canonical `message` or `text` semantics and per-locale length. |
 | `UserNotificationPriority` | powertype | nonlocalized | Implemented | Uses the ordered `low`, `normal`, `high`, and `urgent` vocabulary. |
 | `UserNotificationStatus` | statemachine-owned state | nonlocalized | Domain decision | Separate notification and delivery-attempt lifecycles if their transitions differ. |
 | `UserNotificationDedupeKey` | intentional opaque text | nonlocalized | Confirmed direction | Define normalization, uniqueness scope, and maximum length. |
-| `UserNotificationActionUrl` | predefined URL/URI scalar | nonlocalized | Confirmed direction | Select URL versus URI and allowed scheme policy. |
+| `UserNotificationActionReference` | predefined `uri` | nonlocalized | Implemented | Relative application routes and absolute URIs share the parser-backed `java.net.URI` contract; deployment authorization remains separate. |
 | `UserNotificationMetadataJson` | intentional opaque text | nonlocalized | Domain decision | Prefer structured `record`/JSON when stable; otherwise constrain payload size and exposure. |
 | `UserNotificationDeliveryProvider` | constrained domain scalar | nonlocalized | Domain decision | Keep open when providers are extensible; use a powertype only for a closed registry. |
 | `UserNotificationProviderMessageId` | intentional opaque text | nonlocalized | Confirmed direction | Define provider-scoped identity and maximum length. |
