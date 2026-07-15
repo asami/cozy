@@ -93,14 +93,31 @@ cardinality. The generator supplies the locale-aware structure. Explicit
 nonlocalized types remain appropriate for stable names, identifiers, protocol
 values, hashes, tokens, and other text whose identity must not vary by locale.
 
-Additional semantic families to confirm include:
+The semantic text family is classified by role rather than storage shape:
 
-- `label`: compact display label;
-- `text`: general body text;
-- `brief`, `summary`, and `description`: bounded descriptive text when their
-  distinct contracts are justified;
-- `identifier`, `url`, `uri`, `locale`, and `timezone`: non-generic scalar
-  concepts with existing parsing semantics.
+| CML meaning | Runtime baseline | Attribute integration | Phase 16 status |
+|---|---|---|---|
+| stable `name` | `Name` | `NameAttributes.name` | Accepted nonlocalized baseline |
+| display `label` | `I18nLabel` | `DescriptiveAttributes.tooltip` uses the same compact-label family | Accepted locale-aware runtime baseline; range open |
+| `title` | `I18nTitle` | `NameAttributes.title` | Accepted locale-aware runtime baseline; range open |
+| `headline`, `brief` | `I18nBrief` | `DescriptiveAttributes.headline` and `brief` | Accepted shared runtime family; role-specific ranges open |
+| `summary`, `lead`, `abstract`, `remarks` | `I18nSummary` | Corresponding `DescriptiveAttributes` fields | Accepted shared runtime family; role-specific ranges open |
+| `description` | `I18nDescription` | `DescriptiveAttributes.description` | Accepted locale-aware runtime baseline; range open |
+| plain narrative `text` | `I18nText` | Not a `ContentBody` replacement | Accepted locale-aware runtime baseline; CML name and range open |
+| user-facing `message` | `I18nMessage` legacy behavior | No canonical `DescriptiveAttributes` field | Legacy runtime evidence only; canonical codec and range open |
+| document body | `ContentBody` | `ContentAttributes.content` | Accepted single-document-body boundary |
+
+`DescriptiveAttributes` is the integration contract for descriptive metadata.
+Its field types preserve the complete locale-tagged values. Its `effective*`
+methods select a display fallback as `I18nString`; they do not replace one
+stored field with another and do not make the roles interchangeable. For
+example, summary may provide an effective description when description is
+absent, but summary and description may still receive different accepted
+length constraints.
+
+Other parser-backed families such as `identifier`, `url`, `uri`, `locale`, and
+`timezone` remain non-generic scalar concepts rather than members of this
+descriptive-text matrix.
 
 The accepted catalog must define runtime type, normalization, empty-value
 policy, minimum length, maximum length, serialization, datastore mapping, and

@@ -290,6 +290,10 @@ Current evidence:
 - SimpleModeler generated `derived=content` aliases now return `ContentBody`
   and omit the obsolete locale overload, keeping generated entity APIs aligned
   with SD-01B;
+- the semantic text family matrix now connects label, headline/brief,
+  summary-family, and description roles to `DescriptiveAttributes`; stored
+  locale-aware values remain distinct from its non-destructive `effective*`
+  display fallback;
 - existing dirty work in both driver repositories remains untouched while the
   Cozy-side contract is being established.
 

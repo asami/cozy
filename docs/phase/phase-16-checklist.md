@@ -106,8 +106,12 @@ Status: OPEN
 - [x] Fix `title` as one locale-aware type that accepts both one locale entry
       and multiple locale entries; do not introduce separate scalar-title and
       I18N-title concepts.
-- [ ] Audit `string`, `text`, label, description, message, and related families
-      against that baseline without requiring artificial scalar/I18N pairs.
+- [x] Audit `string`, `text`, label, description, message, and related families
+      against that baseline without requiring artificial scalar/I18N pairs;
+      record their runtime role matrix and legacy/open boundaries.
+- [x] Connect the descriptive text families to `DescriptiveAttributes`, keeping
+      stored locale-aware values separate from non-destructive `effective*`
+      display fallback.
 - [ ] Define which concepts are intentionally nonlocalized, such as stable
       identifiers, and which use localized label/title/text contracts.
 - [ ] Define normalization and default or required length semantics for each
