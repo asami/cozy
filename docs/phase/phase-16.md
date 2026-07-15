@@ -613,6 +613,22 @@ Notification lifecycle modeling update on 2026-07-16:
 The decision is recorded in
 `docs/journal/2026/07/cml-notification-lifecycle-modeling-2026-07-16.md`.
 
+Account lifecycle modeling update on 2026-07-16:
+
+- `UserAccountStatus` is now generated from CML as the closed
+  `provisional`, `registered`, `formal`, and `suspended` vocabulary;
+- its datastore values remain `0`, `1`, `2`, and `3`;
+- `UserAccount.status`, account create/update/list operation Values, and the
+  `status` state machine use the same generated type;
+- the generated state-machine rules carry source and target states and storage
+  values, and handwritten status and transition-table sources were removed;
+- access and refresh sessions continue to express lifecycle through issue,
+  expiry, revocation, and rotation timestamps rather than an invented string
+  state vocabulary.
+
+The decision is recorded in
+`docs/journal/2026/07/cml-account-lifecycle-modeling-2026-07-16.md`.
+
 ## Stage 16.7: Verification and Closure
 
 Stage Status:

@@ -128,22 +128,27 @@ provider-extensible.
 | `UserAccountDeviceInfo` | constrained technical text or structured Value | nonlocalized | Domain decision | Decide whether bounded raw device text is sufficient or stable fields justify a Value. |
 | `UserAccountIpAddress` | predefined IP address scalar | nonlocalized | Implemented | Uses `IpAddress` with IPv4/IPv6 parsing and canonical serialization. |
 | `UserAccountUserAgent` | constrained technical text | nonlocalized | Confirmed direction | Define bounded length, control-character policy, and no-I18N behavior. |
+| `UserAccountStatus` | statemachine-owned state | nonlocalized | Implemented | Uses the closed `provisional`, `registered`, `formal`, and `suspended` vocabulary plus the CML `status` transition contract. |
 
 The primary unresolved account decisions are login-name normalization,
 suspension-reason localization, and whether device information remains bounded
 technical text or becomes a structured Value. Hash/token redaction and actor,
 session, and client identifier contracts also remain domain-specific work; they
 must not be collapsed to a broader predefined scalar merely because their
-current representation is one string.
+current representation is one string. Access and refresh sessions express
+their lifecycle with issue, expiry, revocation, and rotation timestamps rather
+than a finite string status, so this inventory does not invent a session-state
+powertype.
 
 ## 6. Next Implementation Boundary
 
 The first CML16-07 implementation slice established the executable predefined
 catalog and migrated the low-ambiguity account scalars: `title`, `email`,
 `phone`, `locale`, `timezone`, and `ip-address`. The notification audience,
-channel, and priority vocabularies are now generated powertypes. Subsequent
-slices should resolve lifecycle state and the remaining driver-specific
-contracts. State-machine design, open provider/type registries, structured JSON
+channel, and priority vocabularies and the account status vocabulary are now
+generated powertypes. Notification and account lifecycle transitions are
+generated from their CML state machines. Subsequent slices should resolve the
+remaining driver-specific contracts. Open provider/type registries, structured JSON
 payloads, secret redaction, and account device information remain explicit
 domain decisions.
 

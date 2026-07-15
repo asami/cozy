@@ -400,8 +400,12 @@ datastore, and operation paths use the semantic runtime types, and external
 locale/timezone values use canonical string forms. The remaining bullets are
 domain decisions rather than incomplete aliases for those implemented types.
 
-- account status and session/credential lifecycle fields require
-  powertype/statemachine classification;
+- account status uses the generated `UserAccountStatus` powertype and the CML
+  `status` state machine; entity, create/update/list Values, datastore values,
+  and transition rules share the same contract;
+- access and refresh sessions use issue, expiry, revocation, and rotation
+  timestamps rather than a finite string state, so no session-state powertype
+  is inferred;
 - display title and profile-facing text require scalar versus I18N review;
 - login name, email address, phone number, locale, timezone, client ID, and IP
   address should use parser-backed or constrained semantic types;

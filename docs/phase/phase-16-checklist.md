@@ -239,7 +239,7 @@ Status: OPEN
       accepted closed powertype vocabularies.
 - [x] Replace notification lifecycle state with the accepted statemachine
       model and delivery-attempt result status with a separate closed type.
-- [ ] Replace account finite vocabularies and lifecycle state with the accepted
+- [x] Replace account finite vocabularies and lifecycle state with the accepted
       powertype/statemachine models.
 - [ ] Replace generic string fields with appropriate predefined semantic text
       types plus explicit length constraints in both drivers.
