@@ -2,6 +2,8 @@ package cozy.modeler
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
+import org.goldenport.config.StructuredDocumentLoader
+import org.goldenport.io.InputSource
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -310,6 +312,12 @@ class CmlModelMetadataSpec extends AnyWordSpec with Matchers with GivenWhenThen 
       metadata.toJsonString should include ("\"targetKind\" : \"external\"")
       metadata.toYamlString should include ("useCases:")
       metadata.toYamlString should include ("id: \"UC-ART-001\"")
+      val yaml = dir.resolve("target/model-metadata.yaml")
+      Files.createDirectories(yaml.getParent)
+      Files.writeString(yaml, metadata.toYamlString, StandardCharsets.UTF_8)
+      val parsed = StructuredDocumentLoader.loadJson(InputSource(yaml.toFile)).take
+      parsed.hcursor.downField("surface").downField("component").downField("useCases").downN(0).
+        downField("id").as[String] shouldBe Right("UC-ART-001")
     }
 
     "extract operation summary and description from operation child sections" in {

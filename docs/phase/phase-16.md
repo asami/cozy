@@ -671,6 +671,21 @@ Account authentication request scalar update on 2026-07-16:
 The decision is recorded in
 `docs/journal/2026/07/cml-account-authentication-request-scalar-boundary-2026-07-16.md`.
 
+Generated driver semantic-type verification on 2026-07-16:
+
+- `GeneratedSemanticTypeContractSpec` in both driver CARs reads the Scala
+  3.3.8 sources produced by the normal sbt-cozy generation path;
+- the contracts cover every classified driver field across generated Create,
+  Read, Query, Update, and operation Value case classes, including nominal and
+  predefined scalars, lifecycle vocabularies, timestamps, identifiers, and
+  structured profile/attribute values;
+- each generated occurrence must retain its nominal, predefined, powertype,
+  statemachine, or structured type and rejects primitive `String`,
+  `Option[String]`, `Condition[String]`, and `Update[String]` fallback;
+- both focused executable specifications pass against the current driver CML;
+- full driver validation passes with 92 account tests and 28 notification
+  tests, and both CAR lint runs report no deterministic failure.
+
 ## Stage 16.7: Verification and Closure
 
 Stage Status:

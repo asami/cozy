@@ -281,11 +281,13 @@ Status: OPEN
 - [x] Run scaffold executable specifications.
 - [x] Run full `sbt --batch test` in Cozy.
 - [x] Generate and validate at least one command and one query CAR.
-- [x] Run focused and full tests in `textus-user-notification`.
-- [x] Run focused and full tests in `textus-user-account` (86 tests passed).
+- [x] Run focused and full tests in `textus-user-notification` (28 tests
+      passed, including generated semantic-type verification).
+- [x] Run focused and full tests in `textus-user-account` (92 tests passed,
+      including generated semantic-type verification).
 - [x] Run CAR lint for both driver projects; both have no deterministic FAIL,
       with development-state and deferred implementation warnings recorded.
-- [ ] Verify generated driver source contains no primitive `String`,
+- [x] Verify generated driver source contains no primitive `String`,
       `Condition[String]`, or `Update[String]` fallback for fields classified
       as nominal, predefined, powertype, statemachine, or structured types.
 - [ ] Verify nominal scalars reject invalid construction and round-trip through
