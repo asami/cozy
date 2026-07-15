@@ -67,6 +67,12 @@ the next executable specification. `Domain decision` means the row has a
 useful provisional category but still requires domain vocabulary, transition,
 localization, or representation evidence before source migration.
 
+Powertype/statemachine rows use the Phase 16 ownership rule: a closed selector
+without model-owned transitions is a powertype, a lifecycle with model-owned
+transitions is statemachine state, and an application/provider-extensible
+registry remains an open identifier or constrained scalar. A type name alone
+does not decide the category.
+
 ## 4. textus-user-notification
 
 | Current DATATYPE | Provisional class | Localization | Decision state | Required follow-up |

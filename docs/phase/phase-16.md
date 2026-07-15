@@ -294,6 +294,13 @@ Current evidence:
   summary-family, and description roles to `DescriptiveAttributes`; stored
   locale-aware values remain distinct from its non-destructive `effective*`
   display fallback;
+- the powertype/statemachine boundary now uses vocabulary closure and
+  transition ownership, leaving extensible registries as open scalars and
+  externally owned lifecycle state outside local statemachines;
+- canonical `min-length` and `max-length` now flow through normalized domain
+  constraints to generated Scala validation and Web hints, while
+  `MAttribute.Web` no longer injects domain validation and localized values are
+  checked entry by entry;
 - existing dirty work in both driver repositories remains untouched while the
   Cozy-side contract is being established.
 

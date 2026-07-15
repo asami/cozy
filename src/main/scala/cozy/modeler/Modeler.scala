@@ -1146,7 +1146,7 @@ object Modeler {
       val atype = _resolve_attribute_type(pkg, p)
       val multiplicity = MMultiplicity(column.multiplicity)
       val web = _web(p.web)
-      val constraints: List[MConstraint] = column.constraints.map(RConstraint) ++ web.validationConstraints
+      val constraints: List[MConstraint] = column.constraints.map(RConstraint)
       val readonly = false
       val description = Description.empty
       MAttribute(designation, atype, multiplicity, constraints, Some(column), readonly, p.derived, web = web, description = description, confidentiality = p.confidentiality)
@@ -1160,13 +1160,7 @@ object Modeler {
         help = p.help,
         required = p.required,
         hidden = p.hidden,
-        readonly = p.readonly,
-        minLength = p.minLength,
-        maxLength = p.maxLength,
-        min = p.min,
-        max = p.max,
-        step = p.step,
-        pattern = p.pattern
+        readonly = p.readonly
       )
 
     private def _attribute(p: Column): MAttribute = {

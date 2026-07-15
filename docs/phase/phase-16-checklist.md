@@ -96,8 +96,9 @@ Status: OPEN
   - [x] Record a provisional category, localization direction, and decision
         state for all 35 current driver Datatypes.
   - [ ] Resolve the domain-decision rows before changing driver source.
-- [ ] Define when a finite vocabulary uses `POWERTYPE` and when lifecycle state
-      requires `STATEMACHINE`.
+- [x] Define when a finite vocabulary uses `POWERTYPE` and when lifecycle state
+      requires `STATEMACHINE`, including open registries and externally owned
+      lifecycle state.
 - [x] Confirm the CML predefined text catalog baseline from existing
       `name = Name` and `title = I18nTitle` semantics.
 - [x] Establish natural I18N as the modeling goal: ordinary user-visible
@@ -116,12 +117,15 @@ Status: OPEN
       identifiers, and which use localized label/title/text contracts.
 - [ ] Define normalization and default or required length semantics for each
       predefined text type.
-- [ ] Define explicit text constraints, including minimum and maximum length,
-      without overloading numeric `min` and `max` semantics.
-- [ ] Apply text length constraints to each localized entry and define locale
-      identity, default-locale, allowed-locale, duplicate-locale, and fallback
-      behavior.
-- [ ] Preserve text constraints in normalized model metadata.
+- [x] Define canonical `min-length` and `max-length` text constraints without
+      overloading numeric `min` and `max` semantics.
+- [x] Apply text length constraints independently to each localized entry.
+- [ ] Define locale identity, default-locale, allowed-locale, duplicate-locale,
+      and fallback behavior.
+- [x] Preserve text constraints in normalized model metadata and project them
+      to generated Web validation hints.
+- [x] Remove Web validation metadata as a source of domain constraints;
+      `MAttribute.Web` remains presentation and input-control metadata only.
 - [ ] Generate validation and schema constraints consistently for Scala,
       datastore, form, automatic REST/OpenAPI, and Help surfaces.
 - [ ] Preserve all locale-tagged values in datastore and API contracts; locale

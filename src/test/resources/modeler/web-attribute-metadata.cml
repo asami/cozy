@@ -8,9 +8,10 @@ extends = ["SimpleEntity"]
 
 ### ATTRIBUTE
 
-| name          | type   | multiplicity | web-label | web-control-type | web-placeholder | web-help                         | web-min-length | web-max-length | web-pattern          |
-|---------------+--------+--------------+-----------+------------------+-----------------+----------------------------------+----------------+----------------+----------------------|
+| name          | type   | multiplicity | web-label | web-control-type | web-placeholder | web-help                         | min-length | max-length | pattern              |
+|---------------+--------+--------------+-----------+------------------+-----------------+----------------------------------+------------+------------+----------------------|
 | senderName    | string | 1            | Sender    |                  | Your name       | Name displayed as the poster.    | 1              |                |                      |
 | recipientName | string | 1            | Recipient |                  | Recipient name  | Name used by recipients to find notices. | 1              |                |                      |
 | title         | string | 1            | Title     |                  | Short title     | Short title shown in lists.      | 1              | 80             | pass:[^[A-Za-z0-9 ]+$] |
+| summary       | string | 0..1     | Summary   | textarea         | Summary         | Localized summary text.          | 2              | 160            |                      |
 | content       | string | 1            | Content   | textarea         | Notice content  | Main notice text.                | 1              |                |                      |

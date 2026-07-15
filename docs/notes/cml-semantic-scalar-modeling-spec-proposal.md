@@ -60,6 +60,23 @@ An external or extensible provider registry may remain an identifier or open
 domain scalar rather than a closed powertype. The driver inventory must record
 whether each vocabulary is closed, versioned, or provider-extensible.
 
+Apply the boundary in this order:
+
+1. If the model owns valid state changes, use a `STATEMACHINE`. Its states may
+   look like a finite vocabulary, but transition semantics are the deciding
+   contract.
+2. Otherwise, if the accepted values form a closed vocabulary, use a
+   `POWERTYPE`. Ordering and localized labels may be powertype metadata; they
+   do not turn the selector into lifecycle state.
+3. If values are registered by applications, providers, tenants, or future
+   extensions, keep an open identifier or constrained domain scalar. Do not
+   encode the currently observed registry as a closed powertype.
+4. If an external system owns the lifecycle, model the observed external state
+   as an external value unless this model also owns a local transition policy.
+
+The class name `Status`, `Type`, `Kind`, or `Provider` is not enough to choose a
+construct. Vocabulary closure and transition ownership are required evidence.
+
 ## 4. Text Semantic Axis
 
 Raw `string` is the least precise text contract. CML should expose semantic
@@ -239,9 +256,11 @@ the stored multilingual value.
 
 ## 6. Text Value Range
 
-Length is part of the value range for scalar and I18N text. Phase 16 should use
-unambiguous text-specific constraints, provisionally `min-length` and
-`max-length`, rather than relying on numeric `min` and `max` interpretation.
+Length is part of the value range for scalar and I18N text. Phase 16 uses the
+canonical domain constraints `min-length` and `max-length`, rather than relying
+on numeric `min` and `max` interpretation. The normalized model may use
+`min_length` and `max_length` internally, but CML authoring uses the hyphenated
+property names.
 
 Additional constraints may include:
 
@@ -254,6 +273,14 @@ Additional constraints may include:
 
 For an I18N value, minimum and maximum length apply to each locale entry. Entry
 count and locale-set constraints are separate from text length.
+
+Web validation is a projection of the domain constraint. `MAttribute.Web`
+owns presentation and input-control metadata such as label, control type,
+placeholder, help, required, hidden, and readonly. It does not contribute
+validation constraints to `MAttribute.constraints`. In particular,
+`web-min-length`, `web-max-length`, and `web-pattern` are not canonical model
+properties and are not parsed as compatibility aliases. Generated
+`WebValidationHints` are derived from the normalized domain constraints.
 
 The normalized AST and model metadata must retain typed constraints. Generator
 and runtime boundaries must project them consistently to:

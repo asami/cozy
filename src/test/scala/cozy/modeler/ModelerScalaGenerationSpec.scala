@@ -294,7 +294,15 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         val generated = out.resolve(
         "target/scala-3.3.7/src_managed/main/scala/domain/entity/Notice.scala"
         )
+        val generatedcreate = out.resolve(
+        "target/scala-3.3.7/src_managed/main/scala/domain/entity/create/Notice.scala"
+        )
+        val generatedupdate = out.resolve(
+        "target/scala-3.3.7/src_managed/main/scala/domain/entity/update/Notice.scala"
+        )
         val content = Files.readString(generated)
+        val createcontent = Files.readString(generatedcreate)
+        val updatecontent = Files.readString(generatedupdate)
 
         Then("the generated Scala code preserves the model semantics")
         content should include ("""baseContent = org.simplemodeling.model.value.BaseContent.simple("senderName")""")
@@ -312,6 +320,36 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         content should include ("""baseContent = org.simplemodeling.model.value.BaseContent.simple("content")""")
         content should include ("""label = Some(org.goldenport.datatype.I18nLabel("Content"))""")
         content should include ("""web = org.goldenport.schema.WebColumn(controlType = Some("textarea"), required = Some(true), placeholder = Some("Notice content"), help = Some("Main notice text."), validation = org.goldenport.schema.WebValidationHints(minLength = Some(1)))""")
+        content should include (
+          """require(_text_constraint_values(senderName).forall(_.length >= 1), "senderName entries must have length >= 1")"""
+        )
+        content should include (
+          """require(_text_constraint_values(nameAttributes.title).forall(_.length <= 80), "title entries must have length <= 80")"""
+        )
+        content should include (
+          """require(_text_constraint_values(nameAttributes.title).forall(_.matches("^[A-Za-z0-9 ]+$")), "title entries must match ^[A-Za-z0-9 ]+$")"""
+        )
+        content should include (
+          """require(_text_constraint_values(descriptiveAttributes.summary).forall(_.length >= 2), "summary entries must have length >= 2")"""
+        )
+        content should include (
+          """require(_text_constraint_values(descriptiveAttributes.summary).forall(_.length <= 160), "summary entries must have length <= 160")"""
+        )
+        createcontent should include (
+          """require(_text_constraint_values(nameAttributes.title).forall(_.length <= 80), "title entries must have length <= 80")"""
+        )
+        createcontent should include (
+          """require(_text_constraint_values(descriptiveAttributes.summary).forall(_.length <= 160), "summary entries must have length <= 160")"""
+        )
+        updatecontent should include (
+          "case x: org.simplemodeling.model.directive.Update[?] => x.fold(Vector.empty, _text_constraint_values, Vector.empty)"
+        )
+        updatecontent should include (
+          """require(_text_constraint_values(nameAttributes.title).forall(_.length <= 80), "title entries must have length <= 80")"""
+        )
+        updatecontent should include (
+          """require(_text_constraint_values(descriptiveAttributes.summary).forall(_.length <= 160), "summary entries must have length <= 160")"""
+        )
       }
 
       "modeler-scala preserves repeated powertype metadata for entity update record operations" in {
