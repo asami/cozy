@@ -182,7 +182,7 @@ Status: OPEN
 - [x] Make new scaffolds use predefined Results for simple outputs.
 - [x] Stop emitting top-level `# COMMAND` and `# QUERY` in new CML.
 - [x] Keep legacy top-level and inline forms readable.
-- [ ] Add compatibility diagnostics for intentional generated-name or ABI
+- [x] Add compatibility diagnostics for intentional generated-name or ABI
       changes.
 - [ ] Migrate `textus-user-notification` after the new grammar is implemented.
 - [ ] Compare notification generated operation metadata and API/ABI across the

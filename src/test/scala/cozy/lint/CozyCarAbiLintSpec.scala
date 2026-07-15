@@ -11,7 +11,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jul.  7, 2026
- * @version Jul.  7, 2026
+ * @version Jul. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyCarAbiLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -86,6 +86,34 @@ class CozyCarAbiLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
 
         Then("the changed public operation signature is rejected")
         findings.find(_.code == "abi.operation.changed").map(_.level) shouldBe Some(CozyCarAbiLint.Level.Fail)
+      }
+    }
+
+    "identify each operation signature field in an ABI change" in {
+      _with_temp_dir("cozy-car-abi-generated-name-change") { dir =>
+        Given("a minor upgrade whose operation kind, generated type names, and execution changed")
+        val baseline = _write_manifest(dir.resolve("baseline.json"), _manifest("1.4.0"))
+        val current = _write_manifest(
+          dir.resolve("current.json"),
+          _manifest(
+            "1.5.0",
+            changedinput = true,
+            changedoutput = true,
+            changedkind = true,
+            changedexecution = true
+          )
+        )
+
+        When("Cozy compares the generated operation ABI")
+        val findings = CozyCarAbiLint.lint(current, Some(baseline))
+
+        Then("the diagnostic names each changed generated identity and its previous value")
+        val finding = findings.find(_.code == "abi.operation.changed").getOrElse(fail("operation ABI change finding is missing"))
+        finding.level shouldBe CozyCarAbiLint.Level.Fail
+        finding.message should include ("kind: 'command' -> 'query'")
+        finding.message should include ("input: 'RegisterUser' -> 'RegisterUserV2'")
+        finding.message should include ("output: 'OperationResult' -> 'RegisterUserResult'")
+        finding.message should include ("execution: 'async' -> 'sync'")
       }
     }
 
@@ -234,9 +262,15 @@ class CozyCarAbiLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
     extraoperation: Boolean = false,
     optionalfield: Boolean = false,
     changedinput: Boolean = false,
+    changedoutput: Boolean = false,
+    changedkind: Boolean = false,
+    changedexecution: Boolean = false,
     extracomponent: Boolean = false
   ): String = {
+    val kind = if (changedkind) "query" else "command"
     val input = if (changedinput) "RegisterUserV2" else "RegisterUser"
+    val output = if (changedoutput) "RegisterUserResult" else "OperationResult"
+    val execution = if (changedexecution) "sync" else "async"
     val extracomponentjson =
       if (extracomponent)
         """,
@@ -284,10 +318,10 @@ class CozyCarAbiLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
        |      "operations": [
        |        {
        |          "name": "user.register",
-       |          "kind": "command",
+       |          "kind": "$kind",
        |          "input": "$input",
-       |          "output": "OperationResult",
-       |          "execution": "async"
+       |          "output": "$output",
+       |          "execution": "$execution"
        |        }$extraop
        |      ],
        |      "entities": [

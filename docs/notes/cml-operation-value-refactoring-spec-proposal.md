@@ -326,6 +326,13 @@ If two source names normalize to the same generated identity, Cozy reports a
 deterministic model error. It does not silently append numeric suffixes because
 that would change the operation ABI.
 
+Generated-name migration is verified through the CAR ABI manifest rather than
+through a second CML-specific comparison format. `cozy lint abi` reports the
+operation name and each changed signature field (`kind`, generated input type,
+generated output type, and execution), including its previous and current
+values. The existing SemVer policy decides whether that explicit diagnostic is
+blocking or informational.
+
 ## 12. Normalization
 
 All accepted forms normalize before generation to an operation model containing

@@ -10,7 +10,7 @@ import scala.util.Try
 
 /*
  * @since   Jul.  7, 2026
- * @version Jul.  7, 2026
+ * @version Jul. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyCarAbiLint {
@@ -225,7 +225,13 @@ private[cozy] object CozyCarAbiLint {
         b <- baseops.get(name)
         c <- currentops.get(name)
         if _operation_signature(b) != _operation_signature(c)
-      } yield Finding(Level.Fail, "abi.operation.changed", s"Exported operation '${name}' changed signature.", currentpath, 1)
+      } yield Finding(
+        Level.Fail,
+        "abi.operation.changed",
+        s"Exported operation '${name}' changed signature (${_operation_signature_changes(b, c).mkString(", ")}).",
+        currentpath,
+        1
+      )
     }
 
     val baseentities = baseline.abi.exports.entities.map(x => x.name -> x).toMap
@@ -341,6 +347,17 @@ private[cozy] object CozyCarAbiLint {
 
   private def _operation_signature(op: AbiOperation): (String, Option[String], Option[String], Option[String]) =
     (op.kind, op.input, op.output, op.execution)
+
+  private def _operation_signature_changes(baseline: AbiOperation, current: AbiOperation): Vector[String] =
+    Vector(
+      if (baseline.kind != current.kind) Some(s"kind: '${baseline.kind}' -> '${current.kind}'") else None,
+      if (baseline.input != current.input) Some(s"input: '${_signature_value(baseline.input)}' -> '${_signature_value(current.input)}'") else None,
+      if (baseline.output != current.output) Some(s"output: '${_signature_value(baseline.output)}' -> '${_signature_value(current.output)}'") else None,
+      if (baseline.execution != current.execution) Some(s"execution: '${_signature_value(baseline.execution)}' -> '${_signature_value(current.execution)}'") else None
+    ).flatten
+
+  private def _signature_value(value: Option[String]): String =
+    value.getOrElse("<none>")
 
   private def _manifest(path: Path): Either[Finding, (Path, AbiManifest)] = {
     val normalized = path.toAbsolutePath.normalize()
