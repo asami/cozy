@@ -283,6 +283,10 @@ Current evidence:
   ordered structured round-trip, while `DescriptiveAttributesSpec` fixes
   non-destructive locale fallback from summary to lead; summary-family role and
   range policy remain open;
+- `simplemodeling-lib` `I18nTextSpec` now fixes plain construction and ordered
+  structured round-trip, while the audit of `ContentAttributes` identifies its
+  `displayMessage` to `String` conversion as an unresolved natural-I18N
+  boundary;
 - existing dirty work in both driver repositories remains untouched while the
   Cozy-side contract is being established.
 

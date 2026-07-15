@@ -150,6 +150,12 @@ Status: OPEN
       structured shared-codec specifications, and verify locale-aware summary
       fallback through `DescriptiveAttributesSpec`; keep summary-family role
       classification and constraints open.
+- [x] Replace the pending `I18nTextSpec` coverage with executable plain and
+      structured shared-codec specifications; record the current
+      `ContentAttributes` single-string projection as an unresolved
+      natural-I18N boundary rather than accepting the collapse.
+- [ ] Define a content-body model and serialization contract that preserves all
+      `I18nText` locale entries through `ContentAttributes`.
 - [x] Replace the pending `I18nTitleSpec` coverage with executable single-locale
       construction, multi-locale codec, locale fallback, and preservation
       specifications.
