@@ -163,6 +163,14 @@ model metadata already use this type for labels. Phase 16 therefore accepts it
 as the runtime baseline for locale-aware labels, while CML field-type exposure,
 length, and normalization policy remain open.
 
+`I18nDescription` also follows the shared wrapper model. Plain construction
+stores one root-locale entry, structured encoding round-trips every ordered
+locale/value entry, and `DescriptiveAttributes` selects effective description
+text through the preserved `I18nString` value without collapsing its entries.
+The current runtime wrapper does not define a description-specific length,
+multiline, normalization, or empty-value policy. Phase 16 accepts this behavior
+as runtime evidence, not yet as the canonical CML `description` contract.
+
 Phase 16 must decide which remaining families are canonical CML types and which
 are framework metadata concepts before changing driver source.
 

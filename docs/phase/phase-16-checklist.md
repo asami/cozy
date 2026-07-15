@@ -138,6 +138,10 @@ Status: OPEN
 - [x] Replace the pending `I18nLabelSpec` coverage with executable plain and
       structured shared-codec specifications; accept `I18nLabel` as the
       locale-aware runtime label baseline.
+- [x] Replace the pending `I18nDescriptionSpec` coverage with executable plain
+      and structured shared-codec specifications, and extend
+      `DescriptiveAttributesSpec` with effective fallback and preservation;
+      keep the canonical CML `description` constraints open.
 - [x] Replace the pending `I18nTitleSpec` coverage with executable single-locale
       construction, multi-locale codec, locale fallback, and preservation
       specifications.

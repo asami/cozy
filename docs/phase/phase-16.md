@@ -271,6 +271,10 @@ Current evidence:
 - `simplemodeling-lib` `I18nLabelSpec` now fixes plain construction and ordered
   structured round-trip through `I18nString`, establishing the locale-aware
   runtime label baseline without deciding field exposure or text constraints;
+- `simplemodeling-lib` `I18nDescriptionSpec` now fixes plain construction and
+  ordered structured round-trip, while `DescriptiveAttributesSpec` fixes
+  non-destructive effective description fallback through `I18nString`;
+  description-specific range and multiline policy remain open;
 - existing dirty work in both driver repositories remains untouched while the
   Cozy-side contract is being established.
 
