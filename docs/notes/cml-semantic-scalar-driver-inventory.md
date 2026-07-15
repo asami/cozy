@@ -87,13 +87,13 @@ does not decide the category.
 | `UserNotificationPriority` | powertype | nonlocalized | Implemented | Uses the ordered `low`, `normal`, `high`, and `urgent` vocabulary. |
 | `UserNotificationStatus` | statemachine-owned state | nonlocalized | Implemented | Uses the `notificationLifecycle` transition contract; recipient read/dismiss state remains separate. |
 | `UserNotificationDeliveryResultStatus` | powertype | nonlocalized | Implemented | Uses the independent closed `Pending`, `Succeeded`, and `Failed` attempt-result vocabulary. |
-| `UserNotificationDedupeKey` | intentional opaque text | nonlocalized | Confirmed direction | Define normalization, uniqueness scope, and maximum length. |
+| `UserNotificationDedupeKey` | intentional opaque text | nonlocalized | Implemented length boundary | Uses a 1..255 application-scoped opaque contract; normalization and uniqueness scope remain application-owned. |
 | `UserNotificationActionReference` | predefined `uri` | nonlocalized | Implemented | Relative application routes and absolute URIs share the parser-backed `java.net.URI` contract; deployment authorization remains separate. |
 | `UserNotificationMetadataJson` | intentional opaque text | nonlocalized | Domain decision | Prefer structured `record`/JSON when stable; otherwise constrain payload size and exposure. |
-| `UserNotificationDeliveryProvider` | constrained domain scalar | nonlocalized | Domain decision | Keep open when providers are extensible; use a powertype only for a closed registry. |
-| `UserNotificationProviderMessageId` | intentional opaque text | nonlocalized | Confirmed direction | Define provider-scoped identity and maximum length. |
-| `UserNotificationErrorCode` | constrained domain scalar | nonlocalized | Confirmed direction | Define provider/code namespace and syntax. |
-| `UserNotificationErrorMessage` | constrained technical text | nonlocalized | Confirmed direction | Define bounded diagnostic length and confidentiality; do not localize provider text automatically. |
+| `UserNotificationDeliveryProvider` | constrained domain scalar | nonlocalized | Implemented length boundary | Remains an open 1..64 provider key rather than a closed powertype; canonical syntax remains a registry decision. |
+| `UserNotificationProviderMessageId` | intentional opaque text | nonlocalized | Implemented | Uses a provider-scoped opaque 1..512 identity contract. |
+| `UserNotificationErrorCode` | constrained domain scalar | nonlocalized | Implemented length boundary | Uses a 1..128 provider/code boundary; canonical namespace syntax remains a provider-contract decision. |
+| `UserNotificationErrorMessage` | constrained technical text | nonlocalized | Implemented | Uses a nonlocalized 1..4096 diagnostic boundary; provider text is not translated automatically. |
 | `UserNotificationQuietHours` | predefined `localtime` | nonlocalized | Implemented | Entity and operation fields use parser-backed `LocalTime`; interval policy remains application-owned. |
 | `UserNotificationLocale` | predefined locale scalar | nonlocalized | Implemented | Entity and operation fields use predefined `locale`; deployment policy still defines the allowed locale set. |
 | `UserNotificationTimeZone` | predefined timezone scalar | nonlocalized | Implemented | Entity and operation fields use predefined `timezone`; deployment policy still defines the allowed zone set. |
@@ -106,7 +106,8 @@ The primary unresolved notification decision is whether notification type is
 closed. Body uses the
 canonical locale-aware `text` contract. Quiet-hour fields use the predefined
 parser-backed `localtime` contract. Delivery provider remains open and
-provider-extensible. The nine remaining domain-scalar rows are CML-owned and
+provider-extensible, with provider-facing identifiers and diagnostics bounded
+by canonical CML constraints. The nine remaining domain-scalar rows are CML-owned and
 generate their nominal Scala types; no parallel handwritten wrapper source is
 kept in the notification component.
 

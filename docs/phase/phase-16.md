@@ -671,6 +671,23 @@ Account authentication request scalar update on 2026-07-16:
 The decision is recorded in
 `docs/journal/2026/07/cml-account-authentication-request-scalar-boundary-2026-07-16.md`.
 
+Notification delivery domain-scalar boundary update on 2026-07-16:
+
+- notification dedupe keys use a 1..255 application-scoped opaque contract;
+- delivery providers remain an open registry represented by 1..64 provider
+  keys, rather than becoming a closed powertype;
+- provider message IDs remain opaque provider-scoped values bounded to
+  1..512 characters;
+- provider error codes are bounded to 1..128 characters, while nonlocalized
+  provider diagnostics are bounded to 1..4096 characters;
+- generated constructors and Record decoding enforce the same CML-authored
+  constraints, with no handwritten wrapper validation.
+- dedupe normalization, provider-key canonical syntax, and error-code
+  namespaces remain explicit application/provider registry decisions.
+
+The decision is recorded in
+`docs/journal/2026/07/cml-notification-delivery-domain-scalar-boundary-2026-07-16.md`.
+
 Generated driver semantic-type verification on 2026-07-16:
 
 - `GeneratedSemanticTypeContractSpec` in both driver CARs reads the Scala
@@ -683,7 +700,7 @@ Generated driver semantic-type verification on 2026-07-16:
   statemachine, or structured type and rejects primitive `String`,
   `Option[String]`, `Condition[String]`, and `Update[String]` fallback;
 - both focused executable specifications pass against the current driver CML;
-- full driver validation passes with 92 account tests and 28 notification
+- full driver validation passes with 92 account tests and 30 notification
   tests, and both CAR lint runs report no deterministic failure.
 
 Distinct CML model-kind verification on 2026-07-16:

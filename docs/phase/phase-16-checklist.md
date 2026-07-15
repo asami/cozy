@@ -245,6 +245,8 @@ Status: OPEN
       types plus explicit length constraints in both drivers.
   - [x] Replace account request-only password and token strings with predefined
         `password` / `token`, including explicit role-specific length bounds.
+  - [x] Define notification dedupe, delivery-provider, provider-message,
+        error-code, and error-message scalar length boundaries.
   - [ ] Define and apply the remaining account and notification domain-scalar
         normalization and length contracts.
 - [x] Keep domain-specific scalar wrappers only where the accepted inventory
