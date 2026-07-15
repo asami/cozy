@@ -357,6 +357,13 @@ Current evidence:
   SimpleModeling values whose own runtime contract does not provide one;
 - both driver repositories now exercise the Cozy-side nominal scalar and
   predefined text contracts as migration drivers.
+- Cozy CML lint now reads normalized Datatype constraints and accepts a
+  string-backed nominal scalar when `min-length`, `max-length`, `pattern`, or
+  `format` declares a narrower domain contract;
+- unconstrained wrappers remain review warnings, and a predefined-looking
+  wrapper is rejected as redundant only when no narrower constraint exists;
+- the accepted-domain-scalar lint contract is covered by executable AST and
+  lint specifications without reparsing CML source text.
 
 ## Stage 16.6: Scaffold and Migration
 

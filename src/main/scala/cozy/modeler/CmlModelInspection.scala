@@ -32,11 +32,11 @@ private[cozy] object CmlModelInspection {
     kind: DeclarationKind,
     owner: String,
     name: String,
-    rawtypename: Option[String],
+    rawTypeName: Option[String],
     line: Int
   ) {
     def isRawString: Boolean =
-      rawtypename.exists(_is_string_name)
+      rawTypeName.exists(_is_string_name)
   }
 
   final case class StringScalar(
@@ -44,13 +44,14 @@ private[cozy] object CmlModelInspection {
     name: String,
     representation: String,
     line: Int,
-    suggestedtype: Option[String],
-    replacementrecommended: Boolean
+    suggestedType: Option[String],
+    replacementRecommended: Boolean,
+    hasDistinctContract: Boolean
   )
 
   final case class Result(
     attributes: Vector[Attribute],
-    stringscalars: Vector[StringScalar]
+    stringScalars: Vector[StringScalar]
   )
 
   def load(path: Path): Result = {
@@ -77,13 +78,14 @@ private[cozy] object CmlModelInspection {
           "value:string",
           declarationlines.getOrElse(DeclarationKind.Value -> value.name, 1),
           suggestion.map(_.name),
-          suggestion.exists(_.replacementrecommended)
+          suggestion.exists(_.replacementrecommended),
+          hasDistinctContract = false
         ))
       } else
         None
     }
     val datatypescalars = model.takeDataTypeModel.classes.values.toVector.flatMap {
-      case datatype if _is_string_datatype(datatype) =>
+      case datatype @ DataTypeClass.Plain(_, _, _, constraints) if _is_string_datatype(datatype) =>
         val suggestion = PredefinedScalarCatalog.suggestion(datatype.name)
         Some(StringScalar(
           DeclarationKind.Datatype,
@@ -91,14 +93,15 @@ private[cozy] object CmlModelInspection {
           "value:string",
           declarationlines.getOrElse(DeclarationKind.Datatype -> datatype.name, 1),
           suggestion.map(_.name),
-          suggestion.exists(_.replacementrecommended)
+          suggestion.exists(_.replacementrecommended),
+          hasDistinctContract = constraints.nonEmpty
         ))
       case _ =>
         None
     }
     Result(
       attributes = entityattributes ++ valueattributes,
-      stringscalars = valuescalars ++ datatypescalars
+      stringScalars = valuescalars ++ datatypescalars
     )
   }
 

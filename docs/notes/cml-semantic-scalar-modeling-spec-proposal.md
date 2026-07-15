@@ -45,6 +45,14 @@ Hashes, tokens, external subject identifiers, provider message identifiers,
 and similar opaque values must not become powertypes simply because their
 runtime representation is a string.
 
+For the v1 lint contract, a string-backed plain `DATATYPE` is an accepted
+narrower domain scalar when its normalized value declaration contains at least
+one typed domain constraint: `min-length`, `max-length`, `pattern`, or
+`format`. The lint reads these constraints from the Kaleidox AST. A type name,
+suffix, or prose description alone is not an exemption. Typed privacy,
+redaction, normalization, and opaque-representation metadata can extend this
+contract later; until such metadata exists, those cases remain review items.
+
 ## 3. Powertype and Statemachine Boundary
 
 Use a powertype when the important fact is membership in a finite vocabulary.
@@ -350,7 +358,7 @@ domain decisions rather than incomplete aliases for those implemented types.
 Cozy should diagnose likely modeling debt without blindly rewriting source.
 Candidate diagnostics include:
 
-- a string-only wrapper with no additional constraint or semantic metadata;
+- a string-only wrapper with no normalized domain constraint;
 - a finite literal set modeled as unconstrained string;
 - a lifecycle status modeled without its declared statemachine;
 - a user-visible multilingual field collapsed to scalar string;
@@ -362,6 +370,10 @@ Candidate diagnostics include:
 Warnings become errors only when the accepted specification defines a
 deterministic violation. Domain intent that cannot be inferred remains a review
 item.
+
+A constrained nominal scalar is not warned solely because its representation
+is string-backed. A predefined-scalar replacement is an error only when the
+wrapper has no narrower normalized constraint contract.
 
 ## 9. Executable Specification Matrix
 

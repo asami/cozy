@@ -174,6 +174,57 @@ class CozyCmlLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
       }
     }
 
+    "accept a constrained string-backed domain scalar" in {
+      _with_temp_dir("cozy-cml-lint-constrained-domain-scalar") { dir =>
+        Given("a nominal Datatype with explicit range and syntax constraints")
+        val path = _write(
+          dir.resolve("model.cml"),
+          """# DATATYPE
+            |
+            |## MessageCode
+            |
+            |### Attribute
+            |
+            || name  | type   | multiplicity | min-length | max-length | pattern     |
+            ||-------+--------+--------------+------------+------------+-------------|
+            || value | string | 1            | 1          | 64         | [A-Z0-9_-]+ |
+            |""".stripMargin
+        )
+
+        When("Cozy lints the normalized Datatype")
+        val findings = CozyCmlLint.lint(path)
+
+        Then("the explicit domain contract prevents an unclassified-wrapper warning")
+        findings.map(_.code) should not contain "cml.datatype.nominal-string-wrapper"
+      }
+    }
+
+    "accept a constrained nominal scalar even when its name resembles a predefined type" in {
+      _with_temp_dir("cozy-cml-lint-constrained-predefined-name") { dir =>
+        Given("a title-like Datatype with a narrower explicit range")
+        val path = _write(
+          dir.resolve("model.cml"),
+          """# DATATYPE
+            |
+            |## UserAccountTitle
+            |
+            |### Attribute
+            |
+            || name  | type   | multiplicity | max-length |
+            ||-------+--------+--------------+------------|
+            || value | string | 1            | 80         |
+            |""".stripMargin
+        )
+
+        When("Cozy lints the normalized Datatype")
+        val findings = CozyCmlLint.lint(path)
+
+        Then("the narrower contract is not rejected as a redundant alias")
+        findings.map(_.code) should not contain "cml.datatype.predefined-scalar-wrapper"
+        findings.map(_.code) should not contain "cml.datatype.nominal-string-wrapper"
+      }
+    }
+
     "not replace a narrower token hash with the generic token type" in {
       _with_temp_dir("cozy-cml-lint-token-hash") { dir =>
         Given("a token hash Datatype whose algorithm contract is not declared yet")

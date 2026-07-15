@@ -114,9 +114,10 @@ Status: OPEN
       fields with nominal-scalar expectations.
 - [x] Accept canonical predefined scalars directly and reject redundant wrapper
       declarations.
-- [ ] Define an explicit accepted-domain-scalar contract so a valid nominal
-      Datatype does not remain a warning merely because its representation is
-      string-backed.
+- [x] Define the v1 accepted-domain-scalar contract from normalized Datatype
+      constraints so a valid constrained nominal Datatype does not remain a
+      warning merely because its representation is string-backed; keep typed
+      privacy and normalization policies as later contract extensions.
 - [x] Define when a finite vocabulary uses `POWERTYPE` and when lifecycle state
       requires `STATEMACHINE`, including open registries and externally owned
       lifecycle state.

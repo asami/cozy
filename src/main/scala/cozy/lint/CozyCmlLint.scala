@@ -79,16 +79,17 @@ private[cozy] object CozyCmlLint {
           }
       }
     val datatypescalarfindings = inspections.flatMap { case (path, inspection) =>
-      inspection.stringscalars.collect {
-        case scalar if scalar.kind == CmlModelInspection.DeclarationKind.Datatype && scalar.replacementrecommended =>
+      inspection.stringScalars.collect {
+        case scalar if scalar.kind == CmlModelInspection.DeclarationKind.Datatype &&
+          scalar.replacementRecommended && !scalar.hasDistinctContract =>
           Finding(
             Level.Fail,
             "cml.datatype.predefined-scalar-wrapper",
-            s"${scalar.name} only wraps string and duplicates predefined '${scalar.suggestedtype.get}'; use the predefined type directly.",
+            s"${scalar.name} only wraps string and duplicates predefined '${scalar.suggestedType.get}'; use the predefined type directly.",
             path,
             scalar.line
           )
-        case scalar if scalar.kind == CmlModelInspection.DeclarationKind.Datatype =>
+        case scalar if scalar.kind == CmlModelInspection.DeclarationKind.Datatype && !scalar.hasDistinctContract =>
           Finding(
             Level.Warn,
             "cml.datatype.nominal-string-wrapper",
