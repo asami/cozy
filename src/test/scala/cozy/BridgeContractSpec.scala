@@ -263,6 +263,28 @@ final class BridgeContractSpec
           "0.1.0-SNAPSHOT"
         )
       }
+
+      "forward component identity and the selected CNCF runtime contract together" in {
+        Given("an sbt bridge generation request with component and runtime settings")
+        val descriptor = "/tmp/cncf-runtime.yaml"
+        val settings = Map(
+          "component.module" -> "textus-art-scene",
+          "component.version" -> "0.1.0-SNAPSHOT",
+          "generation.versions.cncf" -> "0.5.1-SNAPSHOT",
+          "runtime.cncf.descriptor" -> descriptor
+        )
+
+        When("the bridge constructs the complete modeler argument list")
+        val args = CozySbtBridge.modelerArgsForSettingsForTest(settings)
+
+        Then("component API generation and predefined Result resolution receive one coherent contract")
+        args should contain allElementsOf List(
+          "--component-module", "textus-art-scene",
+          "--component-version", "0.1.0-SNAPSHOT",
+          "--cncf-version", "0.5.1-SNAPSHOT",
+          "--cncf-runtime-descriptor", descriptor
+        )
+      }
     }
 
     "dispatch publication requests" which {

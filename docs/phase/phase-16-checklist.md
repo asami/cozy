@@ -178,8 +178,8 @@ Status: OPEN
 Status: OPEN
 
 - [x] Make new scaffolds emit `# VALUE` plus `input-kind` for reusable inputs.
-- [ ] Make new scaffolds prefer local Values for one-use input/output schemas.
-- [ ] Make new scaffolds use predefined Results for simple outputs.
+- [x] Make new scaffolds prefer local Values for one-use input/output schemas.
+- [x] Make new scaffolds use predefined Results for simple outputs.
 - [x] Stop emitting top-level `# COMMAND` and `# QUERY` in new CML.
 - [ ] Keep legacy top-level and inline forms readable.
 - [ ] Add compatibility diagnostics for intentional generated-name or ABI
@@ -208,9 +208,9 @@ Status: OPEN
 
 Status: OPEN
 
-- [ ] Run focused Modeler operation and Value executable specifications.
-- [ ] Run scaffold executable specifications.
-- [ ] Run full `sbt --batch test` in Cozy.
+- [x] Run focused Modeler operation and Value executable specifications.
+- [x] Run scaffold executable specifications.
+- [x] Run full `sbt --batch test` in Cozy.
 - [ ] Generate and validate at least one command and one query CAR.
 - [ ] Run focused and full tests in `textus-user-notification`.
 - [ ] Run focused and full tests in `textus-user-account`.

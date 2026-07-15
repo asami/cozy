@@ -347,11 +347,13 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
       }
         withClue(s"sample model not found: $samplecml") {
         Files.exists(samplecml) shouldBe true
-      }
+        }
         val modelcontent = Files.readString(samplecml)
         modelcontent should include ("# VALUE")
-        modelcontent should include ("- input-kind :: COMMAND")
-        modelcontent should include ("- input-kind :: QUERY")
+        modelcontent should include ("##### INPUT\n\n###### VALUE\nPostNotice")
+        modelcontent should include ("##### INPUT\n\n###### VALUE\nSearchNotices")
+        count_token(modelcontent, "###### TYPE\nOperationResult") shouldBe 2
+        modelcontent should not include ("- input-kind ::")
         modelcontent should not include ("# COMMAND")
         modelcontent should not include ("# QUERY")
         withClue(s"web descriptor not found: $webdescriptor") {
@@ -619,6 +621,11 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         val modelcontent = Files.readString(out.resolve("src/main/cozy/textus-art-scene.cml"))
         val factorycontent = Files.readString(out.resolve("src/main/scala/org/simplemodeling/textus/artscene/impl/ComponentFactory.scala"))
         val webcontent = Files.readString(out.resolve("src/main/web-inf/form.yaml"))
+        val generated = out.resolve("target/scaffold-model")
+        val generationoutput = run_modeler_scala(out.resolve("src/main/cozy/textus-art-scene.cml"), generated)
+        val componentcontent = Files.readString(
+          generated.resolve("target/scala-3.3.8/src_managed/main/scala/org/simplemodeling/textus/artscene/ArtSceneComponent.scala")
+        )
         Then("the generated project files satisfy the scaffold contract")
         modelcontent should include ("## ArtScene")
         modelcontent should include ("## ExhibitionCandidate")
@@ -626,17 +633,21 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         modelcontent should include ("| name        | name     | 1")
         modelcontent should include ("#### RegisterFacility")
         modelcontent should include ("#### ListCandidates")
-        modelcontent should include ("## RegisterFacility\n\n- input-kind :: COMMAND")
-        modelcontent should include ("## ListCandidates\n\n- input-kind :: QUERY")
+        modelcontent should include ("##### INPUT\n\n###### VALUE\nRegisterFacility")
+        modelcontent should include ("##### INPUT\n\n###### VALUE\nListCandidates")
         modelcontent should not include ("# COMMAND")
         modelcontent should not include ("# QUERY")
-        modelcontent should include ("- input :: RegisterFacility")
-        modelcontent should include ("- output :: RegisterFacilityResult")
-        modelcontent should include ("- input :: ListCandidates")
-        modelcontent should include ("- output :: ListCandidatesResult")
-        modelcontent should include ("## RegisterFacilityResult")
-        modelcontent should include ("## ListCandidatesResult")
-        modelcontent should include ("OperationResult")
+        modelcontent should not include ("- input ::")
+        modelcontent should not include ("- output ::")
+        modelcontent should not include ("## RegisterFacilityResult")
+        modelcontent should not include ("## ListCandidatesResult")
+        count_token(modelcontent, "###### TYPE\nOperationResult") shouldBe 2
+        generationoutput should not include "is not defined"
+        componentcontent should include ("""inputType = "RegisterFacility"""")
+        componentcontent should include ("""inputValueKind = "COMMAND_VALUE"""")
+        componentcontent should include ("""inputType = "ListCandidates"""")
+        componentcontent should include ("""inputValueKind = "QUERY_VALUE"""")
+        count_token(componentcontent, """outputType = "OperationResult"""") shouldBe 2
         factorycontent should include ("override val ExhibitionCandidate: ArtSceneComponent.ExhibitionCandidateServiceFactory")
         factorycontent should include ("override def mcpReadyServices: Set[String]")
         factorycontent should include ("Set(\"ExhibitionCandidate\")")
@@ -690,8 +701,11 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         modelcontent should include ("| name        | name     | 1")
         modelcontent should include ("#### RegisterFacility")
         modelcontent should include ("#### ListCandidates")
-        modelcontent should include ("## RegisterFacilityResult")
-        modelcontent should include ("## ListCandidatesResult")
+        modelcontent should include ("##### INPUT\n\n###### VALUE\nRegisterFacility")
+        modelcontent should include ("##### INPUT\n\n###### VALUE\nListCandidates")
+        count_token(modelcontent, "###### TYPE\nOperationResult") shouldBe 2
+        modelcontent should not include ("## RegisterFacilityResult")
+        modelcontent should not include ("## ListCandidatesResult")
       }
 
       "init component can create a CAR plus SAR application layout" in {

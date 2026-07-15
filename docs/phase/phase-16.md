@@ -301,6 +301,16 @@ Current evidence:
   constraints to generated Scala validation and Web hints, while
   `MAttribute.Web` no longer injects domain validation and localized values are
   checked entry by entry;
+- new CAR scaffolds now keep one-use command and query inputs as named local
+  Values below each operation and use the CNCF-owned `OperationResult` for
+  simple outputs, while reusable entity description data remains a top-level
+  Value;
+- scaffold executable specifications generate both command and query metadata
+  from that CML, and the generated model sources compile together with the
+  scaffolded `ComponentFactory` under Scala 3.3.8;
+- the focused bridge, local-Value, predefined-Result, and scaffold
+  specifications pass 41 tests, the scaffold compiles through the normal
+  sbt-cozy path under Scala 3.3.8, and the full Cozy suite passes 519 tests;
 - the generated Scala 3.3.8 contract is compiled and executed by scripted
   coverage for Create and Update models, including every locale entry and the
   `NameAttributes` title plus `DescriptiveAttributes` headline, summary, and

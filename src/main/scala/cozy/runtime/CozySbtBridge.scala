@@ -67,7 +67,7 @@ private[cozy] object CozySbtBridge {
         command match {
           case "modeler-scala" =>
             val cozy = Cozy.build(Array.empty)
-            cozy.executeDirect((command :: (rest ++ _component_api_args(settings))).toArray)
+            cozy.executeDirect((command :: (rest ++ _modeler_args(settings))).toArray)
           case "car-sbt-project" =>
             val cozy = Cozy.build(Array.empty)
             val config = _generation_config(settings)
@@ -105,8 +105,14 @@ private[cozy] object CozySbtBridge {
       settings.get(key).map(value => Vector(option, value)).getOrElse(Vector.empty)
     }.toList
 
+  private def _modeler_args(settings: Map[String, String]): List[String] =
+    _component_api_args(settings) ++ _version_args(_generation_config(settings))
+
   private[cozy] def componentApiArgsForTest(settings: Map[String, String]): List[String] =
     _component_api_args(settings)
+
+  private[cozy] def modelerArgsForSettingsForTest(settings: Map[String, String]): List[String] =
+    _modeler_args(settings)
 
   private[cozy] def versionArgsForTest(settings: Map[String, String], projectdir: Path): List[String] =
     _version_args(_generation_config(settings + (_sbt_project_dir_setting -> projectdir.toString)))

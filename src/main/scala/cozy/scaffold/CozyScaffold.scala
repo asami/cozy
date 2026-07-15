@@ -153,9 +153,6 @@ private[cozy] object CozyScaffold {
     def entitySlug: String = CarScaffoldConfig.kebab(entityName)
     def commandOperationSlug: String = CarScaffoldConfig.kebab(commandOperationName)
     def queryOperationSlug: String = CarScaffoldConfig.kebab(queryOperationName)
-    def commandResultName: String = s"${commandOperationClassStem}Result"
-    def queryResultName: String = s"${queryOperationClassStem}Result"
-
     def modelFileName: String =
       if (isDefault) "sample.cml" else s"${artifactName}.cml"
 
@@ -742,8 +739,23 @@ private[cozy] object CozyScaffold {
       |#### ${scaffold.commandOperationName}
       |
       |- type :: COMMAND
-      |- input :: ${scaffold.commandOperationClassStem}
-      |- output :: ${scaffold.commandResultName}
+      |
+      |##### INPUT
+      |
+      |###### VALUE
+      |${scaffold.commandOperationClassStem}
+      |
+      |###### ATTRIBUTE
+      |
+      || name        | type   | multiplicity |
+      ||-------------+--------+--------------|
+      || name        | name   | 1            |
+      || description | ${scaffold.entityName}Description | ?            |
+      |
+      |##### OUTPUT
+      |
+      |###### TYPE
+      |OperationResult
       |
       |##### IMPLEMENTATION
       |entity-create
@@ -754,8 +766,24 @@ private[cozy] object CozyScaffold {
       |#### ${scaffold.queryOperationName}
       |
       |- type :: QUERY
-      |- input :: ${scaffold.queryOperationClassStem}
-      |- output :: ${scaffold.queryResultName}
+      |
+      |##### INPUT
+      |
+      |###### VALUE
+      |${scaffold.queryOperationClassStem}
+      |
+      |###### ATTRIBUTE
+      |
+      || name   | type   | multiplicity |
+      ||--------+--------+--------------|
+      || text   | string | ?            |
+      || offset | int    | ?            |
+      || limit  | int    | ?            |
+      |
+      |##### OUTPUT
+      |
+      |###### TYPE
+      |OperationResult
       |
       |##### IMPLEMENTATION
       |entity-search
@@ -777,29 +805,6 @@ private[cozy] object CozyScaffold {
       |
       |# VALUE
       |
-      |## ${scaffold.commandOperationClassStem}
-      |
-      |- input-kind :: COMMAND
-      |
-      |### Attribute
-      |
-      || name        | type   | multiplicity |
-      ||-------------+--------+--------------|
-      || name        | name   | 1            |
-      || description | ${scaffold.entityName}Description | ?            |
-      |
-      |## ${scaffold.queryOperationClassStem}
-      |
-      |- input-kind :: QUERY
-      |
-      |### Attribute
-      |
-      || name   | type   | multiplicity |
-      ||--------+--------+--------------|
-      || text   | string | ?            |
-      || offset | int    | ?            |
-      || limit  | int    | ?            |
-      |
       |## ${scaffold.entityName}Description
       |
       |### Attribute
@@ -807,18 +812,6 @@ private[cozy] object CozyScaffold {
       || name  | type   | multiplicity |
       ||-------+--------+--------------|
       || value | string | 1            |
-      |
-      |## ${scaffold.commandResultName}
-      |
-      |### EXTENDS
-      |
-      |OperationResult
-      |
-      |## ${scaffold.queryResultName}
-      |
-      |### EXTENDS
-      |
-      |OperationResult
       |""".stripMargin
 
   private[cozy] def carWebDescriptorYaml(
