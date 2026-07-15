@@ -279,6 +279,10 @@ Current evidence:
   structured round-trip, while `DescriptiveAttributesSpec` fixes
   non-destructive locale selection for the existing headline and brief fields;
   distinct headline and brief range policy remains open;
+- `simplemodeling-lib` `I18nSummarySpec` now fixes plain construction and
+  ordered structured round-trip, while `DescriptiveAttributesSpec` fixes
+  non-destructive locale fallback from summary to lead; summary-family role and
+  range policy remain open;
 - existing dirty work in both driver repositories remains untouched while the
   Cozy-side contract is being established.
 

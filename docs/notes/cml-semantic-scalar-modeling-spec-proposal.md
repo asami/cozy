@@ -179,6 +179,14 @@ runtime wrapper does not yet distinguish headline and brief ranges or define
 their length, normalization, or empty-value policy, so this remains baseline
 evidence rather than the accepted CML field contract.
 
+`I18nSummary` is the shared runtime wrapper for the `summary`, `lead`,
+`abstract`, and `remarks` fields in `DescriptiveAttributes`. Its plain and
+structured forms preserve `I18nString`, and effective summary fallback can
+select a localized `lead` without collapsing the stored entries. The wrapper
+does not currently distinguish the ranges or normalization rules of these four
+roles. Their canonical CML classification and constraints therefore remain
+open even though the runtime baseline is shared.
+
 Phase 16 must decide which remaining families are canonical CML types and which
 are framework metadata concepts before changing driver source.
 
