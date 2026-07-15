@@ -518,6 +518,8 @@ private[cozy] object CozyScaffold {
       |packaging:
       |  kind: car
       |  car:
+      |    abi:
+      |      dependencies: []
       |    manifest_metadata:
       |      boundedContext: ${_yaml_string(scaffold.boundedContext)}
       |      domain: ${_yaml_string(scaffold.domain)}

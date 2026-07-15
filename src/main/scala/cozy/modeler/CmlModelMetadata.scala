@@ -10,7 +10,7 @@ import org.goldenport.parser.LogicalSection
 
 /*
  * @since   Jun. 23, 2026
- * @version Jul.  1, 2026
+ * @version Jul. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CmlModelMetadata {
@@ -193,7 +193,8 @@ private[cozy] object CmlModelMetadata {
     relationships: Vector[String] = Vector.empty,
     constraints: Vector[String] = Vector.empty,
     implementation: Vector[String] = Vector.empty,
-    rdfcandidates: Vector[String] = Vector.empty
+    rdfcandidates: Vector[String] = Vector.empty,
+    fields: Vector[Field] = Vector.empty
   ) {
     def toJson: JsObject =
       Json.obj(
@@ -206,10 +207,14 @@ private[cozy] object CmlModelMetadata {
         "relationships" -> Json.toJson(relationships),
         "constraints" -> Json.toJson(constraints),
         "implementation" -> Json.toJson(implementation),
-        "rdfCandidates" -> Json.toJson(rdfcandidates)
+        "rdfCandidates" -> Json.toJson(rdfcandidates),
+        "fields" -> JsArray(fields.map(_.toJson))
       )
 
     def toYaml(indent: String): String = {
+      val fieldsyaml =
+        if (fields.isEmpty) "[]"
+        else "\n" + fields.map(_.toYaml(indent + "    ")).mkString
       s"""${indent}- kind: ${_yaml_scalar(kind)}
          |${indent}  name: ${_yaml_scalar(name)}
          |${indent}  termId: ${_yaml_scalar(termid)}
@@ -224,8 +229,33 @@ private[cozy] object CmlModelMetadata {
          |${indent}  constraints: ${_yaml_list(constraints)}
          |${indent}  implementation: ${_yaml_list(implementation)}
          |${indent}  rdfCandidates: ${_yaml_list(rdfcandidates)}
+         |${indent}  fields: ${fieldsyaml}
          |""".stripMargin
     }
+  }
+
+  final case class Field(
+    name: String,
+    typename: String,
+    multiplicity: String
+  ) {
+    def required: Boolean =
+      !Set("?", "*", "0..1", "0..*").contains(multiplicity.trim)
+
+    def toJson: JsObject =
+      Json.obj(
+        "name" -> name,
+        "type" -> typename,
+        "multiplicity" -> multiplicity,
+        "required" -> required
+      )
+
+    def toYaml(indent: String): String =
+      s"""${indent}- name: ${_yaml_scalar(name)}
+         |${indent}  type: ${_yaml_scalar(typename)}
+         |${indent}  multiplicity: ${_yaml_scalar(multiplicity)}
+         |${indent}  required: ${required}
+         |""".stripMargin
   }
 
   final case class Descriptive(
@@ -502,21 +532,21 @@ private[cozy] object CmlModelMetadata {
     var insection = false
     var current = Option.empty[(String, Vector[String])]
     var blocks = Vector.empty[RawBlock]
-    def flush(): Unit =
+    def _flush_(): Unit =
       current.foreach { case (name, body) => blocks :+= RawBlock(name, body) }
     lines.foreach { line =>
       val trimmed = line.trim
       if (trimmed.startsWith(sectionprefix) && !trimmed.startsWith(sectionprefix + "#")) {
         if (insection)
-          flush()
+          _flush_()
         insection = trimmed.drop(sectionprefix.length).trim.equalsIgnoreCase(sectionname)
         current = None
       } else if (insection && trimmed.startsWith(itemprefix) && !trimmed.startsWith(itemprefix + "#")) {
-        flush()
+        _flush_()
         val name = trimmed.drop(itemprefix.length).trim
         current = if (name.isEmpty) None else Some(name -> Vector.empty)
       } else if (insection && _heading_level(trimmed).exists(_ <= sectionlevel)) {
-        flush()
+        _flush_()
         current = None
         insection = false
       } else if (insection) {
@@ -524,7 +554,7 @@ private[cozy] object CmlModelMetadata {
       }
     }
     if (insection)
-      flush()
+      _flush_()
     blocks.distinct
   }
 
@@ -611,7 +641,8 @@ private[cozy] object CmlModelMetadata {
         relationships = _field_list(fields, "relationship", "relationships"),
         constraints = _field_list(fields, "constraint", "constraints"),
         implementation = _field_list(fields, "implementation"),
-        rdfcandidates = _field_list(fields, "rdf", "rdf candidates", "rdfcandidates")
+        rdfcandidates = _field_list(fields, "rdf", "rdf candidates", "rdfcandidates"),
+        fields = _attribute_fields(section.lines)
       )
     }
   }
@@ -621,6 +652,9 @@ private[cozy] object CmlModelMetadata {
     val targetkinds = Map(
       "entity" -> "entity",
       "value" -> "value",
+      "datatype" -> "datatype",
+      "command" -> "command",
+      "query" -> "query",
       "powertype" -> "powertype",
       "statemachine" -> "statemachine",
       "state-machine" -> "statemachine",
@@ -629,19 +663,19 @@ private[cozy] object CmlModelMetadata {
     var currentkind = Option.empty[String]
     var current = Option.empty[(String, String, Vector[String])]
     var sections = Vector.empty[Section]
-    def flush(): Unit =
+    def _flush_(): Unit =
       current.foreach { case (kind, name, body) =>
         sections :+= Section(kind, name, body)
       }
     lines.foreach { line =>
       val trimmed = line.trim
       if (trimmed.startsWith("# ") && !trimmed.startsWith("## ")) {
-        flush()
+        _flush_()
         current = None
         val rawkind = trimmed.drop(2).trim.toLowerCase(java.util.Locale.ROOT)
         currentkind = targetkinds.get(rawkind)
       } else if (trimmed.startsWith("## ") && !trimmed.startsWith("### ")) {
-        flush()
+        _flush_()
         current = currentkind.flatMap { kind =>
           val name = trimmed.drop(3).trim
           if (name.isEmpty) None else Some((kind, name, Vector.empty[String]))
@@ -650,7 +684,7 @@ private[cozy] object CmlModelMetadata {
         current = current.map { case (kind, name, body) => (kind, name, body :+ line) }
       }
     }
-    flush()
+    _flush_()
     sections.distinct
   }
 
@@ -659,7 +693,7 @@ private[cozy] object CmlModelMetadata {
     val childprefix = prefix + "#"
     var current = Option.empty[(String, Vector[String])]
     var fields = Vector.empty[(String, String)]
-    def flush(): Unit =
+    def _flush_(): Unit =
       current.foreach { case (name, body) =>
         val text = body.mkString("\n").trim
         if (text.nonEmpty)
@@ -668,13 +702,13 @@ private[cozy] object CmlModelMetadata {
     lines.foreach { line =>
       val trimmed = line.trim
       if (trimmed.startsWith(prefix) && !trimmed.startsWith(childprefix)) {
-        flush()
+        _flush_()
         current = Some(trimmed.drop(prefix.length).trim.toLowerCase(java.util.Locale.ROOT) -> Vector.empty)
       } else {
         current = current.map { case (name, body) => name -> (body :+ line) }
       }
     }
-    flush()
+    _flush_()
     fields.toMap
   }
 
@@ -688,6 +722,40 @@ private[cozy] object CmlModelMetadata {
     names.toVector.flatMap(name => fields.get(name.toLowerCase(java.util.Locale.ROOT))).flatMap { value =>
       value.linesIterator.map(_.trim.stripPrefix("-").trim).filter(_.nonEmpty)
     }
+
+  private def _attribute_fields(lines: Vector[String]): Vector[Field] =
+    _raw_section_block(lines, 3, "ATTRIBUTE").toVector.flatMap { block =>
+      val rows = block.lines.map(_.trim).filter(line => line.startsWith("|") && line.endsWith("|"))
+      rows.headOption.toVector.flatMap { headerline =>
+        val headers = _table_cells(headerline).map(_.toLowerCase(java.util.Locale.ROOT))
+        val nameindex = headers.indexOf("name")
+        val typeindex = headers.indexOf("type")
+        val multiplicityindex = headers.indexOf("multiplicity")
+        if (nameindex < 0 || typeindex < 0 || multiplicityindex < 0)
+          Vector.empty
+        else
+          rows.drop(1).filterNot(_table_separator).flatMap { row =>
+            val cells = _table_cells(row)
+            if (cells.length <= Seq(nameindex, typeindex, multiplicityindex).max)
+              None
+            else {
+              val name = cells(nameindex)
+              val typename = cells(typeindex)
+              val multiplicity = cells(multiplicityindex)
+              if (name.nonEmpty && typename.nonEmpty && multiplicity.nonEmpty)
+                Some(Field(name, typename, multiplicity))
+              else
+                None
+            }
+          }
+      }
+    }
+
+  private def _table_cells(line: String): Vector[String] =
+    line.stripPrefix("|").stripSuffix("|").split("\\|", -1).toVector.map(_.trim)
+
+  private def _table_separator(line: String): Boolean =
+    _table_cells(line).forall(cell => cell.nonEmpty && cell.forall(ch => ch == '-' || ch == '+' || ch == ':'))
 
   private def _slugify(value: String): String =
     value.replaceAll("([a-z0-9])([A-Z])", "$1-$2").

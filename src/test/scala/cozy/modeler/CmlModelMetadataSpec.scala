@@ -5,10 +5,11 @@ import java.nio.file.Files
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+import play.api.libs.json.{JsValue, Json}
 
 /*
  * @since   Jun. 23, 2026
- * @version Jul.  1, 2026
+ * @version Jul. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 class CmlModelMetadataSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -54,6 +55,76 @@ class CmlModelMetadataSpec extends AnyWordSpec with Matchers with GivenWhenThen 
       metadata should include ("\"cozyVersion\"")
       metadata should include ("\"rdfCandidates\"")
       Files.readString(yaml) should include ("termId: \"concept:knowledge-item\"")
+      Files.readString(yaml) should include ("fields: []")
+    }
+
+    "preserve entity and operation type field contracts" in {
+      Given("a CML source with entity, command, query, and value attributes")
+      val dir = Files.createTempDirectory("cozy-cml-model-metadata-fields")
+      val source = dir.resolve("src/main/cozy/sample.cml")
+      Files.createDirectories(source.getParent)
+      Files.writeString(
+        source,
+        """# ENTITY
+          |
+          |## Notice
+          |
+          |### ATTRIBUTE
+          |
+          || name | type | multiplicity |
+          ||------+------|--------------|
+          || id | entityid | 1 |
+          || title | string | ? |
+          |
+          |# COMMAND
+          |
+          |## CreateNotice
+          |
+          |### ATTRIBUTE
+          |
+          || name | type | multiplicity |
+          ||------+------|--------------|
+          || title | string | 1 |
+          |
+          |# QUERY
+          |
+          |## GetNotice
+          |
+          |### ATTRIBUTE
+          |
+          || name | type | multiplicity |
+          ||------+------|--------------|
+          || id | string | 1 |
+          |
+          |# VALUE
+          |
+          |## NoticeResult
+          |
+          |### ATTRIBUTE
+          |
+          || name | type | multiplicity |
+          ||------+------|--------------|
+          || notice | Notice | ? |
+          |""".stripMargin,
+        StandardCharsets.UTF_8
+      )
+      val json = dir.resolve("target/model-metadata.json")
+      val yaml = dir.resolve("target/model-metadata.yaml")
+
+      When("Cozy writes the canonical model metadata")
+      CmlModelMetadata.write(source, json, yaml, "src/main/cozy/sample.cml", "concept")
+
+      Then("every model kind and its field type, multiplicity, and required state remain explicit")
+      val elements = (Json.parse(Files.readString(json)) \ "modelElements").as[Seq[JsValue]]
+      elements.map(x => (x \ "kind").as[String]) should contain allOf ("entity", "command", "query", "value")
+      val entity = elements.find(x => (x \ "name").as[String] == "Notice").get
+      val entityfields = (entity \ "fields").as[Seq[JsValue]]
+      entityfields.map(x => (x \ "name").as[String]) shouldBe Seq("id", "title")
+      (entityfields.head \ "type").as[String] shouldBe "entityid"
+      (entityfields.head \ "required").as[Boolean] shouldBe true
+      (entityfields(1) \ "multiplicity").as[String] shouldBe "?"
+      (entityfields(1) \ "required").as[Boolean] shouldBe false
+      Files.readString(yaml) should include ("type: \"entityid\"")
     }
 
     "extract operation summary and description from operation child sections" in {

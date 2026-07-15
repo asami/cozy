@@ -32,6 +32,8 @@ build:
 packaging:
   kind: car
   car:
+    abi:
+      dependencies: []
     manifest_metadata:
       boundedContext: "<bounded-context>"
       domain: "<domain>"
@@ -45,6 +47,11 @@ packaging:
 
 The build dependency is the exact development coordinate. `minimum`,
 `excluded`, and `tested` describe runtime compatibility and validation.
+
+`packaging.car.abi.dependencies` is the canonical declaration of component ABI
+dependencies. Each non-empty entry declares `name` and `abiRange`; Maven/JVM
+libraries remain under build or CAR-local dependency declarations and must not
+be copied into the component ABI dependency surface.
 
 ## Build Projection
 

@@ -49,13 +49,19 @@ private[cozy] object CozyArchivePackager {
     val extensionmap = packagemetadata.extensions ++ _string_map(args, "extensions")
     val configmap = config.mapUnder("project.component.config") ++ _string_map(args, "config")
     val entities = _entity_descriptors(args)
+    val abidependencies = config.indexedMapsUnder("packaging.car.abi.dependencies").map { dependency =>
+      CozyCarAbiManifest.Dependency(
+        dependency.getOrElse("name", ""),
+        dependency.getOrElse("abiRange", dependency.getOrElse("abi_range", ""))
+      )
+    }
     val abimanifest = _path(args, "abi-manifest").orElse(_source_abi_manifest(cardir)).map { path =>
       _validate_abi_manifest_coordinate(path, name, version)
       path
     }.getOrElse {
       val content =
         if (modelmetadata.nonEmpty)
-          CozyCarAbiManifest.create(modelmetadata, name, version, packagemetadata.component)
+          CozyCarAbiManifest.create(modelmetadata, name, version, packagemetadata.component, abidependencies)
         else if (_has_cml_sources(projectdir))
           RAISE.invalidArgumentFault(
             s"CML CAR '${name}' requires generated model metadata when no explicit or source-managed ABI manifest is available."
@@ -458,14 +464,14 @@ private[cozy] object CozyArchivePackager {
     local: Vector[String],
     repositories: Vector[String]
   ): String = {
-    def section(name: String, values: Vector[String]): String =
+    def _section_(name: String, values: Vector[String]): String =
       if (values.isEmpty) ""
       else values.map(v => s"    - ${_yaml_string(v)}\n").mkString(s"  $name:\n", "", "")
     "dependencies:\n" +
-      section("provided", provided) +
-      section("shared", shared) +
-      section("local", local) +
-      section("repositories", repositories)
+      _section_("provided", provided) +
+      _section_("shared", shared) +
+      _section_("local", local) +
+      _section_("repositories", repositories)
   }
 
   private def _yaml_string(value: String): String = {

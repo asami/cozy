@@ -140,6 +140,8 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         projectyamlcontent should include ("org.goldenport::goldenport-cncf:")
         projectyamlcontent should include ("org.scalatest::scalatest:3.2.10")
         projectyamlcontent should include ("manifest_metadata:")
+        projectyamlcontent should include ("abi:")
+        projectyamlcontent should include ("dependencies: []")
         projectyamlcontent should include ("minimum:")
         projectyamlcontent should include ("tested:")
         projectyamlbuildcontent should include ("object ProjectYamlBuild")

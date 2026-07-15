@@ -11,7 +11,8 @@ import scala.collection.JavaConverters._
 /*
  * @since   May. 20, 2026
  *  version Jun.  8, 2026
- * @version Jun. 18, 2026
+ *  version Jun. 18, 2026
+ * @version Jul. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyProjectYamlConfig {
@@ -27,6 +28,19 @@ private[cozy] object CozyProjectYamlConfig {
       values.collect {
         case (key, value) if key.startsWith(prefix) && value.trim.nonEmpty =>
           key.substring(prefix.length) -> value.trim
+      }
+    }
+    def indexedMapsUnder(path: String): Vector[Map[String, String]] = {
+      val prefix = path + "."
+      values.toVector.flatMap {
+        case (key, value) if key.startsWith(prefix) =>
+          key.substring(prefix.length).split("\\.", 2).toList match {
+            case index :: field :: Nil if index.forall(_.isDigit) => Some((index.toInt, field, value))
+            case _ => None
+          }
+        case _ => None
+      }.groupBy(_._1).toVector.sortBy(_._1).map { case (_, entries) =>
+        entries.map { case (_, field, value) => field -> value }.toMap
       }
     }
     def boolean(path: String): Option[Boolean] =

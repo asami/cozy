@@ -130,9 +130,20 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
     }
   }
 
-    "derive exported operation signatures and entities from CML model metadata" in {
+    "derive full service, operation, type, entity, and dependency ABI surfaces from canonical metadata" in {
     _with_temp_dir("cozy-car-model-metadata-abi") { dir =>
-      Given("generated CML model metadata with two operations and one entity")
+      Given("generated CML model metadata and one project-declared component ABI dependency")
+      val projectdir = dir.resolve("project")
+      _write(
+        projectdir.resolve("project.yaml"),
+        """packaging:
+          |  car:
+          |    abi:
+          |      dependencies:
+          |        - name: textus-foundation
+          |          abiRange: "[1.2.0,2.0.0)"
+          |""".stripMargin
+      )
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
       val metadata = _write(dir.resolve("target/cozy/model-metadata.json"), _model_metadata)
       val archive = dir.resolve("out/sample.car")
@@ -141,6 +152,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
       When("Cozy packages the CAR without an explicit ABI manifest")
       CozyArchivePackager.buildCar(List(
         "--save", archive.toString,
+        "--project-dir", projectdir.toString,
         "--main-jar", mainjar.toString,
         "--model-metadata", metadata.toString,
         "--abi-manifest-output", abisidecar.toString,
@@ -149,17 +161,43 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
         "--component", "sample-component"
       ))
 
-      Then("the generated ABI manifest describes the CML operation surface")
-      val exports = Json.parse(_zip_text(archive, "abi-manifest.json")) \ "abi" \ "exports"
+      Then("the generated ABI manifest preserves every canonical public contract surface")
+      val abi = Json.parse(_zip_text(archive, "abi-manifest.json")) \ "abi"
+      val exports = abi \ "exports"
+      (exports \ "services").as[Seq[JsValue]].map(x => (x \ "name").as[String]) shouldBe Seq("Notice")
       val operations = (exports \ "operations").as[Seq[JsValue]]
       operations.map(x => (x \ "name").as[String]) should contain theSameElementsAs Seq("createNotice", "getNotice")
       operations.find(x => (x \ "name").as[String] == "createNotice").get shouldBe Json.obj(
+        "service" -> "Notice",
         "name" -> "createNotice",
         "kind" -> "COMMAND",
         "input" -> "CreateNotice",
         "output" -> "CreateNoticeResult"
       )
-      (exports \ "entities").as[Seq[JsValue]].map(x => (x \ "name").as[String]) shouldBe Seq("Notice")
+      val entities = (exports \ "entities").as[Seq[JsValue]]
+      entities.map(x => (x \ "name").as[String]) shouldBe Seq("Notice")
+      (entities.head \ "fields").as[Seq[JsValue]].head shouldBe Json.obj(
+        "name" -> "id",
+        "type" -> "entityid",
+        "multiplicity" -> "1",
+        "required" -> true
+      )
+      val types = (exports \ "types").as[Seq[JsValue]]
+      types.map(x => (x \ "name").as[String]) should contain allOf (
+        "CreateNotice", "CreateNoticeResult", "GetNotice", "NoticeResult"
+      )
+      val createnotice = types.find(x => (x \ "name").as[String] == "CreateNotice").get
+      (createnotice \ "kind").as[String] shouldBe "command"
+      (createnotice \ "fields").as[Seq[JsValue]].head shouldBe Json.obj(
+        "name" -> "title",
+        "type" -> "string",
+        "multiplicity" -> "1",
+        "required" -> true
+      )
+      (abi \ "dependencies").as[Seq[JsValue]] shouldBe Seq(Json.obj(
+        "name" -> "textus-foundation",
+        "abiRange" -> "[1.2.0,2.0.0)"
+      ))
       Files.readString(abisidecar) shouldBe _zip_text(archive, "abi-manifest.json")
     }
   }
@@ -1255,8 +1293,24 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
       |    }
       |  },
       |  "modelElements": [
-      |    {"kind": "entity", "name": "Notice"},
-      |    {"kind": "value", "name": "CreateNotice"}
+      |    {
+      |      "kind": "entity",
+      |      "name": "Notice",
+      |      "fields": [
+      |        {"name": "id", "type": "entityid", "multiplicity": "1", "required": true},
+      |        {"name": "title", "type": "string", "multiplicity": "?", "required": false}
+      |      ]
+      |    },
+      |    {
+      |      "kind": "command",
+      |      "name": "CreateNotice",
+      |      "fields": [
+      |        {"name": "title", "type": "string", "multiplicity": "1", "required": true}
+      |      ]
+      |    },
+      |    {"kind": "value", "name": "CreateNoticeResult", "fields": []},
+      |    {"kind": "query", "name": "GetNotice", "fields": []},
+      |    {"kind": "value", "name": "NoticeResult", "fields": []}
       |  ]
       |}
       |""".stripMargin
