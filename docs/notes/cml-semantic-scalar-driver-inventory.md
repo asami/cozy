@@ -106,7 +106,9 @@ The primary unresolved notification decision is whether notification type is
 closed. Body uses the
 canonical locale-aware `text` contract. Quiet-hour fields use the predefined
 parser-backed `localtime` contract. Delivery provider remains open and
-provider-extensible.
+provider-extensible. The nine remaining domain-scalar rows are CML-owned and
+generate their nominal Scala types; no parallel handwritten wrapper source is
+kept in the notification component.
 
 ## 5. textus-user-account
 
@@ -138,7 +140,9 @@ must not be collapsed to a broader predefined scalar merely because their
 current representation is one string. Access and refresh sessions express
 their lifecycle with issue, expiry, revocation, and rotation timestamps rather
 than a finite string status, so this inventory does not invent a session-state
-powertype.
+powertype. The ten remaining domain-scalar rows are likewise CML-owned and
+generate their nominal Scala types; no parallel handwritten wrapper source is
+kept in the account component.
 
 ## 6. Next Implementation Boundary
 

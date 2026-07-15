@@ -640,6 +640,21 @@ Account operation semantic-type alignment update on 2026-07-16:
   concepts no longer split into semantic entity types and generic operation
   strings.
 
+Domain-scalar ownership audit on 2026-07-16:
+
+- the nine remaining notification domain scalars and ten remaining account
+  domain scalars all correspond to explicit accepted-inventory entries;
+- all nineteen nominal Scala types are generated from the driver CML into
+  `target/scala-3.3.8/src_managed/main`;
+- neither driver keeps handwritten scalar-wrapper source under
+  `src/main/scala`;
+- unresolved normalization, length, redaction, and structured-data decisions
+  remain properties of the accepted CML contracts rather than justification
+  for parallel handwritten wrappers.
+
+The audit is recorded in
+`docs/journal/2026/07/cml-domain-scalar-generated-ownership-audit-2026-07-16.md`.
+
 ## Stage 16.7: Verification and Closure
 
 Stage Status:
