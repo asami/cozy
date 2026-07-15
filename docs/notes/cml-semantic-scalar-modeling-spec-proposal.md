@@ -189,12 +189,14 @@ open even though the runtime baseline is shared.
 
 `I18nText` also follows the shared wrapper model. Plain construction keeps one
 root-locale entry, and structured encoding round-trips every ordered locale
-entry. The existing `ContentBody` conversion is not yet a natural-I18N
-boundary: it selects `I18nText.displayMessage` and stores only one `String`.
-Phase 16 therefore records the wrapper behavior as runtime evidence but does
-not accept the current `ContentAttributes` projection as the canonical CML
-body-text contract. Preserving the complete localized value requires a
-separate content model and serialization decision.
+entry. It is the runtime baseline for localized plain narrative text, not for a
+rich document body. CNCF SD-01B already fixes `ContentBody` as one document
+body and reserves rich multilingual bodies for the future SmartDox Textus
+profile. The existing `I18nText` to `ContentBody` conversion selects one
+`displayMessage`; it is a display projection or compatibility input, not a
+canonical multilingual storage contract. A CML field that owns localized plain
+text may use the `I18nText` family, while Blog, article, and document body fields
+remain `ContentBody`.
 
 Phase 16 must decide which remaining families are canonical CML types and which
 are framework metadata concepts before changing driver source.

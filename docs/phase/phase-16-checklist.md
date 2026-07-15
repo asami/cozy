@@ -151,11 +151,14 @@ Status: OPEN
       fallback through `DescriptiveAttributesSpec`; keep summary-family role
       classification and constraints open.
 - [x] Replace the pending `I18nTextSpec` coverage with executable plain and
-      structured shared-codec specifications; record the current
-      `ContentAttributes` single-string projection as an unresolved
-      natural-I18N boundary rather than accepting the collapse.
-- [ ] Define a content-body model and serialization contract that preserves all
-      `I18nText` locale entries through `ContentAttributes`.
+      structured shared-codec specifications; classify `I18nText` as localized
+      plain narrative text while retaining the SD-01B single-document-body
+      contract for `ContentBody`.
+- [ ] Decide whether the display-projection overloads from `I18nText` to
+      `ContentBody` remain compatibility inputs or should be deprecated to
+      prevent accidental multilingual-storage assumptions.
+- [x] Align generated `derived=content` aliases with SD-01B by returning
+      `ContentBody` and omitting the obsolete locale overload.
 - [x] Replace the pending `I18nTitleSpec` coverage with executable single-locale
       construction, multi-locale codec, locale fallback, and preservation
       specifications.

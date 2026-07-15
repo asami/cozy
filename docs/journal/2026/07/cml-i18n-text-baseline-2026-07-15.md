@@ -18,14 +18,27 @@ Executable coverage now confirms that `I18nText`:
 - round-trips ordered locale/value entries through the shared structured JSON
   codec.
 
-## Identified Boundary
+## Cross-Contract Finding
 
 `ContentBody` and `ContentAttributes.Builder` currently convert `I18nText`
-through `displayMessage` and store one `String`. That conversion loses the
-other locale entries and cannot satisfy the natural-I18N requirement for
-datastore, API, form, and Help surfaces.
+through `displayMessage` and store one `String`. The initial audit treated this
+as an unresolved locale-preservation defect. A cross-check against CNCF SD-01B
+showed that this interpretation was incorrect: the accepted content contract
+keeps `ContentBody` as one document body and reserves rich multilingual bodies
+for the future SmartDox Textus profile.
 
-This slice does not turn the collapse into an accepted specification. A later
-design slice must decide whether `ContentBody` owns `I18nText` directly or
-introduces another locale-preserving body representation, including the
-corresponding `Record` and generated-surface contract.
+## Decision
+
+`I18nText` is the runtime baseline for localized plain narrative text. It is
+not the multilingual representation of `ContentBody`. The current conversion
+to `ContentBody` is a display projection or compatibility input and must not be
+described as canonical multilingual storage.
+
+Phase 16 still needs to decide whether those conversion overloads should remain
+available or be deprecated to prevent accidental storage assumptions. That
+decision does not change the established SD-01B document-body boundary.
+
+The same cross-check found a stale SimpleModeler alias: `derived=content`
+returned `Option[I18nText]` from an `Option[ContentBody]` source and also emitted
+a locale overload. The generator now returns `Option[ContentBody]` and omits
+the locale overload, so generated entity APIs follow the established boundary.

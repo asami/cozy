@@ -284,9 +284,12 @@ Current evidence:
   non-destructive locale fallback from summary to lead; summary-family role and
   range policy remain open;
 - `simplemodeling-lib` `I18nTextSpec` now fixes plain construction and ordered
-  structured round-trip, while the audit of `ContentAttributes` identifies its
-  `displayMessage` to `String` conversion as an unresolved natural-I18N
-  boundary;
+  structured round-trip; cross-checking CNCF SD-01B classifies it as localized
+  plain narrative text, while `ContentBody` remains a single document body and
+  its `I18nText` overload is only a display projection or compatibility input;
+- SimpleModeler generated `derived=content` aliases now return `ContentBody`
+  and omit the obsolete locale overload, keeping generated entity APIs aligned
+  with SD-01B;
 - existing dirty work in both driver repositories remains untouched while the
   Cozy-side contract is being established.
 

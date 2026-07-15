@@ -45,8 +45,8 @@ For entity value classes, the current alias patterns are:
   - emits `def subject(locale: java.util.Locale): String = title(locale)`
   - emits `def withSubject(value: String): Notice`
 - `derived=content`
-  - emits `def body: Option[I18nText] = content`
-  - emits `def body(locale: java.util.Locale): Option[String] = content(locale)`
+  - emits `def body: Option[ContentBody] = content`
+  - does not emit a locale overload because `ContentBody` is one document body
   - emits `def withBody(value: String): Notice`
 
 The derived attributes remain schema-visible. This is important for Web form,

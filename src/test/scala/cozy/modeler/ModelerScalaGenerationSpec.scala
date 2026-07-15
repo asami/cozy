@@ -16,11 +16,10 @@ import play.api.libs.json.Json
 
 /*
  * @since   Jun. 23, 2026
- *  version Jul. 11, 2026
  * @version Jul. 15, 2026
  * @author  ASAMI, Tomoharu
  */
-class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
+final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
   "CML modeler Scala generation" should {
     "generate Scala component code" which {
       "modeler-scala generates DomainComponent" in {
@@ -255,8 +254,8 @@ class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with GivenWhe
         content should include ("def subject: String = title")
         content should include ("def subject(locale: java.util.Locale): String = title(locale)")
         content should include ("def withSubject(value: String): Notice")
-        content should include ("def body: Option[org.goldenport.datatype.I18nText] = content")
-        content should include ("def body(locale: java.util.Locale): Option[String] = content(locale)")
+        content should include ("def body: Option[org.simplemodeling.model.value.ContentBody] = content")
+        content should not include ("def body(locale: java.util.Locale)")
         content should include ("def withBody(value: String): Notice")
         content should include ("def authorId: String = ownerId")
         content should include ("def withAuthorId(value: String): Notice")
