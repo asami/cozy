@@ -292,7 +292,7 @@ Status: OPEN
       as nominal, predefined, powertype, statemachine, or structured types.
 - [ ] Verify nominal scalars reject invalid construction and round-trip through
       scalar codec, datastore, Record, form, REST/OpenAPI, and Help surfaces.
-- [ ] Verify `VALUE`, plain `DATATYPE`, complex `DATATYPE`, `POWERTYPE`, and
+- [x] Verify `VALUE`, plain `DATATYPE`, complex `DATATYPE`, `POWERTYPE`, and
       `STATEMACHINE` retain distinct generated and serialized contracts.
 - [x] Run `git diff --check` across all repositories touched by the Phase 16
       scalar/I18N and driver validation slice.

@@ -686,6 +686,24 @@ Generated driver semantic-type verification on 2026-07-16:
 - full driver validation passes with 92 account tests and 28 notification
   tests, and both CAR lint runs report no deterministic failure.
 
+Distinct CML model-kind verification on 2026-07-16:
+
+- `CmlModelKindContractSpec` generates one Scala 3.3.8 component containing a
+  `VALUE`, plain and complex `DATATYPE`, `POWERTYPE`, and entity
+  `STATEMACHINE`;
+- the normalized model keeps those declarations as `MValue`,
+  `MNominalDataType`, `MStructuredDataType`, `MPowertype`, and
+  an entity-bound `MStateMachineRef` rather than collapsing them to their
+  common string or record representations;
+- generated serialization remains distinct: Value and complex Datatype use
+  record contracts, plain Datatype uses a validated nominal scalar contract,
+  Powertype uses a closed scalar vocabulary, and Statemachine becomes CNCF
+  lifecycle topology metadata rather than another serialized value class;
+- the `cozy/model-kind-runtime` scripted fixture compiles the generated source
+  with Scala 3.3.8 and executes Value/Datatype `Record` and datastore
+  projection, nominal scalar codec and reader, Powertype logical/database
+  decoding, and CNCF Statemachine definition/transition metadata.
+
 ## Stage 16.7: Verification and Closure
 
 Stage Status:

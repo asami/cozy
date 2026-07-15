@@ -1,0 +1,4 @@
+> runMain cozy.Cozy car-sbt-project model-kind-contract.cml --save=out.d
+> runMain cozy.Cozy modeler-scala model-kind-contract.cml --save=generated.d
+$ exists out.d/build.sbt
+$ exec sh check-model-kind-runtime.sh

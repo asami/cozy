@@ -1,0 +1,77 @@
+# COMPONENT
+
+## Ticket
+
+### PACKAGE
+
+domain
+
+# VALUE
+
+## CreateTicket
+
+### ATTRIBUTE
+
+| name     | type         | multiplicity |
+|----------|--------------|--------------|
+| code     | TicketCode   | 1            |
+| location | GeoPoint     | 1            |
+| status   | TicketStatus | 1            |
+
+# DATATYPE
+
+## TicketCode
+
+### ATTRIBUTE
+
+| name  | type   | multiplicity | min-length | max-length |
+|-------|--------|--------------|------------|------------|
+| value | string | 1            | 1          | 32         |
+
+## GeoPoint
+
+### ATTRIBUTE
+
+| name      | type   | multiplicity |
+|-----------|--------|--------------|
+| latitude  | double | 1            |
+| longitude | double | 1            |
+
+# POWERTYPE
+
+## TicketStatus
+
+package = domain.value
+
+| name   | value | label  |
+|--------|-------|--------|
+| Open   | 1     | Open   |
+| Closed | 2     | Closed |
+
+# ENTITY
+
+## Ticket
+
+### ATTRIBUTE
+
+| name     | type         | multiplicity |
+|----------|--------------|--------------|
+| id       | entityid     | 1            |
+| code     | TicketCode   | 1            |
+| location | GeoPoint     | 1            |
+| status   | TicketStatus | 1            |
+
+### STATEMACHINE
+
+#### ticketLifecycle
+
+##### STATE
+
+###### Open
+
+####### TRANSITION
+
+- on :: close
+- to :: Closed
+
+###### Closed
