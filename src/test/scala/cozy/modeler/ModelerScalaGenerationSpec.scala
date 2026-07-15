@@ -491,7 +491,11 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         val generated = out.resolve(
         "target/scala-3.3.8/src_managed/main/scala/domain/DomainComponent.scala"
         )
+        val entitygenerated = out.resolve(
+        "target/scala-3.3.8/src_managed/main/scala/domain/entity/Person.scala"
+        )
         val content = Files.readString(generated)
+        val entitycontent = Files.readString(entitygenerated)
         Then("the generated Scala code preserves the model semantics")
         content should include ("override def stateMachineTransitionRules: Vector[CollectionTransitionRule[Any]] = Vector(")
         content should include ("override def stateMachineDefinitions: Vector[org.goldenport.cncf.statemachine.CmlStateMachineDefinition] = Vector(")
@@ -499,8 +503,15 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         content should include ("states = Vector(\"Draft\", \"Published\")")
         content should include ("events = Vector(\"publish\")")
         content should include ("eventName = \"publish\"")
+        content should include ("machineName = Some(\"lifecycle\")")
+        content should include ("stateFieldName = Some(\"status\")")
+        content should include ("fromState = Some(\"Draft\")")
+        content should include ("fromStateValue = Some(1)")
+        content should include ("toState = Some(\"Published\")")
+        content should include ("toStateValue = Some(2)")
         content should include ("guard = Some(StateMachineRuleBuilder.guardExpression[Any](\"event.amount > 0\")")
         content should include ("StateMachineRuleBuilder.updateRule[Any](")
+        entitycontent should not include ("lifecycle: PersonLifecycle")
       }
 
       "modeler-scala maps identifier guard to guardRef" in {

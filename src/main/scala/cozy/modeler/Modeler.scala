@@ -1136,8 +1136,8 @@ object Modeler {
         case m: SchemaModel.Attribute => Some(_attribute(pkg, m))
         case m: SchemaModel.Association => None
         case m: SchemaModel.PowertypeRelationship => None
-        case m: SchemaModel.StateMachineRelationship => Some(_attribute(m.toColumn)) // TODO
-        case m: SchemaModel.StateMachine => Some(_attribute(m.toColumn))
+        case _: SchemaModel.StateMachineRelationship => None
+        case _: SchemaModel.StateMachine => None
       }
 
     private def _attribute(pkg: MPackageRef, p: SchemaModel.Attribute): MAttribute = {
@@ -3499,26 +3499,35 @@ object Modeler {
       p: MEntity
     ): Vector[MComponent.StateMachineTransitionRule] =
       entity.get(p.name).toVector.flatMap { klass =>
-        klass.stateMachines.toVector.flatMap(_transition_rules(p, _))
+        klass.stateMachines.toVector.flatMap(_transition_rules(p, klass, _))
       }
 
     private def _transition_rules(
       entity: MEntity,
+      entityclass: EntityClass,
       sm: StateMachineClass
     ): Vector[MComponent.StateMachineTransitionRule] = {
       _validate_state_machine(sm)
       val collectionname = StringUtils.camelToUnderscore(entity.name)
       val statemap = _state_map(sm.rule)
+      val statefieldname = _state_field_name(entityclass, sm)
       val transitions = _all_transitions(sm.rule)
       transitions.map { x =>
         val eventname = _event_name(sm.name, x)
         val trigger = _transition_trigger(eventname, x.isCallTransition)
         val guard = _transition_guard(x.transition.guard)
         val plan = _transition_plan(x, statemap)
+        val targetstate = _target_state(x.transition.to, statemap)
         MComponent.StateMachineTransitionRule(
           collectionName = collectionname,
           trigger = trigger,
           eventName = eventname,
+          machineName = Some(sm.name),
+          stateFieldName = statefieldname,
+          fromState = x.sourceStateName,
+          fromStateValue = x.sourceState.map(_.value),
+          toState = targetstate.map(_.name),
+          toStateValue = targetstate.map(_.value),
           priority = 0,
           declarationOrder = 0,
           guard = guard,
@@ -3526,6 +3535,39 @@ object Modeler {
         )
       }
     }
+
+    private def _state_field_name(
+      entityclass: EntityClass,
+      statemachine: StateMachineClass
+    ): Option[String] = {
+      val statenames = _all_states(statemachine.rule).map(_.name).toSet
+      val candidates = entityclass.schemaClass.slots.collect {
+        case attribute: SchemaModel.Attribute =>
+          attribute.rawTypeName.flatMap { rawtypename =>
+            val typename = rawtypename.split("\\.").last
+            powertype.classes.get(typename).filter { powertypeclass =>
+              powertypeclass.kinds.map(_.name).toSet == statenames
+            }.map(_ => attribute.name)
+          }
+      }.flatten.toVector.distinct
+      candidates match {
+        case Vector() => None
+        case Vector(name) => Some(name)
+        case xs =>
+          RAISE.syntaxErrorFault(
+            s"StateMachine '${statemachine.name}' has multiple state attributes: ${xs.mkString(", ")}."
+          )
+      }
+    }
+
+    private def _target_state(
+      to: TransitionTo,
+      statemap: Map[String, StateClass]
+    ): Option[StateClass] =
+      to match {
+        case NameTransitionTo(name) => statemap.get(name)
+        case _ => None
+      }
 
     private def _state_map(
       rule: StateMachineRule

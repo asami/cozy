@@ -8,6 +8,7 @@
 |------+----------+--------------|
 | id   | entityid | 1            |
 | name | name     | 1            |
+| status | PersonStatus | 1       |
 
 ### StateMachine
 
@@ -28,3 +29,13 @@
 ##### Event
 
 ###### publish
+
+# POWERTYPE
+
+## PersonStatus
+
+### Draft
+value = 1
+
+### Published
+value = 2

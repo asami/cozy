@@ -96,8 +96,20 @@ These are generated CML powertypes and reject undeclared values. The declared
 snake_case name is their external and datastore representation. Channel
 providers remain an open, independent contract, so adding a provider does not
 extend the channel vocabulary. Notification type remains open pending its
-registry decision. Notification lifecycle and delivery-attempt result state
-are not selectors in this contract and remain separate state-modeling work.
+registry decision.
+
+The notification lifecycle uses the closed states `Queued`, `Sending`, `Sent`,
+`Delivered`, `Failed`, and `Canceled` plus the `notificationLifecycle`
+statemachine. It owns delivery progression and retry/cancel rules. Generated
+transition rules retain the machine, state field, source state, target state,
+and their storage values. CNCF compares current and proposed records at the
+entity update boundary, permits only a declared transition, and leaves the
+persisted record unchanged when a transition is rejected. Recipient read and
+dismissal state is not a notification lifecycle transition and stays in
+`NotificationUserState`. Delivery attempts use a separate closed
+`UserNotificationDeliveryResultStatus` vocabulary with `Pending`, `Succeeded`,
+and `Failed`; an attempt result must not be passed as a notification lifecycle
+state.
 
 ## 4. Text Semantic Axis
 
@@ -363,17 +375,18 @@ The following are the remaining investigation themes, not accepted migrations.
 
 ### textus-user-notification
 
-- notification lifecycle status requires statemachine classification and a
-  separate delivery-attempt result contract;
 - notification type and delivery provider require a closed-versus-extensible
   vocabulary decision;
-- body, error message, and other user-visible message fields require scalar
+- error message and other remaining user-visible message fields require scalar
   versus I18N classification and length contracts;
 - account subject ID, dedupe key, provider message ID, error code, and JSON
   payloads require identifier/opaque/structured-data classification.
 
-Audience kind, channel, and priority use generated powertypes. Notification
-title uses predefined `title`; quiet-hour, locale, timezone, and
+Audience kind, channel, priority, lifecycle state, and delivery-attempt result
+use generated closed types. `notificationLifecycle` provides the transition
+contract for lifecycle state and CNCF enforces that contract at entity update.
+Notification title uses predefined `title` and body uses predefined `text`;
+quiet-hour, locale, timezone, and
 action-reference fields use predefined `localtime`, `locale`, `timezone`, and
 `uri` contracts respectively. An action reference is a URI rather than an
 absolute-only URL because application-relative routes are part of the

@@ -589,6 +589,30 @@ Account operation Value verification update on 2026-07-16:
 The detailed comparison and artifact hashes are recorded in
 `docs/journal/2026/07/cml-account-operation-value-migration-2026-07-16.md`.
 
+Notification lifecycle modeling update on 2026-07-16:
+
+- `UserNotificationStatus` is now a closed lifecycle-state type with
+  `Queued`, `Sending`, `Sent`, `Delivered`, `Failed`, and `Canceled` values;
+- `notificationLifecycle` defines delivery start, acceptance, confirmation,
+  failure, retry, and cancel transitions;
+- recipient read and dismissal data remains in `NotificationUserState` rather
+  than being conflated with delivery lifecycle state;
+- `NotificationDeliveryAttempt.status` and its create/search operation fields
+  now use the independent `UserNotificationDeliveryResultStatus` closed type
+  with `Pending`, `Succeeded`, and `Failed` outcomes;
+- Cozy carries the state-machine name, state field, source state, target state,
+  and numeric state values through SimpleModeler into the generated CNCF
+  transition rules;
+- CNCF compares the current and proposed records at the entity update boundary,
+  executes the matching semantic transition for a declared state change, and
+  rejects undeclared state changes without persisting them;
+- generated executable specifications reject cross-contract and undeclared
+  values, verify the emitted transition topology, execute `Queued -> Sending`,
+  and reject `Queued -> Delivered` while preserving the persisted state.
+
+The decision is recorded in
+`docs/journal/2026/07/cml-notification-lifecycle-modeling-2026-07-16.md`.
+
 ## Stage 16.7: Verification and Closure
 
 Stage Status:

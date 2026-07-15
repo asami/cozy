@@ -85,7 +85,8 @@ does not decide the category.
 | `UserNotificationTitle` | predefined `title` | locale-aware | Implemented | Uses the single/multi-locale `I18nTitle` contract and catalog length constraints. |
 | `UserNotificationBody` | predefined `text` | locale-aware | Implemented | Wrapper removed; notification body uses `I18nText` with 1..8192 characters per locale entry. |
 | `UserNotificationPriority` | powertype | nonlocalized | Implemented | Uses the ordered `low`, `normal`, `high`, and `urgent` vocabulary. |
-| `UserNotificationStatus` | statemachine-owned state | nonlocalized | Domain decision | Separate notification and delivery-attempt lifecycles if their transitions differ. |
+| `UserNotificationStatus` | statemachine-owned state | nonlocalized | Implemented | Uses the `notificationLifecycle` transition contract; recipient read/dismiss state remains separate. |
+| `UserNotificationDeliveryResultStatus` | powertype | nonlocalized | Implemented | Uses the independent closed `Pending`, `Succeeded`, and `Failed` attempt-result vocabulary. |
 | `UserNotificationDedupeKey` | intentional opaque text | nonlocalized | Confirmed direction | Define normalization, uniqueness scope, and maximum length. |
 | `UserNotificationActionReference` | predefined `uri` | nonlocalized | Implemented | Relative application routes and absolute URIs share the parser-backed `java.net.URI` contract; deployment authorization remains separate. |
 | `UserNotificationMetadataJson` | intentional opaque text | nonlocalized | Domain decision | Prefer structured `record`/JSON when stable; otherwise constrain payload size and exposure. |
@@ -97,10 +98,12 @@ does not decide the category.
 | `UserNotificationLocale` | predefined locale scalar | nonlocalized | Implemented | Entity and operation fields use predefined `locale`; deployment policy still defines the allowed locale set. |
 | `UserNotificationTimeZone` | predefined timezone scalar | nonlocalized | Implemented | Entity and operation fields use predefined `timezone`; deployment policy still defines the allowed zone set. |
 
-The notification audience kind, channel, and priority are implemented as
-generated powertypes. The primary unresolved notification decisions are
-whether notification type is closed, how notification lifecycle transitions
-are modeled, and the separate delivery-attempt result contract. Body uses the
+The notification audience kind, channel, priority, lifecycle states, and
+delivery-attempt outcomes are implemented as generated closed vocabularies.
+`notificationLifecycle` owns the allowed delivery transitions, while
+`NotificationUserState` independently owns recipient read and dismissal data.
+The primary unresolved notification decision is whether notification type is
+closed. Body uses the
 canonical locale-aware `text` contract. Quiet-hour fields use the predefined
 parser-backed `localtime` contract. Delivery provider remains open and
 provider-extensible.

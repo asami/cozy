@@ -237,7 +237,7 @@ Status: OPEN
       scenario metadata survives Value normalization unchanged.
 - [x] Replace notification audience kind, channel, and priority with the
       accepted closed powertype vocabularies.
-- [ ] Replace notification lifecycle state with the accepted statemachine
+- [x] Replace notification lifecycle state with the accepted statemachine
       model and delivery-attempt result status with a separate closed type.
 - [ ] Replace account finite vocabularies and lifecycle state with the accepted
       powertype/statemachine models.
@@ -251,8 +251,10 @@ Status: OPEN
       command/query field; eliminate the current entity-only typing split.
 - [x] Generate notification audience kind, channel, and priority as
       powertypes and reject undeclared values at generated input boundaries.
-- [ ] Generate notification lifecycle status from a statemachine and use a
+- [x] Generate notification lifecycle status from a statemachine and use a
       separate closed type for delivery-attempt results.
+- [x] Carry notification transition topology into CNCF and enforce declared
+      state changes at the entity update boundary.
 - [x] Replace notification quiet-hours strings with predefined `localtime` in
       both entity and operation Value fields.
 - [x] Use predefined locale and timezone types for notification preferences.
