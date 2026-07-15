@@ -247,6 +247,8 @@ Status: OPEN
         `password` / `token`, including explicit role-specific length bounds.
   - [x] Define notification dedupe, delivery-provider, provider-message,
         error-code, and error-message scalar length boundaries.
+  - [x] Define persisted account identity, actor, audit, hash, session, client,
+        and user-agent scalar length boundaries.
   - [ ] Define and apply the remaining account and notification domain-scalar
         normalization and length contracts.
 - [x] Keep domain-specific scalar wrappers only where the accepted inventory

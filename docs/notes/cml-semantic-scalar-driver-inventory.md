@@ -118,26 +118,28 @@ kept in the notification component.
 | `UserAccountTitle` | predefined `title` | locale-aware | Implemented | Uses the single/multi-locale `I18nTitle` contract and catalog length constraints. |
 | `UserAccountEmailAddress` | predefined email scalar | nonlocalized | Implemented | Uses `EmailAddress` parsing, domain normalization, and catalog length constraints without conflating identity verification. |
 | `UserAccountLoginName` | predefined `name` or constrained domain scalar | nonlocalized | Domain decision | Entity, registration, and lookup fields use the same domain type; define case, allowed characters, uniqueness, and whether generic `Name` is sufficiently narrow. |
-| `UserAccountExternalSubjectId` | intentional opaque text | nonlocalized | Confirmed direction | Define issuer scope, normalization policy, and maximum length. |
+| `UserAccountExternalSubjectId` | intentional opaque text | nonlocalized | Implemented length boundary | Uses a 1..512 issuer-scoped opaque boundary; issuer binding and normalization remain domain policy. |
 | `UserAccountPhoneNumber` | predefined phone scalar | nonlocalized | Implemented | Removes visual separators and requires canonical international E.164 identity. |
 | `UserAccountLocale` | predefined locale scalar | nonlocalized | Implemented | Uses `Locale` and serializes its external/datastore form as a BCP 47 language tag; allowed-locale policy remains deployment-owned. |
 | `UserAccountTimeZone` | predefined timezone scalar | nonlocalized | Implemented | Uses `TimeZone`, validates known identifiers, and serializes the canonical zone ID. |
-| `UserAccountSuspendedBy` | intentional opaque identifier | nonlocalized | Confirmed direction | Bind to the actor/account identifier contract. |
-| `UserAccountSuspensionReason` | constrained domain text | single-locale record text | Domain decision | Entity and status-update fields use the same domain type; define audit-text length and whether translated display is a separate concept. |
-| `UserAccountPasswordHash` | intentional opaque secret text | nonlocalized | Confirmed direction | Define algorithm-aware format/length, redaction, and no-display policy. |
-| `UserAccountSessionReference` | intentional opaque text | nonlocalized | Confirmed direction | Define session identity scope, entropy assumptions, and length. |
-| `UserAccountTokenHash` | intentional opaque secret text | nonlocalized | Confirmed direction | Define algorithm-aware format/length, redaction, and no-display policy. |
-| `UserAccountClientId` | constrained domain identifier | nonlocalized | Confirmed direction | Define client namespace, syntax, and maximum length. |
+| `UserAccountSuspendedBy` | intentional opaque identifier | nonlocalized | Implemented length boundary | Uses a 1..255 actor reference boundary; binding to the actor/account identifier contract remains domain policy. |
+| `UserAccountSuspensionReason` | constrained domain text | single-locale record text | Implemented length boundary | Entity and status-update fields share a 1..4096 audit-text boundary; translated display remains a separate decision. |
+| `UserAccountPasswordHash` | intentional opaque secret text | nonlocalized | Implemented length boundary | Uses a 1..1024 algorithm-owned hash boundary; format, redaction, and no-display policy remain separate. |
+| `UserAccountSessionReference` | intentional opaque text | nonlocalized | Implemented length boundary | Uses a 1..255 session reference boundary; identity scope and entropy remain domain policy. |
+| `UserAccountTokenHash` | intentional opaque secret text | nonlocalized | Implemented length boundary | Uses a 1..1024 algorithm-owned hash boundary; format, redaction, and no-display policy remain separate. |
+| `UserAccountClientId` | constrained domain identifier | nonlocalized | Implemented length boundary | Uses a 1..255 client identifier boundary; namespace and syntax remain registry policy. |
 | `UserAccountDeviceInfo` | constrained technical text or structured Value | nonlocalized | Domain decision | Decide whether bounded raw device text is sufficient or stable fields justify a Value. |
 | `UserAccountIpAddress` | predefined IP address scalar | nonlocalized | Implemented | Uses `IpAddress` with IPv4/IPv6 parsing and canonical serialization. |
-| `UserAccountUserAgent` | constrained technical text | nonlocalized | Confirmed direction | Define bounded length, control-character policy, and no-I18N behavior. |
+| `UserAccountUserAgent` | constrained technical text | nonlocalized | Implemented length boundary | Uses a nonlocalized 1..4096 technical-text boundary; control-character policy remains follow-up work. |
 | `UserAccountStatus` | statemachine-owned state | nonlocalized | Implemented | Uses the closed `provisional`, `registered`, `formal`, and `suspended` vocabulary plus the CML `status` transition contract. |
 
-The primary unresolved account decisions are login-name normalization,
-suspension-reason localization, and whether device information remains bounded
-technical text or becomes a structured Value. Hash/token redaction and actor,
-session, and client identifier contracts also remain domain-specific work; they
-must not be collapsed to a broader predefined scalar merely because their
+The primary unresolved account decisions are login-name normalization and
+whether device information remains bounded technical text or becomes a
+structured Value. Persisted identity, audit, hash, session, client, and
+user-agent scalars now have canonical CML length boundaries. Their issuer and
+namespace binding, hash/token redaction, suspension-reason presentation,
+control-character policy, and identity semantics remain domain-specific work;
+they must not be collapsed to a broader predefined scalar merely because their
 current representation is one string. Access and refresh sessions express
 their lifecycle with issue, expiry, revocation, and rotation timestamps rather
 than a finite string status, so this inventory does not invent a session-state

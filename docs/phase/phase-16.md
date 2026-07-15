@@ -688,6 +688,22 @@ Notification delivery domain-scalar boundary update on 2026-07-16:
 The decision is recorded in
 `docs/journal/2026/07/cml-notification-delivery-domain-scalar-boundary-2026-07-16.md`.
 
+Persisted account domain-scalar length update on 2026-07-16:
+
+- external subject IDs use a 1..512 issuer-scoped opaque boundary;
+- suspended-by actors, session references, and client IDs use 1..255
+  reference boundaries;
+- suspension reasons use a single-locale 1..4096 audit-text boundary;
+- password and token hashes use 1..1024 algorithm-owned secret boundaries;
+- user-agent values use a nonlocalized 1..4096 technical-text boundary;
+- generated constructors and Record decoding reject empty and oversized
+  values for every authored account scalar contract;
+- normalization, namespace/issuer binding, secret redaction, translated audit
+  display, and control-character policy remain explicit follow-up decisions.
+
+The decision is recorded in
+`docs/journal/2026/07/cml-account-persisted-domain-scalar-boundary-2026-07-16.md`.
+
 Generated driver semantic-type verification on 2026-07-16:
 
 - `GeneratedSemanticTypeContractSpec` in both driver CARs reads the Scala
@@ -700,7 +716,7 @@ Generated driver semantic-type verification on 2026-07-16:
   statemachine, or structured type and rejects primitive `String`,
   `Option[String]`, `Condition[String]`, and `Update[String]` fallback;
 - both focused executable specifications pass against the current driver CML;
-- full driver validation passes with 92 account tests and 30 notification
+- full driver validation passes with 94 account tests and 30 notification
   tests, and both CAR lint runs report no deterministic failure.
 
 Distinct CML model-kind verification on 2026-07-16:
