@@ -158,7 +158,9 @@ Status: OPEN
   - [x] Preserve canonical `text`, requiredness, and `1..8192` per-locale
         constraints in generated operation and Schema metadata.
   - [x] Project the same metadata through Help and automatic REST/OpenAPI.
-  - [ ] Verify the generated form HTML uses the projected Web validation hints.
+  - [x] Verify the generated form HTML uses the projected Web validation hints;
+        `GeneratedOperationFormProjectionSpec` renders canonical `text` as a
+        required textarea with `minlength=1` and `maxlength=8192`.
 - [ ] Define redaction and display behavior for hashes, secrets, tokens, and
       other opaque text values.
 - [ ] Add executable specifications for classification diagnostics, predefined

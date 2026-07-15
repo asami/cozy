@@ -41,12 +41,14 @@ map as display text.
 - SimpleModeler `ValueScalaModelTransformerSpec`: 11 passed.
 - Cozy `ModelerServiceOperationSpec`: 27 passed.
 - CNCF `OpenApiProjectorSpec` and `GeneratedHelpProjectionSpec`: 5 passed.
+- CNCF `GeneratedOperationFormProjectionSpec`: 1 passed; generated-style
+  canonical `text` metadata rendered a required textarea with `minlength=1`
+  and `maxlength=8192`.
 - User Notification `OperationContractSpec`: 2 passed.
 - User Notification `ComponentFactorySpec`: 22 passed after clean generation
   of 68 Scala sources with Scala 3.3.8.
 
 ## Remaining Work
 
-- Verify actual generated form HTML consumes the projected validation hints.
 - Complete the remaining predefined text-family ranges and locale policy.
 - Repeat the operation/API comparison with the User Account regression driver.

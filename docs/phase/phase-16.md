@@ -508,6 +508,9 @@ Notification body update on 2026-07-16:
   multiplicity, and the same per-locale range;
 - Help and automatic REST/OpenAPI project those constraints, with REST
   accepting a plain string or a locale map;
+- generated operation form HTML projects the same metadata as a required
+  textarea with `minlength=1` and `maxlength=8192`, verified by the executable
+  `GeneratedOperationFormProjectionSpec`;
 - generated API `Record` output and datastore encoding both preserve every
   locale entry, while recipient-facing presentation selects effective text
   explicitly with the CNCF `ExecutionContext` locale;
