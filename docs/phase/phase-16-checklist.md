@@ -266,7 +266,7 @@ Status: OPEN
       model and delivery-attempt result status with a separate closed type.
 - [x] Replace account finite vocabularies and lifecycle state with the accepted
       powertype/statemachine models.
-- [ ] Replace generic string fields with appropriate predefined semantic text
+- [x] Replace generic string fields with appropriate predefined semantic text
       types plus explicit length constraints in both drivers.
   - [x] Replace account request-only password and token strings with predefined
         `password` / `token`, including explicit role-specific length bounds.
@@ -274,7 +274,7 @@ Status: OPEN
         error-code, and error-message scalar length boundaries.
   - [x] Define persisted account identity, actor, audit, hash, session, client,
         and user-agent scalar length boundaries.
-  - [ ] Define and apply the remaining account and notification domain-scalar
+  - [x] Define and apply the remaining account and notification domain-scalar
         normalization and length contracts.
 - [x] Keep domain-specific scalar wrappers only where the accepted inventory
       records additional semantics.

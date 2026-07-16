@@ -144,6 +144,13 @@ session references, client IDs, provider codes, and source diagnostics remain
 nonlocalized by the same semantic rule. Localized display metadata for those
 values is modeled separately and never rewrites their stored identity.
 
+An accepted domain identity may deliberately require exact preservation rather
+than normalization. User Notification models CNCF `SecuritySubject.subjectId`
+as a distinct nominal scalar instead of conflating it with an EntityId. It uses
+the account external-subject 1..512 boundary, and constructor, Record,
+datastore, and operation boundaries preserve the authored case and provider
+namespace syntax.
+
 Semantic text preserves authored case, whitespace, line structure, and Unicode
 representation; neither runtime wrappers nor generated boundaries silently
 trim, case-fold, or normalize it. `name` has a runtime-required 1..256 range.
@@ -178,7 +185,8 @@ Phase 16 does not freeze policy that lacks an implemented and executable
 contract. The following remain outside this design baseline:
 
 - redaction and display policy for hashes, secrets, and tokens;
-- normalization rules for driver-specific nominal scalars;
+- normalization rules for driver-specific nominal scalars that do not yet
+  declare exact-preservation or another accepted policy;
 - final ranges for semantic text families other than accepted baselines;
 - the future status of legacy display-projection overloads between
   `I18nText` and `ContentBody`.

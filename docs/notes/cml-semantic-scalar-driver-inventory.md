@@ -78,7 +78,7 @@ does not decide the category.
 | Model concept | Classification | Localization | Decision state | Required follow-up |
 |---|---|---|---|---|
 | `UserNotificationAudienceKind` | powertype | nonlocalized | Implemented | Uses the closed `direct`, `multicast`, and `broadcast` vocabulary. |
-| `UserNotificationAccountSubjectId` | constrained domain scalar | nonlocalized | Confirmed direction | Bind to the account subject identifier contract and length. |
+| `UserNotificationAccountSubjectId` | constrained domain scalar | nonlocalized | Implemented | Preserves the exact case-sensitive CNCF `SecuritySubject.subjectId` without normalization and applies the account external-subject 1..512 boundary across entity, operation, Record, and datastore surfaces. |
 | `Notification.audienceQuery` | structured `record` | nonlocalized | Implemented | Replaces `UserNotificationAudienceQueryJson`; generated and REST boundaries require a Record, while the explicit Web `json` control decodes one JSON object before dispatch. |
 | `UserNotificationType` | constrained domain scalar | nonlocalized | Implemented | Uses an open application-extensible 1..255 type key; values such as `cncf.job` and `artscene.exhibition.new` are owned outside this component and are therefore not a powertype. |
 | `UserNotificationChannel` | powertype | nonlocalized | Implemented | Uses `in_app`, `email`, `sms`, and `push`; provider variability remains in the open provider contract. |

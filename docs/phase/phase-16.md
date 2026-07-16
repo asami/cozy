@@ -730,6 +730,22 @@ Persisted account domain-scalar length update on 2026-07-16:
 The decision is recorded in
 `docs/journal/2026/07/cml-account-persisted-domain-scalar-boundary-2026-07-16.md`.
 
+Notification account-subject identity update on 2026-07-16:
+
+- `UserNotificationAccountSubjectId` remains distinct from predefined
+  `entityid`, because it stores the CNCF security subject identity rather than
+  a User Account entity identity;
+- its generated nominal scalar preserves case, punctuation, and provider
+  namespace syntax exactly, without localization or normalization;
+- the User Account external-subject 1..512 boundary now governs entity,
+  operation, Record,
+  datastore, REST/OpenAPI, and Web metadata surfaces;
+- executable coverage verifies accepted boundaries, deterministic rejection,
+  exact round-trip, and matching generated operation metadata.
+
+The decision is recorded in
+`docs/journal/2026/07/cml-notification-account-subject-id-boundary-2026-07-16.md`.
+
 Generated driver semantic-type verification on 2026-07-16:
 
 - `GeneratedSemanticTypeContractSpec` in both driver CARs reads the Scala

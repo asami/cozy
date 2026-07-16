@@ -11,8 +11,9 @@ Results, Datatypes, model-kind separation, semantic text, and domain constraint
 projection. It applies to CML parsing, normalized model metadata, generated
 Scala 3.3.8 source, CNCF schema metadata, and generated runtime boundaries.
 
-Secret redaction, driver-specific normalization, and text families without an
-accepted range are outside this specification.
+Secret redaction, driver-specific normalization policies without an accepted
+contract, and text families without an accepted range are outside this
+specification.
 
 ## Operation Input
 
@@ -125,6 +126,13 @@ diagnostics MUST remain nonlocalized. A localized label for such a value MUST
 be separate presentation metadata and MUST NOT alter its identity. A locale or
 timezone value is a selector for interpretation and presentation, not localized
 text itself.
+
+A driver-owned identity without an authored normalization policy MUST preserve
+its accepted value exactly. In particular, the User Notification account
+subject identifier represents CNCF `SecuritySubject.subjectId`, not a User
+Account entity id: it is a case-sensitive, nonlocalized nominal scalar with the
+account external-subject 1..512 range, and every generated boundary MUST
+preserve its value unchanged.
 
 Semantic text MUST preserve authored case, whitespace, line structure, and
 Unicode representation. Implementations MUST NOT silently trim, case-fold, or
