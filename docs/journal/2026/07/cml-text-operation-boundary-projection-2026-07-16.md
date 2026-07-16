@@ -47,8 +47,15 @@ map as display text.
 - User Notification `OperationContractSpec`: 2 passed.
 - User Notification `ComponentFactorySpec`: 22 passed after clean generation
   of 68 Scala sources with Scala 3.3.8.
+- User Account `OperationContractSpec` verifies the automatic entity search
+  operation after clean generation of 82 Scala sources with Scala 3.3.8.
+  `I18nTitle`, `EmailAddress`, nominal account scalars, and
+  `UserAccountStatus` retain their schema identity, while optional
+  multiplicity, length, and confidentiality metadata remain attached.
+- The same User Account specification executes automatic request construction:
+  a valid external-subject identifier is accepted and an empty value outside
+  the authored 1..512 contract is rejected.
 
 ## Remaining Work
 
 - Complete the remaining predefined text-family ranges and locale policy.
-- Repeat the operation/API comparison with the User Account regression driver.

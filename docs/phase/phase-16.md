@@ -781,6 +781,18 @@ Nominal scalar boundary verification on 2026-07-16:
 - the expanded scripted specification compiles all generated component source
   and passes eight executable tests.
 
+User Account automatic operation projection verification on 2026-07-16:
+
+- clean generation of 82 Scala 3.3.8 sources applies the canonical automatic
+  entity-operation parameter projection to the account regression driver;
+- `SearchUserAccountOperation` retains `I18nTitle`, `EmailAddress`,
+  `UserAccountLoginName`, `UserAccountExternalSubjectId`, and
+  `UserAccountStatus` rather than lowering those fields to `XString`;
+- optional multiplicity, canonical length constraints, and confidentiality
+  metadata remain attached to the generated request parameters;
+- executable request construction accepts a valid external-subject identifier
+  and rejects an empty value outside its authored 1..512 domain contract.
+
 ## Stage 16.7: Verification and Closure
 
 Stage Status:
