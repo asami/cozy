@@ -163,8 +163,10 @@ Status: OPEN
         required textarea with `minlength=1` and `maxlength=8192`.
 - [ ] Define redaction and display behavior for hashes, secrets, tokens, and
       other opaque text values.
-- [ ] Add executable specifications for classification diagnostics, predefined
-      text types, boundary lengths, and invalid text values.
+- [x] Add executable specifications for classification diagnostics, predefined
+      text types, boundary lengths, and invalid text values; the executable
+      evidence is mapped in
+      `docs/journal/2026/07/cml-semantic-text-executable-spec-audit-2026-07-16.md`.
 - [x] Compile generated Scala 3.3.8 and execute Create/Update text-length
       validation for multiple locales and `DescriptiveAttributes` fields.
 - [x] Apply inherited predefined-scalar constraints at generated Value,
