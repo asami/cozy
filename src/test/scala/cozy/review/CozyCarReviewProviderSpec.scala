@@ -113,6 +113,48 @@ final class CozyCarReviewProviderSpec extends AnyWordSpec with Matchers with Giv
       }
     }
 
+    "accept the neutral provider request through the bounded command without CBD Support classes" in {
+      Given("one admitted CAR project and a complete provider request JSON")
+      val root = Files.createTempDirectory("cozy-car-review-provider-command")
+      try {
+        _write(root.resolve("project.yaml"), "project:\n  kind: car\n  name: sample-car\n")
+        _write(root.resolve("src/main/cozy/sample-car.cml"), "# COMPONENT\n\n## sample-car\n")
+        val request = Json.stringify(Json.obj(
+          "schemaVersion" -> CozyCarReviewProvider.schemaVersion,
+          "documentType" -> "provider-request",
+          "reviewId" -> "review-example-001",
+          "target" -> Json.obj(
+            "kind" -> "project",
+            "name" -> "sample-car",
+            "digest" -> "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          ),
+          "limits" -> Json.obj(
+            "maxEvidenceItems" -> 2000,
+            "maxObservations" -> 1000,
+            "maxInputBytes" -> 16777216,
+            "timeoutMillis" -> 120000
+          ),
+          "requestedCapabilities" -> Json.arr("cozy.car-analysis"),
+          "requestedEvidenceKinds" -> Json.arr("car-project", "cml-model"),
+          "rules" -> Json.obj("include" -> Json.arr("cozy.car.*"), "exclude" -> Json.arr())
+        ))
+
+        When("a transport-neutral local command supplies the request on standard input")
+        val result = CozyCarReviewProviderCommand.execute(
+          List("--project-root", root.toString, "--provider-version", "0.3.0-SNAPSHOT", "--request-stdin"),
+          request
+        )
+
+        Then("Cozy produces a CBD-neutral evidence bundle bound to the computed request digest")
+        val bundle = Json.parse(result.toOption.get).as[JsObject]
+        (bundle \ "reviewId").as[String] shouldBe "review-example-001"
+        (bundle \ "provider" \ "id").as[String] shouldBe "cozy"
+        (bundle \ "requestDigest").as[String] shouldBe CozyCarReviewProvider.request(request).toOption.get.requestDigest
+      } finally {
+        _delete(root)
+      }
+    }
+
     "preserve request bounds as attributable input and result limitations" in {
       Given("one CAR project whose direct provider inputs exceed a one-byte request limit")
       val root = Files.createTempDirectory("cozy-car-review-provider-bounds")

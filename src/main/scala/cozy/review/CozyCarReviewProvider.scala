@@ -9,6 +9,7 @@ import cozy.config.CozyProjectYamlConfig
 import cozy.lint.CozyCarLint
 import play.api.libs.json.{JsArray, JsObject, JsString, JsValue, Json}
 import scala.collection.JavaConverters._
+import scala.util.Try
 
 /*
  * @since   Jul. 16, 2026
@@ -104,6 +105,40 @@ object CozyCarReviewProvider {
 
   def bundleDigest(bundle: JsObject): String =
     _digest(bundle - "bundleDigest")
+
+  /**
+   * Admits the provider-request JSON at Cozy's public boundary.  The request
+   * remains a CBD-owned contract, but Cozy validates the fields it consumes
+   * and recomputes the binding digest before running local analysis.
+   */
+  def request(value: String): Either[String, Request] =
+    Try(Json.parse(value).as[JsObject]).toEither.left.map(_ => "provider-request-invalid-json").flatMap { json =>
+      for {
+        _ <- _required_string(json, "schemaVersion").filter(_ == schemaVersion).toRight("provider-request-schema-invalid")
+        _ <- _required_string(json, "documentType").filter(_ == "provider-request").toRight("provider-request-document-type-invalid")
+        reviewid <- _required_string(json, "reviewId").toRight("provider-request-review-id-missing")
+        targetjson <- (json \ "target").asOpt[JsObject].toRight("provider-request-target-missing")
+        target <- _target_request(targetjson)
+        limitsjson <- (json \ "limits").asOpt[JsObject].toRight("provider-request-limits-missing")
+        limits <- _limits_request(limitsjson)
+        capabilities <- _string_vector(json, "requestedCapabilities")
+        kinds <- _string_vector(json, "requestedEvidenceKinds")
+        rules <- (json \ "rules").asOpt[JsObject].toRight("provider-request-rules-missing")
+        include <- _string_vector(rules, "include")
+        exclude <- _string_vector(rules, "exclude")
+      } yield Request(reviewid, target, _digest(_canonical_object(json)), limits, capabilities, kinds, include, exclude)
+    }
+
+  /**
+   * Executes the neutral provider boundary from a parsed v1 request.  Neither
+   * the request nor this result has any dependency on CBD Support classes.
+   */
+  def execute(
+    providerRequest: String,
+    projectroot: Path,
+    providerVersion: String
+  ): Either[String, JsObject] =
+    request(providerRequest).map(evidenceBundle(_, projectroot, providerVersion))
 
   private def _evidence(
     root: Path,
@@ -328,6 +363,30 @@ object CozyCarReviewProvider {
 
   private def _relative(root: Path, path: Path): String =
     root.relativize(path.toAbsolutePath.normalize()).iterator().asScala.map(_.toString).mkString("/")
+
+  private def _target_request(value: JsObject): Either[String, Target] =
+    for {
+      kind <- _required_string(value, "kind").toRight("provider-request-target-kind-missing")
+      name <- _required_string(value, "name").toRight("provider-request-target-name-missing")
+      digest <- _required_string(value, "digest").toRight("provider-request-target-digest-missing")
+    } yield Target(kind, _optional_string(value, "organization"), name, _optional_string(value, "version"), digest)
+
+  private def _limits_request(value: JsObject): Either[String, Limits] =
+    for {
+      evidence <- (value \ "maxEvidenceItems").asOpt[Int].filter(_ > 0).toRight("provider-request-evidence-limit-invalid")
+      observations <- (value \ "maxObservations").asOpt[Int].filter(_ > 0).toRight("provider-request-observation-limit-invalid")
+      inputbytes <- (value \ "maxInputBytes").asOpt[Long].filter(_ > 0).toRight("provider-request-input-byte-limit-invalid")
+      timeout <- (value \ "timeoutMillis").asOpt[Long].filter(_ > 0).toRight("provider-request-timeout-invalid")
+    } yield Limits(evidence, observations, inputbytes, timeout)
+
+  private def _string_vector(value: JsObject, name: String): Either[String, Vector[String]] =
+    (value \ name).asOpt[Vector[String]].filter(_.forall(_.trim.nonEmpty)).toRight(s"provider-request-$name-invalid")
+
+  private def _required_string(value: JsObject, name: String): Option[String] =
+    (value \ name).asOpt[String].map(_.trim).filter(_.nonEmpty)
+
+  private def _optional_string(value: JsObject, name: String): Option[String] =
+    (value \ name).asOpt[String].map(_.trim).filter(_.nonEmpty)
 
   private def _digest(value: JsObject): String = {
     val root = _canonical(value).as[JsObject] - "bundleDigest"

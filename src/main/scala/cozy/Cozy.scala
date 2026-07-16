@@ -10,12 +10,14 @@ import cozy.archive.CozyArchivePackager
 import cozy.bok.CozyBok
 import cozy.lint.{CozyBuildLint, CozyCarAbiLint, CozyCarLint, CozyCmlLint}
 import cozy.publication.{CozyPublicationCompiler, CozySampleDistributor, CozyWarehouseIndexer}
+import cozy.review.CozyCarReviewProviderCommand
 import cozy.runtime.{CozyRuntime, CozySbtBridge}
 import cozy.scaffold.CozyScaffold
 import cozy.video.{CozyVideo, CozyVideoPublisher}
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 import scala.collection.JavaConverters._
+import scala.io.{Codec, Source}
 import scala.util.control.NonFatal
 
 /*
@@ -28,7 +30,7 @@ import scala.util.control.NonFatal
  *  version Apr. 29, 2026
  *  version May. 21, 2026
  *  version Jun. 30, 2026
- * @version Jul. 15, 2026
+ * @version Jul. 16, 2026
  * @author  ASAMI, Tomoharu
  */
 class Cozy(
@@ -86,7 +88,7 @@ class Cozy(
   }
 
   def executeDirect(args: Array[String]): Unit = {
-    if (!_execute_version(args) && !_execute_lint(args) && !CozyBok.execute(args.toList) && !CozyVideo.execute(args.toList) && !_execute_modeler_scala(args) && !_execute_init(args) && !_execute_car_sbt_project(args) && !_execute_publish_car(args) && !_execute_publish_sar(args) && !_execute_publish_project(args) && !_execute_publish_video(args) && !_execute_distribute_samples(args) && !_execute_index_warehouse(args) && !_execute_sbt_bridge(args) && !_execute_package_archive(args))
+    if (!_execute_version(args) && !_execute_lint(args) && !_execute_car_review_provider(args) && !CozyBok.execute(args.toList) && !CozyVideo.execute(args.toList) && !_execute_modeler_scala(args) && !_execute_init(args) && !_execute_car_sbt_project(args) && !_execute_publish_car(args) && !_execute_publish_sar(args) && !_execute_publish_project(args) && !_execute_publish_video(args) && !_execute_distribute_samples(args) && !_execute_index_warehouse(args) && !_execute_sbt_bridge(args) && !_execute_package_archive(args))
       _to_repl_commandline(args) match {
         case Some(s) =>
           val c = _operation_call(Array(s))
@@ -139,6 +141,21 @@ class Cozy(
         RAISE.invalidArgumentFault("Missing lint target: build, cml, abi, or car")
       case Some(("lint", target :: _)) =>
         RAISE.invalidArgumentFault(s"Unsupported lint target: ${target}")
+      case _ =>
+        false
+    }
+
+  private def _execute_car_review_provider(args: Array[String]): Boolean =
+    _leading_command(args) match {
+      case Some(("review", "car-evidence" :: rest)) =>
+        val request = Source.fromInputStream(System.in)(Codec.UTF8).mkString
+        CozyCarReviewProviderCommand.execute(rest, request) match {
+          case Right(bundle) =>
+            println(bundle)
+            true
+          case Left(code) =>
+            RAISE.invalidArgumentFault(s"CAR Review provider command failed: $code")
+        }
       case _ =>
         false
     }
