@@ -276,7 +276,7 @@ Status: OPEN
       boundaries and decode explicit Web `json` controls before dispatch.
 - [x] Version both driver CARs for the deliberate generated-source and
       contract break instead of adding compatibility adapters.
-- [ ] Compare generated validation, datastore, form, REST/OpenAPI, and Help
+- [x] Compare generated validation, datastore, form, REST/OpenAPI, and Help
       contracts across both driver migrations.
 
 ## CML16-09: Verification and Closure

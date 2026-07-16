@@ -827,6 +827,24 @@ Driver breaking-version verification on 2026-07-16:
 The version decision and packaging evidence are recorded in
 `docs/journal/2026/07/cml-driver-breaking-version-2026-07-16.md`.
 
+Cross-surface driver verification on 2026-07-16:
+
+- User Notification projects the generated
+  `UserNotificationDeliveryProvider` contract from nominal-scalar validation
+  and datastore encoding into the `createDeliveryAttempt` Form, REST/OpenAPI,
+  and Help surfaces;
+- User Account projects the generated personal
+  `UserAccountExternalSubjectId` contract from nominal-scalar validation and
+  datastore encoding into the automatic `searchUserAccount` Form,
+  REST/OpenAPI, and Help surfaces;
+- both executable comparisons use the real generated driver components and
+  standard CNCF projectors, not hand-authored projector fixtures;
+- datatype identity, optional multiplicity, canonical length constraints, and
+  confidentiality remain consistent at every applicable surface.
+
+The comparison and its executable evidence are recorded in
+`docs/journal/2026/07/cml-driver-cross-surface-verification-2026-07-16.md`.
+
 ## Stage 16.7: Verification and Closure
 
 Stage Status:
