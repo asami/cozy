@@ -246,14 +246,14 @@ object CozyCarReviewProvider {
   }
 
   private def _evidence_item(id: String, kind: String, subjectkind: String, subjectid: String, path: Option[String], facts: JsObject): JsObject = {
-    val location = path.map(x => Json.obj("location" -> Json.obj("path" -> x))).getOrElse(Json.obj())
+    val locationrecord = path.filter(_.nonEmpty).map(x => Json.obj("location" -> Json.obj("path" -> x))).getOrElse(Json.obj())
     _canonical_object(Json.obj(
       "id" -> id,
       "kind" -> kind,
       "subject" -> Json.obj("kind" -> subjectkind, "id" -> subjectid),
       "origin" -> Json.obj("providerId" -> providerId, "sourceType" -> "file"),
       "facts" -> facts
-    ) ++ location)
+    ) ++ locationrecord)
   }
 
   private def _observation(id: String, kind: String, ruleid: String, component: String, message: String, evidenceids: Vector[String], severity: Option[String]): JsObject = {

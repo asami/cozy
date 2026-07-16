@@ -199,6 +199,36 @@ final class CozyCarReviewProviderSpec extends AnyWordSpec with Matchers with Giv
       }
     }
 
+    "omit an empty root-relative lint location rather than emitting an unsafe path" in {
+      Given("one CAR project whose ABI lint finding belongs to the project root")
+      val root = Files.createTempDirectory("cozy-car-review-provider-root-location")
+      try {
+        _write(root.resolve("project.yaml"), "project:\n  kind: car\n  name: sample-car\n")
+
+        When("Cozy projects the root-owned finding through a provider evidence bundle")
+        val bundle = CozyCarReviewProvider.evidenceBundle(
+          CozyCarReviewProvider.Request(
+            "review-example-001",
+            CozyCarReviewProvider.Target("project", None, "sample-car", None, "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+            "sha256:d88fe085924cc9d234d233963bb624e584826bb8f02f19fc47253888a7c21d97",
+            CozyCarReviewProvider.Limits(2000, 1000, 16777216L, 120000L),
+            Vector("cozy.car-analysis"),
+            Vector.empty,
+            Vector.empty,
+            Vector.empty
+          ),
+          root,
+          "0.3.0-SNAPSHOT"
+        )
+
+        Then("the finding remains attributable but has no empty location path")
+        val finding = (bundle \ "evidence").as[Vector[JsObject]].find(x => (x \ "facts" \ "code").as[String] == "abi.manifest.missing").get
+        (finding \ "location").toOption shouldBe None
+      } finally {
+        _delete(root)
+      }
+    }
+
     "refuse unrequested capability work without selecting another provider behavior" in {
       Given("one CAR project and a request for a capability Cozy does not own")
       val root = Files.createTempDirectory("cozy-car-review-provider-selection")
