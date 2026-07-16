@@ -119,7 +119,7 @@ kept in the notification component.
 |---|---|---|---|---|
 | `UserAccountTitle` | predefined `title` | locale-aware | Implemented | Uses the single/multi-locale `I18nTitle` contract and catalog length constraints. |
 | `UserAccountEmailAddress` | predefined email scalar | nonlocalized | Implemented | Uses `EmailAddress` parsing, domain normalization, and catalog length constraints without conflating identity verification. |
-| `UserAccountLoginName` | predefined `name` or constrained domain scalar | nonlocalized | Domain decision | Entity, registration, and lookup fields use the same domain type; define case, allowed characters, uniqueness, and whether generic `Name` is sufficiently narrow. |
+| `UserAccountLoginName` | constrained domain scalar | nonlocalized | Implemented | Uses an exact case-sensitive 1..255 account identity with no implicit normalization or lexical restriction; registration enforces exact-value uniqueness and lookup uses exact equality, so generic display-oriented `Name` is not used. |
 | `UserAccountExternalSubjectId` | intentional opaque text | nonlocalized | Implemented length boundary | Uses a 1..512 issuer-scoped opaque boundary; issuer binding and normalization remain domain policy. |
 | `UserAccountPhoneNumber` | predefined phone scalar | nonlocalized | Implemented | Removes visual separators and requires canonical international E.164 identity. |
 | `UserAccountLocale` | predefined locale scalar | nonlocalized | Implemented | Uses `Locale` and serializes its external/datastore form as a BCP 47 language tag; allowed-locale policy remains deployment-owned. |
@@ -135,7 +135,9 @@ kept in the notification component.
 | `UserAccountUserAgent` | constrained technical text | nonlocalized | Implemented length boundary | Uses a nonlocalized 1..4096 technical-text boundary; control-character policy remains follow-up work. |
 | `UserAccountStatus` | statemachine-owned state | nonlocalized | Implemented | Uses the closed `provisional`, `registered`, `formal`, and `suspended` vocabulary plus the CML `status` transition contract. |
 
-The primary unresolved account decisions are login-name normalization and
+Login name is an exact case-sensitive account identity with no implicit
+normalization; registration enforces exact-value uniqueness and lookup uses the
+same equality contract. The remaining account classification decision is
 whether device information remains bounded technical text or becomes a
 structured Value. Persisted identity, audit, hash, session, client, and
 user-agent scalars now have canonical CML length boundaries. Their issuer and
