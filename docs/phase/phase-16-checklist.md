@@ -105,7 +105,7 @@ Status: OPEN
 - [x] Generate a validated nominal Scala case class, constructor/parser,
       `ValueReader`, scalar codec, presentation, and scalar datastore
       conversion for every plain `DATATYPE`.
-- [ ] Preserve nominal type identity, underlying datatype, and constraints in
+- [x] Preserve nominal type identity, underlying datatype, and constraints in
       generated schema, operation metadata, Help, and OpenAPI projections.
 - [x] Propagate nominal types through required, optional, repeated, Create,
       Read, Query, and Update forms without primitive fallback.
@@ -151,7 +151,7 @@ Status: OPEN
       to generated Web validation hints.
 - [x] Remove Web validation metadata as a source of domain constraints;
       `MAttribute.Web` remains presentation and input-control metadata only.
-- [ ] Generate validation and schema constraints consistently for Scala,
+- [x] Generate validation and schema constraints consistently for Scala,
       datastore, form, automatic REST/OpenAPI, and Help surfaces.
 - [x] Preserve all locale-tagged values in datastore and API contracts; locale
       fallback must not destructively collapse an I18N value to one string.
@@ -303,7 +303,7 @@ Status: OPEN
 - [x] Run `git diff --check` across all repositories touched by the Phase 16
       scalar/I18N and driver validation slice.
 - [x] Record verification evidence in `docs/phase/phase-16.md`.
-- [ ] Promote verified responsibilities and invariants from notes to
+- [x] Promote verified responsibilities and invariants from notes to
       `docs/design`.
 - [ ] Promote verified behavior from notes to `docs/spec` and the accepted CML
       grammar record.

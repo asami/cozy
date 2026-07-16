@@ -793,6 +793,15 @@ User Account automatic operation projection verification on 2026-07-16:
 - executable request construction accepts a valid external-subject identifier
   and rejects an empty value outside its authored 1..512 domain contract.
 
+Design promotion update on 2026-07-16:
+
+- verified operation Value, Result, Datatype, Powertype, Statemachine,
+  semantic-text, I18N, constraint-projection, and layer-ownership invariants
+  are promoted to `docs/design/cml-value-datatype-boundaries.md`;
+- locale policy, redaction, driver-specific normalization, remaining text
+  ranges, and legacy display-overload decisions stay in notes and the
+  checklist because they are not yet implemented contracts.
+
 ## Stage 16.7: Verification and Closure
 
 Stage Status:
