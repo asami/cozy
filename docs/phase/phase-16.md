@@ -812,6 +812,21 @@ Specification and grammar promotion update on 2026-07-16:
 - unresolved policy remains in notes and is not implied by either accepted
   document.
 
+Driver breaking-version verification on 2026-07-16:
+
+- User Notification moved from stable `0.1.1` and User Account moved from
+  stable `0.1.4` to the explicit Phase 16 development version
+  `0.6.0-SNAPSHOT`;
+- both driver `build.sbt` and `project.yaml` files declare that version;
+- both CARs package successfully, and their artifact names,
+  `component-descriptor.json`, and `abi-manifest.json` agree on name and
+  `0.6.0-SNAPSHOT`;
+- published stable catalogs remain unchanged until an actual `0.6.0` release;
+  no compatibility adapter restores the prior generated contract.
+
+The version decision and packaging evidence are recorded in
+`docs/journal/2026/07/cml-driver-breaking-version-2026-07-16.md`.
+
 ## Stage 16.7: Verification and Closure
 
 Stage Status:

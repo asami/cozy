@@ -274,7 +274,7 @@ Status: OPEN
 - [x] Replace notification audience-query and metadata JSON strings with
       structured `record` fields; reject JSON text at generated/REST
       boundaries and decode explicit Web `json` controls before dispatch.
-- [ ] Version both driver CARs for the deliberate generated-source and
+- [x] Version both driver CARs for the deliberate generated-source and
       contract break instead of adding compatibility adapters.
 - [ ] Compare generated validation, datastore, form, REST/OpenAPI, and Help
       contracts across both driver migrations.
