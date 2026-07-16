@@ -232,8 +232,8 @@ This is the natural-I18N rule:
 
 - a user-visible semantic text type is locale-aware unless its accepted type
   contract explicitly says otherwise;
-- a plain CML scalar value is decoded as one locale entry using the applicable
-  default-locale policy;
+- a direct plain CML scalar literal is one language-neutral entry, while a
+  context-aware external decode uses the active execution locale;
 - a structured value preserves one or more explicitly tagged locale entries;
 - generated datastore, form, API, and Help surfaces retain the same semantic
   type and must not collapse it to scalar storage;
@@ -261,7 +261,9 @@ The underlying `I18nStringSpec` fixes the shared codec boundary independently
 of `title`: plain decoding creates one execution-locale entry, structured JSON
 preserves all ordered locale/value entries, display fallback leaves storage
 unchanged, and a leading brace in plain text is escaped rather than parsed as
-JSON. Duplicate-locale acceptance and normalization remain catalog decisions.
+JSON. Locale identity is a canonical BCP 47 tag, malformed tags and duplicate
+canonical identities are rejected, and optional execution-context locale
+restrictions are applied without changing the stored value.
 
 `I18nMessage` is currently a legacy exception to that shared wrapper model. It
 owns `NonEmptyVector[(Locale, String)]` directly, has no `I18nString` codec,
@@ -318,15 +320,23 @@ messages, and narrative body text may be localized when the owning domain
 requires it. A field is not made I18N solely because it is displayed in a UI;
 the domain must own the translations.
 
-I18N contracts must define:
+The accepted locale policy is:
 
-- locale tag normalization;
-- required or default locale behavior;
-- allowed locale restrictions when configured;
-- duplicate locale rejection;
-- fallback order for display;
-- preservation of all entries during update and serialization;
-- per-entry text constraints.
+- locale identity is a well-formed BCP 47 tag, canonicalized and serialized by
+  `Locale.toLanguageTag`; `und` represents language-neutral `Locale.ROOT`;
+- a direct untagged constructor creates one `Locale.ROOT` entry, while
+  context-aware string decoding binds an untagged value to
+  `ExecutionContext.locale`;
+- no allowed-locale set means all well-formed locale identities are accepted;
+  `I18nContext.allowedLocales` supplies an optional exact canonical set, and a
+  value containing any nonmember is invalid;
+- duplicate canonical locale identities are invalid at constructor, JSON, and
+  Record boundaries, so display lookup cannot silently apply last-value-wins;
+- display fallback checks requested exact locales, requested language-only
+  locales, `Locale.ROOT`, English, Japanese, and finally the first authored
+  entry, in that order;
+- update and serialization preserve all ordered entries, and text constraints
+  apply independently to each entry.
 
 Fallback returns an effective display value. It must not collapse or overwrite
 the stored multilingual value.
@@ -344,6 +354,9 @@ The implemented boundary representations are intentionally distinct:
   `NameAttributes` and `DescriptiveAttributes` fields as well as direct model
   fields, so title, headline, summary, and description cannot be collapsed by
   a generic external-value conversion.
+- generated execution-context-aware constructors use
+  `ValueReader.readContextC`/`Record.getAsContextC`; context-free `readC`
+  remains the deterministic storage and local-construction route.
 
 The API locale map and datastore codec are structural contracts. `Record.getString`
 is not a valid way to read them for presentation because it stringifies the
@@ -495,9 +508,9 @@ Current executable coverage fixes:
 - powertype values, statemachine transitions, and driver metadata across
   datastore, form, REST/OpenAPI, and Help projections.
 
-Remaining executable coverage belongs to the separate locale-set and opaque
-secret policies: duplicate/unsupported locale diagnostics and hash/token
-redaction.
+Remaining executable coverage belongs to the opaque secret policy: hash/token
+redaction. Locale identity, duplicate diagnostics, explicit allowed-set
+validation, default binding, and complete fallback order are executable.
 
 ## 10. Breaking Migration
 

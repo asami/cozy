@@ -108,6 +108,20 @@ and related roles interchangeable. Structural API and datastore boundaries
 preserve locale maps; display locale selection happens only at a presentation
 boundary with the active execution locale.
 
+Locale identity is a canonical BCP 47 tag; `und` represents the
+language-neutral `Locale.ROOT`. Direct untagged construction uses that neutral
+identity, while context-aware string decoding uses `ExecutionContext.locale`.
+Malformed tags and duplicate canonical locale identities are rejected. An
+unset `I18nContext.allowedLocales` accepts every well-formed locale; a configured
+set is an exact deployment restriction. Display fallback is requested exact,
+requested language-only, neutral, English, Japanese, then first authored entry.
+Fallback is a projection and never changes the ordered stored entries.
+
+The shared `ValueReader` keeps context-free storage decoding separate from
+context-aware API decoding. Generated `buildCWithExecutionContext` paths read
+Record fields through the context-aware contract so deployment locale policy
+is enforced without changing deterministic datastore decoding.
+
 Driver-owned registry keys, state values, identifiers, hashes, secrets,
 session references, client IDs, provider codes, and source diagnostics remain
 nonlocalized by the same semantic rule. Localized display metadata for those
@@ -146,8 +160,6 @@ non-empty repeated fields remain distinct in generated operation metadata.
 Phase 16 does not freeze policy that lacks an implemented and executable
 contract. The following remain outside this design baseline:
 
-- default and allowed locale policy, duplicate-locale handling, and complete
-  fallback ordering;
 - redaction and display policy for hashes, secrets, and tokens;
 - normalization rules for driver-specific nominal scalars;
 - final ranges for semantic text families other than accepted baselines;

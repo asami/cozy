@@ -159,8 +159,14 @@ Status: OPEN
 - [x] Define canonical `min-length` and `max-length` text constraints without
       overloading numeric `min` and `max` semantics.
 - [x] Apply text length constraints independently to each localized entry.
-- [ ] Define locale identity, default-locale, allowed-locale, duplicate-locale,
+- [x] Define locale identity, default-locale, allowed-locale, duplicate-locale,
       and fallback behavior.
+  - [x] Use canonical BCP 47 identities with `und` as the neutral locale;
+        distinguish neutral direct construction from execution-locale string
+        decoding, reject duplicate/malformed identities, enforce optional exact
+        `I18nContext.allowedLocales`, and fix the complete display fallback
+        order with executable runtime specifications; propagate the policy
+        through generated `buildCWithExecutionContext` Record decoding.
 - [x] Preserve text constraints in normalized model metadata and project them
       to generated Web validation hints.
 - [x] Remove Web validation metadata as a source of domain constraints;

@@ -320,6 +320,10 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         content should include ("""baseContent = org.simplemodeling.model.value.BaseContent.simple("content")""")
         content should include ("""label = Some(org.goldenport.datatype.I18nLabel("Content"))""")
         content should include ("""web = org.goldenport.schema.WebColumn(controlType = Some("textarea"), required = Some(true), placeholder = Some("Notice content"), help = Some("Main notice text."), validation = org.goldenport.schema.WebValidationHints(minLength = Some(1)))""")
+        createcontent should include ("private def _record_get_as_context_c[A](")
+        createcontent should include ("record.getAsContextC[A](key)")
+        createcontent should include ("def buildCWithExecutionContext(record: Record)(using ctx: org.goldenport.cncf.context.ExecutionContext)")
+        createcontent should include ("_record_get_as_context_c(record, keys)(using vr, ctx)")
         content should include (
           """require(_text_constraint_values(senderName).forall(_.length >= 1), "senderName must have length >= 1")"""
         )

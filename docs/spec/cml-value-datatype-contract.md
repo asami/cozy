@@ -11,8 +11,8 @@ Results, Datatypes, model-kind separation, semantic text, and domain constraint
 projection. It applies to CML parsing, normalized model metadata, generated
 Scala 3.3.8 source, CNCF schema metadata, and generated runtime boundaries.
 
-Locale-set policy, secret redaction, driver-specific normalization, and text
-families without an accepted range are outside this specification.
+Secret redaction, driver-specific normalization, and text families without an
+accepted range are outside this specification.
 
 ## Operation Input
 
@@ -147,6 +147,30 @@ Descriptive text fields retain their locale entries through
 active locale without mutating, discarding, or merging the stored fields.
 Record, API, and datastore projection MUST preserve the locale structure;
 presentation code performs display selection.
+
+An I18N locale identity MUST be a well-formed BCP 47 language tag and MUST be
+serialized in the canonical form returned by `Locale.toLanguageTag`. `und`
+MUST identify the language-neutral `Locale.ROOT`. Direct construction from an
+untagged string MUST create one language-neutral entry. Context-aware string
+decoding MUST bind an untagged value to `ExecutionContext.locale`.
+
+Duplicate canonical locale identities MUST be rejected at construction and at
+structured JSON or Record input boundaries. An absent allowed-locale policy
+MUST accept every well-formed locale. When `I18nContext.allowedLocales` is
+configured, every entry MUST be a member of that exact canonical set; neutral
+`und` is not implicitly added.
+
+Context-free `ValueReader.readC` remains the deterministic storage and local
+construction boundary. API and generated entity construction with an active
+execution context MUST use `ValueReader.readContextC` through
+`Record.getAsContextC`; generated `buildCWithExecutionContext` methods MUST
+therefore enforce the same allowed-locale policy for scalar and repeated I18N
+fields.
+
+Display fallback MUST inspect requested exact locales in order, then their
+language-only locales, `Locale.ROOT`, English, Japanese, and finally the first
+authored entry. Fallback MUST NOT reorder, remove, merge, or overwrite stored
+entries.
 
 ## Domain Constraints
 
