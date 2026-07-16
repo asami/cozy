@@ -204,6 +204,30 @@ single/multi-locale capable `title`; it must not manufacture symmetric pairs
 without a modeling need. In particular, CML does not define separate
 single-locale title and multi-locale title concepts.
 
+The accepted catalog locality matrix is complete rather than inferred from the
+runtime representation:
+
+| Locality | Accepted CML concepts | Reason |
+|---|---|---|
+| locale-aware | `label`, `title`, `headline`, `brief`, `summary`, `lead`, `abstract`, `remarks`, `description`, `text` | User-visible descriptive or narrative meaning may vary by locale. A plain value remains the concise one-entry input form. |
+| nonlocalized | `name`, `identifier`, `token`, `url`, `uri`, `urn`, `locale`, `timezone`, `ip-address`, `email`, `phone` | Identity, protocol, locator, locale selector, and parser-backed technical meaning must not change with display locale. |
+
+Driver-owned nominal scalars follow the same semantic rule. Stable subject and
+message identifiers, registry keys, powertype/state values, hashes, secrets,
+session references, client IDs, device/user-agent diagnostics, and provider
+codes are intentionally nonlocalized. A localized label for one of those
+values is separate presentation metadata; it does not change the stored
+identity. Notification title/body and account title use the accepted
+locale-aware families. Audit or provider diagnostic text is not localized
+merely because a human may read it: localization requires authored alternative
+locale values, while source diagnostics must preserve the provider's exact
+text.
+
+`locale` itself is nonlocalized. It identifies the locale used to interpret or
+select other values; it is not text translated into that locale. The same
+distinction applies to `timezone` and other execution or presentation policy
+selectors.
+
 This is the natural-I18N rule:
 
 - a user-visible semantic text type is locale-aware unless its accepted type

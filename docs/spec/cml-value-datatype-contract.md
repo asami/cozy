@@ -107,12 +107,23 @@ lifecycle MUST NOT be inferred as closed from its current values or its name.
 Semantic role determines whether text is localized:
 
 - `name` uses nonlocalized `Name`;
-- `title` uses locale-aware `I18nTitle` and accepts one or multiple locale
-  entries through the same type;
+- `label`, `title`, `headline`, `brief`, `summary`, `lead`, `abstract`,
+  `remarks`, `description`, and `text` are locale-aware;
+- `title` uses `I18nTitle` and accepts one or multiple locale entries through
+  the same type;
 - `text` uses locale-aware `I18nText` with a default 1..8192 length contract
   for every locale entry;
+- `name`, `identifier`, `token`, `url`, `uri`, `urn`, `locale`, `timezone`,
+  `ip-address`, `email`, and `phone` are nonlocalized;
 - document body uses `ContentBody` and is not interchangeable with
   `I18nText`.
+
+Driver-owned identities, open registry keys, powertype and statemachine values,
+hashes, secrets, session/client references, provider codes, and source
+diagnostics MUST remain nonlocalized. A localized label for such a value MUST
+be separate presentation metadata and MUST NOT alter its identity. A locale or
+timezone value is a selector for interpretation and presentation, not localized
+text itself.
 
 Descriptive text fields retain their locale entries through
 `DescriptiveAttributes`. Effective display methods select fallback for the

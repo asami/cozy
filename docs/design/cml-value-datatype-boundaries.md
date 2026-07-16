@@ -88,10 +88,15 @@ locale-aware type when that type's contract is established.
 The implemented baseline is:
 
 - `name` is the nonlocalized `Name` contract;
-- `title` is the locale-aware `I18nTitle` contract and accepts either one or
-  multiple locale entries without changing type;
+- `label`, `title`, `headline`, `brief`, `summary`, `lead`, `abstract`,
+  `remarks`, `description`, and `text` are locale-aware descriptive or
+  narrative roles;
+- `title` accepts either one or multiple locale entries without changing type;
 - `text` is locale-aware `I18nText`, with a 1..8192 range applied independently
   to each locale entry;
+- `name`, `identifier`, `token`, `url`, `uri`, `urn`, `locale`, `timezone`,
+  `ip-address`, `email`, and `phone` are intentionally nonlocalized identity,
+  protocol, locator, selector, or technical roles;
 - `ContentBody` remains the single-document-body contract and is not replaced
   by `I18nText`;
 - descriptive families remain connected to `DescriptiveAttributes` and retain
@@ -102,6 +107,11 @@ changing the stored values or making headline, brief, summary, description,
 and related roles interchangeable. Structural API and datastore boundaries
 preserve locale maps; display locale selection happens only at a presentation
 boundary with the active execution locale.
+
+Driver-owned registry keys, state values, identifiers, hashes, secrets,
+session references, client IDs, provider codes, and source diagnostics remain
+nonlocalized by the same semantic rule. Localized display metadata for those
+values is modeled separately and never rewrites their stored identity.
 
 ## Constraint Projection
 

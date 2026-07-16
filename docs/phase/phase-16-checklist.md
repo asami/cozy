@@ -145,8 +145,11 @@ Status: OPEN
 - [x] Connect the descriptive text families to `DescriptiveAttributes`, keeping
       stored locale-aware values separate from non-destructive `effective*`
       display fallback.
-- [ ] Define which concepts are intentionally nonlocalized, such as stable
+- [x] Define which concepts are intentionally nonlocalized, such as stable
       identifiers, and which use localized label/title/text contracts.
+  - [x] Partition every accepted predefined scalar catalog entry by semantic
+        locality and apply the same identity-versus-presentation rule to both
+        driver inventories.
 - [ ] Define normalization and default or required length semantics for each
       predefined text type.
 - [x] Define canonical `min-length` and `max-length` text constraints without

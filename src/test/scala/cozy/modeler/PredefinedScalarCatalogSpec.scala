@@ -6,11 +6,36 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jul. 15, 2026
- * @version Jul. 15, 2026
+ * @version Jul. 16, 2026
  * @author  ASAMI, Tomoharu
  */
 final class PredefinedScalarCatalogSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "CML predefined scalar catalog" should {
+    "classify every accepted semantic scalar as localized or intentionally nonlocalized" in {
+      Given("the complete accepted semantic scalar catalog")
+      val localizednames = Vector(
+        "label", "title", "headline", "brief", "summary", "lead",
+        "abstract", "remarks", "description", "text"
+      )
+      val nonlocalizednames = Vector(
+        "name", "identifier", "token", "url", "uri", "urn", "locale",
+        "timezone", "ip-address", "email", "phone"
+      )
+
+      When("entries are partitioned by their semantic locality")
+      val localized = PredefinedScalarCatalog.entries.filter(_.localized).map(_.name)
+      val nonlocalized = PredefinedScalarCatalog.entries.filterNot(_.localized).map(_.name)
+
+      Then("user-visible descriptive and narrative roles are locale-aware")
+      localized shouldBe localizednames
+
+      And("identity, protocol, locator, and technical scalar roles are nonlocalized")
+      nonlocalized shouldBe nonlocalizednames
+
+      And("no accepted catalog entry remains outside the locality decision")
+      (localized ++ nonlocalized).toSet shouldBe PredefinedScalarCatalog.entries.map(_.name).toSet
+    }
+
     "bind localized descriptive roles to their canonical runtime families" in {
       Given("the accepted title and descriptive attribute roles")
       val roles = Vector("title", "headline", "summary", "description")
