@@ -305,7 +305,7 @@ Status: OPEN
 - [x] Record verification evidence in `docs/phase/phase-16.md`.
 - [x] Promote verified responsibilities and invariants from notes to
       `docs/design`.
-- [ ] Promote verified behavior from notes to `docs/spec` and the accepted CML
+- [x] Promote verified behavior from notes to `docs/spec` and the accepted CML
       grammar record.
 - [ ] Confirm all Phase 16 items are complete or explicitly deferred with a
       relocation target.

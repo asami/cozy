@@ -802,6 +802,16 @@ Design promotion update on 2026-07-16:
   ranges, and legacy display-overload decisions stay in notes and the
   checklist because they are not yet implemented contracts.
 
+Specification and grammar promotion update on 2026-07-16:
+
+- the accepted implementation-facing behavior is specified in
+  `docs/spec/cml-value-datatype-contract.md`;
+- `docs/design/cml-grammar.md` now includes the Phase 16 reusable/local
+  operation Value, Result, nominal Datatype, semantic text, and domain
+  constraint authoring baseline;
+- unresolved policy remains in notes and is not implied by either accepted
+  document.
+
 ## Stage 16.7: Verification and Closure
 
 Stage Status:
