@@ -1,6 +1,6 @@
 # Phase 16: CML Value and Datatype Refactoring
 
-Status: open
+Status: closed
 
 Start date: 2026-07-15
 
@@ -233,7 +233,7 @@ Current evidence:
 
 Stage Status:
 
-- Current status: IN PROGRESS
+- Current status: DONE
 - Owner: cozy-modeler
 - Checklist basis: `CML16-07`
 - Update rule: update when the scalar inventory, predefined type catalog, or
@@ -378,7 +378,7 @@ Current evidence:
 
 Stage Status:
 
-- Current status: IN PROGRESS
+- Current status: DONE
 - Owner: cozy-scaffold
 - Checklist basis: `CML16-08`
 - Update rule: update when `CML16-08` scaffold or migration evidence changes
@@ -758,7 +758,7 @@ Generated driver semantic-type verification on 2026-07-16:
   statemachine, or structured type and rejects primitive `String`,
   `Option[String]`, `Condition[String]`, and `Update[String]` fallback;
 - both focused executable specifications pass against the current driver CML;
-- full driver validation passes with 94 account tests and 32 notification
+- full driver validation passes with 101 account tests and 39 notification
   tests, and both CAR lint runs report no deterministic failure.
 
 Distinct CML model-kind verification on 2026-07-16:
@@ -865,7 +865,7 @@ The comparison and its executable evidence are recorded in
 
 Stage Status:
 
-- Current status: OPEN
+- Current status: DONE
 - Owner: cozy-modeler
 - Checklist basis: `CML16-09`
 - Update rule: update when `CML16-09` verification evidence changes
@@ -877,6 +877,24 @@ Focus:
 - promote verified behavior from notes to design, specification, and accepted
   grammar documents;
 - close only from checklist evidence.
+
+Closure evidence on 2026-07-16:
+
+- every CML16-01 through CML16-09 checklist item is complete;
+- future policy is explicitly relocated to
+  `docs/notes/cml-post-phase-16-policy-backlog.md` and does not extend this
+  phase;
+- the current Cozy HEAD passes all 559 tests;
+- the current User Notification HEAD passes all 39 tests;
+- the current User Account HEAD passes all 101 tests;
+- both driver CAR lint runs report no deterministic FAIL;
+- generated driver code targets Scala 3.3.8 and retains the accepted nominal,
+  predefined, powertype, statemachine, structured, I18N, constraint, and
+  confidentiality contracts;
+- `git diff --check` passes for every closure document changed by this slice.
+
+The closure audit is recorded in
+`docs/journal/2026/07/phase-16-closure-2026-07-16.md`.
 
 ## Closure Condition
 
@@ -895,5 +913,7 @@ their breaking generated contracts.
 - `docs/notes/cml-operation-value-refactoring-spec-proposal.md`
 - `docs/notes/cml-semantic-scalar-modeling-spec-proposal.md`
 - `docs/notes/cml-grammar-latest.md`
+- `docs/notes/cml-post-phase-16-policy-backlog.md`
+- `docs/journal/2026/07/phase-16-closure-2026-07-16.md`
 - `docs/journal/2026/04/cml-operation-input-output-discussion-result.md`
 - `docs/journal/2026/04/cml-operation-design-note.md`

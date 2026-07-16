@@ -182,17 +182,10 @@ non-empty repeated fields remain distinct in generated operation metadata.
 ## Deliberately Open Policy
 
 Phase 16 does not freeze policy that lacks an implemented and executable
-contract. The following remain outside this design baseline:
-
-- redaction and display policy for hashes, secrets, and tokens;
-- normalization rules for driver-specific nominal scalars that do not yet
-  declare exact-preservation or another accepted policy;
-- final ranges for semantic text families other than accepted baselines;
-- the future status of legacy display-projection overloads between
-  `I18nText` and `ContentBody`.
-
-These decisions remain in notes and the Phase 16 checklist until implemented
-and verified.
+contract. Further driver-specific normalization, syntax restrictions, richer
+document localization, and nested generator layout are outside this design
+baseline and are explicitly relocated to
+`docs/notes/cml-post-phase-16-policy-backlog.md`.
 
 ## Evidence
 

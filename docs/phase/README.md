@@ -4,10 +4,10 @@ Purpose: engineering work management.
 
 Current phase:
 
-- Active phase: `phase-16.md`: CML Value and Datatype Refactoring
-- Active checklist: `phase-16-checklist.md`
+- Active phase: none
+- Active checklist: none
 - Next planned phase: none
-- Most recent closed phase: `phase-15.md`: CAR Project Metadata Centralization
+- Most recent closed phase: `phase-16.md`: CML Value and Datatype Refactoring
 
 Belongs:
 

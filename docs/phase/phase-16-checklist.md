@@ -84,7 +84,7 @@ Status: DONE
 
 ## CML16-07: Semantic Scalar and Text Range Contract
 
-Status: OPEN
+Status: DONE
 
 - [x] Inventory every string-only `VALUE` and `DATATYPE` in both driver CARs
       through the normalized CML AST/model API, with 35 Datatypes and no
@@ -234,7 +234,7 @@ Status: OPEN
 
 ## CML16-08: Scaffold, Compatibility, and Migration
 
-Status: OPEN
+Status: DONE
 
 - [x] Make new scaffolds emit `# VALUE` plus `input-kind` for reusable inputs.
 - [x] Make new scaffolds prefer local Values for one-use input/output schemas.
@@ -306,15 +306,15 @@ Status: OPEN
 
 ## CML16-09: Verification and Closure
 
-Status: OPEN
+Status: DONE
 
 - [x] Run focused Modeler operation and Value executable specifications.
 - [x] Run scaffold executable specifications.
 - [x] Run full `sbt --batch test` in Cozy.
 - [x] Generate and validate at least one command and one query CAR.
-- [x] Run focused and full tests in `textus-user-notification` (32 tests
+- [x] Run focused and full tests in `textus-user-notification` (39 tests
       passed, including generated semantic-type verification).
-- [x] Run focused and full tests in `textus-user-account` (94 tests passed,
+- [x] Run focused and full tests in `textus-user-account` (101 tests passed,
       including generated semantic-type verification).
 - [x] Run CAR lint for both driver projects; both have no deterministic FAIL,
       with development-state and deferred implementation warnings recorded.
@@ -332,6 +332,6 @@ Status: OPEN
       `docs/design`.
 - [x] Promote verified behavior from notes to `docs/spec` and the accepted CML
       grammar record.
-- [ ] Confirm all Phase 16 items are complete or explicitly deferred with a
+- [x] Confirm all Phase 16 items are complete or explicitly deferred with a
       relocation target.
-- [ ] Close Phase 16 only from checklist evidence.
+- [x] Close Phase 16 only from checklist evidence.

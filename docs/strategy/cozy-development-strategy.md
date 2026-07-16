@@ -329,7 +329,7 @@ Primary reference:
 
 ### Phase 16: CML Value and Datatype Refactoring
 
-Status: open.
+Status: closed.
 
 Documentation workflow:
 
@@ -475,18 +475,13 @@ Initial boundary:
 
 ## Current Priority
 
-Phase 6 through Phase 15 are closed. Phase 16 is active.
+Phase 6 through Phase 16 are closed. No phase is currently active.
 
-Phase 16 refactors CML around a coherent operation Value model. Reusable input
-Values declare `input-kind`, one-use input and output Values may be defined
-inside an operation, and simple output contracts resolve through CNCF-owned
-predefined Results. Compatibility grammar remains readable while new scaffold
-output moves to the canonical form. `textus-user-notification` establishes the
-first migration contract, and `textus-user-account` verifies the same contract
-against the broader identity lifecycle and existing literate metadata. The
-same drivers are used to remove nominal string wrappers, introduce the proper
-powertype/statemachine models, and establish precise predefined text and length
-contracts for both scalar and I18N data.
+Phase 16 established coherent operation Values, CNCF-owned predefined Results,
+generated nominal Datatypes, powertype/statemachine ownership, semantic text
+and I18N behavior, domain length constraints, confidentiality projection, and
+canonical scaffold output. User Notification and User Account verify the
+accepted contract through generated Scala 3.3.8 code and CAR boundaries.
 
 Phase 15 completed CAR project metadata centralization. Cozy scaffolds now
 generate `project.yaml` as the CAR-local source of identity, Scala version,
@@ -541,7 +536,8 @@ behavior and Information-schema materialization.
 
 Current follow-up directions include:
 
-- Phase 16 CML operation Value refactoring
+- Post-Phase-16 CML policy backlog, when promoted into a separately scoped
+  phase
 - BoK KnowledgeSource manifest output and SIE ingestion
 - BoK publication and Component Repository public pages
 - Profile-driven video scaffolding with explanation and

@@ -95,8 +95,9 @@ contracts:
 These are generated CML powertypes and reject undeclared values. The declared
 snake_case name is their external and datastore representation. Channel
 providers remain an open, independent contract, so adding a provider does not
-extend the channel vocabulary. Notification type remains open pending its
-registry decision.
+extend the channel vocabulary. Notification type is an open
+application-extensible registry key with a 1..255 boundary, so it remains a
+constrained nominal scalar rather than a closed powertype.
 
 The notification lifecycle uses the closed states `Queued`, `Sending`, `Sent`,
 `Delivered`, `Failed`, and `Canceled` plus the `notificationLifecycle`
@@ -324,11 +325,10 @@ root-locale entry, and structured encoding round-trips every ordered locale
 entry. It is the runtime baseline for localized plain narrative text, not for a
 rich document body. CNCF SD-01B already fixes `ContentBody` as one document
 body and reserves rich multilingual bodies for the future SmartDox Textus
-profile. The existing `I18nText` to `ContentBody` conversion selects one
-`displayMessage`; it is a display projection or compatibility input, not a
-canonical multilingual storage contract. A CML field that owns localized plain
-text may use the `I18nText` family, while Blog, article, and document body fields
-remain `ContentBody`.
+profile. `I18nText` is not accepted by `ContentBody` ValueReader or Builder
+boundaries because selecting one display locale would discard authored locale
+entries. A CML field that owns localized plain text may use the `I18nText`
+family, while Blog, article, and document body fields remain `ContentBody`.
 
 `text` is now a canonical CML predefined type. The remaining family decisions
 concern `message` and domain-specific text contracts, not the storage shape of
@@ -490,7 +490,11 @@ is narrower than the original classification inventory:
   nominal scalars preserve authored text and enforce their recorded CML length
   boundaries;
 - password and token hashes have opaque bounded storage contracts, while their
-  redaction and no-display policy remains open.
+  CML `secret` confidentiality drives password controls and generic diagnostic,
+  observability, Help, and Web redaction.
+
+Policy beyond the implemented Phase 16 baseline is tracked in
+`docs/notes/cml-post-phase-16-policy-backlog.md`.
 
 ## 8. Diagnostics
 
