@@ -41,6 +41,14 @@ object and decodes it to a Record before operation dispatch. An empty optional
 control is removed from the request. This is a reusable Web presentation
 adapter, not a compatibility rule at the domain boundary.
 
+SimpleModeler automatic entity operations use the same generated parameter
+type as their runtime schema datatype. They do not collapse `record`, I18N,
+nominal, or temporal fields to `XString`. Search-query optionality remains a
+property of the generated Parameter and is not inferred again from only the
+raw Scala container shape. Scalar, optional, repeated, and non-empty
+collection parameters retain `One`, `ZeroOne`, `ZeroMore`, and `OneMore`
+respectively.
+
 ## Verification
 
 - generated `CreateNotification` preserves nested audience and metadata
@@ -51,3 +59,8 @@ adapter, not a compatibility rule at the domain boundary.
   after persistence and search;
 - CNCF Web form decoding accepts JSON objects, removes empty optional values,
   rejects malformed JSON, and leaves ordinary controls unchanged.
+- the generated automatic Notification search operation exposes
+  `audienceQuery` and `metadata` as `DataType.Named("record")`, retains I18N
+  and nominal field identities, and keeps both structured fields optional;
+- automatic request construction accepts a nested Record for `audienceQuery`
+  and rejects its JSON text representation.

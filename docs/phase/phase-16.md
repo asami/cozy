@@ -702,7 +702,14 @@ Notification structured-record boundary update on 2026-07-16:
   operation dispatch, while empty optional controls are omitted;
 - focused executable specifications verify structured round-trip, legacy
   string rejection, multicast matching, metadata persistence, malformed form
-  rejection, and preservation of non-JSON fields.
+  rejection, and preservation of non-JSON fields;
+- SimpleModeler automatic entity-operation metadata now derives its datatype
+  from the generated parameter type instead of falling back to `XString`, so
+  `record`, I18N, nominal, and temporal fields retain their runtime schema
+  identity while scalar, optional, repeated, and non-empty multiplicities
+  remain distinct;
+- automatic request construction accepts structured Record input and rejects
+  JSON text at the same generated entity-operation boundary.
 
 The decision is recorded in
 `docs/journal/2026/07/cml-notification-structured-record-boundary-2026-07-16.md`.
