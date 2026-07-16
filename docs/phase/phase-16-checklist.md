@@ -271,7 +271,9 @@ Status: OPEN
 - [x] Replace the notification body string wrapper with predefined `text`,
       preserve all locale entries through generated datastore encoding, and
       select presentation text through the execution locale.
-- [ ] Replace JSON-in-string audience/metadata fields with structured values.
+- [x] Replace notification audience-query and metadata JSON strings with
+      structured `record` fields; reject JSON text at generated/REST
+      boundaries and decode explicit Web `json` controls before dispatch.
 - [ ] Version both driver CARs for the deliberate generated-source and
       contract break instead of adding compatibility adapters.
 - [ ] Compare generated validation, datastore, form, REST/OpenAPI, and Help
@@ -285,9 +287,9 @@ Status: OPEN
 - [x] Run scaffold executable specifications.
 - [x] Run full `sbt --batch test` in Cozy.
 - [x] Generate and validate at least one command and one query CAR.
-- [x] Run focused and full tests in `textus-user-notification` (28 tests
+- [x] Run focused and full tests in `textus-user-notification` (32 tests
       passed, including generated semantic-type verification).
-- [x] Run focused and full tests in `textus-user-account` (92 tests passed,
+- [x] Run focused and full tests in `textus-user-account` (94 tests passed,
       including generated semantic-type verification).
 - [x] Run CAR lint for both driver projects; both have no deterministic FAIL,
       with development-state and deferred implementation warnings recorded.

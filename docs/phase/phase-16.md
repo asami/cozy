@@ -642,9 +642,9 @@ Account operation semantic-type alignment update on 2026-07-16:
 
 Domain-scalar ownership audit on 2026-07-16:
 
-- the nine remaining notification domain scalars and ten remaining account
+- the seven remaining notification domain scalars and ten remaining account
   domain scalars all correspond to explicit accepted-inventory entries;
-- all nineteen nominal Scala types are generated from the driver CML into
+- all seventeen nominal Scala types are generated from the driver CML into
   `target/scala-3.3.8/src_managed/main`;
 - neither driver keeps handwritten scalar-wrapper source under
   `src/main/scala`;
@@ -688,6 +688,25 @@ Notification delivery domain-scalar boundary update on 2026-07-16:
 The decision is recorded in
 `docs/journal/2026/07/cml-notification-delivery-domain-scalar-boundary-2026-07-16.md`.
 
+Notification structured-record boundary update on 2026-07-16:
+
+- `UserNotificationAudienceQueryJson` and `UserNotificationMetadataJson` are
+  removed rather than retained as compatibility wrappers;
+- `Notification` and `CreateNotification` use structured `audienceQuery` and
+  `metadata` records;
+- multicast matching reads Record fields directly, and provider metadata is
+  persisted as a Record without handwritten JSON parsing or escaping;
+- generated and REST boundaries reject JSON strings for these fields;
+- CNCF Web descriptors can mark a control as `json` or `record`; the generic
+  form boundary validates and decodes a JSON object into a Record before
+  operation dispatch, while empty optional controls are omitted;
+- focused executable specifications verify structured round-trip, legacy
+  string rejection, multicast matching, metadata persistence, malformed form
+  rejection, and preservation of non-JSON fields.
+
+The decision is recorded in
+`docs/journal/2026/07/cml-notification-structured-record-boundary-2026-07-16.md`.
+
 Persisted account domain-scalar length update on 2026-07-16:
 
 - external subject IDs use a 1..512 issuer-scoped opaque boundary;
@@ -716,7 +735,7 @@ Generated driver semantic-type verification on 2026-07-16:
   statemachine, or structured type and rejects primitive `String`,
   `Option[String]`, `Condition[String]`, and `Update[String]` fallback;
 - both focused executable specifications pass against the current driver CML;
-- full driver validation passes with 94 account tests and 30 notification
+- full driver validation passes with 94 account tests and 32 notification
   tests, and both CAR lint runs report no deterministic failure.
 
 Distinct CML model-kind verification on 2026-07-16:

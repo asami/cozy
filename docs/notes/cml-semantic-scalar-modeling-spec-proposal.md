@@ -379,8 +379,8 @@ The following are the remaining investigation themes, not accepted migrations.
   vocabulary decision;
 - error message and other remaining user-visible message fields require scalar
   versus I18N classification and length contracts;
-- account subject ID, dedupe key, provider message ID, error code, and JSON
-  payloads require identifier/opaque/structured-data classification.
+- account subject ID, dedupe key, provider message ID, and error code require
+  identifier or opaque-data classification.
 
 Audience kind, channel, priority, lifecycle state, and delivery-attempt result
 use generated closed types. `notificationLifecycle` provides the transition
@@ -390,7 +390,10 @@ quiet-hour, locale, timezone, and
 action-reference fields use predefined `localtime`, `locale`, `timezone`, and
 `uri` contracts respectively. An action reference is a URI rather than an
 absolute-only URL because application-relative routes are part of the
-notification contract.
+notification contract. Audience queries and metadata are structured `record`
+fields. Generated and REST requests must supply Records; an explicit Web
+`json` control is the presentation adapter that decodes a JSON object before
+operation dispatch.
 
 ### textus-user-account
 

@@ -1,7 +1,7 @@
 # CML Semantic Scalar Driver Inventory
 
 status=provisional
-updated_at=2026-07-15
+updated_at=2026-07-16
 target_phase=16
 
 ## 1. Purpose
@@ -79,7 +79,7 @@ does not decide the category.
 |---|---|---|---|---|
 | `UserNotificationAudienceKind` | powertype | nonlocalized | Implemented | Uses the closed `direct`, `multicast`, and `broadcast` vocabulary. |
 | `UserNotificationAccountSubjectId` | constrained domain scalar | nonlocalized | Confirmed direction | Bind to the account subject identifier contract and length. |
-| `UserNotificationAudienceQueryJson` | intentional opaque text | nonlocalized | Domain decision | Prefer structured `record`/JSON when the query schema is stable; otherwise constrain payload size. |
+| `Notification.audienceQuery` | structured `record` | nonlocalized | Implemented | Replaces `UserNotificationAudienceQueryJson`; generated and REST boundaries require a Record, while the explicit Web `json` control decodes one JSON object before dispatch. |
 | `UserNotificationType` | powertype or constrained domain scalar | nonlocalized | Domain decision | Decide whether notification types are closed, versioned, or application-extensible. |
 | `UserNotificationChannel` | powertype | nonlocalized | Implemented | Uses `in_app`, `email`, `sms`, and `push`; provider variability remains in the open provider contract. |
 | `UserNotificationTitle` | predefined `title` | locale-aware | Implemented | Uses the single/multi-locale `I18nTitle` contract and catalog length constraints. |
@@ -89,7 +89,7 @@ does not decide the category.
 | `UserNotificationDeliveryResultStatus` | powertype | nonlocalized | Implemented | Uses the independent closed `Pending`, `Succeeded`, and `Failed` attempt-result vocabulary. |
 | `UserNotificationDedupeKey` | intentional opaque text | nonlocalized | Implemented length boundary | Uses a 1..255 application-scoped opaque contract; normalization and uniqueness scope remain application-owned. |
 | `UserNotificationActionReference` | predefined `uri` | nonlocalized | Implemented | Relative application routes and absolute URIs share the parser-backed `java.net.URI` contract; deployment authorization remains separate. |
-| `UserNotificationMetadataJson` | intentional opaque text | nonlocalized | Domain decision | Prefer structured `record`/JSON when stable; otherwise constrain payload size and exposure. |
+| `Notification.metadata` | structured `record` | nonlocalized | Implemented | Replaces `UserNotificationMetadataJson`; metadata remains structurally typed through generated, provider, datastore, REST, and Web form boundaries. |
 | `UserNotificationDeliveryProvider` | constrained domain scalar | nonlocalized | Implemented length boundary | Remains an open 1..64 provider key rather than a closed powertype; canonical syntax remains a registry decision. |
 | `UserNotificationProviderMessageId` | intentional opaque text | nonlocalized | Implemented | Uses a provider-scoped opaque 1..512 identity contract. |
 | `UserNotificationErrorCode` | constrained domain scalar | nonlocalized | Implemented length boundary | Uses a 1..128 provider/code boundary; canonical namespace syntax remains a provider-contract decision. |
@@ -103,11 +103,12 @@ delivery-attempt outcomes are implemented as generated closed vocabularies.
 `notificationLifecycle` owns the allowed delivery transitions, while
 `NotificationUserState` independently owns recipient read and dismissal data.
 The primary unresolved notification decision is whether notification type is
-closed. Body uses the
+closed. Audience matching and metadata use structured Records rather than
+JSON-in-string wrappers. Body uses the
 canonical locale-aware `text` contract. Quiet-hour fields use the predefined
 parser-backed `localtime` contract. Delivery provider remains open and
 provider-extensible, with provider-facing identifiers and diagnostics bounded
-by canonical CML constraints. The nine remaining domain-scalar rows are CML-owned and
+by canonical CML constraints. The seven remaining domain-scalar rows are CML-owned and
 generate their nominal Scala types; no parallel handwritten wrapper source is
 kept in the notification component.
 
