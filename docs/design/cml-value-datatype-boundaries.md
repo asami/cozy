@@ -98,7 +98,8 @@ The implemented baseline is:
   `ip-address`, `email`, and `phone` are intentionally nonlocalized identity,
   protocol, locator, selector, or technical roles;
 - `ContentBody` remains the single-document-body contract and is not replaced
-  by `I18nText`;
+  by `I18nText`; no compatibility reader or Builder overload collapses an
+  `I18nText` through display fallback;
 - descriptive families remain connected to `DescriptiveAttributes` and retain
   all locale entries.
 

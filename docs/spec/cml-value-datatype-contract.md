@@ -116,7 +116,8 @@ Semantic role determines whether text is localized:
 - `name`, `identifier`, `token`, `url`, `uri`, `urn`, `locale`, `timezone`,
   `ip-address`, `email`, and `phone` are nonlocalized;
 - document body uses `ContentBody` and is not interchangeable with
-  `I18nText`.
+  `I18nText`; ValueReader and Builder boundaries MUST reject an `I18nText`
+  value rather than selecting one locale implicitly.
 
 Driver-owned identities, open registry keys, powertype and statemachine values,
 hashes, secrets, session/client references, provider codes, and source

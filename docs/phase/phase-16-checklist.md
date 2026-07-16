@@ -223,9 +223,9 @@ Status: OPEN
       structured shared-codec specifications; classify `I18nText` as localized
       plain narrative text while retaining the SD-01B single-document-body
       contract for `ContentBody`.
-- [ ] Decide whether the display-projection overloads from `I18nText` to
-      `ContentBody` remain compatibility inputs or should be deprecated to
-      prevent accidental multilingual-storage assumptions.
+- [x] Remove the display-projection overloads from `I18nText` to `ContentBody`
+      without compatibility input; a single document body must be authored or
+      projected explicitly and must not discard locale entries implicitly.
 - [x] Align generated `derived=content` aliases with SD-01B by returning
       `ContentBody` and omitting the obsolete locale overload.
 - [x] Replace the pending `I18nTitleSpec` coverage with executable single-locale

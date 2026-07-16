@@ -155,7 +155,7 @@ The semantic text family is classified by role rather than storage shape:
 | `description` | `I18nDescription` | `DescriptiveAttributes.description` | Accepted locale-aware 1..8192 contract |
 | plain narrative `text` | `I18nText` | Not a `ContentBody` replacement | Implemented locale-aware predefined type; 1..8192 per locale entry |
 | user-facing `message` | `I18nMessage` legacy behavior | No canonical `DescriptiveAttributes` field | Legacy runtime evidence only; canonical codec and range open |
-| document body | `ContentBody` | `ContentAttributes.content` | Accepted single-document-body boundary |
+| document body | `ContentBody` | `ContentAttributes.content` | Accepted single-document-body boundary; implicit `I18nText` display conversion removed |
 
 `DescriptiveAttributes` is the integration contract for descriptive metadata.
 Its field types preserve the complete locale-tagged values. Its `effective*`
