@@ -108,6 +108,22 @@ and related roles interchangeable. Structural API and datastore boundaries
 preserve locale maps; display locale selection happens only at a presentation
 boundary with the active execution locale.
 
+## Confidential Opaque Text
+
+Opaque technical text and descriptive text use separate runtime paths. A hash,
+credential, raw secret, or token value is not descriptive metadata, is never
+placed in `DescriptiveAttributes`, and does not use locale or `effective*`
+fallback. Its Datatype defines value validity; CML confidentiality defines
+disclosure.
+
+Cozy carries confidentiality from the CML AST into generated schema and
+operation metadata. CNCF uses that metadata for password-style secret input,
+OpenAPI disclosure metadata, CallTree and observability sanitization, and Web
+debug/result redaction. `personal`, `sensitive`, and `secret` redact by
+default; `public` and `internal` do not. Domain operations may use persisted
+secret values internally, but generic presentation must expose only a
+redaction marker.
+
 Locale identity is a canonical BCP 47 tag; `und` represents the
 language-neutral `Locale.ROOT`. Direct untagged construction uses that neutral
 identity, while context-aware string decoding uses `ExecutionContext.locale`.

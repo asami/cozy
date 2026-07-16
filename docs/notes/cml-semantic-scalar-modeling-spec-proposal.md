@@ -169,6 +169,26 @@ Other parser-backed families such as `identifier`, `url`, `uri`, `locale`, and
 `timezone` remain non-generic scalar concepts rather than members of this
 descriptive-text matrix.
 
+Opaque text is also outside the descriptive-text matrix. Its domain type owns
+identity and length constraints, while CML `confidentiality` owns disclosure
+policy. Hash, credential, and token values therefore do not enter
+`DescriptiveAttributes` and never use `effective*` display fallback. The
+accepted v1 policy is:
+
+| Confidentiality | Generic display and diagnostics | Input control |
+|---|---|---|
+| `public` | visible | datatype-derived |
+| `internal` | visible by default; authorization remains surface-owned | datatype-derived |
+| `personal` | redacted by default | datatype-derived |
+| `sensitive` | redacted by default | datatype-derived |
+| `secret` | redacted by default and never emitted as a generic value preview | password-style |
+
+This policy is metadata-driven. Naming a field `token` or backing a Datatype
+with `string` is not the canonical classification mechanism. Name heuristics
+may remain defensive protection, but generated CML confidentiality is the
+source of truth. User Account `passwordHash` and `tokenHash` fields are the
+Phase 16 driver evidence.
+
 The implemented low-ambiguity account catalog additionally fixes these
 provider-independent runtime boundaries:
 

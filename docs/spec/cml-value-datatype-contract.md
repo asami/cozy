@@ -148,6 +148,20 @@ active locale without mutating, discarding, or merging the stored fields.
 Record, API, and datastore projection MUST preserve the locale structure;
 presentation code performs display selection.
 
+Opaque text and display text are independent classifications. Hashes, raw
+secrets, credentials, and token material MUST NOT be stored in
+`DescriptiveAttributes` and MUST NOT participate in its `effective*` fallback.
+An opaque Datatype MUST declare confidentiality explicitly when its value is
+not public; its string-backed representation alone does not imply secrecy.
+
+Generated schema and operation metadata MUST preserve CML confidentiality.
+`secret` input fields use a password-style control, while diagnostics,
+observability records, execution debug output, and generic result previews MUST
+replace `personal`, `sensitive`, and `secret` values with a redaction marker by
+default. `public` and `internal` values are not redacted by default. Persisted
+hashes and token hashes are `secret`: authorized domain logic may compare or
+replace them, but generic display surfaces MUST NOT reveal their values.
+
 An I18N locale identity MUST be a well-formed BCP 47 language tag and MUST be
 serialized in the canonical form returned by `Locale.toLanguageTag`. `und`
 MUST identify the language-neutral `Locale.ROOT`. Direct construction from an

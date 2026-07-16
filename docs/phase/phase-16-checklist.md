@@ -181,8 +181,11 @@ Status: OPEN
   - [x] Verify the generated form HTML uses the projected Web validation hints;
         `GeneratedOperationFormProjectionSpec` renders canonical `text` as a
         required textarea with `minlength=1` and `maxlength=8192`.
-- [ ] Define redaction and display behavior for hashes, secrets, tokens, and
-      other opaque text values.
+- [x] Define redaction and display behavior for hashes, secrets, tokens, and
+      other opaque text values: keep them outside `DescriptiveAttributes`, use
+      CML confidentiality as the source of truth, redact `personal`,
+      `sensitive`, and `secret` values by default, and project `secret` inputs
+      as password-style controls.
 - [x] Add executable specifications for classification diagnostics, predefined
       text types, boundary lengths, and invalid text values; the executable
       evidence is mapped in
