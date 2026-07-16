@@ -80,7 +80,7 @@ does not decide the category.
 | `UserNotificationAudienceKind` | powertype | nonlocalized | Implemented | Uses the closed `direct`, `multicast`, and `broadcast` vocabulary. |
 | `UserNotificationAccountSubjectId` | constrained domain scalar | nonlocalized | Confirmed direction | Bind to the account subject identifier contract and length. |
 | `Notification.audienceQuery` | structured `record` | nonlocalized | Implemented | Replaces `UserNotificationAudienceQueryJson`; generated and REST boundaries require a Record, while the explicit Web `json` control decodes one JSON object before dispatch. |
-| `UserNotificationType` | powertype or constrained domain scalar | nonlocalized | Domain decision | Decide whether notification types are closed, versioned, or application-extensible. |
+| `UserNotificationType` | constrained domain scalar | nonlocalized | Implemented | Uses an open application-extensible 1..255 type key; values such as `cncf.job` and `artscene.exhibition.new` are owned outside this component and are therefore not a powertype. |
 | `UserNotificationChannel` | powertype | nonlocalized | Implemented | Uses `in_app`, `email`, `sms`, and `push`; provider variability remains in the open provider contract. |
 | `UserNotificationTitle` | predefined `title` | locale-aware | Implemented | Uses the single/multi-locale `I18nTitle` contract and catalog length constraints. |
 | `UserNotificationBody` | predefined `text` | locale-aware | Implemented | Wrapper removed; notification body uses `I18nText` with 1..8192 characters per locale entry. |
@@ -102,9 +102,10 @@ The notification audience kind, channel, priority, lifecycle states, and
 delivery-attempt outcomes are implemented as generated closed vocabularies.
 `notificationLifecycle` owns the allowed delivery transitions, while
 `NotificationUserState` independently owns recipient read and dismissal data.
-The primary unresolved notification decision is whether notification type is
-closed. Audience matching and metadata use structured Records rather than
-JSON-in-string wrappers. Body uses the
+Notification type is an open application-extensible key rather than a closed
+powertype; this component preserves the authored value and enforces only the
+accepted 1..255 boundary. Audience matching and metadata use structured
+Records rather than JSON-in-string wrappers. Body uses the
 canonical locale-aware `text` contract. Quiet-hour fields use the predefined
 parser-backed `localtime` contract. Delivery provider remains open and
 provider-extensible, with provider-facing identifiers and diagnostics bounded
@@ -166,9 +167,8 @@ catalog and migrated the low-ambiguity account scalars: `title`, `email`,
 channel, and priority vocabularies and the account status vocabulary are now
 generated powertypes. Notification and account lifecycle transitions are
 generated from their CML state machines. Subsequent slices should resolve the
-remaining driver-specific contracts. Open provider/type registries, structured JSON
-payloads, secret redaction, and account device information remain explicit
-domain decisions.
+remaining driver-specific contracts. Open provider registry syntax, secret
+redaction, and account device information remain explicit domain decisions.
 
 Driver migration starts only after the selected type contracts define:
 

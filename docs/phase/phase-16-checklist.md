@@ -95,6 +95,8 @@ Status: OPEN
       intentional opaque text.
   - [x] Record a provisional category, localization direction, and decision
         state for all 35 current driver Datatypes.
+  - [x] Classify notification type as an open, nonlocalized, application-owned
+        constrained scalar with a `1..255` boundary rather than a powertype.
   - [ ] Resolve the domain-decision rows before changing driver source.
 - [x] Decide that accepted plain `DATATYPE` declarations become nominal
       scalars and that the former generated Scala `String` contract is not
