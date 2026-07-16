@@ -130,17 +130,18 @@ kept in the notification component.
 | `UserAccountSessionReference` | intentional opaque text | nonlocalized | Implemented length boundary | Uses a 1..255 session reference boundary; identity scope and entropy remain domain policy. |
 | `UserAccountTokenHash` | intentional opaque secret text | nonlocalized | Implemented length boundary | Uses a 1..1024 algorithm-owned hash boundary; format, redaction, and no-display policy remain separate. |
 | `UserAccountClientId` | constrained domain identifier | nonlocalized | Implemented length boundary | Uses a 1..255 client identifier boundary; namespace and syntax remain registry policy. |
-| `UserAccountDeviceInfo` | constrained technical text or structured Value | nonlocalized | Domain decision | Decide whether bounded raw device text is sufficient or stable fields justify a Value. |
+| `UserAccountDeviceInfo` | constrained technical text | nonlocalized | Implemented | Uses an opaque 1..4096 descriptor copied from the SecurityContext into access and refresh sessions; no stable component-owned subfields justify a structured Value. |
 | `UserAccountIpAddress` | predefined IP address scalar | nonlocalized | Implemented | Uses `IpAddress` with IPv4/IPv6 parsing and canonical serialization. |
 | `UserAccountUserAgent` | constrained technical text | nonlocalized | Implemented length boundary | Uses a nonlocalized 1..4096 technical-text boundary; control-character policy remains follow-up work. |
 | `UserAccountStatus` | statemachine-owned state | nonlocalized | Implemented | Uses the closed `provisional`, `registered`, `formal`, and `suspended` vocabulary plus the CML `status` transition contract. |
 
 Login name is an exact case-sensitive account identity with no implicit
 normalization; registration enforces exact-value uniqueness and lookup uses the
-same equality contract. The remaining account classification decision is
-whether device information remains bounded technical text or becomes a
-structured Value. Persisted identity, audit, hash, session, client, and
-user-agent scalars now have canonical CML length boundaries. Their issuer and
+same equality contract. Device information remains one bounded technical
+descriptor because the component receives and returns it as an opaque
+SecurityContext/session attribute rather than owning stable structured fields.
+Persisted identity, audit, hash, session, client, device, and user-agent
+scalars now have canonical CML length boundaries. Their issuer and
 namespace binding, hash/token redaction, suspension-reason presentation,
 control-character policy, and identity semantics remain domain-specific work;
 they must not be collapsed to a broader predefined scalar merely because their
@@ -169,8 +170,8 @@ catalog and migrated the low-ambiguity account scalars: `title`, `email`,
 channel, and priority vocabularies and the account status vocabulary are now
 generated powertypes. Notification and account lifecycle transitions are
 generated from their CML state machines. Subsequent slices should resolve the
-remaining driver-specific contracts. Open provider registry syntax, secret
-redaction, and account device information remain explicit domain decisions.
+remaining driver-specific contracts. Open provider registry syntax and secret
+redaction remain explicit domain decisions.
 
 Driver migration starts only after the selected type contracts define:
 

@@ -90,7 +90,7 @@ Status: OPEN
       through the normalized CML AST/model API, with 35 Datatypes and no
       string-only Values recorded in
       `docs/notes/cml-semantic-scalar-driver-inventory.md`.
-- [ ] Finalize classification of each item as predefined scalar, constrained
+- [x] Finalize classification of each item as predefined scalar, constrained
       domain scalar, composite Value, powertype, statemachine-owned state, or
       intentional opaque text.
   - [x] Record a provisional category, localization direction, and decision
@@ -99,7 +99,10 @@ Status: OPEN
         constrained scalar with a `1..255` boundary rather than a powertype.
   - [x] Classify login name as an exact case-sensitive, nonlocalized `1..255`
         account identity with no implicit normalization or lexical restriction.
-  - [ ] Resolve the domain-decision rows before changing driver source.
+  - [x] Classify device information as one opaque, nonlocalized `1..4096`
+        technical descriptor because no stable component-owned fields justify a
+        structured Value.
+  - [x] Resolve the domain-decision rows before changing driver source.
 - [x] Decide that accepted plain `DATATYPE` declarations become nominal
       scalars and that the former generated Scala `String` contract is not
       preserved through a feature flag, adapter, implicit conversion, or dual
