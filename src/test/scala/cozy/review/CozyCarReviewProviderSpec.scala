@@ -1,11 +1,15 @@
 package cozy.review
 
+import java.io.{ByteArrayOutputStream, PrintStream}
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
 
+import cozy.lint.CozyCarLint
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+import play.api.libs.json.{JsObject, Json}
+import scala.collection.JavaConverters._
 
 /*
  * @since   Jul. 16, 2026
@@ -67,6 +71,43 @@ final class CozyCarReviewProviderSpec extends AnyWordSpec with Matchers with Giv
         (bundle \ "evidence").as[Vector[play.api.libs.json.JsObject]].map(x => (x \ "kind").as[String]).toSet should contain allOf ("car-project", "cml-model", "build", "car-package", "abi", "documentation")
         ((bundle \ "evidence").as[Vector[play.api.libs.json.JsObject]].find(x => (x \ "id").as[String] == "evidence-project-yaml").get \ "facts" \ "supportedCncfVersions").as[Vector[String]] should contain("0.5.1")
         (bundle \ "limitations").as[Vector[play.api.libs.json.JsObject]].map(x => (x \ "code").as[String]) should contain("runtime-evidence-not-supported")
+      } finally {
+        _delete(root)
+      }
+    }
+
+    "preserve every integrated CAR lint finding while the independent lint command keeps the same result" in {
+      Given("one CAR project that produces build, CML, ABI, and documentation lint results")
+      val root = Files.createTempDirectory("cozy-car-review-provider-lint")
+      try {
+        _write(root.resolve("project.yaml"), "project:\n  kind: car\n  name: sample-car\n")
+        _write(root.resolve("build.sbt"), "name := \"sample-car\"\n")
+        _write(root.resolve("src/main/cozy/sample-car.cml"), "# COMPONENT\n\n## sample-car\n")
+        _write(root.resolve("src/main/car/abi-manifest.json"), "{}\n")
+        val request = CozyCarReviewProvider.Request(
+          "review-example-001",
+          CozyCarReviewProvider.Target("project", None, "sample-car", None, "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+          "sha256:d88fe085924cc9d234d233963bb624e584826bb8f02f19fc47253888a7c21d97",
+          CozyCarReviewProvider.Limits(2000, 1000, 16777216L, 120000L),
+          Vector("cozy.car-analysis"),
+          Vector.empty,
+          Vector("cozy.car.*"),
+          Vector.empty
+        )
+
+        When("Cozy emits provider evidence and its focused lint command runs independently")
+        val bundle = CozyCarReviewProvider.evidenceBundle(request, root, "0.3.0-SNAPSHOT")
+        val direct = CozyCarLint.lint(root, None, noabi = false)
+        val stdout = new ByteArrayOutputStream()
+        val exitcode = Console.withOut(new PrintStream(stdout, true, StandardCharsets.UTF_8.name())) {
+          CozyCarLint.execute(List(root.toString, "--format", "json"))
+        }
+
+        Then("all provider lint evidence preserves the exact focused lint result and command JSON")
+        val evidence = (bundle \ "evidence").as[Vector[JsObject]].filter(x => (x \ "subject" \ "kind").as[String] == "lint-rule")
+        evidence.map(_adapter_finding) shouldBe direct.map(_lint_finding(_, root))
+        Json.parse(stdout.toString(StandardCharsets.UTF_8.name())) shouldBe Json.parse(CozyCarLint.toJson(direct))
+        exitcode shouldBe (if (direct.exists(_.level == CozyCarLint.Level.Fail)) 1 else 0)
       } finally {
         _delete(root)
       }
@@ -146,4 +187,24 @@ final class CozyCarReviewProviderSpec extends AnyWordSpec with Matchers with Giv
       try stream.sorted(java.util.Comparator.reverseOrder()).forEach(x => Files.deleteIfExists(x))
       finally stream.close()
     }
+
+  private def _adapter_finding(value: JsObject): (String, String, String, String, Int, String) =
+    (
+      (value \ "facts" \ "category").as[String],
+      (value \ "facts" \ "code").as[String],
+      (value \ "facts" \ "level").as[String],
+      (value \ "location" \ "path").as[String],
+      (value \ "facts" \ "line").as[Int],
+      (value \ "facts" \ "message").as[String]
+    )
+
+  private def _lint_finding(finding: CozyCarLint.Finding, root: Path): (String, String, String, String, Int, String) =
+    (
+      finding.category,
+      finding.code,
+      finding.level.name,
+      root.relativize(finding.path.toAbsolutePath.normalize()).iterator().asScala.map(_.toString).mkString("/"),
+      finding.line,
+      finding.message
+    )
 }
