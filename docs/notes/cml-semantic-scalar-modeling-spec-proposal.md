@@ -147,12 +147,12 @@ The semantic text family is classified by role rather than storage shape:
 
 | CML meaning | Runtime baseline | Attribute integration | Phase 16 status |
 |---|---|---|---|
-| stable `name` | `Name` | `NameAttributes.name` | Accepted nonlocalized baseline |
-| display `label` | `I18nLabel` | `DescriptiveAttributes.tooltip` uses the same compact-label family | Accepted locale-aware runtime baseline; range open |
-| `title` | `I18nTitle` | `NameAttributes.title` | Accepted locale-aware runtime baseline; range open |
-| `headline`, `brief` | `I18nBrief` | `DescriptiveAttributes.headline` and `brief` | Accepted shared runtime family; role-specific ranges open |
-| `summary`, `lead`, `abstract`, `remarks` | `I18nSummary` | Corresponding `DescriptiveAttributes` fields | Accepted shared runtime family; role-specific ranges open |
-| `description` | `I18nDescription` | `DescriptiveAttributes.description` | Accepted locale-aware runtime baseline; range open |
+| stable `name` | `Name` | `NameAttributes.name` | Accepted nonlocalized 1..256 contract |
+| display `label` | `I18nLabel` | `DescriptiveAttributes.tooltip` uses the same compact-label family | Accepted locale-aware 1..256 contract |
+| `title` | `I18nTitle` | `NameAttributes.title` | Accepted locale-aware 1..256 contract |
+| `headline`, `brief` | `I18nBrief` | `DescriptiveAttributes.headline` and `brief` | Accepted locale-aware 1..512 contracts |
+| `summary`, `lead`, `abstract`, `remarks` | `I18nSummary` | Corresponding `DescriptiveAttributes` fields | Accepted locale-aware 1..2048 contracts |
+| `description` | `I18nDescription` | `DescriptiveAttributes.description` | Accepted locale-aware 1..8192 contract |
 | plain narrative `text` | `I18nText` | Not a `ContentBody` replacement | Implemented locale-aware predefined type; 1..8192 per locale entry |
 | user-facing `message` | `I18nMessage` legacy behavior | No canonical `DescriptiveAttributes` field | Legacy runtime evidence only; canonical codec and range open |
 | document body | `ContentBody` | `ContentAttributes.content` | Accepted single-document-body boundary |
@@ -273,33 +273,29 @@ contract.
 `I18nLabel` follows the shared wrapper model: plain construction stores one
 root-locale entry, plain encoding remains concise, and structured encoding
 round-trips all locale/value entries through `I18nString`. Existing schema and
-model metadata already use this type for labels. Phase 16 therefore accepts it
-as the runtime baseline for locale-aware labels, while CML field-type exposure,
-length, and normalization policy remain open.
+model metadata already use this type for labels. Canonical CML `label` preserves
+the authored text and applies 1..256 independently to each locale entry.
 
 `I18nDescription` also follows the shared wrapper model. Plain construction
 stores one root-locale entry, structured encoding round-trips every ordered
 locale/value entry, and `DescriptiveAttributes` selects effective description
 text through the preserved `I18nString` value without collapsing its entries.
-The current runtime wrapper does not define a description-specific length,
-multiline, normalization, or empty-value policy. Phase 16 accepts this behavior
-as runtime evidence, not yet as the canonical CML `description` contract.
+Canonical CML `description` preserves authored multiline text and applies
+1..8192 independently to each locale entry.
 
 `I18nBrief` follows the same shared wrapper model and currently backs both the
 `headline` and `brief` fields in `DescriptiveAttributes`. Plain construction and
 structured round-trip preserve its `I18nString`, while effective headline and
 brief accessors select display locales without collapsing stored entries. The
-runtime wrapper does not yet distinguish headline and brief ranges or define
-their length, normalization, or empty-value policy, so this remains baseline
-evidence rather than the accepted CML field contract.
+canonical `headline` and `brief` roles share the wrapper and each apply a
+1..512 per-locale range without implicit text normalization.
 
 `I18nSummary` is the shared runtime wrapper for the `summary`, `lead`,
 `abstract`, and `remarks` fields in `DescriptiveAttributes`. Its plain and
 structured forms preserve `I18nString`, and effective summary fallback can
 select a localized `lead` without collapsing the stored entries. The wrapper
-does not currently distinguish the ranges or normalization rules of these four
-roles. Their canonical CML classification and constraints therefore remain
-open even though the runtime baseline is shared.
+is shared, while canonical `summary`, `lead`, `abstract`, and `remarks` each
+apply the same 1..2048 per-locale range and preserve the authored text.
 
 `I18nText` also follows the shared wrapper model. Plain construction keeps one
 root-locale entry, and structured encoding round-trips every ordered locale
@@ -361,7 +357,7 @@ on numeric `min` and `max` interpretation. The normalized model may use
 `min_length` and `max_length` internally, but CML authoring uses the hyphenated
 property names.
 
-Additional constraints may include:
+Narrower domain scalars may additionally declare:
 
 - `pattern` for a domain syntax;
 - `format` for a standard parser-backed format;
@@ -372,6 +368,27 @@ Additional constraints may include:
 
 For an I18N value, minimum and maximum length apply to each locale entry. Entry
 count and locale-set constraints are separate from text length.
+
+The accepted semantic text defaults are:
+
+| CML role | Present-value range | Contract kind | Normalization |
+|---|---:|---|---|
+| `name` | 1..256 | Runtime-required by `Name` | Preserve authored case, whitespace, and Unicode representation; reject non-printable control characters through `Name`. |
+| `label`, `title` | 1..256 per locale entry | Catalog default | Preserve authored text exactly. |
+| `headline`, `brief` | 1..512 per locale entry | Catalog default | Preserve authored text exactly. |
+| `summary`, `lead`, `abstract`, `remarks` | 1..2048 per locale entry | Catalog default | Preserve authored text exactly. |
+| `description`, `text` | 1..8192 per locale entry | Catalog default | Preserve authored text, including multiline representation, exactly. |
+
+`min-length=1` governs a value that is present; field multiplicity separately
+decides whether the field may be absent. An optional field may be absent but an
+authored empty string is not a substitute for absence. The generator applies
+catalog ranges as domain constraints at construction, Record/datastore, and
+operation boundaries. Runtime wrappers remain lossless value containers and do
+not silently trim, fold case, or apply Unicode normalization before that
+validation. Explicit model constraints replace the corresponding catalog
+default when the domain requires a different range. Runtime-owned invariants
+such as the `Name` range remain authoritative and cannot be widened by
+metadata.
 
 Web validation is a projection of the domain constraint. `MAttribute.Web`
 owns presentation and input-control metadata such as label, control type,
@@ -424,8 +441,8 @@ operation dispatch.
 The low-ambiguity migration is implemented for display title, email address,
 phone number, locale, timezone, and IP address. Generated Create, Update,
 datastore, and operation paths use the semantic runtime types, and external
-locale/timezone values use canonical string forms. The remaining bullets are
-domain decisions rather than incomplete aliases for those implemented types.
+locale/timezone values use canonical string forms. The remaining policy work
+is narrower than the original classification inventory:
 
 - account status uses the generated `UserAccountStatus` powertype and the CML
   `status` state machine; entity, create/update/list Values, datastore values,
@@ -433,14 +450,14 @@ domain decisions rather than incomplete aliases for those implemented types.
 - access and refresh sessions use issue, expiry, revocation, and rotation
   timestamps rather than a finite string state, so no session-state powertype
   is inferred;
-- display title and profile-facing text require scalar versus I18N review;
-- login name, email address, phone number, locale, timezone, client ID, and IP
-  address should use parser-backed or constrained semantic types;
-- external subject ID and session references require identifier semantics;
-- password and token hashes require opaque storage, redaction, and strict
-  length/format contracts rather than ordinary display text;
-- suspension reason, device information, and user agent require explicit text
-  range decisions.
+- display title is locale-aware `title`; login name is an exact case-sensitive
+  constrained identity, and email, phone, locale, timezone, and IP address use
+  parser-backed predefined types;
+- external subject, actor, session, client, audit, device, and user-agent
+  nominal scalars preserve authored text and enforce their recorded CML length
+  boundaries;
+- password and token hashes have opaque bounded storage contracts, while their
+  redaction and no-display policy remains open.
 
 ## 8. Diagnostics
 
@@ -466,20 +483,21 @@ wrapper has no narrower normalized constraint contract.
 
 ## 9. Executable Specification Matrix
 
-Phase 16 should cover:
+Current executable coverage fixes:
 
-- predefined nonlocalized `name` normalization;
-- predefined `title` single-locale construction, multi-locale codec,
-  normalization, fallback, and entry preservation;
-- accepted `text` and related family normalization;
-- minimum, maximum, below-minimum, and above-maximum text lengths;
-- per-locale I18N length validation;
-- locale preservation and display fallback;
-- duplicate and unsupported locale diagnostics;
-- powertype field generation and invalid vocabulary values;
-- statemachine-owned state and transition validation;
-- opaque hash/token redaction;
-- driver metadata, datastore, form, REST/OpenAPI, and Help projection.
+- exact-preservation normalization for nonlocalized `name` and every accepted
+  locale-aware text wrapper;
+- `title` and related families across plain construction, multi-locale codec,
+  fallback, and entry preservation;
+- catalog default lengths plus minimum, maximum, below-minimum, and
+  above-maximum generated validation;
+- per-locale I18N length validation and locale preservation;
+- powertype values, statemachine transitions, and driver metadata across
+  datastore, form, REST/OpenAPI, and Help projections.
+
+Remaining executable coverage belongs to the separate locale-set and opaque
+secret policies: duplicate/unsupported locale diagnostics and hash/token
+redaction.
 
 ## 10. Breaking Migration
 

@@ -125,6 +125,23 @@ be separate presentation metadata and MUST NOT alter its identity. A locale or
 timezone value is a selector for interpretation and presentation, not localized
 text itself.
 
+Semantic text MUST preserve authored case, whitespace, line structure, and
+Unicode representation. Implementations MUST NOT silently trim, case-fold, or
+Unicode-normalize a value. `name` has the runtime-required range 1..256. The
+catalog default present-value ranges are:
+
+- `label` and `title`: 1..256;
+- `headline` and `brief`: 1..512;
+- `summary`, `lead`, `abstract`, and `remarks`: 1..2048;
+- `description` and `text`: 1..8192.
+
+For locale-aware roles, the range MUST be enforced independently for every
+locale entry. Minimum length applies when a value is present. Attribute
+multiplicity determines whether the field itself may be absent; an empty string
+MUST NOT stand in for an absent optional value. An authored constraint replaces
+the corresponding catalog default. Runtime-owned invariants such as the `Name`
+range remain authoritative and MUST NOT be widened by metadata.
+
 Descriptive text fields retain their locale entries through
 `DescriptiveAttributes`. Effective display methods select fallback for the
 active locale without mutating, discarding, or merging the stored fields.

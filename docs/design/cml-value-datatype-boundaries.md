@@ -113,6 +113,16 @@ session references, client IDs, provider codes, and source diagnostics remain
 nonlocalized by the same semantic rule. Localized display metadata for those
 values is modeled separately and never rewrites their stored identity.
 
+Semantic text preserves authored case, whitespace, line structure, and Unicode
+representation; neither runtime wrappers nor generated boundaries silently
+trim, case-fold, or normalize it. `name` has a runtime-required 1..256 range.
+The catalog defaults `label` and `title` to 1..256, `headline` and `brief` to
+1..512, `summary`, `lead`, `abstract`, and `remarks` to 1..2048, and
+`description` and `text` to 1..8192. Localized ranges apply to each locale
+entry. An authored constraint replaces the corresponding catalog default but
+cannot widen a runtime-owned invariant. Minimum length governs a present value,
+while field multiplicity independently decides whether absence is allowed.
+
 ## Constraint Projection
 
 `min-length`, `max-length`, `pattern`, and other typed CML constraints are

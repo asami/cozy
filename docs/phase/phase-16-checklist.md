@@ -150,8 +150,12 @@ Status: OPEN
   - [x] Partition every accepted predefined scalar catalog entry by semantic
         locality and apply the same identity-versus-presentation rule to both
         driver inventories.
-- [ ] Define normalization and default or required length semantics for each
+- [x] Define normalization and default or required length semantics for each
       predefined text type.
+  - [x] Preserve authored case, whitespace, line structure, and Unicode text
+        without implicit normalization; distinguish runtime-required ranges
+        from overridable catalog defaults and apply each present scalar or
+        locale entry independently from field multiplicity.
 - [x] Define canonical `min-length` and `max-length` text constraints without
       overloading numeric `min` and `max` semantics.
 - [x] Apply text length constraints independently to each localized entry.

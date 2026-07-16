@@ -36,6 +36,32 @@ final class PredefinedScalarCatalogSpec extends AnyWordSpec with Matchers with G
       (localized ++ nonlocalized).toSet shouldBe PredefinedScalarCatalog.entries.map(_.name).toSet
     }
 
+    "define one default per-value length range for every semantic text role" in {
+      Given("the accepted nonlocalized name and locale-aware descriptive text roles")
+      val expected = Vector(
+        "name" -> (1, 256),
+        "label" -> (1, 256),
+        "title" -> (1, 256),
+        "headline" -> (1, 512),
+        "brief" -> (1, 512),
+        "summary" -> (1, 2048),
+        "lead" -> (1, 2048),
+        "abstract" -> (1, 2048),
+        "remarks" -> (1, 2048),
+        "description" -> (1, 8192),
+        "text" -> (1, 8192)
+      )
+
+      When("their catalog ranges are read")
+      val ranges = expected.map { case (name, _) =>
+        val entry = PredefinedScalarCatalog.get(name).get
+        name -> (entry.minlength.get, entry.maxlength.get)
+      }
+
+      Then("each present scalar or locale entry inherits its role-specific default")
+      ranges shouldBe expected
+    }
+
     "bind localized descriptive roles to their canonical runtime families" in {
       Given("the accepted title and descriptive attribute roles")
       val roles = Vector("title", "headline", "summary", "description")
