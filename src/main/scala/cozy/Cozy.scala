@@ -147,6 +147,14 @@ class Cozy(
 
   private def _execute_car_review_provider(args: Array[String]): Boolean =
     _leading_command(args) match {
+      case Some(("review", "car-descriptor" :: rest)) =>
+        CozyCarReviewProviderCommand.describe(rest) match {
+          case Right(descriptor) =>
+            println(descriptor)
+            true
+          case Left(code) =>
+            RAISE.invalidArgumentFault(s"CAR Review provider descriptor command failed: $code")
+        }
       case Some(("review", "car-evidence" :: rest)) =>
         val request = Source.fromInputStream(System.in)(Codec.UTF8).mkString
         CozyCarReviewProviderCommand.execute(rest, request) match {

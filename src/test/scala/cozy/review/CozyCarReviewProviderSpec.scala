@@ -18,6 +18,18 @@ import scala.collection.JavaConverters._
  */
 final class CozyCarReviewProviderSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "Cozy CAR Review Provider" should {
+    "emit its neutral descriptor without receiving a project path" in {
+      Given("one provider version")
+
+      When("a local client invokes the descriptor-only command")
+      val result = CozyCarReviewProviderCommand.describe(List("--provider-version", "0.3.0-SNAPSHOT", "--descriptor"))
+
+      Then("the command returns only provider identity and does not need a workspace argument")
+      val descriptor = Json.parse(result.toOption.get).as[JsObject]
+      (descriptor \ "provider" \ "id").as[String] shouldBe "cozy"
+      (descriptor \ "provider" \ "version").as[String] shouldBe "0.3.0-SNAPSHOT"
+    }
+
     "emit a CBD-neutral v1 bundle from CAR project, CML, build, lint, ABI, and documentation evidence" in {
       Given("one local CAR project with CML, build metadata, and an ABI lint input")
       val root = Files.createTempDirectory("cozy-car-review-provider")

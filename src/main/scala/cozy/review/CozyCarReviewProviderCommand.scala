@@ -16,6 +16,9 @@ import play.api.libs.json.Json
  * command template; Cozy never imports or calls CBD Support.
  */
 object CozyCarReviewProviderCommand {
+  def describe(args: List[String]): Either[String, String] =
+    _descriptor_config(args).map(version => Json.stringify(CozyCarReviewProvider.descriptor(version)))
+
   def execute(args: List[String], providerRequest: String): Either[String, String] =
     _config(args).flatMap { case (projectroot, providerversion) =>
       CozyCarReviewProvider.execute(providerRequest, projectroot, providerversion).map(Json.stringify)
@@ -30,5 +33,11 @@ object CozyCarReviewProviderCommand {
         else Right(path -> version.trim)
       case _ =>
         Left("provider-command-arguments-invalid")
+    }
+
+  private def _descriptor_config(args: List[String]): Either[String, String] =
+    args match {
+      case "--provider-version" :: version :: "--descriptor" :: Nil if version.trim.nonEmpty => Right(version.trim)
+      case _ => Left("provider-descriptor-command-arguments-invalid")
     }
 }
