@@ -4,10 +4,10 @@ Purpose: engineering work management.
 
 Current phase:
 
-- Active phase: `phase-17.md`: Profile-Driven Video Scaffolding
-- Active checklist: `phase-17-checklist.md`
+- Active phase: none
+- Active checklist: none
 - Next planned phase: none
-- Most recent closed phase: `phase-16.md`: CML Value and Datatype Refactoring
+- Most recent closed phase: `phase-18.md`: Shared Video Pronunciation Dictionary
 
 Belongs:
 

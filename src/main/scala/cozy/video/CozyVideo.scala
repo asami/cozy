@@ -1725,9 +1725,7 @@ private[cozy] object CozyVideo {
       RAISE.invalidArgumentFault(s"Scene has no narration/line/caption text: ${scene.id.getOrElse("(no id)")}")
     )
     val normalized = _apply_voice_text_normalization(raw, script.voiceTextNormalization)
-    script.pronunciations.foldLeft(normalized) {
-      case (z, (source, spoken)) => z.replace(source, spoken)
-    }
+    CozyVideoPronunciations.default.applyTo(normalized, script.pronunciations)
   }
 
   private def _apply_voice_text_normalization(text: String, options: Json): String = {

@@ -27,6 +27,25 @@ The second profile creates introduction and conclusion scripts plus a demo
 script and a manual-review `demo-steps.json` draft. Complete the narration and
 validate the browser steps before recording or publication.
 
+## Shared Pronunciations
+
+Cozy applies the bundled UTF-8 dictionary
+`cozy/video/pronunciations.properties` immediately before sending narration
+text to VOICEVOX. The initial shared readings are:
+
+```properties
+値=あたい
+BoK=ボック
+```
+
+The replacement affects synthesized speech only. Authored script text,
+captions, and generated metadata retain their original spelling. A script can
+override or extend the shared dictionary with its existing `pronunciations`
+map; a script entry wins when it uses the same source spelling. Literal
+replacement is case-sensitive and longer source spellings are applied first.
+Cozy matches the original text in one pass, so a generated reading is not
+processed again as another dictionary source.
+
 ## Composition And Visual Profiles
 
 `video.yaml` keeps composition and visual behavior separate:

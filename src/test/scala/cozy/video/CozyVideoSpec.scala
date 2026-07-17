@@ -1193,6 +1193,30 @@ final class CozyVideoSpec
     }
 
     "voice synthesis" which {
+      "shared video pronunciation dictionary provides the canonical Cozy readings" in {
+        Given("the pronunciation dictionary bundled with Cozy")
+
+        When("the initial shared terms are converted for speech synthesis")
+        val spoken = CozyVideoPronunciations.default.applyTo("値とBoK")
+
+        Then("the Japanese and BoK readings follow the shared contract")
+        ((spoken == "あたいとボック") shouldBe true)
+      }
+
+      "shared video pronunciation dictionary applies longest matches without converting readings again" in {
+        Given("overlapping script readings and a reading that is itself another source term")
+        val overrides = Map(
+          "値型" -> "かた",
+          "あたい" -> "バリュー"
+        )
+
+        When("Cozy converts the original narration in one pass")
+        val spoken = CozyVideoPronunciations.default.applyTo("値型の値", overrides)
+
+        Then("the longest original match wins and generated readings are not converted again")
+        ((spoken == "かたのあたい") shouldBe true)
+      }
+
       "video synthesize writes scene wavs combined wav and manifest through VOICEVOX client" in {
         _with_temp_dir("cozy-video-synthesize") { dir =>
           val script = dir.resolve("script.json")
@@ -1327,6 +1351,35 @@ final class CozyVideoSpec
             configvoicevox
           )
           ((configvoicevox.calls.head.baseUrl == "http://config.example") shouldBe true)
+        }
+      }
+
+      "video synthesize applies shared readings and lets script readings override them" in {
+        _with_temp_dir("cozy-video-shared-pronunciations") { dir =>
+          Given("a script containing shared terms and a script-specific reading")
+          val script = dir.resolve("script.json")
+          _write(
+            script,
+            """{
+              |  "pronunciations": {"BoK": "ビーオーケー"},
+              |  "scenes": [
+              |    {"id": "terms", "duration": 0.2, "line": "値とBoK"}
+              |  ]
+              |}
+              |""".stripMargin
+          )
+          val voicevox = RecordingVoicevoxClient()
+
+          When("Cozy sends the spoken text to VOICEVOX")
+          CozyVideo.synthesize(
+            CozyVideo.SynthesizeConfig(script, dir.resolve("audio")),
+            voicevox
+          )
+
+          Then("the common reading is applied and the script override takes priority")
+          ((voicevox.calls.collect {
+            case call if call.kind == "audio_query" => call.text
+          } == Vector(Some("あたいとビーオーケー"))) shouldBe true)
         }
       }
 

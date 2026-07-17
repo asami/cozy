@@ -475,10 +475,25 @@ Initial boundary:
   primitives without introducing a renderer implementation per composition
   profile.
 
+### Phase 18: Shared Video Pronunciation Dictionary
+
+Status: closed.
+
+Purpose:
+
+- provide shared video readings through a bundled UTF-8 definition file;
+- apply the dictionary only at the VOICEVOX request boundary;
+- preserve script-local pronunciation overrides;
+- use deterministic longest matching without converting generated readings
+  again;
+- keep authored narration, captions, and generated metadata unchanged.
+
 ## Current Priority
 
-Phase 6 through Phase 17 are closed. Phase 17 introduced profile-driven video
-scaffolding. It establishes deterministic
+Phase 6 through Phase 18 are closed. Phase 18 added a shared video
+pronunciation dictionary at the VOICEVOX boundary with script-local override,
+longest-match, and non-cascading conversion contracts. Phase 17 introduced
+profile-driven video scaffolding and established deterministic
 `<slug>.video/` source packages, two composition profiles, independent
 section-start/summary/final-page settings, and generated license-safe
 placeholder assets. Named effect profiles expand to renderer-neutral primitives
@@ -488,8 +503,7 @@ contract. The Remotion adapter now consumes the initial primitive set,
 preserves project-owned assets, applies deterministic summary and final-page
 timing, and carries the profile contract through RDF and publication. Real
 Remotion integration verifies both composition profiles and a required
-project-owned SVG through the pinned Textus toolchain snapshot image. The next
-development phase has not yet been assigned.
+project-owned SVG through the pinned Textus toolchain snapshot image.
 
 Phase 16 established coherent operation Values, CNCF-owned predefined Results,
 generated nominal Datatypes, powertype/statemachine ownership, semantic text
@@ -554,8 +568,6 @@ Current follow-up directions include:
   phase
 - BoK KnowledgeSource manifest output and SIE ingestion
 - BoK publication and Component Repository public pages
-- Phase 17 renderer adapter implementation and rendering verification for the
-  scaffolded composition profiles
 - Video publication registration follow-up, if richer article/navigation
   integration is needed
 - Knowledge source compiler expansion
