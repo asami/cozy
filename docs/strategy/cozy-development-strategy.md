@@ -388,7 +388,7 @@ Purpose:
   Notice-template-driven
 - connect scaffold options to generated CML, factory overrides, and web metadata
 
-### Future Phase: Profile-Driven Video Scaffolding
+### Active Phase 17: Profile-Driven Video Scaffolding
 
 Purpose:
 
@@ -475,7 +475,12 @@ Initial boundary:
 
 ## Current Priority
 
-Phase 6 through Phase 16 are closed. No phase is currently active.
+Phase 6 through Phase 16 are closed. Phase 17 is active and introduces
+profile-driven video scaffolding. Its first slice establishes deterministic
+`<slug>.video/` source packages, two composition profiles, independent
+section-start/summary/final-page settings, and generated license-safe
+placeholder assets. Renderer-neutral primitive expansion and project-owned
+asset resolution remain the next implementation stages.
 
 Phase 16 established coherent operation Values, CNCF-owned predefined Results,
 generated nominal Datatypes, powertype/statemachine ownership, semantic text
@@ -540,10 +545,9 @@ Current follow-up directions include:
   phase
 - BoK KnowledgeSource manifest output and SIE ingestion
 - BoK publication and Component Repository public pages
-- Profile-driven video scaffolding with explanation and
-  explanation-demo-explanation composition profiles, license-safe placeholder
-  frames, project-owned asset injection, and independently selectable section
-  start, summary, and final-page visual-effect profiles
+- Phase 17 renderer-neutral visual-effect expansion, project-owned asset
+  resolution, and rendering verification for the scaffolded composition
+  profiles
 - Video publication registration follow-up, if richer article/navigation
   integration is needed
 - Knowledge source compiler expansion

@@ -14,7 +14,7 @@ import scala.collection.JavaConverters._
  * @since   May. 20, 2026
  *  version May. 25, 2026
  *  version Jun. 27, 2026
- * @version Jul. 15, 2026
+ * @version Jul. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyScaffold {
@@ -1614,6 +1614,10 @@ private[cozy] object CozyScaffold {
       |      Inspect a video project file and print a deterministic project, part, script, and tool-check plan.
       |      Project and script files may be JSON, YAML, HOCON, or XML.
       |      Docker is the default tool mode; VOICEVOX is always checked as an external HTTP service.
+      |
+      |  video scaffold <slug> [--save=<slug>.video] [--title=<title>] [--profile=<explanation|explanation-demo-explanation>]
+      |      Create a Git-managed video source package with deterministic script and license-safe placeholder assets.
+      |      Visual profiles may be selected with --section-start-effect, --summary-effect, and --final-page-effect.
       |
       |  video build <project-file> [--dry-run] [--check-tools] [--tool-mode=<docker|host>] [--docker-image=<image>]
       |      Assemble already-rendered part MP4 files into the project final output, or print the plan with --dry-run.

@@ -25,7 +25,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Jun. 18, 2026
  *  version Jun. 19, 2026
- * @version Jul.  6, 2026
+ * @version Jul. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideo {
@@ -1174,6 +1174,9 @@ private[cozy] object CozyVideo {
 
   def execute(args: List[String], tools: VideoToolRegistry, voicevox: VoicevoxClient, runner: VideoProcessRunner): Boolean =
     args match {
+      case "video" :: "scaffold" :: rest =>
+        println(CozyVideoScaffold.scaffold(CozyVideoScaffold.Config.create(rest)))
+        true
       case "video" :: "inspect" :: rest =>
         println(inspect(InspectConfig.create(rest), tools))
         true
