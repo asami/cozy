@@ -44,9 +44,18 @@ private[cozy] object CozyVideoScaffold {
         parsed.property("title").getOrElse(_title(slug)),
         CompositionProfile.parse(parsed.property("profile").getOrElse(CompositionProfile.DEFAULT.key)),
         VisualEffectProfiles(
-          _parse_section_start_effect(parsed.property("section-start-effect").getOrElse(_default_section_start_effect)),
-          _parse_summary_effect(parsed.property("summary-effect").getOrElse(_default_summary_effect)),
-          _parse_final_page_effect(parsed.property("final-page-effect").getOrElse(_default_final_page_effect))
+          CozyVideoEffects.validateProfile(
+            CozyVideoEffects.Role.SectionStart,
+            parsed.property("section-start-effect").getOrElse(CozyVideoEffects.DEFAULT_SECTION_START_PROFILE)
+          ),
+          CozyVideoEffects.validateProfile(
+            CozyVideoEffects.Role.Summary,
+            parsed.property("summary-effect").getOrElse(CozyVideoEffects.DEFAULT_SUMMARY_PROFILE)
+          ),
+          CozyVideoEffects.validateProfile(
+            CozyVideoEffects.Role.FinalPage,
+            parsed.property("final-page-effect").getOrElse(CozyVideoEffects.DEFAULT_FINAL_PAGE_PROFILE)
+          )
         )
       )
     }
@@ -81,13 +90,6 @@ private[cozy] object CozyVideoScaffold {
 
   final case class ScaffoldPart(id: String, kind: String, script: String, steps: Option[String])
   final case class VisualEffectProfiles(sectionstart: String, summary: String, finalpage: String)
-
-  private val _default_section_start_effect = "line-sweep"
-  private val _default_summary_effect = "overview-and-conclusion"
-  private val _default_final_page_effect = "end-card"
-  private val _section_start_effects = Vector(_default_section_start_effect, "none")
-  private val _summary_effects = Vector(_default_summary_effect, "none")
-  private val _final_page_effects = Vector(_default_final_page_effect, "none")
 
   def scaffold(config: Config): String = {
     val save = config.save.toAbsolutePath.normalize()
@@ -146,19 +148,6 @@ private[cozy] object CozyVideoScaffold {
 
   private def _title(p: String): String =
     p.split('-').map(_.capitalize).mkString(" ")
-
-  private def _parse_effect(role: String, value: String, available: Vector[String]): String =
-    if (available.contains(value)) value
-    else RAISE.invalidArgumentFault(s"Unknown $role visual-effect profile: $value. Available profiles: ${available.mkString(", ")}")
-
-  private def _parse_section_start_effect(p: String): String =
-    _parse_effect("section-start", p, _section_start_effects)
-
-  private def _parse_summary_effect(p: String): String =
-    _parse_effect("summary", p, _summary_effects)
-
-  private def _parse_final_page_effect(p: String): String =
-    _parse_effect("final-page", p, _final_page_effects)
 
   private def _index_dox(config: Config): String =
     s"""${config.title}

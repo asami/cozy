@@ -238,7 +238,9 @@ private[cozy] object CozyVideo {
     output: Option[String],
     renderer: Option[VideoRenderer],
     tools: Option[VideoToolSettings],
-    parts: Vector[VideoPart]
+    parts: Vector[VideoPart],
+    profile: Option[String] = None,
+    visualEffects: Option[CozyVideoEffects.Settings] = None
   )
   object VideoProject {
     implicit val decoder: Decoder[VideoProject] = (c: HCursor) =>
@@ -249,7 +251,12 @@ private[cozy] object CozyVideo {
         renderer <- c.downField("renderer").as[Option[VideoRenderer]]
         tools <- c.downField("tools").as[Option[VideoToolSettings]]
         parts <- c.downField("parts").as[Option[Vector[VideoPart]]]
-      } yield VideoProject(name, title, output, renderer, tools, parts.getOrElse(Vector.empty))
+        profile <- c.downField("profile").as[Option[String]]
+        visualeffects <- c.downField("visualEffects").as[Option[CozyVideoEffects.Settings]].flatMap {
+          case value @ Some(_) => Right(value)
+          case None => c.downField("visual-effects").as[Option[CozyVideoEffects.Settings]]
+        }
+      } yield VideoProject(name, title, output, renderer, tools, parts.getOrElse(Vector.empty), profile, visualeffects)
   }
 
   final case class VideoToolSettings(
@@ -1239,6 +1246,7 @@ private[cozy] object CozyVideo {
     if (!_supported_renderers.contains(config.renderer))
       RAISE.invalidArgumentFault(s"Unsupported video renderer: ${config.renderer}. Supported renderers: remotion, simple-java2d.")
     val plan = _plan(config.projectFile, config.toolMode, config.dockerImage)
+    CozyVideoEffects.validate(config.renderer, CozyVideoEffects.expand(plan.project.visualEffects))
     val context = VideoToolContext(config.projectFile, config.projectRoot, plan.project, plan.execution)
     val checks = if (config.checkTools) tools.checks(context) else Vector.empty
     _validate_render_tools(config.renderer, plan.execution, checks)
@@ -1300,7 +1308,9 @@ private[cozy] object CozyVideo {
   private def _load_project(path: Path): VideoProject = {
     if (!Files.isRegularFile(path))
       RAISE.invalidArgumentFault(s"Missing video project file: $path")
-    StructuredDocumentLoader.loadDocument[VideoProject](InputSource(path.toFile)).take
+    val project = StructuredDocumentLoader.loadDocument[VideoProject](InputSource(path.toFile)).take
+    CozyVideoEffects.expand(project.visualEffects)
+    project
   }
 
   private def _normalize_property_args(args: List[String]): List[String] =
@@ -3556,6 +3566,18 @@ private[cozy] object CozyVideo {
     b += s"dockerImage: ${plan.execution.dockerImage}"
     b += s"output: ${plan.outputPath}"
     b += s"renderer: ${project.renderer.map(_.summary).getOrElse("engine=legacy")}"
+    project.profile.foreach(x => b += s"profile: $x")
+    val effects = CozyVideoEffects.expand(project.visualEffects)
+    if (effects.nonEmpty) {
+      b += "visualEffects:"
+      effects.foreach(effect => b += s"  - ${effect.role.key}: ${effect.profile} => ${effect.display}")
+      val renderer = project.renderer.map(_.engineOrDefault).getOrElse("legacy")
+      val capability = CozyVideoEffects.capability(renderer, effects)
+      b += s"visualEffectRenderer: $renderer"
+      b += s"visualEffectCapability: ${capability.status}"
+      if (capability.unsupported.nonEmpty)
+        b += s"unsupportedVisualEffectPrimitives: ${capability.unsupported.mkString(", ")}"
+    }
     b += s"parts: ${project.parts.size}"
     plan.parts.foreach { part =>
       b ++= _render_part(part)

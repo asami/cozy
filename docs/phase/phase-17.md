@@ -55,7 +55,7 @@ Focus:
 
 Stage Status:
 
-- Current status: NOT STARTED
+- Current status: DONE
 - Owner: cozy-video renderer
 - Checklist basis: `VID17-04`
 
@@ -65,6 +65,15 @@ Focus:
   primitives;
 - add section-start, summary, and final-page composition semantics;
 - diagnose unknown profiles and unsupported renderer capabilities.
+
+Verification evidence:
+
+- `CozyVideoEffects` expands section-start, summary, and final-page profiles in
+  fixed role and primitive order;
+- `video inspect` exposes the expansion and selected renderer capability;
+- render rejects unsupported primitive work before invoking external tools;
+- `CozyVideoEffectsSpec`, `CozyVideoScaffoldSpec`, and `CozyVideoSpec`: 62 tests
+  passed.
 
 ## Stage 17.3: Asset Resolution and Rendering
 
@@ -78,6 +87,7 @@ Focus:
 
 - resolve configured project-owned assets and placeholder fallback;
 - fail clearly for configured required assets that are absent or unreadable;
+- implement renderer adapter support before declaring any primitive capability;
 - verify rendering and publication without network asset access.
 
 ## Completion Criteria

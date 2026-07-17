@@ -35,14 +35,14 @@ Status: IN PROGRESS
 
 ## VID17-04: Renderer-Neutral Effect Expansion
 
-Status: NOT STARTED
+Status: DONE
 
-- [ ] Define the renderer-neutral visual-effect primitive schema.
-- [ ] Expand section-start profiles deterministically.
-- [ ] Expand summary profiles deterministically.
-- [ ] Expand final-page profiles deterministically.
-- [ ] Report unsupported renderer capabilities without silent substitution.
-- [ ] Cover profile expansion and diagnostics with executable specifications.
+- [x] Define the renderer-neutral visual-effect primitive schema.
+- [x] Expand section-start profiles deterministically.
+- [x] Expand summary profiles deterministically.
+- [x] Expand final-page profiles deterministically.
+- [x] Report unsupported renderer capabilities without silent substitution.
+- [x] Cover profile expansion and diagnostics with executable specifications.
 
 ## VID17-05: Asset Resolution
 
@@ -59,6 +59,8 @@ Status: NOT STARTED
 Status: NOT STARTED
 
 - [ ] Render both composition profiles with placeholder-only assets.
+- [ ] Declare renderer capabilities only after the adapter consumes each
+      renderer-neutral primitive.
 - [ ] Render configured project-owned assets through supported renderers.
 - [ ] Verify summary and final-page timing/hold behavior.
 - [ ] Verify video inspect, build, RDF, and publication compatibility.
