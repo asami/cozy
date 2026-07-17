@@ -388,7 +388,9 @@ Purpose:
   Notice-template-driven
 - connect scaffold options to generated CML, factory overrides, and web metadata
 
-### Active Phase 17: Profile-Driven Video Scaffolding
+### Phase 17: Profile-Driven Video Scaffolding
+
+Status: closed.
 
 Purpose:
 
@@ -475,15 +477,19 @@ Initial boundary:
 
 ## Current Priority
 
-Phase 6 through Phase 16 are closed. Phase 17 is active and introduces
-profile-driven video scaffolding. Its first slice establishes deterministic
+Phase 6 through Phase 17 are closed. Phase 17 introduced profile-driven video
+scaffolding. It establishes deterministic
 `<slug>.video/` source packages, two composition profiles, independent
 section-start/summary/final-page settings, and generated license-safe
 placeholder assets. Named effect profiles expand to renderer-neutral primitives
 with explicit capability diagnostics, and asset slots resolve project-owned
 local files or generated placeholders through a machine-readable provenance
-contract. Renderer adapter implementation and rendering verification remain the
-next stages.
+contract. The Remotion adapter now consumes the initial primitive set,
+preserves project-owned assets, applies deterministic summary and final-page
+timing, and carries the profile contract through RDF and publication. Real
+Remotion integration verifies both composition profiles and a required
+project-owned SVG through the pinned Textus toolchain snapshot image. The next
+development phase has not yet been assigned.
 
 Phase 16 established coherent operation Values, CNCF-owned predefined Results,
 generated nominal Datatypes, powertype/statemachine ownership, semantic text

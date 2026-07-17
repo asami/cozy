@@ -40,10 +40,10 @@ final class CozyVideoEffectsSpec
           result should include_text("final-page: end-card => end-card -> fade-rise(target=end-card) -> hold(seconds=2.0)")
           result should include_text_in_order("section-start:", "summary:", "final-page:")
 
-          And("the current renderer reports unsupported primitives instead of substituting effects")
+          And("the Remotion adapter declares the primitives it consumes")
           result should include_text("visualEffectRenderer: remotion")
-          result should include_text("visualEffectCapability: unsupported")
-          result should include_text("unsupportedVisualEffectPrimitives: flow-line, underline-sweep, summary-layout, fade-rise, spring-pop, end-card, hold")
+          result should include_text("visualEffectCapability: supported")
+          result should not(include_text("unsupportedVisualEffectPrimitives:"))
         }
       }
 
@@ -92,19 +92,19 @@ final class CozyVideoEffectsSpec
             |  section-start: line-sweep
             |""".stripMargin)
           val runner = CozyVideoSpec.RecordingRunner()
-          Given("a Remotion project whose requested primitives are not implemented by the adapter")
+          Given("a simple-java2d project whose requested primitives are not implemented by the adapter")
 
           When("Cozy attempts to render the project")
           val error = intercept[RuntimeException] {
             CozyVideo.render(
-              CozyVideo.RenderConfig(project, "remotion"),
+              CozyVideo.RenderConfig(project, "simple-java2d"),
               CozyVideo.VideoToolRegistry(Vector.empty),
               runner
             )
           }
 
           Then("rendering fails before tools run and names every unsupported primitive")
-          error.getMessage should include_text("Video renderer remotion does not support visual-effect primitives: flow-line, underline-sweep")
+          error.getMessage should include_text("Video renderer simple-java2d does not support visual-effect primitives: flow-line, underline-sweep")
           runner should have_no_recorded_commands
         }
       }

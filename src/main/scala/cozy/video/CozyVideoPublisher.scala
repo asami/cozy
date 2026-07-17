@@ -15,7 +15,7 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   Jun. 19, 2026
- * @version Jun. 24, 2026
+ * @version Jul. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoPublisher {
@@ -55,7 +55,11 @@ private[cozy] object CozyVideoPublisher {
     script: Option[String],
     renderer: Option[String],
     toolMode: Option[String],
-    publish: Option[VideoDescriptorPublish]
+    publish: Option[VideoDescriptorPublish],
+    profile: Option[String],
+    visualEffects: Option[CozyVideoEffects.Settings],
+    assets: Option[CozyVideoAssets.Settings],
+    parts: Vector[CozyVideo.VideoPart]
   )
   object VideoDescriptor {
     implicit val decoder: Decoder[VideoDescriptor] = (c: HCursor) =>
@@ -71,7 +75,14 @@ private[cozy] object CozyVideoPublisher {
           case None => c.downField("tool-mode").as[Option[String]]
         }
         publish <- c.downField("publish").as[Option[VideoDescriptorPublish]]
-      } yield VideoDescriptor(video, title, version, article, script, renderer, toolmode, publish)
+        profile <- c.downField("profile").as[Option[String]]
+        visualeffects <- c.downField("visualEffects").as[Option[CozyVideoEffects.Settings]].flatMap {
+          case value @ Some(_) => Right(value)
+          case None => c.downField("visual-effects").as[Option[CozyVideoEffects.Settings]]
+        }
+        assets <- c.downField("assets").as[Option[CozyVideoAssets.Settings]]
+        parts <- c.downField("parts").as[Option[Vector[CozyVideo.VideoPart]]]
+      } yield VideoDescriptor(video, title, version, article, script, renderer, toolmode, publish, profile, visualeffects, assets, parts.getOrElse(Vector.empty))
 
     private def _renderer(c: HCursor): Decoder.Result[Option[String]] =
       c.downField("renderer").focus match {
@@ -114,7 +125,8 @@ private[cozy] object CozyVideoPublisher {
     renderer: String,
     toolMode: String,
     module: String,
-    publicPath: String
+    publicPath: String,
+    assets: Vector[CozyVideoAssets.Resolved]
   ) {
     def workspaceRoot: Path =
       packageDir.getParent.resolve("target/cozy-video/publish").resolve(name).resolve(version).normalize()
@@ -158,7 +170,10 @@ private[cozy] object CozyVideoPublisher {
     val title = descriptor.title.map(_.trim).filter(_.nonEmpty).getOrElse(name)
     val version = config.version.orElse(descriptor.version).map(_.trim).filter(_.nonEmpty).getOrElse("0.0.0-SNAPSHOT")
     val articlepath = _relative_path(descriptor.article.getOrElse("index.dox"), "article")
-    val scriptpath = _relative_path(descriptor.script.getOrElse("script.json"), "script")
+    val scriptpath = _relative_path(
+      descriptor.script.orElse(descriptor.parts.flatMap(_.script).headOption).getOrElse("script.json"),
+      "script"
+    )
     val article = packagedir.resolve(articlepath).normalize()
     val script = packagedir.resolve(scriptpath).normalize()
     if (!Files.isRegularFile(article))
@@ -188,7 +203,8 @@ private[cozy] object CozyVideoPublisher {
       renderer,
       toolmode,
       module,
-      publicpath
+      publicpath,
+      CozyVideoAssets.resolve(packagedir, descriptor.assets)
     )
   }
 
@@ -198,9 +214,18 @@ private[cozy] object CozyVideoPublisher {
     voicevox: CozyVideo.VoicevoxClient,
     runner: CozyVideo.VideoProcessRunner
   ): Unit = {
-    val script = video.workspaceRoot.resolve("source").resolve(video.scriptPath).normalize()
-    val audiodir = video.workspaceRoot.resolve("build/audio/main").normalize()
-    CozyVideo.synthesize(CozyVideo.SynthesizeConfig(script, audiodir), voicevox)
+    val scripts =
+      if (video.descriptor.parts.nonEmpty)
+        video.descriptor.parts.zipWithIndex.flatMap { case (part, index) =>
+          part.script.map(x => part.displayId(index + 1) -> _relative_path(x, "part script"))
+        }
+      else
+        Vector("main" -> video.scriptPath)
+    scripts.foreach { case (id, scriptpath) =>
+      val script = video.workspaceRoot.resolve("source").resolve(scriptpath).normalize()
+      val audiodir = video.workspaceRoot.resolve("build/audio").resolve(id).normalize()
+      CozyVideo.synthesize(CozyVideo.SynthesizeConfig(script, audiodir), voicevox)
+    }
     CozyVideo.render(
       CozyVideo.RenderConfig(projectfile, video.renderer, checkTools = false, toolMode = Some(video.toolMode)),
       CozyVideo.VideoToolRegistry(Vector.empty),
@@ -220,16 +245,48 @@ private[cozy] object CozyVideoPublisher {
     Files.createDirectories(workspace.resolve("source"))
     _copy(video.article, workspace.resolve("source").resolve(video.articlePath))
     _copy(video.descriptorFile, workspace.resolve("source").resolve(video.descriptorFile.getFileName.toString))
-    _copy(video.script, workspace.resolve("source").resolve(video.scriptPath))
+    val sourcepaths = (Vector(video.scriptPath) ++ video.descriptor.parts.flatMap(part => part.script.toVector ++ part.steps.toVector)).distinct
+    sourcepaths.foreach { value =>
+      val relative = _relative_path(value, "video part source")
+      val source = video.packageDir.resolve(relative).normalize()
+      if (!Files.isRegularFile(source))
+        RAISE.invalidArgumentFault(s"Missing video part source: $source")
+      _copy(source, workspace.resolve("source").resolve(relative))
+    }
     val assets = video.packageDir.resolve("assets")
     if (Files.isDirectory(assets))
       _copy_directory(assets, workspace.resolve("source/assets"))
+    video.assets.foreach { asset =>
+      if (Files.isRegularFile(asset.path))
+        _copy(asset.path, _publication_asset_path(workspace, asset))
+    }
     workspace
   }
 
   private def _write_video_project(video: ResolvedVideoPackage, workspace: Path): Path = {
     val projectfile = workspace.resolve("video_project.json")
-    val json = PJson.obj(
+    val parts =
+      if (video.descriptor.parts.nonEmpty)
+        video.descriptor.parts.zipWithIndex.map { case (part, index) =>
+          val id = part.displayId(index + 1)
+          JsObject(Vector(
+            Some("id" -> PJson.toJson(id)),
+            Some("type" -> PJson.toJson(part.displayType)),
+            part.script.map(x => "script" -> PJson.toJson(s"source/${_relative_path(x, "part script")}")),
+            part.steps.map(x => "steps" -> PJson.toJson(s"source/${_relative_path(x, "part steps")}")),
+            Some("audioDir" -> PJson.toJson(s"build/audio/$id")),
+            Some("output" -> PJson.toJson(s"build/parts/$id.mp4"))
+          ).flatten)
+        }
+      else
+        Vector(PJson.obj(
+          "id" -> "main",
+          "type" -> "dialogue",
+          "script" -> s"source/${video.scriptPath}",
+          "audioDir" -> "build/audio/main",
+          "output" -> "build/parts/main.mp4"
+        ))
+    val base = PJson.obj(
       "name" -> video.name,
       "title" -> video.title,
       "output" -> "build/final.mp4",
@@ -239,17 +296,48 @@ private[cozy] object CozyVideoPublisher {
       "renderer" -> PJson.obj(
         "engine" -> video.renderer
       ),
-      "parts" -> PJson.arr(PJson.obj(
-        "id" -> "main",
-        "type" -> "dialogue",
-        "script" -> s"source/${video.scriptPath}",
-        "audioDir" -> "build/audio/main",
-        "output" -> "build/parts/main.mp4"
-      ))
+      "parts" -> JsArray(parts)
     )
+    val profile = video.descriptor.profile.map(x => PJson.obj("profile" -> x)).getOrElse(PJson.obj())
+    val effects = video.descriptor.visualEffects.map(x => PJson.obj("visualEffects" -> _visual_effects_json(x))).getOrElse(PJson.obj())
+    val assets = if (video.assets.nonEmpty) PJson.obj("assets" -> _assets_json(video, workspace)) else PJson.obj()
+    val json = base ++ profile ++ effects ++ assets
     Files.writeString(projectfile, PJson.prettyPrint(json) + "\n", StandardCharsets.UTF_8)
     projectfile
   }
+
+  private def _visual_effects_json(settings: CozyVideoEffects.Settings): JsObject =
+    JsObject(Vector(
+      settings.sectionStart.map("sectionStart" -> PJson.toJson(_)),
+      settings.summary.map("summary" -> PJson.toJson(_)),
+      settings.finalPage.map("finalPage" -> PJson.toJson(_))
+    ).flatten)
+
+  private def _assets_json(video: ResolvedVideoPackage, workspace: Path): JsObject =
+    JsObject(video.assets.map { asset =>
+      asset.role.key -> PJson.obj(
+        "path" -> _project_relative(workspace, _publication_asset_path(workspace, asset)),
+        "kind" -> asset.kind,
+        "required" -> asset.required,
+        "license" -> asset.license,
+        "provenance" -> asset.provenance
+      )
+    })
+
+  private def _publication_asset_path(workspace: Path, asset: CozyVideoAssets.Resolved): Path =
+    workspace.resolve("source/assets").resolve(asset.role.key + _asset_extension(asset.path)).normalize()
+
+  private def _asset_extension(path: Path): String = {
+    val name = path.getFileName.toString
+    val index = name.lastIndexOf('.')
+    if (index >= 0 && name.substring(index).matches("\\.[A-Za-z0-9]+"))
+      name.substring(index).toLowerCase
+    else
+      ""
+  }
+
+  private def _project_relative(root: Path, path: Path): String =
+    root.toAbsolutePath.normalize().relativize(path.toAbsolutePath.normalize()).toString
 
   private def _copy_artifact(video: ResolvedVideoPackage, workspace: Path, config: PublishVideoConfig): Path = {
     val source = workspace.resolve("build/final.mp4").normalize()
@@ -589,8 +677,12 @@ private[cozy] object CozyVideoPublisher {
   private def _copy_directory(source: Path, target: Path): Unit = {
     val stream = Files.walk(source)
     try {
-      stream.iterator().asScala.toVector.filter(Files.isRegularFile(_)).foreach { file =>
-        _copy(file, target.resolve(source.relativize(file).toString))
+      stream.iterator().asScala.foreach { path =>
+        val destination = target.resolve(source.relativize(path))
+        if (Files.isDirectory(path))
+          Files.createDirectories(destination)
+        else
+          _copy(path, destination)
       }
     } finally {
       stream.close()

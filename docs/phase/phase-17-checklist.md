@@ -5,12 +5,12 @@ Profile-Driven Video Scaffolding.
 
 ## VID17-01: Phase and Command Contract
 
-Status: IN PROGRESS
+Status: DONE
 
 - [x] Register Phase 17 in strategy and phase documents.
 - [x] Add `cozy video scaffold <slug>` dispatch and CLI help.
 - [x] Reject invalid slugs and existing destinations without overwriting them.
-- [ ] Add the user-facing video scaffold authoring guide.
+- [x] Add the user-facing video scaffold authoring guide.
 
 ## VID17-02: Composition Profiles
 
@@ -24,7 +24,7 @@ Status: DONE
 
 ## VID17-03: Visual Profiles and Safe Placeholder Assets
 
-Status: IN PROGRESS
+Status: DONE
 
 - [x] Persist independent section-start, summary, and final-page profiles.
 - [x] Default to `line-sweep`, `overview-and-conclusion`, and `end-card`.
@@ -56,13 +56,13 @@ Status: DONE
 
 ## VID17-06: Rendering and Closure
 
-Status: NOT STARTED
+Status: DONE
 
-- [ ] Render both composition profiles with placeholder-only assets.
-- [ ] Declare renderer capabilities only after the adapter consumes each
+- [x] Render both composition profiles with placeholder-only assets.
+- [x] Declare renderer capabilities only after the adapter consumes each
       renderer-neutral primitive.
-- [ ] Render configured project-owned assets through supported renderers.
-- [ ] Verify summary and final-page timing/hold behavior.
-- [ ] Verify video inspect, build, RDF, and publication compatibility.
-- [ ] Run the full Cozy test suite and `git diff --check`.
-- [ ] Complete post-implementation review and close Phase 17.
+- [x] Render configured project-owned assets through supported renderers.
+- [x] Verify summary and final-page timing/hold behavior.
+- [x] Verify video inspect, build, RDF, and publication compatibility.
+- [x] Run the full Cozy test suite and `git diff --check`.
+- [x] Complete post-implementation review and close Phase 17.

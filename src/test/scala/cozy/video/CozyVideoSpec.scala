@@ -15,7 +15,7 @@ import cozy.CozySpecVocabulary
 /*
  * @since   Jun. 18, 2026
  *  version Jun. 24, 2026
- * @version Jul.  6, 2026
+ * @version Jul. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoSpec
@@ -1428,7 +1428,7 @@ final class CozyVideoSpec
            |}
            |""".stripMargin
           )
-          val runner = RecordingRunner()
+          val runner = ProfileRenderRunner()
 
           val out = CozyVideo.render(
             CozyVideo
@@ -1531,7 +1531,7 @@ final class CozyVideoSpec
            |}
            |""".stripMargin
           )
-          val runner = RecordingRunner()
+          val runner = ProfileRenderRunner()
 
           val out = CozyVideo.render(
             CozyVideo.RenderConfig(
@@ -2605,7 +2605,7 @@ final class CozyVideoSpec
           val help = _capture {
             cozy.Cozy.main(Array("--help"))
           }
-          val runner = RecordingRunner()
+          val runner = ProfileRenderRunner()
           val render = _capture {
             CozyVideo.execute(
               List(
@@ -3182,6 +3182,10 @@ final class CozyVideoSpec
           _write(pkg.resolve("index.dox"), "# Tutorial\n")
           _write(pkg.resolve("script.json"), _script_json)
           _write(
+            pkg.resolve("assets/legacy/nested-overlay.svg"),
+            "<svg><text>legacy overlay</text></svg>\n"
+          )
+          _write(
             pkg.resolve("video.yaml"),
             """video:
           |  name: tutorial
@@ -3357,6 +3361,11 @@ final class CozyVideoSpec
           runner.commands should contain_where[RecordingCommand](
             _.args.contains("ffprobe")
           )
+
+          And("arbitrary legacy package assets survive workspace preparation")
+          _read(
+            result.workspaceRoot.resolve("source/assets/legacy/nested-overlay.svg")
+          ) should include("legacy overlay")
 
           And(
             "existing release artifacts are protected unless force is supplied"

@@ -75,7 +75,15 @@ private[cozy] object CozyVideoEffects {
 
   // Renderer adapters add primitives here only after they consume the expanded contract.
   private val _renderer_capabilities: Map[String, Set[String]] = Map(
-    "remotion" -> Set.empty,
+    "remotion" -> Set(
+      "flow-line",
+      "underline-sweep",
+      "summary-layout",
+      "fade-rise",
+      "spring-pop",
+      "end-card",
+      "hold"
+    ),
     "simple-java2d" -> Set.empty,
     "legacy" -> Set.empty
   )
