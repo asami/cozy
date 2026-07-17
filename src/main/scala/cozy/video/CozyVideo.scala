@@ -240,7 +240,8 @@ private[cozy] object CozyVideo {
     tools: Option[VideoToolSettings],
     parts: Vector[VideoPart],
     profile: Option[String] = None,
-    visualEffects: Option[CozyVideoEffects.Settings] = None
+    visualEffects: Option[CozyVideoEffects.Settings] = None,
+    assets: Option[CozyVideoAssets.Settings] = None
   )
   object VideoProject {
     implicit val decoder: Decoder[VideoProject] = (c: HCursor) =>
@@ -256,7 +257,8 @@ private[cozy] object CozyVideo {
           case value @ Some(_) => Right(value)
           case None => c.downField("visual-effects").as[Option[CozyVideoEffects.Settings]]
         }
-      } yield VideoProject(name, title, output, renderer, tools, parts.getOrElse(Vector.empty), profile, visualeffects)
+        assets <- c.downField("assets").as[Option[CozyVideoAssets.Settings]]
+      } yield VideoProject(name, title, output, renderer, tools, parts.getOrElse(Vector.empty), profile, visualeffects, assets)
   }
 
   final case class VideoToolSettings(
@@ -1125,6 +1127,7 @@ private[cozy] object CozyVideo {
     projectFile: Path,
     projectRoot: Path,
     project: VideoProject,
+    assets: Vector[CozyVideoAssets.Resolved],
     execution: VideoExecutionConfig,
     outputPath: Path,
     manifestPath: Path,
@@ -3313,6 +3316,7 @@ private[cozy] object CozyVideo {
   private def _plan(projectfile: Path, toolmode: Option[String], dockerimage: Option[String]): VideoPlan = {
     val project = _load_project(projectfile)
     val projectroot = projectfile.getParent
+    val assets = CozyVideoAssets.resolve(projectroot, project.assets)
     val execution = VideoExecutionConfig.create(projectroot, project, toolmode, dockerimage)
     val outputpath = projectroot.resolve(project.output.getOrElse("build/final.mp4")).normalize()
     val manifestpath = projectroot.resolve("build/manifest.json").normalize()
@@ -3345,7 +3349,7 @@ private[cozy] object CozyVideo {
           )
         )
     val commands = rawcommands.map(_resolve_command(projectroot, execution, _))
-    VideoPlan(projectfile, projectroot, project, execution, outputpath, manifestpath, parts, artifacts, commands)
+    VideoPlan(projectfile, projectroot, project, assets, execution, outputpath, manifestpath, parts, artifacts, commands)
   }
 
   private def _part_plan(
@@ -3577,6 +3581,15 @@ private[cozy] object CozyVideo {
       b += s"visualEffectCapability: ${capability.status}"
       if (capability.unsupported.nonEmpty)
         b += s"unsupportedVisualEffectPrimitives: ${capability.unsupported.mkString(", ")}"
+    }
+    if (plan.assets.nonEmpty) {
+      b += "assets:"
+      plan.assets.foreach { asset =>
+        b += s"  - ${asset.role.key}: ${asset.status} path=${asset.displayPath(plan.projectRoot)} kind=${asset.kind} required=${asset.required}"
+        b += s"    license: ${asset.license}"
+        b += s"    provenance: ${asset.provenance}"
+        asset.requestedDisplayPath(plan.projectRoot).foreach(x => b += s"    requestedPath: $x")
+      }
     }
     b += s"parts: ${project.parts.size}"
     plan.parts.foreach { part =>

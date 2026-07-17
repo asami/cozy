@@ -479,9 +479,11 @@ Phase 6 through Phase 16 are closed. Phase 17 is active and introduces
 profile-driven video scaffolding. Its first slice establishes deterministic
 `<slug>.video/` source packages, two composition profiles, independent
 section-start/summary/final-page settings, and generated license-safe
-placeholder assets. Named effect profiles now expand to renderer-neutral
-primitives with explicit capability diagnostics. Project-owned asset resolution
-and renderer adapter implementation remain the next stages.
+placeholder assets. Named effect profiles expand to renderer-neutral primitives
+with explicit capability diagnostics, and asset slots resolve project-owned
+local files or generated placeholders through a machine-readable provenance
+contract. Renderer adapter implementation and rendering verification remain the
+next stages.
 
 Phase 16 established coherent operation Values, CNCF-owned predefined Results,
 generated nominal Datatypes, powertype/statemachine ownership, semantic text
@@ -546,8 +548,8 @@ Current follow-up directions include:
   phase
 - BoK KnowledgeSource manifest output and SIE ingestion
 - BoK publication and Component Repository public pages
-- Phase 17 project-owned asset resolution, renderer adapter implementation, and
-  rendering verification for the scaffolded composition profiles
+- Phase 17 renderer adapter implementation and rendering verification for the
+  scaffolded composition profiles
 - Video publication registration follow-up, if richer article/navigation
   integration is needed
 - Knowledge source compiler expansion

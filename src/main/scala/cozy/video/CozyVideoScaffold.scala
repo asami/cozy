@@ -175,9 +175,9 @@ private[cozy] object CozyVideoScaffold {
        |  summary: ${config.visualeffects.summary}
        |  final-page: ${config.visualeffects.finalpage}
        |assets:
-       |  section-start: assets/section-start.svg
-       |  summary: assets/summary.svg
-       |  final-page: assets/final-page.svg
+       |${_asset_yaml("section-start", "assets/section-start.svg")}
+       |${_asset_yaml("summary", "assets/summary.svg")}
+       |${_asset_yaml("final-page", "assets/final-page.svg")}
        |renderer:
        |  engine: remotion
        |parts:
@@ -201,11 +201,21 @@ private[cozy] object CozyVideoScaffold {
   private def _yaml_string(p: String): String =
     "\"" + p.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 
+  private def _asset_yaml(slot: String, path: String): String =
+    s"""  $slot:
+       |    path: $path
+       |    kind: placeholder
+       |    required: false
+       |    license: ${CozyVideoAssets.GENERATED_PLACEHOLDER_LICENSE}
+       |    provenance: ${CozyVideoAssets.GENERATED_PLACEHOLDER_PROVENANCE}""".stripMargin
+
   private val _assets_readme =
     """# Video assets
       |
       |The SVG files in this directory are generated, license-safe placeholders.
-      |Replace them with project-owned assets and record the asset license and provenance here.
+      |Replace a slot's `path` with a project-owned file and record its `kind`, `license`, and `provenance` in `video.yaml`.
+      |Set `required: true` when rendering must stop rather than use the generated placeholder if that configured file is absent.
+      |Asset paths are project-relative local files. Cozy does not fetch asset URLs during inspect, build, or render.
       |The scaffold does not copy or reference media from `0714.techfirst.lt/assets`.
       |""".stripMargin
 

@@ -79,7 +79,7 @@ Verification evidence:
 
 Stage Status:
 
-- Current status: NOT STARTED
+- Current status: IN PROGRESS
 - Owner: cozy-video renderer
 - Checklist basis: `VID17-05` and `VID17-06`
 
@@ -89,6 +89,18 @@ Focus:
 - fail clearly for configured required assets that are absent or unreadable;
 - implement renderer adapter support before declaring any primitive capability;
 - verify rendering and publication without network asset access.
+
+Asset-resolution evidence:
+
+- scaffolded asset slots persist `path`, `kind`, `required`, `license`, and
+  `provenance` in `video.yaml`;
+- `CozyVideoAssets` resolves project-relative files, uses generated placeholder
+  fallback for optional slots, and rejects required missing files, URLs,
+  absolute paths, root escapes, and symlink escapes;
+- `video inspect` exposes effective paths, fallback status, license, provenance,
+  and the originally requested path when fallback occurs;
+- `CozyVideoAssetsSpec`, `CozyVideoEffectsSpec`, `CozyVideoScaffoldSpec`, and
+  `CozyVideoSpec`: 67 tests passed.
 
 ## Completion Criteria
 

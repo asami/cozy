@@ -31,7 +31,7 @@ Status: IN PROGRESS
 - [x] Generate project-local SVG placeholder frames for each initial asset slot.
 - [x] State explicitly that `0714.techfirst.lt/assets` media is not copied or
       referenced by the scaffold.
-- [ ] Record asset license and provenance through a machine-readable contract.
+- [x] Record asset license and provenance through a machine-readable contract.
 
 ## VID17-04: Renderer-Neutral Effect Expansion
 
@@ -46,13 +46,13 @@ Status: DONE
 
 ## VID17-05: Asset Resolution
 
-Status: NOT STARTED
+Status: DONE
 
-- [ ] Resolve project-owned files configured for asset slots.
-- [ ] Use generated placeholders for unconfigured optional slots.
-- [ ] Reject missing or unreadable configured required assets.
-- [ ] Keep scaffold and build free of network asset fetching.
-- [ ] Cover placeholder-only, configured-asset, and missing-asset behavior.
+- [x] Resolve project-owned files configured for asset slots.
+- [x] Use generated placeholders for unconfigured optional slots.
+- [x] Reject missing or unreadable configured required assets.
+- [x] Keep scaffold and build free of network asset fetching.
+- [x] Cover placeholder-only, configured-asset, and missing-asset behavior.
 
 ## VID17-06: Rendering and Closure
 
