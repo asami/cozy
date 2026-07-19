@@ -26,7 +26,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Jun. 18, 2026
  *  version Jun. 19, 2026
- * @version Jul. 18, 2026
+ * @version Jul. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideo {
@@ -3543,7 +3543,7 @@ private[cozy] object CozyVideo {
     val assets = CozyVideoAssets.resolve(projectroot, project.assets)
     val execution = VideoExecutionConfig.create(projectroot, project, toolmode, dockerimage)
     val outputpath = projectroot.resolve(project.output.getOrElse("build/final.mp4")).normalize()
-    val manifestpath = projectroot.resolve("build/manifest.json").normalize()
+    val manifestpath = outputpath.getParent.resolve("manifest.json").normalize()
     val parts = project.parts.zipWithIndex.map {
       case (part, index) => _part_plan(projectroot, project, part, index + 1)
     }

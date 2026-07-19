@@ -488,9 +488,29 @@ Purpose:
   again;
 - keep authored narration, captions, and generated metadata unchanged.
 
+### Phase 19: Knowledge-Centered Media Packages
+
+Status: closed.
+
+Purpose:
+
+- bind image and video representations to one BoK knowledge unit;
+- separate AI-assisted semantic work from deterministic Cozy operations;
+- provide inspect, plan, build, verify, and profile-based publish commands;
+- keep reusable packages free of machine-specific absolute paths;
+- keep large generated media outside source control while preserving reviewable
+  briefs, scripts, SVG masters, PNG representations, and provenance.
+
 ## Current Priority
 
-Phase 6 through Phase 18 are closed. Phase 18 added a shared video
+Phase 6 through Phase 19 are closed. Phase 19 added portable knowledge-centered
+Media Packages and the `cozy media` inspect, plan, build, verify, and publish
+workflow. Publication profiles project one package into a site or external
+artifact archive without embedding machine-specific destinations. AI-assisted
+skills own thesis extraction, bilingual writing, localization, and visual
+review; Cozy owns deterministic conversion, validation, copying, and hashes.
+
+Phase 18 added a shared video
 pronunciation dictionary at the VOICEVOX boundary with script-local override,
 longest-match, and non-cascading conversion contracts. Phase 17 introduced
 profile-driven video scaffolding and established deterministic

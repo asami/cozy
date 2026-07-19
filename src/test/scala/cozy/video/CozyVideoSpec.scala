@@ -15,7 +15,7 @@ import cozy.CozySpecVocabulary
 /*
  * @since   Jun. 18, 2026
  *  version Jun. 24, 2026
- * @version Jul. 18, 2026
+ * @version Jul. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoSpec
@@ -208,6 +208,40 @@ final class CozyVideoSpec
             "project.manifest: cozy (host) - write project manifest"
           )) shouldBe true)
           ((!out.contains("  - part.future.render:")) shouldBe true)
+        }
+      }
+
+      "video project manifest follows an output outside the source package" in {
+        _with_temp_dir("cozy-video-external-output") { dir =>
+          Given("a video project whose final output belongs to a sibling target tree")
+          _write(dir.resolve("script.json"), _script_json)
+          _write(
+            dir.resolve("video_project.json"),
+            """{
+              |  "title": "External Output",
+              |  "output": "../target/media/final.mp4",
+              |  "parts": [
+              |    {"id": "intro", "type": "dialogue", "script": "script.json"}
+              |  ]
+              |}
+              |""".stripMargin
+          )
+
+          When("Cozy plans the video build")
+          val out = CozyVideo.build(
+            CozyVideo.BuildConfig(
+              dir.resolve("video_project.json"),
+              dryRun = true,
+              checkTools = false
+            ),
+            CozyVideo.VideoToolRegistry.default
+          )
+
+          Then("the project manifest follows the final output outside the source package")
+          out should include(
+            "project-manifest: planned " + dir.resolve("../target/media/manifest.json").normalize()
+          )
+          out should not include dir.resolve("build/manifest.json").normalize().toString
         }
       }
 

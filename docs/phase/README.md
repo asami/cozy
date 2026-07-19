@@ -7,7 +7,7 @@ Current phase:
 - Active phase: none
 - Active checklist: none
 - Next planned phase: none
-- Most recent closed phase: `phase-18.md`: Shared Video Pronunciation Dictionary
+- Most recent closed phase: `phase-19.md`: Knowledge-Centered Media Packages
 
 Belongs:
 

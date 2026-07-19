@@ -14,7 +14,7 @@ import scala.collection.JavaConverters._
  * @since   May. 20, 2026
  *  version May. 25, 2026
  *  version Jun. 27, 2026
- * @version Jul. 18, 2026
+ * @version Jul. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyScaffold {
@@ -1642,6 +1642,21 @@ private[cozy] object CozyScaffold {
       |
       |  video rdf <project-file> --save <dir> [--tool-mode=<docker|host>] [--docker-image=<image>]
       |      Generate Turtle and JSON-LD video metadata using the SmartDox semanticweb RDF renderer.
+      |
+      |  media inspect <media-file>
+      |      Inspect a BoK Media Package and its knowledge, language, resource, and publication-profile bindings.
+      |
+      |  media plan <media-file> [--target <id>] [--profile <name>]
+      |      Report deterministic build and publication actions without changing files.
+      |
+      |  media build <media-file> [--target <id>] [--dry-run]
+      |      Build copy and SVG-to-PNG resources. Video-project resources delegate final assembly to cozy video.
+      |
+      |  media verify <media-file> [--target <id>] [--profile <name>]
+      |      Verify knowledge sources, generated outputs, PNG dimensions, and optional publication equality.
+      |
+      |  media publish <media-file> --profile <name> [--target <id>] [--dry-run]
+      |      Publish verified outputs through a logical profile without storing machine-specific absolute paths in the package.
       |
       |  modeler-scala <model-file> --save <dir>
       |      Generate Scala sources from a CML/Dox model.
