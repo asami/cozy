@@ -16,7 +16,7 @@ import org.goldenport.parser.LogicalSection
 
 /*
  * @since   Jun. 23, 2026
- * @version Jul. 16, 2026
+ * @version Jul. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CmlModelMetadata {
@@ -613,7 +613,7 @@ private[cozy] object CmlModelMetadata {
       base.glossarypath,
       base.descriptive,
       base.narrative,
-      _child_text(section, "TYPE"),
+      _child_text(section, "TYPE").orElse(_operation_direct_property(section, "type")),
       _child_property(section, "INPUT", "type").orElse(_child_child_text(section, "INPUT", "TYPE")).orElse(_operation_direct_property(section, "input")),
       _child_property(section, "OUTPUT", "type").orElse(_child_child_text(section, "OUTPUT", "TYPE")).orElse(_operation_direct_property(section, "output")).orElse(_operation_direct_property(section, "result")),
       _child_texts(section, "IMPLEMENTATION")
@@ -823,7 +823,7 @@ private[cozy] object CmlModelMetadata {
         base.glossarypath,
         base.descriptive,
         base.narrative,
-        _raw_child_text(block.lines, 5, "TYPE"),
+        _raw_child_text(block.lines, 5, "TYPE").orElse(_raw_direct_property(block.lines, "type")),
         _raw_child_property(block.lines, 5, "INPUT", "type").orElse(_raw_child_child_text(block.lines, 5, "INPUT", "TYPE")).orElse(_raw_direct_property(block.lines, "input")),
         _raw_child_property(block.lines, 5, "OUTPUT", "type").orElse(_raw_child_child_text(block.lines, 5, "OUTPUT", "TYPE")).orElse(_raw_direct_property(block.lines, "output")).orElse(_raw_direct_property(block.lines, "result")),
         _raw_child_texts(block.lines, 5, "IMPLEMENTATION")

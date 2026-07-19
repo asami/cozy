@@ -11,7 +11,7 @@ import play.api.libs.json.{JsValue, Json}
 
 /*
  * @since   Jun. 23, 2026
- * @version Jul. 16, 2026
+ * @version Jul. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 class CmlModelMetadataSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -388,6 +388,42 @@ class CmlModelMetadataSpec extends AnyWordSpec with Matchers with GivenWhenThen 
       metadata should include ("\"inputType\" : \"IngestKnowledge\"")
       metadata should include ("\"outputType\" : \"IngestKnowledgeResult\"")
       Files.readString(yaml) should include ("summary: \"Ingest a knowledge item.\"")
+    }
+
+    "preserve direct operation properties in surface metadata" in {
+      Given("a CML operation using direct type, input, and output properties")
+      val dir = Files.createTempDirectory("cozy-cml-model-metadata-direct-operation-properties")
+      val source = dir.resolve("src/main/cozy/sample.cml")
+      Files.createDirectories(source.getParent)
+      Files.writeString(
+        source,
+        """# COMPONENT
+          |
+          |## Sample
+          |
+          |# SERVICE
+          |
+          |## Knowledge
+          |
+          |### OPERATION
+          |
+          |#### ingestKnowledge
+          |
+          |- type :: COMMAND
+          |- input :: IngestKnowledge
+          |- output :: IngestKnowledgeResult
+          |""".stripMargin,
+        StandardCharsets.UTF_8
+      )
+
+      When("Cozy projects the operation through CML model metadata")
+      val metadata = CmlModelMetadata.fromCml(source, "src/main/cozy/sample.cml", "concept")
+      val operation = metadata.surface.component.toVector.flatMap(_.services).flatMap(_.operations).head
+
+      Then("the direct properties have the same canonical operation contract as section properties")
+      operation.operationtype shouldBe Some("COMMAND")
+      operation.inputtype shouldBe Some("IngestKnowledge")
+      operation.outputtype shouldBe Some("IngestKnowledgeResult")
     }
   }
 
