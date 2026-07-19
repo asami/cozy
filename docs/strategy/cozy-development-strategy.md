@@ -501,14 +501,51 @@ Purpose:
 - keep large generated media outside source control while preserving reviewable
   briefs, scripts, SVG masters, PNG representations, and provenance.
 
+### Phase 20: Multi-Provider Narration and Cozy-Complete Video Build
+
+Status: in progress.
+
+Purpose:
+
+- make narration synthesis a provider-neutral Cozy Video contract rather than
+  a VOICEVOX-only implementation;
+- support VOICEVOX as an external HTTP provider, macOS `say` as a host-only
+  provider, and Piper as the portable English TTS provider through the Textus
+  toolchain Docker image;
+- keep scene timing, pronunciation conversion, canonical WAV normalization,
+  combined audio, and synthesis provenance under Cozy ownership;
+- keep macOS system voices outside the Linux toolchain image and reject invalid
+  provider/execution-mode combinations before starting synthesis;
+- add a pinned, license-audited Piper runtime and English voice models to the
+  `textus-toolchain-runner` image without runtime network fetching;
+- migrate the Japanese and English SimpleModeling.org Overview videos away from
+  project-local effect tools and manual ffmpeg commands;
+- generate both Overview videos through Cozy commands alone, using built-in
+  Remotion effects, provider-selected narration, final assembly, and ffprobe
+  verification;
+- keep YouTube upload and unresolved third-party character-asset licensing
+  outside the phase boundary.
+
+Primary reference:
+
+- `docs/phase/phase-20.md`
+- `docs/phase/phase-20-checklist.md`
+
 ## Current Priority
 
-Phase 6 through Phase 19 are closed. Phase 19 added portable knowledge-centered
-Media Packages and the `cozy media` inspect, plan, build, verify, and publish
-workflow. Publication profiles project one package into a site or external
-artifact archive without embedding machine-specific destinations. AI-assisted
-skills own thesis extraction, bilingual writing, localization, and visual
-review; Cozy owns deterministic conversion, validation, copying, and hashes.
+Phase 6 through Phase 19 are closed. Phase 20 is the active phase. It introduces
+provider-neutral narration with VOICEVOX, host-only macOS `say`, and a portable
+Piper Docker route, then uses that contract to migrate the Japanese and English
+SimpleModeling.org Overview videos to a Cozy-only command workflow. Cozy owns
+the common synthesis outputs and provenance, while `textus-toolchain-runner`
+owns the pinned portable TTS runtime and license-audited model files.
+
+Phase 19 added portable knowledge-centered Media Packages and the `cozy media`
+inspect, plan, build, verify, and publish workflow. Publication profiles project
+one package into a site or external artifact archive without embedding
+machine-specific destinations. AI-assisted skills own thesis extraction,
+bilingual writing, localization, and visual review; Cozy owns deterministic
+conversion, validation, copying, and hashes.
 
 Phase 18 added a shared video
 pronunciation dictionary at the VOICEVOX boundary with script-local override,
