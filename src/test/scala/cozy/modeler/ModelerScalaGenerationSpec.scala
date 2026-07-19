@@ -16,7 +16,7 @@ import play.api.libs.json.Json
 
 /*
  * @since   Jun. 23, 2026
- * @version Jul. 16, 2026
+ * @version Jul. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -381,6 +381,7 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
           ||---------------+-------------+--------------|
           || id            | entityid    | 1            |
           || name          | name        | 1            |
+          || description   | string      | ?            |
           || fetch_methods | FetchMethod | *            |
           |
           |# POWERTYPE
@@ -415,6 +416,26 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         content should include ("content = org.goldenport.value.BaseContent.simple(\"fetch_methods\")")
         content should include ("datatype = org.goldenport.schema.DataType.Named(\"fetchmethod\")")
         content should include ("multiplicity = org.goldenport.schema.Multiplicity.ZeroMore")
+        content should include (
+          "CmlOperationField(name = \"name\", datatype = \"Name\", multiplicity = \"?\", validation = org.goldenport.schema.WebValidationHints(minLength = Some(1), maxLength = Some(256)), update = Some(org.goldenport.cncf.operation.CmlOperationUpdateField(sourceMultiplicity = \"1\", nullAllowed = false)))"
+        )
+        content should include (
+          "CmlOperationField(name = \"description\", datatype = \"string\", multiplicity = \"?\", update = Some(org.goldenport.cncf.operation.CmlOperationUpdateField(sourceMultiplicity = \"?\", nullAllowed = true)))"
+        )
+        content should include (
+          "CmlOperationField(name = \"fetch_methods\", datatype = \"FetchMethod\", multiplicity = \"*\", update = Some(org.goldenport.cncf.operation.CmlOperationUpdateField(sourceMultiplicity = \"*\", nullAllowed = false)))"
+        )
+        val update = out.resolve(
+          "target/scala-3.3.8/src_managed/main/scala/domain/entity/update/Facility.scala"
+        )
+        val updatecontent = Files.readString(update)
+        updatecontent should include ("private def _record_get_update_set_null[A]")
+        updatecontent should include (
+          "_record_get_update_set_null[String](record, INPUT_KEYS_DESCRIPTION) match"
+        )
+        updatecontent should include (
+          "case _: org.simplemodeling.model.directive.Update.SetNull.type => org.simplemodeling.model.directive.Update.setNull[A]"
+        )
       }
 
       "modeler-scala generates toDataStore with db column names" in {

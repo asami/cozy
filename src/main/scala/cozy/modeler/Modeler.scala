@@ -51,7 +51,7 @@ import scala.collection.mutable
  *  version Feb. 27, 2026
  *  version Mar. 31, 2026
  *  version May. 24, 2026
- * @version Jul. 16, 2026
+ * @version Jul. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler(
@@ -3257,8 +3257,20 @@ object Modeler {
         required = p.web.required,
         confidentiality = p.confidentiality,
         constraints = p.constraints,
-        typeConstraints = p.typeConstraints
+        typeConstraints = p.typeConstraints,
+        update = _entity_operation_update_field(p)
       )
+
+    private def _entity_operation_update_field(
+      p: MAttribute
+    ): Option[MComponent.OperationUpdateField] =
+      if (p.name == "id")
+        None
+      else
+        Some(MComponent.OperationUpdateField(
+          sourceMultiplicity = p.multiplicity.mark,
+          nullAllowed = p.multiplicity == MZeroOne
+        ))
 
     private def _entity_update_operation_multiplicity(
       p: MAttribute
