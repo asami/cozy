@@ -538,9 +538,53 @@ Primary reference:
 - `docs/phase/phase-20-checklist.md`
 - `docs/journal/2026/07/video-credit-profile-handoff-2026-07-20.md`
 
+### Phase 21: Component Repository Discovery
+
+Status: planned.
+
+Purpose:
+
+- add a CNCF-owned public repository index that can enumerate CAR and SAR
+  catalogs without HTTP directory listing or repository crawling;
+- update and validate that index deterministically from Cozy CAR/SAR
+  publication;
+- let Textus Launcher retrieve and cache configured public indexes and let
+  CNCF Launcher present equivalent admitted development/local identities;
+- extend Cozy BoK Component Repository pages from the existing CAR and
+  SIE-referenced SAR knowledge to complete indexed CAR/SAR navigation;
+- keep artifact availability, runtime registration, and runtime health as
+  separate facts.
+
+Primary reference:
+
+- `docs/phase/phase-21.md`
+- `docs/phase/phase-21-checklist.md`
+
+### Phase 22: Component Skill Distribution
+
+Status: planned after Phase 21 and the CNCF Skill Bundle contract.
+
+Purpose:
+
+- define one CNCF-owned `SkillBundleManifest` for component Codex skills;
+- have Cozy validate source and package the declared bundle into a CAR;
+- have CNCF Launcher install and diagnose an unreleased development bundle;
+- have Textus Launcher install, update, and remove the equivalent bundle from
+  a released/local/cache CAR;
+- keep installation explicit, staged, non-destructive, and separate from CAR
+  execution or MCP invocation;
+- keep Cozy Launcher responsible only for selecting and invoking the Cozy
+  runtime, not for installing component skills.
+
+Primary reference:
+
+- `docs/phase/phase-22.md`
+- `docs/phase/phase-22-checklist.md`
+
 ## Current Priority
 
-Phase 6 through Phase 20 are closed. No successor phase is selected yet.
+Phase 6 through Phase 20 are closed. Phase 21 is the next planned phase.
+Phase 22 follows Phase 21 after the CNCF Skill Bundle contract is executable.
 
 Phase 20 introduced provider-neutral narration with VOICEVOX, host-only macOS
 `say`, and a portable Piper Docker route, then used that contract to migrate the
@@ -635,8 +679,6 @@ Current follow-up directions include:
 
 - Post-Phase-16 CML policy backlog, when promoted into a separately scoped
   phase
-- BoK KnowledgeSource manifest output and SIE ingestion
-- BoK publication and Component Repository public pages
 - Video publication registration follow-up, if richer article/navigation
   integration is needed
 - Knowledge source compiler expansion
