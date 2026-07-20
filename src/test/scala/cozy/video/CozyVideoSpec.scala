@@ -15,7 +15,7 @@ import cozy.CozySpecVocabulary
 /*
  * @since   Jun. 18, 2026
  *  version Jun. 24, 2026
- * @version Jul. 19, 2026
+ * @version Jul. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoSpec
@@ -3692,7 +3692,8 @@ object CozyVideoSpec {
           )
         )
       ),
-      failSpeakers: Boolean = false
+      failSpeakers: Boolean = false,
+      audioBytes: Array[Byte] = _wav_bytes(0.2)
   ) extends CozyVideo.VoicevoxClient {
     val calls = ArrayBuffer.empty[VoicevoxCall]
     private val _audio_queries = ArrayBuffer.empty[Json]
@@ -3720,7 +3721,7 @@ object CozyVideoSpec {
     ): Array[Byte] = {
       calls += VoicevoxCall("synthesis", baseurl, speakerId = Some(speakerid))
       _audio_queries += audioquery
-      _wav_bytes(0.2)
+      audioBytes
     }
   }
 

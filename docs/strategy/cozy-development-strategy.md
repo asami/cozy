@@ -523,13 +523,20 @@ Purpose:
 - generate both Overview videos through Cozy commands alone, using built-in
   Remotion effects, provider-selected narration, final assembly, and ffprobe
   verification;
-- keep YouTube upload and unresolved third-party character-asset licensing
-  outside the phase boundary.
+- add a generic credit catalog/profile/resolver that derives character-material
+  and voice credits from actual build usage;
+- generate the in-video credit page and publication-ready credit text from one
+  effective localized credit set;
+- allow a user-level default profile to cover Asami's recurring credits without
+  per-video credit configuration;
+- keep legal interpretation, third-party asset redistribution, and YouTube
+  upload outside the phase boundary.
 
 Primary reference:
 
 - `docs/phase/phase-20.md`
 - `docs/phase/phase-20-checklist.md`
+- `docs/journal/2026/07/video-credit-profile-handoff-2026-07-20.md`
 
 ## Current Priority
 
@@ -538,7 +545,12 @@ provider-neutral narration with VOICEVOX, host-only macOS `say`, and a portable
 Piper Docker route, then uses that contract to migrate the Japanese and English
 SimpleModeling.org Overview videos to a Cozy-only command workflow. Cozy owns
 the common synthesis outputs and provenance, while `textus-toolchain-runner`
-owns the pinned portable TTS runtime and license-audited model files.
+owns the pinned portable TTS runtime and license-audited model files. Phase 20
+also introduces generic credit profiles: character-material usage and actual
+audio-manifest provenance resolve one effective credit set, which produces both
+the in-video page and publication-ready Markdown. Asami's recurring credit
+policy is selected once at the user configuration layer rather than copied into
+each video project.
 
 Phase 19 added portable knowledge-centered Media Packages and the `cozy media`
 inspect, plan, build, verify, and publish workflow. Publication profiles project

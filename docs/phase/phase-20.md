@@ -8,7 +8,9 @@ Start date: 2026-07-20
 
 Make narration synthesis provider-neutral and make the Japanese and English
 SimpleModeling.org Overview videos reproducible through Cozy commands without
-project-local rendering helpers or manually authored ffmpeg pipelines.
+project-local rendering helpers or manually authored ffmpeg pipelines. Resolve
+declared character-material and voice credits from actual build usage, then
+generate both an in-video credit page and publication-ready credit text.
 
 The portable Docker route does not attempt to package macOS system voices.
 Cozy selects and validates the narration provider, while the Textus toolchain
@@ -33,6 +35,16 @@ In scope:
 - `video inspect --check-tools` validation for the selected provider;
 - provider and execution-mode propagation through synthesis, RDF, and video
   publication metadata;
+- a generic structured credit catalog, profile, selector, and resolver
+  contract, independent of a specific user or character set;
+- user- and project-level default credit profiles through the existing Cozy
+  configuration layers;
+- credit resolution from script characters, semantic asset metadata, and the
+  authoritative audio manifest;
+- localized in-video credit pages and publication-ready Markdown generated
+  from one effective credit set;
+- automatic handling of the Reimu/Marisa, Zundamon, and Japanese/English
+  variations defined by the Phase 20 credit handoff;
 - migration of both SimpleModeling.org Overview video packages to canonical
   Cozy Video descriptors, built-in Remotion effect profiles, and Cozy-owned
   final assembly;
@@ -44,9 +56,10 @@ Out of scope:
   Docker image;
 - downloading TTS runtimes or voice models during video synthesis;
 - automatic model-license inference;
+- automatic interpretation of rights-holder terms or a decision about whether
+  a particular publication is commercial;
 - YouTube upload or channel operation;
-- resolving or redistributing the third-party character assets currently used
-  by the local Overview renders;
+- downloading, embedding, or redistributing third-party character assets;
 - preserving byte-identical output when the English provider or voice model is
   intentionally changed.
 
@@ -68,10 +81,9 @@ Focus:
 
 Verified implementation status:
 
-- The provider-boundary portion of `VID20-01` is implemented. Cozy resolves
-  canonical `narration.provider` before creating output, defaults existing
-  scripts to `voicevox`, and accepts `voice.engine` only with an explicit
-  deprecation diagnostic.
+- `VID20-01` is complete. Cozy resolves canonical `narration.provider` before
+  creating output, defaults existing scripts to `voicevox`, and accepts
+  `voice.engine` only with an explicit deprecation diagnostic.
 - New scaffold scripts use:
 
   ```yaml
@@ -81,8 +93,9 @@ Verified implementation status:
 
 - The shared synthesis pipeline records provider, execution mode, voice
   identity, and model identity in each audio manifest entry.
-- `VID20-01` remains open until provider WAV output is normalized through one
-  canonical sample-rate/channel contract in shared Cozy code.
+- Provider PCM WAV output is decoded and normalized to 24 kHz, mono, 16-bit PCM
+  in shared Cozy code before scene and combined audio are written. Unsupported
+  encoding and bit-depth contracts fail explicitly.
 - `VID20-02` remains open for CLI execution settings, provider-aware tool
   checks, RDF/publication propagation, and user-facing help.
 
@@ -120,12 +133,42 @@ Focus:
 - verify the Japanese VOICEVOX route, English macOS route, and English portable
   Docker route from source to final MP4.
 
+## Stage 20.4: Credit Profiles and Publication Projection
+
+Stage Status:
+
+- Current status: NOT STARTED
+- Owner: cozy-video / SimpleModeling.org
+- Checklist basis: `VID20-07`
+
+Focus:
+
+- keep the Cozy credit model generic and load user or organization profiles
+  through the existing Cozy configuration layers;
+- allow Asami's personal environment to select one default profile under
+  `~/.cozy`, without repeating credit text in each video project;
+- derive character-material credits from actual character and asset usage;
+- derive voice credits from actual audio-manifest provider and voice identity,
+  rather than assuming a provider from the publication language;
+- cover the eight Reimu/Marisa, Zundamon, and Japanese/English baseline
+  combinations additively;
+- generate structured credits, YouTube-ready Markdown, and a renderer-neutral
+  credit page from one resolved set;
+- insert a non-empty credit page before the final URL page and carry credit
+  provenance into build, verification, and RDF metadata.
+
+Primary handoff:
+
+- `docs/journal/2026/07/video-credit-profile-handoff-2026-07-20.md`
+
 ## Completion Criteria
 
 Phase 20 closes when Cozy can select and validate all three narration providers,
 all providers produce the canonical audio and provenance contract, the Textus
 toolchain snapshot image passes a real portable English synthesis smoke test,
 and both Overview videos can be inspected, synthesized, rendered, assembled,
-and verified using Cozy commands without project-local helper executables or
-manual ffmpeg commands. Focused and full tests, real integration evidence, and
+credited, and verified using Cozy commands without project-local helper
+executables or manual ffmpeg commands. The same effective credit set must
+produce the in-video page and publication Markdown, including all eight
+baseline variations. Focused and full tests, real integration evidence, and
 `git diff --check` must be recorded before closure.

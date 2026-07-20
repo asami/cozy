@@ -1175,6 +1175,8 @@ private[cozy] object CozyVideo {
   private val _docker_whisper_model = "/opt/textus/models/ggml-base.bin"
   private val _property_options = Set("tool-mode", "docker-image", "save", "voicevox-url", "renderer", "part", "whisper-model", "events", "har", "trace", "transcript")
   private val _default_sample_rate = 24000
+  private val _default_audio_channels = 1
+  private val _default_audio_bits_per_sample = 16
   private val _video_rdf_namespace = "https://www.simplemodeling.org/ns/cozy/video#"
   private val _schema_namespace = "https://schema.org/"
   private val _dcterms_namespace = "http://purl.org/dc/terms/"
@@ -1539,7 +1541,10 @@ private[cozy] object CozyVideo {
     executionMode: Option[String] = None,
     voiceIdentity: Option[String] = None,
     voiceId: Option[String] = None,
-    modelIdentity: Option[String] = None
+    modelIdentity: Option[String] = None,
+    sampleRate: Option[Int] = None,
+    channels: Option[Int] = None,
+    bitsPerSample: Option[Int] = None
   )
   object VideoAudioManifestEntry {
     implicit val decoder: Decoder[VideoAudioManifestEntry] = (c: HCursor) =>
@@ -1556,6 +1561,9 @@ private[cozy] object CozyVideo {
         voiceidentity <- c.downField("voiceIdentity").as[Option[String]]
         voiceid <- c.downField("voiceId").as[Option[String]]
         modelidentity <- c.downField("modelIdentity").as[Option[String]]
+        samplerate <- c.downField("sampleRate").as[Option[Int]]
+        channels <- c.downField("channels").as[Option[Int]]
+        bitspersample <- c.downField("bitsPerSample").as[Option[Int]]
       } yield VideoAudioManifestEntry(
         sceneid,
         speaker,
@@ -1568,7 +1576,10 @@ private[cozy] object CozyVideo {
         executionmode,
         voiceidentity,
         voiceid,
-        modelidentity
+        modelidentity,
+        samplerate,
+        channels,
+        bitspersample
       )
   }
 
@@ -1673,16 +1684,17 @@ private[cozy] object CozyVideo {
   }
 
   private final case class WaveData(
-    sampleRate: Int,
+    audioformat: Int,
+    samplerate: Int,
     channels: Int,
-    bitsPerSample: Int,
+    bitspersample: Int,
     data: Array[Byte]
   ) {
     def durationSeconds: Double =
-      if (sampleRate <= 0 || channels <= 0 || bitsPerSample <= 0)
+      if (samplerate <= 0 || channels <= 0 || bitspersample <= 0)
         0.0
       else
-        data.length.toDouble / (sampleRate.toDouble * channels.toDouble * (bitsPerSample.toDouble / 8.0))
+        data.length.toDouble / (samplerate.toDouble * channels.toDouble * (bitspersample.toDouble / 8.0))
   }
 
   private final case class NarrationSelection(
@@ -1739,7 +1751,7 @@ private[cozy] object CozyVideo {
           voiceidentity = audio.voiceIdentity
           voiceid = audio.voiceId
           modelidentity = audio.modelIdentity
-          Files.write(scenewav, audio.wav)
+          _write_wav(scenewav, _normalize_provider_wav(audio.wav, s"${provider.id}:$sceneid"))
         }
         val audioduration = _wav_duration(scenewav)
         val targetduration = scene.durationSeconds
@@ -1767,7 +1779,10 @@ private[cozy] object CozyVideo {
           Some(provider.executionMode),
           voiceidentity,
           voiceid,
-          modelidentity
+          modelidentity,
+          Some(_default_sample_rate),
+          Some(_default_audio_channels),
+          Some(_default_audio_bits_per_sample)
         )
     }
     val combined = _audio_output_file(savedir, s"${_basename(scriptfile)}.wav")
@@ -1900,7 +1915,7 @@ private[cozy] object CozyVideo {
 
   private def _write_silence_wav(path: Path, duration: Double): Unit = {
     val frames = math.max(0, (duration * _default_sample_rate).toInt)
-    _write_wav(path, WaveData(_default_sample_rate, 1, 16, Array.fill(frames * 2)(0.toByte)))
+    _write_wav(path, WaveData(1, _default_sample_rate, _default_audio_channels, _default_audio_bits_per_sample, Array.fill(frames * 2)(0.toByte)))
   }
 
   private def _wav_duration(path: Path): Double =
@@ -1913,7 +1928,12 @@ private[cozy] object CozyVideo {
       val waves = parts.map(_read_wav)
       val head = waves.head
       waves.tail.foreach { wave =>
-        if (wave.sampleRate != head.sampleRate || wave.channels != head.channels || wave.bitsPerSample != head.bitsPerSample)
+        if (
+          wave.audioformat != head.audioformat ||
+          wave.samplerate != head.samplerate ||
+          wave.channels != head.channels ||
+          wave.bitspersample != head.bitspersample
+        )
           RAISE.invalidArgumentFault(s"Cannot concatenate wav with different params: $output")
       }
       val out = new ByteArrayOutputStream()
@@ -1923,10 +1943,14 @@ private[cozy] object CozyVideo {
   }
 
   private def _read_wav(path: Path): WaveData = {
-    val bytes = Files.readAllBytes(path)
+    _read_wav_bytes(Files.readAllBytes(path), path.toString)
+  }
+
+  private def _read_wav_bytes(bytes: Array[Byte], label: String): WaveData = {
     if (bytes.length < 44 || _ascii(bytes, 0, 4) != "RIFF" || _ascii(bytes, 8, 4) != "WAVE")
-      RAISE.invalidArgumentFault(s"Invalid WAV file: $path")
+      RAISE.invalidArgumentFault(s"Invalid WAV file: $label")
     var offset = 12
+    var audioformat = 0
     var samplerate = 0
     var channels = 0
     var bitspersample = 0
@@ -1934,24 +1958,81 @@ private[cozy] object CozyVideo {
     while (offset + 8 <= bytes.length) {
       val id = _ascii(bytes, offset, 4)
       val size = _read_int_le(bytes, offset + 4)
+      if (size < 0)
+        RAISE.invalidArgumentFault(s"Invalid WAV file: $label")
       val start = offset + 8
-      if (start + size <= bytes.length) {
-        id match {
-          case "fmt " =>
-            channels = _read_short_le(bytes, start + 2)
-            samplerate = _read_int_le(bytes, start + 4)
-            bitspersample = _read_short_le(bytes, start + 14)
-          case "data" =>
-            data = bytes.slice(start, start + size)
-          case _ =>
-        }
+      val end = start.toLong + size.toLong
+      if (end > bytes.length.toLong)
+        RAISE.invalidArgumentFault(s"Invalid WAV file: $label")
+      id match {
+        case "fmt " =>
+          if (size < 16)
+            RAISE.invalidArgumentFault(s"Invalid WAV file: $label")
+          audioformat = _read_short_le(bytes, start)
+          channels = _read_short_le(bytes, start + 2)
+          samplerate = _read_int_le(bytes, start + 4)
+          bitspersample = _read_short_le(bytes, start + 14)
+        case "data" =>
+          data = bytes.slice(start, end.toInt)
+        case _ =>
       }
-      offset = start + size + (size % 2)
+      val next = end + (size & 1)
+      offset = math.min(next, bytes.length.toLong).toInt
     }
-    if (samplerate == 0 || channels == 0 || bitspersample == 0 || data.isEmpty)
-      RAISE.invalidArgumentFault(s"Invalid WAV file: $path")
-    WaveData(samplerate, channels, bitspersample, data)
+    if (audioformat <= 0 || samplerate <= 0 || channels <= 0 || bitspersample <= 0 || data.isEmpty)
+      RAISE.invalidArgumentFault(s"Invalid WAV file: $label")
+    WaveData(audioformat, samplerate, channels, bitspersample, data)
   }
+
+  private def _normalize_provider_wav(bytes: Array[Byte], label: String): WaveData = {
+    val source = _read_wav_bytes(bytes, label)
+    if (source.audioformat != 1)
+      RAISE.invalidArgumentFault(s"Unsupported WAV encoding for $label: format=${source.audioformat}. Use PCM WAV.")
+    val bytespersample = source.bitspersample / 8
+    if (!Set(8, 16, 24, 32).contains(source.bitspersample) || bytespersample * 8 != source.bitspersample)
+      RAISE.invalidArgumentFault(
+        s"Unsupported PCM bit depth for $label: ${source.bitspersample}. Supported bit depths: 8, 16, 24, 32."
+      )
+    val framesize = bytespersample * source.channels
+    if (source.data.length % framesize != 0)
+      RAISE.invalidArgumentFault(s"Invalid PCM frame alignment for $label.")
+    val sourceframes = source.data.length / framesize
+    val mono = Array.tabulate(sourceframes) { frame =>
+      var sum = 0.0
+      var channel = 0
+      while (channel < source.channels) {
+        sum += _pcm_sample(source.data, (frame * source.channels + channel) * bytespersample, source.bitspersample)
+        channel += 1
+      }
+      sum / source.channels.toDouble
+    }
+    val targetframes = math.max(1, math.round(sourceframes.toDouble * _default_sample_rate.toDouble / source.samplerate.toDouble).toInt)
+    val data = new Array[Byte](targetframes * 2)
+    var frame = 0
+    while (frame < targetframes) {
+      val position = frame.toDouble * source.samplerate.toDouble / _default_sample_rate.toDouble
+      val lower = math.min(sourceframes - 1, position.toInt)
+      val upper = math.min(sourceframes - 1, lower + 1)
+      val fraction = position - lower.toDouble
+      val sample = mono(lower) + (mono(upper) - mono(lower)) * fraction
+      val encoded = math.round(math.max(-1.0, math.min(1.0, sample)) * 32767.0).toInt
+      data(frame * 2) = (encoded & 0xff).toByte
+      data(frame * 2 + 1) = ((encoded >>> 8) & 0xff).toByte
+      frame += 1
+    }
+    WaveData(1, _default_sample_rate, _default_audio_channels, _default_audio_bits_per_sample, data)
+  }
+
+  private def _pcm_sample(data: Array[Byte], offset: Int, bitspersample: Int): Double =
+    bitspersample match {
+      case 8 => ((data(offset) & 0xff) - 128).toDouble / 128.0
+      case 16 => _read_short_le(data, offset).toShort.toDouble / 32768.0
+      case 24 =>
+        val raw = (data(offset) & 0xff) | ((data(offset + 1) & 0xff) << 8) | ((data(offset + 2) & 0xff) << 16)
+        val signed = if ((raw & 0x800000) != 0) raw | 0xff000000 else raw
+        signed.toDouble / 8388608.0
+      case 32 => _read_int_le(data, offset).toDouble / 2147483648.0
+    }
 
   private def _write_wav(path: Path, wave: WaveData): Unit = {
     Files.createDirectories(path.getParent)
@@ -1961,12 +2042,12 @@ private[cozy] object CozyVideo {
     _write_ascii(out, "WAVE")
     _write_ascii(out, "fmt ")
     _write_int_le(out, 16)
-    _write_short_le(out, 1)
+    _write_short_le(out, wave.audioformat)
     _write_short_le(out, wave.channels)
-    _write_int_le(out, wave.sampleRate)
-    _write_int_le(out, wave.sampleRate * wave.channels * wave.bitsPerSample / 8)
-    _write_short_le(out, wave.channels * wave.bitsPerSample / 8)
-    _write_short_le(out, wave.bitsPerSample)
+    _write_int_le(out, wave.samplerate)
+    _write_int_le(out, wave.samplerate * wave.channels * wave.bitspersample / 8)
+    _write_short_le(out, wave.channels * wave.bitspersample / 8)
+    _write_short_le(out, wave.bitspersample)
     _write_ascii(out, "data")
     _write_int_le(out, wave.data.length)
     out.write(wave.data)
@@ -1987,7 +2068,10 @@ private[cozy] object CozyVideo {
         "executionMode" -> entry.executionMode.map(Json.fromString).getOrElse(Json.Null),
         "voiceIdentity" -> entry.voiceIdentity.map(Json.fromString).getOrElse(Json.Null),
         "voiceId" -> entry.voiceId.map(Json.fromString).getOrElse(Json.Null),
-        "modelIdentity" -> entry.modelIdentity.map(Json.fromString).getOrElse(Json.Null)
+        "modelIdentity" -> entry.modelIdentity.map(Json.fromString).getOrElse(Json.Null),
+        "sampleRate" -> entry.sampleRate.map(Json.fromInt).getOrElse(Json.Null),
+        "channels" -> entry.channels.map(Json.fromInt).getOrElse(Json.Null),
+        "bitsPerSample" -> entry.bitsPerSample.map(Json.fromInt).getOrElse(Json.Null)
       )
     })
 

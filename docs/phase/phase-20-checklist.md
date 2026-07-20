@@ -5,10 +5,10 @@ Multi-Provider Narration and Cozy-Complete Video Build.
 
 ## VID20-01: Provider-Neutral Narration Contract
 
-Status: IN PROGRESS
+Status: DONE
 
 - [x] Add a narration-provider abstraction around provider-specific synthesis.
-- [ ] Keep pronunciation conversion, scene timing, silence, WAV normalization,
+- [x] Keep pronunciation conversion, scene timing, silence, WAV normalization,
       combined audio, and manifest generation in shared Cozy code.
 - [x] Define canonical `narration.provider` authoring.
 - [x] Read existing `voice.engine` only as compatibility input, emit an explicit
@@ -76,7 +76,7 @@ Status: NOT STARTED
 - [ ] Keep generated audio, intermediate media, and final MP4 files outside
       source control.
 
-## VID20-06: Overview Migration and Closure
+## VID20-06: Overview Migration and Validation
 
 Status: NOT STARTED
 
@@ -93,5 +93,34 @@ Status: NOT STARTED
 - [ ] Run Textus Toolchain Runner tests and the real snapshot-image TTS smoke.
 - [ ] Run both real Overview source-to-MP4 workflows and inspect the generated
       opening, summary, and final page.
-- [ ] Run `git diff --check`, complete post-implementation review, record
-      verification evidence, and close Phase 20.
+- [ ] Record the source-to-MP4 verification evidence for both Overview videos.
+
+## VID20-07: Credit Profiles and Publication Projection
+
+Status: NOT STARTED
+
+- [ ] Add a generic structured credit item, catalog, selector, profile, and
+      resolver model without Asami-specific rules in Cozy core.
+- [ ] Discover credit profiles through user and project Cozy configuration
+      layers, with explicit video, project, and user default precedence.
+- [ ] Support one-time selection of Asami's personal default profile under
+      `~/.cozy` so normal video projects need no credit-specific setting.
+- [ ] Resolve character-material credits from script character IDs and
+      semantic asset metadata, with explicit include/exclude overrides.
+- [ ] Resolve voice credits from authoritative audio-manifest provider and
+      voice identity rather than publication locale or stale script metadata.
+- [ ] Generate one structured effective credit set plus localized publication
+      Markdown and renderer-neutral credit-page properties.
+- [ ] Insert a non-empty credit page before the final URL page and omit it when
+      no credit applies.
+- [ ] Propagate the selected profile, evidence, terms links, and effective
+      credit digest through inspect, build, verification, and RDF metadata.
+- [ ] Fail verification for unresolved required credits and warn for unresolved
+      recommended credits.
+- [ ] Cover all eight Reimu/Marisa, Zundamon, and Japanese/English baseline
+      combinations, including image-only, voice-only, and non-VOICEVOX English
+      production cases.
+- [ ] Update scaffold examples and the profile-driven video guide so another
+      user or organization can define its own profile.
+- [ ] Run focused and full tests, `git diff --check`, post-implementation
+      review, record Phase 20 verification evidence, and close Phase 20.
