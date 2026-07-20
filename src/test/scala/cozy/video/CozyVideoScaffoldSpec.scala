@@ -20,8 +20,8 @@ final class CozyVideoScaffoldSpec
   "Cozy Video Scaffold" should {
     "create a deterministic license-safe explanation package" in {
       _with_temp_dir("explanation") { dir =>
-        val save = dir.resolve("domain-overview.video")
         Given("an explanation scaffold request without external media")
+        val save = dir.resolve("domain-overview.video")
         val config = CozyVideoScaffold.Config.create(List(
           "domain-overview",
           "--save",
@@ -46,6 +46,8 @@ final class CozyVideoScaffoldSpec
         save.resolve("assets/final-page.svg") should be_regular_file
         save.resolve("assets/README.md") should be_regular_file
         _read(save.resolve("video.yaml")) should include_text("profile: explanation")
+        _read(save.resolve("video.yaml")) should include_text("locale: en")
+        _read(save.resolve("video.yaml")) should include_text("credits:\n  include: []\n  exclude: []")
         _read(save.resolve("video.yaml")) should include_text("opening: title-hold-subtle-motion")
         _read(save.resolve("video.yaml")) should include_text("section-start: line-sweep")
         _read(save.resolve("video.yaml")) should include_text("summary: overview-and-conclusion")
@@ -71,8 +73,8 @@ final class CozyVideoScaffoldSpec
 
     "express explanation-demo-explanation as a distinct composition profile" in {
       _with_temp_dir("explanation-demo-explanation") { dir =>
-        val save = dir.resolve("product-demo.video")
         Given("a scaffold request for an explanation, demo, and explanation sequence")
+        val save = dir.resolve("product-demo.video")
         val config = CozyVideoScaffold.Config.create(List(
           "product-demo.video",
           "--save=" + save,
@@ -108,8 +110,8 @@ final class CozyVideoScaffoldSpec
 
     "honor independent visual-effect profile settings through the CLI" in {
       _with_temp_dir("cli") { dir =>
-        val save = dir.resolve("minimal.video")
         Given("a CLI scaffold request that disables each optional visual effect")
+        val save = dir.resolve("minimal.video")
 
         When("the Cozy CLI creates the package")
         val result = _capture {

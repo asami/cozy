@@ -68,6 +68,7 @@ final class CozyVideoProfileRenderSpec
             _int(props, "timing", "summaryStartFrame") shouldBe openingframes + 168
             _int(props, "timing", "summaryFrames") shouldBe 72
             val finalframes = if (index == partids.size - 1) 60 else 0
+            _int(props, "timing", "creditPageHoldFrames") shouldBe 0
             _int(props, "timing", "finalPageStartFrame") shouldBe openingframes + 240
             _int(props, "timing", "finalPageHoldFrames") shouldBe finalframes
             _int(props, "timing", "totalFrames") shouldBe openingframes + 240 + finalframes
@@ -88,6 +89,7 @@ final class CozyVideoProfileRenderSpec
           )
           renderscript should include_text("--public-dir=${publicDir}")
           renderscript should include_text("--dns-result-order=ipv4first")
+          Files.isDirectory(pkg.resolve("build/credits")) shouldBe false
         }
       }
     }
@@ -131,8 +133,8 @@ final class CozyVideoProfileRenderSpec
 
     "render a configured project-owned asset without changing its bytes or provenance" in {
       _with_temp_dir("project-asset") { dir =>
-        val pkg = dir.resolve("asset-demo.video")
         Given("a scaffold whose summary slot points to a project-owned SVG")
+        val pkg = dir.resolve("asset-demo.video")
         CozyVideoScaffold.scaffold(CozyVideoScaffold.Config.create(List(
           "asset-demo",
           s"--save=$pkg",
@@ -173,16 +175,146 @@ final class CozyVideoProfileRenderSpec
       }
     }
 
+    "insert resolved credits before the final page and preserve their provenance" in {
+      _with_temp_dir("credits") { dir =>
+        Given("a scaffold with a selected credit profile and authoritative VOICEVOX audio evidence")
+        val pkg = dir.resolve("credited.video")
+        CozyVideoScaffold.scaffold(CozyVideoScaffold.Config.create(List(
+          "credited",
+          s"--save=$pkg",
+          "--profile=explanation"
+        )))
+        _write_credit_profile(pkg)
+        _write(
+          pkg.resolve("video.yaml"),
+          _read(pkg.resolve("video.yaml")).
+            replace("locale: en", "locale: ja").
+            replace("credits:\n  include: []", "credits:\n  profile: publication\n  include: []")
+        )
+        _write(
+          pkg.resolve("script.yaml"),
+          _read(pkg.resolve("script.yaml")).replace("    narration:", "    speaker: zundamon\n    narration:")
+        )
+        _write_credit_audio_manifest(pkg)
+        val runner = ProfileRenderRunner()
+
+        When("Cozy renders the final part and then assembles and describes the video")
+        val inspection = CozyVideo.inspect(
+          CozyVideo.InspectConfig(pkg.resolve("video.yaml"), checkTools = false),
+          CozyVideo.VideoToolRegistry(Vector.empty)
+        )
+        CozyVideo.render(
+          CozyVideo.RenderConfig(pkg.resolve("video.yaml"), "remotion", checkTools = false),
+          CozyVideo.VideoToolRegistry(Vector.empty),
+          runner
+        )
+        val build = CozyVideo.build(
+          CozyVideo.BuildConfig(pkg.resolve("video.yaml"), dryRun = false, checkTools = false),
+          CozyVideo.VideoToolRegistry(Vector.empty),
+          runner
+        )
+        CozyVideo.rdf(CozyVideo.RdfConfig(pkg.resolve("video.yaml"), pkg.resolve("rdf")))
+
+        Then("one effective credit set drives inspection publication files renderer timing and RDF")
+        inspection should include_text("creditProfile: publication")
+        inspection should include_text("creditAudio: provider=voicevox voice=ずんだもん")
+        inspection should include_text("voice-zundamon: required")
+        build should include_text("creditProfile: publication")
+        val creditjson = _read(pkg.resolve("build/credits/credits.json"))
+        val creditmarkdown = _read(pkg.resolve("build/credits/credits.md"))
+        val creditprops = _read(pkg.resolve("build/credits/renderer-props.json"))
+        creditjson should include_text("voice-zundamon")
+        creditmarkdown should include_text("VOICEVOX:ずんだもん")
+        creditprops should include_text("voice-zundamon")
+        val digest = parser.parse(creditjson).toOption.get.hcursor.get[String]("digest").toOption.get
+        _read(pkg.resolve("build/manifest.json")) should include_text(digest)
+        _read(pkg.resolve("rdf/video.ttl")) should include_text(digest)
+        _read(pkg.resolve("rdf/video.ttl")) should include_text("hasCredit")
+
+        And("the non-empty static credit page precedes the existing final URL page")
+        val workdir = pkg.resolve("target/cozy-video/remotion/explanation")
+        val props = _json(workdir.resolve("props.json"))
+        _int(props, "timing", "creditPageStartFrame") shouldBe 375
+        _int(props, "timing", "creditPageHoldFrames") shouldBe 120
+        _int(props, "timing", "finalPageStartFrame") shouldBe 495
+        _int(props, "timing", "totalFrames") shouldBe 555
+        val root = _read(workdir.resolve("src/Root.tsx"))
+        root.indexOf("<CreditPage credits={credits}") should be < root.indexOf("<FinalPage effect={finalPage}")
+
+        And("verification rejects a projection changed after the effective set was built")
+        CozyVideo.verifyCredits(pkg.resolve("video.yaml")) shouldBe Vector.empty
+        _write(pkg.resolve("build/credits/renderer-props.json"), "{}")
+        CozyVideo.verifyCredits(pkg.resolve("video.yaml")).mkString("\n") should
+          include_text("credit renderer props does not match the effective credit set")
+      }
+    }
+
+    "report recommended unresolved credits without blocking render or build" in {
+      _with_temp_dir("recommended-credit-warning") { dir =>
+        Given("a scaffold with a recommended semantic credit absent from its selected profile")
+        val pkg = dir.resolve("recommended.video")
+        CozyVideoScaffold.scaffold(CozyVideoScaffold.Config.create(List(
+          "recommended",
+          s"--save=$pkg",
+          "--profile=explanation"
+        )))
+        _write_material_credit_profile(pkg)
+        _write(pkg.resolve("assets/advisory.svg"), "<svg/>")
+        _write(
+          pkg.resolve("video.yaml"),
+          _read(pkg.resolve("video.yaml")).
+            replace("credits:\n  include: []", "credits:\n  profile: material-publication\n  include: []").
+            replace(
+              "assets:\n",
+              "assets:\n  advisory:\n    path: assets/advisory.svg\n    credits: [unlisted-advisory]\n    credit-obligation: recommended\n"
+            )
+        )
+        _write_credit_audio_manifest(pkg)
+        val runner = ProfileRenderRunner()
+
+        When("Cozy renders and assembles the project")
+        val rendered = CozyVideo.render(
+          CozyVideo.RenderConfig(pkg.resolve("video.yaml"), "remotion", checkTools = false),
+          CozyVideo.VideoToolRegistry(Vector.empty),
+          runner
+        )
+        val built = CozyVideo.build(
+          CozyVideo.BuildConfig(pkg.resolve("video.yaml"), dryRun = false, checkTools = false),
+          CozyVideo.VideoToolRegistry(Vector.empty),
+          runner
+        )
+
+        Then("both successful command results retain the recommended-attribution warning")
+        rendered should include_text("creditWarning: credit.asset.unknown-item")
+        built should include_text("creditWarning: credit.asset.unknown-item")
+      }
+    }
+
     "preserve profile contracts through inspect build RDF and publication" in {
       _with_temp_dir("lifecycle") { dir =>
-        val pkg = dir.resolve("src/main/doxsite/technology/tutorial.video")
         Given("a scaffolded explanation package entering the full publication lifecycle")
+        val pkg = dir.resolve("src/main/doxsite/technology/tutorial.video")
         CozyVideoScaffold.scaffold(CozyVideoScaffold.Config.create(List(
           "tutorial",
           s"--save=$pkg",
           "--profile=explanation"
         )))
         val project = pkg.resolve("video.yaml")
+        _write_material_credit_profile(pkg)
+        _write(pkg.resolve("assets/guide.svg"), "<svg/>")
+        _write(
+          project,
+          _read(project).
+            replace("credits:\n  include: []", "credits:\n  profile: material-publication\n  include: []").
+            replace(
+              "assets:\n",
+              "assets:\n  guide:\n    path: assets/guide.svg\n    kind: character-material\n    required: true\n    tags: [character.guide]\n    credits: [guide-material]\n    credit-obligation: required\n"
+            )
+        )
+        _write(
+          pkg.resolve("script.yaml"),
+          _read(pkg.resolve("script.yaml")).replace("    narration:", "    speaker: guide\n    narration:")
+        )
 
         When("Cozy inspects plans and describes the package as RDF")
         val inspection = CozyVideo.inspect(
@@ -224,6 +356,12 @@ final class CozyVideoProfileRenderSpec
         generated should include_text("\"profile\" : \"explanation\"")
         generated should include_text("\"visualEffects\"")
         generated should include_text("\"assets\"")
+        generated should include_text("\"locale\" : \"en\"")
+        generated should include_text("\"profile\" : \"material-publication\"")
+        generated should include_text("\"guide\"")
+        generated should include_text("\"character.guide\"")
+        result.workspaceRoot.resolve("conf/cozy/video/credit-profiles/material-publication.yaml") should be_regular_file
+        result.workspaceRoot.resolve("build/credits/credits.json") should be_regular_file
         result.workspaceRoot.resolve("target/cozy-video/remotion/explanation/public/assets/summary.svg") should be_regular_file
       }
     }
@@ -239,6 +377,62 @@ final class CozyVideoProfileRenderSpec
         s"""[{"sceneId":"$partid","speaker":null,"file":"01-$partid.wav","leadSilence":0.0,"audioDuration":8.0,"targetDuration":8.0,"tailSilence":0.0}]"""
       )
     }
+
+  private def _write_credit_audio_manifest(pkg: Path): Unit = {
+    val dir = pkg.resolve("build/audio/explanation")
+    Files.createDirectories(dir)
+    Files.write(dir.resolve("01-explanation.wav"), Array[Byte](0, 1, 2, 3))
+    _write(
+      dir.resolve("manifest.json"),
+      """[{"sceneId":"explanation","speaker":"zundamon","file":"01-explanation.wav","leadSilence":0.0,"audioDuration":8.0,"targetDuration":8.0,"tailSilence":0.0,"provider":"voicevox","executionMode":"external-http","voiceIdentity":"ずんだもん","voiceId":"3"}]"""
+    )
+  }
+
+  private def _write_credit_profile(pkg: Path): Unit =
+    _write(
+      pkg.resolve("conf/cozy/video/credit-profiles/publication.yaml"),
+      """schema: cozy.video.credits.v1
+        |profile: publication
+        |required-audio-providers: [voicevox]
+        |presentation:
+        |  title: {ja: 使用素材・音声, en: Credits}
+        |  hold-seconds: 4.0
+        |selectors:
+        |  - when:
+        |      audio-provider: voicevox
+        |      voice-identity: ずんだもん
+        |    include: [voice-zundamon]
+        |credits:
+        |  - id: voice-zundamon
+        |    category: voice
+        |    label: {ja: "VOICEVOX:ずんだもん", en: "VOICEVOX:Zundamon"}
+        |    publication-text: {ja: "VOICEVOX:ずんだもん", en: "VOICEVOX:Zundamon"}
+        |    creator: VOICEVOX
+        |    surfaces: [video, publication, rdf]
+        |""".stripMargin
+    )
+
+  private def _write_material_credit_profile(pkg: Path): Unit =
+    _write(
+      pkg.resolve("conf/cozy/video/credit-profiles/material-publication.yaml"),
+      """schema: cozy.video.credits.v1
+        |profile: material-publication
+        |presentation:
+        |  title: {default: Credits}
+        |  hold-seconds: 3.0
+        |selectors:
+        |  - when:
+        |      any-character-id: [guide]
+        |    include: [guide-material]
+        |credits:
+        |  - id: guide-material
+        |    category: character-material
+        |    label: {default: Guide material}
+        |    publication-text: {default: Guide material}
+        |    creator: Example Studio
+        |    surfaces: [video, publication, rdf]
+        |""".stripMargin
+    )
 
   private def _primitive_names(json: Json): Set[String] =
     json.hcursor.downField("visualEffects").as[Vector[Json]].toOption.get.

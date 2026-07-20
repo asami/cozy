@@ -176,8 +176,12 @@ private[cozy] object CozyVideoScaffold {
     }.flatten.mkString("\n")
     s"""name: ${config.slug}
        |title: ${_yaml_string(config.title)}
+       |locale: en
        |output: build/${config.slug}.mp4
        |profile: ${config.profile.key}
+       |credits:
+       |  include: []
+       |  exclude: []
        |visual-effects:
        |  opening: ${config.visualeffects.opening}
        |  section-start: ${config.visualeffects.sectionstart}
@@ -227,6 +231,7 @@ private[cozy] object CozyVideoScaffold {
       |The SVG files in this directory are generated, license-safe placeholders.
       |Replace a slot's `path` with a project-owned file and record its `kind`, `license`, and `provenance` in `video.yaml`.
       |Set `required: true` when rendering must stop rather than use the generated placeholder if that configured file is absent.
+      |Additional asset IDs may declare `tags`, `credits`, and `credit-obligation` as semantic credit evidence without becoming renderer slots.
       |Asset paths are project-relative local files. Cozy does not fetch asset URLs during inspect, build, or render.
       |The scaffold does not copy or reference media from `0714.techfirst.lt/assets`.
       |""".stripMargin

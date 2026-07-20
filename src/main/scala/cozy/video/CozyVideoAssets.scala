@@ -18,7 +18,10 @@ private[cozy] object CozyVideoAssets {
     kind: Option[String],
     required: Boolean,
     license: Option[String],
-    provenance: Option[String]
+    provenance: Option[String],
+    tags: Vector[String] = Vector.empty,
+    credits: Vector[String] = Vector.empty,
+    creditObligation: Option[String] = None
   )
   object Entry {
     implicit val decoder: Decoder[Entry] = Decoder.instance { c =>
@@ -31,7 +34,19 @@ private[cozy] object CozyVideoAssets {
             required <- c.downField("required").as[Option[Boolean]]
             license <- c.downField("license").as[Option[String]]
             provenance <- c.downField("provenance").as[Option[String]]
-          } yield Entry(path, kind, required.getOrElse(false), license, provenance)
+            tags <- c.downField("tags").as[Option[Vector[String]]]
+            credits <- c.downField("credits").as[Option[Vector[String]]]
+            creditobligation <- _optional_string(c, "creditObligation", "credit-obligation")
+          } yield Entry(
+            path,
+            kind,
+            required.getOrElse(false),
+            license,
+            provenance,
+            _normalized(tags.getOrElse(Vector.empty)),
+            _normalized(credits.getOrElse(Vector.empty)),
+            creditobligation.map(_.trim.toLowerCase(java.util.Locale.ROOT)).filter(_.nonEmpty)
+          )
       }
     }
   }
@@ -40,7 +55,8 @@ private[cozy] object CozyVideoAssets {
     opening: Option[Entry],
     sectionStart: Option[Entry],
     summary: Option[Entry],
-    finalPage: Option[Entry]
+    finalPage: Option[Entry],
+    semantic: Map[String, Entry] = Map.empty
   )
   object Settings {
     implicit val decoder: Decoder[Settings] = (c: HCursor) =>
@@ -49,7 +65,8 @@ private[cozy] object CozyVideoAssets {
         sectionstart <- _optional_entry(c, "sectionStart", "section-start")
         summary <- c.downField("summary").as[Option[Entry]]
         finalpage <- _optional_entry(c, "finalPage", "final-page")
-      } yield Settings(opening, sectionstart, summary, finalpage)
+        semantic <- _semantic_entries(c)
+      } yield Settings(opening, sectionstart, summary, finalpage, semantic)
   }
 
   final case class Resolved(
@@ -60,11 +77,25 @@ private[cozy] object CozyVideoAssets {
     license: String,
     provenance: String,
     status: String,
-    requestedPath: Option[Path]
+    requestedPath: Option[Path],
+    tags: Vector[String] = Vector.empty,
+    credits: Vector[String] = Vector.empty,
+    creditObligation: Option[String] = None
   ) {
     def displayPath(projectroot: Path): String = _display_path(projectroot, path)
     def requestedDisplayPath(projectroot: Path): Option[String] = requestedPath.map(_display_path(projectroot, _))
   }
+
+  final case class CreditEvidence(
+    id: String,
+    kind: String,
+    tags: Vector[String],
+    license: String,
+    provenance: String,
+    credits: Vector[String],
+    creditObligation: Option[String],
+    status: String
+  )
 
   def resolve(projectroot: Path, settings: Option[Settings]): Vector[Resolved] =
     settings.toVector.flatMap { value =>
@@ -72,6 +103,25 @@ private[cozy] object CozyVideoAssets {
         _resolve(projectroot, role, _entry(value, role))
       }
     }
+
+  def creditEvidence(projectroot: Path, settings: Option[Settings], resolved: Vector[Resolved]): Vector[CreditEvidence] = {
+    val fixed = resolved.map { asset =>
+      CreditEvidence(
+        asset.role.key,
+        asset.kind,
+        asset.tags,
+        asset.license,
+        asset.provenance,
+        asset.credits,
+        asset.creditObligation,
+        asset.status
+      )
+    }
+    val semantic = settings.toVector.flatMap(_.semantic.toVector.sortBy(_._1).map { case (id, entry) =>
+      _semantic_evidence(projectroot, id, entry)
+    })
+    fixed ++ semantic
+  }
 
   private def _entry(settings: Settings, role: CozyVideoEffects.Role): Option[Entry] =
     role match {
@@ -105,7 +155,8 @@ private[cozy] object CozyVideoAssets {
     }
   }
 
-  private def _resolved_configured(role: CozyVideoEffects.Role, path: Path, entry: Entry): Resolved =
+  private def _resolved_configured(role: CozyVideoEffects.Role, path: Path, entry: Entry): Resolved = {
+    val creditobligation = _credit_obligation(role.key, entry.creditObligation)
     Resolved(
       role,
       path,
@@ -114,8 +165,12 @@ private[cozy] object CozyVideoAssets {
       entry.license.map(_.trim).filter(_.nonEmpty).getOrElse("unspecified"),
       entry.provenance.map(_.trim).filter(_.nonEmpty).getOrElse("unspecified"),
       "configured",
-      None
+      None,
+      entry.tags,
+      entry.credits,
+      creditobligation
     )
+  }
 
   private def _resolved_placeholder(
     role: CozyVideoEffects.Role,
@@ -134,23 +189,57 @@ private[cozy] object CozyVideoAssets {
       requestedpath
     )
 
+  private def _semantic_evidence(projectroot: Path, id: String, entry: Entry): CreditEvidence = {
+    val root = projectroot.toAbsolutePath.normalize()
+    val path = _resolve_local_path(root, entry.path, id)
+    val status =
+      if (_is_readable_project_file(root, path))
+        "configured"
+      else if (entry.required)
+        RAISE.invalidArgumentFault(s"Missing or unreadable required video asset $id: ${_display_path(root, path)}")
+      else
+        "optional-missing"
+    val creditobligation = _credit_obligation(id, entry.creditObligation)
+    CreditEvidence(
+      id,
+      entry.kind.map(_.trim).filter(_.nonEmpty).getOrElse("project-owned"),
+      entry.tags,
+      entry.license.map(_.trim).filter(_.nonEmpty).getOrElse("unspecified"),
+      entry.provenance.map(_.trim).filter(_.nonEmpty).getOrElse("unspecified"),
+      entry.credits,
+      creditobligation,
+      status
+    )
+  }
+
+  private def _credit_obligation(id: String, value: Option[String]): Option[String] =
+    value.map { obligation =>
+      if (obligation != "required" && obligation != "recommended")
+        RAISE.invalidArgumentFault(s"Invalid video asset credit obligation $id: $obligation")
+      obligation
+    }
+
   private def _resolve_local_path(root: Path, value: String, role: CozyVideoEffects.Role): Path = {
+    _resolve_local_path(root, value, role.key)
+  }
+
+  private def _resolve_local_path(root: Path, value: String, id: String): Path = {
     val candidate = value.trim
     if (candidate.isEmpty)
-      RAISE.invalidArgumentFault(s"Video asset path is empty: ${role.key}")
+      RAISE.invalidArgumentFault(s"Video asset path is empty: $id")
     if (candidate.matches("^[A-Za-z][A-Za-z0-9+.-]*:.*"))
-      RAISE.invalidArgumentFault(s"Video assets must be project-local files, not URLs: ${role.key}=$candidate")
+      RAISE.invalidArgumentFault(s"Video assets must be project-local files, not URLs: $id=$candidate")
     val relative =
       try Path.of(candidate)
       catch {
         case e: InvalidPathException =>
-          RAISE.invalidArgumentFault(s"Invalid video asset path ${role.key}: $candidate (${e.getMessage})")
+          RAISE.invalidArgumentFault(s"Invalid video asset path $id: $candidate (${e.getMessage})")
       }
     if (relative.isAbsolute)
-      RAISE.invalidArgumentFault(s"Video assets must use project-relative paths: ${role.key}=$candidate")
+      RAISE.invalidArgumentFault(s"Video assets must use project-relative paths: $id=$candidate")
     val resolved = root.resolve(relative).normalize()
     if (!resolved.startsWith(root))
-      RAISE.invalidArgumentFault(s"Video asset escapes the project root: ${role.key}=$candidate")
+      RAISE.invalidArgumentFault(s"Video asset escapes the project root: $id=$candidate")
     resolved
   }
 
@@ -176,4 +265,24 @@ private[cozy] object CozyVideoAssets {
       case value @ Some(_) => Right(value)
       case None => c.downField(kebabname).as[Option[Entry]]
     }
+
+  private def _optional_string(c: HCursor, camelname: String, kebabname: String): Decoder.Result[Option[String]] =
+    c.downField(camelname).as[Option[String]].flatMap {
+      case value @ Some(_) => Right(value)
+      case None => c.downField(kebabname).as[Option[String]]
+    }
+
+  private def _semantic_entries(c: HCursor): Decoder.Result[Map[String, Entry]] = {
+    val reserved = Set("opening", "sectionStart", "section-start", "summary", "finalPage", "final-page")
+    c.keys.toVector.flatten.filterNot(reserved).sorted.foldLeft[Decoder.Result[Map[String, Entry]]](Right(Map.empty)) {
+      case (result, key) =>
+        for {
+          entries <- result
+          entry <- c.downField(key).as[Entry]
+        } yield entries.updated(key, entry)
+    }
+  }
+
+  private def _normalized(values: Vector[String]): Vector[String] =
+    values.map(_.trim).filter(_.nonEmpty).distinct.sorted
 }

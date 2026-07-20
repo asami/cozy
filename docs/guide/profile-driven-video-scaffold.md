@@ -197,6 +197,126 @@ Narration output, renderer workspaces, intermediate MP4 files, final MP4 files,
 and verification manifests therefore remain generated artifacts rather than
 source files.
 
+## Define Credit Profiles
+
+Cozy resolves credits from a renderer-neutral profile instead of embedding
+publication text in a Remotion component. Profiles use schema
+`cozy.video.credits.v1` and may be installed at any existing Cozy configuration
+layer:
+
+```text
+~/.cozy/video/credit-profiles/*.yaml
+<project>/conf/cozy/video/credit-profiles/*.yaml
+<project>/.cozy/video/credit-profiles/*.yaml
+```
+
+Later layers replace a profile with the same ID. Select a user or project
+default in the corresponding `config.yaml`:
+
+```yaml
+video:
+  credits:
+    default-profile: organization-publication
+```
+
+An individual `video.yaml` may override that default and publication locale:
+
+```yaml
+locale: ja
+credits:
+  profile: organization-publication
+  include: []
+  exclude: []
+```
+
+Profile selection precedence is explicit `video.yaml`, project-local `.cozy`,
+project `conf/cozy`, user `~/.cozy`, then no profile. The scaffold leaves the
+profile unspecified so a configured user or organization default applies.
+
+A minimal reusable profile is:
+
+```yaml
+schema: cozy.video.credits.v1
+profile: organization-publication
+required-audio-providers: [voicevox]
+presentation:
+  title: {ja: 使用素材・音声, en: Credits}
+  hold-seconds: 5.0
+selectors:
+  - when:
+      any-asset-tag: [character.guide]
+    include: [guide-material]
+  - when:
+      audio-provider: voicevox
+      voice-identity: Example Voice
+    include: [voicevox-example]
+credits:
+  - id: guide-material
+    category: character-material
+    label: {ja: ガイド立ち絵, en: Guide character material}
+    publication-text: {ja: ガイド立ち絵, en: Guide character material}
+    creator: Example Studio
+    terms-url: https://example.test/material-terms
+    surfaces: [video, publication, rdf]
+  - id: voicevox-example
+    category: voice
+    label: {ja: "VOICEVOX:Example Voice", en: "VOICEVOX:Example Voice"}
+    publication-text: {ja: "VOICEVOX:Example Voice", en: "VOICEVOX:Example Voice"}
+    obligation: required
+    surfaces: [video, publication, rdf]
+```
+
+`obligation` accepts `required` or `recommended`; omitting it means
+`required`. `surfaces` accepts `video`, `publication`, and `rdf`. Cozy rejects
+unknown values so an authoring typo cannot silently weaken attribution. A
+negative presentation hold is also invalid, and two files in one configuration
+layer may not define the same profile ID.
+
+Selectors support character IDs, asset tags, asset license/provenance IDs,
+audio provider, voice/voice-ID/model identity, and locale. Character material
+can also be declared as a semantic asset that does not occupy an effect slot:
+
+```yaml
+assets:
+  guide:
+    path: assets/guide.png
+    kind: character-material
+    required: true
+    tags: [character.guide]
+    license: LicenseRef-Guide
+    provenance: creator:example-studio
+    credits: [guide-material]
+    credit-obligation: required
+```
+
+Voice selection always uses the generated audio manifest. Script locale or
+stale `voice.engine` metadata never substitutes for the actual provider and
+voice identity. A profile can name providers whose every manifested voice must
+match a required `voice` credit with `required-audio-providers`.
+
+`cozy video render`, `cozy video build`, and `cozy video rdf` validate required
+credits. `cozy media verify` applies the same check to delegated video
+resources. Unknown or excluded required items, unmatched required audio, and
+missing localized required text fail; recommended asset declarations produce
+inspection warnings. Declaring required asset credits without selecting a
+profile also fails rather than discarding the declaration.
+
+When a profile is selected, Cozy writes one effective set and two projections:
+
+```text
+build/credits/credits.json
+build/credits/credits.md
+build/credits/renderer-props.json
+```
+
+The semantic JSON digest is independent of workspace and manifest filesystem
+locations, but includes localized presentation text and hold timing. It is
+copied into build and RDF metadata. `credits.md` is ready
+for a publication description. Remotion consumes `renderer-props.json` and
+inserts a static, non-empty credit page after content/summary and before the
+final URL page. No credit page or credit directory is generated when no
+profile is selected.
+
 ## Inspect, Render, And Publish
 
 Inspect the effective profile, primitive expansion, assets, and renderer

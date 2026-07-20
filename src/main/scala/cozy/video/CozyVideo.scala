@@ -259,7 +259,9 @@ private[cozy] object CozyVideo {
     parts: Vector[VideoPart],
     profile: Option[String] = None,
     visualEffects: Option[CozyVideoEffects.Settings] = None,
-    assets: Option[CozyVideoAssets.Settings] = None
+    assets: Option[CozyVideoAssets.Settings] = None,
+    locale: Option[String] = None,
+    credits: Option[CozyVideoCredits.Settings] = None
   )
   object VideoProject {
     implicit val decoder: Decoder[VideoProject] = (c: HCursor) =>
@@ -276,7 +278,9 @@ private[cozy] object CozyVideo {
           case None => c.downField("visual-effects").as[Option[CozyVideoEffects.Settings]]
         }
         assets <- c.downField("assets").as[Option[CozyVideoAssets.Settings]]
-      } yield VideoProject(name, title, output, renderer, tools, parts.getOrElse(Vector.empty), profile, visualeffects, assets)
+        locale <- c.downField("locale").as[Option[String]]
+        credits <- c.downField("credits").as[Option[CozyVideoCredits.Settings]]
+      } yield VideoProject(name, title, output, renderer, tools, parts.getOrElse(Vector.empty), profile, visualeffects, assets, locale, credits)
   }
 
   final case class VideoToolSettings(
@@ -1297,6 +1301,7 @@ private[cozy] object CozyVideo {
     projectRoot: Path,
     project: VideoProject,
     assets: Vector[CozyVideoAssets.Resolved],
+    credits: CozyVideoCredits.EffectiveSet,
     execution: VideoExecutionConfig,
     outputPath: Path,
     manifestPath: Path,
@@ -1509,6 +1514,66 @@ private[cozy] object CozyVideo {
     val result = _write_video_rdf(config, plan)
     _render_rdf_result(result)
   }
+
+  def verifyCredits(projectfile: Path): Vector[String] = {
+    val plan = _plan(projectfile, None, None)
+    val diagnostics = plan.credits.errors.map(x => s"${x.code}: ${x.message}")
+    val artifactfindings =
+      if (plan.credits.profile.isEmpty || !Files.isRegularFile(plan.outputPath))
+        Vector.empty
+      else {
+        val directory = plan.outputPath.getParent.resolve("credits")
+        val jsonfile = directory.resolve("credits.json")
+        val markdownfile = directory.resolve("credits.md")
+        val rendererpropsfile = directory.resolve("renderer-props.json")
+        val missing = Vector(jsonfile, markdownfile, rendererpropsfile).filterNot(Files.isRegularFile(_)).map(x => s"missing credit projection: $x") ++
+          (if (Files.isRegularFile(plan.manifestPath)) Vector.empty else Vector(s"missing project manifest with credit digest: ${plan.manifestPath}"))
+        val digestfindings =
+          if (!Files.isRegularFile(jsonfile))
+            Vector.empty
+          else {
+            val actual = parser.parse(Files.readString(jsonfile, StandardCharsets.UTF_8)).toOption.
+              flatMap(_.hcursor.get[String]("digest").toOption)
+            if (actual.contains(plan.credits.digest)) Vector.empty
+            else Vector(s"credit digest mismatch: expected ${plan.credits.digest}, found ${actual.getOrElse("missing")}")
+          }
+        val projectionfindings = Vector(
+          _credit_json_projection_finding(jsonfile, CozyVideoCredits.toJson(plan.credits), "credit JSON"),
+          _credit_text_projection_finding(markdownfile, CozyVideoCredits.toMarkdown(plan.credits), "credit Markdown"),
+          _credit_json_projection_finding(rendererpropsfile, CozyVideoCredits.toRendererProps(plan.credits), "credit renderer props")
+        ).flatten
+        val manifestfindings =
+          if (!Files.isRegularFile(plan.manifestPath))
+            Vector.empty
+          else {
+            val manifest = parser.parse(Files.readString(plan.manifestPath, StandardCharsets.UTF_8)).toOption
+            val digest = manifest.flatMap(_.hcursor.get[String]("creditDigest").toOption)
+            val profile = manifest.flatMap(_.hcursor.get[String]("creditProfile").toOption)
+            Vector(
+              if (digest.contains(plan.credits.digest)) None else Some(s"project manifest credit digest mismatch: expected ${plan.credits.digest}, found ${digest.getOrElse("missing")}"),
+              if (profile == plan.credits.profileId) None else Some(s"project manifest credit profile mismatch: expected ${plan.credits.profileId.getOrElse("none")}, found ${profile.getOrElse("missing")}")
+            ).flatten
+          }
+        missing ++ digestfindings ++ projectionfindings ++ manifestfindings
+      }
+    diagnostics ++ artifactfindings
+  }
+
+  private def _credit_json_projection_finding(path: Path, expected: Json, label: String): Option[String] =
+    if (!Files.isRegularFile(path))
+      None
+    else {
+      val actual = parser.parse(Files.readString(path, StandardCharsets.UTF_8)).toOption
+      if (actual.contains(expected)) None else Some(s"$label does not match the effective credit set: $path")
+    }
+
+  private def _credit_text_projection_finding(path: Path, expected: String, label: String): Option[String] =
+    if (!Files.isRegularFile(path))
+      None
+    else if (Files.readString(path, StandardCharsets.UTF_8) == expected)
+      None
+    else
+      Some(s"$label does not match the effective credit set: $path")
 
   def demoScript(config: DemoScriptConfig): String =
     _render_demo_script_result(_write_demo_script(config))
@@ -1794,7 +1859,8 @@ private[cozy] object CozyVideo {
     projectFile: Path,
     parts: Vector[VideoRenderedPart],
     toolMode: VideoToolMode,
-    dockerImage: String
+    dockerImage: String,
+    creditWarnings: Vector[CozyVideoCredits.Diagnostic]
   )
 
   final case class VideoBuildResult(
@@ -1805,7 +1871,10 @@ private[cozy] object CozyVideo {
     partOutputs: Vector[Path],
     toolMode: VideoToolMode,
     dockerImage: String,
-    ffprobeSummary: Json
+    ffprobeSummary: Json,
+    creditProfile: Option[String],
+    creditFiles: Option[CozyVideoCredits.OutputFiles],
+    creditWarnings: Vector[CozyVideoCredits.Diagnostic]
   )
 
   final case class VideoRdfResult(
@@ -1815,7 +1884,9 @@ private[cozy] object CozyVideo {
     jsonLdFile: Path,
     manifestFile: Path,
     tripleCount: Int,
-    resourceCount: Int
+    resourceCount: Int,
+    creditProfile: Option[String],
+    creditDigest: Option[String]
   )
 
   final case class VideoDemoScriptResult(
@@ -2801,6 +2872,8 @@ private[cozy] object CozyVideo {
   }
 
   private def _build_project(plan: VideoPlan, runner: VideoProcessRunner): VideoBuildResult = {
+    plan.credits.requireValid()
+    val creditfiles = _write_credit_outputs(plan)
     val partoutputs = plan.parts.filter(_.renderable).map(_.outputPath)
     if (partoutputs.isEmpty)
       RAISE.invalidArgumentFault("No rendered video part outputs found for final assembly.")
@@ -2815,12 +2888,29 @@ private[cozy] object CozyVideo {
       RAISE.invalidArgumentFault(s"ffmpeg concat/mux did not create output: ${plan.outputPath}")
     val ffprobe = _run_build_ffprobe(plan.projectRoot, plan.execution, plan.outputPath, runner)
     val summary = _ffprobe_summary(ffprobe)
-    _write_project_manifest(plan, concatlist, partoutputs, summary)
-    VideoBuildResult(plan.projectFile, plan.outputPath, plan.manifestPath, concatlist, partoutputs, plan.execution.toolMode, plan.execution.dockerImage, summary)
+    _write_project_manifest(plan, concatlist, partoutputs, summary, creditfiles)
+    VideoBuildResult(
+      plan.projectFile,
+      plan.outputPath,
+      plan.manifestPath,
+      concatlist,
+      partoutputs,
+      plan.execution.toolMode,
+      plan.execution.dockerImage,
+      summary,
+      plan.credits.profileId,
+      creditfiles,
+      plan.credits.warnings
+    )
   }
 
   private def _ffmpeg_concat_list_path(projectroot: Path): Path =
     projectroot.resolve("target/cozy-video/ffmpeg/concat.txt").normalize()
+
+  private def _write_credit_outputs(plan: VideoPlan): Option[CozyVideoCredits.OutputFiles] =
+    plan.credits.profile.map { _ =>
+      CozyVideoCredits.write(plan.outputPath.getParent.resolve("credits"), plan.credits)
+    }
 
   private def _write_ffmpeg_concat_list(
     projectroot: Path,
@@ -2931,7 +3021,13 @@ private[cozy] object CozyVideo {
       identity
     )
 
-  private def _write_project_manifest(plan: VideoPlan, concatlist: Path, partoutputs: Vector[Path], ffprobe: Json): Unit = {
+  private def _write_project_manifest(
+    plan: VideoPlan,
+    concatlist: Path,
+    partoutputs: Vector[Path],
+    ffprobe: Json,
+    creditfiles: Option[CozyVideoCredits.OutputFiles]
+  ): Unit = {
     Files.createDirectories(plan.manifestPath.getParent)
     val json = Json.obj(
       "projectFile" -> Json.fromString(plan.projectFile.toString),
@@ -2940,6 +3036,11 @@ private[cozy] object CozyVideo {
       "toolMode" -> Json.fromString(plan.execution.toolMode.label),
       "dockerImage" -> Json.fromString(plan.execution.dockerImage),
       "concatListPath" -> Json.fromString(concatlist.toString),
+      "creditProfile" -> plan.credits.profileId.map(Json.fromString).getOrElse(Json.Null),
+      "creditDigest" -> creditfiles.map(x => Json.fromString(x.digest)).getOrElse(Json.Null),
+      "creditsPath" -> creditfiles.map(x => Json.fromString(x.jsonFile.toString)).getOrElse(Json.Null),
+      "creditEvidence" -> Json.fromValues(plan.credits.items.flatMap(_.evidence).distinct.sorted.map(Json.fromString)),
+      "creditTermsUrls" -> Json.fromValues(plan.credits.items.flatMap(_.item.termsUrl).distinct.sorted.map(Json.fromString)),
       "ffprobe" -> ffprobe
     )
     Files.writeString(plan.manifestPath, json.spaces2, StandardCharsets.UTF_8)
@@ -3119,6 +3220,8 @@ private[cozy] object CozyVideo {
   }
 
   private def _write_video_rdf(config: RdfConfig, plan: VideoPlan): VideoRdfResult = {
+    plan.credits.requireValid()
+    val creditfiles = _write_credit_outputs(plan)
     Files.createDirectories(config.saveDir)
     val graph = _video_rdf_graph(plan)
     val turtle = RdfRenderer.toTurtle(graph, _video_rdf_context)
@@ -3135,7 +3238,9 @@ private[cozy] object CozyVideo {
       jsonldfile,
       manifestfile,
       graph.triples.size,
-      graph.triples.map(_.subject).distinct.size
+      graph.triples.map(_.subject).distinct.size,
+      plan.credits.profileId,
+      creditfiles.map(_.digest)
     )
     Files.writeString(manifestfile, _video_rdf_manifest(result).spaces2, StandardCharsets.UTF_8)
     result
@@ -3147,6 +3252,8 @@ private[cozy] object CozyVideo {
       "namespace" -> Json.fromString(_video_rdf_namespace),
       "turtleFile" -> Json.fromString(result.turtleFile.toString),
       "jsonLdFile" -> Json.fromString(result.jsonLdFile.toString),
+      "creditProfile" -> result.creditProfile.map(Json.fromString).getOrElse(Json.Null),
+      "creditDigest" -> result.creditDigest.map(Json.fromString).getOrElse(Json.Null),
       "tripleCount" -> Json.fromInt(result.tripleCount),
       "resourceCount" -> Json.fromInt(result.resourceCount)
     )
@@ -3166,6 +3273,7 @@ private[cozy] object CozyVideo {
         _rdf_literal(projectid, _cv("dockerImage"), plan.execution.dockerImage)
       ) ++ plan.project.title.map(x => _rdf_literal(projectid, _schema("headline"), x)).toVector ++
         _video_profile_rdf_triples(projectid, plan) ++
+        _video_credit_rdf_triples(projectid, plan) ++
         _artifact_link_triples(projectid, _video_rdf_resource("artifact", "project-output"), "project-output", plan.outputPath, "planned", "project.concat") ++
         _artifact_link_triples(projectid, _video_rdf_resource("artifact", "project-manifest"), "project-manifest", plan.manifestPath, _rdf_file_status(plan.manifestPath), "project.manifest") ++
         projectmanifest.toVector.flatMap(json => _json_field_triples(projectid, json, Vector("toolMode", "dockerImage", "concatListPath"), _cv)) ++
@@ -3216,6 +3324,30 @@ private[cozy] object CozyVideo {
       )
     }
     profile ++ effects ++ assets
+  }
+
+  private def _video_credit_rdf_triples(projectid: String, plan: VideoPlan): Vector[Rdf.Triple] = {
+    val profile = plan.credits.profileId.toVector.flatMap { id =>
+      Vector(
+        _rdf_literal(projectid, _cv("creditProfile"), id),
+        _rdf_literal(projectid, _cv("creditDigest"), plan.credits.digest)
+      )
+    }
+    val items = plan.credits.rdfItems.flatMap { resolved =>
+      val item = resolved.item
+      val creditid = _video_rdf_resource("credit", item.id)
+      Vector(
+        _rdf_uri(projectid, _cv("hasCredit"), creditid),
+        _rdf_type(creditid, "VideoCredit"),
+        _rdf_literal(creditid, Vocabulary.Rdfs.label, item.label(plan.credits.locale).getOrElse(item.id)),
+        _rdf_literal(creditid, _cv("creditCategory"), item.category),
+        _rdf_literal(creditid, _cv("creditObligation"), item.obligation)
+      ) ++ item.creator.map(x => _rdf_literal(creditid, _dcterms("creator"), x)).toVector ++
+        item.sourceUrl.map(x => _rdf_uri(creditid, _dcterms("source"), x)).toVector ++
+        item.termsUrl.map(x => _rdf_uri(creditid, _dcterms("license"), x)).toVector ++
+        resolved.evidence.map(x => _rdf_literal(creditid, _cv("creditEvidence"), x))
+    }
+    profile ++ items
   }
 
   private def _replay_rdf_triples(projectid: String, projectroot: Path, scriptpath: Path): Vector[Rdf.Triple] = {
@@ -3455,6 +3587,8 @@ private[cozy] object CozyVideo {
     plan: VideoPlan,
     runner: VideoProcessRunner
   ): VideoRenderResult = {
+    plan.credits.requireValid()
+    _write_credit_outputs(plan)
     val parts = _render_target_parts(config, plan)
     val rendered = parts.map { part =>
       val script = part.script.getOrElse(RAISE.invalidArgumentFault(s"Part is missing a parsed script: ${part.id}"))
@@ -3474,12 +3608,14 @@ private[cozy] object CozyVideo {
           "profile" -> plan.project.profile.map(Json.fromString).getOrElse(Json.Null),
           "visualEffects" -> props.hcursor.downField("visualEffects").focus.getOrElse(Json.arr()),
           "assets" -> props.hcursor.downField("assets").focus.getOrElse(Json.arr()),
+          "credits" -> props.hcursor.downField("credits").focus.getOrElse(Json.Null),
+          "creditDigest" -> plan.credits.profileId.map(_ => Json.fromString(plan.credits.digest)).getOrElse(Json.Null),
           "timing" -> props.hcursor.downField("timing").focus.getOrElse(Json.obj())
         )
       )
       VideoRenderedPart(part.id, part.outputPath, part.manifestPath, workdir)
     }
-    VideoRenderResult(plan.projectFile, rendered, plan.execution.toolMode, plan.execution.dockerImage)
+    VideoRenderResult(plan.projectFile, rendered, plan.execution.toolMode, plan.execution.dockerImage, plan.credits.warnings)
   }
 
   private def _render_simple_java2d(
@@ -3487,6 +3623,8 @@ private[cozy] object CozyVideo {
     plan: VideoPlan,
     runner: VideoProcessRunner
   ): VideoRenderResult = {
+    plan.credits.requireValid()
+    _write_credit_outputs(plan)
     val parts = _render_target_parts(config, plan)
     val rendered = parts.map { part =>
       val script = part.script.getOrElse(RAISE.invalidArgumentFault(s"Part is missing a parsed script: ${part.id}"))
@@ -3515,7 +3653,7 @@ private[cozy] object CozyVideo {
       )
       VideoRenderedPart(part.id, part.outputPath, part.manifestPath, workdir, "simpleJava2dWorkDir")
     }
-    VideoRenderResult(plan.projectFile, rendered, plan.execution.toolMode, plan.execution.dockerImage)
+    VideoRenderResult(plan.projectFile, rendered, plan.execution.toolMode, plan.execution.dockerImage, plan.credits.warnings)
   }
 
   private def _render_target_parts(config: RenderConfig, plan: VideoPlan): Vector[VideoPartPlan] = {
@@ -3812,6 +3950,11 @@ private[cozy] object CozyVideo {
     val sectionframes = if (effects.exists(x => x.role == CozyVideoEffects.Role.SectionStart && x.primitives.nonEmpty)) math.min(contentframes, math.round(1.2 * fps).toInt) else 0
     val summaryframes = if (effects.exists(x => x.role == CozyVideoEffects.Role.Summary && x.primitives.nonEmpty)) math.min(contentframes, math.round(2.4 * fps).toInt) else 0
     val isfinalpart = plan.parts.filter(_.renderable).lastOption.exists(_.id == part.id)
+    val creditframes =
+      if (isfinalpart && plan.credits.hasVideoPage)
+        math.max(1, math.round(plan.credits.holdSeconds * fps).toInt)
+      else
+        0
     val holdseconds = _effect_parameter_double(
       effects,
       CozyVideoEffects.Role.FinalPage,
@@ -3819,7 +3962,7 @@ private[cozy] object CozyVideo {
       "seconds"
     ).getOrElse(0.0)
     val finalframes = if (isfinalpart) math.max(0, math.round(holdseconds * fps).toInt) else 0
-    val totalframes = openingframes + contentframes + finalframes
+    val totalframes = openingframes + contentframes + creditframes + finalframes
     val scenes = script.expandedScenes.zip(audio.entries).zip(audio.files).map {
       case ((scene, entry), file) =>
         Json.obj(
@@ -3850,6 +3993,9 @@ private[cozy] object CozyVideo {
         "required" -> Json.fromBoolean(asset.required),
         "license" -> Json.fromString(asset.license),
         "provenance" -> Json.fromString(asset.provenance),
+        "tags" -> Json.fromValues(asset.tags.map(Json.fromString)),
+        "credits" -> Json.fromValues(asset.credits.map(Json.fromString)),
+        "creditObligation" -> asset.creditObligation.map(Json.fromString).getOrElse(Json.Null),
         "status" -> Json.fromString(asset.status)
       )
     }
@@ -3864,6 +4010,7 @@ private[cozy] object CozyVideo {
       "scenes" -> Json.fromValues(scenes),
       "visualEffects" -> Json.fromValues(effectsjson),
       "assets" -> Json.fromValues(assetsjson),
+      "credits" -> CozyVideoCredits.toRendererProps(plan.credits),
       "timing" -> Json.obj(
         "openingFrames" -> Json.fromInt(openingframes),
         "contentFrames" -> Json.fromInt(contentframes),
@@ -3871,7 +4018,9 @@ private[cozy] object CozyVideo {
         "sectionStartFrames" -> Json.fromInt(sectionframes),
         "summaryStartFrame" -> Json.fromInt(openingframes + math.max(0, contentframes - summaryframes)),
         "summaryFrames" -> Json.fromInt(summaryframes),
-        "finalPageStartFrame" -> Json.fromInt(openingframes + contentframes),
+        "creditPageStartFrame" -> Json.fromInt(openingframes + contentframes),
+        "creditPageHoldFrames" -> Json.fromInt(creditframes),
+        "finalPageStartFrame" -> Json.fromInt(openingframes + contentframes + creditframes),
         "finalPageHoldFrames" -> Json.fromInt(finalframes),
         "totalFrames" -> Json.fromInt(totalframes)
       )
@@ -4037,9 +4186,23 @@ private[cozy] object CozyVideo {
       |  sectionStartFrames: number;
       |  summaryStartFrame: number;
       |  summaryFrames: number;
+      |  creditPageStartFrame: number;
+      |  creditPageHoldFrames: number;
       |  finalPageStartFrame: number;
       |  finalPageHoldFrames: number;
       |  totalFrames: number;
+      |};
+      |
+      |type CreditItem = {
+      |  id: string;
+      |  category: string;
+      |  label: string;
+      |  creator: string | null;
+      |};
+      |
+      |type Credits = {
+      |  title: string;
+      |  items: CreditItem[];
       |};
       |
       |type Props = {
@@ -4052,8 +4215,23 @@ private[cozy] object CozyVideo {
       |  scenes: Scene[];
       |  visualEffects: VisualEffect[];
       |  assets: Asset[];
+      |  credits: Credits;
       |  timing: Timing;
       |};
+      |
+      |const CreditPage: React.FC<{credits: Credits}> = ({credits}) => (
+      |  <AbsoluteFill style={{backgroundColor: '#101820', color: '#f4efe6', fontFamily: 'Noto Sans CJK JP, sans-serif', padding: '64px 84px'}}>
+      |    <div style={{fontSize: 48, fontWeight: 800, marginBottom: 30}}>{credits.title}</div>
+      |    <div style={{display: 'flex', flexDirection: 'column', gap: 18}}>
+      |      {credits.items.map((item) => (
+      |        <div key={item.id} style={{fontSize: 30, lineHeight: 1.3}}>
+      |          <span style={{fontWeight: 700}}>{item.label}</span>
+      |          {item.creator ? <span style={{opacity: 0.78}}> — {item.creator}</span> : null}
+      |        </div>
+      |      ))}
+      |    </div>
+      |  </AbsoluteFill>
+      |);
       |
       |const roleEffect = (effects: VisualEffect[], role: VisualEffect['role']) => effects.find((effect) => effect.role === role);
       |const roleAsset = (assets: Asset[], role: Asset['role']) => assets.find((asset) => asset.role === role);
@@ -4132,7 +4310,7 @@ private[cozy] object CozyVideo {
       |  ) : null;
       |};
       |
-      |export const CozyVideo: React.FC<Props> = ({title, scenes, fps, visualEffects, assets, timing}) => {
+      |export const CozyVideo: React.FC<Props> = ({title, scenes, fps, visualEffects, assets, credits, timing}) => {
       |  let start = timing.openingFrames;
       |  const opening = roleEffect(visualEffects, 'opening');
       |  const section = roleEffect(visualEffects, 'section-start');
@@ -4149,6 +4327,7 @@ private[cozy] object CozyVideo {
       |      })}
       |      {section && timing.sectionStartFrames > 0 ? <Sequence from={timing.sectionStartFrame} durationInFrames={timing.sectionStartFrames}><SectionStart effect={section} asset={roleAsset(assets, 'section-start')} durationInFrames={timing.sectionStartFrames} /></Sequence> : null}
       |      {summary && timing.summaryFrames > 0 ? <Sequence from={timing.summaryStartFrame} durationInFrames={timing.summaryFrames}><Summary effect={summary} asset={roleAsset(assets, 'summary')} /></Sequence> : null}
+      |      {timing.creditPageHoldFrames > 0 && credits.items.length > 0 ? <Sequence from={timing.creditPageStartFrame} durationInFrames={timing.creditPageHoldFrames}><CreditPage credits={credits} /></Sequence> : null}
       |      {finalPage && timing.finalPageHoldFrames > 0 ? <Sequence from={timing.finalPageStartFrame} durationInFrames={timing.finalPageHoldFrames}><FinalPage effect={finalPage} asset={roleAsset(assets, 'final-page')} /></Sequence> : null}
       |    </AbsoluteFill>
       |  );
@@ -4181,6 +4360,21 @@ private[cozy] object CozyVideo {
     val parts = project.parts.zipWithIndex.map {
       case (part, index) => _part_plan(projectroot, project, part, index + 1)
     }
+    val creditevidence = CozyVideoAssets.creditEvidence(projectroot, project.assets, assets)
+    val audiomanifests = parts.flatMap { part =>
+      part.audioDir.toVector.flatMap { audiodir =>
+        val path = audiodir.resolve("manifest.json").normalize()
+        _read_optional_audio_manifest(path, s"audio manifest ${part.id}").map(path -> _).toVector
+      }
+    }
+    val credits = CozyVideoCredits.resolve(
+      projectroot,
+      project.credits,
+      project.locale,
+      parts.flatMap(_.script),
+      creditevidence,
+      audiomanifests
+    )
     val artifacts = Vector(
       VideoArtifactPlan("project-output", outputpath, "project.concat", VideoArtifactStatus.Planned),
       VideoArtifactPlan("project-manifest", manifestpath, "project.manifest", VideoArtifactStatus.Planned)
@@ -4207,7 +4401,7 @@ private[cozy] object CozyVideo {
           )
         )
     val commands = rawcommands.map(_resolve_command(projectroot, execution, _))
-    VideoPlan(projectfile, projectroot, project, assets, execution, outputpath, manifestpath, parts, artifacts, commands)
+    VideoPlan(projectfile, projectroot, project, assets, credits, execution, outputpath, manifestpath, parts, artifacts, commands)
   }
 
   private def _part_plan(
@@ -4452,6 +4646,7 @@ private[cozy] object CozyVideo {
         asset.requestedDisplayPath(plan.projectRoot).foreach(x => b += s"    requestedPath: $x")
       }
     }
+    b ++= _render_credit_inspection(plan.credits)
     b += s"parts: ${project.parts.size}"
     plan.parts.foreach { part =>
       b ++= _render_part(part)
@@ -4476,6 +4671,7 @@ private[cozy] object CozyVideo {
     b += s"dockerImage: ${plan.execution.dockerImage}"
     b += s"output: ${plan.outputPath}"
     b += s"parts: ${plan.parts.size}"
+    b ++= _render_credit_inspection(plan.credits)
     b ++= _render_artifacts(plan.artifacts)
     b += "commands:"
     plan.commands.foreach { command =>
@@ -4505,7 +4701,50 @@ private[cozy] object CozyVideo {
       b += s"  - partOutput: $path"
     }
     b += s"ffprobe: ${result.ffprobeSummary.noSpaces}"
+    result.creditFiles.foreach { files =>
+      result.creditProfile.foreach(x => b += s"creditProfile: $x")
+      b += s"creditDigest: ${files.digest}"
+      b += s"credits: ${files.jsonFile}"
+      b += s"creditMarkdown: ${files.markdownFile}"
+      b += s"creditRendererProps: ${files.rendererPropsFile}"
+    }
+    result.creditWarnings.foreach { warning =>
+      b += s"creditWarning: ${warning.code}: ${warning.message}"
+    }
     b.result().mkString("\n") + "\n"
+  }
+
+  private def _render_credit_inspection(credits: CozyVideoCredits.EffectiveSet): Vector[String] = {
+    val b = Vector.newBuilder[String]
+    credits.selection.foreach { selection =>
+      b += s"creditProfile: ${selection.id}"
+      b += s"creditProfileSelectionLayer: ${selection.layer}"
+      selection.configPath.foreach(x => b += s"creditProfileSelectionPath: $x")
+    }
+    credits.profile.foreach { source =>
+      b += s"creditProfileSourceLayer: ${source.layer}"
+      b += s"creditProfileSourcePath: ${source.path}"
+    }
+    b += s"creditLocale: ${credits.locale}"
+    if (credits.evidence.characterIds.nonEmpty)
+      b += s"creditCharacters: ${credits.evidence.characterIds.mkString(", ")}"
+    if (credits.evidence.assetTags.nonEmpty)
+      b += s"creditAssetTags: ${credits.evidence.assetTags.mkString(", ")}"
+    credits.evidence.audio.foreach { audio =>
+      b += s"creditAudio: provider=${audio.provider} voice=${audio.voiceIdentity.orElse(audio.voiceId).orElse(audio.modelIdentity).getOrElse("unknown")} manifest=${audio.manifestPath}"
+    }
+    if (credits.items.nonEmpty) {
+      b += "credits:"
+      credits.items.foreach { resolved =>
+        b += s"  - ${resolved.item.id}: ${resolved.item.obligation} evidence=${resolved.evidence.mkString(",")}"
+        resolved.item.sourceUrl.foreach(x => b += s"    source: $x")
+        resolved.item.termsUrl.foreach(x => b += s"    terms: $x")
+      }
+    }
+    credits.diagnostics.foreach { diagnostic =>
+      b += s"credit${diagnostic.severity.capitalize}: ${diagnostic.code}: ${diagnostic.message}"
+    }
+    b.result()
   }
 
   private def _render_synthesis_result(result: VideoSynthesisResult): String = {
@@ -4540,6 +4779,9 @@ private[cozy] object CozyVideo {
       b += s"  - part.${part.id}: ${part.outputPath}"
       b += s"    manifest: ${part.manifestPath}"
       b += s"    ${part.workDirLabel}: ${part.workDir}"
+    }
+    result.creditWarnings.foreach { warning =>
+      b += s"creditWarning: ${warning.code}: ${warning.message}"
     }
     b.result().mkString("\n") + "\n"
   }

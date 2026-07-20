@@ -7,7 +7,7 @@ import org.goldenport.cli.spec
 import cozy.publication.CozyPublicationCompiler
 import cozy.runtime.CozyCliArgs
 import io.circe.{Decoder, HCursor, Json => CJson}
-import play.api.libs.json.{Json => PJson, JsArray, JsObject, JsValue}
+import play.api.libs.json.{Json => PJson, JsArray, JsNull, JsObject, JsValue}
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 import java.security.MessageDigest
@@ -59,6 +59,8 @@ private[cozy] object CozyVideoPublisher {
     profile: Option[String],
     visualEffects: Option[CozyVideoEffects.Settings],
     assets: Option[CozyVideoAssets.Settings],
+    locale: Option[String],
+    credits: Option[CozyVideoCredits.Settings],
     parts: Vector[CozyVideo.VideoPart]
   )
   object VideoDescriptor {
@@ -81,8 +83,10 @@ private[cozy] object CozyVideoPublisher {
           case None => c.downField("visual-effects").as[Option[CozyVideoEffects.Settings]]
         }
         assets <- c.downField("assets").as[Option[CozyVideoAssets.Settings]]
+        locale <- c.downField("locale").as[Option[String]]
+        credits <- c.downField("credits").as[Option[CozyVideoCredits.Settings]]
         parts <- c.downField("parts").as[Option[Vector[CozyVideo.VideoPart]]]
-      } yield VideoDescriptor(video, title, version, article, script, renderer, toolmode, publish, profile, visualeffects, assets, parts.getOrElse(Vector.empty))
+      } yield VideoDescriptor(video, title, version, article, script, renderer, toolmode, publish, profile, visualeffects, assets, locale, credits, parts.getOrElse(Vector.empty))
 
     private def _renderer(c: HCursor): Decoder.Result[Option[String]] =
       c.downField("renderer").focus match {
@@ -256,9 +260,23 @@ private[cozy] object CozyVideoPublisher {
     val assets = video.packageDir.resolve("assets")
     if (Files.isDirectory(assets))
       _copy_directory(assets, workspace.resolve("source/assets"))
+    val projectconfig = video.packageDir.resolve("conf/cozy")
+    if (Files.isDirectory(projectconfig))
+      _copy_directory(projectconfig, workspace.resolve("conf/cozy"))
+    val localconfig = video.packageDir.resolve(".cozy")
+    if (Files.isDirectory(localconfig))
+      _copy_directory(localconfig, workspace.resolve(".cozy"))
     video.assets.foreach { asset =>
       if (Files.isRegularFile(asset.path))
         _copy(asset.path, _publication_asset_path(workspace, asset))
+    }
+    video.descriptor.assets.toVector.flatMap(_.semantic.values).foreach { entry =>
+      val relative = _relative_path(entry.path, "semantic video asset")
+      val source = video.packageDir.resolve(relative).normalize()
+      if (Files.isRegularFile(source))
+        _copy(source, workspace.resolve("source").resolve(relative))
+      else if (entry.required)
+        RAISE.invalidArgumentFault(s"Missing semantic video asset: $source")
     }
     workspace
   }
@@ -300,14 +318,17 @@ private[cozy] object CozyVideoPublisher {
     )
     val profile = video.descriptor.profile.map(x => PJson.obj("profile" -> x)).getOrElse(PJson.obj())
     val effects = video.descriptor.visualEffects.map(x => PJson.obj("visualEffects" -> _visual_effects_json(x))).getOrElse(PJson.obj())
-    val assets = if (video.assets.nonEmpty) PJson.obj("assets" -> _assets_json(video, workspace)) else PJson.obj()
-    val json = base ++ profile ++ effects ++ assets
+    val assets = video.descriptor.assets.map(_ => PJson.obj("assets" -> _assets_json(video, workspace))).getOrElse(PJson.obj())
+    val locale = video.descriptor.locale.map(x => PJson.obj("locale" -> x)).getOrElse(PJson.obj())
+    val credits = video.descriptor.credits.map(x => PJson.obj("credits" -> _credits_json(x))).getOrElse(PJson.obj())
+    val json = base ++ profile ++ effects ++ assets ++ locale ++ credits
     Files.writeString(projectfile, PJson.prettyPrint(json) + "\n", StandardCharsets.UTF_8)
     projectfile
   }
 
   private def _visual_effects_json(settings: CozyVideoEffects.Settings): JsObject =
     JsObject(Vector(
+      settings.opening.map("opening" -> PJson.toJson(_)),
       settings.sectionStart.map("sectionStart" -> PJson.toJson(_)),
       settings.summary.map("summary" -> PJson.toJson(_)),
       settings.finalPage.map("finalPage" -> PJson.toJson(_))
@@ -320,9 +341,33 @@ private[cozy] object CozyVideoPublisher {
         "kind" -> asset.kind,
         "required" -> asset.required,
         "license" -> asset.license,
-        "provenance" -> asset.provenance
+        "provenance" -> asset.provenance,
+        "tags" -> JsArray(asset.tags.map(PJson.toJson(_))),
+        "credits" -> JsArray(asset.credits.map(PJson.toJson(_))),
+        "creditObligation" -> asset.creditObligation.fold[JsValue](JsNull)(PJson.toJson(_))
       )
-    })
+    } ++ video.descriptor.assets.toVector.flatMap(_.semantic.toVector.sortBy(_._1).map { case (id, entry) =>
+      id -> _semantic_asset_json(entry)
+    }))
+
+  private def _semantic_asset_json(entry: CozyVideoAssets.Entry): JsObject =
+    JsObject(Vector(
+      Some("path" -> PJson.toJson("source/" + _relative_path(entry.path, "semantic asset"))),
+      entry.kind.map("kind" -> PJson.toJson(_)),
+      Some("required" -> PJson.toJson(entry.required)),
+      entry.license.map("license" -> PJson.toJson(_)),
+      entry.provenance.map("provenance" -> PJson.toJson(_)),
+      Some("tags" -> JsArray(entry.tags.map(PJson.toJson(_)))),
+      Some("credits" -> JsArray(entry.credits.map(PJson.toJson(_)))),
+      entry.creditObligation.map("creditObligation" -> PJson.toJson(_))
+    ).flatten)
+
+  private def _credits_json(settings: CozyVideoCredits.Settings): JsObject =
+    JsObject(Vector(
+      settings.profile.map("profile" -> PJson.toJson(_)),
+      Some("include" -> JsArray(settings.include.map(PJson.toJson(_)))),
+      Some("exclude" -> JsArray(settings.exclude.map(PJson.toJson(_))))
+    ).flatten)
 
   private def _publication_asset_path(workspace: Path, asset: CozyVideoAssets.Resolved): Path =
     workspace.resolve("source/assets").resolve(asset.role.key + _asset_extension(asset.path)).normalize()

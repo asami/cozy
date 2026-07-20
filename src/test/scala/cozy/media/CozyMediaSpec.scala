@@ -272,6 +272,75 @@ final class CozyMediaSpec
       }
     }
 
+    "reject a delegated video whose required credit cannot be resolved" in {
+      _with_temp_dir("video-project-credit-verification") { dir =>
+        Given("a rendered delegated video with unmatched required VOICEVOX provenance")
+        _write(dir.resolve("knowledge/article.dox"), "Article\n=======\n")
+        _write(
+          dir.resolve("video_project.yaml"),
+          """title: Delegated Video
+            |output: target/render/final.mp4
+            |locale: ja
+            |credits:
+            |  profile: publication
+            |parts:
+            |  - id: scene
+            |    type: dialogue
+            |    script: script.yaml
+            |""".stripMargin
+        )
+        _write(
+          dir.resolve("script.yaml"),
+          """title: Scene
+            |scenes:
+            |  - id: scene
+            |    speaker: narrator
+            |    narration: Test
+            |    duration: 1.0
+            |""".stripMargin
+        )
+        _write(
+          dir.resolve("build/audio/scene/manifest.json"),
+          """[{"sceneId":"scene","speaker":"narrator","file":"scene.wav","leadSilence":0.0,"audioDuration":1.0,"targetDuration":1.0,"tailSilence":0.0,"provider":"voicevox","voiceIdentity":"Unknown Voice"}]"""
+        )
+        _write(
+          dir.resolve("conf/cozy/video/credit-profiles/publication.yaml"),
+          """schema: cozy.video.credits.v1
+            |profile: publication
+            |required-audio-providers: [voicevox]
+            |presentation:
+            |  title: {ja: 使用素材・音声}
+            |""".stripMargin
+        )
+        _write(dir.resolve("target/render/final.mp4"), "video")
+        val descriptor = dir.resolve("media.yaml")
+        _write(
+          descriptor,
+          """schema: cozy.media.v1
+            |knowledge:
+            |  id: development-process/example
+            |  source: knowledge/article.dox
+            |resources:
+            |  - id: article-video-ja
+            |    kind: video
+            |    language: ja
+            |    build: video-project
+            |    project: video_project.yaml
+            |    output: target/render/final.mp4
+            |""".stripMargin
+        )
+
+        When("cozy media verify checks the delegated video contract")
+        val error = intercept[RuntimeException] {
+          CozyMedia.verify(CozyMedia.CommandConfig(descriptor))
+        }
+
+        Then("the unresolved speaker credit blocks media verification")
+        error.getMessage should include_text("article-video-ja: credit.audio.unresolved")
+        error.getMessage should include_text("Unknown Voice")
+      }
+    }
+
     "resolve environment-backed publication roots only when selected" in {
       _with_temp_dir("profile-env") { dir =>
         Given("a buildable package with an unavailable archive environment variable")
@@ -355,6 +424,9 @@ final class CozyMediaSpec
   }
 
   private def _delete(path: Path): Unit =
-    if (Files.exists(path))
-      Files.walk(path).iterator().asScala.toVector.reverse.foreach(Files.delete)
+    if (Files.exists(path)) {
+      val paths = Files.walk(path)
+      try paths.iterator().asScala.toVector.reverse.foreach(Files.delete)
+      finally paths.close()
+    }
 }

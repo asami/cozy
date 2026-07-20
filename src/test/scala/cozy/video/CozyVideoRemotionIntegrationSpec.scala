@@ -31,11 +31,19 @@ final class CozyVideoRemotionIntegrationSpec
         )
 
         profiles.foreach { case (profile, partids) =>
-          Given(s"a $profile scaffold with valid local silence audio and placeholder assets")
+          Given(s"the $profile scaffold with valid local silence audio and placeholder assets")
           val pkg = dir.resolve(s"$profile.video")
           CozyVideoScaffold.scaffold(
             CozyVideoScaffold.Config.create(
               List(profile, s"--save=$pkg", s"--profile=$profile")
+            )
+          )
+          _write_integration_credit_profile(pkg)
+          _write(
+            pkg.resolve("video.yaml"),
+            _read(pkg.resolve("video.yaml")).replace(
+              "credits:\n  include: []",
+              "credits:\n  profile: integration\n  include: [integration-credit]"
             )
           )
           partids.foreach(partid => _write_audio_manifest(pkg, partid))
@@ -78,6 +86,12 @@ final class CozyVideoRemotionIntegrationSpec
           finaloutput should be_regular_file
           Files.size(finaloutput) should be > 0L
           _read(pkg.resolve("build/manifest.json")) should include_text("\"ffprobe\"")
+          _read(pkg.resolve("build/credits/credits.json")) should include_text("integration-credit")
+          val finalprops = io.circe.parser.parse(_read(
+            pkg.resolve(s"target/cozy-video/remotion/${partids.last}/props.json")
+          )).toOption.get
+          finalprops.hcursor.downField("timing").get[Int]("creditPageHoldFrames").toOption.get shouldBe 30
+          finalprops.hcursor.downField("credits").downField("items").as[Vector[io.circe.Json]].toOption.get should have size 1
         }
       }
     }
@@ -158,6 +172,22 @@ final class CozyVideoRemotionIntegrationSpec
       StandardCharsets.UTF_8
     )
   }
+
+  private def _write_integration_credit_profile(pkg: Path): Unit =
+    _write(
+      pkg.resolve("conf/cozy/video/credit-profiles/integration.yaml"),
+      """schema: cozy.video.credits.v1
+        |profile: integration
+        |presentation:
+        |  title: {default: Credits}
+        |  hold-seconds: 1.0
+        |credits:
+        |  - id: integration-credit
+        |    label: {default: Integration material}
+        |    publication-text: {default: Integration material}
+        |    surfaces: [video, publication, rdf]
+        |""".stripMargin
+    )
 
   private def _write(path: Path, contents: String): Unit = {
     Option(path.getParent).foreach(Files.createDirectories(_))

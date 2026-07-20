@@ -180,7 +180,7 @@ Verified implementation status:
 
 Stage Status:
 
-- Current status: NOT STARTED
+- Current status: IN PROGRESS
 - Owner: cozy-video / SimpleModeling.org
 - Checklist basis: `VID20-07`
 
@@ -203,6 +203,30 @@ Focus:
 Primary handoff:
 
 - `docs/journal/2026/07/video-credit-profile-handoff-2026-07-20.md`
+
+Verified implementation status:
+
+- Cozy now resolves generic credit profiles from user, project-conf,
+  project-local, or explicit video settings without embedding a personal
+  catalog in core code.
+- Script character IDs, configured semantic assets, and authoritative audio
+  manifests produce one additive effective set. Required omissions fail and
+  recommended omissions remain warnings, including the no-profile case.
+- `credits.json`, `credits.md`, and `renderer-props.json` share a
+  relocation-stable semantic digest that includes localized presentation and
+  timing. Build manifests, delegated media verification, and video RDF carry
+  the same profile and digest.
+- The final renderable part inserts a non-empty static credit page before the
+  existing final URL page. Projects without a selected profile retain the
+  previous timing and do not create a credit directory.
+- Focused credit, asset, rendering, scaffold, media-verification, and
+  publication-lifecycle specs pass. The full Cozy suite passes with 634 tests,
+  and real Remotion/ffmpeg integration passes against
+  `ghcr.io/asami/textus-toolchain:0.2.1-SNAPSHOT` for both scaffold composition
+  profiles, including the generated credit page.
+- `VID20-07` still requires the final post-implementation review and Phase 20
+  closure audit. The separate Overview package migration in `VID20-06` also
+  remains before the phase can close.
 
 ## Completion Criteria
 

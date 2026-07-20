@@ -9,7 +9,7 @@ import cozy.CozySpecVocabulary
 
 /*
  * @since   Jul. 18, 2026
- * @version Jul. 18, 2026
+ * @version Jul. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoAssetsSpec
@@ -20,8 +20,8 @@ final class CozyVideoAssetsSpec
     "resolve portable local contracts" which {
       "preserve generated placeholder license and provenance metadata" in {
         _with_temp_dir("scaffold-placeholder") { dir =>
-          val save = dir.resolve("placeholder.video")
           Given("a default video scaffold with generated placeholder files")
+          val save = dir.resolve("placeholder.video")
           CozyVideoScaffold.scaffold(CozyVideoScaffold.Config.create(List(
             "placeholder",
             "--save",
@@ -43,6 +43,7 @@ final class CozyVideoAssetsSpec
 
       "resolve a configured project-owned asset with its attribution" in {
         _with_temp_dir("configured") { dir =>
+          Given("a required project-owned summary asset with explicit attribution")
           _write(dir.resolve("assets/custom-summary.svg"), "<svg/>")
           val project = _write_project(dir, """assets:
             |  summary:
@@ -52,8 +53,6 @@ final class CozyVideoAssetsSpec
             |    license: CC-BY-4.0
             |    provenance: https://assets.example.test/summary
             |""".stripMargin)
-          Given("a required project-owned summary asset with explicit attribution")
-
           When("Cozy resolves the local asset")
           val inspection = _inspect(project)
 
@@ -66,14 +65,13 @@ final class CozyVideoAssetsSpec
 
       "fall back to a generated placeholder for an unconfigured optional slot" in {
         _with_temp_dir("fallback") { dir =>
+          Given("an optional configured summary file that is absent and a generated placeholder")
           _write(dir.resolve("assets/summary.svg"), "<svg/>")
           val project = _write_project(dir, """assets:
             |  summary:
             |    path: assets/missing-summary.png
             |    required: false
             |""".stripMargin)
-          Given("an optional configured summary file that is absent and a generated placeholder")
-
           When("Cozy resolves the asset slot")
           val inspection = _inspect(project)
 
@@ -83,18 +81,42 @@ final class CozyVideoAssetsSpec
           inspection should include_text("license: LicenseRef-Cozy-Generated-Placeholder")
         }
       }
+
+      "expose semantic asset metadata as credit evidence" in {
+        _with_temp_dir("semantic-credit") { dir =>
+          Given("a non-renderer asset with semantic tags license provenance and a credit reference")
+          _write(dir.resolve("assets/zundamon.png"), "PNG")
+          val project = _write_project(dir, """assets:
+            |  zundamon:
+            |    path: assets/zundamon.png
+            |    kind: character-material
+            |    required: true
+            |    tags: [character.zundamon, material.sakamoto-ahiru]
+            |    license: LicenseRef-Zundamon
+            |    provenance: creator:sakamoto-ahiru
+            |    credits: [zundamon-character]
+            |    credit-obligation: required
+            |""".stripMargin)
+
+          When("Cozy builds usage evidence without treating the asset as a visual-effect slot")
+          val inspection = _inspect(project)
+
+          Then("credit inspection sees stable semantic identifiers rather than filename substrings")
+          inspection should include_text("creditAssetTags: character.zundamon, material.sakamoto-ahiru")
+          inspection should not(include_text("zundamon: configured path="))
+        }
+      }
     }
 
     "protect deterministic asset resolution" which {
       "reject a missing required configured asset" in {
         _with_temp_dir("missing-required") { dir =>
+          Given("a required final-page asset that does not exist")
           val project = _write_project(dir, """assets:
             |  final-page:
             |    path: assets/required-end-card.png
             |    required: true
             |""".stripMargin)
-          Given("a required final-page asset that does not exist")
-
           When("Cozy plans the video")
           val error = intercept[RuntimeException](_inspect(project))
 
@@ -106,11 +128,10 @@ final class CozyVideoAssetsSpec
 
       "reject URL and project-root escape paths without network access" in {
         _with_temp_dir("non-local") { dir =>
+          Given("an asset slot configured with an external URL")
           val urlproject = _write_project(dir, """assets:
             |  section-start: https://assets.example.test/opening.png
             |""".stripMargin)
-          Given("an asset slot configured with an external URL")
-
           When("Cozy plans the URL-backed project")
           val urlerror = intercept[RuntimeException](_inspect(urlproject))
 
@@ -127,6 +148,27 @@ final class CozyVideoAssetsSpec
 
           Then("the portable source package boundary rejects the escaping path")
           escapeerror.getMessage should include_text("Video asset escapes the project root")
+        }
+      }
+
+      "reject an unknown credit obligation instead of changing attribution policy" in {
+        _with_temp_dir("invalid-credit-obligation") { dir =>
+          Given("a configured semantic asset whose credit obligation is misspelled")
+          _write(dir.resolve("assets/guide.svg"), "<svg/>")
+          val project = _write_project(dir, """assets:
+            |  guide:
+            |    path: assets/guide.svg
+            |    credits: [guide-material]
+            |    credit-obligation: optional
+            |""".stripMargin)
+
+          When("Cozy plans credit evidence for the asset")
+          val error = intercept[RuntimeException] {
+            _inspect(project)
+          }
+
+          Then("the unsupported policy vocabulary is reported explicitly")
+          error.getMessage should include_text("Invalid video asset credit obligation guide: optional")
         }
       }
     }
@@ -176,6 +218,9 @@ final class CozyVideoAssetsSpec
     Files.readString(path, StandardCharsets.UTF_8)
 
   private def _delete(path: Path): Unit =
-    if (Files.exists(path))
-      Files.walk(path).iterator().asScala.toVector.reverse.foreach(Files.delete)
+    if (Files.exists(path)) {
+      val paths = Files.walk(path)
+      try paths.iterator().asScala.toVector.reverse.foreach(Files.delete)
+      finally paths.close()
+    }
 }

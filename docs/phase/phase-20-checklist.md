@@ -97,30 +97,36 @@ Status: NOT STARTED
 
 ## VID20-07: Credit Profiles and Publication Projection
 
-Status: NOT STARTED
+Status: IN PROGRESS
 
-- [ ] Add a generic structured credit item, catalog, selector, profile, and
+- [x] Add a generic structured credit item, catalog, selector, profile, and
       resolver model without Asami-specific rules in Cozy core.
-- [ ] Discover credit profiles through user and project Cozy configuration
+- [x] Discover credit profiles through user and project Cozy configuration
       layers, with explicit video, project, and user default precedence.
-- [ ] Support one-time selection of Asami's personal default profile under
+- [x] Support one-time selection of Asami's personal default profile under
       `~/.cozy` so normal video projects need no credit-specific setting.
-- [ ] Resolve character-material credits from script character IDs and
+- [x] Resolve character-material credits from script character IDs and
       semantic asset metadata, with explicit include/exclude overrides.
-- [ ] Resolve voice credits from authoritative audio-manifest provider and
+- [x] Resolve voice credits from authoritative audio-manifest provider and
       voice identity rather than publication locale or stale script metadata.
-- [ ] Generate one structured effective credit set plus localized publication
+- [x] Generate one structured effective credit set plus localized publication
       Markdown and renderer-neutral credit-page properties.
-- [ ] Insert a non-empty credit page before the final URL page and omit it when
+- [x] Insert a non-empty credit page before the final URL page and omit it when
       no credit applies.
-- [ ] Propagate the selected profile, evidence, terms links, and effective
+- [x] Propagate the selected profile, evidence, terms links, and effective
       credit digest through inspect, build, verification, and RDF metadata.
-- [ ] Fail verification for unresolved required credits and warn for unresolved
+- [x] Fail verification for unresolved required credits and warn for unresolved
       recommended credits.
-- [ ] Cover all eight Reimu/Marisa, Zundamon, and Japanese/English baseline
+- [x] Cover all eight Reimu/Marisa, Zundamon, and Japanese/English baseline
       combinations, including image-only, voice-only, and non-VOICEVOX English
       production cases.
-- [ ] Update scaffold examples and the profile-driven video guide so another
+- [x] Update scaffold examples and the profile-driven video guide so another
       user or organization can define its own profile.
-- [ ] Run focused and full tests, `git diff --check`, post-implementation
-      review, record Phase 20 verification evidence, and close Phase 20.
+- [x] Run the focused credit/video specs and the full Cozy suite (634 tests,
+      zero failures; two opt-in integration tests canceled by default).
+- [x] Run real Remotion/ffmpeg integration with
+      `ghcr.io/asami/textus-toolchain:0.2.1-SNAPSHOT` and verify both scaffold
+      composition profiles, generated credit projections, and credit-page
+      timing (2 tests, zero failures).
+- [ ] Complete the post-implementation review, record the final clean
+      `git diff --check`, and include `VID20-07` in the Phase 20 closure audit.

@@ -12,6 +12,7 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 import java.security.MessageDigest
 import scala.collection.JavaConverters._
+import scala.util.control.NonFatal
 
 /*
  * @since   Jul. 19, 2026
@@ -405,7 +406,14 @@ private[cozy] object CozyMedia {
       val resource = resolved.resource
       val sourcefindings =
         if (resource.build == "video-project") {
-          if (resolved.project.exists(Files.isRegularFile(_))) Vector.empty else Vector(s"${resource.id}: missing video project")
+          resolved.project match {
+            case Some(path) if Files.isRegularFile(path) =>
+              try CozyVideo.verifyCredits(path).map(x => s"${resource.id}: $x")
+              catch {
+                case NonFatal(e) => Vector(s"${resource.id}: video credit verification failed: ${e.getMessage}")
+              }
+            case _ => Vector(s"${resource.id}: missing video project")
+          }
         } else if (resolved.source.exists(Files.isRegularFile(_))) Vector.empty
         else Vector(s"${resource.id}: missing source")
       val outputfindings = resolved.output.orElse(if (resource.build == "prebuilt") resolved.source else None) match {
