@@ -8,7 +8,7 @@ import cozy.runtime.CozyCliArgs
 
 /*
  * @since   Jul. 18, 2026
- * @version Jul. 18, 2026
+ * @version Jul. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoScaffold {
@@ -193,6 +193,8 @@ private[cozy] object CozyVideoScaffold {
       "    duration: 8.0"
     ).mkString("\n")
     s"""title: ${_yaml_string(config.title)}
+       |narration:
+       |  provider: voicevox
        |scenes:
        |$scene
        |""".stripMargin

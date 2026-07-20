@@ -5,19 +5,19 @@ Multi-Provider Narration and Cozy-Complete Video Build.
 
 ## VID20-01: Provider-Neutral Narration Contract
 
-Status: NOT STARTED
+Status: IN PROGRESS
 
-- [ ] Add a narration-provider abstraction around provider-specific synthesis.
+- [x] Add a narration-provider abstraction around provider-specific synthesis.
 - [ ] Keep pronunciation conversion, scene timing, silence, WAV normalization,
       combined audio, and manifest generation in shared Cozy code.
-- [ ] Define canonical `narration.provider` authoring.
-- [ ] Read existing `voice.engine` only as compatibility input, emit an explicit
+- [x] Define canonical `narration.provider` authoring.
+- [x] Read existing `voice.engine` only as compatibility input, emit an explicit
       deprecation diagnostic, and reject conflicts with `narration.provider`.
-- [ ] Keep canonical output, scaffold templates, and documentation free of
+- [x] Keep canonical output, scaffold templates, and documentation free of
       legacy `voice.engine` authoring.
-- [ ] Preserve VOICEVOX as the default for existing scripts without an explicit
+- [x] Preserve VOICEVOX as the default for existing scripts without an explicit
       provider.
-- [ ] Record provider, voice/model identity, and execution mode in synthesis
+- [x] Record provider, voice/model identity, and execution mode in synthesis
       provenance.
 
 ## VID20-02: CLI, Configuration, and Diagnostics

@@ -10,7 +10,7 @@ import cozy.CozySpecVocabulary
 
 /*
  * @since   Jul. 18, 2026
- * @version Jul. 18, 2026
+ * @version Jul. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoScaffoldSpec
@@ -37,6 +37,7 @@ final class CozyVideoScaffoldSpec
         save.resolve("index.dox") should be_regular_file
         save.resolve("video.yaml") should be_regular_file
         save.resolve("script.yaml") should be_regular_file
+        _read(save.resolve("script.yaml")) should include_text("narration:\n  provider: voicevox")
         save.resolve("assets/section-start.svg") should be_regular_file
         save.resolve("assets/summary.svg") should be_regular_file
         save.resolve("assets/final-page.svg") should be_regular_file

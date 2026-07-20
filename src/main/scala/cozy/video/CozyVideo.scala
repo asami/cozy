@@ -26,7 +26,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Jun. 18, 2026
  *  version Jun. 19, 2026
- * @version Jul. 19, 2026
+ * @version Jul. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideo {
@@ -379,6 +379,7 @@ private[cozy] object CozyVideo {
   final case class VideoScript(
     title: Option[String],
     tools: Option[VideoToolSettings],
+    narration: Json,
     voice: Json,
     pronunciations: Map[String, String],
     voiceTextNormalization: Json,
@@ -396,6 +397,7 @@ private[cozy] object CozyVideo {
       for {
         title <- c.downField("title").as[Option[String]]
         tools <- c.downField("tools").as[Option[VideoToolSettings]]
+        narration = c.downField("narration").focus.getOrElse(Json.obj())
         voice <- c.downField("voice").as[Option[Json]]
         pronunciations <- c.downField("pronunciations").as[Option[Map[String, String]]]
         voicetextnormalization <- c.downField("voiceTextNormalization").as[Option[Json]]
@@ -405,6 +407,7 @@ private[cozy] object CozyVideo {
       } yield VideoScript(
         title,
         tools,
+        narration,
         voice.getOrElse(Json.obj()),
         pronunciations.getOrElse(Map.empty),
         voicetextnormalization.getOrElse(Json.obj()),
@@ -716,6 +719,19 @@ private[cozy] object CozyVideo {
   }
   object VoicevoxClient {
     val default: VoicevoxClient = DefaultVoicevoxClient
+  }
+
+  final case class NarrationAudio(
+    wav: Array[Byte],
+    voiceIdentity: Option[String],
+    voiceId: Option[String],
+    modelIdentity: Option[String]
+  )
+
+  trait NarrationProvider {
+    def id: String
+    def executionMode: String
+    def synthesize(text: String, voice: Json): NarrationAudio
   }
 
   private object DefaultVoicevoxClient extends VoicevoxClient {
@@ -1241,8 +1257,17 @@ private[cozy] object CozyVideo {
 
   def synthesize(config: SynthesizeConfig, voicevox: VoicevoxClient): String = {
     val script = _load_required_script(config.scriptFile)
-    val voicevoxurl = _resolve_voicevox_url(config.projectRoot, script, config.voicevoxUrl)
-    val result = _synthesize_script(config.scriptFile, script, config.saveDir, voicevoxurl, voicevox)
+    val selection = _resolve_narration_selection(script)
+    val provider = selection.provider match {
+      case "voicevox" =>
+        val voicevoxurl = _resolve_voicevox_url(config.projectRoot, script, config.voicevoxUrl)
+        new VoicevoxNarrationProvider(voicevoxurl, voicevox)
+      case unsupported =>
+        RAISE.invalidArgumentFault(
+          s"Unsupported narration provider: $unsupported. Supported providers: voicevox."
+        )
+    }
+    val result = _synthesize_script(config.scriptFile, script, config.saveDir, provider, selection.diagnostics)
     _render_synthesis_result(result)
   }
 
@@ -1509,7 +1534,12 @@ private[cozy] object CozyVideo {
     leadSilence: Double,
     audioDuration: Double,
     targetDuration: Double,
-    tailSilence: Double
+    tailSilence: Double,
+    provider: Option[String] = None,
+    executionMode: Option[String] = None,
+    voiceIdentity: Option[String] = None,
+    voiceId: Option[String] = None,
+    modelIdentity: Option[String] = None
   )
   object VideoAudioManifestEntry {
     implicit val decoder: Decoder[VideoAudioManifestEntry] = (c: HCursor) =>
@@ -1521,13 +1551,33 @@ private[cozy] object CozyVideo {
         audioduration <- c.downField("audioDuration").as[Double]
         targetduration <- c.downField("targetDuration").as[Double]
         tailsilence <- c.downField("tailSilence").as[Double]
-      } yield VideoAudioManifestEntry(sceneid, speaker, file, leadsilence, audioduration, targetduration, tailsilence)
+        provider <- c.downField("provider").as[Option[String]]
+        executionmode <- c.downField("executionMode").as[Option[String]]
+        voiceidentity <- c.downField("voiceIdentity").as[Option[String]]
+        voiceid <- c.downField("voiceId").as[Option[String]]
+        modelidentity <- c.downField("modelIdentity").as[Option[String]]
+      } yield VideoAudioManifestEntry(
+        sceneid,
+        speaker,
+        file,
+        leadsilence,
+        audioduration,
+        targetduration,
+        tailsilence,
+        provider,
+        executionmode,
+        voiceidentity,
+        voiceid,
+        modelidentity
+      )
   }
 
   final case class VideoSynthesisResult(
     scriptFile: Path,
     outputDir: Path,
-    voicevoxUrl: String,
+    provider: String,
+    executionMode: String,
+    diagnostics: Vector[String],
     combinedFile: Path,
     manifestFile: Path,
     entries: Vector[VideoAudioManifestEntry]
@@ -1635,15 +1685,41 @@ private[cozy] object CozyVideo {
         data.length.toDouble / (sampleRate.toDouble * channels.toDouble * (bitsPerSample.toDouble / 8.0))
   }
 
+  private final case class NarrationSelection(
+    provider: String,
+    diagnostics: Vector[String]
+  )
+
+  private final class VoicevoxNarrationProvider(
+    baseUrl: String,
+    client: VoicevoxClient
+  ) extends NarrationProvider {
+    private val _speaker_ids = scala.collection.mutable.Map.empty[String, Int]
+
+    val id = "voicevox"
+    val executionMode = "external-http"
+
+    def synthesize(text: String, voice: Json): NarrationAudio = {
+      val cachekey = voice.noSpaces
+      val speakerid = _speaker_ids.getOrElseUpdate(cachekey, _resolve_speaker_id(baseUrl, voice, client))
+      val audioquery = _apply_voice_tuning(client.audioQuery(baseUrl, text, speakerid), voice)
+      NarrationAudio(
+        client.synthesis(baseUrl, speakerid, audioquery),
+        Some(_voicevox_voice_identity(voice)),
+        Some(speakerid.toString),
+        None
+      )
+    }
+  }
+
   private def _synthesize_script(
     scriptfile: Path,
     script: VideoScript,
     savedir: Path,
-    voicevoxurl: String,
-    voicevox: VoicevoxClient
+    provider: NarrationProvider,
+    diagnostics: Vector[String]
   ): VideoSynthesisResult = {
     Files.createDirectories(savedir)
-    val speakerids = scala.collection.mutable.Map.empty[String, Int]
     val concatparts = scala.collection.mutable.ArrayBuffer.empty[Path]
     val entries = script.expandedScenes.zipWithIndex.map {
       case (scene, index) =>
@@ -1652,14 +1728,18 @@ private[cozy] object CozyVideo {
         val scenewav = _audio_output_file(savedir, f"${index + 1}%02d-$fileid.wav")
         val leadsilence = math.max(0.0, scene.leadSilence.getOrElse(0.0))
         val voice = _voice_for_scene(script, scene)
+        var voiceidentity: Option[String] = Some(_narration_voice_identity(provider.id, voice))
+        var voiceid: Option[String] = None
+        var modelidentity: Option[String] = None
         if (_is_silent_scene(scene)) {
           _write_silence_wav(scenewav, 0.01)
         } else {
-          val cachekey = voice.noSpaces
-          val speakerid = speakerids.getOrElseUpdate(cachekey, _resolve_speaker_id(voicevoxurl, voice, voicevox))
           val text = _spoken_text(script, scene)
-          val audioquery = _apply_voice_tuning(voicevox.audioQuery(voicevoxurl, text, speakerid), voice)
-          Files.write(scenewav, voicevox.synthesis(voicevoxurl, speakerid, audioquery))
+          val audio = provider.synthesize(text, voice)
+          voiceidentity = audio.voiceIdentity
+          voiceid = audio.voiceId
+          modelidentity = audio.modelIdentity
+          Files.write(scenewav, audio.wav)
         }
         val audioduration = _wav_duration(scenewav)
         val targetduration = scene.durationSeconds
@@ -1675,13 +1755,81 @@ private[cozy] object CozyVideo {
           _write_silence_wav(silencewav, tailsilence)
           concatparts += silencewav
         }
-        VideoAudioManifestEntry(sceneid, scene.speaker, scenewav.getFileName.toString, _round3(leadsilence), _round3(audioduration), targetduration, _round3(tailsilence))
+        VideoAudioManifestEntry(
+          sceneid,
+          scene.speaker,
+          scenewav.getFileName.toString,
+          _round3(leadsilence),
+          _round3(audioduration),
+          targetduration,
+          _round3(tailsilence),
+          Some(provider.id),
+          Some(provider.executionMode),
+          voiceidentity,
+          voiceid,
+          modelidentity
+        )
     }
     val combined = _audio_output_file(savedir, s"${_basename(scriptfile)}.wav")
     _concatenate_wavs(concatparts.toVector, combined)
     val manifest = _audio_output_file(savedir, "manifest.json")
     Files.writeString(manifest, _manifest_json(entries).spaces2, StandardCharsets.UTF_8)
-    VideoSynthesisResult(scriptfile, savedir, voicevoxurl, combined, manifest, entries)
+    VideoSynthesisResult(scriptfile, savedir, provider.id, provider.executionMode, diagnostics, combined, manifest, entries)
+  }
+
+  private def _resolve_narration_selection(script: VideoScript): NarrationSelection = {
+    val canonical = _canonical_narration_provider(script.narration)
+    val legacy = (
+      _json_string(script.voice, "engine").toVector ++
+        script.characters.values.toVector.flatMap(x => x.hcursor.downField("voice").focus.flatMap(_json_string(_, "engine")))
+    ).map(_.trim.toLowerCase).filter(_.nonEmpty).distinct.sorted
+    if (legacy.size > 1)
+      RAISE.invalidArgumentFault(
+        s"Conflicting legacy voice.engine providers: ${legacy.mkString(", ")}. Set one narration.provider for the script."
+      )
+    val legacyprovider = legacy.headOption
+    (canonical, legacyprovider) match {
+      case (Some(current), Some(old)) if current != old =>
+        RAISE.invalidArgumentFault(
+          s"Conflicting narration provider settings: narration.provider=$current, voice.engine=$old."
+        )
+      case (Some(current), Some(_)) =>
+        NarrationSelection(current, Vector(_legacy_voice_engine_diagnostic))
+      case (Some(current), None) =>
+        NarrationSelection(current, Vector.empty)
+      case (None, Some(old)) =>
+        NarrationSelection(old, Vector(_legacy_voice_engine_diagnostic))
+      case (None, None) =>
+        NarrationSelection("voicevox", Vector.empty)
+    }
+  }
+
+  private def _canonical_narration_provider(narration: Json): Option[String] = {
+    if (!narration.isObject)
+      RAISE.invalidArgumentFault("narration must be an object containing provider.")
+    narration.hcursor.downField("provider").focus.map { value =>
+      val provider = value.asString.map(_.trim.toLowerCase).getOrElse(
+        RAISE.invalidArgumentFault("narration.provider must be a non-empty string.")
+      )
+      if (provider.isEmpty)
+        RAISE.invalidArgumentFault("narration.provider must be a non-empty string.")
+      provider
+    }
+  }
+
+  private val _legacy_voice_engine_diagnostic =
+    "Deprecated voice.engine authoring detected; use narration.provider instead."
+
+  private def _narration_voice_identity(provider: String, voice: Json): String =
+    provider match {
+      case "voicevox" => _voicevox_voice_identity(voice)
+      case _ => _json_string(voice, "name").orElse(_json_string(voice, "voice")).getOrElse("default")
+    }
+
+  private def _voicevox_voice_identity(voice: Json): String = {
+    val speakername = _json_string(voice, "speakerName").getOrElse("ずんだもん")
+    val stylename = _json_string(voice, "styleName").getOrElse("ノーマル")
+    s"$speakername/$stylename"
   }
 
   private def _scene_file_id(sceneid: String): String = {
@@ -1834,7 +1982,12 @@ private[cozy] object CozyVideo {
         "leadSilence" -> Json.fromDoubleOrNull(entry.leadSilence),
         "audioDuration" -> Json.fromDoubleOrNull(entry.audioDuration),
         "targetDuration" -> Json.fromDoubleOrNull(entry.targetDuration),
-        "tailSilence" -> Json.fromDoubleOrNull(entry.tailSilence)
+        "tailSilence" -> Json.fromDoubleOrNull(entry.tailSilence),
+        "provider" -> entry.provider.map(Json.fromString).getOrElse(Json.Null),
+        "executionMode" -> entry.executionMode.map(Json.fromString).getOrElse(Json.Null),
+        "voiceIdentity" -> entry.voiceIdentity.map(Json.fromString).getOrElse(Json.Null),
+        "voiceId" -> entry.voiceId.map(Json.fromString).getOrElse(Json.Null),
+        "modelIdentity" -> entry.modelIdentity.map(Json.fromString).getOrElse(Json.Null)
       )
     })
 
@@ -3876,7 +4029,9 @@ private[cozy] object CozyVideo {
     b += "Cozy Video Synthesize"
     b += s"scriptFile: ${result.scriptFile}"
     b += s"outputDir: ${result.outputDir}"
-    b += s"voicevoxUrl: ${result.voicevoxUrl}"
+    b += s"provider: ${result.provider}"
+    b += s"executionMode: ${result.executionMode}"
+    result.diagnostics.foreach(x => b += s"warning: $x")
     b += s"scenes: ${result.entries.size}"
     b += s"combined: ${result.combinedFile}"
     b += s"manifest: ${result.manifestFile}"

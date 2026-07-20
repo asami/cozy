@@ -54,7 +54,7 @@ Out of scope:
 
 Stage Status:
 
-- Current status: NOT STARTED
+- Current status: IN PROGRESS
 - Owner: cozy-video
 - Checklist basis: `VID20-01` and `VID20-02`
 
@@ -65,6 +65,26 @@ Focus:
   provenance;
 - preserve the existing VOICEVOX authoring path while making new authoring
   provider-explicit.
+
+Verified implementation status:
+
+- The provider-boundary portion of `VID20-01` is implemented. Cozy resolves
+  canonical `narration.provider` before creating output, defaults existing
+  scripts to `voicevox`, and accepts `voice.engine` only with an explicit
+  deprecation diagnostic.
+- New scaffold scripts use:
+
+  ```yaml
+  narration:
+    provider: voicevox
+  ```
+
+- The shared synthesis pipeline records provider, execution mode, voice
+  identity, and model identity in each audio manifest entry.
+- `VID20-01` remains open until provider WAV output is normalized through one
+  canonical sample-rate/channel contract in shared Cozy code.
+- `VID20-02` remains open for CLI execution settings, provider-aware tool
+  checks, RDF/publication propagation, and user-facing help.
 
 ## Stage 20.2: Host and Docker Providers
 
