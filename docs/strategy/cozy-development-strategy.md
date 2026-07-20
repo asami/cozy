@@ -503,7 +503,7 @@ Purpose:
 
 ### Phase 20: Multi-Provider Narration and Cozy-Complete Video Build
 
-Status: in progress.
+Status: closed.
 
 Purpose:
 
@@ -540,17 +540,17 @@ Primary reference:
 
 ## Current Priority
 
-Phase 6 through Phase 19 are closed. Phase 20 is the active phase. It introduces
-provider-neutral narration with VOICEVOX, host-only macOS `say`, and a portable
-Piper Docker route, then uses that contract to migrate the Japanese and English
-SimpleModeling.org Overview videos to a Cozy-only command workflow. Cozy owns
-the common synthesis outputs and provenance, while `textus-toolchain-runner`
-owns the pinned portable TTS runtime and license-audited model files. Phase 20
-also introduces generic credit profiles: character-material usage and actual
-audio-manifest provenance resolve one effective credit set, which produces both
-the in-video page and publication-ready Markdown. Asami's recurring credit
-policy is selected once at the user configuration layer rather than copied into
-each video project.
+Phase 6 through Phase 20 are closed. No successor phase is selected yet.
+
+Phase 20 introduced provider-neutral narration with VOICEVOX, host-only macOS
+`say`, and a portable Piper Docker route, then used that contract to migrate the
+Japanese and English SimpleModeling.org Overview videos to a Cozy-only command
+workflow. Cozy owns the common synthesis outputs and provenance, while
+`textus-toolchain-runner` owns the pinned portable TTS runtime and
+license-audited model files. Generic credit profiles resolve character-material
+usage and actual audio-manifest provenance into one effective credit set for
+both the in-video page and publication-ready Markdown. User-level profile
+selection keeps recurring policy out of individual video projects.
 
 Phase 19 added portable knowledge-centered Media Packages and the `cozy media`
 inspect, plan, build, verify, and publish workflow. Publication profiles project

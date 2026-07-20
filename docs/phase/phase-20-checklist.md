@@ -78,26 +78,27 @@ Status: DONE
 
 ## VID20-06: Overview Migration and Validation
 
-Status: NOT STARTED
+Status: DONE
 
-- [ ] Migrate the Japanese Overview package to canonical Cozy Video authoring
+- [x] Migrate the Japanese Overview package to canonical Cozy Video authoring
       and VOICEVOX narration.
-- [ ] Migrate the English Overview package to canonical Cozy Video authoring
+- [x] Migrate the English Overview package to canonical Cozy Video authoring
       and host `macos-say` narration.
-- [ ] Verify the English package with the portable Docker narration provider.
-- [ ] Remove the package-local `synthesize_macos_say.py` after the Cozy provider
+- [x] Verify the English package with the portable Docker narration provider.
+- [x] Remove the package-local `synthesize_macos_say.py` after the Cozy provider
       replaces it.
-- [ ] Remove absolute `videotools` references and manual ffmpeg instructions
+- [x] Remove absolute `videotools` references and manual ffmpeg instructions
       from both package READMEs and production metadata.
-- [ ] Run focused Cozy narration/rendering specs and the full Cozy test suite.
-- [ ] Run Textus Toolchain Runner tests and the real snapshot-image TTS smoke.
-- [ ] Run both real Overview source-to-MP4 workflows and inspect the generated
+- [x] Run focused Cozy narration/rendering specs and the full Cozy test suite.
+- [x] Run Textus Toolchain Runner tests and the real snapshot-image TTS smoke.
+- [x] Run both real Overview source-to-MP4 workflows and inspect the generated
       opening, summary, and final page.
-- [ ] Record the source-to-MP4 verification evidence for both Overview videos.
+- [x] Record the source-to-MP4 verification evidence for both Overview videos
+      in `docs/journal/2026/07/phase-20-overview-verification-2026-07-20.md`.
 
 ## VID20-07: Credit Profiles and Publication Projection
 
-Status: IN PROGRESS
+Status: DONE
 
 - [x] Add a generic structured credit item, catalog, selector, profile, and
       resolver model without Asami-specific rules in Cozy core.
@@ -122,11 +123,13 @@ Status: IN PROGRESS
       production cases.
 - [x] Update scaffold examples and the profile-driven video guide so another
       user or organization can define its own profile.
-- [x] Run the focused credit/video specs and the full Cozy suite (634 tests,
+- [x] Run the focused credit/video specs and the full Cozy suite (637 tests,
       zero failures; two opt-in integration tests canceled by default).
 - [x] Run real Remotion/ffmpeg integration with
       `ghcr.io/asami/textus-toolchain:0.2.1-SNAPSHOT` and verify both scaffold
       composition profiles, generated credit projections, and credit-page
       timing (2 tests, zero failures).
-- [ ] Complete the post-implementation review, record the final clean
-      `git diff --check`, and include `VID20-07` in the Phase 20 closure audit.
+- [x] Complete the post-implementation review and record clean
+      `git diff --check` results for Cozy and the migrated Overview package.
+- [x] Include `VID20-07` in the Phase 20 closure audit and create the validated
+      release commits.

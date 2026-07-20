@@ -2117,20 +2117,23 @@ private[cozy] object CozyVideo {
         val fileid = _scene_file_id(sceneid)
         val scenewav = _audio_output_file(savedir, f"${index + 1}%02d-$fileid.wav")
         val leadsilence = math.max(0.0, scene.leadSilence.getOrElse(0.0))
-        val voice = _voice_for_scene(script, scene)
-        var voiceidentity: Option[String] = Some(_narration_voice_identity(provider.id, voice))
-        var voiceid: Option[String] = None
-        var modelidentity: Option[String] = None
-        if (_is_silent_scene(scene)) {
-          _write_silence_wav(scenewav, 0.01)
-        } else {
-          val text = _spoken_text(script, scene)
-          val audio = provider.synthesize(text, voice)
-          voiceidentity = audio.voiceIdentity
-          voiceid = audio.voiceId
-          modelidentity = audio.modelIdentity
-          _write_wav(scenewav, _normalize_provider_wav(audio.wav, s"${provider.id}:$sceneid"))
-        }
+        val (manifestprovider, manifestexecutionmode, voiceidentity, voiceid, modelidentity) =
+          if (_is_silent_scene(scene)) {
+            _write_silence_wav(scenewav, 0.01)
+            (None, None, None, None, None)
+          } else {
+            val voice = _voice_for_scene(script, scene)
+            val text = _spoken_text(script, scene)
+            val audio = provider.synthesize(text, voice)
+            _write_wav(scenewav, _normalize_provider_wav(audio.wav, s"${provider.id}:$sceneid"))
+            (
+              Some(provider.id),
+              Some(provider.executionMode),
+              audio.voiceIdentity,
+              audio.voiceId,
+              audio.modelIdentity
+            )
+          }
         val audioduration = _wav_duration(scenewav)
         val targetduration = scene.durationSeconds
         if (leadsilence > 0) {
@@ -2153,8 +2156,8 @@ private[cozy] object CozyVideo {
           _round3(audioduration),
           targetduration,
           _round3(tailsilence),
-          Some(provider.id),
-          Some(provider.executionMode),
+          manifestprovider,
+          manifestexecutionmode,
           voiceidentity,
           voiceid,
           modelidentity,
@@ -2881,13 +2884,20 @@ private[cozy] object CozyVideo {
       if (!Files.isRegularFile(path))
         RAISE.invalidArgumentFault(s"Missing rendered part output: $path. Run: cozy video render <project-file> --renderer=remotion|simple-java2d")
     }
+    val executionparts = _build_execution_parts(plan.projectRoot, plan.execution, partoutputs)
+    val executionoutput = _build_execution_output(plan.projectRoot, plan.execution, plan.outputPath)
     val concatlist = _ffmpeg_concat_list_path(plan.projectRoot)
-    _write_ffmpeg_concat_list(plan.projectRoot, plan.execution, concatlist, partoutputs)
-    _run_build_ffmpeg(plan.projectRoot, plan.execution, concatlist, plan.outputPath, runner)
-    if (!Files.isRegularFile(plan.outputPath))
-      RAISE.invalidArgumentFault(s"ffmpeg concat/mux did not create output: ${plan.outputPath}")
-    val ffprobe = _run_build_ffprobe(plan.projectRoot, plan.execution, plan.outputPath, runner)
+    _write_ffmpeg_concat_list(plan.projectRoot, plan.execution, concatlist, executionparts)
+    Files.deleteIfExists(executionoutput)
+    _run_build_ffmpeg(plan.projectRoot, plan.execution, concatlist, executionoutput, runner)
+    if (!Files.isRegularFile(executionoutput))
+      RAISE.invalidArgumentFault(s"ffmpeg concat/mux did not create output: $executionoutput")
+    val ffprobe = _run_build_ffprobe(plan.projectRoot, plan.execution, executionoutput, runner)
     val summary = _ffprobe_summary(ffprobe)
+    if (executionoutput != plan.outputPath) {
+      Option(plan.outputPath.getParent).foreach(Files.createDirectories(_))
+      Files.copy(executionoutput, plan.outputPath, StandardCopyOption.REPLACE_EXISTING)
+    }
     _write_project_manifest(plan, concatlist, partoutputs, summary, creditfiles)
     VideoBuildResult(
       plan.projectFile,
@@ -2906,6 +2916,33 @@ private[cozy] object CozyVideo {
 
   private def _ffmpeg_concat_list_path(projectroot: Path): Path =
     projectroot.resolve("target/cozy-video/ffmpeg/concat.txt").normalize()
+
+  private def _build_execution_parts(
+    projectroot: Path,
+    execution: VideoExecutionConfig,
+    partoutputs: Vector[Path]
+  ): Vector[Path] =
+    execution.toolMode match {
+      case VideoToolMode.Docker =>
+        val directory = projectroot.resolve("target/cozy-video/ffmpeg/parts").normalize()
+        Files.createDirectories(directory)
+        partoutputs.zipWithIndex.map { case (source, index) =>
+          val staged = directory.resolve(f"part-${index + 1}%02d.mp4")
+          Files.copy(source, staged, StandardCopyOption.REPLACE_EXISTING)
+          staged
+        }
+      case _ => partoutputs
+    }
+
+  private def _build_execution_output(
+    projectroot: Path,
+    execution: VideoExecutionConfig,
+    output: Path
+  ): Path =
+    execution.toolMode match {
+      case VideoToolMode.Docker => projectroot.resolve("target/cozy-video/ffmpeg/rendered.mp4").normalize()
+      case _ => output
+    }
 
   private def _write_credit_outputs(plan: VideoPlan): Option[CozyVideoCredits.OutputFiles] =
     plan.credits.profile.map { _ =>
@@ -3723,7 +3760,7 @@ private[cozy] object CozyVideo {
     Files.writeString(srcdir.resolve("Root.tsx"), _remotion_root_tsx, StandardCharsets.UTF_8)
     Files.writeString(srcdir.resolve("render.mjs"), _remotion_render_mjs, StandardCharsets.UTF_8)
     val assets = _copy_remotion_assets(workdir, plan.assets)
-    val propsjson = _remotion_props_json(plan, part, script, audio, assets)
+    val propsjson = _remotion_props_json(plan, part, script, audio, assets, workdir)
     Files.writeString(workdir.resolve("props.json"), propsjson.spaces2, StandardCharsets.UTF_8)
     Files.writeString(srcdir.resolve("props.ts"), _remotion_props_ts(propsjson), StandardCharsets.UTF_8)
     _copy_remotion_audio(workdir, audio)
@@ -3869,8 +3906,10 @@ private[cozy] object CozyVideo {
     workdir: Path,
     runner: VideoProcessRunner
   ): Unit = {
-    Files.createDirectories(part.outputPath.getParent)
+    Option(part.outputPath.getParent).foreach(Files.createDirectories(_))
     val script = workdir.resolve("src/render.mjs")
+    val stagedoutput = _remotion_staged_output(workdir)
+    Files.deleteIfExists(stagedoutput)
     val args =
       execution.toolMode match {
         case VideoToolMode.Docker =>
@@ -3894,8 +3933,9 @@ private[cozy] object CozyVideo {
     val result = runner.run(args, projectroot)
     if (!result.isSuccess)
       RAISE.invalidArgumentFault(s"Remotion render failed for part ${part.id}: ${result.stderr.trim}")
-    if (!Files.isRegularFile(part.outputPath))
-      RAISE.invalidArgumentFault(s"Remotion render did not create output for part ${part.id}: ${part.outputPath}")
+    if (!Files.isRegularFile(stagedoutput))
+      RAISE.invalidArgumentFault(s"Remotion render did not create staged output for part ${part.id}: $stagedoutput")
+    Files.copy(stagedoutput, part.outputPath, StandardCopyOption.REPLACE_EXISTING)
   }
 
   private def _write_part_manifest(
@@ -3929,14 +3969,18 @@ private[cozy] object CozyVideo {
     part: VideoPartPlan,
     script: VideoScript,
     audio: VideoAudioInput,
-    assets: Vector[(CozyVideoAssets.Resolved, Option[String])]
+    assets: Vector[(CozyVideoAssets.Resolved, Option[String])],
+    workdir: Path
   ): Json = {
     val renderer = plan.project.renderer
     val fps = renderer.flatMap(_.fps).filter(_ > 0).getOrElse(30)
     val width = renderer.flatMap(_.width).filter(_ > 0).getOrElse(1280)
     val height = renderer.flatMap(_.height).filter(_ > 0).getOrElse(720)
     val effects = CozyVideoEffects.expand(plan.project.visualEffects)
-    val contentframes = math.max(1, audio.entries.map(x => math.max(1, math.round(x.targetDuration * fps).toInt)).sum)
+    val contentframes = math.max(
+      1,
+      audio.entries.map(x => math.max(1, math.round(_effective_render_duration(x) * fps).toInt)).sum
+    )
     val isfirstpart = plan.parts.filter(_.renderable).headOption.exists(_.id == part.id)
     val openingseconds = _effect_parameter_double(
       effects,
@@ -3970,7 +4014,7 @@ private[cozy] object CozyVideo {
           "speaker" -> entry.speaker.map(Json.fromString).getOrElse(Json.Null),
           "text" -> Json.fromString(scene.narration.orElse(scene.line).orElse(scene.caption).getOrElse("")),
           "audioPath" -> Json.fromString(s"audio/${file.getFileName}"),
-          "duration" -> Json.fromDoubleOrNull(entry.targetDuration)
+          "duration" -> Json.fromDoubleOrNull(_effective_render_duration(entry))
         )
     }
     val effectsjson = effects.map { expansion =>
@@ -4002,7 +4046,7 @@ private[cozy] object CozyVideo {
     Json.obj(
       "partId" -> Json.fromString(part.id),
       "title" -> Json.fromString(plan.project.title.orElse(script.title).getOrElse(part.id)),
-      "outputPath" -> Json.fromString(_project_relative(plan.projectRoot, part.outputPath)),
+      "outputPath" -> Json.fromString(_project_relative(plan.projectRoot, _remotion_staged_output(workdir))),
       "fps" -> Json.fromInt(fps),
       "width" -> Json.fromInt(width),
       "height" -> Json.fromInt(height),
@@ -4026,6 +4070,12 @@ private[cozy] object CozyVideo {
       )
     )
   }
+
+  private def _effective_render_duration(entry: VideoAudioManifestEntry): Double =
+    math.max(entry.targetDuration, entry.leadSilence + entry.audioDuration + entry.tailSilence)
+
+  private def _remotion_staged_output(workdir: Path): Path =
+    workdir.resolve("rendered.mp4")
 
   private def _effect_parameter_double(
     effects: Vector[CozyVideoEffects.Expansion],

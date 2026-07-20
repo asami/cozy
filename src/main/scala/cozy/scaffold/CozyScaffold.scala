@@ -1613,7 +1613,8 @@ private[cozy] object CozyScaffold {
       |  video inspect <project-file> [--check-tools] [--tool-mode=<docker|host>] [--docker-image=<image>]
       |      Inspect a video project file and print a deterministic project, part, script, and tool-check plan.
       |      Project and script files may be JSON, YAML, HOCON, or XML.
-      |      Docker is the default tool mode; VOICEVOX is always checked as an external HTTP service.
+      |      Docker is the default tool mode; --check-tools validates the selected narration provider.
+      |      VOICEVOX uses HTTP, macos-say uses host tools, and Piper uses the Docker toolchain image.
       |
       |  video scaffold <slug> [--save=<slug>.video] [--title=<title>] [--profile=<explanation|explanation-demo-explanation>]
       |      Create a Git-managed video source package with deterministic script and license-safe placeholder assets.

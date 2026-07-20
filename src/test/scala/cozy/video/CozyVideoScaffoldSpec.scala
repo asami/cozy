@@ -141,6 +141,8 @@ final class CozyVideoScaffoldSpec
         val help = _capture(cozy.Cozy.main(Array("--help")))
         help should include_text("video scaffold <slug>")
         help should include_text("--opening-effect")
+        help should include_text("--check-tools validates the selected narration provider")
+        help should not include "VOICEVOX is always checked"
       }
     }
 

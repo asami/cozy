@@ -1,6 +1,6 @@
 # Phase 20: Multi-Provider Narration and Cozy-Complete Video Build
 
-Status: in progress
+Status: closed
 
 Start date: 2026-07-20
 
@@ -143,7 +143,7 @@ Verified implementation status:
 
 Stage Status:
 
-- Current status: IN PROGRESS
+- Current status: DONE
 - Owner: cozy-video / SimpleModeling.org
 - Checklist basis: `VID20-05` and `VID20-06`
 
@@ -175,12 +175,29 @@ Verified implementation status:
 - Real final durations were 7.552 seconds for the single-part profile and
   9.643 seconds for the three-part profile. No project-local effect executable
   or manually authored ffmpeg pipeline was used.
+- Both SimpleModeling.org Overview packages now use package-root Cozy Video
+  descriptors. Japanese synthesis uses VOICEVOX, English host synthesis uses
+  `macos-say`, and the same English script was synthesized through the portable
+  Docker Piper provider with both configured character models.
+- Cozy renders Docker output into project-local staging paths before copying it
+  to the configured package output. Final Docker assembly similarly stages all
+  parts and the rendered MP4 under the project root before validation and the
+  final copy. This keeps bind-mount boundaries explicit when source-managed
+  descriptors place outputs outside the Remotion project root.
+- Effective scene duration is the greater of the authored target and the
+  synthesized audio interval including lead and tail silence, so long narration
+  cannot be truncated while the authored target remains unchanged in metadata.
+- Real source-to-MP4 builds produced a 272.733-second Japanese video and a
+  259.500-second English video. Frame inspection confirmed the title opening,
+  infographic summary, non-empty localized credit page, and final `END` page in
+  both outputs. Detailed evidence is recorded in
+  `docs/journal/2026/07/phase-20-overview-verification-2026-07-20.md`.
 
 ## Stage 20.4: Credit Profiles and Publication Projection
 
 Stage Status:
 
-- Current status: IN PROGRESS
+- Current status: DONE
 - Owner: cozy-video / SimpleModeling.org
 - Checklist basis: `VID20-07`
 
@@ -220,13 +237,14 @@ Verified implementation status:
   existing final URL page. Projects without a selected profile retain the
   previous timing and do not create a credit directory.
 - Focused credit, asset, rendering, scaffold, media-verification, and
-  publication-lifecycle specs pass. The full Cozy suite passes with 634 tests,
+  publication-lifecycle specs pass. The full Cozy suite passes with 637 tests,
   and real Remotion/ffmpeg integration passes against
   `ghcr.io/asami/textus-toolchain:0.2.1-SNAPSHOT` for both scaffold composition
   profiles, including the generated credit page.
-- `VID20-07` still requires the final post-implementation review and Phase 20
-  closure audit. The separate Overview package migration in `VID20-06` also
-  remains before the phase can close.
+- The final post-implementation review found no blocking issues, and clean
+  `git diff --check` results were recorded for Cozy and the migrated Overview
+  package. The validated release commits include `VID20-07` and this Phase 20
+  closure audit.
 
 ## Completion Criteria
 
@@ -239,3 +257,7 @@ executables or manual ffmpeg commands. The same effective credit set must
 produce the in-video page and publication Markdown, including all eight
 baseline variations. Focused and full tests, real integration evidence, and
 `git diff --check` must be recorded before closure.
+
+These criteria were satisfied on July 20, 2026. Phase 20 is closed. YouTube
+upload, third-party asset redistribution, and automatic legal interpretation
+remain outside the phase boundary.

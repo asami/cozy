@@ -446,6 +446,7 @@ final class CozyVideoSpec
 
       "video build assembles rendered parts with ffmpeg and validates with ffprobe" in {
         _with_temp_dir("cozy-video-build-final-docker") { dir =>
+          Given("two rendered project parts configured for Docker assembly")
           _write(dir.resolve("dialogue.json"), _script_json)
           _write(dir.resolve("storyboard.json"), _script_json)
           _write_bytes(
@@ -470,6 +471,7 @@ final class CozyVideoSpec
           )
           val runner = AssemblyRunner()
 
+          When("Cozy assembles and probes the final video")
           val out = CozyVideo.build(
             CozyVideo.BuildConfig(
               dir.resolve("video_project.json"),
@@ -480,16 +482,13 @@ final class CozyVideoSpec
             runner
           )
 
-          ((out.contains("Cozy Video Build")) shouldBe true)
-          ((out.contains(
-            "output: " + dir.resolve("build/final.mp4").normalize()
-          )) shouldBe true)
-          ((out.contains(
-            "manifest: " + dir.resolve("build/manifest.json").normalize()
-          )) shouldBe true)
-          ((out.contains("parts: 2")) shouldBe true)
-          ((runner.commands.size == 2) shouldBe true)
-          ((runner.commands(0).args.take(8) == Vector(
+          Then("ffmpeg and ffprobe use container-visible staging before publishing the result")
+          out should include_text("Cozy Video Build")
+          out should include_text("output: " + dir.resolve("build/final.mp4").normalize())
+          out should include_text("manifest: " + dir.resolve("build/manifest.json").normalize())
+          out should include_text("parts: 2")
+          runner.commands should have size 2
+          runner.commands(0).args.take(8) shouldBe Vector(
             "docker",
             "run",
             "--rm",
@@ -498,36 +497,21 @@ final class CozyVideoSpec
             "-w",
             "/workspace",
             "ghcr.io/asami/textus-toolchain:latest"
-          )) shouldBe true)
-          ((runner.commands(0).args.contains("ffmpeg")) shouldBe true)
-          ((runner
-            .commands(0)
-            .args
-            .contains(
-              "/workspace/target/cozy-video/ffmpeg/concat.txt"
-            )) shouldBe true)
-          ((runner
-            .commands(0)
-            .args
-            .contains("/workspace/build/final.mp4")) shouldBe true)
-          ((runner.commands(1).args.contains("ffprobe")) shouldBe true)
-          ((runner
-            .commands(1)
-            .args
-            .contains("/workspace/build/final.mp4")) shouldBe true)
+          )
+          runner.commands(0).args should contain("ffmpeg")
+          runner.commands(0).args should contain("/workspace/target/cozy-video/ffmpeg/concat.txt")
+          runner.commands(0).args should contain("/workspace/target/cozy-video/ffmpeg/rendered.mp4")
+          runner.commands(1).args should contain("ffprobe")
+          runner.commands(1).args should contain("/workspace/target/cozy-video/ffmpeg/rendered.mp4")
           val concat = _read(dir.resolve("target/cozy-video/ffmpeg/concat.txt"))
-          ((concat.contains(
-            "file '/workspace/build/parts/lecture.mp4'"
-          )) shouldBe true)
-          ((concat.contains(
-            "file '/workspace/build/parts/board.mp4'"
-          )) shouldBe true)
-          ((Files.isRegularFile(dir.resolve("build/final.mp4"))) shouldBe true)
+          concat should include_text("file '/workspace/target/cozy-video/ffmpeg/parts/part-01.mp4'")
+          concat should include_text("file '/workspace/target/cozy-video/ffmpeg/parts/part-02.mp4'")
+          dir.resolve("build/final.mp4") should be_regular_file
           val manifest = _read(dir.resolve("build/manifest.json"))
-          ((manifest.contains("\"outputPath\"")) shouldBe true)
-          ((manifest.contains("\"partOutputs\"")) shouldBe true)
-          ((manifest.contains("\"concatListPath\"")) shouldBe true)
-          ((manifest.contains("\"ffprobe\"")) shouldBe true)
+          manifest should include_text("\"outputPath\"")
+          manifest should include_text("\"partOutputs\"")
+          manifest should include_text("\"concatListPath\"")
+          manifest should include_text("\"ffprobe\"")
         }
       }
 

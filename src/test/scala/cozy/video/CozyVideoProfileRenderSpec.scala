@@ -94,6 +94,48 @@ final class CozyVideoProfileRenderSpec
       }
     }
 
+    "extend scene rendering when synthesized narration exceeds its authored target duration" in {
+      _with_temp_dir("narration-overrun") { dir =>
+        Given("an authored eight-second scene whose lead and synthesized narration require eleven seconds")
+        val pkg = dir.resolve("narration-overrun.video")
+        CozyVideoScaffold.scaffold(CozyVideoScaffold.Config.create(List(
+          "narration-overrun",
+          s"--save=$pkg",
+          "--profile=explanation"
+        )))
+        _write(
+          pkg.resolve("video.yaml"),
+          _read(pkg.resolve("video.yaml")).replace(
+            "    script: script.yaml",
+            "    script: script.yaml\n    output: ../render-output/narration-overrun.mp4"
+          )
+        )
+        val audiodir = pkg.resolve("build/audio/explanation")
+        Files.createDirectories(audiodir)
+        Files.write(audiodir.resolve("01-explanation.wav"), Array[Byte](0, 1, 2, 3))
+        _write(
+          audiodir.resolve("manifest.json"),
+          """[{"sceneId":"explanation","speaker":null,"file":"01-explanation.wav",
+            |"leadSilence":0.5,"audioDuration":10.5,"targetDuration":8.0,"tailSilence":0.0}]""".stripMargin
+        )
+
+        When("the Remotion adapter derives its scene and composition timing")
+        CozyVideo.render(
+          CozyVideo.RenderConfig(pkg.resolve("video.yaml"), "remotion", checkTools = false),
+          CozyVideo.VideoToolRegistry(Vector.empty),
+          ProfileRenderRunner()
+        )
+
+        Then("the render uses the complete narration duration without changing the authored target")
+        val props = _json(pkg.resolve("target/cozy-video/remotion/explanation/props.json"))
+        _int(props, "timing", "contentFrames") shouldBe 330
+        _scene_duration(props, 0) shouldBe 11.0
+        _json(audiodir.resolve("manifest.json")).asArray.get.head.hcursor.
+          get[Double]("targetDuration").toOption.get shouldBe 8.0
+        pkg.resolve("../render-output/narration-overrun.mp4").normalize() should be_regular_file
+      }
+    }
+
     "assemble rendered profile parts through Cozy-managed ffmpeg and ffprobe" in {
       _with_temp_dir("assembly") { dir =>
         Given("a rendered explanation-demo-explanation package with every part output")
@@ -128,6 +170,45 @@ final class CozyVideoProfileRenderSpec
         val manifest = _read(pkg.resolve("build/manifest.json"))
         manifest should include_text("\"partOutputs\"")
         manifest should include_text("\"ffprobe\"")
+      }
+    }
+
+    "assemble Docker parts and final output outside the video project root" in {
+      _with_temp_dir("external-assembly-output") { dir =>
+        Given("a rendered part and final output configured outside the video project root")
+        val pkg = dir.resolve("external-assembly.video")
+        CozyVideoScaffold.scaffold(CozyVideoScaffold.Config.create(List(
+          "external-assembly",
+          s"--save=$pkg",
+          "--profile=explanation"
+        )))
+        _write(
+          pkg.resolve("video.yaml"),
+          _read(pkg.resolve("video.yaml")).
+            replace("output: build/external-assembly.mp4", "output: ../render-output/final.mp4").
+            replace(
+              "    script: script.yaml",
+              "    script: script.yaml\n    output: ../render-output/part.mp4"
+            )
+        )
+        val partoutput = pkg.resolve("../render-output/part.mp4").normalize()
+        Option(partoutput.getParent).foreach(Files.createDirectories(_))
+        Files.write(partoutput, Array[Byte](0, 1, 2, 3))
+        val runner = ProfileRenderRunner()
+
+        When("Cozy assembles the project through Docker-local staging")
+        CozyVideo.build(
+          CozyVideo.BuildConfig(pkg.resolve("video.yaml"), dryRun = false, checkTools = false),
+          CozyVideo.VideoToolRegistry(Vector.empty),
+          runner
+        )
+
+        Then("the staged inputs remain container-visible and the verified result reaches its configured path")
+        val concat = _read(pkg.resolve("target/cozy-video/ffmpeg/concat.txt"))
+        concat should include_text("file '/workspace/target/cozy-video/ffmpeg/parts/part-01.mp4'")
+        runner.commands.find(_.args.contains("ffmpeg")).get.args should
+          contain("/workspace/target/cozy-video/ffmpeg/rendered.mp4")
+        pkg.resolve("../render-output/final.mp4").normalize() should be_regular_file
       }
     }
 
@@ -447,6 +528,10 @@ final class CozyVideoProfileRenderSpec
 
   private def _int(json: Json, parent: String, field: String): Int =
     json.hcursor.downField(parent).get[Int](field).toOption.get
+
+  private def _scene_duration(json: Json, index: Int): Double =
+    json.hcursor.get[Vector[Json]]("scenes").toOption.get(index).hcursor.
+      get[Double]("duration").toOption.get
 
   private def _json(path: Path): Json =
     parser.parse(_read(path)).toOption.get

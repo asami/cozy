@@ -50,6 +50,34 @@ final class CozyVideoNarrationSpec
         }
       }
 
+      "does not attribute generated silence to the selected narration provider" in {
+        Given("a silent title scene in a script that selects VOICEVOX for narrated scenes")
+        _with_script(
+          """{
+            |  "narration": {"provider": "voicevox"},
+            |  "voice": {"speakerName": "ずんだもん", "styleName": "ノーマル"},
+            |  "scenes": [{"id": "title", "duration": 0.2, "silent": true}]
+            |}""".stripMargin
+        ) { (script, output) =>
+          val client = RecordingVoicevoxClient()
+
+          When("Cozy generates the scene silence without invoking the provider")
+          CozyVideo.synthesize(
+            CozyVideo.SynthesizeConfig(script, output, Some("http://voicevox.example")),
+            client
+          )
+          val entry = _manifest_entry(output)
+
+          Then("the manifest contains no false provider or voice provenance")
+          client.calls shouldBe empty
+          entry.hcursor.downField("provider").as[String].toOption shouldBe None
+          entry.hcursor.downField("executionMode").as[String].toOption shouldBe None
+          entry.hcursor.downField("voiceIdentity").as[String].toOption shouldBe None
+          entry.hcursor.downField("voiceId").as[String].toOption shouldBe None
+          entry.hcursor.downField("modelIdentity").as[String].toOption shouldBe None
+        }
+      }
+
       "keeps VOICEVOX as the default for an existing script" in {
         Given("an existing script without provider authoring")
         _with_script(
