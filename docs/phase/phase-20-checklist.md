@@ -64,16 +64,16 @@ Status: DONE
 
 ## VID20-05: Cozy Rendering and Assembly Completion
 
-Status: NOT STARTED
+Status: DONE
 
-- [ ] Remove the need for project-local visual-effect executables.
-- [ ] Represent the Overview opening title hold and subtle motion through a
+- [x] Remove the need for project-local visual-effect executables.
+- [x] Represent the Overview opening title hold and subtle motion through a
       Cozy-owned renderer/effect contract.
-- [ ] Keep section-start, summary, and final-page behavior in named profiles.
-- [ ] Render every part through `cozy video render`.
-- [ ] Assemble and validate the final MP4 through `cozy video build` and its
+- [x] Keep section-start, summary, and final-page behavior in named profiles.
+- [x] Render every part through `cozy video render`.
+- [x] Assemble and validate the final MP4 through `cozy video build` and its
       managed ffmpeg/ffprobe route.
-- [ ] Keep generated audio, intermediate media, and final MP4 files outside
+- [x] Keep generated audio, intermediate media, and final MP4 files outside
       source control.
 
 ## VID20-06: Overview Migration and Validation

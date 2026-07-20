@@ -27,6 +27,7 @@ private[cozy] object CozyVideoScaffold {
         spec.Parameter.property("save"),
         spec.Parameter.property("title"),
         spec.Parameter.property("profile"),
+        spec.Parameter.property("opening-effect"),
         spec.Parameter.property("section-start-effect"),
         spec.Parameter.property("summary-effect"),
         spec.Parameter.property("final-page-effect")
@@ -44,6 +45,10 @@ private[cozy] object CozyVideoScaffold {
         parsed.property("title").getOrElse(_title(slug)),
         CompositionProfile.parse(parsed.property("profile").getOrElse(CompositionProfile.DEFAULT.key)),
         VisualEffectProfiles(
+          CozyVideoEffects.validateProfile(
+            CozyVideoEffects.Role.Opening,
+            parsed.property("opening-effect").getOrElse(CozyVideoEffects.DEFAULT_OPENING_PROFILE)
+          ),
           CozyVideoEffects.validateProfile(
             CozyVideoEffects.Role.SectionStart,
             parsed.property("section-start-effect").getOrElse(CozyVideoEffects.DEFAULT_SECTION_START_PROFILE)
@@ -89,7 +94,7 @@ private[cozy] object CozyVideoScaffold {
   }
 
   final case class ScaffoldPart(id: String, kind: String, script: String, steps: Option[String])
-  final case class VisualEffectProfiles(sectionstart: String, summary: String, finalpage: String)
+  final case class VisualEffectProfiles(opening: String, sectionstart: String, summary: String, finalpage: String)
 
   def scaffold(config: Config): String = {
     val save = config.save.toAbsolutePath.normalize()
@@ -98,9 +103,11 @@ private[cozy] object CozyVideoScaffold {
     Files.createDirectories(save.resolve("assets"))
     val scriptfiles = config.profile.parts.map(part => part.script -> _script_yaml(config, part))
     val files = Vector(
+      ".gitignore" -> _gitignore,
       "index.dox" -> _index_dox(config),
       "video.yaml" -> _video_yaml(config),
       "assets/README.md" -> _assets_readme,
+      "assets/opening.svg" -> _placeholder_svg("OPENING"),
       "assets/section-start.svg" -> _placeholder_svg("SECTION START"),
       "assets/summary.svg" -> _placeholder_svg("SUMMARY"),
       "assets/final-page.svg" -> _placeholder_svg("END")
@@ -124,6 +131,7 @@ private[cozy] object CozyVideoScaffold {
       "save",
       "title",
       "profile",
+      "opening-effect",
       "section-start-effect",
       "summary-effect",
       "final-page-effect"
@@ -171,10 +179,12 @@ private[cozy] object CozyVideoScaffold {
        |output: build/${config.slug}.mp4
        |profile: ${config.profile.key}
        |visual-effects:
+       |  opening: ${config.visualeffects.opening}
        |  section-start: ${config.visualeffects.sectionstart}
        |  summary: ${config.visualeffects.summary}
        |  final-page: ${config.visualeffects.finalpage}
        |assets:
+       |${_asset_yaml("opening", "assets/opening.svg")}
        |${_asset_yaml("section-start", "assets/section-start.svg")}
        |${_asset_yaml("summary", "assets/summary.svg")}
        |${_asset_yaml("final-page", "assets/final-page.svg")}
@@ -219,6 +229,11 @@ private[cozy] object CozyVideoScaffold {
       |Set `required: true` when rendering must stop rather than use the generated placeholder if that configured file is absent.
       |Asset paths are project-relative local files. Cozy does not fetch asset URLs during inspect, build, or render.
       |The scaffold does not copy or reference media from `0714.techfirst.lt/assets`.
+      |""".stripMargin
+
+  private val _gitignore =
+    """build/
+      |target/
       |""".stripMargin
 
   private val _demo_steps_json =

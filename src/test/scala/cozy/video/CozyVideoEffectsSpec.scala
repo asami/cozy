@@ -10,7 +10,7 @@ import cozy.CozySpecVocabulary
 
 /*
  * @since   Jul. 18, 2026
- * @version Jul. 18, 2026
+ * @version Jul. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoEffectsSpec
@@ -22,11 +22,12 @@ final class CozyVideoEffectsSpec
       "preserve role and primitive order through video inspect" in {
         _with_temp_dir("inspect") { dir =>
           val project = _write_project(dir, """visual-effects:
+            |  opening: title-hold-subtle-motion
             |  section-start: line-sweep
             |  summary: overview-and-conclusion
             |  final-page: end-card
             |""".stripMargin)
-          Given("a video project with all three initial visual-effect profiles")
+          Given("a video project with all four Cozy-owned visual-effect profiles")
 
           When("Cozy inspects the renderer-neutral profile expansion")
           val result = CozyVideo.inspect(
@@ -35,10 +36,11 @@ final class CozyVideoEffectsSpec
           )
 
           Then("each role expands to a deterministic primitive sequence")
+          result should include_text("opening: title-hold-subtle-motion => title-card -> subtle-motion(scale=1.025) -> hold(seconds=4.5)")
           result should include_text("section-start: line-sweep => flow-line(direction=left-to-right) -> underline-sweep")
           result should include_text("summary: overview-and-conclusion => summary-layout(mode=single-page) -> fade-rise(target=overview) -> spring-pop(target=conclusion)")
           result should include_text("final-page: end-card => end-card -> fade-rise(target=end-card) -> hold(seconds=2.0)")
-          result should include_text_in_order("section-start:", "summary:", "final-page:")
+          result should include_text_in_order("opening:", "section-start:", "summary:", "final-page:")
 
           And("the Remotion adapter declares the primitives it consumes")
           result should include_text("visualEffectRenderer: remotion")
@@ -52,6 +54,7 @@ final class CozyVideoEffectsSpec
         val expansions = CozyVideoEffects.expand(Some(CozyVideoEffects.Settings(
           Some("none"),
           Some("none"),
+          Some("none"),
           Some("none")
         )))
 
@@ -59,7 +62,7 @@ final class CozyVideoEffectsSpec
         val capability = CozyVideoEffects.capability("simple-java2d", expansions)
 
         Then("the renderer has no unsupported primitive work")
-        expansions should have_effect_displays("none", "none", "none")
+        expansions should have_effect_displays("none", "none", "none", "none")
         capability should support_all_effects
       }
     }
@@ -148,8 +151,11 @@ final class CozyVideoEffectsSpec
   }
 
   private def _delete(path: Path): Unit =
-    if (Files.exists(path))
-      Files.walk(path).iterator().asScala.toVector.reverse.foreach(Files.delete)
+    if (Files.exists(path)) {
+      val paths = Files.walk(path)
+      try paths.iterator().asScala.toVector.reverse.foreach(Files.delete)
+      finally paths.close()
+    }
 
   protected final def include_text_in_order(expected: String*): Matcher[String] = Matcher { actual =>
     val positions = expected.map(actual.indexOf)

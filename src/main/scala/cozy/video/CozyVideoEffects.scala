@@ -5,15 +5,17 @@ import org.goldenport.RAISE
 
 /*
  * @since   Jul. 18, 2026
- * @version Jul. 18, 2026
+ * @version Jul. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoEffects {
+  val DEFAULT_OPENING_PROFILE = "title-hold-subtle-motion"
   val DEFAULT_SECTION_START_PROFILE = "line-sweep"
   val DEFAULT_SUMMARY_PROFILE = "overview-and-conclusion"
   val DEFAULT_FINAL_PAGE_PROFILE = "end-card"
 
   final case class Settings(
+    opening: Option[String],
     sectionStart: Option[String],
     summary: Option[String],
     finalPage: Option[String]
@@ -21,19 +23,21 @@ private[cozy] object CozyVideoEffects {
   object Settings {
     implicit val decoder: Decoder[Settings] = (c: HCursor) =>
       for {
+        opening <- c.downField("opening").as[Option[String]]
         sectionstart <- _optional_string(c, "sectionStart", "section-start")
         summary <- c.downField("summary").as[Option[String]]
         finalpage <- _optional_string(c, "finalPage", "final-page")
-      } yield Settings(sectionstart, summary, finalpage)
+      } yield Settings(opening, sectionstart, summary, finalpage)
   }
 
   sealed trait Role { def key: String }
   object Role {
+    case object Opening extends Role { val key = "opening" }
     case object SectionStart extends Role { val key = "section-start" }
     case object Summary extends Role { val key = "summary" }
     case object FinalPage extends Role { val key = "final-page" }
 
-    val ALL: Vector[Role] = Vector(SectionStart, Summary, FinalPage)
+    val ALL: Vector[Role] = Vector(Opening, SectionStart, Summary, FinalPage)
   }
 
   final case class Primitive(name: String, parameters: Vector[(String, String)] = Vector.empty) {
@@ -54,6 +58,12 @@ private[cozy] object CozyVideoEffects {
   }
 
   private val _profiles: Map[(Role, String), Vector[Primitive]] = Map(
+    (Role.Opening, "none") -> Vector.empty,
+    (Role.Opening, "title-hold-subtle-motion") -> Vector(
+      Primitive("title-card"),
+      Primitive("subtle-motion", Vector("scale" -> "1.025")),
+      Primitive("hold", Vector("seconds" -> "4.5"))
+    ),
     (Role.SectionStart, "none") -> Vector.empty,
     (Role.SectionStart, "line-sweep") -> Vector(
       Primitive("flow-line", Vector("direction" -> "left-to-right")),
@@ -76,6 +86,8 @@ private[cozy] object CozyVideoEffects {
   // Renderer adapters add primitives here only after they consume the expanded contract.
   private val _renderer_capabilities: Map[String, Set[String]] = Map(
     "remotion" -> Set(
+      "title-card",
+      "subtle-motion",
       "flow-line",
       "underline-sweep",
       "summary-layout",
@@ -91,6 +103,7 @@ private[cozy] object CozyVideoEffects {
   def expand(settings: Option[Settings]): Vector[Expansion] =
     settings.toVector.flatMap { value =>
       Vector(
+        _expand(Role.Opening, value.opening.getOrElse("none")),
         _expand(Role.SectionStart, value.sectionStart.getOrElse("none")),
         _expand(Role.Summary, value.summary.getOrElse("none")),
         _expand(Role.FinalPage, value.finalPage.getOrElse("none"))

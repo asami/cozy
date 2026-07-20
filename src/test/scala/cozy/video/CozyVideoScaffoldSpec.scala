@@ -34,15 +34,19 @@ final class CozyVideoScaffoldSpec
         val result = CozyVideoScaffold.scaffold(config)
 
         Then("the source package contains inspectable project files and generated placeholders")
+        save.resolve(".gitignore") should be_regular_file
+        _read(save.resolve(".gitignore")) shouldBe "build/\ntarget/\n"
         save.resolve("index.dox") should be_regular_file
         save.resolve("video.yaml") should be_regular_file
         save.resolve("script.yaml") should be_regular_file
         _read(save.resolve("script.yaml")) should include_text("narration:\n  provider: voicevox")
+        save.resolve("assets/opening.svg") should be_regular_file
         save.resolve("assets/section-start.svg") should be_regular_file
         save.resolve("assets/summary.svg") should be_regular_file
         save.resolve("assets/final-page.svg") should be_regular_file
         save.resolve("assets/README.md") should be_regular_file
         _read(save.resolve("video.yaml")) should include_text("profile: explanation")
+        _read(save.resolve("video.yaml")) should include_text("opening: title-hold-subtle-motion")
         _read(save.resolve("video.yaml")) should include_text("section-start: line-sweep")
         _read(save.resolve("video.yaml")) should include_text("summary: overview-and-conclusion")
         _read(save.resolve("video.yaml")) should include_text("final-page: end-card")
@@ -115,6 +119,7 @@ final class CozyVideoScaffoldSpec
             "minimal",
             "--save=" + save,
             "--profile=explanation",
+            "--opening-effect=none",
             "--section-start-effect=none",
             "--summary-effect=none",
             "--final-page-effect=none"
@@ -125,12 +130,15 @@ final class CozyVideoScaffoldSpec
         result should include_text("Cozy Video Scaffold")
         val project = _read(save.resolve("video.yaml"))
         project should include_text("profile: explanation")
+        project should include_text("opening: none")
         project should include_text("section-start: none")
         project should include_text("summary: none")
         project should include_text("final-page: none")
 
         And("the command is documented by CLI help")
-        _capture(cozy.Cozy.main(Array("--help"))) should include_text("video scaffold <slug>")
+        val help = _capture(cozy.Cozy.main(Array("--help")))
+        help should include_text("video scaffold <slug>")
+        help should include_text("--opening-effect")
       }
     }
 
@@ -193,10 +201,14 @@ final class CozyVideoScaffoldSpec
     Files.readString(path, StandardCharsets.UTF_8)
 
   private def _snapshot(root: Path): Vector[(String, Vector[Byte])] =
-    Files.walk(root).iterator().asScala.toVector.
-      filter(Files.isRegularFile(_)).
-      sortBy(_.toString).
-      map(path => root.relativize(path).toString -> Files.readAllBytes(path).toVector)
+    {
+      val paths = Files.walk(root)
+      try paths.iterator().asScala.toVector.
+        filter(Files.isRegularFile(_)).
+        sortBy(_.toString).
+        map(path => root.relativize(path).toString -> Files.readAllBytes(path).toVector)
+      finally paths.close()
+    }
 
   private def _capture(body: => Unit): String = {
     val out = new ByteArrayOutputStream()
@@ -205,6 +217,9 @@ final class CozyVideoScaffoldSpec
   }
 
   private def _delete(path: Path): Unit =
-    if (Files.exists(path))
-      Files.walk(path).iterator().asScala.toVector.reverse.foreach(Files.delete)
+    if (Files.exists(path)) {
+      val paths = Files.walk(path)
+      try paths.iterator().asScala.toVector.reverse.foreach(Files.delete)
+      finally paths.close()
+    }
 }

@@ -1913,7 +1913,7 @@ private[cozy] object CozyVideo {
   }
 
   private final class MacosSayNarrationProvider(
-    projectRoot: Path,
+    projectroot: Path,
     runner: VideoProcessRunner
   ) extends NarrationProvider {
     val id = "macos-say"
@@ -1933,7 +1933,7 @@ private[cozy] object CozyVideo {
       try {
         val sayresult = runner.run(
           Vector("say", "-v", voicename, "-r", rate.toString, "-o", source.toString, text),
-          projectRoot
+          projectroot
         )
         if (!sayresult.isSuccess)
           RAISE.invalidArgumentFault(s"macOS say narration failed: ${sayresult.text}")
@@ -1951,7 +1951,7 @@ private[cozy] object CozyVideo {
             "s16",
             wav.toString
           ),
-          projectRoot
+          projectroot
         )
         if (!ffmpegresult.isSuccess)
           RAISE.invalidArgumentFault(s"macOS say audio normalization failed: ${ffmpegresult.text}")
@@ -1964,7 +1964,7 @@ private[cozy] object CozyVideo {
           Some("macos-say")
         )
       } finally {
-        Files.walk(workdir).iterator().asScala.toVector.reverse.foreach(Files.deleteIfExists)
+        _delete_tree(workdir)
       }
     }
   }
@@ -2017,10 +2017,17 @@ private[cozy] object CozyVideo {
           Some(modelid)
         )
       } finally {
-        Files.walk(workdir).iterator().asScala.toVector.reverse.foreach(Files.deleteIfExists)
+        _delete_tree(workdir)
       }
     }
   }
+
+  private def _delete_tree(path: Path): Unit =
+    if (Files.exists(path)) {
+      val paths = Files.walk(path)
+      try paths.iterator().asScala.toVector.reverse.foreach(Files.deleteIfExists)
+      finally paths.close()
+    }
 
   private def _synthesize_script(
     scriptfile: Path,
@@ -3792,13 +3799,27 @@ private[cozy] object CozyVideo {
     val height = renderer.flatMap(_.height).filter(_ > 0).getOrElse(720)
     val effects = CozyVideoEffects.expand(plan.project.visualEffects)
     val contentframes = math.max(1, audio.entries.map(x => math.max(1, math.round(x.targetDuration * fps).toInt)).sum)
+    val isfirstpart = plan.parts.filter(_.renderable).headOption.exists(_.id == part.id)
+    val openingseconds = _effect_parameter_double(
+      effects,
+      CozyVideoEffects.Role.Opening,
+      "hold",
+      "seconds"
+    ).getOrElse(0.0)
+    val openingframes =
+      if (isfirstpart) math.max(0, math.round(openingseconds * fps).toInt)
+      else 0
     val sectionframes = if (effects.exists(x => x.role == CozyVideoEffects.Role.SectionStart && x.primitives.nonEmpty)) math.min(contentframes, math.round(1.2 * fps).toInt) else 0
     val summaryframes = if (effects.exists(x => x.role == CozyVideoEffects.Role.Summary && x.primitives.nonEmpty)) math.min(contentframes, math.round(2.4 * fps).toInt) else 0
     val isfinalpart = plan.parts.filter(_.renderable).lastOption.exists(_.id == part.id)
-    val holdseconds = effects.find(_.role == CozyVideoEffects.Role.FinalPage).toVector.flatMap(_.primitives).
-      find(_.name == "hold").flatMap(_.parameters.find(_._1 == "seconds").map(_._2)).flatMap(x => Try(x.toDouble).toOption).getOrElse(0.0)
+    val holdseconds = _effect_parameter_double(
+      effects,
+      CozyVideoEffects.Role.FinalPage,
+      "hold",
+      "seconds"
+    ).getOrElse(0.0)
     val finalframes = if (isfinalpart) math.max(0, math.round(holdseconds * fps).toInt) else 0
-    val totalframes = contentframes + finalframes
+    val totalframes = openingframes + contentframes + finalframes
     val scenes = script.expandedScenes.zip(audio.entries).zip(audio.files).map {
       case ((scene, entry), file) =>
         Json.obj(
@@ -3834,6 +3855,7 @@ private[cozy] object CozyVideo {
     }
     Json.obj(
       "partId" -> Json.fromString(part.id),
+      "title" -> Json.fromString(plan.project.title.orElse(script.title).getOrElse(part.id)),
       "outputPath" -> Json.fromString(_project_relative(plan.projectRoot, part.outputPath)),
       "fps" -> Json.fromInt(fps),
       "width" -> Json.fromInt(width),
@@ -3843,16 +3865,29 @@ private[cozy] object CozyVideo {
       "visualEffects" -> Json.fromValues(effectsjson),
       "assets" -> Json.fromValues(assetsjson),
       "timing" -> Json.obj(
+        "openingFrames" -> Json.fromInt(openingframes),
         "contentFrames" -> Json.fromInt(contentframes),
+        "sectionStartFrame" -> Json.fromInt(openingframes),
         "sectionStartFrames" -> Json.fromInt(sectionframes),
-        "summaryStartFrame" -> Json.fromInt(math.max(0, contentframes - summaryframes)),
+        "summaryStartFrame" -> Json.fromInt(openingframes + math.max(0, contentframes - summaryframes)),
         "summaryFrames" -> Json.fromInt(summaryframes),
-        "finalPageStartFrame" -> Json.fromInt(contentframes),
+        "finalPageStartFrame" -> Json.fromInt(openingframes + contentframes),
         "finalPageHoldFrames" -> Json.fromInt(finalframes),
         "totalFrames" -> Json.fromInt(totalframes)
       )
     )
   }
+
+  private def _effect_parameter_double(
+    effects: Vector[CozyVideoEffects.Expansion],
+    role: CozyVideoEffects.Role,
+    primitive: String,
+    parameter: String
+  ): Option[Double] =
+    effects.find(_.role == role).toVector.flatMap(_.primitives).
+      find(_.name == primitive).
+      flatMap(_.parameters.find(_._1 == parameter).map(_._2)).
+      flatMap(x => Try(x.toDouble).toOption)
 
   private def _remotion_props_ts(json: Json): String =
     s"""export const cozyVideoProps = ${json.spaces2};
@@ -3975,18 +4010,18 @@ private[cozy] object CozyVideo {
       |};
       |
       |type Primitive = {
-      |  name: 'flow-line' | 'underline-sweep' | 'summary-layout' | 'fade-rise' | 'spring-pop' | 'end-card' | 'hold';
+      |  name: 'title-card' | 'subtle-motion' | 'flow-line' | 'underline-sweep' | 'summary-layout' | 'fade-rise' | 'spring-pop' | 'end-card' | 'hold';
       |  parameters: Record<string, string>;
       |};
       |
       |type VisualEffect = {
-      |  role: 'section-start' | 'summary' | 'final-page';
+      |  role: 'opening' | 'section-start' | 'summary' | 'final-page';
       |  profile: string;
       |  primitives: Primitive[];
       |};
       |
       |type Asset = {
-      |  role: 'section-start' | 'summary' | 'final-page';
+      |  role: 'opening' | 'section-start' | 'summary' | 'final-page';
       |  path: string | null;
       |  kind: string;
       |  required: boolean;
@@ -3996,7 +4031,9 @@ private[cozy] object CozyVideo {
       |};
       |
       |type Timing = {
+      |  openingFrames: number;
       |  contentFrames: number;
+      |  sectionStartFrame: number;
       |  sectionStartFrames: number;
       |  summaryStartFrame: number;
       |  summaryFrames: number;
@@ -4007,6 +4044,7 @@ private[cozy] object CozyVideo {
       |
       |type Props = {
       |  partId: string;
+      |  title: string;
       |  fps: number;
       |  width: number;
       |  height: number;
@@ -4031,6 +4069,21 @@ private[cozy] object CozyVideo {
       |    <Audio src={staticFile(scene.audioPath)} />
       |  </AbsoluteFill>
       |);
+      |
+      |const Opening: React.FC<{title: string; effect: VisualEffect; asset?: Asset; durationInFrames: number}> = ({title, effect, asset, durationInFrames}) => {
+      |  const frame = useCurrentFrame();
+      |  const titleCard = primitive(effect, 'title-card');
+      |  const motion = primitive(effect, 'subtle-motion');
+      |  const hold = primitive(effect, 'hold');
+      |  const configuredScale = Number.parseFloat(motion?.parameters.scale || '1');
+      |  const scale = motion ? interpolate(frame, [0, Math.max(1, durationInFrames - 1)], [1, Number.isFinite(configuredScale) ? configuredScale : 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'}) : 1;
+      |  return titleCard && hold ? (
+      |    <AbsoluteFill style={{backgroundColor: '#101820', color: '#f4efe6', alignItems: 'center', justifyContent: 'center', overflow: 'hidden'}}>
+      |      <div style={{position: 'absolute', inset: -16, transform: `scale(${scale})`}}><AssetFrame asset={asset} opacity={0.38} /></div>
+      |      <div style={{fontFamily: 'Noto Sans CJK JP, sans-serif', fontSize: 72, fontWeight: 800, maxWidth: '82%', textAlign: 'center', zIndex: 1}}>{title}</div>
+      |    </AbsoluteFill>
+      |  ) : null;
+      |};
       |
       |const SectionStart: React.FC<{effect: VisualEffect; asset?: Asset; durationInFrames: number}> = ({effect, asset, durationInFrames}) => {
       |  const frame = useCurrentFrame();
@@ -4079,20 +4132,22 @@ private[cozy] object CozyVideo {
       |  ) : null;
       |};
       |
-      |export const CozyVideo: React.FC<Props> = ({scenes, fps, visualEffects, assets, timing}) => {
-      |  let start = 0;
+      |export const CozyVideo: React.FC<Props> = ({title, scenes, fps, visualEffects, assets, timing}) => {
+      |  let start = timing.openingFrames;
+      |  const opening = roleEffect(visualEffects, 'opening');
       |  const section = roleEffect(visualEffects, 'section-start');
       |  const summary = roleEffect(visualEffects, 'summary');
       |  const finalPage = roleEffect(visualEffects, 'final-page');
       |  return (
       |    <AbsoluteFill>
+      |      {opening && timing.openingFrames > 0 ? <Sequence from={0} durationInFrames={timing.openingFrames}><Opening title={title} effect={opening} asset={roleAsset(assets, 'opening')} durationInFrames={timing.openingFrames} /></Sequence> : null}
       |      {scenes.map((scene) => {
       |        const duration = Math.max(1, Math.round((scene.duration || 1) * fps));
       |        const sequence = <Sequence key={scene.id} from={start} durationInFrames={duration}><SceneCard scene={scene} /></Sequence>;
       |        start += duration;
       |        return sequence;
       |      })}
-      |      {section && timing.sectionStartFrames > 0 ? <Sequence from={0} durationInFrames={timing.sectionStartFrames}><SectionStart effect={section} asset={roleAsset(assets, 'section-start')} durationInFrames={timing.sectionStartFrames} /></Sequence> : null}
+      |      {section && timing.sectionStartFrames > 0 ? <Sequence from={timing.sectionStartFrame} durationInFrames={timing.sectionStartFrames}><SectionStart effect={section} asset={roleAsset(assets, 'section-start')} durationInFrames={timing.sectionStartFrames} /></Sequence> : null}
       |      {summary && timing.summaryFrames > 0 ? <Sequence from={timing.summaryStartFrame} durationInFrames={timing.summaryFrames}><Summary effect={summary} asset={roleAsset(assets, 'summary')} /></Sequence> : null}
       |      {finalPage && timing.finalPageHoldFrames > 0 ? <Sequence from={timing.finalPageStartFrame} durationInFrames={timing.finalPageHoldFrames}><FinalPage effect={finalPage} asset={roleAsset(assets, 'final-page')} /></Sequence> : null}
       |    </AbsoluteFill>

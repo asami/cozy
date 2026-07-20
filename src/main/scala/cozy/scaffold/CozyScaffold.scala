@@ -1617,7 +1617,7 @@ private[cozy] object CozyScaffold {
       |
       |  video scaffold <slug> [--save=<slug>.video] [--title=<title>] [--profile=<explanation|explanation-demo-explanation>]
       |      Create a Git-managed video source package with deterministic script and license-safe placeholder assets.
-      |      Visual profiles may be selected with --section-start-effect, --summary-effect, and --final-page-effect.
+      |      Visual profiles may be selected with --opening-effect, --section-start-effect, --summary-effect, and --final-page-effect.
       |
       |  video build <project-file> [--dry-run] [--check-tools] [--tool-mode=<docker|host>] [--docker-image=<image>]
       |      Assemble already-rendered part MP4 files into the project final output, or print the plan with --dry-run.

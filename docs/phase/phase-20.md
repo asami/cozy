@@ -67,7 +67,7 @@ Out of scope:
 
 Stage Status:
 
-- Current status: IN PROGRESS
+- Current status: DONE
 - Owner: cozy-video
 - Checklist basis: `VID20-01` and `VID20-02`
 
@@ -101,14 +101,14 @@ Verified implementation status:
   audio-manifest provenance into RDF and publication metadata.
 - `VID20-02` is complete for the supported provider set. Unknown providers and
   tool modes fail before output, VOICEVOX remains an external HTTP provider in
-  either tool mode, and `macos-say` is restricted to host mode. `VID20-04` will
-  extend the same matrix with the Docker-only Piper provider.
+  either tool mode, `macos-say` is restricted to host mode, and `piper` extends
+  the same matrix as a Docker-only provider.
 
 ## Stage 20.2: Host and Docker Providers
 
 Stage Status:
 
-- Current status: IN PROGRESS
+- Current status: DONE
 - Owner: cozy-video / textus-toolchain-runner
 - Checklist basis: `VID20-03` and `VID20-04`
 
@@ -143,7 +143,7 @@ Verified implementation status:
 
 Stage Status:
 
-- Current status: NOT STARTED
+- Current status: IN PROGRESS
 - Owner: cozy-video / SimpleModeling.org
 - Checklist basis: `VID20-05` and `VID20-06`
 
@@ -155,6 +155,26 @@ Focus:
   Cozy-owned composition/effect contracts;
 - verify the Japanese VOICEVOX route, English macOS route, and English portable
   Docker route from source to final MP4.
+
+Verified implementation status:
+
+- `VID20-05` is complete. `opening: title-hold-subtle-motion` expands to a
+  renderer-neutral title card, subtle scale motion, and a deterministic
+  4.5-second hold before the first renderable part only.
+- Scene and section-start timing is shifted after the opening interval, summary
+  timing remains relative to each part's content, and the final-page profile is
+  appended after the final renderable part only.
+- New scaffolds include independent opening, section-start, summary, and final
+  profile settings, generated license-safe asset slots, and a package-local
+  `.gitignore` for `build/` and `target/`.
+- `CozyVideoProfileRenderSpec` proves deterministic frame placement and the
+  managed ffmpeg/ffprobe assembly route. The real
+  `CozyVideoRemotionIntegrationSpec` rendered every part of both composition
+  profiles in `textus-toolchain:0.2.1-SNAPSHOT`, then assembled and verified
+  both final MP4 files through `cozy video build`.
+- Real final durations were 7.552 seconds for the single-part profile and
+  9.643 seconds for the three-part profile. No project-local effect executable
+  or manually authored ffmpeg pipeline was used.
 
 ## Stage 20.4: Credit Profiles and Publication Projection
 

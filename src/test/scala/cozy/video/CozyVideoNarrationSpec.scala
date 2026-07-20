@@ -306,7 +306,7 @@ final class CozyVideoNarrationSpec
           check.message should include_text("not selected")
           probe.httpGets shouldBe empty
         } finally {
-          Files.walk(directory).iterator().asScala.toVector.reverse.foreach(Files.deleteIfExists)
+          _delete_tree(directory)
         }
       }
 
@@ -340,7 +340,7 @@ final class CozyVideoNarrationSpec
           probe.commands shouldBe Vector(dockercheck, imagecheck, ttscheck)
           ttscheck should contain("--network=none")
         } finally {
-          Files.walk(directory).iterator().asScala.toVector.reverse.foreach(Files.deleteIfExists)
+          _delete_tree(directory)
         }
       }
 
@@ -522,8 +522,14 @@ final class CozyVideoNarrationSpec
       Files.writeString(script, text, StandardCharsets.UTF_8)
       body(script, directory.resolve("audio"))
     } finally {
-      Files.walk(directory).iterator().asScala.toVector.reverse.foreach(Files.deleteIfExists)
+      _delete_tree(directory)
     }
+  }
+
+  private def _delete_tree(path: Path): Unit = {
+    val paths = Files.walk(path)
+    try paths.iterator().asScala.toVector.reverse.foreach(Files.deleteIfExists)
+    finally paths.close()
   }
 
   private def _manifest_entry(output: Path) =

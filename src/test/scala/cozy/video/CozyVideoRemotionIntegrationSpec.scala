@@ -10,7 +10,7 @@ import cozy.CozySpecVocabulary
 
 /*
  * @since   Jul. 18, 2026
- * @version Jul. 18, 2026
+ * @version Jul. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoRemotionIntegrationSpec
@@ -53,13 +53,31 @@ final class CozyVideoRemotionIntegrationSpec
             CozyVideo.VideoProcessRunner.default
           )
 
-          Then("Cozy reports and verifies every declared MP4 output")
+          And("the real managed ffmpeg and ffprobe route assembles the rendered parts")
+          val build = CozyVideo.build(
+            CozyVideo.BuildConfig(
+              pkg.resolve("video.yaml"),
+              dryRun = false,
+              checkTools = true,
+              toolMode = Some("docker"),
+              dockerImage = Some(image)
+            ),
+            CozyVideo.VideoToolRegistry.default,
+            CozyVideo.VideoProcessRunner.default
+          )
+
+          Then("Cozy reports every part and verifies the final MP4")
           result should include_text(s"parts: ${partids.size}")
+          build should include_text("Cozy Video Build")
           partids.foreach { partid =>
             val output = pkg.resolve(s"build/parts/$partid.mp4")
             output should be_regular_file
             Files.size(output) should be > 0L
           }
+          val finaloutput = pkg.resolve(s"build/$profile.mp4")
+          finaloutput should be_regular_file
+          Files.size(finaloutput) should be > 0L
+          _read(pkg.resolve("build/manifest.json")) should include_text("\"ffprobe\"")
         }
       }
     }

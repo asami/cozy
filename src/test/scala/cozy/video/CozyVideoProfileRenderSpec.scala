@@ -11,7 +11,7 @@ import cozy.CozySpecVocabulary
 
 /*
  * @since   Jul. 18, 2026
- * @version Jul. 18, 2026
+ * @version Jul. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoProfileRenderSpec
@@ -51,6 +51,8 @@ final class CozyVideoProfileRenderSpec
             val workdir = pkg.resolve(s"target/cozy-video/remotion/$partid")
             val props = _json(workdir.resolve("props.json"))
             _primitive_names(props) shouldBe Set(
+              "title-card",
+              "subtle-motion",
               "flow-line",
               "underline-sweep",
               "summary-layout",
@@ -59,11 +61,17 @@ final class CozyVideoProfileRenderSpec
               "end-card",
               "hold"
             )
+            val openingframes = if (index == 0) 135 else 0
+            _int(props, "timing", "openingFrames") shouldBe openingframes
+            _int(props, "timing", "sectionStartFrame") shouldBe openingframes
             _int(props, "timing", "sectionStartFrames") shouldBe 36
+            _int(props, "timing", "summaryStartFrame") shouldBe openingframes + 168
             _int(props, "timing", "summaryFrames") shouldBe 72
             val finalframes = if (index == partids.size - 1) 60 else 0
+            _int(props, "timing", "finalPageStartFrame") shouldBe openingframes + 240
             _int(props, "timing", "finalPageHoldFrames") shouldBe finalframes
-            _int(props, "timing", "totalFrames") shouldBe 240 + finalframes
+            _int(props, "timing", "totalFrames") shouldBe openingframes + 240 + finalframes
+            workdir.resolve("public/assets/opening.svg") should be_regular_file
             workdir.resolve("public/assets/section-start.svg") should be_regular_file
             workdir.resolve("public/assets/summary.svg") should be_regular_file
             workdir.resolve("public/assets/final-page.svg") should be_regular_file
@@ -73,7 +81,7 @@ final class CozyVideoProfileRenderSpec
 
           And("the generated Remotion component has an implementation for each declared capability")
           val root = _read(pkg.resolve(s"target/cozy-video/remotion/${partids.head}/src/Root.tsx"))
-          Vector("flow-line", "underline-sweep", "summary-layout", "fade-rise", "spring-pop", "end-card", "hold").
+          Vector("title-card", "subtle-motion", "flow-line", "underline-sweep", "summary-layout", "fade-rise", "spring-pop", "end-card", "hold").
             foreach(x => root should include_text(x))
           val renderscript = _read(
             pkg.resolve(s"target/cozy-video/remotion/${partids.head}/src/render.mjs")
@@ -81,6 +89,43 @@ final class CozyVideoProfileRenderSpec
           renderscript should include_text("--public-dir=${publicDir}")
           renderscript should include_text("--dns-result-order=ipv4first")
         }
+      }
+    }
+
+    "assemble rendered profile parts through Cozy-managed ffmpeg and ffprobe" in {
+      _with_temp_dir("assembly") { dir =>
+        Given("a rendered explanation-demo-explanation package with every part output")
+        val pkg = dir.resolve("assembled.video")
+        CozyVideoScaffold.scaffold(CozyVideoScaffold.Config.create(List(
+          "assembled",
+          s"--save=$pkg",
+          "--profile=explanation-demo-explanation"
+        )))
+        val partids = Vector("introduction", "demonstration", "conclusion")
+        _write_audio_manifests(pkg, partids)
+        val runner = ProfileRenderRunner()
+        CozyVideo.render(
+          CozyVideo.RenderConfig(pkg.resolve("video.yaml"), "remotion", checkTools = false),
+          CozyVideo.VideoToolRegistry(Vector.empty),
+          runner
+        )
+
+        When("Cozy builds the final MP4 through its managed assembly route")
+        val result = CozyVideo.build(
+          CozyVideo.BuildConfig(pkg.resolve("video.yaml"), dryRun = false, checkTools = false),
+          CozyVideo.VideoToolRegistry(Vector.empty),
+          runner
+        )
+
+        Then("the final artifact and verification manifest come from ffmpeg and ffprobe")
+        result should include_text("Cozy Video Build")
+        pkg.resolve("build/assembled.mp4") should be_regular_file
+        pkg.resolve("build/manifest.json") should be_regular_file
+        runner.commands.map(_.args).exists(_.contains("ffmpeg")) shouldBe true
+        runner.commands.map(_.args).exists(_.contains("ffprobe")) shouldBe true
+        val manifest = _read(pkg.resolve("build/manifest.json"))
+        manifest should include_text("\"partOutputs\"")
+        manifest should include_text("\"ffprobe\"")
       }
     }
 
@@ -229,8 +274,11 @@ final class CozyVideoProfileRenderSpec
     Files.readString(path, StandardCharsets.UTF_8)
 
   private def _delete(path: Path): Unit =
-    if (Files.exists(path))
-      Files.walk(path).iterator().asScala.toVector.reverse.foreach(Files.delete)
+    if (Files.exists(path)) {
+      val paths = Files.walk(path)
+      try paths.iterator().asScala.toVector.reverse.foreach(Files.delete)
+      finally paths.close()
+    }
 }
 
 private[video] final case class ProfileRenderRunner()

@@ -6,7 +6,7 @@ import org.goldenport.RAISE
 
 /*
  * @since   Jul. 18, 2026
- * @version Jul. 18, 2026
+ * @version Jul. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoAssets {
@@ -37,6 +37,7 @@ private[cozy] object CozyVideoAssets {
   }
 
   final case class Settings(
+    opening: Option[Entry],
     sectionStart: Option[Entry],
     summary: Option[Entry],
     finalPage: Option[Entry]
@@ -44,10 +45,11 @@ private[cozy] object CozyVideoAssets {
   object Settings {
     implicit val decoder: Decoder[Settings] = (c: HCursor) =>
       for {
+        opening <- c.downField("opening").as[Option[Entry]]
         sectionstart <- _optional_entry(c, "sectionStart", "section-start")
         summary <- c.downField("summary").as[Option[Entry]]
         finalpage <- _optional_entry(c, "finalPage", "final-page")
-      } yield Settings(sectionstart, summary, finalpage)
+      } yield Settings(opening, sectionstart, summary, finalpage)
   }
 
   final case class Resolved(
@@ -73,6 +75,7 @@ private[cozy] object CozyVideoAssets {
 
   private def _entry(settings: Settings, role: CozyVideoEffects.Role): Option[Entry] =
     role match {
+      case CozyVideoEffects.Role.Opening => settings.opening
       case CozyVideoEffects.Role.SectionStart => settings.sectionStart
       case CozyVideoEffects.Role.Summary => settings.summary
       case CozyVideoEffects.Role.FinalPage => settings.finalPage

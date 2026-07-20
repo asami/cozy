@@ -133,6 +133,7 @@ checksum, or host tool mode stops checked synthesis before audio is generated.
 ```yaml
 profile: explanation-demo-explanation
 visual-effects:
+  opening: title-hold-subtle-motion
   section-start: line-sweep
   summary: overview-and-conclusion
   final-page: end-card
@@ -140,20 +141,31 @@ renderer:
   engine: remotion
 ```
 
-Remotion consumes the initial section-start, summary, and final-page profiles.
+Remotion consumes the opening, section-start, summary, and final-page profiles.
 To use a renderer that does not declare those primitive capabilities, set the
 corresponding profiles to `none`; Cozy otherwise stops before invoking the
 renderer rather than silently substituting an effect.
 
+The default opening profile expands to a title card, subtle scale motion, and a
+deterministic 4.5-second hold. It is inserted before the first renderable part
+only. Scene audio and section-start timing begin after this interval; later
+parts do not repeat it. This replaces project-local opening extraction and
+manual ffmpeg prefix assembly.
+
 The default final page appears after the final renderable composition part and
 includes a deterministic two-second hold. Renderer workspace `props.json` and
 the part manifest record the resulting frame timing.
+
+Scaffold profile defaults can be changed independently with
+`--opening-effect`, `--section-start-effect`, `--summary-effect`, and
+`--final-page-effect`. Use `none` to disable one role explicitly.
 
 ## Replace Placeholder Assets
 
 The scaffold generates these license-safe SVG slots:
 
 ```text
+assets/opening.svg
 assets/section-start.svg
 assets/summary.svg
 assets/final-page.svg
@@ -179,6 +191,11 @@ generated slot placeholder.
 Cozy does not fetch asset URLs. The scaffold neither copies nor references
 media under `0714.techfirst.lt/assets`, whose redistribution license is not
 established. Only renderer-neutral behavior inspired by that project is reused.
+
+Each generated video package includes a `.gitignore` for `build/` and `target/`.
+Narration output, renderer workspaces, intermediate MP4 files, final MP4 files,
+and verification manifests therefore remain generated artifacts rather than
+source files.
 
 ## Inspect, Render, And Publish
 
