@@ -101,6 +101,31 @@ vectors, converts the host audio to the canonical WAV contract, and records the
 macOS voice name in each manifest entry. Docker mode is rejected before output;
 `--check-tools` also diagnoses non-macOS hosts and missing `say` or ffmpeg.
 
+Portable English narration uses the Docker-only `piper` provider:
+
+```json
+{
+  "narration": {"provider": "piper"},
+  "characters": {
+    "guide": {"voice": {"model": "en_US-ljspeech-medium"}},
+    "reviewer": {"voice": {"model": "en_US-joe-medium"}}
+  }
+}
+```
+
+Run it with `--tool-mode=docker` and a Textus toolchain image containing Piper.
+The default model is `en_US-ljspeech-medium`; a character can select either
+bundled model with `voice.model`. Cozy writes the narration text to a temporary
+project workspace and invokes `textus-toolchain piper-synthesize` with
+`--network=none`. Runtime model downloads are not allowed. The toolchain image
+pins Piper `1.4.2`, model revisions, checksums, and source-license provenance in
+`/opt/textus/models/piper/manifest.json`. Cozy records the selected model as
+both voice and model identity in the generated audio manifest.
+
+`--check-tools` runs `textus-toolchain check tts` in the selected image without
+network access. Missing Docker, a missing image, an invalid runtime/model
+checksum, or host tool mode stops checked synthesis before audio is generated.
+
 ## Composition And Visual Profiles
 
 `video.yaml` keeps composition and visual behavior separate:

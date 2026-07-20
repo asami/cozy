@@ -47,19 +47,19 @@ Status: DONE
 
 ## VID20-04: Portable Docker TTS Provider
 
-Status: NOT STARTED
+Status: DONE
 
-- [ ] Pin Piper as the Linux TTS runtime for offline English synthesis.
-- [ ] Select two voice models whose redistribution licenses are explicitly
+- [x] Pin Piper as the Linux TTS runtime for offline English synthesis.
+- [x] Select two voice models whose redistribution licenses are explicitly
       acceptable for the Textus toolchain image.
-- [ ] Add runtime and model SHA-256 verification to the image build.
-- [ ] Add a machine-readable model provenance and license manifest under
+- [x] Add runtime and model SHA-256 verification to the image build.
+- [x] Add a machine-readable model provenance and license manifest under
       `/opt/textus/models`.
-- [ ] Add `textus-toolchain check tts` and integrate the required TTS checks
+- [x] Add `textus-toolchain check tts` and integrate the required TTS checks
       with the video toolchain contract.
-- [ ] Run a real Docker smoke that creates canonical WAV output without runtime
+- [x] Run a real Docker smoke that creates canonical WAV output without runtime
       network access.
-- [ ] Build and test only a snapshot image until the provider contract is
+- [x] Build and test only a snapshot image until the provider contract is
       accepted.
 
 ## VID20-05: Cozy Rendering and Assembly Completion

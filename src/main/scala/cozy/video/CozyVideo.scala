@@ -657,6 +657,7 @@ private[cozy] object CozyVideo {
       TextusToolchainImageProvider(probe),
       VoicevoxProvider(probe),
       MacosSayProvider(probe),
+      PiperProvider(probe),
       FfmpegProvider(probe),
       RemotionNodeProvider(probe),
       PlaywrightProvider(probe),
@@ -1016,6 +1017,69 @@ private[cozy] object CozyVideo {
       }
   }
 
+  final case class PiperProvider(probe: VideoToolProbe) extends VideoToolProvider {
+    def check(context: VideoToolContext): VideoToolCheck =
+      if (context.narrationProviders.nonEmpty && !context.narrationProviders.contains("piper"))
+        VideoToolCheck(
+          "piper",
+          VideoToolMode.Docker,
+          VideoToolStatus.Unchecked,
+          "Piper was not checked because it is not selected by this video plan."
+        )
+      else if (context.execution.toolMode != VideoToolMode.Docker)
+        VideoToolCheck(
+          "piper",
+          VideoToolMode.Docker,
+          VideoToolStatus.Unsupported,
+          "Piper narration requires Docker tool mode.",
+          Some("Use --tool-mode=docker and a Textus toolchain image containing the Piper runtime and models.")
+        )
+      else {
+        val image = context.execution.dockerImage
+        val docker = probe.command(Vector("docker", "version", "--format", "{{.Server.Version}}"), context.projectRoot)
+        if (!docker.isSuccess)
+          VideoToolCheck(
+            "piper",
+            VideoToolMode.Docker,
+            VideoToolStatus.Missing,
+            _message("Docker is unavailable for Piper narration.", docker),
+            Some("Install or start Docker, then rerun with --check-tools.")
+          )
+        else {
+          val inspect = probe.command(Vector("docker", "image", "inspect", image), context.projectRoot)
+          if (!inspect.isSuccess)
+            VideoToolCheck(
+              "piper",
+              VideoToolMode.Docker,
+              VideoToolStatus.Missing,
+              _message(s"The Piper toolchain image is unavailable: $image.", inspect),
+              Some("Build or pull a Textus toolchain image containing Piper, then rerun with --check-tools.")
+            )
+          else {
+            val result = probe.command(
+              Vector("docker", "run", "--rm", "--network=none", image, "textus-toolchain", "check", "tts"),
+              context.projectRoot
+            )
+            if (result.isSuccess)
+              VideoToolCheck(
+                "piper",
+                VideoToolMode.Docker,
+                VideoToolStatus.Available,
+                s"Portable Piper narration is available in Docker image: $image."
+              )
+            else
+              VideoToolCheck(
+                "piper",
+                VideoToolMode.Docker,
+                VideoToolStatus.Missing,
+                _message(s"Piper runtime or model validation failed in Docker image: $image.", result),
+                Some("Rebuild the Textus toolchain snapshot image and verify: textus-toolchain check tts")
+              )
+          }
+        }
+      }
+  }
+
   final case class FfmpegProvider(probe: VideoToolProbe) extends VideoToolProvider {
     def check(context: VideoToolContext): VideoToolCheck = {
       if (context.execution.toolMode == VideoToolMode.Docker)
@@ -1261,6 +1325,7 @@ private[cozy] object CozyVideo {
   private val _supported_renderers = Set("remotion", "simple-java2d")
   private val _docker_managed_tools = Set("remotion", "playwright", "ffmpeg", "ffprobe", "node", "npm", "whisper-cpp", "python-pillow")
   private val _docker_whisper_model = "/opt/textus/models/ggml-base.bin"
+  private val _default_piper_model = "en_US-ljspeech-medium"
   private val _property_options = Set("tool-mode", "docker-image", "save", "voicevox-url", "renderer", "part", "whisper-model", "events", "har", "trace", "transcript")
   private val _default_sample_rate = 24000
   private val _default_audio_channels = 1
@@ -1378,9 +1443,15 @@ private[cozy] object CozyVideo {
             "Narration provider macos-say requires host tool mode. Use --tool-mode=host."
           )
         new MacosSayNarrationProvider(config.projectRoot, runner)
+      case "piper" =>
+        if (execution.toolMode != VideoToolMode.Docker)
+          RAISE.invalidArgumentFault(
+            "Narration provider piper requires Docker tool mode. Use --tool-mode=docker."
+          )
+        new PiperNarrationProvider(config.projectRoot, execution, runner)
       case unsupported =>
         RAISE.invalidArgumentFault(
-          s"Unsupported narration provider: $unsupported. Supported providers: voicevox, macos-say."
+          s"Unsupported narration provider: $unsupported. Supported providers: voicevox, macos-say, piper."
         )
     }
     val checks =
@@ -1891,6 +1962,59 @@ private[cozy] object CozyVideo {
           Some(voicename),
           None,
           Some("macos-say")
+        )
+      } finally {
+        Files.walk(workdir).iterator().asScala.toVector.reverse.foreach(Files.deleteIfExists)
+      }
+    }
+  }
+
+  private final class PiperNarrationProvider(
+    projectroot: Path,
+    execution: VideoExecutionConfig,
+    runner: VideoProcessRunner
+  ) extends NarrationProvider {
+    val id = "piper"
+    val executionMode = "docker"
+
+    def synthesize(text: String, voice: Json): NarrationAudio = {
+      val modelid = _json_string(voice, "model").
+        orElse(_json_string(voice, "modelIdentity")).
+        map(_.trim).
+        filter(_.nonEmpty).
+        getOrElse(_default_piper_model)
+      val workroot = projectroot.resolve("target/cozy-video/piper").normalize()
+      Files.createDirectories(workroot)
+      val workdir = Files.createTempDirectory(workroot, "narration-")
+      val input = workdir.resolve("narration.txt")
+      val output = workdir.resolve("narration.wav")
+      try {
+        Files.writeString(input, text, StandardCharsets.UTF_8)
+        val command = _execution_command(
+          projectroot,
+          execution,
+          "textus-toolchain",
+          Vector(
+            "piper-synthesize",
+            "--model",
+            modelid,
+            "--input",
+            _execution_path(projectroot, execution, input),
+            "--output",
+            _execution_path(projectroot, execution, output)
+          ),
+          networkdisabled = true
+        )
+        val result = runner.run(command, projectroot)
+        if (!result.isSuccess)
+          RAISE.invalidArgumentFault(s"Piper narration failed for model $modelid: ${result.text}")
+        if (!Files.isRegularFile(output))
+          RAISE.invalidArgumentFault(s"Piper narration did not create WAV output for model $modelid.")
+        NarrationAudio(
+          Files.readAllBytes(output),
+          Some(modelid),
+          None,
+          Some(modelid)
         )
       } finally {
         Files.walk(workdir).iterator().asScala.toVector.reverse.foreach(Files.deleteIfExists)
@@ -2767,13 +2891,20 @@ private[cozy] object CozyVideo {
       case _ => path.toString
     }
 
-  private def _execution_command(projectroot: Path, execution: VideoExecutionConfig, tool: String, args: Vector[String]): Vector[String] =
+  private def _execution_command(
+    projectroot: Path,
+    execution: VideoExecutionConfig,
+    tool: String,
+    args: Vector[String],
+    networkdisabled: Boolean = false
+  ): Vector[String] =
     execution.toolMode match {
       case VideoToolMode.Docker =>
         Vector(
           "docker",
           "run",
-          "--rm",
+          "--rm"
+        ) ++ (if (networkdisabled) Vector("--network=none") else Vector.empty) ++ Vector(
           "-v",
           s"${projectroot}:/workspace",
           "-w",

@@ -128,8 +128,16 @@ Verified implementation status:
   emits the shared canonical WAV and provenance contract.
 - Provider checks diagnose Docker-mode misuse, non-macOS hosts, missing `say`,
   and missing ffmpeg before checked synthesis begins.
-- `VID20-04` remains open for the pinned Piper runtime, licensed voice models,
-  toolchain image checks, and offline Docker smoke.
+- `VID20-04` is complete. The Textus toolchain snapshot image pins Piper
+  `1.4.2`, the `en_US-ljspeech-medium` public-domain-source model, and the
+  `en_US-joe-medium` CC0-source model. Build-time and runtime checks validate
+  the runtime license, model cards, configurations, and model SHA-256 values.
+- Cozy's Docker-only `piper` provider invokes
+  `textus-toolchain piper-synthesize` through an argument vector with
+  `--network=none`, supports per-character model selection, and records the
+  model as authoritative voice/model provenance.
+- A real `textus-toolchain:0.2.1-SNAPSHOT` Docker smoke synthesized both models
+  without runtime network access and verified 24 kHz mono 16-bit PCM WAV.
 
 ## Stage 20.3: Cozy-Complete Overview Migration
 

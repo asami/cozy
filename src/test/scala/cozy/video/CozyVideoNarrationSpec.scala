@@ -114,7 +114,7 @@ final class CozyVideoNarrationSpec
         Given("a canonical provider that is not implemented in this runtime")
         _with_script(
           """{
-            |  "narration": {"provider": "piper"},
+            |  "narration": {"provider": "espeak"},
             |  "scenes": [{"id": "intro", "duration": 0.2, "line": "Hello"}]
             |}""".stripMargin
         ) { (script, output) =>
@@ -127,7 +127,7 @@ final class CozyVideoNarrationSpec
           }
 
           Then("the unsupported provider is reported before files are written")
-          error.getMessage should include_text("Unsupported narration provider: piper")
+          error.getMessage should include_text("Unsupported narration provider: espeak")
           Files.exists(output) shouldBe false
         }
       }
@@ -310,6 +310,122 @@ final class CozyVideoNarrationSpec
         }
       }
 
+      "checks only the selected portable Piper runtime without network access" in {
+        Given("a Docker tool context selecting Piper and a validated toolchain image")
+        val directory = Files.createTempDirectory("cozy-video-piper-check-spec")
+        try {
+          val image = "textus-toolchain:0.2.1-SNAPSHOT"
+          val dockercheck = Vector("docker", "version", "--format", "{{.Server.Version}}")
+          val imagecheck = Vector("docker", "image", "inspect", image)
+          val ttscheck = Vector("docker", "run", "--rm", "--network=none", image, "textus-toolchain", "check", "tts")
+          val success = CozyVideo.VideoCommandResult(0, "ok", "")
+          val probe = RecordingProbe(commandResults = Map(
+            dockercheck -> success,
+            imagecheck -> success,
+            ttscheck -> success
+          ))
+          val project = CozyVideo.VideoProject(None, None, None, None, None, Vector.empty)
+          val execution = CozyVideo.VideoExecutionConfig(
+            CozyVideo.VideoToolMode.Docker,
+            image,
+            "http://voicevox.example"
+          )
+          val context = CozyVideo.VideoToolContext(directory.resolve("video.json"), directory, project, execution, Set("piper"))
+
+          When("the Piper tool provider validates the selected image")
+          val check = CozyVideo.PiperProvider(probe).check(context)
+
+          Then("the offline TTS contract is available and all checks are argument vectors")
+          check.status shouldBe CozyVideo.VideoToolStatus.Available
+          probe.commands shouldBe Vector(dockercheck, imagecheck, ttscheck)
+          ttscheck should contain("--network=none")
+        } finally {
+          Files.walk(directory).iterator().asScala.toVector.reverse.foreach(Files.deleteIfExists)
+        }
+      }
+
+      "synthesizes two-character portable narration with bundled Piper models" in {
+        Given("a Docker-mode Piper script with two explicitly selected model identities")
+        _with_script(
+          """{
+            |  "narration": {"provider": "piper"},
+            |  "characters": {
+            |    "guide": {"voice": {"model": "en_US-ljspeech-medium"}},
+            |    "reviewer": {"voice": {"model": "en_US-joe-medium"}}
+            |  },
+            |  "scenes": [
+            |    {"id": "intro", "speaker": "guide", "duration": 0.2, "line": "Welcome"},
+            |    {"id": "review", "speaker": "reviewer", "duration": 0.2, "line": "Continue"}
+            |  ]
+            |}""".stripMargin
+        ) { (script, output) =>
+          val available = CozyVideo.VideoToolCheck(
+            "piper",
+            CozyVideo.VideoToolMode.Docker,
+            CozyVideo.VideoToolStatus.Available,
+            "available"
+          )
+          val runner = new PiperRunner
+
+          When("Cozy invokes each bundled model through the offline Docker command")
+          val result = CozyVideo.synthesize(
+            CozyVideo.SynthesizeConfig(
+              script,
+              output,
+              checkTools = true,
+              toolMode = Some("docker"),
+              dockerImage = Some("textus-toolchain:0.2.1-SNAPSHOT")
+            ),
+            CozyVideo.VideoToolRegistry(Vector(StubProvider(available))),
+            RecordingVoicevoxClient(),
+            runner
+          )
+          val entries = parser.parse(Files.readString(output.resolve("manifest.json"))).toOption.flatMap(_.asArray).get
+
+          Then("both model identities and the portable execution boundary are retained")
+          result should include_text("provider: piper")
+          result should include_text("executionMode: docker")
+          runner._commands.size shouldBe 2
+          runner._commands.foreach { command =>
+            command.take(4) shouldBe Vector("docker", "run", "--rm", "--network=none")
+            command should contain allOf ("textus-toolchain", "piper-synthesize", "--input", "--output")
+            command.exists(_.startsWith("/workspace/target/cozy-video/piper/")) shouldBe true
+          }
+          runner._commands.head should contain("en_US-ljspeech-medium")
+          runner._commands(1) should contain("en_US-joe-medium")
+          entries.flatMap(_.hcursor.downField("voiceIdentity").as[String].toOption) shouldBe
+            Vector("en_US-ljspeech-medium", "en_US-joe-medium")
+          entries.flatMap(_.hcursor.downField("modelIdentity").as[String].toOption) shouldBe
+            Vector("en_US-ljspeech-medium", "en_US-joe-medium")
+          val workroot = script.getParent.resolve("target/cozy-video/piper")
+          val entriesstream = Files.list(workroot)
+          try entriesstream.iterator().asScala.toVector shouldBe empty
+          finally entriesstream.close()
+        }
+      }
+
+      "rejects portable Piper narration in host mode before output" in {
+        Given("a Piper script with host tool mode")
+        _with_script(
+          """{
+            |  "narration": {"provider": "piper"},
+            |  "scenes": [{"id": "intro", "duration": 0.2, "line": "Hello"}]
+            |}""".stripMargin
+        ) { (script, output) =>
+          When("Cozy validates provider and execution mode compatibility")
+          val error = intercept[RuntimeException] {
+            CozyVideo.synthesize(
+              CozyVideo.SynthesizeConfig(script, output, toolMode = Some("host")),
+              RecordingVoicevoxClient()
+            )
+          }
+
+          Then("the Docker-only provider fails before creating audio output")
+          error.getMessage should include_text("piper requires Docker tool mode")
+          Files.exists(output) shouldBe false
+        }
+      }
+
       "synthesizes two-character macOS narration through argument-vector tools" in {
         Given("a host-mode macos-say script with Samantha and Karen characters")
         _with_script(
@@ -345,9 +461,9 @@ final class CozyVideoNarrationSpec
           Then("say and ffmpeg run as argument vectors and voice provenance is retained")
           result should include_text("provider: macos-say")
           result should include_text("executionMode: host")
-          runner.commands.map(_.head) shouldBe Vector("say", "ffmpeg", "say", "ffmpeg")
-          runner.commands(0) should contain allOf ("Samantha", "185", "Welcome")
-          runner.commands(2) should contain allOf ("Karen", "175", "Continue")
+          runner._commands.map(_.head) shouldBe Vector("say", "ffmpeg", "say", "ffmpeg")
+          runner._commands(0) should contain allOf ("Samantha", "185", "Welcome")
+          runner._commands(2) should contain allOf ("Karen", "175", "Continue")
           entries.flatMap(_.hcursor.downField("voiceIdentity").as[String].toOption) shouldBe Vector("Samantha", "Karen")
           entries.flatMap(_.hcursor.downField("modelIdentity").as[String].toOption).distinct shouldBe Vector("macos-say")
         }
@@ -414,10 +530,10 @@ final class CozyVideoNarrationSpec
     parser.parse(Files.readString(output.resolve("manifest.json"), StandardCharsets.UTF_8)).toOption.flatMap(_.asArray).get.head
 
   private final class MacosSayRunner extends CozyVideo.VideoProcessRunner {
-    val commands = ArrayBuffer.empty[Vector[String]]
+    val _commands = ArrayBuffer.empty[Vector[String]]
 
     def run(args: Vector[String], cwd: Path): CozyVideo.VideoCommandResult = {
-      commands += args
+      _commands += args
       args.headOption match {
         case Some("say") =>
           val output = Path.of(args(args.indexOf("-o") + 1))
@@ -426,6 +542,22 @@ final class CozyVideoNarrationSpec
           Files.write(Path.of(args.last), _wav_bytes(0.2, 24000, 1, Vector(8192)))
         case _ =>
       }
+      CozyVideo.VideoCommandResult(0, "ok", "")
+    }
+  }
+
+  private final class PiperRunner extends CozyVideo.VideoProcessRunner {
+    val _commands = ArrayBuffer.empty[Vector[String]]
+
+    def run(args: Vector[String], cwd: Path): CozyVideo.VideoCommandResult = {
+      _commands += args
+      val outputarg = args(args.indexOf("--output") + 1)
+      val output =
+        if (outputarg.startsWith("/workspace/"))
+          cwd.resolve(outputarg.stripPrefix("/workspace/"))
+        else
+          Path.of(outputarg)
+      Files.write(output, _wav_bytes(0.2, 24000, 1, Vector(8192)))
       CozyVideo.VideoCommandResult(0, "ok", "")
     }
   }
