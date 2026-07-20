@@ -14,7 +14,7 @@ import scala.collection.JavaConverters._
  * @since   May. 20, 2026
  *  version May. 25, 2026
  *  version Jun. 27, 2026
- * @version Jul. 19, 2026
+ * @version Jul. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyScaffold {
@@ -1623,9 +1623,9 @@ private[cozy] object CozyScaffold {
       |      Assemble already-rendered part MP4 files into the project final output, or print the plan with --dry-run.
       |      Docker mode wraps Remotion, Playwright, ffmpeg, whisper.cpp, and Python/Pillow helper steps in the configured Textus toolchain image.
       |
-      |  video synthesize <script-file> --save <audio-dir> [--voicevox-url=<url>]
-      |      Generate VOICEVOX scene WAV files, a combined WAV, and manifest.json.
-      |      VOICEVOX Engine is always used as an external HTTP service.
+      |  video synthesize <script-file> --save <audio-dir> [--check-tools] [--tool-mode=<docker|host>] [--docker-image=<image>] [--voicevox-url=<url>]
+      |      Generate provider-selected scene WAV files, a combined WAV, and manifest.json.
+      |      CLI execution settings override script tools and Cozy video defaults. VOICEVOX remains an external HTTP service.
       |
       |  video render <project-file> --renderer=remotion|simple-java2d [--part=<id>] [--tool-mode=<docker|host>] [--docker-image=<image>] [--check-tools]
       |      Render project parts with Cozy-generated Remotion compositions or a simple Python/Pillow plus ffmpeg renderer.

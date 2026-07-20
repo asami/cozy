@@ -4,6 +4,7 @@ import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
 import scala.collection.JavaConverters._
+import scala.collection.mutable.ArrayBuffer
 import io.circe.parser
 import org.scalatest.GivenWhenThen
 import org.scalatest.wordspec.AnyWordSpec
@@ -18,7 +19,7 @@ final class CozyVideoNarrationSpec
     extends AnyWordSpec
     with GivenWhenThen
     with CozySpecVocabulary {
-  import CozyVideoSpec.RecordingVoicevoxClient
+  import CozyVideoSpec.{RecordingProbe, RecordingVoicevoxClient, StubProvider}
 
   "Cozy Video narration" should {
     "select a provider before synthesis" which {
@@ -221,6 +222,180 @@ final class CozyVideoNarrationSpec
           }
         }
       }
+
+      "uses shared CLI execution settings ahead of script settings" in {
+        Given("a narration script with host-mode tool defaults")
+        _with_script(
+          """{
+            |  "tools": {"toolMode": "host", "dockerImage": "script/image:1", "voicevoxUrl": "http://script.example"},
+            |  "narration": {"provider": "voicevox"},
+            |  "scenes": [{"id": "intro", "duration": 0.2, "line": "Hello"}]
+            |}""".stripMargin
+        ) { (script, output) =>
+          val voicevox = RecordingVoicevoxClient()
+
+          When("CLI execution settings override the script defaults")
+          val result = CozyVideo.synthesize(
+            CozyVideo.SynthesizeConfig(
+              script,
+              output,
+              Some("http://cli.example"),
+              toolMode = Some("docker"),
+              dockerImage = Some("cli/image:2")
+            ),
+            voicevox
+          )
+
+          Then("the resolved shared execution settings and endpoint are used")
+          result should include_text("toolMode: docker")
+          result should include_text("dockerImage: cli/image:2")
+          voicevox.calls.map(_.baseUrl).distinct shouldBe Vector("http://cli.example")
+        }
+      }
+
+      "checks the selected provider before writing output" in {
+        Given("a selected VOICEVOX provider whose tool check reports it missing")
+        _with_script(
+          """{
+            |  "narration": {"provider": "voicevox"},
+            |  "scenes": [{"id": "intro", "duration": 0.2, "line": "Hello"}]
+            |}""".stripMargin
+        ) { (script, output) =>
+          val missing = CozyVideo.VideoToolCheck(
+            "voicevox",
+            CozyVideo.VideoToolMode.ExternalService,
+            CozyVideo.VideoToolStatus.Missing,
+            "VOICEVOX is unavailable.",
+            Some("Start VOICEVOX.")
+          )
+
+          When("synthesis runs with tool checking enabled")
+          val error = intercept[RuntimeException] {
+            CozyVideo.synthesize(
+              CozyVideo.SynthesizeConfig(script, output, checkTools = true),
+              CozyVideo.VideoToolRegistry(Vector(StubProvider(missing))),
+              RecordingVoicevoxClient()
+            )
+          }
+
+          Then("the selected provider failure stops synthesis before output")
+          error.getMessage should include_text("Cannot synthesize narration: voicevox is not available")
+          error.getMessage should include_text("Start VOICEVOX")
+          Files.exists(output) shouldBe false
+        }
+      }
+
+      "does not probe VOICEVOX when another narration provider is selected" in {
+        Given("a tool context that selects only Piper narration")
+        val directory = Files.createTempDirectory("cozy-video-provider-check-spec")
+        try {
+          val probe = RecordingProbe()
+          val project = CozyVideo.VideoProject(None, None, None, None, None, Vector.empty)
+          val execution = CozyVideo.VideoExecutionConfig(
+            CozyVideo.VideoToolMode.Docker,
+            "toolchain/image:1",
+            "http://voicevox.example"
+          )
+          val context = CozyVideo.VideoToolContext(directory.resolve("video.json"), directory, project, execution, Set("piper"))
+
+          When("the VOICEVOX tool provider evaluates that plan")
+          val check = CozyVideo.VoicevoxProvider(probe).check(context)
+
+          Then("the provider is marked unselected without an HTTP probe")
+          check.status shouldBe CozyVideo.VideoToolStatus.Unchecked
+          check.message should include_text("not selected")
+          probe.httpGets shouldBe empty
+        } finally {
+          Files.walk(directory).iterator().asScala.toVector.reverse.foreach(Files.deleteIfExists)
+        }
+      }
+
+      "synthesizes two-character macOS narration through argument-vector tools" in {
+        Given("a host-mode macos-say script with Samantha and Karen characters")
+        _with_script(
+          """{
+            |  "narration": {"provider": "macos-say"},
+            |  "characters": {
+            |    "guide": {"voice": {"voiceName": "Samantha", "rate": 185}},
+            |    "reviewer": {"voice": {"voiceName": "Karen", "rate": 175}}
+            |  },
+            |  "scenes": [
+            |    {"id": "intro", "speaker": "guide", "duration": 0.2, "line": "Welcome"},
+            |    {"id": "review", "speaker": "reviewer", "duration": 0.2, "line": "Continue"}
+            |  ]
+            |}""".stripMargin
+        ) { (script, output) =>
+          val available = CozyVideo.VideoToolCheck(
+            "macos-say",
+            CozyVideo.VideoToolMode.Host,
+            CozyVideo.VideoToolStatus.Available,
+            "available"
+          )
+          val runner = new MacosSayRunner
+
+          When("Cozy synthesizes with host mode and validates the selected provider")
+          val result = CozyVideo.synthesize(
+            CozyVideo.SynthesizeConfig(script, output, checkTools = true, toolMode = Some("host")),
+            CozyVideo.VideoToolRegistry(Vector(StubProvider(available))),
+            RecordingVoicevoxClient(),
+            runner
+          )
+          val entries = parser.parse(Files.readString(output.resolve("manifest.json"))).toOption.flatMap(_.asArray).get
+
+          Then("say and ffmpeg run as argument vectors and voice provenance is retained")
+          result should include_text("provider: macos-say")
+          result should include_text("executionMode: host")
+          runner.commands.map(_.head) shouldBe Vector("say", "ffmpeg", "say", "ffmpeg")
+          runner.commands(0) should contain allOf ("Samantha", "185", "Welcome")
+          runner.commands(2) should contain allOf ("Karen", "175", "Continue")
+          entries.flatMap(_.hcursor.downField("voiceIdentity").as[String].toOption) shouldBe Vector("Samantha", "Karen")
+          entries.flatMap(_.hcursor.downField("modelIdentity").as[String].toOption).distinct shouldBe Vector("macos-say")
+        }
+      }
+
+      "rejects macOS narration in Docker mode before output" in {
+        Given("a macos-say script with Docker tool mode")
+        _with_script(
+          """{
+            |  "narration": {"provider": "macos-say"},
+            |  "scenes": [{"id": "intro", "duration": 0.2, "line": "Hello"}]
+            |}""".stripMargin
+        ) { (script, output) =>
+          When("Cozy validates provider and execution mode compatibility")
+          val error = intercept[RuntimeException] {
+            CozyVideo.synthesize(
+              CozyVideo.SynthesizeConfig(script, output, toolMode = Some("docker")),
+              RecordingVoicevoxClient()
+            )
+          }
+
+          Then("the incompatible mode is explicit and no output is written")
+          error.getMessage should include_text("macos-say requires host tool mode")
+          Files.exists(output) shouldBe false
+        }
+      }
+
+      "rejects an unknown synthesis tool mode before output" in {
+        Given("a VOICEVOX script with an unknown execution mode")
+        _with_script(
+          """{
+            |  "narration": {"provider": "voicevox"},
+            |  "scenes": [{"id": "intro", "duration": 0.2, "line": "Hello"}]
+            |}""".stripMargin
+        ) { (script, output) =>
+          When("Cozy resolves the shared synthesis execution settings")
+          val error = intercept[RuntimeException] {
+            CozyVideo.synthesize(
+              CozyVideo.SynthesizeConfig(script, output, toolMode = Some("sidecar")),
+              RecordingVoicevoxClient()
+            )
+          }
+
+          Then("the unknown mode is rejected before audio output exists")
+          error.getMessage should include_text("Invalid video tool mode: sidecar")
+          Files.exists(output) shouldBe false
+        }
+      }
     }
   }
 
@@ -237,6 +412,23 @@ final class CozyVideoNarrationSpec
 
   private def _manifest_entry(output: Path) =
     parser.parse(Files.readString(output.resolve("manifest.json"), StandardCharsets.UTF_8)).toOption.flatMap(_.asArray).get.head
+
+  private final class MacosSayRunner extends CozyVideo.VideoProcessRunner {
+    val commands = ArrayBuffer.empty[Vector[String]]
+
+    def run(args: Vector[String], cwd: Path): CozyVideo.VideoCommandResult = {
+      commands += args
+      args.headOption match {
+        case Some("say") =>
+          val output = Path.of(args(args.indexOf("-o") + 1))
+          Files.write(output, "AIFF".getBytes(StandardCharsets.US_ASCII))
+        case Some("ffmpeg") =>
+          Files.write(Path.of(args.last), _wav_bytes(0.2, 24000, 1, Vector(8192)))
+        case _ =>
+      }
+      CozyVideo.VideoCommandResult(0, "ok", "")
+    }
+  }
 
   private def _wav_format(path: Path): (Int, Int, Int) = {
     val bytes = Files.readAllBytes(path)

@@ -22,28 +22,28 @@ Status: DONE
 
 ## VID20-02: CLI, Configuration, and Diagnostics
 
-Status: NOT STARTED
+Status: DONE
 
-- [ ] Extend `cozy video synthesize` with the execution settings required by
+- [x] Extend `cozy video synthesize` with the execution settings required by
       host and Docker providers.
-- [ ] Resolve Docker image settings through the existing Cozy Video precedence.
-- [ ] Add selected-provider checks to `video inspect --check-tools`.
-- [ ] Reject unsupported provider names and invalid provider/mode combinations
+- [x] Resolve Docker image settings through the existing Cozy Video precedence.
+- [x] Add selected-provider checks to `video inspect --check-tools`.
+- [x] Reject unsupported provider names and invalid provider/mode combinations
       before creating output files.
-- [ ] Preserve provider and model provenance in video RDF and publication
+- [x] Preserve provider and model provenance in video RDF and publication
       metadata.
-- [ ] Update CLI help and video authoring documentation.
+- [x] Update CLI help and video authoring documentation.
 
 ## VID20-03: macOS Say Host Provider
 
-Status: NOT STARTED
+Status: DONE
 
-- [ ] Add a host-only `macos-say` provider.
-- [ ] Support configured macOS voice names and speaking rates.
-- [ ] Invoke `say` and audio normalization through argument-vector process
+- [x] Add a host-only `macos-say` provider.
+- [x] Support configured macOS voice names and speaking rates.
+- [x] Invoke `say` and audio normalization through argument-vector process
       execution rather than shell command strings.
-- [ ] Diagnose non-macOS hosts, missing `say`, missing ffmpeg, and Docker mode.
-- [ ] Cover Samantha/Karen-style two-character synthesis with executable specs.
+- [x] Diagnose non-macOS hosts, missing `say`, missing ffmpeg, and Docker mode.
+- [x] Cover Samantha/Karen-style two-character synthesis with executable specs.
 
 ## VID20-04: Portable Docker TTS Provider
 

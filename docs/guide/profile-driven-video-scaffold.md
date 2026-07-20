@@ -46,6 +46,61 @@ replacement is case-sensitive and longer source spellings are applied first.
 Cozy matches the original text in one pass, so a generated reading is not
 processed again as another dictionary source.
 
+## Narration Provider And Execution
+
+Select narration independently from the renderer and general tool execution:
+
+```yaml
+narration:
+  provider: voicevox
+tools:
+  toolMode: docker
+  dockerImage: ghcr.io/asami/textus-toolchain:latest
+  voicevoxUrl: http://127.0.0.1:50021
+```
+
+`narration.provider` is the canonical provider setting. Existing scripts without
+it continue to use `voicevox`. The old `voice.engine` field is compatibility
+input only and produces a deprecation warning.
+
+Synthesize and validate the selected provider before creating audio:
+
+```console
+cozy video synthesize script.json \
+  --save=build/audio/main \
+  --check-tools \
+  --tool-mode=docker \
+  --docker-image=ghcr.io/asami/textus-toolchain:latest
+```
+
+Execution settings use this precedence: command line, script `tools`, project
+Cozy configuration, then Cozy defaults. `--voicevox-url` follows the same
+command-line-first rule. Docker settings prepare the shared execution boundary
+for portable providers; VOICEVOX itself is checked and called as an external
+HTTP service. `video inspect --check-tools` checks narration providers selected
+by project parts instead of treating every installed provider as required.
+
+Audio manifests record provider, execution mode, voice/model identity, and the
+canonical WAV format. `video rdf` and `publish-video` consume that generated
+manifest provenance rather than reconstructing it from script authoring.
+
+On macOS, English narration can use the host-only `macos-say` provider:
+
+```json
+{
+  "narration": {"provider": "macos-say"},
+  "characters": {
+    "guide": {"voice": {"voiceName": "Samantha", "rate": 185}},
+    "reviewer": {"voice": {"voiceName": "Karen", "rate": 175}}
+  }
+}
+```
+
+Run it with `--tool-mode=host`. Cozy invokes `say` and ffmpeg as argument
+vectors, converts the host audio to the canonical WAV contract, and records the
+macOS voice name in each manifest entry. Docker mode is rejected before output;
+`--check-tools` also diagnoses non-macOS hosts and missing `say` or ffmpeg.
+
 ## Composition And Visual Profiles
 
 `video.yaml` keeps composition and visual behavior separate:

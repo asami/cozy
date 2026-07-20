@@ -15,7 +15,7 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   Jun. 19, 2026
- * @version Jul. 18, 2026
+ * @version Jul. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoPublisher {
@@ -374,7 +374,8 @@ private[cozy] object CozyVideoPublisher {
     projectfile: Path,
     artifact: Path
   ): PublishVideoResult = {
-    val videojson = _video_metadata_json(video, artifact)
+    val narration = _video_narration_json(workspace)
+    val videojson = _video_metadata_json(video, artifact, narration)
     val artifactjson = _video_artifact_json(video, artifact)
     val catalogjson = PJson.obj(
       "schema" -> _schema,
@@ -397,7 +398,7 @@ private[cozy] object CozyVideoPublisher {
         s"metadata/catalog/videos/${video.name}.json" -> catalogjson,
         s"metadata/videos/${video.name}/metadata.json" -> videojson,
         s"metadata/artifacts/repository/${video.name}.json" -> artifactjson,
-        s"${_video_registry_root(video)}/manifest.json" -> _video_registry_manifest_json(video, artifact),
+        s"${_video_registry_root(video)}/manifest.json" -> _video_registry_manifest_json(video, artifact, narration),
         s"${_video_registry_root(video)}/rdf.json" -> _video_registry_rdf_json(video, artifact),
         s"metadata/video/${video.name}/latest.json" -> _video_latest_json(video)
       )
@@ -405,14 +406,19 @@ private[cozy] object CozyVideoPublisher {
     PublishVideoResult(video, workspace, projectfile, artifact, config.saveDir.resolve(s"${video.name}.json"))
   }
 
-  private def _video_metadata_json(video: ResolvedVideoPackage, artifact: Path): JsValue = {
+  private def _video_metadata_json(
+    video: ResolvedVideoPackage,
+    artifact: Path,
+    narration: Option[JsObject]
+  ): JsValue = {
     val rdf = Some(_video_rdf_reference_json(video))
     val captions = _video_repository_sidecar_json(video, artifact.resolveSibling(s"${video.name}-${video.version}.srt"), "captions")
     val transcript = _video_repository_sidecar_json(video, artifact.resolveSibling(s"${video.name}-${video.version}.transcript.json"), "transcript")
     val optional = Vector(
       rdf.map("rdf" -> _),
       captions.map("captions" -> _),
-      transcript.map("transcript" -> _)
+      transcript.map("transcript" -> _),
+      narration.map("narration" -> _)
     ).flatten
     val base = PJson.obj(
       "schema" -> _schema,
@@ -448,8 +454,12 @@ private[cozy] object CozyVideoPublisher {
     base
   }
 
-  private def _video_registry_manifest_json(video: ResolvedVideoPackage, artifact: Path): JsValue =
-    PJson.obj(
+  private def _video_registry_manifest_json(
+    video: ResolvedVideoPackage,
+    artifact: Path,
+    narration: Option[JsObject]
+  ): JsValue = {
+    val base = PJson.obj(
       "schema" -> _schema,
       "type" -> "video-registry-manifest",
       "video" -> PJson.obj(
@@ -470,6 +480,60 @@ private[cozy] object CozyVideoPublisher {
       ),
       "sidecars" -> _video_sidecars_json(video, artifact)
     )
+    narration.map(x => base + ("narration" -> x)).getOrElse(base)
+  }
+
+  private def _video_narration_json(workspace: Path): Option[JsObject] = {
+    val audioroot = workspace.resolve("build/audio").normalize()
+    val manifests =
+      if (Files.isDirectory(audioroot))
+        Files.walk(audioroot).iterator().asScala.toVector.
+          filter(path => Files.isRegularFile(path) && path.getFileName.toString == "manifest.json").
+          sortBy(_.toString)
+      else
+        Vector.empty
+    val entries = manifests.flatMap { path =>
+      PJson.parse(Files.readString(path, StandardCharsets.UTF_8)).asOpt[JsArray].toVector.flatMap(_.value)
+    }
+    if (entries.isEmpty)
+      None
+    else {
+      def strings(name: String): Vector[String] =
+        entries.flatMap(x => (x \ name).asOpt[String]).map(_.trim).filter(_.nonEmpty).distinct.sorted
+
+      val voices = entries.flatMap { entry =>
+        val identity = (entry \ "voiceIdentity").asOpt[String]
+        val id = (entry \ "voiceId").asOpt[String]
+        val model = (entry \ "modelIdentity").asOpt[String]
+        if (identity.isEmpty && id.isEmpty && model.isEmpty)
+          None
+        else
+          Some(PJson.obj(
+            "identity" -> identity,
+            "id" -> id,
+            "model" -> model
+          ))
+      }.distinct.sortBy(PJson.stringify)
+      val formats = entries.flatMap { entry =>
+        for {
+          samplerate <- (entry \ "sampleRate").asOpt[Int]
+          channels <- (entry \ "channels").asOpt[Int]
+          bitspersample <- (entry \ "bitsPerSample").asOpt[Int]
+        } yield PJson.obj(
+          "sampleRate" -> samplerate,
+          "channels" -> channels,
+          "bitsPerSample" -> bitspersample
+        )
+      }.distinct.sortBy(PJson.stringify)
+      Some(PJson.obj(
+        "providers" -> strings("provider"),
+        "executionModes" -> strings("executionMode"),
+        "voices" -> voices,
+        "audioFormats" -> formats,
+        "manifests" -> manifests.map(path => workspace.relativize(path).toString)
+      ))
+    }
+  }
 
   private def _video_registry_rdf_json(video: ResolvedVideoPackage, artifact: Path): JsValue =
     PJson.obj(

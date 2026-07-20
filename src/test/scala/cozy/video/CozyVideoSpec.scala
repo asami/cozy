@@ -747,6 +747,10 @@ final class CozyVideoSpec
             dir.resolve("build/audio/intro/manifest.json"),
             _audio_manifest_json(Vector("title", "description", "summary"))
               .replace("\"speaker\":null", "\"speaker\":\"narrator\"")
+              .replace(
+                "\"tailSilence\":0.0}",
+                "\"tailSilence\":0.0,\"provider\":\"voicevox\",\"executionMode\":\"external-http\",\"voiceIdentity\":\"narrator/default\",\"voiceId\":\"3\",\"modelIdentity\":\"voicevox-model\",\"sampleRate\":24000,\"channels\":1,\"bitsPerSample\":16}"
+              )
           )
           _write(
             dir.resolve("build/parts/intro.manifest.json"),
@@ -807,6 +811,9 @@ final class CozyVideoSpec
           ((turtle.contains("cozy-video:VideoArtifact")) shouldBe true)
           ((turtle.contains("cozy-video:speaker")) shouldBe true)
           ((turtle.contains("cozy-video:audioDuration")) shouldBe true)
+          ((turtle.contains("cozy-video:narrationProvider")) shouldBe true)
+          ((turtle.contains("voicevox-model")) shouldBe true)
+          ((turtle.contains("cozy-video:sampleRate")) shouldBe true)
           ((turtle.contains("simple-java2d")) shouldBe true)
           ((turtle.contains("ffprobe")) shouldBe true)
           ((jsonld.contains("\"cozy-video\"")) shouldBe true)
@@ -3371,6 +3378,16 @@ final class CozyVideoSpec
             .as[String] shouldBe "repository/video/textus/0.1.0/tutorial-0.1.0.transcript.json"
           (videometadata \ "transcript" \ "publicPath")
             .as[String] shouldBe "repository/video/textus/0.1.0/tutorial-0.1.0.transcript.json"
+          (videometadata \ "narration" \ "providers")
+            .as[Vector[String]] shouldBe Vector("voicevox")
+          (videometadata \ "narration" \ "executionModes")
+            .as[Vector[String]] shouldBe Vector("external-http")
+          (videometadata \ "narration" \ "voices" \ 0 \ "id")
+            .as[String] shouldBe "3"
+          (videometadata \ "narration" \ "audioFormats" \ 0 \ "sampleRate")
+            .as[Int] shouldBe 24000
+          (videometadata \ "narration" \ "manifests")
+            .as[Vector[String]] shouldBe Vector("build/audio/main/manifest.json")
           play.api.libs.json.Json.stringify(
             videometadata.get
           ) should not include ("target/cozy-video")
@@ -3407,6 +3424,15 @@ final class CozyVideoSpec
             .as[String] shouldBe "0.1.0"
           (latestentry \ "metadata" \ "video" \ "rdfPath")
             .as[String] shouldBe "metadata/video/tutorial/0.1.0/rdf"
+
+          val registryentry = entries
+            .find(entry =>
+              (entry \ "path")
+                .as[String] == "metadata/video/tutorial/0.1.0/manifest.json"
+            )
+            .get
+          (registryentry \ "metadata" \ "narration" \ "providers")
+            .as[Vector[String]] shouldBe Vector("voicevox")
 
           val artifactentry = entries
             .find(entry =>

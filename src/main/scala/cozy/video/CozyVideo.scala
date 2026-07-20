@@ -97,18 +97,35 @@ private[cozy] object CozyVideo {
   final case class SynthesizeConfig(
     scriptFile: Path,
     saveDir: Path,
-    voicevoxUrl: Option[String] = None
+    voicevoxUrl: Option[String] = None,
+    checkTools: Boolean = false,
+    toolMode: Option[String] = None,
+    dockerImage: Option[String] = None
   ) {
     def projectRoot: Path =
       Option(scriptFile.getParent).getOrElse(Paths.get(".").toAbsolutePath.normalize())
   }
   object SynthesizeConfig {
     def create(args: List[String]): SynthesizeConfig = {
-      val parsed = CozyCliArgs.parseStrict(_p_script_file, _p_save, _p_voicevox_url)(_normalize_property_args(args))
+      val parsed = CozyCliArgs.parseStrict(
+        _p_script_file,
+        _p_save,
+        _p_voicevox_url,
+        _p_check_tools,
+        _p_tool_mode,
+        _p_docker_image
+      )(_normalize_property_args(args))
       val scriptfile = parsed.argument("script-file").map(CozyCliArgs.toPath).getOrElse(
         RAISE.invalidArgumentFault("Missing script file for video synthesize")
       )
-      SynthesizeConfig(scriptfile, parsed.requiredPathProperty("save"), parsed.property("voicevox-url"))
+      SynthesizeConfig(
+        scriptfile,
+        parsed.requiredPathProperty("save"),
+        parsed.property("voicevox-url"),
+        parsed.flag("check-tools"),
+        parsed.property("tool-mode"),
+        parsed.property("docker-image")
+      )
     }
   }
 
@@ -578,7 +595,8 @@ private[cozy] object CozyVideo {
     projectFile: Path,
     projectRoot: Path,
     project: VideoProject,
-    execution: VideoExecutionConfig
+    execution: VideoExecutionConfig,
+    narrationProviders: Set[String] = Set.empty
   ) {
     def settings: VideoToolSettings = project.tools.getOrElse(VideoToolSettings(None, None, None, None))
   }
@@ -594,19 +612,29 @@ private[cozy] object CozyVideo {
       project: VideoProject,
       toolmode: Option[String],
       dockerimage: Option[String]
+    ): VideoExecutionConfig =
+      create(projectroot, project.tools, toolmode, dockerimage, None)
+
+    def create(
+      projectroot: Path,
+      tools: Option[VideoToolSettings],
+      toolmode: Option[String],
+      dockerimage: Option[String],
+      voicevoxurl: Option[String]
     ): VideoExecutionConfig = {
       val config = CozyProjectYamlConfig.loadOperationDefaults(projectroot)
-      val projecttools = project.tools.getOrElse(VideoToolSettings(None, None, None, None))
+      val scripttools = tools.getOrElse(VideoToolSettings(None, None, None, None))
       val resolvedmode = toolmode.
-        orElse(projecttools.toolMode).
+        orElse(scripttools.toolMode).
         orElse(config.value("video.tool-mode")).
         getOrElse("docker")
       val resolvedimage = dockerimage.
-        orElse(projecttools.dockerImage).
+        orElse(scripttools.dockerImage).
         orElse(config.value("video.docker-image")).
         orElse(config.value("cozy.docker-image")).
         getOrElse(VideoToolSettings.DEFAULT_DOCKER_IMAGE)
-      val resolvedvoicevox = projecttools.voicevoxUrl.
+      val resolvedvoicevox = voicevoxurl.
+        orElse(scripttools.voicevoxUrl).
         orElse(config.value("video.voicevox.url")).
         getOrElse(VideoToolSettings.DEFAULT_VOICEVOX_URL)
       VideoExecutionConfig(VideoToolMode.parse(resolvedmode), resolvedimage, resolvedvoicevox)
@@ -628,6 +656,7 @@ private[cozy] object CozyVideo {
       DockerImageProvider(probe),
       TextusToolchainImageProvider(probe),
       VoicevoxProvider(probe),
+      MacosSayProvider(probe),
       FfmpegProvider(probe),
       RemotionNodeProvider(probe),
       PlaywrightProvider(probe),
@@ -901,31 +930,90 @@ private[cozy] object CozyVideo {
   }
 
   final case class VoicevoxProvider(probe: VideoToolProbe) extends VideoToolProvider {
-    def check(context: VideoToolContext): VideoToolCheck = {
-      val url = context.execution.voicevoxUrl.stripSuffix("/") + "/version"
-      try {
-        val result = probe.httpGet(URI.create(url))
-        if (result.isSuccess)
-          VideoToolCheck("voicevox", VideoToolMode.ExternalService, VideoToolStatus.Available, s"VOICEVOX endpoint is reachable: $url.")
-        else
-          VideoToolCheck(
-            "voicevox",
-            VideoToolMode.ExternalService,
-            VideoToolStatus.Missing,
-            result.error.map(e => s"VOICEVOX endpoint is not reachable: $url ($e)").getOrElse(s"VOICEVOX endpoint returned HTTP ${result.statusCode}: $url."),
-            Some("Start VOICEVOX Engine or set tools.voicevoxUrl / video.voicevox.url. In Docker mode, use host.docker.internal or a compose service URL when needed.")
-          )
-      } catch {
-        case NonFatal(e) =>
-          VideoToolCheck(
-            "voicevox",
-            VideoToolMode.ExternalService,
-            VideoToolStatus.Missing,
-            s"VOICEVOX endpoint URL is invalid: $url (${e.getMessage})",
-            Some("Set tools.voicevoxUrl or video.voicevox.url to a valid HTTP URL.")
-          )
+    def check(context: VideoToolContext): VideoToolCheck =
+      if (context.narrationProviders.nonEmpty && !context.narrationProviders.contains("voicevox"))
+        VideoToolCheck(
+          "voicevox",
+          VideoToolMode.ExternalService,
+          VideoToolStatus.Unchecked,
+          "VOICEVOX was not checked because it is not selected by this video plan."
+        )
+      else {
+        val url = context.execution.voicevoxUrl.stripSuffix("/") + "/version"
+        try {
+          val result = probe.httpGet(URI.create(url))
+          if (result.isSuccess)
+            VideoToolCheck("voicevox", VideoToolMode.ExternalService, VideoToolStatus.Available, s"VOICEVOX endpoint is reachable: $url.")
+          else
+            VideoToolCheck(
+              "voicevox",
+              VideoToolMode.ExternalService,
+              VideoToolStatus.Missing,
+              result.error.map(e => s"VOICEVOX endpoint is not reachable: $url ($e)").getOrElse(s"VOICEVOX endpoint returned HTTP ${result.statusCode}: $url."),
+              Some("Start VOICEVOX Engine or set tools.voicevoxUrl / video.voicevox.url. In Docker mode, use host.docker.internal or a compose service URL when needed.")
+            )
+        } catch {
+          case NonFatal(e) =>
+            VideoToolCheck(
+              "voicevox",
+              VideoToolMode.ExternalService,
+              VideoToolStatus.Missing,
+              s"VOICEVOX endpoint URL is invalid: $url (${e.getMessage})",
+              Some("Set tools.voicevoxUrl or video.voicevox.url to a valid HTTP URL.")
+            )
+        }
       }
-    }
+  }
+
+  final case class MacosSayProvider(probe: VideoToolProbe) extends VideoToolProvider {
+    def check(context: VideoToolContext): VideoToolCheck =
+      if (context.narrationProviders.nonEmpty && !context.narrationProviders.contains("macos-say"))
+        VideoToolCheck(
+          "macos-say",
+          VideoToolMode.Host,
+          VideoToolStatus.Unchecked,
+          "macOS say was not checked because it is not selected by this video plan."
+        )
+      else if (context.execution.toolMode != VideoToolMode.Host)
+        VideoToolCheck(
+          "macos-say",
+          VideoToolMode.Host,
+          VideoToolStatus.Unsupported,
+          "macOS say narration requires host tool mode.",
+          Some("Use --tool-mode=host or select a portable Docker narration provider.")
+        )
+      else if (!sys.props.getOrElse("os.name", "").toLowerCase(java.util.Locale.ROOT).contains("mac"))
+        VideoToolCheck(
+          "macos-say",
+          VideoToolMode.Host,
+          VideoToolStatus.Unsupported,
+          "macOS say narration is available only on macOS hosts.",
+          Some("Select a portable Docker narration provider on this host.")
+        )
+      else {
+        val say = probe.command(Vector("say", "-v", "?"), context.projectRoot)
+        val ffmpeg = probe.command(Vector("ffmpeg", "-version"), context.projectRoot)
+        if (say.isSuccess && ffmpeg.isSuccess)
+          VideoToolCheck(
+            "macos-say",
+            VideoToolMode.Host,
+            VideoToolStatus.Available,
+            "macOS say and ffmpeg are available for host narration."
+          )
+        else {
+          val missing = Vector(
+            if (!say.isSuccess) Some("say") else None,
+            if (!ffmpeg.isSuccess) Some("ffmpeg") else None
+          ).flatten.mkString(", ")
+          VideoToolCheck(
+            "macos-say",
+            VideoToolMode.Host,
+            VideoToolStatus.Missing,
+            s"macOS say narration tools are unavailable: $missing.",
+            Some("Use macOS /usr/bin/say and install ffmpeg, then rerun with --check-tools.")
+          )
+        }
+      }
   }
 
   final case class FfmpegProvider(probe: VideoToolProbe) extends VideoToolProvider {
@@ -1213,7 +1301,7 @@ private[cozy] object CozyVideo {
         println(build(BuildConfig.create(rest), tools, runner))
         true
       case "video" :: "synthesize" :: rest =>
-        println(synthesize(SynthesizeConfig.create(rest), voicevox))
+        println(synthesize(SynthesizeConfig.create(rest), tools, voicevox, runner))
         true
       case "video" :: "render" :: rest =>
         println(render(RenderConfig.create(rest), tools, runner))
@@ -1238,7 +1326,8 @@ private[cozy] object CozyVideo {
 
   def inspect(config: InspectConfig, tools: VideoToolRegistry): String = {
     val plan = _plan(config.projectFile, config.toolMode, config.dockerImage)
-    val context = VideoToolContext(config.projectFile, config.projectRoot, plan.project, plan.execution)
+    val providers = _plan_narration_providers(plan)
+    val context = VideoToolContext(config.projectFile, config.projectRoot, plan.project, plan.execution, providers)
     _render_inspect(config, plan, if (config.checkTools) tools.checks(context) else Vector.empty)
   }
 
@@ -1258,18 +1347,52 @@ private[cozy] object CozyVideo {
   }
 
   def synthesize(config: SynthesizeConfig, voicevox: VoicevoxClient): String = {
+    synthesize(config, VideoToolRegistry.default, voicevox, VideoProcessRunner.default)
+  }
+
+  def synthesize(config: SynthesizeConfig, tools: VideoToolRegistry, voicevox: VoicevoxClient): String = {
+    synthesize(config, tools, voicevox, VideoProcessRunner.default)
+  }
+
+  def synthesize(
+    config: SynthesizeConfig,
+    tools: VideoToolRegistry,
+    voicevox: VoicevoxClient,
+    runner: VideoProcessRunner
+  ): String = {
     val script = _load_required_script(config.scriptFile)
     val selection = _resolve_narration_selection(script)
+    val execution = VideoExecutionConfig.create(
+      config.projectRoot,
+      script.tools,
+      config.toolMode,
+      config.dockerImage,
+      config.voicevoxUrl
+    )
     val provider = selection.provider match {
       case "voicevox" =>
-        val voicevoxurl = _resolve_voicevox_url(config.projectRoot, script, config.voicevoxUrl)
-        new VoicevoxNarrationProvider(voicevoxurl, voicevox)
+        new VoicevoxNarrationProvider(execution.voicevoxUrl, voicevox)
+      case "macos-say" =>
+        if (execution.toolMode != VideoToolMode.Host)
+          RAISE.invalidArgumentFault(
+            "Narration provider macos-say requires host tool mode. Use --tool-mode=host."
+          )
+        new MacosSayNarrationProvider(config.projectRoot, runner)
       case unsupported =>
         RAISE.invalidArgumentFault(
-          s"Unsupported narration provider: $unsupported. Supported providers: voicevox."
+          s"Unsupported narration provider: $unsupported. Supported providers: voicevox, macos-say."
         )
     }
-    val result = _synthesize_script(config.scriptFile, script, config.saveDir, provider, selection.diagnostics)
+    val checks =
+      if (config.checkTools) {
+        val project = VideoProject(None, script.title, None, None, script.tools, Vector.empty)
+        val context = VideoToolContext(config.scriptFile, config.projectRoot, project, execution, Set(provider.id))
+        tools.checks(context)
+      } else {
+        Vector.empty
+      }
+    _validate_synthesis_tools(provider.id, checks)
+    val result = _synthesize_script(config.scriptFile, script, config.saveDir, provider, selection.diagnostics, execution, checks)
     _render_synthesis_result(result)
   }
 
@@ -1520,15 +1643,6 @@ private[cozy] object CozyVideo {
     VideoExecutionConfig(VideoToolMode.parse(mode), dockerimage, VideoToolSettings.DEFAULT_VOICEVOX_URL)
   }
 
-  private def _resolve_voicevox_url(projectroot: Path, script: VideoScript, cliurl: Option[String]): String = {
-    val config = CozyProjectYamlConfig.loadOperationDefaults(projectroot)
-    val scripttools = script.tools.getOrElse(VideoToolSettings(None, None, None, None))
-    cliurl.
-      orElse(scripttools.voicevoxUrl).
-      orElse(config.value("video.voicevox.url")).
-      getOrElse(VideoToolSettings.DEFAULT_VOICEVOX_URL)
-  }
-
   final case class VideoAudioManifestEntry(
     sceneId: String,
     speaker: Option[String],
@@ -1589,9 +1703,12 @@ private[cozy] object CozyVideo {
     provider: String,
     executionMode: String,
     diagnostics: Vector[String],
+    toolMode: VideoToolMode,
+    dockerImage: String,
     combinedFile: Path,
     manifestFile: Path,
-    entries: Vector[VideoAudioManifestEntry]
+    entries: Vector[VideoAudioManifestEntry],
+    toolChecks: Vector[VideoToolCheck] = Vector.empty
   )
 
   final case class VideoRenderedPart(
@@ -1724,12 +1841,71 @@ private[cozy] object CozyVideo {
     }
   }
 
+  private final class MacosSayNarrationProvider(
+    projectRoot: Path,
+    runner: VideoProcessRunner
+  ) extends NarrationProvider {
+    val id = "macos-say"
+    val executionMode = "host"
+
+    def synthesize(text: String, voice: Json): NarrationAudio = {
+      val voicename = _json_string(voice, "voiceName").
+        orElse(_json_string(voice, "name")).
+        orElse(_json_string(voice, "speakerName")).
+        getOrElse("Samantha")
+      val rate = _json_int(voice, "rate").getOrElse(180)
+      if (rate <= 0)
+        RAISE.invalidArgumentFault(s"macos-say voice rate must be positive: $rate")
+      val workdir = Files.createTempDirectory("cozy-macos-say-")
+      val source = workdir.resolve("narration.aiff")
+      val wav = workdir.resolve("narration.wav")
+      try {
+        val sayresult = runner.run(
+          Vector("say", "-v", voicename, "-r", rate.toString, "-o", source.toString, text),
+          projectRoot
+        )
+        if (!sayresult.isSuccess)
+          RAISE.invalidArgumentFault(s"macOS say narration failed: ${sayresult.text}")
+        val ffmpegresult = runner.run(
+          Vector(
+            "ffmpeg",
+            "-y",
+            "-i",
+            source.toString,
+            "-ar",
+            _default_sample_rate.toString,
+            "-ac",
+            _default_audio_channels.toString,
+            "-sample_fmt",
+            "s16",
+            wav.toString
+          ),
+          projectRoot
+        )
+        if (!ffmpegresult.isSuccess)
+          RAISE.invalidArgumentFault(s"macOS say audio normalization failed: ${ffmpegresult.text}")
+        if (!Files.isRegularFile(wav))
+          RAISE.invalidArgumentFault(s"macOS say audio normalization did not create WAV output: $wav")
+        NarrationAudio(
+          Files.readAllBytes(wav),
+          Some(voicename),
+          None,
+          Some("macos-say")
+        )
+      } finally {
+        Files.walk(workdir).iterator().asScala.toVector.reverse.foreach(Files.deleteIfExists)
+      }
+    }
+  }
+
   private def _synthesize_script(
     scriptfile: Path,
     script: VideoScript,
     savedir: Path,
     provider: NarrationProvider,
-    diagnostics: Vector[String]
+    diagnostics: Vector[String],
+    execution: VideoExecutionConfig,
+    toolchecks: Vector[VideoToolCheck]
   ): VideoSynthesisResult = {
     Files.createDirectories(savedir)
     val concatparts = scala.collection.mutable.ArrayBuffer.empty[Path]
@@ -1789,8 +1965,23 @@ private[cozy] object CozyVideo {
     _concatenate_wavs(concatparts.toVector, combined)
     val manifest = _audio_output_file(savedir, "manifest.json")
     Files.writeString(manifest, _manifest_json(entries).spaces2, StandardCharsets.UTF_8)
-    VideoSynthesisResult(scriptfile, savedir, provider.id, provider.executionMode, diagnostics, combined, manifest, entries)
+    VideoSynthesisResult(
+      scriptfile,
+      savedir,
+      provider.id,
+      provider.executionMode,
+      diagnostics,
+      execution.toolMode,
+      execution.dockerImage,
+      combined,
+      manifest,
+      entries,
+      toolchecks
+    )
   }
+
+  private def _plan_narration_providers(plan: VideoPlan): Set[String] =
+    plan.parts.flatMap(_.script.map(_resolve_narration_selection(_).provider)).toSet
 
   private def _resolve_narration_selection(script: VideoScript): NarrationSelection = {
     val canonical = _canonical_narration_provider(script.narration)
@@ -2141,6 +2332,18 @@ private[cozy] object CozyVideo {
       checks.filter(x => required.contains(x.name) && x.status == VideoToolStatus.Missing).headOption.foreach { check =>
         val hint = check.setupHint.map(x => s" $x").getOrElse("")
         RAISE.invalidArgumentFault(s"Cannot render with $renderer: ${check.name} is missing.${hint}")
+      }
+    }
+
+  private def _validate_synthesis_tools(provider: String, checks: Vector[VideoToolCheck]): Unit =
+    if (checks.nonEmpty) {
+      checks.find(_.name == provider) match {
+        case Some(check) if check.status == VideoToolStatus.Available =>
+        case Some(check) =>
+          val hint = check.setupHint.map(x => s" $x").getOrElse("")
+          RAISE.invalidArgumentFault(s"Cannot synthesize narration: ${check.name} is not available.${hint}")
+        case None =>
+          RAISE.invalidArgumentFault(s"Cannot synthesize narration: no tool check is registered for provider $provider.")
       }
     }
 
@@ -2978,6 +3181,14 @@ private[cozy] object CozyVideo {
         _rdf_literal(utteranceuri, _cv("tailSilence"), entry.tailSilence.toString, Some(_xsd_namespace + "double")),
         _rdf_uri(utteranceuri, _schema("encoding"), audioartifact)
       ) ++ entry.speaker.map(x => _rdf_literal(utteranceuri, _cv("speaker"), x)).toVector ++
+        entry.provider.map(x => _rdf_literal(utteranceuri, _cv("narrationProvider"), x)).toVector ++
+        entry.executionMode.map(x => _rdf_literal(utteranceuri, _cv("narrationExecutionMode"), x)).toVector ++
+        entry.voiceIdentity.map(x => _rdf_literal(utteranceuri, _cv("voiceIdentity"), x)).toVector ++
+        entry.voiceId.map(x => _rdf_literal(utteranceuri, _cv("voiceId"), x)).toVector ++
+        entry.modelIdentity.map(x => _rdf_literal(utteranceuri, _cv("modelIdentity"), x)).toVector ++
+        entry.sampleRate.map(x => _rdf_literal(audioartifact, _cv("sampleRate"), x.toString, Some(_xsd_namespace + "integer"))).toVector ++
+        entry.channels.map(x => _rdf_literal(audioartifact, _cv("channels"), x.toString, Some(_xsd_namespace + "integer"))).toVector ++
+        entry.bitsPerSample.map(x => _rdf_literal(audioartifact, _cv("bitsPerSample"), x.toString, Some(_xsd_namespace + "integer"))).toVector ++
         _artifact_triples(audioartifact, "audio", audiofile, _rdf_file_status(audiofile), s"part.${part.id}.synthesize")
     }
     basetriples ++ audiotriples
@@ -4031,6 +4242,9 @@ private[cozy] object CozyVideo {
     b += s"dockerImage: ${plan.execution.dockerImage}"
     b += s"output: ${plan.outputPath}"
     b += s"renderer: ${project.renderer.map(_.summary).getOrElse("engine=legacy")}"
+    val narrationproviders = _plan_narration_providers(plan).toVector.sorted
+    if (narrationproviders.nonEmpty)
+      b += s"narrationProviders: ${narrationproviders.mkString(", ")}"
     project.profile.foreach(x => b += s"profile: $x")
     val effects = CozyVideoEffects.expand(project.visualEffects)
     if (effects.nonEmpty) {
@@ -4115,7 +4329,11 @@ private[cozy] object CozyVideo {
     b += s"outputDir: ${result.outputDir}"
     b += s"provider: ${result.provider}"
     b += s"executionMode: ${result.executionMode}"
+    b += s"toolMode: ${result.toolMode.label}"
+    b += s"dockerImage: ${result.dockerImage}"
     result.diagnostics.foreach(x => b += s"warning: $x")
+    if (result.toolChecks.nonEmpty)
+      b ++= _render_tool_checks(result.toolChecks)
     b += s"scenes: ${result.entries.size}"
     b += s"combined: ${result.combinedFile}"
     b += s"manifest: ${result.manifestFile}"
@@ -4214,6 +4432,7 @@ private[cozy] object CozyVideo {
         z += s"  scriptStatus: ${part.scriptStatus}"
         part.script.foreach { videoscript =>
           videoscript.title.foreach(x => z += s"  scriptTitle: $x")
+          z += s"  narrationProvider: ${_resolve_narration_selection(videoscript).provider}"
           z += s"  scenes: ${videoscript.scenes.size}"
           z += s"  expandedScenes: ${videoscript.expandedScenes.size}"
           z += f"  estimatedDuration: ${videoscript.estimatedDuration}%.2f"

@@ -96,14 +96,19 @@ Verified implementation status:
 - Provider PCM WAV output is decoded and normalized to 24 kHz, mono, 16-bit PCM
   in shared Cozy code before scene and combined audio are written. Unsupported
   encoding and bit-depth contracts fail explicitly.
-- `VID20-02` remains open for CLI execution settings, provider-aware tool
-  checks, RDF/publication propagation, and user-facing help.
+- `VID20-02` now shares host/Docker/image/endpoint precedence with other video
+  commands, checks only selected narration providers, and propagates generated
+  audio-manifest provenance into RDF and publication metadata.
+- `VID20-02` is complete for the supported provider set. Unknown providers and
+  tool modes fail before output, VOICEVOX remains an external HTTP provider in
+  either tool mode, and `macos-say` is restricted to host mode. `VID20-04` will
+  extend the same matrix with the Docker-only Piper provider.
 
 ## Stage 20.2: Host and Docker Providers
 
 Stage Status:
 
-- Current status: NOT STARTED
+- Current status: IN PROGRESS
 - Owner: cozy-video / textus-toolchain-runner
 - Checklist basis: `VID20-03` and `VID20-04`
 
@@ -115,6 +120,16 @@ Focus:
 - record model source, version, license, and SHA-256 in a machine-readable
   manifest;
 - normalize every provider result to the same Cozy audio contract.
+
+Verified implementation status:
+
+- `VID20-03` is complete. `macos-say` accepts per-character macOS voice names
+  and rates, runs `say` and ffmpeg through argument vectors in host mode, and
+  emits the shared canonical WAV and provenance contract.
+- Provider checks diagnose Docker-mode misuse, non-macOS hosts, missing `say`,
+  and missing ffmpeg before checked synthesis begins.
+- `VID20-04` remains open for the pinned Piper runtime, licensed voice models,
+  toolchain image checks, and offline Docker smoke.
 
 ## Stage 20.3: Cozy-Complete Overview Migration
 
