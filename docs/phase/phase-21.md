@@ -204,7 +204,7 @@ Verified CNCF Launcher status:
 
 Stage Status:
 
-- Current status: IN PROGRESS
+- Current status: DONE
 - Owner: Cozy BoK
 - Checklist basis: `CR21-05`
 
@@ -230,8 +230,13 @@ Verified index-consumer status:
   non-fatal build diagnostics and are visible from the Component Repository
   dashboard; SAR diagnostics are also retained on the SAR list surface.
 
-Declared Project, descriptor, ABI, CML, model metadata, Help, Manual, OpenAPI,
-and MCP links remain active Stage 21.4 work.
+CAR version pages publish archive-owned `component-descriptor.json` and
+`abi-manifest.json` as directly inspectable metadata. A component descriptor
+may explicitly declare deployment links under top-level `links.help`,
+`links.manual`, `links.openapi`, and `links.mcp`; Cozy renders only HTTP(S) or
+root-relative declarations and never guesses a runtime base URL. Project, CML,
+and model-metadata links continue to use their existing resolved metadata
+contracts.
 
 ## Completion Criteria
 

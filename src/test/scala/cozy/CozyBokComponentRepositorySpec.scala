@@ -92,6 +92,10 @@ class CozyBokComponentRepositorySpec
           metadata should include(""""model_metadata_yaml" : "repository/catalog/car/textus-sie.model-metadata.yaml"""")
           metadata should include("\"component_descriptor\" : {")
           metadata should include(""""component" : "TextusSie"""")
+          metadata should include(""""help" : "/help/TextusSie"""")
+          metadata should include(""""manual" : "/man/TextusSie"""")
+          metadata should include(""""openapi" : "/openapi.json"""")
+          metadata should include(""""mcp" : "/mcp"""")
           metadata should include("\"abi_manifest\" : {")
           metadata should include(""""format" : "cozy.car.abi-manifest.v1"""")
 
@@ -111,10 +115,21 @@ class CozyBokComponentRepositorySpec
           modulepage should include("textus-sie 0.1.0 / TextusSie / entities 1")
           modulepage should include("ABIマニフェスト")
           modulepage should include("ABI 1 / components 1 / operations 1 / entities 1")
+          modulepage should include("href=\"0.1.0/component-descriptor.json\"")
+          modulepage should include("href=\"0.1.0/abi-manifest.json\"")
+          modulepage should include("コンポーネント公開面")
+          modulepage should include("href=\"/help/TextusSie\"")
+          modulepage should include("href=\"/man/TextusSie\"")
+          modulepage should include("href=\"/openapi.json\"")
+          modulepage should include("href=\"/mcp\"")
           val versionpage = _read(dir.resolve("website.d/repository/car/textus-sie/0.1.0.html"))
           versionpage should include("../../catalog/car/textus-sie.cml")
           versionpage should include("コンポーネント記述子")
           versionpage should include("ABIマニフェスト")
+          versionpage should include("href=\"0.1.0/component-descriptor.json\"")
+          versionpage should include("href=\"0.1.0/abi-manifest.json\"")
+          dir.resolve("website.d/repository/car/textus-sie/0.1.0/component-descriptor.json") should be_regular_file
+          dir.resolve("website.d/repository/car/textus-sie/0.1.0/abi-manifest.json") should be_regular_file
           val sarpage = _read(dir.resolve("website.d/repository/sar/index.html"))
           sarpage should include("textus-app")
           dir.resolve("website.d/repository/sar/textus-app/index.html") should be_regular_file
@@ -378,6 +393,12 @@ class CozyBokComponentRepositorySpec
           |  "name": "textus-sie",
           |  "version": "0.1.0",
           |  "component": "TextusSie",
+          |  "links": {
+          |    "help": "/help/TextusSie",
+          |    "manual": "/man/TextusSie",
+          |    "openapi": "/openapi.json",
+          |    "mcp": "/mcp"
+          |  },
           |  "entities": [{"entity": "KnowledgeItem"}]
           |}
           |""".stripMargin

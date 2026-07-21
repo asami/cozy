@@ -61,13 +61,13 @@ Status: DONE
 
 ## CR21-05: Cozy BoK Component Repository
 
-Status: IN PROGRESS
+Status: DONE
 
 - [x] Consume the public index as the CAR/SAR discovery source.
 - [x] Preserve the existing CAR catalog pages and add complete SAR list/detail
       pages independent of SIE Project references.
 - [x] Add CAR/SAR counts and navigation to Component Repository dashboards.
-- [ ] Link entries to Project, descriptor, ABI, CML, model metadata, Help,
+- [x] Link entries to Project, descriptor, ABI, CML, model metadata, Help,
       Manual, OpenAPI, and MCP metadata when declared.
 - [x] Report index/catalog mismatch and unavailable source diagnostics.
 - [x] Preserve fallback behavior for known catalogs when `index.json` is absent.

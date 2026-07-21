@@ -3896,8 +3896,12 @@ private[cozy] object CozyBok {
     checksumsha256: Option[String],
     componentdescriptor: Option[Json],
     abimanifest: Option[Json],
+    links: RepositoryCarLinks,
     archiveavailable: Boolean
   ) {
+    def metadataPublicPath(artifactid: String, name: String): String =
+      s"repository/car/${artifactid}/${version}/${name}"
+
     def toJson: Json =
       Json.obj(
         "version" -> Json.fromString(version),
@@ -3915,8 +3919,47 @@ private[cozy] object CozyBok {
         ),
         "checksum" -> Json.obj("sha256" -> checksumsha256.asJson),
         "component_descriptor" -> componentdescriptor.asJson,
-        "abi_manifest" -> abimanifest.asJson
+        "abi_manifest" -> abimanifest.asJson,
+        "links" -> links.toJson
       )
+  }
+
+  private final case class RepositoryCarLinks(
+    help: Option[String],
+    manual: Option[String],
+    openapi: Option[String],
+    mcp: Option[String]
+  ) {
+    def isEmpty: Boolean = Vector(help, manual, openapi, mcp).flatten.isEmpty
+    def toJson: Json =
+      Json.obj(
+        "help" -> help.asJson,
+        "manual" -> manual.asJson,
+        "openapi" -> openapi.asJson,
+        "mcp" -> mcp.asJson
+      )
+  }
+
+  private object RepositoryCarLinks {
+    val empty = RepositoryCarLinks(None, None, None, None)
+
+    def fromComponentDescriptor(descriptor: Option[Json]): RepositoryCarLinks =
+      descriptor.map { json =>
+        val links = json.hcursor.downField("links")
+        RepositoryCarLinks(
+          _safe_declared_link(links.get[String]("help").toOption),
+          _safe_declared_link(links.get[String]("manual").toOption),
+          _safe_declared_link(links.get[String]("openapi").toOption),
+          _safe_declared_link(links.get[String]("mcp").toOption)
+        )
+      }.getOrElse(empty)
+
+    private def _safe_declared_link(link: Option[String]): Option[String] =
+      link.map(_.trim).filter { value =>
+        value.startsWith("https://") ||
+          value.startsWith("http://") ||
+          (value.startsWith("/") && !value.startsWith("//"))
+      }
   }
 
   private final case class RepositoryCarArchiveMetadata(
@@ -4027,6 +4070,7 @@ private[cozy] object CozyBok {
     val index = _repository_car_index(config)
     val projects = _resolved_project_packages(config)
     _copy_repository_car_sidecars(target, index)
+    _write_repository_car_archive_metadata(target, index)
     val page = target.resolve("repository").resolve("car").resolve("index.html")
     _write_text(
       page,
@@ -4759,9 +4803,22 @@ private[cozy] object CozyBok {
       checksumsha256 = version.checksumSha256,
       componentdescriptor = archive.componentdescriptor,
       abimanifest = archive.abimanifest,
+      links = RepositoryCarLinks.fromComponentDescriptor(archive.componentdescriptor),
       archiveavailable = archive.available
     )
   }
+
+  private def _write_repository_car_archive_metadata(target: Path, index: RepositoryCarIndex): Unit =
+    index.entries.foreach { entry =>
+      entry.versions.foreach { version =>
+        Vector(
+          version.componentdescriptor.map("component-descriptor.json" -> _),
+          version.abimanifest.map("abi-manifest.json" -> _)
+        ).flatten.foreach { case (name, json) =>
+          _write_text(target.resolve(version.metadataPublicPath(entry.artifactid, name)), json.spaces2 + "\n")
+        }
+      }
+    }
 
   private def _repository_car_archive_metadata(
     repositoryroot: Path,
@@ -4931,7 +4988,7 @@ private[cozy] object CozyBok {
     val category = relatedprojects.headOption.map(project => _project_category(config, project))
     val archivemetadatarows = entry.effectiveVersion.
       flatMap(selected => entry.versions.find(_.version == selected)).
-      map(_repository_car_archive_metadata_rows(locale, _)).
+      map(_repository_car_archive_metadata_rows(target, page, locale, entry.artifactid, _)).
       getOrElse(Vector.empty)
     val versionrows = entry.versions.map { version =>
       val href = _relative_href(page, target.resolve(entry.versionPublicPath(version)))
@@ -4999,7 +5056,7 @@ private[cozy] object CozyBok {
               _repository_car_tags_label(locale) -> _repository_car_tag_links(target, page, entry.tags, category),
               _repository_car_terms_label(locale) -> _repository_car_term_links(config, target, page, entry.terms),
               _repository_car_sidecars_label(locale) -> _repository_car_sidecar_links(target, page, locale, entry.sidecars)
-            ) ++ _repository_car_archive_metadata_rows(locale, version))}
+            ) ++ _repository_car_archive_metadata_rows(target, page, locale, entry.artifactid, version))}
        |  ${_repository_car_related_projects_html(target, page, locale, relatedprojects)}
        |</section>""".stripMargin
   }
@@ -5231,17 +5288,61 @@ private[cozy] object CozyBok {
     }
 
   private def _repository_car_archive_metadata_rows(
+    target: Path,
+    page: Path,
     locale: String,
+    artifactid: String,
     version: RepositoryCarVersion
   ): Vector[(String, String)] =
     Vector(
       version.componentdescriptor.map(json =>
-        _repository_car_component_descriptor_label(locale) -> _repository_car_component_descriptor_summary(json)
+        _repository_car_component_descriptor_label(locale) -> _repository_car_archive_metadata_link(
+          target,
+          page,
+          version.metadataPublicPath(artifactid, "component-descriptor.json"),
+          _repository_car_component_descriptor_summary(json)
+        )
       ),
       version.abimanifest.map(json =>
-        _repository_car_abi_manifest_label(locale) -> _repository_car_abi_manifest_summary(json)
+        _repository_car_abi_manifest_label(locale) -> _repository_car_archive_metadata_link(
+          target,
+          page,
+          version.metadataPublicPath(artifactid, "abi-manifest.json"),
+          _repository_car_abi_manifest_summary(json)
+        )
+      ),
+      if (version.links.isEmpty) None else Some(
+        _repository_car_runtime_links_label(locale) -> _repository_car_runtime_links(version.links)
       )
     ).flatten
+
+  private def _repository_car_archive_metadata_link(
+    target: Path,
+    page: Path,
+    publicpath: String,
+    summary: String
+  ): String = {
+    val href = _relative_href(page, target.resolve(publicpath))
+    s"""<a href="${_html_escape(href)}">${summary}</a>"""
+  }
+
+  private def _repository_car_runtime_links(links: RepositoryCarLinks): String = {
+    val items = Vector(
+      links.help.map("Help" -> _),
+      links.manual.map("Manual" -> _),
+      links.openapi.map("OpenAPI" -> _),
+      links.mcp.map("MCP" -> _)
+    ).flatten.map { case (label, href) =>
+      s"""<a href="${_html_escape(href)}">${_html_escape(label)}</a>"""
+    }
+    items.mkString(" ")
+  }
+
+  private def _repository_car_runtime_links_label(locale: String): String =
+    locale match {
+      case "ja" => "コンポーネント公開面"
+      case _ => "Component surfaces"
+    }
 
   private def _repository_car_component_descriptor_summary(json: Json): String = {
     val cursor = json.hcursor
