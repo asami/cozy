@@ -31,7 +31,7 @@ import io.circe.syntax._
 
 /*
  * @since   Jun.  3, 2026
- * @version Jul. 15, 2026
+ * @version Jul. 21, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyBok {
@@ -2780,7 +2780,7 @@ private[cozy] object CozyBok {
     _write_article_page(config, target, locale, categories)
     _write_project_pages(config, target, locale, categories)
     _write_repository_car_page(config, target, locale, categories)
-    _write_sie_repository_sar_pages(config, target, locale, categories)
+    _write_repository_sar_pages(config, target, locale, categories)
     _write_rdf_page(config, target, locale, categories)
     _write_scenario_page(config, target, locale, categories)
     _write_bibliography_page(config, target, locale, categories)
@@ -3722,13 +3722,15 @@ private[cozy] object CozyBok {
 
   private final case class ComponentReferenceIndex(
     kind: String,
-    entries: Vector[ComponentReferenceEntry]
+    entries: Vector[ComponentReferenceEntry],
+    diagnostics: Vector[RepositoryCatalogDiagnostic] = Vector.empty
   ) {
     def toJsonString: String =
       Json.obj(
         "schemaVersion" -> Json.fromString("cncf.component-reference-index.v1"),
         "kind" -> Json.fromString(kind),
-        "entries" -> entries.map(_.toJson).asJson
+        "entries" -> entries.map(_.toJson).asJson,
+        "diagnostics" -> diagnostics.map(_.toJson).asJson
       ).spaces2 + "\n"
   }
 
@@ -3807,6 +3809,26 @@ private[cozy] object CozyBok {
     repositoryroot: Path,
     sourcepath: String,
     catalog: _root_.cozy.archive.RepositoryArtifactCatalog
+  )
+
+  private final case class RepositoryCatalogDiagnostic(
+    code: String,
+    kind: String,
+    artifactid: String,
+    catalog: Option[String]
+  ) {
+    def toJson: Json =
+      Json.obj(
+        "code" -> Json.fromString(code),
+        "kind" -> Json.fromString(kind),
+        "artifact_id" -> Json.fromString(artifactid),
+        "catalog" -> catalog.asJson
+      )
+  }
+
+  private final case class RepositoryCatalogDiscovery(
+    sources: Vector[RepositoryCatalogSource],
+    diagnostics: Vector[RepositoryCatalogDiagnostic]
   )
 
   private final case class RepositoryCarEntry(
@@ -3927,7 +3949,7 @@ private[cozy] object CozyBok {
       _car_component_reference_index(config),
       _sar_component_reference_index(config)
     )
-    indexes.filter(_.entries.nonEmpty).foreach { index =>
+    indexes.filter(index => index.entries.nonEmpty || index.diagnostics.nonEmpty).foreach { index =>
       _write_text(
         config.doxsitePath.resolve("metadata/cncf/component-references").resolve(s"${index.kind}.json"),
         index.toJsonString
@@ -3966,7 +3988,8 @@ private[cozy] object CozyBok {
 
   private def _sar_component_reference_index(config: BuildConfig): ComponentReferenceIndex = {
     val projects = _safe_resolved_project_packages(config)
-    val entries = _sie_repository_catalog_sources(config, projects, "sar").map { source =>
+    val discovery = _repository_catalog_discovery(config, projects, "sar")
+    val entries = discovery.sources.map { source =>
       val catalog = source.catalog
       ComponentReferenceEntry(
         name = catalog.artifactId,
@@ -3991,7 +4014,7 @@ private[cozy] object CozyBok {
         }
       )
     }
-    ComponentReferenceIndex("sar", entries)
+    ComponentReferenceIndex("sar", entries, discovery.diagnostics)
   }
 
   private def _write_repository_car_page(
@@ -4048,14 +4071,14 @@ private[cozy] object CozyBok {
     }
   }
 
-  private def _write_sie_repository_sar_pages(
+  private def _write_repository_sar_pages(
     config: BuildConfig,
     target: Path,
     locale: String,
     categories: Vector[CategoryContent]
   ): Unit = {
     val projects = _resolved_project_packages(config)
-    val artifacts = _sie_repository_catalog_sources(config, projects, "sar")
+    val artifacts = _repository_catalog_discovery(config, projects, "sar").sources
     if (artifacts.nonEmpty) {
       val indexpage = target.resolve("repository/sar/index.html")
       _write_text(
@@ -4065,9 +4088,9 @@ private[cozy] object CozyBok {
           categories,
           locale,
           indexpage,
-          _sie_repository_sar_title(locale),
-          _sie_repository_sar_description(locale),
-          _sie_repository_sar_index_body(target, indexpage, locale, artifacts)
+          _repository_sar_title(locale),
+          _repository_sar_description(locale),
+          _repository_sar_index_body(target, indexpage, locale, artifacts)
         )
       )
       artifacts.foreach { artifact =>
@@ -4082,8 +4105,8 @@ private[cozy] object CozyBok {
             locale,
             modulepage,
             artifactid,
-            _sie_repository_sar_module_description(locale, artifactid),
-            _sie_repository_sar_module_body(target, modulepage, locale, artifact, relatedprojects)
+            _repository_sar_module_description(locale, artifactid),
+            _repository_sar_module_body(target, modulepage, locale, artifact, relatedprojects)
           )
         )
         artifact.catalog.versions.foreach { version =>
@@ -4096,8 +4119,8 @@ private[cozy] object CozyBok {
               locale,
               versionpage,
               s"${artifactid} ${version.version}",
-              _sie_repository_sar_version_description(locale, artifactid, version.version),
-              _sie_repository_sar_version_body(target, versionpage, locale, artifact, version, relatedprojects)
+              _repository_sar_version_description(locale, artifactid, version.version),
+              _repository_sar_version_body(target, versionpage, locale, artifact, version, relatedprojects)
             )
           )
         }
@@ -4105,7 +4128,7 @@ private[cozy] object CozyBok {
     }
   }
 
-  private def _sie_repository_sar_index_body(
+  private def _repository_sar_index_body(
     target: Path,
     page: Path,
     locale: String,
@@ -4133,8 +4156,8 @@ private[cozy] object CozyBok {
          |</div>""".stripMargin
     s"""<section class="bok-dashboard-shell bok-repository-car-dashboard" id="dashboard">
        |  ${_dashboard_hero(
-            _sie_repository_sar_title(locale),
-            _sie_repository_sar_description(locale),
+            _repository_sar_title(locale),
+            _repository_sar_description(locale),
             Vector(
               "SAR" -> artifacts.size.toString,
               _repository_car_versions_label(locale) -> artifacts.map(_.catalog.versions.size).sum.toString
@@ -4142,13 +4165,13 @@ private[cozy] object CozyBok {
           )}
        |  <div class="bok-dashboard container-fluid bok-dashboard-command-center">
        |    <div class="row g-3">
-       |      ${_dashboard_card("col-12", "bok-card-map bok-card-project-map", _sie_repository_sar_title(locale), table, Vector("reader", "contributor", "project_manager"))}
+       |      ${_dashboard_card("col-12", "bok-card-map bok-card-project-map", _repository_sar_title(locale), table, Vector("reader", "contributor", "project_manager"))}
        |    </div>
        |  </div>
        |</section>""".stripMargin
   }
 
-  private def _sie_repository_sar_module_body(
+  private def _repository_sar_module_body(
     target: Path,
     page: Path,
     locale: String,
@@ -4185,7 +4208,7 @@ private[cozy] object CozyBok {
        |</section>""".stripMargin
   }
 
-  private def _sie_repository_sar_version_body(
+  private def _repository_sar_version_body(
     target: Path,
     page: Path,
     locale: String,
@@ -4211,59 +4234,114 @@ private[cozy] object CozyBok {
   ): Vector[CozyBokProjectPublisher.ResolvedBokProject] =
     projects.filter(_.sie.exists(_.artifacts.exists(x => x.kind == kind && x.artifactId == artifactid))).sortBy(_.publicationpath)
 
-  private def _sie_repository_sar_title(locale: String): String =
+  private def _repository_sar_title(locale: String): String =
     locale match {
-      case "ja" => "SIE SARリポジトリ"
-      case _ => "SIE Repository SARs"
+      case "ja" => "SARリポジトリ"
+      case _ => "Repository SARs"
     }
 
-  private def _sie_repository_sar_description(locale: String): String =
+  private def _repository_sar_description(locale: String): String =
     locale match {
-      case "ja" => "SIE Projectが明示参照するrepository/catalog/sarの公開SARです。"
-      case _ => "Published repository/catalog/sar entries explicitly referenced by SIE Projects."
+      case "ja" => "Component Repositoryで公開されるrepository/catalog/sarのSAR一覧です。"
+      case _ => "Published SAR entries from the Component Repository index."
     }
 
-  private def _sie_repository_sar_module_description(locale: String, artifactid: String): String =
+  private def _repository_sar_module_description(locale: String, artifactid: String): String =
     locale match {
-      case "ja" => s"${artifactid} のSIE SAR catalogと公開versionです。"
-      case _ => s"SIE SAR catalog and published versions for ${artifactid}."
+      case "ja" => s"${artifactid} のSAR catalogと公開versionです。"
+      case _ => s"SAR catalog and published versions for ${artifactid}."
     }
 
-  private def _sie_repository_sar_version_description(locale: String, artifactid: String, version: String): String =
+  private def _repository_sar_version_description(locale: String, artifactid: String, version: String): String =
     locale match {
-      case "ja" => s"${artifactid} ${version} の公開SIE SAR version情報です。"
-      case _ => s"Published SIE SAR version information for ${artifactid} ${version}."
+      case "ja" => s"${artifactid} ${version} の公開SAR version情報です。"
+      case _ => s"Published SAR version information for ${artifactid} ${version}."
     }
 
   private def _repository_car_index(config: BuildConfig): RepositoryCarIndex = {
     val projects = _safe_resolved_project_packages(config)
-    val sources = _deduplicate_repository_catalog_sources(
-      config,
-      "car",
-      _repository_car_catalog_paths(config).flatMap(_read_repository_car_catalog(config, _)) ++
-        projects.flatMap(_.sie.toVector.flatMap(_.artifacts)).filter(_.kind == "car").map { artifact =>
-          _repository_catalog_source(config, artifact.path, artifact.catalog)
-        }
+    val fallback =
+      _repository_catalog_paths(config, "car").flatMap(_read_repository_catalog(config, "car", _)) ++
+        _project_repository_catalog_sources(config, projects, "car")
+    val discovery = _repository_index_catalog_sources(config, "car").getOrElse(
+      RepositoryCatalogDiscovery(_deduplicate_repository_catalog_sources(config, "car", fallback), Vector.empty)
     )
+    val sources = discovery.sources
     val entries = sources.map(_repository_car_entry).
       map(_repository_car_merge_project_metadata(_, projects)).
       sortBy(_.artifactid)
-    val diagnostics = _repository_car_diagnostics(config, entries, projects)
+    val diagnostics = discovery.diagnostics.map(_repository_car_diagnostic) ++
+      _repository_car_diagnostics(config, entries, projects)
     RepositoryCarIndex(entries, diagnostics)
   }
 
-  private def _sie_repository_catalog_sources(
+  private def _repository_catalog_discovery(
+    config: BuildConfig,
+    projects: Vector[CozyBokProjectPublisher.ResolvedBokProject],
+    kind: String
+  ): RepositoryCatalogDiscovery = {
+    val fallback =
+      _repository_catalog_paths(config, kind).flatMap(_read_repository_catalog(config, kind, _)) ++
+        _project_repository_catalog_sources(config, projects, kind)
+    _repository_index_catalog_sources(config, kind).getOrElse(
+      RepositoryCatalogDiscovery(_deduplicate_repository_catalog_sources(config, kind, fallback), Vector.empty)
+    )
+  }
+
+  private def _project_repository_catalog_sources(
     config: BuildConfig,
     projects: Vector[CozyBokProjectPublisher.ResolvedBokProject],
     kind: String
   ): Vector[RepositoryCatalogSource] =
-    _deduplicate_repository_catalog_sources(
-      config,
-      kind,
-      projects.flatMap(_.sie.toVector.flatMap(_.artifacts)).filter(_.kind == kind).map { artifact =>
-        _repository_catalog_source(config, artifact.path, artifact.catalog)
+    projects.flatMap(_.sie.toVector.flatMap(_.artifacts)).filter(_.kind == kind).map { artifact =>
+      _repository_catalog_source(config, artifact.path, artifact.catalog)
+    }
+
+  private def _repository_index_catalog_sources(
+    config: BuildConfig,
+    kind: String
+  ): Option[RepositoryCatalogDiscovery] = {
+    val repositoryroot = config.publication.repositoryPath(config.project).toAbsolutePath.normalize
+    val indexpath = repositoryroot.resolve("catalog/index.json")
+    if (!Files.isRegularFile(indexpath)) None
+    else Some {
+      try {
+        val index = _root_.cozy.archive.ComponentRepositoryIndex.load(indexpath)
+        val attempts = index.artifacts.filter(_.kind == kind).map { entry =>
+          val catalogpath = indexpath.getParent.resolve(entry.catalog).normalize
+          if (!catalogpath.startsWith(indexpath.getParent) || !Files.isRegularFile(catalogpath))
+            Left(RepositoryCatalogDiagnostic("index-catalog-unavailable", entry.kind, entry.artifactId, Some(entry.catalog)))
+          else try {
+            val catalog = _load_repository_catalog(catalogpath)
+            if (
+              catalog.kind != entry.kind ||
+              catalog.artifactId != entry.artifactId ||
+              catalog.status.getOrElse("active") != entry.status ||
+              catalog.recommended != entry.recommended ||
+              catalog.latestStable != entry.latestStable ||
+              catalog.latestSnapshot != entry.latestSnapshot
+            )
+              Left(RepositoryCatalogDiagnostic("index-catalog-mismatch", entry.kind, entry.artifactId, Some(entry.catalog)))
+            else Right(_repository_catalog_source(config, catalogpath, catalog))
+          } catch {
+            case NonFatal(_) => Left(RepositoryCatalogDiagnostic("index-catalog-invalid", entry.kind, entry.artifactId, Some(entry.catalog)))
+          }
+        }
+        RepositoryCatalogDiscovery(
+          attempts.collect { case Right(source) => source },
+          attempts.collect { case Left(diagnostic) => diagnostic }
+        )
+      } catch {
+        case NonFatal(_) => RepositoryCatalogDiscovery(
+          Vector.empty,
+          Vector(RepositoryCatalogDiagnostic("repository-index-invalid", kind, "*", Some("catalog/index.json")))
+        )
       }
-    )
+    }
+  }
+
+  private def _repository_car_diagnostic(diagnostic: RepositoryCatalogDiagnostic): RepositoryCarDiagnostic =
+    RepositoryCarDiagnostic(diagnostic.code, diagnostic.artifactid, None, None, None, None, None)
 
   private def _deduplicate_repository_catalog_sources(
     config: BuildConfig,
@@ -4433,8 +4511,8 @@ private[cozy] object CozyBok {
       value.name.exists(_ != value.expectedname) || value.version.exists(_ != version)
     }
 
-  private def _repository_car_catalog_paths(config: BuildConfig): Vector[Path] = {
-    val dir = config.publication.repositoryPath(config.project).resolve("catalog/car")
+  private def _repository_catalog_paths(config: BuildConfig, kind: String): Vector[Path] = {
+    val dir = config.publication.repositoryPath(config.project).resolve(s"catalog/$kind")
     if (!Files.isDirectory(dir))
       Vector.empty
     else {
@@ -4442,7 +4520,7 @@ private[cozy] object CozyBok {
       try {
         stream.iterator.asScala.toVector.
           filter(Files.isRegularFile(_)).
-          filter(path => _is_repository_car_catalog_file(path)).
+          filter(path => _is_repository_catalog_file(path)).
           sortBy(_.toAbsolutePath.normalize.toString)
       } finally {
         stream.close()
@@ -4450,19 +4528,19 @@ private[cozy] object CozyBok {
     }
   }
 
-  private def _is_repository_car_catalog_file(path: Path): Boolean = {
+  private def _is_repository_catalog_file(path: Path): Boolean = {
     val name = path.getFileName.toString.toLowerCase(Locale.ROOT)
     !name.contains(".model-metadata.") &&
       (name.endsWith(".yaml") || name.endsWith(".yml") || name.endsWith(".json"))
   }
 
-  private def _read_repository_car_catalog(config: BuildConfig, path: Path): Option[RepositoryCatalogSource] =
-    _load_repository_car_catalog(path) match {
-      case catalog if catalog.kind == "car" => Some(_repository_catalog_source(config, path, catalog))
+  private def _read_repository_catalog(config: BuildConfig, kind: String, path: Path): Option[RepositoryCatalogSource] =
+    _load_repository_catalog(path) match {
+      case catalog if catalog.kind == kind => Some(_repository_catalog_source(config, path, catalog))
       case _ => None
     }
 
-  private def _load_repository_car_catalog(path: Path): _root_.cozy.archive.RepositoryArtifactCatalog = {
+  private def _load_repository_catalog(path: Path): _root_.cozy.archive.RepositoryArtifactCatalog = {
     _root_.cozy.RepositoryArtifactCatalog.load(path)
   }
 
@@ -5091,12 +5169,20 @@ private[cozy] object CozyBok {
       case ("ja", "archive-without-abi-manifest") => "CARにabi-manifest.jsonがありません。"
       case ("ja", "component-descriptor-coordinate-mismatch") => "component descriptorの座標がcatalogと一致しません。"
       case ("ja", "abi-manifest-coordinate-mismatch") => "ABI manifestの座標がcatalogと一致しません。"
+      case ("ja", "repository-index-invalid") => "Component Repository indexを読み込めません。"
+      case ("ja", "index-catalog-unavailable") => "Component Repository indexが参照するcatalogを利用できません。"
+      case ("ja", "index-catalog-invalid") => "Component Repository indexが参照するcatalogを読み込めません。"
+      case ("ja", "index-catalog-mismatch") => "Component Repository indexとcatalogの内容が一致しません。"
       case (_, "catalog-without-project") => "The published CAR has no related Project definition."
       case (_, "project-without-catalog") => "The Project has no corresponding published CAR catalog."
       case (_, "archive-without-component-descriptor") => "The CAR does not contain component-descriptor.json."
       case (_, "archive-without-abi-manifest") => "The CAR does not contain abi-manifest.json."
       case (_, "component-descriptor-coordinate-mismatch") => "The component descriptor coordinate does not match the catalog."
       case (_, "abi-manifest-coordinate-mismatch") => "The ABI manifest coordinate does not match the catalog."
+      case (_, "repository-index-invalid") => "The Component Repository index is invalid."
+      case (_, "index-catalog-unavailable") => "The catalog referenced by the Component Repository index is unavailable."
+      case (_, "index-catalog-invalid") => "The catalog referenced by the Component Repository index is invalid."
+      case (_, "index-catalog-mismatch") => "The Component Repository index and catalog do not match."
       case _ => code
     }
 

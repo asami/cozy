@@ -190,7 +190,7 @@ Status: DONE
       from the repository catalog coordinate.
 - [x] Keep CAR build and `publish-car` out of `bok build`; BoK build only
       consumes existing repository metadata.
-- [x] Add `CozyBokRepositoryCarSpec`.
+- [x] Add `CozyBokComponentRepositorySpec`.
 - [x] Extend `CozyBokProjectSpec` for Project-to-CAR page links.
 - [x] Extend `CozyBokTagSpec` for tag pages that include CAR resources.
 - [x] Verify with KnowledgeHub using at least one repository CAR catalog entry.

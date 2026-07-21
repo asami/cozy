@@ -204,7 +204,7 @@ Verified CNCF Launcher status:
 
 Stage Status:
 
-- Current status: PLANNED
+- Current status: IN PROGRESS
 - Owner: Cozy BoK
 - Checklist basis: `CR21-05`
 
@@ -214,6 +214,18 @@ Focus:
 - link repository entries to Project, descriptor, ABI, CML, model metadata,
   Help, Manual, OpenAPI, MCP, and later skill-bundle knowledge when present;
 - preserve explicit empty and unavailable-source diagnostics.
+
+Verified index-consumer status:
+
+- `repository/catalog/index.json` is the CAR/SAR discovery source when present;
+  unindexed catalog files are not added by directory traversal.
+- CAR and SAR list/detail pages are generated from the same indexed identities,
+  independently of SIE Project references.
+- When the public index is absent, existing known CAR/SAR catalogs remain
+  available through the documented compatibility fallback.
+
+Component Repository dashboard counts/navigation, declared metadata links,
+and non-fatal index/catalog diagnostics remain active Stage 21.4 work.
 
 ## Completion Criteria
 

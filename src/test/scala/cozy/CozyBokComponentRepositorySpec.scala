@@ -11,14 +11,14 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jul. 13, 2026
- * @version Jul. 13, 2026
+ * @version Jul. 21, 2026
  * @author  ASAMI, Tomoharu
  */
-class CozyBokRepositoryCarSpec
+class CozyBokComponentRepositorySpec
     extends AnyWordSpec
     with GivenWhenThen
     with CozySpecVocabulary {
-  "Cozy BoK repository CAR knowledge" should {
+  "Cozy BoK Component Repository knowledge" should {
     "resolve repository catalog roots" which {
       "read CAR catalogs from an explicit warehouse operation" in {
         _with_temp_dir("cozy-bok-repository-car-warehouse") { dir =>
@@ -39,6 +39,18 @@ class CozyBokRepositoryCarSpec
               |  - version: 0.1.0
               |    channel: stable
               |    file: repository/car/textus-sie/0.1.0/textus-sie-0.1.0.car
+              |""".stripMargin
+          )
+          _write(
+            warehouse.resolve("repository/catalog/sar/textus-app.yaml"),
+            """schemaVersion: 1
+              |kind: sar
+              |artifactId: textus-app
+              |recommended: 0.1.0
+              |versions:
+              |  - version: 0.1.0
+              |    channel: stable
+              |    file: repository/sar/textus-app/0.1.0/textus-app-0.1.0.sar
               |""".stripMargin
           )
           _write(
@@ -103,6 +115,89 @@ class CozyBokRepositoryCarSpec
           versionpage should include("../../catalog/car/textus-sie.cml")
           versionpage should include("コンポーネント記述子")
           versionpage should include("ABIマニフェスト")
+          val sarpage = _read(dir.resolve("website.d/repository/sar/index.html"))
+          sarpage should include("textus-app")
+          dir.resolve("website.d/repository/sar/textus-app/index.html") should be_regular_file
+        }
+      }
+
+      "use the public index as the CAR and SAR discovery source" in {
+        _with_temp_dir("cozy-bok-component-repository-index") { dir =>
+          Given("a public component index with CAR and SAR entries plus unindexed catalogs")
+          _write(dir.resolve("src/main/doxsite/site.conf"), "site { output { locale_mode = \"single_locale_root\" } }\n")
+          _write(dir.resolve("src/main/doxsite/index.dox"), "Home\n====\n")
+          _write(
+            dir.resolve("repository/catalog/index.json"),
+            """{
+              |  "schemaVersion": "cncf.component-repository-index.v1",
+              |  "generatedAt": "2026-07-21T00:00:00Z",
+              |  "artifacts": [
+              |    {"kind":"car","artifactId":"indexed-car","catalog":"car/indexed-car.yaml","status":"active"},
+              |    {"kind":"car","artifactId":"mismatched-car","catalog":"car/mismatched-car.yaml","status":"active"},
+              |    {"kind":"sar","artifactId":"indexed-sar","catalog":"sar/indexed-sar.yaml","status":"active"},
+              |    {"kind":"sar","artifactId":"missing-sar","catalog":"sar/missing-sar.yaml","status":"active"}
+              |  ]
+              |}
+              |""".stripMargin
+          )
+          Vector(
+            "car/indexed-car.yaml" -> ("car" -> "indexed-car"),
+            "sar/indexed-sar.yaml" -> ("sar" -> "indexed-sar"),
+            "car/mismatched-car.yaml" -> ("car" -> "mismatched-car"),
+            "car/unindexed-car.yaml" -> ("car" -> "unindexed-car"),
+            "sar/unindexed-sar.yaml" -> ("sar" -> "unindexed-sar")
+          ).foreach { case (relative, (kind, artifactid)) =>
+            _write(
+              dir.resolve("repository/catalog").resolve(relative),
+              s"""schemaVersion: 1
+                 |kind: $kind
+                 |artifactId: $artifactid
+                 |status: ${if (artifactid == "mismatched-car") "deprecated" else "active"}
+                 |versions: []
+                 |""".stripMargin
+            )
+          }
+          val config = CozyBok.BuildConfig.create(
+            List(dir.toString, "--strategy", "preview", "--no-bib-service")
+          )
+
+          When("Cozy builds Component Repository knowledge without SIE Project references")
+          CozyBok.build(config, new RepositoryCarBuildRunner)
+
+          Then("only indexed CAR and SAR identities are rendered")
+          val carmetadata = _read(dir.resolve("doxsite.d/metadata/repository/car/index.json"))
+          carmetadata should include("indexed-car")
+          carmetadata should not include "unindexed-car"
+          carmetadata should include("index-catalog-mismatch")
+          val sarmetadata = _read(dir.resolve("doxsite.d/metadata/cncf/component-references/sar.json"))
+          sarmetadata should include("indexed-sar")
+          sarmetadata should not include "unindexed-sar"
+          sarmetadata should include("index-catalog-unavailable")
+          _read(dir.resolve("website.d/repository/car/index.html")) should include("indexed-car")
+          _read(dir.resolve("website.d/repository/sar/index.html")) should include("indexed-sar")
+          dir.resolve("website.d/repository/sar/indexed-sar/index.html") should be_regular_file
+          _read(dir.resolve("website.d/repository/sar/index.html")) should not include "SIE SAR"
+        }
+      }
+
+      "report a malformed public index without failing the build" in {
+        _with_temp_dir("cozy-bok-component-repository-invalid-index") { dir =>
+          Given("a BoK source tree with a malformed Component Repository index")
+          _write(dir.resolve("src/main/doxsite/site.conf"), "site { output { locale_mode = \"single_locale_root\" } }\n")
+          _write(dir.resolve("src/main/doxsite/index.dox"), "Home\n====\n")
+          _write(dir.resolve("repository/catalog/index.json"), "{not-json")
+          val config = CozyBok.BuildConfig.create(
+            List(dir.toString, "--strategy", "preview", "--no-bib-service")
+          )
+
+          When("Cozy builds Component Repository knowledge")
+          CozyBok.build(config, new RepositoryCarBuildRunner)
+
+          Then("CAR and SAR metadata report the invalid index without directory fallback")
+          _read(dir.resolve("doxsite.d/metadata/repository/car/index.json")) should include("repository-index-invalid")
+          _read(dir.resolve("doxsite.d/metadata/cncf/component-references/sar.json")) should include("repository-index-invalid")
+          _read(dir.resolve("website.d/repository/car/index.html")) should include("Component Repository index")
+          Files.isRegularFile(dir.resolve("website.d/repository/sar/index.html")) shouldBe false
         }
       }
     }
