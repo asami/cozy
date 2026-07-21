@@ -540,7 +540,7 @@ Primary reference:
 
 ### Phase 21: Component Repository Discovery
 
-Status: active.
+Status: closed.
 
 Purpose:
 
@@ -583,8 +583,8 @@ Primary reference:
 
 ## Current Priority
 
-Phase 6 through Phase 20 are closed. Phase 21 is active.
-Phase 22 follows Phase 21 after the CNCF Skill Bundle contract is executable.
+Phase 6 through Phase 21 are closed. Phase 22 remains planned until the CNCF
+Skill Bundle contract is executable.
 
 Phase 20 introduced provider-neutral narration with VOICEVOX, host-only macOS
 `say`, and a portable Piper Docker route, then used that contract to migrate the

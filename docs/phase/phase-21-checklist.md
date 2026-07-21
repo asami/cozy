@@ -74,7 +74,7 @@ Status: DONE
 
 ## CR21-06: Cross-Repository Verification and Closure
 
-Status: IN PROGRESS
+Status: DONE
 
 - [x] Verify one repository containing multiple CARs and SARs.
 - [x] Verify stable, snapshot, disabled, missing, and conflicting entries.
@@ -83,4 +83,4 @@ Status: IN PROGRESS
 - [x] Run focused and full tests in every modified repository.
 - [x] Run `git diff --check` in every modified repository.
 - [x] Complete post-implementation review and fix all actionable findings.
-- [ ] Record operational evidence and close Phase 21 from checklist results.
+- [x] Record operational evidence and close Phase 21 from checklist results.

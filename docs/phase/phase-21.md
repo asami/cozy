@@ -1,8 +1,9 @@
 # Phase 21: Component Repository Discovery
 
-Status: active
+Status: closed
 
 Start date: 2026-07-21
+End date: 2026-07-21
 
 ## Goal
 
@@ -242,7 +243,7 @@ contracts.
 
 Stage Status:
 
-- Current status: IN PROGRESS
+- Current status: DONE
 - Owner: CNCF / Cozy / Textus Launcher / CNCF Launcher
 - Checklist basis: `CR21-06`
 
@@ -273,9 +274,23 @@ Verified evidence on Jul. 21, 2026:
 
 Post-implementation review found and fixed one executable-specification gap:
 duplicate metadata identities could have been hidden by test-side map
-construction. The final review has no remaining actionable findings. Closure
-now requires recording the resulting release commit evidence before changing
-the phase status to complete.
+construction. The final review has no remaining actionable findings.
+
+Closure evidence:
+
+- CNCF `0f0e86dc` establishes the shared Component Repository index contract.
+- Cozy `beacea8` publishes and validates the index; `2ac1e47`, `925cf81`,
+  `668a588`, and `c61ef08` consume it for BoK discovery, dashboards,
+  diagnostics, and metadata links.
+- Textus Launcher `e96551a` implements public/local/cache repository discovery.
+- CNCF Launcher `d741833` implements equivalent admitted development/local
+  discovery.
+- Cozy `53a3cb7` records the cross-repository lifecycle fixture and final
+  verification evidence.
+
+Phase 21 is therefore closed. Component skill bundle definition, packaging,
+installation, and Component Repository skill guidance remain explicitly
+deferred to Phase 22.
 
 ## Completion Criteria
 
