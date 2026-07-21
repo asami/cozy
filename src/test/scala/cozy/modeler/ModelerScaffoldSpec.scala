@@ -13,7 +13,7 @@ import org.scalatest.wordspec.AnyWordSpec
 /*
  * @since   Jun. 23, 2026
  *  version Jun. 27, 2026
- * @version Jul. 15, 2026
+ * @version Jul. 21, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -119,7 +119,8 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         buildsbtcontent should include ("build.scalaVersion")
         buildsbtcontent should not include ("cozyPublishCar.value")
         buildsbtcontent should not include ("cozyPublishLocalCar.value")
-        buildsbtcontent should include ("""cozyDelegateCommand := Seq("cozy")""")
+        buildsbtcontent should include (""""--runtime"""")
+        buildsbtcontent should include ("""ProjectYamlBuild.requiredValue(cozyProjectMetadata.value, "build.cozyVersion")""")
         buildsbtcontent should not include ("junit-interface")
         buildsbtcontent should not include ("cats-core")
         buildsbtcontent should not include ("kittens")
@@ -138,7 +139,8 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         buildsbtcontent should not include ("org.goldenport.cncf.component.Component$BundleFactory")
         projectyamlcontent should include ("""scalaVersion: "3.3.8"""")
         projectyamlcontent should include ("org.goldenport::goldenport-cncf:")
-        projectyamlcontent should include ("org.scalatest::scalatest:3.2.10")
+        projectyamlcontent should include ("cozyVersion:")
+        projectyamlcontent should include ("org.scalatest::scalatest:3.2.19")
         projectyamlcontent should include ("manifest_metadata:")
         projectyamlcontent should include ("abi:")
         projectyamlcontent should include ("dependencies: []")
@@ -161,7 +163,7 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         pluginssbtcontent should include ("""addSbtPlugin("org.goldenport" % "sbt-cozy"""")
         pluginssbtcontent should include (""""SimpleModeling.org" at "https://www.simplemodeling.org/repository/maven"""")
         pluginssbtcontent should include ("SBT_COZY_VERSION")
-        pluginssbtcontent should include ("0.1.14")
+        pluginssbtcontent should include ("0.1.15-SNAPSHOT")
         pluginssbtcontent should include ("""addSbtPlugin("org.goldenport" % "sbt-cozy" % sbtCozyVersion)""")
       }
 
@@ -352,10 +354,18 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         }
         val modelcontent = Files.readString(samplecml)
         modelcontent should include ("# VALUE")
-        modelcontent should include ("##### INPUT\n\n###### VALUE\nPostNotice")
-        modelcontent should include ("##### INPUT\n\n###### VALUE\nSearchNotices")
-        count_token(modelcontent, "###### TYPE\nOperationResult") shouldBe 2
-        modelcontent should not include ("- input-kind ::")
+        modelcontent should include ("#### postNotice")
+        modelcontent should include ("#### searchNotices")
+        modelcontent should include ("##### INPUT\n\n###### TYPE\nPostNotice")
+        modelcontent should include ("##### INPUT\n\n###### TYPE\nSearchNotices")
+        modelcontent should include ("###### TYPE\nPostNoticeResult")
+        modelcontent should include ("###### TYPE\nSearchNoticesResult")
+        modelcontent should include ("## PostNoticeResult")
+        modelcontent should include ("## SearchNoticesResult")
+        modelcontent should include ("| text   | NoticeSearchText | ?")
+        modelcontent should include ("## NoticeSearchText")
+        modelcontent should include ("## PostNotice\n\n- input-kind :: COMMAND")
+        modelcontent should include ("## SearchNotices\n\n- input-kind :: QUERY")
         modelcontent should not include ("# COMMAND")
         modelcontent should not include ("# QUERY")
         withClue(s"web descriptor not found: $webdescriptor") {
@@ -449,7 +459,12 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         webcontent should include ("textus-user-notification.notice.post-notice")
         Files.readString(gitignore) should include ("target/")
         Files.readString(readme) should include ("textus-user-notification")
-        Files.readString(spec) should include ("new impl.ComponentFactory()")
+        val speccontent = Files.readString(spec)
+        speccontent should include ("new impl.ComponentFactory()")
+        speccontent should include ("extends AnyWordSpec")
+        speccontent should include ("with GivenWhenThen")
+        speccontent should include ("primary should not be null")
+        speccontent should not include ("assert(")
       }
 
       "init component creates a configured CAR project from config" in {
@@ -534,7 +549,8 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         projectyamlcontent should include ("""scalaPackage: "org.goldenport.textus.knowledge.editor"""")
         projectyamlcontent should include ("""scalaVersion: "3.3.8"""")
         projectyamlcontent should include ("org.goldenport::goldenport-cncf:")
-        projectyamlcontent should include ("org.scalatest::scalatest:3.2.10")
+        projectyamlcontent should include ("cozyVersion:")
+        projectyamlcontent should include ("org.scalatest::scalatest:3.2.19")
         projectyamlcontent should include ("manifest_metadata:")
         projectyamlcontent should include ("""minimum: """)
         projectyamlcontent should include ("""modules:""")
@@ -625,6 +641,10 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         val webcontent = Files.readString(out.resolve("src/main/web-inf/form.yaml"))
         val generated = out.resolve("target/scaffold-model")
         val generationoutput = run_modeler_scala(out.resolve("src/main/cozy/textus-art-scene.cml"), generated)
+        withClue(generationoutput) {
+          generationoutput should not include "is not defined"
+          Files.exists(generated) shouldBe true
+        }
         val componentcontent = Files.readString(
           generated.resolve("target/scala-3.3.8/src_managed/main/scala/org/simplemodeling/textus/artscene/ArtSceneComponent.scala")
         )
@@ -633,23 +653,26 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         modelcontent should include ("## ExhibitionCandidate")
         modelcontent should include ("## Exhibition")
         modelcontent should include ("| name        | name     | 1")
-        modelcontent should include ("#### RegisterFacility")
-        modelcontent should include ("#### ListCandidates")
-        modelcontent should include ("##### INPUT\n\n###### VALUE\nRegisterFacility")
-        modelcontent should include ("##### INPUT\n\n###### VALUE\nListCandidates")
+        modelcontent should include ("#### registerFacility")
+        modelcontent should include ("#### listCandidates")
+        modelcontent should include ("##### INPUT\n\n###### TYPE\nRegisterFacility")
+        modelcontent should include ("##### INPUT\n\n###### TYPE\nListCandidates")
+        modelcontent should include ("## RegisterFacility\n\n- input-kind :: COMMAND")
+        modelcontent should include ("## ListCandidates\n\n- input-kind :: QUERY")
         modelcontent should not include ("# COMMAND")
         modelcontent should not include ("# QUERY")
         modelcontent should not include ("- input ::")
         modelcontent should not include ("- output ::")
-        modelcontent should not include ("## RegisterFacilityResult")
-        modelcontent should not include ("## ListCandidatesResult")
-        count_token(modelcontent, "###### TYPE\nOperationResult") shouldBe 2
-        generationoutput should not include "is not defined"
+        modelcontent should include ("## RegisterFacilityResult")
+        modelcontent should include ("## ListCandidatesResult")
+        modelcontent should include ("| text   | ExhibitionSearchText | ?")
+        modelcontent should include ("## ExhibitionSearchText")
         componentcontent should include ("""inputType = "RegisterFacility"""")
         componentcontent should include ("""inputValueKind = "COMMAND_VALUE"""")
         componentcontent should include ("""inputType = "ListCandidates"""")
         componentcontent should include ("""inputValueKind = "QUERY_VALUE"""")
-        count_token(componentcontent, """outputType = "OperationResult"""") shouldBe 2
+        componentcontent should include ("""outputType = "RegisterFacilityResult"""")
+        componentcontent should include ("""outputType = "ListCandidatesResult"""")
         factorycontent should include ("override val ExhibitionCandidate: ArtSceneComponent.ExhibitionCandidateServiceFactory")
         factorycontent should include ("override def mcpReadyServices: Set[String]")
         factorycontent should include ("Set(\"ExhibitionCandidate\")")
@@ -701,13 +724,14 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         modelcontent should include ("## ExhibitionCandidate")
         modelcontent should include ("## Exhibition")
         modelcontent should include ("| name        | name     | 1")
-        modelcontent should include ("#### RegisterFacility")
-        modelcontent should include ("#### ListCandidates")
-        modelcontent should include ("##### INPUT\n\n###### VALUE\nRegisterFacility")
-        modelcontent should include ("##### INPUT\n\n###### VALUE\nListCandidates")
-        count_token(modelcontent, "###### TYPE\nOperationResult") shouldBe 2
-        modelcontent should not include ("## RegisterFacilityResult")
-        modelcontent should not include ("## ListCandidatesResult")
+        modelcontent should include ("#### registerFacility")
+        modelcontent should include ("#### listCandidates")
+        modelcontent should include ("##### INPUT\n\n###### TYPE\nRegisterFacility")
+        modelcontent should include ("##### INPUT\n\n###### TYPE\nListCandidates")
+        modelcontent should include ("###### TYPE\nRegisterFacilityResult")
+        modelcontent should include ("###### TYPE\nListCandidatesResult")
+        modelcontent should include ("## RegisterFacilityResult")
+        modelcontent should include ("## ListCandidatesResult")
       }
 
       "init component can create a CAR plus SAR application layout" in {

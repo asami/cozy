@@ -14,12 +14,12 @@ import scala.collection.JavaConverters._
  * @since   May. 20, 2026
  *  version May. 25, 2026
  *  version Jun. 27, 2026
- * @version Jul. 20, 2026
+ * @version Jul. 21, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyScaffold {
   private val _default_sbt_version = "1.9.7"
-  private val _default_sbt_cozy_version = "0.1.14"
+  private val _default_sbt_cozy_version = "0.1.15-SNAPSHOT"
 
   case class CarDependencyVersions(
     cncfVersion: String,
@@ -148,6 +148,8 @@ private[cozy] object CozyScaffold {
     def entityClassStem: String = entityName
     def commandOperationClassStem: String = commandOperationName
     def queryOperationClassStem: String = queryOperationName
+    def commandOperationMethodName: String = CarScaffoldConfig._lower_camel(commandOperationName)
+    def queryOperationMethodName: String = CarScaffoldConfig._lower_camel(queryOperationName)
 
     def serviceSlug: String = CarScaffoldConfig.kebab(serviceName)
     def entitySlug: String = CarScaffoldConfig.kebab(entityName)
@@ -176,6 +178,9 @@ private[cozy] object CozyScaffold {
       domain == "default"
   }
   object CarScaffoldConfig {
+    private def _lower_camel(value: String): String =
+      value.headOption.map(_.toLower).fold(value)(x => s"$x${value.drop(1)}")
+
     private val _value_options = Set(
       "component",
       "service-name",
@@ -440,7 +445,11 @@ private[cozy] object CozyScaffold {
       |
       |    cozyGeneratorBackend := "cozy",
       |    cozyDelegateProjectDir := None,
-      |    cozyDelegateCommand := Seq("cozy"),
+      |    cozyDelegateCommand := Seq(
+      |      "cozy",
+      |      "--runtime",
+      |      ProjectYamlBuild.requiredValue(cozyProjectMetadata.value, "build.cozyVersion")
+      |    ),
       |    cozyManifestMetadata ++=
       |      cozyProjectMetadata.value.mapUnder("packaging.car.manifest_metadata") ++
       |        Map("component" -> ProjectYamlBuild.requiredValue(cozyProjectMetadata.value, "project.component.name"))
@@ -505,11 +514,12 @@ private[cozy] object CozyScaffold {
       |
       |build:
       |  scalaVersion: "3.3.8"
+      |  cozyVersion: ${_yaml_string(org.simplemodeling.cozy.BuildInfo.version)}
       |  dependencies:
       |    compile:
       |      - ${_yaml_string(s"org.goldenport::goldenport-cncf:${versions.cncfVersion}")}
       |    test:
-      |      - "org.scalatest::scalatest:3.2.10"
+      |      - "org.scalatest::scalatest:3.2.19"
       |
       |publication:
       |  source_manifest:
@@ -738,26 +748,21 @@ private[cozy] object CozyScaffold {
       |
       |### OPERATION
       |
-      |#### ${scaffold.commandOperationName}
+      |#### ${scaffold.commandOperationMethodName}
       |
-      |- type :: COMMAND
+      |##### TYPE
+      |
+      |COMMAND
       |
       |##### INPUT
       |
-      |###### VALUE
+      |###### TYPE
       |${scaffold.commandOperationClassStem}
-      |
-      |###### ATTRIBUTE
-      |
-      || name        | type   | multiplicity |
-      ||-------------+--------+--------------|
-      || name        | name   | 1            |
-      || description | ${scaffold.entityName}Description | ?            |
       |
       |##### OUTPUT
       |
       |###### TYPE
-      |OperationResult
+      |${scaffold.commandOperationClassStem}Result
       |
       |##### IMPLEMENTATION
       |entity-create
@@ -765,27 +770,21 @@ private[cozy] object CozyScaffold {
       |##### ENTITY
       |${scaffold.entityName}
       |
-      |#### ${scaffold.queryOperationName}
+      |#### ${scaffold.queryOperationMethodName}
       |
-      |- type :: QUERY
+      |##### TYPE
+      |
+      |QUERY
       |
       |##### INPUT
       |
-      |###### VALUE
+      |###### TYPE
       |${scaffold.queryOperationClassStem}
-      |
-      |###### ATTRIBUTE
-      |
-      || name   | type   | multiplicity |
-      ||--------+--------+--------------|
-      || text   | string | ?            |
-      || offset | int    | ?            |
-      || limit  | int    | ?            |
       |
       |##### OUTPUT
       |
       |###### TYPE
-      |OperationResult
+      |${scaffold.queryOperationClassStem}Result
       |
       |##### IMPLEMENTATION
       |entity-search
@@ -807,6 +806,29 @@ private[cozy] object CozyScaffold {
       |
       |# VALUE
       |
+      |## ${scaffold.commandOperationClassStem}
+      |
+      |- input-kind :: COMMAND
+      |
+      |### Attribute
+      |
+      || name        | type   | multiplicity |
+      ||-------------+--------+--------------|
+      || name        | name   | 1            |
+      || description | ${scaffold.entityName}Description | ?            |
+      |
+      |## ${scaffold.queryOperationClassStem}
+      |
+      |- input-kind :: QUERY
+      |
+      |### Attribute
+      |
+      || name   | type   | multiplicity |
+      ||--------+--------+--------------|
+      || text   | ${scaffold.entityName}SearchText | ?            |
+      || offset | int    | ?            |
+      || limit  | int    | ?            |
+      |
       |## ${scaffold.entityName}Description
       |
       |### Attribute
@@ -814,6 +836,31 @@ private[cozy] object CozyScaffold {
       || name  | type   | multiplicity |
       ||-------+--------+--------------|
       || value | string | 1            |
+      |
+      |## ${scaffold.entityName}SearchText
+      |
+      |### Attribute
+      |
+      || name  | type   | multiplicity |
+      ||-------+--------+--------------|
+      || value | string | 1            |
+      |
+      |## ${scaffold.commandOperationClassStem}Result
+      |
+      |### Attribute
+      |
+      || name | type     | multiplicity |
+      ||------+----------+--------------|
+      || id   | entityid | 1            |
+      || name | name     | 1            |
+      |
+      |## ${scaffold.queryOperationClassStem}Result
+      |
+      |### Attribute
+      |
+      || name  | type                   | multiplicity |
+      ||-------+------------------------+--------------|
+      || items | ${scaffold.entityName} | *            |
       |""".stripMargin
 
   private[cozy] def carWebDescriptorYaml(
@@ -1007,12 +1054,22 @@ private[cozy] object CozyScaffold {
   private[cozy] def carComponentFactorySpecSource(scaffold: CarScaffoldConfig): String =
     s"""package ${scaffold.packageName}
       |
-      |import org.scalatest.funsuite.AnyFunSuite
+      |import org.scalatest.GivenWhenThen
+      |import org.scalatest.matchers.should.Matchers
+      |import org.scalatest.wordspec.AnyWordSpec
       |
-      |class ComponentFactorySpec extends AnyFunSuite {
-      |  test("ComponentFactory exposes a primary factory") {
-      |    val factory = new impl.ComponentFactory()
-      |    assert(factory.primaryFactory != null)
+      |final class ComponentFactorySpec extends AnyWordSpec with Matchers with GivenWhenThen {
+      |  "ComponentFactory" should {
+      |    "expose a primary component factory" in {
+      |      Given("a newly constructed generated component bundle factory")
+      |      val factory = new impl.ComponentFactory()
+      |
+      |      When("the primary factory is requested")
+      |      val primary = factory.primaryFactory
+      |
+      |      Then("the generated primary component boundary is available")
+      |      primary should not be null
+      |    }
       |  }
       |}
       |""".stripMargin

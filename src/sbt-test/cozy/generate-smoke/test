@@ -1,7 +1,7 @@
 > runMain cozy.Cozy car-sbt-project test.dox --save=out.d
 $ exists out.d/build.sbt
 $ exists out.d/src/main/cozy/sample.cml
-> runMain cozy.Cozy init component --save custom.d --name textus-art-scene --component-name ArtScene --service-name ExhibitionCandidate --entity Exhibition --command-operation RegisterFacility --query-operation ListCandidates --organization org.textus --package org.simplemodeling.textus.artscene --version 0.1.0-SNAPSHOT
+> runMain cozy.Cozy init component --save custom.d --name textus-art-scene --component-name ArtScene --service-name ExhibitionCandidate --entity Exhibition --command-operation RegisterFacility --query-operation ListCandidates --organization org.textus --package org.simplemodeling.textus.artscene --version 0.1.0-SNAPSHOT --tests --readme --gitignore
 $ exists custom.d/build.sbt
 $ exists custom.d/src/main/cozy/textus-art-scene.cml
 $ exec sh check-generated.sh
