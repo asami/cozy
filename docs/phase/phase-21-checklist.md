@@ -47,17 +47,17 @@ Status: DONE
 
 ## CR21-04: CNCF Launcher Development Discovery
 
-Status: PLANNED
+Status: DONE
 
-- [ ] Define the development/local repository list and show command grammar.
-- [ ] Admit development directories explicitly and derive identity from their
+- [x] Define the development/local repository list and show command grammar.
+- [x] Admit development directories explicitly and derive identity from their
       descriptors rather than directory names.
-- [ ] Normalize development and local/public artifact identities to the shared
+- [x] Normalize development and local/public artifact identities to the shared
       CNCF entry model.
-- [ ] Report freshness and safe diagnostics without exposing credential-bearing
+- [x] Report freshness and safe diagnostics without exposing credential-bearing
       locators to untrusted output.
-- [ ] Keep repository discovery separate from component process lifecycle.
-- [ ] Prove output identity compatibility with Textus Launcher fixtures.
+- [x] Keep repository discovery separate from component process lifecycle.
+- [x] Prove output identity compatibility with Textus Launcher fixtures.
 
 ## CR21-05: Cozy BoK Component Repository
 

@@ -159,7 +159,7 @@ Verified implementation status:
 
 Stage Status:
 
-- Current status: IN PROGRESS
+- Current status: DONE
 - Owner: Textus Launcher / CNCF Launcher
 - Checklist basis: `CR21-03` and `CR21-04`
 
@@ -186,7 +186,19 @@ Verified Textus Launcher status:
 - Credential-bearing URL parts and local absolute paths are removed from
   user-facing source diagnostics.
 
-CNCF Launcher development discovery remains the active Stage 21.3 work item.
+Verified CNCF Launcher status:
+
+- `cncf repository list` and `show` read the machine-local repository index
+  without loading the CNCF runtime or coupling discovery to process lifecycle.
+- Development checkouts are admitted only by `--include-development`, explicit
+  `--development-dir`, or a directory passed directly to `show`; identity and
+  version come from `project.yaml` rather than directory names.
+- Development and local artifacts use the same lifecycle and selector columns
+  as Textus Launcher, with development precedence represented separately by
+  origin.
+- Malformed local indexes and development descriptors are ignored with safe
+  diagnostics, and detailed output reports source freshness without exposing
+  absolute local paths.
 
 ## Stage 21.4: BoK Component Repository
 
