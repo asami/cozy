@@ -226,9 +226,12 @@ Verified index-consumer status:
 - The Component Repository dashboard exposes index-derived CAR/SAR artifact
   counts and links to both list surfaces; an empty SAR set retains an explicit
   empty list page instead of a broken navigation target.
+- Invalid indexes and unavailable, invalid, or mismatched catalogs remain
+  non-fatal build diagnostics and are visible from the Component Repository
+  dashboard; SAR diagnostics are also retained on the SAR list surface.
 
-Declared metadata links and non-fatal index/catalog diagnostics remain active
-Stage 21.4 work.
+Declared Project, descriptor, ABI, CML, model metadata, Help, Manual, OpenAPI,
+and MCP links remain active Stage 21.4 work.
 
 ## Completion Criteria
 

@@ -135,11 +135,13 @@ class CozyBokComponentRepositorySpec
               |    {"kind":"car","artifactId":"indexed-car","catalog":"car/indexed-car.yaml","status":"active"},
               |    {"kind":"car","artifactId":"mismatched-car","catalog":"car/mismatched-car.yaml","status":"active"},
               |    {"kind":"sar","artifactId":"indexed-sar","catalog":"sar/indexed-sar.yaml","status":"active"},
-              |    {"kind":"sar","artifactId":"missing-sar","catalog":"sar/missing-sar.yaml","status":"active"}
+              |    {"kind":"sar","artifactId":"missing-sar","catalog":"sar/missing-sar.yaml","status":"active"},
+              |    {"kind":"sar","artifactId":"invalid-sar","catalog":"sar/invalid-sar.yaml","status":"active"}
               |  ]
               |}
               |""".stripMargin
           )
+          _write(dir.resolve("repository/catalog/sar/invalid-sar.yaml"), "schemaVersion: [\n")
           Vector(
             "car/indexed-car.yaml" -> ("car" -> "indexed-car"),
             "sar/indexed-sar.yaml" -> ("sar" -> "indexed-sar"),
@@ -187,6 +189,19 @@ class CozyBokComponentRepositorySpec
           dashboard should include("<span class=\"bok-component-repository-count\">1</span>")
           dashboard should include("href=\"../repository/index.html\"")
 
+          And("index and catalog diagnostics remain visible on repository maintenance surfaces")
+          dashboard should include("data-repository-diagnostic-code=\"index-catalog-mismatch\"")
+          dashboard should include("data-repository-diagnostic-code=\"index-catalog-unavailable\"")
+          dashboard should include("data-repository-diagnostic-code=\"index-catalog-invalid\"")
+          dashboard should include("car/mismatched-car.yaml")
+          dashboard should include("sar/missing-sar.yaml")
+          dashboard should include("sar/invalid-sar.yaml")
+          val sarindex = _read(dir.resolve("website.d/repository/sar/index.html"))
+          sarindex should include("data-repository-diagnostic-code=\"index-catalog-unavailable\"")
+          sarindex should include("data-repository-diagnostic-code=\"index-catalog-invalid\"")
+          sarindex should include("SAR missing-sar")
+          sarindex should include("SAR invalid-sar")
+
           And("repository detail navigation resolves from each generated page depth")
           _read(dir.resolve("website.d/repository/car/indexed-car/index.html")) should include("href=\"../../../repository/index.html\"")
           _read(dir.resolve("website.d/repository/sar/indexed-sar/index.html")) should include("href=\"../../../repository/index.html\"")
@@ -217,6 +232,10 @@ class CozyBokComponentRepositorySpec
           dashboard should include("data-component-kind=\"sar\"")
           dashboard should include("<span class=\"bok-component-repository-count\">0</span>")
           _read(dir.resolve("website.d/repository/sar/index.html")) should include("Repository SAR catalogはまだありません。")
+
+          And("the malformed index diagnostic is visible on repository maintenance surfaces")
+          dashboard should include("data-repository-diagnostic-code=\"repository-index-invalid\"")
+          _read(dir.resolve("website.d/repository/sar/index.html")) should include("data-repository-diagnostic-code=\"repository-index-invalid\"")
         }
       }
     }

@@ -69,7 +69,7 @@ Status: IN PROGRESS
 - [x] Add CAR/SAR counts and navigation to Component Repository dashboards.
 - [ ] Link entries to Project, descriptor, ABI, CML, model metadata, Help,
       Manual, OpenAPI, and MCP metadata when declared.
-- [ ] Report index/catalog mismatch and unavailable source diagnostics.
+- [x] Report index/catalog mismatch and unavailable source diagnostics.
 - [x] Preserve fallback behavior for known catalogs when `index.json` is absent.
 
 ## CR21-06: Cross-Repository Verification and Closure

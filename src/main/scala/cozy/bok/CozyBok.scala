@@ -4078,9 +4078,10 @@ private[cozy] object CozyBok {
     locale: String,
     categories: Vector[CategoryContent]
   ): Unit = {
-    val carindex = _repository_car_index(config)
     val projects = _safe_resolved_project_packages(config)
+    val cardiscovery = _repository_catalog_discovery(config, projects, "car")
     val sardiscovery = _repository_catalog_discovery(config, projects, "sar")
+    val carindex = _repository_car_index(config)
     val page = target.resolve("repository/index.html")
     _write_text(
       page,
@@ -4091,7 +4092,14 @@ private[cozy] object CozyBok {
         page,
         _component_repository_title(locale),
         _component_repository_description(locale),
-        _component_repository_dashboard_body(target, page, locale, carindex, sardiscovery.sources)
+        _component_repository_dashboard_body(
+          target,
+          page,
+          locale,
+          carindex,
+          sardiscovery.sources,
+          cardiscovery.diagnostics ++ sardiscovery.diagnostics
+        )
       )
     )
   }
@@ -4101,7 +4109,8 @@ private[cozy] object CozyBok {
     page: Path,
     locale: String,
     carindex: RepositoryCarIndex,
-    sarartifacts: Vector[RepositoryCatalogSource]
+    sarartifacts: Vector[RepositoryCatalogSource],
+    diagnostics: Vector[RepositoryCatalogDiagnostic]
   ): String = {
     val carversions = carindex.entries.map(_.versions.size).sum
     val sarversions = sarartifacts.map(_.catalog.versions.size).sum
@@ -4120,6 +4129,7 @@ private[cozy] object CozyBok {
        |    <div class="row g-3">
        |      ${_component_repository_summary_card(locale, "car", carindex.entries.size, carversions, carhref)}
        |      ${_component_repository_summary_card(locale, "sar", sarartifacts.size, sarversions, sarhref)}
+       |      ${_repository_catalog_diagnostics_html(locale, diagnostics)}
        |    </div>
        |  </div>
        |</section>""".stripMargin
@@ -4155,7 +4165,8 @@ private[cozy] object CozyBok {
     categories: Vector[CategoryContent]
   ): Unit = {
     val projects = _resolved_project_packages(config)
-    val artifacts = _repository_catalog_discovery(config, projects, "sar").sources
+    val discovery = _repository_catalog_discovery(config, projects, "sar")
+    val artifacts = discovery.sources
     val indexpage = target.resolve("repository/sar/index.html")
     _write_text(
       indexpage,
@@ -4166,7 +4177,7 @@ private[cozy] object CozyBok {
         indexpage,
         _repository_sar_title(locale),
         _repository_sar_description(locale),
-        _repository_sar_index_body(target, indexpage, locale, artifacts)
+        _repository_sar_index_body(target, indexpage, locale, artifacts, discovery.diagnostics)
       )
     )
     artifacts.foreach { artifact =>
@@ -4207,7 +4218,8 @@ private[cozy] object CozyBok {
     target: Path,
     page: Path,
     locale: String,
-    artifacts: Vector[RepositoryCatalogSource]
+    artifacts: Vector[RepositoryCatalogSource],
+    diagnostics: Vector[RepositoryCatalogDiagnostic]
   ): String = {
     val content = if (artifacts.isEmpty)
       s"""<p class="bok-card-muted">${_html_escape(_repository_sar_empty(locale))}</p>"""
@@ -4244,6 +4256,7 @@ private[cozy] object CozyBok {
        |  <div class="bok-dashboard container-fluid bok-dashboard-command-center">
        |    <div class="row g-3">
        |      ${_dashboard_card("col-12", "bok-card-map bok-card-project-map", _repository_sar_title(locale), content, Vector("reader", "contributor", "project_manager"))}
+       |      ${_repository_catalog_diagnostics_html(locale, diagnostics)}
        |    </div>
        |  </div>
        |</section>""".stripMargin
@@ -4330,6 +4343,29 @@ private[cozy] object CozyBok {
       case _ => "No repository SAR catalog entries are available."
     }
 
+  private def _repository_catalog_diagnostics_html(
+    locale: String,
+    diagnostics: Vector[RepositoryCatalogDiagnostic]
+  ): String =
+    if (diagnostics.isEmpty)
+      ""
+    else {
+      val items = diagnostics.distinct.sortBy(x => (x.kind, x.artifactid, x.code, x.catalog.getOrElse(""))).map { diagnostic =>
+        val subject = s"${diagnostic.kind.toUpperCase(Locale.ROOT)} ${diagnostic.artifactid}"
+        val catalog = diagnostic.catalog.map(x => s" <code>${_html_escape(x)}</code>").getOrElse("")
+        s"""<li data-repository-diagnostic-code="${_html_escape(diagnostic.code)}" data-repository-kind="${_html_escape(diagnostic.kind)}"><strong>${_html_escape(subject)}</strong><span>${_html_escape(_repository_car_diagnostic_message(locale, diagnostic.code))}${catalog}</span></li>"""
+      }.mkString("\n")
+      _dashboard_card(
+        "col-12",
+        "bok-card-map bok-card-project-issues",
+        _component_repository_diagnostics_label(locale),
+        s"""<ul class="bok-repository-car-diagnostic-list">
+           |${items}
+           |</ul>""".stripMargin,
+        Vector("contributor", "project_manager")
+      )
+    }
+
   private def _component_repository_title(locale: String): String =
     locale match {
       case "ja" => "Component Repository"
@@ -4348,6 +4384,12 @@ private[cozy] object CozyBok {
       case _ => "Artifacts"
     }
 
+  private def _component_repository_diagnostics_label(locale: String): String =
+    locale match {
+      case "ja" => "Component Repository診断"
+      case _ => "Component Repository Diagnostics"
+    }
+
   private def _repository_sar_module_description(locale: String, artifactid: String): String =
     locale match {
       case "ja" => s"${artifactid} のSAR catalogと公開versionです。"
@@ -4362,11 +4404,8 @@ private[cozy] object CozyBok {
 
   private def _repository_car_index(config: BuildConfig): RepositoryCarIndex = {
     val projects = _safe_resolved_project_packages(config)
-    val fallback =
-      _repository_catalog_paths(config, "car").flatMap(_read_repository_catalog(config, "car", _)) ++
-        _project_repository_catalog_sources(config, projects, "car")
     val discovery = _repository_index_catalog_sources(config, "car").getOrElse(
-      RepositoryCatalogDiscovery(_deduplicate_repository_catalog_sources(config, "car", fallback), Vector.empty)
+      _repository_catalog_fallback_discovery(config, projects, "car")
     )
     val sources = discovery.sources
     val entries = sources.map(_repository_car_entry).
@@ -4381,13 +4420,20 @@ private[cozy] object CozyBok {
     config: BuildConfig,
     projects: Vector[CozyBokProjectPublisher.ResolvedBokProject],
     kind: String
+  ): RepositoryCatalogDiscovery =
+    _repository_index_catalog_sources(config, kind).getOrElse(
+      _repository_catalog_fallback_discovery(config, projects, kind)
+    )
+
+  private def _repository_catalog_fallback_discovery(
+    config: BuildConfig,
+    projects: Vector[CozyBokProjectPublisher.ResolvedBokProject],
+    kind: String
   ): RepositoryCatalogDiscovery = {
     val fallback =
       _repository_catalog_paths(config, kind).flatMap(_read_repository_catalog(config, kind, _)) ++
         _project_repository_catalog_sources(config, projects, kind)
-    _repository_index_catalog_sources(config, kind).getOrElse(
-      RepositoryCatalogDiscovery(_deduplicate_repository_catalog_sources(config, kind, fallback), Vector.empty)
-    )
+    RepositoryCatalogDiscovery(_deduplicate_repository_catalog_sources(config, kind, fallback), Vector.empty)
   }
 
   private def _project_repository_catalog_sources(
