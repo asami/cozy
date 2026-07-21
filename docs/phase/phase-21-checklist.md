@@ -32,18 +32,18 @@ Status: DONE
 
 ## CR21-03: Textus Launcher Public Discovery
 
-Status: PLANNED
+Status: DONE
 
-- [ ] Define `textus repository list`, `show`, and bounded `refresh` grammar.
-- [ ] Retrieve only explicitly configured repository indexes.
-- [ ] Cache index content with source URL, retrieval time, schema, and
+- [x] Define `textus repository list`, `show`, and bounded `refresh` grammar.
+- [x] Retrieve only explicitly configured repository indexes.
+- [x] Cache index content with source URL, retrieval time, schema, and
       diagnostics.
-- [ ] Combine public, cache, and local repository entries using documented
+- [x] Combine public, cache, and local repository entries using documented
       precedence.
-- [ ] Resolve a selected index entry through its detailed CAR/SAR catalog.
-- [ ] Preserve known-artifact resolution when an index is absent.
-- [ ] Avoid CAR/SAR archive download during list operations.
-- [ ] Cover offline, stale-cache, malformed-index, and conflicting-source cases.
+- [x] Resolve a selected index entry through its detailed CAR/SAR catalog.
+- [x] Preserve known-artifact resolution when an index is absent.
+- [x] Avoid CAR/SAR archive download during list operations.
+- [x] Cover offline, stale-cache, malformed-index, and conflicting-source cases.
 
 ## CR21-04: CNCF Launcher Development Discovery
 

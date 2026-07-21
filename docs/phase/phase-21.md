@@ -159,7 +159,7 @@ Verified implementation status:
 
 Stage Status:
 
-- Current status: PLANNED
+- Current status: IN PROGRESS
 - Owner: Textus Launcher / CNCF Launcher
 - Checklist basis: `CR21-03` and `CR21-04`
 
@@ -170,6 +170,23 @@ Focus:
   explicit precedence;
 - expose source provenance and diagnostics without leaking credentials or
   private paths.
+
+Verified Textus Launcher status:
+
+- `textus repository list`, `show`, and bounded `refresh` consume the strict
+  CNCF index contract without changing known-artifact resolution.
+- Listing combines live local and validated cached public indexes without
+  network or archive access; local entries take precedence and equal-priority
+  conflicts are diagnosed deterministically.
+- Refresh caches source, successful retrieval time, last-attempt time, schema,
+  and stale diagnostics. Invalid index/detail responses do not replace the last
+  validated cache.
+- Detailed YAML and JSON catalogs are checked for identity, lifecycle status,
+  and selectors before selection output is accepted.
+- Credential-bearing URL parts and local absolute paths are removed from
+  user-facing source diagnostics.
+
+CNCF Launcher development discovery remains the active Stage 21.3 work item.
 
 ## Stage 21.4: BoK Component Repository
 
