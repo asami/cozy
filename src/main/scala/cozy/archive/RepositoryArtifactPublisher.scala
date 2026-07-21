@@ -1,7 +1,9 @@
 package cozy.archive
 
 import java.nio.charset.StandardCharsets
+import java.nio.channels.FileChannel
 import java.nio.file.{Files, Path, Paths, StandardCopyOption}
+import java.nio.file.StandardOpenOption
 import java.security.MessageDigest
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
@@ -17,7 +19,7 @@ import scala.util.control.NonFatal
 /*
  * @since   May. 20, 2026
  *  version Jun. 23, 2026
- * @version Jul. 15, 2026
+ * @version Jul. 21, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object RepositoryArtifactPublisher {
@@ -36,28 +38,45 @@ private[cozy] object RepositoryArtifactPublisher {
   )
 
   def publish(args: List[String], policy: Policy): Unit = {
-    val projectdir = projectDir(args, policy.missingProjectMessage)
-    val warehouse = requiredPath(args, "warehouse")
-    val name = requiredValue(args, "name")
-    val version = requiredValue(args, "version")
-    val sourcearchive = path(args, policy.archiveOption).getOrElse(policy.buildArchive(args))
+    val publicationargs =
+      if (value(args, "published-at").isDefined)
+        args
+      else
+        args ++ List("--published-at", OffsetDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
+    val projectdir = projectDir(publicationargs, policy.missingProjectMessage)
+    val warehouse = requiredPath(publicationargs, "warehouse")
+    val name = requiredValue(publicationargs, "name")
+    val version = requiredValue(publicationargs, "version")
+    val sourcearchive = path(publicationargs, policy.archiveOption).getOrElse(policy.buildArchive(publicationargs))
     val carsidecars =
       if (policy.kind == "car") Some(_prepare_car_cml_sidecars(projectdir, name))
       else None
-    val target = _publish_archive(warehouse, name, version, sourcearchive, policy)
-    val catalog = _updated_catalog(projectdir, warehouse, name, version, target, args, policy)
-    val sourcecatalog = sourceCatalogPath(projectdir, policy.kind, name)
-    val publiccatalog = publicCatalogPath(warehouse, policy.kind, name)
-    val metadatapath = mavenMetadataPath(warehouse, policy.kind, name)
-    if (catalog.versions.isEmpty) {
-      _delete_if_exists(sourcecatalog)
-      _delete_if_exists(publiccatalog)
-      _delete_if_exists(metadatapath)
-    } else {
-      val metadata = RepositoryArtifactMavenMetadata.toXml(catalog, publishedAt(args))
-      writeText(sourcecatalog, catalog.toYaml)
-      writeText(publiccatalog, catalog.toYaml)
-      writeText(metadatapath, metadata)
+    val indexpath = componentRepositoryIndexPath(warehouse)
+    val generatedat = OffsetDateTime.parse(publishedAt(publicationargs)).toInstant
+    _with_component_repository_index_lock(warehouse) {
+      val existingindex =
+        if (Files.isRegularFile(indexpath))
+          Some(ComponentRepositoryIndex.validateCatalogs(ComponentRepositoryIndex.load(indexpath), indexpath))
+        else
+          None
+      val target = _publish_archive(warehouse, name, version, sourcearchive, policy)
+      val catalog = _updated_catalog(projectdir, warehouse, name, version, target, publicationargs, policy)
+      val sourcecatalog = sourceCatalogPath(projectdir, policy.kind, name)
+      val publiccatalog = publicCatalogPath(warehouse, policy.kind, name)
+      val metadatapath = mavenMetadataPath(warehouse, policy.kind, name)
+      val updatedindex = ComponentRepositoryIndex.update(existingindex, catalog, generatedat)
+      if (catalog.versions.isEmpty) {
+        _delete_if_exists(sourcecatalog)
+        _delete_if_exists(publiccatalog)
+        _delete_if_exists(metadatapath)
+      } else {
+        val metadata = RepositoryArtifactMavenMetadata.toXml(catalog, publishedAt(publicationargs))
+        writeText(sourcecatalog, catalog.toYaml)
+        writeText(publiccatalog, catalog.toYaml)
+        writeText(metadatapath, metadata)
+      }
+      ComponentRepositoryIndex.validateCatalogs(updatedindex, indexpath)
+      ComponentRepositoryIndex.writeAtomic(indexpath, updatedindex)
     }
     carsidecars.foreach(_publish_car_cml_sidecars(warehouse, name, _))
   }
@@ -151,6 +170,9 @@ private[cozy] object RepositoryArtifactPublisher {
 
   def mavenMetadataPath(warehouse: Path, kind: String, name: String): Path =
     warehouse.resolve("repository").resolve(kind).resolve(name).resolve("maven-metadata.xml")
+
+  def componentRepositoryIndexPath(warehouse: Path): Path =
+    warehouse.resolve(ComponentRepositoryIndex.PublicPath)
 
   def warehouseRelativePath(warehouse: Path, file: Path): String =
     warehouse.toAbsolutePath.normalize().relativize(file.toAbsolutePath.normalize()).iterator().asScala.map(_.toString).mkString("/")
@@ -258,6 +280,20 @@ private[cozy] object RepositoryArtifactPublisher {
 
   private def _delete_if_exists(path: Path): Unit =
     Files.deleteIfExists(path)
+
+  private val _component_repository_index_monitor = new Object
+
+  private def _with_component_repository_index_lock[A](warehouse: Path)(body: => A): A =
+    _component_repository_index_monitor.synchronized {
+      val lockpath = warehouse.resolve(".cozy/locks/component-repository-index.lock")
+      Files.createDirectories(lockpath.getParent)
+      val channel = FileChannel.open(lockpath, StandardOpenOption.CREATE, StandardOpenOption.WRITE)
+      try {
+        val lock = channel.lock()
+        try body
+        finally lock.release()
+      } finally channel.close()
+    }
 
   private def _prepare_car_cml_sidecars(projectdir: Path, name: String): PreparedCarCmlSidecars = {
     val resolved = CarCmlSourceResolver.resolve(projectdir, name).fold(

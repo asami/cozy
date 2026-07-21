@@ -7,6 +7,8 @@ import java.util.zip.ZipFile
 
 import scala.collection.JavaConverters._
 
+import cozy.archive.ComponentRepositoryIndex
+
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -14,7 +16,7 @@ import org.scalatest.wordspec.AnyWordSpec
 /*
  * @since   May. 20, 2026
  *  version Jun.  4, 2026
- * @version Jul. 15, 2026
+ * @version Jul. 21, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyCarPublisherSpec
@@ -175,6 +177,15 @@ class CozyCarPublisherSpec
             "repository/car/sample-component/0.1.0/sample-component-0.1.0.car"
           )
           publiccatalog.versions.head.checksumSha256 should not be empty
+
+          And("the public discovery index exposes the CAR")
+          val index = ComponentRepositoryIndex.load(
+            warehouse.resolve("repository/catalog/index.json")
+          )
+          index.artifacts.map(_.identity) shouldBe Vector(
+            "car" -> "sample-component"
+          )
+          index.artifacts.head.catalog shouldBe "car/sample-component.yaml"
         }
       }
 

@@ -2,7 +2,7 @@ package cozy
 
 /*
  * @since   Jul.  8, 2026
- * @version Jul.  8, 2026
+ * @version Jul. 21, 2026
  * @author  ASAMI, Tomoharu
  */
 final case class CozyCliPreflight(
@@ -22,6 +22,8 @@ final case class CozyCliPreflight(
           Some("abi" -> _lint_arguments(2))
         case "lint" :: "car" :: Nil =>
           Some("car" -> _lint_arguments(2))
+        case "lint" :: "repository" :: Nil =>
+          Some("repository" -> _lint_arguments(2))
         case "car" :: "lint" :: Nil =>
           Some("car" -> _lint_arguments(2))
         case _ =>

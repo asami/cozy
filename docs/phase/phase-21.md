@@ -131,16 +131,29 @@ Verified implementation status:
 
 Stage Status:
 
-- Current status: PLANNED
+- Current status: DONE
 - Owner: Cozy
 - Checklist basis: `CR21-02`
 
 Focus:
 
 - update the public index during CAR/SAR publication;
-- preserve existing entries and deterministic ordering;
-- reject index/catalog identity conflicts and unsafe paths;
-- avoid network access during local validation.
+- preserve unrelated entries while replacing only the published identity;
+- atomically publish canonical JSON after validating every detailed catalog;
+- provide network-free `cozy lint repository` validation and include the same
+  check in CAR lint when a repository index is present.
+
+Verified implementation status:
+
+- `publish-car` and `publish-sar` now merge or remove their index entry and
+  retain unrelated CAR/SAR entries in deterministic identity order.
+- Cozy rejects malformed, duplicate, traversing, identity-conflicting, or
+  selector-stale indexes before replacing the public index.
+- `cozy lint repository <repository-root>` validates the local index/detail
+  boundary in text or JSON form without network access.
+- Focused executable specifications cover canonical rendering, invalid input,
+  atomic persistence, CAR and SAR publication, unrelated-entry preservation,
+  stale selectors, CLI help, and integrated CAR lint regression.
 
 ## Stage 21.3: Launcher Discovery
 

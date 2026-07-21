@@ -17,18 +17,18 @@ Status: DONE
 
 ## CR21-02: Cozy Publication and Lint
 
-Status: PLANNED
+Status: DONE
 
-- [ ] Update the public index from `cozy publish-car`.
-- [ ] Update the public index from `cozy publish-sar`.
-- [ ] Write index changes atomically and order entries deterministically.
-- [ ] Preserve unrelated CAR/SAR entries during publication.
-- [ ] Validate index kind, identity, catalog path, selectors, and detailed
+- [x] Update the public index from `cozy publish-car`.
+- [x] Update the public index from `cozy publish-sar`.
+- [x] Write index changes atomically and order entries deterministically.
+- [x] Preserve unrelated CAR/SAR entries during publication.
+- [x] Validate index kind, identity, catalog path, selectors, and detailed
       catalog correspondence.
-- [ ] Reject traversal, duplicate identity, conflicting kind, and stale
+- [x] Reject traversal, duplicate identity, conflicting kind, and stale
       selector metadata.
-- [ ] Keep local lint deterministic and network-free.
-- [ ] Add CLI help, repository documentation, and executable specifications.
+- [x] Keep local lint deterministic and network-free.
+- [x] Add CLI help, repository documentation, and executable specifications.
 
 ## CR21-03: Textus Launcher Public Discovery
 

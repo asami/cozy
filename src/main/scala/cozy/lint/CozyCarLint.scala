@@ -8,7 +8,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Jul.  7, 2026
- * @version Jul. 14, 2026
+ * @version Jul. 21, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyCarLint {
@@ -74,12 +74,23 @@ private[cozy] object CozyCarLint {
     val cmlsourcefindings = _car_cml_source_findings(root)
     val cmlfindings = _cml_path(root).toVector.flatMap(path => CozyCmlLint.lint(path).map(_cml_finding))
     val documentationfindings = CozyCarDocumentationLint.lint(root).map(_documentation_finding)
+    val repositoryfindings = _repository_findings(root)
     val abifindings =
       if (noabi)
         Vector.empty
       else
         CozyCarAbiLint.lint(root, baseline).map(_abi_finding)
-    (buildfindings ++ cmlsourcefindings ++ cmlfindings ++ documentationfindings ++ abifindings).sortBy(x => (x.category, x.path.toString, x.line, x.code, x.message))
+    (buildfindings ++ cmlsourcefindings ++ cmlfindings ++ documentationfindings ++ repositoryfindings ++ abifindings).sortBy(x => (x.category, x.path.toString, x.line, x.code, x.message))
+  }
+
+  private def _repository_findings(root: Path): Vector[Finding] = {
+    val index = root.resolve("repository/catalog/index.json")
+    if (Files.isRegularFile(index))
+      CozyRepositoryLint.lint(root).map { finding =>
+        Finding(Level.Fail, "repository", finding.code, finding.message, finding.path, finding.line)
+      }
+    else
+      Vector.empty
   }
 
   private def _car_cml_source_findings(root: Path): Vector[Finding] = {

@@ -1609,6 +1609,8 @@ private[cozy] object CozyScaffold {
       |
       |  car lint <project-root> [--baseline <car|manifest>] [--format text|json] [--strict] [--no-abi]
       |      Alias for lint car.
+      |  lint repository <repository-root> [--format text|json]
+      |      Validate repository/catalog/index.json and referenced CAR/SAR catalogs without network access.
       |
       |  bok create --save <dir> [--name <name>] [--url <url>] [--language ja] [--no-project-files] [--overwrite-project-files]
       |      Create a SmartDox category-driven BoK source project scaffold without generated HTML, Arcadia assets, or site-structure.yaml.
@@ -1729,11 +1731,11 @@ private[cozy] object CozyScaffold {
       |      Build a SAR archive.
       |
       |  publish-car <project-dir> --warehouse <dir> --name <artifact> --version <version> [--car <file> | --main-jar <file>]
-      |      Publish a CAR archive and CAR catalog, plus derived Maven metadata, to a warehouse.
+      |      Publish a CAR archive and CAR catalog, update repository/catalog/index.json atomically, and write derived Maven metadata.
       |      sbt-cozy cozyPublishLocalCar calls this command with ~/.cncf/local as the warehouse root.
       |
       |  publish-sar <project-dir> --warehouse <dir> --name <artifact> --version <version> [--sar <file> | --source-dir <dir>]
-      |      Publish a SAR archive and SAR catalog, plus derived Maven metadata, to a warehouse.
+      |      Publish a SAR archive and SAR catalog, update repository/catalog/index.json atomically, and write derived Maven metadata.
       |      sbt-cozy cozyPublishLocalSar calls this command with ~/.cncf/local as the warehouse root.
       |
       |  publish-project <project-dir> [--save <dir>] [--kind car|sar|sample-single|sample-multi|maven-repository] [--name <slug>] [--title <title>] [--path <path>]

@@ -7,14 +7,17 @@ import java.util.zip.ZipFile
 
 import scala.collection.JavaConverters._
 
+import cozy.archive.ComponentRepositoryIndex
+
+import org.scalatest.GivenWhenThen
 import org.scalatest.funsuite.AnyFunSuite
 
 /*
  * @since   May. 20, 2026
- * @version Jun.  4, 2026
+ * @version Jul. 21, 2026
  * @author  ASAMI, Tomoharu
  */
-class CozySarPublisherSpec extends AnyFunSuite {
+class CozySarPublisherSpec extends AnyFunSuite with GivenWhenThen {
   test("cozy publish-sar command dispatches publisher and help lists command") {
     _with_temp_dir("cozy-publish-sar-cli") { dir =>
       val projectdir = dir.resolve("project")
@@ -22,6 +25,9 @@ class CozySarPublisherSpec extends AnyFunSuite {
       val sar = _write(dir.resolve("input/sample.sar"), "sar-body")
       _write_project_yaml(projectdir, "sample-application")
 
+      Given("a SAR project and a prebuilt SAR archive")
+
+      When("Cozy publishes the SAR through the CLI")
       Cozy.main(Array(
         "publish-sar",
         projectdir.toString,
@@ -31,6 +37,7 @@ class CozySarPublisherSpec extends AnyFunSuite {
         "--sar", sar.toString
       ))
 
+      Then("the SAR is stored and command help documents publication")
       assert(Files.isRegularFile(warehouse.resolve("repository/sar/sample-application/0.1.0/sample-application-0.1.0.sar")))
 
       val out = new ByteArrayOutputStream()
@@ -50,6 +57,9 @@ class CozySarPublisherSpec extends AnyFunSuite {
       val sar = _write(dir.resolve("input/sample.sar"), "sar-body")
       _write_project_yaml(projectdir, "sample-application")
 
+      Given("a SAR project and a release archive")
+
+      When("Cozy publishes the release as recommended")
       CozySarPublisher.publish(List(
         projectdir.toString,
         "--warehouse", warehouse.toString,
@@ -59,6 +69,7 @@ class CozySarPublisherSpec extends AnyFunSuite {
         "--recommended"
       ))
 
+      Then("the archive, detailed catalogs, Maven metadata, and discovery index are published")
       val target = warehouse.resolve("repository/sar/sample-application/0.1.0/sample-application-0.1.0.sar")
       assert(Files.readString(target) == "sar-body")
       val metadata = Files.readString(warehouse.resolve("repository/sar/sample-application/maven-metadata.xml"))
@@ -77,6 +88,9 @@ class CozySarPublisherSpec extends AnyFunSuite {
       assert(publiccatalog.versions.head.runtime.isEmpty)
       assert(publiccatalog.versions.head.file == Some("repository/sar/sample-application/0.1.0/sample-application-0.1.0.sar"))
       assert(publiccatalog.versions.head.checksumSha256.nonEmpty)
+      val index = ComponentRepositoryIndex.load(warehouse.resolve("repository/catalog/index.json"))
+      assert(index.artifacts.map(_.identity) == Vector("sar" -> "sample-application"))
+      assert(index.artifacts.head.catalog == "sar/sample-application.yaml")
     }
   }
 
@@ -90,6 +104,9 @@ class CozySarPublisherSpec extends AnyFunSuite {
       _write(sourcedir.resolve("subsystem-descriptor.yaml"), "subsystem: sample\n")
       _write(sourcedir.resolve("ignored.txt"), "ignored")
 
+      Given("a SAR source tree and a snapshot version")
+
+      When("Cozy builds and publishes the snapshot")
       CozySarPublisher.publish(List(
         projectdir.toString,
         "--warehouse", warehouse.toString,
@@ -100,6 +117,7 @@ class CozySarPublisherSpec extends AnyFunSuite {
         "--extension-jars", extension.toString
       ))
 
+      Then("the archive is built without adding a snapshot release catalog entry")
       val target = warehouse.resolve("repository/sar/sample-application/0.1.1-SNAPSHOT/sample-application-0.1.1-SNAPSHOT.sar")
       val entries = _zip_entries(target)
       assert(entries.contains("subsystem-descriptor.yaml"))
@@ -137,6 +155,9 @@ class CozySarPublisherSpec extends AnyFunSuite {
           |""".stripMargin
       )
 
+      Given("a release catalog contaminated by an older snapshot entry")
+
+      When("Cozy publishes the next snapshot")
       CozySarPublisher.publish(List(
         projectdir.toString,
         "--warehouse", warehouse.toString,
@@ -145,6 +166,7 @@ class CozySarPublisherSpec extends AnyFunSuite {
         "--sar", sar.toString
       ))
 
+      Then("source and public catalogs retain only release versions")
       val sourcecatalog = RepositoryArtifactCatalog.load(projectdir.resolve("src/main/catalog/sar/sample-application.yaml"))
       val publiccatalog = RepositoryArtifactCatalog.load(warehouse.resolve("repository/catalog/sar/sample-application.yaml"))
       assert(sourcecatalog == publiccatalog)
@@ -184,6 +206,9 @@ class CozySarPublisherSpec extends AnyFunSuite {
           |""".stripMargin
       )
 
+      Given("a SAR catalog with deprecated and current release versions")
+
+      When("Cozy republishes the current release")
       CozySarPublisher.publish(List(
         projectdir.toString,
         "--warehouse", warehouse.toString,
@@ -192,6 +217,7 @@ class CozySarPublisherSpec extends AnyFunSuite {
         "--sar", sar.toString
       ))
 
+      Then("history and selectors remain stable while current metadata is replaced")
       val catalog = RepositoryArtifactCatalog.load(projectdir.resolve("src/main/catalog/sar/sample-application.yaml"))
       assert(catalog.versions.map(_.version) == Vector("0.0.9", "0.1.0"))
       assert(catalog.versions.find(_.version == "0.0.9").flatMap(_.status) == Some("deprecated"))
