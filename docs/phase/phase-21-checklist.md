@@ -74,13 +74,13 @@ Status: DONE
 
 ## CR21-06: Cross-Repository Verification and Closure
 
-Status: PLANNED
+Status: IN PROGRESS
 
-- [ ] Verify one repository containing multiple CARs and SARs.
-- [ ] Verify stable, snapshot, disabled, missing, and conflicting entries.
-- [ ] Verify Textus and CNCF Launcher normalize the same artifact identity.
-- [ ] Verify BoK renders the same CAR/SAR set as the public index.
-- [ ] Run focused and full tests in every modified repository.
-- [ ] Run `git diff --check` in every modified repository.
-- [ ] Complete post-implementation review and fix all actionable findings.
+- [x] Verify one repository containing multiple CARs and SARs.
+- [x] Verify stable, snapshot, disabled, missing, and conflicting entries.
+- [x] Verify Textus and CNCF Launcher normalize the same artifact identity.
+- [x] Verify BoK renders the same CAR/SAR set as the public index.
+- [x] Run focused and full tests in every modified repository.
+- [x] Run `git diff --check` in every modified repository.
+- [x] Complete post-implementation review and fix all actionable findings.
 - [ ] Record operational evidence and close Phase 21 from checklist results.

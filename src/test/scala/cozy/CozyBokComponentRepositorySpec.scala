@@ -138,7 +138,7 @@ class CozyBokComponentRepositorySpec
 
       "use the public index as the CAR and SAR discovery source" in {
         _with_temp_dir("cozy-bok-component-repository-index") { dir =>
-          Given("a public component index with CAR and SAR entries plus unindexed catalogs")
+          Given("a public component index with multiple CARs and SARs across lifecycle states plus invalid and unindexed catalogs")
           _write(dir.resolve("src/main/doxsite/site.conf"), "site { output { locale_mode = \"single_locale_root\" } }\n")
           _write(dir.resolve("src/main/doxsite/index.dox"), "Home\n====\n")
           _write(
@@ -147,9 +147,11 @@ class CozyBokComponentRepositorySpec
               |  "schemaVersion": "cncf.component-repository-index.v1",
               |  "generatedAt": "2026-07-21T00:00:00Z",
               |  "artifacts": [
-              |    {"kind":"car","artifactId":"indexed-car","catalog":"car/indexed-car.yaml","status":"active"},
+              |    {"kind":"car","artifactId":"indexed-car","catalog":"car/indexed-car.yaml","status":"active","recommended":"1.0.0","latestStable":"1.0.0","latestSnapshot":"1.1.0-SNAPSHOT"},
+              |    {"kind":"car","artifactId":"disabled-car","catalog":"car/disabled-car.yaml","status":"disabled"},
               |    {"kind":"car","artifactId":"mismatched-car","catalog":"car/mismatched-car.yaml","status":"active"},
-              |    {"kind":"sar","artifactId":"indexed-sar","catalog":"sar/indexed-sar.yaml","status":"active"},
+              |    {"kind":"sar","artifactId":"indexed-sar","catalog":"sar/indexed-sar.yaml","status":"active","recommended":"2.0.0","latestStable":"2.0.0"},
+              |    {"kind":"sar","artifactId":"snapshot-sar","catalog":"sar/snapshot-sar.yaml","status":"active","recommended":"2.1.0-SNAPSHOT","latestSnapshot":"2.1.0-SNAPSHOT"},
               |    {"kind":"sar","artifactId":"missing-sar","catalog":"sar/missing-sar.yaml","status":"active"},
               |    {"kind":"sar","artifactId":"invalid-sar","catalog":"sar/invalid-sar.yaml","status":"active"}
               |  ]
@@ -157,9 +159,32 @@ class CozyBokComponentRepositorySpec
               |""".stripMargin
           )
           _write(dir.resolve("repository/catalog/sar/invalid-sar.yaml"), "schemaVersion: [\n")
+          _write(
+            dir.resolve("repository/catalog/car/indexed-car.yaml"),
+            _repository_catalog("car", "indexed-car", "active", Vector(
+              ("1.0.0", "stable", "active"),
+              ("1.1.0-SNAPSHOT", "snapshot", "active")
+            ), Some("1.0.0"), Some("1.0.0"), Some("1.1.0-SNAPSHOT"))
+          )
+          _write(
+            dir.resolve("repository/catalog/car/disabled-car.yaml"),
+            _repository_catalog("car", "disabled-car", "disabled", Vector(
+              ("0.9.0", "stable", "disabled")
+            ), None, None, None)
+          )
+          _write(
+            dir.resolve("repository/catalog/sar/indexed-sar.yaml"),
+            _repository_catalog("sar", "indexed-sar", "active", Vector(
+              ("2.0.0", "stable", "active")
+            ), Some("2.0.0"), Some("2.0.0"), None)
+          )
+          _write(
+            dir.resolve("repository/catalog/sar/snapshot-sar.yaml"),
+            _repository_catalog("sar", "snapshot-sar", "active", Vector(
+              ("2.1.0-SNAPSHOT", "snapshot", "active")
+            ), Some("2.1.0-SNAPSHOT"), None, Some("2.1.0-SNAPSHOT"))
+          )
           Vector(
-            "car/indexed-car.yaml" -> ("car" -> "indexed-car"),
-            "sar/indexed-sar.yaml" -> ("sar" -> "indexed-sar"),
             "car/mismatched-car.yaml" -> ("car" -> "mismatched-car"),
             "car/unindexed-car.yaml" -> ("car" -> "unindexed-car"),
             "sar/unindexed-sar.yaml" -> ("sar" -> "unindexed-sar")
@@ -183,17 +208,27 @@ class CozyBokComponentRepositorySpec
 
           Then("only indexed CAR and SAR identities are rendered")
           val carmetadata = _read(dir.resolve("doxsite.d/metadata/repository/car/index.json"))
-          carmetadata should include("indexed-car")
+          val carentries = _metadata_entries(carmetadata, "artifact_id")
+          carentries.keySet shouldBe Set("disabled-car", "indexed-car")
+          carentries("disabled-car").hcursor.get[String]("status").fold(throw _, identity) shouldBe "disabled"
+          carentries("indexed-car").hcursor.get[String]("latest_snapshot").fold(throw _, identity) shouldBe "1.1.0-SNAPSHOT"
           carmetadata should not include "unindexed-car"
           carmetadata should include("index-catalog-mismatch")
           val sarmetadata = _read(dir.resolve("doxsite.d/metadata/cncf/component-references/sar.json"))
-          sarmetadata should include("indexed-sar")
+          val sarentries = _metadata_entries(sarmetadata, "name")
+          sarentries.keySet shouldBe Set("indexed-sar", "snapshot-sar")
+          sarentries("snapshot-sar").hcursor.get[String]("latest_snapshot").fold(throw _, identity) shouldBe "2.1.0-SNAPSHOT"
           sarmetadata should not include "unindexed-sar"
           sarmetadata should include("index-catalog-unavailable")
-          _read(dir.resolve("website.d/repository/car/index.html")) should include("indexed-car")
-          _read(dir.resolve("website.d/repository/sar/index.html")) should include("indexed-sar")
+          val carindex = _read(dir.resolve("website.d/repository/car/index.html"))
+          carindex should include("indexed-car")
+          carindex should include("disabled-car")
+          val sarindex = _read(dir.resolve("website.d/repository/sar/index.html"))
+          sarindex should include("indexed-sar")
+          sarindex should include("snapshot-sar")
           dir.resolve("website.d/repository/sar/indexed-sar/index.html") should be_regular_file
-          _read(dir.resolve("website.d/repository/sar/index.html")) should not include "SIE SAR"
+          dir.resolve("website.d/repository/sar/snapshot-sar/index.html") should be_regular_file
+          sarindex should not include "SIE SAR"
 
           And("the Component Repository dashboard exposes CAR and SAR counts and navigation")
           val dashboard = _read(dir.resolve("website.d/repository/index.html"))
@@ -201,7 +236,7 @@ class CozyBokComponentRepositorySpec
           dashboard should include("data-component-kind=\"sar\"")
           dashboard should include("href=\"car/index.html\"")
           dashboard should include("href=\"sar/index.html\"")
-          dashboard should include("<span class=\"bok-component-repository-count\">1</span>")
+          dashboard should include("<span class=\"bok-component-repository-count\">2</span>")
           dashboard should include("href=\"../repository/index.html\"")
 
           And("index and catalog diagnostics remain visible on repository maintenance surfaces")
@@ -211,7 +246,6 @@ class CozyBokComponentRepositorySpec
           dashboard should include("car/mismatched-car.yaml")
           dashboard should include("sar/missing-sar.yaml")
           dashboard should include("sar/invalid-sar.yaml")
-          val sarindex = _read(dir.resolve("website.d/repository/sar/index.html"))
           sarindex should include("data-repository-diagnostic-code=\"index-catalog-unavailable\"")
           sarindex should include("data-repository-diagnostic-code=\"index-catalog-invalid\"")
           sarindex should include("SAR missing-sar")
@@ -384,6 +418,47 @@ class CozyBokComponentRepositorySpec
 
   private def _read(path: Path): String =
     new String(Files.readAllBytes(path), StandardCharsets.UTF_8)
+
+  private def _metadata_entries(content: String, identity_field: String): Map[String, io.circe.Json] = {
+    val metadata = parser.parse(content).fold(throw _, identity)
+    val entries = metadata.hcursor.downField("entries").as[Vector[io.circe.Json]].fold(throw _, identity).map { entry =>
+      entry.hcursor.get[String](identity_field).fold(throw _, identity) -> entry
+    }
+    withClue(s"metadata entries must have unique $identity_field values: ") {
+      entries.map(_._1).distinct should have size entries.size
+    }
+    entries.toMap
+  }
+
+  private def _repository_catalog(
+    kind: String,
+    artifact_id: String,
+    status: String,
+    versions: Vector[(String, String, String)],
+    recommended: Option[String],
+    latest_stable: Option[String],
+    latest_snapshot: Option[String]
+  ): String = {
+    val selectors = Vector(
+      recommended.map(value => s"recommended: $value"),
+      latest_stable.map(value => s"latestStable: $value"),
+      latest_snapshot.map(value => s"latestSnapshot: $value")
+    ).flatten.mkString("\n")
+    val version_entries = versions.map { case (version, channel, version_status) =>
+      s"""  - version: $version
+         |    channel: $channel
+         |    status: $version_status
+         |    file: repository/$kind/$artifact_id/$version/$artifact_id-$version.$kind""".stripMargin
+    }.mkString("\n")
+    s"""schemaVersion: 1
+       |kind: $kind
+       |artifactId: $artifact_id
+       |$selectors
+       |status: $status
+       |versions:
+       |$version_entries
+       |""".stripMargin
+  }
 
   private def _write_car_archive(path: Path): Path = {
     _write_car_archive_entries(

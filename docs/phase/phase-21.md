@@ -238,6 +238,45 @@ root-relative declarations and never guesses a runtime base URL. Project, CML,
 and model-metadata links continue to use their existing resolved metadata
 contracts.
 
+## Stage 21.5: Cross-Repository Verification
+
+Stage Status:
+
+- Current status: IN PROGRESS
+- Owner: CNCF / Cozy / Textus Launcher / CNCF Launcher
+- Checklist basis: `CR21-06`
+
+Verified evidence on Jul. 21, 2026:
+
+- The Cozy BoK integration fixture now contains two CARs and two SARs selected
+  by one public index. It preserves active stable and snapshot selectors,
+  retains a disabled artifact without making its disabled release selectable,
+  and reports missing, malformed, and index/catalog-conflicting entries.
+- The same executable specification compares the generated CAR and SAR
+  metadata identity sets with the valid indexed identities and proves that
+  unindexed catalogs are not discovered by traversal.
+- `TextusLauncherSpec` passes 45 tests, including local/public precedence,
+  bounded refresh, stale-cache behavior, detailed catalog validation, and the
+  normalized six-column artifact identity contract.
+- `CncfLauncherSpec` passes 84 tests, including explicit development admission,
+  development/local precedence, descriptor-owned identity, and the same Textus
+  identity columns.
+- CNCF `ComponentRepositoryIndexSpec` passes six contract tests covering
+  deterministic CAR/SAR normalization, lifecycle status, unsafe or conflicting
+  identity rejection, and separation of repository availability from runtime
+  health.
+- Cozy's full suite passes 648 tests with no failures, and CNCF's full suite
+  passes 2,173 tests with no failures. Textus Launcher and CNCF Launcher each
+  contain one executable-specification source, so their 45-test and 84-test
+  runs are also their full suite results.
+- `git diff --check` passes in CNCF, Cozy, Textus Launcher, and CNCF Launcher.
+
+Post-implementation review found and fixed one executable-specification gap:
+duplicate metadata identities could have been hidden by test-side map
+construction. The final review has no remaining actionable findings. Closure
+now requires recording the resulting release commit evidence before changing
+the phase status to complete.
+
 ## Completion Criteria
 
 Phase 21 closes when a published repository can explicitly enumerate CAR and
