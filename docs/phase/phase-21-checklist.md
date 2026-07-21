@@ -5,15 +5,15 @@ Repository Discovery.
 
 ## CR21-01: CNCF Repository Index Contract
 
-Status: PLANNED
+Status: DONE
 
-- [ ] Define the versioned `repository/catalog/index.json` schema.
-- [ ] Define CAR/SAR kind, artifact identity, catalog link, status, selector,
+- [x] Define the versioned `repository/catalog/index.json` schema.
+- [x] Define CAR/SAR kind, artifact identity, catalog link, status, selector,
       and source-provenance semantics.
-- [ ] Define index/detail identity validation and relative-path safety rules.
-- [ ] Define compatibility behavior for a repository with no public index.
-- [ ] Keep availability snapshot and runtime registration/health distinct.
-- [ ] Publish deterministic valid and invalid contract fixtures.
+- [x] Define index/detail identity validation and relative-path safety rules.
+- [x] Define compatibility behavior for a repository with no public index.
+- [x] Keep availability snapshot and runtime registration/health distinct.
+- [x] Publish deterministic valid and invalid contract fixtures.
 
 ## CR21-02: Cozy Publication and Lint
 

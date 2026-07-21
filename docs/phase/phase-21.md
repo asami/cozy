@@ -1,6 +1,6 @@
 # Phase 21: Component Repository Discovery
 
-Status: planned
+Status: active
 
 Start date: 2026-07-21
 
@@ -61,16 +61,16 @@ The CNCF specification owns its final schema and compatibility rules. The v1
 shape must include at least:
 
 ```text
-schema
-generated_at
+schemaVersion
+generatedAt
 artifacts[]
   kind: car | sar
-  artifact_id
+  artifactId
   catalog
   status
   recommended
-  latest_stable
-  latest_snapshot
+  latestStable
+  latestSnapshot
 ```
 
 The index is a discovery summary, not the source of detailed version metadata.
@@ -105,7 +105,7 @@ identity and source-provenance contract must remain equivalent.
 
 Stage Status:
 
-- Current status: PLANNED
+- Current status: DONE
 - Owner: CNCF
 - Checklist basis: `CR21-01`
 
@@ -114,6 +114,18 @@ Focus:
 - define the schema, identity, path, lifecycle status, and compatibility rules;
 - define safe source/snapshot diagnostics separately from runtime health;
 - publish shared fixtures for Cozy and both launchers.
+
+Verified implementation status:
+
+- CNCF now owns `ComponentRepositoryIndex`, its strict JSON codec, and the
+  bundled `component-repository-index.schema.json` resource.
+- The codec normalizes entries by `(kind, artifactId)`, rejects duplicate
+  identities, unsupported schema/status/kind values, unknown fields, malformed
+  timestamps, unsafe paths, and catalog kind/identity mismatches.
+- Shared valid, duplicate, and traversal fixtures establish the consumer
+  contract for Cozy and both launchers. Focused CNCF executable specifications
+  pass for deterministic rendering, malformed input, and availability/runtime
+  separation.
 
 ## Stage 21.2: Cozy Publication and Validation
 

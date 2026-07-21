@@ -540,7 +540,7 @@ Primary reference:
 
 ### Phase 21: Component Repository Discovery
 
-Status: planned.
+Status: active.
 
 Purpose:
 
@@ -583,7 +583,7 @@ Primary reference:
 
 ## Current Priority
 
-Phase 6 through Phase 20 are closed. Phase 21 is the next planned phase.
+Phase 6 through Phase 20 are closed. Phase 21 is active.
 Phase 22 follows Phase 21 after the CNCF Skill Bundle contract is executable.
 
 Phase 20 introduced provider-neutral narration with VOICEVOX, host-only macOS
