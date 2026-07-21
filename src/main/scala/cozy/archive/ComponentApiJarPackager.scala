@@ -12,7 +12,7 @@ import play.api.libs.json._
 
 /*
  * @since   Jul. 12, 2026
- * @version Jul. 12, 2026
+ * @version Jul. 21, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object ComponentApiJarPackager {
@@ -41,6 +41,25 @@ private[cozy] object ComponentApiJarPackager {
           s"Component API output ${save.getFileName} does not match descriptor artifact ${expectedname}"
         )
       _write_api_jar(mainjar, save, contract.provided.flatMap(_.publicTypes))
+    }
+  }
+
+  private[cozy] def withImplementationJar[A](
+    mainjar: Path,
+    descriptor: Path
+  )(f: Path => A): A = {
+    val contract = _parse_descriptor(descriptor)
+    val patterns = contract.provided.flatMap(_.publicTypes).flatMap(_.artifactPatterns).distinct
+    if (patterns.isEmpty)
+      f(mainjar)
+    else {
+      val temporary = Files.createTempFile(mainjar.getParent, mainjar.getFileName.toString, ".implementation.tmp")
+      try {
+        _write_implementation_jar(mainjar, temporary, patterns.map(_glob_pattern))
+        f(temporary)
+      } finally {
+        Files.deleteIfExists(temporary)
+      }
     }
   }
 
@@ -93,6 +112,32 @@ private[cozy] object ComponentApiJarPackager {
         Files.move(temporary, save, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
       } finally {
         Files.deleteIfExists(temporary)
+      }
+    } finally {
+      source.close()
+    }
+  }
+
+  private def _write_implementation_jar(
+    mainjar: Path,
+    save: Path,
+    publicmatchers: Vector[Pattern]
+  ): Unit = {
+    val source = new ZipFile(mainjar.toFile)
+    try {
+      val output = new ZipOutputStream(Files.newOutputStream(save))
+      try {
+        source.entries().asScala.toVector
+          .filterNot(_.isDirectory)
+          .filterNot(entry => publicmatchers.exists(_.matcher(entry.getName).matches()))
+          .sortBy(_.getName)
+          .foreach { entry =>
+            val input = source.getInputStream(entry)
+            try _write_entry(output, entry.getName, input.readAllBytes())
+            finally input.close()
+          }
+      } finally {
+        output.close()
       }
     } finally {
       source.close()

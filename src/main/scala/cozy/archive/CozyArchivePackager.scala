@@ -16,7 +16,7 @@ import scala.sys.process._
  * @since   May. 20, 2026
  *  version May. 22, 2026
  *  version Jun. 18, 2026
- * @version Jul. 15, 2026
+ * @version Jul. 21, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArchivePackager {
@@ -80,24 +80,31 @@ private[cozy] object CozyArchivePackager {
       getOrElse {
         _write_temp("component-descriptor", _component_descriptor_json(name, version, packagemetadata.component, extensionmap, configmap, entities))
       }
-    _write_archive(
-      save,
-      Vector(
-        mainjar -> "component/main.jar"
-      ) ++
-        _car_entries(cardir) ++
-        libjars.map(p => p -> s"lib/${p.getFileName}") ++
-        spijars.map(p => p -> s"spi/${p.getFileName}") ++
-        defaultconf.toVector.map(_ -> "config/default.conf") ++
-        dependencymanifest.toVector.map(_ -> "component-dependencies.yaml") ++
-        assemblydescriptor.toVector.map(_ -> "assembly-descriptor.yaml") ++
-        componentapidescriptor.toVector.map(_ -> "component-api-descriptor.json") ++
-        _web_entries(webdir) ++
-        webinfdescriptors ++
-        Vector(abimanifest -> "abi-manifest.json") ++
-        Vector(componentdescriptor -> "component-descriptor.json"),
-      Vector("component", "lib", "spi", "config", "web")
-    )
+    def _write_car_(packagedmainjar: Path): Unit =
+      _write_archive(
+        save,
+        Vector(
+          packagedmainjar -> "component/main.jar"
+        ) ++
+          _car_entries(cardir) ++
+          libjars.map(p => p -> s"lib/${p.getFileName}") ++
+          spijars.map(p => p -> s"spi/${p.getFileName}") ++
+          defaultconf.toVector.map(_ -> "config/default.conf") ++
+          dependencymanifest.toVector.map(_ -> "component-dependencies.yaml") ++
+          assemblydescriptor.toVector.map(_ -> "assembly-descriptor.yaml") ++
+          componentapidescriptor.toVector.map(_ -> "component-api-descriptor.json") ++
+          _web_entries(webdir) ++
+          webinfdescriptors ++
+          Vector(abimanifest -> "abi-manifest.json") ++
+          Vector(componentdescriptor -> "component-descriptor.json"),
+        Vector("component", "lib", "spi", "config", "web")
+      )
+    componentapidescriptor match {
+      case Some(descriptor) =>
+        ComponentApiJarPackager.withImplementationJar(mainjar, descriptor)(_write_car_)
+      case None =>
+        _write_car_(mainjar)
+    }
   }
 
   private def _project_config(projectdir: Option[Path]): CozyProjectYamlConfig.Config =

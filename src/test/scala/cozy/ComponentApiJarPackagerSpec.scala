@@ -13,7 +13,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jul. 12, 2026
- * @version Jul. 12, 2026
+ * @version Jul. 21, 2026
  * @author  ASAMI, Tomoharu
  */
 final class ComponentApiJarPackagerSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -65,6 +65,43 @@ final class ComponentApiJarPackagerSpec extends AnyWordSpec with Matchers with G
         And("component implementation and factory classes are absent")
         entries should not contain "example/impl/ExampleLogic.class"
         entries should not contain "example/ComponentFactory.class"
+      }
+    }
+
+    "partition public API artifacts out of the packaged implementation JAR" in {
+      Given("a component JAR whose public API is also published as an SPI artifact")
+      _with_temp_dir("cozy-component-api-partition") { dir =>
+        val mainjar = _write_zip(
+          dir.resolve("component.jar"),
+          Map(
+            "example/api/ExampleApi.class" -> "api",
+            "example/api/ExampleApi$.class" -> "companion",
+            "example/api/ExampleApi.tasty" -> "tasty",
+            "example/impl/ExampleLogic.class" -> "implementation"
+          )
+        )
+        val descriptor = _write(
+          dir.resolve("component-api-descriptor.json"),
+          _descriptor(
+            provided =
+              """[{"artifactPath":"spi/example-api.jar","publicTypes":[
+                |{"className":"example.api.ExampleApi","artifactPatterns":["example/api/ExampleApi.class","example/api/ExampleApi$*.class","example/api/ExampleApi.tasty"]}
+                |]}]""".stripMargin
+          )
+        )
+
+        When("the CAR implementation JAR is derived from the API descriptor")
+        ComponentApiJarPackager.withImplementationJar(mainjar, descriptor) { implementationjar =>
+          val entries = _zip_entries(implementationjar)
+
+          Then("implementation classes remain available")
+          entries should contain("example/impl/ExampleLogic.class")
+
+          And("all descriptor-owned public API artifacts are absent")
+          entries should not contain "example/api/ExampleApi.class"
+          entries should not contain "example/api/ExampleApi$.class"
+          entries should not contain "example/api/ExampleApi.tasty"
+        }
       }
     }
 
