@@ -177,6 +177,19 @@ class CozyBokComponentRepositorySpec
           _read(dir.resolve("website.d/repository/sar/index.html")) should include("indexed-sar")
           dir.resolve("website.d/repository/sar/indexed-sar/index.html") should be_regular_file
           _read(dir.resolve("website.d/repository/sar/index.html")) should not include "SIE SAR"
+
+          And("the Component Repository dashboard exposes CAR and SAR counts and navigation")
+          val dashboard = _read(dir.resolve("website.d/repository/index.html"))
+          dashboard should include("data-component-kind=\"car\"")
+          dashboard should include("data-component-kind=\"sar\"")
+          dashboard should include("href=\"car/index.html\"")
+          dashboard should include("href=\"sar/index.html\"")
+          dashboard should include("<span class=\"bok-component-repository-count\">1</span>")
+          dashboard should include("href=\"../repository/index.html\"")
+
+          And("repository detail navigation resolves from each generated page depth")
+          _read(dir.resolve("website.d/repository/car/indexed-car/index.html")) should include("href=\"../../../repository/index.html\"")
+          _read(dir.resolve("website.d/repository/sar/indexed-sar/index.html")) should include("href=\"../../../repository/index.html\"")
         }
       }
 
@@ -197,7 +210,13 @@ class CozyBokComponentRepositorySpec
           _read(dir.resolve("doxsite.d/metadata/repository/car/index.json")) should include("repository-index-invalid")
           _read(dir.resolve("doxsite.d/metadata/cncf/component-references/sar.json")) should include("repository-index-invalid")
           _read(dir.resolve("website.d/repository/car/index.html")) should include("Component Repository index")
-          Files.isRegularFile(dir.resolve("website.d/repository/sar/index.html")) shouldBe false
+
+          And("the repository navigation remains available with explicit empty CAR and SAR surfaces")
+          val dashboard = _read(dir.resolve("website.d/repository/index.html"))
+          dashboard should include("data-component-kind=\"car\"")
+          dashboard should include("data-component-kind=\"sar\"")
+          dashboard should include("<span class=\"bok-component-repository-count\">0</span>")
+          _read(dir.resolve("website.d/repository/sar/index.html")) should include("Repository SAR catalogはまだありません。")
         }
       }
     }

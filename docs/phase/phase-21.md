@@ -223,9 +223,12 @@ Verified index-consumer status:
   independently of SIE Project references.
 - When the public index is absent, existing known CAR/SAR catalogs remain
   available through the documented compatibility fallback.
+- The Component Repository dashboard exposes index-derived CAR/SAR artifact
+  counts and links to both list surfaces; an empty SAR set retains an explicit
+  empty list page instead of a broken navigation target.
 
-Component Repository dashboard counts/navigation, declared metadata links,
-and non-fatal index/catalog diagnostics remain active Stage 21.4 work.
+Declared metadata links and non-fatal index/catalog diagnostics remain active
+Stage 21.4 work.
 
 ## Completion Criteria
 

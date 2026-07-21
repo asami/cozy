@@ -2779,6 +2779,7 @@ private[cozy] object CozyBok {
     _write_category_index_page(config, target, locale, categories)
     _write_article_page(config, target, locale, categories)
     _write_project_pages(config, target, locale, categories)
+    _write_component_repository_page(config, target, locale, categories)
     _write_repository_car_page(config, target, locale, categories)
     _write_repository_sar_pages(config, target, locale, categories)
     _write_rdf_page(config, target, locale, categories)
@@ -4071,6 +4072,82 @@ private[cozy] object CozyBok {
     }
   }
 
+  private def _write_component_repository_page(
+    config: BuildConfig,
+    target: Path,
+    locale: String,
+    categories: Vector[CategoryContent]
+  ): Unit = {
+    val carindex = _repository_car_index(config)
+    val projects = _safe_resolved_project_packages(config)
+    val sardiscovery = _repository_catalog_discovery(config, projects, "sar")
+    val page = target.resolve("repository/index.html")
+    _write_text(
+      page,
+      _special_html_page(
+        config,
+        categories,
+        locale,
+        page,
+        _component_repository_title(locale),
+        _component_repository_description(locale),
+        _component_repository_dashboard_body(target, page, locale, carindex, sardiscovery.sources)
+      )
+    )
+  }
+
+  private def _component_repository_dashboard_body(
+    target: Path,
+    page: Path,
+    locale: String,
+    carindex: RepositoryCarIndex,
+    sarartifacts: Vector[RepositoryCatalogSource]
+  ): String = {
+    val carversions = carindex.entries.map(_.versions.size).sum
+    val sarversions = sarartifacts.map(_.catalog.versions.size).sum
+    val carhref = _relative_href(page, target.resolve("repository/car/index.html"))
+    val sarhref = _relative_href(page, target.resolve("repository/sar/index.html"))
+    s"""<section class="bok-dashboard-shell bok-component-repository-dashboard" id="component-repository-dashboard">
+       |  ${_dashboard_hero(
+            _component_repository_title(locale),
+            _component_repository_description(locale),
+            Vector(
+              "CAR" -> carindex.entries.size.toString,
+              "SAR" -> sarartifacts.size.toString
+            )
+          )}
+       |  <div class="bok-dashboard container-fluid bok-dashboard-command-center">
+       |    <div class="row g-3">
+       |      ${_component_repository_summary_card(locale, "car", carindex.entries.size, carversions, carhref)}
+       |      ${_component_repository_summary_card(locale, "sar", sarartifacts.size, sarversions, sarhref)}
+       |    </div>
+       |  </div>
+       |</section>""".stripMargin
+  }
+
+  private def _component_repository_summary_card(
+    locale: String,
+    kind: String,
+    artifacts: Int,
+    versions: Int,
+    href: String
+  ): String = {
+    val label = kind.toUpperCase
+    val body =
+      s"""<a class="bok-component-repository-link" data-component-kind="${_html_escape(kind)}" href="${_html_escape(href)}">
+         |  <span class="bok-component-repository-count">${artifacts}</span>
+         |  <span class="bok-component-repository-unit">${_html_escape(_component_repository_artifacts_label(locale))}</span>
+         |  <span class="bok-card-muted">${versions} ${_html_escape(_repository_car_versions_label(locale))}</span>
+         |</a>""".stripMargin
+    _dashboard_card(
+      "col-12 col-md-6",
+      "bok-card-kpi bok-card-component-repository",
+      label,
+      body,
+      Vector("reader", "contributor", "project_manager")
+    )
+  }
+
   private def _write_repository_sar_pages(
     config: BuildConfig,
     target: Path,
@@ -4079,51 +4156,49 @@ private[cozy] object CozyBok {
   ): Unit = {
     val projects = _resolved_project_packages(config)
     val artifacts = _repository_catalog_discovery(config, projects, "sar").sources
-    if (artifacts.nonEmpty) {
-      val indexpage = target.resolve("repository/sar/index.html")
-      _write_text(
+    val indexpage = target.resolve("repository/sar/index.html")
+    _write_text(
+      indexpage,
+      _special_html_page(
+        config,
+        categories,
+        locale,
         indexpage,
+        _repository_sar_title(locale),
+        _repository_sar_description(locale),
+        _repository_sar_index_body(target, indexpage, locale, artifacts)
+      )
+    )
+    artifacts.foreach { artifact =>
+      val artifactid = artifact.catalog.artifactId
+      val relatedprojects = _sie_repository_artifact_related_projects("sar", artifactid, projects)
+      val modulepage = target.resolve("repository/sar").resolve(artifactid).resolve("index.html")
+      _write_text(
+        modulepage,
         _special_html_page(
           config,
           categories,
           locale,
-          indexpage,
-          _repository_sar_title(locale),
-          _repository_sar_description(locale),
-          _repository_sar_index_body(target, indexpage, locale, artifacts)
+          modulepage,
+          artifactid,
+          _repository_sar_module_description(locale, artifactid),
+          _repository_sar_module_body(target, modulepage, locale, artifact, relatedprojects)
         )
       )
-      artifacts.foreach { artifact =>
-        val artifactid = artifact.catalog.artifactId
-        val relatedprojects = _sie_repository_artifact_related_projects("sar", artifactid, projects)
-        val modulepage = target.resolve("repository/sar").resolve(artifactid).resolve("index.html")
+      artifact.catalog.versions.foreach { version =>
+        val versionpage = target.resolve("repository/sar").resolve(artifactid).resolve(s"${version.version}.html")
         _write_text(
-          modulepage,
+          versionpage,
           _special_html_page(
             config,
             categories,
             locale,
-            modulepage,
-            artifactid,
-            _repository_sar_module_description(locale, artifactid),
-            _repository_sar_module_body(target, modulepage, locale, artifact, relatedprojects)
+            versionpage,
+            s"${artifactid} ${version.version}",
+            _repository_sar_version_description(locale, artifactid, version.version),
+            _repository_sar_version_body(target, versionpage, locale, artifact, version, relatedprojects)
           )
         )
-        artifact.catalog.versions.foreach { version =>
-          val versionpage = target.resolve("repository/sar").resolve(artifactid).resolve(s"${version.version}.html")
-          _write_text(
-            versionpage,
-            _special_html_page(
-              config,
-              categories,
-              locale,
-              versionpage,
-              s"${artifactid} ${version.version}",
-              _repository_sar_version_description(locale, artifactid, version.version),
-              _repository_sar_version_body(target, versionpage, locale, artifact, version, relatedprojects)
-            )
-          )
-        }
       }
     }
   }
@@ -4134,7 +4209,10 @@ private[cozy] object CozyBok {
     locale: String,
     artifacts: Vector[RepositoryCatalogSource]
   ): String = {
-    val rows = artifacts.map { artifact =>
+    val content = if (artifacts.isEmpty)
+      s"""<p class="bok-card-muted">${_html_escape(_repository_sar_empty(locale))}</p>"""
+    else {
+      val rows = artifacts.map { artifact =>
       val artifactid = artifact.catalog.artifactId
       val href = _relative_href(page, target.resolve("repository/sar").resolve(artifactid).resolve("index.html"))
       s"""<tr>
@@ -4144,8 +4222,7 @@ private[cozy] object CozyBok {
          |  <td>${artifact.catalog.versions.size}</td>
          |  <td><code>${_html_escape(_repository_catalog_public_source(artifact))}</code></td>
          |</tr>""".stripMargin
-    }.mkString("\n")
-    val table =
+      }.mkString("\n")
       s"""<div class="bok-project-table-wrap">
          |  <table class="table table-sm bok-project-cml-table">
          |    <thead><tr><th>SAR</th><th>${_html_escape(_ui(locale, "project.label.sie.recommended"))}</th><th>${_html_escape(_ui(locale, "project.label.sie.latest.stable"))}</th><th>${_html_escape(_repository_car_versions_label(locale))}</th><th>${_html_escape(_repository_car_catalog_label(locale))}</th></tr></thead>
@@ -4154,6 +4231,7 @@ private[cozy] object CozyBok {
          |    </tbody>
          |  </table>
          |</div>""".stripMargin
+    }
     s"""<section class="bok-dashboard-shell bok-repository-car-dashboard" id="dashboard">
        |  ${_dashboard_hero(
             _repository_sar_title(locale),
@@ -4165,7 +4243,7 @@ private[cozy] object CozyBok {
           )}
        |  <div class="bok-dashboard container-fluid bok-dashboard-command-center">
        |    <div class="row g-3">
-       |      ${_dashboard_card("col-12", "bok-card-map bok-card-project-map", _repository_sar_title(locale), table, Vector("reader", "contributor", "project_manager"))}
+       |      ${_dashboard_card("col-12", "bok-card-map bok-card-project-map", _repository_sar_title(locale), content, Vector("reader", "contributor", "project_manager"))}
        |    </div>
        |  </div>
        |</section>""".stripMargin
@@ -4244,6 +4322,30 @@ private[cozy] object CozyBok {
     locale match {
       case "ja" => "Component Repositoryで公開されるrepository/catalog/sarのSAR一覧です。"
       case _ => "Published SAR entries from the Component Repository index."
+    }
+
+  private def _repository_sar_empty(locale: String): String =
+    locale match {
+      case "ja" => "Repository SAR catalogはまだありません。"
+      case _ => "No repository SAR catalog entries are available."
+    }
+
+  private def _component_repository_title(locale: String): String =
+    locale match {
+      case "ja" => "Component Repository"
+      case _ => "Component Repository"
+    }
+
+  private def _component_repository_description(locale: String): String =
+    locale match {
+      case "ja" => "公開されているCARとSARを一覧し、component artifactの知識へ移動するDashboardです。"
+      case _ => "Dashboard for published CAR and SAR component artifacts."
+    }
+
+  private def _component_repository_artifacts_label(locale: String): String =
+    locale match {
+      case "ja" => "Artifacts"
+      case _ => "Artifacts"
     }
 
   private def _repository_sar_module_description(locale: String, artifactid: String): String =
@@ -9588,7 +9690,8 @@ private[cozy] object CozyBok {
     description: String,
     body: String,
     tocitems: Vector[(String, String)]
-  ): String =
+  ): String = {
+    val rootprefix = _site_root_prefix(config, page)
     s"""<!doctype html>
        |<html lang="${_html_escape(locale)}">
        |<head>
@@ -9598,22 +9701,22 @@ private[cozy] object CozyBok {
        |${_site_css_links(config, page)}
        |</head>
        |<body class="article ${_html_escape(_support_dashboard_theme_class)}">
-       |${_category_header(config, categories, locale)}
+       |${_category_header(config, categories, locale, rootprefix)}
        |<div class="body">
-       |  ${_special_nav_container(config, categories)}
+       |  ${_special_nav_container(config, categories, rootprefix)}
        |  <main class="article">
        |    <div class="toolbar" role="navigation">
        |      <button class="nav-toggle"></button>
-       |      <a href="../index.html" class="home-link"></a>
+       |      <a href="${_html_escape(rootprefix)}index.html" class="home-link"></a>
        |      <nav class="breadcrumbs" aria-label="breadcrumbs">
        |        <ul>
-       |          <li><a href="../index.html">${_html_escape(config.siteTitle)}</a></li>
+       |          <li><a href="${_html_escape(rootprefix)}index.html">${_html_escape(config.siteTitle)}</a></li>
        |          <li>${_html_escape(title)}</li>
        |        </ul>
        |      </nav>
        |    </div>
        |    <div class="content">
-       |      ${_special_toc_panel(config, tocitems)}
+       |      ${_special_toc_panel(config, tocitems, rootprefix)}
        |      <article class="doc">
        |        <h1 class="page">${_html_escape(title)}</h1>
        |        <p>${_html_escape(description)}</p>
@@ -9631,6 +9734,7 @@ private[cozy] object CozyBok {
        |</body>
        |</html>
        |""".stripMargin
+  }
 
   private def _project_html_page(
     config: BuildConfig,
@@ -9724,7 +9828,7 @@ private[cozy] object CozyBok {
        |</html>
        |""".stripMargin
 
-  private def _special_toc_panel(config: BuildConfig, tocitems: Vector[(String, String)]): String = {
+  private def _special_toc_panel(config: BuildConfig, tocitems: Vector[(String, String)], rootprefix: String): String = {
     val items = tocitems.map {
       case (id, label) => s"""        <li><a href="#${_html_escape(id)}">${_html_escape(label)}</a></li>"""
     }.mkString("\n")
@@ -9736,9 +9840,9 @@ private[cozy] object CozyBok {
        |      </ul>
        |      <div class="bok-special-links">
        |        <h3>BoK Console</h3>
-       |        <a class="bok-special-link" href="../glossary/index.html">Glossary</a>
-       |        <a class="bok-special-link" href="${_html_escape(_history_href(config, "../"))}">History</a>
-       |        <a class="bok-special-link" href="../manual/index.html">Manual</a>
+       |        <a class="bok-special-link" href="${_html_escape(rootprefix)}glossary/index.html">Glossary</a>
+       |        <a class="bok-special-link" href="${_html_escape(_history_href(config, rootprefix))}">History</a>
+       |        <a class="bok-special-link" href="${_html_escape(rootprefix)}manual/index.html">Manual</a>
        |      </div>
        |    </div>
        |  </aside>""".stripMargin
@@ -10151,6 +10255,7 @@ private[cozy] object CozyBok {
        |    <a class="navbar-item navbar-dropdown-item" href="${_html_escape(prefix)}articles/index.html">${_html_escape(_ui(locale, "dashboard.kpi.articles"))}</a>
        |    <a class="navbar-item navbar-dropdown-item" href="${_html_escape(prefix)}scenarios/index.html">${_html_escape(_ui(locale, "scenario.title"))}</a>
        |    <a class="navbar-item navbar-dropdown-item" href="${_html_escape(prefix)}projects/index.html">${_html_escape(_ui(locale, "project.title"))}</a>
+       |    <a class="navbar-item navbar-dropdown-item" href="${_html_escape(prefix)}repository/index.html">${_html_escape(_component_repository_title(locale))}</a>
        |    <a class="navbar-item navbar-dropdown-item" href="${_html_escape(prefix)}bibliography/index.html">${_html_escape(_ui(locale, "bibliography.title"))}</a>
        |    <a class="navbar-item navbar-dropdown-item" href="${_html_escape(prefix)}tags/index.html">${_html_escape(_ui(locale, "tag.title"))}</a>
        |    <a class="navbar-item navbar-dropdown-item" href="${_html_escape(_history_href(config, prefix))}">${_html_escape(_ui(locale, "history.title"))}</a>
