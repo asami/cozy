@@ -9,7 +9,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jun. 25, 2026
- * @version Jul.  2, 2026
+ * @version Jul. 23, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokMonoKotoSpec
@@ -235,7 +235,7 @@ class CozyBokMonoKotoSpec
     def run(command: Vector[String], cwd: Path): Unit =
       if (command.take(2) == Vector("dox", "site")) {
         _write(cwd.resolve("doxsite.d/metadata/dashboard/site.json"), _dashboard_json)
-        _write(cwd.resolve("doxsite.d/metadata/rdf/graph.json"), """{"nodes": [], "edges": [], "truncated": false}\n""")
+        _write(cwd.resolve("doxsite.d/metadata/rdf/graph.json"), """{"nodes": [], "edges": [], "truncated": false}""" + "\n")
         _write(cwd.resolve("doxsite.d/site.ttl"), "@prefix ex: <https://example.com/> .\n")
         _write(cwd.resolve("doxsite.d/site.jsonld"), "{\"@graph\":[]}\n")
       }

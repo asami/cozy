@@ -15,7 +15,7 @@ import org.scalatest.wordspec.AnyWordSpec
 /*
  * @since   Jun.  3, 2026
  *  version Jun. 27, 2026
- * @version Jul.  6, 2026
+ * @version Jul. 23, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokSpec
@@ -1460,9 +1460,9 @@ class CozyBokSpec
           _read(dir.resolve("website.d/rdf/node.html")) should include(
             "index.html?node="
           )
-          _read(
-            dir.resolve("website.d/metadata/rdf/graph.json")
-          ) should include(""""category": "architecture"""")
+          parser.parse(_read(dir.resolve("website.d/metadata/rdf/graph.json"))).fold(throw _, identity).noSpaces should include(
+            "\"category\":\"architecture\""
+          )
           _read(
             dir.resolve("website.d/metadata/rdf/graph.json")
           ) should include(""""informationView"""")

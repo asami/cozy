@@ -1,6 +1,7 @@
 package cozy
 
 import cozy.bok.CozyBok
+import io.circe.parser
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
 import scala.collection.JavaConverters._
@@ -10,7 +11,7 @@ import org.scalatest.wordspec.AnyWordSpec
 /*
  * @since   Jun. 22, 2026
  *  version Jun. 25, 2026
- * @version Jul. 13, 2026
+ * @version Jul. 23, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokTermHubSpec
@@ -168,9 +169,9 @@ class CozyBokTermHubSpec
           _read(
             dir.resolve("website.d/metadata/glossary/terms.json")
           ) should include("architecture:runtime")
-          _read(
-            dir.resolve("website.d/metadata/rdf/graph.json")
-          ) should include("\"terms\": [\"architecture:runtime\"]")
+          parser.parse(_read(dir.resolve("website.d/metadata/rdf/graph.json"))).fold(throw _, identity).noSpaces should include(
+            "\"terms\":[\"architecture:runtime\"]"
+          )
         }
       }
 

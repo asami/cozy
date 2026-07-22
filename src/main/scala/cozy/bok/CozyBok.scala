@@ -31,7 +31,7 @@ import io.circe.syntax._
 
 /*
  * @since   Jun.  3, 2026
- * @version Jul. 21, 2026
+ * @version Jul. 23, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyBok {
@@ -5950,6 +5950,7 @@ private[cozy] object CozyBok {
     _copy_directory(config.doxsitePath.resolve("metadata/artifacts/repository"), target.resolve("metadata/artifacts/repository"))
     _copy_directory(config.doxsitePath.resolve("metadata/releases"), target.resolve("metadata/releases"))
     _sync_sie_metadata(config, target)
+    _version_graph_summary(config, target)
     _write_knowledge_source_manifest(config, target)
   }
 
@@ -5974,6 +5975,79 @@ private[cozy] object CozyBok {
       }
     }
   }
+
+  private def _version_graph_summary(config: BuildConfig, target: Path): Unit = {
+    val graphpath = target.resolve("metadata/rdf/graph.json")
+    if (Files.isRegularFile(graphpath)) {
+      val graph = parser.parse(Files.readString(graphpath, StandardCharsets.UTF_8)).fold(
+        error => RAISE.invalidArgumentFault(s"Invalid BoK RDF graph metadata: ${error.message}"),
+        identity
+      )
+      val graphobject = graph.asObject.getOrElse(
+        RAISE.invalidArgumentFault("Invalid BoK RDF graph metadata: graph summary must be a JSON object.")
+      )
+      graphobject("schemaVersion").flatMap(_.asString).foreach { version =>
+        if (version != "cozy.rdf-graph-summary.v1")
+          RAISE.invalidArgumentFault(s"Unsupported BoK RDF graph summary schema: $version")
+      }
+      graphobject("kind").flatMap(_.asString).foreach { kind =>
+        if (kind != "rdf-graph-summary")
+          RAISE.invalidArgumentFault(s"Unsupported BoK RDF graph summary kind: $kind")
+      }
+      val nodes = graphobject("nodes").flatMap(_.asArray).getOrElse(
+        RAISE.invalidArgumentFault("Invalid BoK RDF graph metadata: nodes must be an array.")
+      )
+      val edges = graphobject("edges").flatMap(_.asArray).getOrElse(
+        RAISE.invalidArgumentFault("Invalid BoK RDF graph metadata: edges must be an array.")
+      )
+      val truncated = graphobject("truncated").flatMap(_.asBoolean).getOrElse(
+        RAISE.invalidArgumentFault("Invalid BoK RDF graph metadata: truncated must be a boolean.")
+      )
+      _validate_graph_nodes(nodes)
+      _validate_graph_edges(edges)
+      val sourceref = Json.obj(
+        (Vector(
+          "kind" -> Json.fromString("bok-site"),
+          "value" -> Json.fromString(config.siteId)
+        ) ++ config.siteUrl.map(x => "uri" -> Json.fromString(x))).toSeq: _*
+      )
+      val versioned = Json.fromJsonObject(
+        graphobject.
+          add("schemaVersion", Json.fromString("cozy.rdf-graph-summary.v1")).
+          add("kind", Json.fromString("rdf-graph-summary")).
+          add("sourceRef", sourceref).
+          add("nodes", Json.fromValues(nodes)).
+          add("edges", Json.fromValues(edges)).
+          add("truncated", Json.fromBoolean(truncated))
+      )
+      _write_text(graphpath, versioned.spaces2 + "\n")
+    }
+  }
+
+  private def _validate_graph_nodes(nodes: Vector[Json]): Unit =
+    nodes.zipWithIndex.foreach { case (node, index) =>
+      val nodeobject = node.asObject.getOrElse(
+        RAISE.invalidArgumentFault(s"Invalid BoK RDF graph metadata: nodes[$index] must be an object.")
+      )
+      Vector("id", "label", "node_type").foreach { field =>
+        _required_graph_field(nodeobject, field, s"nodes[$index]")
+      }
+    }
+
+  private def _validate_graph_edges(edges: Vector[Json]): Unit =
+    edges.zipWithIndex.foreach { case (edge, index) =>
+      val edgeobject = edge.asObject.getOrElse(
+        RAISE.invalidArgumentFault(s"Invalid BoK RDF graph metadata: edges[$index] must be an object.")
+      )
+      Vector("source", "predicate", "target").foreach { field =>
+        _required_graph_field(edgeobject, field, s"edges[$index]")
+      }
+    }
+
+  private def _required_graph_field(graphobject: io.circe.JsonObject, field: String, location: String): Unit =
+    graphobject(field).flatMap(_.asString).map(_.trim).filter(_.nonEmpty).getOrElse(
+      RAISE.invalidArgumentFault(s"Invalid BoK RDF graph metadata: $location.$field must be a non-empty string.")
+    )
 
   private def _write_knowledge_source_manifest(config: BuildConfig, target: Path): Unit = {
     val terms = target.resolve("metadata/glossary/terms.json")

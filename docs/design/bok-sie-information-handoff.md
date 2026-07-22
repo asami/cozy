@@ -52,12 +52,22 @@ The canonical Phase 14 resources are:
 | `sie-provenance` | `metadata/sie/provenance.json` | `sie.provenance.v1` |
 | `information-schema` | `metadata/sie/information-schema.json` | `sie.information-schema.v1` |
 | `information-instances` | `metadata/sie/information-instances.json` | `sie.information-instances.v1` |
-| `rdf-graph-summary` | `metadata/rdf/graph.json` | existing BoK graph JSON shape |
+| `rdf-graph-summary` | `metadata/rdf/graph.json` | `cozy.rdf-graph-summary.v1` |
 
 `information-schema` and `information-instances` are required for a usable SIE
 projection handoff. Provenance is optional, but its absence produces
 `sie.handoff.freshness-unknown`. RDF JSON-LD and Turtle may also be declared as
 evidence; Cozy does not reparse them to reconstruct graph metadata.
+
+## RDF Graph Summary
+
+When present, `metadata/rdf/graph.json` is a JSON object with
+`schemaVersion: "cozy.rdf-graph-summary.v1"`, `kind: "rdf-graph-summary"`,
+and a `sourceRef` copied from the BoK site identity. It always contains the
+generated `nodes` and `edges` arrays and a boolean `truncated` flag. Node and
+edge metadata stays source-attributable; Cozy does not use it to infer new
+relations. Existing SmartDox graph fields remain compatible as additional
+fields in this versioned producer contract.
 
 ## Provenance
 

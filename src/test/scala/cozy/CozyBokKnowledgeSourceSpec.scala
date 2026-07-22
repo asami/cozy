@@ -11,7 +11,7 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   Jul. 13, 2026
- * @version Jul. 14, 2026
+ * @version Jul. 23, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokKnowledgeSourceSpec
@@ -49,6 +49,17 @@ class CozyBokKnowledgeSourceSpec
             ("rdf-graph-summary", "metadata/rdf/graph.json", "application/json")
           )
           _resources_should_be_relative(manifest)
+          And("the graph summary itself has a stable producer contract")
+          val graph = _parse_json(dir.resolve("website.d/metadata/rdf/graph.json"))
+          val graphcursor = graph.hcursor
+          graphcursor.get[String]("schemaVersion") shouldBe Right("cozy.rdf-graph-summary.v1")
+          graphcursor.get[String]("kind") shouldBe Right("rdf-graph-summary")
+          graphcursor.downField("sourceRef").get[String]("kind") shouldBe Right("bok-site")
+          graphcursor.downField("sourceRef").get[String]("value") shouldBe Right("knowledgehub")
+          graphcursor.downField("sourceRef").get[String]("uri") shouldBe Right("https://example.com/knowledgehub/")
+          graphcursor.get[Boolean]("truncated") shouldBe Right(false)
+          graphcursor.get[Vector[Json]]("nodes") shouldBe Right(Vector.empty)
+          graphcursor.get[Vector[Json]]("edges") shouldBe Right(Vector.empty)
           dir.resolve("website.d/.well-known/cncf-knowledge.json") shouldNot exist_path
         }
       }
@@ -65,6 +76,36 @@ class CozyBokKnowledgeSourceSpec
           _resources(_parse_json(dir.resolve("website.d/metadata/cncf/knowledge-source.json"))) shouldBe Vector(
             ("glossary-terms", "metadata/glossary/terms.json", "application/json")
           )
+        }
+      }
+
+      "rejects graph nodes and edges that violate the published v1 contract" in {
+        Vector(
+          "node" -> (
+            """{"nodes":[{"id":"term","label":"Term"}],"edges":[],"truncated":false}""",
+            "nodes[0].node_type"
+          ),
+          "edge" -> (
+            """{"nodes":[{"id":"term","label":"Term","node_type":"term"}],"edges":[{"source":"term","predicate":"related"}],"truncated":false}""",
+            "edges[0].target"
+          )
+        ).foreach { case (name, (rdfgraph, violation)) =>
+          _with_temp_dir(s"cozy-bok-knowledge-source-invalid-$name") { dir =>
+            Given(s"a BoK site whose graph summary has an invalid $name identity")
+            _write_site_source(dir, glossaryterm = false)
+
+            When("Cozy builds the public BoK site")
+            val error = intercept[Throwable] {
+              CozyBok.build(
+                _build_config(dir),
+                new MetadataRunner(includeterms = false, includerdf = true, rdfgraph = rdfgraph)
+              )
+            }
+
+            Then("Cozy refuses to stamp the malformed graph as a versioned producer contract")
+            error.getMessage should include(violation)
+            error.getMessage should include("must be a non-empty string")
+          }
         }
       }
 
@@ -187,14 +228,15 @@ class CozyBokKnowledgeSourceSpec
   private class MetadataRunner(
       includeterms: Boolean,
       includerdf: Boolean,
-      includecomponents: Boolean = false
+      includecomponents: Boolean = false,
+      rdfgraph: String = "{\"nodes\":[],\"edges\":[],\"truncated\":false}\n"
   ) extends CozyBok.Runner {
     def run(command: Vector[String], cwd: Path): Unit =
       if (command.take(2) == Vector("dox", "site")) {
         if (includeterms)
           _write(cwd.resolve("doxsite.d/metadata/glossary/terms.json"), "{\"terms\":[]}\n")
         if (includerdf) {
-          _write(cwd.resolve("doxsite.d/metadata/rdf/graph.json"), "{\"nodes\":[],\"edges\":[],\"truncated\":false}\n")
+          _write(cwd.resolve("doxsite.d/metadata/rdf/graph.json"), rdfgraph)
           _write(cwd.resolve("doxsite.d/site.jsonld"), "{\"@graph\":[]}\n")
           _write(cwd.resolve("doxsite.d/site.ttl"), "@prefix ex: <https://example.com/> .\n")
         }
