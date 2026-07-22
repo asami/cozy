@@ -14,7 +14,7 @@ import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 
 /*
  * @since   Jun. 23, 2026
- * @version Jul. 16, 2026
+ * @version Jul. 23, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerServiceOperationSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -52,6 +52,82 @@ class ModelerServiceOperationSpec extends AnyWordSpec with Matchers with GivenWh
         normalized.exists(x => x.name == "createOrder" && x.kind.toString == "Command" && x.inputType == "CreateOrder") shouldBe true
         normalized.exists(x => x.name == "getOrder" && x.kind.toString == "Query" && x.inputType == "GetOrder") shouldBe true
         normalized.size shouldBe 2
+      }
+
+      "modeler-scala preserves operation evaluation declarations in generated CNCF metadata" in {
+        Given("a component service operation with logical Corpus and Experiment evaluation policy")
+        val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+        val input = base.resolve("target/test-generated/modeler-scala-operation-evaluation.dox")
+        val out = base.resolve("target/test-generated/modeler-scala-operation-evaluation-out")
+        delete_recursively(out)
+        write_file(input,
+        """# COMPONENT
+          |
+          |## Evaluation
+          |
+          |### PACKAGE
+          |
+          |evaluation
+          |
+          |# SERVICE
+          |
+          |## Routing
+          |
+          |### OPERATION
+          |
+          |#### evaluateRoute
+          |
+          |##### TYPE
+          |COMMAND
+          |##### INPUT
+          |###### TYPE
+          |EvaluateRouteCommand
+          |##### OUTPUT
+          |###### TYPE
+          |EvaluateRouteResult
+          |##### EVALUATION
+          |###### CORPUS
+          |capture: candidate
+          |profile: route-resolution
+          |admission: optional
+          |outcomes: success, failure
+          |sampling: representative
+          |redaction: default
+          |###### EXPERIMENT
+          |eligible: true
+          |purpose: route-resolution
+          |variant-profile: execution-plan
+          |
+          |# COMMAND
+          |
+          |## EvaluateRouteCommand
+          |
+          |# VALUE
+          |
+          |## EvaluateRouteResult
+          |
+          |### EXTENDS
+          |
+          |OperationResult
+          |""".stripMargin)
+
+        When("Cozy generates the component runtime model")
+        val output = run_modeler_scala(input, out)
+        val component = out.resolve("target/scala-3.3.8/src_managed/main/scala/evaluation/EvaluationComponent.scala")
+        val content = Files.readString(component)
+
+        Then("the generated CmlOperationDefinition contains typed logical declaration values")
+        withClue(s"unexpected output: $output") {
+          output should not include "requires"
+        }
+        content should include("CmlOperationEvaluationDeclaration")
+        content should include("CmlCorpusEvaluationDeclaration")
+        content should include("CorpusCaptureMode.Candidate")
+        content should include("OperationEvaluationOutcome.Success")
+        content should include("CmlExperimentEvaluationDeclaration")
+        content should include("EvaluationAdmissionRequirement.Optional")
+        content should not include "corpusRevision"
+        content should not include "experimentRun"
       }
 
       "modeler-scala rejects top-level OPERATION section" in {

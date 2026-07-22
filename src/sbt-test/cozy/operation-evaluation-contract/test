@@ -1,0 +1,2 @@
+> runMain cozy.Cozy modeler-scala evaluation.cml --save=out.d --cncf-version=0.5.1-SNAPSHOT
+$ exec sh check-operation-evaluation-contract.sh

@@ -51,7 +51,7 @@ import scala.collection.mutable
  *  version Feb. 27, 2026
  *  version Mar. 31, 2026
  *  version May. 24, 2026
- * @version Jul. 19, 2026
+ * @version Jul. 23, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler(
@@ -2040,6 +2040,7 @@ object Modeler {
         visibility = rhs.visibility.orElse(lhs.visibility),
         access = rhs.access.orElse(serviceclass.access).orElse(lhs.access),
         authorization = rhs.authorization.orElse(lhs.authorization),
+        evaluation = rhs.evaluation.orElse(lhs.evaluation),
         rules = if (rhs.rules.nonEmpty) rhs.rules else lhs.rules,
         parameters = if (rhs.parameters.nonEmpty) rhs.parameters else lhs.parameters
       )
@@ -2095,6 +2096,7 @@ object Modeler {
           visibility = p.visibility,
           access = p.access,
           authorization = p.authorization,
+          evaluation = p.evaluation,
           rules = p.rules,
           parameters = parameters
         ))
@@ -3151,6 +3153,28 @@ object Modeler {
               anonymousOperationModes = a.anonymousOperationModes
             )
           ),
+          evaluation = x.evaluation.map { e =>
+            MComponent.OperationEvaluation(
+              corpus = e.corpus.map { c =>
+                MComponent.CorpusOperationEvaluation(
+                  capture = c.capture,
+                  profile = c.profile,
+                  admission = c.admission,
+                  outcomes = c.outcomes,
+                  sampling = c.sampling,
+                  redaction = c.redaction
+                )
+              },
+              experiment = e.experiment.map { x =>
+                MComponent.ExperimentOperationEvaluation(
+                  eligible = x.eligible,
+                  purpose = x.purpose,
+                  admission = x.admission,
+                  variantProfile = x.variantProfile
+                )
+              }
+            )
+          },
           childEntityBindings = operationRelationshipBindings.get(x.name).map(_.childEntityBindings).getOrElse(Vector.empty),
           associationBinding = operationRelationshipBindings.get(x.name).flatMap(_.associationBinding),
           parameters = x.parameters.map { p =>

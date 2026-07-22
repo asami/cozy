@@ -1,0 +1,60 @@
+# COMPONENT
+
+## Evaluation
+
+### PACKAGE
+
+evaluation
+
+# SERVICE
+
+## Routing
+
+### OPERATION
+
+#### evaluateRoute
+
+##### TYPE
+
+COMMAND
+
+##### INPUT
+
+###### TYPE
+
+EvaluateRouteCommand
+
+##### OUTPUT
+
+###### TYPE
+
+EvaluateRouteResult
+
+##### EVALUATION
+
+###### CORPUS
+
+capture: candidate
+profile: route-resolution
+admission: required
+outcomes: success, failure, timeout, cancellation
+sampling: representative
+redaction: default
+
+###### EXPERIMENT
+
+eligible: true
+purpose: route-resolution
+variant-profile: execution-plan
+
+# COMMAND
+
+## EvaluateRouteCommand
+
+# VALUE
+
+## EvaluateRouteResult
+
+### EXTENDS
+
+OperationResult
