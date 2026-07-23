@@ -83,7 +83,7 @@ Out of scope:
 
 Stage Status:
 
-- Current status: IN PROGRESS
+- Current status: DONE
 - Owner: Cozy
 - Update rule: mark work complete only from the Phase 23 checklist.
 - Checklist basis: `SR23-01`
@@ -100,7 +100,7 @@ Focus:
 
 Stage Status:
 
-- Current status: IN PROGRESS
+- Current status: DONE
 - Owner: SimpleModeler / Cozy
 - Update rule: mark work complete only from the Phase 23 checklist.
 - Checklist basis: `SR23-02`
@@ -118,7 +118,7 @@ Focus:
 
 Stage Status:
 
-- Current status: IN PROGRESS
+- Current status: DONE
 - Owner: Cozy / SimpleModeler
 - Update rule: mark work complete only from the Phase 23 checklist.
 - Checklist basis: `SR23-03`
@@ -133,10 +133,14 @@ Focus:
 
 Stage Status:
 
-- Current status: PLANNED
+- Current status: IN PROGRESS
 - Owner: Cozy
 - Update rule: mark work complete only from the Phase 23 checklist.
 - Checklist basis: `SR23-04`
+- Validated implementation evidence: the generated numeric single-field
+  `VALUE` reader delegates to `ValueReader[Int]`, and the SQLite lifecycle
+  fixture rejects a persisted non-integer value as
+  `value.invalid-datatype:int`.
 
 Focus:
 

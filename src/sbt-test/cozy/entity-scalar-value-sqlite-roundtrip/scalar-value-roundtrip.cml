@@ -26,6 +26,14 @@ domain
 |-------|--------|--------------|
 | value | string | 1            |
 
+## ReviewPriority
+
+### ATTRIBUTE
+
+| name  | type | multiplicity |
+|-------|------+--------------|
+| value | int  | 1            |
+
 # ENTITY
 
 ## ReviewDiagnosis
@@ -38,3 +46,4 @@ domain
 | code          | ReviewCode     | 1            |
 | state         | ReviewRunState | 1            |
 | previousState | ReviewRunState | ?            |
+| priority      | ReviewPriority | 1            |

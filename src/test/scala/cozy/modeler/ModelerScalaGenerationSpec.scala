@@ -621,6 +621,7 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
           || fetchSource      | FetchSource      | 1            |
           || sourceConfidence | SourceConfidence | ?            |
           || catalogLabel     | CatalogLabel     | 1            |
+          || catalogPriority  | CatalogPriority  | 1            |
           || displayPeriod    | DisplayPeriod    | 1            |
           || publishedOn      | localdate        | 1            |
           |
@@ -676,6 +677,14 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
           || name  | type   | multiplicity |
           ||-------+--------+--------------|
           || value | string | 1            |
+          |
+          |## CatalogPriority
+          |
+          |### ATTRIBUTE
+          |
+          || name  | type | multiplicity |
+          ||-------+------+--------------|
+          || value | int  | 1            |
           |""".stripMargin)
 
         When("Cozy generates Scala source from the model")
@@ -732,6 +741,14 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
           "case other => summon[org.goldenport.convert.ValueReader[String]].readC(other).flatMap(value => createC(value).recoverWith(conclusion => Consequence.valueInvalid(conclusion.displayMessage)))"
         )
 
+        val catalogpriority = out.resolve("target/scala-3.3.8/src_managed/main/scala/domain/value/CatalogPriority.scala")
+        val catalogprioritycontent = Files.readString(catalogpriority)
+        And("numeric single-field values delegate malformed primitive input to the integer reader")
+        catalogprioritycontent should include ("def toDataStore(): Int")
+        catalogprioritycontent should include (
+          "case other => summon[org.goldenport.convert.ValueReader[Int]].readC(other).flatMap(value => createC(value).recoverWith(conclusion => Consequence.valueInvalid(conclusion.displayMessage)))"
+        )
+
         val displayperiod = out.resolve("target/scala-3.3.8/src_managed/main/scala/domain/datatype/DisplayPeriod.scala")
         val displayperiodcontent = Files.readString(displayperiod)
         And("complex datatypes are generated as structured datatype classes")
@@ -751,6 +768,7 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         exhibitioncontent should include ("periodEnd: ExhibitionDate")
         exhibitioncontent should include ("fetchSource: FetchSource")
         exhibitioncontent should include ("sourceConfidence: Option[SourceConfidence]")
+        exhibitioncontent should include ("catalogPriority: CatalogPriority")
         exhibitioncontent should include ("displayPeriod: DisplayPeriod")
         And("referencing fields project nominal scalar identity and constraints into generated schema")
         exhibitioncontent should include ("datatype = org.goldenport.schema.DataType.Named(\"ExhibitionTitle\")")
@@ -761,12 +779,14 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         exhibitioncontent should include ("case m: domain.datatype.FetchSource => m.toDataStore()")
         exhibitioncontent should include ("case m: domain.datatype.SourceConfidence => m.toDataStore()")
         exhibitioncontent should include ("case m: domain.value.CatalogLabel => m.toDataStore()")
+        exhibitioncontent should include ("case m: domain.value.CatalogPriority => m.toDataStore()")
         exhibitioncontent should include ("case m: domain.datatype.DisplayPeriod => m.toDataStore()")
         exhibitioncontent should include ("case m: Option[?] => m.map(_to_data_store_value)")
         exhibitioncontent should include ("\"periodEnd\" -> _to_data_store_value(periodEnd)")
         exhibitioncontent should include ("\"fetchSource\" -> _to_data_store_value(fetchSource)")
         exhibitioncontent should include ("\"sourceConfidence\" -> _to_data_store_value(sourceConfidence)")
         exhibitioncontent should include ("\"catalogLabel\" -> _to_data_store_value(catalogLabel)")
+        exhibitioncontent should include ("\"catalogPriority\" -> _to_data_store_value(catalogPriority)")
         exhibitioncontent should include ("\"displayPeriod\" -> _to_data_store_value(displayPeriod)")
         exhibitioncontent should include ("\"publishedOn\" -> _to_data_store_value(publishedOn)")
       }

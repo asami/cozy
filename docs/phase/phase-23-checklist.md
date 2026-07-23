@@ -5,7 +5,7 @@ Persistence Round-trip.
 
 ## SR23-01: Reproduction and Dependency Alignment
 
-Status: IN PROGRESS
+Status: DONE
 
 - [x] Add a minimal constrained nominal `DATATYPE` control and a single-field
       `VALUE` used by required and optional Entity properties.
@@ -21,14 +21,14 @@ Status: IN PROGRESS
 
 ## SR23-02: Scalar Reader Generation Contract
 
-Status: IN PROGRESS
+Status: DONE
 
 - [x] Specify already-typed generated value, compatible record, and underlying
       scalar reader inputs.
 - [x] Restore an underlying scalar through its primitive `ValueReader`.
 - [x] Construct the generated result through the validated
       consequence-producing constructor.
-- [ ] Reject malformed primitive scalar values deterministically.
+- [x] Reject malformed primitive scalar values deterministically.
 - [x] Reject well-typed constraint-violating scalar values deterministically
       as `value.invalid`.
 - [x] Avoid a generic simplemodeling-lib change unless the reproduction proves
@@ -39,7 +39,7 @@ Status: IN PROGRESS
 
 ## SR23-03: Entity Persistence Round-trip
 
-Status: IN PROGRESS
+Status: DONE
 
 - [x] Prove a required nominal scalar survives create and fresh load.
 - [x] Prove a required nominal scalar survives update/upsert and fresh load.
@@ -59,7 +59,7 @@ Status: IN PROGRESS
 - [x] Preserve multi-field `DATATYPE` record behavior.
 - [ ] Preserve powertype and statemachine persistence behavior.
 - [x] Verify valid constrained scalar reconstruction.
-- [ ] Verify malformed primitive input fails deterministically.
+- [x] Verify malformed primitive input fails deterministically.
 - [x] Verify a well-typed but constraint-violating scalar fails through the
       nominal validation rule.
 - [x] Reconcile any legacy single-field `VALUE` scalar datastore projection
