@@ -23,58 +23,58 @@ Status: DONE
 
 ## KM22-02: Cozy Graph Node Decoding And Shape Validation
 
-Status: PLANNED
+Status: DONE
 
-- [ ] Preserve declared `componentRef` metadata when versioning
+- [x] Preserve declared `componentRef` metadata when versioning
       `metadata/rdf/graph.json`.
-- [ ] Reject `componentRef` that is not a JSON object.
-- [ ] Reject missing or empty `componentRef.kind`.
-- [ ] Reject missing or empty `componentRef.name`.
-- [ ] Reject empty optional `componentRef.organization`.
-- [ ] Reject empty optional `componentRef.version`.
-- [ ] Reject `componentRef` on a node whose `node_type` is not
+- [x] Reject `componentRef` that is not a JSON object.
+- [x] Reject missing or empty `componentRef.kind`.
+- [x] Reject missing or empty `componentRef.name`.
+- [x] Reject empty optional `componentRef.organization`.
+- [x] Reject empty optional `componentRef.version`.
+- [x] Reject `componentRef` on a node whose `node_type` is not
       `component-reference`.
-- [ ] Preserve existing graph-summary compatibility when no node declares
+- [x] Preserve existing graph-summary compatibility when no node declares
       `componentRef`.
 
 ## KM22-03: Component Reference Index Matching
 
-Status: PLANNED
+Status: DONE
 
-- [ ] Load the selected generation's
+- [x] Load the selected generation's
       `metadata/cncf/component-references/car.json`.
-- [ ] Load the selected generation's
+- [x] Load the selected generation's
       `metadata/cncf/component-references/sar.json`.
-- [ ] Build deterministic lookup keys from kind, name, optional organization,
+- [x] Build deterministic lookup keys from kind, name, optional organization,
       and optional version.
-- [ ] Match required kind and name exactly.
-- [ ] Match declared organization exactly when present.
-- [ ] Match declared version exactly when present.
-- [ ] Reject `componentRef` when the matching index file is absent.
-- [ ] Reject `componentRef` when no index entry matches.
-- [ ] Reject `componentRef` when more than one index entry matches.
-- [ ] Keep ordinary graph nodes independent of the component-reference index.
+- [x] Match required kind and name exactly.
+- [x] Match declared organization exactly when present.
+- [x] Match declared version exactly when present.
+- [x] Reject `componentRef` when the matching index file is absent.
+- [x] Reject `componentRef` when no index entry matches.
+- [x] Reject `componentRef` when more than one index entry matches.
+- [x] Keep ordinary graph nodes independent of the component-reference index.
 
 ## KM22-04: Executable Specifications
 
-Status: PLANNED
+Status: IN PROGRESS
 
-- [ ] Valid CAR `componentRef` is preserved in public graph metadata.
-- [ ] Valid SAR `componentRef` is preserved in public graph metadata.
-- [ ] Optional version matching succeeds when the index contains that version.
-- [ ] Optional organization matching succeeds when the index declares that
+- [x] Valid CAR `componentRef` is preserved in public graph metadata.
+- [x] Valid SAR `componentRef` is preserved in public graph metadata.
+- [x] Optional version matching succeeds when the index contains that version.
+- [x] Optional organization matching succeeds when the index declares that
       organization.
-- [ ] Invalid node type fails deterministically.
-- [ ] Missing reference fails deterministically.
-- [ ] Kind mismatch fails deterministically.
-- [ ] Version mismatch fails deterministically.
-- [ ] Ambiguous reference fails deterministically.
-- [ ] Graph summaries without `componentRef` remain valid.
-- [ ] Matching node id or label alone does not inject or validate
+- [x] Invalid node type fails deterministically.
+- [x] Missing reference fails deterministically.
+- [x] Kind mismatch fails deterministically.
+- [x] Version mismatch fails deterministically.
+- [x] Ambiguous reference fails deterministically.
+- [x] Graph summaries without `componentRef` remain valid.
+- [x] Matching node id or label alone does not inject or validate
       `componentRef`.
-- [ ] Run `sbt --batch "testOnly cozy.CozyBokKnowledgeSourceSpec"`.
-- [ ] Run `sbt --batch test`.
-- [ ] Run `git diff --check`.
+- [x] Run `sbt --batch "testOnly cozy.CozyBokKnowledgeSourceSpec"`.
+- [x] Run `sbt --batch test`.
+- [x] Run `git diff --check`.
 
 ## KM22-05: KnowledgeHub Operational Handoff
 

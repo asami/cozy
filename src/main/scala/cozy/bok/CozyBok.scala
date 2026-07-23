@@ -6003,8 +6003,9 @@ private[cozy] object CozyBok {
       val truncated = graphobject("truncated").flatMap(_.asBoolean).getOrElse(
         RAISE.invalidArgumentFault("Invalid BoK RDF graph metadata: truncated must be a boolean.")
       )
-      _validate_graph_nodes(nodes)
+      val componentrefs = _validate_graph_nodes(nodes)
       _validate_graph_edges(edges)
+      _validate_graph_component_refs(target, componentrefs)
       val sourceref = Json.obj(
         (Vector(
           "kind" -> Json.fromString("bok-site"),
@@ -6024,13 +6025,52 @@ private[cozy] object CozyBok {
     }
   }
 
-  private def _validate_graph_nodes(nodes: Vector[Json]): Unit =
-    nodes.zipWithIndex.foreach { case (node, index) =>
+  private final case class GraphComponentRef(
+    kind: String,
+    name: String,
+    organization: Option[String],
+    version: Option[String],
+    location: String
+  )
+
+  private final case class GraphComponentReferenceEntry(
+    kind: String,
+    name: String,
+    organization: Option[String],
+    versions: Vector[String],
+    location: String
+  )
+
+  private def _validate_graph_nodes(nodes: Vector[Json]): Vector[GraphComponentRef] =
+    nodes.zipWithIndex.flatMap { case (node, index) =>
       val nodeobject = node.asObject.getOrElse(
         RAISE.invalidArgumentFault(s"Invalid BoK RDF graph metadata: nodes[$index] must be an object.")
       )
       Vector("id", "label", "node_type").foreach { field =>
         _required_graph_field(nodeobject, field, s"nodes[$index]")
+      }
+      nodeobject("componentRef").map { componentref =>
+        val location = s"nodes[$index].componentRef"
+        val nodetype = nodeobject("node_type").flatMap(_.asString).map(_.trim).getOrElse("")
+        if (nodetype != "component-reference")
+          RAISE.invalidArgumentFault(
+            s"Invalid BoK RDF graph metadata: $location is allowed only when node_type is component-reference."
+          )
+        val refobject = componentref.asObject.getOrElse(
+          RAISE.invalidArgumentFault(s"Invalid BoK RDF graph metadata: $location must be a JSON object.")
+        )
+        val kind = _required_graph_field(refobject, "kind", location)
+        if (!Set("car", "sar").contains(kind))
+          RAISE.invalidArgumentFault(
+            s"Invalid BoK RDF graph metadata: $location.kind must be car or sar."
+          )
+        GraphComponentRef(
+          kind,
+          _required_graph_field(refobject, "name", location),
+          _optional_graph_field(refobject, "organization", location),
+          _optional_graph_field(refobject, "version", location),
+          location
+        )
       }
     }
 
@@ -6044,10 +6084,101 @@ private[cozy] object CozyBok {
       }
     }
 
-  private def _required_graph_field(graphobject: io.circe.JsonObject, field: String, location: String): Unit =
+  private def _required_graph_field(graphobject: io.circe.JsonObject, field: String, location: String): String =
     graphobject(field).flatMap(_.asString).map(_.trim).filter(_.nonEmpty).getOrElse(
       RAISE.invalidArgumentFault(s"Invalid BoK RDF graph metadata: $location.$field must be a non-empty string.")
     )
+
+  private def _optional_graph_field(graphobject: io.circe.JsonObject, field: String, location: String): Option[String] =
+    graphobject(field).map { value =>
+      value.asString.map(_.trim).filter(_.nonEmpty).getOrElse(
+        RAISE.invalidArgumentFault(
+          s"Invalid BoK RDF graph metadata: $location.$field must be a non-empty string when present."
+        )
+      )
+    }
+
+  private def _validate_graph_component_refs(target: Path, refs: Vector[GraphComponentRef]): Unit =
+    refs.groupBy(_.kind).foreach { case (kind, kindrefs) =>
+      val entries = _load_graph_component_reference_index(target, kind)
+      kindrefs.foreach { ref =>
+        val matches = entries.filter { entry =>
+          entry.kind == ref.kind &&
+            entry.name == ref.name &&
+            ref.organization.forall(x => entry.organization.contains(x)) &&
+            ref.version.forall(x => entry.versions.contains(x))
+        }
+        if (matches.isEmpty)
+          RAISE.invalidArgumentFault(
+            s"Invalid BoK RDF graph metadata: ${ref.location} does not match any $kind component-reference index entry."
+          )
+        else if (matches.size > 1)
+          RAISE.invalidArgumentFault(
+            s"Invalid BoK RDF graph metadata: ${ref.location} matches multiple $kind component-reference index entries."
+          )
+      }
+    }
+
+  private def _load_graph_component_reference_index(target: Path, kind: String): Vector[GraphComponentReferenceEntry] = {
+    val path = target.resolve("metadata/cncf/component-references").resolve(s"$kind.json")
+    if (!Files.isRegularFile(path))
+      RAISE.invalidArgumentFault(
+        s"Invalid BoK RDF graph metadata: component-reference index metadata/cncf/component-references/$kind.json is missing."
+      )
+    val json = parser.parse(Files.readString(path, StandardCharsets.UTF_8)).fold(
+      error => RAISE.invalidArgumentFault(
+        s"Invalid BoK component-reference index metadata/cncf/component-references/$kind.json: ${error.message}"
+      ),
+      identity
+    )
+    val indexobject = json.asObject.getOrElse(
+      RAISE.invalidArgumentFault(
+        s"Invalid BoK component-reference index metadata/cncf/component-references/$kind.json: index must be a JSON object."
+      )
+    )
+    indexobject("schemaVersion").flatMap(_.asString).foreach { version =>
+      if (version != "cncf.component-reference-index.v1")
+        RAISE.invalidArgumentFault(
+          s"Invalid BoK component-reference index metadata/cncf/component-references/$kind.json: unsupported schemaVersion $version."
+        )
+    }
+    indexobject("kind").flatMap(_.asString).foreach { indexkind =>
+      if (indexkind != kind)
+        RAISE.invalidArgumentFault(
+          s"Invalid BoK component-reference index metadata/cncf/component-references/$kind.json: kind must be $kind."
+        )
+    }
+    val entries = indexobject("entries").flatMap(_.asArray).getOrElse(
+      RAISE.invalidArgumentFault(
+        s"Invalid BoK component-reference index metadata/cncf/component-references/$kind.json: entries must be an array."
+      )
+    )
+    entries.zipWithIndex.map { case (entry, index) =>
+      val location = s"metadata/cncf/component-references/$kind.json.entries[$index]"
+      val entryobject = entry.asObject.getOrElse(
+        RAISE.invalidArgumentFault(s"Invalid BoK component-reference index: $location must be a JSON object.")
+      )
+      GraphComponentReferenceEntry(
+        _required_graph_field(entryobject, "kind", location),
+        _required_graph_field(entryobject, "name", location),
+        _optional_graph_field(entryobject, "organization", location),
+        _component_reference_entry_versions(entryobject, location),
+        location
+      )
+    }
+  }
+
+  private def _component_reference_entry_versions(
+      entryobject: io.circe.JsonObject,
+      location: String
+  ): Vector[String] =
+    entryobject("versions").flatMap(_.asArray).getOrElse(Vector.empty).zipWithIndex.map { case (version, index) =>
+      val versionlocation = s"$location.versions[$index]"
+      val versionobject = version.asObject.getOrElse(
+        RAISE.invalidArgumentFault(s"Invalid BoK component-reference index: $versionlocation must be a JSON object.")
+      )
+      _required_graph_field(versionobject, "version", versionlocation)
+    }
 
   private def _write_knowledge_source_manifest(config: BuildConfig, target: Path): Unit = {
     val terms = target.resolve("metadata/glossary/terms.json")

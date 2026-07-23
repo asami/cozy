@@ -109,6 +109,231 @@ class CozyBokKnowledgeSourceSpec
         }
       }
 
+      "preserves valid CAR and SAR component references in graph metadata" in {
+        _with_temp_dir("cozy-bok-knowledge-source-component-refs") { dir =>
+          Given("a BoK graph that declares component-reference nodes explicitly")
+          _write_site_source(dir, glossaryterm = false)
+          val rdfgraph =
+            """{
+              |  "nodes": [
+              |    {
+              |      "id": "car:textus-bok",
+              |      "label": "Textus BoK",
+              |      "node_type": "component-reference",
+              |      "componentRef": {
+              |        "kind": "car",
+              |        "name": "textus-bok",
+              |        "organization": "org.textus",
+              |        "version": "0.6.0"
+              |      }
+              |    },
+              |    {
+              |      "id": "sar:textus-search",
+              |      "label": "Textus Search",
+              |      "node_type": "component-reference",
+              |      "componentRef": {
+              |        "kind": "sar",
+              |        "name": "textus-search",
+              |        "version": "1.2.0"
+              |      }
+              |    }
+              |  ],
+              |  "edges": [],
+              |  "truncated": false
+              |}
+              |""".stripMargin
+          val componentreferences = Vector(
+            "car" -> _component_reference_index_json(
+              "car",
+              Vector(_component_reference_entry_json("car", "textus-bok", Some("org.textus"), Vector("0.6.0")))
+            ),
+            "sar" -> _component_reference_index_json(
+              "sar",
+              Vector(_component_reference_entry_json("sar", "textus-search", None, Vector("1.2.0")))
+            )
+          )
+
+          When("Cozy builds the public BoK site")
+          CozyBok.build(
+            _build_config(dir),
+            new MetadataRunner(
+              includeterms = false,
+              includerdf = true,
+              rdfgraph = rdfgraph,
+              componentreferences = componentreferences
+            )
+          )
+
+          Then("the declared componentRef metadata is preserved after graph versioning")
+          val graph = _parse_json(dir.resolve("website.d/metadata/rdf/graph.json"))
+          _graph_component_refs(graph) shouldBe Vector(
+            ("car", "textus-bok", Some("org.textus"), Some("0.6.0")),
+            ("sar", "textus-search", None, Some("1.2.0"))
+          )
+
+          And("the component-reference indexes are advertised as KnowledgeSource resources")
+          _resources(_parse_json(dir.resolve("website.d/metadata/cncf/knowledge-source.json"))) should contain allOf(
+            ("component-reference-index", "metadata/cncf/component-references/car.json", "application/json"),
+            ("component-reference-index", "metadata/cncf/component-references/sar.json", "application/json")
+          )
+        }
+      }
+
+      "rejects malformed componentRef node metadata deterministically" in {
+        Vector(
+          "non-object" -> (
+            """{"nodes":[{"id":"n","label":"N","node_type":"component-reference","componentRef":"car:textus-bok"}],"edges":[],"truncated":false}""",
+            "nodes[0].componentRef must be a JSON object"
+          ),
+          "missing-kind" -> (
+            """{"nodes":[{"id":"n","label":"N","node_type":"component-reference","componentRef":{"name":"textus-bok"}}],"edges":[],"truncated":false}""",
+            "nodes[0].componentRef.kind must be a non-empty string"
+          ),
+          "missing-name" -> (
+            """{"nodes":[{"id":"n","label":"N","node_type":"component-reference","componentRef":{"kind":"car"}}],"edges":[],"truncated":false}""",
+            "nodes[0].componentRef.name must be a non-empty string"
+          ),
+          "unsupported-kind" -> (
+            """{"nodes":[{"id":"n","label":"N","node_type":"component-reference","componentRef":{"kind":"war","name":"textus-bok"}}],"edges":[],"truncated":false}""",
+            "nodes[0].componentRef.kind must be car or sar"
+          ),
+          "path-like-kind" -> (
+            """{"nodes":[{"id":"n","label":"N","node_type":"component-reference","componentRef":{"kind":"../car","name":"textus-bok"}}],"edges":[],"truncated":false}""",
+            "nodes[0].componentRef.kind must be car or sar"
+          ),
+          "empty-organization" -> (
+            """{"nodes":[{"id":"n","label":"N","node_type":"component-reference","componentRef":{"kind":"car","name":"textus-bok","organization":""}}],"edges":[],"truncated":false}""",
+            "nodes[0].componentRef.organization must be a non-empty string when present"
+          ),
+          "empty-version" -> (
+            """{"nodes":[{"id":"n","label":"N","node_type":"component-reference","componentRef":{"kind":"car","name":"textus-bok","version":""}}],"edges":[],"truncated":false}""",
+            "nodes[0].componentRef.version must be a non-empty string when present"
+          ),
+          "wrong-node-type" -> (
+            """{"nodes":[{"id":"n","label":"N","node_type":"term","componentRef":{"kind":"car","name":"textus-bok"}}],"edges":[],"truncated":false}""",
+            "nodes[0].componentRef is allowed only when node_type is component-reference"
+          )
+        ).foreach { case (name, (rdfgraph, message)) =>
+          _with_temp_dir(s"cozy-bok-knowledge-source-invalid-component-ref-$name") { dir =>
+            Given("a BoK graph with malformed componentRef metadata")
+            _write_site_source(dir, glossaryterm = false)
+
+            When("Cozy builds the public BoK site")
+            val error = intercept[Throwable] {
+              CozyBok.build(
+                _build_config(dir),
+                new MetadataRunner(includeterms = false, includerdf = true, rdfgraph = rdfgraph)
+              )
+            }
+
+            Then("Cozy reports the exact handoff contract violation")
+            error.getMessage should include(message)
+          }
+        }
+      }
+
+      "matches component references only through explicit component-reference indexes" in {
+        Vector(
+          "missing-index" -> (
+            _component_ref_graph("car", "textus-bok", None, None),
+            Vector.empty[(String, String)],
+            "metadata/cncf/component-references/car.json is missing"
+          ),
+          "missing-entry" -> (
+            _component_ref_graph("car", "textus-bok", None, None),
+            Vector("car" -> _component_reference_index_json(
+              "car",
+              Vector(_component_reference_entry_json("car", "other-component", None, Vector("0.1.0")))
+            )),
+            "does not match any car component-reference index entry"
+          ),
+          "kind-mismatch" -> (
+            _component_ref_graph("car", "textus-bok", None, None),
+            Vector("car" -> _component_reference_index_json(
+              "car",
+              Vector(_component_reference_entry_json("sar", "textus-bok", None, Vector("0.1.0")))
+            )),
+            "does not match any car component-reference index entry"
+          ),
+          "version-mismatch" -> (
+            _component_ref_graph("car", "textus-bok", None, Some("0.2.0")),
+            Vector("car" -> _component_reference_index_json(
+              "car",
+              Vector(_component_reference_entry_json("car", "textus-bok", None, Vector("0.1.0")))
+            )),
+            "does not match any car component-reference index entry"
+          ),
+          "ambiguous" -> (
+            _component_ref_graph("car", "textus-bok", None, None),
+            Vector("car" -> _component_reference_index_json(
+              "car",
+              Vector(
+                _component_reference_entry_json("car", "textus-bok", None, Vector("0.1.0")),
+                _component_reference_entry_json("car", "textus-bok", None, Vector("0.2.0"))
+              )
+            )),
+            "matches multiple car component-reference index entries"
+          )
+        ).foreach { case (name, (rdfgraph, componentreferences, message)) =>
+          _with_temp_dir(s"cozy-bok-knowledge-source-component-ref-match-$name") { dir =>
+            Given("a BoK graph with an explicit componentRef and selected generation indexes")
+            _write_site_source(dir, glossaryterm = false)
+
+            When("Cozy builds the public BoK site")
+            val error = intercept[Throwable] {
+              CozyBok.build(
+                _build_config(dir),
+                new MetadataRunner(
+                  includeterms = false,
+                  includerdf = true,
+                  rdfgraph = rdfgraph,
+                  componentreferences = componentreferences
+                )
+              )
+            }
+
+            Then("Cozy refuses unresolved or ambiguous component knowledge handoff")
+            error.getMessage should include(message)
+          }
+        }
+      }
+
+      "does not infer component references from ordinary graph nodes" in {
+        _with_temp_dir("cozy-bok-knowledge-source-no-component-ref-inference") { dir =>
+          Given("a graph node whose label matches a component index entry but lacks componentRef")
+          _write_site_source(dir, glossaryterm = false)
+          val rdfgraph =
+            """{
+              |  "nodes": [
+              |    {"id":"textus-bok","label":"textus-bok","node_type":"term"}
+              |  ],
+              |  "edges": [],
+              |  "truncated": false
+              |}
+              |""".stripMargin
+
+          When("Cozy builds the public BoK site")
+          CozyBok.build(
+            _build_config(dir),
+            new MetadataRunner(
+              includeterms = false,
+              includerdf = true,
+              rdfgraph = rdfgraph,
+              componentreferences = Vector(
+                "car" -> _component_reference_index_json(
+                  "car",
+                  Vector(_component_reference_entry_json("car", "textus-bok", None, Vector("0.1.0")))
+                )
+              )
+            )
+          )
+
+          Then("the graph remains valid without adding componentRef by inference")
+          val graph = _parse_json(dir.resolve("website.d/metadata/rdf/graph.json"))
+          _graph_component_refs(graph) shouldBe Vector.empty
+        }
+      }
+
       "lists CAR and SAR publication metadata without rendered HTML discovery" in {
         _with_temp_dir("cozy-bok-knowledge-source-components") { dir =>
           Given("a BoK site whose generated metadata contains component publication records")
@@ -229,7 +454,8 @@ class CozyBokKnowledgeSourceSpec
       includeterms: Boolean,
       includerdf: Boolean,
       includecomponents: Boolean = false,
-      rdfgraph: String = "{\"nodes\":[],\"edges\":[],\"truncated\":false}\n"
+      rdfgraph: String = "{\"nodes\":[],\"edges\":[],\"truncated\":false}\n",
+      componentreferences: Vector[(String, String)] = Vector.empty
   ) extends CozyBok.Runner {
     def run(command: Vector[String], cwd: Path): Unit =
       if (command.take(2) == Vector("dox", "site")) {
@@ -239,6 +465,9 @@ class CozyBokKnowledgeSourceSpec
           _write(cwd.resolve("doxsite.d/metadata/rdf/graph.json"), rdfgraph)
           _write(cwd.resolve("doxsite.d/site.jsonld"), "{\"@graph\":[]}\n")
           _write(cwd.resolve("doxsite.d/site.ttl"), "@prefix ex: <https://example.com/> .\n")
+        }
+        componentreferences.foreach { case (kind, content) =>
+          _write(cwd.resolve(s"doxsite.d/metadata/cncf/component-references/$kind.json"), content)
         }
         if (includecomponents) {
           Vector("textus-example" -> "car", "textus-runtime" -> "sar").foreach { case (name, kind) =>
@@ -319,6 +548,60 @@ class CozyBokKnowledgeSourceSpec
        |}
        |""".stripMargin
 
+  private def _component_ref_graph(
+      kind: String,
+      name: String,
+      organization: Option[String],
+      version: Option[String]
+  ): String = {
+    val organizationfield = organization.map(x => """, "organization": """" + x + "\"").getOrElse("")
+    val versionfield = version.map(x => """, "version": """" + x + "\"").getOrElse("")
+    s"""{
+       |  "nodes": [
+       |    {
+       |      "id": "$kind:$name",
+       |      "label": "$name",
+       |      "node_type": "component-reference",
+       |      "componentRef": {"kind": "$kind", "name": "$name"$organizationfield$versionfield}
+       |    }
+       |  ],
+       |  "edges": [],
+       |  "truncated": false
+       |}
+       |""".stripMargin
+  }
+
+  private def _component_reference_index_json(kind: String, entries: Vector[String]): String =
+    s"""{
+       |  "schemaVersion": "cncf.component-reference-index.v1",
+       |  "kind": "$kind",
+       |  "entries": [
+       |${entries.mkString(",\n")}
+       |  ],
+       |  "diagnostics": []
+       |}
+       |""".stripMargin
+
+  private def _component_reference_entry_json(
+      kind: String,
+      name: String,
+      organization: Option[String],
+      versions: Vector[String]
+  ): String = {
+    val organizationfield = organization.map(x => ",\n      \"organization\": \"" + x + "\"").getOrElse("")
+    val versionentries = versions.map(x => s"""{"version": "$x"}""").mkString(", ")
+    s"""    {
+       |      "name": "$name",
+       |      "title": "$name",
+       |      "kind": "$kind"$organizationfield,
+       |      "aliases": [],
+       |      "tags": [],
+       |      "terms": [],
+       |      "source_path": "repository/$kind/$name",
+       |      "versions": [$versionentries]
+       |    }""".stripMargin
+  }
+
   private def _build_config(dir: Path): CozyBok.BuildConfig =
     CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview"))
 
@@ -369,6 +652,19 @@ class CozyBokKnowledgeSourceSpec
     _resources(json).map(_._2).foreach { href =>
       href should not startWith "/"
       href should not include "://"
+    }
+
+  private def _graph_component_refs(json: Json): Vector[(String, String, Option[String], Option[String])] =
+    json.hcursor.downField("nodes").as[Vector[Json]].fold(throw _, identity).flatMap { node =>
+      node.hcursor.downField("componentRef").focus.flatMap(_.asObject).map { _ =>
+        val cursor = node.hcursor.downField("componentRef")
+        (
+          cursor.get[String]("kind").fold(throw _, identity),
+          cursor.get[String]("name").fold(throw _, identity),
+          cursor.get[Option[String]]("organization").fold(throw _, identity),
+          cursor.get[Option[String]]("version").fold(throw _, identity)
+        )
+      }
     }
 
   private def _parse_json(path: Path): Json =
