@@ -3747,6 +3747,7 @@ private[cozy] object CozyBok {
     lateststable: Option[String],
     latestsnapshot: Option[String],
     sourcepath: String,
+    publicpath: String,
     versions: Vector[ComponentReferenceVersion]
   ) {
     def toJson: Json =
@@ -3762,7 +3763,7 @@ private[cozy] object CozyBok {
         "latest_stable" -> lateststable.asJson,
         "latest_snapshot" -> latestsnapshot.asJson,
         "source_path" -> Json.fromString(sourcepath),
-        "public_path" -> Json.fromString(s"repository/$kind/$name/index.html"),
+        "public_path" -> Json.fromString(publicpath),
         "versions" -> versions.map(_.toJson).asJson
       )
   }
@@ -4001,34 +4002,94 @@ private[cozy] object CozyBok {
     }
   }
 
-  private def _car_component_reference_index(config: BuildConfig): ComponentReferenceIndex =
-    ComponentReferenceIndex(
-      "car",
-      _repository_car_index(config).entries.map { entry =>
-        ComponentReferenceEntry(
-          name = entry.artifactid,
-          title = entry.title,
-          kind = "car",
-          aliases = entry.aliases,
-          tags = entry.tags,
-          terms = entry.terms,
-          status = entry.status,
-          recommended = entry.recommended,
-          lateststable = entry.lateststable,
-          latestsnapshot = entry.latestsnapshot,
-          sourcepath = entry.sourcepath,
-          versions = entry.versions.map { version =>
-            ComponentReferenceVersion(
-              version.version,
-              version.channel,
-              version.status,
-              version.publishedat,
-              version.file
-            )
-          }
+  private def _car_component_reference_index(config: BuildConfig): ComponentReferenceIndex = {
+    val repositoryentries = _repository_car_index(config).entries.map(_repository_car_component_reference_entry)
+    val projectentries = _safe_resolved_project_packages(config).map(_project_car_component_reference_entry(config, _))
+    ComponentReferenceIndex("car", _merge_car_component_reference_entries(repositoryentries, projectentries))
+  }
+
+  private def _repository_car_component_reference_entry(entry: RepositoryCarEntry): ComponentReferenceEntry =
+    ComponentReferenceEntry(
+      name = entry.artifactid,
+      title = entry.title,
+      kind = "car",
+      aliases = entry.aliases,
+      tags = entry.tags,
+      terms = entry.terms,
+      status = entry.status,
+      recommended = entry.recommended,
+      lateststable = entry.lateststable,
+      latestsnapshot = entry.latestsnapshot,
+      sourcepath = entry.sourcepath,
+      publicpath = entry.publicPath,
+      versions = entry.versions.map { version =>
+        ComponentReferenceVersion(
+          version.version,
+          version.channel,
+          version.status,
+          version.publishedat,
+          version.file
         )
       }
     )
+
+  private def _project_car_component_reference_entry(
+    config: BuildConfig,
+    project: CozyBokProjectPublisher.ResolvedBokProject
+  ): ComponentReferenceEntry = {
+    val issnapshot = project.version.contains("SNAPSHOT")
+    ComponentReferenceEntry(
+      name = project.name,
+      title = project.title,
+      kind = "car",
+      aliases = Vector.empty,
+      tags = project.tags,
+      terms = project.terms,
+      status = None,
+      recommended = Some(project.version),
+      lateststable = if (issnapshot) None else Some(project.version),
+      latestsnapshot = if (issnapshot) Some(project.version) else None,
+      sourcepath = _project_component_reference_source_path(config, project),
+      publicpath = s"${project.publicationpath}/index.html",
+      versions = Vector(
+        ComponentReferenceVersion(
+          project.version,
+          Some(if (issnapshot) "snapshot" else "stable"),
+          None,
+          None,
+          project.catalog.flatMap(_.selectedversion).flatMap(_.file)
+        )
+      )
+    )
+  }
+
+  private def _merge_car_component_reference_entries(
+    repositoryentries: Vector[ComponentReferenceEntry],
+    projectentries: Vector[ComponentReferenceEntry]
+  ): Vector[ComponentReferenceEntry] = {
+    val repositorynames = repositoryentries.map(_.name).toSet
+    val projectonly = projectentries.filterNot(entry => repositorynames.contains(entry.name))
+    val duplicateprojectnames = projectonly.groupBy(_.name).collect {
+      case (name, entries) if entries.size > 1 => name
+    }.toVector.sorted
+    if (duplicateprojectnames.nonEmpty)
+      RAISE.invalidArgumentFault(
+        s"Conflicting BoK CAR project component-reference identities: ${duplicateprojectnames.mkString(", ")}"
+      )
+    (repositoryentries ++ projectonly).sortBy(entry => (entry.name, entry.sourcepath))
+  }
+
+  private def _project_component_reference_source_path(
+    config: BuildConfig,
+    project: CozyBokProjectPublisher.ResolvedBokProject
+  ): String = {
+    val projectroot = config.project.toAbsolutePath.normalize
+    val descriptor = project.descriptorfile.toAbsolutePath.normalize
+    if (descriptor.startsWith(projectroot))
+      projectroot.relativize(descriptor).toString.replace(java.io.File.separatorChar, '/')
+    else
+      project.packagedir.toString
+  }
 
   private def _sar_component_reference_index(config: BuildConfig): ComponentReferenceIndex = {
     val projects = _safe_resolved_project_packages(config)
@@ -4047,6 +4108,7 @@ private[cozy] object CozyBok {
         lateststable = catalog.latestStable,
         latestsnapshot = catalog.latestSnapshot,
         sourcepath = source.sourcepath,
+        publicpath = s"repository/sar/${catalog.artifactId}/index.html",
         versions = catalog.versions.map { version =>
           ComponentReferenceVersion(
             version.version,
@@ -5950,6 +6012,7 @@ private[cozy] object CozyBok {
     _copy_directory(config.doxsitePath.resolve("metadata/artifacts/repository"), target.resolve("metadata/artifacts/repository"))
     _copy_directory(config.doxsitePath.resolve("metadata/releases"), target.resolve("metadata/releases"))
     _sync_sie_metadata(config, target)
+    _sync_source_rdf_graph_metadata(config, target)
     _version_graph_summary(config, target)
     _write_knowledge_source_manifest(config, target)
   }
@@ -5972,6 +6035,30 @@ private[cozy] object CozyBok {
           identity
         )
         _write_text(graphpath, merged.spaces2 + "\n")
+      }
+    }
+  }
+
+  private def _sync_source_rdf_graph_metadata(config: BuildConfig, target: Path): Unit = {
+    val sourcegraphpath = config.sourcepath.resolve("metadata/rdf/graph.json")
+    if (Files.isRegularFile(sourcegraphpath)) {
+      val sourcegraph = parser.parse(Files.readString(sourcegraphpath, StandardCharsets.UTF_8)).fold(
+        error => RAISE.invalidArgumentFault(s"Invalid BoK source RDF graph metadata: ${error.message}"),
+        identity
+      )
+      val graphpath = target.resolve("metadata/rdf/graph.json")
+      if (Files.isRegularFile(graphpath)) {
+        val graph = parser.parse(Files.readString(graphpath, StandardCharsets.UTF_8)).fold(
+          error => RAISE.invalidArgumentFault(s"Invalid BoK RDF graph metadata: ${error.message}"),
+          identity
+        )
+        val merged = CozyBokSieHandoff.mergeGraphSummaries(graph, Vector(sourcegraph)).fold(
+          message => RAISE.invalidArgumentFault(s"Invalid BoK source RDF graph metadata: ${message}"),
+          identity
+        )
+        _write_text(graphpath, merged.spaces2 + "\n")
+      } else {
+        _write_text(graphpath, sourcegraph.spaces2 + "\n")
       }
     }
   }

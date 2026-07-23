@@ -1,8 +1,8 @@
 # Phase 22: BoK Knowledge Map Component Handoff
 
-Status: planned
+Status: in-progress
 
-Start date: TBD
+Start date: 2026-07-23
 
 Dependency: Phase 21 component repository discovery and Phase 14 BoK/SIE
 KnowledgeSource handoff
@@ -74,8 +74,9 @@ existence source.
 
 Stage Status:
 
-- Current status: PLANNED
+- Current status: DONE
 - Owner: Cozy
+- Update rule: mark work complete only from the Phase 22 checklist.
 - Checklist basis: `KM22-01`
 
 Focus:
@@ -88,8 +89,9 @@ Focus:
 
 Stage Status:
 
-- Current status: PLANNED
+- Current status: DONE
 - Owner: Cozy
+- Update rule: mark work complete only from the Phase 22 checklist.
 - Checklist basis: `KM22-02`
 
 Focus:
@@ -101,8 +103,9 @@ Focus:
 
 Stage Status:
 
-- Current status: PLANNED
+- Current status: DONE
 - Owner: Cozy
+- Update rule: mark work complete only from the Phase 22 checklist.
 - Checklist basis: `KM22-03`
 
 Focus:
@@ -114,8 +117,9 @@ Focus:
 
 Stage Status:
 
-- Current status: PLANNED
+- Current status: DONE
 - Owner: Cozy
+- Update rule: mark work complete only from the Phase 22 checklist.
 - Checklist basis: `KM22-04`
 
 Focus:
@@ -128,8 +132,9 @@ Focus:
 
 Stage Status:
 
-- Current status: PLANNED
+- Current status: DONE
 - Owner: Cozy / KnowledgeHub
+- Update rule: mark work complete only from the Phase 22 checklist.
 - Checklist basis: `KM22-05`
 
 Focus:

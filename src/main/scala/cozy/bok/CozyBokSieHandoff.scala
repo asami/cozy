@@ -10,7 +10,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Jul. 13, 2026
- * @version Jul. 13, 2026
+ * @version Jul. 23, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyBokSieHandoff {
@@ -23,7 +23,7 @@ private[cozy] object CozyBokSieHandoff {
   val PROVENANCE_PATH = "metadata/sie/provenance.json"
   val INFORMATION_SCHEMA_PATH = "metadata/sie/information-schema.json"
   val INFORMATION_INSTANCES_PATH = "metadata/sie/information-instances.json"
-  private val _SUPPORTED_RESOURCE_KINDS = Set(
+  private val _supported_resource_kinds = Set(
     "sie-provenance",
     "information-schema",
     "information-instances",
@@ -31,7 +31,7 @@ private[cozy] object CozyBokSieHandoff {
     "rdf-turtle",
     "rdf-graph-summary"
   )
-  private val _REQUIRED_RESOURCE_KINDS = Vector("information-schema", "information-instances")
+  private val _required_resource_kinds = Vector("information-schema", "information-instances")
 
   final case class Diagnostic(
     code: String,
@@ -163,21 +163,41 @@ private[cozy] object CozyBokSieHandoff {
   ): Index =
     Index(projects.filter(_.sie.nonEmpty).sortBy(_.publicationpath).map(_load_projection(projectroot, config, _)))
 
-  def mergeGraph(base: Json, index: Index): Either[String, Json] = {
+  def mergeGraph(base: Json, index: Index): Either[String, Json] =
+    _merge_graph(
+      base,
+      index.projections.flatMap(_.graph),
+      index.informationinstances.map(_.toGraphNode),
+      index.projections.flatMap(_.informationschemas)
+    )
+
+  def mergeGraphSummaries(base: Json, summaries: Vector[Json]): Either[String, Json] =
+    summaries.zipWithIndex.foldLeft[Either[String, Vector[Json]]](Right(Vector.empty)) {
+      case (left @ Left(_), _) => left
+      case (Right(result), (summary, index)) =>
+        _validate_graph_summary_overlay(summary, index).map(result :+ _)
+    }.flatMap(_merge_graph(base, _, Vector.empty, Vector.empty))
+
+  private def _merge_graph(
+    base: Json,
+    graphs: Vector[Json],
+    extranodes: Vector[Json],
+    extraschemas: Vector[Json]
+  ): Either[String, Json] = {
     val baseobject = base.asObject.getOrElse(JsonObject.empty)
-    val graphobjects = index.projections.flatMap(_.graph.flatMap(_.asObject))
+    val graphobjects = graphs.flatMap(_.asObject)
     val schemas =
       _merge_named_json(
         _information_schemas(base) ++
           graphobjects.flatMap(x => _information_schemas(Json.fromJsonObject(x))) ++
-          index.projections.flatMap(_.informationschemas),
+          extraschemas,
         "Information schema"
       )
     val nodes =
       _merge_nodes(
         baseobject("nodes").flatMap(_.asArray).getOrElse(Vector.empty) ++
           graphobjects.flatMap(_("nodes").flatMap(_.asArray).getOrElse(Vector.empty)) ++
-          index.informationinstances.map(_.toGraphNode)
+          extranodes
       )
     val edges =
       _merge_edges(
@@ -198,6 +218,17 @@ private[cozy] object CozyBokSieHandoff {
       )
     }
   }
+
+  private def _validate_graph_summary_overlay(value: Json, index: Int): Either[String, Json] =
+    value.asObject match {
+      case None =>
+        Left(s"RDF graph summary overlay[$index] must be a JSON object.")
+      case Some(graph) =>
+        Vector("nodes", "edges").collectFirst {
+          case field if graph(field).exists(_.asArray.isEmpty) =>
+            Left(s"RDF graph summary overlay[$index].$field must be an array when present.")
+        }.getOrElse(Right(value))
+    }
 
   private def _load_projection(
     projectroot: Path,
@@ -287,11 +318,11 @@ private[cozy] object CozyBokSieHandoff {
       val rawresources = cursor.downField("resources").focus.flatMap(_.asArray).getOrElse(Vector.empty)
       val decodedresources = rawresources.map(_decode_resource)
       val resources = decodedresources.flatten
-      val duplicatekinds = resources.filter(x => _SUPPORTED_RESOURCE_KINDS.contains(x.kind)).groupBy(_.kind).
+      val duplicatekinds = resources.filter(x => _supported_resource_kinds.contains(x.kind)).groupBy(_.kind).
         collect { case (resourcekind, xs) if xs.size > 1 => resourcekind }.toVector.sorted
       val invalidresources = resources.filter { resource =>
         !_is_safe_relative_resource_href(resource.href) ||
-          (_SUPPORTED_RESOURCE_KINDS.contains(resource.kind) && _safe_resource_path(root, resource.href).isEmpty)
+          (_supported_resource_kinds.contains(resource.kind) && _safe_resource_path(root, resource.href).isEmpty)
       }
       if (decodedresources.exists(_.isEmpty))
         base.copy(diagnostics = Vector(_diagnostic(
@@ -325,7 +356,7 @@ private[cozy] object CozyBokSieHandoff {
   }
 
   private def _load_resources(root: Path, base: Projection): Projection = {
-    val missingrequiredkinds = _REQUIRED_RESOURCE_KINDS.filterNot(kind => base.resources.exists(_.kind == kind))
+    val missingrequiredkinds = _required_resource_kinds.filterNot(kind => base.resources.exists(_.kind == kind))
     val initialdiagnostics =
       missingrequiredkinds.map(kind => _diagnostic(
         "sie.handoff.resource.missing",
@@ -335,7 +366,7 @@ private[cozy] object CozyBokSieHandoff {
         base.projection,
         Some(kind)
       )) ++
-        base.resources.filterNot(x => _SUPPORTED_RESOURCE_KINDS.contains(x.kind)).map(x => _diagnostic(
+        base.resources.filterNot(x => _supported_resource_kinds.contains(x.kind)).map(x => _diagnostic(
           "sie.handoff.resource.unsupported",
           "warning",
           s"Unsupported optional SIE handoff resource: ${x.kind}",
@@ -345,7 +376,7 @@ private[cozy] object CozyBokSieHandoff {
         ))
     val loaded = base.resources.foldLeft((Vector.empty[Json], Vector.empty[InformationInstance], Option.empty[Json], initialdiagnostics)) {
       case ((schemas, instances, graph, diagnostics), resource) =>
-        if (!_SUPPORTED_RESOURCE_KINDS.contains(resource.kind))
+        if (!_supported_resource_kinds.contains(resource.kind))
           (schemas, instances, graph, diagnostics)
         else {
           val path = _safe_resource_path(root, resource.href).get

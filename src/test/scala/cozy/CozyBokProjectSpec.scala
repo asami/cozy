@@ -11,7 +11,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jun. 23, 2026
- * @version Jul. 15, 2026
+ * @version Jul. 23, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokProjectSpec
@@ -1287,6 +1287,94 @@ class CozyBokProjectSpec
             val knowledgesource = _read(dir.resolve("website.d/metadata/cncf/knowledge-source.json"))
             knowledgesource should include("metadata/cncf/component-references/car.json")
             knowledgesource should include("metadata/cncf/component-references/sar.json")
+          } finally {
+            if (oldhome == null)
+              System.clearProperty("user.home")
+            else
+              System.setProperty("user.home", oldhome)
+          }
+        }
+      }
+
+      "publish project-backed CAR component references without repository catalogs" in {
+        _with_temp_dir("cozy-bok-project-backed-component-reference") { dir =>
+          Given("a BoK CAR Project whose component identity exists only as project metadata")
+          val oldhome = System.getProperty("user.home")
+          System.setProperty("user.home", dir.resolve("home").toString)
+          try {
+            _write_sie_project_source(
+              dir,
+              "https://sie.example.com/nict-knowledgehub/",
+              withcomponentcatalog = false,
+              withsubsystemcatalog = false
+            )
+
+            When("Cozy builds the BoK site")
+            CozyBok.build(
+              CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview", "--no-bib-service")),
+              new ProjectBuildRunner
+            )
+
+            Then("the KnowledgeSource publishes a CAR component-reference index from the project metadata")
+            val carreferences = _read(dir.resolve("website.d/metadata/cncf/component-references/car.json"))
+            val carjson = parser.parse(carreferences).fold(throw _, identity)
+            carjson.hcursor.get[String]("schemaVersion") shouldBe Right("cncf.component-reference-index.v1")
+            val entries = carjson.hcursor.get[Vector[io.circe.Json]]("entries").fold(throw _, identity)
+            entries should have size 1
+            val entry = entries.head.hcursor
+            entry.get[String]("name") shouldBe Right("nict-knowledgehub")
+            entry.get[String]("title") shouldBe Right("NICT KnowledgeHub")
+            entry.get[String]("source_path") shouldBe
+              Right("src/main/doxsite/projects/technology/nict-knowledgehub/project.yaml")
+            entry.get[String]("public_path") shouldBe
+              Right("projects/technology/nict-knowledgehub/index.html")
+            val versions = entry.get[Vector[io.circe.Json]]("versions").fold(throw _, identity)
+            versions should have size 1
+            versions.head.hcursor.get[String]("version") shouldBe Right("0.1.0")
+            versions.head.hcursor.get[Option[String]]("file") shouldBe Right(None)
+
+            And("the component-reference index is advertised without requiring CBD detail")
+            val knowledgesource = _read(dir.resolve("website.d/metadata/cncf/knowledge-source.json"))
+            knowledgesource should include("metadata/cncf/component-references/car.json")
+            knowledgesource should not include ("metadata/cncf/component-references/sar.json")
+          } finally {
+            if (oldhome == null)
+              System.clearProperty("user.home")
+            else
+              System.setProperty("user.home", oldhome)
+          }
+        }
+      }
+
+      "reject duplicate project-backed CAR component identities" in {
+        _with_temp_dir("cozy-bok-project-backed-component-reference-duplicate") { dir =>
+          Given("two BoK Project packages that claim the same CAR component identity")
+          val oldhome = System.getProperty("user.home")
+          System.setProperty("user.home", dir.resolve("home").toString)
+          try {
+            _write_sie_project_source(
+              dir,
+              "https://sie.example.com/nict-knowledgehub/",
+              withcomponentcatalog = false,
+              withsubsystemcatalog = false
+            )
+            val original = dir.resolve("src/main/doxsite/projects/technology/nict-knowledgehub")
+            val duplicate = dir.resolve("src/main/doxsite/projects/concept/nict-knowledgehub-copy")
+            _write(duplicate.resolve("index.dox"), "Duplicate NictKnowledgeHub\n==========================\n")
+            _write(duplicate.resolve("project.yaml"), _read(original.resolve("project.yaml")))
+
+            When("Cozy builds the component-reference index")
+            val error = intercept[Throwable] {
+              CozyBok.build(
+                CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview", "--no-bib-service")),
+                new ProjectBuildRunner
+              )
+            }
+
+            Then("the duplicate identity fails instead of selecting one project by path order")
+            error.getMessage should include(
+              "Conflicting BoK CAR project component-reference identities: nict-knowledgehub"
+            )
           } finally {
             if (oldhome == null)
               System.clearProperty("user.home")

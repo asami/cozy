@@ -57,10 +57,17 @@ Status: DONE
 
 ## KM22-04: Executable Specifications
 
-Status: IN PROGRESS
+Status: DONE
 
 - [x] Valid CAR `componentRef` is preserved in public graph metadata.
 - [x] Valid SAR `componentRef` is preserved in public graph metadata.
+- [x] Source-declared RDF graph overlays are merged before `componentRef`
+      validation.
+- [x] Project-backed CAR metadata can publish a component-reference index when
+      no repository catalog exists.
+- [x] Malformed source graph overlay containers fail instead of disappearing.
+- [x] Project-backed records do not claim an unverified CAR archive file.
+- [x] Duplicate project-backed CAR identities fail deterministically.
 - [x] Optional version matching succeeds when the index contains that version.
 - [x] Optional organization matching succeeds when the index declares that
       organization.
@@ -78,25 +85,40 @@ Status: IN PROGRESS
 
 ## KM22-05: KnowledgeHub Operational Handoff
 
-Status: PLANNED
+Status: DONE
 
-- [ ] Add or identify one representative KnowledgeHub component-reference graph
+- [x] Add or identify one representative KnowledgeHub component-reference graph
       node.
-- [ ] Build KnowledgeHub with `cozy bok build . --strategy preview`.
-- [ ] Confirm `website.d/metadata/rdf/graph.json` includes the declared
+- [x] Build KnowledgeHub through the Cozy launcher with the current development
+      runtime:
+      `COZY_RUNTIME_DEV_DIR=/Users/asami/src/dev2025/cozy cozy bok build . --strategy preview`.
+- [x] Confirm `website.d/metadata/rdf/graph.json` includes the declared
       `componentRef`.
-- [ ] Confirm `website.d/metadata/cncf/component-references/{car,sar}.json`
+- [x] Confirm `website.d/metadata/cncf/component-references/car.json`
       contains the matched existence record.
-- [ ] Confirm no graph node gained `componentRef` by id or label inference.
-- [ ] Record the generated source fixture path and expected handoff payload for
+- [x] Confirm no graph node gained `componentRef` by id or label inference.
+- [x] Record the generated source fixture path and expected handoff payload for
       Textus BoK Phase 6.
+
+Evidence:
+
+- Source fixture:
+  `/Users/asami/src/Project2026/bok-knowledgehub/src/main/doxsite/metadata/rdf/graph.json`.
+- Expected graph payload:
+  `{"id":"component:nict-knowledgehub","node_type":"component-reference","componentRef":{"kind":"car","name":"nict-knowledgehub"}}`.
+- Matched CAR index entry:
+  `website.d/metadata/cncf/component-references/car.json` entry
+  `name = nict-knowledgehub`, version `0.1.0-smoke`.
+- Launcher runtime: `cozy 0.3.0-SNAPSHOT`.
+- Verification output: componentRef node count `1`; CAR entries
+  `[("nict-knowledgehub", ["0.1.0-smoke"])]`.
 
 ## KM22-06: Review And Closure
 
-Status: PLANNED
+Status: IN PROGRESS
 
-- [ ] Complete post-implementation review.
-- [ ] Fix all actionable review findings, including naming and spec debt.
-- [ ] Validate focused and full Cozy tests after review fixes.
+- [x] Complete post-implementation review.
+- [x] Fix all actionable review findings, including naming and spec debt.
+- [x] Validate focused and full Cozy tests after review fixes.
 - [ ] Commit the validated implementation.
 - [ ] Update Phase 22 status and close the checklist from executable evidence.

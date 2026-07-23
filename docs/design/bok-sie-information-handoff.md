@@ -69,6 +69,16 @@ edge metadata stays source-attributable; Cozy does not use it to infer new
 relations. Existing SmartDox graph fields remain compatible as additional
 fields in this versioned producer contract.
 
+BoK source may add supplemental graph-summary metadata at
+`src/main/doxsite/metadata/rdf/graph.json`. Cozy merges that explicit
+machine-readable source into the SmartDox/SIE graph summary before applying
+the same `cozy.rdf-graph-summary.v1` validation. This route is for declared
+graph metadata only; Cozy still does not parse RDF source files or infer graph
+nodes from labels, tags, terms, repository filenames, or rendered HTML.
+The overlay must be a JSON object. When it declares `nodes` or `edges`, those
+fields must be arrays; malformed containers fail the build rather than being
+ignored.
+
 The BoK producer may preserve a node-level `componentRef` object in this
 schema only for nodes whose `node_type` is `component-reference`. The object
 contains required `kind` and `name` fields and optional `organization` and

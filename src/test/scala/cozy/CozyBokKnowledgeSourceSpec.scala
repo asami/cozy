@@ -179,6 +179,82 @@ class CozyBokKnowledgeSourceSpec
         }
       }
 
+      "merges source-declared RDF graph component references before validation" in {
+        _with_temp_dir("cozy-bok-knowledge-source-graph-overlay-component-ref") { dir =>
+          Given("a BoK source graph overlay that declares a CAR component-reference node")
+          _write_site_source(dir, glossaryterm = false)
+          _write(
+            dir.resolve("src/main/doxsite/metadata/rdf/graph.json"),
+            _component_ref_graph("car", "nict-knowledgehub", None, Some("0.1.0-SNAPSHOT"))
+          )
+
+          When("Cozy builds the public BoK site with the selected component-reference index")
+          CozyBok.build(
+            _build_config(dir),
+            new MetadataRunner(
+              includeterms = false,
+              includerdf = true,
+              rdfgraph = "{\"nodes\":[],\"edges\":[],\"truncated\":false}\n",
+              componentreferences = Vector(
+                "car" -> _component_reference_index_json(
+                  "car",
+                  Vector(_component_reference_entry_json("car", "nict-knowledgehub", None, Vector("0.1.0-SNAPSHOT")))
+                )
+              )
+            )
+          )
+
+          Then("the source-declared componentRef is preserved in the versioned graph summary")
+          val graph = _parse_json(dir.resolve("website.d/metadata/rdf/graph.json"))
+          _graph_component_refs(graph) shouldBe Vector(("car", "nict-knowledgehub", None, Some("0.1.0-SNAPSHOT")))
+
+          And("the component-reference index is advertised as a KnowledgeSource resource")
+          _resources(_parse_json(dir.resolve("website.d/metadata/cncf/knowledge-source.json"))) should contain(
+            ("component-reference-index", "metadata/cncf/component-references/car.json", "application/json")
+          )
+        }
+      }
+
+      "rejects malformed source-declared RDF graph overlay containers" in {
+        Vector(
+          "non-object" -> (
+            "[]\n",
+            "RDF graph summary overlay[0] must be a JSON object"
+          ),
+          "non-array-nodes" -> (
+            """{"nodes":{},"edges":[]}
+              |""".stripMargin,
+            "RDF graph summary overlay[0].nodes must be an array when present"
+          ),
+          "non-array-edges" -> (
+            """{"nodes":[],"edges":{}}
+              |""".stripMargin,
+            "RDF graph summary overlay[0].edges must be an array when present"
+          )
+        ).foreach { case (label, (sourcegraph, expectedmessage)) =>
+          _with_temp_dir(s"cozy-bok-knowledge-source-graph-overlay-$label") { dir =>
+            Given(s"a BoK source graph overlay with a $label container")
+            _write_site_source(dir, glossaryterm = false)
+            _write(dir.resolve("src/main/doxsite/metadata/rdf/graph.json"), sourcegraph)
+
+            When("Cozy merges the source overlay into a valid SmartDox graph summary")
+            val error = intercept[Throwable] {
+              CozyBok.build(
+                _build_config(dir),
+                new MetadataRunner(
+                  includeterms = false,
+                  includerdf = true,
+                  rdfgraph = "{\"nodes\":[],\"edges\":[],\"truncated\":false}\n"
+                )
+              )
+            }
+
+            Then("the malformed source declaration fails instead of disappearing from the published graph")
+            error.getMessage should include(expectedmessage)
+          }
+        }
+      }
+
       "rejects malformed componentRef node metadata deterministically" in {
         Vector(
           "non-object" -> (

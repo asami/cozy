@@ -90,12 +90,19 @@ The KnowledgeSource advertises each file as
 `kind = component-reference-index`. The document uses
 `schemaVersion = cncf.component-reference-index.v1` and carries repository
 identity, kind, versions, source path, public evidence path, tags, and terms.
-The CAR index comes from the generic BoK repository CAR layer. The SAR index
-contains only repository SAR catalogs explicitly referenced by an SIE Project;
-Cozy does not scan SAR archive storage. These records establish that a CAR or
-SAR exists, but do not claim usage, capability, or dependency detail owned by
-CBD Support. A complete four-resource component profile remains authoritative
-when both forms are present.
+The CAR index comes from the generic BoK repository CAR layer and from
+project-backed CAR metadata when a BoK Project exists without a repository
+catalog. Repository catalog entries remain the stronger source when both forms
+exist for the same CAR name. A project-backed record establishes source-project
+identity, not a published archive: its version `file` stays absent unless a
+selected catalog version declares one. Multiple project packages claiming the
+same otherwise-unindexed CAR identity are invalid instead of being selected by
+filesystem order. The SAR index contains only repository SAR
+catalogs explicitly referenced by an SIE Project; Cozy does not scan SAR
+archive storage. These records establish that a CAR or SAR exists, but do not
+claim usage, capability, or dependency detail owned by CBD Support. A complete
+four-resource component profile remains authoritative when both forms are
+present.
 
 The BoK RDF graph summary may attach an optional `componentRef` object to a
 node when, and only when, the node declares `node_type =
@@ -120,6 +127,14 @@ strings. The object is a source-declared existence assertion that links the
 graph node to one selected-generation component-reference index entry. It does
 not carry CBD Support-owned capability, dependency, compatibility, operation,
 manual, or usage detail.
+
+When a source author needs to declare supplemental graph nodes directly, the
+BoK source file is `src/main/doxsite/metadata/rdf/graph.json`. Cozy merges this
+explicit graph summary into generated SmartDox/SIE graph metadata before
+`componentRef` validation. The source file must use the same graph-summary
+node and edge shapes as the generated `metadata/rdf/graph.json`; it is not an
+RDF parser fallback. Its root must be a JSON object, and any declared `nodes`
+or `edges` field must be an array.
 
 Cozy validates each declared `componentRef` before publishing the graph
 summary. The matching index is selected by `kind`: `car` uses
