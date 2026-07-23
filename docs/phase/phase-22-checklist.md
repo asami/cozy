@@ -5,20 +5,20 @@ Knowledge Map Component Handoff.
 
 ## KM22-01: Graph Summary Contract Documentation
 
-Status: PLANNED
+Status: DONE
 
-- [ ] Define optional `componentRef` node metadata in the
+- [x] Define optional `componentRef` node metadata in the
       `cozy.rdf-graph-summary.v1` contract.
-- [ ] State that `componentRef` is allowed only when `node_type` is
+- [x] State that `componentRef` is allowed only when `node_type` is
       `component-reference`.
-- [ ] Define required `componentRef.kind` and `componentRef.name`.
-- [ ] Define optional `componentRef.organization` and `componentRef.version`.
-- [ ] Define exact matching against CAR/SAR component-reference indexes.
-- [ ] Document absent, ambiguous, mismatched, malformed, and wrong-node-type
+- [x] Define required `componentRef.kind` and `componentRef.name`.
+- [x] Define optional `componentRef.organization` and `componentRef.version`.
+- [x] Define exact matching against CAR/SAR component-reference indexes.
+- [x] Document absent, ambiguous, mismatched, malformed, and wrong-node-type
       diagnostics.
-- [ ] Record that Cozy never infers `componentRef` from graph node id, label,
+- [x] Record that Cozy never infers `componentRef` from graph node id, label,
       tag, term, repository filename, RDF edge, or rendered HTML.
-- [ ] Record that `componentRef` is existence-only and does not carry CBD-owned
+- [x] Record that `componentRef` is existence-only and does not carry CBD-owned
       capability, dependency, compatibility, operation, or usage detail.
 
 ## KM22-02: Cozy Graph Node Decoding And Shape Validation

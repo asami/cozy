@@ -69,6 +69,19 @@ edge metadata stays source-attributable; Cozy does not use it to infer new
 relations. Existing SmartDox graph fields remain compatible as additional
 fields in this versioned producer contract.
 
+The BoK producer may preserve a node-level `componentRef` object in this
+schema only for nodes whose `node_type` is `component-reference`. The object
+contains required `kind` and `name` fields and optional `organization` and
+`version` fields. Cozy validates that object against the same generated
+`component-reference-index` resources advertised by the BoK KnowledgeSource
+manifest before publishing the effective graph summary. A missing,
+ambiguous, mismatched, malformed, or wrong-node-type `componentRef` is an
+invalid producer handoff. `componentRef` is existence-only metadata for a
+consumer such as Textus BoK Knowledge Map; it does not authorize Cozy or SIE
+to infer component identity from node labels, enrich component detail, query
+CBD Support, or display CBD-owned capability, dependency, compatibility,
+operation, manual, or usage data.
+
 ## Provenance
 
 ```json

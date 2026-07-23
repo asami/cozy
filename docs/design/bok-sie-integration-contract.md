@@ -97,6 +97,47 @@ SAR exists, but do not claim usage, capability, or dependency detail owned by
 CBD Support. A complete four-resource component profile remains authoritative
 when both forms are present.
 
+The BoK RDF graph summary may attach an optional `componentRef` object to a
+node when, and only when, the node declares `node_type =
+"component-reference"`:
+
+```json
+{
+  "id": "component:textus-bok",
+  "label": "Textus BoK",
+  "node_type": "component-reference",
+  "componentRef": {
+    "kind": "car",
+    "name": "textus-bok",
+    "version": "0.1.0-SNAPSHOT"
+  }
+}
+```
+
+`componentRef.kind` and `componentRef.name` are required non-empty strings.
+`componentRef.organization` and `componentRef.version` are optional non-empty
+strings. The object is a source-declared existence assertion that links the
+graph node to one selected-generation component-reference index entry. It does
+not carry CBD Support-owned capability, dependency, compatibility, operation,
+manual, or usage detail.
+
+Cozy validates each declared `componentRef` before publishing the graph
+summary. The matching index is selected by `kind`: `car` uses
+`metadata/cncf/component-references/car.json`, and `sar` uses
+`metadata/cncf/component-references/sar.json`. `kind` and `name` must match an
+index entry exactly. When `organization` or `version` is present in the
+`componentRef`, it must also match the candidate entry exactly; version
+matching succeeds when the entry declares that version in its `versions`
+collection. An absent index, absent entry, ambiguous match, kind mismatch,
+organization mismatch, version mismatch, malformed `componentRef`, or
+`componentRef` on any other `node_type` is an invalid BoK publication handoff
+and fails deterministically.
+
+Cozy never constructs `componentRef` from a graph node id, label, tag, term,
+repository filename, RDF edge, rendered HTML, or fuzzy component-name match. A
+node without `componentRef` remains an ordinary graph node even when its id or
+label resembles a CAR or SAR artifact identifier.
+
 The current `cozy.publish-project.v1` producer includes identity, descriptive
 project fields, versions, build settings, publication placement, repository
 files, and release history. Runtime compatibility, service/operation
