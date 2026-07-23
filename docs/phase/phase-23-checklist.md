@@ -53,11 +53,11 @@ Status: DONE
 
 ## SR23-04: Model-kind and Failure Regression Matrix
 
-Status: IN PROGRESS
+Status: DONE
 
 - [x] Preserve structured `VALUE` record behavior.
 - [x] Preserve multi-field `DATATYPE` record behavior.
-- [ ] Preserve powertype and statemachine persistence behavior.
+- [x] Preserve powertype and statemachine persistence behavior.
 - [x] Verify valid constrained scalar reconstruction.
 - [x] Verify malformed primitive input fails deterministically.
 - [x] Verify a well-typed but constraint-violating scalar fails through the

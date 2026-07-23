@@ -4,10 +4,10 @@ Purpose: engineering work management.
 
 Current phase:
 
-- Active phase: none
-- Active checklist: none
-- Next planned phase: `phase-23.md`: Scalar Entity Persistence Round-trip
-- Next planned checklist: `phase-23-checklist.md`
+- Active phase: `phase-23.md`: Scalar Entity Persistence Round-trip
+- Active checklist: `phase-23-checklist.md`
+- Next planned phase: `phase-24.md`: Component Skill Distribution
+- Next planned checklist: `phase-24-checklist.md`
 - Most recent closed phase: `phase-22.md`: BoK Knowledge Map Component Handoff
 
 Belongs:

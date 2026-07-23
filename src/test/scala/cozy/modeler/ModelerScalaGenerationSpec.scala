@@ -506,7 +506,7 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         updatecontent should include ("val schema: org.goldenport.schema.Schema = domain.entity.Person.schema")
       }
 
-      "modeler-scala parses StateMachine CML heading syntax" in {
+      "modeler-scala preserves structural state-machine and powertype persistence semantics" in {
         Given("a CML source model for Scala component generation")
         val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
         val input = base.resolve("src/test/resources/modeler/statemachine-cml.dox")
@@ -523,8 +523,12 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         val entitygenerated = out.resolve(
         "target/scala-3.3.8/src_managed/main/scala/domain/entity/Person.scala"
         )
+        val statusgenerated = out.resolve(
+        "target/scala-3.3.8/src_managed/main/scala/domain/PersonStatus.scala"
+        )
         val content = Files.readString(generated)
         val entitycontent = Files.readString(entitygenerated)
+        val statuscontent = Files.readString(statusgenerated)
         Then("the generated Scala code preserves the model semantics")
         content should include ("override def stateMachineTransitionRules: Vector[CollectionTransitionRule[Any]] = Vector(")
         content should include ("override def stateMachineDefinitions: Vector[org.goldenport.cncf.statemachine.CmlStateMachineDefinition] = Vector(")
@@ -541,6 +545,10 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         content should include ("guard = Some(StateMachineRuleBuilder.guardExpression[Any](\"event.amount > 0\")")
         content should include ("StateMachineRuleBuilder.updateRule[Any](")
         entitycontent should not include ("lifecycle: PersonLifecycle")
+        entitycontent should include ("\"status\" -> _to_data_store_value(status)")
+        entitycontent should include ("case m: org.simplemodeling.model.powertype.Powertype => m.dbValue.getOrElse(m.value)")
+        statuscontent should include ("def toDataStore(): String")
+        statuscontent should include ("case n: Int => fromDbValue(n)")
       }
 
       "modeler-scala maps identifier guard to guardRef" in {

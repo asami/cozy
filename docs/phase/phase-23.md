@@ -133,7 +133,7 @@ Focus:
 
 Stage Status:
 
-- Current status: IN PROGRESS
+- Current status: DONE
 - Owner: Cozy
 - Update rule: mark work complete only from the Phase 23 checklist.
 - Checklist basis: `SR23-04`
@@ -141,6 +141,12 @@ Stage Status:
   `VALUE` reader delegates to `ValueReader[Int]`, and the SQLite lifecycle
   fixture rejects a persisted non-integer value as
   `value.invalid-datatype:int`.
+- Validated implementation evidence: the scalar SQLite lifecycle fixture stores
+  a powertype-backed state as its numeric database value, restores the named
+  state across a fresh load, and persists the state-machine transition from
+  `Draft` to `Published`. It also rejects the undeclared reverse transition and
+  proves that the numeric datastore value and fresh-load state remain
+  `Published`.
 
 Focus:
 

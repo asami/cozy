@@ -16,9 +16,9 @@ import domain.impl.ComponentFactory
 
 object Main {
   def main(args: Array[String]): Unit =
-    CncfRuntime().run(args, _extraComponents)
+    CncfRuntime().run(args, _extra_components)
 
-  private def _extraComponents(subsystem: Subsystem): Seq[Component] = {
+  private def _extra_components(subsystem: Subsystem): Seq[Component] = {
     val params = ComponentCreate(subsystem, ComponentOrigin.Main)
     Vector(ComponentFactory().createPrimary(params))
   }
@@ -36,6 +36,7 @@ state_source=out.d/src/main/scala/domain/value/ReviewRunState.scala
 priority_source=out.d/src/main/scala/domain/value/ReviewPriority.scala
 code_source=out.d/src/main/scala/domain/datatype/ReviewCode.scala
 entity_source=out.d/src/main/scala/domain/entity/ReviewDiagnosis.scala
+status_source=out.d/src/main/scala/domain/ReviewStatus.scala
 
 grep 'case m: ReviewRunState => Consequence.success(m)' "$state_source"
 grep 'case m: Record => createC(m)' "$state_source"
@@ -48,6 +49,8 @@ grep 'ValueReader\[String\].*readC(other).*createC(value).*Consequence.valueInva
 grep 'case m: domain.value.ReviewRunState => m.toDataStore()' "$entity_source"
 grep 'case m: domain.value.ReviewPriority => m.toDataStore()' "$entity_source"
 grep 'case m: domain.datatype.ReviewCode => m.toDataStore()' "$entity_source"
+grep 'case m: org.simplemodeling.model.powertype.Powertype => m.dbValue.getOrElse(m.value)' "$entity_source"
+grep 'case n: Int => fromDbValue(n)' "$status_source"
 
 cd out.d
 
@@ -65,22 +68,22 @@ run_command() {
   sbt --batch "runMain domain.Main command --format yaml ${mode} ${store} $*"
 }
 
-present_save="$(run_command ScalarRoundtrip.entity.saveReviewDiagnosis --id "$present_id" --code REVIEW-101 --state running --previousState queued --priority 7 "$privilege" 2>&1)"
+present_save="$(run_command ScalarRoundtrip.entity.saveReviewDiagnosis --id "$present_id" --code REVIEW-101 --state running --previousState queued --priority 7 --status Draft "$privilege" 2>&1)"
 printf '%s\n' "$present_save"
 
-absent_save="$(run_command ScalarRoundtrip.entity.saveReviewDiagnosis --id "$absent_id" --code REVIEW-102 --state queued --priority 3 "$privilege" 2>&1)"
+absent_save="$(run_command ScalarRoundtrip.entity.saveReviewDiagnosis --id "$absent_id" --code REVIEW-102 --state queued --priority 3 --status Draft "$privilege" 2>&1)"
 printf '%s\n' "$absent_save"
 
 table_name="$(sqlite3 "$dbpath" "select name from sqlite_master where type = 'table' and name in ('review_diagnosis', 'reviewdiagnosis') order by name limit 1;")"
 test -n "$table_name"
 
-present_row="$(sqlite3 "$dbpath" "select id, code, state, previousState, priority from ${table_name} where id = '$present_id';")"
+present_row="$(sqlite3 "$dbpath" "select id, code, state, previousState, priority, status from ${table_name} where id = '$present_id';")"
 printf '%s\n' "$present_row"
-printf '%s\n' "$present_row" | grep -q "^${present_id}|REVIEW-101|running|queued|7$"
+printf '%s\n' "$present_row" | grep -q "^${present_id}|REVIEW-101|running|queued|7|1$"
 
-absent_row="$(sqlite3 "$dbpath" "select id, code, state, coalesce(previousState, '<absent>'), priority from ${table_name} where id = '$absent_id';")"
+absent_row="$(sqlite3 "$dbpath" "select id, code, state, coalesce(previousState, '<absent>'), priority, status from ${table_name} where id = '$absent_id';")"
 printf '%s\n' "$absent_row"
-printf '%s\n' "$absent_row" | grep -q "^${absent_id}|REVIEW-102|queued|<absent>|3$"
+printf '%s\n' "$absent_row" | grep -q "^${absent_id}|REVIEW-102|queued|<absent>|3|1$"
 
 present_load="$(run_command ScalarRoundtrip.entity.loadReviewDiagnosis --id "$present_id" "$privilege" 2>&1)"
 printf '%s\n' "$present_load"
@@ -89,19 +92,34 @@ printf '%s\n' "$present_load" | grep -q 'state:'
 printf '%s\n' "$present_load" | grep -q 'value: running'
 printf '%s\n' "$present_load" | grep -q 'value: queued'
 printf '%s\n' "$present_load" | grep -q 'value: 7'
+printf '%s\n' "$present_load" | grep -q 'value: Draft'
 
-upsert_out="$(run_command ScalarRoundtrip.entity.saveReviewDiagnosis --id "$present_id" --code REVIEW-101 --state completed --previousState running --priority 9 "$privilege" 2>&1)"
-printf '%s\n' "$upsert_out"
+update_out="$(run_command ScalarRoundtrip.entity.updateReviewDiagnosis --id "$present_id" --state completed --previousState running --priority 9 --status Published "$privilege" 2>&1)"
+printf '%s\n' "$update_out"
 
-updated_row="$(sqlite3 "$dbpath" "select id, code, state, previousState, priority from ${table_name} where id = '$present_id';")"
+updated_row="$(sqlite3 "$dbpath" "select id, code, state, previousState, priority, status from ${table_name} where id = '$present_id';")"
 printf '%s\n' "$updated_row"
-printf '%s\n' "$updated_row" | grep -q "^${present_id}|REVIEW-101|completed|running|9$"
+printf '%s\n' "$updated_row" | grep -q "^${present_id}|REVIEW-101|completed|running|9|2$"
 
 updated_load="$(run_command ScalarRoundtrip.entity.loadReviewDiagnosis --id "$present_id" "$privilege" 2>&1)"
 printf '%s\n' "$updated_load"
 printf '%s\n' "$updated_load" | grep -q 'value: completed'
 printf '%s\n' "$updated_load" | grep -q 'value: running'
 printf '%s\n' "$updated_load" | grep -q 'value: 9'
+printf '%s\n' "$updated_load" | grep -q 'value: Published'
+
+reverse_out="$(run_command ScalarRoundtrip.entity.updateReviewDiagnosis --id "$present_id" --status Draft "$privilege" 2>&1)"
+printf '%s\n' "$reverse_out"
+printf '%s\n' "$reverse_out" | grep -q 'state.conflict-message'
+printf '%s\n' "$reverse_out" | grep -q "Transition for 'status' is not allowed: 2 -> 1"
+
+rejected_row="$(sqlite3 "$dbpath" "select id, status from ${table_name} where id = '$present_id';")"
+printf '%s\n' "$rejected_row"
+printf '%s\n' "$rejected_row" | grep -q "^${present_id}|2$"
+
+rejected_load="$(run_command ScalarRoundtrip.entity.loadReviewDiagnosis --id "$present_id" "$privilege" 2>&1)"
+printf '%s\n' "$rejected_load"
+printf '%s\n' "$rejected_load" | grep -q 'value: Published'
 
 sqlite3 "$dbpath" "update ${table_name} set code = 'x' where id = '$present_id';"
 invalid_load="$(run_command ScalarRoundtrip.entity.loadReviewDiagnosis --id "$present_id" "$privilege" 2>&1)"

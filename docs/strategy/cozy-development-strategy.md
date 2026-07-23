@@ -586,7 +586,7 @@ Primary reference:
 
 ### Phase 23: Scalar Entity Persistence Round-trip
 
-Status: planned after Phase 22.
+Status: in progress.
 
 Purpose:
 
@@ -632,10 +632,11 @@ Primary reference:
 
 ## Current Priority
 
-Phase 6 through Phase 22 are closed.
-Phase 23 is planned immediately after Phase 22 for scalar Entity persistence
-round-trip. Phase 24 preserves Component Skill Distribution and remains planned
-until Phase 23 and the CNCF Skill Bundle contract are complete.
+Phase 6 through Phase 22 are closed. Phase 23 is active for scalar Entity
+persistence round-trip; SR23-01 through SR23-04 are complete, and driver
+verification and CBD Support handback remain next. Phase 24 preserves Component
+Skill Distribution and remains planned until Phase 23 and the CNCF Skill Bundle
+contract are complete.
 
 Phase 20 introduced provider-neutral narration with VOICEVOX, host-only macOS
 `say`, and a portable Piper Docker route, then used that contract to migrate the

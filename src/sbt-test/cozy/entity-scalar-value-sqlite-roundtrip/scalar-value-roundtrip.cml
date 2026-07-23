@@ -47,3 +47,35 @@ domain
 | state         | ReviewRunState | 1            |
 | previousState | ReviewRunState | ?            |
 | priority      | ReviewPriority | 1            |
+| status        | ReviewStatus   | 1            |
+
+### STATEMACHINE
+
+#### lifecycle
+
+##### STATE
+
+###### Draft
+
+####### TRANSITION
+
+- to :: Published
+- on :: update
+
+###### Published
+
+##### EVENT
+
+###### update
+
+# POWERTYPE
+
+## ReviewStatus
+
+### Draft
+
+value = 1
+
+### Published
+
+value = 2
