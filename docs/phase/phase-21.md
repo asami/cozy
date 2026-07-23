@@ -48,7 +48,7 @@ Out of scope:
 - process discovery, start/stop operations, or runtime health ownership;
 - Control Center favorites, ownership, labels, or user-specific policy;
 - silently treating a known but inactive CAR as an unhealthy runtime instance;
-- component skill installation, which belongs to Phase 22.
+- component skill installation, which belongs to Phase 23.
 
 ## Contract Direction
 
@@ -290,7 +290,7 @@ Closure evidence:
 
 Phase 21 is therefore closed. Component skill bundle definition, packaging,
 installation, and Component Repository skill guidance remain explicitly
-deferred to Phase 22.
+deferred to Phase 23.
 
 ## Completion Criteria
 

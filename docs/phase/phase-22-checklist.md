@@ -1,98 +1,102 @@
 # Phase 22 Checklist
 
-This checklist is the authoritative progress ledger for Phase 22: Component
-Skill Distribution.
+This checklist is the authoritative progress ledger for Phase 22: BoK
+Knowledge Map Component Handoff.
 
-## SK22-01: CNCF Skill Bundle Contract
-
-Status: PLANNED
-
-- [ ] Define the versioned `SkillBundleManifest` schema and canonical media
-      type when applicable.
-- [ ] Define bundle/skill identity, descriptions, compatibility, dependency,
-      and optional MCP requirement semantics.
-- [ ] Define canonical development-source and CAR archive locations.
-- [ ] Define normalized relative paths, SHA-256 digest input, deterministic
-      ordering, and source/archive equivalence.
-- [ ] Define collision, unsupported schema, incompatible Codex/runtime, and
-      missing requirement outcomes.
-- [ ] Ensure a manifest grants no runtime or installer authority by itself.
-- [ ] Publish normative valid and invalid fixtures usable by Cozy and both
-      launchers.
-
-## SK22-02: Cozy Lint and CAR Packaging
+## KM22-01: Graph Summary Contract Documentation
 
 Status: PLANNED
 
-- [ ] Read the CNCF manifest from its canonical component source location.
-- [ ] Validate every declared file and reject missing or undeclared content.
-- [ ] Reject absolute paths, traversal, symlink escape, duplicate identity,
-      digest mismatch, and unsupported contract versions.
-- [ ] Add integrated skill checks to `cozy lint` and focused `cozy lint skill`.
-- [ ] Package only declared files at the canonical CAR archive location.
-- [ ] Record bundle, CAR, source, and content-digest provenance.
-- [ ] Prove deterministic CAR output and source/archive equivalence.
-- [ ] Keep Cozy and Cozy Launcher free of Codex installation side effects.
+- [ ] Define optional `componentRef` node metadata in the
+      `cozy.rdf-graph-summary.v1` contract.
+- [ ] State that `componentRef` is allowed only when `node_type` is
+      `component-reference`.
+- [ ] Define required `componentRef.kind` and `componentRef.name`.
+- [ ] Define optional `componentRef.organization` and `componentRef.version`.
+- [ ] Define exact matching against CAR/SAR component-reference indexes.
+- [ ] Document absent, ambiguous, mismatched, malformed, and wrong-node-type
+      diagnostics.
+- [ ] Record that Cozy never infers `componentRef` from graph node id, label,
+      tag, term, repository filename, RDF edge, or rendered HTML.
+- [ ] Record that `componentRef` is existence-only and does not carry CBD-owned
+      capability, dependency, compatibility, operation, or usage detail.
 
-## SK22-03: CNCF Launcher Development Installation
-
-Status: PLANNED
-
-- [ ] Implement the documented `cncf skill` command grammar.
-- [ ] Admit a component development directory or explicit CAR safely.
-- [ ] Default development installation to project scope and require explicit
-      user scope.
-- [ ] Validate the common manifest and all declared file digests before staging.
-- [ ] Diagnose source freshness, stale generated output, and package divergence.
-- [ ] Implement staged install, status, update, uninstall, rollback, and
-      interrupted-install recovery.
-- [ ] Preserve unrelated skills and Codex configuration.
-- [ ] Perform MCP configuration merge only with `--configure-mcp` and reject
-      conflicts before activation.
-
-## SK22-04: Textus Launcher Published Installation
+## KM22-02: Cozy Graph Node Decoding And Shape Validation
 
 Status: PLANNED
 
-- [ ] Implement the documented `textus skill` command grammar.
-- [ ] Resolve the selected CAR through public, cache, and local repository
-      precedence from Phase 21.
-- [ ] Default released installation to user scope while supporting explicit
-      project scope.
-- [ ] Validate the packaged manifest and all file digests before staging.
-- [ ] Implement staged install, status, update, uninstall, rollback, and
-      interrupted-install recovery.
-- [ ] Record artifact, version, repository source, bundle, scope, and digest
-      provenance.
-- [ ] Preserve unrelated skills and Codex configuration.
-- [ ] Perform MCP configuration merge only with `--configure-mcp` and reject
-      conflicts before activation.
+- [ ] Preserve declared `componentRef` metadata when versioning
+      `metadata/rdf/graph.json`.
+- [ ] Reject `componentRef` that is not a JSON object.
+- [ ] Reject missing or empty `componentRef.kind`.
+- [ ] Reject missing or empty `componentRef.name`.
+- [ ] Reject empty optional `componentRef.organization`.
+- [ ] Reject empty optional `componentRef.version`.
+- [ ] Reject `componentRef` on a node whose `node_type` is not
+      `component-reference`.
+- [ ] Preserve existing graph-summary compatibility when no node declares
+      `componentRef`.
 
-## SK22-05: Component Repository Skill Knowledge
+## KM22-03: Component Reference Index Matching
 
 Status: PLANNED
 
-- [ ] Project skill-bundle summary metadata into Component Repository entries.
-- [ ] Show skill names, descriptions, compatibility, MCP requirements, and CAR
-      version provenance without exposing private install paths.
-- [ ] Link to CNCF development and Textus published installation guidance.
-- [ ] Diagnose a catalog entry whose declared CAR skill metadata is missing or
-      inconsistent.
+- [ ] Load the selected generation's
+      `metadata/cncf/component-references/car.json`.
+- [ ] Load the selected generation's
+      `metadata/cncf/component-references/sar.json`.
+- [ ] Build deterministic lookup keys from kind, name, optional organization,
+      and optional version.
+- [ ] Match required kind and name exactly.
+- [ ] Match declared organization exactly when present.
+- [ ] Match declared version exactly when present.
+- [ ] Reject `componentRef` when the matching index file is absent.
+- [ ] Reject `componentRef` when no index entry matches.
+- [ ] Reject `componentRef` when more than one index entry matches.
+- [ ] Keep ordinary graph nodes independent of the component-reference index.
 
-## SK22-06: Cross-Repository Verification and Closure
+## KM22-04: Executable Specifications
 
 Status: PLANNED
 
-- [ ] Select one real component CAR as the driver bundle.
-- [ ] Package it through Cozy and inspect the archive contract.
-- [ ] Install the source bundle through CNCF Launcher into an isolated project
-      Codex scope.
-- [ ] Install the packaged CAR through Textus Launcher into another isolated
-      project Codex scope.
-- [ ] Prove both routes install byte-equivalent declared skill content.
-- [ ] Verify collision, incompatibility, digest mismatch, stale source,
-      interrupted install, and MCP merge refusal cases.
-- [ ] Run focused and full tests in every modified repository.
-- [ ] Run `git diff --check` in every modified repository.
-- [ ] Complete post-implementation review and fix all actionable findings.
-- [ ] Record operational evidence and close Phase 22 from checklist results.
+- [ ] Valid CAR `componentRef` is preserved in public graph metadata.
+- [ ] Valid SAR `componentRef` is preserved in public graph metadata.
+- [ ] Optional version matching succeeds when the index contains that version.
+- [ ] Optional organization matching succeeds when the index declares that
+      organization.
+- [ ] Invalid node type fails deterministically.
+- [ ] Missing reference fails deterministically.
+- [ ] Kind mismatch fails deterministically.
+- [ ] Version mismatch fails deterministically.
+- [ ] Ambiguous reference fails deterministically.
+- [ ] Graph summaries without `componentRef` remain valid.
+- [ ] Matching node id or label alone does not inject or validate
+      `componentRef`.
+- [ ] Run `sbt --batch "testOnly cozy.CozyBokKnowledgeSourceSpec"`.
+- [ ] Run `sbt --batch test`.
+- [ ] Run `git diff --check`.
+
+## KM22-05: KnowledgeHub Operational Handoff
+
+Status: PLANNED
+
+- [ ] Add or identify one representative KnowledgeHub component-reference graph
+      node.
+- [ ] Build KnowledgeHub with `cozy bok build . --strategy preview`.
+- [ ] Confirm `website.d/metadata/rdf/graph.json` includes the declared
+      `componentRef`.
+- [ ] Confirm `website.d/metadata/cncf/component-references/{car,sar}.json`
+      contains the matched existence record.
+- [ ] Confirm no graph node gained `componentRef` by id or label inference.
+- [ ] Record the generated source fixture path and expected handoff payload for
+      Textus BoK Phase 6.
+
+## KM22-06: Review And Closure
+
+Status: PLANNED
+
+- [ ] Complete post-implementation review.
+- [ ] Fix all actionable review findings, including naming and spec debt.
+- [ ] Validate focused and full Cozy tests after review fixes.
+- [ ] Commit the validated implementation.
+- [ ] Update Phase 22 status and close the checklist from executable evidence.

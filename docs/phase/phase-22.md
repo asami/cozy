@@ -1,203 +1,153 @@
-# Phase 22: Component Skill Distribution
+# Phase 22: BoK Knowledge Map Component Handoff
 
 Status: planned
 
 Start date: TBD
 
-Dependency: Phase 21 repository discovery and the CNCF Skill Bundle contract
+Dependency: Phase 21 component repository discovery and Phase 14 BoK/SIE
+KnowledgeSource handoff
 
 ## Goal
 
-Distribute a component's Codex skills with its CAR and install the same
-validated bundle from either a development checkout or a published artifact.
+Publish a source-declared relation between BoK RDF graph nodes and CAR/SAR
+component-reference index entries so Textus BoK Knowledge Map can hand readers
+to Textus CBD Support without inferring component identity from labels, node
+ids, tags, or repository paths.
 
-Phase 22 spans CNCF, Cozy, CNCF Launcher, and Textus Launcher while keeping
-their responsibilities separate. CNCF owns the transport-neutral manifest and
-validation contract. Cozy validates source and projects it into a CAR. CNCF
-Launcher installs an unreleased development bundle. Textus Launcher resolves a
-released/local/cache CAR and installs its packaged bundle. Cozy Launcher only
-selects and starts the Cozy runtime; it does not become a component skill
-installer.
+Phase 22 is a Cozy publication-contract phase. Cozy owns validation and
+publication of the optional `componentRef` metadata in
+`metadata/rdf/graph.json`; Textus BoK consumes that validated identity for a
+read-only Knowledge Map. CBD capability, dependency, compatibility, operation,
+and usage detail remains outside Cozy and outside the browser.
 
 ## Scope
 
 In scope:
 
-- a CNCF-owned, versioned `SkillBundleManifest` contract;
-- bundle and skill identity, descriptions, relative files, SHA-256 digests,
-  compatibility requirements, and optional MCP requirements;
-- canonical development-source and CAR archive locations;
-- Cozy source validation, deterministic CAR projection, lint, and package
-  provenance;
-- explicit user/project installation scopes;
-- staged, non-destructive install, update, status, and uninstall operations;
-- development-source freshness and source/package equivalence diagnostics;
-- published/local/cache CAR resolution through Textus Launcher;
-- optional, explicit MCP configuration merge with conflict refusal;
-- installation provenance sufficient for safe update and uninstall;
-- guidance from Component Repository entries to available component skills.
+- extend the compatible `cozy.rdf-graph-summary.v1` node metadata with an
+  optional `componentRef` object;
+- allow `componentRef` only on graph nodes whose `node_type` is
+  `component-reference`;
+- validate every declared `componentRef` against the selected generation's
+  `metadata/cncf/component-references/car.json` and `sar.json`;
+- require exact `kind` and `name` matching and exact optional
+  `organization` / `version` matching when declared;
+- reject absent, ambiguous, mismatched, malformed, or wrong-node-type
+  component references as deterministic build diagnostics;
+- preserve graph summaries that do not declare `componentRef`;
+- document the Textus BoK consumer handoff as existence-only identity.
 
 Out of scope:
 
-- automatic installation merely because a CAR is downloaded or executed;
-- executing bundled scripts during validation or installation;
-- granting filesystem, process, network, MCP, or external-AI authority through
-  a manifest declaration;
-- silently installing transitive skill dependencies;
-- silently rewriting existing Codex skills or MCP configuration;
-- starting a CAR server or invoking MCP tools during skill installation;
-- using Cozy Launcher as a second skill installer.
+- inferring a component reference from graph node id, label, tag, term,
+  repository filename, RDF edge, or rendered HTML;
+- adding CBD-owned detail to Cozy metadata;
+- querying CBD from generated BoK pages or from Textus BoK browser views;
+- changing CAR/SAR repository discovery semantics from Phase 21;
+- introducing new RDF facts, archive scans, remote fetches, or Knowledge Map
+  mutations.
 
-## Responsibility Boundary
+## Publication Contract
 
-### CNCF
+`metadata/rdf/graph.json` keeps the existing `cozy.rdf-graph-summary.v1`
+envelope. A node may add:
 
-- owns `SkillBundleManifest`, schema evolution, identity, path, digest,
-  compatibility, MCP-requirement, and deterministic validation semantics;
-- publishes shared valid/invalid fixtures;
-- does not install user files as a runtime side effect.
-
-### Cozy and Cozy Launcher
-
-- Cozy validates declared source files and creates a deterministic CAR bundle;
-- `cozy lint` reports missing, undeclared, unsafe, incompatible, or
-  digest-mismatched content;
-- CAR packaging embeds only manifest-declared files and provenance;
-- Cozy Launcher selects the requested release/development Cozy runtime and
-  delegates build/lint/package commands; it does not write to Codex scopes.
-
-### CNCF Launcher
-
-- resolves an admitted development directory or explicit CAR;
-- defaults development installation to project scope;
-- reports source digest, generated/package freshness, and divergence;
-- uses the common staged installation behavior and records development
-  provenance.
-
-### Textus Launcher
-
-- resolves a CAR from local, cache, or configured public repositories;
-- defaults released installation to user scope;
-- validates the packaged manifest and all file digests before activation;
-- owns released bundle status, update, uninstall, and installed provenance.
-
-## Command Direction
-
-Cozy:
-
-```text
-cozy lint skill [<project-dir|car>]
-cozy car build
+```json
+{
+  "id": "component:textus-bok",
+  "label": "Textus BoK",
+  "node_type": "component-reference",
+  "componentRef": {
+    "kind": "car",
+    "name": "textus-bok",
+    "version": "0.1.0-SNAPSHOT"
+  }
+}
 ```
 
-CNCF Launcher:
+`componentRef.kind` and `componentRef.name` are required non-empty strings.
+`componentRef.organization` and `componentRef.version` are optional non-empty
+strings. The matching component-reference index remains the canonical
+existence source.
 
-```text
-cncf skill list [<component-dir|car>]
-cncf skill install [<component-dir|car>] [--scope project|user] [--configure-mcp]
-cncf skill status <bundle-or-component>
-cncf skill update <bundle-or-component> [--configure-mcp]
-cncf skill uninstall <bundle-or-component>
-```
-
-Textus Launcher:
-
-```text
-textus skill list <artifact>
-textus skill install <artifact> [--scope user|project] [--configure-mcp]
-textus skill status <bundle-or-artifact>
-textus skill update <bundle-or-artifact> [--configure-mcp]
-textus skill uninstall <bundle-or-artifact>
-```
-
-## Stage 22.1: CNCF Skill Bundle Contract
-
-Stage Status:
-
-- Current status: PLANNED
-- Owner: CNCF
-- Checklist basis: `SK22-01`
-
-Focus:
-
-- finalize the schema and canonical source/archive paths;
-- define digest, compatibility, collision, dependency, and MCP requirement
-  outcomes;
-- provide one normative codec and fixture suite consumable across JVM versions.
-
-## Stage 22.2: Cozy Validation and CAR Projection
+## Stage 22.1: Contract Documentation
 
 Stage Status:
 
 - Current status: PLANNED
 - Owner: Cozy
-- Checklist basis: `SK22-02`
+- Checklist basis: `KM22-01`
 
 Focus:
 
-- validate source declarations and package only admitted files;
-- project a relocation-stable manifest and digests into the CAR;
-- prove source/archive equivalence without executing bundle content.
+- update the BoK/SIE graph-summary contract with the `componentRef` object,
+  allowed node type, exact matching rules, diagnostics, and non-inference
+  boundary.
 
-## Stage 22.3: Development Installation
+## Stage 22.2: Graph Validation
 
 Stage Status:
 
 - Current status: PLANNED
-- Owner: CNCF Launcher
-- Checklist basis: `SK22-03`
+- Owner: Cozy
+- Checklist basis: `KM22-02`
 
 Focus:
 
-- install admitted development bundles into project or explicit user scope;
-- detect stale generated output and source/package divergence;
-- preserve unrelated Codex state and recover from interrupted installation.
+- preserve declared `componentRef` metadata while rejecting malformed node
+  shapes and wrong node types before publication.
 
-## Stage 22.4: Published Installation
+## Stage 22.3: Component Index Matching
 
 Stage Status:
 
 - Current status: PLANNED
-- Owner: Textus Launcher
-- Checklist basis: `SK22-04`
+- Owner: Cozy
+- Checklist basis: `KM22-03`
 
 Focus:
 
-- resolve bundles through Phase 21 repository/local/cache artifact selection;
-- stage and activate only completely validated bundles;
-- support safe status, update, uninstall, and optional MCP merge.
+- build a deterministic lookup from generated CAR/SAR component-reference
+  indexes and validate each graph `componentRef` against that lookup.
 
-## Stage 22.5: Component Repository and End-to-End Use
+## Stage 22.4: Executable Specification
 
 Stage Status:
 
 - Current status: PLANNED
-- Owner: Cozy BoK / component driver project
-- Checklist basis: `SK22-05` and `SK22-06`
+- Owner: Cozy
+- Checklist basis: `KM22-04`
 
 Focus:
 
-- expose declared skills, requirements, and install guidance from Component
-  Repository pages;
-- verify one real CAR from development source through Cozy packaging, CNCF
-  Launcher development install, publication/local publication, and Textus
-  Launcher install;
-- prove that both launcher routes install equivalent skill content.
+- cover valid CAR/SAR references, optional organization/version matching,
+  invalid node type, missing reference, kind/version mismatch, ambiguity,
+  compatibility without `componentRef`, and no label/id inference.
+
+## Stage 22.5: KnowledgeHub Handoff Fixture
+
+Stage Status:
+
+- Current status: PLANNED
+- Owner: Cozy / KnowledgeHub
+- Checklist basis: `KM22-05`
+
+Focus:
+
+- generate one representative KnowledgeHub BoK source where graph summary and
+  component-reference index agree, then hand that source to Textus BoK Phase 6.
 
 ## Completion Criteria
 
-Phase 22 closes when CNCF has a stable executable manifest contract, Cozy can
-lint and package a component skill bundle deterministically, CNCF Launcher can
-install and diagnose the development bundle, Textus Launcher can install the
-same bundle from a resolved CAR, and both paths produce equivalent installed
-content and safe provenance. Invalid, stale, colliding, incompatible, or
-digest-mismatched input must fail before changing a Codex scope, and MCP
-configuration must change only after an explicit conflict-checked request.
+Phase 22 closes when Cozy publishes `componentRef` only as validated
+existence-only node metadata, invalid declarations fail deterministically, graph
+summary compatibility is preserved for sites without component references, and
+Textus BoK has a representative handoff fixture for Knowledge Map source-reader,
+query, Static Form, and SAR agreement checks.
 
 ## References
 
 - `docs/phase/phase-22-checklist.md`
-- `docs/journal/2026/07/codex-skill-bundle-packaging-contract-2026-07-21.md`
-- CNCF journal: `2026-07-21-codex-skill-bundle-contract.md`
-- Textus Launcher: `docs/phase/phase-1.md`
-- CNCF Launcher: `docs/phase/phase-1.md`
+- `docs/journal/2026/07/bok-knowledge-map-component-handoff-2026-07-23.md`
+- `docs/design/bok-sie-integration-contract.md`
+- `docs/design/bok-sie-information-handoff.md`

@@ -560,9 +560,33 @@ Primary reference:
 - `docs/phase/phase-21.md`
 - `docs/phase/phase-21-checklist.md`
 
-### Phase 22: Component Skill Distribution
+### Phase 22: BoK Knowledge Map Component Handoff
 
-Status: planned after Phase 21 and the CNCF Skill Bundle contract.
+Status: planned after Phase 21.
+
+Purpose:
+
+- extend `cozy.rdf-graph-summary.v1` graph nodes with optional source-declared
+  `componentRef` metadata;
+- permit `componentRef` only for `node_type = "component-reference"`;
+- validate every declared CAR/SAR identity against the selected generation's
+  component-reference index;
+- reject absent, ambiguous, mismatched, malformed, or wrong-node-type
+  component references as deterministic build diagnostics;
+- keep CAR/SAR nodes existence-only and leave capability, dependency,
+  compatibility, operation, and usage detail to Textus CBD Support;
+- provide Textus BoK Knowledge Map with a portable, source-attributed handoff
+  payload without browser-side CBD queries or label/id inference.
+
+Primary reference:
+
+- `docs/phase/phase-22.md`
+- `docs/phase/phase-22-checklist.md`
+- `docs/journal/2026/07/bok-knowledge-map-component-handoff-2026-07-23.md`
+
+### Phase 23: Component Skill Distribution
+
+Status: planned after Phase 22 and the CNCF Skill Bundle contract.
 
 Purpose:
 
@@ -578,13 +602,14 @@ Purpose:
 
 Primary reference:
 
-- `docs/phase/phase-22.md`
-- `docs/phase/phase-22-checklist.md`
+- `docs/phase/phase-23.md`
+- `docs/phase/phase-23-checklist.md`
 
 ## Current Priority
 
-Phase 6 through Phase 21 are closed. Phase 22 remains planned until the CNCF
-Skill Bundle contract is executable.
+Phase 6 through Phase 21 are closed. Phase 22 is the current planned
+publication-contract phase for Textus BoK Knowledge Map component handoff.
+Phase 23 remains planned until the CNCF Skill Bundle contract is executable.
 
 Phase 20 introduced provider-neutral narration with VOICEVOX, host-only macOS
 `say`, and a portable Piper Docker route, then used that contract to migrate the
