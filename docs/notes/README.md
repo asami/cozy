@@ -31,3 +31,6 @@ Current notes:
 - `cml-semantic-scalar-modeling-spec-proposal.md`: provisional Phase 16
   classification for predefined text types, constrained domain scalars,
   powertypes, statemachines, and string value ranges.
+- `scalar-entity-persistence-roundtrip-implementation-proposal.md`: proposed
+  Phase 23 implementation boundary, reproduction gates, generated-reader
+  change points, and Entity lifecycle verification matrix.

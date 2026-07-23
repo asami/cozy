@@ -1,98 +1,101 @@
 # Phase 23 Checklist
 
-This checklist is the authoritative progress ledger for Phase 23: Component
-Skill Distribution.
+This checklist is the authoritative progress ledger for Phase 23: Scalar Entity
+Persistence Round-trip.
 
-## SK23-01: CNCF Skill Bundle Contract
-
-Status: PLANNED
-
-- [ ] Define the versioned `SkillBundleManifest` schema and canonical media
-      type when applicable.
-- [ ] Define bundle/skill identity, descriptions, compatibility, dependency,
-      and optional MCP requirement semantics.
-- [ ] Define canonical development-source and CAR archive locations.
-- [ ] Define normalized relative paths, SHA-256 digest input, deterministic
-      ordering, and source/archive equivalence.
-- [ ] Define collision, unsupported schema, incompatible Codex/runtime, and
-      missing requirement outcomes.
-- [ ] Ensure a manifest grants no runtime or installer authority by itself.
-- [ ] Publish normative valid and invalid fixtures usable by Cozy and both
-      launchers.
-
-## SK23-02: Cozy Lint and CAR Packaging
+## SR23-01: Reproduction and Dependency Alignment
 
 Status: PLANNED
 
-- [ ] Read the CNCF manifest from its canonical component source location.
-- [ ] Validate every declared file and reject missing or undeclared content.
-- [ ] Reject absolute paths, traversal, symlink escape, duplicate identity,
-      digest mismatch, and unsupported contract versions.
-- [ ] Add integrated skill checks to `cozy lint` and focused `cozy lint skill`.
-- [ ] Package only declared files at the canonical CAR archive location.
-- [ ] Record bundle, CAR, source, and content-digest provenance.
-- [ ] Prove deterministic CAR output and source/archive equivalence.
-- [ ] Keep Cozy and Cozy Launcher free of Codex installation side effects.
+- [ ] Add a minimal constrained nominal `DATATYPE` used by required and
+      optional Entity properties.
+- [ ] Reproduce create or update/upsert followed by a fresh datastore load.
+- [ ] Capture the generated nominal reader and Entity persistence source.
+- [ ] Capture the physical required, present optional, and absent optional
+      store shapes.
+- [ ] Record the SimpleModeler coordinate and implementation revision resolved
+      by Cozy.
+- [ ] Determine whether the defect is version skew, generation branch,
+      model-kind classification, or field/store decoding.
+- [ ] Keep the failing executable specification before implementing the fix.
 
-## SK23-03: CNCF Launcher Development Installation
-
-Status: PLANNED
-
-- [ ] Implement the documented `cncf skill` command grammar.
-- [ ] Admit a component development directory or explicit CAR safely.
-- [ ] Default development installation to project scope and require explicit
-      user scope.
-- [ ] Validate the common manifest and all declared file digests before staging.
-- [ ] Diagnose source freshness, stale generated output, and package divergence.
-- [ ] Implement staged install, status, update, uninstall, rollback, and
-      interrupted-install recovery.
-- [ ] Preserve unrelated skills and Codex configuration.
-- [ ] Perform MCP configuration merge only with `--configure-mcp` and reject
-      conflicts before activation.
-
-## SK23-04: Textus Launcher Published Installation
+## SR23-02: Scalar Reader Generation Contract
 
 Status: PLANNED
 
-- [ ] Implement the documented `textus skill` command grammar.
-- [ ] Resolve the selected CAR through public, cache, and local repository
-      precedence from Phase 21.
-- [ ] Default released installation to user scope while supporting explicit
-      project scope.
-- [ ] Validate the packaged manifest and all file digests before staging.
-- [ ] Implement staged install, status, update, uninstall, rollback, and
-      interrupted-install recovery.
-- [ ] Record artifact, version, repository source, bundle, scope, and digest
-      provenance.
-- [ ] Preserve unrelated skills and Codex configuration.
-- [ ] Perform MCP configuration merge only with `--configure-mcp` and reject
-      conflicts before activation.
+- [ ] Specify already-typed nominal, compatible record, and underlying scalar
+      reader inputs.
+- [ ] Restore an underlying scalar through its primitive `ValueReader`.
+- [ ] Construct the nominal result through the generated validated
+      consequence-producing constructor.
+- [ ] Reject malformed and constraint-violating scalar values
+      deterministically.
+- [ ] Avoid a generic simplemodeling-lib change unless the reproduction proves
+      a library-level defect.
+- [ ] Align and publish the corrected SimpleModeler artifact if the defect is
+      resolved-version skew.
+- [ ] Verify the generated source shape in Cozy.
 
-## SK23-05: Component Repository Skill Knowledge
-
-Status: PLANNED
-
-- [ ] Project skill-bundle summary metadata into Component Repository entries.
-- [ ] Show skill names, descriptions, compatibility, MCP requirements, and CAR
-      version provenance without exposing private install paths.
-- [ ] Link to CNCF development and Textus published installation guidance.
-- [ ] Diagnose a catalog entry whose declared CAR skill metadata is missing or
-      inconsistent.
-
-## SK23-06: Cross-Repository Verification and Closure
+## SR23-03: Entity Persistence Round-trip
 
 Status: PLANNED
 
-- [ ] Select one real component CAR as the driver bundle.
-- [ ] Package it through Cozy and inspect the archive contract.
-- [ ] Install the source bundle through CNCF Launcher into an isolated project
-      Codex scope.
-- [ ] Install the packaged CAR through Textus Launcher into another isolated
-      project Codex scope.
-- [ ] Prove both routes install byte-equivalent declared skill content.
-- [ ] Verify collision, incompatibility, digest mismatch, stale source,
-      interrupted install, and MCP merge refusal cases.
-- [ ] Run focused and full tests in every modified repository.
+- [ ] Prove a required nominal scalar survives create and fresh load.
+- [ ] Prove a required nominal scalar survives update/upsert and fresh load.
+- [ ] Prove a present optional nominal scalar survives create, update/upsert,
+      and fresh load.
+- [ ] Prove an absent optional nominal scalar remains absent.
+- [ ] Ensure the fresh load crosses a new repository or UnitOfWork read
+      boundary.
+- [ ] Keep generated Entity restoration generic and delegated to the generated
+      field reader.
+
+## SR23-04: Model-kind and Failure Regression Matrix
+
+Status: PLANNED
+
+- [ ] Preserve structured `VALUE` record behavior.
+- [ ] Preserve multi-field `DATATYPE` record behavior.
+- [ ] Preserve powertype and statemachine persistence behavior.
+- [ ] Verify valid constrained scalar reconstruction.
+- [ ] Verify malformed primitive input fails deterministically.
+- [ ] Verify a well-typed but constraint-violating scalar fails through the
+      nominal validation rule.
+- [ ] Reconcile any legacy single-field `VALUE` scalar datastore projection
+      without changing its structured semantic kind.
+- [ ] Run focused Cozy and SimpleModeler generated-source/runtime tests.
+- [ ] Run full Cozy and required SimpleModeler tests.
+
+## SR23-05: Driver Verification and CBD Support Handback
+
+Status: PLANNED
+
+- [ ] Move every corrected Cozy/SimpleModeler project to its next-development
+      `SNAPSHOT` coordinate before modifying or publishing it locally.
+- [ ] Publish only corrected `SNAPSHOT` Cozy/SimpleModeler artifacts locally for
+      development.
+- [ ] Regenerate, compile, and run focused Entity lifecycle tests in
+      `textus-user-account`.
+- [ ] Regenerate, compile, and run focused Entity lifecycle tests in
+      `textus-user-notification`.
+- [ ] Regenerate, compile, and run focused Entity lifecycle tests in
+      `textus-cbd-support`.
+- [ ] Remove CBD Support's temporary `PersistedReviewDiagnosis` codec.
+- [ ] Prove P8-42 `Owner`, `Joined`, and `Reused` behavior through the Entity
+      Aggregate boundary alone.
+- [ ] Confirm no driver CAR added raw datastore access or a private source of
+      truth.
+
+## SR23-06: Review, Publication, and Closure
+
+Status: PLANNED
+
+- [ ] Complete a read-only review after implementation.
+- [ ] Fix every actionable finding, including naming and executable-spec debt.
+- [ ] Complete a clean re-review after the fixes.
+- [ ] Run focused and full validation in every modified repository.
 - [ ] Run `git diff --check` in every modified repository.
-- [ ] Complete post-implementation review and fix all actionable findings.
-- [ ] Record operational evidence and close Phase 23 from checklist results.
+- [ ] Commit validated changes with required version updates.
+- [ ] Publish only the corrected `SNAPSHOT` development artifacts needed by
+      downstream CARs.
+- [ ] Record downstream evidence and close Phase 23 from checklist results.

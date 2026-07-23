@@ -1,6 +1,6 @@
 # Cozy Development Strategy
 
-Date: 2026-07-15
+Date: 2026-07-23
 
 Status: active
 
@@ -584,9 +584,34 @@ Primary reference:
 - `docs/phase/phase-22-checklist.md`
 - `docs/journal/2026/07/bok-knowledge-map-component-handoff-2026-07-23.md`
 
-### Phase 23: Component Skill Distribution
+### Phase 23: Scalar Entity Persistence Round-trip
 
-Status: planned after Phase 22 and the CNCF Skill Bundle contract.
+Status: planned after Phase 22.
+
+Purpose:
+
+- reproduce the generated scalar restoration failure and identify whether the
+  cause is generator behavior, dependency-version skew, model-kind selection,
+  or optional/update datastore shape;
+- make generated nominal scalar `DATATYPE` values preserve validation while
+  round-tripping through Entity create, update/upsert, and fresh load;
+- preserve required and optional field shapes and reject malformed scalar data
+  deterministically;
+- keep structured `VALUE` and multi-field `DATATYPE` record behavior distinct;
+- verify the corrected contract through User Account, User Notification, and
+  CBD Support;
+- return CBD Support P8-42 to the Entity Aggregate boundary without its
+  temporary private persistence codec.
+
+Primary reference:
+
+- `docs/phase/phase-23.md`
+- `docs/phase/phase-23-checklist.md`
+- `docs/notes/scalar-entity-persistence-roundtrip-implementation-proposal.md`
+
+### Phase 24: Component Skill Distribution
+
+Status: planned after Phase 23 and the CNCF Skill Bundle contract.
 
 Purpose:
 
@@ -602,13 +627,15 @@ Purpose:
 
 Primary reference:
 
-- `docs/phase/phase-23.md`
-- `docs/phase/phase-23-checklist.md`
+- `docs/phase/phase-24.md`
+- `docs/phase/phase-24-checklist.md`
 
 ## Current Priority
 
 Phase 6 through Phase 22 are closed.
-Phase 23 remains planned until the CNCF Skill Bundle contract is executable.
+Phase 23 is planned immediately after Phase 22 for scalar Entity persistence
+round-trip. Phase 24 preserves Component Skill Distribution and remains planned
+until Phase 23 and the CNCF Skill Bundle contract are complete.
 
 Phase 20 introduced provider-neutral narration with VOICEVOX, host-only macOS
 `say`, and a portable Piper Docker route, then used that contract to migrate the
