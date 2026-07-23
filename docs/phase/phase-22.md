@@ -142,6 +142,34 @@ Focus:
 - generate one representative KnowledgeHub BoK source where graph summary and
   component-reference index agree, then hand that source to Textus BoK Phase 6.
 
+## Stage 22.6: Review And Closure
+
+Stage Status:
+
+- Current status: IN PROGRESS
+- Owner: Cozy
+- Update rule: mark work complete only from the Phase 22 checklist.
+- Checklist basis: `KM22-06`
+
+Verified evidence on Jul. 23, 2026:
+
+- post-implementation review identified six actionable findings, and the
+  review-fix stage resolved all six with regression specifications;
+- a fresh re-review found no remaining actionable finding;
+- 52 focused Cozy specifications passed in two suites;
+- the full Cozy suite passed 659 tests with no failure;
+- the KnowledgeHub operational build ran through the Cozy launcher with
+  runtime `0.3.0-SNAPSHOT` and published one validated
+  `nict-knowledgehub` component-reference node;
+- Cozy commit `ef27400` contains the validated publication contract and
+  executable specifications;
+- KnowledgeHub commit `7dde870` contains the representative graph source
+  fixture.
+
+The final phase transition remains open until the shared phase index and
+strategy can be updated without including unrelated Phase 23/24 planning
+changes.
+
 ## Completion Criteria
 
 Phase 22 closes when Cozy publishes `componentRef` only as validated

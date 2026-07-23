@@ -120,5 +120,23 @@ Status: IN PROGRESS
 - [x] Complete post-implementation review.
 - [x] Fix all actionable review findings, including naming and spec debt.
 - [x] Validate focused and full Cozy tests after review fixes.
-- [ ] Commit the validated implementation.
+- [x] Commit the validated implementation.
 - [ ] Update Phase 22 status and close the checklist from executable evidence.
+
+Closure evidence recorded on 2026-07-23:
+
+- The post-implementation review reported six actionable findings covering the
+  real launcher gate, malformed graph overlays, project-backed archive claims,
+  duplicate project identities, phase-ledger consistency, and naming debt.
+- The review-fix stage resolved all six findings and added executable
+  regression coverage.
+- The clean re-review found no remaining actionable finding.
+- Focused Cozy specifications passed 52 tests in two suites.
+- The full Cozy suite passed 659 tests with no failure.
+- The KnowledgeHub launcher build used Cozy `0.3.0-SNAPSHOT` and published one
+  validated `nict-knowledgehub` component-reference node.
+- Cozy commit `ef27400` contains the validated implementation.
+- KnowledgeHub commit `7dde870` contains the representative source fixture.
+- The final checklist-close item remains open until the shared phase index and
+  strategy can move Phase 22 to closed without absorbing unrelated Phase 23/24
+  planning changes.
