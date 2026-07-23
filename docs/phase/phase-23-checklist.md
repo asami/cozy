@@ -5,66 +5,67 @@ Persistence Round-trip.
 
 ## SR23-01: Reproduction and Dependency Alignment
 
-Status: PLANNED
+Status: IN PROGRESS
 
-- [ ] Add a minimal constrained nominal `DATATYPE` used by required and
-      optional Entity properties.
-- [ ] Reproduce create or update/upsert followed by a fresh datastore load.
-- [ ] Capture the generated nominal reader and Entity persistence source.
-- [ ] Capture the physical required, present optional, and absent optional
+- [x] Add a minimal constrained nominal `DATATYPE` control and a single-field
+      `VALUE` used by required and optional Entity properties.
+- [x] Reproduce create or update/upsert followed by a fresh datastore load.
+- [x] Capture the generated scalar readers and Entity persistence source.
+- [x] Capture the physical required, present optional, and absent optional
       store shapes.
-- [ ] Record the SimpleModeler coordinate and implementation revision resolved
+- [x] Record the SimpleModeler coordinate and implementation revision resolved
       by Cozy.
-- [ ] Determine whether the defect is version skew, generation branch,
+- [x] Determine whether the defect is version skew, generation branch,
       model-kind classification, or field/store decoding.
-- [ ] Keep the failing executable specification before implementing the fix.
+- [x] Keep the failing executable specification before implementing the fix.
 
 ## SR23-02: Scalar Reader Generation Contract
 
-Status: PLANNED
+Status: IN PROGRESS
 
-- [ ] Specify already-typed nominal, compatible record, and underlying scalar
-      reader inputs.
-- [ ] Restore an underlying scalar through its primitive `ValueReader`.
-- [ ] Construct the nominal result through the generated validated
+- [x] Specify already-typed generated value, compatible record, and underlying
+      scalar reader inputs.
+- [x] Restore an underlying scalar through its primitive `ValueReader`.
+- [x] Construct the generated result through the validated
       consequence-producing constructor.
-- [ ] Reject malformed and constraint-violating scalar values
-      deterministically.
-- [ ] Avoid a generic simplemodeling-lib change unless the reproduction proves
+- [ ] Reject malformed primitive scalar values deterministically.
+- [x] Reject well-typed constraint-violating scalar values deterministically
+      as `value.invalid`.
+- [x] Avoid a generic simplemodeling-lib change unless the reproduction proves
       a library-level defect.
-- [ ] Align and publish the corrected SimpleModeler artifact if the defect is
+- [x] Align and publish the corrected SimpleModeler artifact if the defect is
       resolved-version skew.
-- [ ] Verify the generated source shape in Cozy.
+- [x] Verify the generated source shape in Cozy.
 
 ## SR23-03: Entity Persistence Round-trip
 
-Status: PLANNED
+Status: IN PROGRESS
 
-- [ ] Prove a required nominal scalar survives create and fresh load.
-- [ ] Prove a required nominal scalar survives update/upsert and fresh load.
-- [ ] Prove a present optional nominal scalar survives create, update/upsert,
+- [x] Prove a required nominal scalar survives create and fresh load.
+- [x] Prove a required nominal scalar survives update/upsert and fresh load.
+- [x] Prove a present optional nominal scalar survives create, update/upsert,
       and fresh load.
-- [ ] Prove an absent optional nominal scalar remains absent.
-- [ ] Ensure the fresh load crosses a new repository or UnitOfWork read
+- [x] Prove an absent optional nominal scalar remains absent.
+- [x] Ensure the fresh load crosses a new repository or UnitOfWork read
       boundary.
-- [ ] Keep generated Entity restoration generic and delegated to the generated
+- [x] Keep generated Entity restoration generic and delegated to the generated
       field reader.
 
 ## SR23-04: Model-kind and Failure Regression Matrix
 
-Status: PLANNED
+Status: IN PROGRESS
 
-- [ ] Preserve structured `VALUE` record behavior.
-- [ ] Preserve multi-field `DATATYPE` record behavior.
+- [x] Preserve structured `VALUE` record behavior.
+- [x] Preserve multi-field `DATATYPE` record behavior.
 - [ ] Preserve powertype and statemachine persistence behavior.
-- [ ] Verify valid constrained scalar reconstruction.
+- [x] Verify valid constrained scalar reconstruction.
 - [ ] Verify malformed primitive input fails deterministically.
-- [ ] Verify a well-typed but constraint-violating scalar fails through the
+- [x] Verify a well-typed but constraint-violating scalar fails through the
       nominal validation rule.
-- [ ] Reconcile any legacy single-field `VALUE` scalar datastore projection
+- [x] Reconcile any legacy single-field `VALUE` scalar datastore projection
       without changing its structured semantic kind.
-- [ ] Run focused Cozy and SimpleModeler generated-source/runtime tests.
-- [ ] Run full Cozy and required SimpleModeler tests.
+- [x] Run focused Cozy and SimpleModeler generated-source/runtime tests.
+- [x] Run full Cozy and required SimpleModeler tests.
 
 ## SR23-05: Driver Verification and CBD Support Handback
 

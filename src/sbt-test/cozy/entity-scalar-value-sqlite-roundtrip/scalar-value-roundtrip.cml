@@ -1,0 +1,40 @@
+# COMPONENT
+
+## ScalarRoundtrip
+
+### PACKAGE
+
+domain
+
+# DATATYPE
+
+## ReviewCode
+
+### ATTRIBUTE
+
+| name  | type   | multiplicity | min-length | max-length |
+|-------|--------|--------------|------------|------------|
+| value | string | 1            | 3          | 32         |
+
+# VALUE
+
+## ReviewRunState
+
+### ATTRIBUTE
+
+| name  | type   | multiplicity |
+|-------|--------|--------------|
+| value | string | 1            |
+
+# ENTITY
+
+## ReviewDiagnosis
+
+### ATTRIBUTE
+
+| name          | type           | multiplicity |
+|---------------|----------------|--------------|
+| id            | entityid       | 1            |
+| code          | ReviewCode     | 1            |
+| state         | ReviewRunState | 1            |
+| previousState | ReviewRunState | ?            |

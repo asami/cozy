@@ -54,26 +54,36 @@ selects the change point.
 | Semantic kind | Public/generated shape | Datastore shape | Restore path |
 | --- | --- | --- | --- |
 | Single-field nominal `DATATYPE` | nominal wrapper with constraints | underlying scalar | underlying `ValueReader`, then validated nominal construction |
+| Single-field `VALUE` | record-shaped Value API | existing underlying scalar projection | typed/record/scalar reader, then validated Value construction |
 | Required Entity scalar field | nominal value | underlying scalar in the Entity record | generated nominal `ValueReader` |
 | Optional Entity scalar field | present nominal value or absence | underlying scalar or absence | optional field decoding plus generated nominal `ValueReader` |
 | Structured `VALUE` | structured Value API | record-compatible representation | structured `createC` / record reader |
 | Multi-field `DATATYPE` | structured generated type | `Record` | structured `createC` / record reader |
 | Powertype/statemachine | existing generated contract | existing representation | existing reader |
 
-The phase must not flatten a structured `VALUE` merely because it has one
-field. If existing single-field `VALUE` datastore projection is scalar, the
-executable specification must first reconcile that legacy projection with the
-requirement that the semantic Value remains structured. The Phase 23 fix is
-not allowed to silently redefine `VALUE` as `DATATYPE`.
+The phase must not redefine a `VALUE` as `DATATYPE` merely because it has one
+field. Existing single-field `VALUE` generation already keeps `toRecord()`
+record-shaped while emitting a scalar from `toDataStore()`. Its generated
+reader must therefore accept that scalar in addition to typed and compatible
+Record inputs. Multi-field `VALUE` objects remain structured at both
+boundaries.
 
 ## Proposed Change Boundary
 
 ### 1. Reproduce and align dependency versions
 
 Add a minimal generated fixture in Cozy that uses a constrained nominal
-`DATATYPE` as both a required and optional Entity property. Preserve the
-generated reader and persistence source as test evidence. Record the
-SimpleModeler coordinate and implementation revision that Cozy actually uses.
+`DATATYPE` as a control and a single-field `VALUE` as required and optional
+Entity properties. Preserve the generated readers and persistence source as
+test evidence. Record the SimpleModeler coordinate and implementation revision
+that Cozy actually uses.
+
+The initial reproduction resolved Cozy against SimpleModeler
+`1.1.24-SNAPSHOT` at revision
+`8065eb7e08dea819aefaa8fbd6b5628ce9aaa32a`. The nominal `DATATYPE` reader
+already accepted scalar input. The failing branch was the ordinary
+single-field `VALUE` reader, even though the same generated type already
+emitted a scalar from `toDataStore()`.
 
 If the current generator source already passes the fixture but the declared
 dependency fails, align and publish the correct generator version rather than

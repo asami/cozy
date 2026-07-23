@@ -16,7 +16,7 @@ import play.api.libs.json.Json
 
 /*
  * @since   Jun. 23, 2026
- * @version Jul. 19, 2026
+ * @version Jul. 23, 2026
  * @author  ASAMI, Tomoharu
  */
 final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -83,6 +83,8 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         content should include ("def toRecord(e: Person): Record = e.toRecord()")
         content should include ("override def toStoreRecord(e: Person): Record = e.toDataStore()")
         content should include ("override def fromStoreRecord(r: Record): Consequence[Person] = createC(r)")
+        content should include ("val sourcemap = source.asMap")
+        content should not include ("val sourceMap = source.asMap")
         content should include (""""permission" -> _permission_json(securityAttributes.rights)""")
         content should include (""""ownerId" -> _to_external_value(securityAttributes.ownerId)""")
         content should include (""""createdAt" -> _to_external_value(lifecycleAttributes.createdAt)""")
@@ -265,6 +267,8 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         content should include ("""_record_get_as_c[String](record, List("nameAttributes.title", "name_attributes.title") ++ List("title", "subject"))""")
         content should include ("""_record_get_as_c[ContentBody](record, List("content", "body"))""")
         content should include ("""_record_with_derived_target_aliases(record, "ownerId", List("ownerId", "authorId"))""")
+        content should include ("""val securityrecord = _record_with_derived_target_aliases(record, "ownerId", List("ownerId", "authorId"))""")
+        content should not include ("val securityRecord =")
 
         val generatedquery = out.resolve(
         "target/scala-3.3.8/src_managed/main/scala/domain/entity/query/Notice.scala"
@@ -721,6 +725,12 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         cataloglabelcontent should include ("\"value\" -> _to_external_value(value)")
         cataloglabelcontent should include ("def toDataStore(): String")
         cataloglabelcontent should not include ("def toDataStore(): Record")
+        And("single-field value readers restore typed, record, and scalar datastore forms")
+        cataloglabelcontent should include ("case m: CatalogLabel => Consequence.success(m)")
+        cataloglabelcontent should include ("case m: Record => createC(m)")
+        cataloglabelcontent should include (
+          "case other => summon[org.goldenport.convert.ValueReader[String]].readC(other).flatMap(value => createC(value).recoverWith(conclusion => Consequence.valueInvalid(conclusion.displayMessage)))"
+        )
 
         val displayperiod = out.resolve("target/scala-3.3.8/src_managed/main/scala/domain/datatype/DisplayPeriod.scala")
         val displayperiodcontent = Files.readString(displayperiod)

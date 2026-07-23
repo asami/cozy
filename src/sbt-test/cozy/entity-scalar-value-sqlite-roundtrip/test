@@ -1,0 +1,4 @@
+> runMain cozy.Cozy car-sbt-project scalar-value-roundtrip.cml --save=out.d
+> runMain cozy.Cozy modeler-scala scalar-value-roundtrip.cml --save=generated.d
+$ exists out.d/build.sbt
+$ exec sh check-scalar-value-roundtrip.sh

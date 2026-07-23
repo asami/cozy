@@ -86,3 +86,13 @@ P8-42.  It regenerates its CML source, removes the temporary scalar persistence
 adapter, and re-runs the completed reuse, terminal-history, and Evolution View
 tests.  No CBD Support phase is numbered or created merely to represent this
 generator correction.
+
+## Implementation Clarification
+
+The Phase 23 reproduction found that CBD Support's `ReviewRunState` is declared
+as a single-field `VALUE`, not a `DATATYPE`. Its public `toRecord()` boundary is
+record-shaped, while its existing `toDataStore()` boundary is scalar. The
+nominal `DATATYPE` reader already accepted scalar input; the missing symmetry
+was in the single-field `VALUE` reader. This clarification preserves the
+original handoff as historical evidence while recording the model-kind branch
+actually corrected by the implementation.

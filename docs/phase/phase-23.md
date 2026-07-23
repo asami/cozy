@@ -1,17 +1,18 @@
 # Phase 23: Scalar Entity Persistence Round-trip
 
-Status: planned
+Status: in progress
 
-Start date: TBD
+Start date: 2026-07-23
 
 Dependency: Phase 22 closure and the Phase 16 model-kind/scalar generation
 contract
 
 ## Goal
 
-Make generated nominal scalar `DATATYPE` values round-trip coherently through
-generated Entity create, update/upsert, and fresh load, including required and
-optional fields, while preserving validation and structured Value behavior.
+Make generated nominal scalar `DATATYPE` values and scalar-projected
+single-field `VALUE` objects round-trip coherently through generated Entity
+create, update/upsert, and fresh load, including required and optional fields,
+while preserving validation and each model kind's public representation.
 
 Cozy coordinates the executable model and generated-code contract.
 SimpleModeler owns any required Scala generator correction, simplemodeling-lib
@@ -30,11 +31,13 @@ In scope:
   immutable;
 - generate scalar-aware `ValueReader` behavior for single-field nominal
   `DATATYPE` values when the current path is incomplete;
+- make a single-field `VALUE` reader accept the scalar representation emitted
+  by its existing `toDataStore()` while keeping `toRecord()` record-shaped;
 - preserve nominal constraints during scalar reconstruction;
 - round-trip required and optional scalar Entity properties through create,
   update/upsert, and fresh load;
 - reject malformed or constraint-violating scalar input deterministically;
-- preserve structured `VALUE` and multi-field `DATATYPE` record behavior;
+- preserve multi-field `VALUE` and multi-field `DATATYPE` record behavior;
 - verify generated fixtures and the `textus-user-account`,
   `textus-user-notification`, and `textus-cbd-support` driver CARs;
 - hand the corrected contract back to CBD Support so its temporary
@@ -80,15 +83,16 @@ Out of scope:
 
 Stage Status:
 
-- Current status: PLANNED
+- Current status: IN PROGRESS
 - Owner: Cozy
 - Update rule: mark work complete only from the Phase 23 checklist.
 - Checklist basis: `SR23-01`
 
 Focus:
 
-- capture the failing generated reader, Entity persistence source, scalar store
-  shape, and fresh-load failure;
+- capture the failing single-field `VALUE` reader, the nominal `DATATYPE`
+  control, Entity persistence source, scalar store shape, and fresh-load
+  failure;
 - determine whether the gap is generator behavior, resolved-version skew,
   model-kind selection, or optional/update store shape.
 
@@ -96,22 +100,25 @@ Focus:
 
 Stage Status:
 
-- Current status: PLANNED
+- Current status: IN PROGRESS
 - Owner: SimpleModeler / Cozy
 - Update rule: mark work complete only from the Phase 23 checklist.
 - Checklist basis: `SR23-02`
 
 Focus:
 
-- accept the underlying scalar and reconstruct through nominal validation;
-- preserve deterministic rejection and avoid generic structured-record
-  flattening.
+- accept already-typed, compatible `Record`, and underlying scalar inputs;
+- reconstruct through the generated validated constructor;
+- keep a single-field `VALUE` record-shaped at its public boundary while
+  accepting its scalar datastore projection;
+- preserve deterministic rejection and avoid generic multi-field
+  structured-record flattening.
 
 ## Stage 23.3: Entity Persistence Round-trip
 
 Stage Status:
 
-- Current status: PLANNED
+- Current status: IN PROGRESS
 - Owner: Cozy / SimpleModeler
 - Update rule: mark work complete only from the Phase 23 checklist.
 - Checklist basis: `SR23-03`
@@ -170,9 +177,11 @@ Focus:
 ## Completion Criteria
 
 Phase 23 closes only when executable tests prove that valid scalar datastore
-values restore their nominal types, invalid values retain nominal validation,
-optional presence is preserved, and generated Entities survive create,
-update/upsert, and fresh load. Structured Values must retain record behavior.
+values restore their generated types, invalid values retain generated
+validation, optional presence is preserved, and generated Entities survive
+create, update/upsert, and fresh load. Single-field `VALUE` objects must retain
+their public Record representation while accepting their scalar datastore
+projection; multi-field Values must retain record datastore behavior.
 All three driver CARs must generate, compile, and pass focused lifecycle tests,
 and CBD Support must prove P8-42 without its private persistence codec.
 
