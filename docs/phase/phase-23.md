@@ -1,8 +1,9 @@
 # Phase 23: Scalar Entity Persistence Round-trip
 
-Status: in progress
+Status: closed
 
 Start date: 2026-07-23
+Close date: 2026-07-24
 
 Dependency: Phase 22 closure and the Phase 16 model-kind/scalar generation
 contract
@@ -158,7 +159,7 @@ Focus:
 
 Stage Status:
 
-- Current status: PLANNED
+- Current status: DONE
 - Owner: Cozy / driver CAR owners
 - Update rule: mark work complete only from the Phase 23 checklist.
 - Checklist basis: `SR23-05`
@@ -169,11 +170,22 @@ Focus:
 - remove CBD Support's temporary persistence codec and prove P8-42
   `Owner`/`Joined`/`Reused` behavior through the Entity Aggregate.
 
+Completion evidence:
+
+- corrected `SNAPSHOT` SimpleModeler and Cozy artifacts were published only for
+  development verification;
+- User Account passed 87 tests and User Notification passed 30 tests after
+  regeneration;
+- CBD Support's `ReviewDiagnosisPersistenceSpec` passed all five
+  Given/When/Then scenarios through separate UnitOfWork boundaries;
+- CBD Support uses generated Entity persistence and no private codec, SQL,
+  JDBC, SQLite, or raw datastore path for P8-42.
+
 ## Stage 23.6: Review, Publication, and Closure
 
 Stage Status:
 
-- Current status: PLANNED
+- Current status: DONE
 - Owner: Cozy
 - Update rule: mark work complete only from the Phase 23 checklist.
 - Checklist basis: `SR23-06`
@@ -183,6 +195,27 @@ Focus:
 - perform read-only review, apply findings, re-review cleanly, validate, commit,
   and publish only corrected `SNAPSHOT` development artifacts before downstream
   handback.
+
+Completion evidence:
+
+- the read-only review identified protected Entity DSL, canonical diagnosis ID,
+  MCP description, executable-specification, and strategy-status findings;
+- CNCF now owns `entity_update_internal(id, patch)` with canonical ID handling,
+  component datastore admission, and `ServiceInternal` authorization;
+- CBD Support delegates generated patch updates through that protected helper
+  and verifies the canonical diagnosis ID on both completion and later reuse;
+- the corrected MCP and Given/When/Then focused set passed 25 tests;
+- the clean re-review found no remaining actionable finding;
+- CNCF passed 2,358 tests and CBD Support passed 264 tests against the
+  republished committed `0.5.1-SNAPSHOT`; the previously validated Cozy,
+  SimpleModeler, User Account, and User Notification suites remained green;
+- `git diff --check` passed in every modified repository;
+- CNCF commit `0f26fd2e` and CBD Support commit `9ce0cb4` retain the framework
+  boundary and downstream P8-42 handback independently of unrelated concurrent
+  work;
+- only corrected `SNAPSHOT` development artifacts were published locally.
+
+Phase 23 is closed from the completed checklist.
 
 ## Completion Criteria
 

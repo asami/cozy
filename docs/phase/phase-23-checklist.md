@@ -69,34 +69,34 @@ Status: DONE
 
 ## SR23-05: Driver Verification and CBD Support Handback
 
-Status: PLANNED
+Status: DONE
 
-- [ ] Move every corrected Cozy/SimpleModeler project to its next-development
+- [x] Move every corrected Cozy/SimpleModeler project to its next-development
       `SNAPSHOT` coordinate before modifying or publishing it locally.
-- [ ] Publish only corrected `SNAPSHOT` Cozy/SimpleModeler artifacts locally for
+- [x] Publish only corrected `SNAPSHOT` Cozy/SimpleModeler artifacts locally for
       development.
-- [ ] Regenerate, compile, and run focused Entity lifecycle tests in
+- [x] Regenerate, compile, and run focused Entity lifecycle tests in
       `textus-user-account`.
-- [ ] Regenerate, compile, and run focused Entity lifecycle tests in
+- [x] Regenerate, compile, and run focused Entity lifecycle tests in
       `textus-user-notification`.
-- [ ] Regenerate, compile, and run focused Entity lifecycle tests in
+- [x] Regenerate, compile, and run focused Entity lifecycle tests in
       `textus-cbd-support`.
-- [ ] Remove CBD Support's temporary `PersistedReviewDiagnosis` codec.
-- [ ] Prove P8-42 `Owner`, `Joined`, and `Reused` behavior through the Entity
+- [x] Remove CBD Support's temporary `PersistedReviewDiagnosis` codec.
+- [x] Prove P8-42 `Owner`, `Joined`, and `Reused` behavior through the Entity
       Aggregate boundary alone.
-- [ ] Confirm no driver CAR added raw datastore access or a private source of
+- [x] Confirm no driver CAR added raw datastore access or a private source of
       truth.
 
 ## SR23-06: Review, Publication, and Closure
 
-Status: PLANNED
+Status: DONE
 
-- [ ] Complete a read-only review after implementation.
-- [ ] Fix every actionable finding, including naming and executable-spec debt.
-- [ ] Complete a clean re-review after the fixes.
-- [ ] Run focused and full validation in every modified repository.
-- [ ] Run `git diff --check` in every modified repository.
-- [ ] Commit validated changes with required version updates.
-- [ ] Publish only the corrected `SNAPSHOT` development artifacts needed by
+- [x] Complete a read-only review after implementation.
+- [x] Fix every actionable finding, including naming and executable-spec debt.
+- [x] Complete a clean re-review after the fixes.
+- [x] Run focused and full validation in every modified repository.
+- [x] Run `git diff --check` in every modified repository.
+- [x] Commit validated changes with required version updates.
+- [x] Publish only the corrected `SNAPSHOT` development artifacts needed by
       downstream CARs.
-- [ ] Record downstream evidence and close Phase 23 from checklist results.
+- [x] Record downstream evidence and close Phase 23 from checklist results.
