@@ -115,13 +115,13 @@ Evidence:
 
 ## KM22-06: Review And Closure
 
-Status: IN PROGRESS
+Status: DONE
 
 - [x] Complete post-implementation review.
 - [x] Fix all actionable review findings, including naming and spec debt.
 - [x] Validate focused and full Cozy tests after review fixes.
 - [x] Commit the validated implementation.
-- [ ] Update Phase 22 status and close the checklist from executable evidence.
+- [x] Update Phase 22 status and close the checklist from executable evidence.
 
 Closure evidence recorded on 2026-07-23:
 
@@ -137,6 +137,5 @@ Closure evidence recorded on 2026-07-23:
   validated `nict-knowledgehub` component-reference node.
 - Cozy commit `ef27400` contains the validated implementation.
 - KnowledgeHub commit `7dde870` contains the representative source fixture.
-- The final checklist-close item remains open until the shared phase index and
-  strategy can move Phase 22 to closed without absorbing unrelated Phase 23/24
-  planning changes.
+- The phase index and strategy now record Phase 22 as closed while keeping
+  Phase 23 planned rather than implicitly starting it.

@@ -562,7 +562,7 @@ Primary reference:
 
 ### Phase 22: BoK Knowledge Map Component Handoff
 
-Status: planned after Phase 21.
+Status: closed.
 
 Purpose:
 
@@ -607,8 +607,7 @@ Primary reference:
 
 ## Current Priority
 
-Phase 6 through Phase 21 are closed. Phase 22 is the current planned
-publication-contract phase for Textus BoK Knowledge Map component handoff.
+Phase 6 through Phase 22 are closed.
 Phase 23 remains planned until the CNCF Skill Bundle contract is executable.
 
 Phase 20 introduced provider-neutral narration with VOICEVOX, host-only macOS

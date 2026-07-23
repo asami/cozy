@@ -1,8 +1,9 @@
 # Phase 22: BoK Knowledge Map Component Handoff
 
-Status: in-progress
+Status: closed
 
 Start date: 2026-07-23
+Close date: 2026-07-23
 
 Dependency: Phase 21 component repository discovery and Phase 14 BoK/SIE
 KnowledgeSource handoff
@@ -146,7 +147,7 @@ Focus:
 
 Stage Status:
 
-- Current status: IN PROGRESS
+- Current status: DONE
 - Owner: Cozy
 - Update rule: mark work complete only from the Phase 22 checklist.
 - Checklist basis: `KM22-06`
@@ -166,9 +167,8 @@ Verified evidence on Jul. 23, 2026:
 - KnowledgeHub commit `7dde870` contains the representative graph source
   fixture.
 
-The final phase transition remains open until the shared phase index and
-strategy can be updated without including unrelated Phase 23/24 planning
-changes.
+Phase 22 is therefore closed. Phase 23 remains the next planned phase; closing
+Phase 22 does not start Phase 23.
 
 ## Completion Criteria
 

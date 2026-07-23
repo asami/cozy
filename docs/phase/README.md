@@ -6,8 +6,9 @@ Current phase:
 
 - Active phase: none
 - Active checklist: none
-- Next planned phase: none
-- Most recent closed phase: `phase-19.md`: Knowledge-Centered Media Packages
+- Next planned phase: `phase-23.md`: Component Skill Distribution
+- Next planned checklist: `phase-23-checklist.md`
+- Most recent closed phase: `phase-22.md`: BoK Knowledge Map Component Handoff
 
 Belongs:
 
