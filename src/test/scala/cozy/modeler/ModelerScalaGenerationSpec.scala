@@ -16,7 +16,7 @@ import play.api.libs.json.Json
 
 /*
  * @since   Jun. 23, 2026
- * @version Jul. 23, 2026
+ * @version Jul. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -39,7 +39,11 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         val content = Files.readString(generated)
         Then("the generated Scala code preserves the model semantics")
         content should include ("object DomainComponent")
-        content should not include ("exec_from(")
+        val consequenceadaptations = "exec_from\\(".r.findAllMatchIn(content).toVector
+        consequenceadaptations should have size 4
+        content should include (
+          "expectation <- exec_from(EntityMutationExpectation.parse(action.cncfRevision))"
+        )
         content should not include ("collectionId: EntityCollectionId = ???")
         content should include ("extends Component with CollectionTransitionRuleProvider")
         content should include ("override def stateMachineTransitionRules: Vector[CollectionTransitionRule[Any]] = Vector.empty")

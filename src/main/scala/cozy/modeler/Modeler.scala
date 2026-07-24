@@ -51,7 +51,7 @@ import scala.collection.mutable
  *  version Feb. 27, 2026
  *  version Mar. 31, 2026
  *  version May. 24, 2026
- * @version Jul. 23, 2026
+ * @version Jul. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler(
@@ -545,7 +545,7 @@ object Modeler {
     }
 
     private def _value_help_model(
-      valueClass: Option[org.goldenport.kaleidox.model.ValueModel.ValueClass],
+      valueclass: Option[org.goldenport.kaleidox.model.ValueModel.ValueClass],
       p: org.goldenport.parser.LogicalSection
     ): HelpModel = {
       val summary = _child_text(p, "summary").
@@ -553,7 +553,7 @@ object Modeler {
         orElse(_free_narrative(p)).
         getOrElse(s"Value: ${p.nameForModel}")
       val description = _child_text(p, "description").orElse(_free_narrative(p))
-      val attributes = valueClass.map(_.schema.columns.map(_.name).toVector).getOrElse(Vector.empty)
+      val attributes = valueclass.map(_.schema.columns.map(_.name).toVector).getOrElse(Vector.empty)
       val details = Vector.newBuilder[(String, Vector[String])]
       if (attributes.nonEmpty)
         details += "attributes" -> attributes
@@ -1032,12 +1032,12 @@ object Modeler {
 
     private def _delegate_value_attribute(
       pkg: MPackageRef,
-      delegateName: String,
-      isOptional: Boolean
+      delegatename: String,
+      isoptional: Boolean
     ): Option[MAttribute] = {
-      val attrname = delegateName.head.toLower + delegateName.drop(1)
-      val multiplicity = if (isOptional) MZeroOne else MOne
-      _resolve_object_attribute_type(pkg, delegateName).map { atype =>
+      val attrname = delegatename.head.toLower + delegatename.drop(1)
+      val multiplicity = if (isoptional) MZeroOne else MOne
+      _resolve_object_attribute_type(pkg, delegatename).map { atype =>
         MAttribute(
           Designation.nameLabel(attrname, None),
           atype,
@@ -1763,9 +1763,9 @@ object Modeler {
 
     private def _service_package(
       pkg: MPackage,
-      packageName: String
+      packagename: String
     ): MPackage = pkg.copy(
-      designation = Designation(packageName),
+      designation = Designation(packagename),
       affiliation = MPackageRef.default
     )
 
@@ -1897,16 +1897,16 @@ object Modeler {
 
     private def _use_case_actor_text(
       actor: Option[String],
-      primaryActor: Option[String],
-      secondaryActor: Option[String],
-      supportingActor: Option[String],
+      primaryactor: Option[String],
+      secondaryactor: Option[String],
+      supportingactor: Option[String],
       stakeholder: Option[String]
     ): Option[String] = {
       val xs = Vector(
         actor.map(x => s"actor=${x.trim}"),
-        primaryActor.map(x => s"primary=${x.trim}"),
-        secondaryActor.map(x => s"secondary=${x.trim}"),
-        supportingActor.map(x => s"supporting=${x.trim}"),
+        primaryactor.map(x => s"primary=${x.trim}"),
+        secondaryactor.map(x => s"secondary=${x.trim}"),
+        supportingactor.map(x => s"supporting=${x.trim}"),
         stakeholder.map(x => s"stakeholder=${x.trim}")
       ).flatten.filter(_.nonEmpty)
       if (xs.isEmpty) None else Some(xs.mkString(", "))
@@ -3516,22 +3516,22 @@ object Modeler {
     }
 
     private def _validate_transition(
-      machineName: String,
+      machinename: String,
       transition: _TransitionDef,
-      stateNames: Set[String],
+      statenames: Set[String],
       events: Set[String]
     ): Unit = {
       transition.transition.to match {
         case NameTransitionTo(name) =>
-          if (!name.equalsIgnoreCase(PROP_STATE_INIT) && !stateNames.contains(name))
-            RAISE.syntaxErrorFault(s"StateMachine '$machineName' transition target $name is not defined.")
+          if (!name.equalsIgnoreCase(PROP_STATE_INIT) && !statenames.contains(name))
+            RAISE.syntaxErrorFault(s"StateMachine '$machinename' transition target $name is not defined.")
         case _ =>
       }
       val eventname = _event_name_from_guard(transition.transition.guard).orElse(transition.transition.getEventName).getOrElse {
-        RAISE.syntaxErrorFault(s"StateMachine '$machineName' transition requires on.")
+        RAISE.syntaxErrorFault(s"StateMachine '$machinename' transition requires on.")
       }
       if (events.nonEmpty && !events.contains(eventname))
-        RAISE.syntaxErrorFault(s"StateMachine '$machineName' transition references undeclared event $eventname.")
+        RAISE.syntaxErrorFault(s"StateMachine '$machinename' transition references undeclared event $eventname.")
     }
 
     private def _declared_events(rule: StateMachineRule): Set[String] = {
@@ -3683,11 +3683,11 @@ object Modeler {
     }
 
     private def _event_name(
-      machineName: String,
+      machinename: String,
       transition: _TransitionDef
     ): String =
       _event_name_from_guard(transition.transition.guard).orElse(transition.transition.getEventName).getOrElse {
-        RAISE.syntaxErrorFault(s"StateMachine '$machineName' transition requires on.")
+        RAISE.syntaxErrorFault(s"StateMachine '$machinename' transition requires on.")
       }
 
     private def _event_name_from_guard(
@@ -3918,7 +3918,8 @@ object Modeler {
       val idparam = MParameter.entityId
       val recordparam = MParameter.record
       val createrecordparam = MParameter("record", MEntityValue.create(entity))
-      val loadresult = MResult.option(MEntityValue.whole(entity))
+      val revisionparam = MParameter("cncfRevision", MDataType.create("long"))
+      val recordresult = MResult(MObjectRef.record)
       val searchresult = MResult.search(MEntityValue.whole(entity))
       val create = MOperation.commandBody(s"create$title", entityparam) {
         blockFor(
@@ -3934,50 +3935,54 @@ object Modeler {
           "OperationResponse(r.toRecord)"
         )
       }
-      val load = MOperation.queryBody(s"load$title", idparam, loadresult) {
+      val load = MOperation.queryBody(s"load$title", idparam, recordresult) {
         blockFor(
-          s"r <- entity_load[$wholeclass](action.id)"
+          s"snapshot <- entity_load_snapshot[$wholeclass](action.id)"
         )(
-          "OperationResponse(r.toRecord())"
+          "OperationResponse(snapshot.entity.toRecord().upsertSingle(\"cncfRevision\", snapshot.token.print))"
         )
       }
-      val loadrec = MOperation.queryBody(s"load${title}Record", idparam, loadresult) {
+      val loadrec = MOperation.queryBody(s"load${title}Record", idparam, recordresult) {
         blockFor(
-          s"r <- entity_load[$wholeclass](action.id)"
+          s"snapshot <- entity_load_snapshot[$wholeclass](action.id)"
         )(
-          "OperationResponse(r.toRecord())"
+          "OperationResponse(snapshot.entity.toRecord().upsertSingle(\"cncfRevision\", snapshot.token.print))"
         )
       }
-      val save = MOperation.commandBody(s"save$title", entityparam) {
+      val save = MOperation.commandBody(s"save$title", List(entityparam, revisionparam), recordresult) {
         blockFor(
           s"entity <- exec_pure($wholeclass.create(action.entity.toRecord()))",
-          "_ <- entity_save(entity)"
+          "expectation <- exec_from(EntityMutationExpectation.parse(action.cncfRevision))",
+          "snapshot <- entity_save(entity, expectation)"
         )(
-          "OperationResponse.void"
+          "OperationResponse(snapshot.entity.toRecord().upsertSingle(\"cncfRevision\", snapshot.token.print))"
         )
       }
-      val saverec = MOperation.commandBody(s"save${title}Record", entityparam) {
+      val saverec = MOperation.commandBody(s"save${title}Record", List(entityparam, revisionparam), recordresult) {
         blockFor(
           s"entity <- exec_pure($wholeclass.create(action.entity.toRecord()))",
-          "_ <- entity_save(entity)"
+          "expectation <- exec_from(EntityMutationExpectation.parse(action.cncfRevision))",
+          "snapshot <- entity_save(entity, expectation)"
         )(
-          "OperationResponse.void"
+          "OperationResponse(snapshot.entity.toRecord().upsertSingle(\"cncfRevision\", snapshot.token.print))"
         )
       }
-      val update = MOperation.commandBody(s"update$title", updateparam) {
+      val update = MOperation.commandBody(s"update$title", List(updateparam, revisionparam), recordresult) {
         blockFor(
           """id <- exec_pure(Consequence.successOrRecordNotFound[EntityId]("id", action.request.toRecord).TAKE)""",
-          "_ <- entity_update(id, action.entity)"
+          "expectation <- exec_from(EntityMutationExpectation.parse(action.cncfRevision))",
+          "snapshot <- entity_update(id, action.entity, expectation)"
         )(
-          "OperationResponse.void"
+          "OperationResponse(snapshot.record.upsertSingle(\"cncfRevision\", snapshot.token.print))"
         )
       }
-      val updaterec = MOperation.commandBody(s"update${title}Record", updateparam) {
+      val updaterec = MOperation.commandBody(s"update${title}Record", List(updateparam, revisionparam), recordresult) {
         blockFor(
           """id <- exec_pure(Consequence.successOrRecordNotFound[EntityId]("id", action.request.toRecord).TAKE)""",
-          "_ <- entity_update(id, action.entity)"
+          "expectation <- exec_from(EntityMutationExpectation.parse(action.cncfRevision))",
+          "snapshot <- entity_update(id, action.entity, expectation)"
         )(
-          "OperationResponse.void"
+          "OperationResponse(snapshot.record.upsertSingle(\"cncfRevision\", snapshot.token.print))"
         )
       }
       val delete = MOperation.commandBody(s"delete$title", idparam) {
