@@ -1744,13 +1744,20 @@ object Modeler {
       entities: Vector[MEntity]
     ): Vector[MComponent.EntityRuntimeDescriptor] =
       entities.map { entity =>
+        val sourceentity = _source_entity_class(entity)
+        val issimpleentity = sourceentity.exists(_inherits_simple_entity)
         MComponent.EntityRuntimeDescriptor(
           entityName = StringUtils.makeTitle(entity.name),
           packageName = _entity_runtime_package_name(entity),
           usageKind = entity.usageKind,
           operationKind = entity.operationKind,
           applicationDomain = entity.applicationDomain,
-          viewNames = _view_names(entity)
+          viewNames = _view_names(entity),
+          revisionModelKind = sourceentity.map(_ =>
+            if (issimpleentity) "simple-entity" else "non-simple-entity"
+          ),
+          revisionRepresentation =
+            if (issimpleentity) Some("embedded") else None
         )
       }
 

@@ -62,6 +62,22 @@ final class ModelerSimpleEntityRevisionGenerationSpec
       component should include("entity: _root_.domain.entity.create.Person")
       component should include("entity: _root_.domain.entity.update.Person")
       component should include("BaseContent.simple(\"cncfRevision\")")
+      component should include(
+        "revisionModelKind = Some(org.goldenport.cncf.entity.EntityRevisionModelKind.SimpleEntity)"
+      )
+      component should include(
+        "revisionRepresentation = Some(org.goldenport.cncf.entity.EntityRevisionRepresentation.Embedded)"
+      )
+
+      And("an ordinary Entity is classified without inventing embedded revision")
+      component should include(
+        "revisionModelKind = Some(org.goldenport.cncf.entity.EntityRevisionModelKind.NonSimpleEntity)"
+      )
+      _occurrences(
+        component,
+        "revisionRepresentation = Some(org.goldenport.cncf.entity.EntityRevisionRepresentation.Embedded)"
+      ) shouldBe 1
+      component should include("revisionRepresentation = None")
     }
 
     "select the model version that defines embedded SimpleEntity revision" in {

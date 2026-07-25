@@ -20,3 +20,12 @@ extends = ["SimpleEntity"]
 | name | type     | multiplicity |
 |------+----------+--------------|
 | age  | age      | ?            |
+
+## Document
+
+### Attribute
+
+| name  | type   | multiplicity |
+|-------+--------+--------------|
+| id    | entityid | 1          |
+| title | string | 1            |
