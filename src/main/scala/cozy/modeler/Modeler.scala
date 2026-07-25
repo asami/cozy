@@ -95,7 +95,7 @@ class Modeler(
     sm: MDomainStateMachine,
     p: StateMachineClass
   ): VectorMap[String, MState] = {
-    def initState = MState.initState(sm)
+    def _init_state_ = MState.initState(sm)
     // def historyState = MState.historyState(sm)
 
     def _state_(p: StateClass): MState = {
@@ -116,8 +116,8 @@ class Modeler(
       VectorMap(a)
     }
 
-    def _build_transitions(statemap: StateHanger) = {
-      def _build_state(s: StateClass): Unit = {
+    def _build_transitions_(statemap: StateHanger) = {
+      def _build_state_(s: StateClass): Unit = {
         def _transition_(t: Transition): Option[MTransition] = {
           val g = _guard_(t.guard)
           val event = t.getEventName.map(x => MEvent(x)) // TODO share
@@ -127,7 +127,7 @@ class Modeler(
             (statemap.get(s.name), statemap.get(p.name)) match {
               case (Some(from), Some(to)) => MTransition(sm, event, g, from, to, action)
               case (Some(from), None) => RAISE.noReachDefect
-              case (None, Some(to)) => MTransition(sm, event, g, initState, to, action)
+              case (None, Some(to)) => MTransition(sm, event, g, _init_state_, to, action)
               case (None, None) => RAISE.noReachDefect
             }
 
@@ -162,7 +162,7 @@ class Modeler(
             (statemap.get(smr.name getOrElse ""), statemap.get(p.name)) match {
               case (Some(from), Some(to)) => MTransition(sm, event, g, from, to, action)
               case (Some(from), None) => RAISE.noReachDefect
-              case (None, Some(to)) => MTransition(sm, event, g, initState, to, action)
+              case (None, Some(to)) => MTransition(sm, event, g, _init_state_, to, action)
               case (None, None) => RAISE.noReachDefect
             }
 
@@ -182,20 +182,20 @@ class Modeler(
           }
         }
 
-        smr.states.foreach(_build_state)
+        smr.states.foreach(_build_state_)
         smr.statemachines.foreach(_build_statemachine_)
         val ts = smr.transitions.call.flatMap(_transition_) ++ smr.transitions.global.flatMap(_transition_)
         statemap.get(smr.name getOrElse "").foreach(_.transitions = ts.toList)
       }
 
       p.statemachines.foreach(_build_statemachine_)
-      p.states.foreach(_build_state)
+      p.states.foreach(_build_state_)
     }
 
     def _guard_(g: SmGuard): Option[MGuard] =
-      _guard_mark(g).map(mark => MGuard(sm, Description.name("guard"), mark))
+      _guard_mark_(g).map(mark => MGuard(sm, Description.name("guard"), mark))
 
-    def _guard_mark(g: SmGuard): Option[String] =
+    def _guard_mark_(g: SmGuard): Option[String] =
       g match {
         case AllGuard => None
         case EventNameGuard(_) => None
@@ -209,13 +209,13 @@ class Modeler(
             case None => Some(s"event.name == '${name}'")
           }
         case AndGuard(exprs) =>
-          _join_guard_mark(exprs, "&&")
+          _join_guard_mark_(exprs, "&&")
         case OrGuard(exprs) =>
-          _join_guard_mark(exprs, "||")
+          _join_guard_mark_(exprs, "||")
       }
 
-    def _join_guard_mark(exprs: Vector[SmGuard], delimiter: String): Option[String] = {
-      val a = exprs.flatMap(_guard_mark)
+    def _join_guard_mark_(exprs: Vector[SmGuard], delimiter: String): Option[String] = {
+      val a = exprs.flatMap(_guard_mark_)
       if (a.isEmpty)
         None
       else
@@ -232,7 +232,7 @@ class Modeler(
     val a4 = _normalize_init(initstatename, a1, a2)
     val a = a4.map(x => x.name -> x)
     val states = StateHanger.create(a)
-    _build_transitions(states)
+    _build_transitions_(states)
     states.states
   }
 
@@ -1569,15 +1569,15 @@ object Modeler {
             MGuard(sm, Description.name("guard"), expr)
         }
 
-      def _build_transition(
-        sourceStateName: Option[String],
-        ownerRule: StateMachineRule,
+      def _build_transition_(
+        sourcestatename: Option[String],
+        ownerrule: StateMachineRule,
         t: Transition
       ): Option[MTransition] = {
         val g = _guard_(t)
         val event = _event_(t)
         val action = None // TODO MAction mapping
-        val from = sourceStateName.flatMap(statemap.get).orElse(ownerRule.name.flatMap(statemap.get))
+        val from = sourcestatename.flatMap(statemap.get).orElse(ownerrule.name.flatMap(statemap.get))
 
         def _name_transition_(name: String): MTransition =
           (from, statemap.get(name)) match {
@@ -1591,7 +1591,7 @@ object Modeler {
           }
 
         def _history_transition_(): MTransition = {
-          val source = sourceStateName.flatMap(statemap.get).getOrElse(MState.initState(sm))
+          val source = sourcestatename.flatMap(statemap.get).getOrElse(MState.initState(sm))
           val history = statemap.historyStates(source.name).headOption.getOrElse {
             RAISE.syntaxErrorFault(s"StateMachine '${smc.name}' transition history source ${source.name} is not defined.")
           }
@@ -1610,21 +1610,21 @@ object Modeler {
         }
       }
 
-      def _build_rule(rule: StateMachineRule): Unit = {
+      def _build_rule_(rule: StateMachineRule): Unit = {
         rule.states.foreach { s =>
           val ts =
-            s.transitions.call.flatMap(_build_transition(Some(s.name), rule, _)) ++
-              s.transitions.global.flatMap(_build_transition(Some(s.name), rule, _))
+            s.transitions.call.flatMap(_build_transition_(Some(s.name), rule, _)) ++
+              s.transitions.global.flatMap(_build_transition_(Some(s.name), rule, _))
           statemap.get(s.name).foreach(_.transitions = ts.toList)
         }
-        rule.statemachines.foreach(_build_rule)
+        rule.statemachines.foreach(_build_rule_)
         val ts =
-          rule.transitions.call.flatMap(_build_transition(None, rule, _)) ++
-            rule.transitions.global.flatMap(_build_transition(None, rule, _))
+          rule.transitions.call.flatMap(_build_transition_(None, rule, _)) ++
+            rule.transitions.global.flatMap(_build_transition_(None, rule, _))
         rule.name.flatMap(statemap.get).foreach(_.transitions = ts.toList)
       }
 
-      _build_rule(smc.rule)
+      _build_rule_(smc.rule)
     }
 
     private def _normalize_init(ps: Seq[StateClass]): (Vector[StateClass], Option[String]) = {
@@ -2429,13 +2429,13 @@ object Modeler {
     ): (String, String, String, String, String) = {
       val title = StringUtils.makeTitle(entity.name)
       val pkgname = entity.packageName
-      def _qualify(s: String) =
+      def _qualify_(s: String) =
         if (pkgname.isEmpty) s else s"$pkgname.$s"
-      val wholeclass = _qualify(s"${_entity_package}.$title")
-      val createclass = _qualify(s"${_entity_create_package}.$title")
-      val queryclass = _qualify(s"${_entity_query_package}.$title")
-      val aggregateclass = _qualify(s"${_aggregate_package(_aggregate_name(entity))}.$title")
-      val viewclass = _qualify(s"${_view_package(_view_name(entity))}.$title")
+      val wholeclass = _qualify_(s"${_entity_package}.$title")
+      val createclass = _qualify_(s"${_entity_create_package}.$title")
+      val queryclass = _qualify_(s"${_entity_query_package}.$title")
+      val aggregateclass = _qualify_(s"${_aggregate_package(_aggregate_name(entity))}.$title")
+      val viewclass = _qualify_(s"${_view_package(_view_name(entity))}.$title")
       (wholeclass, createclass, queryclass, aggregateclass, viewclass)
     }
 
@@ -3501,11 +3501,11 @@ object Modeler {
       } + "\""
 
     private case class _TransitionDef(
-      machineName: String,
-      sourceStateName: Option[String],
-      sourceState: Option[StateClass],
+      machinename: String,
+      sourcestatename: Option[String],
+      sourcestate: Option[StateClass],
       transition: Transition,
-      isCallTransition: Boolean
+      iscalltransition: Boolean
     )
 
     private def _validate_state_machine(sm: StateMachineClass): Unit = {
@@ -3598,7 +3598,7 @@ object Modeler {
       val transitions = _all_transitions(sm.rule)
       transitions.map { x =>
         val eventname = _event_name(sm.name, x)
-        val trigger = _transition_trigger(eventname, x.isCallTransition)
+        val trigger = _transition_trigger(eventname, x.iscalltransition)
         val guard = _transition_guard(x.transition.guard)
         val plan = _transition_plan(x, statemap)
         val targetstate = _target_state(x.transition.to, statemap)
@@ -3608,8 +3608,8 @@ object Modeler {
           eventName = eventname,
           machineName = Some(sm.name),
           stateFieldName = statefieldname,
-          fromState = x.sourceStateName,
-          fromStateValue = x.sourceState.map(_.value),
+          fromState = x.sourcestatename,
+          fromStateValue = x.sourcestate.map(_.value),
           toState = targetstate.map(_.name),
           toStateValue = targetstate.map(_.value),
           priority = 0,
@@ -3673,12 +3673,12 @@ object Modeler {
     ): Vector[_TransitionDef] = {
       val machinename = rule.name.getOrElse("")
       val fromstates = rule.states.toVector.flatMap { s =>
-        s.transitions.call.map(t => _TransitionDef(machinename, Some(s.name), Some(s), t, isCallTransition = true)).toVector ++
-          s.transitions.global.map(t => _TransitionDef(machinename, Some(s.name), Some(s), t, isCallTransition = false)).toVector
+        s.transitions.call.map(t => _TransitionDef(machinename, Some(s.name), Some(s), t, iscalltransition = true)).toVector ++
+          s.transitions.global.map(t => _TransitionDef(machinename, Some(s.name), Some(s), t, iscalltransition = false)).toVector
       }
       val fromrule =
-        rule.transitions.call.map(t => _TransitionDef(machinename, None, None, t, isCallTransition = true)).toVector ++
-          rule.transitions.global.map(t => _TransitionDef(machinename, None, None, t, isCallTransition = false)).toVector
+        rule.transitions.call.map(t => _TransitionDef(machinename, None, None, t, iscalltransition = true)).toVector ++
+          rule.transitions.global.map(t => _TransitionDef(machinename, None, None, t, iscalltransition = false)).toVector
       fromstates ++ fromrule ++ rule.statemachines.toVector.flatMap(_all_transitions)
     }
 
@@ -3777,20 +3777,20 @@ object Modeler {
 
     private def _is_balanced_paren(p: String): Boolean = {
       @annotation.tailrec
-      def go(i: Int, depth: Int): Boolean =
+      def _go_(i: Int, depth: Int): Boolean =
         if (i >= p.length)
           depth == 0
         else
           p.charAt(i) match {
-            case '(' => go(i + 1, depth + 1)
+            case '(' => _go_(i + 1, depth + 1)
             case ')' =>
               if (depth <= 0)
                 false
               else
-                go(i + 1, depth - 1)
-            case _ => go(i + 1, depth)
+                _go_(i + 1, depth - 1)
+            case _ => _go_(i + 1, depth)
           }
-      go(0, 0)
+      _go_(0, 0)
     }
 
     private def _is_guard_ref_name(p: String): Boolean = {
@@ -3851,7 +3851,7 @@ object Modeler {
       transition: _TransitionDef,
       statemap: Map[String, StateClass]
     ): MComponent.RulePlan = {
-      val exit = transition.sourceState.toVector.flatMap(x => _activity_scripts(x.exitActivity))
+      val exit = transition.sourcestate.toVector.flatMap(x => _activity_scripts(x.exitActivity))
       val trans = _activity_script(transition.transition.effect)
       val entry = _entry_scripts(transition.transition.to, statemap)
       MComponent.RulePlan(
@@ -3906,11 +3906,11 @@ object Modeler {
     private def _make_entity_operations(entity: MEntity): Vector[MOperation] = {
       val title = StringUtils.makeTitle(entity.name)
       val pkgname = entity.packageName
-      def _qualify(s: String) =
+      def _qualify_(s: String) =
         if (pkgname.isEmpty) s else s"$pkgname.$s"
-      val wholeclass = _qualify(s"${_entity_package}.$title")
-      val createclass = _qualify(s"${_entity_create_package}.$title")
-      val queryclass = _qualify(s"${_entity_query_package}.$title")
+      val wholeclass = _qualify_(s"${_entity_package}.$title")
+      val createclass = _qualify_(s"${_entity_create_package}.$title")
+      val queryclass = _qualify_(s"${_entity_query_package}.$title")
       val entityparam = MParameter("entity", MEntityValue.create(entity))
       val updateparam = MParameter("entity", MEntityValue.update(entity))
       val queryparam = MParameter.query("q", MEntityValue.query(entity))
@@ -4042,17 +4042,17 @@ object Modeler {
     private def _make_aggregate_operations(entity: MEntity): Vector[MOperation] = {
       val title = StringUtils.makeTitle(entity.name)
       val pkgname = entity.packageName
-      def _qualify(s: String) =
+      def _qualify_(s: String) =
         if (pkgname.isEmpty) s else s"$pkgname.$s"
       // NOTE: Aggregate-specific DSL/model is not available yet.
       // Default is aggregate.<Entity>. Non-default is aggregate.<aggregate-name>.<Entity>.
-      val aggregateclass = _qualify(s"${_aggregate_package(_aggregate_name(entity))}.$title")
-      val wholeclass = _qualify(s"${_entity_package}.$title")
-      val queryclass = _qualify(s"${_entity_query_package}.$title")
+      val aggregateclass = _qualify_(s"${_aggregate_package(_aggregate_name(entity))}.$title")
+      val wholeclass = _qualify_(s"${_entity_package}.$title")
+      val queryclass = _qualify_(s"${_entity_query_package}.$title")
       val entityname = _package_token(entity.name)
-      val createparam = MParameter("entity", MEntityValue.aggregate(entity))
-      val saveparam = MParameter("entity", MEntityValue.aggregate(entity))
-      val updateparam = MParameter("entity", MEntityValue.aggregate(entity))
+      val createparam = MParameter("entity", MEntityValue.create(entity))
+      val saveparam = MParameter("entity", MEntityValue.save(entity))
+      val updateparam = MParameter("entity", MEntityValue.update(entity))
       val searchparam = MParameter.query("q", MEntityValue.query(entity))
       val idparam = MParameter.entityId
       val loadresult = MResult.option(MEntityValue.aggregate(entity))
@@ -4093,8 +4093,9 @@ object Modeler {
       val update = MOperation.commandBody(s"update$title", updateparam) {
         if (hasupdatemethod)
           blockFor(
-            s"current <- aggregate_load[$aggregateclass](action.entity.id)",
-            s"r <- aggregate_update(${_scala_string_literal(entityname)}, action.entity.id, ${_scala_string_literal(updatemethod)}, current.$updatemethod(action.entity.toRecord())(using executionContext))"
+            """id <- exec_from(Consequence.successOrRecordNotFound[EntityId]("id", action.request.toRecord))""",
+            s"current <- aggregate_load[$aggregateclass](id)",
+            s"r <- aggregate_update(${_scala_string_literal(entityname)}, id, ${_scala_string_literal(updatemethod)}, current.$updatemethod(action.entity.toRecord())(using executionContext))"
           )(
             "OperationResponse.create(r.toRecord())"
           )
@@ -4140,9 +4141,9 @@ object Modeler {
     private def _make_view_operations(entity: MEntity): Vector[MOperation] = {
       val title = StringUtils.makeTitle(entity.name)
       val pkgname = entity.packageName
-      def _qualify(s: String) =
+      def _qualify_(s: String) =
         if (pkgname.isEmpty) s else s"$pkgname.$s"
-      val queryclass = _qualify(s"${_entity_query_package}.$title")
+      val queryclass = _qualify_(s"${_entity_query_package}.$title")
       val searchparam = MParameter.query("q", MEntityValue.query(entity))
       val viewparam = MParameter(
         Description.name("view"),
@@ -4154,7 +4155,7 @@ object Modeler {
       // NOTE: View-specific DSL/model is not available yet.
       // Default is view.<Entity>. Non-default is view.<view-name>.<Entity>.
       val viewvalue = MEntityValue.view(entity)
-      val viewclass = _qualify(s"${_view_package(_view_name(entity))}.$title")
+      val viewclass = _qualify_(s"${_view_package(_view_name(entity))}.$title")
       val loadresult = MResult.option(viewvalue)
       val searchresult = MResult.search(viewvalue)
       val load = MOperation.queryBody(s"load$title", idparam, loadresult) {
@@ -4191,7 +4192,7 @@ object Modeler {
         _token_opt(viewname).toVector.flatMap { token =>
           val projectiontitle = StringUtils.makeTitle(token)
           val projectionvalue = MEntityValue.projection(entity, Some(viewname))
-          val projectionclass = _qualify(s"${_view_package(Some(viewname))}.$title")
+          val projectionclass = _qualify_(s"${_view_package(Some(viewname))}.$title")
           val projectionloadresult = MResult.option(projectionvalue)
           val projectionsearchresult = MResult.search(projectionvalue)
           val loadprojection = MOperation.queryBody(s"load${title}${projectiontitle}", idparam, projectionloadresult) {
