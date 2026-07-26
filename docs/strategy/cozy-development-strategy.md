@@ -630,13 +630,37 @@ Primary reference:
 - `docs/phase/phase-24.md`
 - `docs/phase/phase-24-checklist.md`
 
+### Phase 25: Entity Revision Generator Alignment
+
+Status: in progress as a focused downstream repair for CBD Support Phase 8.
+
+Purpose:
+
+- align generated SimpleEntity CRUD source with CNCF's canonical embedded,
+  framework-managed revision contract after the retired token API removal;
+- remove obsolete generated `cncfRevision` request transport and let the
+  Entity/UnitOfWork boundary manage revision lifecycle and concurrency;
+- publish one corrected Cozy development SNAPSHOT and prove regeneration and
+  SQLite-backed persistence acceptance in CBD Support;
+- keep this dependency repair separate from Phase 24 Component Skill
+  Distribution.
+
+Primary reference:
+
+- `docs/phase/phase-25.md`
+- `docs/phase/phase-25-checklist.md`
+- `docs/journal/2026/07/entity-revision-generator-alignment-handoff-2026-07-26.md`
+
 ## Current Priority
 
 Phase 6 through Phase 23 are closed. Phase 23 completed scalar Entity
 persistence round-trip, driver-CAR verification, and the CBD Support P8-42
 Entity Aggregate handback. Phase 24 preserves Component Skill Distribution and
-is the next planned phase; implementation remains gated by the CNCF Skill
-Bundle contract.
+remains planned behind the CNCF Skill Bundle contract. Phase 25 is a separate,
+focused generator alignment required to regenerate CBD Support against CNCF's
+current Entity Revision development API. Its Cozy generator contract and
+Executable Specifications are complete; downstream regeneration and
+persistence acceptance remain open.
 
 Phase 20 introduced provider-neutral narration with VOICEVOX, host-only macOS
 `say`, and a portable Piper Docker route, then used that contract to migrate the

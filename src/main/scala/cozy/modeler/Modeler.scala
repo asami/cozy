@@ -51,7 +51,7 @@ import scala.collection.mutable
  *  version Feb. 27, 2026
  *  version Mar. 31, 2026
  *  version May. 24, 2026
- * @version Jul. 25, 2026
+ * @version Jul. 26, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler(
@@ -3925,7 +3925,6 @@ object Modeler {
       val idparam = MParameter.entityId
       val recordparam = MParameter.record
       val createrecordparam = MParameter("record", MEntityValue.create(entity))
-      val revisionparam = MParameter("cncfRevision", MDataType.create("long"))
       val recordresult = MResult(MObjectRef.record)
       val searchresult = MResult.search(MEntityValue.whole(entity))
       val create = MOperation.commandBody(s"create$title", entityparam) {
@@ -3944,52 +3943,48 @@ object Modeler {
       }
       val load = MOperation.queryBody(s"load$title", idparam, recordresult) {
         blockFor(
-          s"snapshot <- entity_load_snapshot[$wholeclass](action.id)"
+          s"entity <- entity_load[$wholeclass](action.id)"
         )(
-          "OperationResponse(snapshot.entity.toRecord().upsertSingle(\"cncfRevision\", snapshot.token.print))"
+          "OperationResponse(entity.toRecord())"
         )
       }
       val loadrec = MOperation.queryBody(s"load${title}Record", idparam, recordresult) {
         blockFor(
-          s"snapshot <- entity_load_snapshot[$wholeclass](action.id)"
+          s"entity <- entity_load[$wholeclass](action.id)"
         )(
-          "OperationResponse(snapshot.entity.toRecord().upsertSingle(\"cncfRevision\", snapshot.token.print))"
+          "OperationResponse(entity.toRecord())"
         )
       }
-      val save = MOperation.commandBody(s"save$title", List(entityparam, revisionparam), recordresult) {
+      val save = MOperation.commandBody(s"save$title", List(entityparam), recordresult) {
         blockFor(
           s"entity <- exec_pure($wholeclass.create(action.entity.toRecord()))",
-          "expectation <- exec_from(EntityMutationExpectation.parse(action.cncfRevision))",
-          "snapshot <- entity_save(entity, expectation)"
+          "saved <- entity_save_managed(entity)"
         )(
-          "OperationResponse(snapshot.entity.toRecord().upsertSingle(\"cncfRevision\", snapshot.token.print))"
+          "OperationResponse(saved.toRecord())"
         )
       }
-      val saverec = MOperation.commandBody(s"save${title}Record", List(entityparam, revisionparam), recordresult) {
+      val saverec = MOperation.commandBody(s"save${title}Record", List(entityparam), recordresult) {
         blockFor(
           s"entity <- exec_pure($wholeclass.create(action.entity.toRecord()))",
-          "expectation <- exec_from(EntityMutationExpectation.parse(action.cncfRevision))",
-          "snapshot <- entity_save(entity, expectation)"
+          "saved <- entity_save_managed(entity)"
         )(
-          "OperationResponse(snapshot.entity.toRecord().upsertSingle(\"cncfRevision\", snapshot.token.print))"
+          "OperationResponse(saved.toRecord())"
         )
       }
-      val update = MOperation.commandBody(s"update$title", List(updateparam, revisionparam), recordresult) {
+      val update = MOperation.commandBody(s"update$title", List(updateparam), recordresult) {
         blockFor(
           """id <- exec_pure(Consequence.successOrRecordNotFound[EntityId]("id", action.request.toRecord).TAKE)""",
-          "expectation <- exec_from(EntityMutationExpectation.parse(action.cncfRevision))",
-          "snapshot <- entity_update(id, action.entity, expectation)"
+          "record <- entity_update(id, action.entity)"
         )(
-          "OperationResponse(snapshot.record.upsertSingle(\"cncfRevision\", snapshot.token.print))"
+          "OperationResponse(record)"
         )
       }
-      val updaterec = MOperation.commandBody(s"update${title}Record", List(updateparam, revisionparam), recordresult) {
+      val updaterec = MOperation.commandBody(s"update${title}Record", List(updateparam), recordresult) {
         blockFor(
           """id <- exec_pure(Consequence.successOrRecordNotFound[EntityId]("id", action.request.toRecord).TAKE)""",
-          "expectation <- exec_from(EntityMutationExpectation.parse(action.cncfRevision))",
-          "snapshot <- entity_update(id, action.entity, expectation)"
+          "record <- entity_update(id, action.entity)"
         )(
-          "OperationResponse(snapshot.record.upsertSingle(\"cncfRevision\", snapshot.token.print))"
+          "OperationResponse(record)"
         )
       }
       val delete = MOperation.commandBody(s"delete$title", idparam) {

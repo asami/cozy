@@ -7,7 +7,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jul. 24, 2026
- * @version Jul. 25, 2026
+ * @version Jul. 26, 2026
  * @author  ASAMI, Tomoharu
  */
 final class ModelerEntityVersionedMutationGenerationSpec
@@ -18,14 +18,14 @@ final class ModelerEntityVersionedMutationGenerationSpec
     "(?m)^    object [A-Za-z0-9]+Operation extends OperationDefinition".r
 
   "CML Entity CRUD generation" should {
-    "carry the authoritative CNCF revision through every generated mutation" in {
-      Given("a SimpleEntity model whose generated CRUD surface can mutate one Entity")
+    "keep ordinary CRUD independent of Entity revision representation" in {
+      Given("one SimpleEntity and one ordinary Entity without a revision binding")
       val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
       val input = base.resolve("src/test/resources/modeler/simpleentity-parent.dox")
       val out = base.resolve("target/test-generated/modeler-entity-versioned-mutation")
       delete_recursively(out)
 
-      When("Cozy generates the component adapter against the Phase 49 CNCF contract")
+      When("Cozy generates their common managed CRUD adapter")
       val output = run_modeler_scala(input, out)
       val generated = out.resolve(
         "target/scala-3.3.8/src_managed/main/scala/domain/DomainComponent.scala"
@@ -35,32 +35,56 @@ final class ModelerEntityVersionedMutationGenerationSpec
       }
       val content = Files.readString(generated)
 
-      Then("load operations expose the authoritative Entity and its reserved revision")
-      List("LoadPerson", "LoadPersonRecord").foreach { operation =>
-        val block = _operation_block(content, operation, "entity_load_snapshot")
-        block should include("entity_load_snapshot[domain.entity.Person](action.id)")
-        block should include("upsertSingle(\"cncfRevision\", snapshot.token.print)")
-        block should include("ResponseDefinition(result = List(org.goldenport.schema.DataType.Named(\"Record\")))")
+      Then("load operations use the revision-transparent typed Entity boundary")
+      List("Person", "Document").foreach { entity =>
+        List(s"Load$entity", s"Load${entity}Record").foreach { operation =>
+          val invocation =
+            s"entity_load[domain.entity.$entity](action.id)"
+          val block = _operation_block(content, operation, invocation)
+          block should include(invocation)
+          block should include("OperationResponse(entity.toRecord())")
+          block should not include "cncfRevision"
+          block should include("ResponseDefinition(result = List(org.goldenport.schema.DataType.Named(\"Record\")))")
+        }
       }
 
-      And("save and patch-update operations require and advance the same revision")
+      And("save operations work for both revision-managed and unbound Entities")
       List(
-        "SavePerson" -> "entity_save(entity, expectation)",
-        "SavePersonRecord" -> "entity_save(entity, expectation)",
-        "UpdatePerson" -> "entity_update(id, action.entity, expectation)",
-        "UpdatePersonRecord" -> "entity_update(id, action.entity, expectation)"
+        "SavePerson" -> "entity_save_managed(entity)",
+        "SavePersonRecord" -> "entity_save_managed(entity)",
+        "SaveDocument" -> "entity_save_managed(entity)",
+        "SaveDocumentRecord" -> "entity_save_managed(entity)"
       ).foreach { case (operation, invocation) =>
         val block = _operation_block(content, operation, invocation)
-        block should include("BaseContent.simple(\"cncfRevision\")")
-        block should include("exec_from(EntityMutationExpectation.parse(action.cncfRevision))")
         block should include(invocation)
-        block should include("upsertSingle(\"cncfRevision\", snapshot.token.print)")
+        block should include("OperationResponse(saved.toRecord())")
+        block should not include "cncfRevision"
+        block should not include "EntityConcurrencyMetadata"
         block should include("ResponseDefinition(result = List(org.goldenport.schema.DataType.Named(\"Record\")))")
       }
 
-      And("no generated ordinary mutation retains the former unversioned calls")
-      content should not include("entity_save(entity)\n")
-      content should not include("entity_update(id, action.entity)\n")
+      And("patch-update operations leave managed revision lifecycle to Entity and UnitOfWork")
+      List(
+        "UpdatePerson" -> "entity_update(id, action.entity)",
+        "UpdatePersonRecord" -> "entity_update(id, action.entity)",
+        "UpdateDocument" -> "entity_update(id, action.entity)",
+        "UpdateDocumentRecord" -> "entity_update(id, action.entity)"
+      ).foreach { case (operation, invocation) =>
+        val block = _operation_block(content, operation, invocation)
+        block should include(invocation)
+        block should not include "cncfRevision"
+        block should not include "EntityConcurrencyMetadata"
+        block should not include "snapshot.token"
+        block should include("record <- entity_update(id, action.entity)")
+        block should include("OperationResponse(record)")
+        block should not include "snapshot.record"
+        block should include("ResponseDefinition(result = List(org.goldenport.schema.DataType.Named(\"Record\")))")
+      }
+
+      And("no generated ordinary mutation retains retired revision transport")
+      content should not include "EntityConcurrencyMetadata"
+      content should not include "snapshot.token"
+      content should not include "cncfRevision"
     }
   }
 

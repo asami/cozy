@@ -16,7 +16,7 @@ import play.api.libs.json.Json
 
 /*
  * @since   Jun. 23, 2026
- * @version Jul. 25, 2026
+ * @version Jul. 27, 2026
  * @author  ASAMI, Tomoharu
  */
 final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -40,10 +40,10 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         Then("the generated Scala code preserves the model semantics")
         content should include ("object DomainComponent")
         val consequenceadaptations = "exec_from\\(".r.findAllMatchIn(content).toVector
-        consequenceadaptations should have size 4
-        content should include (
-          "expectation <- exec_from(EntityMutationExpectation.parse(action.cncfRevision))"
-        )
+        consequenceadaptations should have size 0
+        content should not include "EntityConcurrencyMetadata"
+        content should not include "snapshot.token"
+        content should not include "cncfRevision"
         content should not include ("collectionId: EntityCollectionId = ???")
         content should include ("extends Component with CollectionTransitionRuleProvider")
         content should include ("override def stateMachineTransitionRules: Vector[CollectionTransitionRule[Any]] = Vector.empty")
@@ -748,7 +748,10 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         cataloglabelcontent should not include ("def toDataStore(): Record")
         And("single-field value readers restore typed, record, and scalar datastore forms")
         cataloglabelcontent should include ("case m: CatalogLabel => Consequence.success(m)")
-        cataloglabelcontent should include ("case m: Record => createC(m)")
+        cataloglabelcontent should include (
+          "case m: Record if INPUT_KEYS_VALUE.exists(key => m.getAny(key).isDefined) => createC(m)"
+        )
+        cataloglabelcontent should include ("case m: Record => createC(m.toJsonString)")
         cataloglabelcontent should include (
           "case other => summon[org.goldenport.convert.ValueReader[String]].readC(other).flatMap(value => createC(value).recoverWith(conclusion => Consequence.valueInvalid(conclusion.displayMessage)))"
         )

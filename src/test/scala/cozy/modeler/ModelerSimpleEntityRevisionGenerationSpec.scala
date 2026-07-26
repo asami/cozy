@@ -8,7 +8,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jul. 25, 2026
- * @version Jul. 25, 2026
+ * @version Jul. 26, 2026
  * @author  ASAMI, Tomoharu
  */
 final class ModelerSimpleEntityRevisionGenerationSpec
@@ -61,7 +61,9 @@ final class ModelerSimpleEntityRevisionGenerationSpec
       component should not include "entity: _root_.domain.entity.aggregate.Person"
       component should include("entity: _root_.domain.entity.create.Person")
       component should include("entity: _root_.domain.entity.update.Person")
-      component should include("BaseContent.simple(\"cncfRevision\")")
+      component should not include "BaseContent.simple(\"cncfRevision\")"
+      component should not include "EntityConcurrencyMetadata"
+      component should not include "snapshot.token"
       component should include(
         "revisionModelKind = Some(org.goldenport.cncf.entity.EntityRevisionModelKind.SimpleEntity)"
       )
