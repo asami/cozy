@@ -15,11 +15,11 @@ organization := "org.simplemodeling"
 
 name := "cozy"
 
-version := "0.3.0-SNAPSHOT"
+version := "0.3.0"
 
-lazy val cncfVersion = "0.5.1-SNAPSHOT"
+lazy val cncfVersion = "0.5.1"
 
-lazy val simpleModelingModelVersion = "0.2.0-SNAPSHOT"
+lazy val simpleModelingModelVersion = "0.2.0"
 
 lazy val cncfCollaboratorApiVersion = "0.1.0"
 
@@ -68,10 +68,10 @@ libraryDependencies += "org.goldenport" %% "goldenport-record" % "2.2.5"
 // override kaleidox
 libraryDependencies += "org.smartdox" %% "smartdox" % "2.4.16"
 
-libraryDependencies += "org.goldenport" %% "kaleidox" % "0.6.18-SNAPSHOT"
+libraryDependencies += "org.goldenport" %% "kaleidox" % "0.6.18"
 
 val simplemodelerVersion =
-  sys.props.getOrElse("simplemodeler.version", sys.env.getOrElse("SIMPLEMODELER_VERSION", "1.1.24-SNAPSHOT"))
+  sys.props.getOrElse("simplemodeler.version", sys.env.getOrElse("SIMPLEMODELER_VERSION", "1.1.24"))
 
 libraryDependencies += "org.simplemodeling" %% "simplemodeler" % simplemodelerVersion
 

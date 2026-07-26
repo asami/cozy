@@ -8,7 +8,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jul. 25, 2026
- * @version Jul. 26, 2026
+ * @version Jul. 27, 2026
  * @author  ASAMI, Tomoharu
  */
 final class ModelerSimpleEntityRevisionGenerationSpec
@@ -89,7 +89,7 @@ final class ModelerSimpleEntityRevisionGenerationSpec
       val version = CozyScaffold.CarDependencyVersions.default.simpleModelingModelVersion
 
       Then("new generated projects consume the revision-aware model")
-      version shouldBe "0.2.0-SNAPSHOT"
+      version shouldBe "0.2.0"
     }
   }
 
