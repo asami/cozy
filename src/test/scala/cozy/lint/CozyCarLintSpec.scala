@@ -4,6 +4,7 @@ import java.io.{ByteArrayOutputStream, PrintStream}
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
 import scala.collection.JavaConverters._
+import org.scalacheck.{Gen, Prop, Test}
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -11,7 +12,7 @@ import play.api.libs.json.Json
 
 /*
  * @since   Jul.  7, 2026
- * @version Jul. 15, 2026
+ * @version Jul. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -48,6 +49,66 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
             .find(_.code == "car.documentation.component-help.missing")
             .map(_.level) shouldBe Some(CozyCarLint.Level.Warn)
         }
+      }
+
+      "reports the shared CAR metadata compatibility decision" in {
+        _with_temp_dir("cozy-car-lint-compatibility") { dir =>
+          Given("a declared CAR with one accepted contract and one excluded-target variant")
+          _write_project(dir)
+          _write_valid_cml(dir)
+          _write_compatibility_project(dir, excluded = false)
+
+          When("integrated CAR lint evaluates the project-owned contract")
+          val accepted = CozyCarLint.lint(dir, None, noabi = true)
+          _write_compatibility_project(dir, excluded = true)
+          val rejected = CozyCarLint.lint(dir, None, noabi = true)
+
+          Then("Review reports the same accepted facts and typed package diagnostic")
+          accepted
+            .find(_.code == "car.metadata.compatibility.accepted")
+            .map(_.level) shouldBe Some(CozyCarLint.Level.Ok)
+          val report = accepted
+            .find(_.code == "car.metadata.compatibility.accepted")
+            .map(_.message)
+            .getOrElse("")
+          report should include("cozyVersion=0.3.1")
+          report should include(
+            "cncfCompileCoordinate=org.goldenport::goldenport-cncf:0.5.17"
+          )
+          report should include("runtimeTested=0.5.17")
+          rejected
+            .find(_.code == "CAR_METADATA_CNCF_COMPILE_TARGET_EXCLUDED")
+            .map(_.level) shouldBe Some(CozyCarLint.Level.Fail)
+        }
+      }
+
+      "accepts generated exact CNCF versions through integrated lint" in {
+        Given("generated compatible project-owned CNCF identities")
+        val property = Prop.forAll(Gen.chooseNum(1, 19)) { patch =>
+          _with_temp_dir("cozy-car-lint-compatibility-property") { dir =>
+            val cncfversion = s"0.5.$patch"
+            _write_project(dir)
+            _write_valid_cml(dir)
+            _write_compatibility_project(
+              dir,
+              excluded = false,
+              cncfversion = cncfversion
+            )
+
+            When("integrated CAR lint evaluates each generated project")
+            val findings = CozyCarLint.lint(dir, None, noabi = true)
+
+            Then("the accepted report preserves the generated exact identity")
+            findings
+              .find(_.code == "car.metadata.compatibility.accepted")
+              .exists(_.message.contains(s"runtimeTested=$cncfversion"))
+          }
+        }
+
+        Test.check(
+          Test.Parameters.default.withMinSuccessfulTests(50),
+          property
+        ).passed shouldBe true
       }
 
       "accepts complete CAR documentation and descriptive generated-help metadata" in {
@@ -342,12 +403,12 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
       }
 
       "configures Cozy logging before Kaleidox runtime initialization" in {
+        Given("a JSON CLI output policy before runtime is built")
         val configkey = "logback.configurationFile"
         val statuskey = "logback.statusListenerClass"
         val oldconfig = Option(System.getProperty(configkey))
         val oldstatus = Option(System.getProperty(statuskey))
         try {
-          Given("a JSON CLI output policy before runtime is built")
           System.clearProperty(configkey)
           System.clearProperty(statuskey)
           val preflight = cozy.CozyCliPreflight.parse(
@@ -416,6 +477,40 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
       """addSbtPlugin("org.goldenport" % "sbt-cozy" % "0.1.11")"""
     )
     _write(dir.resolve("build.sbt"), "scalaVersion := \"2.12.20\"")
+  }
+
+  private def _write_compatibility_project(
+    dir: Path,
+    excluded: Boolean,
+    cncfversion: String = "0.5.17"
+  ): Unit = {
+    val exclusions =
+      if (excluded)
+        s"        excluded:\n          - $cncfversion"
+      else
+        "        excluded: []"
+    _write(
+      dir.resolve("project.yaml"),
+      s"""project:
+         |  kind: car
+         |  name: sample
+         |packaging:
+         |  kind: car
+         |  car:
+         |    runtime:
+         |      cncf:
+         |        minimum: $cncfversion
+         |        maximum: 0.5.19
+         |$exclusions
+         |        tested:
+         |          - $cncfversion
+         |build:
+         |  cozyVersion: 0.3.1
+         |  dependencies:
+         |    compile:
+         |      - org.goldenport::goldenport-cncf:$cncfversion
+         |""".stripMargin
+    )
   }
 
   private def _write_cml(dir: Path): Unit =

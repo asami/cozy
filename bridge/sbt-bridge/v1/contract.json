@@ -4,6 +4,7 @@
   "sourceOfTruth": "cozy",
   "supportedActions": [
     "generate",
+    "rebind-generation-provenance",
     "package-car",
     "package-sar",
     "publish-car",

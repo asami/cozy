@@ -14,12 +14,12 @@ import scala.collection.JavaConverters._
  * @since   May. 20, 2026
  *  version May. 25, 2026
  *  version Jun. 27, 2026
- * @version Jul. 21, 2026
+ * @version Jul. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyScaffold {
   private val _default_sbt_version = "1.9.7"
-  private val _default_sbt_cozy_version = "0.1.15-SNAPSHOT"
+  private val _default_sbt_cozy_version = "0.1.16-SNAPSHOT"
 
   case class CarDependencyVersions(
     cncfVersion: String,
@@ -641,12 +641,12 @@ private[cozy] object CozyScaffold {
   private[cozy] def carSarSampleCml(scaffold: CarScaffoldConfig): String =
     carSampleCml(scaffold)
 
-  private[cozy] def carSarSubsystemDescriptorYaml(appname: String): String =
-    s"""subsystem: ${appname}
-      |version: 0.0.1-SNAPSHOT
+  private[cozy] def carSarSubsystemDescriptorYaml(scaffold: CarScaffoldConfig): String =
+    s"""subsystem: ${scaffold.artifactName}
+      |version: ${scaffold.version}
       |components:
-      |  - name: ${appname}
-      |    version: 0.0.1-SNAPSHOT
+      |  - name: ${scaffold.artifactName}
+      |    version: ${scaffold.version}
       |  - name: textus-user-account
       |    version: 0.1.1-SNAPSHOT
       |#security:
@@ -1718,14 +1718,17 @@ private[cozy] object CozyScaffold {
       |  media publish <media-file> --profile <name> [--target <id>] [--dry-run]
       |      Publish verified outputs through a logical profile without storing machine-specific absolute paths in the package.
       |
-      |  modeler-scala <model-file> --save <dir>
-      |      Generate Scala sources from a CML/Dox model.
+      |  modeler-scala <model-file> --save <dir> [--generation-source-identity <project-relative-path>]
+      |      Generate Scala sources from a CML/Dox model. CNCF descriptor generation requires a stable project-relative source identity and writes target/cozy/generation-provenance.json.
       |
-      |  modeler-scala-value <model-file> --save <dir>
-      |      Generate value/domain model Scala sources without a component.
+      |  modeler-scala-value <model-file> --save <dir> [--generation-source-identity <project-relative-path>]
+      |      Generate value/domain model Scala sources without a component. CNCF descriptor generation requires a stable project-relative source identity and writes target/cozy/generation-provenance.json.
       |
-      |  package-car --save <file> --main-jar <file> --name <name> --version <version> [--component <component>] [--project-dir <dir>] [--car-dir <dir>] [--entities <spec>] [--abi-manifest <file>]
-      |      Build a CAR archive with abi-manifest.json. Explicit --abi-manifest overrides src/main/car/abi-manifest.json; versioned src/main/car/<version>/abi-manifest.json files are lint baselines only.
+      |  generation-provenance-validate <model-file> --save <generation-output-root> --cncf-version <version> --cncf-runtime-descriptor-sha256 <sha256> --cozy-generator-version <version> --generation-source-identity <project-relative-path> --generation-source-sha256 <sha256>
+      |      Validate generated Scala and target/cozy/generation-provenance.json against the owning build's exact generation inputs.
+      |
+      |  package-car --save <file> --main-jar <file> --name <name> --version <version> --project-dir <dir> [--component <component>] [--car-dir <dir>] [--entities <spec>] [--abi-manifest <file>]
+      |      Build a CAR archive with abi-manifest.json and car-runtime-manifest.json from the required project.yaml CAR contract. Explicit --abi-manifest overrides src/main/car/abi-manifest.json; versioned src/main/car/<version>/abi-manifest.json files are lint baselines only.
       |
       |  package-sar --save <file> --source-dir <dir> --name <name> --version <version>
       |      Build a SAR archive.

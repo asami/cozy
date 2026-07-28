@@ -1,0 +1,49 @@
+{
+  "schema": "cozy.generation-compatibility.v1",
+  "evidenceOwner": {
+    "owner": "Cozy generation boundary",
+    "location": "META-INF/cozy/generation-compatibility.v1.json"
+  },
+  "publishedDefault": null,
+  "pairs": [
+    {
+      "cncfTarget": {
+        "organization": "org.goldenport",
+        "artifact": "goldenport-cncf_3",
+        "version": "0.5.1"
+      },
+      "cozyGenerator": {
+        "organization": "org.simplemodeling",
+        "artifact": "cozy_2.12",
+        "version": "0.3.0"
+      },
+      "status": "unproven"
+    },
+    {
+      "cncfTarget": {
+        "organization": "org.goldenport",
+        "artifact": "goldenport-cncf_3",
+        "version": "0.5.2-SNAPSHOT"
+      },
+      "cozyGenerator": {
+        "organization": "org.simplemodeling",
+        "artifact": "cozy_2.12",
+        "version": "0.3.1-SNAPSHOT"
+      },
+      "status": "proven"
+    },
+    {
+      "cncfTarget": {
+        "organization": "org.goldenport",
+        "artifact": "goldenport-cncf_3",
+        "version": "0.5.1"
+      },
+      "cozyGenerator": {
+        "organization": "org.simplemodeling",
+        "artifact": "cozy_2.12",
+        "version": "0.3.1-SNAPSHOT"
+      },
+      "status": "proven"
+    }
+  ]
+}

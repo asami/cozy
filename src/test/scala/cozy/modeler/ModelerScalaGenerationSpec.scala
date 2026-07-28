@@ -16,12 +16,12 @@ import play.api.libs.json.Json
 
 /*
  * @since   Jun. 23, 2026
- * @version Jul. 27, 2026
+ * @version Jul. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
   "CML modeler Scala generation" should {
-    "generate Scala component code" which {
+    "generate component and entity source" which {
       "modeler-scala generates DomainComponent" in {
         Given("a CML source model for Scala component generation")
         val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
@@ -86,7 +86,13 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         content should include ("PROP_AGE")
         content should include ("def toRecord(e: Person): Record = e.toRecord()")
         content should include ("override def toStoreRecord(e: Person): Record = e.toDataStore()")
-        content should include ("override def fromStoreRecord(r: Record): Consequence[Person] = createC(r)")
+        content should include (
+          "override def fromStoreRecord(r: Record): Consequence[Person] = EntityStoreRecordProjection.project(r, _store_record_attributes).flatMap(createC)"
+        )
+        content should include ("override def fromStoreRecord(context: EntityStoreDecodeContext, r: Record): Consequence[Person] =")
+        content should include ("EntityPersistent.restoreCollectionIdentity(")
+        content should include ("context.owningCollectionId")
+        content should include ("id => entity.copy(id = id)")
         content should include ("val sourcemap = source.asMap")
         content should not include ("val sourceMap = source.asMap")
         content should include (""""permission" -> _permission_json(securityAttributes.rights)""")
@@ -470,6 +476,9 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         content should include ("\"person_display_name\" -> _to_data_store_value(displayName)")
         content should include ("\"age\" -> _to_data_store_value(age)")
         content should include ("\"body\" -> _to_data_store_value(body)")
+        content should include (
+          """EntityStoreAttribute.scalarString("displayName", "person_display_name")"""
+        )
         content should include ("INPUT_KEYS_DISPLAY_NAME")
         content should include ("\"display_name_ext\"")
         content should include ("\"displayName\"")
@@ -605,6 +614,9 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         count_token(content, "priority = 0") >= 4 shouldBe true
       }
 
+    }
+
+    "project datatypes and built-in values" which {
       "modeler-scala projects plain datatypes as constrained nominal scalars" in {
         Given("an ArtScene-like CML model with constrained nominal scalars and record values")
         val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
@@ -751,7 +763,10 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         cataloglabelcontent should include (
           "case m: Record if INPUT_KEYS_VALUE.exists(key => m.getAny(key).isDefined) => createC(m)"
         )
-        cataloglabelcontent should include ("case m: Record => createC(m.toJsonString)")
+        cataloglabelcontent should include (
+          "case m: Record => Consequence.valueInvalid(m, org.goldenport.schema.XString)"
+        )
+        cataloglabelcontent should not include ("case m: Record => createC(m.toJsonString)")
         cataloglabelcontent should include (
           "case other => summon[org.goldenport.convert.ValueReader[String]].readC(other).flatMap(value => createC(value).recoverWith(conclusion => Consequence.valueInvalid(conclusion.displayMessage)))"
         )
@@ -804,6 +819,25 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         exhibitioncontent should include ("\"catalogPriority\" -> _to_data_store_value(catalogPriority)")
         exhibitioncontent should include ("\"displayPeriod\" -> _to_data_store_value(displayPeriod)")
         exhibitioncontent should include ("\"publishedOn\" -> _to_data_store_value(publishedOn)")
+        And("generated persistence metadata distinguishes scalar String and structured fields")
+        exhibitioncontent should include (
+          """EntityStoreAttribute.scalarString("title", "title")"""
+        )
+        exhibitioncontent should include (
+          """EntityStoreAttribute.scalarString("periodEnd", "periodEnd")"""
+        )
+        exhibitioncontent should include (
+          """EntityStoreAttribute.scalarString("catalogLabel", "catalogLabel")"""
+        )
+        exhibitioncontent should not include (
+          """EntityStoreAttribute.scalarString("sourceConfidence", "sourceConfidence")"""
+        )
+        exhibitioncontent should not include (
+          """EntityStoreAttribute.scalarString("displayPeriod", "displayPeriod")"""
+        )
+        exhibitioncontent should include (
+          "EntityStoreRecordProjection.project(r, _store_record_attributes).flatMap(createC)"
+        )
       }
 
       "modeler-scala projects complex datatypes as structured datatype objects" in {
@@ -922,6 +956,9 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         content should include ("""datatype = "filebundle"""")
       }
 
+    }
+
+    "project runtime metadata and operation contracts" which {
       "modeler-scala emits aggregate metadata into component definitions" in {
         Given("a CML source model for Scala component generation")
         val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
@@ -1428,6 +1465,9 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         content should include ("\"kind\" -> \"main\"")
       }
 
+    }
+
+    "project packages routing and relationships" which {
       "modeler-scala emits component in configured package" in {
         Given("a CML source model for Scala component generation")
         val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()

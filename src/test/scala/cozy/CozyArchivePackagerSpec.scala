@@ -19,11 +19,12 @@ import play.api.libs.json.{Json, JsValue}
  * @since   May. 20, 2026
  *  version May. 22, 2026
  *  version Jun. 18, 2026
- * @version Jul. 16, 2026
+ * @version Jul. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "Cozy archive packager" should {
+    "assemble descriptor-first CAR surfaces" which {
     "write descriptor-first CAR layout" in {
     _with_temp_dir("cozy-car") { dir =>
       Given("component artifacts, CAR source content, and public entity descriptors")
@@ -37,11 +38,19 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
       val carwebdescriptor = _write(dir.resolve("src/main/car/web/web.yaml"), "apps:\n  - name: from-car\n")
       _write(dir.resolve("src/main/web/web.yaml"), "apps:\n  - name: from-web-app\n")
       val webapp = _write(dir.resolve("src/main/web/cwitter/index.html"), "<!doctype html><title>Cwitter</title>")
-      val assembly = _write(dir.resolve("assembly-descriptor.yaml"), "subsystem: sample-component\ncomponents:\n  - name: sample-component\n")
+      val assembly = _write(
+        dir.resolve("assembly-descriptor.yaml"),
+        """subsystem: sample-component
+          |version: 0.1.0
+          |components:
+          |  - name: sample-component
+          |    version: 0.1.0
+          |""".stripMargin
+      )
       val archive = dir.resolve("out/sample.car")
 
       When("Cozy packages the component as a CAR")
-      CozyArchivePackager.buildCar(List(
+      CarPackagingSpecSupport.buildCarWithContract(List(
         "--save", archive.toString,
         "--main-jar", mainjar.toString,
         "--lib-jars", libjar.toString,
@@ -103,6 +112,76 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
     }
   }
 
+    "reject an assembly descriptor whose subsystem version differs from the CAR coordinate" in {
+    _with_temp_dir("cozy-car-assembly-coordinate") { dir =>
+      Given("a CAR assembly whose subsystem retains an older version")
+      val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
+      val assembly = _write(
+        dir.resolve("assembly-descriptor.yaml"),
+        """subsystem: sample-component
+          |version: 0.0.9
+          |components:
+          |  - name: sample-component
+          |    version: 0.1.0
+          |""".stripMargin
+      )
+      val archive = dir.resolve("out/sample.car")
+
+      When("Cozy packages the assembly as a newer CAR coordinate")
+      val error = intercept[Throwable] {
+        CarPackagingSpecSupport.buildCarWithContract(List(
+          "--save", archive.toString,
+          "--main-jar", mainjar.toString,
+          "--assembly-descriptor", assembly.toString,
+          "--name", "sample-component",
+          "--version", "0.1.0",
+          "--component", "sample-component"
+        ))
+      }
+
+      Then("packaging rejects the stale assembly before writing the archive")
+      error.getMessage should include(
+        "assembly-descriptor.yaml must declare subsystem version '0.1.0'"
+      )
+      Files.exists(archive) shouldBe false
+    }
+  }
+
+    "reject an assembly descriptor whose primary component version differs from the CAR coordinate" in {
+    _with_temp_dir("cozy-car-assembly-component-coordinate") { dir =>
+      Given("a CAR assembly with the current subsystem version and an older primary component version")
+      val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
+      val assembly = _write(
+        dir.resolve("assembly-descriptor.yaml"),
+        """subsystem: sample-component
+          |version: 0.1.0
+          |components:
+          |  - name: sample-component
+          |    version: 0.0.9
+          |""".stripMargin
+      )
+      val archive = dir.resolve("out/sample.car")
+
+      When("Cozy packages the assembly at the current CAR coordinate")
+      val error = intercept[Throwable] {
+        CarPackagingSpecSupport.buildCarWithContract(List(
+          "--save", archive.toString,
+          "--main-jar", mainjar.toString,
+          "--assembly-descriptor", assembly.toString,
+          "--name", "sample-component",
+          "--version", "0.1.0",
+          "--component", "sample-component"
+        ))
+      }
+
+      Then("packaging rejects the stale primary component before writing the archive")
+      error.getMessage should include(
+        "assembly-descriptor.yaml must declare component 'sample-component' at CAR version '0.1.0'"
+      )
+      Files.exists(archive) shouldBe false
+    }
+  }
+
     "merge compatible ABI surfaces from multiple generated CML metadata files" in {
     _with_temp_dir("cozy-car-multiple-model-metadata-abi") { dir =>
       Given("two generated CML metadata files with distinct operation and entity exports")
@@ -112,7 +191,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
       val archive = dir.resolve("out/sample.car")
 
       When("Cozy packages both metadata documents into one CAR ABI")
-      CozyArchivePackager.buildCar(List(
+      CarPackagingSpecSupport.buildCarWithContract(List(
         "--save", archive.toString,
         "--main-jar", mainjar.toString,
         "--model-metadata", s"${first},${second}",
@@ -150,7 +229,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
       val abisidecar = dir.resolve("target/cozy/abi-manifest.json")
 
       When("Cozy packages the CAR without an explicit ABI manifest")
-      CozyArchivePackager.buildCar(List(
+      CarPackagingSpecSupport.buildCarWithContract(List(
         "--save", archive.toString,
         "--project-dir", projectdir.toString,
         "--main-jar", mainjar.toString,
@@ -215,7 +294,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
       val archive = dir.resolve("out/sample.car")
 
       When("Cozy packages the CAR")
-      CozyArchivePackager.buildCar(List(
+      CarPackagingSpecSupport.buildCarWithContract(List(
         "--save", archive.toString,
         "--main-jar", mainjar.toString,
         "--car-dir", cardir.toString,
@@ -256,7 +335,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
       val archive = dir.resolve("out/sample.car")
 
       When("Cozy packages the CAR")
-      CozyArchivePackager.buildCar(List(
+      CarPackagingSpecSupport.buildCarWithContract(List(
         "--save", archive.toString,
         "--main-jar", mainjar.toString,
         "--car-dir", cardir.toString,
@@ -301,7 +380,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
       val archive = dir.resolve("out/sample.car")
 
       When("Cozy packages the CAR")
-      CozyArchivePackager.buildCar(List(
+      CarPackagingSpecSupport.buildCarWithContract(List(
         "--save", archive.toString,
         "--project-dir", projectdir.toString,
         "--main-jar", mainjar.toString,
@@ -329,7 +408,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
       val archive = dir.resolve("out/sample.car")
 
       When("Cozy packages the CAR with --abi-manifest")
-      CozyArchivePackager.buildCar(List(
+      CarPackagingSpecSupport.buildCarWithContract(List(
         "--save", archive.toString,
         "--main-jar", mainjar.toString,
         "--car-dir", cardir.toString,
@@ -344,7 +423,9 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
       _zip_text(archive, "abi-manifest.json") shouldBe Files.readString(explicitabi)
     }
   }
+  }
 
+    "validate CAR descriptors and project policy" which {
     "reject generated model metadata with an unsupported schema" in {
     _with_temp_dir("cozy-car-invalid-model-metadata") { dir =>
       Given("generated metadata whose schema is not the CML metadata contract")
@@ -354,7 +435,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
 
       When("Cozy packages the CAR without an explicit ABI manifest")
       val ex = intercept[Throwable] {
-        CozyArchivePackager.buildCar(List(
+        CarPackagingSpecSupport.buildCarWithContract(List(
           "--save", archive.toString,
           "--main-jar", mainjar.toString,
           "--model-metadata", metadata.toString,
@@ -380,7 +461,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
 
       When("Cozy packages a different CAR version")
       val ex = intercept[Throwable] {
-        CozyArchivePackager.buildCar(List(
+        CarPackagingSpecSupport.buildCarWithContract(List(
           "--save", archive.toString,
           "--main-jar", mainjar.toString,
           "--car-dir", cardir.toString,
@@ -398,12 +479,14 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
 
     "prefer structured component descriptor override" in {
     _with_temp_dir("cozy-car-componentlet") { dir =>
+      Given("a complete structured component descriptor override")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
       val archive = dir.resolve("out/sample.car")
       val descriptorjson =
         """{"component":{"name":"sample-component","version":"0.1.0","kind":"component","isPrimary":"true"},"componentlets":[{"name":"notice-admin","kind":"componentlet"},{"name":"public-notice","kind":"componentlet"}]}"""
 
-      CozyArchivePackager.buildCar(List(
+      When("Cozy packages the CAR with that descriptor")
+      CarPackagingSpecSupport.buildCarWithContract(List(
         "--save", archive.toString,
         "--main-jar", mainjar.toString,
         "--name", "sample-component",
@@ -412,6 +495,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
         "--extensions", s"""{"componentDescriptorJson":${Json.stringify(Json.toJson(descriptorjson))}}"""
       ))
 
+      Then("the structured descriptor is preserved exactly")
       val descriptor = _zip_text(archive, "component-descriptor.json")
       descriptor shouldBe descriptorjson
       descriptor should include ("\"componentlets\"")
@@ -422,12 +506,14 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
 
     "accept descriptor override whose name is the component name" in {
     _with_temp_dir("cozy-car-component-descriptor-component-name") { dir =>
+      Given("a descriptor whose component name differs from the versioned archive name")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
       val archive = dir.resolve("out/sample-component-0.1.0.car")
       val descriptorjson =
         """{"component":{"name":"sample-component","version":"0.1.0","kind":"component"},"componentlets":[]}"""
 
-      CozyArchivePackager.buildCar(List(
+      When("Cozy packages the versioned archive")
+      CarPackagingSpecSupport.buildCarWithContract(List(
         "--save", archive.toString,
         "--main-jar", mainjar.toString,
         "--name", "sample-component-0.1.0",
@@ -436,19 +522,22 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
         "--extensions", s"""{"componentDescriptorJson":${Json.stringify(Json.toJson(descriptorjson))}}"""
       ))
 
+      Then("the component-name descriptor remains valid")
       _zip_text(archive, "component-descriptor.json") shouldBe descriptorjson
     }
   }
 
     "reject structured component descriptor override without version" in {
     _with_temp_dir("cozy-car-componentlet-version") { dir =>
+      Given("a structured descriptor override without a CAR version")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
       val archive = dir.resolve("out/sample.car")
       val descriptorjson =
         """{"component":{"name":"sample-component","kind":"component"},"componentlets":[]}"""
 
+      When("Cozy validates the descriptor during packaging")
       val ex = intercept[IllegalArgumentException] {
-        CozyArchivePackager.buildCar(List(
+        CarPackagingSpecSupport.buildCarWithContract(List(
           "--save", archive.toString,
           "--main-jar", mainjar.toString,
           "--name", "sample-component",
@@ -458,12 +547,14 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
         ))
       }
 
+      Then("the missing version is rejected")
       ex.getMessage should include ("componentDescriptorJson must declare CAR version")
     }
   }
 
     "read project packaging policy and write dependency manifest" in {
     _with_temp_dir("cozy-car-project-policy") { dir =>
+      Given("project-owned dependency and manifest packaging policy")
       val projectdir = dir.resolve("project")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
       val libjar = _write(dir.resolve("artifacts/dep.jar"), "dep")
@@ -485,7 +576,8 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
           |""".stripMargin
       )
 
-      CozyArchivePackager.buildCar(List(
+      When("Cozy packages the CAR from that project")
+      CarPackagingSpecSupport.buildCarWithContract(List(
         "--save", archive.toString,
         "--project-dir", projectdir.toString,
         "--main-jar", mainjar.toString,
@@ -495,6 +587,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
         "--component", "sample-component"
       ))
 
+      Then("the archive projects the policy without embedding disabled dependencies")
       val entries = _zip_entries(archive)
       val manifest = _zip_text(archive, "component-dependencies.yaml")
       val descriptor = _zip_text(archive, "component-descriptor.json")
@@ -510,6 +603,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
 
     "write project component config into component descriptor" in {
     _with_temp_dir("cozy-car-project-component-config") { dir =>
+      Given("project-owned component configuration")
       val projectdir = dir.resolve("project")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
       val archive = dir.resolve("out/sample.car")
@@ -522,7 +616,8 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
           |""".stripMargin
       )
 
-      CozyArchivePackager.buildCar(List(
+      When("Cozy packages the component")
+      CarPackagingSpecSupport.buildCarWithContract(List(
         "--save", archive.toString,
         "--project-dir", projectdir.toString,
         "--main-jar", mainjar.toString,
@@ -531,6 +626,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
         "--component", "sample-component"
       ))
 
+      Then("the descriptor contains the project configuration")
       val descriptor = Json.parse(_zip_text(archive, "component-descriptor.json"))
       val config = descriptor \ "config"
       (config \ "textus.component.art-scene.datastores.application.policy").as[String] shouldBe "local-default"
@@ -539,6 +635,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
 
     "accept CNCF runtime requirement while defaulting project CAR policy" in {
     _with_temp_dir("cozy-car-runtime-requirement") { dir =>
+      Given("a minimal runtime contract and conventional project resources")
       val projectdir = dir.resolve("project")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
       val libjar = _write(dir.resolve("artifacts/dep.jar"), "dep")
@@ -567,7 +664,8 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
           |""".stripMargin
       )
 
-      CozyArchivePackager.buildCar(List(
+      When("Cozy packages with default CAR policy")
+      CarPackagingSpecSupport.buildCarWithContract(List(
         "--save", archive.toString,
         "--project-dir", projectdir.toString,
         "--main-jar", mainjar.toString,
@@ -577,6 +675,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
         "--component", "sample-component"
       ))
 
+      Then("the default policy selects project resources without embedding dependencies")
       val entries = _zip_entries(archive)
       entries should contain ("web/WEB-INF/web.yaml")
       entries should contain ("web/WEB-INF/form.yaml")
@@ -586,9 +685,12 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
       entries should not contain "lib/dep.jar"
     }
   }
+  }
 
+    "admit CNCF runtime compatibility evidence" which {
     "read CNCF runtime descriptor from lib jar without embedding dependencies" in {
     _with_temp_dir("cozy-car-runtime-descriptor-jar") { dir =>
+      Given("an exact CNCF runtime descriptor on the compile classpath")
       val projectdir = dir.resolve("project")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
       val cncfjar = _write_zip(
@@ -618,9 +720,10 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
           |""".stripMargin
       )
 
+      When("Cozy packages with project dependency embedding disabled")
       val stderr = new ByteArrayOutputStream()
       Console.withErr(new PrintStream(stderr)) {
-        CozyArchivePackager.buildCar(List(
+        CarPackagingSpecSupport.buildCarWithContract(List(
           "--save", archive.toString,
           "--project-dir", projectdir.toString,
           "--main-jar", mainjar.toString,
@@ -631,6 +734,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
         ))
       }
 
+      Then("the descriptor supplies runtime evidence without entering the CAR lib directory")
       val entries = _zip_entries(archive)
       stderr.toString(StandardCharsets.UTF_8.name()) should not include "CNCF runtime catalog is unavailable"
       entries should not contain "lib/goldenport-cncf_3.jar"
@@ -640,6 +744,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
 
     "accept CNCF runtime version above declared minimum" in {
     _with_temp_dir("cozy-car-runtime-minimum-compatible") { dir =>
+      Given("a resolved CNCF version inside the declared runtime range")
       val projectdir = dir.resolve("project")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
       val cncfjar = _write_zip(
@@ -662,7 +767,8 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
           |""".stripMargin
       )
 
-      CozyArchivePackager.buildCar(List(
+      When("Cozy validates and packages the CAR")
+      CarPackagingSpecSupport.buildCarWithContract(List(
         "--save", archive.toString,
         "--project-dir", projectdir.toString,
         "--main-jar", mainjar.toString,
@@ -672,12 +778,14 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
         "--component", "sample-component"
       ))
 
+      Then("the compatible archive is created")
       Files.exists(archive) shouldBe true
     }
   }
 
     "reject CNCF runtime version below declared minimum" in {
     _with_temp_dir("cozy-car-runtime-minimum-too-low") { dir =>
+      Given("a resolved CNCF version below the declared minimum")
       val projectdir = dir.resolve("project")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
       val cncfjar = _write_zip(
@@ -700,8 +808,9 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
           |""".stripMargin
       )
 
+      When("Cozy evaluates the project contract")
       val error = intercept[RuntimeException] {
-        CozyArchivePackager.buildCar(List(
+        CarPackagingSpecSupport.buildCarWithContract(List(
           "--save", archive.toString,
           "--project-dir", projectdir.toString,
           "--main-jar", mainjar.toString,
@@ -712,6 +821,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
         ))
       }
 
+      Then("the typed range diagnostic identifies both versions")
       error.getMessage should include ("below")
       error.getMessage should include ("0.4.8")
       error.getMessage should include ("0.4.9")
@@ -720,6 +830,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
 
     "reject CNCF runtime version above declared maximum" in {
     _with_temp_dir("cozy-car-runtime-maximum-exceeded") { dir =>
+      Given("a resolved CNCF version above the declared maximum")
       val projectdir = dir.resolve("project")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
       val cncfjar = _write_zip(
@@ -742,8 +853,9 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
           |""".stripMargin
       )
 
+      When("Cozy evaluates the project contract")
       val error = intercept[RuntimeException] {
-        CozyArchivePackager.buildCar(List(
+        CarPackagingSpecSupport.buildCarWithContract(List(
           "--save", archive.toString,
           "--project-dir", projectdir.toString,
           "--main-jar", mainjar.toString,
@@ -754,6 +866,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
         ))
       }
 
+      Then("the typed range diagnostic identifies both versions")
       error.getMessage should include ("maximum")
       error.getMessage should include ("0.4.10")
       error.getMessage should include ("0.4.9")
@@ -762,6 +875,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
 
     "reject excluded CNCF runtime version" in {
     _with_temp_dir("cozy-car-runtime-excluded") { dir =>
+      Given("a resolved CNCF version listed in the excluded set")
       val projectdir = dir.resolve("project")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
       val cncfjar = _write_zip(
@@ -785,8 +899,9 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
           |""".stripMargin
       )
 
+      When("Cozy evaluates the project contract")
       val error = intercept[RuntimeException] {
-        CozyArchivePackager.buildCar(List(
+        CarPackagingSpecSupport.buildCarWithContract(List(
           "--save", archive.toString,
           "--project-dir", projectdir.toString,
           "--main-jar", mainjar.toString,
@@ -797,6 +912,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
         ))
       }
 
+      Then("the exclusion diagnostic identifies the rejected version")
       error.getMessage should include ("excluded")
       error.getMessage should include ("0.4.10")
     }
@@ -804,6 +920,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
 
     "reject CNCF runtime tested list that omits resolved runtime descriptor" in {
     _with_temp_dir("cozy-car-runtime-tested-mismatch") { dir =>
+      Given("a tested set that omits the resolved CNCF compile target")
       val projectdir = dir.resolve("project")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
       val cncfjar = _write_zip(
@@ -829,8 +946,9 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
           |""".stripMargin
       )
 
+      When("Cozy evaluates the project contract")
       val error = intercept[RuntimeException] {
-        CozyArchivePackager.buildCar(List(
+        CarPackagingSpecSupport.buildCarWithContract(List(
           "--save", archive.toString,
           "--project-dir", projectdir.toString,
           "--main-jar", mainjar.toString,
@@ -841,6 +959,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
         ))
       }
 
+      Then("the tested-set diagnostic names the missing target")
       error.getMessage should include ("packaging.car.runtime.cncf.tested")
       error.getMessage should include ("0.4.10")
     }
@@ -848,6 +967,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
 
     "prefer explicit runtime catalog URL over runtime jar descriptor" in {
     _with_temp_dir("cozy-car-runtime-catalog-url") { dir =>
+      Given("an explicit runtime catalog URL and a different JAR catalog")
       val projectdir = dir.resolve("project")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
       val cncfjar = _write_zip(
@@ -856,6 +976,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
         """schemaVersion: 1
           |runtime: cncf
           |version: 0.4.10-SNAPSHOT
+          |module: org.goldenport:goldenport-cncf_3:0.4.10-SNAPSHOT
           |baseProvided:
           |  - org.typelevel:cats-core_3
           |""".stripMargin
@@ -892,8 +1013,9 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
              |""".stripMargin
         )
 
+        When("Cozy validates component-owned dependencies")
         val ex = intercept[Throwable] {
-          CozyArchivePackager.buildCar(List(
+          CarPackagingSpecSupport.buildCarWithContract(List(
             "--save", archive.toString,
             "--project-dir", projectdir.toString,
             "--main-jar", mainjar.toString,
@@ -903,6 +1025,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
             "--component", "sample-component"
           ))
         }
+        Then("the explicit catalog governs the dependency rejection")
         ex.getMessage should include ("base-provided")
         ex.getMessage should include ("org.postgresql:postgresql:42.7.3")
       } finally {
@@ -910,7 +1033,9 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
       }
     }
   }
+  }
 
+    "validate generated metadata and dependency ownership" which {
     "reject a CML CAR whose generated model metadata side output is missing" in {
     _with_temp_dir("cozy-car-missing-model-metadata") { dir =>
       Given("a CML CAR project without an explicit ABI or generated model metadata")
@@ -920,12 +1045,12 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
 
       When("Cozy packages the project")
       val ex = intercept[Throwable] {
-        CozyArchivePackager.buildCar(List(
+        CarPackagingSpecSupport.buildCarWithContract(List(
           "--save", archive.toString,
           "--main-jar", mainjar.toString,
           "--project-dir", dir.toString,
           "--name", "sample-component",
-          "--version", "0.1.0",
+          "--version", "0.1.0-SNAPSHOT",
           "--component", "sample-component"
         ))
       }
@@ -937,6 +1062,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
   }
 
     "embed dependency jars only when project policy enables them" in {
+    Given("a CAR project whose packaging policy enables dependency embedding")
     _with_temp_dir("cozy-car-include-dependencies") { dir =>
       val projectdir = dir.resolve("project")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
@@ -950,7 +1076,8 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
           |""".stripMargin
       )
 
-      CozyArchivePackager.buildCar(List(
+      When("Cozy packages the project with a library JAR")
+      CarPackagingSpecSupport.buildCarWithContract(List(
         "--save", archive.toString,
         "--project-dir", projectdir.toString,
         "--main-jar", mainjar.toString,
@@ -960,12 +1087,14 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
         "--component", "sample-component"
       ))
 
+      Then("the dependency JAR is embedded under the CAR lib directory")
       val entries = _zip_entries(archive)
       entries should contain ("lib/dep.jar")
     }
   }
 
     "write only component-owned dependencies with CNCF runtime requirement" in {
+    Given("a CAR project with component-owned dependencies and a base runtime catalog")
     _with_temp_dir("cozy-car-component-owned-deps") { dir =>
       val projectdir = dir.resolve("project")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
@@ -995,7 +1124,8 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
           |""".stripMargin
       )
 
-      CozyArchivePackager.buildCar(List(
+      When("Cozy packages the component dependency manifest")
+      CarPackagingSpecSupport.buildCarWithContract(List(
         "--save", archive.toString,
         "--project-dir", projectdir.toString,
         "--main-jar", mainjar.toString,
@@ -1004,6 +1134,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
         "--component", "sample-component"
       ))
 
+      Then("only component-owned dependencies and repositories are projected")
       val manifest = _zip_text(archive, "component-dependencies.yaml")
       manifest should not include "goldenport-cncf"
       manifest should not include "cats-core"
@@ -1014,6 +1145,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
   }
 
     "reject dependencies already provided by CNCF runtime catalog" in {
+    Given("a CAR project that redeclares a dependency provided by the CNCF runtime")
     _with_temp_dir("cozy-car-base-provided-overlap") { dir =>
       val projectdir = dir.resolve("project")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
@@ -1038,8 +1170,9 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
           |""".stripMargin
       )
 
+      When("Cozy validates component-owned dependencies")
       val ex = intercept[Throwable] {
-        CozyArchivePackager.buildCar(List(
+        CarPackagingSpecSupport.buildCarWithContract(List(
           "--save", archive.toString,
           "--project-dir", projectdir.toString,
           "--main-jar", mainjar.toString,
@@ -1048,12 +1181,14 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
           "--component", "sample-component"
         ))
       }
+      Then("the base-provided overlap is rejected")
       ex.getMessage should include ("base-provided")
       ex.getMessage should include ("org.typelevel:cats-core_3:2.10.0")
     }
   }
 
     "prefer exported CNCF runtime catalog from configured runtime project" in {
+    Given("a configured CNCF runtime project with an exported runtime catalog")
     _with_temp_dir("cozy-car-exported-runtime-catalog") { dir =>
       val projectdir = dir.resolve("project")
       val runtimedir = dir.resolve("cncf-runtime")
@@ -1087,8 +1222,9 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
           |""".stripMargin
       )
 
+      When("Cozy resolves the runtime catalog for packaging")
       val ex = intercept[Throwable] {
-        CozyArchivePackager.buildCar(List(
+        CarPackagingSpecSupport.buildCarWithContract(List(
           "--save", archive.toString,
           "--project-dir", projectdir.toString,
           "--main-jar", mainjar.toString,
@@ -1097,12 +1233,14 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
           "--component", "sample-component"
         ))
       }
+      Then("the configured runtime project's catalog governs dependency validation")
       ex.getMessage should include ("base-provided")
       ex.getMessage should include ("org.typelevel:cats-core_3:2.10.0")
     }
   }
 
     "warn and continue when CNCF runtime catalog is unavailable" in {
+    Given("a valid CAR contract whose optional runtime catalog is unavailable")
     _with_temp_dir("cozy-car-missing-runtime-catalog") { dir =>
       val projectdir = dir.resolve("project")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
@@ -1120,9 +1258,10 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
           |        - org.postgresql:postgresql:42.7.3
           |""".stripMargin
       )
+      When("Cozy packages the project")
       val stderr = new ByteArrayOutputStream()
       Console.withErr(new PrintStream(stderr)) {
-        CozyArchivePackager.buildCar(List(
+        CarPackagingSpecSupport.buildCarWithContract(List(
           "--save", archive.toString,
           "--project-dir", projectdir.toString,
           "--main-jar", mainjar.toString,
@@ -1132,12 +1271,14 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
         ))
       }
 
+      Then("the archive is created and the missing catalog is reported as a warning")
       Files.isRegularFile(archive) shouldBe true
       stderr.toString(StandardCharsets.UTF_8.name()) should include ("CNCF runtime catalog is unavailable")
     }
   }
 
     "query configured CNCF command for runtime descriptor" in {
+    Given("a CAR project with a configured CNCF runtime descriptor command")
     _with_temp_dir("cozy-car-runtime-descriptor-command") { dir =>
       val projectdir = dir.resolve("project")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
@@ -1169,8 +1310,9 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
            |""".stripMargin
       )
 
+      When("Cozy obtains runtime evidence through the configured command")
       val ex = intercept[Throwable] {
-        CozyArchivePackager.buildCar(List(
+        CarPackagingSpecSupport.buildCarWithContract(List(
           "--save", archive.toString,
           "--project-dir", projectdir.toString,
           "--main-jar", mainjar.toString,
@@ -1179,12 +1321,16 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
           "--component", "sample-component"
         ))
       }
+      Then("the returned runtime catalog governs dependency validation")
       ex.getMessage should include ("base-provided")
       ex.getMessage should include ("org.typelevel:cats-core_3:2.10.0")
     }
   }
+  }
 
+    "assemble SAR surfaces" which {
     "write descriptor at SAR top level" in {
+    Given("a subsystem descriptor, extension JAR, and application configuration")
     _with_temp_dir("cozy-sar") { dir =>
       val sourcedir = dir.resolve("src")
       _write(sourcedir.resolve("subsystem-descriptor.yaml"), "subsystem: textus-identity\n")
@@ -1192,6 +1338,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
       val appconf = _write(dir.resolve("conf/application.conf"), "env=dev")
       val archive = dir.resolve("out/sample.sar")
 
+      When("Cozy packages the inputs as a SAR")
       CozyArchivePackager.buildSar(List(
         "--save", archive.toString,
         "--source-dir", sourcedir.toString,
@@ -1200,6 +1347,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
         "--application-conf", appconf.toString
       ))
 
+      Then("the SAR uses canonical top-level and extension paths")
       val entries = _zip_entries(archive)
       entries should contain ("subsystem-descriptor.yaml")
       entries should contain ("extension/grpc.jar")
@@ -1207,6 +1355,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
       entries should not contain "subsystem/subsystem-descriptor.yaml"
       entries should not contain "meta/manifest.json"
     }
+  }
   }
 
   }

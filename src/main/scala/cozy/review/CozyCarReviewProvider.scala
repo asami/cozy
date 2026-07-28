@@ -13,7 +13,7 @@ import scala.util.Try
 
 /*
  * @since   Jul. 16, 2026
- * @version Jul. 16, 2026
+ * @version Jul. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 /**
@@ -184,8 +184,17 @@ object CozyCarReviewProvider {
         )
       )
     }
-    (Vector(project) ++ model ++ build.toVector ++ packageevidence ++ lint).sortBy(x => (x \ "id").as[String])
+    (Vector(project) ++ model ++ build.toVector ++ packageevidence ++ lint).
+      sortBy(x => _evidence_sort_key((x \ "id").as[String]))
   }
+
+  private def _evidence_sort_key(id: String): String =
+    if (id.startsWith("evidence-lint-"))
+      Try(id.stripPrefix("evidence-lint-").toInt).toOption.
+        map(index => f"evidence-lint-$index%08d").
+        getOrElse(id)
+    else
+      id
 
   private def _observations(
     metadata: CozyProjectYamlConfig.Config,

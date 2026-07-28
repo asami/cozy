@@ -15,7 +15,7 @@ organization := "org.simplemodeling"
 
 name := "cozy"
 
-version := "0.3.0"
+version := "0.3.1-SNAPSHOT"
 
 lazy val cncfVersion = "0.5.1"
 
@@ -71,7 +71,7 @@ libraryDependencies += "org.smartdox" %% "smartdox" % "2.4.16"
 libraryDependencies += "org.goldenport" %% "kaleidox" % "0.6.18"
 
 val simplemodelerVersion =
-  sys.props.getOrElse("simplemodeler.version", sys.env.getOrElse("SIMPLEMODELER_VERSION", "1.1.24"))
+  sys.props.getOrElse("simplemodeler.version", sys.env.getOrElse("SIMPLEMODELER_VERSION", "1.1.25-SNAPSHOT"))
 
 libraryDependencies += "org.simplemodeling" %% "simplemodeler" % simplemodelerVersion
 
@@ -120,6 +120,8 @@ libraryDependencies += "org.eclipse.jetty" % "jetty-server" % "9.4.38.v20210224"
 // libraryDependencies += "org.xerial" % "sqlite-jdbc" % "3.27.2.1"
 
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.19" % "test"
+
+libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.19.0" % "test"
 
 libraryDependencies += "junit" % "junit" % "4.10" % "test"
 
@@ -389,6 +391,7 @@ lazy val root = (project in file(".")).
     buildInfoKeys := Seq[BuildInfoKey](
       name, version, scalaVersion, sbtVersion,
       BuildInfoKey.action("cncfVersion")(cncfVersion),
+      BuildInfoKey.action("simpleModelerVersion")(simplemodelerVersion),
       BuildInfoKey.action("simpleModelingModelVersion")(simpleModelingModelVersion),
       BuildInfoKey.action("cncfCollaboratorApiVersion")(cncfCollaboratorApiVersion),
       BuildInfoKey.action("build") {

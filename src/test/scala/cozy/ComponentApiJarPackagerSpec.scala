@@ -13,11 +13,12 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jul. 12, 2026
- * @version Jul. 21, 2026
+ * @version Jul. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 final class ComponentApiJarPackagerSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "Component API JAR packager" should {
+    "derive contract-only component API artifacts" which {
     "package only descriptor-selected public artifacts" in {
       Given("a component JAR and descriptor with public class, companion, nested, and TASTy patterns")
       _with_temp_dir("cozy-component-api-jar") { dir =>
@@ -143,7 +144,9 @@ final class ComponentApiJarPackagerSpec extends AnyWordSpec with Matchers with G
         Files.exists(output) shouldBe false
       }
     }
+    }
 
+    "enforce CAR API and SPI packaging contracts" which {
     "embed a coordinate-matched descriptor and its declared API JAR in a CAR" in {
       Given("a component descriptor and matching contract-only API JAR")
       _with_temp_dir("cozy-component-api-car") { dir =>
@@ -156,7 +159,7 @@ final class ComponentApiJarPackagerSpec extends AnyWordSpec with Matchers with G
         val car = dir.resolve("example.car")
 
         When("the CAR is packaged")
-        CozyArchivePackager.buildCar(List(
+        CarPackagingSpecSupport.buildCarWithContract(List(
           "--save", car.toString,
           "--main-jar", mainjar.toString,
           "--spi-jars", apijar.toString,
@@ -184,7 +187,7 @@ final class ComponentApiJarPackagerSpec extends AnyWordSpec with Matchers with G
 
         When("the invalid CAR is packaged")
         val error = intercept[Throwable] {
-          CozyArchivePackager.buildCar(List(
+          CarPackagingSpecSupport.buildCarWithContract(List(
             "--save", dir.resolve("example.car").toString,
             "--main-jar", mainjar.toString,
             "--component-api-descriptor", descriptor.toString,
@@ -208,7 +211,7 @@ final class ComponentApiJarPackagerSpec extends AnyWordSpec with Matchers with G
 
         When("the CAR is packaged")
         val error = intercept[Throwable] {
-          CozyArchivePackager.buildCar(List(
+          CarPackagingSpecSupport.buildCarWithContract(List(
             "--save", dir.resolve("example.car").toString,
             "--main-jar", mainjar.toString,
             "--spi-jars", s"${first},${second}",
@@ -234,7 +237,7 @@ final class ComponentApiJarPackagerSpec extends AnyWordSpec with Matchers with G
 
         When("a newer CAR is packaged")
         val error = intercept[Throwable] {
-          CozyArchivePackager.buildCar(List(
+          CarPackagingSpecSupport.buildCarWithContract(List(
             "--save", dir.resolve("example.car").toString,
             "--main-jar", mainjar.toString,
             "--component-api-descriptor", descriptor.toString,
@@ -247,6 +250,7 @@ final class ComponentApiJarPackagerSpec extends AnyWordSpec with Matchers with G
         Then("the mismatched descriptor is rejected")
         error.getMessage should include("but package-car is building example:0.1.0")
       }
+    }
     }
   }
 

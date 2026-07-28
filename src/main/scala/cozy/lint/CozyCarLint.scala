@@ -1,6 +1,8 @@
 package cozy.lint
 
 import cozy.archive.CarCmlSourceResolver
+import cozy.compatibility.CarMetadataCompatibility
+import cozy.config.CozyProjectYamlConfig
 import cozy.modeler.CmlModelMetadata
 import org.goldenport.RAISE
 import java.nio.file.{Files, Path, Paths}
@@ -8,7 +10,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Jul.  7, 2026
- * @version Jul. 21, 2026
+ * @version Jul. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyCarLint {
@@ -38,13 +40,13 @@ private[cozy] object CozyCarLint {
 
   def execute(args: List[String]): Int = {
     val config = Config.create(args)
-    val findings = lint(config.path, config.baseline, config.noAbi)
+    val findings = lint(config.path, config.baseline, config.noabi)
     _render(config, findings)
   }
 
   private[cozy] def execute(args: List[String], latestversion: Option[String]): Int = {
     val config = Config.create(args)
-    val findings = lint(config.path, config.baseline, config.noAbi, latestversion)
+    val findings = lint(config.path, config.baseline, config.noabi, latestversion)
     _render(config, findings)
   }
 
@@ -73,6 +75,7 @@ private[cozy] object CozyCarLint {
   ): Vector[Finding] = {
     val cmlsourcefindings = _car_cml_source_findings(root)
     val cmlfindings = _cml_path(root).toVector.flatMap(path => CozyCmlLint.lint(path).map(_cml_finding))
+    val compatibilityfindings = _compatibility_findings(root)
     val documentationfindings = CozyCarDocumentationLint.lint(root).map(_documentation_finding)
     val repositoryfindings = _repository_findings(root)
     val abifindings =
@@ -80,7 +83,37 @@ private[cozy] object CozyCarLint {
         Vector.empty
       else
         CozyCarAbiLint.lint(root, baseline).map(_abi_finding)
-    (buildfindings ++ cmlsourcefindings ++ cmlfindings ++ documentationfindings ++ repositoryfindings ++ abifindings).sortBy(x => (x.category, x.path.toString, x.line, x.code, x.message))
+    (buildfindings ++ cmlsourcefindings ++ cmlfindings ++ compatibilityfindings ++ documentationfindings ++ repositoryfindings ++ abifindings).sortBy(x => (x.category, x.path.toString, x.line, x.code, x.message))
+  }
+
+  private def _compatibility_findings(root: Path): Vector[Finding] = {
+    val path = root.resolve("project.yaml")
+    val decision =
+      CarMetadataCompatibility.evaluateProject(
+        CozyProjectYamlConfig.loadProjectMetadata(root)
+      )
+    if (decision.diagnostics.nonEmpty)
+      decision.diagnostics.map { diagnostic =>
+        Finding(
+          Level.Fail,
+          "compatibility",
+          diagnostic.code.name,
+          diagnostic.render,
+          path,
+          1
+        )
+      }
+    else
+      decision.contract.toVector.map { contract =>
+        Finding(
+          Level.Ok,
+          "compatibility",
+          "car.metadata.compatibility.accepted",
+          contract.render,
+          path,
+          1
+        )
+      }
   }
 
   private def _repository_findings(root: Path): Vector[Finding] = {
@@ -208,7 +241,7 @@ private[cozy] object CozyCarLint {
       case c => c.toString
     }
 
-  private final case class Config(path: Path, baseline: Option[Path], format: String, strict: Boolean, noAbi: Boolean)
+  private final case class Config(path: Path, baseline: Option[Path], format: String, strict: Boolean, noabi: Boolean)
   private object Config {
     def create(args: List[String]): Config = {
       var format = "text"
@@ -217,34 +250,34 @@ private[cozy] object CozyCarLint {
       var baseline: Option[Path] = None
       val paths = Vector.newBuilder[String]
       @annotation.tailrec
-      def go(xs: List[String]): Unit = xs match {
+      def _go_(xs: List[String]): Unit = xs match {
         case Nil =>
           ()
         case "--baseline" :: value :: rest =>
           baseline = Some(Paths.get(value).toAbsolutePath.normalize())
-          go(rest)
+          _go_(rest)
         case x :: rest if x.startsWith("--baseline=") =>
           baseline = Some(Paths.get(x.substring("--baseline=".length)).toAbsolutePath.normalize())
-          go(rest)
+          _go_(rest)
         case "--format" :: value :: rest =>
           format = value
-          go(rest)
+          _go_(rest)
         case x :: rest if x.startsWith("--format=") =>
           format = x.substring("--format=".length)
-          go(rest)
+          _go_(rest)
         case "--strict" :: rest =>
           strict = true
-          go(rest)
+          _go_(rest)
         case "--no-abi" :: rest =>
           noabi = true
-          go(rest)
+          _go_(rest)
         case x :: _ if x.startsWith("-") =>
           RAISE.invalidArgumentFault(s"Unsupported lint option: ${x}")
         case x :: rest =>
           paths += x
-          go(rest)
+          _go_(rest)
       }
-      go(args)
+      _go_(args)
       val values = paths.result()
       if (values.size != 1)
         RAISE.invalidArgumentFault("Usage: cozy lint car <project-root> [--baseline <car|manifest>] [--format text|json] [--strict] [--no-abi]")

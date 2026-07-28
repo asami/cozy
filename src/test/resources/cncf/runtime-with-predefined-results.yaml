@@ -1,8 +1,8 @@
 schemaVersion: 1
 runtime: cncf
-version: 0.5.1-SNAPSHOT
+version: 0.5.2-SNAPSHOT
 scalaBinaryVersion: "3"
-module: org.goldenport:goldenport-cncf_3:0.5.1-SNAPSHOT
+module: org.goldenport:goldenport-cncf_3:0.5.2-SNAPSHOT
 baseProvided: []
 predefinedResults: {
     "schemaVersion": "cncf.predefined-result.v1",

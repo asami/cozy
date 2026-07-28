@@ -8,7 +8,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jul. 15, 2026
- * @version Jul. 15, 2026
+ * @version Jul. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 final class PredefinedResultCatalogSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -84,15 +84,15 @@ final class PredefinedResultCatalogSpec extends AnyWordSpec with Matchers with G
     }
 
     "reject a descriptor for a different selected runtime" in {
-      Given("a CNCF 0.5.1-SNAPSHOT descriptor selected as CNCF 0.5.2-SNAPSHOT")
+      Given("a CNCF 0.5.2-SNAPSHOT descriptor selected as CNCF 0.5.1-SNAPSHOT")
 
       When("Cozy loads the selected runtime catalog")
       val exception = intercept[RuntimeException] {
-        PredefinedResultCatalog.loadRuntimeDescriptor(test_cncf_runtime_descriptor, "0.5.2-SNAPSHOT")
+        PredefinedResultCatalog.loadRuntimeDescriptor(test_cncf_runtime_descriptor, "0.5.1-SNAPSHOT")
       }
 
       Then("generation fails instead of using metadata from another runtime")
-      exception.getMessage should include ("does not match selected runtime 0.5.2-SNAPSHOT")
+      exception.getMessage should include ("does not match selected runtime 0.5.1-SNAPSHOT")
     }
 
     "reject an unsupported catalog schema" in {
@@ -104,7 +104,7 @@ final class PredefinedResultCatalogSpec extends AnyWordSpec with Matchers with G
       try {
         When("Cozy loads the selected runtime catalog")
         val exception = intercept[RuntimeException] {
-          PredefinedResultCatalog.loadRuntimeDescriptor(descriptor, "0.5.1-SNAPSHOT")
+          PredefinedResultCatalog.loadRuntimeDescriptor(descriptor, "0.5.2-SNAPSHOT")
         }
 
         Then("generation fails before interpreting an unsupported schema")

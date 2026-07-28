@@ -1,6 +1,6 @@
 # Cozy Development Strategy
 
-Date: 2026-07-23
+Date: 2026-07-28
 
 Status: active
 
@@ -651,6 +651,32 @@ Primary reference:
 - `docs/phase/phase-25-checklist.md`
 - `docs/journal/2026/07/entity-revision-generator-alignment-handoff-2026-07-26.md`
 
+### Future Follow-up: Explicit Component Root Generation
+
+Status: planned, low priority.
+
+Purpose:
+
+- treat one explicit CML `COMPONENT` definition as sufficient input for
+  `modeler-scala` to create the corresponding generated component root;
+- preserve the declared component name, package, and component identity even
+  when the model contains no Entity, Value, Datatype, Powertype, StateMachine,
+  Service, or Operation;
+- keep `COMPONENTLET` optional and independent so neither a participant
+  declaration nor a synthetic domain declaration is required to trigger
+  component generation;
+- emit the generated component type and factory-facing contract
+  deterministically for a component-only model;
+- prove the behavior with Executable Specifications covering minimal input,
+  cold and repeated generation, generated artifact identity, compilation of a
+  factory using the generated root, and generation-provenance validation;
+- preserve `modeler-scala-value` as the value-only generation path and do not
+  introduce an implicit component root there.
+
+Origin:
+
+- `docs/journal/2026/07/spi-only-component-generation-handoff-2026-07-28.md`
+
 ## Current Priority
 
 Phase 6 through Phase 23 are closed. Phase 23 completed scalar Entity
@@ -755,6 +781,8 @@ Current follow-up directions include:
 
 - Post-Phase-16 CML policy backlog, when promoted into a separately scoped
   phase
+- Explicit component root generation from a CML `COMPONENT` definition without
+  requiring Entity, Value, Datatype, Service, Operation, or `COMPONENTLET`
 - Video publication registration follow-up, if richer article/navigation
   integration is needed
 - Knowledge source compiler expansion

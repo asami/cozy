@@ -1,8 +1,13 @@
 package cozy
 
+import cozy.compatibility.{
+  CncfRuntimeDescriptorContract,
+  GenerationCompatibilityBoundary
+}
+
 /*
  * @since   Jul.  8, 2026
- * @version Jul. 21, 2026
+ * @version Jul. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 final case class CozyCliPreflight(
@@ -39,6 +44,9 @@ final case class CozyCliPreflight(
 object CozyCliPreflight {
   def parse(args: Array[String]): CozyCliPreflight = {
     val xs = args.toList
+    CncfRuntimeDescriptorContract.requireValidInvocation(xs, "cli")
+    modeler.GenerationProvenance.requireValidInvocation(xs, "cli")
+    GenerationCompatibilityBoundary.requireValidInvocation(xs, "cli")
     val format = CozyOutputFormat.parse(xs).getOrElse(CozyOutputFormat.Text)
     CozyCliPreflight(
       xs,

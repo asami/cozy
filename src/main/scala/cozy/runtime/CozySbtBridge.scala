@@ -3,6 +3,11 @@ package cozy.runtime
 import org.goldenport.RAISE
 import org.goldenport.cli.spec
 import cozy.Cozy
+import cozy.compatibility.{
+  CncfRuntimeDescriptorContract,
+  GenerationCompatibilityBoundary
+}
+import cozy.modeler.GenerationProvenance
 import cozy.archive.{ComponentApiDependencyResolver, ComponentApiJarPackager, CozyArchivePackager, CozyCarPublisher, CozySarPublisher}
 import cozy.config.CozyProjectYamlConfig
 import cozy.publication.{CozyPublicationCompiler, CozySampleDistributor, CozyWarehouseIndexer}
@@ -14,7 +19,7 @@ import java.nio.file.{Files, Path, Paths}
 /*
  * @since   May. 20, 2026
  *  version Jun. 27, 2026
- * @version Jul. 15, 2026
+ * @version Jul. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozySbtBridge {
@@ -34,6 +39,8 @@ private[cozy] object CozySbtBridge {
     request.action match {
       case "generate" =>
         _run_generation(request.arguments, request.settings)
+      case "rebind-generation-provenance" =>
+        _rebind_generation_provenance(request.arguments)
       case "package-car" =>
         CozyArchivePackager.buildCar(request.arguments.toList)
       case "component-api-jar" =>
@@ -67,11 +74,30 @@ private[cozy] object CozySbtBridge {
         command match {
           case "modeler-scala" =>
             val cozy = Cozy.build(Array.empty)
-            cozy.executeDirect((command :: (rest ++ _modeler_args(settings))).toArray)
+            val modelerargs = rest ++ _modeler_args(settings)
+            val descriptorinvocation = command :: modelerargs
+            CncfRuntimeDescriptorContract.requireValidInvocation(
+              descriptorinvocation,
+              "sbt-bridge"
+            )
+            val invocation =
+              command :: (modelerargs ++ _generation_source_identity_args(modelerargs, settings))
+            GenerationCompatibilityBoundary.requireValidInvocation(
+              invocation,
+              "sbt-bridge"
+            )
+            GenerationProvenance.requireValidInvocation(invocation, "sbt-bridge")
+            cozy.executeDirect(invocation.toArray)
           case "car-sbt-project" =>
             val cozy = Cozy.build(Array.empty)
             val config = _generation_config(settings)
-            cozy.executeDirect((command :: (rest ++ _version_args(config))).toArray)
+            val invocation = command :: (rest ++ _version_args(config))
+            GenerationCompatibilityBoundary.requireValidInvocation(
+              invocation,
+              "sbt-bridge"
+            )
+            CncfRuntimeDescriptorContract.requireValidInvocation(invocation, "sbt-bridge")
+            cozy.executeDirect(invocation.toArray)
           case other =>
             RAISE.invalidArgumentFault(s"Unsupported sbt-bridge generation command: $other")
         }
@@ -79,22 +105,79 @@ private[cozy] object CozySbtBridge {
         RAISE.invalidArgumentFault("Missing sbt-bridge generation arguments")
     }
 
+  private def _rebind_generation_provenance(args: Vector[String]): Unit = {
+    val delegatedprovenance = _required_path(args.toList, "delegated-provenance")
+    val delegatedoutputroot = _required_path(args.toList, "delegated-output-root")
+    val projectroot = _required_path(args.toList, "project-root")
+    GenerationProvenance.rebindForPackaging(
+      delegatedProvenancePath = delegatedprovenance,
+      delegatedOutputRoot = delegatedoutputroot,
+      projectRoot = projectroot
+    )
+  }
+
   private def _generation_config(settings: Map[String, String]): CozyProjectYamlConfig.Config = {
     val projectdir = settings.get(_sbt_project_dir_setting).
       map(x => Paths.get(x).toAbsolutePath.normalize()).
       getOrElse(Paths.get(".").toAbsolutePath.normalize())
     val generationsettings = settings - _sbt_project_dir_setting
-    CozyProjectYamlConfig.loadOperationDefaults(projectdir).merge(CozyProjectYamlConfig.Config(generationsettings, Map.empty))
+    val defaultfiles = CozyProjectYamlConfig.operationDefaultFiles(projectdir)
+    val globalconfigdir = Option(System.getProperty("user.home")).
+      map(path => Paths.get(path).toAbsolutePath.normalize().resolve(".cozy"))
+    _generation_config(generationsettings, defaultfiles, globalconfigdir)
   }
+
+  private def _generation_config(
+    generationsettings: Map[String, String],
+    defaultfiles: Vector[Path],
+    globalconfigdir: Option[Path]
+  ): CozyProjectYamlConfig.Config = {
+    val projectconfig = defaultfiles.
+      filterNot(file => globalconfigdir.contains(file.getParent)).
+      foldLeft(CozyProjectYamlConfig.Config.empty) { (config, file) =>
+        config.merge(CozyProjectYamlConfig.load(file))
+      }
+    val bridgeconfig = CozyProjectYamlConfig.Config(generationsettings, Map.empty)
+    _require_generation_config_agreement(projectconfig, bridgeconfig)
+    projectconfig.merge(bridgeconfig)
+  }
+
+  private def _require_generation_config_agreement(
+    projectconfig: CozyProjectYamlConfig.Config,
+    bridgeconfig: CozyProjectYamlConfig.Config
+  ): Unit =
+    Vector(
+      "generation.versions.cncf",
+      "generation.versions.cozy",
+      "runtime.cncf.descriptor",
+      "runtime.cncf.descriptor.sha256"
+    ).foreach { key =>
+      CncfRuntimeDescriptorContract.requireConsistentSourceValues(
+        "sbt-bridge",
+        key,
+        Vector(
+          projectconfig.value(key).map("project" -> _),
+          bridgeconfig.value(key).map("owning-build-bridge" -> _)
+        ).flatten
+      )
+    }
 
   private def _version_args(config: CozyProjectYamlConfig.Config): List[String] = {
     val versions = Cozy.CarDependencyVersions.create(Nil, config)
     val base = List(
       "--cncf-version", versions.cncfVersion,
+      "--cozy-generator-version",
+      config.value("generation.versions.cozy").
+        getOrElse(org.simplemodeling.cozy.BuildInfo.version),
       "--simplemodeling-model-version", versions.simpleModelingModelVersion,
       "--cncf-collaborator-api-version", versions.cncfCollaboratorApiVersion
     )
-    config.value("runtime.cncf.descriptor").map(path => base ++ List("--cncf-runtime-descriptor", path)).getOrElse(base)
+    config.value("runtime.cncf.descriptor").map { path =>
+      val descriptorargs = base ++ List("--cncf-runtime-descriptor", path)
+      config.value("runtime.cncf.descriptor.sha256").
+        map(digest => descriptorargs ++ List("--cncf-runtime-descriptor-sha256", digest)).
+        getOrElse(descriptorargs)
+    }.getOrElse(base)
   }
 
   private def _component_api_args(settings: Map[String, String]): List[String] =
@@ -108,17 +191,92 @@ private[cozy] object CozySbtBridge {
   private def _modeler_args(settings: Map[String, String]): List[String] =
     _component_api_args(settings) ++ _version_args(_generation_config(settings))
 
+  private def _generation_source_identity_args(
+    args: List[String],
+    settings: Map[String, String]
+  ): List[String] =
+    if (_option(args, "generation-source-identity").nonEmpty)
+      Nil
+    else {
+      val selected =
+        _option(args, "cncf-runtime-descriptor").nonEmpty ||
+          _option(args, "cncf-runtime-descriptor-sha256").nonEmpty
+      if (!selected)
+        Nil
+      else {
+        val identity = settings.get("generation.source.identity").
+          map(_.trim).
+          filter(_.nonEmpty).
+          getOrElse(_project_relative_source_identity(args, settings))
+        List(
+          "--generation-source-identity",
+          GenerationProvenance.requireSourceIdentity(Some(identity), "sbt-bridge")
+        )
+      }
+    }
+
+  private def _project_relative_source_identity(
+    args: List[String],
+    settings: Map[String, String]
+  ): String = {
+    val projectdir = settings.get(_sbt_project_dir_setting).
+      map(path => Paths.get(path).toAbsolutePath.normalize()).
+      getOrElse(Paths.get(".").toAbsolutePath.normalize())
+    val source = args.find(!_.startsWith("-")).
+      map(path => Paths.get(path)).
+      getOrElse(RAISE.invalidArgumentFault(
+        "CNCF-aware generation requires a CML source before provenance can be recorded"
+      ))
+    val normalized =
+      if (source.isAbsolute)
+        source.toAbsolutePath.normalize()
+      else
+        projectdir.resolve(source).toAbsolutePath.normalize()
+    if (!normalized.startsWith(projectdir))
+      RAISE.invalidArgumentFault(
+        "CNCF-aware generation outside the sbt project requires generation.source.identity"
+      )
+    projectdir.relativize(normalized).toString.replace(java.io.File.separatorChar, '/')
+  }
+
+  private def _option(args: List[String], name: String): Option[String] = {
+    val inlineprefix = s"--$name="
+    args.zipWithIndex.collectFirst {
+      case (value, _) if value.startsWith(inlineprefix) =>
+        value.drop(inlineprefix.length).trim
+      case (value, index) if value == s"--$name" && index + 1 < args.length =>
+        args(index + 1).trim
+    }.filter(_.nonEmpty)
+  }
+
   private[cozy] def componentApiArgsForTest(settings: Map[String, String]): List[String] =
     _component_api_args(settings)
 
   private[cozy] def modelerArgsForSettingsForTest(settings: Map[String, String]): List[String] =
     _modeler_args(settings)
 
-  private[cozy] def versionArgsForTest(settings: Map[String, String], projectdir: Path): List[String] =
-    _version_args(_generation_config(settings + (_sbt_project_dir_setting -> projectdir.toString)))
+  private[cozy] def generationSourceIdentityArgsForTest(
+    args: List[String],
+    settings: Map[String, String]
+  ): List[String] =
+    _generation_source_identity_args(args, settings)
+
+  private[cozy] def versionArgsForTest(settings: Map[String, String], projectDir: Path): List[String] =
+    _version_args(_generation_config(settings + (_sbt_project_dir_setting -> projectDir.toString)))
 
   private[cozy] def versionArgsForSettingsForTest(settings: Map[String, String]): List[String] =
     _version_args(_generation_config(settings))
+
+  private[cozy] def versionArgsForDefaultFilesForTest(
+    settings: Map[String, String],
+    defaultFiles: Vector[Path],
+    globalConfigDirectory: Path
+  ): List[String] =
+    _version_args(_generation_config(
+      settings,
+      defaultFiles,
+      Some(globalConfigDirectory.toAbsolutePath.normalize())
+    ))
 
   private def _load_request(path: Path): BridgeRequest = {
     val text = Files.readString(path, StandardCharsets.UTF_8)

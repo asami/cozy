@@ -13,12 +13,12 @@ import org.scalatest.wordspec.AnyWordSpec
 /*
  * @since   Jun. 23, 2026
  *  version Jun. 27, 2026
- * @version Jul. 21, 2026
+ * @version Jul. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
   "CML modeler scaffold generation" should {
-    "generate sbt project scaffolds" which {
+    "generate CAR project scaffolds" which {
       "car-sbt-project generates sbt project scaffold" in {
         Given("a modeler scaffold source or requested project layout")
         val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
@@ -163,7 +163,7 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         pluginssbtcontent should include ("""addSbtPlugin("org.goldenport" % "sbt-cozy"""")
         pluginssbtcontent should include (""""SimpleModeling.org" at "https://www.simplemodeling.org/repository/maven"""")
         pluginssbtcontent should include ("SBT_COZY_VERSION")
-        pluginssbtcontent should include ("0.1.15-SNAPSHOT")
+        pluginssbtcontent should include ("0.1.16-SNAPSHOT")
         pluginssbtcontent should include ("""addSbtPlugin("org.goldenport" % "sbt-cozy" % sbtCozyVersion)""")
       }
 
@@ -237,7 +237,16 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         Files.createDirectories(out.getParent)
 
         When("Cozy generates the project scaffold")
-        cozy.Cozy.main(Array("car-sbt-project", input.toString, "--save", out.toString.toString, "--style", "car-sar"))
+        cozy.Cozy.main(Array(
+          "car-sbt-project",
+          input.toString,
+          "--save",
+          out.toString,
+          "--style",
+          "car-sar",
+          "--version",
+          "0.4.2-SNAPSHOT"
+        ))
 
         val rootbuild = out.resolve("build.sbt")
         val pluginssbt = out.resolve("project/plugins.sbt")
@@ -307,7 +316,12 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         rootbuildcontent should include ("cozyGenerateApp")
         rootbuildcontent should include ("project.name")
         subsystemdescriptorcontent should include ("subsystem: car-sar-sbt-project")
-        subsystemdescriptorcontent should include ("name: car-sar-sbt-project")
+        subsystemdescriptorcontent should include (
+          """version: 0.4.2-SNAPSHOT
+            |components:
+            |  - name: car-sar-sbt-project
+            |    version: 0.4.2-SNAPSHOT""".stripMargin
+        )
         subsystemdescriptorcontent should include ("name: textus-user-account")
         subsystemdescriptorcontent should include ("version: 0.1.1-SNAPSHOT")
         Files.readString(repositorydreadme) should include ("repository.d/textus-user-account.car")
@@ -467,6 +481,9 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         speccontent should not include ("assert(")
       }
 
+    }
+
+    "initialize components and applications" which {
       "init component creates a configured CAR project from config" in {
         Given("a modeler scaffold source or requested project layout")
         val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
@@ -768,6 +785,9 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         projectyamlcontent should include ("""packaging:""")
       }
 
+    }
+
+    "expose project web and command surfaces" which {
       "car-sbt-project generates web descriptor scaffold from CML WEB metadata" in {
         Given("a modeler scaffold source or requested project layout")
         val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()

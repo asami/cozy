@@ -2,11 +2,12 @@ package cozy.modeler
 
 import java.nio.file.Path
 import org.goldenport.RAISE
+import cozy.compatibility.CncfRuntimeDescriptorContract
 import cozy.config.CozyProjectYamlConfig
 
 /*
  * @since   Jul. 15, 2026
- * @version Jul. 15, 2026
+ * @version Jul. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] final case class PredefinedResultField(
@@ -35,26 +36,27 @@ private[cozy] final case class PredefinedResultCatalog(
 }
 
 private[cozy] object PredefinedResultCatalog {
-  val SUPPORTED_SCHEMA_VERSION = "cncf.predefined-result.v1"
   val empty: PredefinedResultCatalog = PredefinedResultCatalog("", "", Vector.empty)
 
-  def loadRuntimeDescriptor(path: Path, expectedcncfversion: String): PredefinedResultCatalog = {
-    val config = CozyProjectYamlConfig.loadPublic(path)
-    val actualversion = config.value("version").getOrElse {
-      RAISE.invalidArgumentFault(s"CNCF runtime descriptor requires version: $path")
-    }
-    if (actualversion != expectedcncfversion)
-      RAISE.invalidArgumentFault(
-        s"CNCF runtime descriptor version $actualversion does not match selected runtime $expectedcncfversion: $path"
+  def loadRuntimeDescriptor(path: Path, expectedCncfVersion: String): PredefinedResultCatalog =
+    fromValidatedDescriptor(
+      CncfRuntimeDescriptorContract.requireValidDescriptor(
+        path,
+        expectedCncfVersion,
+        None,
+        "predefined-result-catalog"
       )
+    )
+
+  def fromValidatedDescriptor(
+    validatedDescriptor: CncfRuntimeDescriptorContract.ValidatedDescriptor
+  ): PredefinedResultCatalog = {
+    val validated = validatedDescriptor
+    val path = validated.path
+    val config = validated.config
+    val actualversion = validated.targetVersion
     val prefix = "predefinedResults"
-    val schemaversion = config.value(s"$prefix.schemaVersion").getOrElse {
-      RAISE.invalidArgumentFault(s"CNCF runtime descriptor requires $prefix.schemaVersion: $path")
-    }
-    if (schemaversion != SUPPORTED_SCHEMA_VERSION)
-      RAISE.invalidArgumentFault(
-        s"Unsupported CNCF predefined Result catalog schema $schemaversion; expected $SUPPORTED_SCHEMA_VERSION: $path"
-      )
+    val schemaversion = CncfRuntimeDescriptorContract.SUPPORTED_PREDEFINED_RESULT_SCHEMA
     val names = config.list(s"$prefix.resultNames")
     if (names.distinct.size != names.size)
       RAISE.invalidArgumentFault(s"CNCF runtime descriptor has duplicate predefined Result names: $path")

@@ -4,6 +4,7 @@ import org.goldenport.config.StructuredDocumentLoader
 import org.goldenport.io.InputSource
 import org.goldenport.value._
 import io.circe.{Json => CJson}
+import java.net.URI
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
 import scala.collection.JavaConverters._
@@ -12,7 +13,7 @@ import scala.collection.JavaConverters._
  * @since   May. 20, 2026
  *  version Jun.  8, 2026
  *  version Jun. 18, 2026
- * @version Jul. 15, 2026
+ * @version Jul. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyProjectYamlConfig {
@@ -113,6 +114,13 @@ private[cozy] object CozyProjectYamlConfig {
     } else {
       Config.empty
     }
+
+  def parsePublic(bytes: Array[Byte]): Config = {
+    val content = new String(bytes, StandardCharsets.UTF_8)
+    val source = InputSource(content, URI.create("memory:/runtime.yaml"))
+    val json = StructuredDocumentLoader.loadJson(source).take
+    _config_from_json(json)
+  }
 
   def parse(lines: Vector[String]): Config = {
     var stack = Vector.empty[(Int, String)]
