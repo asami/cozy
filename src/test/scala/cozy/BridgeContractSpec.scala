@@ -13,7 +13,7 @@ import org.scalatest.wordspec.AnyWordSpec
  * @since   Apr. 23, 2026
  *  version May. 20, 2026
  *  version Jun. 27, 2026
- * @version Jul. 28, 2026
+ * @version Jul. 29, 2026
  * @author  ASAMI, Tomoharu
  */
 final class BridgeContractSpec
@@ -34,6 +34,7 @@ final class BridgeContractSpec
           "contract.json",
           "request-generate.json",
           "request-rebind-generation-provenance.json",
+          "request-prepare-development-runtime-evidence.json",
           "request-package-car.json",
           "request-package-sar.json",
           "request-publish-car.json",
@@ -66,6 +67,9 @@ final class BridgeContractSpec
         )
         val rebind = CozySbtBridge.loadRequestForTest(
           _contract_dir.resolve("request-rebind-generation-provenance.json")
+        )
+        val preparation = CozySbtBridge.loadRequestForTest(
+          _contract_dir.resolve("request-prepare-development-runtime-evidence.json")
         )
         val car = CozySbtBridge.loadRequestForTest(
           _contract_dir.resolve("request-package-car.json")
@@ -111,6 +115,15 @@ final class BridgeContractSpec
           "/tmp/delegate-work/run-0",
           "--project-root",
           "/tmp/sample-project"
+        )
+        preparation.action shouldBe "prepare-development-runtime-evidence"
+        preparation.arguments should contain allElementsOf Vector(
+          "--project-dir",
+          "/tmp/sample-project",
+          "--runtime-classpath-file",
+          "/tmp/sample-project/target/cncf.d/runtime-classpath.txt",
+          "--save",
+          "/tmp/sample-project/target/cncf.d/car-runtime-manifest.json"
         )
         car.action shouldBe "package-car"
         car.arguments should contain allElementsOf Vector(

@@ -13,7 +13,7 @@ import org.scalatest.wordspec.AnyWordSpec
 /*
  * @since   Jun. 23, 2026
  *  version Jun. 27, 2026
- * @version Jul. 28, 2026
+ * @version Jul. 29, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -148,7 +148,7 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         projectyamlcontent should include ("tested:")
         projectyamlbuildcontent should include ("object ProjectYamlBuild")
         projectyamlbuildcontent should include ("build.dependencies.$scope")
-        updateclasspathcontent should include ("sbt --batch 'export Runtime / fullClasspath'")
+        updateclasspathcontent should include ("exec sbt --batch cozyPrepareRuntime")
         val commonscriptcontent = Files.readString(commonscript)
         commonscriptcontent should include ("CNCF_VERSION_FILE")
         commonscriptcontent should include ("versions/cncf-version.conf")
@@ -163,7 +163,7 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         pluginssbtcontent should include ("""addSbtPlugin("org.goldenport" % "sbt-cozy"""")
         pluginssbtcontent should include (""""SimpleModeling.org" at "https://www.simplemodeling.org/repository/maven"""")
         pluginssbtcontent should include ("SBT_COZY_VERSION")
-        pluginssbtcontent should include ("0.1.16-SNAPSHOT")
+        pluginssbtcontent should include ("0.1.17-SNAPSHOT")
         pluginssbtcontent should include ("""addSbtPlugin("org.goldenport" % "sbt-cozy" % sbtCozyVersion)""")
       }
 

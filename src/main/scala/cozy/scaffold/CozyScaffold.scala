@@ -14,12 +14,12 @@ import scala.collection.JavaConverters._
  * @since   May. 20, 2026
  *  version May. 25, 2026
  *  version Jun. 27, 2026
- * @version Jul. 28, 2026
+ * @version Jul. 29, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyScaffold {
   private val _default_sbt_version = "1.9.7"
-  private val _default_sbt_cozy_version = "0.1.16-SNAPSHOT"
+  private val _default_sbt_cozy_version = "0.1.17-SNAPSHOT"
 
   case class CarDependencyVersions(
     cncfVersion: String,
@@ -664,10 +664,10 @@ private[cozy] object CozyScaffold {
       |#        default: true
       |""".stripMargin
 
-  private[cozy] def carSarRepositoryDReadme(appname: String): String =
+  private[cozy] def carSarRepositoryDReadme(appName: String): String =
     s"""# repository.d
       |
-      |Development-time packaged dependencies for `${appname}` live here as searchable artifacts.
+      |Development-time packaged dependencies for `${appName}` live here as searchable artifacts.
       |
       |Current expected local setup:
       |- build `textus-user-account` as a CAR
@@ -680,12 +680,12 @@ private[cozy] object CozyScaffold {
       |Production distribution is repository-first. `repository.d` is the local development and test search staging path.
       |""".stripMargin
 
-  private[cozy] def carSarScriptsReadme(appname: String): String =
+  private[cozy] def carSarScriptsReadme(appName: String): String =
     s"""# subsystem/scripts
       |
       |Local subsystem run helpers belong here.
       |
-      |The default ${appname} scaffold expects local packaged dependencies under `repository.d` as the local search staging path.
+      |The default ${appName} scaffold expects local packaged dependencies under `repository.d` as the local search staging path.
       |For development, stage `textus-user-account` there as a symlink to the built CAR while keeping `subsystem-descriptor.yaml` on the stable repository coordinate.
       |""".stripMargin
 
@@ -1118,19 +1118,8 @@ private[cozy] object CozyScaffold {
       |# shellcheck source=cncf-common.sh
       |source "$SCRIPT_DIR/cncf-common.sh"
       |
-      |mkdir -p "$(dirname "$CNCF_RUNTIME_CLASSPATH_FILE")"
-      |classpath="$(
-      |  cd "$PROJECT_ROOT"
-      |  sbt --batch 'export Runtime / fullClasspath' | awk '/^\// { print; exit }'
-      |)"
-      |
-      |if [[ -z "$classpath" ]]; then
-      |  echo "Failed to resolve Runtime / fullClasspath." >&2
-      |  exit 1
-      |fi
-      |
-      |printf '%s\n' "$classpath" > "$CNCF_RUNTIME_CLASSPATH_FILE"
-      |printf 'Wrote %s\n' "$CNCF_RUNTIME_CLASSPATH_FILE"
+      |cd "$PROJECT_ROOT"
+      |exec sbt --batch cozyPrepareRuntime
       |""".stripMargin
 
   private[cozy] def carRunServerScript(): String =

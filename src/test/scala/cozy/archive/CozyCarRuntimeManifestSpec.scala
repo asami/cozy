@@ -22,6 +22,100 @@ final class CozyCarRuntimeManifestSpec
     extends AnyWordSpec
     with Matchers
     with GivenWhenThen {
+  "CNCF CAR development runtime evidence" should {
+    "reject descriptor coordinates that contradict the project-owned CAR contract" in {
+      _with_temp_dir { root =>
+        Given("a project contract and descriptor whose versions differ")
+        _write(
+          root.resolve("project.json"),
+          """{"project":{"name":"sample","kind":"car","component":{"name":"sample","version":"0.0.1-SNAPSHOT"}},"build":{"cozyVersion":"0.3.1-SNAPSHOT","dependencies":{"compile":["org.goldenport::goldenport-cncf:0.5.17"]}},"packaging":{"kind":"car","car":{"runtime":{"cncf":{"minimum":"0.5.17","excluded":[],"tested":["0.5.17"]}}}}}"""
+        )
+        _write(root.resolve("src/main/car/component-descriptor.json"), """{"name":"sample","version":"0.0.2-SNAPSHOT","component":"sample"}""")
+        _write(root.resolve("src/main/car/abi-manifest.json"), """{"format":"cozy.car.abi-manifest.v1","car":{"name":"sample","version":"0.0.2-SNAPSHOT"},"abi":{"exports":{"components":[{"name":"sample"}]}}}""")
+        val classes = root.resolve("target/scala-3.3.8/classes")
+        _write(classes.resolve("sample.class"), "compiled")
+        val classpath = root.resolve(CozyDevelopmentRuntimeManifest.RUNTIME_CLASSPATH_IDENTITY)
+        _write(classpath, classes.toString)
+
+        When("development evidence is prepared")
+        val exception = intercept[Throwable] {
+          CozyDevelopmentRuntimeManifest.write(root, classpath, root.resolve("target/cncf.d/car-runtime-manifest.json"))
+        }
+
+        Then("the contradictory descriptor is rejected before manifest publication")
+        exception.getMessage should include("Development runtime project version mismatch")
+        exception.getMessage should include("expected=0.0.1-SNAPSHOT actual=0.0.2-SNAPSHOT")
+      }
+    }
+
+    "write stable development evidence without treating mutable class bytes as archive integrity" in {
+      _with_temp_dir { root =>
+        Given("a CAR project with prepared classpath, descriptor, ABI, and mutable classes")
+        _write(
+          root.resolve("project.json"),
+          """{
+            |  "project": {
+            |    "name": "sample",
+            |    "kind": "car",
+            |    "component": {"name": "sample", "version": "0.0.1-SNAPSHOT"}
+            |  },
+            |  "build": {
+            |    "cozyVersion": "0.3.1-SNAPSHOT",
+            |    "dependencies": {"compile": ["org.goldenport::goldenport-cncf:0.5.17"]}
+            |  },
+            |  "packaging": {
+            |    "kind": "car",
+            |    "car": {"runtime": {"cncf": {"minimum": "0.5.17", "excluded": [], "tested": ["0.5.17"]}}}
+            |  }
+            |}
+            |""".stripMargin
+        )
+        _write(
+          root.resolve("src/main/car/component-descriptor.json"),
+          """{"name":"sample","version":"0.0.1-SNAPSHOT","component":"sample"}"""
+        )
+        _write(
+          root.resolve("src/main/car/abi-manifest.json"),
+          """{"format":"cozy.car.abi-manifest.v1","car":{"name":"sample","version":"0.0.1-SNAPSHOT"},"abi":{"exports":{"components":[{"name":"sample"}]}}}"""
+        )
+        val classes = root.resolve("target/scala-3.3.8/classes")
+        _write(classes.resolve("sample.class"), "first compilation")
+        val classpath = root.resolve(CozyDevelopmentRuntimeManifest.RUNTIME_CLASSPATH_IDENTITY)
+        _write(classpath, classes.toString)
+        val manifest = root.resolve("target/cncf.d/car-runtime-manifest.json")
+
+        When("Cozy prepares development runtime evidence twice around a class-only recompilation")
+        CozyDevelopmentRuntimeManifest.write(root, classpath, manifest)
+        val before = Json.parse(Files.readString(manifest, StandardCharsets.UTF_8))
+        _write(classes.resolve("sample.class"), "second compilation")
+        CozyDevelopmentRuntimeManifest.write(root, classpath, manifest)
+        val after = Json.parse(Files.readString(manifest, StandardCharsets.UTF_8))
+
+        Then("the distinct development schema records only stable evidence")
+        (after \ "schemaVersion").as[String] shouldBe "cncf.car-development-runtime-manifest.v1"
+        (after \ "sourceKind").as[String] shouldBe "development-directory"
+        (after \ "car" \ "component").as[String] shouldBe "sample"
+        (after \ "evidence").as[Vector[play.api.libs.json.JsObject]].map(entry => (entry \ "path").as[String]) shouldBe Vector(
+          "target/cncf.d/runtime-classpath.txt",
+          "src/main/car/component-descriptor.json",
+          "src/main/car/abi-manifest.json"
+        )
+        before shouldBe after
+
+        When("the prepared classpath later names a deleted directory")
+        Files.delete(classes.resolve("sample.class"))
+        Files.delete(classes)
+        val stale = intercept[Throwable] {
+          CozyDevelopmentRuntimeManifest.write(root, classpath, manifest)
+        }
+
+        Then("Cozy refuses to publish stale development evidence")
+        stale.getMessage should include("Development runtime classpath entry is missing")
+        stale.getMessage should include(classes.toString)
+      }
+    }
+  }
+
   "CNCF CAR runtime manifest packaging" should {
     "preserve runtime range and exact archive bytes across generated versions" in {
       Given("generated CAR coordinates and arbitrary packaged component bytes")

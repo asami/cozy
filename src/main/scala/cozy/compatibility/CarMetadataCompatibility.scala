@@ -5,7 +5,7 @@ import org.goldenport.RAISE
 
 /*
  * @since   Jul. 27, 2026
- * @version Jul. 28, 2026
+ * @version Jul. 29, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CarMetadataCompatibility {
@@ -443,6 +443,22 @@ private[cozy] object CarMetadataCompatibility {
     val decision =
       if (isCarProject(metadata))
         evaluate(metadata, resolvedCncfArtifacts)
+      else
+        _car_classification_required(metadata)
+    _require_car_contract(decision)
+  }
+
+  /*
+   * Development runtime preparation admits the project-owned CAR contract but
+   * intentionally has no packaged JAR to prove. The package gate remains the
+   * only boundary that requires resolved archive evidence.
+   */
+  def requireValidDevelopmentCarProject(
+    metadata: CozyProjectYamlConfig.Config
+  ): Contract = {
+    val decision =
+      if (isCarProject(metadata))
+        evaluateProject(metadata)
       else
         _car_classification_required(metadata)
     _require_car_contract(decision)

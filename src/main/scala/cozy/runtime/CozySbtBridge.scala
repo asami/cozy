@@ -8,7 +8,7 @@ import cozy.compatibility.{
   GenerationCompatibilityBoundary
 }
 import cozy.modeler.GenerationProvenance
-import cozy.archive.{ComponentApiDependencyResolver, ComponentApiJarPackager, CozyArchivePackager, CozyCarPublisher, CozySarPublisher}
+import cozy.archive.{ComponentApiDependencyResolver, ComponentApiJarPackager, CozyArchivePackager, CozyCarPublisher, CozyDevelopmentRuntimeManifest, CozySarPublisher}
 import cozy.config.CozyProjectYamlConfig
 import cozy.publication.{CozyPublicationCompiler, CozySampleDistributor, CozyWarehouseIndexer}
 import cozy.video.CozyVideoPublisher
@@ -19,7 +19,7 @@ import java.nio.file.{Files, Path, Paths}
 /*
  * @since   May. 20, 2026
  *  version Jun. 27, 2026
- * @version Jul. 28, 2026
+ * @version Jul. 29, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozySbtBridge {
@@ -41,6 +41,8 @@ private[cozy] object CozySbtBridge {
         _run_generation(request.arguments, request.settings)
       case "rebind-generation-provenance" =>
         _rebind_generation_provenance(request.arguments)
+      case "prepare-development-runtime-evidence" =>
+        _prepare_development_runtime_evidence(request.arguments)
       case "package-car" =>
         CozyArchivePackager.buildCar(request.arguments.toList)
       case "component-api-jar" =>
@@ -115,6 +117,13 @@ private[cozy] object CozySbtBridge {
       projectRoot = projectroot
     )
   }
+
+  private def _prepare_development_runtime_evidence(args: Vector[String]): Unit =
+    CozyDevelopmentRuntimeManifest.write(
+      projectRoot = _required_path(args.toList, "project-dir"),
+      runtimeClasspathFile = _required_path(args.toList, "runtime-classpath-file"),
+      output = _required_path(args.toList, "save")
+    )
 
   private def _generation_config(settings: Map[String, String]): CozyProjectYamlConfig.Config = {
     val projectdir = settings.get(_sbt_project_dir_setting).
