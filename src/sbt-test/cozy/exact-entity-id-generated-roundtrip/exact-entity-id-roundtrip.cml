@@ -1,0 +1,11 @@
+# ENTITY
+
+## Facility
+
+### ATTRIBUTE
+
+| name               | type     | multiplicity |
+|--------------------|----------|--------------|
+| id                 | entityid | 1            |
+| primaryExhibitId   | entityid | ?            |
+| relatedExhibitIds  | entityid | *            |

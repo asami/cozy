@@ -21,14 +21,17 @@ import org.goldenport.record.Record
 import org.goldenport.datatype.Name
 import org.sample.aggregatesinglerecord.value.OrderLine
 import org.sample.aggregatesinglerecord.entity.Order
-import org.simplemodeling.model.datatype.EntityId
+import org.simplemodeling.model.datatype.{EntityCollectionId, EntityId}
 
 object SingleRecordAggregateDemo {
+  private val _order_collection =
+    EntityCollectionId("aggregate", "single_record", "order")
+
   def main(args: Array[String]): Unit = {
     val line1 = OrderLine.create(Name("Widget"), 2)
     val line2 = OrderLine.create(Name("Cable"), 1)
     val order = Order.Builder()
-      .withId(EntityId.parse("major-minor-entity-order-20260330000000-aaa111").TAKE)
+      .withId(EntityId("aggregate", "order_alpha", _order_collection))
       .withName(Name("Alpha"))
       .withStatus("Active")
       .withLines(Vector(line1, line2))
@@ -86,14 +89,17 @@ import org.goldenport.datatype.Name
 import org.goldenport.record.Record
 import org.sample.aggregatesinglerecord.entity.Order
 import org.sample.aggregatesinglerecord.entity.Order.given
-import org.simplemodeling.model.datatype.EntityId
+import org.simplemodeling.model.datatype.{EntityCollectionId, EntityId}
 
 object SingleRecordAggregateDatastoreDemo {
+  private val _order_collection =
+    EntityCollectionId("aggregate", "single_record", "order")
+
   def main(args: Array[String]): Unit = {
     val line1 = OrderLine.create(Name("Widget"), 2)
     val line2 = OrderLine.create(Name("Cable"), 1)
     val order = Order.Builder()
-      .withId(EntityId.parse("major-minor-entity-order-20260330000000-bbb222").TAKE)
+      .withId(EntityId("aggregate", "order_datastore", _order_collection))
       .withName(Name("Datastore"))
       .withStatus("Active")
       .withLines(Vector(line1, line2))

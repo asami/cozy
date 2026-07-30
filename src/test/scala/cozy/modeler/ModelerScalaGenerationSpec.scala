@@ -16,7 +16,7 @@ import play.api.libs.json.Json
 
 /*
  * @since   Jun. 23, 2026
- * @version Jul. 28, 2026
+ * @version Jul. 29, 2026
  * @author  ASAMI, Tomoharu
  */
 final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -89,10 +89,8 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         content should include (
           "override def fromStoreRecord(r: Record): Consequence[Person] = EntityStoreRecordProjection.project(r, _store_record_attributes).flatMap(createC)"
         )
-        content should include ("override def fromStoreRecord(context: EntityStoreDecodeContext, r: Record): Consequence[Person] =")
-        content should include ("EntityPersistent.restoreCollectionIdentity(")
-        content should include ("context.owningCollectionId")
-        content should include ("id => entity.copy(id = id)")
+        content should not include "EntityStoreDecodeContext"
+        content should not include "EntityPersistent.restoreCollectionIdentity"
         content should include ("val sourcemap = source.asMap")
         content should not include ("val sourceMap = source.asMap")
         content should include (""""permission" -> _permission_json(securityAttributes.rights)""")
@@ -165,6 +163,52 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         content should include ("case class BlogPost(override val id: EntityId")
         content should include ("nameAttributes: NameAttributes")
         content should not include ("slug:")
+      }
+
+      "modeler-scala emits exact scalar primary and reference identities without context repair" in {
+        Given("a CML Entity with primary, optional, and repeated EntityId fields")
+        val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+        val input = base.resolve("target/test-generated/modeler-scala-entity-id-fields.cml")
+        val out = base.resolve("target/test-generated/modeler-scala-entity-id-fields")
+        delete_recursively(out)
+        Files.createDirectories(input.getParent)
+        Files.writeString(
+          input,
+          """# ENTITY
+            |
+            |## Facility
+            |
+            |### ATTRIBUTE
+            |
+            || name               | type     | multiplicity |
+            ||--------------------+----------+--------------|
+            || id                 | entityid | 1            |
+            || primaryExhibitId   | entityid | ?            |
+            || relatedExhibitIds  | entityid | *            |
+            |""".stripMargin
+        )
+
+        When("Cozy generates the Entity persistence source")
+        cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString))
+        val generated = out.resolve(
+          "target/scala-3.3.8/src_managed/main/scala/domain/entity/Facility.scala"
+        )
+        val content = Files.readString(generated)
+
+        Then("the generated source uses scalar EntityId fields without selected-owner repair")
+        content should include("id: EntityId")
+        content should include("primaryExhibitId: Option[EntityId]")
+        content should include("relatedExhibitIds: Vector[EntityId]")
+        content should include("\"primaryExhibitId\" -> _to_data_store_value(primaryExhibitId)")
+        content should include("\"relatedExhibitIds\" -> _to_data_store_value(relatedExhibitIds)")
+        content should include(
+          "_record_get_as_c[EntityId](record, INPUT_KEYS_PRIMARY_EXHIBIT_ID)"
+        )
+        content should include(
+          "_record_get_vector_as_c[org.simplemodeling.model.datatype.EntityId](record, INPUT_KEYS_RELATED_EXHIBIT_IDS)"
+        )
+        content should not include "EntityStoreDecodeContext"
+        content should not include "EntityPersistent.restoreCollectionIdentity"
       }
 
       "modeler-scala generates a typed component API proxy and socket set" in {

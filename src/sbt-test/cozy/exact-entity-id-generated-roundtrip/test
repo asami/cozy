@@ -1,0 +1,4 @@
+> runMain cozy.Cozy car-sbt-project exact-entity-id-roundtrip.cml --cncf-version 0.5.2-SNAPSHOT --cozy-generator-version 0.3.1-SNAPSHOT --version 0.1.0-SNAPSHOT --save=out.d
+> runMain cozy.Cozy modeler-scala exact-entity-id-roundtrip.cml --save=generated.d
+$ exists out.d/build.sbt
+$ exec sh check-exact-entity-id-roundtrip.sh

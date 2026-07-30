@@ -19,10 +19,14 @@ ThisBuild / organization := "org.sample"
 ThisBuild / version := "0.1.0-SNAPSHOT"
 ThisBuild / scalaVersion := "3.3.8"
 
-val cncfVersion = sys.props.getOrElse("cncf.version", sys.env.getOrElse("CNCF_VERSION", "0.4.13"))
+val cncfVersion = sys.props.getOrElse("cncf.version", sys.env.getOrElse("CNCF_VERSION", "0.5.2-SNAPSHOT"))
 val simplemodelingModelVersion = sys.props.getOrElse(
   "simplemodeling.model.version",
-  sys.env.getOrElse("SIMPLEMODELING_MODEL_VERSION", "0.1.7")
+  sys.env.getOrElse("SIMPLEMODELING_MODEL_VERSION", "0.2.0-SNAPSHOT")
+)
+val cozyGeneratorVersion = sys.props.getOrElse(
+  "cozy.generator.version",
+  sys.env.getOrElse("COZY_GENERATOR_VERSION", "0.3.1-SNAPSHOT")
 )
 
 lazy val root = (project in file("."))
@@ -33,6 +37,10 @@ lazy val root = (project in file("."))
     cozyGeneratorBackend := "cozy",
     cozyDelegateProjectDir := None,
     cozyDelegateCommand := Seq("cozy"),
+    cozyGenerationVersionOverrides := Map(
+      "generation.versions.cncf" -> cncfVersion,
+      "generation.versions.cozy" -> cozyGeneratorVersion
+    ),
     resolvers ++= Seq(
       Resolver.defaultLocal,
       Resolver.mavenLocal,
@@ -58,7 +66,7 @@ EOF
 cat > "$PROJECT_DIR/plugins.sbt" <<'EOF'
 resolvers += "SimpleModeling.org" at "https://www.simplemodeling.org/repository/maven"
 resolvers += Resolver.defaultLocal
-val sbtCozyVersion = sys.props.getOrElse("sbt.cozy.version", sys.env.getOrElse("SBT_COZY_VERSION", "0.1.11"))
+val sbtCozyVersion = sys.props.getOrElse("sbt.cozy.version", sys.env.getOrElse("SBT_COZY_VERSION", "0.1.17-SNAPSHOT"))
 addSbtPlugin("org.goldenport" % "sbt-cozy" % sbtCozyVersion)
 EOF
 
@@ -254,7 +262,14 @@ object ExternalUpdateAggregateDemo:
     IdPattern.findFirstMatchIn(text)
       .map(_.group(1))
       .map { raw =>
-        EntityId.parse(raw).map(_.copy(collection = collection)).TAKE
+        EntityId.parse(raw).flatMap { id =>
+          if (id.collection == collection)
+            Consequence.success(id)
+          else
+            Consequence.stateInvalid(
+              s"response EntityId collection mismatch: expected ${collection.print}, actual ${id.collection.print}"
+            )
+        }.TAKE
       }
       .getOrElse {
         throw new IllegalStateException(s"Missing id in response: $text")
