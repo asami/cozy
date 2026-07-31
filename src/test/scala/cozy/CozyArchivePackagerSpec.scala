@@ -13,13 +13,13 @@ import cozy.archive.CozyArchivePackager
 import org.scalatest.GivenWhenThen
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.matchers.should.Matchers
-import play.api.libs.json.{Json, JsValue}
+import play.api.libs.json.{Json, JsObject, JsValue}
 
 /*
  * @since   May. 20, 2026
  *  version May. 22, 2026
  *  version Jun. 18, 2026
- * @version Jul. 28, 2026
+ * @version Jul. 31, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -109,6 +109,156 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
       (abijson \ "car" \ "version").as[String] shouldBe "0.1.0"
       (abijson \ "abi" \ "exports" \ "components").as[Seq[JsValue]].map(x => (x \ "name").as[String]) should contain ("sample-component")
       (abijson \ "abi" \ "exports" \ "entities").as[Seq[JsValue]].map(x => (x \ "name").as[String]) should contain allOf ("Notice", "SalesOrder")
+    }
+  }
+
+    "project a catalog-derived CML component style snapshot into descriptor schema v2" in {
+    _with_temp_dir("cozy-car-component-style") { dir =>
+      Given("one generated CML metadata document with an admitted style snapshot")
+      val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
+      val metadata = _write(dir.resolve("target/cozy/model-metadata.json"), _model_metadata_with_component_style)
+      val archive = dir.resolve("out/sample.car")
+
+      When("Cozy packages the generated CML component")
+      CarPackagingSpecSupport.buildCarWithContract(List(
+        "--save", archive.toString,
+        "--main-jar", mainjar.toString,
+        "--model-metadata", metadata.toString,
+        "--name", "sample-component",
+        "--version", "0.1.0",
+        "--component", "sample-component"
+      ))
+
+      val descriptor = Json.parse(_zip_text(archive, "component-descriptor.json"))
+
+      Then("the packaged descriptor has one exact catalog-derived schema-v2 snapshot")
+      (descriptor \ "schemaVersion").as[Int] shouldBe 2
+      (descriptor \ "component" \ "name").as[String] shouldBe "sample-component"
+      (descriptor \ "componentStyle").as[JsObject] shouldBe
+        (Json.parse(_model_metadata_with_component_style) \ "componentStyle").as[JsObject]
+    }
+  }
+
+    "reject competing project and source descriptor authorities for a CML-derived style snapshot" in {
+    _with_temp_dir("cozy-car-component-style-authority") { dir =>
+      Given("generated CML metadata and competing project or descriptor declarations")
+      val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
+      val metadata = _write(dir.resolve("target/cozy/model-metadata.json"), _model_metadata_with_component_style)
+
+      def _build_(label: String, extra: List[String]): Throwable =
+        intercept[Throwable] {
+          CarPackagingSpecSupport.buildCarWithContract(List(
+            "--save", dir.resolve(s"out/$label.car").toString,
+            "--main-jar", mainjar.toString,
+            "--model-metadata", metadata.toString,
+            "--name", "sample-component",
+            "--version", "0.1.0",
+            "--component", "sample-component"
+          ) ++ extra)
+        }
+
+      When("the packager receives scalar, list, kebab-case, or nested project authority keys")
+      val projecterrors = Vector(
+        "scalar" -> "componentStyle: full-fledged-with-standalone\n",
+        "list" -> "componentCapabilities:\n  - domain.full@1\n",
+        "kebab" -> "component-style: full-fledged-with-standalone\n",
+        "nested-style" -> "component:\n  style: full-fledged-with-standalone\n",
+        "nested-capabilities" -> "component:\n  capabilities:\n    - domain.full@1\n"
+      ).map { case (label, yaml) =>
+        val project = dir.resolve(s"project-$label")
+        _write(project.resolve("project.yaml"), yaml)
+        label -> _build_(label, List("--project-dir", project.toString))
+      }
+
+      val cardir = dir.resolve("source-car")
+      _write(cardir.resolve("component-descriptor.json"), "{}")
+      val sourceerror = _build_("source", List("--car-dir", cardir.toString))
+      val extensionerror = _build_("extension", List("--extensions", "{\"componentDescriptorJson\":\"{}\"}"))
+      val policyerror = _build_("policy", List("--config", "operation-mode=legacy"))
+
+      Then("all competing authorities fail before CAR output")
+      projecterrors.foreach { case (_, error) =>
+        error.getMessage should include ("project.yaml must not declare component style or capability authority")
+      }
+      sourceerror.getMessage should include ("CML component style snapshot cannot be overridden")
+      extensionerror.getMessage should include ("CML component style snapshot cannot be overridden")
+      policyerror.getMessage should include ("CML component style snapshot must not declare Component operating")
+    }
+  }
+
+    "preserve legacy descriptor routes without a generated style snapshot while closing styled CML routes" in {
+    _with_temp_dir("cozy-car-cml-descriptor-authority") { dir =>
+      Given("a CML CAR with a valid source ABI but no independently selectable descriptor authority")
+      val projectdir = dir.resolve("project")
+      val cardir = projectdir.resolve("src/main/car")
+      val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
+      _write(projectdir.resolve("src/main/cozy/sample.cml"), "# COMPONENT\n\n## Sample\n")
+      _write(cardir.resolve("abi-manifest.json"), _abi_manifest("sample-component", "0.1.0-SNAPSHOT", "sample-component"))
+      val explicitabi = _write(dir.resolve("abi/explicit.json"), _abi_manifest("sample-component", "0.1.0-SNAPSHOT", "sample-component"))
+      val metadata = projectdir.resolve("target/cozy/model-metadata.json")
+
+      def _build_(label: String, model: Option[String], extra: List[String] = Nil): Path = {
+        Files.deleteIfExists(metadata)
+        model.foreach(value => _write(metadata, value))
+        val archive = dir.resolve(s"out/$label.car")
+        CarPackagingSpecSupport.buildCarWithContract(List(
+          "--save", archive.toString,
+          "--project-dir", projectdir.toString,
+          "--main-jar", mainjar.toString,
+          "--name", "sample-component",
+          "--version", "0.1.0-SNAPSHOT",
+          "--component", "sample-component"
+        ) ++ model.map(_ => List("--model-metadata", metadata.toString)).getOrElse(Nil) ++ extra)
+        archive
+      }
+
+      def _error_(label: String, model: Option[String], extra: List[String] = Nil): Throwable =
+        intercept[Throwable](_build_(label, model, extra))
+
+      When("style-less legacy CML and styled CML authority routes are packaged")
+      val missing = _build_("missing", None)
+      val empty = _error_("empty", Some("""{"schema":"cozy.cml.model-metadata.v1","componentStyle":{}}"""))
+      val unsupported = _error_(
+        "unsupported-schema",
+        Some(_model_metadata_with_component_style.replace("\"cozy.cml.model-metadata.v1\"", "\"other.v1\"")),
+        List("--abi-manifest", explicitabi.toString)
+      )
+      _write(cardir.resolve("component-descriptor.json"), "{}")
+      val source = _error_("source", Some(_model_metadata_with_component_style))
+      Files.delete(cardir.resolve("component-descriptor.json"))
+      val extension = _error_(
+        "extension",
+        Some(_model_metadata_with_component_style),
+        List("--extensions", "{\"componentDescriptorJson\":\"{}\"}")
+      )
+      _write(
+        cardir.resolve("component-descriptor.json"),
+        """{"schemaVersion":2,"name":"sample-component","version":"0.1.0-SNAPSHOT","component":"sample-component","componentStyle":{}}"""
+      )
+      val legacysourcev2 = _error_("legacy-source-v2", None)
+      _write(
+        cardir.resolve("component-descriptor.json"),
+        """{"name":"sample-component","version":"0.1.0-SNAPSHOT","component":"sample-component","componentStyle":{}}"""
+      )
+      val legacysourcestyle = _error_("legacy-source-style", None)
+      val legacyextensionv2 = _error_(
+        "legacy-extension-v2",
+        None,
+        List("--extensions", "{\"componentDescriptorJson\":\"{\\\"schemaVersion\\\":2,\\\"name\\\":\\\"sample-component\\\",\\\"version\\\":\\\"0.1.0-SNAPSHOT\\\",\\\"component\\\":\\\"sample-component\\\",\\\"componentStyle\\\":{}}\"}")
+      )
+
+      Then("absent style metadata remains legacy while malformed, styled, and non-legacy source authorities fail closed")
+      (Json.parse(_zip_text(missing, "component-descriptor.json")) \ "schemaVersion").toOption shouldBe None
+      empty.getMessage should include("must declare one non-empty componentStyle object")
+      unsupported.getMessage should include("must declare schema 'cozy.cml.model-metadata.v1'")
+      source.getMessage should include("CML component style snapshot cannot be overridden")
+      extension.getMessage should include("CML component style snapshot cannot be overridden")
+      legacysourcev2.getMessage should include("Style-less CML source component-descriptor.json must be a legacy descriptor")
+      legacysourcestyle.getMessage should include("Style-less CML source component-descriptor.json must be a legacy descriptor")
+      legacyextensionv2.getMessage should include("Style-less CML source componentDescriptorJson must be a legacy descriptor")
+      Vector("empty", "unsupported-schema", "source", "extension", "legacy-source-v2", "legacy-source-style", "legacy-extension-v2").foreach { label =>
+        Files.exists(dir.resolve(s"out/$label.car")) shouldBe false
+      }
     }
   }
 
@@ -1463,6 +1613,28 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
       |    {"kind": "query", "name": "GetNotice", "fields": []},
       |    {"kind": "value", "name": "NoticeResult", "fields": []}
       |  ]
+      |}
+       |""".stripMargin
+
+  private def _model_metadata_with_component_style: String =
+    """{
+      |  "schema": "cozy.cml.model-metadata.v1",
+      |  "surface": { "component": { "name": "Sample", "services": [] } },
+      |  "modelElements": [],
+      |  "componentStyle": {
+      |    "apiVersion": "cncf.textus/v1",
+      |    "provider": "cncf",
+      |    "id": "full-fledged-with-standalone@1",
+      |    "version": 1,
+      |    "parameterSchema": { "type": "object", "properties": {}, "required": [], "additionalProperties": false },
+      |    "parameters": {},
+      |    "provides": {
+      |      "bundles": ["domain.full@1"],
+      |      "capabilities": ["user.fixed-context-compatible@1", "user.multi-user@1"],
+      |      "effective": ["domain.aggregate@1", "domain.command@1", "domain.domain-event@1", "domain.entity@1", "domain.optimistic-concurrency@1", "domain.persistence@1", "domain.projection@1", "domain.query@1", "domain.transaction@1", "user.fixed-context-compatible@1", "user.multi-user@1"]
+      |    },
+      |    "requires": { "subsystemCapabilities": ["datastore.optimistic-concurrency@1", "datastore.persistent@1", "datastore.transactional@1", "user-context.current@1"] }
+      |  }
       |}
       |""".stripMargin
 

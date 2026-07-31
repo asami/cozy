@@ -51,11 +51,12 @@ import scala.collection.mutable
  *  version Feb. 27, 2026
  *  version Mar. 31, 2026
  *  version May. 24, 2026
- * @version Jul. 26, 2026
+ * @version Jul. 31, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler(
-  predefinedresultcatalog: PredefinedResultCatalog = PredefinedResultCatalog.empty
+  predefinedResultCatalog: PredefinedResultCatalog = PredefinedResultCatalog.empty,
+  componentStyleCatalog: ComponentStyleCatalog = ComponentStyleCatalog.EMPTY
 ) extends org.goldenport.kaleidox.extension.modeler.Modeler {
   import Modeler._
 
@@ -71,7 +72,7 @@ class Modeler(
   def generateStateMachineDiagram(
     c: Context,
     name: String,
-    resourceid: Option[String]
+    resourceId: Option[String]
   ): SExpr = {
     _make_sm(c, name).
       map(_make_diagram(c, _)).
@@ -201,8 +202,8 @@ class Modeler(
         case EventNameGuard(_) => None
         case CmlExpressionGuard(expression) =>
           Option(expression).map(_.trim).filter(_.nonEmpty)
-        case ResourceIdGuard(resourceid) =>
-          Some(s"""event.targetId.exists(_.value == "$resourceid")""")
+        case ResourceIdGuard(resourceId) =>
+          Some(s"""event.targetId.exists(_.value == "$resourceId")""")
         case ToStateGuard(name, value) =>
           value match {
             case Some(v) => Some(s"event.name == '${name}' || event.name == '${v.toString}'")
@@ -389,11 +390,11 @@ class Modeler(
   }
 
   private def _make_model(p: KaleidoxModel): SimpleModel = {
-    ModelBuilder(p, predefinedresultcatalog).build()
+    ModelBuilder(p, predefinedResultCatalog, componentStyleCatalog).build()
   }
 
   private def _make_model_value(p: KaleidoxModel): SimpleModel = {
-    ModelBuilder(p, predefinedresultcatalog).buildValue()
+    ModelBuilder(p, predefinedResultCatalog, componentStyleCatalog).buildValue()
   }
 
   def generateScala(
@@ -896,7 +897,8 @@ object Modeler {
     service: ServiceModel,
     event: EventModel,
     operation: OperationModel,
-    predefinedresultcatalog: PredefinedResultCatalog = PredefinedResultCatalog.empty,
+    predefinedResultCatalog: PredefinedResultCatalog = PredefinedResultCatalog.empty,
+    componentStyleCatalog: ComponentStyleCatalog = ComponentStyleCatalog.EMPTY,
     cmlDeclaredTypeNames: Set[String] = Set.empty,
     relationships: Vector[MComponent.RelationshipDefinition] = Vector.empty,
     operationRelationshipBindings: Map[String, OperationRelationshipBinding] = Map.empty,
@@ -912,6 +914,7 @@ object Modeler {
 
     private def _build(includecomponents: Boolean): SimpleModel = {
       _validate_component_service_operation_boundary()
+      _validate_component_style_selection()
       val entities = entity.classes.values.filterNot(c => _is_simple_entity(c.name)).map(_entity)
       val values = value.classes.values.map(_value) ++ _service_inline_values.map(_value)
       val datatypes = datatype.classes.values.map(_datatype)
@@ -933,6 +936,11 @@ object Modeler {
       if (service.classes.nonEmpty && componentSubsystem.components.isEmpty)
         RAISE.syntaxErrorFault("SERVICE requires COMPONENT; services are owned by a component.")
     }
+
+    private def _validate_component_style_selection(): Unit =
+      componentSubsystem.components.foreach { component =>
+        component.componentStyle.foreach(componentStyleCatalog.requireSelection)
+      }
 
     private def _entity(p: EntityClass): MEntity = {
       val packagename = _entity_package_name(p.packageName)
@@ -1680,7 +1688,9 @@ object Modeler {
       val a = if (pkg.components.isEmpty) {
         val entities = pkg.entities
         val isrootpackage = pkg == sm.root
-        if (entities.nonEmpty || (isrootpackage && service.classes.nonEmpty)) {
+        val explicitlydeclared = componentSubsystem.components.exists(_.name == pkg.name) ||
+          (isrootpackage && componentSubsystem.components.lengthCompare(1) == 0)
+        if (entities.nonEmpty || (isrootpackage && service.classes.nonEmpty) || explicitlydeclared) {
           val comp = _make_component(pkg, entities)
           Vector(comp)
         } else {
@@ -1935,7 +1945,7 @@ object Modeler {
         datatype.classes.keySet ++
         cmlDeclaredTypeNames ++
         _builtin_service_operation_input_type_names ++
-        predefinedresultcatalog.names
+        predefinedResultCatalog.names
 
     private lazy val _builtin_service_operation_input_type_names: Set[String] =
       Set(
@@ -3193,7 +3203,7 @@ object Modeler {
 
     private def _operation_result_fields(outputtype: String): Vector[MComponent.OperationField] =
       _value_input_field_map.get(outputtype).map(_.map(_result_operation_field)).orElse {
-        predefinedresultcatalog.get(outputtype).map(_.resultfields.map { field =>
+        predefinedResultCatalog.get(outputtype).map(_.resultfields.map { field =>
           MComponent.OperationField(
             name = field.name,
             datatype = field.datatype,
@@ -3507,7 +3517,7 @@ object Modeler {
         case c => c.toString
       } + "\""
 
-    private case class _TransitionDef(
+    private case class TransitionDefinition(
       machinename: String,
       sourcestatename: Option[String],
       sourcestate: Option[StateClass],
@@ -3524,7 +3534,7 @@ object Modeler {
 
     private def _validate_transition(
       machinename: String,
-      transition: _TransitionDef,
+      transition: TransitionDefinition,
       statenames: Set[String],
       events: Set[String]
     ): Unit = {
@@ -3677,21 +3687,21 @@ object Modeler {
 
     private def _all_transitions(
       rule: StateMachineRule
-    ): Vector[_TransitionDef] = {
+    ): Vector[TransitionDefinition] = {
       val machinename = rule.name.getOrElse("")
       val fromstates = rule.states.toVector.flatMap { s =>
-        s.transitions.call.map(t => _TransitionDef(machinename, Some(s.name), Some(s), t, iscalltransition = true)).toVector ++
-          s.transitions.global.map(t => _TransitionDef(machinename, Some(s.name), Some(s), t, iscalltransition = false)).toVector
+        s.transitions.call.map(t => TransitionDefinition(machinename, Some(s.name), Some(s), t, iscalltransition = true)).toVector ++
+          s.transitions.global.map(t => TransitionDefinition(machinename, Some(s.name), Some(s), t, iscalltransition = false)).toVector
       }
       val fromrule =
-        rule.transitions.call.map(t => _TransitionDef(machinename, None, None, t, iscalltransition = true)).toVector ++
-          rule.transitions.global.map(t => _TransitionDef(machinename, None, None, t, iscalltransition = false)).toVector
+        rule.transitions.call.map(t => TransitionDefinition(machinename, None, None, t, iscalltransition = true)).toVector ++
+          rule.transitions.global.map(t => TransitionDefinition(machinename, None, None, t, iscalltransition = false)).toVector
       fromstates ++ fromrule ++ rule.statemachines.toVector.flatMap(_all_transitions)
     }
 
     private def _event_name(
       machinename: String,
-      transition: _TransitionDef
+      transition: TransitionDefinition
     ): String =
       _event_name_from_guard(transition.transition.guard).orElse(transition.transition.getEventName).getOrElse {
         RAISE.syntaxErrorFault(s"StateMachine '$machinename' transition requires on.")
@@ -3828,8 +3838,8 @@ object Modeler {
           Some(s"event.name == '${_escape_string(name)}'")
         case CmlExpressionGuard(expression) =>
           Some(expression)
-        case ResourceIdGuard(resourceid) =>
-          Some(s"""event.targetId.exists(_.value == "${_escape_string(resourceid)}")""")
+        case ResourceIdGuard(resourceId) =>
+          Some(s"""event.targetId.exists(_.value == "${_escape_string(resourceId)}")""")
         case ToStateGuard(name, value) =>
           value match {
             case Some(v) =>
@@ -3855,7 +3865,7 @@ object Modeler {
     }
 
     private def _transition_plan(
-      transition: _TransitionDef,
+      transition: TransitionDefinition,
       statemap: Map[String, StateClass]
     ): MComponent.RulePlan = {
       val exit = transition.sourcestate.toVector.flatMap(x => _activity_scripts(x.exitActivity))
@@ -4237,11 +4247,18 @@ object Modeler {
   }
   object ModelBuilder {
     def apply(p: KaleidoxModel): ModelBuilder =
-      apply(p, PredefinedResultCatalog.empty)
+      apply(p, PredefinedResultCatalog.empty, ComponentStyleCatalog.EMPTY)
 
     def apply(
       p: KaleidoxModel,
-      predefinedresultcatalog: PredefinedResultCatalog
+      predefinedResultCatalog: PredefinedResultCatalog
+    ): ModelBuilder =
+      apply(p, predefinedResultCatalog, ComponentStyleCatalog.EMPTY)
+
+    def apply(
+      p: KaleidoxModel,
+      predefinedResultCatalog: PredefinedResultCatalog,
+      componentStyleCatalog: ComponentStyleCatalog
     ): ModelBuilder = {
       val relationships = RelationshipCml.relationshipDefinitions(p)
       val operationbindings = RelationshipCml.operationBindings(p, relationships)
@@ -4258,7 +4275,8 @@ object Modeler {
         p.getServiceModel.getOrElse(ServiceModel.empty),
         p.eventModel,
         p.takeOperationModel,
-        predefinedresultcatalog,
+        predefinedResultCatalog,
+        componentStyleCatalog,
         _cml_declared_type_names(p),
         relationships,
         operationbindings,

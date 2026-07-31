@@ -22,10 +22,60 @@ import scala.sys.process._
  * @since   May. 20, 2026
  *  version May. 22, 2026
  *  version Jun. 18, 2026
- * @version Jul. 28, 2026
+ * @version Jul. 31, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArchivePackager {
+  private val _model_metadata_schema = "cozy.cml.model-metadata.v1"
+
+  private[cozy] def writeDevelopmentComponentDescriptor(
+    projectRoot: Path,
+    output: Path
+  ): Unit = {
+    val projectroot = projectRoot.toAbsolutePath.normalize()
+    val projectmetadata = CozyProjectYamlConfig.loadProjectMetadata(projectroot)
+    val projectconfig = CozyProjectYamlConfig.loadProjectConfig(projectroot)
+    val name = projectmetadata.value("project.name").getOrElse(
+      RAISE.invalidArgumentFault("project.yaml requires project.name for development component descriptor.")
+    )
+    val version = projectmetadata.value("project.component.version").getOrElse(
+      RAISE.invalidArgumentFault("project.yaml requires project.component.version for development component descriptor.")
+    )
+    val component = projectmetadata.value("project.component.name").getOrElse(name)
+    val manifestmetadata = projectconfig.mapUnder("packaging.car.manifest_metadata")
+    val packagemetadata = _car_package_metadata(manifestmetadata, component, version)
+    _require_project_style_authority_free(projectmetadata)
+    val modelmetadata = _development_model_metadata(projectroot)
+    val source = projectroot.resolve("src/main/car/component-descriptor.json")
+    _component_style_snapshot(modelmetadata) match {
+      case Some(snapshot) =>
+        if (Files.isRegularFile(source))
+          RAISE.invalidArgumentFault("CML component style snapshot cannot be overridden by component-descriptor.json.")
+        if (packagemetadata.extensions.contains("componentDescriptorJson"))
+          RAISE.invalidArgumentFault("CML component style snapshot cannot be overridden by componentDescriptorJson.")
+        _require_mode_free_component_config(projectconfig.mapUnder("project.component.config"))
+        _write_text(
+          output,
+          _component_descriptor_json(
+            name,
+            version,
+            packagemetadata.component,
+            packagemetadata.extensions,
+            projectconfig.mapUnder("project.component.config"),
+            Vector.empty,
+            Some(snapshot)
+          )
+        )
+      case None =>
+        if (!Files.isRegularFile(source))
+          RAISE.invalidArgumentFault("Development CAR requires generated CML model metadata or src/main/car/component-descriptor.json.")
+        val text = Files.readString(source, StandardCharsets.UTF_8)
+        if (_has_cml_sources(Some(projectroot)))
+          _require_legacy_cml_source_descriptor(text, "component-descriptor.json")
+        _write_text(output, text)
+    }
+  }
+
   def buildCar(args: List[String]): Unit =
     _build_car(args, None)
 
@@ -117,6 +167,13 @@ private[cozy] object CozyArchivePackager {
       val extensionmap = packagemetadata.extensions ++ _string_map(args, "extensions")
       val configmap = config.mapUnder("project.component.config") ++ _string_map(args, "config")
       val entities = _entity_descriptors(args)
+      val componentstylesnapshot = _component_style_snapshot(modelmetadata)
+      val cmlprojection = componentstylesnapshot.nonEmpty
+      _require_project_style_authority_free(projectmetadata)
+      if (cmlprojection && (extensionmap.contains("componentDescriptorJson") || _source_component_descriptor(cardir).nonEmpty))
+        RAISE.invalidArgumentFault("CML component style snapshot cannot be overridden by component-descriptor.json or componentDescriptorJson.")
+      if (cmlprojection)
+        _require_mode_free_component_config(configmap)
       val abidependencies = config.indexedMapsUnder("packaging.car.abi.dependencies").map { dependency =>
         CozyCarAbiManifest.Dependency(
           dependency.getOrElse("name", ""),
@@ -139,14 +196,25 @@ private[cozy] object CozyArchivePackager {
         _write_temp("abi-manifest", content)
       }
       _path(args, "abi-manifest-output").foreach(path => _write_text(path, Files.readString(abimanifest, StandardCharsets.UTF_8)))
-      val componentdescriptor = _component_descriptor_override(extensionmap, name, version, packagemetadata.component).
-        map(_write_temp("component-descriptor", _)).
-        orElse(_source_component_descriptor(cardir).map { path =>
-          _validate_component_descriptor(Files.readString(path), name, version, packagemetadata.component, "component-descriptor.json")
-          path
-        }).
-        getOrElse {
-          _write_temp("component-descriptor", _component_descriptor_json(name, version, packagemetadata.component, extensionmap, configmap, entities))
+      val componentdescriptor = componentstylesnapshot.map { snapshot =>
+        _write_temp("component-descriptor", _component_descriptor_json(name, version, packagemetadata.component, extensionmap, configmap, entities, Some(snapshot)))
+      }.getOrElse {
+        _component_descriptor_override(extensionmap, name, version, packagemetadata.component).
+          map { text =>
+            if (_has_cml_sources(projectdir))
+              _require_legacy_cml_source_descriptor(text, "componentDescriptorJson")
+            _write_temp("component-descriptor", text)
+          }.
+          orElse(_source_component_descriptor(cardir).map { path =>
+            val text = Files.readString(path)
+            _validate_component_descriptor(text, name, version, packagemetadata.component, "component-descriptor.json")
+            if (_has_cml_sources(projectdir))
+              _require_legacy_cml_source_descriptor(text, "component-descriptor.json")
+            path
+          }).
+          getOrElse {
+            _write_temp("component-descriptor", _component_descriptor_json(name, version, packagemetadata.component, extensionmap, configmap, entities))
+          }
       }
       def _write_car_(packagedmainjar: Path): Unit = {
         val runtimemanifest = Some(
@@ -655,6 +723,81 @@ private[cozy] object CozyArchivePackager {
   private def _source_component_descriptor(cardir: Option[Path]): Option[Path] =
     cardir.map(_.resolve("component-descriptor.json")).filter(Files.isRegularFile(_))
 
+  private def _require_legacy_cml_source_descriptor(text: String, label: String): Unit = {
+    val descriptor = Try(Json.parse(text)).getOrElse(
+      RAISE.invalidArgumentFault(s"${label} must be valid JSON.")
+    )
+    val schema = (descriptor \ "schemaVersion").toOption
+    val hasstyle = (descriptor \ "componentStyle").toOption.isDefined
+    if (schema.exists(_ != JsNumber(1)) || hasstyle)
+      RAISE.invalidArgumentFault(
+        s"Style-less CML source ${label} must be a legacy descriptor with schemaVersion 1 or omitted and no componentStyle."
+      )
+  }
+
+  private def _component_style_snapshot(paths: Vector[Path]): Option[JsObject] = {
+    val snapshots = paths.flatMap { path =>
+      val root = Try(Json.parse(Files.readString(path, StandardCharsets.UTF_8))).getOrElse(
+        RAISE.invalidArgumentFault(s"Invalid generated model metadata JSON: $path")
+      ).asOpt[JsObject].getOrElse(RAISE.invalidArgumentFault(s"Generated model metadata must be a JSON object: $path"))
+      val schema = (root \ "schema").asOpt[String].getOrElse("")
+      if (schema != _model_metadata_schema)
+        RAISE.invalidArgumentFault(s"CML model metadata $path must declare schema '${_model_metadata_schema}', but was '${schema}'.")
+      root.value.get("componentStyle") match {
+        case None => None
+        case Some(value: JsObject) if value.keys.nonEmpty => Some(value)
+        case Some(_) =>
+          RAISE.invalidArgumentFault(s"CML model metadata $path must declare one non-empty componentStyle object or omit componentStyle for the legacy route.")
+      }
+    }
+    snapshots match {
+      case Vector() => None
+      case Vector(snapshot) => Some(snapshot)
+      case _ => RAISE.invalidArgumentFault("CML CAR must project exactly one component style snapshot.")
+    }
+  }
+
+  private def _development_model_metadata(projectroot: Path): Vector[Path] = {
+    val target = projectroot.resolve("target/cozy")
+    val direct = target.resolve("model-metadata.json")
+    val nested = target.resolve("model-metadata")
+    val nestedfiles =
+      if (Files.isDirectory(nested)) {
+        val stream = Files.walk(nested)
+        try stream.iterator().asScala.filter(Files.isRegularFile(_)).filter(_.getFileName.toString.endsWith(".json")).toVector.sortBy(_.toString)
+        finally stream.close()
+      } else Vector.empty
+    (Option(direct).filter(path => Files.isRegularFile(path)).toVector ++ nestedfiles).distinct
+  }
+
+  private def _require_project_style_authority_free(projectmetadata: CozyProjectYamlConfig.Config): Unit = {
+    val forbidden = (projectmetadata.values.keys ++ projectmetadata.lists.keys).filter { key =>
+      val normalized = key.toLowerCase(java.util.Locale.ROOT).filter(_.isLetterOrDigit)
+      normalized.contains("componentstyle") || normalized.contains("componentcapabilit")
+    }.toVector.distinct.sorted
+    if (forbidden.nonEmpty)
+      RAISE.invalidArgumentFault(s"project.yaml must not declare component style or capability authority: ${forbidden.mkString(", ")}")
+  }
+
+  private def _require_mode_free_component_config(config: Map[String, String]): Unit = {
+    val forbidden = config.keys.filter { key =>
+      val normalized = key.toLowerCase(java.util.Locale.ROOT).filter(_.isLetterOrDigit)
+      normalized.contains("operationmode") ||
+        normalized.contains("applicationmode") ||
+        normalized.contains("componentmode") ||
+        normalized.contains("subsystemmode") ||
+        normalized.contains("webapplicationmode") ||
+        normalized.contains("fixeduser") ||
+        normalized.contains("datastore") ||
+        normalized.contains("locale") ||
+        normalized.contains("timezone")
+    }.toVector.distinct.sorted
+    if (forbidden.nonEmpty)
+      RAISE.invalidArgumentFault(
+        s"CML component style snapshot must not declare Component operating, user, formatting, or datastore policy: ${forbidden.mkString(", ")}"
+      )
+  }
+
   private def _source_component_api_descriptor(cardir: Option[Path]): Option[Path] =
     cardir.map(_.resolve("component-api-descriptor.json")).filter(Files.isRegularFile(_))
 
@@ -782,11 +925,23 @@ private[cozy] object CozyArchivePackager {
     component: String,
     extensions: Map[String, String],
     config: Map[String, String],
-    entities: Vector[EntityDescriptor]
+    entities: Vector[EntityDescriptor],
+    componentstylesnapshot: Option[JsObject] = None
   ): String =
     _component_descriptor_override(extensions, name, version, component).getOrElse {
-    val effectiveextensions = extensions - "componentDescriptorJson"
-      s"""{
+      val effectiveextensions = extensions - "componentDescriptorJson"
+      componentstylesnapshot.map { style =>
+        Json.prettyPrint(Json.obj(
+          "schemaVersion" -> 2,
+          "name" -> name,
+          "version" -> version,
+          "component" -> Json.obj("name" -> component),
+          "componentStyle" -> style,
+          "entities" -> Json.parse(_json_entities(entities)),
+          "extensions" -> Json.parse(_json_map(effectiveextensions)),
+          "config" -> Json.parse(_json_map(config))
+        )) + "\n"
+      }.getOrElse(s"""{
          |  "name": ${_json_string(name)},
          |  "version": ${_json_string(version)},
          |  "component": ${_json_string(component)},
@@ -794,7 +949,7 @@ private[cozy] object CozyArchivePackager {
          |  "extensions": ${_json_map(effectiveextensions)},
          |  "config": ${_json_map(config)}
          |}
-         |""".stripMargin
+         |""".stripMargin)
     }
 
   private def _component_descriptor_override(
@@ -826,6 +981,7 @@ private[cozy] object CozyArchivePackager {
         .orElse(_json_string_value(json, "componentName"))
         .orElse(_json_string_value(componentjson, "component"))
         .orElse(_json_string_value(componentjson, "componentName"))
+        .orElse(_json_string_value(componentjson, "name"))
         .orElse(descriptorname)
     if (!descriptorname.exists(value => value == name || value == component))
       RAISE.invalidArgumentFault(s"${label} must declare CAR name '${name}' or component name '${component}'.")

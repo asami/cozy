@@ -14,10 +14,13 @@ import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 
 /*
  * @since   Jun. 23, 2026
- * @version Jul. 15, 2026
+ * @version Jul. 31, 2026
  * @author  ASAMI, Tomoharu
  */
 class KaleidoxCmlParsingSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
+  private def _component(model: org.goldenport.kaleidox.model.ComponentSubsystemModel, name: String) =
+    model.components.find(_.name == name).getOrElse(fail(s"component '$name' is missing"))
+
   "Kaleidox CML parsing" should {
     "parse CML grammar into normalized models" which {
       "kaleidox parses POWERTYPE section and ignores narrative subsection" in {
@@ -141,21 +144,21 @@ class KaleidoxCmlParsingSpec extends AnyWordSpec with Matchers with GivenWhenThe
       }
 
       "modeler-scala emits WebValidationHints from CML constraint metadata" in {
-        Given("a CML fixture that exercises parser grammar")
+        Given("a CML fixture and an empty modeler-scala output directory")
         val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
         val input = base.resolve("src/test/resources/modeler/constraint-metadata.dox")
         val out = base.resolve("target/test-generated/modeler-scala-constraint-metadata")
         delete_recursively(out)
         Files.createDirectories(out.getParent)
 
-        When("Kaleidox parses the source model")
+        When("Cozy invokes the modeler-scala generation command")
         cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString.toString))
 
         val generated = out.resolve(
         "target/scala-3.3.8/src_managed/main/scala/domain/entity/CountryCode.scala"
         )
         val content = Files.readString(generated)
-        Then("the parsed model exposes the expected normalized semantics")
+        Then("the generated Scala source contains the CML validation metadata")
         content should include (
         """validation = org.goldenport.schema.WebValidationHints(minLength = Some(2), maxLength = Some(2), pattern = Some("^[A-Z]{2}$"))"""
         )
@@ -322,6 +325,23 @@ class KaleidoxCmlParsingSpec extends AnyWordSpec with Matchers with GivenWhenThe
       }
         Then("the parsed model exposes the expected normalized semantics")
         component.packageName shouldBe Some("textus.user.account")
+      }
+
+      "kaleidox retains explicit ComponentStyle selection as typed semantic data" in {
+        Given("two component-only CML fixtures that differ only in selected style")
+        val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+        val fullinput = base.resolve("src/test/resources/modeler/component-style-selection.dox")
+        val alternateinput = base.resolve("src/test/resources/modeler/component-style-selection-alternate.dox")
+        When("Kaleidox parses the source model")
+        val fullmodel = KaleidoxModel.load(KaleidoxConfig.default.withoutLocation, fullinput.toFile)
+        val alternativemodel = KaleidoxModel.load(KaleidoxConfig.default.withoutLocation, alternateinput.toFile)
+        val fullcomponent = _component(fullmodel.takeComponentSubsystemModel, "artscene")
+        val alternatecomponent = _component(alternativemodel.takeComponentSubsystemModel, "artscene")
+        Then("the typed component model preserves each authored selection")
+        fullmodel.errors shouldBe empty
+        alternativemodel.errors shouldBe empty
+        fullcomponent.componentStyle shouldBe Some("full-fledged-with-standalone")
+        alternatecomponent.componentStyle shouldBe Some("domain-only")
       }
 
     }

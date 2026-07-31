@@ -31,7 +31,7 @@ import scala.util.control.NonFatal
  *  version Apr. 29, 2026
  *  version May. 21, 2026
  *  version Jun. 30, 2026
- * @version Jul. 28, 2026
+ * @version Jul. 31, 2026
  * @author  ASAMI, Tomoharu
  */
 class Cozy(
@@ -70,13 +70,17 @@ class Cozy(
   }
 
   def createInterpreter(): Kaleidox =
-    _create_interpreter(modeler.PredefinedResultCatalog.empty)
+    _create_interpreter(
+      modeler.PredefinedResultCatalog.empty,
+      modeler.ComponentStyleCatalog.EMPTY
+    )
 
   private def _create_interpreter(
-    predefinedresultcatalog: modeler.PredefinedResultCatalog
+    predefinedresultcatalog: modeler.PredefinedResultCatalog,
+    componentstylecatalog: modeler.ComponentStyleCatalog
   ): Kaleidox = {
     val kconfig = org.goldenport.kaleidox.Config.create(environment).
-      setModeler(new modeler.Modeler(predefinedresultcatalog)).
+      setModeler(new modeler.Modeler(predefinedresultcatalog, componentstylecatalog)).
       setPrompt("cozy> ")
     new Kaleidox(kconfig, environment)
   }
@@ -239,7 +243,7 @@ class Cozy(
       case x :: xx if x.startsWith("-") =>
         _go_(xx, z :+ x, done)
       case x :: xx if !done =>
-        _go_(xx, z :+ Cozy._cli_path(x).toString, done = true)
+        _go_(xx, z :+ Cozy.cliPath(x).toString, done = true)
       case x :: xx =>
         _go_(xx, z :+ x, done)
     }
@@ -296,6 +300,9 @@ class Cozy(
         val catalog = validateddescriptor.
           map(modeler.PredefinedResultCatalog.fromValidatedDescriptor).
           getOrElse(modeler.PredefinedResultCatalog.empty)
+        val componentstylecatalog = validateddescriptor.
+          map(modeler.ComponentStyleCatalog.fromValidatedDescriptor).
+          getOrElse(modeler.ComponentStyleCatalog.EMPTY)
         val sourcesnapshot = _generation_source_snapshot(
           normalized,
           validateddescriptor
@@ -312,13 +319,13 @@ class Cozy(
                 capturedsource
               )
               val repl = (Vector(command) ++ _convert_args(capturedargs)).mkString(" ")
-              _create_interpreter(catalog).execute(_operation_call(Array(repl)))
-              _write_model_metadata(normalized, Some(capturedsource))
+              _create_interpreter(catalog, componentstylecatalog).execute(_operation_call(Array(repl)))
+              _write_model_metadata(normalized, Some(capturedsource), componentstylecatalog)
             }
           case None =>
             val repl = (Vector(command) ++ _convert_args(normalized)).mkString(" ")
-            _create_interpreter(catalog).execute(_operation_call(Array(repl)))
-            _write_model_metadata(normalized, None)
+            _create_interpreter(catalog, componentstylecatalog).execute(_operation_call(Array(repl)))
+            _write_model_metadata(normalized, None, componentstylecatalog)
         }
         _write_component_api_descriptor(normalized)
         _write_generation_provenance(
@@ -429,7 +436,8 @@ class Cozy(
 
   private def _write_model_metadata(
     args: List[String],
-    capturedsource: Option[Path]
+    capturedsource: Option[Path],
+    componentstylecatalog: modeler.ComponentStyleCatalog
   ): Unit = {
     val save = _save_path(args)
     val input = args.find(!_.startsWith("-")).map(Paths.get(_).toAbsolutePath.normalize())
@@ -445,7 +453,8 @@ class Cozy(
         metadir.resolve("model-metadata.json"),
         metadir.resolve("model-metadata.yaml"),
         source.toString,
-        "cml"
+        "cml",
+        componentstylecatalog
       )
     }
   }
@@ -663,7 +672,7 @@ class Cozy(
   }
 
   private def _save_path(args: List[String]): Option[Path] =
-    Cozy._save_path(args)
+    Cozy.savePath(args)
 
   private def _without_save_args(args: List[String]): List[String] = args match {
     case Nil => Nil
@@ -1221,8 +1230,8 @@ object Cozy {
     true
   }
 
-  private[cozy] def _save_path(args: List[String]): Option[Path] = CozyRuntime.savePath(args)
-  private[cozy] def _cli_path(value: String): Path = CozyRuntime.cliPath(value)
+  private[cozy] def savePath(args: List[String]): Option[Path] = CozyRuntime.savePath(args)
+  private[cozy] def cliPath(value: String): Path = CozyRuntime.cliPath(value)
 }
 
 private object CozyOperationConfig {

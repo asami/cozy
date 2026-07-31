@@ -12,11 +12,15 @@ import org.scalatest.matchers.should.Matchers
 
 /*
  * @since   Jun. 23, 2026
- * @version Jul. 28, 2026
+ * @version Jul. 31, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ModelerSpecSupport extends Matchers {
   protected def run_modeler_scala(input: Path, out: Path): String = {
+    run_modeler_scala(input, out, test_cncf_runtime_descriptor)
+  }
+
+  protected def run_modeler_scala(input: Path, out: Path, runtimeDescriptor: Path): String = {
     Files.createDirectories(out.getParent)
     val projectroot = Path.of(sys.props("user.dir")).toAbsolutePath.normalize()
     val normalizedinput = input.toAbsolutePath.normalize()
@@ -45,9 +49,9 @@ trait ModelerSpecSupport extends Matchers {
             "--component-version",
             "0.0.1-SNAPSHOT",
             "--cncf-runtime-descriptor",
-            test_cncf_runtime_descriptor.toString,
+            runtimeDescriptor.toString,
             "--cncf-runtime-descriptor-sha256",
-            _sha256(test_cncf_runtime_descriptor),
+            _sha256(runtimeDescriptor),
             "--generation-source-identity",
             sourceidentity
           ))

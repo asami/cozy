@@ -4,9 +4,10 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
 import java.security.MessageDigest
 import scala.collection.JavaConverters._
-import play.api.libs.json.{JsArray, JsObject, Json}
+import play.api.libs.json.{JsArray, JsObject, JsValue, Json}
 import org.smartdox.{Body, Dl, Document, Dox, Fragment, Section => DoxSection}
 import org.smartdox.parser.Dox2Parser
+import org.goldenport.RAISE
 import org.goldenport.kaleidox.{CmlSectionFormat, Config => KaleidoxConfig, Model => KaleidoxModel}
 import org.goldenport.kaleidox.model.ComponentSubsystemModel
 import org.goldenport.kaleidox.model.OperationModel
@@ -16,7 +17,7 @@ import org.goldenport.parser.LogicalSection
 
 /*
  * @since   Jun. 23, 2026
- * @version Jul. 19, 2026
+ * @version Jul. 31, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CmlModelMetadata {
@@ -25,21 +26,43 @@ private[cozy] object CmlModelMetadata {
   final case class ModelMetadata(
     source: Source,
     surface: Surface,
-    modelElements: Vector[Element]
+    modelElements: Vector[Element],
+    componentStyle: Option[ComponentStyleSnapshot] = None
   ) {
-    def toJson: JsObject =
+    def toJson: JsObject = {
       Json.obj(
         "schema" -> _schema,
         "source" -> source.toJson,
         "surface" -> surface.toJson,
         "modelElements" -> JsArray(modelElements.map(_.toJson))
-      )
+      ) ++ componentStyle.map(snapshot => Json.obj("componentStyle" -> snapshot.toJson)).getOrElse(Json.obj())
+    }
 
     def toJsonString: String =
       Json.prettyPrint(toJson)
 
     def toYamlString: String = {
       val body = modelElements.map(_.toYaml("  ")).mkString
+      val style = componentStyle.map { snapshot =>
+        s"""componentStyle:
+           |  apiVersion: ${_yaml_scalar(snapshot.apiVersion)}
+           |  provider: ${_yaml_scalar(snapshot.provider)}
+           |  id: ${_yaml_scalar(snapshot.id)}
+           |  version: ${snapshot.version}
+           |  parameterSchema:
+           |    type: object
+           |    properties: {}
+           |    required: []
+           |    additionalProperties: false
+           |  parameters: {}
+           |  provides:
+           |    bundles: ${_yaml_list(snapshot.bundles)}
+           |    capabilities: ${_yaml_list(snapshot.capabilities)}
+           |    effective: ${_yaml_list(snapshot.effectiveCapabilities)}
+           |  requires:
+           |    subsystemCapabilities: ${_yaml_list(snapshot.subsystemCapabilities)}
+           |""".stripMargin
+      }.getOrElse("")
       s"""schema: ${_schema}
          |source:
          |  path: ${_yaml_scalar(source.path)}
@@ -49,7 +72,7 @@ private[cozy] object CmlModelMetadata {
          |surface:
          |${surface.toYaml("  ")}
          |modelElements:
-         |${body}""".stripMargin
+         |${body}${style}""".stripMargin
     }
   }
 
@@ -418,46 +441,73 @@ private[cozy] object CmlModelMetadata {
       )
   }
 
-  def fromCml(source: Path, glossarycategory: String): ModelMetadata =
-    fromCml(source, source.toAbsolutePath.normalize().toString, glossarycategory)
+  def fromCml(source: Path, glossaryCategory: String): ModelMetadata =
+    fromCml(source, source.toAbsolutePath.normalize().toString, glossaryCategory)
 
-  def fromCml(source: Path, sourcepath: String, glossarycategory: String): ModelMetadata = {
+  def fromCml(
+    source: Path,
+    sourcePath: String,
+    glossaryCategory: String,
+    componentStyleCatalog: ComponentStyleCatalog = ComponentStyleCatalog.EMPTY
+  ): ModelMetadata = {
     val normalized = source.toAbsolutePath.normalize()
     val model = KaleidoxModel.load(KaleidoxConfig.default, normalized.toFile)
     ModelMetadata(
       Source(
-        path = sourcepath,
+        path = sourcePath,
         sha256 = sha256(normalized),
         compiler = "cozy-modeler",
         cozyversion = org.simplemodeling.cozy.BuildInfo.version
       ),
-      surface = _surface(normalized, glossarycategory, model),
-      modelElements = _with_ast_contracts(_model_elements(normalized, glossarycategory), model)
+      surface = _surface(normalized, glossaryCategory, model),
+      modelElements = _with_ast_contracts(_model_elements(normalized, glossaryCategory), model),
+      componentStyle = _component_style(model, componentStyleCatalog)
     )
   }
 
-  def fromKaleidox(model: KaleidoxModel, source: Path, glossarycategory: String): ModelMetadata =
-    fromKaleidox(model, source, source.toAbsolutePath.normalize().toString, glossarycategory)
+  private def _component_style(
+    model: KaleidoxModel,
+    catalog: ComponentStyleCatalog
+  ): Option[ComponentStyleSnapshot] = {
+    val selections = model.takeComponentSubsystemModel.components.flatMap(_.componentStyle).distinct
+    if (selections.size > 1)
+      RAISE.invalidArgumentFault(s"CML declares multiple component styles: ${selections.sorted.mkString(", ")}")
+    selections.headOption.map(catalog.requireSelection).map(_.snapshot)
+  }
 
-  def fromKaleidox(model: KaleidoxModel, source: Path, sourcepath: String, glossarycategory: String): ModelMetadata = {
+  def fromKaleidox(model: KaleidoxModel, source: Path, glossaryCategory: String): ModelMetadata =
+    fromKaleidox(model, source, source.toAbsolutePath.normalize().toString, glossaryCategory)
+
+  def fromKaleidox(model: KaleidoxModel, source: Path, sourcePath: String, glossaryCategory: String): ModelMetadata = {
     val normalized = source.toAbsolutePath.normalize()
     ModelMetadata(
       Source(
-        path = sourcepath,
+        path = sourcePath,
         sha256 = sha256(normalized),
         compiler = "cozy-modeler",
         cozyversion = org.simplemodeling.cozy.BuildInfo.version
       ),
       surface = Surface(None),
-      modelElements = _with_ast_contracts(_model_elements(model, glossarycategory), model)
+      modelElements = _with_ast_contracts(_model_elements(model, glossaryCategory), model)
     )
   }
 
-  def write(source: Path, json: Path, yaml: Path, glossarycategory: String): Unit =
-    write(source, json, yaml, source.toAbsolutePath.normalize().toString, glossarycategory)
+  def write(source: Path, json: Path, yaml: Path, glossaryCategory: String): Unit =
+    write(source, json, yaml, source.toAbsolutePath.normalize().toString, glossaryCategory)
 
-  def write(source: Path, json: Path, yaml: Path, sourcepath: String, glossarycategory: String): Unit = {
-    val metadata = fromCml(source, sourcepath, glossarycategory)
+  def write(source: Path, json: Path, yaml: Path, sourcePath: String, glossaryCategory: String): Unit = {
+    write(source, json, yaml, sourcePath, glossaryCategory, ComponentStyleCatalog.EMPTY)
+  }
+
+  def write(
+    source: Path,
+    json: Path,
+    yaml: Path,
+    sourcePath: String,
+    glossaryCategory: String,
+    componentStyleCatalog: ComponentStyleCatalog
+  ): Unit = {
+    val metadata = fromCml(source, sourcePath, glossaryCategory, componentStyleCatalog)
     _write(json, metadata.toJsonString + "\n")
     _write(yaml, metadata.toYamlString)
   }

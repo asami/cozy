@@ -13,7 +13,7 @@ import org.scalatest.wordspec.AnyWordSpec
 /*
  * @since   Jun. 23, 2026
  *  version Jun. 27, 2026
- * @version Jul. 29, 2026
+ * @version Jul. 31, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -146,6 +146,8 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         projectyamlcontent should include ("dependencies: []")
         projectyamlcontent should include ("minimum:")
         projectyamlcontent should include ("tested:")
+        projectyamlcontent should not include ("componentStyle")
+        projectyamlcontent should not include ("componentCapabilities")
         projectyamlbuildcontent should include ("object ProjectYamlBuild")
         projectyamlbuildcontent should include ("build.dependencies.$scope")
         updateclasspathcontent should include ("exec sbt --batch cozyPrepareRuntime")

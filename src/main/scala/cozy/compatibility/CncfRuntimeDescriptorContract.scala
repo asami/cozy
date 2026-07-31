@@ -8,7 +8,7 @@ import cozy.config.CozyProjectYamlConfig
 
 /*
  * @since   Jul. 27, 2026
- * @version Jul. 28, 2026
+ * @version Jul. 31, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CncfRuntimeDescriptorContract {
@@ -90,6 +90,7 @@ private[cozy] object CncfRuntimeDescriptorContract {
     path: Path,
     targetVersion: String,
     sha256: String,
+    digestpinned: Boolean,
     config: CozyProjectYamlConfig.Config
   )
 
@@ -189,7 +190,7 @@ private[cozy] object CncfRuntimeDescriptorContract {
         if (digestdiagnostics.nonEmpty)
           Left(digestdiagnostics)
         else
-          _load_and_validate(normalized, bytes, targetVersion, actualsha, source)
+          _load_and_validate(normalized, bytes, targetVersion, actualsha, expectedSha256.nonEmpty, source)
       }
     }
   }
@@ -220,6 +221,7 @@ private[cozy] object CncfRuntimeDescriptorContract {
     bytes: Array[Byte],
     targetversion: String,
     actualsha: String,
+    digestpinned: Boolean,
     source: String
   ): Either[Vector[Diagnostic], ValidatedDescriptor] =
     try {
@@ -261,7 +263,7 @@ private[cozy] object CncfRuntimeDescriptorContract {
       if (diagnostics.nonEmpty)
         Left(diagnostics)
       else
-        Right(ValidatedDescriptor(path, targetversion, actualsha, config))
+        Right(ValidatedDescriptor(path, targetversion, actualsha, digestpinned, config))
     } catch {
       case NonFatal(exception) =>
         Left(Vector(_diagnostic(

@@ -18,15 +18,17 @@ import play.api.libs.json.{JsArray, JsObject, Json}
  * claims that compiled class bytes or the whole directory are immutable.
  *
  * @since   Jul. 29, 2026
- * @version Jul. 29, 2026
+ * @version Jul. 31, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDevelopmentRuntimeManifest {
   val FILE_NAME = "car-runtime-manifest.json"
-  val SCHEMA_VERSION = "cncf.car-development-runtime-manifest.v1"
+  val LEGACY_SCHEMA_VERSION = "cncf.car-development-runtime-manifest.v1"
+  val SCHEMA_VERSION = "cncf.car-development-runtime-manifest.v2"
   val SOURCE_KIND = "development-directory"
   val RUNTIME_CLASSPATH_IDENTITY = "target/cncf.d/runtime-classpath.txt"
-  val COMPONENT_DESCRIPTOR_IDENTITY = "src/main/car/component-descriptor.json"
+  val LEGACY_COMPONENT_DESCRIPTOR_IDENTITY = "src/main/car/component-descriptor.json"
+  val COMPONENT_DESCRIPTOR_IDENTITY = "target/cncf.d/component-descriptor.json"
   val ABI_MANIFEST_IDENTITY = "src/main/car/abi-manifest.json"
 
   def write(
@@ -38,11 +40,18 @@ private[cozy] object CozyDevelopmentRuntimeManifest {
     val classpath = _require_evidence_file(projectroot, runtimeClasspathFile, RUNTIME_CLASSPATH_IDENTITY)
     val metadata = CozyProjectYamlConfig.loadProjectMetadata(projectroot)
     val contract = CarMetadataCompatibility.requireValidDevelopmentCarProject(metadata)
-    val descriptor = _require_evidence_file(
+    val descriptoroutput = projectroot.resolve(COMPONENT_DESCRIPTOR_IDENTITY)
+    CozyArchivePackager.writeDevelopmentComponentDescriptor(projectroot, descriptoroutput)
+    val generateddescriptor = _require_evidence_file(
       projectroot,
-      projectroot.resolve(COMPONENT_DESCRIPTOR_IDENTITY),
+      descriptoroutput,
       COMPONENT_DESCRIPTOR_IDENTITY
     )
+    val schemaversion = _descriptor_schema(generateddescriptor)
+    val descriptoridentity = if (schemaversion == SCHEMA_VERSION) COMPONENT_DESCRIPTOR_IDENTITY else LEGACY_COMPONENT_DESCRIPTOR_IDENTITY
+    val descriptor =
+      if (descriptoridentity == COMPONENT_DESCRIPTOR_IDENTITY) generateddescriptor
+      else _require_evidence_file(projectroot, projectroot.resolve(descriptoridentity), descriptoridentity)
     val abi = _require_evidence_file(
       projectroot,
       projectroot.resolve(ABI_MANIFEST_IDENTITY),
@@ -55,11 +64,11 @@ private[cozy] object CozyDevelopmentRuntimeManifest {
     val classpathidentity = _classpath_identity(projectroot, classpath)
     val evidence = Vector(
       _evidence_entry(RUNTIME_CLASSPATH_IDENTITY, classpath, Some(classpathidentity)),
-      _evidence_entry(COMPONENT_DESCRIPTOR_IDENTITY, descriptor, None),
+      _evidence_entry(descriptoridentity, descriptor, None),
       _evidence_entry(ABI_MANIFEST_IDENTITY, abi, None)
     )
     val manifest = Json.obj(
-      "schemaVersion" -> SCHEMA_VERSION,
+      "schemaVersion" -> schemaversion,
       "sourceKind" -> SOURCE_KIND,
       "car" -> Json.obj(
         "name" -> coordinate.name,
@@ -85,14 +94,32 @@ private[cozy] object CozyDevelopmentRuntimeManifest {
 
   private final case class Coordinate(name: String, version: String, component: String)
 
+  private def _descriptor_schema(path: Path): String = {
+    val json = _read_json(path, COMPONENT_DESCRIPTOR_IDENTITY)
+    (json \ "schemaVersion").asOpt[Int] match {
+      case Some(2) => SCHEMA_VERSION
+      case Some(1) => LEGACY_SCHEMA_VERSION
+      case Some(value) =>
+        RAISE.invalidArgumentFault(s"$COMPONENT_DESCRIPTOR_IDENTITY has unsupported schemaVersion: $value")
+      case None if (json \ "schemaVersion").toOption.isEmpty => LEGACY_SCHEMA_VERSION
+      case None =>
+        RAISE.invalidArgumentFault(s"$COMPONENT_DESCRIPTOR_IDENTITY has non-numeric schemaVersion")
+    }
+  }
+
   private def _coordinate(path: Path): Coordinate = {
     val json = _read_json(path, COMPONENT_DESCRIPTOR_IDENTITY)
     Coordinate(
       _required_string(json, "name", COMPONENT_DESCRIPTOR_IDENTITY),
       _required_string(json, "version", COMPONENT_DESCRIPTOR_IDENTITY),
-      _required_string(json, "component", COMPONENT_DESCRIPTOR_IDENTITY)
+      _component_name(json)
     )
   }
+
+  private def _component_name(json: play.api.libs.json.JsValue): String =
+    (json \ "component").asOpt[String].map(_.trim).filter(_.nonEmpty).orElse {
+      (json \ "component" \ "name").asOpt[String].map(_.trim).filter(_.nonEmpty)
+    }.getOrElse(RAISE.invalidArgumentFault(s"$COMPONENT_DESCRIPTOR_IDENTITY requires non-empty component."))
 
   private def _require_abi_coordinate(path: Path, coordinate: Coordinate): Unit = {
     val json = _read_json(path, ABI_MANIFEST_IDENTITY)
