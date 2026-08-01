@@ -10,7 +10,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Jul.  7, 2026
- * @version Jul. 28, 2026
+ * @version Aug.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyCarLint {
@@ -127,6 +127,9 @@ private[cozy] object CozyCarLint {
   }
 
   private def _car_cml_source_findings(root: Path): Vector[Finding] = {
+    val generatedmetadata = root.resolve("target/cozy/model-metadata.json")
+    if (Files.isRegularFile(generatedmetadata))
+      return Vector.empty
     CarCmlSourceResolver.resolve(root) match {
       case Left(issue) =>
         Vector(Finding(Level.Fail, "cml", issue.code, issue.message, issue.path, 1))

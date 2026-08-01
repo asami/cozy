@@ -21,7 +21,8 @@ import play.api.libs.json.{JsArray, JsObject, JsValue, Json}
  * release provenance before accepting a prebuilt CAR.
  *
  * @since   Jul. 28, 2026
- * @version Jul. 28, 2026
+ *  version Jul. 28, 2026
+ * @version Aug.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyCarRuntimeManifest {
@@ -136,18 +137,23 @@ private[cozy] object CozyCarRuntimeManifest {
         version,
         "component-descriptor.json"
       )
-      _require_string(
-        descriptor,
-        "component",
-        component,
-        "component-descriptor.json"
-      )
+      _require_component(descriptor, component, "component-descriptor.json")
       expectedGenerationProvenance.foreach(
         _require_generation_provenance(zip, byname, contract, _)
       )
     } finally {
       zip.close()
     }
+  }
+
+  private def _require_component(value: JsValue, expected: String, label: String): Unit = {
+    val actual = (value \ "component").toOption.flatMap {
+      case text: play.api.libs.json.JsString => Some(text.value)
+      case objectvalue: JsObject => (objectvalue \ "name").asOpt[String]
+      case _ => None
+    }
+    if (!actual.contains(expected))
+      RAISE.invalidArgumentFault(s"$label component mismatch: expected=$expected actual=${actual.getOrElse("missing")}")
   }
 
   private def _require_runtime(

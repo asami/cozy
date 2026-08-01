@@ -19,13 +19,15 @@ import scala.util.control.NonFatal
 /*
  * @since   May. 20, 2026
  *  version Jun. 23, 2026
- * @version Jul. 21, 2026
+ *  version Jul. 21, 2026
+ * @version Aug.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object RepositoryArtifactPublisher {
   private final case class PreparedCarCmlSidecars(
     source: Path,
-    metadata: CmlModelMetadata.ModelMetadata
+    metadatajson: String,
+    metadatayaml: Option[String]
   )
 
   final case class Policy(
@@ -49,7 +51,7 @@ private[cozy] object RepositoryArtifactPublisher {
     val version = requiredValue(publicationargs, "version")
     val sourcearchive = path(publicationargs, policy.archiveOption).getOrElse(policy.buildArchive(publicationargs))
     val carsidecars =
-      if (policy.kind == "car") Some(_prepare_car_cml_sidecars(projectdir, name))
+      if (policy.kind == "car") Some(_prepare_car_cml_sidecars(projectdir, name, publicationargs))
       else None
     val indexpath = componentRepositoryIndexPath(warehouse)
     val generatedat = OffsetDateTime.parse(publishedAt(publicationargs)).toInstant
@@ -295,19 +297,22 @@ private[cozy] object RepositoryArtifactPublisher {
       } finally channel.close()
     }
 
-  private def _prepare_car_cml_sidecars(projectdir: Path, name: String): PreparedCarCmlSidecars = {
+  private def _prepare_car_cml_sidecars(projectdir: Path, name: String, args: List[String]): PreparedCarCmlSidecars = {
     val resolved = CarCmlSourceResolver.resolve(projectdir, name).fold(
       issue => RAISE.invalidArgumentFault(s"${issue.code}: ${issue.message}"),
       identity
     )
-    try {
-      PreparedCarCmlSidecars(
-        resolved.source,
-        CmlModelMetadata.fromCml(resolved.source, resolved.projectrelativepath, "cml")
-      )
-    } catch {
-      case NonFatal(e) =>
-        RAISE.invalidArgumentFault(s"car.cml.metadata.generation_failed: Could not generate CML model metadata from ${resolved.projectrelativepath}: ${Option(e.getMessage).getOrElse(e.getClass.getSimpleName)}")
+    path(args, "model-metadata").filter(Files.isRegularFile(_)).map { metadata =>
+      val yaml = metadata.resolveSibling(metadata.getFileName.toString.stripSuffix(".json") + ".yaml")
+      PreparedCarCmlSidecars(resolved.source, Files.readString(metadata, StandardCharsets.UTF_8), Option(yaml).filter(Files.isRegularFile(_)).map(Files.readString(_, StandardCharsets.UTF_8)))
+    }.getOrElse {
+      try {
+        val metadata = CmlModelMetadata.fromCml(resolved.source, resolved.projectrelativepath, "cml")
+        PreparedCarCmlSidecars(resolved.source, metadata.toJsonString, Some(metadata.toYamlString))
+      } catch {
+        case NonFatal(e) =>
+          RAISE.invalidArgumentFault(s"car.cml.metadata.generation_failed: Could not generate CML model metadata from ${resolved.projectrelativepath}: ${Option(e.getMessage).getOrElse(e.getClass.getSimpleName)}")
+      }
     }
   }
 
@@ -315,7 +320,7 @@ private[cozy] object RepositoryArtifactPublisher {
     val catalogdir = warehouse.resolve("repository/catalog/car")
     Files.createDirectories(catalogdir)
     Files.copy(sidecars.source, catalogdir.resolve(s"$name.cml"), StandardCopyOption.REPLACE_EXISTING)
-    writeText(catalogdir.resolve(s"$name.model-metadata.json"), sidecars.metadata.toJsonString)
-    writeText(catalogdir.resolve(s"$name.model-metadata.yaml"), sidecars.metadata.toYamlString)
+    writeText(catalogdir.resolve(s"$name.model-metadata.json"), sidecars.metadatajson)
+    sidecars.metadatayaml.foreach(writeText(catalogdir.resolve(s"$name.model-metadata.yaml"), _))
   }
 }
