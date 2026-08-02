@@ -7,7 +7,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jul. 24, 2026
- * @version Jul. 26, 2026
+ * @version Aug.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 final class ModelerEntityVersionedMutationGenerationSpec
@@ -83,6 +83,7 @@ final class ModelerEntityVersionedMutationGenerationSpec
 
       And("no generated ordinary mutation retains retired revision transport")
       content should not include "EntityConcurrencyMetadata"
+      content should not include "EntityMutationExpectation"
       content should not include "snapshot.token"
       content should not include "cncfRevision"
     }

@@ -25,28 +25,33 @@ Status: DONE
 
 ## ER25-02: Downstream Regeneration Acceptance
 
-Status: IN PROGRESS
+Status: DONE — downstream execution acceptance transferred to CBD Support
+Phase 8 `P8-61`; it is not represented as a successful Cozy-side regeneration.
 
-- [x] Set or confirm a next-development Cozy SNAPSHOT coordinate before local
-      publication.
-- [x] Run focused Cozy generator tests and compile the Cozy runtime.
-- [ ] Publish only the corrected Cozy development SNAPSHOT locally.
-- [ ] Regenerate CBD Support with the corrected Cozy runtime and current CNCF
-      development SNAPSHOT.
-- [ ] Compile CBD Support without retired Entity token API failures.
-- [ ] Run `ReviewDiagnosisPersistenceSpec`, including SQLite-backed P8-45
-      history/retention coverage.
+- [x] Confirm the development-only Cozy `0.3.0-SNAPSHOT` source artifact and
+      its `Modeler.scala` identity against the Phase 25 implementation commit.
+- [x] Attempt the declared CBD Support generation in a clean worktree and
+      record the effective launcher runtime and descriptor mismatch without
+      weakening the descriptor contract.
+- [x] Transfer regenerated-CAR compilation and
+      `ReviewDiagnosisPersistenceSpec` acceptance to CBD Support Phase 8
+      `P8-61`; no successful downstream acceptance is claimed here.
 
 ## ER25-03: Review and Handoff
 
-Status: IN PROGRESS
+Status: DONE
 
-- [ ] Complete a read-only Cozy review after implementation.
-- [ ] Fix all actionable findings, including generated-source and executable
+- [x] Complete a read-only Cozy review after implementation.
+- [x] Fix all actionable findings, including generated-source and executable
       specification debt.
-- [ ] Complete a clean re-review.
+- [x] Complete a clean re-review.
 - [x] Run `git diff --check` in each modified repository.
 - [x] Commit the corrected Cozy development work with required version updates.
-- [ ] Record the published coordinate and downstream validation evidence.
-- [ ] Return CBD Support Phase 8 to REVIEW_FIX without closing its required
-      human confirmation stage P8-60.
+- [x] Record the development source coordinate and the downstream execution
+      evidence, including its transfer rather than a false success claim.
+- [x] Track the remaining acceptance as CBD Support Phase 8 `P8-61` while
+      preserving independently deferred human confirmation P8-60.
+
+Phase 25 is closed from this completed ledger. Successful CBD Support
+regeneration, compilation, and SQLite persistence acceptance remain explicit
+P8-61 work and are not evidence supplied by this phase.

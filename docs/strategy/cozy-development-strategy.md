@@ -632,7 +632,8 @@ Primary reference:
 
 ### Phase 25: Entity Revision Generator Alignment
 
-Status: in progress as a focused downstream repair for CBD Support Phase 8.
+Status: closed. CBD Support runtime-selection acceptance is separately tracked
+as Phase 8 `P8-61`.
 
 Purpose:
 
@@ -640,8 +641,9 @@ Purpose:
   framework-managed revision contract after the retired token API removal;
 - remove obsolete generated `cncfRevision` request transport and let the
   Entity/UnitOfWork boundary manage revision lifecycle and concurrency;
-- publish one corrected Cozy development SNAPSHOT and prove regeneration and
-  SQLite-backed persistence acceptance in CBD Support;
+- retain the corrected Cozy development `0.3.0-SNAPSHOT` source contract and
+  transfer driver-CAR regeneration and SQLite-backed persistence acceptance to
+  CBD Support when its launcher selects a different effective runtime;
 - keep this dependency repair separate from Phase 24 Component Skill
   Distribution.
 
@@ -683,10 +685,11 @@ Phase 6 through Phase 23 are closed. Phase 23 completed scalar Entity
 persistence round-trip, driver-CAR verification, and the CBD Support P8-42
 Entity Aggregate handback. Phase 24 preserves Component Skill Distribution and
 remains planned behind the CNCF Skill Bundle contract. Phase 25 is a separate,
-focused generator alignment required to regenerate CBD Support against CNCF's
-current Entity Revision development API. Its Cozy generator contract and
-Executable Specifications are complete; downstream regeneration and
-persistence acceptance remain open.
+focused generator alignment now closed with the Cozy generator contract and
+Executable Specifications complete. The attempted CBD Support acceptance was
+blocked by that project's launcher selecting Cozy `0.3.1-SNAPSHOT`; its
+deterministic runtime selection, regeneration, and persistence acceptance are
+explicit Phase 8 `P8-61` work.
 
 Phase 20 introduced provider-neutral narration with VOICEVOX, host-only macOS
 `say`, and a portable Piper Docker route, then used that contract to migrate the
