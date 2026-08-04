@@ -4,10 +4,15 @@ Purpose: engineering work management.
 
 Current phase:
 
-- Next planned phase: `phase-24.md`: Component Skill Distribution
-- Next planned checklist: `phase-24-checklist.md`
+- Active, in-progress phase: `phase-26.md`: Article Media Publication and BoK
+  Integration. Its SmartDox dependency is satisfied by accepted closed Phase 1
+  commit `fa21316973416c24bca7f8e366d65572c72720b7` and development coordinate
+  `org.smartdox:smartdox_2.12:2.4.17-SNAPSHOT`; public/non-SNAPSHOT publication
+  is not a start gate.
+- Separately planned/blocked phase: `phase-24.md`: Component Skill Distribution
+  (awaiting its own CNCF Skill Bundle contract).
 - Most recent closed phase: `phase-25.md`: Entity Revision Generator Alignment
-  (CBD Support runtime-selection acceptance is separately tracked as P8-61)
+  (CBD Support runtime-selection acceptance is separately tracked as P8-61).
 
 Belongs:
 
@@ -24,5 +29,7 @@ Not allowed:
 - historical diary-style records
 - normative design or specification text
 
-This directory is the work ledger layer.
-See /Users/asami/src/dev2025/cozy/ai/directive/core/document-lifecycle.md.
+This directory is the work ledger layer. See
+`ai/directive/core/document-lifecycle.md`. Phase 26 contract authority is
+`docs/design/article-media-publication.md` and
+`docs/spec/article-media-publication.md`.

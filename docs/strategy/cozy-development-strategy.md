@@ -653,6 +653,38 @@ Primary reference:
 - `docs/phase/phase-25-checklist.md`
 - `docs/journal/2026/07/entity-revision-generator-alignment-handoff-2026-07-26.md`
 
+### Phase 26: Article Media Publication and BoK Integration
+
+Status: active, in progress. The SmartDox dependency is satisfied by accepted
+closed Phase 1 commit `fa21316973416c24bca7f8e366d65572c72720b7` and the
+development integration coordinate `org.smartdox:smartdox_2.12:2.4.17-SNAPSHOT`.
+Public/non-SNAPSHOT publication is not a Phase 26 start gate.
+
+Purpose:
+
+- consume SmartDox's provider-neutral article-media publication contract in a
+  Cozy BoK build;
+- keep the accepted SmartDox record surface separate from Cozy-owned
+  association, integrity, artifact version, hash, and provenance records;
+- register locale-specific detailed infographics and internally hosted video
+  presentations against stable article identities;
+- keep generated MP4, captions, transcripts, and repository-resident media
+  outside Git while retaining their paths, hashes, versions, and provenance in
+  the BoK publication registry;
+- pass only registered metadata and configured repository context to SmartDox;
+- stage and publish the BoK site plus artifact repository as one public URL
+  space; and
+- preserve existing `.video` publication and ordinary `bok build` behavior.
+
+Primary reference:
+
+- `docs/phase/phase-26.md`
+- `docs/phase/phase-26-checklist.md`
+- `docs/design/article-media-publication.md`
+- `docs/spec/article-media-publication.md`
+- `docs/notes/article-media-publication-bok-integration.md`
+- `docs/journal/2026/08/article-media-publication-bok-integration-handoff-2026-08-03.md`
+
 ### Future Follow-up: Explicit Component Root Generation
 
 Status: planned, low priority.
@@ -683,13 +715,18 @@ Origin:
 
 Phase 6 through Phase 23 are closed. Phase 23 completed scalar Entity
 persistence round-trip, driver-CAR verification, and the CBD Support P8-42
-Entity Aggregate handback. Phase 24 preserves Component Skill Distribution and
-remains planned behind the CNCF Skill Bundle contract. Phase 25 is a separate,
+Entity Aggregate handback. Phase 24 remains separately planned and blocked on
+its own CNCF Skill Bundle contract. Phase 25 is a separate,
 focused generator alignment now closed with the Cozy generator contract and
 Executable Specifications complete. The attempted CBD Support acceptance was
 blocked by that project's launcher selecting Cozy `0.3.1-SNAPSHOT`; its
 deterministic runtime selection, regeneration, and persistence acceptance are
-explicit Phase 8 `P8-61` work.
+explicit Phase 8 `P8-61` work. Phase 26 is the active in-progress BoK
+integration phase. Its SmartDox dependency is satisfied by accepted closed
+Phase 1 commit `fa21316973416c24bca7f8e366d65572c72720b7` through development
+coordinate `org.smartdox:smartdox_2.12:2.4.17-SNAPSHOT`; public/non-SNAPSHOT
+publication is not a start gate. It does not require a video binary to enter
+Git or make ordinary `bok build` generate media.
 
 Phase 20 introduced provider-neutral narration with VOICEVOX, host-only macOS
 `say`, and a portable Piper Docker route, then used that contract to migrate the
