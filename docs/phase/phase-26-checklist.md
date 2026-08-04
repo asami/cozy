@@ -50,25 +50,43 @@ Step acceptance evidence recorded on 2026-08-04:
 
 ## AM26-02: Artifact Repository and Publication Registry
 
-Status: IN PROGRESS
+Status: DONE
 
-- [ ] Carry artifact identity/version, public/repository paths, media type,
+- [x] Carry artifact identity/version, public/repository paths, media type,
       SHA-256, provenance/registry references, and publication state only in
       Cozy integrity records.
-- [ ] Upsert deterministic strict article entries at
+- [x] Upsert deterministic strict article entries at
       `metadata/article-media/<articleIdentity>.json` and integrity entries at
       `metadata/article-media-integrity/<articleIdentity>/<locale>/<role>.json`
       in configured publication bundles only.
-- [ ] Reuse video evidence at `metadata/video/<name>/<version>/manifest.json`
+- [x] Reuse video evidence at `metadata/video/<name>/<version>/manifest.json`
       and `metadata/artifacts/repository/<name>.json`; derive infographic
       evidence from explicit `cozy.media.v1` descriptor/resource results.
-- [ ] Derive the Cozy-only `registered`/`published`/`withdrawn` artifact state
+- [x] Derive the Cozy-only `registered`/`published`/`withdrawn` artifact state
       independently from SmartDox `draft`/`published`/`withdrawn` status.
-- [ ] Forbid discovery scans of `target`, work directories, generated site
+- [x] Forbid discovery scans of `target`, work directories, generated site
       trees, arbitrary repositories, and SmartDox discovery output.
-- [ ] Validate containment, existence, hash, version, and production policy.
-- [ ] Apply no-fallback locale behavior and the specified missing/stale media
+- [x] Validate containment, existence, hash, version, and production policy.
+- [x] Apply no-fallback locale behavior and the specified missing/stale media
       policy.
+
+Step acceptance evidence recorded on 2026-08-04:
+
+- AM26-02A registry projection, AM26-02B video evidence, AM26-02C infographic
+  evidence, and AM26-02D policy integration each completed focused planning,
+  implementation, review, conditional finding repair, and clean focused
+  re-review.
+- Configured publication-bundle mutation is serialized by one real-root lock,
+  revalidates the complete bundle-digest snapshot, binds recognized
+  article-media metadata to canonical semantic keys, and rejects malformed
+  bundles before atomic replacement.
+- The behavior-focused Step gate exercised strict/integrity association,
+  deterministic registry upsert, exact registered evidence, containment,
+  preview/production policy, concurrency, and generic registry compatibility:
+  serialized invocation `45371-20260804T130503Z`, 9 suites and 195/195 tests
+  passed with `sbt_exit=0`, `wrapper_exit=0`, and `lock=released`.
+- Repository-wide full validation remains reserved for the Phase 26 release
+  gate.
 
 ## AM26-03: BoK Build and Deployment Projection
 

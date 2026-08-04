@@ -59,6 +59,18 @@ final class CozyArticleMediaAssociationSpec extends AnyWordSpec with Matchers wi
         error.getMessage should include("Duplicate article-media integrity key")
       }
 
+      "reject a manually forged noncanonical integrity result before key correlation" in {
+        Given("a native site-hosted video and a result whose record is valid but whose entry path is forged")
+        val publication = _publication("development-process/example", "ja", None, Some(_site_video(VideoStatus.Published, "/repository/video/example.mp4")))
+        val forged = _video_integrity("development-process/example", "ja", "/repository/video/example.mp4").copy(entryPath = "metadata/forged.json")
+
+        When("association reconstructs the supplied integrity boundary")
+        val error = intercept[IllegalArgumentException](_with_metadata(Vector(publication))(metadata => CozyArticleMediaAssociation.validate(metadata, Vector(forged))))
+
+        Then("noncanonical result fields cannot participate in exact-key association")
+        error.getMessage should include("must be canonical")
+      }
+
       "reject duplicate native article identities even with disjoint locales" in {
         Given("two native entries for one identity with different locale variants")
         val english = _publication("development-process/example", "en", Some(_image("/en/development-process/images/example.png")), None)
@@ -97,6 +109,44 @@ final class CozyArticleMediaAssociationSpec extends AnyWordSpec with Matchers wi
     }
 
     "enforce published site-hosted admission" which {
+      "inspect one canonical publication for registration preflight without metadata discovery" in {
+        Given("one canonical publication result with exact infographic and published video evidence")
+        val publication = _publication(
+          "development-process/example",
+          "ja",
+          Some(_image("/ja/development-process/images/example.png")),
+          Some(_site_video(VideoStatus.Published, "/repository/video/example.mp4"))
+        )
+        val integrities = Vector(
+          _video_integrity("development-process/example", "ja", "/repository/video/example.mp4"),
+          _infographic_integrity("development-process/example", "ja", "/ja/development-process/images/example.png")
+        )
+
+        When("the package-visible single-publication inspection is used")
+        val media = CozyArticleMediaAssociation.inspectPublication(publication, integrities)
+
+        Then("the same exact key and public-path correlation rules are available without loading a bundle")
+        media.map(_.key.role) shouldBe Vector(
+          CozyArticleMediaIntegrity.Role.Infographic,
+          CozyArticleMediaIntegrity.Role.Video
+        )
+      }
+
+      "expose optional infographic absence to structural inspection while retaining strict association" in {
+        Given("a native optional infographic without an integrity result")
+        val publication = _publication("development-process/example", "ja", Some(_image("/ja/development-process/images/example.png")), None)
+
+        When("structural inspection and the strict compatibility API process the native record")
+        val inspection = _with_metadata(Vector(publication))(metadata => CozyArticleMediaAssociation.inspect(metadata, Vector.empty))
+        val stricterror = intercept[IllegalArgumentException](_with_metadata(Vector(publication))(metadata => CozyArticleMediaAssociation.validate(metadata, Vector.empty)))
+
+        Then("inspection retains the projectable uncorrelated media while strict association still rejects it")
+        inspection.media.map(x => (x.key.role, x.integrity, x.projectable)) shouldBe Vector(
+          (CozyArticleMediaIntegrity.Role.Infographic, None, true)
+        )
+        stricterror.getMessage should include("Missing article-media integrity")
+      }
+
       "reject a published site-hosted video backed by registered integrity" in {
         Given("a published native site-hosted video with registered Cozy integrity")
         val publication = _publication("development-process/example", "ja", None, Some(_site_video(VideoStatus.Published, "/repository/video/example.mp4")))
@@ -143,6 +193,20 @@ final class CozyArticleMediaAssociationSpec extends AnyWordSpec with Matchers wi
 
         Then("the exact video correlation remains required without a published-state gate")
         result.correlations.map(_.key.role) shouldBe Vector(CozyArticleMediaIntegrity.Role.Video)
+      }
+
+      "retain path-bearing nonprojectable video correlation in structural inspection" in {
+        Given("a withdrawn site-hosted video with a matching withdrawn integrity record")
+        val publication = _publication("development-process/example", "ja", None, Some(_site_video(VideoStatus.Withdrawn, "/repository/video/example.mp4")))
+        val integrity = _video_integrity("development-process/example", "ja", "/repository/video/example.mp4", CozyArticleMediaIntegrity.PublicationState.Withdrawn)
+
+        When("structural inspection separates correlation from projection admission")
+        val inspection = _with_metadata(Vector(publication))(metadata => CozyArticleMediaAssociation.inspect(metadata, Vector(integrity)))
+
+        Then("the exact correlation is retained but marked nonprojectable")
+        inspection.media.map(x => (x.key.role, x.integrity.map(_.record.publicationState), x.projectable)) shouldBe Vector(
+          (CozyArticleMediaIntegrity.Role.Video, Some(CozyArticleMediaIntegrity.PublicationState.Withdrawn), false)
+        )
       }
     }
 

@@ -79,7 +79,7 @@ Focus:
 
 Stage Status:
 
-- Current status: IN PROGRESS
+- Current status: DONE
 - Owner: Cozy
 - Update rule: mark work complete only from the Phase 26 checklist.
 - Checklist basis: `AM26-02`

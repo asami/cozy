@@ -7,8 +7,10 @@ import cozy.runtime.CozyCliArgs
 import play.api.libs.json._
 import org.goldenport.cli.spec
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path, Paths, StandardCopyOption}
+import java.nio.channels.FileChannel
+import java.nio.file.{AtomicMoveNotSupportedException, FileAlreadyExistsException, Files, LinkOption, Path, Paths, StandardCopyOption, StandardOpenOption}
 import java.security.MessageDigest
+import java.util.concurrent.ConcurrentHashMap
 import scala.util.Try
 import scala.collection.JavaConverters._
 import scala.sys.process._
@@ -16,7 +18,8 @@ import scala.sys.process._
 /*
  * @since   May. 20, 2026
  *  version Jun.  8, 2026
- * @version Jun. 19, 2026
+ *  version Jun. 19, 2026
+ * @version Aug.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyPublicationCompiler {
@@ -87,7 +90,7 @@ private[cozy] object CozyPublicationCompiler {
     project: ProjectMetadata,
     pages: Vector[PublicationPage],
     sourceManifestEnabled: Boolean,
-    sourcefiles: Vector[SourceFile],
+    sourceFiles: Vector[SourceFile],
     samples: Vector[SamplePublication],
     repositoryModules: Vector[String]
   )
@@ -220,8 +223,8 @@ private[cozy] object CozyPublicationCompiler {
     PublicationRegistry.publishMetadata(
       root = savedir,
       name = name,
-      publicationpath = publicationpath,
-      projectdir = repositorydir,
+      publicationPath = publicationpath,
+      projectDir = repositorydir,
       entries = Vector(s"metadata/projects/${name}/metadata.json" -> metadata)
     )
     CozyWarehouseIndexer.publishMaven(
@@ -238,14 +241,29 @@ private[cozy] object CozyPublicationCompiler {
       case (path, json) => PublicationBundleEntry(path, _publication_bundle_key(path), json)
     })
 
+  private[publication] def replaceMetadata(
+    root: Path,
+    name: String,
+    entries: Vector[(String, JsValue)],
+    removePrefixes: Vector[String],
+    expectedBundleDigests: Map[String, String] = Map.empty
+  ): Unit =
+    PublicationRegistry.replaceMetadata(
+      root,
+      name,
+      entries.map { case (path, json) => PublicationBundleEntry(path, _publication_bundle_key(path), json) },
+      removePrefixes,
+      expectedBundleDigests
+    )
+
   def publishMetadata(
     root: Path,
     name: String,
-    publicationpath: Option[String],
-    projectdir: Path,
+    publicationPath: Option[String],
+    projectDir: Path,
     entries: Vector[(String, JsValue)]
   ): Unit =
-    PublicationRegistry.publishMetadata(root, name, publicationpath, projectdir, entries)
+    PublicationRegistry.publishMetadata(root, name, publicationPath, projectDir, entries)
 
   private def _write(publication: Publication, savedir: Path, projectdir: Path): Unit = {
     val name = publication.project.name
@@ -701,14 +719,14 @@ private[cozy] object CozyPublicationCompiler {
     _yaml_header("source-manifest") +
       _project_yaml(p.project) +
       s"""files:
-         |${p.sourcefiles.map(_source_file_yaml).mkString}""".stripMargin
+         |${p.sourceFiles.map(_source_file_yaml).mkString}""".stripMargin
 
   private def _source_manifest_json(p: Publication): JsValue =
     Json.obj(
       "schema" -> _schema,
       "type" -> "source-manifest",
       "project" -> _project_json(p.project),
-      "files" -> JsArray(p.sourcefiles.map(_source_file_json))
+      "files" -> JsArray(p.sourceFiles.map(_source_file_json))
     )
 
   private def _yaml_header(kind: String): String =
@@ -1179,6 +1197,7 @@ private[cozy] object CozyPublicationCompiler {
   }
 
   private object PublicationRegistry {
+    private val _registry_locks = new ConcurrentHashMap[String, Object]()
     def publish(root: Path, publication: Publication, projectdir: Path, staging: Path): Unit = {
       val name = publication.project.name
       val bundle = PublicationBundle(
@@ -1189,70 +1208,94 @@ private[cozy] object CozyPublicationCompiler {
         sourceCommit = _source_commit(projectdir),
         entries = _bundle_entries(staging)
       )
-      _check_collisions(root, bundle)
-      _write_bundle(root, bundle)
+      _with_registry_lock(root) { realroot =>
+        val target = _locked_target(realroot, name, requireexisting = false)
+        _check_collisions(realroot, bundle)
+        _write_bundle(target, bundle)
+      }
     }
 
     def publishMetadata(
       root: Path,
       name: String,
-      publicationpath: Option[String],
-      projectdir: Path,
+      publicationPath: Option[String],
+      projectDir: Path,
       entries: Vector[(String, JsValue)]
     ): Unit = {
       val bundle = PublicationBundle(
         publication = name,
-        publicationPath = publicationpath,
-        sourceRepository = _source_repository(projectdir),
-        sourcePath = _source_path(projectdir),
-        sourceCommit = _source_commit(projectdir),
+        publicationPath = publicationPath,
+        sourceRepository = _source_repository(projectDir),
+        sourcePath = _source_path(projectDir),
+        sourceCommit = _source_commit(projectDir),
         entries = entries.map {
           case (path, json) => PublicationBundleEntry(path, _publication_bundle_key(path), json)
         }.map(_validate_entry).distinct.sortBy(_.path)
       )
-      _check_collisions(root, bundle)
-      _write_bundle(root, bundle)
+      _with_registry_lock(root) { realroot =>
+        val target = _locked_target(realroot, name, requireexisting = false)
+        _check_collisions(realroot, bundle)
+        _write_bundle(target, bundle)
+      }
     }
 
     def registerMetadata(root: Path, name: String, entries: Vector[PublicationBundleEntry]): Unit = {
-      val old = _load_bundle(root, name).getOrElse(RAISE.invalidArgumentFault(s"Publication bundle not found: ${name}"))
-      val replacepaths = entries.map(_.path).toSet
-      val bundle = old.copy(
-        entries = (old.entries.filterNot(x => replacepaths.contains(x.path)) ++ entries.map(_validate_entry)).distinct.sortBy(_.path)
-      )
-      _check_collisions(root, bundle)
-      _write_bundle(root, bundle)
+      _replace_metadata(root, name, entries, Vector.empty, Map.empty)
     }
+
+    def replaceMetadata(
+      root: Path,
+      name: String,
+      entries: Vector[PublicationBundleEntry],
+      removePrefixes: Vector[String],
+      expectedBundleDigests: Map[String, String]
+    ): Unit =
+      _replace_metadata(root, name, entries, removePrefixes, expectedBundleDigests)
 
     def remove(root: Path, name: String): Unit = {
-      val path = _bundle_path(root, name)
-      if (!Files.isRegularFile(path))
-        RAISE.invalidArgumentFault(s"Publication bundle not found: ${name}")
-      Files.deleteIfExists(path)
+      _with_registry_lock(root) { realroot =>
+        val target = _locked_target(realroot, name, requireexisting = true)
+        _load_bundle(target, name).getOrElse(RAISE.invalidArgumentFault(s"Publication bundle not found: ${name}"))
+        Files.delete(target)
+      }
     }
 
-    private def _load_bundle(root: Path, name: String): Option[PublicationBundle] = {
-      val jsonpath = _bundle_path(root, name)
-      if (Files.isRegularFile(jsonpath)) {
-        val json = Json.parse(Files.readString(jsonpath, StandardCharsets.UTF_8))
-        if ((json \ "type").asOpt[String].contains("publication-bundle"))
+    private def _load_bundle(target: Path, expectedname: String): Option[PublicationBundle] = {
+      if (Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS)) {
+        val json = Json.parse(Files.readString(target, StandardCharsets.UTF_8))
+        if ((json \ "type").asOpt[String].contains("publication-bundle")) {
+          val entriesjson = (json \ "entries") match {
+            case JsDefined(value) => value
+            case JsUndefined() =>
+              RAISE.invalidArgumentFault(s"Invalid publication bundle entries: entries are missing: ${target.getFileName}")
+          }
+          val entriesarray = entriesjson match {
+            case JsArray(values) => values.toVector
+            case _ =>
+              RAISE.invalidArgumentFault(s"Invalid publication bundle entries: entries must be an array: ${target.getFileName}")
+          }
           Some(PublicationBundle(
-            publication = (json \ "publication" \ "name").asOpt[String].getOrElse(name),
+            publication = _declared_bundle_name(json, target.getFileName.toString, expectedname),
             publicationPath = (json \ "publication" \ "path").asOpt[String],
             sourceRepository = (json \ "sourceRepository").asOpt[String].getOrElse(""),
             sourcePath = (json \ "sourcePath").asOpt[String].getOrElse(""),
             sourceCommit = (json \ "sourceCommit").asOpt[String],
-            entries = (json \ "entries").asOpt[Vector[JsObject]].getOrElse(Vector.empty).map { entry =>
-              PublicationBundleEntry(
-                path = _validate_relative_metadata_path((entry \ "path").as[String]),
-                key = (entry \ "key").asOpt[String].getOrElse(_logical_key((entry \ "path").as[String])),
-                metadata = (entry \ "metadata").as[JsValue]
-              )
+            entries = entriesarray.map {
+              case entry: JsObject =>
+                PublicationBundleEntry(
+                  path = _validate_relative_metadata_path((entry \ "path").as[String]),
+                  key = (entry \ "key").asOpt[String].getOrElse(_logical_key(_validate_relative_metadata_path((entry \ "path").as[String]))),
+                  metadata = (entry \ "metadata").as[JsValue]
+                )
+              case _ =>
+                RAISE.invalidArgumentFault(s"Invalid publication bundle entries: every entry must be an object: ${target.getFileName}")
             }
           ))
-        else
+        } else
           None
       } else {
+        if (Files.exists(target, LinkOption.NOFOLLOW_LINKS))
+          RAISE.invalidArgumentFault(s"Publication bundle must be a direct regular file: ${target.getFileName}")
         None
       }
     }
@@ -1264,7 +1307,8 @@ private[cozy] object CozyPublicationCompiler {
         val stream = Files.list(root)
         try {
           stream.iterator().asScala.toVector.filter(_.getFileName.toString.endsWith(".json")).flatMap { path =>
-            _load_bundle(root, path.getFileName.toString.stripSuffix(".json"))
+            val filename = path.getFileName.toString
+            _load_bundle(path, _filename_stem(filename))
           }
         } finally {
           stream.close()
@@ -1285,9 +1329,107 @@ private[cozy] object CozyPublicationCompiler {
       }
     }
 
-    private def _write_bundle(root: Path, bundle: PublicationBundle): Unit = {
+    private def _replace_metadata(
+      root: Path,
+      name: String,
+      entries: Vector[PublicationBundleEntry],
+      removeprefixes: Vector[String],
+      expectedbundledigests: Map[String, String]
+    ): Unit =
+      _with_registry_lock(root) { realroot =>
+        val target = _locked_target(realroot, name, requireexisting = true)
+        if (entries == null || removeprefixes == null || expectedbundledigests == null)
+          RAISE.invalidArgumentFault("Publication metadata replacement inputs must be defined")
+        _validate_expected_bundle_digests(realroot, expectedbundledigests)
+        val old = _load_bundle(target, name).getOrElse(RAISE.invalidArgumentFault(s"Publication bundle not found: ${name}"))
+        val validatedentries = entries.map(_validate_entry)
+        val replacepaths = validatedentries.map(_.path).toSet
+        val prefixes = removeprefixes.map(_validate_remove_prefix).distinct
+        val bundle = old.copy(
+          entries = (old.entries.filterNot(x => replacepaths.contains(x.path) || prefixes.exists(x.path.startsWith)) ++ validatedentries).distinct.sortBy(_.path)
+        )
+        _check_collisions(realroot, bundle)
+        _write_bundle(target, bundle)
+      }
+
+    private def _with_registry_lock[A](root: Path)(f: Path => A): A = {
       Files.createDirectories(root)
-      _write_text(_bundle_path(root, bundle.publication), Json.prettyPrint(_bundle_json(bundle)) + "\n")
+      val realroot = root.toAbsolutePath.normalize().toRealPath()
+      val monitor = _registry_locks.computeIfAbsent(realroot.toString, new java.util.function.Function[String, Object] {
+        override def apply(value: String): Object = new Object()
+      })
+      monitor.synchronized {
+        val lockpath = realroot.resolve(".cozy-publication-registry.lock")
+        if (!Files.exists(lockpath, LinkOption.NOFOLLOW_LINKS))
+          try Files.createFile(lockpath)
+          catch {
+            case _: FileAlreadyExistsException =>
+          }
+        _validate_lock_path(lockpath)
+        val channel = FileChannel.open(lockpath, StandardOpenOption.WRITE)
+        try {
+          val lock = channel.lock()
+          try f(realroot) finally lock.release()
+        } finally channel.close()
+      }
+    }
+
+    private def _validate_lock_path(lockpath: Path): Unit =
+      if (Files.exists(lockpath, LinkOption.NOFOLLOW_LINKS) &&
+        (Files.isSymbolicLink(lockpath) || !Files.isRegularFile(lockpath, LinkOption.NOFOLLOW_LINKS)))
+        RAISE.invalidArgumentFault(s"Publication registry lock must be a direct regular file: ${lockpath}")
+
+    private def _locked_target(realroot: Path, name: String, requireexisting: Boolean): Path = {
+      val validatedname = _validate_bundle_name(name)
+      val target = realroot.resolve(s"$validatedname.json").normalize()
+      if (!target.startsWith(realroot))
+        RAISE.invalidArgumentFault(s"Publication bundle target escapes configured root: $name")
+      if (Files.isSymbolicLink(target))
+        RAISE.invalidArgumentFault(s"Publication bundle target must not be a symbolic link: $validatedname")
+      val exists = Files.exists(target, LinkOption.NOFOLLOW_LINKS)
+      if (exists && !Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS))
+        RAISE.invalidArgumentFault(s"Publication bundle target must be a direct regular file: $validatedname")
+      if (requireexisting && !exists)
+        RAISE.invalidArgumentFault(s"Publication bundle not found: $validatedname")
+      if (exists)
+        _load_bundle(target, validatedname).getOrElse(
+          RAISE.invalidArgumentFault(s"Publication bundle declaration is invalid: $validatedname")
+        )
+      target
+    }
+
+    private def _validate_expected_bundle_digests(realroot: Path, expectedbundledigests: Map[String, String]): Unit =
+      if (expectedbundledigests.nonEmpty) {
+        expectedbundledigests.keys.foreach(_validate_bundle_name)
+        val actual = CozyArticleMediaRegistry.load(realroot).bundleDigests
+        if (actual != expectedbundledigests)
+          RAISE.invalidArgumentFault("Publication bundle stale configured snapshot")
+      }
+
+    private def _validate_remove_prefix(value: String): String = {
+      val prefix = _validate_relative_metadata_path(value.stripSuffix("/"))
+      prefix + "/"
+    }
+
+    private def _write_bundle(target: Path, bundle: PublicationBundle): Unit = {
+      val name = _validate_bundle_name(bundle.publication)
+      if (target.getFileName.toString != s"$name.json")
+        RAISE.invalidArgumentFault(s"Publication bundle target does not match declaration: $name")
+      val temporary = Files.createTempFile(target.getParent, target.getFileName.toString + ".", ".tmp")
+      try {
+        val bytes = (Json.prettyPrint(_bundle_json(bundle)) + "\n").getBytes(StandardCharsets.UTF_8)
+        Files.write(temporary, bytes, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)
+        val channel = FileChannel.open(temporary, StandardOpenOption.WRITE)
+        try channel.force(true) finally channel.close()
+        try {
+          Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+        } catch {
+          case _: AtomicMoveNotSupportedException =>
+            RAISE.invalidArgumentFault(s"Atomic publication bundle replacement is not supported: ${target}")
+        }
+      } finally {
+        Files.deleteIfExists(temporary)
+      }
     }
 
     private def _bundle_json(p: PublicationBundle): JsValue =
@@ -1324,10 +1466,10 @@ private[cozy] object CozyPublicationCompiler {
       path.startsWith("metadata/") && !path.contains("/files/")
 
     private def _validate_entry(p: PublicationBundleEntry): PublicationBundleEntry =
-      p.copy(path = _validate_relative_metadata_path(p.path), key = if (p.key.trim.isEmpty) _logical_key(p.path) else p.key.trim)
-
-    private def _bundle_path(root: Path, name: String): Path =
-      root.resolve(s"${name}.json")
+      {
+        val path = _validate_relative_metadata_path(p.path)
+        p.copy(path = path, key = _logical_key(path))
+      }
 
     private def _relative_files(root: Path): Vector[String] =
       if (!Files.exists(root))
@@ -1351,10 +1493,38 @@ private[cozy] object CozyPublicationCompiler {
     }
 
     private def _validate_relative_path(path: String): String = {
+      if (path == null || path.contains('\\') || path.contains("\u0000") || path.startsWith("/"))
+        RAISE.invalidArgumentFault(s"Invalid publication bundle path: ${path}")
+      val segments = path.split("/", -1).toVector
+      if (segments.isEmpty || segments.exists(x => x.isEmpty || x == "." || x == ".."))
+        RAISE.invalidArgumentFault(s"Invalid publication bundle path: ${path}")
       val normalized = Paths.get(path).normalize()
-      if (normalized.isAbsolute || normalized.startsWith("..") || path.contains("\u0000"))
+      if (normalized.isAbsolute || normalized.startsWith(".."))
         RAISE.invalidArgumentFault(s"Invalid publication bundle path: ${path}")
       normalized.toString.replace('\\', '/')
+    }
+
+    private def _validate_bundle_name(value: String): String = {
+      val name = Option(value).getOrElse("")
+      if (!name.matches("[A-Za-z0-9][A-Za-z0-9._-]*") || name == "." || name == ".." ||
+        name.contains('/') || name.contains('\\') || name.contains('\u0000'))
+        RAISE.invalidArgumentFault(s"Publication bundle name must be a safe filename segment: $value")
+      name
+    }
+
+    private def _filename_stem(filename: String): String = {
+      if (!filename.endsWith(".json"))
+        RAISE.invalidArgumentFault(s"Publication bundle filename must end with .json: $filename")
+      _validate_bundle_name(filename.stripSuffix(".json"))
+    }
+
+    private def _declared_bundle_name(json: JsValue, filename: String, expectedname: String): String = {
+      val declared = (json \ "publication" \ "name").asOpt[String].map(_validate_bundle_name).getOrElse(
+        RAISE.invalidArgumentFault(s"Publication bundle has invalid publication.name: $filename")
+      )
+      if (declared != expectedname)
+        RAISE.invalidArgumentFault(s"Publication bundle declaration does not match filename or requested name: $filename")
+      declared
     }
 
     private def _logical_key(path: String): String = {
