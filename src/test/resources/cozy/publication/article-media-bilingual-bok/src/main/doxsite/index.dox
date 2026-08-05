@@ -1,0 +1,11 @@
+Article Media Bilingual BoK
+==========================
+
+# HEAD
+
+status=published
+published_at=2026-08-05
+
+# Overview
+
+<span lang="ja">記事メディアのバイリンガル受入れフィクスチャです。</span><span lang="en">This is the bilingual article-media acceptance fixture.</span>

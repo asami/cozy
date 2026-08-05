@@ -94,7 +94,7 @@ Focus:
 
 Stage Status:
 
-- Current status: PLANNED
+- Current status: DONE
 - Owner: Cozy / BoK operator
 - Update rule: mark work complete only from the Phase 26 checklist.
 - Checklist basis: `AM26-03`

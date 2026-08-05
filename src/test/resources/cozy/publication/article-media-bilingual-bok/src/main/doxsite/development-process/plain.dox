@@ -1,0 +1,15 @@
+Media-Free Bilingual Article｜メディアなしバイリンガル記事
+========================================================
+
+# HEAD
+
+status=published
+published_at=2026-08-05
+
+# Body
+
+<span lang="ja">メディアなしの日本語リードです。</span><span lang="en">This is the media-free English lead.</span>
+
+# First body section
+
+<span lang="ja">メディアなしの日本語本文です。</span><span lang="en">This is the media-free English body.</span>

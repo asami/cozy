@@ -7,13 +7,14 @@ import cozy.media.CozyMedia
 import org.goldenport.RAISE
 import org.goldenport.config.StructuredDocumentLoader
 import org.goldenport.io.InputSource
+import org.smartdox.metadata.PublishMetadata.ImageReference
 import play.api.libs.json.{JsArray, JsObject, JsString, Json}
 import scala.util.Try
 import scala.util.control.NonFatal
 
 /*
- * @since   Aug.  4, 2026
- * @version Aug.  4, 2026
+ * @since   Aug.  5, 2026
+ * @version Aug.  5, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArticleMediaInfographicEvidence {
@@ -48,13 +49,123 @@ private[cozy] object CozyArticleMediaInfographicEvidence {
     artifactPath: Path
   )
 
+  /*
+   * The prepared form intentionally contains evidence only.  It is not a
+   * registry update: a role becomes visible only after CozyMedia has committed
+   * the corresponding prepared publication.
+   */
+  final case class PreparedInput(
+    projectRoot: Path,
+    buildManifest: Path,
+    version: String,
+    repositoryRoot: Path,
+    publication: CozyMedia.PreparedPublication
+  )
+
+  final case class Prepared(
+    publication: CozyMedia.PreparedPublication,
+    integrity: CozyArticleMediaIntegrity.Result,
+    artifactPath: Path
+  )
+
+  final case class Completion(
+    result: Result,
+    roleUpdate: CozyArticleMediaRegistry.RoleUpdate
+  )
+
+  def prepare(input: PreparedInput): Prepared = {
+    if (input == null || input.projectRoot == null || input.buildManifest == null || input.repositoryRoot == null || input.publication == null)
+      _invalid("Article-media infographic prepared evidence input must be defined")
+    val publication = input.publication
+    if (publication.descriptorFile == null || publication.descriptorRoot == null || publication.descriptor == null || publication.resource == null ||
+      publication.profile == null || publication.profileRoot == null || publication.profileRootIdentity == null || publication.publishablePath == null ||
+      publication.destination == null || publication.destinationIdentity == null)
+      _invalid("Article-media infographic prepared publication evidence must be defined")
+    val project = _direct_directory_identity(input.projectRoot, "project root")
+    val repository = _direct_directory_identity(input.repositoryRoot, "repository root")
+    val descriptorfile = publication.descriptorFile.toAbsolutePath.normalize()
+    val descriptorroot = publication.descriptorRoot.toAbsolutePath.normalize()
+    if (!_direct_regular_file(descriptorfile) || descriptorfile.getParent != descriptorroot || !descriptorroot.startsWith(project.lexical) || !descriptorfile.toRealPath().startsWith(project.real))
+      _invalid("Article-media infographic prepared descriptor must be a direct regular file inside project root")
+    if (publication.profileRoot != repository.lexical || publication.profileRootIdentity != repository.real)
+      _invalid("Article-media infographic selected profile and configured repository roots must have identical lexical and real identities")
+    if (publication.destination.toAbsolutePath.normalize() != publication.destination || publication.destinationIdentity != publication.destination || !publication.destination.startsWith(repository.lexical))
+      _invalid("Article-media infographic prepared destination identity is invalid")
+    val descriptor = publication.descriptor
+    if (descriptor.schema != "cozy.media.v1" || descriptor.knowledge == null || descriptor.resources == null || descriptor.profiles == null ||
+      !descriptor.resources.contains(publication.resource) || !descriptor.profiles.contains(publication.profile))
+      _invalid("Article-media infographic prepared descriptor must be cozy.media.v1 with its selected resource and profile")
+    val identity = CozyArticleMediaNormalization.normalizeArticleIdentity(descriptor.knowledge.id)
+    val resource = publication.resource
+    val resourceid = CozyArticleMediaNormalization.requireExactTrimmed(resource.id, "Article-media infographic resource id")
+    val language = resource.language.getOrElse(_invalid("Article-media infographic resource language must be defined"))
+    val locale = CozyArticleMediaNormalization.normalizeLocale(language)
+    if (language != locale || resource.kind != "image" || resource.role != Some("detailed-infographic"))
+      _invalid("Article-media infographic resource must be a literal detailed-infographic image with an exact canonical locale")
+    val publicationpath = _publication_path(resource, publication.profile)
+    val expected = repository.lexical.resolve(publicationpath).normalize()
+    if (expected != publication.destination || !expected.startsWith(repository.lexical))
+      _invalid("Article-media infographic prepared destination must be the selected repository profile destination")
+    if (!_direct_regular_file(publication.publishablePath) || !_is_sha256(publication.sourceSha256) || _sha256(publication.publishablePath) != publication.sourceSha256)
+      _invalid("Article-media infographic prepared source has changed or is not a direct regular file")
+    _validate_png(publication.publishablePath, publicationpath)
+    val manifest = input.buildManifest.toAbsolutePath.normalize()
+    val expectedmanifest = descriptorroot.resolve("target/cozy-media/manifest.json").toAbsolutePath.normalize()
+    if (manifest != expectedmanifest || !_direct_regular_file(manifest) || !manifest.startsWith(project.lexical) || !manifest.toRealPath().startsWith(project.real))
+      _invalid("Article-media infographic prepared build manifest must be the direct descriptor target/cozy-media/manifest.json")
+    val buildpath = _build_path(resource, descriptorroot)
+    val expectedsource = descriptorroot.resolve(buildpath).normalize()
+    if (expectedsource != publication.publishablePath || !expectedsource.startsWith(descriptorroot))
+      _invalid("Article-media infographic prepared source must equal the selected build output")
+    val manifestsha = _manifest_sha(manifest, identity, resourceid, buildpath)
+    if (manifestsha != publication.sourceSha256)
+      _invalid("Article-media infographic prepared manifest and source SHA-256 values must match")
+    val version = CozyArticleMediaNormalization.requireExactTrimmed(input.version, "Article-media infographic version")
+    val integrity = CozyArticleMediaIntegrity.produce(CozyArticleMediaIntegrity.Input(
+      articleIdentity = identity,
+      locale = locale,
+      role = CozyArticleMediaIntegrity.Role.Infographic,
+      artifact = CozyArticleMediaIntegrity.Artifact(resourceid, version),
+      publicPath = new URI(s"/$publicationpath"),
+      repositoryPath = publicationpath,
+      mediaType = "image/png",
+      sha256 = manifestsha,
+      provenance = CozyArticleMediaIntegrity.MediaPackage(
+        _project_relative(project.lexical, descriptorfile, "descriptor"),
+        resourceid,
+        _project_relative(project.lexical, manifest, "build manifest")
+      ),
+      publicationState = CozyArticleMediaIntegrity.PublicationState.Published
+    ))
+    Prepared(publication, integrity, publication.destination)
+  }
+
+  def complete(prepared: Prepared, result: CozyMedia.PublicationResult): Completion = {
+    if (prepared == null || prepared.publication == null || prepared.integrity == null || prepared.artifactPath == null || result == null || result.prepared == null)
+      _invalid("Article-media infographic completion evidence must be defined")
+    if (result.prepared != prepared.publication)
+      _invalid("Article-media infographic publication result does not correspond to prepared evidence")
+    val destination = prepared.artifactPath
+    if (!_direct_regular_file(destination) || _sha256(destination) != prepared.integrity.record.sha256)
+      _invalid("Article-media infographic completed destination must be a matching direct regular file")
+    _validate_png(destination, prepared.integrity.record.repositoryPath)
+    val strict = CozyArticleMediaPublication.Variant(
+      prepared.integrity.record.locale,
+      infographic = Some(ImageReference(prepared.integrity.record.publicPath, Some("image/png"), None))
+    )
+    Completion(
+      Result(prepared.integrity, destination.toRealPath()),
+      CozyArticleMediaRegistry.RoleUpdate(prepared.integrity.record.articleIdentity, strict, prepared.integrity)
+    )
+  }
+
   def project(input: Input): Result = {
     val normalized = _normalize_input(input)
     val descriptor = _load_descriptor(normalized.descriptorfile)
     val selected = _select_resource(descriptor, normalized)
     val publicationpath = _publication_path(selected.resource, normalized.profile)
     val profileroot = _profile_root(descriptor, normalized.descriptorroot, normalized.profile)
-    if (profileroot.real != normalized.repositoryroot.real || profileroot.real != normalized.publicationroot.real)
+    if (profileroot != normalized.repositoryroot || profileroot != normalized.publicationroot)
       _invalid("Article-media infographic configured, profile, and publication roots must be identical")
     val expecteddestination = profileroot.lexical.resolve(publicationpath).normalize()
     if (!expecteddestination.startsWith(profileroot.lexical))
@@ -327,6 +438,22 @@ private[cozy] object CozyArticleMediaInfographicEvidence {
       _invalid(s"Article-media infographic $label must be an existing directory: $path")
     RootIdentity(lexical, lexical.toRealPath())
   }
+
+  private def _direct_directory_identity(path: Path, label: String): RootIdentity = {
+    val lexical = path.toAbsolutePath.normalize()
+    if (Files.isSymbolicLink(lexical) || !Files.isDirectory(lexical, java.nio.file.LinkOption.NOFOLLOW_LINKS))
+      _invalid(s"Article-media infographic $label must be an existing direct non-symlink directory: $path")
+    val real = lexical.toRealPath()
+    if (real != lexical)
+      _invalid(s"Article-media infographic $label must not be a lexical alias: $path")
+    RootIdentity(lexical, real)
+  }
+
+  private def _direct_regular_file(path: Path): Boolean =
+    path != null && !Files.isSymbolicLink(path) && Files.isRegularFile(path, java.nio.file.LinkOption.NOFOLLOW_LINKS)
+
+  private def _is_sha256(value: String): Boolean =
+    value != null && value.matches("[0-9a-f]{64}")
 
   private def _profile_relative_path(value: String, profile: String): Path = {
     val raw = CozyArticleMediaNormalization.requireExactTrimmed(value, s"Article-media infographic profile $profile root")

@@ -4,7 +4,7 @@ import cozy.bok.CozyBok
 import cozy.video.CozyVideoSpec
 import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Files, LinkOption, Path, Paths}
 import java.time.YearMonth
 import java.util.zip.ZipInputStream
 import scala.collection.JavaConverters._
@@ -15,7 +15,8 @@ import org.scalatest.wordspec.AnyWordSpec
 /*
  * @since   Jun.  3, 2026
  *  version Jun. 27, 2026
- * @version Jul. 23, 2026
+ *  version Jul. 23, 2026
+ * @version Aug.  5, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokSpec
@@ -187,6 +188,11 @@ class CozyBokSpec
             "REPOSITORY_SOURCE_DIR=${REPOSITORY_SOURCE_DIR:-repository}"
           )
           stageproto should include("rsync -av --checksum --delete")
+          stageproto should include("--exclude '/.git'")
+          stageproto should include("--exclude '/repository'")
+          stageproto should include(
+            """rsync -av --checksum "$WEBSITE_BUILD_DIR/repository"/ "$WEBSITE_STAGING_DIR/repository"/"""
+          )
           stageproto should include(
             """rsync -av --checksum "$REPOSITORY_SOURCE_DIR"/ "$WEBSITE_STAGING_DIR/repository"/"""
           )
@@ -2407,17 +2413,36 @@ class CozyBokSpec
           CozyBok.build(config, runner)
 
           Then("the direct assets are copied into the generated website")
-          runner.commands should contain(
-            Vector(
-              "dox",
-              "site-mark",
-              "-strategy",
-              "production",
-              "-output.scope.policy",
-              "all",
-              "src/main/doxsite"
-            )
+          val sitecommand = runner.commands.find(_.take(2) == Vector("dox", "site-mark")).get
+          sitecommand.take(6) shouldBe Vector(
+            "dox",
+            "site-mark",
+            "-strategy",
+            "production",
+            "-output.scope.policy",
+            "all"
           )
+          sitecommand.last shouldBe "src/main/doxsite"
+          val publicationindex = sitecommand.indexOf("-publication")
+          publicationindex should be >= 0
+          val publicationpath =
+            Paths.get(sitecommand(publicationindex + 1)).toAbsolutePath.normalize()
+          val snapshotroot = dir
+            .resolve("target/cozy-bok/article-media/production/snapshots")
+            .toAbsolutePath
+            .normalize()
+          publicationpath.getParent.getParent shouldBe snapshotroot
+          publicationpath.getParent.getFileName.toString.matches("[0-9a-f]{64}") shouldBe true
+          publicationpath.getFileName.toString shouldBe "publication"
+          Files.isDirectory(publicationpath, LinkOption.NOFOLLOW_LINKS) shouldBe true
+          Files.isSymbolicLink(publicationpath) shouldBe false
+          val repositoryindex = sitecommand.indexOf("-publication.repository")
+          repositoryindex should be >= 0
+          sitecommand(repositoryindex + 1) shouldBe dir
+            .resolve("repository")
+            .toAbsolutePath
+            .normalize()
+            .toString
           dir.resolve("website.d/knowledge-graph/app.js") should be_regular_file
         }
       }
@@ -2495,22 +2520,34 @@ class CozyBokSpec
           CozyBok.build(config, runner)
 
           Then(
-            "SmartDox receives the CLI publication, repository, and RDF missing policy values"
+            "SmartDox receives the digest-addressed production snapshot, repository, and RDF missing policy values"
           )
           val sitecommand =
             runner.commands.find(_.take(2) == Vector("dox", "site")).get
-          sitecommand should contain("-publication")
-          sitecommand should contain(
-            dir.resolve("cli-publication").toAbsolutePath.normalize().toString
-          )
-          sitecommand should contain("-publication.repository")
-          sitecommand should contain(
-            dir
-              .resolve("cli-warehouse/repository")
-              .toAbsolutePath
-              .normalize()
-              .toString
-          )
+          val publicationindex = sitecommand.indexOf("-publication")
+          publicationindex should be >= 0
+          val publicationpath =
+            Paths.get(sitecommand(publicationindex + 1)).toAbsolutePath.normalize()
+          val snapshotroot = dir
+            .resolve("target/cozy-bok/article-media/production/snapshots")
+            .toAbsolutePath
+            .normalize()
+          publicationpath.getParent.getParent shouldBe snapshotroot
+          publicationpath.getParent.getFileName.toString.matches("[0-9a-f]{64}") shouldBe true
+          publicationpath.getFileName.toString shouldBe "publication"
+          Files.isDirectory(publicationpath, LinkOption.NOFOLLOW_LINKS) shouldBe true
+          Files.isSymbolicLink(publicationpath) shouldBe false
+          val clipublication = dir.resolve("cli-publication").toAbsolutePath.normalize()
+          config.publication.publicationPath(dir) shouldBe clipublication
+          Files.isDirectory(clipublication, LinkOption.NOFOLLOW_LINKS) shouldBe true
+          Files.isSymbolicLink(clipublication) shouldBe false
+          val repositoryindex = sitecommand.indexOf("-publication.repository")
+          repositoryindex should be >= 0
+          sitecommand(repositoryindex + 1) shouldBe dir
+            .resolve("cli-warehouse/repository")
+            .toAbsolutePath
+            .normalize()
+            .toString
           sitecommand should contain("-publication.rdf.missing.policy")
           sitecommand should contain("fail")
         }

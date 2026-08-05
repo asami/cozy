@@ -1,0 +1,272 @@
+{
+  "schema": "cozy.publish-project.v1",
+  "type": "publication-bundle",
+  "publication": {
+    "name": "publication"
+  },
+  "sourceRepository": "fixture",
+  "sourcePath": ".",
+  "sourceCommit": null,
+  "entries": [
+    {
+      "path": "metadata/article-media-integrity/development-process/example/en/infographic.json",
+      "key": "article-media-integrity/development-process/example/en/infographic",
+      "metadata": {
+        "schema": "cozy.article-media-integrity.v1",
+        "articleIdentity": "development-process/example",
+        "locale": "en",
+        "role": "infographic",
+        "artifact": { "identity": "article-media-bilingual-example-en-infographic", "version": "1.0.0" },
+        "publicPath": "/repository/article-media/development-process/example/en/infographic.png",
+        "repositoryPath": "article-media/development-process/example/en/infographic.png",
+        "mediaType": "image/png",
+        "sha256": "385a92647193b6011c5e5e5260d7b7014351c56cabb30add4d458ae6efc49557",
+        "provenance": {
+          "kind": "media-package",
+          "descriptor": "src/main/doxsite/media/en/media.yaml",
+          "resourceId": "article-media-bilingual-example-en-infographic",
+          "buildManifest": "src/main/doxsite/media/en/target/cozy-media/manifest.json"
+        },
+        "publicationState": "published"
+      }
+    },
+    {
+      "path": "metadata/article-media-integrity/development-process/example/en/video.json",
+      "key": "article-media-integrity/development-process/example/en/video",
+      "metadata": {
+        "schema": "cozy.article-media-integrity.v1",
+        "articleIdentity": "development-process/example",
+        "locale": "en",
+        "role": "video",
+        "artifact": { "identity": "article-media-bilingual-example-en-video", "version": "1.0.0" },
+        "publicPath": "/repository/video/article-media-bilingual-example-en-video/1.0.0/article-media-bilingual-example-en-video-1.0.0.mp4",
+        "repositoryPath": "video/article-media-bilingual-example-en-video/1.0.0/article-media-bilingual-example-en-video-1.0.0.mp4",
+        "mediaType": "video/mp4",
+        "sha256": "5831b03f9e7cb75d39ac055b2a26362a08a85cb912db7af22e117ab32ce46c55",
+        "provenance": {
+          "kind": "video-publication",
+          "videoManifest": "metadata/video/article-media-bilingual-example-en-video/1.0.0/manifest.json",
+          "repositoryRegistry": "metadata/artifacts/repository/article-media-bilingual-example-en-video.json"
+        },
+        "publicationState": "published"
+      }
+    },
+    {
+      "path": "metadata/article-media-integrity/development-process/example/ja/infographic.json",
+      "key": "article-media-integrity/development-process/example/ja/infographic",
+      "metadata": {
+        "schema": "cozy.article-media-integrity.v1",
+        "articleIdentity": "development-process/example",
+        "locale": "ja",
+        "role": "infographic",
+        "artifact": { "identity": "article-media-bilingual-example-ja-infographic", "version": "1.0.0" },
+        "publicPath": "/repository/article-media/development-process/example/ja/infographic.png",
+        "repositoryPath": "article-media/development-process/example/ja/infographic.png",
+        "mediaType": "image/png",
+        "sha256": "e6aeb8688de618cf3c8d49d4c0798db5eb5e6fd9cd58e63b38b5f348f743d014",
+        "provenance": {
+          "kind": "media-package",
+          "descriptor": "src/main/doxsite/media/ja/media.yaml",
+          "resourceId": "article-media-bilingual-example-ja-infographic",
+          "buildManifest": "src/main/doxsite/media/ja/target/cozy-media/manifest.json"
+        },
+        "publicationState": "published"
+      }
+    },
+    {
+      "path": "metadata/article-media-integrity/development-process/example/ja/video.json",
+      "key": "article-media-integrity/development-process/example/ja/video",
+      "metadata": {
+        "schema": "cozy.article-media-integrity.v1",
+        "articleIdentity": "development-process/example",
+        "locale": "ja",
+        "role": "video",
+        "artifact": { "identity": "article-media-bilingual-example-ja-video", "version": "1.0.0" },
+        "publicPath": "/repository/video/article-media-bilingual-example-ja-video/1.0.0/article-media-bilingual-example-ja-video-1.0.0.mp4",
+        "repositoryPath": "video/article-media-bilingual-example-ja-video/1.0.0/article-media-bilingual-example-ja-video-1.0.0.mp4",
+        "mediaType": "video/mp4",
+        "sha256": "f3516712531453356f9a945dadde0af33e9427d99012b0a9e588720a0038468a",
+        "provenance": {
+          "kind": "video-publication",
+          "videoManifest": "metadata/video/article-media-bilingual-example-ja-video/1.0.0/manifest.json",
+          "repositoryRegistry": "metadata/artifacts/repository/article-media-bilingual-example-ja-video.json"
+        },
+        "publicationState": "published"
+      }
+    },
+    {
+      "path": "metadata/article-media/development-process/example.json",
+      "key": "article-media/development-process/example",
+      "metadata": {
+        "type": "article-media-publication",
+        "article": { "identity": "development-process/example" },
+        "variants": {
+          "en": {
+            "infographic": {
+              "public_path": "/repository/article-media/development-process/example/en/infographic.png",
+              "media_type": "image/png",
+              "alt": "English example infographic"
+            },
+            "video": {
+              "presentation": "site-hosted",
+              "status": "published",
+              "content_url": "/repository/video/article-media-bilingual-example-en-video/1.0.0/article-media-bilingual-example-en-video-1.0.0.mp4"
+            }
+          },
+          "ja": {
+            "infographic": {
+              "public_path": "/repository/article-media/development-process/example/ja/infographic.png",
+              "media_type": "image/png",
+              "alt": "日本語の例インフォグラフィック"
+            },
+            "video": {
+              "presentation": "site-hosted",
+              "status": "published",
+              "content_url": "/repository/video/article-media-bilingual-example-ja-video/1.0.0/article-media-bilingual-example-ja-video-1.0.0.mp4"
+            }
+          }
+        }
+      }
+    },
+    {
+      "path": "metadata/artifacts/repository/article-media-bilingual-example-en-video.json",
+      "key": "artifacts/repository/article-media-bilingual-example-en-video",
+      "metadata": {
+        "schema": "cozy.publish-project.v1",
+        "type": "repository-artifact",
+        "project": {
+          "name": "article-media-bilingual-example-en-video",
+          "title": "Article Media Bilingual Example English Video",
+          "kind": "video",
+          "version": "1.0.0"
+        },
+        "artifact": {
+          "layer": "repository",
+          "status": "published",
+          "kinds": [{
+            "type": "video",
+            "versions": ["1.0.0"],
+            "latestRelease": "1.0.0"
+          }],
+          "files": [{
+            "layer": "repository",
+            "type": "video",
+            "module": "article-media-bilingual-example-en-video",
+            "artifactId": "article-media-bilingual-example-en-video",
+            "version": "1.0.0",
+            "extension": "mp4",
+            "warehousePath": "repository/video/article-media-bilingual-example-en-video/1.0.0/article-media-bilingual-example-en-video-1.0.0.mp4",
+            "publicPath": "repository/video/article-media-bilingual-example-en-video/1.0.0/article-media-bilingual-example-en-video-1.0.0.mp4",
+            "sitePublicPath": "videos/article-media-bilingual-example-en-video.mp4",
+            "name": "article-media-bilingual-example-en-video-1.0.0.mp4",
+            "expected": false,
+            "size": 1647,
+            "sha256": "5831b03f9e7cb75d39ac055b2a26362a08a85cb912db7af22e117ab32ce46c55"
+          }]
+        }
+      }
+    },
+    {
+      "path": "metadata/artifacts/repository/article-media-bilingual-example-ja-video.json",
+      "key": "artifacts/repository/article-media-bilingual-example-ja-video",
+      "metadata": {
+        "schema": "cozy.publish-project.v1",
+        "type": "repository-artifact",
+        "project": {
+          "name": "article-media-bilingual-example-ja-video",
+          "title": "Article Media Bilingual Example Japanese Video",
+          "kind": "video",
+          "version": "1.0.0"
+        },
+        "artifact": {
+          "layer": "repository",
+          "status": "published",
+          "kinds": [{
+            "type": "video",
+            "versions": ["1.0.0"],
+            "latestRelease": "1.0.0"
+          }],
+          "files": [{
+            "layer": "repository",
+            "type": "video",
+            "module": "article-media-bilingual-example-ja-video",
+            "artifactId": "article-media-bilingual-example-ja-video",
+            "version": "1.0.0",
+            "extension": "mp4",
+            "warehousePath": "repository/video/article-media-bilingual-example-ja-video/1.0.0/article-media-bilingual-example-ja-video-1.0.0.mp4",
+            "publicPath": "repository/video/article-media-bilingual-example-ja-video/1.0.0/article-media-bilingual-example-ja-video-1.0.0.mp4",
+            "sitePublicPath": "videos/article-media-bilingual-example-ja-video.mp4",
+            "name": "article-media-bilingual-example-ja-video-1.0.0.mp4",
+            "expected": false,
+            "size": 1647,
+            "sha256": "f3516712531453356f9a945dadde0af33e9427d99012b0a9e588720a0038468a"
+          }]
+        }
+      }
+    },
+    {
+      "path": "metadata/video/article-media-bilingual-example-en-video/1.0.0/manifest.json",
+      "key": "video/article-media-bilingual-example-en-video/1.0.0/manifest",
+      "metadata": {
+        "schema": "cozy.publish-project.v1",
+        "type": "video-registry-manifest",
+        "video": {
+          "name": "article-media-bilingual-example-en-video",
+          "title": "Article Media Bilingual Example English Video",
+          "version": "1.0.0",
+          "metadataPath": "metadata/videos/article-media-bilingual-example-en-video/metadata",
+          "rdfPath": "metadata/video/article-media-bilingual-example-en-video/1.0.0/rdf",
+          "latestPath": "metadata/video/article-media-bilingual-example-en-video/latest"
+        },
+        "artifact": {
+          "warehousePath": "repository/video/article-media-bilingual-example-en-video/1.0.0/article-media-bilingual-example-en-video-1.0.0.mp4",
+          "publicPath": "repository/video/article-media-bilingual-example-en-video/1.0.0/article-media-bilingual-example-en-video-1.0.0.mp4",
+          "sitePublicPath": "videos/article-media-bilingual-example-en-video.mp4",
+          "repositoryPublicPath": "repository/video/article-media-bilingual-example-en-video/1.0.0/article-media-bilingual-example-en-video-1.0.0.mp4",
+          "size": 1647,
+          "sha256": "5831b03f9e7cb75d39ac055b2a26362a08a85cb912db7af22e117ab32ce46c55"
+        },
+        "sidecars": {
+          "repository": [],
+          "rdf": {
+            "registryPath": "metadata/video/article-media-bilingual-example-en-video/1.0.0/rdf",
+            "manifestPath": "metadata/video/article-media-bilingual-example-en-video/1.0.0/manifest",
+            "latestPath": "metadata/video/article-media-bilingual-example-en-video/latest"
+          }
+        }
+      }
+    },
+    {
+      "path": "metadata/video/article-media-bilingual-example-ja-video/1.0.0/manifest.json",
+      "key": "video/article-media-bilingual-example-ja-video/1.0.0/manifest",
+      "metadata": {
+        "schema": "cozy.publish-project.v1",
+        "type": "video-registry-manifest",
+        "video": {
+          "name": "article-media-bilingual-example-ja-video",
+          "title": "Article Media Bilingual Example Japanese Video",
+          "version": "1.0.0",
+          "metadataPath": "metadata/videos/article-media-bilingual-example-ja-video/metadata",
+          "rdfPath": "metadata/video/article-media-bilingual-example-ja-video/1.0.0/rdf",
+          "latestPath": "metadata/video/article-media-bilingual-example-ja-video/latest"
+        },
+        "artifact": {
+          "warehousePath": "repository/video/article-media-bilingual-example-ja-video/1.0.0/article-media-bilingual-example-ja-video-1.0.0.mp4",
+          "publicPath": "repository/video/article-media-bilingual-example-ja-video/1.0.0/article-media-bilingual-example-ja-video-1.0.0.mp4",
+          "sitePublicPath": "videos/article-media-bilingual-example-ja-video.mp4",
+          "repositoryPublicPath": "repository/video/article-media-bilingual-example-ja-video/1.0.0/article-media-bilingual-example-ja-video-1.0.0.mp4",
+          "size": 1647,
+          "sha256": "f3516712531453356f9a945dadde0af33e9427d99012b0a9e588720a0038468a"
+        },
+        "sidecars": {
+          "repository": [],
+          "rdf": {
+            "registryPath": "metadata/video/article-media-bilingual-example-ja-video/1.0.0/rdf",
+            "manifestPath": "metadata/video/article-media-bilingual-example-ja-video/1.0.0/manifest",
+            "latestPath": "metadata/video/article-media-bilingual-example-ja-video/latest"
+          }
+        }
+      }
+    }
+  ]
+}

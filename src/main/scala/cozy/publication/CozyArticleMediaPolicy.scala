@@ -8,7 +8,7 @@ import org.smartdox.metadata.PublishMetadata
 
 /*
  * @since   Aug.  4, 2026
- * @version Aug.  4, 2026
+ * @version Aug.  5, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArticleMediaPolicy {
@@ -62,9 +62,12 @@ private[cozy] object CozyArticleMediaPolicy {
     artifactRepositoryRoot: Path
   ): Result = {
     _strategy(strategy)
-    val root = _artifact_root(artifactRepositoryRoot)
     val structural = CozyArticleMediaAssociation.inspect(metadata, integrityResults)
-    structural.integrityResults.foreach(integrity => _validate_record_containment(integrity.record, root))
+    /* Repository identity is meaningful only for a supplied, path-bearing
+     * integrity record.  Media-free and URL-less/external forms must not turn
+     * an absent configured repository into an observable filesystem concern. */
+    val root = if (structural.integrityResults.nonEmpty) Some(_artifact_root(artifactRepositoryRoot)) else None
+    structural.integrityResults.foreach(integrity => _validate_record_containment(integrity.record, root.get))
     val staged = Vector.newBuilder[CozyArticleMediaAssociation.Correlation]
     val omitted = Vector.newBuilder[CozyArticleMediaAssociation.Key]
     val diagnostics = Vector.newBuilder[Diagnostic]
@@ -86,7 +89,7 @@ private[cozy] object CozyArticleMediaPolicy {
           case Some(integrity) =>
             integrity.record.publicationState match {
               case CozyArticleMediaIntegrity.PublicationState.Published =>
-                if (_published_artifact_is_available(integrity.record, root))
+                if (_published_artifact_is_available(integrity.record, root.get))
                   staged += CozyArticleMediaAssociation.Correlation(medium.key, medium.publicPath, integrity, projectable = true)
                 else {
                   strategy match {
@@ -94,7 +97,7 @@ private[cozy] object CozyArticleMediaPolicy {
                       omitted += medium.key
                       diagnostics += Diagnostic(medium.key, Some(CozyArticleMediaIntegrity.PublicationState.Published), DiagnosticKind.UnavailableMedia)
                     case Strategy.Production =>
-                      _require_published_artifact(integrity.record, root)
+                      _require_published_artifact(integrity.record, root.get)
                     case _ => _invalid("Article-media policy strategy is invalid")
                   }
                 }
@@ -282,9 +285,20 @@ private[cozy] object CozyArticleMediaPolicy {
     if (value == null)
       _invalid("Article-media policy artifact repository root must be defined")
     val lexical = value.toAbsolutePath.normalize()
-    if (!Files.isDirectory(lexical))
+    if (Files.isSymbolicLink(lexical) || !Files.isDirectory(lexical, LinkOption.NOFOLLOW_LINKS))
       _invalid(s"Article-media policy artifact repository root must be an existing directory: $value")
+    _validate_direct_root_components(lexical)
     RootIdentity(lexical, lexical.toRealPath())
+  }
+
+  private def _validate_direct_root_components(root: Path): Unit = {
+    var current = root.getRoot
+    val iterator = root.iterator()
+    while (iterator.hasNext) {
+      current = current.resolve(iterator.next())
+      if (Files.isSymbolicLink(current) || !Files.isDirectory(current, LinkOption.NOFOLLOW_LINKS))
+        _invalid(s"Article-media policy artifact repository root must have direct directory components: $root")
+    }
   }
 
   private def _validate_record_containment(
@@ -309,6 +323,8 @@ private[cozy] object CozyArticleMediaPolicy {
     while (segments.hasNext) {
       current = current.resolve(segments.next())
       if (Files.exists(current, LinkOption.NOFOLLOW_LINKS)) {
+        if (Files.isSymbolicLink(current))
+          _invalid(s"Article-media policy repository path must have direct components: $repositorypath")
         val real = current.toRealPath()
         if (!real.startsWith(root.real))
           _invalid(s"Article-media policy repository real path escapes the configured root: $repositorypath")

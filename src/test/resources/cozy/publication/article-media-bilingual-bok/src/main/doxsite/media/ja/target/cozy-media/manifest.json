@@ -1,0 +1,11 @@
+{
+  "schema": "cozy.media.v1",
+  "knowledge": "development-process/example",
+  "resources": [
+    {
+      "id": "article-media-bilingual-example-ja-infographic",
+      "path": "target/cozy-media/article-media-bilingual-example-ja-infographic.png",
+      "sha256": "e6aeb8688de618cf3c8d49d4c0798db5eb5e6fd9cd58e63b38b5f348f743d014"
+    }
+  ]
+}

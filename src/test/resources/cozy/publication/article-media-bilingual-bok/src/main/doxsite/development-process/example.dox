@@ -1,0 +1,15 @@
+Article Media Bilingual Example｜記事メディア・バイリンガル例
+==========================================================
+
+# HEAD
+
+status=published
+published_at=2026-08-05
+
+# Body
+
+<span lang="ja">日本語の有効なリード段落です。</span><span lang="en">This is the English effective lead paragraph.</span>
+
+# First body section
+
+<span lang="ja">日本語の本文セクションです。</span><span lang="en">This is the English body section.</span>

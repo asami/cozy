@@ -9,14 +9,17 @@ import cozy.video.CozyVideo
 import io.circe.{Decoder, HCursor, Json}
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path, Paths, StandardCopyOption}
+import java.nio.channels.FileChannel
+import java.nio.file.{AtomicMoveNotSupportedException, Files, LinkOption, Path, Paths, StandardCopyOption, StandardOpenOption}
 import java.security.MessageDigest
 import scala.collection.JavaConverters._
+import scala.collection.mutable.ArrayBuffer
 import scala.util.control.NonFatal
 
 /*
  * @since   Jul. 19, 2026
- * @version Jul. 20, 2026
+ *  version Jul. 20, 2026
+ * @version Aug.  5, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMedia {
@@ -99,7 +102,7 @@ private[cozy] object CozyMedia {
         languages <- c.downField("languages").as[Option[Vector[String]]]
         resources <- c.downField("resources").as[Option[Vector[Resource]]]
         profiles <- c.downField("profiles").as[Option[Map[String, Profile]]]
-      } yield Descriptor(schema, knowledge, languages.getOrElse(Vector.empty), resources.getOrElse(Vector.empty), profiles.getOrElse(Map.empty))
+      } yield Descriptor(schema, knowledge, languages.getOrElse(Vector.empty), resources.getOrElse(Vector.empty).sortBy(_.id), profiles.getOrElse(Map.empty))
   }
 
   sealed trait Action { def label: String }
@@ -149,17 +152,77 @@ private[cozy] object CozyMedia {
     dryRun: Boolean = false
   )
   object CommandConfig {
-    def create(args: List[String], requireprofile: Boolean = false): CommandConfig = {
+    def create(args: List[String], requireProfile: Boolean = false): CommandConfig = {
       val parsed = CozyCliArgs.parseStrict(_p_media_file, _p_target, _p_profile, _p_dry_run)(_normalize_property_args(args))
       val descriptorfile = parsed.argument("media-file").map(CozyCliArgs.toPath).getOrElse(
         RAISE.invalidArgumentFault("Missing media descriptor")
       )
       val profile = parsed.property("profile")
-      if (requireprofile && profile.isEmpty)
+      if (requireProfile && profile.isEmpty)
         RAISE.invalidArgumentFault("Missing --profile for media publish")
       CommandConfig(descriptorfile, parsed.property("target"), profile, parsed.flag("dry-run"))
     }
   }
+
+  sealed trait DestinationState
+  object DestinationState {
+    case object Absent extends DestinationState
+    final case class Existing(sha256: String) extends DestinationState
+  }
+
+  sealed trait PublicationDisposition {
+    def label: String
+  }
+  object PublicationDisposition {
+    case object Create extends PublicationDisposition {
+      val label = "create"
+    }
+    case object Reuse extends PublicationDisposition {
+      val label = "reuse"
+    }
+    case object Replace extends PublicationDisposition {
+      val label = "replace"
+    }
+  }
+
+  sealed trait PublicationOutcome {
+    def label: String
+  }
+  object PublicationOutcome {
+    case object Created extends PublicationOutcome {
+      val label = "created"
+    }
+    case object Reused extends PublicationOutcome {
+      val label = "reused"
+    }
+    case object Replaced extends PublicationOutcome {
+      val label = "replaced"
+    }
+  }
+
+  final case class PreparedPublication(
+    descriptorFile: Path,
+    descriptorRoot: Path,
+    descriptor: Descriptor,
+    descriptorSha256: String,
+    resource: Resource,
+    target: Option[String],
+    profile: String,
+    profileRoot: Path,
+    profileRootIdentity: Path,
+    publishablePath: Path,
+    destination: Path,
+    destinationIdentity: Path,
+    sourceSha256: String,
+    destinationState: DestinationState,
+    force: Boolean,
+    disposition: PublicationDisposition
+  )
+
+  final case class PublicationResult(
+    prepared: PreparedPublication,
+    outcome: PublicationOutcome
+  )
 
   private val _p_media_file = spec.Parameter.argumentFile("media-file")
   private val _p_target = spec.Parameter.property("target")
@@ -186,7 +249,7 @@ private[cozy] object CozyMedia {
         println(verify(CommandConfig.create(rest)))
         true
       case "media" :: "publish" :: rest =>
-        println(publish(CommandConfig.create(rest, requireprofile = true)))
+        println(publish(CommandConfig.create(rest, requireProfile = true)))
         true
       case "media" :: other :: _ =>
         RAISE.invalidArgumentFault(s"Unsupported media command: $other")
@@ -254,30 +317,99 @@ private[cozy] object CozyMedia {
   def publish(config: CommandConfig): String = {
     val mediaplan = _plan(config)
     val selected = _selected(mediaplan, config.target)
-    val profile = config.profile.get
+    val profile = config.profile.getOrElse(RAISE.invalidArgumentFault("Missing --profile for media publish"))
     val candidates = selected.filter(_.publications.contains(profile))
     if (candidates.isEmpty)
       RAISE.invalidArgumentFault(s"No media resources publish to profile: $profile")
     val findings = _verify_plan(mediaplan, candidates, None)
     if (findings.nonEmpty)
       RAISE.invalidArgumentFault("Media publication preflight failed:\n" + findings.map(x => s"- $x").mkString("\n"))
-    val results = candidates.map { resolved =>
-      val source = resolved.output.orElse(resolved.source).getOrElse(
-        RAISE.invalidArgumentFault(s"Media resource has no publishable file: ${resolved.resource.id}")
-      )
-      val destination = resolved.publications(profile)
-      if (!config.dryRun) {
-        Option(destination.getParent).foreach(Files.createDirectories(_))
-        Files.copy(source, destination, StandardCopyOption.REPLACE_EXISTING)
+    val preflight = _prepare_legacy_publications(mediaplan, candidates, profile, config.target, force = true)
+    val prepared =
+      if (config.dryRun) preflight
+      else {
+        _create_and_bind_legacy_profile_root(mediaplan.descriptorRoot, mediaplan.descriptor, profile)
+        _prepare_publications(mediaplan, candidates, profile, config.target, force = true)
       }
-      s"${resolved.resource.id}: $source -> $destination${if (config.dryRun) " (dry-run)" else ""}"
-    }
+    if (!config.dryRun)
+      commitPublication(prepared)
+    val results =
+      if (config.dryRun)
+        candidates.map { resolved =>
+          val publishable = resolved.output.orElse(resolved.source).getOrElse(
+            RAISE.invalidArgumentFault(s"Media resource has no publishable file: ${resolved.resource.id}")
+          )
+          val destination = resolved.publications.getOrElse(profile,
+            RAISE.invalidArgumentFault(s"Media resource has no publication for profile $profile: ${resolved.resource.id}")
+          )
+          s"${resolved.resource.id}: $publishable -> $destination (dry-run)"
+        }
+      else prepared.map { publication =>
+        s"${publication.resource.id}: ${publication.publishablePath} -> ${publication.destination}"
+      }
     (Vector("Cozy Media Publish", s"profile: $profile") ++ results.map(x => s"  - $x")).mkString("\n")
+  }
+
+  def preparePublication(config: CommandConfig, force: Boolean = false): Vector[PreparedPublication] = {
+    val mediaplan = _plan(config)
+    val selected = _selected(mediaplan, config.target)
+    val profile = config.profile.getOrElse(RAISE.invalidArgumentFault("Missing --profile for media publish"))
+    val candidates = selected.filter(_.publications.contains(profile))
+    if (candidates.isEmpty)
+      RAISE.invalidArgumentFault(s"No media resources publish to profile: $profile")
+    _prepare_publications(mediaplan, candidates, profile, config.target, force)
+  }
+
+  def commitPublication(prepared: Vector[PreparedPublication]): Vector[PublicationResult] =
+    _commit_publication(prepared, () => ())
+
+  private[cozy] def commitPublication(
+    prepared: Vector[PreparedPublication],
+    beforeFirstInstall: () => Unit
+  ): Vector[PublicationResult] = {
+    if (beforeFirstInstall == null)
+      RAISE.invalidArgumentFault("Media publication beforeFirstInstall callback must not be null")
+    _commit_publication(prepared, beforeFirstInstall)
+  }
+
+  private def _commit_publication(
+    prepared: Vector[PreparedPublication],
+    beforefirstinstall: () => Unit
+  ): Vector[PublicationResult] = {
+    val publications = Option(prepared).getOrElse(
+      RAISE.invalidArgumentFault("Prepared media publications must not be null")
+    )
+    _validate_prepared_publications(publications)
+    val ordered = _ordered_publications(publications)
+    val temporaries = ArrayBuffer.empty[Path]
+    try {
+      beforefirstinstall()
+      ordered.map { publication =>
+        val outcome = publication.disposition match {
+          case PublicationDisposition.Reuse =>
+            PublicationOutcome.Reused
+          case PublicationDisposition.Create =>
+            _install_publication(publication, replace = false, temporaries)
+            PublicationOutcome.Created
+          case PublicationDisposition.Replace =>
+            _install_publication(publication, replace = true, temporaries)
+            PublicationOutcome.Replaced
+        }
+        PublicationResult(publication, outcome)
+      }
+    } finally {
+      temporaries.foreach { path =>
+        try Files.deleteIfExists(path)
+        catch {
+          case NonFatal(_) => ()
+        }
+      }
+    }
   }
 
   private def _plan(config: CommandConfig): Plan = {
     val descriptorfile = config.descriptorFile.toAbsolutePath.normalize()
-    if (!Files.isRegularFile(descriptorfile))
+    if (!_is_direct_regular_file(descriptorfile))
       RAISE.invalidArgumentFault(s"Missing media descriptor: $descriptorfile")
     val descriptor = StructuredDocumentLoader.loadDocument[Descriptor](InputSource(descriptorfile.toFile)).take
     _validate_descriptor(descriptor)
@@ -332,14 +464,7 @@ private[cozy] object CozyMedia {
   }
 
   private def _publication_path(root: Path, descriptor: Descriptor, profilename: String, value: String): Path = {
-    val profile = descriptor.profiles.getOrElse(profilename, RAISE.invalidArgumentFault(s"Undefined media profile: $profilename"))
-    val profileroot = profile.rootEnv.map { name =>
-      sys.env.get(name).map(Path.of(_).toAbsolutePath.normalize()).getOrElse(
-        RAISE.invalidArgumentFault(s"Media profile $profilename requires environment variable: $name")
-      )
-    }.orElse {
-      profile.root.map(_resolve_relative(root, _, s"profiles.$profilename.root"))
-    }.getOrElse(root)
+    val profileroot = _profile_root(root, descriptor, profilename)
     val path = Path.of(value)
     if (path.isAbsolute)
       RAISE.invalidArgumentFault(s"Media publication path must be relative: $value")
@@ -347,6 +472,356 @@ private[cozy] object CozyMedia {
     if (!destination.startsWith(profileroot))
       RAISE.invalidArgumentFault(s"Media publication path escapes profile root: $value")
     destination
+  }
+
+  private def _profile_root(root: Path, descriptor: Descriptor, profilename: String): Path = {
+    val profile = descriptor.profiles.getOrElse(profilename, RAISE.invalidArgumentFault(s"Undefined media profile: $profilename"))
+    profile.rootEnv.map { name =>
+      sys.env.get(name).map(Path.of(_).toAbsolutePath.normalize()).getOrElse(
+        RAISE.invalidArgumentFault(s"Media profile $profilename requires environment variable: $name")
+      )
+    }.orElse {
+      profile.root.map(_resolve_relative(root, _, s"profiles.$profilename.root"))
+    }.getOrElse(root)
+  }
+
+  private def _prepare_publications(
+    plan: Plan,
+    candidates: Vector[ResolvedResource],
+    profile: String,
+    target: Option[String],
+    force: Boolean
+  ): Vector[PreparedPublication] = {
+    if (!_is_direct_regular_file(plan.descriptorFile))
+      RAISE.invalidArgumentFault(s"Media descriptor must be a direct regular non-symlink file: ${plan.descriptorFile}")
+    val descriptorhash = _sha256(plan.descriptorFile)
+    val profileroot = _bind_profile_root(_profile_root(plan.descriptorRoot, plan.descriptor, profile))
+    val publications = candidates.map { resolved =>
+      val publishable = resolved.output.orElse(resolved.source).getOrElse(
+        RAISE.invalidArgumentFault(s"Media resource has no publishable file: ${resolved.resource.id}")
+      )
+      if (!_is_direct_regular_file(publishable))
+        RAISE.invalidArgumentFault(s"Media publishable source must be a direct regular non-symlink file: $publishable")
+      val destination = resolved.publications.getOrElse(profile,
+        RAISE.invalidArgumentFault(s"Media resource has no publication for profile $profile: ${resolved.resource.id}")
+      )
+      val destinationidentity = _destination_identity(destination, profileroot)
+      val sourcehash = _sha256(publishable)
+      val destinationstate = _destination_state(destination)
+      val disposition = _publication_disposition(sourcehash, destinationstate, force, destination)
+      PreparedPublication(
+        plan.descriptorFile,
+        plan.descriptorRoot,
+        plan.descriptor,
+        descriptorhash,
+        resolved.resource,
+        target,
+        profile,
+        profileroot,
+        profileroot,
+        publishable,
+        destination,
+        destinationidentity,
+        sourcehash,
+        destinationstate,
+        force,
+        disposition
+      )
+    }
+    _validate_unique_destinations(publications)
+    _ordered_publications(publications)
+  }
+
+  private def _prepare_legacy_publications(
+    plan: Plan,
+    candidates: Vector[ResolvedResource],
+    profile: String,
+    target: Option[String],
+    force: Boolean
+  ): Vector[PreparedPublication] = {
+    val profileroot = _profile_root(plan.descriptorRoot, plan.descriptor, profile)
+    if (Files.exists(profileroot, LinkOption.NOFOLLOW_LINKS))
+      _prepare_publications(plan, candidates, profile, target, force)
+    else {
+      val destinations = candidates.map { resolved =>
+        val publishable = resolved.output.orElse(resolved.source).getOrElse(
+          RAISE.invalidArgumentFault(s"Media resource has no publishable file: ${resolved.resource.id}")
+        )
+        if (!_is_direct_regular_file(publishable))
+          RAISE.invalidArgumentFault(s"Media publishable source must be a direct regular non-symlink file: $publishable")
+        val destination = resolved.publications.getOrElse(profile,
+          RAISE.invalidArgumentFault(s"Media resource has no publication for profile $profile: ${resolved.resource.id}")
+        )
+        _validate_lexical_destination(destination, profileroot)
+        destination
+      }
+      destinations.groupBy(identity).collectFirst { case (destination, values) if values.size > 1 => destination }.foreach { destination =>
+        RAISE.invalidArgumentFault(s"Media publication destinations must be unique: $destination")
+      }
+      Vector.empty
+    }
+  }
+
+  private def _ordered_publications(publications: Vector[PreparedPublication]): Vector[PreparedPublication] =
+    publications.sortBy(publication => (
+      publication.descriptorFile.toString,
+      publication.resource.id,
+      publication.profile,
+      publication.destination.toString
+    ))
+
+  private def _validate_prepared_publications(publications: Vector[PreparedPublication]): Unit = {
+    if (publications.isEmpty)
+      RAISE.invalidArgumentFault("Prepared media publications must not be empty")
+    publications.foreach(_validate_prepared_publication)
+    _validate_unique_destinations(publications)
+    publications.groupBy(publication => (publication.descriptorFile, publication.profile, publication.target, publication.force)).foreach {
+      case ((descriptorfile, profile, target, force), values) =>
+        val plan = _plan(CommandConfig(descriptorfile, target = target, profile = Some(profile)))
+        val candidates = _selected(plan, target).filter(_.publications.contains(profile))
+        if (candidates.isEmpty)
+          RAISE.invalidArgumentFault(s"Prepared media publication candidate set has changed: $descriptorfile")
+        val reconstructed = _prepare_publications(plan, candidates, profile, target, force)
+        if (_ordered_publications(values) != reconstructed)
+          RAISE.invalidArgumentFault(s"Prepared media publication candidate vector has changed: $descriptorfile")
+    }
+  }
+
+  private def _validate_prepared_publication(publication: PreparedPublication): Unit = {
+    if (publication == null)
+      RAISE.invalidArgumentFault("Prepared media publication must not be null")
+    if (publication.descriptorFile == null || publication.descriptorRoot == null || publication.descriptor == null || publication.resource == null)
+      RAISE.invalidArgumentFault("Prepared media publication descriptor evidence must not be null")
+    if (publication.profile == null || publication.profile.trim.isEmpty || publication.profileRoot == null || publication.profileRootIdentity == null || publication.publishablePath == null || publication.destination == null || publication.destinationIdentity == null)
+      RAISE.invalidArgumentFault("Prepared media publication path evidence must not be null or empty")
+    if (publication.destinationState == null || publication.disposition == null)
+      RAISE.invalidArgumentFault("Prepared media publication state must not be null")
+    if (publication.resource.id == null || publication.resource.id.trim.isEmpty)
+      RAISE.invalidArgumentFault("Prepared media publication resource id must not be empty")
+    if (publication.descriptor.schema == null || publication.descriptor.knowledge == null || publication.descriptor.resources == null || publication.descriptor.profiles == null)
+      RAISE.invalidArgumentFault("Prepared media publication descriptor structure must not be null")
+    if (publication.resource.publications == null || publication.resource.language == null || publication.resource.role == null || publication.resource.source == null || publication.resource.output == null)
+      RAISE.invalidArgumentFault("Prepared media publication resource structure must not be null")
+    if (publication.descriptor.schema != _schema || !publication.descriptor.resources.contains(publication.resource) || !publication.descriptor.profiles.contains(publication.profile) || publication.descriptor.profiles.get(publication.profile).contains(null))
+      RAISE.invalidArgumentFault("Prepared media publication descriptor evidence is invalid")
+    if (publication.descriptorFile != publication.descriptorFile.toAbsolutePath.normalize() || publication.descriptorRoot != publication.descriptorRoot.toAbsolutePath.normalize() || Option(publication.descriptorFile.getParent).forall(_ != publication.descriptorRoot))
+      RAISE.invalidArgumentFault("Prepared media publication descriptor paths are invalid")
+    if (!_is_direct_regular_file(publication.descriptorFile) || !_is_sha256(publication.descriptorSha256) || _sha256(publication.descriptorFile) != publication.descriptorSha256)
+      RAISE.invalidArgumentFault(s"Prepared media descriptor has changed: ${publication.descriptorFile}")
+    val expectedroot = _bind_profile_root(_profile_root(publication.descriptorRoot, publication.descriptor, publication.profile))
+    if (expectedroot != publication.profileRoot || expectedroot != publication.profileRootIdentity)
+      RAISE.invalidArgumentFault("Prepared media publication profile root has changed")
+    val expectedpublishable = publication.resource.output.orElse(publication.resource.source).map(
+      _resolve_relative(publication.descriptorRoot, _, s"resources.${publication.resource.id}.publishable")
+    ).getOrElse(RAISE.invalidArgumentFault(s"Prepared media publication has no publishable path: ${publication.resource.id}"))
+    if (expectedpublishable != publication.publishablePath)
+      RAISE.invalidArgumentFault("Prepared media publication source path is invalid")
+    val expecteddestination = publication.resource.publications.get(publication.profile).map(
+      _publication_path(publication.descriptorRoot, publication.descriptor, publication.profile, _)
+    ).getOrElse(RAISE.invalidArgumentFault(s"Prepared media publication has no profile destination: ${publication.resource.id}"))
+    if (expecteddestination != publication.destination)
+      RAISE.invalidArgumentFault("Prepared media publication destination path is invalid")
+    if (_destination_identity(publication.destination, publication.profileRoot) != publication.destinationIdentity)
+      RAISE.invalidArgumentFault("Prepared media publication destination identity has changed")
+    if (!_is_direct_regular_file(publication.publishablePath))
+      RAISE.invalidArgumentFault(s"Prepared media source is no longer a direct regular non-symlink file: ${publication.publishablePath}")
+    if (!_is_sha256(publication.sourceSha256) || _sha256(publication.publishablePath) != publication.sourceSha256)
+      RAISE.invalidArgumentFault(s"Prepared media source has changed: ${publication.publishablePath}")
+    val actualstate = _destination_state(publication.destination)
+    if (actualstate != publication.destinationState)
+      RAISE.invalidArgumentFault(s"Prepared media destination has changed: ${publication.destination}")
+    val expected = _publication_disposition(publication.sourceSha256, publication.destinationState, publication.force, publication.destination)
+    if (expected != publication.disposition)
+      RAISE.invalidArgumentFault(s"Prepared media disposition is invalid: ${publication.destination}")
+  }
+
+  private def _validate_unique_destinations(publications: Vector[PreparedPublication]): Unit = {
+    val duplicates = publications.groupBy { publication =>
+      if (publication == null || publication.destination == null || publication.destinationIdentity == null)
+        RAISE.invalidArgumentFault("Prepared media publication destination must not be null")
+      publication.destinationIdentity
+    }.collect {
+      case (destination, values) if values.size > 1 => destination
+    }.toVector.sortBy(_.toString)
+    duplicates.headOption.foreach(destination =>
+      RAISE.invalidArgumentFault(s"Media publication destinations must be unique: $destination")
+    )
+  }
+
+  private def _destination_identity(destination: Path, profileroot: Path): Path = {
+    val normalizedroot = _bind_profile_root(profileroot)
+    val normalizeddestination = destination.toAbsolutePath.normalize()
+    if (normalizeddestination != destination || !normalizeddestination.startsWith(normalizedroot) || normalizeddestination == normalizedroot)
+      RAISE.invalidArgumentFault(s"Media publication path escapes profile root: $destination")
+    val components = normalizedroot.relativize(normalizeddestination).iterator.asScala.toVector
+    components.dropRight(1).foldLeft(normalizedroot) { (current, component) =>
+      val next = current.resolve(component)
+      if (Files.exists(next, LinkOption.NOFOLLOW_LINKS))
+        _validate_direct_directory(next, "Media publication destination parent")
+      next
+    }
+    normalizedroot.resolve(normalizedroot.relativize(normalizeddestination)).normalize()
+  }
+
+  private def _validate_lexical_destination(destination: Path, profileroot: Path): Unit = {
+    val normalizedroot = profileroot.toAbsolutePath.normalize()
+    val normalizeddestination = destination.toAbsolutePath.normalize()
+    if (normalizedroot != profileroot || normalizeddestination != destination || !normalizeddestination.startsWith(normalizedroot) || normalizeddestination == normalizedroot)
+      RAISE.invalidArgumentFault(s"Media publication path escapes profile root: $destination")
+  }
+
+  private def _bind_profile_root(profileroot: Path): Path = {
+    val normalizedroot = Option(profileroot).map(_.toAbsolutePath.normalize()).getOrElse(
+      RAISE.invalidArgumentFault("Media publication profile root must not be null")
+    )
+    _validate_direct_directory(normalizedroot, "Media publication profile root")
+    normalizedroot
+  }
+
+  private def _validate_direct_directory(path: Path, label: String): Unit = {
+    if (Files.isSymbolicLink(path) || !Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS))
+      RAISE.invalidArgumentFault(s"$label must be an existing direct non-symlink directory: $path")
+    val realpath =
+      try path.toRealPath()
+      catch {
+        case e: java.io.IOException => RAISE.invalidArgumentFault(s"$label cannot be resolved: ${e.getMessage}")
+      }
+    if (realpath != path.toAbsolutePath.normalize())
+      RAISE.invalidArgumentFault(s"$label must not be a lexical or real-path alias: $path")
+  }
+
+  private def _destination_state(destination: Path): DestinationState = {
+    if (!Files.exists(destination, LinkOption.NOFOLLOW_LINKS))
+      DestinationState.Absent
+    else if (_is_direct_regular_file(destination))
+      DestinationState.Existing(_sha256(destination))
+    else
+      RAISE.invalidArgumentFault(s"Media publication destination must be absent or a direct regular non-symlink file: $destination")
+  }
+
+  private def _publication_disposition(
+    sourcehash: String,
+    destinationstate: DestinationState,
+    force: Boolean,
+    destination: Path
+  ): PublicationDisposition =
+    destinationstate match {
+      case DestinationState.Absent => PublicationDisposition.Create
+      case DestinationState.Existing(destinationhash) if sourcehash == destinationhash => PublicationDisposition.Reuse
+      case DestinationState.Existing(_) if force => PublicationDisposition.Replace
+      case DestinationState.Existing(_) =>
+        RAISE.invalidArgumentFault(s"Media publication destination differs; use force to replace: $destination")
+    }
+
+  private def _is_direct_regular_file(path: Path): Boolean =
+    path != null && !Files.isSymbolicLink(path) && Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)
+
+  private def _is_sha256(value: String): Boolean =
+    value != null && value.matches("[0-9a-f]{64}")
+
+  private def _create_and_bind_legacy_profile_root(root: Path, descriptor: Descriptor, profile: String): Path = {
+    val profileroot = _profile_root(root, descriptor, profile)
+    if (Files.exists(profileroot, LinkOption.NOFOLLOW_LINKS))
+      _bind_profile_root(profileroot)
+    else {
+      val normalizedroot = profileroot.toAbsolutePath.normalize()
+      val ancestry = Iterator.iterate(normalizedroot)(_.getParent).takeWhile(_ != null).toVector.reverse
+      var current = ancestry.head
+      _validate_direct_directory(current, "Media legacy publication root ancestor")
+      ancestry.tail.foreach { component =>
+        current = component
+        if (!Files.exists(current, LinkOption.NOFOLLOW_LINKS)) {
+          try Files.createDirectory(current)
+          catch {
+            case _: java.nio.file.FileAlreadyExistsException => ()
+          }
+        }
+        _validate_direct_directory(current, "Media legacy publication root")
+      }
+      _bind_profile_root(normalizedroot)
+    }
+  }
+
+  private def _ensure_destination_parent(publication: PreparedPublication): Path = {
+    val root = _bind_profile_root(publication.profileRoot)
+    if (root != publication.profileRootIdentity)
+      RAISE.invalidArgumentFault("Prepared media publication profile root identity has changed")
+    val relative = root.relativize(publication.destination)
+    val components = relative.iterator.asScala.toVector
+    if (components.isEmpty)
+      RAISE.invalidArgumentFault(s"Media publication destination has no leaf: ${publication.destination}")
+    val parent = components.dropRight(1).foldLeft(root) { (current, component) =>
+      val next = current.resolve(component)
+      if (!Files.exists(next, LinkOption.NOFOLLOW_LINKS)) {
+        try Files.createDirectory(next)
+        catch {
+          case _: java.nio.file.FileAlreadyExistsException => ()
+        }
+      }
+      _validate_direct_directory(next, "Media publication destination parent")
+      next
+    }
+    if (_destination_identity(publication.destination, root) != publication.destinationIdentity)
+      RAISE.invalidArgumentFault("Prepared media publication destination identity has changed")
+    parent
+  }
+
+  private def _install_publication(
+    publication: PreparedPublication,
+    replace: Boolean,
+    temporaries: ArrayBuffer[Path]
+  ): Unit = {
+    val parent = _ensure_destination_parent(publication)
+    _destination_state(publication.destination)
+    val name = publication.destination.getFileName.toString
+    val temporary = Files.createTempFile(parent, s".$name.", ".cozy-media.tmp")
+    temporaries += temporary
+    try {
+      _copy_and_force(publication.publishablePath, temporary)
+      if (_sha256(temporary) != publication.sourceSha256)
+        RAISE.invalidArgumentFault(s"Media temporary publication hash differs: $temporary")
+      if (replace)
+        _atomic_move_replace(temporary, publication.destination)
+      else
+        _atomic_create(temporary, publication.destination)
+      temporaries -= temporary
+    } catch {
+      case e: AtomicMoveNotSupportedException =>
+        RAISE.invalidArgumentFault(s"Media publication requires atomic move: ${e.getMessage}")
+      case e: java.io.IOException =>
+        RAISE.invalidArgumentFault(s"Media publication failed: ${e.getMessage}")
+      case e: UnsupportedOperationException =>
+        RAISE.invalidArgumentFault(s"Media publication hard-link installation is unsupported: ${e.getMessage}")
+    }
+  }
+
+  private def _copy_and_force(source: Path, temporary: Path): Unit = {
+    val input = Files.newInputStream(source)
+    val channel = FileChannel.open(temporary, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)
+    try {
+      val bytes = new Array[Byte](8192)
+      var size = input.read(bytes)
+      while (size >= 0) {
+        if (size > 0) {
+          val buffer = ByteBuffer.wrap(bytes, 0, size)
+          while (buffer.hasRemaining)
+            channel.write(buffer)
+        }
+        size = input.read(bytes)
+      }
+      channel.force(true)
+    } finally {
+      try input.close()
+      finally channel.close()
+    }
+  }
+
+  private def _atomic_move_replace(temporary: Path, destination: Path): Unit =
+    Files.move(temporary, destination, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+
+  private def _atomic_create(temporary: Path, destination: Path): Unit = {
+    Files.createLink(destination, temporary)
+    Files.delete(temporary)
   }
 
   private def _action(resource: Resource, source: Option[Path], output: Option[Path], project: Option[Path]): Action =

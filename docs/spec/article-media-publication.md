@@ -72,6 +72,66 @@ across configured bundles fail. `cozy bok build` enumerates only configured
 publication bundle entries through the existing registry loader; it does not
 inspect arbitrary directories.
 
+All recognized strict and integrity entries for one normalized
+`articleIdentity` form one ownership unit. Under the real-publication-root lock,
+a producer collects distinct owner bundle names from both the strict entry path
+and the complete integrity prefix. More than one owner fails before mutation;
+exactly one owner is reused even when it contains integrity-only state. With no
+owner, the canonical owner is `article-media`: reuse valid existing
+`article-media.json`, or create an empty canonical `publication-bundle` named
+`article-media` inside the same locked transaction before its atomic
+replacement. Later video/infographic roles and locales reuse that owner. A
+producer never implicitly moves an article between bundles, and generic or
+unrelated owner entries remain preserved.
+
+## Explicit Producer Inputs and Commands
+
+`cozy bok publish-media <project-dir> [--publication <dir>] [--repository
+<dir>] [--version <version>] [--force]` is the explicit infographic producer.
+It enumerates only the exact media descriptor filenames recognized by the
+`cozy.media.v1` decoder below the configured BoK source: exactly `media.yaml`,
+`media.yml`, `media.json`, `media.conf`, and `media.xml`, consistent with
+`docs/spec/media-package.md`. It searches package directories at or below that
+source without following symlink directories. A candidate is a direct regular
+non-symlink file; more than one eligible basename in one directory is a
+deterministic command-wide preflight collision. The candidate content must still
+decode exactly as `cozy.media.v1`. For a selected resource it publishes only its
+explicit `detailed-infographic` resource through the uniquely selected declared
+publication profile whose root and configured artifact repository are both
+existing directories and have equal normalized absolute lexical identities and
+equal canonical real identities. A symlink or lexical alias thus does not
+match. Zero or multiple matching profile names fail before publication or
+mutation. It then creates or updates article-media records. It never infers an
+article identity, locale, role, destination, or descriptor from a directory,
+filename convention, target output, repository content, or SmartDox output.
+
+Only a resource with a selected destination in that profile participates. Its
+`knowledge.id` is the article identity; its `language` is the exact locale; and
+its role must literally be `detailed-infographic`. Optional strict SmartDox
+`alt` is omitted unless it is already explicitly representable in the existing
+media schema; this contract does not extend that schema. `--version` is required
+for every selected infographic article-media resource. Its absence fails before
+any mutation. `cozy bok update-publication` and `cozy bok publish` include this
+operation alongside their video and project operations. Dry-run remains owned
+by one-stop `publish`, not by this command unless an existing command contract
+already provides it.
+
+A `.video` descriptor opts into strict article-media output only with its
+optional nested `publish.articleMedia` block. Its canonical YAML fields are
+`articleIdentity`, `locale`, and `status`; all three are required together.
+The block requests a site-hosted strict SmartDox video variant. `status` is
+exactly the SmartDox value `draft`, `published`, or `withdrawn`, and is never
+derived from Cozy `publicationState`. Its `content_url` derives only from
+validated repository evidence. Existing top-level `article` source path,
+`locale`, `publish.module`, and `publish.publicPath` neither opt in nor supply
+the strict association. Existing descriptors without this block remain
+legacy-only and byte/behavior compatible. Decoder aliases, if any, are an
+implementation compatibility detail; the canonical serialized contract is the
+camelCase form above.
+
+Descriptor enumeration is producer-time explicit-package enumeration only.
+Ordinary `cozy bok build` never enumerates descriptors.
+
 ## Cozy Integrity Surface
 
 Cozy serializes the separate association/integrity projection as
@@ -172,9 +232,10 @@ and whose `role` is literally `detailed-infographic`. Its resource id is
 specification extension.
 
 `artifact.version` is the non-empty explicit Phase 26 publication-operation
-version from `cozy bok update-publication` or `cozy bok publish --version`.
-Its absence is an integrity-projection error because `cozy.media.v1` has no
-version field. `buildManifest` is the explicitly resolved
+version from `cozy bok publish-media --version`, `cozy bok update-publication
+--version`, or one-stop `cozy bok publish --version`. Its absence fails before
+mutation because `cozy.media.v1` has no version field. `buildManifest` is the
+explicitly resolved
 `target/cozy-media/manifest.json` produced for that descriptor, not discovered
 by scanning; the selected entry must match `resourceId` and provide its
 lowercase SHA-256. That entry SHA, the published destination file bytes SHA,
@@ -202,10 +263,108 @@ production staging. Path escape and identity conflict fail under every strategy.
 
 Only explicit descriptors and registered metadata are inputs. Neither producer
 nor build may scan `target`, work directories, generated site trees, arbitrary
-repository directories, or SmartDox discovery output. `cozy bok publish-video`
-and media publication create/update records. Ordinary `cozy bok build` reads
-the registry and passes existing publication/repository context to SmartDox;
-it performs no rendering or transcoding.
+repository directories, or SmartDox discovery output. Producer enumeration is
+allowed only for exact decoder-recognized descriptor filenames beneath the
+configured BoK source. `cozy bok publish-video` and `cozy bok publish-media`
+create or update records.
+
+Registration is a role-local exact-key merge. The producer holds the same
+real-publication-root lock from complete snapshot/preflight through artifact
+publication and atomic registry replacement, so no other article-media producer
+or build can interleave. Before any artifact or registry mutation it enumerates
+the complete command candidate set and validates every descriptor, selected
+resource, normalized key, non-empty explicit version, uniquely matching
+profile, source/output/build manifest, destination and containment, current
+destination/force rule, and complete registry ownership/snapshot. It groups the
+whole command by normalized `(articleIdentity, locale, infographic)` and fails
+deterministically on every duplicate, including one across descriptors or
+resources.
+
+After complete preflight, artifact publication completes before registry
+replacement; a publication failure leaves the registry unchanged. An absent
+destination is published. An existing destination with a SHA equal to the
+validated output is idempotent and receives no byte replacement, although its
+registry may be refreshed. A differing SHA fails without `--force`; with
+`--force` it is replaced only by a staged same-filesystem atomic move after
+complete preflight. `--force` never bypasses schema, identity, uniqueness,
+containment, manifest/SHA, ownership, or snapshot checks. This specifies safe
+staged/replace behavior and does not claim multi-file artifact atomicity.
+
+Each operation then replaces only `(articleIdentity, locale, role)`, preserves
+unaffected roles/locales for that article and every unrelated/generic entry,
+reconstructs the complete canonical strict article record, revalidates the
+complete bundle-digest snapshot, and atomically replaces the owner bundle.
+Malformed, duplicate, conflicting, or changed snapshot state fails before
+mutation. An operation must not lose a concurrent update. One-stop
+`cozy bok publish --dry-run` executes the identical non-mutating enumeration and
+preflight, including duplicate/version/profile/manifest/destination/current
+ownership/force checks, reports planned candidates, and performs no copying,
+bundle creation or replacement, staging, or upload.
+
+Ordinary `cozy bok build` accepts exactly the canonical strategy values `draft`,
+`work-in-progress`, `production-preview`, and `production`. CLI `wip` and
+`preview` normalize before policy selection. `draft`, `work-in-progress`, and
+`production-preview` select Preview; `production` selects Production. Any other
+value fails before registry load, path construction, or an external command.
+Build loads only configured registry bundles and the configured repository root.
+It holds the same real-publication-root lock as producers from complete snapshot
+load and digest capture through policy evaluation, effective-context
+materialization, source-digest revalidation, and immutable snapshot installation.
+Build materializes the effective context in a unique sibling work directory and
+computes `contextDigest` as exactly 64 lowercase hexadecimal SHA-256 over the
+canonical strategy and the complete effective publication context. Define
+`U64(n)` as exactly eight octets containing the non-negative integer `n` in
+unsigned 64-bit big-endian/network byte order; every length below counts
+octets, never characters. The canonical strategy and every normalized
+publication-root-relative bundle filename (using `/` separators) are encoded
+as their exact UTF-8 octets. Bundle files are sorted by unsigned lexicographic
+comparison of their UTF-8 filename octets. The SHA-256 input is exactly:
+
+```
+U64(strategyByteLength) || strategyBytes || U64(fileCount) ||
+for each sorted file:
+  U64(filenameByteLength) || filenameBytes ||
+  U64(contentByteLength) || exactFileBytes
+```
+
+There are no delimiters, terminators, platform newline conversions, text
+re-encodings, filesystem metadata, directory entries, or absolute paths in
+this input; `fileCount` counts framed regular bundle files. `contextDigest` is
+the lowercase hexadecimal SHA-256 result over exactly that octet sequence.
+Preview omissions are included because the effective output is hashed.
+
+The final context path is exactly
+`target/cozy-bok/article-media/<canonical-strategy>/snapshots/<contextDigest>/publication`.
+The context copies all unaffected generic/legacy entries, rewrites strict
+article entries to omit exactly Preview-policy omitted roles, and removes empty
+variants/entries. Build verifies the source digest again before atomically
+installing the completed snapshot directory. If the digest path already exists,
+it verifies the complete relative-file set and bytes against `contextDigest` and
+reuses that directory without mutation; a mismatch fails deterministically.
+Concurrent producer/build work therefore serializes. The shared registry lock
+is released only after the immutable snapshot is fully installed. Every pinned
+SmartDox, Dox, Antora, and site consumer receives that exact digest-addressed
+path as `-publication`, with configured `-publication.repository` behavior
+unchanged. The build invocation leases the snapshot for all consumers and does
+not replace or remove it while any consumer runs. Installed snapshots remain a
+target cache; any future cleanup is separately coordinated and may remove only
+snapshots without an active lease, and this specification defines no cleanup
+CLI.
+
+The digest-addressed snapshot solves publication-context handoff lifetime only;
+artifact and repository admission remain protected and validated by the existing
+producer and policy contracts. Production policy failure occurs before any
+external build command. Build performs no renderer, transcoder, media
+publication, target discovery, generated-site scan, arbitrary repository scan,
+descriptor enumeration, or locale fallback. Media-free registry/build behavior
+remains unchanged apart from this deterministic snapshot handoff path.
+
+Pinned SmartDox owns exact-locale article and global/category Notice projection;
+Cozy acceptance observes it without reimplementation. The stage workflow puts
+website output at the staging root and repository artifacts at
+`<staging-root>/repository`; registered public paths and staged bytes must
+therefore resolve below one URL root and have matching SHA-256 values. No-media
+articles/BoKs and legacy `.video`/`VideoPublication` behavior remain unchanged.
 
 ## Policy Matrix
 
@@ -237,9 +396,25 @@ Executable specifications added during implementation must demonstrate:
 - conditional exact-key correlation and public-path equality for path-bearing
   media, plus valid watch-only and URL-less nonprojectable forms;
 - deterministic bundle entry paths, upsert/ordering, duplicate rejection,
-  state derivation, provenance variants, and configured-root containment;
+  state derivation, provenance variants, configured-root containment, complete
+  article ownership selection (including integrity-only and conflict cases), and
+  owner-preserving role/locale merge;
+- exact descriptor basename/direct-file/symlink and same-directory collision
+  rejection; full-command candidate duplicate preflight; explicit version and
+  unique lexical-and-real-root profile selection;
+- absent/equal/differing destination SHA behavior, `--force` staged replacement,
+  non-mutating one-stop dry-run, and a failed publication that leaves registry
+  state unchanged;
 - descriptor/registered-metadata-only production with no scan or heavy build
-  work;
+  work, plus canonical strategy/alias selection, unsupported-strategy rejection,
+  locked snapshot/digest consistency, content-addressed immutable snapshot
+  installation and reuse, and immutable effective-context handoff; concurrent
+  same-strategy builds must show that build A keeps consuming its installed
+  snapshot while build B publishes a different effective state at a different
+  digest path, and same-content reuse must show no mutation;
+- at least one fixed golden framing vector and expected `contextDigest` whose
+  exact octet sequence is exercised by both the producer and verifier, in
+  addition to the concurrent-build and same-content-reuse evidence above;
 - every policy-matrix outcome, including preview diagnostics and production
   staging failures; and
 - preserved `.video`/`VideoPublication` compatibility plus unchanged

@@ -19,7 +19,7 @@ import scala.sys.process._
  * @since   May. 20, 2026
  *  version Jun.  8, 2026
  *  version Jun. 19, 2026
- * @version Aug.  4, 2026
+ * @version Aug.  5, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyPublicationCompiler {
@@ -100,6 +100,18 @@ private[cozy] object CozyPublicationCompiler {
     descriptiveAttributes: DescriptiveAttributes
   )
   final case class ArticleRelation(path: String, role: String, title: Option[String])
+
+  /*
+   * The immutable input to the one-file publication-bundle writer.  Keeping
+   * the source/provenance inputs here lets a caller prepare metadata before a
+   * registry transaction without creating a second lock domain.
+   */
+  private[cozy] final case class MetadataPublication(
+    name: String,
+    publicationPath: Option[String],
+    projectDir: Path,
+    entries: Vector[(String, JsValue)]
+  )
 
   def publish(args: List[String]): Unit = {
     val projectdir = _project_dir(args)
@@ -256,6 +268,87 @@ private[cozy] object CozyPublicationCompiler {
       expectedBundleDigests
     )
 
+  /*
+   * Article-media registration holds one registry transaction across its
+   * complete snapshot/preflight/replacement lifecycle.  The capability is
+   * opaque outside this compiler: it is made only while the one existing
+   * registry lock is owned, and every operation proves its owner thread and
+   * lifetime before touching the filesystem.
+   */
+  private[publication] sealed trait RegistryLockCapability {
+    private[publication] def realRoot: Path
+    private[publication] def validateSnapshot(expectedBundleDigests: Map[String, String]): Unit
+    private[publication] def replaceMetadata(
+      name: String,
+      entries: Vector[(String, JsValue)],
+      removePrefixes: Vector[String],
+      expectedBundleDigests: Map[String, String],
+      createArticleMedia: Boolean
+    ): Unit
+    private[publication] def publishMetadata(publication: MetadataPublication): Unit
+  }
+
+  private final class RegistryLockCapabilityImpl(
+    private val _real_root: Path,
+    ownerthread: Thread
+  ) extends RegistryLockCapability {
+    private var _active = true
+
+    override def realRoot: Path = {
+      _require_owner()
+      _real_root
+    }
+
+    override def validateSnapshot(expectedBundleDigests: Map[String, String]): Unit = {
+      _require_owner()
+      PublicationRegistry.validateRegistrySnapshotLocked(_real_root, expectedBundleDigests)
+    }
+
+    override def replaceMetadata(
+      name: String,
+      entries: Vector[(String, JsValue)],
+      removePrefixes: Vector[String],
+      expectedBundleDigests: Map[String, String],
+      createArticleMedia: Boolean
+    ): Unit = {
+      _require_owner()
+      PublicationRegistry.replaceMetadataLocked(
+        _real_root,
+        name,
+        entries.map { case (path, json) => PublicationBundleEntry(path, _publication_bundle_key(path), json) },
+        removePrefixes,
+        expectedBundleDigests,
+        createArticleMedia
+      )
+    }
+
+    override def publishMetadata(publication: MetadataPublication): Unit = {
+      _require_owner()
+      PublicationRegistry.publishMetadataLocked(_real_root, publication)
+    }
+
+    private[CozyPublicationCompiler] def _close(): Unit = {
+      _require_owner()
+      _active = false
+    }
+
+    private def _require_owner(): Unit = {
+      if (!_active)
+        RAISE.invalidArgumentFault("Publication registry lock capability is no longer active")
+      if (Thread.currentThread ne ownerthread)
+        RAISE.invalidArgumentFault("Publication registry lock capability must be used by its owner thread")
+    }
+  }
+
+  private[publication] def withRegistryLockCapability[A](root: Path)(f: RegistryLockCapability => A): A = {
+    if (f == null)
+      RAISE.invalidArgumentFault("Publication registry lock callback must be defined")
+    PublicationRegistry.withRegistryLock(root) { realroot =>
+      val capability = new RegistryLockCapabilityImpl(realroot, Thread.currentThread)
+      try f(capability) finally capability._close()
+    }
+  }
+
   def publishMetadata(
     root: Path,
     name: String,
@@ -263,7 +356,35 @@ private[cozy] object CozyPublicationCompiler {
     projectDir: Path,
     entries: Vector[(String, JsValue)]
   ): Unit =
-    PublicationRegistry.publishMetadata(root, name, publicationPath, projectDir, entries)
+    publishMetadata(_metadata_publication(name, publicationPath, projectDir, entries), root)
+
+  private[cozy] def metadataPublication(
+    name: String,
+    publicationPath: Option[String],
+    projectDir: Path,
+    entries: Vector[(String, JsValue)]
+  ): MetadataPublication =
+    _metadata_publication(name, publicationPath, projectDir, entries)
+
+  private[cozy] def publishMetadata(publication: MetadataPublication, root: Path): Unit =
+    PublicationRegistry.publishMetadata(root, publication)
+
+  /* Build the exact legacy bundle before a caller enters a larger transaction.
+   * This is read-only: it deliberately exercises source provenance and entry
+   * canonicalization without acquiring the registry lock or writing a file. */
+  private[cozy] def validateMetadataPublication(publication: MetadataPublication): MetadataPublication =
+    PublicationRegistry.validateMetadataPublication(publication)
+
+  private def _metadata_publication(
+    name: String,
+    publicationpath: Option[String],
+    projectdir: Path,
+    entries: Vector[(String, JsValue)]
+  ): MetadataPublication = {
+    if (projectdir == null || entries == null)
+      RAISE.invalidArgumentFault("Publication metadata plan inputs must be defined")
+    MetadataPublication(name, publicationpath, projectdir, entries)
+  }
 
   private def _write(publication: Publication, savedir: Path, projectdir: Path): Unit = {
     val name = publication.project.name
@@ -1185,8 +1306,10 @@ private[cozy] object CozyPublicationCompiler {
     sourceRepository: String,
     sourcePath: String,
     sourceCommit: Option[String],
-    entries: Vector[PublicationBundleEntry]
+    entries: Vector[PublicationBundleEntry],
+    raw: Option[JsObject] = None
   )
+  private final case class MetadataRemoval(path: String, exact: Boolean)
 
   private def _publication_bundle_key(path: String): String = {
     val stripped = path.replaceFirst("""\.[^.]+$""", "")
@@ -1221,22 +1344,54 @@ private[cozy] object CozyPublicationCompiler {
       publicationPath: Option[String],
       projectDir: Path,
       entries: Vector[(String, JsValue)]
-    ): Unit = {
-      val bundle = PublicationBundle(
-        publication = name,
-        publicationPath = publicationPath,
-        sourceRepository = _source_repository(projectDir),
-        sourcePath = _source_path(projectDir),
-        sourceCommit = _source_commit(projectDir),
-        entries = entries.map {
-          case (path, json) => PublicationBundleEntry(path, _publication_bundle_key(path), json)
-        }.map(_validate_entry).distinct.sortBy(_.path)
-      )
+    ): Unit =
+      publishMetadata(root, MetadataPublication(name, publicationPath, projectDir, entries))
+
+    def publishMetadata(root: Path, publication: MetadataPublication): Unit = {
+      if (publication == null)
+        RAISE.invalidArgumentFault("Publication metadata plan must be defined")
+      val bundle = _metadata_bundle(publication)
       _with_registry_lock(root) { realroot =>
-        val target = _locked_target(realroot, name, requireexisting = false)
+        val target = _locked_target(realroot, bundle.publication, requireexisting = false)
         _check_collisions(realroot, bundle)
         _write_bundle(target, bundle)
       }
+    }
+
+    def publishMetadataLocked(realroot: Path, publication: MetadataPublication): Unit = {
+      if (publication == null)
+        RAISE.invalidArgumentFault("Publication metadata plan must be defined")
+      val bundle = _metadata_bundle(publication)
+      val target = _locked_target(realroot, bundle.publication, requireexisting = false)
+      _check_collisions(realroot, bundle)
+      _write_bundle(target, bundle)
+    }
+
+    def validateMetadataPublication(publication: MetadataPublication): MetadataPublication = {
+      if (publication == null)
+        RAISE.invalidArgumentFault("Publication metadata plan must be defined")
+      val bundle = _metadata_bundle(publication)
+      publication.copy(
+        name = bundle.publication,
+        publicationPath = bundle.publicationPath,
+        entries = bundle.entries.map(x => x.path -> x.metadata)
+      )
+    }
+
+    private def _metadata_bundle(publication: MetadataPublication): PublicationBundle = {
+      if (publication.projectDir == null || publication.entries == null)
+        RAISE.invalidArgumentFault("Publication metadata plan inputs must be defined")
+      val bundle = PublicationBundle(
+        publication = publication.name,
+        publicationPath = publication.publicationPath,
+        sourceRepository = _source_repository(publication.projectDir),
+        sourcePath = _source_path(publication.projectDir),
+        sourceCommit = _source_commit(publication.projectDir),
+        entries = publication.entries.map {
+          case (path, json) => PublicationBundleEntry(path, _publication_bundle_key(path), json)
+        }.map(_validate_entry).distinct.sortBy(_.path)
+      )
+      bundle
     }
 
     def registerMetadata(root: Path, name: String, entries: Vector[PublicationBundleEntry]): Unit = {
@@ -1289,7 +1444,8 @@ private[cozy] object CozyPublicationCompiler {
                 )
               case _ =>
                 RAISE.invalidArgumentFault(s"Invalid publication bundle entries: every entry must be an object: ${target.getFileName}")
-            }
+            },
+            raw = json.asOpt[JsObject]
           ))
         } else
           None
@@ -1337,20 +1493,67 @@ private[cozy] object CozyPublicationCompiler {
       expectedbundledigests: Map[String, String]
     ): Unit =
       _with_registry_lock(root) { realroot =>
-        val target = _locked_target(realroot, name, requireexisting = true)
-        if (entries == null || removeprefixes == null || expectedbundledigests == null)
-          RAISE.invalidArgumentFault("Publication metadata replacement inputs must be defined")
-        _validate_expected_bundle_digests(realroot, expectedbundledigests)
-        val old = _load_bundle(target, name).getOrElse(RAISE.invalidArgumentFault(s"Publication bundle not found: ${name}"))
-        val validatedentries = entries.map(_validate_entry)
-        val replacepaths = validatedentries.map(_.path).toSet
-        val prefixes = removeprefixes.map(_validate_remove_prefix).distinct
-        val bundle = old.copy(
-          entries = (old.entries.filterNot(x => replacepaths.contains(x.path) || prefixes.exists(x.path.startsWith)) ++ validatedentries).distinct.sortBy(_.path)
-        )
-        _check_collisions(realroot, bundle)
-        _write_bundle(target, bundle)
+        _replace_metadata_locked(realroot, name, entries, removeprefixes, expectedbundledigests, createarticlemedia = false)
       }
+
+    def replaceMetadataLocked(
+      realroot: Path,
+      name: String,
+      entries: Vector[PublicationBundleEntry],
+      removeprefixes: Vector[String],
+      expectedbundledigests: Map[String, String],
+      createarticlemedia: Boolean
+    ): Unit =
+      _replace_metadata_locked(realroot, name, entries, removeprefixes, expectedbundledigests, createarticlemedia)
+
+    def validateRegistrySnapshotLocked(realroot: Path, expectedbundledigests: Map[String, String]): Unit = {
+      if (realroot == null || !Files.isDirectory(realroot) || expectedbundledigests == null)
+        RAISE.invalidArgumentFault("Publication metadata replacement inputs must be defined")
+      if (realroot.toAbsolutePath.normalize() != realroot || realroot.toRealPath() != realroot)
+        RAISE.invalidArgumentFault(s"Publication registry replacement requires a canonical real root: $realroot")
+      val actual = CozyArticleMediaRegistry.load(realroot).bundleDigests
+      if (actual != expectedbundledigests)
+        RAISE.invalidArgumentFault("Publication bundle stale configured snapshot")
+    }
+
+    private def _replace_metadata_locked(
+      realroot: Path,
+      name: String,
+      entries: Vector[PublicationBundleEntry],
+      removeprefixes: Vector[String],
+      expectedbundledigests: Map[String, String],
+      createarticlemedia: Boolean
+    ): Unit = {
+      if (realroot == null || !Files.isDirectory(realroot) || entries == null || removeprefixes == null || expectedbundledigests == null)
+        RAISE.invalidArgumentFault("Publication metadata replacement inputs must be defined")
+      if (realroot.toAbsolutePath.normalize() != realroot || realroot.toRealPath() != realroot)
+        RAISE.invalidArgumentFault(s"Publication registry replacement requires a canonical real root: $realroot")
+      if (createarticlemedia && name != "article-media")
+        RAISE.invalidArgumentFault("Publication metadata creation is limited to article-media")
+      val target = _locked_target(realroot, name, requireexisting = !createarticlemedia)
+      _validate_expected_bundle_digests(realroot, expectedbundledigests)
+      val old = _load_bundle(target, name).getOrElse {
+        if (createarticlemedia)
+          PublicationBundle("article-media", None, "", ".", None, Vector.empty)
+        else
+          RAISE.invalidArgumentFault(s"Publication bundle not found: ${name}")
+      }
+      val validatedentries = entries.map(_validate_entry)
+      val replacepaths = validatedentries.map(_.path).toSet
+      val removals = removeprefixes.map(_validate_metadata_removal).distinct
+      val bundle = old.copy(
+        entries = (old.entries.filterNot { entry =>
+          replacepaths.contains(entry.path) || removals.exists { removal =>
+            if (removal.exact) entry.path == removal.path else entry.path.startsWith(removal.path)
+          }
+        } ++ validatedentries).distinct.sortBy(_.path)
+      )
+      _check_collisions(realroot, bundle)
+      _write_bundle(target, bundle)
+    }
+
+    def withRegistryLock[A](root: Path)(f: Path => A): A =
+      _with_registry_lock(root)(f)
 
     private def _with_registry_lock[A](root: Path)(f: Path => A): A = {
       Files.createDirectories(root)
@@ -1406,9 +1609,11 @@ private[cozy] object CozyPublicationCompiler {
           RAISE.invalidArgumentFault("Publication bundle stale configured snapshot")
       }
 
-    private def _validate_remove_prefix(value: String): String = {
-      val prefix = _validate_relative_metadata_path(value.stripSuffix("/"))
-      prefix + "/"
+    private def _validate_metadata_removal(value: String): MetadataRemoval = {
+      val raw = Option(value).getOrElse(RAISE.invalidArgumentFault("Publication bundle metadata removal must be defined"))
+      val path = _validate_relative_metadata_path(raw.stripSuffix("/"))
+      if (raw.endsWith(".json")) MetadataRemoval(path, exact = true)
+      else MetadataRemoval(path + "/", exact = false)
     }
 
     private def _write_bundle(target: Path, bundle: PublicationBundle): Unit = {
@@ -1432,18 +1637,22 @@ private[cozy] object CozyPublicationCompiler {
       }
     }
 
-    private def _bundle_json(p: PublicationBundle): JsValue =
-      Json.obj(
+    private def _bundle_json(p: PublicationBundle): JsValue = {
+      val existingpublication = p.raw.flatMap(x => (x \ "publication").asOpt[JsObject]).getOrElse(Json.obj())
+      val publication = existingpublication ++ (Json.obj(
+        "name" -> p.publication
+      ) ++ p.publicationPath.map(x => Json.obj("path" -> x)).getOrElse(Json.obj()))
+      val canonical = Json.obj(
         "schema" -> _schema,
         "type" -> "publication-bundle",
-        "publication" -> (Json.obj(
-          "name" -> p.publication
-        ) ++ p.publicationPath.map(x => Json.obj("path" -> x)).getOrElse(Json.obj())),
+        "publication" -> publication,
         "sourceRepository" -> p.sourceRepository,
         "sourcePath" -> p.sourcePath,
         "sourceCommit" -> p.sourceCommit,
         "entries" -> JsArray(p.entries.sortBy(_.path).map(_entry_json))
       )
+      p.raw.map(_ ++ canonical).getOrElse(canonical)
+    }
 
     private def _entry_json(p: PublicationBundleEntry): JsValue =
       Json.obj(

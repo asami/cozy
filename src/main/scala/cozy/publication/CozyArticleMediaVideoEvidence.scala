@@ -1,14 +1,14 @@
 package cozy.publication
 
 import java.net.URI
-import java.nio.file.{Files, Path}
+import java.nio.file.{Files, LinkOption, Path}
 import java.security.MessageDigest
 import org.goldenport.RAISE
 import play.api.libs.json.{JsArray, JsObject, JsString, JsValue}
 
 /*
  * @since   Aug.  4, 2026
- * @version Aug.  4, 2026
+ * @version Aug.  5, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArticleMediaVideoEvidence {
@@ -18,7 +18,8 @@ private[cozy] object CozyArticleMediaVideoEvidence {
     videoName: String,
     videoVersion: String,
     snapshot: CozyArticleMediaRegistry.Snapshot,
-    repositoryRoot: Path
+    repositoryRoot: Path,
+    stagedArtifact: Option[Path] = None
   )
 
   final case class Result(
@@ -33,8 +34,8 @@ private[cozy] object CozyArticleMediaVideoEvidence {
     val manifest = _selected_object(normalized.entries, manifestpath, "video manifest")
     val registry = _selected_object(normalized.entries, registrypath, "repository registry")
     val evidence = _validate_evidence(manifest, registry, normalized.videoname, normalized.videoversion)
-    val artifactpath = _resolve_artifact(normalized.repositoryroot, evidence.repositorypath)
-    val actualsha = _sha256(artifactpath)
+    val artifactpath = _resolve_artifact(normalized.repositoryroot, evidence.repositorypath, normalized.stagedartifact)
+    val actualsha = _sha256(normalized.stagedartifact.getOrElse(artifactpath))
     if (actualsha != evidence.sha256)
       _invalid(s"Article-media video artifact SHA-256 does not match selected evidence: ${evidence.repositorypath}")
     Result(
@@ -60,7 +61,8 @@ private[cozy] object CozyArticleMediaVideoEvidence {
     videoname: String,
     videoversion: String,
     entries: Vector[CozyArticleMediaRegistry.Entry],
-    repositoryroot: Path
+    repositoryroot: Path,
+    stagedartifact: Option[Path]
   )
 
   private final case class Evidence(
@@ -86,10 +88,39 @@ private[cozy] object CozyArticleMediaVideoEvidence {
     val locale = CozyArticleMediaNormalization.normalizeLocale(input.locale)
     val videoname = _safe_segment(input.videoName, "video name")
     val videoversion = _safe_segment(input.videoVersion, "video version")
-    if (!Files.isDirectory(input.repositoryRoot))
-      _invalid(s"Article-media video evidence repository root must be an existing directory: ${input.repositoryRoot}")
-    val repositoryroot = input.repositoryRoot.toRealPath()
-    NormalizedInput(articleidentity, locale, videoname, videoversion, entries, repositoryroot)
+    val stagedartifact = Option(input.stagedArtifact).flatten.map(_direct_staged_artifact)
+    val repositoryroot = stagedartifact.fold(_existing_repository_root(input.repositoryRoot))(_ => _staged_repository_root(input.repositoryRoot))
+    NormalizedInput(articleidentity, locale, videoname, videoversion, entries, repositoryroot, stagedartifact)
+  }
+
+  private def _existing_repository_root(value: Path): Path = {
+    if (!Files.isDirectory(value))
+      _invalid(s"Article-media video evidence repository root must be an existing directory: $value")
+    value.toRealPath()
+  }
+
+  private def _staged_repository_root(value: Path): Path = {
+    val repositoryroot = value.toAbsolutePath.normalize()
+    var ancestor = repositoryroot
+    while (!Files.exists(ancestor, LinkOption.NOFOLLOW_LINKS)) {
+      ancestor = Option(ancestor.getParent).getOrElse(
+        _invalid(s"Article-media video evidence repository root has no existing ancestor: $value")
+      )
+    }
+    _direct_directory(ancestor, "repository root nearest existing ancestor")
+    val relative = ancestor.relativize(repositoryroot)
+    var segment = ancestor
+    (0 until relative.getNameCount).foreach { index =>
+      segment = segment.resolve(relative.getName(index))
+      if (Files.exists(segment, LinkOption.NOFOLLOW_LINKS))
+        _direct_directory(segment, "repository root")
+    }
+    repositoryroot
+  }
+
+  private def _direct_directory(value: Path, label: String): Unit = {
+    if (Files.isSymbolicLink(value) || !Files.isDirectory(value, LinkOption.NOFOLLOW_LINKS))
+      _invalid(s"Article-media video evidence $label must be a direct non-symlink directory: $value")
   }
 
   private def _safe_segment(value: String, label: String): String = {
@@ -169,16 +200,48 @@ private[cozy] object CozyArticleMediaVideoEvidence {
     normalized
   }
 
-  private def _resolve_artifact(repositoryroot: Path, repositorypath: String): Path = {
+  private def _resolve_artifact(repositoryroot: Path, repositorypath: String, stagedartifact: Option[Path]): Path = {
     val candidate = repositoryroot.resolve(repositorypath).normalize()
     if (!candidate.startsWith(repositoryroot))
       _invalid(s"Article-media video artifact path escapes the configured repository root: $repositorypath")
-    if (!Files.isRegularFile(candidate))
-      _invalid(s"Article-media video artifact must be an existing regular file: $repositorypath")
-    val artifactpath = candidate.toRealPath()
-    if (!artifactpath.startsWith(repositoryroot))
-      _invalid(s"Article-media video artifact real path escapes the configured repository root: $repositorypath")
-    artifactpath
+    stagedartifact match {
+      case Some(_) =>
+        _validate_staged_target(repositoryroot, candidate, repositorypath)
+        candidate
+      case None =>
+        if (!Files.isRegularFile(candidate))
+          _invalid(s"Article-media video artifact must be an existing regular file: $repositorypath")
+        val artifactpath = candidate.toRealPath()
+        if (!artifactpath.startsWith(repositoryroot))
+          _invalid(s"Article-media video artifact real path escapes the configured repository root: $repositorypath")
+        artifactpath
+    }
+  }
+
+  private def _direct_staged_artifact(value: Path): Path = {
+    if (value == null || Files.isSymbolicLink(value) || !Files.isRegularFile(value, LinkOption.NOFOLLOW_LINKS))
+      _invalid(s"Article-media video staged artifact must be a direct regular non-symlink file: $value")
+    value.toRealPath()
+  }
+
+  private def _validate_staged_target(repositoryroot: Path, candidate: Path, repositorypath: String): Unit = {
+    val relative = repositoryroot.relativize(candidate)
+    var parent = repositoryroot
+    (0 until (relative.getNameCount - 1)).foreach { index =>
+      parent = parent.resolve(relative.getName(index))
+      if (Files.exists(parent, LinkOption.NOFOLLOW_LINKS)) {
+        if (Files.isSymbolicLink(parent))
+          _invalid(s"Article-media video artifact parent must not be a symlink: $repositorypath")
+        if (!Files.isDirectory(parent, LinkOption.NOFOLLOW_LINKS))
+          _invalid(s"Article-media video artifact parent must be a direct directory: $repositorypath")
+      }
+    }
+    if (Files.exists(candidate, LinkOption.NOFOLLOW_LINKS)) {
+      if (Files.isSymbolicLink(candidate))
+        _invalid(s"Article-media video artifact target must not be a symlink: $repositorypath")
+      if (!Files.isRegularFile(candidate, LinkOption.NOFOLLOW_LINKS))
+        _invalid(s"Article-media video artifact target must be a regular file when it exists: $repositorypath")
+    }
   }
 
   private def _required_object(value: JsObject, field: String, label: String): JsObject =

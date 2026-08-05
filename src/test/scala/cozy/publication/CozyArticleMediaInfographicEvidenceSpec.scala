@@ -12,10 +12,11 @@ import org.scalacheck.{Gen, Prop, Test}
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+import cozy.media.CozyMedia
 
 /*
- * @since   Aug.  4, 2026
- * @version Aug.  4, 2026
+ * @since   Aug.  5, 2026
+ * @version Aug.  5, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyArticleMediaInfographicEvidenceSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -112,7 +113,7 @@ final class CozyArticleMediaInfographicEvidenceSpec extends AnyWordSpec with Mat
         }
       }
 
-      "accept a safe lexical profile alias of the configured repository root" in {
+      "reject a lexical profile-root alias even when its canonical real directory matches the repository" in {
         Given("a descriptor and typed publication destination declared through a repository symlink alias")
         _with_fixture { fixture =>
           val alias = fixture.root.resolve("repository-alias")
@@ -124,15 +125,15 @@ final class CozyArticleMediaInfographicEvidenceSpec extends AnyWordSpec with Mat
           val aliasdestination = alias.resolve("images/development-process/example-ja.png")
 
           When("the profile and publication roots use the alias while the configured repository uses its real path")
-          val result = CozyArticleMediaInfographicEvidence.project(_input(
+          val error = intercept[IllegalArgumentException](CozyArticleMediaInfographicEvidence.project(_input(
             fixture,
             publicationroot = alias,
             destination = aliasdestination,
             repositoryroot = fixture.repository
-          ))
+          )))
 
-          Then("lexical destination identity and real-root containment both hold")
-          result.artifactPath shouldBe fixture.destination.toRealPath()
+          Then("both lexical and canonical real root identities are required to match")
+          error.getMessage should include("identical")
         }
       }
 
@@ -175,6 +176,31 @@ final class CozyArticleMediaInfographicEvidenceSpec extends AnyWordSpec with Mat
 
         Then("each selected typed outcome remains deterministic")
         result.passed shouldBe true
+      }
+    }
+
+    "prepare and complete publication evidence without exposing a role before the artifact result" in {
+      Given("a typed CozyMedia prepared publication and its exact build manifest")
+      _with_fixture { fixture =>
+        val publication = CozyMedia.preparePublication(CozyMedia.CommandConfig(
+          fixture.descriptor,
+          target = Some("example-infographic-ja"),
+          profile = Some("site")
+        )).head
+
+        When("the command prepares then completes the matching typed media result")
+        val prepared = CozyArticleMediaInfographicEvidence.prepare(CozyArticleMediaInfographicEvidence.PreparedInput(
+          fixture.root, fixture.manifest, "1.0.0", fixture.repository, publication
+        ))
+        val completion = CozyArticleMediaInfographicEvidence.complete(
+          prepared,
+          CozyMedia.PublicationResult(publication, CozyMedia.PublicationOutcome.Reused)
+        )
+
+        Then("pre-publication evidence is completed as one strict infographic role with matching hash")
+        prepared.integrity.record.sha256 shouldBe fixture.sha256
+        completion.roleUpdate.variant.infographic.map(_.publicPath.toString) shouldBe Some("/images/development-process/example-ja.png")
+        completion.result.integrity.record.publicationState shouldBe CozyArticleMediaIntegrity.PublicationState.Published
       }
     }
 
@@ -353,14 +379,14 @@ final class CozyArticleMediaInfographicEvidenceSpec extends AnyWordSpec with Mat
         }
       }
 
-      "accept safe in-root generated and prebuilt build-output symlinks while rejecting escape" in {
-        Given("descriptor-selected generated and prebuilt PNG links that resolve inside the descriptor root")
+      "accept a safe in-root generated build-output symlink" in {
+        Given("a descriptor-selected generated PNG link that resolves inside the descriptor root")
         _with_fixture { fixture =>
-          val generatedtarget = fixture.project.resolve("target/cozy-media/generated-source.png")
-          val generatedlink = fixture.project.resolve("target/cozy-media/generated-link.png")
-          _write_bytes(generatedtarget, _png_bytes)
+          val target = fixture.project.resolve("target/cozy-media/generated-source.png")
+          val link = fixture.project.resolve("target/cozy-media/generated-link.png")
+          _write_bytes(target, _png_bytes)
           Files.delete(fixture.buildoutput)
-          try Files.createSymbolicLink(generatedlink, generatedtarget)
+          try Files.createSymbolicLink(link, target)
           catch {
             case _: UnsupportedOperationException | _: SecurityException | _: IOException => cancel("The platform cannot create symbolic links for this specification")
           }
@@ -368,11 +394,15 @@ final class CozyArticleMediaInfographicEvidenceSpec extends AnyWordSpec with Mat
           _write(fixture.manifest, _manifest(fixture.sha256, path = "target/cozy-media/generated-link.png"))
 
           When("the generated selected output follows the safe in-root link")
-          val generated = CozyArticleMediaInfographicEvidence.project(_input(fixture))
+          val result = CozyArticleMediaInfographicEvidence.project(_input(fixture))
 
           Then("the generated resource retains its canonical integrity")
-          generated.integrity.record.sha256 shouldBe fixture.sha256
+          result.integrity.record.sha256 shouldBe fixture.sha256
         }
+      }
+
+      "accept a safe in-root prebuilt build-output symlink" in {
+        Given("a descriptor-selected prebuilt PNG link that resolves inside the descriptor root")
         _with_fixture { fixture =>
           val prebuilttarget = fixture.project.resolve("assets/prebuilt-source.png")
           val prebuiltlink = fixture.project.resolve("assets/prebuilt-link.png")
@@ -390,16 +420,23 @@ final class CozyArticleMediaInfographicEvidenceSpec extends AnyWordSpec with Mat
           Then("the prebuilt resource retains its canonical integrity")
           prebuilt.integrity.record.sha256 shouldBe fixture.sha256
         }
-        Given("a descriptor-selected build PNG that is absent or linked outside its descriptor root")
+      }
+
+      "reject a missing selected build output" in {
+        Given("a descriptor-selected build PNG that is absent")
         _with_fixture { fixture =>
           Files.delete(fixture.buildoutput)
 
           When("the explicit selected build output is absent")
-          val missing = intercept[IllegalArgumentException](CozyArticleMediaInfographicEvidence.project(_input(fixture)))
+          val error = intercept[IllegalArgumentException](CozyArticleMediaInfographicEvidence.project(_input(fixture)))
 
           Then("absence is rejected before destination evidence can be serialized")
-          missing.getMessage should include("selected build output")
+          error.getMessage should include("selected build output")
         }
+      }
+
+      "reject a selected build output that resolves outside its descriptor root" in {
+        Given("a descriptor-selected build PNG linked outside its descriptor root")
         _with_fixture { fixture =>
           val external = fixture.root.resolve("external-build.png")
           _write_bytes(external, _png_bytes)
@@ -418,8 +455,8 @@ final class CozyArticleMediaInfographicEvidenceSpec extends AnyWordSpec with Mat
         }
       }
 
-      "reject malformed exact manifests and require manifest, selected build output, and destination agreement" in {
-        Given("manifest shape and selected-entry failures plus independently selected build-output bytes")
+      "reject malformed exact manifest shapes and selected entries" in {
+        Given("manifest shape and selected-entry failures")
         _with_fixture { fixture =>
           val variants = Vector(
             "[]",
@@ -440,10 +477,14 @@ final class CozyArticleMediaInfographicEvidenceSpec extends AnyWordSpec with Mat
             intercept[IllegalArgumentException](CozyArticleMediaInfographicEvidence.project(_input(fixture)))
           }
 
-          Then("every malformed or stale selected manifest fails")
+          Then("every malformed selected manifest fails")
           errors should have size variants.size
+        }
+      }
 
-          Given("a manifest whose digest matches a changed selected build output instead of the published PNG")
+      "reject stale output disagreement even when the manifest matches the selected build output" in {
+        Given("a manifest whose digest matches a changed selected build output instead of the published PNG")
+        _with_fixture { fixture =>
           _write_bytes(fixture.buildoutput, _different_png_bytes)
           _write(fixture.manifest, _manifest(_sha256(fixture.buildoutput)))
 

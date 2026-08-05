@@ -1,0 +1,17 @@
+schema: cozy.media.v1
+knowledge:
+  id: development-process/example
+  source: ../../development-process/example.dox
+profiles:
+  site:
+    root: ../../../../../../repository
+resources:
+  - id: article-media-bilingual-example-en-infographic
+    kind: image
+    language: en
+    role: detailed-infographic
+    source: target/cozy-media/article-media-bilingual-example-en-infographic.png
+    output: target/cozy-media/article-media-bilingual-example-en-infographic.png
+    build: prebuilt
+    publications:
+      site: article-media/development-process/example/en/infographic.png

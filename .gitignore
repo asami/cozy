@@ -35,3 +35,17 @@ src/sbt-test/**/out.d/
 src/sbt-test/**/scripted
 src/sbt-test/**/sh
 src/sbt-test/**/runMain
+
+# Persistent article-media producer fixtures.
+!src/test/resources/cozy/publication/article-media-bilingual-bok/src/main/doxsite/media/en/target/
+src/test/resources/cozy/publication/article-media-bilingual-bok/src/main/doxsite/media/en/target/*
+!src/test/resources/cozy/publication/article-media-bilingual-bok/src/main/doxsite/media/en/target/cozy-media/
+src/test/resources/cozy/publication/article-media-bilingual-bok/src/main/doxsite/media/en/target/cozy-media/*
+!src/test/resources/cozy/publication/article-media-bilingual-bok/src/main/doxsite/media/en/target/cozy-media/manifest.json
+!src/test/resources/cozy/publication/article-media-bilingual-bok/src/main/doxsite/media/en/target/cozy-media/article-media-bilingual-example-en-infographic.png
+!src/test/resources/cozy/publication/article-media-bilingual-bok/src/main/doxsite/media/ja/target/
+src/test/resources/cozy/publication/article-media-bilingual-bok/src/main/doxsite/media/ja/target/*
+!src/test/resources/cozy/publication/article-media-bilingual-bok/src/main/doxsite/media/ja/target/cozy-media/
+src/test/resources/cozy/publication/article-media-bilingual-bok/src/main/doxsite/media/ja/target/cozy-media/*
+!src/test/resources/cozy/publication/article-media-bilingual-bok/src/main/doxsite/media/ja/target/cozy-media/manifest.json
+!src/test/resources/cozy/publication/article-media-bilingual-bok/src/main/doxsite/media/ja/target/cozy-media/article-media-bilingual-example-ja-infographic.png

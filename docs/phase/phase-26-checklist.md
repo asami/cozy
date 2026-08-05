@@ -90,16 +90,94 @@ Step acceptance evidence recorded on 2026-08-04:
 
 ## AM26-03: BoK Build and Deployment Projection
 
-Status: PLANNED
+Status: DONE
 
-- [ ] Have `cozy bok publish-video`/media publication create or update records.
-- [ ] Have ordinary `cozy bok build` only read registry/repository context and
+- [x] Have `cozy bok publish-video`/media publication create or update records.
+- [x] Have ordinary `cozy bok build` only read registry/repository context and
       perform no rendering or transcoding.
-- [ ] Verify exact-locale article and global/category Notice projection for a
+- [x] Verify exact-locale article and global/category Notice projection for a
       bilingual pilot.
-- [ ] Stage site output and repository artifacts under one BoK public URL
+- [x] Stage site output and repository artifacts under one BoK public URL
       space.
-- [ ] Preserve ordinary articles and BoKs with no media record.
+- [x] Preserve ordinary articles and BoKs with no media record.
+
+Planned slices:
+
+- `AM26-03A` — promote the operation and build-handoff contract before code:
+  fix the explicit article identity/locale inputs for video and infographic
+  publication, role-local registry merge semantics, preview/production build
+  context, and compatibility behavior in the authoritative design/spec.
+- `AM26-03B` — adapt explicit publication operations: expose typed media
+  publication results, bind opted-in video/media publication to article-media
+  evidence, and atomically preserve unaffected roles and locales. Existing
+  unbound `.video` packages and ordinary media publication remain legacy-only.
+  Execute this as three independently reviewed internal Slices: `AM26-03B1`
+  adds the shared locked registry transaction and role-local merge foundation;
+  `AM26-03B2` adds explicit `.video` article-media opt-in and registration;
+  `AM26-03B3` adds `bok publish-media`, typed media publication results,
+  command-wide preflight, and `update-publication`/one-stop orchestration.
+  `AM26-03B1` is limited to `CozyPublicationCompiler`,
+  `CozyArticleMediaRegistry`, and its executable specification: expose one
+  synchronous same-real-root transaction seam, merge exactly one-role variant
+  updates, create/reuse the deterministic article owner, preserve all
+  unaffected entries, reject duplicate/conflicting ownership, and prove
+  concurrent role updates cannot be lost. It does not change CLI, video/media
+  descriptors, artifact publication, build handoff, or staging.
+  Execute `AM26-03B2` in two independently reviewed parts: `AM26-03B2a`
+  extends `.video` decoding/resolution with the optional all-or-nothing
+  `publish.articleMedia` binding and adds a typed adapter from validated video
+  publication evidence to one registry `RoleUpdate`; `AM26-03B2b` then makes
+  `bok publish-video` commit its legacy video bundles and opted-in role updates
+  under the shared transaction. `B2a` does not change command behavior, while
+  `B2b` preserves unbound legacy packages and prevents nested lock domains.
+  `AM26-03B2a` is limited to `CozyVideoPublisher`, a new Cozy publication-side
+  video-registration adapter, and its focused executable specification. The
+  resolved binding contains normalized `articleIdentity`, exact canonical
+  `locale`, and SmartDox `status`; the adapter derives site-hosted
+  `content_url` only from validated video evidence and returns no update when
+  the block is absent. It does not write a bundle or alter `CozyBok` execution.
+- `AM26-03C` — integrate the ordinary BoK build boundary: validate only the
+  configured registry/repository context, materialize the strategy-effective
+  publication view, pass it to SmartDox, and prove that build invokes no media
+  renderer or transcoder.
+- `AM26-03D` — add the bilingual BoK acceptance fixture and staging evidence:
+  verify exact-locale article plus global/category Notice projection through
+  pinned SmartDox behavior, retain media-free outputs, and prove site and
+  repository artifacts share the staged public URL root. The acceptance uses
+  the actual pinned SmartDox `DoxSiteGenerator` with the production-effective
+  Cozy snapshot; it does not reproduce article or Notice projection in Cozy
+  test code. Compare the complete media-free generated realm with the
+  no-publication baseline: require the same relative path set, exact bytes for
+  non-YAML outputs, and complete parsed-value equality for YAML outputs where
+  mapping key order is non-semantic. Execute the scaffold-generated stage
+  prototype against a persistent Git staging working tree, preserve either a
+  repository `.git` directory or worktree `.git` file, and verify every staged
+  artifact path and SHA-256 below `<staging-root>/repository` against its Cozy
+  integrity record.
+
+Each Slice receives its own implementation review and clean re-review. The
+Step gate remains focused; repository-wide full validation is reserved for
+`AM26-04` and the Phase 26 release gate.
+
+Step acceptance evidence recorded on 2026-08-05:
+
+- AM26-03A contract promotion, AM26-03B publication operations, AM26-03C
+  build handoff, and AM26-03D bilingual staging acceptance completed their
+  planned Slice reviews, conditional finding repairs, and clean focused
+  re-reviews.
+- The pinned SmartDox acceptance exercised exact-locale article and
+  global/category Notice projection, media-free full-Realm compatibility,
+  canonical producer manifests and registries, staged artifact path/SHA-256
+  agreement, repository union semantics, and preservation of both Git
+  directories and worktree files.
+- The behavior-focused Step gate exercised registry transactions, video and
+  infographic publication commands, orchestration, preview/production build
+  context, no-heavy-work handoff, policy/evidence validation, bilingual BoK
+  staging, legacy BoK behavior, and bibliography compatibility: serialized
+  invocation `84710-20260805T021810Z`, 16 suites and 332/332 tests passed with
+  `sbt_exit=0`, `wrapper_exit=0`, `lock=released`, and no SBT warnings.
+- Repository-wide full validation remains reserved for `AM26-04` and the
+  Phase 26 release gate.
 
 ## AM26-04: Specifications and Closure
 

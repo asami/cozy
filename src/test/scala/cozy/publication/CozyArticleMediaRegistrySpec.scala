@@ -11,11 +11,11 @@ import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.smartdox.metadata.PublishMetadata.{VideoPresentation, VideoReference, VideoStatus}
-import play.api.libs.json.{JsArray, JsObject, JsString, Json}
+import play.api.libs.json.{JsArray, JsNull, JsObject, JsString, Json}
 
 /*
  * @since   Aug.  4, 2026
- * @version Aug.  4, 2026
+ * @version Aug.  5, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyArticleMediaRegistrySpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -408,6 +408,31 @@ final class CozyArticleMediaRegistrySpec extends AnyWordSpec with Matchers with 
           result.snapshot.entries.find(_.path == "metadata/unrelated.json").map(_.metadata) shouldBe Some(Json.obj("kept" -> true))
           result.snapshot.entries.find(_.path == "metadata/article-media-integrity/development-process/other/ja/video.json").map(_.metadata) shouldBe Some(otherintegrity.metadata)
           result.snapshot.entries.exists(_.path.endsWith("/example/ja/infographic.json")) shouldBe false
+        }
+      }
+
+      "replace legacy parent integrity records by decoded exact identity without removing child a/b evidence" in {
+        Given("one bundle with canonical a and a/b strict and integrity metadata")
+        _with_root { root =>
+          val parentstrict = _strict("a")
+          val childstrict = _strict("a/b")
+          val parentintegrity = _video_integrity(articleidentity = "a")
+          val childintegrity = _video_integrity(articleidentity = "a/b")
+          _write_bundle(root, "publication", Vector(
+            _entry(parentstrict.entryPath, parentstrict.metadata),
+            _entry(parentintegrity.entryPath, parentintegrity.metadata),
+            _entry(childstrict.entryPath, childstrict.metadata),
+            _entry(childintegrity.entryPath, childintegrity.metadata)
+          ))
+          val childbefore = CozyArticleMediaRegistry.load(root).entries.filter(x => x.path == childstrict.entryPath || x.path == childintegrity.entryPath)
+
+          When("legacy upsert replaces a while omitting its former integrity evidence")
+          val result = CozyArticleMediaRegistry.upsert(root, "publication", parentstrict, Vector.empty)
+          val childafter = result.snapshot.entries.filter(x => x.path == childstrict.entryPath || x.path == childintegrity.entryPath)
+
+          Then("only a's decoded integrity path is removed and a/b remains byte-identical semantically")
+          result.snapshot.entries.exists(_.path == parentintegrity.entryPath) shouldBe false
+          childafter shouldBe childbefore
         }
       }
 
@@ -819,6 +844,432 @@ final class CozyArticleMediaRegistrySpec extends AnyWordSpec with Matchers with 
         }
       }
     }
+
+    "validate render-independent role intent" which {
+      "select the existing deterministic owner without creating a bundle or fabricating integrity evidence" in {
+        Given("one configured bundle owning canonical strict and video integrity records")
+        _with_root { root =>
+          val strict = _site_strict("development-process/example", "/repository/video/example.mp4")
+          val integrity = _video_integrity()
+          _write_bundle(root, "owner", Vector(_entry(strict.entryPath, strict.metadata), _entry(integrity.entryPath, integrity.metadata)))
+          val before = _bundle_bytes(root.resolve("owner.json"))
+
+          When("a video producer validates only its normalized role intent")
+          val result = CozyArticleMediaRegistry.validateReadOnlyRoleIntents(root, Vector(
+            CozyArticleMediaRegistry.RoleIntent("development-process/example", "ja", CozyArticleMediaIntegrity.Role.Video)
+          ))
+
+          Then("the same canonical owner is reported from a read-only snapshot")
+          result.owners.map(x => (x.intent.articleIdentity, x.intent.locale, x.intent.role.name, x.owner)) shouldBe Vector(
+            ("development-process/example", "ja", "video", "owner")
+          )
+          result.snapshot.entries.map(_.path) should contain(integrity.entryPath)
+          _bundle_bytes(root.resolve("owner.json")) shouldBe before
+          Files.exists(root.resolve("article-media.json")) shouldBe false
+        }
+      }
+
+      "reject ownership ambiguity before a producer renders an artifact" in {
+        Given("strict and integrity records for one article split across configured bundles")
+        _with_root { root =>
+          val strict = _site_strict("development-process/example", "/repository/video/example.mp4")
+          val integrity = _video_integrity()
+          _write_bundle(root, "strict-owner", Vector(_entry(strict.entryPath, strict.metadata)))
+          _write_bundle(root, "integrity-owner", Vector(_entry(integrity.entryPath, integrity.metadata)))
+          val strictbefore = _bundle_bytes(root.resolve("strict-owner.json"))
+          val integritybefore = _bundle_bytes(root.resolve("integrity-owner.json"))
+
+          When("a video producer validates its current role ownership")
+          val error = intercept[IllegalArgumentException](CozyArticleMediaRegistry.validateReadOnlyRoleIntents(root, Vector(
+            CozyArticleMediaRegistry.RoleIntent("development-process/example", "ja", CozyArticleMediaIntegrity.Role.Video)
+          )))
+
+          Then("the conflicting current owner is rejected with no registry mutation")
+          error.getMessage should include("multiple bundle owners")
+          _bundle_bytes(root.resolve("strict-owner.json")) shouldBe strictbefore
+          _bundle_bytes(root.resolve("integrity-owner.json")) shouldBe integritybefore
+        }
+      }
+
+      "reject a changed complete snapshot through the bounded read-only callback" in {
+        Given("a configured bundle and a role intent whose owner is otherwise valid")
+        _with_root { root =>
+          val strict = _site_strict("development-process/example", "/repository/video/example.mp4")
+          val integrity = _video_integrity()
+          _write_bundle(root, "owner", Vector(_entry(strict.entryPath, strict.metadata), _entry(integrity.entryPath, integrity.metadata)))
+          val changed = Json.prettyPrint(Json.obj(
+            "schema" -> "cozy.publish-project.v1",
+            "type" -> "publication-bundle",
+            "publication" -> Json.obj("name" -> "owner"),
+            "sourceRepository" -> "cozy",
+            "sourcePath" -> ".",
+            "sourceCommit" -> JsString("0123456789abcdef"),
+            "entries" -> Json.arr(_entry(strict.entryPath, strict.metadata), _entry(integrity.entryPath, integrity.metadata))
+          )).replace("\n", "\n\n").getBytes(StandardCharsets.UTF_8)
+
+          When("the configured bundle changes between snapshot reads")
+          val error = intercept[IllegalArgumentException](CozyArticleMediaRegistry.validateReadOnlyRoleIntents(
+            root,
+            Vector(CozyArticleMediaRegistry.RoleIntent("development-process/example", "ja", CozyArticleMediaIntegrity.Role.Video)),
+            () => Files.write(root.resolve("owner.json"), changed)
+          ))
+
+          Then("the stale snapshot is rejected and the externally changed bytes remain untouched")
+          error.getMessage should include("stale read-only snapshot")
+          _bundle_bytes(root.resolve("owner.json")) shouldBe changed.toVector
+          Files.exists(root.resolve("article-media.json")) shouldBe false
+        }
+      }
+    }
+
+    "merge role-local article-media registration transactions" which {
+      "validate an exact role plan without replacing its owner bundle" in {
+        Given("an existing generic owner bundle and one valid infographic role update")
+        _with_root { root =>
+          _write_bundle(root, "owner", Vector(_entry("metadata/generic.json", Json.obj("kept" -> true))))
+          val before = _bundle_bytes(root.resolve("owner.json"))
+
+          When("the transaction validates the role plan before an external artifact commit")
+          CozyArticleMediaRegistry.transaction(root)(_.validate(Vector(_infographic_role_update())))
+
+          Then("the owner bundle remains byte-identical until merge is explicitly requested")
+          _bundle_bytes(root.resolve("owner.json")) shouldBe before
+          Files.exists(root.resolve("article-media.json")) shouldBe false
+        }
+      }
+
+      "create the canonical article-media bundle when the article has no owner" in {
+        Given("an empty configured publication root and one exact infographic role update")
+        _with_root { root =>
+          val update = _infographic_role_update()
+
+          When("the transaction merges the first article role")
+          val result = CozyArticleMediaRegistry.transaction(root)(_.merge(Vector(update)))
+          val stored = Json.parse(Files.readString(root.resolve("article-media.json"))).as[JsObject]
+
+          Then("the canonical compiler bundle owns the complete strict and integrity record without extension fields")
+          result.bundlePaths shouldBe Vector(root.resolve("article-media.json"))
+          result.entryPaths shouldBe Vector(
+            "metadata/article-media-integrity/development-process/example/ja/infographic.json",
+            "metadata/article-media/development-process/example.json"
+          )
+          result.snapshot.entries.map(_.bundleName).distinct shouldBe Vector("article-media")
+          stored shouldBe Json.obj(
+            "schema" -> "cozy.publish-project.v1",
+            "type" -> "publication-bundle",
+            "publication" -> Json.obj("name" -> "article-media"),
+            "sourceRepository" -> "",
+            "sourcePath" -> ".",
+            "sourceCommit" -> JsNull,
+            "entries" -> Json.arr(
+              _entry("metadata/article-media-integrity/development-process/example/ja/infographic.json", update.integrity.metadata),
+              _entry("metadata/article-media/development-process/example.json", CozyArticleMediaPublication.produce(update.articleIdentity, Vector(update.variant)).metadata)
+            )
+          )
+        }
+      }
+
+      "reuse strict or integrity-only ownership without moving an article" in {
+        Given("one strict-owned article and one integrity-only article in separate declared bundles")
+        _with_root { root =>
+          _write_bundle(root, "strict-owner", Vector(_entry(_strict().entryPath, _strict().metadata)))
+          val integrity = _video_integrity(articleidentity = "development-process/integrity-only")
+          _write_bundle(root, "integrity-owner", Vector(_entry(integrity.entryPath, integrity.metadata)))
+
+          When("role-local infographic updates are committed for both identities")
+          val strictresult = CozyArticleMediaRegistry.transaction(root)(_.merge(Vector(_infographic_role_update())))
+          val integrityresult = CozyArticleMediaRegistry.transaction(root)(_.merge(Vector(_infographic_role_update("development-process/integrity-only"))))
+
+          Then("each article remains in its existing ownership bundle")
+          strictresult.bundlePaths shouldBe Vector(root.resolve("strict-owner.json"))
+          integrityresult.bundlePaths shouldBe Vector(root.resolve("integrity-owner.json"))
+          Files.exists(root.resolve("article-media.json")) shouldBe false
+        }
+      }
+
+      "preserve unaffected roles, locales, generic entries, and bundle declaration fields" in {
+        Given("a custom owner with Japanese video, English infographic, generic metadata, and extension fields")
+        _with_root { root =>
+          val strict = CozyArticleMediaPublication.produce("development-process/example", Vector(
+            CozyArticleMediaPublication.Variant("ja", video = Some(_site_video())),
+            CozyArticleMediaPublication.Variant("en", infographic = Some(_infographic_image("/en/development-process/images/example.png")))
+          ))
+          val javideo = _video_integrity()
+          val eninfographic = _infographic_integrity(locale = "en", publicpath = "/en/development-process/images/example.png")
+          val bundle = Json.obj(
+            "schema" -> "cozy.publish-project.v1",
+            "type" -> "publication-bundle",
+            "publication" -> Json.obj("name" -> "custom", "title" -> "Kept declaration"),
+            "sourceRepository" -> "cozy",
+            "sourcePath" -> ".",
+            "sourceCommit" -> JsString("0123456789abcdef"),
+            "extension" -> Json.obj("kept" -> true),
+            "entries" -> Json.arr(
+              _entry(strict.entryPath, strict.metadata),
+              _entry(javideo.entryPath, javideo.metadata),
+              _entry(eninfographic.entryPath, eninfographic.metadata),
+              _entry("metadata/generic.json", Json.obj("kept" -> true))
+            )
+          )
+          _write_bundle_json(root, "custom", bundle)
+
+          When("only the Japanese infographic role is replaced")
+          val result = CozyArticleMediaRegistry.transaction(root)(_.merge(Vector(_infographic_role_update())))
+          val stored = Json.parse(Files.readString(root.resolve("custom.json"))).as[JsObject]
+          val merged = result.snapshot.entries.find(_.path == strict.entryPath).map(_.metadata).get
+
+          Then("the exact role changes while all independent registry content remains")
+          result.bundlePaths shouldBe Vector(root.resolve("custom.json"))
+          (((merged \ "variants").as[JsObject] \ "ja" \ "video" \ "content_url").as[String]) shouldBe "/repository/video/example.mp4"
+          (((merged \ "variants").as[JsObject] \ "en" \ "infographic" \ "public_path").as[String]) shouldBe "/en/development-process/images/example.png"
+          result.snapshot.entries.find(_.path == "metadata/generic.json").map(_.metadata) shouldBe Some(Json.obj("kept" -> true))
+          (stored \ "publication" \ "title").as[String] shouldBe "Kept declaration"
+          (stored \ "extension" \ "kept").as[Boolean] shouldBe true
+        }
+      }
+
+      "reject duplicate, mismatched, and multi-owner plans before mutation" in {
+        Given("a role update, a mismatched integrity result, and an article split over two bundles")
+        _with_root { root =>
+          _write_bundle(root, "alpha", Vector(_entry(_strict().entryPath, _strict().metadata)))
+          _write_bundle(root, "beta", Vector(_entry(_video_integrity().entryPath, _video_integrity().metadata)))
+          val update = _infographic_role_update()
+          val mismatch = _infographic_role_update().copy(integrity = _infographic_integrity(publicpath = "/ja/development-process/images/other.png"))
+          val beforealpha = _bundle_bytes(root.resolve("alpha.json"))
+          val beforebeta = _bundle_bytes(root.resolve("beta.json"))
+
+          When("the transaction receives invalid complete plans")
+          val duplicate = intercept[IllegalArgumentException](CozyArticleMediaRegistry.transaction(root)(_.merge(Vector(update, update))))
+          val mismatchederror = intercept[IllegalArgumentException](CozyArticleMediaRegistry.transaction(root)(_.merge(Vector(mismatch))))
+          val ownererror = intercept[IllegalArgumentException](CozyArticleMediaRegistry.transaction(root)(_.merge(Vector(update))))
+
+          Then("every rejection happens before either current owner is rewritten")
+          duplicate.getMessage should include("Duplicate article-media role update")
+          mismatchederror.getMessage should include("same identity, locale, role, and public path")
+          ownererror.getMessage should include("multiple bundle owners")
+          _bundle_bytes(root.resolve("alpha.json")) shouldBe beforealpha
+          _bundle_bytes(root.resolve("beta.json")) shouldBe beforebeta
+        }
+      }
+
+      "preserve child identity bytes when a parent role is merged in the same owner bundle" in {
+        Given("canonical parent a and child a/b strict and integrity records in one owner bundle")
+        _with_root { root =>
+          val parentstrict = _site_strict("a", "/repository/video/a.mp4")
+          val childstrict = _site_strict("a/b", "/repository/video/a-b.mp4")
+          val parentintegrity = _video_integrity(articleidentity = "a", publicpath = "/repository/video/a.mp4")
+          val childintegrity = _video_integrity(articleidentity = "a/b", publicpath = "/repository/video/a-b.mp4")
+          _write_bundle(root, "same", Vector(
+            _entry(parentstrict.entryPath, parentstrict.metadata),
+            _entry(parentintegrity.entryPath, parentintegrity.metadata),
+            _entry(childstrict.entryPath, childstrict.metadata),
+            _entry(childintegrity.entryPath, childintegrity.metadata)
+          ))
+          val childbefore = CozyArticleMediaRegistry.load(root).entries.filter(x => x.path == childstrict.entryPath || x.path == childintegrity.entryPath)
+          val childmetadatabytes = childbefore.map(x => x.path -> Json.stringify(x.metadata))
+
+          When("the parent role is merged in the same bundle")
+          val sameresult = CozyArticleMediaRegistry.transaction(root)(_.merge(Vector(_infographic_role_update("a"))))
+          val samechild = CozyArticleMediaRegistry.load(root).entries.filter(x => x.path == childstrict.entryPath || x.path == childintegrity.entryPath)
+
+          Then("only a is selected and a/b retains exact owner bytes and metadata")
+          sameresult.bundlePaths shouldBe Vector(root.resolve("same.json"))
+          samechild shouldBe childbefore
+          samechild.map(x => x.path -> Json.stringify(x.metadata)) shouldBe childmetadatabytes
+
+        }
+      }
+
+      "preserve distinct parent and child owners when each exact identity is merged" in {
+        Given("canonical parent a and child a/b strict and integrity records in distinct owner bundles")
+        _with_root { root =>
+          val parentstrict = _site_strict("a", "/repository/video/a.mp4")
+          val childstrict = _site_strict("a/b", "/repository/video/a-b.mp4")
+          val parentintegrity = _video_integrity(articleidentity = "a", publicpath = "/repository/video/a.mp4")
+          val childintegrity = _video_integrity(articleidentity = "a/b", publicpath = "/repository/video/a-b.mp4")
+          _write_bundle(root, "alpha", Vector(_entry(parentstrict.entryPath, parentstrict.metadata), _entry(parentintegrity.entryPath, parentintegrity.metadata)))
+          _write_bundle(root, "beta", Vector(_entry(childstrict.entryPath, childstrict.metadata), _entry(childintegrity.entryPath, childintegrity.metadata)))
+          val childbytes = _bundle_bytes(root.resolve("beta.json"))
+          val parentbytes = _bundle_bytes(root.resolve("alpha.json"))
+
+          When("the parent and then child roles are merged independently")
+          val parentresult = CozyArticleMediaRegistry.transaction(root)(_.merge(Vector(_infographic_role_update("a"))))
+          val childafterparent = _bundle_bytes(root.resolve("beta.json"))
+          val parentafter = _bundle_bytes(root.resolve("alpha.json"))
+          val childresult = CozyArticleMediaRegistry.transaction(root)(_.merge(Vector(_infographic_role_update("a/b"))))
+
+          Then("each exact identity selects only its owner with no false multi-owner and preserves the other bytes")
+          parentresult.bundlePaths shouldBe Vector(root.resolve("alpha.json"))
+          childresult.bundlePaths shouldBe Vector(root.resolve("beta.json"))
+          childafterparent shouldBe childbytes
+          _bundle_bytes(root.resolve("alpha.json")) should not be parentbytes
+          _bundle_bytes(root.resolve("alpha.json")) shouldBe parentafter
+        }
+      }
+
+      "merge two independently owned articles in deterministic bundle order without creating a canonical owner" in {
+        Given("two valid owner bundles with declaration and generic metadata that must survive")
+        _with_root { root =>
+          val parentstrict = _site_strict("a", "/repository/video/a.mp4")
+          val childstrict = _site_strict("a/b", "/repository/video/a-b.mp4")
+          val parentintegrity = _video_integrity(articleidentity = "a", publicpath = "/repository/video/a.mp4")
+          val childintegrity = _video_integrity(articleidentity = "a/b", publicpath = "/repository/video/a-b.mp4")
+          _write_bundle_json(root, "alpha", _bundle_with_declaration("alpha", "Alpha", Vector(
+            _entry(parentstrict.entryPath, parentstrict.metadata),
+            _entry(parentintegrity.entryPath, parentintegrity.metadata),
+            _entry("metadata/generic-alpha.json", Json.obj("kept" -> "alpha"))
+          )))
+          _write_bundle_json(root, "beta", _bundle_with_declaration("beta", "Beta", Vector(
+            _entry(childstrict.entryPath, childstrict.metadata),
+            _entry(childintegrity.entryPath, childintegrity.metadata),
+            _entry("metadata/generic-beta.json", Json.obj("kept" -> "beta"))
+          )))
+
+          When("one transaction merges one role for each distinct owner")
+          val result = CozyArticleMediaRegistry.transaction(root)(_.merge(Vector(
+            _infographic_role_update("a"),
+            _infographic_role_update("a/b")
+          )))
+          val alpha = Json.parse(Files.readString(root.resolve("alpha.json"))).as[JsObject]
+          val beta = Json.parse(Files.readString(root.resolve("beta.json"))).as[JsObject]
+
+          Then("both deterministic bundles update while declarations, generic entries, and owner topology remain intact")
+          result.bundlePaths shouldBe Vector(root.resolve("alpha.json"), root.resolve("beta.json"))
+          result.entryPaths shouldBe Vector(
+            "metadata/article-media-integrity/a/b/ja/infographic.json",
+            "metadata/article-media-integrity/a/b/ja/video.json",
+            "metadata/article-media-integrity/a/ja/infographic.json",
+            "metadata/article-media-integrity/a/ja/video.json",
+            "metadata/article-media/a.json",
+            "metadata/article-media/a/b.json"
+          )
+          result.snapshot.entries.find(_.path == "metadata/generic-alpha.json").map(_.metadata) shouldBe Some(Json.obj("kept" -> "alpha"))
+          result.snapshot.entries.find(_.path == "metadata/generic-beta.json").map(_.metadata) shouldBe Some(Json.obj("kept" -> "beta"))
+          (((alpha \ "entries").as[JsArray].value.find(x => (x \ "path").as[String] == parentstrict.entryPath).get \ "metadata" \ "variants" \ "ja" \ "infographic").as[JsObject].fields) should not be empty
+          (((beta \ "entries").as[JsArray].value.find(x => (x \ "path").as[String] == childstrict.entryPath).get \ "metadata" \ "variants" \ "ja" \ "infographic").as[JsObject].fields) should not be empty
+          (alpha \ "publication" \ "title").as[String] shouldBe "Alpha"
+          (beta \ "publication" \ "title").as[String] shouldBe "Beta"
+          Files.exists(root.resolve("article-media.json")) shouldBe false
+        }
+      }
+
+      "enforce callback lifetime, owner thread confinement, and opaque transaction construction" in {
+        Given("a captured callback transaction, one valid role update, and a worker attempting retained access")
+        _with_root { root =>
+          val update = _infographic_role_update()
+          var captured: CozyArticleMediaRegistry.Transaction = null
+          val activeerrors = new ConcurrentLinkedQueue[Throwable]()
+          val releasederrors = new ConcurrentLinkedQueue[Throwable]()
+          val second = CozyArticleMediaRegistry.transaction(root) { transaction =>
+            captured = transaction
+            val worker = new Thread(new Runnable {
+              override def run(): Unit = {
+                try transaction.snapshot catch { case e: Throwable => activeerrors.add(e) }
+                try transaction.merge(Vector(update)) catch { case e: Throwable => activeerrors.add(e) }
+              }
+            })
+            worker.start()
+            worker.join()
+            transaction.merge(Vector(update))
+            intercept[IllegalArgumentException](transaction.merge(Vector(update)))
+          }
+
+          When("the callback has returned and another thread retains the transaction")
+          val lifetime = intercept[IllegalArgumentException](captured.snapshot)
+          val released = new Thread(new Runnable {
+            override def run(): Unit = {
+              try captured.snapshot catch { case e: Throwable => releasederrors.add(e) }
+              try captured.merge(Vector(update)) catch { case e: Throwable => releasederrors.add(e) }
+            }
+          })
+          released.start()
+          released.join()
+
+          Then("only the callback owner may use the private-constructed transaction and worker attempts cause no mutation")
+          classOf[CozyArticleMediaRegistry.Transaction].getConstructors.toVector shouldBe empty
+          second.getMessage should include("one merge commit")
+          lifetime.getMessage should include("no longer active")
+          activeerrors.asScala.toVector.map(_.getMessage) shouldBe Vector.fill(2)("Article-media registry transaction must be used by its callback owner thread")
+          releasederrors.asScala.toVector.map(_.getMessage) shouldBe Vector.fill(2)("Article-media registry transaction must be used by its callback owner thread")
+          CozyArticleMediaRegistry.load(root).entries.map(_.path) shouldBe Vector(
+            "metadata/article-media-integrity/development-process/example/ja/infographic.json",
+            "metadata/article-media/development-process/example.json"
+          )
+        }
+      }
+
+      "reject a full digest changed during an injected callback preflight before mutation" in {
+        Given("a captured complete snapshot and an independently changed configured bundle")
+        _with_root { root =>
+          _write_bundle(root, "evidence", Vector(_entry("metadata/evidence.json", Json.obj("revision" -> 1))))
+          val before = _bundle_bytes(root.resolve("evidence.json"))
+
+          When("a callback changes the configured evidence bytes before its first merge")
+          val error = intercept[IllegalArgumentException](CozyArticleMediaRegistry.transaction(root) { transaction =>
+            transaction.snapshot.bundleDigests should contain key "evidence"
+            _write_bundle(root, "evidence", Vector(_entry("metadata/evidence.json", Json.obj("revision" -> 2))))
+            transaction.merge(Vector(_infographic_role_update()))
+          })
+
+          Then("the stale complete snapshot fails before article-media bundle creation")
+          error.getMessage should include("stale configured snapshot")
+          _bundle_bytes(root.resolve("evidence.json")) should not be before
+          Files.exists(root.resolve("article-media.json")) shouldBe false
+        }
+      }
+
+      "serialize concurrent same-article role updates without losing either role" in {
+        Given("two distinct role updates started together for one previously unowned article")
+        _with_root { root =>
+          val ready = new CountDownLatch(2)
+          val start = new CountDownLatch(1)
+          val failures = new ConcurrentLinkedQueue[Throwable]()
+          val first = new Thread(new Runnable {
+            override def run(): Unit = _concurrent_role_merge(root, _infographic_role_update(), ready, start, failures)
+          })
+          val second = new Thread(new Runnable {
+            override def run(): Unit = _concurrent_role_merge(root, _video_role_update(locale = "en"), ready, start, failures)
+          })
+
+          When("both callbacks request the common real-root transaction lock")
+          first.start()
+          second.start()
+          ready.await()
+          start.countDown()
+          first.join()
+          second.join()
+          val strict = CozyArticleMediaRegistry.load(root).entries.find(_.path == "metadata/article-media/development-process/example.json").map(_.metadata).get
+
+          Then("both exact locale-role variants are retained with no transaction failure")
+          failures.asScala.toVector shouldBe empty
+          (((strict \ "variants").as[JsObject] \ "ja" \ "infographic").as[JsObject].fields) should not be empty
+          (((strict \ "variants").as[JsObject] \ "en" \ "video").as[JsObject].fields) should not be empty
+        }
+      }
+
+      "produce deterministic results for shuffled distinct role updates" in {
+        Given("generated orderings of independent Japanese infographic and English video updates")
+        val infographic = _infographic_role_update()
+        val video = _video_role_update(locale = "en")
+        val orders = Gen.oneOf(Vector(Vector(infographic, video), Vector(video, infographic)))
+        val property = Prop.forAll(orders) { order =>
+          _with_root { root =>
+            val result = CozyArticleMediaRegistry.transaction(root)(_.merge(order))
+            val bytes = _bundle_bytes(root.resolve("article-media.json"))
+            _with_root { baseline =>
+              val expected = CozyArticleMediaRegistry.transaction(baseline)(_.merge(Vector(infographic, video)))
+              bytes == _bundle_bytes(baseline.resolve("article-media.json")) && result.entryPaths == expected.entryPaths && result.snapshot == expected.snapshot
+            }
+          }
+        }
+
+        When("ScalaCheck evaluates independently reset orderings")
+        val propertyresult = Test.check(Test.Parameters.default.withMinSuccessfulTests(30), property)
+
+        Then("the persisted canonical bundle and complete snapshot are order-independent")
+        propertyresult.passed shouldBe true
+      }
+    }
   }
 
   private def _strict(identity: String = "development-process/example", watchurl: String = "https://example.com/watch"): CozyArticleMediaPublication.Result =
@@ -840,13 +1291,39 @@ final class CozyArticleMediaRegistrySpec extends AnyWordSpec with Matchers with 
       ))
     )
 
-  private def _video_integrity(articleidentity: String = "development-process/example"): CozyArticleMediaIntegrity.Result =
+  private def _site_strict(identity: String, publicpath: String): CozyArticleMediaPublication.Result =
+    CozyArticleMediaPublication.produce(
+      identity,
+      Vector(CozyArticleMediaPublication.Variant("ja", video = Some(_site_video(publicpath))))
+    )
+
+  private def _site_video(publicpath: String = "/repository/video/example.mp4"): VideoReference =
+    VideoReference(VideoPresentation.SiteHosted, VideoStatus.Published, None, None, Some(new URI(publicpath)))
+
+  private def _infographic_image(publicpath: String): org.smartdox.metadata.PublishMetadata.ImageReference =
+    org.smartdox.metadata.PublishMetadata.ImageReference(new URI(publicpath), Some("image/png"), None)
+
+  private def _video_role_update(identity: String = "development-process/example", locale: String = "ja"): CozyArticleMediaRegistry.RoleUpdate =
+    CozyArticleMediaRegistry.RoleUpdate(
+      identity,
+      CozyArticleMediaPublication.Variant(locale, video = Some(_site_video())),
+      _video_integrity(articleidentity = identity, locale = locale)
+    )
+
+  private def _infographic_role_update(identity: String = "development-process/example", locale: String = "ja"): CozyArticleMediaRegistry.RoleUpdate =
+    CozyArticleMediaRegistry.RoleUpdate(
+      identity,
+      CozyArticleMediaPublication.Variant(locale, infographic = Some(_infographic_image("/ja/development-process/images/example.png"))),
+      _infographic_integrity(articleidentity = identity, locale = locale)
+    )
+
+  private def _video_integrity(articleidentity: String = "development-process/example", locale: String = "ja", publicpath: String = "/repository/video/example.mp4"): CozyArticleMediaIntegrity.Result =
     CozyArticleMediaIntegrity.produce(CozyArticleMediaIntegrity.Input(
       articleIdentity = articleidentity,
-      locale = "ja",
+      locale = locale,
       role = CozyArticleMediaIntegrity.Role.Video,
       artifact = CozyArticleMediaIntegrity.Artifact("example-video", "1.0.0"),
-      publicPath = new URI("/repository/video/example.mp4"),
+      publicPath = new URI(publicpath),
       repositoryPath = "video/example.mp4",
       mediaType = "video/mp4",
       sha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
@@ -854,13 +1331,13 @@ final class CozyArticleMediaRegistrySpec extends AnyWordSpec with Matchers with 
       publicationState = CozyArticleMediaIntegrity.PublicationState.Published
     ))
 
-  private def _infographic_integrity(): CozyArticleMediaIntegrity.Result =
+  private def _infographic_integrity(articleidentity: String = "development-process/example", locale: String = "ja", publicpath: String = "/ja/development-process/images/example.png"): CozyArticleMediaIntegrity.Result =
     CozyArticleMediaIntegrity.produce(CozyArticleMediaIntegrity.Input(
-      articleIdentity = "development-process/example",
-      locale = "ja",
+      articleIdentity = articleidentity,
+      locale = locale,
       role = CozyArticleMediaIntegrity.Role.Infographic,
       artifact = CozyArticleMediaIntegrity.Artifact("example-infographic", "1.0.0"),
-      publicPath = new URI("/ja/development-process/images/example.png"),
+      publicPath = new URI(publicpath),
       repositoryPath = "images/development-process/example.png",
       mediaType = "image/png",
       sha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
@@ -891,6 +1368,18 @@ final class CozyArticleMediaRegistrySpec extends AnyWordSpec with Matchers with 
   private def _write_bundle_json(root: Path, filename: String, bundle: JsObject): Unit =
     Files.write(root.resolve(s"$filename.json"), (Json.prettyPrint(bundle) + "\n").getBytes(StandardCharsets.UTF_8))
 
+  private def _bundle_with_declaration(name: String, title: String, entries: Vector[JsObject]): JsObject =
+    Json.obj(
+      "schema" -> "cozy.publish-project.v1",
+      "type" -> "publication-bundle",
+      "publication" -> Json.obj("name" -> name, "title" -> title),
+      "sourceRepository" -> "cozy",
+      "sourcePath" -> ".",
+      "sourceCommit" -> JsString("0123456789abcdef"),
+      "extension" -> Json.obj("owner" -> name),
+      "entries" -> JsArray(entries)
+    )
+
   private def _bundle_bytes(path: Path): Vector[Byte] =
     Files.readAllBytes(path).toVector
 
@@ -911,6 +1400,21 @@ final class CozyArticleMediaRegistrySpec extends AnyWordSpec with Matchers with 
       ready.countDown()
       start.await()
       CozyPublicationCompiler.registerMetadata(root, "publication", Vector(path -> Json.obj("registered" -> true)))
+    } catch {
+      case e: Throwable => failures.add(e)
+    }
+
+  private def _concurrent_role_merge(
+    root: Path,
+    update: CozyArticleMediaRegistry.RoleUpdate,
+    ready: CountDownLatch,
+    start: CountDownLatch,
+    failures: ConcurrentLinkedQueue[Throwable]
+  ): Unit =
+    try {
+      ready.countDown()
+      start.await()
+      CozyArticleMediaRegistry.transaction(root)(_.merge(Vector(update)))
     } catch {
       case e: Throwable => failures.add(e)
     }
