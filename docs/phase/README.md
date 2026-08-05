@@ -2,16 +2,17 @@
 
 Purpose: engineering work management.
 
-Current phase:
+Current phase state:
 
-- Active, in-progress phase: `phase-26.md`: Article Media Publication and BoK
-  Integration. Its SmartDox dependency is satisfied by accepted closed Phase 1
+- No active, in-progress phase is selected.
+- Most recent closed phase: `phase-26.md`: Article Media Publication and BoK
+  Integration. Its SmartDox dependency was satisfied by accepted closed Phase 1
   commit `fa21316973416c24bca7f8e366d65572c72720b7` and development coordinate
   `org.smartdox:smartdox_2.12:2.4.17-SNAPSHOT`; public/non-SNAPSHOT publication
-  is not a start gate.
+  was not a start gate.
 - Separately planned/blocked phase: `phase-24.md`: Component Skill Distribution
   (awaiting its own CNCF Skill Bundle contract).
-- Most recent closed phase: `phase-25.md`: Entity Revision Generator Alignment
+- Earlier closed phase: `phase-25.md`: Entity Revision Generator Alignment
   (CBD Support runtime-selection acceptance is separately tracked as P8-61).
 
 Belongs:

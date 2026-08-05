@@ -181,19 +181,46 @@ Step acceptance evidence recorded on 2026-08-05:
 
 ## AM26-04: Specifications and Closure
 
-Status: PLANNED
+Status: DONE
 
-- [ ] Add executable specifications proving Cozy producer/validator strict
+- [x] Add executable specifications proving Cozy producer/validator strict
       field emission without integrity-field serialization, conditional
       integrity correlation, boundary validation, and every preview/production
       policy.
-- [ ] Add executable specifications for build handoff/no-heavy-work and
+- [x] Add executable specifications for build handoff/no-heavy-work and
       `VideoPublication`/`.video` compatibility.
-- [ ] Add a bilingual BoK pilot fixture.
-- [ ] Run focused and full Cozy and affected SmartDox tests.
-- [ ] Run `git diff --check` in every modified repository.
-- [ ] Complete read-only post-implementation review, repair actionable
+- [x] Add a bilingual BoK pilot fixture.
+- [x] Run focused and full Cozy and affected SmartDox tests.
+- [x] Run `git diff --check` in every modified repository.
+- [x] Complete read-only post-implementation review, repair actionable
       findings, and complete clean re-review.
-- [ ] Record BoK staging and artifact-publication evidence.
-- [ ] Commit validated changes with required version updates and close Phase 26
+- [x] Record BoK staging and artifact-publication evidence.
+- [x] Commit validated changes with required version updates and close Phase 26
       from this checklist.
+
+Phase closure evidence recorded on 2026-08-05:
+
+- The AM26-03 implementation and executable evidence were committed as
+  `7fd12152577e252a36db596d74bd0fdffd58ab75`; every included Scala header was
+  rechecked against the version-update instruction and records its Aug. 5
+  source-update date.
+- The final focused gate passed 16 suites and 332/332 tests in invocation
+  `84710-20260805T021810Z`. The final repository-wide release gate passed 85
+  suites and 1088/1088 tests, with 8 canceled and no failures, in invocation
+  `94900-20260805T023400Z`; both SBT and wrapper exited zero, released the
+  shared lock, and reported no warnings.
+- SmartDox was unchanged and required no repository commit or separate full
+  suite. The pinned actual generator remained covered by the bilingual Cozy
+  acceptance gate.
+- Full review and all conditional fix/test-fix loops converged through clean
+  focused re-review with zero unresolved actionable findings. `git diff
+  --check` passed in the sole modified repository.
+- Staging evidence covers exact-locale article and Notice projection,
+  media-free output equality, valid producer PNG/MP4 artifacts, canonical
+  manifests/registries, artifact SHA-256, common public URL roots, repository
+  union semantics, and Git directory/worktree-file preservation.
+- Existing `P26-HYG-001` remains a separate, non-blocking directive-hygiene
+  follow-up in
+  `docs/journal/2026/08/2026-08-04-phase-26-hygiene-follow-up.md`.
+
+Phase 26 is closed from this completed ledger.

@@ -1,8 +1,9 @@
 # Phase 26: Article Media Publication and BoK Integration
 
-Status: in progress
+Status: closed
 
 Start date: 2026-08-03
+Close date: 2026-08-05
 
 Dependency: accepted closed SmartDox Phase 1 commit
 `fa21316973416c24bca7f8e366d65572c72720b7`, development integration coordinate
@@ -108,7 +109,7 @@ Focus:
 
 Stage Status:
 
-- Current status: PLANNED
+- Current status: DONE
 - Owner: Cozy
 - Update rule: mark work complete only from the Phase 26 checklist.
 - Checklist basis: `AM26-04`
@@ -124,6 +125,25 @@ Phase 26 closes when a BoK can publish a strict SmartDox article-media variant
 and its separate Cozy integrity record from registered inputs, retain
 Git-external artifacts in a configured repository, and stage matching site and
 artifact URLs without changing ordinary `bok build` into media generation.
+
+## Completion Evidence
+
+- Step implementation commit:
+  `7fd12152577e252a36db596d74bd0fdffd58ab75`.
+- The final behavior-focused AM26-03 gate passed 16 suites and 332/332 tests in
+  serialized invocation `84710-20260805T021810Z`.
+- The Phase 26 repository-wide release gate passed 85 suites and 1088/1088
+  tests, with 8 canceled and no failures, in serialized invocation
+  `94900-20260805T023400Z`; SBT and wrapper exited zero and released the shared
+  lock without warnings.
+- Independent full review, conditional review-fix, test-fix, and focused
+  re-review converged with no unresolved actionable findings.
+- SmartDox remained an unchanged pinned dependency; Cozy's bilingual
+  acceptance exercised its actual `DoxSiteGenerator`, so no SmartDox
+  repository commit or separate full suite was required.
+- Existing directive-hygiene follow-up `P26-HYG-001` remains non-blocking and
+  persisted in
+  `docs/journal/2026/08/2026-08-04-phase-26-hygiene-follow-up.md`.
 
 ## References
 

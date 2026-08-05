@@ -655,7 +655,7 @@ Primary reference:
 
 ### Phase 26: Article Media Publication and BoK Integration
 
-Status: active, in progress. The SmartDox dependency is satisfied by accepted
+Status: closed. The SmartDox dependency was satisfied by accepted
 closed Phase 1 commit `fa21316973416c24bca7f8e366d65572c72720b7` and the
 development integration coordinate `org.smartdox:smartdox_2.12:2.4.17-SNAPSHOT`.
 Public/non-SNAPSHOT publication is not a Phase 26 start gate.
@@ -721,12 +721,14 @@ focused generator alignment now closed with the Cozy generator contract and
 Executable Specifications complete. The attempted CBD Support acceptance was
 blocked by that project's launcher selecting Cozy `0.3.1-SNAPSHOT`; its
 deterministic runtime selection, regeneration, and persistence acceptance are
-explicit Phase 8 `P8-61` work. Phase 26 is the active in-progress BoK
-integration phase. Its SmartDox dependency is satisfied by accepted closed
+explicit Phase 8 `P8-61` work. Phase 26 is closed with its BoK article-media
+publication, build handoff, and staged bilingual acceptance complete. Its
+SmartDox dependency was satisfied by accepted closed
 Phase 1 commit `fa21316973416c24bca7f8e366d65572c72720b7` through development
 coordinate `org.smartdox:smartdox_2.12:2.4.17-SNAPSHOT`; public/non-SNAPSHOT
 publication is not a start gate. It does not require a video binary to enter
-Git or make ordinary `bok build` generate media.
+Git or make ordinary `bok build` generate media. No new active phase is
+selected; Phase 24 remains separately planned and blocked on its own contract.
 
 Phase 20 introduced provider-neutral narration with VOICEVOX, host-only macOS
 `say`, and a portable Piper Docker route, then used that contract to migrate the
