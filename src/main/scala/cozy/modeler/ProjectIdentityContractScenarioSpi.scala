@@ -32,6 +32,18 @@ private[cozy] object ProjectIdentityContractScenarioReport {
 private[cozy] object ProjectIdentityContractScenarioSpi {
   def evaluate(
     request: ProjectIdentityContractScenarioRequest
-  ): ProjectIdentityContractScenarioReport =
-    ProjectIdentityContractScenarioReport.NotImplemented(request.scenarioId)
+  ): ProjectIdentityContractScenarioReport = request match {
+    case ProjectIdentityContractScenarioRequest.ScopedCollision(scenarioid, identities) =>
+      ProjectIdentityAdapter.validateNoScopedCollisions(identities) match {
+        case Right(_) => ProjectIdentityContractScenarioReport.Admitted(scenarioid)
+        case Left(error) =>
+          ProjectIdentityContractScenarioReport.Rejected(scenarioid, _scenario_code(error.code()))
+      }
+  }
+
+  private def _scenario_code(code: String): String =
+    if (code == "component.identity.projection.collision")
+      "component.identity.projection-collision"
+    else
+      code
 }

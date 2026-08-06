@@ -4,6 +4,7 @@ import java.nio.file.{Files, Path}
 import cozy.config.CozyProjectYamlConfig
 import cozy.lint.CozyCarLint
 import cozy.scaffold.CozyScaffold
+import org.goldenport.cncf.component.identity.ComponentIdentityProjection
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -109,6 +110,75 @@ final class Phase56ProjectIdentityContractSpec
   }
 
   "E6 deterministic acronym and digit projections" should {
+    "E6 project exact adapter projections through the shared identity ABI" must _e6 {
+      "E6 emits literal maps for all acronym and digit IDs through the adapter" in {
+        Given("E6 Spec: /Users/asami/src/dev2025/cloud-native-component-framework/docs/notes/phase-56-cid01-component-identity-inventory-and-failing-first-contract.md; Rules: CID01-R3,CID01-R4; Example: E6; canonical inputs project only through the shared identity ABI")
+        val cases = Vector(
+          (
+            "HTTPGateway",
+            Map(
+              "qualified" -> "org.simplemodeling.textus.HTTPGateway",
+              "organization" -> "org.simplemodeling.textus",
+              "artifact" -> "textus-http-gateway",
+              "jvmPackage" -> "org.simplemodeling.textus.httpgateway",
+              "generatedClass" -> "HTTPGatewayComponent",
+              "path" -> "http-gateway"
+            )
+          ),
+          (
+            "OAuth2Client",
+            Map(
+              "qualified" -> "org.simplemodeling.textus.OAuth2Client",
+              "organization" -> "org.simplemodeling.textus",
+              "artifact" -> "textus-oauth2-client",
+              "jvmPackage" -> "org.simplemodeling.textus.oauth2client",
+              "generatedClass" -> "OAuth2ClientComponent",
+              "path" -> "oauth2-client"
+            )
+          ),
+          (
+            "HTTP2Gateway",
+            Map(
+              "qualified" -> "org.simplemodeling.textus.HTTP2Gateway",
+              "organization" -> "org.simplemodeling.textus",
+              "artifact" -> "textus-http2-gateway",
+              "jvmPackage" -> "org.simplemodeling.textus.http2gateway",
+              "generatedClass" -> "HTTP2GatewayComponent",
+              "path" -> "http2-gateway"
+            )
+          )
+        )
+
+        When("E6 Cozy projects every canonical identity through ProjectIdentityAdapter")
+        val observed = cases.map { case (localid, _) =>
+          ProjectIdentityAdapter.projection(
+            ProjectIdentityInput("org.simplemodeling.textus", localid)
+          ).map(_projection_map)
+        }
+
+        Then("E6 every shared projection map is emitted exactly")
+        observed shouldBe cases.map { case (_, expected) => Right(expected) }
+      }
+    }
+
+    "E6 preserve shared safe parse failures through the adapter" must _e6 {
+      "E6 retains invalid namespace and local ID error codes" in {
+        Given("E6 Spec: /Users/asami/src/dev2025/cloud-native-component-framework/docs/notes/phase-56-cid01-component-identity-inventory-and-failing-first-contract.md; Rules: CID01-R3,CID01-R4; invalid canonical namespace and local ID inputs")
+
+        When("E6 Cozy projects invalid canonical identity inputs through ProjectIdentityAdapter")
+        val invalidnamespace = ProjectIdentityAdapter.projection(
+          ProjectIdentityInput("org..textus", "UserAccount")
+        ).left.map(_.code())
+        val invalidlocalid = ProjectIdentityAdapter.projection(
+          ProjectIdentityInput("org.simplemodeling.textus", "user-account")
+        ).left.map(_.code())
+
+        Then("E6 the exact shared error codes are retained")
+        invalidnamespace shouldBe Left("component.identity.namespace.segment-format")
+        invalidlocalid shouldBe Left("component.identity.local-id.format")
+      }
+    }
+
     "E6 project identity projections are exact for HTTPGateway OAuth2Client and HTTP2Gateway" must _e6 {
       "E6 emits literal maps for all acronym and digit IDs" in {
         Given("E6 Spec: /Users/asami/src/dev2025/cloud-native-component-framework/docs/notes/phase-56-cid01-component-identity-inventory-and-failing-first-contract.md; Rules: CID01-R3,CID01-R4; Example: E6; canonical-only configs and literal expected projection maps for three local ids")
@@ -207,15 +277,13 @@ final class Phase56ProjectIdentityContractSpec
         )
 
         Then("E6 the same namespace is rejected and the different namespace is admitted")
-        pendingUntilFixed {
-          observed shouldBe Vector(
-            ProjectIdentityContractScenarioReport.Rejected(
-              "same-namespace-http-gateway",
-              "component.identity.projection-collision"
-            ),
-            ProjectIdentityContractScenarioReport.Admitted("different-namespace-http-gateway")
-          )
-        }
+        observed shouldBe Vector(
+          ProjectIdentityContractScenarioReport.Rejected(
+            "same-namespace-http-gateway",
+            "component.identity.projection-collision"
+          ),
+          ProjectIdentityContractScenarioReport.Admitted("different-namespace-http-gateway")
+        )
       }
     }
   }
@@ -313,6 +381,16 @@ final class Phase56ProjectIdentityContractSpec
       |  component:
       |    version: $version
       |""".stripMargin
+
+  private def _projection_map(projection: ComponentIdentityProjection): Map[String, String] =
+    Map(
+      "qualified" -> projection.qualifiedId(),
+      "organization" -> projection.mavenGroupId(),
+      "artifact" -> projection.mavenArtifactId(),
+      "jvmPackage" -> projection.jvmPackage(),
+      "generatedClass" -> projection.generatedClassName(),
+      "path" -> projection.pathSegment()
+    )
 
   private def _legacy_project_yaml(version: String): String =
     s"""project:

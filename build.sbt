@@ -21,7 +21,7 @@ lazy val cncfVersion = "0.5.1"
 
 lazy val simpleModelingModelVersion = "0.2.0"
 
-lazy val cncfCollaboratorApiVersion = "0.1.0"
+lazy val cncfCollaboratorApiVersion = "0.2.0-SNAPSHOT"
 
 scalaVersion := "2.12.18"
 // crossScalaVersions := Seq("2.10.39.2", "2.9.1")
@@ -74,6 +74,8 @@ val simplemodelerVersion =
   sys.props.getOrElse("simplemodeler.version", sys.env.getOrElse("SIMPLEMODELER_VERSION", "1.1.25-SNAPSHOT"))
 
 libraryDependencies += "org.simplemodeling" %% "simplemodeler" % simplemodelerVersion
+
+libraryDependencies += "org.goldenport" % "cncf-collaborator-api" % cncfCollaboratorApiVersion
 
 libraryDependencies += "org.goldenport" %% "arcadia" % "1.0.2"
 
