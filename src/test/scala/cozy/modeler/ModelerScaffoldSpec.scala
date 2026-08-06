@@ -13,7 +13,8 @@ import org.scalatest.wordspec.AnyWordSpec
 /*
  * @since   Jun. 23, 2026
  *  version Jun. 27, 2026
- * @version Jul. 31, 2026
+ *  version Jul. 31, 2026
+ * @version Aug.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -114,8 +115,11 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         buildsbtcontent should not include ("configuredVersion")
         buildsbtcontent should not include ("CNCF_SAMPLES_ROOT")
         buildsbtcontent should include ("libraryDependencies ++= ProjectYamlBuild.dependencies")
-        buildsbtcontent should include ("project.organization")
-        buildsbtcontent should include ("project.component.version")
+        buildsbtcontent should include ("projectIdentityEvidence := ProjectYamlBuild.admitted")
+        buildsbtcontent should include ("cozyCarName := ProjectYamlBuild.carBaseName(projectIdentityEvidence.value")
+        buildsbtcontent should include ("cozyManifestMetadata ++= ProjectYamlBuild.manifestMetadata(projectIdentityEvidence.value")
+        buildsbtcontent should include ("ProjectYamlBuild.organization(projectIdentityEvidence.value")
+        buildsbtcontent should include ("ProjectYamlBuild.version(projectIdentityEvidence.value")
         buildsbtcontent should include ("build.scalaVersion")
         buildsbtcontent should not include ("cozyPublishCar.value")
         buildsbtcontent should not include ("cozyPublishLocalCar.value")
@@ -149,6 +153,9 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         projectyamlcontent should not include ("componentStyle")
         projectyamlcontent should not include ("componentCapabilities")
         projectyamlbuildcontent should include ("object ProjectYamlBuild")
+        projectyamlbuildcontent should include ("CozyProjectIdentityContract.requireAdmitted")
+        projectyamlbuildcontent should include ("evidence.organization.getOrElse(requiredValue(config, \"project.organization\"))")
+        projectyamlbuildcontent should include ("evidence.moduleName.getOrElse(requiredValue(config, \"project.name\"))")
         projectyamlbuildcontent should include ("build.dependencies.$scope")
         updateclasspathcontent should include ("exec sbt --batch cozyPrepareRuntime")
         val commonscriptcontent = Files.readString(commonscript)
@@ -298,6 +305,9 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         rootbuildcontent should include ("lazy val subsystem = project")
         rootbuildcontent should not include ("lazy val cozyBundleFactoryClassName = settingKey[Option[String]]")
         rootbuildcontent should include ("libraryDependencies ++= ProjectYamlBuild.dependencies(componentMetadata)")
+        rootbuildcontent should include ("componentIdentityEvidence := ProjectYamlBuild.admitted")
+        rootbuildcontent should include ("cozyCarName := ProjectYamlBuild.carBaseName(componentIdentityEvidence.value")
+        rootbuildcontent should include ("cozyManifestMetadata ++= ProjectYamlBuild.manifestMetadata(componentIdentityEvidence.value")
         rootbuildcontent should include ("build.scalaVersion")
         rootbuildcontent should include ("(component / publish).value")
         rootbuildcontent should include ("(subsystem / publish).value")
@@ -316,7 +326,7 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         rootbuildcontent should not include ("cncfCollaboratorApiVersion")
         rootbuildcontent should not include ("org.goldenport.cncf.component.Component$BundleFactory")
         rootbuildcontent should include ("cozyGenerateApp")
-        rootbuildcontent should include ("project.name")
+        rootbuildcontent should include ("ProjectYamlBuild.moduleName(componentIdentityEvidence.value")
         subsystemdescriptorcontent should include ("subsystem: car-sar-sbt-project")
         subsystemdescriptorcontent should include (
           """version: 0.4.2-SNAPSHOT

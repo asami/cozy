@@ -14,7 +14,8 @@ import scala.collection.JavaConverters._
  * @since   May. 20, 2026
  *  version May. 25, 2026
  *  version Jun. 27, 2026
- * @version Jul. 29, 2026
+ *  version Jul. 29, 2026
+ * @version Aug.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyScaffold {
@@ -267,9 +268,13 @@ private[cozy] object CozyScaffold {
     save: Path,
     style: ProjectLayoutStyle,
     scaffold: CarScaffoldConfig,
-    displayName: String
+    displayName: String,
+    private[cozy] val projectidentity: Option[CozyProjectYamlConfig.ProjectIdentity] = None
   )
   object ComponentInitConfig {
+    def unapply(config: ComponentInitConfig): Option[(Path, ProjectLayoutStyle, CarScaffoldConfig, String)] =
+      Some((config.save, config.style, config.scaffold, config.displayName))
+
     def create(args: List[String]): ComponentInitConfig = {
       val save = _path_option(args, "save").getOrElse {
         RAISE.invalidArgumentFault("Missing --save for init component")
@@ -292,15 +297,21 @@ private[cozy] object CozyScaffold {
         case "car-sar" => ProjectLayoutStyle.CarSar
         case other => RAISE.invalidArgumentFault(s"Unsupported component init kind: ${other}")
       }
-      val artifact = _option(args, "name").
-        orElse(config.value("project.name")).
-        getOrElse {
-          val rawcomponent = _option(args, "component-name").
-            orElse(_option(args, "component")).
-            orElse(config.value("project.component.name")).
-            getOrElse("Sample")
-          _kebab(_class_name(rawcomponent))
-        }
+      val projectidentity = config.projectIdentity match {
+        case Right(identity) => identity
+        case Left(error) => RAISE.invalidArgumentFault(error.toString)
+      }
+      val artifact = projectidentity.map(_.projection.mavenArtifactId()).getOrElse {
+        _option(args, "name").
+          orElse(config.value("project.name")).
+          getOrElse {
+            val rawcomponent = _option(args, "component-name").
+              orElse(_option(args, "component")).
+              orElse(config.value("project.component.name")).
+              getOrElse("Sample")
+            _kebab(_class_name(rawcomponent))
+          }
+      }
       val rawcomponent = _option(args, "component-name").
         orElse(_option(args, "component")).
         orElse(config.value("cml.component.name")).
@@ -308,7 +319,7 @@ private[cozy] object CozyScaffold {
         orElse(config.value("project.component.className")).
         orElse(config.value("project.component.name")).
         getOrElse(artifact)
-      val component = _class_name(rawcomponent)
+      val component = projectidentity.map(_.localId.value()).getOrElse(_class_name(rawcomponent))
       val service = _option(args, "service-name").
         orElse(config.value("cml.service.name")).
         map(_class_name).
@@ -326,14 +337,18 @@ private[cozy] object CozyScaffold {
         orElse(config.value("cml.operation.query")).
         map(_class_name).
         getOrElse("SearchNotices")
-      val packagename = _option(args, "package").
-        orElse(config.value("cml.package")).
-        orElse(config.value("project.scalaPackage")).
-        orElse(config.value("project.package")).
-        getOrElse("domain")
-      val organization = _option(args, "organization").
-        orElse(config.value("project.organization")).
-        getOrElse("com.example")
+      val packagename = projectidentity.map(_.projection.jvmPackage()).getOrElse {
+        _option(args, "package").
+          orElse(config.value("cml.package")).
+          orElse(config.value("project.scalaPackage")).
+          orElse(config.value("project.package")).
+          getOrElse("domain")
+      }
+      val organization = projectidentity.map(_.projection.mavenGroupId()).getOrElse {
+        _option(args, "organization").
+          orElse(config.value("project.organization")).
+          getOrElse("com.example")
+      }
       val version = _option(args, "version").
         orElse(config.value("project.component.version")).
         orElse(config.value("project.version")).
@@ -365,7 +380,7 @@ private[cozy] object CozyScaffold {
         args.contains("--tests") || config.boolean("project.scaffold.tests").getOrElse(false),
         args.contains("--mcp-ready-service") || config.boolean("cml.service.mcpReady").getOrElse(false)
       )
-      ComponentInitConfig(save, style, scaffold, displayname)
+      ComponentInitConfig(save, style, scaffold, displayname, projectidentity)
     }
 
     private def _option(args: List[String], key: String): Option[String] = {
@@ -425,15 +440,20 @@ private[cozy] object CozyScaffold {
     scaffold: CarScaffoldConfig
   ): String =
     s"""import org.goldenport.cozy.CozyPlugin.autoImport._
+      |import org.goldenport.cozy.CozyProjectIdentityEvidence
       |import sbt.Keys.*
+      |
+      |lazy val projectIdentityEvidence = settingKey[CozyProjectIdentityEvidence]("Admitted project.yaml component identity evidence")
       |
       |lazy val root = project
       |  .in(file("."))
       |  .enablePlugins(org.goldenport.cozy.CozyPlugin)
       |  .settings(
-      |    organization := ProjectYamlBuild.requiredValue(cozyProjectMetadata.value, "project.organization"),
-      |    name := ProjectYamlBuild.requiredValue(cozyProjectMetadata.value, "project.name"),
-      |    version := ProjectYamlBuild.requiredValue(cozyProjectMetadata.value, "project.component.version"),
+      |    projectIdentityEvidence := ProjectYamlBuild.admitted(cozyProjectMetadata.value, scalaBinaryVersion.value),
+      |    organization := ProjectYamlBuild.organization(projectIdentityEvidence.value, cozyProjectMetadata.value),
+      |    moduleName := ProjectYamlBuild.moduleName(projectIdentityEvidence.value, cozyProjectMetadata.value),
+      |    name := moduleName.value,
+      |    version := ProjectYamlBuild.version(projectIdentityEvidence.value, cozyProjectMetadata.value),
       |    scalaVersion := ProjectYamlBuild.requiredValue(cozyProjectMetadata.value, "build.scalaVersion"),
       |    useCoursier := false,
       |
@@ -450,14 +470,13 @@ private[cozy] object CozyScaffold {
       |      "--runtime",
       |      ProjectYamlBuild.requiredValue(cozyProjectMetadata.value, "build.cozyVersion")
       |    ),
-      |    cozyManifestMetadata ++=
-      |      cozyProjectMetadata.value.mapUnder("packaging.car.manifest_metadata") ++
-      |        Map("component" -> ProjectYamlBuild.requiredValue(cozyProjectMetadata.value, "project.component.name"))
+      |    cozyCarName := ProjectYamlBuild.carBaseName(projectIdentityEvidence.value, moduleName.value, version.value),
+      |    cozyManifestMetadata ++= ProjectYamlBuild.manifestMetadata(projectIdentityEvidence.value, cozyProjectMetadata.value)
       |  )
       |""".stripMargin
 
   private[cozy] def carProjectYamlBuildScala(): String =
-    """import org.goldenport.cozy.CozyProjectConfig
+    """import org.goldenport.cozy.{CozyProjectConfig, CozyProjectIdentityContract, CozyProjectIdentityEvidence}
       |import sbt._
       |
       |object ProjectYamlBuild {
@@ -466,6 +485,27 @@ private[cozy] object CozyScaffold {
       |
       |  def requiredValue(config: CozyProjectConfig, path: String): String =
       |    config.value(path).getOrElse(sys.error(s"$path is required in project.yaml"))
+      |
+      |  def admitted(config: CozyProjectConfig, scalaBinaryVersion: String): CozyProjectIdentityEvidence =
+      |    CozyProjectIdentityContract.requireAdmitted(config, scalaBinaryVersion)
+      |
+      |  def organization(evidence: CozyProjectIdentityEvidence, config: CozyProjectConfig): String =
+      |    evidence.organization.getOrElse(requiredValue(config, "project.organization"))
+      |
+      |  def moduleName(evidence: CozyProjectIdentityEvidence, config: CozyProjectConfig): String =
+      |    evidence.moduleName.getOrElse(requiredValue(config, "project.name"))
+      |
+      |  def version(evidence: CozyProjectIdentityEvidence, config: CozyProjectConfig): String =
+      |    if (evidence.shape == "canonical") evidence.effectiveVersion
+      |    else requiredValue(config, "project.component.version")
+      |
+      |  def carBaseName(evidence: CozyProjectIdentityEvidence, moduleName: String, version: String): String =
+      |    evidence.carBaseName.getOrElse(s"$moduleName-$version")
+      |
+      |  def manifestMetadata(evidence: CozyProjectIdentityEvidence, config: CozyProjectConfig): Map[String, String] =
+      |    if (evidence.shape == "canonical") evidence.manifestMetadata
+      |    else config.mapUnder("packaging.car.manifest_metadata") ++
+      |      Map("component" -> requiredValue(config, "project.component.name"))
       |
       |  def dependencies(config: CozyProjectConfig): Seq[ModuleID] =
       |    _dependencies(config, "compile", None) ++
@@ -500,18 +540,37 @@ private[cozy] object CozyScaffold {
     versions: CarDependencyVersions
   ): String = {
     val scaffold = init.scaffold
+    val projectmetadata = init.projectidentity.fold {
+      s"""  name: ${_yaml_string(scaffold.artifactName)}
+        |  title: ${_yaml_string(init.displayName)}
+        |  kind: car
+        |  organization: ${_yaml_string(scaffold.organization)}
+        |  scalaPackage: ${_yaml_string(scaffold.packageName)}
+        |  component:
+        |    name: ${_yaml_string(scaffold.artifactName)}
+        |    className: ${_yaml_string(scaffold.componentName)}
+        |    displayName: ${_yaml_string(init.displayName)}
+        |    version: ${_yaml_string(scaffold.version)}
+        |""".stripMargin
+    } { identity =>
+      val projection = identity.projection
+      s"""  namespace: ${_yaml_string(identity.namespace.value())}
+        |  id: ${_yaml_string(identity.localId.value())}
+        |  kind: car
+        |  component:
+        |    displayName: ${_yaml_string(init.displayName)}
+        |    version: ${_yaml_string(scaffold.version)}
+        |  identity:
+        |    qualified: ${_yaml_string(projection.qualifiedId())}
+        |    organization: ${_yaml_string(projection.mavenGroupId())}
+        |    artifact: ${_yaml_string(projection.mavenArtifactId())}
+        |    jvmPackage: ${_yaml_string(projection.jvmPackage())}
+        |    generatedClass: ${_yaml_string(projection.generatedClassName())}
+        |    path: ${_yaml_string(projection.pathSegment())}
+        |""".stripMargin
+    }
     s"""project:
-      |  name: ${_yaml_string(scaffold.artifactName)}
-      |  title: ${_yaml_string(init.displayName)}
-      |  kind: car
-      |  organization: ${_yaml_string(scaffold.organization)}
-      |  scalaPackage: ${_yaml_string(scaffold.packageName)}
-      |  component:
-      |    name: ${_yaml_string(scaffold.artifactName)}
-      |    className: ${_yaml_string(scaffold.componentName)}
-      |    displayName: ${_yaml_string(init.displayName)}
-      |    version: ${_yaml_string(scaffold.version)}
-      |
+      |${projectmetadata}
       |build:
       |  scalaVersion: "3.3.8"
       |  cozyVersion: ${_yaml_string(org.simplemodeling.cozy.BuildInfo.version)}
@@ -557,13 +616,16 @@ private[cozy] object CozyScaffold {
 
   private[cozy] def carSarBuildSbt(scaffold: CarScaffoldConfig, versions: CarDependencyVersions): String =
     s"""import org.goldenport.cozy.CozyPlugin.autoImport._
+      |import org.goldenport.cozy.CozyProjectIdentityEvidence
       |import sbt.Keys.*
       |
       |lazy val componentMetadata = ProjectYamlBuild.load(file("component/project.yaml"))
+      |lazy val componentIdentityEvidence = settingKey[CozyProjectIdentityEvidence]("Admitted component project.yaml identity evidence")
       |
       |lazy val commonSettings = Seq(
-      |  organization := ProjectYamlBuild.requiredValue(componentMetadata, "project.organization"),
-      |  version := ProjectYamlBuild.requiredValue(componentMetadata, "project.component.version"),
+      |  componentIdentityEvidence := ProjectYamlBuild.admitted(componentMetadata, scalaBinaryVersion.value),
+      |  organization := ProjectYamlBuild.organization(componentIdentityEvidence.value, componentMetadata),
+      |  version := ProjectYamlBuild.version(componentIdentityEvidence.value, componentMetadata),
       |  scalaVersion := ProjectYamlBuild.requiredValue(componentMetadata, "build.scalaVersion"),
       |  useCoursier := false,
       |  resolvers += Resolver.defaultLocal,
@@ -577,7 +639,8 @@ private[cozy] object CozyScaffold {
       |  .aggregate(component, subsystem)
       |  .settings(commonSettings)
       |  .settings(
-      |    name := ProjectYamlBuild.requiredValue(componentMetadata, "project.name"),
+      |    moduleName := ProjectYamlBuild.moduleName(componentIdentityEvidence.value, componentMetadata),
+      |    name := moduleName.value,
       |    publish := {
       |      val componentpublication = (component / publish).value
       |      val subsystempublication = (subsystem / publish).value
@@ -597,12 +660,12 @@ private[cozy] object CozyScaffold {
       |  .enablePlugins(org.goldenport.cozy.CozyPlugin)
       |  .settings(commonSettings)
       |  .settings(
-      |    name := ProjectYamlBuild.requiredValue(componentMetadata, "project.name"),
+      |    moduleName := ProjectYamlBuild.moduleName(componentIdentityEvidence.value, componentMetadata),
+      |    name := moduleName.value,
       |    cozyGeneratorBackend := "cozy",
       |    libraryDependencies ++= ProjectYamlBuild.dependencies(componentMetadata),
-      |    cozyManifestMetadata ++=
-      |      componentMetadata.mapUnder("packaging.car.manifest_metadata") ++
-      |        Map("component" -> ProjectYamlBuild.requiredValue(componentMetadata, "project.component.name")),
+      |    cozyCarName := ProjectYamlBuild.carBaseName(componentIdentityEvidence.value, moduleName.value, version.value),
+      |    cozyManifestMetadata ++= ProjectYamlBuild.manifestMetadata(componentIdentityEvidence.value, componentMetadata),
       |    Test / fork := false
       |  )
       |
@@ -611,7 +674,8 @@ private[cozy] object CozyScaffold {
       |  .enablePlugins(org.goldenport.cozy.CozyPlugin)
       |  .settings(commonSettings)
       |  .settings(
-      |    name := ProjectYamlBuild.requiredValue(componentMetadata, "project.name") + "-subsystem",
+      |    moduleName := ProjectYamlBuild.moduleName(componentIdentityEvidence.value, componentMetadata) + "-subsystem",
+      |    name := moduleName.value,
       |    cozyPackaging := "sar",
       |    cozySourceDir := baseDirectory.value,
       |    libraryDependencies ++= ProjectYamlBuild.dependencies(componentMetadata),
@@ -955,9 +1019,9 @@ private[cozy] object CozyScaffold {
       |
       |  protected final def component_core(
       |    name: String,
-      |    componentid: ComponentId
+      |    componentId: ComponentId
       |  ): Component.Core =
-      |    spec_create(name, componentid, shared_services)
+      |    spec_create(name, componentId, shared_services)
       |
       |  override val ${service}: ${component}Component.${service}ServiceFactory = Default${service}ServiceFactory()
       |  override val aggregate: ${component}Component.AggregateServiceFactory = AggregateServiceFactoryImpl()
@@ -1059,9 +1123,13 @@ private[cozy] object CozyScaffold {
       |import org.scalatest.wordspec.AnyWordSpec
       |
       |final class ComponentFactorySpec extends AnyWordSpec with Matchers with GivenWhenThen {
-      |  "ComponentFactory" should {
+      |  private val _e1 = afterWord(
+      |    "in spec:generated-component-factory, example:E1, rule:COZY-SCAFFOLD-R1, phase:56, slice:CID-03B"
+      |  )
+      |
+      |  "ComponentFactory" should _e1 {
       |    "expose a primary component factory" in {
-      |      Given("a newly constructed generated component bundle factory")
+      |      Given("Spec: generated-component-factory; Rules: COZY-SCAFFOLD-R1; Example: E1; a newly constructed generated component bundle factory")
       |      val factory = new impl.ComponentFactory()
       |
       |      When("the primary factory is requested")
@@ -1572,9 +1640,12 @@ private[cozy] object CozyScaffold {
       |  version, --version
       |      Show the Cozy runtime version and exit.
       |
-      |  init component --save <dir> [--config <file>] [--name <artifact>] [--component-name <name>] [--service-name <name>] [--entity <name>] [--command-operation <name>] [--query-operation <name>] [--display-name <title>] [--organization <organization>] [--package <package>] [--version <version>] [--kind car|car-sar] [--bounded-context <name>] [--domain <name>] [--gitignore] [--readme] [--tests] [--mcp-ready-service] [--no-project-files] [--overwrite-project-files]
-      |    config keys: project.name, project.organization, project.component.*, project.component.config.*, project.scaffold.*, cml.package, cml.component.name, cml.service.name, cml.entity.name, cml.operation.command, cml.operation.query
-      |      Initialize a component project scaffold. Config-file values are read first; CLI options override them.
+      |  init component --save <dir> [--config <file>] [--name <artifact>] [--component-name <name>|--component <name>] [--service-name <name>] [--entity <name>] [--command-operation <name>] [--query-operation <name>] [--display-name <title>] [--organization <organization>] [--package <package>] [--version <version>] [--kind car|car-sar] [--bounded-context <name>] [--domain <name>] [--gitignore] [--readme] [--tests] [--mcp-ready-service] [--no-project-files] [--overwrite-project-files]
+      |    canonical identity keys: project.namespace, project.id
+      |    Canonical identity is authoritative when either canonical key is authored. Component, artifact, organization, package, class, and path are shared derived projections; corresponding legacy CLI/config identity inputs do not override them.
+      |    --name, --component-name/--component, --organization, --package, and legacy project/cml identity fields are fallback inputs only when canonical identity is absent.
+      |    config keys: project.namespace, project.id, project.name, project.organization, project.scalaPackage, project.component.*, project.component.config.*, project.scaffold.*, cml.package, cml.component.name, cml.service.name, cml.entity.name, cml.operation.command, cml.operation.query
+      |      Initialize a component project scaffold.
       |
       |  car-sbt-project [model-file] --save <dir> [--style car|car-sar] [--component <name>] [--service-name <name>] [--entity <name>] [--command-operation <name>] [--query-operation <name>] [--package <package>] [--name <artifact>] [--organization <organization>] [--version <version>] [--bounded-context <name>] [--domain <name>] [--gitignore] [--readme] [--tests] [--no-project-files] [--overwrite-project-files]
       |      Generate an sbt project scaffold. `car` creates a single CAR component project.

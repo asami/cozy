@@ -4,6 +4,13 @@ import org.goldenport.config.StructuredDocumentLoader
 import org.goldenport.io.InputSource
 import org.goldenport.value._
 import io.circe.{Json => CJson}
+import org.goldenport.cncf.component.identity.{
+  ComponentId,
+  ComponentIdentityProjection,
+  ComponentIdentityResult,
+  ComponentLocalId,
+  ComponentNamespace
+}
 import java.net.URI
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
@@ -13,16 +20,44 @@ import scala.collection.JavaConverters._
  * @since   May. 20, 2026
  *  version Jun.  8, 2026
  *  version Jun. 18, 2026
- * @version Jul. 28, 2026
+ *  version Jul. 28, 2026
+ * @version Aug.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyProjectYamlConfig {
+  /** The canonical project identity is defined solely by the shared Component ID. */
+  private[cozy] final case class ProjectIdentity private[cozy] (
+    componentid: ComponentId
+  ) {
+    def componentId: ComponentId = componentid
+    def namespace: ComponentNamespace = componentid.namespace()
+    def localId: ComponentLocalId = componentid.localId()
+    def qualifiedId: String = componentid.qualifiedName()
+    def projection: ComponentIdentityProjection = ComponentIdentityProjection.of(componentid)
+  }
+
   final case class Config(
     values: Map[String, String],
     lists: Map[String, Vector[String]],
-    json: Option[CJson] = None
+    json: Option[CJson] = None,
+    private[cozy] val authoredkeys: Set[String] = Set.empty
   ) {
     def value(path: String): Option[String] = values.get(path).map(_.trim).filter(_.nonEmpty)
+    def projectIdentity: Either[ComponentIdentityResult.Error, Option[ProjectIdentity]] = {
+      val namespacedefined = authoredkeys.contains("project.namespace") || values.contains("project.namespace")
+      val localiddefined = authoredkeys.contains("project.id") || values.contains("project.id")
+      (namespacedefined, localiddefined) match {
+        case (false, false) => Right(None)
+        case _ =>
+          val namespace = values.get("project.namespace").map(_.trim).filter(_.nonEmpty).orNull
+          val localid = values.get("project.id").map(_.trim).filter(_.nonEmpty).orNull
+          _component_identity_either(ComponentNamespace.parse(namespace)).flatMap { parsednamespace =>
+            _component_identity_either(ComponentLocalId.parse(localid)).map { parsedlocalid =>
+              Some(ProjectIdentity(ComponentId.of(parsednamespace, parsedlocalid)))
+            }
+          }
+        }
+      }
     def list(path: String): Vector[String] = lists.getOrElse(path, Vector.empty).map(_.trim).filter(_.nonEmpty)
     def mapUnder(path: String): Map[String, String] = {
       val prefix = path + "."
@@ -60,16 +95,23 @@ private[cozy] object CozyProjectYamlConfig {
       json.flatMap(_.hcursor.downField("publication").downField("pages").focus).
         flatMap(_.asArray).
         getOrElse(Vector.empty)
-    def merge(overrideconfig: Config): Config =
+    def merge(overrideConfig: Config): Config =
       Config(
-        values ++ overrideconfig.values,
-        lists ++ overrideconfig.lists,
-        overrideconfig.json.orElse(json)
+        values ++ overrideConfig.values,
+        lists ++ overrideConfig.lists,
+        overrideConfig.json.orElse(json),
+        authoredkeys ++ overrideConfig.authoredkeys
       )
   }
   object Config {
     val empty: Config = Config(Map.empty, Map.empty)
   }
+
+  private def _component_identity_either[A](
+    result: ComponentIdentityResult[A]
+  ): Either[ComponentIdentityResult.Error, A] =
+    if (result.isSuccess()) Right(result.value().get())
+    else Left(result.error().get())
 
   private val _project_file_names: Vector[String] =
     Vector("project.yaml", "project.yml", "project.json", "project.conf", "project.hocon", "project.xml")
@@ -85,24 +127,24 @@ private[cozy] object CozyProjectYamlConfig {
       Config.empty
     }
 
-  def loadOperationDefaults(projectdir: Path): Config =
-    operationDefaultFiles(projectdir).foldLeft(Config.empty) { (z, file) =>
+  def loadOperationDefaults(projectDir: Path): Config =
+    operationDefaultFiles(projectDir).foldLeft(Config.empty) { (z, file) =>
       z.merge(load(file))
     }
 
-  def loadProjectConfig(projectdir: Path): Config = {
-    val project = loadProjectMetadata(projectdir)
-    project.merge(loadOperationDefaults(projectdir))
+  def loadProjectConfig(projectDir: Path): Config = {
+    val project = loadProjectMetadata(projectDir)
+    project.merge(loadOperationDefaults(projectDir))
   }
 
-  def loadProjectMetadata(projectdir: Path): Config =
-    _first_existing(projectdir, _project_file_names).map(load).getOrElse(Config.empty)
+  def loadProjectMetadata(projectDir: Path): Config =
+    _first_existing(projectDir, _project_file_names).map(load).getOrElse(Config.empty)
 
-  def operationDefaultFiles(projectdir: Path): Vector[Path] = {
+  def operationDefaultFiles(projectDir: Path): Vector[Path] = {
     val dirs = Vector(
       Option(System.getProperty("user.home")).map(h => Path.of(h).resolve(".cozy")),
-      Some(projectdir.resolve("conf").resolve("cozy")),
-      Some(projectdir.resolve(".cozy"))
+      Some(projectDir.resolve("conf").resolve("cozy")),
+      Some(projectDir.resolve(".cozy"))
     ).flatten
     dirs.flatMap(dir => _config_file_names.map(name => dir.resolve(name))).map(_.toAbsolutePath.normalize).filter(Files.isRegularFile(_))
   }
@@ -126,6 +168,7 @@ private[cozy] object CozyProjectYamlConfig {
     var stack = Vector.empty[(Int, String)]
     var values = Map.empty[String, String]
     var lists = Map.empty[String, Vector[String]]
+    var authoredkeys = Set.empty[String]
 
     def _current_path_ : String = stack.map(_._2).mkString(".")
     def _append_list_(value: String): Unit = {
@@ -148,24 +191,43 @@ private[cozy] object CozyProjectYamlConfig {
             val key = trimmed.substring(0, n).trim
             val rest = trimmed.substring(n + 1).trim
             stack = stack.dropRight(stack.reverse.takeWhile(_._1 >= indent).length)
+            val path = (stack.map(_._2) :+ key).mkString(".")
+            authoredkeys += path
             if (rest.isEmpty) {
               stack = stack :+ (indent -> key)
             } else {
-              val path = (stack.map(_._2) :+ key).mkString(".")
               values = values.updated(path, _unquote(rest))
             }
           }
         }
       }
     }
-    Config(values, lists)
+    Config(values, lists, authoredkeys = authoredkeys)
   }
 
   private def _first_existing(projectdir: Path, names: Vector[String]): Option[Path] =
     names.map(name => projectdir.resolve(name)).find(Files.isRegularFile(_))
 
   private def _config_from_json(json: CJson): Config =
-    Config(_flatten_json(json), _flatten_json_lists(json), Some(json))
+    Config(_flatten_json(json), _flatten_json_lists(json), Some(json), _authored_json_keys(json))
+
+  private def _authored_json_keys(json: CJson): Set[String] =
+    _authored_json_keys("", json)
+
+  private def _authored_json_keys(prefix: String, json: CJson): Set[String] =
+    json.asObject.map { obj =>
+      obj.toMap.toVector.flatMap {
+        case (k, v) =>
+          val key = if (prefix.isEmpty) k else s"${prefix}.${k}"
+          Vector(key) ++ _authored_json_keys(key, v)
+      }.toSet
+    }.orElse {
+      json.asArray.map { xs =>
+        xs.zipWithIndex.flatMap {
+          case (v, i) => _authored_json_keys(s"${prefix}.${i}", v)
+        }.toSet
+      }
+    }.getOrElse(Set.empty)
 
   private def _flatten_json(json: CJson): Map[String, String] =
     _flatten_json("", json)
