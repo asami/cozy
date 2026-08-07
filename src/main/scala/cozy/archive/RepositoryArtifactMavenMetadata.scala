@@ -7,19 +7,19 @@ import scala.xml.Utility
 
 /*
  * @since   May. 20, 2026
- * @version May. 20, 2026
+ * @version Aug.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object RepositoryArtifactMavenMetadata {
-  def toXml(catalog: RepositoryArtifactCatalog, fallbackpublishedat: String): String = {
+  def toXml(catalog: RepositoryArtifactCatalog, fallbackPublishedAt: String): String = {
     val versions = _metadata_versions(catalog)
     val latest = _latest(catalog, versions)
     val release = _release(catalog, versions)
-    val lastupdated = _last_updated(catalog, latest, fallbackpublishedat)
+    val lastupdated = _last_updated(catalog, latest, fallbackPublishedAt)
     Vector(
       """<?xml version="1.0" encoding="UTF-8"?>""",
       "<metadata>",
-      s"  <groupId>org.simplemodeling.repository.${_escape(catalog.kind)}</groupId>",
+      s"  <groupId>${_escape(catalog.namespace.getOrElse(s"org.simplemodeling.repository.${catalog.kind}"))}</groupId>",
       s"  <artifactId>${_escape(catalog.artifactId)}</artifactId>",
       "  <versioning>",
       latest.map(value => s"    <latest>${_escape(value)}</latest>").getOrElse(""),

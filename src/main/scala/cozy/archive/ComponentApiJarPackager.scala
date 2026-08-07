@@ -12,7 +12,7 @@ import play.api.libs.json._
 
 /*
  * @since   Jul. 12, 2026
- * @version Jul. 21, 2026
+ * @version Aug.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object ComponentApiJarPackager {
@@ -20,13 +20,12 @@ private[cozy] object ComponentApiJarPackager {
     val save = _required_path(args, "save")
     val mainjar = _required_path(args, "main-jar")
     val descriptor = _required_path(args, "descriptor")
-    build(mainjar, descriptor, save)
+    _build_api_jar(mainjar, descriptor, save)
   }
 
-  private[cozy] def build(mainjar: Path, descriptor: Path, save: Path): Unit = {
+  private[cozy] def _build_api_jar(mainjar: Path, descriptor: Path, save: Path): Unit = {
     val contract = _parse_descriptor(descriptor)
-    if (contract.schemaVersion != "cncf.component-api.v1")
-      RAISE.invalidArgumentFault(s"Unsupported component API descriptor schema: ${contract.schemaVersion}")
+    val coordinate = _require_contract(contract, descriptor.toString)
     if (contract.provided.isEmpty) {
       Files.deleteIfExists(save)
     } else {
@@ -36,6 +35,12 @@ private[cozy] object ComponentApiJarPackager {
           s"Component API descriptor must publish one shared API artifact, but declared: ${artifactpaths.mkString(", ")}"
         )
       val expectedname = Path.of(artifactpaths.head).getFileName.toString
+      CozyComponentReleaseCoordinateCodec.requireProjection(
+        coordinate.apiArtifactPath,
+        artifactpaths.head,
+        "artifactPath",
+        descriptor.toString
+      )
       if (save.getFileName.toString != expectedname)
         RAISE.invalidArgumentFault(
           s"Component API output ${save.getFileName} does not match descriptor artifact ${expectedname}"
@@ -44,11 +49,12 @@ private[cozy] object ComponentApiJarPackager {
     }
   }
 
-  private[cozy] def withImplementationJar[A](
+  private[cozy] def _with_implementation_jar[A](
     mainjar: Path,
     descriptor: Path
   )(f: Path => A): A = {
     val contract = _parse_descriptor(descriptor)
+    _require_contract(contract, descriptor.toString)
     val patterns = contract.provided.flatMap(_.publicTypes).flatMap(_.artifactPatterns).distinct
     if (patterns.isEmpty)
       f(mainjar)
@@ -65,6 +71,8 @@ private[cozy] object ComponentApiJarPackager {
 
   private def _parse_descriptor(path: Path): ComponentApiContract = {
     val json = Json.parse(Files.readString(path, StandardCharsets.UTF_8))
+    // Validate the raw public contract before macro decoding can discard unknown fields.
+    CozyComponentReleaseCoordinateCodec.readComponent(json, path.toString)
     json.validate[ComponentApiContract] match {
       case JsSuccess(value, _) => value
       case JsError(errors) =>
@@ -73,6 +81,29 @@ private[cozy] object ComponentApiJarPackager {
         }.mkString("; ")
         RAISE.invalidArgumentFault(s"Invalid component API descriptor ${path}: ${detail}")
     }
+  }
+
+  private def _require_contract(
+    contract: ComponentApiContract,
+    source: String
+  ): CozyComponentReleaseCoordinateCodec.Coordinate = {
+    if (contract.schemaVersion != "cncf.component-api.v2")
+      RAISE.invalidArgumentFault(s"component.api.schema.unsupported source=$source actual=${contract.schemaVersion}")
+    val coordinate = CozyComponentReleaseCoordinateCodec.admit(
+      contract.component.namespace,
+      contract.component.id,
+      contract.component.version,
+      source
+    )
+    contract.provided.foreach { provided =>
+      CozyComponentReleaseCoordinateCodec.requireProjection(
+        coordinate.version,
+        provided.version.trim,
+        "provided.version",
+        source
+      )
+    }
+    coordinate
   }
 
   private def _write_api_jar(mainjar: Path, save: Path, publictypes: Vector[PublicType]): Unit = {
@@ -170,12 +201,21 @@ private[cozy] object ComponentApiJarPackager {
     Path.of(args(index + 1)).toAbsolutePath.normalize()
   }
 
-  private final case class ComponentApiContract(schemaVersion: String, provided: Vector[ProvidedApi])
+  private final case class ComponentCoordinate(namespace: String, id: String, version: String)
+  private object ComponentCoordinate {
+    implicit val reads: Reads[ComponentCoordinate] = Json.reads[ComponentCoordinate]
+  }
+
+  private final case class ComponentApiContract(
+    schemaVersion: String,
+    component: ComponentCoordinate,
+    provided: Vector[ProvidedApi]
+  )
   private object ComponentApiContract {
     implicit val reads: Reads[ComponentApiContract] = Json.reads[ComponentApiContract]
   }
 
-  private final case class ProvidedApi(artifactPath: String, publicTypes: Vector[PublicType])
+  private final case class ProvidedApi(version: String, artifactPath: String, publicTypes: Vector[PublicType])
   private object ProvidedApi {
     implicit val reads: Reads[ProvidedApi] = Json.reads[ProvidedApi]
   }

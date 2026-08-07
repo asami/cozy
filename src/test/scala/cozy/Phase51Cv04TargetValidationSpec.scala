@@ -199,7 +199,7 @@ final class Phase51Cv04TargetValidationSpec
         )
 
         When("the Cozy bridge constructs modeler arguments")
-        val args = CozySbtBridge.modelerArgsForSettingsForTest(settings)
+        val args = CozySbtBridge._modeler_args_for_settings_for_test(settings)
 
         Then("the target, path, and digest travel as one contract")
         args should contain allElementsOf List(
@@ -293,7 +293,7 @@ final class Phase51Cv04TargetValidationSpec
 
           When("the bridge resolves each contradictory source set")
           val projecterror = intercept[Exception] {
-            CozySbtBridge.versionArgsForTest(
+            CozySbtBridge._version_args_for_test(
               Map("generation.versions.cncf" -> "0.5.2-SNAPSHOT"),
               directory
             )

@@ -10,22 +10,24 @@ import scala.collection.JavaConverters._
 import cozy.archive.ComponentRepositoryIndex
 
 import org.scalatest.GivenWhenThen
-import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   May. 20, 2026
- * @version Jul. 21, 2026
+ *  version Jul. 21, 2026
+ * @version Aug.  7, 2026
  * @author  ASAMI, Tomoharu
  */
-class CozySarPublisherSpec extends AnyFunSuite with GivenWhenThen {
-  test("cozy publish-sar command dispatches publisher and help lists command") {
+class CozySarPublisherSpec extends AnyWordSpec with Matchers with GivenWhenThen {
+  "Cozy SAR publication" should {
+  "dispatch the publish-sar command and document it in help" in {
     _with_temp_dir("cozy-publish-sar-cli") { dir =>
+      Given("a SAR project and a prebuilt SAR archive")
       val projectdir = dir.resolve("project")
       val warehouse = dir.resolve("warehouse")
       val sar = _write(dir.resolve("input/sample.sar"), "sar-body")
       _write_project_yaml(projectdir, "sample-application")
-
-      Given("a SAR project and a prebuilt SAR archive")
 
       When("Cozy publishes the SAR through the CLI")
       Cozy.main(Array(
@@ -37,27 +39,28 @@ class CozySarPublisherSpec extends AnyFunSuite with GivenWhenThen {
         "--sar", sar.toString
       ))
 
-      Then("the SAR is stored and command help documents publication")
-      assert(Files.isRegularFile(warehouse.resolve("repository/sar/sample-application/0.1.0/sample-application-0.1.0.sar")))
+      Then("the SAR is stored")
+      Files.isRegularFile(warehouse.resolve("repository/sar/sample-application/0.1.0/sample-application-0.1.0.sar")) shouldBe true
 
+      When("Cozy renders command help")
       val out = new ByteArrayOutputStream()
       Console.withOut(new PrintStream(out, true, StandardCharsets.UTF_8.name())) {
         Cozy.main(Array("--help"))
       }
       val help = out.toString(StandardCharsets.UTF_8.name())
-      assert(help.contains("publish-sar <project-dir>"))
-      assert(help.contains("Publish a SAR archive and SAR catalog"))
+      Then("help documents SAR publication")
+      help should include("publish-sar <project-dir>")
+      help should include("Publish a SAR archive and SAR catalog")
     }
   }
 
-  test("publish-sar publishes a prebuilt SAR and creates source and warehouse catalogs") {
+  "publish a prebuilt SAR and create source and warehouse catalogs" in {
     _with_temp_dir("cozy-publish-sar-prebuilt") { dir =>
+      Given("a SAR project and a release archive")
       val projectdir = dir.resolve("project")
       val warehouse = dir.resolve("warehouse")
       val sar = _write(dir.resolve("input/sample.sar"), "sar-body")
       _write_project_yaml(projectdir, "sample-application")
-
-      Given("a SAR project and a release archive")
 
       When("Cozy publishes the release as recommended")
       CozySarPublisher.publish(List(
@@ -71,31 +74,32 @@ class CozySarPublisherSpec extends AnyFunSuite with GivenWhenThen {
 
       Then("the archive, detailed catalogs, Maven metadata, and discovery index are published")
       val target = warehouse.resolve("repository/sar/sample-application/0.1.0/sample-application-0.1.0.sar")
-      assert(Files.readString(target) == "sar-body")
+      Files.readString(target) shouldBe "sar-body"
       val metadata = Files.readString(warehouse.resolve("repository/sar/sample-application/maven-metadata.xml"))
-      assert(metadata.contains("<groupId>org.simplemodeling.repository.sar</groupId>"))
-      assert(metadata.contains("<artifactId>sample-application</artifactId>"))
-      assert(metadata.contains("<latest>0.1.0</latest>"))
-      assert(metadata.contains("<release>0.1.0</release>"))
-      assert(metadata.contains("<version>0.1.0</version>"))
-      assert(!Files.exists(projectdir.resolve("src/main/catalog/sar/maven-metadata.xml")))
+      metadata should include("<groupId>org.simplemodeling.repository.sar</groupId>")
+      metadata should include("<artifactId>sample-application</artifactId>")
+      metadata should include("<latest>0.1.0</latest>")
+      metadata should include("<release>0.1.0</release>")
+      metadata should include("<version>0.1.0</version>")
+      Files.exists(projectdir.resolve("src/main/catalog/sar/maven-metadata.xml")) shouldBe false
       val sourcecatalog = RepositoryArtifactCatalog.load(projectdir.resolve("src/main/catalog/sar/sample-application.yaml"))
       val publiccatalog = RepositoryArtifactCatalog.load(warehouse.resolve("repository/catalog/sar/sample-application.yaml"))
-      assert(sourcecatalog == publiccatalog)
-      assert(publiccatalog.kind == "sar")
-      assert(publiccatalog.recommended == Some("0.1.0"))
-      assert(publiccatalog.latestStable == Some("0.1.0"))
-      assert(publiccatalog.versions.head.runtime.isEmpty)
-      assert(publiccatalog.versions.head.file == Some("repository/sar/sample-application/0.1.0/sample-application-0.1.0.sar"))
-      assert(publiccatalog.versions.head.checksumSha256.nonEmpty)
+      sourcecatalog shouldBe publiccatalog
+      publiccatalog.kind shouldBe "sar"
+      publiccatalog.recommended shouldBe Some("0.1.0")
+      publiccatalog.latestStable shouldBe Some("0.1.0")
+      publiccatalog.versions.head.runtime shouldBe empty
+      publiccatalog.versions.head.file shouldBe Some("repository/sar/sample-application/0.1.0/sample-application-0.1.0.sar")
+      publiccatalog.versions.head.checksumSha256 should not be empty
       val index = ComponentRepositoryIndex.load(warehouse.resolve("repository/catalog/index.json"))
-      assert(index.artifacts.map(_.identity) == Vector("sar" -> "sample-application"))
-      assert(index.artifacts.head.catalog == "sar/sample-application.yaml")
+      index.artifacts.map(_.identity) shouldBe Vector(("sar", "", "sample-application"))
+      index.artifacts.head.catalog shouldBe "sar/sample-application.yaml"
     }
   }
 
-  test("publish-sar builds a snapshot SAR without adding snapshot to catalog") {
+  "build a snapshot SAR without adding it to a release catalog" in {
     _with_temp_dir("cozy-publish-sar-build") { dir =>
+      Given("a SAR source tree and a snapshot version")
       val projectdir = dir.resolve("project")
       val warehouse = dir.resolve("warehouse")
       val sourcedir = dir.resolve("src")
@@ -103,8 +107,6 @@ class CozySarPublisherSpec extends AnyFunSuite with GivenWhenThen {
       _write_project_yaml(projectdir, "sample-application")
       _write(sourcedir.resolve("subsystem-descriptor.yaml"), "subsystem: sample\n")
       _write(sourcedir.resolve("ignored.txt"), "ignored")
-
-      Given("a SAR source tree and a snapshot version")
 
       When("Cozy builds and publishes the snapshot")
       CozySarPublisher.publish(List(
@@ -120,17 +122,18 @@ class CozySarPublisherSpec extends AnyFunSuite with GivenWhenThen {
       Then("the archive is built without adding a snapshot release catalog entry")
       val target = warehouse.resolve("repository/sar/sample-application/0.1.1-SNAPSHOT/sample-application-0.1.1-SNAPSHOT.sar")
       val entries = _zip_entries(target)
-      assert(entries.contains("subsystem-descriptor.yaml"))
-      assert(entries.contains("extension/adapter.jar"))
-      assert(!entries.contains("ignored.txt"))
-      assert(!Files.exists(projectdir.resolve("src/main/catalog/sar/sample-application.yaml")))
-      assert(!Files.exists(warehouse.resolve("repository/catalog/sar/sample-application.yaml")))
-      assert(!Files.exists(warehouse.resolve("repository/sar/sample-application/maven-metadata.xml")))
+      entries should contain("subsystem-descriptor.yaml")
+      entries should contain("extension/adapter.jar")
+      entries should not contain "ignored.txt"
+      Files.exists(projectdir.resolve("src/main/catalog/sar/sample-application.yaml")) shouldBe false
+      Files.exists(warehouse.resolve("repository/catalog/sar/sample-application.yaml")) shouldBe false
+      Files.exists(warehouse.resolve("repository/sar/sample-application/maven-metadata.xml")) shouldBe false
     }
   }
 
-  test("publish-sar removes existing snapshot entries from catalog") {
+  "remove existing snapshot entries from a catalog" in {
     _with_temp_dir("cozy-publish-sar-snapshot-cleanup") { dir =>
+      Given("a release catalog contaminated by an older snapshot entry")
       val projectdir = dir.resolve("project")
       val warehouse = dir.resolve("warehouse")
       val sar = _write(dir.resolve("input/sample.sar"), "snapshot-sar-body")
@@ -155,8 +158,6 @@ class CozySarPublisherSpec extends AnyFunSuite with GivenWhenThen {
           |""".stripMargin
       )
 
-      Given("a release catalog contaminated by an older snapshot entry")
-
       When("Cozy publishes the next snapshot")
       CozySarPublisher.publish(List(
         projectdir.toString,
@@ -169,15 +170,16 @@ class CozySarPublisherSpec extends AnyFunSuite with GivenWhenThen {
       Then("source and public catalogs retain only release versions")
       val sourcecatalog = RepositoryArtifactCatalog.load(projectdir.resolve("src/main/catalog/sar/sample-application.yaml"))
       val publiccatalog = RepositoryArtifactCatalog.load(warehouse.resolve("repository/catalog/sar/sample-application.yaml"))
-      assert(sourcecatalog == publiccatalog)
-      assert(sourcecatalog.latestSnapshot.isEmpty)
-      assert(sourcecatalog.versions.map(_.version) == Vector("0.1.0"))
-      assert(sourcecatalog.versions.forall(_.channel != Some("snapshot")))
+      sourcecatalog shouldBe publiccatalog
+      sourcecatalog.latestSnapshot shouldBe empty
+      sourcecatalog.versions.map(_.version) shouldBe Vector("0.1.0")
+      sourcecatalog.versions.forall(_.channel != Some("snapshot")) shouldBe true
     }
   }
 
-  test("publish-sar preserves existing catalog versions and replaces same version") {
+  "preserve existing catalog versions while replacing the same release" in {
     _with_temp_dir("cozy-publish-sar-merge") { dir =>
+      Given("a SAR catalog with deprecated and current release versions")
       val projectdir = dir.resolve("project")
       val warehouse = dir.resolve("warehouse")
       val sar = _write(dir.resolve("input/sample.sar"), "new-sar-body")
@@ -206,8 +208,6 @@ class CozySarPublisherSpec extends AnyFunSuite with GivenWhenThen {
           |""".stripMargin
       )
 
-      Given("a SAR catalog with deprecated and current release versions")
-
       When("Cozy republishes the current release")
       CozySarPublisher.publish(List(
         projectdir.toString,
@@ -219,18 +219,20 @@ class CozySarPublisherSpec extends AnyFunSuite with GivenWhenThen {
 
       Then("history and selectors remain stable while current metadata is replaced")
       val catalog = RepositoryArtifactCatalog.load(projectdir.resolve("src/main/catalog/sar/sample-application.yaml"))
-      assert(catalog.versions.map(_.version) == Vector("0.0.9", "0.1.0"))
-      assert(catalog.versions.find(_.version == "0.0.9").flatMap(_.status) == Some("deprecated"))
-      assert(catalog.versions.find(_.version == "0.1.0").flatMap(_.checksumSha256) != Some("old"))
-      assert(catalog.recommended == Some("0.0.9"))
-      assert(catalog.latestStable == Some("0.1.0"))
-      assert(catalog.aliases == Vector("sample-old"))
+      catalog.versions.map(_.version) shouldBe Vector("0.0.9", "0.1.0")
+      catalog.versions.find(_.version == "0.0.9").flatMap(_.status) shouldBe Some("deprecated")
+      catalog.versions.find(_.version == "0.1.0").flatMap(_.checksumSha256) should not be Some("old")
+      catalog.recommended shouldBe Some("0.0.9")
+      catalog.latestStable shouldBe Some("0.1.0")
+      catalog.aliases shouldBe Vector("sample-old")
       val metadata = Files.readString(warehouse.resolve("repository/sar/sample-application/maven-metadata.xml"))
-      assert(metadata.contains("<latest>0.0.9</latest>"))
-      assert(metadata.contains("<release>0.1.0</release>"))
-      assert(metadata.contains("<version>0.0.9</version>"))
-      assert(metadata.contains("<version>0.1.0</version>"))
+      metadata should include("<latest>0.0.9</latest>")
+      metadata should include("<release>0.1.0</release>")
+      metadata should include("<version>0.0.9</version>")
+      metadata should include("<version>0.1.0</version>")
     }
+  }
+
   }
 
   private def _write_project_yaml(projectdir: Path, name: String): Unit =
@@ -253,7 +255,9 @@ class CozySarPublisherSpec extends AnyFunSuite with GivenWhenThen {
   }
 
   private def _with_temp_dir(prefix: String)(body: Path => Unit): Unit = {
-    val dir = Files.createTempDirectory(prefix)
+    val workroot = Path.of("target/cozy-test/work/cozy-sar-publisher-spec").toAbsolutePath.normalize()
+    Files.createDirectories(workroot)
+    val dir = Files.createTempDirectory(workroot, s"$prefix-")
     try {
       body(dir)
     } finally {

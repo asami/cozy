@@ -12,23 +12,24 @@ import scala.collection.JavaConverters._
 /*
  * @since   May. 20, 2026
  *  version Jun.  4, 2026
- * @version Jul. 28, 2026
+ *  version Jul. 28, 2026
+ * @version Aug.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 object CozyCarPublisher {
   def publish(args: List[String]): Unit =
     _publish(args, None)
 
-  private[cozy] def publish(
+  private[cozy] def _publish_with_evidence(
     args: List[String],
     evidence: GenerationCompatibilityEvidence,
-    executingCozyVersion: String
+    executingcozyversion: String
   ): Unit =
     _publish(
       args,
       Some(CarMetadataCompatibility.GenerationAcceptanceContext(
         evidence,
-        executingCozyVersion
+        executingcozyversion
       ))
     )
 
@@ -39,11 +40,28 @@ object CozyCarPublisher {
     ]
   ): Unit = {
     val compatibility = _compatibility_contract(args, acceptancecontext)
+    val projectdir = RepositoryArtifactPublisher.projectDir(args, "Missing project directory for publish-car")
+    val coordinate = CozyComponentReleaseCoordinateCodec.fromProjectMetadata(
+      RepositoryArtifactPublisher.projectConfig(projectdir),
+      "project.yaml"
+    )
+    CozyComponentReleaseCoordinateCodec.requireProjection(
+      coordinate.mavenArtifactId,
+      RepositoryArtifactPublisher.requiredValue(args, "name"),
+      "name",
+      "publish-car"
+    )
+    CozyComponentReleaseCoordinateCodec.requireProjection(
+      coordinate.version,
+      RepositoryArtifactPublisher.requiredValue(args, "version"),
+      "version",
+      "publish-car"
+    )
     _with_prebuilt_car_snapshot(args) { publicationargs =>
-      _require_prebuilt_car_admission(publicationargs, compatibility)
+      _require_prebuilt_car_admission(publicationargs, compatibility, coordinate)
       RepositoryArtifactPublisher.publish(
         publicationargs,
-        _policy(compatibility)
+        _policy(compatibility, coordinate)
       )
     }
   }
@@ -55,7 +73,10 @@ object CozyCarPublisher {
       case Some(source) =>
         if (!Files.isRegularFile(source))
           throw new IllegalArgumentException(s"CAR archive does not exist: $source")
-        val snapshot = Files.createTempFile("cozy-publish-car-snapshot-", ".car")
+        val projectdir = RepositoryArtifactPublisher.projectDir(args, "Missing project directory for publish-car")
+        val workroot = projectdir.resolve("target/cozy/work/publish-car")
+        Files.createDirectories(workroot)
+        val snapshot = Files.createTempFile(workroot, "snapshot-", ".car")
         try {
           Files.copy(source, snapshot, StandardCopyOption.REPLACE_EXISTING)
           body(_replace_option(args, "car", snapshot.toString))
@@ -68,39 +89,34 @@ object CozyCarPublisher {
 
   private def _require_prebuilt_car_admission(
     args: List[String],
-    compatibility: Option[CarMetadataCompatibility.Contract]
+    compatibility: Option[CarMetadataCompatibility.Contract],
+    coordinate: CozyComponentReleaseCoordinateCodec.Coordinate
   ): Unit =
-    for {
-      contract <- compatibility
-      archive <- RepositoryArtifactPublisher.path(args, "car")
-    } {
-      val projectdir = RepositoryArtifactPublisher.projectDir(
-        args,
-        "Missing project directory for publish-car"
-      )
-      val config = RepositoryArtifactPublisher.projectConfig(projectdir)
-      val name = RepositoryArtifactPublisher.requiredValue(args, "name")
-      val version = RepositoryArtifactPublisher.requiredValue(args, "version")
-      val component = RepositoryArtifactPublisher.value(args, "component").
-        orElse(config.value("packaging.car.manifest_metadata.component")).
-        orElse(config.value("project.name")).
-        getOrElse(name)
-      val generatedrelease =
-        !version.toUpperCase(java.util.Locale.ROOT).contains("SNAPSHOT") &&
-          _has_cml_source(projectdir)
-      _with_validated_generation_provenance(
-        projectdir,
-        contract,
-        generatedrelease
-      ) { generationprovenance =>
-        CozyCarRuntimeManifest.requireValidArchive(
-          archive,
-          contract,
-          name,
-          version,
-          component,
-          generationprovenance
-        )
+    RepositoryArtifactPublisher.path(args, "car").foreach { archive =>
+      compatibility match {
+        case Some(contract) =>
+          val projectdir = RepositoryArtifactPublisher.projectDir(
+            args,
+            "Missing project directory for publish-car"
+          )
+          val generatedrelease =
+            !coordinate.version.toUpperCase(java.util.Locale.ROOT).contains("SNAPSHOT") &&
+              _has_cml_source(projectdir)
+          _with_validated_generation_provenance(
+            projectdir,
+            contract,
+            generatedrelease
+          ) { generationprovenance =>
+            // Full compatibility validation already includes canonical admission.
+            CozyCarRuntimeManifest.requireValidArchive(
+              archive,
+              contract,
+              coordinate,
+              generationprovenance
+            )
+          }
+        case None =>
+          CozyCarRuntimeManifest.requireCanonicalArchiveAdmission(archive, coordinate)
       }
     }
 
@@ -120,8 +136,9 @@ object CozyCarPublisher {
           Some(contract.cncfCompileTarget.version),
           Some(contract.cozyVersion)
         )
-      val snapshot =
-        Files.createTempFile("cozy-publish-generation-provenance-", ".json")
+      val workroot = projectdir.resolve("target/cozy/work/publish-car")
+      Files.createDirectories(workroot)
+      val snapshot = Files.createTempFile(workroot, "generation-provenance-", ".json")
       try {
         Files.copy(source, snapshot, StandardCopyOption.REPLACE_EXISTING)
         GenerationProvenance.requireValidForPackaging(
@@ -173,7 +190,8 @@ object CozyCarPublisher {
   }
 
   private def _policy(
-    compatibility: Option[CarMetadataCompatibility.Contract]
+    compatibility: Option[CarMetadataCompatibility.Contract],
+    coordinate: CozyComponentReleaseCoordinateCodec.Coordinate
   ): RepositoryArtifactPublisher.Policy =
     RepositoryArtifactPublisher.Policy(
       kind = "car",
@@ -189,7 +207,8 @@ object CozyCarPublisher {
           args,
           compatibility
         ),
-      buildArchive = _build_temp_car
+      buildArchive = _build_temp_car,
+      coordinate = Some(coordinate)
     )
 
   private def _build_temp_car(args: List[String]): Path = {
@@ -197,7 +216,9 @@ object CozyCarPublisher {
     val name = RepositoryArtifactPublisher.requiredValue(args, "name")
     val version = RepositoryArtifactPublisher.requiredValue(args, "version")
     val mainjar = RepositoryArtifactPublisher.requiredPath(args, "main-jar")
-    val tempcar = Files.createTempFile("cozy-publish-car-", ".car")
+    val workroot = projectdir.resolve("target/cozy/work/publish-car")
+    Files.createDirectories(workroot)
+    val tempcar = Files.createTempFile(workroot, "build-", ".car")
     val buildargs =
       RepositoryArtifactPublisher.removePublishOnlyArgs(args, _publish_only_keys) ++
         Vector(
@@ -221,15 +242,11 @@ object CozyCarPublisher {
   ): RepositoryArtifactCatalogVersion = {
     val projectdir = RepositoryArtifactPublisher.projectDir(args, "Missing project directory for publish-car")
     val config = RepositoryArtifactPublisher.projectConfig(projectdir)
-    val component = RepositoryArtifactPublisher.value(args, "component").
-      orElse(config.value("packaging.car.manifest_metadata.component")).
-      orElse(config.value("project.name")).
-      getOrElse(RepositoryArtifactPublisher.requiredValue(args, "name"))
     RepositoryArtifactCatalogVersion(
       version = version,
       channel = Some(channel),
       status = Some(RepositoryArtifactPublisher.value(args, "status").getOrElse("active")),
-      component = Some(component),
+      component = None,
       publishedAt = Some(RepositoryArtifactPublisher.publishedAt(args)),
       file = Some(file),
       runtime = compatibility.map(_runtime_requirement).orElse(_runtime_requirement(config)),
@@ -250,18 +267,9 @@ object CozyCarPublisher {
       )
     val metadata = CozyProjectYamlConfig.loadProjectMetadata(projectdir)
     if (CarMetadataCompatibility.isCarProject(metadata)) {
-      val publishedversion =
-        RepositoryArtifactPublisher.requiredValue(args, "version")
-      val projectversion =
-        metadata.value("project.component.version").getOrElse(
-          throw new IllegalArgumentException(
-            "CAR publication requires project.yaml project.component.version."
-          )
-        )
-      if (publishedversion != projectversion)
-        throw new IllegalArgumentException(
-          s"CAR publication version disagrees with project.yaml: project=$projectversion publish=$publishedversion"
-        )
+      CozyComponentReleaseCoordinateCodec.fromProjectMetadata(
+        RepositoryArtifactPublisher.projectConfig(projectdir), "project.yaml"
+      )
     }
     acceptancecontext match {
       case Some(context) =>

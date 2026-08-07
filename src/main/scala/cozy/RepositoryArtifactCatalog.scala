@@ -4,42 +4,47 @@ import java.nio.file.Path
 
 /*
  * @since   May. 20, 2026
- * @version Jul. 13, 2026
+ *  version Jul. 13, 2026
+ * @version Aug.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 object RepositoryArtifactCatalog {
   def apply(
-    schemaversion: String,
+    schemaVersion: String,
     kind: String,
-    artifactid: String,
+    artifactId: String,
     recommended: Option[String],
-    lateststable: Option[String],
-    latestsnapshot: Option[String],
+    latestStable: Option[String],
+    latestSnapshot: Option[String],
     status: Option[String],
     aliases: Vector[String],
     versions: Vector[RepositoryArtifactCatalogVersion],
     tags: Vector[String] = Vector.empty,
-    terms: Vector[String] = Vector.empty
+    terms: Vector[String] = Vector.empty,
+    namespace: Option[String] = None,
+    id: Option[String] = None
   ): RepositoryArtifactCatalog =
     _root_.cozy.archive.RepositoryArtifactCatalog(
-      schemaversion,
+      schemaVersion,
       kind,
-      artifactid,
+      artifactId,
       recommended,
-      lateststable,
-      latestsnapshot,
+      latestStable,
+      latestSnapshot,
       status,
       aliases,
       versions,
       tags,
-      terms
+      terms,
+      namespace,
+      id
     )
 
   def unapply(value: RepositoryArtifactCatalog): Option[
     (String, String, String, Option[String], Option[String], Option[String], Option[String], Vector[String], Vector[RepositoryArtifactCatalogVersion])
   ] = {
     // Keep the established extractor arity while tags and terms remain additive fields.
-    Some((value.schemaVersion, value.kind, value.artifactId, value.recommended, value.latestStable, value.latestSnapshot, value.status, value.aliases, value.versions))
+    Option(value).map(x => (x.schemaVersion, x.kind, x.artifactId, x.recommended, x.latestStable, x.latestSnapshot, x.status, x.aliases, x.versions))
   }
 
   def load(path: Path): RepositoryArtifactCatalog =
@@ -48,8 +53,8 @@ object RepositoryArtifactCatalog {
   def parse(text: String): RepositoryArtifactCatalog =
     _root_.cozy.archive.RepositoryArtifactCatalog.parse(text)
 
-  def validate(catalog: RepositoryArtifactCatalog, sourcepath: Option[Path]): Unit =
-    _root_.cozy.archive.RepositoryArtifactCatalog.validate(catalog, sourcepath)
+  def validate(catalog: RepositoryArtifactCatalog, sourcePath: Option[Path]): Unit =
+    _root_.cozy.archive.RepositoryArtifactCatalog.validate(catalog, sourcePath)
 
   def toYaml(catalog: RepositoryArtifactCatalog): String =
     _root_.cozy.archive.RepositoryArtifactCatalog.toYaml(catalog)
@@ -61,26 +66,28 @@ object RepositoryArtifactCatalogVersion {
     channel: Option[String],
     status: Option[String],
     component: Option[String],
-    publishedat: Option[String],
+    publishedAt: Option[String],
     file: Option[String],
     runtime: Option[RepositoryArtifactRuntimeRequirement],
-    checksumsha256: Option[String]
+    checksumSha256: Option[String],
+    integrityKey: Option[String] = None
   ): RepositoryArtifactCatalogVersion =
     _root_.cozy.archive.RepositoryArtifactCatalogVersion(
       version,
       channel,
       status,
       component,
-      publishedat,
+      publishedAt,
       file,
       runtime,
-      checksumsha256
+      checksumSha256,
+      integrityKey
     )
 
   def unapply(value: RepositoryArtifactCatalogVersion): Option[
     (String, Option[String], Option[String], Option[String], Option[String], Option[String], Option[RepositoryArtifactRuntimeRequirement], Option[String])
   ] =
-    _root_.cozy.archive.RepositoryArtifactCatalogVersion.unapply(value)
+    Option(value).map(x => (x.version, x.channel, x.status, x.component, x.publishedAt, x.file, x.runtime, x.checksumSha256))
 }
 
 object RepositoryArtifactRuntimeRequirement {

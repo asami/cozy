@@ -8,7 +8,8 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jun. 30, 2026
- * @version Jul.  1, 2026
+ *  version Jul.  1, 2026
+ * @version Aug.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyOperationConfigSpec
@@ -28,7 +29,7 @@ class CozyOperationConfigSpec
         )
 
         When("Cozy resolves operation arguments for SmartDox PDF")
-        val result = CozyOperationConfig.withPdfDefaults(List("report.dox"), dir)
+        val result = CozyOperationConfig._with_pdf_defaults(List("report.dox"), dir)
 
         Then("the canonical config values are added as command-line defaults")
         result should contain("--latex-format")
@@ -50,7 +51,7 @@ class CozyOperationConfigSpec
         )
 
         When("Cozy resolves operation arguments for SmartDox PDF")
-        val result = CozyOperationConfig.withPdfDefaults(List("report.dox"), dir)
+        val result = CozyOperationConfig._with_pdf_defaults(List("report.dox"), dir)
 
         Then("the dotted config value is still recognized")
         result should contain("--latex-format")

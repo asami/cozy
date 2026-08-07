@@ -19,6 +19,11 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import play.api.libs.json.Json
 
+/*
+ * @since   Jul. 29, 2026
+ * @version Aug.  7, 2026
+ * @author  ASAMI, Tomoharu
+ */
 final class CozyCarRuntimeManifestSpec
     extends AnyWordSpec
     with Matchers
@@ -29,43 +34,30 @@ final class CozyCarRuntimeManifestSpec
         Given("one CAR project and its generated CML style snapshot")
         _write(
           root.resolve("project.yaml"),
-          """project:
-            |  name: sample-component
-            |  kind: car
-            |  component:
-            |    name: sample-component
-            |    version: 0.1.0-SNAPSHOT
-            |packaging:
-            |  kind: car
-            |  car:
-            |    runtime:
-            |      cncf:
-            |        minimum: 0.5.17
-            |        tested: [0.5.17]
-            |""".stripMargin
+          _project_yaml("0.1.0-SNAPSHOT")
         )
         val metadata = _write(root.resolve("target/cozy/model-metadata.json"), _model_metadata_with_component_style)
         _write(
           root.resolve("src/main/car/abi-manifest.json"),
-          """{"format":"cozy.car.abi-manifest.v1","car":{"name":"sample-component","version":"0.1.0-SNAPSHOT"},"abi":{"exports":{"components":[{"name":"sample-component"}]}}}"""
+          _abi_manifest("0.1.0-SNAPSHOT")
         )
         val development = root.resolve(CozyDevelopmentRuntimeManifest.COMPONENT_DESCRIPTOR_IDENTITY)
         val archive = root.resolve("out/sample.car")
         val mainjar = _write(root.resolve("artifacts/main.jar"), "main")
 
         When("the development and packaged routes render the same CML projection")
-        CozyArchivePackager.writeDevelopmentComponentDescriptor(root, development)
+        CozyArchivePackager._write_development_component_descriptor(root, development)
         cozy.CarPackagingSpecSupport.buildCarWithContract(List(
           "--save", archive.toString,
           "--project-dir", root.toString,
           "--main-jar", mainjar.toString,
           "--model-metadata", metadata.toString,
-          "--name", "sample-component",
+          "--name", "example-sample",
           "--version", "0.1.0-SNAPSHOT",
-          "--component", "sample-component"
+          "--component", "Sample"
         ))
 
-        Then("both routes retain one semantically identical schema-v2 descriptor")
+        Then("both routes retain one semantically identical schema-3 descriptor")
         Json.parse(Files.readString(development, StandardCharsets.UTF_8)) shouldBe
           Json.parse(_zip_text(archive, "component-descriptor.json"))
       }
@@ -76,20 +68,14 @@ final class CozyCarRuntimeManifestSpec
         Given("a CML-derived project with a competing source descriptor")
         _write(
           root.resolve("project.yaml"),
-          """project:
-            |  name: sample-component
-            |  kind: car
-            |  component:
-            |    name: sample-component
-            |    version: 0.1.0
-            |""".stripMargin
+          _project_yaml("0.1.0-SNAPSHOT")
         )
         _write(root.resolve("target/cozy/model-metadata.json"), _model_metadata_with_component_style)
         _write(root.resolve("src/main/car/component-descriptor.json"), "{}")
 
         When("development descriptor generation evaluates competing authority")
         val error = intercept[Throwable] {
-          CozyArchivePackager.writeDevelopmentComponentDescriptor(
+        CozyArchivePackager._write_development_component_descriptor(
             root,
             root.resolve(CozyDevelopmentRuntimeManifest.COMPONENT_DESCRIPTOR_IDENTITY)
           )
@@ -100,30 +86,24 @@ final class CozyCarRuntimeManifestSpec
       }
     }
 
-    "preserve a source descriptor for style-less legacy CML development" in {
+    "preserve a canonical source descriptor for style-less CML development" in {
       _with_temp_dir { root =>
-        Given("a CML project without a selected component style and a legacy source descriptor")
+        Given("a CML project without a selected component style and a canonical source descriptor")
         _write(
           root.resolve("project.yaml"),
-          """project:
-            |  name: sample-component
-            |  kind: car
-            |  component:
-            |    name: sample-component
-            |    version: 0.1.0
-            |""".stripMargin
+          _project_yaml("0.1.0-SNAPSHOT")
         )
         _write(root.resolve("src/main/cozy/sample.cml"), "# COMPONENT\n\n## Sample\n")
         val source = _write(
           root.resolve("src/main/car/component-descriptor.json"),
-          """{"name":"sample-component","version":"0.1.0","component":"sample-component"}"""
+          _descriptor("0.1.0-SNAPSHOT")
         )
         val output = root.resolve(CozyDevelopmentRuntimeManifest.COMPONENT_DESCRIPTOR_IDENTITY)
 
         When("the development descriptor is prepared")
-        CozyArchivePackager.writeDevelopmentComponentDescriptor(root, output)
+        CozyArchivePackager._write_development_component_descriptor(root, output)
 
-        Then("the legacy source descriptor remains the development projection")
+        Then("the canonical source descriptor remains the development projection")
         Files.readString(output, StandardCharsets.UTF_8) shouldBe Files.readString(source, StandardCharsets.UTF_8)
       }
     }
@@ -133,10 +113,10 @@ final class CozyCarRuntimeManifestSpec
         Given("a project contract and descriptor whose versions differ")
         _write(
           root.resolve("project.json"),
-          """{"project":{"name":"sample","kind":"car","component":{"name":"sample","version":"0.0.1-SNAPSHOT"}},"build":{"cozyVersion":"0.3.1-SNAPSHOT","dependencies":{"compile":["org.goldenport::goldenport-cncf:0.5.17"]}},"packaging":{"kind":"car","car":{"runtime":{"cncf":{"minimum":"0.5.17","excluded":[],"tested":["0.5.17"]}}}}}"""
+          _project_json("0.0.1-SNAPSHOT")
         )
-        _write(root.resolve("src/main/car/component-descriptor.json"), """{"name":"sample","version":"0.0.2-SNAPSHOT","component":"sample"}""")
-        _write(root.resolve("src/main/car/abi-manifest.json"), """{"format":"cozy.car.abi-manifest.v1","car":{"name":"sample","version":"0.0.2-SNAPSHOT"},"abi":{"exports":{"components":[{"name":"sample"}]}}}""")
+        _write(root.resolve("src/main/car/component-descriptor.json"), _descriptor("0.0.2-SNAPSHOT"))
+        _write(root.resolve("src/main/car/abi-manifest.json"), _abi_manifest("0.0.2-SNAPSHOT"))
         val classes = root.resolve("target/scala-3.3.8/classes")
         _write(classes.resolve("sample.class"), "compiled")
         val classpath = root.resolve(CozyDevelopmentRuntimeManifest.RUNTIME_CLASSPATH_IDENTITY)
@@ -148,40 +128,26 @@ final class CozyCarRuntimeManifestSpec
         }
 
         Then("the contradictory descriptor is rejected before manifest publication")
-        exception.getMessage should include("Development runtime project version mismatch")
-        exception.getMessage should include("expected=0.0.1-SNAPSHOT actual=0.0.2-SNAPSHOT")
+        exception.getMessage should include("component.release-coordinate.mismatch")
+        exception.getMessage should include("expected=org.example.Sample:0.0.1-SNAPSHOT")
+        exception.getMessage should include("actual=org.example.Sample:0.0.2-SNAPSHOT")
       }
     }
 
-    "write stable development evidence without treating mutable class bytes as archive integrity" in {
+    "write deterministic stable evidence across class-only recompilation" in {
       _with_temp_dir { root =>
         Given("a CAR project with prepared classpath, descriptor, ABI, and mutable classes")
         _write(
           root.resolve("project.json"),
-          """{
-            |  "project": {
-            |    "name": "sample",
-            |    "kind": "car",
-            |    "component": {"name": "sample", "version": "0.0.1-SNAPSHOT"}
-            |  },
-            |  "build": {
-            |    "cozyVersion": "0.3.1-SNAPSHOT",
-            |    "dependencies": {"compile": ["org.goldenport::goldenport-cncf:0.5.17"]}
-            |  },
-            |  "packaging": {
-            |    "kind": "car",
-            |    "car": {"runtime": {"cncf": {"minimum": "0.5.17", "excluded": [], "tested": ["0.5.17"]}}}
-            |  }
-            |}
-            |""".stripMargin
+          _project_json("0.0.1-SNAPSHOT")
         )
         _write(
           root.resolve("src/main/car/component-descriptor.json"),
-          """{"name":"sample","version":"0.0.1-SNAPSHOT","component":"sample"}"""
+          _descriptor("0.0.1-SNAPSHOT")
         )
         _write(
           root.resolve("src/main/car/abi-manifest.json"),
-          """{"format":"cozy.car.abi-manifest.v1","car":{"name":"sample","version":"0.0.1-SNAPSHOT"},"abi":{"exports":{"components":[{"name":"sample"}]}}}"""
+          _abi_manifest("0.0.1-SNAPSHOT")
         )
         val classes = root.resolve("target/scala-3.3.8/classes")
         _write(classes.resolve("sample.class"), "first compilation")
@@ -196,20 +162,36 @@ final class CozyCarRuntimeManifestSpec
         CozyDevelopmentRuntimeManifest.write(root, classpath, manifest)
         val after = Json.parse(Files.readString(manifest, StandardCharsets.UTF_8))
 
-        Then("the legacy development schema records only stable evidence")
-        (after \ "schemaVersion").as[String] shouldBe "cncf.car-development-runtime-manifest.v1"
+        Then("the development schema records only stable evidence")
+        (after \ "schemaVersion").as[String] shouldBe "cncf.car-development-runtime-manifest.v2"
         (after \ "sourceKind").as[String] shouldBe "development-directory"
-        (after \ "car" \ "component").as[String] shouldBe "sample"
+        (after \ "car" \ "name").as[String] shouldBe "example-sample"
+        (after \ "car" \ "component").as[String] shouldBe "Sample"
         (after \ "evidence").as[Vector[play.api.libs.json.JsObject]].map(entry => (entry \ "path").as[String]) shouldBe Vector(
           "target/cncf.d/runtime-classpath.txt",
-          "src/main/car/component-descriptor.json",
+          "target/cncf.d/component-descriptor.json",
           "src/main/car/abi-manifest.json"
         )
         before shouldBe after
+      }
+    }
 
-        When("the prepared classpath later names a deleted directory")
+    "reject a stale or deleted runtime classpath entry" in {
+      _with_temp_dir { root =>
+        Given("a CAR project with prepared classpath, descriptor, ABI, and mutable classes")
+        _write(root.resolve("project.json"), _project_json("0.0.1-SNAPSHOT"))
+        _write(root.resolve("src/main/car/component-descriptor.json"), _descriptor("0.0.1-SNAPSHOT"))
+        _write(root.resolve("src/main/car/abi-manifest.json"), _abi_manifest("0.0.1-SNAPSHOT"))
+        val classes = root.resolve("target/scala-3.3.8/classes")
+        _write(classes.resolve("sample.class"), "compiled")
+        val classpath = root.resolve(CozyDevelopmentRuntimeManifest.RUNTIME_CLASSPATH_IDENTITY)
+        _write(classpath, classes.toString)
+        val manifest = root.resolve("target/cncf.d/car-runtime-manifest.json")
+        CozyDevelopmentRuntimeManifest.write(root, classpath, manifest)
         Files.delete(classes.resolve("sample.class"))
         Files.delete(classes)
+
+        When("the prepared classpath later names a deleted directory")
         val stale = intercept[Throwable] {
           CozyDevelopmentRuntimeManifest.write(root, classpath, manifest)
         }
@@ -220,27 +202,12 @@ final class CozyCarRuntimeManifestSpec
       }
     }
 
-    "project style-less generated CML metadata through the legacy development manifest route" in {
+    "project style-less generated CML metadata through the canonical development manifest route" in {
       _with_temp_dir { root =>
-        Given("a style-less CML source and a legacy CAR descriptor")
+        Given("a style-less CML source and a canonical CAR descriptor")
         _write(
           root.resolve("project.json"),
-          """{
-            |  "project": {
-            |    "name": "sample",
-            |    "kind": "car",
-            |    "component": {"name": "sample", "version": "0.0.1-SNAPSHOT"}
-            |  },
-            |  "build": {
-            |    "cozyVersion": "0.3.1-SNAPSHOT",
-            |    "dependencies": {"compile": ["org.goldenport::goldenport-cncf:0.5.17"]}
-            |  },
-            |  "packaging": {
-            |    "kind": "car",
-            |    "car": {"runtime": {"cncf": {"minimum": "0.5.17", "excluded": [], "tested": ["0.5.17"]}}}
-            |  }
-            |}
-            |""".stripMargin
+          _project_json("0.0.1-SNAPSHOT")
         )
         val source = _write(
           root.resolve("src/main/cozy/sample.cml"),
@@ -259,11 +226,11 @@ final class CozyCarRuntimeManifestSpec
         )
         _write(
           root.resolve("src/main/car/component-descriptor.json"),
-          """{"name":"sample","version":"0.0.1-SNAPSHOT","component":"sample"}"""
+          _descriptor("0.0.1-SNAPSHOT", "\"componentStyle\":{\"provider\":\"preserved\"}")
         )
         _write(
           root.resolve("src/main/car/abi-manifest.json"),
-          """{"format":"cozy.car.abi-manifest.v1","car":{"name":"sample","version":"0.0.1-SNAPSHOT"},"abi":{"exports":{"components":[{"name":"sample"}]}}}"""
+          _abi_manifest("0.0.1-SNAPSHOT")
         )
         val classes = root.resolve("target/scala-3.3.8/classes")
         _write(classes.resolve("sample.class"), "compiled")
@@ -276,40 +243,69 @@ final class CozyCarRuntimeManifestSpec
         When("Cozy writes development runtime evidence from generated style-less metadata")
         CozyDevelopmentRuntimeManifest.write(root, classpath, manifestpath)
 
-        Then("the generated metadata omits a style and selects the v1 source descriptor identity")
+        Then("the generated metadata omits a style and selects canonical target descriptor evidence")
         val generated = Json.parse(Files.readString(metadata, StandardCharsets.UTF_8))
         (generated \ "componentStyle").toOption shouldBe None
         val manifest = Json.parse(Files.readString(manifestpath, StandardCharsets.UTF_8))
-        (manifest \ "schemaVersion").as[String] shouldBe "cncf.car-development-runtime-manifest.v1"
+        (manifest \ "schemaVersion").as[String] shouldBe "cncf.car-development-runtime-manifest.v2"
         (manifest \ "evidence").as[Vector[play.api.libs.json.JsObject]].map(entry => (entry \ "path").as[String]) shouldBe Vector(
           "target/cncf.d/runtime-classpath.txt",
-          "src/main/car/component-descriptor.json",
+          "target/cncf.d/component-descriptor.json",
           "src/main/car/abi-manifest.json"
         )
 
-        When("a style-less CML source attempts to supply a schema-v2 descriptor")
-        _write(
-          root.resolve("src/main/car/component-descriptor.json"),
-          """{"schemaVersion":2,"name":"sample","version":"0.0.1-SNAPSHOT","component":"sample","componentStyle":{}}"""
-        )
+        And("unrelated canonical componentStyle source content is preserved")
+        Json.parse(Files.readString(root.resolve(CozyDevelopmentRuntimeManifest.COMPONENT_DESCRIPTOR_IDENTITY), StandardCharsets.UTF_8)) shouldBe
+          Json.parse(Files.readString(root.resolve("src/main/car/component-descriptor.json"), StandardCharsets.UTF_8))
+
+      }
+    }
+
+    "reject style-less development metadata when the descriptor schema is missing" in {
+      _with_temp_dir { root =>
+        Given("a style-less CML source and a descriptor without canonical schema")
+        _write(root.resolve("project.json"), _project_json("0.0.1-SNAPSHOT"))
+        val source = _write(root.resolve("src/main/cozy/sample.cml"), "# ENTITY\n\n## Sample\n")
+        val metadata = root.resolve("target/cozy/model-metadata.json")
+        CmlModelMetadata.write(source, metadata, root.resolve("target/cozy/model-metadata.yaml"), "src/main/cozy/sample.cml", "concept")
+        _write(root.resolve("src/main/car/component-descriptor.json"), """{"component":{"namespace":"org.example","id":"Sample","version":"0.0.1-SNAPSHOT"}}""")
+        _write(root.resolve("src/main/car/abi-manifest.json"), _abi_manifest("0.0.1-SNAPSHOT"))
+        val classes = root.resolve("target/scala-3.3.8/classes")
+        _write(classes.resolve("sample.class"), "compiled")
+        val classpath = _write(root.resolve(CozyDevelopmentRuntimeManifest.RUNTIME_CLASSPATH_IDENTITY), classes.toString)
+        val manifestpath = root.resolve("target/cncf.d/car-runtime-manifest.json")
+
+        When("the development manifest route evaluates the missing schema")
         val error = intercept[Throwable] {
           CozyDevelopmentRuntimeManifest.write(root, classpath, manifestpath)
         }
 
-        Then("development admission rejects the competing v2 source authority")
-        error.getMessage should include("Style-less CML source component-descriptor.json must be a legacy descriptor")
+        Then("development admission rejects the missing canonical schema")
+        error.getMessage should include("component.descriptor.schema.unsupported")
+      }
+    }
 
-        When("the source omits its schema version but still declares a component style")
-        _write(
-          root.resolve("src/main/car/component-descriptor.json"),
-          """{"name":"sample","version":"0.0.1-SNAPSHOT","component":"sample","componentStyle":{}}"""
-        )
-        val styleerror = intercept[Throwable] {
+    "reject style-less development metadata when the descriptor declares obsolete schema 2" in {
+      _with_temp_dir { root =>
+        Given("a style-less CML source and a schema-2 descriptor")
+        _write(root.resolve("project.json"), _project_json("0.0.1-SNAPSHOT"))
+        val source = _write(root.resolve("src/main/cozy/sample.cml"), "# ENTITY\n\n## Sample\n")
+        val metadata = root.resolve("target/cozy/model-metadata.json")
+        CmlModelMetadata.write(source, metadata, root.resolve("target/cozy/model-metadata.yaml"), "src/main/cozy/sample.cml", "concept")
+        _write(root.resolve("src/main/car/component-descriptor.json"), """{"schemaVersion":2,"component":{"namespace":"org.example","id":"Sample","version":"0.0.1-SNAPSHOT"}}""")
+        _write(root.resolve("src/main/car/abi-manifest.json"), _abi_manifest("0.0.1-SNAPSHOT"))
+        val classes = root.resolve("target/scala-3.3.8/classes")
+        _write(classes.resolve("sample.class"), "compiled")
+        val classpath = _write(root.resolve(CozyDevelopmentRuntimeManifest.RUNTIME_CLASSPATH_IDENTITY), classes.toString)
+        val manifestpath = root.resolve("target/cncf.d/car-runtime-manifest.json")
+
+        When("the development manifest route evaluates obsolete schema 2")
+        val error = intercept[Throwable] {
           CozyDevelopmentRuntimeManifest.write(root, classpath, manifestpath)
         }
 
-        Then("development admission rejects the componentStyle authority independently")
-        styleerror.getMessage should include("Style-less CML source component-descriptor.json must be a legacy descriptor")
+        Then("development admission rejects obsolete schema 2")
+        error.getMessage should include("component.descriptor.schema.unsupported")
       }
     }
   }
@@ -330,7 +326,7 @@ final class CozyCarRuntimeManifestSpec
           Files.createDirectories(component.getParent)
           Files.writeString(component, content, StandardCharsets.UTF_8)
           val abi = root.resolve("abi-manifest.json")
-          Files.writeString(abi, """{"format":"cozy.car.abi-manifest.v1"}""")
+          Files.writeString(abi, _abi_manifest("0.0.1-SNAPSHOT"))
           CozyCarRuntimeManifest.write(
             root,
             _contract(cncfversion),
@@ -372,20 +368,21 @@ final class CozyCarRuntimeManifestSpec
         _write(staged.resolve("component/main.jar"), "main")
         _write(
           staged.resolve("component-descriptor.json"),
-          """{
-            |  "name": "sample",
-            |  "version": "0.0.1-SNAPSHOT",
-            |  "component": "sample"
-            |}
-            |""".stripMargin
+          """{"schemaVersion":3,"component":{"namespace":"org.example.textus","id":"Sample","version":"0.0.1-SNAPSHOT"}}"""
         )
+        _write(
+          staged.resolve("abi-manifest.json"),
+          _abi_manifest("0.0.1-SNAPSHOT", "org.example.textus")
+        )
+        val coordinate = CozyComponentReleaseCoordinateCodec.admit("org.example.textus", "Sample", "0.0.1-SNAPSHOT", "spec")
         val contract = _contract("0.5.17")
         CozyCarRuntimeManifest.write(
           staged,
           contract,
-          "sample",
+          coordinate.mavenArtifactId,
           "0.0.1-SNAPSHOT",
-          "sample"
+          "Sample",
+          Some(coordinate)
         )
         val validarchive = _zip(staged, root.resolve("valid.car"))
 
@@ -393,9 +390,7 @@ final class CozyCarRuntimeManifestSpec
         noException should be thrownBy CozyCarRuntimeManifest.requireValidArchive(
           validarchive,
           contract,
-          "sample",
-          "0.0.1-SNAPSHOT",
-          "sample",
+          coordinate,
           expectedGenerationProvenance = None
         )
 
@@ -406,9 +401,7 @@ final class CozyCarRuntimeManifestSpec
           CozyCarRuntimeManifest.requireValidArchive(
             tamperedarchive,
             contract,
-            "sample",
-            "0.0.1-SNAPSHOT",
-            "sample",
+            coordinate,
             expectedGenerationProvenance = None
           )
         }
@@ -420,6 +413,60 @@ final class CozyCarRuntimeManifestSpec
       }
     }
   }
+
+  private def _project_yaml(version: String): String =
+    s"""project:
+       |  namespace: org.example
+       |  id: Sample
+       |  kind: car
+       |  component:
+       |    version: $version
+       |build:
+       |  cozyVersion: 0.3.1-SNAPSHOT
+       |  dependencies:
+       |    compile:
+       |      - org.goldenport::goldenport-cncf:0.5.2-SNAPSHOT
+       |packaging:
+       |  kind: car
+       |  car:
+       |    runtime:
+       |      cncf:
+       |        minimum: 0.5.2-SNAPSHOT
+       |        tested: [0.5.2-SNAPSHOT]
+       |""".stripMargin
+
+  private def _project_json(version: String): String =
+    s"""{
+       |  "project": {
+       |    "namespace": "org.example",
+       |    "id": "Sample",
+       |    "kind": "car",
+       |    "component": {"version": "$version"}
+       |  },
+       |  "build": {
+       |    "cozyVersion": "0.3.1-SNAPSHOT",
+       |    "dependencies": {"compile": ["org.goldenport::goldenport-cncf:0.5.2-SNAPSHOT"]}
+       |  },
+       |  "packaging": {
+       |    "kind": "car",
+       |    "car": {"runtime": {"cncf": {"minimum": "0.5.2-SNAPSHOT", "excluded": [], "tested": ["0.5.2-SNAPSHOT"]}}}
+       |  }
+       |}
+       |""".stripMargin
+
+  private def _descriptor(version: String): String =
+    _descriptor(version, "")
+
+  private def _descriptor(version: String, extension: String): String = {
+    val suffix = Option(extension).map(_.trim).filter(_.nonEmpty).map(value => s",$value").getOrElse("")
+    s"""{"schemaVersion":3,"component":{"namespace":"org.example","id":"Sample","version":"$version"}$suffix}"""
+  }
+
+  private def _abi_manifest(
+    version: String,
+    namespace: String = "org.example"
+  ): String =
+    s"""{"format":"cozy.car.abi-manifest.v2","component":{"namespace":"$namespace","id":"Sample","version":"$version"},"abi":{"version":1,"exports":{"components":[{"namespace":"$namespace","id":"Sample"}],"operations":[],"entities":[]},"dependencies":[]}}"""
 
   private def _contract(cncfversion: String): CarMetadataCompatibility.Contract =
     CarMetadataCompatibility.Contract(
@@ -439,7 +486,9 @@ final class CozyCarRuntimeManifestSpec
     )
 
   private def _with_temp_dir[A](body: Path => A): A = {
-    val root = Files.createTempDirectory("cozy-car-runtime-manifest")
+    val workroot = Path.of("target/cozy-test/work/cozy-car-runtime-manifest-spec").toAbsolutePath.normalize()
+    Files.createDirectories(workroot)
+    val root = Files.createTempDirectory(workroot, "cozy-car-runtime-manifest-")
     try body(root)
     finally _delete_tree(root)
   }

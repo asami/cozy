@@ -13,7 +13,7 @@ import org.scalatest.wordspec.AnyWordSpec
  * @since   Apr. 23, 2026
  *  version May. 20, 2026
  *  version Jun. 27, 2026
- * @version Jul. 29, 2026
+ * @version Aug.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 final class BridgeContractSpec
@@ -62,37 +62,37 @@ final class BridgeContractSpec
           Files.readString(_contract_dir.resolve("contract.json"))
         )
         val readme = Files.readString(_contract_dir.resolve("README.md"))
-        val generate = CozySbtBridge.loadRequestForTest(
+        val generate = CozySbtBridge._load_request_for_test(
           _contract_dir.resolve("request-generate.json")
         )
-        val rebind = CozySbtBridge.loadRequestForTest(
+        val rebind = CozySbtBridge._load_request_for_test(
           _contract_dir.resolve("request-rebind-generation-provenance.json")
         )
-        val preparation = CozySbtBridge.loadRequestForTest(
+        val preparation = CozySbtBridge._load_request_for_test(
           _contract_dir.resolve("request-prepare-development-runtime-evidence.json")
         )
-        val car = CozySbtBridge.loadRequestForTest(
+        val car = CozySbtBridge._load_request_for_test(
           _contract_dir.resolve("request-package-car.json")
         )
-        val sar = CozySbtBridge.loadRequestForTest(
+        val sar = CozySbtBridge._load_request_for_test(
           _contract_dir.resolve("request-package-sar.json")
         )
-        val publishcar = CozySbtBridge.loadRequestForTest(
+        val publishcar = CozySbtBridge._load_request_for_test(
           _contract_dir.resolve("request-publish-car.json")
         )
-        val publishsar = CozySbtBridge.loadRequestForTest(
+        val publishsar = CozySbtBridge._load_request_for_test(
           _contract_dir.resolve("request-publish-sar.json")
         )
-        val publish = CozySbtBridge.loadRequestForTest(
+        val publish = CozySbtBridge._load_request_for_test(
           _contract_dir.resolve("request-publish-project.json")
         )
-        val publishvideo = CozySbtBridge.loadRequestForTest(
+        val publishvideo = CozySbtBridge._load_request_for_test(
           _contract_dir.resolve("request-publish-video.json")
         )
-        val samples = CozySbtBridge.loadRequestForTest(
+        val samples = CozySbtBridge._load_request_for_test(
           _contract_dir.resolve("request-distribute-samples.json")
         )
-        val warehouse = CozySbtBridge.loadRequestForTest(
+        val warehouse = CozySbtBridge._load_request_for_test(
           _contract_dir.resolve("request-index-warehouse.json")
         )
 
@@ -184,9 +184,9 @@ final class BridgeContractSpec
 
         When("the bridge renders success and error envelopes")
         val success =
-          Json.parse(CozySbtBridge.renderSuccessEnvelopeForTest("generate"))
+          Json.parse(CozySbtBridge._render_success_envelope_for_test("generate"))
         val error = Json.parse(
-          CozySbtBridge.renderErrorEnvelopeForTest(
+          CozySbtBridge._render_error_envelope_for_test(
             "generate",
             "Bridge command failed with a diagnostic message."
           )
@@ -214,7 +214,7 @@ final class BridgeContractSpec
 
           When("the owning-build bridge supplies a different CNCF target")
           val error = intercept[Exception] {
-            CozySbtBridge.versionArgsForTest(
+          CozySbtBridge._version_args_for_test(
               Map("generation.versions.cncf" -> "0.4.11"),
               dir
             )
@@ -231,7 +231,7 @@ final class BridgeContractSpec
         val digest = "a" * 64
 
         When("the bridge constructs modeler version arguments")
-        val args = CozySbtBridge.versionArgsForSettingsForTest(Map(
+        val args = CozySbtBridge._version_args_for_settings_for_test(Map(
           "generation.versions.cncf" -> "0.5.0",
           "runtime.cncf.descriptor" -> descriptor,
           "runtime.cncf.descriptor.sha256" -> digest
@@ -260,7 +260,7 @@ final class BridgeContractSpec
           )
 
           When("the bridge resolves settings for that project")
-          val args = CozySbtBridge.versionArgsForSettingsForTest(
+          val args = CozySbtBridge._version_args_for_settings_for_test(
             Map("sbt.project_dir" -> projectdir.toString)
           )
 
@@ -290,7 +290,7 @@ final class BridgeContractSpec
           )
 
           When("the bridge resolves an explicit owning-build target")
-          val args = CozySbtBridge.versionArgsForDefaultFilesForTest(
+          val args = CozySbtBridge._version_args_for_default_files_for_test(
             Map("generation.versions.cncf" -> "0.5.2-SNAPSHOT"),
             Vector(globalconfig),
             globalconfigdir
@@ -305,20 +305,23 @@ final class BridgeContractSpec
         }
       }
 
-      "forward component module and version settings to model generation" in {
+      "forward namespace ID and version settings to model generation" in {
         Given("an sbt bridge generation request with build identity settings")
         val settings = Map(
-          "component.module" -> "textus-scraper",
+          "component.namespace" -> "org.example.textus",
+          "component.id" -> "TextusScraper",
           "component.version" -> "0.1.0-SNAPSHOT"
         )
 
         When("the bridge converts the settings to modeler arguments")
-        val args = CozySbtBridge.componentApiArgsForTest(settings)
+        val args = CozySbtBridge._component_api_args_for_test(settings)
 
-        Then("the modeler receives both component identity values")
+        Then("the modeler receives all canonical component coordinate values")
         args shouldBe List(
-          "--component-module",
-          "textus-scraper",
+          "--component-namespace",
+          "org.example.textus",
+          "--component-id",
+          "TextusScraper",
           "--component-version",
           "0.1.0-SNAPSHOT"
         )
@@ -329,7 +332,8 @@ final class BridgeContractSpec
         val descriptor = "/tmp/cncf-runtime.yaml"
         val digest = "b" * 64
         val settings = Map(
-          "component.module" -> "textus-art-scene",
+          "component.namespace" -> "org.example.textus",
+          "component.id" -> "TextusArtScene",
           "component.version" -> "0.1.0-SNAPSHOT",
           "generation.versions.cncf" -> "0.5.1-SNAPSHOT",
           "runtime.cncf.descriptor" -> descriptor,
@@ -337,11 +341,12 @@ final class BridgeContractSpec
         )
 
         When("the bridge constructs the complete modeler argument list")
-        val args = CozySbtBridge.modelerArgsForSettingsForTest(settings)
+        val args = CozySbtBridge._modeler_args_for_settings_for_test(settings)
 
         Then("component API generation and predefined Result resolution receive one coherent contract")
         args should contain allElementsOf List(
-          "--component-module", "textus-art-scene",
+          "--component-namespace", "org.example.textus",
+          "--component-id", "TextusArtScene",
           "--component-version", "0.1.0-SNAPSHOT",
           "--cncf-version", "0.5.1-SNAPSHOT",
           "--cncf-runtime-descriptor", descriptor,
@@ -363,7 +368,7 @@ final class BridgeContractSpec
               "--cncf-runtime-descriptor-sha256",
               "a" * 64
             )
-            CozySbtBridge.generationSourceIdentityArgsForTest(
+            CozySbtBridge._generation_source_identity_args_for_test(
               args,
               Map("sbt.project_dir" -> projectdir.toString)
             ) == List("--generation-source-identity", identity)
@@ -401,7 +406,7 @@ final class BridgeContractSpec
              |  "arguments": [
              |    "${projectdir.toString}",
              |    "--warehouse", "${warehouse.toString}",
-             |    "--name", "sample-component",
+             |    "--name", "example-sample-component",
              |    "--version", "0.1.0-SNAPSHOT",
              |    "--car", "${car.toString}"
              |  ],
@@ -416,11 +421,11 @@ final class BridgeContractSpec
           Then("the snapshot CAR is published without a release catalog")
           Files.isRegularFile(
             warehouse.resolve(
-              "repository/car/sample-component/0.1.0-SNAPSHOT/sample-component-0.1.0-SNAPSHOT.car"
+              "repository/car/org/example/example-sample-component/0.1.0-SNAPSHOT/example-sample-component-0.1.0-SNAPSHOT.car"
             )
           ) shouldBe true
           Files.isRegularFile(
-            warehouse.resolve("repository/catalog/car/sample-component.yaml")
+            warehouse.resolve("repository/catalog/car/org/example/example-sample-component.yaml")
           ) shouldBe false
         }
       }
@@ -444,7 +449,7 @@ final class BridgeContractSpec
              |  "arguments": [
              |    "${projectdir.toString}",
              |    "--warehouse", "${warehouse.toString}",
-             |    "--name", "sample-inline-component",
+             |    "--name", "example-sample-inline-component",
              |    "--version", "0.1.0-SNAPSHOT",
              |    "--car", "${car.toString}"
              |  ],
@@ -459,13 +464,13 @@ final class BridgeContractSpec
           Then("the runtime reads the request and publishes the CAR artifact")
           Files.isRegularFile(
             warehouse.resolve(
-              "repository/car/sample-inline-component/0.1.0-SNAPSHOT/sample-inline-component-0.1.0-SNAPSHOT.car"
+              "repository/car/org/example/example-sample-inline-component/0.1.0-SNAPSHOT/example-sample-inline-component-0.1.0-SNAPSHOT.car"
             )
           ) shouldBe true
           And("the request does not publish a release catalog for the snapshot")
           Files.isRegularFile(
             warehouse.resolve(
-              "repository/catalog/car/sample-inline-component.yaml"
+              "repository/catalog/car/org/example/example-sample-inline-component.yaml"
             )
           ) shouldBe false
         }
@@ -513,7 +518,9 @@ final class BridgeContractSpec
   }
 
   private def _with_temp_dir(prefix: String)(body: Path => Unit): Unit = {
-    val dir = Files.createTempDirectory(prefix)
+    val workroot = Path.of("target/cozy-test/work/bridge-contract-spec").toAbsolutePath.normalize()
+    Files.createDirectories(workroot)
+    val dir = Files.createTempDirectory(workroot, s"$prefix-")
     try {
       body(dir)
     } finally {
@@ -541,37 +548,34 @@ final class BridgeContractSpec
     val mainjar = _write(projectdir.resolve("target/component.jar"), "component")
     val abimanifest = _write(
       projectdir.resolve("src/main/car/abi-manifest.json"),
-      _abi_manifest(name, "0.1.0-SNAPSHOT", name)
+      _abi_manifest("0.1.0-SNAPSHOT", name)
     )
     CarPackagingSpecSupport.buildCarWithContract(List(
       "--save", path.toString,
       "--project-dir", projectdir.toString,
       "--main-jar", mainjar.toString,
-      "--name", name,
+      "--name", _transport_name(name),
       "--version", "0.1.0-SNAPSHOT",
-      "--component", name,
+      "--component", _component_id(name),
       "--abi-manifest", abimanifest.toString
     ))
     path
   }
 
   private def _abi_manifest(
-    name: String,
     version: String,
     component: String
   ): String =
     s"""{
-       |  "format": "cozy.car.abi-manifest.v1",
-       |  "car": {
-       |    "name": "$name",
-       |    "version": "$version"
-       |  },
+       |  "format": "cozy.car.abi-manifest.v2",
+       |  "component": {"namespace": "org.example", "id": "${_component_id(component)}", "version": "$version"},
        |  "abi": {
        |    "version": 1,
        |    "exports": {
        |      "components": [
        |        {
-       |          "name": "$component"
+       |          "namespace": "org.example",
+       |          "id": "${_component_id(component)}"
        |        }
        |      ],
        |      "operations": [],
@@ -587,9 +591,10 @@ final class BridgeContractSpec
       projectdir.resolve("project.yaml"),
       s"""project:
          |  kind: car
+         |  namespace: org.example
+         |  id: ${_component_id(name)}
          |  name: $name
          |  component:
-         |    name: $name
          |    version: 0.1.0-SNAPSHOT
          |build:
          |  cozyVersion: 0.3.1-SNAPSHOT
@@ -612,4 +617,10 @@ final class BridgeContractSpec
       s"# COMPONENT\n\n## ${name}\n"
     )
   }
+
+  private def _component_id(name: String): String =
+    name.split("-").toVector.map(_.capitalize).mkString
+
+  private def _transport_name(name: String): String =
+    s"example-$name"
 }

@@ -21,8 +21,7 @@ import play.api.libs.json.{JsArray, JsObject, JsValue, Json}
  * release provenance before accepting a prebuilt CAR.
  *
  * @since   Jul. 28, 2026
- *  version Jul. 28, 2026
- * @version Aug.  1, 2026
+ * @version Aug.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyCarRuntimeManifest {
@@ -34,8 +33,10 @@ private[cozy] object CozyCarRuntimeManifest {
     contract: CarMetadataCompatibility.Contract,
     name: String,
     version: String,
-    component: String
+    component: String,
+    coordinate: Option[CozyComponentReleaseCoordinateCodec.Coordinate] = None
   ): Unit = {
+    coordinate.foreach(_require_canonical_archive_coordinates(root, _))
     val runtime = contract.runtimeCompatibility
     val entries = _files(root).filterNot(_._2 == FILE_NAME).map { case (path, relative) =>
       Json.obj(
@@ -69,12 +70,35 @@ private[cozy] object CozyCarRuntimeManifest {
     )
   }
 
+  private def _require_canonical_archive_coordinates(
+    root: Path,
+    coordinate: CozyComponentReleaseCoordinateCodec.Coordinate
+  ): Unit = {
+    val descriptorpath = root.resolve("component-descriptor.json")
+    val descriptor = _json(Files.readAllBytes(descriptorpath), "component-descriptor.json")
+    val abipath = root.resolve("abi-manifest.json")
+    val abi = _json(Files.readAllBytes(abipath), "abi-manifest.json")
+    _require_canonical_archive_coordinates(descriptor, abi, coordinate)
+  }
+
+  private def _require_canonical_archive_coordinates(
+    descriptor: JsValue,
+    abi: JsValue,
+    coordinate: CozyComponentReleaseCoordinateCodec.Coordinate
+  ): Unit = {
+    CozyArchivePackager._require_canonical_component_descriptor_shape(descriptor, "component-descriptor.json")
+    CozyComponentReleaseCoordinateCodec.requireExact(
+      coordinate,
+      CozyComponentReleaseCoordinateCodec.readComponent(descriptor, "component-descriptor.json"),
+      "component-descriptor.json"
+    )
+    CozyCarAbiManifest._validate_source_manifest(abi, coordinate, "abi-manifest.json")
+  }
+
   def requireValidArchive(
     archive: Path,
     contract: CarMetadataCompatibility.Contract,
-    name: String,
-    version: String,
-    component: String,
+    coordinate: CozyComponentReleaseCoordinateCodec.Coordinate,
     expectedGenerationProvenance: Option[Path]
   ): Unit = {
     val path = archive.toAbsolutePath.normalize()
@@ -115,9 +139,8 @@ private[cozy] object CozyCarRuntimeManifest {
       val car = (manifest \ "car").asOpt[JsObject].getOrElse(
         RAISE.invalidArgumentFault(s"$FILE_NAME must contain car metadata.")
       )
-      _require_string(car, "name", name, s"$FILE_NAME car")
-      _require_string(car, "version", version, s"$FILE_NAME car")
-      _require_string(car, "component", component, s"$FILE_NAME car")
+      _require_string(car, "name", coordinate.mavenArtifactId, s"$FILE_NAME car")
+      _require_string(car, "version", coordinate.version, s"$FILE_NAME car")
       _require_runtime(manifest, contract)
       _require_integrity(zip, byname, manifest)
       val descriptorentry = byname.getOrElse(
@@ -130,14 +153,8 @@ private[cozy] object CozyCarRuntimeManifest {
         _bytes(zip, descriptorentry),
         "component-descriptor.json"
       )
-      _require_string(descriptor, "name", name, "component-descriptor.json")
-      _require_string(
-        descriptor,
-        "version",
-        version,
-        "component-descriptor.json"
-      )
-      _require_component(descriptor, component, "component-descriptor.json")
+      val abientry = byname.getOrElse("abi-manifest.json", RAISE.invalidArgumentFault("Prebuilt CAR requires abi-manifest.json."))
+      _require_canonical_archive_coordinates(descriptor, _json(_bytes(zip, abientry), "abi-manifest.json"), coordinate)
       expectedGenerationProvenance.foreach(
         _require_generation_provenance(zip, byname, contract, _)
       )
@@ -146,14 +163,66 @@ private[cozy] object CozyCarRuntimeManifest {
     }
   }
 
-  private def _require_component(value: JsValue, expected: String, label: String): Unit = {
-    val actual = (value \ "component").toOption.flatMap {
-      case text: play.api.libs.json.JsString => Some(text.value)
-      case objectvalue: JsObject => (objectvalue \ "name").asOpt[String]
-      case _ => None
+  /**
+   * Admits the canonical descriptor and ABI coordinate in a supplied CAR.
+   *
+   * Project compatibility is deliberately not an admission prerequisite:
+   * canonical prebuilt CAR inputs still have to be safe and coordinate-exact
+   * when their project does not declare the CAR metadata contract.
+   */
+  def requireCanonicalArchiveAdmission(
+    archive: Path,
+    coordinate: CozyComponentReleaseCoordinateCodec.Coordinate
+  ): Unit = {
+    val path = archive.toAbsolutePath.normalize()
+    if (!Files.isRegularFile(path))
+      RAISE.invalidArgumentFault(s"CAR archive does not exist: $path")
+    val zip =
+      try
+        new ZipFile(path.toFile)
+      catch {
+        case NonFatal(exception) =>
+          RAISE.invalidArgumentFault(
+            s"Prebuilt CAR is not a readable archive: ${Option(exception.getMessage).getOrElse(exception.getClass.getName)}"
+          )
+      }
+    try {
+      val entries = zip.entries().asScala.toVector.filterNot(_.isDirectory)
+      val unsafepaths = entries.map(_.getName).filter(_unsafe_path).sorted
+      if (unsafepaths.nonEmpty)
+        RAISE.invalidArgumentFault(
+          s"CAR archive contains unsafe paths: ${unsafepaths.mkString(", ")}"
+        )
+      val duplicates = entries.groupBy(_.getName).collect {
+        case (entryname, xs) if xs.size > 1 => entryname
+      }.toVector.sorted
+      if (duplicates.nonEmpty)
+        RAISE.invalidArgumentFault(
+          s"CAR archive contains duplicate paths: ${duplicates.mkString(", ")}"
+        )
+      val byname = entries.map(entry => entry.getName -> entry).toMap
+      val descriptorentry = byname.getOrElse(
+        "component-descriptor.json",
+        RAISE.invalidArgumentFault(
+          "Prebuilt CAR requires component-descriptor.json."
+        )
+      )
+      val descriptor = _json(
+        _bytes(zip, descriptorentry),
+        "component-descriptor.json"
+      )
+      val abientry = byname.getOrElse(
+        "abi-manifest.json",
+        RAISE.invalidArgumentFault("Prebuilt CAR requires abi-manifest.json.")
+      )
+      _require_canonical_archive_coordinates(
+        descriptor,
+        _json(_bytes(zip, abientry), "abi-manifest.json"),
+        coordinate
+      )
+    } finally {
+      zip.close()
     }
-    if (!actual.contains(expected))
-      RAISE.invalidArgumentFault(s"$label component mismatch: expected=$expected actual=${actual.getOrElse("missing")}")
   }
 
   private def _require_runtime(
@@ -261,7 +330,12 @@ private[cozy] object CozyCarRuntimeManifest {
       RAISE.invalidArgumentFault(
         "Packaged generation-provenance.json differs from the owning project's validated generation provenance."
       )
-    val temporary = Files.createTempFile("cozy-car-provenance-", ".json")
+    val projectroot = Option(expectedprovenance.getParent).flatMap(parent => Option(parent.getParent)).flatMap(parent => Option(parent.getParent)).getOrElse(
+      expectedprovenance.toAbsolutePath.normalize().getParent
+    )
+    val workroot = projectroot.resolve("target/cozy/work/runtime-manifest")
+    Files.createDirectories(workroot)
+    val temporary = Files.createTempFile(workroot, "provenance-", ".json")
     try {
       Files.write(temporary, packagedbytes)
       GenerationProvenance.requireValidPackagedEvidence(

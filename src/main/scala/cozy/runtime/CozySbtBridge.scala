@@ -19,7 +19,7 @@ import java.nio.file.{Files, Path, Paths}
 /*
  * @since   May. 20, 2026
  *  version Jun. 27, 2026
- * @version Jul. 29, 2026
+ * @version Aug.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozySbtBridge {
@@ -191,7 +191,8 @@ private[cozy] object CozySbtBridge {
 
   private def _component_api_args(settings: Map[String, String]): List[String] =
     Vector(
-      "component.module" -> "--component-module",
+      "component.namespace" -> "--component-namespace",
+      "component.id" -> "--component-id",
       "component.version" -> "--component-version"
     ).flatMap { case (key, option) =>
       settings.get(key).map(value => Vector(option, value)).getOrElse(Vector.empty)
@@ -258,33 +259,33 @@ private[cozy] object CozySbtBridge {
     }.filter(_.nonEmpty)
   }
 
-  private[cozy] def componentApiArgsForTest(settings: Map[String, String]): List[String] =
+  private[cozy] def _component_api_args_for_test(settings: Map[String, String]): List[String] =
     _component_api_args(settings)
 
-  private[cozy] def modelerArgsForSettingsForTest(settings: Map[String, String]): List[String] =
+  private[cozy] def _modeler_args_for_settings_for_test(settings: Map[String, String]): List[String] =
     _modeler_args(settings)
 
-  private[cozy] def generationSourceIdentityArgsForTest(
+  private[cozy] def _generation_source_identity_args_for_test(
     args: List[String],
     settings: Map[String, String]
   ): List[String] =
     _generation_source_identity_args(args, settings)
 
-  private[cozy] def versionArgsForTest(settings: Map[String, String], projectDir: Path): List[String] =
-    _version_args(_generation_config(settings + (_sbt_project_dir_setting -> projectDir.toString)))
+  private[cozy] def _version_args_for_test(settings: Map[String, String], projectdir: Path): List[String] =
+    _version_args(_generation_config(settings + (_sbt_project_dir_setting -> projectdir.toString)))
 
-  private[cozy] def versionArgsForSettingsForTest(settings: Map[String, String]): List[String] =
+  private[cozy] def _version_args_for_settings_for_test(settings: Map[String, String]): List[String] =
     _version_args(_generation_config(settings))
 
-  private[cozy] def versionArgsForDefaultFilesForTest(
+  private[cozy] def _version_args_for_default_files_for_test(
     settings: Map[String, String],
-    defaultFiles: Vector[Path],
-    globalConfigDirectory: Path
+    defaultfiles: Vector[Path],
+    globalconfigdirectory: Path
   ): List[String] =
     _version_args(_generation_config(
       settings,
-      defaultFiles,
-      Some(globalConfigDirectory.toAbsolutePath.normalize())
+      defaultfiles,
+      Some(globalconfigdirectory.toAbsolutePath.normalize())
     ))
 
   private def _load_request(path: Path): BridgeRequest = {
@@ -326,7 +327,7 @@ private[cozy] object CozySbtBridge {
     settings: Map[String, String]
   )
 
-  private[cozy] def loadRequestForTest(path: Path): BridgeRequestView = {
+  private[cozy] def _load_request_for_test(path: Path): BridgeRequestView = {
     val req = _load_request(path)
     BridgeRequestView(req.version, req.action, req.arguments, req.settings)
   }
@@ -340,10 +341,10 @@ private[cozy] object CozySbtBridge {
     message: String
   )
 
-  private[cozy] def renderSuccessEnvelopeForTest(action: String): String =
+  private[cozy] def _render_success_envelope_for_test(action: String): String =
     Json.prettyPrint(Json.toJson(BridgeResponseEnvelope("v1", "success", "process-exit", action, 0, "Bridge command completed successfully.")))
 
-  private[cozy] def renderErrorEnvelopeForTest(action: String, message: String): String =
+  private[cozy] def _render_error_envelope_for_test(action: String, message: String): String =
     Json.prettyPrint(Json.toJson(BridgeResponseEnvelope("v1", "error", "process-exit", action, 1, message)))
 
   private implicit val _bridge_response_envelope_format: Format[BridgeResponseEnvelope] = Json.format[BridgeResponseEnvelope]

@@ -2,43 +2,50 @@ package cozy.modeler
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
+import cozy.archive.CozyComponentReleaseCoordinateCodec
 import play.api.libs.json._
 
 /*
  * @since   Jul. 12, 2026
- * @version Jul. 12, 2026
+ * @version Aug.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 object ComponentApiDescriptor {
+  /** Legacy entry point retained only for source compatibility; a module is not a namespace-qualified ID. */
   def write(
-    modelpath: Path,
-    descriptorpath: Path,
+    modelPath: Path,
+    descriptorPath: Path,
     module: String,
     version: String
+  ): Unit =
+    org.goldenport.RAISE.invalidArgumentFault(
+      s"component.release-coordinate.mismatch source=component-api-generation expected=namespace,id actual=module:$module:$version"
+    )
+
+  def write(
+    modelPath: Path,
+    descriptorPath: Path,
+    namespace: String,
+    id: String,
+    version: String
   ): Unit = {
-    val normalizedmodule = Option(module).map(_.trim).filter(_.nonEmpty)
-      .getOrElse(org.goldenport.RAISE.invalidArgumentFault("Component API descriptor requires component module"))
-    val normalizedversion = Option(version).map(_.trim).filter(_.nonEmpty)
-      .getOrElse(org.goldenport.RAISE.invalidArgumentFault("Component API descriptor requires component version"))
-    val model = Json.parse(Files.readString(modelpath, StandardCharsets.UTF_8))
+    val coordinate = CozyComponentReleaseCoordinateCodec.admit(namespace, id, version, "component-api-generation")
+    val model = Json.parse(Files.readString(modelPath, StandardCharsets.UTF_8))
     val provided = (model \ "provided").as[Vector[JsObject]].map { api =>
       api ++ Json.obj(
-        "version" -> normalizedversion,
-        "artifactPath" -> s"spi/${normalizedmodule}-api.jar"
+        "version" -> coordinate.version,
+        "artifactPath" -> coordinate.apiArtifactPath
       )
     }
     val required = (model \ "required").as[Vector[JsObject]]
     val descriptor = Json.obj(
-      "schemaVersion" -> "cncf.component-api.v1",
-      "component" -> Json.obj(
-        "name" -> normalizedmodule,
-        "version" -> normalizedversion
-      ),
+      "schemaVersion" -> "cncf.component-api.v2",
+      "component" -> coordinate.componentJson,
       "provided" -> provided,
       "required" -> required
     )
-    Option(descriptorpath.getParent).foreach(Files.createDirectories(_))
-    Files.writeString(descriptorpath, Json.stringify(descriptor) + "\n", StandardCharsets.UTF_8)
+    Option(descriptorPath.getParent).foreach(Files.createDirectories(_))
+    Files.writeString(descriptorPath, Json.stringify(descriptor) + "\n", StandardCharsets.UTF_8)
     ()
   }
 }

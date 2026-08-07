@@ -15,7 +15,8 @@ import play.api.libs.json.{JsObject, Json}
 
 /*
  * @since   Jul. 27, 2026
- * @version Jul. 28, 2026
+ *  version Jul. 28, 2026
+ * @version Aug.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 final class Phase51Cv05GenerationProvenanceSpec
@@ -142,8 +143,8 @@ final class Phase51Cv05GenerationProvenanceSpec
             "GENERATION_PROVENANCE_INPUT_MISMATCH"
           )
           error.getMessage should include("generator.cozyVersion")
-          cozy.Cozy.helpText should include("generation-provenance-validate")
-          cozy.Cozy.helpText should include("--generation-source-sha256")
+          cozy.Cozy._help_text should include("generation-provenance-validate")
+          cozy.Cozy._help_text should include("--generation-source-sha256")
         }
       }
 
@@ -530,7 +531,7 @@ final class Phase51Cv05GenerationProvenanceSpec
           )
 
           When("the bridge creates provenance arguments")
-          val identityargs = CozySbtBridge.generationSourceIdentityArgsForTest(
+          val identityargs = CozySbtBridge._generation_source_identity_args_for_test(
             args,
             Map("sbt.project_dir" -> directory.toString)
           )
@@ -542,8 +543,8 @@ final class Phase51Cv05GenerationProvenanceSpec
             "--generation-source-identity",
             "src/main/cozy/information.cml"
           )
-          cozy.Cozy.helpText should include("--generation-source-identity")
-          cozy.Cozy.helpText should include(
+          cozy.Cozy._help_text should include("--generation-source-identity")
+          cozy.Cozy._help_text should include(
             "target/cozy/generation-provenance.json"
           )
         }

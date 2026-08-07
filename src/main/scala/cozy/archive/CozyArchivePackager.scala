@@ -22,31 +22,25 @@ import scala.sys.process._
  * @since   May. 20, 2026
  *  version May. 22, 2026
  *  version Jun. 18, 2026
- * @version Jul. 31, 2026
+ * @version Aug.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArchivePackager {
   private val _model_metadata_schema = "cozy.cml.model-metadata.v1"
 
-  private[cozy] def writeDevelopmentComponentDescriptor(
-    projectRoot: Path,
+  private[cozy] def _write_development_component_descriptor(
+    projectroot: Path,
     output: Path
   ): Unit = {
-    val projectroot = projectRoot.toAbsolutePath.normalize()
-    val projectmetadata = CozyProjectYamlConfig.loadProjectMetadata(projectroot)
-    val projectconfig = CozyProjectYamlConfig.loadProjectConfig(projectroot)
-    val name = projectmetadata.value("project.name").getOrElse(
-      RAISE.invalidArgumentFault("project.yaml requires project.name for development component descriptor.")
-    )
-    val version = projectmetadata.value("project.component.version").getOrElse(
-      RAISE.invalidArgumentFault("project.yaml requires project.component.version for development component descriptor.")
-    )
-    val component = projectmetadata.value("project.component.name").getOrElse(name)
+    val root = projectroot.toAbsolutePath.normalize()
+    val projectmetadata = CozyProjectYamlConfig.loadProjectMetadata(root)
+    val projectconfig = CozyProjectYamlConfig.loadProjectConfig(root)
+    val coordinate = CozyComponentReleaseCoordinateCodec.fromProjectMetadata(projectmetadata, "development-component-descriptor")
     val manifestmetadata = projectconfig.mapUnder("packaging.car.manifest_metadata")
-    val packagemetadata = _car_package_metadata(manifestmetadata, component, version)
+    val packagemetadata = _car_package_metadata(manifestmetadata, coordinate)
     _require_project_style_authority_free(projectmetadata)
-    val modelmetadata = _development_model_metadata(projectroot)
-    val source = projectroot.resolve("src/main/car/component-descriptor.json")
+    val modelmetadata = _development_model_metadata(root)
+    val source = root.resolve("src/main/car/component-descriptor.json")
     _component_style_snapshot(modelmetadata) match {
       case Some(snapshot) =>
         if (Files.isRegularFile(source))
@@ -57,9 +51,7 @@ private[cozy] object CozyArchivePackager {
         _write_text(
           output,
           _component_descriptor_json(
-            name,
-            version,
-            packagemetadata.component,
+            coordinate,
             packagemetadata.extensions,
             projectconfig.mapUnder("project.component.config"),
             Vector.empty,
@@ -70,8 +62,7 @@ private[cozy] object CozyArchivePackager {
         if (!Files.isRegularFile(source))
           RAISE.invalidArgumentFault("Development CAR requires generated CML model metadata or src/main/car/component-descriptor.json.")
         val text = Files.readString(source, StandardCharsets.UTF_8)
-        if (_has_cml_sources(Some(projectroot)))
-          _require_legacy_cml_source_descriptor(text, "component-descriptor.json")
+        _validate_canonical_component_descriptor(text, coordinate, "component-descriptor.json")
         _write_text(output, text)
     }
   }
@@ -79,12 +70,12 @@ private[cozy] object CozyArchivePackager {
   def buildCar(args: List[String]): Unit =
     _build_car(args, None)
 
-  private[cozy] def buildCar(
+  private[cozy] def _build_car(
     args: List[String],
     evidence: GenerationCompatibilityEvidence,
-    executingCozyVersion: String
+    executingcozyversion: String
   ): Unit =
-    _build_car(args, Some(evidence -> executingCozyVersion))
+    _build_car(args, Some(evidence -> executingcozyversion))
 
   private def _build_car(
     args: List[String],
@@ -115,7 +106,9 @@ private[cozy] object CozyArchivePackager {
             resolvedcncfartifacts
           )
       }
+    val coordinate = CozyComponentReleaseCoordinateCodec.fromProjectMetadata(projectmetadata, "package-car")
     val outputversion = _required_value(args, "version")
+    CozyComponentReleaseCoordinateCodec.requireProjection(coordinate.version, outputversion, "version", "package-car")
     val releaseoutput = !_is_snapshot_version(outputversion)
     val generatedproject = _has_cml_sources(projectdir)
     if (releaseoutput && generatedproject) {
@@ -158,12 +151,15 @@ private[cozy] object CozyArchivePackager {
       val modelmetadata = _paths(args, "model-metadata")
       val name = _required_value(args, "name")
       val version = _required_value(args, "version")
-      val componentapiartifacts = componentapidescriptor.toVector.flatMap(_component_api_artifact_paths(_, name, version))
+      CozyComponentReleaseCoordinateCodec.requireProjection(coordinate.mavenArtifactId, name, "name", "package-car")
+      CozyComponentReleaseCoordinateCodec.requireProjection(coordinate.version, version, "version", "package-car")
+      val componentapiartifacts = componentapidescriptor.toVector.flatMap(_component_api_artifact_paths(_, coordinate))
       _validate_component_api_artifacts(componentapiartifacts, spijars)
       val manifestmetadata = config.mapUnder("packaging.car.manifest_metadata")
       val component = _value(args, "component").orElse(manifestmetadata.get("component")).getOrElse(RAISE.invalidArgumentFault("Missing --component"))
-      val packagemetadata = _car_package_metadata(manifestmetadata, component, version)
-      assemblydescriptor.foreach(_validate_assembly_descriptor(_, name, version, component))
+      CozyComponentReleaseCoordinateCodec.requireProjection(coordinate.id, component, "component", "package-car")
+      val packagemetadata = _car_package_metadata(manifestmetadata, coordinate)
+      assemblydescriptor.foreach(_validate_assembly_descriptor(_, coordinate))
       val extensionmap = packagemetadata.extensions ++ _string_map(args, "extensions")
       val configmap = config.mapUnder("project.component.config") ++ _string_map(args, "config")
       val entities = _entity_descriptors(args)
@@ -176,44 +172,41 @@ private[cozy] object CozyArchivePackager {
         _require_mode_free_component_config(configmap)
       val abidependencies = config.indexedMapsUnder("packaging.car.abi.dependencies").map { dependency =>
         CozyCarAbiManifest.Dependency(
-          dependency.getOrElse("name", ""),
+          dependency.getOrElse("namespace", ""),
+          dependency.getOrElse("id", ""),
           dependency.getOrElse("abiRange", dependency.getOrElse("abi_range", ""))
         )
       }
       val abimanifest = _path(args, "abi-manifest").orElse(_source_abi_manifest(cardir)).map { path =>
-        _validate_abi_manifest_coordinate(path, name, version)
+        _validate_abi_manifest_coordinate(path, coordinate)
         path
       }.getOrElse {
         val content =
           if (modelmetadata.nonEmpty)
-            CozyCarAbiManifest.create(modelmetadata, name, version, packagemetadata.component, abidependencies)
+            CozyCarAbiManifest.create(modelmetadata, coordinate, abidependencies)
           else if (_has_cml_sources(projectdir))
             RAISE.invalidArgumentFault(
               s"CML CAR '${name}' requires generated model metadata when no explicit or source-managed ABI manifest is available."
             )
           else
-            _abi_manifest_json(name, version, packagemetadata.component, entities)
-        _write_temp("abi-manifest", content)
+            _abi_manifest_json(coordinate, entities, abidependencies)
+        _write_temp(projectdir, "abi-manifest", content)
       }
       _path(args, "abi-manifest-output").foreach(path => _write_text(path, Files.readString(abimanifest, StandardCharsets.UTF_8)))
       val componentdescriptor = componentstylesnapshot.map { snapshot =>
-        _write_temp("component-descriptor", _component_descriptor_json(name, version, packagemetadata.component, extensionmap, configmap, entities, Some(snapshot)))
+        _write_temp(projectdir, "component-descriptor", _component_descriptor_json(coordinate, extensionmap, configmap, entities, Some(snapshot)))
       }.getOrElse {
-        _component_descriptor_override(extensionmap, name, version, packagemetadata.component).
+        _component_descriptor_override(extensionmap, coordinate).
           map { text =>
-            if (_has_cml_sources(projectdir))
-              _require_legacy_cml_source_descriptor(text, "componentDescriptorJson")
-            _write_temp("component-descriptor", text)
+            _write_temp(projectdir, "component-descriptor", text)
           }.
           orElse(_source_component_descriptor(cardir).map { path =>
             val text = Files.readString(path)
-            _validate_component_descriptor(text, name, version, packagemetadata.component, "component-descriptor.json")
-            if (_has_cml_sources(projectdir))
-              _require_legacy_cml_source_descriptor(text, "component-descriptor.json")
+            _validate_canonical_component_descriptor(text, coordinate, "component-descriptor.json")
             path
           }).
           getOrElse {
-            _write_temp("component-descriptor", _component_descriptor_json(name, version, packagemetadata.component, extensionmap, configmap, entities))
+            _write_temp(projectdir, "component-descriptor", _component_descriptor_json(coordinate, extensionmap, configmap, entities))
           }
       }
       def _write_car_(packagedmainjar: Path): Unit = {
@@ -222,11 +215,13 @@ private[cozy] object CozyArchivePackager {
             carcontract,
             name,
             version,
-            packagemetadata.component
+            packagemetadata.component,
+            coordinate
           )
         )
         _write_archive(
           save,
+          projectdir,
           Vector(
             packagedmainjar -> "component/main.jar"
           ) ++
@@ -246,11 +241,18 @@ private[cozy] object CozyArchivePackager {
           runtimemanifest
         )
       }
-      componentapidescriptor match {
-        case Some(descriptor) =>
-          ComponentApiJarPackager.withImplementationJar(mainjar, descriptor)(_write_car_)
-        case None =>
-          _write_car_(mainjar)
+      val workroot = _package_work_root(projectdir)
+      val temporaryinputs = Vector(Some(abimanifest), Some(componentdescriptor), dependencymanifest).flatten.
+        map(_.toAbsolutePath.normalize()).filter(_.startsWith(workroot))
+      try {
+        componentapidescriptor match {
+          case Some(descriptor) =>
+            ComponentApiJarPackager._with_implementation_jar(mainjar, descriptor)(_write_car_)
+          case None =>
+            _write_car_(mainjar)
+        }
+      } finally {
+        temporaryinputs.foreach(Files.deleteIfExists(_))
       }
     }
   }
@@ -265,7 +267,7 @@ private[cozy] object CozyArchivePackager {
       val provenance = projectdir.flatMap { root =>
         val path = root.resolve(GenerationProvenance.METADATA_PATH)
         Option(path).filter(Files.isRegularFile(_)).map { source =>
-          val copied = _snapshot_temp("generation-provenance", source)
+          val copied = _snapshot_temp(projectdir, "generation-provenance", source)
           snapshot = Some(copied)
           GenerationProvenance.requireValidForPackaging(
             provenancePath = copied,
@@ -343,7 +345,7 @@ private[cozy] object CozyArchivePackager {
     if (provided.isEmpty && shared.isEmpty && local.isEmpty && repositories.isEmpty)
       None
     else
-      Some(_write_temp("component-dependencies", _dependency_manifest_yaml(provided, shared, local, repositories)))
+      Some(_write_temp(projectdir, "component-dependencies", _dependency_manifest_yaml(provided, shared, local, repositories)))
   }
 
   private def _web_inf_descriptors(
@@ -594,18 +596,17 @@ private[cozy] object CozyArchivePackager {
 
   private def _car_package_metadata(
     metadata: Map[String, String],
-    defaultcomponent: String,
-    version: String
+    coordinate: CozyComponentReleaseCoordinateCodec.Coordinate
   ): CarPackageMetadata = {
-    val component = metadata.getOrElse("component", defaultcomponent)
+    val component = metadata.getOrElse("component", coordinate.id)
     val componentletnames = _componentlet_names(metadata)
-    val reservedkeys = Set("component", "componentlets") ++ metadata.keySet.filter(_.startsWith("componentlet."))
+    val reservedkeys = Set("component", "componentlets", "componentDescriptorJson") ++ metadata.keySet.filter(_.startsWith("componentlet."))
     val passthroughextensions = metadata -- reservedkeys
     val extensions =
       if (componentletnames.isEmpty)
         passthroughextensions
       else
-        passthroughextensions + ("componentDescriptorJson" -> _component_descriptor_override_json(component, version, passthroughextensions, componentletnames, metadata))
+        passthroughextensions + ("componentDescriptorJson" -> _component_descriptor_override_json(coordinate, passthroughextensions, componentletnames, metadata))
     CarPackageMetadata(component, extensions)
   }
 
@@ -628,8 +629,7 @@ private[cozy] object CozyArchivePackager {
   }
 
   private def _component_descriptor_override_json(
-    component: String,
-    version: String,
+    coordinate: CozyComponentReleaseCoordinateCodec.Coordinate,
     extensions: Map[String, String],
     componentletnames: Vector[String],
     metadata: Map[String, String]
@@ -643,7 +643,7 @@ private[cozy] object CozyArchivePackager {
       val jsonfields = (Map("name" -> name, "kind" -> fields.getOrElse("kind", "componentlet")) ++ fields).toVector.sortBy(_._1)
       jsonfields.map { case (key, value) => s"${_json_string(key)}:${_json_string(value)}" }.mkString("{", ",", "}")
     }
-    s"""{"component":{"name":${_json_string(component)},"version":${_json_string(version)},"kind":"component","isPrimary":"true"},"componentlets":[${componentlets.mkString(",")}],"extensions":${_json_map(extensions)}}"""
+    s"""{"schemaVersion":3,"component":${Json.stringify(coordinate.componentJson)},"componentlets":[${componentlets.mkString(",")}],"extensions":${_json_map(extensions)}}"""
   }
 
   def buildSar(args: List[String]): Unit = {
@@ -655,6 +655,7 @@ private[cozy] object CozyArchivePackager {
     val subsystemsources = _archive_sources(sourcedir, sourcefiles)
     _write_archive(
       save,
+      None,
       subsystemsources ++
         extensionjars.map(p => p -> s"extension/${p.getFileName}") ++
         applicationconf.toVector.map(_ -> "config/application.conf"),
@@ -723,18 +724,6 @@ private[cozy] object CozyArchivePackager {
   private def _source_component_descriptor(cardir: Option[Path]): Option[Path] =
     cardir.map(_.resolve("component-descriptor.json")).filter(Files.isRegularFile(_))
 
-  private def _require_legacy_cml_source_descriptor(text: String, label: String): Unit = {
-    val descriptor = Try(Json.parse(text)).getOrElse(
-      RAISE.invalidArgumentFault(s"${label} must be valid JSON.")
-    )
-    val schema = (descriptor \ "schemaVersion").toOption
-    val hasstyle = (descriptor \ "componentStyle").toOption.isDefined
-    if (schema.exists(_ != JsNumber(1)) || hasstyle)
-      RAISE.invalidArgumentFault(
-        s"Style-less CML source ${label} must be a legacy descriptor with schemaVersion 1 or omitted and no componentStyle."
-      )
-  }
-
   private def _component_style_snapshot(paths: Vector[Path]): Option[JsObject] = {
     val snapshots = paths.flatMap { path =>
       val root = Try(Json.parse(Files.readString(path, StandardCharsets.UTF_8))).getOrElse(
@@ -801,24 +790,31 @@ private[cozy] object CozyArchivePackager {
   private def _source_component_api_descriptor(cardir: Option[Path]): Option[Path] =
     cardir.map(_.resolve("component-api-descriptor.json")).filter(Files.isRegularFile(_))
 
-  private def _component_api_artifact_paths(path: Path, name: String, version: String): Vector[String] = {
+  private def _component_api_artifact_paths(
+    path: Path,
+    coordinate: CozyComponentReleaseCoordinateCodec.Coordinate
+  ): Vector[String] = {
     val json = Json.parse(Files.readString(path, StandardCharsets.UTF_8))
     val schemaversion = (json \ "schemaVersion").asOpt[String]
-    val componentname = (json \ "component" \ "name").asOpt[String]
-    val componentversion = (json \ "component" \ "version").asOpt[String]
-    if (schemaversion != Some("cncf.component-api.v1"))
-      RAISE.invalidArgumentFault(s"component-api-descriptor.json must use schema cncf.component-api.v1: ${path}")
-    if (componentname != Some(name) || componentversion != Some(version))
-      RAISE.invalidArgumentFault(
-        s"component-api-descriptor.json declares ${componentname.getOrElse("<missing>")}:${componentversion.getOrElse("<missing>")}, but package-car is building ${name}:${version}."
-      )
+    if (schemaversion != Some("cncf.component-api.v2"))
+      RAISE.invalidArgumentFault(s"component.api.schema.unsupported source=$path actual=${schemaversion.getOrElse("missing")}")
+    CozyComponentReleaseCoordinateCodec.requireExact(
+      coordinate,
+      CozyComponentReleaseCoordinateCodec.readComponent(json, path.toString),
+      path.toString
+    )
     (json \ "provided").asOpt[Vector[JsObject]].getOrElse(Vector.empty).map { provided =>
+      val providedversion = (provided \ "version").asOpt[String].map(_.trim).filter(_.nonEmpty).getOrElse {
+        RAISE.invalidArgumentFault(s"component-api-descriptor.json provided API is missing version: ${path}")
+      }
+      CozyComponentReleaseCoordinateCodec.requireProjection(coordinate.version, providedversion, "provided.version", path.toString)
       val artifactpath = (provided \ "artifactPath").asOpt[String].map(_.trim).filter(_.nonEmpty).getOrElse {
         RAISE.invalidArgumentFault(s"component-api-descriptor.json provided API is missing artifactPath: ${path}")
       }
       val normalized = Paths.get(artifactpath).normalize().toString.replace('\\', '/')
       if (normalized != artifactpath || !artifactpath.startsWith("spi/") || artifactpath.count(_ == '/') != 1)
         RAISE.invalidArgumentFault(s"Component API artifactPath must be a direct child of spi/: ${artifactpath}")
+      CozyComponentReleaseCoordinateCodec.requireProjection(coordinate.apiArtifactPath, artifactpath, "artifactPath", path.toString)
       artifactpath
     }.distinct
   }
@@ -857,13 +853,16 @@ private[cozy] object CozyArchivePackager {
 
   private def _write_archive(
     archive: Path,
+    projectdir: Option[Path],
     entries: Vector[(Path, String)],
     placeholderdirs: Vector[String],
     runtimemanifest: Option[RuntimeManifestContext] = None
   ): Unit = {
     Files.createDirectories(archive.getParent)
     Files.deleteIfExists(archive)
-    val tempdir = Files.createTempDirectory("cozy-package-")
+    val workroot = _package_work_root(projectdir)
+    Files.createDirectories(workroot)
+    val tempdir = Files.createTempDirectory(workroot, "archive-")
     try {
       entries.foreach { case (source, relative) =>
         val dest = tempdir.resolve(relative)
@@ -881,7 +880,8 @@ private[cozy] object CozyArchivePackager {
           context.contract,
           context.name,
           context.version,
-          context.component
+          context.component,
+          Some(context.coordinate)
         )
       }
       _zip_dir(tempdir, archive)
@@ -894,7 +894,8 @@ private[cozy] object CozyArchivePackager {
     contract: CarMetadataCompatibility.Contract,
     name: String,
     version: String,
-    component: String
+    component: String,
+    coordinate: CozyComponentReleaseCoordinateCodec.Coordinate
   )
 
   private def _zip_dir(sourcedir: Path, archive: Path): Unit = {
@@ -920,138 +921,116 @@ private[cozy] object CozyArchivePackager {
   }
 
   private def _component_descriptor_json(
-    name: String,
-    version: String,
-    component: String,
+    coordinate: CozyComponentReleaseCoordinateCodec.Coordinate,
     extensions: Map[String, String],
     config: Map[String, String],
     entities: Vector[EntityDescriptor],
     componentstylesnapshot: Option[JsObject] = None
-  ): String =
-    _component_descriptor_override(extensions, name, version, component).getOrElse {
-      val effectiveextensions = extensions - "componentDescriptorJson"
-      componentstylesnapshot.map { style =>
-        Json.prettyPrint(Json.obj(
-          "schemaVersion" -> 2,
-          "name" -> name,
-          "version" -> version,
-          "component" -> Json.obj("name" -> component),
-          "componentStyle" -> style,
-          "entities" -> Json.parse(_json_entities(entities)),
-          "extensions" -> Json.parse(_json_map(effectiveextensions)),
-          "config" -> Json.parse(_json_map(config))
-        )) + "\n"
-      }.getOrElse(s"""{
-         |  "name": ${_json_string(name)},
-         |  "version": ${_json_string(version)},
-         |  "component": ${_json_string(component)},
-         |  "entities": ${_json_entities(entities)},
-         |  "extensions": ${_json_map(effectiveextensions)},
-         |  "config": ${_json_map(config)}
-         |}
-         |""".stripMargin)
-    }
+  ): String = {
+    val effectiveextensions = extensions - "componentDescriptorJson"
+    val payload = Json.obj(
+      "schemaVersion" -> 3,
+      "component" -> coordinate.componentJson,
+      "entities" -> Json.parse(_json_entities(entities)),
+      "extensions" -> Json.parse(_json_map(effectiveextensions)),
+      "config" -> Json.parse(_json_map(config))
+    ) ++ componentstylesnapshot.map(value => Json.obj("componentStyle" -> value)).getOrElse(Json.obj())
+    Json.prettyPrint(payload) + "\n"
+  }
 
   private def _component_descriptor_override(
     extensions: Map[String, String],
-    name: String,
-    version: String,
-    component: String
+    coordinate: CozyComponentReleaseCoordinateCodec.Coordinate
   ): Option[String] =
     extensions.get("componentDescriptorJson").map(_.trim).filter(_.nonEmpty).map { text =>
-      _validate_component_descriptor(text, name, version, component, "componentDescriptorJson")
+      _validate_canonical_component_descriptor(text, coordinate, "componentDescriptorJson")
       text
     }
 
-  private def _validate_component_descriptor(
+  private[archive] def _validate_canonical_component_descriptor(
     text: String,
-    name: String,
-    version: String,
-    component: String,
+    coordinate: CozyComponentReleaseCoordinateCodec.Coordinate,
     label: String
   ): Unit = {
     val json = Try(Json.parse(text)).getOrElse(RAISE.invalidArgumentFault(s"${label} must be valid JSON."))
-    val componentjson = (json \ "component").toOption.collect { case o: JsObject => o }.getOrElse(Json.obj())
-    val descriptorname =
-      _json_string_value(json, "name").orElse(_json_string_value(componentjson, "name"))
-    val descriptorversion =
-      _json_string_value(json, "version").orElse(_json_string_value(componentjson, "version"))
-    val descriptorcomponent =
-      _json_string_value(json, "component")
-        .orElse(_json_string_value(json, "componentName"))
-        .orElse(_json_string_value(componentjson, "component"))
-        .orElse(_json_string_value(componentjson, "componentName"))
-        .orElse(_json_string_value(componentjson, "name"))
-        .orElse(descriptorname)
-    if (!descriptorname.exists(value => value == name || value == component))
-      RAISE.invalidArgumentFault(s"${label} must declare CAR name '${name}' or component name '${component}'.")
-    if (!descriptorversion.contains(version))
-      RAISE.invalidArgumentFault(s"${label} must declare CAR version '${version}'.")
-    if (!descriptorcomponent.contains(component))
-      RAISE.invalidArgumentFault(s"${label} must declare component '${component}'.")
+    if ((json \ "schemaVersion").asOpt[Int] != Some(3))
+      RAISE.invalidArgumentFault(s"component.descriptor.schema.unsupported source=$label")
+    CozyComponentReleaseCoordinateCodec.requireExact(
+      coordinate,
+      CozyComponentReleaseCoordinateCodec.readComponent(json, label),
+      label
+    )
+    _require_canonical_component_descriptor_shape(json, label)
   }
 
   private def _validate_assembly_descriptor(
     path: Path,
-    name: String,
-    version: String,
-    component: String
+    coordinate: CozyComponentReleaseCoordinateCodec.Coordinate
   ): Unit = {
     val descriptor = CozyProjectYamlConfig.load(path)
     val descriptorversion = descriptor.value("version")
-    if (!descriptorversion.contains(version))
+    if (!descriptorversion.contains(coordinate.version))
       RAISE.invalidArgumentFault(
-        s"assembly-descriptor.yaml must declare subsystem version '${version}' for CAR '${name}', but declared '${descriptorversion.getOrElse("<missing>")}'."
+        s"assembly-descriptor.yaml must declare subsystem version '${coordinate.version}' for CAR '${coordinate.dependencyKey}', but declared '${descriptorversion.getOrElse("<missing>")}'."
       )
     val componententry =
-      descriptor.indexedMapsUnder("components").find(_.get("name").contains(component))
-    val componentversion = componententry.flatMap(_.get("version"))
-    if (!componentversion.contains(version))
+      descriptor.indexedMapsUnder("components").find { entry =>
+        entry.get("namespace").contains(coordinate.namespace) &&
+          entry.get("id").contains(coordinate.id) &&
+          entry.get("version").contains(coordinate.version)
+      }
+    if (componententry.isEmpty)
       RAISE.invalidArgumentFault(
-        s"assembly-descriptor.yaml must declare component '${component}' at CAR version '${version}', but declared '${componentversion.getOrElse("<missing>")}'."
+        s"assembly-descriptor.yaml must declare component '${coordinate.dependencyKey}'."
       )
   }
 
   private def _abi_manifest_json(
-    name: String,
-    version: String,
-    component: String,
-    entities: Vector[EntityDescriptor]
+    coordinate: CozyComponentReleaseCoordinateCodec.Coordinate,
+    entities: Vector[EntityDescriptor],
+    dependencies: Vector[CozyCarAbiManifest.Dependency]
   ): String =
     s"""{
-       |  "format": "cozy.car.abi-manifest.v1",
-       |  "car": {
-       |    "name": ${_json_string(name)},
-       |    "version": ${_json_string(version)}
-       |  },
+       |  "format": "cozy.car.abi-manifest.v2",
+       |  "component": ${Json.stringify(coordinate.componentJson)},
        |  "abi": {
        |    "version": 1,
        |    "exports": {
        |      "components": [
        |        {
-       |          "name": ${_json_string(component)}
+       |          "namespace": ${_json_string(coordinate.namespace)},
+       |          "id": ${_json_string(coordinate.id)}
        |        }
        |      ],
        |      "operations": [],
        |      "entities": ${_abi_json_entities(entities)}
        |    },
-       |    "dependencies": []
+       |    "dependencies": ${Json.stringify(CozyCarAbiManifest._normalized_dependencies_json(dependencies))}
        |  }
        |}
        |""".stripMargin
 
   private def _validate_abi_manifest_coordinate(
     path: Path,
-    name: String,
-    version: String
+    coordinate: CozyComponentReleaseCoordinateCodec.Coordinate
   ): Unit = {
-    val text = Files.readString(path, StandardCharsets.UTF_8)
-    val json = Try(Json.parse(text)).getOrElse(RAISE.invalidArgumentFault(s"Invalid ABI manifest JSON: ${path}"))
-    val car = (json \ "car").getOrElse(Json.obj())
-    val manifestname = _json_string_value(car, "name").orElse(_json_string_value(json, "name")).getOrElse("unknown")
-    val manifestversion = _json_string_value(car, "version").orElse(_json_string_value(json, "version")).getOrElse("0.0.0")
-    if (manifestname != name || manifestversion != version)
-      RAISE.invalidArgumentFault(s"ABI manifest ${path} declares ${manifestname}:${manifestversion}, but package-car is building ${name}:${version}.")
+    val json = Try(Json.parse(Files.readString(path, StandardCharsets.UTF_8))).getOrElse(
+      RAISE.invalidArgumentFault(s"Invalid ABI manifest JSON: ${path}")
+    )
+    CozyCarAbiManifest._validate_source_manifest(json, coordinate, path.toString)
+  }
+
+  private[archive] def _require_canonical_component_descriptor_shape(json: JsValue, label: String): Unit = {
+    val root = json.asOpt[JsObject].getOrElse(RAISE.invalidArgumentFault(s"$label must be a JSON object."))
+    if ((root \ "schemaVersion").asOpt[Int] != Some(3))
+      RAISE.invalidArgumentFault(s"component.descriptor.schema.unsupported source=$label")
+    if (root.keys.contains("name") || root.keys.contains("version"))
+      RAISE.invalidArgumentFault(s"$label schema 3 forbids legacy root name and version fields.")
+    val component = root.value.get("component").collect { case value: JsObject => value }.getOrElse(
+      RAISE.invalidArgumentFault(s"$label schema 3 requires a component object; string component is forbidden.")
+    )
+    if (component.keys != Set("namespace", "id", "version"))
+      RAISE.invalidArgumentFault(s"$label schema 3 requires exact component namespace, id, and version fields.")
   }
 
   private final case class EntityDescriptor(
@@ -1196,14 +1175,21 @@ private[cozy] object CozyArchivePackager {
     Files.writeString(path, text, StandardCharsets.UTF_8)
   }
 
-  private def _write_temp(prefix: String, text: String): Path = {
-    val path = Files.createTempFile(prefix, ".json")
+  private def _package_work_root(projectdir: Option[Path]): Path =
+    projectdir.getOrElse(Paths.get("").toAbsolutePath.normalize()).resolve("target/cozy/work/package-car")
+
+  private def _write_temp(projectdir: Option[Path], prefix: String, text: String): Path = {
+    val root = _package_work_root(projectdir)
+    Files.createDirectories(root)
+    val path = Files.createTempFile(root, s"$prefix-", ".json")
     Files.writeString(path, text, StandardCharsets.UTF_8)
     path.toAbsolutePath.normalize()
   }
 
-  private def _snapshot_temp(prefix: String, source: Path): Path = {
-    val path = Files.createTempFile(prefix, ".json")
+  private def _snapshot_temp(projectdir: Option[Path], prefix: String, source: Path): Path = {
+    val root = _package_work_root(projectdir)
+    Files.createDirectories(root)
+    val path = Files.createTempFile(root, s"$prefix-", ".json")
     Files.write(path, Files.readAllBytes(source))
     path.toAbsolutePath.normalize()
   }

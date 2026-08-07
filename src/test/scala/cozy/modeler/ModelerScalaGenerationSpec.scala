@@ -16,7 +16,7 @@ import play.api.libs.json.Json
 
 /*
  * @since   Jun. 23, 2026
- * @version Jul. 29, 2026
+ * @version Aug.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -225,8 +225,10 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
           input.toString,
           "--save",
           out.toString,
-          "--component-module",
-          "component-api-contract",
+          "--component-namespace",
+          "org.example.textus",
+          "--component-id",
+          "ComponentApiContract",
           "--component-version",
           "0.1.0-SNAPSHOT"
         ))
@@ -262,14 +264,15 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
 
         And("the generated descriptor records provided and required API metadata")
         val descriptor = Json.parse(Files.readString(out.resolve("target/cozy/component-api-descriptor.json")))
-        (descriptor \ "schemaVersion").as[String] shouldBe "cncf.component-api.v1"
-        (descriptor \ "component" \ "name").as[String] shouldBe "component-api-contract"
+        (descriptor \ "schemaVersion").as[String] shouldBe "cncf.component-api.v2"
+        (descriptor \ "component" \ "namespace").as[String] shouldBe "org.example.textus"
+        (descriptor \ "component" \ "id").as[String] shouldBe "ComponentApiContract"
         (descriptor \ "component" \ "version").as[String] shouldBe "0.1.0-SNAPSHOT"
         val provided = (descriptor \ "provided").as[Vector[play.api.libs.json.JsObject]].head
         (provided \ "contract").as[String] shouldBe "Domain.Scraping"
         (provided \ "apiClass").as[String] shouldBe "domain.api.TextusScraperApi"
         (provided \ "version").as[String] shouldBe "0.1.0-SNAPSHOT"
-        (provided \ "artifactPath").as[String] shouldBe "spi/component-api-contract-api.jar"
+        (provided \ "artifactPath").as[String] shouldBe "spi/textus-component-api-contract-api.jar"
         (provided \ "abiHash").as[String] should startWith("sha256:")
         (provided \ "publicTypes").as[Vector[play.api.libs.json.JsObject]].map(x => (x \ "className").as[String]) should contain allOf (
           "domain.api.TextusScraperApi",

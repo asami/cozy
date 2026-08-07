@@ -31,7 +31,7 @@ import scala.util.control.NonFatal
  *  version Apr. 29, 2026
  *  version May. 21, 2026
  *  version Jun. 30, 2026
- * @version Jul. 31, 2026
+ * @version Aug.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 class Cozy(
@@ -46,7 +46,7 @@ class Cozy(
 
   def run(args: Array[String]) {
     if (_is_help_request(args))
-      println(Cozy.helpText)
+      println(Cozy._help_text)
     else {
       val effectiveargs = _operation_config_args(args.toList).toArray
       val call = _operation_call(effectiveargs)
@@ -220,7 +220,7 @@ class Cozy(
 
   private def _operation_config_args(command: String, args: List[String]): List[String] =
     command match {
-      case "pdf" => CozyOperationConfig.withPdfDefaults(args)
+      case "pdf" => CozyOperationConfig._with_pdf_defaults(args)
       case _ => args
     }
 
@@ -243,7 +243,7 @@ class Cozy(
       case x :: xx if x.startsWith("-") =>
         _go_(xx, z :+ x, done)
       case x :: xx if !done =>
-        _go_(xx, z :+ Cozy.cliPath(x).toString, done = true)
+        _go_(xx, z :+ Cozy._cli_path(x).toString, done = true)
       case x :: xx =>
         _go_(xx, z :+ x, done)
     }
@@ -463,14 +463,17 @@ class Cozy(
     _save_path(args).foreach { savedir =>
       val modelpath = savedir.resolve("target/cozy/component-api-model.json")
       if (Files.isRegularFile(modelpath)) {
-        val module = _option_value(args, "component-module")
-          .getOrElse(RAISE.invalidArgumentFault("Component API generation requires --component-module"))
+        val namespace = _option_value(args, "component-namespace")
+          .getOrElse(RAISE.invalidArgumentFault("Component API generation requires --component-namespace"))
+        val id = _option_value(args, "component-id")
+          .getOrElse(RAISE.invalidArgumentFault("Component API generation requires --component-id"))
         val version = _option_value(args, "component-version")
           .getOrElse(RAISE.invalidArgumentFault("Component API generation requires --component-version"))
         cozy.modeler.ComponentApiDescriptor.write(
           modelpath,
           savedir.resolve("target/cozy/component-api-descriptor.json"),
-          module,
+          namespace,
+          id,
           version
         )
       }
@@ -672,7 +675,7 @@ class Cozy(
   }
 
   private def _save_path(args: List[String]): Option[Path] =
-    Cozy.savePath(args)
+    Cozy._save_path(args)
 
   private def _without_save_args(args: List[String]): List[String] = args match {
     case Nil => Nil
@@ -735,7 +738,7 @@ class Cozy(
     if (!policy.isSkip)
       _write_project_file(
         dir.resolve("project.yaml"),
-        Cozy.carProjectYaml(init, versions),
+        Cozy._car_project_yaml(init, versions),
         policy
       )
 
@@ -751,24 +754,24 @@ class Cozy(
     Files.createDirectories(dir)
     _write_project_file(
       dir.resolve("build.sbt"),
-      Cozy.carBuildSbt(versions, scaffold),
+      Cozy._car_build_sbt(versions, scaffold),
       policy
     )
     val projectdir = dir.resolve("project")
     Files.createDirectories(projectdir)
     _write_project_file(
       projectdir.resolve("build.properties"),
-      s"sbt.version=${Cozy.detectSbtVersion()}",
+      s"sbt.version=${Cozy._detect_sbt_version()}",
       policy
     )
     _write_project_file(
       projectdir.resolve("plugins.sbt"),
-      Cozy.carPluginsSbt(),
+      Cozy._car_plugins_sbt(),
       policy
     )
     _write_project_file(
       projectdir.resolve("ProjectYamlBuild.scala"),
-      Cozy.carProjectYamlBuildScala(),
+      Cozy._car_project_yaml_build_scala(),
       policy
     )
     val cozydir = dir.resolve("src/main/cozy")
@@ -776,7 +779,7 @@ class Cozy(
     val samplemodel = cozydir.resolve(scaffold.modelFileName)
     val modelcontent = modelpath.filter(Files.exists(_)).
       map(Files.readString(_, StandardCharsets.UTF_8)).
-      getOrElse(Cozy.carSampleCml(scaffold))
+      getOrElse(Cozy._car_sample_cml(scaffold))
     _write_project_file(
       samplemodel,
       modelcontent,
@@ -788,12 +791,12 @@ class Cozy(
     Files.createDirectories(webdir)
     _write_project_file(
       webdir.resolve("web.yaml"),
-      Cozy.carWebAppYaml(scaffold),
+      Cozy._car_web_app_yaml(scaffold),
       policy
     )
     _write_project_file(
       webdir.resolve("form.yaml"),
-      Cozy.carWebDescriptorYaml(modelpath, scaffold),
+      Cozy._car_web_descriptor_yaml(modelpath, scaffold),
       policy
     )
     if (modelpath.isEmpty) {
@@ -801,20 +804,20 @@ class Cozy(
       Files.createDirectories(impldir)
       _write_project_file(
         impldir.resolve("ComponentFactory.scala"),
-        Cozy.carComponentFactorySource(scaffold),
+        Cozy._car_component_factory_source(scaffold),
         policy
       )
     }
     if (scaffold.gitignore)
-      _write_project_file(dir.resolve(".gitignore"), Cozy.carGitignore(), policy)
+      _write_project_file(dir.resolve(".gitignore"), Cozy._car_gitignore(), policy)
     if (scaffold.readme)
-      _write_project_file(dir.resolve("README.md"), Cozy.carReadme(scaffold), policy)
+      _write_project_file(dir.resolve("README.md"), Cozy._car_readme(scaffold), policy)
     if (scaffold.tests) {
       val testdir = dir.resolve(scaffold.scalaPackageDir("src/test/scala"))
       Files.createDirectories(testdir)
       _write_project_file(
         testdir.resolve("ComponentFactorySpec.scala"),
-        Cozy.carComponentFactorySpecSource(scaffold),
+        Cozy._car_component_factory_spec_source(scaffold),
         policy
       )
     }
@@ -822,29 +825,29 @@ class Cozy(
     Files.createDirectories(bindir)
     _write_executable_project_file(
       bindir.resolve("launcher"),
-      Cozy.carLauncherScript(),
+      Cozy._car_launcher_script(),
       policy
     )
     val scriptsdir = dir.resolve("scripts")
     Files.createDirectories(scriptsdir)
     _write_project_file(
       scriptsdir.resolve("cncf-common.sh"),
-      Cozy.carCncfCommonScript(versions),
+      Cozy._car_cncf_common_script(versions),
       policy
     )
     _write_executable_project_file(
       scriptsdir.resolve("update-runtime-classpath.sh"),
-      Cozy.carUpdateRuntimeClasspathScript(),
+      Cozy._car_update_runtime_classpath_script(),
       policy
     )
     _write_executable_project_file(
       scriptsdir.resolve("run-server.sh"),
-      Cozy.carRunServerScript(),
+      Cozy._car_run_server_script(),
       policy
     )
     _write_executable_project_file(
       scriptsdir.resolve("run-server-debug.sh"),
-      Cozy.carRunServerDebugScript(),
+      Cozy._car_run_server_debug_script(),
       policy
     )
   }
@@ -862,29 +865,29 @@ class Cozy(
     Files.createDirectories(dir)
     _write_project_file(
       dir.resolve("README.md"),
-      Cozy.carSarReadme(scaffold),
+      Cozy._car_sar_readme(scaffold),
       policy
     )
     _write_project_file(
       dir.resolve("build.sbt"),
-      Cozy.carSarBuildSbt(scaffold, versions),
+      Cozy._car_sar_build_sbt(scaffold, versions),
       policy
     )
     val projectdir = dir.resolve("project")
     Files.createDirectories(projectdir)
     _write_project_file(
       projectdir.resolve("build.properties"),
-      s"sbt.version=${Cozy.detectSbtVersion()}",
+      s"sbt.version=${Cozy._detect_sbt_version()}",
       policy
     )
     _write_project_file(
       projectdir.resolve("plugins.sbt"),
-      Cozy.carPluginsSbt(),
+      Cozy._car_plugins_sbt(),
       policy
     )
     _write_project_file(
       projectdir.resolve("ProjectYamlBuild.scala"),
-      Cozy.carProjectYamlBuildScala(),
+      Cozy._car_project_yaml_build_scala(),
       policy
     )
 
@@ -894,7 +897,7 @@ class Cozy(
     val samplemodel = cozydir.resolve(scaffold.modelFileName)
     val modelcontent = modelpath.filter(Files.exists(_)).
       map(Files.readString(_, StandardCharsets.UTF_8)).
-      getOrElse(Cozy.carSarSampleCml(scaffold))
+      getOrElse(Cozy._car_sar_sample_cml(scaffold))
     _write_project_file(samplemodel, modelcontent, policy)
     val cardir = componentdir.resolve("src/main/car")
     Files.createDirectories(cardir)
@@ -902,12 +905,12 @@ class Cozy(
     Files.createDirectories(webdir)
     _write_project_file(
       webdir.resolve("web.yaml"),
-      Cozy.carWebAppYaml(scaffold),
+      Cozy._car_web_app_yaml(scaffold),
       policy
     )
     _write_project_file(
       webdir.resolve("form.yaml"),
-      Cozy.carWebDescriptorYaml(modelpath, scaffold),
+      Cozy._car_web_descriptor_yaml(modelpath, scaffold),
       policy
     )
     _write_project_file(
@@ -925,7 +928,7 @@ class Cozy(
     Files.createDirectories(subsystemdir)
     _write_project_file(
       subsystemdir.resolve("subsystem-descriptor.yaml"),
-      Cozy.carSarSubsystemDescriptorYaml(scaffold),
+      Cozy._car_sar_subsystem_descriptor_yaml(scaffold),
       policy
     )
     _write_project_file(
@@ -942,14 +945,14 @@ class Cozy(
     Files.createDirectories(repositorydir)
     _write_project_file(
       repositorydir.resolve("README.md"),
-      Cozy.carSarRepositoryDReadme(appname),
+      Cozy._car_sar_repository_d_readme(appname),
       policy
     )
     val scriptsdir = subsystemdir.resolve("scripts")
     Files.createDirectories(scriptsdir)
     _write_project_file(
       scriptsdir.resolve("README.md"),
-      Cozy.carSarScriptsReadme(appname),
+      Cozy._car_sar_scripts_readme(appname),
       policy
     )
   }
@@ -1003,14 +1006,14 @@ object Cozy {
   type CarDependencyVersions = CozyScaffold.CarDependencyVersions
   object CarDependencyVersions {
     def apply(
-      cncfversion: String,
-      simplemodelingmodelversion: String,
-      cncfcollaboratorapiversion: String
+      cncfVersion: String,
+      simpleModelingModelVersion: String,
+      cncfCollaboratorApiVersion: String
     ): CarDependencyVersions =
       CozyScaffold.CarDependencyVersions(
-        cncfversion,
-        simplemodelingmodelversion,
-        cncfcollaboratorapiversion
+        cncfVersion,
+        simpleModelingModelVersion,
+        cncfCollaboratorApiVersion
       )
 
     def unapply(value: CarDependencyVersions): Option[(String, String, String)] =
@@ -1068,28 +1071,28 @@ object Cozy {
   type CarScaffoldConfig = CozyScaffold.CarScaffoldConfig
   object CarScaffoldConfig {
     def apply(
-      componentname: String,
-      packagename: String,
-      artifactname: String,
+      componentName: String,
+      packageName: String,
+      artifactName: String,
       organization: String,
       version: String,
-      boundedcontext: String,
+      boundedContext: String,
       domain: String,
       gitignore: Boolean,
       readme: Boolean,
       tests: Boolean
     ): CarScaffoldConfig =
       CozyScaffold.CarScaffoldConfig(
-        componentname,
+        componentName,
         "Notice",
         "Notice",
         "PostNotice",
         "SearchNotices",
-        packagename,
-        artifactname,
+        packageName,
+        artifactName,
         organization,
         version,
-        boundedcontext,
+        boundedContext,
         domain,
         gitignore,
         readme,
@@ -1098,32 +1101,32 @@ object Cozy {
       )
 
     def apply(
-      componentname: String,
-      servicename: String,
-      entityname: String,
-      commandoperationname: String,
-      queryoperationname: String,
-      packagename: String,
-      artifactname: String,
+      componentName: String,
+      serviceName: String,
+      entityName: String,
+      commandOperationName: String,
+      queryOperationName: String,
+      packageName: String,
+      artifactName: String,
       organization: String,
       version: String,
-      boundedcontext: String,
+      boundedContext: String,
       domain: String,
       gitignore: Boolean,
       readme: Boolean,
       tests: Boolean
     ): CarScaffoldConfig =
       CozyScaffold.CarScaffoldConfig(
-        componentname,
-        servicename,
-        entityname,
-        commandoperationname,
-        queryoperationname,
-        packagename,
-        artifactname,
+        componentName,
+        serviceName,
+        entityName,
+        commandOperationName,
+        queryOperationName,
+        packageName,
+        artifactName,
         organization,
         version,
-        boundedcontext,
+        boundedContext,
         domain,
         gitignore,
         readme,
@@ -1153,9 +1156,9 @@ object Cozy {
       save: Path,
       style: ProjectLayoutStyle,
       scaffold: CarScaffoldConfig,
-      displayname: String
+      displayName: String
     ): ComponentInitConfig =
-      CozyScaffold.ComponentInitConfig(save, style, scaffold, displayname)
+      CozyScaffold.ComponentInitConfig(save, style, scaffold, displayName)
 
     def unapply(value: ComponentInitConfig): Option[(Path, ProjectLayoutStyle, CarScaffoldConfig, String)] =
       CozyScaffold.ComponentInitConfig.unapply(value)
@@ -1164,48 +1167,56 @@ object Cozy {
       CozyScaffold.ComponentInitConfig.create(args)
   }
 
-  private[cozy] def detectSbtVersion(): String = CozyScaffold.detectSbtVersion()
-  private[cozy] def appNameFromPath(path: Path): String = CozyScaffold.appNameFromPath(path)
-  private[cozy] def carBuildSbt(): String = CozyScaffold.carBuildSbt()
-  private[cozy] def carBuildSbt(versions: CarDependencyVersions, scaffold: CarScaffoldConfig): String = CozyScaffold.carBuildSbt(versions, scaffold)
-  private[cozy] def carProjectYamlBuildScala(): String = CozyScaffold.carProjectYamlBuildScala()
-  private[cozy] def carProjectYaml(init: ComponentInitConfig, versions: CarDependencyVersions): String = CozyScaffold.carProjectYaml(init, versions)
-  private[cozy] def carSarBuildSbt(scaffold: CarScaffoldConfig, versions: CarDependencyVersions): String = CozyScaffold.carSarBuildSbt(scaffold, versions)
-  private[cozy] def carSarReadme(scaffold: CarScaffoldConfig): String = CozyScaffold.carSarReadme(scaffold)
-  private[cozy] def carSarSampleCml(scaffold: CarScaffoldConfig): String = CozyScaffold.carSarSampleCml(scaffold)
-  private[cozy] def carSarSubsystemDescriptorYaml(scaffold: CarScaffoldConfig): String =
+  private[cozy] def _detect_sbt_version(): String = CozyScaffold.detectSbtVersion()
+  private[cozy] def _app_name_from_path(path: Path): String = CozyScaffold.appNameFromPath(path)
+  private[cozy] def _car_build_sbt(): String = CozyScaffold.carBuildSbt()
+  private[cozy] def _car_build_sbt(versions: CarDependencyVersions, scaffold: CarScaffoldConfig): String = CozyScaffold.carBuildSbt(versions, scaffold)
+  private[cozy] def _car_project_yaml_build_scala(): String = CozyScaffold.carProjectYamlBuildScala()
+  private[cozy] def _car_project_yaml(init: ComponentInitConfig, versions: CarDependencyVersions): String = CozyScaffold.carProjectYaml(init, versions)
+  private[cozy] def _car_sar_build_sbt(scaffold: CarScaffoldConfig, versions: CarDependencyVersions): String = CozyScaffold.carSarBuildSbt(scaffold, versions)
+  private[cozy] def _car_sar_readme(scaffold: CarScaffoldConfig): String = CozyScaffold.carSarReadme(scaffold)
+  private[cozy] def _car_sar_sample_cml(scaffold: CarScaffoldConfig): String = CozyScaffold.carSarSampleCml(scaffold)
+  private[cozy] def _car_sar_subsystem_descriptor_yaml(scaffold: CarScaffoldConfig): String =
     CozyScaffold.carSarSubsystemDescriptorYaml(scaffold)
-  private[cozy] def carSarRepositoryDReadme(appname: String): String = CozyScaffold.carSarRepositoryDReadme(appname)
-  private[cozy] def carSarScriptsReadme(appname: String): String = CozyScaffold.carSarScriptsReadme(appname)
-  private[cozy] def carPluginsSbt(): String = CozyScaffold.carPluginsSbt()
-  private[cozy] def carSampleCml(scaffold: CarScaffoldConfig = CarScaffoldConfig.create(Nil, Paths.get("sample"))): String = CozyScaffold.carSampleCml(scaffold)
-  private[cozy] def carWebDescriptorYaml(modelpath: Option[Path] = None, scaffold: CarScaffoldConfig = CarScaffoldConfig.create(Nil, Paths.get("sample"))): String = CozyScaffold.carWebDescriptorYaml(modelpath, scaffold)
-  private[cozy] def carWebAppYaml(scaffold: CarScaffoldConfig = CarScaffoldConfig.create(Nil, Paths.get("sample"))): String = CozyScaffold.carWebAppYaml(scaffold)
-  private[cozy] def carComponentFactorySource(scaffold: CarScaffoldConfig = CarScaffoldConfig.create(Nil, Paths.get("sample"))): String = CozyScaffold.carComponentFactorySource(scaffold)
-  private[cozy] def carGitignore(): String = CozyScaffold.carGitignore()
-  private[cozy] def carReadme(scaffold: CarScaffoldConfig): String = CozyScaffold.carReadme(scaffold)
-  private[cozy] def carComponentFactorySpecSource(scaffold: CarScaffoldConfig): String = CozyScaffold.carComponentFactorySpecSource(scaffold)
-  private[cozy] def carCncfCommonScript(versions: CarDependencyVersions): String = CozyScaffold.carCncfCommonScript(versions)
-  private[cozy] def carUpdateRuntimeClasspathScript(): String = CozyScaffold.carUpdateRuntimeClasspathScript()
-  private[cozy] def carRunServerScript(): String = CozyScaffold.carRunServerScript()
-  private[cozy] def carRunServerDebugScript(): String = CozyScaffold.carRunServerDebugScript()
-  private[cozy] def carLauncherScript(): String = CozyScaffold.carLauncherScript()
-  private[cozy] val helpText: String = CozyScaffold.helpText
+  private[cozy] def _car_sar_repository_d_readme(appname: String): String = CozyScaffold.carSarRepositoryDReadme(appname)
+  private[cozy] def _car_sar_scripts_readme(appname: String): String = CozyScaffold.carSarScriptsReadme(appname)
+  private[cozy] def _car_plugins_sbt(): String = CozyScaffold.carPluginsSbt()
+  private[cozy] def _car_sample_cml(scaffold: CarScaffoldConfig = CarScaffoldConfig.create(Nil, Paths.get("sample"))): String = CozyScaffold.carSampleCml(scaffold)
+  private[cozy] def _car_web_descriptor_yaml(modelpath: Option[Path] = None, scaffold: CarScaffoldConfig = CarScaffoldConfig.create(Nil, Paths.get("sample"))): String = CozyScaffold.carWebDescriptorYaml(modelpath, scaffold)
+  private[cozy] def _car_web_app_yaml(scaffold: CarScaffoldConfig = CarScaffoldConfig.create(Nil, Paths.get("sample"))): String = CozyScaffold.carWebAppYaml(scaffold)
+  private[cozy] def _car_component_factory_source(scaffold: CarScaffoldConfig = CarScaffoldConfig.create(Nil, Paths.get("sample"))): String = CozyScaffold.carComponentFactorySource(scaffold)
+  private[cozy] def _car_gitignore(): String = CozyScaffold.carGitignore()
+  private[cozy] def _car_readme(scaffold: CarScaffoldConfig): String = CozyScaffold.carReadme(scaffold)
+  private[cozy] def _car_component_factory_spec_source(scaffold: CarScaffoldConfig): String = CozyScaffold.carComponentFactorySpecSource(scaffold)
+  private[cozy] def _car_cncf_common_script(versions: CarDependencyVersions): String = CozyScaffold.carCncfCommonScript(versions)
+  private[cozy] def _car_update_runtime_classpath_script(): String = CozyScaffold.carUpdateRuntimeClasspathScript()
+  private[cozy] def _car_run_server_script(): String = CozyScaffold.carRunServerScript()
+  private[cozy] def _car_run_server_debug_script(): String = CozyScaffold.carRunServerDebugScript()
+  private[cozy] def _car_launcher_script(): String = CozyScaffold.carLauncherScript()
+  private[cozy] val _help_text: String = CozyScaffold.helpText
 
-  val CozyServiceClass: CozyRuntime.CozyServiceClass.type = CozyRuntime.CozyServiceClass
-  val CozyOperationClass: CozyRuntime.CozyOperationClass.type = CozyRuntime.CozyOperationClass
-  val WebOperationClass: CozyRuntime.WebOperationClass.type = CozyRuntime.WebOperationClass
+  val cozyServiceClass: CozyRuntime.CozyServiceClass.type = CozyRuntime.CozyServiceClass
+  val cozyOperationClass: CozyRuntime.CozyOperationClass.type = CozyRuntime.CozyOperationClass
+  val webOperationClass: CozyRuntime.WebOperationClass.type = CozyRuntime.WebOperationClass
+
+  /** Source-compatibility aliases retained for code compiled against the former public labels. */
+  @deprecated("Use cozyServiceClass", "0.3.2")
+  val CozyServiceClass: CozyRuntime.CozyServiceClass.type = cozyServiceClass
+  @deprecated("Use cozyOperationClass", "0.3.2")
+  val CozyOperationClass: CozyRuntime.CozyOperationClass.type = cozyOperationClass
+  @deprecated("Use webOperationClass", "0.3.2")
+  val WebOperationClass: CozyRuntime.WebOperationClass.type = webOperationClass
 
   def build(args: Array[String]): Cozy = CozyRuntime.build(args)
 
   def main(args: Array[String]): Unit = {
     val preflight = CozyCliPreflight.parse(args)
     CozyCliLogging.configure(preflight.outputPolicy)
-    if (!executePreflightCli(preflight))
+    if (!_execute_preflight_cli(preflight))
       CozyRuntime.main(args)
   }
 
-  private[cozy] def executePreflightCli(preflight: CozyCliPreflight): Boolean =
+  private[cozy] def _execute_preflight_cli(preflight: CozyCliPreflight): Boolean =
     preflight.jsonLintCommand.fold(false) {
       case (label, args) =>
         _execute_json_lint(label, args)
@@ -1230,15 +1241,15 @@ object Cozy {
     true
   }
 
-  private[cozy] def savePath(args: List[String]): Option[Path] = CozyRuntime.savePath(args)
-  private[cozy] def cliPath(value: String): Path = CozyRuntime.cliPath(value)
+  private[cozy] def _save_path(args: List[String]): Option[Path] = CozyRuntime.savePath(args)
+  private[cozy] def _cli_path(value: String): Path = CozyRuntime.cliPath(value)
 }
 
 private object CozyOperationConfig {
-  def withPdfDefaults(args: List[String]): List[String] =
-    withPdfDefaults(args, _invocation_directory)
+  def _with_pdf_defaults(args: List[String]): List[String] =
+    _with_pdf_defaults(args, _invocation_directory)
 
-  private[cozy] def withPdfDefaults(args: List[String], root: Path): List[String] =
+  private[cozy] def _with_pdf_defaults(args: List[String], root: Path): List[String] =
     _pdf_property_options.foldLeft(args) {
       case (z, (property, option)) =>
         if (_has_option(z, option))

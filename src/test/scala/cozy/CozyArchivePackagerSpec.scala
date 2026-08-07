@@ -19,12 +19,13 @@ import play.api.libs.json.{Json, JsObject, JsValue}
  * @since   May. 20, 2026
  *  version May. 22, 2026
  *  version Jun. 18, 2026
- * @version Jul. 31, 2026
+ *  version Jul. 31, 2026
+ * @version Aug.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "Cozy archive packager" should {
-    "assemble descriptor-first CAR surfaces" which {
+    "assemble descriptor-first CAR surfaces" should {
     "write descriptor-first CAR layout" in {
     _with_temp_dir("cozy-car") { dir =>
       Given("component artifacts, CAR source content, and public entity descriptors")
@@ -43,7 +44,8 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
         """subsystem: sample-component
           |version: 0.1.0
           |components:
-          |  - name: sample-component
+          |  - namespace: org.sample
+          |    id: Component
           |    version: 0.1.0
           |""".stripMargin
       )
@@ -62,7 +64,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
         "--assembly-descriptor", assembly.toString,
         "--name", "sample-component",
         "--version", "0.1.0",
-        "--component", "sample-component",
+        "--component", "Component",
         "--entities", "Notice:usageKind=public-content,operationKind=resource,applicationDomain=cms;SalesOrder:usage_kind=business-object,operation_kind=resource,application_domain=business"
       ))
 
@@ -94,25 +96,33 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
       webdescriptor should not include "from-web-app"
 
       And("the component descriptor carries public entity metadata")
-      descriptor should include (""""entities": [""")
-      descriptor should include (""""entity": "Notice"""")
-      descriptor should include (""""usageKind": "public-content"""")
-      descriptor should include (""""operationKind": "resource"""")
-      descriptor should include (""""applicationDomain": "cms"""")
-      descriptor should include (""""entity": "SalesOrder"""")
-      descriptor should include (""""usageKind": "business-object"""")
-      descriptor should include (""""applicationDomain": "business"""")
+      val descriptorentities = (Json.parse(descriptor) \ "entities").as[Seq[JsValue]]
+      descriptorentities should contain allOf (
+        Json.obj(
+          "entity" -> "Notice",
+          "usageKind" -> "public-content",
+          "operationKind" -> "resource",
+          "applicationDomain" -> "cms"
+        ),
+        Json.obj(
+          "entity" -> "SalesOrder",
+          "usageKind" -> "business-object",
+          "operationKind" -> "resource",
+          "applicationDomain" -> "business"
+        )
+      )
 
       And("the generated ABI manifest carries the CAR coordinate, exported component, and exported entities")
-      (abijson \ "format").as[String] shouldBe "cozy.car.abi-manifest.v1"
-      (abijson \ "car" \ "name").as[String] shouldBe "sample-component"
-      (abijson \ "car" \ "version").as[String] shouldBe "0.1.0"
-      (abijson \ "abi" \ "exports" \ "components").as[Seq[JsValue]].map(x => (x \ "name").as[String]) should contain ("sample-component")
+      (abijson \ "format").as[String] shouldBe "cozy.car.abi-manifest.v2"
+      (abijson \ "component" \ "namespace").as[String] shouldBe "org.sample"
+      (abijson \ "component" \ "id").as[String] shouldBe "Component"
+      (abijson \ "component" \ "version").as[String] shouldBe "0.1.0"
+      (abijson \ "abi" \ "exports" \ "components").as[Seq[JsValue]].map(x => (x \ "id").as[String]) should contain ("Component")
       (abijson \ "abi" \ "exports" \ "entities").as[Seq[JsValue]].map(x => (x \ "name").as[String]) should contain allOf ("Notice", "SalesOrder")
     }
   }
 
-    "project a catalog-derived CML component style snapshot into descriptor schema v2" in {
+    "project a catalog-derived CML component style snapshot into descriptor schema 3" in {
     _with_temp_dir("cozy-car-component-style") { dir =>
       Given("one generated CML metadata document with an admitted style snapshot")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
@@ -126,14 +136,15 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
         "--model-metadata", metadata.toString,
         "--name", "sample-component",
         "--version", "0.1.0",
-        "--component", "sample-component"
+        "--component", "Component"
       ))
 
       val descriptor = Json.parse(_zip_text(archive, "component-descriptor.json"))
 
-      Then("the packaged descriptor has one exact catalog-derived schema-v2 snapshot")
-      (descriptor \ "schemaVersion").as[Int] shouldBe 2
-      (descriptor \ "component" \ "name").as[String] shouldBe "sample-component"
+      Then("the packaged descriptor has one exact catalog-derived schema-3 snapshot")
+      (descriptor \ "schemaVersion").as[Int] shouldBe 3
+      (descriptor \ "component" \ "namespace").as[String] shouldBe "org.sample"
+      (descriptor \ "component" \ "id").as[String] shouldBe "Component"
       (descriptor \ "componentStyle").as[JsObject] shouldBe
         (Json.parse(_model_metadata_with_component_style) \ "componentStyle").as[JsObject]
     }
@@ -153,7 +164,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
             "--model-metadata", metadata.toString,
             "--name", "sample-component",
             "--version", "0.1.0",
-            "--component", "sample-component"
+            "--component", "Component"
           ) ++ extra)
         }
 
@@ -186,15 +197,15 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
     }
   }
 
-    "preserve legacy descriptor routes without a generated style snapshot while closing styled CML routes" in {
+    "emit a canonical descriptor without a generated style snapshot while closing styled CML routes" in {
     _with_temp_dir("cozy-car-cml-descriptor-authority") { dir =>
       Given("a CML CAR with a valid source ABI but no independently selectable descriptor authority")
       val projectdir = dir.resolve("project")
       val cardir = projectdir.resolve("src/main/car")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
       _write(projectdir.resolve("src/main/cozy/sample.cml"), "# COMPONENT\n\n## Sample\n")
-      _write(cardir.resolve("abi-manifest.json"), _abi_manifest("sample-component", "0.1.0-SNAPSHOT", "sample-component"))
-      val explicitabi = _write(dir.resolve("abi/explicit.json"), _abi_manifest("sample-component", "0.1.0-SNAPSHOT", "sample-component"))
+      _write(cardir.resolve("abi-manifest.json"), _abi_manifest("org.sample", "Component", "0.1.0-SNAPSHOT"))
+      val explicitabi = _write(dir.resolve("abi/explicit.json"), _abi_manifest("org.sample", "Component", "0.1.0-SNAPSHOT"))
       val metadata = projectdir.resolve("target/cozy/model-metadata.json")
 
       def _build_(label: String, model: Option[String], extra: List[String] = Nil): Path = {
@@ -207,7 +218,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
           "--main-jar", mainjar.toString,
           "--name", "sample-component",
           "--version", "0.1.0-SNAPSHOT",
-          "--component", "sample-component"
+          "--component", "Component"
         ) ++ model.map(_ => List("--model-metadata", metadata.toString)).getOrElse(Nil) ++ extra)
         archive
       }
@@ -215,7 +226,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
       def _error_(label: String, model: Option[String], extra: List[String] = Nil): Throwable =
         intercept[Throwable](_build_(label, model, extra))
 
-      When("style-less legacy CML and styled CML authority routes are packaged")
+      When("a style-less canonical CML descriptor and styled authority routes are packaged")
       val missing = _build_("missing", None)
       val empty = _error_("empty", Some("""{"schema":"cozy.cml.model-metadata.v1","componentStyle":{}}"""))
       val unsupported = _error_(
@@ -247,15 +258,18 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
         List("--extensions", "{\"componentDescriptorJson\":\"{\\\"schemaVersion\\\":2,\\\"name\\\":\\\"sample-component\\\",\\\"version\\\":\\\"0.1.0-SNAPSHOT\\\",\\\"component\\\":\\\"sample-component\\\",\\\"componentStyle\\\":{}}\"}")
       )
 
-      Then("absent style metadata remains legacy while malformed, styled, and non-legacy source authorities fail closed")
-      (Json.parse(_zip_text(missing, "component-descriptor.json")) \ "schemaVersion").toOption shouldBe None
+      Then("the style-less route emits schema 3 while malformed, styled, and legacy source authorities fail closed")
+      (Json.parse(_zip_text(missing, "component-descriptor.json")) \ "schemaVersion").as[Int] shouldBe 3
+      (Json.parse(_zip_text(missing, "component-descriptor.json")) \ "component").as[JsObject] shouldBe Json.obj(
+        "namespace" -> "org.sample", "id" -> "Component", "version" -> "0.1.0-SNAPSHOT"
+      )
       empty.getMessage should include("must declare one non-empty componentStyle object")
       unsupported.getMessage should include("must declare schema 'cozy.cml.model-metadata.v1'")
       source.getMessage should include("CML component style snapshot cannot be overridden")
       extension.getMessage should include("CML component style snapshot cannot be overridden")
-      legacysourcev2.getMessage should include("Style-less CML source component-descriptor.json must be a legacy descriptor")
-      legacysourcestyle.getMessage should include("Style-less CML source component-descriptor.json must be a legacy descriptor")
-      legacyextensionv2.getMessage should include("Style-less CML source componentDescriptorJson must be a legacy descriptor")
+      legacysourcev2.getMessage should include("component.descriptor.schema.unsupported")
+      legacysourcestyle.getMessage should include("component.descriptor.schema.unsupported")
+      legacyextensionv2.getMessage should include("component.descriptor.schema.unsupported")
       Vector("empty", "unsupported-schema", "source", "extension", "legacy-source-v2", "legacy-source-style", "legacy-extension-v2").foreach { label =>
         Files.exists(dir.resolve(s"out/$label.car")) shouldBe false
       }
@@ -271,7 +285,8 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
         """subsystem: sample-component
           |version: 0.0.9
           |components:
-          |  - name: sample-component
+          |  - namespace: org.sample
+          |    id: Component
           |    version: 0.1.0
           |""".stripMargin
       )
@@ -284,14 +299,14 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
           "--main-jar", mainjar.toString,
           "--assembly-descriptor", assembly.toString,
           "--name", "sample-component",
-          "--version", "0.1.0",
-          "--component", "sample-component"
+          "--version", "0.1.0-SNAPSHOT",
+          "--component", "Component"
         ))
       }
 
       Then("packaging rejects the stale assembly before writing the archive")
       error.getMessage should include(
-        "assembly-descriptor.yaml must declare subsystem version '0.1.0'"
+        "assembly-descriptor.yaml must declare subsystem version '0.1.0-SNAPSHOT'"
       )
       Files.exists(archive) shouldBe false
     }
@@ -306,7 +321,8 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
         """subsystem: sample-component
           |version: 0.1.0
           |components:
-          |  - name: sample-component
+          |  - namespace: org.sample
+          |    id: Component
           |    version: 0.0.9
           |""".stripMargin
       )
@@ -320,13 +336,13 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
           "--assembly-descriptor", assembly.toString,
           "--name", "sample-component",
           "--version", "0.1.0",
-          "--component", "sample-component"
+          "--component", "Component"
         ))
       }
 
       Then("packaging rejects the stale primary component before writing the archive")
       error.getMessage should include(
-        "assembly-descriptor.yaml must declare component 'sample-component' at CAR version '0.1.0'"
+        "assembly-descriptor.yaml must declare component 'org.sample.Component:0.1.0'"
       )
       Files.exists(archive) shouldBe false
     }
@@ -347,7 +363,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
         "--model-metadata", s"${first},${second}",
         "--name", "sample-component",
         "--version", "0.1.0",
-        "--component", "sample-component"
+        "--component", "Component"
       ))
 
       Then("the ABI contains each distinct authored operation and entity once")
@@ -369,7 +385,8 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
           |  car:
           |    abi:
           |      dependencies:
-          |        - name: textus-foundation
+          |        - namespace: org.example.textus
+          |          id: Foundation
           |          abiRange: "[1.2.0,2.0.0)"
           |""".stripMargin
       )
@@ -387,7 +404,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
         "--abi-manifest-output", abisidecar.toString,
         "--name", "sample-component",
         "--version", "0.1.0",
-        "--component", "sample-component"
+        "--component", "Component"
       ))
 
       Then("the generated ABI manifest preserves every canonical public contract surface")
@@ -426,7 +443,8 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
         "required" -> true
       )
       (abi \ "dependencies").as[Seq[JsValue]] shouldBe Seq(Json.obj(
-        "name" -> "textus-foundation",
+        "namespace" -> "org.example.textus",
+        "id" -> "Foundation",
         "abiRange" -> "[1.2.0,2.0.0)"
       ))
       Files.readString(abisidecar) shouldBe _zip_text(archive, "abi-manifest.json")
@@ -438,8 +456,8 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
       Given("a CAR source directory with current and historical ABI manifests")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
       val cardir = dir.resolve("src/main/car")
-      val currentabi = _write(cardir.resolve("abi-manifest.json"), _abi_manifest("sample-component", "0.1.0", "source-component"))
-      _write(cardir.resolve("0.0.9/abi-manifest.json"), _abi_manifest("sample-component", "0.0.9", "old-component"))
+      val currentabi = _write(cardir.resolve("abi-manifest.json"), _abi_manifest("org.sample", "Component", "0.1.0"))
+      _write(cardir.resolve("0.0.9/abi-manifest.json"), _abi_manifest("org.sample", "Component", "0.0.9"))
       _write(cardir.resolve("manual/component.md"), "# component")
       val archive = dir.resolve("out/sample.car")
 
@@ -450,7 +468,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
         "--car-dir", cardir.toString,
         "--name", "sample-component",
         "--version", "0.1.0",
-        "--component", "generated-component"
+        "--component", "Component"
       ))
 
       val entries = _zip_entries(archive)
@@ -472,9 +490,12 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
       val sourcedescriptor = _write(
         cardir.resolve("component-descriptor.json"),
         """{
-          |  "name": "sample-component",
-          |  "version": "0.1.0",
-          |  "component": "source-component",
+          |  "schemaVersion": 3,
+          |  "component": {
+          |    "namespace": "org.sample",
+          |    "id": "Component",
+          |    "version": "0.1.0"
+          |  },
           |  "extensions": {
           |    "source": "scaffold"
           |  }
@@ -491,7 +512,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
         "--car-dir", cardir.toString,
         "--name", "sample-component",
         "--version", "0.1.0",
-        "--component", "source-component"
+        "--component", "Component"
       ))
 
       Then("the source-managed component descriptor is embedded at the CAR top level")
@@ -503,28 +524,46 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
     }
   }
 
-    "let componentlet metadata override source-managed component descriptor" in {
+    "let componentlet metadata override a canonical source-managed component descriptor" in {
     _with_temp_dir("cozy-car-componentlet-source-descriptor") { dir =>
-      Given("a CAR source descriptor and packaging metadata that declares componentlets")
+      Given("a canonical CAR source descriptor and packaging metadata that declares componentlets")
       val projectdir = dir.resolve("project")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
       val cardir = projectdir.resolve("src/main/car")
       _write(
         cardir.resolve("component-descriptor.json"),
         """{
-          |  "name": "sample-component",
-          |  "version": "0.1.0",
-          |  "component": "sample-component"
+          |  "schemaVersion": 3,
+          |  "component": {"namespace": "org.example", "id": "SampleComponent", "version": "0.1.0-SNAPSHOT"}
           |}
           |""".stripMargin
       )
       _write(
         projectdir.resolve("project.yaml"),
-        """packaging:
+        s"""project:
+          |  namespace: org.example
+          |  id: SampleComponent
+          |  kind: car
+          |  component:
+          |    version: 0.1.0-SNAPSHOT
+          |build:
+          |  cozyVersion: ${org.simplemodeling.cozy.BuildInfo.version}
+          |  dependencies:
+          |    compile:
+          |      - org.goldenport::goldenport-cncf:0.5.2-SNAPSHOT
+          |packaging:
+          |  kind: car
           |  car:
+          |    runtime:
+          |      cncf:
+          |        minimum: 0.5.2-SNAPSHOT
+          |        tested: [0.5.2-SNAPSHOT]
           |    manifest_metadata:
           |      componentlets: notice-admin
           |      componentlet.notice-admin.kind: componentlet
+          |      componentlet.notice-admin.customField: preserved
+          |      extensionFlag: retained
+          |      componentDescriptorJson: '{"control":"do-not-embed"}'
           |""".stripMargin
       )
       val archive = dir.resolve("out/sample.car")
@@ -534,16 +573,29 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
         "--save", archive.toString,
         "--project-dir", projectdir.toString,
         "--main-jar", mainjar.toString,
-        "--name", "sample-component",
-        "--version", "0.1.0",
-        "--component", "sample-component"
+        "--name", "example-sample-component",
+        "--version", "0.1.0-SNAPSHOT",
+        "--component", "SampleComponent"
       ))
 
-      Then("the structured descriptor generated from componentlet metadata is embedded")
-      val descriptor = _zip_text(archive, "component-descriptor.json")
-      descriptor should include ("\"componentlets\"")
-      descriptor should include ("\"version\":\"0.1.0\"")
-      descriptor should include ("\"name\":\"notice-admin\"")
+      Then("the structured descriptor preserves canonical identity and componentlet payload")
+      val descriptor = Json.parse(_zip_text(archive, "component-descriptor.json"))
+      (descriptor \ "schemaVersion").as[Int] shouldBe 3
+      (descriptor \ "component").as[JsObject] shouldBe Json.obj(
+        "namespace" -> "org.example",
+        "id" -> "SampleComponent",
+        "version" -> "0.1.0-SNAPSHOT"
+      )
+      val componentlet = (descriptor \ "componentlets").as[Vector[JsObject]].head
+      (componentlet \ "name").as[String] shouldBe "notice-admin"
+      (componentlet \ "kind").as[String] shouldBe "componentlet"
+      (componentlet \ "customField").as[String] shouldBe "preserved"
+      (descriptor \ "extensions" \ "extensionFlag").as[String] shouldBe "retained"
+      (descriptor \ "extensions" \ "componentDescriptorJson").toOption shouldBe empty
+      Json.stringify(descriptor) should not include "do-not-embed"
+      (descriptor \ "name").toOption shouldBe empty
+      (descriptor \ "version").toOption shouldBe empty
+      (descriptor \ "component").as[JsObject].value.get("name") shouldBe empty
     }
   }
 
@@ -552,8 +604,8 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
       Given("generated metadata, a CAR source manifest, and an explicit ABI manifest")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
       val cardir = dir.resolve("src/main/car")
-      _write(cardir.resolve("abi-manifest.json"), _abi_manifest("sample-component", "0.1.0", "source-component"))
-      val explicitabi = _write(dir.resolve("abi/explicit.json"), _abi_manifest("sample-component", "0.1.0", "explicit-component"))
+      _write(cardir.resolve("abi-manifest.json"), _abi_manifest("org.sample", "Component", "0.1.0"))
+      val explicitabi = _write(dir.resolve("abi/explicit.json"), _abi_manifest("org.sample", "Component", "0.1.0"))
       val metadata = _write(dir.resolve("target/cozy/model-metadata.json"), _model_metadata)
       val archive = dir.resolve("out/sample.car")
 
@@ -566,7 +618,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
         "--model-metadata", metadata.toString,
         "--name", "sample-component",
         "--version", "0.1.0",
-        "--component", "generated-component"
+        "--component", "Component"
       ))
 
       Then("the explicit ABI manifest is embedded")
@@ -575,7 +627,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
   }
   }
 
-    "validate CAR descriptors and project policy" which {
+    "validate CAR descriptors and project policy" should {
     "reject generated model metadata with an unsupported schema" in {
     _with_temp_dir("cozy-car-invalid-model-metadata") { dir =>
       Given("generated metadata whose schema is not the CML metadata contract")
@@ -591,7 +643,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
           "--model-metadata", metadata.toString,
           "--name", "sample-component",
           "--version", "0.1.0",
-          "--component", "sample-component"
+          "--component", "Component"
         ))
       }
 
@@ -606,7 +658,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
       Given("a source-managed ABI manifest with a stale version")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
       val cardir = dir.resolve("src/main/car")
-      _write(cardir.resolve("abi-manifest.json"), _abi_manifest("sample-component", "0.0.9", "source-component"))
+      _write(cardir.resolve("abi-manifest.json"), _abi_manifest("org.sample", "Component", "0.0.9"))
       val archive = dir.resolve("out/sample.car")
 
       When("Cozy packages a different CAR version")
@@ -617,13 +669,14 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
           "--car-dir", cardir.toString,
           "--name", "sample-component",
           "--version", "0.1.0",
-          "--component", "generated-component"
+          "--component", "Component"
         ))
       }
 
       Then("the stale ABI manifest is rejected before archive creation")
-      ex.getMessage should include ("declares sample-component:0.0.9")
-      ex.getMessage should include ("building sample-component:0.1.0")
+      ex.getMessage should include ("component.release-coordinate.mismatch")
+      ex.getMessage should include ("expected=org.sample.Component:0.1.0")
+      ex.getMessage should include ("actual=org.sample.Component:0.0.9")
     }
   }
 
@@ -633,7 +686,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
       val archive = dir.resolve("out/sample.car")
       val descriptorjson =
-        """{"component":{"name":"sample-component","version":"0.1.0","kind":"component","isPrimary":"true"},"componentlets":[{"name":"notice-admin","kind":"componentlet"},{"name":"public-notice","kind":"componentlet"}]}"""
+        """{"schemaVersion":3,"component":{"namespace":"org.sample","id":"Component","version":"0.1.0"},"componentlets":[{"name":"notice-admin","kind":"componentlet"},{"name":"public-notice","kind":"componentlet"}]}"""
 
       When("Cozy packages the CAR with that descriptor")
       CarPackagingSpecSupport.buildCarWithContract(List(
@@ -641,7 +694,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
         "--main-jar", mainjar.toString,
         "--name", "sample-component",
         "--version", "0.1.0",
-        "--component", "sample-component",
+        "--component", "Component",
         "--extensions", s"""{"componentDescriptorJson":${Json.stringify(Json.toJson(descriptorjson))}}"""
       ))
 
@@ -654,26 +707,43 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
     }
   }
 
-    "accept descriptor override whose name is the component name" in {
+    "reject legacy component.name descriptors and noncanonical transport" in {
     _with_temp_dir("cozy-car-component-descriptor-component-name") { dir =>
-      Given("a descriptor whose component name differs from the versioned archive name")
+      Given("a legacy component.name descriptor and a versioned noncanonical transport name")
       val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
       val archive = dir.resolve("out/sample-component-0.1.0.car")
       val descriptorjson =
         """{"component":{"name":"sample-component","version":"0.1.0","kind":"component"},"componentlets":[]}"""
 
-      When("Cozy packages the versioned archive")
-      CarPackagingSpecSupport.buildCarWithContract(List(
-        "--save", archive.toString,
-        "--main-jar", mainjar.toString,
-        "--name", "sample-component-0.1.0",
-        "--version", "0.1.0",
-        "--component", "sample-component",
-        "--extensions", s"""{"componentDescriptorJson":${Json.stringify(Json.toJson(descriptorjson))}}"""
-      ))
+      When("Cozy validates the legacy descriptor at the canonical transport name")
+      val descriptorerror = intercept[Throwable] {
+        CarPackagingSpecSupport.buildCarWithContract(List(
+          "--save", archive.toString,
+          "--main-jar", mainjar.toString,
+          "--name", "sample-component",
+          "--version", "0.1.0",
+          "--component", "Component",
+          "--extensions", s"""{"componentDescriptorJson":${Json.stringify(Json.toJson(descriptorjson))}}"""
+        ))
+      }
 
-      Then("the component-name descriptor remains valid")
-      _zip_text(archive, "component-descriptor.json") shouldBe descriptorjson
+      Then("legacy component.name identity is rejected before archive output")
+      descriptorerror.getMessage should include("component.descriptor.schema.unsupported")
+      Files.exists(archive) shouldBe false
+
+      And("the noncanonical transport projection is rejected independently")
+      val transporterror = intercept[Throwable] {
+        CarPackagingSpecSupport.buildCarWithContract(List(
+          "--save", archive.toString,
+          "--main-jar", mainjar.toString,
+          "--name", "sample-component-0.1.0",
+          "--version", "0.1.0",
+          "--component", "Component",
+          "--extensions", s"""{"componentDescriptorJson":${Json.stringify(Json.toJson(descriptorjson))}}"""
+        ))
+      }
+      transporterror.getMessage should include("component.release-coordinate.projection-mismatch")
+      Files.exists(archive) shouldBe false
     }
   }
 
@@ -692,13 +762,13 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
           "--main-jar", mainjar.toString,
           "--name", "sample-component",
           "--version", "0.1.0",
-          "--component", "sample-component",
+          "--component", "Component",
           "--extensions", s"""{"componentDescriptorJson":${Json.stringify(Json.toJson(descriptorjson))}}"""
         ))
       }
 
       Then("the missing version is rejected")
-      ex.getMessage should include ("componentDescriptorJson must declare CAR version")
+      ex.getMessage should include ("component.descriptor.schema.unsupported")
     }
   }
 
@@ -734,7 +804,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
         "--lib-jars", libjar.toString,
         "--name", "sample-component",
         "--version", "0.1.0",
-        "--component", "sample-component"
+        "--component", "Component"
       ))
 
       Then("the archive projects the policy without embedding disabled dependencies")
@@ -744,7 +814,11 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
       entries should contain ("component-dependencies.yaml")
       entries should not contain "cozy/component-dependencies.yaml"
       entries should not contain "lib/dep.jar"
-      descriptor should include (""""component": "policy-component"""")
+      (Json.parse(descriptor) \ "component").as[JsObject] shouldBe Json.obj(
+        "namespace" -> "org.sample",
+        "id" -> "Component",
+        "version" -> "0.1.0"
+      )
       manifest should include ("provided:")
       manifest should include ("shared:")
       manifest should include ("\"org.postgresql:postgresql:42.7.3\"")
@@ -773,7 +847,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
         "--main-jar", mainjar.toString,
         "--name", "sample-component",
         "--version", "0.1.0",
-        "--component", "sample-component"
+        "--component", "Component"
       ))
 
       Then("the descriptor contains the project configuration")
@@ -822,7 +896,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
         "--lib-jars", libjar.toString,
         "--name", "sample-component",
         "--version", "0.1.0",
-        "--component", "sample-component"
+        "--component", "Component"
       ))
 
       Then("the default policy selects project resources without embedding dependencies")
@@ -837,7 +911,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
   }
   }
 
-    "admit CNCF runtime compatibility evidence" which {
+    "admit CNCF runtime compatibility evidence" should {
     "read CNCF runtime descriptor from lib jar without embedding dependencies" in {
     _with_temp_dir("cozy-car-runtime-descriptor-jar") { dir =>
       Given("an exact CNCF runtime descriptor on the compile classpath")
@@ -879,8 +953,8 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
           "--main-jar", mainjar.toString,
           "--lib-jars", cncfjar.toString,
           "--name", "sample-component",
-          "--version", "0.1.0",
-          "--component", "sample-component"
+          "--version", "0.1.0-SNAPSHOT",
+          "--component", "Component"
         ))
       }
 
@@ -925,7 +999,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
         "--lib-jars", cncfjar.toString,
         "--name", "sample-component",
         "--version", "0.1.0",
-        "--component", "sample-component"
+        "--component", "Component"
       ))
 
       Then("the compatible archive is created")
@@ -967,7 +1041,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
           "--lib-jars", cncfjar.toString,
           "--name", "sample-component",
           "--version", "0.1.0",
-          "--component", "sample-component"
+          "--component", "Component"
         ))
       }
 
@@ -1012,7 +1086,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
           "--lib-jars", cncfjar.toString,
           "--name", "sample-component",
           "--version", "0.1.0",
-          "--component", "sample-component"
+          "--component", "Component"
         ))
       }
 
@@ -1058,7 +1132,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
           "--lib-jars", cncfjar.toString,
           "--name", "sample-component",
           "--version", "0.1.0",
-          "--component", "sample-component"
+          "--component", "Component"
         ))
       }
 
@@ -1105,7 +1179,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
           "--lib-jars", cncfjar.toString,
           "--name", "sample-component",
           "--version", "0.1.0",
-          "--component", "sample-component"
+          "--component", "Component"
         ))
       }
 
@@ -1171,8 +1245,8 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
             "--main-jar", mainjar.toString,
             "--lib-jars", cncfjar.toString,
             "--name", "sample-component",
-            "--version", "0.1.0",
-            "--component", "sample-component"
+            "--version", "0.1.0-SNAPSHOT",
+            "--component", "Component"
           ))
         }
         Then("the explicit catalog governs the dependency rejection")
@@ -1185,7 +1259,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
   }
   }
 
-    "validate generated metadata and dependency ownership" which {
+    "validate generated metadata and dependency ownership" should {
     "reject a CML CAR whose generated model metadata side output is missing" in {
     _with_temp_dir("cozy-car-missing-model-metadata") { dir =>
       Given("a CML CAR project without an explicit ABI or generated model metadata")
@@ -1201,7 +1275,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
           "--project-dir", dir.toString,
           "--name", "sample-component",
           "--version", "0.1.0-SNAPSHOT",
-          "--component", "sample-component"
+          "--component", "Component"
         ))
       }
 
@@ -1234,7 +1308,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
         "--lib-jars", libjar.toString,
         "--name", "sample-component",
         "--version", "0.1.0",
-        "--component", "sample-component"
+        "--component", "Component"
       ))
 
       Then("the dependency JAR is embedded under the CAR lib directory")
@@ -1281,7 +1355,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
         "--main-jar", mainjar.toString,
         "--name", "sample-component",
         "--version", "0.1.0",
-        "--component", "sample-component"
+        "--component", "Component"
       ))
 
       Then("only component-owned dependencies and repositories are projected")
@@ -1328,7 +1402,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
           "--main-jar", mainjar.toString,
           "--name", "sample-component",
           "--version", "0.1.0",
-          "--component", "sample-component"
+          "--component", "Component"
         ))
       }
       Then("the base-provided overlap is rejected")
@@ -1380,7 +1454,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
           "--main-jar", mainjar.toString,
           "--name", "sample-component",
           "--version", "0.1.0",
-          "--component", "sample-component"
+          "--component", "Component"
         ))
       }
       Then("the configured runtime project's catalog governs dependency validation")
@@ -1417,7 +1491,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
           "--main-jar", mainjar.toString,
           "--name", "sample-component",
           "--version", "0.1.0",
-          "--component", "sample-component"
+          "--component", "Component"
         ))
       }
 
@@ -1467,8 +1541,8 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
           "--project-dir", projectdir.toString,
           "--main-jar", mainjar.toString,
           "--name", "sample-component",
-          "--version", "0.1.0",
-          "--component", "sample-component"
+          "--version", "0.1.0-SNAPSHOT",
+          "--component", "Component"
         ))
       }
       Then("the returned runtime catalog governs dependency validation")
@@ -1478,7 +1552,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
   }
   }
 
-    "assemble SAR surfaces" which {
+    "assemble SAR surfaces" should {
     "write descriptor at SAR top level" in {
     Given("a subsystem descriptor, extension JAR, and application configuration")
     _with_temp_dir("cozy-sar") { dir =>
@@ -1511,7 +1585,9 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
   }
 
   private def _with_temp_dir[A](prefix: String)(f: Path => A): A = {
-    val dir = Files.createTempDirectory(prefix)
+    val workroot = Path.of("target/cozy-test/work/cozy-archive-packager-spec").toAbsolutePath.normalize()
+    Files.createDirectories(workroot)
+    val dir = Files.createTempDirectory(workroot, s"$prefix-")
     try f(dir)
     finally _delete_tree(dir)
   }
@@ -1540,22 +1616,20 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
   }
 
   private def _abi_manifest(
-    name: String,
-    version: String,
-    component: String
+    namespace: String,
+    id: String,
+    version: String
   ): String =
     s"""{
-       |  "format": "cozy.car.abi-manifest.v1",
-       |  "car": {
-       |    "name": "$name",
-       |    "version": "$version"
-       |  },
+       |  "format": "cozy.car.abi-manifest.v2",
+       |  "component": {"namespace":"$namespace","id":"$id","version":"$version"},
        |  "abi": {
        |    "version": 1,
        |    "exports": {
        |      "components": [
        |        {
-       |          "name": "$component"
+       |          "namespace": "$namespace",
+       |          "id": "$id"
        |        }
        |      ],
        |      "operations": [],

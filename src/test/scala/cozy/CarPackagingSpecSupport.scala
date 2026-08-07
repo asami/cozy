@@ -8,23 +8,36 @@ import scala.collection.JavaConverters._
 import scala.util.Try
 
 import cozy.archive.CozyArchivePackager
+import cozy.compatibility.{
+  GenerationCompatibility,
+  GenerationCompatibilityBoundary,
+  GenerationCompatibilityEvidence,
+  GenerationEvidenceOwner,
+  GenerationPairEvidence,
+  GenerationPairStatus
+}
 import cozy.config.CozyProjectYamlConfig
 import io.circe.Json
 import io.circe.parser.parse
 
 /*
  * @since   Jul. 28, 2026
- * @version Jul. 28, 2026
+ * @version Aug.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CarPackagingSpecSupport {
   private val CNCF_VERSION = "0.5.17"
+  private val _release_cozy_version = "0.3.1"
 
   def buildCarWithContract(args: List[String]): Unit = {
     val temporaryproject = !args.contains("--project-dir")
     val projectdir = _argument(args, "project-dir").
       map(Path.of(_)).
-      getOrElse(Files.createTempDirectory("cozy-car-contract-"))
+      getOrElse {
+        val workroot = Path.of("target/cozy-test/work/car-packaging-spec-support").toAbsolutePath.normalize()
+        Files.createDirectories(workroot)
+        Files.createTempDirectory(workroot, "contract-")
+      }
     val projectyaml = projectdir.resolve("project.yaml")
     val originalprojectyaml =
       Option(projectyaml).filter(Files.isRegularFile(_)).map(Files.readAllBytes(_))
@@ -32,6 +45,14 @@ private[cozy] object CarPackagingSpecSupport {
       originalprojectyaml.map(_load_project_config).getOrElse(
         CozyProjectYamlConfig.Config.empty
       )
+    val requestversion = _argument(args, "version").getOrElse("")
+    val defaultcozyversion =
+      if (_is_snapshot_version(requestversion))
+        org.simplemodeling.cozy.BuildInfo.version
+      else
+        _release_cozy_version
+    val cozyversion =
+      originalconfig.value("build.cozyVersion").getOrElse(defaultcozyversion)
     val runtimedescriptor = _runtime_descriptor(args)
     val cncfversion =
       runtimedescriptor.flatMap(_._2).
@@ -58,9 +79,16 @@ private[cozy] object CarPackagingSpecSupport {
         projectyaml,
         originalconfig.json.getOrElse(Json.obj()),
         cncfversion,
+        cozyversion,
+        requestversion,
         includedependencies = temporaryproject
       )
-      CozyArchivePackager.buildCar(effectiveargs)
+      val effectiveconfig = CozyProjectYamlConfig.load(projectyaml)
+      val effectivecncfversion = _effective_cncf_version(effectiveconfig, cncfversion)
+      val effectivecozyversion =
+        effectiveconfig.value("build.cozyVersion").getOrElse(cozyversion)
+      val evidence = _generation_evidence(effectivecncfversion, effectivecozyversion)
+      CozyArchivePackager._build_car(effectiveargs, evidence, effectivecozyversion)
     } finally {
       originalprojectyaml match {
         case Some(bytes) => Files.write(projectyaml, bytes)
@@ -76,16 +104,23 @@ private[cozy] object CarPackagingSpecSupport {
     projectyaml: Path,
     original: Json,
     cncfversion: String,
+    cozyversion: String,
+    requestversion: String,
     includedependencies: Boolean
   ): Unit = {
     val defaults = parse(
       s"""{
          |  "project": {
+         |    "namespace": "org.sample",
+         |    "id": "Component",
          |    "name": "packaging-spec",
-         |    "kind": "car"
+         |    "kind": "car",
+         |    "component": {
+         |      "version": "${requestversion}"
+         |    }
          |  },
          |  "build": {
-         |    "cozyVersion": "${org.simplemodeling.cozy.BuildInfo.version}",
+         |    "cozyVersion": "${cozyversion}",
          |    "dependencies": {
          |      "compile": [
          |        "org.goldenport::goldenport-cncf:${cncfversion}"
@@ -118,7 +153,9 @@ private[cozy] object CarPackagingSpecSupport {
   private def _load_project_config(
     bytes: Array[Byte]
   ): CozyProjectYamlConfig.Config = {
-    val temporary = Files.createTempFile("cozy-car-project-", ".yaml")
+    val workroot = Path.of("target/cozy-test/work/car-packaging-spec-support").toAbsolutePath.normalize()
+    Files.createDirectories(workroot)
+    val temporary = Files.createTempFile(workroot, "project-", ".yaml")
     try {
       Files.write(temporary, bytes)
       CozyProjectYamlConfig.load(temporary)
@@ -187,6 +224,37 @@ private[cozy] object CarPackagingSpecSupport {
     args.sliding(2).collectFirst {
       case List(flag, value) if flag == s"--${key}" => value
     }
+
+  private def _effective_cncf_version(
+    config: CozyProjectYamlConfig.Config,
+    fallback: String
+  ): String =
+    config.list("build.dependencies.compile").collectFirst {
+      case value
+          if value.startsWith("org.goldenport::goldenport-cncf:") ||
+            value.startsWith("org.goldenport::goldenport-cncf_3:") ||
+            value.startsWith("org.goldenport:goldenport-cncf_3:") =>
+        value.split(":").last
+    }.getOrElse(fallback)
+
+  private def _generation_evidence(
+    cncfversion: String,
+    cozyversion: String
+  ): GenerationCompatibilityEvidence = {
+    val pair = GenerationCompatibilityBoundary.createPair(cncfversion, cozyversion)
+    GenerationCompatibilityEvidence(
+      GenerationCompatibility.evidenceSchema,
+      GenerationEvidenceOwner(
+        "CarPackagingSpecSupport controlled generation fixture",
+        "CarPackagingSpecSupport"
+      ),
+      Vector(GenerationPairEvidence(pair, GenerationPairStatus.Proven)),
+      None
+    )
+  }
+
+  private def _is_snapshot_version(version: String): Boolean =
+    version.toUpperCase(java.util.Locale.ROOT).contains("SNAPSHOT")
 
   private def _append_csv_argument(
     args: List[String],

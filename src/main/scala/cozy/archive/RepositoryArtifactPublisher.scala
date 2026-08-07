@@ -20,10 +20,16 @@ import scala.util.control.NonFatal
  * @since   May. 20, 2026
  *  version Jun. 23, 2026
  *  version Jul. 21, 2026
- * @version Aug.  1, 2026
+ * @version Aug.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object RepositoryArtifactPublisher {
+  /** Package-private deterministic failure seam for transaction recovery specifications. */
+  private[archive] var _publication_move_fault: Option[Path => Unit] = None
+  /** Package-private deterministic failure seam for candidate-preparation specifications. */
+  private[archive] var _publication_prepare_fault: Option[Path => Unit] = None
+  /** Package-private deterministic failure seam for rollback-snapshot specifications. */
+  private[archive] var _publication_snapshot_fault: Option[Path => Unit] = None
   private final case class PreparedCarCmlSidecars(
     source: Path,
     metadatajson: String,
@@ -36,7 +42,8 @@ private[cozy] object RepositoryArtifactPublisher {
     missingProjectMessage: String,
     missingArchiveMessage: String,
     versionEntry: (String, String, String, Path, List[String]) => RepositoryArtifactCatalogVersion,
-    buildArchive: List[String] => Path
+    buildArchive: List[String] => Path,
+    coordinate: Option[CozyComponentReleaseCoordinateCodec.Coordinate] = None
   )
 
   def publish(args: List[String], policy: Policy): Unit = {
@@ -49,10 +56,11 @@ private[cozy] object RepositoryArtifactPublisher {
     val warehouse = requiredPath(publicationargs, "warehouse")
     val name = requiredValue(publicationargs, "name")
     val version = requiredValue(publicationargs, "version")
-    val sourcearchive = path(publicationargs, policy.archiveOption).getOrElse(policy.buildArchive(publicationargs))
-    val carsidecars =
-      if (policy.kind == "car") Some(_prepare_car_cml_sidecars(projectdir, name, publicationargs))
-      else None
+    policy.coordinate.foreach { coordinate =>
+      CozyComponentReleaseCoordinateCodec.requireProjection(coordinate.mavenArtifactId, name, "name", "publish-car")
+      CozyComponentReleaseCoordinateCodec.requireProjection(coordinate.version, version, "version", "publish-car")
+    }
+    val suppliedarchive = path(publicationargs, policy.archiveOption)
     val indexpath = componentRepositoryIndexPath(warehouse)
     val generatedat = OffsetDateTime.parse(publishedAt(publicationargs)).toInstant
     _with_component_repository_index_lock(warehouse) {
@@ -61,36 +69,89 @@ private[cozy] object RepositoryArtifactPublisher {
           Some(ComponentRepositoryIndex.validateCatalogs(ComponentRepositoryIndex.load(indexpath), indexpath))
         else
           None
-      val target = _publish_archive(warehouse, name, version, sourcearchive, policy)
-      val catalog = _updated_catalog(projectdir, warehouse, name, version, target, publicationargs, policy)
-      val sourcecatalog = sourceCatalogPath(projectdir, policy.kind, name)
-      val publiccatalog = publicCatalogPath(warehouse, policy.kind, name)
-      val metadatapath = mavenMetadataPath(warehouse, policy.kind, name)
+      _preflight_catalog(projectdir, name, policy)
+      val stagedfiles = scala.collection.mutable.ArrayBuffer.empty[StagedFile]
+      var generatedarchive: Option[Path] = None
+      var publicationfailure: Throwable = null
+      def _stage_(create: => StagedFile): Path = {
+        val staged = create
+        stagedfiles += staged
+        staged.path
+      }
+      try {
+      val carsidecars =
+        if (policy.kind == "car") Some(_prepare_car_cml_sidecars(projectdir, publicationargs))
+        else None
+      val sourcearchive = suppliedarchive.getOrElse {
+        val generated = policy.buildArchive(publicationargs)
+        generatedarchive = Some(generated)
+        generated
+      }
+      val target = _archive_target(warehouse, name, version, policy)
+      if (!Files.isRegularFile(sourcearchive))
+        RAISE.invalidArgumentFault(s"${policy.missingArchiveMessage}: $sourcearchive")
+      val archivecandidate = _stage_(_stage_copy(target, sourcearchive))
+      val catalog = _updated_catalog(projectdir, warehouse, name, version, target, archivecandidate, publicationargs, policy)
+      val sourcecatalog = sourceCatalogPath(projectdir, policy.kind, name, policy.coordinate)
+      val publiccatalog = publicCatalogPath(warehouse, policy.kind, name, policy.coordinate)
+      val metadatapath = mavenMetadataPath(warehouse, policy.kind, name, policy.coordinate)
       val updatedindex = ComponentRepositoryIndex.update(existingindex, catalog, generatedat)
+      val writes = scala.collection.mutable.LinkedHashMap.empty[Path, Option[Path]]
+      writes += target -> Some(archivecandidate)
+      policy.coordinate.foreach { _ =>
+        writes += target.resolveSibling(target.getFileName.toString + ".sha256") ->
+          Some(_stage_(_stage_text(target.resolveSibling(target.getFileName.toString + ".sha256"), sha256(archivecandidate) + "\n")))
+      }
       if (catalog.versions.isEmpty) {
-        _delete_if_exists(sourcecatalog)
-        _delete_if_exists(publiccatalog)
-        _delete_if_exists(metadatapath)
+        writes += sourcecatalog -> None
+        writes += publiccatalog -> None
+        writes += metadatapath -> None
       } else {
         val metadata = RepositoryArtifactMavenMetadata.toXml(catalog, publishedAt(publicationargs))
-        writeText(sourcecatalog, catalog.toYaml)
-        writeText(publiccatalog, catalog.toYaml)
-        writeText(metadatapath, metadata)
+        writes += sourcecatalog -> Some(_stage_(_stage_text(sourcecatalog, catalog.toYaml)))
+        writes += publiccatalog -> Some(_stage_(_stage_text(publiccatalog, catalog.toYaml)))
+        writes += metadatapath -> Some(_stage_(_stage_text(metadatapath, metadata)))
       }
-      ComponentRepositoryIndex.validateCatalogs(updatedindex, indexpath)
-      ComponentRepositoryIndex.writeAtomic(indexpath, updatedindex)
+      carsidecars.foreach { sidecars =>
+        val catalogdir = policy.coordinate.map(c => warehouse.resolve("repository/catalog/car").resolve(c.groupPath)).getOrElse(warehouse.resolve("repository/catalog/car"))
+        val artifact = policy.coordinate.map(_.mavenArtifactId).getOrElse(name)
+        writes += catalogdir.resolve(s"$artifact.cml") -> Some(_stage_(_stage_copy(catalogdir.resolve(s"$artifact.cml"), sidecars.source)))
+        writes += catalogdir.resolve(s"$artifact.model-metadata.json") -> Some(_stage_(_stage_text(catalogdir.resolve(s"$artifact.model-metadata.json"), sidecars.metadatajson)))
+        sidecars.metadatayaml.foreach { yaml =>
+          writes += catalogdir.resolve(s"$artifact.model-metadata.yaml") -> Some(_stage_(_stage_text(catalogdir.resolve(s"$artifact.model-metadata.yaml"), yaml)))
+        }
+        if (sidecars.metadatayaml.isEmpty)
+          writes += catalogdir.resolve(s"$artifact.model-metadata.yaml") -> None
+      }
+      val indexcandidate = _stage_(_stage_text(indexpath, ComponentRepositoryIndex.render(updatedindex)))
+      val overlay = writes.toMap.map { case (path, staged) => path.toAbsolutePath.normalize() -> staged }
+      // All candidate bytes, including archive integrity, are checked before a final path changes.
+      ComponentRepositoryIndex.validateCatalogs(updatedindex, indexpath, overlay)
+      _commit_transaction(writes.toVector, indexpath -> Some(indexcandidate))
+      } catch {
+        case error: Throwable =>
+          publicationfailure = error
+          throw error
+      } finally {
+        val cleanuperrors =
+          _cleanup_staged_files(stagedfiles.toVector) ++
+            _cleanup_paths(generatedarchive.toVector)
+        if (publicationfailure != null)
+          _add_suppressed(publicationfailure, cleanuperrors)
+        else
+          _throw_cleanup_errors(cleanuperrors)
+      }
     }
-    carsidecars.foreach(_publish_car_cml_sidecars(warehouse, name, _))
   }
 
-  def projectConfig(projectdir: Path): CozyProjectYamlConfig.Config = {
-    CozyProjectYamlConfig.loadProjectConfig(projectdir)
+  def projectConfig(projectDir: Path): CozyProjectYamlConfig.Config = {
+    CozyProjectYamlConfig.loadProjectConfig(projectDir)
   }
 
-  def projectDir(args: List[String], missingmessage: String): Path =
+  def projectDir(args: List[String], missingMessage: String): Path =
     _parse(args).pathProperty("project-dir").
       orElse(_parse(args).argument("project").map(p => Paths.get(p).toAbsolutePath.normalize())).
-      getOrElse(RAISE.invalidArgumentFault(missingmessage))
+      getOrElse(RAISE.invalidArgumentFault(missingMessage))
 
   def requiredPath(args: List[String], key: String): Path =
     path(args, key).getOrElse(RAISE.invalidArgumentFault(s"Missing --$key"))
@@ -111,13 +172,13 @@ private[cozy] object RepositoryArtifactPublisher {
         case List(flag, value) if flag == s"--${key}" => value
       }.exists(x => x.equalsIgnoreCase("true") || x == "1" || x.equalsIgnoreCase("yes"))
 
-  def removePublishOnlyArgs(args: List[String], skipkeys: Set[String]): Vector[String] = {
+  def removePublishOnlyArgs(args: List[String], skipKeys: Set[String]): Vector[String] = {
     def _go_(xs: List[String], acc: Vector[String]): Vector[String] =
       xs match {
         case Nil => acc
-        case x :: tail if x.startsWith("--") && x.contains("=") && skipkeys.contains(x.drop(2).takeWhile(_ != '=')) =>
+        case x :: tail if x.startsWith("--") && x.contains("=") && skipKeys.contains(x.drop(2).takeWhile(_ != '=')) =>
           _go_(tail, acc)
-        case x :: _ :: tail if x.startsWith("--") && skipkeys.contains(x.drop(2)) =>
+        case x :: _ :: tail if x.startsWith("--") && skipKeys.contains(x.drop(2)) =>
           _go_(tail, acc)
         case "--recommended" :: tail =>
           _go_(tail, acc)
@@ -164,17 +225,20 @@ private[cozy] object RepositoryArtifactPublisher {
   private def _parse(args: List[String]): CozyCliArgs.Parsed =
     CozyCliArgs.parseStrict(_request_parameters: _*)(args)
 
-  def sourceCatalogPath(projectdir: Path, kind: String, name: String): Path =
-    projectdir.resolve(s"src/main/catalog/$kind").resolve(s"$name.yaml")
+  def sourceCatalogPath(projectDir: Path, kind: String, name: String, coordinate: Option[CozyComponentReleaseCoordinateCodec.Coordinate] = None): Path =
+    coordinate.map(c => projectDir.resolve("src/main/catalog").resolve(c.carCatalogRelativePath)).
+      getOrElse(projectDir.resolve(s"src/main/catalog/$kind").resolve(s"$name.yaml"))
 
-  def publicCatalogPath(warehouse: Path, kind: String, name: String): Path =
-    warehouse.resolve(s"repository/catalog/$kind").resolve(s"$name.yaml")
+  def publicCatalogPath(warehouse: Path, kind: String, name: String, coordinate: Option[CozyComponentReleaseCoordinateCodec.Coordinate] = None): Path =
+    coordinate.map(c => warehouse.resolve("repository/catalog").resolve(c.carCatalogRelativePath)).
+      getOrElse(warehouse.resolve(s"repository/catalog/$kind").resolve(s"$name.yaml"))
 
-  def mavenMetadataPath(warehouse: Path, kind: String, name: String): Path =
-    warehouse.resolve("repository").resolve(kind).resolve(name).resolve("maven-metadata.xml")
+  def mavenMetadataPath(warehouse: Path, kind: String, name: String, coordinate: Option[CozyComponentReleaseCoordinateCodec.Coordinate] = None): Path =
+    coordinate.map(c => warehouse.resolve("repository/car").resolve(c.groupPath).resolve(c.mavenArtifactId).resolve("maven-metadata.xml")).
+      getOrElse(warehouse.resolve("repository").resolve(kind).resolve(name).resolve("maven-metadata.xml"))
 
   def componentRepositoryIndexPath(warehouse: Path): Path =
-    warehouse.resolve(ComponentRepositoryIndex.PublicPath)
+    warehouse.resolve(ComponentRepositoryIndex.PUBLIC_PATH)
 
   def warehouseRelativePath(warehouse: Path, file: Path): String =
     warehouse.toAbsolutePath.normalize().relativize(file.toAbsolutePath.normalize()).iterator().asScala.map(_.toString).mkString("/")
@@ -201,17 +265,173 @@ private[cozy] object RepositoryArtifactPublisher {
 
   def writeText(path: Path, text: String): Unit = {
     Option(path.getParent).foreach(Files.createDirectories(_))
-    Files.writeString(path, text, StandardCharsets.UTF_8)
+    val temporary = Files.createTempFile(path.getParent, s".${path.getFileName.toString}-", ".tmp")
+    try {
+      Files.writeString(temporary, text, StandardCharsets.UTF_8)
+      try Files.move(temporary, path, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+      catch { case _: java.nio.file.AtomicMoveNotSupportedException => Files.move(temporary, path, StandardCopyOption.REPLACE_EXISTING) }
+    } finally Files.deleteIfExists(temporary)
   }
 
-  private def _publish_archive(warehouse: Path, name: String, version: String, sourcearchive: Path, policy: Policy): Path = {
-    if (!Files.isRegularFile(sourcearchive))
-      RAISE.invalidArgumentFault(s"${policy.missingArchiveMessage}: $sourcearchive")
-    val target = warehouse.resolve("repository").resolve(policy.kind).resolve(name).resolve(version).resolve(s"$name-$version.${policy.kind}")
-    Files.createDirectories(target.getParent)
-    Files.copy(sourcearchive, target, StandardCopyOption.REPLACE_EXISTING)
-    target
+  private def _archive_target(warehouse: Path, name: String, version: String, policy: Policy): Path =
+    policy.coordinate.map(c => warehouse.resolve("repository/car").resolve(c.carRepositoryRelativePath)).
+      getOrElse(warehouse.resolve("repository").resolve(policy.kind).resolve(name).resolve(version).resolve(s"$name-$version.${policy.kind}"))
+
+  private final case class StagedFile(path: Path, createdparents: Vector[Path])
+  private final case class DestinationSnapshot(destination: Path, backup: Option[Path])
+
+  private def _stage_copy(destination: Path, source: Path): StagedFile = {
+    val createdparents = _create_parent_directories(destination)
+    var staged: Option[Path] = None
+    try {
+      val prepared = Files.createTempFile(destination.getParent, s".${destination.getFileName}-prepare-", ".tmp")
+      staged = Some(prepared)
+      _publication_prepare_fault.foreach(_(prepared))
+      Files.copy(source, prepared, StandardCopyOption.REPLACE_EXISTING)
+      StagedFile(prepared, createdparents)
+    } catch {
+      case error: Throwable =>
+        val cleanuperrors = _cleanup_paths(staged.toVector) ++ _cleanup_empty_directories(createdparents)
+        _add_suppressed(error, cleanuperrors)
+        throw error
+    }
   }
+
+  private def _stage_text(destination: Path, text: String): StagedFile = {
+    val createdparents = _create_parent_directories(destination)
+    var staged: Option[Path] = None
+    try {
+      val prepared = Files.createTempFile(destination.getParent, s".${destination.getFileName}-prepare-", ".tmp")
+      staged = Some(prepared)
+      _publication_prepare_fault.foreach(_(prepared))
+      Files.writeString(prepared, text, StandardCharsets.UTF_8)
+      StagedFile(prepared, createdparents)
+    } catch {
+      case error: Throwable =>
+        val cleanuperrors = _cleanup_paths(staged.toVector) ++ _cleanup_empty_directories(createdparents)
+        _add_suppressed(error, cleanuperrors)
+        throw error
+    }
+  }
+
+  /** Installs all prepared files with index.json as the final visibility point. */
+  private def _commit_transaction(
+    prepared: Vector[(Path, Option[Path])],
+    index: (Path, Option[Path])
+  ): Unit = {
+    val ordered = prepared.map { case (path, candidate) => path.toAbsolutePath.normalize() -> candidate } :+
+      (index._1.toAbsolutePath.normalize() -> index._2)
+    var snapshots = Vector.empty[DestinationSnapshot]
+    var forwardstarted = false
+    var transactionfailure: Throwable = null
+    try {
+      ordered.foreach { case (destination, _) =>
+        snapshots :+= _snapshot(destination)
+      }
+      forwardstarted = true
+      ordered.foreach { case (destination, candidate) =>
+        _forward_move_or_delete(destination, candidate)
+      }
+    } catch {
+      case error: Throwable =>
+        transactionfailure = error
+        if (forwardstarted)
+          _add_suppressed(error, _restore_destinations(snapshots.reverse))
+        throw error
+    } finally {
+      val cleanuperrors = _cleanup_paths(ordered.flatMap(_._2)) ++ _cleanup_paths(snapshots.flatMap(_.backup))
+      if (transactionfailure != null)
+        _add_suppressed(transactionfailure, cleanuperrors)
+      else
+        _throw_cleanup_errors(cleanuperrors)
+    }
+  }
+
+  private def _snapshot(destination: Path): DestinationSnapshot =
+    if (Files.exists(destination)) {
+      val backup = Files.createTempFile(destination.getParent, s".${destination.getFileName}-rollback-", ".bak")
+      try {
+        _publication_snapshot_fault.foreach(_(destination))
+        Files.copy(destination, backup, StandardCopyOption.REPLACE_EXISTING)
+        DestinationSnapshot(destination, Some(backup))
+      } catch {
+        case error: Throwable =>
+          _add_suppressed(error, _cleanup_paths(Vector(backup)))
+          throw error
+      }
+    } else
+      DestinationSnapshot(destination, None)
+
+  private def _forward_move_or_delete(destination: Path, candidate: Option[Path]): Unit =
+    candidate match {
+      case Some(staged) =>
+        Option(destination.getParent).foreach(Files.createDirectories(_))
+        _publication_move_fault.foreach(_(destination))
+        _replace(destination, staged)
+      case None => Files.deleteIfExists(destination)
+    }
+
+  private def _restore_destinations(snapshots: Vector[DestinationSnapshot]): Vector[Throwable] =
+    snapshots.flatMap { snapshot =>
+      try {
+        snapshot.backup match {
+          case Some(backup) => _replace(snapshot.destination, backup)
+          case None => Files.deleteIfExists(snapshot.destination)
+        }
+        None
+      } catch {
+        case error: Throwable => Some(error)
+      }
+    }
+
+  private def _replace(destination: Path, source: Path): Unit =
+    try Files.move(source, destination, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+    catch { case _: java.nio.file.AtomicMoveNotSupportedException => Files.move(source, destination, StandardCopyOption.REPLACE_EXISTING) }
+
+  private def _create_parent_directories(destination: Path): Vector[Path] = {
+    var current = Option(destination.getParent)
+    var createdparents = Vector.empty[Path]
+    while (current.exists(path => !Files.exists(path))) {
+      createdparents :+= current.get
+      current = Option(current.get.getParent)
+    }
+    Option(destination.getParent).foreach(Files.createDirectories(_))
+    createdparents
+  }
+
+  private def _cleanup_staged_files(stagedfiles: Vector[StagedFile]): Vector[Throwable] =
+    _cleanup_paths(stagedfiles.map(_.path)) ++
+      _cleanup_empty_directories(stagedfiles.flatMap(_.createdparents).distinct)
+
+  private def _cleanup_paths(paths: Vector[Path]): Vector[Throwable] =
+    paths.flatMap { path =>
+      try {
+        Files.deleteIfExists(path)
+        None
+      } catch {
+        case error: Throwable => Some(error)
+      }
+    }
+
+  private def _cleanup_empty_directories(directories: Vector[Path]): Vector[Throwable] =
+    directories.flatMap { directory =>
+      try {
+        Files.deleteIfExists(directory)
+        None
+      } catch {
+        case _: java.nio.file.DirectoryNotEmptyException => None
+        case error: Throwable => Some(error)
+      }
+    }
+
+  private def _add_suppressed(primary: Throwable, errors: Vector[Throwable]): Unit =
+    errors.foreach(primary.addSuppressed)
+
+  private def _throw_cleanup_errors(errors: Vector[Throwable]): Unit =
+    errors.headOption.foreach { primary =>
+      _add_suppressed(primary, errors.tail)
+      throw primary
+    }
 
   private def _updated_catalog(
     projectdir: Path,
@@ -219,16 +439,17 @@ private[cozy] object RepositoryArtifactPublisher {
     name: String,
     version: String,
     publishedarchive: Path,
+    candidatearchive: Path,
     args: List[String],
     policy: Policy
   ): RepositoryArtifactCatalog = {
-    val sourcepath = sourceCatalogPath(projectdir, policy.kind, name)
+    val sourcepath = sourceCatalogPath(projectdir, policy.kind, name, policy.coordinate)
     val existing: RepositoryArtifactCatalog =
       if (Files.isRegularFile(sourcepath))
         RepositoryArtifactCatalog.load(sourcepath)
       else
         RepositoryArtifactCatalog(
-          schemaVersion = "1",
+          schemaVersion = if (policy.coordinate.isDefined) "2" else "1",
           kind = policy.kind,
           artifactId = name,
           recommended = None,
@@ -236,13 +457,25 @@ private[cozy] object RepositoryArtifactPublisher {
           latestSnapshot = None,
           status = Some("active"),
           aliases = Vector.empty,
-          versions = Vector.empty
+          versions = Vector.empty,
+          namespace = policy.coordinate.map(_.namespace),
+          id = policy.coordinate.map(_.id)
         )
-    if (existing.kind != policy.kind || existing.artifactId != name)
+    if (existing.kind != policy.kind || existing.artifactId != name ||
+      policy.coordinate.exists(c => existing.namespace != Some(c.namespace) || existing.id != Some(c.id)))
       RAISE.invalidArgumentFault(s"${policy.kind.toUpperCase} catalog does not match requested artifact: $sourcepath")
 
     val channel = value(args, "channel").getOrElse(if (_is_snapshot_version(version)) "snapshot" else "stable")
-    val entry = policy.versionEntry(version, channel, warehouseRelativePath(warehouse, publishedarchive), publishedarchive, args)
+    val entry0 = policy.versionEntry(version, channel, warehouseRelativePath(warehouse, publishedarchive), candidatearchive, args)
+    val entry = policy.coordinate.map { coordinate =>
+      val digest = sha256(candidatearchive)
+      entry0.copy(
+        component = Some(coordinate.qualifiedId),
+        file = Some(s"repository/car/${coordinate.carRepositoryRelativePath}"),
+        checksumSha256 = Some(digest),
+        integrityKey = Some(coordinate.integrityKey(digest))
+      )
+    }.getOrElse(entry0)
     val snapshotpublish = _is_snapshot_version(version) || channel == "snapshot"
     val releaseversions = existing.versions.filterNot(_is_snapshot_catalog_version)
     val versions =
@@ -270,8 +503,25 @@ private[cozy] object RepositoryArtifactPublisher {
       aliases = existing.aliases,
       versions = versions,
       tags = existing.tags,
-      terms = existing.terms
+      terms = existing.terms,
+      namespace = policy.coordinate.map(_.namespace),
+      id = policy.coordinate.map(_.id)
     ).validate
+  }
+
+  private def _preflight_catalog(
+    projectdir: Path,
+    name: String,
+    policy: Policy
+  ): Unit = {
+    val sourcepath = sourceCatalogPath(projectdir, policy.kind, name, policy.coordinate)
+    if (Files.isRegularFile(sourcepath)) {
+      val existing = policy.coordinate.map(RepositoryArtifactCatalog._load_for_coordinate(sourcepath, _)).
+        getOrElse(RepositoryArtifactCatalog.load(sourcepath))
+      if (existing.kind != policy.kind || existing.artifactId != name ||
+        policy.coordinate.exists(c => existing.namespace != Some(c.namespace) || existing.id != Some(c.id)))
+        RAISE.invalidArgumentFault(s"component.release-coordinate.mismatch source=$sourcepath expected=${policy.coordinate.map(_.qualifiedId).getOrElse(name)} actual=${existing.namespace.map(_ + ".").getOrElse("")}${existing.id.getOrElse(existing.artifactId)}")
+    }
   }
 
   private def _is_snapshot_catalog_version(version: RepositoryArtifactCatalogVersion): Boolean =
@@ -279,9 +529,6 @@ private[cozy] object RepositoryArtifactPublisher {
 
   private def _is_snapshot_version(version: String): Boolean =
     version.toUpperCase(java.util.Locale.ROOT).contains("SNAPSHOT")
-
-  private def _delete_if_exists(path: Path): Unit =
-    Files.deleteIfExists(path)
 
   private val _component_repository_index_monitor = new Object
 
@@ -297,8 +544,8 @@ private[cozy] object RepositoryArtifactPublisher {
       } finally channel.close()
     }
 
-  private def _prepare_car_cml_sidecars(projectdir: Path, name: String, args: List[String]): PreparedCarCmlSidecars = {
-    val resolved = CarCmlSourceResolver.resolve(projectdir, name).fold(
+  private def _prepare_car_cml_sidecars(projectdir: Path, args: List[String]): PreparedCarCmlSidecars = {
+    val resolved = CarCmlSourceResolver.resolve(projectdir).fold(
       issue => RAISE.invalidArgumentFault(s"${issue.code}: ${issue.message}"),
       identity
     )
@@ -316,11 +563,4 @@ private[cozy] object RepositoryArtifactPublisher {
     }
   }
 
-  private def _publish_car_cml_sidecars(warehouse: Path, name: String, sidecars: PreparedCarCmlSidecars): Unit = {
-    val catalogdir = warehouse.resolve("repository/catalog/car")
-    Files.createDirectories(catalogdir)
-    Files.copy(sidecars.source, catalogdir.resolve(s"$name.cml"), StandardCopyOption.REPLACE_EXISTING)
-    writeText(catalogdir.resolve(s"$name.model-metadata.json"), sidecars.metadatajson)
-    sidecars.metadatayaml.foreach(writeText(catalogdir.resolve(s"$name.model-metadata.yaml"), _))
-  }
 }

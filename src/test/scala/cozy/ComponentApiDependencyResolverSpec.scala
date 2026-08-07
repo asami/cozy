@@ -6,14 +6,14 @@ import java.util.zip.{ZipEntry, ZipOutputStream}
 
 import scala.collection.JavaConverters._
 
-import cozy.archive.ComponentApiDependencyResolver
+import cozy.archive.{ComponentApiDependencyResolver, CozyComponentReleaseCoordinateCodec}
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jul. 12, 2026
- * @version Jul. 12, 2026
+ * @version Aug.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 final class ComponentApiDependencyResolverSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -22,26 +22,27 @@ final class ComponentApiDependencyResolverSpec extends AnyWordSpec with Matchers
       Given("a consumer requirement, matching provider CAR, and assembly coordinate")
       _with_temp_dir("cozy-api-dependency") { dir =>
         val consumer = _write(dir.resolve("consumer.json"), _consumer_descriptor("example.Api"))
-        val provider = _provider_car(dir.resolve("provider.car"), "provider", "0.1.0", "example.Api", "sha256:one")
+        val provider = _provider_car(dir.resolve("provider.car"), "org.example", "Provider", "0.1.0", "example.Api", "sha256:one")
         val assembly = _write(
           dir.resolve("assembly.yaml"),
           """subsystem: consumer
             |components:
-            |  - name: provider
+            |  - namespace: org.example
+            |    id: Provider
             |    version: 0.1.0
             |""".stripMargin
         )
 
         When("the dependency is resolved")
-        val jars = ComponentApiDependencyResolver.resolve(
+        val jars = ComponentApiDependencyResolver._resolve_dependencies(
           consumer,
-          Vector(ComponentApiDependencyResolver.Dependency("provider", "0.1.0", provider)),
+          Vector(ComponentApiDependencyResolver.Dependency("org.example", "Provider", "0.1.0", provider)),
           dir.resolve("resolved"),
           Some(assembly)
         )
 
         Then("only the contract API JAR is extracted")
-        jars.map(_.getFileName.toString) shouldBe Vector("provider-api.jar")
+        jars.map(_.getFileName.toString) shouldBe Vector("example-provider-api.jar")
         Files.readString(jars.head) shouldBe "api"
       }
     }
@@ -50,13 +51,13 @@ final class ComponentApiDependencyResolverSpec extends AnyWordSpec with Matchers
       Given("a required API and an unrelated provider CAR")
       _with_temp_dir("cozy-api-missing") { dir =>
         val consumer = _write(dir.resolve("consumer.json"), _consumer_descriptor("example.Required"))
-        val provider = _provider_car(dir.resolve("provider.car"), "provider", "0.1.0", "example.Other", "sha256:other")
+        val provider = _provider_car(dir.resolve("provider.car"), "org.example", "Provider", "0.1.0", "example.Other", "sha256:other")
 
         When("dependency matching runs")
         val error = intercept[Throwable] {
-          ComponentApiDependencyResolver.resolve(
+          ComponentApiDependencyResolver._resolve_dependencies(
             consumer,
-            Vector(ComponentApiDependencyResolver.Dependency("provider", "0.1.0", provider)),
+            Vector(ComponentApiDependencyResolver.Dependency("org.example", "Provider", "0.1.0", provider)),
             dir.resolve("resolved"),
             None
           )
@@ -72,11 +73,11 @@ final class ComponentApiDependencyResolverSpec extends AnyWordSpec with Matchers
       _with_temp_dir("cozy-api-optional") { dir =>
         val consumer = _write(
           dir.resolve("consumer.json"),
-          """{"schemaVersion":"cncf.component-api.v1","component":{"name":"consumer","version":"0.1.0"},"provided":[],"required":[{"apiClass":"example.Optional","required":false}]}"""
+          """{"schemaVersion":"cncf.component-api.v2","component":{"namespace":"org.example","id":"Consumer","version":"0.1.0"},"provided":[],"required":[{"apiClass":"example.Optional","required":false}]}"""
         )
 
         When("dependency matching runs without providers")
-        val jars = ComponentApiDependencyResolver.resolve(consumer, Vector.empty, dir.resolve("resolved"), None)
+        val jars = ComponentApiDependencyResolver._resolve_dependencies(consumer, Vector.empty, dir.resolve("resolved"), None)
 
         Then("no API JAR is required")
         jars shouldBe Vector.empty
@@ -87,16 +88,16 @@ final class ComponentApiDependencyResolverSpec extends AnyWordSpec with Matchers
       Given("two provider CARs for one required API")
       _with_temp_dir("cozy-api-ambiguous") { dir =>
         val consumer = _write(dir.resolve("consumer.json"), _consumer_descriptor("example.Api"))
-        val first = _provider_car(dir.resolve("first.car"), "first", "0.1.0", "example.Api", "sha256:one")
-        val second = _provider_car(dir.resolve("second.car"), "second", "0.2.0", "example.Api", "sha256:two")
+        val first = _provider_car(dir.resolve("first.car"), "org.example", "First", "0.1.0", "example.Api", "sha256:one")
+        val second = _provider_car(dir.resolve("second.car"), "org.example", "Second", "0.2.0", "example.Api", "sha256:two")
 
         When("dependency matching runs")
         val error = intercept[Throwable] {
-          ComponentApiDependencyResolver.resolve(
+          ComponentApiDependencyResolver._resolve_dependencies(
             consumer,
             Vector(
-              ComponentApiDependencyResolver.Dependency("first", "0.1.0", first),
-              ComponentApiDependencyResolver.Dependency("second", "0.2.0", second)
+              ComponentApiDependencyResolver.Dependency("org.example", "First", "0.1.0", first),
+              ComponentApiDependencyResolver.Dependency("org.example", "Second", "0.2.0", second)
             ),
             dir.resolve("resolved"),
             None
@@ -113,15 +114,15 @@ final class ComponentApiDependencyResolverSpec extends AnyWordSpec with Matchers
       _with_temp_dir("cozy-api-abi") { dir =>
         val consumer = _write(
           dir.resolve("consumer.json"),
-          """{"schemaVersion":"cncf.component-api.v1","component":{"name":"consumer","version":"0.1.0"},"provided":[],"required":[{"apiClass":"example.Api","required":true,"abiHash":"sha256:expected"}]}"""
+          """{"schemaVersion":"cncf.component-api.v2","component":{"namespace":"org.example","id":"Consumer","version":"0.1.0"},"provided":[],"required":[{"apiClass":"example.Api","required":true,"abiHash":"sha256:expected"}]}"""
         )
-        val provider = _provider_car(dir.resolve("provider.car"), "provider", "0.1.0", "example.Api", "sha256:actual")
+        val provider = _provider_car(dir.resolve("provider.car"), "org.example", "Provider", "0.1.0", "example.Api", "sha256:actual")
 
         When("dependency matching checks ABI compatibility")
         val error = intercept[Throwable] {
-          ComponentApiDependencyResolver.resolve(
+          ComponentApiDependencyResolver._resolve_dependencies(
             consumer,
-            Vector(ComponentApiDependencyResolver.Dependency("provider", "0.1.0", provider)),
+            Vector(ComponentApiDependencyResolver.Dependency("org.example", "Provider", "0.1.0", provider)),
             dir.resolve("resolved"),
             None
           )
@@ -136,14 +137,14 @@ final class ComponentApiDependencyResolverSpec extends AnyWordSpec with Matchers
       Given("a valid API provider omitted from the assembly descriptor")
       _with_temp_dir("cozy-api-assembly") { dir =>
         val consumer = _write(dir.resolve("consumer.json"), _consumer_descriptor("example.Api"))
-        val provider = _provider_car(dir.resolve("provider.car"), "provider", "0.1.0", "example.Api", "sha256:one")
+        val provider = _provider_car(dir.resolve("provider.car"), "org.example", "Provider", "0.1.0", "example.Api", "sha256:one")
         val assembly = _write(dir.resolve("assembly.yaml"), "subsystem: consumer\ncomponents: []\n")
 
         When("dependency and assembly metadata are validated")
         val error = intercept[Throwable] {
-          ComponentApiDependencyResolver.resolve(
+          ComponentApiDependencyResolver._resolve_dependencies(
             consumer,
-            Vector(ComponentApiDependencyResolver.Dependency("provider", "0.1.0", provider)),
+            Vector(ComponentApiDependencyResolver.Dependency("org.example", "Provider", "0.1.0", provider)),
             dir.resolve("resolved"),
             Some(assembly)
           )
@@ -153,19 +154,84 @@ final class ComponentApiDependencyResolverSpec extends AnyWordSpec with Matchers
         error.getMessage should include("assembly-descriptor.yaml must contain declared CAR dependencies")
       }
     }
+
+    "reject a provider CAR whose provided API release differs from its component release" in {
+      Given("a provider CAR with a stale provided.version")
+      _with_temp_dir("cozy-api-provider-release") { dir =>
+        val consumer = _write(dir.resolve("consumer.json"), _consumer_descriptor("example.Api"))
+        val provider = _provider_car(dir.resolve("provider.car"), "org.example", "Provider", "0.1.0", "example.Api", "sha256:one", "0.0.9")
+
+        When("the provider descriptor is admitted before API extraction")
+        val error = intercept[Throwable] {
+          ComponentApiDependencyResolver._resolve_dependencies(
+            consumer,
+            Vector(ComponentApiDependencyResolver.Dependency("org.example", "Provider", "0.1.0", provider)),
+            dir.resolve("resolved"),
+            None
+          )
+        }
+
+        Then("the shared provided.version projection diagnostic is retained")
+        error.getMessage should include("component.release-coordinate.projection-mismatch")
+        error.getMessage should include("field=provided.version")
+      }
+    }
+
+    "admit consumer identity before resolving an empty provider set" in {
+      Given("malformed consumer namespace, ID, and release values with no requirements")
+      val cases = Vector(
+        ("""{"schemaVersion":"cncf.component-api.v2","component":{"id":"Consumer","version":"0.1.0"},"provided":[],"required":[]}""", "component.release-coordinate.mismatch"),
+        ("""{"schemaVersion":"cncf.component-api.v2","component":{"namespace":"org.example","id":"consumer","version":"0.1.0"},"provided":[],"required":[]}""", "component.identity.local-id.format"),
+        ("""{"schemaVersion":"cncf.component-api.v2","component":{"namespace":"org.example","id":"Consumer"},"provided":[],"required":[]}""", "component.release-coordinate.mismatch")
+      )
+      _with_temp_dir("cozy-api-consumer-identity") { dir =>
+        cases.zipWithIndex.foreach { case ((descriptor, code), index) =>
+          val consumer = _write(dir.resolve(s"consumer-${index}.json"), descriptor)
+
+          When("the consumer descriptor is loaded before provider selection")
+          val error = intercept[Throwable] {
+            ComponentApiDependencyResolver._resolve_dependencies(consumer, Vector.empty, dir.resolve(s"resolved-${index}"), None)
+          }
+
+          Then("the shared consumer identity diagnostic is retained")
+          error.getMessage should include(code)
+          error.getMessage should include("consumer-descriptor:")
+        }
+      }
+    }
+  }
+
+  "Component API dependency reader" should {
+    "reject legacy or unknown consumer component identity fields before selection" in {
+      _with_temp_dir("cozy-api-reader-exact-component") { dir =>
+        Vector(
+          "{\"name\":\"Consumer\",\"version\":\"0.1.0\"}",
+          "{\"namespace\":\"org.example\",\"id\":\"Consumer\",\"version\":\"0.1.0\",\"unknown\":\"x\"}"
+        ).zipWithIndex.foreach { case (component, index) =>
+          val consumer = _write(dir.resolve(s"consumer-$index.json"), s"""{"schemaVersion":"cncf.component-api.v2","component":$component,"provided":[],"required":[]}""")
+          intercept[Throwable] { ComponentApiDependencyResolver._resolve_dependencies(consumer, Vector.empty, dir.resolve(s"resolved-$index"), None) }.getMessage should include("component.release-coordinate.mismatch")
+        }
+      }
+    }
   }
 
   private def _consumer_descriptor(apiclass: String): String =
-    s"""{"schemaVersion":"cncf.component-api.v1","component":{"name":"consumer","version":"0.1.0"},"provided":[],"required":[{"apiClass":"${apiclass}","required":true}]}"""
+    s"""{"schemaVersion":"cncf.component-api.v2","component":{"namespace":"org.example","id":"Consumer","version":"0.1.0"},"provided":[],"required":[{"apiClass":"${apiclass}","required":true}]}"""
 
-  private def _provider_car(path: Path, name: String, version: String, apiclass: String, abihash: String): Path = {
+  private def _provider_car(path: Path, namespace: String, id: String, version: String, apiclass: String, abihash: String): Path =
+    _provider_car(path, namespace, id, version, apiclass, abihash, version)
+
+  private def _provider_car(path: Path, namespace: String, id: String, version: String, apiclass: String, abihash: String, providedversion: String): Path = {
+    val coordinate = CozyComponentReleaseCoordinateCodec.admit(namespace, id, version, "test-provider")
     val descriptor =
-      s"""{"schemaVersion":"cncf.component-api.v1","component":{"name":"${name}","version":"${version}"},"provided":[{"apiClass":"${apiclass}","artifactPath":"spi/${name}-api.jar","abiHash":"${abihash}"}],"required":[]}"""
-    _write_zip(path, Map("component-api-descriptor.json" -> descriptor, s"spi/${name}-api.jar" -> "api", "component/main.jar" -> "implementation"))
+      s"""{"schemaVersion":"cncf.component-api.v2","component":{"namespace":"${namespace}","id":"${id}","version":"${version}"},"provided":[{"apiClass":"${apiclass}","version":"${providedversion}","artifactPath":"${coordinate.apiArtifactPath}","abiHash":"${abihash}"}],"required":[]}"""
+    _write_zip(path, Map("component-api-descriptor.json" -> descriptor, coordinate.apiArtifactPath -> "api", "component/main.jar" -> "implementation"))
   }
 
   private def _with_temp_dir[A](prefix: String)(f: Path => A): A = {
-    val dir = Files.createTempDirectory(prefix)
+    val workroot = Path.of("target/cozy-test/work/component-api-dependency-resolver-spec").toAbsolutePath.normalize()
+    Files.createDirectories(workroot)
+    val dir = Files.createTempDirectory(workroot, s"$prefix-")
     try f(dir)
     finally {
       val stream = Files.walk(dir)

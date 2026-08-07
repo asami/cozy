@@ -8,25 +8,35 @@ import scala.util.Try
 
 /*
  * @since   Jul. 15, 2026
- * @version Jul. 16, 2026
+ * @version Aug.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyCarAbiManifest {
   private val _model_metadata_schema = "cozy.cml.model-metadata.v1"
 
-  final case class Dependency(name: String, abirange: String) {
+  final case class Dependency(
+    identity: CozyComponentReleaseCoordinateCodec.Identity,
+    abiRange: String
+  ) {
     def toJson: JsObject =
       Json.obj(
-        "name" -> name,
-        "abiRange" -> abirange
+        "namespace" -> identity.namespace,
+        "id" -> identity.id,
+        "abiRange" -> abiRange
       )
+  }
+  object Dependency {
+    def apply(namespace: String, id: String, abiRange: String): Dependency =
+      Dependency(CozyComponentReleaseCoordinateCodec.admitIdentity(namespace, id, "car-abi-dependency"), abiRange)
+
+    /** Retained for source compatibility only; no namespace can be inferred from a legacy name. */
+    def apply(name: String, abiRange: String): Dependency =
+      RAISE.invalidArgumentFault(s"component.release-coordinate.mismatch source=car-abi-dependency expected=namespace,id actual=legacy-name:$name")
   }
 
   def create(
     paths: Vector[Path],
-    name: String,
-    version: String,
-    component: String,
+    coordinate: CozyComponentReleaseCoordinateCodec.Coordinate,
     dependencies: Vector[Dependency] = Vector.empty
   ): String = {
     val metadata = paths.map(_metadata)
@@ -36,15 +46,12 @@ private[cozy] object CozyCarAbiManifest {
     val entities = _merge_by_name(metadata.flatMap(_entities), "entity")
     val abidependencies = _merge_dependencies(dependencies)
     Json.prettyPrint(Json.obj(
-      "format" -> "cozy.car.abi-manifest.v1",
-      "car" -> Json.obj(
-        "name" -> name,
-        "version" -> version
-      ),
+      "format" -> "cozy.car.abi-manifest.v2",
+      "component" -> coordinate.componentJson,
       "abi" -> Json.obj(
         "version" -> 1,
         "exports" -> Json.obj(
-          "components" -> Json.arr(Json.obj("name" -> component)),
+          "components" -> Json.arr(Json.obj("namespace" -> coordinate.namespace, "id" -> coordinate.id)),
           "services" -> JsArray(services),
           "operations" -> JsArray(operations),
           "types" -> JsArray(types),
@@ -54,6 +61,92 @@ private[cozy] object CozyCarAbiManifest {
       )
     ))
   }
+
+  private[cozy] def _normalized_dependencies_json(dependencies: Vector[Dependency]): JsArray =
+    JsArray(_merge_dependencies(dependencies).map(_.toJson))
+
+  private[cozy] def _validate_source_manifest(
+    json: JsValue,
+    coordinate: CozyComponentReleaseCoordinateCodec.Coordinate,
+    source: String
+  ): Unit = {
+    val root = json.asOpt[JsObject].getOrElse(RAISE.invalidArgumentFault(s"$source ABI manifest must be a JSON object."))
+    if (root.keys.contains("car"))
+      RAISE.invalidArgumentFault(s"$source ABI manifest v2 forbids legacy car.")
+    if ((root \ "format").asOpt[String] != Some("cozy.car.abi-manifest.v2"))
+      RAISE.invalidArgumentFault(s"car.abi.schema.unsupported source=$source")
+    val component = root.value.get("component").collect { case value: JsObject => value }.getOrElse(
+      RAISE.invalidArgumentFault(s"$source ABI manifest v2 requires a component object.")
+    )
+    if (component.keys != Set("namespace", "id", "version"))
+      RAISE.invalidArgumentFault(s"$source ABI manifest v2 component must be exact namespace, id, and version.")
+    CozyComponentReleaseCoordinateCodec.requireExact(
+      coordinate,
+      CozyComponentReleaseCoordinateCodec.readComponent(root, source),
+      source
+    )
+    val abi = root.value.get("abi").collect { case value: JsObject => value }.getOrElse(
+      RAISE.invalidArgumentFault(s"$source ABI manifest must contain abi.")
+    )
+    if (abi.value.get("version") != Some(JsNumber(1)))
+      RAISE.invalidArgumentFault(s"$source ABI manifest v2 requires numeric abi.version=1.")
+    val exports = abi.value.get("exports").collect { case value: JsObject => value }.getOrElse(
+      RAISE.invalidArgumentFault(s"$source ABI manifest must contain abi.exports.")
+    )
+    val components = exports.value.get("components").collect { case JsArray(values) => values.toVector }.getOrElse(
+      RAISE.invalidArgumentFault(s"$source ABI manifest must contain abi.exports.components.")
+    )
+    val identities = components.map(_read_export_identity(_, source))
+    if (!identities.exists(_.qualifiedId == coordinate.qualifiedId))
+      RAISE.invalidArgumentFault(s"$source ABI manifest does not export component ${coordinate.qualifiedId}.")
+    val dependencies = abi.value.get("dependencies").collect { case JsArray(values) => values.toVector }.getOrElse(
+      RAISE.invalidArgumentFault(s"$source ABI manifest must contain abi.dependencies.")
+    )
+    _merge_dependencies(dependencies.map(_read_dependency(_, source)))
+  }
+
+  private def _read_export_identity(value: JsValue, source: String): CozyComponentReleaseCoordinateCodec.Identity = {
+    val entry = value.asOpt[JsObject].getOrElse(RAISE.invalidArgumentFault(s"$source ABI export component must be an object."))
+    if (entry.keys != Set("namespace", "id"))
+      RAISE.invalidArgumentFault(s"$source ABI export component must be exact namespace and id.")
+    CozyComponentReleaseCoordinateCodec.admitIdentity(
+      _required_string(entry, "namespace", source),
+      _required_string(entry, "id", source),
+      source
+    )
+  }
+
+  private def _read_dependency(value: JsValue, source: String): Dependency = {
+    val entry = value.asOpt[JsObject].getOrElse(RAISE.invalidArgumentFault(s"$source ABI dependency must be an object."))
+    if (entry.keys != Set("namespace", "id", "abiRange"))
+      RAISE.invalidArgumentFault(s"$source ABI dependency must be exact namespace, id, and abiRange.")
+    Dependency(
+      _required_string(entry, "namespace", source),
+      _required_string(entry, "id", source),
+      _required_string(entry, "abiRange", source)
+    )
+  }
+
+  /** Legacy overload deliberately fails closed: a local name cannot admit a namespace. */
+  def create(
+    paths: Vector[Path],
+    name: String,
+    version: String,
+    component: String
+  ): String =
+    create(paths, name, version, component, Vector.empty)
+
+  /** Legacy overload deliberately fails closed: a local name cannot admit a namespace. */
+  def create(
+    paths: Vector[Path],
+    name: String,
+    version: String,
+    component: String,
+    dependencies: Vector[Dependency]
+  ): String =
+    RAISE.invalidArgumentFault(
+      s"component.release-coordinate.mismatch source=car-abi-manifest expected=canonical-coordinate actual=$name:$version:$component"
+    )
 
   private def _services(metadata: JsValue): Vector[JsObject] =
     (metadata \ "surface" \ "component" \ "services").asOpt[JsArray].map(_.value.toVector).getOrElse(Vector.empty).map { service =>
@@ -170,15 +263,15 @@ private[cozy] object CozyCarAbiManifest {
 
   private def _merge_dependencies(values: Vector[Dependency]): Vector[Dependency] =
     values.foldLeft(Vector.empty[Dependency]) { (z, dependency) =>
-      val name = dependency.name.trim
-      val abirange = dependency.abirange.trim
-      if (name.isEmpty || abirange.isEmpty)
-        RAISE.invalidArgumentFault("CAR ABI dependencies must declare non-empty name and abiRange values.")
-      z.find(_.name == name) match {
-        case None => z :+ Dependency(name, abirange)
-        case Some(existing) if existing.abirange == abirange => z
+      val key = dependency.identity.qualifiedId
+      val abirange = dependency.abiRange.trim
+      if (abirange.isEmpty)
+        RAISE.invalidArgumentFault("CAR ABI dependencies must declare non-empty namespace, id, and abiRange values.")
+      z.find(_.identity.qualifiedId == key) match {
+        case None => z :+ dependency.copy(abiRange = abirange)
+        case Some(existing) if existing.abiRange == abirange => z
         case Some(_) =>
-          RAISE.invalidArgumentFault(s"CAR ABI declares conflicting dependency ranges for '${name}'.")
+          RAISE.invalidArgumentFault(s"CAR ABI declares conflicting dependency ranges for '$key'.")
       }
     }
 }

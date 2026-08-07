@@ -84,10 +84,10 @@ final class CozyArchivePackagerCv06Spec
         )
         (runtimemanifest \ "schemaVersion").as[String] shouldBe
           CozyCarRuntimeManifest.SCHEMA_VERSION
-        (runtimemanifest \ "car" \ "name").as[String] shouldBe "sample"
+        (runtimemanifest \ "car" \ "name").as[String] shouldBe _artifact
         (runtimemanifest \ "car" \ "version").as[String] shouldBe
           "0.0.1-SNAPSHOT"
-        (runtimemanifest \ "car" \ "component").as[String] shouldBe "sample"
+        (runtimemanifest \ "car" \ "component").as[String] shouldBe _id
         (runtimemanifest \ "runtime" \ "cncf" \ "minimum").as[String] shouldBe
           "0.5.17"
         (runtimemanifest \ "runtime" \ "cncf" \ "excluded").as[Vector[String]] shouldBe
@@ -376,11 +376,11 @@ final class CozyArchivePackagerCv06Spec
           Given("a release CAR project using one explicitly proven immutable generation pair")
           _write(
             dir.resolve("project.yaml"),
-            """project:
+            s"""project:
+              |  namespace: ${_namespace}
+              |  id: ${_id}
               |  kind: car
-              |  name: sample
               |  component:
-              |    name: sample
               |    version: 0.0.1
               |build:
               |  cozyVersion: 0.3.0
@@ -390,6 +390,8 @@ final class CozyArchivePackagerCv06Spec
               |packaging:
               |  kind: car
               |  car:
+              |    abi:
+              |      dependencies: []
               |    runtime:
               |      cncf:
               |        minimum: 0.5.1
@@ -464,8 +466,13 @@ final class CozyArchivePackagerCv06Spec
     }
   }
 
+  private val _namespace = "org.example"
+  private val _id = "Sample"
+  private val _artifact = "example-sample"
+
   private def _project_yaml(dir: Path): String =
-    CozyScaffold.carProjectYaml(_init(dir), _versions)
+    CozyScaffold.carProjectYaml(_init(dir), _versions).
+      replace("project:\n", s"project:\n  namespace: ${_namespace}\n  id: ${_id}\n")
 
   private def _build_sbt(dir: Path): String =
     CozyScaffold.carBuildSbt(_versions, _init(dir).scaffold)
@@ -515,13 +522,13 @@ final class CozyArchivePackagerCv06Spec
       "--project-dir", dir.toString,
       "--main-jar", mainjar.toString,
       "--lib-jars", cncfjar.toString,
-      "--name", "sample",
+      "--name", _artifact,
       "--version", outputversion,
-      "--component", "sample"
+      "--component", _id
     )
     acceptanceoverride match {
       case Some((evidence, executingcozyversion)) =>
-        CozyArchivePackager.buildCar(args, evidence, executingcozyversion)
+          CozyArchivePackager._build_car(args, evidence, executingcozyversion)
       case None =>
         CozyArchivePackager.buildCar(args)
     }
@@ -531,7 +538,9 @@ final class CozyArchivePackagerCv06Spec
     "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 
   private def _with_temp_dir[A](prefix: String)(body: Path => A): A = {
-    val dir = Files.createTempDirectory(prefix)
+    val workroot = Path.of("target/cozy-test/work/cozy-archive-packager-cv06-spec").toAbsolutePath.normalize()
+    Files.createDirectories(workroot)
+    val dir = Files.createTempDirectory(workroot, s"$prefix-")
     try body(dir)
     finally _delete_tree(dir)
   }
@@ -575,17 +584,15 @@ final class CozyArchivePackagerCv06Spec
     _write(
       dir.resolve("src/main/car/abi-manifest.json"),
       """{
-        |  "format": "cozy.car.abi-manifest.v1",
-        |  "car": {
-        |    "name": "sample",
-        |    "version": "%s"
-        |  },
+        |  "format": "cozy.car.abi-manifest.v2",
+        |  "component": {"namespace":"org.example","id":"Sample","version":"%s"},
         |  "abi": {
         |    "version": 1,
         |    "exports": {
         |      "components": [
         |        {
-        |          "name": "sample"
+        |          "namespace": "org.example",
+        |          "id": "Sample"
         |        }
         |      ],
         |      "operations": [],

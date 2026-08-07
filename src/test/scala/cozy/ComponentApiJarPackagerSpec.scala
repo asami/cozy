@@ -13,12 +13,12 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jul. 12, 2026
- * @version Jul. 28, 2026
+ * @version Aug.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 final class ComponentApiJarPackagerSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "Component API JAR packager" should {
-    "derive contract-only component API artifacts" which {
+    "derive contract-only component API artifacts" should {
     "package only descriptor-selected public artifacts" in {
       Given("a component JAR and descriptor with public class, companion, nested, and TASTy patterns")
       _with_temp_dir("cozy-component-api-jar") { dir =>
@@ -40,16 +40,16 @@ final class ComponentApiJarPackagerSpec extends AnyWordSpec with Matchers with G
           dir.resolve("component-api-descriptor.json"),
           _descriptor(
             provided =
-              """[{"artifactPath":"spi/example-api.jar","publicTypes":[
+              """[{"version":"0.1.0","artifactPath":"spi/example-api-api.jar","publicTypes":[
                 |{"className":"example.api.ExampleApi","artifactPatterns":["example/api/ExampleApi.class","example/api/ExampleApi$*.class","example/api/ExampleApi.tasty"]},
                 |{"className":"example.value.Request","artifactPatterns":["example/value/Request.class","example/value/Request$*.class","example/value/Request.tasty"]}
                 |]}]""".stripMargin
           )
         )
-        val output = dir.resolve("example-api.jar")
+        val output = dir.resolve("example-api-api.jar")
 
         When("the descriptor is used to build the contract-only JAR")
-        ComponentApiJarPackager.build(mainjar, descriptor, output)
+        ComponentApiJarPackager._build_api_jar(mainjar, descriptor, output)
 
         Then("all public runtime and Scala metadata artifacts are present")
         val entries = _zip_entries(output)
@@ -85,14 +85,14 @@ final class ComponentApiJarPackagerSpec extends AnyWordSpec with Matchers with G
           dir.resolve("component-api-descriptor.json"),
           _descriptor(
             provided =
-              """[{"artifactPath":"spi/example-api.jar","publicTypes":[
+              """[{"version":"0.1.0","artifactPath":"spi/example-api-api.jar","publicTypes":[
                 |{"className":"example.api.ExampleApi","artifactPatterns":["example/api/ExampleApi.class","example/api/ExampleApi$*.class","example/api/ExampleApi.tasty"]}
                 |]}]""".stripMargin
           )
         )
 
         When("the CAR implementation JAR is derived from the API descriptor")
-        ComponentApiJarPackager.withImplementationJar(mainjar, descriptor) { implementationjar =>
+        ComponentApiJarPackager._with_implementation_jar(mainjar, descriptor) { implementationjar =>
           val entries = _zip_entries(implementationjar)
 
           Then("implementation classes remain available")
@@ -114,7 +114,7 @@ final class ComponentApiJarPackagerSpec extends AnyWordSpec with Matchers with G
           dir.resolve("component-api-descriptor.json"),
           _descriptor(
             provided =
-              """[{"artifactPath":"spi/example-api.jar","publicTypes":[
+              """[{"version":"0.1.0","artifactPath":"spi/example-api-api.jar","publicTypes":[
                 |{"className":"example.impl.Leaked","artifactPatterns":["example/impl/Leaked.class"]}
                 |]}]""".stripMargin
           )
@@ -122,7 +122,7 @@ final class ComponentApiJarPackagerSpec extends AnyWordSpec with Matchers with G
 
         When("the API JAR is built")
         val error = intercept[Throwable] {
-          ComponentApiJarPackager.build(mainjar, descriptor, dir.resolve("example-api.jar"))
+          ComponentApiJarPackager._build_api_jar(mainjar, descriptor, dir.resolve("example-api-api.jar"))
         }
 
         Then("packaging fails at the public artifact boundary")
@@ -135,43 +135,65 @@ final class ComponentApiJarPackagerSpec extends AnyWordSpec with Matchers with G
       _with_temp_dir("cozy-component-api-consumer") { dir =>
         val mainjar = _write_zip(dir.resolve("component.jar"), Map("example/Consumer.class" -> "consumer"))
         val descriptor = _write(dir.resolve("component-api-descriptor.json"), _descriptor("[]"))
-        val output = _write(dir.resolve("example-api.jar"), "stale")
+        val output = _write(dir.resolve("example-api-api.jar"), "stale")
 
         When("component API packaging runs")
-        ComponentApiJarPackager.build(mainjar, descriptor, output)
+        ComponentApiJarPackager._build_api_jar(mainjar, descriptor, output)
 
         Then("no provider API artifact remains")
         Files.exists(output) shouldBe false
       }
     }
+
+    "reject a provided API release that differs from the component release" in {
+      Given("a direct API descriptor with a stale provided.version")
+      _with_temp_dir("cozy-component-api-release") { dir =>
+        val mainjar = _write_zip(dir.resolve("component.jar"), Map("example/Api.class" -> "api"))
+        val descriptor = _write(
+          dir.resolve("component-api-descriptor.json"),
+          _descriptor("""[{"version":"0.0.9","artifactPath":"spi/example-api-api.jar","publicTypes":[]}]""")
+        )
+
+        When("the direct API JAR boundary admits the descriptor")
+        val error = intercept[Throwable] {
+          ComponentApiJarPackager._build_api_jar(mainjar, descriptor, dir.resolve("example-api-api.jar"))
+        }
+
+        Then("the shared provided.version projection diagnostic is retained")
+        error.getMessage should include("component.release-coordinate.projection-mismatch")
+        error.getMessage should include("field=provided.version")
+      }
+    }
     }
 
-    "enforce CAR API and SPI packaging contracts" which {
+    "enforce CAR API and SPI packaging contracts" should {
     "embed a coordinate-matched descriptor and its declared API JAR in a CAR" in {
       Given("a component descriptor and matching contract-only API JAR")
       _with_temp_dir("cozy-component-api-car") { dir =>
         val mainjar = _write(dir.resolve("component.jar"), "component")
-        val apijar = _write(dir.resolve("example-api.jar"), "api")
+        _write(dir.resolve("project.yaml"), _project_yaml)
+        val apijar = _write(dir.resolve("example-api-api.jar"), "api")
         val descriptor = _write(
           dir.resolve("component-api-descriptor.json"),
-          _descriptor("""[{"artifactPath":"spi/example-api.jar","publicTypes":[]}]""")
+          _car_descriptor("""[{"version":"0.1.0-SNAPSHOT","artifactPath":"spi/example-api-api.jar","publicTypes":[]}]""")
         )
         val car = dir.resolve("example.car")
 
         When("the CAR is packaged")
         CarPackagingSpecSupport.buildCarWithContract(List(
           "--save", car.toString,
+          "--project-dir", dir.toString,
           "--main-jar", mainjar.toString,
           "--spi-jars", apijar.toString,
           "--component-api-descriptor", descriptor.toString,
-          "--name", "example",
-          "--version", "0.1.0",
-          "--component", "example"
+          "--name", "example-api",
+          "--version", "0.1.0-SNAPSHOT",
+          "--component", "Api"
         ))
 
         Then("the descriptor and its API JAR are both present")
         val entries = _zip_entries(car)
-        entries should contain allOf ("component-api-descriptor.json", "spi/example-api.jar")
+        entries should contain allOf ("component-api-descriptor.json", "spi/example-api-api.jar")
         _zip_text(car, "component-api-descriptor.json") shouldBe Files.readString(descriptor)
       }
     }
@@ -180,20 +202,22 @@ final class ComponentApiJarPackagerSpec extends AnyWordSpec with Matchers with G
       Given("a provider descriptor without its declared API JAR")
       _with_temp_dir("cozy-component-api-missing") { dir =>
         val mainjar = _write(dir.resolve("component.jar"), "component")
+        _write(dir.resolve("project.yaml"), _project_yaml)
         val descriptor = _write(
           dir.resolve("component-api-descriptor.json"),
-          _descriptor("""[{"artifactPath":"spi/example-api.jar","publicTypes":[]}]""")
+          _car_descriptor("""[{"version":"0.1.0-SNAPSHOT","artifactPath":"spi/example-api-api.jar","publicTypes":[]}]""")
         )
 
         When("the invalid CAR is packaged")
         val error = intercept[Throwable] {
           CarPackagingSpecSupport.buildCarWithContract(List(
             "--save", dir.resolve("example.car").toString,
+            "--project-dir", dir.toString,
             "--main-jar", mainjar.toString,
             "--component-api-descriptor", descriptor.toString,
-            "--name", "example",
-            "--version", "0.1.0",
-            "--component", "example"
+            "--name", "example-api",
+            "--version", "0.1.0-SNAPSHOT",
+            "--component", "Api"
           ))
         }
 
@@ -202,22 +226,81 @@ final class ComponentApiJarPackagerSpec extends AnyWordSpec with Matchers with G
       }
     }
 
+    "reject a CAR descriptor whose API artifact path disagrees with its coordinate" in {
+      Given("a canonical project and a descriptor with a forged SPI projection")
+      _with_temp_dir("cozy-component-api-projection") { dir =>
+        val mainjar = _write(dir.resolve("component.jar"), "component")
+        _write(dir.resolve("project.yaml"), _project_yaml)
+        val descriptor = _write(
+          dir.resolve("component-api-descriptor.json"),
+          _car_descriptor("""[{"version":"0.1.0-SNAPSHOT","artifactPath":"spi/forged-api.jar","publicTypes":[]}]""")
+        )
+
+        When("the CAR boundary reads the descriptor")
+        val error = intercept[Throwable] {
+          CarPackagingSpecSupport.buildCarWithContract(List(
+            "--save", dir.resolve("example.car").toString,
+            "--project-dir", dir.toString,
+            "--main-jar", mainjar.toString,
+            "--component-api-descriptor", descriptor.toString,
+            "--name", "example-api",
+            "--version", "0.1.0-SNAPSHOT",
+            "--component", "Api"
+          ))
+        }
+
+        Then("the projection mismatch is rejected before archive output")
+        error.getMessage should include("component.release-coordinate.projection-mismatch")
+      }
+    }
+
+    "reject a CAR descriptor whose provided API release disagrees with its coordinate" in {
+      Given("a canonical CAR project and a stale provided.version")
+      _with_temp_dir("cozy-component-api-car-release") { dir =>
+        val mainjar = _write(dir.resolve("component.jar"), "component")
+        _write(dir.resolve("project.yaml"), _project_yaml)
+        val descriptor = _write(
+          dir.resolve("component-api-descriptor.json"),
+          _car_descriptor("""[{"version":"0.0.9","artifactPath":"spi/example-api-api.jar","publicTypes":[]}]""")
+        )
+
+        When("the CAR boundary admits the descriptor")
+        val error = intercept[Throwable] {
+          CarPackagingSpecSupport.buildCarWithContract(List(
+            "--save", dir.resolve("example.car").toString,
+            "--project-dir", dir.toString,
+            "--main-jar", mainjar.toString,
+            "--component-api-descriptor", descriptor.toString,
+            "--name", "example-api",
+            "--version", "0.1.0-SNAPSHOT",
+            "--component", "Api"
+          ))
+        }
+
+        Then("the shared provided.version projection diagnostic is retained")
+        error.getMessage should include("component.release-coordinate.projection-mismatch")
+        error.getMessage should include("field=provided.version")
+      }
+    }
+
     "reject duplicate SPI JAR archive names" in {
       Given("two distinct SPI JAR files with the same archive name")
       _with_temp_dir("cozy-component-api-duplicate") { dir =>
         val mainjar = _write(dir.resolve("component.jar"), "component")
-        val first = _write(dir.resolve("first/example-api.jar"), "first")
-        val second = _write(dir.resolve("second/example-api.jar"), "second")
+        _write(dir.resolve("project.yaml"), _project_yaml)
+        val first = _write(dir.resolve("first/example-api-api.jar"), "first")
+        val second = _write(dir.resolve("second/example-api-api.jar"), "second")
 
         When("the CAR is packaged")
         val error = intercept[Throwable] {
           CarPackagingSpecSupport.buildCarWithContract(List(
             "--save", dir.resolve("example.car").toString,
+            "--project-dir", dir.toString,
             "--main-jar", mainjar.toString,
             "--spi-jars", s"${first},${second}",
-            "--name", "example",
-            "--version", "0.1.0",
-            "--component", "example"
+            "--name", "example-api",
+            "--version", "0.1.0-SNAPSHOT",
+            "--component", "Api"
           ))
         }
 
@@ -230,35 +313,78 @@ final class ComponentApiJarPackagerSpec extends AnyWordSpec with Matchers with G
       Given("a component API descriptor with a stale version")
       _with_temp_dir("cozy-component-api-coordinate") { dir =>
         val mainjar = _write(dir.resolve("component.jar"), "component")
+        _write(dir.resolve("project.yaml"), _project_yaml)
         val descriptor = _write(
           dir.resolve("component-api-descriptor.json"),
-          """{"schemaVersion":"cncf.component-api.v1","component":{"name":"example","version":"0.0.9"},"provided":[],"required":[]}"""
+          """{"schemaVersion":"cncf.component-api.v2","component":{"namespace":"org.example","id":"Api","version":"0.0.9"},"provided":[],"required":[]}"""
         )
 
         When("a newer CAR is packaged")
         val error = intercept[Throwable] {
           CarPackagingSpecSupport.buildCarWithContract(List(
             "--save", dir.resolve("example.car").toString,
+            "--project-dir", dir.toString,
             "--main-jar", mainjar.toString,
             "--component-api-descriptor", descriptor.toString,
-            "--name", "example",
-            "--version", "0.1.0",
-            "--component", "example"
+            "--name", "example-api",
+            "--version", "0.1.0-SNAPSHOT",
+            "--component", "Api"
           ))
         }
 
         Then("the mismatched descriptor is rejected")
-        error.getMessage should include("but package-car is building example:0.1.0")
+        error.getMessage should include("component.release-coordinate.mismatch")
+        error.getMessage should include("expected=org.example.Api:0.1.0-SNAPSHOT")
+        error.getMessage should include("actual=org.example.Api:0.0.9")
       }
     }
     }
   }
 
   private def _descriptor(provided: String): String =
-    s"""{"schemaVersion":"cncf.component-api.v1","component":{"name":"example","version":"0.1.0"},"provided":${provided},"required":[]}"""
+    s"""{"schemaVersion":"cncf.component-api.v2","component":{"namespace":"org.example","id":"Api","version":"0.1.0"},"provided":${provided},"required":[]}"""
+
+  private def _car_descriptor(provided: String): String =
+    s"""{"schemaVersion":"cncf.component-api.v2","component":{"namespace":"org.example","id":"Api","version":"0.1.0-SNAPSHOT"},"provided":${provided},"required":[]}"""
+
+  private def _project_yaml: String =
+    s"""project:
+      |  namespace: org.example
+      |  id: Api
+      |  component:
+      |    version: 0.1.0-SNAPSHOT
+      |build:
+      |  cozyVersion: ${org.simplemodeling.cozy.BuildInfo.version}
+      |  dependencies:
+      |    compile:
+      |      - org.goldenport::goldenport-cncf:0.5.2-SNAPSHOT
+      |packaging:
+      |  car:
+      |    runtime:
+      |      cncf:
+      |        minimum: 0.5.2-SNAPSHOT
+      |        tested: [0.5.2-SNAPSHOT]
+      |""".stripMargin
+
+  "Component API JAR packager identity reader" should {
+    "reject legacy or unknown component identity fields before macro decoding" in {
+      _with_temp_dir("cozy-api-exact-component") { dir =>
+        val mainjar = _write_zip(dir.resolve("component.jar"), Map("example/Api.class" -> "api"))
+        Vector(
+          "{\"name\":\"Api\",\"version\":\"0.1.0\"}",
+          "{\"namespace\":\"org.example\",\"id\":\"Api\",\"version\":\"0.1.0\",\"unknown\":\"x\"}"
+        ).zipWithIndex.foreach { case (component, index) =>
+          val descriptor = _write(dir.resolve(s"descriptor-$index.json"), s"""{"schemaVersion":"cncf.component-api.v2","component":$component,"provided":[],"required":[]}""")
+        intercept[Throwable] { ComponentApiJarPackager._build_api_jar(mainjar, descriptor, dir.resolve(s"api-$index.jar")) }.getMessage should include("component.release-coordinate.mismatch")
+        }
+      }
+    }
+  }
 
   private def _with_temp_dir[A](prefix: String)(f: Path => A): A = {
-    val dir = Files.createTempDirectory(prefix)
+    val workroot = Path.of("target/cozy-test/work/component-api-jar-packager-spec").toAbsolutePath.normalize()
+    Files.createDirectories(workroot)
+    val dir = Files.createTempDirectory(workroot, s"$prefix-")
     try f(dir)
     finally _delete_tree(dir)
   }
