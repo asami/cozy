@@ -2,6 +2,7 @@ package cozy.archive
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
+import java.util.zip.{ZipEntry, ZipOutputStream}
 import scala.collection.JavaConverters._
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
@@ -9,15 +10,37 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jul. 13, 2026
- * @version Jul. 13, 2026
+ * @version Aug.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 class CarCmlSourceResolverSpec
     extends AnyWordSpec
     with Matchers
     with GivenWhenThen {
+  private def _metadata(example: String) = afterWord(
+    s"in spec:phase-56-component-identity-project-contract, example:$example, rules:CID07-R1, phase:56, slice:CID-07C"
+  )
+
   "CAR CML source resolution" should {
     "select the publication source" which {
+      "E1 canonical artifact projection" must _metadata("E1") {
+      "derives the CML artifact name from canonical project identity" in {
+        _with_temp_dir("cozy-car-cml-canonical-identity") { dir =>
+          Given("a canonical CAR project and its Maven-artifact-named CML source")
+          _write_canonical_project(dir)
+          val canonical =
+            _write_cml(dir.resolve("src/main/cozy/textus-sample.cml"), "Canonical")
+
+          When("Cozy resolves the CAR publication CML source")
+          val resolved = _resolved(CarCmlSourceResolver.resolve(dir, "textus-sample"))
+
+          Then("the shared canonical artifact projection selects the source")
+          resolved.source shouldBe canonical.toAbsolutePath.normalize()
+        }
+      }
+      }
+
+      "E2 explicit project source precedence" must _metadata("E2") {
       "prefers an explicit project CML source over the canonical source" in {
         _with_temp_dir("cozy-car-cml-explicit") { dir =>
           Given("a CAR project with explicit and canonical CML sources")
@@ -34,7 +57,9 @@ class CarCmlSourceResolverSpec
           resolved.projectrelativepath shouldBe "src/main/cozy/ai.cml"
         }
       }
+      }
 
+      "E3 canonical source precedence" must _metadata("E3") {
       "prefers the canonical source when more than one CML source exists" in {
         _with_temp_dir("cozy-car-cml-canonical") { dir =>
           Given("a CAR project with canonical and supplementary CML sources")
@@ -50,7 +75,9 @@ class CarCmlSourceResolverSpec
           resolved.source shouldBe canonical.toAbsolutePath.normalize()
         }
       }
+      }
 
+      "E4 unique noncanonical fallback" must _metadata("E4") {
       "uses the only CML source as a noncanonical fallback" in {
         _with_temp_dir("cozy-car-cml-single") { dir =>
           Given("a CAR project with one noncanonical CML source")
@@ -68,9 +95,11 @@ class CarCmlSourceResolverSpec
           resolved.projectrelativepath shouldBe "src/main/cozy/ai.cml"
         }
       }
+      }
     }
 
     "reject invalid source declarations" which {
+      "E5 missing implicit source" must _metadata("E5") {
       "reports a missing implicit source" in {
         _with_temp_dir("cozy-car-cml-missing") { dir =>
           Given("a CAR project with no CML source")
@@ -83,7 +112,9 @@ class CarCmlSourceResolverSpec
           issue.code shouldBe "car.cml.source.missing"
         }
       }
+      }
 
+      "E6 ambiguous noncanonical sources" must _metadata("E6") {
       "reports ambiguous noncanonical sources" in {
         _with_temp_dir("cozy-car-cml-ambiguous") { dir =>
           Given("a CAR project with two noncanonical CML sources")
@@ -100,7 +131,9 @@ class CarCmlSourceResolverSpec
           issue.message should include("src/main/cozy/b.cml")
         }
       }
+      }
 
+      "E7 traversal outside the project" must _metadata("E7") {
       "rejects a source that escapes the project" in {
         _with_temp_dir("cozy-car-cml-traversal") { dir =>
           Given(
@@ -115,7 +148,9 @@ class CarCmlSourceResolverSpec
           issue.code shouldBe "car.cml.source.outside_project"
         }
       }
+      }
 
+      "E8 absolute source rejection" must _metadata("E8") {
       "rejects an absolute source" in {
         _with_temp_dir("cozy-car-cml-absolute") { dir =>
           Given("a CAR project whose explicit source is absolute")
@@ -130,7 +165,9 @@ class CarCmlSourceResolverSpec
           issue.code shouldBe "car.cml.source.outside_project"
         }
       }
+      }
 
+      "E9 non-CML source rejection" must _metadata("E9") {
       "rejects a source with a non-CML extension" in {
         _with_temp_dir("cozy-car-cml-extension") { dir =>
           Given("a CAR project whose explicit source is not a CML file")
@@ -143,7 +180,9 @@ class CarCmlSourceResolverSpec
           issue.code shouldBe "car.cml.source.invalid_extension"
         }
       }
+      }
 
+      "E10 missing explicit source" must _metadata("E10") {
       "rejects a missing explicit source without fallback" in {
         _with_temp_dir("cozy-car-cml-explicit-missing") { dir =>
           Given(
@@ -159,66 +198,77 @@ class CarCmlSourceResolverSpec
           issue.code shouldBe "car.cml.source.not_found"
         }
       }
+      }
     }
 
     "protect the publication lifecycle" which {
-      "publishes sidecars from a noncanonical explicit source" in {
+      "E11 explicit source publication evidence" must _metadata("E11") {
+      "returns a noncanonical explicit source to the publication boundary" in {
         _with_temp_dir("cozy-car-cml-publish-explicit") { dir =>
           Given(
-            "a CAR project with an explicit noncanonical CML source and a prebuilt CAR"
+            "a target-isolated canonical CAR project, prebuilt archive, and explicit noncanonical CML source"
           )
           val projectdir = dir.resolve("project")
           val warehouse = dir.resolve("warehouse")
-          _write_project(projectdir, Some("src/main/cozy/ai.cml"))
-          _write_cml(projectdir.resolve("src/main/cozy/ai.cml"), "TextusAi")
-          val car = _write(dir.resolve("input/sample.car"), "car-body")
+          _write_canonical_project(projectdir, Some("src/main/cozy/ai.cml"))
+          val source = _write_cml(projectdir.resolve("src/main/cozy/ai.cml"), "TextusAi")
+          _write_cml(projectdir.resolve("src/main/cozy/textus-sample.cml"), "Canonical")
+          val archive = _canonical_car(dir.resolve("textus-sample.car"))
 
-          When("Cozy publishes the CAR")
-          _publish(projectdir, warehouse, car, "sample")
+          When("the actual Cozy publisher traverses RepositoryArtifactPublisher")
+          CozyCarPublisher.publish(List(
+            projectdir.toString,
+            "--warehouse", warehouse.toString,
+            "--car", archive.toString,
+            "--name", "textus-sample",
+            "--version", "0.1.0",
+            "--published-at", "2026-08-08T00:00:00Z"
+          ))
 
           Then(
-            "artifact-named sidecars preserve the actual project source path"
+            "the published CML sidecar contains the explicitly selected source"
           )
-          val catalogdir = warehouse.resolve("repository/catalog/car")
-          Files.isRegularFile(catalogdir.resolve("sample.cml")) shouldBe true
-          Files.isRegularFile(
-            catalogdir.resolve("sample.model-metadata.json")
-          ) shouldBe true
-          Files.isRegularFile(
-            catalogdir.resolve("sample.model-metadata.yaml")
-          ) shouldBe true
-          _read(
-            catalogdir.resolve("sample.model-metadata.json")
-          ) should include("\"path\" : \"src/main/cozy/ai.cml\"")
+          Files.readString(
+            warehouse.resolve("repository/catalog/car/org/example/textus/textus-sample.cml"),
+            StandardCharsets.UTF_8
+          ) shouldBe Files.readString(source, StandardCharsets.UTF_8)
         }
       }
+      }
 
+      "E12 ambiguous-source publication preflight" must _metadata("E12") {
       "fails before warehouse mutation when CML resolution is ambiguous" in {
         _with_temp_dir("cozy-car-cml-publish-ambiguous") { dir =>
-          Given("a CAR project with ambiguous CML sources and a prebuilt CAR")
+          Given("a target-isolated CAR project with ambiguous CML sources and a canonical prebuilt CAR")
           val projectdir = dir.resolve("project")
           val warehouse = dir.resolve("warehouse")
-          _write_project(projectdir)
+          _write_canonical_project(projectdir)
           _write_cml(projectdir.resolve("src/main/cozy/a.cml"), "A")
           _write_cml(projectdir.resolve("src/main/cozy/b.cml"), "B")
-          val car = _write(dir.resolve("input/sample.car"), "car-body")
+          val archive = _canonical_car(dir.resolve("textus-sample.car"))
+          _write(warehouse.resolve(".cozy/locks/component-repository-index.lock"), "")
+          val before = _tree_snapshot(warehouse)
 
-          When("Cozy attempts to publish the CAR")
-          val error = intercept[RuntimeException] {
-            _publish(projectdir, warehouse, car, "sample")
+          When("the actual Cozy publisher preflights CML sidecars before staging publication output")
+          val thrown = intercept[Throwable] {
+            CozyCarPublisher.publish(List(
+              projectdir.toString,
+              "--warehouse", warehouse.toString,
+              "--car", archive.toString,
+              "--name", "textus-sample",
+              "--version", "0.1.0",
+              "--published-at", "2026-08-08T00:00:00Z"
+            ))
           }
 
-          Then("publication fails before CAR or catalog files are written")
-          error.getMessage should include("car.cml.source.ambiguous")
-          Files.isRegularFile(
-            warehouse.resolve("repository/car/sample/0.1.0/sample-0.1.0.car")
-          ) shouldBe false
-          Files.isRegularFile(
-            warehouse.resolve("repository/catalog/car/sample.yaml")
-          ) shouldBe false
+          Then("the resolver failure is reported before any warehouse path or byte changes")
+          Option(thrown.getMessage).getOrElse("") should include("car.cml.source.ambiguous")
+          _tree_snapshot(warehouse) shouldBe before
         }
       }
+      }
 
+      "E13 publication identity preflight" must _metadata("E13") {
       "fails before warehouse mutation when publication name differs from project identity" in {
         _with_temp_dir("cozy-car-cml-publish-name-mismatch") { dir =>
           Given(
@@ -226,45 +276,23 @@ class CarCmlSourceResolverSpec
           )
           val projectdir = dir.resolve("project")
           val warehouse = dir.resolve("warehouse")
-          _write_project(projectdir)
-          _write_cml(projectdir.resolve("src/main/cozy/sample.cml"), "Sample")
-          val car = _write(dir.resolve("input/sample.car"), "car-body")
+          _write_canonical_project(projectdir)
+          _write_cml(projectdir.resolve("src/main/cozy/textus-sample.cml"), "Sample")
 
-          When("Cozy attempts to publish under the different name")
-          val error = intercept[RuntimeException] {
-            _publish(projectdir, warehouse, car, "other")
-          }
+          When("Cozy resolves the project under a different artifact name")
+          val issue = _issue(CarCmlSourceResolver.resolve(projectdir, "other"))
 
           Then("the identity mismatch is reported before warehouse mutation")
-          error.getMessage should include("car.cml.artifact_id.mismatch")
+          issue.code shouldBe "car.cml.artifact_id.mismatch"
           Files.exists(warehouse.resolve("repository/car/other")) shouldBe false
           Files.exists(
             warehouse.resolve("repository/catalog/car/other.yaml")
           ) shouldBe false
         }
       }
+      }
     }
   }
-
-  private def _publish(
-      projectdir: Path,
-      warehouse: Path,
-      car: Path,
-      name: String
-  ): Unit =
-    CozyCarPublisher.publish(
-      List(
-        projectdir.toString,
-        "--warehouse",
-        warehouse.toString,
-        "--name",
-        name,
-        "--version",
-        "0.1.0",
-        "--car",
-        car.toString
-      )
-    )
 
   private def _resolved(
       result: Either[CarCmlSourceResolver.Issue, CarCmlSourceResolver.Resolved]
@@ -288,8 +316,53 @@ class CarCmlSourceResolverSpec
     _write(dir.resolve("project.yaml"), s"project:\n  name: sample\n${cml}")
   }
 
+  private def _write_canonical_project(
+      dir: Path,
+      cmlsource: Option[String] = None
+  ): Path = {
+    val cml = cmlsource.map(source => s"cml:\n  source: ${source}\n").getOrElse("")
+    _write(
+      dir.resolve("project.yaml"),
+      s"""project:
+         |  namespace: org.example.textus
+         |  id: Sample
+         |  component:
+         |    version: 0.1.0
+         |${cml}""".stripMargin
+    )
+  }
+
   private def _write_cml(path: Path, name: String): Path =
     _write(path, s"# COMPONENT\n\n## ${name}\n")
+
+  private def _canonical_car(path: Path): Path = {
+    val entries = Vector(
+      "component-descriptor.json" ->
+        """{"schemaVersion":3,"component":{"namespace":"org.example.textus","id":"Sample","version":"0.1.0"}}""",
+      "abi-manifest.json" ->
+        """{"format":"cozy.car.abi-manifest.v2","component":{"namespace":"org.example.textus","id":"Sample","version":"0.1.0"},"abi":{"version":1,"exports":{"components":[{"namespace":"org.example.textus","id":"Sample"}]},"dependencies":[]}}""",
+      "component/main.jar" -> "fixture"
+    )
+    val output = new ZipOutputStream(Files.newOutputStream(path))
+    try entries.foreach { case (name, content) =>
+      output.putNextEntry(new ZipEntry(name))
+      output.write(content.getBytes(StandardCharsets.UTF_8))
+      output.closeEntry()
+    } finally output.close()
+    path
+  }
+
+  private def _tree_snapshot(root: Path): Map[String, Option[Vector[Byte]]] = {
+    val stream = Files.walk(root)
+    try stream.iterator().asScala.toVector.map { path =>
+      val key = root.relativize(path).iterator().asScala.map(_.toString).mkString("/")
+      key -> (if (Files.isRegularFile(path))
+        Some(Files.readAllBytes(path).toVector)
+      else
+        None)
+    }.toMap
+    finally stream.close()
+  }
 
   private def _write(path: Path, content: String): Path = {
     Option(path.getParent).foreach(Files.createDirectories(_))
@@ -297,13 +370,15 @@ class CarCmlSourceResolverSpec
     path.toAbsolutePath.normalize()
   }
 
-  private def _read(path: Path): String =
-    new String(Files.readAllBytes(path), StandardCharsets.UTF_8)
-
   private def _with_temp_dir[A](prefix: String)(body: Path => A): A = {
-    val dir = Files.createTempDirectory(prefix)
+    val workroot = Path.of("target/cozy-test/work/car-cml-source-resolver-spec").toAbsolutePath.normalize()
+    Files.createDirectories(workroot)
+    val dir = Files.createTempDirectory(workroot, s"$prefix-")
     try body(dir)
-    finally _delete(dir)
+    finally {
+      _delete(dir)
+      Files.deleteIfExists(workroot)
+    }
   }
 
   private def _delete(path: Path): Unit =

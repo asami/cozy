@@ -3,6 +3,7 @@ package cozy.archive
 import cozy.config.CozyProjectYamlConfig
 import java.nio.file.{Files, InvalidPathException, Path, Paths}
 import scala.collection.JavaConverters._
+import scala.util.Try
 
 /*
  * Resolves the CML specification used to publish CAR catalog sidecars.
@@ -10,7 +11,7 @@ import scala.collection.JavaConverters._
  * a different source from the publisher.
  *
  * @since   Jul. 13, 2026
- * @version Jul. 13, 2026
+ * @version Aug.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CarCmlSourceResolver {
@@ -25,37 +26,69 @@ private[cozy] object CarCmlSourceResolver {
       path: Path
   )
 
-  def projectArtifactId(projectdir: Path): Either[Issue, String] = {
-    val root = projectdir.toAbsolutePath.normalize()
+  def projectArtifactId(projectDir: Path): Either[Issue, String] = {
+    val root = projectDir.toAbsolutePath.normalize()
     val metadata = CozyProjectYamlConfig.loadProjectMetadata(root)
-    metadata
-      .value("project.name")
-      .orElse(metadata.value("name"))
-      .toRight(
-        _issue(
+    val namespace = metadata.value("project.namespace")
+    val id = metadata.value("project.id")
+    (namespace, id) match {
+      case (Some(componentnamespace), Some(componentid)) =>
+        metadata.value("project.component.version").toRight(
+          _issue(
+            root.resolve("project.yaml"),
+            "car.cml.artifact_id.missing",
+            "canonical project identity requires project.component.version."
+          )
+        ).flatMap { componentversion =>
+          Try(CozyComponentReleaseCoordinateCodec.admit(
+            componentnamespace,
+            componentid,
+            componentversion,
+            "car-cml-source"
+          ).mavenArtifactId).toEither.left.map { error =>
+            _issue(
+              root.resolve("project.yaml"),
+              "car.cml.artifact_id.invalid",
+              error.getMessage
+            )
+          }
+        }
+      case (None, None) =>
+        metadata
+          .value("project.name")
+          .orElse(metadata.value("name"))
+          .toRight(
+            _issue(
+              root.resolve("project.yaml"),
+              "car.cml.artifact_id.missing",
+              "project.yaml must declare canonical project.namespace/project.id or a legacy project.name."
+            )
+          )
+      case _ =>
+        Left(_issue(
           root.resolve("project.yaml"),
-          "car.cml.artifact_id.missing",
-          "project.yaml must declare project.name or legacy top-level name."
-        )
-      )
+          "car.cml.artifact_id.invalid",
+          "project.yaml canonical component identity requires both project.namespace and project.id."
+        ))
+    }
   }
 
-  def resolve(projectdir: Path): Either[Issue, Resolved] =
-    projectArtifactId(projectdir).flatMap(_resolve(projectdir, _))
+  def resolve(projectDir: Path): Either[Issue, Resolved] =
+    projectArtifactId(projectDir).flatMap(_resolve(projectDir, _))
 
   def resolve(
-      projectdir: Path,
-      requestedartifactid: String
+      projectDir: Path,
+      requestedArtifactId: String
   ): Either[Issue, Resolved] =
-    projectArtifactId(projectdir).flatMap { projectartifactid =>
-      if (projectartifactid == requestedartifactid)
-        _resolve(projectdir, projectartifactid)
+    projectArtifactId(projectDir).flatMap { projectartifactid =>
+      if (projectartifactid == requestedArtifactId)
+        _resolve(projectDir, projectartifactid)
       else
         Left(
           _issue(
-            projectdir.resolve("project.yaml"),
+            projectDir.resolve("project.yaml"),
             "car.cml.artifact_id.mismatch",
-            s"CAR publication name '${requestedartifactid}' must match project.name '${projectartifactid}'."
+            s"CAR publication name '${requestedArtifactId}' must match project artifact identity '${projectartifactid}'."
           )
         )
     }

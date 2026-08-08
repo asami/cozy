@@ -22,7 +22,7 @@ import scala.sys.process._
  * @since   May. 20, 2026
  *  version May. 22, 2026
  *  version Jun. 18, 2026
- * @version Aug.  7, 2026
+ * @version Aug.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArchivePackager {
@@ -157,8 +157,9 @@ private[cozy] object CozyArchivePackager {
       _validate_component_api_artifacts(componentapiartifacts, spijars)
       val manifestmetadata = config.mapUnder("packaging.car.manifest_metadata")
       val component = _value(args, "component").orElse(manifestmetadata.get("component")).getOrElse(RAISE.invalidArgumentFault("Missing --component"))
-      CozyComponentReleaseCoordinateCodec.requireProjection(coordinate.id, component, "component", "package-car")
-      val packagemetadata = _car_package_metadata(manifestmetadata, coordinate)
+      if (component != coordinate.id && component != coordinate.qualifiedId)
+        CozyComponentReleaseCoordinateCodec.requireProjection(coordinate.qualifiedId, component, "component", "package-car")
+      val packagemetadata = _car_package_metadata(manifestmetadata + ("component" -> component), coordinate)
       assemblydescriptor.foreach(_validate_assembly_descriptor(_, coordinate))
       val extensionmap = packagemetadata.extensions ++ _string_map(args, "extensions")
       val configmap = config.mapUnder("project.component.config") ++ _string_map(args, "config")

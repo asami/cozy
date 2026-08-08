@@ -31,7 +31,7 @@ import scala.util.control.NonFatal
  *  version Apr. 29, 2026
  *  version May. 21, 2026
  *  version Jun. 30, 2026
- * @version Aug.  7, 2026
+ * @version Aug.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 class Cozy(
@@ -311,21 +311,23 @@ class Cozy(
           _save_path(normalized).foreach(
             cozy.modeler.GenerationProvenance.prepareOutput
           )
-        sourcesnapshot match {
-          case Some(snapshot) =>
-            cozy.modeler.GenerationProvenance.withCapturedSource(snapshot) { capturedsource =>
-              val capturedargs = _replace_first_positional_path(
-                normalized,
-                capturedsource
-              )
-              val repl = (Vector(command) ++ _convert_args(capturedargs)).mkString(" ")
+        _with_component_identity(normalized) {
+          sourcesnapshot match {
+            case Some(snapshot) =>
+              cozy.modeler.GenerationProvenance.withCapturedSource(snapshot) { capturedsource =>
+                val capturedargs = _replace_first_positional_path(
+                  normalized,
+                  capturedsource
+                )
+                val repl = (Vector(command) ++ _convert_args(capturedargs)).mkString(" ")
+                _create_interpreter(catalog, componentstylecatalog).execute(_operation_call(Array(repl)))
+                _write_model_metadata(normalized, Some(capturedsource), componentstylecatalog)
+              }
+            case None =>
+              val repl = (Vector(command) ++ _convert_args(normalized)).mkString(" ")
               _create_interpreter(catalog, componentstylecatalog).execute(_operation_call(Array(repl)))
-              _write_model_metadata(normalized, Some(capturedsource), componentstylecatalog)
-            }
-          case None =>
-            val repl = (Vector(command) ++ _convert_args(normalized)).mkString(" ")
-            _create_interpreter(catalog, componentstylecatalog).execute(_operation_call(Array(repl)))
-            _write_model_metadata(normalized, None, componentstylecatalog)
+              _write_model_metadata(normalized, None, componentstylecatalog)
+          }
         }
         _write_component_api_descriptor(normalized)
         _write_generation_provenance(
@@ -336,6 +338,22 @@ class Cozy(
         true
       case _ =>
         false
+    }
+
+  private def _with_component_identity[A](args: List[String])(body: => A): A =
+    (
+      _option_value(args, "component-namespace"),
+      _option_value(args, "component-id")
+    ) match {
+      case (Some(namespace), Some(localid)) =>
+        org.simplemodeling.SimpleModeler.generator.scala.model.ScalaModel.Context
+          .withComponentIdentity(
+            namespace,
+            localid,
+            _option_value(args, "component-display-name")
+          )(body)
+      case _ =>
+        body
     }
 
   private def _execute_generation_provenance_validate(args: Array[String]): Boolean =

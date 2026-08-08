@@ -15,7 +15,7 @@ organization := "org.simplemodeling"
 
 name := "cozy"
 
-version := "0.3.1-SNAPSHOT"
+version := "0.3.4-SNAPSHOT"
 
 lazy val cncfVersion = "0.5.1"
 
@@ -71,7 +71,7 @@ libraryDependencies += "org.smartdox" %% "smartdox" % "2.4.17-SNAPSHOT"
 libraryDependencies += "org.goldenport" %% "kaleidox" % "0.6.19-SNAPSHOT"
 
 val simplemodelerVersion =
-  sys.props.getOrElse("simplemodeler.version", sys.env.getOrElse("SIMPLEMODELER_VERSION", "1.1.25-SNAPSHOT"))
+  sys.props.getOrElse("simplemodeler.version", sys.env.getOrElse("SIMPLEMODELER_VERSION", "1.1.26-SNAPSHOT"))
 
 libraryDependencies += "org.simplemodeling" %% "simplemodeler" % simplemodelerVersion
 

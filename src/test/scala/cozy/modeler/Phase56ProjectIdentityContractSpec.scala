@@ -11,7 +11,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Aug.  7, 2026
- * @version Aug.  7, 2026
+ * @version Aug.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 final class Phase56ProjectIdentityContractSpec
@@ -37,12 +37,17 @@ final class Phase56ProjectIdentityContractSpec
     "in spec:phase-56-component-identity-project-contract, example:E6, rules:CID01-R3,CID01-R4, phase:56, slice:CID-03B"
   )
   private val _e7 = afterWord(
-    "in spec:phase-56-component-identity-project-contract, example:E7, rules:CID01-R5,CID01-R6, phase:56, slice:CID-01D"
+    "in spec:phase-56-component-identity-project-contract, example:E7, rules:CID07-R1, phase:56, slice:CID-07A"
+  )
+  private val _e8 = afterWord(
+    "in spec:phase-56-component-identity-project-contract, example:E8, rules:CID07-R2, phase:56, slice:CID-07B"
   )
   private val _identity_codes = Set(
+    "CAR_COMPONENT_IDENTITY_CANONICAL",
     "CAR_COMPONENT_IDENTITY_MIGRATION_REQUIRED",
     "CAR_COMPONENT_IDENTITY_MIGRATION_DEFERRED",
-    "CAR_COMPONENT_IDENTITY_DISAGREEMENT"
+    "CAR_COMPONENT_IDENTITY_DISAGREEMENT",
+    "CAR_COMPONENT_IDENTITY_INVENTORY_ERROR"
   )
 
   "E5 canonical project identity authoring" should {
@@ -521,7 +526,7 @@ final class Phase56ProjectIdentityContractSpec
   "E7 version-sensitive canonical and legacy lint" should {
     "E7 lint classifies canonical-only migration and legacy disagreement fixtures exactly" must _e7 {
       "E7 classifies migration and disagreement fixtures" in {
-        Given("E7 Spec: /Users/asami/src/dev2025/cloud-native-component-framework/docs/notes/phase-56-cid01-component-identity-inventory-and-failing-first-contract.md; Rules: CID01-R5,CID01-R6; Example: E7; one valid single-mapping fixture matrix with canonical and legacy project shapes")
+        Given("E7 Spec: /Users/asami/src/dev2025/cloud-native-component-framework/docs/phase/phase-56.md; Rules: CID07-R1; Example: E7; canonical, exact-deferred, migration-required, inventory, and disagreement project shapes")
         val cases = Vector(
           (
             "canonical-only",
@@ -529,7 +534,7 @@ final class Phase56ProjectIdentityContractSpec
             "0.1.0-SNAPSHOT",
             Some("org.simplemodeling.textus"),
             Some("UserAccount"),
-            Vector.empty[(String, String)]
+            Vector(("CAR_COMPONENT_IDENTITY_CANONICAL", "OK"))
           ),
           (
             "legacy-snapshot",
@@ -540,20 +545,68 @@ final class Phase56ProjectIdentityContractSpec
             Vector(("CAR_COMPONENT_IDENTITY_MIGRATION_REQUIRED", "FAIL"))
           ),
           (
-            "legacy-release",
+            "legacy-stable-unregistered",
             _legacy_project_yaml("0.0.1"),
             "0.0.1",
+            None,
+            None,
+            Vector(("CAR_COMPONENT_IDENTITY_INVENTORY_ERROR", "FAIL"))
+          ),
+          (
+            "exact-deferred-release",
+            _legacy_project_yaml("textus-corpus", "Corpus", "0.1.0"),
+            "0.1.0",
             None,
             None,
             Vector(("CAR_COMPONENT_IDENTITY_MIGRATION_DEFERRED", "WARN"))
           ),
           (
-            "advanced-legacy-release",
-            _legacy_project_yaml("0.0.2"),
-            "0.0.2",
+            "advanced-deferred-snapshot",
+            _legacy_project_yaml("textus-corpus", "Corpus", "0.1.1-SNAPSHOT"),
+            "0.1.1-SNAPSHOT",
             None,
             None,
             Vector(("CAR_COMPONENT_IDENTITY_MIGRATION_REQUIRED", "FAIL"))
+          ),
+          (
+            "advanced-deferred-snapshot-wrong-local",
+            _legacy_project_yaml("textus-corpus", "WrongCorpus", "0.1.1-SNAPSHOT"),
+            "0.1.1-SNAPSHOT",
+            None,
+            None,
+            Vector(("CAR_COMPONENT_IDENTITY_INVENTORY_ERROR", "FAIL"))
+          ),
+          (
+            "advanced-deferred-release",
+            _legacy_project_yaml("textus-corpus", "Corpus", "0.1.1"),
+            "0.1.1",
+            None,
+            None,
+            Vector(("CAR_COMPONENT_IDENTITY_MIGRATION_REQUIRED", "FAIL"))
+          ),
+          (
+            "advanced-deferred-release-wrong-local",
+            _legacy_project_yaml("textus-corpus", "WrongCorpus", "0.1.1"),
+            "0.1.1",
+            None,
+            None,
+            Vector(("CAR_COMPONENT_IDENTITY_INVENTORY_ERROR", "FAIL"))
+          ),
+          (
+            "lower-deferred-release",
+            _legacy_project_yaml("textus-corpus", "Corpus", "0.0.9"),
+            "0.0.9",
+            None,
+            None,
+            Vector(("CAR_COMPONENT_IDENTITY_INVENTORY_ERROR", "FAIL"))
+          ),
+          (
+            "malformed-deferred-release",
+            _legacy_project_yaml("textus-corpus", "Corpus", "broken"),
+            "broken",
+            None,
+            None,
+            Vector(("CAR_COMPONENT_IDENTITY_INVENTORY_ERROR", "FAIL"))
           ),
           (
             "disagreement-snapshot",
@@ -569,6 +622,14 @@ final class Phase56ProjectIdentityContractSpec
             "0.0.1",
             Some("org.simplemodeling.textus"),
             Some("OtherAccount"),
+            Vector(("CAR_COMPONENT_IDENTITY_DISAGREEMENT", "FAIL"))
+          ),
+          (
+            "duplicate-surface-disagreement",
+            _duplicate_surface_disagreement_project_yaml("0.1.0-SNAPSHOT"),
+            "0.1.0-SNAPSHOT",
+            Some("org.simplemodeling.textus"),
+            Some("UserAccount"),
             Vector(("CAR_COMPONENT_IDENTITY_DISAGREEMENT", "FAIL"))
           )
         )
@@ -593,11 +654,49 @@ final class Phase56ProjectIdentityContractSpec
             cases.map { case (_, _, version, namespace, id, _) => (Some(version), namespace, id) }
 
           And("E7 filtered identity findings match the exact code and level vector")
-          pendingUntilFixed {
-            observed.map { case (_, _, _, findings) =>
-              findings.filter(finding => _identity_codes(finding.code)).
-                map(finding => (finding.code, finding.level.name))
-            } shouldBe cases.map(_._6)
+          observed.map { case (_, _, _, findings) =>
+            findings.filter(finding => _identity_codes(finding.code)).
+              map(finding => (finding.code, finding.level.name))
+          } shouldBe cases.map(_._6)
+        }
+      }
+    }
+  }
+
+  "E8 namespace-isolated canonical CAR lint" should {
+    "E8 lint preserves equal local IDs under distinct namespaces" must _e8 {
+      "E8 admits both qualified identities without cross-project collision" in {
+        Given("E8 Spec: /Users/asami/src/dev2025/cloud-native-component-framework/docs/phase/phase-56.md; Rules: CID07-R2; Example: E8; two canonical CAR projects sharing local ID UserAccount under different namespaces")
+        val projects = Vector(
+          "org.simplemodeling.textus" -> "org.simplemodeling.textus.UserAccount",
+          "org.example.accounts" -> "org.example.accounts.UserAccount"
+        )
+
+        _with_temp_dir("cozy-phase56-cid07b-e8-namespace-lint") { directory =>
+          val projectdirs = projects.map { case (namespace, _) =>
+            val projectdir = directory.resolve(namespace)
+            Files.createDirectories(projectdir)
+            Files.writeString(
+              projectdir.resolve("project.yaml"),
+              _canonical_project_yaml(namespace, "UserAccount", "0.1.0-SNAPSHOT")
+            )
+            projectdir
+          }
+
+          When("E8 integrated CozyCarLint evaluates each project root independently")
+          val observed = projectdirs.map { projectdir =>
+            CozyCarLint.lint(projectdir, None, true, Some("0.1.0")).
+              filter(_.category == "identity")
+          }
+
+          Then("E8 both identity lint results are canonical and non-failing")
+          observed.map(_.map(finding => (finding.code, finding.level.name))) shouldBe
+            Vector.fill(2)(Vector(("CAR_COMPONENT_IDENTITY_CANONICAL", "OK")))
+          observed.flatten.exists(_.level == CozyCarLint.Level.Fail) shouldBe false
+
+          And("E8 each result retains its own qualified identity despite the shared local ID")
+          observed.zip(projects).foreach { case (findings, (_, qualified)) =>
+            findings.head.message should include(s"canonicalIdentity=$qualified")
           }
         }
       }
@@ -608,6 +707,7 @@ final class Phase56ProjectIdentityContractSpec
     s"""project:
       |  namespace: $namespace
       |  id: $localid
+      |  kind: car
       |  component:
       |    version: $version
       |""".stripMargin
@@ -623,15 +723,18 @@ final class Phase56ProjectIdentityContractSpec
     )
 
   private def _legacy_project_yaml(version: String): String =
+    _legacy_project_yaml("textus-user-account", "UserAccount", version)
+
+  private def _legacy_project_yaml(artifact: String, classname: String, version: String): String =
     s"""project:
-      |  name: textus-user-account
+      |  name: $artifact
       |  title: Textus User Account
       |  kind: car
       |  organization: org.simplemodeling.textus
       |  scalaPackage: org.simplemodeling.textus.useraccount
       |  component:
-      |    name: textus-user-account
-      |    className: UserAccount
+      |    name: $artifact
+      |    className: $classname
       |    displayName: Textus User Account
       |    version: $version
       |""".stripMargin
@@ -649,6 +752,18 @@ final class Phase56ProjectIdentityContractSpec
       |    name: textus-user-account
       |    className: UserAccount
       |    displayName: Textus User Account
+      |    version: $version
+      |""".stripMargin
+
+  private def _duplicate_surface_disagreement_project_yaml(version: String): String =
+    s"""project:
+      |  namespace: org.simplemodeling.textus
+      |  id: UserAccount
+      |  name: textus-user-account
+      |  kind: car
+      |  identity:
+      |    artifact: wrong-artifact
+      |  component:
       |    version: $version
       |""".stripMargin
 

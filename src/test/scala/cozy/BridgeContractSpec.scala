@@ -13,7 +13,7 @@ import org.scalatest.wordspec.AnyWordSpec
  * @since   Apr. 23, 2026
  *  version May. 20, 2026
  *  version Jun. 27, 2026
- * @version Aug.  7, 2026
+ * @version Aug.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 final class BridgeContractSpec
@@ -310,6 +310,7 @@ final class BridgeContractSpec
         val settings = Map(
           "component.namespace" -> "org.example.textus",
           "component.id" -> "TextusScraper",
+          "component.display-name" -> "Textus Scraper",
           "component.version" -> "0.1.0-SNAPSHOT"
         )
 
@@ -322,6 +323,8 @@ final class BridgeContractSpec
           "org.example.textus",
           "--component-id",
           "TextusScraper",
+          "--component-display-name",
+          "Textus Scraper",
           "--component-version",
           "0.1.0-SNAPSHOT"
         )

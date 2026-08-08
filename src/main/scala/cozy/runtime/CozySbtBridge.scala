@@ -19,7 +19,7 @@ import java.nio.file.{Files, Path, Paths}
 /*
  * @since   May. 20, 2026
  *  version Jun. 27, 2026
- * @version Aug.  7, 2026
+ * @version Aug.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozySbtBridge {
@@ -193,6 +193,7 @@ private[cozy] object CozySbtBridge {
     Vector(
       "component.namespace" -> "--component-namespace",
       "component.id" -> "--component-id",
+      "component.display-name" -> "--component-display-name",
       "component.version" -> "--component-version"
     ).flatMap { case (key, option) =>
       settings.get(key).map(value => Vector(option, value)).getOrElse(Vector.empty)

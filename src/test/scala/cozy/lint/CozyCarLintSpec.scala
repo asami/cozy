@@ -12,10 +12,15 @@ import play.api.libs.json.Json
 
 /*
  * @since   Jul.  7, 2026
- * @version Jul. 28, 2026
+ *  version Jul. 28, 2026
+ * @version Aug.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
+  private val _cid07e = afterWord(
+    "in spec:phase-56-component-identity-project-contract, examples:E-CID07E-1,E-CID07E-2,E-CID07E-3, rules:CID07-R1, phase:56, slice:CID-07E"
+  )
+
   "Cozy CAR lint" should {
     "aggregate project findings" which {
       "includes build CML documentation and ABI findings" in {
@@ -109,6 +114,61 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
           Test.Parameters.default.withMinSuccessfulTests(50),
           property
         ).passed shouldBe true
+      }
+
+      "released identity compatibility metadata" which {
+        "E-CID07E-1 Corpus legacy release" must _cid07e {
+          "downgrades only the rejected generation pair after deferred identity classification" in {
+            _with_temp_dir("cozy-car-lint-cid07e-corpus") { dir =>
+              Given("an exact Corpus legacy release with complete runtime metadata and an older Cozy generator")
+              _write_released_legacy_project(dir, "textus-corpus", "Corpus", "0.1.0", Some("0.3.0"))
+              _write_valid_cml(dir)
+
+              When("integrated CAR lint evaluates the released legacy project")
+              val findings = CozyCarLint.lint(dir, None, noabi = true)
+
+              Then("the deferred identity and generation-pair diagnostics are warnings")
+              findings.find(_.code == "CAR_COMPONENT_IDENTITY_MIGRATION_DEFERRED").map(_.level) shouldBe Some(CozyCarLint.Level.Warn)
+              findings.find(_.code == "CAR_METADATA_RELEASE_GENERATION_PAIR_REJECTED").map(_.level) shouldBe Some(CozyCarLint.Level.Warn)
+              findings.exists(x => x.code == "CAR_METADATA_RELEASE_GENERATION_PAIR_REJECTED" && x.level == CozyCarLint.Level.Fail) shouldBe false
+            }
+          }
+        }
+
+        "E-CID07E-2 GeoResolver legacy release" must _cid07e {
+          "downgrades only the missing Cozy generator metadata after deferred identity classification" in {
+            _with_temp_dir("cozy-car-lint-cid07e-georesolver") { dir =>
+              Given("an exact GeoResolver legacy release with complete metadata except its historical Cozy generator field")
+              _write_released_legacy_project(dir, "textus-georesolver", "GeoResolver", "0.2.1", None)
+              _write_valid_cml(dir)
+
+              When("integrated CAR lint evaluates the released legacy project")
+              val findings = CozyCarLint.lint(dir, None, noabi = true)
+
+              Then("the deferred identity and missing Cozy version diagnostics are warnings")
+              findings.find(_.code == "CAR_COMPONENT_IDENTITY_MIGRATION_DEFERRED").map(_.level) shouldBe Some(CozyCarLint.Level.Warn)
+              findings.find(_.code == "CAR_METADATA_COZY_VERSION_MISSING").map(_.level) shouldBe Some(CozyCarLint.Level.Warn)
+              findings.exists(x => x.code == "CAR_METADATA_COZY_VERSION_MISSING" && x.level == CozyCarLint.Level.Fail) shouldBe false
+            }
+          }
+        }
+
+        "E-CID07E-3 canonical UserAccount snapshot" must _cid07e {
+          "keeps missing Cozy generator metadata as a failure outside deferred legacy identity" in {
+            _with_temp_dir("cozy-car-lint-cid07e-user-account") { dir =>
+              Given("a canonical UserAccount SNAPSHOT with complete runtime metadata but no Cozy generator field")
+              _write_canonical_snapshot_project(dir)
+              _write_valid_cml(dir)
+
+              When("integrated CAR lint evaluates the canonical development project")
+              val findings = CozyCarLint.lint(dir, None, noabi = true)
+
+              Then("canonical identity remains accepted while missing Cozy metadata remains a failure")
+              findings.find(_.code == "CAR_COMPONENT_IDENTITY_CANONICAL").map(_.level) shouldBe Some(CozyCarLint.Level.Ok)
+              findings.find(_.code == "CAR_METADATA_COZY_VERSION_MISSING").map(_.level) shouldBe Some(CozyCarLint.Level.Fail)
+            }
+          }
+        }
       }
 
       "accepts complete CAR documentation and descriptive generated-help metadata" in {
@@ -510,6 +570,69 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
          |    compile:
          |      - org.goldenport::goldenport-cncf:$cncfversion
          |""".stripMargin
+    )
+  }
+
+  private def _write_released_legacy_project(
+      dir: Path,
+      artifact: String,
+      componentname: String,
+      version: String,
+      cozyversion: Option[String]
+  ): Unit = {
+    _write_project(dir)
+    val cozyline = cozyversion.map(value => s"  cozyVersion: $value\n").getOrElse("")
+    _write(
+      dir.resolve("project.yaml"),
+      s"""project:
+         |  kind: car
+         |  name: $artifact
+         |  component:
+         |    name: $componentname
+         |    version: $version
+         |packaging:
+         |  kind: car
+         |  car:
+         |    runtime:
+         |      cncf:
+         |        minimum: 0.5.17
+         |        maximum: 0.5.19
+         |        excluded: []
+         |        tested:
+         |          - 0.5.17
+         |build:
+         |$cozyline  dependencies:
+         |    compile:
+         |      - org.goldenport::goldenport-cncf:0.5.17
+         |""".stripMargin
+    )
+  }
+
+  private def _write_canonical_snapshot_project(dir: Path): Unit = {
+    _write_project(dir)
+    _write(
+      dir.resolve("project.yaml"),
+      """project:
+        |  kind: car
+        |  namespace: org.simplemodeling.textus
+        |  id: UserAccount
+        |  component:
+        |    version: 0.6.0-SNAPSHOT
+        |packaging:
+        |  kind: car
+        |  car:
+        |    runtime:
+        |      cncf:
+        |        minimum: 0.5.17
+        |        maximum: 0.5.19
+        |        excluded: []
+        |        tested:
+        |          - 0.5.17
+        |build:
+        |  dependencies:
+        |    compile:
+        |      - org.goldenport::goldenport-cncf:0.5.17
+        |""".stripMargin
     )
   }
 

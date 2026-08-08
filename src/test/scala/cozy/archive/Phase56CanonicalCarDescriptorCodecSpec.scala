@@ -16,12 +16,17 @@ import play.api.libs.json.Json
 
 /*
  * @since   Aug.  7, 2026
- * @version Aug.  7, 2026
+ * @version Aug.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 final class Phase56CanonicalCarDescriptorCodecSpec extends AnyWordSpec with Matchers with GivenWhenThen {
+  private def _metadata(example: String) = afterWord(
+    s"in spec:phase-56-component-identity-project-contract, example:$example, rules:CID07-R1, phase:56, slice:CID-07C"
+  )
+
   "Phase 56 canonical CAR descriptor codecs" should {
-    "enforce component and API descriptor contracts" should {
+    "enforce component and API descriptor contracts" which {
+    "E1 canonical descriptor coordinates" must _metadata("E1") {
     "emit canonical descriptor, API descriptor, and ABI component coordinates" in {
       _with_temp_directory("phase56-canonical-descriptor") { root =>
         Given("one namespace-qualified project identity")
@@ -54,7 +59,9 @@ final class Phase56CanonicalCarDescriptorCodecSpec extends AnyWordSpec with Matc
         (abi \ "abi" \ "exports" \ "components").as[Vector[play.api.libs.json.JsObject]].head.value.get("name") shouldBe empty
       }
     }
+    }
 
+    "E2 API artifact projection" must _metadata("E2") {
     "derive the only admitted API artifact projection" in {
       Given("a canonical release coordinate")
       val coordinate = CozyComponentReleaseCoordinateCodec.admit("org.example.textus", "UserAccount", "0.6.0-SNAPSHOT", "test")
@@ -66,7 +73,9 @@ final class Phase56CanonicalCarDescriptorCodecSpec extends AnyWordSpec with Matc
       coordinate.mavenArtifactId shouldBe "textus-user-account"
       artifactpath shouldBe "spi/textus-user-account-api.jar"
     }
+    }
 
+    "E3 source descriptor disagreement" must _metadata("E3") {
     "reject a source-managed descriptor mismatch through the development packager" in {
       Given("a source-managed descriptor with a conflicting namespace")
       _with_temp_directory("phase56-development-mismatch") { root =>
@@ -84,7 +93,9 @@ final class Phase56CanonicalCarDescriptorCodecSpec extends AnyWordSpec with Matc
         mismatch.getMessage should include("actual=org.other.textus.UserAccount:0.6.0-SNAPSHOT")
       }
     }
+    }
 
+    "E4 canonical field validation" must _metadata("E4") {
     "retain shared identity validation codes for missing or malformed canonical fields" in {
       Given("missing namespace, malformed ID, and missing release inputs")
       val cases = Vector(
@@ -108,7 +119,9 @@ final class Phase56CanonicalCarDescriptorCodecSpec extends AnyWordSpec with Matc
         error.getMessage should include(code)
       }
     }
+    }
 
+    "E5 descriptor schema ownership" must _metadata("E5") {
     "reject unsupported descriptor and API schemas at their owning boundaries" in {
       _with_temp_directory("phase56-unsupported-schema") { root =>
         Given("a development descriptor at obsolete schema 2")
@@ -129,7 +142,9 @@ final class Phase56CanonicalCarDescriptorCodecSpec extends AnyWordSpec with Matc
         apierror.getMessage should include("component.api.schema.unsupported")
       }
     }
+    }
 
+    "E6 legacy descriptor fields" must _metadata("E6") {
     "reject legacy identity fields in source-managed component descriptors" in {
       Given("canonical descriptors contaminated by a legacy root or component field")
       val cases = Vector(
@@ -154,8 +169,10 @@ final class Phase56CanonicalCarDescriptorCodecSpec extends AnyWordSpec with Matc
       }
     }
     }
+    }
 
-    "preserve development runtime selectors" should {
+    "preserve development runtime selectors" which {
+    "E7 development runtime selectors" must _metadata("E7") {
     "render Maven artifact name separately from the local component ID" in {
       Given("a UserAccount development root with canonical descriptor and ABI evidence")
       _with_temp_directory("phase56-development-runtime-name") { root =>
@@ -180,8 +197,10 @@ final class Phase56CanonicalCarDescriptorCodecSpec extends AnyWordSpec with Matc
       }
     }
     }
+    }
 
-    "enforce ABI manifest contracts" should {
+    "enforce ABI manifest contracts" which {
+    "E8 obsolete ABI format" must _metadata("E8") {
     "reject ABI format v1 at the development runtime evidence boundary" in {
       _with_temp_directory("phase56-unsupported-abi") { root =>
         Given("a canonical project, descriptor, and obsolete ABI format")
@@ -201,7 +220,9 @@ final class Phase56CanonicalCarDescriptorCodecSpec extends AnyWordSpec with Matc
         error.getMessage should include("car.abi.schema.unsupported")
       }
     }
+    }
 
+    "E9 qualified ABI dependency identity" must _metadata("E9") {
     "merge ABI dependencies by qualified identity without conflating equal local IDs" in {
       Given("two dependency namespaces that share one local ID")
       val first = CozyCarAbiManifest.Dependency("org.alpha.textus", "Shared", "[1,2)")
@@ -214,7 +235,9 @@ final class Phase56CanonicalCarDescriptorCodecSpec extends AnyWordSpec with Matc
       Then("both namespace-qualified dependencies remain visible")
       (manifest \ "abi" \ "dependencies").as[Vector[play.api.libs.json.JsObject]].size shouldBe 2
     }
+    }
 
+    "E10 configured ABI dependencies" must _metadata("E10") {
     "render configured ABI dependencies into a non-CML CAR" in {
       Given("a non-CML CAR project with equal local dependency IDs in two namespaces")
       _with_temp_directory("phase56-non-cml-abi-dependencies") { root =>
@@ -243,18 +266,22 @@ final class Phase56CanonicalCarDescriptorCodecSpec extends AnyWordSpec with Matc
           "--main-jar", mainjar.toString,
           "--name", "textus-user-account",
           "--version", "0.6.0-SNAPSHOT",
-          "--component", "UserAccount"
+          "--component", "org.example.textus.UserAccount"
         ))
         val manifest = Json.parse(_zip_text(car, "abi-manifest.json"))
+        val runtimemanifest = Json.parse(_zip_text(car, "car-runtime-manifest.json"))
 
-        Then("both qualified dependencies are emitted with their configured ABI ranges")
+        Then("the canonical component projection and both qualified dependencies are emitted")
+        (runtimemanifest \ "car" \ "component").as[String] shouldBe "org.example.textus.UserAccount"
         (manifest \ "abi" \ "dependencies").as[Vector[play.api.libs.json.JsObject]] shouldBe Vector(
           Json.obj("namespace" -> "org.alpha.textus", "id" -> "Shared", "abiRange" -> "[1,2)"),
           Json.obj("namespace" -> "org.beta.textus", "id" -> "Shared", "abiRange" -> "[2,3)")
         )
       }
     }
+    }
 
+    "E11 conflicting ABI ranges" must _metadata("E11") {
     "reject conflicting ABI ranges for one exact qualified dependency" in {
       Given("one ABI dependency identity with two different ranges")
       val owner = CozyComponentReleaseCoordinateCodec.admit("org.owner.textus", "Owner", "0.6.0", "test")
@@ -270,7 +297,9 @@ final class Phase56CanonicalCarDescriptorCodecSpec extends AnyWordSpec with Matc
       Then("the conflicting range is rejected by qualified identity")
       error.getMessage should include("org.alpha.textus.Shared")
     }
+    }
 
+    "E12 malformed source ABI identity" must _metadata("E12") {
     "reject legacy and malformed source ABI identity structures" in {
       Given("one canonical coordinate and source ABI v2 documents with forbidden identity shapes")
       val coordinate = CozyComponentReleaseCoordinateCodec.admit("org.example.textus", "UserAccount", "0.6.0", "test")
@@ -292,8 +321,10 @@ final class Phase56CanonicalCarDescriptorCodecSpec extends AnyWordSpec with Matc
       errors.foreach(_.getMessage should include("ABI"))
     }
     }
+    }
 
-    "enforce dependency resolution and extraction contracts" should {
+    "enforce dependency resolution and extraction contracts" which {
+    "E13 legacy dependency payload" must _metadata("E13") {
     "fail closed for the old three-field component API dependency payload" in {
       Given("the legacy dependency argument shape")
       val workroot = Path.of("target/cozy-test/work/phase56-canonical-car-descriptor-codec-spec").toAbsolutePath.normalize()
@@ -313,7 +344,9 @@ final class Phase56CanonicalCarDescriptorCodecSpec extends AnyWordSpec with Matc
         error.getMessage should include("component.api.dependency.payload.v2.required")
       } finally _delete_tree(root)
     }
+    }
 
+    "E14 namespace-isolated extraction" must _metadata("E14") {
     "keep namespace-isolated extraction paths for equal artifact filenames" in {
       _with_temp_directory("phase56-api-extraction") { root =>
         Given("a v2 consumer and two providers that share an artifact filename")
@@ -347,7 +380,9 @@ final class Phase56CanonicalCarDescriptorCodecSpec extends AnyWordSpec with Matc
         jars.map(_.toString).mkString("\n") should include("org/beta/textus")
       }
     }
+    }
 
+    "E15 exact dependency payload" must _metadata("E15") {
     "resolve a four-field dependency payload with an exact assembly entry" in {
       _with_temp_directory("phase56-four-field-payload") { root =>
         Given("a matching provider CAR and namespace-qualified assembly declaration")
@@ -375,7 +410,9 @@ final class Phase56CanonicalCarDescriptorCodecSpec extends AnyWordSpec with Matc
         Files.exists(root.resolve("resolved/org/example/textus/textus-provider/0.6.0/textus-provider-api.jar")) shouldBe true
       }
     }
+    }
 
+    "E16 assembly dependency disagreement" must _metadata("E16") {
     "report an assembly identity or release disagreement with the dependency key" in {
       _with_temp_directory("phase56-assembly-mismatch") { root =>
         Given("one declared provider and a stale assembly release")
@@ -402,7 +439,9 @@ final class Phase56CanonicalCarDescriptorCodecSpec extends AnyWordSpec with Matc
         error.getMessage should include("org.example.textus.Provider:0.6.0")
       }
     }
+    }
 
+    "E17 API artifact path disagreement" must _metadata("E17") {
     "reject a mismatched API artifact path at the API JAR boundary" in {
       _with_temp_directory("phase56-api-path-mismatch") { root =>
         Given("a v2 descriptor with a forged artifact projection")
@@ -420,6 +459,7 @@ final class Phase56CanonicalCarDescriptorCodecSpec extends AnyWordSpec with Matc
     }
     }
 
+    "E18 SBT bridge identity arguments" must _metadata("E18") {
     "forward namespace ID and release separately through the SBT bridge" in {
       Given("canonical component build settings plus an obsolete module setting")
       val settings = Map(
@@ -438,6 +478,8 @@ final class Phase56CanonicalCarDescriptorCodecSpec extends AnyWordSpec with Matc
         "--component-id", "UserAccount",
         "--component-version", "0.6.0-SNAPSHOT"
       )
+    }
+    }
     }
   }
 

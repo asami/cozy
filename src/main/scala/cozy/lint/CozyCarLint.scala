@@ -10,7 +10,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Jul.  7, 2026
- * @version Aug.  1, 2026
+ * @version Aug.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyCarLint {
@@ -75,7 +75,11 @@ private[cozy] object CozyCarLint {
   ): Vector[Finding] = {
     val cmlsourcefindings = _car_cml_source_findings(root)
     val cmlfindings = _cml_path(root).toVector.flatMap(path => CozyCmlLint.lint(path).map(_cml_finding))
-    val compatibilityfindings = _compatibility_findings(root)
+    val identityfindings = CozyCarIdentityLint.lint(root)
+    val identitydeferred = identityfindings.exists(
+      _.code == "CAR_COMPONENT_IDENTITY_MIGRATION_DEFERRED"
+    )
+    val compatibilityfindings = _compatibility_findings(root, identitydeferred)
     val documentationfindings = CozyCarDocumentationLint.lint(root).map(_documentation_finding)
     val repositoryfindings = _repository_findings(root)
     val abifindings =
@@ -83,10 +87,13 @@ private[cozy] object CozyCarLint {
         Vector.empty
       else
         CozyCarAbiLint.lint(root, baseline).map(_abi_finding)
-    (buildfindings ++ cmlsourcefindings ++ cmlfindings ++ compatibilityfindings ++ documentationfindings ++ repositoryfindings ++ abifindings).sortBy(x => (x.category, x.path.toString, x.line, x.code, x.message))
+    (buildfindings ++ cmlsourcefindings ++ cmlfindings ++ identityfindings ++ compatibilityfindings ++ documentationfindings ++ repositoryfindings ++ abifindings).sortBy(x => (x.category, x.path.toString, x.line, x.code, x.message))
   }
 
-  private def _compatibility_findings(root: Path): Vector[Finding] = {
+  private def _compatibility_findings(
+    root: Path,
+    identitydeferred: Boolean
+  ): Vector[Finding] = {
     val path = root.resolve("project.yaml")
     val decision =
       CarMetadataCompatibility.evaluateProject(
@@ -95,7 +102,7 @@ private[cozy] object CozyCarLint {
     if (decision.diagnostics.nonEmpty)
       decision.diagnostics.map { diagnostic =>
         Finding(
-          Level.Fail,
+          _compatibility_level(diagnostic.code, identitydeferred),
           "compatibility",
           diagnostic.code.name,
           diagnostic.render,
@@ -114,6 +121,17 @@ private[cozy] object CozyCarLint {
           1
         )
       }
+  }
+
+  private def _compatibility_level(
+    diagnosticcode: CarMetadataCompatibility.DiagnosticCode,
+    identitydeferred: Boolean
+  ): Level = {
+    val downgrade = identitydeferred && (
+      diagnosticcode == CarMetadataCompatibility.DiagnosticCode.CozyVersionMissing ||
+        diagnosticcode == CarMetadataCompatibility.DiagnosticCode.ReleaseGenerationPairRejected
+    )
+    if (downgrade) Level.Warn else Level.Fail
   }
 
   private def _repository_findings(root: Path): Vector[Finding] = {

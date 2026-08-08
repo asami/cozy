@@ -16,7 +16,7 @@ import play.api.libs.json.Json
 
 /*
  * @since   Jun. 23, 2026
- * @version Aug.  7, 2026
+ * @version Aug.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -229,6 +229,8 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
           "org.example.textus",
           "--component-id",
           "ComponentApiContract",
+          "--component-display-name",
+          "Component API Contract",
           "--component-version",
           "0.1.0-SNAPSHOT"
         ))
@@ -242,6 +244,9 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         ))
 
         Then("the generated facade exposes typed operations through a binding-aware proxy")
+        content should include ("val name = \"org.example.textus.ComponentApiContract\"")
+        content should include ("val componentId = ComponentId(name)")
+        content should include ("override def displayName: String = \"Component API Contract\"")
         api should include ("trait TextusScraperApi")
         api should include ("request: domain.value.ScrapeRequest")
         api should include ("Consequence[domain.value.ScrapeResponse]")
