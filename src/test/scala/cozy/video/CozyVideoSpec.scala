@@ -8,6 +8,7 @@ import scala.collection.mutable.ArrayBuffer
 import java.net.URI
 import io.circe.Json
 import io.circe.parser
+import org.goldenport.context.FaultException
 import org.scalatest.GivenWhenThen
 import org.scalatest.wordspec.AnyWordSpec
 import cozy.CozySpecVocabulary
@@ -16,7 +17,7 @@ import cozy.CozySpecVocabulary
  * @since   Jun. 18, 2026
  *  version Jun. 24, 2026
  *  version Jul. 20, 2026
- * @version Aug.  9, 2026
+ * @version Aug. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoSpec
@@ -442,6 +443,45 @@ final class CozyVideoSpec
               .resolve("build/parts/web-missing-steps.mp4")
               .normalize()
           )) shouldBe true)
+        }
+      }
+
+      "video build preflights Docker dependencies without an explicit tool check" in {
+        _with_temp_dir("cozy-video-build-docker-preflight") { dir =>
+          Given("a Docker video build whose daemon dependency is unavailable")
+          _write(dir.resolve("script.json"), _script_json)
+          _write(dir.resolve("video_project.json"), _project_json("script.json"))
+          val runner = AssemblyRunner()
+          val tools = CozyVideo.VideoToolRegistry(Vector(
+            StubProvider(
+              CozyVideo.VideoToolCheck(
+                "docker-toolchain",
+                CozyVideo.VideoToolMode.Docker,
+                CozyVideo.VideoToolStatus.Missing,
+                "Docker daemon is not reachable.",
+                Some("Install/start Docker Desktop or a compatible Docker daemon.")
+              )
+            )
+          ))
+
+          When("Cozy builds without --check-tools")
+          val fault = intercept[FaultException] {
+            CozyVideo.build(
+              CozyVideo.BuildConfig(
+                dir.resolve("video_project.json"),
+                dryRun = false,
+                checkTools = false
+              ),
+              tools,
+              runner
+            )
+          }
+
+          Then("the unavailable Docker subsystem stops assembly before runner invocation")
+          fault.getMessage should include_text("docker-toolchain")
+          fault.getMessage should include_text("Docker daemon is not reachable")
+          fault.getMessage should include_text("Install/start Docker Desktop")
+          runner.commands shouldBe empty
         }
       }
 
@@ -1410,13 +1450,88 @@ final class CozyVideoSpec
         }
       }
 
+      "video synthesize reports an unavailable selected VOICEVOX service before output" in {
+        _with_temp_dir("cozy-video-synthesize-voicevox-preflight") { dir =>
+          Given("a VOICEVOX script and a missing selected service dependency")
+          val script = dir.resolve("script.json")
+          val outdir = dir.resolve("audio")
+          _write(script, _voicevox_script_json)
+          val voicevox = RecordingVoicevoxClient()
+          val tools = CozyVideo.VideoToolRegistry(Vector(
+            StubProvider(
+              CozyVideo.VideoToolCheck(
+                "voicevox",
+                CozyVideo.VideoToolMode.ExternalService,
+                CozyVideo.VideoToolStatus.Missing,
+                "VOICEVOX endpoint is not reachable: http://voicevox.example/version (connection refused)",
+                Some("Start VOICEVOX Engine.")
+              )
+            )
+          ))
+
+          When("Cozy preflights synthesis with --check-tools")
+          val fault = intercept[FaultException] {
+            CozyVideo.synthesize(
+              CozyVideo.SynthesizeConfig(
+                script,
+                outdir,
+                Some("http://voicevox.example"),
+                checkTools = true
+              ),
+              tools,
+              voicevox
+            )
+          }
+
+          Then("the external service fault preserves evidence without client calls or output")
+          fault.getMessage should include_text("External service connection unavailable")
+          fault.getMessage should include_text("voicevox")
+          fault.getMessage should include_text("http://voicevox.example")
+          fault.getMessage should include_text("connection refused")
+          fault.getMessage should include_text("Start VOICEVOX Engine")
+          voicevox.calls shouldBe empty
+          Files.exists(outdir) shouldBe false
+        }
+      }
+
+      "video synthesize maps a low-level VOICEVOX client failure to an external service fault" in {
+        _with_temp_dir("cozy-video-synthesize-voicevox-client-failure") { dir =>
+          Given("a VOICEVOX client whose speakers request fails")
+          val script = dir.resolve("script.json")
+          val outdir = dir.resolve("audio")
+          _write(script, _voicevox_script_json)
+          val voicevox = RecordingVoicevoxClient(failSpeakers = true)
+
+          When("Cozy resolves the selected VOICEVOX speaker")
+          val fault = intercept[FaultException] {
+            CozyVideo.synthesize(
+              CozyVideo.SynthesizeConfig(script, outdir, Some("http://voicevox.example")),
+              voicevox
+            )
+          }
+
+          Then("the failure remains explicit as an external service connection fault")
+          fault.getMessage should include_text("External service connection unavailable")
+          fault.getMessage should include_text("voicevox")
+          fault.getMessage should include_text("http://voicevox.example")
+          fault.getMessage should include_text("VOICEVOX speakers failed")
+          fault.getMessage should include_text("Start VOICEVOX Engine")
+          voicevox.calls.map(_.kind) shouldBe Vector("speakers")
+          val files = Files.list(outdir)
+          try files.iterator().asScala.toVector shouldBe empty
+          finally files.close()
+        }
+      }
+
       "video synthesize fails explicitly for missing script save option and voicevox errors" in {
         _with_temp_dir("cozy-video-synthesize-errors") { dir =>
+          Given("a VOICEVOX script with a selected speaker")
           _write(
             dir.resolve("script.json"),
             """{"voice":{"speakerName":"Missing Voice","styleName":"Missing Style"}, "scenes": [{"id": "s1", "duration": 0.2, "line": "A"}]}"""
           )
 
+          When("Cozy receives a synthesize command without --save")
           val missingsave = intercept[Throwable] {
             CozyVideo.execute(
               List("video", "synthesize", dir.resolve("script.json").toString),
@@ -1424,8 +1539,10 @@ final class CozyVideoSpec
               RecordingVoicevoxClient()
             )
           }
-          ((missingsave.getMessage.contains("Missing --save")) shouldBe true)
+          Then("the command reports the missing output option")
+          missingsave.getMessage should include_text("Missing --save")
 
+          When("Cozy loads a missing synthesis script")
           val missingfile = intercept[Throwable] {
             CozyVideo.synthesize(
               CozyVideo.SynthesizeConfig(
@@ -1435,9 +1552,10 @@ final class CozyVideoSpec
               RecordingVoicevoxClient()
             )
           }
-          ((missingfile.getMessage
-            .contains("Missing video script file")) shouldBe true)
+          Then("the missing script is reported")
+          missingfile.getMessage should include_text("Missing video script file")
 
+          When("the selected VOICEVOX client cannot resolve speakers")
           val voicevoxfailure = intercept[Throwable] {
             CozyVideo.synthesize(
               CozyVideo.SynthesizeConfig(
@@ -1447,13 +1565,18 @@ final class CozyVideoSpec
               RecordingVoicevoxClient(failSpeakers = true)
             )
           }
-          ((voicevoxfailure.getMessage
-            .contains("VOICEVOX speakers failed")) shouldBe true)
+          Then("the underlying client failure is classified as an external service connection")
+          voicevoxfailure.getMessage should include_text("External service connection unavailable")
+          voicevoxfailure.getMessage should include_text("voicevox")
+          voicevoxfailure.getMessage should include_text("http://127.0.0.1:50021")
+          voicevoxfailure.getMessage should include_text("VOICEVOX speakers failed")
 
+          Given("a script with an unsafe scene identifier")
           _write(
             dir.resolve("unsafe-scene.json"),
             """{"voice":{"fallbackSpeakerId":99}, "scenes": [{"id": "../escape", "duration": 0.2, "line": "A"}]}"""
           )
+          When("Cozy validates the unsafe scene output path")
           val unsafescene = intercept[Throwable] {
             CozyVideo.synthesize(
               CozyVideo.SynthesizeConfig(
@@ -1463,8 +1586,10 @@ final class CozyVideoSpec
               RecordingVoicevoxClient()
             )
           }
-          ((unsafescene.getMessage.contains("Invalid scene id")) shouldBe true)
+          Then("the unsafe scene identifier is rejected")
+          unsafescene.getMessage should include_text("Invalid scene id")
 
+          When("the selected VOICEVOX endpoint is invalid")
           val invalidurl = intercept[Throwable] {
             CozyVideo.synthesize(
               CozyVideo.SynthesizeConfig(
@@ -1475,8 +1600,82 @@ final class CozyVideoSpec
               CozyVideo.VoicevoxClient.default
             )
           }
-          ((invalidurl.getMessage
-            .contains("VOICEVOX speakers failed")) shouldBe true)
+          Then("the invalid endpoint is classified as an external service connection")
+          invalidurl.getMessage should include_text("External service connection unavailable")
+          invalidurl.getMessage should include_text("voicevox")
+          invalidurl.getMessage should include_text("://bad")
+        }
+      }
+
+      "video synthesize classifies missing selected execution-provider checks as subsystem failures" in {
+        _with_temp_dir("cozy-video-synthesize-execution-provider-preflight") { dir =>
+          Given("piper and macOS say scripts with an unrelated registered tool check")
+          val piper = dir.resolve("piper.json")
+          val macossay = dir.resolve("macos-say.json")
+          _write(
+            piper,
+            """{"narration":{"provider":"piper"}, "voice":{"fallbackSpeakerId":99}, "scenes":[{"id":"s1","duration":0.2,"line":"A"}]}"""
+          )
+          _write(
+            macossay,
+            """{"narration":{"provider":"macos-say"}, "voice":{"fallbackSpeakerId":99}, "scenes":[{"id":"s1","duration":0.2,"line":"A"}]}"""
+          )
+          val tools = CozyVideo.VideoToolRegistry(Vector(
+            StubProvider(
+              CozyVideo.VideoToolCheck(
+                "unrelated",
+                CozyVideo.VideoToolMode.Host,
+                CozyVideo.VideoToolStatus.Available,
+                "unrelated tool is available."
+              )
+            )
+          ))
+          val piperrunner = RecordingRunner()
+
+          When("Cozy preflights the selected Docker piper provider")
+          val piperfault = intercept[FaultException] {
+            CozyVideo.synthesize(
+              CozyVideo.SynthesizeConfig(
+                piper,
+                dir.resolve("piper-audio"),
+                checkTools = true
+              ),
+              tools,
+              RecordingVoicevoxClient(),
+              piperrunner
+            )
+          }
+
+          Then("the missing piper check is a subsystem dependency failure before execution")
+          piperfault.getMessage should include_text("Required execution dependency unavailable")
+          piperfault.getMessage should include_text("dependency=piper")
+          piperfault.getMessage should include_text("No tool check is registered")
+          piperrunner.commands shouldBe empty
+          Files.exists(dir.resolve("piper-audio")) shouldBe false
+
+          Given("a fresh runner for the selected host macOS say provider")
+          val macossayrunner = RecordingRunner()
+          When("Cozy preflights the selected host macOS say provider")
+          val macossayfault = intercept[FaultException] {
+            CozyVideo.synthesize(
+              CozyVideo.SynthesizeConfig(
+                macossay,
+                dir.resolve("macos-say-audio"),
+                checkTools = true,
+                toolMode = Some("host")
+              ),
+              tools,
+              RecordingVoicevoxClient(),
+              macossayrunner
+            )
+          }
+
+          Then("the missing macOS say check is a subsystem dependency failure before execution")
+          macossayfault.getMessage should include_text("Required execution dependency unavailable")
+          macossayfault.getMessage should include_text("dependency=macos-say")
+          macossayfault.getMessage should include_text("No tool check is registered")
+          macossayrunner.commands shouldBe empty
+          Files.exists(dir.resolve("macos-say-audio")) shouldBe false
         }
       }
 
@@ -2451,6 +2650,41 @@ final class CozyVideoSpec
           ((missingtool.getMessage
             .contains("remotion-node is missing")) shouldBe true)
           ((missingtool.getMessage.contains("install remotion")) shouldBe true)
+        }
+      }
+
+      "video render preflights Docker dependencies without an explicit tool check" in {
+        _with_temp_dir("cozy-video-render-docker-preflight") { dir =>
+          Given("a Docker Remotion render whose daemon dependency is unavailable")
+          _write(dir.resolve("script.json"), _script_json)
+          _write(dir.resolve("video_project.json"), _project_json("script.json"))
+          val runner = RecordingRunner()
+          val tools = CozyVideo.VideoToolRegistry(Vector(
+            StubProvider(
+              CozyVideo.VideoToolCheck(
+                "docker-toolchain",
+                CozyVideo.VideoToolMode.Docker,
+                CozyVideo.VideoToolStatus.Missing,
+                "Docker daemon is not reachable.",
+                Some("Install/start Docker Desktop or a compatible Docker daemon.")
+              )
+            )
+          ))
+
+          When("Cozy renders without --check-tools")
+          val fault = intercept[FaultException] {
+            CozyVideo.render(
+              CozyVideo.RenderConfig(dir.resolve("video_project.json"), "remotion"),
+              tools,
+              runner
+            )
+          }
+
+          Then("the unavailable Docker subsystem stops rendering before runner invocation")
+          fault.getMessage should include_text("docker-toolchain")
+          fault.getMessage should include_text("Docker daemon is not reachable")
+          fault.getMessage should include_text("Install/start Docker Desktop")
+          runner.commands shouldBe empty
         }
       }
 

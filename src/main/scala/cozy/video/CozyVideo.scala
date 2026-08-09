@@ -2,6 +2,7 @@ package cozy.video
 
 import org.goldenport.RAISE
 import org.goldenport.config.StructuredDocumentLoader
+import org.goldenport.context.{FaultException, NetworkIoFault, SubsystemIoFault}
 import org.goldenport.io.InputSource
 import cozy.config.CozyProjectYamlConfig
 import cozy.runtime.CozyCliArgs
@@ -27,7 +28,7 @@ import scala.util.control.NonFatal
  * @since   Jun. 18, 2026
  *  version Jun. 19, 2026
  *  version Jul. 20, 2026
- * @version Aug.  9, 2026
+ * @version Aug. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideo {
@@ -798,15 +799,7 @@ private[cozy] object CozyVideo {
       }
 
     private def _with_voicevox_failure[A](operation: String, baseurl: String)(body: => A): A =
-      try {
-        body
-      } catch {
-        case e: InterruptedException =>
-          Thread.currentThread().interrupt()
-          RAISE.invalidArgumentFault(s"VOICEVOX $operation failed for $baseurl: ${e.getMessage}")
-        case NonFatal(e) =>
-          RAISE.invalidArgumentFault(s"VOICEVOX $operation failed for $baseurl: ${e.getMessage}")
-      }
+      _with_external_service_failure(operation, "voicevox", baseurl)(body)
 
     private def _request_json(uri: URI, method: String, body: Option[Json]): Json = {
       val text = new String(_request_bytes(uri, method, body), StandardCharsets.UTF_8)
@@ -1341,6 +1334,8 @@ private[cozy] object CozyVideo {
   private val _docker_managed_tools = Set("remotion", "playwright", "ffmpeg", "ffprobe", "node", "npm", "whisper-cpp", "python-pillow")
   private val _docker_whisper_model = "/opt/textus/models/ggml-base.bin"
   private val _default_piper_model = "en_US-ljspeech-medium"
+  private val _voicevox_connection_recovery =
+    "Start VOICEVOX Engine or set tools.voicevoxUrl / video.voicevox.url. In Docker mode, use host.docker.internal or a compose service URL when needed."
   private val _property_options = Set("tool-mode", "docker-image", "save", "voicevox-url", "renderer", "part", "whisper-model", "events", "har", "trace", "transcript")
   private val _default_sample_rate = 24000
   private val _default_audio_channels = 1
@@ -1417,7 +1412,11 @@ private[cozy] object CozyVideo {
   def build(config: BuildConfig, tools: VideoToolRegistry, runner: VideoProcessRunner): String = {
     val plan = _plan(config.projectFile, config.toolMode, config.dockerImage)
     val context = VideoToolContext(config.projectFile, config.projectRoot, plan.project, plan.execution)
-    val checks = if (config.checkTools) tools.checks(context) else Vector.empty
+    val checks =
+      if (config.checkTools || (!config.dryRun && plan.execution.toolMode == VideoToolMode.Docker))
+        tools.checks(context)
+      else
+        Vector.empty
     if (config.dryRun)
       _render_build_dry_run(config, plan, checks)
     else {
@@ -1488,7 +1487,11 @@ private[cozy] object CozyVideo {
     val plan = _plan(config.projectFile, config.toolMode, config.dockerImage)
     CozyVideoEffects.validate(config.renderer, CozyVideoEffects.expand(plan.project.visualEffects))
     val context = VideoToolContext(config.projectFile, config.projectRoot, plan.project, plan.execution)
-    val checks = if (config.checkTools) tools.checks(context) else Vector.empty
+    val checks =
+      if (config.checkTools || plan.execution.toolMode == VideoToolMode.Docker)
+        tools.checks(context)
+      else
+        Vector.empty
     _validate_render_tools(config.renderer, plan.execution, checks)
     val result =
       config.renderer match {
@@ -1983,9 +1986,16 @@ private[cozy] object CozyVideo {
     def synthesize(text: String, voice: Json): NarrationAudio = {
       val cachekey = voice.noSpaces
       val speakerid = _speaker_ids.getOrElseUpdate(cachekey, _resolve_speaker_id(baseUrl, voice, client))
-      val audioquery = _apply_voice_tuning(client.audioQuery(baseUrl, text, speakerid), voice)
+      val audioquery = _apply_voice_tuning(
+        _with_external_service_failure("audio_query", "voicevox", baseUrl) {
+          client.audioQuery(baseUrl, text, speakerid)
+        },
+        voice
+      )
       NarrationAudio(
-        client.synthesis(baseUrl, speakerid, audioquery),
+        _with_external_service_failure("synthesis", "voicevox", baseUrl) {
+          client.synthesis(baseUrl, speakerid, audioquery)
+        },
         Some(_voicevox_voice_identity(voice, Some(speakerid))),
         Some(speakerid.toString),
         None
@@ -2290,7 +2300,10 @@ private[cozy] object CozyVideo {
       case (Some(_), None) | (None, Some(_)) =>
         RAISE.invalidArgumentFault("VOICEVOX requires explicit speakerName + styleName or fallbackSpeakerId")
       case (Some(speaker), Some(style)) =>
-        val matchid = voicevox.speakers(baseurl).asArray.toVector.flatten.flatMap { item =>
+        val speakers = _with_external_service_failure("speakers", "voicevox", baseurl) {
+          voicevox.speakers(baseurl)
+        }
+        val matchid = speakers.asArray.toVector.flatten.flatMap { item =>
           if (_json_string(item, "name").contains(speaker))
             _json_array(item, "styles").toVector.flatten.find(x => _json_string(x, "name").contains(style)).flatMap(_json_int(_, "id"))
           else None
@@ -2556,9 +2569,8 @@ private[cozy] object CozyVideo {
             }
           case VideoToolMode.ExternalService => Set.empty[String]
         }
-      checks.filter(x => required.contains(x.name) && x.status == VideoToolStatus.Missing).headOption.foreach { check =>
-        val hint = check.setupHint.map(x => s" $x").getOrElse("")
-        RAISE.invalidArgumentFault(s"Cannot render with $renderer: ${check.name} is missing.${hint}")
+      checks.filter(x => required.contains(x.name) && _is_required_dependency_unavailable(x)).headOption.foreach { check =>
+        _raise_required_dependency_unavailable(s"render with $renderer", check)
       }
     }
 
@@ -2567,10 +2579,23 @@ private[cozy] object CozyVideo {
       checks.find(_.name == provider) match {
         case Some(check) if check.status == VideoToolStatus.Available =>
         case Some(check) =>
-          val hint = check.setupHint.map(x => s" $x").getOrElse("")
-          RAISE.invalidArgumentFault(s"Cannot synthesize narration: ${check.name} is not available.${hint}")
+          _raise_required_dependency_unavailable("synthesize narration", check)
         case None =>
-          RAISE.invalidArgumentFault(s"Cannot synthesize narration: no tool check is registered for provider $provider.")
+          val mode = provider match {
+            case "voicevox" => VideoToolMode.ExternalService
+            case "macos-say" => VideoToolMode.Host
+            case "piper" => VideoToolMode.Docker
+            case other => RAISE.illegalStateFault(s"Unsupported narration provider after selection: $other")
+          }
+          _raise_required_dependency_unavailable(
+            "synthesize narration",
+            VideoToolCheck(
+              provider,
+              mode,
+              VideoToolStatus.Unchecked,
+              s"No tool check is registered for provider $provider."
+            )
+          )
       }
     }
 
@@ -2582,11 +2607,74 @@ private[cozy] object CozyVideo {
           case VideoToolMode.Host => Set("ffmpeg")
           case VideoToolMode.ExternalService => Set.empty[String]
         }
-      checks.filter(x => required.contains(x.name) && x.status == VideoToolStatus.Missing).headOption.foreach { check =>
-        val hint = check.setupHint.map(x => s" $x").getOrElse("")
-        RAISE.invalidArgumentFault(s"Cannot build video: ${check.name} is missing.${hint}")
+      checks.filter(x => required.contains(x.name) && _is_required_dependency_unavailable(x)).headOption.foreach { check =>
+        _raise_required_dependency_unavailable("build video", check)
       }
     }
+
+  private def _is_required_dependency_unavailable(check: VideoToolCheck): Boolean =
+    check.status == VideoToolStatus.Missing || check.status == VideoToolStatus.Unchecked
+
+  private def _with_external_service_failure[A](
+    operation: String,
+    dependency: String,
+    endpoint: String,
+    recovery: String = _voicevox_connection_recovery
+  )(body: => A): A =
+    try {
+      body
+    } catch {
+      case e: FaultException => throw e
+      case e: InterruptedException =>
+        Thread.currentThread().interrupt()
+        _raise_external_service_connection_unavailable(operation, dependency, endpoint, e.getMessage, recovery)
+      case NonFatal(e) =>
+        _raise_external_service_connection_unavailable(operation, dependency, endpoint, e.getMessage, recovery)
+    }
+
+  private def _raise_external_service_connection_unavailable(
+    operation: String,
+    dependency: String,
+    endpoint: String,
+    cause: String,
+    recovery: String
+  ): Nothing =
+    _raise_required_dependency_unavailable(
+      operation,
+      VideoToolCheck(
+        dependency,
+        VideoToolMode.ExternalService,
+        VideoToolStatus.Missing,
+        cause,
+        Some(recovery)
+      ),
+      Some(endpoint)
+    )
+
+  private def _raise_required_dependency_unavailable(
+    operation: String,
+    check: VideoToolCheck,
+    endpoint: Option[String] = None
+  ): Nothing = {
+    val category =
+      check.mode match {
+        case VideoToolMode.ExternalService => "External service connection unavailable"
+        case VideoToolMode.Docker | VideoToolMode.Host => "Required execution dependency unavailable"
+      }
+    val availability =
+      check.status match {
+        case VideoToolStatus.Missing => "is missing"
+        case VideoToolStatus.Unchecked => "is unchecked"
+        case _ => "is unavailable"
+      }
+    val location = endpoint.map(x => s" endpoint=$x;").getOrElse("")
+    val recovery = check.setupHint.map(x => s" Recovery: $x").getOrElse("")
+    val message = s"$category for $operation: dependency=${check.name} $availability;$location cause=${check.message}.$recovery"
+    check.mode match {
+      case VideoToolMode.ExternalService => NetworkIoFault(message).RAISE
+      case VideoToolMode.Docker | VideoToolMode.Host => SubsystemIoFault(message).RAISE
+    }
+  }
 
   private def _validate_transcribe_tools(execution: VideoTranscribeExecution, checks: Vector[VideoToolCheck]): Unit =
     if (checks.nonEmpty) {
