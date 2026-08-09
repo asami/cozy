@@ -10,7 +10,8 @@ import cozy.CozySpecVocabulary
 
 /*
  * @since   Jul. 18, 2026
- * @version Jul. 20, 2026
+ *  version Jul. 20, 2026
+ * @version Aug.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoScaffoldSpec
@@ -40,6 +41,7 @@ final class CozyVideoScaffoldSpec
         save.resolve("video.yaml") should be_regular_file
         save.resolve("script.yaml") should be_regular_file
         _read(save.resolve("script.yaml")) should include_text("narration:\n  provider: voicevox")
+        _read(save.resolve("script.yaml")) should not include "voice:"
         save.resolve("assets/opening.svg") should be_regular_file
         save.resolve("assets/section-start.svg") should be_regular_file
         save.resolve("assets/summary.svg") should be_regular_file
@@ -92,6 +94,10 @@ final class CozyVideoScaffoldSpec
         project should include_text("type: web-demo")
         project should include_text("script: demo-script.yaml")
         project should include_text("steps: demo-steps.json")
+        project should include_text("recordDir: build/record/demonstration")
+        project should not include "characters:"
+        project should not include "mouthClosedAsset"
+        project should not include "mouthOpenAsset"
         project should include_text("id: conclusion")
         project should include_text("script: summary-script.yaml")
         save.resolve("demo-steps.json") should be_regular_file

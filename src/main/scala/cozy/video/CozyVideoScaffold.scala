@@ -8,7 +8,8 @@ import cozy.runtime.CozyCliArgs
 
 /*
  * @since   Jul. 18, 2026
- * @version Jul. 20, 2026
+ *  version Jul. 20, 2026
+ * @version Aug.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoScaffold {
@@ -73,14 +74,14 @@ private[cozy] object CozyVideoScaffold {
   object CompositionProfile {
     case object Explanation extends CompositionProfile {
       val key = "explanation"
-      val parts = Vector(ScaffoldPart("explanation", "dialogue", "script.yaml", None))
+      val parts = Vector(ScaffoldPart("explanation", "dialogue", "script.yaml", None, None))
     }
     case object ExplanationDemoExplanation extends CompositionProfile {
       val key = "explanation-demo-explanation"
       val parts = Vector(
-        ScaffoldPart("introduction", "dialogue", "script.yaml", None),
-        ScaffoldPart("demonstration", "web-demo", "demo-script.yaml", Some("demo-steps.json")),
-        ScaffoldPart("conclusion", "dialogue", "summary-script.yaml", None)
+        ScaffoldPart("introduction", "dialogue", "script.yaml", None, None),
+        ScaffoldPart("demonstration", "web-demo", "demo-script.yaml", Some("demo-steps.json"), Some("build/record/demonstration")),
+        ScaffoldPart("conclusion", "dialogue", "summary-script.yaml", None, None)
       )
     }
 
@@ -93,7 +94,7 @@ private[cozy] object CozyVideoScaffold {
       )
   }
 
-  final case class ScaffoldPart(id: String, kind: String, script: String, steps: Option[String])
+  final case class ScaffoldPart(id: String, kind: String, script: String, steps: Option[String], recordDir: Option[String])
   final case class VisualEffectProfiles(opening: String, sectionstart: String, summary: String, finalpage: String)
 
   def scaffold(config: Config): String = {
@@ -172,7 +173,7 @@ private[cozy] object CozyVideoScaffold {
         s"  - id: ${part.id}",
         s"    type: ${part.kind}",
         s"    script: ${part.script}"
-      ) ++ part.steps.map(x => s"    steps: $x")
+      ) ++ part.steps.map(x => s"    steps: $x") ++ part.recordDir.map(x => s"    recordDir: $x")
     }.flatten.mkString("\n")
     s"""name: ${config.slug}
        |title: ${_yaml_string(config.title)}

@@ -22,7 +22,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Jun. 19, 2026
  *  version Jul. 20, 2026
- * @version Aug.  5, 2026
+ * @version Aug.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoPublisher {
@@ -742,7 +742,10 @@ private[cozy] object CozyVideoPublisher {
     JsObject(Vector(
       settings.profile.map("profile" -> PJson.toJson(_)),
       Some("include" -> JsArray(settings.include.map(PJson.toJson(_)))),
-      Some("exclude" -> JsArray(settings.exclude.map(PJson.toJson(_))))
+      Some("exclude" -> JsArray(settings.exclude.map(PJson.toJson(_)))),
+      Some("presentation" -> JsObject(Vector(
+        Some("enabled" -> PJson.toJson(settings.presentationEnabled))
+      ).flatten))
     ).flatten)
 
   private def _publication_asset_path(workspace: Path, asset: CozyVideoAssets.Resolved): Path =

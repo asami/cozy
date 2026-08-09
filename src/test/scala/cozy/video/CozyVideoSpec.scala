@@ -15,7 +15,8 @@ import cozy.CozySpecVocabulary
 /*
  * @since   Jun. 18, 2026
  *  version Jun. 24, 2026
- * @version Jul. 20, 2026
+ *  version Jul. 20, 2026
+ * @version Aug.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoSpec
@@ -1347,7 +1348,7 @@ final class CozyVideoSpec
           val voicevox = RecordingVoicevoxClient()
           _write(
             dir.resolve("script-tools.json"),
-            """{"tools": {"voicevoxUrl": "http://script.example"}, "scenes": [{"id": "s1", "duration": 0.2, "line": "A"}]}"""
+            """{"tools": {"voicevoxUrl": "http://script.example"}, "voice":{"fallbackSpeakerId":99}, "scenes": [{"id": "s1", "duration": 0.2, "line": "A"}]}"""
           )
           _write(
             dir.resolve("conf/cozy/config.yaml"),
@@ -1366,7 +1367,7 @@ final class CozyVideoSpec
           val configvoicevox = RecordingVoicevoxClient()
           _write(
             dir.resolve("script-config.json"),
-            """{"scenes": [{"id": "s1", "duration": 0.2, "line": "A"}]}"""
+            """{"voice":{"fallbackSpeakerId":99}, "scenes": [{"id": "s1", "duration": 0.2, "line": "A"}]}"""
           )
           CozyVideo.synthesize(
             CozyVideo.SynthesizeConfig(
@@ -1386,6 +1387,7 @@ final class CozyVideoSpec
           _write(
             script,
             """{
+              |  "voice": {"fallbackSpeakerId": 99},
               |  "pronunciations": {"BoK": "ビーオーケー"},
               |  "scenes": [
               |    {"id": "terms", "duration": 0.2, "line": "値とBoK"}
@@ -1412,7 +1414,7 @@ final class CozyVideoSpec
         _with_temp_dir("cozy-video-synthesize-errors") { dir =>
           _write(
             dir.resolve("script.json"),
-            """{"scenes": [{"id": "s1", "duration": 0.2, "line": "A"}]}"""
+            """{"voice":{"speakerName":"Missing Voice","styleName":"Missing Style"}, "scenes": [{"id": "s1", "duration": 0.2, "line": "A"}]}"""
           )
 
           val missingsave = intercept[Throwable] {
@@ -1450,7 +1452,7 @@ final class CozyVideoSpec
 
           _write(
             dir.resolve("unsafe-scene.json"),
-            """{"scenes": [{"id": "../escape", "duration": 0.2, "line": "A"}]}"""
+            """{"voice":{"fallbackSpeakerId":99}, "scenes": [{"id": "../escape", "duration": 0.2, "line": "A"}]}"""
           )
           val unsafescene = intercept[Throwable] {
             CozyVideo.synthesize(
@@ -1637,6 +1639,425 @@ final class CozyVideoSpec
           ((Files.isRegularFile(
             dir.resolve("build/parts/board.manifest.json")
           )) shouldBe true)
+        }
+      }
+
+      "video render selects and stages the generic character-dialogue template from declared assets" in {
+        _with_temp_dir("cozy-video-character-dialogue") { dir =>
+          Given("a dialogue script with caller-owned character and scene assets")
+          _write_bytes(dir.resolve("ja/dialogue/assets/presenter-left.png"), Array[Byte](1, 2, 3))
+          _write_bytes(dir.resolve("ja/dialogue/assets/presenter-right.png"), Array[Byte](4, 5, 6))
+          _write_bytes(dir.resolve("ja/dialogue/assets/scene.png"), Array[Byte](7, 8, 9))
+          _write(dir.resolve("ja/dialogue/script.json"),
+            """{
+              |  "characters": {
+              |    "presenter-left": {"asset":"assets/presenter-left.png","mouthClosedAsset":"assets/presenter-left.png","mouthOpenAsset":"assets/presenter-left.png","side":"left"},
+              |    "presenter-right": {"asset":"assets/presenter-right.png","side":"right"}
+              |  },
+              |  "sections": [{"id":"intro","title":"Introduction"}],
+              |  "scenes": [{"id":"intro","speaker":"presenter-left","narration":"Narrated dialogue","section":"intro","effects":{"preset":"concept"},"visual":{"kind":"slide","image":"assets/scene.png"}}]
+              |}""".stripMargin)
+          _write_audio_manifest(dir.resolve("build/audio/lecture"), Vector("intro"))
+          _write(dir.resolve("video_project.json"),
+            """{"renderer":{"engine":"remotion"},"parts":[{"id":"lecture","type":"dialogue","script":"ja/dialogue/script.json"}]}""")
+          val runner = ProfileRenderRunner()
+
+          When("Cozy renders with the fake runner")
+          CozyVideo.render(CozyVideo.RenderConfig(dir.resolve("video_project.json"), "remotion", toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), runner)
+
+          Then("the vendored renderer, structured props, and only declared staged assets are present")
+          val workdir = dir.resolve("target/cozy-video/remotion/lecture")
+          val props = parser.parse(_read(workdir.resolve("props.json"))).toOption.get
+          props.hcursor.downField("rendererTemplate").as[String].toOption shouldBe Some("cozy-character-dialogue-v1")
+          props.hcursor.downField("rendererTemplateSha256").as[String].toOption.getOrElse("").matches("[0-9a-f]{64}") shouldBe true
+          props.hcursor.downField("characters").downField("presenter-left").downField("asset").as[String].toOption.getOrElse("") should startWith("characters/")
+          props.hcursor.downField("scenes").downArray.downField("visual").downField("image").as[String].toOption.getOrElse("") should startWith("visuals/")
+          props.hcursor.downField("scenes").downArray.downField("section").as[String].toOption shouldBe Some("intro")
+          props.hcursor.downField("scenes").downArray.downField("effects").downField("preset").as[String].toOption shouldBe Some("concept")
+          props.hcursor.downField("scenes").downArray.downField("line").as[String].toOption shouldBe Some("Narrated dialogue")
+          props.hcursor.downField("scenes").downArray.downField("caption").as[String].toOption shouldBe Some("Narrated dialogue")
+          props.hcursor.downField("scenes").downArray.downField("startFrame").as[Int].toOption shouldBe Some(0)
+          Files.isRegularFile(workdir.resolve("src/DialogueVideo.jsx")) shouldBe true
+          Files.isRegularFile(workdir.resolve("public/characters/character-presenter-left-asset.png")) shouldBe true
+          Files.isRegularFile(workdir.resolve("public/visuals/scene-intro-visual-image.png")) shouldBe true
+
+          And("an explicit generic strategy opts out")
+          _write(dir.resolve("video_project.json"),
+            """{"renderer":{"engine":"remotion","strategy":"generic"},"parts":[{"id":"lecture","type":"dialogue","script":"ja/dialogue/script.json"}]}""")
+          CozyVideo.render(CozyVideo.RenderConfig(dir.resolve("video_project.json"), "remotion", toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), ProfileRenderRunner())
+          parser.parse(_read(workdir.resolve("props.json"))).toOption.get.hcursor.downField("rendererTemplate").focus shouldBe Some(Json.Null)
+
+          And("a part-level generic strategy also opts out and the generic root has no duplicate overlays")
+          _write(dir.resolve("video_project.json"),
+            """{"renderer":{"engine":"remotion"},"parts":[{"id":"lecture","type":"dialogue","script":"ja/dialogue/script.json","renderer":{"strategy":"generic"}}]}""")
+          CozyVideo.render(CozyVideo.RenderConfig(dir.resolve("video_project.json"), "remotion", toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), ProfileRenderRunner())
+          parser.parse(_read(workdir.resolve("props.json"))).toOption.get.hcursor.downField("rendererTemplate").focus shouldBe Some(Json.Null)
+          val genericroot = _read(workdir.resolve("src/Root.tsx"))
+          genericroot should not include ">OVERVIEW<"
+          genericroot should not include ">CONCLUSION<"
+          genericroot should not include ">END<"
+        }
+      }
+
+      "video render preserves validated declarative flow and axis diagrams for the character-dialogue renderer" in {
+        _with_temp_dir("cozy-video-declarative-diagrams") { dir =>
+          Given("a character-dialogue script with a flow scene and an axis scene")
+          _write(
+            dir.resolve("dialogue/script.json"),
+            """{
+              |  "characters": {"guide": {"side": "left"}, "reviewer": {"side": "right"}},
+              |  "scenes": [
+              |    {"id":"flow-scene","speaker":"guide","line":"Flow explanation","caption":"Flow explanation","visual":{"kind":"diagram","heading":"Flow","diagram":{"layout":"flow","nodes":[{"id":"reality","label":"REALITY","role":"lead","labelPolicy":"atomic"},{"id":"model","label":"Model","role":"lead","labelPolicy":"atomic"}],"edges":[{"from":"reality","to":"model"}]} }},
+              |    {"id":"axis-scene","speaker":"reviewer","line":"Axis explanation","caption":"Axis explanation","visual":{"kind":"diagram","heading":"Axis","diagram":{"layout":"axis","clearance":24,"nodes":[{"id":"axis","label":"Axis","role":"axis","labelPolicy":"atomic"},{"id":"primary","label":"Primary view","role":"primary-view","labelPolicy":"balanced"},{"id":"support","label":"Supporting view","role":"supporting-view","labelPolicy":"balanced"}],"edges":[{"from":"axis","to":"primary"}]}}}
+              |  ]
+              |}""".stripMargin
+          )
+          _write_audio_manifest(dir.resolve("build/audio/lecture"), Vector("flow-scene", "axis-scene"))
+          _write(dir.resolve("video_project.json"), """{"renderer":{"engine":"remotion"},"parts":[{"id":"lecture","type":"dialogue","script":"dialogue/script.json"}]}""")
+          val runner = ProfileRenderRunner()
+
+          When("Cozy renders the declared diagram scenes")
+          CozyVideo.render(
+            CozyVideo.RenderConfig(dir.resolve("video_project.json"), "remotion", toolMode = Some("host")),
+            CozyVideo.VideoToolRegistry(Vector.empty),
+            runner
+          )
+
+          Then("the authored diagrams and both renderer resources are staged with digest provenance")
+          val workdir = dir.resolve("target/cozy-video/remotion/lecture")
+          val props = parser.parse(_read(workdir.resolve("props.json"))).toOption.get
+          props.hcursor.downField("scenes").downArray.downField("visual").downField("diagram").downField("nodes").downArray.get[String]("label").toOption shouldBe Some("REALITY")
+          props.hcursor.downField("scenes").downN(1).downField("visual").downField("diagram").get[String]("layout").toOption shouldBe Some("axis")
+          Files.isRegularFile(workdir.resolve("src/DialogueVideo.jsx")) shouldBe true
+          Files.isRegularFile(workdir.resolve("src/DiagramLayout.js")) shouldBe true
+          val resources = props.hcursor.downField("rendererTemplateResources").focus.flatMap(_.asArray).getOrElse(Vector.empty)
+          val resourcepaths = resources.map(_.hcursor.get[String]("path").toOption)
+          resourcepaths should contain(Some("DialogueVideo.jsx"))
+          resourcepaths should contain(Some("DiagramLayout.js"))
+          resources.forall(_.hcursor.get[String]("sha256").toOption.exists(_.matches("[0-9a-f]{64}"))) shouldBe true
+        }
+      }
+
+      "the staged declarative layout module routes an eight-node axis graph and deterministically fits flow retries" in {
+        _with_temp_dir("cozy-video-declarative-layout-module") { dir =>
+          Given("a rendered character-dialogue workspace containing the pure layout module")
+          _write(
+            dir.resolve("dialogue/script.json"),
+            """{"characters":{"guide":{"side":"left"}},"scenes":[{"id":"layout-module","speaker":"guide","line":"Layout module","visual":{"kind":"diagram","diagram":{"layout":"flow","nodes":[{"id":"start","label":"Start","role":"lead","labelPolicy":"atomic"}]}}}]}"""
+          )
+          _write_audio_manifest(dir.resolve("build/audio/lecture"), Vector("layout-module"))
+          _write(dir.resolve("video_project.json"), """{"renderer":{"engine":"remotion"},"parts":[{"id":"lecture","type":"dialogue","script":"dialogue/script.json"}]}""")
+          CozyVideo.render(
+            CozyVideo.RenderConfig(dir.resolve("video_project.json"), "remotion", toolMode = Some("host")),
+            CozyVideo.VideoToolRegistry(Vector.empty),
+            ProfileRenderRunner()
+          )
+          val workdir = dir.resolve("target/cozy-video/remotion/lecture")
+          val script =
+            """import {computeDiagramLayout} from './src/DiagramLayout.js';
+              |const clearance = 24;
+              |const axis = {layout: 'axis', clearance, nodes: [
+              |  {id: 'reality', label: 'Reality', role: 'lead', labelPolicy: 'atomic'},
+              |  {id: 'knowledge', label: 'Knowledge', role: 'lead', labelPolicy: 'atomic'},
+              |  {id: 'model', label: 'Model', role: 'lead', labelPolicy: 'atomic'},
+              |  {id: 'axis', label: 'Axis', role: 'axis', labelPolicy: 'atomic'},
+              |  {id: 'primary-one', label: 'Primary one', role: 'primary-view', labelPolicy: 'balanced'},
+              |  {id: 'primary-two', label: 'Primary two', role: 'primary-view', labelPolicy: 'balanced'},
+              |  {id: 'support-one', label: 'Support one', role: 'supporting-view', labelPolicy: 'balanced'},
+              |  {id: 'support-two', label: 'Support two', role: 'supporting-view', labelPolicy: 'balanced'}
+              |], edges: [
+              |  {from: 'reality', to: 'knowledge'}, {from: 'knowledge', to: 'model'}, {from: 'model', to: 'axis'},
+              |  {from: 'axis', to: 'primary-one'}, {from: 'primary-one', to: 'primary-two'},
+              |  {from: 'axis', to: 'support-one'}, {from: 'support-one', to: 'support-two'}
+              |]};
+              |const flow = {layout: 'flow', clearance, nodes: Array.from({length: 8}, (_, index) => ({id: `flow-${index}`, label: `Balanced concept ${index}`, role: 'lead', labelPolicy: 'balanced'})), edges: []};
+              |const intersects = (a, b) => a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+              |const distance = (a, b) => Math.max(Math.max(a.x - (b.x + b.width), b.x - (a.x + a.width), 0), Math.max(a.y - (b.y + b.height), b.y - (a.y + a.height), 0));
+              |const segmentHits = (start, end, node) => start.x === end.x
+              |  ? start.x > node.x && start.x < node.x + node.width && Math.max(start.y, end.y) > node.y && Math.min(start.y, end.y) < node.y + node.height
+              |  : start.y > node.y && start.y < node.y + node.height && Math.max(start.x, end.x) > node.x && Math.min(start.x, end.x) < node.x + node.width;
+              |const layout = computeDiagramLayout(axis, {sceneId: 'axis-check'});
+              |const repeat = computeDiagramLayout(axis, {sceneId: 'axis-check'});
+              |const fitted = computeDiagramLayout(flow, {sceneId: 'flow-check'});
+              |if (JSON.stringify(layout) !== JSON.stringify(repeat)) throw new Error('non-deterministic-layout');
+              |layout.nodes.forEach((node) => { if (node.x < 0 || node.y < 0 || node.x + node.width > layout.canvas.width || node.y + node.height > layout.canvas.height) throw new Error(`stage-overflow:${node.id}`); });
+              |layout.nodes.forEach((node, index) => layout.nodes.slice(index + 1).forEach((other) => { if (intersects(node, other) || distance(node, other) < clearance) throw new Error(`clearance:${node.id}`); }));
+              |layout.edges.forEach((edge) => edge.points.slice(0, -1).forEach((point, index) => layout.nodes.filter((node) => node.id !== edge.from && node.id !== edge.to).forEach((node) => { if (segmentHits(point, edge.points[index + 1], node)) throw new Error(`node-edge:${node.id}`); })));
+              |if (new Set(fitted.nodes.map((node) => node.y)).size < 2 || fitted.nodes.some((node) => node.fontSize < 18) || fitted.clearance < clearance) throw new Error('flow-retry-contract');
+              |console.log(JSON.stringify({axisNodes: layout.nodes.length, flowNodes: fitted.nodes.length}));
+              |""".stripMargin
+
+          When("the executable JavaScript regression module is run from that workspace")
+          val process = new ProcessBuilder("node", "--input-type=module", "--eval", script)
+            .directory(workdir.toFile)
+            .redirectErrorStream(true)
+            .start()
+          val output = new String(process.getInputStream.readAllBytes(), StandardCharsets.UTF_8)
+          val exit = process.waitFor()
+
+          Then("the axis corridors and flow retry sequence satisfy their executable geometry contract")
+          exit shouldBe 0
+          output should include("\"axisNodes\":8")
+          output should include("\"flowNodes\":8")
+        }
+      }
+
+      "video render stops invalid declarative diagram contracts before invoking the renderer" in {
+        _with_temp_dir("cozy-video-invalid-declarative-diagram") { dir =>
+          Given("a character-dialogue script with an edge endpoint outside its declared nodes")
+          _write(
+            dir.resolve("dialogue/script.json"),
+            """{"characters":{"guide":{"side":"left"}},"scenes":[{"id":"invalid-edge","speaker":"guide","line":"Invalid diagram","visual":{"kind":"diagram","diagram":{"layout":"flow","nodes":[{"id":"reality","label":"REALITY","role":"lead","labelPolicy":"atomic"}],"edges":[{"from":"reality","to":"missing"}]}}}]}"""
+          )
+          _write_audio_manifest(dir.resolve("build/audio/lecture"), Vector("invalid-edge"))
+          _write(dir.resolve("video_project.json"), """{"renderer":{"engine":"remotion"},"parts":[{"id":"lecture","type":"dialogue","script":"dialogue/script.json"}]}""")
+          val runner = ProfileRenderRunner()
+
+          When("Cozy prepares to render the invalid diagram")
+          val endpointerror = intercept[Throwable] {
+            CozyVideo.render(
+              CozyVideo.RenderConfig(dir.resolve("video_project.json"), "remotion", toolMode = Some("host")),
+              CozyVideo.VideoToolRegistry(Vector.empty),
+              runner
+            )
+          }
+
+          Then("the endpoint diagnostic identifies the scene, node, and violation without invoking the runner")
+          endpointerror.getMessage should include("Diagram scene invalid-edge")
+          endpointerror.getMessage should include("node missing")
+          endpointerror.getMessage should include("missing-edge-endpoint")
+          runner.commands shouldBe empty
+
+          Given("the same scene with an atomic label that cannot fit the declared node contract")
+          _write(
+            dir.resolve("dialogue/script.json"),
+            """{"characters":{"guide":{"side":"left"}},"scenes":[{"id":"invalid-label","speaker":"guide","line":"Invalid diagram","visual":{"kind":"diagram","diagram":{"layout":"flow","nodes":[{"id":"too-wide","label":"THIS_ATOMIC_LABEL_CANNOT_FIT_IN_A_DIAGRAM_NODE","role":"lead","labelPolicy":"atomic"}]}}}]}"""
+          )
+          _write_audio_manifest(dir.resolve("build/audio/lecture"), Vector("invalid-label"))
+          val atomicrunner = ProfileRenderRunner()
+
+          When("Cozy prepares to render the impossible atomic label")
+          val atomicerror = intercept[Throwable] {
+            CozyVideo.render(
+              CozyVideo.RenderConfig(dir.resolve("video_project.json"), "remotion", toolMode = Some("host")),
+              CozyVideo.VideoToolRegistry(Vector.empty),
+              atomicrunner
+            )
+          }
+
+          Then("the fit diagnostic identifies the scene, node, and violation without invoking the runner")
+          atomicerror.getMessage should include("Diagram scene invalid-label")
+          atomicerror.getMessage should include("node too-wide")
+          atomicerror.getMessage should include("impossible-atomic-fit")
+          atomicrunner.commands shouldBe empty
+        }
+      }
+
+      "video render diagnoses missing declared character and visual assets" in {
+        _with_temp_dir("cozy-video-character-dialogue-missing-assets") { dir =>
+          Given("a character-dialogue script with missing caller-owned assets")
+          _write(dir.resolve("dialogue/script.json"), """{"characters":{"presenter-left":{"asset":"missing-character.png"}},"scenes":[{"id":"scene-01","speaker":"presenter-left","line":"Hello","visual":{"image":"missing-visual.png"}}]}""")
+          _write_audio_manifest(dir.resolve("build/audio/lecture"), Vector("scene-01"))
+          _write(dir.resolve("video_project.json"), """{"parts":[{"id":"lecture","type":"dialogue","script":"dialogue/script.json"}]}""")
+
+          When("Cozy prepares the character-dialogue workspace")
+          val error = intercept[Throwable] {
+            CozyVideo.render(CozyVideo.RenderConfig(dir.resolve("video_project.json"), "remotion", toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), ProfileRenderRunner())
+          }
+
+          Then("the diagnostic identifies the character asset field and authored path")
+          error.getMessage should include("character presenter-left")
+          error.getMessage should include("asset")
+          error.getMessage should include("missing-character.png")
+
+          And("a missing scene visual identifies its scene, field, and authored path")
+          _write_bytes(dir.resolve("dialogue/presenter-left.png"), Array[Byte](1, 2, 3))
+          _write(dir.resolve("dialogue/script.json"), """{"characters":{"presenter-left":{"asset":"presenter-left.png"}},"scenes":[{"id":"scene-01","speaker":"presenter-left","line":"Hello","visual":{"image":"missing-visual.png"}}]}""")
+          val visualerror = intercept[Throwable] {
+            CozyVideo.render(CozyVideo.RenderConfig(dir.resolve("video_project.json"), "remotion", toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), ProfileRenderRunner())
+          }
+          visualerror.getMessage should include("scene scene-01")
+          visualerror.getMessage should include("visual.image")
+          visualerror.getMessage should include("missing-visual.png")
+
+          And("a declared character asset may not escape the project through a symbolic link")
+          val outside = dir.resolveSibling(dir.getFileName.toString + "-outside-character.png")
+          _write_bytes(outside, Array[Byte](9, 8, 7))
+          Files.delete(dir.resolve("dialogue/presenter-left.png"))
+          Files.createSymbolicLink(dir.resolve("dialogue/presenter-left.png"), outside)
+          _write(dir.resolve("dialogue/script.json"), """{"characters":{"presenter-left":{"asset":"presenter-left.png"}},"scenes":[{"id":"scene-01","speaker":"presenter-left","line":"Hello"}]}""")
+          val symlinkrunner = ProfileRenderRunner()
+
+          When("Cozy resolves the symbolic-link asset before staging")
+          val symlinkerror = intercept[Throwable] {
+            CozyVideo.render(CozyVideo.RenderConfig(dir.resolve("video_project.json"), "remotion", toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), symlinkrunner)
+          }
+
+          Then("the project boundary rejects the external real path before invoking the renderer")
+          symlinkerror.getMessage should include("resolves outside project root")
+          symlinkrunner.commands shouldBe empty
+          Files.deleteIfExists(outside)
+        }
+      }
+
+      "video render rejects a scene visual symbolic link that resolves outside the project root" in {
+        _with_temp_dir("cozy-video-visual-symlink-boundary") { dir =>
+          Given("a character-dialogue scene whose visual image is a project-local symbolic link")
+          _write_bytes(dir.resolve("dialogue/presenter-left.png"), Array[Byte](1, 2, 3))
+          val outside = dir.resolveSibling(dir.getFileName.toString + "-outside-visual.png")
+          _write_bytes(outside, Array[Byte](9, 8, 7))
+          Files.createDirectories(dir.resolve("dialogue"))
+          Files.createSymbolicLink(dir.resolve("dialogue/visual.png"), outside)
+          _write(
+            dir.resolve("dialogue/script.json"),
+            """{"characters":{"presenter-left":{"asset":"presenter-left.png"}},"scenes":[{"id":"scene-visual-symlink","speaker":"presenter-left","line":"Hello","visual":{"image":"visual.png"}}]}"""
+          )
+          _write_audio_manifest(dir.resolve("build/audio/lecture"), Vector("scene-visual-symlink"))
+          _write(dir.resolve("video_project.json"), """{"parts":[{"id":"lecture","type":"dialogue","script":"dialogue/script.json"}]}""")
+          val runner = ProfileRenderRunner()
+
+          When("Cozy resolves the scene visual before staging the renderer workspace")
+          val error = intercept[Throwable] {
+            CozyVideo.render(
+              CozyVideo.RenderConfig(dir.resolve("video_project.json"), "remotion", toolMode = Some("host")),
+              CozyVideo.VideoToolRegistry(Vector.empty),
+              runner
+            )
+          }
+
+          Then("the real-path project-root escape is rejected before invoking the renderer")
+          error.getMessage should include("visual.image asset for scene scene-visual-symlink")
+          error.getMessage should include("resolves outside project root")
+          runner.commands shouldBe empty
+          Files.deleteIfExists(outside)
+        }
+      }
+
+      "video render stages one reviewed web-demo recording with caller-declared presenter assets" in {
+        _with_temp_dir("cozy-video-character-web-demo") { dir =>
+          Given("a web-demo part with one reviewed browser recording and a declared presenter")
+          _write_bytes(dir.resolve("demo/presenter-left.png"), Array[Byte](1, 2, 3))
+          _write_bytes(dir.resolve("demo/presenter-open.png"), Array[Byte](4, 5, 6))
+          _write(dir.resolve("demo/script.json"), """{"characters":{"presenter-left":{"asset":"presenter-left.png","mouthClosedAsset":"presenter-left.png","mouthOpenAsset":"presenter-open.png","side":"left","width":216,"bottom":132,"inset":24,"maxHeight":390,"flipX":true}},"scenes":[{"id":"demonstration","speaker":"presenter-left","line":"Review the browser result.","caption":"Review the browser result."}]}""")
+          _write(dir.resolve("demo/steps.json"), """{"steps": []}""")
+          _write_audio_manifest(dir.resolve("build/audio/demonstration"), Vector("demonstration"))
+          _write_bytes(dir.resolve("build/record/demonstration/reviewed.webm"), Array[Byte](7, 8, 9))
+          _write(dir.resolve("video_project.json"), """{"parts":[{"id":"demonstration","type":"web-demo","script":"demo/script.json","steps":"demo/steps.json","recordDir":"build/record/demonstration"}]}""")
+          val runner = ProfileRenderRunner()
+
+          When("Cozy prepares the Remotion web-demo workspace")
+          CozyVideo.render(CozyVideo.RenderConfig(dir.resolve("video_project.json"), "remotion", toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), runner)
+
+          Then("the workspace contains the generic recording, presenter, caption, and audio surfaces")
+          val workdir = dir.resolve("target/cozy-video/remotion/demonstration")
+          val props = parser.parse(_read(workdir.resolve("props.json"))).toOption.get
+          props.hcursor.downField("rendererTemplate").as[String].toOption shouldBe Some("cozy-character-web-demo-v1")
+          props.hcursor.downField("recordingPath").as[String].toOption shouldBe Some("recording/recording.webm")
+          props.hcursor.downField("characters").downField("presenter-left").get[Int]("bottom").toOption shouldBe Some(132)
+          props.hcursor.downField("characters").downField("presenter-left").get[Int]("inset").toOption shouldBe Some(24)
+          Files.isRegularFile(workdir.resolve("public/recording/recording.webm")) shouldBe true
+          Files.isRegularFile(workdir.resolve("public/characters/character-presenter-left-asset.png")) shouldBe true
+          Files.isRegularFile(workdir.resolve("public/characters/character-presenter-left-mouthOpenAsset.png")) shouldBe true
+          val root = _read(workdir.resolve("src/Root.tsx"))
+          root should include("Video")
+          root should include("objectFit: 'contain'")
+          root should include("mouthOpenAsset")
+          root should include("character?.bottom")
+          root should include("character?.inset")
+          root should include("character?.maxHeight")
+          root should include("character?.flipX")
+          root should include("scene?.caption || scene?.line")
+
+          Given("no reviewed recording is available")
+          Files.delete(dir.resolve("build/record/demonstration/reviewed.webm"))
+          val emptyrunner = ProfileRenderRunner()
+
+          When("Cozy resolves the recording directory with no readable recording")
+          val emptyerror = intercept[Throwable] {
+            CozyVideo.render(CozyVideo.RenderConfig(dir.resolve("video_project.json"), "remotion", toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), emptyrunner)
+          }
+
+          Then("the missing recording diagnostic is reported before invoking a runner")
+          emptyerror.getMessage should include("demonstration")
+          emptyrunner.commands shouldBe empty
+
+          Given("more than one reviewed recording is available")
+          _write_bytes(dir.resolve("build/record/demonstration/one.webm"), Array[Byte](1))
+          _write_bytes(dir.resolve("build/record/demonstration/two.mp4"), Array[Byte](2))
+          val multiplerunner = ProfileRenderRunner()
+
+          When("Cozy resolves the recording directory with multiple readable recordings")
+          val multipleerror = intercept[Throwable] {
+            CozyVideo.render(CozyVideo.RenderConfig(dir.resolve("video_project.json"), "remotion", toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), multiplerunner)
+          }
+
+          Then("the cardinality diagnostic is reported before invoking a runner")
+          multipleerror.getMessage should include("exactly one")
+          multiplerunner.commands shouldBe empty
+
+          Given("an absolute recording directory in the web-demo descriptor")
+          _write(dir.resolve("video_project.json"), s"""{"parts":[{"id":"demonstration","type":"web-demo","script":"demo/script.json","steps":"demo/steps.json","recordDir":"${dir.resolve("build/record/demonstration")}"}]}""")
+          val absoluterunner = ProfileRenderRunner()
+
+          When("Cozy resolves the absolute recording directory")
+          val absoluteerror = intercept[Throwable] {
+            CozyVideo.render(CozyVideo.RenderConfig(dir.resolve("video_project.json"), "remotion", toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), absoluterunner)
+          }
+
+          Then("the absolute path is rejected before invoking the renderer")
+          absoluteerror.getMessage should include("Absolute Web-demo part demonstration recordDir path is not allowed")
+          absoluterunner.commands shouldBe empty
+
+          Given("a traversal recording directory in the web-demo descriptor")
+          _write(dir.resolve("video_project.json"), """{"parts":[{"id":"demonstration","type":"web-demo","script":"demo/script.json","steps":"demo/steps.json","recordDir":"../outside-recording"}]}""")
+          val traversalrunner = ProfileRenderRunner()
+
+          When("Cozy resolves the traversal recording directory")
+          val traversalerror = intercept[Throwable] {
+            CozyVideo.render(CozyVideo.RenderConfig(dir.resolve("video_project.json"), "remotion", toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), traversalrunner)
+          }
+
+          Then("the traversal is rejected before invoking the renderer")
+          traversalerror.getMessage should include("Traversal outside project root is not allowed")
+          traversalrunner.commands shouldBe empty
+        }
+      }
+
+      "video render rejects a web-demo recording symbolic link that resolves outside the project root" in {
+        _with_temp_dir("cozy-video-recording-symlink-boundary") { dir =>
+          Given("a web-demo part whose recording child is a project-local symbolic link")
+          _write_bytes(dir.resolve("demo/presenter-left.png"), Array[Byte](1, 2, 3))
+          _write_bytes(dir.resolve("demo/presenter-open.png"), Array[Byte](4, 5, 6))
+          _write(
+            dir.resolve("demo/script.json"),
+            """{"characters":{"presenter-left":{"asset":"presenter-left.png","mouthClosedAsset":"presenter-left.png","mouthOpenAsset":"presenter-open.png","side":"left","width":216,"bottom":132,"inset":24,"maxHeight":390,"flipX":true}},"scenes":[{"id":"demonstration","speaker":"presenter-left","line":"Review the browser result.","caption":"Review the browser result."}]}"""
+          )
+          _write(dir.resolve("demo/steps.json"), """{"steps": []}""")
+          _write_audio_manifest(dir.resolve("build/audio/demonstration"), Vector("demonstration"))
+          val outside = dir.resolveSibling(dir.getFileName.toString + "-outside-recording.webm")
+          _write_bytes(outside, Array[Byte](9, 8, 7))
+          Files.createDirectories(dir.resolve("build/record/demonstration"))
+          Files.createSymbolicLink(dir.resolve("build/record/demonstration/reviewed.webm"), outside)
+          _write(
+            dir.resolve("video_project.json"),
+            """{"parts":[{"id":"demonstration","type":"web-demo","script":"demo/script.json","steps":"demo/steps.json","recordDir":"build/record/demonstration"}]}"""
+          )
+          val runner = ProfileRenderRunner()
+
+          When("Cozy resolves the web-demo recording before staging the renderer workspace")
+          val error = intercept[Throwable] {
+            CozyVideo.render(
+              CozyVideo.RenderConfig(dir.resolve("video_project.json"), "remotion", toolMode = Some("host")),
+              CozyVideo.VideoToolRegistry(Vector.empty),
+              runner
+            )
+          }
+
+          Then("the real-path project-root escape is rejected before invoking the renderer")
+          error.getMessage should include("Web-demo part demonstration recording")
+          error.getMessage should include("resolves outside project root")
+          runner.commands shouldBe empty
+          Files.deleteIfExists(outside)
         }
       }
 
@@ -3367,7 +3788,7 @@ final class CozyVideoSpec
           (videometadata \ "narration" \ "executionModes")
             .as[Vector[String]] shouldBe Vector("external-http")
           (videometadata \ "narration" \ "voices" \ 0 \ "id")
-            .as[String] shouldBe "3"
+            .as[String] shouldBe "99"
           (videometadata \ "narration" \ "audioFormats" \ 0 \ "sampleRate")
             .as[Int] shouldBe 24000
           (videometadata \ "narration" \ "manifests")
@@ -4072,6 +4493,7 @@ object CozyVideoSpec {
   private val _script_json: String =
     """{
       |  "title": "Intro Script",
+      |  "voice": {"fallbackSpeakerId": 99},
       |  "scenes": [
       |    {"id": "title", "duration": 4.0, "line": "Title"},
       |    {"id": "book", "targetDuration": 9.0, "subscenes": [

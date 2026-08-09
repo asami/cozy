@@ -5,14 +5,14 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
-import io.circe.parser
+import io.circe.{Json, parser}
 import org.scalatest.GivenWhenThen
 import org.scalatest.wordspec.AnyWordSpec
 import cozy.CozySpecVocabulary
 
 /*
  * @since   Jul. 20, 2026
- * @version Jul. 20, 2026
+ * @version Aug.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoNarrationSpec
@@ -28,14 +28,17 @@ final class CozyVideoNarrationSpec
         _with_script(
           """{
             |  "narration": {"provider": "voicevox"},
-            |  "voice": {"speakerName": "ずんだもん", "styleName": "ノーマル"},
+            |  "voice": {"speakerName": "presenter", "styleName": "neutral"},
             |  "scenes": [{"id": "intro", "duration": 0.2, "line": "値とBoK"}]
             |}""".stripMargin
         ) { (script, output) =>
           When("Cozy synthesizes the shared scene pipeline through the selected provider")
           val result = CozyVideo.synthesize(
             CozyVideo.SynthesizeConfig(script, output, Some("http://voicevox.example")),
-            RecordingVoicevoxClient()
+            RecordingVoicevoxClient(speakersJson = Json.arr(Json.obj(
+              "name" -> Json.fromString("presenter"),
+              "styles" -> Json.arr(Json.obj("name" -> Json.fromString("neutral"), "id" -> Json.fromInt(42)))
+            )))
           )
           val entry = _manifest_entry(output)
 
@@ -44,8 +47,8 @@ final class CozyVideoNarrationSpec
           result should include_text("executionMode: external-http")
           entry.hcursor.downField("provider").as[String].toOption shouldBe Some("voicevox")
           entry.hcursor.downField("executionMode").as[String].toOption shouldBe Some("external-http")
-          entry.hcursor.downField("voiceIdentity").as[String].toOption shouldBe Some("ずんだもん/ノーマル")
-          entry.hcursor.downField("voiceId").as[String].toOption shouldBe Some("3")
+          entry.hcursor.downField("voiceIdentity").as[String].toOption shouldBe Some("presenter/neutral")
+          entry.hcursor.downField("voiceId").as[String].toOption shouldBe Some("42")
           entry.hcursor.downField("modelIdentity").as[String].toOption shouldBe None
         }
       }
@@ -55,7 +58,7 @@ final class CozyVideoNarrationSpec
         _with_script(
           """{
             |  "narration": {"provider": "voicevox"},
-            |  "voice": {"speakerName": "ずんだもん", "styleName": "ノーマル"},
+            |  "voice": {"fallbackSpeakerId": 42},
             |  "scenes": [{"id": "title", "duration": 0.2, "silent": true}]
             |}""".stripMargin
         ) { (script, output) =>
@@ -78,20 +81,18 @@ final class CozyVideoNarrationSpec
         }
       }
 
-      "keeps VOICEVOX as the default for an existing script" in {
-        Given("an existing script without provider authoring")
+      "requires explicit VOICEVOX identity for a script without provider authoring" in {
+        Given("an existing script without any VOICEVOX identity")
         _with_script(
           """{"scenes": [{"id": "intro", "duration": 0.2, "line": "Hello"}]}"""
         ) { (script, output) =>
-          When("Cozy synthesizes it without migration metadata")
-          val result = CozyVideo.synthesize(
-            CozyVideo.SynthesizeConfig(script, output, Some("http://voicevox.example")),
-            RecordingVoicevoxClient()
-          )
+          When("Cozy synthesizes it without an implicit speaker")
+          val error = intercept[RuntimeException] {
+            CozyVideo.synthesize(CozyVideo.SynthesizeConfig(script, output, Some("http://voicevox.example")), RecordingVoicevoxClient())
+          }
 
-          Then("VOICEVOX remains the provider without a deprecation diagnostic")
-          result should include_text("provider: voicevox")
-          result should not(include_text("warning:"))
+          Then("the required caller-owned identity is explicit")
+          error.getMessage should include_text("VOICEVOX requires explicit speakerName + styleName or fallbackSpeakerId")
         }
       }
 
@@ -99,7 +100,7 @@ final class CozyVideoNarrationSpec
         Given("a script that still declares the old voice.engine setting")
         _with_script(
           """{
-            |  "voice": {"engine": "voicevox"},
+            |  "voice": {"engine": "voicevox", "fallbackSpeakerId": 42},
             |  "scenes": [{"id": "intro", "duration": 0.2, "line": "Hello"}]
             |}""".stripMargin
         ) { (script, output) =>
@@ -112,6 +113,64 @@ final class CozyVideoNarrationSpec
           Then("the script works and reports the canonical replacement")
           result should include_text("provider: voicevox")
           result should include_text("Deprecated voice.engine authoring detected; use narration.provider instead.")
+        }
+      }
+
+      "uses an explicit VOICEVOX fallback speaker id without directory lookup" in {
+        Given("a VOICEVOX script that names only an explicit numeric speaker id")
+        _with_script(
+          """{"narration":{"provider":"voicevox"},"voice":{"fallbackSpeakerId":42},"scenes":[{"id":"intro","duration":0.2,"line":"Hello"}]}"""
+        ) { (script, output) =>
+          val client = RecordingVoicevoxClient()
+
+          When("Cozy synthesizes the scene")
+          CozyVideo.synthesize(CozyVideo.SynthesizeConfig(script, output, Some("http://voicevox.example")), client)
+          val entry = _manifest_entry(output)
+
+          Then("the generic id provenance is retained without speaker lookup")
+          client.calls.map(_.kind) should not contain "speakers"
+          entry.hcursor.downField("voiceIdentity").as[String].toOption shouldBe Some("speaker-id:42")
+          entry.hcursor.downField("voiceId").as[String].toOption shouldBe Some("42")
+        }
+      }
+
+      "rejects partial or absent VOICEVOX identity before provider selection" in {
+        Vector(
+          "speaker name only" -> "{\"speakerName\":\"presenter\"}",
+          "style name only" -> "{\"styleName\":\"neutral\"}",
+          "no identity" -> "{}"
+        ).foreach { case (condition, voice) =>
+          Given(s"a VOICEVOX script with $condition")
+          _with_script(s"""{"narration":{"provider":"voicevox"},"voice":$voice,"scenes":[{"id":"intro","duration":0.2,"line":"Hello"}]}""") { (script, output) =>
+            When("Cozy resolves the required caller-owned voice identity")
+            val error = intercept[RuntimeException] {
+              CozyVideo.synthesize(CozyVideo.SynthesizeConfig(script, output, Some("http://voicevox.example")), RecordingVoicevoxClient())
+            }
+
+            Then("the missing complete selection is explicit")
+            error.getMessage should include_text("VOICEVOX requires explicit speakerName + styleName or fallbackSpeakerId")
+          }
+        }
+      }
+
+      "fails unmatched explicit VOICEVOX names unless a caller supplies fallbackSpeakerId" in {
+        Given("a configured name pair absent from the provider directory")
+        _with_script("""{"narration":{"provider":"voicevox"},"voice":{"speakerName":"presenter","styleName":"neutral"},"scenes":[{"id":"intro","duration":0.2,"line":"Hello"}]}""") { (script, output) =>
+          When("Cozy cannot resolve the configured pair")
+          val error = intercept[RuntimeException] {
+            CozyVideo.synthesize(CozyVideo.SynthesizeConfig(script, output, Some("http://voicevox.example")), RecordingVoicevoxClient())
+          }
+          Then("it fails instead of selecting an arbitrary provider style")
+          error.getMessage should include_text("VOICEVOX speaker style not found: presenter/neutral")
+        }
+
+        Given("the same unmatched pair with a caller-provided fallback id")
+        _with_script("""{"narration":{"provider":"voicevox"},"voice":{"speakerName":"presenter","styleName":"neutral","fallbackSpeakerId":42},"scenes":[{"id":"intro","duration":0.2,"line":"Hello"}]}""") { (script, output) =>
+          When("Cozy synthesizes through the explicit fallback")
+          CozyVideo.synthesize(CozyVideo.SynthesizeConfig(script, output, Some("http://voicevox.example")), RecordingVoicevoxClient())
+          Then("configured pair provenance remains caller-owned")
+          _manifest_entry(output).hcursor.downField("voiceIdentity").as[String].toOption shouldBe Some("presenter/neutral")
+          _manifest_entry(output).hcursor.downField("voiceId").as[String].toOption shouldBe Some("42")
         }
       }
 
@@ -194,6 +253,7 @@ final class CozyVideoNarrationSpec
         _with_script(
           """{
             |  "narration": {"provider": "voicevox"},
+            |  "voice": {"fallbackSpeakerId": 42},
             |  "scenes": [{"id": "intro", "duration": 0.2, "line": "Hello"}]
             |}""".stripMargin
         ) { (script, output) =>
@@ -234,6 +294,7 @@ final class CozyVideoNarrationSpec
           _with_script(
             """{
               |  "narration": {"provider": "voicevox"},
+              |  "voice": {"fallbackSpeakerId": 42},
               |  "scenes": [{"id": "intro", "duration": 0.2, "line": "Hello"}]
               |}""".stripMargin
           ) { (script, output) =>
@@ -257,6 +318,7 @@ final class CozyVideoNarrationSpec
           """{
             |  "tools": {"toolMode": "host", "dockerImage": "script/image:1", "voicevoxUrl": "http://script.example"},
             |  "narration": {"provider": "voicevox"},
+            |  "voice": {"fallbackSpeakerId": 42},
             |  "scenes": [{"id": "intro", "duration": 0.2, "line": "Hello"}]
             |}""".stripMargin
         ) { (script, output) =>

@@ -26,7 +26,8 @@ import scala.util.control.NonFatal
 /*
  * @since   Jun. 18, 2026
  *  version Jun. 19, 2026
- * @version Jul. 20, 2026
+ *  version Jul. 20, 2026
+ * @version Aug.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideo {
@@ -448,7 +449,10 @@ private[cozy] object CozyVideo {
     targetDuration: Option[Double],
     leadSilence: Option[Double],
     subscenes: Vector[VideoScene],
-    silent: Option[Boolean] = None
+    silent: Option[Boolean] = None,
+    visual: Json = Json.obj(),
+    section: Option[String] = None,
+    effects: Json = Json.obj()
   ) {
     def durationSeconds: Double = duration.orElse(targetDuration).getOrElse(8.0)
     def expanded(index: Int): Vector[VideoScene] =
@@ -465,7 +469,10 @@ private[cozy] object CozyVideo {
             narration = subscene.narration.orElse(narration),
             caption = subscene.caption.orElse(caption),
             leadSilence = subscene.leadSilence.orElse(leadSilence),
-            silent = subscene.silent.orElse(silent)
+            silent = subscene.silent.orElse(silent),
+            visual = if (subscene.visual.asObject.exists(_.nonEmpty)) subscene.visual else visual,
+            section = subscene.section.orElse(section),
+            effects = if (subscene.effects.asObject.exists(_.nonEmpty)) subscene.effects else effects
           )
         }
   }
@@ -482,7 +489,10 @@ private[cozy] object CozyVideo {
         leadsilence <- c.downField("leadSilence").as[Option[Double]]
         subscenes <- c.downField("subscenes").as[Option[Vector[VideoScene]]]
         silent <- c.downField("silent").as[Option[Boolean]]
-      } yield VideoScene(id, speaker, line, narration, caption, duration, targetduration, leadsilence, subscenes.getOrElse(Vector.empty), silent)
+        visual <- c.downField("visual").as[Option[Json]]
+        section <- c.downField("section").as[Option[String]]
+        effects <- c.downField("effects").as[Option[Json]]
+      } yield VideoScene(id, speaker, line, narration, caption, duration, targetduration, leadsilence, subscenes.getOrElse(Vector.empty), silent, visual.getOrElse(Json.obj()), section, effects.getOrElse(Json.obj()))
   }
 
   final case class VideoReplayViewport(width: Int, height: Int)
@@ -1976,7 +1986,7 @@ private[cozy] object CozyVideo {
       val audioquery = _apply_voice_tuning(client.audioQuery(baseUrl, text, speakerid), voice)
       NarrationAudio(
         client.synthesis(baseUrl, speakerid, audioquery),
-        Some(_voicevox_voice_identity(voice)),
+        Some(_voicevox_voice_identity(voice, Some(speakerid))),
         Some(speakerid.toString),
         None
       )
@@ -2237,10 +2247,18 @@ private[cozy] object CozyVideo {
       case _ => _json_string(voice, "name").orElse(_json_string(voice, "voice")).getOrElse("default")
     }
 
-  private def _voicevox_voice_identity(voice: Json): String = {
-    val speakername = _json_string(voice, "speakerName").getOrElse("ずんだもん")
-    val stylename = _json_string(voice, "styleName").getOrElse("ノーマル")
-    s"$speakername/$stylename"
+  private def _voicevox_voice_identity(voice: Json, resolvedid: Option[Int] = None): String = {
+    val speakername = _json_string(voice, "speakerName").map(_.trim).filter(_.nonEmpty)
+    val stylename = _json_string(voice, "styleName").map(_.trim).filter(_.nonEmpty)
+    (speakername, stylename) match {
+      case (Some(speaker), Some(style)) => s"$speaker/$style"
+      case (None, None) =>
+        resolvedid.orElse(_json_int(voice, "fallbackSpeakerId")).map(id => s"speaker-id:$id").getOrElse(
+          RAISE.invalidArgumentFault("VOICEVOX requires explicit speakerName + styleName or fallbackSpeakerId")
+        )
+      case _ =>
+        RAISE.invalidArgumentFault("VOICEVOX requires explicit speakerName + styleName or fallbackSpeakerId")
+    }
   }
 
   private def _scene_file_id(sceneid: String): String = {
@@ -2262,21 +2280,25 @@ private[cozy] object CozyVideo {
     }.getOrElse(script.voice)
 
   private def _resolve_speaker_id(baseurl: String, voice: Json, voicevox: VoicevoxClient): Int = {
-    val fallback = _json_int(voice, "fallbackSpeakerId").getOrElse(3)
-    val speakername = _json_string(voice, "speakerName").getOrElse("ずんだもん")
-    val stylename = _json_string(voice, "styleName").getOrElse("ノーマル")
-    val speakers = voicevox.speakers(baseurl).asArray.getOrElse(Vector.empty)
-    speakers.foreach { speaker =>
-      if (_json_string(speaker, "name").contains(speakername)) {
-        _json_array(speaker, "styles").foreach { styles =>
-          styles.foreach { style =>
-            if (_json_string(style, "name").contains(stylename))
-              return _json_int(style, "id").getOrElse(fallback)
-          }
-        }
-      }
+    val fallback = _json_int(voice, "fallbackSpeakerId")
+    val speakername = _json_string(voice, "speakerName").map(_.trim).filter(_.nonEmpty)
+    val stylename = _json_string(voice, "styleName").map(_.trim).filter(_.nonEmpty)
+    (speakername, stylename) match {
+      case (None, None) => fallback.getOrElse(
+        RAISE.invalidArgumentFault("VOICEVOX requires explicit speakerName + styleName or fallbackSpeakerId")
+      )
+      case (Some(_), None) | (None, Some(_)) =>
+        RAISE.invalidArgumentFault("VOICEVOX requires explicit speakerName + styleName or fallbackSpeakerId")
+      case (Some(speaker), Some(style)) =>
+        val matchid = voicevox.speakers(baseurl).asArray.toVector.flatten.flatMap { item =>
+          if (_json_string(item, "name").contains(speaker))
+            _json_array(item, "styles").toVector.flatten.find(x => _json_string(x, "name").contains(style)).flatMap(_json_int(_, "id"))
+          else None
+        }.headOption
+        matchid.orElse(fallback).getOrElse(
+          RAISE.invalidArgumentFault(s"VOICEVOX speaker style not found: $speaker/$style; configure fallbackSpeakerId to permit fallback")
+        )
     }
-    fallback
   }
 
   private def _spoken_text(script: VideoScript, scene: VideoScene): String = {
@@ -3629,6 +3651,7 @@ private[cozy] object CozyVideo {
     val parts = _render_target_parts(config, plan)
     val rendered = parts.map { part =>
       val script = part.script.getOrElse(RAISE.invalidArgumentFault(s"Part is missing a parsed script: ${part.id}"))
+      _validate_declarative_diagrams(script)
       val audiodir = part.audioDir.getOrElse(RAISE.invalidArgumentFault(s"Part has no audio directory: ${part.id}"))
       val audio = _load_audio_input(part.id, audiodir, script)
       val workdir = _remotion_work_dir(plan.projectRoot, part.id)
@@ -3647,6 +3670,10 @@ private[cozy] object CozyVideo {
           "assets" -> props.hcursor.downField("assets").focus.getOrElse(Json.arr()),
           "credits" -> props.hcursor.downField("credits").focus.getOrElse(Json.Null),
           "creditDigest" -> plan.credits.profileId.map(_ => Json.fromString(plan.credits.digest)).getOrElse(Json.Null),
+          "rendererTemplate" -> props.hcursor.downField("rendererTemplate").focus.getOrElse(Json.Null),
+          "rendererTemplateSha256" -> props.hcursor.downField("rendererTemplateSha256").focus.getOrElse(Json.Null),
+          "rendererTemplateResources" -> props.hcursor.downField("rendererTemplateResources").focus.getOrElse(Json.arr()),
+          "recordingPath" -> props.hcursor.downField("recordingPath").focus.getOrElse(Json.Null),
           "timing" -> props.hcursor.downField("timing").focus.getOrElse(Json.obj())
         )
       )
@@ -3757,14 +3784,248 @@ private[cozy] object CozyVideo {
     val srcdir = workdir.resolve("src")
     Files.createDirectories(srcdir)
     Files.writeString(workdir.resolve("package.json"), _remotion_package_json, StandardCharsets.UTF_8)
-    Files.writeString(srcdir.resolve("Root.tsx"), _remotion_root_tsx, StandardCharsets.UTF_8)
+    val characterdialogue = _is_character_dialogue(part, script, plan.project.renderer)
+    val characterwebdemo = part.partType == "web-demo"
+    val template = if (characterdialogue) Some(_load_character_dialogue_template()) else None
+    val templateid =
+      if (characterdialogue) Some(_character_dialogue_template_id)
+      else if (characterwebdemo) Some(_character_web_demo_template_id)
+      else None
+    val recording = if (characterwebdemo) Some(_stage_web_demo_recording(plan.projectRoot, part, workdir)) else None
+    Files.writeString(srcdir.resolve("Root.tsx"), if (characterdialogue) _remotion_character_dialogue_root_tsx else if (characterwebdemo) _remotion_character_web_demo_root_tsx else _remotion_root_tsx, StandardCharsets.UTF_8)
+    template.foreach { bundled =>
+      Files.write(srcdir.resolve(bundled.dialogue.name), bundled.dialogue.bytes)
+      Files.write(srcdir.resolve(bundled.diagramlayout.name), bundled.diagramlayout.bytes)
+    }
     Files.writeString(srcdir.resolve("render.mjs"), _remotion_render_mjs, StandardCharsets.UTF_8)
     val assets = _copy_remotion_assets(workdir, plan.assets)
-    val propsjson = _remotion_props_json(plan, part, script, audio, assets, workdir)
+    val dialogueassets = if (characterdialogue || characterwebdemo) _copy_character_dialogue_assets(plan.projectRoot, part, script, workdir, stagevisuals = characterdialogue) else CharacterDialogueAssets.empty
+    val propsjson = _remotion_props_json(plan, part, script, audio, assets, workdir, characterdialogue || characterwebdemo, templateid, template.map(_.dialogue.sha256), template.map(_.resources), dialogueassets, recording)
     Files.writeString(workdir.resolve("props.json"), propsjson.spaces2, StandardCharsets.UTF_8)
     Files.writeString(srcdir.resolve("props.ts"), _remotion_props_ts(propsjson), StandardCharsets.UTF_8)
     _copy_remotion_audio(workdir, audio)
     propsjson
+  }
+
+  private final case class CharacterDialogueAssets(characters: Json, visuals: Map[String, Json])
+  private object CharacterDialogueAssets {
+    val empty = CharacterDialogueAssets(Json.obj(), Map.empty)
+  }
+
+  private def _is_character_dialogue(part: VideoPartPlan, script: VideoScript, renderer: Option[VideoRenderer]): Boolean = {
+    val strategy = _part_renderer_property(part, "strategy").orElse(renderer.flatMap(_.strategy)).map(_.trim.toLowerCase)
+    part.partType == "dialogue" && (strategy match {
+      case Some("narration-card") | Some("generic") => false
+      case Some("character-dialogue") => true
+      case _ => script.characters.nonEmpty
+    })
+  }
+
+  private def _part_renderer_property(part: VideoPartPlan, name: String): Option[String] =
+    part.renderer.split(",").toVector.map(_.trim).collectFirst {
+      case field if field.startsWith(name + "=") => field.drop(name.length + 1).trim
+    }.filter(_.nonEmpty)
+
+  private final case class CharacterDialogueTemplateResource(name: String, bytes: Array[Byte], sha256: String)
+  private final case class CharacterDialogueTemplate(dialogue: CharacterDialogueTemplateResource, diagramlayout: CharacterDialogueTemplateResource) {
+    def resources: Vector[(String, String)] = Vector(dialogue, diagramlayout).map(x => x.name -> x.sha256)
+  }
+
+  private def _load_character_dialogue_template(): CharacterDialogueTemplate = {
+    val dialogue = _load_character_dialogue_template_resource("DialogueVideo.jsx", _character_dialogue_template_sha256)
+    val diagramlayout = _load_character_dialogue_template_resource("DiagramLayout.js", _character_dialogue_diagram_layout_sha256)
+    CharacterDialogueTemplate(dialogue, diagramlayout)
+  }
+
+  private def _load_character_dialogue_template_resource(name: String, expectedsha256: String): CharacterDialogueTemplateResource = {
+    val resource = s"/cozy/video/remotion/$name"
+    val stream = Option(getClass.getResourceAsStream(resource)).getOrElse(
+      RAISE.invalidArgumentFault(s"Missing Cozy character-dialogue renderer resource: ${resource.drop(1)}")
+    )
+    val bytes = try stream.readAllBytes() finally stream.close()
+    val actualsha256 = _sha256_bytes(bytes)
+    if (actualsha256 != expectedsha256)
+      RAISE.invalidArgumentFault(s"Cozy character-dialogue renderer resource digest does not match the bundled template contract: $name")
+    CharacterDialogueTemplateResource(name, bytes, actualsha256)
+  }
+
+  private def _sha256_bytes(bytes: Array[Byte]): String =
+    MessageDigest.getInstance("SHA-256").digest(bytes).map(x => f"${x & 0xff}%02x").mkString
+
+  private def _validate_declarative_diagrams(script: VideoScript): Unit =
+    script.expandedScenes.foreach { scene =>
+      if (_json_string(scene.visual, "kind").contains("diagram"))
+        _validate_declarative_diagram(scene.id.getOrElse("(no id)"), scene.visual)
+    }
+
+  private def _validate_declarative_diagram(sceneid: String, visual: Json): Unit = {
+    val diagram = visual.hcursor.downField("diagram").focus.getOrElse(
+      _diagram_fault(sceneid, "missing-diagram")
+    )
+    val cursor = diagram.hcursor
+    val layout = cursor.get[String]("layout").getOrElse(_diagram_fault(sceneid, "unsupported-layout"))
+    if (layout != "flow" && layout != "axis")
+      _diagram_fault(sceneid, "unsupported-layout")
+    val direction = cursor.get[Option[String]]("direction").getOrElse(_diagram_fault(sceneid, "unsupported-direction")).getOrElse("right")
+    if (direction != "right")
+      _diagram_fault(sceneid, "unsupported-direction")
+    val clearance = cursor.get[Option[Double]]("clearance").getOrElse(_diagram_fault(sceneid, "invalid-clearance")).getOrElse(24.0)
+    if (!java.lang.Double.isFinite(clearance) || clearance <= 0)
+      _diagram_fault(sceneid, "invalid-clearance")
+    val nodes = cursor.get[Vector[Json]]("nodes").getOrElse(_diagram_fault(sceneid, "empty-nodes"))
+    if (nodes.isEmpty)
+      _diagram_fault(sceneid, "empty-nodes")
+    val parsednodes = nodes.map { node =>
+      val nodecursor = node.hcursor
+      val id = nodecursor.get[String]("id").getOrElse(_diagram_fault(sceneid, "invalid-node-id"))
+      if (id.trim.isEmpty)
+        _diagram_fault(sceneid, "invalid-node-id")
+      val label = nodecursor.get[String]("label").getOrElse(_diagram_fault(sceneid, "invalid-node-label", id))
+      if (label.trim.isEmpty)
+        _diagram_fault(sceneid, "invalid-node-label", id)
+      val role = nodecursor.get[String]("role").getOrElse(_diagram_fault(sceneid, "invalid-node-role", id))
+      if (role.trim.isEmpty)
+        _diagram_fault(sceneid, "invalid-node-role", id)
+      val policy = nodecursor.get[String]("labelPolicy").getOrElse(_diagram_fault(sceneid, "unsupported-label-policy", id))
+      if (policy != "atomic" && policy != "balanced")
+        _diagram_fault(sceneid, "unsupported-label-policy", id)
+      _validate_declarative_diagram_label(sceneid, id, label, policy, if (layout == "flow") 18.0 else 21.0)
+      (id, role)
+    }
+    parsednodes.groupBy(_._1).collectFirst { case (id, values) if values.size > 1 => id }.foreach { id =>
+      _diagram_fault(sceneid, "duplicate-node-id", id)
+    }
+    val nodeids = parsednodes.map(_._1).toSet
+    val edges = cursor.get[Option[Vector[Json]]]("edges").getOrElse(_diagram_fault(sceneid, "invalid-edges")).getOrElse(Vector.empty)
+    edges.foreach { edge =>
+      val edgecursor = edge.hcursor
+      val from = edgecursor.get[String]("from").getOrElse(_diagram_fault(sceneid, "invalid-edge"))
+      val to = edgecursor.get[String]("to").getOrElse(_diagram_fault(sceneid, "invalid-edge"))
+      if (!nodeids.contains(from))
+        _diagram_fault(sceneid, "missing-edge-endpoint", from)
+      if (!nodeids.contains(to))
+        _diagram_fault(sceneid, "missing-edge-endpoint", to)
+    }
+    if (layout == "axis" && parsednodes.count(_._2 == "axis") != 1)
+      _diagram_fault(sceneid, "axis-role-count")
+  }
+
+  private def _validate_declarative_diagram_label(sceneid: String, nodeid: String, label: String, policy: String, fontsize: Double): Unit = {
+    val maxtextwidth = 204.0
+    if (policy == "atomic" && _diagram_label_width(label, fontsize) > maxtextwidth)
+      _diagram_fault(sceneid, "impossible-atomic-fit", nodeid)
+    if (policy == "balanced") {
+      val segments = label.split("(?<=-)|\\s+").filter(_.nonEmpty)
+      if (segments.isEmpty || segments.exists(x => _diagram_label_width(x, fontsize) > maxtextwidth))
+        _diagram_fault(sceneid, "label-overflow", nodeid)
+    }
+  }
+
+  private def _diagram_label_width(label: String, fontsize: Double): Double =
+    label.toVector.map(x => if (x <= '\u007f') fontsize * 0.56 else fontsize).sum
+
+  private def _diagram_fault(sceneid: String, violation: String, nodeid: String = ""): Nothing = {
+    val node = Option(nodeid).filter(_.nonEmpty).map(x => s" node $x").getOrElse("")
+    RAISE.invalidArgumentFault(s"Diagram scene $sceneid$node: $violation")
+  }
+
+  private def _copy_character_dialogue_assets(projectroot: Path, part: VideoPartPlan, script: VideoScript, workdir: Path, stagevisuals: Boolean = true): CharacterDialogueAssets = {
+    val scriptpath = part.scriptPath.getOrElse(RAISE.invalidArgumentFault(s"Part has no script path: ${part.id}"))
+    val bases = _character_asset_bases(projectroot, scriptpath)
+    val characters = script.characters.toVector.map { case (id, character) =>
+      val staged = Vector("asset", "mouthClosedAsset", "mouthOpenAsset").foldLeft(character) { (z, field) =>
+        _json_string(z, field).map { authored =>
+          z.mapObject(_.add(field, Json.fromString(_stage_character_dialogue_asset(projectroot, workdir, bases, authored, "characters", s"character $id", field))))
+        }.getOrElse(z)
+      }
+      id -> staged
+    }
+    val visuals = if (stagevisuals) script.expandedScenes.map { scene =>
+      val staged = _json_string(scene.visual, "image").map { authored =>
+        scene.visual.mapObject(_.add("image", Json.fromString(_stage_character_dialogue_asset(projectroot, workdir, bases, authored, "visuals", s"scene ${scene.id.getOrElse("(no id)")}", "visual.image"))))
+      }.getOrElse(scene.visual)
+      scene.id.getOrElse("") -> staged
+    }.toMap else Map.empty[String, Json]
+    CharacterDialogueAssets(Json.obj(characters: _*), visuals)
+  }
+
+  private def _stage_web_demo_recording(projectroot: Path, part: VideoPartPlan, workdir: Path): String = {
+    val configured = part.recordDir.getOrElse(RAISE.invalidArgumentFault(s"Web-demo part ${part.id} has no record directory"))
+    val directory = _project_contained_existing_path(projectroot, configured, s"Web-demo part ${part.id} recordDir")
+    val candidates =
+      if (Files.isDirectory(directory) && Files.isReadable(directory)) {
+        val stream = Files.list(directory)
+        try stream.iterator().asScala.flatMap { path =>
+          val name = path.getFileName.toString.toLowerCase
+          if (name.endsWith(".webm") || name.endsWith(".mp4")) {
+            val source = _project_contained_existing_path(projectroot, path, s"Web-demo part ${part.id} recording")
+            if (Files.isRegularFile(source) && Files.isReadable(source)) Some(source) else None
+          } else None
+        }.toVector.sortBy(_.getFileName.toString)
+        finally stream.close()
+      } else Vector.empty
+    if (candidates.size != 1)
+      RAISE.invalidArgumentFault(s"Web-demo part ${part.id} requires exactly one readable .webm or .mp4 in $directory")
+    val source = candidates.head
+    val targetdir = workdir.resolve("public/recording")
+    Files.createDirectories(targetdir)
+    val target = targetdir.resolve("recording" + _asset_extension(source))
+    Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
+    s"recording/${target.getFileName}"
+  }
+
+  private def _character_asset_bases(projectroot: Path, scriptpath: Path): Vector[Path] = {
+    val parent = Option(scriptpath.getParent).getOrElse(projectroot).toAbsolutePath.normalize()
+    val locale = if (parent.getFileName.toString == "dialogue") Option(parent.getParent).getOrElse(parent) else parent
+    Vector(locale, parent, projectroot.toAbsolutePath.normalize()).distinct
+  }
+
+  private def _stage_character_dialogue_asset(projectroot: Path, workdir: Path, bases: Vector[Path], authored: String, directory: String, owner: String, field: String): String = {
+    val authoredpath = Try(Paths.get(authored)).getOrElse(RAISE.invalidArgumentFault(s"Invalid $field asset for $owner: $authored"))
+    if (authoredpath.isAbsolute)
+      RAISE.invalidArgumentFault(s"Absolute $field asset is not allowed for $owner: $authored")
+    if (authoredpath.iterator().asScala.exists(_.toString == ".."))
+      RAISE.invalidArgumentFault(s"Traversal outside admitted asset bases for $owner $field: $authored")
+    val project = projectroot.toAbsolutePath.normalize()
+    val source = bases.iterator.flatMap { base =>
+      val path = base.resolve(authoredpath).normalize()
+      if (!path.startsWith(project))
+        RAISE.invalidArgumentFault(s"Traversal outside project root for $owner $field: $authored")
+      if (Files.exists(path) || Files.isSymbolicLink(path)) {
+        val contained = _project_contained_existing_path(projectroot, path, s"$field asset for $owner")
+        if (Files.isRegularFile(contained) && Files.isReadable(contained)) Some(contained) else None
+      } else None
+    }.toVector.headOption.getOrElse(RAISE.invalidArgumentFault(s"Missing or unreadable $field asset for $owner: $authored"))
+    val targetdir = workdir.resolve("public").resolve(directory)
+    Files.createDirectories(targetdir)
+    val target = targetdir.resolve(_file_segment_id(owner.replace(' ', '-'), "asset owner") + "-" + _file_segment_id(field.replace('.', '-'), "asset field") + _asset_extension(source))
+    Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
+    s"$directory/${target.getFileName}"
+  }
+
+  private def _resolve_project_relative_path(projectroot: Path, authored: String, owner: String): Path = {
+    val authoredpath = Try(Paths.get(authored)).getOrElse(RAISE.invalidArgumentFault(s"Invalid $owner path: $authored"))
+    if (authoredpath.isAbsolute)
+      RAISE.invalidArgumentFault(s"Absolute $owner path is not allowed: $authored")
+    if (authoredpath.iterator().asScala.exists(_.toString == ".."))
+      RAISE.invalidArgumentFault(s"Traversal outside project root is not allowed for $owner: $authored")
+    val root = projectroot.toAbsolutePath.normalize()
+    val path = root.resolve(authoredpath).normalize()
+    if (!path.startsWith(root))
+      RAISE.invalidArgumentFault(s"Traversal outside project root is not allowed for $owner: $authored")
+    path
+  }
+
+  private def _project_contained_existing_path(projectroot: Path, path: Path, owner: String): Path = {
+    val root = projectroot.toAbsolutePath.normalize()
+    val candidate = path.toAbsolutePath.normalize()
+    if (!candidate.startsWith(root))
+      RAISE.invalidArgumentFault(s"$owner is outside project root: $path")
+    val realroot = Try(root.toRealPath()).getOrElse(RAISE.invalidArgumentFault(s"Missing or unreadable project root for $owner: $root"))
+    val realcandidate = Try(candidate.toRealPath()).getOrElse(RAISE.invalidArgumentFault(s"Missing or unreadable $owner: $path"))
+    if (!realcandidate.startsWith(realroot))
+      RAISE.invalidArgumentFault(s"$owner resolves outside project root: $path")
+    realcandidate
   }
 
   private def _copy_remotion_audio(workdir: Path, audio: VideoAudioInput): Unit = {
@@ -3970,7 +4231,13 @@ private[cozy] object CozyVideo {
     script: VideoScript,
     audio: VideoAudioInput,
     assets: Vector[(CozyVideoAssets.Resolved, Option[String])],
-    workdir: Path
+    workdir: Path,
+    characterdialogue: Boolean,
+    template: Option[String],
+    templatedigest: Option[String],
+    templateresources: Option[Vector[(String, String)]],
+    dialogueassets: CharacterDialogueAssets,
+    recording: Option[String]
   ): Json = {
     val renderer = plan.project.renderer
     val fps = renderer.flatMap(_.fps).filter(_ > 0).getOrElse(30)
@@ -3992,8 +4259,8 @@ private[cozy] object CozyVideo {
       if (isfirstpart) math.max(0, math.round(openingseconds * fps).toInt)
       else 0
     val sectionframes = if (effects.exists(x => x.role == CozyVideoEffects.Role.SectionStart && x.primitives.nonEmpty)) math.min(contentframes, math.round(1.2 * fps).toInt) else 0
-    val summaryframes = if (effects.exists(x => x.role == CozyVideoEffects.Role.Summary && x.primitives.nonEmpty)) math.min(contentframes, math.round(2.4 * fps).toInt) else 0
     val isfinalpart = plan.parts.filter(_.renderable).lastOption.exists(_.id == part.id)
+    val summaryframes = if (isfinalpart && effects.exists(x => x.role == CozyVideoEffects.Role.Summary && x.primitives.nonEmpty)) math.min(contentframes, math.round(2.4 * fps).toInt) else 0
     val creditframes =
       if (isfinalpart && plan.credits.hasVideoPage)
         math.max(1, math.round(plan.credits.holdSeconds * fps).toInt)
@@ -4007,15 +4274,31 @@ private[cozy] object CozyVideo {
     ).getOrElse(0.0)
     val finalframes = if (isfinalpart) math.max(0, math.round(holdseconds * fps).toInt) else 0
     val totalframes = openingframes + contentframes + creditframes + finalframes
+    var startframe = 0
     val scenes = script.expandedScenes.zip(audio.entries).zip(audio.files).map {
       case ((scene, entry), file) =>
+        val durationframes = math.max(1, math.round(_effective_render_duration(entry) * fps).toInt)
+        val stagedvisual = dialogueassets.visuals.getOrElse(scene.id.getOrElse(""), scene.visual)
+        val json =
         Json.obj(
           "id" -> Json.fromString(entry.sceneId),
           "speaker" -> entry.speaker.map(Json.fromString).getOrElse(Json.Null),
           "text" -> Json.fromString(scene.narration.orElse(scene.line).orElse(scene.caption).getOrElse("")),
           "audioPath" -> Json.fromString(s"audio/${file.getFileName}"),
-          "duration" -> Json.fromDoubleOrNull(_effective_render_duration(entry))
+          "duration" -> Json.fromDoubleOrNull(_effective_render_duration(entry)),
+          "line" -> scene.line.orElse(scene.narration).orElse(scene.caption).map(Json.fromString).getOrElse(Json.Null),
+          "caption" -> scene.caption.orElse(scene.line).orElse(scene.narration).map(Json.fromString).getOrElse(Json.Null),
+          "visual" -> stagedvisual,
+          "section" -> scene.section.map(Json.fromString).getOrElse(Json.Null),
+          "effects" -> scene.effects,
+          "silent" -> Json.fromBoolean(scene.silent.getOrElse(false)),
+          "startFrame" -> Json.fromInt(startframe),
+          "durationFrames" -> Json.fromInt(durationframes),
+          "leadInFrames" -> Json.fromInt(math.max(0, math.round(entry.leadSilence * fps).toInt)),
+          "audioDuration" -> Json.fromDoubleOrNull(entry.audioDuration)
         )
+        startframe += durationframes
+        json
     }
     val effectsjson = effects.map { expansion =>
       Json.obj(
@@ -4052,6 +4335,17 @@ private[cozy] object CozyVideo {
       "height" -> Json.fromInt(height),
       "durationSeconds" -> Json.fromDoubleOrNull(totalframes.toDouble / fps),
       "scenes" -> Json.fromValues(scenes),
+      "characters" -> dialogueassets.characters,
+      "sections" -> Json.fromValues(script.sections),
+      "rendererTemplate" -> template.map(Json.fromString).getOrElse(Json.Null),
+      "rendererTemplateSha256" -> templatedigest.map(Json.fromString).getOrElse(Json.Null),
+      "rendererTemplateResources" -> templateresources.map { resources =>
+        Json.fromValues(resources.map { case (name, sha256) =>
+          Json.obj("path" -> Json.fromString(name), "sha256" -> Json.fromString(sha256))
+        })
+      }.getOrElse(Json.arr()),
+      "recordingPath" -> recording.map(Json.fromString).getOrElse(Json.Null),
+      "effectProfile" -> _part_renderer_property(part, "effectProfile").orElse(renderer.flatMap(_.effectProfile)).map(Json.fromString).getOrElse(Json.fromString("compact")),
       "visualEffects" -> Json.fromValues(effectsjson),
       "assets" -> Json.fromValues(assetsjson),
       "credits" -> CozyVideoCredits.toRendererProps(plan.credits),
@@ -4070,6 +4364,11 @@ private[cozy] object CozyVideo {
       )
     )
   }
+
+  private val _character_dialogue_template_id = "cozy-character-dialogue-v1"
+  private val _character_dialogue_template_sha256 = "57e501c1d1a257a30f25e4b426dd45de61e2bfd19479808e4ec77e8254ceaae6"
+  private val _character_dialogue_diagram_layout_sha256 = "9f36dd5c7765af8613cbe3924de5aae14b4b7e8c92d54418e58b95f798e81b56"
+  private val _character_web_demo_template_id = "cozy-character-web-demo-v1"
 
   private def _effective_render_duration(entry: VideoAudioManifestEntry): Double =
     math.max(entry.targetDuration, entry.leadSilence + entry.audioDuration + entry.tailSilence)
@@ -4307,8 +4606,7 @@ private[cozy] object CozyVideo {
       |  const scale = motion ? interpolate(frame, [0, Math.max(1, durationInFrames - 1)], [1, Number.isFinite(configuredScale) ? configuredScale : 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'}) : 1;
       |  return titleCard && hold ? (
       |    <AbsoluteFill style={{backgroundColor: '#101820', color: '#f4efe6', alignItems: 'center', justifyContent: 'center', overflow: 'hidden'}}>
-      |      <div style={{position: 'absolute', inset: -16, transform: `scale(${scale})`}}><AssetFrame asset={asset} opacity={0.38} /></div>
-      |      <div style={{fontFamily: 'Noto Sans CJK JP, sans-serif', fontSize: 72, fontWeight: 800, maxWidth: '82%', textAlign: 'center', zIndex: 1}}>{title}</div>
+      |      <div style={{position: 'absolute', inset: -16, transform: `scale(${scale})`}}><AssetFrame asset={asset} opacity={1} /></div>
       |    </AbsoluteFill>
       |  ) : null;
       |};
@@ -4320,8 +4618,7 @@ private[cozy] object CozyVideo {
       |  const progress = interpolate(frame, [0, Math.max(1, durationInFrames - 1)], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
       |  const direction = flow?.parameters.direction === 'right-to-left' ? -1 : 1;
       |  return (
-      |    <AbsoluteFill style={{backgroundColor: '#edf4f1', overflow: 'hidden'}}>
-      |      <AssetFrame asset={asset} opacity={0.34} />
+      |    <AbsoluteFill style={{backgroundColor: 'transparent', overflow: 'hidden', pointerEvents: 'none'}}>
       |      {flow ? <div style={{position: 'absolute', top: '45%', left: direction > 0 ? 0 : undefined, right: direction < 0 ? 0 : undefined, width: `${Math.round(progress * 100)}%`, height: 14, background: '#2f6f68'}} /> : null}
       |      {underline ? <div style={{position: 'absolute', left: '18%', bottom: '29%', width: `${Math.round(progress * 64)}%`, height: 7, background: '#d89b45'}} /> : null}
       |    </AbsoluteFill>
@@ -4338,9 +4635,7 @@ private[cozy] object CozyVideo {
       |  const scale = pop?.parameters.target === 'conclusion' ? spring({frame, fps, config: {damping: 14, stiffness: 120}}) : 1;
       |  return (
       |    <AbsoluteFill style={{backgroundColor: '#e7f1ee', color: '#173f3b', fontFamily: 'Noto Sans CJK JP, sans-serif', padding: 72}}>
-      |      <AssetFrame asset={asset} opacity={0.22} />
-      |      {layout?.parameters.mode === 'single-page' ? <div style={{fontSize: 30, letterSpacing: 3, transform: `translateY(${rise}px)`, opacity: interpolate(frame, [0, fps * 0.4], [0, 1], {extrapolateRight: 'clamp'})}}>OVERVIEW</div> : null}
-      |      {pop ? <div style={{marginTop: 'auto', fontSize: 68, fontWeight: 800, transform: `scale(${scale})`, transformOrigin: 'left bottom'}}>CONCLUSION</div> : null}
+      |      <AssetFrame asset={asset} opacity={1} />
       |    </AbsoluteFill>
       |  );
       |};
@@ -4354,8 +4649,7 @@ private[cozy] object CozyVideo {
       |  const opacity = fade?.parameters.target === 'end-card' ? interpolate(frame, [0, fps * 0.45], [0, 1], {extrapolateRight: 'clamp'}) : 1;
       |  return card && hold ? (
       |    <AbsoluteFill style={{backgroundColor: '#101820', color: '#f4efe6', alignItems: 'center', justifyContent: 'center', opacity}}>
-      |      <AssetFrame asset={asset} opacity={0.42} />
-      |      <div style={{fontSize: 70, fontWeight: 800, zIndex: 1}}>END</div>
+      |      <AssetFrame asset={asset} opacity={1} />
       |    </AbsoluteFill>
       |  ) : null;
       |};
@@ -4397,6 +4691,96 @@ private[cozy] object CozyVideo {
       |
       |registerRoot(RemotionRoot);
       |
+      |export default RemotionRoot;
+      |""".stripMargin
+
+  private val _remotion_character_dialogue_root_tsx: String =
+    """import React from 'react';
+      |import {AbsoluteFill, Audio, Composition, Img, Sequence, interpolate, registerRoot, staticFile, useCurrentFrame} from 'remotion';
+      |import {DialogueVideo} from './DialogueVideo.jsx';
+      |import {cozyVideoProps} from './props';
+      |
+      |const assetFor = (role) => cozyVideoProps.assets?.find((asset) => asset.role === role);
+      |const AssetSurface = ({role}) => {
+      |  const asset = assetFor(role);
+      |  return asset?.path ? <Img src={staticFile(asset.path)} style={{position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', opacity: 1}} /> : null;
+      |};
+      |const OpeningSurface = () => {
+      |  const frame = useCurrentFrame();
+      |  const opening = cozyVideoProps.visualEffects?.find((effect) => effect.role === 'opening');
+      |  const scaleValue = Number(opening?.primitives?.find((primitive) => primitive.name === 'subtle-motion')?.parameters?.scale || 1);
+      |  const duration = Math.max(1, cozyVideoProps.timing?.openingFrames || 1);
+      |  const scale = interpolate(frame, [0, duration - 1], [1, Number.isFinite(scaleValue) ? scaleValue : 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
+      |  return <div style={{position: 'absolute', inset: -16, transform: `scale(${scale})`}}><AssetSurface role="opening" /></div>;
+      |};
+      |const CreditPage = ({credits}) => <AbsoluteFill style={{backgroundColor: '#101820', color: '#f4efe6', fontFamily: 'Noto Sans CJK JP, sans-serif', padding: '64px 84px'}}><div style={{fontSize: 48, fontWeight: 800, marginBottom: 30}}>{credits.title}</div><div style={{display: 'flex', flexDirection: 'column', gap: 18}}>{credits.items.map((item) => <div key={item.id} style={{fontSize: 30, lineHeight: 1.3}}><span style={{fontWeight: 700}}>{item.label}</span>{item.creator ? <span style={{opacity: 0.78}}> — {item.creator}</span> : null}</div>)}</div></AbsoluteFill>;
+      |
+      |const CharacterDialogueVideo = () => {
+      |  const props = cozyVideoProps;
+      |  const contentStart = props.timing?.openingFrames || 0;
+      |  const contentFrames = props.timing?.contentFrames || 1;
+      |  return <AbsoluteFill>
+      |    {contentStart > 0 ? <Sequence from={0} durationInFrames={contentStart}><OpeningSurface /></Sequence> : null}
+      |    <Sequence from={contentStart} durationInFrames={contentFrames}>
+      |      <DialogueVideo characters={Object.fromEntries(Object.entries(props.characters || {}).map(([id, character]) => [id, Object.fromEntries(Object.entries(character).map(([key, value]) => (key === 'asset' || key === 'mouthClosedAsset' || key === 'mouthOpenAsset' || key.endsWith('Asset')) && typeof value === 'string' ? [key, staticFile(value)] : [key, value]))]))} sections={props.sections || []} scenes={(props.scenes || []).map((scene) => ({...scene, visual: scene.visual?.image ? {...scene.visual, image: staticFile(scene.visual.image)} : scene.visual}))} fps={props.fps} effectProfile={props.effectProfile} />
+      |      {(props.scenes || []).map((scene) => <Sequence key={`audio-${scene.id}`} from={Math.max(0, scene.startFrame + scene.leadInFrames)} durationInFrames={Math.max(1, scene.durationFrames - scene.leadInFrames)}><Audio src={staticFile(scene.audioPath)} /></Sequence>)}
+      |    </Sequence>
+      |    {props.timing?.summaryFrames > 0 ? <Sequence from={props.timing.summaryStartFrame} durationInFrames={props.timing.summaryFrames}><AssetSurface role="summary" /></Sequence> : null}
+      |    {props.timing?.creditPageHoldFrames > 0 && props.credits?.items?.length > 0 ? <Sequence from={props.timing.creditPageStartFrame} durationInFrames={props.timing.creditPageHoldFrames}><CreditPage credits={props.credits} /></Sequence> : null}
+      |    {props.timing?.finalPageHoldFrames > 0 ? <Sequence from={props.timing.finalPageStartFrame} durationInFrames={props.timing.finalPageHoldFrames}><AssetSurface role="final-page" /></Sequence> : null}
+      |  </AbsoluteFill>;
+      |};
+      |
+      |export const RemotionRoot: React.FC = () => <Composition id="CozyVideo" component={CharacterDialogueVideo} durationInFrames={Math.max(1, cozyVideoProps.timing?.totalFrames || 1)} fps={cozyVideoProps.fps} width={cozyVideoProps.width} height={cozyVideoProps.height} defaultProps={cozyVideoProps} />;
+      |registerRoot(RemotionRoot);
+      |export default RemotionRoot;
+      |""".stripMargin
+
+  private val _remotion_character_web_demo_root_tsx: String =
+    """import React from 'react';
+      |import {AbsoluteFill, Audio, Composition, Img, Sequence, Video, registerRoot, staticFile, useCurrentFrame} from 'remotion';
+      |import {cozyVideoProps} from './props';
+      |
+      |const roleAsset = (role) => cozyVideoProps.assets?.find((asset) => asset.role === role);
+      |const AssetSurface = ({role}) => {
+      |  const asset = roleAsset(role);
+      |  return asset?.path ? <Img src={staticFile(asset.path)} style={{position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain'}} /> : null;
+      |};
+      |const CreditPage = ({credits}) => <AbsoluteFill style={{backgroundColor: '#101820', color: '#f4efe6', fontFamily: 'Noto Sans CJK JP, sans-serif', padding: '64px 84px'}}><div style={{fontSize: 48, fontWeight: 800, marginBottom: 30}}>{credits.title}</div><div style={{display: 'flex', flexDirection: 'column', gap: 18}}>{credits.items.map((item) => <div key={item.id} style={{fontSize: 30, lineHeight: 1.3}}><span style={{fontWeight: 700}}>{item.label}</span>{item.creator ? <span style={{opacity: 0.78}}> — {item.creator}</span> : null}</div>)}</div></AbsoluteFill>;
+      |const numberOr = (value, fallback) => Number.isFinite(Number(value)) ? Number(value) : fallback;
+      |const DemoContent = () => {
+      |  const frame = useCurrentFrame();
+      |  const props = cozyVideoProps;
+      |  const scene = (props.scenes || []).find((candidate) => frame >= candidate.startFrame && frame < candidate.startFrame + candidate.durationFrames) || props.scenes?.[0];
+      |  const localFrame = Math.max(0, frame - (scene?.startFrame || 0));
+      |  const character = scene?.speaker ? props.characters?.[scene.speaker] : null;
+      |  const mouthOpen = !scene?.silent && character?.mouthOpenAsset && character?.mouthClosedAsset && localFrame >= (scene?.leadInFrames || 0) && Math.floor(localFrame / 4) % 2 === 0;
+      |  const source = mouthOpen ? character.mouthOpenAsset : (character?.mouthClosedAsset || character?.asset);
+      |  const side = character?.side === 'right' ? 'right' : 'left';
+      |  const width = numberOr(character?.width, 252);
+      |  const bottom = numberOr(character?.bottom, 150);
+      |  const inset = numberOr(character?.inset, 28);
+      |  const maxHeight = numberOr(character?.maxHeight, 430);
+      |  return <AbsoluteFill style={{backgroundColor: '#101820', overflow: 'hidden'}}>
+      |    {props.recordingPath ? <Video src={staticFile(props.recordingPath)} muted loop style={{position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain'}} /> : null}
+      |    {source ? <Img src={staticFile(source)} style={{position: 'absolute', bottom, [side]: inset, width, maxHeight, objectFit: 'contain', transform: character?.flipX ? 'scaleX(-1)' : undefined, filter: character?.shadow?.color ? `drop-shadow(${character.shadow.x || 12}px ${character.shadow.y || 18}px ${character.shadow.blur || 0}px ${character.shadow.color})` : undefined}} /> : null}
+      |    {scene?.caption || scene?.line ? <div style={{position: 'absolute', left: 72, right: 72, bottom: 18, minHeight: 110, display: 'flex', alignItems: 'center', background: 'rgba(16,18,22,.94)', color: '#fff', borderRadius: 10, padding: '18px 30px 18px 42px', boxSizing: 'border-box', fontSize: 30, fontWeight: 800, lineHeight: 1.34}}>{scene.caption || scene.line}</div> : null}
+      |    {(props.scenes || []).map((candidate) => <Sequence key={`audio-${candidate.id}`} from={Math.max(0, candidate.startFrame + candidate.leadInFrames)} durationInFrames={Math.max(1, candidate.durationFrames - candidate.leadInFrames)}><Audio src={staticFile(candidate.audioPath)} /></Sequence>)}
+      |  </AbsoluteFill>;
+      |};
+      |const WebDemoVideo = () => {
+      |  const props = cozyVideoProps;
+      |  const contentStart = props.timing?.openingFrames || 0;
+      |  return <AbsoluteFill>
+      |    {contentStart > 0 ? <Sequence from={0} durationInFrames={contentStart}><AssetSurface role="opening" /></Sequence> : null}
+      |    <Sequence from={contentStart} durationInFrames={props.timing?.contentFrames || 1}><DemoContent /></Sequence>
+      |    {props.timing?.summaryFrames > 0 ? <Sequence from={props.timing.summaryStartFrame} durationInFrames={props.timing.summaryFrames}><AssetSurface role="summary" /></Sequence> : null}
+      |    {props.timing?.creditPageHoldFrames > 0 && props.credits?.items?.length > 0 ? <Sequence from={props.timing.creditPageStartFrame} durationInFrames={props.timing.creditPageHoldFrames}><CreditPage credits={props.credits} /></Sequence> : null}
+      |    {props.timing?.finalPageHoldFrames > 0 ? <Sequence from={props.timing.finalPageStartFrame} durationInFrames={props.timing.finalPageHoldFrames}><AssetSurface role="final-page" /></Sequence> : null}
+      |  </AbsoluteFill>;
+      |};
+      |export const RemotionRoot: React.FC = () => <Composition id="CozyVideo" component={WebDemoVideo} durationInFrames={Math.max(1, cozyVideoProps.timing?.totalFrames || 1)} fps={cozyVideoProps.fps} width={cozyVideoProps.width} height={cozyVideoProps.height} defaultProps={cozyVideoProps} />;
+      |registerRoot(RemotionRoot);
       |export default RemotionRoot;
       |""".stripMargin
 
@@ -4468,7 +4852,7 @@ private[cozy] object CozyVideo {
     val audiodir = part.audioDir.map(x => projectroot.resolve(x).normalize()).orElse {
       if (supported) Some(projectroot.resolve(s"build/audio/$id").normalize()) else None
     }
-    val recorddir = part.recordDir.map(x => projectroot.resolve(x).normalize()).orElse {
+    val recorddir = part.recordDir.map(x => _resolve_project_relative_path(projectroot, x, s"Web-demo part $id recordDir")).orElse {
       if (parttype == "web-demo") Some(projectroot.resolve(s"build/record/$id").normalize()) else None
     }
     val manifestpath = outputpath.getParent.resolve(s"${_basename(outputpath)}.manifest.json").normalize()

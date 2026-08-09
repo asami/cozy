@@ -27,6 +27,22 @@ The second profile creates introduction and conclusion scripts plus a demo
 script and a manual-review `demo-steps.json` draft. Complete the narration and
 validate the browser steps before recording or publication.
 
+For `explanation-demo-explanation`, the demonstration part uses the deterministic
+recording directory `build/record/demonstration`. Record a reviewed browser demo
+into that directory before running `cozy video render`; it must contain exactly
+one directly contained `.webm` or `.mp4` recording. Dox and video-generation
+skills may produce the reviewed recording and populate caller-owned character,
+voice, placement, license, and credit declarations.
+
+Recording directories and declared character or scene assets must use relative,
+non-traversing paths whose resolved real paths remain inside the video project.
+Cozy rejects absolute paths, `..` traversal, and symbolic-link escapes before
+copying media into a renderer workspace.
+
+Cozy supplies and bundles no Reimu, Marisa, Zundamon, or any other character
+defaults or assets. Character identity, images, voices, placement, rights, and
+credits are supplied only by caller tooling and its media package.
+
 ## Shared Pronunciations
 
 Cozy applies the bundled UTF-8 dictionary
@@ -62,6 +78,12 @@ tools:
 `narration.provider` is the canonical provider setting. Existing scripts without
 it continue to use `voicevox`. The old `voice.engine` field is compatibility
 input only and produces a deprecation warning.
+
+VOICEVOX identity is caller-owned. Before synthesis, caller skills or media
+packages must provide either both `speakerName` and `styleName`, or an explicit
+`fallbackSpeakerId`. Cozy intentionally provides no character or VOICEVOX
+speaker default; an unmatched configured name pair fails unless that caller
+also supplies a fallback id.
 
 Synthesize and validate the selected provider before creating audio:
 
@@ -127,6 +149,90 @@ network access. Missing Docker, a missing image, an invalid runtime/model
 checksum, or host tool mode stops checked synthesis before audio is generated.
 
 ## Composition And Visual Profiles
+
+## Generic Character Dialogue Renderer
+
+For a `dialogue` part, Cozy automatically selects the bundled generic
+character-dialogue renderer when the script declares a non-empty `characters`
+object. Set `renderer.strategy` to `character-dialogue` to select it
+explicitly. Set `renderer.strategy` to `narration-card` (or `generic`) to
+retain the generic narration-card renderer even when a script contains
+characters.
+
+The renderer template is `cozy-character-dialogue-v1`. Cozy records the
+SHA-256 digest of its `DialogueVideo.jsx` entry resource and the named digest
+of every staged template resource in `rendererTemplateResources`. Cozy stages
+only assets declared in the script: character `asset`, `mouthClosedAsset`, and
+`mouthOpenAsset`, plus a scene `visual.image`.
+
+Cozy supplies no character names, images, voices, placement, credits, or
+licenses. Caller tooling and its media package own those declarations and
+their licensing; Cozy never fetches external character assets. A web-demo
+presenter may declare `side`, `width`, `bottom`, `inset`, `maxHeight`, `flipX`,
+and `shadow`; Cozy applies safe generic fallbacks only when a field is absent.
+
+### Declarative Character-Dialogue Diagrams
+
+The character-dialogue renderer also accepts a local declarative diagram. This
+is an alternative to the legacy `visual.image` path; an existing image visual
+continues to be staged and rendered unchanged.
+
+```json
+{
+  "id": "reality-model",
+  "speaker": "guide",
+  "caption": "The model explains reality.",
+  "visual": {
+    "kind": "diagram",
+    "heading": "Reality and model",
+    "diagram": {
+      "layout": "flow",
+      "direction": "right",
+      "clearance": 24,
+      "nodes": [
+        {"id": "reality", "label": "REALITY", "role": "lead", "labelPolicy": "atomic"},
+        {"id": "model", "label": "Model", "role": "lead", "labelPolicy": "atomic"}
+      ],
+      "edges": [{"from": "reality", "to": "model"}]
+    }
+  }
+}
+```
+
+`visual.heading` remains optional. `visual.layout: compact` is the existing
+outer-layout opt-out; without it, diagram scenes use the large diagram
+character layout. `diagram.layout` is either `flow` or `axis`; the only
+supported direction in this first version is `right` (the default). `clearance`
+defaults to 24 pixels and must be positive.
+
+Every node has a unique non-empty `id` and `label`, a non-empty string `role`,
+and `labelPolicy` of `atomic` or `balanced`. Atomic labels must fit on one line.
+Balanced labels may break only at whitespace or a hyphen. Edges must name
+existing `from` and `to` node IDs. A flow diagram respects declared node order.
+For a flow that does not initially fit, the renderer keeps at least the declared
+clearance, then reduces the permitted label font deterministically no lower than
+18 pixels, then splits rows in declared order. If that sequence still cannot
+fit, it stops with an explicit scene/node/violation diagnostic.
+
+An axis diagram has exactly one `role: axis`. Nodes with `role: primary-view`
+occupy the reserved right stack; `role: supporting-view` occupies the reserved
+bottom row; all remaining nodes form the lead flow. The layout preserves the
+declared clearance around those reserved regions.
+
+Cozy validates this input before invoking Remotion and preserves authored
+diagram JSON in renderer props. Contract diagnostics name the scene and, where
+applicable, the node plus a violation such as `duplicate-node-id`,
+`missing-edge-endpoint`, `unsupported-layout`, `unsupported-direction`,
+`unsupported-label-policy`, `impossible-atomic-fit`, `label-overflow`, or
+`axis-role-count`. The pure renderer layout also stops on stage overflow,
+node/node or node/edge overlap, and clearance failure rather than silently
+clipping or degrading output. Axis edges use deterministic reserved routing
+corridors around the right stack and bottom row.
+
+This first version is deterministic for one input, canvas, and font profile.
+It does not auto-rewrite labels, infer roles, support directions other than
+right, persist layout diagnostics into the part manifest, or provide a generic
+repair for external artifact-tool label collisions.
 
 `video.yaml` keeps composition and visual behavior separate:
 
@@ -225,6 +331,8 @@ An individual `video.yaml` may override that default and publication locale:
 locale: ja
 credits:
   profile: organization-publication
+  presentation:
+    enabled: false
   include: []
   exclude: []
 ```
@@ -232,6 +340,12 @@ credits:
 Profile selection precedence is explicit `video.yaml`, project-local `.cozy`,
 project `conf/cozy`, user `~/.cozy`, then no profile. The scaffold leaves the
 profile unspecified so a configured user or organization default applies.
+
+`credits.presentation.enabled` defaults to `true`. Set it to `false` when the
+final page already carries the credit information and only the standalone video
+credit page should be suppressed. The selected credit items, validation,
+`credits.json`, `credits.md`, `renderer-props.json`, RDF projection, semantic
+digest, and isolated publication workspace remain present.
 
 A minimal reusable profile is:
 
@@ -310,12 +424,13 @@ build/credits/renderer-props.json
 ```
 
 The semantic JSON digest is independent of workspace and manifest filesystem
-locations, but includes localized presentation text and hold timing. It is
+locations, but includes localized presentation text, hold timing, and the
+effective presentation-enabled state. It is
 copied into build and RDF metadata. `credits.md` is ready
 for a publication description. Remotion consumes `renderer-props.json` and
 inserts a static, non-empty credit page after content/summary and before the
-final URL page. No credit page or credit directory is generated when no
-profile is selected.
+final URL page when presentation is enabled. No credit page or credit directory
+is generated when no profile is selected.
 
 ## Inspect, Render, And Publish
 

@@ -11,7 +11,8 @@ import cozy.CozySpecVocabulary
 
 /*
  * @since   Jul. 18, 2026
- * @version Jul. 20, 2026
+ *  version Jul. 20, 2026
+ * @version Aug.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoProfileRenderSpec
@@ -35,6 +36,11 @@ final class CozyVideoProfileRenderSpec
             s"--profile=$profile"
           )))
           _write_audio_manifests(pkg, partids)
+          if (profile == "explanation-demo-explanation") {
+            val recording = pkg.resolve("build/record/demonstration/reviewed.webm")
+            Files.createDirectories(recording.getParent)
+            Files.write(recording, Array[Byte](1, 2, 3))
+          }
           val runner = ProfileRenderRunner()
 
           When("the Remotion adapter renders every profile part")
@@ -65,8 +71,9 @@ final class CozyVideoProfileRenderSpec
             _int(props, "timing", "openingFrames") shouldBe openingframes
             _int(props, "timing", "sectionStartFrame") shouldBe openingframes
             _int(props, "timing", "sectionStartFrames") shouldBe 36
-            _int(props, "timing", "summaryStartFrame") shouldBe openingframes + 168
-            _int(props, "timing", "summaryFrames") shouldBe 72
+            val summaryframes = if (index == partids.size - 1) 72 else 0
+            _int(props, "timing", "summaryStartFrame") shouldBe openingframes + 240 - summaryframes
+            _int(props, "timing", "summaryFrames") shouldBe summaryframes
             val finalframes = if (index == partids.size - 1) 60 else 0
             _int(props, "timing", "creditPageHoldFrames") shouldBe 0
             _int(props, "timing", "finalPageStartFrame") shouldBe openingframes + 240
@@ -147,6 +154,9 @@ final class CozyVideoProfileRenderSpec
         )))
         val partids = Vector("introduction", "demonstration", "conclusion")
         _write_audio_manifests(pkg, partids)
+        val recording = pkg.resolve("build/record/demonstration/reviewed.webm")
+        Files.createDirectories(recording.getParent)
+        Files.write(recording, Array[Byte](1, 2, 3))
         val runner = ProfileRenderRunner()
         CozyVideo.render(
           CozyVideo.RenderConfig(pkg.resolve("video.yaml"), "remotion", checkTools = false),
@@ -256,7 +266,7 @@ final class CozyVideoProfileRenderSpec
       }
     }
 
-    "insert resolved credits before the final page and preserve their provenance" in {
+    "retain selected credits while disabling their standalone presentation page" in {
       _with_temp_dir("credits") { dir =>
         Given("a scaffold with a selected credit profile and authoritative VOICEVOX audio evidence")
         val pkg = dir.resolve("credited.video")
@@ -270,7 +280,7 @@ final class CozyVideoProfileRenderSpec
           pkg.resolve("video.yaml"),
           _read(pkg.resolve("video.yaml")).
             replace("locale: en", "locale: ja").
-            replace("credits:\n  include: []", "credits:\n  profile: publication\n  include: []")
+            replace("credits:\n  include: []", "credits:\n  profile: publication\n  presentation:\n    enabled: false\n  include: []")
         )
         _write(
           pkg.resolve("script.yaml"),
@@ -305,22 +315,24 @@ final class CozyVideoProfileRenderSpec
         val creditmarkdown = _read(pkg.resolve("build/credits/credits.md"))
         val creditprops = _read(pkg.resolve("build/credits/renderer-props.json"))
         creditjson should include_text("voice-zundamon")
+        creditjson should include_text("\"enabled\" : false")
         creditmarkdown should include_text("VOICEVOX:ずんだもん")
         creditprops should include_text("voice-zundamon")
+        creditprops should include_text("\"enabled\" : false")
         val digest = parser.parse(creditjson).toOption.get.hcursor.get[String]("digest").toOption.get
         _read(pkg.resolve("build/manifest.json")) should include_text(digest)
         _read(pkg.resolve("rdf/video.ttl")) should include_text(digest)
         _read(pkg.resolve("rdf/video.ttl")) should include_text("hasCredit")
 
-        And("the non-empty static credit page precedes the existing final URL page")
+        And("the disabled credit presentation contributes no hold before the existing final URL page")
         val workdir = pkg.resolve("target/cozy-video/remotion/explanation")
         val props = _json(workdir.resolve("props.json"))
         _int(props, "timing", "creditPageStartFrame") shouldBe 375
-        _int(props, "timing", "creditPageHoldFrames") shouldBe 120
-        _int(props, "timing", "finalPageStartFrame") shouldBe 495
-        _int(props, "timing", "totalFrames") shouldBe 555
-        val root = _read(workdir.resolve("src/Root.tsx"))
-        root.indexOf("<CreditPage credits={credits}") should be < root.indexOf("<FinalPage effect={finalPage}")
+        _int(props, "timing", "creditPageHoldFrames") shouldBe 0
+        _int(props, "timing", "finalPageStartFrame") shouldBe
+          _int(props, "timing", "openingFrames") + _int(props, "timing", "contentFrames")
+        _int(props, "timing", "finalPageHoldFrames") shouldBe 60
+        _int(props, "timing", "totalFrames") shouldBe 435
 
         And("verification rejects a projection changed after the effective set was built")
         CozyVideo.verifyCredits(pkg.resolve("video.yaml")) shouldBe Vector.empty
@@ -386,7 +398,7 @@ final class CozyVideoProfileRenderSpec
         _write(
           project,
           _read(project).
-            replace("credits:\n  include: []", "credits:\n  profile: material-publication\n  include: []").
+            replace("credits:\n  include: []", "credits:\n  profile: material-publication\n  presentation:\n    enabled: false\n  include: []").
             replace(
               "assets:\n",
               "assets:\n  guide:\n    path: assets/guide.svg\n    kind: character-material\n    required: true\n    tags: [character.guide]\n    credits: [guide-material]\n    credit-obligation: required\n"
@@ -394,7 +406,9 @@ final class CozyVideoProfileRenderSpec
         )
         _write(
           pkg.resolve("script.yaml"),
-          _read(pkg.resolve("script.yaml")).replace("    narration:", "    speaker: guide\n    narration:")
+          _read(pkg.resolve("script.yaml"))
+            .replace("narration:\n", "voice:\n  fallbackSpeakerId: 42\nnarration:\n")
+            .replace("    narration:", "    speaker: guide\n    narration:")
         )
 
         When("Cozy inspects plans and describes the package as RDF")
@@ -439,10 +453,18 @@ final class CozyVideoProfileRenderSpec
         generated should include_text("\"assets\"")
         generated should include_text("\"locale\" : \"en\"")
         generated should include_text("\"profile\" : \"material-publication\"")
+        generated should include_text("\"presentation\" : {")
+        generated should include_text("\"enabled\" : false")
         generated should include_text("\"guide\"")
         generated should include_text("\"character.guide\"")
         result.workspaceRoot.resolve("conf/cozy/video/credit-profiles/material-publication.yaml") should be_regular_file
         result.workspaceRoot.resolve("build/credits/credits.json") should be_regular_file
+        result.workspaceRoot.resolve("build/credits/credits.md") should be_regular_file
+        result.workspaceRoot.resolve("build/credits/renderer-props.json") should be_regular_file
+        val workspaceprops = _json(result.workspaceRoot.resolve("target/cozy-video/remotion/explanation/props.json"))
+        _int(workspaceprops, "timing", "creditPageHoldFrames") shouldBe 0
+        _int(workspaceprops, "timing", "finalPageStartFrame") shouldBe
+          _int(workspaceprops, "timing", "openingFrames") + _int(workspaceprops, "timing", "contentFrames")
         result.workspaceRoot.resolve("target/cozy-video/remotion/explanation/public/assets/summary.svg") should be_regular_file
       }
     }

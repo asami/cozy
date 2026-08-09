@@ -15,7 +15,7 @@ import org.goldenport.io.InputSource
  * Personal attribution policy belongs in discovered profiles, never here.
  *
  * @since   Jul. 20, 2026
- * @version Jul. 20, 2026
+ * @version Aug.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoCredits {
@@ -24,7 +24,8 @@ private[cozy] object CozyVideoCredits {
   final case class Settings(
     profile: Option[String],
     include: Vector[String],
-    exclude: Vector[String]
+    exclude: Vector[String],
+    presentationEnabled: Boolean = true
   )
   object Settings {
     val empty: Settings = Settings(None, Vector.empty, Vector.empty)
@@ -34,7 +35,8 @@ private[cozy] object CozyVideoCredits {
         profile <- c.downField("profile").as[Option[String]]
         include <- _string_vector(c, "include")
         exclude <- _string_vector(c, "exclude")
-      } yield Settings(_normalized_option(profile), _normalized(include), _normalized(exclude))
+        presentationenabled <- c.downField("presentation").downField("enabled").as[Option[Boolean]]
+      } yield Settings(_normalized_option(profile), _normalized(include), _normalized(exclude), presentationenabled.getOrElse(true))
   }
 
   final case class CreditItem(
@@ -216,14 +218,16 @@ private[cozy] object CozyVideoCredits {
     locale: String,
     evidence: Evidence,
     items: Vector[EffectiveItem],
-    diagnostics: Vector[Diagnostic]
+    diagnostics: Vector[Diagnostic],
+    settings: Settings
   ) {
     def profileId: Option[String] = profile.map(_.profile.id)
     def holdSeconds: Double = profile.map(_.profile.presentation.holdSeconds).getOrElse(0.0)
+    def presentationEnabled: Boolean = settings.presentationEnabled
     def videoItems: Vector[EffectiveItem] = items.filter(_.item.appearsOn("video"))
     def publicationItems: Vector[EffectiveItem] = items.filter(_.item.appearsOn("publication"))
     def rdfItems: Vector[EffectiveItem] = items.filter(_.item.appearsOn("rdf"))
-    def hasVideoPage: Boolean = videoItems.nonEmpty
+    def hasVideoPage: Boolean = presentationEnabled && videoItems.nonEmpty
     def errors: Vector[Diagnostic] = diagnostics.filter(_.isError)
     def warnings: Vector[Diagnostic] = diagnostics.filterNot(_.isError)
     def requireValid(): EffectiveSet = {
@@ -262,7 +266,7 @@ private[cozy] object CozyVideoCredits {
       case Some(source) => _resolve_profile(source, selection.get, effectivelocale, evidence, settings.getOrElse(Settings.empty))
       case None =>
         val diagnostics = _unprofiled_diagnostics(evidence, settings.getOrElse(Settings.empty))
-        EffectiveSet(None, None, effectivelocale, evidence, Vector.empty, diagnostics)
+        EffectiveSet(None, None, effectivelocale, evidence, Vector.empty, diagnostics, settings.getOrElse(Settings.empty))
     }
   }
 
@@ -306,6 +310,7 @@ private[cozy] object CozyVideoCredits {
       "locale" -> Json.fromString(effective.locale),
       "title" -> Json.fromString(effective.profile.map(_.profile.presentation.title(effective.locale)).getOrElse("Credits")),
       "holdSeconds" -> Json.fromDoubleOrNull(effective.holdSeconds),
+      "enabled" -> Json.fromBoolean(effective.presentationEnabled),
       "items" -> Json.fromValues(effective.videoItems.map { resolved =>
         Json.obj(
           "id" -> Json.fromString(resolved.item.id),
@@ -395,7 +400,7 @@ private[cozy] object CozyVideoCredits {
       if (item.appearsOn("video") && item.label(locale).isEmpty)
         diagnostics += Diagnostic(severity, "credit.locale.label-missing", s"$obligation credit ${item.id} has no video label for locale $locale.")
     }
-    EffectiveSet(Some(source), Some(selection), locale, evidence, items, diagnostics.result().distinct)
+    EffectiveSet(Some(source), Some(selection), locale, evidence, items, diagnostics.result().distinct, settings)
   }
 
   private def _unprofiled_diagnostics(evidence: Evidence, settings: Settings): Vector[Diagnostic] = {
@@ -611,7 +616,8 @@ private[cozy] object CozyVideoCredits {
   private def _presentation_json(effective: EffectiveSet): Json =
     Json.obj(
       "title" -> Json.fromString(effective.profile.map(_.profile.presentation.title(effective.locale)).getOrElse("Credits")),
-      "holdSeconds" -> Json.fromDoubleOrNull(effective.holdSeconds)
+      "holdSeconds" -> Json.fromDoubleOrNull(effective.holdSeconds),
+      "enabled" -> Json.fromBoolean(effective.presentationEnabled)
     )
 
   private def _effective_credits_json(effective: EffectiveSet): Json =
