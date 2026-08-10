@@ -15,7 +15,7 @@ import scala.collection.JavaConverters._
  *  version May. 25, 2026
  *  version Jun. 27, 2026
  *  version Jul. 29, 2026
- * @version Aug.  7, 2026
+ * @version Aug. 11, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyScaffold {
@@ -1750,6 +1750,10 @@ private[cozy] object CozyScaffold {
       |  video render <project-file> --renderer=remotion|simple-java2d [--part=<id>] [--tool-mode=<docker|host>] [--docker-image=<image>] [--check-tools]
       |      Render project parts with Cozy-generated Remotion compositions or a simple Python/Pillow plus ffmpeg renderer.
       |      Final concat/mux remains a separate later video build step.
+      |
+      |  video review-evidence <project-file> --save=<dir> [--check-tools] [--tool-mode=<docker|host>] [--docker-image=<image>]
+      |      Extract deterministic PNG review evidence and a manifest from an already-built final video and Cozy-authored Remotion props/audio manifests.
+      |      This command does not generate video, slides, or presentation files.
       |
       |  video transcribe <input-video> --save <dir> [--tool-mode=<docker|host>] [--docker-image=<image>] [--whisper-model=<path>] [--check-tools]
       |      Extract audio from a recorded demo video, run whisper.cpp, and write transcript, captions, narration draft, and manifest files.

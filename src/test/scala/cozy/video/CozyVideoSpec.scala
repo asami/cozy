@@ -3,6 +3,7 @@ package cozy.video
 import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
+import java.security.MessageDigest
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
 import java.net.URI
@@ -17,7 +18,7 @@ import cozy.CozySpecVocabulary
  * @since   Jun. 18, 2026
  *  version Jun. 24, 2026
  *  version Jul. 20, 2026
- * @version Aug. 10, 2026
+ * @version Aug. 11, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoSpec
@@ -549,7 +550,9 @@ final class CozyVideoSpec
           concat should include_text("file '/workspace/target/cozy-video/ffmpeg/parts/part-02.mp4'")
           dir.resolve("build/final.mp4") should be_regular_file
           val manifest = _read(dir.resolve("build/manifest.json"))
+          parser.parse(manifest).toOption.flatMap(_.hcursor.get[String]("status").toOption) shouldBe Some("validated")
           manifest should include_text("\"outputPath\"")
+          manifest should include_text("\"finalVideoSha256\"")
           manifest should include_text("\"partOutputs\"")
           manifest should include_text("\"concatListPath\"")
           manifest should include_text("\"ffprobe\"")
@@ -3404,6 +3407,577 @@ final class CozyVideoSpec
 
     }
 
+    "review evidence (Part 5)" which {
+      "writes deterministic final-video review evidence from Cozy Remotion props and audio manifests" in {
+        _with_temp_dir("cozy-video-review-evidence-part-5") { dir =>
+          Given("a final video with matching Cozy Remotion props and audio manifests")
+          val project = dir.resolve("video_project.json")
+          val save = dir.resolve("review")
+          _write_bytes(dir.resolve("build/final.mp4"), Array[Byte](1, 2, 3, 4))
+          _write_review_video_manifest(dir.resolve("build/final.mp4"))
+          _write(
+            project,
+            """{
+              |  "output": "build/final.mp4",
+              |  "renderer": {"engine": "remotion", "fps": 10, "width": 100, "height": 50},
+              |  "parts": [{"id": "intro", "type": "dialogue", "script": "script.json"}]
+              |}
+              |""".stripMargin
+          )
+          _write(dir.resolve("script.json"), _script_json)
+          _write(
+            dir.resolve("build/audio/intro/manifest.json"),
+            """[
+              | {"sceneId":"first/scene","speaker":"narrator","file":"01.wav","leadSilence":0.2,"audioDuration":1.0,"targetDuration":2.0,"tailSilence":0.1},
+              | {"sceneId":"section-two","speaker":"narrator","file":"02.wav","leadSilence":0.5,"audioDuration":1.0,"targetDuration":2.0,"tailSilence":0.2},
+              | {"sceneId":"last","speaker":"narrator","file":"03.wav","leadSilence":0.0,"audioDuration":1.0,"targetDuration":2.0,"tailSilence":0.0}
+              |]
+              |""".stripMargin
+          )
+          _write(
+            dir.resolve("target/cozy-video/remotion/intro/props.json"),
+            """{
+              |  "partId": "intro", "fps": 10, "width": 100, "height": 50,
+              |  "timing": {"openingFrames": 5, "contentFrames": 70, "summaryStartFrame": 70, "summaryFrames": 5, "finalPageStartFrame": 75, "finalPageHoldFrames": 3, "totalFrames": 78},
+              |  "scenes": [
+              |    {"id":"first/scene","speaker":"narrator","line":"First line","text":"First text","caption":"First caption","section":"start","startFrame":0,"durationFrames":20,"leadInFrames":2,"sectionTransitionFrames":0},
+              |    {"id":"section-two","speaker":"narrator","line":"Second line","text":"Second text","caption":"Second caption","section":"next","startFrame":20,"durationFrames":30,"leadInFrames":15,"sectionTransitionFrames":10},
+              |    {"id":"last","speaker":"narrator","line":"Last line","text":"Last text","caption":"Last caption","section":"next","startFrame":50,"durationFrames":20,"leadInFrames":0,"sectionTransitionFrames":0}
+              |  ]
+              |}
+              |""".stripMargin
+          )
+          val runner = ReviewEvidenceRunner()
+
+          When("Cozy writes host-mode review evidence")
+          val out = CozyVideo.reviewEvidence(
+            CozyVideo.ReviewEvidenceConfig(project, save, toolMode = Some("host")),
+            CozyVideo.VideoToolRegistry(Vector.empty),
+            runner
+          )
+          val manifest = parser.parse(Files.readString(save.resolve("review-manifest.json"), StandardCharsets.UTF_8)).toOption.get
+          val videomanifesthash = MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(dir.resolve("build/manifest.json"))).map("%02x".format(_)).mkString
+
+          Then("the deterministic evidence manifest and its extracted frames describe the review timing")
+          out should include("Cozy Video Review Evidence")
+          manifest.hcursor.get[String]("schema").toOption shouldBe Some("cozy.video.review-evidence.v1")
+          manifest.hcursor.get[String]("status").toOption shouldBe Some("validated")
+          manifest.hcursor.downField("videoManifest").get[String]("path").toOption shouldBe Some(dir.resolve("build/manifest.json").toAbsolutePath.normalize().toString)
+          manifest.hcursor.downField("videoManifest").get[String]("sha256").toOption shouldBe Some(videomanifesthash)
+          manifest.hcursor.downField("videoManifest").get[String]("status").toOption shouldBe Some("validated")
+          manifest.hcursor.downField("renderer").get[Int]("fps").toOption shouldBe Some(10)
+          manifest.hcursor.downField("parts").downArray.downField("scenes").focus.flatMap(_.asArray).map(_.size) shouldBe Some(3)
+          manifest.hcursor.downField("frames").focus.flatMap(_.asArray).map(_.map(_.hcursor.get[String]("kind").toOption)) shouldBe Some(Vector(Some("opening"), Some("summary"), Some("final-page")))
+          manifest.hcursor.downField("frames").downArray.get[String]("status").toOption shouldBe Some("validated")
+          manifest.hcursor.downField("parts").downArray.downField("scenes").downN(1).downField("frames").focus.flatMap(_.asArray).map(_.map(_.hcursor.get[String]("kind").toOption)) shouldBe Some(Vector(Some("transition"), Some("speech")))
+          manifest.hcursor.downField("parts").downArray.downField("scenes").downArray.downField("frames").downArray.get[String]("status").toOption shouldBe Some("validated")
+          Files.isRegularFile(save.resolve("frames/part-001-scene-001-first-scene-speech.png")) shouldBe true
+          runner.commands.size shouldBe 7
+          runner.commands.foreach(command => command.args should contain("ffmpeg"))
+          runner.commands.foreach(command => command.args should contain("-ss"))
+        }
+      }
+
+      "rejects unknown review-evidence options" in {
+        _with_temp_dir("cozy-video-review-evidence-options-part-5") { dir =>
+          Given("a review-evidence command with an unknown option")
+          val project = dir.resolve("video_project.json")
+          val save = dir.resolve("review")
+
+          When("Cozy parses the command configuration")
+          val error = intercept[RuntimeException] {
+            CozyVideo.ReviewEvidenceConfig.create(List(project.toString, "--save=" + save, "--unknown=value"))
+          }
+
+          Then("the strict option parser rejects that option")
+          error.getMessage should include("Too many arguments: --unknown=value")
+        }
+      }
+
+      "dispatches the review-evidence command" in {
+        _with_temp_dir("cozy-video-review-evidence-dispatch-part-5") { dir =>
+          Given("a complete host-mode review-evidence project")
+          val project = dir.resolve("video_project.json")
+          val save = dir.resolve("review")
+          _write_review_evidence_fixture(dir, "build/final.mp4", dir.resolve("build/final.mp4"))
+
+          When("Cozy dispatches video review-evidence")
+          val dispatched = _capture {
+            CozyVideo.execute(
+              List("video", "review-evidence", project.toString, "--save=" + save, "--tool-mode=host"),
+              CozyVideo.VideoToolRegistry(Vector.empty),
+              RecordingVoicevoxClient(),
+              ReviewEvidenceRunner()
+            )
+          }
+
+          Then("the command reports the generated review evidence")
+          dispatched should include("Cozy Video Review Evidence")
+        }
+      }
+
+      "shows review-evidence in the CLI help" in {
+        Given("the Cozy command-line help")
+
+        When("a user requests the help output")
+        val help = _capture { cozy.Cozy.main(Array("--help")) }
+
+        Then("the review-evidence command is visible")
+        help should include("video review-evidence <project-file> --save=<dir>")
+      }
+
+      "uses limited Docker mounts for externally located final video and review evidence" in {
+        _with_temp_dir("cozy-video-review-evidence-docker-paths-part-5") { dir =>
+          Given("a Docker review-evidence project whose project root, final video, and save directory are distinct locations")
+          val project = dir.resolve("video_project.json")
+          val finalroot = dir.resolveSibling("cozy-video-review-evidence-docker-paths-final")
+          val saveroot = dir.resolveSibling("cozy-video-review-evidence-docker-paths-save")
+          _delete(finalroot)
+          _delete(saveroot)
+          val finalvideo = finalroot.resolve("target/media/final.mp4")
+          val save = saveroot.resolve("review")
+          _write_bytes(finalvideo, Array[Byte](1, 2, 3, 4))
+          _write_review_video_manifest(finalvideo)
+          _write(
+            project,
+            s"""{
+              |  "output": "${dir.relativize(finalvideo)}",
+              |  "renderer": {"engine": "remotion", "fps": 10, "width": 100, "height": 50},
+              |  "parts": [{"id": "intro", "type": "dialogue", "script": "script.json"}]
+              |}
+              |""".stripMargin
+          )
+          _write(dir.resolve("script.json"), _script_json)
+          _write(
+            dir.resolve("build/audio/intro/manifest.json"),
+            """[
+              | {"sceneId":"first/scene","speaker":"narrator","file":"01.wav","leadSilence":0.2,"audioDuration":1.0,"targetDuration":2.0,"tailSilence":0.1},
+              | {"sceneId":"section-two","speaker":"narrator","file":"02.wav","leadSilence":0.5,"audioDuration":1.0,"targetDuration":2.0,"tailSilence":0.2},
+              | {"sceneId":"last","speaker":"narrator","file":"03.wav","leadSilence":0.0,"audioDuration":1.0,"targetDuration":2.0,"tailSilence":0.0}
+              |]
+              |""".stripMargin
+          )
+          _write(
+            dir.resolve("target/cozy-video/remotion/intro/props.json"),
+            """{
+              |  "partId": "intro", "fps": 10, "width": 100, "height": 50,
+              |  "timing": {"openingFrames": 5, "contentFrames": 70, "summaryStartFrame": 70, "summaryFrames": 5, "finalPageStartFrame": 75, "finalPageHoldFrames": 3, "totalFrames": 78},
+              |  "scenes": [
+              |    {"id":"first/scene","speaker":"narrator","line":"First line","text":"First text","caption":"First caption","section":"start","startFrame":0,"durationFrames":20,"leadInFrames":2,"sectionTransitionFrames":0},
+              |    {"id":"section-two","speaker":"narrator","line":"Second line","text":"Second text","caption":"Second caption","section":"next","startFrame":20,"durationFrames":30,"leadInFrames":15,"sectionTransitionFrames":10},
+              |    {"id":"last","speaker":"narrator","line":"Last line","text":"Last text","caption":"Last caption","section":"next","startFrame":50,"durationFrames":20,"leadInFrames":0,"sectionTransitionFrames":0}
+              |  ]
+              |}
+              |""".stripMargin
+          )
+
+          When("Cozy extracts review evidence through Docker's limited bind mounts")
+          val runner = ReviewEvidenceRunner()
+          CozyVideo.reviewEvidence(
+            CozyVideo.ReviewEvidenceConfig(project, save, toolMode = Some("docker")),
+            CozyVideo.VideoToolRegistry(Vector.empty),
+            runner
+          )
+          val manifest = parser.parse(Files.readString(save.resolve("review-manifest.json"), StandardCharsets.UTF_8)).toOption.get
+          val manifesttext = Files.readString(save.resolve("review-manifest.json"), StandardCharsets.UTF_8)
+          val expectedhash = MessageDigest.getInstance("SHA-256").digest(Array[Byte](1, 2, 3, 4)).map("%02x".format(_)).mkString
+          val finalmount = s"${finalvideo.toAbsolutePath.normalize()}:/review-input/final.mp4:ro"
+          val savemount = s"${save.toAbsolutePath.normalize()}:/review-output:rw"
+
+          Then("Docker mounts the exact final file read-only and the exact save directory read-write")
+          runner.commands should have size 7
+          runner.commands.foreach { command =>
+            val bindmounts = command.args.sliding(2).collect {
+              case Vector("-v", mount) => mount
+            }.toVector
+            bindmounts shouldBe Vector(finalmount, savemount)
+            command.args should contain("--network=none")
+            command.args should not contain "-w"
+            command.args should not contain "/workspace"
+            command.cwd shouldBe dir
+            val ffmpegargs = command.args.drop(command.args.indexOf("ffmpeg") + 1)
+            ffmpegargs(ffmpegargs.indexOf("-i") + 1) shouldBe "/review-input/final.mp4"
+            ffmpegargs.last should startWith ("/review-output/frames/")
+            ffmpegargs should not contain finalvideo.toAbsolutePath.normalize().toString
+            ffmpegargs should not contain save.resolve("frames").toAbsolutePath.normalize().toString
+          }
+
+          And("review artifacts are generated directly in the requested host save directory without project-root staging")
+          Files.isRegularFile(save.resolve("review-manifest.json")) shouldBe true
+          Files.isRegularFile(save.resolve("frames/part-001-scene-001-first-scene-speech.png")) shouldBe true
+          Files.exists(dir.resolve("target/cozy-video/review-evidence/input/final.mp4")) shouldBe false
+          Files.exists(dir.resolve("target/cozy-video/review-evidence/frames/part-001-scene-001-first-scene-speech.png")) shouldBe false
+          manifest.hcursor.downField("finalVideo").get[String]("path").toOption shouldBe Some(finalvideo.toAbsolutePath.normalize().toString)
+          manifest.hcursor.downField("finalVideo").get[String]("sha256").toOption shouldBe Some(expectedhash)
+          manifest.hcursor.downField("parts").downArray.downField("scenes").downArray.downField("frames").downArray.get[String]("path").toOption shouldBe Some("frames/part-001-scene-001-first-scene-speech.png")
+          manifesttext should not include "/review-input"
+          manifesttext should not include "/review-output"
+        }
+      }
+
+      "rejects a missing final video" in {
+        _with_temp_dir("cozy-video-review-evidence-failures-part-5") { dir =>
+          Given("a review-evidence project without its final video")
+          val project = dir.resolve("video_project.json")
+          _write(project, """{"output":"build/final.mp4","parts":[{"id":"intro","type":"dialogue","script":"script.json"}]}""")
+          _write(dir.resolve("script.json"), _script_json)
+
+          When("Cozy writes review evidence")
+          val missingfinal = intercept[RuntimeException] {
+            CozyVideo.reviewEvidence(CozyVideo.ReviewEvidenceConfig(project, dir.resolve("review"), toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), ReviewEvidenceRunner())
+          }
+
+          Then("the missing final video is rejected")
+          missingfinal.getMessage should include("Missing final video")
+        }
+      }
+
+      "rejects missing Cozy Remotion props" in {
+        _with_temp_dir("cozy-video-review-evidence-missing-props-part-5") { dir =>
+          Given("a final video without matching Cozy Remotion props")
+          val project = dir.resolve("video_project.json")
+          _write(project, """{"output":"build/final.mp4","parts":[{"id":"intro","type":"dialogue","script":"script.json"}]}""")
+          _write(dir.resolve("script.json"), _script_json)
+          _write_bytes(dir.resolve("build/final.mp4"), Array[Byte](1))
+          _write_review_video_manifest(dir.resolve("build/final.mp4"))
+
+          When("Cozy writes review evidence")
+          val missingprops = intercept[RuntimeException] {
+            CozyVideo.reviewEvidence(CozyVideo.ReviewEvidenceConfig(project, dir.resolve("review"), toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), ReviewEvidenceRunner())
+          }
+
+          Then("the missing props evidence is rejected")
+          missingprops.getMessage should include("Missing current Cozy Remotion props for part intro")
+        }
+      }
+
+      "rejects a multipart review-evidence project with one missing current props file before the runner" in {
+        _with_temp_dir("cozy-video-review-evidence-multipart-missing-props-part-5") { dir =>
+          Given("a validated two-part review-evidence project whose second part lacks current props")
+          val project = dir.resolve("video_project.json")
+          val save = dir.resolve("review")
+          _write_review_evidence_fixture(dir, "build/final.mp4", dir.resolve("build/final.mp4"), Vector("first", "second"))
+          Files.delete(dir.resolve("target/cozy-video/remotion/second/props.json"))
+          val runner = ReviewEvidenceRunner()
+
+          When("Cozy validates every renderable part's current props")
+          val error = intercept[RuntimeException] {
+            CozyVideo.reviewEvidence(CozyVideo.ReviewEvidenceConfig(project, save, toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), runner)
+          }
+
+          Then("the missing second-part props are rejected before any frame command")
+          error.getMessage should include("Missing current Cozy Remotion props for part second")
+          runner.commands shouldBe empty
+        }
+      }
+
+      "reports an ffmpeg extraction failure" in {
+        _with_temp_dir("cozy-video-review-evidence-ffmpeg-failure-part-5") { dir =>
+          Given("a complete review-evidence project and a failing ffmpeg runner")
+          val project = dir.resolve("video_project.json")
+          _write(project, """{"output":"build/final.mp4","parts":[{"id":"intro","type":"dialogue","script":"script.json"}]}""")
+          _write(dir.resolve("script.json"), _script_json)
+          _write_bytes(dir.resolve("build/final.mp4"), Array[Byte](1))
+          _write_review_video_manifest(dir.resolve("build/final.mp4"))
+          _write(dir.resolve("build/audio/intro/manifest.json"), """[{"sceneId":"one","speaker":null,"file":"01.wav","leadSilence":0.0,"audioDuration":1.0,"targetDuration":1.0,"tailSilence":0.0}]""")
+          _write(dir.resolve("target/cozy-video/remotion/intro/props.json"), """{"partId":"intro","fps":10,"width":100,"height":50,"timing":{"openingFrames":0,"contentFrames":10,"summaryStartFrame":10,"summaryFrames":0,"finalPageStartFrame":10,"finalPageHoldFrames":0,"totalFrames":10},"scenes":[{"id":"one","startFrame":0,"durationFrames":10,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
+
+          When("Cozy extracts a review frame")
+          val extraction = intercept[RuntimeException] {
+            CozyVideo.reviewEvidence(CozyVideo.ReviewEvidenceConfig(project, dir.resolve("review"), toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), ReviewEvidenceRunner(fail = true))
+          }
+
+          Then("the ffmpeg failure is reported")
+          extraction.getMessage should include("ffmpeg review evidence extraction failed")
+        }
+      }
+
+      "rejects an ffmpeg run that does not create its PNG" in {
+        _with_temp_dir("cozy-video-review-evidence-missing-output-part-5") { dir =>
+          Given("a complete review-evidence project and a runner without PNG output")
+          val project = dir.resolve("video_project.json")
+          _write(project, """{"output":"build/final.mp4","parts":[{"id":"intro","type":"dialogue","script":"script.json"}]}""")
+          _write(dir.resolve("script.json"), _script_json)
+          _write_bytes(dir.resolve("build/final.mp4"), Array[Byte](1))
+          _write_review_video_manifest(dir.resolve("build/final.mp4"))
+          _write(dir.resolve("build/audio/intro/manifest.json"), """[{"sceneId":"one","speaker":null,"file":"01.wav","leadSilence":0.0,"audioDuration":1.0,"targetDuration":1.0,"tailSilence":0.0}]""")
+          _write(dir.resolve("target/cozy-video/remotion/intro/props.json"), """{"partId":"intro","fps":10,"width":100,"height":50,"timing":{"openingFrames":0,"contentFrames":10,"summaryStartFrame":10,"summaryFrames":0,"finalPageStartFrame":10,"finalPageHoldFrames":0,"totalFrames":10},"scenes":[{"id":"one","startFrame":0,"durationFrames":10,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
+
+          When("Cozy extracts a review frame")
+          val absent = intercept[RuntimeException] {
+            CozyVideo.reviewEvidence(CozyVideo.ReviewEvidenceConfig(project, dir.resolve("review"), toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), ReviewEvidenceRunner(writeOutput = false))
+          }
+
+          Then("the missing PNG is rejected")
+          absent.getMessage should include("did not create PNG")
+        }
+      }
+
+      "rejects a symbolic-link review manifest without overwriting its target" in {
+        _with_temp_dir("cozy-video-review-evidence-manifest-symlink-part-5") { dir =>
+          Given("a complete project whose review manifest is a symbolic link to an outside file")
+          val project = dir.resolve("video_project.json")
+          val save = dir.resolve("review")
+          val outside = dir.resolveSibling("cozy-video-review-evidence-manifest-symlink-outside.json")
+          _write_review_evidence_fixture(dir, "build/final.mp4", dir.resolve("build/final.mp4"))
+          _write(outside, "outside manifest must remain unchanged")
+          Files.createDirectories(save)
+          Files.createSymbolicLink(save.resolve("review-manifest.json"), outside)
+          val runner = ReviewEvidenceRunner()
+
+          When("Cozy writes review evidence")
+          val error = intercept[RuntimeException] {
+            CozyVideo.reviewEvidence(CozyVideo.ReviewEvidenceConfig(project, save, toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), runner)
+          }
+
+          Then("the link is rejected and the outside file remains unchanged")
+          error.getMessage should include("manifest target must not be a symbolic link")
+          runner.commands shouldBe empty
+          Files.isSymbolicLink(save.resolve("review-manifest.json")) shouldBe true
+          _read(outside) shouldBe "outside manifest must remain unchanged"
+        }
+      }
+
+      "rejects a final-video symbolic link without changing its outside file" in {
+        _with_temp_dir("cozy-video-review-evidence-final-symlink-part-5") { dir =>
+          Given("a complete project whose final MP4 is a symbolic link to an outside regular file")
+          val project = dir.resolve("video_project.json")
+          val save = dir.resolve("review")
+          val outside = dir.resolveSibling("cozy-video-review-evidence-final-symlink-outside.mp4")
+          val outsidebytes = Array[Byte](9, 8, 7, 6)
+          _write_review_evidence_fixture(dir, "build/final.mp4", dir.resolve("build/final.mp4"))
+          _write_bytes(outside, outsidebytes)
+          Files.delete(dir.resolve("build/final.mp4"))
+          Files.createSymbolicLink(dir.resolve("build/final.mp4"), outside)
+          val runner = ReviewEvidenceRunner()
+
+          When("Cozy resolves the final video for review evidence")
+          val error = intercept[RuntimeException] {
+            CozyVideo.reviewEvidence(CozyVideo.ReviewEvidenceConfig(project, save, toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), runner)
+          }
+
+          Then("the link is rejected before the runner and the outside bytes remain unchanged")
+          error.getMessage should include("Final video for review evidence must not be a symbolic link")
+          runner.commands shouldBe empty
+          Files.readAllBytes(outside).toVector shouldBe outsidebytes.toVector
+          Files.deleteIfExists(outside)
+        }
+      }
+
+      "rejects a review-evidence save symbolic link before creating outside artifacts" in {
+        _with_temp_dir("cozy-video-review-evidence-save-symlink-part-5") { dir =>
+          Given("a complete project whose --save target is a symbolic link to an outside directory")
+          val project = dir.resolve("video_project.json")
+          val save = dir.resolve("review")
+          val outside = dir.resolveSibling("cozy-video-review-evidence-save-symlink-outside")
+          _write_review_evidence_fixture(dir, "build/final.mp4", dir.resolve("build/final.mp4"))
+          Files.createDirectories(outside)
+          Files.createSymbolicLink(save, outside)
+          val runner = ReviewEvidenceRunner()
+
+          When("Cozy resolves the review-evidence save directory")
+          val error = intercept[RuntimeException] {
+            CozyVideo.reviewEvidence(CozyVideo.ReviewEvidenceConfig(project, save, toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), runner)
+          }
+
+          Then("the link is rejected before the runner creates an outside manifest or frames")
+          error.getMessage should include("Review evidence --save target must not be a symbolic link")
+          runner.commands shouldBe empty
+          Files.exists(outside.resolve("review-manifest.json")) shouldBe false
+          Files.exists(outside.resolve("frames")) shouldBe false
+          _delete(outside)
+        }
+      }
+
+      "rejects a review-evidence frames symbolic link before writing outside PNGs" in {
+        _with_temp_dir("cozy-video-review-evidence-frames-symlink-part-5") { dir =>
+          Given("a complete project whose save frames directory is a symbolic link to an outside directory")
+          val project = dir.resolve("video_project.json")
+          val save = dir.resolve("review")
+          val outside = dir.resolveSibling("cozy-video-review-evidence-frames-symlink-outside")
+          _write_review_evidence_fixture(dir, "build/final.mp4", dir.resolve("build/final.mp4"))
+          Files.createDirectories(save)
+          Files.createDirectories(outside)
+          Files.createSymbolicLink(save.resolve("frames"), outside)
+          val runner = ReviewEvidenceRunner()
+
+          When("Cozy prepares the review-evidence frames directory")
+          val error = intercept[RuntimeException] {
+            CozyVideo.reviewEvidence(CozyVideo.ReviewEvidenceConfig(project, save, toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), runner)
+          }
+
+          Then("the link is rejected before the runner writes an outside PNG")
+          error.getMessage should include("Review evidence frames target must not be a symbolic link")
+          runner.commands shouldBe empty
+          Files.list(outside).iterator().asScala.filter(_.getFileName.toString.endsWith(".png")).toVector shouldBe empty
+          _delete(outside)
+        }
+      }
+
+      "rejects the filesystem root as the review-evidence save directory" in {
+        _with_temp_dir("cozy-video-review-evidence-root-save-part-5") { dir =>
+          Given("a review-evidence project with a real final video")
+          val project = dir.resolve("video_project.json")
+          _write(project, """{"output":"build/final.mp4","parts":[]}""")
+          _write_bytes(dir.resolve("build/final.mp4"), Array[Byte](1))
+
+          When("Cozy uses the filesystem root as --save")
+          val error = intercept[RuntimeException] {
+            CozyVideo.reviewEvidence(CozyVideo.ReviewEvidenceConfig(project, Paths.get("/"), toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), ReviewEvidenceRunner())
+          }
+
+          Then("the root save target is rejected")
+          error.getMessage should include("must not be the filesystem root")
+        }
+      }
+
+      "rejects a final video canonically contained by the review-evidence save directory" in {
+        _with_temp_dir("cozy-video-review-evidence-final-overlap-part-5") { dir =>
+          Given("a final video inside the requested review-evidence save directory")
+          val project = dir.resolve("video_project.json")
+          val save = dir.resolve("review")
+          _write(project, """{"output":"review/final.mp4","parts":[]}""")
+          _write_bytes(save.resolve("final.mp4"), Array[Byte](1))
+
+          When("Cozy resolves review-evidence paths")
+          val error = intercept[RuntimeException] {
+            CozyVideo.reviewEvidence(CozyVideo.ReviewEvidenceConfig(project, save, toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), ReviewEvidenceRunner())
+          }
+
+          Then("the canonical overlap is rejected")
+          error.getMessage should include("final video must not be inside the --save directory")
+        }
+      }
+
+      "uses only final and save Docker mounts for an in-project final video" in {
+        _with_temp_dir("cozy-video-review-evidence-docker-default-part-5") { dir =>
+          Given("a realistic Docker review-evidence project with an in-project final video")
+          val project = dir.resolve("video_project.json")
+          val finalvideo = dir.resolve("build/final.mp4")
+          val save = dir.resolve("review")
+          _write_review_evidence_fixture(dir, "build/final.mp4", finalvideo)
+          val runner = ReviewEvidenceRunner()
+
+          When("Cozy extracts review evidence through Docker")
+          CozyVideo.reviewEvidence(CozyVideo.ReviewEvidenceConfig(project, save, toolMode = Some("docker")), CozyVideo.VideoToolRegistry(Vector.empty), runner)
+
+          Then("every command has only exact final-read-only and save-read-write binds")
+          val expected = Vector(s"${finalvideo.toAbsolutePath.normalize()}:/review-input/final.mp4:ro", s"${save.toAbsolutePath.normalize()}:/review-output:rw")
+          runner.commands.foreach { command =>
+            command.args.sliding(2).collect { case Vector("-v", mount) => mount }.toVector shouldBe expected
+            command.args should contain("--network=none")
+            command.args should not contain "-w"
+            command.args should not contain "/workspace"
+          }
+        }
+      }
+
+      "keeps colliding top-frame part ids in distinct files with matching hashes" in {
+        _with_temp_dir("cozy-video-review-evidence-top-frame-collision-part-5") { dir =>
+          Given("two reviewable parts whose sanitized ids collide")
+          val project = dir.resolve("video_project.json")
+          val save = dir.resolve("review")
+          _write_review_evidence_fixture(dir, "build/final.mp4", dir.resolve("build/final.mp4"), Vector("a+b", "a-b"))
+
+          When("Cozy extracts their top review frames")
+          CozyVideo.reviewEvidence(CozyVideo.ReviewEvidenceConfig(project, save, toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), ReviewEvidenceRunner(distinctOutput = true))
+          val topframes = parser.parse(_read(save.resolve("review-manifest.json"))).toOption.get.hcursor.downField("frames").focus.flatMap(_.asArray).map(_.toVector).getOrElse(Vector.empty)
+
+          Then("each top frame has a stable indexed path and matches its recorded hash")
+          val paths = topframes.map(_.hcursor.get[String]("path").toOption.get)
+          paths shouldBe Vector("frames/opening-part-001-a-b.png", "frames/opening-part-002-a-b.png")
+          paths.distinct should have size 2
+          topframes.foreach { frame =>
+            val path = frame.hcursor.get[String]("path").toOption.get
+            val expectedhash = frame.hcursor.get[String]("sha256").toOption.get
+            MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(save.resolve(path))).map("%02x".format(_)).mkString shouldBe expectedhash
+          }
+        }
+      }
+
+      "rejects duplicate Cozy Remotion props scene ids before frame extraction" in {
+        _with_temp_dir("cozy-video-review-evidence-duplicate-props-scenes-part-5") { dir =>
+          Given("a validated review-evidence project with duplicate props scene ids")
+          val project = dir.resolve("video_project.json")
+          val save = dir.resolve("review")
+          _write_review_evidence_fixture(dir, "build/final.mp4", dir.resolve("build/final.mp4"))
+          _write(dir.resolve("target/cozy-video/remotion/intro/props.json"), """{"partId":"intro","fps":10,"width":100,"height":50,"timing":{"openingFrames":0,"contentFrames":20,"summaryStartFrame":20,"summaryFrames":0,"finalPageStartFrame":20,"finalPageHoldFrames":0,"totalFrames":20},"scenes":[{"id":"scene","startFrame":0,"durationFrames":10,"leadInFrames":0,"sectionTransitionFrames":0},{"id":"scene","startFrame":10,"durationFrames":10,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
+          val runner = ReviewEvidenceRunner()
+
+          When("Cozy validates props and audio evidence")
+          val error = intercept[RuntimeException] {
+            CozyVideo.reviewEvidence(CozyVideo.ReviewEvidenceConfig(project, save, toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), runner)
+          }
+
+          Then("duplicate props ids are rejected before the runner")
+          error.getMessage should include("duplicate scene ids")
+          runner.commands shouldBe empty
+        }
+      }
+
+      "rejects props timing that does not match rendered audio timing" in {
+        _with_temp_dir("cozy-video-review-evidence-timing-mismatch-part-5") { dir =>
+          Given("a validated review-evidence project with a duration frame mismatch")
+          val project = dir.resolve("video_project.json")
+          val save = dir.resolve("review")
+          _write_review_evidence_fixture(dir, "build/final.mp4", dir.resolve("build/final.mp4"))
+          _write(dir.resolve("target/cozy-video/remotion/intro/props.json"), """{"partId":"intro","fps":10,"width":100,"height":50,"timing":{"openingFrames":1,"contentFrames":10,"summaryStartFrame":11,"summaryFrames":0,"finalPageStartFrame":11,"finalPageHoldFrames":0,"totalFrames":11},"scenes":[{"id":"scene","startFrame":0,"durationFrames":9,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
+          val runner = ReviewEvidenceRunner()
+
+          When("Cozy validates props timing against the audio manifest")
+          val error = intercept[RuntimeException] {
+            CozyVideo.reviewEvidence(CozyVideo.ReviewEvidenceConfig(project, save, toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), runner)
+          }
+
+          Then("the timing mismatch is rejected before the runner")
+          error.getMessage should include("timing does not match audio manifest")
+          runner.commands shouldBe empty
+        }
+      }
+
+      "rejects a first-part scene that spills through its opening frames into the next part" in {
+        _with_temp_dir("cozy-video-review-evidence-opening-bound-part-5") { dir =>
+          Given("a two-part validated project whose first scene exceeds its total after opening frames")
+          val project = dir.resolve("video_project.json")
+          val save = dir.resolve("review")
+          _write_review_evidence_fixture(dir, "build/final.mp4", dir.resolve("build/final.mp4"), Vector("first", "second"))
+          _write(dir.resolve("build/audio/first/manifest.json"), """[{"sceneId":"scene","speaker":null,"file":"01.wav","leadSilence":0.0,"audioDuration":0.4,"targetDuration":0.4,"tailSilence":0.0}]""")
+          _write(dir.resolve("target/cozy-video/remotion/first/props.json"), """{"partId":"first","fps":10,"width":100,"height":50,"timing":{"openingFrames":5,"contentFrames":10,"summaryStartFrame":10,"summaryFrames":0,"finalPageStartFrame":10,"finalPageHoldFrames":0,"totalFrames":10},"scenes":[{"id":"scene","startFrame":6,"durationFrames":4,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
+          val runner = ReviewEvidenceRunner()
+
+          When("Cozy validates the first part's scene bounds")
+          val error = intercept[RuntimeException] {
+            CozyVideo.reviewEvidence(CozyVideo.ReviewEvidenceConfig(project, save, toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), runner)
+          }
+
+          Then("the opening-inclusive scene spill is rejected before the runner")
+          error.getMessage should include("exceeds declared totalFrames")
+          runner.commands shouldBe empty
+        }
+      }
+
+      "rejects a stale validated project video manifest before frame extraction" in {
+        _with_temp_dir("cozy-video-review-evidence-stale-video-manifest-part-5") { dir =>
+          Given("a complete project whose validated video manifest has a stale final hash")
+          val project = dir.resolve("video_project.json")
+          val finalvideo = dir.resolve("build/final.mp4")
+          val save = dir.resolve("review")
+          _write_review_evidence_fixture(dir, "build/final.mp4", finalvideo)
+          _write(finalvideo.getParent.resolve("manifest.json"), s"""{"status":"validated","outputPath":"${finalvideo.toAbsolutePath.normalize()}","finalVideoSha256":"stale"}""")
+          val runner = ReviewEvidenceRunner()
+
+          When("Cozy validates provenance before extracting frames")
+          val error = intercept[RuntimeException] {
+            CozyVideo.reviewEvidence(CozyVideo.ReviewEvidenceConfig(project, save, toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), runner)
+          }
+
+          Then("the stale manifest is rejected before the runner")
+          error.getMessage should include("finalVideoSha256 does not match final video")
+          runner.commands shouldBe empty
+        }
+      }
+    }
+
     "demo replay" which {
       "video demo-script generates replay script from selector event log and transcript" in {
         _with_temp_dir("cozy-video-demo-script-events") { dir =>
@@ -4316,6 +4890,34 @@ final class CozyVideoSpec
     Files.write(path, bytes)
   }
 
+  private def _write_review_evidence_fixture(
+    dir: Path,
+    output: String,
+    finalvideo: Path,
+    partids: Vector[String] = Vector("intro")
+  ): Unit = {
+    _write_bytes(finalvideo, Array[Byte](1, 2, 3, 4))
+    _write_review_video_manifest(finalvideo)
+    val parts = partids.map(id => s"""{"id":"$id","type":"dialogue","script":"script.json"}""").mkString(",")
+    _write(
+      dir.resolve("video_project.json"),
+      s"""{"output":"$output","renderer":{"engine":"remotion","fps":10,"width":100,"height":50},"parts":[$parts]}"""
+    )
+    _write(dir.resolve("script.json"), _script_json)
+    partids.foreach { id =>
+      _write(dir.resolve(s"build/audio/$id/manifest.json"), """[{"sceneId":"scene","speaker":null,"file":"01.wav","leadSilence":0.0,"audioDuration":1.0,"targetDuration":1.0,"tailSilence":0.0}]""")
+      _write(dir.resolve(s"target/cozy-video/remotion/$id/props.json"), s"""{"partId":"$id","fps":10,"width":100,"height":50,"timing":{"openingFrames":1,"contentFrames":10,"summaryStartFrame":11,"summaryFrames":0,"finalPageStartFrame":11,"finalPageHoldFrames":0,"totalFrames":11},"scenes":[{"id":"scene","startFrame":0,"durationFrames":10,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
+    }
+  }
+
+  private def _write_review_video_manifest(finalvideo: Path): Unit = {
+    val hash = MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(finalvideo)).map("%02x".format(_)).mkString
+    _write(
+      finalvideo.getParent.resolve("manifest.json"),
+      s"""{"status":"validated","outputPath":"${finalvideo.toAbsolutePath.normalize()}","finalVideoSha256":"$hash"}"""
+    )
+  }
+
   private def _read(path: Path): String =
     Files.readString(path, StandardCharsets.UTF_8)
 
@@ -4435,6 +5037,25 @@ object CozyVideoSpec {
     def run(args: Vector[String], cwd: Path): CozyVideo.VideoCommandResult = {
       commands += RecordingCommand(args, cwd)
       result
+    }
+  }
+
+  final case class ReviewEvidenceRunner(
+      fail: Boolean = false,
+      writeOutput: Boolean = true,
+      distinctOutput: Boolean = false
+  ) extends CozyVideo.VideoProcessRunner {
+    val commands = ArrayBuffer.empty[RecordingCommand]
+
+    def run(args: Vector[String], cwd: Path): CozyVideo.VideoCommandResult = {
+      commands += RecordingCommand(args, cwd)
+      if (fail)
+        CozyVideo.VideoCommandResult(1, "", "ffmpeg failed")
+      else {
+        if (writeOutput)
+          Files.write(_command_path(cwd, args, args.last), if (distinctOutput) Array(commands.size.toByte) else Array[Byte](0, 1, 2, 3))
+        CozyVideo.VideoCommandResult(0, "ffmpeg ok", "")
+      }
     }
   }
 
@@ -4615,6 +5236,12 @@ object CozyVideoSpec {
       val path = Paths.get(value).normalize()
       if (path.isAbsolute) path else cwd.resolve(path).normalize()
     }
+
+  private def _command_path(cwd: Path, args: Vector[String], value: String): Path =
+    args.sliding(2).collectFirst {
+      case Vector("-v", mount) if mount.endsWith(":/review-output:rw") && value.startsWith("/review-output/") =>
+        Path.of(mount.stripSuffix(":/review-output:rw")).resolve(value.stripPrefix("/review-output/")).normalize()
+    }.getOrElse(_command_path(cwd, value))
 
   private def _wav_bytes(duration: Double): Array[Byte] = {
     val samplerate = 24000
