@@ -390,7 +390,7 @@ function TransitionMatte({ effect, localFrame, durationFrames, sceneIndex, effec
           style={{
             ...styles.compactWipeCore,
             background: COLORS.white,
-            transform: `translateX(${bandX - 62}px) skewX(-18deg)`,
+            transform: `translateX(${bandX - 27}px) skewX(-18deg)`,
             opacity: reveal * 0.92,
           }}
         />
@@ -1127,7 +1127,7 @@ const styles = {
     position: "absolute",
     top: -180,
     left: 0,
-    width: 390,
+    width: 180,
     height: 1080,
     boxShadow: "0 0 44px rgba(255,255,255,.75)",
     pointerEvents: "none",
@@ -1136,7 +1136,7 @@ const styles = {
     position: "absolute",
     top: -180,
     left: 0,
-    width: 44,
+    width: 18,
     height: 1080,
     filter: "blur(1px)",
     pointerEvents: "none",

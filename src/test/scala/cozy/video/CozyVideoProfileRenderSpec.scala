@@ -12,7 +12,7 @@ import cozy.CozySpecVocabulary
 /*
  * @since   Jul. 18, 2026
  *  version Jul. 20, 2026
- * @version Aug.  9, 2026
+ * @version Aug. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoProfileRenderSpec
@@ -20,6 +20,7 @@ final class CozyVideoProfileRenderSpec
     with GivenWhenThen
     with CozySpecVocabulary {
   "Cozy profile-driven video rendering" should {
+    "render composition profiles and timing" which {
     "render both composition profiles with placeholder assets and deterministic timing" in {
       _with_temp_dir("composition-profiles") { dir =>
         val profiles = Vector(
@@ -143,6 +144,134 @@ final class CozyVideoProfileRenderSpec
       }
     }
 
+      "add compact section-transition silence without changing authored audio timing" in {
+      _with_temp_dir("compact-character-dialogue-section-transition") { dir =>
+        Given("a compact character-dialogue part that exercises section precedence and fallbacks")
+        _write(
+          dir.resolve("dialogue/script.json"),
+          """{
+            |  "characters": {"guide": {"side": "left"}},
+            |  "scenes": [
+            |    {"id": "first-section", "speaker": "guide", "line": "First section.", "section": "foundation", "effects": {"section": "views"}, "visual": {"heading": "First", "section": "quality"}},
+            |    {"id": "changed-section", "speaker": "guide", "line": "Changed section.", "section": "views", "visual": {"heading": "Changed"}},
+            |    {"id": "same-section", "speaker": "guide", "line": "Same section.", "section": "views", "effects": {"section": "quality"}, "visual": {"heading": "Same", "section": "foundation"}},
+            |    {"id": "effects-fallback", "speaker": "guide", "line": "Effects fallback.", "effects": {"section": "quality"}, "visual": {"heading": "Effects", "section": "foundation"}},
+            |    {"id": "visual-fallback", "speaker": "guide", "line": "Visual fallback.", "visual": {"heading": "Visual", "section": "quality"}},
+            |    {"id": "default-fallback", "speaker": "guide", "line": "Default fallback.", "visual": {"heading": "Default"}}
+            |  ]
+            |}""".stripMargin
+        )
+        val audiodir = dir.resolve("build/audio/lecture")
+        Files.createDirectories(audiodir)
+        Vector("first-section", "changed-section", "same-section", "effects-fallback", "visual-fallback", "default-fallback").zipWithIndex.foreach { case (sceneid, index) =>
+          Files.write(audiodir.resolve(f"${index + 1}%02d-$sceneid.wav"), Array[Byte](0, 1, 2, 3))
+        }
+        _write(
+          audiodir.resolve("manifest.json"),
+          """[
+            |  {"sceneId":"first-section","speaker":"guide","file":"01-first-section.wav","leadSilence":0.5,"audioDuration":2.0,"targetDuration":4.0,"tailSilence":0.0},
+            |  {"sceneId":"changed-section","speaker":"guide","file":"02-changed-section.wav","leadSilence":0.5,"audioDuration":2.0,"targetDuration":4.0,"tailSilence":0.0},
+            |  {"sceneId":"same-section","speaker":"guide","file":"03-same-section.wav","leadSilence":0.5,"audioDuration":2.0,"targetDuration":4.0,"tailSilence":0.0},
+            |  {"sceneId":"effects-fallback","speaker":"guide","file":"04-effects-fallback.wav","leadSilence":0.5,"audioDuration":2.0,"targetDuration":4.0,"tailSilence":0.0},
+            |  {"sceneId":"visual-fallback","speaker":"guide","file":"05-visual-fallback.wav","leadSilence":0.5,"audioDuration":2.0,"targetDuration":4.0,"tailSilence":0.0},
+            |  {"sceneId":"default-fallback","speaker":"guide","file":"06-default-fallback.wav","leadSilence":0.5,"audioDuration":2.0,"targetDuration":4.0,"tailSilence":0.0}
+            |]""".stripMargin
+        )
+        _write(
+          dir.resolve("video_project.json"),
+          """{
+            |  "renderer": {"engine": "remotion", "effectProfile": "compact"},
+            |  "visualEffects": {"sectionStart": "line-sweep"},
+            |  "parts": [{"id": "lecture", "type": "dialogue", "script": "dialogue/script.json"}]
+            |}""".stripMargin
+        )
+
+        When("Cozy stages the compact character-dialogue renderer")
+        CozyVideo.render(
+          CozyVideo.RenderConfig(dir.resolve("video_project.json"), "remotion", toolMode = Some("host")),
+          CozyVideo.VideoToolRegistry(Vector.empty),
+          ProfileRenderRunner()
+        )
+
+        Then("top-level sections take precedence before effects and visual fallbacks")
+        val workdir = dir.resolve("target/cozy-video/remotion/lecture")
+        val props = _json(workdir.resolve("props.json"))
+        val scenes = props.hcursor.get[Vector[Json]]("scenes").toOption.get
+        scenes.map(_.hcursor.get[Int]("sectionTransitionFrames").toOption.get) shouldBe Vector(0, 36, 0, 36, 0, 36)
+        scenes.map(_.hcursor.get[Int]("leadInFrames").toOption.get) shouldBe Vector(15, 51, 15, 51, 15, 51)
+        scenes.map(_.hcursor.get[Int]("durationFrames").toOption.get) shouldBe Vector(120, 156, 120, 156, 120, 156)
+        scenes.map(_.hcursor.get[Int]("startFrame").toOption.get) shouldBe Vector(0, 120, 276, 396, 552, 672)
+        scenes(1).hcursor.get[Double]("duration").toOption.get shouldBe 5.2
+        _int(props, "timing", "contentFrames") shouldBe 828
+
+        And("the authored audio manifest remains unchanged")
+        val manifest = _json(audiodir.resolve("manifest.json")).asArray.get
+        manifest.foreach { entry =>
+          entry.hcursor.get[Double]("leadSilence").toOption.get shouldBe 0.5
+          entry.hcursor.get[Double]("audioDuration").toOption.get shouldBe 2.0
+          entry.hcursor.get[Double]("targetDuration").toOption.get shouldBe 4.0
+        }
+      }
+    }
+
+      "gate compact section transitions by strategy profile and section-start effect" in {
+        _with_temp_dir("compact-section-transition-gating") { dir =>
+          Vector(
+            "generic-strategy" -> """{"renderer":{"engine":"remotion","strategy":"generic","effectProfile":"compact"},"visualEffects":{"sectionStart":"line-sweep"}}""",
+            "non-compact-profile" -> """{"renderer":{"engine":"remotion","effectProfile":"default"},"visualEffects":{"sectionStart":"line-sweep"}}""",
+            "no-section-start-effect" -> """{"renderer":{"engine":"remotion","effectProfile":"compact"},"visualEffects":{}}"""
+          ).foreach { case (variant, renderer) =>
+            Given(s"a $variant dialogue fixture with two changed sections")
+            val fixture = dir.resolve(variant)
+            _write(
+              fixture.resolve("dialogue/script.json"),
+              """{"characters":{"guide":{"side":"left"}},"scenes":[
+                |{"id":"first-section","speaker":"guide","line":"First section.","section":"foundation","visual":{"heading":"First"}},
+                |{"id":"changed-section","speaker":"guide","line":"Changed section.","section":"views","visual":{"heading":"Changed"}}
+                |]}""".stripMargin
+            )
+            val audiodir = fixture.resolve("build/audio/lecture")
+            Files.createDirectories(audiodir)
+            Vector("first-section", "changed-section").zipWithIndex.foreach { case (sceneid, index) =>
+              Files.write(audiodir.resolve(f"${index + 1}%02d-$sceneid.wav"), Array[Byte](0, 1, 2, 3))
+            }
+            _write(
+              audiodir.resolve("manifest.json"),
+              """[
+                |{"sceneId":"first-section","speaker":"guide","file":"01-first-section.wav","leadSilence":0.5,"audioDuration":2.0,"targetDuration":4.0,"tailSilence":0.0},
+                |{"sceneId":"changed-section","speaker":"guide","file":"02-changed-section.wav","leadSilence":0.5,"audioDuration":2.0,"targetDuration":4.0,"tailSilence":0.0}
+                |]""".stripMargin
+            )
+            _write(
+              fixture.resolve("video_project.json"),
+              parser.parse(renderer).toOption.get.deepMerge(
+                parser.parse(
+                  """{"parts":[{"id":"lecture","type":"dialogue","script":"dialogue/script.json"}]}"""
+                ).toOption.get
+              ).spaces2
+            )
+
+            When("Cozy stages the profile-driven dialogue renderer")
+            CozyVideo.render(
+              CozyVideo.RenderConfig(fixture.resolve("video_project.json"), "remotion", toolMode = Some("host")),
+              CozyVideo.VideoToolRegistry(Vector.empty),
+              ProfileRenderRunner()
+            )
+
+            Then("neither scene receives a compact section transition")
+            val props = _json(fixture.resolve("target/cozy-video/remotion/lecture/props.json"))
+            val scenes = props.hcursor.get[Vector[Json]]("scenes").toOption.get
+            scenes.map(_.hcursor.get[Int]("sectionTransitionFrames").toOption.get) shouldBe Vector(0, 0)
+            scenes.map(_.hcursor.get[Int]("leadInFrames").toOption.get) shouldBe Vector(15, 15)
+            scenes.map(_.hcursor.get[Int]("durationFrames").toOption.get) shouldBe Vector(120, 120)
+            _int(props, "timing", "contentFrames") shouldBe 240
+          }
+        }
+      }
+
+    }
+
+    "assemble rendered outputs" which {
     "assemble rendered profile parts through Cozy-managed ffmpeg and ffprobe" in {
       _with_temp_dir("assembly") { dir =>
         Given("a rendered explanation-demo-explanation package with every part output")
@@ -222,6 +351,9 @@ final class CozyVideoProfileRenderSpec
       }
     }
 
+    }
+
+    "preserve visual assets and credits" which {
     "render a configured project-owned asset without changing its bytes or provenance" in {
       _with_temp_dir("project-asset") { dir =>
         Given("a scaffold whose summary slot points to a project-owned SVG")
@@ -383,6 +515,9 @@ final class CozyVideoProfileRenderSpec
       }
     }
 
+    }
+
+    "preserve lifecycle contracts" which {
     "preserve profile contracts through inspect build RDF and publication" in {
       _with_temp_dir("lifecycle") { dir =>
         Given("a scaffolded explanation package entering the full publication lifecycle")
@@ -467,6 +602,7 @@ final class CozyVideoProfileRenderSpec
           _int(workspaceprops, "timing", "openingFrames") + _int(workspaceprops, "timing", "contentFrames")
         result.workspaceRoot.resolve("target/cozy-video/remotion/explanation/public/assets/summary.svg") should be_regular_file
       }
+    }
     }
   }
 

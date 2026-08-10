@@ -3888,7 +3888,7 @@ private[cozy] object CozyVideo {
     Files.writeString(srcdir.resolve("render.mjs"), _remotion_render_mjs, StandardCharsets.UTF_8)
     val assets = _copy_remotion_assets(workdir, plan.assets)
     val dialogueassets = if (characterdialogue || characterwebdemo) _copy_character_dialogue_assets(plan.projectRoot, part, script, workdir, stagevisuals = characterdialogue) else CharacterDialogueAssets.empty
-    val propsjson = _remotion_props_json(plan, part, script, audio, assets, workdir, characterdialogue || characterwebdemo, templateid, template.map(_.dialogue.sha256), template.map(_.resources), dialogueassets, recording)
+    val propsjson = _remotion_props_json(plan, part, script, audio, assets, workdir, characterdialogue, templateid, template.map(_.dialogue.sha256), template.map(_.resources), dialogueassets, recording)
     Files.writeString(workdir.resolve("props.json"), propsjson.spaces2, StandardCharsets.UTF_8)
     Files.writeString(srcdir.resolve("props.ts"), _remotion_props_ts(propsjson), StandardCharsets.UTF_8)
     _copy_remotion_audio(workdir, audio)
@@ -4332,9 +4332,30 @@ private[cozy] object CozyVideo {
     val width = renderer.flatMap(_.width).filter(_ > 0).getOrElse(1280)
     val height = renderer.flatMap(_.height).filter(_ > 0).getOrElse(720)
     val effects = CozyVideoEffects.expand(plan.project.visualEffects)
+    val effectprofile = _part_renderer_property(part, "effectProfile").orElse(renderer.flatMap(_.effectProfile)).
+      map(_.trim).filter(_.nonEmpty).getOrElse("compact")
+    val sectionstarteffect = effects.exists(x => x.role == CozyVideoEffects.Role.SectionStart && x.primitives.nonEmpty)
+    val sectiontransitionframes =
+      if (characterdialogue && effectprofile == "compact" && sectionstarteffect)
+        math.max(0, math.round(1.2 * fps).toInt)
+      else
+        0
+    def _section_key_(scene: VideoScene, index: Int): String =
+      scene.section.filter(_.nonEmpty).
+        orElse(_json_string(scene.effects, "section").filter(_.nonEmpty)).
+        orElse(_json_string(scene.visual, "section").filter(_.nonEmpty)).
+        getOrElse(s"scene-$index")
+    val scenesectiontransitions = script.expandedScenes.indices.map { index =>
+      if (index > 0 && _section_key_(script.expandedScenes(index), index) != _section_key_(script.expandedScenes(index - 1), index - 1))
+        sectiontransitionframes
+      else
+        0
+    }
     val contentframes = math.max(
       1,
-      audio.entries.map(x => math.max(1, math.round(_effective_render_duration(x) * fps).toInt)).sum
+      audio.entries.zip(scenesectiontransitions).map { case (entry, transitionframes) =>
+        math.max(1, math.round(_effective_render_duration(entry) * fps).toInt) + transitionframes
+      }.sum
     )
     val isfirstpart = plan.parts.filter(_.renderable).headOption.exists(_.id == part.id)
     val openingseconds = _effect_parameter_double(
@@ -4346,7 +4367,7 @@ private[cozy] object CozyVideo {
     val openingframes =
       if (isfirstpart) math.max(0, math.round(openingseconds * fps).toInt)
       else 0
-    val sectionframes = if (effects.exists(x => x.role == CozyVideoEffects.Role.SectionStart && x.primitives.nonEmpty)) math.min(contentframes, math.round(1.2 * fps).toInt) else 0
+    val sectionframes = if (sectionstarteffect) math.min(contentframes, math.round(1.2 * fps).toInt) else 0
     val isfinalpart = plan.parts.filter(_.renderable).lastOption.exists(_.id == part.id)
     val summaryframes = if (isfinalpart && effects.exists(x => x.role == CozyVideoEffects.Role.Summary && x.primitives.nonEmpty)) math.min(contentframes, math.round(2.4 * fps).toInt) else 0
     val creditframes =
@@ -4363,9 +4384,12 @@ private[cozy] object CozyVideo {
     val finalframes = if (isfinalpart) math.max(0, math.round(holdseconds * fps).toInt) else 0
     val totalframes = openingframes + contentframes + creditframes + finalframes
     var startframe = 0
-    val scenes = script.expandedScenes.zip(audio.entries).zip(audio.files).map {
-      case ((scene, entry), file) =>
-        val durationframes = math.max(1, math.round(_effective_render_duration(entry) * fps).toInt)
+    val scenes = script.expandedScenes.zip(audio.entries).zip(audio.files).zip(scenesectiontransitions).map {
+      case (((scene, entry), file), transitionframes) =>
+        val authoreddurationframes = math.max(1, math.round(_effective_render_duration(entry) * fps).toInt)
+        val authoredleadframes = math.max(0, math.round(entry.leadSilence * fps).toInt)
+        val durationframes = authoreddurationframes + transitionframes
+        val leadinframes = authoredleadframes + transitionframes
         val stagedvisual = dialogueassets.visuals.getOrElse(scene.id.getOrElse(""), scene.visual)
         val json =
         Json.obj(
@@ -4373,7 +4397,7 @@ private[cozy] object CozyVideo {
           "speaker" -> entry.speaker.map(Json.fromString).getOrElse(Json.Null),
           "text" -> Json.fromString(scene.narration.orElse(scene.line).orElse(scene.caption).getOrElse("")),
           "audioPath" -> Json.fromString(s"audio/${file.getFileName}"),
-          "duration" -> Json.fromDoubleOrNull(_effective_render_duration(entry)),
+          "duration" -> Json.fromDoubleOrNull(_effective_render_duration(entry) + transitionframes.toDouble / fps),
           "line" -> scene.line.orElse(scene.narration).orElse(scene.caption).map(Json.fromString).getOrElse(Json.Null),
           "caption" -> scene.caption.orElse(scene.line).orElse(scene.narration).map(Json.fromString).getOrElse(Json.Null),
           "visual" -> stagedvisual,
@@ -4382,7 +4406,8 @@ private[cozy] object CozyVideo {
           "silent" -> Json.fromBoolean(scene.silent.getOrElse(false)),
           "startFrame" -> Json.fromInt(startframe),
           "durationFrames" -> Json.fromInt(durationframes),
-          "leadInFrames" -> Json.fromInt(math.max(0, math.round(entry.leadSilence * fps).toInt)),
+          "leadInFrames" -> Json.fromInt(leadinframes),
+          "sectionTransitionFrames" -> Json.fromInt(transitionframes),
           "audioDuration" -> Json.fromDoubleOrNull(entry.audioDuration)
         )
         startframe += durationframes
@@ -4433,7 +4458,7 @@ private[cozy] object CozyVideo {
         })
       }.getOrElse(Json.arr()),
       "recordingPath" -> recording.map(Json.fromString).getOrElse(Json.Null),
-      "effectProfile" -> _part_renderer_property(part, "effectProfile").orElse(renderer.flatMap(_.effectProfile)).map(Json.fromString).getOrElse(Json.fromString("compact")),
+      "effectProfile" -> Json.fromString(effectprofile),
       "visualEffects" -> Json.fromValues(effectsjson),
       "assets" -> Json.fromValues(assetsjson),
       "credits" -> CozyVideoCredits.toRendererProps(plan.credits),
@@ -4454,7 +4479,7 @@ private[cozy] object CozyVideo {
   }
 
   private val _character_dialogue_template_id = "cozy-character-dialogue-v1"
-  private val _character_dialogue_template_sha256 = "57e501c1d1a257a30f25e4b426dd45de61e2bfd19479808e4ec77e8254ceaae6"
+  private val _character_dialogue_template_sha256 = "a3d9df7640383fe75848afd995ac78dca391fb6ec8b066362ee02b988b06399a"
   private val _character_dialogue_diagram_layout_sha256 = "9f36dd5c7765af8613cbe3924de5aae14b4b7e8c92d54418e58b95f798e81b56"
   private val _character_web_demo_template_id = "cozy-character-web-demo-v1"
 
