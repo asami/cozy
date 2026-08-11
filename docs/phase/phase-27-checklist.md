@@ -45,14 +45,14 @@ Status: DONE
 
 ## AM27-03: Skill Workflow and Part 5 Acceptance
 
-Status: PLANNED
+Status: DONE
 
-- [ ] Keep article sources registered/discovered by SmartDox normally.
-- [ ] Have infographic and video skills invoke supported product commands,
+- [x] Keep article sources registered/discovered by SmartDox normally.
+- [x] Have infographic and video skills invoke supported product commands,
       never mutate a registry directly.
-- [ ] Verify Dox exact-locale projection, JA/EN panel links, and article-top
+- [x] Verify Dox exact-locale projection, JA/EN panel links, and article-top
       video presentation where applicable.
-- [ ] Drive end-to-end acceptance from Part 5; retain Part 4 as incident
+- [x] Drive end-to-end acceptance from Part 5; retain Part 4 as incident
       evidence only.
 
 ## AM27-04: Review, Validation, and Closure
