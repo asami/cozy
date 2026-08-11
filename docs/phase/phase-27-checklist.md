@@ -31,16 +31,16 @@ Status: DONE
 
 ## AM27-02: Site Registration Command and Registry Merge
 
-Status: PLANNED
+Status: DONE
 
-- [ ] Freeze and implement the supported Cozy site-registration command with
+- [x] Freeze and implement the supported Cozy site-registration command with
       an explicit publication directory.
-- [ ] Merge owner-bundle role/locale updates deterministically under one lock,
+- [x] Merge owner-bundle role/locale updates deterministically under one lock,
       complete preflight, and atomic replacement while preserving unrelated
       entries.
-- [ ] Register infographic `public_path` and published external video
+- [x] Register infographic `public_path` and published external video
       provider/`watch_url` in provider-neutral SmartDox records.
-- [ ] Keep Cozy internals out of SmartDox records and keep media generation,
+- [x] Keep Cozy internals out of SmartDox records and keep media generation,
       upload, and deployment outside the command.
 
 ## AM27-03: Skill Workflow and Part 5 Acceptance

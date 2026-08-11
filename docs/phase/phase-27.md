@@ -113,7 +113,7 @@ Focus:
 
 Stage Status:
 
-- Current status: PLANNED
+- Current status: DONE
 - Owner: Cozy, with an optional SmartDox safe-writer API
 - Update rule: mark work complete only from the Phase 27 checklist.
 - Checklist basis: `AM27-02`
