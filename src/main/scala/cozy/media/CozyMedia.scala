@@ -19,7 +19,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Jul. 19, 2026
  *  version Jul. 20, 2026
- * @version Aug.  5, 2026
+ * @version Aug. 11, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMedia {
@@ -57,6 +57,39 @@ private[cozy] object CozyMedia {
       } yield Profile(root, rootenv)
   }
 
+  final case class DescriptorArticleMedia(
+    articleIdentity: String,
+    publicationProfile: String
+  )
+  object DescriptorArticleMedia {
+    implicit val decoder: Decoder[DescriptorArticleMedia] = (c: HCursor) =>
+      for {
+        _ <- _require_exact_article_media_keys(c, Set("articleIdentity", "publicationProfile"))
+        articleidentity <- c.downField("articleIdentity").as[String]
+        publicationprofile <- c.downField("publicationProfile").as[String]
+      } yield DescriptorArticleMedia(articleidentity, publicationprofile)
+  }
+
+  final case class ResourceArticleMedia(
+    role: String,
+    publicPath: Option[String],
+    mediaType: Option[String],
+    alt: Option[String],
+    production: Option[String]
+  )
+  object ResourceArticleMedia {
+    implicit val decoder: Decoder[ResourceArticleMedia] = (c: HCursor) =>
+      for {
+        _ <- _require_article_media_object(c)
+        role <- c.downField("role").as[String]
+        _ <- _require_resource_article_media_keys(c, role)
+        publicpath <- _optional_article_media_field[String](c, "publicPath")
+        mediatype <- _optional_article_media_field[String](c, "mediaType")
+        alt <- _optional_article_media_field[String](c, "alt")
+        production <- _optional_article_media_field[String](c, "production")
+      } yield ResourceArticleMedia(role, publicpath, mediatype, alt, production)
+  }
+
   final case class Resource(
     id: String,
     kind: String,
@@ -68,7 +101,8 @@ private[cozy] object CozyMedia {
     width: Option[Int],
     height: Option[Int],
     project: Option[String],
-    publications: Map[String, String]
+    publications: Map[String, String],
+    articleMedia: Option[ResourceArticleMedia] = None
   )
   object Resource {
     implicit val decoder: Decoder[Resource] = (c: HCursor) =>
@@ -84,7 +118,8 @@ private[cozy] object CozyMedia {
         height <- c.downField("height").as[Option[Int]]
         project <- c.downField("project").as[Option[String]]
         publications <- c.downField("publications").as[Option[Map[String, String]]]
-      } yield Resource(id, kind, language, role, source, output, build.getOrElse("copy"), width, height, project, publications.getOrElse(Map.empty))
+        articlemedia <- _optional_article_media_field[ResourceArticleMedia](c, "articleMedia")
+      } yield Resource(id, kind, language, role, source, output, build.getOrElse("copy"), width, height, project, publications.getOrElse(Map.empty), articlemedia)
   }
 
   final case class Descriptor(
@@ -92,7 +127,8 @@ private[cozy] object CozyMedia {
     knowledge: Knowledge,
     languages: Vector[String],
     resources: Vector[Resource],
-    profiles: Map[String, Profile]
+    profiles: Map[String, Profile],
+    articleMedia: Option[DescriptorArticleMedia] = None
   )
   object Descriptor {
     implicit val decoder: Decoder[Descriptor] = (c: HCursor) =>
@@ -102,7 +138,8 @@ private[cozy] object CozyMedia {
         languages <- c.downField("languages").as[Option[Vector[String]]]
         resources <- c.downField("resources").as[Option[Vector[Resource]]]
         profiles <- c.downField("profiles").as[Option[Map[String, Profile]]]
-      } yield Descriptor(schema, knowledge, languages.getOrElse(Vector.empty), resources.getOrElse(Vector.empty).sortBy(_.id), profiles.getOrElse(Map.empty))
+        articlemedia <- _optional_article_media_field[DescriptorArticleMedia](c, "articleMedia")
+      } yield Descriptor(schema, knowledge, languages.getOrElse(Vector.empty), resources.getOrElse(Vector.empty).sortBy(_.id), profiles.getOrElse(Map.empty), articlemedia)
   }
 
   sealed trait Action { def label: String }
@@ -232,6 +269,43 @@ private[cozy] object CozyMedia {
   private val _build_kinds = Set("copy", "svg-to-png", "prebuilt", "video-project")
   private val _property_options = Set("target", "profile")
 
+  private def _optional_article_media_field[A: Decoder](c: HCursor, field: String): Decoder.Result[Option[A]] =
+    c.downField(field).success match {
+      case Some(cursor) => cursor.as[A].map(Some(_))
+      case None => Right(None)
+    }
+
+  private def _require_exact_article_media_keys(c: HCursor, keys: Set[String]): Decoder.Result[Unit] =
+    c.value.asObject match {
+      case Some(value) if value.keys.toSet == keys => Right(())
+      case Some(_) => Left(io.circe.DecodingFailure("articleMedia requires exactly: " + keys.toVector.sorted.mkString(", "), c.history))
+      case None => Left(io.circe.DecodingFailure("articleMedia must be an object", c.history))
+    }
+
+  private def _require_article_media_object(c: HCursor): Decoder.Result[Unit] =
+    c.value.asObject match {
+      case Some(_) => Right(())
+      case None => Left(io.circe.DecodingFailure("articleMedia must be an object", c.history))
+    }
+
+  private def _require_resource_article_media_keys(c: HCursor, role: String): Decoder.Result[Unit] = {
+    val keys = c.value.asObject.map(_.keys.toSet).getOrElse(
+      return Left(io.circe.DecodingFailure("articleMedia must be an object", c.history))
+    )
+    role match {
+      case "infographic" =>
+        val required = Set("role", "publicPath")
+        val allowed = required ++ Set("mediaType", "alt")
+        if (required.subsetOf(keys) && keys.subsetOf(allowed)) Right(())
+        else Left(io.circe.DecodingFailure("articleMedia infographic requires role and publicPath and permits only mediaType and alt", c.history))
+      case "video" =>
+        val expected = Set("role", "production")
+        if (keys == expected) Right(())
+        else Left(io.circe.DecodingFailure("articleMedia video requires exactly role and production", c.history))
+      case _ => Left(io.circe.DecodingFailure("articleMedia role must be infographic or video", c.history))
+    }
+  }
+
   def execute(args: List[String]): Boolean = execute(args, ProcessRunner.default)
 
   def execute(args: List[String], runner: ProcessRunner): Boolean =
@@ -289,6 +363,8 @@ private[cozy] object CozyMedia {
     }
     lines.mkString("\n")
   }
+
+  private[cozy] def resolvePlan(config: CommandConfig): Plan = _plan(config)
 
   def build(config: CommandConfig, runner: ProcessRunner = ProcessRunner.default): String = {
     val mediaplan = _plan(config)
@@ -435,6 +511,10 @@ private[cozy] object CozyMedia {
       RAISE.invalidArgumentFault(s"Unsupported media schema: ${descriptor.schema}. Expected: ${_schema}")
     if (descriptor.knowledge.id.trim.isEmpty)
       RAISE.invalidArgumentFault("Media knowledge.id must not be empty")
+    descriptor.articleMedia.foreach { articlemedia =>
+      _validate_article_media_value(articlemedia.articleIdentity, "Media articleMedia.articleIdentity")
+      _validate_article_media_value(articlemedia.publicationProfile, "Media articleMedia.publicationProfile")
+    }
     val ids = descriptor.resources.map(_.id)
     if (ids.distinct.size != ids.size)
       RAISE.invalidArgumentFault("Media resource ids must be unique")
@@ -449,12 +529,28 @@ private[cozy] object CozyMedia {
         RAISE.invalidArgumentFault(s"Media prebuilt resource requires source: ${resource.id}")
       if (!Set("video-project", "prebuilt").contains(resource.build) && (resource.source.isEmpty || resource.output.isEmpty))
         RAISE.invalidArgumentFault(s"Media resource requires source and output: ${resource.id}")
+      resource.articleMedia.foreach {
+        case ResourceArticleMedia("infographic", publicpath, _, _, _) =>
+          _validate_article_media_value(publicpath.getOrElse(""), s"Media resource ${resource.id} articleMedia.publicPath")
+          if (resource.kind != "infographic")
+            RAISE.invalidArgumentFault(s"Media resource ${resource.id} articleMedia infographic requires kind: infographic")
+        case ResourceArticleMedia("video", _, _, _, production) =>
+          _validate_article_media_value(production.getOrElse(""), s"Media resource ${resource.id} articleMedia.production")
+          if (resource.kind != "video")
+            RAISE.invalidArgumentFault(s"Media resource ${resource.id} articleMedia video requires kind: video")
+        case _ =>
+          RAISE.invalidArgumentFault(s"Media resource ${resource.id} articleMedia role is invalid")
+      }
       resource.publications.keys.foreach { profile =>
         if (!descriptor.profiles.contains(profile))
           RAISE.invalidArgumentFault(s"Media resource ${resource.id} uses undefined profile: $profile")
       }
     }
   }
+
+  private def _validate_article_media_value(value: String, label: String): Unit =
+    if (value == null || value.trim.isEmpty || value != value.trim)
+      RAISE.invalidArgumentFault(s"$label must be a non-empty trimmed string")
 
   private def _resolve_relative(root: Path, value: String, label: String): Path = {
     val path = Path.of(value)
