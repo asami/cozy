@@ -685,6 +685,52 @@ Primary reference:
 - `docs/notes/article-media-publication-bok-integration.md`
 - `docs/journal/2026/08/article-media-publication-bok-integration-handoff-2026-08-03.md`
 
+### Phase 27: SmartDox Site Media Registration
+
+Status: active. AM27-00 contract promotion and responsibility pinning is
+complete.
+
+Purpose:
+
+- register infographic and accepted externally hosted video media from a
+  normal Cozy media package into the SmartDox site registry for the special
+  `simplemodeling.org` BoK, whose site is built directly by SmartDox rather
+  than through Cozy BoK build;
+- keep ordinary article registration/discovery in SmartDox while requiring
+  skills and Cozy video publication to use supported product commands for
+  media registration;
+- keep SmartDox responsible for the provider-neutral article-media
+  publication schema/model, validation, and site projection, while Cozy owns
+  normal-media-package orchestration because it knows `media.yaml` resources,
+  public paths, and accepted video evidence;
+- require explicit article identity and exact locale, with deterministic
+  owner-bundle role/locale merge, lock/preflight/atomic replacement, and
+  preservation of unrelated entries; and
+- drive the end-to-end acceptance from Part 5, with Part 4 retained for
+  incident evidence only.
+
+The normative AM27-00 contract is `cozy media register-site <media-file>
+--publication <dir> [--target <resource-id>] [--dry-run]`, with explicit
+descriptor `articleMedia.articleIdentity`, `publicationProfile`, and selected
+resource association. It requires exact-locale deterministic owner-bundle
+merge, complete preflight, one real-root lock, and atomic replacement. SmartDox
+records remain provider-neutral and contain no Cozy internals. The phase
+excludes `cozy bok publish-media`, BoK scan/build/repository/staging
+dependencies, arbitrary target scans, direct skill/manual registry edits, media
+generation/upload/site deployment, coupled deployment, and implicit host
+fallback.
+
+Primary references:
+
+- `docs/phase/phase-27.md`
+- `docs/phase/phase-27-checklist.md`
+- `docs/phase/phase-26.md`
+- `docs/phase/phase-26-checklist.md`
+- `docs/design/article-media-publication.md`
+- `docs/spec/article-media-publication.md`
+- `docs/design/smartdox-site-media-registration.md`
+- `docs/spec/smartdox-site-media-registration.md`
+
 ### Future Follow-up: Explicit Component Root Generation
 
 Status: planned, low priority.
@@ -727,8 +773,9 @@ SmartDox dependency was satisfied by accepted closed
 Phase 1 commit `fa21316973416c24bca7f8e366d65572c72720b7` through development
 coordinate `org.smartdox:smartdox_2.12:2.4.17-SNAPSHOT`; public/non-SNAPSHOT
 publication is not a start gate. It does not require a video binary to enter
-Git or make ordinary `bok build` generate media. No new active phase is
-selected; Phase 24 remains separately planned and blocked on its own contract.
+Git or make ordinary `bok build` generate media. Phase 27 is active with
+AM27-00 complete and AM27-01 next, while Phase 24 remains separately planned
+and blocked on its own contract.
 
 Phase 20 introduced provider-neutral narration with VOICEVOX, host-only macOS
 `say`, and a portable Piper Docker route, then used that contract to migrate the

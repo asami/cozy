@@ -4,7 +4,9 @@ Purpose: engineering work management.
 
 Current phase state:
 
-- No active, in-progress phase is selected.
+- Active phase: `phase-27.md`: SmartDox Site Media Registration.
+- Current completed stage: `AM27-00`: Contract Promotion and Responsibility
+  Pinning.
 - Most recent closed phase: `phase-26.md`: Article Media Publication and BoK
   Integration. Its SmartDox dependency was satisfied by accepted closed Phase 1
   commit `fa21316973416c24bca7f8e366d65572c72720b7` and development coordinate
@@ -33,4 +35,6 @@ Not allowed:
 This directory is the work ledger layer. See
 `ai/directive/core/document-lifecycle.md`. Phase 26 contract authority is
 `docs/design/article-media-publication.md` and
-`docs/spec/article-media-publication.md`.
+`docs/spec/article-media-publication.md`. Phase 27 contract authority is
+`docs/design/smartdox-site-media-registration.md` and
+`docs/spec/smartdox-site-media-registration.md`.
