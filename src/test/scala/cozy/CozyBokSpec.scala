@@ -1,6 +1,6 @@
-package cozy
+package cozy.bok
 
-import cozy.bok.CozyBok
+import cozy.{Cozy, CozySpecVocabulary}
 import cozy.video.CozyVideoSpec
 import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
@@ -16,7 +16,7 @@ import org.scalatest.wordspec.AnyWordSpec
  * @since   Jun.  3, 2026
  *  version Jun. 27, 2026
  *  version Jul. 23, 2026
- * @version Aug.  5, 2026
+ * @version Aug. 11, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokSpec
@@ -28,21 +28,19 @@ class CozyBokSpec
       "create a KnowledgeHub BoK source scaffold" in {
         _with_temp_dir("cozy-bok-create") { dir =>
           Given("a requested KnowledgeHub BoK project name, URL, and language")
-          When("Cozy creates the BoK source scaffold")
-          CozyBok.create(
-            CozyBok.CreateConfig.create(
-              List(
-                "--save",
-                dir.toString,
-                "--name",
-                "KnowledgeHub BoK",
-                "--url",
-                "https://www.asamioffice.com/kokubunji/knowledgehub",
-                "--language",
-                "ja"
-              )
-            )
+          val args = List(
+            "--save",
+            dir.toString,
+            "--name",
+            "KnowledgeHub BoK",
+            "--url",
+            "https://www.asamioffice.com/kokubunji/knowledgehub",
+            "--language",
+            "ja"
           )
+
+          When("Cozy creates the BoK source scaffold")
+          CozyBok.create(CozyBok.CreateConfig.create(args))
 
           Then(
             "the scaffold contains source, configuration, UI, manual, history, and RDF seed files"
@@ -358,19 +356,17 @@ class CozyBokSpec
       "create an English Home scaffold when requested" in {
         _with_temp_dir("cozy-bok-create-english") { dir =>
           Given("a requested English BoK project")
-          When("Cozy creates the BoK source scaffold")
-          CozyBok.create(
-            CozyBok.CreateConfig.create(
-              List(
-                "--save",
-                dir.toString,
-                "--name",
-                "KnowledgeHub BoK",
-                "--language",
-                "en"
-              )
-            )
+          val args = List(
+            "--save",
+            dir.toString,
+            "--name",
+            "KnowledgeHub BoK",
+            "--language",
+            "en"
           )
+
+          When("Cozy creates the BoK source scaffold")
+          CozyBok.create(CozyBok.CreateConfig.create(args))
 
           Then("the Home narrative seed uses English reader-facing text")
           _read(dir.resolve("src/main/doxsite/index.dox")) should include(
@@ -563,9 +559,11 @@ class CozyBokSpec
       "reject equals-form options as non-canonical metadata" in {
         _with_temp_dir("cozy-bok-equals-options") { dir =>
           Given("a BoK command option written in --key=value form")
+          val args = List(s"--save=${dir}")
+
           When("the command metadata parser validates the arguments")
           val e = intercept[Throwable] {
-            CozyBok.CreateConfig.create(List(s"--save=${dir}"))
+            CozyBok.CreateConfig.create(args)
           }
           Then(
             "the parser rejects the non-canonical form and points to the supported syntax"
@@ -3292,9 +3290,11 @@ class CozyBokSpec
     "render help and parse metadata" which {
       "list BoK publication path options in help" in {
         Given("a user requesting Cozy help")
+        val args = Array("--help")
+
         When("the help text is rendered")
         val help = _capture {
-          Cozy.main(Array("--help"))
+          Cozy.main(args)
         }
 
         Then(
@@ -3419,12 +3419,12 @@ class CozyBokSpec
       "validate preview port as integer metadata" in {
         _with_temp_dir("cozy-bok-preview-port") { dir =>
           Given("a BoK preview command with a non-integer port")
+          val args = List(dir.toString, "--port", "not-int")
+          val runner = new RecordingRunner
+
           When("the preview command metadata is parsed")
           val e = intercept[Throwable] {
-            CozyBok.preview(
-              List(dir.toString, "--port", "not-int"),
-              new RecordingRunner
-            )
+            CozyBok.preview(args, runner)
           }
           Then("the invalid port is rejected explicitly")
           e.getMessage should include("not-int")
@@ -3746,7 +3746,7 @@ class CozyBokSpec
   private val _video_script_json: String =
     """{
       |  "title": "Tutorial Script",
-      |  "voice": {"speaker": "ずんだもん", "style": "ノーマル"},
+      |  "voice": {"speakerName": "ずんだもん", "styleName": "ノーマル"},
       |  "scenes": [
       |    {"id": "intro", "speaker": "ずんだもん", "line": "こんにちは", "duration": 1.0}
       |  ]

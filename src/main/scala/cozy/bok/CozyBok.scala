@@ -33,7 +33,7 @@ import io.circe.syntax._
 /*
  * @since   Jun.  3, 2026
  *  version Jul. 23, 2026
- * @version Aug.  5, 2026
+ * @version Aug. 11, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyBok {
@@ -4678,19 +4678,24 @@ private[cozy] object CozyBok {
   ): Option[RepositoryCatalogDiscovery] = {
     val repositoryroot = config.publication.repositoryPath(config.project).toAbsolutePath.normalize
     val indexpath = repositoryroot.resolve("catalog/index.json")
-    if (!Files.isRegularFile(indexpath)) None
+    if (!_repository_path_admitted(repositoryroot, indexpath, directory = false)) None
     else Some {
       try {
         val index = _root_.cozy.archive.ComponentRepositoryIndex.load(indexpath)
         val attempts = index.artifacts.filter(_.kind == kind).map { entry =>
           val catalogpath = indexpath.getParent.resolve(entry.catalog).normalize
-          if (!catalogpath.startsWith(indexpath.getParent) || !Files.isRegularFile(catalogpath))
+          val catalogroot = repositoryroot.resolve("catalog").toAbsolutePath.normalize
+          if (
+            !catalogpath.startsWith(catalogroot) ||
+            !_repository_path_admitted(repositoryroot, catalogpath, directory = false)
+          )
             Left(RepositoryCatalogDiagnostic("index-catalog-unavailable", entry.kind, entry.artifactId, Some(entry.catalog)))
           else try {
             val catalog = _load_repository_catalog(catalogpath)
             if (
               catalog.kind != entry.kind ||
               catalog.artifactId != entry.artifactId ||
+              (entry.kind == "car" && (catalog.namespace != entry.namespace || catalog.id != entry.id)) ||
               catalog.status.getOrElse("active") != entry.status ||
               catalog.recommended != entry.recommended ||
               catalog.latestStable != entry.latestStable ||
@@ -4741,12 +4746,18 @@ private[cozy] object CozyBok {
     catalog: _root_.cozy.archive.RepositoryArtifactCatalog
   ): RepositoryCatalogSource = {
     val normalizedpath = path.toAbsolutePath.normalize
-    val kinddir = normalizedpath.getParent
-    val catalogdir = Option(kinddir).flatMap(x => Option(x.getParent)).getOrElse(
-      RAISE.invalidArgumentFault(s"Repository catalog has no catalog root: ${path}")
-    )
-    if (catalogdir.getFileName.toString != "catalog")
-      RAISE.invalidArgumentFault(s"Repository catalog must be under repository/catalog/${catalog.kind}: ${path}")
+    val kinddir = Iterator
+      .iterate(Option(normalizedpath.getParent))(_.flatMap(x => Option(x.getParent)))
+      .takeWhile(_.nonEmpty)
+      .flatten
+      .find { x =>
+        Option(x.getFileName).exists(_.toString == catalog.kind) &&
+        Option(x.getParent).flatMap(y => Option(y.getFileName)).exists(_.toString == "catalog")
+      }
+      .getOrElse(
+        RAISE.invalidArgumentFault(s"Repository catalog must be under repository/catalog/${catalog.kind}: ${path}")
+      )
+    val catalogdir = kinddir.getParent
     val repositoryroot = catalogdir.getParent
     val projectroot = config.project.toAbsolutePath.normalize
     val sourcepath =
@@ -4838,7 +4849,7 @@ private[cozy] object CozyBok {
       val abimanifest = version.abimanifest match {
         case None => Vector(_diagnostic_("archive-without-abi-manifest", None))
         case Some(json) =>
-          val coordinate = _repository_car_abi_manifest_coordinate(artifactid, json)
+          val coordinate = _repository_car_abi_manifest_coordinate(artifactid, version, json)
           if (_repository_car_coordinate_mismatches(version.version, coordinate))
             Vector(_diagnostic_("abi-manifest-coordinate-mismatch", coordinate))
           else
@@ -4853,29 +4864,49 @@ private[cozy] object CozyBok {
     json: Json
   ): Option[RepositoryCarMetadataCoordinate] = {
     val cursor = json.hcursor
-    val topname = cursor.get[String]("name").toOption
-    val componentname = cursor.downField("component").get[String]("name").toOption
-    val name = topname.orElse(componentname)
-    val version = cursor.get[String]("version").toOption.
-      orElse(cursor.downField("component").get[String]("version").toOption)
-    val expectedname = if (topname.isDefined) artifactid else catalogversion.component.getOrElse(artifactid)
-    if (name.isDefined || version.isDefined)
-      Some(RepositoryCarMetadataCoordinate(name, version, expectedname))
-    else
-      None
+    val component = cursor.downField("component")
+    val namespace = component.get[String]("namespace").toOption
+    val id = component.get[String]("id").toOption
+    if (namespace.isDefined || id.isDefined) {
+      val name = Some(s"${namespace.getOrElse("")}.${id.getOrElse("")}")
+      val version = component.get[String]("version").toOption
+      Some(RepositoryCarMetadataCoordinate(name, version, catalogversion.component.getOrElse(artifactid)))
+    } else {
+      val topname = cursor.get[String]("name").toOption
+      val componentname = component.get[String]("name").toOption
+      val name = topname.orElse(componentname)
+      val version = cursor.get[String]("version").toOption.
+        orElse(component.get[String]("version").toOption)
+      val expectedname = if (topname.isDefined) artifactid else catalogversion.component.getOrElse(artifactid)
+      if (name.isDefined || version.isDefined)
+        Some(RepositoryCarMetadataCoordinate(name, version, expectedname))
+      else
+        None
+    }
   }
 
   private def _repository_car_abi_manifest_coordinate(
     artifactid: String,
+    catalogversion: RepositoryCarVersion,
     json: Json
   ): Option[RepositoryCarMetadataCoordinate] = {
-    val car = json.hcursor.downField("car")
-    val name = car.get[String]("name").toOption
-    val version = car.get[String]("version").toOption
-    if (name.isDefined || version.isDefined)
-      Some(RepositoryCarMetadataCoordinate(name, version, artifactid))
-    else
-      None
+    val cursor = json.hcursor
+    val component = cursor.downField("component")
+    val namespace = component.get[String]("namespace").toOption
+    val id = component.get[String]("id").toOption
+    if (namespace.isDefined || id.isDefined) {
+      val name = Some(s"${namespace.getOrElse("")}.${id.getOrElse("")}")
+      val version = component.get[String]("version").toOption
+      Some(RepositoryCarMetadataCoordinate(name, version, catalogversion.component.getOrElse(artifactid)))
+    } else {
+      val car = cursor.downField("car")
+      val name = car.get[String]("name").toOption
+      val version = car.get[String]("version").toOption
+      if (name.isDefined || version.isDefined)
+        Some(RepositoryCarMetadataCoordinate(name, version, artifactid))
+      else
+        None
+    }
   }
 
   private def _repository_car_coordinate_mismatches(
@@ -4887,14 +4918,15 @@ private[cozy] object CozyBok {
     }
 
   private def _repository_catalog_paths(config: BuildConfig, kind: String): Vector[Path] = {
-    val dir = config.publication.repositoryPath(config.project).resolve(s"catalog/$kind")
-    if (!Files.isDirectory(dir))
+    val repositoryroot = config.publication.repositoryPath(config.project).toAbsolutePath.normalize
+    val dir = repositoryroot.resolve(s"catalog/$kind").toAbsolutePath.normalize
+    if (!_repository_path_admitted(repositoryroot, dir, directory = true))
       Vector.empty
     else {
       val stream = Files.walk(dir)
       try {
         stream.iterator.asScala.toVector.
-          filter(Files.isRegularFile(_)).
+          filter(path => _repository_path_admitted(repositoryroot, path, directory = false)).
           filter(path => _is_repository_catalog_file(path)).
           sortBy(_.toAbsolutePath.normalize.toString)
       } finally {
@@ -4907,6 +4939,28 @@ private[cozy] object CozyBok {
     val name = path.getFileName.toString.toLowerCase(Locale.ROOT)
     !name.contains(".model-metadata.") &&
       (name.endsWith(".yaml") || name.endsWith(".yml") || name.endsWith(".json"))
+  }
+
+  private def _repository_path_admitted(repositoryroot: Path, candidate: Path, directory: Boolean): Boolean = {
+    val root = repositoryroot.toAbsolutePath.normalize
+    val path = candidate.toAbsolutePath.normalize
+    if (
+      !path.startsWith(root) ||
+      Files.isSymbolicLink(root) ||
+      !Files.isDirectory(root, LinkOption.NOFOLLOW_LINKS)
+    )
+      false
+    else {
+      val segments = root.relativize(path).iterator.asScala
+      var current = root
+      var admitted = true
+      while (segments.hasNext && admitted) {
+        current = current.resolve(segments.next())
+        admitted = !Files.isSymbolicLink(current)
+      }
+      admitted &&
+        (if (directory) Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS) else Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
+    }
   }
 
   private def _read_repository_catalog(config: BuildConfig, kind: String, path: Path): Option[RepositoryCatalogSource] =
@@ -4934,7 +4988,7 @@ private[cozy] object CozyBok {
       sourcepath = _repository_catalog_public_source(source),
       repositoryroot = source.repositoryroot,
       sidecars = _repository_car_sidecars(source.repositoryroot, source.path, source.catalog.artifactId),
-      versions = source.catalog.versions.map(_repository_car_version(source.repositoryroot, _))
+      versions = source.catalog.versions.map(_repository_car_version(source.repositoryroot, source.catalog, _))
     )
 
   private def _repository_car_sidecars(
@@ -4970,9 +5024,10 @@ private[cozy] object CozyBok {
 
   private def _repository_car_version(
     repositoryroot: Path,
+    catalog: _root_.cozy.archive.RepositoryArtifactCatalog,
     version: _root_.cozy.archive.RepositoryArtifactCatalogVersion
   ): RepositoryCarVersion = {
-    val archive = _repository_car_archive_metadata(repositoryroot, version.file)
+    val archive = _repository_car_archive_metadata(repositoryroot, catalog, version)
     RepositoryCarVersion(
       version = version.version,
       channel = version.channel,
@@ -5005,9 +5060,27 @@ private[cozy] object CozyBok {
 
   private def _repository_car_archive_metadata(
     repositoryroot: Path,
-    file: Option[String]
+    catalog: _root_.cozy.archive.RepositoryArtifactCatalog,
+    version: _root_.cozy.archive.RepositoryArtifactCatalogVersion
   ): RepositoryCarArchiveMetadata =
-    file.map(_repository_catalog_artifact_path(repositoryroot, _)).filter(Files.isRegularFile(_)).map { path =>
+    version.file.map(_repository_catalog_artifact_path(repositoryroot, _)).filter(Files.isRegularFile(_)).map { path =>
+      val actualdigest = _root_.cozy.archive.RepositoryArtifactPublisher.sha256(path)
+      val expecteddigest = version.checksumSha256.getOrElse("missing")
+      if (actualdigest != expecteddigest)
+        throw new IllegalArgumentException(
+          s"component.repository.integrity.mismatch source=archive field=checksum.sha256 expected=${expecteddigest} actual=${actualdigest}"
+        )
+      val expectedkey = _root_.cozy.archive.CozyComponentReleaseCoordinateCodec.admit(
+        catalog.namespace.getOrElse(""),
+        catalog.id.getOrElse(""),
+        version.version,
+        "archive"
+      ).integrityKey(actualdigest)
+      val actualkey = version.integrityKey.getOrElse("missing")
+      if (actualkey != expectedkey)
+        throw new IllegalArgumentException(
+          s"component.repository.integrity.mismatch source=archive field=integrityKey expected=${expectedkey} actual=${actualkey}"
+        )
       val zip = new ZipFile(path.toFile)
       try {
         def _json_entry_(name: String): Option[Json] =
@@ -5529,16 +5602,26 @@ private[cozy] object CozyBok {
 
   private def _repository_car_component_descriptor_summary(json: Json): String = {
     val cursor = json.hcursor
-    val name = cursor.get[String]("name").toOption.
-      orElse(cursor.downField("component").get[String]("name").toOption).
-      getOrElse("-")
-    val version = cursor.get[String]("version").toOption.
-      orElse(cursor.downField("component").get[String]("version").toOption).
-      getOrElse("-")
-    val component = cursor.get[String]("component").toOption.
-      orElse(cursor.get[String]("componentName").toOption).
-      orElse(cursor.downField("component").get[String]("componentName").toOption).
-      getOrElse(name)
+    val canonicalcomponent = cursor.downField("component")
+    val namespace = canonicalcomponent.get[String]("namespace").toOption
+    val id = canonicalcomponent.get[String]("id").toOption
+    val (name, version, component) =
+      if (namespace.isDefined || id.isDefined) {
+        val identity = s"${namespace.getOrElse("")}.${id.getOrElse("")}"
+        (identity, canonicalcomponent.get[String]("version").toOption.getOrElse("-"), identity)
+      } else {
+        val legacyname = cursor.get[String]("name").toOption.
+          orElse(canonicalcomponent.get[String]("name").toOption).
+          getOrElse("-")
+        val legacyversion = cursor.get[String]("version").toOption.
+          orElse(canonicalcomponent.get[String]("version").toOption).
+          getOrElse("-")
+        val legacycomponent = cursor.get[String]("component").toOption.
+          orElse(cursor.get[String]("componentName").toOption).
+          orElse(canonicalcomponent.get[String]("componentName").toOption).
+          getOrElse(legacyname)
+        (legacyname, legacyversion, legacycomponent)
+      }
     val entitycount = cursor.downField("entities").as[Vector[Json]].toOption.map(_.size).getOrElse(0)
     _html_escape(s"${name} ${version} / ${component} / entities ${entitycount}")
   }
@@ -5546,10 +5629,16 @@ private[cozy] object CozyBok {
   private def _repository_car_abi_manifest_summary(json: Json): String = {
     val cursor = json.hcursor
     val car = cursor.downField("car")
+    val component = cursor.downField("component")
     val abi = cursor.downField("abi")
     val exports = abi.downField("exports")
-    val name = car.get[String]("name").toOption.getOrElse("-")
-    val version = car.get[String]("version").toOption.getOrElse("-")
+    val namespace = component.get[String]("namespace").toOption
+    val id = component.get[String]("id").toOption
+    val (name, version) =
+      if (namespace.isDefined || id.isDefined)
+        (s"${namespace.getOrElse("")}.${id.getOrElse("")}", component.get[String]("version").toOption.getOrElse("-"))
+      else
+        (car.get[String]("name").toOption.getOrElse("-"), car.get[String]("version").toOption.getOrElse("-"))
     val abiversion = abi.get[Int]("version").toOption.getOrElse(1)
     def _count_(field: String): Int = exports.downField(field).as[Vector[Json]].toOption.map(_.size).getOrElse(0)
     _html_escape(

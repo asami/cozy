@@ -1,9 +1,11 @@
-package cozy
+package cozy.bok
 
-import cozy.bok.CozyBok
+import cozy.{Cozy, CozySpecVocabulary}
+import cozy.archive.CozyCarPublisher
 import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
+import java.util.zip.{ZipEntry, ZipOutputStream}
 import scala.collection.JavaConverters._
 import io.circe.parser
 import org.scalatest.GivenWhenThen
@@ -11,7 +13,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jun. 23, 2026
- * @version Jul. 23, 2026
+ * @version Aug. 11, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokProjectSpec
@@ -313,14 +315,16 @@ class CozyBokProjectSpec
           )
           _write(
             dir.resolve(
-              "public-repository/car/nict-knowledgehub/0.1.0/nict-knowledgehub-0.1.0.car"
+              "public-repository/car/org/nict/nict-knowledgehub/0.1.0/nict-knowledgehub-0.1.0.car"
             ),
             "car-body"
           )
           _write(
-            dir.resolve("public-repository/catalog/car/nict-knowledgehub.yaml"),
-            """schemaVersion: 1
+            dir.resolve("public-repository/catalog/car/org/nict/nict-knowledgehub.yaml"),
+            """schemaVersion: 2
               |kind: car
+              |namespace: org.nict
+              |id: Knowledgehub
               |artifactId: nict-knowledgehub
               |recommended: 0.1.0
               |latestStable: 0.1.0
@@ -330,8 +334,11 @@ class CozyBokProjectSpec
               |  - version: 0.1.0
               |    channel: stable
               |    status: active
-              |    component: nict-knowledgehub
-              |    file: repository/car/nict-knowledgehub/0.1.0/nict-knowledgehub-0.1.0.car
+              |    component: org.nict.Knowledgehub
+              |    file: repository/car/org/nict/nict-knowledgehub/0.1.0/nict-knowledgehub-0.1.0.car
+              |    checksum:
+              |      sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+              |    integrityKey: org.nict:nict-knowledgehub:0.1.0@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
               |""".stripMargin
           )
           val config = CozyBok.PublicationConfig.create(
@@ -347,26 +354,26 @@ class CozyBokProjectSpec
           )
           results.head.artifact shouldBe dir
             .resolve(
-              "public-repository/car/nict-knowledgehub/0.1.0/nict-knowledgehub-0.1.0.car"
+              "public-repository/car/org/nict/nict-knowledgehub/0.1.0/nict-knowledgehub-0.1.0.car"
             )
             .toAbsolutePath
             .normalize()
           results.head.artifactexists shouldBe true
           dir.resolve(
-            "repository/car/nict-knowledgehub/0.1.0/nict-knowledgehub-0.1.0.car"
+            "repository/car/org/nict/nict-knowledgehub/0.1.0/nict-knowledgehub-0.1.0.car"
           ) shouldNot exist_path
           dir.resolve(
-            "warehouse/repository/car/nict-knowledgehub/0.1.0/nict-knowledgehub-0.1.0.car"
+            "warehouse/repository/car/org/nict/nict-knowledgehub/0.1.0/nict-knowledgehub-0.1.0.car"
           ) shouldNot exist_path
           val bundle =
             _read(dir.resolve("src/main/publication/nict-knowledgehub.json"))
           bundle should include("\"versionSource\" : \"repository-catalog\"")
-          bundle should include("repository/catalog/car/nict-knowledgehub.yaml")
+          bundle should include("repository/catalog/car/org/nict/nict-knowledgehub.yaml")
           bundle should include(
-            "\"warehousePath\" : \"repository/car/nict-knowledgehub/0.1.0/nict-knowledgehub-0.1.0.car\""
+            "\"warehousePath\" : \"repository/car/org/nict/nict-knowledgehub/0.1.0/nict-knowledgehub-0.1.0.car\""
           )
           bundle should include(
-            "\"publicPath\" : \"repository/car/nict-knowledgehub/0.1.0/nict-knowledgehub-0.1.0.car\""
+            "\"publicPath\" : \"repository/car/org/nict/nict-knowledgehub/0.1.0/nict-knowledgehub-0.1.0.car\""
           )
           bundle should not include ("repository/repository/car")
           bundle should not include ("public-repository/car")
@@ -530,14 +537,16 @@ class CozyBokProjectSpec
           )
           _write(
             dir.resolve(
-              "repository/car/nict-knowledgehub/0.2.0/nict-knowledgehub-0.2.0.car"
+              "repository/car/org/nict/nict-knowledgehub/0.2.0/nict-knowledgehub-0.2.0.car"
             ),
             "catalog-car-body"
           )
           _write(
-            dir.resolve("repository/catalog/car/nict-knowledgehub.yaml"),
-            """schemaVersion: 1
+            dir.resolve("repository/catalog/car/org/nict/nict-knowledgehub.yaml"),
+            """schemaVersion: 2
               |kind: car
+              |namespace: org.nict
+              |id: Knowledgehub
               |artifactId: nict-knowledgehub
               |recommended: 0.2.0
               |latestStable: 0.2.0
@@ -547,8 +556,11 @@ class CozyBokProjectSpec
               |  - version: 0.2.0
               |    channel: stable
               |    status: active
-              |    component: nict-knowledgehub
-              |    file: repository/car/nict-knowledgehub/0.2.0/nict-knowledgehub-0.2.0.car
+              |    component: org.nict.Knowledgehub
+              |    file: repository/car/org/nict/nict-knowledgehub/0.2.0/nict-knowledgehub-0.2.0.car
+              |    checksum:
+              |      sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+              |    integrityKey: org.nict:nict-knowledgehub:0.2.0@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
               |""".stripMargin
           )
           val pkg = dir.resolve(
@@ -592,9 +604,9 @@ class CozyBokProjectSpec
             _read(dir.resolve("src/main/publication/nict-knowledgehub.json"))
           bundle should include("\"version\" : \"0.2.0\"")
           bundle should include("\"versionSource\" : \"repository-catalog\"")
-          bundle should include("repository/catalog/car/nict-knowledgehub.yaml")
+          bundle should include("repository/catalog/car/org/nict/nict-knowledgehub.yaml")
           bundle should include(
-            "repository/car/nict-knowledgehub/0.2.0/nict-knowledgehub-0.2.0.car"
+            "repository/car/org/nict/nict-knowledgehub/0.2.0/nict-knowledgehub-0.2.0.car"
           )
         }
       }
@@ -1242,8 +1254,8 @@ class CozyBokProjectSpec
               withsubsystemcatalog = false
             )
             _write(
-              localrepo.resolve("catalog/car/textus-semantic-integration-engine.json"),
-              _sie_component_catalog_json("0.1.0")
+              localrepo.resolve("catalog/car/org/example/textus/textus-semantic-integration-engine.yaml"),
+              _sie_component_catalog_yaml("0.1.0")
             )
             _write(
               localrepo.resolve("catalog/sar/nict-knowledgehub-runtime.json"),
@@ -1393,8 +1405,8 @@ class CozyBokProjectSpec
             val localrepo = dir.resolve("home/.cncf/local/repository")
             val localpath = _write_sie_project_source(dir, "https://sie.example.com/nict-knowledgehub/")
             _write(
-              localrepo.resolve("catalog/car/textus-semantic-integration-engine.json"),
-              _sie_component_catalog_json("0.1.0")
+              localrepo.resolve("catalog/car/org/example/textus/textus-semantic-integration-engine.yaml"),
+              _sie_component_catalog_yaml("0.1.0")
             )
             _write(
               localrepo.resolve("catalog/sar/nict-knowledgehub-runtime.json"),
@@ -1468,42 +1480,69 @@ class CozyBokProjectSpec
           val bundle = _read(dir.resolve("src/main/publication/nict-knowledgehub.json"))
           bundle should include(""""code" : "sie.project.component.unresolved"""")
           bundle should include("SIE component is not registered in the repository CAR catalog: textus-semantic-integration-engine")
-          bundle should include("repository/catalog/car/textus-semantic-integration-engine.yaml")
+          bundle should include("repository/catalog/car/<namespace-path>/<artifact>.yaml")
           bundle should not include (localpath.toString)
         }
       }
 
-      "diagnose malformed and mismatched SIE component catalogs as unresolved" in {
-        Vector(
-          "malformed" -> "{ not-json",
-          "mismatched" ->
-            """{
-              |  "schemaVersion": "1",
-              |  "kind": "car",
-              |  "artifactId": "another-component",
-              |  "versions": []
-              |}
+      "diagnose a malformed SIE component catalog as unresolved" in {
+        _with_temp_dir("cozy-bok-sie-project-malformed-component") { dir =>
+          Given("an SIE-linked BoK Project with malformed catalog content at the requested component path")
+          _write_sie_project_source(
+            dir,
+            "https://sie.example.com/nict-knowledgehub/",
+            withcomponentcatalog = false
+          )
+          _write(
+            dir.resolve("repository/catalog/car/org/example/textus/textus-semantic-integration-engine.yaml"),
+            "{ not-json"
+          )
+
+          When("Cozy registers the Project in the publication registry")
+          CozyBok.publishProjects(CozyBok.PublicationConfig.create("publish-projects", List(dir.toString)))
+
+          Then("the parser-invalid catalog produces a stable unresolved-component diagnostic")
+          val bundle = _read(dir.resolve("src/main/publication/nict-knowledgehub.json"))
+          bundle should include(""""code" : "sie.project.component.unresolved"""")
+          bundle should include("SIE component is not registered in the repository CAR catalog: textus-semantic-integration-engine")
+        }
+      }
+
+      "diagnose a valid mismatched SIE component catalog as unresolved" in {
+        _with_temp_dir("cozy-bok-sie-project-mismatched-component") { dir =>
+          Given("an SIE-linked BoK Project with a valid canonical catalog for another component identity")
+          _write_sie_project_source(
+            dir,
+            "https://sie.example.com/nict-knowledgehub/",
+            withcomponentcatalog = false
+          )
+          _write(
+            dir.resolve("repository/catalog/car/org/example/textus/textus-other-component.yaml"),
+            """schemaVersion: 2
+              |kind: car
+              |namespace: org.example.textus
+              |id: OtherComponent
+              |artifactId: textus-other-component
+              |recommended: 0.1.0
+              |latestStable: 0.1.0
+              |versions:
+              |  - version: 0.1.0
+              |    channel: stable
+              |    component: org.example.textus.OtherComponent
+              |    file: repository/car/org/example/textus/textus-other-component/0.1.0/textus-other-component-0.1.0.car
+              |    checksum:
+              |      sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+              |    integrityKey: org.example.textus:textus-other-component:0.1.0@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
               |""".stripMargin
-        ).foreach { case (label, catalogbody) =>
-          _with_temp_dir(s"cozy-bok-sie-project-${label}-component") { dir =>
-            Given(s"an SIE-linked BoK Project with a ${label} component catalog")
-            _write_sie_project_source(
-              dir,
-              "https://sie.example.com/nict-knowledgehub/",
-              withcomponentcatalog = false
-            )
-            _write(
-              dir.resolve("repository/catalog/car/textus-semantic-integration-engine.json"),
-              catalogbody
-            )
+          )
 
-            When("Cozy registers the Project in the publication registry")
-            CozyBok.publishProjects(CozyBok.PublicationConfig.create("publish-projects", List(dir.toString)))
+          When("Cozy registers the Project in the publication registry")
+          CozyBok.publishProjects(CozyBok.PublicationConfig.create("publish-projects", List(dir.toString)))
 
-            Then("the invalid catalog does not satisfy the SIE component reference")
-            val bundle = _read(dir.resolve("src/main/publication/nict-knowledgehub.json"))
-            bundle should include(""""code" : "sie.project.component.unresolved"""")
-          }
+          Then("the valid identity-mismatched catalog produces the same unresolved-component diagnostic")
+          val bundle = _read(dir.resolve("src/main/publication/nict-knowledgehub.json"))
+          bundle should include(""""code" : "sie.project.component.unresolved"""")
+          bundle should include("SIE component is not registered in the repository CAR catalog: textus-semantic-integration-engine")
         }
       }
 
@@ -1735,11 +1774,15 @@ class CozyBokProjectSpec
           val projectdir = dir.resolve("project")
           val warehouse = dir.resolve("warehouse")
           val car =
-            _write(dir.resolve("input/nict-knowledgehub.car"), "car-body")
+            _write_prebuilt_car(dir.resolve("input/nict-knowledgehub.car"))
           _write(
             projectdir.resolve("project.yaml"),
             """project:
+              |  namespace: org.nict
+              |  id: Knowledgehub
               |  name: nict-knowledgehub
+              |  component:
+              |    version: 0.1.0
               |packaging:
               |  car:
               |    runtime:
@@ -1785,7 +1828,7 @@ class CozyBokProjectSpec
           Then(
             "the warehouse CAR catalog contains the CML source and machine-readable model metadata sidecars"
           )
-          val catalogdir = warehouse.resolve("repository/catalog/car")
+          val catalogdir = warehouse.resolve("repository/catalog/car/org/nict")
           catalogdir.resolve("nict-knowledgehub.yaml") should be_regular_file
           catalogdir.resolve("nict-knowledgehub.cml") should be_regular_file
           catalogdir.resolve(
@@ -1814,7 +1857,7 @@ class CozyBokProjectSpec
       "prefer repository model-metadata over direct CML scan for CAR project registration" in {
         _with_temp_dir("cozy-bok-project-model-metadata-priority") { dir =>
           Given(
-            "a BoK CAR project whose repository catalog has generated model metadata"
+            "a BoK CAR project whose canonical repository catalog has generated nested model metadata"
           )
           val externalproject = dir.resolve("external/nict-knowledgehub")
           _write(
@@ -1838,7 +1881,26 @@ class CozyBokProjectSpec
           )
           _write(
             dir.resolve(
-              "repository/catalog/car/nict-knowledgehub.model-metadata.json"
+              "repository/catalog/car/org/nict/nict-knowledgehub.yaml"
+            ),
+            """schemaVersion: 2
+              |kind: car
+              |namespace: org.nict
+              |id: Knowledgehub
+              |artifactId: nict-knowledgehub
+              |versions:
+              |  - version: 0.1.0
+              |    channel: stable
+              |    component: org.nict.Knowledgehub
+              |    file: repository/car/org/nict/nict-knowledgehub/0.1.0/nict-knowledgehub-0.1.0.car
+              |    checksum:
+              |      sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+              |    integrityKey: org.nict:nict-knowledgehub:0.1.0@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+              |""".stripMargin
+          )
+          _write(
+            dir.resolve(
+              "repository/catalog/car/org/nict/nict-knowledgehub.model-metadata.json"
             ),
             """{
               |  "schema": "cozy.cml.model-metadata.v1",
@@ -2309,9 +2371,11 @@ class CozyBokProjectSpec
               |""".stripMargin
           )
           _write(
-            dir.resolve("repository/catalog/car/nict-knowledgehub.yaml"),
-            """schemaVersion: 1
+            dir.resolve("repository/catalog/car/org/nict/nict-knowledgehub.yaml"),
+            """schemaVersion: 2
               |kind: car
+              |namespace: org.nict
+              |id: Knowledgehub
               |artifactId: nict-knowledgehub
               |recommended: 0.2.0
               |latestStable: 0.2.0
@@ -2328,44 +2392,55 @@ class CozyBokProjectSpec
               |  - version: 0.2.0
               |    channel: stable
               |    status: active
-              |    component: NictKnowledgeHub
+              |    component: org.nict.Knowledgehub
               |    publishedAt: 2026-07-13T00:00:00Z
-              |    file: repository/car/nict-knowledgehub/0.2.0/nict-knowledgehub-0.2.0.car
+              |    file: repository/car/org/nict/nict-knowledgehub/0.2.0/nict-knowledgehub-0.2.0.car
               |    runtime:
               |      cncf:
               |        minimum: 0.5.0
               |        tested:
               |          - 0.5.0
+              |    checksum:
+              |      sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+              |    integrityKey: org.nict:nict-knowledgehub:0.2.0@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
               |  - version: 0.3.0-SNAPSHOT
               |    channel: snapshot
-              |    file: repository/car/nict-knowledgehub/0.3.0-SNAPSHOT/nict-knowledgehub-0.3.0-SNAPSHOT.car
+              |    component: org.nict.Knowledgehub
+              |    file: repository/car/org/nict/nict-knowledgehub/0.3.0-SNAPSHOT/nict-knowledgehub-0.3.0-SNAPSHOT.car
+              |    checksum:
+              |      sha256: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+              |    integrityKey: org.nict:nict-knowledgehub:0.3.0-SNAPSHOT@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
               |""".stripMargin
           )
           _write(
-            dir.resolve("repository/catalog/car/textus-sie.json"),
-            """{
-              |  "schemaVersion": "1",
-              |  "kind": "car",
-              |  "artifactId": "textus-sie",
-              |  "latest_stable": "0.1.0",
-              |  "aliases": ["semantic-integration-engine"],
-              |  "tags": ["platform.sie"],
-              |  "terms": ["semantic integration engine"],
-              |  "versions": [
-              |    {
-              |      "version": "0.1.0",
-              |      "channel": "stable",
-              |      "file": "repository/car/textus-sie/0.1.0/textus-sie-0.1.0.car"
-              |    }
-              |  ]
-              |}
+            dir.resolve("repository/catalog/car/org/example/textus/textus-sie.yaml"),
+            """schemaVersion: 2
+              |kind: car
+              |namespace: org.example.textus
+              |id: Sie
+              |artifactId: textus-sie
+              |latestStable: 0.1.0
+              |aliases:
+              |  - semantic-integration-engine
+              |tags:
+              |  - platform.sie
+              |terms:
+              |  - semantic integration engine
+              |versions:
+              |  - version: 0.1.0
+              |    channel: stable
+              |    component: org.example.textus.Sie
+              |    file: repository/car/org/example/textus/textus-sie/0.1.0/textus-sie-0.1.0.car
+              |    checksum:
+              |      sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+              |    integrityKey: org.example.textus:textus-sie:0.1.0@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
               |""".stripMargin
           )
           _write(
-            dir.resolve("repository/catalog/car/nict-knowledgehub.model-metadata.json"),
+            dir.resolve("repository/catalog/car/org/nict/nict-knowledgehub.model-metadata.json"),
             """{
               |  "source": {
-              |    "path": "repository/catalog/car/nict-knowledgehub.cml"
+              |    "path": "repository/catalog/car/org/nict/nict-knowledgehub.cml"
               |  },
               |  "component": {
               |    "name": "NictKnowledgeHub"
@@ -2387,7 +2462,7 @@ class CozyBokProjectSpec
           metadata should include(""""artifact_id" : "nict-knowledgehub"""")
           metadata should include(""""artifact_id" : "textus-sie"""")
           metadata.indexOf("nict-knowledgehub") should be < metadata.indexOf("textus-sie")
-          metadata should include(""""source_path" : "repository/catalog/car/nict-knowledgehub.yaml"""")
+          metadata should include(""""source_path" : "repository/catalog/car/org/nict/nict-knowledgehub.yaml"""")
           metadata should include(""""latest_stable" : "0.2.0"""")
           metadata should include(""""runtime"""")
           metadata should include(""""minimum" : "0.5.0"""")
@@ -2427,7 +2502,7 @@ class CozyBokProjectSpec
           ) should include(""""artifact_id" : "nict-knowledgehub"""")
           _read(
             dir.resolve("website.d/metadata/repository/car/nict-knowledgehub.json")
-          ) should include(""""source_path" : "repository/catalog/car/nict-knowledgehub.yaml"""")
+          ) should include(""""source_path" : "repository/catalog/car/org/nict/nict-knowledgehub.yaml"""")
 
           And("repository CAR catalog entries have a dedicated index page")
           val index = _read(dir.resolve("website.d/repository/car/index.html"))
@@ -2435,7 +2510,7 @@ class CozyBokProjectSpec
           index should include("nict-knowledgehub")
           index should include("textus-sie")
           index should include("nict-kh")
-          index should include("repository/catalog/car/nict-knowledgehub.yaml")
+          index should include("repository/catalog/car/org/nict/nict-knowledgehub.yaml")
           index should include("nict-knowledgehub/index.html")
           index should include("CARリポジトリ診断")
           index should include("公開CARに対応するProject定義がありません。")
@@ -2444,7 +2519,7 @@ class CozyBokProjectSpec
 
           And("repository CAR module and version pages link back to the Project")
           val modulepage = _read(dir.resolve("website.d/repository/car/nict-knowledgehub/index.html"))
-          modulepage should include("repository/catalog/car/nict-knowledgehub.yaml")
+          modulepage should include("repository/catalog/car/org/nict/nict-knowledgehub.yaml")
           modulepage should include("0.2.0.html")
           modulepage should include("0.3.0-SNAPSHOT.html")
           modulepage should include("../../../tags/workflow/review.html")
@@ -2454,10 +2529,10 @@ class CozyBokProjectSpec
           modulepage should include("関連Project")
           modulepage should include("NICT KnowledgeHub")
           val versionpage = _read(dir.resolve("website.d/repository/car/nict-knowledgehub/0.2.0.html"))
-          versionpage should include("NictKnowledgeHub")
+          versionpage should include("org.nict.Knowledgehub")
           versionpage should include("2026-07-13T00:00:00Z")
           versionpage should include("minimum: 0.5.0")
-          versionpage should include("repository/car/nict-knowledgehub/0.2.0/nict-knowledgehub-0.2.0.car")
+          versionpage should include("repository/car/org/nict/nict-knowledgehub/0.2.0/nict-knowledgehub-0.2.0.car")
           versionpage should include("NICT KnowledgeHub")
 
           And("project detail page exposes the associated repository CAR versions")
@@ -2467,8 +2542,8 @@ class CozyBokProjectSpec
             )
           )
           page should include("CARリポジトリ")
-          page should include("repository/car/nict-knowledgehub/0.2.0/nict-knowledgehub-0.2.0.car")
-          page should include("repository/catalog/car/nict-knowledgehub.yaml")
+          page should include("repository/car/org/nict/nict-knowledgehub/0.2.0/nict-knowledgehub-0.2.0.car")
+          page should include("repository/catalog/car/org/nict/nict-knowledgehub.yaml")
           page should include("repository/car/nict-knowledgehub/0.2.0.html")
           page should include("tags/technology/sie.html")
 
@@ -2486,28 +2561,29 @@ class CozyBokProjectSpec
         }
       }
 
-      "reject repository CAR JSON catalogs whose filename and artifact id differ" in {
-        _with_temp_dir("cozy-bok-repository-car-json-mismatch") { dir =>
-          Given("a BoK source tree with a malformed repository CAR JSON catalog")
+      "reject repository CAR catalogs whose source path differs from the canonical coordinate" in {
+        _with_temp_dir("cozy-bok-repository-car-catalog-path-mismatch") { dir =>
+          Given("a BoK source tree with a CAR catalog outside its canonical coordinate")
           _write(
             dir.resolve("src/main/doxsite/site.conf"),
             "site { output { locale_mode = \"single_locale_root\" } }\n"
           )
           _write(dir.resolve("src/main/doxsite/index.dox"), "Home\n====\n")
           _write(
-            dir.resolve("repository/catalog/car/textus-sie.json"),
-            """{
-              |  "schemaVersion": "1",
-              |  "kind": "car",
-              |  "artifactId": "other-car",
-              |  "versions": [
-              |    {
-              |      "version": "0.1.0",
-              |      "channel": "stable",
-              |      "file": "repository/car/other-car/0.1.0/other-car-0.1.0.car"
-              |    }
-              |  ]
-              |}
+            dir.resolve("repository/catalog/car/org/example/textus/other-car.yaml"),
+            """schemaVersion: 2
+              |kind: car
+              |namespace: org.example.other
+              |id: Car
+              |artifactId: other-car
+              |versions:
+              |  - version: 0.1.0
+              |    channel: stable
+              |    component: org.example.other.Car
+              |    file: repository/car/org/example/other/other-car/0.1.0/other-car-0.1.0.car
+              |    checksum:
+              |      sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+              |    integrityKey: org.example.other:other-car:0.1.0@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
               |""".stripMargin
           )
           val config = CozyBok.BuildConfig.create(
@@ -2519,8 +2595,8 @@ class CozyBokProjectSpec
             CozyBok.build(config, new ProjectBuildRunner)
           }
 
-          Then("JSON catalogs use the same source path contract as YAML catalogs")
-          e.getMessage should include("filename")
+          Then("the canonical CAR catalog-path projection violation is reported")
+          e.getMessage should include("field=catalogPath")
         }
       }
     }
@@ -2627,8 +2703,8 @@ class CozyBokProjectSpec
     )
     if (withcomponentcatalog)
       _write(
-        dir.resolve("repository/catalog/car/textus-semantic-integration-engine.json"),
-        _sie_component_catalog_json("0.1.0")
+        dir.resolve("repository/catalog/car/org/example/textus/textus-semantic-integration-engine.yaml"),
+        _sie_component_catalog_yaml("0.1.0")
       )
     if (withsubsystemcatalog)
       _write(
@@ -2824,21 +2900,22 @@ class CozyBokProjectSpec
     )
   }
 
-  private def _sie_component_catalog_json(version: String): String =
-    s"""{
-       |  "schemaVersion": "1",
-       |  "kind": "car",
-       |  "artifactId": "textus-semantic-integration-engine",
-       |  "recommended": "${version}",
-       |  "latestStable": "${version}",
-       |  "versions": [
-       |    {
-       |      "version": "${version}",
-       |      "channel": "stable",
-       |      "file": "repository/car/textus-semantic-integration-engine/${version}/textus-semantic-integration-engine-${version}.car"
-       |    }
-       |  ]
-       |}
+  private def _sie_component_catalog_yaml(version: String): String =
+    s"""schemaVersion: 2
+       |kind: car
+       |namespace: org.example.textus
+       |id: SemanticIntegrationEngine
+       |artifactId: textus-semantic-integration-engine
+       |recommended: ${version}
+       |latestStable: ${version}
+       |versions:
+       |  - version: ${version}
+       |    channel: stable
+       |    component: org.example.textus.SemanticIntegrationEngine
+       |    file: repository/car/org/example/textus/textus-semantic-integration-engine/${version}/textus-semantic-integration-engine-${version}.car
+       |    checksum:
+       |      sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+       |    integrityKey: org.example.textus:textus-semantic-integration-engine:${version}@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
        |""".stripMargin
 
   private def _sie_subsystem_catalog_json(version: String): String =
@@ -2872,6 +2949,49 @@ class CozyBokProjectSpec
   private def _write(path: Path, content: String): Path = {
     Option(path.getParent).foreach(Files.createDirectories(_))
     Files.write(path, content.getBytes(StandardCharsets.UTF_8))
+    path
+  }
+
+  private def _write_prebuilt_car(path: Path): Path = {
+    Option(path.getParent).foreach(Files.createDirectories(_))
+    val zip = new ZipOutputStream(Files.newOutputStream(path))
+    try {
+      def _entry_(name: String, content: String): Unit = {
+        zip.putNextEntry(new ZipEntry(name))
+        zip.write(content.getBytes(StandardCharsets.UTF_8))
+        zip.closeEntry()
+      }
+      _entry_(
+        "component-descriptor.json",
+        """{
+          |  "schemaVersion": 3,
+          |  "component": {"namespace": "org.nict", "id": "Knowledgehub", "version": "0.1.0"}
+          |}
+          |""".stripMargin
+      )
+      _entry_(
+        "abi-manifest.json",
+        """{
+          |  "format": "cozy.car.abi-manifest.v2",
+          |  "component": {"namespace": "org.nict", "id": "Knowledgehub", "version": "0.1.0"},
+          |  "abi": {
+          |    "version": 1,
+          |    "exports": {
+          |      "components": [{"namespace": "org.nict", "id": "Knowledgehub"}],
+          |      "operations": [],
+          |      "entities": []
+          |    },
+          |    "dependencies": []
+          |  }
+          |}
+          |""".stripMargin
+      )
+      zip.putNextEntry(new ZipEntry("component/main.jar"))
+      zip.write("fixture payload".getBytes(StandardCharsets.UTF_8))
+      zip.closeEntry()
+    } finally {
+      zip.close()
+    }
     path
   }
 

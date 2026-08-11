@@ -12,7 +12,7 @@ import cozy.CozySpecVocabulary
 
 /*
  * @since   Jul. 20, 2026
- * @version Aug.  9, 2026
+ * @version Aug. 11, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoNarrationSpec
@@ -369,7 +369,8 @@ final class CozyVideoNarrationSpec
           }
 
           Then("the selected provider failure stops synthesis before output")
-          error.getMessage should include_text("Cannot synthesize narration: voicevox is not available")
+          error.getMessage should include_text("External service connection unavailable for synthesize narration")
+          error.getMessage should include_text("dependency=voicevox is missing;")
           error.getMessage should include_text("Start VOICEVOX")
           Files.exists(output) shouldBe false
         }

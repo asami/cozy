@@ -22,6 +22,11 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import play.api.libs.json.Json
 
+/*
+ * @since   Jul. 28, 2026
+ * @version Aug. 11, 2026
+ * @author  ASAMI, Tomoharu
+ */
 final class CozyArchivePackagerCv06Spec
     extends AnyWordSpec
     with Matchers
@@ -203,7 +208,7 @@ final class CozyArchivePackagerCv06Spec
         Then("the mutable generator is rejected before archive output")
         error.getMessage should include("SnapshotNotAllowedForRelease")
         error.getMessage should include(
-          "org.simplemodeling:cozy_2.12:0.3.1-SNAPSHOT"
+          s"org.simplemodeling:cozy_2.12:${org.simplemodeling.cozy.BuildInfo.version}"
         )
         Files.exists(archive) shouldBe false
       }

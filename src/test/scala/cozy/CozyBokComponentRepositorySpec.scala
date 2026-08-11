@@ -1,6 +1,7 @@
-package cozy
+package cozy.bok
 
-import cozy.bok.CozyBok
+import cozy.CozySpecVocabulary
+import cozy.archive.RepositoryArtifactPublisher
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
 import java.util.zip.{ZipEntry, ZipOutputStream}
@@ -11,7 +12,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jul. 13, 2026
- * @version Jul. 21, 2026
+ * @version Aug. 11, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokComponentRepositorySpec
@@ -24,21 +25,30 @@ class CozyBokComponentRepositorySpec
         _with_temp_dir("cozy-bok-repository-car-warehouse") { dir =>
           Given("a BoK source tree and a CAR catalog under an external warehouse repository")
           val warehouse = dir.resolve("warehouse")
+          val archivepath = warehouse.resolve("repository/car/org/example/textus/textus-sie/0.1.0/textus-sie-0.1.0.car")
+          _write_car_archive(archivepath)
+          val archivedigest = RepositoryArtifactPublisher.sha256(archivepath)
           _write(
             dir.resolve("src/main/doxsite/site.conf"),
             "site { output { locale_mode = \"single_locale_root\" } }\n"
           )
           _write(dir.resolve("src/main/doxsite/index.dox"), "Home\n====\n")
           _write(
-            warehouse.resolve("repository/catalog/car/textus-sie.yaml"),
-            """schemaVersion: 1
+            warehouse.resolve("repository/catalog/car/org/example/textus/textus-sie.yaml"),
+            s"""schemaVersion: 2
               |kind: car
+              |namespace: org.example.textus
+              |id: Sie
               |artifactId: textus-sie
               |recommended: 0.1.0
               |versions:
               |  - version: 0.1.0
               |    channel: stable
-              |    file: repository/car/textus-sie/0.1.0/textus-sie-0.1.0.car
+              |    component: org.example.textus.Sie
+              |    file: repository/car/org/example/textus/textus-sie/0.1.0/textus-sie-0.1.0.car
+              |    checksum:
+              |      sha256: $archivedigest
+              |    integrityKey: org.example.textus:textus-sie:0.1.0@sha256:$archivedigest
               |""".stripMargin
           )
           _write(
@@ -54,19 +64,16 @@ class CozyBokComponentRepositorySpec
               |""".stripMargin
           )
           _write(
-            warehouse.resolve("repository/catalog/car/textus-sie.cml"),
+            warehouse.resolve("repository/catalog/car/org/example/textus/textus-sie.cml"),
             "# COMPONENT\n\n## TextusSie\n"
           )
           _write(
-            warehouse.resolve("repository/catalog/car/textus-sie.model-metadata.json"),
+            warehouse.resolve("repository/catalog/car/org/example/textus/textus-sie.model-metadata.json"),
             "{\"schema\":\"cozy.cml.model-metadata.v1\"}\n"
           )
           _write(
-            warehouse.resolve("repository/catalog/car/textus-sie.model-metadata.yaml"),
+            warehouse.resolve("repository/catalog/car/org/example/textus/textus-sie.model-metadata.yaml"),
             "schema: cozy.cml.model-metadata.v1\n"
-          )
-          _write_car_archive(
-            warehouse.resolve("repository/car/textus-sie/0.1.0/textus-sie-0.1.0.car")
           )
           val config = CozyBok.BuildConfig.create(
             List(
@@ -86,35 +93,37 @@ class CozyBokComponentRepositorySpec
           config.publication.repositoryPath(dir) shouldBe warehouse.resolve("repository").toAbsolutePath.normalize()
           val metadata = _read(dir.resolve("doxsite.d/metadata/repository/car/index.json"))
           metadata should include(""""artifact_id" : "textus-sie"""")
-          metadata should include(""""source_path" : "warehouse/repository/catalog/car/textus-sie.yaml"""")
-          metadata should include(""""cml" : "repository/catalog/car/textus-sie.cml"""")
-          metadata should include(""""model_metadata_json" : "repository/catalog/car/textus-sie.model-metadata.json"""")
-          metadata should include(""""model_metadata_yaml" : "repository/catalog/car/textus-sie.model-metadata.yaml"""")
+          metadata should include(""""source_path" : "warehouse/repository/catalog/car/org/example/textus/textus-sie.yaml"""")
+          metadata should include(""""cml" : "repository/catalog/car/org/example/textus/textus-sie.cml"""")
+          metadata should include(""""model_metadata_json" : "repository/catalog/car/org/example/textus/textus-sie.model-metadata.json"""")
+          metadata should include(""""model_metadata_yaml" : "repository/catalog/car/org/example/textus/textus-sie.model-metadata.yaml"""")
           metadata should include("\"component_descriptor\" : {")
-          metadata should include(""""component" : "TextusSie"""")
+          metadata should include(""""namespace" : "org.example.textus"""")
+          metadata should include(""""id" : "Sie"""")
+          metadata should include(""""version" : "0.1.0"""")
           metadata should include(""""help" : "/help/TextusSie"""")
           metadata should include(""""manual" : "/man/TextusSie"""")
           metadata should include(""""openapi" : "/openapi.json"""")
           metadata should include(""""mcp" : "/mcp"""")
           metadata should include("\"abi_manifest\" : {")
-          metadata should include(""""format" : "cozy.car.abi-manifest.v1"""")
+          metadata should include(""""format" : "cozy.car.abi-manifest.v2"""")
 
           And("the generated website exposes the CAR entry and its public sidecars")
           _read(dir.resolve("website.d/metadata/repository/car/index.json")) should include("textus-sie")
           val page = _read(dir.resolve("website.d/repository/car/index.html"))
           page should include("textus-sie")
-          page should include("warehouse/repository/catalog/car/textus-sie.yaml")
-          dir.resolve("website.d/repository/catalog/car/textus-sie.cml") should be_regular_file
-          dir.resolve("website.d/repository/catalog/car/textus-sie.model-metadata.json") should be_regular_file
-          dir.resolve("website.d/repository/catalog/car/textus-sie.model-metadata.yaml") should be_regular_file
+          page should include("warehouse/repository/catalog/car/org/example/textus/textus-sie.yaml")
+          dir.resolve("website.d/repository/catalog/car/org/example/textus/textus-sie.cml") should be_regular_file
+          dir.resolve("website.d/repository/catalog/car/org/example/textus/textus-sie.model-metadata.json") should be_regular_file
+          dir.resolve("website.d/repository/catalog/car/org/example/textus/textus-sie.model-metadata.yaml") should be_regular_file
           val modulepage = _read(dir.resolve("website.d/repository/car/textus-sie/index.html"))
-          modulepage should include("../../catalog/car/textus-sie.cml")
+          modulepage should include("../../catalog/car/org/example/textus/textus-sie.cml")
           modulepage should include("モデルメタデータ (JSON)")
           modulepage should include("モデルメタデータ (YAML)")
           modulepage should include("コンポーネント記述子")
-          modulepage should include("textus-sie 0.1.0 / TextusSie / entities 1")
+          modulepage should include("org.example.textus.Sie 0.1.0 / org.example.textus.Sie / entities 1")
           modulepage should include("ABIマニフェスト")
-          modulepage should include("ABI 1 / components 1 / operations 1 / entities 1")
+          modulepage should include("org.example.textus.Sie 0.1.0 / ABI 1 / components 1 / operations 1 / entities 1")
           modulepage should include("href=\"0.1.0/component-descriptor.json\"")
           modulepage should include("href=\"0.1.0/abi-manifest.json\"")
           modulepage should include("コンポーネント公開面")
@@ -123,7 +132,7 @@ class CozyBokComponentRepositorySpec
           modulepage should include("href=\"/openapi.json\"")
           modulepage should include("href=\"/mcp\"")
           val versionpage = _read(dir.resolve("website.d/repository/car/textus-sie/0.1.0.html"))
-          versionpage should include("../../catalog/car/textus-sie.cml")
+          versionpage should include("../../catalog/car/org/example/textus/textus-sie.cml")
           versionpage should include("コンポーネント記述子")
           versionpage should include("ABIマニフェスト")
           versionpage should include("href=\"0.1.0/component-descriptor.json\"")
@@ -144,12 +153,12 @@ class CozyBokComponentRepositorySpec
           _write(
             dir.resolve("repository/catalog/index.json"),
             """{
-              |  "schemaVersion": "cncf.component-repository-index.v1",
+              |  "schemaVersion": "cncf.component-repository-index.v2",
               |  "generatedAt": "2026-07-21T00:00:00Z",
               |  "artifacts": [
-              |    {"kind":"car","artifactId":"indexed-car","catalog":"car/indexed-car.yaml","status":"active","recommended":"1.0.0","latestStable":"1.0.0","latestSnapshot":"1.1.0-SNAPSHOT"},
-              |    {"kind":"car","artifactId":"disabled-car","catalog":"car/disabled-car.yaml","status":"disabled"},
-              |    {"kind":"car","artifactId":"mismatched-car","catalog":"car/mismatched-car.yaml","status":"active"},
+              |    {"kind":"car","namespace":"org.example.indexed","id":"Car","artifactId":"indexed-car","catalog":"car/org/example/indexed/indexed-car.yaml","status":"active","recommended":"1.0.0","latestStable":"1.0.0","latestSnapshot":"1.1.0-SNAPSHOT"},
+              |    {"kind":"car","namespace":"org.example.disabled","id":"Car","artifactId":"disabled-car","catalog":"car/org/example/disabled/disabled-car.yaml","status":"disabled"},
+              |    {"kind":"car","namespace":"org.example.mismatched","id":"Car","artifactId":"mismatched-car","catalog":"car/org/example/mismatched/mismatched-car.yaml","status":"active"},
               |    {"kind":"sar","artifactId":"indexed-sar","catalog":"sar/indexed-sar.yaml","status":"active","recommended":"2.0.0","latestStable":"2.0.0"},
               |    {"kind":"sar","artifactId":"snapshot-sar","catalog":"sar/snapshot-sar.yaml","status":"active","recommended":"2.1.0-SNAPSHOT","latestSnapshot":"2.1.0-SNAPSHOT"},
               |    {"kind":"sar","artifactId":"missing-sar","catalog":"sar/missing-sar.yaml","status":"active"},
@@ -160,14 +169,14 @@ class CozyBokComponentRepositorySpec
           )
           _write(dir.resolve("repository/catalog/sar/invalid-sar.yaml"), "schemaVersion: [\n")
           _write(
-            dir.resolve("repository/catalog/car/indexed-car.yaml"),
+            dir.resolve("repository/catalog/car/org/example/indexed/indexed-car.yaml"),
             _repository_catalog("car", "indexed-car", "active", Vector(
               ("1.0.0", "stable", "active"),
               ("1.1.0-SNAPSHOT", "snapshot", "active")
             ), Some("1.0.0"), Some("1.0.0"), Some("1.1.0-SNAPSHOT"))
           )
           _write(
-            dir.resolve("repository/catalog/car/disabled-car.yaml"),
+            dir.resolve("repository/catalog/car/org/example/disabled/disabled-car.yaml"),
             _repository_catalog("car", "disabled-car", "disabled", Vector(
               ("0.9.0", "stable", "disabled")
             ), None, None, None)
@@ -185,18 +194,21 @@ class CozyBokComponentRepositorySpec
             ), Some("2.1.0-SNAPSHOT"), None, Some("2.1.0-SNAPSHOT"))
           )
           Vector(
-            "car/mismatched-car.yaml" -> ("car" -> "mismatched-car"),
-            "car/unindexed-car.yaml" -> ("car" -> "unindexed-car"),
+            "car/org/example/mismatched/mismatched-car.yaml" -> ("car" -> "mismatched-car"),
+            "car/org/example/unindexed/unindexed-car.yaml" -> ("car" -> "unindexed-car"),
             "sar/unindexed-sar.yaml" -> ("sar" -> "unindexed-sar")
           ).foreach { case (relative, (kind, artifactid)) =>
             _write(
               dir.resolve("repository/catalog").resolve(relative),
-              s"""schemaVersion: 1
-                 |kind: $kind
-                 |artifactId: $artifactid
-                 |status: ${if (artifactid == "mismatched-car") "deprecated" else "active"}
-                 |versions: []
-                 |""".stripMargin
+              if (kind == "car")
+                _repository_catalog(kind, artifactid, if (artifactid == "mismatched-car") "deprecated" else "active", Vector.empty, None, None, None)
+              else
+                s"""schemaVersion: 1
+                   |kind: $kind
+                   |artifactId: $artifactid
+                   |status: active
+                   |versions: []
+                   |""".stripMargin
             )
           }
           val config = CozyBok.BuildConfig.create(
@@ -243,7 +255,7 @@ class CozyBokComponentRepositorySpec
           dashboard should include("data-repository-diagnostic-code=\"index-catalog-mismatch\"")
           dashboard should include("data-repository-diagnostic-code=\"index-catalog-unavailable\"")
           dashboard should include("data-repository-diagnostic-code=\"index-catalog-invalid\"")
-          dashboard should include("car/mismatched-car.yaml")
+          dashboard should include("car/org/example/mismatched/mismatched-car.yaml")
           dashboard should include("sar/missing-sar.yaml")
           dashboard should include("sar/invalid-sar.yaml")
           sarindex should include("data-repository-diagnostic-code=\"index-catalog-unavailable\"")
@@ -287,48 +299,147 @@ class CozyBokComponentRepositorySpec
           _read(dir.resolve("website.d/repository/sar/index.html")) should include("data-repository-diagnostic-code=\"repository-index-invalid\"")
         }
       }
+
+      "exclude symbolic-link catalogs from fallback discovery" in {
+        _with_temp_dir("cozy-bok-component-repository-no-follow") { dir =>
+          Given("a fallback repository with catalog-file and ancestor-directory links to external CAR catalogs")
+          _write(dir.resolve("src/main/doxsite/site.conf"), "site { output { locale_mode = \"single_locale_root\" } }\n")
+          _write(dir.resolve("src/main/doxsite/index.dox"), "Home\n====\n")
+          val externalleaf = dir.resolve("external/leaf/org/example/unindexed/unindexed-car.yaml")
+          _write(externalleaf, _repository_catalog("car", "unindexed-car", "active", Vector.empty, None, None, None))
+          val leaflink = dir.resolve("repository/catalog/car/leaf-link.yaml")
+          Option(leaflink.getParent).foreach(Files.createDirectories(_))
+          Files.createSymbolicLink(leaflink, externalleaf)
+          val externalancestor = dir.resolve("external/ancestor")
+          _write(
+            externalancestor.resolve("example/unindexed/unindexed-car.yaml"),
+            _repository_catalog("car", "unindexed-car", "active", Vector.empty, None, None, None)
+          )
+          val ancestorlink = dir.resolve("repository/catalog/car/org")
+          Files.createSymbolicLink(ancestorlink, externalancestor)
+          val config = CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview", "--no-bib-service"))
+
+          When("Cozy discovers fallback CAR catalogs")
+          CozyBok.build(config, new RepositoryCarBuildRunner)
+
+          Then("neither external catalog is consumed through a symbolic link")
+          val metadata = _read(dir.resolve("doxsite.d/metadata/repository/car/index.json"))
+          metadata should not include "unindexed-car"
+          _read(dir.resolve("website.d/repository/car/index.html")) should not include "unindexed-car"
+        }
+      }
+
+      "report indexed symbolic-link catalogs as unavailable" in {
+        _with_temp_dir("cozy-bok-component-repository-index-no-follow") { dir =>
+          Given("a public index whose canonical catalog path is a symbolic link")
+          _write(dir.resolve("src/main/doxsite/site.conf"), "site { output { locale_mode = \"single_locale_root\" } }\n")
+          _write(dir.resolve("src/main/doxsite/index.dox"), "Home\n====\n")
+          _write(
+            dir.resolve("repository/catalog/index.json"),
+            """{"schemaVersion":"cncf.component-repository-index.v2","generatedAt":"2026-07-21T00:00:00Z","artifacts":[{"kind":"car","namespace":"org.example.unindexed","id":"Car","artifactId":"unindexed-car","catalog":"car/org/example/unindexed/unindexed-car.yaml","status":"active"}]}"""
+          )
+          val external = dir.resolve("external/unindexed-car.yaml")
+          _write(external, _repository_catalog("car", "unindexed-car", "active", Vector.empty, None, None, None))
+          val link = dir.resolve("repository/catalog/car/org/example/unindexed/unindexed-car.yaml")
+          Option(link.getParent).foreach(Files.createDirectories(_))
+          Files.createSymbolicLink(link, external)
+          val config = CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview", "--no-bib-service"))
+
+          When("Cozy resolves indexed CAR catalogs")
+          CozyBok.build(config, new RepositoryCarBuildRunner)
+
+          Then("the linked catalog is diagnosed as unavailable and excluded")
+          val metadata = _read(dir.resolve("doxsite.d/metadata/repository/car/index.json"))
+          metadata should include("index-catalog-unavailable")
+          metadata should not include "unindexed-car\" :"
+        }
+      }
     }
     "diagnose CAR archive metadata" which {
       "report missing and mismatched descriptor coordinates without rejecting the build" in {
         _with_temp_dir("cozy-bok-repository-car-diagnostics") { dir =>
-          Given("a repository catalog with incomplete, mismatched, and unavailable CAR archives")
+          Given("a repository catalog with incomplete, mismatched, and matching CAR archive metadata")
           _write(
             dir.resolve("src/main/doxsite/site.conf"),
             "site { output { locale_mode = \"single_locale_root\" } }\n"
           )
           _write(dir.resolve("src/main/doxsite/index.dox"), "Home\n====\n")
           _write(
-            dir.resolve("repository/catalog/car/sample-car.yaml"),
-            """schemaVersion: 1
+            dir.resolve("repository/catalog/car/org/example/sample/sample-car.yaml"),
+            """schemaVersion: 2
               |kind: car
+              |namespace: org.example.sample
+              |id: Car
               |artifactId: sample-car
               |recommended: 0.2.0
               |versions:
               |  - version: 0.1.0
-              |    file: repository/car/sample-car/0.1.0/sample-car-0.1.0.car
+              |    component: org.example.sample.Car
+              |    file: repository/car/org/example/sample/sample-car/0.1.0/sample-car-0.1.0.car
+              |    checksum:
+              |      sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+              |    integrityKey: org.example.sample:sample-car:0.1.0@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
               |  - version: 0.2.0
-              |    file: repository/car/sample-car/0.2.0/sample-car-0.2.0.car
+              |    component: org.example.sample.Car
+              |    file: repository/car/org/example/sample/sample-car/0.2.0/sample-car-0.2.0.car
+              |    checksum:
+              |      sha256: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+              |    integrityKey: org.example.sample:sample-car:0.2.0@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
               |  - version: 0.3.0
-              |    component: SampleComponent
-              |    file: repository/car/sample-car/0.3.0/sample-car-0.3.0.car
+              |    component: org.example.sample.Car
+              |    file: repository/car/org/example/sample/sample-car/0.3.0/sample-car-0.3.0.car
+              |    checksum:
+              |      sha256: cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+              |    integrityKey: org.example.sample:sample-car:0.3.0@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
               |  - version: 0.4.0
-              |    file: repository/car/sample-car/0.4.0/sample-car-0.4.0.car
+              |    component: org.example.sample.Car
+              |    file: repository/car/org/example/sample/sample-car/0.4.0/sample-car-0.4.0.car
+              |    checksum:
+              |      sha256: dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+              |    integrityKey: org.example.sample:sample-car:0.4.0@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
               |""".stripMargin
           )
           _write_car_archive_entries(
-            dir.resolve("repository/car/sample-car/0.1.0/sample-car-0.1.0.car"),
+            dir.resolve("repository/car/org/example/sample/sample-car/0.1.0/sample-car-0.1.0.car"),
             None,
             None
           )
           _write_car_archive_entries(
-            dir.resolve("repository/car/sample-car/0.2.0/sample-car-0.2.0.car"),
-            Some("""{"name":"other-car","version":"9.0.0","component":"Other"}"""),
-            Some("""{"car":{"name":"other-car","version":"9.0.0"},"abi":{"version":1,"exports":{}}}""")
+            dir.resolve("repository/car/org/example/sample/sample-car/0.2.0/sample-car-0.2.0.car"),
+            Some("""{"schemaVersion":3,"component":{"namespace":"org.example.other","id":"Car","version":"9.0.0"}}"""),
+            Some("""{"format":"cozy.car.abi-manifest.v2","component":{"namespace":"org.example.other","id":"Car","version":"9.0.0"},"abi":{"version":1,"exports":{"components":[]}}}""")
           )
           _write_car_archive_entries(
-            dir.resolve("repository/car/sample-car/0.3.0/sample-car-0.3.0.car"),
-            Some("""{"component":{"name":"SampleComponent","version":"0.3.0","kind":"component"}}"""),
+            dir.resolve("repository/car/org/example/sample/sample-car/0.3.0/sample-car-0.3.0.car"),
+            Some("""{"component":{"name":"org.example.sample.Car","version":"0.3.0","kind":"component"}}"""),
             Some("""{"car":{"name":"sample-car","version":"0.3.0"},"abi":{"version":1,"exports":{}}}""")
+          )
+          _write_car_archive_entries(
+            dir.resolve("repository/car/org/example/sample/sample-car/0.4.0/sample-car-0.4.0.car"),
+            Some("""{"schemaVersion":3,"component":{"namespace":"org.example.sample","id":"Car","version":"0.4.0"}}"""),
+            Some("""{"format":"cozy.car.abi-manifest.v2","component":{"namespace":"org.example.sample","id":"Car","version":"0.4.0"},"abi":{"version":1,"exports":{"components":[]}}}""")
+          )
+          val archivechecksums = Vector("0.1.0", "0.2.0", "0.3.0", "0.4.0").map { version =>
+            val path = dir.resolve(s"repository/car/org/example/sample/sample-car/$version/sample-car-$version.car")
+            version -> RepositoryArtifactPublisher.sha256(path)
+          }.toMap
+          _write(
+            dir.resolve("repository/catalog/car/org/example/sample/sample-car.yaml"),
+            _repository_catalog(
+              "car",
+              "sample-car",
+              "active",
+              Vector(
+                ("0.1.0", "stable", "active"),
+                ("0.2.0", "stable", "active"),
+                ("0.3.0", "stable", "active"),
+                ("0.4.0", "stable", "active")
+              ),
+              Some("0.2.0"),
+              None,
+              None,
+              archivechecksums
+            )
           )
           val config = CozyBok.BuildConfig.create(
             List(dir.toString, "--strategy", "preview", "--no-bib-service")
@@ -354,8 +465,11 @@ class CozyBokComponentRepositorySpec
           codes should contain("component-descriptor-coordinate-mismatch" -> Some("0.2.0"))
           codes should contain("abi-manifest-coordinate-mismatch" -> Some("0.2.0"))
           codes should not contain ("component-descriptor-coordinate-mismatch" -> Some("0.3.0"))
+          codes should not contain ("abi-manifest-coordinate-mismatch" -> Some("0.3.0"))
+          codes should not contain ("component-descriptor-coordinate-mismatch" -> Some("0.4.0"))
+          codes should not contain ("abi-manifest-coordinate-mismatch" -> Some("0.4.0"))
           codes should not contain ("archive-without-component-descriptor" -> Some("0.4.0"))
-          diagnostics.map(_.noSpaces).mkString should include("\"metadata_name\":\"other-car\"")
+          diagnostics.map(_.noSpaces).mkString should include("\"metadata_name\":\"org.example.other.Car\"")
           diagnostics.map(_.noSpaces).mkString should include("\"metadata_version\":\"9.0.0\"")
 
           And("the maintainer diagnostic card explains the archive problems")
@@ -365,6 +479,42 @@ class CozyBokComponentRepositorySpec
           page should include("ABI manifestの座標がcatalogと一致しません。")
           page should include("metadata座標")
           page should include("data-bok-actors=\"contributor project_manager\"")
+        }
+      }
+
+      "reject a substituted CAR archive before descriptor metadata is extracted" in {
+        _with_temp_dir("cozy-bok-repository-car-integrity") { dir =>
+          Given("a canonical CAR catalog whose available archive bytes do not match its catalog digest")
+          _write(dir.resolve("src/main/doxsite/site.conf"), "site { output { locale_mode = \"single_locale_root\" } }\n")
+          _write(dir.resolve("src/main/doxsite/index.dox"), "Home\n====\n")
+          val archive = dir.resolve("repository/car/org/example/sample/sample-car/1.0.0/sample-car-1.0.0.car")
+          _write_car_archive_entries(
+            archive,
+            Some("""{"schemaVersion":3,"component":{"namespace":"org.example.sample","id":"Car","version":"1.0.0"}}"""),
+            None
+          )
+          _write(
+            dir.resolve("repository/catalog/car/org/example/sample/sample-car.yaml"),
+            _repository_catalog(
+              "car",
+              "sample-car",
+              "active",
+              Vector(("1.0.0", "stable", "active")),
+              Some("1.0.0"),
+              Some("1.0.0"),
+              None
+            )
+          )
+          val config = CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview", "--no-bib-service"))
+
+          When("Cozy reads repository CAR archive metadata")
+          val error = intercept[IllegalArgumentException] {
+            CozyBok.build(config, new RepositoryCarBuildRunner)
+          }
+
+          Then("the archive is rejected at checksum admission before descriptor or ABI diagnostics are accepted")
+          error.getMessage should include("component.repository.integrity.mismatch source=archive field=checksum.sha256")
+          error.getMessage should not include "component-descriptor-coordinate-mismatch"
         }
       }
     }
@@ -437,27 +587,61 @@ class CozyBokComponentRepositorySpec
     versions: Vector[(String, String, String)],
     recommended: Option[String],
     latest_stable: Option[String],
-    latest_snapshot: Option[String]
+    latest_snapshot: Option[String],
+    checksums: Map[String, String] = Map.empty
   ): String = {
+    val caridentity = Map(
+      "indexed-car" -> ("org.example.indexed" -> "Car"),
+      "disabled-car" -> ("org.example.disabled" -> "Car"),
+      "mismatched-car" -> ("org.example.mismatched" -> "Car"),
+      "unindexed-car" -> ("org.example.unindexed" -> "Car"),
+      "sample-car" -> ("org.example.sample" -> "Car")
+    ).get(artifact_id)
+    val namespace = caridentity.map(_._1)
+    val id = caridentity.map(_._2)
     val selectors = Vector(
       recommended.map(value => s"recommended: $value"),
       latest_stable.map(value => s"latestStable: $value"),
       latest_snapshot.map(value => s"latestSnapshot: $value")
     ).flatten.mkString("\n")
     val version_entries = versions.map { case (version, channel, version_status) =>
-      s"""  - version: $version
-         |    channel: $channel
-         |    status: $version_status
-         |    file: repository/$kind/$artifact_id/$version/$artifact_id-$version.$kind""".stripMargin
+      if (kind == "car") {
+        val checksum = checksums.getOrElse(version, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+        s"""  - version: $version
+           |    channel: $channel
+           |    status: $version_status
+           |    component: ${namespace.get}.${id.get}
+           |    file: repository/car/${namespace.get.replace('.', '/')}/$artifact_id/$version/$artifact_id-$version.car
+           |    checksum:
+           |      sha256: $checksum
+           |    integrityKey: ${namespace.get}:$artifact_id:$version@sha256:$checksum""".stripMargin
+      }
+      else
+        s"""  - version: $version
+           |    channel: $channel
+           |    status: $version_status
+           |    file: repository/$kind/$artifact_id/$version/$artifact_id-$version.$kind""".stripMargin
     }.mkString("\n")
-    s"""schemaVersion: 1
-       |kind: $kind
-       |artifactId: $artifact_id
-       |$selectors
-       |status: $status
-       |versions:
-       |$version_entries
-       |""".stripMargin
+    if (kind == "car")
+      s"""schemaVersion: 2
+         |kind: car
+         |namespace: ${namespace.get}
+         |id: ${id.get}
+         |artifactId: $artifact_id
+         |$selectors
+         |status: $status
+         |versions:
+         |$version_entries
+         |""".stripMargin
+    else
+      s"""schemaVersion: 1
+         |kind: $kind
+         |artifactId: $artifact_id
+         |$selectors
+         |status: $status
+         |versions:
+         |$version_entries
+         |""".stripMargin
   }
 
   private def _write_car_archive(path: Path): Path = {
@@ -465,9 +649,8 @@ class CozyBokComponentRepositorySpec
       path,
       Some(
         """{
-          |  "name": "textus-sie",
-          |  "version": "0.1.0",
-          |  "component": "TextusSie",
+          |  "schemaVersion": 3,
+          |  "component": {"namespace": "org.example.textus", "id": "Sie", "version": "0.1.0"},
           |  "links": {
           |    "help": "/help/TextusSie",
           |    "manual": "/man/TextusSie",
@@ -480,12 +663,12 @@ class CozyBokComponentRepositorySpec
       ),
       Some(
         """{
-          |  "format": "cozy.car.abi-manifest.v1",
-          |  "car": {"name": "textus-sie", "version": "0.1.0"},
+          |  "format": "cozy.car.abi-manifest.v2",
+          |  "component": {"namespace": "org.example.textus", "id": "Sie", "version": "0.1.0"},
           |  "abi": {
-          |    "version": 1,
-          |    "exports": {
-          |      "components": [{"name": "TextusSie"}],
+            |    "version": 1,
+            |    "exports": {
+            |      "components": [{"namespace": "org.example.textus", "id": "Sie"}],
           |      "operations": [{"name": "knowledge.search", "kind": "query"}],
           |      "entities": [{"name": "KnowledgeItem", "fields": []}]
           |    },

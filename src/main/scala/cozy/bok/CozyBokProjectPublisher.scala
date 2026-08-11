@@ -10,7 +10,7 @@ import cozy.publication.CozyPublicationCompiler
 import io.circe.{Decoder, HCursor}
 import play.api.libs.json.{JsArray, JsObject, JsValue, Json}
 import java.net.URI
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Files, LinkOption, Path, Paths}
 import java.security.MessageDigest
 import scala.collection.JavaConverters._
 import scala.util.Try
@@ -18,7 +18,7 @@ import scala.util.Try
 /*
  * @since   Jun. 23, 2026
  *  version Jun. 24, 2026
- * @version Jul. 13, 2026
+ * @version Aug. 11, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyBokProjectPublisher {
@@ -675,7 +675,10 @@ private[cozy] object CozyBokProjectPublisher {
           "code" -> s"sie.project.${subject}.unresolved",
           "severity" -> "warning",
           "message" -> s"SIE ${subject} is not registered in the repository ${kind.toUpperCase} catalog: ${artifactid}",
-          "action" -> s"Register repository/catalog/${kind}/${artifactid}.yaml, .yml, or .json before publishing the SIE-linked Project."
+          "action" -> (if (kind == "car")
+            "Register a canonical namespace-qualified CAR v2 catalog under repository/catalog/car/<namespace-path>/<artifact>.yaml before publishing the SIE-linked Project."
+          else
+            s"Register repository/catalog/${kind}/${artifactid}.yaml, .yml, or .json before publishing the SIE-linked Project.")
         )
       }
       val selectors = sie.artifacts.flatMap { artifact =>
@@ -764,11 +767,17 @@ private[cozy] object CozyBokProjectPublisher {
     glossarycategory: String
   ): Option[ProjectCmlInfo] = {
     val catalogdir = _repository_catalog_dir(config, reference, "car")
-    val candidates = Vector(
+    val selected = _resolve_repository_catalog(config, reference, "car", module).toVector.flatMap { catalog =>
+      Vector(
+        catalog.path.getParent.resolve(s"$module.model-metadata.json"),
+        catalog.path.getParent.resolve(s"$module.model-metadata.yaml")
+      )
+    }
+    val legacy = Vector(
       catalogdir.resolve(s"$module.model-metadata.json"),
       catalogdir.resolve(s"$module.model-metadata.yaml")
     )
-    candidates.find(Files.isRegularFile(_)).map { path =>
+    (selected ++ legacy).find(_is_regular_file_no_follow).map { path =>
       val json = StructuredDocumentLoader.loadJson(InputSource(path.toFile)).take
       val sourcepath = json.hcursor.downField("source").downField("path").as[String].getOrElse("")
       val source = if (sourcepath.trim.isEmpty) path else Paths.get(sourcepath).toAbsolutePath.normalize()
@@ -787,6 +796,9 @@ private[cozy] object CozyBokProjectPublisher {
       )
     }
   }
+
+  private def _is_regular_file_no_follow(path: Path): Boolean =
+    !Files.isSymbolicLink(path) && Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)
 
   private def _cml_surface(sourcepath: Path, glossarycategory: String): CmlProjectSurface =
     _convert_surface(CmlModelMetadata.fromCml(sourcepath, glossarycategory).surface)
@@ -1011,12 +1023,25 @@ private[cozy] object CozyBokProjectPublisher {
     artifactid: String
   ): Option[ProjectSieArtifactInfo] = {
     val catalogdir = _repository_catalog_dir(config, reference, kind)
-    Vector("yaml", "yml", "json").iterator.map(extension => catalogdir.resolve(s"${artifactid}.${extension}")).
-      find(Files.isRegularFile(_)).flatMap { path =>
-        Try(RepositoryArtifactCatalog.load(path)).toOption.
-          filter(catalog => catalog.kind == kind && catalog.artifactId == artifactid).
-          map(ProjectSieArtifactInfo(kind, artifactid, path, _))
+    if (Files.isDirectory(catalogdir, LinkOption.NOFOLLOW_LINKS)) {
+      val stream = Files.walk(catalogdir)
+      try {
+        stream.iterator.asScala.toVector.
+          filter(path =>
+            Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS) &&
+              !Files.isSymbolicLink(path) &&
+              Set("yaml", "yml", "json").contains(
+                path.getFileName.toString.split("\\.").lastOption.getOrElse("").toLowerCase(java.util.Locale.ROOT)
+              )
+          ).sortBy(_.toString).iterator.flatMap { path =>
+            Try(RepositoryArtifactCatalog.load(path)).toOption.
+              filter(catalog => catalog.kind == kind && catalog.artifactId == artifactid).
+              map(ProjectSieArtifactInfo(kind, artifactid, path, _))
+          }.take(1).toVector.headOption
+      } finally {
+        stream.close()
       }
+    } else None
   }
 
   private def _normalize_sie_handoff_base(value: String): String = {

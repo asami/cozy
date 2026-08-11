@@ -1,6 +1,6 @@
-package cozy
+package cozy.bok
 
-import cozy.bok.CozyBok
+import cozy.CozySpecVocabulary
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
@@ -10,7 +10,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jun. 28, 2026
- * @version Jul. 13, 2026
+ * @version Aug. 11, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokTagSpec
@@ -63,9 +63,11 @@ class CozyBokTagSpec
               |""".stripMargin
           )
           _write(
-            dir.resolve("repository/catalog/car/review-runtime.yaml"),
-            """schemaVersion: 1
+            dir.resolve("repository/catalog/car/org/example/review/review-runtime.yaml"),
+            """schemaVersion: 2
               |kind: car
+              |namespace: org.example.review
+              |id: Runtime
               |artifactId: review-runtime
               |recommended: 1.0.0
               |tags:
@@ -73,7 +75,11 @@ class CozyBokTagSpec
               |versions:
               |  - version: 1.0.0
               |    channel: stable
-              |    file: repository/car/review-runtime/1.0.0/review-runtime-1.0.0.car
+              |    component: org.example.review.Runtime
+              |    file: repository/car/org/example/review/review-runtime/1.0.0/review-runtime-1.0.0.car
+              |    checksum:
+              |      sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+              |    integrityKey: org.example.review:review-runtime:1.0.0@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
               |""".stripMargin
           )
           val config = CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview"))

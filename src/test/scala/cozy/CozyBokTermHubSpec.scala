@@ -1,6 +1,6 @@
-package cozy
+package cozy.bok
 
-import cozy.bok.CozyBok
+import cozy.CozySpecVocabulary
 import io.circe.parser
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
@@ -11,7 +11,7 @@ import org.scalatest.wordspec.AnyWordSpec
 /*
  * @since   Jun. 22, 2026
  *  version Jun. 25, 2026
- * @version Jul. 23, 2026
+ * @version Aug. 11, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokTermHubSpec
@@ -60,9 +60,11 @@ class CozyBokTermHubSpec
               |""".stripMargin
           )
           _write(
-            dir.resolve("repository/catalog/car/runtime-car.yaml"),
-            """schemaVersion: 1
+            dir.resolve("repository/catalog/car/org/example/runtime/runtime-car.yaml"),
+            """schemaVersion: 2
               |kind: car
+              |namespace: org.example.runtime
+              |id: Car
               |artifactId: runtime-car
               |recommended: 1.0.0
               |terms:
@@ -70,7 +72,11 @@ class CozyBokTermHubSpec
               |versions:
               |  - version: 1.0.0
               |    channel: stable
-              |    file: repository/car/runtime-car/1.0.0/runtime-car-1.0.0.car
+              |    component: org.example.runtime.Car
+              |    file: repository/car/org/example/runtime/runtime-car/1.0.0/runtime-car-1.0.0.car
+              |    checksum:
+              |      sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+              |    integrityKey: org.example.runtime:runtime-car:1.0.0@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
               |""".stripMargin
           )
           val config = CozyBok.BuildConfig.create(
