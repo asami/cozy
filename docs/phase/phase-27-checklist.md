@@ -20,13 +20,13 @@ Status: DONE
 
 ## AM27-01: Normal Media Package Site Binding
 
-Status: PLANNED
+Status: DONE
 
-- [ ] Require explicit article identity independent of `media.yaml`
+- [x] Require explicit article identity independent of `media.yaml`
       knowledge ID or package ID.
-- [ ] Validate exact canonical locale, resource/public paths, and accepted
+- [x] Validate exact canonical locale, resource/public paths, and accepted
       production video evidence without fallback.
-- [ ] Reject path/filename/generated-site inference, arbitrary scans, BoK
+- [x] Reject path/filename/generated-site inference, arbitrary scans, BoK
       coupling, and implicit host fallback.
 
 ## AM27-02: Site Registration Command and Registry Merge

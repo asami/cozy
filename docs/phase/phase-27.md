@@ -97,7 +97,7 @@ Focus:
 
 Stage Status:
 
-- Current status: PLANNED
+- Current status: DONE
 - Owner: Cozy
 - Update rule: mark work complete only from the Phase 27 checklist.
 - Checklist basis: `AM27-01`
