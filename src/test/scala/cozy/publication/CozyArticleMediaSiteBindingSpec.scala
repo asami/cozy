@@ -2,7 +2,7 @@ package cozy.publication
 
 import java.net.URI
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 import java.security.MessageDigest
 import scala.collection.JavaConverters._
 import org.scalatest.GivenWhenThen
@@ -15,6 +15,14 @@ import org.smartdox.metadata.PublishMetadata.{ImageReference, VideoPresentation,
  * @version Aug. 11, 2026
  * @author  ASAMI, Tomoharu
  */
+private object SiteBindingPart5Fixture {
+  final class Data(
+    val root: Path,
+    val descriptor: Path,
+    val profileroot: Path
+  )
+}
+
 final class CozyArticleMediaSiteBindingSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "CozyArticleMediaSiteBinding" should {
     "prepare immutable deterministic Part 5 site-media evidence" which {
@@ -75,17 +83,20 @@ final class CozyArticleMediaSiteBindingSpec extends AnyWordSpec with Matchers wi
           plan.descriptorEvidence.identity shouldBe plan.descriptorEvidence.path
           plan.descriptorEvidence.sha256 shouldBe _sha256(fixture.descriptor)
           plan.descriptorEvidence.size shouldBe Files.size(fixture.descriptor)
+          plan.descriptorEvidence.fileKey should not be null
           plan.descriptorBytes shouldBe Files.readAllBytes(fixture.descriptor).toVector
           val imageevidence = jaimage.evidence.asInstanceOf[CozyArticleMediaSiteBinding.InfographicEvidence].destination
           imageevidence.path shouldBe fixture.profileroot.resolve("images/summary-ja.png").toAbsolutePath.normalize()
           imageevidence.identity shouldBe imageevidence.path
           imageevidence.sha256 shouldBe _sha256(imageevidence.path)
           imageevidence.size shouldBe Files.size(imageevidence.path)
+          imageevidence.fileKey should not be null
           val videoevidence = javideo.evidence.asInstanceOf[CozyArticleMediaSiteBinding.VideoEvidence].production
           videoevidence.path shouldBe fixture.root.resolve("video/ja/production.json").toAbsolutePath.normalize()
           videoevidence.identity shouldBe videoevidence.path
           videoevidence.sha256 shouldBe _sha256(videoevidence.path)
           videoevidence.size shouldBe Files.size(videoevidence.path)
+          videoevidence.fileKey should not be null
 
           When("the unchanged plan is revalidated from its original admitted paths")
           val revalidated = CozyArticleMediaSiteBinding.revalidate(plan)
@@ -293,19 +304,36 @@ final class CozyArticleMediaSiteBindingSpec extends AnyWordSpec with Matchers wi
           Files.delete(destination)
           Files.createSymbolicLink(destination, outside)
         }
-        val productiondrift = _part5_revalidation_failure("production-drift") { fixture =>
-          _write(fixture.root.resolve("video/ja/production.json"), _part5_production_json(url = "https://youtu.be/ja_Changed-3"))
-        }
+          val productiondrift = _part5_revalidation_failure("production-drift") { fixture =>
+            _write(fixture.root.resolve("video/ja/production.json"), _part5_production_json(url = "https://youtu.be/ja_Changed-3"))
+          }
+          val descriptorreplacement = _part5_revalidation_failure("descriptor-atomic-replacement") { fixture =>
+            _atomic_replace(fixture.descriptor, _part5_yaml())
+          }
+          val infographicreplacement = _part5_revalidation_failure("infographic-atomic-replacement") { fixture =>
+            _atomic_replace(fixture.profileroot.resolve("images/summary-ja.png"), "Part 5 summary ja")
+          }
+          val productionreplacement = _part5_revalidation_failure("production-atomic-replacement") { fixture =>
+            _atomic_replace(fixture.root.resolve("video/ja/production.json"), _part5_production_json())
+          }
 
         Then("any declaration, byte, identity, or production metadata change rejects revalidation")
-        Vector(descriptordrift, profiledrift, resourcedrift, infographicbytes, infographicidentity, productiondrift).foreach {
+        Vector(
+          descriptordrift,
+          profiledrift,
+          resourcedrift,
+          infographicbytes,
+          infographicidentity,
+          productiondrift,
+          descriptorreplacement,
+          infographicreplacement,
+          productionreplacement
+        ).foreach {
           _.getMessage should not be empty
         }
       }
     }
   }
-
-  private final case class Part5Fixture(root: Path, descriptor: Path, profileroot: Path)
 
   private def _candidate(plan: CozyArticleMediaSiteBinding.Plan, resourceid: String): CozyArticleMediaSiteBinding.Candidate =
     plan.candidates.find(_.resourceId == resourceid).getOrElse(throw new IllegalStateException(s"Missing Part 5 candidate: $resourceid"))
@@ -321,7 +349,7 @@ final class CozyArticleMediaSiteBindingSpec extends AnyWordSpec with Matchers wi
       _failure(CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(fixture.descriptor)))
     }
 
-  private def _part5_revalidation_failure(name: String)(change: Part5Fixture => Unit): RuntimeException =
+  private def _part5_revalidation_failure(name: String)(change: SiteBindingPart5Fixture.Data => Unit): RuntimeException =
     _with_part5_fixture(name) { fixture =>
       val plan = CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(fixture.descriptor))
       change(fixture)
@@ -331,7 +359,7 @@ final class CozyArticleMediaSiteBindingSpec extends AnyWordSpec with Matchers wi
   private def _failure(value: => Any): RuntimeException =
     intercept[RuntimeException](value)
 
-  private def _with_part5_fixture[A](name: String, yaml: String = _part5_yaml())(f: Part5Fixture => A): A = {
+  private def _with_part5_fixture[A](name: String, yaml: String = _part5_yaml())(f: SiteBindingPart5Fixture.Data => A): A = {
     val workroot = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize().resolve("target/cozy-article-media-site-binding/part-5")
     Files.createDirectories(workroot)
     val root = Files.createTempDirectory(workroot, name + "-")
@@ -346,7 +374,7 @@ final class CozyArticleMediaSiteBindingSpec extends AnyWordSpec with Matchers wi
         language = "en",
         url = "https://www.youtube.com/watch?v=en_Part5-2"
       ))
-      f(Part5Fixture(root, descriptor, profile))
+      f(new SiteBindingPart5Fixture.Data(root, descriptor, profile))
     } finally {
       _delete(root)
     }
@@ -452,6 +480,12 @@ final class CozyArticleMediaSiteBindingSpec extends AnyWordSpec with Matchers wi
   private def _write(path: Path, value: String): Unit = {
     Option(path.getParent).foreach(Files.createDirectories(_))
     Files.writeString(path, value, StandardCharsets.UTF_8)
+  }
+
+  private def _atomic_replace(path: Path, value: String): Unit = {
+    val replacement = path.resolveSibling(path.getFileName.toString + ".replacement")
+    _write(replacement, value)
+    Files.move(replacement, path, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
   }
 
   private def _sha256(path: Path): String = {

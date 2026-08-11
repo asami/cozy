@@ -188,8 +188,8 @@ contains no Cozy path, hash, version, provenance, or registry metadata.
 
 Under one real publication-root lock, registration captures the complete
 snapshot and identifies ownership from both the strict path and complete Phase
-26 integrity prefix. One owner is reused; no owner uses the canonical
-`article-media` owner; multiple owners fail. It merges only the requested
+26 integrity prefix. One owner is reused; if no owner exists the canonical
+`article-media` owner is used; multiple owners fail. It merges only the requested
 exact `resources[*].articleMedia.role`/locale keys, deterministically,
 preserving other locales/roles,
 existing Cozy integrity records, generic entries, and unrelated articles.

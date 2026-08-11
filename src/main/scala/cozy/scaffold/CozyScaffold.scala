@@ -1782,6 +1782,9 @@ private[cozy] object CozyScaffold {
       |  media publish <media-file> --profile <name> [--target <id>] [--dry-run]
       |      Publish verified outputs through a logical profile without storing machine-specific absolute paths in the package.
       |
+      |  media register-site <media-file> --publication <dir> [--target <resource-id>] [--dry-run]
+      |      Register declared published site-media evidence as provider-neutral SmartDox article-media metadata.
+      |
       |  modeler-scala <model-file> --save <dir> [--generation-source-identity <project-relative-path>]
       |      Generate Scala sources from a CML/Dox model. CNCF descriptor generation requires a stable project-relative source identity and writes target/cozy/generation-provenance.json.
       |

@@ -4,6 +4,8 @@ import org.goldenport.RAISE
 import org.goldenport.cli.spec
 import org.goldenport.config.StructuredDocumentLoader
 import org.goldenport.io.InputSource
+import org.goldenport.io.StringInputSource
+import cozy.publication.CozyArticleMediaSiteCommand
 import cozy.runtime.CozyCliArgs
 import cozy.video.CozyVideo
 import io.circe.{Decoder, HCursor, Json}
@@ -325,6 +327,9 @@ private[cozy] object CozyMedia {
       case "media" :: "publish" :: rest =>
         println(publish(CommandConfig.create(rest, requireProfile = true)))
         true
+      case "media" :: "register-site" :: rest =>
+        println(CozyArticleMediaSiteCommand.execute(rest))
+        true
       case "media" :: other :: _ =>
         RAISE.invalidArgumentFault(s"Unsupported media command: $other")
       case _ =>
@@ -365,6 +370,9 @@ private[cozy] object CozyMedia {
   }
 
   private[cozy] def resolvePlan(config: CommandConfig): Plan = _plan(config)
+
+  private[cozy] def resolvePlan(config: CommandConfig, descriptorBytes: Vector[Byte]): Plan =
+    _plan(config, Some(descriptorBytes))
 
   def build(config: CommandConfig, runner: ProcessRunner = ProcessRunner.default): String = {
     val mediaplan = _plan(config)
@@ -483,11 +491,14 @@ private[cozy] object CozyMedia {
     }
   }
 
-  private def _plan(config: CommandConfig): Plan = {
+  private def _plan(config: CommandConfig, descriptorbytes: Option[Vector[Byte]] = None): Plan = {
     val descriptorfile = config.descriptorFile.toAbsolutePath.normalize()
     if (!_is_direct_regular_file(descriptorfile))
       RAISE.invalidArgumentFault(s"Missing media descriptor: $descriptorfile")
-    val descriptor = StructuredDocumentLoader.loadDocument[Descriptor](InputSource(descriptorfile.toFile)).take
+    val descriptorinput = descriptorbytes.map { bytes =>
+      StringInputSource(new String(bytes.toArray, StandardCharsets.UTF_8), descriptorfile.toUri)
+    }.getOrElse(InputSource(descriptorfile.toFile))
+    val descriptor = StructuredDocumentLoader.loadDocument[Descriptor](descriptorinput).take
     _validate_descriptor(descriptor)
     val descriptorroot = Option(descriptorfile.getParent).getOrElse(Paths.get(".").toAbsolutePath.normalize())
     val knowledgesource = _resolve_relative(descriptorroot, descriptor.knowledge.source, "knowledge.source")

@@ -8,10 +8,12 @@ import play.api.libs.json._
 import org.goldenport.cli.spec
 import java.nio.charset.StandardCharsets
 import java.nio.channels.FileChannel
+import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.{AtomicMoveNotSupportedException, FileAlreadyExistsException, Files, LinkOption, Path, Paths, StandardCopyOption, StandardOpenOption}
 import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 import scala.util.Try
+import scala.util.control.NonFatal
 import scala.collection.JavaConverters._
 import scala.sys.process._
 
@@ -19,7 +21,7 @@ import scala.sys.process._
  * @since   May. 20, 2026
  *  version Jun.  8, 2026
  *  version Jun. 19, 2026
- * @version Aug.  5, 2026
+ * @version Aug. 11, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyPublicationCompiler {
@@ -111,6 +113,12 @@ private[cozy] object CozyPublicationCompiler {
     publicationPath: Option[String],
     projectDir: Path,
     entries: Vector[(String, JsValue)]
+  )
+
+  private[publication] final case class SiteRootEvidence(
+    lexical: Path,
+    real: Path,
+    fileKey: AnyRef
   )
 
   def publish(args: List[String]): Unit = {
@@ -277,6 +285,7 @@ private[cozy] object CozyPublicationCompiler {
    */
   private[publication] sealed trait RegistryLockCapability {
     private[publication] def realRoot: Path
+    private[publication] def validateRootEvidence(): Unit
     private[publication] def validateSnapshot(expectedBundleDigests: Map[String, String]): Unit
     private[publication] def replaceMetadata(
       name: String,
@@ -290,13 +299,19 @@ private[cozy] object CozyPublicationCompiler {
 
   private final class RegistryLockCapabilityImpl(
     private val _real_root: Path,
-    ownerthread: Thread
+    ownerthread: Thread,
+    private val _site_root_evidence: Option[SiteRootEvidence]
   ) extends RegistryLockCapability {
     private var _active = true
 
     override def realRoot: Path = {
       _require_owner()
       _real_root
+    }
+
+    override def validateRootEvidence(): Unit = {
+      _require_owner()
+      _site_root_evidence.foreach(PublicationRegistry.validateSiteRootEvidence)
     }
 
     override def validateSnapshot(expectedBundleDigests: Map[String, String]): Unit = {
@@ -344,7 +359,19 @@ private[cozy] object CozyPublicationCompiler {
     if (f == null)
       RAISE.invalidArgumentFault("Publication registry lock callback must be defined")
     PublicationRegistry.withRegistryLock(root) { realroot =>
-      val capability = new RegistryLockCapabilityImpl(realroot, Thread.currentThread)
+      val capability = new RegistryLockCapabilityImpl(realroot, Thread.currentThread, None)
+      try f(capability) finally capability._close()
+    }
+  }
+
+  private[publication] def captureSiteRootEvidence(root: Path): SiteRootEvidence =
+    PublicationRegistry.captureSiteRootEvidence(root)
+
+  private[publication] def withExistingRegistryLockCapability[A](evidence: SiteRootEvidence)(f: RegistryLockCapability => A): A = {
+    if (evidence == null || f == null)
+      RAISE.invalidArgumentFault("Existing publication registry lock inputs must be defined")
+    PublicationRegistry.withExistingRegistryLock(evidence) { realroot =>
+      val capability = new RegistryLockCapabilityImpl(realroot, Thread.currentThread, Some(evidence))
       try f(capability) finally capability._close()
     }
   }
@@ -1555,6 +1582,46 @@ private[cozy] object CozyPublicationCompiler {
     def withRegistryLock[A](root: Path)(f: Path => A): A =
       _with_registry_lock(root)(f)
 
+    def captureSiteRootEvidence(root: Path): SiteRootEvidence = {
+      val lexical = _site_root_path(root)
+      val real = _site_root_real_path(lexical)
+      val attributes = _site_root_attributes(lexical)
+      SiteRootEvidence(lexical, real, attributes.fileKey())
+    }
+
+    def validateSiteRootEvidence(evidence: SiteRootEvidence): Unit = {
+      if (evidence == null)
+        RAISE.invalidArgumentFault("Existing publication registry root evidence must be defined")
+      val actual = captureSiteRootEvidence(evidence.lexical)
+      if (actual != evidence)
+        RAISE.invalidArgumentFault("Publication registry root evidence has changed")
+    }
+
+    def withExistingRegistryLock[A](evidence: SiteRootEvidence)(f: Path => A): A = {
+      if (evidence == null || f == null)
+        RAISE.invalidArgumentFault("Existing publication registry lock inputs must be defined")
+      validateSiteRootEvidence(evidence)
+      val realroot = evidence.real
+      val monitor = _registry_locks.computeIfAbsent(realroot.toString, new java.util.function.Function[String, Object] {
+        override def apply(value: String): Object = new Object()
+      })
+      monitor.synchronized {
+        validateSiteRootEvidence(evidence)
+        val lockpath = realroot.resolve(".cozy-publication-registry.lock")
+        if (!Files.exists(lockpath, LinkOption.NOFOLLOW_LINKS))
+          try Files.createFile(lockpath)
+          catch {
+            case _: FileAlreadyExistsException =>
+          }
+        _validate_lock_path(lockpath)
+        val channel = FileChannel.open(lockpath, StandardOpenOption.WRITE)
+        try {
+          val lock = channel.lock()
+          try f(realroot) finally lock.release()
+        } finally channel.close()
+      }
+    }
+
     private def _with_registry_lock[A](root: Path)(f: Path => A): A = {
       Files.createDirectories(root)
       val realroot = root.toAbsolutePath.normalize().toRealPath()
@@ -1575,6 +1642,33 @@ private[cozy] object CozyPublicationCompiler {
           try f(realroot) finally lock.release()
         } finally channel.close()
       }
+    }
+
+    private def _site_root_path(root: Path): Path = {
+      val lexical = Option(root).map(_.toAbsolutePath.normalize()).getOrElse(
+        RAISE.invalidArgumentFault("Configured publication root must be defined")
+      )
+      if (Files.isSymbolicLink(lexical) || !Files.isDirectory(lexical, LinkOption.NOFOLLOW_LINKS))
+        RAISE.invalidArgumentFault(s"Configured publication root must be an existing direct non-symlink directory: $lexical")
+      lexical
+    }
+
+    private def _site_root_real_path(lexical: Path): Path = {
+      val real = try lexical.toRealPath() catch {
+        case NonFatal(e) => RAISE.invalidArgumentFault(s"Configured publication root cannot be resolved: ${e.getMessage}")
+      }
+      if (real != lexical)
+        RAISE.invalidArgumentFault(s"Configured publication root must not use a lexical or symlink alias: $lexical")
+      real
+    }
+
+    private def _site_root_attributes(path: Path): BasicFileAttributes = {
+      val attributes = try Files.readAttributes(path, classOf[BasicFileAttributes], LinkOption.NOFOLLOW_LINKS) catch {
+        case NonFatal(e) => RAISE.invalidArgumentFault(s"Configured publication root attributes cannot be read: ${e.getMessage}")
+      }
+      if (attributes.fileKey() == null)
+        RAISE.invalidArgumentFault(s"Configured publication root has no stable file identity: $path")
+      attributes
     }
 
     private def _validate_lock_path(lockpath: Path): Unit =
