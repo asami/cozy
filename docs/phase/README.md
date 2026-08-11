@@ -4,10 +4,10 @@ Purpose: engineering work management.
 
 Current phase state:
 
-- Active phase: `phase-27.md`: SmartDox Site Media Registration.
-- Current completed stage: `AM27-00`: Contract Promotion and Responsibility
-  Pinning.
-- Most recent closed phase: `phase-26.md`: Article Media Publication and BoK
+- No active phase.
+- Most recent closed phase: `phase-27.md`: SmartDox Site Media Registration;
+  `AM27-04`: Review, Validation, and Closure is complete.
+- Prior closed phase: `phase-26.md`: Article Media Publication and BoK
   Integration. Its SmartDox dependency was satisfied by accepted closed Phase 1
   commit `fa21316973416c24bca7f8e366d65572c72720b7` and development coordinate
   `org.smartdox:smartdox_2.12:2.4.17-SNAPSHOT`; public/non-SNAPSHOT publication

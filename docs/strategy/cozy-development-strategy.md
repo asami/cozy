@@ -687,8 +687,8 @@ Primary reference:
 
 ### Phase 27: SmartDox Site Media Registration
 
-Status: active. AM27-00 contract promotion and responsibility pinning is
-complete.
+Status: closed. AM27-00 through AM27-04 are complete, and Part 5
+normal-package acceptance passed.
 
 Purpose:
 
@@ -773,9 +773,10 @@ SmartDox dependency was satisfied by accepted closed
 Phase 1 commit `fa21316973416c24bca7f8e366d65572c72720b7` through development
 coordinate `org.smartdox:smartdox_2.12:2.4.17-SNAPSHOT`; public/non-SNAPSHOT
 publication is not a start gate. It does not require a video binary to enter
-Git or make ordinary `bok build` generate media. Phase 27 is active with
-AM27-00 complete and AM27-01 next, while Phase 24 remains separately planned
-and blocked on its own contract.
+Git or make ordinary `bok build` generate media. Phase 27 is closed with
+normal-package site registration, skill integration, and Part 5 exact-locale
+panel acceptance complete; Phase 24 remains separately planned and blocked on
+its own contract.
 
 Phase 20 introduced provider-neutral narration with VOICEVOX, host-only macOS
 `say`, and a portable Piper Docker route, then used that contract to migrate the

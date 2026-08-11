@@ -1,8 +1,9 @@
 # Phase 27: SmartDox Site Media Registration
 
-Status: active
+Status: closed
 
 Start date: 2026-08-11
+Close date: 2026-08-11
 
 Dependency: closed Phase 26 article-media publication and BoK integration
 contracts, including its exact-locale registry semantics and accepted media
@@ -148,7 +149,7 @@ Focus:
 
 Stage Status:
 
-- Current status: PLANNED
+- Current status: DONE
 - Owner: Cozy
 - Update rule: mark work complete only from the Phase 27 checklist.
 - Checklist basis: `AM27-04`
@@ -159,6 +160,33 @@ Focus:
 - complete the Part 5 end-to-end normal-package acceptance;
 - obtain independent review and clean re-review; and
 - close the phase only after the docs and implementation contracts converge.
+
+## Completion Evidence
+
+- Cozy implementation and ledger history records site registration at
+  `a78d92af95aa996353a415add16586b2303bd6da` and the skill-workflow ledger at
+  `4ca735d10e25248b4642b0d4f62506d3a687427c`; Customizations skills are
+  recorded at `380aa1b5131959933d6d5df2fa47aa171422b7b2`, Arcadia
+  optional/template locale work at
+  `77e87718fb94f9ab33d91322b244945a9726ea62`, SmartDox Part 5 projection
+  coverage at `11ae1f99338bc617f620d9ffd2bfa150ba874e43`, and SimpleModeling
+  panel links at `3a1f61fd95e111c629024761ac483c9085d62174`.
+- The normal media-package Part 5 dry-run and its identical non-dry command
+  selected and registered four exact EN/JA infographic/video resources. Dox
+  `-publication` and the Arcadia runtime succeeded, and the rendered output
+  contains the exact-locale panel links and labels.
+- Cozy full validation covered 91 suites, 1239/1239 tests (invocation
+  `37212-20260811T075506Z`), and SmartDox full validation covered 28 suites,
+  225/225 tests (invocation `38811-20260811T075602Z`); both exited zero and
+  released their locks.
+- Arcadia full validation (invocation `45353-20260811T080703Z`) reached the pre-existing
+  test-compile ScalaTest mismatch; focused final-tree `OptionalTagSpec`
+  validation (invocation `45635-20260811T080727Z`) passed 4/4. This is
+  classified under
+  `P27-HYG-001`.
+- Independent review, the M0 `_main` fix, and clean re-review converged PASS.
+- The hygiene follow-up is recorded in
+  `docs/journal/2026/08/2026-08-11-phase-27-hygiene-follow-up.md`.
 
 ## Completion Criteria
 

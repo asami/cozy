@@ -57,13 +57,32 @@ Status: DONE
 
 ## AM27-04: Review, Validation, and Closure
 
-Status: PLANNED
+Status: DONE
 
-- [ ] Add executable specifications for binding, provider-neutral emission,
+- [x] Add executable specifications for binding, provider-neutral emission,
       merge preservation, locking, and security boundaries.
-- [ ] Run focused validation and the Part 5 end-to-end normal-package gate.
-- [ ] Complete independent review, repair any actionable findings, and obtain
+- [x] Run focused validation and the Part 5 end-to-end normal-package gate.
+- [x] Complete independent review, repair any actionable findings, and obtain
       clean re-review.
-- [ ] Confirm bilingual infographic plus accepted external video registration,
+- [x] Confirm bilingual infographic plus accepted external video registration,
       exact-locale Dox projection, and documentation convergence before phase
       closure.
+
+Phase closure evidence recorded on 2026-08-11:
+
+- The Part 5 normal-media-package dry-run and identical non-dry command
+  selected and registered four exact EN/JA infographic/video resources;
+  Dox `-publication` and Arcadia runtime succeeded with exact-locale panel
+  links and labels rendered.
+- Cozy full validation passed 91 suites and 1239/1239 tests (invocation
+  `37212-20260811T075506Z`); SmartDox full validation passed 28 suites and
+  225/225 tests (invocation `38811-20260811T075602Z`); both exited zero and
+  released their locks. Arcadia full invocation `45353-20260811T080703Z` hit
+  the pre-existing ScalaTest test-compile mismatch, while focused final-tree
+  `OptionalTagSpec` invocation `45635-20260811T080727Z` passed 4/4; this is
+  tracked as `P27-HYG-001`.
+- Independent review, the M0 `_main` fix, and clean re-review converged PASS.
+  The hygiene follow-up is recorded in
+  `docs/journal/2026/08/2026-08-11-phase-27-hygiene-follow-up.md`.
+
+Phase 27 is closed from this completed ledger.
