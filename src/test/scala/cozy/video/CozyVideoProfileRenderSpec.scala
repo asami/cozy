@@ -12,7 +12,7 @@ import cozy.CozySpecVocabulary
 /*
  * @since   Jul. 18, 2026
  *  version Jul. 20, 2026
- * @version Aug. 10, 2026
+ * @version Aug. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoProfileRenderSpec
@@ -518,6 +518,105 @@ final class CozyVideoProfileRenderSpec
     }
 
     "preserve lifecycle contracts" which {
+    "resolve a deep Part 5 descriptor from its discovered project credit profile without publication mutation" in {
+      _with_temp_dir("part5-project-context") { dir =>
+        Given("a marked project root and a deep video-ja descriptor without package credit configuration")
+        val descriptor = dir.resolve("src/main/media/development-process/object-modeling/video-ja.yaml")
+        val marker = dir.resolve("conf/cozy/config.yaml")
+        val profile = dir.resolve("conf/cozy/video/credit-profiles/simplemodeling-org.yaml")
+        _write(marker, "video:\n  credits:\n    default-profile: simplemodeling-org\n")
+        _write(
+          profile,
+          """schema: cozy.video.credits.v1
+            |profile: simplemodeling-org
+            |presentation:
+            |  title: {default: SimpleModeling credits}
+            |""".stripMargin
+        )
+        _write(
+          descriptor,
+          """name: Part 5
+            |title: Project context
+            |renderer: {engine: remotion}
+            |parts: []
+            |""".stripMargin
+        )
+
+        When("inspect and build dry-run plan the descriptor without invoking external tools")
+        val inspection = CozyVideo.inspect(
+          CozyVideo.InspectConfig(descriptor, checkTools = false),
+          CozyVideo.VideoToolRegistry(Vector.empty)
+        )
+        val dryrun = CozyVideo.build(
+          CozyVideo.BuildConfig(descriptor, dryRun = true, checkTools = false),
+          CozyVideo.VideoToolRegistry(Vector.empty)
+        )
+
+        Then("both views expose the same project-conf profile source and discovered marker")
+        Vector(inspection, dryrun).foreach { output =>
+          output should include_text("creditProfile: simplemodeling-org")
+          output should include_text("creditProfileSelectionLayer: project-conf")
+          output should include_text("creditProfileSourceLayer: project-conf")
+          output should include_text(s"creditProfileSelectionPath: $marker")
+          output should include_text(s"creditProfileSourcePath: $profile")
+          output should include_text(s"discoveredProjectRoot: $dir")
+          output should include_text(s"discoveredProjectMarker: $marker")
+        }
+
+        And("planning does not register publish or create project output state")
+        Files.exists(dir.resolve("warehouse")) shouldBe false
+        Files.exists(descriptor.getParent.resolve("build")) shouldBe false
+      }
+    }
+
+    "reject symbolic project descriptor aliases before context or profile resolution" in {
+      _with_temp_dir("symbolic-project-descriptor") { dir =>
+        Given("a direct video descriptor and a symbolic alias to the same descriptor")
+        val descriptor = dir.resolve("video.yaml")
+        val alias = dir.resolve("video-alias.yaml")
+        _write(
+          descriptor,
+          """title: Direct descriptor
+            |renderer: {engine: remotion}
+            |parts: []
+            |""".stripMargin
+        )
+        Files.createSymbolicLink(alias, descriptor)
+
+        When("Cozy inspects or dry-runs the symbolic descriptor alias")
+        val inspecterror = intercept[RuntimeException] {
+          CozyVideo.inspect(
+            CozyVideo.InspectConfig(alias, checkTools = false),
+            CozyVideo.VideoToolRegistry(Vector.empty)
+          )
+        }
+        val builderror = intercept[RuntimeException] {
+          CozyVideo.build(
+            CozyVideo.BuildConfig(alias, dryRun = true, checkTools = false),
+            CozyVideo.VideoToolRegistry(Vector.empty)
+          )
+        }
+
+        Then("both commands fail at the direct descriptor boundary")
+        Vector(inspecterror, builderror).foreach { error =>
+          error.getMessage should include("direct regular non-symlink")
+          error.getMessage should include(alias.toAbsolutePath.normalize().toString)
+        }
+
+        And("the direct descriptor remains valid for inspect and build dry-run")
+        val inspection = CozyVideo.inspect(
+          CozyVideo.InspectConfig(descriptor, checkTools = false),
+          CozyVideo.VideoToolRegistry(Vector.empty)
+        )
+        val dryrun = CozyVideo.build(
+          CozyVideo.BuildConfig(descriptor, dryRun = true, checkTools = false),
+          CozyVideo.VideoToolRegistry(Vector.empty)
+        )
+        inspection should include_text("projectRoot:")
+        dryrun should include_text("Cozy Video Build")
+      }
+    }
+
     "preserve profile contracts through inspect build RDF and publication" in {
       _with_temp_dir("lifecycle") { dir =>
         Given("a scaffolded explanation package entering the full publication lifecycle")

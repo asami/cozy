@@ -731,6 +731,97 @@ Primary references:
 - `docs/design/smartdox-site-media-registration.md`
 - `docs/spec/smartdox-site-media-registration.md`
 
+### Phase 28: Project Configuration and Profile Resolution
+
+Status: active. AM28-00 and AM28-01 are planned, with AM28-00 as the current
+starting position.
+
+Purpose and boundaries:
+
+- freeze the special `simplemodeling.org` `smartdox-site` boundary without
+  changing standard-BoK or Phase 27 production behavior;
+- discover the nearest direct non-symlink project `conf/cozy/config.yaml`
+  without Git and expose deterministic configuration provenance;
+- separate publication workflow selection, media publication destinations,
+  and audiovisual credit-profile selection;
+- support shared project credit/publication profiles while retaining
+  package-local, standalone, and explicit override compatibility; and
+- require explicit top-level publication-profile selection, discovered
+  project kind, and resource-level article-media opt-in.
+
+The approved 2026-08-12 split kept the first delivery unit and source history
+as Phase 28. Its conservative estimate is 4–6 hours at minimum xhigh effort.
+The existing design/spec documents are the frozen AM28-00 authority; their
+existence does not mark the Stage complete. AM28-00 remains planned pending
+implementation review and completion evidence, while the Phase ledger remains
+operational rather than normative.
+
+Primary references:
+
+- `docs/phase/phase-28.md`
+- `docs/phase/phase-28-checklist.md`
+- `docs/design/simplemodeling-org-wip-article-media.md`
+- `docs/spec/simplemodeling-org-wip-article-media.md`
+
+### Phase 28.1: WIP Local Article Media Registration
+
+Status: planned. It starts only after Phase 28 closes and owns AM28-02.
+
+Purpose and boundaries:
+
+- stage normalized, hash-verified, exact-locale local MP4s beneath disposable
+  `website.d` through a supported provider-neutral Cozy command;
+- emit local WIP video and infographic records without spoofing published
+  YouTube or production QA evidence;
+- preserve unrelated registry data through preflight, drift detection,
+  rollback, and atomic replacement;
+- reject symlinks, broad roots, unsafe destinations, stale identities, locale
+  fallback, and opposite-locale leakage; and
+- perform no upload, network publication, deploy, direct registry edit, or
+  standard-BoK rerouting.
+
+This reusable capability is estimated at 4–6 hours at minimum xhigh effort.
+SimpleModeling.org script integration and rendered-card acceptance are left to
+Phase 28.2.
+
+Primary references:
+
+- `docs/phase/phase-28.1.md`
+- `docs/phase/phase-28.1-checklist.md`
+- `docs/phase/phase-28.md`
+
+### Phase 28.2: SimpleModeling.org Part 5 Integration and Regression
+
+Status: planned. It starts only after Phase 28.1 closes and owns AM28-03 and
+AM28-04.
+
+Purpose and boundaries:
+
+- add SimpleModeling.org root configuration, shared profiles, and explicit
+  Part 5 article-media bindings using the completed Phase 28 contract;
+- wire `etc/runweb-wip.sh` only through supported Cozy/Dox product commands;
+- use `development-process/object-modeling` as the deterministic JA/EN test
+  driver and render introduction cards linking each locale's infographic and
+  playable local video beneath `website.d`;
+- verify admitted-artifact hashes, exact-locale behavior, repeat generation,
+  and no opposite-locale leakage even when Part 5 is outside five visible card
+  slots; and
+- regress Phase 27 external-YouTube production, package/standalone behavior,
+  and standard-BoK repository/publication placement.
+
+This final split unit is estimated at 3–5 hours at minimum high effort. Actual
+Part 5 WIP requires no YouTube publication; production acceptance remains a
+separate evidence-backed path and listening may remain pending as non-gating
+evidence.
+
+Primary references:
+
+- `docs/phase/phase-28.2.md`
+- `docs/phase/phase-28.2-checklist.md`
+- `docs/phase/phase-28.1.md`
+- `docs/design/smartdox-site-media-registration.md`
+- `docs/spec/smartdox-site-media-registration.md`
+
 ### Future Follow-up: Explicit Component Root Generation
 
 Status: planned, low priority.
@@ -775,8 +866,14 @@ coordinate `org.smartdox:smartdox_2.12:2.4.17-SNAPSHOT`; public/non-SNAPSHOT
 publication is not a start gate. It does not require a video binary to enter
 Git or make ordinary `bok build` generate media. Phase 27 is closed with
 normal-package site registration, skill integration, and Part 5 exact-locale
-panel acceptance complete; Phase 24 remains separately planned and blocked on
-its own contract.
+panel acceptance complete. Phase 28 is active at AM28-00 and owns project
+configuration/profile resolution. Its approved ordered successors are Phase
+28.1 for reusable WIP local staging/registration and Phase 28.2 for the Part 5
+`runweb-wip` integration and regression gate. The observed gap remains:
+`runweb-wip` currently stages no MP4s and emits no article-media buttons, and
+the project has no root `conf/cozy/config.yaml` or explicit `articleMedia`
+bindings. The split keeps Phase 24 separately planned and blocked on its own
+contract and preserves the closed Phase 27 production boundary.
 
 Phase 20 introduced provider-neutral narration with VOICEVOX, host-only macOS
 `say`, and a portable Piper Docker route, then used that contract to migrate the

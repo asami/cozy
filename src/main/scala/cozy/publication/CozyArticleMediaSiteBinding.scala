@@ -13,7 +13,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 11, 2026
- * @version Aug. 11, 2026
+ * @version Aug. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArticleMediaSiteBinding {
@@ -67,8 +67,10 @@ private[cozy] object CozyArticleMediaSiteBinding {
     descriptorBytes: Vector[Byte],
     descriptorRoot: Path,
     descriptorRootIdentity: Path,
+    context: cozy.config.CozyProjectContext.Context,
     articleIdentity: String,
     publicationProfile: String,
+    effectiveProfile: CozyMedia.EffectiveProfile,
     profileRoot: Path,
     profileRootIdentity: Path,
     candidates: Vector[Candidate]
@@ -102,7 +104,18 @@ private[cozy] object CozyArticleMediaSiteBinding {
       association.publicationProfile,
       "Article-media site binding publicationProfile"
     )
-    val profileroot = _profile_root(descriptorroot, descriptor, profile)
+    val project = mediaplan.context.project.getOrElse(
+      _invalid("Article-media site binding requires a discovered project authority")
+    )
+    if (project.kind.map(_.value) != Some("smartdox-site"))
+      _invalid("Article-media site binding requires project.kind smartdox-site")
+    val configuration = CozyMedia.requireConfiguredPublicationProfile(mediaplan, profile)
+    if (configuration.siteKind != "smartdox")
+      _invalid(s"Article-media site binding requires configured smartdox site-kind: $profile")
+    val effectiveprofile = CozyMedia.effectiveProfile(mediaplan, profile)
+    if (effectiveprofile.configuration != Some(configuration))
+      _invalid(s"Article-media site binding configured publication profile evidence is invalid: $profile")
+    val profileroot = _profile_root(effectiveprofile)
     val selected = _selected_resources(descriptor, config.target)
     if (selected.isEmpty)
       _invalid("Article-media site binding requires at least one articleMedia resource")
@@ -126,8 +139,10 @@ private[cozy] object CozyArticleMediaSiteBinding {
       descriptorBytes = descriptorsnapshot.bytes,
       descriptorRoot = descriptorroot,
       descriptorRootIdentity = descriptorrootidentity,
+      context = mediaplan.context,
       articleIdentity = articleidentity,
       publicationProfile = profile,
+      effectiveProfile = effectiveprofile,
       profileRoot = profileroot.lexical,
       profileRootIdentity = profileroot.identity,
       candidates = candidates
@@ -238,40 +253,8 @@ private[cozy] object CozyArticleMediaSiteBinding {
     _relative_path(value, s"Article-media site binding infographic publication for $resourceid")
   }
 
-  private def _profile_root(
-    descriptorroot: Path,
-    descriptor: CozyMedia.Descriptor,
-    profile: String
-  ): DirectoryIdentity = {
-    val selected = Option(descriptor.profiles).flatMap(_.get(profile)).getOrElse(
-      _invalid(s"Article-media site binding publication profile does not exist: $profile")
-    )
-    if (selected == null)
-      _invalid(s"Article-media site binding publication profile must be defined: $profile")
-    selected.rootEnv match {
-      case Some(name) =>
-        val envname = CozyArticleMediaNormalization.requireExactTrimmed(
-          name,
-          s"Article-media site binding profile $profile rootEnv"
-        )
-        val value = sys.env.get(envname).filter(x => x.nonEmpty && x == x.trim).getOrElse(
-          _invalid(s"Article-media site binding profile $profile rootEnv is missing: $envname")
-        )
-        _direct_directory(try Path.of(value) catch {
-          case NonFatal(_) => _invalid(s"Article-media site binding profile $profile rootEnv is invalid")
-        }, s"profile $profile rootEnv")
-      case None =>
-        selected.root match {
-          case Some(value) =>
-            val relative = _relative_path(value, s"Article-media site binding profile $profile root")
-            val path = descriptorroot.resolve(relative).normalize()
-            if (!path.startsWith(descriptorroot))
-              _invalid(s"Article-media site binding profile $profile root escapes descriptor root")
-            _direct_directory(path, s"profile $profile root")
-          case None => _direct_directory(descriptorroot, s"profile $profile default root")
-        }
-    }
-  }
+  private def _profile_root(profile: CozyMedia.EffectiveProfile): DirectoryIdentity =
+    _direct_directory(profile.resolvedRoot, s"profile ${profile.id} root")
 
   private def _production_video(
     bytes: Vector[Byte],

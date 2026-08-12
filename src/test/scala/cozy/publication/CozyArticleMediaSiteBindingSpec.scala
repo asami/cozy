@@ -12,7 +12,7 @@ import org.smartdox.metadata.PublishMetadata.{ImageReference, VideoPresentation,
 
 /*
  * @since   Aug. 11, 2026
- * @version Aug. 11, 2026
+ * @version Aug. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 private object SiteBindingPart5Fixture {
@@ -38,6 +38,12 @@ final class CozyArticleMediaSiteBindingSpec extends AnyWordSpec with Matchers wi
           plan.config shouldBe config
           plan.articleIdentity shouldBe "development-process/part-5"
           plan.descriptor.knowledge.id shouldBe "media-package/part-5"
+          plan.context.project.map(_.root.path) shouldBe Some(fixture.root.toAbsolutePath.normalize())
+          plan.context.project.map(_.marker.path) shouldBe Some(fixture.root.resolve("conf/cozy/config.yaml").toAbsolutePath.normalize())
+          plan.effectiveProfile.id shouldBe "site"
+          plan.effectiveProfile.layer shouldBe Some("project-conf")
+          plan.effectiveProfile.sourcePath shouldBe Some(fixture.root.resolve("conf/cozy/config.yaml").toAbsolutePath.normalize())
+          plan.effectiveProfile.siteKind shouldBe Some("smartdox")
           plan.candidates.map(_.resourceId) shouldBe Vector(
             "part-5-summary-en",
             "part-5-summary-ja",
@@ -103,6 +109,92 @@ final class CozyArticleMediaSiteBindingSpec extends AnyWordSpec with Matchers wi
 
           Then("the complete immutable evidence plan remains unchanged")
           revalidated shouldBe plan
+        }
+      }
+    }
+
+    "bind only an explicit SmartDox project profile association" which {
+      "accept configured-only and descriptor-overlay locations while rejecting implicit authorities" in {
+        Given("Part 5 descriptors whose location and registration authorities vary independently")
+
+        When("the binding planner resolves each declared boundary")
+        val configuredonly = _with_part5_fixture("configured-only", _part5_yaml().replace("profiles:\n  site:\n    root: publication\n", "")) { fixture =>
+          CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(fixture.descriptor))
+        }
+        val overlay = _with_part5_fixture("overlay") { fixture =>
+          _write(fixture.root.resolve("conf/cozy/config.yaml"), _project_config_yaml("configured-publication"))
+          CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(fixture.descriptor))
+        }
+        val wrongkind = _with_part5_fixture("wrong-project-kind") { fixture =>
+          _write(fixture.root.resolve("conf/cozy/config.yaml"), _project_config_yaml("publication", projectkind = "ordinary"))
+          _failure(CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(fixture.descriptor)))
+        }
+        val missingkind = _with_part5_fixture("missing-project-kind") { fixture =>
+          _write(fixture.root.resolve("conf/cozy/config.yaml"), _project_config_yaml().replace("  kind: smartdox-site\n", ""))
+          _failure(CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(fixture.descriptor)))
+        }
+        val wrongsitekind = _with_part5_fixture("wrong-site-kind") { fixture =>
+          _write(fixture.root.resolve("conf/cozy/config.yaml"), _project_config_yaml("publication", sitekind = "other"))
+          _failure(CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(fixture.descriptor)))
+        }
+        val missingsitekind = _with_part5_fixture("missing-site-kind") { fixture =>
+          _write(fixture.root.resolve("conf/cozy/config.yaml"), _project_config_yaml().replace("      site-kind: smartdox\n", ""))
+          _failure(CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(fixture.descriptor)))
+        }
+        val descriptoronly = _with_part5_fixture("descriptor-only") { fixture =>
+          Files.delete(fixture.root.resolve("conf/cozy/config.yaml"))
+          _failure(CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(fixture.descriptor)))
+        }
+        val associationonly = _with_part5_fixture("association-only", _part5_yaml(association = "")) { fixture =>
+          _failure(CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(fixture.descriptor)))
+        }
+        val escape = _part5_plan_failure("ordinary-root-escape", _part5_yaml().replace("root: publication", "root: ../outside"))
+
+        Then("configured definitions are reusable, but no descriptor, project, or profile substitute can authorize registration")
+        configuredonly.profileRoot shouldBe configuredonly.context.project.get.root.path.resolve("publication")
+        configuredonly.effectiveProfile.configuration should not be empty
+        overlay.profileRoot shouldBe overlay.descriptorRoot.resolve("publication")
+        overlay.effectiveProfile.configuration.map(_.resolvedRoot) shouldBe Some(overlay.context.project.get.root.path.resolve("configured-publication"))
+        wrongkind.getMessage should include("project.kind")
+        missingkind.getMessage should include("project.kind")
+        wrongsitekind.getMessage should include("site-kind")
+        missingsitekind.getMessage should include("site-kind")
+        descriptoronly.getMessage should include("discovered project authority")
+        associationonly.getMessage should include("top-level articleMedia")
+        escape.getMessage should include("escapes descriptor root")
+      }
+
+      "admit an explicit direct external rootEnv location and reject its symlink evidence" in {
+        Given("a configured SmartDox site whose descriptor explicitly chooses the canonical HOME root")
+        val homeroot = Path.of(sys.env("HOME")).toRealPath()
+        val externalroot = homeroot.resolve("src/dev2025/cozy/target/cozy-media-site-binding-root-env")
+
+        try {
+          When("the opted-in infographic is resolved through the external root")
+          _with_part5_fixture("root-env", _part5_yaml().
+            replace("root: publication", "root-env: HOME").
+            replace("site: images/summary-ja.png", "site: src/dev2025/cozy/target/cozy-media-site-binding-root-env/summary-ja.png")) { fixture =>
+            _write(externalroot.resolve("summary-ja.png"), "external Part 5 summary")
+            val admitted = CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(
+              fixture.descriptor,
+              target = Some("part-5-summary-ja")
+            ))
+            val outside = fixture.root.resolve("outside-summary-ja.png")
+            _write(outside, "outside")
+            Files.delete(externalroot.resolve("summary-ja.png"))
+            Files.createSymbolicLink(externalroot.resolve("summary-ja.png"), outside)
+            val rejected = _failure(CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(
+              fixture.descriptor,
+              target = Some("part-5-summary-ja")
+            )))
+
+            Then("only the explicit direct external root is admitted and no link is followed")
+            admitted.profileRoot shouldBe homeroot
+            admitted.candidates.map(_.resourceId) shouldBe Vector("part-5-summary-ja")
+            rejected.getMessage should include("direct regular")
+          }
+        } finally {
+          _delete(externalroot)
         }
       }
     }
@@ -224,8 +316,13 @@ final class CozyArticleMediaSiteBindingSpec extends AnyWordSpec with Matchers wi
 
         Then("no inferred, escaped, missing, or symlink-backed infographic can register")
         missingmapping.getMessage should include("no selected publication profile")
-        missingprofile.getMessage should include("does not exist")
-        escape.getMessage should include("normalized relative path")
+        missingprofile.getMessage should include("configured publication profile")
+        Vector("built-in", "user", "project-conf", "project-local", "package-conf", "package-local").foreach { layer =>
+          missingprofile.getMessage should include(s"$layer:")
+        }
+        missingprofile.getMessage should include("site")
+        missingprofile.getMessage should include("conf/cozy/config.yaml")
+        escape.getMessage should include("escapes profile root")
         invalidpublicpath.getMessage should include("site-visible")
         missingdestination.getMessage should include("direct regular")
         symlinkdestination.getMessage should include("direct regular")
@@ -288,6 +385,9 @@ final class CozyArticleMediaSiteBindingSpec extends AnyWordSpec with Matchers wi
           Files.createDirectories(fixture.root.resolve("publication-alt"))
           _write(fixture.descriptor, _part5_yaml().replace("root: publication", "root: publication-alt"))
         }
+        val configurationdrift = _part5_revalidation_failure("configuration-drift") { fixture =>
+          _write(fixture.root.resolve("conf/cozy/config.yaml"), _project_config_yaml("publication-alt"))
+        }
         val resourcedrift = _part5_revalidation_failure("resource-drift") { fixture =>
           _write(fixture.descriptor, _part5_yaml().replace(
             "/ja/development-process/images/part-5/summary.png",
@@ -321,6 +421,7 @@ final class CozyArticleMediaSiteBindingSpec extends AnyWordSpec with Matchers wi
         Vector(
           descriptordrift,
           profiledrift,
+          configurationdrift,
           resourcedrift,
           infographicbytes,
           infographicidentity,
@@ -366,6 +467,7 @@ final class CozyArticleMediaSiteBindingSpec extends AnyWordSpec with Matchers wi
     val descriptor = root.resolve("media.yaml")
     val profile = root.resolve("publication")
     try {
+      _write(root.resolve("conf/cozy/config.yaml"), _project_config_yaml())
       _write(descriptor, yaml)
       _write(profile.resolve("images/summary-ja.png"), "Part 5 summary ja")
       _write(profile.resolve("images/summary-en.png"), "Part 5 summary en")
@@ -439,6 +541,21 @@ final class CozyArticleMediaSiteBindingSpec extends AnyWordSpec with Matchers wi
        |    build: prebuilt
        |""".stripMargin
   }
+
+  private def _project_config_yaml(
+    root: String = "publication",
+    projectkind: String = "smartdox-site",
+    sitekind: String = "smartdox"
+  ): String =
+    s"""project:
+      |  id: simplemodeling-org
+      |  kind: $projectkind
+      |media:
+      |  publication-profiles:
+      |    site:
+      |      root: $root
+      |      site-kind: $sitekind
+      |""".stripMargin
 
   private def _part5_infographic_binding(publicpath: String, alt: String): String =
     s"""    articleMedia:

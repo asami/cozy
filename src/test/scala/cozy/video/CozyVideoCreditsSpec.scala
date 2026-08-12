@@ -1,6 +1,7 @@
 package cozy.video
 
 import cozy.CozySpecVocabulary
+import cozy.config.CozyProjectContext
 import io.circe.Json
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
@@ -10,7 +11,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jul. 20, 2026
- * @version Jul. 20, 2026
+ * @version Aug. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoCreditsSpec
@@ -120,13 +121,167 @@ final class CozyVideoCreditsSpec
     }
 
     "apply profile configuration and validation contracts" which {
+      "resolve a nested package through its marked project context" in {
+        _with_temp_dir("nested-project-context") { dir =>
+          Given("a nested video package beneath a project marker with a project credit default")
+          val pkg = dir.resolve("src/main/media/development-process/object-modeling")
+          Files.createDirectories(pkg)
+          _write_config(dir.resolve("conf/cozy/config.yaml"), "root-profile")
+          _write_profile_at(dir.resolve("conf/cozy"), "root-profile")
+
+          When("the package-compatible Path overload resolves its project context once")
+          val effective = _empty_resolution(pkg, None)
+
+          Then("the project layer supplies both the selected profile and source provenance")
+          effective.profileId shouldBe Some("root-profile")
+          effective.selection.map(_.layer) shouldBe Some("project-conf")
+          effective.profile.map(_.layer) shouldBe Some("project-conf")
+        }
+      }
+
+      "retain package layers when no project marker is present" in {
+        _with_temp_dir("package-without-marker") { dir =>
+          Given("an unmarked package with package configuration and a package-local override")
+          _write_profile_at(dir.resolve("conf/cozy"), "package-conf-profile")
+          _write(dir.resolve("conf/cozy/config.json"), """{"video":{"credits":{"default-profile":"package-conf-profile"}}}""")
+          _write_profile_at(dir.resolve(".cozy"), "package-local-profile")
+          _write_config(dir.resolve(".cozy/config.yaml"), "package-local-profile")
+
+          When("Cozy resolves the compatibility Path overload")
+          val effective = _empty_resolution(dir, None)
+
+          Then("the unmarked package keeps package-local precedence and provenance")
+          effective.profileId shouldBe Some("package-local-profile")
+          effective.selection.map(_.layer) shouldBe Some("package-local")
+          effective.profile.map(_.layer) shouldBe Some("package-local")
+        }
+      }
+
+      "apply all context layers once in their declared precedence order" in {
+        _with_temp_dir("all-context-layers") { dir =>
+          val home = dir.resolve("home")
+          val pkg = dir.resolve("packages/part5")
+          _with_user_home(home) {
+            Given("user project and nested package layers each define the same credit profile ID")
+            Files.createDirectories(pkg)
+            _write_profile_at(home.resolve(".cozy"), "shared")
+            _write_config(home.resolve(".cozy/config.yaml"), "shared")
+            _write_profile_at(dir.resolve("conf/cozy"), "shared")
+            _write_config(dir.resolve("conf/cozy/config.yaml"), "shared")
+            _write_profile_at(dir.resolve(".cozy"), "shared")
+            _write_config(dir.resolve(".cozy/config.yaml"), "shared")
+            _write_profile_at(pkg.resolve("conf/cozy"), "shared")
+            _write(pkg.resolve("conf/cozy/config.json"), """{"video":{"credits":{"default-profile":"shared"}}}""")
+            _write_profile_at(pkg.resolve(".cozy"), "shared")
+            _write_config(pkg.resolve(".cozy/config.yaml"), "shared")
+
+            When("Cozy resolves the deep package without an explicit descriptor profile")
+            val effective = _empty_resolution(pkg, None)
+
+            Then("the later package-local layer wins over every earlier source exactly once")
+            effective.profileId shouldBe Some("shared")
+            effective.selection.map(_.layer) shouldBe Some("package-local")
+            effective.profile.map(_.layer) shouldBe Some("package-local")
+          }
+        }
+      }
+
+      "avoid replaying the package roots when they are already the discovered project root" in {
+        _with_temp_dir("same-root-no-replay") { dir =>
+          Given("a descriptor package that is itself the marked project root")
+          _write_config(dir.resolve("conf/cozy/config.yaml"), "root-profile")
+          _write_profile_at(dir.resolve("conf/cozy"), "root-profile")
+
+          When("a missing profile is diagnosed from its context layers")
+          val error = intercept[RuntimeException] {
+            _empty_resolution(dir, Some("missing"))
+          }
+
+          Then("only project layers are considered after the shared built-in and user layers")
+          error.getMessage should include_text("project-conf(provenance=project-conf, root=")
+          error.getMessage should include_text("project-local(provenance=project-local, root=absent")
+          error.getMessage should not(include_text("package-conf(provenance="))
+          error.getMessage should not(include_text("package-local(provenance="))
+        }
+      }
+
+      "report every context layer for an unknown requested profile" in {
+        _with_temp_dir("unknown-profile-context") { dir =>
+          Given("a marked project with one known profile and absent optional layer roots")
+          _write_config(dir.resolve("conf/cozy/config.yaml"), "known")
+          _write_profile_at(dir.resolve("conf/cozy"), "known")
+
+          When("the descriptor requests a profile that no context layer provides")
+          val error = intercept[RuntimeException] {
+            _empty_resolution(dir, Some("missing"))
+          }
+
+          Then("the diagnostic records the requested ID, all ordered layers, and considered sources")
+          error.getMessage should include_text("Unknown video credit profile: missing")
+          error.getMessage should include_text("built-in(provenance=built-in, root=absent")
+          error.getMessage should include_text("user(provenance=user, root=")
+          error.getMessage should include_text("project-conf(provenance=project-conf, root=")
+          error.getMessage should include_text("project-local(provenance=project-local, root=absent")
+          error.getMessage should include_text("known.yaml")
+          error.getMessage should include_text("ids=[known]")
+        }
+      }
+
+      "reject symbolic profile directories and profile files" in {
+        _with_temp_dir("profile-symlinks") { dir =>
+          Given("a direct project marker and a symbolic profile directory")
+          _write_config(dir.resolve("conf/cozy/config.yaml"), "profile")
+          val realdir = dir.resolve("real-profiles")
+          _write_profile_at(realdir, "profile")
+          val directorylink = dir.resolve(".cozy/video/credit-profiles")
+          Option(directorylink.getParent).foreach(Files.createDirectories(_))
+          Files.createSymbolicLink(directorylink, realdir)
+
+          When("credit discovery enters the symbolic directory")
+          val directoryerror = intercept[RuntimeException] {
+            _empty_resolution(dir, Some("profile"))
+          }
+
+          Then("the directory is rejected before a profile is parsed")
+          directoryerror.getMessage should include_text("direct non-symlink directory")
+
+          And("a direct profile directory contains a symbolic profile file")
+          Files.delete(directorylink)
+          val profilelink = dir.resolve(".cozy/video/credit-profiles/profile.yaml")
+          Option(profilelink.getParent).foreach(Files.createDirectories(_))
+          Files.createSymbolicLink(profilelink, realdir.resolve("video/credit-profiles/profile.yaml"))
+
+          When("credit discovery reads the symbolic profile file")
+          val fileerror = intercept[RuntimeException] {
+            _empty_resolution(dir, Some("profile"))
+          }
+
+          Then("the file is rejected before a profile is parsed")
+          fileerror.getMessage should include_text("direct regular non-symlink file")
+        }
+      }
+
+      "reject duplicate profile IDs in an unmarked package configuration layer" in {
+        _with_temp_dir("package-conf-duplicate") { dir =>
+          Given("an unmarked package-conf layer with two files declaring one profile ID")
+          _write_profile_at(dir.resolve("conf/cozy"), "duplicate")
+          _write_profile_at(dir.resolve("conf/cozy"), "duplicate-copy", _empty_profile_yaml("duplicate"))
+
+          When("an explicit descriptor profile triggers package discovery")
+          val error = intercept[RuntimeException] {
+            _empty_resolution(dir, Some("duplicate"))
+          }
+
+          Then("the duplicate diagnostic identifies the package-conf layer")
+          error.getMessage should include_text("Duplicate video credit profile ids in package-conf: duplicate")
+        }
+      }
+
       "honor explicit project local project conf and user default precedence" in {
         _with_temp_dir("precedence") { dir =>
-          val oldhome = System.getProperty("user.home")
           val userhome = dir.resolve("home")
-          try {
+          _with_user_home(userhome) {
             Given("the same environment has user project-conf project-local and explicit profile choices")
-            System.setProperty("user.home", userhome.toString)
             _write_profile_at(userhome.resolve(".cozy"), "user-profile")
             _write_config(userhome.resolve(".cozy/config.yaml"), "user-profile")
             _write_profile_at(dir.resolve("conf/cozy"), "conf-profile")
@@ -150,8 +305,6 @@ final class CozyVideoCreditsSpec
             _empty_resolution(dir, None).profileId shouldBe Some("conf-profile")
             Files.delete(dir.resolve("conf/cozy/config.yaml"))
             _empty_resolution(dir, None).profileId shouldBe Some("user-profile")
-          } finally {
-            if (oldhome == null) System.clearProperty("user.home") else System.setProperty("user.home", oldhome)
           }
         }
       }
@@ -325,7 +478,7 @@ final class CozyVideoCreditsSpec
           val error = intercept[RuntimeException] {
             _empty_resolution(dir, Some("invalid"))
           }
-          error.getMessage should include_text("Duplicate video credit profile ids in project-conf: invalid")
+          error.getMessage should include_text("Duplicate video credit profile ids in package-conf: invalid")
         }
       }
     }
@@ -636,6 +789,17 @@ final class CozyVideoCreditsSpec
     Files.createDirectories(root)
     body(root)
   }
+
+  private def _with_user_home[A](home: Path)(body: => A): A =
+    CozyProjectContext.withUserHomeLock {
+      val previoushome = Option(System.getProperty("user.home"))
+      System.setProperty("user.home", home.toString)
+      try body
+      finally {
+        previoushome.foreach(System.setProperty("user.home", _))
+        if (previoushome.isEmpty) System.clearProperty("user.home")
+      }
+    }
 
   private def _write(path: Path, contents: String): Unit = {
     Option(path.getParent).foreach(Files.createDirectories(_))

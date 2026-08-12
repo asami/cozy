@@ -3,7 +3,20 @@ package cozy.config
 import org.goldenport.config.StructuredDocumentLoader
 import org.goldenport.io.InputSource
 import org.goldenport.value._
+import org.goldenport.RAISE
 import io.circe.{Json => CJson}
+import io.circe.parser
+import com.typesafe.config.{
+  ConfigFactory,
+  ConfigIncludeContext,
+  ConfigIncluder,
+  ConfigIncluderClasspath,
+  ConfigIncluderFile,
+  ConfigIncluderURL,
+  ConfigParseOptions,
+  ConfigRenderOptions,
+  ConfigResolveOptions
+}
 import org.goldenport.cncf.component.identity.{
   ComponentId,
   ComponentIdentityProjection,
@@ -11,7 +24,8 @@ import org.goldenport.cncf.component.identity.{
   ComponentLocalId,
   ComponentNamespace
 }
-import java.net.URI
+import java.io.File
+import java.net.{URI, URL}
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
 import scala.collection.JavaConverters._
@@ -21,7 +35,7 @@ import scala.collection.JavaConverters._
  *  version Jun.  8, 2026
  *  version Jun. 18, 2026
  *  version Jul. 28, 2026
- * @version Aug.  7, 2026
+ * @version Aug. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyProjectYamlConfig {
@@ -157,12 +171,86 @@ private[cozy] object CozyProjectYamlConfig {
       Config.empty
     }
 
-  def parsePublic(bytes: Array[Byte]): Config = {
+  def parsePublic(bytes: Array[Byte]): Config =
+    parsePublic(bytes, URI.create("memory:/runtime.yaml"))
+
+  def parsePublic(bytes: Array[Byte], sourceUri: URI): Config = {
+    val uri = Option(sourceUri).getOrElse(_invalid("Cozy project configuration source URI must be defined"))
     val content = new String(bytes, StandardCharsets.UTF_8)
-    val source = InputSource(content, URI.create("memory:/runtime.yaml"))
-    val json = StructuredDocumentLoader.loadJson(source).take
+    val format = _format(uri)
+    _reject_external_references(content, format, uri)
+    val json = format match {
+      case StructuredDocumentLoader.Format.Hocon => _hocon_json(content, uri)
+      case _ =>
+        val source = InputSource(content, uri)
+        StructuredDocumentLoader.loadJson(source, format).take
+    }
     _config_from_json(json)
   }
+
+  private def _format(sourceuri: URI): StructuredDocumentLoader.Format = {
+    val suffix = Option(sourceuri.getPath).map(_.trim).filter(_.nonEmpty).
+      flatMap { path =>
+        val index = path.lastIndexOf('.')
+        if (index >= 0 && index < path.length - 1)
+          Some(path.substring(index).toLowerCase(java.util.Locale.ROOT))
+        else None
+      }
+    suffix match {
+      case Some(".yaml") | Some(".yml") => StructuredDocumentLoader.Format.Yaml
+      case Some(".json") => StructuredDocumentLoader.Format.Json
+      case Some(".conf") | Some(".hocon") => StructuredDocumentLoader.Format.Hocon
+      case Some(".xml") => StructuredDocumentLoader.Format.Xml
+      case _ =>
+        val label = suffix.getOrElse("<none>")
+        _invalid(s"Unsupported Cozy project configuration format for URI '$sourceuri': suffix '$label'")
+    }
+  }
+
+  private def _reject_external_references(
+    content: String,
+    format: StructuredDocumentLoader.Format,
+    sourceuri: URI
+  ): Unit = format match {
+    case StructuredDocumentLoader.Format.Xml if _xml_external.findFirstIn(content).nonEmpty =>
+      _invalid(s"XML external document constructs are not allowed for captured Cozy project configuration: $sourceuri")
+    case _ =>
+  }
+
+  private val _xml_external = "(?is)<!\\s*(?:DOCTYPE|ENTITY)\\b|<\\s*(?:xi:include|xinclude:include)\\b".r
+
+  private final class RejectingHoconIncluder(sourceuri: URI) extends ConfigIncluder with ConfigIncluderFile with ConfigIncluderURL with ConfigIncluderClasspath {
+    override def withFallback(fallback: ConfigIncluder): ConfigIncluder = this
+
+    override def include(context: ConfigIncludeContext, what: String) =
+      _reject_include()
+
+    override def includeFile(context: ConfigIncludeContext, what: File) =
+      _reject_include()
+
+    override def includeURL(context: ConfigIncludeContext, what: URL) =
+      _reject_include()
+
+    override def includeResources(context: ConfigIncludeContext, what: String) =
+      _reject_include()
+
+    private def _reject_include(): Nothing =
+      _invalid(s"HOCON include is not allowed for captured Cozy project configuration: $sourceuri")
+  }
+
+  private def _hocon_json(content: String, sourceuri: URI): CJson = {
+    val options = ConfigParseOptions.defaults().
+      setIncluder(new RejectingHoconIncluder(sourceuri)).
+      setOriginDescription(sourceuri.toString)
+    val config = ConfigFactory.parseString(content, options).resolve(ConfigResolveOptions.noSystem())
+    val rendered = config.root().render(ConfigRenderOptions.concise().setJson(true))
+    parser.parse(rendered).fold(
+      e => _invalid(s"Captured HOCON cannot be converted to JSON for $sourceuri: ${e.getMessage}"),
+      identity
+    )
+  }
+
+  private def _invalid(message: String): Nothing = RAISE.invalidArgumentFault(message)
 
   def parse(lines: Vector[String]): Config = {
     var stack = Vector.empty[(Int, String)]

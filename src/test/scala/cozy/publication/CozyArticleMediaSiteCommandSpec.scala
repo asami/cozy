@@ -15,7 +15,7 @@ import play.api.libs.json.{JsArray, JsNull, JsObject, JsString, Json}
 
 /*
  * @since   Aug. 11, 2026
- * @version Aug. 11, 2026
+ * @version Aug. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 private object SiteCommandPart5Fixture {
@@ -69,6 +69,12 @@ final class CozyArticleMediaSiteCommandSpec extends AnyWordSpec with Matchers wi
           Json.stringify(strict) should not include "sha256"
           Json.stringify(strict) should not include "provenance"
           Json.stringify(strict) should not include "content_url"
+          Json.stringify(strict) should not include "projectRoot"
+          Json.stringify(strict) should not include "projectMarker"
+          Json.stringify(strict) should not include "profileLayer"
+          Json.stringify(strict) should not include "profileSource"
+          Json.stringify(strict) should not include "profileSiteKind"
+          Json.stringify(strict) should not include "sourcePath"
           dispatched._2 should not include "production.json"
           dispatched._2 should not include "summary-ja.png"
         }
@@ -263,6 +269,41 @@ final class CozyArticleMediaSiteCommandSpec extends AnyWordSpec with Matchers wi
         duplicate._2 shouldBe duplicate._3
         duplicate._4 shouldBe false
       }
+
+      "reject name, path, standard-BoK, credits, profile-only, and incomplete project configuration substitutes" in {
+        Given("registry roots with media descriptors that lack one required registration authority")
+
+        When("register-site preflights each non-authorizing configuration")
+        val outcomes = Vector(
+          _with_part5_fixture("standard-bok-config") { fixture =>
+            val before = _registry_tree(fixture.registryroot)
+            _write(fixture.root.resolve("conf/cozy/config.yaml"), _project_config_yaml(projectkind = "standard-bok"))
+            (_failure(CozyArticleMediaSiteCommand.execute(_config(fixture))), _registry_tree(fixture.registryroot), before)
+          },
+          _with_part5_fixture("repository-name-config") { fixture =>
+            val before = _registry_tree(fixture.registryroot)
+            _write(fixture.root.resolve("conf/cozy/config.yaml"),
+              "project:\n  id: smartdox-site-by-name\n  kind: smartdox-site\nrepository:\n  path: /standard-bok\n")
+            (_failure(CozyArticleMediaSiteCommand.execute(_config(fixture))), _registry_tree(fixture.registryroot), before)
+          },
+          _with_part5_fixture("credits-config") { fixture =>
+            val before = _registry_tree(fixture.registryroot)
+            _write(fixture.root.resolve("conf/cozy/config.yaml"),
+              "project:\n  id: simplemodeling-org\n  kind: smartdox-site\nvideo:\n  credits:\n    default-profile: site\n")
+            (_failure(CozyArticleMediaSiteCommand.execute(_config(fixture))), _registry_tree(fixture.registryroot), before)
+          },
+          _with_part5_fixture("profile-only", _part5_yaml(association = "")) { fixture =>
+            val before = _registry_tree(fixture.registryroot)
+            (_failure(CozyArticleMediaSiteCommand.execute(_config(fixture))), _registry_tree(fixture.registryroot), before)
+          }
+        )
+
+        Then("none of the descriptive substitutes writes a strict record")
+        outcomes.foreach { outcome =>
+          outcome._1.getMessage should not be empty
+          outcome._2 shouldBe outcome._3
+        }
+      }
     }
 
     "revalidate complete admitted evidence" which {
@@ -273,6 +314,9 @@ final class CozyArticleMediaSiteCommandSpec extends AnyWordSpec with Matchers wi
           "selected publication mapping" -> { fixture =>
             _write(fixture.profileroot.resolve("images/rebound-summary-ja.png"), "Part 5 rebound ja")
             _write(fixture.descriptor, _part5_yaml().replace("site: images/summary-ja.png", "site: images/rebound-summary-ja.png"))
+          },
+          "project configuration" -> { fixture =>
+            _write(fixture.root.resolve("conf/cozy/config.yaml"), _project_config_yaml(sitekind = "other"))
           },
           "infographic destination bytes" -> { fixture =>
             _write(fixture.profileroot.resolve("images/summary-ja.png"), "Part 5 changed summary")
@@ -530,6 +574,7 @@ final class CozyArticleMediaSiteCommandSpec extends AnyWordSpec with Matchers wi
     val profile = root.resolve("publication")
     val registry = root.resolve("registry")
     try {
+      _write(root.resolve("conf/cozy/config.yaml"), _project_config_yaml())
       _write(descriptor, yaml)
       _write(profile.resolve("images/summary-ja.png"), "Part 5 summary ja")
       _write(profile.resolve("images/summary-en.png"), "Part 5 summary en")
@@ -603,6 +648,22 @@ final class CozyArticleMediaSiteCommandSpec extends AnyWordSpec with Matchers wi
        |    source: input/unbound.png
        |    build: prebuilt
        |""".stripMargin
+
+  private def _project_config_yaml(
+    root: String = "publication",
+    projectkind: String = "smartdox-site",
+    sitekind: String = "smartdox",
+    projectid: String = "simplemodeling-org"
+  ): String =
+    s"""project:
+      |  id: $projectid
+      |  kind: $projectkind
+      |media:
+      |  publication-profiles:
+      |    site:
+      |      root: $root
+      |      site-kind: $sitekind
+      |""".stripMargin
 
   private def _part5_infographic_binding(publicpath: String, alt: String): String =
     s"""    articleMedia:

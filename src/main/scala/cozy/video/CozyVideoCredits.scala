@@ -1,21 +1,21 @@
 package cozy.video
 
-import cozy.config.CozyProjectYamlConfig
+import cozy.config.{CozyProjectContext, CozyProjectYamlConfig}
 import io.circe.{Decoder, HCursor, Json}
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path}
+import java.nio.file.attribute.BasicFileAttributes
+import java.nio.file.{Files, LinkOption, Path}
 import java.security.MessageDigest
 import scala.collection.JavaConverters._
+import scala.util.control.NonFatal
 import org.goldenport.RAISE
-import org.goldenport.config.StructuredDocumentLoader
-import org.goldenport.io.InputSource
 
 /*
  * Renderer-neutral credit catalog, selection, and projection contract.
  * Personal attribution policy belongs in discovered profiles, never here.
  *
  * @since   Jul. 20, 2026
- * @version Aug.  9, 2026
+ * @version Aug. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoCredits {
@@ -185,6 +185,12 @@ private[cozy] object CozyVideoCredits {
 
   final case class ProfileSelection(id: String, layer: String, configPath: Option[Path])
 
+  private final case class ProfileSnapshot(path: Path, bytes: Array[Byte])
+  private final case class ProfileCatalog(
+    profiles: Map[String, ProfileSource],
+    considered: Vector[(String, Option[Path], Vector[Path], Vector[String])]
+  )
+
   final case class AudioEvidence(
     provider: String,
     voiceIdentity: Option[String],
@@ -253,13 +259,22 @@ private[cozy] object CozyVideoCredits {
     scripts: Vector[CozyVideo.VideoScript],
     assets: Vector[CozyVideoAssets.CreditEvidence],
     audiomanifests: Vector[(Path, Vector[CozyVideo.VideoAudioManifestEntry])]
+  ): EffectiveSet =
+    resolve(CozyProjectContext.resolve(projectroot), settings, locale, scripts, assets, audiomanifests)
+
+  def resolve(
+    context: CozyProjectContext.Context,
+    settings: Option[Settings],
+    locale: Option[String],
+    scripts: Vector[CozyVideo.VideoScript],
+    assets: Vector[CozyVideoAssets.CreditEvidence],
+    audiomanifests: Vector[(Path, Vector[CozyVideo.VideoAudioManifestEntry])]
   ): EffectiveSet = {
-    val normalizedroot = projectroot.toAbsolutePath.normalize()
     val effectivelocale = locale.map(_.trim).filter(_.nonEmpty).getOrElse("en").toLowerCase(java.util.Locale.ROOT)
-    val profiles = _discover_profiles(normalizedroot)
-    val selection = _select_profile(normalizedroot, settings.flatMap(_.profile))
+    val catalog = _discover_profiles(context)
+    val selection = _select_profile(context, settings.flatMap(_.profile))
     val profile = selection.map { selected =>
-      profiles.getOrElse(selected.id, RAISE.invalidArgumentFault(s"Unknown video credit profile: ${selected.id}"))
+      catalog.profiles.getOrElse(selected.id, _unknown_profile(selected.id, catalog))
     }
     val evidence = _evidence(scripts, assets, audiomanifests)
     profile match {
@@ -493,56 +508,110 @@ private[cozy] object CozyVideoCredits {
     Evidence(characters, configuredassets, audio)
   }
 
-  private def _select_profile(projectroot: Path, explicit: Option[String]): Option[ProfileSelection] =
+  private def _select_profile(context: CozyProjectContext.Context, explicit: Option[String]): Option[ProfileSelection] =
     _normalized_option(explicit).map(x => ProfileSelection(x, "video-project", None)).orElse {
-      _configuration_layers(projectroot).foldLeft(Option.empty[ProfileSelection]) {
-        case (selected, (layer, root)) =>
-          _config_files(root).foldLeft(selected) { (current, file) =>
-            val value = CozyProjectYamlConfig.load(file).value("video.credits.default-profile")
-            _normalized_option(value).map(x => ProfileSelection(x, layer, Some(file))).orElse(current)
-          }
+      context.valueProvenance("video.credits.default-profile").flatMap { value =>
+        _normalized_option(Some(value.value)).map(x => ProfileSelection(x, value.layer, Some(value.sourcePath)))
       }
     }
 
-  private def _discover_profiles(projectroot: Path): Map[String, ProfileSource] =
-    _configuration_layers(projectroot).foldLeft(Map.empty[String, ProfileSource]) {
-      case (profiles, (layer, root)) =>
-        val sources = _profile_files(root.resolve("video/credit-profiles")).map { file =>
-          val profile = StructuredDocumentLoader.loadDocument[Profile](InputSource(file.toFile)).take
-          if (profile.schema != SCHEMA)
-            RAISE.invalidArgumentFault(s"Unsupported video credit profile schema ${profile.schema}: $file")
-          ProfileSource(profile, layer, file)
-        }
-        val duplicateids = sources.groupBy(_.profile.id).collect { case (id, xs) if xs.size > 1 => id }.toVector.sorted
-        if (duplicateids.nonEmpty)
-          RAISE.invalidArgumentFault(s"Duplicate video credit profile ids in $layer: ${duplicateids.mkString(", ")}")
-        sources.foldLeft(profiles) { (current, source) =>
-          current.updated(source.profile.id, source)
-        }
+  private def _discover_profiles(context: CozyProjectContext.Context): ProfileCatalog = {
+    val initial = (Map.empty[String, ProfileSource], Vector.empty[(String, Option[Path], Vector[Path], Vector[String])])
+    val (profiles, considered) = context.layers.foldLeft(initial) { case ((current, evidence), layer) =>
+      val directory = layer.root.map(_.path.resolve("video").resolve("credit-profiles").normalize())
+      val snapshots = directory.toVector.flatMap(_profile_files)
+      val sources = snapshots.map(snapshot => _profile_source(layer.name, snapshot))
+      val duplicateids = sources.groupBy(_.profile.id).collect { case (id, xs) if xs.size > 1 => id }.toVector.sorted
+      if (duplicateids.nonEmpty)
+        RAISE.invalidArgumentFault(s"Duplicate video credit profile ids in ${layer.name}: ${duplicateids.mkString(", ")}")
+      val next = sources.foldLeft(current) { (z, source) => z.updated(source.profile.id, source) }
+      (next, evidence :+ (layer.name, directory, snapshots.map(_.path), sources.map(_.profile.id).sorted))
     }
+    ProfileCatalog(profiles, considered)
+  }
 
-  private def _configuration_layers(projectroot: Path): Vector[(String, Path)] =
-    Vector(
-      Option(System.getProperty("user.home")).map(x => "user" -> Path.of(x).resolve(".cozy").toAbsolutePath.normalize),
-      Some("project-conf" -> projectroot.resolve("conf/cozy").toAbsolutePath.normalize),
-      Some("project-local" -> projectroot.resolve(".cozy").toAbsolutePath.normalize)
-    ).flatten
+  private def _profile_source(layer: String, snapshot: ProfileSnapshot): ProfileSource = {
+    val config = try CozyProjectYamlConfig.parsePublic(snapshot.bytes, snapshot.path.toUri) catch {
+      case NonFatal(e) => RAISE.invalidArgumentFault(s"Invalid video credit profile in layer $layer: ${snapshot.path}: ${e.getMessage}")
+    }
+    val profile = config.json.flatMap(_.as[Profile].toOption).getOrElse(
+      RAISE.invalidArgumentFault(s"Invalid video credit profile in layer $layer: ${snapshot.path}")
+    )
+    if (profile.schema != SCHEMA)
+      RAISE.invalidArgumentFault(s"Unsupported video credit profile schema ${profile.schema}: ${snapshot.path}")
+    ProfileSource(profile, layer, snapshot.path)
+  }
 
-  private val _config_names = Vector("config.yaml", "config.yml", "config.json", "config.conf", "config.hocon", "config.xml")
+  private def _unknown_profile(id: String, catalog: ProfileCatalog): Nothing = {
+    val layers = catalog.considered.map { case (layer, directory, paths, ids) =>
+      s"$layer(provenance=$layer, root=${directory.map(_.toString).getOrElse("absent")}, sources=${paths.map(_.toString).mkString("[", ", ", "]")}, ids=${ids.mkString("[", ", ", "]")})"
+    }
+    RAISE.invalidArgumentFault(s"Unknown video credit profile: $id. Considered context layers: ${layers.mkString("; ")}")
+  }
+
   private val _obligations = Set("required", "recommended")
   private val _surfaces = Set("publication", "rdf", "video")
 
-  private def _config_files(root: Path): Vector[Path] =
-    _config_names.map(root.resolve).filter(Files.isRegularFile(_))
-
-  private def _profile_files(directory: Path): Vector[Path] =
-    if (!Files.isDirectory(directory))
+  private def _profile_files(directory: Path): Vector[ProfileSnapshot] = {
+    Option(directory.getParent).foreach { video =>
+      if (Files.exists(video, LinkOption.NOFOLLOW_LINKS))
+        _direct_directory(video, s"video credit profile component: $video")
+    }
+    if (!Files.exists(directory, LinkOption.NOFOLLOW_LINKS))
       Vector.empty
     else {
+      _direct_directory(directory, s"video credit profile directory: $directory")
       val stream = Files.list(directory)
-      try stream.iterator.asScala.filter(Files.isRegularFile(_)).filter(_supported_profile_file).toVector.sortBy(_.getFileName.toString)
+      try stream.iterator.asScala.toVector.sortBy(_.getFileName.toString).flatMap { path =>
+        if (_supported_profile_file(path)) Vector(_profile_snapshot(path)) else Vector.empty
+      }
       finally stream.close()
     }
+  }
+
+  private def _profile_snapshot(path: Path): ProfileSnapshot = {
+    val lexical = path.toAbsolutePath.normalize()
+    val before = _regular_attributes(lexical, s"video credit profile: $lexical")
+    val identity = _real_path(lexical, s"video credit profile: $lexical")
+    if (identity != lexical)
+      RAISE.invalidArgumentFault(s"Video credit profile must not use a lexical or symlink alias: $lexical")
+    val first = _read_profile_bytes(lexical)
+    val middle = _regular_attributes(lexical, s"video credit profile: $lexical")
+    val second = _read_profile_bytes(lexical)
+    val after = _regular_attributes(lexical, s"video credit profile: $lexical")
+    if (!_same_attributes(before, middle) || !_same_attributes(before, after) ||
+      first.length.toLong != before.size() || second.length.toLong != before.size() || !first.sameElements(second))
+      RAISE.invalidArgumentFault(s"Video credit profile changed while being read: $lexical")
+    ProfileSnapshot(lexical, first)
+  }
+
+  private def _read_profile_bytes(path: Path): Array[Byte] =
+    try Files.readAllBytes(path) catch {
+      case NonFatal(e) => RAISE.invalidArgumentFault(s"Video credit profile cannot be read: $path: ${e.getMessage}")
+    }
+
+  private def _direct_directory(path: Path, label: String): Unit =
+    if (Files.isSymbolicLink(path) || !Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS))
+      RAISE.invalidArgumentFault(s"$label must be a direct non-symlink directory")
+
+  private def _regular_attributes(path: Path, label: String): BasicFileAttributes = {
+    if (Files.isSymbolicLink(path) || !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
+      RAISE.invalidArgumentFault(s"$label must be a direct regular non-symlink file")
+    val attributes = try Files.readAttributes(path, classOf[BasicFileAttributes], LinkOption.NOFOLLOW_LINKS) catch {
+      case NonFatal(e) => RAISE.invalidArgumentFault(s"$label attributes cannot be read: ${e.getMessage}")
+    }
+    if (attributes.fileKey() == null)
+      RAISE.invalidArgumentFault(s"$label has no stable file identity")
+    attributes
+  }
+
+  private def _real_path(path: Path, label: String): Path =
+    try path.toRealPath() catch {
+      case NonFatal(e) => RAISE.invalidArgumentFault(s"$label cannot be resolved: ${e.getMessage}")
+    }
+
+  private def _same_attributes(before: BasicFileAttributes, after: BasicFileAttributes): Boolean =
+    before.fileKey() == after.fileKey() && before.size() == after.size() && before.lastModifiedTime() == after.lastModifiedTime()
 
   private def _supported_profile_file(path: Path): Boolean = {
     val name = path.getFileName.toString.toLowerCase(java.util.Locale.ROOT)

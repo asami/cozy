@@ -4,7 +4,7 @@ import org.goldenport.RAISE
 import org.goldenport.config.StructuredDocumentLoader
 import org.goldenport.context.{FaultException, NetworkIoFault, SubsystemIoFault}
 import org.goldenport.io.InputSource
-import cozy.config.CozyProjectYamlConfig
+import cozy.config.{CozyProjectContext, CozyProjectYamlConfig}
 import cozy.runtime.CozyCliArgs
 import org.goldenport.cli.spec
 import org.smartdox.semanticweb.{Rdf, RdfRenderer, Vocabulary}
@@ -14,6 +14,7 @@ import java.io.ByteArrayOutputStream
 import java.net.{URI, URLEncoder}
 import java.net.http.{HttpClient, HttpRequest, HttpResponse}
 import java.nio.charset.StandardCharsets
+import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.{Files, LinkOption, Path, Paths, StandardCopyOption}
 import java.security.MessageDigest
 import java.time.{Duration => JDuration}
@@ -28,7 +29,7 @@ import scala.util.control.NonFatal
  * @since   Jun. 18, 2026
  *  version Jun. 19, 2026
  *  version Jul. 20, 2026
- * @version Aug. 11, 2026
+ * @version Aug. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideo {
@@ -1379,6 +1380,7 @@ private[cozy] object CozyVideo {
   final case class VideoPlan(
     projectFile: Path,
     projectRoot: Path,
+    projectContext: CozyProjectContext.Context,
     project: VideoProject,
     assets: Vector[CozyVideoAssets.Resolved],
     credits: CozyVideoCredits.EffectiveSet,
@@ -1482,7 +1484,7 @@ private[cozy] object CozyVideo {
   def inspect(config: InspectConfig, tools: VideoToolRegistry): String = {
     val plan = _plan(config.projectFile, config.toolMode, config.dockerImage)
     val providers = _plan_narration_providers(plan)
-    val context = VideoToolContext(config.projectFile, config.projectRoot, plan.project, plan.execution, providers)
+    val context = VideoToolContext(plan.projectFile, plan.projectRoot, plan.project, plan.execution, providers)
     _render_inspect(config, plan, if (config.checkTools) tools.checks(context) else Vector.empty)
   }
 
@@ -1491,7 +1493,7 @@ private[cozy] object CozyVideo {
 
   def build(config: BuildConfig, tools: VideoToolRegistry, runner: VideoProcessRunner): String = {
     val plan = _plan(config.projectFile, config.toolMode, config.dockerImage)
-    val context = VideoToolContext(config.projectFile, config.projectRoot, plan.project, plan.execution)
+    val context = VideoToolContext(plan.projectFile, plan.projectRoot, plan.project, plan.execution)
     val checks =
       if (config.checkTools || (!config.dryRun && plan.execution.toolMode == VideoToolMode.Docker))
         tools.checks(context)
@@ -1566,7 +1568,7 @@ private[cozy] object CozyVideo {
       RAISE.invalidArgumentFault(s"Unsupported video renderer: ${config.renderer}. Supported renderers: remotion, simple-java2d.")
     val plan = _plan(config.projectFile, config.toolMode, config.dockerImage)
     CozyVideoEffects.validate(config.renderer, CozyVideoEffects.expand(plan.project.visualEffects))
-    val context = VideoToolContext(config.projectFile, config.projectRoot, plan.project, plan.execution)
+    val context = VideoToolContext(plan.projectFile, plan.projectRoot, plan.project, plan.execution)
     val checks =
       if (config.checkTools || plan.execution.toolMode == VideoToolMode.Docker)
         tools.checks(context)
@@ -1617,7 +1619,7 @@ private[cozy] object CozyVideo {
     runner: VideoProcessRunner
   ): String = {
     val plan = _plan(config.projectFile, config.toolMode, config.dockerImage)
-    val context = VideoToolContext(config.projectFile, config.projectRoot, plan.project, plan.execution)
+    val context = VideoToolContext(plan.projectFile, plan.projectRoot, plan.project, plan.execution)
     val checks = if (config.checkTools) tools.checks(context) else Vector.empty
     _validate_review_evidence_tools(plan.execution, checks)
     _render_review_evidence_result(_write_review_evidence(config, plan, runner))
@@ -1704,11 +1706,39 @@ private[cozy] object CozyVideo {
   }
 
   private def _load_project(path: Path): VideoProject = {
-    if (!Files.isRegularFile(path))
-      RAISE.invalidArgumentFault(s"Missing video project file: $path")
-    val project = StructuredDocumentLoader.loadDocument[VideoProject](InputSource(path.toFile)).take
+    val projectfile = _verified_project_file(path)
+    val project = StructuredDocumentLoader.loadDocument[VideoProject](InputSource(projectfile.toFile)).take
     CozyVideoEffects.expand(project.visualEffects)
     project
+  }
+
+  private def _verified_project_file(path: Path): Path = {
+    val source = Option(path).getOrElse(
+      RAISE.invalidArgumentFault("Video project descriptor path must be defined")
+    )
+    val projectfile = source.toAbsolutePath.normalize()
+    if (Files.isSymbolicLink(projectfile) || !Files.isRegularFile(projectfile, LinkOption.NOFOLLOW_LINKS))
+      RAISE.invalidArgumentFault(
+        s"Video project descriptor must be an existing direct regular non-symlink file (source: $source, normalized: $projectfile)"
+      )
+    val attributes = try Files.readAttributes(projectfile, classOf[BasicFileAttributes], LinkOption.NOFOLLOW_LINKS) catch {
+      case NonFatal(e) => RAISE.invalidArgumentFault(s"Video project descriptor attributes cannot be read (source: $source): ${e.getMessage}")
+    }
+    if (attributes.fileKey() == null)
+      RAISE.invalidArgumentFault(s"Video project descriptor has no stable direct file identity (source: $source, normalized: $projectfile)")
+    val identity = try projectfile.toRealPath() catch {
+      case NonFatal(e) => RAISE.invalidArgumentFault(s"Video project descriptor canonical identity cannot be read (source: $source): ${e.getMessage}")
+    }
+    if (identity != projectfile)
+      RAISE.invalidArgumentFault(
+        s"Video project descriptor must have a direct canonical identity equal to its normalized path (source: $source, normalized: $projectfile, identity: $identity)"
+      )
+    val after = try Files.readAttributes(projectfile, classOf[BasicFileAttributes], LinkOption.NOFOLLOW_LINKS) catch {
+      case NonFatal(e) => RAISE.invalidArgumentFault(s"Video project descriptor changed while being checked (source: $source): ${e.getMessage}")
+    }
+    if (after.fileKey() != attributes.fileKey() || after.size() != attributes.size() || after.lastModifiedTime() != attributes.lastModifiedTime())
+      RAISE.invalidArgumentFault(s"Video project descriptor changed while being checked (source: $source, normalized: $projectfile)")
+    projectfile
   }
 
   private def _normalize_property_args(args: List[String]): List[String] =
@@ -5473,8 +5503,10 @@ private[cozy] object CozyVideo {
       |""".stripMargin
 
   private def _plan(projectfile: Path, toolmode: Option[String], dockerimage: Option[String]): VideoPlan = {
-    val project = _load_project(projectfile)
-    val projectroot = projectfile.getParent
+    val verifiedprojectfile = _verified_project_file(projectfile)
+    val project = _load_project(verifiedprojectfile)
+    val projectroot = verifiedprojectfile.getParent
+    val projectcontext = CozyProjectContext.resolve(projectroot)
     val assets = CozyVideoAssets.resolve(projectroot, project.assets)
     val execution = VideoExecutionConfig.create(projectroot, project, toolmode, dockerimage)
     val outputpath = projectroot.resolve(project.output.getOrElse("build/final.mp4")).normalize()
@@ -5490,7 +5522,7 @@ private[cozy] object CozyVideo {
       }
     }
     val credits = CozyVideoCredits.resolve(
-      projectroot,
+      projectcontext,
       project.credits,
       project.locale,
       parts.flatMap(_.script),
@@ -5523,7 +5555,7 @@ private[cozy] object CozyVideo {
           )
         )
     val commands = rawcommands.map(_resolve_command(projectroot, execution, _))
-    VideoPlan(projectfile, projectroot, project, assets, credits, execution, outputpath, manifestpath, parts, artifacts, commands)
+    VideoPlan(verifiedprojectfile, projectroot, projectcontext, project, assets, credits, execution, outputpath, manifestpath, parts, artifacts, commands)
   }
 
   private def _part_plan(
@@ -5738,6 +5770,7 @@ private[cozy] object CozyVideo {
     b += "Cozy Video Inspect"
     b += s"projectFile: ${plan.projectFile}"
     b += s"projectRoot: ${plan.projectRoot}"
+    b ++= _render_project_context(plan.projectContext)
     project.name.foreach(x => b += s"name: $x")
     project.title.foreach(x => b += s"title: $x")
     b += s"toolMode: ${plan.execution.toolMode.label}"
@@ -5789,6 +5822,7 @@ private[cozy] object CozyVideo {
     b += "Cozy Video Build Dry-Run"
     b += s"projectFile: ${plan.projectFile}"
     b += s"projectRoot: ${plan.projectRoot}"
+    b ++= _render_project_context(plan.projectContext)
     b += s"toolMode: ${plan.execution.toolMode.label}"
     b += s"dockerImage: ${plan.execution.dockerImage}"
     b += s"output: ${plan.outputPath}"
@@ -5834,6 +5868,19 @@ private[cozy] object CozyVideo {
       b += s"creditWarning: ${warning.code}: ${warning.message}"
     }
     b.result().mkString("\n") + "\n"
+  }
+
+  private def _render_project_context(context: CozyProjectContext.Context): Vector[String] = {
+    val b = Vector.newBuilder[String]
+    b += s"discoveredProjectPackageRoot: ${context.packageRoot.path}"
+    context.project match {
+      case Some(project) =>
+        b += s"discoveredProjectRoot: ${project.root.path}"
+        b += s"discoveredProjectMarker: ${project.marker.path}"
+      case None =>
+        b += "discoveredProjectRoot: legacy/standalone absence"
+    }
+    b.result()
   }
 
   private def _render_credit_inspection(credits: CozyVideoCredits.EffectiveSet): Vector[String] = {

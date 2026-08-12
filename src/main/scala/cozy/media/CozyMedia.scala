@@ -5,6 +5,7 @@ import org.goldenport.cli.spec
 import org.goldenport.config.StructuredDocumentLoader
 import org.goldenport.io.InputSource
 import org.goldenport.io.StringInputSource
+import cozy.config.CozyProjectContext
 import cozy.publication.CozyArticleMediaSiteCommand
 import cozy.runtime.CozyCliArgs
 import cozy.video.CozyVideo
@@ -21,7 +22,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Jul. 19, 2026
  *  version Jul. 20, 2026
- * @version Aug. 11, 2026
+ * @version Aug. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMedia {
@@ -51,6 +52,7 @@ private[cozy] object CozyMedia {
   object Profile {
     implicit val decoder: Decoder[Profile] = (c: HCursor) =>
       for {
+        _ <- _require_profile_keys(c)
         root <- c.downField("root").as[Option[String]]
         rootenv <- c.downField("rootEnv").as[Option[String]].flatMap {
           case value @ Some(_) => Right(value)
@@ -161,13 +163,52 @@ private[cozy] object CozyMedia {
     action: Action
   )
 
+  final case class EffectiveProfile(
+    id: String,
+    descriptor: Option[Profile],
+    configuration: Option[CozyProjectContext.PublicationProfile],
+    descriptorroot: Path,
+    resolvedroot: Option[Path],
+    externalRoot: Boolean
+  ) {
+    def resolvedRoot: Path = resolvedroot.getOrElse {
+      descriptor.flatMap(_.rootEnv).map { name =>
+        if (name.isEmpty || name != name.trim)
+          RAISE.invalidArgumentFault(s"Media profile $id rootEnv must be a non-empty exact value")
+        val value = sys.env.get(name).filter(x => x.nonEmpty && x == x.trim).getOrElse(
+          RAISE.invalidArgumentFault(s"Media profile $id requires environment variable: $name")
+        )
+        try Path.of(value).toAbsolutePath.normalize() catch {
+          case NonFatal(_) => RAISE.invalidArgumentFault(s"Media profile $id rootEnv is invalid: $name")
+        }
+      }.orElse {
+        descriptor.flatMap(_.root).map { value =>
+          val resolved = _resolve_relative(descriptorroot, value, s"profiles.$id.root")
+          if (!resolved.startsWith(descriptorroot))
+            RAISE.invalidArgumentFault(s"Media profile $id root escapes descriptor root: $value")
+          resolved
+        }
+      }.getOrElse(
+        RAISE.invalidArgumentFault(s"Media profile has no resolved root: $id")
+      )
+    }
+    def siteKind: Option[String] = configuration.map(_.siteKind)
+    def layer: Option[String] = configuration.map(_.layer)
+    def sourcePath: Option[Path] = configuration.map(_.sourcePath)
+  }
+
   final case class Plan(
     descriptorFile: Path,
     descriptorRoot: Path,
     descriptor: Descriptor,
     knowledgeSource: Path,
-    resources: Vector[ResolvedResource]
-  )
+    resources: Vector[ResolvedResource],
+    context: CozyProjectContext.Context,
+    profiles: Map[String, EffectiveProfile],
+    effectiveProfile: Option[EffectiveProfile]
+  ) {
+    def profile(id: String): Option[EffectiveProfile] = profiles.get(id)
+  }
 
   trait ProcessRunner {
     def run(command: Vector[String], workingdirectory: Path): Int
@@ -246,6 +287,8 @@ private[cozy] object CozyMedia {
     descriptorSha256: String,
     resource: Resource,
     target: Option[String],
+    context: CozyProjectContext.Context,
+    effectiveProfile: EffectiveProfile,
     profile: String,
     profileRoot: Path,
     profileRootIdentity: Path,
@@ -270,6 +313,7 @@ private[cozy] object CozyMedia {
   private val _schema = "cozy.media.v1"
   private val _build_kinds = Set("copy", "svg-to-png", "prebuilt", "video-project")
   private val _property_options = Set("target", "profile")
+  private val _publication_layer_names = Vector("built-in", "user", "project-conf", "project-local", "package-conf", "package-local")
 
   private def _optional_article_media_field[A: Decoder](c: HCursor, field: String): Decoder.Result[Option[A]] =
     c.downField(field).success match {
@@ -282,6 +326,16 @@ private[cozy] object CozyMedia {
       case Some(value) if value.keys.toSet == keys => Right(())
       case Some(_) => Left(io.circe.DecodingFailure("articleMedia requires exactly: " + keys.toVector.sorted.mkString(", "), c.history))
       case None => Left(io.circe.DecodingFailure("articleMedia must be an object", c.history))
+    }
+
+  private def _require_profile_keys(c: HCursor): Decoder.Result[Unit] =
+    c.value.asObject match {
+      case Some(value) =>
+        val keys = value.keys.toSet
+        val allowed = Set("root", "rootEnv", "root-env")
+        if (keys.subsetOf(allowed) && !(keys.contains("rootEnv") && keys.contains("root-env"))) Right(())
+        else Left(io.circe.DecodingFailure("media profile permits only root and rootEnv", c.history))
+      case None => Left(io.circe.DecodingFailure("media profile must be an object", c.history))
     }
 
   private def _require_article_media_object(c: HCursor): Decoder.Result[Unit] =
@@ -346,10 +400,11 @@ private[cozy] object CozyMedia {
       s"knowledgeSource: ${mediaplan.knowledgeSource}",
       s"languages: ${mediaplan.descriptor.languages.mkString(", ")}",
       s"resources: ${mediaplan.resources.size}"
-    ) ++ mediaplan.resources.map { resolved =>
+    ) ++ _context_lines(mediaplan) ++ mediaplan.resources.map { resolved =>
       val resource = resolved.resource
       val output = resolved.output.map(_.toString).getOrElse("-")
-      s"  - ${resource.id}: kind=${resource.kind}, language=${resource.language.getOrElse("-")}, role=${resource.role.getOrElse("-")}, build=${resource.build}, output=$output"
+      val publications = resolved.publications.toVector.sortBy(_._1).map { case (profile, path) => s"$profile=$path" }.mkString(",")
+      s"  - ${resource.id}: kind=${resource.kind}, language=${resource.language.getOrElse("-")}, role=${resource.role.getOrElse("-")}, build=${resource.build}, output=$output, publications=${if (publications.nonEmpty) publications else "-"}"
     }
     lines.mkString("\n")
   }
@@ -357,13 +412,14 @@ private[cozy] object CozyMedia {
   def plan(config: CommandConfig): String = {
     val mediaplan = _plan(config)
     val selected = _selected(mediaplan, config.target)
+    val profile = mediaplan.effectiveProfile.map(_.id)
     val lines = Vector(
       "Cozy Media Plan",
       s"descriptor: ${mediaplan.descriptorFile}",
       s"knowledge: ${mediaplan.descriptor.knowledge.id}",
-      s"profile: ${config.profile.getOrElse("-")}"
-    ) ++ selected.map { resolved =>
-      val publications = config.profile.toVector.flatMap(resolved.publications.get).map(path => s", publish=$path").mkString
+      s"profile: ${profile.getOrElse("-")}"
+    ) ++ _context_lines(mediaplan) ++ selected.map { resolved =>
+      val publications = profile.toVector.flatMap(resolved.publications.get).map(path => s", publish=$path").mkString
       s"  - ${resolved.resource.id}: ${resolved.action.label}${publications}"
     }
     lines.mkString("\n")
@@ -373,6 +429,33 @@ private[cozy] object CozyMedia {
 
   private[cozy] def resolvePlan(config: CommandConfig, descriptorBytes: Vector[Byte]): Plan =
     _plan(config, Some(descriptorBytes))
+
+  private[cozy] def effectiveProfile(plan: Plan, id: String): EffectiveProfile =
+    Option(plan).flatMap(_.profile(id)).getOrElse {
+      val value = Option(plan).getOrElse(RAISE.invalidArgumentFault("Media plan must be defined"))
+      _missing_publication_profile(
+        value.descriptor,
+        value.descriptorFile,
+        value.context,
+        id,
+        s"Undefined media profile: $id"
+      )
+    }
+
+  private[cozy] def requireConfiguredPublicationProfile(
+    plan: Plan,
+    id: String
+  ): CozyProjectContext.PublicationProfile =
+    Option(plan).flatMap(_.context.publicationProfile(id)).getOrElse {
+      val value = Option(plan).getOrElse(RAISE.invalidArgumentFault("Media plan must be defined"))
+      _missing_publication_profile(
+        value.descriptor,
+        value.descriptorFile,
+        value.context,
+        id,
+        s"Article-media site binding requires configured publication profile: $id"
+      )
+    }
 
   def build(config: CommandConfig, runner: ProcessRunner = ProcessRunner.default): String = {
     val mediaplan = _plan(config)
@@ -391,10 +474,11 @@ private[cozy] object CozyMedia {
   def verify(config: CommandConfig): String = {
     val mediaplan = _plan(config)
     val selected = _selected(mediaplan, config.target)
-    val findings = _verify_plan(mediaplan, selected, config.profile)
+    val selectedprofile = mediaplan.effectiveProfile.map(_.id)
+    val findings = _verify_plan(mediaplan, selected, selectedprofile)
     if (findings.nonEmpty)
       RAISE.invalidArgumentFault("Media verification failed:\n" + findings.map(x => s"- $x").mkString("\n"))
-    val profile = config.profile.map(x => s" profile=$x").getOrElse("")
+    val profile = selectedprofile.map(x => s" profile=$x").getOrElse("")
     s"Cozy Media Verify\nstatus: valid$profile\nresources: ${selected.size}"
   }
 
@@ -412,7 +496,7 @@ private[cozy] object CozyMedia {
     val prepared =
       if (config.dryRun) preflight
       else {
-        _create_and_bind_legacy_profile_root(mediaplan.descriptorRoot, mediaplan.descriptor, profile)
+        _create_and_bind_legacy_profile_root(mediaplan, profile)
         _prepare_publications(mediaplan, candidates, profile, config.target, force = true)
       }
     if (!config.dryRun)
@@ -499,25 +583,42 @@ private[cozy] object CozyMedia {
       StringInputSource(new String(bytes.toArray, StandardCharsets.UTF_8), descriptorfile.toUri)
     }.getOrElse(InputSource(descriptorfile.toFile))
     val descriptor = StructuredDocumentLoader.loadDocument[Descriptor](descriptorinput).take
-    _validate_descriptor(descriptor)
     val descriptorroot = Option(descriptorfile.getParent).getOrElse(Paths.get(".").toAbsolutePath.normalize())
+    val context = CozyProjectContext.resolve(descriptorroot)
+    val profiles = _effective_profiles(descriptorroot, descriptor, context)
+    _validate_descriptor(descriptor, profiles, descriptorfile, context)
+    val selectedprofile = config.profile.orElse(descriptor.articleMedia.map(_.publicationProfile))
+    val effectiveprofile = selectedprofile.map { id =>
+      profiles.getOrElse(id, _missing_publication_profile(
+        descriptor,
+        descriptorfile,
+        context,
+        id,
+        _profile_selection_failure_prefix(descriptor, id)
+      ))
+    }
     val knowledgesource = _resolve_relative(descriptorroot, descriptor.knowledge.source, "knowledge.source")
     val resources = descriptor.resources.map { resource =>
       val source = resource.source.map(_resolve_relative(descriptorroot, _, s"resources.${resource.id}.source"))
       val output = resource.output.map(_resolve_relative(descriptorroot, _, s"resources.${resource.id}.output"))
       val project = resource.project.map(_resolve_relative(descriptorroot, _, s"resources.${resource.id}.project"))
       val publications = resource.publications.toVector.flatMap { case (profile, path) =>
-        config.profile.filter(_ == profile).map { _ =>
-          profile -> _publication_path(descriptorroot, descriptor, profile, path)
+        selectedprofile.filter(_ == profile).map { _ =>
+          profile -> _publication_path(profiles, profile, path)
         }
       }.toMap
       val action = _action(resource, source, output, project)
       ResolvedResource(resource, source, output, project, publications, action)
     }
-    Plan(descriptorfile, descriptorroot, descriptor, knowledgesource, resources)
+    Plan(descriptorfile, descriptorroot, descriptor, knowledgesource, resources, context, profiles, effectiveprofile)
   }
 
-  private def _validate_descriptor(descriptor: Descriptor): Unit = {
+  private def _validate_descriptor(
+    descriptor: Descriptor,
+    profiles: Map[String, EffectiveProfile],
+    descriptorfile: Path,
+    context: CozyProjectContext.Context
+  ): Unit = {
     if (descriptor.schema != _schema)
       RAISE.invalidArgumentFault(s"Unsupported media schema: ${descriptor.schema}. Expected: ${_schema}")
     if (descriptor.knowledge.id.trim.isEmpty)
@@ -553,8 +654,14 @@ private[cozy] object CozyMedia {
           RAISE.invalidArgumentFault(s"Media resource ${resource.id} articleMedia role is invalid")
       }
       resource.publications.keys.foreach { profile =>
-        if (!descriptor.profiles.contains(profile))
-          RAISE.invalidArgumentFault(s"Media resource ${resource.id} uses undefined profile: $profile")
+        if (!profiles.contains(profile))
+          _missing_publication_profile(
+            descriptor,
+            descriptorfile,
+            context,
+            profile,
+            s"Media resource ${resource.id} uses undefined profile: $profile"
+          )
       }
     }
   }
@@ -570,8 +677,8 @@ private[cozy] object CozyMedia {
     root.resolve(path).normalize()
   }
 
-  private def _publication_path(root: Path, descriptor: Descriptor, profilename: String, value: String): Path = {
-    val profileroot = _profile_root(root, descriptor, profilename)
+  private def _publication_path(profiles: Map[String, EffectiveProfile], profilename: String, value: String): Path = {
+    val profileroot = profiles.getOrElse(profilename, RAISE.invalidArgumentFault(s"Undefined media profile: $profilename")).resolvedRoot
     val path = Path.of(value)
     if (path.isAbsolute)
       RAISE.invalidArgumentFault(s"Media publication path must be relative: $value")
@@ -581,16 +688,88 @@ private[cozy] object CozyMedia {
     destination
   }
 
-  private def _profile_root(root: Path, descriptor: Descriptor, profilename: String): Path = {
-    val profile = descriptor.profiles.getOrElse(profilename, RAISE.invalidArgumentFault(s"Undefined media profile: $profilename"))
-    profile.rootEnv.map { name =>
-      sys.env.get(name).map(Path.of(_).toAbsolutePath.normalize()).getOrElse(
-        RAISE.invalidArgumentFault(s"Media profile $profilename requires environment variable: $name")
-      )
-    }.orElse {
-      profile.root.map(_resolve_relative(root, _, s"profiles.$profilename.root"))
-    }.getOrElse(root)
+  private def _effective_profiles(
+    descriptorroot: Path,
+    descriptor: Descriptor,
+    context: CozyProjectContext.Context
+  ): Map[String, EffectiveProfile] =
+    (descriptor.profiles.keySet ++ context.publicationProfiles.map(_.id)).toVector.sorted.map { id =>
+      id -> _effective_profile(descriptorroot, descriptor.profiles.get(id), context.publicationProfile(id), id)
+    }.toMap
+
+  private def _effective_profile(
+    descriptorroot: Path,
+    descriptorprofile: Option[Profile],
+    configuration: Option[CozyProjectContext.PublicationProfile],
+    id: String
+  ): EffectiveProfile = {
+    val profile = descriptorprofile.filter(_ != null)
+    if (descriptorprofile.contains(null))
+      RAISE.invalidArgumentFault(s"Media profile must be defined: $id")
+    val external = profile.flatMap(_.rootEnv)
+    val hasdescriptorlocation = external.nonEmpty || profile.flatMap(_.root).nonEmpty
+    val root = if (hasdescriptorlocation) None else configuration.map(_.resolvedRoot).orElse(Some(descriptorroot))
+    EffectiveProfile(id, profile, configuration, descriptorroot, root, external.nonEmpty)
   }
+
+  private def _context_lines(plan: Plan): Vector[String] = {
+    val profile = plan.effectiveProfile.toVector.flatMap { value =>
+      Vector(s"profile: ${value.id}", s"profileRoot: ${value.resolvedRoot}") ++ value.layer.map(x => s"profileLayer: $x").toVector ++
+        value.sourcePath.map(x => s"profileSource: $x").toVector ++ value.siteKind.map(x => s"profileSiteKind: $x").toVector
+    }
+    plan.context.project match {
+      case Some(project) =>
+        Vector(
+          s"projectRoot: ${project.root.path}",
+          s"projectMarker: ${project.marker.path}"
+        ) ++ profile
+      case None => Vector("project: legacy/standalone") ++ profile
+    }
+  }
+
+  private def _missing_publication_profile(
+    descriptor: Descriptor,
+    descriptorfile: Path,
+    context: CozyProjectContext.Context,
+    id: String,
+    prefix: String
+  ): Nothing = {
+    val contextlayers = context.layers.map(layer => layer.name -> layer).toMap
+    val layers = _publication_layer_names.map { name =>
+      contextlayers.get(name).map { layer =>
+        val root = layer.root.map(_.path.toString).getOrElse("<absent>")
+        val files = layer.files.map(_.path.toString).distinct.sorted
+        val profiles = _layer_publication_profile_ids(layer).map { profileid =>
+          val source = context.publicationProfile(profileid).filter(_.layer == layer.name).map(_.sourcePath.toString)
+          source.map(path => s"$profileid@$path").getOrElse(profileid)
+        }
+        val profiletext = if (profiles.nonEmpty) profiles.mkString(",") else "none"
+        val sourcetext = if (files.nonEmpty) files.mkString(",") else "none"
+        s"  ${layer.name}: root=$root; profiles=$profiletext; sources=$sourcetext"
+      }.getOrElse(s"  $name: root=<absent>; profiles=none; sources=none")
+    }
+    val descriptorprofiles = descriptor.profiles.keys.toVector.sorted.map(profileid => s"$profileid@$descriptorfile")
+    val descriptortext = if (descriptorprofiles.nonEmpty) descriptorprofiles.mkString(",") else "none"
+    val message = (Vector(
+      prefix,
+      s"requested publication profile: $id",
+      "searched publication profile layers:"
+    ) ++ layers :+ s"  descriptor-only: source=$descriptorfile; profiles=$descriptortext").mkString("\n")
+    RAISE.invalidArgumentFault(message)
+  }
+
+  private def _layer_publication_profile_ids(layer: CozyProjectContext.Layer): Vector[String] =
+    layer.config.json.toVector.flatMap { json =>
+      json.hcursor.downField("media").downField("publication-profiles").focus.toVector.flatMap { value =>
+        value.asObject.toVector.flatMap(_.keys.toVector)
+      }
+    }.distinct.sorted
+
+  private def _profile_selection_failure_prefix(descriptor: Descriptor, id: String): String =
+    if (descriptor.articleMedia.exists(_.publicationProfile == id))
+      s"Article-media site binding requires configured publication profile: $id"
+    else
+      s"Undefined media profile: $id"
 
   private def _prepare_publications(
     plan: Plan,
@@ -602,7 +781,8 @@ private[cozy] object CozyMedia {
     if (!_is_direct_regular_file(plan.descriptorFile))
       RAISE.invalidArgumentFault(s"Media descriptor must be a direct regular non-symlink file: ${plan.descriptorFile}")
     val descriptorhash = _sha256(plan.descriptorFile)
-    val profileroot = _bind_profile_root(_profile_root(plan.descriptorRoot, plan.descriptor, profile))
+    val effectiveprofile = effectiveProfile(plan, profile)
+    val profileroot = _bind_profile_root(effectiveprofile.resolvedRoot)
     val publications = candidates.map { resolved =>
       val publishable = resolved.output.orElse(resolved.source).getOrElse(
         RAISE.invalidArgumentFault(s"Media resource has no publishable file: ${resolved.resource.id}")
@@ -623,6 +803,8 @@ private[cozy] object CozyMedia {
         descriptorhash,
         resolved.resource,
         target,
+        plan.context,
+        effectiveprofile,
         profile,
         profileroot,
         profileroot,
@@ -646,7 +828,10 @@ private[cozy] object CozyMedia {
     target: Option[String],
     force: Boolean
   ): Vector[PreparedPublication] = {
-    val profileroot = _profile_root(plan.descriptorRoot, plan.descriptor, profile)
+    val effectiveprofile = effectiveProfile(plan, profile)
+    val profileroot = effectiveprofile.resolvedRoot
+    if (effectiveprofile.externalRoot && !Files.exists(profileroot, LinkOption.NOFOLLOW_LINKS))
+      RAISE.invalidArgumentFault(s"Media external publication profile root must already exist: $profileroot")
     if (Files.exists(profileroot, LinkOption.NOFOLLOW_LINKS))
       _prepare_publications(plan, candidates, profile, target, force)
     else {
@@ -699,7 +884,7 @@ private[cozy] object CozyMedia {
       RAISE.invalidArgumentFault("Prepared media publication must not be null")
     if (publication.descriptorFile == null || publication.descriptorRoot == null || publication.descriptor == null || publication.resource == null)
       RAISE.invalidArgumentFault("Prepared media publication descriptor evidence must not be null")
-    if (publication.profile == null || publication.profile.trim.isEmpty || publication.profileRoot == null || publication.profileRootIdentity == null || publication.publishablePath == null || publication.destination == null || publication.destinationIdentity == null)
+    if (publication.profile == null || publication.profile.trim.isEmpty || publication.context == null || publication.effectiveProfile == null || publication.profileRoot == null || publication.profileRootIdentity == null || publication.publishablePath == null || publication.destination == null || publication.destinationIdentity == null)
       RAISE.invalidArgumentFault("Prepared media publication path evidence must not be null or empty")
     if (publication.destinationState == null || publication.disposition == null)
       RAISE.invalidArgumentFault("Prepared media publication state must not be null")
@@ -709,13 +894,21 @@ private[cozy] object CozyMedia {
       RAISE.invalidArgumentFault("Prepared media publication descriptor structure must not be null")
     if (publication.resource.publications == null || publication.resource.language == null || publication.resource.role == null || publication.resource.source == null || publication.resource.output == null)
       RAISE.invalidArgumentFault("Prepared media publication resource structure must not be null")
-    if (publication.descriptor.schema != _schema || !publication.descriptor.resources.contains(publication.resource) || !publication.descriptor.profiles.contains(publication.profile) || publication.descriptor.profiles.get(publication.profile).contains(null))
+    if (publication.descriptor.schema != _schema || !publication.descriptor.resources.contains(publication.resource))
       RAISE.invalidArgumentFault("Prepared media publication descriptor evidence is invalid")
     if (publication.descriptorFile != publication.descriptorFile.toAbsolutePath.normalize() || publication.descriptorRoot != publication.descriptorRoot.toAbsolutePath.normalize() || Option(publication.descriptorFile.getParent).forall(_ != publication.descriptorRoot))
       RAISE.invalidArgumentFault("Prepared media publication descriptor paths are invalid")
     if (!_is_direct_regular_file(publication.descriptorFile) || !_is_sha256(publication.descriptorSha256) || _sha256(publication.descriptorFile) != publication.descriptorSha256)
       RAISE.invalidArgumentFault(s"Prepared media descriptor has changed: ${publication.descriptorFile}")
-    val expectedroot = _bind_profile_root(_profile_root(publication.descriptorRoot, publication.descriptor, publication.profile))
+    val expectedprofile = _effective_profile(
+      publication.descriptorRoot,
+      publication.descriptor.profiles.get(publication.profile),
+      publication.context.publicationProfile(publication.profile),
+      publication.profile
+    )
+    if (publication.effectiveProfile != expectedprofile)
+      RAISE.invalidArgumentFault("Prepared media publication effective profile evidence has changed")
+    val expectedroot = _bind_profile_root(expectedprofile.resolvedRoot)
     if (expectedroot != publication.profileRoot || expectedroot != publication.profileRootIdentity)
       RAISE.invalidArgumentFault("Prepared media publication profile root has changed")
     val expectedpublishable = publication.resource.output.orElse(publication.resource.source).map(
@@ -724,7 +917,7 @@ private[cozy] object CozyMedia {
     if (expectedpublishable != publication.publishablePath)
       RAISE.invalidArgumentFault("Prepared media publication source path is invalid")
     val expecteddestination = publication.resource.publications.get(publication.profile).map(
-      _publication_path(publication.descriptorRoot, publication.descriptor, publication.profile, _)
+      _publication_path(Map(publication.profile -> expectedprofile), publication.profile, _)
     ).getOrElse(RAISE.invalidArgumentFault(s"Prepared media publication has no profile destination: ${publication.resource.id}"))
     if (expecteddestination != publication.destination)
       RAISE.invalidArgumentFault("Prepared media publication destination path is invalid")
@@ -826,8 +1019,11 @@ private[cozy] object CozyMedia {
   private def _is_sha256(value: String): Boolean =
     value != null && value.matches("[0-9a-f]{64}")
 
-  private def _create_and_bind_legacy_profile_root(root: Path, descriptor: Descriptor, profile: String): Path = {
-    val profileroot = _profile_root(root, descriptor, profile)
+  private def _create_and_bind_legacy_profile_root(plan: Plan, profile: String): Path = {
+    val effectiveprofile = effectiveProfile(plan, profile)
+    val profileroot = effectiveprofile.resolvedRoot
+    if (effectiveprofile.externalRoot && !Files.exists(profileroot, LinkOption.NOFOLLOW_LINKS))
+      RAISE.invalidArgumentFault(s"Media external publication profile root must already exist: $profileroot")
     if (Files.exists(profileroot, LinkOption.NOFOLLOW_LINKS))
       _bind_profile_root(profileroot)
     else {

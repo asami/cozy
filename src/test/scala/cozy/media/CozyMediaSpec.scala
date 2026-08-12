@@ -13,7 +13,7 @@ import org.goldenport.io.InputSource
 /*
  * @since   Jul. 19, 2026
  *  version Jul. 20, 2026
- * @version Aug. 11, 2026
+ * @version Aug. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyMediaSpec
@@ -378,6 +378,152 @@ final class CozyMediaSpec
           error.getMessage should include_text("COZY_MEDIA_SPEC_UNDEFINED_ROOT")
         }
       }
+
+      "reuse a discovered project publication profile for nested ordinary plans" in {
+        _with_temp_dir("project-profile") { root =>
+          Given("a nested media descriptor beneath a SmartDox project authority")
+          val descriptor = root.resolve("packages/part-5/media.yaml")
+          _write(root.resolve("conf/cozy/config.yaml"), _project_config_yaml("site", "publication", "smartdox"))
+          _write(descriptor, _media_yaml("copy").replace("profiles:\n  site:\n    root: publication\n", ""))
+
+          When("Cozy resolves the explicit ordinary publication profile")
+          val mediaplan = CozyMedia.resolvePlan(CozyMedia.CommandConfig(descriptor, profile = Some("site")))
+          val inspection = CozyMedia.inspect(CozyMedia.CommandConfig(descriptor, profile = Some("site")))
+
+          Then("the configured root and immutable project provenance are retained")
+          mediaplan.context.project.map(_.root.path) shouldBe Some(root.toAbsolutePath.normalize())
+          mediaplan.effectiveProfile.map(_.resolvedRoot) shouldBe Some(root.resolve("publication").toAbsolutePath.normalize())
+          mediaplan.effectiveProfile.flatMap(_.siteKind) shouldBe Some("smartdox")
+          mediaplan.effectiveProfile.flatMap(_.layer) shouldBe Some("project-conf")
+          inspection should include_text(s"projectRoot: ${root.toAbsolutePath.normalize()}")
+          inspection should include_text(s"projectMarker: ${root.resolve("conf/cozy/config.yaml").toAbsolutePath.normalize()}")
+          inspection should include_text("profileLayer: project-conf")
+          inspection should include_text("profileSiteKind: smartdox")
+        }
+      }
+
+      "select the top-level articleMedia profile when no CLI profile is supplied" in {
+        _with_temp_dir("associated-project-profile") { root =>
+          Given("a nested descriptor with an explicit articleMedia association and two configured project profiles")
+          val descriptor = root.resolve("packages/part-5/media.yaml")
+          _write(
+            root.resolve("conf/cozy/config.yaml"),
+            """project:
+              |  id: simplemodeling-org
+              |  kind: smartdox-site
+              |media:
+              |  publication-profiles:
+              |    site:
+              |      root: publication
+              |      site-kind: smartdox
+              |    archive:
+              |      root: archive
+              |      site-kind: archive
+              |""".stripMargin
+          )
+          _write(
+            descriptor,
+            _media_yaml("copy").
+              replace("profiles:\n  site:\n    root: publication\n", "articleMedia:\n  articleIdentity: development-process/part-5\n  publicationProfile: site\n").
+              replace("      site: summary-ja.png", "      site: summary-ja.png\n      archive: archive-ja.png")
+          )
+
+          When("Cozy resolves and renders ordinary plans without an explicit CLI profile")
+          val selected = CozyMedia.resolvePlan(CozyMedia.CommandConfig(descriptor))
+          val inspection = CozyMedia.inspect(CozyMedia.CommandConfig(descriptor))
+          val plan = CozyMedia.plan(CozyMedia.CommandConfig(descriptor))
+
+          Then("the association selects the project profile and its publication mapping")
+          selected.effectiveProfile.map(_.id) shouldBe Some("site")
+          selected.effectiveProfile.map(_.resolvedRoot) shouldBe Some(root.resolve("publication").toAbsolutePath.normalize())
+          selected.effectiveProfile.flatMap(_.layer) shouldBe Some("project-conf")
+          selected.effectiveProfile.flatMap(_.sourcePath) shouldBe Some(root.resolve("conf/cozy/config.yaml").toAbsolutePath.normalize())
+          selected.effectiveProfile.flatMap(_.siteKind) shouldBe Some("smartdox")
+          inspection should include_text("profile: site")
+          inspection should include_text(s"profileRoot: ${root.resolve("publication").toAbsolutePath.normalize()}")
+          inspection should include_text("profileLayer: project-conf")
+          inspection should include_text(s"profileSource: ${root.resolve("conf/cozy/config.yaml").toAbsolutePath.normalize()}")
+          inspection should include_text("profileSiteKind: smartdox")
+          inspection should include_text(s"publications=site=${root.resolve("publication/summary-ja.png").toAbsolutePath.normalize()}")
+          plan should include_text("profile: site")
+          plan should include_text(s"publish=${root.resolve("publication/summary-ja.png").toAbsolutePath.normalize()}")
+
+          And("an explicit CLI profile overrides the association and selects its own mapping")
+          val explicit = CozyMedia.resolvePlan(CozyMedia.CommandConfig(descriptor, profile = Some("archive")))
+          explicit.effectiveProfile.map(_.id) shouldBe Some("archive")
+          explicit.resources.flatMap(_.publications.values).toVector should contain only
+            (root.resolve("archive/archive-ja.png").toAbsolutePath.normalize())
+        }
+      }
+
+      "overlay only a configured profile location while retaining configured provenance" in {
+        _with_temp_dir("profile-location-overlay") { root =>
+          Given("one configured project profile and one same-ID descriptor root overlay")
+          val descriptor = root.resolve("packages/part-5/media.yaml")
+          _write(root.resolve("conf/cozy/config.yaml"), _project_config_yaml("site", "configured-publication", "smartdox"))
+          _write(descriptor, _media_yaml("copy"))
+
+          When("the explicit profile is planned")
+          val mediaplan = CozyMedia.resolvePlan(CozyMedia.CommandConfig(descriptor, profile = Some("site")))
+
+          Then("the descriptor base selects its location without changing site authorization provenance")
+          mediaplan.effectiveProfile.map(_.resolvedRoot) shouldBe Some(descriptor.getParent.resolve("publication").toAbsolutePath.normalize())
+          mediaplan.effectiveProfile.flatMap(_.siteKind) shouldBe Some("smartdox")
+          mediaplan.effectiveProfile.flatMap(_.sourcePath) shouldBe Some(root.resolve("conf/cozy/config.yaml").toAbsolutePath.normalize())
+        }
+      }
+
+      "preserve descriptor-only profiles and report standalone context without a marker" in {
+        _with_temp_dir("descriptor-only-profile") { root =>
+          Given("a standalone descriptor with its legacy profile definition")
+          val descriptor = root.resolve("media.yaml")
+          _write(descriptor, _media_yaml("copy"))
+
+          When("Cozy resolves and inspects its explicit profile")
+          val mediaplan = CozyMedia.resolvePlan(CozyMedia.CommandConfig(descriptor, profile = Some("site")))
+          val inspection = CozyMedia.inspect(CozyMedia.CommandConfig(descriptor, profile = Some("site")))
+
+          Then("the descriptor-relative root remains valid and no project authority is inferred")
+          mediaplan.context.project shouldBe empty
+          mediaplan.effectiveProfile.flatMap(_.configuration) shouldBe empty
+          mediaplan.effectiveProfile.map(_.resolvedRoot) shouldBe Some(root.resolve("publication").toAbsolutePath.normalize())
+          inspection should include_text("project: legacy/standalone")
+        }
+      }
+
+      "enumerate every publication-profile source when an ordinary selection is unknown" in {
+        _with_temp_dir("unknown-publication-profile") { root =>
+          Given("a nested descriptor, a known project configuration profile, and a descriptor-only profile")
+          val descriptor = root.resolve("packages/part-5/media.yaml")
+          val configpath = root.resolve("conf/cozy/config.yaml")
+          _write(
+            configpath,
+            _project_config_yaml("known", "publication", "smartdox")
+          )
+          _write(
+            descriptor,
+            _media_yaml("copy").
+              replace("profiles:\n  site:\n    root: publication\n", "profiles:\n  descriptor-only:\n    root: descriptor-publication\n").
+              replace("      site: summary-ja.png", "      descriptor-only: summary-ja.png")
+          )
+
+          When("Cozy resolves the missing ordinary publication profile")
+          val error = intercept[RuntimeException] {
+            CozyMedia.resolvePlan(CozyMedia.CommandConfig(descriptor, profile = Some("missing")))
+          }
+
+          Then("the diagnostic names the request and every searched context layer")
+          error.getMessage should include("requested publication profile: missing")
+          Vector("built-in", "user", "project-conf", "project-local", "package-conf", "package-local").foreach { layer =>
+            error.getMessage should include(s"$layer:")
+          }
+          error.getMessage should include("root=<absent>")
+          error.getMessage should include("known")
+          error.getMessage should include(configpath.toAbsolutePath.normalize().toString)
+          error.getMessage should include("descriptor-only")
+          error.getMessage should include(descriptor.toAbsolutePath.normalize().toString)
+        }
+      }
     }
 
     "decode optional site-registration bindings" which {
@@ -401,6 +547,7 @@ final class CozyMediaSpec
         _with_temp_dir("article-media-binding") { dir =>
           Given("a Part5-style descriptor with independent legacy and registration roles")
           val descriptor = dir.resolve("media.yaml")
+          _write(dir.resolve("conf/cozy/config.yaml"), _project_config_yaml("public", "publication", "smartdox"))
           _write(descriptor, _part5_media_yaml())
 
           When("Cozy inspects and decodes the descriptor")
@@ -544,6 +691,17 @@ final class CozyMediaSpec
        |    source: target/render/part-5.mp4
        |    build: prebuilt
        |    $videoarticlemedia
+       |""".stripMargin
+
+  private def _project_config_yaml(id: String, root: String, sitekind: String): String =
+    s"""project:
+       |  id: simplemodeling-org
+       |  kind: smartdox-site
+       |media:
+       |  publication-profiles:
+       |    $id:
+       |      root: $root
+       |      site-kind: $sitekind
        |""".stripMargin
 
   private def _write(path: Path, text: String): Unit = {

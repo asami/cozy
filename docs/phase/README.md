@@ -4,7 +4,13 @@ Purpose: engineering work management.
 
 Current phase state:
 
-- No active phase.
+- Active phase: `phase-28.md`: Project Configuration and Profile Resolution;
+  `AM28-00` Contract Promotion and WIP/Production Boundary is planned and is
+  the current starting position.
+- Ordered split successors: `phase-28.1.md`: WIP Local Article Media
+  Registration, followed by `phase-28.2.md`: SimpleModeling.org Part 5
+  Integration and Regression. Neither child is active; each starts only after
+  its predecessor closes.
 - Most recent closed phase: `phase-27.md`: SmartDox Site Media Registration;
   `AM27-04`: Review, Validation, and Closure is complete.
 - Prior closed phase: `phase-26.md`: Article Media Publication and BoK
@@ -38,3 +44,11 @@ This directory is the work ledger layer. See
 `docs/spec/article-media-publication.md`. Phase 27 contract authority is
 `docs/design/smartdox-site-media-registration.md` and
 `docs/spec/smartdox-site-media-registration.md`.
+Phase 28 normative design/spec authority is
+`docs/design/simplemodeling-org-wip-article-media.md` and
+`docs/spec/simplemodeling-org-wip-article-media.md`; these are the existing
+frozen AM28-00 authority. Their existence does not mark AM28-00 complete:
+implementation review and completion evidence remain pending. The
+approved split is recorded in `phase-28.md`, `phase-28.1.md`, and
+`phase-28.2.md`; numbering preserves the original Phase identity and does not
+consume later integer phases.
