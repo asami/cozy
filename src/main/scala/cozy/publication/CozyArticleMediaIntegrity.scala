@@ -7,7 +7,7 @@ import play.api.libs.json.{JsObject, JsString, JsValue}
 
 /*
  * @since   Aug.  4, 2026
- * @version Aug.  4, 2026
+ * @version Aug. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArticleMediaIntegrity {
@@ -45,6 +45,14 @@ private[cozy] object CozyArticleMediaIntegrity {
     buildManifest: String
   ) extends Provenance {
     override val role: Role = Role.Infographic
+  }
+
+  final case class WipSiteVideo(
+    descriptor: String,
+    resourceId: String,
+    production: String
+  ) extends Provenance {
+    override val role: Role = Role.Video
   }
 
   final case class Input(
@@ -157,7 +165,13 @@ private[cozy] object CozyArticleMediaIntegrity {
           resourceId = CozyArticleMediaNormalization.requireExactTrimmed(x.resourceId, "Article-media integrity resourceId"),
           buildManifest = CozyArticleMediaNormalization.normalizeRelativePath(x.buildManifest, "Article-media integrity buildManifest")
         )
-      case _ => _invalid("Article-media integrity provenance must be video-publication or media-package")
+      case x: WipSiteVideo =>
+        WipSiteVideo(
+          descriptor = CozyArticleMediaNormalization.normalizeRelativePath(x.descriptor, "Article-media integrity descriptor"),
+          resourceId = CozyArticleMediaNormalization.requireExactTrimmed(x.resourceId, "Article-media integrity resourceId"),
+          production = CozyArticleMediaNormalization.normalizeRelativePath(x.production, "Article-media integrity production")
+        )
+      case _ => _invalid("Article-media integrity provenance must be video-publication, media-package, or wip-site-video")
     }
   }
 
@@ -203,7 +217,14 @@ private[cozy] object CozyArticleMediaIntegrity {
           "resourceId" -> JsString(x.resourceId),
           "buildManifest" -> JsString(x.buildManifest)
         )
-      case _ => _invalid("Article-media integrity provenance must be video-publication or media-package")
+      case x: WipSiteVideo =>
+        _json_object(
+          "kind" -> JsString("wip-site-video"),
+          "descriptor" -> JsString(x.descriptor),
+          "resourceId" -> JsString(x.resourceId),
+          "production" -> JsString(x.production)
+        )
+      case _ => _invalid("Article-media integrity provenance must be video-publication, media-package, or wip-site-video")
     }
 
   private def _json_object(fields: (String, JsValue)*): JsObject =

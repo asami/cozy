@@ -2,10 +2,9 @@
 
 ## Contract basis
 
-This is the authoritative Phase 28 contract for project discovery,
-configuration layering, profile resolution, and the boundary at which a
-`simplemodeling.org` media package may participate in Phase 27 SmartDox site
-registration. Its responsibility rationale is
+This is the authoritative Phase 28/28.1 contract for project discovery,
+configuration layering, profile resolution, and provider-neutral WIP article
+media registration. Its responsibility rationale is
 [`docs/design/simplemodeling-org-wip-article-media.md`](../design/simplemodeling-org-wip-article-media.md).
 
 The contract reuses, without weakening, the
@@ -20,8 +19,9 @@ successors; they are not a substitute for this contract. The journal handoff
 is source evidence only.
 
 The words **MUST**, **MUST NOT**, **SHOULD**, and **MAY** are normative. This
-documentation-only Slice freezes behavior and acceptance cases; it does not
-claim product implementation, test execution, validation, or completion.
+documentation-only Slice freezes behavior and acceptance cases for both
+configuration and the Phase 28.1 WIP contract; it does not claim product
+implementation, test execution, validation, or completion.
 
 ## 1. Canonical project discovery
 
@@ -271,14 +271,274 @@ Production video registration requires the existing Phase 27 evidence:
 
 `render.listeningReview` may remain pending. It is evidence-only, non-gating,
 and MUST NOT be serialized as accepted listening. A WIP local video does not
-need YouTube publication, but WIP staging/registration belongs exclusively to
-[Phase 28.1](../phase/phase-28.1.md), and SimpleModeling.org Part 5
-`runweb-wip` integration/regression belongs exclusively to
+need YouTube publication. The normative Phase 28.1 WIP contract is in Section
+6.2; its implementation remains in downstream slices. SimpleModeling.org Part
+5 `runweb-wip` integration/regression belongs exclusively to
 [Phase 28.2](../phase/phase-28.2.md). WIP state MUST NOT be promoted or
-presented as production evidence by Phase 28.
+presented as production evidence.
 
 Standard BoK behavior remains normal repository/publication behavior and never
 uses this `smartdox-site` boundary.
+
+## 6.2 Phase 28.1 WIP command and two-root boundary
+
+Phase 28.1 freezes a second, provider-neutral command. It does not change the
+Phase 27 `register-site` grammar or its accepted external-YouTube behavior.
+The exact WIP grammar is:
+
+```text
+cozy media register-site-wip <media-file> --publication <publication-root> --website <website-root> [--target <resource-id>] [--dry-run]
+```
+
+`<media-file>` is exactly one descriptor. `--publication` and `--website` are
+both required and name two independent roots:
+
+- the publication root is the existing direct registry/publication root read by
+  Dox before rendering; and
+- the website root is the disposable tree containing final site bytes.
+
+Neither root is inferred from the other, from a profile, or from a project
+path. Parsing is strict: duplicate, unknown, missing, or extra options fail
+before mutation. Equals and separated forms follow the existing `register-site`
+conventions. `--profile` is unsupported. A value beginning with `-` is
+accepted only with its equals form. A root is never created by this command.
+
+## 6.3 WIP candidate selection and evidence
+
+WIP candidate selection requires all four independent selectors:
+
+1. a complete explicit top-level `articleMedia` association;
+2. discovered `project.kind: smartdox-site`;
+3. the same-ID effective configured publication profile has
+   `site-kind: smartdox`; and
+4. a complete exact resource-level `articleMedia` opt-in.
+
+Without `--target`, all and only opted-in resources are candidates. With
+`--target`, exactly one resource ID is selected; it must already exist and be
+opted in, and the target never creates an association. Zero candidates,
+invalid or ambiguous candidates, and duplicate normalized
+`(articleIdentity, locale, role)` keys fail before mutation. Locale equality is
+exact; no fallback or opposite-locale substitution is permitted. Output and
+plan order MUST be ascending exact normalized `resourceId` after selection; an
+exact target yields its one entry. Install order remains sorted by site-relative
+path.
+
+### Infographic evidence
+
+An infographic reuses the Phase 27 validated site-public `publicPath` and its
+selected mapped destination evidence. The WIP operation does not copy an
+infographic into the website root. The existing profile/resource mapping and
+direct regular non-symlink checks remain mandatory.
+
+### Local-video evidence
+
+A local-video candidate MUST have `kind: video`, nested role `video`, an exact
+resource-language match, and a present output. Output resolution MUST use the
+existing Cozy media output contract. This specification does not invent or
+require a `production.json` artifact path. The resolved output source is a
+normalized direct regular non-symlink MP4, and its SHA-256 is captured.
+
+The associated production JSON remains the identity/language/render/QA
+authority. Its normalized `category/article` identity MUST equal the explicit
+article identity, its language MUST equal the resource language,
+`render.status` MUST be `completed`, `render.qa.status` MUST be
+`technical-and-visual-qa-passed`, and `render.sha256` MUST equal the source MP4
+SHA-256. `render.sha256` MUST be a `JsString` matching exactly
+`[0-9a-f]{64}`; missing, null, whitespace, prefixes, uppercase characters,
+wrong lengths, non-string values, and digest mismatch fail before mutation.
+WIP does not require, read, or serialize a YouTube URL. Any listening
+review value remains non-gating evidence only.
+
+## 6.4 WIP path and public record
+
+Phase 28.1 accepts exactly two normalized article-identity segments,
+`<category>/<article>`; every other segment count fails before path
+construction. For that identity and locale `<locale>`, the exact site-visible
+content URL is:
+
+```text
+/<locale>/<category>/videos/<article>.mp4
+```
+
+The website destination is that path relative to `website-root`, with the
+leading slash removed. Article and locale MUST already satisfy existing
+normalization. No raw resource ID or input filename may participate in path
+construction.
+
+The public local-video resource is exactly:
+
+```text
+presentation: site-hosted
+status: published
+content_url: /<locale>/<category>/videos/<article>.mp4
+```
+
+The record MUST omit `provider`, `watch_url`, and every host path, hash,
+provenance, configuration, staging, or other internal-evidence field. Here,
+`published` means available in the disposable WIP website tree; it does not
+mean YouTube publication, production promotion, or deployment.
+
+The strict record is paired through ordinary correlated role-update semantics
+with exactly one separate `cozy.article-media-integrity.v1` video record; it
+does not define a `SiteRoleUpdate` exception. That record has
+`provenance.kind: wip-site-video` and exactly the provenance fields `kind`,
+project-root-relative normalized `descriptor`, exact `resourceId`, and
+project-root-relative normalized `production`. `artifact.identity` is exactly
+`resourceId`; `artifact.version` is the exact source SHA-256 as an opaque
+64-character content-addressed WIP version; `publicPath` equals `content_url`;
+`repositoryPath` is the website-root-relative destination; `mediaType` is
+`video/mp4`; source, staged, and installed destination `sha256` values are
+equal; and `publicationState` is `published` only after installation. For this
+provenance only, `repositoryPath` means website-root-relative and `published`
+means installed in the disposable WIP tree. WIP infographic behavior remains
+the Phase 27 site-visible/no-new-integrity behavior.
+
+Before staging or registry mutation, the command MUST inspect existing exact
+`(articleIdentity, locale, video)` strict and integrity state. It is admissible
+only when both are absent, OR when the existing pair is canonical after current
+full evidence revalidation. A canonical strict video is exactly
+`presentation=site-hosted`, `status=published`, absent `provider`, absent
+`watch_url`, and the deterministic WIP `content_url`. It MUST have exactly one
+canonical integrity record for that normalized tuple: schema
+`cozy.article-media-integrity.v1`, role `video`, provenance exactly
+`wip-site-video` consisting only of its kind and the exact normalized
+descriptor, resource ID, and production; artifact identity equal to the selected resource ID; artifact
+version equal to the current source SHA-256; public path equal to that content
+URL; repository path equal to the exact site-relative destination; `video/mp4`;
+SHA-256 equal to the current source digest; and `publicationState=published`.
+The installed destination MUST exist as a direct non-symlink regular file whose
+digest equals that current source digest. Any absent, extra, malformed, stale,
+or mismatched field, record, or destination MUST fail before staging or
+registry mutation. This permits repeat WIP replacement while never overwriting
+production; infographic preservation remains Phase 27 behavior. This is
+semantic registry-state isolation, not a new marker or root schema.
+
+## 6.5 Two-root transaction and rollback
+
+For non-dry execution, the command MUST acquire direct regular non-symlink
+`.cozy-article-media-wip.lock` files in both roots in canonical root-identity
+lexical order before acquiring the nested existing publication-registry lock;
+it MUST release them in reverse order. The lock files are durable coordination
+artifacts, validated before use and excluded from candidate/output state; a
+pre-existing invalid lock fails. Dry-run MUST acquire or create no lock and
+relies on captured/revalidated read-only evidence.
+
+Complete preflight MUST capture coherent evidence for the descriptor,
+discovered project configuration and profile, selected resource mappings,
+infographic destination, production JSON, source MP4, publication registry
+snapshot/root, website root, and each selected destination. Immediately before
+mutation, under both root locks and the registry lock, the command MUST
+revalidate every item and build the canonical correlated strict-plus-integrity
+registry plan. A stale descriptor, profile, mapping, registry snapshot,
+production JSON, source MP4, destination identity/bytes, or root identity fails
+before install.
+
+For each selected MP4, it MUST create a same-filesystem sibling temp, copy,
+fsync, and verify its digest, then create and verify a sibling backup for each
+existing destination. It MUST install destinations through same-filesystem
+atomic replacement in sorted site-relative-path order, validate installed
+bytes, replace the single selected owner registry bundle last through the
+existing atomic registry operation, validate registry and destinations while
+locked, and remove backups and temps. One descriptor replaces exactly one
+owner bundle.
+
+After any mutation failure, if registry replacement occurred, rollback MUST
+first atomically restore exact original owner-bundle bytes (or remove a newly
+created canonical bundle), then restore every pre-existing video destination
+and remove every new destination in reverse install order, then remove temps
+and backups. It MUST revalidate original registry/root/destination bytes and
+identities before reporting failure. Rollback failure is surfaced distinctly;
+no application exception or rollback failure may produce a successful partial
+state.
+
+## 6.6 WIP root and path safety
+
+Both roots and each exact destination parent MUST already exist as normalized
+direct non-symlink directories with stable canonical identity. The command
+MUST create neither roots nor parents. It MUST reject this exact predicate:
+filesystem root; user home; discovered project root or any ancestor of it;
+equal publication/website roots; or either root ancestor/descendant of the
+other. A website root may be a descendant of the project root. A publication
+root may be an external direct root only when all direct-entry, canonical,
+non-symlink, and containment checks pass. It also rejects symlink ancestors or
+destinations, path escape, non-regular input, stale SHA, identity drift, and
+cross-filesystem staging that cannot provide atomic replacement. It performs no
+network, upload, publish, deploy, or site-build operation.
+
+## 6.7 WIP compatibility and phase ownership
+
+Phase 27 `register-site` external-YouTube behavior and standard BoK
+repository/publication behavior remain unchanged. Phase 28.2 alone wires
+`runweb-wip` and the Part 5 repository fixtures. The Phase 28.1 contract is
+normative now; implementation remains downstream and must not be described as
+still outside authority. WIP records never promote or spoof production
+evidence.
+
+## 6.8 Phase 28.1 executable acceptance matrix
+
+The following rows are executable specifications for S2-B/S2-C. They are
+documentation only in this Slice; no Scala tests are added here.
+
+### CLI and candidate selection
+
+| Case | Setup | Expected result |
+| --- | --- | --- |
+| Exact grammar | One descriptor, two existing roots, optional target/dry-run | Command parses exactly the frozen grammar and reports a deterministic plan. |
+| Missing/extra/duplicate/unknown option | Omit either root, add a positional/unknown option, repeat an option, or pass `--profile` | Fail before lock, temp, directory, video, or registry mutation. |
+| Equals/separated forms | Exercise existing separated and equals forms; use a leading-dash value once in each form | Existing convention is accepted; leading-dash value is accepted only with equals. |
+| Explicit association gate | Omit top-level association, project kind, configured same-ID `site-kind`, or resource opt-in | Zero/unauthorized candidates; fail before mutation. |
+| All or exact target | Multiple opted-in resources with and without `--target` | No target selects all opted-in resources in ascending exact normalized `resourceId` plan/output order; target selects its one exact existing opted-in resource. |
+| Zero/invalid/ambiguous/duplicate | No candidates, malformed block, duplicate normalized locale/role, or ambiguous target | Fail before mutation. |
+| Exact locale | JA and EN resources plus an absent locale or opposite-locale output | Exact locale succeeds only; no fallback or opposite-locale substitution. |
+
+### Candidate and media evidence
+
+| Case | Setup | Expected result |
+| --- | --- | --- |
+| Infographic reuse | Valid Phase 27 site-public `publicPath` and mapped destination | Record reuses the evidence; no infographic is copied into website root. |
+| Video kind/role/language/output | Resource is not `kind: video`, role is not `video`, language differs, or output is absent | Candidate fails before mutation. |
+| Existing output contract | Output resolves through the existing Cozy media output contract | Source MP4 is selected without inventing a `production.json` artifact path. |
+| `render.sha256` grammar | Missing/null/non-string, uppercase, prefix, whitespace, wrong length, or source mismatch | Fail before mutation; only exact lowercase 64-character `JsString` is accepted. |
+| MP4 hardening | MP4 is non-regular, symlinked, unnormalized, stale, or SHA differs from production `render.sha256` | Fail before mutation. |
+| Production gate | Production JSON has identity/language mismatch, incomplete render, or failed technical/visual QA | Fail before mutation. |
+| YouTube/listening exclusion | YouTube is absent or listening review is pending | WIP remains eligible; neither is read/serialized as a requirement. |
+
+### Path and serialization
+
+| Case | Setup | Expected result |
+| --- | --- | --- |
+| Deterministic path | Identity `development-process/object-modeling`, locale `ja` | Content URL is `/ja/development-process/videos/object-modeling.mp4`; destination removes only the leading slash. |
+| Identity decomposition | One, three, or more normalized identity segments | Fail before path construction; WIP accepts exactly `<category>/<article>`. |
+| Unsafe identity/locale | Raw or unnormalized identity/locale | Fail; no resource ID or filename fallback. |
+| Public record | Successful local-video registration | Exactly `presentation=site-hosted`, `status=published`, `content_url`; no provider/watch URL/host path/hash/provenance. |
+| Published meaning | Inspect WIP record and disposable tree | Published denotes disposable-tree availability, not YouTube or production promotion. |
+| Integrity correlation | Successful WIP video and infographic registration | Video emits the separate correlated `wip-site-video` integrity record; infographic remains Phase 27 site-visible with no new integrity. |
+| Exact video state: fresh | Both exact video strict/integrity records absent | WIP may stage and register its correlated pair. |
+| Exact video state: repeat WIP | Canonical strict record is only site-hosted/published with absent provider/watch URL and deterministic WIP URL; exactly one v1/video `wip-site-video` integrity has current descriptor/resourceId/production, resource ID/current-source-SHA identity/version/digest, exact public/repository paths, `video/mp4`, and published state; installed direct non-symlink destination digest matches current source | WIP may replace its own exact pair only after current full evidence revalidation. |
+| Exact video state: production | Existing external-link/watch URL, or site-hosted production state with `video-publication` integrity | Fail before staging or registry mutation; WIP never overwrites production. |
+| Exact video state: malformed/mixed | Any absent/extra/malformed/stale/mismatched strict or integrity field, record, or installed destination digest, including a non-canonical status/provider/watch URL/path/provenance/artifact/state | Fail before staging or registry mutation. |
+
+### Two-root safety and atomic rollback/drift
+
+| Case | Setup | Expected result |
+| --- | --- | --- |
+| Rejected-root predicate | Filesystem root, user home, discovered project root/ancestor, equal roots, or publication/website ancestor-descendant overlap | Fail; website descendant of project is permitted; an external direct publication root is permitted only after all exact safety checks. |
+| Destination-parent prerequisite | Website root or one exact destination parent is missing, aliased, or symlinked | Fail; command creates no parent. |
+| Destination safety | Symlink ancestor/destination, escape, or non-atomic cross-filesystem staging | Fail before install. |
+| Lock order | Cross-paired or swapped publication/website roots | Non-dry locks both `.cozy-article-media-wip.lock` files by canonical identity, then registry lock; release is reverse. |
+| Coherent preflight | Change descriptor/config/profile/mapping/production/source/registry/root after preflight and before commit | Immediate revalidation detects drift; no mutation. |
+| Atomic success | Multiple selected videos and registry replacement | Copy/fsync/verify temps, back up existing destinations, install sorted destinations, validate bytes, replace owner bundle last, validate while locked, then clean up. |
+| Rollback | Inject install or registry replacement failure | Restore registry first when replaced, restore/remove destinations in reverse install order, then remove temps/backups and revalidate original bytes/identities; surface rollback failure distinctly. |
+
+### Dry-run, repeatability, and exclusions
+
+| Case | Setup | Expected result |
+| --- | --- | --- |
+| Dry-run parity | Run dry and non-dry with identical stable evidence | Plans are byte-for-byte deterministic; dry-run creates no lock/temp/directory/video/registry bytes. |
+| Repeatability | Repeat successful planning/registration against unchanged evidence | Same ascending normalized-resourceId candidate/plan order, paths, records, and registry result. |
+| Production exclusion | Production record has accepted YouTube evidence or pending listening | Phase 27 production behavior is unchanged; WIP does not rewrite or promote it. |
+| Standard BoK exclusion | Standard BoK media/profile data without the four WIP selectors | Normal repository/publication path remains unchanged; no WIP registry or website mutation. |
+| Network/build exclusion | Observe command execution | No network, upload, publish, deploy, site build, or runweb operation occurs. |
 
 ## 7. Diagnostics and public serialization
 
@@ -315,7 +575,8 @@ The implementation MUST satisfy all of the following:
   escaping roots;
 - stop ancestor discovery at the filesystem root;
 - make no Git dependency;
-- make no broad root or Docker-mount change;
+- make no root-selection or Docker-mount change beyond the exact WIP predicate
+  in Section 6.6;
 - scan no target tree, generated site, arbitrary repository, or opposite
   locale;
 - provide no locale fallback;
@@ -342,8 +603,8 @@ The implementation MUST satisfy all of the following:
 
 ## 10. Executable acceptance matrix
 
-The following cases are the executable acceptance contract for the eventual
-Phase 28 implementation. They are deliberately expressed as behavior cases;
+The following cases are the executable acceptance contract for the Phase 28
+configuration and Phase 28.1 WIP implementations. They are deliberately expressed as behavior cases;
 this documentation-only Slice does not create Scala tests.
 
 ### 10.1 Project discovery and layering
@@ -400,7 +661,7 @@ this documentation-only Slice does not create Scala tests.
 | Production gate | Video evidence has completed render, technical-and-visual QA, published YouTube URL | Production eligibility is retained. |
 | Listening pending | `render.listeningReview` is pending while production prerequisites pass | Eligibility remains; pending listening is evidence-only and non-gating. |
 | Production incomplete | Technical/visual QA or published YouTube evidence is absent | Production registration is rejected/omitted under Phase 27 policy. |
-| WIP video | Local MP4 has no YouTube URL | It is outside Phase 28; only the Phase 28.1/28.2 WIP contract may admit it. |
+| WIP video | Local MP4 has no YouTube URL | It is admitted only by the normative Phase 28.1 WIP contract in Sections 6.2–6.8; Phase 28.2 supplies integration only. |
 | Public serialization | Effective context has host paths, hashes, and provenance | Diagnostics may show them; SmartDox public records do not. |
 
 ### 10.5 SimpleModeling.org Part 5 fixture
@@ -440,16 +701,18 @@ The fixture cases MUST cover:
    selected publication and credit profiles, and site kind while generated
    provider-neutral records contain none of that internal provenance.
 
-Part 5 WIP staging, local registry mutation, `runweb-wip` wiring, and rendered
-introduction-card acceptance are downstream Phase 28.1/28.2 cases. They MUST
-not be pulled into Phase 28 configuration implementation.
+The Phase 28.1 WIP staging and local registry mutation contract is normative in
+Sections 6.2–6.8; its product implementation is downstream Phase 28.1 work.
+`runweb-wip` wiring and rendered-introduction-card acceptance remain Phase
+28.2 work and MUST not be pulled into Phase 28 configuration implementation.
 
 ## 11. Non-goals and stop boundary
 
 This contract does not authorize:
 
 - Scala/product/test/config changes in this documentation Slice;
-- WIP artifact staging or provider-neutral registry mutation;
+- implementation of WIP artifact staging or provider-neutral registry mutation
+  in this documentation Slice (the normative contract is Sections 6.2–6.8);
 - `runweb-wip` integration or Part 5 migration;
 - additional lifecycle, ledger, README, strategy, or journal changes outside
   the separately frozen Phase 28 workflow; current admitted accumulator
@@ -460,7 +723,7 @@ This contract does not authorize:
   artifacts; or
 - WIP-to-production evidence/state promotion.
 
-Phase 28 closes before Phase 28.1 starts, and Phase 28.2 starts only after
-Phase 28.1 closes. Any behavior requiring another schema field, public API,
-repository, or unresolved authority decision is outside this contract and
-requires a separately frozen change.
+Phase 28 closes before Phase 28.1 implementation starts, and Phase 28.2 starts
+only after Phase 28.1 closes. Any behavior requiring another schema field,
+public API, repository, or unresolved authority decision is outside this
+contract and requires a separately frozen change.

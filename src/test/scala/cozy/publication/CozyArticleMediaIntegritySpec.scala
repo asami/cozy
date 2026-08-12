@@ -10,7 +10,7 @@ import play.api.libs.json.JsObject
 
 /*
  * @since   Aug.  4, 2026
- * @version Aug.  4, 2026
+ * @version Aug. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyArticleMediaIntegritySpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -18,9 +18,8 @@ final class CozyArticleMediaIntegritySpec extends AnyWordSpec with Matchers with
     "serialize video-publication provenance" which {
       "emit the exact deterministic video integrity contract and entry path" in {
         Given("a canonical article video integrity input")
-        val result = CozyArticleMediaIntegrity.produce(_video_input())
-
         When("the integrity record is produced")
+        val result = CozyArticleMediaIntegrity.produce(_video_input())
         val metadata = result.metadata
         val provenance = (metadata \ "provenance").as[JsObject]
 
@@ -50,9 +49,8 @@ final class CozyArticleMediaIntegritySpec extends AnyWordSpec with Matchers with
     "serialize media-package provenance" which {
       "emit the exact deterministic infographic integrity contract and entry path" in {
         Given("a canonical article infographic integrity input")
-        val result = CozyArticleMediaIntegrity.produce(_infographic_input())
-
         When("the integrity record is produced")
+        val result = CozyArticleMediaIntegrity.produce(_infographic_input())
         val metadata = result.metadata
         val provenance = (metadata \ "provenance").as[JsObject]
 
@@ -488,6 +486,39 @@ final class CozyArticleMediaIntegritySpec extends AnyWordSpec with Matchers with
         propertyresult.passed shouldBe true
       }
     }
+
+    "serialize WIP site-video provenance" which {
+      "emit the additive canonical provenance fields in their fixed order" in {
+        Given("a canonical WIP video integrity input")
+        When("the record is produced")
+        val result = CozyArticleMediaIntegrity.produce(_wip_video_input())
+        val provenance = (result.metadata \ "provenance").as[JsObject]
+
+        Then("only the WIP provenance contract is added")
+        provenance.fields.map(_._1) shouldBe Vector("kind", "descriptor", "resourceId", "production")
+        provenance.value("kind").as[String] shouldBe "wip-site-video"
+        provenance.value("descriptor").as[String] shouldBe "media/article.yaml"
+        provenance.value("resourceId").as[String] shouldBe "part-5-video-ja"
+        provenance.value("production").as[String] shouldBe "video/ja/production.json"
+        result.record.provenance shouldBe CozyArticleMediaIntegrity.WipSiteVideo("media/article.yaml", "part-5-video-ja", "video/ja/production.json")
+      }
+
+      "reject an infographic role or unsafe WIP provenance path" in {
+        Given("a WIP provenance used for an infographic and one with a parent path")
+
+        When("both records are normalized")
+        val roleerror = intercept[IllegalArgumentException](CozyArticleMediaIntegrity.produce(
+          _infographic_input().copy(provenance = CozyArticleMediaIntegrity.WipSiteVideo("media/article.yaml", "part-5-video-ja", "video/ja/production.json"))
+        ))
+        val patherror = intercept[IllegalArgumentException](CozyArticleMediaIntegrity.produce(
+          _wip_video_input(provenance = CozyArticleMediaIntegrity.WipSiteVideo("media/article.yaml", "part-5-video-ja", "video/../production.json"))
+        ))
+
+        Then("the role and safe-relative path contracts fail closed")
+        roleerror.getMessage should include("provenance role")
+        patherror.getMessage should include("production")
+      }
+    }
   }
 
   private def _video_input(
@@ -532,5 +563,15 @@ final class CozyArticleMediaIntegritySpec extends AnyWordSpec with Matchers with
       sha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
       provenance = CozyArticleMediaIntegrity.MediaPackage(descriptor, resourceid, buildmanifest),
       publicationState = CozyArticleMediaIntegrity.PublicationState.Registered
+    )
+
+  private def _wip_video_input(
+    provenance: CozyArticleMediaIntegrity.Provenance = CozyArticleMediaIntegrity.WipSiteVideo("media/article.yaml", "part-5-video-ja", "video/ja/production.json")
+  ): CozyArticleMediaIntegrity.Input =
+    _video_input(
+      artifact = CozyArticleMediaIntegrity.Artifact("part-5-video-ja", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"),
+      publicpath = new URI("/ja/development-process/videos/example.mp4"),
+      repositorypath = "ja/development-process/videos/example.mp4",
+      provenance = provenance
     )
 }

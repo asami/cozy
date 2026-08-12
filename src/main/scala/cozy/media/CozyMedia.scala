@@ -6,7 +6,7 @@ import org.goldenport.config.StructuredDocumentLoader
 import org.goldenport.io.InputSource
 import org.goldenport.io.StringInputSource
 import cozy.config.CozyProjectContext
-import cozy.publication.CozyArticleMediaSiteCommand
+import cozy.publication.{CozyArticleMediaSiteCommand, CozyArticleMediaWipCommand}
 import cozy.runtime.CozyCliArgs
 import cozy.video.CozyVideo
 import io.circe.{Decoder, HCursor, Json}
@@ -383,6 +383,9 @@ private[cozy] object CozyMedia {
         true
       case "media" :: "register-site" :: rest =>
         println(CozyArticleMediaSiteCommand.execute(rest))
+        true
+      case "media" :: "register-site-wip" :: rest =>
+        println(CozyArticleMediaWipCommand.execute(rest))
         true
       case "media" :: other :: _ =>
         RAISE.invalidArgumentFault(s"Unsupported media command: $other")

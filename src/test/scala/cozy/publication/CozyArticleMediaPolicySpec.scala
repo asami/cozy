@@ -16,7 +16,7 @@ import play.api.libs.json.{JsObject, Json}
 
 /*
  * @since   Aug.  4, 2026
- * @version Aug.  4, 2026
+ * @version Aug. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyArticleMediaPolicySpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -103,6 +103,36 @@ final class CozyArticleMediaPolicySpec extends AnyWordSpec with Matchers with Gi
         )
         result.omittedKeys shouldBe empty
         result.diagnostics shouldBe empty
+      }
+
+      "exclude WIP site-video integrity from both strategies without touching the artifact repository" in {
+        Given("a canonical site-hosted WIP video and its matching WIP integrity record")
+        val publication = _publication(
+          "development-process/example",
+          "ja",
+          None,
+          Some(_site_video(VideoStatus.Published, "/ja/development-process/videos/example.mp4"))
+        )
+        val integrity = _wip_site_video_integrity("development-process/example", "ja", "/ja/development-process/videos/example.mp4")
+
+        When("Preview and Production evaluate the WIP-only structural association against an absent repository")
+        val results = _with_metadata(Vector(publication)) { metadata =>
+          _with_root { root =>
+            val absent = root.resolve("absent-artifact-repository")
+            Vector(CozyArticleMediaPolicy.Strategy.Preview, CozyArticleMediaPolicy.Strategy.Production).map { strategy =>
+              CozyArticleMediaPolicy.evaluate(strategy, metadata, Vector(integrity), absent) -> Files.exists(absent)
+            }
+          }
+        }
+
+        Then("both omit the strict video and expose the integrity entry without staging, diagnostics, or repository access")
+        results.foreach { case (result, repositoryexists) =>
+          result.omittedKeys.map(_.role) shouldBe Vector(CozyArticleMediaIntegrity.Role.Video)
+          result.stagedCorrelations shouldBe empty
+          result.diagnostics shouldBe empty
+          result.excludedIntegrityEntryPaths shouldBe Vector(integrity.entryPath)
+          repositoryexists shouldBe false
+        }
       }
 
       "diagnose and omit every registered or withdrawn projectable role in Preview, while Production fails" in {
@@ -579,6 +609,24 @@ final class CozyArticleMediaPolicySpec extends AnyWordSpec with Matchers with Gi
       sha256 = _artifact_sha256,
       provenance = CozyArticleMediaIntegrity.VideoPublication("metadata/video/example/1.0.0/manifest.json", "metadata/artifacts/repository/example.json"),
       publicationState = publicationstate
+    ))
+
+  private def _wip_site_video_integrity(
+    articleidentity: String,
+    locale: String,
+    publicpath: String
+  ): CozyArticleMediaIntegrity.Result =
+    CozyArticleMediaIntegrity.produce(CozyArticleMediaIntegrity.Input(
+      articleIdentity = articleidentity,
+      locale = locale,
+      role = CozyArticleMediaIntegrity.Role.Video,
+      artifact = CozyArticleMediaIntegrity.Artifact("example-video", _artifact_sha256),
+      publicPath = new URI(publicpath),
+      repositoryPath = publicpath.stripPrefix("/"),
+      mediaType = "video/mp4",
+      sha256 = _artifact_sha256,
+      provenance = CozyArticleMediaIntegrity.WipSiteVideo("media.yaml", "example-video", "video/ja/production.json"),
+      publicationState = CozyArticleMediaIntegrity.PublicationState.Published
     ))
 
   private def _infographic_integrity(

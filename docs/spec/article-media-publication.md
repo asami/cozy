@@ -2,8 +2,9 @@
 
 ## Contract Basis
 
-This specification governs Cozy Phase 26 implementation. Its SmartDox input is
-the accepted closed SmartDox Phase 1 commit
+This specification governs the Cozy Phase 26 base implementation and the
+explicitly additive Phase 28.1 `wip-site-video` integrity extension. Its
+SmartDox input is the accepted closed SmartDox Phase 1 commit
 `fa21316973416c24bca7f8e366d65572c72720b7`, integrated in development through
 `org.smartdox:smartdox_2.12:2.4.17-SNAPSHOT`. A public/non-SNAPSHOT SmartDox
 release is not required to start Phase 26.
@@ -52,17 +53,18 @@ specification does not require SmartDox to reject unknown producer fields.
 
 ## Registry Container and Key Paths
 
-Both record surfaces are entries in the existing configured
+For the Phase 26 repository-backed `media-package` and `video-publication`
+producers, both record surfaces are entries in the existing configured
 `src/main/publication` bundle format, never loose files discovered from a
-directory. A producer upserts these exact entry paths using deterministic field
-ordering:
+directory. A Phase 26 producer upserts these exact entry paths using
+deterministic field ordering:
 
 - `metadata/article-media/<articleIdentity>.json` contains one strict SmartDox
   record per normalized `articleIdentity`; its locale variants are sorted by
   exact canonical locale tag.
 - `metadata/article-media-integrity/<articleIdentity>/<locale>/<role>.json`
-  contains exactly one Cozy integrity record per normalized tuple, with `role`
-  exactly `infographic` or `video`.
+  contains exactly one Cozy integrity record per normalized Phase 26 producer
+  tuple, with `role` exactly `infographic` or `video`.
 
 `articleIdentity` is the accepted normalized non-empty SmartDox site-relative
 identity, `locale` is its exact canonical tag, and `role` is the fixed enum.
@@ -70,7 +72,9 @@ They form both key and path. Before path construction, empty, `.`, `..`, or
 leading-slash segments fail. Duplicate normalized identity/locale/role keys
 across configured bundles fail. `cozy bok build` enumerates only configured
 publication bundle entries through the existing registry loader; it does not
-inspect arbitrary directories.
+inspect arbitrary directories. Phase 27 site-local infographic and Phase 28.1
+WIP reuse of that infographic strict record create no new integrity entry and
+are outside these Phase 26 producer requirements.
 
 All recognized strict and integrity entries for one normalized
 `articleIdentity` form one ownership unit. Under the real-publication-root lock,
@@ -169,39 +173,57 @@ field set is exactly `schema`, `articleIdentity`, `locale`, `role`, `artifact`,
 `publicationState`; `schema` is exactly `cozy.article-media-integrity.v1`.
 `artifact.identity` and `artifact.version` are non-empty, and `sha256` is
 exactly 64 lowercase hexadecimal characters with no prefix. All identities and
-paths are source-relative or publication-relative. Machine absolute paths are
-invalid. The registry location introduced by Phase 26 is only this
+paths are source-relative or publication-relative except the explicitly scoped
+Phase 28.1 `wip-site-video` website-root-relative `repositoryPath`. Machine
+absolute paths are invalid. The registry location introduced by Phase 26 is only this
 association/integrity projection; it must not duplicate existing video
 manifests.
 
 `publicationState` is Cozy-owned and exactly `registered`, `published`, or
-`withdrawn`; it is not derived from or serialized as SmartDox status.
-`registered` means explicit metadata and integrity evidence exist, but the
-artifact is not admitted to production; preview may diagnose and omit it.
+`withdrawn`; it is not derived from or serialized as SmartDox status. For the
+existing `video-publication` and `media-package` provenance kinds,
+`registered` means explicit metadata and integrity evidence exist but the
+artifact is not admitted to production; preview may diagnose and omit it;
 `published` means the artifact exists inside the configured repository, its
 selected evidence paths, version, and hash match, and it is eligible for
-production staging. `withdrawn` means the artifact is intentionally unavailable
-for production and cannot support a projected published site-hosted video.
+production staging; and `withdrawn` means it is intentionally unavailable for
+production and cannot support a projected published site-hosted video. The sole
+`wip-site-video` exception has the Phase 28.1 disposable installation meaning
+specified below and MUST NOT be treated as production-eligible
+artifact-repository evidence.
 
 `publicPath` is a SmartDox-accepted root-relative site-visible URI beginning
-with exactly one `/`. `repositoryPath` is always relative to the configured
-artifact repository root. It resolves under that root and must remain there
-after normalization and real-path/symlink checks; lexical and symlink escapes
-fail before production staging. Existing video `warehousePath` values include
+with exactly one `/`. For `video-publication` and `media-package`,
+`repositoryPath` is relative to the configured artifact repository root. It
+resolves under that root and must remain there after normalization and
+real-path/symlink checks; lexical and symlink escapes fail before production
+staging. Existing video `warehousePath` values include
 `repository/`; their canonical resolution first strips that configured
 repository prefix, yielding `repositoryPath` beneath the configured root, while
 `publicPath` retains `/repository/...` for the staged URL.
 
-`provenance` is role-discriminated. A video record requires
+`provenance` is role-discriminated. A `video-publication` video record requires
 `kind: video-publication`, registry-relative `videoManifest`, and registry-
 relative `repositoryRegistry`. An infographic record requires
 `kind: media-package`, a project-relative `descriptor`, exact `resourceId`, and
 a project-relative `buildManifest`. Neither provenance form permits an absolute
-path.
+path. The additive Phase 28.1 video alternative is exactly
+`kind: wip-site-video` with only project-root-relative normalized `descriptor`,
+exact `resourceId`, and project-root-relative normalized `production` besides
+`kind`; it changes neither the schema name nor any top-level field. Its
+`artifact.identity` is exactly `resourceId`; `artifact.version` is the exact
+64-character source SHA-256 as an opaque content-addressed WIP version;
+`publicPath` equals the strict `content_url`; `repositoryPath` is the website-
+root-relative destination; `mediaType` is `video/mp4`; and the source, staged,
+and installed destination digests are equal to `sha256`. For this provenance
+only, `repositoryPath` does not mean artifact-repository-relative and
+`publicationState: published` means installed in the disposable WIP tree.
+The strict SmartDox record remains free of these values and is correlated by
+the ordinary role-update semantics; no `SiteRoleUpdate` exception is defined.
 
-### Video Mapping
+### Video-publication Mapping
 
-The selected evidence is exactly
+For `video-publication`, the selected evidence is exactly
 `metadata/video/<name>/<version>/manifest.json` and
 `metadata/artifacts/repository/<name>.json`. `artifact.identity` is the video
 name and `artifact.version` is the selected video version. `publicPath` is the
@@ -221,9 +243,9 @@ artifact SHA, that selected registry entry SHA, and the actual selected file
 bytes must be equal. Video `publicationState` derives from that evidence,
 containment, and availability, never SmartDox status.
 
-### Infographic Mapping
+### Media-package Infographic Mapping
 
-Select exactly one explicit `cozy.media.v1` resource whose `knowledge.id`
+For `media-package`, select exactly one explicit `cozy.media.v1` resource whose `knowledge.id`
 equals `articleIdentity`, whose `language` canonicalizes exactly to `locale`,
 and whose `role` is literally `detailed-infographic`. Its resource id is
 `artifact.identity`. Initial Phase 26 infographic support is PNG only:
@@ -249,17 +271,21 @@ existence, hash, and containment.
 
 ## Correlation and Operations
 
-Every Cozy-produced infographic and every Cozy-produced site-hosted video with
-`content_url` must select exactly one integrity record using its normalized
-`(articleIdentity, locale, role)`. The SmartDox infographic `public_path` or
-site-hosted video `content_url` must exactly equal that record's `publicPath`.
-No correlation/equality is applied to external-link `watch_url` or URL-less
-draft/withdrawn forms. A published site-hosted SmartDox video may project only
-when its correlated Cozy `publicationState` is `published`; `registered` and
-`withdrawn` cannot support that projection. Duplicate normalized keys, an
-invalid or ambiguous identity, an escaping path, a path outside the configured
-repository, and hash or version mismatch fail deterministically before
-production staging. Path escape and identity conflict fail under every strategy.
+For Phase 26 repository-backed `media-package` and `video-publication`
+producers, every Cozy-produced infographic and every Cozy-produced site-hosted
+video with `content_url` must select exactly one integrity record using its
+normalized `(articleIdentity, locale, role)`. The SmartDox infographic
+`public_path` or site-hosted video `content_url` must exactly equal that
+record's `publicPath`. No correlation/equality is applied to external-link
+`watch_url` or URL-less draft/withdrawn forms. For `video-publication` and
+`media-package`, a published site-hosted SmartDox video may project only when its correlated Cozy
+`publicationState` is `published`; `registered` and `withdrawn` cannot support
+that projection. `wip-site-video` is governed instead by Phase 28.1 disposable
+website installation and is never production staging evidence. Duplicate
+normalized keys, an invalid or ambiguous identity, an escaping path, a path
+outside the configured artifact repository for existing provenance kinds, and
+hash or version mismatch fail deterministically before production staging. Path
+escape and identity conflict fail under every strategy.
 
 Only explicit descriptors and registered metadata are inputs. Neither producer
 nor build may scan `target`, work directories, generated site trees, arbitrary
@@ -366,7 +392,7 @@ website output at the staging root and repository artifacts at
 therefore resolve below one URL root and have matching SHA-256 values. No-media
 articles/BoKs and legacy `.video`/`VideoPublication` behavior remain unchanged.
 
-## Policy Matrix
+## Phase 26 Policy Matrix
 
 | Condition | Preview | Production |
 | --- | --- | --- |
@@ -374,12 +400,14 @@ articles/BoKs and legacy `.video`/`VideoPublication` behavior remain unchanged.
 | Exact canonical locale absent | no cross-locale fallback | no cross-locale fallback |
 | Optional infographic has no registered record | diagnostic/omission | omission |
 | Registered infographic is missing or stale | diagnostic/omission | fail before staging |
-| Registered site-hosted published video is missing/stale or not Cozy-published | diagnostic; no player | fail before staging |
+| Registered `video-publication` or `media-package` site-hosted published video is missing/stale or not Cozy-published | diagnostic; no player | fail before staging |
 | SmartDox draft or withdrawn video without `content_url` | valid; no integrity record or projection/player/link | valid; no integrity record or projection/player/link |
 | External-link video with only `watch_url` | accepted pass-through; no integrity record | accepted pass-through; no integrity record |
-| Invalid/ambiguous identity, duplicate key, escaped path, outside repository, hash/version mismatch | deterministic failure where identity conflict or path escape always fails | deterministic failure before staging |
+| Invalid/ambiguous identity, duplicate key, escaped path, outside repository for existing provenance kinds, hash/version mismatch | deterministic failure where identity conflict or path escape always fails | deterministic failure before staging |
 
-The production omission rule applies only when no infographic is registered.
+This matrix governs the Phase 26 repository-backed provenance kinds;
+`wip-site-video` is governed exclusively by Phase 28.1 and is not production
+eligible. The production omission rule applies only when no infographic is registered.
 It never permits a registered-but-missing or stale infographic.
 
 ## Compatibility and Required Evidence

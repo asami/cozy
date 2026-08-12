@@ -8,7 +8,7 @@ import org.smartdox.metadata.PublishMetadata
 
 /*
  * @since   Aug.  4, 2026
- * @version Aug.  5, 2026
+ * @version Aug. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArticleMediaPolicy {
@@ -37,7 +37,8 @@ private[cozy] object CozyArticleMediaPolicy {
     structural: CozyArticleMediaAssociation.Inspection,
     stagedCorrelations: Vector[CozyArticleMediaAssociation.Correlation],
     omittedKeys: Vector[CozyArticleMediaAssociation.Key],
-    diagnostics: Vector[Diagnostic]
+    diagnostics: Vector[Diagnostic],
+    excludedIntegrityEntryPaths: Vector[String]
   )
 
   final case class RegistrationResult(
@@ -63,17 +64,21 @@ private[cozy] object CozyArticleMediaPolicy {
   ): Result = {
     _strategy(strategy)
     val structural = CozyArticleMediaAssociation.inspect(metadata, integrityResults)
+    val excludedintegrities = structural.integrityResults.filter(_is_wip_site_video)
+    val repositoryintegrities = structural.integrityResults.filterNot(_is_wip_site_video)
     /* Repository identity is meaningful only for a supplied, path-bearing
      * integrity record.  Media-free and URL-less/external forms must not turn
      * an absent configured repository into an observable filesystem concern. */
-    val root = if (structural.integrityResults.nonEmpty) Some(_artifact_root(artifactRepositoryRoot)) else None
-    structural.integrityResults.foreach(integrity => _validate_record_containment(integrity.record, root.get))
+    val root = if (repositoryintegrities.nonEmpty) Some(_artifact_root(artifactRepositoryRoot)) else None
+    repositoryintegrities.foreach(integrity => _validate_record_containment(integrity.record, root.get))
     val staged = Vector.newBuilder[CozyArticleMediaAssociation.Correlation]
     val omitted = Vector.newBuilder[CozyArticleMediaAssociation.Key]
     val diagnostics = Vector.newBuilder[Diagnostic]
     structural.media.foreach { medium =>
       if (medium.projectable) {
         medium.integrity match {
+          case Some(integrity) if _is_wip_site_video(integrity) =>
+            omitted += medium.key
           case None =>
             if (medium.key.role == CozyArticleMediaIntegrity.Role.Infographic) {
               omitted += medium.key
@@ -122,7 +127,8 @@ private[cozy] object CozyArticleMediaPolicy {
       structural = structural,
       stagedCorrelations = staged.result().sortBy(x => _key(x.key)),
       omittedKeys = omitted.result().sortBy(_key),
-      diagnostics = diagnostics.result().sortBy(x => (_key(x.key), _diagnostic_kind(x.kind)))
+      diagnostics = diagnostics.result().sortBy(x => (_key(x.key), _diagnostic_kind(x.kind))),
+      excludedIntegrityEntryPaths = excludedintegrities.map(_.entryPath).sorted
     )
   }
 
@@ -393,6 +399,12 @@ private[cozy] object CozyArticleMediaPolicy {
       role = record.role
     )
   }
+
+  private def _is_wip_site_video(integrity: CozyArticleMediaIntegrity.Result): Boolean =
+    integrity.record.provenance match {
+      case _: CozyArticleMediaIntegrity.WipSiteVideo => true
+      case _ => false
+    }
 
   private def _key(value: CozyArticleMediaAssociation.Key): (String, String, String) =
     (value.articleIdentity, value.locale, value.role.name)

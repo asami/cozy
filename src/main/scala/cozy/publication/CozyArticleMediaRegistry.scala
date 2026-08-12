@@ -12,7 +12,7 @@ import play.api.libs.json.{JsArray, JsObject, JsString, JsValue, Json}
 
 /*
  * @since   Aug.  4, 2026
- * @version Aug. 11, 2026
+ * @version Aug. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArticleMediaRegistry {
@@ -74,6 +74,34 @@ private[cozy] object CozyArticleMediaRegistry {
     variant: CozyArticleMediaPublication.Variant
   )
 
+  /* WIP planning carries the public strict update and its optional separate
+   * integrity record together.  It is deliberately read-only here: S2-C owns
+   * the two-root installation and the eventual registry replacement. */
+  final case class WipRoleUpdate(
+    articleIdentity: String,
+    variant: CozyArticleMediaPublication.Variant,
+    integrity: Option[CozyArticleMediaIntegrity.Result]
+  )
+
+  sealed trait WipVideoState
+  object WipVideoState {
+    case object Fresh extends WipVideoState
+    case object ExactRepeat extends WipVideoState
+  }
+
+  final case class WipArticlePlan(
+    articleIdentity: String,
+    owner: String,
+    strict: CozyArticleMediaPublication.Result,
+    integrities: Vector[CozyArticleMediaIntegrity.Result]
+  )
+
+  final case class WipReadOnlyPlan(
+    snapshot: Snapshot,
+    articles: Vector[WipArticlePlan],
+    videoStates: Map[(String, String, String), WipVideoState]
+  )
+
   /* A producer can reserve the ownership shape of a role before it has
    * rendered bytes from which integrity evidence can honestly be made. */
   final case class RoleIntent(
@@ -105,6 +133,11 @@ private[cozy] object CozyArticleMediaRegistry {
     def mergeSite(
       roleUpdates: Vector[SiteRoleUpdate],
       beforeReplace: () => Unit
+    ): TransactionMergeResult
+    def mergeWip(
+      roleUpdates: Vector[WipRoleUpdate],
+      beforeReplace: () => Unit,
+      afterReplace: TransactionMergeResult => Unit
     ): TransactionMergeResult
     def publish(
       metadataPublications: Vector[CozyPublicationCompiler.MetadataPublication]
@@ -223,6 +256,73 @@ private[cozy] object CozyArticleMediaRegistry {
         entryPaths = plans.flatMap(_.entries.map(_.path)).distinct.sorted,
         snapshot = result
       )
+    }
+
+    def mergeWip(
+      roleUpdates: Vector[WipRoleUpdate],
+      beforeReplace: () => Unit,
+      afterReplace: TransactionMergeResult => Unit
+    ): TransactionMergeResult = {
+      _require_callback_owner()
+      if (_committed)
+        _invalid("Article-media registry transaction permits one merge commit")
+      if (beforeReplace == null || afterReplace == null)
+        _invalid("Article-media registry WIP callbacks must be defined")
+      _capability.validateRootEvidence()
+      val realroot = _capability.realRoot
+      val updates = _normalize_wip_role_updates(roleUpdates)
+      val plan = _plan_wip_role_updates(_initial_snapshot, updates)
+      val owners = plan.articles.map(_.owner).distinct
+      if (owners.size != 1)
+        _invalid("Article-media registry WIP transaction requires exactly one owner bundle")
+      val owner = owners.head
+      val entries = plan.articles.flatMap { article =>
+        _publication_entry(article.strict) +: article.integrities.map { integrity =>
+          Entry(owner, integrity.entryPath, _canonical_key(integrity.entryPath), integrity.metadata)
+        }
+      }.sortBy(_.path)
+      val removals = plan.articles.flatMap(article => _integrity_entries_for_identity(_initial_snapshot, article.articleIdentity).map(_.path)).distinct.sorted
+      val createarticlemedia = owner == "article-media" && !_initial_snapshot.bundleDigests.contains(owner)
+      _validate_plans(_initial_snapshot, Vector(OwnerPlan(owner, entries, removals, createarticlemedia)))
+      _capability.validateSnapshot(_initial_snapshot.bundleDigests)
+      val originalbytes = _capability.bundleBytes(owner)
+      beforeReplace()
+      _capability.validateRootEvidence()
+      _capability.validateSnapshot(_initial_snapshot.bundleDigests)
+      _committed = true
+      var replaced = false
+      try {
+        replaced = true
+        _capability.replaceMetadata(
+          owner,
+          entries.map(x => x.path -> x.metadata),
+          removals,
+          Map.empty,
+          createArticleMedia = createarticlemedia
+        )
+        _capability.validateRootEvidence()
+        val result = load(realroot)
+        val merged = TransactionMergeResult(
+          bundlePaths = Vector(realroot.resolve(s"$owner.json")),
+          entryPaths = entries.map(_.path).distinct.sorted,
+          snapshot = result
+        )
+        afterReplace(merged)
+        merged
+      } catch {
+        case application: Throwable if replaced =>
+          try _capability.restoreBundle(owner, originalbytes, _initial_snapshot.bundleDigests)
+          catch {
+            case rollback: Throwable =>
+              val failure = new IllegalArgumentException(
+                s"Article-media WIP registry rollback failed: ${rollback.getMessage}",
+                rollback
+              )
+              failure.addSuppressed(application)
+              throw failure
+          }
+          throw application
+      }
     }
 
     /*
@@ -387,6 +487,34 @@ private[cozy] object CozyArticleMediaRegistry {
       _invalid("Article-media registry stale read-only snapshot")
   }
 
+  /* WIP preflight plans one mixed strict/integrity projection against one
+   * snapshot, then proves that the complete configured snapshot is unchanged.
+   * It takes no registry lock and creates no bundle or directory. */
+  private[publication] def validateWipReadOnly(
+    root: Path,
+    roleUpdates: Vector[WipRoleUpdate]
+  ): WipReadOnlyPlan =
+    validateWipReadOnly(root, roleUpdates, () => ())
+
+  private[publication] def validateWipReadOnly(
+    root: Path,
+    roleUpdates: Vector[WipRoleUpdate],
+    beforeRevalidation: () => Unit
+  ): WipReadOnlyPlan = {
+    if (beforeRevalidation == null)
+      _invalid("Article-media registry before-revalidation callback must be defined")
+    val initial = _read_only_existing_snapshot(root)
+    val updates = _normalize_wip_role_updates(roleUpdates)
+    val plan = _plan_wip_role_updates(initial.snapshot, updates)
+    beforeRevalidation()
+    val revalidated = Try(_read_only_existing_snapshot(root)).getOrElse(
+      _invalid("Article-media registry stale read-only snapshot")
+    )
+    if (revalidated != initial)
+      _invalid("Article-media registry stale read-only snapshot")
+    plan
+  }
+
   private[publication] def validateSiteReadOnly(
     evidence: CozyPublicationCompiler.SiteRootEvidence,
     roleUpdates: Vector[SiteRoleUpdate],
@@ -458,6 +586,20 @@ private[cozy] object CozyArticleMediaRegistry {
       val real = normalized.toRealPath()
       ReadOnlySnapshot(Some(ReadOnlyRoot(normalized, real)), load(real))
     }
+  }
+
+  private def _read_only_existing_snapshot(root: Path): ReadOnlySnapshot = {
+    if (root == null)
+      _invalid("Configured publication root must be defined")
+    val normalized = root.toAbsolutePath.normalize()
+    if (Files.isSymbolicLink(normalized) || !Files.isDirectory(normalized, LinkOption.NOFOLLOW_LINKS))
+      _invalid(s"Configured publication root must be an existing direct non-symlink directory: $root")
+    val real = Try(normalized.toRealPath()).getOrElse(
+      _invalid(s"Configured publication root cannot be resolved: $root")
+    )
+    if (real != normalized)
+      _invalid(s"Configured publication root must not use a lexical or symlink alias: $root")
+    ReadOnlySnapshot(Some(ReadOnlyRoot(normalized, real)), load(real))
   }
 
   def load(root: Path): Snapshot = {
@@ -550,6 +692,15 @@ private[cozy] object CozyArticleMediaRegistry {
     def key: (String, String, String) = (articleidentity, variant.locale, role.name)
   }
 
+  private final case class NormalizedWipRoleUpdate(
+    articleidentity: String,
+    variant: CozyArticleMediaPublication.Variant,
+    integrity: Option[CozyArticleMediaIntegrity.Result],
+    role: CozyArticleMediaIntegrity.Role
+  ) {
+    def key: (String, String, String) = (articleidentity, variant.locale, role.name)
+  }
+
   private final case class OwnerPlan(
     owner: String,
     entries: Vector[Entry],
@@ -628,6 +779,22 @@ private[cozy] object CozyArticleMediaRegistry {
     normalized
   }
 
+  private def _normalize_wip_role_updates(
+    roleupdates: Vector[WipRoleUpdate]
+  ): Vector[NormalizedWipRoleUpdate] = {
+    if (roleupdates == null)
+      _invalid("Article-media registry WIP role updates must be defined")
+    val normalized = roleupdates.map(_normalize_wip_role_update).sortBy(_.key)
+    if (normalized.isEmpty)
+      _invalid("Article-media registry WIP role updates must not be empty")
+    normalized.groupBy(_.key).toVector.sortBy(_._1).collectFirst {
+      case (key, values) if values.size > 1 => key
+    }.foreach { key =>
+      _invalid(s"Duplicate article-media WIP role update: ${key._1} [${key._2}, ${key._3}]")
+    }
+    normalized
+  }
+
   private def _normalize_role_intents(intents: Vector[RoleIntent]): Vector[RoleIntent] = {
     if (intents == null)
       _invalid("Article-media registry role intents must be defined")
@@ -691,6 +858,45 @@ private[cozy] object CozyArticleMediaRegistry {
         _invalid("Article-media registry site video role update must be an external-link")
     }
     NormalizedSiteRoleUpdate(strict.publication.articleIdentity, variant, role)
+  }
+
+  private def _normalize_wip_role_update(value: WipRoleUpdate): NormalizedWipRoleUpdate = {
+    if (value == null || value.variant == null || value.integrity == null)
+      _invalid("Article-media registry WIP role update must be defined")
+    val supplied = value.variant
+    if (supplied.infographic.isDefined == supplied.video.isDefined)
+      _invalid("Article-media registry WIP role update variant must contain exactly one medium")
+    val strict = CozyArticleMediaPublication.produce(value.articleIdentity, Vector(supplied))
+    val canonicalvariant = strict.publication.variants.head
+    val variant = CozyArticleMediaPublication.Variant(canonicalvariant.locale, canonicalvariant.infographic, canonicalvariant.video)
+    val role = if (variant.infographic.isDefined) CozyArticleMediaIntegrity.Role.Infographic else CozyArticleMediaIntegrity.Role.Video
+    role match {
+      case CozyArticleMediaIntegrity.Role.Infographic =>
+        if (value.integrity.nonEmpty)
+          _invalid("Article-media registry WIP infographic update must not carry integrity")
+      case CozyArticleMediaIntegrity.Role.Video =>
+        val video = variant.video.getOrElse(_invalid("Article-media registry WIP video update is missing"))
+        if (video.presentation != VideoPresentation.SiteHosted || video.status != VideoStatus.Published ||
+          video.provider.nonEmpty || video.watchUrl.nonEmpty || video.contentUrl.isEmpty)
+          _invalid("Article-media registry WIP video update must be provider-neutral site-hosted published content_url only")
+        val integrity = value.integrity.getOrElse(
+          _invalid("Article-media registry WIP video update requires integrity")
+        )
+        val canonical = _canonical_integrity(integrity)
+        canonical.record.provenance match {
+          case _: CozyArticleMediaIntegrity.WipSiteVideo =>
+          case _ => _invalid("Article-media registry WIP video integrity requires wip-site-video provenance")
+        }
+        if (canonical.record.articleIdentity != strict.publication.articleIdentity ||
+          canonical.record.locale != variant.locale ||
+          canonical.record.role != CozyArticleMediaIntegrity.Role.Video ||
+          canonical.record.publicPath.toString != video.contentUrl.get.toString ||
+          canonical.record.publicationState != CozyArticleMediaIntegrity.PublicationState.Published)
+          _invalid("Article-media registry WIP video strict and integrity evidence must have the same published tuple")
+      case _ => _invalid("Article-media registry WIP role is invalid")
+    }
+    val integrity = value.integrity.map(_canonical_integrity)
+    NormalizedWipRoleUpdate(strict.publication.articleIdentity, variant, integrity, role)
   }
 
   private def _canonical_integrity(value: CozyArticleMediaIntegrity.Result): CozyArticleMediaIntegrity.Result = {
@@ -765,6 +971,96 @@ private[cozy] object CozyArticleMediaRegistry {
         removeprefixes = Vector.empty,
         createarticlemedia = values.exists(_.createarticlemedia)
       )
+    }
+  }
+
+  private def _plan_wip_role_updates(
+    snapshot: Snapshot,
+    updates: Vector[NormalizedWipRoleUpdate]
+  ): WipReadOnlyPlan = {
+    val videostates = updates.collect {
+      case update if update.role == CozyArticleMediaIntegrity.Role.Video =>
+        val existingstrict = snapshot.entries.find(_.path == s"metadata/article-media/${update.articleidentity}.json").map(x => _strict_result(x.metadata))
+        val existingintegrities = _integrity_entries_for_identity(snapshot, update.articleidentity).map(x => _integrity_result(x.metadata))
+        update.key -> _wip_video_state(existingstrict, existingintegrities, update)
+    }.toMap
+    val articles = updates.groupBy(_.articleidentity).toVector.sortBy(_._1).map { case (identity, articleupdates) =>
+      val owner = _article_owner(snapshot, identity)
+      val existingstrict = snapshot.entries.find(_.path == s"metadata/article-media/$identity.json").map(x => _strict_result(x.metadata))
+      val existingintegrities = _integrity_entries_for_identity(snapshot, identity).map(x => _integrity_result(x.metadata))
+      val strict = _merge_wip_strict(identity, existingstrict, articleupdates)
+      val integrities = _merge_wip_integrities(existingintegrities, articleupdates)
+      _validate_strict_integrities(strict, integrities)
+      val entries = (_publication_entry(strict) +: integrities.map(x => Entry("", x.entryPath, _canonical_key(x.entryPath), x.metadata))).sortBy(_.path)
+      _validate_plans(snapshot, Vector(OwnerPlan(
+        owner = owner,
+        entries = entries,
+        removeprefixes = _integrity_entries_for_identity(snapshot, identity).map(_.path),
+        createarticlemedia = owner == "article-media" && !snapshot.bundleDigests.contains("article-media")
+      )))
+      WipArticlePlan(identity, owner, strict, integrities)
+    }
+    WipReadOnlyPlan(snapshot, articles, videostates)
+  }
+
+  private def _wip_video_state(
+    existingstrict: Option[CozyArticleMediaPublication.Result],
+    existingintegrities: Vector[CozyArticleMediaIntegrity.Result],
+    update: NormalizedWipRoleUpdate
+  ): WipVideoState = {
+    val existingvideo = existingstrict.flatMap(_.publication.variants.find(_.locale == update.variant.locale)).flatMap(_.video)
+    val existingintegrity = existingintegrities.filter { value =>
+      value.record.locale == update.variant.locale && value.record.role == CozyArticleMediaIntegrity.Role.Video
+    }
+    (existingvideo, existingintegrity) match {
+      case (None, Vector()) => WipVideoState.Fresh
+      case (Some(video), Vector(integrity)) =>
+        val expectedvideo = update.variant.video.getOrElse(
+          _invalid("Article-media registry WIP video update is missing")
+        )
+        val expectedintegrity = update.integrity.getOrElse(
+          _invalid("Article-media registry WIP video integrity is missing")
+        )
+        if (video != expectedvideo || integrity != expectedintegrity)
+          _invalid(s"Article-media registry existing video tuple is not the exact current WIP pair: ${update.articleidentity} [${update.variant.locale}]")
+        WipVideoState.ExactRepeat
+      case _ =>
+        _invalid(s"Article-media registry existing video tuple is partial or not WIP-owned: ${update.articleidentity} [${update.variant.locale}]")
+    }
+  }
+
+  private def _merge_wip_strict(
+    identity: String,
+    existing: Option[CozyArticleMediaPublication.Result],
+    updates: Vector[NormalizedWipRoleUpdate]
+  ): CozyArticleMediaPublication.Result = {
+    val initial = existing.map(_.publication.variants.map { variant =>
+      variant.locale -> CozyArticleMediaPublication.Variant(variant.locale, variant.infographic, variant.video)
+    }.toMap).getOrElse(Map.empty[String, CozyArticleMediaPublication.Variant])
+    val merged = updates.foldLeft(initial) { case (state, update) =>
+      val previous = state.getOrElse(update.variant.locale, CozyArticleMediaPublication.Variant(update.variant.locale))
+      val replacement = update.role match {
+        case CozyArticleMediaIntegrity.Role.Infographic => previous.copy(infographic = update.variant.infographic)
+        case CozyArticleMediaIntegrity.Role.Video => previous.copy(video = update.variant.video)
+        case _ => _invalid("Article-media registry WIP role is invalid")
+      }
+      state + (replacement.locale -> replacement)
+    }
+    CozyArticleMediaPublication.produce(identity, merged.values.toVector)
+  }
+
+  private def _merge_wip_integrities(
+    existing: Vector[CozyArticleMediaIntegrity.Result],
+    updates: Vector[NormalizedWipRoleUpdate]
+  ): Vector[CozyArticleMediaIntegrity.Result] = {
+    val replacements = updates.collect {
+      case update if update.role == CozyArticleMediaIntegrity.Role.Video =>
+        (update.variant.locale, update.role.name) -> update.integrity.getOrElse(
+          _invalid("Article-media registry WIP video integrity is missing")
+        )
+    }.toMap
+    (existing.filterNot { value => replacements.contains((value.record.locale, value.record.role.name)) } ++ replacements.values).sortBy { value =>
+      (value.record.locale, value.record.role.name)
     }
   }
 
@@ -1028,6 +1324,13 @@ private[cozy] object CozyArticleMediaRegistry {
           _required_string(provenance, "descriptor"),
           _required_string(provenance, "resourceId"),
           _required_string(provenance, "buildManifest")
+        )
+      case "wip-site-video" =>
+        _validate_fields(provenance, Set("kind", "descriptor", "resourceId", "production"), Set.empty)
+        CozyArticleMediaIntegrity.WipSiteVideo(
+          _required_string(provenance, "descriptor"),
+          _required_string(provenance, "resourceId"),
+          _required_string(provenance, "production")
         )
       case _ => _invalid("Article-media integrity provenance kind is invalid")
     }

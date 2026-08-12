@@ -1,8 +1,10 @@
 # Phase 28.1: WIP Local Article Media Registration
 
-Status: active
+Status: closed
 
 Start date: 2026-08-12
+
+Close date: 2026-08-12
 
 ## Split provenance
 
@@ -62,7 +64,7 @@ those belong to Phase 28.2.
 
 Stage Status:
 
-- Current status: PLANNED
+- Current status: DONE
 - Owner: Cozy
 - Update rule: mark work complete only from the Phase 28.1 checklist.
 - Checklist basis: `AM28-02`

@@ -1,6 +1,8 @@
 # Phase 28.2: SimpleModeling.org Part 5 Integration and Regression
 
-Status: planned
+Status: active
+
+Start date: 2026-08-12
 
 ## Split provenance
 

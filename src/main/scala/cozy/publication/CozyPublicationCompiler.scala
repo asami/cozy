@@ -21,7 +21,7 @@ import scala.sys.process._
  * @since   May. 20, 2026
  *  version Jun.  8, 2026
  *  version Jun. 19, 2026
- * @version Aug. 11, 2026
+ * @version Aug. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyPublicationCompiler {
@@ -295,6 +295,12 @@ private[cozy] object CozyPublicationCompiler {
       createArticleMedia: Boolean
     ): Unit
     private[publication] def publishMetadata(publication: MetadataPublication): Unit
+    private[publication] def bundleBytes(name: String): Option[Vector[Byte]]
+    private[publication] def restoreBundle(
+      name: String,
+      bytes: Option[Vector[Byte]],
+      expectedBundleDigests: Map[String, String]
+    ): Unit
   }
 
   private final class RegistryLockCapabilityImpl(
@@ -340,6 +346,20 @@ private[cozy] object CozyPublicationCompiler {
     override def publishMetadata(publication: MetadataPublication): Unit = {
       _require_owner()
       PublicationRegistry.publishMetadataLocked(_real_root, publication)
+    }
+
+    override def bundleBytes(name: String): Option[Vector[Byte]] = {
+      _require_owner()
+      PublicationRegistry.bundleBytesLocked(_real_root, name)
+    }
+
+    override def restoreBundle(
+      name: String,
+      bytes: Option[Vector[Byte]],
+      expectedBundleDigests: Map[String, String]
+    ): Unit = {
+      _require_owner()
+      PublicationRegistry.restoreBundleLocked(_real_root, name, bytes, expectedBundleDigests)
     }
 
     private[CozyPublicationCompiler] def _close(): Unit = {
@@ -1533,6 +1553,27 @@ private[cozy] object CozyPublicationCompiler {
     ): Unit =
       _replace_metadata_locked(realroot, name, entries, removeprefixes, expectedbundledigests, createarticlemedia)
 
+    def bundleBytesLocked(realroot: Path, name: String): Option[Vector[Byte]] = {
+      val target = _locked_target(realroot, name, requireexisting = false)
+      if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) Some(Files.readAllBytes(target).toVector) else None
+    }
+
+    def restoreBundleLocked(
+      realroot: Path,
+      name: String,
+      bytes: Option[Vector[Byte]],
+      expectedbundledigests: Map[String, String]
+    ): Unit = {
+      if (bytes == null || expectedbundledigests == null)
+        RAISE.invalidArgumentFault("Publication bundle rollback inputs must be defined")
+      val target = _locked_target(realroot, name, requireexisting = false)
+      bytes match {
+        case Some(value) => _write_exact_bundle(target, value.toArray)
+        case None => Files.deleteIfExists(target)
+      }
+      validateRegistrySnapshotLocked(realroot, expectedbundledigests)
+    }
+
     def validateRegistrySnapshotLocked(realroot: Path, expectedbundledigests: Map[String, String]): Unit = {
       if (realroot == null || !Files.isDirectory(realroot) || expectedbundledigests == null)
         RAISE.invalidArgumentFault("Publication metadata replacement inputs must be defined")
@@ -1729,6 +1770,20 @@ private[cozy] object CozyPublicationCompiler {
       } finally {
         Files.deleteIfExists(temporary)
       }
+    }
+
+    private def _write_exact_bundle(target: Path, bytes: Array[Byte]): Unit = {
+      val temporary = Files.createTempFile(target.getParent, target.getFileName.toString + ".", ".rollback.tmp")
+      try {
+        Files.write(temporary, bytes, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)
+        val channel = FileChannel.open(temporary, StandardOpenOption.WRITE)
+        try channel.force(true) finally channel.close()
+        try Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+        catch {
+          case _: AtomicMoveNotSupportedException =>
+            RAISE.invalidArgumentFault(s"Atomic publication bundle rollback is not supported: $target")
+        }
+      } finally Files.deleteIfExists(temporary)
     }
 
     private def _bundle_json(p: PublicationBundle): JsValue = {

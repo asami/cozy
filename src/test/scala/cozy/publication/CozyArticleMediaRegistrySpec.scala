@@ -15,7 +15,7 @@ import play.api.libs.json.{JsArray, JsNull, JsObject, JsString, Json}
 
 /*
  * @since   Aug.  4, 2026
- * @version Aug.  5, 2026
+ * @version Aug. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyArticleMediaRegistrySpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -1270,6 +1270,85 @@ final class CozyArticleMediaRegistrySpec extends AnyWordSpec with Matchers with 
         propertyresult.passed shouldBe true
       }
     }
+
+    "plan WIP role updates read-only" which {
+      "plan mixed strict-only infographic and correlated provider-neutral video without writing" in {
+        Given("fresh infographic and WIP video updates against an empty registry")
+        _with_root { root =>
+          val infographic = CozyArticleMediaRegistry.WipRoleUpdate(
+            "development-process/example",
+            CozyArticleMediaPublication.Variant("ja", infographic = Some(_infographic_image("/ja/development-process/images/example.png"))),
+            None
+          )
+          val video = _wip_video_update()
+          val before = _direct_names(root)
+
+          When("the registry builds its read-only WIP plan")
+          val plan = CozyArticleMediaRegistry.validateWipReadOnly(root, Vector(video, infographic))
+
+          Then("video has its one integrity while infographic creates none and no file changes")
+          plan.articles.map(_.strict.publication.articleIdentity) shouldBe Vector("development-process/example")
+          plan.articles.head.strict.publication.variants.map(_.locale) shouldBe Vector("ja")
+          plan.articles.head.integrities.map(_.record.role) shouldBe Vector(CozyArticleMediaIntegrity.Role.Video)
+          plan.videoStates((video.articleIdentity, "ja", "video")) shouldBe CozyArticleMediaRegistry.WipVideoState.Fresh
+          _direct_names(root) shouldBe before
+        }
+      }
+
+      "admit only an exact current WIP repeat and preserve unrelated ownership" in {
+        Given("a bundle with an exact WIP video pair and unrelated metadata")
+        _with_root { root =>
+          val update = _wip_video_update()
+          val strict = CozyArticleMediaPublication.produce(update.articleIdentity, Vector(update.variant))
+          val integrity = update.integrity.get
+          _write_bundle(root, "publication", Vector(
+            _entry(strict.entryPath, strict.metadata),
+            _entry(integrity.entryPath, integrity.metadata),
+            _entry("metadata/unrelated.json", Json.obj("owner" -> "preserved"))
+          ))
+
+          When("the exact WIP pair is planned again")
+          val plan = CozyArticleMediaRegistry.validateWipReadOnly(root, Vector(update))
+
+          Then("the repeat state is explicit and the original snapshot/owner are retained")
+          plan.videoStates((update.articleIdentity, "ja", "video")) shouldBe CozyArticleMediaRegistry.WipVideoState.ExactRepeat
+          plan.articles.head.owner shouldBe "publication"
+          plan.snapshot.entries.map(_.path) should contain("metadata/unrelated.json")
+        }
+      }
+
+      "reject duplicate, partial, external, and production-owned video tuples" in {
+        Given("duplicate WIP updates and a pre-existing non-WIP strict video")
+        _with_root { root =>
+          val update = _wip_video_update()
+          _write_bundle(root, "publication", Vector(_entry(_strict().entryPath, _strict().metadata)))
+
+          When("the planner isolates the exact video tuple")
+          val duplicate = intercept[IllegalArgumentException](CozyArticleMediaRegistry.validateWipReadOnly(root, Vector(update, update)))
+          val external = intercept[IllegalArgumentException](CozyArticleMediaRegistry.validateWipReadOnly(root, Vector(update)))
+
+          Then("all non-exact existing video state fails before mutation")
+          duplicate.getMessage should include("Duplicate")
+          external.getMessage should include("existing video tuple")
+        }
+      }
+
+      "revalidate the complete snapshot after planning" in {
+        Given("a fresh WIP update and a callback that changes a separate bundle")
+        _with_root { root =>
+          _write_bundle(root, "publication", Vector(_entry("metadata/unrelated.json", Json.obj("revision" -> 1))))
+          val update = _wip_video_update()
+
+          When("the snapshot changes before read-only revalidation")
+          val error = intercept[IllegalArgumentException](CozyArticleMediaRegistry.validateWipReadOnly(root, Vector(update), () =>
+            _write_bundle(root, "publication", Vector(_entry("metadata/unrelated.json", Json.obj("revision" -> 2))))
+          ))
+
+          Then("planning fails closed without a merge")
+          error.getMessage should include("stale read-only snapshot")
+        }
+      }
+    }
   }
 
   private def _strict(identity: String = "development-process/example", watchurl: String = "https://example.com/watch"): CozyArticleMediaPublication.Result =
@@ -1316,6 +1395,28 @@ final class CozyArticleMediaRegistrySpec extends AnyWordSpec with Matchers with 
       CozyArticleMediaPublication.Variant(locale, infographic = Some(_infographic_image("/ja/development-process/images/example.png"))),
       _infographic_integrity(articleidentity = identity, locale = locale)
     )
+
+  private def _wip_video_update(
+    identity: String = "development-process/example",
+    locale: String = "ja"
+  ): CozyArticleMediaRegistry.WipRoleUpdate = {
+    val digest = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    val path = s"/$locale/development-process/videos/example.mp4"
+    val variant = CozyArticleMediaPublication.Variant(locale, video = Some(_site_video(path)))
+    val integrity = CozyArticleMediaIntegrity.produce(CozyArticleMediaIntegrity.Input(
+      articleIdentity = identity,
+      locale = locale,
+      role = CozyArticleMediaIntegrity.Role.Video,
+      artifact = CozyArticleMediaIntegrity.Artifact(s"example-video-$locale", digest),
+      publicPath = new URI(path),
+      repositoryPath = s"$locale/development-process/videos/example.mp4",
+      mediaType = "video/mp4",
+      sha256 = digest,
+      provenance = CozyArticleMediaIntegrity.WipSiteVideo("media/article.yaml", s"example-video-$locale", s"video/$locale/production.json"),
+      publicationState = CozyArticleMediaIntegrity.PublicationState.Published
+    ))
+    CozyArticleMediaRegistry.WipRoleUpdate(identity, variant, Some(integrity))
+  }
 
   private def _video_integrity(articleidentity: String = "development-process/example", locale: String = "ja", publicpath: String = "/repository/video/example.mp4"): CozyArticleMediaIntegrity.Result =
     CozyArticleMediaIntegrity.produce(CozyArticleMediaIntegrity.Input(

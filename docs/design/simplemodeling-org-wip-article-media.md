@@ -2,20 +2,23 @@
 
 ## Purpose and authority
 
-This document promotes the project-configuration portion of the
-`simplemodeling.org` handoff into stable design authority. It defines the
+This document promotes the project-configuration and Phase 28.1 WIP
+registration portions of the `simplemodeling.org` handoff into stable design
+authority. It defines the
 responsibilities, boundaries, rationale, and invariants that the implementation
 contract in [`docs/spec/simplemodeling-org-wip-article-media.md`](../spec/simplemodeling-org-wip-article-media.md)
 must satisfy.
 
 The design is intentionally narrower than the surrounding work ledger. Phase
-28 owns configuration and profile resolution. Its approved successors own the
-remaining operational work:
+28 owns configuration and profile resolution. Phase 28.1 now normatively owns
+the reusable provider-neutral WIP registration contract; implementation remains
+in its downstream slices. Its approved successors own the remaining
+operational work:
 
 - [Phase 28](../phase/phase-28.md) owns project discovery, configuration
   layering, and profile selection.
 - [Phase 28.1](../phase/phase-28.1.md) owns disposable WIP artifact staging and
-  provider-neutral local registration.
+  provider-neutral local registration, as specified below.
 - [Phase 28.2](../phase/phase-28.2.md) owns the
   `simplemodeling-org` Part 5 `runweb-wip` integration and rendered-card
   regression.
@@ -225,6 +228,155 @@ insufficient and must not trigger registration:
 `register-site` remains explicit. No target/site scan, registry edit by hand,
 or implicit registration is part of this design.
 
+## Phase 28.1 WIP contract
+
+Phase 28.1 is now normative for reusable provider-neutral WIP registration.
+Implementation is deferred to its downstream slices, but the following
+contract is frozen here and in the companion specification. It does not alter
+the already-accepted Phase 27 `register-site` behavior.
+
+### Two independent roots and command grammar
+
+The command is exactly:
+
+```text
+cozy media register-site-wip <media-file> --publication <publication-root> --website <website-root> [--target <resource-id>] [--dry-run]
+```
+
+`<media-file>` is one descriptor and both roots are required. The publication
+root is the existing direct registry/publication root read by Dox before
+rendering; the website root is the disposable tree containing final site
+bytes. Neither root is inferred from the other. Parsing is strict: duplicate,
+unknown, missing, and extra options fail before mutation. Equals and separated
+forms follow existing `register-site` conventions. `--profile` is unsupported.
+A value beginning with `-` is accepted only through its equals form. The
+command performs no root creation, network, upload, publication, deployment,
+or site build.
+
+### Deterministic candidates and evidence
+
+Candidate selection is the ordered intersection of four independent selectors:
+explicit top-level association; discovered `project.kind: smartdox-site`;
+same-ID configured `site-kind: smartdox`; and exact resource-level opt-in.
+Without `--target`, every opted-in candidate is selected; with `--target`, one
+exact target is selected. Zero, invalid, ambiguous, or duplicate locale/role
+candidates fail before mutation. Locale matching is exact and has no fallback
+or opposite-locale substitution. The selected candidate output and plan order
+is ascending exact normalized `resourceId`; an exact target produces its one
+entry. Destination installation remains sorted by site-relative path.
+
+An infographic reuses the Phase 27 validated site-public `publicPath` and the
+selected mapped destination evidence. Phase 28.1 does not copy an infographic
+into the website root.
+
+A local-video resource MUST be `kind: video`, have role `video`, and have an
+exact-language match and a present output. Output resolution uses the existing
+Cozy media output contract; it MUST NOT invent a `production.json` artifact
+path. The resolved output is a normalized direct regular, non-symlink MP4.
+Its production JSON remains the identity, language, render, and QA authority:
+`render.status` is `completed`, `render.qa.status` is
+`technical-and-visual-qa-passed`, and its `render.sha256` equals the source
+MP4 SHA-256. `render.sha256` is required to be a JSON string matching exactly
+`[0-9a-f]{64}`: no null, whitespace, prefix, uppercase character, alternate
+length, or other interpretation is accepted. WIP does not require or serialize YouTube; listening review is
+evidence-only and non-gating.
+
+### Site path and public record
+
+Phase 28.1 accepts an article identity only when it has exactly two normalized
+segments, `<category>/<article>`; every other segment count fails before path
+construction. For that identity and locale `<locale>`, the exact content URL
+is `/<locale>/<category>/videos/<article>.mp4`. The destination is the
+website-root-relative path with the leading slash removed. Article and locale
+MUST already satisfy existing normalization. No raw resource ID or filename
+participates in destination construction.
+
+Each local-video record is exactly `presentation=site-hosted`,
+`status=published`, and `content_url=<exact path>`. It omits provider,
+`watch_url`, every host path/hash/provenance field, and all other internal
+evidence. “Published” means available in this disposable WIP tree; it does not
+mean YouTube publication or production promotion.
+
+The strict record remains free of integrity evidence, but it has exactly one
+ordinary correlated `cozy.article-media-integrity.v1` video record. That
+record uses additive `wip-site-video` provenance: its normalized
+project-root-relative `descriptor`, exact `resourceId`, and `production` are
+the required provenance fields; artifact identity is that resource ID; artifact
+version is the opaque 64-character source SHA-256; `publicPath` is the exact
+content URL; `repositoryPath` is the website-root-relative destination;
+`mediaType` is `video/mp4`; and source, staged, and installed destination
+digests are equal. For this provenance only, `repositoryPath` has that website
+root meaning and `published` means installed in the disposable WIP tree.
+
+Before staging or registry mutation, WIP inspects existing exact
+`(articleIdentity, locale, video)` strict and integrity state. It is admissible
+only when both records are absent, or when the existing pair is canonical after
+current full evidence revalidation. A canonical strict video is exactly
+`presentation=site-hosted`, `status=published`, absent `provider`, absent
+`watch_url`, and the deterministic WIP `content_url`. It has exactly one
+canonical integrity record for that normalized tuple: schema
+`cozy.article-media-integrity.v1`, role `video`, provenance exactly
+`wip-site-video` consisting only of its kind and the exact normalized
+descriptor, resource ID, and production; artifact identity equal to the selected resource ID; artifact
+version equal to the current source SHA-256; public path equal to that content
+URL; repository path equal to the exact site-relative destination; `video/mp4`;
+SHA-256 equal to the current source digest; and `publicationState=published`.
+The installed destination must exist as a direct non-symlink regular file whose
+digest equals that current source digest. Any absent, extra, malformed, stale,
+or mismatched field, record, or destination fails. This permits repeat WIP
+replacement but never overwrites production; infographic preservation remains
+the existing Phase 27 behavior. It is semantic registry-state isolation, not a
+new production marker or root schema.
+
+### Two-root transaction
+
+Non-dry execution first acquires a direct regular non-symlink
+`.cozy-article-media-wip.lock` in each root in canonical root-identity lexical
+order, then acquires the nested existing publication-registry lock; release is
+the reverse order. These durable coordination artifacts are validated before
+use and excluded from candidate and output state. A pre-existing invalid lock
+fails. Dry-run creates and acquires no lock and instead relies on captured and
+revalidated read-only evidence.
+
+Preflight MUST capture coherent evidence for descriptor and project
+configuration/profile, resource mapping, infographic destination, production
+JSON, source MP4, publication-registry snapshot/root, website root, and every
+destination. Under both root locks and the registry lock, it revalidates all
+evidence, builds the canonical correlated strict-plus-integrity plan, creates
+each same-filesystem sibling temp, copies, fsyncs, and verifies its digest,
+then creates verified sibling backups for every existing destination. It
+installs destinations by same-filesystem atomic replacement in sorted
+site-relative-path order, validates installed bytes, atomically replaces the
+single selected owner registry bundle last, validates registry and destinations
+while locked, and then removes backups and temps. One descriptor replaces
+exactly one owner bundle.
+
+On failure after any mutation, if registry replacement occurred, rollback first
+atomically restores its exact original owner-bundle bytes (or removes a newly
+created canonical bundle), then restores pre-existing destinations and removes
+new destinations in reverse install order, then removes temps and backups. It
+revalidates original registry, root, destination bytes, and identities before
+reporting failure. A rollback failure is distinct and never reported as
+success; no application exception may return success with partial state.
+
+### Root and path safety
+
+Both roots and every exact destination parent MUST already exist as normalized
+direct non-symlink directories with stable canonical identity; the command
+creates no parent. Reject the filesystem root; user home; the discovered
+project root or any ancestor; equal publication and website roots; and either
+root being an ancestor or descendant of the other. A website root may be a
+descendant of the project root, while an external direct publication root may
+be admitted only when all direct-entry, canonical, non-symlink, and containment
+checks pass. Also reject symlink ancestors or destinations, path escape,
+non-regular inputs, stale SHA, identity drift, and cross-filesystem non-atomic
+staging. The command performs no network/upload/publish/deploy/site-build
+operation.
+
+Phase 27 external YouTube `register-site` behavior and standard BoK
+repository/publication behavior remain unchanged. Phase 28.2 alone wires
+`runweb-wip` and Part 5 repository fixtures.
+
 ## Security and invariants
 
 - Ancestor and profile resolution follows no symlink. Marker files are direct
@@ -276,20 +428,23 @@ These rejections preserve explicit association and the provider-neutral Phase
 | Package-local credit profiles | Continue to override project definitions by exact ID. |
 | Explicit video `credits.profile` | Wins over defaults and affects attribution only. |
 | Existing command syntax and host/Docker video argv | Unchanged. |
-| Provider-neutral Phase 27 registry | SmartDox records stay schema-compatible and provenance-free. |
+| Provider-neutral Phase 27 registry | SmartDox records stay schema-compatible and integrity-free; the additive Cozy integrity provenance remains separate. |
 | Phase 27 atomicity/revalidation | Retained; configuration provenance is part of preflight evidence, not a bypass. |
-| WIP staging/registration | Phase 28.1 only. |
+| WIP staging/registration | Normative Phase 28.1 contract above; implementation remains in downstream slices. |
 | Part 5 `runweb-wip` integration/regression | Phase 28.2 only. |
 
-Phase 28 therefore stops at configuration and profile resolution. It does not
-add WIP staging, local registration, Part 5 migration, runweb integration,
-source changes, or generated artifacts.
+Phase 28's implementation scope stops at configuration and profile resolution.
+Phase 28.1's contract above is nevertheless normative now; its implementation,
+Part 5 migration, `runweb-wip` integration, source changes, and generated
+artifacts remain downstream work.
 
 ## Acceptance direction
 
 The companion specification freezes executable acceptance for project-root
 discovery, layer precedence/provenance, shared credit resolution, media profile
-merging, the SmartDox registration boundary, and the Part 5 fixture. Those
-acceptance cases are documentation of externally testable behavior; this Slice
-does not add Scala tests or claim that any implementation or validation has
-completed.
+merging, the SmartDox registration boundary, and the Phase 28.1 WIP CLI,
+candidate/media evidence, path/serialization, two-root safety, atomic
+rollback/drift, dry-run parity/repeatability, and production/standard-BoK
+exclusions. Those acceptance cases are documentation of externally testable
+behavior; this Slice does not add Scala tests or claim that any implementation
+or validation has completed.

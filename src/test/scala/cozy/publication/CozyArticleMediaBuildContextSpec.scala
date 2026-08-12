@@ -15,9 +15,13 @@ import org.scalatest.wordspec.AnyWordSpec
 import org.smartdox.metadata.PublishMetadata.{ImageReference, VideoPresentation, VideoReference, VideoStatus}
 import play.api.libs.json.{JsObject, Json}
 
+private object CozyArticleMediaBuildContextFixture {
+  final case class Data(root: Path, project: Path, publication: Path, repository: Path)
+}
+
 /*
  * @since   Aug.  5, 2026
- * @version Aug.  5, 2026
+ * @version Aug. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyArticleMediaBuildContextSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -146,6 +150,36 @@ final class CozyArticleMediaBuildContextSpec extends AnyWordSpec with Matchers w
           context.omittedKeys.map(_.role) shouldBe Vector(CozyArticleMediaIntegrity.Role.Infographic)
           paths shouldBe Vector("metadata/article-media-integrity/development-process/example/ja/infographic.json", "metadata/catalog/ordinary.json", "metadata/legacy/video.json")
           Files.readAllBytes(fixture.publication.resolve("publication.json")).toVector shouldBe source.toVector
+        }
+      }
+
+      "exclude WIP strict video and integrity entries from a Production snapshot without touching the source registry" in {
+        Given("generic metadata plus a canonical WIP strict video and matching WIP integrity in one registry bundle")
+        _with_fixture { fixture =>
+          val strict = CozyArticleMediaPublication.produce("development-process/example", Vector(
+            CozyArticleMediaPublication.Variant("ja", video = Some(
+              VideoReference(VideoPresentation.SiteHosted, VideoStatus.Published, None, None, Some(new URI("/ja/development-process/videos/example.mp4")))
+            ))
+          ))
+          val integrity = _wip_site_video_integrity()
+          _write_bundle(fixture.publication, "publication", Vector(
+            _entry("metadata/catalog/ordinary.json", Json.obj("kind" -> "ordinary")),
+            _entry(strict.entryPath, strict.metadata),
+            _entry(integrity.entryPath, integrity.metadata)
+          ))
+          val source = Files.readAllBytes(fixture.publication.resolve("publication.json")).toVector
+
+          When("a Production build context materializes against an absent artifact repository")
+          val context = CozyArticleMediaBuildContext.withContext(
+            fixture.project, fixture.publication, fixture.repository, "production"
+          )(context => context)
+          val installed = Json.parse(new String(Files.readAllBytes(context.publicationPath.resolve("publication.json")), StandardCharsets.UTF_8))
+
+          Then("the snapshot retains generic metadata while removing the WIP strict/integrity pair and preserving source bytes")
+          context.omittedKeys.map(_.role) shouldBe Vector(CozyArticleMediaIntegrity.Role.Video)
+          Files.exists(fixture.repository, LinkOption.NOFOLLOW_LINKS) shouldBe false
+          (installed \ "entries").as[Vector[JsObject]].map(x => (x \ "path").as[String]) shouldBe Vector("metadata/catalog/ordinary.json")
+          Files.readAllBytes(fixture.publication.resolve("publication.json")).toVector shouldBe source
         }
       }
 
@@ -595,18 +629,16 @@ final class CozyArticleMediaBuildContextSpec extends AnyWordSpec with Matchers w
     }
   }
 
-  private final case class Fixture(root: Path, project: Path, publication: Path, repository: Path)
-
-  private def _with_fixture[A](f: Fixture => A): A = {
+  private def _with_fixture[A](f: CozyArticleMediaBuildContextFixture.Data => A): A = {
     val workroot = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize().resolve("target/cozy-article-media-build-context-spec")
     Files.createDirectories(workroot)
     val root = Files.createTempDirectory(workroot, "fixture-")
-    val fixture = Fixture(root, Files.createDirectory(root.resolve("project")), root.resolve("publication"), root.resolve("repository"))
+    val fixture = CozyArticleMediaBuildContextFixture.Data(root, Files.createDirectory(root.resolve("project")), root.resolve("publication"), root.resolve("repository"))
     try f(fixture)
     finally _delete(root)
   }
 
-  private def _with_watch_only_fixture[A](f: Fixture => A): A =
+  private def _with_watch_only_fixture[A](f: CozyArticleMediaBuildContextFixture.Data => A): A =
     _with_fixture { fixture =>
       _write_watch_only_bundle(fixture.publication, revision = 1)
       f(fixture)
@@ -675,6 +707,20 @@ final class CozyArticleMediaBuildContextSpec extends AnyWordSpec with Matchers w
       publicationState = state
     ))
   }
+
+  private def _wip_site_video_integrity(): CozyArticleMediaIntegrity.Result =
+    CozyArticleMediaIntegrity.produce(CozyArticleMediaIntegrity.Input(
+      articleIdentity = "development-process/example",
+      locale = "ja",
+      role = CozyArticleMediaIntegrity.Role.Video,
+      artifact = CozyArticleMediaIntegrity.Artifact("example-video", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"),
+      publicPath = new URI("/ja/development-process/videos/example.mp4"),
+      repositoryPath = "ja/development-process/videos/example.mp4",
+      mediaType = "video/mp4",
+      sha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      provenance = CozyArticleMediaIntegrity.WipSiteVideo("media.yaml", "example-video", "video/ja/production.json"),
+      publicationState = CozyArticleMediaIntegrity.PublicationState.Published
+    ))
 
   private def _delete(path: Path): Unit = {
     if (Files.exists(path, LinkOption.NOFOLLOW_LINKS)) {

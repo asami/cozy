@@ -19,31 +19,31 @@ Phase Plan Gate: PROCEED
 
 ## AM28-02: WIP Local Video Staging and Provider-Neutral Registration
 
-Status: PLANNED
+Status: DONE
 
-- [ ] Stage hash-verified JA/EN direct regular MP4 inputs beneath disposable
+- [x] Stage hash-verified JA/EN direct regular MP4 inputs beneath disposable
       `website.d` at the frozen deterministic locale path and emit exact-locale
       provider-neutral WIP/local video and infographic records.
-- [ ] Prove exact article/locale/role selection, playable local URLs, matching
+- [x] Prove exact article/locale/role selection, playable local URLs, matching
       source and staged SHA-256 values, and no fallback or opposite-locale
       leakage.
-- [ ] Implement transactional preflight, staging, registry merge,
+- [x] Implement transactional preflight, staging, registry merge,
       rollback/cleanup, and atomic website/registry replacement; preserve
       unrelated records and leave no partial mutation on failure or drift.
-- [ ] Prove WIP performs no external network, upload, publish, or deploy and
+- [x] Prove WIP performs no external network, upload, publish, or deploy and
       that production stays external-YouTube/evidence based while standard BoK
       stays repository/publication based.
 
 ## Security and regression acceptance
 
-- [ ] Reject symlink inputs, symlink destinations, broad roots, root escape,
+- [x] Reject symlink inputs, symlink destinations, broad roots, root escape,
       unsafe identifiers, non-regular files, stale hashes, and changed
       evidence before replacement.
-- [ ] Preserve existing provider-neutral and unrelated locale/article records,
+- [x] Preserve existing provider-neutral and unrelated locale/article records,
       registry integrity, and strict role ownership.
-- [ ] Cover dry-run/non-dry plan parity, zero/invalid candidates, exact target
+- [x] Cover dry-run/non-dry plan parity, zero/invalid candidates, exact target
       semantics, rollback, and repeatability.
-- [ ] Regress Phase 27 production registration, package-local/standalone media,
+- [x] Regress Phase 27 production registration, package-local/standalone media,
       and standard-BoK behavior without invoking SimpleModeling.org scripts.
 
 Phase 28.1 closes only after the WIP capability and its safety/regression

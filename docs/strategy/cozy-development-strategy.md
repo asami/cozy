@@ -763,8 +763,8 @@ Primary references:
 
 ### Phase 28.1: WIP Local Article Media Registration
 
-Status: active. It owns AM28-02, which is planned and is the current starting
-position after Phase 28 closed.
+Status: closed. AM28-02 implementation, focused validation, fifth-article
+JA/EN WIP acceptance, and independent review are complete.
 
 Purpose and boundaries:
 
@@ -791,8 +791,8 @@ Primary references:
 
 ### Phase 28.2: SimpleModeling.org Part 5 Integration and Regression
 
-Status: planned. It starts only after Phase 28.1 closes and owns AM28-03 and
-AM28-04.
+Status: active. Phase 28.1 is closed; this final split unit owns AM28-03 and
+AM28-04, with AM28-03 as the current starting position.
 
 Purpose and boundaries:
 
@@ -866,13 +866,13 @@ publication is not a start gate. It does not require a video binary to enter
 Git or make ordinary `bok build` generate media. Phase 27 is closed with
 normal-package site registration, skill integration, and Part 5 exact-locale
 panel acceptance complete. Phase 28 is closed with AM28-00/AM28-01
-implementation, review, and completion evidence complete. Phase 28.1 is active
-with AM28-02 planned as the current starting position; its observed WIP gap
-remains the Phase 28.1/28.2 scope:
+implementation, review, and completion evidence complete. Phase 28.1 is closed
+with AM28-02 WIP staging/registration, fifth-article JA/EN artifact acceptance,
+and independent review complete. Phase 28.2 is active with AM28-03 as the
+current starting position. Its observed integration gap remains:
 `runweb-wip` currently stages no MP4s and emits no article-media buttons, and
 the project has no root `conf/cozy/config.yaml` or explicit `articleMedia`
-bindings. The approved ordered successor is Phase 28.2 for the Part 5
-`runweb-wip` integration and regression gate, and it remains planned. Phase 24
+bindings. Phase 24
 remains separately planned and blocked on its own contract, preserving the
 closed Phase 27 production boundary.
 

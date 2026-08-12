@@ -12,7 +12,7 @@ import play.api.libs.json.{JsArray, JsObject, JsString, JsValue, Json}
 
 /*
  * @since   Aug.  5, 2026
- * @version Aug.  5, 2026
+ * @version Aug. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArticleMediaBuildContext {
@@ -178,7 +178,7 @@ private[cozy] object CozyArticleMediaBuildContext {
     policy: CozyArticleMediaPolicy.Result
   ): Unit = {
     val omitted = policy.omittedKeys.toSet
-    val replacements = projection.strictPublications.flatMap { strict =>
+    val strictreplacements = projection.strictPublications.flatMap { strict =>
       val variants = strict.publication.variants.flatMap { variant =>
         val infographic = if (omitted.contains(_key(strict.publication.articleIdentity, variant.locale, CozyArticleMediaIntegrity.Role.Infographic))) None else variant.infographic
         val video = if (omitted.contains(_key(strict.publication.articleIdentity, variant.locale, CozyArticleMediaIntegrity.Role.Video))) None else variant.video
@@ -189,6 +189,7 @@ private[cozy] object CozyArticleMediaBuildContext {
       val replacement = if (variants.isEmpty) None else Some(CozyArticleMediaPublication.produce(strict.publication.articleIdentity, variants).metadata)
       if (replacement == Some(strict.metadata)) None else Some(strict.entryPath -> replacement)
     }.toMap
+    val replacements = strictreplacements ++ policy.excludedIntegrityEntryPaths.map(_ -> None).toMap
     if (replacements.nonEmpty)
       bundles.foreach { bundle =>
         val changed = _rewrite_bundle(publication.resolve(bundle.filename), replacements)
