@@ -56,24 +56,56 @@ Status: DONE
   Focused re-review `P28.2-REREVIEW-20260812-R13` was CLEAN with all six
   findings RESOLVED; the final launcher and Bash syntax check exited 0.
 - AM28-03 uses already accepted Phase 27/28.1 production and standard-BoK
-  evidence only for its integration boundary. AM28-04 still owns explicit
-  regression, full-suite validation, and Phase closure.
+  evidence only for its integration boundary. Explicit regression, full-suite
+  validation, and Phase closure are recorded below under AM28-04.
 
 ## AM28-04: Standard BoK Regression, Review, and Closure
 
-Status: PLANNED
+Status: DONE
 
-- [ ] Confirm standard BoK video remains on its repository/publication path and
+- [x] Confirm standard BoK video remains on its repository/publication path and
       receives no `smartdox-site` WIP staging or registration behavior.
-- [ ] Regress normal package, standalone, and Phase 27 production paths,
+- [x] Regress normal package, standalone, and Phase 27 production paths,
       including completed technical/visual QA and an accepted published
       YouTube URL; retain pending listening as non-gating evidence only.
-- [ ] Run focused/full executable specifications and the Part 5
+- [x] Run focused/full executable specifications and the Part 5
       `etc/runweb-wip.sh` end-to-end gate, recording exact results, paths, and
       source/staged/generated hashes.
-- [ ] Obtain independent review and clean re-review, resolve actionable debt,
-      and verify phase/checklist, design/spec, implementation, and evidence
-      convergence before closure.
+- [x] Obtain independent review, resolve actionable debt, run clean re-review
+      when a repair creates a non-waived delta, and verify phase/checklist,
+      design/spec, implementation, and evidence convergence before closure.
+
+### AM28-04 acceptance evidence
+
+- Independent Phase 28.2 review passed with no findings across the exact
+  SimpleModeling.org integration diff, all nine target programs, representative
+  generated output, and Cozy WIP/production/standalone/standard-BoK edges. No
+  repair delta existed, so focused re-review was not applicable.
+- Cozy serialized full-suite invocation `95101-20260812T122608Z` completed 95
+  suites with 1300 succeeded, 0 failed, and 8 canceled tests. SBT and wrapper
+  exited zero and reported `lock=released`.
+- The final single `etc/runweb-wip.sh` release gate and `/bin/bash -n` exited
+  zero. It registered `development-process/object-modeling`, installed exact
+  EN/JA local videos, reused exact EN/JA infographics, and removed its guarded
+  `/private/tmp/simplemodeling-org-wip-publication.??????` root.
+- Generated EN and JA MP4 SHA-256 values remained
+  `6328784d34bd94e5d41d5432e33ebbb76537c1633d1ec1f6a3a1616eeadea600`
+  and `d017693941554111689fe469a30051100ee974c64cb6cb8acdeba16fc0bd4962`.
+  Generated EN and JA PNG SHA-256 values remained
+  `54354544289eb8d59ad4230eead7c1e30b992568eabd28a6b17b2d79871fa761`
+  and `329d91430237d5d11c220b6e393f0fd5bf5cc72261b3e7bfbf697f9d658b5f83`.
+  Media probes reported H264/AAC 1280x720 MP4s and 1600x900 PNGs.
+- Generated metadata and category HTML contained exact-locale infographic and
+  local-video URLs, no opposite-locale leakage, and no unresolved widgets.
+  Git HEAD, index, source hashes, and the 54 preserved untracked Part 5 input
+  paths remained unchanged by the runtime gate.
+- The full suite and independent integration-edge review retained the standard
+  BoK repository/publication path, descriptor-only standalone/package
+  compatibility, and Phase 27 external-YouTube production behavior. Pending
+  listening remained non-gating; the actual Part 5 WIP records remained
+  separate from production evidence.
+- No new Phase 28.2 hygiene item was accepted. Existing `P27-HYG-001` remains a
+  separate Phase 27 follow-up and does not block this closure.
 
 ## Part 5 fixture and acceptance paths
 
@@ -86,3 +118,6 @@ Status: PLANNED
 Phase 28.2 closes only after the Part 5 WIP card/local-media acceptance,
 production and standard-BoK regression, executable validation, independent
 review, and documentation convergence are evidenced here.
+
+All Phase 28.2 checklist items are complete; Phase 28.2 is closed on
+2026-08-12.

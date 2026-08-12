@@ -4,12 +4,12 @@ Purpose: engineering work management.
 
 Current phase state:
 
-- Active phase: `phase-28.2.md`: SimpleModeling.org Part 5 Integration and
-  Regression; `AM28-03` is complete, and planned `AM28-04` is the current
-  starting position.
+- Active phase: none recorded after Phase 28.2 closure.
+- Most recent closed phase: `phase-28.2.md`: SimpleModeling.org Part 5
+  Integration and Regression; `AM28-03` and `AM28-04` are complete.
 - Most recent split predecessor: `phase-28.1.md`: WIP Local Article Media
   Registration; `AM28-02` is complete.
-- Most recent closed phase: `phase-28.md`: Project Configuration and Profile
+- Earlier closed phase: `phase-28.md`: Project Configuration and Profile
   Resolution; `AM28-00` and `AM28-01` are complete.
 - Prior closed phase: `phase-27.md`: SmartDox Site Media Registration;
   `AM27-04`: Review, Validation, and Closure is complete.

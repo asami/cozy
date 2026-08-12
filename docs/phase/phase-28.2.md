@@ -1,8 +1,10 @@
 # Phase 28.2: SimpleModeling.org Part 5 Integration and Regression
 
-Status: active
+Status: closed
 
 Start date: 2026-08-12
+
+Close date: 2026-08-12
 
 ## Split provenance
 
@@ -62,14 +64,13 @@ Part 5 explicitly, wire `runweb-wip.sh` through supported commands, and prove
 the rendered bilingual introduction-card contract against admitted artifacts.
 Implementation and accepted runtime/review evidence are recorded in the
 checklist and SimpleModeling.org commit
-`fd460312d992b15086225341360e7586a9acbe35`; AM28-04 remains the Phase closure
-gate.
+`fd460312d992b15086225341360e7586a9acbe35`.
 
 ### AM28-04: Standard BoK Regression, Review, and Closure
 
 Stage Status:
 
-- Current status: PLANNED
+- Current status: DONE
 - Owner: Cozy
 - Update rule: mark work complete only from the Phase 28.2 checklist.
 - Checklist basis: `AM28-04`
@@ -77,6 +78,38 @@ Stage Status:
 Regress standard BoK, standalone/package, and Phase 27 production paths. Run
 focused and full validation, inspect the generated Part 5 site, complete
 independent review/re-review, and close the split sequence.
+
+## Completion evidence
+
+- SimpleModeling.org commit
+  `fd460312d992b15086225341360e7586a9acbe35` supplies the accepted project
+  configuration, Part 5 binding, launcher, localized widgets, and category
+  integration. Cozy commit
+  `afe0acaa66904988e6ad5ee1e048241ba8035cef` records the completed AM28-03
+  integration stage.
+- The final independent Phase 28.2 review passed with no findings across the
+  nine SimpleModeling.org target programs and the Cozy WIP, Phase 27
+  production, standalone/package, and standard-BoK integration edges. No
+  repair or focused re-review was required after this clean review.
+- The final Cozy full suite passed 95 suites and 1300 tests, with 8 canceled
+  and no failures, in serialized invocation `95101-20260812T122608Z`; SBT and
+  wrapper exited zero and the shared lock was released.
+- The final `etc/runweb-wip.sh` gate and Bash syntax check exited zero. The
+  guarded publication root was removed, and generated JA/EN local MP4 and
+  summary PNG hashes matched their admitted sources. Both MP4s probe as
+  H264/AAC at 1280x720 and both PNGs as 1600x900.
+- Generated Part 5 metadata and category cards use exact-locale infographic
+  and `content_url` video paths with no opposite-locale leakage or unresolved
+  widgets. The source widgets retain the separate external `watch_url`
+  branch.
+- Standard BoK remains on its repository/publication path, standalone and
+  package-local behavior remains compatible, and Phase 27 production
+  registration retains completed technical/visual QA plus published YouTube
+  evidence with pending listening accepted as non-gating. WIP used no network,
+  upload, publish, or deploy operation.
+- No Phase 28.2 hygiene item was admitted. The pre-existing Arcadia test
+  dependency item remains separately tracked as `P27-HYG-001` and does not
+  affect this Phase's validated boundary.
 
 ## Completion criteria
 

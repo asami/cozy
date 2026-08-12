@@ -791,9 +791,9 @@ Primary references:
 
 ### Phase 28.2: SimpleModeling.org Part 5 Integration and Regression
 
-Status: active. Phase 28.1 is closed; this final split unit owns AM28-03 and
-AM28-04. AM28-03 is complete with accepted Part 5 runtime and review evidence;
-planned AM28-04 is the current starting position.
+Status: closed. This final split unit completed AM28-03 and AM28-04 with
+accepted Part 5 runtime, full executable regression, independent review, and
+ledger-convergence evidence.
 
 Purpose and boundaries:
 
@@ -869,12 +869,13 @@ normal-package site registration, skill integration, and Part 5 exact-locale
 panel acceptance complete. Phase 28 is closed with AM28-00/AM28-01
 implementation, review, and completion evidence complete. Phase 28.1 is closed
 with AM28-02 WIP staging/registration, fifth-article JA/EN artifact acceptance,
-and independent review complete. Phase 28.2 remains active; AM28-03 is complete
-in SimpleModeling.org commit
+and independent review complete. Phase 28.2 is closed. AM28-03 is complete in
+SimpleModeling.org commit
 `fd460312d992b15086225341360e7586a9acbe35`, with exact-locale local-media
 cards, deterministic repeat output, and a clean focused re-review. AM28-04
-remains for standard-BoK, package, and production regression, full executable
-validation, ledger convergence, and Phase closure. Phase 24
+completed standard-BoK, package/standalone, and Phase 27 production regression,
+the 95-suite/1300-test Cozy full gate, final Part 5 runtime acceptance,
+independent clean review, and ledger convergence. Phase 24
 remains separately planned and blocked on its own contract, preserving the
 closed Phase 27 production boundary.
 
