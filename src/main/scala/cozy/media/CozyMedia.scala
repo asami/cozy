@@ -184,7 +184,7 @@ private[cozy] object CozyMedia {
       }.orElse {
         descriptor.flatMap(_.root).map { value =>
           val resolved = _resolve_relative(descriptorroot, value, s"profiles.$id.root")
-          if (!resolved.startsWith(descriptorroot))
+          if (configuration.nonEmpty && !resolved.startsWith(descriptorroot))
             RAISE.invalidArgumentFault(s"Media profile $id root escapes descriptor root: $value")
           resolved
         }

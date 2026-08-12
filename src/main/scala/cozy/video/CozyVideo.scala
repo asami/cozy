@@ -1717,6 +1717,8 @@ private[cozy] object CozyVideo {
       RAISE.invalidArgumentFault("Video project descriptor path must be defined")
     )
     val projectfile = source.toAbsolutePath.normalize()
+    if (!Files.exists(projectfile, LinkOption.NOFOLLOW_LINKS))
+      RAISE.invalidArgumentFault(s"Missing video project file: $source")
     if (Files.isSymbolicLink(projectfile) || !Files.isRegularFile(projectfile, LinkOption.NOFOLLOW_LINKS))
       RAISE.invalidArgumentFault(
         s"Video project descriptor must be an existing direct regular non-symlink file (source: $source, normalized: $projectfile)"
@@ -1729,17 +1731,32 @@ private[cozy] object CozyVideo {
     val identity = try projectfile.toRealPath() catch {
       case NonFatal(e) => RAISE.invalidArgumentFault(s"Video project descriptor canonical identity cannot be read (source: $source): ${e.getMessage}")
     }
-    if (identity != projectfile)
+    if (Files.isSymbolicLink(identity) || !Files.isRegularFile(identity, LinkOption.NOFOLLOW_LINKS))
       RAISE.invalidArgumentFault(
-        s"Video project descriptor must have a direct canonical identity equal to its normalized path (source: $source, normalized: $projectfile, identity: $identity)"
+        s"Video project descriptor canonical identity must be a direct regular non-symlink file (source: $source, normalized: $projectfile, identity: $identity)"
       )
-    val after = try Files.readAttributes(projectfile, classOf[BasicFileAttributes], LinkOption.NOFOLLOW_LINKS) catch {
+    val identityattributes = try Files.readAttributes(identity, classOf[BasicFileAttributes], LinkOption.NOFOLLOW_LINKS) catch {
+      case NonFatal(e) => RAISE.invalidArgumentFault(s"Video project descriptor canonical attributes cannot be read (source: $source, identity: $identity): ${e.getMessage}")
+    }
+    if (identityattributes.fileKey() == null || !_same_file_attributes(attributes, identityattributes))
+      RAISE.invalidArgumentFault(s"Video project descriptor changed while being checked (source: $source, normalized: $projectfile, identity: $identity)")
+    val after = try Files.readAttributes(identity, classOf[BasicFileAttributes], LinkOption.NOFOLLOW_LINKS) catch {
       case NonFatal(e) => RAISE.invalidArgumentFault(s"Video project descriptor changed while being checked (source: $source): ${e.getMessage}")
     }
-    if (after.fileKey() != attributes.fileKey() || after.size() != attributes.size() || after.lastModifiedTime() != attributes.lastModifiedTime())
+    if (!_same_file_attributes(identityattributes, after))
+      RAISE.invalidArgumentFault(s"Video project descriptor changed while being checked (source: $source, identity: $identity)")
+    val sourceafter = try Files.readAttributes(projectfile, classOf[BasicFileAttributes], LinkOption.NOFOLLOW_LINKS) catch {
+      case NonFatal(e) => RAISE.invalidArgumentFault(s"Video project descriptor changed while being checked (source: $source): ${e.getMessage}")
+    }
+    if (!_same_file_attributes(attributes, sourceafter))
       RAISE.invalidArgumentFault(s"Video project descriptor changed while being checked (source: $source, normalized: $projectfile)")
-    projectfile
+    identity
   }
+
+  private def _same_file_attributes(before: BasicFileAttributes, after: BasicFileAttributes): Boolean =
+    before.fileKey() == after.fileKey() &&
+      before.size() == after.size() &&
+      before.lastModifiedTime() == after.lastModifiedTime()
 
   private def _normalize_property_args(args: List[String]): List[String] =
     args.flatMap {
