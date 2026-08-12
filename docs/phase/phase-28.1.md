@@ -1,6 +1,8 @@
 # Phase 28.1: WIP Local Article Media Registration
 
-Status: planned
+Status: active
+
+Start date: 2026-08-12
 
 ## Split provenance
 

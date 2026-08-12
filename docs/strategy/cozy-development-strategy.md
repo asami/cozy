@@ -733,8 +733,7 @@ Primary references:
 
 ### Phase 28: Project Configuration and Profile Resolution
 
-Status: active. AM28-00 and AM28-01 are planned, with AM28-00 as the current
-starting position.
+Status: closed. AM28-00 and AM28-01 are complete.
 
 Purpose and boundaries:
 
@@ -750,11 +749,10 @@ Purpose and boundaries:
   project kind, and resource-level article-media opt-in.
 
 The approved 2026-08-12 split kept the first delivery unit and source history
-as Phase 28. Its conservative estimate is 4–6 hours at minimum xhigh effort.
-The existing design/spec documents are the frozen AM28-00 authority; their
-existence does not mark the Stage complete. AM28-00 remains planned pending
-implementation review and completion evidence, while the Phase ledger remains
-operational rather than normative.
+as Phase 28. Its conservative estimate was 4–6 hours at minimum xhigh effort.
+The existing design/spec documents are the frozen AM28-00 authority, and
+AM28-00/AM28-01 implementation review and completion evidence are complete;
+the Phase ledger remains operational rather than normative.
 
 Primary references:
 
@@ -765,7 +763,8 @@ Primary references:
 
 ### Phase 28.1: WIP Local Article Media Registration
 
-Status: planned. It starts only after Phase 28 closes and owns AM28-02.
+Status: active. It owns AM28-02, which is planned and is the current starting
+position after Phase 28 closed.
 
 Purpose and boundaries:
 
@@ -866,14 +865,16 @@ coordinate `org.smartdox:smartdox_2.12:2.4.17-SNAPSHOT`; public/non-SNAPSHOT
 publication is not a start gate. It does not require a video binary to enter
 Git or make ordinary `bok build` generate media. Phase 27 is closed with
 normal-package site registration, skill integration, and Part 5 exact-locale
-panel acceptance complete. Phase 28 is active at AM28-00 and owns project
-configuration/profile resolution. Its approved ordered successors are Phase
-28.1 for reusable WIP local staging/registration and Phase 28.2 for the Part 5
-`runweb-wip` integration and regression gate. The observed gap remains:
+panel acceptance complete. Phase 28 is closed with AM28-00/AM28-01
+implementation, review, and completion evidence complete. Phase 28.1 is active
+with AM28-02 planned as the current starting position; its observed WIP gap
+remains the Phase 28.1/28.2 scope:
 `runweb-wip` currently stages no MP4s and emits no article-media buttons, and
 the project has no root `conf/cozy/config.yaml` or explicit `articleMedia`
-bindings. The split keeps Phase 24 separately planned and blocked on its own
-contract and preserves the closed Phase 27 production boundary.
+bindings. The approved ordered successor is Phase 28.2 for the Part 5
+`runweb-wip` integration and regression gate, and it remains planned. Phase 24
+remains separately planned and blocked on its own contract, preserving the
+closed Phase 27 production boundary.
 
 Phase 20 introduced provider-neutral narration with VOICEVOX, host-only macOS
 `say`, and a portable Piper Docker route, then used that contract to migrate the

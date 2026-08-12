@@ -1,8 +1,9 @@
 # Phase 28: Project Configuration and Profile Resolution
 
-Status: active
+Status: closed
 
 Start date: 2026-08-12
+Close date: 2026-08-12
 
 Phase 27 remains closed. Phase 24 remains separately planned and blocked on
 its own CNCF Skill Bundle contract.
