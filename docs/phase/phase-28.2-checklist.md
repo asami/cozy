@@ -18,20 +18,46 @@ Phase Plan Gate: PROCEED
 
 ## AM28-03: SimpleModeling.org Integration and Part 5 Acceptance
 
-Status: PLANNED
+Status: DONE
 
-- [ ] Add root `conf/cozy/config.yaml`, the shared credit/publication profiles,
+- [x] Add root `conf/cozy/config.yaml`, the shared credit/publication profiles,
       and explicit Part 5 top-level/resource-level `articleMedia` bindings
       using the Phase 28 contract.
-- [ ] Wire `etc/runweb-wip.sh` to supported Cozy/Dox product commands only;
+- [x] Wire `etc/runweb-wip.sh` to supported Cozy/Dox product commands only;
       never edit a registry directly or depend on incidental article ranking.
-- [ ] Use Part 5 JA/EN final MP4s and summary infographics and deterministically
+- [x] Use Part 5 JA/EN final MP4s and summary infographics and deterministically
       render/target the Part 5 notice/card even when it is beyond five visible
       card slots.
-- [ ] Verify exact-locale EN and JA cards, both localized links, playable local
+- [x] Verify exact-locale EN and JA cards, both localized links, playable local
       paths beneath `website.d`, matching admitted-artifact hashes, no
       opposite-locale leakage, deterministic regeneration, and production
       YouTube behavior through separate accepted evidence.
+
+### AM28-03 acceptance evidence
+
+- SimpleModeling.org commit
+  `fd460312d992b15086225341360e7586a9acbe35` owns the root configuration
+  and shared credit profile, explicit Part 5 media binding, safe WIP launcher
+  integration, complete JA/EN category-card visibility, and local
+  `content_url` widgets.
+- Two consecutive accepted final pre-review generations produced byte-identical
+  URI-resolved JA/EN Object Modeling notices, Development Process category
+  YAML/HTML, article HTML, localized PNGs, local MP4s, and article-media
+  metadata. Identity was resolved by `notice.uri`, never by card rank.
+- The JA MP4 SHA-256 is
+  `d017693941554111689fe469a30051100ee974c64cb6cb8acdeba16fc0bd4962`;
+  the EN MP4 SHA-256 is
+  `6328784d34bd94e5d41d5432e33ebbb76537c1633d1ec1f6a3a1616eeadea600`.
+  Both probe as H264/AAC at 1280x720.
+- Exact-locale cards and metadata had no opposite-locale leakage. Stable media
+  classes and external `watch_url` compatibility remained, while WIP used no
+  network, upload, publish, or deploy and cleaned its external temporary roots.
+- Independent review findings R10-001 through R10-006 were fixed.
+  Focused re-review `P28.2-REREVIEW-20260812-R13` was CLEAN with all six
+  findings RESOLVED; the final launcher and Bash syntax check exited 0.
+- AM28-03 uses already accepted Phase 27/28.1 production and standard-BoK
+  evidence only for its integration boundary. AM28-04 still owns explicit
+  regression, full-suite validation, and Phase closure.
 
 ## AM28-04: Standard BoK Regression, Review, and Closure
 

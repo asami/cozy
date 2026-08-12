@@ -52,7 +52,7 @@ generated `website.d` tree.
 
 Stage Status:
 
-- Current status: PLANNED
+- Current status: DONE
 - Owner: Cozy / SmartDox / Dox workflow
 - Update rule: mark work complete only from the Phase 28.2 checklist.
 - Checklist basis: `AM28-03`
@@ -60,6 +60,10 @@ Stage Status:
 Add root project configuration and shared credit/publication profiles, bind
 Part 5 explicitly, wire `runweb-wip.sh` through supported commands, and prove
 the rendered bilingual introduction-card contract against admitted artifacts.
+Implementation and accepted runtime/review evidence are recorded in the
+checklist and SimpleModeling.org commit
+`fd460312d992b15086225341360e7586a9acbe35`; AM28-04 remains the Phase closure
+gate.
 
 ### AM28-04: Standard BoK Regression, Review, and Closure
 

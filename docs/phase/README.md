@@ -5,7 +5,8 @@ Purpose: engineering work management.
 Current phase state:
 
 - Active phase: `phase-28.2.md`: SimpleModeling.org Part 5 Integration and
-  Regression; `AM28-03` is planned and is the current starting position.
+  Regression; `AM28-03` is complete, and planned `AM28-04` is the current
+  starting position.
 - Most recent split predecessor: `phase-28.1.md`: WIP Local Article Media
   Registration; `AM28-02` is complete.
 - Most recent closed phase: `phase-28.md`: Project Configuration and Profile
