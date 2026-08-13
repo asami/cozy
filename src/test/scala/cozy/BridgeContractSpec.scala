@@ -2,6 +2,7 @@ package cozy
 
 import java.nio.file.{Files, Path, Paths}
 import scala.collection.JavaConverters._
+import cozy.archive.{ComponentRepositoryIndex, RepositoryArtifactCatalog}
 import cozy.runtime.CozySbtBridge
 import play.api.libs.json.Json
 import org.scalacheck.{Gen, Prop, Test}
@@ -13,7 +14,7 @@ import org.scalatest.wordspec.AnyWordSpec
  * @since   Apr. 23, 2026
  *  version May. 20, 2026
  *  version Jun. 27, 2026
- * @version Aug.  8, 2026
+ * @version Aug. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 final class BridgeContractSpec
@@ -421,15 +422,39 @@ final class BridgeContractSpec
           When("the bridge executes the request")
           CozySbtBridge.execute(List("v1", "--request", request.toString))
 
-          Then("the snapshot CAR is published without a release catalog")
+          Then("the snapshot CAR and canonical catalog are published")
           Files.isRegularFile(
             warehouse.resolve(
               "repository/car/org/example/example-sample-component/0.1.0-SNAPSHOT/example-sample-component-0.1.0-SNAPSHOT.car"
             )
           ) shouldBe true
-          Files.isRegularFile(
-            warehouse.resolve("repository/catalog/car/org/example/example-sample-component.yaml")
-          ) shouldBe false
+          val catalog = RepositoryArtifactCatalog.load(
+            warehouse.resolve(
+              "repository/catalog/car/org/example/example-sample-component.yaml"
+            )
+          )
+          catalog.schemaVersion shouldBe "2"
+          catalog.namespace shouldBe Some("org.example")
+          catalog.id shouldBe Some("SampleComponent")
+          catalog.latestSnapshot shouldBe Some("0.1.0-SNAPSHOT")
+          catalog.versions should have size 1
+          val snapshotentry = catalog.versions.head
+          snapshotentry.version shouldBe "0.1.0-SNAPSHOT"
+          snapshotentry.channel shouldBe Some("snapshot")
+          snapshotentry.component shouldBe Some("org.example.SampleComponent")
+          And("the v2 repository index exposes the same CAR selector")
+          val index = ComponentRepositoryIndex.load(
+            warehouse.resolve("repository/catalog/index.json")
+          )
+          index.schemaVersion shouldBe ComponentRepositoryIndex.SCHEMA_VERSION
+          index.artifacts should have size 1
+          val indexentry = index.artifacts.head
+          indexentry.kind shouldBe "car"
+          indexentry.namespace shouldBe Some("org.example")
+          indexentry.id shouldBe Some("SampleComponent")
+          indexentry.artifactId shouldBe "example-sample-component"
+          indexentry.catalog shouldBe "car/org/example/example-sample-component.yaml"
+          indexentry.latestSnapshot shouldBe Some("0.1.0-SNAPSHOT")
         }
       }
 
@@ -470,12 +495,18 @@ final class BridgeContractSpec
               "repository/car/org/example/example-sample-inline-component/0.1.0-SNAPSHOT/example-sample-inline-component-0.1.0-SNAPSHOT.car"
             )
           ) shouldBe true
-          And("the request does not publish a release catalog for the snapshot")
-          Files.isRegularFile(
+          And("the request publishes the canonical snapshot catalog")
+          val catalog = RepositoryArtifactCatalog.load(
             warehouse.resolve(
               "repository/catalog/car/org/example/example-sample-inline-component.yaml"
             )
-          ) shouldBe false
+          )
+          catalog.latestSnapshot shouldBe Some("0.1.0-SNAPSHOT")
+          catalog.versions should have size 1
+          val snapshotentry = catalog.versions.head
+          snapshotentry.version shouldBe "0.1.0-SNAPSHOT"
+          snapshotentry.channel shouldBe Some("snapshot")
+          snapshotentry.component shouldBe Some("org.example.SampleInlineComponent")
         }
       }
 
@@ -616,7 +647,7 @@ final class BridgeContractSpec
          |""".stripMargin
     )
     _write(
-      projectdir.resolve(s"src/main/cozy/${name}.cml"),
+      projectdir.resolve(s"src/main/cozy/${_transport_name(name)}.cml"),
       s"# COMPONENT\n\n## ${name}\n"
     )
   }

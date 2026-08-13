@@ -27,7 +27,7 @@ import cozy.modeler.GenerationProvenance
  * @since   May. 20, 2026
  *  version Jun.  4, 2026
  *  version Jul. 28, 2026
- * @version Aug.  7, 2026
+ * @version Aug. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyCarPublisherSpec
@@ -510,7 +510,7 @@ class CozyCarPublisherSpec
     }
 
     "manage snapshot publication" which {
-      "builds a snapshot CAR without adding the snapshot to the catalog" in {
+      "builds a snapshot CAR and records canonical discovery metadata" in {
         _with_temp_dir("cozy-publish-car-build") { dir =>
           Given("a CAR project with a main JAR and web metadata")
           val projectdir = dir.resolve("project")
@@ -566,30 +566,62 @@ class CozyCarPublisherSpec
             "repository/car/org/sample/sample-component/0.1.1-SNAPSHOT/sample-component-0.1.1-SNAPSHOT.car"
           )
           val entries = _zip_entries(target)
-          Then("the CAR contains its component payload")
+          Then("the CAR archive and checksum are published")
+          Files.isRegularFile(target) shouldBe true
           entries should contain allOf (
             "component/main.jar",
             "component-descriptor.json",
             "web/web.yaml"
           )
-          And("snapshot selectors are not written to release catalogs")
-          Files.exists(
+          val digest = cozy.archive.RepositoryArtifactPublisher.sha256(target)
+          Files.readString(
+            target.resolveSibling(target.getFileName.toString + ".sha256")
+          ).trim shouldBe digest
+
+          And("source and public schema2 catalogs expose the current snapshot")
+          val sourcecatalog = RepositoryArtifactCatalog.load(
             projectdir.resolve("src/main/catalog/car/org/sample/sample-component.yaml")
-          ) shouldBe false
-          Files.exists(
+          )
+          val publiccatalog = RepositoryArtifactCatalog.load(
             warehouse.resolve("repository/catalog/car/org/sample/sample-component.yaml")
-          ) shouldBe false
-          Files.exists(
+          )
+          sourcecatalog shouldBe publiccatalog
+          sourcecatalog.schemaVersion shouldBe "2"
+          sourcecatalog.versions.map(_.version) shouldBe Vector("0.1.1-SNAPSHOT")
+          val snapshotentry = sourcecatalog.versions.head
+          snapshotentry.channel shouldBe Some("snapshot")
+          snapshotentry.component shouldBe Some("org.sample.Component")
+          snapshotentry.checksumSha256 shouldBe Some(digest)
+          snapshotentry.integrityKey shouldBe Some(
+            s"org.sample:sample-component:0.1.1-SNAPSHOT@sha256:$digest"
+          )
+          sourcecatalog.latestSnapshot shouldBe Some("0.1.1-SNAPSHOT")
+
+          And("Maven metadata and the v2 repository index expose the snapshot")
+          val metadata = Files.readString(
             warehouse.resolve(
               "repository/car/org/sample/sample-component/maven-metadata.xml"
             )
-          ) shouldBe false
+          )
+          metadata should include("<latest>0.1.1-SNAPSHOT</latest>")
+          metadata should include("<version>0.1.1-SNAPSHOT</version>")
+          val index = ComponentRepositoryIndex.load(
+            warehouse.resolve("repository/catalog/index.json")
+          )
+          index.schemaVersion shouldBe ComponentRepositoryIndex.SCHEMA_VERSION
+          index.artifacts.map(_.identity) shouldBe Vector(
+            ("car", "org.sample", "Component")
+          )
+          val indexentry = index.artifacts.head
+          indexentry.namespace shouldBe Some("org.sample")
+          indexentry.id shouldBe Some("Component")
+          indexentry.latestSnapshot shouldBe Some("0.1.1-SNAPSHOT")
         }
       }
 
-      "removes existing snapshot entries from the release catalog" in {
+      "replaces the prior snapshot entry while retaining stable history" in {
         _with_temp_dir("cozy-publish-car-snapshot-cleanup") { dir =>
-          Given("a release catalog contaminated by an older snapshot entry")
+          Given("a canonical catalog with stable release history and one prior snapshot entry")
           val projectdir = dir.resolve("project")
           val warehouse = dir.resolve("warehouse")
           val car = _write_canonical_car(
@@ -631,13 +663,20 @@ class CozyCarPublisherSpec
           val publiccatalog = RepositoryArtifactCatalog.load(
             warehouse.resolve("repository/catalog/car/org/sample/sample-component.yaml")
           )
-          Then("source and public catalogs keep only release versions")
+          Then("source and public catalogs retain stable history and replace the snapshot")
           sourcecatalog shouldBe publiccatalog
-          sourcecatalog.latestSnapshot shouldBe empty
-          sourcecatalog.versions.map(_.version) shouldBe Vector("0.1.0")
-          sourcecatalog.versions.forall(
-            _.channel != Some("snapshot")
-          ) shouldBe true
+          sourcecatalog.versions.map(_.version) shouldBe Vector(
+            "0.1.0",
+            "0.1.2-SNAPSHOT"
+          )
+          sourcecatalog.latestStable shouldBe Some("0.1.0")
+          sourcecatalog.latestSnapshot shouldBe Some("0.1.2-SNAPSHOT")
+          sourcecatalog.versions.exists(_.version == "0.1.1-SNAPSHOT") shouldBe false
+          val snapshotentry = sourcecatalog.versions.find(
+            _.version == "0.1.2-SNAPSHOT"
+          )
+          snapshotentry.flatMap(_.channel) shouldBe Some("snapshot")
+          snapshotentry.flatMap(_.checksumSha256) should not be Some(snapshotdigest)
         }
       }
 
@@ -646,7 +685,7 @@ class CozyCarPublisherSpec
     "maintain release history" which {
       "preserves existing versions and replaces the requested version" in {
         _with_temp_dir("cozy-publish-car-merge") { dir =>
-          Given("a catalog with deprecated and current release versions")
+          Given("a catalog with deprecated, current release, and current snapshot versions")
           val projectdir = dir.resolve("project")
           val warehouse = dir.resolve("warehouse")
           val car = _write_canonical_car(
@@ -657,14 +696,17 @@ class CozyCarPublisherSpec
           _write_project_yaml(projectdir, "sample-component", "0.1.0")
           val deprecateddigest = _write_retained_car(warehouse, "0.0.9", "deprecated-release")
           val currentdigest = _write_retained_car(warehouse, "0.1.0", "current-release")
+          val snapshotdigest = _write_retained_car(warehouse, "0.1.1-SNAPSHOT", "current-snapshot")
           _write_car_catalog(
             projectdir,
             Vector(
               ("0.0.9", "stable", "deprecated", deprecateddigest),
-              ("0.1.0", "stable", "active", currentdigest)
+              ("0.1.0", "stable", "active", currentdigest),
+              ("0.1.1-SNAPSHOT", "snapshot", "active", snapshotdigest)
             ),
             recommended = Some("0.0.9"),
             lateststable = Some("0.1.0"),
+            latestsnapshot = Some("0.1.1-SNAPSHOT"),
             aliases = Vector("sample-old"),
             tags = Vector("platform.component"),
             terms = Vector("Sample Component")
@@ -691,7 +733,11 @@ class CozyCarPublisherSpec
           Then(
             "history and selectors remain stable while the checksum is replaced"
           )
-          catalog.versions.map(_.version) shouldBe Vector("0.0.9", "0.1.0")
+          catalog.versions.map(_.version) shouldBe Vector(
+            "0.0.9",
+            "0.1.0",
+            "0.1.1-SNAPSHOT"
+          )
           catalog.versions
             .find(_.version == "0.0.9")
             .flatMap(_.status) shouldBe Some("deprecated")
@@ -700,6 +746,10 @@ class CozyCarPublisherSpec
             .flatMap(_.checksumSha256) should not be Some("old")
           catalog.recommended shouldBe Some("0.0.9")
           catalog.latestStable shouldBe Some("0.1.0")
+          catalog.latestSnapshot shouldBe Some("0.1.1-SNAPSHOT")
+          catalog.versions
+            .find(_.version == "0.1.1-SNAPSHOT")
+            .flatMap(_.checksumSha256) shouldBe Some(snapshotdigest)
           catalog.aliases shouldBe Vector("sample-old")
           catalog.tags shouldBe Vector("platform.component")
           catalog.terms shouldBe Vector("Sample Component")
@@ -712,6 +762,7 @@ class CozyCarPublisherSpec
           metadata should include("<release>0.1.0</release>")
           metadata should include("<version>0.0.9</version>")
           metadata should include("<version>0.1.0</version>")
+          metadata should include("<version>0.1.1-SNAPSHOT</version>")
         }
       }
 

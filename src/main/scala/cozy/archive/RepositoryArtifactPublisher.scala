@@ -20,7 +20,7 @@ import scala.util.control.NonFatal
  * @since   May. 20, 2026
  *  version Jun. 23, 2026
  *  version Jul. 21, 2026
- * @version Aug.  7, 2026
+ * @version Aug. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object RepositoryArtifactPublisher {
@@ -465,7 +465,11 @@ private[cozy] object RepositoryArtifactPublisher {
       policy.coordinate.exists(c => existing.namespace != Some(c.namespace) || existing.id != Some(c.id)))
       RAISE.invalidArgumentFault(s"${policy.kind.toUpperCase} catalog does not match requested artifact: $sourcepath")
 
-    val channel = value(args, "channel").getOrElse(if (_is_snapshot_version(version)) "snapshot" else "stable")
+    val requestedchannel = value(args, "channel").getOrElse(if (_is_snapshot_version(version)) "snapshot" else "stable")
+    val snapshotpublish = _is_snapshot_version(version) || requestedchannel == "snapshot"
+    val channel =
+      if (policy.coordinate.isDefined && snapshotpublish) "snapshot"
+      else requestedchannel
     val entry0 = policy.versionEntry(version, channel, warehouseRelativePath(warehouse, publishedarchive), candidatearchive, args)
     val entry = policy.coordinate.map { coordinate =>
       val digest = sha256(candidatearchive)
@@ -476,29 +480,38 @@ private[cozy] object RepositoryArtifactPublisher {
         integrityKey = Some(coordinate.integrityKey(digest))
       )
     }.getOrElse(entry0)
-    val snapshotpublish = _is_snapshot_version(version) || channel == "snapshot"
     val releaseversions = existing.versions.filterNot(_is_snapshot_catalog_version)
     val versions =
-      if (snapshotpublish)
+      if (policy.coordinate.isDefined && snapshotpublish)
+        (releaseversions.filterNot(_.version == version) :+ entry).sortBy(_.version)
+      else if (snapshotpublish)
         releaseversions
+      else if (policy.coordinate.isDefined)
+        (existing.versions.filterNot(_.version == version) :+ entry).sortBy(_.version)
       else
         (releaseversions.filterNot(_.version == version) :+ entry).sortBy(_.version)
-    def _valid_selector_(selector: Option[String]): Option[String] =
-      selector.filter(value => versions.exists(_.version == value))
+    def _valid_stable_selector_(selector: Option[String]): Option[String] =
+      selector.filter(value => versions.exists(version => version.version == value && version.channel.contains("stable")))
+    def _valid_snapshot_selector_(selector: Option[String]): Option[String] =
+      selector.filter(value => versions.exists(version => version.version == value && version.channel.contains("snapshot")))
     val recommended =
       if (!snapshotpublish && flag(args, "recommended"))
         Some(version)
       else
-        _valid_selector_(existing.recommended).orElse(if (snapshotpublish) None else Some(version))
+        _valid_stable_selector_(existing.recommended).orElse(if (snapshotpublish) None else Some(version))
     val lateststable =
-      if (!snapshotpublish && channel == "stable") Some(version) else _valid_selector_(existing.latestStable)
+      if (!snapshotpublish && channel == "stable") Some(version) else _valid_stable_selector_(existing.latestStable)
+    val latestsnapshot =
+      if (policy.coordinate.isDefined && snapshotpublish) Some(version)
+      else if (policy.coordinate.isDefined) _valid_snapshot_selector_(existing.latestSnapshot)
+      else None
     RepositoryArtifactCatalog(
       schemaVersion = existing.schemaVersion,
       kind = policy.kind,
       artifactId = name,
       recommended = recommended,
       latestStable = lateststable,
-      latestSnapshot = None,
+      latestSnapshot = latestsnapshot,
       status = existing.status.orElse(Some("active")),
       aliases = existing.aliases,
       versions = versions,

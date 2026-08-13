@@ -7,21 +7,10 @@ import play.api.libs.json._
 
 /*
  * @since   Jul. 12, 2026
- * @version Aug.  7, 2026
+ * @version Aug. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 object ComponentApiDescriptor {
-  /** Legacy entry point retained only for source compatibility; a module is not a namespace-qualified ID. */
-  def write(
-    modelPath: Path,
-    descriptorPath: Path,
-    module: String,
-    version: String
-  ): Unit =
-    org.goldenport.RAISE.invalidArgumentFault(
-      s"component.release-coordinate.mismatch source=component-api-generation expected=namespace,id actual=module:$module:$version"
-    )
-
   def write(
     modelPath: Path,
     descriptorPath: Path,

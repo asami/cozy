@@ -10,7 +10,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jul. 13, 2026
- * @version Aug.  8, 2026
+ * @version Aug. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 class CarCmlSourceResolverSpec
@@ -44,13 +44,13 @@ class CarCmlSourceResolverSpec
       "prefers an explicit project CML source over the canonical source" in {
         _with_temp_dir("cozy-car-cml-explicit") { dir =>
           Given("a CAR project with explicit and canonical CML sources")
-          _write_project(dir, Some("src/main/cozy/ai.cml"))
-          _write_cml(dir.resolve("src/main/cozy/sample.cml"), "Canonical")
+          _write_canonical_project(dir, Some("src/main/cozy/ai.cml"))
+          _write_cml(dir.resolve("src/main/cozy/textus-sample.cml"), "Canonical")
           val explicit =
             _write_cml(dir.resolve("src/main/cozy/ai.cml"), "Explicit")
 
           When("Cozy resolves the CAR publication CML source")
-          val resolved = _resolved(CarCmlSourceResolver.resolve(dir, "sample"))
+          val resolved = _resolved(CarCmlSourceResolver.resolve(dir, "textus-sample"))
 
           Then("the explicit project-relative CML source is selected")
           resolved.source shouldBe explicit.toAbsolutePath.normalize()
@@ -63,13 +63,13 @@ class CarCmlSourceResolverSpec
       "prefers the canonical source when more than one CML source exists" in {
         _with_temp_dir("cozy-car-cml-canonical") { dir =>
           Given("a CAR project with canonical and supplementary CML sources")
-          _write_project(dir)
+          _write_canonical_project(dir)
           val canonical =
-            _write_cml(dir.resolve("src/main/cozy/sample.cml"), "Canonical")
+            _write_cml(dir.resolve("src/main/cozy/textus-sample.cml"), "Canonical")
           _write_cml(dir.resolve("src/main/cozy/support.cml"), "Support")
 
           When("Cozy resolves the CAR publication CML source")
-          val resolved = _resolved(CarCmlSourceResolver.resolve(dir, "sample"))
+          val resolved = _resolved(CarCmlSourceResolver.resolve(dir, "textus-sample"))
 
           Then("the artifact-named canonical source is selected")
           resolved.source shouldBe canonical.toAbsolutePath.normalize()
@@ -77,22 +77,22 @@ class CarCmlSourceResolverSpec
       }
       }
 
-      "E4 unique noncanonical fallback" must _metadata("E4") {
-      "uses the only CML source as a noncanonical fallback" in {
+      "E4 noncanonical implicit source" must _metadata("E4") {
+      "rejects the only noncanonical CML source without an explicit declaration" in {
         _with_temp_dir("cozy-car-cml-single") { dir =>
           Given("a CAR project with one noncanonical CML source")
-          _write_project(dir)
+          _write_canonical_project(dir)
           val source =
             _write_cml(dir.resolve("src/main/cozy/ai.cml"), "TextusAi")
 
           When("Cozy resolves the CAR publication CML source")
-          val resolved = _resolved(CarCmlSourceResolver.resolve(dir, "sample"))
+          val issue = _issue(CarCmlSourceResolver.resolve(dir, "textus-sample"))
 
-          Then(
-            "the single source is selected without changing its source identity"
-          )
-          resolved.source shouldBe source.toAbsolutePath.normalize()
-          resolved.projectrelativepath shouldBe "src/main/cozy/ai.cml"
+          Then("the source is rejected with an explicit selection instruction")
+          issue.code shouldBe "car.cml.source.noncanonical"
+          issue.path shouldBe source.toAbsolutePath.normalize()
+          issue.message should include("src/main/cozy/ai.cml")
+          issue.message should include("set cml.source")
         }
       }
       }
@@ -103,10 +103,10 @@ class CarCmlSourceResolverSpec
       "reports a missing implicit source" in {
         _with_temp_dir("cozy-car-cml-missing") { dir =>
           Given("a CAR project with no CML source")
-          _write_project(dir)
+          _write_canonical_project(dir)
 
           When("Cozy resolves the CAR publication CML source")
-          val issue = _issue(CarCmlSourceResolver.resolve(dir, "sample"))
+          val issue = _issue(CarCmlSourceResolver.resolve(dir, "textus-sample"))
 
           Then("the missing source is reported deterministically")
           issue.code shouldBe "car.cml.source.missing"
@@ -118,12 +118,12 @@ class CarCmlSourceResolverSpec
       "reports ambiguous noncanonical sources" in {
         _with_temp_dir("cozy-car-cml-ambiguous") { dir =>
           Given("a CAR project with two noncanonical CML sources")
-          _write_project(dir)
+          _write_canonical_project(dir)
           _write_cml(dir.resolve("src/main/cozy/a.cml"), "A")
           _write_cml(dir.resolve("src/main/cozy/b.cml"), "B")
 
           When("Cozy resolves the CAR publication CML source")
-          val issue = _issue(CarCmlSourceResolver.resolve(dir, "sample"))
+          val issue = _issue(CarCmlSourceResolver.resolve(dir, "textus-sample"))
 
           Then("the caller is directed to select the source explicitly")
           issue.code shouldBe "car.cml.source.ambiguous"
@@ -139,10 +139,10 @@ class CarCmlSourceResolverSpec
           Given(
             "a CAR project whose explicit source traverses outside the project"
           )
-          _write_project(dir, Some("../outside.cml"))
+          _write_canonical_project(dir, Some("../outside.cml"))
 
           When("Cozy resolves the explicit source")
-          val issue = _issue(CarCmlSourceResolver.resolve(dir, "sample"))
+          val issue = _issue(CarCmlSourceResolver.resolve(dir, "textus-sample"))
 
           Then("the source is rejected as outside the project")
           issue.code shouldBe "car.cml.source.outside_project"
@@ -155,11 +155,11 @@ class CarCmlSourceResolverSpec
         _with_temp_dir("cozy-car-cml-absolute") { dir =>
           Given("a CAR project whose explicit source is absolute")
           val source =
-            _write_cml(dir.resolve("src/main/cozy/sample.cml"), "Sample")
-          _write_project(dir, Some(source.toString))
+            _write_cml(dir.resolve("src/main/cozy/textus-sample.cml"), "Sample")
+          _write_canonical_project(dir, Some(source.toString))
 
           When("Cozy resolves the explicit source")
-          val issue = _issue(CarCmlSourceResolver.resolve(dir, "sample"))
+          val issue = _issue(CarCmlSourceResolver.resolve(dir, "textus-sample"))
 
           Then("the source is rejected as outside the project contract")
           issue.code shouldBe "car.cml.source.outside_project"
@@ -171,10 +171,10 @@ class CarCmlSourceResolverSpec
       "rejects a source with a non-CML extension" in {
         _with_temp_dir("cozy-car-cml-extension") { dir =>
           Given("a CAR project whose explicit source is not a CML file")
-          _write_project(dir, Some("src/main/cozy/sample.dox"))
+          _write_canonical_project(dir, Some("src/main/cozy/textus-sample.dox"))
 
           When("Cozy resolves the explicit source")
-          val issue = _issue(CarCmlSourceResolver.resolve(dir, "sample"))
+          val issue = _issue(CarCmlSourceResolver.resolve(dir, "textus-sample"))
 
           Then("the source is rejected without implicit fallback")
           issue.code shouldBe "car.cml.source.invalid_extension"
@@ -188,14 +188,56 @@ class CarCmlSourceResolverSpec
           Given(
             "a CAR project with a missing explicit source and a valid canonical source"
           )
-          _write_project(dir, Some("src/main/cozy/missing.cml"))
-          _write_cml(dir.resolve("src/main/cozy/sample.cml"), "Sample")
+          _write_canonical_project(dir, Some("src/main/cozy/missing.cml"))
+          _write_cml(dir.resolve("src/main/cozy/textus-sample.cml"), "Sample")
 
           When("Cozy resolves the explicit source")
-          val issue = _issue(CarCmlSourceResolver.resolve(dir, "sample"))
+          val issue = _issue(CarCmlSourceResolver.resolve(dir, "textus-sample"))
 
           Then("the configured source failure remains authoritative")
           issue.code shouldBe "car.cml.source.not_found"
+        }
+      }
+      }
+
+      "E14 canonical identity admission" must _metadata("E14") {
+      "rejects a legacy project name without canonical component identity" in {
+        _with_temp_dir("cozy-car-cml-legacy-identity") { dir =>
+          Given("a project that declares only its retired legacy name")
+          _write(dir.resolve("project.yaml"), "project:\n  name: legacy-sample\n")
+
+          When("Cozy resolves the project CML identity")
+          val issue = _issue(CarCmlSourceResolver.resolve(dir, "textus-sample"))
+
+          Then("the missing canonical identity is reported deterministically")
+          issue.code shouldBe "car.cml.artifact_id.missing"
+          issue.message should include("project.namespace")
+          issue.message should include("project.id")
+          issue.message should include("project.component.version")
+        }
+      }
+      }
+
+      "E15 partial canonical identity admission" must _metadata("E15") {
+      "rejects a partial canonical component identity" in {
+        _with_temp_dir("cozy-car-cml-partial-identity") { dir =>
+          Given("a project with namespace and id but no component version")
+          _write(
+            dir.resolve("project.yaml"),
+            "project:\n  namespace: org.example.textus\n  id: Sample\n"
+          )
+
+          When("Cozy admits the project artifact identity")
+          val issue = CarCmlSourceResolver.projectArtifactId(dir).fold(
+            identity,
+            artifactid => fail(s"Expected canonical identity rejection but admitted $artifactid")
+          )
+
+          Then("the partial canonical identity remains invalid")
+          issue.code shouldBe "car.cml.artifact_id.invalid"
+          issue.message should include("project.namespace")
+          issue.message should include("project.id")
+          issue.message should include("project.component.version")
         }
       }
       }
@@ -306,15 +348,6 @@ class CarCmlSourceResolverSpec
       identity,
       resolved => fail(s"Expected failure but resolved ${resolved.source}")
     )
-
-  private def _write_project(
-      dir: Path,
-      cmlsource: Option[String] = None
-  ): Path = {
-    val cml =
-      cmlsource.map(source => s"cml:\n  source: ${source}\n").getOrElse("")
-    _write(dir.resolve("project.yaml"), s"project:\n  name: sample\n${cml}")
-  }
 
   private def _write_canonical_project(
       dir: Path,

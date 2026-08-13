@@ -10,7 +10,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Jul.  7, 2026
- * @version Aug.  8, 2026
+ * @version Aug. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyCarLint {
@@ -73,12 +73,17 @@ private[cozy] object CozyCarLint {
     noabi: Boolean,
     buildfindings: Vector[Finding]
   ): Vector[Finding] = {
-    val cmlsourcefindings = _car_cml_source_findings(root)
-    val cmlfindings = _cml_path(root).toVector.flatMap(path => CozyCmlLint.lint(path).map(_cml_finding))
     val identityfindings = CozyCarIdentityLint.lint(root)
     val identitydeferred = identityfindings.exists(
       _.code == "CAR_COMPONENT_IDENTITY_MIGRATION_DEFERRED"
     )
+    val cmlsourcefindings = _car_cml_source_findings(root)
+    val admittedcmlsourcefindings =
+      if (_is_deferred_identity_invalid_artifact(identityfindings, cmlsourcefindings))
+        cmlsourcefindings.filterNot(_.code == "car.cml.artifact_id.invalid")
+      else
+        cmlsourcefindings
+    val cmlfindings = _cml_path(root).toVector.flatMap(path => CozyCmlLint.lint(path).map(_cml_finding))
     val compatibilityfindings = _compatibility_findings(root, identitydeferred)
     val documentationfindings = CozyCarDocumentationLint.lint(root).map(_documentation_finding)
     val repositoryfindings = _repository_findings(root)
@@ -87,8 +92,15 @@ private[cozy] object CozyCarLint {
         Vector.empty
       else
         CozyCarAbiLint.lint(root, baseline).map(_abi_finding)
-    (buildfindings ++ cmlsourcefindings ++ cmlfindings ++ identityfindings ++ compatibilityfindings ++ documentationfindings ++ repositoryfindings ++ abifindings).sortBy(x => (x.category, x.path.toString, x.line, x.code, x.message))
+    (buildfindings ++ admittedcmlsourcefindings ++ cmlfindings ++ identityfindings ++ compatibilityfindings ++ documentationfindings ++ repositoryfindings ++ abifindings).sortBy(x => (x.category, x.path.toString, x.line, x.code, x.message))
   }
+
+  private def _is_deferred_identity_invalid_artifact(
+    identityfindings: Vector[Finding],
+    cmlsourcefindings: Vector[Finding]
+  ): Boolean =
+    identityfindings.exists(_.code == "CAR_COMPONENT_IDENTITY_MIGRATION_DEFERRED") &&
+      cmlsourcefindings.exists(_.code == "car.cml.artifact_id.invalid")
 
   private def _compatibility_findings(
     root: Path,

@@ -8,7 +8,7 @@ import scala.util.Try
 
 /*
  * @since   Jul. 15, 2026
- * @version Aug.  7, 2026
+ * @version Aug. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyCarAbiManifest {
@@ -28,10 +28,6 @@ private[cozy] object CozyCarAbiManifest {
   object Dependency {
     def apply(namespace: String, id: String, abiRange: String): Dependency =
       Dependency(CozyComponentReleaseCoordinateCodec.admitIdentity(namespace, id, "car-abi-dependency"), abiRange)
-
-    /** Retained for source compatibility only; no namespace can be inferred from a legacy name. */
-    def apply(name: String, abiRange: String): Dependency =
-      RAISE.invalidArgumentFault(s"component.release-coordinate.mismatch source=car-abi-dependency expected=namespace,id actual=legacy-name:$name")
   }
 
   def create(
@@ -126,27 +122,6 @@ private[cozy] object CozyCarAbiManifest {
       _required_string(entry, "abiRange", source)
     )
   }
-
-  /** Legacy overload deliberately fails closed: a local name cannot admit a namespace. */
-  def create(
-    paths: Vector[Path],
-    name: String,
-    version: String,
-    component: String
-  ): String =
-    create(paths, name, version, component, Vector.empty)
-
-  /** Legacy overload deliberately fails closed: a local name cannot admit a namespace. */
-  def create(
-    paths: Vector[Path],
-    name: String,
-    version: String,
-    component: String,
-    dependencies: Vector[Dependency]
-  ): String =
-    RAISE.invalidArgumentFault(
-      s"component.release-coordinate.mismatch source=car-abi-manifest expected=canonical-coordinate actual=$name:$version:$component"
-    )
 
   private def _services(metadata: JsValue): Vector[JsObject] =
     (metadata \ "surface" \ "component" \ "services").asOpt[JsArray].map(_.value.toVector).getOrElse(Vector.empty).map { service =>

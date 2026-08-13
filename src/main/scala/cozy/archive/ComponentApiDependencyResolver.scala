@@ -12,7 +12,7 @@ import play.api.libs.json._
 
 /*
  * @since   Jul. 12, 2026
- * @version Aug.  7, 2026
+ * @version Aug. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object ComponentApiDependencyResolver {
@@ -197,12 +197,6 @@ private[cozy] object ComponentApiDependencyResolver {
   private[cozy] object Dependency {
     def apply(namespace: String, id: String, version: String, archive: Path): Dependency =
       Dependency(CozyComponentReleaseCoordinateCodec.admit(namespace, id, version, "component-api-dependency"), archive)
-
-    /** Retained only to keep external callers source-compatible until CID-04D/CID-06 migration. */
-    def apply(name: String, version: String, archive: Path): Dependency =
-      RAISE.invalidArgumentFault(
-        s"component.api.dependency.payload.v2.required legacy-name=$name version=$version"
-      )
   }
   private final case class Provider(dependency: Dependency, provided: ProvidedApi)
 }

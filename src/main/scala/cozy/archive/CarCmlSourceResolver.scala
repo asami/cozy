@@ -11,7 +11,7 @@ import scala.util.Try
  * a different source from the publisher.
  *
  * @since   Jul. 13, 2026
- * @version Aug.  8, 2026
+ * @version Aug. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CarCmlSourceResolver {
@@ -31,44 +31,32 @@ private[cozy] object CarCmlSourceResolver {
     val metadata = CozyProjectYamlConfig.loadProjectMetadata(root)
     val namespace = metadata.value("project.namespace")
     val id = metadata.value("project.id")
-    (namespace, id) match {
-      case (Some(componentnamespace), Some(componentid)) =>
-        metadata.value("project.component.version").toRight(
+    val version = metadata.value("project.component.version")
+    (namespace, id, version) match {
+      case (Some(componentnamespace), Some(componentid), Some(componentversion)) =>
+        Try(CozyComponentReleaseCoordinateCodec.admit(
+          componentnamespace,
+          componentid,
+          componentversion,
+          "car-cml-source"
+        ).mavenArtifactId).toEither.left.map { error =>
           _issue(
             root.resolve("project.yaml"),
-            "car.cml.artifact_id.missing",
-            "canonical project identity requires project.component.version."
+            "car.cml.artifact_id.invalid",
+            error.getMessage
           )
-        ).flatMap { componentversion =>
-          Try(CozyComponentReleaseCoordinateCodec.admit(
-            componentnamespace,
-            componentid,
-            componentversion,
-            "car-cml-source"
-          ).mavenArtifactId).toEither.left.map { error =>
-            _issue(
-              root.resolve("project.yaml"),
-              "car.cml.artifact_id.invalid",
-              error.getMessage
-            )
-          }
         }
-      case (None, None) =>
-        metadata
-          .value("project.name")
-          .orElse(metadata.value("name"))
-          .toRight(
-            _issue(
-              root.resolve("project.yaml"),
-              "car.cml.artifact_id.missing",
-              "project.yaml must declare canonical project.namespace/project.id or a legacy project.name."
-            )
-          )
+      case (None, None, None) =>
+        Left(_issue(
+          root.resolve("project.yaml"),
+          "car.cml.artifact_id.missing",
+          "project.yaml must declare project.namespace, project.id, and project.component.version."
+        ))
       case _ =>
         Left(_issue(
           root.resolve("project.yaml"),
           "car.cml.artifact_id.invalid",
-          "project.yaml canonical component identity requires both project.namespace and project.id."
+          "project.yaml canonical component identity requires project.namespace, project.id, and project.component.version."
         ))
     }
   }
@@ -171,7 +159,14 @@ private[cozy] object CarCmlSourceResolver {
     else {
       val candidates = _cml_candidates(sourcedir)
       candidates match {
-        case Vector(source) => _resolved_inside_project(root, source)
+        case Vector(source) =>
+          Left(
+            _issue(
+              source,
+              "car.cml.source.noncanonical",
+              s"CAR project found noncanonical CML source ${_display(root, source)}; set cml.source in project.yaml."
+            )
+          )
         case Vector() =>
           Left(
             _issue(

@@ -13,7 +13,7 @@ import play.api.libs.json.Json
 /*
  * @since   Jul.  7, 2026
  *  version Jul. 28, 2026
- * @version Aug.  8, 2026
+ * @version Aug. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -122,7 +122,7 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
             _with_temp_dir("cozy-car-lint-cid07e-corpus") { dir =>
               Given("an exact Corpus legacy release with complete runtime metadata and an older Cozy generator")
               _write_released_legacy_project(dir, "textus-corpus", "Corpus", "0.1.0", Some("0.3.0"))
-              _write_valid_cml(dir)
+              _write_legacy_cml(dir)
 
               When("integrated CAR lint evaluates the released legacy project")
               val findings = CozyCarLint.lint(dir, None, noabi = true)
@@ -131,6 +131,8 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
               findings.find(_.code == "CAR_COMPONENT_IDENTITY_MIGRATION_DEFERRED").map(_.level) shouldBe Some(CozyCarLint.Level.Warn)
               findings.find(_.code == "CAR_METADATA_RELEASE_GENERATION_PAIR_REJECTED").map(_.level) shouldBe Some(CozyCarLint.Level.Warn)
               findings.exists(x => x.code == "CAR_METADATA_RELEASE_GENERATION_PAIR_REJECTED" && x.level == CozyCarLint.Level.Fail) shouldBe false
+              findings.exists(_.code.startsWith("car.cml.source.")) shouldBe false
+              findings.exists(_.level == CozyCarLint.Level.Fail) shouldBe false
             }
           }
         }
@@ -140,7 +142,7 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
             _with_temp_dir("cozy-car-lint-cid07e-georesolver") { dir =>
               Given("an exact GeoResolver legacy release with complete metadata except its historical Cozy generator field")
               _write_released_legacy_project(dir, "textus-georesolver", "GeoResolver", "0.2.1", None)
-              _write_valid_cml(dir)
+              _write_legacy_cml(dir)
 
               When("integrated CAR lint evaluates the released legacy project")
               val findings = CozyCarLint.lint(dir, None, noabi = true)
@@ -149,6 +151,8 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
               findings.find(_.code == "CAR_COMPONENT_IDENTITY_MIGRATION_DEFERRED").map(_.level) shouldBe Some(CozyCarLint.Level.Warn)
               findings.find(_.code == "CAR_METADATA_COZY_VERSION_MISSING").map(_.level) shouldBe Some(CozyCarLint.Level.Warn)
               findings.exists(x => x.code == "CAR_METADATA_COZY_VERSION_MISSING" && x.level == CozyCarLint.Level.Fail) shouldBe false
+              findings.exists(_.code.startsWith("car.cml.source.")) shouldBe false
+              findings.exists(_.level == CozyCarLint.Level.Fail) shouldBe false
             }
           }
         }
@@ -158,7 +162,7 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
             _with_temp_dir("cozy-car-lint-cid07e-user-account") { dir =>
               Given("a canonical UserAccount SNAPSHOT with complete runtime metadata but no Cozy generator field")
               _write_canonical_snapshot_project(dir)
-              _write_valid_cml(dir)
+              _write_valid_cml(dir, "simplemodeling-textus-user-account")
 
               When("integrated CAR lint evaluates the canonical development project")
               val findings = CozyCarLint.lint(dir, None, noabi = true)
@@ -166,6 +170,30 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
               Then("canonical identity remains accepted while missing Cozy metadata remains a failure")
               findings.find(_.code == "CAR_COMPONENT_IDENTITY_CANONICAL").map(_.level) shouldBe Some(CozyCarLint.Level.Ok)
               findings.find(_.code == "CAR_METADATA_COZY_VERSION_MISSING").map(_.level) shouldBe Some(CozyCarLint.Level.Fail)
+            }
+          }
+        }
+
+        "an unregistered legacy CAR identity" must _cid07e {
+          "retains both identity migration and invalid artifact identity failures" in {
+            _with_temp_dir("cozy-car-lint-cid07e-unregistered-legacy") { dir =>
+              Given("an unregistered legacy CAR project without canonical identity fields")
+              _write_unregistered_legacy_project(dir)
+              _write_legacy_cml(dir)
+
+              When("integrated CAR lint evaluates the unregistered legacy project")
+              val findings = CozyCarLint.lint(dir, None, noabi = true)
+
+              Then("identity migration and the invalid resolver artifact identity remain failures")
+              val failcodes = findings.collect {
+                case finding if finding.level == CozyCarLint.Level.Fail => finding.code
+              }.toSet
+              failcodes shouldBe Set(
+                "CAR_COMPONENT_IDENTITY_MIGRATION_REQUIRED",
+                "car.cml.artifact_id.invalid"
+              )
+              findings.find(_.code == "CAR_COMPONENT_IDENTITY_MIGRATION_REQUIRED").map(_.level) shouldBe Some(CozyCarLint.Level.Fail)
+              findings.find(_.code == "car.cml.artifact_id.invalid").map(_.level) shouldBe Some(CozyCarLint.Level.Fail)
             }
           }
         }
@@ -218,7 +246,7 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
           Given("a CAR project whose component is described but whose service and operation help is terse")
           _write_project(dir)
           _write(
-            dir.resolve("src/main/cozy/sample.cml"),
+            dir.resolve("src/main/cozy/example-sample.cml"),
             _component_help +
               """
                 |# SERVICE
@@ -275,9 +303,10 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
         _with_temp_dir("cozy-car-lint-missing-explicit-cml") { dir =>
           Given("a CAR project whose explicit CML source is missing")
           _write_project(dir)
-          _write(
-            dir.resolve("project.yaml"),
-            "project:\n  name: sample\ncml:\n  source: src/main/cozy/missing.cml\n"
+          _write_compatibility_project(
+            dir,
+            excluded = false,
+            cmlsource = Some("src/main/cozy/missing.cml")
           )
           _write_valid_cml(dir)
 
@@ -531,7 +560,7 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   }
 
   private def _write_project_without_documentation(dir: Path): Unit = {
-    _write(dir.resolve("project.yaml"), "project:\n  name: sample\n")
+    _write_compatibility_project(dir, excluded = false)
     _write(
       dir.resolve("project/plugins.sbt"),
       """addSbtPlugin("org.goldenport" % "sbt-cozy" % "0.1.11")"""
@@ -542,18 +571,23 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   private def _write_compatibility_project(
     dir: Path,
     excluded: Boolean,
-    cncfversion: String = "0.5.17"
+    cncfversion: String = "0.5.17",
+    cmlsource: Option[String] = None
   ): Unit = {
     val exclusions =
       if (excluded)
         s"        excluded:\n          - $cncfversion"
       else
         "        excluded: []"
+    val cmlsourceyaml = cmlsource.map(value => s"cml:\n  source: $value\n").getOrElse("")
     _write(
       dir.resolve("project.yaml"),
       s"""project:
          |  kind: car
-         |  name: sample
+         |  namespace: org.example
+         |  id: Sample
+         |  component:
+         |    version: 0.1.0-SNAPSHOT
          |packaging:
          |  kind: car
          |  car:
@@ -569,6 +603,7 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
          |  dependencies:
          |    compile:
          |      - org.goldenport::goldenport-cncf:$cncfversion
+         |$cmlsourceyaml
          |""".stripMargin
     )
   }
@@ -636,9 +671,17 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
     )
   }
 
+  private def _write_unregistered_legacy_project(dir: Path): Unit = {
+    _write_project(dir)
+    _write(
+      dir.resolve("project.yaml"),
+      "project:\n  kind: car\n  name: unregistered-legacy\n  organization: org.example\n  component:\n    name: unregistered-legacy\n    className: UnregisteredLegacy\n    version: 0.1.0-SNAPSHOT\npackaging:\n  kind: car\n  car:\n    runtime:\n      cncf:\n        minimum: 0.5.17\n        maximum: 0.5.19\n        excluded: []\n        tested:\n          - 0.5.17\nbuild:\n  cozyVersion: 0.3.1\n  dependencies:\n    compile:\n      - org.goldenport::goldenport-cncf:0.5.17\n"
+    )
+  }
+
   private def _write_cml(dir: Path): Unit =
     _write(
-      dir.resolve("src/main/cozy/model.cml"),
+      dir.resolve("src/main/cozy/example-sample.cml"),
       """# ENTITY
         |
         |## User
@@ -651,9 +694,12 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
         |""".stripMargin
     )
 
-  private def _write_valid_cml(dir: Path): Unit =
+  private def _write_valid_cml(
+    dir: Path,
+    artifactid: String = "example-sample"
+  ): Unit =
     _write(
-      dir.resolve("src/main/cozy/sample.cml"),
+      dir.resolve(s"src/main/cozy/$artifactid.cml"),
       _component_help +
         """
           |# SERVICE
@@ -676,8 +722,31 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
 
   private def _write_valid_cml_without_documentation(dir: Path): Unit =
     _write(
-      dir.resolve("src/main/cozy/sample.cml"),
+      dir.resolve("src/main/cozy/example-sample.cml"),
       "# COMPONENT\n\n## Sample\n"
+    )
+
+  private def _write_legacy_cml(dir: Path): Unit =
+    _write(
+      dir.resolve("src/main/cozy/legacy.cml"),
+      _component_help +
+        """
+          |# SERVICE
+          |
+          |## Catalog
+          |
+          |### DESCRIPTION
+          |
+          |Provides catalog lookup behavior for users who need to find a registered item.
+          |
+          |### OPERATION
+          |
+          |#### findItem
+          |
+          |##### DESCRIPTION
+          |
+          |Finds one registered item by its stable identifier and explains a missing result.
+          |""".stripMargin
     )
 
   private def _component_help: String =
