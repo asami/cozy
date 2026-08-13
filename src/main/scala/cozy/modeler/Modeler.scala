@@ -51,7 +51,8 @@ import scala.collection.mutable
  *  version Feb. 27, 2026
  *  version Mar. 31, 2026
  *  version May. 24, 2026
- * @version Jul. 31, 2026
+ *  version Jul. 31, 2026
+ * @version Aug. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler(
@@ -613,7 +614,7 @@ object Modeler {
 
     private def _get_substate(name: String) =
       states.values.toStream.flatMap(_.getSubStateRecursive(name)).headOption
-    
+
     def historyStates(name: String): Vector[MState] =
       states.values.flatMap(s =>
         if (s.transitions.exists(t => t.postState.name == name))

@@ -15,7 +15,7 @@ import cozy.compatibility.CncfRuntimeDescriptorContract
  * a consumer view; it never owns a second catalog source.
  *
  * @since   Jul. 31, 2026
- * @version Jul. 31, 2026
+ * @version Aug. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] final case class ComponentStyleDefinition(
@@ -80,9 +80,9 @@ private[cozy] object ComponentStyleCatalog {
   val API_VERSION = "cncf.textus/v1"
   val PROVIDER = "cncf"
   val KIND = "ComponentStyleCatalog"
-  private val IDENTITY_PART = "[a-z0-9-]+"
-  private val STYLE_IDENTITY = s"(?:$IDENTITY_PART\\.)?$IDENTITY_PART@[1-9][0-9]*"
-  private val QUALIFIED_IDENTITY = s"$IDENTITY_PART\\.$IDENTITY_PART@[1-9][0-9]*"
+  private val _identity_part = "[a-z0-9-]+"
+  private val _style_identity = s"(?:${_identity_part}\\.)?${_identity_part}@[1-9][0-9]*"
+  private val _qualified_identity = s"${_identity_part}\\.${_identity_part}@[1-9][0-9]*"
 
   def fromValidatedDescriptor(
     validatedDescriptor: CncfRuntimeDescriptorContract.ValidatedDescriptor
@@ -213,13 +213,13 @@ private[cozy] object ComponentStyleCatalog {
     value.getOrElse(_invalid(s"CNCF runtime descriptor requires $field"))
 
   private def _selection(id: String): String = {
-    if (!id.matches(STYLE_IDENTITY) || !_canonical_major(id.dropWhile(_ != '@').drop(1)))
+    if (!id.matches(_style_identity) || !_canonical_major(id.dropWhile(_ != '@').drop(1)))
       _invalid(s"Invalid CNCF component style identity: $id")
     id.takeWhile(_ != '@')
   }
 
   private def _identity(value: String, label: String): Unit =
-    if (!value.matches(QUALIFIED_IDENTITY) || !_canonical_major(value.dropWhile(_ != '@').drop(1)))
+    if (!value.matches(_qualified_identity) || !_canonical_major(value.dropWhile(_ != '@').drop(1)))
       _invalid(s"Invalid $label identity: $value")
 
   private def _canonical_major(value: String): Boolean =

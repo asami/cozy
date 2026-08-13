@@ -22,7 +22,8 @@ import arcadia.domain._
  *  version May. 23, 2022
  *  version Aug. 29, 2022
  *  version Sep. 25, 2022
- * @version Jun. 10, 2026
+ *  version Jun. 10, 2026
+ * @version Aug. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 class Engine(
@@ -63,7 +64,7 @@ class Engine(
         val pn = req.pathname.v
         val path = if (pn.endsWith(name))
           StringUtils.concatPath(name, m.uri.toASCIIString)
-        else 
+        else
           m.uri.toASCIIString
         response.sendRedirect(path)
       case _ => // do nothing

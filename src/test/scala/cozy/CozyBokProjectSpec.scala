@@ -2,6 +2,7 @@ package cozy.bok
 
 import cozy.{Cozy, CozySpecVocabulary}
 import cozy.archive.CozyCarPublisher
+import cozy.config.CozyProjectContext
 import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
@@ -13,7 +14,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jun. 23, 2026
- * @version Aug. 11, 2026
+ * @version Aug. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokProjectSpec
@@ -385,9 +386,7 @@ class CozyBokProjectSpec
           Given(
             "a BoK CAR project configured to read a development CAR from the local CNCF repository"
           )
-          val oldhome = System.getProperty("user.home")
-          System.setProperty("user.home", dir.resolve("home").toString)
-          try {
+          _with_user_home(dir.resolve("home")) {
             val localrepo = dir.resolve("home/.cncf/local/repository")
             _write(
               localrepo.resolve(
@@ -450,11 +449,6 @@ class CozyBokProjectSpec
             bundle should include(
               "repository/car/nict-knowledgehub/0.3.0-SNAPSHOT/nict-knowledgehub-0.3.0-SNAPSHOT.car"
             )
-          } finally {
-            if (oldhome == null)
-              System.clearProperty("user.home")
-            else
-              System.setProperty("user.home", oldhome)
           }
         }
       }
@@ -1243,9 +1237,7 @@ class CozyBokProjectSpec
       "materialize generic CAR pages from a development repository" in {
         _with_temp_dir("cozy-bok-sie-project-local-component") { dir =>
           Given("an SIE-linked Project whose component and subsystem catalogs come from the CNCF local repository")
-          val oldhome = System.getProperty("user.home")
-          System.setProperty("user.home", dir.resolve("home").toString)
-          try {
+          _with_user_home(dir.resolve("home")) {
             val localrepo = dir.resolve("home/.cncf/local/repository")
             val localpath = _write_sie_project_source(
               dir,
@@ -1299,11 +1291,6 @@ class CozyBokProjectSpec
             val knowledgesource = _read(dir.resolve("website.d/metadata/cncf/knowledge-source.json"))
             knowledgesource should include("metadata/cncf/component-references/car.json")
             knowledgesource should include("metadata/cncf/component-references/sar.json")
-          } finally {
-            if (oldhome == null)
-              System.clearProperty("user.home")
-            else
-              System.setProperty("user.home", oldhome)
           }
         }
       }
@@ -1311,9 +1298,7 @@ class CozyBokProjectSpec
       "publish project-backed CAR component references without repository catalogs" in {
         _with_temp_dir("cozy-bok-project-backed-component-reference") { dir =>
           Given("a BoK CAR Project whose component identity exists only as project metadata")
-          val oldhome = System.getProperty("user.home")
-          System.setProperty("user.home", dir.resolve("home").toString)
-          try {
+          _with_user_home(dir.resolve("home")) {
             _write_sie_project_source(
               dir,
               "https://sie.example.com/nict-knowledgehub/",
@@ -1349,11 +1334,6 @@ class CozyBokProjectSpec
             val knowledgesource = _read(dir.resolve("website.d/metadata/cncf/knowledge-source.json"))
             knowledgesource should include("metadata/cncf/component-references/car.json")
             knowledgesource should not include ("metadata/cncf/component-references/sar.json")
-          } finally {
-            if (oldhome == null)
-              System.clearProperty("user.home")
-            else
-              System.setProperty("user.home", oldhome)
           }
         }
       }
@@ -1361,9 +1341,7 @@ class CozyBokProjectSpec
       "reject duplicate project-backed CAR component identities" in {
         _with_temp_dir("cozy-bok-project-backed-component-reference-duplicate") { dir =>
           Given("two BoK Project packages that claim the same CAR component identity")
-          val oldhome = System.getProperty("user.home")
-          System.setProperty("user.home", dir.resolve("home").toString)
-          try {
+          _with_user_home(dir.resolve("home")) {
             _write_sie_project_source(
               dir,
               "https://sie.example.com/nict-knowledgehub/",
@@ -1387,11 +1365,6 @@ class CozyBokProjectSpec
             error.getMessage should include(
               "Conflicting BoK CAR project component-reference identities: nict-knowledgehub"
             )
-          } finally {
-            if (oldhome == null)
-              System.clearProperty("user.home")
-            else
-              System.setProperty("user.home", oldhome)
           }
         }
       }
@@ -1399,9 +1372,7 @@ class CozyBokProjectSpec
       "reject conflicting SIE catalogs for one artifact identity" in {
         _with_temp_dir("cozy-bok-sie-project-conflicting-subsystem") { dir =>
           Given("public and local SIE Projects resolve different SAR catalogs with the same artifact id")
-          val oldhome = System.getProperty("user.home")
-          System.setProperty("user.home", dir.resolve("home").toString)
-          try {
+          _with_user_home(dir.resolve("home")) {
             val localrepo = dir.resolve("home/.cncf/local/repository")
             val localpath = _write_sie_project_source(dir, "https://sie.example.com/nict-knowledgehub/")
             _write(
@@ -1455,11 +1426,6 @@ class CozyBokProjectSpec
 
             Then("the conflicting catalog identity is rejected instead of selecting one path arbitrarily")
             error.getMessage should include("Conflicting repository SAR catalogs for SIE artifact: nict-knowledgehub-runtime")
-          } finally {
-            if (oldhome == null)
-              System.clearProperty("user.home")
-            else
-              System.setProperty("user.home", oldhome)
           }
         }
       }
@@ -2945,6 +2911,17 @@ class CozyBokProjectSpec
       _delete(dir)
     }
   }
+
+  private def _with_user_home[A](home: Path)(body: => A): A =
+    CozyProjectContext.withUserHomeLock {
+      val previoushome = Option(System.getProperty("user.home"))
+      System.setProperty("user.home", home.toString)
+      try body
+      finally {
+        previoushome.foreach(System.setProperty("user.home", _))
+        if (previoushome.isEmpty) System.clearProperty("user.home")
+      }
+    }
 
   private def _write(path: Path, content: String): Path = {
     Option(path.getParent).foreach(Files.createDirectories(_))

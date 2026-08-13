@@ -22,11 +22,11 @@ import io.circe.parser.parse
 
 /*
  * @since   Jul. 28, 2026
- * @version Aug.  7, 2026
+ * @version Aug. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CarPackagingSpecSupport {
-  private val CNCF_VERSION = "0.5.17"
+  private val _cncf_version = "0.5.17"
   private val _release_cozy_version = "0.3.1"
 
   def buildCarWithContract(args: List[String]): Unit = {
@@ -59,7 +59,7 @@ private[cozy] object CarPackagingSpecSupport {
         orElse(originalconfig.list("packaging.car.runtime.cncf.tested").headOption).
         orElse(originalconfig.value("packaging.car.runtime.cncf.version")).
         orElse(originalconfig.value("packaging.car.runtime.cncf.minimum")).
-        getOrElse(CNCF_VERSION)
+        getOrElse(_cncf_version)
     val runtimejar =
       if (runtimedescriptor.nonEmpty)
         None

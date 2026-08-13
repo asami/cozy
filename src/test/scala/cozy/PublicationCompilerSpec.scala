@@ -5,17 +5,20 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 import java.util.zip.ZipFile
 import scala.collection.JavaConverters._
-import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.GivenWhenThen
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import play.api.libs.json.Json
 
 /*
  * @since   May. 12, 2026
  *  version May. 16, 2026
  *  version Jun. 10, 2026
- * @version Jul. 15, 2026
+ *  version Jul. 15, 2026
+ * @version Aug. 14, 2026
  * @author  ASAMI, Tomoharu
  */
-final class PublicationCompilerSpec extends AnyFunSuite {
+final class PublicationCompilerSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   private val _base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
 
   private def _entry(root: Path, path: String): play.api.libs.json.JsValue =
@@ -69,7 +72,10 @@ final class PublicationCompilerSpec extends AnyFunSuite {
       }
     }
 
-  test("publish-project generates deterministic BoK publication metadata from an sbt project") {
+  "Cozy publication compiler" should {
+    "publish-project publication and registry operations" which {
+    "publish-project generates deterministic BoK publication metadata from an sbt project" in {
+      Given("an sbt project fixture with deterministic publication inputs")
     val project = _base.resolve("target/test-generated/publish-project/sample")
     val out1 = _base.resolve("target/test-generated/publish-project/out-1")
     val out2 = _base.resolve("target/test-generated/publish-project/out-2")
@@ -98,6 +104,7 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     Files.writeString(out1.resolve("repository/artifacts/sample-publication.json"), """{"artifact":{"status":"placeholder"}}""", StandardCharsets.UTF_8)
     Files.writeString(out1.resolve("repository/artifacts/sample-publication.yaml"), "artifact:\n  status: placeholder\n", StandardCharsets.UTF_8)
 
+      When("publish-project compiles the project publication twice")
     Cozy.main(Array("publish-project", project.toString, "--save", out1.toString, "--kind", "sample-single", "--name", "sample-publication", "--title", "Sample Publication"))
     Cozy.main(Array("publish-project", project.toString, "--save", out2.toString, "--kind", "sample-single", "--name", "sample-publication", "--title", "Sample Publication"))
 
@@ -108,43 +115,48 @@ final class PublicationCompilerSpec extends AnyFunSuite {
       "metadata/samples/sample-publication/metadata.json",
       "metadata/source-manifest/sample-publication.json"
     )
+      Then("both publication bundles contain identical deterministic metadata")
     expected.foreach { rel =>
-      assert(_entry_exists(out1, rel), s"missing output: $rel")
-      assert(_entry(out1, rel) == _entry(out2, rel), s"non-deterministic output: $rel")
+      withClue(s"missing output: $rel") {
+        _entry_exists(out1, rel) shouldBe true
+      }
+      withClue(s"non-deterministic output: $rel") {
+        _entry(out1, rel) shouldBe _entry(out2, rel)
+      }
     }
-    assert(!Files.exists(out1.resolve("repository/artifacts/sample-publication.json")))
-    assert(!Files.exists(out1.resolve("repository/artifacts/sample-publication.yaml")))
-    assert(!Files.exists(out1.resolve("maven/artifacts/sample-publication.json")))
-    assert(!Files.exists(out1.resolve("download/artifacts/sample-publication.json")))
-    assert(!Files.exists(out1.resolve("metadata/artifacts/repository/sample-publication.json")))
-    assert(!Files.exists(out1.resolve("metadata/artifacts/maven/sample-publication.json")))
-    assert(!Files.exists(out1.resolve("metadata/artifacts/download/sample-publication.json")))
-    assert(Files.isRegularFile(out1.resolve("sample-publication.json")))
+    Files.exists(out1.resolve("repository/artifacts/sample-publication.json")) shouldBe false
+    Files.exists(out1.resolve("repository/artifacts/sample-publication.yaml")) shouldBe false
+    Files.exists(out1.resolve("maven/artifacts/sample-publication.json")) shouldBe false
+    Files.exists(out1.resolve("download/artifacts/sample-publication.json")) shouldBe false
+    Files.exists(out1.resolve("metadata/artifacts/repository/sample-publication.json")) shouldBe false
+    Files.exists(out1.resolve("metadata/artifacts/maven/sample-publication.json")) shouldBe false
+    Files.exists(out1.resolve("metadata/artifacts/download/sample-publication.json")) shouldBe false
+    Files.isRegularFile(out1.resolve("sample-publication.json")) shouldBe true
 
     val bundlejson = _bundle(out1, "sample-publication")
-    assert(bundlejson == _bundle(out2, "sample-publication"))
-    assert((bundlejson \ "generatedAt").isEmpty)
-    assert(!(bundlejson \ "sourcePath").as[String].startsWith("/"))
+    bundlejson shouldBe _bundle(out2, "sample-publication")
+    (bundlejson \ "generatedAt").isEmpty shouldBe true
+    (bundlejson \ "sourcePath").as[String].startsWith("/") shouldBe false
     val catalogjson = _entry(out1, "metadata/catalog/projects/sample-publication.json")
-    assert((catalogjson \ "project" \ "metadata").as[String] == "metadata/projects/sample-publication/metadata")
+    (catalogjson \ "project" \ "metadata").as[String] shouldBe "metadata/projects/sample-publication/metadata"
     val projectjson = _entry(out1, "metadata/projects/sample-publication/metadata.json")
-    assert((projectjson \ "project" \ "name").as[String] == "sample-publication")
-    assert((projectjson \ "project" \ "title").as[String] == "Sample Publication")
-    assert((projectjson \ "project" \ "kind").as[String] == "sample-single")
-    assert((projectjson \ "project" \ "organization").as[String] == "org.example")
-    assert((projectjson \ "project" \ "version").as[String] == "0.1.0")
-    assert((projectjson \ "project" \ "scalaVersion").as[String] == "3.3.8")
-    assert((projectjson \ "project" \ "sbtVersion").as[String] == "1.11.7")
+    (projectjson \ "project" \ "name").as[String] shouldBe "sample-publication"
+    (projectjson \ "project" \ "title").as[String] shouldBe "Sample Publication"
+    (projectjson \ "project" \ "kind").as[String] shouldBe "sample-single"
+    (projectjson \ "project" \ "organization").as[String] shouldBe "org.example"
+    (projectjson \ "project" \ "version").as[String] shouldBe "0.1.0"
+    (projectjson \ "project" \ "scalaVersion").as[String] shouldBe "3.3.8"
+    (projectjson \ "project" \ "sbtVersion").as[String] shouldBe "1.11.7"
 
     val manifestjson = _entry(out1, "metadata/source-manifest/sample-publication.json")
     val paths = (manifestjson \ "files").as[Vector[play.api.libs.json.JsObject]].map(x => (x \ "path").as[String])
-    assert(paths.contains("build.sbt"))
-    assert(paths.contains("project/build.properties"))
-    assert(paths.contains("src/main/scala/Main.scala"))
-    assert(!paths.exists(_.startsWith("target/")))
+    paths.contains("build.sbt") shouldBe true
+    paths.contains("project/build.properties") shouldBe true
+    paths.contains("src/main/scala/Main.scala") shouldBe true
+    paths.exists(_.startsWith("target/")) shouldBe false
   }
-
-  test("publish-project rejects colliding sample slugs") {
+    "publish-project rejects colliding sample slugs" in {
+      Given("a multi-sample project fixture with colliding sample slugs")
     val project = _base.resolve("target/test-generated/publish-project/colliding-samples")
     val out = _base.resolve("target/test-generated/publish-project/colliding-samples-out")
     _delete(project)
@@ -156,12 +168,14 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     Files.writeString(project.resolve("samples/01-hello/build.sbt"), "name := \"Hello B\"\n", StandardCharsets.UTF_8)
 
     val ex = intercept[Throwable] {
+      When("publish-project validates the colliding sample slugs")
       Cozy.main(Array("publish-project", project.toString, "--save", out.toString, "--kind", "sample-multi"))
     }
-    assert(ex.getMessage.contains("Duplicate sample slug"))
+      Then("the duplicate sample slug is reported")
+    ex.getMessage.contains("Duplicate sample slug") shouldBe true
   }
-
-  test("publish-project requires project.yaml name to be URL-safe") {
+    "publish-project requires project.yaml name to be URL-safe" in {
+      Given("a project fixture whose configured publication name is invalid")
     val project = _base.resolve("target/test-generated/publish-project/invalid-project-name")
     val out = _base.resolve("target/test-generated/publish-project/invalid-project-name-out")
     _delete(project)
@@ -178,12 +192,14 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     )
 
     val ex = intercept[Throwable] {
+      When("publish-project validates the configured publication name")
       Cozy.main(Array("publish-project", project.toString, "--save", out.toString))
     }
-    assert(ex.getMessage.contains("Invalid publication name"))
+      Then("the invalid publication name is reported")
+    ex.getMessage.contains("Invalid publication name") shouldBe true
   }
-
-  test("publish-project does not auto-detect publication.yaml as public metadata") {
+    "publish-project does not auto-detect publication.yaml as public metadata" in {
+      Given("a project fixture containing publication.yaml without project metadata")
     val project = _base.resolve("target/test-generated/publish-project/publication-yaml-ignored")
     val out = _base.resolve("target/test-generated/publish-project/publication-yaml-ignored-out")
     _delete(project)
@@ -199,15 +215,17 @@ final class PublicationCompilerSpec extends AnyFunSuite {
       StandardCharsets.UTF_8
     )
 
+      When("publish-project reads the project metadata sources")
     Cozy.main(Array("publish-project", project.toString, "--save", out.toString))
 
     val projectjson = _entry(out, "metadata/projects/fallback-name/metadata.json")
-    assert((projectjson \ "project" \ "name").as[String] == "fallback-name")
-    assert((projectjson \ "project" \ "title").as[String] == "Fallback Name")
-    assert(!_entry_exists(out, "metadata/projects/publication-file-name/metadata.json"))
+      Then("the publication ignores publication.yaml and uses build metadata")
+    (projectjson \ "project" \ "name").as[String] shouldBe "fallback-name"
+    (projectjson \ "project" \ "title").as[String] shouldBe "Fallback Name"
+    _entry_exists(out, "metadata/projects/publication-file-name/metadata.json") shouldBe false
   }
-
-  test("publish-project rejects reserved publication path roots") {
+    "publish-project rejects reserved publication path roots" in {
+      Given("a project fixture with a reserved publication path")
     val project = _base.resolve("target/test-generated/publish-project/reserved-publication-path")
     val out = _base.resolve("target/test-generated/publish-project/reserved-publication-path-out")
     _delete(project)
@@ -225,10 +243,13 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     )
 
     val ex = intercept[Throwable] {
+      When("publish-project validates the reserved publication path")
       Cozy.main(Array("publish-project", project.toString, "--save", out.toString))
     }
-    assert(ex.getMessage.contains("Reserved top-level path"))
+      Then("the reserved publication path is rejected")
+    ex.getMessage.contains("Reserved top-level path") shouldBe true
 
+    Given("the same project with an allowed publication path")
     Files.writeString(
       project.resolve("project.yaml"),
       """project:
@@ -238,12 +259,14 @@ final class PublicationCompilerSpec extends AnyFunSuite {
         |""".stripMargin,
       StandardCharsets.UTF_8
     )
+      When("publish-project writes the publication with the allowed path")
     Cozy.main(Array("publish-project", project.toString, "--save", out.toString))
     val projectjson = _entry(out, "metadata/projects/reserved-path/metadata.json")
-    assert((projectjson \ "publication" \ "path").as[String] == "textus/tutorial/textus-tutorial")
+      Then("the allowed publication path is recorded")
+    (projectjson \ "publication" \ "path").as[String] shouldBe "textus/tutorial/textus-tutorial"
   }
-
-  test("publish-project auto-detects car projects and supports kind override") {
+    "publish-project auto-detects car projects and supports kind override" in {
+      Given("a Cozy CAR project fixture eligible for kind detection")
     val project = _base.resolve("target/test-generated/publish-project/car")
     val out = _base.resolve("target/test-generated/publish-project/car-out")
     _delete(project)
@@ -263,20 +286,25 @@ final class PublicationCompilerSpec extends AnyFunSuite {
       StandardCharsets.UTF_8
     )
 
+      When("publish-project detects the CAR project kind")
     Cozy.main(Array("publish-project", project.toString, "--save", out.toString))
     val detected = _entry(out, "metadata/projects/car-publication/metadata.json")
-    assert((detected \ "project" \ "kind").as[String] == "car")
+      Then("the detected CAR kind and repository artifact metadata are reflected")
+    (detected \ "project" \ "kind").as[String] shouldBe "car"
     val artifact = _entry(out, "metadata/artifacts/repository/car-publication.json")
-    assert((artifact \ "artifact" \ "status").as[String] == "planned")
-    assert((artifact \ "artifact" \ "files" \\ "warehousePath").map(_.as[String]).contains("repository/car/car-publication/0.1.0/car-publication-0.1.0.car"))
-    assert((artifact \ "artifact" \ "files" \\ "publicPath").map(_.as[String]).contains("repository/car/car-publication/0.1.0/car-publication-0.1.0.car"))
+    (artifact \ "artifact" \ "status").as[String] shouldBe "planned"
+    (artifact \ "artifact" \ "files" \\ "warehousePath").map(_.as[String]).contains("repository/car/car-publication/0.1.0/car-publication-0.1.0.car") shouldBe true
+    (artifact \ "artifact" \ "files" \\ "publicPath").map(_.as[String]).contains("repository/car/car-publication/0.1.0/car-publication-0.1.0.car") shouldBe true
 
+    Given("the detected CAR project with an explicit sample-single kind override")
+      When("publish-project applies the kind override")
     Cozy.main(Array("publish-project", project.toString, "--save", out.toString, "--kind", "sample-single"))
     val overridden = _entry(out, "metadata/projects/car-publication/metadata.json")
-    assert((overridden \ "project" \ "kind").as[String] == "sample-single")
+      Then("the overridden kind is reflected in metadata")
+    (overridden \ "project" \ "kind").as[String] shouldBe "sample-single"
   }
-
-  test("publish-project preserves Cozy/CNCF settings and BoK article relationships") {
+    "publish-project preserves Cozy/CNCF settings and BoK article relationships" in {
+      Given("a Cozy CAR project with build settings and BoK article metadata")
     val project = _base.resolve("target/test-generated/publish-project/bok-relationships")
     val out = _base.resolve("target/test-generated/publish-project/bok-relationships-out")
     _delete(project)
@@ -314,26 +342,28 @@ final class PublicationCompilerSpec extends AnyFunSuite {
       StandardCharsets.UTF_8
     )
 
+      When("publish-project compiles the Cozy and BoK metadata")
     Cozy.main(Array("publish-project", project.toString, "--save", out.toString))
 
     val projectjson = _entry(out, "metadata/projects/bok-linked-component/metadata.json")
     val settings = (projectjson \ "project" \ "buildSettings").as[play.api.libs.json.JsObject]
-    assert((settings \ "cozyPlugin").as[Boolean])
-    assert((settings \ "sbtCozyPlugin").as[Boolean])
-    assert((settings \ "cozyPackaging").as[String] == "car")
-    assert((settings \ "cncfDependency").as[Boolean])
-    assert((settings \ "cncfVersion").as[String] == "0.4.8-SNAPSHOT")
+      Then("the build settings and article relationships are preserved")
+    (settings \ "cozyPlugin").as[Boolean] shouldBe true
+    (settings \ "sbtCozyPlugin").as[Boolean] shouldBe true
+    (settings \ "cozyPackaging").as[String] shouldBe "car"
+    (settings \ "cncfDependency").as[Boolean] shouldBe true
+    (settings \ "cncfVersion").as[String] shouldBe "0.4.8-SNAPSHOT"
     val articles = (projectjson \ "publication" \ "articles").as[Vector[play.api.libs.json.JsObject]]
-    assert(articles.map(x => (x \ "path").as[String]) == Vector(
+    articles.map(x => (x \ "path").as[String]) shouldBe Vector(
       "textus/components/bok-linked-component",
       "textus/components/bok-linked-component/reference"
-    ))
-    assert((articles.head \ "role").as[String] == "primary")
-    assert((articles(1) \ "role").as[String] == "page")
-    assert((articles(1) \ "title").as[String] == "Reference Page")
+    )
+    (articles.head \ "role").as[String] shouldBe "primary"
+    (articles(1) \ "role").as[String] shouldBe "page"
+    (articles(1) \ "title").as[String] shouldBe "Reference Page"
   }
-
-  test("publish-project uses conf/cozy and .cozy defaults and detects sample collections") {
+    "publish-project uses conf/cozy and .cozy defaults and detects sample collections" in {
+      Given("a configured sample collection with layered Cozy defaults")
     val project = _base.resolve("target/test-generated/publish-project/configured")
     _delete(project)
     Files.createDirectories(project.resolve("conf/cozy"))
@@ -405,77 +435,79 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     Files.createDirectories(project.resolve("ignored.d"))
     Files.writeString(project.resolve("ignored.d/secret.txt"), "ignored\n", StandardCharsets.UTF_8)
 
+      When("publish-project applies layered defaults and builds the sample collection")
     Cozy.main(Array("publish-project", project.toString))
 
     val out = project.resolve("target/custom-publication")
     val catalogjson = _entry(out, "metadata/catalog/projects/textus-tutorial.json")
-    assert((catalogjson \ "project" \ "metadata").as[String] == "metadata/projects/textus-tutorial/metadata")
+      Then("the layered metadata and sample references are preserved")
+    (catalogjson \ "project" \ "metadata").as[String] shouldBe "metadata/projects/textus-tutorial/metadata"
     val catalogsamplejson = _entry(out, "metadata/catalog/samples/textus-tutorial.json")
-    assert((catalogsamplejson \ "sample" \ "metadata").as[String] == "metadata/samples/textus-tutorial/metadata")
-    assert((catalogsamplejson \ "sample" \ "download" \ "artifact").as[String] == "metadata/artifacts/download/textus-tutorial")
-    assert((catalogsamplejson \ "sample" \ "download" \ "types").as[Vector[String]].contains("sample-collection-zip"))
+    (catalogsamplejson \ "sample" \ "metadata").as[String] shouldBe "metadata/samples/textus-tutorial/metadata"
+    (catalogsamplejson \ "sample" \ "download" \ "artifact").as[String] shouldBe "metadata/artifacts/download/textus-tutorial"
+    (catalogsamplejson \ "sample" \ "download" \ "types").as[Vector[String]].contains("sample-collection-zip") shouldBe true
     val projectjson = _entry(out, "metadata/projects/textus-tutorial/metadata.json")
-    assert((projectjson \ "project" \ "name").as[String] == "textus-tutorial")
-    assert((projectjson \ "project" \ "title").as[String] == "Textus Tutorial")
-    assert((projectjson \ "project" \ "summary").as[String] == "Tutorial sample collection.")
-    assert((projectjson \ "project" \ "description").as[String] == "Textus tutorial samples for Cozy publication.")
-    assert((projectjson \ "project" \ "summary_i18n" \ "ja").as[String] == "Textus と CNCF の基本を実行しながら学ぶサンプル集です。")
-    assert((projectjson \ "publication" \ "path").as[String] == "textus/tutorial/textus-tutorial")
-    assert((projectjson \ "project" \ "kind").as[String] == "sample-multi")
+    (projectjson \ "project" \ "name").as[String] shouldBe "textus-tutorial"
+    (projectjson \ "project" \ "title").as[String] shouldBe "Textus Tutorial"
+    (projectjson \ "project" \ "summary").as[String] shouldBe "Tutorial sample collection."
+    (projectjson \ "project" \ "description").as[String] shouldBe "Textus tutorial samples for Cozy publication."
+    (projectjson \ "project" \ "summary_i18n" \ "ja").as[String] shouldBe "Textus と CNCF の基本を実行しながら学ぶサンプル集です。"
+    (projectjson \ "publication" \ "path").as[String] shouldBe "textus/tutorial/textus-tutorial"
+    (projectjson \ "project" \ "kind").as[String] shouldBe "sample-multi"
 
     val pagesjson = _entry(out, "metadata/publication-pages/textus-tutorial.json")
     val pagepaths = (pagesjson \ "pages").as[Vector[play.api.libs.json.JsObject]].map(x => (x \ "path").as[String])
-    assert(pagepaths.contains("textus/tutorial"))
-    assert(pagepaths.contains("textus/tutorial/textus-tutorial"))
+    pagepaths.contains("textus/tutorial") shouldBe true
+    pagepaths.contains("textus/tutorial/textus-tutorial") shouldBe true
     val tutorialcatalog = (pagesjson \ "pages").as[Vector[play.api.libs.json.JsObject]].find(x => (x \ "path").as[String] == "textus/tutorial").get
-    assert((tutorialcatalog \ "summary_i18n" \ "ja").as[String] == "Textus を学ぶためのチュートリアル一覧です。")
+    (tutorialcatalog \ "summary_i18n" \ "ja").as[String] shouldBe "Textus を学ぶためのチュートリアル一覧です。"
 
     val manifestjson = _entry(out, "metadata/source-manifest/textus-tutorial.json")
     val paths = (manifestjson \ "files").as[Vector[play.api.libs.json.JsObject]].map(x => (x \ "path").as[String])
-    assert(paths.contains("samples/01-hello/build.sbt"))
-    assert(paths.contains("samples/02-crud/build.sbt"))
-    assert(!paths.exists(_.startsWith("ignored.d/")))
+    paths.contains("samples/01-hello/build.sbt") shouldBe true
+    paths.contains("samples/02-crud/build.sbt") shouldBe true
+    paths.exists(_.startsWith("ignored.d/")) shouldBe false
 
     val collectionmetadata = _entry(out, "metadata/samples/textus-tutorial/metadata.json")
-    assert((collectionmetadata \ "download" \ "artifact").as[String] == "metadata/artifacts/download/textus-tutorial")
-    assert((collectionmetadata \ "download" \ "types").as[Vector[String]].contains("sample-collection-zip"))
+    (collectionmetadata \ "download" \ "artifact").as[String] shouldBe "metadata/artifacts/download/textus-tutorial"
+    (collectionmetadata \ "download" \ "types").as[Vector[String]].contains("sample-collection-zip") shouldBe true
     val samplerefs = (collectionmetadata \ "samples").as[Vector[play.api.libs.json.JsObject]]
-    assert(samplerefs.map(x => (x \ "metadata").as[String]).contains("metadata/samples/textus-tutorial/items/01-hello/0.1.0/metadata"))
+    samplerefs.map(x => (x \ "metadata").as[String]).contains("metadata/samples/textus-tutorial/items/01-hello/0.1.0/metadata") shouldBe true
 
     val samplemetadata = _entry(out, "metadata/samples/textus-tutorial/items/01-hello/0.1.0/metadata.json")
-    assert((samplemetadata \ "sample" \ "name").as[String] == "01-hello")
-    assert((samplemetadata \ "sample" \ "title").as[String] == "Hello Tutorial")
-    assert((samplemetadata \ "sample" \ "summary").as[String] == "Hello tutorial summary.")
-    assert((samplemetadata \ "sample" \ "description").as[String] == "Hello tutorial description.")
-    assert((samplemetadata \ "sample" \ "version").as[String] == "0.1.0")
-    assert((samplemetadata \ "sample" \ "download" \ "artifact").as[String] == "metadata/artifacts/download/textus-tutorial")
-    assert((samplemetadata \ "sample" \ "download" \ "type").as[String] == "sample-zip")
-    assert((samplemetadata \ "sample" \ "download" \ "expectedPath").isEmpty)
-    assert((samplemetadata \ "files").isEmpty)
+    (samplemetadata \ "sample" \ "name").as[String] shouldBe "01-hello"
+    (samplemetadata \ "sample" \ "title").as[String] shouldBe "Hello Tutorial"
+    (samplemetadata \ "sample" \ "summary").as[String] shouldBe "Hello tutorial summary."
+    (samplemetadata \ "sample" \ "description").as[String] shouldBe "Hello tutorial description."
+    (samplemetadata \ "sample" \ "version").as[String] shouldBe "0.1.0"
+    (samplemetadata \ "sample" \ "download" \ "artifact").as[String] shouldBe "metadata/artifacts/download/textus-tutorial"
+    (samplemetadata \ "sample" \ "download" \ "type").as[String] shouldBe "sample-zip"
+    (samplemetadata \ "sample" \ "download" \ "expectedPath").isEmpty shouldBe true
+    (samplemetadata \ "files").isEmpty shouldBe true
     val downloadartifact = _entry(out, "metadata/artifacts/download/textus-tutorial.json")
-    assert((downloadartifact \ "artifact" \ "status").as[String] == "planned")
-    assert((downloadartifact \ "project" \ "summary").as[String] == "Tutorial sample collection.")
-    assert((downloadartifact \ "artifact" \ "files" \\ "warehousePath").map(_.as[String]).contains("repository/download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip"))
-    assert((downloadartifact \ "artifact" \ "files" \\ "publicPath").map(_.as[String]).contains("repository/download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip"))
-    assert((downloadartifact \ "artifact" \ "files" \\ "warehousePath").map(_.as[String]).contains("repository/download/textus/tutorial/textus-tutorial/0.1.0/01-hello/01-hello-0.1.0.zip"))
-    assert((downloadartifact \ "artifact" \ "files" \\ "publicPath").map(_.as[String]).contains("repository/download/textus/tutorial/textus-tutorial/0.1.0/01-hello/01-hello-0.1.0.zip"))
-    assert(!_entry_exists(out, "metadata/samples/textus-tutorial/items/01-hello/0.1.0/files/build.sbt"))
-    assert(!_entry_exists(out, "metadata/samples/textus-tutorial/items/01-hello/0.1.0/files/README.md"))
+    (downloadartifact \ "artifact" \ "status").as[String] shouldBe "planned"
+    (downloadartifact \ "project" \ "summary").as[String] shouldBe "Tutorial sample collection."
+    (downloadartifact \ "artifact" \ "files" \\ "warehousePath").map(_.as[String]).contains("repository/download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip") shouldBe true
+    (downloadartifact \ "artifact" \ "files" \\ "publicPath").map(_.as[String]).contains("repository/download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip") shouldBe true
+    (downloadartifact \ "artifact" \ "files" \\ "warehousePath").map(_.as[String]).contains("repository/download/textus/tutorial/textus-tutorial/0.1.0/01-hello/01-hello-0.1.0.zip") shouldBe true
+    (downloadartifact \ "artifact" \ "files" \\ "publicPath").map(_.as[String]).contains("repository/download/textus/tutorial/textus-tutorial/0.1.0/01-hello/01-hello-0.1.0.zip") shouldBe true
+    _entry_exists(out, "metadata/samples/textus-tutorial/items/01-hello/0.1.0/files/build.sbt") shouldBe false
+    _entry_exists(out, "metadata/samples/textus-tutorial/items/01-hello/0.1.0/files/README.md") shouldBe false
     val latest = _entry(out, "metadata/samples/textus-tutorial/items/01-hello/latest.json")
-    assert((latest \ "latest" \ "version").as[String] == "0.1.0")
-    assert((latest \ "latest" \ "metadata").as[String] == "metadata/samples/textus-tutorial/items/01-hello/0.1.0/metadata")
-    assert(!Files.exists(out.resolve("metadata/catalog/samples/textus-tutorial/01-hello/0.1.0.json")))
-    assert(!Files.exists(out.resolve("download/artifacts/textus-tutorial.json")))
+    (latest \ "latest" \ "version").as[String] shouldBe "0.1.0"
+    (latest \ "latest" \ "metadata").as[String] shouldBe "metadata/samples/textus-tutorial/items/01-hello/0.1.0/metadata"
+    Files.exists(out.resolve("metadata/catalog/samples/textus-tutorial/01-hello/0.1.0.json")) shouldBe false
+    Files.exists(out.resolve("download/artifacts/textus-tutorial.json")) shouldBe false
     val registrybundle = _bundle(out, "textus-tutorial")
     val registryfiles = (registrybundle \ "entries").as[Vector[play.api.libs.json.JsObject]].map(x => (x \ "path").as[String])
-    assert((registrybundle \ "publication" \ "name").as[String] == "textus-tutorial")
-    assert((registrybundle \ "publication" \ "path").as[String] == "textus/tutorial/textus-tutorial")
-    assert(registryfiles.contains("metadata/publication-pages/textus-tutorial.json"))
-    assert(registryfiles.contains("metadata/samples/textus-tutorial/items/01-hello/0.1.0/metadata.json"))
-    assert(!registryfiles.exists(_.contains("/files/")))
+    (registrybundle \ "publication" \ "name").as[String] shouldBe "textus-tutorial"
+    (registrybundle \ "publication" \ "path").as[String] shouldBe "textus/tutorial/textus-tutorial"
+    registryfiles.contains("metadata/publication-pages/textus-tutorial.json") shouldBe true
+    registryfiles.contains("metadata/samples/textus-tutorial/items/01-hello/0.1.0/metadata.json") shouldBe true
+    registryfiles.exists(_.contains("/files/")) shouldBe false
   }
-
-  test("publish-project replaces only files owned by the same publication") {
+    "publish-project replaces only files owned by the same publication" in {
+      Given("an existing sample publication registry with replaceable entries")
     val project = _base.resolve("target/test-generated/publish-project/registry-replace")
     val out = _base.resolve("target/test-generated/publish-project/registry-replace-out")
     _delete(project)
@@ -499,10 +531,13 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     )
     Files.writeString(project.resolve("samples/01-hello/build.sbt"), "name := \"Hello\"\n", StandardCharsets.UTF_8)
     Files.writeString(project.resolve("samples/02-crud/build.sbt"), "name := \"CRUD\"\n", StandardCharsets.UTF_8)
+      When("publish-project creates the initial publication registry")
     Cozy.main(Array("publish-project", project.toString, "--save", out.toString))
-    assert(_entry_exists(out, "metadata/publication-pages/textus-tutorial.json"))
-    assert(_entry_exists(out, "metadata/samples/textus-tutorial/items/02-crud/0.1.0/metadata.json"))
+      Then("the initial publication entries are present")
+    _entry_exists(out, "metadata/publication-pages/textus-tutorial.json") shouldBe true
+    _entry_exists(out, "metadata/samples/textus-tutorial/items/02-crud/0.1.0/metadata.json") shouldBe true
 
+    Given("the same publication after removing one sample and its page metadata")
     _delete(project.resolve("samples/02-crud"))
     Files.writeString(
       project.resolve("project.yaml"),
@@ -516,19 +551,21 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     )
     Files.createDirectories(out.resolve("metadata/projects/other"))
     Files.writeString(out.resolve("metadata/projects/other/metadata.json"), "{}\n", StandardCharsets.UTF_8)
+      When("publish-project replaces the existing publication registry")
     Cozy.main(Array("publish-project", project.toString, "--save", out.toString))
 
-    assert(!_entry_exists(out, "metadata/publication-pages/textus-tutorial.json"))
-    assert(!_entry_exists(out, "metadata/samples/textus-tutorial/items/02-crud/0.1.0/metadata.json"))
-    assert(_entry_exists(out, "metadata/samples/textus-tutorial/items/01-hello/0.1.0/metadata.json"))
-    assert(Files.isRegularFile(out.resolve("metadata/projects/other/metadata.json")))
+      Then("owned entries are removed while unrelated entries remain")
+    _entry_exists(out, "metadata/publication-pages/textus-tutorial.json") shouldBe false
+    _entry_exists(out, "metadata/samples/textus-tutorial/items/02-crud/0.1.0/metadata.json") shouldBe false
+    _entry_exists(out, "metadata/samples/textus-tutorial/items/01-hello/0.1.0/metadata.json") shouldBe true
+    Files.isRegularFile(out.resolve("metadata/projects/other/metadata.json")) shouldBe true
     val manifest = _bundle(out, "textus-tutorial")
     val files = (manifest \ "entries").as[Vector[play.api.libs.json.JsObject]].map(x => (x \ "path").as[String])
-    assert(!files.contains("metadata/publication-pages/textus-tutorial.json"))
-    assert(!files.contains("metadata/samples/textus-tutorial/items/02-crud/0.1.0/metadata.json"))
+    files.contains("metadata/publication-pages/textus-tutorial.json") shouldBe false
+    files.contains("metadata/samples/textus-tutorial/items/02-crud/0.1.0/metadata.json") shouldBe false
   }
-
-  test("publish-project rejects paths owned by another publication bundle") {
+    "publish-project rejects paths owned by another publication bundle" in {
+      Given("a project whose publication path collides with another bundle")
     val project = _base.resolve("target/test-generated/publish-project/registry-collision")
     val out = _base.resolve("target/test-generated/publish-project/registry-collision-out")
     _delete(project)
@@ -556,29 +593,40 @@ final class PublicationCompilerSpec extends AnyFunSuite {
       StandardCharsets.UTF_8
     )
     val ex = intercept[Throwable] {
+      When("publish-project checks the colliding publication registry")
       Cozy.main(Array("publish-project", project.toString, "--save", out.toString, "--name", "textus-tutorial"))
     }
-    assert(ex.getMessage.contains("Publication registry path collision"))
+      Then("the ownership collision is reported")
+    ex.getMessage.contains("Publication registry path collision") shouldBe true
   }
-
-  test("unpublish-project removes only the publication bundle") {
+    }
+    "unpublish-project operations" which {
+    "unpublish-project removes only the publication bundle" in {
+      Given("a published bundle and an unrelated registry entry")
     val project = _base.resolve("target/test-generated/publish-project/unpublish")
     val out = _base.resolve("target/test-generated/publish-project/unpublish-out")
     _delete(project)
     _delete(out)
     Files.createDirectories(project)
     Files.writeString(project.resolve("build.sbt"), "name := \"Unpublish Sample\"\nversion := \"0.1.0\"\n", StandardCharsets.UTF_8)
+      When("publish-project creates the bundle for removal")
     Cozy.main(Array("publish-project", project.toString, "--save", out.toString, "--name", "unpublish-sample"))
+
+    Given("the publication bundle alongside an unrelated metadata entry")
     Files.createDirectories(out.resolve("metadata/projects/other"))
     Files.writeString(out.resolve("metadata/projects/other/metadata.json"), "{}\n", StandardCharsets.UTF_8)
 
+      When("unpublish-project removes the requested bundle")
     Cozy.main(Array("unpublish-project", "--save", out.toString, "--name", "unpublish-sample"))
 
-    assert(!Files.exists(out.resolve("unpublish-sample.json")))
-    assert(Files.isRegularFile(out.resolve("metadata/projects/other/metadata.json")))
+      Then("only the requested publication bundle is removed")
+    Files.exists(out.resolve("unpublish-sample.json")) shouldBe false
+    Files.isRegularFile(out.resolve("metadata/projects/other/metadata.json")) shouldBe true
   }
-
-  test("publish-maven-repository generates Maven repository publication metadata without sbt project files") {
+    }
+    "publish-maven-repository operations" which {
+    "publish-maven-repository generates Maven repository publication metadata without sbt project files" in {
+      Given("a Maven repository fixture with release and snapshot artifacts")
     val root = _base.resolve("target/test-generated/publish-maven-repository")
     val repository = root.resolve("repository")
     val out = root.resolve("publication")
@@ -594,6 +642,7 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     Files.createDirectories(snapshot.getParent)
     Files.writeString(snapshot, "binary-snapshot", StandardCharsets.UTF_8)
 
+      When("publish-maven-repository indexes the Maven artifacts")
     Cozy.main(Array(
       "publish-maven-repository",
       repository.toString,
@@ -603,46 +652,53 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     ))
 
     val metadata = _entry(out, "metadata/projects/maven-repository/metadata.json")
-    assert((metadata \ "project" \ "name").as[String] == "maven-repository")
-    assert((metadata \ "project" \ "kind").as[String] == "maven-repository")
-    assert(!((metadata \ "project" \ "buildSettings" \ "cozyPlugin").as[Boolean]))
-    assert(!((metadata \ "project" \ "buildSettings" \ "cncfDependency").as[Boolean]))
+      Then("the Maven metadata records release and snapshot artifacts")
+    (metadata \ "project" \ "name").as[String] shouldBe "maven-repository"
+    (metadata \ "project" \ "kind").as[String] shouldBe "maven-repository"
+    ((metadata \ "project" \ "buildSettings" \ "cozyPlugin").as[Boolean]) shouldBe false
+    ((metadata \ "project" \ "buildSettings" \ "cncfDependency").as[Boolean]) shouldBe false
     val mavenjson = _entry(out, "metadata/artifacts/maven/maven-repository.json")
-    assert((mavenjson \ "artifact" \ "status").as[String] == "available")
+    (mavenjson \ "artifact" \ "status").as[String] shouldBe "available"
     val coordinates = (mavenjson \ "artifact" \ "coordinates").as[Vector[play.api.libs.json.JsObject]]
-    assert((coordinates.head \ "groupId").as[String] == "org.example")
-    assert((coordinates.head \ "artifactId").as[String] == "textus-tutorial_3")
-    assert((coordinates.head \ "latestRelease").as[String] == "0.1.0")
+    (coordinates.head \ "groupId").as[String] shouldBe "org.example"
+    (coordinates.head \ "artifactId").as[String] shouldBe "textus-tutorial_3"
+    (coordinates.head \ "latestRelease").as[String] shouldBe "0.1.0"
     val files = (mavenjson \ "artifact" \ "files").as[Vector[play.api.libs.json.JsObject]]
     val paths = files.map(x => (x \ "warehousePath").as[String])
-    assert(paths.contains("maven/org/example/textus-tutorial_3/0.1.0/textus-tutorial_3-0.1.0.jar"))
-    assert(paths.contains("maven/org/example/textus-tutorial_3/0.1.0/textus-tutorial_3-0.1.0-sources.jar"))
-    assert(paths.exists(_.contains("0.2.0-SNAPSHOT")))
+    paths.contains("maven/org/example/textus-tutorial_3/0.1.0/textus-tutorial_3-0.1.0.jar") shouldBe true
+    paths.contains("maven/org/example/textus-tutorial_3/0.1.0/textus-tutorial_3-0.1.0-sources.jar") shouldBe true
+    paths.exists(_.contains("0.2.0-SNAPSHOT")) shouldBe true
     val mainjar = files.find(x => (x \ "name").as[String] == "textus-tutorial_3-0.1.0.jar").get
-    assert((mainjar \ "publicPath").as[String] == "repository/maven/org/example/textus-tutorial_3/0.1.0/textus-tutorial_3-0.1.0.jar")
-    assert((mainjar \ "sha1").as[String] == "abc123")
-    assert((mainjar \ "md5").as[String] == "def456")
-    assert((mainjar \ "sha256").as[String].nonEmpty)
+    (mainjar \ "publicPath").as[String] shouldBe "repository/maven/org/example/textus-tutorial_3/0.1.0/textus-tutorial_3-0.1.0.jar"
+    (mainjar \ "sha1").as[String] shouldBe "abc123"
+    (mainjar \ "md5").as[String] shouldBe "def456"
+    (mainjar \ "sha256").as[String].nonEmpty shouldBe true
     val releasejson = _entry(out, "metadata/releases/maven-repository.json")
-    assert((releasejson \ "release" \ "latest").as[String] == "0.1.0")
+    (releasejson \ "release" \ "latest").as[String] shouldBe "0.1.0"
     val releaseversions = (releasejson \ "release" \ "versions").as[Vector[play.api.libs.json.JsObject]].map(x => (x \ "version").as[String])
-    assert(releaseversions.contains("0.1.0"))
-    assert(releaseversions.contains("0.2.0-SNAPSHOT"))
+    releaseversions.contains("0.1.0") shouldBe true
+    releaseversions.contains("0.2.0-SNAPSHOT") shouldBe true
   }
-
-  test("publish-project defaults to target/publication") {
+    }
+    "publish-project default-output operations" which {
+    "publish-project defaults to target/publication" in {
+      Given("a project fixture without an explicit publication output")
     val project = _base.resolve("target/test-generated/publish-project/default-output")
     _delete(project)
     Files.createDirectories(project)
     Files.writeString(project.resolve("build.sbt"), "name := \"Default Output\"\nversion := \"0.1.0\"\n", StandardCharsets.UTF_8)
 
+      When("publish-project writes its default publication output")
     Cozy.main(Array("publish-project", project.toString, "--name", "default-output"))
 
-    assert(Files.isRegularFile(project.resolve("target/publication/default-output.json")))
-    assert(!Files.exists(project.resolve("target/publish.d")))
+      Then("the default publication bundle is written under target/publication")
+    Files.isRegularFile(project.resolve("target/publication/default-output.json")) shouldBe true
+    Files.exists(project.resolve("target/publish.d")) shouldBe false
   }
-
-  test("distribute-samples writes versioned sample archives under warehouse download") {
+    }
+    "distribute-samples operations" which {
+    "distribute-samples writes versioned sample archives under warehouse download" in {
+      Given("a sample collection fixture and a target warehouse")
     val root = _base.resolve("target/test-generated/distribute-samples")
     val project = root.resolve("project")
     val warehouse = root.resolve("warehouse")
@@ -680,6 +736,7 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     Files.writeString(project.resolve("samples/01-hello/component-repository.d/ignored.jar"), "ignored\n", StandardCharsets.UTF_8)
     Files.writeString(project.resolve("samples/01-hello/tmprepo/ignored.txt"), "ignored\n", StandardCharsets.UTF_8)
 
+      When("distribute-samples writes the versioned archives")
     Cozy.main(Array(
       "distribute-samples",
       project.toString,
@@ -689,43 +746,46 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     ))
 
     val zippath = warehouse.resolve("repository/download/textus/tutorial/textus-tutorial/0.1.0/01-hello/01-hello-0.1.0.zip")
-    assert(Files.isRegularFile(zippath))
+      Then("the sample archives contain only the expected project files")
+    Files.isRegularFile(zippath) shouldBe true
     val collectionzippath = warehouse.resolve("repository/download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip")
-    assert(Files.isRegularFile(collectionzippath))
+    Files.isRegularFile(collectionzippath) shouldBe true
     val collectionzip = new ZipFile(collectionzippath.toFile)
     try {
       val entries = collectionzip.entries().asScala.map(_.getName).toSet
-      assert(entries.contains("samples/01-hello/build.sbt"))
-      assert(entries.contains("samples/01-hello/README.md"))
-      assert(entries.contains("scripts/run-all-samples.sh"))
-      assert(entries.contains("versions/cncf-version.conf"))
-      assert(!entries.exists(_.startsWith("target/")))
-      assert(!entries.exists(_.startsWith(".cozy/")))
-      assert(!entries.exists(_.startsWith("repository.d/")))
-      assert(!entries.exists(_.startsWith("samples/01-hello/target/")))
-      assert(!entries.exists(_.startsWith("samples/01-hello/script/.scala-build/")))
-      assert(!entries.exists(_.startsWith("samples/01-hello/car.d/")))
-      assert(!entries.exists(_.startsWith("samples/01-hello/component.d/")))
-      assert(!entries.exists(_.startsWith("samples/01-hello/component-repository.d/")))
-      assert(!entries.exists(_.startsWith("samples/01-hello/tmprepo/")))
+      entries.contains("samples/01-hello/build.sbt") shouldBe true
+      entries.contains("samples/01-hello/README.md") shouldBe true
+      entries.contains("scripts/run-all-samples.sh") shouldBe true
+      entries.contains("versions/cncf-version.conf") shouldBe true
+      entries.exists(_.startsWith("target/")) shouldBe false
+      entries.exists(_.startsWith(".cozy/")) shouldBe false
+      entries.exists(_.startsWith("repository.d/")) shouldBe false
+      entries.exists(_.startsWith("samples/01-hello/target/")) shouldBe false
+      entries.exists(_.startsWith("samples/01-hello/script/.scala-build/")) shouldBe false
+      entries.exists(_.startsWith("samples/01-hello/car.d/")) shouldBe false
+      entries.exists(_.startsWith("samples/01-hello/component.d/")) shouldBe false
+      entries.exists(_.startsWith("samples/01-hello/component-repository.d/")) shouldBe false
+      entries.exists(_.startsWith("samples/01-hello/tmprepo/")) shouldBe false
     } finally {
       collectionzip.close()
     }
     val zip = new ZipFile(zippath.toFile)
     try {
       val entries = zip.entries().asScala.map(_.getName).toSet
-      assert(entries.contains("build.sbt"))
-      assert(entries.contains("README.md"))
-      assert(!entries.exists(_.startsWith("target/")))
-      assert(!entries.exists(_.startsWith("script/.scala-build/")))
-      assert(!entries.exists(_.startsWith("car.d/")))
-      assert(!entries.exists(_.startsWith("component.d/")))
-      assert(!entries.exists(_.startsWith("component-repository.d/")))
-      assert(!entries.exists(_.startsWith("tmprepo/")))
+      entries.contains("build.sbt") shouldBe true
+      entries.contains("README.md") shouldBe true
+      entries.exists(_.startsWith("target/")) shouldBe false
+      entries.exists(_.startsWith("script/.scala-build/")) shouldBe false
+      entries.exists(_.startsWith("car.d/")) shouldBe false
+      entries.exists(_.startsWith("component.d/")) shouldBe false
+      entries.exists(_.startsWith("component-repository.d/")) shouldBe false
+      entries.exists(_.startsWith("tmprepo/")) shouldBe false
     } finally {
       zip.close()
     }
     val firstsha = _sha256(collectionzippath)
+    Given("the generated sample archives before a repeated distribution")
+      When("distribute-samples repeats the archive operation")
     Cozy.main(Array(
       "distribute-samples",
       project.toString,
@@ -733,10 +793,11 @@ final class PublicationCompilerSpec extends AnyFunSuite {
       "--name", "textus-tutorial",
       "--version", "0.1.0"
     ))
-    assert(_sha256(collectionzippath) == firstsha)
+      Then("the repeated distribution preserves the archive bytes")
+    _sha256(collectionzippath) shouldBe firstsha
   }
-
-  test("distribute-samples dry-run prints planned archives without writing files") {
+    "distribute-samples dry-run prints planned archives without writing files" in {
+      Given("a sample collection fixture for a dry-run distribution")
     val root = _base.resolve("target/test-generated/distribute-samples-dry-run")
     val project = root.resolve("project")
     val warehouse = root.resolve("warehouse")
@@ -755,6 +816,7 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     val buffer = new ByteArrayOutputStream()
     val printer = new PrintStream(buffer, true, "UTF-8")
     try {
+      When("distribute-samples renders the dry-run plan")
       Console.withOut(printer) {
         Cozy.main(Array(
           "distribute-samples",
@@ -770,13 +832,14 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     }
 
     val out = buffer.toString("UTF-8")
-    assert(out.contains("distribute-samples dry-run"))
-    assert(out.contains("sample-collection-zip warehousePath=repository/download/textus/tutorial/textus-tutorial/0.2.0-SNAPSHOT/textus-tutorial-0.2.0-SNAPSHOT.zip"))
-    assert(out.contains("sample-zip sample=01-hello warehousePath=repository/download/textus/tutorial/textus-tutorial/0.2.0-SNAPSHOT/01-hello/01-hello-0.2.0-SNAPSHOT.zip"))
-    assert(!Files.exists(warehouse))
+      Then("the dry-run plan is printed without creating warehouse files")
+    out.contains("distribute-samples dry-run") shouldBe true
+    out.contains("sample-collection-zip warehousePath=repository/download/textus/tutorial/textus-tutorial/0.2.0-SNAPSHOT/textus-tutorial-0.2.0-SNAPSHOT.zip") shouldBe true
+    out.contains("sample-zip sample=01-hello warehousePath=repository/download/textus/tutorial/textus-tutorial/0.2.0-SNAPSHOT/01-hello/01-hello-0.2.0-SNAPSHOT.zip") shouldBe true
+    Files.exists(warehouse) shouldBe false
   }
-
-  test("distribute-samples rejects colliding sample slugs") {
+    "distribute-samples rejects colliding sample slugs" in {
+      Given("a sample collection fixture with colliding sample slugs")
     val root = _base.resolve("target/test-generated/distribute-samples-colliding")
     val project = root.resolve("project")
     val warehouse = root.resolve("warehouse")
@@ -788,6 +851,7 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     Files.writeString(project.resolve("samples/01-hello/build.sbt"), "name := \"Hello B\"\n", StandardCharsets.UTF_8)
 
     val ex = intercept[Throwable] {
+      When("distribute-samples validates the colliding sample slugs")
       Cozy.main(Array(
         "distribute-samples",
         project.toString,
@@ -796,11 +860,14 @@ final class PublicationCompilerSpec extends AnyFunSuite {
         "--version", "0.1.0"
       ))
     }
-    assert(ex.getMessage.contains("Duplicate sample slug"))
-    assert(!Files.exists(warehouse.resolve("download/samples/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip")))
+      Then("the duplicate sample slug is reported without writing an archive")
+    ex.getMessage.contains("Duplicate sample slug") shouldBe true
+    Files.exists(warehouse.resolve("download/samples/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip")) shouldBe false
   }
-
-  test("index-warehouse checks publication registry artifact consistency without Maven metadata") {
+    }
+    "index-warehouse operations" which {
+    "index-warehouse checks publication registry artifact consistency without Maven metadata" in {
+      Given("a warehouse and publication registry containing repository and download artifacts")
     val root = _base.resolve("target/test-generated/index-warehouse")
     val warehouse = root.resolve("warehouse")
     val out = root.resolve("publication")
@@ -904,6 +971,7 @@ final class PublicationCompilerSpec extends AnyFunSuite {
         |""".stripMargin
     ))
 
+      When("index-warehouse reconciles the publication registry")
     Cozy.main(Array(
       "index-warehouse",
       warehouse.toString,
@@ -914,35 +982,36 @@ final class PublicationCompilerSpec extends AnyFunSuite {
       "--repository-artifacts", "car,sar"
     ))
 
-    assert(!_entry_exists(out, "metadata/artifacts/maven/textus-tutorial.json"))
+      Then("the registry contains consistent repository and download artifacts")
+    _entry_exists(out, "metadata/artifacts/maven/textus-tutorial.json") shouldBe false
 
     val repositoryjson = _entry(out, "metadata/artifacts/repository/textus-tutorial.json")
     val repositoryfiles = (repositoryjson \ "artifact" \ "files").as[Vector[play.api.libs.json.JsObject]]
-    assert((repositoryjson \ "artifact" \ "status").as[String] == "planned")
-    assert(repositoryfiles.map(x => (x \ "warehousePath").as[String]).contains("repository/car/textus-tutorial/0.1.0/textus-tutorial-0.1.0.car"))
-    assert(repositoryfiles.map(x => (x \ "publicPath").as[String]).contains("repository/car/textus-tutorial/0.1.0/textus-tutorial-0.1.0.car"))
-    assert(!repositoryfiles.map(x => (x \ "warehousePath").as[String]).exists(_.contains("0.0.9")))
+    (repositoryjson \ "artifact" \ "status").as[String] shouldBe "planned"
+    repositoryfiles.map(x => (x \ "warehousePath").as[String]).contains("repository/car/textus-tutorial/0.1.0/textus-tutorial-0.1.0.car") shouldBe true
+    repositoryfiles.map(x => (x \ "publicPath").as[String]).contains("repository/car/textus-tutorial/0.1.0/textus-tutorial-0.1.0.car") shouldBe true
+    repositoryfiles.map(x => (x \ "warehousePath").as[String]).exists(_.contains("0.0.9")) shouldBe false
 
     val downloadjson = _entry(out, "metadata/artifacts/download/textus-tutorial.json")
-    assert((downloadjson \ "artifact" \ "status").as[String] == "planned")
-    assert((downloadjson \ "project" \ "summary").as[String] == "Tutorial sample collection.")
+    (downloadjson \ "artifact" \ "status").as[String] shouldBe "planned"
+    (downloadjson \ "project" \ "summary").as[String] shouldBe "Tutorial sample collection."
     val downloadfiles = (downloadjson \ "artifact" \ "files").as[Vector[play.api.libs.json.JsObject]]
-    assert(downloadfiles.map(x => (x \ "warehousePath").as[String]).contains("repository/download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip"))
-    assert(downloadfiles.map(x => (x \ "publicPath").as[String]).contains("repository/download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip"))
-    assert(downloadfiles.find(x => (x \ "warehousePath").as[String] == "repository/download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip").exists(x => (x \ "type").as[String] == "sample-collection-zip"))
-    assert(downloadfiles.map(x => (x \ "warehousePath").as[String]).contains("repository/download/textus/tutorial/textus-tutorial/0.1.0/01-hello/01-hello-0.1.0.zip"))
-    assert(downloadfiles.map(x => (x \ "publicPath").as[String]).contains("repository/download/textus/tutorial/textus-tutorial/0.1.0/01-hello/01-hello-0.1.0.zip"))
-    assert(!downloadfiles.map(x => (x \ "warehousePath").as[String]).contains("download/samples/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip"))
-    assert(!downloadfiles.map(x => (x \ "warehousePath").as[String]).exists(_.contains("other-publication")))
+    downloadfiles.map(x => (x \ "warehousePath").as[String]).contains("repository/download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip") shouldBe true
+    downloadfiles.map(x => (x \ "publicPath").as[String]).contains("repository/download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip") shouldBe true
+    downloadfiles.find(x => (x \ "warehousePath").as[String] == "repository/download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip").exists(x => (x \ "type").as[String] == "sample-collection-zip") shouldBe true
+    downloadfiles.map(x => (x \ "warehousePath").as[String]).contains("repository/download/textus/tutorial/textus-tutorial/0.1.0/01-hello/01-hello-0.1.0.zip") shouldBe true
+    downloadfiles.map(x => (x \ "publicPath").as[String]).contains("repository/download/textus/tutorial/textus-tutorial/0.1.0/01-hello/01-hello-0.1.0.zip") shouldBe true
+    downloadfiles.map(x => (x \ "warehousePath").as[String]).contains("download/samples/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip") shouldBe false
+    downloadfiles.map(x => (x \ "warehousePath").as[String]).exists(_.contains("other-publication")) shouldBe false
 
     val releasejson = _entry(out, "metadata/releases/textus-tutorial.json")
-    assert((releasejson \ "release" \ "latest").as[String] == "0.1.0")
+    (releasejson \ "release" \ "latest").as[String] shouldBe "0.1.0"
     val releaseversions = (releasejson \ "release" \ "versions").as[Vector[play.api.libs.json.JsObject]].map(x => (x \ "version").as[String])
-    assert(releaseversions.contains("0.1.0"))
-    assert(!releaseversions.contains("0.2.0-SNAPSHOT"))
+    releaseversions.contains("0.1.0") shouldBe true
+    releaseversions.contains("0.2.0-SNAPSHOT") shouldBe false
   }
-
-  test("index-warehouse keeps legacy download sample paths readable") {
+    "index-warehouse keeps legacy download sample paths readable" in {
+      Given("a warehouse containing legacy download sample paths")
     val root = _base.resolve("target/test-generated/index-warehouse-legacy-download")
     val warehouse = root.resolve("warehouse")
     val out = root.resolve("publication")
@@ -970,6 +1039,7 @@ final class PublicationCompilerSpec extends AnyFunSuite {
         |""".stripMargin
     ))
 
+      When("index-warehouse reads the legacy download paths")
     Cozy.main(Array(
       "index-warehouse",
       warehouse.toString,
@@ -980,11 +1050,12 @@ final class PublicationCompilerSpec extends AnyFunSuite {
 
     val downloadjson = _entry(out, "metadata/artifacts/download/textus-tutorial.json")
     val downloadfiles = (downloadjson \ "artifact" \ "files").as[Vector[play.api.libs.json.JsObject]]
-    assert(downloadfiles.map(x => (x \ "warehousePath").as[String]).contains("download/samples/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip"))
-    assert(downloadfiles.map(x => (x \ "warehousePath").as[String]).contains("download/samples/textus-tutorial/01-hello/0.1.0/01-hello-0.1.0.zip"))
+      Then("the legacy download paths remain readable")
+    downloadfiles.map(x => (x \ "warehousePath").as[String]).contains("download/samples/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip") shouldBe true
+    downloadfiles.map(x => (x \ "warehousePath").as[String]).contains("download/samples/textus-tutorial/01-hello/0.1.0/01-hello-0.1.0.zip") shouldBe true
   }
-
-  test("index-warehouse reports canonical download metadata with legacy-only files") {
+    "index-warehouse reports canonical download metadata with legacy-only files" in {
+      Given("legacy download files with registry entries expecting canonical paths")
     val root = _base.resolve("target/test-generated/index-warehouse-canonical-download-missing")
     val warehouse = root.resolve("warehouse")
     val out = root.resolve("publication")
@@ -1013,6 +1084,7 @@ final class PublicationCompilerSpec extends AnyFunSuite {
     ))
 
     val ex = intercept[Throwable] {
+      When("index-warehouse resolves the missing canonical download files")
       Cozy.main(Array(
         "index-warehouse",
         warehouse.toString,
@@ -1021,20 +1093,27 @@ final class PublicationCompilerSpec extends AnyFunSuite {
         "--title", "Textus Tutorial"
       ))
     }
-    assert(ex.getMessage.contains("Missing download artifact"))
-    assert(ex.getMessage.contains("repository/download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip"))
+      Then("the missing canonical download artifact is reported")
+    ex.getMessage.contains("Missing download artifact") shouldBe true
+    ex.getMessage.contains("repository/download/textus/tutorial/textus-tutorial/0.1.0/textus-tutorial-0.1.0.zip") shouldBe true
   }
-
-  test("publish-project fails explicitly for missing project roots") {
+    }
+    "publish-project failure operations" which {
+    "publish-project fails explicitly for missing project roots" in {
+      Given("a missing project root and its publication output path")
     val missing = _base.resolve("target/test-generated/publish-project/missing")
     val out = _base.resolve("target/test-generated/publish-project/missing-out")
     _delete(missing)
     val ex = intercept[Throwable] {
+      When("publish-project validates the missing project root")
       Cozy.main(Array("publish-project", missing.toString, "--save", out.toString))
     }
-    assert(ex.getMessage.contains("Project directory does not exist"))
+      Then("the missing project directory is reported")
+    ex.getMessage.contains("Project directory does not exist") shouldBe true
   }
+    }
 
+  }
   private def _delete(path: Path): Unit =
     if (Files.exists(path)) {
       val stream = Files.walk(path)

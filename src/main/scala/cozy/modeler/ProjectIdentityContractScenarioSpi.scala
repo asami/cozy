@@ -1,5 +1,11 @@
 package cozy.modeler
 
+/*
+ * @since   Aug. 7, 2026
+ * @version Aug. 14, 2026
+ * @author  ASAMI, Tomoharu
+ */
+
 private[cozy] final case class ProjectIdentityInput(
   namespace: String,
   localid: String

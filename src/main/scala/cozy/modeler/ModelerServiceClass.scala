@@ -5,7 +5,7 @@ import cozy._
 
 /*
  * @since   Aug. 20, 2025
- * @version Aug. 20, 2025
+ * @version Aug. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 case object ModelerServiceClass extends ServiceClass {
@@ -21,7 +21,7 @@ case object ModelerServiceClass extends ServiceClass {
     val request = spec.Request.empty
     val response = spec.Response.empty
     val specification = spec.Operation("cozy", request, response)
-    
+
     def apply(env: Environment, req: Request): Response = {
       val ctx = env.toAppEnvironment[Context]
       ???
@@ -33,7 +33,7 @@ case object ModelerServiceClass extends ServiceClass {
     val request = spec.Request.empty
     val response = spec.Response.empty
     val specification = spec.Operation("cozy", request, response)
-    
+
     def apply(env: Environment, req: Request): Response = {
       val ctx = env.toAppEnvironment[Context]
       ???

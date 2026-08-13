@@ -8,7 +8,7 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   Jul. 18, 2026
- * @version Jul. 18, 2026
+ * @version Aug. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 private[video] final case class CozyVideoPronunciations private (
@@ -35,11 +35,11 @@ private[video] final case class CozyVideoPronunciations private (
 }
 
 private[video] object CozyVideoPronunciations {
-  private val RESOURCE_NAME = "cozy/video/pronunciations.properties"
+  private val _resource_name = "cozy/video/pronunciations.properties"
 
   lazy val default: CozyVideoPronunciations = {
-    val stream = Option(getClass.getClassLoader.getResourceAsStream(RESOURCE_NAME)).getOrElse(
-      RAISE.invalidArgumentFault(s"Missing Cozy video pronunciation dictionary: $RESOURCE_NAME")
+    val stream = Option(getClass.getClassLoader.getResourceAsStream(_resource_name)).getOrElse(
+      RAISE.invalidArgumentFault(s"Missing Cozy video pronunciation dictionary: ${_resource_name}")
     )
     val reader = new InputStreamReader(stream, StandardCharsets.UTF_8)
     try {

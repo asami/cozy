@@ -5,6 +5,12 @@ import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
+/*
+ * @since   Jul. 28, 2026
+ * @version Aug. 14, 2026
+ * @author  ASAMI, Tomoharu
+ */
+
 final class Phase51Cv02CompatibilitySpec extends AnyWordSpec with Matchers with GivenWhenThen {
   private val _cncf_target    = MavenCoordinate("org.goldenport", "goldenport-cncf_3", "0.5.1")
   private val _cozy_generator = MavenCoordinate("org.simplemodeling", "cozy_2.12", "0.3.0")

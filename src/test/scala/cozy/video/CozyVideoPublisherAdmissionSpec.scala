@@ -8,6 +8,12 @@ import scala.collection.JavaConverters._
 import org.scalatest.GivenWhenThen
 import org.scalatest.wordspec.AnyWordSpec
 
+/*
+ * @since   Aug. 5, 2026
+ * @version Aug. 14, 2026
+ * @author  ASAMI, Tomoharu
+ */
+
 final class CozyVideoPublisherAdmissionSpec
     extends AnyWordSpec
     with GivenWhenThen

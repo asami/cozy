@@ -7,6 +7,12 @@ import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
+/*
+ * @since   Jul. 28, 2026
+ * @version Aug. 14, 2026
+ * @author  ASAMI, Tomoharu
+ */
+
 final class CarMetadataCompatibilitySpec
     extends AnyWordSpec
     with Matchers

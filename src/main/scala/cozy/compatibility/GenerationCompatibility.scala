@@ -2,6 +2,12 @@ package cozy.compatibility
 
 import io.circe.{Json, parser}
 
+/*
+ * @since   Jul. 28, 2026
+ * @version Aug. 14, 2026
+ * @author  ASAMI, Tomoharu
+ */
+
 /** The exact Maven coordinate of an artifact participating in generation. */
 final case class MavenCoordinate(organization: String, artifact: String, version: String)
 

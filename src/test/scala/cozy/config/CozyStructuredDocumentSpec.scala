@@ -7,30 +7,42 @@ import scala.collection.JavaConverters._
 import io.circe.Decoder
 import org.goldenport.config.StructuredDocumentLoader
 import org.goldenport.io.StringInputSource
-import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.GivenWhenThen
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jun. 18, 2026
- * @version Jun. 18, 2026
+ * @version Aug. 14, 2026
  * @author  ASAMI, Tomoharu
  */
-final class CozyStructuredDocumentSpec extends AnyFunSuite {
+final class CozyStructuredDocumentSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   import CozyStructuredDocumentSpec._
 
-  test("video project document can be written as JSON, YAML, HOCON, or XML") {
+  "Cozy structured documents" should {
+    "video project document can be written as JSON, YAML, HOCON, or XML" in {
+    Given("equivalent project documents in supported structured formats")
     val expected = VideoProject(
       name = "sample-video",
       title = Some("Sample Video"),
       parts = Vector(VideoPart("intro", "dialogue", "scripts/intro.json"))
     )
 
-    assert(_load_project("video_project.json", _project_json) == expected)
-    assert(_load_project("video_project.yaml", _project_yaml) == expected)
-    assert(_load_project("video_project.conf", _project_hocon) == expected)
-    assert(_load_project("video_project.xml", _project_xml) == expected)
+    When("each structured project document is loaded")
+    val projectjson = _load_project("video_project.json", _project_json)
+    val projectyaml = _load_project("video_project.yaml", _project_yaml)
+    val projecthocon = _load_project("video_project.conf", _project_hocon)
+    val projectxml = _load_project("video_project.xml", _project_xml)
+
+    Then("all formats decode to the same project")
+    projectjson shouldBe expected
+    projectyaml shouldBe expected
+    projecthocon shouldBe expected
+    projectxml shouldBe expected
   }
 
-  test("video script document can be written as JSON, YAML, HOCON, or XML") {
+    "video script document can be written as JSON, YAML, HOCON, or XML" in {
+    Given("equivalent script documents in supported structured formats")
     val expected = VideoScript(
       scenes = Vector(
         VideoScene("s1", Some("zundamon"), Some("Hello")),
@@ -38,15 +50,23 @@ final class CozyStructuredDocumentSpec extends AnyFunSuite {
       )
     )
 
-    assert(_load_script("script.json", _script_json) == expected)
-    assert(_load_script("script.yaml", _script_yaml) == expected)
-    assert(_load_script("script.conf", _script_hocon) == expected)
-    assert(_load_script("script.xml", _script_xml) == expected)
+    When("each structured script document is loaded")
+    val scriptjson = _load_script("script.json", _script_json)
+    val scriptyaml = _load_script("script.yaml", _script_yaml)
+    val scripthocon = _load_script("script.conf", _script_hocon)
+    val scriptxml = _load_script("script.xml", _script_xml)
+
+    Then("all formats decode to the same script")
+    scriptjson shouldBe expected
+    scriptyaml shouldBe expected
+    scripthocon shouldBe expected
+    scriptxml shouldBe expected
   }
 
 
 
-  test("project metadata and operation defaults accept structured document formats") {
+    "project metadata and operation defaults accept structured document formats" in {
+    Given("project and layered configuration documents in supported formats")
     val root = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize().resolve("target/test-generated/structured-config")
     _delete(root)
     Files.createDirectories(root.resolve("conf/cozy"))
@@ -82,16 +102,19 @@ final class CozyStructuredDocumentSpec extends AnyFunSuite {
       StandardCharsets.UTF_8
     )
 
+    When("the project defaults and configuration are loaded")
     val files = CozyProjectYamlConfig.operationDefaultFiles(root).filter(_.startsWith(root)).map(root.relativize(_).toString).toSet
     val config = CozyProjectYamlConfig.loadProjectConfig(root)
 
-    assert(files.contains("conf/cozy/config.conf"))
-    assert(files.contains(".cozy/config.json"))
-    assert(config.value("name").contains("sample-video"))
-    assert(config.value("title").contains("Sample Video"))
-    assert(config.value("publication.path").contains("textus/samples/tutorial"))
-    assert(config.value("bok.docker-image").contains("local-image"))
-    assert(config.list("publication.tags") == Vector("gamma"))
+    Then("the layered defaults and metadata values are retained")
+    files.contains("conf/cozy/config.conf") shouldBe true
+    files.contains(".cozy/config.json") shouldBe true
+    config.value("name").contains("sample-video") shouldBe true
+    config.value("title").contains("Sample Video") shouldBe true
+    config.value("publication.path").contains("textus/samples/tutorial") shouldBe true
+    config.value("bok.docker-image").contains("local-image") shouldBe true
+    config.list("publication.tags") shouldBe Vector("gamma")
+  }
   }
 
   private def _load_project(name: String, text: String): VideoProject =

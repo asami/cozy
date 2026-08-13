@@ -10,6 +10,12 @@ import org.goldenport.cncf.component.identity.{
 
 import scala.collection.JavaConverters._
 
+/*
+ * @since   Aug. 7, 2026
+ * @version Aug. 14, 2026
+ * @author  ASAMI, Tomoharu
+ */
+
 private[cozy] object ProjectIdentityAdapter {
   def projection(
     input: ProjectIdentityInput
