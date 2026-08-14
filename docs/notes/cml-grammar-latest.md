@@ -1,7 +1,7 @@
 # CML Grammar (Latest, Cozy)
 
 status=active-latest-spec
-updated_at=2026-07-11
+updated_at=2026-08-14
 target=/Users/asami/src/dev2025/cozy
 
 ## 1. Scope
@@ -465,6 +465,59 @@ Interpretation:
 ## 5. STATEMACHINE
 
 `STATEMACHINE` is defined under each entity.
+
+### 5.1 Named Shallow History
+
+An entity StateMachine may opt into shallow composite-state history using an
+existing persistent entity attribute:
+
+```text
+#### lifecycle
+- HISTORY-FIELD :: lifecycleHistory
+##### State
+###### Draft
+###### Review
+####### State
+######## Pending
+######## Approved
+###### Suspended
+```
+
+An ordinary StateMachine may contain a composite without a `HISTORY-FIELD` and
+without a named `X.HISTORY` target. That form is valid and creates no
+history-record write requirement. When `HISTORY-FIELD` is declared, normal
+direct-leaf transitions entering, moving within, or leaving the composite
+require the caller-proposed write for that composite.
+
+`HISTORY-FIELD` is case-insensitive. Its value must be the name of an existing
+attribute of the owning entity. The field is authored as a `record` (optionally
+with any supported multiplicity) and holds composite-name to direct-leaf-name
+mappings, for example `Record("Review" -> "Pending")`. CML modeling verifies
+the attribute exists; runtime verifies that the supplied value is a record.
+No field is created, migrated, or synthesized by the state-machine runtime.
+
+History targets must name a declared outer composite:
+
+```text
+- TO :: Review.HISTORY
+```
+
+This resolves the `Review` entry in `lifecycleHistory`. If the entry is absent
+or blank, the first declared direct leaf of `Review` is used. A present
+non-string value or a value not naming a direct leaf is a state-conflict
+diagnostic; it never falls back silently. This grammar supports one composite
+nested level only. A composite nested inside another composite is rejected.
+
+`TO :: HISTORY`, `X.DEEP_HISTORY`, and a history target naming an unknown or
+non-composite state are rejected CML diagnostics. Deep history is not part of
+the current grammar.
+
+The transition interface validates caller-proposed records and does not mutate
+them. For a normal transition, the proposal must record the leaf that becomes
+last active when entering, remaining in, or leaving a composite. For a history
+transition, the proposal must contain the recovered or fallback direct leaf.
+Entries for unrelated composites remain caller-owned and are retained by the
+proposal.
 
 ```text
 ### STATEMACHINE

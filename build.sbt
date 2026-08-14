@@ -17,7 +17,7 @@ name := "cozy"
 
 version := "0.3.4-SNAPSHOT"
 
-lazy val cncfVersion = "0.5.1"
+lazy val cncfVersion = "0.5.2-SNAPSHOT"
 
 lazy val simpleModelingModelVersion = "0.2.0"
 
@@ -57,7 +57,7 @@ resolvers += "SimpleModeling.org" at "https://www.simplemodeling.org/repository/
 // resolvers += "Asami Maven Repository" at "http://www.asamioffice.com/maven"
 
 // override arcadia
-libraryDependencies += "org.goldenport" %% "goldenport-scala-lib" % "2.3.30"
+libraryDependencies += "org.goldenport" %% "goldenport-scala-lib" % "2.3.31-SNAPSHOT"
 
 // override kaleidox
 libraryDependencies += "org.goldenport" %% "goldenport-record" % "2.2.5"

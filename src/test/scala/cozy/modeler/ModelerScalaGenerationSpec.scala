@@ -16,7 +16,7 @@ import play.api.libs.json.Json
 
 /*
  * @since   Jun. 23, 2026
- * @version Aug.  8, 2026
+ * @version Aug. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -664,6 +664,102 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         content should include ("declarationOrder = 2")
         content should include ("declarationOrder = 3")
         count_token(content, "priority = 0") >= 4 shouldBe true
+      }
+
+      "modeler-scala emits named shallow-history runtime metadata" in {
+        Given("a CML StateMachine with Review.HISTORY and a persistent history record attribute")
+        val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+        val input = base.resolve("src/test/resources/modeler/statemachine-cml-history.dox")
+        val out = base.resolve("target/test-generated/modeler-scala-statemachine-cml-history")
+        delete_recursively(out)
+        Files.createDirectories(out.getParent)
+
+        When("Cozy projects it into generated Scala component code")
+        cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString))
+        val generated = out.resolve(
+          "target/scala-3.3.8/src_managed/main/scala/domain/DomainComponent.scala"
+        )
+        val content = Files.readString(generated)
+
+        Then("the component exposes flattened values plus persistent history metadata and writes")
+        content should include("historyFieldName = Some(\"lifecycleHistory\")")
+        content should include("historyComposites = Vector(org.goldenport.cncf.statemachine.CmlHistoryCompositeDefinition(name = \"Review\"")
+        content should include("historyCompositeName = Some(\"Review\")")
+        content should include("historyDirectLeaves = Vector(\"Pending\", \"Approved\")")
+        content should include("historyFallbackLeaf = Some(\"Pending\")")
+        content should include("fromStateValue = Some(1)")
+        content should include("toStateValue = Some(2)")
+        content should include("fromStateValue = Some(2)")
+        content should include("toStateValue = Some(3)")
+        content should include("fromStateValue = Some(3)")
+        content should include("toStateValue = Some(4)")
+        content should include("expectedHistoryRecordWrites = Vector(org.goldenport.cncf.statemachine.HistoryRecordWrite(compositeName = \"Review\", leafName = \"Pending\"))")
+        content should include("expectedHistoryRecordWrites = Vector(org.goldenport.cncf.statemachine.HistoryRecordWrite(compositeName = \"Review\", leafName = \"Approved\"))")
+      }
+
+      "modeler-scala accepts a composite without HISTORY-FIELD or named history" in {
+        Given("a CML StateMachine with a normal direct-leaf composite transition")
+        val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+        val input = base.resolve("target/test-generated/modeler-statemachine-composite-no-history.dox")
+        val out = base.resolve("target/test-generated/modeler-statemachine-composite-no-history")
+        delete_recursively(out)
+        write_file(input,
+          """# ENTITY
+            |
+            |## Person
+            |
+            |### ATTRIBUTE
+            |
+            || name   | type         | multiplicity |
+            ||--------+--------------+--------------|
+            || id     | entityid     | 1            |
+            || status | PersonStatus | 1            |
+            |
+            |### StateMachine
+            |
+            |#### lifecycle
+            |
+            |##### State
+            |
+            |###### Draft
+            |
+            |####### Transition
+            |
+            |- to :: Pending
+            |- on :: submit
+            |
+            |###### Review
+            |
+            |####### State
+            |
+            |######## Pending
+            |
+            |##### Event
+            |
+            |###### submit
+            |
+            |# POWERTYPE
+            |
+            |## PersonStatus
+            |
+            |### Draft
+            |
+            |value = 1
+            |
+            |### Pending
+            |
+            |value = 2
+            |""".stripMargin
+        )
+
+        When("Cozy projects the normal composite StateMachine")
+        cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", out.toString))
+        val generated = out.resolve("target/scala-3.3.8/src_managed/main/scala/domain/DomainComponent.scala")
+        val content = Files.readString(generated)
+
+        Then("the component projects without a history write requirement")
+        content should include("states = Vector(\"Draft\", \"Pending\")")
+        content should not include ("expectedHistoryRecordWrites = Vector(org.goldenport.cncf.statemachine.HistoryRecordWrite")
       }
 
     }

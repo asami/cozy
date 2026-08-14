@@ -1,0 +1,4 @@
+> runMain cozy.Cozy car-sbt-project state-machine-history-runtime.dox --package=domain --save=out.d
+> runMain cozy.Cozy modeler-scala state-machine-history-runtime.dox --save=generated.d
+$ exists out.d/build.sbt
+$ exec sh check-state-machine-history-runtime.sh

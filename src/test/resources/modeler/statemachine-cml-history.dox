@@ -1,0 +1,82 @@
+# Entity
+
+## Person
+
+### Attribute
+
+| name             | type         | multiplicity |
+|------------------+--------------+--------------|
+| id               | entityid     | 1            |
+| name             | name         | 1            |
+| status           | PersonStatus | 1            |
+| lifecycleHistory | record       | 1            |
+
+### StateMachine
+
+#### lifecycle
+
+- HISTORY-FIELD :: lifecycleHistory
+
+##### State
+
+###### Draft
+
+####### Transition
+
+- to :: Pending
+- on :: submit
+
+###### Review
+
+####### State
+
+######## Pending
+
+######### Transition
+
+- to :: Approved
+- on :: approve
+
+######## Approved
+
+######### Transition
+
+- to :: Suspended
+- on :: suspend
+
+###### Suspended
+
+####### Transition
+
+- to :: Review.HISTORY
+- on :: resume
+
+##### Event
+
+###### submit
+
+###### approve
+
+###### suspend
+
+###### resume
+
+# POWERTYPE
+
+## PersonStatus
+
+### Draft
+
+value = 1
+
+### Pending
+
+value = 2
+
+### Approved
+
+value = 3
+
+### Suspended
+
+value = 4

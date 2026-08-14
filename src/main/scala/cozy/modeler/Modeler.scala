@@ -86,12 +86,27 @@ class Modeler(
         em.stateMachines.headOption // TODO
       }
     }.map { x =>
+      requireNamedHistoryField(x)
       val sm = MDomainStateMachine.create(name)
       val states = _states(sm, x)
       // val sms = VectorMap.empty[String, MDomainStateMachine]
       sm.setStates(states)
       sm
     }
+
+  private[modeler] def requireNamedHistoryField(p: StateMachineClass): Unit = {
+    def _has_named_history_transition_(rule: StateMachineRule): Boolean = {
+      val transitions =
+        rule.transitions.call ++
+          rule.transitions.global ++
+          rule.states.flatMap(s => s.transitions.call ++ s.transitions.global)
+      transitions.exists(_.to.isInstanceOf[NamedHistoryTransitionTo]) ||
+        rule.statemachines.exists(_has_named_history_transition_)
+    }
+
+    if (_has_named_history_transition_(p.rule) && p.rule.historyFieldName.isEmpty)
+      RAISE.syntaxErrorFault(s"StateMachine '${p.name}' has named history transitions and requires HISTORY-FIELD.")
+  }
 
   private def _states(
     sm: MDomainStateMachine,
@@ -119,6 +134,13 @@ class Modeler(
     }
 
     def _build_transitions_(statemap: StateHanger) = {
+      def _history_state_(p: NamedHistoryTransitionTo): MState =
+        statemap.get(p.compositeName).filter(_.isComposite).map { composite =>
+            composite.historyState.getOrElse(composite.createHistoryState)
+          }.getOrElse {
+          RAISE.syntaxErrorFault("StateMachine history target must name a composite state.")
+        }
+
       def _build_state_(s: StateClass): Unit = {
         def _transition_(t: Transition): Option[MTransition] = {
           val g = _guard_(t.guard)
@@ -133,15 +155,16 @@ class Modeler(
               case (None, None) => RAISE.noReachDefect
             }
 
-          def _history_transition_(p: HistoryTransitionTo) = {
-            val historystate = statemap.historyStates(s.name).head // TODO
-            MTransition(sm, event, g, statemap.get(s.name).get, historystate, action)
+          def _history_transition_(p: NamedHistoryTransitionTo) = {
+            val source = statemap.get(s.name).getOrElse(_init_state_)
+            MTransition(sm, event, g, source, _history_state_(p), action)
           }
 
           t.to match {
             case NoneTransitionTo => None
             case FinalTransitionTo => None
-            case m: HistoryTransitionTo => Some(_history_transition_(m))
+            case m: NamedHistoryTransitionTo => Some(_history_transition_(m))
+            case HistoryTransitionTo() => RAISE.syntaxErrorFault("StateMachine history target must name a composite state.")
             case m: NameTransitionTo =>
               if (m.name.equalsIgnoreCase(PROP_STATE_INIT))
                 None
@@ -168,14 +191,16 @@ class Modeler(
               case (None, None) => RAISE.noReachDefect
             }
 
-          def _history_transition_(p: HistoryTransitionTo) = {
-            RAISE.notImplementedYetDefect
+          def _history_transition_(p: NamedHistoryTransitionTo) = {
+            val source = smr.name.flatMap(statemap.get).getOrElse(_init_state_)
+            MTransition(sm, event, g, source, _history_state_(p), action)
           }
 
           t.to match {
             case NoneTransitionTo => None
             case FinalTransitionTo => None
-            case m: HistoryTransitionTo => Some(_history_transition_(m))
+            case m: NamedHistoryTransitionTo => Some(_history_transition_(m))
+            case HistoryTransitionTo() => RAISE.syntaxErrorFault("StateMachine history target must name a composite state.")
             case m: NameTransitionTo =>
               if (m.name.equalsIgnoreCase(PROP_STATE_INIT))
                 None

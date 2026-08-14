@@ -4,7 +4,15 @@ This journal is a non-normative ledger for existing debt found while closing
 Phase 27. Entries here do not expand the completed phase or its closure
 criteria.
 
-## Open
+## Resolution Status (2026-08-14)
+
+RESOLVED. Arcadia commit
+`62408564db638409723c00e7383d06591b3c0bb3` repaired the ScalaTest baseline
+and the subsequent serialized full test passed. The later resolution evidence
+is recorded in
+`docs/journal/2026/08/2026-08-14-hygiene-ledger-resolution.md`.
+
+## Original Open Record (2026-08-11)
 
 ### P27-HYG-001: Restore the Arcadia full-test dependency baseline
 

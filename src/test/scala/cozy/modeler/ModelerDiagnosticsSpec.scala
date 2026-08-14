@@ -14,7 +14,7 @@ import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 
 /*
  * @since   Jun. 23, 2026
- * @version Jul. 15, 2026
+ * @version Aug. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerDiagnosticsSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -211,9 +211,117 @@ class ModelerDiagnosticsSpec extends AnyWordSpec with Matchers with GivenWhenThe
         withClue(s"unexpected output: $output") {
         output should include ("target PublishedX is not defined")
       }
+
         withClue(s"unexpected output: $output") {
         output should not include ("URI is not absolute")
       }
+      }
+
+      "modeler-scala rejects bare, deep, and unknown named history targets" in {
+        Given("CML transitions that violate the named shallow-history grammar")
+        val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+        val cases = Vector(
+          "bare" -> ("HISTORY", "history target must name a composite"),
+          "deep" -> ("Review.DEEP_HISTORY", "deep history target"),
+          "unknown" -> ("Missing.HISTORY", "history composite Missing is not defined")
+        )
+
+        When("Cozy validates each invalid history form")
+        val diagnostics = cases.map { case (name, (target, _)) =>
+          val input = base.resolve(s"target/test-generated/modeler-errors/history-$name.dox")
+          val out = base.resolve(s"target/test-generated/modeler-errors/history-$name-out")
+          delete_recursively(out)
+          write_file(input, ModelerDiagnosticsSpec.historyDiagnosticSource(target))
+          name -> run_modeler_scala(input, out)
+        }
+
+        Then("the parser reports a structured diagnostic rather than falling back silently")
+        cases.foreach { case (name, (_, expected)) =>
+          withClue(s"unexpected history diagnostic: ${diagnostics.toMap.apply(name)}") {
+            diagnostics.toMap.apply(name) should include(expected)
+          }
+        }
+      }
+
+      "modeler-scala rejects named history without its persistent HISTORY-FIELD" in {
+        Given("a named Review history transition without a declared history record attribute")
+        val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+        val input = base.resolve("target/test-generated/modeler-errors/history-missing-field.dox")
+        val out = base.resolve("target/test-generated/modeler-errors/history-missing-field-out")
+        delete_recursively(out)
+        write_file(input, ModelerDiagnosticsSpec.historyDiagnosticSource("Review.HISTORY").replace("- HISTORY-FIELD :: lifecycleHistory\n", ""))
+
+        When("Cozy validates the named history transition")
+        val output = run_modeler_scala(input, out)
+
+        Then("the missing persistence contract is rejected")
+        output should include("requires HISTORY-FIELD")
+      }
+
+      "state-machine diagram validation rejects missing HISTORY-FIELD and accepts its declared equivalent" in {
+        Given("otherwise equivalent named-history StateMachine classes with and without HISTORY-FIELD")
+        val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+        val missinginput = base.resolve("target/test-generated/modeler-errors/diagram-history-missing-field.dox")
+        val declaredinput = base.resolve("target/test-generated/modeler-errors/diagram-history-declared-field.dox")
+        write_file(
+          missinginput,
+          ModelerDiagnosticsSpec.historyDiagnosticSource("Review.HISTORY").replace(
+            "- HISTORY-FIELD :: lifecycleHistory\n",
+            ""
+          )
+        )
+        write_file(declaredinput, ModelerDiagnosticsSpec.historyDiagnosticSource("Review.HISTORY"))
+        val missingstatemachine = KaleidoxModel.load(KaleidoxConfig.default.withoutLocation, missinginput.toFile).
+          getEntityModel.flatMap(_.get("Person")).flatMap(_.stateMachines.headOption).get
+        val declaredstatemachine = KaleidoxModel.load(KaleidoxConfig.default.withoutLocation, declaredinput.toFile).
+          getEntityModel.flatMap(_.get("Person")).flatMap(_.stateMachines.headOption).get
+        val modeler = new Modeler()
+
+        When("the diagram entrypoint's named-history contract validates each StateMachine")
+        val missingfielderror = intercept[RuntimeException] {
+          modeler.requireNamedHistoryField(missingstatemachine)
+        }
+        modeler.requireNamedHistoryField(declaredstatemachine)
+
+        Then("only the missing persistence contract is rejected")
+        missingfielderror.getMessage should include("requires HISTORY-FIELD")
+      }
+
+      "modeler-scala rejects a named history target on a non-composite state" in {
+        Given("a history target that names the Draft leaf instead of a composite")
+        val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+        val input = base.resolve("target/test-generated/modeler-errors/history-non-composite.dox")
+        val out = base.resolve("target/test-generated/modeler-errors/history-non-composite-out")
+        delete_recursively(out)
+        write_file(input, ModelerDiagnosticsSpec.historyDiagnosticSource("Draft.HISTORY"))
+
+        When("Cozy validates the named history target")
+        val output = run_modeler_scala(input, out)
+
+        Then("the non-composite target is rejected")
+        output should include("history composite Draft is not defined")
+      }
+
+      "modeler-scala rejects a composite nested inside a composite" in {
+        Given("a StateMachine whose Review direct leaf nests another State section")
+        val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+        val input = base.resolve("target/test-generated/modeler-errors/history-nested-composite.dox")
+        val out = base.resolve("target/test-generated/modeler-errors/history-nested-composite-out")
+        delete_recursively(out)
+        write_file(input, ModelerDiagnosticsSpec.historyDiagnosticSource("Review.HISTORY").replace(
+          "######## Pending",
+          """######## Pending
+
+            |######### State
+
+            |########## Deep""".stripMargin
+        ))
+
+        When("Cozy validates the nested composite structure")
+        val output = run_modeler_scala(input, out)
+
+        Then("the unsupported nesting is rejected")
+        output should include("does not support nested composite Pending")
       }
 
       "modeler-scala reports undeclared event in StateMachine" in {
@@ -778,4 +886,45 @@ class ModelerDiagnosticsSpec extends AnyWordSpec with Matchers with GivenWhenThe
 
     }
   }
+}
+
+private object ModelerDiagnosticsSpec {
+  def historyDiagnosticSource(target: String): String =
+    s"""# ENTITY
+      |
+      |## Person
+      |
+      |### ATTRIBUTE
+      |
+      || name             | type         | multiplicity |
+      ||------------------+--------------+--------------|
+      || id               | entityid     | 1            |
+      || status           | PersonStatus | 1            |
+      || lifecycleHistory | record       | 1            |
+      |
+      |### StateMachine
+      |
+      |#### lifecycle
+      |
+      |- HISTORY-FIELD :: lifecycleHistory
+      |
+      |##### State
+      |
+      |###### Draft
+      |
+      |####### Transition
+      |
+      |- to :: $target
+      |- on :: resume
+      |
+      |###### Review
+      |
+      |####### State
+      |
+      |######## Pending
+      |
+      |##### Event
+      |
+      |###### resume
+      |""".stripMargin
 }

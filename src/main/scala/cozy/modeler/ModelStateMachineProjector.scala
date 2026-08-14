@@ -130,10 +130,12 @@ private[modeler] final class ModelStateMachineProjector(val context: ModelBuildC
               RAISE.syntaxErrorFault(s"StateMachine '${smc.name}' transition target $name is not defined.")
           }
 
-        def _history_transition_(): MTransition = {
+        def _history_transition_(p: NamedHistoryTransitionTo): MTransition = {
           val source = sourcestatename.flatMap(statemap.get).getOrElse(MState.initState(sm))
-          val history = statemap.historyStates(source.name).headOption.getOrElse {
-            RAISE.syntaxErrorFault(s"StateMachine '${smc.name}' transition history source ${source.name} is not defined.")
+          val history = statemap.get(p.compositeName).filter(_.isComposite).map { composite =>
+            composite.historyState.getOrElse(composite.createHistoryState)
+          }.getOrElse {
+            RAISE.syntaxErrorFault(s"StateMachine '${smc.name}' history target must name a declared composite state.")
           }
           MTransition(sm, event, g, source, history, action)
         }
@@ -141,7 +143,9 @@ private[modeler] final class ModelStateMachineProjector(val context: ModelBuildC
         t.to match {
           case NoneTransitionTo => None
           case FinalTransitionTo => None
-          case _: HistoryTransitionTo => Some(_history_transition_())
+          case p: NamedHistoryTransitionTo => Some(_history_transition_(p))
+          case HistoryTransitionTo() =>
+            RAISE.syntaxErrorFault(s"StateMachine '${smc.name}' history target must name a declared composite state.")
           case NameTransitionTo(name) =>
             if (name.equalsIgnoreCase(PROP_STATE_INIT))
               None
@@ -219,21 +223,28 @@ private[modeler] final class ModelStateMachineProjector(val context: ModelBuildC
 
     private def _validate_state_machine(sm: StateMachineClass): Unit = {
       val states = _all_states(sm.rule).map(_.name).toSet
+      val composites = _history_composites(sm.rule)
       val transitions = _all_transitions(sm.rule)
       val events = _declared_events(sm.rule)
-      transitions.foreach(x => _validate_transition(sm.name, x, states, events))
+      transitions.foreach(x => _validate_transition(sm.name, x, states, composites, events))
     }
 
     private def _validate_transition(
       machinename: String,
       transition: TransitionDefinition,
       statenames: Set[String],
+      composites: Vector[MComponent.StateMachineHistoryComposite],
       events: Set[String]
     ): Unit = {
       transition.transition.to match {
         case NameTransitionTo(name) =>
           if (!name.equalsIgnoreCase(PROP_STATE_INIT) && !statenames.contains(name))
             RAISE.syntaxErrorFault(s"StateMachine '$machinename' transition target $name is not defined.")
+        case NamedHistoryTransitionTo(name) =>
+          if (!composites.exists(_.name == name))
+            RAISE.syntaxErrorFault(s"StateMachine '$machinename' history composite '$name' is not defined.")
+        case HistoryTransitionTo() =>
+          RAISE.syntaxErrorFault(s"StateMachine '$machinename' history target must name a composite.")
         case _ =>
       }
       val eventname = _event_name_from_guard(transition.transition.guard).orElse(transition.transition.getEventName).getOrElse {
@@ -283,7 +294,9 @@ private[modeler] final class ModelStateMachineProjector(val context: ModelBuildC
           MComponent.StateMachineDefinition(
             name = sm.name,
             states = _distinct_stable(_all_states(sm.rule).map(_.name)),
-            events = _state_machine_events(sm)
+            events = _state_machine_events(sm),
+            historyFieldName = sm.rule.historyFieldName,
+            historyComposites = _history_composites(sm.rule)
           )
         }
       }
@@ -304,13 +317,19 @@ private[modeler] final class ModelStateMachineProjector(val context: ModelBuildC
       val collectionname = StringUtils.camelToUnderscore(entity.name)
       val statemap = _state_map(sm.rule)
       val statefieldname = _state_field_name(entityclass, sm)
+      val historyfieldname = _history_field_name(entityclass, sm)
+      val historycomposites = _history_composites(sm.rule)
       val transitions = _all_transitions(sm.rule)
+      val namedhistory = transitions.exists(_.transition.to.isInstanceOf[NamedHistoryTransitionTo])
+      if (namedhistory && historyfieldname.isEmpty)
+        RAISE.syntaxErrorFault(s"StateMachine '${sm.name}' has named history transitions and requires HISTORY-FIELD.")
       transitions.map { x =>
         val eventname = _event_name(sm.name, x)
         val trigger = _transition_trigger(eventname, x.iscalltransition)
         val guard = _transition_guard(x.transition.guard)
         val plan = _transition_plan(x, statemap)
-        val targetstate = _target_state(x.transition.to, statemap)
+        val targetstate = _target_state(x.transition.to, statemap, historycomposites)
+        val historycomposite = _history_transition_composite(x.transition.to, historycomposites)
         MComponent.StateMachineTransitionRule(
           collectionName = collectionname,
           trigger = trigger,
@@ -324,10 +343,81 @@ private[modeler] final class ModelStateMachineProjector(val context: ModelBuildC
           priority = 0,
           declarationOrder = 0,
           guard = guard,
-          plan = plan
+          plan = plan,
+          historyCompositeName = historycomposite.map(_.name),
+          historyFieldName = historyfieldname,
+          historyDirectLeaves = historycomposite.map(_.directLeaves).getOrElse(Vector.empty),
+          historyFallbackLeaf = historycomposite.flatMap(_.fallbackLeaf),
+          expectedHistoryRecordWrites = _expected_history_record_writes(
+            x.sourcestate,
+            targetstate,
+            x.transition.to,
+            historycomposites,
+            historyfieldname
+          )
         )
       }
     }
+
+    private def _history_field_name(
+      entityclass: EntityClass,
+      statemachine: StateMachineClass
+    ): Option[String] =
+      statemachine.rule.historyFieldName.map { requested =>
+        entityclass.schemaClass.slots.collectFirst {
+          case attribute: SchemaModel.Attribute if attribute.name == requested => attribute.name
+        }.getOrElse {
+          RAISE.syntaxErrorFault(
+            s"StateMachine '${statemachine.name}' HISTORY-FIELD '$requested' is not an attribute of entity '${entityclass.name}'."
+          )
+        }
+      }
+
+    private def _history_composites(
+      rule: StateMachineRule
+    ): Vector[MComponent.StateMachineHistoryComposite] =
+      rule.statemachines.toVector.map { composite =>
+        val leaves = composite.states.toVector.map(_.name)
+        MComponent.StateMachineHistoryComposite(
+          name = composite.name.getOrElse(""),
+          directLeaves = leaves,
+          fallbackLeaf = leaves.headOption
+        )
+      }
+
+    private def _history_transition_composite(
+      to: TransitionTo,
+      composites: Vector[MComponent.StateMachineHistoryComposite]
+    ): Option[MComponent.StateMachineHistoryComposite] =
+      to match {
+        case NamedHistoryTransitionTo(name) =>
+          composites.find(_.name == name).orElse {
+            RAISE.syntaxErrorFault(s"StateMachine history composite '$name' is not defined.")
+          }
+        case HistoryTransitionTo() =>
+          RAISE.syntaxErrorFault("StateMachine history target must name a composite.")
+        case _ => None
+      }
+
+    private def _expected_history_record_writes(
+      source: Option[StateClass],
+      target: Option[StateClass],
+      to: TransitionTo,
+      composites: Vector[MComponent.StateMachineHistoryComposite],
+      historyfieldname: Option[String]
+    ): Vector[MComponent.StateMachineHistoryRecordWrite] =
+      to match {
+        case _: NamedHistoryTransitionTo => Vector.empty
+        case HistoryTransitionTo() => Vector.empty
+        case _ =>
+          historyfieldname.toVector.flatMap { _ => composites.flatMap { composite =>
+            val sourceleaf = source.filter(s => composite.directLeaves.contains(s.name)).map(_.name)
+            val targetleaf = target.filter(s => composite.directLeaves.contains(s.name)).map(_.name)
+            targetleaf.orElse(sourceleaf).map { leaf =>
+              MComponent.StateMachineHistoryRecordWrite(composite.name, leaf)
+            }
+          }}
+      }
 
     private def _state_field_name(
       entityclass: EntityClass,
@@ -355,10 +445,15 @@ private[modeler] final class ModelStateMachineProjector(val context: ModelBuildC
 
     private def _target_state(
       to: TransitionTo,
-      statemap: Map[String, StateClass]
+      statemap: Map[String, StateClass],
+      composites: Vector[MComponent.StateMachineHistoryComposite]
     ): Option[StateClass] =
       to match {
         case NameTransitionTo(name) => statemap.get(name)
+        case NamedHistoryTransitionTo(name) =>
+          composites.find(_.name == name).flatMap(_.fallbackLeaf).flatMap(statemap.get)
+        case HistoryTransitionTo() =>
+          RAISE.syntaxErrorFault("StateMachine history target must name a composite.")
         case _ => None
       }
 

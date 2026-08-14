@@ -4,7 +4,13 @@ This journal is a non-normative ledger for existing debt found while executing
 Phase 26. Entries here do not expand the active Slice or its completion
 criteria.
 
-## Open
+## Resolution Status (2026-08-14)
+
+RESOLVED. The shared ai-directive core now provides `type-modeling.md`; the
+later resolution evidence is recorded in
+`docs/journal/2026/08/2026-08-14-hygiene-ledger-resolution.md`.
+
+## Original Open Record (2026-08-04)
 
 ### P26-HYG-001: Restore the type-modeling authority reference
 
