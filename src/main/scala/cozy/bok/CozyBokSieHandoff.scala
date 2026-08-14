@@ -4,13 +4,15 @@ import cozy.bok.CozyBokProjectPublisher.ResolvedBokProject
 import cozy.config.CozyProjectYamlConfig
 import io.circe.{HCursor, Json, JsonObject}
 import io.circe.parser
+import io.circe.syntax._
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, LinkOption, Path}
 import scala.util.control.NonFatal
 
 /*
  * @since   Jul. 13, 2026
- * @version Jul. 23, 2026
+ *  version Jul. 23, 2026
+ * @version Aug. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyBokSieHandoff {
@@ -591,16 +593,16 @@ private[cozy] object CozyBokSieHandoff {
   }
 
   private def _merge_edges(values: Vector[Json]): Either[String, Vector[Json]] = {
-    def key(value: Json): (String, String, String) = (
+    def _key_(value: Json): (String, String, String) = (
       _json_string(value, "source").getOrElse(""),
       _json_string(value, "predicate").orElse(_json_string(value, "label")).getOrElse(""),
       _json_string(value, "target").getOrElse("")
     )
-    val invalid = values.find(x => key(x).productIterator.exists(_.toString.isEmpty))
+    val invalid = values.find(x => _key_(x).productIterator.exists(_.toString.isEmpty))
     if (invalid.nonEmpty)
       Left("RDF graph edge requires source, predicate/label, and target.")
     else
-      values.groupBy(key).toVector.sortBy(_._1).
+      values.groupBy(_key_).toVector.sortBy(_._1).
         foldLeft[Either[String, Vector[Json]]](Right(Vector.empty)) {
           case (left @ Left(_), _) => left
           case (Right(result), (edgekey, entries)) =>

@@ -144,3 +144,79 @@ disposition before implementation.
   `ModelServiceOperationProjector.scala` (923),
   `ModelComponentProjector.scala` (559), and
   `ModelRuntimeDefinitionProjector.scala` (950).
+
+## `COZY-HYG-SIZE-002 Split Disposition`
+
+- status=implementation-complete
+- Structural boundary and roles: `src/main/scala/cozy/video/CozyVideo.scala`
+  retains the private[cozy] API facade and delegation singleton;
+  `CozyVideoConfig.scala` owns command configurations, CLI parameters, and
+  property normalization; `CozyVideoModel.scala` owns project, script, part,
+  scene, replay, planning, and result data models; `CozyVideoTools.scala`
+  owns tool modes, statuses, registry/probe/providers, and narration provider
+  contracts; `CozyVideoCommand.scala` owns dispatch, operation orchestration,
+  and load helpers; `CozyVideoRuntime.scala` owns process runners, execution
+  command/path support, and runtime data; `CozyVideoNarration.scala` owns
+  synthesis, provider choice, WAV I/O, and audio manifests;
+  `CozyVideoToolValidation.scala` owns tool admission and dependency
+  diagnostics; `CozyVideoTranscription.scala` owns ffmpeg/whisper
+  transcription; `CozyVideoReviewEvidence.scala` owns review-evidence and
+  frame/extract validation; `CozyVideoBuildReplay.scala` owns project build,
+  ffmpeg/ffprobe, replay workspace/commands/manifests; `CozyVideoRdf.scala`
+  owns RDF graph/manifest helpers; `CozyVideoRenderWorkspace.scala` owns
+  render targets, workspaces, assets, character-dialogue validation, and
+  execution; `CozyVideoRenderTemplates.scala` owns renderer properties and
+  embedded Remotion/simple-java2d templates; `CozyVideoPlanning.scala` owns
+  plans, parts, artifacts, commands, and dry-run construction; and
+  `CozyVideoPresentation.scala` owns textual result projections.
+- Invariants: preserve every established `CozyVideo.X` type/companion shape,
+  named parameter, overload, default, diagnostic, literal, JSON field,
+  process argument, filesystem/network behavior, serialization shape, and
+  initialization order; do not edit callers or executable specifications;
+  keep all resulting split sources below 1,000 lines; and introduce no new
+  production API, dependency, schema, persistence, lifecycle, CLI, or
+  configuration behavior.
+- Primary focused compatibility gate:
+  `testOnly cozy.video.CozyVideoSpec cozy.video.CozyVideoAssetsSpec cozy.video.CozyVideoCreditsSpec cozy.video.CozyVideoEffectsSpec cozy.video.CozyVideoNarrationSpec cozy.video.CozyVideoProfileRenderSpec cozy.video.CozyVideoPublisherAdmissionSpec cozy.video.CozyVideoRemotionIntegrationSpec cozy.video.CozyVideoScaffoldSpec`
+
+## `COZY-HYG-SIZE-001 Split Disposition`
+
+- status=implementation-complete
+- Structural boundary and responsibility: `CozyBok.scala` is the private[cozy]
+  facade and direct-delegation surface; `CozyBokConfig.scala` and
+  `CozyBokBuildConfig.scala` own public configuration, policy, runner, and CLI
+  config factories; `CozyBokModel.scala` owns internal BoK/site/dashboard,
+  repository, term, scenario, and serialization models; `CozyBokCommand.scala`
+  owns CLI dispatch and entry operations; `CozyBokBibliography.scala` and
+  `CozyBokBibliographyRdf.scala` own bibliography cache/fetch, alias, fragment,
+  Turtle, and JSON-LD synchronization; `CozyBokBuild.scala` and
+  `CozyBokPublication.scala` own build/workflow/backup and publication
+  orchestration; `CozyBokSiteBuild.scala`, `CozyBokSitePages.scala`, and
+  `CozyBokProjectPages.scala` own site and knowledge/project page projections;
+  `CozyBokRepositoryMetadata.scala`, `CozyBokRepositoryCatalog.scala`, and
+  `CozyBokRepositoryPages.scala` own CAR/SAR catalog discovery, metadata,
+  diagnostics, and pages; `CozyBokSieMetadata.scala` owns SIE/RDF metadata;
+  `CozyBokGlossaryPages.scala`, `CozyBokRdfPages.scala`,
+  `CozyBokRdfViewer.scala`, `CozyBokGlossaryWorkflow.scala`,
+  `CozyBokGlossaryAnalysis.scala`, `CozyBokTagPages.scala`,
+  `CozyBokBibliographyPages.scala`, `CozyBokScenarioTermHub.scala`, and
+  `CozyBokLocalizedGlossary.scala` own semantic glossary/RDF/tag/bibliography/
+  scenario/term projections; and `CozyBokHtmlPages.scala`,
+  `CozyBokSiteDocument.scala`, `CozyBokDashboardCore.scala`,
+  `CozyBokDashboardAnalysis.scala`, `CozyBokMetadata.scala`,
+  `CozyBokFileSupport.scala`, `CozyBokUiAssets.scala`,
+  `CozyBokProjectResolution.scala`, and `CozyBokScaffold.scala` own HTML,
+  dashboard, metadata, file/resource UI, root/config resolution, and scaffold
+  helpers.
+- Invariants: preserve every established `CozyBok.X` type/companion shape,
+  named parameter, overload, default, diagnostic, literal, process argument,
+  filesystem/path policy, serialization shape, and initialization order through
+  the `CozyBokImplementation` singleton; `_default_ui_css()` reads
+  `src/main/resources/cozy/bok/default-ui.css` with byte-identical UTF-8 output
+  and keeps the `css/site.css` ZIP fallback; no callers/specifications or new
+  API/behavior/dependency/schema/persistence/lifecycle changes.
+- Every resulting CozyBok Scala source is below 1,000 lines. Existing
+  `CozyBokProjectPublisher.scala` and the listed oversized specifications remain
+  Existing Debt (Separate Follow-up).
+- Primary focused compatibility gate:
+  `testOnly cozy.bok.CozyBokSpec cozy.CozyBokDashboardSpec cozy.CozyBokKnowledgeSourceSpec cozy.CozyBokMonoKotoSpec cozy.bok.CozyBokProjectSpec cozy.CozyBokScenarioSpec cozy.bok.CozyBokTagSpec cozy.bok.CozyBokTermHubSpec cozy.CozyBokTermTypeSpec cozy.bok.CozyBokComponentRepositorySpec cozy.bok.CozyBokBibliographySpec cozy.bok.scenario.CozyBokScenarioModelSpec`
