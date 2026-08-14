@@ -81,17 +81,44 @@ class Modeler(
   }
 
   private def _make_sm(c: Context, name: String) =
-    c.universe.model.stateMachineModel.getClass(name).orElse {
-      c.universe.model.getEntityModel.flatMap(_.get(name)).flatMap { em =>
-        em.stateMachines.headOption // TODO
-      }
-    }.map { x =>
-      requireNamedHistoryField(x)
-      val sm = MDomainStateMachine.create(name)
-      val states = _states(sm, x)
+    _select_state_machine(c.universe.model, name).map(_project_state_machine)
+
+  private[modeler] def _project_state_machine(
+    p: StateMachineClass
+  ): MStateMachine = {
+      requireNamedHistoryField(p)
+      val sm = MDomainStateMachine.create(p.name)
+      val states = _states(sm, p)
       // val sms = VectorMap.empty[String, MDomainStateMachine]
       sm.setStates(states)
       sm
+  }
+
+  private[modeler] def _select_state_machine(
+    model: KaleidoxModel,
+    name: String
+  ): Option[StateMachineClass] =
+    model.stateMachineModel.getClass(name).orElse {
+      model.getEntityModel.flatMap { entities =>
+        val segments = name.split("\\.", 2)
+        segments.toList match {
+          case entityname :: machinename :: Nil if entityname.nonEmpty && machinename.nonEmpty =>
+            entities.get(entityname).flatMap(_.stateMachines.find(_.name == machinename))
+          case entityname :: Nil if entityname.nonEmpty =>
+            entities.get(entityname).flatMap { entity =>
+              entity.stateMachines match {
+                case Vector() => None
+                case machine +: Vector() => Some(machine)
+                case machines =>
+                  val candidates = machines.map(_.name).mkString(", ")
+                  RAISE.syntaxErrorFault(
+                    s"Entity '$entityname' has multiple StateMachine candidates: $candidates."
+                  )
+              }
+            }
+          case _ => None
+        }
+      }
     }
 
   private[modeler] def requireNamedHistoryField(p: StateMachineClass): Unit = {
@@ -121,7 +148,7 @@ class Modeler(
     }
 
     def _statemachine_state_(p: StateMachineRule): MState = {
-      val s = MState.create(sm, p.name.get) // TODO
+      val s = MState.create(sm, _require_composite_state_name(p))
       s.subStateMap = _sub_states_map_(p)
       s
     }
@@ -141,78 +168,52 @@ class Modeler(
           RAISE.syntaxErrorFault("StateMachine history target must name a composite state.")
         }
 
-      def _build_state_(s: StateClass): Unit = {
-        def _transition_(t: Transition): Option[MTransition] = {
-          val g = _guard_(t.guard)
-          val event = t.getEventName.map(x => MEvent(x)) // TODO share
-          val action = None // MAction(sm, "???")
+      def _transition_(sourcestatename: Option[String], t: Transition): Option[MTransition] = {
+        val g = _guard_(t.guard)
+        val event = t.getEventName.map(x => MEvent(x)) // TODO share
+        val action = _normalize_transition_action(t.effect, p.name).map(MAction(sm, _))
 
-          def _name_transition_(p: NameTransitionTo) =
-            (statemap.get(s.name), statemap.get(p.name)) match {
-              case (Some(from), Some(to)) => MTransition(sm, event, g, from, to, action)
-              case (Some(from), None) => RAISE.noReachDefect
-              case (None, Some(to)) => MTransition(sm, event, g, _init_state_, to, action)
-              case (None, None) => RAISE.noReachDefect
-            }
-
-          def _history_transition_(p: NamedHistoryTransitionTo) = {
-            val source = statemap.get(s.name).getOrElse(_init_state_)
-            MTransition(sm, event, g, source, _history_state_(p), action)
+        def _name_transition_(target: NameTransitionTo) =
+          (sourcestatename.flatMap(statemap.get), statemap.get(target.name)) match {
+            case (Some(from), Some(to)) => MTransition(sm, event, g, from, to, action)
+            case (Some(from), None) => RAISE.noReachDefect
+            case (None, Some(to)) => MTransition(sm, event, g, _init_state_, to, action)
+            case (None, None) => RAISE.noReachDefect
           }
 
-          t.to match {
-            case NoneTransitionTo => None
-            case FinalTransitionTo => None
-            case m: NamedHistoryTransitionTo => Some(_history_transition_(m))
-            case HistoryTransitionTo() => RAISE.syntaxErrorFault("StateMachine history target must name a composite state.")
-            case m: NameTransitionTo =>
-              if (m.name.equalsIgnoreCase(PROP_STATE_INIT))
-                None
-              else
-                Some(_name_transition_(m))
-          }
+        def _history_transition_(target: NamedHistoryTransitionTo) = {
+          val source = sourcestatename.flatMap(statemap.get).getOrElse(_init_state_)
+          MTransition(sm, event, g, source, _history_state_(target), action)
         }
 
-        val ts = s.transitions.call.flatMap(_transition_) ++ s.transitions.global.flatMap(_transition_)
+        t.to match {
+          case NoneTransitionTo => None
+          case FinalTransitionTo => None
+          case m: NamedHistoryTransitionTo => Some(_history_transition_(m))
+          case HistoryTransitionTo() => RAISE.syntaxErrorFault("StateMachine history target must name a composite state.")
+          case m: NameTransitionTo =>
+            if (m.name.equalsIgnoreCase(PROP_STATE_INIT))
+              None
+            else
+              Some(_name_transition_(m))
+        }
+      }
+
+      def _build_state_(s: StateClass): Unit = {
+        val ts =
+          s.transitions.call.flatMap(_transition_(Some(s.name), _)) ++
+            s.transitions.global.flatMap(_transition_(Some(s.name), _))
         statemap.get(s.name).foreach(_.transitions = ts.toList)
       }
 
       def _build_statemachine_(smr: StateMachineRule): Unit = {
-        def _transition_(t: Transition): Option[MTransition] = { // TODO unify
-          val g = _guard_(t.guard)
-          val event = t.getEventName.map(x => MEvent(x)) // TODO share
-          val action = None // MAction(sm, "???")
-
-          def _name_transition_(p: NameTransitionTo) =
-            (statemap.get(smr.name getOrElse ""), statemap.get(p.name)) match {
-              case (Some(from), Some(to)) => MTransition(sm, event, g, from, to, action)
-              case (Some(from), None) => RAISE.noReachDefect
-              case (None, Some(to)) => MTransition(sm, event, g, _init_state_, to, action)
-              case (None, None) => RAISE.noReachDefect
-            }
-
-          def _history_transition_(p: NamedHistoryTransitionTo) = {
-            val source = smr.name.flatMap(statemap.get).getOrElse(_init_state_)
-            MTransition(sm, event, g, source, _history_state_(p), action)
-          }
-
-          t.to match {
-            case NoneTransitionTo => None
-            case FinalTransitionTo => None
-            case m: NamedHistoryTransitionTo => Some(_history_transition_(m))
-            case HistoryTransitionTo() => RAISE.syntaxErrorFault("StateMachine history target must name a composite state.")
-            case m: NameTransitionTo =>
-              if (m.name.equalsIgnoreCase(PROP_STATE_INIT))
-                None
-              else
-                Some(_name_transition_(m))
-          }
-        }
-
+        val statemachinename = _require_composite_state_name(smr)
         smr.states.foreach(_build_state_)
         smr.statemachines.foreach(_build_statemachine_)
-        val ts = smr.transitions.call.flatMap(_transition_) ++ smr.transitions.global.flatMap(_transition_)
-        statemap.get(smr.name getOrElse "").foreach(_.transitions = ts.toList)
+        val ts =
+          smr.transitions.call.flatMap(_transition_(Some(statemachinename), _)) ++
+            smr.transitions.global.flatMap(_transition_(Some(statemachinename), _))
+        statemap.get(statemachinename).foreach(_.transitions = ts.toList)
       }
 
       p.statemachines.foreach(_build_statemachine_)
@@ -266,9 +267,9 @@ class Modeler(
   private def _normalize_init(ps: Seq[StateClass]): (Vector[StateClass], Option[String]) = {
     case class Z(
       ss: Vector[StateClass] = Vector.empty,
-      initStateName: Option[String] = None
+      initstatename: Option[String] = None
     ) {
-      def r = initStateName.
+      def r = initstatename.
         map(_explicit_init).
         getOrElse((ss, None))
 
@@ -276,12 +277,12 @@ class Modeler(
         val (ls, rs) = ss.span(_.name != name)
         rs.headOption.map { x =>
           (x +: (ls ++ rs.tail), None)
-        }.getOrElse((ss, initStateName))
+        }.getOrElse((ss, initstatename))
       }
 
       def +(rhs: StateClass) = {
         if (rhs.name.equalsIgnoreCase(PROP_STATE_INIT))
-          copy(initStateName = _init_state_name(rhs))
+          copy(initstatename = _init_state_name(rhs))
         else
           copy(ss = ss :+ rhs)
       }
@@ -305,9 +306,9 @@ class Modeler(
   // private def _normalize(ps: Seq[StateClass]) = {
   //   case class Z(
   //     ss: Vector[StateClass] = Vector.empty,
-  //     initStateName: Option[String] = None
+  //     initstatename: Option[String] = None
   //   ) {
-  //     def r = initStateName.
+  //     def r = initstatename.
   //       map(_explicit_init).
   //       getOrElse(ss)
 
@@ -318,7 +319,7 @@ class Modeler(
 
   //     def +(rhs: StateClass) = {
   //       if (rhs.name.equalsIgnoreCase(PROP_STATE_INIT))
-  //         copy(initStateName = _init_state_name(rhs))
+  //         copy(initstatename = _init_state_name(rhs))
   //       else
   //         copy(ss = ss :+ rhs)
   //     }
@@ -349,9 +350,9 @@ class Modeler(
   // private def _resolve_init(ps: Seq[MState]): Seq[MState] = {
   //   case class Z(
   //     ss: Vector[MState] = Vector.empty,
-  //     initStateName: Option[String] = None
+  //     initstatename: Option[String] = None
   //   ) {
-  //     def r = initStateName.
+  //     def r = initstatename.
   //       map(_explicit_init).
   //       getOrElse(ss)
 
@@ -362,7 +363,7 @@ class Modeler(
 
   //     def +(rhs: MState) = {
   //       if (rhs.name.equalsIgnoreCase(PROP_STATE_INIT))
-  //         copy(initStateName = _init_state_name(rhs))
+  //         copy(initstatename = _init_state_name(rhs))
   //       else
   //         copy(ss = ss :+ rhs)
   //     }
@@ -388,8 +389,7 @@ class Modeler(
     c: Context,
     model: SModel
   ): SExpr = {
-    val pkg = "" // TODO
-    _make_diagram(c, model, pkg)
+    _make_diagram(c, model, "domain")
   }
 
   def buildValueModel(model: KaleidoxModel): SimpleModel =
@@ -399,10 +399,7 @@ class Modeler(
     val env = c.executionContext.environment
     val model = _make_model(smodel.model)
     val g = new ClassDiagramGenerator(env, model)
-    model.getPackage(pkg) match {
-      case Some(s) => g.generate(s)
-      case None => SError.notFound("Unkown package", pkg)
-    }
+    g.generate(_diagram_target_package(model, pkg))
   }
 
   private def _make_model(p: IModel): SimpleModel = p match {
@@ -467,7 +464,7 @@ class Modeler(
     }
   }
 
-  private def _resolve_generate_package(
+  private[modeler] def _resolve_generate_package(
     model: SimpleModel,
     requested: String
   ): String = {
@@ -482,9 +479,42 @@ class Modeler(
         }
       }.getOrElse(requested)
   }
+
+  private[modeler] def _diagram_target_package(
+    model: SimpleModel,
+    requested: String
+  ): MPackage =
+    model.getPackage(_resolve_generate_package(model, requested)).getOrElse(model.root)
 }
 
 object Modeler {
+  private[modeler] def _require_composite_state_name(rule: StateMachineRule): String =
+    rule.name.map(_.trim).filter(_.nonEmpty).getOrElse {
+      RAISE.syntaxErrorFault("StateMachine composite state requires a name.")
+    }
+
+  private[modeler] def _normalize_transition_action(
+    activity: Activity,
+    machinename: String
+  ): Option[String] = {
+    val actions = activity match {
+      case Activity.Empty => Vector.empty
+      case Activity.Opaque(script) => _transition_action_lines(script)
+      case m => _transition_action_lines(m.toString)
+    }
+    actions match {
+      case Vector() => None
+      case action +: Vector() => Some(action)
+      case _ =>
+        RAISE.syntaxErrorFault(
+          s"StateMachine '$machinename' transition ACTION must contain exactly one nonempty action line."
+        )
+    }
+  }
+
+  private def _transition_action_lines(p: String): Vector[String] =
+    Option(p).toVector.flatMap(_.split("\\r?\\n", -1).toVector.map(_.trim).filter(_.nonEmpty))
+
   final case class HelpModel(
     `type`: String,
     name: String,

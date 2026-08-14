@@ -74,7 +74,7 @@ private[modeler] final class ModelStateMachineProjector(val context: ModelBuildC
         MState.create(sm, p.name, Right(p.value))
 
       def _statemachine_state_(p: StateMachineRule): MState = {
-        val s = MState.create(sm, p.name.getOrElse("statemachine"))
+        val s = MState.create(sm, _require_composite_state_name(p))
         s.subStateMap = _sub_states_map_(p)
         s
       }
@@ -116,7 +116,7 @@ private[modeler] final class ModelStateMachineProjector(val context: ModelBuildC
       ): Option[MTransition] = {
         val g = _guard_(t)
         val event = _event_(t)
-        val action = None // TODO MAction mapping
+        val action = _normalize_transition_action(t.effect, smc.name).map(MAction(sm, _))
         val from = sourcestatename.flatMap(statemap.get).orElse(ownerrule.name.flatMap(statemap.get))
 
         def _name_transition_(name: String): MTransition =
@@ -174,9 +174,9 @@ private[modeler] final class ModelStateMachineProjector(val context: ModelBuildC
     private def _normalize_init(ps: Seq[StateClass]): (Vector[StateClass], Option[String]) = {
       case class Z(
         ss: Vector[StateClass] = Vector.empty,
-        initStateName: Option[String] = None
+        initstatename: Option[String] = None
       ) {
-        def r = initStateName.
+        def r = initstatename.
           map(_explicit_init).
           getOrElse((ss, None))
 
@@ -184,12 +184,12 @@ private[modeler] final class ModelStateMachineProjector(val context: ModelBuildC
           val (ls, rs) = ss.span(_.name != name)
           rs.headOption.map { x =>
             (x +: (ls ++ rs.tail), None)
-          }.getOrElse((ss, initStateName))
+          }.getOrElse((ss, initstatename))
         }
 
         def +(rhs: StateClass) = {
           if (rhs.name.equalsIgnoreCase(PROP_STATE_INIT))
-            copy(initStateName = _init_state_name(rhs))
+            copy(initstatename = _init_state_name(rhs))
           else
             copy(ss = ss :+ rhs)
         }
@@ -222,12 +222,22 @@ private[modeler] final class ModelStateMachineProjector(val context: ModelBuildC
     )
 
     private def _validate_state_machine(sm: StateMachineClass): Unit = {
+      _validate_composite_state_names(sm.name, sm.rule)
       val states = _all_states(sm.rule).map(_.name).toSet
       val composites = _history_composites(sm.rule)
       val transitions = _all_transitions(sm.rule)
       val events = _declared_events(sm.rule)
       transitions.foreach(x => _validate_transition(sm.name, x, states, composites, events))
     }
+
+    private def _validate_composite_state_names(
+      machinename: String,
+      rule: StateMachineRule
+    ): Unit =
+      rule.statemachines.foreach { composite =>
+        _require_composite_state_name(composite)
+        _validate_composite_state_names(machinename, composite)
+      }
 
     private def _validate_transition(
       machinename: String,
@@ -379,7 +389,7 @@ private[modeler] final class ModelStateMachineProjector(val context: ModelBuildC
       rule.statemachines.toVector.map { composite =>
         val leaves = composite.states.toVector.map(_.name)
         MComponent.StateMachineHistoryComposite(
-          name = composite.name.getOrElse(""),
+          name = _require_composite_state_name(composite),
           directLeaves = leaves,
           fallbackLeaf = leaves.headOption
         )
@@ -475,7 +485,7 @@ private[modeler] final class ModelStateMachineProjector(val context: ModelBuildC
     private def _all_transitions(
       rule: StateMachineRule
     ): Vector[TransitionDefinition] = {
-      val machinename = rule.name.getOrElse("")
+      val machinename = _require_composite_state_name(rule)
       val fromstates = rule.states.toVector.flatMap { s =>
         s.transitions.call.map(t => TransitionDefinition(machinename, Some(s.name), Some(s), t, iscalltransition = true)).toVector ++
           s.transitions.global.map(t => TransitionDefinition(machinename, Some(s.name), Some(s), t, iscalltransition = false)).toVector
@@ -656,7 +666,7 @@ private[modeler] final class ModelStateMachineProjector(val context: ModelBuildC
       statemap: Map[String, StateClass]
     ): MComponent.RulePlan = {
       val exit = transition.sourcestate.toVector.flatMap(x => _activity_scripts(x.exitActivity))
-      val trans = _activity_script(transition.transition.effect)
+      val trans = _normalize_transition_action(transition.transition.effect, transition.machinename)
       val entry = _entry_scripts(transition.transition.to, statemap)
       MComponent.RulePlan(
         exit = exit.map(MComponent.RuleAction.apply),
@@ -675,9 +685,6 @@ private[modeler] final class ModelStateMachineProjector(val context: ModelBuildC
         case _ =>
           Vector.empty
       }
-
-    private def _activity_script(p: Activity): Option[String] =
-      _activity_scripts(p).headOption
 
     private def _activity_scripts(p: Activity): Vector[String] =
       p match {

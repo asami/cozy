@@ -541,6 +541,13 @@ Validation:
 - if event declarations exist, `ON` must reference declared event
 - same priority conflict is resolved by declaration order (deterministic)
 
+Transition `ACTION` mapping is singleton-only. An absent, empty, or whitespace-only
+`ACTION` creates no transition action metadata. Exactly one nonempty `ACTION` maps to the
+transition's model metadata action with its trimmed text. Multiple logical
+`ACTION` lines on one transition are a CML syntax diagnostic; Cozy never selects
+or executes one of them. This restriction applies only to transition `ACTION`:
+state entry and exit action sequences retain their existing sequence semantics.
+
 Guard mapping:
 
 - single identifier -> guardRef
