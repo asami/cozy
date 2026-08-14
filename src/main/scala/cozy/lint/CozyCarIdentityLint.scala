@@ -16,7 +16,7 @@ import org.goldenport.cncf.component.identity.ComponentIdentityMigrationRequest.
  * Cozy projection of the shared CNCF Component identity migration decision.
  *
  * @since   Aug.  8, 2026
- * @version Aug.  8, 2026
+ * @version Aug. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyCarIdentityLint {
@@ -66,7 +66,14 @@ private[cozy] object CozyCarIdentityLint {
           )
         } else {
           val decision = decisionresult.value.orElseThrow()
-          Vector(_finding(root, path, config, decision))
+          val finding = _finding(root, path, config, decision)
+          if (decision.status == ComponentIdentityMigrationDecision.Status.CANONICAL)
+            _component_name_disagreement(path, config, decision).toVector match {
+              case Vector() => Vector(finding)
+              case values => values
+            }
+          else
+            Vector(finding)
         }
       }
     }
@@ -146,13 +153,39 @@ private[cozy] object CozyCarIdentityLint {
       ),
       config.value("project.component.className").map(
         value => new AuthoredProjection("generatedClass", "project.component.className", value)
-      ),
-      config.value("project.component.name").map(
-        value => new AuthoredProjection("qualifiedId", "project.component.name", value)
       )
     ).flatten
     evidence ++ legacy
   }
+
+  private def _component_name_disagreement(
+    path: Path,
+    config: CozyProjectYamlConfig.Config,
+    decision: ComponentIdentityMigrationDecision
+  ): Option[CozyCarLint.Finding] =
+    for {
+      expected <- config.value("project.id")
+      actual <- config.value("project.component.name")
+      if actual != expected
+    } yield {
+      val projection = _option(decision.projection)
+      val canonical = projection.map(_.qualifiedId()).getOrElse("unknown")
+      CozyCarLint.Finding(
+        CozyCarLint.Level.Fail,
+        "identity",
+        "CAR_COMPONENT_IDENTITY_DISAGREEMENT",
+        Vector(
+          s"effectiveVersion=${decision.release.orElse("missing")}",
+          s"identityShape=${_identity_shape(config)}",
+          s"canonicalIdentity=$canonical",
+          "migrationStatus=projection-disagreement",
+          s"reason=projection-disagreement:localId:source=project.component.name:expected=$expected:actual=$actual",
+          s"actionPath=$path"
+        ).mkString("; "),
+        path,
+        1
+      )
+    }
 
   private def _identity_shape(config: CozyProjectYamlConfig.Config): String =
     (config.value("project.namespace"), config.value("project.id")) match {

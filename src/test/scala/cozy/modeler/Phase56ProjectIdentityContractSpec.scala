@@ -11,7 +11,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Aug.  7, 2026
- * @version Aug.  8, 2026
+ * @version Aug. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 final class Phase56ProjectIdentityContractSpec
@@ -661,6 +661,54 @@ final class Phase56ProjectIdentityContractSpec
         }
       }
     }
+
+    "E7 treat the compatibility component name as a local identity" must _e7 {
+      "E7 admits an exact local name, rejects another local name, and preserves legacy fallback" in {
+        Given("E7 canonical projects with matching and conflicting component names plus a legacy project without className")
+        val canonical = _canonical_project_yaml_with_component_name(
+          "org.simplemodeling.textus",
+          "UserAccount",
+          "UserAccount",
+          "0.1.0-SNAPSHOT"
+        )
+        val conflicting = _canonical_project_yaml_with_component_name(
+          "org.simplemodeling.textus",
+          "UserAccount",
+          "OtherAccount",
+          "0.1.0-SNAPSHOT"
+        )
+        val legacy = _legacy_project_yaml_without_class_name(
+          "textus-user-account",
+          "UserAccount",
+          "0.0.1-SNAPSHOT"
+        )
+
+        _with_temp_dir("cozy-phase56-cid07-component-local-id") { directory =>
+          When("E7 Cozy CAR lint classifies all three component-name compatibility shapes")
+          val observed = Vector(canonical, conflicting, legacy).zipWithIndex.map { case (yaml, index) =>
+            val projectdir = directory.resolve(s"case-$index")
+            Files.createDirectories(projectdir)
+            Files.writeString(projectdir.resolve("project.yaml"), yaml)
+            CozyCarLint.lint(projectdir, None, true, Some("0.1.0")).filter(
+              finding => _identity_codes(finding.code)
+            )
+          }
+
+          Then("E7 the exact local name is canonical and the conflicting local name is a sourced disagreement")
+          observed(0).map(finding => (finding.code, finding.level.name)) shouldBe
+            Vector(("CAR_COMPONENT_IDENTITY_CANONICAL", "OK"))
+          observed(1).map(finding => (finding.code, finding.level.name)) shouldBe
+            Vector(("CAR_COMPONENT_IDENTITY_DISAGREEMENT", "FAIL"))
+          observed(1).head.message should include(
+            "source=project.component.name:expected=UserAccount:actual=OtherAccount"
+          )
+
+          And("E7 component.name remains the legacy local-ID fallback when className is absent")
+          observed(2).map(finding => (finding.code, finding.level.name)) shouldBe
+            Vector(("CAR_COMPONENT_IDENTITY_MIGRATION_REQUIRED", "FAIL"))
+        }
+      }
+    }
   }
 
   "E8 namespace-isolated canonical CAR lint" should {
@@ -712,6 +760,21 @@ final class Phase56ProjectIdentityContractSpec
       |    version: $version
       |""".stripMargin
 
+  private def _canonical_project_yaml_with_component_name(
+    namespace: String,
+    localid: String,
+    componentname: String,
+    version: String
+  ): String =
+    s"""project:
+      |  namespace: $namespace
+      |  id: $localid
+      |  kind: car
+      |  component:
+      |    name: $componentname
+      |    version: $version
+      |""".stripMargin
+
   private def _projection_map(projection: ComponentIdentityProjection): Map[String, String] =
     Map(
       "qualified" -> projection.qualifiedId(),
@@ -735,6 +798,23 @@ final class Phase56ProjectIdentityContractSpec
       |  component:
       |    name: $artifact
       |    className: $classname
+      |    displayName: Textus User Account
+      |    version: $version
+      |""".stripMargin
+
+  private def _legacy_project_yaml_without_class_name(
+    artifact: String,
+    componentname: String,
+    version: String
+  ): String =
+    s"""project:
+      |  name: $artifact
+      |  title: Textus User Account
+      |  kind: car
+      |  organization: org.simplemodeling.textus
+      |  scalaPackage: org.simplemodeling.textus.useraccount
+      |  component:
+      |    name: $componentname
       |    displayName: Textus User Account
       |    version: $version
       |""".stripMargin
