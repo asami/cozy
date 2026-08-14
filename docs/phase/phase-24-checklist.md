@@ -3,9 +3,24 @@
 This checklist is the authoritative progress ledger for Phase 24: Component
 Skill Distribution.
 
+Cross-repository dependency:
+
+- CNCF Phase 66 (`cloud-native-component-framework:docs/phase/phase-66.md`)
+  supplies the contract, codec/validator, and normative fixtures for
+  `SK24-01`.
+- CNCF Phase 66 is currently planned. Its closure and evidence handoff are
+  the external start gate for `SK24-01`.
+- `SK24-01` remains PLANNED until CNCF Phase 66 is closed and Cozy records an
+  item-by-item evidence mapping to its accepted commit/artifact,
+  design/specification, executable tests, and fixture identities.
+- `SK24-02` must not start before that mapping is accepted. CNCF Phase 66
+  closure does not complete any Cozy packaging or launcher implementation.
+
 ## SK24-01: CNCF Skill Bundle Contract
 
 Status: PLANNED
+
+Supplier: CNCF Phase 66 CAR Skill Bundle Contract
 
 - [ ] Define the versioned `SkillBundleManifest` schema and canonical media
       type when applicable.
@@ -19,6 +34,9 @@ Status: PLANNED
 - [ ] Ensure a manifest grants no runtime or installer authority by itself.
 - [ ] Publish normative valid and invalid fixtures usable by Cozy and both
       launchers.
+- [ ] Record the accepted CNCF Phase 66 commit/artifact identity and map every
+      item above to its normative design/specification, executable test, and
+      fixture evidence before setting `SK24-01` to DONE.
 
 ## SK24-02: Cozy Lint and CAR Packaging
 

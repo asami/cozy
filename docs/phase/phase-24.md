@@ -5,7 +5,7 @@ Status: planned
 Start date: TBD
 
 Dependency: Phase 23 scalar entity persistence round-trip, Phase 21 repository
-discovery, and the CNCF Skill Bundle contract
+discovery, and the currently planned CNCF Phase 66 CAR Skill Bundle Contract
 
 ## Goal
 
@@ -19,6 +19,30 @@ Launcher installs an unreleased development bundle. Textus Launcher resolves a
 released/local/cache CAR and installs its packaged bundle. Cozy Launcher only
 selects and starts the Cozy runtime; it does not become a component skill
 installer.
+
+## CNCF Phase 66 Handoff
+
+- CNCF Phase 66 owns the versioned `SkillBundleManifest` model, schema,
+  canonical source/archive locations, path and digest rules, compatibility and
+  MCP-requirement semantics, deterministic codec/validator, and normative
+  valid/invalid fixtures.
+- This Phase remains planned and blocked at `SK24-01` until CNCF Phase 66 is
+  closed and its exact commit/artifact, design/specification, executable-test,
+  and fixture evidence is accepted in the Cozy ledger.
+- `SK24-01` is dependency acceptance, not a second CNCF contract
+  implementation. Cozy must not redefine any Phase 66-owned rule.
+- After the handoff, `SK24-02` is the first Cozy implementation stage and owns
+  source validation, `cozy lint skill`, deterministic CAR projection, package
+  provenance, and real source/archive packaging equivalence.
+- `SK24-03` and `SK24-04` remain CNCF Launcher and Textus Launcher integration
+  stages. CNCF Phase 66 does not implement or close them.
+- Closing CNCF Phase 66 unblocks this Phase but does not automatically mark
+  `SK24-01` DONE; Cozy must verify and record the item-by-item evidence first.
+
+Repository-qualified CNCF references:
+
+- `cloud-native-component-framework:docs/phase/phase-66.md`
+- `cloud-native-component-framework:docs/phase/phase-66-checklist.md`
 
 ## Scope
 
@@ -116,16 +140,18 @@ textus skill uninstall <bundle-or-artifact>
 Stage Status:
 
 - Current status: PLANNED
-- Owner: CNCF
+- Owner: CNCF Phase 66 / Cozy dependency acceptance
 - Update rule: mark work complete only from the Phase 24 checklist.
 - Checklist basis: `SK24-01`
 
 Focus:
 
-- finalize the schema and canonical source/archive paths;
-- define digest, compatibility, collision, dependency, and MCP requirement
-  outcomes;
-- provide one normative codec and fixture suite consumable across JVM versions.
+- accept the CNCF Phase 66 schema and canonical source/archive paths after its
+  closure and evidence handoff;
+- verify its digest, compatibility, collision, dependency, MCP requirement,
+  codec, and structured validation outcomes against every `SK24-01` item;
+- record the exact CNCF contract, artifact, test, and normative fixture
+  identities without reimplementing them in Cozy.
 
 ## Stage 24.2: Cozy Validation and CAR Projection
 
@@ -205,5 +231,7 @@ configuration must change only after an explicit conflict-checked request.
 - `docs/phase/phase-24-checklist.md`
 - `docs/journal/2026/07/codex-skill-bundle-packaging-contract-2026-07-21.md`
 - CNCF journal: `2026-07-21-codex-skill-bundle-contract.md`
+- CNCF Phase 66: `docs/phase/phase-66.md` and
+  `docs/phase/phase-66-checklist.md` in `cloud-native-component-framework`
 - Textus Launcher: `docs/phase/phase-1.md`
 - CNCF Launcher: `docs/phase/phase-1.md`

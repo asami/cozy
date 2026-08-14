@@ -611,7 +611,8 @@ Primary reference:
 
 ### Phase 24: Component Skill Distribution
 
-Status: planned after Phase 23 and the CNCF Skill Bundle contract.
+Status: planned after Phase 23 and CNCF Phase 66 CAR Skill Bundle Contract
+closure.
 
 Purpose:
 
@@ -624,11 +625,16 @@ Purpose:
   execution or MCP invocation;
 - keep Cozy Launcher responsible only for selecting and invoking the Cozy
   runtime, not for installing component skills.
+- consume CNCF Phase 66 as the sole `SK24-01` contract supplier; after its
+  item-by-item evidence handoff, begin Cozy-owned CAR projection at `SK24-02`
+  without redefining the CNCF schema, codec, or validation semantics.
 
 Primary reference:
 
 - `docs/phase/phase-24.md`
 - `docs/phase/phase-24-checklist.md`
+- CNCF repository `docs/phase/phase-66.md`
+- CNCF repository `docs/phase/phase-66-checklist.md`
 
 ### Phase 25: Entity Revision Generator Alignment
 
@@ -853,7 +859,7 @@ Origin:
 Phase 6 through Phase 23 are closed. Phase 23 completed scalar Entity
 persistence round-trip, driver-CAR verification, and the CBD Support P8-42
 Entity Aggregate handback. Phase 24 remains separately planned and blocked on
-its own CNCF Skill Bundle contract. Phase 25 is a separate,
+CNCF Phase 66 closure and its `SK24-01` evidence handoff. Phase 25 is a separate,
 focused generator alignment now closed with the Cozy generator contract and
 Executable Specifications complete. The attempted CBD Support acceptance was
 blocked by that project's launcher selecting Cozy `0.3.1-SNAPSHOT`; its
@@ -876,8 +882,8 @@ cards, deterministic repeat output, and a clean focused re-review. AM28-04
 completed standard-BoK, package/standalone, and Phase 27 production regression,
 the 95-suite/1300-test Cozy full gate, final Part 5 runtime acceptance,
 independent clean review, and ledger convergence. Phase 24
-remains separately planned and blocked on its own contract, preserving the
-closed Phase 27 production boundary.
+remains separately planned and blocked on CNCF Phase 66 closure and the Cozy
+`SK24-01` evidence handoff, preserving the closed Phase 27 production boundary.
 
 Phase 20 introduced provider-neutral narration with VOICEVOX, host-only macOS
 `say`, and a portable Piper Docker route, then used that contract to migrate the

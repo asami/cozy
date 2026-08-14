@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-ROOT_DIR=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
+ROOT_DIR=$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)
 CONTRACT_DIR="$ROOT_DIR/bridge/sbt-bridge/v1"
 BASE_REF=${BRIDGE_CHECK_BASE:-HEAD}
 
