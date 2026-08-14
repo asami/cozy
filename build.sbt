@@ -77,7 +77,7 @@ libraryDependencies += "org.simplemodeling" %% "simplemodeler" % simplemodelerVe
 
 libraryDependencies += "org.goldenport" % "cncf-collaborator-api" % cncfCollaboratorApiVersion
 
-libraryDependencies += "org.goldenport" %% "arcadia" % "1.0.2"
+libraryDependencies += "org.goldenport" %% "arcadia" % "1.0.3-SNAPSHOT"
 
 libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.4.11"
 

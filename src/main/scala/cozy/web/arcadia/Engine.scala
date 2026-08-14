@@ -23,7 +23,7 @@ import arcadia.domain._
  *  version Aug. 29, 2022
  *  version Sep. 25, 2022
  *  version Jun. 10, 2026
- * @version Aug. 14, 2026
+ * @version Aug. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 class Engine(
@@ -82,7 +82,7 @@ class Engine(
   private def _parcel(
     req: ServletHttpRequest,
     cmd: Command
-  ) = {
+  ): Parcel = {
     val query = req.queryWhole
     val form = req.formWhole
     val ctx = new CozyPlatformExecutionContext(
@@ -90,7 +90,20 @@ class Engine(
       query,
       form
     )
-    val formatter = FormatterContext.default // TODO customizable
+    _parcel(ctx, cmd)
+  }
+
+  private[arcadia] def _apply_for_test(
+    platformexecutioncontext: arcadia.context.PlatformExecutionContext,
+    cmd: Command,
+    model: arcadia.model.Model
+  ): Content = engine.apply(_parcel(platformexecutioncontext, cmd).withModel(model))
+
+  private def _parcel(
+    ctx: arcadia.context.PlatformExecutionContext,
+    cmd: Command
+  ): Parcel = {
+    val formatter = Engine._formatter(ctx.formatContext)
     val strategy = RenderStrategy(
       ctx.locale,
       PlainTheme,
@@ -122,7 +135,7 @@ class Engine(
 
   private val _schema_rule: SchemaRule = {
     val base = SchemaBuilder.create(
-      CLT(PROP_DOMAIN_OBJECT_ID, "ID", XString), // TODO
+      Engine._domain_object_id_column,
       CLejT(PROP_DOMAIN_OBJECT_TITLE, "Title", "タイトル", XString),
       CLejT(PROP_DOMAIN_OBJECT_IMAGE_PRIMARY, "Image", "画像", XImageLink),
       CLejT(PROP_DOMAIN_OBJECT_CONTENT, "Content", "内容", XText)
@@ -176,9 +189,19 @@ class Engine(
 
   private def _web_rule(name: String): WebApplicationRule = WebApplicationRule.empty
 
-  private def _session(ctx: CozyPlatformExecutionContext) =
+  private def _session(ctx: arcadia.context.PlatformExecutionContext) =
     if (ctx.isLogined)
       Some(arcadia.context.Session(None))
     else
       None
+}
+
+private[arcadia] object Engine {
+  private[arcadia] val _domain_object_id_datatype: DataType = XString
+
+  private[arcadia] val _domain_object_id_column: CLT =
+    CLT(PROP_DOMAIN_OBJECT_ID, "ID", _domain_object_id_datatype)
+
+  private[arcadia] def _formatter(formatcontext: org.goldenport.context.FormatContext): FormatterContext =
+    FormatterContext(formatcontext)
 }
