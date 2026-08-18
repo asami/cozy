@@ -389,11 +389,8 @@ private[cozy] trait CozyVideoReviewEvidence {
       RAISE.invalidArgumentFault(s"Project video manifest outputPath does not match final video: $manifest")
     if (_review_required_string(json, "finalVideoSha256", "project video manifest") != finalhash)
       RAISE.invalidArgumentFault(s"Project video manifest finalVideoSha256 does not match final video: $manifest")
-    json.hcursor.downField("encoding").focus.foreach { value =>
-      if (!value.isObject)
-        RAISE.invalidArgumentFault(s"Project video manifest encoding is invalid: $manifest")
-      _review_require_effective_encoding(value, "policy", plan.encoding, "project video manifest encoding")
-    }
+    val encoding = _review_required_object(json, "encoding", "project video manifest")
+    _review_require_effective_encoding(encoding, "policy", plan.encoding, "project video manifest encoding")
     manifest
   }
 

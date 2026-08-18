@@ -219,6 +219,30 @@ final class CozyVideoSpec
           runner.commands shouldBe empty
         }
       }
+
+      "rejects a validated video manifest without encoding before invoking the review runner" in {
+        _with_temp_dir("cozy-video-encoding-evidence-missing-manifest-encoding") { dir =>
+          Given("a standard planned encoding and a validated video manifest without encoding facts")
+          val project = dir.resolve("video_project.json")
+          val finalvideo = dir.resolve("build/final.mp4")
+          _write(project, """{"output":"build/final.mp4","renderer":{"engine":"remotion","policy":"standard"},"parts":[{"id":"intro","type":"dialogue","script":"script.json"}]}""")
+          _write(dir.resolve("script.json"), _script_json)
+          _write_bytes(finalvideo, Array[Byte](1, 2, 3, 4))
+          _write_review_video_manifest(finalvideo, None)
+          _write(dir.resolve("build/audio/intro/manifest.json"), """[{"sceneId":"scene","speaker":null,"file":"01.wav","leadSilence":0.0,"audioDuration":1.0,"targetDuration":1.0,"tailSilence":0.0}]""")
+          _write(dir.resolve("target/cozy-video/remotion/intro/props.json"), """{"partId":"intro","encodingPolicy":"standard","fps":30,"width":1280,"height":720,"crf":23,"x264Preset":null,"timing":{"openingFrames":0,"contentFrames":30,"summaryStartFrame":30,"summaryFrames":0,"finalPageStartFrame":30,"finalPageHoldFrames":0,"totalFrames":30},"scenes":[{"id":"scene","startFrame":0,"durationFrames":30,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
+          val runner = ReviewEvidenceRunner()
+
+          When("Cozy validates the project video manifest")
+          val error = intercept[RuntimeException] {
+            CozyVideo.reviewEvidence(CozyVideo.ReviewEvidenceConfig(project, dir.resolve("review"), toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), runner)
+          }
+
+          Then("the missing encoding object is rejected before any frame extraction")
+          error.getMessage should include("Missing or invalid encoding in project video manifest")
+          runner.commands shouldBe empty
+        }
+      }
     }
 
     "inspect planning" which {
@@ -4207,7 +4231,7 @@ final class CozyVideoSpec
           val finalvideo = dir.resolve("build/final.mp4")
           val save = dir.resolve("review")
           _write_review_evidence_fixture(dir, "build/final.mp4", finalvideo)
-          _write(finalvideo.getParent.resolve("manifest.json"), s"""{"status":"validated","outputPath":"${finalvideo.toAbsolutePath.normalize()}","finalVideoSha256":"stale"}""")
+          _write(finalvideo.getParent.resolve("manifest.json"), s"""{"status":"validated","outputPath":"${finalvideo.toAbsolutePath.normalize()}","finalVideoSha256":"stale","encoding":{"policy":"lightweight","fps":10,"width":100,"height":50,"crf":32,"x264Preset":null}}""")
           val runner = ReviewEvidenceRunner()
 
           When("Cozy validates provenance before extracting frames")
@@ -5190,7 +5214,14 @@ final class CozyVideoSpec
     }
   }
 
-  private def _write_review_video_manifest(finalvideo: Path, encoding: Option[Json] = None): Unit = {
+  private def _write_review_video_manifest(finalvideo: Path, encoding: Option[Json] = Some(Json.obj(
+    "policy" -> Json.fromString("lightweight"),
+    "fps" -> Json.fromInt(10),
+    "width" -> Json.fromInt(100),
+    "height" -> Json.fromInt(50),
+    "crf" -> Json.fromInt(32),
+    "x264Preset" -> Json.Null
+  ))): Unit = {
     val hash = MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(finalvideo)).map("%02x".format(_)).mkString
     val json = Json.obj(
       "status" -> Json.fromString("validated"),
