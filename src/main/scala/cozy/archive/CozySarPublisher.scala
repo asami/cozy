@@ -21,8 +21,11 @@ object CozySarPublisher {
   )
 
   private def _build_temp_sar(args: List[String]): Path = {
+    val projectdir = RepositoryArtifactPublisher.projectDir(args, "Missing project directory for publish-sar")
     val sourcedir = RepositoryArtifactPublisher.requiredPath(args, "source-dir")
-    val tempsar = Files.createTempFile("cozy-publish-sar-", ".sar")
+    val workroot = projectdir.resolve("target/cozy-publish-sar")
+    Files.createDirectories(workroot)
+    val tempsar = Files.createTempFile(workroot, "cozy-publish-sar-", ".sar")
     val buildargs =
       RepositoryArtifactPublisher.removePublishOnlyArgs(args, _publish_only_keys) ++
         Vector(

@@ -242,6 +242,7 @@ final class CozyArticleMediaVideoCommandSpec extends AnyWordSpec with Matchers w
         ))
         val firstentered = new CountDownLatch(1)
         val releasefirst = new CountDownLatch(1)
+        val secondstarted = new CountDownLatch(1)
         val secondentered = new CountDownLatch(1)
         val runner = new BlockingPublishingRunner(firstentered, releasefirst, secondentered)
         implicit val executioncontext: ExecutionContext = ExecutionContext.global
@@ -251,9 +252,13 @@ final class CozyArticleMediaVideoCommandSpec extends AnyWordSpec with Matchers w
           publication, repository, Vector(plan), CozyVideoSpec.RecordingVoicevoxClient(), runner
         ))
         firstentered.await(5, TimeUnit.SECONDS) shouldBe true
-        val second = Future(CozyArticleMediaVideoCommand.publish(
-          publication, repository, Vector(plan), CozyVideoSpec.RecordingVoicevoxClient(), runner
-        ))
+        val second = Future {
+          secondstarted.countDown()
+          CozyArticleMediaVideoCommand.publish(
+            publication, repository, Vector(plan), CozyVideoSpec.RecordingVoicevoxClient(), runner
+          )
+        }
+        secondstarted.await(5, TimeUnit.SECONDS) shouldBe true
         secondentered.await(250, TimeUnit.MILLISECONDS) shouldBe false
         releasefirst.countDown()
         val firstresult = Await.result(first, 10.seconds)

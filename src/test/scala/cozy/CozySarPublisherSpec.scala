@@ -125,6 +125,11 @@ class CozySarPublisherSpec extends AnyWordSpec with Matchers with GivenWhenThen 
       entries should contain("subsystem-descriptor.yaml")
       entries should contain("extension/adapter.jar")
       entries should not contain "ignored.txt"
+      val staging = projectdir.resolve("target/cozy-publish-sar")
+      Files.isDirectory(staging) shouldBe true
+      val stagedfiles = Files.list(staging)
+      try stagedfiles.iterator().asScala.toVector shouldBe empty
+      finally stagedfiles.close()
       Files.exists(projectdir.resolve("src/main/catalog/sar/sample-application.yaml")) shouldBe false
       Files.exists(warehouse.resolve("repository/catalog/sar/sample-application.yaml")) shouldBe false
       Files.exists(warehouse.resolve("repository/sar/sample-application/maven-metadata.xml")) shouldBe false

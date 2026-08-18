@@ -2904,7 +2904,9 @@ class CozyBokProjectSpec
        |""".stripMargin
 
   private def _with_temp_dir[A](prefix: String)(f: Path => A): A = {
-    val dir = Files.createTempDirectory(prefix)
+    val workroot = Path.of("target/cozy-test/work/cozy-bok-project-spec").toAbsolutePath.normalize()
+    Files.createDirectories(workroot)
+    val dir = Files.createTempDirectory(workroot, s"$prefix-")
     try {
       f(dir)
     } finally {
@@ -2915,7 +2917,9 @@ class CozyBokProjectSpec
   private def _with_user_home[A](home: Path)(body: => A): A =
     CozyProjectContext.withUserHomeLock {
       val previoushome = Option(System.getProperty("user.home"))
-      System.setProperty("user.home", home.toString)
+      Files.createDirectories(home)
+      val canonicalhome = home.toRealPath()
+      System.setProperty("user.home", canonicalhome.toString)
       try body
       finally {
         previoushome.foreach(System.setProperty("user.home", _))

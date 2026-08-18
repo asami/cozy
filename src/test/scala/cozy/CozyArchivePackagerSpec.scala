@@ -5,6 +5,7 @@ import java.io.{ByteArrayOutputStream, PrintStream}
 import java.net.InetSocketAddress
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.zip.{ZipEntry, ZipFile, ZipOutputStream}
 
 import scala.collection.JavaConverters._
@@ -1206,9 +1207,11 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
           |""".stripMargin
       )
       val archive = dir.resolve("out/sample.car")
+      val catalogrequested = new AtomicBoolean(false)
       val server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0)
       server.createContext("/runtime-catalog.yaml", new HttpHandler {
         def handle(exchange: HttpExchange): Unit = {
+          catalogrequested.set(true)
           val body =
             """schemaVersion: 1
               |baseProvided:
@@ -1250,6 +1253,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
           ))
         }
         Then("the explicit catalog governs the dependency rejection")
+        catalogrequested.get shouldBe true
         ex.getMessage should include ("base-provided")
         ex.getMessage should include ("org.postgresql:postgresql:42.7.3")
       } finally {

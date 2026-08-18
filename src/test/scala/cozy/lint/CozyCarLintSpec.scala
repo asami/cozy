@@ -786,7 +786,9 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   }
 
   private def _with_temp_dir[A](prefix: String)(body: Path => A): A = {
-    val dir = Files.createTempDirectory(prefix)
+    val workroot = Path.of("target/cozy-test/work/cozy-car-lint-spec").toAbsolutePath.normalize()
+    Files.createDirectories(workroot)
+    val dir = Files.createTempDirectory(workroot, s"$prefix-")
     try body(dir)
     finally _delete(dir)
   }
