@@ -41,17 +41,17 @@ Status: COMPLETE
 
 ## VP31-03: Runtime Acceptance
 
-Status: IN PROGRESS
+Status: COMPLETE
 
-- [ ] Add executable specifications for all policies, default resolution,
+- [x] Add executable specifications for all policies, default resolution,
       partial explicit overrides, and invalid settings.
-- [ ] Prove Remotion command construction includes the effective CRF and
+- [x] Prove Remotion command construction includes the effective CRF and
       optional x264 preset.
-- [ ] Render one representative character-dialogue fixture with lightweight
+- [x] Render one representative character-dialogue fixture with lightweight
       and standard policies and verify dimensions, FPS, duration, and codec.
-- [ ] Record output sizes and confirm lightweight is materially smaller without
+- [x] Record output sizes and confirm lightweight is materially smaller without
       unreadable captions or diagrams.
-- [ ] Run focused/full Cozy validation, independent review, any bounded repair,
+- [x] Run focused/full Cozy validation, independent review, any bounded repair,
       and ledger convergence before closure.
 
 Phase 31 closes only after policy resolution, renderer execution, metadata,

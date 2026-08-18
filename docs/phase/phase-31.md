@@ -1,6 +1,6 @@
 # Phase 31: Video Encoding Policy Profiles
 
-Status: active
+Status: complete
 
 Plan date: 2026-08-18
 
@@ -87,7 +87,7 @@ inspection, manifests, RDF, and review evidence.
 
 Stage Status:
 
-- Current status: IN PROGRESS
+- Current status: COMPLETE
 - Owner: Cozy video executable specifications and runtime smoke
 - Checklist basis: `VP31-03`
 

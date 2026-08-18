@@ -4,10 +4,9 @@ Purpose: engineering work management.
 
 Current phase state:
 
-- Active phase: `phase-31.md`: Video Encoding Policy Profiles. VP31-01 is
-  complete; VP31-02 renderer and metadata integration is complete; VP31-03
-  runtime acceptance is in progress. Lightweight 1280x720, 18 fps, CRF 32 is
-  the encoding baseline.
+- Most recent closed phase: `phase-31.md`: Video Encoding Policy Profiles.
+  VP31-01 through VP31-03 are complete. Lightweight 1280x720, 18 fps, CRF 32
+  is the encoding baseline.
 - Planned split-required phase: `phase-30.md`: Unified Storyboard and
   Three-Gate Video Review Workflow. The intended workflow is
   `storyboard.md review -> optional image-backed visual-story review ->
@@ -16,7 +15,7 @@ Current phase state:
   distribution outputs, not workflow gates.
 - Earlier planned phase: `phase-29.md`: Project-Owned Site BoK Metadata
   Finalization.
-- Most recent closed phase: `phase-28.2.md`: SimpleModeling.org Part 5
+- Earlier closed phase: `phase-28.2.md`: SimpleModeling.org Part 5
   Integration and Regression; `AM28-03` and `AM28-04` are complete.
 - Most recent split predecessor: `phase-28.1.md`: WIP Local Article Media
   Registration; `AM28-02` is complete.
