@@ -10,7 +10,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Jul.  7, 2026
- * @version Aug. 13, 2026
+ * @version Aug. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyCarLint {
@@ -165,7 +165,7 @@ private[cozy] object CozyCarLint {
         Vector(Finding(Level.Fail, "cml", issue.code, issue.message, issue.path, 1))
       case Right(source) =>
         try {
-          CmlModelMetadata.fromCml(source.source, source.projectrelativepath, "cml")
+          CmlModelMetadata.fromCml(source.source, source.projectRelativePath, "cml")
           Vector.empty
         } catch {
           case NonFatal(e) =>
@@ -173,7 +173,7 @@ private[cozy] object CozyCarLint {
               Level.Fail,
               "cml",
               "car.cml.metadata.generation_failed",
-              s"Could not generate CML model metadata from ${source.projectrelativepath}: ${Option(e.getMessage).getOrElse(e.getClass.getSimpleName)}",
+              s"Could not generate CML model metadata from ${source.projectRelativePath}: ${Option(e.getMessage).getOrElse(e.getClass.getSimpleName)}",
               source.source,
               1
             ))

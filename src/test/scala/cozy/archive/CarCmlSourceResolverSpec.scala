@@ -10,7 +10,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jul. 13, 2026
- * @version Aug. 13, 2026
+ * @version Aug. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 class CarCmlSourceResolverSpec
@@ -54,7 +54,7 @@ class CarCmlSourceResolverSpec
 
           Then("the explicit project-relative CML source is selected")
           resolved.source shouldBe explicit.toAbsolutePath.normalize()
-          resolved.projectrelativepath shouldBe "src/main/cozy/ai.cml"
+          resolved.projectRelativePath shouldBe "src/main/cozy/ai.cml"
         }
       }
       }

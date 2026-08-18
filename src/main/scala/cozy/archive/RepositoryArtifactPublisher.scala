@@ -20,7 +20,7 @@ import scala.util.control.NonFatal
  * @since   May. 20, 2026
  *  version Jun. 23, 2026
  *  version Jul. 21, 2026
- * @version Aug. 13, 2026
+ * @version Aug. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object RepositoryArtifactPublisher {
@@ -567,11 +567,11 @@ private[cozy] object RepositoryArtifactPublisher {
       PreparedCarCmlSidecars(resolved.source, Files.readString(metadata, StandardCharsets.UTF_8), Option(yaml).filter(Files.isRegularFile(_)).map(Files.readString(_, StandardCharsets.UTF_8)))
     }.getOrElse {
       try {
-        val metadata = CmlModelMetadata.fromCml(resolved.source, resolved.projectrelativepath, "cml")
+        val metadata = CmlModelMetadata.fromCml(resolved.source, resolved.projectRelativePath, "cml")
         PreparedCarCmlSidecars(resolved.source, metadata.toJsonString, Some(metadata.toYamlString))
       } catch {
         case NonFatal(e) =>
-          RAISE.invalidArgumentFault(s"car.cml.metadata.generation_failed: Could not generate CML model metadata from ${resolved.projectrelativepath}: ${Option(e.getMessage).getOrElse(e.getClass.getSimpleName)}")
+          RAISE.invalidArgumentFault(s"car.cml.metadata.generation_failed: Could not generate CML model metadata from ${resolved.projectRelativePath}: ${Option(e.getMessage).getOrElse(e.getClass.getSimpleName)}")
       }
     }
   }

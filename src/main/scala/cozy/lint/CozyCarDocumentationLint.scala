@@ -7,7 +7,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Jul. 14, 2026
- * @version Jul. 14, 2026
+ * @version Aug. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyCarDocumentationLint {
@@ -116,7 +116,7 @@ private[cozy] object CozyCarDocumentationLint {
         Vector.empty
       case Right(source) =>
         try {
-          val metadata = CmlModelMetadata.fromCml(source.source, source.projectrelativepath, "cml")
+          val metadata = CmlModelMetadata.fromCml(source.source, source.projectRelativePath, "cml")
           metadata.surface.component match {
             case Some(component) =>
               _description_findings(

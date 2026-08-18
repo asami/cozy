@@ -13,7 +13,7 @@ import scala.util.Try
 
 /*
  * @since   Jul. 16, 2026
- * @version Jul. 28, 2026
+ * @version Aug. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 /**
@@ -162,7 +162,7 @@ object CozyCarReviewProvider {
         "cml-model",
         "component",
         component,
-        Some(source.projectrelativepath),
+        Some(source.projectRelativePath),
         Json.obj("modelFormat" -> "cml", "componentName" -> component)
       )
     }

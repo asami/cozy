@@ -11,13 +11,13 @@ import scala.util.Try
  * a different source from the publisher.
  *
  * @since   Jul. 13, 2026
- * @version Aug. 13, 2026
+ * @version Aug. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CarCmlSourceResolver {
   final case class Resolved(
       source: Path,
-      projectrelativepath: String
+      projectRelativePath: String
   )
 
   final case class Issue(
