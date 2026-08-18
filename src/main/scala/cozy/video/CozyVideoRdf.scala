@@ -27,7 +27,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Aug. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoRdf {
@@ -52,6 +52,7 @@ private[cozy] trait CozyVideoRdf {
       manifestfile,
       graph.triples.size,
       graph.triples.map(_.subject).distinct.size,
+      plan.encoding,
       plan.credits.profileId,
       creditfiles.map(_.digest)
     )
@@ -65,6 +66,7 @@ private[cozy] trait CozyVideoRdf {
       "namespace" -> Json.fromString(_video_rdf_namespace),
       "turtleFile" -> Json.fromString(result.turtleFile.toString),
       "jsonLdFile" -> Json.fromString(result.jsonLdFile.toString),
+      "encoding" -> _encoding_json(result.encoding),
       "creditProfile" -> result.creditProfile.map(Json.fromString).getOrElse(Json.Null),
       "creditDigest" -> result.creditDigest.map(Json.fromString).getOrElse(Json.Null),
       "tripleCount" -> Json.fromInt(result.tripleCount),
@@ -85,6 +87,7 @@ private[cozy] trait CozyVideoRdf {
         _rdf_literal(projectid, _cv("toolMode"), plan.execution.toolMode.label),
         _rdf_literal(projectid, _cv("dockerImage"), plan.execution.dockerImage)
       ) ++ plan.project.title.map(x => _rdf_literal(projectid, _schema("headline"), x)).toVector ++
+        _video_encoding_rdf_triples(projectid, plan.encoding) ++
         _video_profile_rdf_triples(projectid, plan) ++
         _video_credit_rdf_triples(projectid, plan) ++
         _artifact_link_triples(projectid, _video_rdf_resource("artifact", "project-output"), "project-output", plan.outputPath, "planned", "project.concat") ++
@@ -109,6 +112,18 @@ private[cozy] trait CozyVideoRdf {
         Vector.empty
     Rdf.Graph(projecttriples ++ parttriples ++ futureartifacts ++ replaytriples)
   }
+
+  private[video] def _video_encoding_rdf_triples(
+    projectid: String,
+    encoding: ResolvedEncodingSettings
+  ): Vector[Rdf.Triple] =
+    Vector(
+      _rdf_literal(projectid, _cv("encodingPolicy"), encoding.policy.name),
+      _rdf_literal(projectid, _cv("fps"), encoding.fps.toString, Some(_xsd_namespace + "integer")),
+      _rdf_literal(projectid, _cv("width"), encoding.width.toString, Some(_xsd_namespace + "integer")),
+      _rdf_literal(projectid, _cv("height"), encoding.height.toString, Some(_xsd_namespace + "integer")),
+      _rdf_literal(projectid, _cv("crf"), encoding.crf.toString, Some(_xsd_namespace + "integer"))
+    ) ++ encoding.x264Preset.toVector.map(x => _rdf_literal(projectid, _cv("x264Preset"), x))
 
   private[video] def _video_profile_rdf_triples(projectid: String, plan: VideoPlan): Vector[Rdf.Triple] = {
     val profile = plan.project.profile.map(x => _rdf_literal(projectid, _cv("compositionProfile"), x)).toVector

@@ -27,7 +27,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 18, 2026
+ * @version Aug. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoRenderTemplates {
@@ -47,11 +47,12 @@ private[cozy] trait CozyVideoRenderTemplates {
     recording: Option[String]
   ): Json = {
     val renderer = plan.project.renderer
-    val fps = renderer.flatMap(_.fps).filter(_ > 0).getOrElse(VideoRenderer.DEFAULT_FPS)
-    val width = renderer.flatMap(_.width).filter(_ > 0).getOrElse(VideoRenderer.DEFAULT_WIDTH)
-    val height = renderer.flatMap(_.height).filter(_ > 0).getOrElse(VideoRenderer.DEFAULT_HEIGHT)
-    val crf = renderer.flatMap(_.crf).getOrElse(VideoRenderer.DEFAULT_CRF)
-    val x264preset = renderer.flatMap(_.x264Preset).map(_.trim).filter(_.nonEmpty)
+    val encoding = plan.encoding
+    val fps = encoding.fps
+    val width = encoding.width
+    val height = encoding.height
+    val crf = encoding.crf
+    val x264preset = encoding.x264Preset
     val effects = CozyVideoEffects.expand(plan.project.visualEffects)
     val effectprofile = _part_renderer_property(part, "effectProfile").orElse(renderer.flatMap(_.effectProfile)).
       map(_.trim).filter(_.nonEmpty).getOrElse("compact")
@@ -164,6 +165,7 @@ private[cozy] trait CozyVideoRenderTemplates {
       "partId" -> Json.fromString(part.id),
       "title" -> Json.fromString(plan.project.title.orElse(script.title).getOrElse(part.id)),
       "outputPath" -> Json.fromString(_project_relative(plan.projectRoot, _remotion_staged_output(workdir))),
+      "encodingPolicy" -> Json.fromString(encoding.policy.name),
       "fps" -> Json.fromInt(fps),
       "width" -> Json.fromInt(width),
       "height" -> Json.fromInt(height),

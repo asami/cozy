@@ -9,7 +9,7 @@ import cozy.runtime.CozyCliArgs
 /*
  * @since   Jul. 18, 2026
  *  version Jul. 20, 2026
- * @version Aug.  9, 2026
+ * @version Aug. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoScaffold {
@@ -195,6 +195,7 @@ private[cozy] object CozyVideoScaffold {
        |${_asset_yaml("final-page", "assets/final-page.svg")}
        |renderer:
        |  engine: remotion
+       |  policy: lightweight
        |parts:
        |$parts
        |""".stripMargin

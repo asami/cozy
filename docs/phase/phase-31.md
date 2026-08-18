@@ -65,7 +65,7 @@ selected policy. If neither a policy nor explicit values are present,
 
 Stage Status:
 
-- Current status: COMPLETE
+- Current status: IN PROGRESS
 - Owner: Cozy video model and configuration
 - Checklist basis: `VP31-01`
 
@@ -76,7 +76,7 @@ and the separation between encoding policy and composition strategy.
 
 Stage Status:
 
-- Current status: PLANNED
+- Current status: COMPLETE
 - Owner: Cozy Remotion adapter and video metadata
 - Checklist basis: `VP31-02`
 

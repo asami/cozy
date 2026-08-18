@@ -27,7 +27,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Aug. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoReviewEvidence {
@@ -79,9 +79,7 @@ private[cozy] trait CozyVideoReviewEvidence {
     val parts = _review_evidence_parts(plan)
     if (parts.isEmpty)
       RAISE.invalidArgumentFault("No renderable Cozy Remotion props found for video review evidence.")
-    val renderer = (parts.head.width, parts.head.height, parts.head.fps)
-    if (parts.exists(x => (x.width, x.height, x.fps) != renderer))
-      RAISE.invalidArgumentFault("Cozy Remotion props disagree on renderer width, height, or fps.")
+    val renderer = plan.encoding
     val topframes = Vector.newBuilder[Json]
     val partjson = parts.map { evidence =>
       val timing = _review_required_object(evidence.props, "timing", s"Remotion props for ${evidence.part.id}")
@@ -217,9 +215,12 @@ private[cozy] trait CozyVideoReviewEvidence {
         "status" -> Json.fromString("validated")
       ),
       "renderer" -> Json.obj(
-        "width" -> Json.fromInt(renderer._1),
-        "height" -> Json.fromInt(renderer._2),
-        "fps" -> Json.fromInt(renderer._3)
+        "encodingPolicy" -> Json.fromString(renderer.policy.name),
+        "fps" -> Json.fromInt(renderer.fps),
+        "width" -> Json.fromInt(renderer.width),
+        "height" -> Json.fromInt(renderer.height),
+        "crf" -> Json.fromInt(renderer.crf),
+        "x264Preset" -> renderer.x264Preset.map(Json.fromString).getOrElse(Json.Null)
       ),
       "frames" -> Json.fromValues(topframejson),
       "parts" -> Json.fromValues(partjson)
@@ -252,6 +253,7 @@ private[cozy] trait CozyVideoReviewEvidence {
         )
         if (_review_required_string(props, "partId", s"Cozy Remotion props for ${part.id}") != part.id)
           RAISE.invalidArgumentFault(s"Cozy Remotion props partId does not match part ${part.id}: $propspath")
+        _review_require_effective_encoding(props, "encodingPolicy", plan.encoding, s"Cozy Remotion props for ${part.id}")
         val fps = _review_positive_int(props, "fps", s"Cozy Remotion props for ${part.id}")
         val width = _review_positive_int(props, "width", s"Cozy Remotion props for ${part.id}")
         val height = _review_positive_int(props, "height", s"Cozy Remotion props for ${part.id}")
@@ -387,7 +389,32 @@ private[cozy] trait CozyVideoReviewEvidence {
       RAISE.invalidArgumentFault(s"Project video manifest outputPath does not match final video: $manifest")
     if (_review_required_string(json, "finalVideoSha256", "project video manifest") != finalhash)
       RAISE.invalidArgumentFault(s"Project video manifest finalVideoSha256 does not match final video: $manifest")
+    json.hcursor.downField("encoding").focus.foreach { value =>
+      if (!value.isObject)
+        RAISE.invalidArgumentFault(s"Project video manifest encoding is invalid: $manifest")
+      _review_require_effective_encoding(value, "policy", plan.encoding, "project video manifest encoding")
+    }
     manifest
+  }
+
+  private[video] def _review_require_effective_encoding(
+    json: Json,
+    policyfield: String,
+    encoding: ResolvedEncodingSettings,
+    label: String
+  ): Unit = {
+    val fields = Vector(
+      policyfield -> Json.fromString(encoding.policy.name),
+      "fps" -> Json.fromInt(encoding.fps),
+      "width" -> Json.fromInt(encoding.width),
+      "height" -> Json.fromInt(encoding.height),
+      "crf" -> Json.fromInt(encoding.crf),
+      "x264Preset" -> encoding.x264Preset.map(Json.fromString).getOrElse(Json.Null)
+    )
+    fields.foreach { case (field, expected) =>
+      if (json.hcursor.downField(field).focus != Some(expected))
+        RAISE.invalidArgumentFault(s"$field does not match planned effective encoding in $label.")
+    }
   }
 
   private[video] def _review_optional_top_frame(

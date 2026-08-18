@@ -11,7 +11,7 @@ Phase Plan Gate: PROCEED
 
 ## VP31-01: Encoding Policy Contract
 
-Status: COMPLETE
+Status: IN PROGRESS
 
 - [x] Define `lightweight`, `standard`, and `quality` as typed encoding
       policies with exact resolution, FPS, and CRF values.
@@ -26,7 +26,7 @@ Status: COMPLETE
 
 ## VP31-02: Renderer and Metadata Integration
 
-Status: PLANNED
+Status: COMPLETE
 
 - [ ] Resolve effective encoding settings once and use them for every video
       part.

@@ -245,12 +245,20 @@ visual-effects:
   final-page: end-card
 renderer:
   engine: remotion
+  policy: lightweight
 ```
 
 Remotion consumes the opening, section-start, summary, and final-page profiles.
 To use a renderer that does not declare those primitive capabilities, set the
 corresponding profiles to `none`; Cozy otherwise stops before invoking the
 renderer rather than silently substituting an effect.
+
+`renderer.policy` is the policy-first encoding choice: `lightweight` is the
+baseline for ordinary presentation and dialogue video, `standard` raises the
+frame rate for motion-sensitive publication, and `quality` selects a 1080p
+master. Add `fps`, `width`, `height`, `crf`, or `x264Preset` only when a
+per-field override is required; each explicit field overrides the selected
+policy while the remaining fields stay policy-resolved.
 
 The default opening profile expands to a title card, subtle scale motion, and a
 deterministic 4.5-second hold. It is inserted before the first renderable part

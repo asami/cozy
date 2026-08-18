@@ -183,6 +183,9 @@ private[cozy] trait CozyVideoModel {
       )
     }
 
+    def resolveEncoding(renderer: Option[VideoRenderer]): ResolvedEncodingSettings =
+      renderer.map(x => resolveEncoding(x)).getOrElse(ResolvedEncodingSettings.lightweight)
+
     implicit val decoder: Decoder[VideoRenderer] = (c: HCursor) =>
       for {
         engine <- c.downField("engine").as[Option[String]]
@@ -274,6 +277,16 @@ private[cozy] trait CozyVideoModel {
     crf: Int,
     x264Preset: Option[String]
   )
+  object ResolvedEncodingSettings {
+    val lightweight: ResolvedEncodingSettings = ResolvedEncodingSettings(
+      VideoEncodingPolicy.Lightweight,
+      VideoEncodingPolicy.Lightweight.fps,
+      VideoEncodingPolicy.Lightweight.width,
+      VideoEncodingPolicy.Lightweight.height,
+      VideoEncodingPolicy.Lightweight.crf,
+      VideoEncodingPolicy.Lightweight.x264Preset
+    )
+  }
 
   final case class VideoScript(
     title: Option[String],
@@ -570,6 +583,7 @@ private[cozy] trait CozyVideoModel {
     projectRoot: Path,
     projectContext: CozyProjectContext.Context,
     project: VideoProject,
+    encoding: ResolvedEncodingSettings,
     assets: Vector[CozyVideoAssets.Resolved],
     credits: CozyVideoCredits.EffectiveSet,
     execution: VideoExecutionConfig,
@@ -686,6 +700,7 @@ private[cozy] trait CozyVideoModel {
     manifestFile: Path,
     tripleCount: Int,
     resourceCount: Int,
+    encoding: ResolvedEncodingSettings,
     creditProfile: Option[String],
     creditDigest: Option[String]
   )

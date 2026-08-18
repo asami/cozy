@@ -27,7 +27,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Aug. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoPlanning {
@@ -37,6 +37,7 @@ private[cozy] trait CozyVideoPlanning {
     val project = _load_project(verifiedprojectfile)
     val projectroot = verifiedprojectfile.getParent
     val projectcontext = CozyProjectContext.resolve(projectroot)
+    val encoding = VideoRenderer.resolveEncoding(project.renderer)
     val assets = CozyVideoAssets.resolve(projectroot, project.assets)
     val execution = VideoExecutionConfig.create(projectroot, project, toolmode, dockerimage)
     val outputpath = projectroot.resolve(project.output.getOrElse("build/final.mp4")).normalize()
@@ -85,7 +86,7 @@ private[cozy] trait CozyVideoPlanning {
           )
         )
     val commands = rawcommands.map(_resolve_command(projectroot, execution, _))
-    VideoPlan(verifiedprojectfile, projectroot, projectcontext, project, assets, credits, execution, outputpath, manifestpath, parts, artifacts, commands)
+    VideoPlan(verifiedprojectfile, projectroot, projectcontext, project, encoding, assets, credits, execution, outputpath, manifestpath, parts, artifacts, commands)
   }
 
   private[video] def _part_plan(

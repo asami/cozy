@@ -12,7 +12,7 @@ import cozy.CozySpecVocabulary
 /*
  * @since   Jul. 18, 2026
  *  version Jul. 20, 2026
- * @version Aug. 12, 2026
+ * @version Aug. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoProfileRenderSpec
@@ -21,6 +21,84 @@ final class CozyVideoProfileRenderSpec
     with CozySpecVocabulary {
   "Cozy profile-driven video rendering" should {
     "render composition profiles and timing" which {
+    "carry one effective encoding plan through Remotion artifacts" in {
+      _with_temp_dir("effective-encoding") { dir =>
+        Given("a multi-part Remotion profile with a standard policy and explicit encoding overrides")
+        val pkg = dir.resolve("effective-encoding.video")
+        CozyVideoScaffold.scaffold(CozyVideoScaffold.Config.create(List(
+          "effective-encoding",
+          s"--save=$pkg",
+          "--profile=explanation-demo-explanation"
+        )))
+        _write(
+          pkg.resolve("video.yaml"),
+          _read(pkg.resolve("video.yaml")).replace(
+            "renderer:\n  engine: remotion",
+            "renderer:\n  engine: remotion\n  policy: standard\n  width: 1440\n  crf: 21\n  x264Preset: slow"
+          )
+        )
+        val partids = Vector("introduction", "demonstration", "conclusion")
+        _write_audio_manifests(pkg, partids)
+        val recording = pkg.resolve("build/record/demonstration/reviewed.webm")
+        Files.createDirectories(recording.getParent)
+        Files.write(recording, Array[Byte](1, 2, 3))
+
+        When("inspect and build dry-run plan the effective encoding")
+        val inspection = CozyVideo.inspect(
+          CozyVideo.InspectConfig(pkg.resolve("video.yaml"), checkTools = false),
+          CozyVideo.VideoToolRegistry(Vector.empty)
+        )
+        val dryrun = CozyVideo.build(
+          CozyVideo.BuildConfig(pkg.resolve("video.yaml"), dryRun = true, checkTools = false),
+          CozyVideo.VideoToolRegistry(Vector.empty)
+        )
+
+        Then("both planning presentations expose the same effective policy and values")
+        Vector(inspection, dryrun).foreach { output =>
+          output should include_text("encodingPolicy: standard")
+          output should include_text("encodingFps: 30")
+          output should include_text("encodingDimensions: 1440x720")
+          output should include_text("encodingCrf: 21")
+          output should include_text("encodingX264Preset: slow")
+        }
+
+        When("the Remotion adapter renders and builds every planned part")
+        val runner = ProfileRenderRunner()
+        CozyVideo.render(
+          CozyVideo.RenderConfig(pkg.resolve("video.yaml"), "remotion", checkTools = false),
+          CozyVideo.VideoToolRegistry(Vector.empty),
+          runner
+        )
+        CozyVideo.build(
+          CozyVideo.BuildConfig(pkg.resolve("video.yaml"), dryRun = false, checkTools = false),
+          CozyVideo.VideoToolRegistry(Vector.empty),
+          runner
+        )
+
+        Then("every part props, generated render arguments, and the build manifest agree with the effective encoding")
+        partids.foreach { partid =>
+          val workdir = pkg.resolve(s"target/cozy-video/remotion/$partid")
+          val props = _json(workdir.resolve("props.json"))
+          props.hcursor.get[String]("encodingPolicy").toOption shouldBe Some("standard")
+          props.hcursor.get[Int]("fps").toOption shouldBe Some(30)
+          props.hcursor.get[Int]("width").toOption shouldBe Some(1440)
+          props.hcursor.get[Int]("height").toOption shouldBe Some(720)
+          props.hcursor.get[Int]("crf").toOption shouldBe Some(21)
+          props.hcursor.get[String]("x264Preset").toOption shouldBe Some("slow")
+          val render = _read(workdir.resolve("src/render.mjs"))
+          render should include_text("`--crf=${props.crf}`")
+          render should include_text("`--x264-preset=${props.x264Preset}`")
+        }
+        val encoding = _json(pkg.resolve("build/manifest.json")).hcursor.downField("encoding")
+        encoding.get[String]("policy").toOption shouldBe Some("standard")
+        encoding.get[Int]("fps").toOption shouldBe Some(30)
+        encoding.get[Int]("width").toOption shouldBe Some(1440)
+        encoding.get[Int]("height").toOption shouldBe Some(720)
+        encoding.get[Int]("crf").toOption shouldBe Some(21)
+        encoding.get[String]("x264Preset").toOption shouldBe Some("slow")
+      }
+    }
+
     "render both composition profiles with placeholder assets and deterministic timing" in {
       _with_temp_dir("composition-profiles") { dir =>
         val profiles = Vector(

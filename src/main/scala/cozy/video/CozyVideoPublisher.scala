@@ -9,7 +9,7 @@ import cozy.publication.CozyArticleMediaNormalization
 import cozy.runtime.CozyCliArgs
 import io.circe.{Decoder, HCursor, Json => CJson}
 import org.smartdox.metadata.PublishMetadata.VideoStatus
-import play.api.libs.json.{Json => PJson, JsArray, JsNull, JsObject, JsValue}
+import play.api.libs.json.{Json => PJson, JsArray, JsNull, JsNumber, JsObject, JsString, JsValue}
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
 import java.nio.charset.StandardCharsets
@@ -22,7 +22,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Jun. 19, 2026
  *  version Jul. 20, 2026
- * @version Aug.  9, 2026
+ * @version Aug. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoPublisher {
@@ -60,7 +60,7 @@ private[cozy] object CozyVideoPublisher {
     version: Option[String],
     article: Option[String],
     script: Option[String],
-    renderer: Option[String],
+    renderer: Option[CozyVideo.VideoRenderer],
     toolMode: Option[String],
     publish: Option[VideoDescriptorPublish],
     profile: Option[String],
@@ -95,12 +95,16 @@ private[cozy] object CozyVideoPublisher {
         parts <- c.downField("parts").as[Option[Vector[CozyVideo.VideoPart]]]
       } yield VideoDescriptor(video, title, version, article, script, renderer, toolmode, publish, profile, visualeffects, assets, locale, credits, parts.getOrElse(Vector.empty))
 
-    private def _renderer(c: HCursor): Decoder.Result[Option[String]] =
+    private def _renderer(c: HCursor): Decoder.Result[Option[CozyVideo.VideoRenderer]] =
       c.downField("renderer").focus match {
-        case Some(json) if json.isString => Right(json.asString)
-        case Some(json) => Right(json.hcursor.downField("engine").as[String].toOption)
+        case Some(json) if json.isNull => Right(None)
+        case Some(json) if json.isString => Right(json.asString.map(_legacy_renderer))
+        case Some(json) => json.as[CozyVideo.VideoRenderer](CozyVideo.VideoRenderer.decoder).map(Some(_))
         case None => Right(None)
       }
+
+    private def _legacy_renderer(engine: String): CozyVideo.VideoRenderer =
+      CozyVideo.VideoRenderer(Some(engine), None, None, None, None, None, None, None, None)
   }
 
   final case class VideoDescriptorVideo(name: Option[String])
@@ -172,7 +176,8 @@ private[cozy] object CozyVideoPublisher {
     module: String,
     publicPath: String,
     assets: Vector[CozyVideoAssets.Resolved],
-    articleMedia: Option[ArticleMediaBinding] = None
+    articleMedia: Option[ArticleMediaBinding] = None,
+    rendererConfig: Option[CozyVideo.VideoRenderer] = None
   ) {
     def workspaceRoot: Path =
       packageDir.getParent.resolve("target/cozy-video/publish").resolve(name).resolve(version).normalize()
@@ -399,7 +404,10 @@ private[cozy] object CozyVideoPublisher {
       RAISE.invalidArgumentFault(s"Missing video article source: $article")
     if (!Files.isRegularFile(script))
       RAISE.invalidArgumentFault(s"Missing video script source: $script")
-    val renderer = descriptor.renderer.map(_.trim).filter(_.nonEmpty).getOrElse("simple-java2d")
+    val rendererconfig = descriptor.renderer.getOrElse(
+      CozyVideo.VideoRenderer(Some("simple-java2d"), None, None, None, None, None, None, None, None)
+    )
+    val renderer = rendererconfig.engine.map(_.trim).filter(_.nonEmpty).getOrElse("simple-java2d")
     if (renderer != "remotion" && renderer != "simple-java2d")
       RAISE.invalidArgumentFault(s"Unsupported video renderer in descriptor: $renderer")
     val toolmode = descriptor.toolMode.map(_.trim).filter(_.nonEmpty).getOrElse("docker")
@@ -425,7 +433,8 @@ private[cozy] object CozyVideoPublisher {
       module,
       publicpath,
       CozyVideoAssets.resolve(packagedir, descriptor.assets),
-      articlemedia
+      articlemedia,
+      Some(rendererconfig.copy(engine = Some(renderer)))
     )
   }
 
@@ -687,9 +696,7 @@ private[cozy] object CozyVideoPublisher {
       "tools" -> PJson.obj(
         "toolMode" -> video.toolMode
       ),
-      "renderer" -> PJson.obj(
-        "engine" -> video.renderer
-      ),
+      "renderer" -> _renderer_json(video),
       "parts" -> JsArray(parts)
     )
     val profile = video.descriptor.profile.map(x => PJson.obj("profile" -> x)).getOrElse(PJson.obj())
@@ -700,6 +707,23 @@ private[cozy] object CozyVideoPublisher {
     val json = base ++ profile ++ effects ++ assets ++ locale ++ credits
     Files.writeString(projectfile, PJson.prettyPrint(json) + "\n", StandardCharsets.UTF_8)
     projectfile
+  }
+
+  private def _renderer_json(video: ResolvedVideoPackage): JsObject = {
+    val renderer = video.rendererConfig.getOrElse(
+      CozyVideo.VideoRenderer(Some(video.renderer), None, None, None, None, None, None, None, None)
+    )
+    JsObject(Vector(
+      Some("engine" -> PJson.toJson(video.renderer)),
+      renderer.strategy.map("strategy" -> PJson.toJson(_)),
+      renderer.policy.map(x => "policy" -> PJson.toJson(x.name)),
+      renderer.fps.map("fps" -> PJson.toJson(_)),
+      renderer.width.map("width" -> PJson.toJson(_)),
+      renderer.height.map("height" -> PJson.toJson(_)),
+      renderer.crf.map("crf" -> PJson.toJson(_)),
+      renderer.x264Preset.map("x264Preset" -> PJson.toJson(_)),
+      renderer.effectProfile.map("effectProfile" -> PJson.toJson(_))
+    ).flatten)
   }
 
   private def _visual_effects_json(settings: CozyVideoEffects.Settings): JsObject =
@@ -995,8 +1019,9 @@ private[cozy] object CozyVideoPublisher {
     artifactsource: Path,
     sidecars: Vector[(Path, Path)]
   ): PublishVideoResult = {
+    val encoding = _publication_encoding(workspace)
     val narration = _video_narration_json(workspace)
-    val videojson = _video_metadata_json(video, artifact, artifactsource, sidecars, narration)
+    val videojson = _video_metadata_json(video, artifact, artifactsource, sidecars, narration, encoding)
     val artifactjson = _video_artifact_json(video, artifact, artifactsource, sidecars)
     val catalogjson = PJson.obj(
       "schema" -> _schema,
@@ -1018,7 +1043,7 @@ private[cozy] object CozyVideoPublisher {
         s"metadata/catalog/videos/${video.name}.json" -> catalogjson,
         s"metadata/videos/${video.name}/metadata.json" -> videojson,
         s"metadata/artifacts/repository/${video.name}.json" -> artifactjson,
-        s"${_video_registry_root(video)}/manifest.json" -> _video_registry_manifest_json(video, artifact, artifactsource, sidecars, narration),
+        s"${_video_registry_root(video)}/manifest.json" -> _video_registry_manifest_json(video, artifact, artifactsource, sidecars, narration, encoding),
         s"${_video_registry_root(video)}/rdf.json" -> _video_registry_rdf_json(video, sidecars),
         s"metadata/video/${video.name}/latest.json" -> _video_latest_json(video)
       )
@@ -1026,12 +1051,49 @@ private[cozy] object CozyVideoPublisher {
     PublishVideoResult(video, workspace, projectfile, artifact, config.saveDir.resolve(s"${video.name}.json"), Some(publication))
   }
 
+  private def _publication_encoding(workspace: Path): JsObject = {
+    val manifest = workspace.resolve("build/manifest.json").normalize()
+    if (!Files.isRegularFile(manifest))
+      RAISE.invalidArgumentFault(s"Video build manifest is missing after successful build: $manifest")
+    val document = try {
+      PJson.parse(Files.readString(manifest, StandardCharsets.UTF_8))
+    } catch {
+      case NonFatal(e) =>
+        RAISE.invalidArgumentFault(s"Video build manifest is malformed: $manifest: ${e.getMessage}")
+    }
+    val encoding = document.asOpt[JsObject].flatMap(_.value.get("encoding")) match {
+      case Some(value: JsObject) => value
+      case _ => RAISE.invalidArgumentFault(s"Video build manifest encoding is missing or malformed: $manifest")
+    }
+    encoding.value.get("policy") match {
+      case Some(JsString(value)) if Set("lightweight", "standard", "quality").contains(value) => ()
+      case _ => RAISE.invalidArgumentFault(s"Video build manifest encoding.policy is missing or malformed: $manifest")
+    }
+    Vector("fps", "width", "height").foreach { field =>
+      encoding.value.get(field) match {
+        case Some(JsNumber(value)) if value.isWhole && value.isValidInt && value.toInt > 0 => ()
+        case _ => RAISE.invalidArgumentFault(s"Video build manifest encoding.$field is missing or malformed: $manifest")
+      }
+    }
+    encoding.value.get("crf") match {
+      case Some(JsNumber(value)) if value.isWhole && value.isValidInt && value.toInt >= 0 => ()
+      case _ => RAISE.invalidArgumentFault(s"Video build manifest encoding.crf is missing or malformed: $manifest")
+    }
+    encoding.value.get("x264Preset") match {
+      case None | Some(JsNull) => ()
+      case Some(JsString(value)) if Set("superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow", "placebo").contains(value) => ()
+      case _ => RAISE.invalidArgumentFault(s"Video build manifest encoding.x264Preset is malformed: $manifest")
+    }
+    encoding
+  }
+
   private def _video_metadata_json(
     video: ResolvedVideoPackage,
     artifact: Path,
     artifactsource: Path,
     sidecars: Vector[(Path, Path)],
-    narration: Option[JsObject]
+    narration: Option[JsObject],
+    encoding: JsObject
   ): JsValue = {
     val rdf = Some(_video_rdf_reference_json(video))
     val captions = _video_repository_sidecar_json(video, sidecars, "captions")
@@ -1058,6 +1120,7 @@ private[cozy] object CozyVideoPublisher {
         "scriptSha256" -> _sha256(video.script),
         "renderer" -> video.renderer,
         "toolMode" -> video.toolMode,
+        "encoding" -> encoding,
         "publish" -> PJson.obj(
           "module" -> video.module,
           "publicPath" -> video.publicPath
@@ -1081,7 +1144,8 @@ private[cozy] object CozyVideoPublisher {
     artifact: Path,
     artifactsource: Path,
     sidecars: Vector[(Path, Path)],
-    narration: Option[JsObject]
+    narration: Option[JsObject],
+    encoding: JsObject
   ): JsValue = {
     val base = PJson.obj(
       "schema" -> _schema,
@@ -1094,6 +1158,7 @@ private[cozy] object CozyVideoPublisher {
         "rdfPath" -> s"${_video_registry_root(video)}/rdf",
         "latestPath" -> s"metadata/video/${video.name}/latest"
       ),
+      "encoding" -> encoding,
       "artifact" -> PJson.obj(
         "warehousePath" -> video.warehousePath,
         "publicPath" -> video.repositoryPublicPath,

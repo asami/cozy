@@ -27,7 +27,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Aug. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoPresentation {
@@ -49,6 +49,7 @@ private[cozy] trait CozyVideoPresentation {
     b += s"dockerImage: ${plan.execution.dockerImage}"
     b += s"output: ${plan.outputPath}"
     b += s"renderer: ${project.renderer.map(_.summary).getOrElse("engine=legacy")}"
+    b ++= _render_effective_encoding(plan.encoding)
     val narrationproviders = _plan_narration_providers(plan).toVector.sorted
     if (narrationproviders.nonEmpty)
       b += s"narrationProviders: ${narrationproviders.mkString(", ")}"
@@ -98,6 +99,7 @@ private[cozy] trait CozyVideoPresentation {
     b += s"toolMode: ${plan.execution.toolMode.label}"
     b += s"dockerImage: ${plan.execution.dockerImage}"
     b += s"output: ${plan.outputPath}"
+    b ++= _render_effective_encoding(plan.encoding)
     b += s"parts: ${plan.parts.size}"
     b ++= _render_credit_inspection(plan.credits)
     b ++= _render_artifacts(plan.artifacts)
@@ -154,6 +156,15 @@ private[cozy] trait CozyVideoPresentation {
     }
     b.result()
   }
+
+  private[video] def _render_effective_encoding(encoding: ResolvedEncodingSettings): Vector[String] =
+    Vector(
+      s"encodingPolicy: ${encoding.policy.name}",
+      s"encodingFps: ${encoding.fps}",
+      s"encodingDimensions: ${encoding.width}x${encoding.height}",
+      s"encodingCrf: ${encoding.crf}",
+      s"encodingX264Preset: ${encoding.x264Preset.getOrElse("none")}"
+    )
 
   private[video] def _render_credit_inspection(credits: CozyVideoCredits.EffectiveSet): Vector[String] = {
     val b = Vector.newBuilder[String]

@@ -112,6 +112,115 @@ final class CozyVideoSpec
       }
     }
 
+    "encoding evidence" which {
+      "carries standard policy overrides through props, build, RDF, and review evidence" in {
+        _with_temp_dir("cozy-video-encoding-evidence") { dir =>
+          Given("a standard video plan with explicit effective encoding overrides")
+          val project = dir.resolve("video_project.json")
+          val finalvideo = dir.resolve("build/final.mp4")
+          val encoding = Json.obj(
+            "policy" -> Json.fromString("standard"),
+            "fps" -> Json.fromInt(24),
+            "width" -> Json.fromInt(1440),
+            "height" -> Json.fromInt(900),
+            "crf" -> Json.fromInt(27),
+            "x264Preset" -> Json.fromString("slow")
+          )
+          _write(
+            project,
+            """{"output":"build/final.mp4","renderer":{"engine":"remotion","policy":"standard","fps":24,"width":1440,"height":900,"crf":27,"x264Preset":"slow"},"parts":[{"id":"intro","type":"dialogue","script":"script.json"}]}"""
+          )
+          _write(dir.resolve("script.json"), _script_json)
+          _write_bytes(finalvideo, Array[Byte](1, 2, 3, 4))
+          _write_review_video_manifest(finalvideo, Some(encoding))
+          _write(dir.resolve("build/audio/intro/manifest.json"), """[{"sceneId":"scene","speaker":null,"file":"01.wav","leadSilence":0.0,"audioDuration":1.0,"targetDuration":1.0,"tailSilence":0.0}]""")
+          _write(dir.resolve("target/cozy-video/remotion/intro/props.json"), """{"partId":"intro","encodingPolicy":"standard","fps":24,"width":1440,"height":900,"crf":27,"x264Preset":"slow","timing":{"openingFrames":0,"contentFrames":24,"summaryStartFrame":24,"summaryFrames":0,"finalPageStartFrame":24,"finalPageHoldFrames":0,"totalFrames":24},"scenes":[{"id":"scene","startFrame":0,"durationFrames":24,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
+
+          When("Cozy emits RDF and review evidence from the agreed current artifacts")
+          CozyVideo.rdf(CozyVideo.RdfConfig(project, dir.resolve("rdf")))
+          val runner = ReviewEvidenceRunner()
+          CozyVideo.reviewEvidence(CozyVideo.ReviewEvidenceConfig(project, dir.resolve("review"), toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), runner)
+          val props = parser.parse(_read(dir.resolve("target/cozy-video/remotion/intro/props.json"))).toOption.get
+          val buildmanifest = parser.parse(_read(dir.resolve("build/manifest.json"))).toOption.get
+          val rdfmanifest = parser.parse(_read(dir.resolve("rdf/manifest.json"))).toOption.get
+          val reviewmanifest = parser.parse(_read(dir.resolve("review/review-manifest.json"))).toOption.get
+
+          Then("each artifact records the one effective encoding without a second resolution")
+          props.hcursor.get[String]("encodingPolicy").toOption shouldBe Some("standard")
+          props.hcursor.get[Int]("fps").toOption shouldBe Some(24)
+          props.hcursor.get[Int]("width").toOption shouldBe Some(1440)
+          props.hcursor.get[Int]("height").toOption shouldBe Some(900)
+          props.hcursor.get[Int]("crf").toOption shouldBe Some(27)
+          props.hcursor.get[String]("x264Preset").toOption shouldBe Some("slow")
+          buildmanifest.hcursor.downField("encoding").focus shouldBe Some(encoding)
+          _read(dir.resolve("rdf/video.ttl")) should include_text("cozy-video:encodingPolicy \"standard\"")
+          rdfmanifest.hcursor.downField("encoding").focus shouldBe Some(encoding)
+          reviewmanifest.hcursor.downField("renderer").get[String]("encodingPolicy").toOption shouldBe Some("standard")
+          reviewmanifest.hcursor.downField("renderer").get[Int]("fps").toOption shouldBe Some(24)
+          reviewmanifest.hcursor.downField("renderer").get[Int]("width").toOption shouldBe Some(1440)
+          reviewmanifest.hcursor.downField("renderer").get[Int]("height").toOption shouldBe Some(900)
+          reviewmanifest.hcursor.downField("renderer").get[Int]("crf").toOption shouldBe Some(27)
+          reviewmanifest.hcursor.downField("renderer").get[String]("x264Preset").toOption shouldBe Some("slow")
+          runner.commands should have size 1
+        }
+      }
+
+      "rejects inconsistent current props before invoking the review runner" in {
+        _with_temp_dir("cozy-video-encoding-evidence-inconsistent-props") { dir =>
+          Given("a standard planned encoding and stale lightweight current props")
+          val project = dir.resolve("video_project.json")
+          val finalvideo = dir.resolve("build/final.mp4")
+          _write(project, """{"output":"build/final.mp4","renderer":{"engine":"remotion","policy":"standard"},"parts":[{"id":"intro","type":"dialogue","script":"script.json"}]}""")
+          _write(dir.resolve("script.json"), _script_json)
+          _write_bytes(finalvideo, Array[Byte](1, 2, 3, 4))
+          _write_review_video_manifest(finalvideo)
+          _write(dir.resolve("build/audio/intro/manifest.json"), """[{"sceneId":"scene","speaker":null,"file":"01.wav","leadSilence":0.0,"audioDuration":1.0,"targetDuration":1.0,"tailSilence":0.0}]""")
+          _write(dir.resolve("target/cozy-video/remotion/intro/props.json"), """{"partId":"intro","encodingPolicy":"lightweight","fps":30,"width":1280,"height":720,"crf":23,"x264Preset":null,"timing":{"openingFrames":0,"contentFrames":30,"summaryStartFrame":30,"summaryFrames":0,"finalPageStartFrame":30,"finalPageHoldFrames":0,"totalFrames":30},"scenes":[{"id":"scene","startFrame":0,"durationFrames":30,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
+          val runner = ReviewEvidenceRunner()
+
+          When("Cozy validates current review inputs")
+          val error = intercept[RuntimeException] {
+            CozyVideo.reviewEvidence(CozyVideo.ReviewEvidenceConfig(project, dir.resolve("review"), toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), runner)
+          }
+
+          Then("the stale encoding is rejected before any frame extraction")
+          error.getMessage should include("encodingPolicy does not match planned effective encoding")
+          runner.commands shouldBe empty
+        }
+      }
+
+      "rejects an inconsistent build-manifest encoding before invoking the review runner" in {
+        _with_temp_dir("cozy-video-encoding-evidence-inconsistent-build-manifest") { dir =>
+          Given("a standard planned encoding and a validated build manifest with incompatible encoding facts")
+          val project = dir.resolve("video_project.json")
+          val finalvideo = dir.resolve("build/final.mp4")
+          _write(project, """{"output":"build/final.mp4","renderer":{"engine":"remotion","policy":"standard"},"parts":[{"id":"intro","type":"dialogue","script":"script.json"}]}""")
+          _write(dir.resolve("script.json"), _script_json)
+          _write_bytes(finalvideo, Array[Byte](1, 2, 3, 4))
+          _write_review_video_manifest(finalvideo, Some(Json.obj(
+            "policy" -> Json.fromString("quality"),
+            "fps" -> Json.fromInt(30),
+            "width" -> Json.fromInt(1920),
+            "height" -> Json.fromInt(1080),
+            "crf" -> Json.fromInt(18),
+            "x264Preset" -> Json.Null
+          )))
+          _write(dir.resolve("build/audio/intro/manifest.json"), """[{"sceneId":"scene","speaker":null,"file":"01.wav","leadSilence":0.0,"audioDuration":1.0,"targetDuration":1.0,"tailSilence":0.0}]""")
+          _write(dir.resolve("target/cozy-video/remotion/intro/props.json"), """{"partId":"intro","encodingPolicy":"standard","fps":30,"width":1280,"height":720,"crf":23,"x264Preset":null,"timing":{"openingFrames":0,"contentFrames":30,"summaryStartFrame":30,"summaryFrames":0,"finalPageStartFrame":30,"finalPageHoldFrames":0,"totalFrames":30},"scenes":[{"id":"scene","startFrame":0,"durationFrames":30,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
+          val runner = ReviewEvidenceRunner()
+
+          When("Cozy validates the project build manifest")
+          val error = intercept[RuntimeException] {
+            CozyVideo.reviewEvidence(CozyVideo.ReviewEvidenceConfig(project, dir.resolve("review"), toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), runner)
+          }
+
+          Then("the incompatible encoding object is rejected before any frame extraction")
+          error.getMessage should include("policy does not match planned effective encoding")
+          runner.commands shouldBe empty
+        }
+      }
+    }
+
     "inspect planning" which {
       "video inspect accepts JSON, YAML, HOCON, and XML project files" in {
         _with_temp_dir("cozy-video-formats") { dir =>
@@ -3572,7 +3681,7 @@ final class CozyVideoSpec
           _write(
             dir.resolve("target/cozy-video/remotion/intro/props.json"),
             """{
-              |  "partId": "intro", "fps": 10, "width": 100, "height": 50,
+              |  "partId": "intro", "encodingPolicy": "lightweight", "fps": 10, "width": 100, "height": 50, "crf": 32, "x264Preset": null,
               |  "timing": {"openingFrames": 5, "contentFrames": 70, "summaryStartFrame": 70, "summaryFrames": 5, "finalPageStartFrame": 75, "finalPageHoldFrames": 3, "totalFrames": 78},
               |  "scenes": [
               |    {"id":"first/scene","speaker":"narrator","line":"First line","text":"First text","caption":"First caption","section":"start","startFrame":0,"durationFrames":20,"leadInFrames":2,"sectionTransitionFrames":0},
@@ -3695,7 +3804,7 @@ final class CozyVideoSpec
           _write(
             dir.resolve("target/cozy-video/remotion/intro/props.json"),
             """{
-              |  "partId": "intro", "fps": 10, "width": 100, "height": 50,
+              |  "partId": "intro", "encodingPolicy": "lightweight", "fps": 10, "width": 100, "height": 50, "crf": 32, "x264Preset": null,
               |  "timing": {"openingFrames": 5, "contentFrames": 70, "summaryStartFrame": 70, "summaryFrames": 5, "finalPageStartFrame": 75, "finalPageHoldFrames": 3, "totalFrames": 78},
               |  "scenes": [
               |    {"id":"first/scene","speaker":"narrator","line":"First line","text":"First text","caption":"First caption","section":"start","startFrame":0,"durationFrames":20,"leadInFrames":2,"sectionTransitionFrames":0},
@@ -3754,7 +3863,7 @@ final class CozyVideoSpec
         _with_temp_dir("cozy-video-review-evidence-failures-part-5") { dir =>
           Given("a review-evidence project without its final video")
           val project = dir.resolve("video_project.json")
-          _write(project, """{"output":"build/final.mp4","parts":[{"id":"intro","type":"dialogue","script":"script.json"}]}""")
+          _write(project, """{"output":"build/final.mp4","renderer":{"engine":"remotion","fps":10,"width":100,"height":50},"parts":[{"id":"intro","type":"dialogue","script":"script.json"}]}""")
           _write(dir.resolve("script.json"), _script_json)
 
           When("Cozy writes review evidence")
@@ -3771,7 +3880,7 @@ final class CozyVideoSpec
         _with_temp_dir("cozy-video-review-evidence-missing-props-part-5") { dir =>
           Given("a final video without matching Cozy Remotion props")
           val project = dir.resolve("video_project.json")
-          _write(project, """{"output":"build/final.mp4","parts":[{"id":"intro","type":"dialogue","script":"script.json"}]}""")
+          _write(project, """{"output":"build/final.mp4","renderer":{"engine":"remotion","fps":10,"width":100,"height":50},"parts":[{"id":"intro","type":"dialogue","script":"script.json"}]}""")
           _write(dir.resolve("script.json"), _script_json)
           _write_bytes(dir.resolve("build/final.mp4"), Array[Byte](1))
           _write_review_video_manifest(dir.resolve("build/final.mp4"))
@@ -3810,12 +3919,12 @@ final class CozyVideoSpec
         _with_temp_dir("cozy-video-review-evidence-ffmpeg-failure-part-5") { dir =>
           Given("a complete review-evidence project and a failing ffmpeg runner")
           val project = dir.resolve("video_project.json")
-          _write(project, """{"output":"build/final.mp4","parts":[{"id":"intro","type":"dialogue","script":"script.json"}]}""")
+          _write(project, """{"output":"build/final.mp4","renderer":{"engine":"remotion","fps":10,"width":100,"height":50},"parts":[{"id":"intro","type":"dialogue","script":"script.json"}]}""")
           _write(dir.resolve("script.json"), _script_json)
           _write_bytes(dir.resolve("build/final.mp4"), Array[Byte](1))
           _write_review_video_manifest(dir.resolve("build/final.mp4"))
           _write(dir.resolve("build/audio/intro/manifest.json"), """[{"sceneId":"one","speaker":null,"file":"01.wav","leadSilence":0.0,"audioDuration":1.0,"targetDuration":1.0,"tailSilence":0.0}]""")
-          _write(dir.resolve("target/cozy-video/remotion/intro/props.json"), """{"partId":"intro","fps":10,"width":100,"height":50,"timing":{"openingFrames":0,"contentFrames":10,"summaryStartFrame":10,"summaryFrames":0,"finalPageStartFrame":10,"finalPageHoldFrames":0,"totalFrames":10},"scenes":[{"id":"one","startFrame":0,"durationFrames":10,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
+          _write(dir.resolve("target/cozy-video/remotion/intro/props.json"), """{"partId":"intro","encodingPolicy":"lightweight","fps":10,"width":100,"height":50,"crf":32,"x264Preset":null,"timing":{"openingFrames":0,"contentFrames":10,"summaryStartFrame":10,"summaryFrames":0,"finalPageStartFrame":10,"finalPageHoldFrames":0,"totalFrames":10},"scenes":[{"id":"one","startFrame":0,"durationFrames":10,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
 
           When("Cozy extracts a review frame")
           val extraction = intercept[RuntimeException] {
@@ -3831,12 +3940,12 @@ final class CozyVideoSpec
         _with_temp_dir("cozy-video-review-evidence-missing-output-part-5") { dir =>
           Given("a complete review-evidence project and a runner without PNG output")
           val project = dir.resolve("video_project.json")
-          _write(project, """{"output":"build/final.mp4","parts":[{"id":"intro","type":"dialogue","script":"script.json"}]}""")
+          _write(project, """{"output":"build/final.mp4","renderer":{"engine":"remotion","fps":10,"width":100,"height":50},"parts":[{"id":"intro","type":"dialogue","script":"script.json"}]}""")
           _write(dir.resolve("script.json"), _script_json)
           _write_bytes(dir.resolve("build/final.mp4"), Array[Byte](1))
           _write_review_video_manifest(dir.resolve("build/final.mp4"))
           _write(dir.resolve("build/audio/intro/manifest.json"), """[{"sceneId":"one","speaker":null,"file":"01.wav","leadSilence":0.0,"audioDuration":1.0,"targetDuration":1.0,"tailSilence":0.0}]""")
-          _write(dir.resolve("target/cozy-video/remotion/intro/props.json"), """{"partId":"intro","fps":10,"width":100,"height":50,"timing":{"openingFrames":0,"contentFrames":10,"summaryStartFrame":10,"summaryFrames":0,"finalPageStartFrame":10,"finalPageHoldFrames":0,"totalFrames":10},"scenes":[{"id":"one","startFrame":0,"durationFrames":10,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
+          _write(dir.resolve("target/cozy-video/remotion/intro/props.json"), """{"partId":"intro","encodingPolicy":"lightweight","fps":10,"width":100,"height":50,"crf":32,"x264Preset":null,"timing":{"openingFrames":0,"contentFrames":10,"summaryStartFrame":10,"summaryFrames":0,"finalPageStartFrame":10,"finalPageHoldFrames":0,"totalFrames":10},"scenes":[{"id":"one","startFrame":0,"durationFrames":10,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
 
           When("Cozy extracts a review frame")
           val absent = intercept[RuntimeException] {
@@ -4036,7 +4145,7 @@ final class CozyVideoSpec
           val project = dir.resolve("video_project.json")
           val save = dir.resolve("review")
           _write_review_evidence_fixture(dir, "build/final.mp4", dir.resolve("build/final.mp4"))
-          _write(dir.resolve("target/cozy-video/remotion/intro/props.json"), """{"partId":"intro","fps":10,"width":100,"height":50,"timing":{"openingFrames":0,"contentFrames":20,"summaryStartFrame":20,"summaryFrames":0,"finalPageStartFrame":20,"finalPageHoldFrames":0,"totalFrames":20},"scenes":[{"id":"scene","startFrame":0,"durationFrames":10,"leadInFrames":0,"sectionTransitionFrames":0},{"id":"scene","startFrame":10,"durationFrames":10,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
+          _write(dir.resolve("target/cozy-video/remotion/intro/props.json"), """{"partId":"intro","encodingPolicy":"lightweight","fps":10,"width":100,"height":50,"crf":32,"x264Preset":null,"timing":{"openingFrames":0,"contentFrames":20,"summaryStartFrame":20,"summaryFrames":0,"finalPageStartFrame":20,"finalPageHoldFrames":0,"totalFrames":20},"scenes":[{"id":"scene","startFrame":0,"durationFrames":10,"leadInFrames":0,"sectionTransitionFrames":0},{"id":"scene","startFrame":10,"durationFrames":10,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
           val runner = ReviewEvidenceRunner()
 
           When("Cozy validates props and audio evidence")
@@ -4056,7 +4165,7 @@ final class CozyVideoSpec
           val project = dir.resolve("video_project.json")
           val save = dir.resolve("review")
           _write_review_evidence_fixture(dir, "build/final.mp4", dir.resolve("build/final.mp4"))
-          _write(dir.resolve("target/cozy-video/remotion/intro/props.json"), """{"partId":"intro","fps":10,"width":100,"height":50,"timing":{"openingFrames":1,"contentFrames":10,"summaryStartFrame":11,"summaryFrames":0,"finalPageStartFrame":11,"finalPageHoldFrames":0,"totalFrames":11},"scenes":[{"id":"scene","startFrame":0,"durationFrames":9,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
+          _write(dir.resolve("target/cozy-video/remotion/intro/props.json"), """{"partId":"intro","encodingPolicy":"lightweight","fps":10,"width":100,"height":50,"crf":32,"x264Preset":null,"timing":{"openingFrames":1,"contentFrames":10,"summaryStartFrame":11,"summaryFrames":0,"finalPageStartFrame":11,"finalPageHoldFrames":0,"totalFrames":11},"scenes":[{"id":"scene","startFrame":0,"durationFrames":9,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
           val runner = ReviewEvidenceRunner()
 
           When("Cozy validates props timing against the audio manifest")
@@ -4077,7 +4186,7 @@ final class CozyVideoSpec
           val save = dir.resolve("review")
           _write_review_evidence_fixture(dir, "build/final.mp4", dir.resolve("build/final.mp4"), Vector("first", "second"))
           _write(dir.resolve("build/audio/first/manifest.json"), """[{"sceneId":"scene","speaker":null,"file":"01.wav","leadSilence":0.0,"audioDuration":0.4,"targetDuration":0.4,"tailSilence":0.0}]""")
-          _write(dir.resolve("target/cozy-video/remotion/first/props.json"), """{"partId":"first","fps":10,"width":100,"height":50,"timing":{"openingFrames":5,"contentFrames":10,"summaryStartFrame":10,"summaryFrames":0,"finalPageStartFrame":10,"finalPageHoldFrames":0,"totalFrames":10},"scenes":[{"id":"scene","startFrame":6,"durationFrames":4,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
+          _write(dir.resolve("target/cozy-video/remotion/first/props.json"), """{"partId":"first","encodingPolicy":"lightweight","fps":10,"width":100,"height":50,"crf":32,"x264Preset":null,"timing":{"openingFrames":5,"contentFrames":10,"summaryStartFrame":10,"summaryFrames":0,"finalPageStartFrame":10,"finalPageHoldFrames":0,"totalFrames":10},"scenes":[{"id":"scene","startFrame":6,"durationFrames":4,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
           val runner = ReviewEvidenceRunner()
 
           When("Cozy validates the first part's scene bounds")
@@ -4613,10 +4722,10 @@ final class CozyVideoSpec
         }
       }
 
-      "publish-video writes warehouse video artifact and publication metadata outside source package" in {
+      "publish-video publication encoding writes warehouse video artifact and publication metadata outside source package" in {
         _with_temp_dir("cozy-video-publisher") { dir =>
           Given(
-            "a valid .video package with generated audio, render, RDF, captions, and transcript outputs"
+            "a valid Remotion .video package with a standard policy and explicit CRF/preset overrides"
           )
           val pkg = dir.resolve("src/main/doxsite/concepts/tutorial.video")
           val publication = dir.resolve("src/main/publication")
@@ -4633,7 +4742,11 @@ final class CozyVideoSpec
           |  name: tutorial
           |title: Textus Tutorial
           |version: 0.1.0
-          |renderer: simple-java2d
+          |renderer:
+          |  engine: remotion
+          |  policy: standard
+          |  crf: 21
+          |  x264Preset: slow
           |toolMode: docker
           |publish:
           |  module: textus
@@ -4676,7 +4789,25 @@ final class CozyVideoSpec
           ) should be_regular_file
           publication.resolve("tutorial.json") should be_regular_file
 
-          And("the publication bundle registers stable metadata paths")
+          And("the publisher workspace retains the complete renderer configuration")
+          val workspace = play.api.libs.json.Json.parse(
+            _read(result.workspaceRoot.resolve("video_project.json"))
+          )
+          (workspace \ "renderer" \ "engine").as[String] shouldBe "remotion"
+          (workspace \ "renderer" \ "policy").as[String] shouldBe "standard"
+          (workspace \ "renderer" \ "crf").as[Int] shouldBe 21
+          (workspace \ "renderer" \ "x264Preset").as[String] shouldBe "slow"
+          val buildencoding = play.api.libs.json.Json.parse(
+            _read(result.workspaceRoot.resolve("build/manifest.json"))
+          ) \ "encoding"
+          (buildencoding \ "policy").as[String] shouldBe "standard"
+          (buildencoding \ "fps").as[Int] shouldBe 30
+          (buildencoding \ "width").as[Int] shouldBe 1280
+          (buildencoding \ "height").as[Int] shouldBe 720
+          (buildencoding \ "crf").as[Int] shouldBe 21
+          (buildencoding \ "x264Preset").as[String] shouldBe "slow"
+
+          And("the publication bundle registers stable metadata paths and effective encoding")
           val bundle = play.api.libs.json.Json
             .parse(_read(publication.resolve("tutorial.json")))
           val entries =
@@ -4698,6 +4829,12 @@ final class CozyVideoSpec
           (videometadata \ "sourcePackage")
             .as[String] shouldBe "concepts/tutorial.video"
           (videometadata \ "scriptPath").as[String] shouldBe "script.json"
+          (videometadata \ "encoding" \ "policy").as[String] shouldBe "standard"
+          (videometadata \ "encoding" \ "fps").as[Int] shouldBe 30
+          (videometadata \ "encoding" \ "width").as[Int] shouldBe 1280
+          (videometadata \ "encoding" \ "height").as[Int] shouldBe 720
+          (videometadata \ "encoding" \ "crf").as[Int] shouldBe 21
+          (videometadata \ "encoding" \ "x264Preset").as[String] shouldBe "slow"
           (videometadata \ "artifact" \ "warehousePath").as[
             String
           ] shouldBe "repository/video/textus/0.1.0/tutorial-0.1.0.mp4"
@@ -4779,6 +4916,12 @@ final class CozyVideoSpec
                 .as[String] == "metadata/video/tutorial/0.1.0/manifest.json"
             )
             .get
+          (registryentry \ "metadata" \ "encoding" \ "policy").as[String] shouldBe "standard"
+          (registryentry \ "metadata" \ "encoding" \ "fps").as[Int] shouldBe 30
+          (registryentry \ "metadata" \ "encoding" \ "width").as[Int] shouldBe 1280
+          (registryentry \ "metadata" \ "encoding" \ "height").as[Int] shouldBe 720
+          (registryentry \ "metadata" \ "encoding" \ "crf").as[Int] shouldBe 21
+          (registryentry \ "metadata" \ "encoding" \ "x264Preset").as[String] shouldBe "slow"
           (registryentry \ "metadata" \ "narration" \ "providers")
             .as[Vector[String]] shouldBe Vector("voicevox")
 
@@ -4814,7 +4957,9 @@ final class CozyVideoSpec
           sourcefiles should not_contain_where[String](_.endsWith(".jsonld"))
           sourcefiles should not_contain_where[String](_.endsWith(".srt"))
           runner.commands should contain_where[RecordingCommand](
-            _.args.contains("python3")
+            command =>
+              command.args.contains("node") &&
+                command.args.exists(_.endsWith("render.mjs"))
           )
           runner.commands should contain_where[RecordingCommand](
             _.args.contains("ffmpeg")
@@ -5041,15 +5186,20 @@ final class CozyVideoSpec
     _write(dir.resolve("script.json"), _script_json)
     partids.foreach { id =>
       _write(dir.resolve(s"build/audio/$id/manifest.json"), """[{"sceneId":"scene","speaker":null,"file":"01.wav","leadSilence":0.0,"audioDuration":1.0,"targetDuration":1.0,"tailSilence":0.0}]""")
-      _write(dir.resolve(s"target/cozy-video/remotion/$id/props.json"), s"""{"partId":"$id","fps":10,"width":100,"height":50,"timing":{"openingFrames":1,"contentFrames":10,"summaryStartFrame":11,"summaryFrames":0,"finalPageStartFrame":11,"finalPageHoldFrames":0,"totalFrames":11},"scenes":[{"id":"scene","startFrame":0,"durationFrames":10,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
+      _write(dir.resolve(s"target/cozy-video/remotion/$id/props.json"), s"""{"partId":"$id","encodingPolicy":"lightweight","fps":10,"width":100,"height":50,"crf":32,"x264Preset":null,"timing":{"openingFrames":1,"contentFrames":10,"summaryStartFrame":11,"summaryFrames":0,"finalPageStartFrame":11,"finalPageHoldFrames":0,"totalFrames":11},"scenes":[{"id":"scene","startFrame":0,"durationFrames":10,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
     }
   }
 
-  private def _write_review_video_manifest(finalvideo: Path): Unit = {
+  private def _write_review_video_manifest(finalvideo: Path, encoding: Option[Json] = None): Unit = {
     val hash = MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(finalvideo)).map("%02x".format(_)).mkString
+    val json = Json.obj(
+      "status" -> Json.fromString("validated"),
+      "outputPath" -> Json.fromString(finalvideo.toAbsolutePath.normalize().toString),
+      "finalVideoSha256" -> Json.fromString(hash)
+    ).deepMerge(encoding.map(x => Json.obj("encoding" -> x)).getOrElse(Json.obj()))
     _write(
       finalvideo.getParent.resolve("manifest.json"),
-      s"""{"status":"validated","outputPath":"${finalvideo.toAbsolutePath.normalize()}","finalVideoSha256":"$hash"}"""
+      json.noSpaces
     )
   }
 
@@ -5270,6 +5420,16 @@ object CozyVideoSpec {
       } else if (args.contains("ffmpeg")) {
         Files.write(_command_path(cwd, args.last), Array[Byte](0, 0, 0, 0))
         CozyVideo.VideoCommandResult(0, "ffmpeg ok", "")
+      } else if (args.contains("node") && args.exists(_.endsWith("render.mjs"))) {
+        val script = args
+          .find(_.endsWith("render.mjs"))
+          .map(_command_path(cwd, _))
+          .get
+        Files.write(
+          script.getParent.getParent.resolve("rendered.mp4"),
+          Array[Byte](0, 0, 0, 0)
+        )
+        CozyVideo.VideoCommandResult(0, "node ok", "")
       } else if (args.contains("ffprobe")) {
         Files.createDirectories(cwd.resolve("build"))
         Files.writeString(

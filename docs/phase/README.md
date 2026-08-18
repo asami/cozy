@@ -5,7 +5,7 @@ Purpose: engineering work management.
 Current phase state:
 
 - Active phase: `phase-31.md`: Video Encoding Policy Profiles. VP31-01 is
-  complete; VP31-02 renderer and metadata integration is next. Lightweight
+  complete; VP31-02 renderer and metadata integration is in progress. Lightweight
   1280x720, 18 fps, CRF 32 is the encoding baseline.
 - Planned split-required phase: `phase-30.md`: Unified Storyboard and
   Three-Gate Video Review Workflow. The intended workflow is

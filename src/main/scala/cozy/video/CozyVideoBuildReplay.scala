@@ -27,7 +27,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Aug. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoBuildReplay {
@@ -200,6 +200,7 @@ private[cozy] trait CozyVideoBuildReplay {
       "toolMode" -> Json.fromString(plan.execution.toolMode.label),
       "dockerImage" -> Json.fromString(plan.execution.dockerImage),
       "concatListPath" -> Json.fromString(concatlist.toString),
+      "encoding" -> _encoding_json(plan.encoding),
       "creditProfile" -> plan.credits.profileId.map(Json.fromString).getOrElse(Json.Null),
       "creditDigest" -> creditfiles.map(x => Json.fromString(x.digest)).getOrElse(Json.Null),
       "creditsPath" -> creditfiles.map(x => Json.fromString(x.jsonFile.toString)).getOrElse(Json.Null),
@@ -209,6 +210,16 @@ private[cozy] trait CozyVideoBuildReplay {
     )
     Files.writeString(plan.manifestPath, json.spaces2, StandardCharsets.UTF_8)
   }
+
+  private[video] def _encoding_json(encoding: ResolvedEncodingSettings): Json =
+    Json.obj(
+      "policy" -> Json.fromString(encoding.policy.name),
+      "fps" -> Json.fromInt(encoding.fps),
+      "width" -> Json.fromInt(encoding.width),
+      "height" -> Json.fromInt(encoding.height),
+      "crf" -> Json.fromInt(encoding.crf),
+      "x264Preset" -> encoding.x264Preset.map(Json.fromString).getOrElse(Json.Null)
+    )
 
   private[video] def _replay_script(
     config: ReplayConfig,

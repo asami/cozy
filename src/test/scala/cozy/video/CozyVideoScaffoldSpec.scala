@@ -11,7 +11,7 @@ import cozy.CozySpecVocabulary
 /*
  * @since   Jul. 18, 2026
  *  version Jul. 20, 2026
- * @version Aug.  9, 2026
+ * @version Aug. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoScaffoldSpec
@@ -19,7 +19,7 @@ final class CozyVideoScaffoldSpec
     with GivenWhenThen
     with CozySpecVocabulary {
   "Cozy Video Scaffold" should {
-    "create a deterministic license-safe explanation package" in {
+    "create a deterministic license-safe explanation package with encoding policy" in {
       _with_temp_dir("explanation") { dir =>
         Given("an explanation scaffold request without external media")
         val save = dir.resolve("domain-overview.video")
@@ -55,6 +55,7 @@ final class CozyVideoScaffoldSpec
         _read(save.resolve("video.yaml")) should include_text("summary: overview-and-conclusion")
         _read(save.resolve("video.yaml")) should include_text("final-page: end-card")
         _read(save.resolve("video.yaml")) should include_text("id: explanation")
+        _read(save.resolve("video.yaml")) should include_text("renderer:\n  engine: remotion\n  policy: lightweight")
         _read(save.resolve("assets/README.md")) should include_text("does not copy or reference media")
         result should include_text("profile: explanation")
 
@@ -65,6 +66,7 @@ final class CozyVideoScaffoldSpec
         )
         inspection should include_text("parts: 1")
         inspection should include_text("part[1]: explanation")
+        inspection should include_text("encodingPolicy: lightweight")
 
         And("the same profile produces identical relative files and bytes")
         val secondsave = dir.resolve("domain-overview-second.video")
