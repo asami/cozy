@@ -1,6 +1,6 @@
 # Phase 31: Video Encoding Policy Profiles
 
-Status: planned
+Status: active
 
 Plan date: 2026-08-18
 
@@ -65,7 +65,7 @@ selected policy. If neither a policy nor explicit values are present,
 
 Stage Status:
 
-- Current status: PLANNED
+- Current status: COMPLETE
 - Owner: Cozy video model and configuration
 - Checklist basis: `VP31-01`
 

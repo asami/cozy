@@ -11,17 +11,17 @@ Phase Plan Gate: PROCEED
 
 ## VP31-01: Encoding Policy Contract
 
-Status: PLANNED
+Status: COMPLETE
 
-- [ ] Define `lightweight`, `standard`, and `quality` as typed encoding
+- [x] Define `lightweight`, `standard`, and `quality` as typed encoding
       policies with exact resolution, FPS, and CRF values.
-- [ ] Make `lightweight` the default when no policy or explicit encoding value
+- [x] Make `lightweight` the default when no policy or explicit encoding value
       is configured.
-- [ ] Define field-level precedence as explicit value, selected policy, then
+- [x] Define field-level precedence as explicit value, selected policy, then
       lightweight default.
-- [ ] Separate canonical `renderer.policy` from composition
+- [x] Separate canonical `renderer.policy` from composition
       `renderer.strategy` and remove their current decoder alias collision.
-- [ ] Add structured validation for unknown policy names and invalid effective
+- [x] Add structured validation for unknown policy names and invalid effective
       encoding settings.
 
 ## VP31-02: Renderer and Metadata Integration

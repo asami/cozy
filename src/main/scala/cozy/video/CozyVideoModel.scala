@@ -27,7 +27,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 18, 2026
+ * @version Aug. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoModel {
@@ -139,6 +139,7 @@ private[cozy] trait CozyVideoModel {
   final case class VideoRenderer(
     engine: Option[String],
     strategy: Option[String],
+    policy: Option[VideoEncodingPolicy],
     fps: Option[Int],
     width: Option[Int],
     height: Option[Int],
@@ -148,6 +149,8 @@ private[cozy] trait CozyVideoModel {
   ) {
     def engineOrDefault: String = engine.getOrElse("legacy")
     def strategyOrPolicy: Option[String] = strategy
+    def resolveEncoding: ResolvedEncodingSettings =
+      VideoRenderer.resolveEncoding(this)
     def summary: String = {
       val xs = Vector(
         Some(s"engine=${engineOrDefault}"),
@@ -163,26 +166,114 @@ private[cozy] trait CozyVideoModel {
     }
   }
   object VideoRenderer {
-    val DEFAULT_FPS = 18
-    val DEFAULT_WIDTH = 1280
-    val DEFAULT_HEIGHT = 720
-    val DEFAULT_CRF = 32
+    val DEFAULT_FPS = VideoEncodingPolicy.Lightweight.fps
+    val DEFAULT_WIDTH = VideoEncodingPolicy.Lightweight.width
+    val DEFAULT_HEIGHT = VideoEncodingPolicy.Lightweight.height
+    val DEFAULT_CRF = VideoEncodingPolicy.Lightweight.crf
+
+    def resolveEncoding(renderer: VideoRenderer): ResolvedEncodingSettings = {
+      val selected = renderer.policy.getOrElse(VideoEncodingPolicy.Lightweight)
+      ResolvedEncodingSettings(
+        selected,
+        renderer.fps.getOrElse(selected.fps),
+        renderer.width.getOrElse(selected.width),
+        renderer.height.getOrElse(selected.height),
+        renderer.crf.getOrElse(selected.crf),
+        renderer.x264Preset.orElse(selected.x264Preset)
+      )
+    }
 
     implicit val decoder: Decoder[VideoRenderer] = (c: HCursor) =>
       for {
         engine <- c.downField("engine").as[Option[String]]
-        strategy <- c.downField("strategy").as[Option[String]].flatMap {
-          case Some(s) => Right(Some(s))
-          case None => c.downField("policy").as[Option[String]]
-        }
-        fps <- c.downField("fps").as[Option[Int]]
-        width <- c.downField("width").as[Option[Int]]
-        height <- c.downField("height").as[Option[Int]]
-        crf <- c.downField("crf").as[Option[Int]]
-        x264preset <- c.downField("x264Preset").as[Option[String]]
+        strategy <- c.downField("strategy").as[Option[String]]
+        policy <- c.downField("policy").as[Option[String]].flatMap(_decode_policy(_, c))
+        fps <- c.downField("fps").as[Option[Int]].flatMap(_validate_positive("fps", _, c))
+        width <- c.downField("width").as[Option[Int]].flatMap(_validate_positive("width", _, c))
+        height <- c.downField("height").as[Option[Int]].flatMap(_validate_positive("height", _, c))
+        crf <- c.downField("crf").as[Option[Int]].flatMap(_validate_crf(_, c))
+        x264preset <- c.downField("x264Preset").as[Option[String]].flatMap(_validate_x264_preset(_, c))
         effectprofile <- c.downField("effectProfile").as[Option[String]]
-      } yield VideoRenderer(engine, strategy, fps, width, height, crf, x264preset, effectprofile)
+      } yield VideoRenderer(engine, strategy, policy, fps, width, height, crf, x264preset, effectprofile)
+
+    private def _decode_policy(value: Option[String], cursor: HCursor): Decoder.Result[Option[VideoEncodingPolicy]] =
+      value match {
+        case Some(name) => VideoEncodingPolicy.decode(name).map(Some(_)).toRight(
+          io.circe.DecodingFailure(s"Invalid renderer.policy value: '$name'", cursor.history)
+        )
+        case None => Right(None)
+      }
+
+    private def _validate_positive(field: String, value: Option[Int], cursor: HCursor): Decoder.Result[Option[Int]] =
+      value match {
+        case Some(v) if v <= 0 => Left(io.circe.DecodingFailure(s"Invalid renderer.$field value: '$v'", cursor.history))
+        case _ => Right(value)
+      }
+
+    private def _validate_crf(value: Option[Int], cursor: HCursor): Decoder.Result[Option[Int]] =
+      value match {
+        case Some(v) if v < 0 => Left(io.circe.DecodingFailure(s"Invalid renderer.crf value: '$v'", cursor.history))
+        case _ => Right(value)
+      }
+
+    private def _validate_x264_preset(value: Option[String], cursor: HCursor): Decoder.Result[Option[String]] =
+      value match {
+        case Some(v) if v.trim.isEmpty || !VideoEncodingPolicy.validX264Presets.contains(v) =>
+          Left(io.circe.DecodingFailure(s"Invalid renderer.x264Preset value: '$v'", cursor.history))
+        case _ => Right(value)
+      }
   }
+
+  sealed trait VideoEncodingPolicy {
+    def name: String
+    def fps: Int
+    def width: Int
+    def height: Int
+    def crf: Int
+    def x264Preset: Option[String]
+  }
+  object VideoEncodingPolicy {
+    case object Lightweight extends VideoEncodingPolicy {
+      val name = "lightweight"
+      val fps = 18
+      val width = 1280
+      val height = 720
+      val crf = 32
+      val x264Preset = None
+    }
+    case object Standard extends VideoEncodingPolicy {
+      val name = "standard"
+      val fps = 30
+      val width = 1280
+      val height = 720
+      val crf = 23
+      val x264Preset = None
+    }
+    case object Quality extends VideoEncodingPolicy {
+      val name = "quality"
+      val fps = 30
+      val width = 1920
+      val height = 1080
+      val crf = 18
+      val x264Preset = None
+    }
+
+    val values: Vector[VideoEncodingPolicy] = Vector(Lightweight, Standard, Quality)
+    val validX264Presets: Set[String] = Set(
+      "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow", "placebo"
+    )
+
+    def decode(value: String): Option[VideoEncodingPolicy] = values.find(_.name == value)
+  }
+
+  final case class ResolvedEncodingSettings(
+    policy: VideoEncodingPolicy,
+    fps: Int,
+    width: Int,
+    height: Int,
+    crf: Int,
+    x264Preset: Option[String]
+  )
 
   final case class VideoScript(
     title: Option[String],

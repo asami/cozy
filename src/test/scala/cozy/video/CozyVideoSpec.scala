@@ -18,7 +18,7 @@ import cozy.CozySpecVocabulary
  * @since   Jun. 18, 2026
  *  version Jun. 24, 2026
  *  version Jul. 20, 2026
- * @version Aug. 18, 2026
+ * @version Aug. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoSpec
@@ -28,6 +28,90 @@ final class CozyVideoSpec
   import CozyVideoSpec._
 
   "Cozy Video" should {
+    "encoding policy" which {
+      "decode all named policies into their contracted settings" in {
+        Given("renderers configured with each named encoding policy")
+        val configurations = Vector(
+          "lightweight" -> (18, 1280, 720, 32),
+          "standard" -> (30, 1280, 720, 23),
+          "quality" -> (30, 1920, 1080, 18)
+        )
+
+        configurations.foreach { case (name, expected) =>
+          When(s"the $name renderer is decoded and resolved")
+          val renderer = _decode_renderer(s"""{"policy": "$name"}""").toOption.get
+          val settings = renderer.resolveEncoding
+
+          Then(s"the $name policy supplies its contracted encoding settings")
+          settings.policy.name should equal(name)
+          (settings.fps, settings.width, settings.height, settings.crf) should equal(expected)
+          settings.x264Preset should equal(None)
+        }
+      }
+
+      "resolve lightweight when policy is absent" in {
+        Given("a renderer without a policy or explicit encoding fields")
+        When("the renderer is decoded and resolved")
+        val settings = _decode_renderer("{}").toOption.get.resolveEncoding
+
+        Then("lightweight settings are selected")
+        settings.policy.name should equal("lightweight")
+        (settings.fps, settings.width, settings.height, settings.crf) should equal((18, 1280, 720, 32))
+        settings.x264Preset should equal(None)
+      }
+
+      "let each explicit encoding field override its selected policy value" in {
+        Given("standard renderers with one explicit encoding override each")
+        val configurations = Vector(
+          "fps" -> ("{\"policy\": \"standard\", \"fps\": 24}", (24, 1280, 720, 23, None)),
+          "width" -> ("{\"policy\": \"standard\", \"width\": 1440}", (30, 1440, 720, 23, None)),
+          "height" -> ("{\"policy\": \"standard\", \"height\": 900}", (30, 1280, 900, 23, None)),
+          "crf" -> ("{\"policy\": \"standard\", \"crf\": 27}", (30, 1280, 720, 27, None)),
+          "x264Preset" -> ("{\"policy\": \"standard\", \"x264Preset\": \"slow\"}", (30, 1280, 720, 23, Some("slow")))
+        )
+
+        configurations.foreach { case (field, (configuration, expected)) =>
+          When(s"only $field is explicitly configured")
+          val settings = _decode_renderer(configuration).toOption.get.resolveEncoding
+
+          Then(s"only $field overrides the standard policy")
+          (settings.fps, settings.width, settings.height, settings.crf, settings.x264Preset) should equal(expected)
+        }
+      }
+
+      "keep encoding policy separate from composition strategy" in {
+        Given("a renderer with both an encoding policy and a composition strategy")
+        When("the renderer is decoded")
+        val renderer = _decode_renderer("{\"policy\": \"quality\", \"strategy\": \"narration-card\"}").toOption.get
+
+        Then("policy resolution leaves the composition strategy unchanged")
+        renderer.policy.map(_.name) should equal(Some("quality"))
+        renderer.strategy should equal(Some("narration-card"))
+        renderer.strategyOrPolicy should equal(Some("narration-card"))
+      }
+
+      "reject invalid encoding policy configuration" in {
+        Given("renderer configurations with invalid policy or encoding values")
+        val configurations = Vector(
+          "policy" -> ("{\"policy\": \"archive\"}", "renderer.policy value: 'archive'"),
+          "fps" -> ("{\"fps\": 0}", "renderer.fps value: '0'"),
+          "width" -> ("{\"width\": -1}", "renderer.width value: '-1'"),
+          "height" -> ("{\"height\": 0}", "renderer.height value: '0'"),
+          "crf" -> ("{\"crf\": -1}", "renderer.crf value: '-1'"),
+          "x264Preset blank" -> ("{\"x264Preset\": \"   \"}", "renderer.x264Preset value: '   '"),
+          "x264Preset unsupported" -> ("{\"x264Preset\": \"ultrafast\"}", "renderer.x264Preset value: 'ultrafast'")
+        )
+
+        configurations.foreach { case (field, (configuration, expected)) =>
+          When(s"the invalid $field value is decoded")
+          val result = _decode_renderer(configuration)
+
+          Then("decoding names the invalid field and value")
+          result.left.toOption.get.getMessage should include(expected)
+        }
+      }
+    }
+
     "inspect planning" which {
       "video inspect accepts JSON, YAML, HOCON, and XML project files" in {
         _with_temp_dir("cozy-video-formats") { dir =>
@@ -4988,6 +5072,9 @@ final class CozyVideoSpec
 }
 
 object CozyVideoSpec {
+  private def _decode_renderer(configuration: String): Either[io.circe.Error, CozyVideo.VideoRenderer] =
+    parser.decode[CozyVideo.VideoRenderer](configuration)(CozyVideo.VideoRenderer.decoder)
+
   final case class StubProvider(result: CozyVideo.VideoToolCheck)
       extends CozyVideo.VideoToolProvider {
     def check(context: CozyVideo.VideoToolContext): CozyVideo.VideoToolCheck =

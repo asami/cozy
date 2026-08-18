@@ -906,7 +906,7 @@ Primary references:
 
 ### Phase 31: Video Encoding Policy Profiles
 
-Status: planned.
+Status: active; VP31-01 is complete and VP31-02 is next.
 
 Purpose and boundaries:
 
