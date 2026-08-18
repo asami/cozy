@@ -3,6 +3,7 @@
 status=task-handoff
 date=2026-08-14
 classification=existing-hygiene-debt
+triage-status=COMPLETED
 
 This journal records source-size debt found after the 2026-08-14 Cozy source
 hygiene sweep. It does not change generated behavior, public APIs, or phase
@@ -118,6 +119,21 @@ This task record does not authorize mechanical splitting during an unrelated
 review-fix. Each item requires a frozen task boundary and an explicit split
 disposition before implementation.
 
+Hygiene Triage: HANDED_OFF
+Hygiene ID: HYG-SIZE-001
+Handoff Journal: cozy:docs/journal/2026/08/2026-08-19-hygiene-resolution-batch-handoff.md
+Handed Off On: 2026-08-19
+
+Hygiene Triage: HANDED_OFF
+Hygiene ID: HYG-SIZE-002
+Handoff Journal: cozy:docs/journal/2026/08/2026-08-19-hygiene-resolution-batch-handoff.md
+Handed Off On: 2026-08-19
+
+Hygiene Triage: HANDED_OFF
+Hygiene ID: HYG-SIZE-003
+Handoff Journal: cozy:docs/journal/2026/08/2026-08-19-hygiene-resolution-batch-handoff.md
+Handed Off On: 2026-08-19
+
 ## `COZY-HYG-SIZE-003 Split Disposition`
 
 - status=validation-complete
@@ -176,6 +192,32 @@ disposition before implementation.
   keep all resulting split sources below 1,000 lines; and introduce no new
   production API, dependency, schema, persistence, lifecycle, CLI, or
   configuration behavior.
+## HP-001 Ledger Closure
+
+### HYG-SIZE-001
+
+Hygiene Status: RESOLVED
+Resolution Batch: cozy:docs/journal/2026/08/2026-08-19-hygiene-resolution-batch-handoff.md
+Validated On: 2026-08-19
+Validation Evidence: Cozy `sbt --batch test`, invocation `33578-20260818T224807Z`, 1,337 succeeded and 0 failed.
+Acceptance Commit: reported externally after commit
+
+### HYG-SIZE-002
+
+Hygiene Status: RESOLVED
+Resolution Batch: cozy:docs/journal/2026/08/2026-08-19-hygiene-resolution-batch-handoff.md
+Validated On: 2026-08-19
+Validation Evidence: Cozy `sbt --batch test`, invocation `33578-20260818T224807Z`, 1,337 succeeded and 0 failed.
+Acceptance Commit: reported externally after commit
+
+### HYG-SIZE-003
+
+Hygiene Status: RESOLVED
+Resolution Batch: cozy:docs/journal/2026/08/2026-08-19-hygiene-resolution-batch-handoff.md
+Validated On: 2026-08-19
+Validation Evidence: Cozy `sbt --batch test`, invocation `33578-20260818T224807Z`, 1,337 succeeded and 0 failed.
+Acceptance Commit: reported externally after commit
+
 - Primary focused compatibility gate:
   `testOnly cozy.video.CozyVideoSpec cozy.video.CozyVideoAssetsSpec cozy.video.CozyVideoCreditsSpec cozy.video.CozyVideoEffectsSpec cozy.video.CozyVideoNarrationSpec cozy.video.CozyVideoProfileRenderSpec cozy.video.CozyVideoPublisherAdmissionSpec cozy.video.CozyVideoRemotionIntegrationSpec cozy.video.CozyVideoScaffoldSpec`
 
