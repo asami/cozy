@@ -27,7 +27,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Aug. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoModel {
@@ -163,6 +163,11 @@ private[cozy] trait CozyVideoModel {
     }
   }
   object VideoRenderer {
+    val DEFAULT_FPS = 18
+    val DEFAULT_WIDTH = 1280
+    val DEFAULT_HEIGHT = 720
+    val DEFAULT_CRF = 32
+
     implicit val decoder: Decoder[VideoRenderer] = (c: HCursor) =>
       for {
         engine <- c.downField("engine").as[Option[String]]

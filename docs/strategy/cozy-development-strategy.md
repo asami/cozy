@@ -828,6 +828,109 @@ Primary references:
 - `docs/design/smartdox-site-media-registration.md`
 - `docs/spec/smartdox-site-media-registration.md`
 
+### Phase 29: Project-Owned Site BoK Metadata Finalization
+
+Status: planned.
+
+Purpose and boundaries:
+
+- add a public `cozy bok finalize-metadata` boundary for an already generated
+  project-owned site;
+- reuse Cozy's canonical KnowledgeSource, RDF graph-summary, and
+  component-reference normalization without invoking a full `cozy bok build`;
+- preserve project-owned SmartDox, Antora, Arcadia, media-registration, direct
+  asset, upload, and deployment orchestration;
+- make finalization failure-atomic, deterministic, and limited to an explicit
+  machine-metadata mutation set; and
+- use SimpleModeling.org WIP and production wrappers as the acceptance driver,
+  proving that their special site processing remains intact while Textus BoK
+  receives a complete compatible handoff.
+
+This Phase is estimated at 4–6 hours at minimum high effort. It does not move
+SimpleModeling.org site generation into Cozy and does not add new Textus BoK
+resource schemas.
+
+Primary references:
+
+- `docs/phase/phase-29.md`
+- `docs/phase/phase-29-checklist.md`
+- `docs/phase/phase-14.md`
+- `docs/phase/phase-22.md`
+- `docs/phase/phase-28.2.md`
+
+### Phase 30: Unified Storyboard and Three-Gate Video Review Workflow
+
+Status: planned; split required before implementation.
+
+Purpose and boundaries:
+
+- replace source-managed dialogue `script.json` on the new path with one
+  versioned Storyboard contract;
+- use `storyboard.md` for human authoring and content review and
+  `storyboard.json` for external machine input/output;
+- parse both representations into one typed Cozy `Storyboard` with lossless,
+  deterministic conversion and common validation;
+- make `storyboard.md` the normal, required content-review gate;
+- allow image-backed visual-story slides only when individual PNG frames,
+  diagrams, layout, or image selection need separate inspection;
+- keep PowerPoint generation in the Dox/presentation boundary while Cozy owns
+  normalized review evidence, identities, and stale-input rejection;
+- build a confirmation video from the approved Storyboard separately from the
+  final video, with separate output identities and lifecycle state;
+- reuse unchanged audio and render chunks when their scene inputs are
+  unchanged, while retaining deterministic invalidation for changed inputs;
+- build the final video only after the accepted confirmation video and
+  production settings in `video.yaml`; and
+- retain a separate final-review gate for the final MP4 and rendered-video
+  evidence. A video-derived review PPTX is an explicit special-purpose output
+  for distribution, meeting, handoff, or archive use only.
+
+The required workflow is:
+
+```text
+storyboard.md review
+  -> optional image-backed visual-story review
+  -> confirmation video review
+  -> final video and rendered-video evidence review
+```
+
+The parent Phase is estimated at 10–15 hours and therefore requires three
+bounded child phases before implementation: Storyboard schema/Markdown/JSON,
+optional visual-story review evidence, and confirmation/final build plus
+final-review integration. Encoding policy profiles remain Phase 31's concern.
+
+Primary references:
+
+- `docs/phase/phase-30.md`
+- `docs/phase/phase-30-checklist.md`
+
+### Phase 31: Video Encoding Policy Profiles
+
+Status: planned.
+
+Purpose and boundaries:
+
+- establish lightweight 1280x720, 18 fps, CRF 32 output as the default Cozy
+  video baseline;
+- add `renderer.policy: lightweight|standard|quality` for coarse encoding
+  intent while allowing explicit fields to override individual values;
+- separate encoding policy from composition strategy, renderer engine,
+  visual-effect profile, and narration configuration;
+- apply effective CRF and x264 preset to Remotion execution and expose all
+  resolved settings consistently through inspect, manifests, RDF, and review
+  evidence; and
+- verify output dimensions, frame rate, file size, and visual readability with
+  representative character-dialogue runtime evidence.
+
+This Phase is estimated at 4-6 hours at minimum high effort. It does not change
+video semantics, narration, scene timing, publication, or the Phase 30
+Storyboard authority model.
+
+Primary references:
+
+- `docs/phase/phase-31.md`
+- `docs/phase/phase-31-checklist.md`
+
 ### Future Follow-up: Explicit Component Root Generation
 
 Status: planned, low priority.
@@ -855,6 +958,15 @@ Origin:
 - `docs/journal/2026/07/spi-only-component-generation-handoff-2026-07-28.md`
 
 ## Current Priority
+
+Phase 29 is a planned follow-up rather than a current SimpleModeling.org
+operation gate. The immediate WIP requirement is limited to generating and
+admitting `website.d/metadata/glossary/terms.json` through the existing
+KnowledgeSource manifest. Phase 29 adds broader metadata-only finalization for
+project-owned site workflows when compatible RDF graph and component-reference
+handoffs become operationally necessary; it uses the closed SimpleModeling.org
+Phase 28.2 integration as its acceptance baseline without replacing that
+project's special build orchestration.
 
 Phase 6 through Phase 23 are closed. Phase 23 completed scalar Entity
 persistence round-trip, driver-CAR verification, and the CBD Support P8-42

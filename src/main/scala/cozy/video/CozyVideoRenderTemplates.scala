@@ -27,7 +27,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Aug. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoRenderTemplates {
@@ -47,9 +47,11 @@ private[cozy] trait CozyVideoRenderTemplates {
     recording: Option[String]
   ): Json = {
     val renderer = plan.project.renderer
-    val fps = renderer.flatMap(_.fps).filter(_ > 0).getOrElse(30)
-    val width = renderer.flatMap(_.width).filter(_ > 0).getOrElse(1280)
-    val height = renderer.flatMap(_.height).filter(_ > 0).getOrElse(720)
+    val fps = renderer.flatMap(_.fps).filter(_ > 0).getOrElse(VideoRenderer.DEFAULT_FPS)
+    val width = renderer.flatMap(_.width).filter(_ > 0).getOrElse(VideoRenderer.DEFAULT_WIDTH)
+    val height = renderer.flatMap(_.height).filter(_ > 0).getOrElse(VideoRenderer.DEFAULT_HEIGHT)
+    val crf = renderer.flatMap(_.crf).getOrElse(VideoRenderer.DEFAULT_CRF)
+    val x264preset = renderer.flatMap(_.x264Preset).map(_.trim).filter(_.nonEmpty)
     val effects = CozyVideoEffects.expand(plan.project.visualEffects)
     val effectprofile = _part_renderer_property(part, "effectProfile").orElse(renderer.flatMap(_.effectProfile)).
       map(_.trim).filter(_.nonEmpty).getOrElse("compact")
@@ -165,6 +167,8 @@ private[cozy] trait CozyVideoRenderTemplates {
       "fps" -> Json.fromInt(fps),
       "width" -> Json.fromInt(width),
       "height" -> Json.fromInt(height),
+      "crf" -> Json.fromInt(crf),
+      "x264Preset" -> x264preset.map(Json.fromString).getOrElse(Json.Null),
       "durationSeconds" -> Json.fromDoubleOrNull(totalframes.toDouble / fps),
       "scenes" -> Json.fromValues(scenes),
       "characters" -> dialogueassets.characters,
@@ -316,7 +320,9 @@ private[cozy] trait CozyVideoRenderTemplates {
       |const publicDir = path.join(workDir, 'public');
       |const output = path.resolve(projectRoot, props.outputPath);
       |fs.mkdirSync(path.dirname(output), {recursive: true});
-      |execFileSync('remotion', ['render', entry, 'CozyVideo', output, '--overwrite', `--public-dir=${publicDir}`], {
+      |const renderArgs = ['render', entry, 'CozyVideo', output, '--overwrite', `--public-dir=${publicDir}`, `--crf=${props.crf}`];
+      |if (props.x264Preset) renderArgs.push(`--x264-preset=${props.x264Preset}`);
+      |execFileSync('remotion', renderArgs, {
       |  cwd: projectRoot,
       |  stdio: 'inherit',
       |  env: {

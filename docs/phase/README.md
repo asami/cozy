@@ -5,6 +5,17 @@ Purpose: engineering work management.
 Current phase state:
 
 - Active phase: none recorded after Phase 28.2 closure.
+- Planned phase: `phase-31.md`: Video Encoding Policy Profiles. Lightweight
+  1280x720, 18 fps, CRF 32 is the baseline; named policies and effective
+  metadata propagation remain planned work.
+- Planned split-required phase: `phase-30.md`: Unified Storyboard and
+  Three-Gate Video Review Workflow. The intended workflow is
+  `storyboard.md review -> optional image-backed visual-story review ->
+  confirmation video review -> final video and rendered-video evidence review`.
+  Content-review and video-review PPTX artifacts are optional inspection or
+  distribution outputs, not workflow gates.
+- Earlier planned phase: `phase-29.md`: Project-Owned Site BoK Metadata
+  Finalization.
 - Most recent closed phase: `phase-28.2.md`: SimpleModeling.org Part 5
   Integration and Regression; `AM28-03` and `AM28-04` are complete.
 - Most recent split predecessor: `phase-28.1.md`: WIP Local Article Media
@@ -51,3 +62,7 @@ and AM28-00/AM28-01 implementation, review, and completion evidence are
 complete. The approved split is recorded in `phase-28.md`, `phase-28.1.md`, and
 `phase-28.2.md`; numbering preserves the original Phase identity and does not
 consume later integer phases.
+
+Phase 30 is a parent planning boundary with `SPLIT_REQUIRED`. Its normative
+Storyboard design/spec and executable child ledgers must be created in Phase
+30.1 through Phase 30.3 before implementation begins.

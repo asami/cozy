@@ -18,7 +18,7 @@ import cozy.CozySpecVocabulary
  * @since   Jun. 18, 2026
  *  version Jun. 24, 2026
  *  version Jul. 20, 2026
- * @version Aug. 11, 2026
+ * @version Aug. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoSpec
@@ -1686,6 +1686,7 @@ final class CozyVideoSpec
 
     "part rendering" which {
       "video render remotion renders all renderable parts through a runner" in {
+        Given("a renderable dialogue and storyboard video project")
         _with_temp_dir("cozy-video-render-remotion") { dir =>
           _write(dir.resolve("dialogue.json"), _script_json)
           _write(dir.resolve("storyboard.json"), _script_json)
@@ -1712,6 +1713,7 @@ final class CozyVideoSpec
           )
           val runner = ProfileRenderRunner()
 
+          When("the project is rendered through the Remotion runner")
           val out = CozyVideo.render(
             CozyVideo
               .RenderConfig(dir.resolve("video_project.json"), "remotion"),
@@ -1719,6 +1721,7 @@ final class CozyVideoSpec
             runner
           )
 
+          Then("the runner receives lightweight default properties and CRF")
           ((out.contains("Cozy Video Render")) shouldBe true)
           ((out.contains("parts: 2")) shouldBe true)
           ((out.contains(
@@ -1759,6 +1762,15 @@ final class CozyVideoSpec
           ((Files.isRegularFile(
             dir.resolve("target/cozy-video/remotion/lecture/props.json")
           )) shouldBe true)
+          val propsjson = parser.parse(Files.readString(
+            dir.resolve("target/cozy-video/remotion/lecture/props.json"),
+            StandardCharsets.UTF_8
+          )).toOption.get
+          propsjson.hcursor.get[Int]("fps").toOption shouldBe Some(18)
+          propsjson.hcursor.get[Int]("width").toOption shouldBe Some(1280)
+          propsjson.hcursor.get[Int]("height").toOption shouldBe Some(720)
+          propsjson.hcursor.get[Int]("crf").toOption shouldBe Some(32)
+          _read(dir.resolve("target/cozy-video/remotion/lecture/src/render.mjs")) should include_text("`--crf=${props.crf}`")
           ((Files.isRegularFile(
             dir.resolve(
               "target/cozy-video/remotion/lecture/public/audio/01-title.wav"
@@ -1787,6 +1799,45 @@ final class CozyVideoSpec
           ((!root.contains("React.FC<Props> = (props)")) shouldBe true)
           ((!render.contains("--props")) shouldBe true)
           ((props.contains("audio/01-title.wav")) shouldBe true)
+        }
+      }
+
+      "video render remotion projects configured CRF and x264 preset into the generated command" in {
+        Given("a Remotion video project with explicit encoding settings")
+        _with_temp_dir("cozy-video-render-remotion-explicit-encoding") { dir =>
+          _write(dir.resolve("dialogue.json"), _script_json)
+          _write_audio_manifest(
+            dir.resolve("build/audio/lecture"),
+            Vector("title", "description", "summary")
+          )
+          _write(
+            dir.resolve("video_project.json"),
+            """{
+              |  "renderer": {"engine": "remotion", "crf": 21, "x264Preset": "slow"},
+              |  "parts": [
+              |    {"id": "lecture", "type": "dialogue", "script": "dialogue.json"}
+              |  ]
+              |}
+              |""".stripMargin
+          )
+
+          When("the project is rendered through the Remotion runner")
+          CozyVideo.render(
+            CozyVideo.RenderConfig(dir.resolve("video_project.json"), "remotion"),
+            CozyVideo.VideoToolRegistry(Vector.empty),
+            ProfileRenderRunner()
+          )
+
+          Then("the generated props and command retain the configured CRF and preset")
+          val propsjson = parser.parse(Files.readString(
+            dir.resolve("target/cozy-video/remotion/lecture/props.json"),
+            StandardCharsets.UTF_8
+          )).toOption.get
+          val command = _read(dir.resolve("target/cozy-video/remotion/lecture/src/render.mjs"))
+          propsjson.hcursor.get[Int]("crf").toOption shouldBe Some(21)
+          propsjson.hcursor.get[String]("x264Preset").toOption shouldBe Some("slow")
+          command should include_text("`--crf=${props.crf}`")
+          command should include_text("`--x264-preset=${props.x264Preset}`")
         }
       }
 
