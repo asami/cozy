@@ -11,7 +11,7 @@ Phase Plan Gate: PROCEED
 
 ## VP31-01: Encoding Policy Contract
 
-Status: IN PROGRESS
+Status: COMPLETE
 
 - [x] Define `lightweight`, `standard`, and `quality` as typed encoding
       policies with exact resolution, FPS, and CRF values.
@@ -28,20 +28,20 @@ Status: IN PROGRESS
 
 Status: COMPLETE
 
-- [ ] Resolve effective encoding settings once and use them for every video
+- [x] Resolve effective encoding settings once and use them for every video
       part.
-- [ ] Pass effective CRF and x264 preset to the Remotion CLI rather than only
+- [x] Pass effective CRF and x264 preset to the Remotion CLI rather than only
       retaining them in parsed configuration.
-- [ ] Show effective policy, FPS, dimensions, CRF, and preset in inspect and
+- [x] Show effective policy, FPS, dimensions, CRF, and preset in inspect and
       dry-run output.
-- [ ] Record the same effective settings in renderer props, generated
+- [x] Record the same effective settings in renderer props, generated
       manifests, RDF, publication metadata, and review evidence.
-- [ ] Update video scaffolds and current guide examples to use policy-level
+- [x] Update video scaffolds and current guide examples to use policy-level
       configuration where appropriate.
 
 ## VP31-03: Runtime Acceptance
 
-Status: PLANNED
+Status: IN PROGRESS
 
 - [ ] Add executable specifications for all policies, default resolution,
       partial explicit overrides, and invalid settings.

@@ -65,7 +65,7 @@ selected policy. If neither a policy nor explicit values are present,
 
 Stage Status:
 
-- Current status: IN PROGRESS
+- Current status: COMPLETE
 - Owner: Cozy video model and configuration
 - Checklist basis: `VP31-01`
 
@@ -87,7 +87,7 @@ inspection, manifests, RDF, and review evidence.
 
 Stage Status:
 
-- Current status: PLANNED
+- Current status: IN PROGRESS
 - Owner: Cozy video executable specifications and runtime smoke
 - Checklist basis: `VP31-03`
 
