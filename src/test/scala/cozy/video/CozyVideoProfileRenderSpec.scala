@@ -33,7 +33,7 @@ final class CozyVideoProfileRenderSpec
         _write(
           pkg.resolve("video.yaml"),
           _read(pkg.resolve("video.yaml")).replace(
-            "renderer:\n  engine: remotion",
+            "renderer:\n  engine: remotion\n  policy: lightweight",
             "renderer:\n  engine: remotion\n  policy: standard\n  width: 1440\n  crf: 21\n  x264Preset: slow"
           )
         )
@@ -146,18 +146,18 @@ final class CozyVideoProfileRenderSpec
               "end-card",
               "hold"
             )
-            val openingframes = if (index == 0) 135 else 0
+            val openingframes = if (index == 0) 81 else 0
             _int(props, "timing", "openingFrames") shouldBe openingframes
             _int(props, "timing", "sectionStartFrame") shouldBe openingframes
-            _int(props, "timing", "sectionStartFrames") shouldBe 36
-            val summaryframes = if (index == partids.size - 1) 72 else 0
-            _int(props, "timing", "summaryStartFrame") shouldBe openingframes + 240 - summaryframes
+            _int(props, "timing", "sectionStartFrames") shouldBe 22
+            val summaryframes = if (index == partids.size - 1) 43 else 0
+            _int(props, "timing", "summaryStartFrame") shouldBe openingframes + 144 - summaryframes
             _int(props, "timing", "summaryFrames") shouldBe summaryframes
-            val finalframes = if (index == partids.size - 1) 60 else 0
+            val finalframes = if (index == partids.size - 1) 36 else 0
             _int(props, "timing", "creditPageHoldFrames") shouldBe 0
-            _int(props, "timing", "finalPageStartFrame") shouldBe openingframes + 240
+            _int(props, "timing", "finalPageStartFrame") shouldBe openingframes + 144
             _int(props, "timing", "finalPageHoldFrames") shouldBe finalframes
-            _int(props, "timing", "totalFrames") shouldBe openingframes + 240 + finalframes
+            _int(props, "timing", "totalFrames") shouldBe openingframes + 144 + finalframes
             workdir.resolve("public/assets/opening.svg") should be_regular_file
             workdir.resolve("public/assets/section-start.svg") should be_regular_file
             workdir.resolve("public/assets/summary.svg") should be_regular_file
@@ -214,7 +214,7 @@ final class CozyVideoProfileRenderSpec
 
         Then("the render uses the complete narration duration without changing the authored target")
         val props = _json(pkg.resolve("target/cozy-video/remotion/explanation/props.json"))
-        _int(props, "timing", "contentFrames") shouldBe 330
+        _int(props, "timing", "contentFrames") shouldBe 198
         _scene_duration(props, 0) shouldBe 11.0
         _json(audiodir.resolve("manifest.json")).asArray.get.head.hcursor.
           get[Double]("targetDuration").toOption.get shouldBe 8.0
@@ -275,12 +275,12 @@ final class CozyVideoProfileRenderSpec
         val workdir = dir.resolve("target/cozy-video/remotion/lecture")
         val props = _json(workdir.resolve("props.json"))
         val scenes = props.hcursor.get[Vector[Json]]("scenes").toOption.get
-        scenes.map(_.hcursor.get[Int]("sectionTransitionFrames").toOption.get) shouldBe Vector(0, 36, 0, 36, 0, 36)
-        scenes.map(_.hcursor.get[Int]("leadInFrames").toOption.get) shouldBe Vector(15, 51, 15, 51, 15, 51)
-        scenes.map(_.hcursor.get[Int]("durationFrames").toOption.get) shouldBe Vector(120, 156, 120, 156, 120, 156)
-        scenes.map(_.hcursor.get[Int]("startFrame").toOption.get) shouldBe Vector(0, 120, 276, 396, 552, 672)
-        scenes(1).hcursor.get[Double]("duration").toOption.get shouldBe 5.2
-        _int(props, "timing", "contentFrames") shouldBe 828
+        scenes.map(_.hcursor.get[Int]("sectionTransitionFrames").toOption.get) shouldBe Vector(0, 22, 0, 22, 0, 22)
+        scenes.map(_.hcursor.get[Int]("leadInFrames").toOption.get) shouldBe Vector(9, 31, 9, 31, 9, 31)
+        scenes.map(_.hcursor.get[Int]("durationFrames").toOption.get) shouldBe Vector(72, 94, 72, 94, 72, 94)
+        scenes.map(_.hcursor.get[Int]("startFrame").toOption.get) shouldBe Vector(0, 72, 166, 238, 332, 404)
+        scenes(1).hcursor.get[Double]("duration").toOption.get shouldBe 5.222222222222222
+        _int(props, "timing", "contentFrames") shouldBe 498
 
         And("the authored audio manifest remains unchanged")
         val manifest = _json(audiodir.resolve("manifest.json")).asArray.get
@@ -340,9 +340,9 @@ final class CozyVideoProfileRenderSpec
             val props = _json(fixture.resolve("target/cozy-video/remotion/lecture/props.json"))
             val scenes = props.hcursor.get[Vector[Json]]("scenes").toOption.get
             scenes.map(_.hcursor.get[Int]("sectionTransitionFrames").toOption.get) shouldBe Vector(0, 0)
-            scenes.map(_.hcursor.get[Int]("leadInFrames").toOption.get) shouldBe Vector(15, 15)
-            scenes.map(_.hcursor.get[Int]("durationFrames").toOption.get) shouldBe Vector(120, 120)
-            _int(props, "timing", "contentFrames") shouldBe 240
+            scenes.map(_.hcursor.get[Int]("leadInFrames").toOption.get) shouldBe Vector(9, 9)
+            scenes.map(_.hcursor.get[Int]("durationFrames").toOption.get) shouldBe Vector(72, 72)
+            _int(props, "timing", "contentFrames") shouldBe 144
           }
         }
       }
@@ -537,12 +537,12 @@ final class CozyVideoProfileRenderSpec
         And("the disabled credit presentation contributes no hold before the existing final URL page")
         val workdir = pkg.resolve("target/cozy-video/remotion/explanation")
         val props = _json(workdir.resolve("props.json"))
-        _int(props, "timing", "creditPageStartFrame") shouldBe 375
+        _int(props, "timing", "creditPageStartFrame") shouldBe 225
         _int(props, "timing", "creditPageHoldFrames") shouldBe 0
         _int(props, "timing", "finalPageStartFrame") shouldBe
           _int(props, "timing", "openingFrames") + _int(props, "timing", "contentFrames")
-        _int(props, "timing", "finalPageHoldFrames") shouldBe 60
-        _int(props, "timing", "totalFrames") shouldBe 435
+        _int(props, "timing", "finalPageHoldFrames") shouldBe 36
+        _int(props, "timing", "totalFrames") shouldBe 261
 
         And("verification rejects a projection changed after the effective set was built")
         CozyVideo.verifyCredits(pkg.resolve("video.yaml")) shouldBe Vector.empty

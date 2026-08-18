@@ -173,7 +173,14 @@ final class CozyVideoSpec
           _write(project, """{"output":"build/final.mp4","renderer":{"engine":"remotion","policy":"standard"},"parts":[{"id":"intro","type":"dialogue","script":"script.json"}]}""")
           _write(dir.resolve("script.json"), _script_json)
           _write_bytes(finalvideo, Array[Byte](1, 2, 3, 4))
-          _write_review_video_manifest(finalvideo)
+          _write_review_video_manifest(finalvideo, Some(Json.obj(
+            "policy" -> Json.fromString("standard"),
+            "fps" -> Json.fromInt(30),
+            "width" -> Json.fromInt(1280),
+            "height" -> Json.fromInt(720),
+            "crf" -> Json.fromInt(23),
+            "x264Preset" -> Json.Null
+          )))
           _write(dir.resolve("build/audio/intro/manifest.json"), """[{"sceneId":"scene","speaker":null,"file":"01.wav","leadSilence":0.0,"audioDuration":1.0,"targetDuration":1.0,"tailSilence":0.0}]""")
           _write(dir.resolve("target/cozy-video/remotion/intro/props.json"), """{"partId":"intro","encodingPolicy":"lightweight","fps":30,"width":1280,"height":720,"crf":23,"x264Preset":null,"timing":{"openingFrames":0,"contentFrames":30,"summaryStartFrame":30,"summaryFrames":0,"finalPageStartFrame":30,"finalPageHoldFrames":0,"totalFrames":30},"scenes":[{"id":"scene","startFrame":0,"durationFrames":30,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
           val runner = ReviewEvidenceRunner()
