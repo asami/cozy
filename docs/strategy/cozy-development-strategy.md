@@ -957,6 +957,13 @@ Origin:
 
 - `docs/journal/2026/07/spi-only-component-generation-handoff-2026-07-28.md`
 
+## 9. Development Item Status
+
+| ID | Source | Development item | Disposition | Target | Status |
+| --- | --- | --- | --- | --- | --- |
+| DEV-001 | `docs/journal/2026/08/2026-08-19-cncf-compatibility-naming-hygiene-follow-up.md` (`HYG-P57.4-001`) | Make `Resolved.projectRelativePath` the canonical CML source-result field while retaining the explicitly required compatibility surface. | NEW_PHASE | [Phase 32](../phase/phase-32.md) | ADOPTED |
+| DEV-002 | `docs/journal/2026/04/cml-operation-design-note.md` (Future Work) | Decide the action hierarchy, result type, async/job model, and CLI/OpenAPI mapping as one future CML operation design boundary. | STRATEGY_ITEM | Strategy section 9 | CANDIDATE |
+
 ## Current Priority
 
 Phase 29 is a planned follow-up rather than a current SimpleModeling.org

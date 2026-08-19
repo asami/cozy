@@ -12,7 +12,7 @@ later resolution evidence is recorded in
 
 ## Original Open Record (2026-08-04)
 
-### P26-HYG-001: Restore the type-modeling authority reference
+### P26-HYG-001: Restore the type-modeling authority reference — RESOLVED
 
 - Source: independent AM26-01B review on 2026-08-04.
 - Classification: repository directive hygiene; pre-existing and not caused by

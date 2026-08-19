@@ -14,7 +14,7 @@ is recorded in
 
 ## Original Open Record (2026-08-11)
 
-### P27-HYG-001: Restore the Arcadia full-test dependency baseline
+### P27-HYG-001: Restore the Arcadia full-test dependency baseline — RESOLVED
 
 - Source: Phase 27 final gate on 2026-08-11, full-test invocation
   `45353-20260811T080703Z`.

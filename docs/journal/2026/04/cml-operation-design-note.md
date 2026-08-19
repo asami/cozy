@@ -330,3 +330,10 @@ Serialization is handled at the boundary (CLI / server).
 - OperationResult type system
 - Async command / Job model
 - CLI / OpenAPI mapping specification
+
+Candidate Triage: COMPLETED
+Canonical ID: DEV-002
+Disposition: STRATEGY_ITEM
+Strategy Record: docs/strategy/cozy-development-strategy.md#9-development-item-status
+Target Phase: -
+Triaged On: 2026-08-19
