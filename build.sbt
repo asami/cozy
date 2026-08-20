@@ -15,7 +15,7 @@ organization := "org.simplemodeling"
 
 name := "cozy"
 
-version := "0.3.2.2"
+version := "0.3.3-SNAPSHOT"
 
 // Generated-project defaults. Keep every scaffolded version here so release
 // preparation has one authoritative inventory.
