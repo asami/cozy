@@ -7,7 +7,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jul. 28, 2026
- * @version Aug. 14, 2026
+ * @version Aug. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 
@@ -82,6 +82,24 @@ final class Phase51Cv02CompatibilitySpec extends AnyWordSpec with Matchers with 
           GenerationDiagnosticCode.MalformedEvidence
         )
       }
+      "reject mutable persistent evidence as malformed" in {
+        Given("otherwise valid evidence whose pair contains a SNAPSHOT coordinate")
+        val mutableevidence = _proven.copy(entries = Vector(
+          GenerationPairEvidence(
+            GenerationPair(
+              _cncf_target.copy(version = "0.5.2-SNAPSHOT"),
+              _cozy_generator
+            ),
+            GenerationPairStatus.Proven
+          )
+        ))
+        When("the production compatibility validator evaluates persistent evidence")
+        val diagnostics = GenerationCompatibility.validate(mutableevidence)
+        Then("the mutable record is rejected with typed malformed-evidence diagnostics")
+        diagnostics.map(_.code) shouldBe Vector(
+          GenerationDiagnosticCode.MalformedEvidence
+        )
+      }
     }
 
     "admit exact pairs by evidence and lifecycle" which {
@@ -103,7 +121,7 @@ final class Phase51Cv02CompatibilitySpec extends AnyWordSpec with Matchers with 
         val decision = _admit(pair, GenerationLifecycle.Release)
         Then("CV-02 rejects the mutable CNCF target with a typed lifecycle diagnostic")
         decision.result shouldBe GenerationAdmission.Unsupported
-        decision.diagnostics.map(_.code) should contain(
+        decision.diagnostics.map(_.code) shouldBe Vector(
           GenerationDiagnosticCode.SnapshotNotAllowedForRelease
         )
       }
@@ -114,7 +132,7 @@ final class Phase51Cv02CompatibilitySpec extends AnyWordSpec with Matchers with 
         val decision = _admit(pair, GenerationLifecycle.Release)
         Then("CV-02 rejects the mutable Cozy generator with a typed lifecycle diagnostic")
         decision.result shouldBe GenerationAdmission.Unsupported
-        decision.diagnostics.map(_.code) should contain(
+        decision.diagnostics.map(_.code) shouldBe Vector(
           GenerationDiagnosticCode.SnapshotNotAllowedForRelease
         )
       }
@@ -140,15 +158,15 @@ final class Phase51Cv02CompatibilitySpec extends AnyWordSpec with Matchers with 
         decision.result shouldBe GenerationAdmission.Supported
         decision.diagnostics shouldBe empty
       }
-      "admit an explicitly evidenced SNAPSHOT pair for development" in {
-        Given("an explicitly evidenced SNAPSHOT pair and development lifecycle")
+      "admit an explicit SNAPSHOT pair for development without persistent evidence" in {
+        Given("an explicit SNAPSHOT pair, immutable-only evidence, and development lifecycle")
         val pair = GenerationPair(
           _cncf_target.copy(version = "0.5.2-SNAPSHOT"),
           _cozy_generator.copy(version = "0.3.1-SNAPSHOT")
         )
         When("the production admission API evaluates development lifecycle")
         val decision = _admit(pair, GenerationLifecycle.Development)
-        Then("CV-02 admits the explicitly evidenced development pair")
+        Then("CV-02 admits the development pair without persistent pair or coordinate evidence")
         decision.result shouldBe GenerationAdmission.Supported
         decision.diagnostics shouldBe empty
       }
@@ -159,7 +177,11 @@ final class Phase51Cv02CompatibilitySpec extends AnyWordSpec with Matchers with 
           _cozy_generator.copy(version = "0.2.9")
         )
         When("the production admission API evaluates the exact evidenced pair")
-        val decision = _admit(pair, GenerationLifecycle.Release)
+        val decision = _admit(
+          pair,
+          GenerationLifecycle.Release,
+          _proven.copy(entries = Vector(GenerationPairEvidence(pair, GenerationPairStatus.Proven)))
+        )
         Then("CV-02 admits based on exact evidence without numeric similarity inference")
         decision.result shouldBe GenerationAdmission.Supported
         decision.diagnostics shouldBe empty
@@ -382,12 +404,13 @@ final class Phase51Cv02CompatibilitySpec extends AnyWordSpec with Matchers with 
 
   private def _admit(
       pair: GenerationPair,
-      lifecycle: GenerationLifecycle
+      lifecycle: GenerationLifecycle,
+      evidence: GenerationCompatibilityEvidence = _proven
   ): GenerationAdmissionDecision =
     GenerationCompatibility.admit(
       GenerationInputs(Some(pair.cncfTarget), Some(pair.cozyGenerator)),
       lifecycle,
-      _proven.copy(entries = Vector(GenerationPairEvidence(pair, GenerationPairStatus.Proven)))
+      evidence
     )
 
   private def _shuffled[A](values: Vector[A]): Gen[Vector[A]] =

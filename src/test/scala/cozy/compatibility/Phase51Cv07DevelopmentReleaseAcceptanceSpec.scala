@@ -7,7 +7,8 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jul. 28, 2026
- * @version Jul. 28, 2026
+ *  version Jul. 28, 2026
+ * @version Aug. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 final class Phase51Cv07DevelopmentReleaseAcceptanceSpec
@@ -23,24 +24,21 @@ final class Phase51Cv07DevelopmentReleaseAcceptanceSpec
     GenerationCompatibilityBoundary.createPair("0.5.1", "0.3.0")
   private val _developmentpair =
     GenerationCompatibilityBoundary.createPair(
-      "0.5.2-SNAPSHOT",
-      "0.3.1-SNAPSHOT"
+      "0.5.3-SNAPSHOT",
+      "0.3.2-SNAPSHOT"
     )
   private val _evidence =
     GenerationCompatibilityEvidence(
       GenerationCompatibility.evidenceSchema,
       _owner,
-      Vector(
-        GenerationPairEvidence(_releasedpair, GenerationPairStatus.Proven),
-        GenerationPairEvidence(_developmentpair, GenerationPairStatus.Proven)
-      ),
+      Vector(GenerationPairEvidence(_releasedpair, GenerationPairStatus.Proven)),
       Some(_releasedpair)
     )
 
   "Cozy CV-07 generation acceptance" should {
     "derive lifecycle from the owning output version" which {
-      "accept an explicit proven mutable pair only for development output" in {
-        Given("an exact proven SNAPSHOT target and generator pair")
+      "accept an explicit mutable pair only for development output" in {
+        Given("an exact SNAPSHOT target and generator pair without persistent pair evidence")
         val sources = GenerationSourceValues(
           Some(_developmentpair),
           Some(_developmentpair),
@@ -51,17 +49,17 @@ final class Phase51Cv07DevelopmentReleaseAcceptanceSpec
         val development = GenerationCompatibility.accept(
           sources,
           "0.1.0-SNAPSHOT",
-          "0.3.1-SNAPSHOT",
+          "0.3.2-SNAPSHOT",
           _evidence
         )
         val release = GenerationCompatibility.accept(
           sources,
           "0.1.0",
-          "0.3.1-SNAPSHOT",
+          "0.3.2-SNAPSHOT",
           _evidence
         )
 
-        Then("development is admitted with a notice and release is rejected")
+        Then("development is admitted with a notice and release rejection precedes evidence lookup")
         development.lifecycle shouldBe GenerationLifecycle.Development
         development.result shouldBe GenerationAdmission.Supported
         development.notices.map(_.code) shouldBe Vector(
@@ -69,7 +67,7 @@ final class Phase51Cv07DevelopmentReleaseAcceptanceSpec
         )
         release.lifecycle shouldBe GenerationLifecycle.Release
         release.result shouldBe GenerationAdmission.Unsupported
-        release.diagnostics.map(_.code) should contain(
+        release.diagnostics.map(_.code) shouldBe Vector(
           GenerationDiagnosticCode.SnapshotNotAllowedForRelease
         )
       }
@@ -164,7 +162,7 @@ final class Phase51Cv07DevelopmentReleaseAcceptanceSpec
         val args = List(
           "modeler-scala-value",
           "information.cml",
-          "--cncf-version", "0.5.2-SNAPSHOT",
+          "--cncf-version", "0.5.3-SNAPSHOT",
           "--cozy-generator-version",
           org.simplemodeling.cozy.BuildInfo.version
         )
@@ -226,39 +224,25 @@ final class Phase51Cv07DevelopmentReleaseAcceptanceSpec
       }
     }
 
-    "ship the current release default alongside explicit development pairs" in {
+    "ship immutable-only evidence with the current immutable default" in {
       Given("the packaged Cozy compatibility evidence")
 
       When("the resource is loaded")
       val evidence = GenerationCompatibilityEvidenceLoader.load().toOption.get
 
-      Then("the published CNCF and Cozy pair is the default while development pairs remain explicit")
-      evidence.entries should contain allOf (
+      Then("only immutable release evidence is packaged and the immutable current pair remains default")
+      evidence.entries shouldBe Vector(
+        GenerationPairEvidence(
+          GenerationCompatibilityBoundary.createPair(
+            "0.5.1",
+            "0.3.0"
+          ),
+          GenerationPairStatus.Unproven
+        ),
         GenerationPairEvidence(
           GenerationCompatibilityBoundary.createPair(
             "0.5.2",
             "0.3.1"
-          ),
-          GenerationPairStatus.Proven
-        ),
-        GenerationPairEvidence(
-          GenerationCompatibilityBoundary.createPair(
-            "0.5.2-SNAPSHOT",
-            "0.3.1"
-          ),
-          GenerationPairStatus.Proven
-        ),
-        GenerationPairEvidence(
-          GenerationCompatibilityBoundary.createPair(
-            "0.5.2-SNAPSHOT",
-            "0.3.1-SNAPSHOT"
-          ),
-          GenerationPairStatus.Proven
-        ),
-        GenerationPairEvidence(
-          GenerationCompatibilityBoundary.createPair(
-            "0.5.1",
-            "0.3.1-SNAPSHOT"
           ),
           GenerationPairStatus.Proven
         )
@@ -297,7 +281,7 @@ final class Phase51Cv07DevelopmentReleaseAcceptanceSpec
       Map(
         "project.kind" -> "car",
         "project.component.version" -> outputversion,
-        "build.cozyVersion" -> "0.3.1-SNAPSHOT",
+        "build.cozyVersion" -> "0.3.2-SNAPSHOT",
         "packaging.car.runtime.cncf.minimum" -> "0.5.1"
       ),
       Map(

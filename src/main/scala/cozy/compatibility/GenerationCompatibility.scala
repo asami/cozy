@@ -4,7 +4,7 @@ import io.circe.{Json, parser}
 
 /*
  * @since   Jul. 28, 2026
- * @version Aug. 14, 2026
+ * @version Aug. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 
@@ -247,6 +247,8 @@ object GenerationCompatibility {
     evidence.entries.sortBy(entry => pairName(entry.pair)).foreach { entry =>
       val coordinates = Vector(entry.pair.cncfTarget, entry.pair.cozyGenerator)
       if (coordinates.exists(value => Vector(value.organization, value.artifact, value.version).exists(_.trim.isEmpty))) errors += GenerationDiagnostic(GenerationDiagnosticCode.MalformedEvidence, None, Some("non-empty coordinates"), Some(pairName(entry.pair)), Some(pairName(entry.pair)), "Evidence coordinates must be non-empty.")
+      if (isMutable(entry.pair))
+        errors += GenerationDiagnostic(GenerationDiagnosticCode.MalformedEvidence, None, Some("immutable persistent evidence coordinates"), Some(pairName(entry.pair)), Some(pairName(entry.pair)), "Persistent compatibility evidence coordinates must be immutable.")
     }
     evidence.publishedDefault.foreach { pair =>
       val matching = evidence.entries.filter(_.pair == pair)
@@ -394,16 +396,21 @@ object GenerationCompatibility {
     val owner = evidence.evidenceOwner
     val evidenceerrors = validate(evidence)
     if (evidenceerrors.nonEmpty) return GenerationAdmissionDecision(GenerationAdmission.Unsupported, evidenceerrors, owner)
-    val targetknown = evidence.entries.exists(_.pair.cncfTarget == pair.cncfTarget)
-    val generatorknown = evidence.entries.exists(_.pair.cozyGenerator == pair.cozyGenerator)
-    val unsupported = Vector(!targetknown -> GenerationDiagnostic(GenerationDiagnosticCode.UnsupportedCncfTarget, None, Some("evidence CNCF coordinate"), Some(pair.cncfTarget.version), Some(_coordinate_name(pair.cncfTarget)), "The exact CNCF target is not present in compatibility evidence."), !generatorknown -> GenerationDiagnostic(GenerationDiagnosticCode.UnsupportedCozyGenerator, None, Some("evidence Cozy coordinate"), Some(pair.cozyGenerator.version), Some(_coordinate_name(pair.cozyGenerator)), "The exact Cozy generator is not present in compatibility evidence.")).collect { case (true, diagnostic) => diagnostic }
-    if (unsupported.nonEmpty) GenerationAdmissionDecision(GenerationAdmission.Unsupported, unsupported, owner)
-    else if (lifecycle == GenerationLifecycle.Release && isMutable(pair)) GenerationAdmissionDecision(GenerationAdmission.Unsupported, Vector(GenerationDiagnostic(GenerationDiagnosticCode.SnapshotNotAllowedForRelease, None, Some("immutable release coordinates"), Some(pairName(pair)), Some(pairName(pair)), "SNAPSHOT generation coordinates are not admitted for release generation.")), owner)
-    else evidence.entries.find(_.pair == pair) match {
-      case None => GenerationAdmissionDecision(GenerationAdmission.Incompatible, Vector(GenerationDiagnostic(GenerationDiagnosticCode.UnsupportedGenerationPair, None, Some("an explicit pair evidence record"), Some(pairName(pair)), Some(pairName(pair)), "The coordinates are individually known, but this pair has no evidence record.")), owner)
-      case Some(GenerationPairEvidence(_, GenerationPairStatus.Proven)) => GenerationAdmissionDecision(GenerationAdmission.Supported, Vector.empty, owner)
-      case Some(GenerationPairEvidence(_, GenerationPairStatus.Unproven)) => GenerationAdmissionDecision(GenerationAdmission.Incompatible, Vector(GenerationDiagnostic(GenerationDiagnosticCode.UnprovenGenerationPair, None, Some("proven compatibility evidence"), Some(pairName(pair)), Some(pairName(pair)), "The exact generation pair is known but remains unproven.")), owner)
-      case Some(GenerationPairEvidence(_, GenerationPairStatus.Incompatible)) => GenerationAdmissionDecision(GenerationAdmission.Incompatible, Vector(GenerationDiagnostic(GenerationDiagnosticCode.IncompatibleGenerationPair, None, Some("compatible pair evidence"), Some(pairName(pair)), Some(pairName(pair)), "The evidence explicitly marks this generation pair incompatible.")), owner)
+    if (lifecycle == GenerationLifecycle.Release && isMutable(pair))
+      GenerationAdmissionDecision(GenerationAdmission.Unsupported, Vector(GenerationDiagnostic(GenerationDiagnosticCode.SnapshotNotAllowedForRelease, None, Some("immutable release coordinates"), Some(pairName(pair)), Some(pairName(pair)), "SNAPSHOT generation coordinates are not admitted for release generation.")), owner)
+    else if (lifecycle == GenerationLifecycle.Development && isMutable(pair))
+      GenerationAdmissionDecision(GenerationAdmission.Supported, Vector.empty, owner)
+    else {
+      val targetknown = evidence.entries.exists(_.pair.cncfTarget == pair.cncfTarget)
+      val generatorknown = evidence.entries.exists(_.pair.cozyGenerator == pair.cozyGenerator)
+      val unsupported = Vector(!targetknown -> GenerationDiagnostic(GenerationDiagnosticCode.UnsupportedCncfTarget, None, Some("evidence CNCF coordinate"), Some(pair.cncfTarget.version), Some(_coordinate_name(pair.cncfTarget)), "The exact CNCF target is not present in compatibility evidence."), !generatorknown -> GenerationDiagnostic(GenerationDiagnosticCode.UnsupportedCozyGenerator, None, Some("evidence Cozy coordinate"), Some(pair.cozyGenerator.version), Some(_coordinate_name(pair.cozyGenerator)), "The exact Cozy generator is not present in compatibility evidence.")).collect { case (true, diagnostic) => diagnostic }
+      if (unsupported.nonEmpty) GenerationAdmissionDecision(GenerationAdmission.Unsupported, unsupported, owner)
+      else evidence.entries.find(_.pair == pair) match {
+        case None => GenerationAdmissionDecision(GenerationAdmission.Incompatible, Vector(GenerationDiagnostic(GenerationDiagnosticCode.UnsupportedGenerationPair, None, Some("an explicit pair evidence record"), Some(pairName(pair)), Some(pairName(pair)), "The coordinates are individually known, but this pair has no evidence record.")), owner)
+        case Some(GenerationPairEvidence(_, GenerationPairStatus.Proven)) => GenerationAdmissionDecision(GenerationAdmission.Supported, Vector.empty, owner)
+        case Some(GenerationPairEvidence(_, GenerationPairStatus.Unproven)) => GenerationAdmissionDecision(GenerationAdmission.Incompatible, Vector(GenerationDiagnostic(GenerationDiagnosticCode.UnprovenGenerationPair, None, Some("proven compatibility evidence"), Some(pairName(pair)), Some(pairName(pair)), "The exact generation pair is known but remains unproven.")), owner)
+        case Some(GenerationPairEvidence(_, GenerationPairStatus.Incompatible)) => GenerationAdmissionDecision(GenerationAdmission.Incompatible, Vector(GenerationDiagnostic(GenerationDiagnosticCode.IncompatibleGenerationPair, None, Some("compatible pair evidence"), Some(pairName(pair)), Some(pairName(pair)), "The evidence explicitly marks this generation pair incompatible.")), owner)
+      }
     }
   }
 

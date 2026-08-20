@@ -7,17 +7,18 @@ diagnostics and evidence owner/location.
 
 The evidence shape is `cozy.generation-compatibility.v1` with exactly
 `schema`, `evidenceOwner`, `pairs`, and `publishedDefault` fields. Each pair
-contains structured exact CNCF and Cozy coordinates and one of `proven`,
-`unproven`, or `incompatible` statuses. `publishedDefault` is either `null` or
-one exact immutable pair coordinate already present in `pairs` with `proven`
-status; it is used only when no project, owning-build, or CLI source selects a
-pair. The packaged
+contains structured exact immutable CNCF and Cozy coordinates and one of
+`proven`, `unproven`, or `incompatible` statuses. Persistent evidence is
+immutable-only: a mutable or SNAPSHOT entry is malformed. `publishedDefault`
+is either `null` or one exact immutable pair coordinate already present in
+`pairs` with `proven` status; it is used only when no project, owning-build, or
+CLI source selects a pair. The packaged
 0.5.1/0.3.0 pair is `unproven`. Runtime minimum/maximum/excluded/tested values
 are separate CAR metadata and are not used to infer generation compatibility.
 
 The production loader validates schema version, exact field sets, non-empty
 owner/location and coordinates, duplicate/conflicting pair records, and status
-semantics. It returns typed deterministic diagnostics with source/expected/
+semantics, including immutable-only persistent coordinates. It returns typed deterministic diagnostics with source/expected/
 actual/coordinate context. The admission API distinguishes missing CNCF,
 missing Cozy, both missing, unsupported coordinates, unsupported pairs, known
 unproven pairs, and explicitly incompatible pairs.
@@ -47,6 +48,13 @@ project component version. `publish-car --version` must equal that exact
 version. `car-sbt-project` must provide its output version explicitly, and
 CNCF value generation must use its selected CNCF target as output version.
 Mutable generation coordinates must not produce immutable output.
+
+An explicit mutable SNAPSHOT pair is admitted for development without
+pre-registration in persistent evidence; the exact executing Cozy version must
+equal the selected generator coordinate. Its provenance together with compile
+and test results supplies development evidence. Release admission remains
+immutable and requires an exact evidence-proven pair; version similarity and
+fallback inference never supply proof.
 
 For CAR/SAR generation, sbt-cozy must reject a project missing
 `build.cozyVersion`, missing its CNCF compile dependency, or declaring more

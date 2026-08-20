@@ -24,7 +24,7 @@ import play.api.libs.json.Json
 
 /*
  * @since   Jul. 28, 2026
- * @version Aug. 11, 2026
+ * @version Aug. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyArchivePackagerCv06Spec
@@ -56,7 +56,11 @@ final class CozyArchivePackagerCv06Spec
             |""".stripMargin
         )
         val mainjar = _write(dir.resolve("artifacts/sample.jar"), "sample")
-        val generationprovenance = _write_generation_provenance(dir, "0.5.17")
+        val generationprovenance = _write_generation_provenance(
+          dir,
+          "0.5.17",
+          cozyversion = org.simplemodeling.cozy.BuildInfo.scaffoldCozyVersion
+        )
         val cncfjar = _write_runtime_jar(
           dir.resolve("artifacts/goldenport-cncf_3.jar"),
           "cncf",
@@ -70,7 +74,7 @@ final class CozyArchivePackagerCv06Spec
         _build_car(dir, mainjar, cncfjar, archive)
 
         Then("only project-owned generator, compile, and runtime metadata govern admission")
-        projectyaml should include("""cozyVersion: """ + _quoted(org.simplemodeling.cozy.BuildInfo.version))
+        projectyaml should include("""cozyVersion: """ + _quoted(org.simplemodeling.cozy.BuildInfo.scaffoldCozyVersion))
         projectyaml should include("org.goldenport::goldenport-cncf:0.5.17")
         buildsbt should include(
           """ProjectYamlBuild.requiredValue(cozyProjectMetadata.value, "build.cozyVersion")"""
@@ -175,12 +179,12 @@ final class CozyArchivePackagerCv06Spec
 
     "reject a generated release CAR that selects a mutable Cozy generator" in {
       _with_temp_dir("cozy-cv07-release-generator") { dir =>
-        Given("a release CAR project with a proven development generation pair")
+        Given("a release CAR project with a mutable selected generator and immutable evidence")
         val mutablegeneratorversion = "0.3.1-SNAPSHOT"
         val projectyaml =
           _project_yaml(dir).
             replace("0.5.17", "0.5.1").
-            replace(org.simplemodeling.cozy.BuildInfo.version, mutablegeneratorversion).
+            replace(org.simplemodeling.cozy.BuildInfo.scaffoldCozyVersion, mutablegeneratorversion).
             replace("0.0.1-SNAPSHOT", "0.0.1")
         _write(dir.resolve("project.yaml"), projectyaml)
         _write(
@@ -195,15 +199,15 @@ final class CozyArchivePackagerCv06Spec
           Some("0.5.1")
         )
         val archive = dir.resolve("target/sample.car")
-        val mutablepair =
-          GenerationCompatibilityBoundary.createPair("0.5.1", mutablegeneratorversion)
+        val evidencepair =
+          GenerationCompatibilityBoundary.createPair("0.5.1", "0.3.0")
         val evidence = GenerationCompatibilityEvidence(
           GenerationCompatibility.evidenceSchema,
           GenerationEvidenceOwner(
             "CV-07 archive executable specification",
             "CozyArchivePackagerCv06Spec"
           ),
-          Vector(GenerationPairEvidence(mutablepair, GenerationPairStatus.Proven)),
+          Vector(GenerationPairEvidence(evidencepair, GenerationPairStatus.Proven)),
           None
         )
 

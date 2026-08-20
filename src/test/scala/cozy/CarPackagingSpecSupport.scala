@@ -22,7 +22,7 @@ import io.circe.parser.parse
 
 /*
  * @since   Jul. 28, 2026
- * @version Aug. 14, 2026
+ * @version Aug. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CarPackagingSpecSupport {
@@ -242,13 +242,18 @@ private[cozy] object CarPackagingSpecSupport {
     cozyversion: String
   ): GenerationCompatibilityEvidence = {
     val pair = GenerationCompatibilityBoundary.createPair(cncfversion, cozyversion)
+    val evidencepair =
+      if (GenerationCompatibility.isMutable(pair))
+        GenerationCompatibilityBoundary.createPair("0.5.2", "0.3.1")
+      else
+        pair
     GenerationCompatibilityEvidence(
       GenerationCompatibility.evidenceSchema,
       GenerationEvidenceOwner(
         "CarPackagingSpecSupport controlled generation fixture",
         "CarPackagingSpecSupport"
       ),
-      Vector(GenerationPairEvidence(pair, GenerationPairStatus.Proven)),
+      Vector(GenerationPairEvidence(evidencepair, GenerationPairStatus.Proven)),
       None
     )
   }

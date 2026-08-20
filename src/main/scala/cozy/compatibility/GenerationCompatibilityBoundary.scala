@@ -4,7 +4,8 @@ import org.goldenport.RAISE
 
 /*
  * @since   Jul. 28, 2026
- * @version Jul. 28, 2026
+ *  version Jul. 28, 2026
+ * @version Aug. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 object GenerationCompatibilityBoundary {
@@ -169,7 +170,7 @@ object GenerationCompatibilityBoundary {
         ).flatten.mkString(" ")
       }.mkString("; ")
     s"[cozy.generation.acceptance] boundary=$boundary $details " +
-      "recovery=publish-the-exact-proven-SNAPSHOT-or-select-a-published-proven-immutable-pair"
+      "recovery=select-the-exact-generator-for-development-or-a-proven-immutable-pair-for-release"
   }
 
   private def _render_notice(

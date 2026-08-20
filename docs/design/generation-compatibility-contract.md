@@ -7,13 +7,15 @@ Scala source. The pair is independent of CAR runtime activation:
 - the Cozy coordinate is the exact generator executing generation; and
 - `packaging.car.runtime.cncf` is an independent runtime compatibility range.
 
-Admission is typed and evidence-based. A pair is `Supported` only when the
-machine-readable `cozy.generation-compatibility.v1` evidence identifies the
-exact coordinates and marks the pair `proven`. A known pair marked `unproven`
-is `Incompatible`, as is a pair marked `incompatible`; an absent coordinate is
-`Unsupported`, while individually known coordinates without a pair record are
-an incompatible pair. CNCF-only, Cozy-only, and both-unsupported diagnostics
-remain distinct.
+Admission is typed and evidence-based for immutable coordinates. The
+machine-readable `cozy.generation-compatibility.v1` evidence is persistent
+immutable-only: every evidence pair must use immutable coordinates, and a
+mutable or SNAPSHOT entry is malformed. An immutable pair is `Supported` only
+when evidence identifies the exact coordinates and marks the pair `proven`. A
+known pair marked `unproven` is `Incompatible`, as is a pair marked
+`incompatible`; an absent coordinate is `Unsupported`, while individually known
+coordinates without a pair record are an incompatible pair. CNCF-only,
+Cozy-only, and both-unsupported diagnostics remain distinct.
 Version-number equality or similarity never supplies proof. The current
 checked-in `0.5.1`/`0.3.0` observation is explicitly unproven.
 
@@ -23,9 +25,12 @@ diagnostic. When they agree, provenance is selected by project contract,
 owning-build bridge, then CLI. The published default is non-explicit fallback,
 used only when no explicit source exists and ignored whenever one does, even
 when its value differs. Environment variables and stale fallbacks are not
-release-generation sources. SNAPSHOT coordinates are admitted only for
-development; release generation requires immutable coordinates. The resource
-loader validates the exact schema, owner/location, coordinate fields, pair
+release-generation sources. An explicit SNAPSHOT pair is admitted for
+development without persistent-pair registration, while release generation
+requires an immutable evidence-proven pair. The executing Cozy version must
+equal the selected exact generator coordinate; provenance plus compile and test
+results supplies development evidence. The resource loader validates the exact
+schema, owner/location, coordinate fields, immutable-only evidence pairs, pair
 uniqueness, and status semantics before admission; malformed evidence cannot
 produce `Supported`.
 
@@ -175,8 +180,8 @@ Cozy coordinate, stable source identity, and pre-launch source digest; the
 command recomputes and validates the complete manifest rather than accepting a
 build-local reconstruction of evidence.
 
-The CNCF development build pins published-local Cozy `0.3.1-SNAPSHOT`, passes
+The CNCF development build pins published-local Cozy `0.3.2-SNAPSHOT`, passes
 its project-relative CML identity during generation, and invokes this validator
-before accepting generated Scala. This development SNAPSHOT evidence does not
-claim a released-generator result. CV-05 does not defer descriptor preflight
-integrity.
+before accepting generated Scala. This explicit development SNAPSHOT pair
+requires no persistent SNAPSHOT-pair registration and does not claim a
+released-generator result. CV-05 does not defer descriptor preflight integrity.
