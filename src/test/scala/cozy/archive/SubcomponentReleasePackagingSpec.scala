@@ -156,6 +156,85 @@ final class SubcomponentReleasePackagingSpec
     }
   }
 
+  "RSC03-AC-04 duplicate release-manifest fields are rejected before warehouse visibility" in {
+    _with_temp_dir("rsc03-ac04-release-manifest") { root =>
+      Given("a valid release archive whose release manifest repeats its schemaVersion field")
+      val fixture = _fixture(root)
+      val release = root.resolve("valid-release.car")
+      val integrity = root.resolve("valid-release.integrity")
+      val warehouse = root.resolve("warehouse")
+      Cozy.main(_package_arguments(fixture, release, integrity, childcars = fixture.childcars))
+      val hostile = _replace_zip_entry(
+        release,
+        root.resolve("duplicate-release-manifest.car"),
+        "release-manifest.json",
+        _duplicate_json_field(_zip_entry_text(release, "release-manifest.json"), "schemaVersion")
+      )
+      val before = _tree_bytes(warehouse)
+
+      When("publish-subcomponent-release receives the duplicate-field release manifest")
+      val error = intercept[Throwable] {
+        Cozy.main(_publish_arguments(fixture, hostile, integrity, warehouse))
+      }
+
+      Then("it rejects the manifest deterministically before the warehouse becomes visible")
+      error.getMessage should include("contains duplicate JSON object field")
+      _tree_bytes(warehouse) shouldBe before
+    }
+  }
+
+  "RSC03-AC-04 duplicate integrity fields are rejected before warehouse visibility" in {
+    _with_temp_dir("rsc03-ac04-integrity") { root =>
+      Given("a valid release and integrity evidence whose schemaVersion field is repeated")
+      val fixture = _fixture(root)
+      val release = root.resolve("valid-release.car")
+      val integrity = root.resolve("valid-release.integrity")
+      Cozy.main(_package_arguments(fixture, release, integrity, childcars = fixture.childcars))
+      _write(
+        integrity,
+        _duplicate_json_field(Files.readString(integrity, StandardCharsets.UTF_8), "schemaVersion")
+      )
+      val warehouse = root.resolve("warehouse")
+      val before = _tree_bytes(warehouse)
+
+      When("publish-subcomponent-release receives the duplicate-field integrity evidence")
+      val error = intercept[Throwable] {
+        Cozy.main(_publish_arguments(fixture, release, integrity, warehouse))
+      }
+
+      Then("it rejects the integrity evidence deterministically before the warehouse becomes visible")
+      error.getMessage should include("contains duplicate JSON object field")
+      _tree_bytes(warehouse) shouldBe before
+    }
+  }
+
+  "RSC03-AC-04 duplicate existing admission fields are rejected before warehouse visibility" in {
+    _with_temp_dir("rsc03-ac04-admission") { root =>
+      Given("an admitted release whose existing admission marker repeats its schemaVersion field")
+      val fixture = _fixture(root)
+      val release = root.resolve("valid-release.car")
+      val integrity = root.resolve("valid-release.integrity")
+      val warehouse = root.resolve("warehouse")
+      Cozy.main(_package_arguments(fixture, release, integrity, childcars = fixture.childcars))
+      Cozy.main(_publish_arguments(fixture, release, integrity, warehouse))
+      val admission = _warehouse_admission(warehouse)
+      _write(
+        admission,
+        _duplicate_json_field(Files.readString(admission, StandardCharsets.UTF_8), "schemaVersion")
+      )
+      val before = _tree_bytes(warehouse)
+
+      When("publish-subcomponent-release rechecks the duplicate-field existing admission marker")
+      val error = intercept[Throwable] {
+        Cozy.main(_publish_arguments(fixture, release, integrity, warehouse))
+      }
+
+      Then("it rejects the marker deterministically without changing warehouse visibility")
+      error.getMessage should include("contains duplicate JSON object field")
+      _tree_bytes(warehouse) shouldBe before
+    }
+  }
+
   "RSC03-AC-02 an omitted optional composition member remains metadata-only while all required members are packaged" in {
     _with_temp_dir("rsc03-ac02-optional") { root =>
       Given("a canonical RSC-02 composition with two required child CARs and one optional external-platform member")
@@ -347,6 +426,40 @@ final class SubcomponentReleasePackagingSpec
       "duplicate-logical-resource" -> _write(root.resolve("input/duplicate-logical-resource.json"), duplicateresource),
       "duplicate-schema-key" -> _write(root.resolve("input/duplicate-schema-key.json"), duplicateschema)
     )
+  }
+
+  private def _duplicate_json_field(json: String, field: String): String = {
+    val token = "\"" + field + "\":"
+    val start = json.lastIndexOf(token)
+    val openingquote = json.indexOf('"', start + token.length)
+    val closingquote = json.indexOf('"', openingquote + 1)
+    if (start < 0 || openingquote < 0 || closingquote < 0)
+      sys.error(s"JSON field not found for duplicate fixture: $field")
+    val fieldtext = json.substring(start, closingquote + 1)
+    json.substring(0, closingquote + 1) + "," + fieldtext + json.substring(closingquote + 1)
+  }
+
+  private def _zip_entry_text(source: Path, target: String): String = {
+    val input = new ZipInputStream(Files.newInputStream(source))
+    var value: Option[String] = None
+    try {
+      var entry = input.getNextEntry
+      while (entry != null) {
+        if (entry.getName == target)
+          value = Some(new String(input.readAllBytes(), StandardCharsets.UTF_8))
+        input.closeEntry()
+        entry = input.getNextEntry
+      }
+    } finally input.close()
+    value.getOrElse(sys.error(s"zip entry not found: $target"))
+  }
+
+  private def _warehouse_admission(warehouse: Path): Path = {
+    val stream = Files.walk(warehouse)
+    try stream.iterator().asScala.find(_.getFileName.toString == "admission.json").getOrElse(
+      sys.error(s"warehouse admission marker not found: $warehouse")
+    )
+    finally stream.close()
   }
 
   private def _replace_zip_entry(source: Path, destination: Path, target: String, content: String): Path = {

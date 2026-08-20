@@ -354,7 +354,7 @@ private[cozy] object SubcomponentReleasePackaging {
   }
 
   private def _read_composition_bytes(bytes: Array[Byte], source: String): Composition = {
-    val root = _composition_json_object(bytes, source)
+    val root = _strict_json_object(bytes, source)
     _require_compact_json(bytes, source)
     _require_required_keys(root, Set("schema", "membershipKind", "parent", "members"), source)
     _require_string(root, "schema", "cncf.component-subcomponent-composition.v1", source)
@@ -776,7 +776,7 @@ private[cozy] object SubcomponentReleasePackaging {
       _release_manifest_path,
       RAISE.invalidArgumentFault(s"$source release CAR requires ${_release_manifest_path}")
     )
-    val manifest = _json_object(manifestbytes, s"$source ${_release_manifest_path}")
+    val manifest = _strict_json_object(manifestbytes, s"$source ${_release_manifest_path}")
     _require_keys(manifest, Set("schemaVersion", "publishedAt", "parent", "children", "composition"), s"$source release manifest")
     _require_string(manifest, "schemaVersion", _release_schema, s"$source release manifest")
     val publishedat = _canonical_evidence_instant(
@@ -918,7 +918,7 @@ private[cozy] object SubcomponentReleasePackaging {
     if (!Files.isRegularFile(source))
       RAISE.invalidArgumentFault(s"Release integrity evidence does not exist: $source")
     val bytes = Files.readAllBytes(source)
-    val evidence = _json_object(bytes, source.toString)
+    val evidence = _strict_json_object(bytes, source.toString)
     _require_keys(evidence, Set("schemaVersion", "publishedAt", "releaseSha256", "parent", "children", "composition"), source.toString)
     _require_string(evidence, "schemaVersion", _integrity_schema, source.toString)
     val publishedat = _canonical_evidence_instant(
@@ -999,7 +999,7 @@ private[cozy] object SubcomponentReleasePackaging {
   ): Unit = {
     if (!Files.isRegularFile(marker) || !Files.isRegularFile(archive) || !Files.isRegularFile(evidence))
       RAISE.invalidArgumentFault(s"Existing subcomponent release admission is incomplete: $marker")
-    val value = _json_object(Files.readAllBytes(marker), marker.toString)
+    val value = _strict_json_object(Files.readAllBytes(marker), marker.toString)
     _require_keys(value, Set("schemaVersion", "canonicalParent", "publishedAt", "archiveSha256", "integritySha256"), marker.toString)
     _require_string(value, "schemaVersion", _admission_schema, marker.toString)
     _require_string(value, "canonicalParent", coordinate.qualifiedId, marker.toString)
@@ -1142,7 +1142,7 @@ private[cozy] object SubcomponentReleasePackaging {
       RAISE.invalidArgumentFault(s"$source archive contains an unsafe path: $path")
   }
 
-  private def _composition_json_object(bytes: Array[Byte], source: String): JsObject = {
+  private def _strict_json_object(bytes: Array[Byte], source: String): JsObject = {
     val text = new String(bytes, StandardCharsets.UTF_8)
     val input = new JsonFactory().enable(JacksonParser.Feature.STRICT_DUPLICATE_DETECTION).createParser(text)
     try {
