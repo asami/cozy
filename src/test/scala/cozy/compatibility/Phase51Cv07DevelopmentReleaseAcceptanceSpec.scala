@@ -245,10 +245,17 @@ final class Phase51Cv07DevelopmentReleaseAcceptanceSpec
             "0.3.1"
           ),
           GenerationPairStatus.Proven
+        ),
+        GenerationPairEvidence(
+          GenerationCompatibilityBoundary.createPair(
+            "0.5.2",
+            "0.3.2.1"
+          ),
+          GenerationPairStatus.Proven
         )
       )
       evidence.publishedDefault shouldBe Some(
-        GenerationCompatibilityBoundary.createPair("0.5.2", "0.3.1")
+        GenerationCompatibilityBoundary.createPair("0.5.2", "0.3.2.1")
       )
     }
 

@@ -27,7 +27,7 @@ import io.circe.parser.parse
  */
 private[cozy] object CarPackagingSpecSupport {
   private val _cncf_version = "0.5.17"
-  private val _release_cozy_version = "0.3.1"
+  private val _release_cozy_version = "0.3.2.1"
 
   def buildCarWithContract(args: List[String]): Unit = {
     val temporaryproject = !args.contains("--project-dir")

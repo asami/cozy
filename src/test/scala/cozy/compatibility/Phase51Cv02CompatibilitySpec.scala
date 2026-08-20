@@ -39,7 +39,7 @@ final class Phase51Cv02CompatibilitySpec extends AnyWordSpec with Matchers with 
           GenerationPairEvidence(_pair, GenerationPairStatus.Unproven)
         )
         loaded.toOption.get.publishedDefault shouldBe Some(
-          GenerationCompatibilityBoundary.createPair("0.5.2", "0.3.1")
+          GenerationCompatibilityBoundary.createPair("0.5.2", "0.3.2.1")
         )
       }
       "reject malformed evidence before admission" in {

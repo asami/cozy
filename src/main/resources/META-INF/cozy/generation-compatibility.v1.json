@@ -13,7 +13,7 @@
     "cozyGenerator": {
       "organization": "org.simplemodeling",
       "artifact": "cozy_2.12",
-      "version": "0.3.1"
+      "version": "0.3.2.1"
     }
   },
   "pairs": [
@@ -40,6 +40,19 @@
         "organization": "org.simplemodeling",
         "artifact": "cozy_2.12",
         "version": "0.3.1"
+      },
+      "status": "proven"
+    },
+    {
+      "cncfTarget": {
+        "organization": "org.goldenport",
+        "artifact": "goldenport-cncf_3",
+        "version": "0.5.2"
+      },
+      "cozyGenerator": {
+        "organization": "org.simplemodeling",
+        "artifact": "cozy_2.12",
+        "version": "0.3.2.1"
       },
       "status": "proven"
     }
