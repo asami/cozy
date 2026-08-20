@@ -20,7 +20,7 @@ import scala.util.control.NonFatal
  * @since   May. 20, 2026
  *  version Jun. 23, 2026
  *  version Jul. 21, 2026
- * @version Aug. 20, 2026
+ * @version Aug. 21, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object RepositoryArtifactPublisher {
@@ -66,7 +66,10 @@ private[cozy] object RepositoryArtifactPublisher {
     _with_component_repository_index_lock(warehouse) {
       val existingindex =
         if (Files.isRegularFile(indexpath))
-          Some(ComponentRepositoryIndex.validateCatalogs(ComponentRepositoryIndex.load(indexpath), indexpath))
+          Some(
+            LegacyComponentRepositoryMigration.migrateIfNeeded(warehouse, indexpath, generatedat).
+              getOrElse(ComponentRepositoryIndex.load(indexpath))
+          ).map(ComponentRepositoryIndex.validateCatalogs(_, indexpath))
         else
           None
       _preflight_catalog(projectdir, name, policy)
@@ -447,6 +450,8 @@ private[cozy] object RepositoryArtifactPublisher {
     val existing: RepositoryArtifactCatalog =
       if (Files.isRegularFile(sourcepath))
         RepositoryArtifactCatalog.load(sourcepath)
+      else if (Files.isRegularFile(publicCatalogPath(warehouse, policy.kind, name, policy.coordinate)))
+        RepositoryArtifactCatalog.load(publicCatalogPath(warehouse, policy.kind, name, policy.coordinate))
       else
         RepositoryArtifactCatalog(
           schemaVersion = if (policy.coordinate.isDefined) "2" else "1",

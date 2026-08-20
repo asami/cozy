@@ -27,7 +27,7 @@ import cozy.modeler.GenerationProvenance
  * @since   May. 20, 2026
  *  version Jun.  4, 2026
  *  version Jul. 28, 2026
- * @version Aug. 20, 2026
+ * @version Aug. 21, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyCarPublisherSpec
@@ -773,14 +773,187 @@ class CozyCarPublisherSpec
       }
 
     }
+
+    "migrate an explicit legacy component warehouse" which {
+      "copies mapped CAR releases, retains SAR discovery, and continues the requested publication" in {
+        _with_temp_dir("cozy-publish-car-legacy-migration") { dir =>
+          Given("a v1 warehouse with one mapped CAR, one SAR, and legacy CML sidecars")
+          val warehouse = dir.resolve("warehouse")
+          val legacybytes = _write_legacy_warehouse(warehouse)
+          val projectdir = dir.resolve("project")
+          val car = _write_canonical_car(
+            dir.resolve("input/sample-new-component.car"), "0.1.0", "new-release", componentid = "NewComponent"
+          )
+          _write_project_yaml(projectdir, "sample-new-component", "0.1.0", componentid = "NewComponent")
+
+          When("Cozy publishes a distinct new CAR through the locked repository boundary")
+          CozyCarPublisher.publish(
+            List(projectdir.toString, "--warehouse", warehouse.toString, "--name", "sample-new-component", "--version", "0.1.0", "--car", car.toString)
+          )
+
+          Then("the v2 index is final, canonical CAR files are integrity-protected, and legacy bytes remain")
+          val index = ComponentRepositoryIndex.load(warehouse.resolve("repository/catalog/index.json"))
+          index.schemaVersion shouldBe ComponentRepositoryIndex.SCHEMA_VERSION
+          index.artifacts.map(_.identity) should contain allOf (
+            ("car", "org.sample", "Component"),
+            ("car", "org.sample", "NewComponent"),
+            ("sar", "", "sample-server")
+          )
+          val canonical = warehouse.resolve("repository/car/org/sample/sample-component/0.0.9/sample-component-0.0.9.car")
+          java.util.Arrays.equals(Files.readAllBytes(canonical), legacybytes) shouldBe true
+          Files.isRegularFile(canonical.resolveSibling("sample-component-0.0.9.car.sha256")) shouldBe true
+          Files.readString(warehouse.resolve("repository/catalog/car/org/sample/sample-component.cml")) shouldBe "# legacy component\n"
+          val catalog = RepositoryArtifactCatalog.load(warehouse.resolve("repository/catalog/car/org/sample/sample-component.yaml"))
+          catalog.schemaVersion shouldBe "2"
+          catalog.versions.map(_.version) shouldBe Vector("0.0.9")
+          catalog.versions.find(_.version == "0.0.9").flatMap(_.integrityKey) should not be empty
+          Files.isRegularFile(warehouse.resolve("repository/car/org/sample/sample-new-component/0.1.0/sample-new-component-0.1.0.car")) shouldBe true
+          Files.readAllBytes(warehouse.resolve("repository/car/sample-component/0.0.9/sample-component-0.0.9.car")) shouldBe legacybytes
+        }
+      }
+
+      "rejects absent, incomplete, and duplicate mappings before a final canonical path is created" in {
+        _with_temp_dir("cozy-publish-car-legacy-mapping") { dir =>
+          Given("a v1 warehouse and a requested new CAR publication")
+          val warehouse = dir.resolve("warehouse")
+          _write_legacy_warehouse(warehouse, mapping = None)
+          val projectdir = dir.resolve("project")
+          val car = _write_canonical_car(dir.resolve("input/sample.car"), "0.1.0", "new-release")
+          _write_project_yaml(projectdir, "sample-component", "0.1.0")
+          val indexpath = warehouse.resolve("repository/catalog/index.json")
+          val original = Files.readAllBytes(indexpath)
+
+          When("the mapping is absent, incomplete, and then duplicate")
+          val missing = intercept[Throwable] {
+            CozyCarPublisher.publish(List(projectdir.toString, "--warehouse", warehouse.toString, "--name", "sample-component", "--version", "0.1.0", "--car", car.toString))
+          }
+          _write_mapping(warehouse, """{"schema":"cozy.component-repository-migration.v1","cars":[]}""")
+          val incomplete = intercept[Throwable] {
+            CozyCarPublisher.publish(List(projectdir.toString, "--warehouse", warehouse.toString, "--name", "sample-component", "--version", "0.1.0", "--car", car.toString))
+          }
+          _write_mapping(warehouse, """{"schema":"cozy.component-repository-migration.v1","cars":[{"artifactId":"sample-component","namespace":"org.sample","id":"Component"},{"artifactId":"sample-component","namespace":"org.example","id":"Example"}]}""")
+          val duplicate = intercept[Throwable] {
+            CozyCarPublisher.publish(List(projectdir.toString, "--warehouse", warehouse.toString, "--name", "sample-component", "--version", "0.1.0", "--car", car.toString))
+          }
+
+          Then("each mapping error preserves v1 bytes and publishes no canonical or requested CAR")
+          missing.getMessage should startWith("component.repository.migration.mapping.missing")
+          incomplete.getMessage should startWith("component.repository.migration.mapping.missing")
+          duplicate.getMessage should startWith("component.repository.migration.mapping.duplicate")
+          Files.readAllBytes(indexpath) shouldBe original
+          Files.exists(warehouse.resolve("repository/catalog/car/org/sample/sample-component.yaml")) shouldBe false
+          Files.exists(warehouse.resolve("repository/car/org/sample/sample-component/0.1.0/sample-component-0.1.0.car")) shouldBe false
+        }
+      }
+
+      "rejects checksum mismatch and canonical collisions without mutating the legacy warehouse" in {
+        _with_temp_dir("cozy-publish-car-legacy-integrity") { dir =>
+          Given("a mapped v1 warehouse whose stored digest does not match its archive")
+          val warehouse = dir.resolve("warehouse")
+          _write_legacy_warehouse(warehouse, checksum = Some("0" * 64))
+          val projectdir = dir.resolve("project")
+          val car = _write_canonical_car(dir.resolve("input/sample.car"), "0.1.0", "new-release")
+          _write_project_yaml(projectdir, "sample-component", "0.1.0")
+          val original = Files.readAllBytes(warehouse.resolve("repository/catalog/index.json"))
+
+          When("Cozy encounters the invalid checksum")
+          val checksumerror = intercept[Throwable] {
+            CozyCarPublisher.publish(List(projectdir.toString, "--warehouse", warehouse.toString, "--name", "sample-component", "--version", "0.1.0", "--car", car.toString))
+          }
+          _write_legacy_warehouse(warehouse, checksum = None)
+          _write(warehouse.resolve("repository/car/org/sample/sample-component/0.0.9/sample-component-0.0.9.car"), "different")
+          val collisionerror = intercept[Throwable] {
+            CozyCarPublisher.publish(List(projectdir.toString, "--warehouse", warehouse.toString, "--name", "sample-component", "--version", "0.1.0", "--car", car.toString))
+          }
+
+          Then("both guarded failures leave the v1 index and legacy archive untouched")
+          checksumerror.getMessage should startWith("component.repository.migration.integrity.mismatch")
+          collisionerror.getMessage should startWith("component.repository.migration.collision")
+          Files.readAllBytes(warehouse.resolve("repository/catalog/index.json")) shouldBe original
+          Files.readString(warehouse.resolve("repository/car/org/sample/sample-component/0.0.9/sample-component-0.0.9.car")) shouldBe "different"
+        }
+      }
+    }
   }
 
-  private def _write_project_yaml(projectdir: Path, name: String, componentversion: String): Unit = {
+  private def _write_legacy_warehouse(
+    warehouse: Path,
+    mapping: Option[String] = Some("default"),
+    checksum: Option[String] = None
+  ): Array[Byte] = {
+    val archive = _write(warehouse.resolve("repository/car/sample-component/0.0.9/sample-component-0.0.9.car"), "legacy-car")
+    val digest = checksum.getOrElse(cozy.archive.RepositoryArtifactPublisher.sha256(archive))
+    _write(archive.resolveSibling("sample-component-0.0.9.car.sha256"), digest + "\n")
+    _write(
+      warehouse.resolve("repository/catalog/car/sample-component.yaml"),
+      s"""schemaVersion: 1
+         |kind: car
+         |artifactId: sample-component
+         |recommended: 0.0.9
+         |latestStable: 0.0.9
+         |status: active
+         |aliases:
+         |  - legacy-component
+         |tags:
+         |  - legacy
+         |terms:
+         |  - Legacy Component
+         |versions:
+         |  - version: 0.0.9
+         |    channel: stable
+         |    status: active
+         |    publishedAt: 2026-08-01T00:00:00Z
+         |    file: repository/car/sample-component/0.0.9/sample-component-0.0.9.car
+         |    checksum:
+         |      sha256: $digest
+         |""".stripMargin
+    )
+    _write(warehouse.resolve("repository/catalog/car/sample-component.cml"), "# legacy component\n")
+    _write(
+      warehouse.resolve("repository/catalog/sar/sample-server.yaml"),
+      """schemaVersion: 1
+        |kind: sar
+        |artifactId: sample-server
+        |status: active
+        |aliases: []
+        |versions:
+        |  - version: 0.0.9
+        |    channel: stable
+        |    status: active
+        |    file: repository/sar/sample-server/0.0.9/sample-server-0.0.9.sar
+        |""".stripMargin
+    )
+    _write(warehouse.resolve("repository/sar/sample-server/0.0.9/sample-server-0.0.9.sar"), "legacy-sar")
+    _write(
+      warehouse.resolve("repository/catalog/index.json"),
+      """{"schemaVersion":"cncf.component-repository-index.v1","generatedAt":"2026-08-01T00:00:00Z","artifacts":[{"kind":"car","artifactId":"sample-component","catalog":"car/sample-component.yaml","status":"active","recommended":"0.0.9","latestStable":"0.0.9"},{"kind":"sar","artifactId":"sample-server","catalog":"sar/sample-server.yaml","status":"active"}]}"""
+    )
+    mapping.foreach { value =>
+      _write_mapping(
+        warehouse,
+        if (value == "default")
+          """{"schema":"cozy.component-repository-migration.v1","cars":[{"artifactId":"sample-component","namespace":"org.sample","id":"Component"}]}"""
+        else value
+      )
+    }
+    Files.readAllBytes(archive)
+  }
+
+  private def _write_mapping(warehouse: Path, text: String): Path =
+    _write(warehouse.resolve(".cozy/component-repository-migration.v1.json"), text)
+
+  private def _write_project_yaml(
+    projectdir: Path,
+    name: String,
+    componentversion: String,
+    namespace: String = "org.sample",
+    componentid: String = "Component"
+  ): Unit = {
     _write(
       projectdir.resolve("project.yaml"),
       s"""project:
-         |  namespace: org.sample
-         |  id: Component
+         |  namespace: $namespace
+         |  id: $componentid
          |  name: $name
          |  component:
          |    version: $componentversion
@@ -1006,15 +1179,17 @@ class CozyCarPublisherSpec
   private def _write_canonical_car(
     archive: Path,
     version: String,
-    payload: String
+    payload: String,
+    namespace: String = "org.sample",
+    componentid: String = "Component"
   ): Path =
     _archive(
       archive,
       Vector(
         "component-descriptor.json" ->
-          s"""{"schemaVersion":3,"component":{"namespace":"org.sample","id":"Component","version":"$version"}}""",
+          s"""{"schemaVersion":3,"component":{"namespace":"$namespace","id":"$componentid","version":"$version"}}""",
         "abi-manifest.json" ->
-          s"""{"format":"cozy.car.abi-manifest.v2","component":{"namespace":"org.sample","id":"Component","version":"$version"},"abi":{"version":1,"exports":{"components":[{"namespace":"org.sample","id":"Component"}],"operations":[],"entities":[]},"dependencies":[]}}""",
+          s"""{"format":"cozy.car.abi-manifest.v2","component":{"namespace":"$namespace","id":"$componentid","version":"$version"},"abi":{"version":1,"exports":{"components":[{"namespace":"$namespace","id":"$componentid"}],"operations":[],"entities":[]},"dependencies":[]}}""",
         "component/main.jar" -> payload
       )
     )

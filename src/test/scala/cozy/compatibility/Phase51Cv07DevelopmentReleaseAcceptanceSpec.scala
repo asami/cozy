@@ -8,7 +8,7 @@ import org.scalatest.wordspec.AnyWordSpec
 /*
  * @since   Jul. 28, 2026
  *  version Jul. 28, 2026
- * @version Aug. 20, 2026
+ * @version Aug. 21, 2026
  * @author  ASAMI, Tomoharu
  */
 final class Phase51Cv07DevelopmentReleaseAcceptanceSpec
@@ -252,10 +252,17 @@ final class Phase51Cv07DevelopmentReleaseAcceptanceSpec
             "0.3.2.1"
           ),
           GenerationPairStatus.Proven
+        ),
+        GenerationPairEvidence(
+          GenerationCompatibilityBoundary.createPair(
+            "0.5.2",
+            "0.3.2.2"
+          ),
+          GenerationPairStatus.Proven
         )
       )
       evidence.publishedDefault shouldBe Some(
-        GenerationCompatibilityBoundary.createPair("0.5.2", "0.3.2.1")
+        GenerationCompatibilityBoundary.createPair("0.5.2", "0.3.2.2")
       )
     }
 

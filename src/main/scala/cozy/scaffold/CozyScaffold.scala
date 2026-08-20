@@ -1808,6 +1808,9 @@ private[cozy] object CozyScaffold {
       |  package-sar --save <file> --source-dir <dir> --name <name> --version <version>
       |      Build a SAR archive.
       |
+      |  package-subcomponent-release --project-dir <dir> --parent-car <car> --child-car <car>... --composition <RSC-02-json> --required-child <qualified-id>... --save <car> --integrity <file> --published-at <RFC3339 instant>
+      |      Validate the project-authoritative parent and RSC-02 composition membership, then emit a deterministic parent/child release CAR, copied canonical composition metadata, and matching integrity evidence. This envelope does not update the ordinary CAR repository index.
+      |
       |  publish-car <project-dir> --warehouse <dir> --name <artifact> --version <version> [--car <file> | --main-jar <file>]
       |      Publish a CAR archive and CAR catalog, update repository/catalog/index.json atomically, and write derived Maven metadata.
       |      sbt-cozy cozyPublishLocalCar calls this command with ~/.cncf/local as the warehouse root.
@@ -1815,6 +1818,9 @@ private[cozy] object CozyScaffold {
       |  publish-sar <project-dir> --warehouse <dir> --name <artifact> --version <version> [--sar <file> | --source-dir <dir>]
       |      Publish a SAR archive and SAR catalog, update repository/catalog/index.json atomically, and write derived Maven metadata.
       |      sbt-cozy cozyPublishLocalSar calls this command with ~/.cncf/local as the warehouse root.
+      |
+      |  publish-subcomponent-release --project-dir <dir> --warehouse <dir> --release <car> --integrity <file> --published-at <RFC3339 instant>
+      |      Revalidate release and integrity evidence, then atomically admit the immutable release under its canonical parent coordinate. admission.json is the final visibility marker; this command does not alter CAR/SAR catalogs, indexes, or runtime activation.
       |
       |  publish-project <project-dir> [--save <dir>] [--kind car|sar|sample-single|sample-multi|maven-repository] [--name <slug>] [--title <title>] [--path <path>]
       |      Generate SmartDox site BoK publication registry sources from an sbt project.

@@ -11,7 +11,7 @@ import org.goldenport.RAISE
 /*
  * @since   May. 20, 2026
  *  version Jul. 13, 2026
- * @version Aug.  7, 2026
+ * @version Aug. 21, 2026
  * @author  ASAMI, Tomoharu
  */
 final case class RepositoryArtifactCatalog(
@@ -94,6 +94,21 @@ object RepositoryArtifactCatalog {
 
   def parse(text: String): RepositoryArtifactCatalog =
     _parse_yaml(text).validate
+
+  /**
+   * Migration-only loader for the retired schema-1 CAR catalog shape.
+   *
+   * Ordinary repository readers must continue through [[load]], whose strict
+   * schema and canonical-path validation deliberately rejects this shape.
+   */
+  private[archive] def loadLegacyMigration(path: Path): RepositoryArtifactCatalog = {
+    val catalog = _load_unvalidated(path)
+    if (catalog.kind != "car" || catalog.schemaVersion != "1")
+      throw new IllegalArgumentException(
+        s"component.repository.migration.catalog.schema source=${path.getFileName} expected=car-v1 actual=${catalog.kind}-v${catalog.schemaVersion}"
+      )
+    catalog
+  }
 
   private def _load_unvalidated(path: Path): RepositoryArtifactCatalog = {
     val text = new String(Files.readAllBytes(path), StandardCharsets.UTF_8)

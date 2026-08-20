@@ -8,7 +8,7 @@ import cozy.compatibility.{
   GenerationCompatibilityBoundary
 }
 import cozy.modeler.GenerationProvenance
-import cozy.archive.{ComponentApiDependencyResolver, ComponentApiJarPackager, CozyArchivePackager, CozyCarPublisher, CozyDevelopmentRuntimeManifest, CozySarPublisher}
+import cozy.archive.{ComponentApiDependencyResolver, ComponentApiJarPackager, CozyArchivePackager, CozyCarPublisher, CozyDevelopmentRuntimeManifest, CozySarPublisher, SubcomponentReleasePackaging}
 import cozy.config.CozyProjectYamlConfig
 import cozy.publication.{CozyPublicationCompiler, CozySampleDistributor, CozyWarehouseIndexer}
 import cozy.video.CozyVideoPublisher
@@ -19,7 +19,8 @@ import java.nio.file.{Files, Path, Paths}
 /*
  * @since   May. 20, 2026
  *  version Jun. 27, 2026
- * @version Aug.  8, 2026
+ *  version Aug.  8, 2026
+ * @version Aug. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozySbtBridge {
@@ -51,10 +52,14 @@ private[cozy] object CozySbtBridge {
         ComponentApiDependencyResolver.resolve(request.arguments.toList)
       case "package-sar" =>
         CozyArchivePackager.buildSar(request.arguments.toList)
+      case "package-subcomponent-release" =>
+        SubcomponentReleasePackaging.packageRelease(request.arguments.toList)
       case "publish-car" =>
         CozyCarPublisher.publish(request.arguments.toList)
       case "publish-sar" =>
         CozySarPublisher.publish(request.arguments.toList)
+      case "publish-subcomponent-release" =>
+        SubcomponentReleasePackaging.publishRelease(request.arguments.toList)
       case "publish-project" =>
         CozyPublicationCompiler.publish(request.arguments.toList)
       case "publish-video" =>

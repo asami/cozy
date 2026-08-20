@@ -6,7 +6,7 @@ import org.goldenport.value._
 import org.goldenport.parser.CommandParser
 import org.goldenport.kaleidox.Kaleidox
 import org.goldenport.kaleidox.http.HttpHandle
-import cozy.archive.CozyArchivePackager
+import cozy.archive.{CozyArchivePackager, SubcomponentReleasePackaging}
 import cozy.bok.CozyBok
 import cozy.lint.{CozyBuildLint, CozyCarAbiLint, CozyCarLint, CozyCmlLint, CozyRepositoryLint}
 import cozy.media.CozyMedia
@@ -31,7 +31,8 @@ import scala.util.control.NonFatal
  *  version Apr. 29, 2026
  *  version May. 21, 2026
  *  version Jun. 30, 2026
- * @version Aug.  8, 2026
+ *  version Aug.  8, 2026
+ * @version Aug. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 class Cozy(
@@ -93,7 +94,7 @@ class Cozy(
   }
 
   def executeDirect(args: Array[String]): Unit = {
-    if (!_execute_version(args) && !_execute_lint(args) && !_execute_car_review_provider(args) && !CozyBok.execute(args.toList) && !CozyMedia.execute(args.toList) && !CozyVideo.execute(args.toList) && !_execute_generation_provenance_validate(args) && !_execute_modeler_scala(args) && !_execute_init(args) && !_execute_car_sbt_project(args) && !_execute_publish_car(args) && !_execute_publish_sar(args) && !_execute_publish_project(args) && !_execute_publish_video(args) && !_execute_distribute_samples(args) && !_execute_index_warehouse(args) && !_execute_sbt_bridge(args) && !_execute_package_archive(args))
+    if (!_execute_version(args) && !_execute_lint(args) && !_execute_car_review_provider(args) && !CozyBok.execute(args.toList) && !CozyMedia.execute(args.toList) && !CozyVideo.execute(args.toList) && !_execute_generation_provenance_validate(args) && !_execute_modeler_scala(args) && !_execute_init(args) && !_execute_car_sbt_project(args) && !_execute_publish_car(args) && !_execute_publish_sar(args) && !_execute_subcomponent_release(args) && !_execute_publish_project(args) && !_execute_publish_video(args) && !_execute_distribute_samples(args) && !_execute_index_warehouse(args) && !_execute_sbt_bridge(args) && !_execute_package_archive(args))
       _to_repl_commandline(args) match {
         case Some(s) =>
           val c = _operation_call(Array(s))
@@ -577,6 +578,18 @@ class Cozy(
     _leading_command(args) match {
       case Some(("publish-sar", rest)) =>
         CozySarPublisher.publish(rest)
+        true
+      case _ =>
+        false
+    }
+
+  private def _execute_subcomponent_release(args: Array[String]): Boolean =
+    _leading_command(args) match {
+      case Some(("package-subcomponent-release", rest)) =>
+        SubcomponentReleasePackaging.packageRelease(rest)
+        true
+      case Some(("publish-subcomponent-release", rest)) =>
+        SubcomponentReleasePackaging.publishRelease(rest)
         true
       case _ =>
         false
