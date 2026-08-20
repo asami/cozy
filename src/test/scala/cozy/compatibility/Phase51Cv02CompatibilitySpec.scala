@@ -32,13 +32,15 @@ final class Phase51Cv02CompatibilitySpec extends AnyWordSpec with Matchers with 
         Given("the packaged versioned compatibility resource")
         When("the production resource loader parses it")
         val loaded = GenerationCompatibilityEvidenceLoader.load()
-        Then("the exact resource is valid and the observed pair remains unproven")
+        Then("the exact resource is valid, preserves the observed unproven pair, and declares the release default")
         loaded.isRight shouldBe true
         loaded.toOption.get.schema shouldBe GenerationCompatibility.evidenceSchema
         loaded.toOption.get.entries should contain(
           GenerationPairEvidence(_pair, GenerationPairStatus.Unproven)
         )
-        loaded.toOption.get.publishedDefault shouldBe None
+        loaded.toOption.get.publishedDefault shouldBe Some(
+          GenerationCompatibilityBoundary.createPair("0.5.2", "0.3.1")
+        )
       }
       "reject malformed evidence before admission" in {
         Given("evidence with an unknown field, empty owner, and a malformed coordinate")

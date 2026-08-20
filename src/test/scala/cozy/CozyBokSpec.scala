@@ -4072,7 +4072,7 @@ class CozyBokSpec
         .takeWhile(_ != null)
         .find(_.getName == name) match {
         case Some(_) =>
-          Stream.continually(in.read).takeWhile(_ != -1).map(_.toByte).toArray
+          Stream.continually(in.read()).takeWhile(_ != -1).map(_.toByte).toArray
         case None =>
           fail(s"Missing zip entry: ${name}")
       }

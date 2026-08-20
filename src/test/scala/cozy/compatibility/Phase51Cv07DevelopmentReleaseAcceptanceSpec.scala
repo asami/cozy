@@ -226,14 +226,28 @@ final class Phase51Cv07DevelopmentReleaseAcceptanceSpec
       }
     }
 
-    "ship the current development pairs as explicit evidence" in {
+    "ship the current release default alongside explicit development pairs" in {
       Given("the packaged Cozy compatibility evidence")
 
       When("the resource is loaded")
       val evidence = GenerationCompatibilityEvidenceLoader.load().toOption.get
 
-      Then("CNCF and ArtScene development pairs are proven without a published default")
+      Then("the published CNCF and Cozy pair is the default while development pairs remain explicit")
       evidence.entries should contain allOf (
+        GenerationPairEvidence(
+          GenerationCompatibilityBoundary.createPair(
+            "0.5.2",
+            "0.3.1"
+          ),
+          GenerationPairStatus.Proven
+        ),
+        GenerationPairEvidence(
+          GenerationCompatibilityBoundary.createPair(
+            "0.5.2-SNAPSHOT",
+            "0.3.1"
+          ),
+          GenerationPairStatus.Proven
+        ),
         GenerationPairEvidence(
           GenerationCompatibilityBoundary.createPair(
             "0.5.2-SNAPSHOT",
@@ -249,7 +263,9 @@ final class Phase51Cv07DevelopmentReleaseAcceptanceSpec
           GenerationPairStatus.Proven
         )
       )
-      evidence.publishedDefault shouldBe None
+      evidence.publishedDefault shouldBe Some(
+        GenerationCompatibilityBoundary.createPair("0.5.2", "0.3.1")
+      )
     }
 
     "apply the lifecycle gate to CAR project metadata" which {

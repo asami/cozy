@@ -4,7 +4,18 @@
     "owner": "Cozy generation boundary",
     "location": "META-INF/cozy/generation-compatibility.v1.json"
   },
-  "publishedDefault": null,
+  "publishedDefault": {
+    "cncfTarget": {
+      "organization": "org.goldenport",
+      "artifact": "goldenport-cncf_3",
+      "version": "0.5.2"
+    },
+    "cozyGenerator": {
+      "organization": "org.simplemodeling",
+      "artifact": "cozy_2.12",
+      "version": "0.3.1"
+    }
+  },
   "pairs": [
     {
       "cncfTarget": {
@@ -18,6 +29,19 @@
         "version": "0.3.0"
       },
       "status": "unproven"
+    },
+    {
+      "cncfTarget": {
+        "organization": "org.goldenport",
+        "artifact": "goldenport-cncf_3",
+        "version": "0.5.2-SNAPSHOT"
+      },
+      "cozyGenerator": {
+        "organization": "org.simplemodeling",
+        "artifact": "cozy_2.12",
+        "version": "0.3.1"
+      },
+      "status": "proven"
     },
     {
       "cncfTarget": {
@@ -81,6 +105,19 @@
         "organization": "org.simplemodeling",
         "artifact": "cozy_2.12",
         "version": "0.3.1-SNAPSHOT"
+      },
+      "status": "proven"
+    },
+    {
+      "cncfTarget": {
+        "organization": "org.goldenport",
+        "artifact": "goldenport-cncf_3",
+        "version": "0.5.2"
+      },
+      "cozyGenerator": {
+        "organization": "org.simplemodeling",
+        "artifact": "cozy_2.12",
+        "version": "0.3.1"
       },
       "status": "proven"
     }

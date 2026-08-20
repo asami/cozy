@@ -176,9 +176,11 @@ final class CozyArchivePackagerCv06Spec
     "reject a generated release CAR that selects a mutable Cozy generator" in {
       _with_temp_dir("cozy-cv07-release-generator") { dir =>
         Given("a release CAR project with a proven development generation pair")
+        val mutablegeneratorversion = "0.3.1-SNAPSHOT"
         val projectyaml =
           _project_yaml(dir).
             replace("0.5.17", "0.5.1").
+            replace(org.simplemodeling.cozy.BuildInfo.version, mutablegeneratorversion).
             replace("0.0.1-SNAPSHOT", "0.0.1")
         _write(dir.resolve("project.yaml"), projectyaml)
         _write(
@@ -193,6 +195,17 @@ final class CozyArchivePackagerCv06Spec
           Some("0.5.1")
         )
         val archive = dir.resolve("target/sample.car")
+        val mutablepair =
+          GenerationCompatibilityBoundary.createPair("0.5.1", mutablegeneratorversion)
+        val evidence = GenerationCompatibilityEvidence(
+          GenerationCompatibility.evidenceSchema,
+          GenerationEvidenceOwner(
+            "CV-07 archive executable specification",
+            "CozyArchivePackagerCv06Spec"
+          ),
+          Vector(GenerationPairEvidence(mutablepair, GenerationPairStatus.Proven)),
+          None
+        )
 
         When("the release package gate evaluates the project-owned pair")
         val error = intercept[Throwable] {
@@ -201,14 +214,15 @@ final class CozyArchivePackagerCv06Spec
             mainjar,
             cncfjar,
             archive,
-            outputversion = "0.0.1"
+            outputversion = "0.0.1",
+            acceptanceoverride = Some(evidence -> mutablegeneratorversion)
           )
         }
 
         Then("the mutable generator is rejected before archive output")
         error.getMessage should include("SnapshotNotAllowedForRelease")
         error.getMessage should include(
-          s"org.simplemodeling:cozy_2.12:${org.simplemodeling.cozy.BuildInfo.version}"
+          s"org.simplemodeling:cozy_2.12:$mutablegeneratorversion"
         )
         Files.exists(archive) shouldBe false
       }

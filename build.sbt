@@ -15,13 +15,13 @@ organization := "org.simplemodeling"
 
 name := "cozy"
 
-version := "0.3.4-SNAPSHOT"
+version := "0.3.1"
 
-lazy val cncfVersion = "0.5.2-SNAPSHOT"
+lazy val cncfVersion = "0.5.2"
 
 lazy val simpleModelingModelVersion = "0.2.0"
 
-lazy val cncfCollaboratorApiVersion = "0.2.0-SNAPSHOT"
+lazy val cncfCollaboratorApiVersion = "0.2.0"
 
 scalaVersion := "2.12.18"
 // crossScalaVersions := Seq("2.10.39.2", "2.9.1")
@@ -32,7 +32,7 @@ scalacOptions += "-unchecked"
 
 scalacOptions += "-feature"
 
-javacOptions ++= Seq("--release", "21")
+javacOptions ++= Seq("--release", "17")
 
 // resolvers += "Scalaz Bintray Repo" at "http://dl.bintray.com/scalaz/releases"
 
@@ -57,7 +57,7 @@ resolvers += "SimpleModeling.org" at "https://www.simplemodeling.org/repository/
 // resolvers += "Asami Maven Repository" at "http://www.asamioffice.com/maven"
 
 // override arcadia
-libraryDependencies += "org.goldenport" %% "goldenport-scala-lib" % "2.3.31-SNAPSHOT"
+libraryDependencies += "org.goldenport" %% "goldenport-scala-lib" % "2.3.31"
 
 // override kaleidox
 libraryDependencies += "org.goldenport" %% "goldenport-record" % "2.2.5"
@@ -66,18 +66,18 @@ libraryDependencies += "org.goldenport" %% "goldenport-record" % "2.2.5"
 // libraryDependencies += "org.goldenport" %% "goldenport-sexpr" % "2.0.13"
 
 // override kaleidox
-libraryDependencies += "org.smartdox" %% "smartdox" % "2.4.17-SNAPSHOT"
+libraryDependencies += "org.smartdox" %% "smartdox" % "2.4.17"
 
-libraryDependencies += "org.goldenport" %% "kaleidox" % "0.6.19-SNAPSHOT"
+libraryDependencies += "org.goldenport" %% "kaleidox" % "0.6.19"
 
 val simplemodelerVersion =
-  sys.props.getOrElse("simplemodeler.version", sys.env.getOrElse("SIMPLEMODELER_VERSION", "1.1.26-SNAPSHOT"))
+  sys.props.getOrElse("simplemodeler.version", sys.env.getOrElse("SIMPLEMODELER_VERSION", "1.1.25"))
 
 libraryDependencies += "org.simplemodeling" %% "simplemodeler" % simplemodelerVersion
 
 libraryDependencies += "org.goldenport" % "cncf-collaborator-api" % cncfCollaboratorApiVersion
 
-libraryDependencies += "org.goldenport" %% "arcadia" % "1.0.3-SNAPSHOT"
+libraryDependencies += "org.goldenport" %% "arcadia" % "1.0.3"
 
 libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.4.11"
 
