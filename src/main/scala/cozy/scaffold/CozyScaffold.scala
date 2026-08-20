@@ -470,11 +470,6 @@ private[cozy] object CozyScaffold {
       |
       |    cozyGeneratorBackend := "cozy",
       |    cozyDelegateProjectDir := None,
-      |    cozyDelegateCommand := Seq(
-      |      "cozy",
-      |      "--runtime",
-      |      ProjectYamlBuild.requiredValue(cozyProjectMetadata.value, "build.cozyVersion")
-      |    ),
       |    cozyCarName := ProjectYamlBuild.carBaseName(projectIdentityEvidence.value, moduleName.value, version.value),
       |    cozyManifestMetadata ++= ProjectYamlBuild.manifestMetadata(projectIdentityEvidence.value, cozyProjectMetadata.value)
       |  )
