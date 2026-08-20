@@ -27,7 +27,7 @@ import cozy.modeler.GenerationProvenance
  * @since   May. 20, 2026
  *  version Jun.  4, 2026
  *  version Jul. 28, 2026
- * @version Aug. 13, 2026
+ * @version Aug. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyCarPublisherSpec
@@ -683,9 +683,9 @@ class CozyCarPublisherSpec
     }
 
     "maintain release history" which {
-      "preserves existing versions and replaces the requested version" in {
+      "preserves stable and deprecated releases, replaces the requested version, and excludes stale snapshots" in {
         _with_temp_dir("cozy-publish-car-merge") { dir =>
-          Given("a catalog with deprecated, current release, and current snapshot versions")
+          Given("a canonical catalog with stable and deprecated releases plus a stale local snapshot absent from the new public warehouse")
           val projectdir = dir.resolve("project")
           val warehouse = dir.resolve("warehouse")
           val car = _write_canonical_car(
@@ -696,7 +696,7 @@ class CozyCarPublisherSpec
           _write_project_yaml(projectdir, "sample-component", "0.1.0")
           val deprecateddigest = _write_retained_car(warehouse, "0.0.9", "deprecated-release")
           val currentdigest = _write_retained_car(warehouse, "0.1.0", "current-release")
-          val snapshotdigest = _write_retained_car(warehouse, "0.1.1-SNAPSHOT", "current-snapshot")
+          val snapshotdigest = "0" * 64
           _write_car_catalog(
             projectdir,
             Vector(
@@ -712,7 +712,7 @@ class CozyCarPublisherSpec
             terms = Vector("Sample Component")
           )
 
-          When("Cozy republishes the current version metadata")
+          When("Cozy publishes the stable canonical CAR to the new public warehouse")
           CozyCarPublisher.publish(
             List(
               projectdir.toString,
@@ -730,13 +730,15 @@ class CozyCarPublisherSpec
           val catalog = RepositoryArtifactCatalog.load(
             projectdir.resolve("src/main/catalog/car/org/sample/sample-component.yaml")
           )
+          val publiccatalog = RepositoryArtifactCatalog.load(
+            warehouse.resolve("repository/catalog/car/org/sample/sample-component.yaml")
+          )
           Then(
-            "history and selectors remain stable while the checksum is replaced"
+            "stable history remains, the requested release is replaced, and the stale snapshot is excluded"
           )
           catalog.versions.map(_.version) shouldBe Vector(
             "0.0.9",
-            "0.1.0",
-            "0.1.1-SNAPSHOT"
+            "0.1.0"
           )
           catalog.versions
             .find(_.version == "0.0.9")
@@ -746,10 +748,14 @@ class CozyCarPublisherSpec
             .flatMap(_.checksumSha256) should not be Some("old")
           catalog.recommended shouldBe Some("0.0.9")
           catalog.latestStable shouldBe Some("0.1.0")
-          catalog.latestSnapshot shouldBe Some("0.1.1-SNAPSHOT")
-          catalog.versions
-            .find(_.version == "0.1.1-SNAPSHOT")
-            .flatMap(_.checksumSha256) shouldBe Some(snapshotdigest)
+          catalog.latestSnapshot shouldBe None
+          catalog.versions.find(_.version == "0.1.1-SNAPSHOT") shouldBe None
+          publiccatalog.versions.find(_.version == "0.1.1-SNAPSHOT") shouldBe None
+          Files.exists(
+            warehouse.resolve(
+              "repository/car/org/sample/sample-component/0.1.1-SNAPSHOT/sample-component-0.1.1-SNAPSHOT.car"
+            )
+          ) shouldBe false
           catalog.aliases shouldBe Vector("sample-old")
           catalog.tags shouldBe Vector("platform.component")
           catalog.terms shouldBe Vector("Sample Component")
@@ -762,7 +768,7 @@ class CozyCarPublisherSpec
           metadata should include("<release>0.1.0</release>")
           metadata should include("<version>0.0.9</version>")
           metadata should include("<version>0.1.0</version>")
-          metadata should include("<version>0.1.1-SNAPSHOT</version>")
+          metadata should not include "<version>0.1.1-SNAPSHOT</version>"
         }
       }
 

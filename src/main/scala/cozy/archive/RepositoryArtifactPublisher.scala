@@ -20,7 +20,7 @@ import scala.util.control.NonFatal
  * @since   May. 20, 2026
  *  version Jun. 23, 2026
  *  version Jul. 21, 2026
- * @version Aug. 19, 2026
+ * @version Aug. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object RepositoryArtifactPublisher {
@@ -487,7 +487,7 @@ private[cozy] object RepositoryArtifactPublisher {
       else if (snapshotpublish)
         releaseversions
       else if (policy.coordinate.isDefined)
-        (existing.versions.filterNot(_.version == version) :+ entry).sortBy(_.version)
+        (releaseversions.filterNot(_.version == version) :+ entry).sortBy(_.version)
       else
         (releaseversions.filterNot(_.version == version) :+ entry).sortBy(_.version)
     def _valid_stable_selector_(selector: Option[String]): Option[String] =
