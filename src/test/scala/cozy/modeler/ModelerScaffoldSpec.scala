@@ -14,7 +14,7 @@ import org.scalatest.wordspec.AnyWordSpec
  * @since   Jun. 23, 2026
  *  version Jun. 27, 2026
  *  version Jul. 31, 2026
- * @version Aug.  7, 2026
+ * @version Aug. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -141,9 +141,13 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         buildsbtcontent should not include ("lazy val cozyBundleFactoryClassName = settingKey[Option[String]]")
         buildsbtcontent should not include ("""Some("domain.impl.ComponentFactory")""")
         buildsbtcontent should not include ("org.goldenport.cncf.component.Component$BundleFactory")
-        projectyamlcontent should include ("""scalaVersion: "3.3.8"""")
+        projectyamlcontent should include (
+          s"""scalaVersion: "${org.simplemodeling.cozy.BuildInfo.scaffoldScalaVersion}"""
+        )
         projectyamlcontent should include ("org.goldenport::goldenport-cncf:")
-        projectyamlcontent should include ("cozyVersion:")
+        projectyamlcontent should include (
+          s"""cozyVersion: "${org.simplemodeling.cozy.BuildInfo.scaffoldCozyVersion}"""
+        )
         projectyamlcontent should include ("org.scalatest::scalatest:3.2.19")
         projectyamlcontent should include ("manifest_metadata:")
         projectyamlcontent should include ("abi:")
@@ -172,7 +176,7 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         pluginssbtcontent should include ("""addSbtPlugin("org.goldenport" % "sbt-cozy"""")
         pluginssbtcontent should include (""""SimpleModeling.org" at "https://www.simplemodeling.org/repository/maven"""")
         pluginssbtcontent should include ("SBT_COZY_VERSION")
-        pluginssbtcontent should include ("0.1.17-SNAPSHOT")
+        pluginssbtcontent should include (org.simplemodeling.cozy.BuildInfo.sbtCozyVersion)
         pluginssbtcontent should include ("""addSbtPlugin("org.goldenport" % "sbt-cozy" % sbtCozyVersion)""")
       }
 
@@ -335,7 +339,9 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
             |    version: 0.4.2-SNAPSHOT""".stripMargin
         )
         subsystemdescriptorcontent should include ("name: textus-user-account")
-        subsystemdescriptorcontent should include ("version: 0.1.1-SNAPSHOT")
+        subsystemdescriptorcontent should include (
+          s"version: ${org.simplemodeling.cozy.BuildInfo.scaffoldTextusUserAccountVersion}"
+        )
         Files.readString(repositorydreadme) should include ("repository.d/textus-user-account.car")
 
         cozy.Cozy.main(Array("modeler-scala", componentmodel.toString, "--save", generatedout.toString.toString))
@@ -576,9 +582,13 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         projectyamlcontent should include ("""name: "textus-knowledge-editor"""")
         projectyamlcontent should include ("""title: "Textus Knowledge Editor"""")
         projectyamlcontent should include ("""scalaPackage: "org.goldenport.textus.knowledge.editor"""")
-        projectyamlcontent should include ("""scalaVersion: "3.3.8"""")
+        projectyamlcontent should include (
+          s"""scalaVersion: "${org.simplemodeling.cozy.BuildInfo.scaffoldScalaVersion}"""
+        )
         projectyamlcontent should include ("org.goldenport::goldenport-cncf:")
-        projectyamlcontent should include ("cozyVersion:")
+        projectyamlcontent should include (
+          s"""cozyVersion: "${org.simplemodeling.cozy.BuildInfo.scaffoldCozyVersion}"""
+        )
         projectyamlcontent should include ("org.scalatest::scalatest:3.2.19")
         projectyamlcontent should include ("manifest_metadata:")
         projectyamlcontent should include ("""minimum: """)
@@ -675,7 +685,7 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
           Files.exists(generated) shouldBe true
         }
         val componentcontent = Files.readString(
-          generated.resolve("target/scala-3.3.8/src_managed/main/scala/org/simplemodeling/textus/artscene/ArtSceneComponent.scala")
+          generated.resolve(s"target/scala-${org.simplemodeling.cozy.BuildInfo.scaffoldScalaVersion}/src_managed/main/scala/org/simplemodeling/textus/artscene/ArtSceneComponent.scala")
         )
         Then("the generated project files satisfy the scaffold contract")
         modelcontent should include ("## ArtScene")
@@ -792,7 +802,9 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         Files.exists(out.resolve("subsystem/subsystem-descriptor.yaml")) shouldBe true
         val projectyamlcontent = Files.readString(out.resolve("component/project.yaml"))
         projectyamlcontent should include ("""name: "textus-knowledge-editor"""")
-        projectyamlcontent should include ("""scalaVersion: "3.3.8"""")
+        projectyamlcontent should include (
+          s"""scalaVersion: "${org.simplemodeling.cozy.BuildInfo.scaffoldScalaVersion}"""
+        )
         projectyamlcontent should include ("org.goldenport::goldenport-cncf:")
         projectyamlcontent should include ("""packaging:""")
       }

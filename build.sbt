@@ -15,7 +15,21 @@ organization := "org.simplemodeling"
 
 name := "cozy"
 
-version := "0.3.1"
+version := "0.3.2-SNAPSHOT"
+
+// Generated-project defaults. Keep every scaffolded version here so release
+// preparation has one authoritative inventory.
+lazy val scaffoldSbtVersion = "1.9.7"
+
+lazy val sbtCozyVersion = "0.1.16"
+
+lazy val scaffoldScalaVersion = "3.3.8"
+
+lazy val scaffoldCozyVersion = "0.3.1"
+
+lazy val scaffoldInitialVersion = "0.0.1-SNAPSHOT"
+
+lazy val scaffoldTextusUserAccountVersion = "0.1.4"
 
 lazy val cncfVersion = "0.5.2"
 
@@ -392,6 +406,12 @@ lazy val root = (project in file(".")).
   settings(
     buildInfoKeys := Seq[BuildInfoKey](
       name, version, scalaVersion, sbtVersion,
+      BuildInfoKey.action("scaffoldSbtVersion")(scaffoldSbtVersion),
+      BuildInfoKey.action("sbtCozyVersion")(sbtCozyVersion),
+      BuildInfoKey.action("scaffoldScalaVersion")(scaffoldScalaVersion),
+      BuildInfoKey.action("scaffoldCozyVersion")(scaffoldCozyVersion),
+      BuildInfoKey.action("scaffoldInitialVersion")(scaffoldInitialVersion),
+      BuildInfoKey.action("scaffoldTextusUserAccountVersion")(scaffoldTextusUserAccountVersion),
       BuildInfoKey.action("cncfVersion")(cncfVersion),
       BuildInfoKey.action("simpleModelerVersion")(simplemodelerVersion),
       BuildInfoKey.action("simpleModelingModelVersion")(simpleModelingModelVersion),

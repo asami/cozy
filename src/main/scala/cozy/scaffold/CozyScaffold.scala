@@ -15,12 +15,17 @@ import scala.collection.JavaConverters._
  *  version May. 25, 2026
  *  version Jun. 27, 2026
  *  version Jul. 29, 2026
- * @version Aug. 11, 2026
+ * @version Aug. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyScaffold {
-  private val _default_sbt_version = "1.9.7"
-  private val _default_sbt_cozy_version = "0.1.17-SNAPSHOT"
+  private val _default_sbt_version = org.simplemodeling.cozy.BuildInfo.scaffoldSbtVersion
+  private val _default_sbt_cozy_version = org.simplemodeling.cozy.BuildInfo.sbtCozyVersion
+  private val _default_scaffold_version = org.simplemodeling.cozy.BuildInfo.scaffoldInitialVersion
+  private val _default_scala_version = org.simplemodeling.cozy.BuildInfo.scaffoldScalaVersion
+  private val _default_cozy_version = org.simplemodeling.cozy.BuildInfo.scaffoldCozyVersion
+  private val _default_textus_user_account_version =
+    org.simplemodeling.cozy.BuildInfo.scaffoldTextusUserAccountVersion
 
   case class CarDependencyVersions(
     cncfVersion: String,
@@ -174,7 +179,7 @@ private[cozy] object CozyScaffold {
       packageName == "domain" &&
       artifactName == "sample" &&
       organization == "com.example" &&
-      version == "0.0.1-SNAPSHOT" &&
+      version == _default_scaffold_version &&
       boundedContext == "default" &&
       domain == "default"
   }
@@ -235,7 +240,7 @@ private[cozy] object CozyScaffold {
         _option(args, "package").getOrElse("domain"),
         artifact,
         _option(args, "organization").getOrElse("com.example"),
-        _option(args, "version").getOrElse("0.0.1-SNAPSHOT"),
+        _option(args, "version").getOrElse(_default_scaffold_version),
         _option(args, "bounded-context").getOrElse("default"),
         _option(args, "domain").getOrElse("default"),
         args.contains("--gitignore"),
@@ -352,7 +357,7 @@ private[cozy] object CozyScaffold {
       val version = _option(args, "version").
         orElse(config.value("project.component.version")).
         orElse(config.value("project.version")).
-        getOrElse("0.0.1-SNAPSHOT")
+        getOrElse(_default_scaffold_version)
       val displayname = _option(args, "display-name").
         orElse(config.value("project.component.displayName")).
         orElse(config.value("project.title")).
@@ -572,8 +577,8 @@ private[cozy] object CozyScaffold {
     s"""project:
       |${projectmetadata}
       |build:
-      |  scalaVersion: "3.3.8"
-      |  cozyVersion: ${_yaml_string(org.simplemodeling.cozy.BuildInfo.version)}
+      |  scalaVersion: ${_yaml_string(_default_scala_version)}
+      |  cozyVersion: ${_yaml_string(_default_cozy_version)}
       |  dependencies:
       |    compile:
       |      - ${_yaml_string(s"org.goldenport::goldenport-cncf:${versions.cncfVersion}")}
@@ -712,7 +717,7 @@ private[cozy] object CozyScaffold {
       |  - name: ${scaffold.artifactName}
       |    version: ${scaffold.version}
       |  - name: textus-user-account
-      |    version: 0.1.1-SNAPSHOT
+      |    version: ${_default_textus_user_account_version}
       |#security:
       |#  authentication:
       |#    convention: enabled
@@ -739,7 +744,7 @@ private[cozy] object CozyScaffold {
       |- keep `subsystem-descriptor.yaml` coordinates stable
       |
       |Recommended local command:
-      |`ln -s /absolute/path/to/textus-user-account-0.1.1-SNAPSHOT.car repository.d/textus-user-account.car`
+      |`ln -s /absolute/path/to/textus-user-account-${_default_textus_user_account_version}.car repository.d/textus-user-account.car`
       |
       |Production distribution is repository-first. `repository.d` is the local development and test search staging path.
       |""".stripMargin
@@ -1112,7 +1117,7 @@ private[cozy] object CozyScaffold {
       |- `sbt compile`
       |- `sbt cozyBuildCAR`
       |
-      |Generated Scala sources are written under `target/scala-3.3.8/src_managed/main/scala`.
+      |Generated Scala sources are written under `target/scala-${_default_scala_version}/src_managed/main/scala`.
       |""".stripMargin
 
   private[cozy] def carComponentFactorySpecSource(scaffold: CarScaffoldConfig): String =
