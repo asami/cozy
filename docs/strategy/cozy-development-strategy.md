@@ -931,6 +931,30 @@ Primary references:
 - `docs/phase/phase-31.md`
 - `docs/phase/phase-31-checklist.md`
 
+### Phase 33: Declared Cozy Runtime Selection for CAR Publication
+
+Status: completed.
+
+Purpose:
+
+- make the CAR-owned `project.yaml build.cozyVersion` select the executing
+  Cozy runtime for `publish`, `publishLocal`, `cozyPublishCar`, and
+  `cozyPublishLocalCar`;
+- remove the operational requirement to add a temporary `.cozy` runtime
+  setting before CAR publication;
+- preserve `.cozy` for optional non-runtime local configuration rather than
+  treating it as CAR publication authority;
+- retain fail-fast descriptor and generation-provenance checks when the
+  declared runtime cannot be selected; and
+- establish focused Cozy Launcher / sbt-cozy acceptance for development and
+  release CAR publication without altering archive or catalog semantics.
+
+Primary references:
+
+- `docs/phase/phase-33.md`
+- `docs/phase/phase-33-checklist.md`
+- `docs/journal/2026/08/entity-revision-generator-downstream-acceptance-transfer-2026-08-03.md`
+
 ### Future Follow-up: Explicit Component Root Generation
 
 Status: planned, low priority.
@@ -963,6 +987,7 @@ Origin:
 | --- | --- | --- | --- | --- | --- |
 | DEV-001 | `docs/journal/2026/08/2026-08-19-cncf-compatibility-naming-hygiene-follow-up.md` (`HYG-P57.4-001`) | Make `Resolved.projectRelativePath` the canonical CML source-result field while retaining the explicitly required compatibility surface. | NEW_PHASE | [Phase 32](../phase/phase-32.md) | ADOPTED |
 | DEV-002 | `docs/journal/2026/04/cml-operation-design-note.md` (Future Work) | Decide the action hierarchy, result type, async/job model, and CLI/OpenAPI mapping as one future CML operation design boundary. | STRATEGY_ITEM | Strategy section 9 | CANDIDATE |
+| DEV-003 | User-reported CAR publication runtime-selection defect, corroborated by `docs/journal/2026/08/entity-revision-generator-downstream-acceptance-transfer-2026-08-03.md` | Make CAR publish paths select `project.yaml build.cozyVersion` without a temporary `.cozy` runtime override. | NEW_PHASE | [Phase 33](../phase/phase-33.md) | ADOPTED |
 
 ## Current Priority
 

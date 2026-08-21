@@ -24,7 +24,7 @@ import play.api.libs.json.Json
 
 /*
  * @since   Jul. 28, 2026
- * @version Aug. 20, 2026
+ * @version Aug. 21, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyArchivePackagerCv06Spec
@@ -76,9 +76,8 @@ final class CozyArchivePackagerCv06Spec
         Then("only project-owned generator, compile, and runtime metadata govern admission")
         projectyaml should include("""cozyVersion: """ + _quoted(org.simplemodeling.cozy.BuildInfo.scaffoldCozyVersion))
         projectyaml should include("org.goldenport::goldenport-cncf:0.5.17")
-        buildsbt should include(
-          """ProjectYamlBuild.requiredValue(cozyProjectMetadata.value, "build.cozyVersion")"""
-        )
+        buildsbt should not include ("cozyDelegateCommand :=")
+        buildsbt should include ("cozyDelegateProjectDir := None")
         _zip_entries(archive) should contain allOf (
           "component/main.jar",
           "component-descriptor.json",

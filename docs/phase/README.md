@@ -4,7 +4,10 @@ Purpose: engineering work management.
 
 Current phase state:
 
-- Most recent closed phase: `phase-31.md`: Video Encoding Policy Profiles.
+- Most recent closed phase: `phase-33.md`: Declared Cozy Runtime Selection for
+  CAR Publication. It established CAR-owned `project.yaml build.cozyVersion`
+  as the publication runtime authority, without a temporary `.cozy` override.
+- Earlier closed phase: `phase-31.md`: Video Encoding Policy Profiles.
   VP31-01 through VP31-03 are complete. Lightweight 1280x720, 18 fps, CRF 32
   is the encoding baseline.
 - Planned phase: `phase-32.md`: CML Source-Result Compatibility Naming.
