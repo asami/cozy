@@ -139,6 +139,8 @@ allowlist.
 ## References
 
 - `docs/phase/phase-29-checklist.md`
+- `docs/spec/bok-metadata-finalization.md`
+- `docs/design/bok-metadata-finalization.md`
 - `docs/phase/phase-14.md`
 - `docs/phase/phase-22.md`
 - `docs/phase/phase-28.2.md`
