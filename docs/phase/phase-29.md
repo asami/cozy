@@ -72,11 +72,11 @@ not run a site build and does not replace project-owned orchestration.
 
 Stage Status:
 
-- Current status: IN_PROGRESS
+- Current status: COMPLETE
 - Owner: Cozy BoK CLI and configuration
 - Update rule: mark work complete only from the Phase 29 checklist.
 - Checklist basis: `BM29-01`
-- Current step: Public Finalization Contract.
+- Current step: completed public finalization contract.
 
 Define command parsing, configured input/output resolution, diagnostics,
 mutation allowlist, failure atomicity, and help/manual documentation. Extract a

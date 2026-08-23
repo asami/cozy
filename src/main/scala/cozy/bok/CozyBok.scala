@@ -7,7 +7,7 @@ import cozy.video.{CozyVideo, CozyVideoPublisher}
 /*
  * @since   Jun.  3, 2026
  *  version Jul. 23, 2026
- * @version Aug. 14, 2026
+ * @version Aug. 23, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyBok {
@@ -64,6 +64,7 @@ private[cozy] object CozyBok {
   def build(config: BuildConfig, runner: Runner): Unit = CozyBokImplementation.build(config, runner)
   def build(config: BuildConfig, runner: Runner, bibliographyfetcher: BibliographyBibtexFetcher): Unit =
     CozyBokImplementation.build(config, runner, bibliographyfetcher)
+  def finalizeMetadata(config: BuildConfig): Unit = CozyBokImplementation.finalizeMetadata(config)
   def preview(args: List[String], runner: Runner): Unit = CozyBokImplementation.preview(args, runner)
   def runWorkflow(config: WorkflowConfig, runner: Runner): Unit = CozyBokImplementation.runWorkflow(config, runner)
   def publishVideo(config: PublicationConfig, voicevox: CozyVideo.VoicevoxClient, videorunner: CozyVideo.VideoProcessRunner): Vector[CozyVideoPublisher.PublishVideoResult] =

@@ -32,7 +32,7 @@ import io.circe.syntax._
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Aug. 23, 2026
  * @author  ASAMI, Tomoharu
  */
 
@@ -48,6 +48,12 @@ private[cozy] trait CozyBokCommand {
         true
       case "bok" :: "build" :: rest =>
         build(BuildConfig.create(rest), ProcessRunner)
+        true
+      case "bok" :: "finalize-metadata" :: rest if _help_requested(rest) =>
+        _print_finalize_metadata_usage()
+        true
+      case "bok" :: "finalize-metadata" :: rest =>
+        finalizeMetadata(BuildConfig.create(rest))
         true
       case "bok" :: "update" :: rest =>
         build(BuildConfig.create(rest), ProcessRunner)
@@ -170,6 +176,12 @@ private[cozy] trait CozyBokCommand {
     println("Fetch explicit BibTeX/cache sources registered in bibliography metadata into target/cozy-bok/bibliography/cache.")
     println("Local .bib files under repository/bibliography, repository/catalog/bibliography, or src/main/doxsite/bibliography are used before external providers.")
     println("With --report-only or --no-fetch, report missing bibliography cache entries without external fetches.")
+  }
+
+  private def _print_finalize_metadata_usage(): Unit = {
+    println("Usage: cozy bok finalize-metadata [<project-dir>] [--strategy wip|draft|preview|production]")
+    println("Finalize generated BoK machine metadata into the configured website without running SmartDox, Antora, Arcadia, media, publication, upload, deployment, or project workflows.")
+    println("Requires existing configured doxsite.d and website.d roots; updates only the RDF, metadata, component-reference, SIE, and KnowledgeSource allowlist.")
   }
 
   private def _search_bibliography_config(args: List[String]): BibliographySearchConfig = {

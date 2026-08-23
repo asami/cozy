@@ -32,7 +32,7 @@ import io.circe.syntax._
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Aug. 23, 2026
  * @author  ASAMI, Tomoharu
  */
 
@@ -112,6 +112,7 @@ private[cozy] trait CozyBokBuild {
           _copy_directory(config.project.resolve(item.source), config.project.resolve(item.destination))
         }
     }
+    finalizeMetadata(config)
   }
 
   private[bok] def _bibliography_fetcher(project: Path, fallback: BibliographyBibtexFetcher): BibliographyBibtexFetcher = {

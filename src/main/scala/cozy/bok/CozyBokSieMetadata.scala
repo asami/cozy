@@ -32,31 +32,337 @@ import io.circe.syntax._
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Aug. 23, 2026
  * @author  ASAMI, Tomoharu
  */
 
 private[cozy] trait CozyBokSieMetadata {
   self: CozyBokImplementation.type =>
-  private[bok] def _copy_machine_metadata_artifacts(config: BuildConfig, target: Path): Unit = {
-    _copy_if_exists(config.doxsitePath.resolve("site.ttl"), target.resolve("rdf").resolve("site.ttl"))
-    _copy_if_exists(config.doxsitePath.resolve("site.jsonld"), target.resolve("rdf").resolve("site.jsonld"))
-    _copy_if_exists(config.doxsitePath.resolve("metadata/rdf/graph.json"), target.resolve("metadata/rdf/graph.json"))
-    _copy_if_exists(config.doxsitePath.resolve("metadata/glossary/terms.json"), target.resolve("metadata/glossary/terms.json"))
-    _copy_if_exists(config.doxsitePath.resolve("metadata/bibliography/bibliography.json"), target.resolve("metadata/bibliography/bibliography.json"))
-    _copy_if_exists(config.doxsitePath.resolve("metadata/scenarios/scenarios.json"), target.resolve("metadata/scenarios/scenarios.json"))
-    _copy_if_exists(config.doxsitePath.resolve("metadata/tags/tags.json"), target.resolve("metadata/tags/tags.json"))
-    _copy_directory(config.doxsitePath.resolve("metadata/repository/car"), target.resolve("metadata/repository/car"))
-    _copy_directory(config.doxsitePath.resolve("metadata/cncf/component-references"), target.resolve("metadata/cncf/component-references"))
-    _copy_directory(config.doxsitePath.resolve("metadata/catalog/projects"), target.resolve("metadata/catalog/projects"))
-    _copy_directory(config.doxsitePath.resolve("metadata/projects"), target.resolve("metadata/projects"))
-    _copy_directory(config.doxsitePath.resolve("metadata/artifacts/repository"), target.resolve("metadata/artifacts/repository"))
-    _copy_directory(config.doxsitePath.resolve("metadata/releases"), target.resolve("metadata/releases"))
+  private final case class FinalizationBackup(target: Path, backup: Option[Path])
+
+  private val _finalization_file_allowlist = Vector(
+    "rdf/site.ttl",
+    "rdf/site.jsonld",
+    "metadata/rdf/graph.json",
+    "metadata/glossary/terms.json",
+    "metadata/bibliography/bibliography.json",
+    "metadata/scenarios/scenarios.json",
+    "metadata/tags/tags.json",
+    "metadata/sie/integration.json",
+    "metadata/cncf/knowledge-source.json"
+  )
+
+  private val _finalization_directory_allowlist = Vector(
+    "metadata/repository/car",
+    "metadata/cncf/component-references",
+    "metadata/catalog/projects",
+    "metadata/projects",
+    "metadata/artifacts/repository",
+    "metadata/releases"
+  )
+
+  def finalizeMetadata(config: BuildConfig): Unit = {
+    val projectroot = _finalization_project_root(config.project)
+    val source = _finalization_root(config.doxsitePath, projectroot, "BoK generated metadata root")
+    val target = _finalization_root(config.websitePath, projectroot, "BoK website root")
+    if (source.startsWith(target) || target.startsWith(source))
+      RAISE.invalidArgumentFault("BoK generated metadata root and website root must be distinct, non-overlapping directories.")
+    val stage = Files.createTempDirectory(projectroot, ".cozy-bok-finalize-")
+    try {
+      _copy_machine_metadata_artifacts(config, source, stage)
+      _validate_staged_metadata(stage)
+      _commit_staged_metadata(stage, target, projectroot)
+    } finally {
+      _delete_directory(stage)
+    }
+  }
+
+  private[bok] def _copy_machine_metadata_artifacts(config: BuildConfig, target: Path): Unit =
+    _copy_machine_metadata_artifacts(config, config.doxsitePath.toAbsolutePath.normalize(), target)
+
+  private def _copy_machine_metadata_artifacts(config: BuildConfig, source: Path, target: Path): Unit = {
+    _copy_finalization_file(source, target, "site.ttl", "rdf/site.ttl")
+    _copy_finalization_file(source, target, "site.jsonld", "rdf/site.jsonld")
+    _copy_finalization_file(source, target, "metadata/rdf/graph.json", "metadata/rdf/graph.json")
+    _copy_finalization_file(source, target, "metadata/glossary/terms.json", "metadata/glossary/terms.json")
+    _copy_finalization_file(source, target, "metadata/bibliography/bibliography.json", "metadata/bibliography/bibliography.json")
+    _copy_finalization_file(source, target, "metadata/scenarios/scenarios.json", "metadata/scenarios/scenarios.json")
+    _copy_finalization_file(source, target, "metadata/tags/tags.json", "metadata/tags/tags.json")
+    _copy_finalization_directory(source, target, "metadata/repository/car")
+    _copy_finalization_directory(source, target, "metadata/cncf/component-references")
+    _copy_finalization_directory(source, target, "metadata/catalog/projects")
+    _copy_finalization_directory(source, target, "metadata/projects")
+    _copy_finalization_directory(source, target, "metadata/artifacts/repository")
+    _copy_finalization_directory(source, target, "metadata/releases")
     _sync_sie_metadata(config, target)
     _sync_source_rdf_graph_metadata(config, target)
     _version_graph_summary(config, target)
     _write_knowledge_source_manifest(config, target)
   }
+
+  private def _finalization_project_root(project: Path): Path = {
+    val normalized = project.toAbsolutePath.normalize()
+    if (Files.isSymbolicLink(normalized) || !Files.isDirectory(normalized, LinkOption.NOFOLLOW_LINKS))
+      RAISE.invalidArgumentFault(s"BoK project root must be an existing non-symbolic-link directory: $project")
+    normalized
+  }
+
+  private def _finalization_root(path: Path, projectroot: Path, label: String): Path = {
+    val normalized = path.toAbsolutePath.normalize()
+    if (!normalized.startsWith(projectroot))
+      RAISE.invalidArgumentFault(s"$label must be a direct directory inside the project root: $path")
+    _validate_finalization_parent(projectroot, Option(normalized.getParent).getOrElse(projectroot))
+    if (Files.isSymbolicLink(normalized) || !Files.isDirectory(normalized, LinkOption.NOFOLLOW_LINKS))
+      RAISE.invalidArgumentFault(s"$label must be an existing non-symbolic-link directory inside the project root: $path")
+    normalized
+  }
+
+  private def _copy_finalization_file(source: Path, target: Path, input: String, output: String): Unit = {
+    val sourcepath = _finalization_input(source, input)
+    if (Files.exists(sourcepath, LinkOption.NOFOLLOW_LINKS)) {
+      if (Files.isSymbolicLink(sourcepath) || !Files.isRegularFile(sourcepath, LinkOption.NOFOLLOW_LINKS))
+        RAISE.invalidArgumentFault(s"BoK generated metadata input must be a regular file when present: $sourcepath")
+      val targetpath = target.resolve(output).normalize()
+      if (!targetpath.startsWith(target))
+        RAISE.invalidArgumentFault(s"BoK metadata staging output escapes its root: $output")
+      Option(targetpath.getParent).foreach(Files.createDirectories(_))
+      Files.copy(sourcepath, targetpath, StandardCopyOption.REPLACE_EXISTING)
+    }
+  }
+
+  private def _copy_finalization_directory(source: Path, target: Path, relative: String): Unit = {
+    val sourcepath = _finalization_input(source, relative)
+    if (Files.exists(sourcepath, LinkOption.NOFOLLOW_LINKS)) {
+      if (Files.isSymbolicLink(sourcepath) || !Files.isDirectory(sourcepath, LinkOption.NOFOLLOW_LINKS))
+        RAISE.invalidArgumentFault(s"BoK generated metadata input must be a directory when present: $sourcepath")
+      val stream = Files.walk(sourcepath)
+      try {
+        stream.iterator.asScala.toVector.sortBy(_.toString).foreach { path =>
+          val targetpath = target.resolve(relative).resolve(sourcepath.relativize(path)).normalize()
+          if (!targetpath.startsWith(target))
+            RAISE.invalidArgumentFault(s"BoK metadata staging output escapes its root: $path")
+          if (Files.isSymbolicLink(path))
+            RAISE.invalidArgumentFault(s"BoK generated metadata must not contain symbolic links: $path")
+          else if (Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS))
+            Files.createDirectories(targetpath)
+          else if (Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) {
+            Option(targetpath.getParent).foreach(Files.createDirectories(_))
+            Files.copy(path, targetpath, StandardCopyOption.REPLACE_EXISTING)
+          } else
+            RAISE.invalidArgumentFault(s"BoK generated metadata input must contain only files and directories: $path")
+        }
+      } finally {
+        stream.close()
+      }
+    }
+  }
+
+  private def _finalization_input(root: Path, relative: String): Path = {
+    val input = root.resolve(relative).normalize()
+    if (!input.startsWith(root))
+      RAISE.invalidArgumentFault(s"BoK generated metadata input escapes its root: $relative")
+    _validate_finalization_parent(root, Option(input.getParent).getOrElse(root))
+    input
+  }
+
+  private def _validate_staged_metadata(stage: Path): Unit = {
+    val stream = Files.walk(stage)
+    try {
+      stream.iterator().asScala.foreach { path =>
+        if (Files.isSymbolicLink(path))
+          RAISE.invalidArgumentFault(s"BoK generated metadata must not contain symbolic links: $path")
+        else if (Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS) &&
+            !_is_finalization_output(stage.relativize(path)))
+          RAISE.invalidArgumentFault(s"BoK metadata staging output is not allowlisted: $path")
+        else if (!Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS) &&
+            !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
+          RAISE.invalidArgumentFault(s"BoK metadata staging output must contain only files and directories: $path")
+      }
+    } finally {
+      stream.close()
+    }
+  }
+
+  private def _commit_staged_metadata(stage: Path, target: Path, projectroot: Path): Unit = {
+    val staged = _staged_metadata_files(stage).map { source =>
+      source -> _finalization_target(target, stage.relativize(source))
+    }
+    val stagedtargets = staged.map(_._2).toSet
+    val stale = _existing_finalization_outputs(target).filterNot(stagedtargets)
+    val destinations = (staged.map(_._2) ++ stale).distinct.sortBy(_.toString)
+    val backuproot = Files.createTempDirectory(projectroot, ".cozy-bok-finalize-backup-")
+    try {
+      val backups = destinations.map(_backup_finalization_file(_, target, backuproot))
+      var createdparents = Vector.empty[Path]
+      try {
+        staged.foreach { case (source, destination) =>
+          createdparents = createdparents ++ _create_finalization_parent(target, Option(destination.getParent).getOrElse(target))
+          val temporary = Files.createTempFile(destination.getParent, ".cozy-bok-finalize-", ".tmp")
+          try {
+            Files.copy(source, temporary, StandardCopyOption.REPLACE_EXISTING)
+            Files.move(temporary, destination, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+          } catch {
+            case error: Throwable =>
+              Files.deleteIfExists(temporary)
+              throw error
+          }
+        }
+        stale.foreach(Files.deleteIfExists)
+      } catch {
+        case error: Throwable =>
+          _restore_finalization_backups(backups, target)
+          _delete_empty_finalization_directories(createdparents)
+          throw error
+      }
+    } finally {
+      _delete_directory(backuproot)
+    }
+  }
+
+  private def _backup_finalization_file(destination: Path, root: Path, backuproot: Path): FinalizationBackup = {
+    _validate_finalization_parent(root, Option(destination.getParent).getOrElse(root))
+    if (Files.exists(destination, LinkOption.NOFOLLOW_LINKS)) {
+      if (Files.isSymbolicLink(destination) || !Files.isRegularFile(destination, LinkOption.NOFOLLOW_LINKS))
+        RAISE.invalidArgumentFault(s"BoK metadata output must be a regular file when present: $destination")
+      val backup = backuproot.resolve(root.relativize(destination))
+      Option(backup.getParent).foreach(Files.createDirectories(_))
+      Files.copy(destination, backup, StandardCopyOption.REPLACE_EXISTING)
+      FinalizationBackup(destination, Some(backup))
+    } else {
+      FinalizationBackup(destination, None)
+    }
+  }
+
+  private def _staged_metadata_files(stage: Path): Vector[Path] = {
+    val stream = Files.walk(stage)
+    try {
+      stream.iterator().asScala.toVector.
+        filter(Files.isRegularFile(_, LinkOption.NOFOLLOW_LINKS)).
+        filter { path =>
+          val relative = stage.relativize(path)
+          if (!_is_finalization_output(relative))
+            RAISE.invalidArgumentFault(s"BoK metadata staging output is not allowlisted: $path")
+          true
+        }.
+        sortBy(path => stage.relativize(path).toString)
+    } finally {
+      stream.close()
+    }
+  }
+
+  private def _existing_finalization_outputs(root: Path): Vector[Path] = {
+    val files = _finalization_file_allowlist.flatMap { relative =>
+      val path = _finalization_target(root, Paths.get(relative))
+      if (Files.exists(path, LinkOption.NOFOLLOW_LINKS)) {
+        if (Files.isSymbolicLink(path) || !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
+          RAISE.invalidArgumentFault(s"BoK metadata output must be a regular file when present: $path")
+        Vector(path)
+      } else {
+        Vector.empty
+      }
+    }
+    val directories = _finalization_directory_allowlist.flatMap { relative =>
+      val directory = _finalization_target_directory(root, relative)
+      if (!Files.exists(directory, LinkOption.NOFOLLOW_LINKS)) {
+        Vector.empty
+      } else if (Files.isSymbolicLink(directory) || !Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) {
+        RAISE.invalidArgumentFault(s"BoK metadata output directory must be a non-symbolic-link directory when present: $directory")
+      } else {
+        val stream = Files.walk(directory)
+        try {
+          stream.iterator.asScala.toVector.flatMap { path =>
+            if (Files.isSymbolicLink(path))
+              RAISE.invalidArgumentFault(s"BoK metadata output must not contain symbolic links: $path")
+            else if (Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
+              Vector(path)
+            else if (Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS))
+              Vector.empty
+            else
+              RAISE.invalidArgumentFault(s"BoK metadata output must contain only files and directories: $path")
+          }
+        } finally {
+          stream.close()
+        }
+      }
+    }
+    (files ++ directories).distinct.sortBy(_.toString)
+  }
+
+  private def _finalization_target(root: Path, relative: Path): Path = {
+    val normalized = relative.normalize()
+    if (normalized.isAbsolute || !_is_finalization_output(normalized))
+      RAISE.invalidArgumentFault(s"BoK metadata output is not allowlisted: $relative")
+    val target = root.resolve(normalized).normalize()
+    if (!target.startsWith(root))
+      RAISE.invalidArgumentFault(s"BoK metadata output escapes website root: $relative")
+    _validate_finalization_parent(root, Option(target.getParent).getOrElse(root))
+    target
+  }
+
+  private def _finalization_target_directory(root: Path, relative: String): Path = {
+    val target = root.resolve(relative).normalize()
+    if (!target.startsWith(root))
+      RAISE.invalidArgumentFault(s"BoK metadata output directory escapes website root: $relative")
+    _validate_finalization_parent(root, Option(target.getParent).getOrElse(root))
+    target
+  }
+
+  private def _is_finalization_output(relative: Path): Boolean = {
+    val path = relative.toString.replace('\\', '/')
+    _finalization_file_allowlist.contains(path) ||
+      _finalization_directory_allowlist.exists(x => path.startsWith(x + "/"))
+  }
+
+  private def _validate_finalization_parent(root: Path, parent: Path): Unit = {
+    if (!parent.startsWith(root))
+      RAISE.invalidArgumentFault(s"BoK metadata output parent escapes its root: $parent")
+    var current = root
+    root.relativize(parent).iterator.asScala.foreach { segment =>
+      val next = current.resolve(segment.toString)
+      if (Files.exists(next, LinkOption.NOFOLLOW_LINKS) &&
+          (Files.isSymbolicLink(next) || !Files.isDirectory(next, LinkOption.NOFOLLOW_LINKS)))
+        RAISE.invalidArgumentFault(s"BoK metadata output parent is unsafe: $next")
+      current = next
+    }
+  }
+
+  private def _create_finalization_parent(root: Path, parent: Path): Vector[Path] = {
+    _validate_finalization_parent(root, parent)
+    var current = root
+    var created = Vector.empty[Path]
+    root.relativize(parent).iterator.asScala.foreach { segment =>
+      val next = current.resolve(segment.toString)
+      if (!Files.exists(next, LinkOption.NOFOLLOW_LINKS)) {
+        Files.createDirectory(next)
+        created :+= next
+      }
+      current = next
+    }
+    created
+  }
+
+  private def _delete_empty_finalization_directories(paths: Vector[Path]): Unit =
+    paths.reverse.distinct.foreach { path =>
+      if (Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS)) {
+        val stream = Files.newDirectoryStream(path)
+        try {
+          if (!stream.iterator.hasNext)
+            Files.delete(path)
+        } finally {
+          stream.close()
+        }
+      }
+    }
+  private def _restore_finalization_backups(backups: Vector[FinalizationBackup], root: Path): Unit =
+    backups.reverse.foreach { item =>
+      item.backup match {
+        case Some(saved) =>
+          _create_finalization_parent(root, Option(item.target.getParent).getOrElse(root))
+          Files.copy(saved, item.target, StandardCopyOption.REPLACE_EXISTING)
+        case None =>
+          Files.deleteIfExists(item.target)
+      }
+    }
 
   private[bok] def _sie_index(config: BuildConfig): CozyBokSieHandoff.Index =
     CozyBokSieHandoff.load(config.project, _load_config(config.project), _safe_resolved_project_packages(config))

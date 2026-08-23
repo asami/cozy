@@ -12,17 +12,17 @@ Phase Plan Gate: PROCEED
 
 ## BM29-01: Public Finalization Contract
 
-Status: IN_PROGRESS
+Status: COMPLETE
 
-- [ ] Add `cozy bok finalize-metadata [<project-dir>]` with the standard BoK
+- [x] Add `cozy bok finalize-metadata [<project-dir>]` with the standard BoK
       strategy and project-configuration resolution contract.
-- [ ] Define an exact metadata mutation allowlist and reject unsafe,
+- [x] Define an exact metadata mutation allowlist and reject unsafe,
       non-directory, symlinked, or unexpectedly overlapping configured paths.
-- [ ] Extract/reuse one canonical finalization service shared with
+- [x] Extract/reuse one canonical finalization service shared with
       `cozy bok build`; do not fork manifest or graph normalization logic.
-- [ ] Ensure the command never invokes SmartDox, Antora, Arcadia, media,
+- [x] Ensure the command never invokes SmartDox, Antora, Arcadia, media,
       publication, upload, deployment, or project workflow commands.
-- [ ] Document command purpose, prerequisites, generated paths, diagnostics,
+- [x] Document command purpose, prerequisites, generated paths, diagnostics,
       and the distinction from `cozy bok build`.
 
 ## BM29-02: Canonical Metadata and Regression
