@@ -4,9 +4,16 @@ Purpose: engineering work management.
 
 Current phase state:
 
-- Current phase: `phase-29.md`: Project-Owned Site BoK Metadata Finalization.
-  `BM29-01` Public Finalization Contract is in progress; it introduces no site
-  build, SmartDox, Antora, Arcadia, media, publication, or deployment action.
+- Most recent closed phase: `phase-29.md`: Project-Owned Site BoK Metadata
+  Finalization. It introduces `cozy bok finalize-metadata` without site build,
+  SmartDox, Antora, Arcadia, media, publication, or deployment action; runtime
+  generated-site acceptance is separately owned by SmartDox Phase 8
+  `LITERAL8-03`, while review findings `CPB-29-01`/`CPB-29-02` are planned Cozy
+  Phase 34 work.
+- Planned follow-up: `phase-34.md`: BoK Metadata Input Admission Hardening.
+  It owns configured source-root admission and unconditional validation of
+  published glossary/component-reference resources; no repair is included in
+  Phase 29.
 - Most recent closed phase: `phase-33.md`: Declared Cozy Runtime Selection for
   CAR Publication. It established CAR-owned `project.yaml build.cozyVersion`
   as the publication runtime authority, without a temporary `.cozy` override.

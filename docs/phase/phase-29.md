@@ -1,6 +1,6 @@
 # Phase 29: Project-Owned Site BoK Metadata Finalization
 
-Status: in-progress
+Status: complete
 
 Plan date: 2026-08-16
 
@@ -102,31 +102,55 @@ and unchanged `cozy bok build` behavior.
 
 Stage Status:
 
-- Current status: PLANNED
-- Owner: Cozy with SimpleModeling.org as the acceptance driver
+- Current status: COMPLETE
+- Owner: Cozy finalization boundary; downstream generated-site acceptance is
+  owned separately by SmartDox Phase 8 `LITERAL8-03`
 - Update rule: mark work complete only from the Phase 29 checklist.
 - Checklist basis: `BM29-03`
 
-Invoke the public finalizer after the existing SimpleModeling.org WIP and
-production site workflows. Verify that Textus BoK receives the generated
-glossary and compatible graph handoff while all project-owned pages, media,
-Arcadia output, and Knowledge Graph UI remain unchanged outside the metadata
-allowlist.
+Cozy's public finalization boundary, executable specifications, static
+WIP/production-wrapper integration, shell syntax validation, and CLI help
+verification are complete. SmartDox Phase 8 `LITERAL8-02` supplies the
+generator-side deterministic non-empty literal-label projection without
+relaxing Cozy finalizer validation.
+
+Scope-transfer record (2026-08-23): the developer approved completion of this
+Cozy Phase while separately retaining generated-site acceptance in SmartDox
+Phase 8 `LITERAL8-03`. That downstream stage owns separately authorized site
+regeneration; before/after inventories and hashes; successful execution over
+the regenerated tree; Textus BoK reader acceptance; and WIP/production failure
+path acceptance. This Phase does not claim any of that runtime evidence. The
+existing SimpleModeling.org generated graph predates the SmartDox correction,
+and Cozy correctly rejected its empty literal labels before mutation.
+
+Scope-transfer record (2026-08-23, Cozy review): independent Phase review
+identified `CPB-29-01` (configured BoK source-root admission) and `CPB-29-02`
+(unconditional glossary/component-reference resource validation). Under the
+developer's standing instruction not to repair newly found corrections in the
+current Phase, both are transferred to planned Cozy Phase 34, `BOK34-01` and
+`BOK34-02`, respectively. This is an explicit acceptance-boundary change, not
+a claim that either correction was implemented. The review therefore does not
+clear those two findings; it records their separately owned continuation in
+`docs/journal/2026/08/2026-08-23-phase-29-development-candidates.md`
+(`DEV-P29-001`).
 
 ## Completion criteria
 
-- The public finalization command succeeds on a supported existing site tree
-  without invoking or deleting any site-generation output.
-- The resulting KnowledgeSource manifest and every declared child resource are
-  present, compatible, and accepted by the Textus BoK reader contract.
+- The public `finalize-metadata` command, its allowlist, validation, atomicity,
+  and shared `cozy bok build` behavior are implemented and covered by Cozy
+  executable specifications.
 - Missing glossary metadata, malformed/incompatible RDF graphs, unsafe paths,
   and inconsistent component references fail before publication of a partial
   handoff.
-- Exact before/after path and hash evidence shows that non-metadata
-  SimpleModeling.org output is preserved.
-- Repeated execution is deterministic, focused/full Cozy tests pass, the
-  existing `cozy bok build` path regresses cleanly, and independent review
-  converges with no actionable findings.
+- The project-owned wrappers invoke the public command as their final metadata
+  step without replacing SmartDox, Antora, Arcadia, media, or direct-asset
+  processing; their static integration is validated.
+- Focused and full Cozy validation pass. Independent Phase review findings are
+  explicitly transferred by developer direction to Cozy Phase 34 rather than
+  being described as repaired or cleared in this Phase.
+- The user-approved downstream acceptance items are recorded under SmartDox
+  Phase 8 `LITERAL8-03`, without describing their unrun site regeneration or
+  Textus acceptance as completed here.
 
 ## Dependencies
 

@@ -830,7 +830,7 @@ Primary references:
 
 ### Phase 29: Project-Owned Site BoK Metadata Finalization
 
-Status: planned.
+Status: closed.
 
 Purpose and boundaries:
 
@@ -857,6 +857,29 @@ Primary references:
 - `docs/phase/phase-14.md`
 - `docs/phase/phase-22.md`
 - `docs/phase/phase-28.2.md`
+
+### Phase 34: BoK Metadata Input Admission Hardening
+
+Status: planned.
+
+Purpose and boundaries:
+
+- admit configured BoK source paths only after canonical project-root and
+  symlink-safe validation;
+- validate glossary and component-reference resources unconditionally before
+  they can be staged or declared by a KnowledgeSource manifest; and
+- preserve Phase 29's public finalization surface, failure atomicity, metadata
+  allowlist, and prohibition on site-build or project-workflow execution.
+
+This Phase owns `CPB-29-01` and `CPB-29-02` from the Phase 29 full review. It
+does not repeat SmartDox literal-label work or generated-site runtime
+acceptance, which remain SmartDox Phase 8 `LITERAL8-03` responsibility.
+
+Primary references:
+
+- `docs/phase/phase-34.md`
+- `docs/phase/phase-34-checklist.md`
+- `docs/phase/phase-29.md`
 
 ### Phase 30: Unified Storyboard and Three-Gate Video Review Workflow
 
@@ -988,17 +1011,18 @@ Origin:
 | DEV-001 | `docs/journal/2026/08/2026-08-19-cncf-compatibility-naming-hygiene-follow-up.md` (`HYG-P57.4-001`) | Make `Resolved.projectRelativePath` the canonical CML source-result field, retiring the former source-result name without a deprecated accessor, constructor, or named-argument compatibility alias. | NEW_PHASE | [Phase 32](../phase/phase-32.md) | RESOLVED |
 | DEV-002 | `docs/journal/2026/04/cml-operation-design-note.md` (Future Work) | Decide the action hierarchy, result type, async/job model, and CLI/OpenAPI mapping as one future CML operation design boundary. | STRATEGY_ITEM | Strategy section 9 | CANDIDATE |
 | DEV-003 | User-reported CAR publication runtime-selection defect, corroborated by `docs/journal/2026/08/entity-revision-generator-downstream-acceptance-transfer-2026-08-03.md` | Make CAR publish paths select `project.yaml build.cozyVersion` without a temporary `.cozy` runtime override. | NEW_PHASE | [Phase 33](../phase/phase-33.md) | RESOLVED |
+| DEV-004 | Phase 29 full review `CPB-29-01` / `CPB-29-02` | Canonically admit configured BoK source paths and unconditionally validate glossary/component-reference resources before manifest publication. | NEW_PHASE | [Phase 34](../phase/phase-34.md) | PLANNED |
 
 ## Current Priority
 
-Phase 29 is the current SimpleModeling.org operation work, beginning with
-`BM29-01` Public Finalization Contract. The immediate WIP requirement remains
-limited to generating and admitting `website.d/metadata/glossary/terms.json`
-through the existing KnowledgeSource manifest. Phase 29 adds broader
-metadata-only finalization for project-owned site workflows when compatible RDF
-graph and component-reference handoffs become operationally necessary; it uses
-the closed SimpleModeling.org Phase 28.2 integration as its acceptance baseline
-without replacing that project's special build orchestration.
+Phase 29 is closed with the public `cozy bok finalize-metadata` boundary,
+canonical metadata finalization, executable specifications, and static
+SimpleModeling.org wrapper integration accepted. The user-approved separate
+SmartDox Phase 8 `LITERAL8-03` owns regenerated-site runtime finalization,
+metadata-only inventory/hash evidence, and Textus BoK consumer acceptance; Cozy
+does not claim those unrun downstream checks. Cozy Phase 34 is the separate,
+planned correction boundary for `CPB-29-01` and `CPB-29-02`; it is not part of
+the closed Phase 29 scope.
 
 Phase 6 through Phase 23 are closed. Phase 23 completed scalar Entity
 persistence round-trip, driver-CAR verification, and the CBD Support P8-42

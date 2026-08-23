@@ -46,21 +46,42 @@ Status: COMPLETE
 
 ## BM29-03: Project-Owned Site Acceptance
 
-Status: PLANNED
+Status: COMPLETE
 
-- [ ] Integrate the public command as the final metadata step of the existing
+- [x] Integrate the public command as the final metadata step of the existing
       SimpleModeling.org WIP and production wrappers without replacing their
       special SmartDox/Antora/Arcadia/media/direct-asset processing.
-- [ ] Record before/after inventories and hashes proving that only the admitted
-      machine-metadata paths change during finalization.
-- [ ] Verify the finalized manifest declares generated glossary and compatible
-      RDF graph resources and that Textus BoK accepts the handoff.
-- [ ] Verify the WIP and production wrappers fail clearly when required BoK
-      metadata is missing or incompatible.
-- [ ] Run focused and full Cozy validation, project-owned wrapper acceptance,
-      independent review, any bounded repair/re-review, and ledger convergence
-      before closing the Phase.
+- [x] Transfer the required before/after inventory and hash evidence to
+      SmartDox Phase 8 `LITERAL8-03`; do not claim it from the pre-correction
+      SimpleModeling.org generated tree.
+- [x] Transfer successful finalizer execution over regenerated output and
+      Textus BoK reader acceptance to SmartDox Phase 8 `LITERAL8-03`.
+- [x] Transfer WIP/production failure-path acceptance over regenerated output
+      to SmartDox Phase 8 `LITERAL8-03`; retain Cozy's static wrapper review
+      and failure-atomic executable specifications as Phase 29 evidence.
+- [x] Run focused and full Cozy validation, independent Phase review, and
+      record the developer-approved transfer of `CPB-29-01` and `CPB-29-02` to
+      Cozy Phase 34. Project-owned runtime acceptance is separately owned by
+      SmartDox Phase 8 `LITERAL8-03`.
 
-Phase 29 closes only after all three stages are complete and the accepted
-SimpleModeling.org evidence demonstrates preservation of its special site
-workflow.
+Scope-transfer record (2026-08-23): the developer approved closing Cozy Phase
+29 with generated-site runtime acceptance retained as separately verified
+SmartDox work. SmartDox Phase 8 `LITERAL8-03` must obtain separately authorized
+site-regeneration evidence, prove all graph labels are non-empty (including
+`literal::en` and `literal::ja`), run `cozy bok finalize-metadata`, record the
+metadata-only inventory/hash delta, and verify the Textus consumer and wrapper
+failure paths. No such runtime evidence is claimed by this checklist.
+
+Cozy review-transfer record (2026-08-23): full Phase review reported
+`CPB-29-01` for configured source-root admission and `CPB-29-02` for
+unconditional glossary/component-reference validation. In accordance with the
+developer's instruction to add required corrections as a Phase rather than
+repairing them here, planned Cozy Phase 34 owns these corrections. This
+checklist does not claim that either finding is resolved. The durable
+development-candidate record is `DEV-P29-001` in
+`docs/journal/2026/08/2026-08-23-phase-29-development-candidates.md`.
+
+Phase 29 is complete under the developer-approved acceptance change: all
+implemented Cozy boundary work is accepted here, while downstream generated-site
+acceptance is traceably transferred to SmartDox Phase 8 `LITERAL8-03` and
+`CPB-29-01`/`CPB-29-02` are traceably transferred to Cozy Phase 34.
