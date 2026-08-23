@@ -4,6 +4,9 @@ Purpose: engineering work management.
 
 Current phase state:
 
+- Current phase: `phase-29.md`: Project-Owned Site BoK Metadata Finalization.
+  `BM29-01` Public Finalization Contract is in progress; it introduces no site
+  build, SmartDox, Antora, Arcadia, media, publication, or deployment action.
 - Most recent closed phase: `phase-33.md`: Declared Cozy Runtime Selection for
   CAR Publication. It established CAR-owned `project.yaml build.cozyVersion`
   as the publication runtime authority, without a temporary `.cozy` override.
@@ -19,8 +22,6 @@ Current phase state:
   confirmation video review -> final video and rendered-video evidence review`.
   Content-review and video-review PPTX artifacts are optional inspection or
   distribution outputs, not workflow gates.
-- Earlier planned phase: `phase-29.md`: Project-Owned Site BoK Metadata
-  Finalization.
 - Earlier closed phase: `phase-28.2.md`: SimpleModeling.org Part 5
   Integration and Regression; `AM28-03` and `AM28-04` are complete.
 - Most recent split predecessor: `phase-28.1.md`: WIP Local Article Media

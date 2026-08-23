@@ -1,6 +1,6 @@
 # Phase 29: Project-Owned Site BoK Metadata Finalization
 
-Status: planned
+Status: in-progress
 
 Plan date: 2026-08-16
 
@@ -72,10 +72,11 @@ not run a site build and does not replace project-owned orchestration.
 
 Stage Status:
 
-- Current status: PLANNED
+- Current status: IN_PROGRESS
 - Owner: Cozy BoK CLI and configuration
 - Update rule: mark work complete only from the Phase 29 checklist.
 - Checklist basis: `BM29-01`
+- Current step: Public Finalization Contract.
 
 Define command parsing, configured input/output resolution, diagnostics,
 mutation allowlist, failure atomicity, and help/manual documentation. Extract a

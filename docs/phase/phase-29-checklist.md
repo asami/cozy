@@ -12,7 +12,7 @@ Phase Plan Gate: PROCEED
 
 ## BM29-01: Public Finalization Contract
 
-Status: PLANNED
+Status: IN_PROGRESS
 
 - [ ] Add `cozy bok finalize-metadata [<project-dir>]` with the standard BoK
       strategy and project-configuration resolution contract.

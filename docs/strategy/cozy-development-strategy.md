@@ -985,20 +985,20 @@ Origin:
 
 | ID | Source | Development item | Disposition | Target | Status |
 | --- | --- | --- | --- | --- | --- |
-| DEV-001 | `docs/journal/2026/08/2026-08-19-cncf-compatibility-naming-hygiene-follow-up.md` (`HYG-P57.4-001`) | Make `Resolved.projectRelativePath` the canonical CML source-result field while retaining the explicitly required compatibility surface. | NEW_PHASE | [Phase 32](../phase/phase-32.md) | ADOPTED |
+| DEV-001 | `docs/journal/2026/08/2026-08-19-cncf-compatibility-naming-hygiene-follow-up.md` (`HYG-P57.4-001`) | Make `Resolved.projectRelativePath` the canonical CML source-result field, retiring the former source-result name without a deprecated accessor, constructor, or named-argument compatibility alias. | NEW_PHASE | [Phase 32](../phase/phase-32.md) | RESOLVED |
 | DEV-002 | `docs/journal/2026/04/cml-operation-design-note.md` (Future Work) | Decide the action hierarchy, result type, async/job model, and CLI/OpenAPI mapping as one future CML operation design boundary. | STRATEGY_ITEM | Strategy section 9 | CANDIDATE |
-| DEV-003 | User-reported CAR publication runtime-selection defect, corroborated by `docs/journal/2026/08/entity-revision-generator-downstream-acceptance-transfer-2026-08-03.md` | Make CAR publish paths select `project.yaml build.cozyVersion` without a temporary `.cozy` runtime override. | NEW_PHASE | [Phase 33](../phase/phase-33.md) | ADOPTED |
+| DEV-003 | User-reported CAR publication runtime-selection defect, corroborated by `docs/journal/2026/08/entity-revision-generator-downstream-acceptance-transfer-2026-08-03.md` | Make CAR publish paths select `project.yaml build.cozyVersion` without a temporary `.cozy` runtime override. | NEW_PHASE | [Phase 33](../phase/phase-33.md) | RESOLVED |
 
 ## Current Priority
 
-Phase 29 is a planned follow-up rather than a current SimpleModeling.org
-operation gate. The immediate WIP requirement is limited to generating and
-admitting `website.d/metadata/glossary/terms.json` through the existing
-KnowledgeSource manifest. Phase 29 adds broader metadata-only finalization for
-project-owned site workflows when compatible RDF graph and component-reference
-handoffs become operationally necessary; it uses the closed SimpleModeling.org
-Phase 28.2 integration as its acceptance baseline without replacing that
-project's special build orchestration.
+Phase 29 is the current SimpleModeling.org operation work, beginning with
+`BM29-01` Public Finalization Contract. The immediate WIP requirement remains
+limited to generating and admitting `website.d/metadata/glossary/terms.json`
+through the existing KnowledgeSource manifest. Phase 29 adds broader
+metadata-only finalization for project-owned site workflows when compatible RDF
+graph and component-reference handoffs become operationally necessary; it uses
+the closed SimpleModeling.org Phase 28.2 integration as its acceptance baseline
+without replacing that project's special build orchestration.
 
 Phase 6 through Phase 23 are closed. Phase 23 completed scalar Entity
 persistence round-trip, driver-CAR verification, and the CBD Support P8-42
