@@ -10,9 +10,9 @@ Current phase state:
 - Earlier closed phase: `phase-31.md`: Video Encoding Policy Profiles.
   VP31-01 through VP31-03 are complete. Lightweight 1280x720, 18 fps, CRF 32
   is the encoding baseline.
-- Planned phase: `phase-32.md`: CML Source-Result Compatibility Naming.
+- Earlier closed phase: `phase-32.md`: CML Source-Result Canonical Naming.
   It owns only the canonical `Resolved.projectRelativePath` migration and its
-  explicit source-compatibility boundary.
+  explicit retired-name boundary.
 - Planned split-required phase: `phase-30.md`: Unified Storyboard and
   Three-Gate Video Review Workflow. The intended workflow is
   `storyboard.md review -> optional image-backed visual-story review ->
