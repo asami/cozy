@@ -23,7 +23,12 @@ class CozyBokMetadataFinalizationSpec
       _with_temp_dir("cozy-bok-metadata-finalization-success") { dir =>
         Given("an existing configured website with a prepared generated glossary and RDF handoff")
         _write_site_source(dir, glossaryterm = true)
-        _write_prepared_metadata(dir, includeterms = true)
+        _write_prepared_metadata(
+          dir,
+          includeterms = true,
+          rdfgraph = _component_ref_graph(),
+          componentreferences = _component_reference_indexes()
+        )
         _write(dir.resolve("website.d/index.html"), "<html>project-owned-marker</html>\n")
 
         When("the public metadata finalization API runs without a site-build runner")
@@ -36,9 +41,36 @@ class CozyBokMetadataFinalizationSpec
           ("glossary-terms", "metadata/glossary/terms.json"),
           ("rdf-jsonld", "rdf/site.jsonld"),
           ("rdf-turtle", "rdf/site.ttl"),
-          ("rdf-graph-summary", "metadata/rdf/graph.json")
+          ("rdf-graph-summary", "metadata/rdf/graph.json"),
+          ("component-reference-index", "metadata/cncf/component-references/car.json"),
+          ("component-reference-index", "metadata/cncf/component-references/sar.json")
         )
-        _read(dir.resolve("website.d/metadata/rdf/graph.json")) should include("\"schemaVersion\" : \"cozy.rdf-graph-summary.v1\"")
+        val graph = _parse_json(dir.resolve("website.d/metadata/rdf/graph.json"))
+        graph.hcursor.get[String]("schemaVersion") shouldBe Right("cozy.rdf-graph-summary.v1")
+        _graph_component_refs(graph) shouldBe Vector(
+          ("car", "textus-bok", Some("org.textus"), Some("0.6.0")),
+          ("sar", "textus-search", None, Some("1.2.0"))
+        )
+      }
+    }
+
+    "finalize a source-declared glossary without RDF metadata" in {
+      _with_temp_dir("cozy-bok-metadata-finalization-glossary-only") { dir =>
+        Given("a configured website with source-declared glossary terms and only generated glossary metadata")
+        _write_site_source(dir, glossaryterm = true)
+        _write(dir.resolve("doxsite.d/metadata/glossary/terms.json"), "{\"terms\":[]}\n")
+        _write(dir.resolve("website.d/index.html"), "<html>project-owned-marker</html>\n")
+
+        When("the public metadata finalization API runs directly without RDF outputs")
+        CozyBok.finalizeMetadata(_build_config(dir))
+
+        Then("finalization succeeds with the glossary resource as the complete manifest inventory")
+        Files.isRegularFile(
+          dir.resolve("website.d/metadata/glossary/terms.json"),
+          LinkOption.NOFOLLOW_LINKS
+        ) shouldBe true
+        val manifest = _parse_json(dir.resolve("website.d/metadata/cncf/knowledge-source.json"))
+        _resources(manifest) shouldBe Vector(("glossary-terms", "metadata/glossary/terms.json"))
       }
     }
 
@@ -96,10 +128,101 @@ class CozyBokMetadataFinalizationSpec
         Files.isRegularFile(dir.resolve("website.d/metadata/cncf/knowledge-source.json"), LinkOption.NOFOLLOW_LINKS) shouldBe true
       }
     }
+
+    "reject malformed graph and unmatched component references before changing website sentinels" in {
+      Vector(
+        "malformed graph" -> (
+          "{\"nodes\":[],\"edges\":{},\"truncated\":false}\n",
+          Vector.empty[(String, String)],
+          "Invalid BoK RDF graph metadata: edges must be an array."
+        ),
+        "unmatched component reference" -> (
+          _component_ref_graph(),
+          Vector(
+            "car" -> _component_reference_index_json(
+              "car",
+              Vector(_component_reference_entry_json("car", "other-component", None, Vector("0.6.0")))
+            ),
+            "sar" -> _component_reference_index_json(
+              "sar",
+              Vector(_component_reference_entry_json("sar", "textus-search", None, Vector("1.2.0")))
+            )
+          ),
+          "does not match any car component-reference index entry."
+        )
+      ).foreach { case (label, (rdfgraph, componentreferences, message)) =>
+        _with_temp_dir(s"cozy-bok-metadata-finalization-invalid-${label.replace(' ', '-')}") { dir =>
+          Given(s"a configured website with a $label and existing metadata sentinels")
+          _write_site_source(dir, glossaryterm = false)
+          _write_prepared_metadata(dir, includeterms = false, rdfgraph = rdfgraph, componentreferences = componentreferences)
+          _write(dir.resolve("website.d/index.html"), "<html>project-owned-marker</html>\n")
+          _write(dir.resolve("website.d/metadata/cncf/knowledge-source.json"), "sentinel-manifest\n")
+
+          When("metadata finalization validates the prepared handoff")
+          val error = intercept[Throwable] {
+            CozyBok.finalizeMetadata(_build_config(dir))
+          }
+
+          Then("the existing diagnostic is reported before either website sentinel changes")
+          error.getMessage should include(message)
+          _read(dir.resolve("website.d/index.html")) shouldBe "<html>project-owned-marker</html>\n"
+          _read(dir.resolve("website.d/metadata/cncf/knowledge-source.json")) shouldBe "sentinel-manifest\n"
+        }
+      }
+    }
+
+    "reject a symbolic-link website root before finalization writes" in {
+      _with_temp_dir("cozy-bok-metadata-finalization-symbolic-website") { dir =>
+        Given("a prepared metadata handoff and a configured website root that is a symbolic link")
+        _write_site_source(dir, glossaryterm = false)
+        _write_prepared_metadata(dir, includeterms = false)
+        val websitetarget = dir.resolve("website-target")
+        _write(websitetarget.resolve("index.html"), "<html>project-owned-marker</html>\n")
+        Files.createSymbolicLink(dir.resolve("website.d"), websitetarget)
+
+        When("metadata finalization validates the configured roots")
+        val error = intercept[Throwable] {
+          CozyBok.finalizeMetadata(_build_config(dir))
+        }
+
+        Then("the symbolic-link root is rejected without changing its target")
+        error.getMessage should include("BoK website root must be an existing non-symbolic-link directory")
+        _read(websitetarget.resolve("index.html")) shouldBe "<html>project-owned-marker</html>\n"
+      }
+    }
+
+    "share normalized finalization with a production build using only a local runner" in {
+      _with_temp_dir("cozy-bok-metadata-finalization-production") { dir =>
+        Given("a production BoK source and a local runner that writes prepared Dox metadata")
+        _write_site_source(dir, glossaryterm = false)
+        val runner = new LocalMetadataRunner
+
+        When("Cozy builds with strategy production through the fake runner")
+        CozyBok.build(_build_config(dir, strategy = "production"), runner)
+
+        Then("the ordinary build path reaches the same versioned graph and manifest finalization")
+        runner.commands should not be empty
+        runner.commands.exists(_.take(2) == Vector("dox", "site")) shouldBe true
+        val manifest = _parse_json(dir.resolve("website.d/metadata/cncf/knowledge-source.json"))
+        _resources(manifest) shouldBe Vector(
+          ("rdf-jsonld", "rdf/site.jsonld"),
+          ("rdf-turtle", "rdf/site.ttl"),
+          ("rdf-graph-summary", "metadata/rdf/graph.json"),
+          ("component-reference-index", "metadata/cncf/component-references/car.json"),
+          ("component-reference-index", "metadata/cncf/component-references/sar.json")
+        )
+        val graph = _parse_json(dir.resolve("website.d/metadata/rdf/graph.json"))
+        graph.hcursor.get[String]("schemaVersion") shouldBe Right("cozy.rdf-graph-summary.v1")
+        _graph_component_refs(graph) shouldBe Vector(
+          ("car", "textus-bok", Some("org.textus"), Some("0.6.0")),
+          ("sar", "textus-search", None, Some("1.2.0"))
+        )
+      }
+    }
   }
 
-  private def _build_config(dir: Path): CozyBok.BuildConfig =
-    CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview"))
+  private def _build_config(dir: Path, strategy: String = "preview"): CozyBok.BuildConfig =
+    CozyBok.BuildConfig.create(List(dir.toString, "--strategy", strategy))
 
   private def _write_site_source(dir: Path, glossaryterm: Boolean): Unit = {
     _write(
@@ -125,22 +248,108 @@ class CozyBokMetadataFinalizationSpec
       )
   }
 
-  private def _write_prepared_metadata(dir: Path, includeterms: Boolean): Unit = {
+  private def _write_prepared_metadata(
+      dir: Path,
+      includeterms: Boolean,
+      rdfgraph: String = "{\"nodes\":[],\"edges\":[],\"truncated\":false}\n",
+      componentreferences: Vector[(String, String)] = Vector.empty
+  ): Unit = {
     val doxsite = dir.resolve("doxsite.d")
     _write(doxsite.resolve("site.ttl"), "@prefix ex: <https://example.com/> .\n")
     _write(doxsite.resolve("site.jsonld"), "{\"@graph\":[]}\n")
-    _write(
-      doxsite.resolve("metadata/rdf/graph.json"),
-      """{
-        |  "nodes": [],
-        |  "edges": [],
-        |  "truncated": false
-        |}
-        |""".stripMargin
-    )
+    _write(doxsite.resolve("metadata/rdf/graph.json"), rdfgraph)
     if (includeterms)
       _write(doxsite.resolve("metadata/glossary/terms.json"), "{\"terms\":[]}\n")
+    componentreferences.foreach { case (kind, content) =>
+      _write(doxsite.resolve(s"metadata/cncf/component-references/$kind.json"), content)
+    }
   }
+
+  private def _component_ref_graph(): String =
+    """{
+      |  "nodes": [
+      |    {
+      |      "id": "car:textus-bok",
+      |      "label": "Textus BoK",
+      |      "node_type": "component-reference",
+      |      "componentRef": {
+      |        "kind": "car",
+      |        "name": "textus-bok",
+      |        "organization": "org.textus",
+      |        "version": "0.6.0"
+      |      }
+      |    },
+      |    {
+      |      "id": "sar:textus-search",
+      |      "label": "Textus Search",
+      |      "node_type": "component-reference",
+      |      "componentRef": {
+      |        "kind": "sar",
+      |        "name": "textus-search",
+      |        "version": "1.2.0"
+      |      }
+      |    }
+      |  ],
+      |  "edges": [],
+      |  "truncated": false
+      |}
+      |""".stripMargin
+
+  private def _component_reference_indexes(): Vector[(String, String)] =
+    Vector(
+      "car" -> _component_reference_index_json(
+        "car",
+        Vector(_component_reference_entry_json("car", "textus-bok", Some("org.textus"), Vector("0.6.0")))
+      ),
+      "sar" -> _component_reference_index_json(
+        "sar",
+        Vector(_component_reference_entry_json("sar", "textus-search", None, Vector("1.2.0")))
+      )
+    )
+
+  private def _component_reference_index_json(kind: String, entries: Vector[String]): String =
+    s"""{
+       |  "schemaVersion": "cncf.component-reference-index.v1",
+       |  "kind": "$kind",
+       |  "entries": [
+       |${entries.mkString(",\n")}
+       |  ],
+       |  "diagnostics": []
+       |}
+       |""".stripMargin
+
+  private def _component_reference_entry_json(
+      kind: String,
+      name: String,
+      organization: Option[String],
+      versions: Vector[String]
+  ): String = {
+    val organizationfield = organization.map(x => ",\n      \"organization\": \"" + x + "\"").getOrElse("")
+    val versionentries = versions.map(x => s"""{"version": "$x"}""").mkString(", ")
+    s"""    {
+       |      "name": "$name",
+       |      "title": "$name",
+       |      "kind": "$kind"$organizationfield,
+       |      "aliases": [],
+       |      "tags": [],
+       |      "terms": [],
+       |      "source_path": "repository/$kind/$name",
+       |      "versions": [$versionentries]
+       |    }""".stripMargin
+  }
+
+  private def _graph_component_refs(json: Json): Vector[(String, String, Option[String], Option[String])] =
+    json.hcursor.downField("nodes").as[Vector[Json]].fold(throw _, identity).flatMap { node =>
+      node.hcursor.downField("componentRef").focus.flatMap(_.asObject).map { _ =>
+        val cursor = node.hcursor.downField("componentRef")
+        (
+          cursor.get[String]("kind").fold(throw _, identity),
+          cursor.get[String]("name").fold(throw _, identity),
+          cursor.get[Option[String]]("organization").fold(throw _, identity),
+          cursor.get[Option[String]]("version").fold(throw _, identity)
+        )
+      }
+    }
 
   private def _resources(json: Json): Vector[(String, String)] =
     json.hcursor.downField("resources").as[Vector[Json]].fold(throw _, identity).map { resource =>
@@ -160,6 +369,23 @@ class CozyBokMetadataFinalizationSpec
         map(path => root.relativize(path).toString -> _read(path)).toMap
     } finally {
       stream.close()
+    }
+  }
+
+  private class LocalMetadataRunner extends CozyBok.Runner {
+    private var _commands = Vector.empty[Vector[String]]
+
+    def commands: Vector[Vector[String]] = _commands
+
+    def run(command: Vector[String], cwd: Path): Unit = {
+      _commands = _commands :+ command
+      if (command.take(2) == Vector("dox", "site"))
+        _write_prepared_metadata(
+          cwd,
+          includeterms = false,
+          rdfgraph = _component_ref_graph(),
+          componentreferences = _component_reference_indexes()
+        )
     }
   }
 
@@ -184,7 +410,9 @@ class CozyBokMetadataFinalizationSpec
     new String(Files.readAllBytes(path), StandardCharsets.UTF_8)
 
   private def _delete(path: Path): Unit =
-    if (Files.exists(path, LinkOption.NOFOLLOW_LINKS)) {
+    if (Files.isSymbolicLink(path))
+      Files.deleteIfExists(path)
+    else if (Files.exists(path, LinkOption.NOFOLLOW_LINKS)) {
       val stream = Files.walk(path)
       try {
         stream.iterator.asScala.toVector.sortBy(_.getNameCount).reverse.foreach(Files.deleteIfExists)

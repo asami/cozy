@@ -27,21 +27,21 @@ Status: COMPLETE
 
 ## BM29-02: Canonical Metadata and Regression
 
-Status: PLANNED
+Status: COMPLETE
 
-- [ ] Copy/retain required SmartDox glossary metadata and fail when declared
+- [x] Copy/retain required SmartDox glossary metadata and fail when declared
       terminology metadata is missing rather than reconstructing it.
-- [ ] Validate and version RDF graph metadata as
+- [x] Validate and version RDF graph metadata as
       `cozy.rdf-graph-summary.v1` with canonical kind and source attribution.
-- [ ] Generate and validate CAR/SAR component-reference indexes from admitted
+- [x] Generate and validate CAR/SAR component-reference indexes from admitted
       repository/publication metadata without building or publishing CAR/SAR.
-- [ ] Generate `cncf.knowledge-source.v1` from the exact validated resources
+- [x] Generate `cncf.knowledge-source.v1` from the exact validated resources
       that exist and verify every declared relative child reference.
-- [ ] Make the handoff failure-atomic and deterministic across repeated runs.
-- [ ] Add executable specifications for glossary-only, glossary plus RDF,
+- [x] Make the handoff failure-atomic and deterministic across repeated runs.
+- [x] Add executable specifications for glossary-only, glossary plus RDF,
       component references, missing/invalid inputs, unsafe paths, rollback,
       repeat execution, and no external command execution.
-- [ ] Regress ordinary `cozy bok build` and production build behavior against
+- [x] Regress ordinary `cozy bok build` and production build behavior against
       the shared finalization service.
 
 ## BM29-03: Project-Owned Site Acceptance

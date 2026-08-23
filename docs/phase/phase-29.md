@@ -87,10 +87,11 @@ single finalization service from the metadata steps currently embedded in
 
 Stage Status:
 
-- Current status: PLANNED
+- Current status: COMPLETE
 - Owner: Cozy BoK/SIE metadata
 - Update rule: mark work complete only from the Phase 29 checklist.
 - Checklist basis: `BM29-02`
+- Current step: completed canonical metadata and regression coverage.
 
 Finalize glossary, versioned RDF graph summary, KnowledgeSource manifest, and
 component-reference indexes without running the site build. Prove exact
