@@ -4,19 +4,25 @@ Purpose: engineering work management.
 
 Current phase state:
 
-- Most recent closed phase: `phase-29.md`: Project-Owned Site BoK Metadata
-  Finalization. It introduces `cozy bok finalize-metadata` without site build,
-  SmartDox, Antora, Arcadia, media, publication, or deployment action; runtime
-  generated-site acceptance is separately owned by SmartDox Phase 8
-  `LITERAL8-03`, while review findings `CPB-29-01`/`CPB-29-02` are planned Cozy
-  Phase 34 work.
-- Planned follow-up: `phase-34.md`: BoK Metadata Input Admission Hardening.
-  It owns configured source-root admission and unconditional validation of
-  published glossary/component-reference resources; no repair is included in
-  Phase 29.
+- Current phase: `phase-34.md`: BoK Metadata Input Admission Hardening. Its
+  focused source-admission, resource-validation, and CFB3 fixture evidence is
+  provisional; the final official full Cozy test is the single remaining gate.
+  No new full-suite test has been run or passed, so Phase 34 is not closed or
+  released and no release commit is claimed.
+- Superseded successor record: `phase-35.md`: BoK Executable-Spec Source
+  Fixture Self-Containment. CFB3 resolved its proposed fixture scope in Phase
+  34; the Phase 35 planning records remain only as unexecuted history. SmartDox
+  Phase 8 `LITERAL8-03` remains separate for generated-site and Textus BoK
+  consumer acceptance.
 - Most recent closed phase: `phase-33.md`: Declared Cozy Runtime Selection for
   CAR Publication. It established CAR-owned `project.yaml build.cozyVersion`
   as the publication runtime authority, without a temporary `.cozy` override.
+- Historical closed phase: `phase-29.md`: Project-Owned Site BoK Metadata
+  Finalization. It introduced `cozy bok finalize-metadata` without site build,
+  SmartDox, Antora, Arcadia, media, publication, or deployment action; runtime
+  generated-site acceptance remains separately owned by SmartDox Phase 8
+  `LITERAL8-03`, while its transferred correction remains in-progress and
+  in progress in Phase 34 awaiting final validation.
 - Earlier closed phase: `phase-31.md`: Video Encoding Policy Profiles.
   VP31-01 through VP31-03 are complete. Lightweight 1280x720, 18 fps, CRF 32
   is the encoding baseline.

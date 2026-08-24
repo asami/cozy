@@ -180,6 +180,43 @@ final class CozyVideoProfileRenderSpec
       }
     }
 
+    "hold a summary infographic after final narration when its profile requests a hold" in {
+      _with_temp_dir("summary-post-narration-hold") { dir =>
+        Given("an explanation profile whose summary must remain visible after narration")
+        val pkg = dir.resolve("summary-post-narration-hold.video")
+        CozyVideoScaffold.scaffold(CozyVideoScaffold.Config.create(List(
+          "summary-post-narration-hold",
+          s"--save=$pkg",
+          "--profile=explanation"
+        )))
+        _write(
+          pkg.resolve("video.yaml"),
+          _read(pkg.resolve("video.yaml")).replace(
+            "summary: overview-and-conclusion",
+            "summary: overview-and-conclusion-hold"
+          )
+        )
+        _write_audio_manifests(pkg, Vector("explanation"))
+
+        When("the Remotion adapter renders the held-summary profile")
+        CozyVideo.render(
+          CozyVideo.RenderConfig(pkg.resolve("video.yaml"), "remotion", checkTools = false),
+          CozyVideo.VideoToolRegistry(Vector.empty),
+          ProfileRenderRunner()
+        )
+
+        Then("the summary starts after the content, holds for five seconds, and precedes the final page")
+        val props = _json(pkg.resolve("target/cozy-video/remotion/explanation/props.json"))
+        _int(props, "timing", "openingFrames") shouldBe 81
+        _int(props, "timing", "contentFrames") shouldBe 144
+        _int(props, "timing", "summaryStartFrame") shouldBe 225
+        _int(props, "timing", "summaryFrames") shouldBe 90
+        _int(props, "timing", "finalPageStartFrame") shouldBe 315
+        _int(props, "timing", "finalPageHoldFrames") shouldBe 36
+        _int(props, "timing", "totalFrames") shouldBe 351
+      }
+    }
+
     "extend scene rendering when synthesized narration exceeds its authored target duration" in {
       _with_temp_dir("narration-overrun") { dir =>
         Given("an authored eight-second scene whose lead and synthesized narration require eleven seconds")

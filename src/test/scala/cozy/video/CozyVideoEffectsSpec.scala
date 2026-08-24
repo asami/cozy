@@ -65,6 +65,22 @@ final class CozyVideoEffectsSpec
         expansions should have_effect_displays("none", "none", "none", "none")
         capability should support_all_effects
       }
+
+      "provide a post-narration hold profile for a summary infographic" in {
+        Given("a project that asks viewers to read its summary after narration ends")
+        val expansions = CozyVideoEffects.expand(Some(CozyVideoEffects.Settings(
+          Some("none"),
+          Some("none"),
+          Some("overview-and-conclusion-hold"),
+          Some("none")
+        )))
+
+        When("Cozy expands the requested summary profile")
+        val summary = expansions.find(_.role == CozyVideoEffects.Role.Summary).get
+
+        Then("the renderer-neutral contract carries the five-second hold")
+        summary.display shouldBe "summary-layout(mode=single-page) -> fade-rise(target=overview) -> spring-pop(target=conclusion) -> hold(seconds=5.0)"
+      }
     }
 
     "enforce profile and capability diagnostics" which {
@@ -85,7 +101,7 @@ final class CozyVideoEffectsSpec
 
           Then("the diagnostic lists the role and available profiles")
           error.getMessage should include_text("Unknown summary visual-effect profile: spinning-summary")
-          error.getMessage should include_text("Available profiles: none, overview-and-conclusion")
+          error.getMessage should include_text("Available profiles: none, overview-and-conclusion, overview-and-conclusion-hold")
         }
       }
 

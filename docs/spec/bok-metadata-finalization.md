@@ -41,22 +41,34 @@ project-owned files remain unchanged.
 
 ## Configured source admission
 
-Before reading source glossary declarations or source RDF graph metadata,
-Cozy validates the selected project as an existing non-symbolic-link directory
-and uses its absolute normalized path as the lexical project root. It first
-admits `config.sourcepath` lexically below that root, rejecting an
-outside-root path, a non-directory, the source directory itself being a
-symbolic link, or a symbolic-link path segment on the way to the source. It
-then compares the source's canonical real path with the project's canonical
-real path to reject canonical escapes. Source glossary and RDF reads receive
-only the admitted canonical source path.
+Configuration-time admission runs while `BuildConfig.create` resolves the
+project configuration. Cozy validates the selected project as an existing
+non-symbolic-link directory and uses its absolute normalized path as the
+lexical project root. It admits the configured source lexically below that
+root, rejecting an outside-root path, an existing non-directory, the source
+directory itself being a symbolic link, or a symbolic-link/non-directory path
+segment on the way to the source. A safe in-project source leaf may be absent:
+Cozy validates the existing parent segments and nearest existing ancestor for
+canonical containment, then treats a missing `site.conf` as an empty site
+configuration. The admitted source is stored as a normalized project-relative
+`BuildConfig` value, and no source `site.conf` is read unless that file exists.
+
+Execution-time admission remains strict. Before an ordinary `cozy bok build`
+invokes its runner or mutates build output, and before `finalize-metadata`
+reads source declarations or RDF metadata, Cozy requires the configured source
+to be an existing non-symbolic-link directory. It then compares the source's
+canonical real path with the project's canonical real path to reject canonical
+escapes. All source reads, build consumers, and output mutations use only this
+strictly admitted execution-time configuration.
 
 ## Safety and failure behavior
 
-Before any shared direct-copy build route copies machine metadata, and before
-the staging finalizer creates a staging directory or declares a
-`cncf.knowledge-source.v1` resource, Cozy validates every generated
-`metadata/glossary/terms.json` with the canonical `TermIndex` decoder. It also
+Before any ordinary build runner or mutation, Cozy applies the configured
+source admission above. Before any shared direct-copy build route copies
+machine metadata, and before the staging finalizer creates a staging directory
+or declares a `cncf.knowledge-source.v1` resource, Cozy validates every
+generated `metadata/glossary/terms.json` with the canonical `TermIndex` decoder.
+It also
 validates every present generated
 `metadata/cncf/component-references/car.json` and `sar.json` that could be
 declared by the manifest with the established

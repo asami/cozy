@@ -75,6 +75,12 @@ private[cozy] object CozyVideoEffects {
       Primitive("fade-rise", Vector("target" -> "overview")),
       Primitive("spring-pop", Vector("target" -> "conclusion"))
     ),
+    (Role.Summary, "overview-and-conclusion-hold") -> Vector(
+      Primitive("summary-layout", Vector("mode" -> "single-page")),
+      Primitive("fade-rise", Vector("target" -> "overview")),
+      Primitive("spring-pop", Vector("target" -> "conclusion")),
+      Primitive("hold", Vector("seconds" -> "5.0"))
+    ),
     (Role.FinalPage, "none") -> Vector.empty,
     (Role.FinalPage, "end-card") -> Vector(
       Primitive("end-card"),

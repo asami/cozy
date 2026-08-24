@@ -1881,9 +1881,30 @@ class CozyBokSpec
         }
       }
 
+      "resolve configuration defaults when the in-project source is absent" in {
+        _with_temp_dir("cozy-bok-config-absent-source") { dir =>
+          Given("a BoK project whose default source directory and site.conf do not exist")
+          _write(
+            dir.resolve(".cozy/config.yaml"),
+            "bok:\n  docker-image: config-image\n"
+          )
+
+          When("build configuration is resolved without creating the source")
+          val config = CozyBok.BuildConfig.create(List(dir.toString))
+
+          Then("the project-relative source and configuration defaults are retained")
+          config.source shouldBe "src/main/doxsite"
+          config.sourcePath shouldBe dir.resolve("src/main/doxsite")
+          config.dockerImage shouldBe "config-image"
+          config.siteTitle shouldBe "KnowledgeHub BoK"
+          config.siteOutputScopePolicy shouldBe "home_only"
+        }
+      }
+
       "pass the configured Textus toolchain image to SmartDox Kroki execution" in {
         _with_temp_dir("cozy-bok-smartdox-kroki-toolchain") { dir =>
           Given("a BoK build with a configured Textus toolchain image")
+          Files.createDirectories(dir.resolve("src/main/doxsite"))
           val runner = new EnvRecordingRunner
           val config = CozyBok.BuildConfig.create(
             List(dir.toString, "--docker-image", "example/toolchain:dev")
@@ -2360,6 +2381,7 @@ class CozyBokSpec
       "include arcadia step only when enabled" in {
         _with_temp_dir("cozy-bok-arcadia") { dir =>
           Given("a BoK config with Arcadia site generation enabled")
+          Files.createDirectories(dir.resolve("src/main/doxsite"))
           _write(
             dir.resolve(".cozy/config.yaml"),
             """bok:
@@ -2387,6 +2409,7 @@ class CozyBokSpec
       "copy direct assets only in production when configured" in {
         _with_temp_dir("cozy-bok-direct-assets") { dir =>
           Given("a production BoK build with configured direct assets")
+          Files.createDirectories(dir.resolve("src/main/doxsite"))
           _write(
             dir.resolve(".cozy/config.yaml"),
             """bok:
@@ -2450,6 +2473,7 @@ class CozyBokSpec
           Given(
             "a BoK config containing direct assets and unrelated publication YAML items"
           )
+          Files.createDirectories(dir.resolve("src/main/doxsite"))
           _write(
             dir.resolve(".cozy/config.yaml"),
             """bok:
@@ -2639,6 +2663,7 @@ class CozyBokSpec
           Given(
             "a production BoK build without an explicit RDF missing artifact policy"
           )
+          Files.createDirectories(dir.resolve("src/main/doxsite"))
           val config = CozyBok.BuildConfig.create(
             List(dir.toString, "--strategy", "production")
           )

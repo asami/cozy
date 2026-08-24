@@ -190,6 +190,62 @@ class CozyBokMetadataFinalizationSpec
       }
     }
 
+    "reject an unsafe bok.source from the public build command before reading site.conf" in {
+      _with_temp_dir("cozy-bok-metadata-finalization-command-source") { dir =>
+        val outside = Files.createTempDirectory("cozy-bok-unsafe-source")
+        try {
+          Given("a project config whose bok.source escapes the project and an outside site.conf that would reject if read")
+          _write_site_source(dir, glossaryterm = false)
+          _write(outside.resolve("site.conf"), "site.output.locale_mode = unsupported\n")
+          _write(
+            dir.resolve("conf/cozy/config.yaml"),
+            s"""bok:
+               |  source: ${dir.relativize(outside).toString}
+               |""".stripMargin
+          )
+          _write(dir.resolve("website.d/index.html"), "<html>command-source-sentinel</html>\n")
+
+          When("the public bok build command resolves its configured source")
+          val error = intercept[Throwable] {
+            CozyBok.execute(List("bok", "build", dir.toString))
+          }
+
+          Then("it rejects the source before reading site.conf or mutating build output")
+          error.getMessage should include("BoK configured source root must be inside the project root")
+          _read(dir.resolve("website.d/index.html")) shouldBe "<html>command-source-sentinel</html>\n"
+        } finally {
+          _delete(outside)
+        }
+      }
+    }
+
+    "reject a symbolic-link bok.source from the public build command before reading site.conf" in {
+      _with_temp_dir("cozy-bok-metadata-finalization-command-source-link") { dir =>
+        Given("a project config whose bok.source is a symbolic link and an external site.conf that would reject if read")
+        val outside = Files.createTempDirectory("cozy-bok-unsafe-source-link")
+        try {
+          _write(outside.resolve("site.conf"), "site.output.locale_mode = unsupported\n")
+          Files.createSymbolicLink(dir.resolve("source-link"), outside)
+          _write(
+            dir.resolve("conf/cozy/config.yaml"),
+            "bok:\n  source: source-link\n"
+          )
+          _write(dir.resolve("website.d/index.html"), "<html>command-source-link-sentinel</html>\n")
+
+          When("the public bok build command resolves its configured source")
+          val error = intercept[Throwable] {
+            CozyBok.execute(List("bok", "build", dir.toString))
+          }
+
+          Then("it rejects the symbolic link before reading site.conf or mutating build output")
+          error.getMessage should include("BoK configured source root must be an existing non-symbolic-link directory")
+          _read(dir.resolve("website.d/index.html")) shouldBe "<html>command-source-link-sentinel</html>\n"
+        } finally {
+          _delete(outside)
+        }
+      }
+    }
+
     "reject malformed graph and unmatched component references before changing website sentinels" in {
       Vector(
         "malformed graph" -> (
@@ -319,6 +375,45 @@ class CozyBokMetadataFinalizationSpec
           ("car", "textus-bok", Some("org.textus"), Some("0.6.0")),
           ("sar", "textus-search", None, Some("1.2.0"))
         )
+      }
+    }
+
+    "reject an unsafe configured source before ordinary build mutation or runner invocation" in {
+      _with_temp_dir("cozy-bok-metadata-finalization-build-source") { dir =>
+        Given("a configured BoK build with an outside-root source and an existing website sentinel")
+        _write_site_source(dir, glossaryterm = false)
+        _write(dir.resolve("website.d/index.html"), "<html>build-source-sentinel</html>\n")
+        val runner = new LocalMetadataRunner
+        val config = _build_config(dir).copy(source = dir.resolve("../outside-source").normalize.toString)
+
+        When("the ordinary public build path admits its configured source")
+        val error = intercept[Throwable] {
+          CozyBok.build(config, runner)
+        }
+
+        Then("it reports the configured source diagnostic before changing output or invoking the runner")
+        error.getMessage should include("BoK configured source root")
+        _read(dir.resolve("website.d/index.html")) shouldBe "<html>build-source-sentinel</html>\n"
+        runner.commands shouldBe empty
+      }
+    }
+
+    "reject a safe-but-absent source before ordinary build mutation or runner invocation" in {
+      _with_temp_dir("cozy-bok-metadata-finalization-build-absent-source") { dir =>
+        Given("a configured BoK build whose in-project source directory is absent and an existing website sentinel")
+        _write(dir.resolve("website.d/index.html"), "<html>build-absent-source-sentinel</html>\n")
+        val runner = new LocalMetadataRunner
+        val config = _build_config(dir)
+
+        When("the ordinary public build path admits its configured source")
+        val error = intercept[Throwable] {
+          CozyBok.build(config, runner)
+        }
+
+        Then("it rejects the absent source before changing output or invoking the runner")
+        error.getMessage should include("BoK configured source root must be an existing non-symbolic-link directory")
+        _read(dir.resolve("website.d/index.html")) shouldBe "<html>build-absent-source-sentinel</html>\n"
+        runner.commands shouldBe empty
       }
     }
 

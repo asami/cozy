@@ -91,7 +91,25 @@ private[cozy] trait CozyVideoRenderTemplates {
       else 0
     val sectionframes = if (sectionstarteffect) math.min(contentframes, math.round(1.2 * fps).toInt) else 0
     val isfinalpart = plan.parts.filter(_.renderable).lastOption.exists(_.id == part.id)
-    val summaryframes = if (isfinalpart && effects.exists(x => x.role == CozyVideoEffects.Role.Summary && x.primitives.nonEmpty)) math.min(contentframes, math.round(2.4 * fps).toInt) else 0
+    val summaryholdseconds = _effect_parameter_double(
+      effects,
+      CozyVideoEffects.Role.Summary,
+      "hold",
+      "seconds"
+    )
+    val summaryframes =
+      if (isfinalpart && effects.exists(x => x.role == CozyVideoEffects.Role.Summary && x.primitives.nonEmpty))
+        summaryholdseconds.
+          map(seconds => math.max(0, math.round(seconds * fps).toInt)).
+          getOrElse(math.min(contentframes, math.round(2.4 * fps).toInt))
+      else
+        0
+    val summarystartframe =
+      if (summaryholdseconds.isDefined)
+        openingframes + contentframes
+      else
+        openingframes + math.max(0, contentframes - summaryframes)
+    val summarystandaloneframes = if (summaryholdseconds.isDefined) summaryframes else 0
     val creditframes =
       if (isfinalpart && plan.credits.hasVideoPage)
         math.max(1, math.round(plan.credits.holdSeconds * fps).toInt)
@@ -104,7 +122,7 @@ private[cozy] trait CozyVideoRenderTemplates {
       "seconds"
     ).getOrElse(0.0)
     val finalframes = if (isfinalpart) math.max(0, math.round(holdseconds * fps).toInt) else 0
-    val totalframes = openingframes + contentframes + creditframes + finalframes
+    val totalframes = openingframes + contentframes + summarystandaloneframes + creditframes + finalframes
     var startframe = 0
     val scenes = script.expandedScenes.zip(audio.entries).zip(audio.files).zip(scenesectiontransitions).map {
       case (((scene, entry), file), transitionframes) =>
@@ -192,11 +210,11 @@ private[cozy] trait CozyVideoRenderTemplates {
         "contentFrames" -> Json.fromInt(contentframes),
         "sectionStartFrame" -> Json.fromInt(openingframes),
         "sectionStartFrames" -> Json.fromInt(sectionframes),
-        "summaryStartFrame" -> Json.fromInt(openingframes + math.max(0, contentframes - summaryframes)),
+        "summaryStartFrame" -> Json.fromInt(summarystartframe),
         "summaryFrames" -> Json.fromInt(summaryframes),
-        "creditPageStartFrame" -> Json.fromInt(openingframes + contentframes),
+        "creditPageStartFrame" -> Json.fromInt(openingframes + contentframes + summarystandaloneframes),
         "creditPageHoldFrames" -> Json.fromInt(creditframes),
-        "finalPageStartFrame" -> Json.fromInt(openingframes + contentframes + creditframes),
+        "finalPageStartFrame" -> Json.fromInt(openingframes + contentframes + summarystandaloneframes + creditframes),
         "finalPageHoldFrames" -> Json.fromInt(finalframes),
         "totalFrames" -> Json.fromInt(totalframes)
       )

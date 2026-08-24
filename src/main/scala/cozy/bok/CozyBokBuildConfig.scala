@@ -329,7 +329,10 @@ private[cozy] trait CozyBokBuildConfig {
       val project = _project(parsed)
       val config = _load_config(project)
       val source = config.value("bok.source").getOrElse("src/main/doxsite")
-      val site = _load_site_config(project.resolve(source))
+      val projectroot = _finalization_project_root(project)
+      val admittedsource = _admit_build_config_source(project.resolve(source), projectroot)
+      val admittedrelative = projectroot.relativize(admittedsource).toString
+      val site = _load_site_config(admittedsource)
       val languages = _languages(config, site)
       val sitetitle = site.value("site.metadata.name").getOrElse("KnowledgeHub BoK")
       val siteid = site.value("site.metadata.id").
@@ -348,7 +351,7 @@ private[cozy] trait CozyBokBuildConfig {
           getOrElse(_default_docker_image)
       BuildConfig(
         project,
-        source,
+        admittedrelative,
         config.value("bok.website").getOrElse("website.d"),
         config.value("bok.antora").getOrElse("antora.d"),
         config.value("bok.doxsite").getOrElse("doxsite.d"),
@@ -370,6 +373,47 @@ private[cozy] trait CozyBokBuildConfig {
         !parsed.request.switches.exists(_.name == "no-bib-service")
       )
     }
+  }
+
+  private def _admit_build_config_source(source: Path, projectroot: Path): Path = {
+    val normalized = source.toAbsolutePath.normalize()
+    if (!normalized.startsWith(projectroot))
+      RAISE.invalidArgumentFault(s"BoK configured source root must be inside the project root: $source")
+    if (normalized != projectroot)
+      _validate_build_config_source_parent(
+        projectroot,
+        Option(normalized.getParent).getOrElse(projectroot)
+      )
+    if (Files.exists(normalized, LinkOption.NOFOLLOW_LINKS) &&
+        (Files.isSymbolicLink(normalized) || !Files.isDirectory(normalized, LinkOption.NOFOLLOW_LINKS)))
+      RAISE.invalidArgumentFault(
+        s"BoK configured source root must be an existing non-symbolic-link directory inside the project root: $source"
+      )
+    val canonicalprojectroot = projectroot.toRealPath()
+    val canonical = _nearest_existing_build_config_path(normalized).toRealPath()
+    if (!canonical.startsWith(canonicalprojectroot))
+      RAISE.invalidArgumentFault(s"BoK configured source root must resolve below the project root: $source")
+    normalized
+  }
+
+  private def _validate_build_config_source_parent(root: Path, parent: Path): Unit = {
+    if (!parent.startsWith(root))
+      RAISE.invalidArgumentFault(s"BoK configured source root must be inside the project root: $parent")
+    var current = root
+    root.relativize(parent).iterator.asScala.foreach { segment =>
+      val next = current.resolve(segment.toString)
+      if (Files.exists(next, LinkOption.NOFOLLOW_LINKS) &&
+          (Files.isSymbolicLink(next) || !Files.isDirectory(next, LinkOption.NOFOLLOW_LINKS)))
+        RAISE.invalidArgumentFault(s"BoK configured source root is unsafe: $next")
+      current = next
+    }
+  }
+
+  private def _nearest_existing_build_config_path(path: Path): Path = {
+    var current = path
+    while (!Files.exists(current, LinkOption.NOFOLLOW_LINKS))
+      current = Option(current.getParent).getOrElse(current)
+    current
   }
 
   private[bok] def _site_identifier(value: String): String =

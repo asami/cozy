@@ -860,7 +860,7 @@ Primary references:
 
 ### Phase 34: BoK Metadata Input Admission Hardening
 
-Status: planned.
+Status: in progress; awaiting final validation.
 
 Purpose and boundaries:
 
@@ -871,15 +871,72 @@ Purpose and boundaries:
 - preserve Phase 29's public finalization surface, failure atomicity, metadata
   allowlist, and prohibition on site-build or project-workflow execution.
 
-This Phase owns `CPB-29-01` and `CPB-29-02` from the Phase 29 full review. It
-does not repeat SmartDox literal-label work or generated-site runtime
-acceptance, which remain SmartDox Phase 8 `LITERAL8-03` responsibility.
+This Phase owns and addresses `CPB-29-01` and `CPB-29-02` from the Phase 29
+full review. BOK34-01 and BOK34-02 were provisionally accepted in Cozy commits
+`e1a6416457d5692513741f686c7e1a34a56d390e` and
+`c464d7788e939d4987c79250c27df76ee40b626d`; normal closure repair
+`CPB-BOK34-001` and exceptional closure repair `CB-P34-CFB2-001` were
+provisionally accepted
+with focused invocation `52873-20260824T043314Z` (`testOnly cozy.CozyBokSpec
+cozy.CozyBokMetadataFinalizationSpec`, 16 succeeded/0 failed/0 aborted, SBT 0,
+wrapper 0, lock released), and the fresh focused re-review returned
+`FOCUSED_PASS` with no Current Boundary Blocker, Hygiene, or Development
+Candidate finding. CFB2 permits a safely absent in-project source only during
+configuration resolution; actual Build admission remains strict. The final
+official full Cozy test wrapper invocation `58874-20260824T044406Z` then
+reported 1,369 total, 1,364 succeeded, 5 failed, 8 canceled, 99 suites
+completed, and 0 aborted; SBT and wrapper exit codes were 1 and the lock was
+released. All 5 failures are `cozy.bok.CozyBokSpec` actual-Build scenarios
+using the default `src/main/doxsite` without making its local fixture:
+configured Textus image, Arcadia, production direct assets, unrelated
+YAML/direct assets, and the default production RDF missing-artifact policy.
+Strict actual-Build admission remains correct. CFB3 then added local
+`src/main/doxsite` fixtures in all five scenarios without changing production
+behavior or adding an external project dependency. Valid focused evidence is
+invocation `85555-20260824T054332Z`, exact command
+`testOnly cozy.bok.CozyBokSpec`, with 60 succeeded/0 failed/0 canceled, one
+suite, SBT and wrapper 0, and lock released; the fresh focused re-review was
+`FOCUSED_PASS` with no findings and preserved CFB2 safe absence at
+configuration time plus strict actual-Build admission. The earlier full-test
+fixture failure is superseded by CFB3; no new full-suite test has been run or
+passed. Phase 34 awaits that single final gate and is not closed or released.
+It does not repeat SmartDox literal-label work or generated-site runtime
+acceptance: SmartDox Phase 8 `LITERAL8-03` and Textus BoK consumer acceptance
+remain separate and are not evidence this Phase performs or claims.
 
 Primary references:
 
 - `docs/phase/phase-34.md`
 - `docs/phase/phase-34-checklist.md`
 - `docs/phase/phase-29.md`
+
+### Phase 35: BoK Executable-Spec Source Fixture Self-Containment
+
+Status: superseded; not started.
+
+Purpose and boundaries:
+
+- preserve CFB2's configuration-time safe-absence admission and strict
+  actual-Build source admission;
+- make only actual-Build executable-spec source fixtures self-contained local
+  safe sources, or revise the stated behavior after rules/spec/design work;
+- specify the exact future behavior in rules, spec, and design before any
+  implementation; and
+- keep SmartDox/Textus consumer acceptance separate from this Cozy correction.
+
+This former successor for the Phase 34 final full-suite executable-spec fixture
+regression is superseded by CFB3, which resolved its proposed fixture scope in
+P34. Its historical boundaries must not weaken lexical, canonical, symlink,
+outside-root, or strict actual-Build rejection, and no downstream site-build,
+external SimpleModeling.org source, or SmartDox workaround was used. All Phase
+35 items remain unexecuted; no Phase 35 implementation is started by this
+record.
+
+Primary references:
+
+- `docs/phase/phase-35.md`
+- `docs/phase/phase-35-checklist.md`
+- `docs/journal/2026/08/2026-08-24-phase-34-development-candidates.md`
 
 ### Phase 30: Unified Storyboard and Three-Gate Video Review Workflow
 
@@ -1011,18 +1068,36 @@ Origin:
 | DEV-001 | `docs/journal/2026/08/2026-08-19-cncf-compatibility-naming-hygiene-follow-up.md` (`HYG-P57.4-001`) | Make `Resolved.projectRelativePath` the canonical CML source-result field, retiring the former source-result name without a deprecated accessor, constructor, or named-argument compatibility alias. | NEW_PHASE | [Phase 32](../phase/phase-32.md) | RESOLVED |
 | DEV-002 | `docs/journal/2026/04/cml-operation-design-note.md` (Future Work) | Decide the action hierarchy, result type, async/job model, and CLI/OpenAPI mapping as one future CML operation design boundary. | STRATEGY_ITEM | Strategy section 9 | CANDIDATE |
 | DEV-003 | User-reported CAR publication runtime-selection defect, corroborated by `docs/journal/2026/08/entity-revision-generator-downstream-acceptance-transfer-2026-08-03.md` | Make CAR publish paths select `project.yaml build.cozyVersion` without a temporary `.cozy` runtime override. | NEW_PHASE | [Phase 33](../phase/phase-33.md) | RESOLVED |
-| DEV-004 | Phase 29 full review `CPB-29-01` / `CPB-29-02` | Canonically admit configured BoK source paths and unconditionally validate glossary/component-reference resources before manifest publication. | NEW_PHASE | [Phase 34](../phase/phase-34.md) | PLANNED |
+| DEV-004 | Phase 29 full review `CPB-29-01` / `CPB-29-02` | Canonically admit configured BoK source paths and unconditionally validate glossary/component-reference resources before manifest publication. | NEW_PHASE | [Phase 34](../phase/phase-34.md) | IN_PROGRESS |
+| DEV-005 | Phase 34 final official full test `58874-20260824T044406Z`; resolved by CFB3 | Make `cozy.bok.CozyBokSpec` actual-Build source fixtures self-contained local safe sources while preserving CFB2 configuration-time safe absence and strict actual-Build admission; specify any behavior change first. | NEW_PHASE | [Phase 34](../phase/phase-34.md) | RESOLVED |
 
 ## Current Priority
 
+Phase 34 is in progress awaiting the final official full Cozy validation. The
+earlier invocation
+`58874-20260824T044406Z` reported 1,369 total, 1,364 succeeded, 5 failed, 8
+canceled, 99 suites completed, and 0 aborted; SBT and wrapper exit codes were 1
+and the lock was released. All 5 failures are actual-Build
+`cozy.bok.CozyBokSpec` scenarios whose default `src/main/doxsite` fixture was
+not created locally; CFB3 subsequently added those five local fixtures without
+changing production behavior or adding an external project dependency. Its
+valid focused invocation `85555-20260824T054332Z` (`testOnly
+cozy.bok.CozyBokSpec`) reported 60 succeeded/0 failed/0 canceled, one suite,
+SBT and wrapper 0, lock released, and fresh focused re-review `FOCUSED_PASS`
+with no findings. The earlier failure is superseded; no new full-suite test has
+been run or passed. Strict actual-Build admission remains correct. No Phase 35
+successor work is started here and no closure or release commit is claimed.
+SmartDox Phase 8
+`LITERAL8-03` owns regenerated-site runtime
+finalization, metadata-only inventory/hash evidence, and Textus BoK consumer
+acceptance; those downstream checks remain separate and are not evidence this
+Phase performs or claims.
+
 Phase 29 is closed with the public `cozy bok finalize-metadata` boundary,
 canonical metadata finalization, executable specifications, and static
-SimpleModeling.org wrapper integration accepted. The user-approved separate
-SmartDox Phase 8 `LITERAL8-03` owns regenerated-site runtime finalization,
-metadata-only inventory/hash evidence, and Textus BoK consumer acceptance; Cozy
-does not claim those unrun downstream checks. Cozy Phase 34 is the separate,
-planned correction boundary for `CPB-29-01` and `CPB-29-02`; it is not part of
-the closed Phase 29 scope.
+SimpleModeling.org wrapper integration accepted. Its transferred correction
+items remain in progress in Phase 34 awaiting final validation without changing the Phase 29
+no-site-build or no-SmartDox-workaround boundary.
 
 Phase 6 through Phase 23 are closed. Phase 23 completed scalar Entity
 persistence round-trip, driver-CAR verification, and the CBD Support P8-42

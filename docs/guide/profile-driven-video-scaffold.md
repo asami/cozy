@@ -270,6 +270,13 @@ The default final page appears after the final renderable composition part and
 includes a deterministic two-second hold. Renderer workspace `props.json` and
 the part manifest record the resulting frame timing.
 
+`summary: overview-and-conclusion` overlays a short summary during the end of
+the final composition part. Use
+`summary: overview-and-conclusion-hold` when the summary asset has no narration
+and must remain readable after final narration ends. This profile appends a
+five-second summary hold before the final page; it does not extend or resynthesise
+the dialogue audio.
+
 Scaffold profile defaults can be changed independently with
 `--opening-effect`, `--section-start-effect`, `--summary-effect`, and
 `--final-page-effect`. Use `none` to disable one role explicitly.

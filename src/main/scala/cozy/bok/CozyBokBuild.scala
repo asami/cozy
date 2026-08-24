@@ -52,9 +52,29 @@ private[cozy] trait CozyBokBuild {
   }
 
   def build(config: BuildConfig, runner: Runner): Unit =
-    build(config, runner, _bibliography_fetcher(config.project, BibliographyHttpBibtexFetcher))
+    {
+      val admittedconfig = _admit_build_config(config)
+      _build_with_config(admittedconfig, runner, _bibliography_fetcher(admittedconfig.project, BibliographyHttpBibtexFetcher))
+    }
 
   def build(config: BuildConfig, runner: Runner, bibliographyfetcher: BibliographyBibtexFetcher): Unit =
+    {
+      val admittedconfig = _admit_build_config(config)
+      _build_with_config(admittedconfig, runner, bibliographyfetcher)
+    }
+
+  private def _admit_build_config(config: BuildConfig): BuildConfig = {
+    val projectroot = _finalization_project_root(config.project)
+    val admittedsource = _admit_finalization_source(config.sourcepath, projectroot)
+    val admittedrelative = projectroot.toRealPath().relativize(admittedsource).toString
+    config.copy(source = admittedrelative)
+  }
+
+  private def _build_with_config(
+    config: BuildConfig,
+    runner: Runner,
+    bibliographyfetcher: BibliographyBibtexFetcher
+  ): Unit =
     CozyArticleMediaBuildContext.withContext(
       config.project,
       config.publication.publicationPath(config.project),

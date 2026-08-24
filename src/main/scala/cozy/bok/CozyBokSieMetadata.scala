@@ -113,7 +113,7 @@ private[cozy] trait CozyBokSieMetadata {
     _write_knowledge_source_manifest(config, admittedsource, target)
   }
 
-  private def _finalization_project_root(project: Path): Path = {
+  private[bok] def _finalization_project_root(project: Path): Path = {
     val normalized = project.toAbsolutePath.normalize()
     if (Files.isSymbolicLink(normalized) || !Files.isDirectory(normalized, LinkOption.NOFOLLOW_LINKS))
       RAISE.invalidArgumentFault(s"BoK project root must be an existing non-symbolic-link directory: $project")
@@ -130,7 +130,7 @@ private[cozy] trait CozyBokSieMetadata {
     normalized
   }
 
-  private def _admit_finalization_source(source: Path, projectroot: Path): Path = {
+  private[bok] def _admit_finalization_source(source: Path, projectroot: Path): Path = {
     val normalized = source.toAbsolutePath.normalize()
     if (!normalized.startsWith(projectroot))
       RAISE.invalidArgumentFault(s"BoK configured source root must be inside the project root: $source")
