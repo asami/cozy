@@ -32,7 +32,7 @@ import io.circe.syntax._
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 23, 2026
+ * @version Aug. 24, 2026
  * @author  ASAMI, Tomoharu
  */
 
@@ -63,13 +63,14 @@ private[cozy] trait CozyBokSieMetadata {
 
   def finalizeMetadata(config: BuildConfig): Unit = {
     val projectroot = _finalization_project_root(config.project)
+    val admittedsource = _admit_finalization_source(config.sourcepath, projectroot)
     val source = _finalization_root(config.doxsitePath, projectroot, "BoK generated metadata root")
     val target = _finalization_root(config.websitePath, projectroot, "BoK website root")
     if (source.startsWith(target) || target.startsWith(source))
       RAISE.invalidArgumentFault("BoK generated metadata root and website root must be distinct, non-overlapping directories.")
     val stage = Files.createTempDirectory(projectroot, ".cozy-bok-finalize-")
     try {
-      _copy_machine_metadata_artifacts(config, source, stage)
+      _copy_machine_metadata_artifacts(config, source, stage, admittedsource)
       _validate_staged_metadata(stage)
       _commit_staged_metadata(stage, target, projectroot)
     } finally {
@@ -78,9 +79,18 @@ private[cozy] trait CozyBokSieMetadata {
   }
 
   private[bok] def _copy_machine_metadata_artifacts(config: BuildConfig, target: Path): Unit =
-    _copy_machine_metadata_artifacts(config, config.doxsitePath.toAbsolutePath.normalize(), target)
+    {
+      val projectroot = _finalization_project_root(config.project)
+      val admittedsource = _admit_finalization_source(config.sourcepath, projectroot)
+      _copy_machine_metadata_artifacts(config, config.doxsitePath.toAbsolutePath.normalize(), target, admittedsource)
+    }
 
-  private def _copy_machine_metadata_artifacts(config: BuildConfig, source: Path, target: Path): Unit = {
+  private def _copy_machine_metadata_artifacts(
+      config: BuildConfig,
+      source: Path,
+      target: Path,
+      admittedsource: Path
+  ): Unit = {
     _copy_finalization_file(source, target, "site.ttl", "rdf/site.ttl")
     _copy_finalization_file(source, target, "site.jsonld", "rdf/site.jsonld")
     _copy_finalization_file(source, target, "metadata/rdf/graph.json", "metadata/rdf/graph.json")
@@ -95,9 +105,9 @@ private[cozy] trait CozyBokSieMetadata {
     _copy_finalization_directory(source, target, "metadata/artifacts/repository")
     _copy_finalization_directory(source, target, "metadata/releases")
     _sync_sie_metadata(config, target)
-    _sync_source_rdf_graph_metadata(config, target)
+    _sync_source_rdf_graph_metadata(admittedsource, target)
     _version_graph_summary(config, target)
-    _write_knowledge_source_manifest(config, target)
+    _write_knowledge_source_manifest(config, admittedsource, target)
   }
 
   private def _finalization_project_root(project: Path): Path = {
@@ -115,6 +125,27 @@ private[cozy] trait CozyBokSieMetadata {
     if (Files.isSymbolicLink(normalized) || !Files.isDirectory(normalized, LinkOption.NOFOLLOW_LINKS))
       RAISE.invalidArgumentFault(s"$label must be an existing non-symbolic-link directory inside the project root: $path")
     normalized
+  }
+
+  private def _admit_finalization_source(source: Path, projectroot: Path): Path = {
+    val normalized = source.toAbsolutePath.normalize()
+    if (!normalized.startsWith(projectroot))
+      RAISE.invalidArgumentFault(s"BoK configured source root must be inside the project root: $source")
+    if (normalized != projectroot)
+      _validate_finalization_parent(
+        projectroot,
+        Option(normalized.getParent).getOrElse(projectroot),
+        "BoK configured source root"
+      )
+    if (Files.isSymbolicLink(normalized) || !Files.isDirectory(normalized, LinkOption.NOFOLLOW_LINKS))
+      RAISE.invalidArgumentFault(
+        s"BoK configured source root must be an existing non-symbolic-link directory inside the project root: $source"
+      )
+    val canonicalprojectroot = projectroot.toRealPath()
+    val canonical = normalized.toRealPath()
+    if (!canonical.startsWith(canonicalprojectroot))
+      RAISE.invalidArgumentFault(s"BoK configured source root must resolve below the project root: $source")
+    canonical
   }
 
   private def _copy_finalization_file(source: Path, target: Path, input: String, output: String): Unit = {
@@ -313,15 +344,19 @@ private[cozy] trait CozyBokSieMetadata {
       _finalization_directory_allowlist.exists(x => path.startsWith(x + "/"))
   }
 
-  private def _validate_finalization_parent(root: Path, parent: Path): Unit = {
+  private def _validate_finalization_parent(
+      root: Path,
+      parent: Path,
+      label: String = "BoK metadata output parent"
+  ): Unit = {
     if (!parent.startsWith(root))
-      RAISE.invalidArgumentFault(s"BoK metadata output parent escapes its root: $parent")
+      RAISE.invalidArgumentFault(s"$label escapes its root: $parent")
     var current = root
     root.relativize(parent).iterator.asScala.foreach { segment =>
       val next = current.resolve(segment.toString)
       if (Files.exists(next, LinkOption.NOFOLLOW_LINKS) &&
           (Files.isSymbolicLink(next) || !Files.isDirectory(next, LinkOption.NOFOLLOW_LINKS)))
-        RAISE.invalidArgumentFault(s"BoK metadata output parent is unsafe: $next")
+        RAISE.invalidArgumentFault(s"$label is unsafe: $next")
       current = next
     }
   }
@@ -386,8 +421,8 @@ private[cozy] trait CozyBokSieMetadata {
     }
   }
 
-  private def _sync_source_rdf_graph_metadata(config: BuildConfig, target: Path): Unit = {
-    val sourcegraphpath = config.sourcepath.resolve("metadata/rdf/graph.json")
+  private def _sync_source_rdf_graph_metadata(sourcepath: Path, target: Path): Unit = {
+    val sourcegraphpath = sourcepath.resolve("metadata/rdf/graph.json")
     if (Files.isRegularFile(sourcegraphpath)) {
       val sourcegraph = parser.parse(Files.readString(sourcegraphpath, StandardCharsets.UTF_8)).fold(
         error => RAISE.invalidArgumentFault(s"Invalid BoK source RDF graph metadata: ${error.message}"),
@@ -614,9 +649,9 @@ private[cozy] trait CozyBokSieMetadata {
       _required_graph_field(versionobject, "version", versionlocation)
     }
 
-  private def _write_knowledge_source_manifest(config: BuildConfig, target: Path): Unit = {
+  private def _write_knowledge_source_manifest(config: BuildConfig, sourcepath: Path, target: Path): Unit = {
     val terms = target.resolve("metadata/glossary/terms.json")
-    if (_source_declares_glossary_terms(config) && !Files.isRegularFile(terms))
+    if (_source_declares_glossary_terms(sourcepath) && !Files.isRegularFile(terms))
       RAISE.invalidArgumentFault(
         "SmartDox glossary metadata was not generated even though BoK source declares glossary terms. " +
           "Update the dox/SmartDox runtime used by cozy bok build; Cozy does not reconstruct the missing terms.json handoff."
@@ -700,8 +735,8 @@ private[cozy] trait CozyBokSieMetadata {
     }
   }
 
-  private def _source_declares_glossary_terms(config: BuildConfig): Boolean = {
-    val root = config.sourcepath.resolve("glossary")
+  private def _source_declares_glossary_terms(sourcepath: Path): Boolean = {
+    val root = sourcepath.resolve("glossary")
     if (!Files.isDirectory(root))
       false
     else {

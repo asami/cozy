@@ -1,6 +1,6 @@
 # Phase 34: BoK Metadata Input Admission Hardening
 
-Status: planned
+Status: in-progress
 
 Plan date: 2026-08-23
 
@@ -35,7 +35,7 @@ record.
 
 Stage Status:
 
-- Current status: PLANNED
+- Current status: COMPLETE
 - Owner: Cozy BoK configuration and SIE metadata finalization
 - Update rule: mark work complete only from the Phase 34 checklist.
 - Checklist basis: `BOK34-01`

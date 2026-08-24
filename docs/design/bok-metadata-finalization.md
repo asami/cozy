@@ -1,6 +1,6 @@
 # BoK Metadata Finalization Design
 
-Status: Phase 29 working design
+Status: Phase 34 BOK34-01 working design
 
 ## Responsibility
 
@@ -19,9 +19,17 @@ staged tree. Only after all validation succeeds does it replace the admitted
 output paths at the website root. It never replaces the website root itself.
 
 The implementation must reject symlinked roots and any configuration in which
-the source, target, staging, or admitted path escapes its canonical project
-root. This keeps an existing project-owned site orchestration intact while
-allowing Cozy to update its machine-readable handoff.
+the source, target, staging, or admitted path escapes its project root. For
+configuration-path admission, `finalizeMetadata` first uses the validated
+absolute normalized project path as the lexical root, rejecting lexical
+escapes, non-directories, source symlinks, and symlink-traversing path segments
+before staging. It then compares the admitted source's canonical real path
+with the project's canonical real path to reject canonical escapes. The
+resulting canonical source path is passed to source glossary declaration and
+source RDF graph merge; those consumers do not resolve the unadmitted
+configuration independently. This keeps an existing project-owned site
+orchestration intact while allowing Cozy to update its machine-readable
+handoff.
 
 ## Command integration
 

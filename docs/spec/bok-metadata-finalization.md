@@ -1,6 +1,6 @@
 # BoK Metadata Finalization Specification
 
-Status: Phase 29 working specification
+Status: Phase 34 BOK34-01 working specification
 
 ## Command
 
@@ -38,6 +38,18 @@ website root:
 No other website path may be created, deleted, or replaced. In particular,
 rendered HTML, direct assets, SmartDox/Antora/Arcadia output, media, and
 project-owned files remain unchanged.
+
+## Configured source admission
+
+Before reading source glossary declarations or source RDF graph metadata,
+Cozy validates the selected project as an existing non-symbolic-link directory
+and uses its absolute normalized path as the lexical project root. It first
+admits `config.sourcepath` lexically below that root, rejecting an
+outside-root path, a non-directory, the source directory itself being a
+symbolic link, or a symbolic-link path segment on the way to the source. It
+then compares the source's canonical real path with the project's canonical
+real path to reject canonical escapes. Source glossary and RDF reads receive
+only the admitted canonical source path.
 
 ## Safety and failure behavior
 

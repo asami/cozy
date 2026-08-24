@@ -5,13 +5,13 @@ normative contract.
 
 ## BOK34-01: Configured Source-Root Admission
 
-Status: PLANNED
+Status: COMPLETE
 
-- [ ] Define canonical project-root and symlink-safe admission for configured
+- [x] Define canonical project-root and symlink-safe admission for configured
       BoK source paths.
-- [ ] Reject an unsafe, outside-root, non-directory, or symlinked source before
+- [x] Reject an unsafe, outside-root, non-directory, or symlinked source before
       it can influence glossary or RDF finalization.
-- [ ] Add Given/When/Then executable specifications for admitted and rejected
+- [x] Add Given/When/Then executable specifications for admitted and rejected
       source-path variants, including failure atomicity.
 
 ## BOK34-02: Published Resource Validation
@@ -27,9 +27,8 @@ Status: PLANNED
 
 ## Acceptance and transfer record
 
-Phase 29 full review on 2026-08-23 reported `CPB-29-01` (configured
-source-root admission) and `CPB-29-02` (unconditional glossary and
-component-reference validation). The developer directed that required
-corrections be added as a separate Phase rather than repaired in Phase 29.
+`BOK34-01` acceptance evidence: `testOnly cozy.CozyBokMetadataFinalizationSpec`
+succeeded with 9 tests on 2026-08-24. The BOK34-01 lightweight Step review
+found no Current Boundary Blockers, Hygiene, or Development Candidates.
 
-No implementation, validation, or acceptance is claimed by this planned Phase.
+`BOK34-02` / `CPB-29-02` remains PLANNED. Phase 34 is not yet complete.

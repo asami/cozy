@@ -11,7 +11,7 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   Aug. 23, 2026
- * @version Aug. 23, 2026
+ * @version Aug. 24, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokMetadataFinalizationSpec
@@ -188,6 +188,47 @@ class CozyBokMetadataFinalizationSpec
         Then("the symbolic-link root is rejected without changing its target")
         error.getMessage should include("BoK website root must be an existing non-symbolic-link directory")
         _read(websitetarget.resolve("index.html")) shouldBe "<html>project-owned-marker</html>\n"
+      }
+    }
+
+    "reject unsafe configured source paths before finalization writes" in {
+      Vector("outside-root", "non-directory", "symbolic-link", "symbolic-parent").foreach { variant =>
+        _with_temp_dir(s"cozy-bok-metadata-finalization-source-$variant") { dir =>
+          Given(s"a configured source path that is $variant and existing website metadata sentinels")
+          _write_site_source(dir, glossaryterm = false)
+          _write_prepared_metadata(dir, includeterms = false)
+          _write(dir.resolve("website.d/index.html"), "<html>project-owned-marker</html>\n")
+          _write(dir.resolve("website.d/metadata/cncf/knowledge-source.json"), "sentinel-manifest\n")
+          val baseconfig = _build_config(dir)
+          val config = variant match {
+            case "outside-root" =>
+              baseconfig.copy(source = dir.resolve("../outside-source").normalize.toString)
+            case "non-directory" =>
+              val sourcefile = dir.resolve("source-file")
+              _write(sourcefile, "not-a-directory\n")
+              baseconfig.copy(source = "source-file")
+            case "symbolic-link" =>
+              val sourcetarget = dir.resolve("source-target")
+              Files.createDirectories(sourcetarget)
+              Files.createSymbolicLink(dir.resolve("source-link"), sourcetarget)
+              baseconfig.copy(source = "source-link")
+            case "symbolic-parent" =>
+              val sourcetarget = dir.resolve("source-target")
+              Files.createDirectories(sourcetarget.resolve("nested"))
+              Files.createSymbolicLink(dir.resolve("source-parent-link"), sourcetarget)
+              baseconfig.copy(source = "source-parent-link/nested")
+          }
+
+          When("metadata finalization validates the configured source admission")
+          val error = intercept[Throwable] {
+            CozyBok.finalizeMetadata(config)
+          }
+
+          Then("it reports the rejected source and leaves every website sentinel unchanged")
+          error.getMessage should include("BoK configured source root")
+          _read(dir.resolve("website.d/index.html")) shouldBe "<html>project-owned-marker</html>\n"
+          _read(dir.resolve("website.d/metadata/cncf/knowledge-source.json")) shouldBe "sentinel-manifest\n"
+        }
       }
     }
 
