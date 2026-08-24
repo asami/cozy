@@ -13,7 +13,7 @@ import play.api.libs.json.Json
 /*
  * @since   Jul.  7, 2026
  *  version Jul. 28, 2026
- * @version Aug. 13, 2026
+ * @version Aug. 24, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -222,6 +222,63 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
         }
       }
 
+      "accepts a supported legacy user-guide location" in {
+        _with_temp_dir("cozy-car-lint-documentation-legacy-user-guide") { dir =>
+          Given("a CAR project with a canonical reference manual and a legacy Web user guide")
+          _write_project_without_documentation(dir)
+          _write_reference_manual(dir)
+          _write_legacy_user_guide(dir)
+          _write_valid_cml(dir)
+
+          When("Cozy runs integrated CAR lint")
+          val findings = CozyCarLint.lint(dir, None, noabi = true)
+
+          Then("the legacy user guide remains accepted for compatibility")
+          val userguide = findings.find(
+            _.code == "car.documentation.user-guide.present"
+          )
+          userguide.map(_.level) shouldBe Some(CozyCarLint.Level.Ok)
+          userguide.map(_.path) shouldBe Some(
+            dir.resolve("src/main/web/docs/user-guide.md").toAbsolutePath.normalize()
+          )
+        }
+      }
+
+      "classifies finite canonical and legacy entry-point choices deterministically" in {
+        Given("finite choices of canonical user-guide presence")
+        val property = Prop.forAll(Gen.chooseNum(0, 1)) { choice =>
+          _with_temp_dir("cozy-car-lint-documentation-entry-point-property") { dir =>
+            _write_project_without_documentation(dir)
+            _write_reference_manual(dir)
+            _write_legacy_user_guide(dir)
+            if (choice == 0)
+              _write_canonical_user_guide(dir)
+            _write_valid_cml(dir)
+
+            When("Cozy classifies the selected manual entry points")
+            val first = CozyCarLint.lint(dir, None, noabi = true).find(
+              _.code == "car.documentation.user-guide.present"
+            )
+            val second = CozyCarLint.lint(dir, None, noabi = true).find(
+              _.code == "car.documentation.user-guide.present"
+            )
+            val expected =
+              if (choice == 0)
+                dir.resolve("src/main/car/manual/user-guide.md").toAbsolutePath.normalize()
+              else
+                dir.resolve("src/main/web/docs/user-guide.md").toAbsolutePath.normalize()
+
+            Then("classification is stable and canonical entries take precedence")
+            first.map(_.path) == Some(expected) && second.map(_.path) == Some(expected)
+          }
+        }
+
+        Test.check(
+          Test.Parameters.default.withMinSuccessfulTests(50),
+          property
+        ).passed shouldBe true
+      }
+
       "warns when manuals and generated-help descriptions are absent" in {
         _with_temp_dir("cozy-car-lint-documentation-missing") { dir =>
           Given("a CAR project without manuals and with an undescribed component")
@@ -411,6 +468,11 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
           out.toString(StandardCharsets.UTF_8.name()) should include(
             "car.documentation.reference-manual.missing"
           )
+          CozyCarLint.lint(dir, None, noabi = true)
+            .find(_.code == "car.documentation.reference-manual.missing")
+            .map(_.path) shouldBe Some(
+              dir.resolve("src/main/car/manual/index.md").toAbsolutePath.normalize()
+            )
         }
       }
 
@@ -549,15 +611,27 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
 
   private def _write_project(dir: Path): Unit = {
     _write_project_without_documentation(dir)
+    _write_reference_manual(dir)
+    _write_canonical_user_guide(dir)
+  }
+
+  private def _write_reference_manual(dir: Path): Path =
     _write(
       dir.resolve("src/main/car/manual/index.md"),
       "# Sample Reference Manual\n\nReference semantics, configuration, operations, errors, and examples.\n"
     )
+
+  private def _write_canonical_user_guide(dir: Path): Path =
+    _write(
+      dir.resolve("src/main/car/manual/user-guide.md"),
+      "# Sample User Guide\n\nTask-oriented setup, first invocation, daily workflows, and troubleshooting.\n"
+    )
+
+  private def _write_legacy_user_guide(dir: Path): Path =
     _write(
       dir.resolve("src/main/web/docs/user-guide.md"),
       "# Sample User Guide\n\nTask-oriented setup, first invocation, daily workflows, and troubleshooting.\n"
     )
-  }
 
   private def _write_project_without_documentation(dir: Path): Unit = {
     _write_compatibility_project(dir, excluded = false)

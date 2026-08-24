@@ -7,7 +7,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Jul. 14, 2026
- * @version Aug. 19, 2026
+ * @version Aug. 24, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyCarDocumentationLint {
@@ -33,16 +33,18 @@ private[cozy] object CozyCarDocumentationLint {
 
   private val _minimum_description_characters = 24
   private val _document_extensions = Vector("md", "markdown", "adoc", "asciidoc", "dox", "html")
-  private val _reference_manual_paths = _document_paths(
+  private val _canonical_reference_manual_paths = _document_paths(
     Vector(
       "src/main/car/manual/index",
       "src/main/car/manual/reference-manual",
       "src/main/car/manual/reference"
     )
   )
-  private val _user_guide_paths = _document_paths(
+  private val _canonical_user_guide_paths = _document_paths(
+    Vector("src/main/car/manual/user-guide")
+  )
+  private val _legacy_user_guide_paths = _document_paths(
     Vector(
-      "src/main/car/manual/user-guide",
       "src/main/web/docs/user-guide",
       "docs/user-guide",
       "docs/guide/index"
@@ -53,14 +55,16 @@ private[cozy] object CozyCarDocumentationLint {
     val root = projectroot.toAbsolutePath.normalize()
     val referencefindings = _document_findings(
       root,
-      _reference_manual_paths,
+      _canonical_reference_manual_paths,
+      Vector.empty,
       "car.documentation.reference-manual",
       "reference manual",
       root.resolve("src/main/car/manual/index.md")
     )
     val userguidefindings = _document_findings(
       root,
-      _user_guide_paths,
+      _canonical_user_guide_paths,
+      _legacy_user_guide_paths,
       "car.documentation.user-guide",
       "user guide",
       root.resolve("src/main/car/manual/user-guide.md")
@@ -72,15 +76,23 @@ private[cozy] object CozyCarDocumentationLint {
 
   private def _document_findings(
     root: Path,
-    relativepaths: Vector[String],
+    canonicalpaths: Vector[String],
+    legacypaths: Vector[String],
     codeprefix: String,
     documentname: String,
     missingpath: Path
   ): Vector[Finding] = {
-    val existing = relativepaths.
+    val canonicalexisting = canonicalpaths.
       map(root.resolve).
       filter(_regular_file).
       sortBy(_.toString)
+    val legacyexisting = legacypaths.
+      map(root.resolve).
+      filter(_regular_file).
+      sortBy(_.toString)
+    val existing =
+      if (canonicalexisting.nonEmpty) canonicalexisting
+      else legacyexisting
     if (existing.isEmpty)
       Vector(Finding(
         Level.Warn,
