@@ -28,7 +28,10 @@ Phase 34 acceptance boundary. It is not a normative specification.
   `FOCUSED_PASS` with no Current Boundary Blocker, Hygiene, or Development
   Candidate finding and preserved CFB2 safe absence at configuration time plus
   strict actual-Build admission. The earlier full-test fixture failure is
-  superseded; no new full-suite test has been run or passed.
+  superseded. Candidate final full Cozy `test` receipt
+  `22693-20260824T094231Z` reported 1,376 succeeded, 0 failed, 8 canceled,
+  100 suites, and 0 aborted; SBT and wrapper exit codes were 0 and the lock was
+  released. This closes the candidate in Phase 34.
 - Required future behavior: preserve `CB-P34-CFB2-001` safe in-project source
   admission at configuration time and strict actual-Build admission. Correct
   only the executable-spec source fixtures to be self-contained local safe
@@ -45,7 +48,7 @@ Phase 34 acceptance boundary. It is not a normative specification.
   by CFB3.
 - Execution order: rules -> spec -> design -> code, followed by focused and
   final validation when this candidate is admitted for implementation.
-- Current action: CFB3 resolves this candidate in Phase 34. Phase 34 remains
-  pending its final full validation and release decision. No Phase 35
-  implementation, separate workaround, commit, publication, or deployment is
-  made here.
+- Current action: CFB3 plus the candidate final full validation resolves and
+  closes this candidate in Phase 34. No Phase 35 implementation, separate
+  workaround, commit, publication, or deployment is made here. No
+  SmartDox/Textus consumer execution or acceptance is claimed.

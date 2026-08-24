@@ -4,16 +4,15 @@ Purpose: engineering work management.
 
 Current phase state:
 
-- Current phase: `phase-34.md`: BoK Metadata Input Admission Hardening. Its
-  focused source-admission, resource-validation, and CFB3 fixture evidence is
-  provisional; the final official full Cozy test is the single remaining gate.
-  No new full-suite test has been run or passed, so Phase 34 is not closed or
-  released and no release commit is claimed.
-- Superseded successor record: `phase-35.md`: BoK Executable-Spec Source
-  Fixture Self-Containment. CFB3 resolved its proposed fixture scope in Phase
-  34; the Phase 35 planning records remain only as unexecuted history. SmartDox
-  Phase 8 `LITERAL8-03` remains separate for generated-site and Textus BoK
-  consumer acceptance.
+- Most recent closed phase: `phase-34.md`: BoK Metadata Input Admission
+  Hardening. CFB3 fixture correction, focused review, and candidate final full
+  Cozy test receipt `22693-20260824T094231Z` (`test`, 1,376 succeeded, 0
+  failed, 8 canceled, 100 suites, 0 aborted, SBT/wrapper 0, lock released)
+  close Phase 34. No SmartDox/Textus consumer execution or acceptance is
+  claimed.
+- No Phase 35 successor work is started. Its superseded planning records remain
+  only as unexecuted history. SmartDox Phase 8 `LITERAL8-03` remains separate
+  for generated-site and Textus BoK consumer acceptance.
 - Most recent closed phase: `phase-33.md`: Declared Cozy Runtime Selection for
   CAR Publication. It established CAR-owned `project.yaml build.cozyVersion`
   as the publication runtime authority, without a temporary `.cozy` override.

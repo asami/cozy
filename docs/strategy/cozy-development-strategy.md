@@ -860,7 +860,7 @@ Primary references:
 
 ### Phase 34: BoK Metadata Input Admission Hardening
 
-Status: in progress; awaiting final validation.
+Status: closed.
 
 Purpose and boundaries:
 
@@ -897,9 +897,11 @@ invocation `85555-20260824T054332Z`, exact command
 `testOnly cozy.bok.CozyBokSpec`, with 60 succeeded/0 failed/0 canceled, one
 suite, SBT and wrapper 0, and lock released; the fresh focused re-review was
 `FOCUSED_PASS` with no findings and preserved CFB2 safe absence at
-configuration time plus strict actual-Build admission. The earlier full-test
-fixture failure is superseded by CFB3; no new full-suite test has been run or
-passed. Phase 34 awaits that single final gate and is not closed or released.
+configuration time plus strict actual-Build admission. The candidate final
+full Cozy `test` receipt `22693-20260824T094231Z` reported 1,376 succeeded, 0
+failed, 8 canceled, 100 suites, and 0 aborted; SBT and wrapper exit codes were
+0 and the lock was released. Phase 34 is closed; no Phase 35 successor work is
+started and no SmartDox/Textus consumer execution or acceptance is claimed.
 It does not repeat SmartDox literal-label work or generated-site runtime
 acceptance: SmartDox Phase 8 `LITERAL8-03` and Textus BoK consumer acceptance
 remain separate and are not evidence this Phase performs or claims.
@@ -1068,13 +1070,13 @@ Origin:
 | DEV-001 | `docs/journal/2026/08/2026-08-19-cncf-compatibility-naming-hygiene-follow-up.md` (`HYG-P57.4-001`) | Make `Resolved.projectRelativePath` the canonical CML source-result field, retiring the former source-result name without a deprecated accessor, constructor, or named-argument compatibility alias. | NEW_PHASE | [Phase 32](../phase/phase-32.md) | RESOLVED |
 | DEV-002 | `docs/journal/2026/04/cml-operation-design-note.md` (Future Work) | Decide the action hierarchy, result type, async/job model, and CLI/OpenAPI mapping as one future CML operation design boundary. | STRATEGY_ITEM | Strategy section 9 | CANDIDATE |
 | DEV-003 | User-reported CAR publication runtime-selection defect, corroborated by `docs/journal/2026/08/entity-revision-generator-downstream-acceptance-transfer-2026-08-03.md` | Make CAR publish paths select `project.yaml build.cozyVersion` without a temporary `.cozy` runtime override. | NEW_PHASE | [Phase 33](../phase/phase-33.md) | RESOLVED |
-| DEV-004 | Phase 29 full review `CPB-29-01` / `CPB-29-02` | Canonically admit configured BoK source paths and unconditionally validate glossary/component-reference resources before manifest publication. | NEW_PHASE | [Phase 34](../phase/phase-34.md) | IN_PROGRESS |
+| DEV-004 | Phase 29 full review `CPB-29-01` / `CPB-29-02` | Canonically admit configured BoK source paths and unconditionally validate glossary/component-reference resources before manifest publication. | NEW_PHASE | [Phase 34](../phase/phase-34.md) | RESOLVED |
 | DEV-005 | Phase 34 final official full test `58874-20260824T044406Z`; resolved by CFB3 | Make `cozy.bok.CozyBokSpec` actual-Build source fixtures self-contained local safe sources while preserving CFB2 configuration-time safe absence and strict actual-Build admission; specify any behavior change first. | NEW_PHASE | [Phase 34](../phase/phase-34.md) | RESOLVED |
 
 ## Current Priority
 
-Phase 34 is in progress awaiting the final official full Cozy validation. The
-earlier invocation
+Phase 34 is closed after the candidate final official full Cozy validation.
+The earlier invocation
 `58874-20260824T044406Z` reported 1,369 total, 1,364 succeeded, 5 failed, 8
 canceled, 99 suites completed, and 0 aborted; SBT and wrapper exit codes were 1
 and the lock was released. All 5 failures are actual-Build
@@ -1085,8 +1087,11 @@ valid focused invocation `85555-20260824T054332Z` (`testOnly
 cozy.bok.CozyBokSpec`) reported 60 succeeded/0 failed/0 canceled, one suite,
 SBT and wrapper 0, lock released, and fresh focused re-review `FOCUSED_PASS`
 with no findings. The earlier failure is superseded; no new full-suite test has
-been run or passed. Strict actual-Build admission remains correct. No Phase 35
-successor work is started here and no closure or release commit is claimed.
+has been superseded by CFB3 and the candidate final receipt
+`22693-20260824T094231Z` (`test`, 1,376 succeeded/0 failed/8 canceled, 100
+suites, 0 aborted, SBT/wrapper 0, lock released). Strict actual-Build admission
+remains correct. No Phase 35 successor work is started here. No SmartDox/Textus
+consumer execution or acceptance is claimed.
 SmartDox Phase 8
 `LITERAL8-03` owns regenerated-site runtime
 finalization, metadata-only inventory/hash evidence, and Textus BoK consumer
@@ -1096,7 +1101,7 @@ Phase performs or claims.
 Phase 29 is closed with the public `cozy bok finalize-metadata` boundary,
 canonical metadata finalization, executable specifications, and static
 SimpleModeling.org wrapper integration accepted. Its transferred correction
-items remain in progress in Phase 34 awaiting final validation without changing the Phase 29
+items are resolved in closed Phase 34 without changing the Phase 29
 no-site-build or no-SmartDox-workaround boundary.
 
 Phase 6 through Phase 23 are closed. Phase 23 completed scalar Entity

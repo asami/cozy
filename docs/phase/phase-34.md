@@ -1,6 +1,6 @@
 # Phase 34: BoK Metadata Input Admission Hardening
 
-Status: IN_PROGRESS
+Status: CLOSED
 
 Plan date: 2026-08-23
 
@@ -42,7 +42,7 @@ record.
 
 Stage Status:
 
-- Current status: IN_PROGRESS
+- Current status: DONE
 - Owner: Cozy BoK configuration and SIE metadata finalization
 - Update rule: mark work complete only from the Phase 34 checklist.
 - Checklist basis: `BOK34-01`
@@ -68,9 +68,10 @@ external project dependency. Its valid focused evidence is invocation
 60 succeeded, 0 failed, 0 canceled, one suite, SBT and wrapper exit codes 0,
 and the lock released. The fresh focused re-review returned `FOCUSED_PASS`
 with no findings and preserved CFB2 safe absence at configuration time plus
-strict actual-Build admission. This focused acceptance remains provisional
-pending the single remaining gate: the final official full Cozy test. No new
-full-suite test has been run or passed, and no Textus/SmartDox consumer
+strict actual-Build admission. The candidate final full Cozy `test` receipt
+`22693-20260824T094231Z` reported 1,376 succeeded, 0 failed, 8 canceled, 100
+suites, and 0 aborted; SBT and wrapper exit codes were 0 and the lock was
+released. This closes BOK34-01 and Phase 34. No Textus/SmartDox consumer
 execution or acceptance is claimed.
 
 ### BOK34-02: Published Resource Validation
@@ -102,12 +103,11 @@ Phase 34 final full-suite gate and does not release this Phase.
   with Given/When/Then structure.
 - Focused Cozy validation and review converge without weakening Phase 29
   finalization or its non-site-build boundary.
-- The final full Cozy `test` after CFB3 is the single remaining release gate.
-  The earlier official wrapper invocation `58874-20260824T044406Z` ran 1,369
-  total tests, with 1,364 succeeded, 5 failed, 8 canceled, 99 suites
-  completed, and 0 aborted; SBT and wrapper exit codes were 1 and the lock was
-  released. CFB3 supersedes that fixture-only failure result; no new full
-  suite has been run or passed. Phase 34 is not closed or released.
+- The candidate final full Cozy `test` after CFB3 is receipt
+  `22693-20260824T094231Z`: 1,376 succeeded, 0 failed, 8 canceled, 100
+  suites, 0 aborted; SBT and wrapper exit codes were 0 and the lock was
+  released. This closes Phase 34 and BOK34-01; no SmartDox/Textus consumer
+  execution or acceptance is claimed.
 
 ## Dependencies
 
@@ -141,8 +141,8 @@ Phase 34 final full-suite gate and does not release this Phase.
   admission remains correct; the deferred correction is limited to making
   executable-spec source fixtures self-contained local safe sources, or
   revising the stated behavior only after rules/spec/design work. CFB3
-  superseded that fixture-only failure in P34; no new full-suite result is
-  claimed, and the final full test remains the single release gate.
+  superseded that fixture-only failure in P34. The candidate final full test
+  receipt below provides the closure validation.
 - CFB3 added local `src/main/doxsite` fixtures in the five
   `cozy.bok.CozyBokSpec` actual-Build scenarios. It made no production behavior
   or external project dependency change. Valid focused evidence is invocation
@@ -152,9 +152,11 @@ Phase 34 final full-suite gate and does not release this Phase.
   with no Current Boundary Blocker, Hygiene, or Development Candidate finding;
   it preserved CFB2 safe absence at configuration time and strict actual-Build
   admission.
-- No Textus/SmartDox consumer execution or acceptance is claimed. The earlier
-  full Cozy `test` failure is retained as superseded history; no closure or
-  release commit is claimed pending the single remaining full-test gate.
+- The candidate full Cozy `test` receipt `22693-20260824T094231Z`, command
+  `test`, reported 1,376 succeeded, 0 failed, 8 canceled, 100 suites, and 0
+  aborted; SBT and wrapper exit codes were 0 and the lock was released. Phase
+  34 and BOK34-01 are closed; BOK34-02 remains DONE. No SmartDox/Textus
+  consumer execution or acceptance is claimed.
 
 ## References
 

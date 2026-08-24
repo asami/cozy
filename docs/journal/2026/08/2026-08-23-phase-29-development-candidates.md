@@ -5,7 +5,7 @@ Phase 29 acceptance boundary. It is not a normative specification.
 
 ## DEV-P29-001: BoK metadata input admission hardening
 
-- Status: IN_PROGRESS
+- Status: RESOLVED
 - Discovery: Phase 29 full review, 2026-08-23
 - Repository: Cozy
 - Evidence: `CPB-29-01` found that configured `bok.source` admission did not
@@ -39,24 +39,28 @@ Phase 29 acceptance boundary. It is not a normative specification.
   one suite, SBT and wrapper exit codes 0, and the lock released. The fresh
   focused re-review returned `FOCUSED_PASS` with no findings and preserved the
   CFB2 configuration-time safe absence and strict actual-Build admission. The
-  earlier full-test fixture failure is superseded; no new full-suite test has
-  been run or passed.
+  earlier full-test fixture failure is superseded. Candidate final full Cozy
+  `test` receipt `22693-20260824T094231Z` reported 1,376 succeeded, 0 failed,
+  8 canceled, 100 suites, and 0 aborted; SBT and wrapper exit codes were 0 and
+  the lock was released.
 - Boundary retained: Phase 29 remains closed with its no-site-build,
   no-SmartDox-workaround, and no downstream acceptance claim unchanged. The
-  final full Cozy `test`
-  remains the parent-owned immediate release gate; it was run, failed as
-  recorded above, and therefore prevents release.
-- Owner and target: Cozy Phase 34, `BOK34-01` and `BOK34-02` (in progress
-  pending final official full validation; the former Phase 35 fixture scope is
-  superseded by CFB3).
+  candidate final full Cozy `test` receipt
+  `22693-20260824T094231Z` passed with 1,376 succeeded, 0 failed, 8 canceled,
+  100 suites, and 0 aborted; SBT and wrapper exit codes were 0 and the lock was
+  released.
+- Owner and target: Cozy Phase 34, `BOK34-01` and `BOK34-02` (closed after CFB3
+  and the candidate final full validation; the former Phase 35 fixture scope
+  is superseded by CFB3).
 - Dependency: Phase 29 public finalization contract; no SmartDox generated-site
   result is a substitute for the Cozy-side admission checks.
 - Risk: malformed or unsafe configured source/resource input can influence a
   metadata handoff before rejection.
 - Resolution: invoke Phase 34 with this record and the sealed Phase 29 review
-  ledger; focused implementation, CFB3 fixture correction, and review are
-  provisionally accepted, with the transferred correction awaiting the single
-  final full-suite gate. No closure or release is claimed. External
-  SimpleModeling.org, SmartDox, and Textus sources are not substitutes.
+  ledger; focused implementation, CFB3 fixture correction, review, and the
+  candidate final full-suite receipt close the transferred correction in Phase
+  34. Phase 29 remains closed. No SmartDox/Textus consumer execution or
+  acceptance is claimed. External SimpleModeling.org, SmartDox, and Textus
+  sources are not substitutes.
 - Prohibited local workaround: do not relax finalizer validation, reconstruct
   missing data, or invoke a site build to hide the admission failures.

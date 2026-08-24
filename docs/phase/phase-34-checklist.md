@@ -5,7 +5,7 @@ normative contract.
 
 ## BOK34-01: Configured Source-Root Admission
 
-Status: IN_PROGRESS
+Status: DONE
 
 - [x] Define canonical project-root and symlink-safe admission for configured
       BoK source paths.
@@ -21,8 +21,10 @@ Status: IN_PROGRESS
       repair `CB-P34-CFB2-001` through the official focused M2 evidence and one
       permitted focused re-review, preserving safe-absence-at-configuration
       admission and strict actual-Build admission.
-- [ ] Pass the final official full Cozy test after CFB3; it is the single
-      remaining gate, so the focused behavior acceptance remains provisional.
+- [x] Pass the final official full Cozy test after CFB3: receipt
+      `22693-20260824T094231Z`, command `test`, 1,376 succeeded, 0 failed,
+      8 canceled, 100 suites, 0 aborted; SBT and wrapper exit codes 0, lock
+      released.
 
 ## BOK34-02: Published Resource Validation
 
@@ -66,7 +68,7 @@ re-review returned `FOCUSED_PASS` with no Current Boundary Blocker, Hygiene, or
 Development Candidate finding and preserved CFB2 safe absence at configuration
 time plus strict actual-Build admission.
 
-The final official full Cozy test wrapper invocation
+The earlier official full Cozy test wrapper invocation
 `58874-20260824T044406Z` reported 1,369 total, 1,364 succeeded, 5 failed, 8
 canceled, 99 suites completed, and 0 aborted; SBT and wrapper exit codes were
 1 and the lock was released. All 5 failures are `cozy.bok.CozyBokSpec`
@@ -75,11 +77,11 @@ local fixture: configured Textus image, Arcadia, production direct assets,
 unrelated YAML/direct assets, and the default production RDF missing-artifact
 policy. Strict actual-Build admission remains correct. The earlier full-test
 fixture failure is superseded by CFB3; no new full-suite test has been run or
-passed. Phase 34 remains in progress for final validation, and no closure or
-release commit is claimed. The former Phase 35 fixture scope is superseded in
-P34; its unexecuted planning records are retained for history. The Phase 34
-hygiene journal is unchanged.
+passed. The former Phase 35 fixture scope is superseded in P34; its unexecuted
+planning records are retained for history. The candidate
+final full Cozy `test` receipt `22693-20260824T094231Z` reported 1,376
+succeeded, 0 failed, 8 canceled, 100 suites, and 0 aborted; SBT and wrapper
+exit codes were 0 and the lock was released. Phase 34 and BOK34-01 are closed;
+BOK34-02 remains DONE. The Phase 34 hygiene journal is unchanged.
 
-No Textus/SmartDox consumer execution or acceptance is claimed. The earlier
-full Cozy `test` failure is superseded history; the single remaining full-test
-gate prevents Phase 34 closure or release until it passes.
+No Textus/SmartDox consumer execution or acceptance is claimed.
