@@ -65,6 +65,7 @@ private[cozy] trait CozyBokSieMetadata {
     val projectroot = _finalization_project_root(config.project)
     val admittedsource = _admit_finalization_source(config.sourcepath, projectroot)
     val source = _finalization_root(config.doxsitePath, projectroot, "BoK generated metadata root")
+    _validate_published_resources(source)
     val target = _finalization_root(config.websitePath, projectroot, "BoK website root")
     if (source.startsWith(target) || target.startsWith(source))
       RAISE.invalidArgumentFault("BoK generated metadata root and website root must be distinct, non-overlapping directories.")
@@ -82,7 +83,9 @@ private[cozy] trait CozyBokSieMetadata {
     {
       val projectroot = _finalization_project_root(config.project)
       val admittedsource = _admit_finalization_source(config.sourcepath, projectroot)
-      _copy_machine_metadata_artifacts(config, config.doxsitePath.toAbsolutePath.normalize(), target, admittedsource)
+      val source = _finalization_root(config.doxsitePath, projectroot, "BoK generated metadata root")
+      _validate_published_resources(source)
+      _copy_machine_metadata_artifacts(config, source, target, admittedsource)
     }
 
   private def _copy_machine_metadata_artifacts(
@@ -146,6 +149,42 @@ private[cozy] trait CozyBokSieMetadata {
     if (!canonical.startsWith(canonicalprojectroot))
       RAISE.invalidArgumentFault(s"BoK configured source root must resolve below the project root: $source")
     canonical
+  }
+
+  private def _validate_published_resources(source: Path): Unit = {
+    _validate_generated_glossary(source)
+    Vector("car", "sar").foreach(kind => _validate_generated_component_reference_index(source, kind))
+  }
+
+  private def _validate_generated_glossary(source: Path): Unit = {
+    val relative = "metadata/glossary/terms.json"
+    val path = _finalization_input(source, relative)
+    if (Files.exists(path, LinkOption.NOFOLLOW_LINKS)) {
+      if (Files.isSymbolicLink(path) || !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
+        RAISE.invalidArgumentFault(s"BoK generated metadata input must be a regular file when present: $path")
+      val json = parser.parse(Files.readString(path, StandardCharsets.UTF_8)).fold(
+        error => RAISE.invalidArgumentFault(
+          s"Invalid BoK glossary metadata $relative: ${error.message}"
+        ),
+        identity
+      )
+      json.as[TermIndex].fold(
+        error => RAISE.invalidArgumentFault(
+          s"Invalid BoK glossary metadata $relative: ${error.message}"
+        ),
+        _ => ()
+      )
+    }
+  }
+
+  private def _validate_generated_component_reference_index(source: Path, kind: String): Unit = {
+    val relative = s"metadata/cncf/component-references/$kind.json"
+    val path = _finalization_input(source, relative)
+    if (Files.exists(path, LinkOption.NOFOLLOW_LINKS)) {
+      if (Files.isSymbolicLink(path) || !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
+        RAISE.invalidArgumentFault(s"BoK generated metadata input must be a regular file when present: $path")
+      _load_graph_component_reference_index(source, kind)
+    }
   }
 
   private def _copy_finalization_file(source: Path, target: Path, input: String, output: String): Unit = {

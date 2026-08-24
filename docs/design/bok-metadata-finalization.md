@@ -1,6 +1,6 @@
 # BoK Metadata Finalization Design
 
-Status: Phase 34 BOK34-01 working design
+Status: Phase 34 BOK34-02 working design
 
 ## Responsibility
 
@@ -12,11 +12,29 @@ call the same service so the metadata contracts cannot diverge.
 
 ## Transaction boundary
 
-The service reads the configured generated metadata root and stages every
-allowlisted website mutation in a sibling temporary tree. It performs glossary,
-RDF, component-reference, SIE, and KnowledgeSource validation against the
-staged tree. Only after all validation succeeds does it replace the admitted
-output paths at the website root. It never replaces the website root itself.
+The service follows this pre-stage validation order, and the shared direct-copy
+build route applies the same resource validation before copying into a website
+locale target:
+
+```text
+admitted generated source
+  -> validate glossary/component resources
+  -> create stage
+  -> copy/version/manifest
+  -> atomic commit
+```
+
+Both routes validate the generated glossary with the canonical `TermIndex` decoder and
+validate every present known manifest-publishable
+`metadata/cncf/component-references/car.json` and `sar.json` with the existing
+`cncf.component-reference-index.v1` validator before creating the stage or
+copying any machine metadata. The component-index checks do not depend on RDF
+graph reachability. Only those known `car.json` / `sar.json` indexes are
+prevalidated; neither route scans arbitrary artifact trees or introduces a
+resource schema. Remaining RDF, SIE, and KnowledgeSource checks run while the
+allowlisted website mutation is staged. Only after all validation succeeds does
+the finalizer replace the admitted output paths at the website root. It never
+replaces the website root itself.
 
 The implementation must reject symlinked roots and any configuration in which
 the source, target, staging, or admitted path escapes its project root. For

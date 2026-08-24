@@ -1,6 +1,6 @@
 # BoK Metadata Finalization Specification
 
-Status: Phase 34 BOK34-01 working specification
+Status: Phase 34 BOK34-02 working specification
 
 ## Command
 
@@ -52,6 +52,19 @@ real path to reject canonical escapes. Source glossary and RDF reads receive
 only the admitted canonical source path.
 
 ## Safety and failure behavior
+
+Before any shared direct-copy build route copies machine metadata, and before
+the staging finalizer creates a staging directory or declares a
+`cncf.knowledge-source.v1` resource, Cozy validates every generated
+`metadata/glossary/terms.json` with the canonical `TermIndex` decoder. It also
+validates every present generated
+`metadata/cncf/component-references/car.json` and `sar.json` that could be
+declared by the manifest with the established
+`cncf.component-reference-index.v1` validator. This component-index validation
+is unconditional on both routes: it runs even when the current RDF graph has
+no `componentRef` node. A malformed JSON document or decoder/semantic failure
+identifies its generated resource path in the diagnostic, before direct-copy
+output or a KnowledgeSource manifest can be written.
 
 Before mutation, Cozy validates that configured input and output roots are
 directories under the resolved project, are not symbolic links, and do not

@@ -94,6 +94,67 @@ class CozyBokMetadataFinalizationSpec
       }
     }
 
+    "reject a malformed generated glossary before staging when the graph has no component references" in {
+      _with_temp_dir("cozy-bok-metadata-finalization-malformed-glossary") { dir =>
+        Given("a generated glossary with a decoder-invalid term and four existing website metadata sentinels")
+        _write_site_source(dir, glossaryterm = false)
+        _write_prepared_metadata(
+          dir,
+          includeterms = false,
+          rdfgraph = "{\"nodes\":[],\"edges\":[],\"truncated\":false}\n"
+        )
+        _write(dir.resolve("doxsite.d/metadata/glossary/terms.json"), "{\"terms\":[{}]}\n")
+        _write(dir.resolve("website.d/index.html"), "<html>glossary-sentinel</html>\n")
+        _write(dir.resolve("website.d/metadata/cncf/knowledge-source.json"), "manifest-glossary-sentinel\n")
+        _write(dir.resolve("website.d/metadata/glossary/terms.json"), "website-terms-sentinel\n")
+        _write(dir.resolve("website.d/metadata/cncf/component-references/car.json"), "website-car-sentinel\n")
+
+        When("the public metadata finalization API validates the generated resources")
+        val error = intercept[Throwable] {
+          CozyBok.finalizeMetadata(_build_config(dir))
+        }
+
+        Then("it identifies the glossary resource and leaves every website sentinel byte-identical")
+        error.getMessage should include("metadata/glossary/terms.json")
+        _read(dir.resolve("website.d/index.html")) shouldBe "<html>glossary-sentinel</html>\n"
+        _read(dir.resolve("website.d/metadata/cncf/knowledge-source.json")) shouldBe "manifest-glossary-sentinel\n"
+        _read(dir.resolve("website.d/metadata/glossary/terms.json")) shouldBe "website-terms-sentinel\n"
+        _read(dir.resolve("website.d/metadata/cncf/component-references/car.json")) shouldBe "website-car-sentinel\n"
+      }
+    }
+
+    "reject a malformed generated CAR index before staging when the graph has no component references" in {
+      _with_temp_dir("cozy-bok-metadata-finalization-malformed-car") { dir =>
+        Given("a generated CAR index with invalid entries and four existing website metadata sentinels")
+        _write_site_source(dir, glossaryterm = false)
+        _write_prepared_metadata(
+          dir,
+          includeterms = false,
+          rdfgraph = "{\"nodes\":[],\"edges\":[],\"truncated\":false}\n",
+          componentreferences = Vector(
+            "car" ->
+              "{\"schemaVersion\":\"cncf.component-reference-index.v1\",\"kind\":\"car\",\"entries\":{}}\n"
+          )
+        )
+        _write(dir.resolve("website.d/index.html"), "<html>car-sentinel</html>\n")
+        _write(dir.resolve("website.d/metadata/cncf/knowledge-source.json"), "manifest-car-sentinel\n")
+        _write(dir.resolve("website.d/metadata/glossary/terms.json"), "website-terms-sentinel\n")
+        _write(dir.resolve("website.d/metadata/cncf/component-references/car.json"), "website-car-sentinel\n")
+
+        When("the public metadata finalization API validates the generated resources")
+        val error = intercept[Throwable] {
+          CozyBok.finalizeMetadata(_build_config(dir))
+        }
+
+        Then("it identifies the CAR index and leaves every website sentinel byte-identical")
+        error.getMessage should include("metadata/cncf/component-references/car.json")
+        _read(dir.resolve("website.d/index.html")) shouldBe "<html>car-sentinel</html>\n"
+        _read(dir.resolve("website.d/metadata/cncf/knowledge-source.json")) shouldBe "manifest-car-sentinel\n"
+        _read(dir.resolve("website.d/metadata/glossary/terms.json")) shouldBe "website-terms-sentinel\n"
+        _read(dir.resolve("website.d/metadata/cncf/component-references/car.json")) shouldBe "website-car-sentinel\n"
+      }
+    }
+
     "produce byte-identical website output when prepared metadata is finalized twice" in {
       _with_temp_dir("cozy-bok-metadata-finalization-deterministic") { dir =>
         Given("an existing website and unchanged prepared generated metadata")
@@ -260,6 +321,36 @@ class CozyBokMetadataFinalizationSpec
         )
       }
     }
+
+    "reject malformed generated CAR before an ordinary build copies machine metadata" in {
+      _with_temp_dir("cozy-bok-metadata-finalization-build-malformed-car") { dir =>
+        Given("a BoK source and a local runner that writes a no-reference RDF graph with a malformed CAR index")
+        _write_site_source(dir, glossaryterm = false)
+        val runner = new LocalMetadataRunner(
+          rdfgraph = "{\"nodes\":[],\"edges\":[],\"truncated\":false}\n",
+          componentreferences = Vector(
+            "car" ->
+              "{\"schemaVersion\":\"cncf.component-reference-index.v1\",\"kind\":\"car\",\"entries\":{}}\n"
+          )
+        )
+
+        When("the ordinary public build path reaches its machine-metadata direct-copy route")
+        val error = intercept[Throwable] {
+          CozyBok.build(_build_config(dir), runner)
+        }
+
+        Then("it identifies the malformed CAR and writes neither the direct-copy CAR nor the KnowledgeSource manifest")
+        error.getMessage should include("metadata/cncf/component-references/car.json")
+        Files.exists(
+          dir.resolve("website.d/metadata/cncf/component-references/car.json"),
+          LinkOption.NOFOLLOW_LINKS
+        ) shouldBe false
+        Files.exists(
+          dir.resolve("website.d/metadata/cncf/knowledge-source.json"),
+          LinkOption.NOFOLLOW_LINKS
+        ) shouldBe false
+      }
+    }
   }
 
   private def _build_config(dir: Path, strategy: String = "preview"): CozyBok.BuildConfig =
@@ -413,7 +504,10 @@ class CozyBokMetadataFinalizationSpec
     }
   }
 
-  private class LocalMetadataRunner extends CozyBok.Runner {
+  private class LocalMetadataRunner(
+      rdfgraph: String = _component_ref_graph(),
+      componentreferences: Vector[(String, String)] = _component_reference_indexes()
+  ) extends CozyBok.Runner {
     private var _commands = Vector.empty[Vector[String]]
 
     def commands: Vector[Vector[String]] = _commands
@@ -424,8 +518,8 @@ class CozyBokMetadataFinalizationSpec
         _write_prepared_metadata(
           cwd,
           includeterms = false,
-          rdfgraph = _component_ref_graph(),
-          componentreferences = _component_reference_indexes()
+          rdfgraph = rdfgraph,
+          componentreferences = componentreferences
         )
     }
   }

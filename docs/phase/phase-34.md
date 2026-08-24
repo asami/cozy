@@ -47,13 +47,15 @@ outside-root or symlinked configured source cannot influence finalization.
 
 Stage Status:
 
-- Current status: PLANNED
+- Current status: COMPLETE
 - Owner: Cozy BoK/SIE metadata
 - Update rule: mark work complete only from the Phase 34 checklist.
 - Checklist basis: `BOK34-02`
 
 Specify, implement, and cover unconditional glossary and component-reference
 resource validation before staging or manifest declaration.
+Validation covers both staged finalization and the shared direct-copy build route
+before copying or manifest declaration, even without RDF component references.
 
 ## Completion criteria
 
