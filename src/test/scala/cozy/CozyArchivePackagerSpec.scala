@@ -5,12 +5,13 @@ import java.io.{ByteArrayOutputStream, PrintStream}
 import java.net.InetSocketAddress
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
+import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.zip.{ZipEntry, ZipFile, ZipOutputStream}
 
 import scala.collection.JavaConverters._
 
-import cozy.archive.CozyArchivePackager
+import cozy.archive.{CozyArchivePackager, CozyScaladocStaging}
 import org.scalatest.GivenWhenThen
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.matchers.should.Matchers
@@ -21,7 +22,7 @@ import play.api.libs.json.{Json, JsObject, JsValue}
  *  version May. 22, 2026
  *  version Jun. 18, 2026
  *  version Jul. 31, 2026
- * @version Aug.  7, 2026
+ * @version Aug. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -1556,6 +1557,100 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
   }
   }
 
+    "package verified public Scaladoc staging" should {
+    "copy exactly the manifest-declared Scaladoc bytes into the CAR" in {
+    _with_temp_dir("cozy-car-scaladoc") { dir =>
+      Given("one current public Scaladoc staging directory and a component source input")
+      val projectdir = dir.resolve("project")
+      _write(projectdir.resolve("src/main/scala/fixture/PublicApi.scala"), "package fixture\nfinal class PublicApi\n")
+      val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
+      val staging = _write_scaladoc_staging(projectdir)
+      val archive = dir.resolve("out/sample.car")
+
+      When("Cozy packages the CAR with the staged Scaladoc directory")
+      CarPackagingSpecSupport.buildCarWithContract(List(
+        "--save", archive.toString,
+        "--project-dir", projectdir.toString,
+        "--main-jar", mainjar.toString,
+        "--scaladoc-dir", staging.toString,
+        "--name", "sample-component",
+        "--version", "0.1.0-SNAPSHOT",
+        "--component", "Component"
+      ))
+
+      Then("the CAR contains exactly the verified staging entries and manifest under scaladoc")
+      val stagedentries = _scaladoc_manifest_entries(staging)
+      _zip_entries(archive).filter(_.startsWith("scaladoc/")) shouldBe
+        (stagedentries.map { case (path, _) => s"scaladoc/$path" }.toSet + "scaladoc/scaladoc-manifest.json")
+      stagedentries.foreach { case (path, _) =>
+        _zip_text(archive, s"scaladoc/$path") shouldBe Files.readString(staging.resolve(path), StandardCharsets.UTF_8)
+      }
+      _zip_text(archive, "scaladoc/scaladoc-manifest.json") shouldBe
+        Files.readString(staging.resolve("scaladoc-manifest.json"), StandardCharsets.UTF_8)
+    }
+  }
+  }
+
+    "reject invalid public Scaladoc staging" should {
+    "fail closed for a tampered or missing declared entry and a changed Scala source" in {
+    _with_temp_dir("cozy-car-scaladoc-strict") { dir =>
+      Given("a staged public Scaladoc manifest, its declared files, and one Scala source")
+      val projectdir = dir.resolve("project")
+      val source = _write(projectdir.resolve("src/main/scala/fixture/PublicApi.scala"), "package fixture\nfinal class PublicApi\n")
+      val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
+      val staging = _write_scaladoc_staging(projectdir)
+
+      When("a declared staging entry is tampered, removed, or made stale by a source change")
+      _write(staging.resolve("index.js"), "tampered")
+      val tampered = intercept[Throwable] {
+        CarPackagingSpecSupport.buildCarWithContract(List(
+          "--save", dir.resolve("out/tampered.car").toString,
+          "--project-dir", projectdir.toString,
+          "--main-jar", mainjar.toString,
+          "--scaladoc-dir", staging.toString,
+          "--name", "sample-component",
+          "--version", "0.1.0-SNAPSHOT",
+          "--component", "Component"
+        ))
+      }
+      _write_scaladoc_staging(projectdir, staging, replace = true)
+      Files.delete(staging.resolve("fixture/PublicApi.html"))
+      val missing = intercept[Throwable] {
+        CarPackagingSpecSupport.buildCarWithContract(List(
+          "--save", dir.resolve("out/missing.car").toString,
+          "--project-dir", projectdir.toString,
+          "--main-jar", mainjar.toString,
+          "--scaladoc-dir", staging.toString,
+          "--name", "sample-component",
+          "--version", "0.1.0-SNAPSHOT",
+          "--component", "Component"
+        ))
+      }
+      _write_scaladoc_staging(projectdir, staging, replace = true)
+      _write(source, "package fixture\nfinal class PublicApi { def changed = true }\n")
+      val stale = intercept[Throwable] {
+        CarPackagingSpecSupport.buildCarWithContract(List(
+          "--save", dir.resolve("out/stale.car").toString,
+          "--project-dir", projectdir.toString,
+          "--main-jar", mainjar.toString,
+          "--scaladoc-dir", staging.toString,
+          "--name", "sample-component",
+          "--version", "0.1.0-SNAPSHOT",
+          "--component", "Component"
+        ))
+      }
+
+      Then("Cozy rejects every failed integrity boundary before CAR output")
+      tampered.getMessage should include ("Scaladoc staged entry digest differs")
+      missing.getMessage should include ("Scaladoc staging entries differ")
+      stale.getMessage should include ("Scaladoc source-input digest differs")
+      Files.exists(dir.resolve("out/tampered.car")) shouldBe false
+      Files.exists(dir.resolve("out/missing.car")) shouldBe false
+      Files.exists(dir.resolve("out/stale.car")) shouldBe false
+    }
+  }
+  }
+
     "assemble SAR surfaces" should {
     "write descriptor at SAR top level" in {
     Given("a subsystem descriptor, extension JAR, and application configuration")
@@ -1601,6 +1696,48 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
     Files.write(path, content.getBytes("UTF-8"))
     path
   }
+
+  private def _write_scaladoc_staging(
+    projectdir: Path,
+    existing: Path = null,
+    replace: Boolean = false
+  ): Path = {
+    val staging = Option(existing).getOrElse(projectdir.resolve("target/cozy/scaladoc"))
+    if (replace && Files.exists(staging))
+      _delete_tree(staging)
+    Files.createDirectories(staging.resolve("fixture"))
+    _write(staging.resolve("index.html"), "<html><body>PublicApi</body></html>")
+    _write(staging.resolve("index.js"), "window.searchIndex = ['PublicApi']")
+    _write(staging.resolve("fixture/PublicApi.html"), "<html><body>PublicApi</body></html>")
+    val entries = _scaladoc_entries(staging)
+    val source = CozyScaladocStaging.sourceDigest(projectdir)
+    val content = _digest(entries.map { case (path, digest) => s"$path\t$digest\n" }.mkString.getBytes(StandardCharsets.UTF_8))
+    val entriesjson = entries.map { case (path, digest) =>
+      s"""{"path":"$path","sha256":"$digest"}"""
+    }.mkString("[", ",", "]")
+    val manifest =
+      s"""{"schema":"cozy.component-scaladoc.v1","sourceDigest":"$source","contentDigest":"$content","entries":$entriesjson}"""
+    _write(staging.resolve("scaladoc-manifest.json"), manifest)
+    staging
+  }
+
+  private def _scaladoc_manifest_entries(staging: Path): Vector[(String, String)] =
+    _scaladoc_entries(staging)
+
+  private def _scaladoc_entries(staging: Path): Vector[(String, String)] = {
+    val stream = Files.walk(staging)
+    try {
+      stream.iterator().asScala.toVector.collect {
+        case path if Files.isRegularFile(path) && path.getFileName.toString != "scaladoc-manifest.json" =>
+          staging.relativize(path).toString.replace('\\', '/') -> _digest(Files.readAllBytes(path))
+      }.sortBy(_._1)
+    } finally {
+      stream.close()
+    }
+  }
+
+  private def _digest(bytes: Array[Byte]): String =
+    MessageDigest.getInstance("SHA-256").digest(bytes).map(byte => f"${byte & 0xff}%02x").mkString
 
   private def _write_zip(
     path: Path,

@@ -13,6 +13,7 @@ import play.api.libs.json._
 import org.goldenport.cli.spec
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
+import java.security.MessageDigest
 import java.util.zip.{ZipEntry, ZipFile, ZipOutputStream}
 import scala.util.Try
 import scala.collection.JavaConverters._
@@ -22,7 +23,7 @@ import scala.sys.process._
  * @since   May. 20, 2026
  *  version May. 22, 2026
  *  version Jun. 18, 2026
- * @version Aug.  8, 2026
+ * @version Aug. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArchivePackager {
@@ -140,6 +141,9 @@ private[cozy] object CozyArchivePackager {
       val spijars = _paths(args, "spi-jars")
       _validate_unique_spi_jars(spijars)
       val cardir = _path(args, "car-dir").orElse(_car_dir(projectdir, config))
+      val scaladoc = _path(args, "scaladoc-dir").map { path =>
+        CozyScaladocStaging.verify(path, projectdir.get)
+      }
       _require_no_source_generation_provenance(cardir)
       _require_no_source_runtime_manifest(cardir)
       val componentapidescriptor = _path(args, "component-api-descriptor").orElse(_source_component_api_descriptor(cardir))
@@ -227,6 +231,7 @@ private[cozy] object CozyArchivePackager {
             packagedmainjar -> "component/main.jar"
           ) ++
             _car_entries(cardir) ++
+            scaladoc.toVector.flatMap(_.archiveEntries) ++
             libjars.map(p => p -> s"lib/${p.getFileName}") ++
             spijars.map(p => p -> s"spi/${p.getFileName}") ++
             defaultconf.toVector.map(_ -> "config/default.conf") ++
@@ -1156,6 +1161,7 @@ private[cozy] object CozyArchivePackager {
     spec.Parameter.propertyFileOption("abi-manifest"),
     spec.Parameter.propertyFileOption("abi-manifest-output"),
     spec.Parameter.propertyFileOption("model-metadata"),
+    spec.Parameter.propertyFileOption("scaladoc-dir"),
     spec.Parameter.propertyFileOption("source-dir"),
     spec.Parameter.property("source-files"),
     spec.Parameter.property("extension-jars"),
@@ -1211,4 +1217,195 @@ private[cozy] object CozyArchivePackager {
         stream.close()
       }
   }
+}
+
+/*
+ * The staged Scaladoc manifest is deliberately checked in Cozy as well as by
+ * sbt-cozy.  The bridge transports a directory, not a second disclosure or
+ * resource-selection policy; this admission is the sole CAR consumer of it.
+ */
+private[cozy] object CozyScaladocStaging {
+  val Schema = "cozy.component-scaladoc.v1"
+  val ManifestFileName = "scaladoc-manifest.json"
+
+  final case class Entry(path: String, sha256: String)
+
+  final case class Verified(directory: Path, manifest: Path, entries: Vector[Entry]) {
+    def archiveEntries: Vector[(Path, String)] =
+      entries.map(entry => directory.resolve(entry.path) -> s"scaladoc/${entry.path}") :+
+        (manifest -> s"scaladoc/$ManifestFileName")
+  }
+
+  def verify(stagingdir: Path, projectdir: Path): Verified = {
+    val directory = stagingdir.toAbsolutePath.normalize()
+    val projectroot = projectdir.toAbsolutePath.normalize()
+    _require_directory(directory, "Scaladoc staging directory")
+    val manifest = directory.resolve(ManifestFileName)
+    _require_regular_file(manifest, "Scaladoc manifest")
+    val parsed = _parse_manifest(manifest)
+    if (parsed.schema != Schema)
+      _invalid(s"Scaladoc manifest schema is unsupported: ${parsed.schema}")
+    if (Files.readString(manifest, StandardCharsets.UTF_8) != _render(parsed))
+      _invalid(s"Scaladoc manifest is not canonical: $manifest")
+    if (parsed.sourceDigest != sourceDigest(projectroot))
+      _invalid(s"Scaladoc source-input digest differs from current Scala sources: $manifest")
+    _require_manifest_entries(parsed.entries, directory)
+    val actual = _actual_entries(directory)
+    if (actual.map(_.path) != parsed.entries.map(_.path))
+      _invalid(s"Scaladoc staging entries differ from its manifest: $directory")
+    actual.zip(parsed.entries).foreach { case (actualentry, declared) =>
+      if (actualentry.sha256 != declared.sha256)
+        _invalid(s"Scaladoc staged entry digest differs from its manifest: ${declared.path}")
+    }
+    if (parsed.contentDigest != _inventory_digest(parsed.entries))
+      _invalid(s"Scaladoc staged-content digest differs from its manifest: $manifest")
+    if (!parsed.entries.exists(_.path == "index.html"))
+      _invalid(s"Scaladoc staging is missing index.html: $directory")
+    if (!parsed.entries.exists(entry => _is_search_or_symbol_evidence(entry.path)))
+      _invalid(s"Scaladoc staging is missing generated search or symbol evidence: $directory")
+    _require_no_source_disclosure(directory, parsed.entries)
+    Verified(directory, manifest, parsed.entries)
+  }
+
+  def sourceDigest(projectdir: Path): String = {
+    val root = projectdir.toAbsolutePath.normalize()
+    val sourcedir = root.resolve("src/main/scala")
+    if (!Files.exists(sourcedir))
+      _inventory_digest(Vector.empty)
+    else {
+      _require_directory(sourcedir, "Scala source directory")
+      val stream = Files.walk(sourcedir)
+      try {
+        val entries = stream.iterator().asScala.toVector.collect {
+          case path if path != sourcedir && Files.isSymbolicLink(path) =>
+            _invalid(s"Scala source input must not be a symbolic link: $path")
+          case path if Files.isRegularFile(path) && path.getFileName.toString.endsWith(".scala") =>
+            val relative = root.relativize(path).toString.replace('\\', '/')
+            Entry(relative, _sha256(Files.readAllBytes(path)))
+        }.sortBy(_.path)
+        _inventory_digest(entries)
+      } finally {
+        stream.close()
+      }
+    }
+  }
+
+  private final case class Manifest(
+    schema: String,
+    sourceDigest: String,
+    contentDigest: String,
+    entries: Vector[Entry]
+  )
+
+  private def _parse_manifest(path: Path): Manifest = {
+    val json = Try(Json.parse(Files.readString(path, StandardCharsets.UTF_8))).getOrElse(
+      _invalid(s"Scaladoc manifest is invalid JSON: $path")
+    )
+    val schema = (json \ "schema").asOpt[String].getOrElse(_invalid(s"Scaladoc manifest is missing schema: $path"))
+    val source = (json \ "sourceDigest").asOpt[String].getOrElse(_invalid(s"Scaladoc manifest is missing sourceDigest: $path"))
+    val content = (json \ "contentDigest").asOpt[String].getOrElse(_invalid(s"Scaladoc manifest is missing contentDigest: $path"))
+    val entries = (json \ "entries").asOpt[Vector[JsObject]].getOrElse(
+      _invalid(s"Scaladoc manifest is missing entries: $path")
+    ).map { entry =>
+      Entry(
+        (entry \ "path").asOpt[String].getOrElse(_invalid(s"Scaladoc manifest entry is missing path: $path")),
+        (entry \ "sha256").asOpt[String].getOrElse(_invalid(s"Scaladoc manifest entry is missing sha256: $path"))
+      )
+    }
+    Manifest(schema, source, content, entries)
+  }
+
+  private def _require_manifest_entries(entries: Vector[Entry], directory: Path): Unit = {
+    if (entries.isEmpty)
+      _invalid(s"Scaladoc manifest has no staged entries: $directory")
+    if (entries.map(_.path) != entries.map(_.path).sorted || entries.map(_.path).distinct.size != entries.size)
+      _invalid(s"Scaladoc manifest entries are not uniquely sorted: $directory")
+    entries.foreach { entry =>
+      if (!_is_safe_relative_path(entry.path) || entry.path == ManifestFileName)
+        _invalid(s"Scaladoc manifest contains an unsafe staged path: ${entry.path}")
+      if (!_is_sha256(entry.sha256))
+        _invalid(s"Scaladoc manifest contains an invalid SHA-256 digest: ${entry.path}")
+    }
+  }
+
+  private def _actual_entries(directory: Path): Vector[Entry] = {
+    val stream = Files.walk(directory)
+    try {
+      stream.iterator().asScala.toVector.collect {
+        case path if path != directory && Files.isSymbolicLink(path) =>
+          _invalid(s"Scaladoc staging must not contain a symbolic link: $path")
+        case path if Files.isRegularFile(path) =>
+          val relative = directory.relativize(path).toString.replace('\\', '/')
+          if (!_is_safe_relative_path(relative))
+            _invalid(s"Scaladoc staging contains an unsafe path: $relative")
+          if (relative == ManifestFileName) None else Some(Entry(relative, _sha256(Files.readAllBytes(path))))
+      }.flatten.sortBy(_.path)
+    } finally {
+      stream.close()
+    }
+  }
+
+  private def _require_no_source_disclosure(directory: Path, entries: Vector[Entry]): Unit = {
+    entries.foreach { entry =>
+      val path = entry.path.toLowerCase(java.util.Locale.ROOT)
+      if (path == "src-html" || path.startsWith("src-html/"))
+        _invalid(s"Scaladoc source-page material is forbidden: ${entry.path}")
+      if (_is_text_path(path)) {
+        val text = Files.readString(directory.resolve(entry.path), StandardCharsets.UTF_8)
+        if (text.toLowerCase(java.util.Locale.ROOT).contains("src-html") || _source_link.findFirstIn(text).nonEmpty)
+          _invalid(s"Scaladoc source link or source-page material is forbidden: ${entry.path}")
+      }
+    }
+  }
+
+  private def _render(manifest: Manifest): String = {
+    val entries = manifest.entries.map { entry =>
+      s"""{"path":${_quote(entry.path)},"sha256":${_quote(entry.sha256)}}"""
+    }.mkString("[", ",", "]")
+    s"""{"schema":${_quote(manifest.schema)},"sourceDigest":${_quote(manifest.sourceDigest)},"contentDigest":${_quote(manifest.contentDigest)},"entries":$entries}"""
+  }
+
+  private def _inventory_digest(entries: Vector[Entry]): String =
+    _sha256(entries.map(entry => s"${entry.path}\t${entry.sha256}\n").mkString.getBytes(StandardCharsets.UTF_8))
+
+  private def _sha256(bytes: Array[Byte]): String =
+    MessageDigest.getInstance("SHA-256").digest(bytes).map(byte => f"${byte & 0xff}%02x").mkString
+
+  private def _require_directory(path: Path, label: String): Unit = {
+    if (Files.isSymbolicLink(path) || !Files.isDirectory(path))
+      _invalid(s"$label is missing, unsafe, or not a directory: $path")
+  }
+
+  private def _require_regular_file(path: Path, label: String): Unit = {
+    if (Files.isSymbolicLink(path) || !Files.isRegularFile(path))
+      _invalid(s"$label is missing, unsafe, or not a regular file: $path")
+  }
+
+  private def _is_safe_relative_path(path: String): Boolean = {
+    val normalized = path.replace('\\', '/')
+    normalized == path &&
+      normalized.nonEmpty &&
+      !normalized.startsWith("/") &&
+      !normalized.endsWith("/") &&
+      normalized.split('/').forall(segment => segment.nonEmpty && segment != "." && segment != "..")
+  }
+
+  private def _is_search_or_symbol_evidence(path: String): Boolean = {
+    val lower = path.toLowerCase(java.util.Locale.ROOT)
+    (lower.contains("search") || lower.contains("index")) &&
+      (lower.endsWith(".js") || lower.endsWith(".json"))
+  }
+
+  private def _is_text_path(path: String): Boolean =
+    Vector(".css", ".html", ".js", ".json").exists(path.endsWith)
+
+  private val _source_link = "(?is)<a\\b[^>]*\\bhref\\s*=\\s*[\"'][^\"']+[\"'][^>]*>\\s*source\\s*</a>".r
+  private val _sha256_pattern = "^[0-9a-f]{64}$".r
+
+  private def _is_sha256(value: String): Boolean = _sha256_pattern.pattern.matcher(value).matches()
+
+  private def _quote(value: String): String =
+    "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+
+  private def _invalid(message: String): Nothing = RAISE.invalidArgumentFault(message)
 }
