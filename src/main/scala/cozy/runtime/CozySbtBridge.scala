@@ -8,7 +8,7 @@ import cozy.compatibility.{
   GenerationCompatibilityBoundary
 }
 import cozy.modeler.GenerationProvenance
-import cozy.archive.{ComponentApiDependencyResolver, ComponentApiJarPackager, CozyArchivePackager, CozyCarPublisher, CozyDevelopmentRuntimeManifest, CozySarPublisher, SubcomponentReleasePackaging}
+import cozy.archive.{ComponentApiDependencyResolver, ComponentApiJarPackager, ComponentSourceArchiveProjection, CozyArchivePackager, CozyCarPublisher, CozyDevelopmentRuntimeManifest, CozySarPublisher, SubcomponentReleasePackaging}
 import cozy.config.CozyProjectYamlConfig
 import cozy.publication.{CozyPublicationCompiler, CozySampleDistributor, CozyWarehouseIndexer}
 import cozy.video.CozyVideoPublisher
@@ -44,6 +44,8 @@ private[cozy] object CozySbtBridge {
         _rebind_generation_provenance(request.arguments)
       case "prepare-development-runtime-evidence" =>
         _prepare_development_runtime_evidence(request.arguments)
+      case "write-component-source-archive" =>
+        _write_component_source_archive(request.arguments)
       case "package-car" =>
         CozyArchivePackager.buildCar(request.arguments.toList)
       case "component-api-jar" =>
@@ -127,6 +129,12 @@ private[cozy] object CozySbtBridge {
     CozyDevelopmentRuntimeManifest.write(
       projectRoot = _required_path(args.toList, "project-dir"),
       runtimeClasspathFile = _required_path(args.toList, "runtime-classpath-file"),
+      output = _required_path(args.toList, "save")
+    )
+
+  private def _write_component_source_archive(args: Vector[String]): Unit =
+    ComponentSourceArchiveProjection.write(
+      projectRoot = _required_path(args.toList, "project-dir"),
       output = _required_path(args.toList, "save")
     )
 
