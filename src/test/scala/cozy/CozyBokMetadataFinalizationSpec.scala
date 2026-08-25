@@ -11,7 +11,7 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   Aug. 23, 2026
- * @version Aug. 24, 2026
+ * @version Aug. 26, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokMetadataFinalizationSpec
@@ -19,6 +19,7 @@ class CozyBokMetadataFinalizationSpec
     with GivenWhenThen
     with CozySpecVocabulary {
   "Cozy BoK metadata finalization" should {
+    "prepared metadata finalization" which {
     "finalize prepared glossary and RDF metadata without changing rendered HTML" in {
       _with_temp_dir("cozy-bok-metadata-finalization-success") { dir =>
         Given("an existing configured website with a prepared generated glossary and RDF handoff")
@@ -189,7 +190,9 @@ class CozyBokMetadataFinalizationSpec
         Files.isRegularFile(dir.resolve("website.d/metadata/cncf/knowledge-source.json"), LinkOption.NOFOLLOW_LINKS) shouldBe true
       }
     }
+    }
 
+    "source/output safety admission" which {
     "reject an unsafe bok.source from the public build command before reading site.conf" in {
       _with_temp_dir("cozy-bok-metadata-finalization-command-source") { dir =>
         val outside = Files.createTempDirectory("cozy-bok-unsafe-source")
@@ -348,7 +351,9 @@ class CozyBokMetadataFinalizationSpec
         }
       }
     }
+    }
 
+    "normal BoK build finalization" which {
     "share normalized finalization with a production build using only a local runner" in {
       _with_temp_dir("cozy-bok-metadata-finalization-production") { dir =>
         Given("a production BoK source and a local runner that writes prepared Dox metadata")
@@ -445,6 +450,7 @@ class CozyBokMetadataFinalizationSpec
           LinkOption.NOFOLLOW_LINKS
         ) shouldBe false
       }
+    }
     }
   }
 
