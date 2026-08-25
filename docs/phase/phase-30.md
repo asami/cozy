@@ -143,11 +143,20 @@ specifications, runtime validation, or Phase completion.
 
 ### P30-01: Storyboard Schema and Markdown / JSON Adapters
 
-Status: PLANNED
+Status: COMPLETE
 
-Own the normative schema, restricted Markdown grammar, JSON representation,
-typed model, normalization, validation, conversion, semantic round-trip, and
-legacy-script distinction.
+P30-01A implements the `cozy.video.storyboard.v1` typed `Storyboard` model,
+strict Markdown and JSON adapters, deterministic canonical conversion and
+identity, structured validation diagnostics, and the `video storyboard`
+`validate`, `inspect`, and `convert` commands. It preserves the contracted
+scene fields and ordering across semantic round-trips, rejects duplicate or
+unknown JSON fields, malformed restricted Markdown, invalid timing and
+speaker/role values, unsafe references, non-UTF-8 input, and legacy dialogue
+`script.json` as a non-Storyboard input. The accepted focused executable
+specification covers 12 scenarios, including a ScalaCheck round-trip property;
+the independent lightweight review found no Current Step Blocker, Hygiene, or
+Development Candidate. This completes the schema-and-adapter Step only:
+visual-story evidence and approved-build integration remain P30-02 and P30-03.
 
 ### P30-02: Optional Storyboard Visual-Story Review
 

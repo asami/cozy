@@ -27,11 +27,11 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Aug. 26, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoCommand {
-  self: CozyVideoTypes with CozyVideoRuntime with CozyVideoNarration with CozyVideoToolValidation with CozyVideoTranscription with CozyVideoReviewEvidence with CozyVideoBuildReplay with CozyVideoRdf with CozyVideoRenderWorkspace with CozyVideoRenderTemplates with CozyVideoPlanning with CozyVideoPresentation =>
+  self: CozyVideoTypes with CozyVideoStoryboard with CozyVideoRuntime with CozyVideoNarration with CozyVideoToolValidation with CozyVideoTranscription with CozyVideoReviewEvidence with CozyVideoBuildReplay with CozyVideoRdf with CozyVideoRenderWorkspace with CozyVideoRenderTemplates with CozyVideoPlanning with CozyVideoPresentation =>
   def execute(args: List[String]): Boolean = execute(args, VideoToolRegistry.default)
 
   def execute(args: List[String], tools: VideoToolRegistry): Boolean =
@@ -42,6 +42,19 @@ private[cozy] trait CozyVideoCommand {
 
   def execute(args: List[String], tools: VideoToolRegistry, voicevox: VoicevoxClient, runner: VideoProcessRunner): Boolean =
     args match {
+      case "video" :: "storyboard" :: "validate" :: rest =>
+        println(storyboardValidate(StoryboardValidateConfig.create(rest)))
+        true
+      case "video" :: "storyboard" :: "inspect" :: rest =>
+        println(storyboardInspect(StoryboardInspectConfig.create(rest)))
+        true
+      case "video" :: "storyboard" :: "convert" :: rest =>
+        println(storyboardConvert(StoryboardConvertConfig.create(rest)))
+        true
+      case "video" :: "storyboard" :: other :: _ =>
+        RAISE.invalidArgumentFault(s"Unsupported video storyboard command: $other")
+      case "video" :: "storyboard" :: Nil =>
+        RAISE.invalidArgumentFault("Missing video storyboard command: validate, inspect, or convert")
       case "video" :: "scaffold" :: rest =>
         println(CozyVideoScaffold.scaffold(CozyVideoScaffold.Config.create(rest)))
         true

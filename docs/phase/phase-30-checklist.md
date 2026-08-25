@@ -26,15 +26,15 @@ Status: COMPLETE
 
 ## P30-01: Storyboard Schema and Markdown / JSON Adapters
 
-Status: PLANNED
+Status: COMPLETE
 
-- [ ] Freeze `cozy.video.storyboard.v1`, restricted `storyboard.md` grammar,
+- [x] Freeze `cozy.video.storyboard.v1`, restricted `storyboard.md` grammar,
       equivalent `storyboard.json`, typed semantic model, and normalization.
-- [ ] Specify deterministic Markdown/JSON conversion and semantic round-trip
+- [x] Specify deterministic Markdown/JSON conversion and semantic round-trip
       preservation for every contracted field and scene order.
-- [ ] Specify structured rejection diagnostics for schema/version, identity,
+- [x] Specify structured rejection diagnostics for schema/version, identity,
       timing, speaker/role, path/ref, and unpreserved unknown-field errors.
-- [ ] Keep `storyboard.json` distinct from legacy dialogue `script.json` and
+- [x] Keep `storyboard.json` distinct from legacy dialogue `script.json` and
       define explicit, diagnostic migration behavior.
 
 ## P30-02: Optional Storyboard Visual-Story Review

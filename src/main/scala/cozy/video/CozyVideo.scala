@@ -6,7 +6,7 @@ import java.nio.file.Path
  * @since   Jun. 18, 2026
  *  version Jun. 19, 2026
  *  version Jul. 20, 2026
- * @version Aug. 14, 2026
+ * @version Aug. 26, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideo {
@@ -28,6 +28,12 @@ private[cozy] object CozyVideo {
   lazy val DemoScriptConfig = CozyVideoImplementation.DemoScriptConfig
   type ReplayConfig = CozyVideoImplementation.ReplayConfig
   lazy val ReplayConfig = CozyVideoImplementation.ReplayConfig
+  type StoryboardValidateConfig = CozyVideoImplementation.StoryboardValidateConfig
+  lazy val StoryboardValidateConfig = CozyVideoImplementation.StoryboardValidateConfig
+  type StoryboardInspectConfig = CozyVideoImplementation.StoryboardInspectConfig
+  lazy val StoryboardInspectConfig = CozyVideoImplementation.StoryboardInspectConfig
+  type StoryboardConvertConfig = CozyVideoImplementation.StoryboardConvertConfig
+  lazy val StoryboardConvertConfig = CozyVideoImplementation.StoryboardConvertConfig
 
   type VideoProject = CozyVideoImplementation.VideoProject
   lazy val VideoProject = CozyVideoImplementation.VideoProject
@@ -47,6 +53,20 @@ private[cozy] object CozyVideo {
   lazy val VideoReplayStep = CozyVideoImplementation.VideoReplayStep
   type VideoReplayScript = CozyVideoImplementation.VideoReplayScript
   lazy val VideoReplayScript = CozyVideoImplementation.VideoReplayScript
+  type Storyboard = CozyVideoImplementation.Storyboard
+  lazy val Storyboard = CozyVideoImplementation.Storyboard
+  type StoryboardScene = CozyVideoImplementation.StoryboardScene
+  lazy val StoryboardScene = CozyVideoImplementation.StoryboardScene
+  type StoryboardScreen = CozyVideoImplementation.StoryboardScreen
+  lazy val StoryboardScreen = CozyVideoImplementation.StoryboardScreen
+  type StoryboardProductionInsert = CozyVideoImplementation.StoryboardProductionInsert
+  lazy val StoryboardProductionInsert = CozyVideoImplementation.StoryboardProductionInsert
+  type StoryboardPronunciationNote = CozyVideoImplementation.StoryboardPronunciationNote
+  lazy val StoryboardPronunciationNote = CozyVideoImplementation.StoryboardPronunciationNote
+  type StoryboardDiagnostic = CozyVideoImplementation.StoryboardDiagnostic
+  lazy val StoryboardDiagnostic = CozyVideoImplementation.StoryboardDiagnostic
+  type StoryboardResult = CozyVideoImplementation.StoryboardResult
+  lazy val StoryboardResult = CozyVideoImplementation.StoryboardResult
 
   type VideoToolMode = CozyVideoImplementation.VideoToolMode
   lazy val VideoToolMode = CozyVideoImplementation.VideoToolMode
@@ -175,10 +195,29 @@ private[cozy] object CozyVideo {
     CozyVideoImplementation.demoScript(config)
   def replay(config: ReplayConfig, tools: VideoToolRegistry, runner: VideoProcessRunner): String =
     CozyVideoImplementation.replay(config, tools, runner)
+  def loadStoryboard(source: Path): StoryboardResult =
+    CozyVideoImplementation.loadStoryboard(source)
+  def parseStoryboard(source: Path, text: String): StoryboardResult =
+    CozyVideoImplementation.parseStoryboard(source, text)
+  def validateStoryboard(storyboard: Storyboard): Vector[StoryboardDiagnostic] =
+    CozyVideoImplementation.validateStoryboard(storyboard)
+  def canonicalStoryboardJson(storyboard: Storyboard): String =
+    CozyVideoImplementation.canonicalStoryboardJson(storyboard)
+  def canonicalStoryboardMarkdown(storyboard: Storyboard): String =
+    CozyVideoImplementation.canonicalStoryboardMarkdown(storyboard)
+  def storyboardIdentity(storyboard: Storyboard): String =
+    CozyVideoImplementation.storyboardIdentity(storyboard)
+  def storyboardValidate(config: StoryboardValidateConfig): String =
+    CozyVideoImplementation.storyboardValidate(config)
+  def storyboardInspect(config: StoryboardInspectConfig): String =
+    CozyVideoImplementation.storyboardInspect(config)
+  def storyboardConvert(config: StoryboardConvertConfig): String =
+    CozyVideoImplementation.storyboardConvert(config)
 }
 
 private[cozy] object CozyVideoImplementation
   extends CozyVideoTypes
+  with CozyVideoStoryboard
   with CozyVideoRuntime
   with CozyVideoCommand
   with CozyVideoNarration
