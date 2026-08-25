@@ -7,6 +7,16 @@ deterministic Cozy check verifies that documentation sources and generated-help
 inputs exist. `cncf-car-lint` adds an AI review of whether the prose is useful
 and accurate.
 
+## Admitted CAR Manual Source
+
+The manual source is resolved from `packaging.car.source_dir` when that value is
+configured in the project configuration. Relative values are resolved from the
+project root and normalized; absolute values are normalized as-is. When the
+setting is omitted, Cozy uses `src/main/car`. A configured but missing source is
+not silently replaced by the default. Entry-point and recursive manual checks
+inspect only the admitted source's `manual/` subtree, matching the CAR packager's
+source selection.
+
 ## Cozy Documentation Category
 
 Cozy reports these checks under the `documentation` category. Missing or thin
@@ -15,8 +25,8 @@ readiness.
 
 ### Reference Manual
 
-The reference manual must have a CAR-package entry point under
-`src/main/car/manual/`. Recognized entry-point stems are:
+The reference manual must have a CAR-package entry point under the admitted
+source's `manual/` directory. Recognized entry-point stems are:
 
 - `index`
 - `reference-manual`
@@ -25,19 +35,42 @@ The reference manual must have a CAR-package entry point under
 Recognized source suffixes are `.md`, `.markdown`, `.adoc`, `.asciidoc`, `.dox`,
 and `.html`.
 
+When more than one canonical file matches an entry-point class, Cozy retains one
+deterministic present finding and emits
+`car.documentation.manual.entry-point.duplicate` as a warning for the duplicate.
 Cozy packages this source subtree as `manual/` in the CAR. CNCF runtime exposes
-the same relative paths below `/man/<component>/`; for example,
-`src/main/car/manual/index.md` becomes `/man/<component>/index.md`.
+the same relative paths below `/man/<component>/`.
 
 ### User Guide
 
 The user guide may be provided through one of these authoring surfaces:
 
-- `src/main/car/manual/user-guide.*`
+- `<admitted-car-source>/manual/user-guide.*`
 - `src/main/web/docs/user-guide.*`
 - `docs/user-guide.*`
 - `docs/guide/index.*`
 - `docs/guide/README.md`
+
+The canonical admitted-source entry point takes precedence over legacy locations
+for compatibility.
+
+### Manual References and Assets
+
+Supported manual documents (`.md`, `.markdown`, `.adoc`, `.asciidoc`, `.dox`,
+and `.html`) are inspected recursively below the admitted `manual/` directory.
+Markdown-style local references must resolve inside that directory. Anchors,
+empty references, and URL-scheme references are ignored. Absolute or escaping
+paths produce `car.documentation.manual.link.unsafe`; missing image references
+produce `car.documentation.manual.asset.missing`; missing non-image references
+produce `car.documentation.manual.link.stale`. Manual files are decoded as
+strict UTF-8, and unreadable or malformed input produces
+`car.documentation.manual.input.unparseable`. Findings point to the source
+manual document, never to a referenced target, and are deterministic with
+duplicate findings suppressed. Symlinks are not followed.
+
+These findings are warnings in normal lint. Existing strict mode treats
+documentation warnings as release-blocking and exits nonzero; the CLI contract
+is unchanged.
 
 ### Generated Help Descriptions
 

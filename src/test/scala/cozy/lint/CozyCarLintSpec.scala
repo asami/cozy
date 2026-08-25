@@ -13,7 +13,7 @@ import play.api.libs.json.Json
 /*
  * @since   Jul.  7, 2026
  *  version Jul. 28, 2026
- * @version Aug. 24, 2026
+ * @version Aug. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -219,6 +219,227 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
             "car.documentation.service.description.present",
             "car.documentation.operation.description.present"
           )
+        }
+      }
+
+      "DOC03-LINT-AC-01 resolves configured manual entries and retains the default source fallback" in {
+        _with_temp_dir("cozy-car-lint-doc03-ac01-source") { dir =>
+          Given("a CAR project whose relative packaging.car.source_dir contains the manual entry points")
+          val source = _write_project_with_configured_car_source(dir)
+          _write_manual_entry_points(source)
+          _write_valid_cml(dir)
+
+          When("Cozy resolves documentation entry points from the admitted CAR source directory")
+          val configured = CozyCarLint.lint(dir, None, noabi = true)
+
+          Then("the configured reference manual and user guide are accepted at source-relative paths")
+          configured
+            .find(_.code == "car.documentation.reference-manual.present")
+            .map(_.path) shouldBe Some(
+            source.resolve("manual/index.md").toAbsolutePath.normalize()
+          )
+          configured
+            .find(_.code == "car.documentation.user-guide.present")
+            .map(_.path) shouldBe Some(
+            source.resolve("manual/user-guide.md").toAbsolutePath.normalize()
+          )
+
+          Given("the same project without packaging.car.source_dir and with the legacy default manual subtree")
+          _write_compatibility_project(dir, excluded = false)
+          _write_reference_manual(dir)
+          _write_canonical_user_guide(dir)
+
+          When("Cozy resolves documentation entry points without an admitted source override")
+          val fallback = CozyCarLint.lint(dir, None, noabi = true)
+
+          Then("the default src/main/car manual subtree remains the compatible fallback")
+          fallback
+            .find(_.code == "car.documentation.reference-manual.present")
+            .map(_.path) shouldBe Some(
+            dir.resolve("src/main/car/manual/index.md").toAbsolutePath.normalize()
+          )
+          fallback
+            .find(_.code == "car.documentation.user-guide.present")
+            .map(_.path) shouldBe Some(
+            dir.resolve("src/main/car/manual/user-guide.md").toAbsolutePath.normalize()
+          )
+
+          Given("the default manual entries remain on disk while packaging.car.source_dir points to a missing directory")
+          val missingsource = dir.resolve("src/main/car-missing").toAbsolutePath.normalize()
+          _write_compatibility_project(
+            dir,
+            excluded = false,
+            carsource = Some("src/main/car-missing")
+          )
+
+          When("Cozy resolves documentation entry points from the configured but missing source directory")
+          val missing = CozyCarLint.lint(dir, None, noabi = true)
+
+          Then("configured missing entry points do not fall back to the default manual subtree")
+          missing
+            .find(_.code == "car.documentation.reference-manual.missing")
+            .map(_.path) shouldBe Some(
+            missingsource.resolve("manual/index.md").toAbsolutePath.normalize()
+          )
+          missing
+            .find(_.code == "car.documentation.user-guide.missing")
+            .map(_.path) shouldBe Some(
+            missingsource.resolve("manual/user-guide.md").toAbsolutePath.normalize()
+          )
+          missing.exists(finding =>
+            finding.code == "car.documentation.reference-manual.present" &&
+              finding.path == dir.resolve("src/main/car/manual/index.md").toAbsolutePath.normalize()
+          ) shouldBe false
+          missing.exists(finding =>
+            finding.code == "car.documentation.user-guide.present" &&
+              finding.path == dir.resolve("src/main/car/manual/user-guide.md").toAbsolutePath.normalize()
+          ) shouldBe false
+        }
+      }
+
+      "DOC03-LINT-AC-02 reports deterministic manual link, asset, duplicate, and source-containment findings" in {
+        _with_temp_dir("cozy-car-lint-doc03-ac02-links") { dir =>
+          Given("a configured CAR manual with safe local links/assets and unsafe, stale, and duplicate identities")
+          val source = _write_project_with_configured_car_source(dir)
+          val manual = source.resolve("manual")
+          val absoluteuserguide = manual.resolve("user-guide.md").toAbsolutePath.normalize()
+          _write(
+            manual.resolve("index.md"),
+            s"""# Reference Manual
+              |
+              |[User guide](user-guide.md)
+              |![Logo](assets/logo.txt)
+              |[Absolute user guide]($absoluteuserguide)
+              |[Escapes manual](../../outside.md)
+              |![Missing asset](assets/missing.svg)
+              |[Stale chapter](chapters/stale.md)
+              |""".stripMargin
+          )
+          _write(
+            manual.resolve("index.adoc"),
+            "= Reference Manual Duplicate\n\nThis is a duplicate canonical reference entry.\n"
+          )
+          _write(
+            manual.resolve("user-guide.md"),
+            "# User Guide\n\nFollow the supported workflow from setup through daily operation.\n"
+          )
+          _write(manual.resolve("assets/logo.txt"), "logo fixture\n")
+          _write_valid_cml(dir)
+
+          Given("a nested supported manual document repeats one missing image reference")
+          val nestedmanual = manual.resolve("chapters/nested.md").toAbsolutePath.normalize()
+          _write(
+            nestedmanual,
+            """# Nested Chapter
+              |
+              |![Nested missing](../assets/nested-missing.svg)
+              |![Nested missing again](../assets/nested-missing.svg)
+              |""".stripMargin
+          )
+
+          When("Cozy lints the configured manual subtree for the first time")
+          val findings = CozyCarLint.lint(dir, None, noabi = true)
+
+          Then("recursive linting attributes the repeated missing asset to the nested source document once")
+          findings.count(finding =>
+            finding.code == "car.documentation.manual.asset.missing" &&
+              finding.path == nestedmanual
+          ) shouldBe 1
+
+          When("Cozy lints the configured manual subtree for the second time")
+          val repeatedfindings = CozyCarLint.lint(dir, None, noabi = true)
+
+          Then("repeated linting returns the same deterministic findings")
+          repeatedfindings shouldBe findings
+          val codes = findings.map(_.code).toSet
+
+          Then("safe local references remain accepted while each unsafe or stale condition has an explicit warning code")
+          codes should contain allOf (
+            "car.documentation.manual.link.unsafe",
+            "car.documentation.manual.asset.missing",
+            "car.documentation.manual.link.stale",
+            "car.documentation.manual.entry-point.duplicate"
+          )
+          Vector(
+            "car.documentation.manual.link.unsafe",
+            "car.documentation.manual.asset.missing",
+            "car.documentation.manual.link.stale",
+            "car.documentation.manual.entry-point.duplicate"
+          ).foreach { code =>
+            findings.find(_.code == code).map(_.level) shouldBe Some(CozyCarLint.Level.Warn)
+          }
+          findings.exists(finding =>
+            finding.code == "car.documentation.manual.link.unsafe" &&
+              finding.path == manual.resolve("user-guide.md").toAbsolutePath.normalize()
+          ) shouldBe false
+          findings.exists(finding =>
+            finding.code == "car.documentation.manual.link.unsafe" &&
+              finding.message.contains(absoluteuserguide.toString)
+          ) shouldBe true
+          findings.exists(finding =>
+            finding.code == "car.documentation.manual.asset.missing" &&
+              finding.path == manual.resolve("assets/logo.txt").toAbsolutePath.normalize()
+          ) shouldBe false
+          findings
+            .filter(_.code.startsWith("car.documentation.manual."))
+            .map(_.path.toAbsolutePath.normalize())
+            .foreach { path =>
+              path.startsWith(source.toAbsolutePath.normalize()) shouldBe true
+              path.startsWith(manual.toAbsolutePath.normalize()) shouldBe true
+            }
+        }
+      }
+
+      "DOC03-LINT-AC-03 warns normally and fails strict lint for unparseable and stale or unsafe manual input" in {
+        _with_temp_dir("cozy-car-lint-doc03-ac03-strict") { dir =>
+          Given("a configured CAR manual containing malformed UTF-8 and stale or escaping local references")
+          val source = _write_project_with_configured_car_source(dir)
+          val manual = source.resolve("manual")
+          _write(
+            manual.resolve("index.md"),
+            """# Reference Manual
+              |
+              |[Broken chapter](broken.md)
+              |[Stale chapter](missing.md)
+              |[Escapes manual](../../outside.md)
+              |""".stripMargin
+          )
+          _write(
+            manual.resolve("user-guide.md"),
+            "# User Guide\n\nFollow the supported workflow from setup through daily operation.\n"
+          )
+          Files.write(
+            manual.resolve("broken.md"),
+            Array[Byte](0x23.toByte, 0x20.toByte, 0xff.toByte, 0xfe.toByte)
+          )
+          _write_valid_cml(dir)
+
+          When("Cozy lints the malformed manual in normal mode")
+          val findings = CozyCarLint.lint(dir, None, noabi = true)
+
+          Then("new manual input and local-reference failures are deterministic warnings")
+          Vector(
+            "car.documentation.manual.input.unparseable",
+            "car.documentation.manual.link.stale",
+            "car.documentation.manual.link.unsafe"
+          ).foreach { code =>
+            findings.find(_.code == code).map(_.level) shouldBe Some(CozyCarLint.Level.Warn)
+          }
+
+          When("Cozy lints the same malformed manual in strict mode")
+          val out = new ByteArrayOutputStream()
+          val exitcode = Console.withOut(
+            new PrintStream(out, true, StandardCharsets.UTF_8.name())
+          ) {
+            CozyCarLint.execute(List(dir.toString, "--strict", "--no-abi"), Some("0.1.11"))
+          }
+
+          Then("strict release readiness fails and preserves every attributable manual code")
+          exitcode shouldBe 1
+          val report = out.toString(StandardCharsets.UTF_8.name())
+          report should include("car.documentation.manual.input.unparseable")
+          report should include("car.documentation.manual.link.stale")
+          report should include("car.documentation.manual.link.unsafe")
         }
       }
 
@@ -615,6 +836,32 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
     _write_canonical_user_guide(dir)
   }
 
+  private def _write_project_with_configured_car_source(dir: Path): Path = {
+    val source = "src/main/car-custom"
+    _write_compatibility_project(
+      dir,
+      excluded = false,
+      carsource = Some(source)
+    )
+    _write(
+      dir.resolve("project/plugins.sbt"),
+      """addSbtPlugin("org.goldenport" % "sbt-cozy" % "0.1.11")"""
+    )
+    _write(dir.resolve("build.sbt"), "scalaVersion := \"2.12.20\"")
+    dir.resolve(source)
+  }
+
+  private def _write_manual_entry_points(source: Path): Unit = {
+    _write(
+      source.resolve("manual/index.md"),
+      "# Sample Reference Manual\n\nReference semantics, configuration, operations, errors, and examples.\n"
+    )
+    _write(
+      source.resolve("manual/user-guide.md"),
+      "# Sample User Guide\n\nTask-oriented setup, first invocation, daily workflows, and troubleshooting.\n"
+    )
+  }
+
   private def _write_reference_manual(dir: Path): Path =
     _write(
       dir.resolve("src/main/car/manual/index.md"),
@@ -646,13 +893,15 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
     dir: Path,
     excluded: Boolean,
     cncfversion: String = "0.5.17",
-    cmlsource: Option[String] = None
+    cmlsource: Option[String] = None,
+    carsource: Option[String] = None
   ): Unit = {
     val exclusions =
       if (excluded)
         s"        excluded:\n          - $cncfversion"
       else
         "        excluded: []"
+    val carsourceyaml = carsource.map(value => s"    source_dir: $value\n").getOrElse("")
     val cmlsourceyaml = cmlsource.map(value => s"cml:\n  source: $value\n").getOrElse("")
     _write(
       dir.resolve("project.yaml"),
@@ -665,6 +914,7 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
          |packaging:
          |  kind: car
          |  car:
+         |$carsourceyaml
          |    runtime:
          |      cncf:
          |        minimum: $cncfversion
