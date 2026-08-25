@@ -1,16 +1,23 @@
 # Phase 30: Unified Storyboard and Three-Gate Video Review Workflow
 
-Status: planned
+Status: IN PROGRESS
 
 Plan date: 2026-08-18
+Execution authorization date: 2026-08-26
 
-Phase Plan Gate: SPLIT_REQUIRED
+Phase Execution Gate: EXPLICIT_SINGLE_PHASE_AUTHORIZED
 
-- target per child phase: conservative upper bound <= 6h
 - estimated total at recommended effort: 10–15h
 - recommended minimum effort: high
-- runtime suitability: re-evaluate for each child phase
+- runtime suitability: re-evaluate at each internal Step/Slice gate
 - source: KnowledgeHub external-reference video authoring follow-up
+
+The user explicitly authorized one long-running Phase 30 execution without
+splitting it into child phases. `P30-00` through `P30-03` are internal Steps
+and their Slices within this Phase; they are not child Phases `30.1`–`30.3`.
+The exception changes delivery shape only. It does not authorize a successor
+Phase, work in another repository, Dox/PPTX runtime acceptance, or any claim
+of implementation, validation, review, commit, or completion.
 
 ## Goal
 
@@ -119,31 +126,50 @@ identity checks, video execution input, and rendered-video review evidence.
 - Removing all legacy `parts[].script` support without a separately accepted
   migration decision and regression evidence.
 
-## Required split
+## Internal delivery Steps
 
-### Phase 30.1: Storyboard Schema and Markdown / JSON Adapters
+The following identifiers are the authoritative internal Step ledger. No child
+Phase document or child Phase checklist is created or required.
+
+### P30-00: Single-Phase authorization and Storyboard foundation
+
+Status: COMPLETE
+
+This Step records the explicit delivery-shape authorization and establishes
+the normative Storyboard specification/design foundation. Its documentation
+Slice P30-00A passed the class-D static checks and clean lightweight Step
+review. This completed Step does not claim Storyboard code, CLI, executable
+specifications, runtime validation, or Phase completion.
+
+### P30-01: Storyboard Schema and Markdown / JSON Adapters
+
+Status: PLANNED
 
 Own the normative schema, restricted Markdown grammar, JSON representation,
 typed model, normalization, validation, conversion, semantic round-trip, and
 legacy-script distinction.
 
-### Phase 30.2: Optional Storyboard Visual-Story Review
+### P30-02: Optional Storyboard Visual-Story Review
+
+Status: PLANNED
 
 Own deterministic visual-story evidence, optional diagram/asset inclusion,
 Dox/PPTX handoff, review-state identities, and stale-visual-input rejection.
 It must not make image-backed slides mandatory for ordinary storyboard or
 confirmation-video review.
 
-### Phase 30.3: Approved Storyboard Confirmation/Final Build and Final Review
+### P30-03: Approved Storyboard Confirmation/Final Build and Final Review
+
+Status: PLANNED
 
 Own `parts[].storyboard`, inspect/synthesize/render/build integration,
 confirmation/final output separation, cache reuse and invalidation, removal of
 source `script.json` from new scaffolds, post-build review evidence, optional
 video-derived review-deck state, legacy regression, and end-to-end acceptance.
 
-No implementation starts from this parent Phase. Child phase documents and
-checklists must freeze exact scope, estimates, dependencies, and acceptance
-evidence first.
+Implementation remains gated by the internal Step/Slice ledger and the
+normative specification/design. No implementation, validation, review, commit,
+or completion is claimed by this Phase record at its current status.
 
 ## Completion criteria
 
@@ -165,7 +191,7 @@ evidence first.
   supported through the same schema.
 - Focused/full Cozy tests, conversion properties, Dox/PPTX handoff validation,
   runtime smoke, visual/technical review, and ledger convergence pass in the
-  respective child phases.
+  respective internal Steps.
 
 ## Dependencies
 
@@ -184,5 +210,6 @@ evidence first.
 - `docs/phase/phase-17.md`
 - `docs/phase/phase-18.md`
 - `docs/phase/phase-20.md`
-- `docs/design/video-storyboard.md` (Phase 30.1 candidate)
-- `docs/spec/video-storyboard.md` (Phase 30.1 candidate)
+- `docs/design/video-storyboard.md`
+- `docs/spec/video-storyboard.md`
+- `docs/journal/2026/08/2026-08-26-phase-30-single-phase-authorization.md`

@@ -942,7 +942,7 @@ Primary references:
 
 ### Phase 30: Unified Storyboard and Three-Gate Video Review Workflow
 
-Status: planned; split required before implementation.
+Status: IN PROGRESS; explicit single-Phase execution authorized 2026-08-26.
 
 Purpose and boundaries:
 
@@ -976,15 +976,23 @@ storyboard.md review
   -> final video and rendered-video evidence review
 ```
 
-The parent Phase is estimated at 10–15 hours and therefore requires three
-bounded child phases before implementation: Storyboard schema/Markdown/JSON,
-optional visual-story review evidence, and confirmation/final build plus
-final-review integration. Encoding policy profiles remain Phase 31's concern.
+The Phase remains estimated at 10–15 hours at recommended high effort. The
+user explicitly authorized one long-running Phase without splitting it into
+child phases. Storyboard schema/Markdown/JSON, optional visual-story review
+evidence, and confirmation/final build plus final-review integration are
+internal Steps `P30-01`, `P30-02`, and `P30-03`, preceded by authorization and
+specification/design foundation Step `P30-00`. Encoding policy profiles remain
+Phase 31's concern. This delivery-shape exception does not authorize a
+successor Phase, external repository mutation, Dox/PPTX runtime acceptance, or
+claims of implementation, validation, review, commit, or completion.
 
 Primary references:
 
 - `docs/phase/phase-30.md`
 - `docs/phase/phase-30-checklist.md`
+- `docs/spec/video-storyboard.md`
+- `docs/design/video-storyboard.md`
+- `docs/journal/2026/08/2026-08-26-phase-30-single-phase-authorization.md`
 
 ### Phase 31: Video Encoding Policy Profiles
 

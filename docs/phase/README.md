@@ -28,12 +28,15 @@ Current phase state:
 - Earlier closed phase: `phase-32.md`: CML Source-Result Canonical Naming.
   It owns only the canonical `Resolved.projectRelativePath` migration and its
   explicit retired-name boundary.
-- Planned split-required phase: `phase-30.md`: Unified Storyboard and
-  Three-Gate Video Review Workflow. The intended workflow is
+- In-progress single-Phase execution: `phase-30.md`: Unified Storyboard and
+  Three-Gate Video Review Workflow. Under the explicit 2026-08-26
+  one-Phase authorization, its internal Steps are P30-00 through P30-03. The
+  intended workflow is
   `storyboard.md review -> optional image-backed visual-story review ->
   confirmation video review -> final video and rendered-video evidence review`.
   Content-review and video-review PPTX artifacts are optional inspection or
-  distribution outputs, not workflow gates.
+  distribution outputs, not workflow gates. Phase 30 remains incomplete; no
+  implementation, validation, review, commit, or successor Phase is claimed.
 - Earlier closed phase: `phase-28.2.md`: SimpleModeling.org Part 5
   Integration and Regression; `AM28-03` and `AM28-04` are complete.
 - Most recent split predecessor: `phase-28.1.md`: WIP Local Article Media
@@ -81,6 +84,8 @@ complete. The approved split is recorded in `phase-28.md`, `phase-28.1.md`, and
 `phase-28.2.md`; numbering preserves the original Phase identity and does not
 consume later integer phases.
 
-Phase 30 is a parent planning boundary with `SPLIT_REQUIRED`. Its normative
-Storyboard design/spec and executable child ledgers must be created in Phase
-30.1 through Phase 30.3 before implementation begins.
+Phase 30 is one explicitly authorized Phase with internal Step/Slice ledger
+`P30-00` through `P30-03`. Its normative Storyboard design/spec are recorded
+in `docs/design/video-storyboard.md` and `docs/spec/video-storyboard.md`.
+No child Phase 30.1, 30.2, or 30.3 is created or required, and the current
+record does not claim implementation or closure.

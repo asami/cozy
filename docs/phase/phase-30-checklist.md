@@ -1,55 +1,67 @@
 # Phase 30 Checklist: Unified Storyboard and Three-Gate Video Review Workflow
 
-This checklist is the authoritative parent ledger for Phase 30 planning. It is
-not a normative contract and does not authorize implementation before the
-required child-phase split.
+This checklist is the authoritative internal Step ledger for the one Phase 30
+execution explicitly authorized on 2026-08-26. The estimated Phase effort
+remains 10–15 hours at recommended high effort. `P30-00` through `P30-03` are
+internal Steps/Slices, not child Phases; no child-phase documents or checklists
+are created or required. This ledger does not claim implementation, validation,
+review, commit, or completion while the Phase is in progress.
 
-Phase Plan Gate: SPLIT_REQUIRED
+Phase status: IN PROGRESS
+Phase Execution Gate: EXPLICIT_SINGLE_PHASE_AUTHORIZED
 
-- target per child phase: conservative upper bound <= 6h
-- estimated total at recommended effort: 10–15h
-- recommended minimum effort: high
+## P30-00: Single-Phase Authorization and Storyboard Foundation
 
-## P30-01: Phase 30.1 Storyboard Contract
+Status: COMPLETE
+
+- [x] Record the user decision to run the long Phase without splitting it,
+      while preserving internal Step/Slice gates and the existing product
+      boundary.
+- [x] Retain the 10–15h estimate and make the one-Phase delivery shape
+      explicit in the Phase, README, and strategy ledger.
+- [x] Establish the normative `cozy.video.storyboard.v1` specification and
+      the consistent Cozy responsibility design.
+- [x] Keep Dox/PPTX/Textus consumer work, successor Phases, runtime acceptance,
+      validation, review, commit, and publication outside this authorization.
+
+## P30-01: Storyboard Schema and Markdown / JSON Adapters
 
 Status: PLANNED
 
-- [ ] Add Phase 30.1 plan/checklist with a <= 6h upper bound.
 - [ ] Freeze `cozy.video.storyboard.v1`, restricted `storyboard.md` grammar,
-      equivalent `storyboard.json`, typed Scala model, and normalization.
+      equivalent `storyboard.json`, typed semantic model, and normalization.
 - [ ] Specify deterministic Markdown/JSON conversion and semantic round-trip
-      preservation for all fields and ordering.
-- [ ] Specify validation and structured diagnostics for schema, identity,
-      timing, speaker/role, asset path, and unpreserved unknown-field errors.
-- [ ] Separate `storyboard.json` from legacy dialogue `script.json` and define
-      explicit migration behavior.
+      preservation for every contracted field and scene order.
+- [ ] Specify structured rejection diagnostics for schema/version, identity,
+      timing, speaker/role, path/ref, and unpreserved unknown-field errors.
+- [ ] Keep `storyboard.json` distinct from legacy dialogue `script.json` and
+      define explicit, diagnostic migration behavior.
 
-## P30-02: Phase 30.2 Optional Visual-Story Review
+## P30-02: Optional Storyboard Visual-Story Review
 
 Status: PLANNED
 
-- [ ] Add Phase 30.2 plan/checklist with a <= 6h upper bound.
 - [ ] Define deterministic optional visual-story evidence for Dox/PPTX
-      generation, including scene diagrams and project-owned assets.
-- [ ] When requested, require visual-story slides to preserve Storyboard scene
-      order, narration, screen content, captions, timing, and visual intent.
-- [ ] Record exact Storyboard, diagram/asset, evidence, and PPTX identities in
-      review state only when visual-story review is requested.
+      handoff, including scene diagrams and project-owned assets.
+- [ ] When requested, require visual-story evidence to preserve Storyboard
+      scene order, narration, screen content, captions, timing, and direction.
+- [ ] Record exact Storyboard, diagram/asset, evidence, and optional handoff
+      identities only when visual-story review is requested.
 - [ ] Reject confirmation/final generation when the Storyboard is stale,
       changed, missing, or unapproved; reject explicitly reviewed visual inputs
       when their accepted visual evidence is stale.
-- [ ] Prove that storyboard review and confirmation-video review do not require
-      visual-story slides.
+- [ ] Preserve the rule that ordinary storyboard and confirmation-video review
+      does not require image-backed visual-story slides.
 
-## P30-03: Phase 30.3 Confirmation/Final Video Build and Final Review
+## P30-03: Approved Storyboard Confirmation/Final Build and Final Review
 
 Status: PLANNED
 
-- [ ] Add Phase 30.3 plan/checklist with a <= 6h upper bound.
 - [ ] Add `parts[].storyboard` for Markdown and JSON and route all video stages
       through the same normalized Storyboard.
 - [ ] Remove source `script.json` from new scaffolds; keep any serialized
-      execution handoff in generated `target/cozy-video` output only.
+      execution handoff in generated `target/cozy-video` output only while
+      retaining legacy `parts[].script` support pending an accepted migration.
 - [ ] Build a confirmation video and a separate final video only from approved
       Storyboard identities; confirmation output never overwrites final output.
 - [ ] Define confirmation/final mode-specific artifact paths, manifests, and
@@ -62,14 +74,15 @@ Status: PLANNED
 - [ ] Generate a video-derived review PPTX only when explicitly requested for
       distribution, meeting, handoff, or archive use; its absence is not an
       error and does not block final-review state.
-- [ ] Prove a Reimu/Marisa flow end to end:
-      `storyboard.md review -> confirmation video review -> final video ->
-      rendered-video evidence review`, then repeat from equivalent external
-      `storyboard.json`; add visual-story slides only to the explicit visual
-      inspection variant.
-- [ ] Run focused/full regression, legacy migration checks, runtime acceptance,
-      independent review, and final ledger convergence.
+- [ ] Prove a Reimu/Marisa flow end to end from `storyboard.md`, then from
+      equivalent external `storyboard.json`; add visual-story slides only to
+      the explicit visual-inspection variant.
+- [ ] Run the focused/full regression, legacy migration checks, runtime
+      acceptance, independent review, and final ledger convergence selected for
+      this Step when it is admitted for implementation.
 
-Phase 30 closes only after all three child phases close and the accepted
-workflow proves Storyboard review, confirmation-video review, and final-video
-evidence review without a source-managed `script.json`.
+Phase 30 closes only after P30-00, P30-01, P30-02, and P30-03 close and the
+normal Phase closure gates pass. Closure requires the accepted workflow to
+prove Storyboard review, confirmation-video review, and final-video evidence
+review without a source-managed `script.json`; it does not use child-phase
+closure as a gate.
