@@ -6,7 +6,7 @@ import org.goldenport.io.InputSource
 import io.circe.{Decoder, HCursor, Json}
 import io.circe.parser.parse
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, LinkOption, Path}
+import java.nio.file.{AtomicMoveNotSupportedException, Files, LinkOption, Path, StandardCopyOption}
 import java.security.MessageDigest
 import java.time.Instant
 import scala.util.control.NonFatal
@@ -97,10 +97,21 @@ private[cozy] object CozyMediaReceipt {
     id: String,
     path: String,
     sha256: String,
-    receipt: Option[ResourceReceipt]
+    receipt: Option[ResourceReceipt],
+    artifacts: Vector[Artifact] = Vector.empty
+  )
+
+  final case class Artifact(
+    id: String,
+    role: String,
+    path: String,
+    sha256: String,
+    sourceSha256: Option[String]
   )
 
   final case class Manifest(knowledge: String, resources: Vector[ManifestEntry])
+  /** A fully validated acceptance document which has not yet been made visible. */
+  final case class PreparedDocument(path: Path, bytes: Array[Byte])
 
   private val _schema = "cozy.media.v1"
   private val _receipt_schema = "cozy.media.receipt.v2"
@@ -216,7 +227,8 @@ private[cozy] object CozyMediaReceipt {
       entry.exists { value =>
         value.path == relative && value.sha256 == _sha256(output) && value.receipt.exists { receipt =>
           val captured = capture(plan)
-          _receipt_current(receipt, captured)
+          _receipt_current(receipt, captured) &&
+            (if (resolved.resource.build == "presentation") CozyMediaPresentation.currentArtifactEvidence(plan, resolved, value) else value.artifacts.isEmpty)
         }
       }
     } catch {
@@ -261,7 +273,15 @@ private[cozy] object CozyMediaReceipt {
     selected: Vector[CozyMedia.ResolvedResource],
     captured: Captured,
     target: Option[String]
-  ): Unit = {
+  ): Unit = commit(Vector.empty, prepare(plan, selected, captured, target))
+
+  /** Prepares the receipt without creating its parent or modifying its target. */
+  def prepare(
+    plan: CozyMedia.Plan,
+    selected: Vector[CozyMedia.ResolvedResource],
+    captured: Captured,
+    target: Option[String]
+  ): PreparedDocument = {
     val receiptvalue = receipt(captured, target, plan.effectiveProfile.map(_.id))
     val selectedids = selected.map(_.resource.id).toSet
     if (selectedids.size != selected.size)
@@ -280,7 +300,8 @@ private[cozy] object CozyMediaReceipt {
         resolved.resource.id,
         _relative_from_path(plan.descriptorRoot, output, "Media receipt output"),
         _sha256(output),
-        Some(receiptvalue)
+        Some(receiptvalue),
+        if (resolved.resource.build == "presentation") CozyMediaPresentation.artifacts(plan, resolved) else Vector.empty
       )
     }
     val retained = if (target.isDefined) existing.resources.filterNot(x => selectedids.contains(x.id)) else Vector.empty
@@ -293,9 +314,67 @@ private[cozy] object CozyMediaReceipt {
       "knowledge" -> Json.fromString(plan.descriptor.knowledge.id),
       "resources" -> Json.fromValues(merged.map(_entry_json))
     )
-    val path = _manifest_path(plan)
-    Files.createDirectories(path.getParent)
-    Files.writeString(path, json.spaces2 + "\n", StandardCharsets.UTF_8)
+    PreparedDocument(_manifest_path(plan), (json.spaces2 + "\n").getBytes(StandardCharsets.UTF_8))
+  }
+
+  /**
+   * Makes prepared review states visible before the receipt, which is the sole
+   * acceptance visibility record.  This is rollback-safe for in-process errors;
+   * it deliberately makes no process-crash atomicity claim across directories.
+   */
+  private[cozy] def commit(reviewStates: Vector[PreparedDocument], receipt: PreparedDocument): Unit = {
+    val documents = reviewStates ++ Vector(receipt)
+    if (documents.isEmpty || documents.last.path != receipt.path) _invalid("Media acceptance requires a final receipt document")
+    val paths = documents.map(value => _target_path(value.path))
+    if (paths.distinct.size != paths.size) _invalid("Media acceptance targets must be unique and non-aliased")
+    paths.foreach { path =>
+      if (Files.exists(path, LinkOption.NOFOLLOW_LINKS) && !_direct_regular_file(path))
+        _invalid(s"Media acceptance target must be a direct regular file: $path")
+    }
+    paths.combinations(2).foreach { pair =>
+      if (Files.exists(pair.head, LinkOption.NOFOLLOW_LINKS) && Files.exists(pair(1), LinkOption.NOFOLLOW_LINKS))
+        try {
+          if (Files.isSameFile(pair.head, pair(1))) _invalid("Media acceptance targets must be unique and non-aliased")
+        } catch {
+          case _: java.io.IOException => _invalid("Media acceptance target alias check failed")
+        }
+    }
+    val staged = scala.collection.mutable.ArrayBuffer.empty[(Path, Path)]
+    val backups = scala.collection.mutable.ArrayBuffer.empty[(Path, Option[Path])]
+    val installed = scala.collection.mutable.ArrayBuffer.empty[Path]
+    try {
+      documents.zip(paths).foreach { case (document, targetpath) =>
+        val parent = Option(targetpath.getParent).getOrElse(_invalid(s"Media acceptance target requires parent: $targetpath"))
+        Files.createDirectories(parent)
+        val temporary = Files.createTempFile(parent, ".cozy-media-accept-", ".tmp")
+        Files.write(temporary, document.bytes)
+        staged += targetpath -> temporary
+      }
+      staged.foreach { case (targetpath, temporary) =>
+        val backup = if (Files.exists(targetpath, LinkOption.NOFOLLOW_LINKS)) {
+          if (!_direct_regular_file(targetpath)) _invalid(s"Media acceptance target must be a direct regular file: $targetpath")
+          val parent = targetpath.getParent
+          val saved = Files.createTempFile(parent, ".cozy-media-before-", ".tmp")
+          Files.copy(targetpath, saved, StandardCopyOption.REPLACE_EXISTING)
+          Some(saved)
+        } else None
+        backups += targetpath -> backup
+        _replace(temporary, targetpath)
+        installed += targetpath
+      }
+    } catch {
+      case error: Throwable =>
+        installed.reverse.foreach { targetpath =>
+          backups.find(_._1 == targetpath).foreach {
+            case (_, Some(saved)) => _replace(saved, targetpath)
+            case (_, None) => Files.deleteIfExists(targetpath)
+          }
+        }
+        throw error
+    } finally {
+      staged.foreach { case (_, temporary) => try Files.deleteIfExists(temporary) catch { case NonFatal(_) => () } }
+      backups.foreach { case (_, saved) => saved.foreach(path => try Files.deleteIfExists(path) catch { case NonFatal(_) => () }) }
+    }
   }
 
   def prebuiltAcceptanceAllowed(plan: CozyMedia.Plan, resolved: CozyMedia.ResolvedResource): Unit = {
@@ -342,13 +421,30 @@ private[cozy] object CozyMediaReceipt {
   private def _entry(value: Json): ManifestEntry = {
     val objectvalue = value.asObject.getOrElse(_invalid("Media build manifest resource must be an object"))
     val keys = objectvalue.keys.toSet
-    if (!keys.subsetOf(Set("id", "path", "sha256", "receipt")) || !Set("id", "path", "sha256").subsetOf(keys))
-      _invalid("Media build manifest resource requires id, path, sha256 and optional receipt only")
+    if (!keys.subsetOf(Set("id", "path", "sha256", "receipt", "artifacts")) || !Set("id", "path", "sha256").subsetOf(keys))
+      _invalid("Media build manifest resource requires id, path, sha256 and optional receipt/artifacts only")
     val id = _require_identity(_exact_string(objectvalue, "id", "Media build manifest resource"), "Media build manifest resource id")
     val path = _receipt_relative_path(_exact_string(objectvalue, "path", "Media build manifest resource"), "Media build manifest resource path")
     val sha256 = _sha256_string(_exact_string(objectvalue, "sha256", "Media build manifest resource"))
     val receipt = objectvalue("receipt").map(_receipt)
-    ManifestEntry(id, path, sha256, receipt)
+    val artifacts = objectvalue("artifacts").map(_.asArray.getOrElse(_invalid("Media build manifest artifacts must be an array")).toVector.map(_artifact)).getOrElse(Vector.empty)
+    if (artifacts.map(_.id).distinct.size != artifacts.size)
+      _invalid("Media build manifest artifact ids must be unique")
+    ManifestEntry(id, path, sha256, receipt, artifacts)
+  }
+
+  private def _artifact(value: Json): Artifact = {
+    val objectvalue = value.asObject.getOrElse(_invalid("Media build manifest artifact must be an object"))
+    val keys = objectvalue.keys.toSet
+    if (!keys.subsetOf(Set("id", "role", "path", "sha256", "sourceSha256")) || !Set("id", "role", "path", "sha256").subsetOf(keys))
+      _invalid("Media build manifest artifact requires id, role, path, sha256 and optional sourceSha256 only")
+    Artifact(
+      _require_identity(_exact_string(objectvalue, "id", "Media build manifest artifact"), "Media build manifest artifact id"),
+      _require_identity(_exact_string(objectvalue, "role", "Media build manifest artifact"), "Media build manifest artifact role"),
+      _receipt_relative_path(_exact_string(objectvalue, "path", "Media build manifest artifact"), "Media build manifest artifact path"),
+      _sha256_string(_exact_string(objectvalue, "sha256", "Media build manifest artifact")),
+      objectvalue("sourceSha256").map(value => _sha256_string(value.asString.getOrElse(_invalid("Media build manifest artifact sourceSha256 must be a string"))))
+    )
   }
 
   private def _receipt(value: Json): ResourceReceipt = {
@@ -429,7 +525,16 @@ private[cozy] object CozyMediaReceipt {
       "id" -> Json.fromString(value.id),
       "path" -> Json.fromString(value.path),
       "sha256" -> Json.fromString(value.sha256)
-    ) ++ value.receipt.map(x => "receipt" -> _receipt_json(x)).toVector)
+    ) ++ value.receipt.map(x => "receipt" -> _receipt_json(x)).toVector ++
+      (if (value.artifacts.nonEmpty) Vector("artifacts" -> Json.fromValues(value.artifacts.map(_artifact_json))) else Vector.empty))
+
+  private def _artifact_json(value: Artifact): Json =
+    Json.fromFields(Vector(
+      "id" -> Json.fromString(value.id),
+      "role" -> Json.fromString(value.role),
+      "path" -> Json.fromString(value.path),
+      "sha256" -> Json.fromString(value.sha256)
+    ) ++ value.sourceSha256.map(x => "sourceSha256" -> Json.fromString(x)).toVector)
 
   private def _receipt_json(value: ResourceReceipt): Json =
     Json.obj(
@@ -496,6 +601,23 @@ private[cozy] object CozyMediaReceipt {
 
   private def _manifest_path(plan: CozyMedia.Plan): Path =
     plan.descriptorRoot.resolve("target/cozy-media/manifest.json").toAbsolutePath.normalize()
+
+  private def _target_path(path: Path): Path = {
+    val target = Option(path).map(_.toAbsolutePath.normalize()).getOrElse(_invalid("Media acceptance target must be defined"))
+    var parent = target.getParent
+    while (parent != null) {
+      if (Files.isSymbolicLink(parent)) _invalid(s"Media acceptance target parent must not be a symlink: $parent")
+      parent = parent.getParent
+    }
+    target
+  }
+
+  private def _replace(source: Path, target: Path): Unit =
+    try Files.move(source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+    catch {
+      case _: AtomicMoveNotSupportedException =>
+        _invalid(s"cozy.media.receipt.v2 acceptance requires same-parent ATOMIC_MOVE: $target")
+    }
 
   private def _relative_path(root: Path, value: String, label: String): Path = {
     val exact = _require_identity(value, label)
