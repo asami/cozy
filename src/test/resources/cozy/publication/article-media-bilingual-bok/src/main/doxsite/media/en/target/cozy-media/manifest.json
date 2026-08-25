@@ -5,7 +5,20 @@
     {
       "id": "article-media-bilingual-example-en-infographic",
       "path": "target/cozy-media/article-media-bilingual-example-en-infographic.png",
-      "sha256": "385a92647193b6011c5e5e5260d7b7014351c56cabb30add4d458ae6efc49557"
+      "sha256": "385a92647193b6011c5e5e5260d7b7014351c56cabb30add4d458ae6efc49557",
+      "receipt": {
+        "schema": "cozy.media.receipt.v2",
+        "inputSetSha256": "1354585ce1d4279ea001080c8e71b5283a7ff83e069fb55f55a883d6f8c4dd1d",
+        "inputs": [
+          {"id": "cozy:descriptor", "role": "descriptor", "path": "media.yaml", "normalization": "bytes", "sha256": "8b72a9e7cbe6c7cd625d1343d83bd1c5ec17df5cbdffbcd73a95fade4e19f882"},
+          {"id": "cozy:knowledge", "role": "knowledge", "path": "../../development-process/example.dox", "normalization": "bytes", "sha256": "c0ae071e7d12cd15709a48961f94f47a426d980804979e81c55013fdffc23a51"},
+          {"id": "cozy:resource:article-media-bilingual-example-en-infographic:source", "role": "source", "path": "target/cozy-media/article-media-bilingual-example-en-infographic.png", "normalization": "bytes", "sha256": "385a92647193b6011c5e5e5260d7b7014351c56cabb30add4d458ae6efc49557"}
+        ],
+        "producer": {"cozyVersion": "0.3.3-SNAPSHOT"},
+        "operation": {"name": "cozy media build", "profile": "site"},
+        "acceptedAt": "2026-08-25T00:00:00Z",
+        "verification": {"status": "valid", "findings": []}
+      }
     }
   ]
 }

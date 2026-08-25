@@ -11,7 +11,7 @@ import cozy.CozySpecVocabulary
 
 /*
  * @since   Aug.  5, 2026
- * @version Aug.  5, 2026
+ * @version Aug. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyMediaPublicationSpec
@@ -414,24 +414,52 @@ final class CozyMediaPublicationSpec
           _temporary_siblings(destinationb) shouldBe Vector.empty
         }
       }
+
+      "revalidate all prepared input sets before the first selected destination write" in {
+        _with_work("input-set-race") { dir =>
+          Given("a prepared two-candidate vector whose input evidence can change before installation")
+          val resources = Vector(
+            ("a", "inputs/a.svg", "outputs/a.png", "images/a.png"),
+            ("b", "inputs/b.svg", "outputs/b.png", "images/b.png")
+          )
+          val descriptor = _write_descriptor(dir, resources)
+          resources.foreach { resource =>
+            _write(dir.resolve(resource._2), s"source ${resource._1}")
+            _write(dir.resolve(resource._3), s"output ${resource._1}")
+          }
+          Files.createDirectories(dir.resolve("publication"))
+          val prepared = _prepare(descriptor)
+          val destinationa = dir.resolve("publication/images/a.png")
+          val destinationb = dir.resolve("publication/images/b.png")
+
+          When("knowledge changes after initial validation and before the first destination write")
+          val inputerror = _failure(CozyMedia.commitPublication(prepared, () => _write(dir.resolve("knowledge/article.dox"), "knowledge changed during commit")))
+
+          Then("all prepared input sets are revalidated before any selected destination write")
+          inputerror.getMessage should include_text("inputs have changed")
+          Files.exists(destinationa, LinkOption.NOFOLLOW_LINKS) shouldBe false
+          Files.exists(destinationb, LinkOption.NOFOLLOW_LINKS) shouldBe false
+        }
+      }
     }
 
-    "preserve legacy direct publish compatibility" which {
+    "preserve direct publish compatibility with current receipt evidence" which {
       "retain direct replacement publish behavior and identifying text" in {
         _with_work("legacy-replacement") { dir =>
-          Given("a legacy media package with verified output and a differing destination")
+          Given("a current media package with verified output and a differing destination")
           val descriptor = _write_descriptor(dir, Vector(("summary-ja", "inputs/summary-ja.svg", "outputs/summary-ja.png", "images/summary-ja.png")))
           _write(dir.resolve("knowledge/article.dox"), "Article\n=======\n")
-          _write(dir.resolve("inputs/summary-ja.svg"), "source")
+          _write(dir.resolve("inputs/summary-ja.svg"), "new bytes")
           _write(dir.resolve("outputs/summary-ja.png"), "new bytes")
           val destination = dir.resolve("publication/images/summary-ja.png")
           _write(destination, "old bytes")
           val config = CozyMedia.CommandConfig(descriptor, profile = Some("site"))
+          CozyMedia.build(CozyMedia.CommandConfig(descriptor))
 
-          When("the direct legacy publish command is invoked")
+          When("the direct publish command is invoked with current receipt evidence")
           val publication = CozyMedia.publish(config)
 
-          Then("its historical replacement behavior and identifying text remain available")
+          Then("its replacement behavior and identifying text remain available")
           Files.readString(destination, StandardCharsets.UTF_8) shouldBe "new bytes"
           publication should include_text("Cozy Media Publish")
           publication should include_text("profile: site")
@@ -442,19 +470,20 @@ final class CozyMediaPublicationSpec
 
       "retain direct dry-run text compatibility without mutation" in {
         _with_work("legacy-dry-run") { dir =>
-          Given("a legacy media package with a differing destination")
+          Given("a current media package with a differing destination")
           val descriptor = _write_descriptor(dir, Vector(("summary-ja", "inputs/summary-ja.svg", "outputs/summary-ja.png", "images/summary-ja.png")))
           _write(dir.resolve("knowledge/article.dox"), "Article\n=======\n")
-          _write(dir.resolve("inputs/summary-ja.svg"), "source")
+          _write(dir.resolve("inputs/summary-ja.svg"), "new bytes")
           _write(dir.resolve("outputs/summary-ja.png"), "new bytes")
           val destination = dir.resolve("publication/images/summary-ja.png")
           _write(destination, "dry-run old bytes")
           val config = CozyMedia.CommandConfig(descriptor, profile = Some("site"))
+          CozyMedia.build(CozyMedia.CommandConfig(descriptor))
 
-          When("the direct legacy dry-run is invoked")
+          When("the direct dry-run is invoked with current receipt evidence")
           val dryrun = CozyMedia.publish(config.copy(dryRun = true))
 
-          Then("it remains non-mutating while reporting the legacy resource and profile")
+          Then("it remains non-mutating while reporting the resource and profile")
           Files.readString(destination, StandardCharsets.UTF_8) shouldBe "dry-run old bytes"
           dryrun should include_text("profile: site")
           dryrun should include_text("summary-ja")
@@ -464,17 +493,18 @@ final class CozyMediaPublicationSpec
 
       "keep an initially absent legacy profile root unchanged during dry-run" in {
         _with_work("legacy-absent-profile-root-dry-run") { dir =>
-          Given("a valid legacy package whose selected profile root is absent")
+          Given("a valid current package whose selected profile root is absent")
           val descriptor = _write_descriptor(dir, Vector(("summary-ja", "inputs/summary-ja.svg", "outputs/summary-ja.png", "images/summary-ja.png")))
           _write(dir.resolve("knowledge/article.dox"), "Article\n=======\n")
-          _write(dir.resolve("inputs/summary-ja.svg"), "source")
+          _write(dir.resolve("inputs/summary-ja.svg"), "output")
           _write(dir.resolve("outputs/summary-ja.png"), "output")
           val config = CozyMedia.CommandConfig(descriptor, profile = Some("site"))
+          CozyMedia.build(CozyMedia.CommandConfig(descriptor))
 
-          When("the legacy direct dry-run is invoked before the root exists")
+          When("the direct dry-run is invoked before the root exists")
           val dryrun = CozyMedia.publish(config.copy(dryRun = true))
 
-          Then("it remains non-mutating while retaining the legacy publication report")
+          Then("it remains non-mutating while retaining the publication report")
           Files.exists(dir.resolve("publication"), LinkOption.NOFOLLOW_LINKS) shouldBe false
           dryrun should include_text("summary-ja")
           dryrun should include_text("dry-run")
@@ -483,15 +513,16 @@ final class CozyMediaPublicationSpec
 
       "create an initially absent legacy profile root during real publish" in {
         _with_work("legacy-absent-profile-root-publish") { dir =>
-          Given("a valid legacy package whose selected profile root is absent")
+          Given("a valid current package whose selected profile root is absent")
           val descriptor = _write_descriptor(dir, Vector(("summary-ja", "inputs/summary-ja.svg", "outputs/summary-ja.png", "images/summary-ja.png")))
           _write(dir.resolve("knowledge/article.dox"), "Article\n=======\n")
-          _write(dir.resolve("inputs/summary-ja.svg"), "source")
+          _write(dir.resolve("inputs/summary-ja.svg"), "output")
           _write(dir.resolve("outputs/summary-ja.png"), "output")
           val destination = dir.resolve("publication/images/summary-ja.png")
           val config = CozyMedia.CommandConfig(descriptor, profile = Some("site"))
+          CozyMedia.build(CozyMedia.CommandConfig(descriptor))
 
-          When("the legacy direct publish is invoked")
+          When("the direct publish is invoked with current receipt evidence")
           CozyMedia.publish(config)
 
           Then("it safely creates the profile root and publishes the selected destination")
@@ -523,8 +554,8 @@ final class CozyMediaPublicationSpec
             val actual = _prepare(descriptor)
             _write_descriptor(dir, resources)
             val expected = _prepare(descriptor)
-            val actualnormalized = actual.map(_.copy(descriptorSha256 = ""))
-            val expectednormalized = expected.map(_.copy(descriptorSha256 = ""))
+            val actualnormalized = actual.map(_.copy(descriptorSha256 = "", inputSetSha256 = ""))
+            val expectednormalized = expected.map(_.copy(descriptorSha256 = "", inputSetSha256 = ""))
 
             shuffled.size == resources.size &&
               actualnormalized == expectednormalized &&
@@ -534,7 +565,7 @@ final class CozyMediaPublicationSpec
               expected.map(_.descriptorSha256).forall(_.matches("[0-9a-f]{64}"))
           })
 
-          Then("the selected plan vector is field-identical apart from its order-sensitive raw descriptor hash")
+          Then("the selected plan vector is field-identical apart from its order-sensitive descriptor and input-set identities")
           check.passed shouldBe true
           check.succeeded should be >= 30
         }
@@ -551,6 +582,7 @@ final class CozyMediaPublicationSpec
     profileroot: String = "publication"
   ): Path = {
     val descriptor = dir.resolve("media.yaml")
+    _write(dir.resolve("knowledge/article.dox"), "knowledge")
     val entries = resources.map { resource =>
       s"""  - id: ${resource._1}
          |    kind: image

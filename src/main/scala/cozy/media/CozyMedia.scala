@@ -22,7 +22,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Jul. 19, 2026
  *  version Jul. 20, 2026
- * @version Aug. 12, 2026
+ * @version Aug. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMedia {
@@ -132,7 +132,8 @@ private[cozy] object CozyMedia {
     languages: Vector[String],
     resources: Vector[Resource],
     profiles: Map[String, Profile],
-    articleMedia: Option[DescriptorArticleMedia] = None
+    articleMedia: Option[DescriptorArticleMedia] = None,
+    receipt: Option[CozyMediaReceipt.Config] = None
   )
   object Descriptor {
     implicit val decoder: Decoder[Descriptor] = (c: HCursor) =>
@@ -143,7 +144,8 @@ private[cozy] object CozyMedia {
         resources <- c.downField("resources").as[Option[Vector[Resource]]]
         profiles <- c.downField("profiles").as[Option[Map[String, Profile]]]
         articlemedia <- _optional_article_media_field[DescriptorArticleMedia](c, "articleMedia")
-      } yield Descriptor(schema, knowledge, languages.getOrElse(Vector.empty), resources.getOrElse(Vector.empty).sortBy(_.id), profiles.getOrElse(Map.empty), articlemedia)
+        receipt <- _optional_article_media_field[CozyMediaReceipt.Config](c, "receipt")
+      } yield Descriptor(schema, knowledge, languages.getOrElse(Vector.empty), resources.getOrElse(Vector.empty).sortBy(_.id), profiles.getOrElse(Map.empty), articlemedia, receipt)
   }
 
   sealed trait Action { def label: String }
@@ -151,6 +153,7 @@ private[cozy] object CozyMedia {
     case object Build extends Action { val label = "build" }
     case object Current extends Action { val label = "current" }
     case object MissingSource extends Action { val label = "missing-source" }
+    case object AdoptPrebuilt extends Action { val label = "adopt-prebuilt" }
     case object DelegateVideo extends Action { val label = "delegate-video" }
   }
 
@@ -285,6 +288,7 @@ private[cozy] object CozyMedia {
     descriptorRoot: Path,
     descriptor: Descriptor,
     descriptorSha256: String,
+    inputSetSha256: String,
     resource: Resource,
     target: Option[String],
     context: CozyProjectContext.Context,
@@ -463,14 +467,22 @@ private[cozy] object CozyMedia {
   def build(config: CommandConfig, runner: ProcessRunner = ProcessRunner.default): String = {
     val mediaplan = _plan(config)
     val selected = _selected(mediaplan, config.target)
+    val plannedidentity = if (config.dryRun) None else Some(CozyMediaReceipt.capture(mediaplan))
     val results = selected.map { resolved =>
       if (config.dryRun)
         s"${resolved.resource.id}: ${resolved.action.label} (dry-run)"
       else
         _build_resource(mediaplan, resolved, runner)
     }
-    if (!config.dryRun)
-      _write_manifest(mediaplan)
+    if (!config.dryRun) {
+      val findings = _verify_plan(mediaplan, selected, None, requirereceipt = false)
+      if (findings.nonEmpty)
+        RAISE.invalidArgumentFault("Media build structural verification failed:\n" + findings.map(x => s"- $x").mkString("\n"))
+      val acceptedidentity = CozyMediaReceipt.capture(mediaplan)
+      if (plannedidentity.exists(_.inputSetSha256 != acceptedidentity.inputSetSha256))
+        RAISE.invalidArgumentFault("Media receipt inputs changed during selected build; no fresh acceptance evidence was written")
+      CozyMediaReceipt.write(mediaplan, selected, acceptedidentity, config.target)
+    }
     (Vector("Cozy Media Build", s"descriptor: ${mediaplan.descriptorFile}") ++ results.map(x => s"  - $x")).mkString("\n")
   }
 
@@ -478,7 +490,7 @@ private[cozy] object CozyMedia {
     val mediaplan = _plan(config)
     val selected = _selected(mediaplan, config.target)
     val selectedprofile = mediaplan.effectiveProfile.map(_.id)
-    val findings = _verify_plan(mediaplan, selected, selectedprofile)
+    val findings = _verify_plan(mediaplan, selected, selectedprofile, requirereceipt = true)
     if (findings.nonEmpty)
       RAISE.invalidArgumentFault("Media verification failed:\n" + findings.map(x => s"- $x").mkString("\n"))
     val profile = selectedprofile.map(x => s" profile=$x").getOrElse("")
@@ -492,7 +504,7 @@ private[cozy] object CozyMedia {
     val candidates = selected.filter(_.publications.contains(profile))
     if (candidates.isEmpty)
       RAISE.invalidArgumentFault(s"No media resources publish to profile: $profile")
-    val findings = _verify_plan(mediaplan, candidates, None)
+    val findings = _verify_plan(mediaplan, candidates, None, requirereceipt = true)
     if (findings.nonEmpty)
       RAISE.invalidArgumentFault("Media publication preflight failed:\n" + findings.map(x => s"- $x").mkString("\n"))
     val preflight = _prepare_legacy_publications(mediaplan, candidates, profile, config.target, force = true)
@@ -503,7 +515,7 @@ private[cozy] object CozyMedia {
         _prepare_publications(mediaplan, candidates, profile, config.target, force = true)
       }
     if (!config.dryRun)
-      commitPublication(prepared)
+      commitPublication(prepared, () => CozyMediaReceipt.requireCurrent(mediaplan, candidates))
     val results =
       if (config.dryRun)
         candidates.map { resolved =>
@@ -555,6 +567,7 @@ private[cozy] object CozyMedia {
     val temporaries = ArrayBuffer.empty[Path]
     try {
       beforefirstinstall()
+      ordered.foreach(CozyMediaReceipt.requirePreparedInputSet)
       ordered.map { publication =>
         val outcome = publication.disposition match {
           case PublicationDisposition.Reuse =>
@@ -601,7 +614,7 @@ private[cozy] object CozyMedia {
       ))
     }
     val knowledgesource = _resolve_relative(descriptorroot, descriptor.knowledge.source, "knowledge.source")
-    val resources = descriptor.resources.map { resource =>
+    val unresolved = descriptor.resources.map { resource =>
       val source = resource.source.map(_resolve_relative(descriptorroot, _, s"resources.${resource.id}.source"))
       val output = resource.output.map(_resolve_relative(descriptorroot, _, s"resources.${resource.id}.output"))
       val project = resource.project.map(_resolve_relative(descriptorroot, _, s"resources.${resource.id}.project"))
@@ -610,10 +623,12 @@ private[cozy] object CozyMedia {
           profile -> _publication_path(profiles, profile, path)
         }
       }.toMap
-      val action = _action(resource, source, output, project)
-      ResolvedResource(resource, source, output, project, publications, action)
+      ResolvedResource(resource, source, output, project, publications, Action.Build)
     }
-    Plan(descriptorfile, descriptorroot, descriptor, knowledgesource, resources, context, profiles, effectiveprofile)
+    val preliminary = Plan(descriptorfile, descriptorroot, descriptor, knowledgesource, unresolved, context, profiles, effectiveprofile)
+    preliminary.copy(resources = unresolved.map { resolved =>
+      resolved.copy(action = CozyMediaReceipt.action(preliminary, resolved))
+    })
   }
 
   private def _validate_descriptor(
@@ -626,6 +641,7 @@ private[cozy] object CozyMedia {
       RAISE.invalidArgumentFault(s"Unsupported media schema: ${descriptor.schema}. Expected: ${_schema}")
     if (descriptor.knowledge.id.trim.isEmpty)
       RAISE.invalidArgumentFault("Media knowledge.id must not be empty")
+    descriptor.receipt.foreach(CozyMediaReceipt.validateConfig)
     descriptor.articleMedia.foreach { articlemedia =>
       _validate_article_media_value(articlemedia.articleIdentity, "Media articleMedia.articleIdentity")
       _validate_article_media_value(articlemedia.publicationProfile, "Media articleMedia.publicationProfile")
@@ -784,6 +800,7 @@ private[cozy] object CozyMedia {
     if (!_is_direct_regular_file(plan.descriptorFile))
       RAISE.invalidArgumentFault(s"Media descriptor must be a direct regular non-symlink file: ${plan.descriptorFile}")
     val descriptorhash = _sha256(plan.descriptorFile)
+    val inputsethash = CozyMediaReceipt.capture(plan).inputSetSha256
     val effectiveprofile = effectiveProfile(plan, profile)
     val profileroot = _bind_profile_root(effectiveprofile.resolvedRoot)
     val publications = candidates.map { resolved =>
@@ -804,6 +821,7 @@ private[cozy] object CozyMedia {
         plan.descriptorRoot,
         plan.descriptor,
         descriptorhash,
+        inputsethash,
         resolved.resource,
         target,
         plan.context,
@@ -903,6 +921,8 @@ private[cozy] object CozyMedia {
       RAISE.invalidArgumentFault("Prepared media publication descriptor paths are invalid")
     if (!_is_direct_regular_file(publication.descriptorFile) || !_is_sha256(publication.descriptorSha256) || _sha256(publication.descriptorFile) != publication.descriptorSha256)
       RAISE.invalidArgumentFault(s"Prepared media descriptor has changed: ${publication.descriptorFile}")
+    if (!_is_sha256(publication.inputSetSha256))
+      RAISE.invalidArgumentFault("Prepared media publication input-set identity is invalid")
     val expectedprofile = _effective_profile(
       publication.descriptorRoot,
       publication.descriptor.profiles.get(publication.profile),
@@ -930,6 +950,7 @@ private[cozy] object CozyMedia {
       RAISE.invalidArgumentFault(s"Prepared media source is no longer a direct regular non-symlink file: ${publication.publishablePath}")
     if (!_is_sha256(publication.sourceSha256) || _sha256(publication.publishablePath) != publication.sourceSha256)
       RAISE.invalidArgumentFault(s"Prepared media source has changed: ${publication.publishablePath}")
+    CozyMediaReceipt.requirePreparedInputSet(publication)
     val actualstate = _destination_state(publication.destination)
     if (actualstate != publication.destinationState)
       RAISE.invalidArgumentFault(s"Prepared media destination has changed: ${publication.destination}")
@@ -1130,20 +1151,6 @@ private[cozy] object CozyMedia {
     Files.delete(temporary)
   }
 
-  private def _action(resource: Resource, source: Option[Path], output: Option[Path], project: Option[Path]): Action =
-    resource.build match {
-      case "video-project" =>
-        if (project.exists(Files.isRegularFile(_))) Action.DelegateVideo else Action.MissingSource
-      case "prebuilt" =>
-        if (source.exists(Files.isRegularFile(_))) Action.Current else Action.MissingSource
-      case _ if !source.exists(Files.isRegularFile(_)) =>
-        Action.MissingSource
-      case _ if output.exists(Files.isRegularFile(_)) && output.get.toFile.lastModified() >= source.get.toFile.lastModified() =>
-        Action.Current
-      case _ =>
-        Action.Build
-    }
-
   private def _selected(plan: Plan, target: Option[String]): Vector[ResolvedResource] =
     target match {
       case Some(id) =>
@@ -1160,6 +1167,9 @@ private[cozy] object CozyMedia {
         RAISE.invalidArgumentFault(s"Missing media source for ${resolved.resource.id}")
       case Action.Current =>
         s"${resolved.resource.id}: current"
+      case Action.AdoptPrebuilt =>
+        CozyMediaReceipt.prebuiltAcceptanceAllowed(plan, resolved)
+        s"${resolved.resource.id}: adopted prebuilt ${resolved.source.get}"
       case Action.Build =>
         val source = resolved.source.get
         val output = resolved.output.get
@@ -1181,14 +1191,14 @@ private[cozy] object CozyMedia {
         s"${resolved.resource.id}: delegated to cozy video build ($result)"
     }
 
-  private def _verify_plan(plan: Plan, resources: Vector[ResolvedResource], profile: Option[String]): Vector[String] = {
+  private def _verify_plan(plan: Plan, resources: Vector[ResolvedResource], profile: Option[String], requirereceipt: Boolean): Vector[String] = {
     val knowledge = if (Files.isRegularFile(plan.knowledgeSource)) Vector.empty else Vector(s"missing knowledge source: ${plan.knowledgeSource}")
     knowledge ++ resources.flatMap { resolved =>
       val resource = resolved.resource
       val sourcefindings =
         if (resource.build == "video-project") {
           resolved.project match {
-            case Some(path) if Files.isRegularFile(path) =>
+            case Some(path) if _is_direct_regular_file(path) =>
               try CozyVideo.verifyCredits(path).map(x => s"${resource.id}: $x")
               catch {
                 case NonFatal(e) => Vector(s"${resource.id}: video credit verification failed: ${e.getMessage}")
@@ -1211,7 +1221,10 @@ private[cozy] object CozyMedia {
           case None => Vector.empty
         }
       }
-      sourcefindings ++ outputfindings ++ publicationfindings
+      val receiptfindings =
+        if (requirereceipt && !CozyMediaReceipt.current(plan, resolved)) Vector(s"${resource.id}: missing or stale cozy.media.receipt.v2 evidence")
+        else Vector.empty
+      sourcefindings ++ outputfindings ++ publicationfindings ++ receiptfindings
     }
   }
 
@@ -1234,26 +1247,6 @@ private[cozy] object CozyMedia {
       val buffer = ByteBuffer.wrap(bytes, 16, 8)
       Some(buffer.getInt -> buffer.getInt)
     }
-  }
-
-  private def _write_manifest(plan: Plan): Unit = {
-    val entries = plan.resources.flatMap { resolved =>
-      resolved.output.orElse(if (resolved.resource.build == "prebuilt") resolved.source else None).filter(Files.isRegularFile(_)).map { output =>
-        Json.obj(
-          "id" -> Json.fromString(resolved.resource.id),
-          "path" -> Json.fromString(plan.descriptorRoot.relativize(output).toString),
-          "sha256" -> Json.fromString(_sha256(output))
-        )
-      }
-    }
-    val json = Json.obj(
-      "schema" -> Json.fromString(_schema),
-      "knowledge" -> Json.fromString(plan.descriptor.knowledge.id),
-      "resources" -> Json.fromValues(entries)
-    )
-    val path = plan.descriptorRoot.resolve("target/cozy-media/manifest.json")
-    Files.createDirectories(path.getParent)
-    Files.writeString(path, json.spaces2 + "\n", StandardCharsets.UTF_8)
   }
 
   private def _sha256(path: Path): String = {

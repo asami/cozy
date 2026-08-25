@@ -13,7 +13,7 @@ import org.goldenport.io.InputSource
 /*
  * @since   Jul. 19, 2026
  *  version Jul. 20, 2026
- * @version Aug. 12, 2026
+ * @version Aug. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyMediaSpec
@@ -171,6 +171,7 @@ final class CozyMediaSpec
               |      archive: example/ja/final.mp4
               |""".stripMargin
           )
+          CozyMedia.build(CozyMedia.CommandConfig(descriptor))
 
           When("Cozy verifies and publishes the prebuilt representation")
           val verification = CozyMedia.verify(CozyMedia.CommandConfig(descriptor))
@@ -230,7 +231,7 @@ final class CozyMediaSpec
         }
       }
 
-      "verify a delegated video project through its declared media output" in {
+      "reject a delegated video project without current receipt evidence" in {
         _with_temp_dir("video-project-verify") { dir =>
           Given("a delegated video project whose final output is declared in the media package")
           _write(dir.resolve("knowledge/article.dox"), "Article\n=======\n")
@@ -267,14 +268,20 @@ final class CozyMediaSpec
               |""".stripMargin
           )
 
-          When("Cozy verifies and publishes the delegated video output")
-          val verification = CozyMedia.verify(CozyMedia.CommandConfig(descriptor))
-          val publication = CozyMedia.publish(CozyMedia.CommandConfig(descriptor, profile = Some("archive")))
+          When("Cozy plans the delegated video and rejects receiptless verification and publication")
+          val plan = CozyMedia.plan(CozyMedia.CommandConfig(descriptor))
+          val verificationerror = intercept[RuntimeException] {
+            CozyMedia.verify(CozyMedia.CommandConfig(descriptor))
+          }
+          val publicationerror = intercept[RuntimeException] {
+            CozyMedia.publish(CozyMedia.CommandConfig(descriptor, profile = Some("archive")))
+          }
 
-          Then("the declared output is the publishable media artifact")
-          verification should include_text("status: valid")
-          publication should include_text("article-video-ja")
-          dir.resolve("publication/example/ja/final.mp4") should be_regular_file
+          Then("planning reports delegation and receiptless verification and publication are rejected")
+          plan should include_text("article-video-ja: delegate-video")
+          verificationerror.getMessage should include_text("missing or stale cozy.media.receipt.v2 evidence")
+          publicationerror.getMessage should include_text("missing or stale cozy.media.receipt.v2 evidence")
+          dir.resolve("publication/example/ja/final.mp4") should not(be_regular_file)
         }
       }
 

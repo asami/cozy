@@ -12,11 +12,12 @@ import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import cozy.bok.CozyBok
+import cozy.media.CozyMedia
 import play.api.libs.json.{JsArray, JsObject, Json}
 
 /*
  * @since   Aug.  5, 2026
- * @version Aug.  5, 2026
+ * @version Aug. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyArticleMediaInfographicCommandSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -258,14 +259,26 @@ final class CozyArticleMediaInfographicCommandSpec extends AnyWordSpec with Matc
       Given("a selected descriptor whose manifest SHA differs from its output bytes")
       _with_root { root =>
         val fixture = _media(root, "stale", "development-process/stale", "ja", "images/stale.png", _png(0xff3366cc))
-        val stale = Files.readString(fixture.manifest, StandardCharsets.UTF_8).replace(_sha256(fixture.output), "0" * 64)
-        Files.write(fixture.manifest, stale.getBytes(StandardCharsets.UTF_8))
+        val manifestjson = Json.parse(Files.readString(fixture.manifest, StandardCharsets.UTF_8)).as[JsObject]
+        val resource = (manifestjson \ "resources").as[JsArray].value.find(entry => (entry \ "id").as[String] == "stale").get.as[JsObject]
+        val receiptinputs = resource \ "receipt" \ "inputs"
+        val stale = manifestjson + ("resources" -> JsArray(
+          (manifestjson \ "resources").as[JsArray].value.map { entry =>
+            val value = entry.as[JsObject]
+            if ((value \ "id").as[String] == "stale") value + ("sha256" -> Json.toJson("0" * 64)) else value
+          }
+        ))
+        Files.write(fixture.manifest, Json.stringify(stale).getBytes(StandardCharsets.UTF_8))
+        val mutatedresource = (Json.parse(Files.readString(fixture.manifest, StandardCharsets.UTF_8)) \ "resources").as[JsArray].value.find(entry => (entry \ "id").as[String] == "stale").get
+        (mutatedresource \ "sha256").as[String] shouldBe "0" * 64
+        (mutatedresource \ "receipt" \ "inputs") shouldBe receiptinputs
 
         When("prepared evidence compares the exact manifest and source SHA values")
         val error = intercept[IllegalArgumentException](CozyArticleMediaInfographicCommand.publish(_config(root)))
 
         Then("the stale SHA leaves destination and article-media bundle absent")
-        error.getMessage should include("SHA-256")
+        error.getMessage should include("build manifest receipt is not current")
+        error.getMessage should include("cozy.media.receipt.v2")
         Files.exists(root.resolve("repository/images/stale.png")) shouldBe false
         Files.exists(root.resolve("src/main/publication/article-media.json")) shouldBe false
       }
@@ -475,12 +488,12 @@ final class CozyArticleMediaInfographicCommandSpec extends AnyWordSpec with Matc
     val directory = Files.createDirectories(root.resolve(s"src/main/doxsite/$id"))
     val output = directory.resolve(s"target/cozy-media/$id.png")
     val manifest = directory.resolve("target/cozy-media/manifest.json")
-    _write_bytes(output, png)
-    val digest = _sha256(output)
     val descriptor = _descriptor_text(descriptorname, id, article, locale, destination)
-    val metadata = s"""{"schema":"cozy.media.v1","knowledge":"$article","resources":[{"id":"$id","path":"target/cozy-media/$id.png","sha256":"$digest"}]}"""
-    Files.write(directory.resolve(descriptorname), descriptor.getBytes(StandardCharsets.UTF_8))
-    Files.write(manifest, metadata.getBytes(StandardCharsets.UTF_8))
+    val descriptorfile = directory.resolve(descriptorname)
+    Files.write(descriptorfile, descriptor.getBytes(StandardCharsets.UTF_8))
+    _write_bytes(directory.resolve("article.dox"), article.getBytes(StandardCharsets.UTF_8))
+    _write_bytes(directory.resolve("input.svg"), png)
+    CozyMedia.build(CozyMedia.CommandConfig(descriptorfile, target = Some(id)))
     new MediaFixture(manifest, output)
   }
 

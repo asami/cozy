@@ -2,7 +2,7 @@
 
 ## Boundary
 
-Codex skills own semantic transformation: thesis extraction, bilingual writing, localization, dialogue design, and visual review. Cozy owns deterministic production: path resolution, resource conversion, incremental planning, verification, publication projection, and provenance hashes.
+Codex skills own semantic transformation: thesis extraction, bilingual writing, localization, dialogue design, and visual review. Cozy owns deterministic production: path resolution, resource conversion, content-identity planning, verification, publication projection, and provenance hashes.
 
 `cozy media` is an orchestration layer above `cozy video`. It does not duplicate narration or rendering semantics.
 
@@ -13,3 +13,5 @@ A SmartDox article is one representation of a `documentmodel:KnowledgeUnit`. Ima
 ## Portability
 
 Media descriptors contain relative package paths and logical profile names. User- or machine-specific roots are supplied by repository configuration or environment variables. This keeps the package reusable outside SimpleModeling.org.
+
+Cozy receipt v2 is the ownership boundary for deterministic acceptance. Cozy captures declared and automatic input identities, producer identity, selected operation context, and validated output hashes after structural verification. It owns receipt serialization, target-entry merge, current-evidence admission, and pre-destination-write input revalidation. It does not own a presentation renderer, renderer invocation, slide layout, or cross-artifact semantic verification; presentation outputs are ordinary separately declared resources.

@@ -16,7 +16,7 @@ import cozy.media.CozyMedia
 
 /*
  * @since   Aug.  5, 2026
- * @version Aug.  5, 2026
+ * @version Aug. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyArticleMediaInfographicEvidenceSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -61,7 +61,7 @@ final class CozyArticleMediaInfographicEvidenceSpec extends AnyWordSpec with Mat
           _write(fixture.descriptor, _descriptor(profiledefinition = "{}"))
           val destination = fixture.project.resolve("images/development-process/example-ja.png")
           _write_bytes(destination, _png_bytes)
-          _write(fixture.manifest, _manifest(_sha256(destination)))
+          CozyMedia.build(CozyMedia.CommandConfig(fixture.descriptor))
 
           When("the configured publication and repository roots equal the descriptor root")
           val result = CozyArticleMediaInfographicEvidence.project(_input(
@@ -80,12 +80,27 @@ final class CozyArticleMediaInfographicEvidenceSpec extends AnyWordSpec with Mat
         Given("a prebuilt resource whose source is the selected manifest path")
         _with_fixture { fixture =>
           _write(fixture.descriptor, _descriptor(source = "target/cozy-media/example-ja.png", build = "prebuilt"))
+          Files.delete(fixture.manifest)
+          CozyMedia.build(CozyMedia.CommandConfig(fixture.descriptor))
 
           When("the exact prebuilt image evidence is projected")
           val result = CozyArticleMediaInfographicEvidence.project(_input(fixture))
 
           Then("the manifest attribution uses resource.source without an output path")
           result.integrity.record.sha256 shouldBe fixture.sha256
+        }
+      }
+
+      "reject a v2 receipt after its accepted input changes" in {
+        Given("a valid v2 build manifest whose knowledge source later changes")
+        _with_fixture { fixture =>
+          _write(fixture.project.resolve("knowledge/article.dox"), "changed knowledge")
+
+          When("article-media projection reads the stale manifest")
+          val stale = intercept[IllegalArgumentException](CozyArticleMediaInfographicEvidence.project(_input(fixture)))
+
+          Then("downstream evidence admission rejects the stale receipt before projection")
+          stale.getMessage should include("receipt is not current")
         }
       }
 
@@ -100,6 +115,7 @@ final class CozyArticleMediaInfographicEvidenceSpec extends AnyWordSpec with Mat
             cancel("PWD does not equal normalized user.dir for this rootEnv specification")
           val destination = userdir.relativize(fixture.destination.toAbsolutePath.normalize()).toString.replace('\\', '/')
           _write(fixture.descriptor, _descriptor(destination = destination, profiledefinition = "{\"rootEnv\": \"PWD\"}"))
+          CozyMedia.build(CozyMedia.CommandConfig(fixture.descriptor))
 
           When("the PWD rootEnv and explicit configured roots are projected")
           val result = CozyArticleMediaInfographicEvidence.project(_input(
@@ -209,9 +225,11 @@ final class CozyArticleMediaInfographicEvidenceSpec extends AnyWordSpec with Mat
         Given("a descriptor with unrelated kind, role, language, and nested file decoys")
         _with_fixture { fixture =>
           _write(fixture.descriptor, _descriptor(extraresources = true))
+          _write(fixture.project.resolve("x"), "unrelated source")
           Files.createDirectories(fixture.project.resolve("nested/decoys"))
           _write(fixture.project.resolve("nested/decoys/manifest.json"), "not an explicit manifest")
           _write(fixture.repository.resolve("nested/decoys/other.png"), "not selected")
+          CozyMedia.build(CozyMedia.CommandConfig(fixture.descriptor))
 
           When("the exact ja detailed-infographic image is projected")
           val result = CozyArticleMediaInfographicEvidence.project(_input(fixture))
@@ -384,16 +402,18 @@ final class CozyArticleMediaInfographicEvidenceSpec extends AnyWordSpec with Mat
         _with_fixture { fixture =>
           val target = fixture.project.resolve("target/cozy-media/generated-source.png")
           val link = fixture.project.resolve("target/cozy-media/generated-link.png")
+          _write(fixture.descriptor, _descriptor(output = "target/cozy-media/generated-link.png"))
           _write_bytes(target, _png_bytes)
-          Files.delete(fixture.buildoutput)
+          CozyMedia.build(CozyMedia.CommandConfig(fixture.descriptor))
+          Files.delete(link)
           try Files.createSymbolicLink(link, target)
           catch {
             case _: UnsupportedOperationException | _: SecurityException | _: IOException => cancel("The platform cannot create symbolic links for this specification")
           }
-          _write(fixture.descriptor, _descriptor(output = "target/cozy-media/generated-link.png"))
-          _write(fixture.manifest, _manifest(fixture.sha256, path = "target/cozy-media/generated-link.png"))
+          And("the accepted replacement is visibly a symbolic link before projection")
+          Files.isSymbolicLink(link) shouldBe true
 
-          When("the generated selected output follows the safe in-root link")
+          When("the accepted generated selected output is projected through the safe in-root link")
           val result = CozyArticleMediaInfographicEvidence.project(_input(fixture))
 
           Then("the generated resource retains its canonical integrity")
@@ -412,7 +432,8 @@ final class CozyArticleMediaInfographicEvidenceSpec extends AnyWordSpec with Mat
             case _: UnsupportedOperationException | _: SecurityException | _: IOException => cancel("The platform cannot create symbolic links for this specification")
           }
           _write(fixture.descriptor, _descriptor(source = "assets/prebuilt-link.png", build = "prebuilt"))
-          _write(fixture.manifest, _manifest(fixture.sha256, path = "assets/prebuilt-link.png"))
+          Files.delete(fixture.manifest)
+          CozyMedia.build(CozyMedia.CommandConfig(fixture.descriptor))
 
           When("the prebuilt selected output follows the safe in-root link")
           val prebuilt = CozyArticleMediaInfographicEvidence.project(_input(fixture))
@@ -483,10 +504,10 @@ final class CozyArticleMediaInfographicEvidenceSpec extends AnyWordSpec with Mat
       }
 
       "reject stale output disagreement even when the manifest matches the selected build output" in {
-        Given("a manifest whose digest matches a changed selected build output instead of the published PNG")
+        Given("a current manifest and build output that differ from the published PNG")
         _with_fixture { fixture =>
-          _write_bytes(fixture.buildoutput, _different_png_bytes)
-          _write(fixture.manifest, _manifest(_sha256(fixture.buildoutput)))
+          _write_bytes(fixture.project.resolve("infographic/example.svg"), _different_png_bytes)
+          CozyMedia.build(CozyMedia.CommandConfig(fixture.descriptor))
 
           When("the exact selected build output and publication destination are both verified")
           val stale = intercept[IllegalArgumentException](CozyArticleMediaInfographicEvidence.project(_input(fixture)))
@@ -575,10 +596,11 @@ final class CozyArticleMediaInfographicEvidenceSpec extends AnyWordSpec with Mat
     val buildoutput = project.resolve("target/cozy-media/example-ja.png")
     val destination = repository.resolve("images/development-process/example-ja.png")
     _write_bytes(destination, _png_bytes)
-    _write_bytes(buildoutput, _png_bytes)
+    _write(project.resolve("knowledge/article.dox"), "knowledge")
+    _write_bytes(project.resolve("infographic/example.svg"), _png_bytes)
     val digest = _sha256(destination)
     _write(descriptor, _descriptor())
-    _write(manifest, _manifest(digest))
+    CozyMedia.build(CozyMedia.CommandConfig(descriptor))
     new Fixture(root, project, repository, descriptor, manifest, buildoutput, destination, digest)
   }
 

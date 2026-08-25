@@ -13,11 +13,12 @@ import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import cozy.bok.CozyBok
+import cozy.media.CozyMedia
 import cozy.video.{CozyVideo, CozyVideoSpec}
 
 /*
  * @since   Aug.  5, 2026
- * @version Aug.  5, 2026
+ * @version Aug. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyArticleMediaPublicationOrchestrationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -571,14 +572,12 @@ final class CozyArticleMediaPublicationOrchestrationSpec extends AnyWordSpec wit
   private def _media(root: Path, id: String, article: String, locale: String, destination: String, png: Array[Byte]): MediaFixture = {
     val directory = Files.createDirectories(root.resolve(s"src/main/doxsite/$id"))
     val output = directory.resolve(s"target/cozy-media/$id.png")
-    val manifest = directory.resolve("target/cozy-media/manifest.json")
-    _write_bytes(output, png)
-    val digest = _sha256(output)
+    _write_bytes(directory.resolve("article.dox"), "article".getBytes(StandardCharsets.UTF_8))
+    _write_bytes(directory.resolve("input.svg"), png)
     val descriptor =
       s"""{"schema":"cozy.media.v1","knowledge":{"id":"$article","source":"article.dox"},"profiles":{"site":{"root":"../../../../repository"}},"resources":[{"id":"$id","kind":"image","language":"$locale","role":"detailed-infographic","source":"input.svg","output":"target/cozy-media/$id.png","build":"copy","publications":{"site":"$destination"}}]}"""
-    val buildmanifest = s"""{"schema":"cozy.media.v1","knowledge":"$article","resources":[{"id":"$id","path":"target/cozy-media/$id.png","sha256":"$digest"}]}"""
     _write_bytes(directory.resolve("media.json"), descriptor.getBytes(StandardCharsets.UTF_8))
-    _write_bytes(manifest, buildmanifest.getBytes(StandardCharsets.UTF_8))
+    CozyMedia.build(CozyMedia.CommandConfig(directory.resolve("media.json")))
     new MediaFixture(root.resolve(s"repository/$destination"))
   }
 

@@ -13,10 +13,11 @@ import org.scalatest.wordspec.AnyWordSpec
 import org.smartdox.metadata.PublishMetadata
 import org.smartdox.metadata.PublishMetadata.{ImageReference, VideoPresentation, VideoReference, VideoStatus}
 import play.api.libs.json.{JsObject, Json}
+import cozy.media.CozyMedia
 
 /*
  * @since   Aug.  4, 2026
- * @version Aug. 12, 2026
+ * @version Aug. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyArticleMediaPolicySpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -738,15 +739,13 @@ final class CozyArticleMediaPolicySpec extends AnyWordSpec with Matchers with Gi
     val buildoutput = project.resolve("target/cozy-media/example-ja.png")
     val destination = root.resolve("images/development-process/example-ja.png")
     val png = java.util.Base64.getDecoder.decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")
-    _write_artifact(buildoutput, png)
+    _write_artifact(project.resolve("knowledge/article.dox"), "knowledge".getBytes(StandardCharsets.UTF_8))
+    _write_artifact(project.resolve("infographic/example.svg"), png)
     _write_artifact(destination, png)
-    val sha256 = _sha256(destination)
     _write_artifact(descriptor,
       """{"schema":"cozy.media.v1","knowledge":{"id":"development-process/example","source":"knowledge/article.dox"},"profiles":{"site":{"root":".."}},"resources":[{"id":"example-infographic-ja","kind":"image","language":"ja","role":"detailed-infographic","source":"infographic/example.svg","output":"target/cozy-media/example-ja.png","build":"copy","publications":{"site":"images/development-process/example-ja.png"}}]}""".getBytes(StandardCharsets.UTF_8)
     )
-    _write_artifact(manifest,
-      s"""{"schema":"cozy.media.v1","knowledge":"development-process/example","resources":[{"id":"example-infographic-ja","path":"target/cozy-media/example-ja.png","sha256":"$sha256"}]}""".getBytes(StandardCharsets.UTF_8)
-    )
+    CozyMedia.build(CozyMedia.CommandConfig(descriptor))
     CozyArticleMediaInfographicEvidence.Input(
       root,
       descriptor,

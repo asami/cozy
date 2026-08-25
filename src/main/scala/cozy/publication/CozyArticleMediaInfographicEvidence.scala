@@ -3,7 +3,7 @@ package cozy.publication
 import java.net.URI
 import java.nio.file.{Files, Path}
 import java.security.MessageDigest
-import cozy.media.CozyMedia
+import cozy.media.{CozyMedia, CozyMediaReceipt}
 import org.goldenport.RAISE
 import org.goldenport.config.StructuredDocumentLoader
 import org.goldenport.io.InputSource
@@ -14,7 +14,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug.  5, 2026
- * @version Aug.  5, 2026
+ * @version Aug. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArticleMediaInfographicEvidence {
@@ -117,7 +117,7 @@ private[cozy] object CozyArticleMediaInfographicEvidence {
     val expectedsource = descriptorroot.resolve(buildpath).normalize()
     if (expectedsource != publication.publishablePath || !expectedsource.startsWith(descriptorroot))
       _invalid("Article-media infographic prepared source must equal the selected build output")
-    val manifestsha = _manifest_sha(manifest, identity, resourceid, buildpath)
+    val manifestsha = _manifest_sha(manifest, descriptorfile, identity, resourceid, buildpath, Some(publication.profile))
     if (manifestsha != publication.sourceSha256)
       _invalid("Article-media infographic prepared manifest and source SHA-256 values must match")
     val version = CozyArticleMediaNormalization.requireExactTrimmed(input.version, "Article-media infographic version")
@@ -174,7 +174,7 @@ private[cozy] object CozyArticleMediaInfographicEvidence {
     _validate_png(artifactpath, publicationpath)
     val buildpath = _build_path(selected.resource, normalized.descriptorroot)
     val buildoutput = _resolve_build_output(normalized.descriptorroot, buildpath)
-    val manifestsha = _manifest_sha(normalized.buildmanifest, normalized.articleidentity, selected.resourceid, buildpath)
+    val manifestsha = _manifest_sha(normalized.buildmanifest, normalized.descriptorfile, normalized.articleidentity, selected.resourceid, buildpath, Some(normalized.profile))
     _validate_png(buildoutput, buildpath)
     val buildsha = _sha256(buildoutput)
     val destinationsha = _sha256(artifactpath)
@@ -399,7 +399,7 @@ private[cozy] object CozyArticleMediaInfographicEvidence {
       _invalid(s"Article-media infographic published destination must be a structurally valid PNG: $relative")
   }
 
-  private def _manifest_sha(path: Path, articleidentity: String, resourceid: String, buildpath: String): String = {
+  private def _manifest_sha(path: Path, descriptorfile: Path, articleidentity: String, resourceid: String, buildpath: String, profile: Option[String]): String = {
     val json = Try(Json.parse(Files.readString(path))).getOrElse(
       _invalid("Article-media infographic build manifest must contain valid JSON")
     )
@@ -429,7 +429,12 @@ private[cozy] object CozyArticleMediaInfographicEvidence {
     )
     if (manifestpath != buildpath)
       _invalid(s"Article-media infographic build manifest path must equal selected build path: $buildpath")
-    _sha256_string(_required_exact_string(entry, "sha256", "build manifest selected resource"))
+    val sha256 = _sha256_string(_required_exact_string(entry, "sha256", "build manifest selected resource"))
+    try CozyMediaReceipt.requireCurrent(descriptorfile, resourceid, path, profile)
+    catch {
+      case e: IllegalArgumentException => _invalid(s"Article-media infographic build manifest receipt is not current: ${e.getMessage}")
+    }
+    sha256
   }
 
   private def _directory_identity(path: Path, label: String): RootIdentity = {
