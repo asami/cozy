@@ -11,7 +11,7 @@ import java.util.zip.{ZipEntry, ZipFile, ZipOutputStream}
 
 import scala.collection.JavaConverters._
 
-import cozy.archive.{CozyArchivePackager, CozyScaladocStaging}
+import cozy.archive.{ComponentReleaseSourceProjection, CozyArchivePackager, CozyScaladocStaging}
 import org.scalatest.GivenWhenThen
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.matchers.should.Matchers
@@ -1259,10 +1259,62 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
         ex.getMessage should include ("org.postgresql:postgresql:42.7.3")
       } finally {
         server.stop(0)
+  }
+  }
+  }
+  }
+
+    "operation-default release-source policy is ignored by CAR packaging" in {
+      _with_temp_dir("cozy-car-release-source-default") { dir =>
+        Given("a CAR project without project-metadata release-source policy and an isolated operation default")
+        val project = dir.resolve("project")
+        _write(project.resolve("src/main/scala/fixture/PublicApi.scala"), "package fixture\nfinal class PublicApi\n")
+        _write(project.resolve("project.yaml"), Json.prettyPrint(Json.obj(
+          "project" -> Json.obj(
+            "namespace" -> "org.sample",
+            "id" -> "DefaultPolicyComponent",
+            "name" -> "sample-default-policy-component",
+            "kind" -> "car",
+            "component" -> Json.obj("version" -> "0.1.0-SNAPSHOT")
+          ),
+          "build" -> Json.obj(
+            "cozyVersion" -> org.simplemodeling.cozy.BuildInfo.version,
+            "dependencies" -> Json.obj("compile" -> Json.arr("org.goldenport::goldenport-cncf:0.5.17"))
+          ),
+          "packaging" -> Json.obj(
+            "kind" -> "car",
+            "car" -> Json.obj(
+              "include_dependencies" -> false,
+              "runtime" -> Json.obj("cncf" -> Json.obj("minimum" -> "0.5.17", "tested" -> Json.arr("0.5.17")))
+            )
+          )
+        )))
+        _write(project.resolve(".cozy/config.yaml"),
+          "packaging:\n  car:\n    release_source:\n      mode: public\n      license: Apache-2.0\n"
+        )
+        val archive = dir.resolve("out/default-policy.car")
+        val mainjar = _write(dir.resolve("artifacts/default-main.jar"), "main")
+        val runtimejar = _write_zip(
+          dir.resolve("artifacts/default-goldenport-cncf_3-0.5.17.jar"),
+          "META-INF/cncf/runtime.yaml",
+          "runtime: cncf\nmodule: org.goldenport:goldenport-cncf_3:0.5.17\nversion: 0.5.17\n"
+        )
+
+        When("Cozy packages the project without a release-source stage")
+        CozyArchivePackager.buildCar(List(
+          "--save", archive.toString,
+          "--project-dir", project.toString,
+          "--main-jar", mainjar.toString,
+          "--lib-jars", runtimejar.toString,
+          "--name", "sample-default-policy-component",
+          "--version", "0.1.0-SNAPSHOT",
+          "--component", "DefaultPolicyComponent"
+        ))
+
+        Then("operation defaults neither require a stage nor add source entries")
+        _zip_entries(archive).filter(_.startsWith("source/")) shouldBe Set.empty
       }
     }
-  }
-  }
 
     "validate generated metadata and dependency ownership" should {
     "reject a CML CAR whose generated model metadata side output is missing" in {
@@ -1648,6 +1700,172 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
       Files.exists(dir.resolve("out/missing.car")) shouldBe false
       Files.exists(dir.resolve("out/stale.car")) shouldBe false
     }
+  }
+
+    "package verified release-source staging" should {
+    "copy public payloads exactly, keep restricted staging manifest-only, and reject tampering" in {
+    _with_temp_dir("cozy-car-release-source") { dir =>
+      Given("public and restricted release-source stages with their project policies")
+      val publicproject = dir.resolve("public-project")
+      _write(publicproject.resolve("src/main/scala/fixture/PublicApi.scala"), "package fixture\nfinal class PublicApi\n")
+      _write(publicproject.resolve("project.yaml"), Json.prettyPrint(Json.obj(
+        "project" -> Json.obj(
+          "namespace" -> "org.sample",
+          "id" -> "Component",
+          "name" -> "sample-component",
+          "kind" -> "car",
+          "component" -> Json.obj("version" -> "0.1.0-SNAPSHOT")
+        ),
+        "build" -> Json.obj(
+          "cozyVersion" -> org.simplemodeling.cozy.BuildInfo.version,
+          "dependencies" -> Json.obj("compile" -> Json.arr("org.goldenport::goldenport-cncf:0.5.17"))
+        ),
+        "packaging" -> Json.obj(
+          "kind" -> "car",
+          "car" -> Json.obj(
+            "include_dependencies" -> false,
+            "runtime" -> Json.obj("cncf" -> Json.obj("minimum" -> "0.5.17", "tested" -> Json.arr("0.5.17"))),
+            "release_source" -> Json.obj("mode" -> "public", "license" -> "Apache-2.0")
+          )
+        )
+      )))
+      val publicstage = ComponentReleaseSourceProjection.stage(
+        publicproject,
+        publicproject.resolve("target/cozy/release-source"),
+        ComponentReleaseSourceProjection.Policy("public", "Apache-2.0"),
+        Vector.empty,
+        Vector.empty,
+        Vector.empty,
+        Vector.empty,
+        ComponentReleaseSourceProjection.BuildEvidence(Vector.empty, Vector.empty, Vector.empty, Vector.empty)
+      )
+      val publicarchive = dir.resolve("out/public.car")
+      val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
+      val runtimejar = _write_zip(
+        dir.resolve("artifacts/goldenport-cncf_3-0.5.17.jar"),
+        "META-INF/cncf/runtime.yaml",
+        "runtime: cncf\nmodule: org.goldenport:goldenport-cncf_3:0.5.17\nversion: 0.5.17\n"
+      )
+      val releaseverification = List(
+        "--release-source-managed-main-sources", "[]",
+        "--release-source-managed-main-roots", "[]",
+        "--release-source-managed-test-sources", "[]",
+        "--release-source-managed-test-roots", "[]",
+        "--release-source-build-evidence",
+        "{\"compileScalacOptions\":[],\"testScalacOptions\":[],\"dependencies\":[],\"generators\":[]}"
+      )
+
+      When("Cozy packages the verified public release-source stage")
+      CozyArchivePackager.buildCar(releaseverification ++ List(
+        "--save", publicarchive.toString,
+        "--project-dir", publicproject.toString,
+        "--main-jar", mainjar.toString,
+        "--lib-jars", runtimejar.toString,
+        "--release-source-dir", publicstage.toString,
+        "--name", "sample-component",
+        "--version", "0.1.0-SNAPSHOT",
+        "--component", "Component"
+      ))
+
+      Then("the public CAR contains the exact staged source payload and manifest")
+      val publicentries = _zip_entries(publicarchive).filter(_.startsWith("source/"))
+      publicentries.toSet shouldBe Set(
+        "source/project.yaml",
+        "source/src/main/scala/fixture/PublicApi.scala",
+        "source/release-source-manifest.json"
+      )
+      _zip_text(publicarchive, "source/src/main/scala/fixture/PublicApi.scala") shouldBe
+        Files.readString(publicstage.resolve("src/main/scala/fixture/PublicApi.scala"), StandardCharsets.UTF_8)
+
+      Given("a verified restricted release-source stage for the same component contract")
+      val restrictedproject = dir.resolve("restricted-project")
+      _write(restrictedproject.resolve("src/main/scala/fixture/RestrictedApi.scala"), "package fixture\nfinal class RestrictedApi\n")
+      _write(restrictedproject.resolve("project.yaml"), Json.prettyPrint(Json.obj(
+        "project" -> Json.obj(
+          "namespace" -> "org.sample",
+          "id" -> "Component",
+          "name" -> "sample-component",
+          "kind" -> "car",
+          "component" -> Json.obj("version" -> "0.1.0-SNAPSHOT")
+        ),
+        "build" -> Json.obj(
+          "cozyVersion" -> org.simplemodeling.cozy.BuildInfo.version,
+          "dependencies" -> Json.obj("compile" -> Json.arr("org.goldenport::goldenport-cncf:0.5.17"))
+        ),
+        "packaging" -> Json.obj(
+          "kind" -> "car",
+          "car" -> Json.obj(
+            "include_dependencies" -> false,
+            "runtime" -> Json.obj("cncf" -> Json.obj("minimum" -> "0.5.17", "tested" -> Json.arr("0.5.17"))),
+            "release_source" -> Json.obj("mode" -> "restricted", "license" -> "Apache-2.0")
+          )
+        )
+      )))
+      val restrictedstage = ComponentReleaseSourceProjection.stage(
+        restrictedproject,
+        restrictedproject.resolve("target/cozy/release-source"),
+        ComponentReleaseSourceProjection.Policy("restricted", "Apache-2.0"),
+        Vector.empty,
+        Vector.empty,
+        Vector.empty,
+        Vector.empty,
+        ComponentReleaseSourceProjection.BuildEvidence(Vector.empty, Vector.empty, Vector.empty, Vector.empty)
+      )
+      val restrictedarchive = dir.resolve("out/restricted.car")
+
+      When("Cozy packages the verified restricted release-source stage")
+      CozyArchivePackager.buildCar(releaseverification ++ List(
+        "--save", restrictedarchive.toString,
+        "--project-dir", restrictedproject.toString,
+        "--main-jar", mainjar.toString,
+        "--lib-jars", runtimejar.toString,
+        "--release-source-dir", restrictedstage.toString,
+        "--name", "sample-component",
+        "--version", "0.1.0-SNAPSHOT",
+        "--component", "Component"
+      ))
+
+      Then("the restricted CAR contains only the release-source manifest")
+      _zip_entries(restrictedarchive).filter(_.startsWith("source/")) shouldBe Set("source/release-source-manifest.json")
+
+      Given("the previously verified public release-source stage")
+      When("the staged source is tampered with and its manifest is removed")
+      _write(publicstage.resolve("src/main/scala/fixture/PublicApi.scala"), "tampered\n")
+      val tamperederror = intercept[Throwable] {
+        CozyArchivePackager.buildCar(releaseverification ++ List(
+          "--save", dir.resolve("out/tampered.car").toString,
+          "--project-dir", publicproject.toString,
+          "--main-jar", mainjar.toString,
+          "--lib-jars", runtimejar.toString,
+          "--release-source-dir", publicstage.toString,
+          "--name", "sample-component",
+          "--version", "0.1.0-SNAPSHOT",
+          "--component", "Component"
+        ))
+      }
+
+      When("the public release-source manifest is removed")
+      Files.delete(publicstage.resolve("release-source-manifest.json"))
+      val missingerror = intercept[Throwable] {
+        CozyArchivePackager.buildCar(releaseverification ++ List(
+          "--save", dir.resolve("out/missing.car").toString,
+          "--project-dir", publicproject.toString,
+          "--main-jar", mainjar.toString,
+          "--lib-jars", runtimejar.toString,
+          "--release-source-dir", publicstage.toString,
+          "--name", "sample-component",
+          "--version", "0.1.0-SNAPSHOT",
+          "--component", "Component"
+        ))
+      }
+
+      Then("Cozy rejects both tampered and manifest-missing release-source stages")
+      tamperederror.getMessage should include ("Release-source staged entry digest differs from the manifest")
+      missingerror.getMessage should include ("Release-source manifest is missing, unsafe, or not a regular file")
+      Files.exists(dir.resolve("out/tampered.car")) shouldBe false
+      Files.exists(dir.resolve("out/missing.car")) shouldBe false
+    }
+  }
   }
   }
 

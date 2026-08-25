@@ -8,7 +8,7 @@ import cozy.compatibility.{
   GenerationCompatibilityBoundary
 }
 import cozy.modeler.GenerationProvenance
-import cozy.archive.{ComponentApiDependencyResolver, ComponentApiJarPackager, ComponentSourceArchiveProjection, CozyArchivePackager, CozyCarPublisher, CozyDevelopmentRuntimeManifest, CozySarPublisher, SubcomponentReleasePackaging}
+import cozy.archive.{ComponentApiDependencyResolver, ComponentApiJarPackager, ComponentReleaseSourceProjection, ComponentSourceArchiveProjection, CozyArchivePackager, CozyCarPublisher, CozyDevelopmentRuntimeManifest, CozySarPublisher, SubcomponentReleasePackaging}
 import cozy.config.CozyProjectYamlConfig
 import cozy.publication.{CozyPublicationCompiler, CozySampleDistributor, CozyWarehouseIndexer}
 import cozy.video.CozyVideoPublisher
@@ -46,6 +46,8 @@ private[cozy] object CozySbtBridge {
         _prepare_development_runtime_evidence(request.arguments)
       case "write-component-source-archive" =>
         _write_component_source_archive(request.arguments)
+      case "write-component-release-source" =>
+        _write_component_release_source(request.arguments)
       case "package-car" =>
         CozyArchivePackager.buildCar(request.arguments.toList)
       case "component-api-jar" =>
@@ -137,6 +139,65 @@ private[cozy] object CozySbtBridge {
       projectRoot = _required_path(args.toList, "project-dir"),
       output = _required_path(args.toList, "save")
     )
+
+  private def _write_component_release_source(args: Vector[String]): Unit = {
+    val policy = ComponentReleaseSourceProjection.policy(
+      _required_value(args.toList, "mode"),
+      _required_value(args.toList, "license")
+    )
+    val evidence = _release_source_build_evidence(args.toList)
+    val projectroot = _required_path(args.toList, "project-dir")
+    val output = _required_path(args.toList, "save")
+    val mainsources = _json_paths(args.toList, "managed-main-sources")
+    val mainroots = _json_paths(args.toList, "managed-main-roots")
+    val testsources = _json_paths(args.toList, "managed-test-sources")
+    val testroots = _json_paths(args.toList, "managed-test-roots")
+    if (_option(args.toList, "verify-existing").contains("true"))
+      ComponentReleaseSourceProjection.verify(
+        output,
+        projectroot,
+        policy,
+        mainsources,
+        mainroots,
+        testsources,
+        testroots,
+        evidence
+      )
+    else
+      ComponentReleaseSourceProjection.stage(
+        projectroot,
+        output,
+        policy,
+        mainsources,
+        mainroots,
+        testsources,
+        testroots,
+        evidence
+      )
+  }
+
+  private def _release_source_build_evidence(args: List[String]): ComponentReleaseSourceProjection.BuildEvidence = {
+    val json = _option(args, "build-evidence").map { value =>
+      try Json.parse(value).as[JsObject]
+      catch { case _: Throwable => RAISE.invalidArgumentFault("Invalid release-source build evidence JSON") }
+    }.getOrElse(RAISE.invalidArgumentFault("Missing --build-evidence"))
+    def _values_(key: String): Vector[String] =
+      (json \ key).asOpt[Vector[String]].getOrElse(
+        RAISE.invalidArgumentFault(s"Release-source build evidence is missing $key")
+      )
+    ComponentReleaseSourceProjection.BuildEvidence(
+      _values_("compileScalacOptions"),
+      _values_("testScalacOptions"),
+      _values_("dependencies"),
+      _values_("generators")
+    )
+  }
+
+  private def _json_paths(args: List[String], key: String): Vector[Path] =
+    _option(args, key).map { value =>
+      try Json.parse(value).as[Vector[String]].map(path => Paths.get(path).toAbsolutePath.normalize())
+      catch { case _: Throwable => RAISE.invalidArgumentFault(s"Invalid release-source $key JSON") }
+    }.getOrElse(Vector.empty)
 
   private def _generation_config(settings: Map[String, String]): CozyProjectYamlConfig.Config = {
     val projectdir = settings.get(_sbt_project_dir_setting).
@@ -323,6 +384,9 @@ private[cozy] object CozySbtBridge {
     CozyCliArgs.parse(spec.Parameter.propertyFileOption(key))(_normalize_property(args, key)).
       pathProperty(key).
       getOrElse(RAISE.invalidArgumentFault(s"Missing --${key}"))
+
+  private def _required_value(args: List[String], key: String): String =
+    _option(args, key).getOrElse(RAISE.invalidArgumentFault(s"Missing --${key}"))
 
   private def _normalize_property(args: List[String], key: String): List[String] = {
     val prefix = s"--$key="

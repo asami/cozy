@@ -26,6 +26,14 @@ import scala.sys.process._
  * @version Aug. 25, 2026
  * @author  ASAMI, Tomoharu
  */
+private[cozy] final case class ReleaseSourceVerification(
+  managedmainsources: Vector[Path],
+  managedmainroots: Vector[Path],
+  managedtestsources: Vector[Path],
+  managedtestroots: Vector[Path],
+  buildevidence: ComponentReleaseSourceProjection.BuildEvidence
+)
+
 private[cozy] object CozyArchivePackager {
   private val _model_metadata_schema = "cozy.cml.model-metadata.v1"
 
@@ -144,6 +152,34 @@ private[cozy] object CozyArchivePackager {
       val scaladoc = _path(args, "scaladoc-dir").map { path =>
         CozyScaladocStaging.verify(path, projectdir.get)
       }
+      val releasesource = (_release_source_policy(projectmetadata), _path(args, "release-source-dir")) match {
+        case (None, Some(path)) =>
+          RAISE.invalidArgumentFault(
+            s"--release-source-dir requires project.yaml packaging.car.release_source policy: $path"
+          )
+        case (Some(policy), Some(path)) =>
+          val verification = _release_source_verification(args)
+          Some(ComponentReleaseSourceProjection.verifyForPackaging(
+            path,
+            projectdir.get,
+            verification.managedmainsources,
+            verification.managedmainroots,
+            verification.managedtestsources,
+            verification.managedtestroots,
+            verification.buildevidence
+          ) match {
+            case verified if verified.policy == policy => verified
+            case verified =>
+              RAISE.invalidArgumentFault(
+                s"Release-source policy differs from project.yaml: staged=${verified.policy.mode} current=${policy.mode}"
+              )
+          })
+        case (Some(_), None) =>
+          RAISE.invalidArgumentFault(
+            "project.yaml declares packaging.car.release_source but no verified --release-source-dir was supplied"
+          )
+        case (None, None) => None
+      }
       _require_no_source_generation_provenance(cardir)
       _require_no_source_runtime_manifest(cardir)
       val componentapidescriptor = _path(args, "component-api-descriptor").orElse(_source_component_api_descriptor(cardir))
@@ -232,6 +268,7 @@ private[cozy] object CozyArchivePackager {
           ) ++
             _car_entries(cardir) ++
             scaladoc.toVector.flatMap(_.archiveEntries) ++
+            releasesource.toVector.flatMap(_.archiveEntries) ++
             libjars.map(p => p -> s"lib/${p.getFileName}") ++
             spijars.map(p => p -> s"spi/${p.getFileName}") ++
             defaultconf.toVector.map(_ -> "config/default.conf") ++
@@ -727,6 +764,64 @@ private[cozy] object CozyArchivePackager {
       }
     }
 
+  private def _release_source_policy(projectmetadata: CozyProjectYamlConfig.Config): Option[ComponentReleaseSourceProjection.Policy] = {
+    val prefix = "packaging.car.release_source"
+    val authored = (projectmetadata.authoredkeys ++ projectmetadata.values.keys ++ projectmetadata.lists.keys).filter { key =>
+      key == prefix || key.startsWith(prefix + ".")
+    }
+    if (authored.isEmpty) None
+    else {
+      val fields = authored.collect { case key if key.startsWith(prefix + ".") => key.substring(prefix.length + 1) }
+      val unsupported = fields.filterNot(field => field == "mode" || field == "license")
+      if (unsupported.nonEmpty)
+        RAISE.invalidArgumentFault(
+          s"Unsupported packaging.car.release_source fields: ${unsupported.toVector.sorted.mkString(", ")}"
+        )
+      val mode = projectmetadata.value(prefix + ".mode").getOrElse("")
+      val license = projectmetadata.value(prefix + ".license").getOrElse("")
+      Some(ComponentReleaseSourceProjection.policy(mode, license))
+    }
+  }
+
+  private def _release_source_verification(
+    args: List[String]
+  ): ReleaseSourceVerification = {
+    val managedmainsources = _json_paths(args, "release-source-managed-main-sources")
+    val managedmainroots = _json_paths(args, "release-source-managed-main-roots")
+    val managedtestsources = _json_paths(args, "release-source-managed-test-sources")
+    val managedtestroots = _json_paths(args, "release-source-managed-test-roots")
+    val buildevidence = _value(args, "release-source-build-evidence").map { value =>
+      val json = Try(Json.parse(value).as[JsObject]).getOrElse(
+        RAISE.invalidArgumentFault("Invalid release-source verification build evidence JSON")
+      )
+      def _values_(key: String): Vector[String] =
+        (json \ key).asOpt[Vector[String]].getOrElse(
+          RAISE.invalidArgumentFault(s"Release-source verification build evidence is missing $key")
+        )
+      ComponentReleaseSourceProjection.BuildEvidence(
+        _values_("compileScalacOptions"),
+        _values_("testScalacOptions"),
+        _values_("dependencies"),
+        _values_("generators")
+      )
+    }.getOrElse(
+      RAISE.invalidArgumentFault("--release-source-dir requires release-source verification build evidence")
+    )
+    ReleaseSourceVerification(
+      managedmainsources,
+      managedmainroots,
+      managedtestsources,
+      managedtestroots,
+      buildevidence
+    )
+  }
+
+  private def _json_paths(args: List[String], key: String): Vector[Path] =
+    _value(args, key).map { value =>
+      try Json.parse(value).as[Vector[String]].map(path => Paths.get(path).toAbsolutePath.normalize())
+      catch { case _: Throwable => RAISE.invalidArgumentFault(s"Invalid release-source verification $key JSON") }
+    }.getOrElse(RAISE.invalidArgumentFault(s"--release-source-dir requires --$key"))
+
   private def _source_component_descriptor(cardir: Option[Path]): Option[Path] =
     cardir.map(_.resolve("component-descriptor.json")).filter(Files.isRegularFile(_))
 
@@ -1162,6 +1257,12 @@ private[cozy] object CozyArchivePackager {
     spec.Parameter.propertyFileOption("abi-manifest-output"),
     spec.Parameter.propertyFileOption("model-metadata"),
     spec.Parameter.propertyFileOption("scaladoc-dir"),
+    spec.Parameter.propertyFileOption("release-source-dir"),
+    spec.Parameter.property("release-source-managed-main-sources"),
+    spec.Parameter.property("release-source-managed-main-roots"),
+    spec.Parameter.property("release-source-managed-test-sources"),
+    spec.Parameter.property("release-source-managed-test-roots"),
+    spec.Parameter.property("release-source-build-evidence"),
     spec.Parameter.propertyFileOption("source-dir"),
     spec.Parameter.property("source-files"),
     spec.Parameter.property("extension-jars"),
