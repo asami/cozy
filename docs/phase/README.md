@@ -28,15 +28,30 @@ Current phase state:
 - Earlier closed phase: `phase-32.md`: CML Source-Result Canonical Naming.
   It owns only the canonical `Resolved.projectRelativePath` migration and its
   explicit retired-name boundary.
-- In-progress single-Phase execution: `phase-30.md`: Unified Storyboard and
+- Most recent closed phase: `phase-30.md`: Unified Storyboard and
   Three-Gate Video Review Workflow. Under the explicit 2026-08-26
   one-Phase authorization, its internal Steps are P30-00 through P30-03. The
   intended workflow is
   `storyboard.md review -> optional image-backed visual-story review ->
   confirmation video review -> final video and rendered-video evidence review`.
   Content-review and video-review PPTX artifacts are optional inspection or
-  distribution outputs, not workflow gates. Phase 30 remains incomplete; no
-  implementation, validation, review, commit, or successor Phase is claimed.
+  distribution outputs, not workflow gates. The closure validates Cozy-owned
+  artifacts and does not claim SmartDox/Textus or other consumer acceptance.
+  Planned Phase 36 and Phase 37 work is not started or authorized for
+  implementation.
+- Planned successor: `phase-36.md`: Common Visual Page and Cross-Media
+  Presentation Contract. It will define a one-screen Presentation Semantics IR
+  containing a Logical Pattern and typed semantic Relation graph, projected
+  separately through a Visual Pattern and template binding to presentation
+  slides and video Storyboard scene screens. Its start gate is Phase 30
+  closure; no Phase 36 implementation is started or authorized here.
+- Planned successor: `phase-37.md`: Logical Explanation Composition and Media
+  Projection. It will separate Subject Pattern from Narrative / Argument-
+  oriented Explanation Pattern, expand the latter into typed Logical Patterns
+  and Relations, and project one logical composition into independent
+  multi-slide and multi-scene sequences through Phase 36 Visual Pages. Its
+  start gate is Phase 36 closure; no Phase 37 implementation is started or
+  authorized here.
 - Earlier closed phase: `phase-28.2.md`: SimpleModeling.org Part 5
   Integration and Regression; `AM28-03` and `AM28-04` are complete.
 - Most recent split predecessor: `phase-28.1.md`: WIP Local Article Media
@@ -87,5 +102,16 @@ consume later integer phases.
 Phase 30 is one explicitly authorized Phase with internal Step/Slice ledger
 `P30-00` through `P30-03`. Its normative Storyboard design/spec are recorded
 in `docs/design/video-storyboard.md` and `docs/spec/video-storyboard.md`.
-No child Phase 30.1, 30.2, or 30.3 is created or required, and the current
-record does not claim implementation or closure.
+No child Phase 30.1, 30.2, or 30.3 is created or required. Its closure records
+the completed Cozy-owned workflow only; it neither starts a successor Phase
+nor claims external consumer acceptance.
+
+Phase 36 is the planned common Visual Page successor to the representation and
+identity principles established by Phase 30. Its current authority is only
+`phase-36.md` plus `phase-36-checklist.md`; normative design/specification and
+implementation remain unstarted.
+
+Phase 37 is the planned logical explanation-composition successor to Phase 36.
+Its current authority is only `phase-37.md` plus
+`phase-37-checklist.md`; normative design/specification and implementation
+remain unstarted.

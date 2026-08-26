@@ -4,10 +4,10 @@ This checklist is the authoritative internal Step ledger for the one Phase 30
 execution explicitly authorized on 2026-08-26. The estimated Phase effort
 remains 10–15 hours at recommended high effort. `P30-00` through `P30-03` are
 internal Steps/Slices, not child Phases; no child-phase documents or checklists
-are created or required. This ledger does not claim implementation, validation,
-review, commit, or completion while the Phase is in progress.
+are created or required. The distinct Phase release closure records the accepted
+full review, repository-full validation, and nonblocking ledger disposition.
 
-Phase status: IN PROGRESS
+Phase status: COMPLETE
 Phase Execution Gate: EXPLICIT_SINGLE_PHASE_AUTHORIZED
 
 ## P30-00: Single-Phase Authorization and Storyboard Foundation
@@ -113,7 +113,7 @@ Status: COMPLETE
 
 ### P30-03 focused re-review findings
 
-Status: RESOLVED — P30-03 COMPLETE; Phase 30 remains IN PROGRESS
+Status: RESOLVED — P30-03 COMPLETE; accepted by the sealed Phase 30 full review
 
 The authorized P30-03 repair first closed `CB-001` through `CB-004`; its
 focused executable-specification receipt `47785-20260826T022306Z` passed 148
@@ -157,11 +157,11 @@ Current Boundary Blocker. This records convergence of `CB-005` through
       external outputs and safely creating missing direct parent directories.
 - [ ] `P30-03-HYG-001`: update the touched
       `CozyVideoReviewEvidence.scala` source header to the current repository
-      date during a separately authorized maintenance change. This is
-      non-behavioral and does not mitigate `CB-005` through `CB-010`.
+      date during a separately authorized maintenance change. It is recorded in
+      `docs/journal/2026/08/2026-08-26-phase-30-hygiene-follow-up.md` as a
+      nonblocking follow-up and does not mitigate `CB-005` through `CB-010`.
 
-Phase 30 closes only after P30-00, P30-01, P30-02, and P30-03 close and the
-normal Phase closure gates pass. Closure requires the accepted workflow to
-prove Storyboard review, confirmation-video review, and final-video evidence
-review without a source-managed `script.json`; it does not use child-phase
-closure as a gate.
+Phase 30 is complete after P30-00, P30-01, P30-02, and P30-03 close and the
+normal Phase closure gates pass. Closure proves Storyboard review,
+confirmation-video review, and final-video evidence review without a
+source-managed `script.json`; it does not use child-phase closure as a gate.

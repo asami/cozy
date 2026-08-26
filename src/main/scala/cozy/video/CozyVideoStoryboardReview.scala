@@ -94,7 +94,7 @@ private[cozy] trait CozyVideoStoryboardReview {
         val evidencepath = evidencedirectory.resolve("review-evidence.json").normalize()
         _require_direct_output_file(evidencepath, evidencedirectory, "Storyboard review evidence")
         val evidence = _read_json(evidencepath, "Storyboard review evidence")
-        val expected = _review_evidence_payload(approved, inputs, visualReview = true)
+        val expected = _review_evidence_payload(approved, inputs, visualreview = true)
         _validate_current_evidence(evidence, expected, approved, inputs, approvedevidenceidentity)
       }
     }
@@ -226,7 +226,7 @@ private[cozy] trait CozyVideoStoryboardReview {
     input.copy(copiedpath = destination)
   }
 
-  private def _review_evidence_payload(approved: ApprovedStoryboard, inputs: Vector[VisualInput], visualReview: Boolean): Json = {
+  private def _review_evidence_payload(approved: ApprovedStoryboard, inputs: Vector[VisualInput], visualreview: Boolean): Json = {
     val scenejson = approved.storyboard.scenes.map { scene =>
       Json.obj(
         "section" -> Json.fromString(scene.section),
@@ -250,7 +250,7 @@ private[cozy] trait CozyVideoStoryboardReview {
       Some("source" -> Json.fromString(approved.relativepath)),
       Some("storyboardIdentity" -> Json.fromString(approved.identity)),
       Some("scenes" -> Json.fromValues(scenejson)),
-      if (visualReview)
+      if (visualreview)
         Some("visualInputs" -> Json.fromValues(inputs.map { input =>
           Json.obj(
             "reference" -> Json.fromString(input.reference),

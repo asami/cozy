@@ -942,7 +942,7 @@ Primary references:
 
 ### Phase 30: Unified Storyboard and Three-Gate Video Review Workflow
 
-Status: IN PROGRESS; explicit single-Phase execution authorized 2026-08-26.
+Status: COMPLETE; explicit single-Phase execution closed 2026-08-26.
 
 Purpose and boundaries:
 
@@ -976,15 +976,14 @@ storyboard.md review
   -> final video and rendered-video evidence review
 ```
 
-The Phase remains estimated at 10–15 hours at recommended high effort. The
-user explicitly authorized one long-running Phase without splitting it into
-child phases. Storyboard schema/Markdown/JSON, optional visual-story review
-evidence, and confirmation/final build plus final-review integration are
-internal Steps `P30-01`, `P30-02`, and `P30-03`, preceded by authorization and
-specification/design foundation Step `P30-00`. Encoding policy profiles remain
-Phase 31's concern. This delivery-shape exception does not authorize a
-successor Phase, external repository mutation, Dox/PPTX runtime acceptance, or
-claims of implementation, validation, review, commit, or completion.
+The Phase was estimated at 10–15 hours at recommended high effort. The user
+explicitly authorized one long-running Phase without splitting it into child
+phases. Storyboard schema/Markdown/JSON, optional visual-story review evidence,
+and confirmation/final build plus final-review integration are internal Steps
+`P30-01`, `P30-02`, and `P30-03`, preceded by authorization and specification/
+design foundation Step `P30-00`. Encoding policy profiles remain Phase 31's
+concern. This closed delivery shape does not authorize a successor Phase,
+external repository mutation, or Dox/PPTX/SmartDox/Textus runtime acceptance.
 
 Primary references:
 
@@ -993,6 +992,102 @@ Primary references:
 - `docs/spec/video-storyboard.md`
 - `docs/design/video-storyboard.md`
 - `docs/journal/2026/08/2026-08-26-phase-30-single-phase-authorization.md`
+
+### Phase 36: Common Visual Page and Cross-Media Presentation Contract
+
+Status: planned; not started.
+
+Purpose and boundaries:
+
+- define one normalized Visual Page carrying a one-screen Presentation
+  Semantics IR: a typed Logical Pattern, semantic node/Relation graph,
+  separately selected Visual Pattern, parameters, assets, sources, language,
+  and stable identity;
+- use the same Visual Page contract for one article-summary presentation slide
+  and the displayed screen of one video Storyboard scene;
+- define a versioned Visual Pattern Catalog and profile/template binding while
+  keeping coordinates, fonts, and renderer object identities outside the
+  semantic IR;
+- define versioned closed Logical Pattern and semantic Relation catalogs so
+  visually identical arrows retain distinct `next`, `causes`, `depends-on`,
+  `enables`, or `maps-to` meaning;
+- allow multiple compatible Visual Patterns for one logical graph without
+  changing its semantic identity, while keeping coordinates, fonts, colors,
+  Shape kinds, and renderer object IDs below the Visual Pattern boundary;
+- provide human-reviewable restricted Markdown and structured YAML/JSON as
+  lossless serializations of the same normalized Visual Page identity;
+- replace `cozy.slide-ir.v1` as the future semantic authority through an
+  explicit, diagnostic compatibility or migration path rather than silent
+  reinterpretation;
+- keep narration, timing, transition, and audiovisual review in the video
+  Storyboard workflow;
+- bind Visual Page, catalog, parameters, binding, template, renderer, and
+  selected assets into Media Package receipts, review state, and stale-input
+  rejection; and
+- keep PPTX, slide PNGs, video frames, montage, renderer manifests, and video
+  outputs as generated delivery or review artifacts.
+
+Phase 36 starts only after Phase 30 closes its active video Storyboard
+contract. It does not expand Phase 30 or authorize Phase 36 implementation.
+Subject/Explanation Pattern composition and multi-slide/multi-scene expansion
+remain Phase 37 work.
+
+Primary references:
+
+- `docs/phase/phase-36.md`
+- `docs/phase/phase-36-checklist.md`
+- `docs/spec/media-package.md`
+- `docs/design/media-package-operation.md`
+- `docs/journal/2026/08/2026-08-26-presentation-semantics-ir-phase-36-37.md`
+
+### Phase 37: Logical Explanation Composition and Media Projection
+
+Status: planned; not started.
+
+Purpose and boundaries:
+
+- define Subject Pattern as the typed logical structure of what is explained
+  and Explanation Pattern as the independently selected Narrative / Argument
+  strategy by which it is developed for an audience and purpose;
+- normalize one selected subject, explanation pattern, and typed parameter set
+  into an ordered, medium-neutral Explanation Step plan containing typed
+  Logical Patterns and semantic Relation graphs;
+- project Explanation Steps independently into multiple Visual Pages for a
+  presentation and multiple Storyboard scenes containing Visual Pages for
+  video, without requiring equal slide and scene counts;
+- keep subject analysis, pattern selection, and parameter authoring with humans
+  or AI while Cozy owns deterministic validation, expansion, projection,
+  identity, and stale-input rejection;
+- admit `software-product` as the first representative Subject Pattern,
+  `product-overview` with `vision`, `goal`, `context`, `use-case`, and
+  `main-scenario` as the first representative Explanation Pattern, and
+  `product-mechanism` as the relationship from goals/use cases to realization
+  mechanisms; and
+- preserve logical composition, Visual Page, Storyboard, PPTX, and MP4 as
+  distinct authority or artifact layers;
+- use the authority chain `Narrative / Argument Pattern -> Logical Pattern +
+  Relation graph -> Visual Pattern -> renderer binding`, never deriving
+  semantic meaning from PowerPoint arrows or Shapes;
+- define a reusable Narrative / Argument catalog spanning problem/solution,
+  current/target, observation/insight/implication, claim/evidence,
+  why/what/how, input/process/output, strategy/execution/outcome, and related
+  forms while keeping the Phase 37 acceptance subset bounded; and
+- keep the IR renderer-neutral enough for later HTML, infographic, article
+  figure, Mermaid/PlantUML, and SVG renderers without making them Phase 37
+  acceptance requirements.
+
+Phase 37 starts only after Phase 36 accepts the common Visual Page and
+cross-media display contracts. It does not authorize implementation or alter
+the active Phase 30 boundary.
+
+Primary references:
+
+- `docs/phase/phase-37.md`
+- `docs/phase/phase-37-checklist.md`
+- `docs/phase/phase-36.md`
+- `docs/spec/media-package.md`
+- `docs/design/media-package-operation.md`
+- `docs/journal/2026/08/2026-08-26-presentation-semantics-ir-phase-36-37.md`
 
 ### Phase 31: Video Encoding Policy Profiles
 
@@ -1080,8 +1175,16 @@ Origin:
 | DEV-003 | User-reported CAR publication runtime-selection defect, corroborated by `docs/journal/2026/08/entity-revision-generator-downstream-acceptance-transfer-2026-08-03.md` | Make CAR publish paths select `project.yaml build.cozyVersion` without a temporary `.cozy` runtime override. | NEW_PHASE | [Phase 33](../phase/phase-33.md) | RESOLVED |
 | DEV-004 | Phase 29 full review `CPB-29-01` / `CPB-29-02` | Canonically admit configured BoK source paths and unconditionally validate glossary/component-reference resources before manifest publication. | NEW_PHASE | [Phase 34](../phase/phase-34.md) | RESOLVED |
 | DEV-005 | Phase 34 final official full test `58874-20260824T044406Z`; resolved by CFB3 | Make `cozy.bok.CozyBokSpec` actual-Build source fixtures self-contained local safe sources while preserving CFB2 configuration-time safe absence and strict actual-Build admission; specify any behavior change first. | NEW_PHASE | [Phase 34](../phase/phase-34.md) | RESOLVED |
+| DEV-006 | User request on 2026-08-26 following the article-summary media workflow review | Establish a common Visual Page contract carrying a typed Logical Pattern and semantic Relation graph, projected separately through Visual Patterns into presentation slides and video Storyboard scene screens with deterministic renderer binding and receipt identity. This supersedes the earlier Markdown-only Slide IR successor proposal. | NEW_PHASE | [Phase 36](../phase/phase-36.md) | PLANNED |
+| DEV-007 | User request on 2026-08-26 following the ACE product-explanation review | Separate Subject Pattern from Explanation Pattern and deterministically project one logical explanation composition into independent multi-slide and multi-scene sequences through the common Visual Page contract. | NEW_PHASE | [Phase 37](../phase/phase-37.md) | PLANNED |
 
 ## Current Priority
+
+Phase 30 is closed. Phase 36 is its planned common Visual Page successor but
+is not started or authorized for implementation. Phase 37 is the planned
+logical explanation-composition successor and must not start until Phase 36
+closes. Neither successor adds work to the closed Phase 30 boundary or claims
+implementation, validation, review, publication, or external consumer mutation.
 
 Phase 34 is closed after the candidate final official full Cozy validation.
 The earlier invocation
@@ -1098,8 +1201,11 @@ with no findings. The earlier failure is superseded; no new full-suite test has
 has been superseded by CFB3 and the candidate final receipt
 `22693-20260824T094231Z` (`test`, 1,376 succeeded/0 failed/8 canceled, 100
 suites, 0 aborted, SBT/wrapper 0, lock released). Strict actual-Build admission
-remains correct. No Phase 35 successor work is started here. No SmartDox/Textus
-consumer execution or acceptance is claimed.
+remains correct. No Phase 35 implementation is started here. Phase 36 is a
+separate planned common Visual Page successor to active Phase 30, and Phase 37
+is its planned logical explanation-composition successor. Neither is started
+or authorized for implementation. No SmartDox/Textus consumer execution or
+acceptance is claimed.
 SmartDox Phase 8
 `LITERAL8-03` owns regenerated-site runtime
 finalization, metadata-only inventory/hash evidence, and Textus BoK consumer
