@@ -23,7 +23,7 @@ import scala.sys.process._
  * @since   May. 20, 2026
  *  version May. 22, 2026
  *  version Jun. 18, 2026
- * @version Aug. 25, 2026
+ * @version Aug. 26, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] final case class ReleaseSourceVerification(
@@ -47,6 +47,7 @@ private[cozy] object CozyArchivePackager {
     val coordinate = CozyComponentReleaseCoordinateCodec.fromProjectMetadata(projectmetadata, "development-component-descriptor")
     val manifestmetadata = projectconfig.mapUnder("packaging.car.manifest_metadata")
     val packagemetadata = _car_package_metadata(manifestmetadata, coordinate)
+    val carrier = CozyComponentKnowledgeCarrier.fromProject(root, coordinate)
     _require_project_style_authority_free(projectmetadata)
     val modelmetadata = _development_model_metadata(root)
     val source = root.resolve("src/main/car/component-descriptor.json")
@@ -59,20 +60,25 @@ private[cozy] object CozyArchivePackager {
         _require_mode_free_component_config(projectconfig.mapUnder("project.component.config"))
         _write_text(
           output,
-          _component_descriptor_json(
-            coordinate,
-            packagemetadata.extensions,
-            projectconfig.mapUnder("project.component.config"),
-            Vector.empty,
-            Some(snapshot)
+          _with_component_knowledge_carrier(
+            _component_descriptor_json(
+              coordinate,
+              packagemetadata.extensions,
+              projectconfig.mapUnder("project.component.config"),
+              Vector.empty,
+              Some(snapshot)
+            ),
+            carrier,
+            "generated development component descriptor"
           )
         )
       case None =>
         if (!Files.isRegularFile(source))
           RAISE.invalidArgumentFault("Development CAR requires generated CML model metadata or src/main/car/component-descriptor.json.")
         val text = Files.readString(source, StandardCharsets.UTF_8)
+        CozyComponentKnowledgeCarrier.requireNoAuthoredDescriptorDeclaration(text, "component-descriptor.json")
         _validate_canonical_component_descriptor(text, coordinate, "component-descriptor.json")
-        _write_text(output, text)
+        _write_text(output, _with_component_knowledge_carrier(text, carrier, "component-descriptor.json"))
     }
   }
 
@@ -116,6 +122,7 @@ private[cozy] object CozyArchivePackager {
           )
       }
     val coordinate = CozyComponentReleaseCoordinateCodec.fromProjectMetadata(projectmetadata, "package-car")
+    val carrier = CozyComponentKnowledgeCarrier.fromProject(projectdir.get, coordinate)
     val outputversion = _required_value(args, "version")
     CozyComponentReleaseCoordinateCodec.requireProjection(coordinate.version, outputversion, "version", "package-car")
     val releaseoutput = !_is_snapshot_version(outputversion)
@@ -235,19 +242,36 @@ private[cozy] object CozyArchivePackager {
       }
       _path(args, "abi-manifest-output").foreach(path => _write_text(path, Files.readString(abimanifest, StandardCharsets.UTF_8)))
       val componentdescriptor = componentstylesnapshot.map { snapshot =>
-        _write_temp(projectdir, "component-descriptor", _component_descriptor_json(coordinate, extensionmap, configmap, entities, Some(snapshot)))
+        _write_temp(
+          projectdir,
+          "component-descriptor",
+          _with_component_knowledge_carrier(
+            _component_descriptor_json(coordinate, extensionmap, configmap, entities, Some(snapshot)),
+            carrier,
+            "generated component descriptor"
+          )
+        )
       }.getOrElse {
         _component_descriptor_override(extensionmap, coordinate).
           map { text =>
-            _write_temp(projectdir, "component-descriptor", text)
+            _write_temp(projectdir, "component-descriptor", _with_component_knowledge_carrier(text, carrier, "componentDescriptorJson"))
           }.
           orElse(_source_component_descriptor(cardir).map { path =>
             val text = Files.readString(path)
+            CozyComponentKnowledgeCarrier.requireNoAuthoredDescriptorDeclaration(text, "component-descriptor.json")
             _validate_canonical_component_descriptor(text, coordinate, "component-descriptor.json")
-            path
+            carrier.map(value => _write_temp(projectdir, "component-descriptor", _with_component_knowledge_carrier(text, Some(value), "component-descriptor.json"))).getOrElse(path)
           }).
           getOrElse {
-            _write_temp(projectdir, "component-descriptor", _component_descriptor_json(coordinate, extensionmap, configmap, entities))
+            _write_temp(
+              projectdir,
+              "component-descriptor",
+              _with_component_knowledge_carrier(
+                _component_descriptor_json(coordinate, extensionmap, configmap, entities),
+                carrier,
+                "generated component descriptor"
+              )
+            )
           }
       }
       def _write_car_(packagedmainjar: Path): Unit = {
@@ -266,7 +290,8 @@ private[cozy] object CozyArchivePackager {
           Vector(
             packagedmainjar -> "component/main.jar"
           ) ++
-            _car_entries(cardir) ++
+            _car_entries(cardir).filterNot(_._2 == CozyComponentKnowledgeCarrier.ARCHIVE_LOGICAL_PATH) ++
+            carrier.toVector.map(value => value.source -> CozyComponentKnowledgeCarrier.ARCHIVE_LOGICAL_PATH) ++
             scaladoc.toVector.flatMap(_.archiveEntries) ++
             releasesource.toVector.flatMap(_.archiveEntries) ++
             libjars.map(p => p -> s"lib/${p.getFileName}") ++
@@ -1044,9 +1069,17 @@ private[cozy] object CozyArchivePackager {
     coordinate: CozyComponentReleaseCoordinateCodec.Coordinate
   ): Option[String] =
     extensions.get("componentDescriptorJson").map(_.trim).filter(_.nonEmpty).map { text =>
+      CozyComponentKnowledgeCarrier.requireNoAuthoredDescriptorDeclaration(text, "componentDescriptorJson")
       _validate_canonical_component_descriptor(text, coordinate, "componentDescriptorJson")
       text
     }
+
+  private def _with_component_knowledge_carrier(
+    text: String,
+    carrier: Option[CozyComponentKnowledgeCarrier],
+    label: String
+  ): String =
+    carrier.map(value => CozyComponentKnowledgeCarrier.injectGeneratedDeclaration(text, value.declaration, label)).getOrElse(text)
 
   private[archive] def _validate_canonical_component_descriptor(
     text: String,

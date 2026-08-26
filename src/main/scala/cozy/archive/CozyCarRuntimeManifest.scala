@@ -21,7 +21,7 @@ import play.api.libs.json.{JsArray, JsObject, JsValue, Json}
  * release provenance before accepting a prebuilt CAR.
  *
  * @since   Jul. 28, 2026
- * @version Aug.  7, 2026
+ * @version Aug. 26, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyCarRuntimeManifest {
@@ -79,6 +79,11 @@ private[cozy] object CozyCarRuntimeManifest {
     val abipath = root.resolve("abi-manifest.json")
     val abi = _json(Files.readAllBytes(abipath), "abi-manifest.json")
     _require_canonical_archive_coordinates(descriptor, abi, coordinate)
+    CozyComponentKnowledgeCarrier.requireDeclaredArchiveCarrier(
+      descriptor,
+      Option(root.resolve(CozyComponentKnowledgeCarrier.ARCHIVE_LOGICAL_PATH)).filter(Files.isRegularFile(_)).map(Files.readAllBytes),
+      "component-descriptor.json"
+    )
   }
 
   private def _require_canonical_archive_coordinates(
@@ -155,6 +160,7 @@ private[cozy] object CozyCarRuntimeManifest {
       )
       val abientry = byname.getOrElse("abi-manifest.json", RAISE.invalidArgumentFault("Prebuilt CAR requires abi-manifest.json."))
       _require_canonical_archive_coordinates(descriptor, _json(_bytes(zip, abientry), "abi-manifest.json"), coordinate)
+      _require_declared_component_knowledge_carrier(zip, byname, descriptor)
       expectedGenerationProvenance.foreach(
         _require_generation_provenance(zip, byname, contract, _)
       )
@@ -220,6 +226,7 @@ private[cozy] object CozyCarRuntimeManifest {
         _json(_bytes(zip, abientry), "abi-manifest.json"),
         coordinate
       )
+      _require_declared_component_knowledge_carrier(zip, byname, descriptor)
     } finally {
       zip.close()
     }
@@ -258,6 +265,17 @@ private[cozy] object CozyCarRuntimeManifest {
       s"$FILE_NAME runtime.cncf"
     )
   }
+
+  private def _require_declared_component_knowledge_carrier(
+    zip: ZipFile,
+    byname: Map[String, java.util.zip.ZipEntry],
+    descriptor: JsValue
+  ): Unit =
+    CozyComponentKnowledgeCarrier.requireDeclaredArchiveCarrier(
+      descriptor,
+      byname.get(CozyComponentKnowledgeCarrier.ARCHIVE_LOGICAL_PATH).map(_bytes(zip, _)),
+      "component-descriptor.json"
+    )
 
   private def _require_integrity(
     zip: ZipFile,

@@ -21,7 +21,7 @@ import play.api.libs.json.Json
 
 /*
  * @since   Jul. 29, 2026
- * @version Aug.  7, 2026
+ * @version Aug. 26, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyCarRuntimeManifestSpec
@@ -29,6 +29,50 @@ final class CozyCarRuntimeManifestSpec
     with Matchers
     with GivenWhenThen {
   "CNCF CAR development runtime evidence" should {
+    "project one generated carrier declaration identically for development and packaged CAR routes" in {
+      _with_temp_dir { root =>
+        Given("one CAR project with a canonical descriptor, ABI, and Component knowledge consumer contract")
+        _write(root.resolve("project.json"), _project_json("0.0.1-SNAPSHOT"))
+        _write(root.resolve("project.yaml"), _project_yaml("0.0.1-SNAPSHOT"))
+        _write(root.resolve("src/main/car/component-descriptor.json"), _descriptor("0.0.1-SNAPSHOT"))
+        _write(root.resolve("src/main/car/abi-manifest.json"), _abi_manifest("0.0.1-SNAPSHOT"))
+        val rawcarrier = _consumer_contract("org.example", "Sample", "0.0.1-SNAPSHOT")
+        val sourcecarrier = _write(root.resolve("src/main/car/component-knowledge.json"), rawcarrier)
+        val classes = root.resolve("target/scala-3.3.8/classes")
+        _write(classes.resolve("sample.class"), "compiled")
+        val classpath = _write(root.resolve(CozyDevelopmentRuntimeManifest.RUNTIME_CLASSPATH_IDENTITY), classes.toString)
+        val developmentmanifest = root.resolve("target/cncf.d/car-runtime-manifest.json")
+        val archive = root.resolve("out/sample.car")
+        val mainjar = _write(root.resolve("artifacts/main.jar"), "main")
+
+        When("Cozy prepares development evidence and packages the same source tree")
+        CozyDevelopmentRuntimeManifest.write(root, classpath, developmentmanifest)
+        cozy.CarPackagingSpecSupport.buildCarWithContract(List(
+          "--save", archive.toString,
+          "--project-dir", root.toString,
+          "--main-jar", mainjar.toString,
+          "--name", "example-sample",
+          "--version", "0.0.1-SNAPSHOT",
+          "--component", "Sample"
+        ))
+
+        Then("both descriptors declare the same raw carrier and development evidence binds its copied bytes")
+        val developmentdescriptor = Json.parse(Files.readString(root.resolve(CozyDevelopmentRuntimeManifest.COMPONENT_DESCRIPTOR_IDENTITY), StandardCharsets.UTF_8))
+        val packageddescriptor = Json.parse(_zip_text(archive, "component-descriptor.json"))
+        val declaration = (developmentdescriptor \ "componentKnowledge").as[play.api.libs.json.JsObject]
+        developmentdescriptor shouldBe packageddescriptor
+        declaration shouldBe _carrier_declaration(Files.readAllBytes(sourcecarrier))
+        Files.readAllBytes(root.resolve(CozyDevelopmentRuntimeManifest.COMPONENT_KNOWLEDGE_IDENTITY)).toVector shouldBe Files.readAllBytes(sourcecarrier).toVector
+        Json.parse(_zip_text(archive, "component-knowledge.json")) shouldBe Json.parse(rawcarrier)
+        (Json.parse(Files.readString(developmentmanifest, StandardCharsets.UTF_8)) \ "evidence").as[Vector[play.api.libs.json.JsObject]].map(entry => (entry \ "path").as[String]) shouldBe Vector(
+          "target/cncf.d/runtime-classpath.txt",
+          "target/cncf.d/component-descriptor.json",
+          "target/cncf.d/component-knowledge.json",
+          "src/main/car/abi-manifest.json"
+        )
+      }
+    }
+
     "project one CML-derived descriptor identically for development and packaged CAR routes" in {
       _with_temp_dir { root =>
         Given("one CAR project and its generated CML style snapshot")
@@ -60,6 +104,28 @@ final class CozyCarRuntimeManifestSpec
         Then("both routes retain one semantically identical schema-3 descriptor")
         Json.parse(Files.readString(development, StandardCharsets.UTF_8)) shouldBe
           Json.parse(_zip_text(archive, "component-descriptor.json"))
+      }
+    }
+
+    "reject an authored source descriptor carrier declaration as competing authority" in {
+      _with_temp_dir { root =>
+        Given("a style-less CAR project whose source descriptor declares componentKnowledge directly")
+        _write(root.resolve("project.json"), _project_json("0.0.1-SNAPSHOT"))
+        _write(
+          root.resolve("src/main/car/component-descriptor.json"),
+          _descriptor("0.0.1-SNAPSHOT", "\"componentKnowledge\":{}")
+        )
+
+        When("development descriptor preparation evaluates the source descriptor")
+        val error = intercept[Throwable] {
+          CozyArchivePackager._write_development_component_descriptor(
+            root,
+            root.resolve(CozyDevelopmentRuntimeManifest.COMPONENT_DESCRIPTOR_IDENTITY)
+          )
+        }
+
+        Then("only Cozy may generate the carrier declaration")
+        error.getMessage should include("must not author componentKnowledge")
       }
     }
 
@@ -311,6 +377,38 @@ final class CozyCarRuntimeManifestSpec
   }
 
   "CNCF CAR runtime manifest packaging" should {
+    "reject a prebuilt archive whose declared carrier digest differs from its named entry" in {
+      _with_temp_dir { root =>
+        Given("one canonical prebuilt descriptor declaration and matching raw archive entry")
+        val staged = root.resolve("staged")
+        val rawcarrier = _consumer_contract("org.example.textus", "Sample", "0.0.1-SNAPSHOT")
+        _write(staged.resolve("component/main.jar"), "main")
+        _write(staged.resolve("component-knowledge.json"), rawcarrier)
+        _write(
+          staged.resolve("component-descriptor.json"),
+          Json.stringify(Json.obj(
+            "schemaVersion" -> 3,
+            "component" -> Json.obj("namespace" -> "org.example.textus", "id" -> "Sample", "version" -> "0.0.1-SNAPSHOT"),
+            "componentKnowledge" -> _carrier_declaration(rawcarrier.getBytes(StandardCharsets.UTF_8))
+          ))
+        )
+        _write(staged.resolve("abi-manifest.json"), _abi_manifest("0.0.1-SNAPSHOT", "org.example.textus"))
+        val coordinate = CozyComponentReleaseCoordinateCodec.admit("org.example.textus", "Sample", "0.0.1-SNAPSHOT", "spec")
+        val validarchive = _zip(staged, root.resolve("valid.car"))
+
+        When("canonical admission evaluates matching and then mismatched carrier bytes")
+        noException should be thrownBy CozyCarRuntimeManifest.requireCanonicalArchiveAdmission(validarchive, coordinate)
+        _write(staged.resolve("component-knowledge.json"), rawcarrier + "\n")
+        val mismatchedarchive = _zip(staged, root.resolve("mismatched.car"))
+        val error = intercept[Throwable] {
+          CozyCarRuntimeManifest.requireCanonicalArchiveAdmission(mismatchedarchive, coordinate)
+        }
+
+        Then("the declaration is verified against only component-knowledge.json raw bytes")
+        error.getMessage should include("componentKnowledge.sha256 does not match archive entry component-knowledge.json")
+      }
+    }
+
     "preserve runtime range and exact archive bytes across generated versions" in {
       Given("generated CAR coordinates and arbitrary packaged component bytes")
       val versions = for {
@@ -460,6 +558,60 @@ final class CozyCarRuntimeManifestSpec
   private def _descriptor(version: String, extension: String): String = {
     val suffix = Option(extension).map(_.trim).filter(_.nonEmpty).map(value => s",$value").getOrElse("")
     s"""{"schemaVersion":3,"component":{"namespace":"org.example","id":"Sample","version":"$version"}$suffix}"""
+  }
+
+  private def _carrier_declaration(bytes: Array[Byte]): play.api.libs.json.JsObject =
+    Json.obj(
+      "carrierSchema" -> "cncf.component-knowledge-carrier.v1",
+      "consumerContractSchema" -> "cncf.component-knowledge-consumer.v1",
+      "logicalPath" -> "component-knowledge.json",
+      "sha256" -> _sha256(bytes)
+    )
+
+  private def _consumer_contract(namespace: String, id: String, version: String): String = {
+    val digest = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    s"""{
+       |  "schema": "cncf.component-knowledge-consumer.v1",
+       |  "componentId": "$namespace.$id",
+       |  "logicalRelease": "$version",
+       |  "resources": [
+       |    {
+       |      "logicalIdentity": {
+       |        "componentId": "$namespace.$id",
+       |        "logicalRelease": "$version",
+       |        "parentComponentId": null,
+       |        "childRole": "Documentation",
+       |        "logicalResource": "urn:cncf:resource:fixture:documentation"
+       |      },
+       |      "logicalPath": "documentation/fixture.md",
+       |      "kind": "documentation",
+       |      "role": "documentation",
+       |      "language": "en",
+       |      "mediaType": "text/markdown",
+       |      "size": 1,
+       |      "sha256": "$digest",
+       |      "metadata": {
+       |        "authority": "component",
+       |        "stability": "stable",
+       |        "source": "component-declared",
+       |        "license": "Apache-2.0",
+       |        "disclosure": "metadata-only"
+       |      },
+       |      "availability": "available",
+       |      "integrity": "verified",
+       |      "authorization": "granted",
+       |      "provenance": {
+       |        "sourceKind": "expanded-car",
+       |        "artifactCoordinate": "org.example:fixture:$version",
+       |        "logicalSource": "component-car:fixture",
+       |        "resolutionStep": "expanded-car:1",
+       |        "externalDeploymentRequired": false,
+       |        "matchingDigest": "$digest"
+       |      }
+       |    }
+       |  ]
+       |}
+       |""".stripMargin
   }
 
   private def _abi_manifest(

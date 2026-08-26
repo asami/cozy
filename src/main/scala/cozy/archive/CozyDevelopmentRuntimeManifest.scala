@@ -18,7 +18,7 @@ import play.api.libs.json.{JsArray, JsObject, Json}
  * claims that compiled class bytes or the whole directory are immutable.
  *
  * @since   Jul. 29, 2026
- * @version Aug.  7, 2026
+ * @version Aug. 26, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDevelopmentRuntimeManifest {
@@ -27,6 +27,7 @@ private[cozy] object CozyDevelopmentRuntimeManifest {
   val SOURCE_KIND = "development-directory"
   val RUNTIME_CLASSPATH_IDENTITY = "target/cncf.d/runtime-classpath.txt"
   val COMPONENT_DESCRIPTOR_IDENTITY = "target/cncf.d/component-descriptor.json"
+  val COMPONENT_KNOWLEDGE_IDENTITY = CozyComponentKnowledgeCarrier.DEVELOPMENT_IDENTITY
   val ABI_MANIFEST_IDENTITY = "src/main/car/abi-manifest.json"
 
   def write(
@@ -56,11 +57,27 @@ private[cozy] object CozyDevelopmentRuntimeManifest {
     val coordinate = _coordinate(descriptor)
     _require_project_coordinate(metadata, coordinate)
     _require_abi_coordinate(abi, coordinate)
+    val componentknowledge = CozyComponentKnowledgeCarrier.fromProject(projectroot, coordinate.coordinate).map { carrier =>
+      val output = projectroot.resolve(COMPONENT_KNOWLEDGE_IDENTITY)
+      carrier.copyTo(output)
+      val prepared = _require_evidence_file(projectroot, output, COMPONENT_KNOWLEDGE_IDENTITY)
+      CozyComponentKnowledgeCarrier.requireDeclaredArchiveCarrier(
+        _read_json(descriptor, COMPONENT_DESCRIPTOR_IDENTITY),
+        Some(Files.readAllBytes(prepared)),
+        COMPONENT_DESCRIPTOR_IDENTITY
+      )
+      prepared
+    }
+    if (componentknowledge.isEmpty)
+      CozyComponentKnowledgeCarrier.removeDevelopmentCopy(projectroot)
     val runtime = contract.runtimeCompatibility
     val classpathidentity = _classpath_identity(projectroot, classpath)
     val evidence = Vector(
       _evidence_entry(RUNTIME_CLASSPATH_IDENTITY, classpath, Some(classpathidentity)),
-      _evidence_entry(descriptoridentity, descriptor, None),
+      _evidence_entry(descriptoridentity, descriptor, None)
+    ) ++ componentknowledge.toVector.map { path =>
+      _evidence_entry(COMPONENT_KNOWLEDGE_IDENTITY, path, None)
+    } ++ Vector(
       _evidence_entry(ABI_MANIFEST_IDENTITY, abi, None)
     )
     val manifest = Json.obj(
