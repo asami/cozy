@@ -106,6 +106,40 @@ final class Phase56NamespaceQualifiedCarPublicationSpec
     }
   }
 
+  "E1A Version-scoped Component knowledge sidecar" must afterWord(
+    "in spec:phase-59.6-catalog-carrier, example:E1A, rules:R1,R9, phase:59.6"
+  ) {
+    "copy only the declared raw consumer contract beside its exact release catalog" in {
+      Given("a CAR whose archive declaration and project source share one digest-bound consumer contract")
+      _with_temp_dir { root =>
+        val warehouse = root.resolve("warehouse")
+        val coordinate = _coordinate("org.alpha.textus", "Shared")
+        val project = _project(root.resolve("project"), coordinate.namespace, coordinate.id, coordinate.version)
+        val contract =
+          s"""{"schema":"cncf.component-knowledge-consumer.v1","componentId":"${coordinate.qualifiedId}","logicalRelease":"${coordinate.version}","resources":[]}"""
+        val source = _write(project.resolve("src/main/car/component-knowledge.json"), contract)
+        val digest = RepositoryArtifactPublisher.sha256(source)
+        val descriptor =
+          s"""{"schemaVersion":3,"component":{"namespace":"${coordinate.namespace}","id":"${coordinate.id}","version":"${coordinate.version}"},"componentKnowledge":{"carrierSchema":"cncf.component-knowledge-carrier.v1","consumerContractSchema":"cncf.component-knowledge-consumer.v1","logicalPath":"component-knowledge.json","sha256":"$digest"}}"""
+        val archive = _archive(root.resolve("carrier.car"), Vector(
+          "component-descriptor.json" -> descriptor,
+          "abi-manifest.json" -> _abi(coordinate),
+          "component/main.jar" -> "carrier",
+          "component-knowledge.json" -> contract
+        ))
+
+        When("Cozy publishes that exact release")
+        _publish_car(project, warehouse, archive, coordinate)
+
+        Then("the version-scoped catalog sidecar is byte-identical to the declared source contract")
+        val sidecar = warehouse.resolve("repository/catalog/car").resolve(coordinate.groupPath).
+          resolve(coordinate.mavenArtifactId).resolve(coordinate.version).resolve("component-knowledge.json")
+        Files.readAllBytes(sidecar).toVector shouldBe Files.readAllBytes(source).toVector
+        RepositoryArtifactPublisher.sha256(sidecar) shouldBe digest
+      }
+    }
+  }
+
   "E3 Canonical prebuilt CAR admission" must afterWord(
     "in spec:phase-56-cid04c-cozy-repository-publication, example:E3, rules:R1,R7, phase:56"
   ) {

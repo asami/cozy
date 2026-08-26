@@ -30,10 +30,11 @@ private[cozy] object RepositoryArtifactPublisher {
   private[archive] var _publication_prepare_fault: Option[Path => Unit] = None
   /** Package-private deterministic failure seam for rollback-snapshot specifications. */
   private[archive] var _publication_snapshot_fault: Option[Path => Unit] = None
-  private final case class PreparedCarCmlSidecars(
+  private final case class PreparedCarSidecars(
     source: Path,
     metadatajson: String,
-    metadatayaml: Option[String]
+    metadatayaml: Option[String],
+    componentknowledge: Option[CozyComponentKnowledgeCarrier]
   )
 
   final case class Policy(
@@ -83,7 +84,7 @@ private[cozy] object RepositoryArtifactPublisher {
       }
       try {
       val carsidecars =
-        if (policy.kind == "car") Some(_prepare_car_cml_sidecars(projectdir, publicationargs))
+        if (policy.kind == "car") Some(_prepare_car_sidecars(projectdir, publicationargs, policy.coordinate))
         else None
       val sourcearchive = suppliedarchive.getOrElse {
         val generated = policy.buildArchive(publicationargs)
@@ -125,6 +126,10 @@ private[cozy] object RepositoryArtifactPublisher {
         }
         if (sidecars.metadatayaml.isEmpty)
           writes += catalogdir.resolve(s"$artifact.model-metadata.yaml") -> None
+        val knowledgepath = catalogdir.resolve(artifact).resolve(version).resolve("component-knowledge.json")
+        writes += knowledgepath -> sidecars.componentknowledge.map { carrier =>
+          _stage_(_stage_copy(knowledgepath, carrier.source))
+        }
       }
       val indexcandidate = _stage_(_stage_text(indexpath, ComponentRepositoryIndex.render(updatedindex)))
       val overlay = writes.toMap.map { case (path, staged) => path.toAbsolutePath.normalize() -> staged }
@@ -562,18 +567,32 @@ private[cozy] object RepositoryArtifactPublisher {
       } finally channel.close()
     }
 
-  private def _prepare_car_cml_sidecars(projectdir: Path, args: List[String]): PreparedCarCmlSidecars = {
+  private def _prepare_car_sidecars(
+    projectdir: Path,
+    args: List[String],
+    coordinate: Option[CozyComponentReleaseCoordinateCodec.Coordinate]
+  ): PreparedCarSidecars = {
     val resolved = CarCmlSourceResolver.resolve(projectdir).fold(
       issue => RAISE.invalidArgumentFault(s"${issue.code}: ${issue.message}"),
       identity
     )
     path(args, "model-metadata").filter(Files.isRegularFile(_)).map { metadata =>
       val yaml = metadata.resolveSibling(metadata.getFileName.toString.stripSuffix(".json") + ".yaml")
-      PreparedCarCmlSidecars(resolved.source, Files.readString(metadata, StandardCharsets.UTF_8), Option(yaml).filter(Files.isRegularFile(_)).map(Files.readString(_, StandardCharsets.UTF_8)))
+      PreparedCarSidecars(
+        resolved.source,
+        Files.readString(metadata, StandardCharsets.UTF_8),
+        Option(yaml).filter(Files.isRegularFile(_)).map(Files.readString(_, StandardCharsets.UTF_8)),
+        coordinate.flatMap(CozyComponentKnowledgeCarrier.fromProject(projectdir, _))
+      )
     }.getOrElse {
       try {
         val metadata = CmlModelMetadata.fromCml(resolved.source, resolved.projectRelativePath, "cml")
-        PreparedCarCmlSidecars(resolved.source, metadata.toJsonString, Some(metadata.toYamlString))
+        PreparedCarSidecars(
+          resolved.source,
+          metadata.toJsonString,
+          Some(metadata.toYamlString),
+          coordinate.flatMap(CozyComponentKnowledgeCarrier.fromProject(projectdir, _))
+        )
       } catch {
         case NonFatal(e) =>
           RAISE.invalidArgumentFault(s"car.cml.metadata.generation_failed: Could not generate CML model metadata from ${resolved.projectRelativePath}: ${Option(e.getMessage).getOrElse(e.getClass.getSimpleName)}")

@@ -225,6 +225,7 @@ private[cozy] trait CozyBokRepositoryMetadata {
     checksumsha256: Option[String],
     componentdescriptor: Option[Json],
     abimanifest: Option[Json],
+    componentknowledge: Option[RepositoryCarComponentKnowledge],
     links: RepositoryCarLinks,
     archiveavailable: Boolean
   ) {
@@ -249,7 +250,24 @@ private[cozy] trait CozyBokRepositoryMetadata {
         "checksum" -> Json.obj("sha256" -> checksumsha256.asJson),
         "component_descriptor" -> componentdescriptor.asJson,
         "abi_manifest" -> abimanifest.asJson,
+        "component_knowledge" -> componentknowledge.map(_.toJson).asJson,
         "links" -> links.toJson
+      )
+  }
+
+  /**
+   * A version-scoped, digest-bound consumer-contract sidecar.  `source` is
+   * build-only and is never serialized into published catalog metadata.
+   */
+  private[bok] final case class RepositoryCarComponentKnowledge(
+    carrier: Json,
+    consumercontractpath: String,
+    source: Path
+  ) {
+    def toJson: Json =
+      Json.obj(
+        "carrier" -> carrier,
+        "consumer_contract" -> Json.fromString(consumercontractpath)
       )
   }
 
@@ -294,6 +312,7 @@ private[cozy] trait CozyBokRepositoryMetadata {
   private[bok] final case class RepositoryCarArchiveMetadata(
     componentdescriptor: Option[Json],
     abimanifest: Option[Json],
+    componentknowledgecarrier: Option[Json],
     available: Boolean
   )
 

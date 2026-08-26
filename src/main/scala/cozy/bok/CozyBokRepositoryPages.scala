@@ -5,6 +5,7 @@ import org.goldenport.cli.{Request => CliRequest}
 import org.goldenport.cli.spec
 import cozy.bok.scenario.ScenarioMetadata
 import cozy.bok.BibliographyEntry._
+import cozy.archive.CozyComponentKnowledgeCarrier
 import cozy.config.CozyProjectYamlConfig
 import cozy.publication.{CozyArticleMediaBuildContext, CozyArticleMediaInfographicCommand, CozyArticleMediaInfographicEvidence, CozyArticleMediaVideoCommand}
 import cozy.video.{CozyVideo, CozyVideoPublisher}
@@ -59,6 +60,7 @@ private[cozy] trait CozyBokRepositoryPages {
   private def _is_repository_catalog_file(path: Path): Boolean = {
     val name = path.getFileName.toString.toLowerCase(Locale.ROOT)
     !name.contains(".model-metadata.") &&
+      name != "component-knowledge.json" &&
       (name.endsWith(".yaml") || name.endsWith(".yml") || name.endsWith(".json"))
   }
 
@@ -162,6 +164,7 @@ private[cozy] trait CozyBokRepositoryPages {
       checksumsha256 = version.checksumSha256,
       componentdescriptor = archive.componentdescriptor,
       abimanifest = archive.abimanifest,
+      componentknowledge = _repository_car_component_knowledge(repositoryroot, catalog, version, archive),
       links = RepositoryCarLinks.fromComponentDescriptor(archive.componentdescriptor),
       archiveavailable = archive.available
     )
@@ -176,8 +179,79 @@ private[cozy] trait CozyBokRepositoryPages {
         ).flatten.foreach { case (name, json) =>
           _write_text(target.resolve(version.metadataPublicPath(entry.artifactid, name)), json.spaces2 + "\n")
         }
+        version.componentknowledge.foreach { knowledge =>
+          _copy_if_exists(knowledge.source, target.resolve(knowledge.consumercontractpath))
+        }
       }
     }
+
+  /**
+   * Keep a catalog consumer-contract transport version-scoped.  The BOK
+   * builder copies only the sidecar that Cozy published for this exact CAR
+   * release, after verifying it against the archive descriptor declaration.
+   */
+  private def _repository_car_component_knowledge(
+    repositoryroot: Path,
+    catalog: _root_.cozy.archive.RepositoryArtifactCatalog,
+    version: _root_.cozy.archive.RepositoryArtifactCatalogVersion,
+    archive: RepositoryCarArchiveMetadata
+  ): Option[RepositoryCarComponentKnowledge] =
+    archive.componentknowledgecarrier.map { carrier =>
+      val coordinate = _root_.cozy.archive.CozyComponentReleaseCoordinateCodec.admit(
+        catalog.namespace.getOrElse(""),
+        catalog.id.getOrElse(""),
+        version.version,
+        "repository component knowledge"
+      )
+      val source = repositoryroot.resolve("catalog/car")
+        .resolve(coordinate.groupPath)
+        .resolve(coordinate.mavenArtifactId)
+        .resolve(version.version)
+        .resolve("component-knowledge.json")
+        .toAbsolutePath.normalize
+      if (!Files.isRegularFile(source))
+        RAISE.invalidArgumentFault(
+          s"repository.component-knowledge.transport.missing artifact=${catalog.artifactId} version=${version.version}"
+        )
+      _require_component_knowledge_transport(
+        carrier,
+        Files.readAllBytes(source),
+        s"repository CAR ${catalog.artifactId} ${version.version}"
+      )
+      RepositoryCarComponentKnowledge(
+        carrier,
+        s"repository/car/${catalog.artifactId}/${version.version}/component-knowledge.json",
+        source
+      )
+    }
+
+  private def _require_component_knowledge_transport(
+    carrier: Json,
+    bytes: Array[Byte],
+    label: String
+  ): Unit = {
+    val fields = carrier.asObject.getOrElse(
+      RAISE.invalidArgumentFault(s"$label componentKnowledge declaration must be an object.")
+    )
+    val expected = Set("carrierSchema", "consumerContractSchema", "logicalPath", "sha256")
+    if (fields.keys.toSet != expected)
+      RAISE.invalidArgumentFault(s"$label componentKnowledge declaration must contain exactly the canonical carrier fields.")
+    def _string(name: String): String =
+      fields(name).flatMap(_.asString).getOrElse(
+        RAISE.invalidArgumentFault(s"$label componentKnowledge.$name must be a string.")
+      )
+    if (_string("carrierSchema") != CozyComponentKnowledgeCarrier.CARRIER_SCHEMA)
+      RAISE.invalidArgumentFault(s"$label componentKnowledge carrier schema is unsupported.")
+    if (_string("consumerContractSchema") != CozyComponentKnowledgeCarrier.CONSUMER_CONTRACT_SCHEMA)
+      RAISE.invalidArgumentFault(s"$label componentKnowledge consumer-contract schema is unsupported.")
+    if (_string("logicalPath") != CozyComponentKnowledgeCarrier.ARCHIVE_LOGICAL_PATH)
+      RAISE.invalidArgumentFault(s"$label componentKnowledge logical path is unsupported.")
+    val expectedsha = _string("sha256")
+    val actualsha = java.security.MessageDigest.getInstance("SHA-256").digest(bytes)
+      .map(byte => f"${byte & 0xff}%02x").mkString
+    if (!expectedsha.matches("[0-9a-f]{64}") || expectedsha != actualsha)
+      RAISE.invalidArgumentFault(s"$label componentKnowledge transport digest does not match its archive declaration.")
+  }
 
   private def _repository_car_archive_metadata(
     repositoryroot: Path,
@@ -217,15 +291,17 @@ private[cozy] trait CozyBokRepositoryPages {
               in.close()
             }
           }
+        val descriptor = _json_entry_("component-descriptor.json")
         RepositoryCarArchiveMetadata(
-          _json_entry_("component-descriptor.json"),
+          descriptor,
           _json_entry_("abi-manifest.json"),
+          descriptor.flatMap(_.hcursor.downField("componentKnowledge").focus),
           available = true
         )
       } finally {
         zip.close()
       }
-    }.getOrElse(RepositoryCarArchiveMetadata(None, None, available = false))
+    }.getOrElse(RepositoryCarArchiveMetadata(None, None, None, available = false))
 
   private def _repository_catalog_artifact_path(repositoryroot: Path, value: String): Path =
     repositoryroot.resolve(value.stripPrefix("repository/")).toAbsolutePath.normalize

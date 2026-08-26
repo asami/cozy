@@ -145,6 +145,57 @@ class CozyBokComponentRepositorySpec
         }
       }
 
+      "publish a version-scoped Component knowledge carrier and byte-identical consumer contract" in {
+        _with_temp_dir("cozy-bok-repository-component-knowledge") { dir =>
+          Given("one exact CAR archive declaration and its version-scoped repository sidecar")
+          val warehouse = dir.resolve("warehouse")
+          val contract =
+            """{"schema":"cncf.component-knowledge-consumer.v1","componentId":"org.example.textus.Sie","logicalRelease":"0.1.0","resources":[]}"""
+          val sidecar = warehouse.resolve("repository/catalog/car/org/example/textus/textus-sie/0.1.0/component-knowledge.json")
+          _write(sidecar, contract)
+          val digest = RepositoryArtifactPublisher.sha256(sidecar)
+          val descriptor =
+            s"""{"schemaVersion":3,"component":{"namespace":"org.example.textus","id":"Sie","version":"0.1.0"},"componentKnowledge":{"carrierSchema":"cncf.component-knowledge-carrier.v1","consumerContractSchema":"cncf.component-knowledge-consumer.v1","logicalPath":"component-knowledge.json","sha256":"$digest"}}"""
+          val archivepath = warehouse.resolve("repository/car/org/example/textus/textus-sie/0.1.0/textus-sie-0.1.0.car")
+          _write_car_archive_entries(archivepath, Some(descriptor), None, Vector("component-knowledge.json" -> contract))
+          val archivedigest = RepositoryArtifactPublisher.sha256(archivepath)
+          _write(dir.resolve("src/main/doxsite/site.conf"), "site { output { locale_mode = \"single_locale_root\" } }\n")
+          _write(dir.resolve("src/main/doxsite/index.dox"), "Home\n====\n")
+          _write(
+            warehouse.resolve("repository/catalog/car/org/example/textus/textus-sie.yaml"),
+            s"""schemaVersion: 2
+              |kind: car
+              |namespace: org.example.textus
+              |id: Sie
+              |artifactId: textus-sie
+              |recommended: 0.1.0
+              |versions:
+              |  - version: 0.1.0
+              |    channel: stable
+              |    component: org.example.textus.Sie
+              |    file: repository/car/org/example/textus/textus-sie/0.1.0/textus-sie-0.1.0.car
+              |    checksum:
+              |      sha256: $archivedigest
+              |    integrityKey: org.example.textus:textus-sie:0.1.0@sha256:$archivedigest
+              |""".stripMargin
+          )
+          val config = CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview", "--no-bib-service", "--warehouse", warehouse.toString))
+
+          When("Cozy publishes BOK repository metadata and public repository assets")
+          CozyBok.build(config, new RepositoryCarBuildRunner)
+
+          Then("metadata declares only the canonical carrier and the public contract retains the declared digest")
+          val metadata = _read(dir.resolve("doxsite.d/metadata/repository/car/index.json"))
+          metadata should include("\"component_knowledge\" : {")
+          metadata should include("\"consumer_contract\" : \"repository/car/textus-sie/0.1.0/component-knowledge.json\"")
+          metadata should include("\"sha256\" : \"" + digest + "\"")
+          val publiccontract = dir.resolve("website.d/repository/car/textus-sie/0.1.0/component-knowledge.json")
+          publiccontract should be_regular_file
+          _read(publiccontract) shouldBe contract
+          RepositoryArtifactPublisher.sha256(publiccontract) shouldBe digest
+        }
+      }
+
       "use the public index as the CAR and SAR discovery source" in {
         _with_temp_dir("cozy-bok-component-repository-index") { dir =>
           Given("a public component index with multiple CARs and SARs across lifecycle states plus invalid and unindexed catalogs")
@@ -683,7 +734,8 @@ class CozyBokComponentRepositorySpec
   private def _write_car_archive_entries(
     path: Path,
     componentdescriptor: Option[String],
-    abimanifest: Option[String]
+    abimanifest: Option[String],
+    extraentries: Vector[(String, String)] = Vector.empty
   ): Path = {
     Option(path.getParent).foreach(Files.createDirectories(_))
     val zip = new ZipOutputStream(Files.newOutputStream(path))
@@ -695,6 +747,7 @@ class CozyBokComponentRepositorySpec
       }
       componentdescriptor.foreach(_entry_("component-descriptor.json", _))
       abimanifest.foreach(_entry_("abi-manifest.json", _))
+      extraentries.foreach { case (name, content) => _entry_(name, content) }
     } finally {
       zip.close()
     }
