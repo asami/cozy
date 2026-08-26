@@ -179,10 +179,41 @@ renderer path acquires new behavior from this design.
 
 The v1-to-v2 Storyboard migration can produce only a text-screen equivalent; a
 visual-page screen cannot downgrade because v1 would lose its semantic
-reference. Legacy Slide IR conversion requires complete human-selected
-semantics, bijective element-to-semantics/provenance binding, source-digest
-verification, and diagnostics. It has no inference path and does not declare
-an old slide to be a Logical Pattern.
+reference. Legacy Slide IR conversion is one direct command:
+
+```text
+cozy media presentation migrate <legacy-slide-ir> --semantic-map <semantic-map> --catalog <catalog> --save <visual-page-set>
+```
+
+Each required option occurs once, in separated or `--option=value` form. Its
+semantic map is a direct regular non-symlink UTF-8 `.json` file and a closed
+`cozy.visual-page.migration-map.v1` object with integer `version: 1`, exactly
+the named fields `schema, version, legacySlideIrSha256, visualPageSet,
+bindings`, and no duplicate or unknown fields. JSON member order carries no
+semantic meaning; only the deterministic report and saved VisualPageSet are
+canonical ordered outputs. The digest is lowercase SHA-256 of unnormalized raw direct legacy Slide IR
+bytes. `visualPageSet` is a complete embedded `cozy.visual-page-set.v1`, not a
+path or Page; the Visual Page contract resolves it through the separately
+supplied catalog using the semantic-map directory as its source/asset root.
+
+Every binding is exactly `{slideId, elementIndex, target}` and every target is
+exactly `{pageId, kind, id}`. `elementIndex` is nonnegative and zero-based;
+`kind` is only `node-label`, `asset-id`, or `source-path`. The complete
+flattened legacy `(slideId, elementIndex)` source set and target
+`(pageId, kind, id)` set are each bijective. Page IDs and selected node-label,
+asset-ID, or source-path target values resolve exactly once. Text binds only
+to an equal node-label/source-path value; assets bind only to an equal asset
+ID. Any ambiguity, loss, inference, malformed/unsafe input, schema/version or
+digest mismatch, or incomplete/duplicate/unresolved/wrong-kind binding fails
+without an output claim.
+
+Only a validated map atomically replaces the `.json` output in its directory
+with canonical VisualPageSet JSON plus newline, then emits a deterministic
+`cozy.visual-page.migration-report.v1` text report containing its version, raw
+legacy digest, source/binding count, catalog identity, VisualPageSet identity,
+and `status: migrated`. This boundary invokes no renderer, receipt,
+Storyboard, Media Package, review state, or external consumer. It has no
+inference path and does not declare an old slide to be a Logical Pattern.
 
 ## 7. Deferred boundary
 

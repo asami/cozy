@@ -172,24 +172,46 @@ private[cozy] object CozyVisualPage {
 
   def load(input: Path, catalog: Path): ValidatedDocument = {
     val inputpath = _direct_input(input, "input")
-    val catalogpath = _direct_input(catalog, "catalog")
     val inputtext = _read_utf8(inputpath, "input")
     val parseddocument = _parse_document(_parse_source(inputpath, inputtext, "input"), "$")
+    val validated = _validate_document_source(
+      parseddocument,
+      catalog,
+      Option(inputpath.getParent).getOrElse(Paths.get(".").toAbsolutePath.normalize())
+    )
+    if (_extension(inputpath) == ".md" && _normalize_newlines(inputtext) != canonicalMarkdown(validated.document))
+      _fail("VISUAL_PAGE_MARKDOWN_LOSSY", "$", "restricted Markdown must use the canonical grammar")
+    validated
+  }
+
+  private[media] def validateEmbeddedPageSet(json: String, catalog: Path, sourceRoot: Path): ValidatedDocument = {
+    val document = _parse_document(_parse_json(json, "$.visualPageSet"), "$.visualPageSet")
+    document match {
+      case _: Page => _fail("VISUAL_PAGE_EMBEDDED_PAGE_SET", "$.visualPageSet", "embedded migration target must be a Visual Page Set")
+      case _: PageSet => _validate_document_source(document, catalog, sourceRoot)
+    }
+  }
+
+  private def _validate_document_source(document: Document, catalog: Path, sourceroot: Path): ValidatedDocument = {
+    val catalogpath = _direct_input(catalog, "catalog")
+    val root = Option(sourceroot).map(_.toAbsolutePath.normalize()).getOrElse(
+      _fail("VISUAL_PAGE_INPUT", "sourceRoot", "source root is required")
+    )
+    if (!Files.isDirectory(root, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(root))
+      _fail("VISUAL_PAGE_INPUT", "sourceRoot", "source root must be an existing direct directory")
     val parsedcatalog = _parse_catalog(_parse_catalog_source(catalogpath), "$catalog")
     _validate_catalog(parsedcatalog, "$catalog")
-    val document = _validate_document(parseddocument, parsedcatalog, Option(inputpath.getParent).getOrElse(Paths.get(".").toAbsolutePath.normalize()))
-    val canonical = canonicalJson(document)
+    val normalized = _validate_document(document, parsedcatalog, root)
+    val canonical = canonicalJson(normalized)
     val fullcatalogidentity = catalogIdentity(parsedcatalog)
     val logicalcatalogidentity = logicalCatalogIdentity(parsedcatalog)
-    val logicalidentities = document.pages.map(page => page.id -> logicalIdentity(page, parsedcatalog))
-    val visualidentities = document.pages.map(page => page.id -> visualPageIdentity(page, parsedcatalog))
-    val documentidentity = document match {
+    val logicalidentities = normalized.pages.map(page => page.id -> logicalIdentity(page, parsedcatalog))
+    val visualidentities = normalized.pages.map(page => page.id -> visualPageIdentity(page, parsedcatalog))
+    val documentidentity = normalized match {
       case _: Page => visualidentities.head._2
       case set: PageSet => visualPageSetIdentity(set, parsedcatalog)
     }
-    if (_extension(inputpath) == ".md" && _normalize_newlines(inputtext) != canonicalMarkdown(document))
-      _fail("VISUAL_PAGE_MARKDOWN_LOSSY", "$", "restricted Markdown must use the canonical grammar")
-    ValidatedDocument(document, parsedcatalog, canonical, fullcatalogidentity, logicalcatalogidentity, logicalidentities, visualidentities, documentidentity)
+    ValidatedDocument(normalized, parsedcatalog, canonical, fullcatalogidentity, logicalcatalogidentity, logicalidentities, visualidentities, documentidentity)
   }
 
   def canonicalJson(document: Document): String = _canonical(_document_value(document))

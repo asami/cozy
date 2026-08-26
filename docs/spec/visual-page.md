@@ -3,10 +3,10 @@
 Status: NORMATIVE; Phase 36 `VIS36-01` is DONE
 
 This is the normative contract for the future Visual Page route. It defines
-semantic values, compatibility boundaries, and the independent direct core
-parse/validation/canonicalization CLI. It claims no renderer, receipt,
-Presentation-route integration, Storyboard-route integration, review,
-migration execution, or external-consumer acceptance.
+semantic values, compatibility boundaries, the independent direct core
+parse/validation/canonicalization CLI, and the explicit legacy Slide IR
+migration map. It claims no renderer, receipt, Presentation-route integration,
+Storyboard-route integration, review, or external-consumer acceptance.
 
 The words **MUST**, **MUST NOT**, **SHOULD**, and **MAY** are normative. The
 ownership design is [`docs/design/visual-page.md`](../design/visual-page.md).
@@ -351,12 +351,67 @@ Legacy Slide IR conversion is explicit only:
 cozy media presentation migrate <legacy-slide-ir> --semantic-map <semantic-map> --catalog <catalog> --save <visual-page-set>
 ```
 
-The semantic map supplies complete human-selected Visual Page semantics and a
-bijective binding for each legacy slide element to a represented semantic or
-provenance field. Conversion verifies legacy source digest and mapping
-completeness, emits a diagnostic migration report, and produces no claimed
-output for inferred, unmapped, ambiguous, or lossy elements. The old Slide IR
-is not a Logical Pattern.
+Each required option occurs exactly once and accepts either separated or
+`--option=value` form. `legacy-slide-ir` remains the existing direct legacy
+Slide IR input parser; its raw direct-file bytes are never normalized before
+digest calculation. `semantic-map` is exactly one direct regular non-symlink
+UTF-8 `.json` file. `catalog` is the separately supplied resolved Visual Page
+catalog. `save` must end in `.json`.
+
+The semantic map is a closed JSON object with exactly the following named
+fields and no duplicate or unknown fields. JSON member order carries no
+semantic meaning; only the deterministic report and saved VisualPageSet are
+canonical ordered outputs:
+
+```text
+schema, version, legacySlideIrSha256, visualPageSet, bindings
+```
+
+`schema` is exactly `cozy.visual-page.migration-map.v1`; `version` is integer
+`1`; and `legacySlideIrSha256` is lowercase 64-hex SHA-256 of the raw direct
+legacy Slide IR file bytes. `visualPageSet` is a complete embedded
+`cozy.visual-page-set.v1` object, never a path or one Page. It is parsed and
+validated through the Visual Page contract against the separately supplied
+catalog with the semantic-map directory as its safe source/asset root.
+
+`bindings` is an array. Every entry is exactly
+`{slideId, elementIndex, target}`, with a zero-based nonnegative
+`elementIndex`; `target` is exactly `{pageId, kind, id}`. `kind` is exactly
+one of `node-label`, `asset-id`, or `source-path`. Flattening the legacy source
+uses each `(slideId, elementIndex)` address. Bindings cover that source set
+exactly once, and target triples `(pageId, kind, id)` are also unique. A
+`pageId` resolves exactly once in the embedded set. Its target `id` resolves
+exactly once in the selected category: a logical node label, an asset ID, or a
+declared source path.
+
+A text source element binds only to a `node-label` or `source-path` whose
+resolved typed value is the exact source text. An asset source element binds
+only to an `asset-id` whose resolved ID is the exact source asset. Unknown,
+duplicate, missing, out-of-range, unresolved, ambiguous, wrong-kind,
+wrong-value, malformed UTF-8, non-JSON, symlink, schema, version, digest,
+Page-vs-PageSet, inferred, or lossy mapping fails with a structured migration
+diagnostic. Such failure creates no output and preserves any pre-existing
+output bytes.
+
+Only after all source, map, catalog, embedded Visual Page Set, and binding
+checks succeed may Cozy replace `save` by a same-directory atomic move. The
+file contains canonical VisualPageSet JSON followed by one newline. The
+deterministic text report is exactly the ordered fields:
+
+```text
+schema: cozy.visual-page.migration-report.v1
+version: 1
+legacySlideIrSha256: <raw-legacy-digest>
+sourceElementCount: <count>
+bindingCount: <count>
+catalogIdentity: <resolved-catalog-identity>
+visualPageSetIdentity: <resolved-set-identity>
+status: migrated
+```
+
+The map supplies complete human-selected semantics; it does not infer a
+Logical Pattern or reinterpret old Slide IR. The command invokes no renderer
+or downstream consumer.
 
 ## 8. Ownership and non-goals
 

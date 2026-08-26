@@ -165,6 +165,9 @@ private[cozy] object CozyHelpText {
       |  media slide build <media-file> [--target <id>] [--profile business] [--dry-run]
       |      Render selected business presentation resources with deterministic artifact evidence.
       |
+      |  media presentation migrate <legacy-slide-ir> --semantic-map <semantic-map> --catalog <catalog> --save <visual-page-set>
+      |      Migrate legacy Slide IR only through a complete digest-bound semantic map, then atomically save the canonical Visual Page Set.
+      |
       |  media visual-page validate|inspect <input> --catalog <catalog>
       |      Strictly validate or inspect one Visual Page or ordered Visual Page Set without rendering or generating media.
       |

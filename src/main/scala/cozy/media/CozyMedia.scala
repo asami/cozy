@@ -399,6 +399,9 @@ private[cozy] object CozyMedia {
       case "media" :: "slide" :: "verify" :: rest =>
         println(_slide_verify(CommandConfig.create(rest)))
         true
+      case "media" :: "presentation" :: "migrate" :: rest =>
+        println(CozyMediaPresentationMigration.execute(rest))
+        true
       case "media" :: "visual-page" :: rest =>
         println(CozyVisualPage.execute(rest))
         true

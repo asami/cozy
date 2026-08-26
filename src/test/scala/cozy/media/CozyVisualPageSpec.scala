@@ -288,6 +288,7 @@ final class CozyVisualPageSpec
         validate should include_text("schema: cozy.visual-page.v1")
         validate should include_text("version: 1")
         validate should include_text("count: 1")
+        help.split("\n").map(_.trim).toVector should contain("media presentation migrate <legacy-slide-ir> --semantic-map <semantic-map> --catalog <catalog> --save <visual-page-set>")
         help.split("\n").map(_.trim).toVector should contain("media visual-page validate|inspect <input> --catalog <catalog>")
         help.split("\n").map(_.trim).toVector should contain("media visual-page convert <input> --catalog <catalog> --save <output.json|output.yaml|output.yml|output.md>")
       }
