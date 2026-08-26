@@ -160,12 +160,19 @@ visual-story evidence and approved-build integration remain P30-02 and P30-03.
 
 ### P30-02: Optional Storyboard Visual-Story Review
 
-Status: PLANNED
+Status: COMPLETE
 
-Own deterministic visual-story evidence, optional diagram/asset inclusion,
+Owns deterministic visual-story evidence, optional diagram/asset inclusion,
 Dox/PPTX handoff, review-state identities, and stale-visual-input rejection.
-It must not make image-backed slides mandatory for ordinary storyboard or
-confirmation-video review.
+The accepted implementation writes deterministic evidence and handoff packages,
+records Storyboard and admitted visual-input identities, and fails a configured
+build gate when its approval or visual evidence is stale. The focused
+`CozyVideoStoryboardReviewSpec` passed 9 scenarios, including its deterministic
+property, and the independent focused re-review closed CPB-001 for the direct
+CLI diagnostic. This completes the optional visual-story review Step; it does
+not make image-backed slides mandatory for ordinary Storyboard or
+confirmation-video review, and it does not claim P30-03 confirmation/final
+mode implementation or external consumer acceptance.
 
 ### P30-03: Approved Storyboard Confirmation/Final Build and Final Review
 

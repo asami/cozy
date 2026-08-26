@@ -39,18 +39,18 @@ Status: COMPLETE
 
 ## P30-02: Optional Storyboard Visual-Story Review
 
-Status: PLANNED
+Status: COMPLETE
 
-- [ ] Define deterministic optional visual-story evidence for Dox/PPTX
+- [x] Define deterministic optional visual-story evidence for Dox/PPTX
       handoff, including scene diagrams and project-owned assets.
-- [ ] When requested, require visual-story evidence to preserve Storyboard
+- [x] When requested, require visual-story evidence to preserve Storyboard
       scene order, narration, screen content, captions, timing, and direction.
-- [ ] Record exact Storyboard, diagram/asset, evidence, and optional handoff
+- [x] Record exact Storyboard, diagram/asset, evidence, and optional handoff
       identities only when visual-story review is requested.
-- [ ] Reject confirmation/final generation when the Storyboard is stale,
+- [x] Reject confirmation/final generation when the Storyboard is stale,
       changed, missing, or unapproved; reject explicitly reviewed visual inputs
       when their accepted visual evidence is stale.
-- [ ] Preserve the rule that ordinary storyboard and confirmation-video review
+- [x] Preserve the rule that ordinary storyboard and confirmation-video review
       does not require image-backed visual-story slides.
 
 ## P30-03: Approved Storyboard Confirmation/Final Build and Final Review

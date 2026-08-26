@@ -164,6 +164,36 @@ Dox/PPTX hand-off data may carry these normalized identities and evidence
 locations. Cozy does not decide whether an external consumer accepts the
 result.
 
+### 6.1 P30-02 projection boundary
+
+P30-02 uses a root `storyboardReview` declaration in the existing video
+project only to select an already approved Storyboard and, when requested, a
+bounded visual-input subset. `source` and `approvedIdentity` prove the normal
+content gate. The optional `visualStory` declaration supplies a deterministic
+derived evidence directory, an ordered subset of declared Storyboard
+references, and a human-recorded `approvedEvidenceIdentity` after visual
+inspection. It does not add renderer, narration, character, credit, or
+PPTX-generation policy to Storyboard content.
+
+The evidence generator loads the current typed Storyboard, verifies the normal
+approval identity, validates every requested visual input as a direct regular
+file below the project root, copies only those admitted inputs into the derived
+package, and writes canonical review and hand-off JSON. The package identity
+is a digest of its canonical payload; no artifact identifies itself by a
+filesystem timestamp or an external consumer result. Revalidation compares the
+current Storyboard and input identities with the package and optional human
+approval record. A requested but stale or unapproved visual package is a
+fail-closed build-gate input. An absent optional declaration remains the normal
+non-visual path.
+
+The hand-off JSON is deliberately sufficient for Dox/PPTX consumers to locate
+and compare the normalized evidence but insufficient to claim that a deck was
+generated or accepted. P30-03 owns actual Storyboard-to-build integration,
+confirmation/final modes, and the call site that applies this gate to those
+new modes; P30-02 applies the same validator to the existing build path when
+the declaration is present so a configured stale visual review cannot be
+silently bypassed.
+
 ## 7. Confirmation/final separation and cache design
 
 Confirmation and final builds are separate lifecycle states and output
@@ -237,11 +267,13 @@ not reparse a second dialogue source to fill missing fields.
 
 ## 10. Non-goals and current status
 
-This design does not implement Storyboard classes, parsers, CLI commands,
-tests, VideoProject integration, narration changes, renderer changes, Dox/PPTX
-generation, external repository changes, publication, deployment, or runtime
-acceptance. Those are later internal Step/Slice work or external
-responsibilities under the frozen boundaries above.
+P30-01 has implemented the typed Storyboard classes, strict Markdown/JSON
+parsers, canonical conversion, direct schema commands, and executable
+specifications. P30-02 now freezes only the optional evidence, hand-off, and
+stale-input boundary above. It does not implement narration changes, renderer
+changes, Dox/PPTX generation or consumer acceptance, external repository
+changes, publication, deployment, or runtime acceptance. P30-03 remains
+responsible for new Storyboard build integration and confirmation/final modes.
 
 Phase 30 is currently IN PROGRESS. The one-Phase authorization changes only
 delivery shape; it does not claim that any implementation or acceptance gate

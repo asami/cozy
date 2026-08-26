@@ -34,6 +34,8 @@ private[cozy] object CozyVideo {
   lazy val StoryboardInspectConfig = CozyVideoImplementation.StoryboardInspectConfig
   type StoryboardConvertConfig = CozyVideoImplementation.StoryboardConvertConfig
   lazy val StoryboardConvertConfig = CozyVideoImplementation.StoryboardConvertConfig
+  type StoryboardReviewConfig = CozyVideoImplementation.StoryboardReviewConfig
+  lazy val StoryboardReviewConfig = CozyVideoImplementation.StoryboardReviewConfig
 
   type VideoProject = CozyVideoImplementation.VideoProject
   lazy val VideoProject = CozyVideoImplementation.VideoProject
@@ -67,6 +69,12 @@ private[cozy] object CozyVideo {
   lazy val StoryboardDiagnostic = CozyVideoImplementation.StoryboardDiagnostic
   type StoryboardResult = CozyVideoImplementation.StoryboardResult
   lazy val StoryboardResult = CozyVideoImplementation.StoryboardResult
+  type StoryboardReview = CozyVideoImplementation.StoryboardReview
+  lazy val StoryboardReview = CozyVideoImplementation.StoryboardReview
+  type StoryboardReviewVisualStory = CozyVideoImplementation.StoryboardReviewVisualStory
+  lazy val StoryboardReviewVisualStory = CozyVideoImplementation.StoryboardReviewVisualStory
+  type StoryboardReviewResult = CozyVideoImplementation.StoryboardReviewResult
+  lazy val StoryboardReviewResult = CozyVideoImplementation.StoryboardReviewResult
 
   type VideoToolMode = CozyVideoImplementation.VideoToolMode
   lazy val VideoToolMode = CozyVideoImplementation.VideoToolMode
@@ -213,11 +221,16 @@ private[cozy] object CozyVideo {
     CozyVideoImplementation.storyboardInspect(config)
   def storyboardConvert(config: StoryboardConvertConfig): String =
     CozyVideoImplementation.storyboardConvert(config)
+  def storyboardReview(config: StoryboardReviewConfig): String =
+    CozyVideoImplementation.storyboardReview(config)
+  def storyboardReviewEvidence(config: StoryboardReviewConfig): StoryboardReviewResult =
+    CozyVideoImplementation.storyboardReviewEvidence(config)
 }
 
 private[cozy] object CozyVideoImplementation
   extends CozyVideoTypes
   with CozyVideoStoryboard
+  with CozyVideoStoryboardReview
   with CozyVideoRuntime
   with CozyVideoCommand
   with CozyVideoNarration

@@ -32,6 +32,48 @@ import scala.util.control.NonFatal
  */
 private[cozy] trait CozyVideoModel {
   self: CozyVideoTools =>
+  final case class StoryboardReviewVisualStory(
+    evidenceDirectory: String,
+    inputRefs: Vector[String],
+    approvedEvidenceIdentity: Option[String]
+  )
+  object StoryboardReviewVisualStory {
+    implicit val decoder: Decoder[StoryboardReviewVisualStory] = (c: HCursor) =>
+      for {
+        _ <- _validate_keys(c, Set("evidenceDirectory", "inputRefs", "approvedEvidenceIdentity"), "visualStory")
+        evidencedirectory <- c.downField("evidenceDirectory").as[String]
+        inputrefs <- c.downField("inputRefs").as[Vector[String]]
+        approvedevidenceidentity <- c.downField("approvedEvidenceIdentity").as[Option[String]]
+      } yield StoryboardReviewVisualStory(evidencedirectory, inputrefs, approvedevidenceidentity)
+
+    private def _validate_keys(c: HCursor, allowed: Set[String], label: String): Decoder.Result[Unit] =
+      c.value.asObject.toVector.flatMap(_.keys).find(name => !allowed.contains(name)) match {
+        case Some(name) => Left(io.circe.DecodingFailure(s"Unknown $label field: $name", c.history))
+        case None => Right(())
+      }
+  }
+
+  final case class StoryboardReview(
+    source: String,
+    approvedIdentity: String,
+    visualStory: Option[StoryboardReviewVisualStory]
+  )
+  object StoryboardReview {
+    implicit val decoder: Decoder[StoryboardReview] = (c: HCursor) =>
+      for {
+        _ <- _validate_keys(c, Set("source", "approvedIdentity", "visualStory"), "storyboardReview")
+        source <- c.downField("source").as[String]
+        approvedidentity <- c.downField("approvedIdentity").as[String]
+        visualstory <- c.downField("visualStory").as[Option[StoryboardReviewVisualStory]]
+      } yield StoryboardReview(source, approvedidentity, visualstory)
+
+    private def _validate_keys(c: HCursor, allowed: Set[String], label: String): Decoder.Result[Unit] =
+      c.value.asObject.toVector.flatMap(_.keys).find(name => !allowed.contains(name)) match {
+        case Some(name) => Left(io.circe.DecodingFailure(s"Unknown $label field: $name", c.history))
+        case None => Right(())
+      }
+  }
+
   final case class VideoProject(
     name: Option[String],
     title: Option[String],
@@ -43,7 +85,8 @@ private[cozy] trait CozyVideoModel {
     visualEffects: Option[CozyVideoEffects.Settings] = None,
     assets: Option[CozyVideoAssets.Settings] = None,
     locale: Option[String] = None,
-    credits: Option[CozyVideoCredits.Settings] = None
+    credits: Option[CozyVideoCredits.Settings] = None,
+    storyboardReview: Option[StoryboardReview] = None
   )
   object VideoProject {
     implicit val decoder: Decoder[VideoProject] = (c: HCursor) =>
@@ -62,7 +105,19 @@ private[cozy] trait CozyVideoModel {
         assets <- c.downField("assets").as[Option[CozyVideoAssets.Settings]]
         locale <- c.downField("locale").as[Option[String]]
         credits <- c.downField("credits").as[Option[CozyVideoCredits.Settings]]
-      } yield VideoProject(name, title, output, renderer, tools, parts.getOrElse(Vector.empty), profile, visualeffects, assets, locale, credits)
+        storyboardreview <- c.downField("storyboardReview").as[Option[StoryboardReview]]
+        _ <- _validate_storyboard_review_key(c)
+      } yield VideoProject(name, title, output, renderer, tools, parts.getOrElse(Vector.empty), profile, visualeffects, assets, locale, credits, storyboardreview)
+
+    private def _validate_storyboard_review_key(c: HCursor): Decoder.Result[Unit] = {
+      val unsupported = c.value.asObject.toVector.flatMap(_.keys).find { key =>
+        key.startsWith("storyboard") && key != "storyboardReview"
+      }
+      unsupported match {
+        case Some(key) => Left(io.circe.DecodingFailure(s"Unsupported storyboard review key: $key", c.history))
+        case None => Right(())
+      }
+    }
   }
 
   final case class VideoToolSettings(

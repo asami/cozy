@@ -31,7 +31,7 @@ import scala.util.control.NonFatal
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoCommand {
-  self: CozyVideoTypes with CozyVideoStoryboard with CozyVideoRuntime with CozyVideoNarration with CozyVideoToolValidation with CozyVideoTranscription with CozyVideoReviewEvidence with CozyVideoBuildReplay with CozyVideoRdf with CozyVideoRenderWorkspace with CozyVideoRenderTemplates with CozyVideoPlanning with CozyVideoPresentation =>
+  self: CozyVideoTypes with CozyVideoStoryboard with CozyVideoStoryboardReview with CozyVideoRuntime with CozyVideoNarration with CozyVideoToolValidation with CozyVideoTranscription with CozyVideoReviewEvidence with CozyVideoBuildReplay with CozyVideoRdf with CozyVideoRenderWorkspace with CozyVideoRenderTemplates with CozyVideoPlanning with CozyVideoPresentation =>
   def execute(args: List[String]): Boolean = execute(args, VideoToolRegistry.default)
 
   def execute(args: List[String], tools: VideoToolRegistry): Boolean =
@@ -51,10 +51,13 @@ private[cozy] trait CozyVideoCommand {
       case "video" :: "storyboard" :: "convert" :: rest =>
         println(storyboardConvert(StoryboardConvertConfig.create(rest)))
         true
+      case "video" :: "storyboard" :: "review-evidence" :: rest =>
+        println(storyboardReview(StoryboardReviewConfig.create(rest)))
+        true
       case "video" :: "storyboard" :: other :: _ =>
         RAISE.invalidArgumentFault(s"Unsupported video storyboard command: $other")
       case "video" :: "storyboard" :: Nil =>
-        RAISE.invalidArgumentFault("Missing video storyboard command: validate, inspect, or convert")
+        RAISE.invalidArgumentFault("Missing video storyboard command: validate, inspect, convert, or review-evidence")
       case "video" :: "scaffold" :: rest =>
         println(CozyVideoScaffold.scaffold(CozyVideoScaffold.Config.create(rest)))
         true
@@ -103,6 +106,8 @@ private[cozy] trait CozyVideoCommand {
 
   def build(config: BuildConfig, tools: VideoToolRegistry, runner: VideoProcessRunner): String = {
     val plan = _plan(config.projectFile, config.toolMode, config.dockerImage)
+    if (plan.project.storyboardReview.isDefined)
+      _validate_storyboard_review_current(plan)
     val context = VideoToolContext(plan.projectFile, plan.projectRoot, plan.project, plan.execution)
     val checks =
       if (config.checkTools || (!config.dryRun && plan.execution.toolMode == VideoToolMode.Docker))

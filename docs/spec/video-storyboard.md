@@ -299,6 +299,52 @@ separate inspection. When requested, its input identity MUST include the
 Storyboard identity and the identities of admitted visual inputs; changed
 inputs make the evidence stale.
 
+### 9.1 Project declaration and P30-02 evidence contract
+
+A video project MAY declare one root `storyboardReview` object. Its required
+`source` is a safe project-relative direct regular Storyboard file and its
+required `approvedIdentity` is the exact `sha256:<lowercase-hex>` identity of
+the normalized Storyboard that a human has approved. The declaration is an
+explicit approval record; a current source whose identity differs from
+`approvedIdentity` is unapproved and MUST be rejected before evidence or a
+build gate can claim it current.
+
+`storyboardReview.visualStory` is optional. Its presence means that the
+project explicitly requests image-backed visual review. It contains:
+
+- `evidenceDirectory`: a safe project-relative directory below
+  `target/cozy-video` where Cozy writes the derived package;
+- `inputRefs`: an ordered, duplicate-free subset of the selected Storyboard's
+  `diagramRefs` and `assetRefs`; and
+- optional `approvedEvidenceIdentity`: the exact identity of a previously
+  inspected visual-story evidence package.
+
+`cozy video storyboard review-evidence <video-project> --save <dir>` requires
+the current Storyboard identity to equal `approvedIdentity`. When
+`visualStory` is present, `--save` MUST equal its `evidenceDirectory`; every
+selected input reference MUST be a present, direct regular non-symlink file
+contained by the project. Cozy writes `review-evidence.json`, copied visual
+inputs below `visual-inputs/`, and `handoff.json`. `review-evidence.json` has
+schema `cozy.video.storyboard-review-evidence.v1`, status `validated`, the
+Storyboard source path and identity, ordered scene review data (section,
+speaker, role, narration, screen heading/content, caption, timing, direction),
+and visual-input records only when requested. Its `identity` is the
+`sha256:` digest of the canonical evidence payload excluding that identity
+field. `handoff.json` has schema `cozy.video.storyboard-handoff.v1` and carries
+only the evidence path, evidence identity, Storyboard identity, and optional
+visual-input identities for a Dox/PPTX consumer; Cozy neither creates nor
+accepts that consumer's artifact.
+
+A requested visual review is current only when the evidence package exists,
+revalidates against the current approved Storyboard and selected input hashes,
+and its identity equals `approvedEvidenceIdentity`. A missing approval, missing
+evidence, changed input, missing input, malformed record, or identity mismatch
+MUST fail closed. The confirmation/final build gate introduced in P30-03 uses
+this validator; the existing build path also applies it whenever a project
+already declares `storyboardReview`. Without `visualStory`, a valid normal
+Storyboard approval is sufficient and no visual evidence or handoff is
+required.
+
 Confirmation and final output are separate lifecycle states. Audio and render
 chunks MAY be reused only when their scene inputs, Storyboard identity,
 narration inputs, renderer settings, and relevant asset identities all match;
