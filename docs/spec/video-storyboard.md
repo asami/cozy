@@ -422,3 +422,29 @@ Later implementation and executable specifications MUST establish that:
    evidence, confirmation, final build, and cache reuse; and
 6. no source-managed `script.json` is required on the new Storyboard path,
    while the legacy path remains available pending migration acceptance.
+
+## 11. Future Visual Page v2 coexistence boundary
+
+This document remains the accepted `cozy.video.storyboard.v1` / `version: 1`
+contract. Its v1 `Screen` shape, every v1 Scene field, narration, speaker,
+duration, lead silence, transition, confirmation/final separation, and
+audiovisual-review semantics are unchanged. No v1 parser auto-upgrades or
+reinterprets its `screen` field.
+
+A distinct later contract is `cozy.video.storyboard.v2` / `version: 2`. All v1
+Scene fields remain semantic in v2. A v2 `screen` is discriminated as either
+`{kind:"text",heading,content}` or
+`{kind:"visual-page",source,pageId}`. The latter identifies exactly one
+Visual Page in a safe referenced Visual Page Set. Its Storyboard identity
+contains the screen reference, not a substituted or guessed page identity.
+Scene-screen visual evidence and receipts bind the resolved Visual Page,
+catalog, binding, renderer, and asset identities.
+
+A changed page stales visual evidence only. It does not rewrite Storyboard
+narration, speaker, duration, silence, transition, confirmation/final state,
+or audiovisual acceptance, and it cannot make audiovisual acceptance implicit.
+Only explicit `cozy video storyboard migrate --from v1 --to v2 --screen text`
+can create a v2 text-screen equivalent. A v2 visual-page screen cannot
+downgrade to v1 and fails `VISUAL_PAGE_SCREEN_LOSSY`. This is a normative
+coexistence boundary, not a claim that a v2 parser, migration command, receipt,
+or executable specification has been implemented.

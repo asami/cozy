@@ -995,7 +995,7 @@ Primary references:
 
 ### Phase 36: Common Visual Page and Cross-Media Presentation Contract
 
-Status: planned; not started.
+Status: IN PROGRESS; VIS36-01 documentation foundation is IN PROGRESS.
 
 Purpose and boundaries:
 
@@ -1028,7 +1028,9 @@ Purpose and boundaries:
   outputs as generated delivery or review artifacts.
 
 Phase 36 starts only after Phase 30 closes its active video Storyboard
-contract. It does not expand Phase 30 or authorize Phase 36 implementation.
+contract. VIS36-01 is the in-progress documentation authority foundation; it
+does not expand Phase 30. P36-02 implementation has not started and follows
+only after P36-01 contract/Step acceptance.
 Subject/Explanation Pattern composition and multi-slide/multi-scene expansion
 remain Phase 37 work.
 
@@ -1175,16 +1177,18 @@ Origin:
 | DEV-003 | User-reported CAR publication runtime-selection defect, corroborated by `docs/journal/2026/08/entity-revision-generator-downstream-acceptance-transfer-2026-08-03.md` | Make CAR publish paths select `project.yaml build.cozyVersion` without a temporary `.cozy` runtime override. | NEW_PHASE | [Phase 33](../phase/phase-33.md) | RESOLVED |
 | DEV-004 | Phase 29 full review `CPB-29-01` / `CPB-29-02` | Canonically admit configured BoK source paths and unconditionally validate glossary/component-reference resources before manifest publication. | NEW_PHASE | [Phase 34](../phase/phase-34.md) | RESOLVED |
 | DEV-005 | Phase 34 final official full test `58874-20260824T044406Z`; resolved by CFB3 | Make `cozy.bok.CozyBokSpec` actual-Build source fixtures self-contained local safe sources while preserving CFB2 configuration-time safe absence and strict actual-Build admission; specify any behavior change first. | NEW_PHASE | [Phase 34](../phase/phase-34.md) | RESOLVED |
-| DEV-006 | User request on 2026-08-26 following the article-summary media workflow review | Establish a common Visual Page contract carrying a typed Logical Pattern and semantic Relation graph, projected separately through Visual Patterns into presentation slides and video Storyboard scene screens with deterministic renderer binding and receipt identity. This supersedes the earlier Markdown-only Slide IR successor proposal. | NEW_PHASE | [Phase 36](../phase/phase-36.md) | PLANNED |
+| DEV-006 | User request on 2026-08-26 following the article-summary media workflow review | Establish a common Visual Page contract carrying a typed Logical Pattern and semantic Relation graph, projected separately through Visual Patterns into presentation slides and video Storyboard scene screens with deterministic renderer binding and receipt identity. This supersedes the earlier Markdown-only Slide IR successor proposal. | NEW_PHASE | [Phase 36](../phase/phase-36.md) | IN PROGRESS |
 | DEV-007 | User request on 2026-08-26 following the ACE product-explanation review | Separate Subject Pattern from Explanation Pattern and deterministically project one logical explanation composition into independent multi-slide and multi-scene sequences through the common Visual Page contract. | NEW_PHASE | [Phase 37](../phase/phase-37.md) | PLANNED |
 
 ## Current Priority
 
-Phase 30 is closed. Phase 36 is its planned common Visual Page successor but
-is not started or authorized for implementation. Phase 37 is the planned
-logical explanation-composition successor and must not start until Phase 36
-closes. Neither successor adds work to the closed Phase 30 boundary or claims
-implementation, validation, review, publication, or external consumer mutation.
+Phase 30 is closed. Phase 36 VIS36-01 is the in-progress common Visual Page
+documentation foundation; P36-02 implementation has not started and follows
+only after P36-01 contract/Step acceptance. Phase 37 remains excluded and not
+started; it is the planned logical explanation-composition successor after
+Phase 36 closes. Neither successor adds work to the closed Phase 30 boundary
+or claims implementation, validation, review, publication, or external
+consumer mutation.
 
 Phase 34 is closed after the candidate final official full Cozy validation.
 The earlier invocation
@@ -1201,11 +1205,12 @@ with no findings. The earlier failure is superseded; no new full-suite test has
 has been superseded by CFB3 and the candidate final receipt
 `22693-20260824T094231Z` (`test`, 1,376 succeeded/0 failed/8 canceled, 100
 suites, 0 aborted, SBT/wrapper 0, lock released). Strict actual-Build admission
-remains correct. No Phase 35 implementation is started here. Phase 36 is a
-separate planned common Visual Page successor to active Phase 30, and Phase 37
-is its planned logical explanation-composition successor. Neither is started
-or authorized for implementation. No SmartDox/Textus consumer execution or
-acceptance is claimed.
+remains correct. No Phase 35 implementation is started here. Phase 36
+VIS36-01 is a separate in-progress common Visual Page documentation foundation;
+P36-02 implementation has not started and follows only after P36-01
+contract/Step acceptance. Phase 37 remains excluded and not started as its
+planned logical explanation-composition successor. No SmartDox/Textus consumer
+execution or acceptance is claimed.
 SmartDox Phase 8
 `LITERAL8-03` owns regenerated-site runtime
 finalization, metadata-only inventory/hash evidence, and Textus BoK consumer

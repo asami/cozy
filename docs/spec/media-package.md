@@ -107,6 +107,67 @@ After renderer verification Cozy deterministically writes `cozy.media.presentati
 
 `review/state.yaml` uses `cozy.media.review-state.v1` and exact keys `schema`, `current`, `last_aligned`, `selected_authority`, and `sync`. Snapshots use exact `inputSetSha256`, `reviewManifestSha256`, `artifactSetSha256`, and UTC ISO-8601 `acceptedAt`. A successful presentation build refreshes only `current`; it preserves `last_aligned` and `selected_authority`, and is `aligned` only when all three identities still equal `last_aligned`. `cozy media review align` explicitly records the human/AI-selected authority. Ordinary media verification and slide verification require an aligned state.
 
+### Future Visual Page coexistence boundary
+
+This accepted presentation contract remains the `cozy.slide-ir.v1` source,
+`--slide-ir` renderer argument, and `cozy.presentation.render.v1` receipt
+route. It is unchanged by the normative future contract in
+[`visual-page.md`](visual-page.md); no existing `cozy.media.v1` presentation
+resource, receipt, or review state silently opts into that route.
+
+The preceding legacy `presentation` object is an untagged closed object with
+exactly `profile`, `slideImages`, `montage`, `rendererManifest`,
+`reviewManifest`, `reviewState`, `articlePdf`, and `infographic`. It never
+permits `contract`, `catalog`, or `binding` and never infers a new route from
+its source or profile.
+
+A distinct later implementation may instead select the following discriminated
+Visual Page presentation object. Its resource `source` remains required and is
+the VisualPageSet input; all legacy artifact and dependency fields retain their
+existing meanings.
+
+```yaml
+presentation:
+  contract: visual-page-v1
+  profile: business
+  catalog: presentation/catalog.json
+  binding: presentation/binding.json
+  slideImages: target/cozy-media/slides
+  montage: target/cozy-media/montage.png
+  rendererManifest: target/cozy-media/renderer-manifest.json
+  reviewManifest: target/cozy-media/review-manifest.json
+  reviewState: review/state.yaml
+  articlePdf: article-pdf-ja
+  infographic: infographic-ja
+```
+
+This future object is closed with exactly the shown keys; `contract` is exactly
+`visual-page-v1`, and `source`, `catalog`, and `binding` are safe descriptor-
+relative direct regular non-symlink files under the descriptor root. Each
+rejects an empty, absolute, traversal, URI-like, control-character, or
+backslash path; normalization changes; symlink escapes; and a missing or
+nonregular resolved file. `source` must parse as exactly
+`cozy.visual-page-set.v1` with integer version `1`. Its VisualPageSet pages
+must declare one shared catalog `{id, revision}` pair, and resolution accepts
+exactly one supplied resolved catalog matching that pair and its full identity;
+a mixed pair, unresolved catalog, or mismatch fails closed. It never permits
+the untagged legacy shape or `--slide-ir` inference. Its `profile` remains the
+exact existing template/renderer object. Its fixed renderer argv is the legacy
+fixed argv with `--slide-ir <source>` replaced by `--visual-page-set <source>
+--catalog <catalog> --binding <binding>`.
+
+The future renderer manifest is `cozy.presentation.render.v2` with exact
+canonical top-level fields `schema`, `target`, `profile`, `renderer`,
+`visualPageSetSha256`, `catalogSha256`, `bindingSha256`, `templateSha256`,
+`pptx`, `slides`, and `montage`. Existing `cozy.media.receipt.v2` and
+`cozy.media.review-state.v1` schema shapes remain unchanged. Only after an
+explicit implementation may the visual-page route record named page, catalog,
+binding, and asset inputs in the existing ordered receipt input evidence and
+its own verified v2 renderer/review evidence. Changed Visual Page, catalog,
+binding, template, renderer, or asset input then stales its output/evidence;
+no legacy descriptor gains new behavior. This section specifies coexistence
+only; it does not claim the new route, renderer, receipt, or CLI exists.
+
 ## Commands
 
 - `cozy media inspect <media-file>` describes identity, resources, and resolved paths.

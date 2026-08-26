@@ -308,3 +308,23 @@ responsible for new Storyboard build integration and confirmation/final modes.
 Phase 30 is currently IN PROGRESS. The one-Phase authorization changes only
 delivery shape; it does not claim that any implementation or acceptance gate
 has passed.
+
+## 11. Future Visual Page v2 coexistence
+
+The v1 Storyboard remains the current accepted semantic and lifecycle
+authority. Its text `Screen`, narration, speaker, timing, silence, transition,
+confirmation/final separation, and audiovisual-review behavior do not move to
+Visual Page and do not change through documentation alone.
+
+The future `cozy.video.storyboard.v2` route may make its screen a reference to
+exactly one page in a safe Visual Page Set. The reference is semantic
+Storyboard content; resolved page/catalog/binding/renderer/asset identities
+are visual-evidence inputs. This separates a screen-image freshness change
+from Storyboard content and audiovisual approval. A stale page must stale
+visual evidence without silently rewriting narration or timing, and an
+unrepresentable visual-page screen must not downgrade to v1.
+
+The explicit v1-to-v2 text-screen migration and the lossy visual-page-to-v1
+rejection are compatibility adapters owned by a later implementation. No
+existing v1 parser, review evidence, build, cache, confirmation/final record,
+or external consumer path is altered by this design foundation.

@@ -1,6 +1,6 @@
 # Phase 36: Common Visual Page and Cross-Media Presentation Contract
 
-Status: planned
+Status: IN PROGRESS
 
 Plan date: 2026-08-26
 
@@ -80,7 +80,7 @@ diagnostic compatibility or migration path.
 
 Stage Status:
 
-- Current status: NOT STARTED
+- Current status: DONE
 - Owner: Cozy cross-media presentation design and specification
 - Update rule: complete only when the checklist's authority, one-screen
   semantics, pattern/parameter, compatibility, and failure contracts are
@@ -88,6 +88,11 @@ Stage Status:
 
 Define the stable design and specification boundary before changing the
 existing Slide IR, Storyboard, renderer, or Media Package behavior.
+
+`P36-01A` records the completed documentation-only Visual Page
+normative-contract foundation. It does not authorize implementation, executable
+specifications, renderer work, receipt execution, validation, review, migration
+execution, or acceptance.
 
 ### VIS36-02: Typed Presentation Semantics IR and Pattern Catalogs
 

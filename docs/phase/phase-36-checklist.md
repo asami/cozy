@@ -3,31 +3,31 @@
 This checklist is the authoritative progress ledger for Phase 36. It is not a
 normative behavior contract.
 
-Phase Status: PLANNED
+Phase Status: IN PROGRESS
 
 ## VIS36-01: Visual Page Design and Specification
 
-Status: NOT STARTED
+Status: DONE
 
-- [ ] Define Visual Page as the one-screen semantic authority shared by a
+- [x] Define Visual Page as the one-screen semantic authority shared by a
       presentation slide and a video Storyboard scene screen.
-- [ ] Specify Presentation Semantics IR as a typed one-screen graph containing
+- [x] Specify Presentation Semantics IR as a typed one-screen graph containing
       Logical Pattern identity, semantic nodes and Relations, typed parameter
       schemas, page identity, language, assets, and sources.
-- [ ] Specify a closed, versioned Relation vocabulary with directionality,
+- [x] Specify a closed, versioned Relation vocabulary with directionality,
       node-role/cardinality constraints, canonical identity, extension rules,
       and strict unknown-relation rejection.
-- [ ] Specify separate Logical Pattern and Visual Pattern catalogs and prove
+- [x] Specify separate Logical Pattern and Visual Pattern catalogs and prove
       that a Visual Pattern is a compatible projection choice rather than the
       semantic authority.
-- [ ] Specify restricted Markdown, YAML, and JSON as lossless serializations
+- [x] Specify restricted Markdown, YAML, and JSON as lossless serializations
       of one normalized Visual Page identity.
-- [ ] Specify the authority boundaries among Visual Page,
+- [x] Specify the authority boundaries among Visual Page,
       Logical/Relation/Visual catalogs, profile/template binding, renderer,
       and generated artifacts.
-- [ ] Specify an explicit compatibility or migration path from
+- [x] Specify an explicit compatibility or migration path from
       `cozy.slide-ir.v1` without silent inference or field loss.
-- [ ] Record the accepted design and specification amendments outside the
+- [x] Record the accepted design and specification amendments outside the
       Phase work-ledger layer.
 
 ## VIS36-02: Typed Presentation Semantics IR and Pattern Catalogs
@@ -121,5 +121,6 @@ Status: NOT STARTED
 - [ ] Run focused and full Cozy validation, independent review, and final
       ledger synchronization before changing Phase 36 from planned/open.
 
-Phase 36 remains planned. No checklist item is complete and no implementation,
+Phase 36 remains IN PROGRESS; VIS36-01 is DONE; VIS36-02 through VIS36-06
+remain NOT STARTED. VIS36-01 checklist items are complete. No implementation,
 validation, publication, or downstream consumer mutation is claimed.
