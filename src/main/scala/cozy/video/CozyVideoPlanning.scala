@@ -27,7 +27,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 19, 2026
+ * @version Aug. 26, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoPlanning {
@@ -107,8 +107,16 @@ private[cozy] trait CozyVideoPlanning {
       if (parttype == "web-demo") Some(projectroot.resolve(s"build/record/$id").normalize()) else None
     }
     val manifestpath = outputpath.getParent.resolve(s"${_basename(outputpath)}.manifest.json").normalize()
-    val scriptpath = part.script.map(x => projectroot.resolve(x).normalize())
-    val script = scriptpath.flatMap(_load_script)
+    val storyboardpath = part.storyboard.map(x => _resolve_project_relative_path(projectroot, x, s"Storyboard part $id storyboard"))
+    val legacyscriptpath = part.script.map(x => projectroot.resolve(x).normalize())
+    val scriptpath = storyboardpath.orElse(legacyscriptpath)
+    val script = storyboardpath match {
+      case Some(path) if Files.exists(path, LinkOption.NOFOLLOW_LINKS) =>
+        _validate_storyboard_source(projectroot, path)
+        Some(_load_storyboard_script(path, part.storyboardSection, project))
+      case Some(_) => None
+      case None => legacyscriptpath.flatMap(_load_script)
+    }
     val scriptstatus = scriptpath match {
       case Some(path) if Files.isRegularFile(path) => "found"
       case Some(_) => "missing"
@@ -124,8 +132,110 @@ private[cozy] trait CozyVideoPlanning {
         Vector.empty
       else
         _part_commands(id, parttype, renderer, scriptpath, scriptstatus, stepspath, stepsstatus, outputpath, audiodir, recorddir, manifestpath)
-    VideoPartPlan(index, id, parttype, supported, renderer, part.script, scriptpath, scriptstatus, script, part.steps, stepspath, stepsstatus, outputpath, audiodir, recorddir, manifestpath, artifacts, commands)
+    VideoPartPlan(index, id, parttype, supported, renderer, part.storyboard.orElse(part.script), scriptpath, scriptstatus, script, part.steps, stepspath, stepsstatus, outputpath, audiodir, recorddir, manifestpath, artifacts, commands)
   }
+
+  private[video] def _load_storyboard_script(path: Path, storyboardsection: Option[String], project: VideoProject): VideoScript = {
+    val result = loadStoryboard(path)
+    if (!result.isValid)
+      throw new IllegalArgumentException(result.diagnostics.map(_.render).mkString("\n"))
+    val storyboard = result.storyboard.get
+    val selectedscenes = storyboardsection match {
+      case Some(section) =>
+        val scenes = storyboard.scenes.filter(_.section == section)
+        if (scenes.isEmpty)
+          RAISE.invalidArgumentFault(s"Storyboard section $section selects no scenes")
+        scenes
+      case None => storyboard.scenes
+    }
+    _storyboard_video_script(storyboard.copy(scenes = selectedscenes), project)
+  }
+
+  private[video] def _validate_storyboard_source(projectroot: Path, path: Path): Unit = {
+    val root = projectroot.toAbsolutePath.normalize()
+    val source = path.toAbsolutePath.normalize()
+    if (!source.startsWith(root))
+      RAISE.invalidArgumentFault(s"Storyboard source escapes the project root: $path")
+    _validate_storyboard_source(source)
+    var current = root
+    root.relativize(source).iterator().asScala.foreach { segment =>
+      current = current.resolve(segment)
+      if (Files.exists(current, LinkOption.NOFOLLOW_LINKS) && Files.isSymbolicLink(current))
+        RAISE.invalidArgumentFault(s"Storyboard source must not use a symbolic-link path: $current")
+    }
+  }
+
+  private[video] def _validate_storyboard_source(path: Path): Unit = {
+    if (Files.isSymbolicLink(path))
+      RAISE.invalidArgumentFault(s"Storyboard source must not be a symbolic link: $path")
+    if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
+      RAISE.invalidArgumentFault(s"Storyboard source must be a direct regular file: $path")
+  }
+
+  private[video] def _storyboard_video_script(storyboard: Storyboard, project: VideoProject): VideoScript = {
+    val storyboardpronunciationnotes = storyboard.scenes.flatMap(_.pronunciationNotes)
+    val conflicting = storyboardpronunciationnotes.groupBy(_.surface).toVector.sortBy(_._1).collectFirst {
+      case (surface, notes) if notes.map(_.reading).distinct.size > 1 => surface
+    }
+    conflicting.foreach { surface =>
+      RAISE.invalidArgumentFault(s"Storyboard pronunciation surface has conflicting readings: $surface")
+    }
+    val pronunciations = storyboardpronunciationnotes.map(note => note.surface -> note.reading).toMap
+    VideoScript(
+      project.title,
+      None,
+      project.narration,
+      project.voice,
+      pronunciations,
+      project.voiceTextNormalization,
+      project.characters,
+      Vector.empty,
+      storyboard.scenes.map(_storyboard_video_scene),
+      storyboardpronunciationnotes
+    )
+  }
+
+  private[video] def _storyboard_video_scene(scene: StoryboardScene): VideoScene =
+    VideoScene(
+      Some(scene.id),
+      Some(scene.speaker),
+      Some(scene.narration),
+      Some(scene.narration),
+      Some(scene.caption),
+      Some(scene.duration.toDouble),
+      None,
+      Some(scene.leadSilence.toDouble),
+      Vector.empty,
+      None,
+      Json.obj(
+        "order" -> Json.fromInt(scene.order),
+        "role" -> Json.fromString(scene.role),
+        "screen" -> Json.obj(
+          "heading" -> Json.fromString(scene.screen.heading),
+          "content" -> Json.fromString(scene.screen.content)
+        ),
+        "duration" -> Json.fromBigDecimal(scene.duration),
+        "leadSilence" -> Json.fromBigDecimal(scene.leadSilence),
+        "direction" -> Json.fromString(scene.direction),
+        "productionInserts" -> Json.fromValues(scene.productionInserts.map { insert =>
+          Json.obj(
+            "id" -> Json.fromString(insert.id),
+            "kind" -> Json.fromString(insert.kind),
+            "value" -> Json.fromString(insert.value)
+          )
+        }),
+        "diagramRefs" -> Json.fromValues(scene.diagramRefs.map(Json.fromString)),
+        "assetRefs" -> Json.fromValues(scene.assetRefs.map(Json.fromString)),
+        "pronunciationNotes" -> Json.fromValues(scene.pronunciationNotes.map { note =>
+          Json.obj(
+            "surface" -> Json.fromString(note.surface),
+            "reading" -> Json.fromString(note.reading)
+          )
+        })
+      ),
+      Some(scene.section),
+      Json.obj("transition" -> Json.fromString(scene.transition))
+    )
 
   private[video] def _part_artifacts(
     id: String,

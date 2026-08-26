@@ -176,16 +176,47 @@ mode implementation or external consumer acceptance.
 
 ### P30-03: Approved Storyboard Confirmation/Final Build and Final Review
 
-Status: PLANNED
+Status: COMPLETE
 
 Own `parts[].storyboard`, inspect/synthesize/render/build integration,
 confirmation/final output separation, cache reuse and invalidation, removal of
 source `script.json` from new scaffolds, post-build review evidence, optional
 video-derived review-deck state, legacy regression, and end-to-end acceptance.
 
-Implementation remains gated by the internal Step/Slice ledger and the
-normative specification/design. No implementation, validation, review, commit,
-or completion is claimed by this Phase record at its current status.
+The P30-03 contract uses a generated confirmation manifest and the explicit
+source approval record `confirmationReview.approvedIdentity`. This is a Cozy
+local, fail-closed human-approval record; it does not call or depend on a Dox,
+PPTX, Textus, or SmartDox consumer. Generated Storyboard execution handoffs,
+confirmation artifacts, final manifests, and caches remain under
+`target/cozy-video`; legacy `parts[].script` remains available unchanged.
+
+The P30-03 accumulator passed focused implementation validation and real-toolchain
+integration validation, then received a clean lightweight review and a clean
+focused closure review for its one bounded repair. This completes the internal
+Step only. Phase-level full review, repository-full validation, closure records,
+and the final Phase release commit remain pending; the Phase therefore remains
+`IN PROGRESS`.
+
+The authorized P30-03 repair closed initial review findings `CB-001` through
+`CB-004`; focused executable-specification receipt `47785-20260826T022306Z`
+passed 148 tests with 0 failures (3 Docker-gated tests canceled). The
+subsequent re-review recorded `P30-03-CB-005` through `P30-03-CB-009` for
+final-manifest provenance, title/character cache identity, all renderable-part
+provenance, ordered pronunciation notes, and target-ancestor symlink safety.
+They were separately authorized and repaired. Receipt `90102-20260826T033826Z`
+passed 153 tests with 0 failures (the same 3 feature-gated integration tests
+canceled), and an independent focused re-review found no new finding. Cozy now
+generates the part-provenance records locally under
+`target/cozy-video/<mode>/part-artifacts`; no external artifact generator or
+SimpleModeling/SmartDox/Textus dependency is introduced. The final
+`P30-03-CB-010` repair made external final and renderable-part output parent
+chains direct and non-symlinked before assembly or credit writes. Its focused
+receipt `63125-20260826T062158Z` passed 46 tests with 0 failures, and the
+independent focused closure review reported no Current Boundary Blocker.
+Together with the real Remotion/ffmpeg/ffprobe receipt
+`53618-20260826T060045Z` (3 tests, 0 failures), this completes P30-03 without
+adding a Dox/PPTX/SmartDox/Textus consumer dependency. `P30-03-HYG-001`
+remains the separate non-behavioral source-header follow-up.
 
 ## Completion criteria
 

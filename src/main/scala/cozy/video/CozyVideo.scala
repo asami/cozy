@@ -71,6 +71,8 @@ private[cozy] object CozyVideo {
   lazy val StoryboardResult = CozyVideoImplementation.StoryboardResult
   type StoryboardReview = CozyVideoImplementation.StoryboardReview
   lazy val StoryboardReview = CozyVideoImplementation.StoryboardReview
+  type ConfirmationReview = CozyVideoImplementation.ConfirmationReview
+  lazy val ConfirmationReview = CozyVideoImplementation.ConfirmationReview
   type StoryboardReviewVisualStory = CozyVideoImplementation.StoryboardReviewVisualStory
   lazy val StoryboardReviewVisualStory = CozyVideoImplementation.StoryboardReviewVisualStory
   type StoryboardReviewResult = CozyVideoImplementation.StoryboardReviewResult
@@ -231,6 +233,7 @@ private[cozy] object CozyVideoImplementation
   extends CozyVideoTypes
   with CozyVideoStoryboard
   with CozyVideoStoryboardReview
+  with CozyVideoStoryboardBuild
   with CozyVideoRuntime
   with CozyVideoCommand
   with CozyVideoNarration

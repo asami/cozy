@@ -194,6 +194,36 @@ new modes; P30-02 applies the same validator to the existing build path when
 the declaration is present so a configured stale visual review cannot be
 silently bypassed.
 
+### 6.2 P30-03 execution and confirmation boundary
+
+`parts[].storyboard` is a source-selection adapter, not a second rendering
+model. Its optional `storyboardSection` binds the part to the identically
+named section of that one normalized source; omission deliberately selects the
+whole Storyboard. The adapter loads the same normalized typed `Storyboard`
+used by review and projects the selected scenes into a generated execution handoff under
+`target/cozy-video/storyboard/<part-id>/`. Existing narration and renderer
+adapters consume that projection; a legacy `parts[].script` continues through
+its existing path and is never silently selected for a Storyboard part.
+
+The confirmation build produces a deterministic mode manifest and a separate
+generated confirmation video. A human records acceptance by copying only the
+manifest identity into `video.yaml` as
+`confirmationReview.approvedIdentity`. This keeps approval explicit and
+reviewable while avoiding a timestamped or external-consumer-owned state.
+Before final build, Cozy re-reads the confirmation manifest and output, proves
+their current identities against the normalized Storyboard and effective
+production inputs, and compares the manifest identity to that source approval
+record. Any missing, stale, or mismatched input fails before final output is
+opened.
+
+Mode-specific output directories and manifests prevent confirmation from
+overwriting final artifacts. Cache keys include mode, normalized Storyboard
+identity, scene projection identity, narration selection, renderer settings,
+and relevant admitted assets. A cache hit is therefore an exact identity
+decision; it cannot reuse a chunk after any of those inputs changes. Final
+rendered-video evidence remains a distinct post-build operation, and any
+PPTX derived from that evidence remains a Dox/PPTX consumer concern.
+
 ## 7. Confirmation/final separation and cache design
 
 Confirmation and final builds are separate lifecycle states and output

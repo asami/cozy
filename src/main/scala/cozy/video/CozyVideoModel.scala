@@ -27,11 +27,11 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 19, 2026
+ * @version Aug. 26, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoModel {
-  self: CozyVideoTools =>
+  self: CozyVideoTools with CozyVideoStoryboard =>
   final case class StoryboardReviewVisualStory(
     evidenceDirectory: String,
     inputRefs: Vector[String],
@@ -74,6 +74,21 @@ private[cozy] trait CozyVideoModel {
       }
   }
 
+  final case class ConfirmationReview(approvedIdentity: String)
+  object ConfirmationReview {
+    implicit val decoder: Decoder[ConfirmationReview] = (c: HCursor) =>
+      for {
+        _ <- _validate_keys(c, Set("approvedIdentity"), "confirmationReview")
+        approvedidentity <- c.downField("approvedIdentity").as[String]
+      } yield ConfirmationReview(approvedidentity)
+
+    private def _validate_keys(c: HCursor, allowed: Set[String], label: String): Decoder.Result[Unit] =
+      c.value.asObject.toVector.flatMap(_.keys).find(name => !allowed.contains(name)) match {
+        case Some(name) => Left(io.circe.DecodingFailure(s"Unknown $label field: $name", c.history))
+        case None => Right(())
+      }
+  }
+
   final case class VideoProject(
     name: Option[String],
     title: Option[String],
@@ -81,12 +96,17 @@ private[cozy] trait CozyVideoModel {
     renderer: Option[VideoRenderer],
     tools: Option[VideoToolSettings],
     parts: Vector[VideoPart],
+    narration: Json = Json.obj(),
+    voice: Json = Json.obj(),
+    voiceTextNormalization: Json = Json.obj(),
+    characters: Map[String, Json] = Map.empty,
     profile: Option[String] = None,
     visualEffects: Option[CozyVideoEffects.Settings] = None,
     assets: Option[CozyVideoAssets.Settings] = None,
     locale: Option[String] = None,
     credits: Option[CozyVideoCredits.Settings] = None,
-    storyboardReview: Option[StoryboardReview] = None
+    storyboardReview: Option[StoryboardReview] = None,
+    confirmationReview: Option[ConfirmationReview] = None
   )
   object VideoProject {
     implicit val decoder: Decoder[VideoProject] = (c: HCursor) =>
@@ -97,6 +117,10 @@ private[cozy] trait CozyVideoModel {
         renderer <- c.downField("renderer").as[Option[VideoRenderer]]
         tools <- c.downField("tools").as[Option[VideoToolSettings]]
         parts <- c.downField("parts").as[Option[Vector[VideoPart]]]
+        narration = c.downField("narration").focus.getOrElse(Json.obj())
+        voice <- c.downField("voice").as[Option[Json]]
+        voicetextnormalization <- c.downField("voiceTextNormalization").as[Option[Json]]
+        characters <- c.downField("characters").as[Option[Map[String, Json]]]
         profile <- c.downField("profile").as[Option[String]]
         visualeffects <- c.downField("visualEffects").as[Option[CozyVideoEffects.Settings]].flatMap {
           case value @ Some(_) => Right(value)
@@ -106,8 +130,19 @@ private[cozy] trait CozyVideoModel {
         locale <- c.downField("locale").as[Option[String]]
         credits <- c.downField("credits").as[Option[CozyVideoCredits.Settings]]
         storyboardreview <- c.downField("storyboardReview").as[Option[StoryboardReview]]
+        confirmationreview <- _confirmation_review(c)
         _ <- _validate_storyboard_review_key(c)
-      } yield VideoProject(name, title, output, renderer, tools, parts.getOrElse(Vector.empty), profile, visualeffects, assets, locale, credits, storyboardreview)
+        _ <- _validate_confirmation_review_key(c)
+        _ <- _validate_effective_part_ids(c, parts.getOrElse(Vector.empty))
+      } yield VideoProject(name, title, output, renderer, tools, parts.getOrElse(Vector.empty), narration, voice.getOrElse(Json.obj()), voicetextnormalization.getOrElse(Json.obj()), characters.getOrElse(Map.empty), profile, visualeffects, assets, locale, credits, storyboardreview, confirmationreview)
+
+    private def _validate_effective_part_ids(c: HCursor, parts: Vector[VideoPart]): Decoder.Result[Unit] = {
+      val ids = parts.zipWithIndex.map { case (part, index) => part.displayId(index + 1) }
+      ids.groupBy(identity).collectFirst { case (id, values) if values.size > 1 => id } match {
+        case Some(id) => Left(io.circe.DecodingFailure(s"Duplicate effective video part id: $id", c.history))
+        case None => Right(())
+      }
+    }
 
     private def _validate_storyboard_review_key(c: HCursor): Decoder.Result[Unit] = {
       val unsupported = c.value.asObject.toVector.flatMap(_.keys).find { key =>
@@ -115,6 +150,22 @@ private[cozy] trait CozyVideoModel {
       }
       unsupported match {
         case Some(key) => Left(io.circe.DecodingFailure(s"Unsupported storyboard review key: $key", c.history))
+        case None => Right(())
+      }
+    }
+
+    private def _confirmation_review(c: HCursor): Decoder.Result[Option[ConfirmationReview]] =
+      c.downField("confirmationReview").focus match {
+        case Some(_) => c.downField("confirmationReview").as[ConfirmationReview].map(Some(_))
+        case None => Right(None)
+      }
+
+    private def _validate_confirmation_review_key(c: HCursor): Decoder.Result[Unit] = {
+      val unsupported = c.value.asObject.toVector.flatMap(_.keys).find { key =>
+        key.startsWith("confirmation") && key != "confirmationReview"
+      }
+      unsupported match {
+        case Some(key) => Left(io.circe.DecodingFailure(s"Unsupported confirmation review key: $key", c.history))
         case None => Right(())
       }
     }
@@ -169,7 +220,9 @@ private[cozy] trait CozyVideoModel {
     output: Option[String],
     audioDir: Option[String],
     recordDir: Option[String],
-    renderer: Option[VideoRenderer]
+    renderer: Option[VideoRenderer],
+    storyboard: Option[String] = None,
+    storyboardSection: Option[String] = None
   ) {
     def displayId(index: Int): String = id.getOrElse(f"part-$index%02d")
     def displayType: String = partType.getOrElse("unknown")
@@ -183,12 +236,38 @@ private[cozy] trait CozyVideoModel {
           case None => c.downField("kind").as[Option[String]]
         }
         script <- c.downField("script").as[Option[String]]
+        storyboard <- c.downField("storyboard").as[Option[String]]
+        storyboardsection <- _storyboard_section(c)
+        _ <- _validate_source_selection(c, script, storyboard)
+        _ <- _validate_storyboard_section(c, storyboard, storyboardsection)
         steps <- c.downField("steps").as[Option[String]]
         output <- c.downField("output").as[Option[String]]
         audiodir <- c.downField("audioDir").as[Option[String]]
         recorddir <- c.downField("recordDir").as[Option[String]]
         renderer <- c.downField("renderer").as[Option[VideoRenderer]]
-      } yield VideoPart(id, parttype, script, steps, output, audiodir, recorddir, renderer)
+      } yield VideoPart(id, parttype, script, steps, output, audiodir, recorddir, renderer, storyboard, storyboardsection)
+
+  private def _validate_source_selection(c: HCursor, script: Option[String], storyboard: Option[String]): Decoder.Result[Unit] =
+    if (script.isDefined && storyboard.isDefined)
+      Left(io.circe.DecodingFailure("Video part must not declare both script and storyboard", c.history))
+    else
+      Right(())
+
+  private def _storyboard_section(c: HCursor): Decoder.Result[Option[String]] =
+    c.downField("storyboardSection").focus match {
+      case Some(json) if json.isNull =>
+        Left(io.circe.DecodingFailure("Video part storyboardSection must be a non-empty stable token", c.history))
+      case _ => c.downField("storyboardSection").as[Option[String]]
+    }
+
+  private def _validate_storyboard_section(c: HCursor, storyboard: Option[String], storyboardsection: Option[String]): Decoder.Result[Unit] =
+    storyboardsection match {
+      case Some(_) if storyboard.isEmpty =>
+        Left(io.circe.DecodingFailure("Video part storyboardSection requires storyboard", c.history))
+      case Some(value) if !value.matches("^[A-Za-z][A-Za-z0-9_-]*$") =>
+        Left(io.circe.DecodingFailure("Video part storyboardSection must be a non-empty stable token", c.history))
+      case _ => Right(())
+    }
   }
 
   final case class VideoRenderer(
@@ -352,7 +431,8 @@ private[cozy] trait CozyVideoModel {
     voiceTextNormalization: Json,
     characters: Map[String, Json],
     sections: Vector[Json],
-    scenes: Vector[VideoScene]
+    scenes: Vector[VideoScene],
+    storyboardPronunciationNotes: Vector[StoryboardPronunciationNote] = Vector.empty
   ) {
     def expandedScenes: Vector[VideoScene] = scenes.zipWithIndex.flatMap {
       case (scene, index) => scene.expanded(index + 1)
@@ -380,7 +460,8 @@ private[cozy] trait CozyVideoModel {
         voicetextnormalization.getOrElse(Json.obj()),
         characters.getOrElse(Map.empty),
         sections.getOrElse(Vector.empty),
-        scenes.getOrElse(Vector.empty)
+        scenes.getOrElse(Vector.empty),
+        Vector.empty
       )
   }
 
@@ -800,4 +881,4 @@ private[cozy] trait CozyVideoModel {
 }
 
 
-private[cozy] trait CozyVideoTypes extends CozyVideoConfig with CozyVideoModel with CozyVideoTools
+private[cozy] trait CozyVideoTypes extends CozyVideoConfig with CozyVideoModel with CozyVideoTools with CozyVideoStoryboard

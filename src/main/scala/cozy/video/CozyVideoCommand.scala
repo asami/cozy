@@ -31,7 +31,7 @@ import scala.util.control.NonFatal
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoCommand {
-  self: CozyVideoTypes with CozyVideoStoryboard with CozyVideoStoryboardReview with CozyVideoRuntime with CozyVideoNarration with CozyVideoToolValidation with CozyVideoTranscription with CozyVideoReviewEvidence with CozyVideoBuildReplay with CozyVideoRdf with CozyVideoRenderWorkspace with CozyVideoRenderTemplates with CozyVideoPlanning with CozyVideoPresentation =>
+  self: CozyVideoTypes with CozyVideoStoryboard with CozyVideoStoryboardReview with CozyVideoStoryboardBuild with CozyVideoRuntime with CozyVideoNarration with CozyVideoToolValidation with CozyVideoTranscription with CozyVideoReviewEvidence with CozyVideoBuildReplay with CozyVideoRdf with CozyVideoRenderWorkspace with CozyVideoRenderTemplates with CozyVideoPlanning with CozyVideoPresentation =>
   def execute(args: List[String]): Boolean = execute(args, VideoToolRegistry.default)
 
   def execute(args: List[String], tools: VideoToolRegistry): Boolean =
@@ -106,19 +106,23 @@ private[cozy] trait CozyVideoCommand {
 
   def build(config: BuildConfig, tools: VideoToolRegistry, runner: VideoProcessRunner): String = {
     val plan = _plan(config.projectFile, config.toolMode, config.dockerImage)
-    if (plan.project.storyboardReview.isDefined)
-      _validate_storyboard_review_current(plan)
-    val context = VideoToolContext(plan.projectFile, plan.projectRoot, plan.project, plan.execution)
-    val checks =
-      if (config.checkTools || (!config.dryRun && plan.execution.toolMode == VideoToolMode.Docker))
-        tools.checks(context)
-      else
-        Vector.empty
-    if (config.dryRun)
-      _render_build_dry_run(config, plan, checks)
+    if (plan.project.parts.exists(_.storyboard.isDefined))
+      _build_storyboard_mode(config, plan, tools, runner)
     else {
-      _validate_build_tools(plan.execution, checks)
-      _render_build_result(_build_project(plan, runner))
+      if (plan.project.storyboardReview.isDefined)
+        _validate_storyboard_review_current(plan)
+      val context = VideoToolContext(plan.projectFile, plan.projectRoot, plan.project, plan.execution)
+      val checks =
+        if (config.checkTools || (!config.dryRun && plan.execution.toolMode == VideoToolMode.Docker))
+          tools.checks(context)
+        else
+          Vector.empty
+      if (config.dryRun)
+        _render_build_dry_run(config, plan, checks)
+      else {
+        _validate_build_tools(plan.execution, checks)
+        _render_build_result(_build_project(plan, runner))
+      }
     }
   }
 
@@ -242,6 +246,11 @@ private[cozy] trait CozyVideoCommand {
 
   def verifyCredits(projectfile: Path): Vector[String] = {
     val plan = _plan(projectfile, None, None)
+    val manifestpath =
+      if (plan.project.parts.exists(_.storyboard.isDefined))
+        plan.projectRoot.resolve("target").resolve("cozy-video").resolve("final").resolve("manifest.json")
+      else
+        plan.manifestPath
     val diagnostics = plan.credits.errors.map(x => s"${x.code}: ${x.message}")
     val artifactfindings =
       if (plan.credits.profile.isEmpty || !Files.isRegularFile(plan.outputPath))
@@ -252,7 +261,7 @@ private[cozy] trait CozyVideoCommand {
         val markdownfile = directory.resolve("credits.md")
         val rendererpropsfile = directory.resolve("renderer-props.json")
         val missing = Vector(jsonfile, markdownfile, rendererpropsfile).filterNot(Files.isRegularFile(_)).map(x => s"missing credit projection: $x") ++
-          (if (Files.isRegularFile(plan.manifestPath)) Vector.empty else Vector(s"missing project manifest with credit digest: ${plan.manifestPath}"))
+          (if (Files.isRegularFile(manifestpath)) Vector.empty else Vector(s"missing project manifest with credit digest: $manifestpath"))
         val digestfindings =
           if (!Files.isRegularFile(jsonfile))
             Vector.empty
@@ -268,10 +277,10 @@ private[cozy] trait CozyVideoCommand {
           _credit_json_projection_finding(rendererpropsfile, CozyVideoCredits.toRendererProps(plan.credits), "credit renderer props")
         ).flatten
         val manifestfindings =
-          if (!Files.isRegularFile(plan.manifestPath))
+          if (!Files.isRegularFile(manifestpath))
             Vector.empty
           else {
-            val manifest = parser.parse(Files.readString(plan.manifestPath, StandardCharsets.UTF_8)).toOption
+            val manifest = parser.parse(Files.readString(manifestpath, StandardCharsets.UTF_8)).toOption
             val digest = manifest.flatMap(_.hcursor.get[String]("creditDigest").toOption)
             val profile = manifest.flatMap(_.hcursor.get[String]("creditProfile").toOption)
             Vector(

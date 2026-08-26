@@ -345,6 +345,54 @@ already declares `storyboardReview`. Without `visualStory`, a valid normal
 Storyboard approval is sufficient and no visual evidence or handoff is
 required.
 
+### 9.2 P30-03 Storyboard build and confirmation contract
+
+A `parts[]` entry MAY use `storyboard` instead of the legacy `script` field.
+The value is one safe project-relative `storyboard.md` or `storyboard.json`
+path. A part MUST NOT declare both fields. A Storyboard part MAY declare
+`storyboardSection`, a non-empty stable section token. When present, Cozy MUST
+select exactly the scenes whose `section` equals that value, preserving their
+Storyboard order, and MUST reject a selection with no scenes. When absent, it
+selects all scenes. `storyboardSection` MUST NOT be used without
+`storyboard`. This lets one source-managed Storyboard bind distinct sections
+to distinct video parts without duplicating source content. Cozy parses the
+selected source as the typed v1 `Storyboard`, validates it, and derives its
+renderer/narration execution projection only under
+`target/cozy-video/storyboard/<part-id>/`. That generated projection is not a
+source-managed `script.json` and does not authorize the legacy adapter.
+Existing `parts[].script` remains the unchanged legacy route.
+
+For a project containing one or more `parts[].storyboard` entries, `cozy
+video build` requires `--mode confirmation` or `--mode final`. `confirmation`
+writes its video and manifest below `target/cozy-video/confirmation/`; it
+MUST NOT write the project final output. Its canonical manifest has schema
+`cozy.video.confirmation.v1`, status `validated`, an identity, the normalized
+Storyboard identities in part order, the effective renderer/narration and
+production configuration identities, and the confirmation video hash. The
+manifest identity is the `sha256:` digest of its canonical payload excluding
+its `identity` field.
+
+`video.yaml` MAY declare one root `confirmationReview` object with the exact
+single field `approvedIdentity`. It is a human approval record for the current
+confirmation manifest identity, not an external consumer result. `final`
+MUST fail closed unless the confirmation video and manifest are present,
+current for the selected approved Storyboard and production inputs, and their
+manifest identity equals `confirmationReview.approvedIdentity`. A malformed,
+missing, stale, or mismatched record is not an implicit approval.
+
+`final` writes the project `output` and a mode-specific manifest below
+`target/cozy-video/final/`; it never overwrites confirmation output or its
+manifest. Each mode manifest records its mode, output hash, normalized
+Storyboard identities, and complete cache-input identities. Audio and render
+cache reuse is permitted only when that complete identity matches exactly;
+otherwise the affected generated handoff, audio, or render chunk is
+invalidated deterministically.
+
+`cozy video review-evidence` remains the independent final-MP4 evidence
+command. A video-derived PPTX is an optional external Dox/PPTX consumer
+artifact: Cozy may provide the deterministic evidence and handoff inputs, but
+does not generate, accept, or use that PPTX as a confirmation or final gate.
+
 Confirmation and final output are separate lifecycle states. Audio and render
 chunks MAY be reused only when their scene inputs, Storyboard identity,
 narration inputs, renderer settings, and relevant asset identities all match;

@@ -27,7 +27,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Aug. 26, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoConfig {
@@ -55,17 +55,18 @@ private[cozy] trait CozyVideoConfig {
     dryRun: Boolean,
     checkTools: Boolean,
     toolMode: Option[String] = None,
-    dockerImage: Option[String] = None
+    dockerImage: Option[String] = None,
+    mode: Option[String] = None
   ) {
     def projectRoot: Path = projectFile.getParent
   }
   object BuildConfig {
     def create(args: List[String]): BuildConfig = {
-      val parsed = CozyCliArgs.parseStrict(_p_project_file, _p_dry_run, _p_check_tools, _p_tool_mode, _p_docker_image)(_normalize_property_args(args))
+      val parsed = CozyCliArgs.parseStrict(_p_project_file, _p_dry_run, _p_check_tools, _p_tool_mode, _p_docker_image, _p_mode)(_normalize_property_args(args))
       val projectfile = parsed.argument("project-file").map(CozyCliArgs.toPath).getOrElse(
         RAISE.invalidArgumentFault("Missing project file for video build")
       )
-      BuildConfig(projectfile, parsed.flag("dry-run"), parsed.flag("check-tools"), parsed.property("tool-mode"), parsed.property("docker-image"))
+      BuildConfig(projectfile, parsed.flag("dry-run"), parsed.flag("check-tools"), parsed.property("tool-mode"), parsed.property("docker-image"), parsed.property("mode"))
     }
   }
 
@@ -293,6 +294,7 @@ private[cozy] trait CozyVideoConfig {
   private[video] val _p_part = spec.Parameter.property("part")
   private[video] val _p_tool_mode = spec.Parameter.property("tool-mode")
   private[video] val _p_docker_image = spec.Parameter.property("docker-image")
+  private[video] val _p_mode = spec.Parameter.property("mode")
   private[video] val _p_voicevox_url = spec.Parameter.property("voicevox-url")
   private[video] val _p_whisper_model = spec.Parameter.property("whisper-model")
   private[video] val _p_events = spec.Parameter.property("events")
@@ -306,7 +308,7 @@ private[cozy] trait CozyVideoConfig {
   private[video] val _default_piper_model = "en_US-ljspeech-medium"
   private[video] val _voicevox_connection_recovery =
     "Start VOICEVOX Engine or set tools.voicevoxUrl / video.voicevox.url. In Docker mode, use host.docker.internal or a compose service URL when needed."
-  private[video] val _property_options = Set("tool-mode", "docker-image", "save", "voicevox-url", "renderer", "part", "whisper-model", "events", "har", "trace", "transcript")
+  private[video] val _property_options = Set("tool-mode", "docker-image", "mode", "save", "voicevox-url", "renderer", "part", "whisper-model", "events", "har", "trace", "transcript")
   private[video] val _default_sample_rate = 24000
   private[video] val _default_audio_channels = 1
   private[video] val _default_audio_bits_per_sample = 16

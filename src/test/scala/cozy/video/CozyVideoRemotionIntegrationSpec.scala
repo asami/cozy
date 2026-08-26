@@ -12,7 +12,7 @@ import io.circe.parser
 
 /*
  * @since   Jul. 18, 2026
- * @version Aug. 19, 2026
+ * @version Aug. 26, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoRemotionIntegrationSpec
@@ -49,6 +49,8 @@ final class CozyVideoRemotionIntegrationSpec
             )
           )
           partids.foreach(partid => _write_audio_manifest(pkg, partid))
+          if (profile == "explanation-demo-explanation")
+            _write_integration_web_demo_recording(pkg)
 
           When(s"the real Remotion CLI in $image renders every part")
           val result = CozyVideo.render(
@@ -64,13 +66,27 @@ final class CozyVideoRemotionIntegrationSpec
           )
 
           And("the real managed ffmpeg and ffprobe route assembles the rendered parts")
+          CozyVideo.build(
+            CozyVideo.BuildConfig(
+              pkg.resolve("video.yaml"),
+              dryRun = false,
+              checkTools = true,
+              toolMode = Some("docker"),
+              dockerImage = Some(image),
+              mode = Some("confirmation")
+            ),
+            CozyVideo.VideoToolRegistry.default,
+            CozyVideo.VideoProcessRunner.default
+          )
+          _approve_confirmation_review(pkg)
           val build = CozyVideo.build(
             CozyVideo.BuildConfig(
               pkg.resolve("video.yaml"),
               dryRun = false,
               checkTools = true,
               toolMode = Some("docker"),
-              dockerImage = Some(image)
+              dockerImage = Some(image),
+              mode = Some("final")
             ),
             CozyVideo.VideoToolRegistry.default,
             CozyVideo.VideoProcessRunner.default
@@ -87,12 +103,18 @@ final class CozyVideoRemotionIntegrationSpec
           val finaloutput = pkg.resolve(s"build/$profile.mp4")
           finaloutput should be_regular_file
           Files.size(finaloutput) should be > 0L
-          _read(pkg.resolve("build/manifest.json")) should include_text("\"ffprobe\"")
+          _json(pkg.resolve("target/cozy-video/final/manifest.json")).hcursor.
+            get[String]("status").toOption shouldBe Some("validated")
           _read(pkg.resolve("build/credits/credits.json")) should include_text("integration-credit")
           val finalprops = io.circe.parser.parse(_read(
             pkg.resolve(s"target/cozy-video/remotion/${partids.last}/props.json")
           )).toOption.get
-          finalprops.hcursor.downField("timing").get[Int]("creditPageHoldFrames").toOption.get shouldBe 30
+          val effectivefps = finalprops.hcursor.get[Int]("fps").toOption.get
+          val creditholdseconds = finalprops.hcursor.downField("credits").
+            get[Double]("holdSeconds").toOption.get
+          creditholdseconds shouldBe 1.0
+          finalprops.hcursor.downField("timing").get[Int]("creditPageHoldFrames").toOption.get shouldBe
+            math.round(creditholdseconds * effectivefps).toInt
           finalprops.hcursor.downField("credits").downField("items").as[Vector[io.circe.Json]].toOption.get should have size 1
         }
       }
@@ -266,6 +288,15 @@ final class CozyVideoRemotionIntegrationSpec
     )
   }
 
+  private def _write_integration_web_demo_recording(pkg: Path): Unit = {
+    val source = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize().resolve(
+      "src/test/resources/cozy/publication/article-media-bilingual-bok/repository/video/article-media-bilingual-example-en-video/1.0.0/article-media-bilingual-example-en-video-1.0.0.mp4"
+    )
+    val recording = pkg.resolve("build/record/demonstration/reviewed.mp4")
+    Files.createDirectories(recording.getParent)
+    Files.copy(source, recording)
+  }
+
   private def _write_integration_credit_profile(pkg: Path): Unit =
     _write(
       pkg.resolve("conf/cozy/video/credit-profiles/integration.yaml"),
@@ -281,6 +312,17 @@ final class CozyVideoRemotionIntegrationSpec
         |    surfaces: [video, publication, rdf]
         |""".stripMargin
     )
+
+  private def _approve_confirmation_review(pkg: Path): Unit = {
+    val manifest = parser.parse(
+      _read(pkg.resolve("target/cozy-video/confirmation/manifest.json"))
+    ).toOption.get
+    val identity = manifest.hcursor.get[String]("identity").toOption.get
+    _write(
+      pkg.resolve("video.yaml"),
+      _read(pkg.resolve("video.yaml")) + s"confirmationReview:\n  approvedIdentity: $identity\n"
+    )
+  }
 
   private def _write(path: Path, contents: String): Unit = {
     Option(path.getParent).foreach(Files.createDirectories(_))

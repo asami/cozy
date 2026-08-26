@@ -12,7 +12,7 @@ import cozy.CozySpecVocabulary
 /*
  * @since   Jul. 18, 2026
  *  version Jul. 20, 2026
- * @version Aug. 19, 2026
+ * @version Aug. 26, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoProfileRenderSpec
@@ -49,7 +49,7 @@ final class CozyVideoProfileRenderSpec
           CozyVideo.VideoToolRegistry(Vector.empty)
         )
         val dryrun = CozyVideo.build(
-          CozyVideo.BuildConfig(pkg.resolve("video.yaml"), dryRun = true, checkTools = false),
+          CozyVideo.BuildConfig(pkg.resolve("video.yaml"), dryRun = true, checkTools = false, mode = Some("confirmation")),
           CozyVideo.VideoToolRegistry(Vector.empty)
         )
 
@@ -70,7 +70,13 @@ final class CozyVideoProfileRenderSpec
           runner
         )
         CozyVideo.build(
-          CozyVideo.BuildConfig(pkg.resolve("video.yaml"), dryRun = false, checkTools = false),
+          CozyVideo.BuildConfig(pkg.resolve("video.yaml"), dryRun = false, checkTools = false, mode = Some("confirmation")),
+          CozyVideo.VideoToolRegistry(Vector.empty),
+          runner
+        )
+        _approve_confirmation_review(pkg.resolve("video.yaml"))
+        CozyVideo.build(
+          CozyVideo.BuildConfig(pkg.resolve("video.yaml"), dryRun = false, checkTools = false, mode = Some("final")),
           CozyVideo.VideoToolRegistry(Vector.empty),
           runner
         )
@@ -89,7 +95,8 @@ final class CozyVideoProfileRenderSpec
           render should include_text("`--crf=${props.crf}`")
           render should include_text("`--x264-preset=${props.x264Preset}`")
         }
-        val encoding = _json(pkg.resolve("build/manifest.json")).hcursor.downField("encoding")
+        val encoding = _json(pkg.resolve("target/cozy-video/final/manifest.json")).hcursor.
+          downField("cacheInput").downField("encoding")
         encoding.get[String]("policy").toOption shouldBe Some("standard")
         encoding.get[Int]("fps").toOption shouldBe Some(30)
         encoding.get[Int]("width").toOption shouldBe Some(1440)
@@ -229,8 +236,8 @@ final class CozyVideoProfileRenderSpec
         _write(
           pkg.resolve("video.yaml"),
           _read(pkg.resolve("video.yaml")).replace(
-            "    script: script.yaml",
-            "    script: script.yaml\n    output: ../render-output/narration-overrun.mp4"
+            "    storyboardSection: explanation",
+            "    storyboardSection: explanation\n    output: ../render-output/narration-overrun.mp4"
           )
         )
         val audiodir = pkg.resolve("build/audio/explanation")
@@ -409,8 +416,14 @@ final class CozyVideoProfileRenderSpec
         )
 
         When("Cozy builds the final MP4 through its managed assembly route")
+        CozyVideo.build(
+          CozyVideo.BuildConfig(pkg.resolve("video.yaml"), dryRun = false, checkTools = false, mode = Some("confirmation")),
+          CozyVideo.VideoToolRegistry(Vector.empty),
+          runner
+        )
+        _approve_confirmation_review(pkg.resolve("video.yaml"))
         val result = CozyVideo.build(
-          CozyVideo.BuildConfig(pkg.resolve("video.yaml"), dryRun = false, checkTools = false),
+          CozyVideo.BuildConfig(pkg.resolve("video.yaml"), dryRun = false, checkTools = false, mode = Some("final")),
           CozyVideo.VideoToolRegistry(Vector.empty),
           runner
         )
@@ -418,12 +431,12 @@ final class CozyVideoProfileRenderSpec
         Then("the final artifact and verification manifest come from ffmpeg and ffprobe")
         result should include_text("Cozy Video Build")
         pkg.resolve("build/assembled.mp4") should be_regular_file
-        pkg.resolve("build/manifest.json") should be_regular_file
+        pkg.resolve("target/cozy-video/final/manifest.json") should be_regular_file
         runner.commands.map(_.args).exists(_.contains("ffmpeg")) shouldBe true
         runner.commands.map(_.args).exists(_.contains("ffprobe")) shouldBe true
-        val manifest = _read(pkg.resolve("build/manifest.json"))
-        manifest should include_text("\"partOutputs\"")
-        manifest should include_text("\"ffprobe\"")
+        val manifest = _json(pkg.resolve("target/cozy-video/final/manifest.json"))
+        manifest.hcursor.get[String]("schema").toOption shouldBe Some("cozy.video.final.v1")
+        manifest.hcursor.get[String]("status").toOption shouldBe Some("validated")
       }
     }
 
@@ -441,8 +454,8 @@ final class CozyVideoProfileRenderSpec
           _read(pkg.resolve("video.yaml")).
             replace("output: build/external-assembly.mp4", "output: ../render-output/final.mp4").
             replace(
-              "    script: script.yaml",
-              "    script: script.yaml\n    output: ../render-output/part.mp4"
+              "    storyboardSection: explanation",
+              "    storyboardSection: explanation\n    output: ../render-output/part.mp4"
             )
         )
         val partoutput = pkg.resolve("../render-output/part.mp4").normalize()
@@ -452,7 +465,13 @@ final class CozyVideoProfileRenderSpec
 
         When("Cozy assembles the project through Docker-local staging")
         CozyVideo.build(
-          CozyVideo.BuildConfig(pkg.resolve("video.yaml"), dryRun = false, checkTools = false),
+          CozyVideo.BuildConfig(pkg.resolve("video.yaml"), dryRun = false, checkTools = false, mode = Some("confirmation")),
+          CozyVideo.VideoToolRegistry(Vector.empty),
+          runner
+        )
+        _approve_confirmation_review(pkg.resolve("video.yaml"))
+        CozyVideo.build(
+          CozyVideo.BuildConfig(pkg.resolve("video.yaml"), dryRun = false, checkTools = false, mode = Some("final")),
           CozyVideo.VideoToolRegistry(Vector.empty),
           runner
         )
@@ -529,10 +548,13 @@ final class CozyVideoProfileRenderSpec
             replace("locale: en", "locale: ja").
             replace("credits:\n  include: []", "credits:\n  profile: publication\n  presentation:\n    enabled: false\n  include: []")
         )
-        _write(
-          pkg.resolve("script.yaml"),
-          _read(pkg.resolve("script.yaml")).replace("    narration:", "    speaker: zundamon\n    narration:")
-        )
+        _update_storyboard(pkg) { storyboard =>
+          storyboard.copy(
+            scenes = storyboard.scenes.map { scene =>
+              if (scene.id == "explanation") scene.copy(speaker = "zundamon") else scene
+            }
+          )
+        }
         _write_credit_audio_manifest(pkg)
         val runner = ProfileRenderRunner()
 
@@ -546,8 +568,14 @@ final class CozyVideoProfileRenderSpec
           CozyVideo.VideoToolRegistry(Vector.empty),
           runner
         )
+        CozyVideo.build(
+          CozyVideo.BuildConfig(pkg.resolve("video.yaml"), dryRun = false, checkTools = false, mode = Some("confirmation")),
+          CozyVideo.VideoToolRegistry(Vector.empty),
+          runner
+        )
+        _approve_confirmation_review(pkg.resolve("video.yaml"))
         val build = CozyVideo.build(
-          CozyVideo.BuildConfig(pkg.resolve("video.yaml"), dryRun = false, checkTools = false),
+          CozyVideo.BuildConfig(pkg.resolve("video.yaml"), dryRun = false, checkTools = false, mode = Some("final")),
           CozyVideo.VideoToolRegistry(Vector.empty),
           runner
         )
@@ -567,7 +595,7 @@ final class CozyVideoProfileRenderSpec
         creditprops should include_text("voice-zundamon")
         creditprops should include_text("\"enabled\" : false")
         val digest = parser.parse(creditjson).toOption.get.hcursor.get[String]("digest").toOption.get
-        _read(pkg.resolve("build/manifest.json")) should include_text(digest)
+        _read(pkg.resolve("target/cozy-video/final/manifest.json")) should include_text(digest)
         _read(pkg.resolve("rdf/video.ttl")) should include_text(digest)
         _read(pkg.resolve("rdf/video.ttl")) should include_text("hasCredit")
 
@@ -619,7 +647,7 @@ final class CozyVideoProfileRenderSpec
           runner
         )
         val built = CozyVideo.build(
-          CozyVideo.BuildConfig(pkg.resolve("video.yaml"), dryRun = false, checkTools = false),
+          CozyVideo.BuildConfig(pkg.resolve("video.yaml"), dryRun = false, checkTools = false, mode = Some("confirmation")),
           CozyVideo.VideoToolRegistry(Vector.empty),
           runner
         )
@@ -734,7 +762,7 @@ final class CozyVideoProfileRenderSpec
 
     "preserve profile contracts through inspect build RDF and publication" in {
       _with_temp_dir("lifecycle") { dir =>
-        Given("a scaffolded explanation package entering the full publication lifecycle")
+        Given("an explicit legacy explanation descriptor entering the publisher's legacy build lifecycle")
         val pkg = dir.resolve("src/main/doxsite/technology/tutorial.video")
         CozyVideoScaffold.scaffold(CozyVideoScaffold.Config.create(List(
           "tutorial",
@@ -742,31 +770,43 @@ final class CozyVideoProfileRenderSpec
           "--profile=explanation"
         )))
         val project = pkg.resolve("video.yaml")
+        _write(
+          pkg.resolve("script.yaml"),
+          """title: Tutorial
+            |voice:
+            |  fallbackSpeakerId: 42
+            |narration:
+            |  provider: voicevox
+            |scenes:
+            |  - id: explanation
+            |    speaker: guide
+            |    narration: Replace this explanation narration.
+            |    caption: Explanation
+            |    duration: 8.0
+            |""".stripMargin
+        )
         _write_material_credit_profile(pkg)
         _write(pkg.resolve("assets/guide.svg"), "<svg/>")
         _write(
           project,
           _read(project).
+            replaceFirst(
+              "(?s)storyboardReview:\\n  source: storyboard\\.md\\n  approvedIdentity: [^\\n]+\\nparts:\\n  - id: explanation\\n    type: dialogue\\n    storyboard: storyboard\\.md\\n    storyboardSection: explanation",
+              "parts:\n  - id: explanation\n    type: dialogue\n    script: script.yaml"
+            ).
             replace("credits:\n  include: []", "credits:\n  profile: material-publication\n  presentation:\n    enabled: false\n  include: []").
             replace(
               "assets:\n",
               "assets:\n  guide:\n    path: assets/guide.svg\n    kind: character-material\n    required: true\n    tags: [character.guide]\n    credits: [guide-material]\n    credit-obligation: required\n"
             )
         )
-        _write(
-          pkg.resolve("script.yaml"),
-          _read(pkg.resolve("script.yaml"))
-            .replace("narration:\n", "voice:\n  fallbackSpeakerId: 42\nnarration:\n")
-            .replace("    narration:", "    speaker: guide\n    narration:")
-        )
-
         When("Cozy inspects plans and describes the package as RDF")
         val inspection = CozyVideo.inspect(
           CozyVideo.InspectConfig(project, checkTools = false),
           CozyVideo.VideoToolRegistry(Vector.empty)
         )
         val build = CozyVideo.build(
-          CozyVideo.BuildConfig(project, dryRun = true, checkTools = false),
+          CozyVideo.BuildConfig(project, dryRun = true, checkTools = false, mode = Some("confirmation")),
           CozyVideo.VideoToolRegistry(Vector.empty)
         )
         CozyVideo.rdf(CozyVideo.RdfConfig(project, pkg.resolve("rdf")))
@@ -839,6 +879,24 @@ final class CozyVideoProfileRenderSpec
       dir.resolve("manifest.json"),
       """[{"sceneId":"explanation","speaker":"zundamon","file":"01-explanation.wav","leadSilence":0.0,"audioDuration":8.0,"targetDuration":8.0,"tailSilence":0.0,"provider":"voicevox","executionMode":"external-http","voiceIdentity":"ずんだもん","voiceId":"3"}]"""
     )
+  }
+
+  private def _approve_confirmation_review(project: Path): Unit = {
+    val manifest = _json(project.getParent.resolve("target/cozy-video/confirmation/manifest.json"))
+    val identity = manifest.hcursor.get[String]("identity").toOption.get
+    _write(project, _read(project) + s"confirmationReview:\n  approvedIdentity: $identity\n")
+  }
+
+  private def _update_storyboard(pkg: Path)(transform: CozyVideo.Storyboard => CozyVideo.Storyboard): Unit = {
+    val source = pkg.resolve("storyboard.md")
+    val result = CozyVideo.loadStoryboard(source)
+    if (!result.isValid)
+      throw new IllegalArgumentException(result.diagnostics.map(_.render).mkString("\n"))
+    val storyboard = transform(result.storyboard.get)
+    _write(source, CozyVideo.canonicalStoryboardMarkdown(storyboard))
+    val identity = CozyVideo.storyboardIdentity(storyboard)
+    val project = pkg.resolve("video.yaml")
+    _write(project, _read(project).replaceFirst("(?m)(  approvedIdentity: )[^\\n]+", "$1" + identity))
   }
 
   private def _write_credit_profile(pkg: Path): Unit =

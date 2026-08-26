@@ -9,7 +9,7 @@ import cozy.runtime.CozyCliArgs
 /*
  * @since   Jul. 18, 2026
  *  version Jul. 20, 2026
- * @version Aug. 19, 2026
+ * @version Aug. 26, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoScaffold {
@@ -74,14 +74,14 @@ private[cozy] object CozyVideoScaffold {
   object CompositionProfile {
     case object Explanation extends CompositionProfile {
       val key = "explanation"
-      val parts = Vector(ScaffoldPart("explanation", "dialogue", "script.yaml", None, None))
+      val parts = Vector(ScaffoldPart("explanation", "dialogue", "explanation", None, None))
     }
     case object ExplanationDemoExplanation extends CompositionProfile {
       val key = "explanation-demo-explanation"
       val parts = Vector(
-        ScaffoldPart("introduction", "dialogue", "script.yaml", None, None),
-        ScaffoldPart("demonstration", "web-demo", "demo-script.yaml", Some("demo-steps.json"), Some("build/record/demonstration")),
-        ScaffoldPart("conclusion", "dialogue", "summary-script.yaml", None, None)
+        ScaffoldPart("introduction", "dialogue", "introduction", None, None),
+        ScaffoldPart("demonstration", "web-demo", "demonstration", Some("demo-steps.json"), Some("build/record/demonstration")),
+        ScaffoldPart("conclusion", "dialogue", "conclusion", None, None)
       )
     }
 
@@ -94,7 +94,7 @@ private[cozy] object CozyVideoScaffold {
       )
   }
 
-  final case class ScaffoldPart(id: String, kind: String, script: String, steps: Option[String], recordDir: Option[String])
+  final case class ScaffoldPart(id: String, kind: String, storyboardSection: String, steps: Option[String], recordDir: Option[String])
   final case class VisualEffectProfiles(opening: String, sectionstart: String, summary: String, finalpage: String)
 
   def scaffold(config: Config): String = {
@@ -102,17 +102,18 @@ private[cozy] object CozyVideoScaffold {
     if (Files.exists(save))
       RAISE.invalidArgumentFault(s"Video scaffold destination already exists: $save")
     Files.createDirectories(save.resolve("assets"))
-    val scriptfiles = config.profile.parts.map(part => part.script -> _script_yaml(config, part))
+    val storyboard = _storyboard(config)
     val files = Vector(
       ".gitignore" -> _gitignore,
       "index.dox" -> _index_dox(config),
-      "video.yaml" -> _video_yaml(config),
+      "video.yaml" -> _video_yaml(config, storyboard),
+      "storyboard.md" -> CozyVideo.canonicalStoryboardMarkdown(storyboard),
       "assets/README.md" -> _assets_readme,
       "assets/opening.svg" -> _placeholder_svg("OPENING"),
       "assets/section-start.svg" -> _placeholder_svg("SECTION START"),
       "assets/summary.svg" -> _placeholder_svg("SUMMARY"),
       "assets/final-page.svg" -> _placeholder_svg("END")
-    ) ++ scriptfiles ++ (if (config.profile.parts.exists(_.steps.isDefined)) Vector("demo-steps.json" -> _demo_steps_json) else Vector.empty)
+    ) ++ (if (config.profile.parts.exists(_.steps.isDefined)) Vector("demo-steps.json" -> _demo_steps_json) else Vector.empty)
     files.foreach { case (name, contents) =>
       val file = save.resolve(name)
       Option(file.getParent).foreach(Files.createDirectories(_))
@@ -167,12 +168,13 @@ private[cozy] object CozyVideoScaffold {
        |Replace the generated narration and project-owned placeholder assets before publication.
        |""".stripMargin
 
-  private def _video_yaml(config: Config): String = {
+  private def _video_yaml(config: Config, storyboard: CozyVideo.Storyboard): String = {
     val parts = config.profile.parts.map { part =>
       Vector(
         s"  - id: ${part.id}",
         s"    type: ${part.kind}",
-        s"    script: ${part.script}"
+        "    storyboard: storyboard.md",
+        s"    storyboardSection: ${part.storyboardSection}"
       ) ++ part.steps.map(x => s"    steps: $x") ++ part.recordDir.map(x => s"    recordDir: $x")
     }.flatten.mkString("\n")
     s"""name: ${config.slug}
@@ -196,25 +198,43 @@ private[cozy] object CozyVideoScaffold {
        |renderer:
        |  engine: remotion
        |  policy: lightweight
+       |narration:
+       |  provider: voicevox
+       |voice:
+       |  fallbackSpeakerId: 0
+       |storyboardReview:
+       |  source: storyboard.md
+       |  approvedIdentity: ${CozyVideo.storyboardIdentity(storyboard)}
        |parts:
        |$parts
        |""".stripMargin
   }
 
-  private def _script_yaml(config: Config, part: ScaffoldPart): String = {
-    val scene = Vector(
-      s"  - id: ${part.id}",
-      s"    narration: ${_yaml_string(s"Replace this ${part.id} narration.")}",
-      s"    caption: ${_yaml_string(part.id.capitalize)}",
-      "    duration: 8.0"
-    ).mkString("\n")
-    s"""title: ${_yaml_string(config.title)}
-       |narration:
-       |  provider: voicevox
-       |scenes:
-       |$scene
-       |""".stripMargin
-  }
+  private def _storyboard(config: Config): CozyVideo.Storyboard =
+    CozyVideo.Storyboard(
+      "cozy.video.storyboard.v1",
+      1,
+      config.profile.parts.zipWithIndex.map { case (part, index) =>
+        CozyVideo.StoryboardScene(
+          part.id,
+          index + 1,
+          part.storyboardSection,
+          "narrator",
+          "narration",
+          s"Replace this ${part.id} narration.",
+          CozyVideo.StoryboardScreen(part.id.capitalize, s"${part.id.capitalize} scene."),
+          part.id.capitalize,
+          BigDecimal("8.0"),
+          BigDecimal("0.0"),
+          "none",
+          Vector.empty,
+          Vector.empty,
+          Vector.empty,
+          Vector.empty,
+          s"Replace this ${part.id} scene."
+        )
+      }
+    )
 
   private def _yaml_string(p: String): String =
     "\"" + p.replace("\\", "\\\\").replace("\"", "\\\"") + "\""

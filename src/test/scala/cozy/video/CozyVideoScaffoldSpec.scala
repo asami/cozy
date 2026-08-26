@@ -2,7 +2,7 @@ package cozy.video
 
 import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Files, LinkOption, Path, Paths}
 import scala.collection.JavaConverters._
 import org.scalatest.GivenWhenThen
 import org.scalatest.wordspec.AnyWordSpec
@@ -11,7 +11,7 @@ import cozy.CozySpecVocabulary
 /*
  * @since   Jul. 18, 2026
  *  version Jul. 20, 2026
- * @version Aug. 19, 2026
+ * @version Aug. 26, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoScaffoldSpec
@@ -19,7 +19,7 @@ final class CozyVideoScaffoldSpec
     with GivenWhenThen
     with CozySpecVocabulary {
   "Cozy Video Scaffold" should {
-    "create a deterministic license-safe explanation package with encoding policy" in {
+    "create a deterministic license-safe explanation package with one approved Storyboard source" in {
       _with_temp_dir("explanation") { dir =>
         Given("an explanation scaffold request without external media")
         val save = dir.resolve("domain-overview.video")
@@ -34,14 +34,18 @@ final class CozyVideoScaffoldSpec
         When("Cozy creates the video source package")
         val result = CozyVideoScaffold.scaffold(config)
 
-        Then("the source package contains inspectable project files and generated placeholders")
+        Then("the source package contains an approved canonical Storyboard and generated placeholders")
         save.resolve(".gitignore") should be_regular_file
         _read(save.resolve(".gitignore")) shouldBe "build/\ntarget/\n"
         save.resolve("index.dox") should be_regular_file
         save.resolve("video.yaml") should be_regular_file
-        save.resolve("script.yaml") should be_regular_file
-        _read(save.resolve("script.yaml")) should include_text("narration:\n  provider: voicevox")
-        _read(save.resolve("script.yaml")) should not include "voice:"
+        save.resolve("storyboard.md") should be_regular_file
+        Files.exists(save.resolve("script.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(save.resolve("demo-script.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(save.resolve("summary-script.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        val storyboard = CozyVideo.loadStoryboard(save.resolve("storyboard.md"))
+        storyboard.isValid shouldBe true
+        storyboard.storyboard.get.scenes.map(_.section) shouldBe Vector("explanation")
         save.resolve("assets/opening.svg") should be_regular_file
         save.resolve("assets/section-start.svg") should be_regular_file
         save.resolve("assets/summary.svg") should be_regular_file
@@ -56,6 +60,11 @@ final class CozyVideoScaffoldSpec
         _read(save.resolve("video.yaml")) should include_text("final-page: end-card")
         _read(save.resolve("video.yaml")) should include_text("id: explanation")
         _read(save.resolve("video.yaml")) should include_text("renderer:\n  engine: remotion\n  policy: lightweight")
+        _read(save.resolve("video.yaml")) should include_text("narration:\n  provider: voicevox")
+        _read(save.resolve("video.yaml")) should include_text("voice:\n  fallbackSpeakerId: 0")
+        _read(save.resolve("video.yaml")) should include_text("storyboardReview:\n  source: storyboard.md")
+        _read(save.resolve("video.yaml")) should include_text(s"approvedIdentity: ${CozyVideo.storyboardIdentity(storyboard.storyboard.get)}")
+        _read(save.resolve("video.yaml")) should include_text("storyboard: storyboard.md\n    storyboardSection: explanation")
         _read(save.resolve("assets/README.md")) should include_text("does not copy or reference media")
         result should include_text("profile: explanation")
 
@@ -66,7 +75,12 @@ final class CozyVideoScaffoldSpec
         )
         inspection should include_text("parts: 1")
         inspection should include_text("part[1]: explanation")
+        inspection should include_text("scriptStatus: found")
+        inspection should include_text("scenes: 1")
         inspection should include_text("encodingPolicy: lightweight")
+        val projected = CozyVideoImplementation._plan(save.resolve("video.yaml"), None, None).parts.head.script.get
+        CozyVideoImplementation._resolve_narration_selection(projected).provider shouldBe "voicevox"
+        CozyVideoImplementation._narration_voice_identity("voicevox", projected.voice) shouldBe "speaker-id:0"
 
         And("the same profile produces identical relative files and bytes")
         val secondsave = dir.resolve("domain-overview-second.video")
@@ -88,23 +102,30 @@ final class CozyVideoScaffoldSpec
         When("Cozy creates the default composition")
         CozyVideoScaffold.scaffold(config)
 
-        Then("the project has introduction, web demo, and conclusion parts")
+        Then("the project has introduction, web demo, and conclusion parts selected from one Storyboard")
         val project = _read(save.resolve("video.yaml"))
         project should include_text("profile: explanation-demo-explanation")
         project should include_text("id: introduction")
+        project should include_text("storyboard: storyboard.md\n    storyboardSection: introduction")
         project should include_text("id: demonstration")
         project should include_text("type: web-demo")
-        project should include_text("script: demo-script.yaml")
+        project should include_text("storyboardSection: demonstration")
         project should include_text("steps: demo-steps.json")
         project should include_text("recordDir: build/record/demonstration")
         project should not include "characters:"
         project should not include "mouthClosedAsset"
         project should not include "mouthOpenAsset"
         project should include_text("id: conclusion")
-        project should include_text("script: summary-script.yaml")
+        project should include_text("storyboardSection: conclusion")
         save.resolve("demo-steps.json") should be_regular_file
-        save.resolve("demo-script.yaml") should be_regular_file
-        save.resolve("summary-script.yaml") should be_regular_file
+        save.resolve("storyboard.md") should be_regular_file
+        Files.exists(save.resolve("script.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(save.resolve("demo-script.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(save.resolve("summary-script.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        val storyboard = CozyVideo.loadStoryboard(save.resolve("storyboard.md"))
+        storyboard.isValid shouldBe true
+        storyboard.storyboard.get.scenes.map(_.section) shouldBe
+          Vector("introduction", "demonstration", "conclusion")
 
         And("the existing inspector observes all profile parts")
         val inspection = CozyVideo.inspect(
@@ -113,6 +134,8 @@ final class CozyVideoScaffoldSpec
         )
         inspection should include_text("parts: 3")
         inspection should include_text("part[2]: demonstration")
+        inspection should include_text("part[3]: conclusion")
+        inspection should include_text("scenes: 1")
       }
     }
 

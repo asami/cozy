@@ -31,7 +31,7 @@ import scala.util.control.NonFatal
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoReviewEvidence {
-  self: CozyVideoTypes with CozyVideoRuntime with CozyVideoCommand with CozyVideoNarration with CozyVideoToolValidation with CozyVideoTranscription with CozyVideoBuildReplay with CozyVideoRdf with CozyVideoRenderWorkspace with CozyVideoRenderTemplates with CozyVideoPlanning with CozyVideoPresentation =>
+  self: CozyVideoImplementation.type =>
   private[video] def _write_review_evidence(
     config: ReviewEvidenceConfig,
     plan: VideoPlan,
@@ -374,6 +374,13 @@ private[cozy] trait CozyVideoReviewEvidence {
   }
 
   private[video] def _review_validated_video_manifest(plan: VideoPlan, finalvideo: Path, finalhash: String): Path = {
+    if (plan.project.parts.exists(_.storyboard.isDefined))
+      _review_validated_storyboard_final_manifest(plan, finalvideo, finalhash)
+    else
+      _review_validated_legacy_video_manifest(plan, finalvideo, finalhash)
+  }
+
+  private def _review_validated_legacy_video_manifest(plan: VideoPlan, finalvideo: Path, finalhash: String): Path = {
     val manifest = plan.manifestPath.toAbsolutePath.normalize()
     if (Files.isSymbolicLink(manifest) || !Files.isRegularFile(manifest, LinkOption.NOFOLLOW_LINKS))
       RAISE.invalidArgumentFault(s"Missing validated project video manifest for review evidence: $manifest")
@@ -392,6 +399,10 @@ private[cozy] trait CozyVideoReviewEvidence {
     val encoding = _review_required_object(json, "encoding", "project video manifest")
     _review_require_effective_encoding(encoding, "policy", plan.encoding, "project video manifest encoding")
     manifest
+  }
+
+  private def _review_validated_storyboard_final_manifest(plan: VideoPlan, finalvideo: Path, finalhash: String): Path = {
+    _validated_storyboard_final_manifest(plan, finalvideo, finalhash)
   }
 
   private[video] def _review_require_effective_encoding(
