@@ -165,6 +165,12 @@ private[cozy] object CozyHelpText {
       |  media slide build <media-file> [--target <id>] [--profile business] [--dry-run]
       |      Render selected business presentation resources with deterministic artifact evidence.
       |
+      |  media visual-page validate|inspect <input> --catalog <catalog>
+      |      Strictly validate or inspect one Visual Page or ordered Visual Page Set without rendering or generating media.
+      |
+      |  media visual-page convert <input> --catalog <catalog> --save <output.json|output.yaml|output.yml|output.md>
+      |      Validate first, then atomically write the selected canonical lossless Visual Page serialization.
+      |
       |  media review align <media-file> --target <presentation-id> --authority <article|slide-ir>
       |      Record an explicit article or slide-IR semantic alignment decision after deterministic verification.
       |

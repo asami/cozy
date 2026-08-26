@@ -3,9 +3,10 @@
 Status: NORMATIVE; Phase 36 `VIS36-01` is DONE
 
 This is the normative contract for the future Visual Page route. It defines
-semantic values and compatibility boundaries only; it claims no Scala or CLI
-implementation, executable specification, renderer, receipt, validation,
-review, migration execution, or external-consumer acceptance.
+semantic values, compatibility boundaries, and the independent direct core
+parse/validation/canonicalization CLI. It claims no renderer, receipt,
+Presentation-route integration, Storyboard-route integration, review,
+migration execution, or external-consumer acceptance.
 
 The words **MUST**, **MUST NOT**, **SHOULD**, and **MAY** are normative. The
 ownership design is [`docs/design/visual-page.md`](../design/visual-page.md).
@@ -207,11 +208,81 @@ rejects anchors, aliases, merge keys, duplicate keys, and unknown keys.
 Restricted Markdown has fixed order: root metadata; catalog; logical pattern,
 nodes, and relations; visual pattern and parameters; assets; then sources. It
 allows only canonical inline JSON for arrays and typed parameter values. It
-does not admit arbitrary prose, headings, extension fields, aliases, or
-alternate field spellings. Canonical Markdown emits that grammar
+does not admit arbitrary prose, additional headings, extension fields, aliases,
+or alternate field spellings. Canonical Markdown emits that grammar
 deterministically. Conversion parses and validates a typed value before writing
 canonical JSON, YAML, or Markdown; equivalent admitted inputs produce the
 same canonical JSON and identities.
+
+### 4.1 Direct core command and restricted-Markdown grammar
+
+The independent core command surface is deliberately non-generating except for
+its explicit serialization target:
+
+```text
+cozy media visual-page validate <input> --catalog <catalog>
+cozy media visual-page inspect <input> --catalog <catalog>
+cozy media visual-page convert <input> --catalog <catalog> --save <output>
+```
+
+`input` and `catalog` are direct regular non-symlink UTF-8 files. `input` is
+exactly one `.json`, `.yaml`, `.yml`, or `.md` document; the separate catalog
+is exactly one `.json`, `.yaml`, or `.yml` document. `validate` emits only
+schema, version, page count, and resolved identities. `inspect` adds the
+declared ordered logical nodes, Relations, selected patterns, and typed
+parameters. `convert` accepts only `.json`, `.yaml`, `.yml`, or `.md` output,
+completes parsing and validation before creating its output, and replaces the
+output through a same-directory atomic move. An invalid source, catalog, or
+output suffix creates no output. These commands neither render nor select a
+Presentation, binding, Storyboard, receipt, or review state.
+
+Canonical Markdown is the following no-prose, line-oriented grammar. Each
+`<json>` is one compact canonical JSON value: no insignificant whitespace,
+canonical object field order, and preserved declared array order. The final
+newline is required; CRLF and LF are equivalent input line endings.
+
+```text
+# Cozy Visual Page
+schema: <json-string>
+version: <json-integer>
+id: <json-string>
+knowledge: <json-string>
+language: <json-string>
+## Catalog
+id: <json-string>
+revision: <json-integer>
+## Logical
+pattern: <json-string>
+nodes: <json-array>
+relations: <json-array>
+## Visual
+pattern: <json-string>
+parameters: <json-object>
+## Assets
+assets: <json-array>
+## Sources
+sources: <json-array>
+```
+
+The only admitted Visual Page Set Markdown form is the following ordered form;
+`pages` is one compact canonical JSON array of complete canonical Visual Page
+objects.
+
+```text
+# Cozy Visual Page Set
+schema: <json-string>
+version: <json-integer>
+id: <json-string>
+## Pages
+pages: <json-array>
+```
+
+Canonical YAML is a root mapping with the required root fields in canonical
+order. Each right-hand-side value is the same compact canonical JSON value
+used by the Markdown grammar; YAML input may additionally use the equivalent
+two-space-indented mapping and sequence form. YAML anchors, aliases, merge
+keys, duplicate keys, comments carrying semantic fields, and scalar forms
+outside the normalized model are rejected.
 
 ## 5. Binding, receipts, and projection
 
