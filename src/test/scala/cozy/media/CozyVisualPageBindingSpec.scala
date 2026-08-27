@@ -93,32 +93,32 @@ final class CozyVisualPageBindingSpec
         Given("one resolved Visual Page document and adversarial binding files")
         val validated = _validated()
         val valid = _binding_json()
-        val duplicateField = valid.replace("\"schema\":\"cozy.visual-page.binding.v1\"", "\"schema\":\"cozy.visual-page.binding.v1\",\"schema\":\"cozy.visual-page.binding.v1\"")
-        val duplicateSemantic = valid.replace("\"semanticSlot\":\"nodes\"", "\"semanticSlot\":\"knowledge\"")
-        val missingSemantic = valid.replace(",{\"semanticSlot\":\"parameters\",\"physicalSlot\":\"parameters-slot\"}", "")
-        val unknownSemantic = valid.replace("\"semanticSlot\":\"knowledge\"", "\"semanticSlot\":\"unknown\"")
-        val duplicatePhysical = valid.replace("\"physicalSlot\":\"parameters-slot\"", "\"physicalSlot\":\"knowledge-slot\"")
-        val unknownField = valid.dropRight(1) + ",\"unknown\":true}"
-        val wrongSchema = valid.replace("cozy.visual-page.binding.v1", "cozy.visual-page.binding.v2")
-        val wrongVersion = valid.replace("\"version\":1", "\"version\":2")
-        val wrongProfile = valid.replace("\"profile\":\"business\"", "\"profile\":\"other\"")
+        val duplicatefield = valid.replace("\"schema\":\"cozy.visual-page.binding.v1\"", "\"schema\":\"cozy.visual-page.binding.v1\",\"schema\":\"cozy.visual-page.binding.v1\"")
+        val duplicatesemantic = valid.replace("\"semanticSlot\":\"nodes\"", "\"semanticSlot\":\"knowledge\"")
+        val missingsemantic = valid.replace(",{\"semanticSlot\":\"parameters\",\"physicalSlot\":\"parameters-slot\"}", "")
+        val unknownsemantic = valid.replace("\"semanticSlot\":\"knowledge\"", "\"semanticSlot\":\"unknown\"")
+        val duplicatephysical = valid.replace("\"physicalSlot\":\"parameters-slot\"", "\"physicalSlot\":\"knowledge-slot\"")
+        val unknownfield = valid.dropRight(1) + ",\"unknown\":true}"
+        val wrongschema = valid.replace("cozy.visual-page.binding.v1", "cozy.visual-page.binding.v2")
+        val wrongversion = valid.replace("\"version\":1", "\"version\":2")
+        val wrongprofile = valid.replace("\"profile\":\"business\"", "\"profile\":\"other\"")
         val malformed = "{"
         val files = Vector(
-          "duplicate-field" -> duplicateField,
-          "duplicate-semantic" -> duplicateSemantic,
-          "missing-semantic" -> missingSemantic,
-          "unknown-semantic" -> unknownSemantic,
-          "duplicate-physical" -> duplicatePhysical,
-          "unknown-field" -> unknownField,
-          "wrong-schema" -> wrongSchema,
-          "wrong-version" -> wrongVersion,
-          "wrong-profile" -> wrongProfile,
+          "duplicate-field" -> duplicatefield,
+          "duplicate-semantic" -> duplicatesemantic,
+          "missing-semantic" -> missingsemantic,
+          "unknown-semantic" -> unknownsemantic,
+          "duplicate-physical" -> duplicatephysical,
+          "unknown-field" -> unknownfield,
+          "wrong-schema" -> wrongschema,
+          "wrong-version" -> wrongversion,
+          "wrong-profile" -> wrongprofile,
           "malformed" -> malformed
         ).map { case (name, text) => name -> _write(root.resolve(name + ".json"), text) }
         val unsupported = _write(root.resolve("binding.yaml"), valid)
         val target = _write(root.resolve("target.json"), valid)
-        val malformedUtf8 = root.resolve("malformed-utf8.json")
-        Files.write(malformedUtf8, Array[Byte]('{'.toByte, 0xc3.toByte, 0x28.toByte, '}'.toByte))
+        val malformedutf8 = root.resolve("malformed-utf8.json")
+        Files.write(malformedutf8, Array[Byte]('{'.toByte, 0xc3.toByte, 0x28.toByte, '}'.toByte))
         val directory = Files.createDirectory(root.resolve("directory.json"))
         val link = root.resolve("link.json")
         Files.createSymbolicLink(link, target)
@@ -126,7 +126,7 @@ final class CozyVisualPageBindingSpec
         When("each malformed or unsafe source is loaded")
         val failures = files.map { case (name, path) => name -> _failure(CozyVisualPageBinding.load(path, validated)) }.toMap ++ Map(
           "unsupported" -> _failure(CozyVisualPageBinding.load(unsupported, validated)),
-          "malformed-utf8" -> _failure(CozyVisualPageBinding.load(malformedUtf8, validated)),
+          "malformed-utf8" -> _failure(CozyVisualPageBinding.load(malformedutf8, validated)),
           "directory" -> _failure(CozyVisualPageBinding.load(directory, validated)),
           "symlink" -> _failure(CozyVisualPageBinding.load(link, validated))
         )
