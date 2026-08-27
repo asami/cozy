@@ -27,7 +27,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 26, 2026
+ * @version Aug. 27, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoModel {
@@ -53,19 +53,42 @@ private[cozy] trait CozyVideoModel {
       }
   }
 
+  final case class StoryboardReviewVisualPage(
+    binding: String,
+    evidenceDirectory: String,
+    approvedEvidenceIdentity: String
+  )
+  object StoryboardReviewVisualPage {
+    implicit val decoder: Decoder[StoryboardReviewVisualPage] = (c: HCursor) =>
+      for {
+        _ <- _validate_keys(c, Set("binding", "evidenceDirectory", "approvedEvidenceIdentity"), "visualPage")
+        binding <- c.downField("binding").as[String]
+        evidencedirectory <- c.downField("evidenceDirectory").as[String]
+        approvedevidenceidentity <- c.downField("approvedEvidenceIdentity").as[String]
+      } yield StoryboardReviewVisualPage(binding, evidencedirectory, approvedevidenceidentity)
+
+    private def _validate_keys(c: HCursor, allowed: Set[String], label: String): Decoder.Result[Unit] =
+      c.value.asObject.toVector.flatMap(_.keys).find(name => !allowed.contains(name)) match {
+        case Some(name) => Left(io.circe.DecodingFailure(s"Unknown $label field: $name", c.history))
+        case None => Right(())
+      }
+  }
+
   final case class StoryboardReview(
     source: String,
     approvedIdentity: String,
-    visualStory: Option[StoryboardReviewVisualStory]
+    visualStory: Option[StoryboardReviewVisualStory],
+    visualPage: Option[StoryboardReviewVisualPage]
   )
   object StoryboardReview {
     implicit val decoder: Decoder[StoryboardReview] = (c: HCursor) =>
       for {
-        _ <- _validate_keys(c, Set("source", "approvedIdentity", "visualStory"), "storyboardReview")
+        _ <- _validate_keys(c, Set("source", "approvedIdentity", "visualStory", "visualPage"), "storyboardReview")
         source <- c.downField("source").as[String]
         approvedidentity <- c.downField("approvedIdentity").as[String]
         visualstory <- c.downField("visualStory").as[Option[StoryboardReviewVisualStory]]
-      } yield StoryboardReview(source, approvedidentity, visualstory)
+        visualpage <- c.downField("visualPage").as[Option[StoryboardReviewVisualPage]]
+      } yield StoryboardReview(source, approvedidentity, visualstory, visualpage)
 
     private def _validate_keys(c: HCursor, allowed: Set[String], label: String): Decoder.Result[Unit] =
       c.value.asObject.toVector.flatMap(_.keys).find(name => !allowed.contains(name)) match {

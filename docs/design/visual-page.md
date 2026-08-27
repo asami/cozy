@@ -10,7 +10,9 @@ Independent `P36-04-REREVIEW-002` is PASS and `CB-P36-04-RR-001` is resolved.
 P36-04's implementation/validation record is included in this local acceptance
 Step commit. No push, publish, or publication is claimed. VIS36-04 and Phase 36 remain IN PROGRESS because
 renderer scene identity binding and evidence identity/proof remain open for
-P36-05+. VIS36-05 and VIS36-06, and Phase 37, remain NOT STARTED.
+P36-05+. `P36-05-DEC-001` is consumed; P36-05 implementation is delivered,
+while focused validation and acceptance evidence remain open. VIS36-05 remains
+IN PROGRESS; VIS36-06 and Phase 37 remain NOT STARTED.
 
 This design fixes the ownership and architecture boundary for the Visual Page
 contract in [`docs/spec/visual-page.md`](../spec/visual-page.md). It admits the
@@ -274,6 +276,16 @@ silence, transition, confirmation, final, and audiovisual-review semantics.
 The literal reference participates in Storyboard identity; resolved
 page/catalog/binding/renderer/asset identities belong to later visual evidence
 and are never guessed into Storyboard content.
+
+P36-05 implements that later review-proof boundary without broadening the
+Visual Page model. A v2 visual-page review owns one safe project-relative
+binding, an evidence directory, and a required approval identity; it records
+the literal screen reference with the resolved VisualPageSet, catalog,
+logical-page, visual-page, selected asset, binding, and effective selected
+renderer identities. The v2 handoff has its own canonical identity. Changed,
+missing, unsafe, unresolved, or noncanonical inputs fail before confirmation,
+final build, cache reuse, or output work. This route invokes no renderer and
+does not accept any external consumer.
 
 The current v1 presentation and Storyboard contracts remain exactly accepted.
 P36-04 provides v2 parsing, planning metadata, and the explicit

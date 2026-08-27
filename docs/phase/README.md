@@ -55,8 +55,12 @@ Current phase state:
   acceptance Step commit. No push, publish, or publication is claimed. VIS36-04
   and Phase 36 remain IN PROGRESS because
   renderer scene identity binding and evidence identity/proof remain open for
-  P36-05+. VIS36-05 and VIS36-06, and Phase 37, remain NOT STARTED. Its start
-  gate was Phase 30 closure; this does not authorize Phase 37 implementation.
+  P36-05+. `P36-05-DEC-001` is consumed; P36-05 focused validation and
+  independent Step re-review passed (`54038-20260827T112424Z` ReviewSpec 12/12;
+  `54763-20260827T112533Z` accumulator 39/39); acceptance evidence is recorded
+  in this local Step commit. VIS36-05 and Phase 36 remain IN PROGRESS; Phase
+  closure remains open. VIS36-06 and Phase 37 remain NOT STARTED. Its start gate was Phase 30 closure; this does not
+  authorize Phase 37 implementation.
 - Planned successor: `phase-37.md`: Logical Explanation Composition and Media
   Projection. It will separate Subject Pattern from Narrative / Argument-
   oriented Explanation Pattern, expand the latter into typed Logical Patterns
@@ -136,7 +140,11 @@ Independent `P36-04-REREVIEW-002` is PASS and `CB-P36-04-RR-001` is resolved.
 P36-04's implementation/validation record is included in this local acceptance
 Step commit. No push, publish, or publication is claimed. VIS36-04 and Phase 36 remain IN PROGRESS because
 renderer scene identity binding and evidence identity/proof remain open for
-P36-05+. VIS36-05 and VIS36-06, and Phase 37, remain NOT STARTED.
+P36-05+. `P36-05-DEC-001` is consumed; P36-05 focused validation and
+independent Step re-review passed (`54038-20260827T112424Z` ReviewSpec 12/12;
+`54763-20260827T112533Z` accumulator 39/39); acceptance evidence is recorded
+in this local Step commit. VIS36-05 and Phase 36 remain IN PROGRESS; Phase
+closure remains open. VIS36-06 and Phase 37 remain NOT STARTED.
 
 Phase 37 is the planned logical explanation-composition successor to Phase 36.
 Its current authority is only `phase-37.md` plus

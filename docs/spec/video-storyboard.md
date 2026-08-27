@@ -13,7 +13,9 @@ aborted, SBT/wrapper 0, and the lock released; independent
 P36-04's implementation/validation record is included in this local acceptance
 Step commit. No push, publish, or publication is claimed. VIS36-04 and Phase 36 remain IN PROGRESS because
 renderer scene identity binding and evidence identity/proof remain open for
-P36-05+. VIS36-05 and VIS36-06, and Phase 37, remain NOT STARTED.
+P36-05+. `P36-05-DEC-001` is consumed; P36-05 implementation is delivered,
+while focused validation and acceptance evidence remain open. VIS36-05 remains
+IN PROGRESS; VIS36-06 and Phase 37 remain NOT STARTED.
 
 The words **MUST**, **MUST NOT**, **SHOULD**, and **MAY** are normative. The
 corresponding responsibility and ownership design is in
@@ -352,6 +354,50 @@ this validator; the existing build path also applies it whenever a project
 already declares `storyboardReview`. Without `visualStory`, a valid normal
 Storyboard approval is sufficient and no visual evidence or handoff is
 required.
+
+### 9.1.1 P36-05 Storyboard-v2 Visual Page proof
+
+Every Storyboard v2 review writes `cozy.video.storyboard-review-evidence.v2`
+and `cozy.video.storyboard-handoff.v2`; this dispatch never upgrades a v1
+Storyboard or alters its v1 evidence/handoff bytes. A v2 Storyboard containing
+one or more `kind: visual-page` screens MUST declare exactly one closed
+`storyboardReview.visualPage` object with exactly these required fields:
+`binding`, `evidenceDirectory`, and `approvedEvidenceIdentity`. A v1
+Storyboard, or a v2 Storyboard with no visual-page screen, MUST reject that
+declaration rather than ignore it. Existing `visualStory` grammar remains a
+separate optional visual-input route; when both declarations occur in v2 their
+evidence directories must be identical.
+
+`binding` is a safe project-relative direct regular non-symlink binding file.
+For every visual-page screen, Cozy resolves the literal `source` and `catalog`
+from the Storyboard source directory, loads exactly that VisualPageSet with
+exactly that catalog, selects `pageId` exactly once, and validates the one
+declared binding against that resolved set/catalog. It never infers a catalog,
+page, binding, renderer, path, or identity. Evidence and handoff retain each
+literal `{kind,source,catalog,pageId}` and, in scene order, record
+`visualPageSetIdentity`, `catalogIdentity`, `logicalIdentity`,
+`visualPageIdentity`, ordered selected assets `{id,path,mediaType,sha256}`,
+and `bindingIdentity`.
+
+For every project part selecting `storyboardReview.source`, Cozy selects its
+effective `VideoRenderer` from the part override or project renderer. At least
+one such part and one selected renderer per part are required for v2
+visual-page review. Evidence and handoff record `effectiveRenderers` ordered
+by part ID; each entry carries the canonical renderer configuration and its
+SHA-256 identity. Renderer execution is not part of this proof route.
+
+The v2 evidence payload has ordered fields `schema`, `status`, `source`,
+`storyboardIdentity`, `scenes`, `visualInputs`, `visualPages`, and
+`effectiveRenderers`, followed by its SHA-256 `identity`. The v2 handoff
+payload has ordered fields `schema`, `status`, `evidencePath`,
+`evidenceIdentity`, `storyboardIdentity`, `visualInputs`, `visualPages`, and
+`effectiveRenderers`, followed by its own SHA-256 `identity`. Before a v2
+visual-page confirmation/final build, cache reuse, or output claim, Cozy
+recomputes both expected values from direct current inputs and rejects any
+schema, payload, self-identity, approval, binding, catalog, logical/visual
+page, page asset, selected renderer, or handoff mismatch as stale. This does
+not self-approve visual quality or change narration, timing, transition, or
+audiovisual-review authority.
 
 ### 9.2 P30-03 Storyboard build and confirmation contract
 

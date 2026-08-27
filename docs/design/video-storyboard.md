@@ -10,7 +10,9 @@ Independent `P36-04-REREVIEW-002` is PASS and `CB-P36-04-RR-001` is resolved.
 P36-04's implementation/validation record is included in this local acceptance
 Step commit. No push, publish, or publication is claimed. VIS36-04 and Phase 36 remain IN PROGRESS because
 renderer scene identity binding and evidence identity/proof remain open for
-P36-05+. VIS36-05 and VIS36-06, and Phase 37, remain NOT STARTED.
+P36-05+. `P36-05-DEC-001` is consumed; P36-05 implementation is delivered,
+while focused validation and acceptance evidence remain open. VIS36-05 remains
+IN PROGRESS; VIS36-06 and Phase 37 remain NOT STARTED.
 
 This design defines the architecture, responsibility boundaries, and stable
 invariants for `cozy.video.storyboard.v1`. The functional contract is
@@ -349,3 +351,29 @@ and is rejected with `VISUAL_PAGE_SCREEN_LOSSY`; `convert` retains its existing
 representation-conversion responsibility. P36-04 excludes P36-05 receipts and
 evidence, P36-06 cross-media acceptance, SmartDox/Textus work, and external
 consumer acceptance.
+
+## 12. P36-05 Storyboard-v2 visual evidence boundary
+
+`P36-05-DEC-001` is implemented as a separately versioned proof route only
+for a Storyboard v2 that contains a Visual Page screen. Its one closed
+`storyboardReview.visualPage` declaration has `binding`, `evidenceDirectory`,
+and `approvedEvidenceIdentity`; the binding is safe project-relative while
+each screen's literal `source` and `catalog` remain rooted at its Storyboard
+source directory. Cozy uses no discovery route: it loads that exact
+VisualPageSet/catalog pair, resolves `pageId` exactly once, and validates the
+one binding against every resolved set/catalog.
+
+Evidence and handoff v2 preserve the literal
+`{kind,source,catalog,pageId}` with VisualPageSet, catalog, logical-page,
+visual-page, selected page-asset, binding, and canonical effective-renderer
+identities. Each part selecting the reviewed Storyboard source must resolve a
+part override or project renderer; the sorted renderer proof is a canonical
+configuration plus SHA-256 identity. The handoff has a separate canonical
+self identity. Confirmation/final build validation reconstructs both values
+from direct current inputs before cache reuse or output work. Any change,
+absence, unsafe path, unresolved page, missing part/renderer, approval
+mismatch, evidence mismatch, or handoff mismatch rejects closed.
+
+The v1 Storyboard and v1 evidence/handoff remain unchanged, as do legacy video
+projects. This boundary does not execute a renderer, generate a video, accept
+external consumers, claim focused validation, or close VIS36-05.

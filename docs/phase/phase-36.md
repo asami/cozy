@@ -182,7 +182,12 @@ Independent `P36-04-REREVIEW-002` is PASS and `CB-P36-04-RR-001` is resolved.
 P36-04's implementation/validation record is included in this local acceptance
 Step commit. No push, publish, or publication is claimed. VIS36-04 and Phase 36 remain IN PROGRESS because
 renderer scene identity binding and evidence identity/proof remain open for
-P36-05+. VIS36-05 and VIS36-06, and Phase 37, remain NOT STARTED.
+P36-05+. P36-05 implementation, focused validation, and independent Step
+re-review passed (`54038-20260827T112424Z` ReviewSpec 12/12;
+`54763-20260827T112533Z` accumulator 39/39); its acceptance evidence is
+recorded in this local Step commit. VIS36-05 and Phase 36 remain IN PROGRESS;
+Phase closure remains open.
+VIS36-06 and Phase 37 remain NOT STARTED.
 
 Nonblocking hygiene disposition `HYG-36-04-001`: the pre-existing unified
 Storyboard parser now exceeds 1,000 lines after the v2 boundary. A safe
@@ -193,13 +198,31 @@ manifest; defer that mechanical split to a separately authorized hygiene batch.
 
 Stage Status:
 
-- Current status: NOT STARTED
+- Current status: IN PROGRESS (P36-05 focused validation and independent Step
+  re-review passed; acceptance evidence recorded in this local Step commit;
+  Phase closure open)
 - Owner: Cozy media receipts and review state
 - Update rule: complete only when cross-artifact input identity, receipts,
   alignment state, and stale-input rejection pass their checklist evidence.
 
 Bind presentation and video display artifacts to the exact Visual Page,
 catalog, binding, renderer, and asset generations used to create them.
+
+`P36-05-DEC-001` is consumed only for Phase 36 / VIS36-05. It accepts a
+Storyboard-v2-only review-evidence/handoff v2 route with a safe binding
+declaration under `storyboardReview.visualPage`. That route must retain the
+literal screen reference and prove the exact VisualPageSet, catalog, logical
+page, visual page, page-asset, binding, and effective selected renderer
+identities. A changed, missing, unsafe, or unresolved input fails closed.
+Storyboard v1, review-evidence/handoff v1, and legacy video projects remain
+unchanged. The decision record is
+[`2026-08-27-phase-36-p36-05-decision.md`](../journal/2026/08/2026-08-27-phase-36-p36-05-decision.md).
+The admitted v2 implementation and executable specifications are delivered.
+Focused validation and independent Step re-review passed
+(`54038-20260827T112424Z` ReviewSpec 12/12;
+`54763-20260827T112533Z` accumulator 39/39); acceptance evidence is recorded
+in this local Step commit. VIS36-05 and Phase 36 remain IN PROGRESS; Phase
+closure remains open. VIS36-06 and Phase 37 remain NOT STARTED.
 
 ### VIS36-06: Cross-Media Acceptance and Closure
 

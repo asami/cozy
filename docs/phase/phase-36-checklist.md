@@ -117,7 +117,11 @@ failed/aborted, SBT/wrapper 0, and the lock released. Independent
 P36-04's implementation/validation record is included in this local acceptance
 Step commit. No push, publish, or publication is claimed. VIS36-04 and Phase 36 remain IN PROGRESS because
 renderer scene identity binding and evidence identity/proof remain open for
-P36-05+. VIS36-05 and VIS36-06, and Phase 37, remain NOT STARTED.
+P36-05+. P36-05 implementation, focused validation, and independent Step
+re-review passed (`54038-20260827T112424Z` ReviewSpec 12/12;
+`54763-20260827T112533Z` accumulator 39/39); its acceptance evidence is
+recorded in this local Step commit. VIS36-05 and Phase 36 remain IN PROGRESS;
+Phase closure remains open. VIS36-06 and Phase 37 remain NOT STARTED.
 
 - [ ] Allow a Storyboard scene to reference or contain a normalized Visual
       Page as its displayed screen contract.
@@ -134,7 +138,23 @@ P36-05+. VIS36-05 and VIS36-06, and Phase 37, remain NOT STARTED.
 
 ## VIS36-05: Media Package Identity and Review Integration
 
-Status: NOT STARTED
+Status: IN PROGRESS (P36-05 focused validation and independent Step re-review
+passed; acceptance evidence recorded in this local Step commit; Phase closure
+open)
+
+`P36-05-DEC-001` is consumed only for `VIS36-05`. It admits a
+Storyboard-v2-only review-evidence/handoff v2 contract with a safe
+`storyboardReview.visualPage` binding declaration. The v2 proof must retain
+the literal screen reference and the exact VisualPageSet, catalog, logical
+page, visual page, selected page-asset, binding, and effective selected video
+renderer identities. Any missing, unsafe, unresolved, or changed input fails
+closed. Storyboard v1, review-evidence/handoff v1, and legacy video projects
+remain unchanged. The admitted v2 implementation and executable specifications
+are delivered; focused validation and independent Step re-review passed
+(`54038-20260827T112424Z` ReviewSpec 12/12;
+`54763-20260827T112533Z` accumulator 39/39); acceptance evidence is recorded
+in this local Step commit. VIS36-05 and Phase 36 remain IN PROGRESS; Phase
+closure remains open. VIS36-06 and Phase 37 remain NOT STARTED.
 
 - [ ] Admit Visual Page and catalog/binding resources through explicit Media
       Package identities and safe descriptor-relative paths.
@@ -177,7 +197,9 @@ P36-05+. The
 P36-03B/P36-03C Step is accepted in local acceptance commit
 `4d4d621fdbc1822233d49de6a618708567c02d8a` after final-tree focused validation
 invocation `51002-20260827T073710Z` passed 29/29 with 0 failures across 3 suites
-and independent Step review passed with zero findings; VIS36-05 and VIS36-06
-and Phase 37 remain NOT STARTED. Implementation is limited to the accepted
-P36-02/P36-03 evidence and the P36-04 Storyboard boundary; no publication or
-downstream consumer mutation is claimed.
+and independent Step review passed with zero findings; P36-05 focused
+validation and independent Step re-review passed (`54038-20260827T112424Z`
+ReviewSpec 12/12; `54763-20260827T112533Z` accumulator 39/39); acceptance
+evidence is recorded in this local Step commit. VIS36-05 and Phase 36 remain
+IN PROGRESS; Phase closure remains open. VIS36-06 and Phase 37 remain NOT STARTED. No
+publication or downstream consumer mutation is claimed.

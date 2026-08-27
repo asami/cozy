@@ -1,10 +1,12 @@
 package cozy.video
 
 import cozy.CozySpecVocabulary
+import cozy.media.CozyVisualPage
 import io.circe.Json
 import io.circe.parser
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
+import java.security.MessageDigest
 import org.scalacheck.{Gen, Prop, Test}
 import org.scalatest.GivenWhenThen
 import org.scalatest.wordspec.AnyWordSpec
@@ -12,7 +14,7 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   Aug. 26, 2026
- * @version Aug. 26, 2026
+ * @version Aug. 27, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoStoryboardReviewSpec
@@ -20,7 +22,7 @@ final class CozyVideoStoryboardReviewSpec
     with GivenWhenThen
     with CozySpecVocabulary {
   "Cozy Video Storyboard review evidence" should {
-    "write normal approval evidence and a non-consumer handoff without visual claims" in {
+    "preserve v1 evidence and handoff schemas, canonical field order, and non-consumer output" in {
       _with_temp_dir("normal") { root =>
         Given("an approved Storyboard project without an optional visualStory declaration")
         val storyboard = _storyboard("")
@@ -30,8 +32,10 @@ final class CozyVideoStoryboardReviewSpec
 
         When("the typed storyboard review evidence command writes its package")
         val result = CozyVideo.storyboardReviewEvidence(CozyVideo.StoryboardReviewConfig(project, save))
-        val evidence = parser.parse(Files.readString(result.evidencePath, StandardCharsets.UTF_8)).toOption.get
-        val handoff = parser.parse(Files.readString(result.handoffPath, StandardCharsets.UTF_8)).toOption.get
+        val evidencetext = Files.readString(result.evidencePath, StandardCharsets.UTF_8)
+        val handofftext = Files.readString(result.handoffPath, StandardCharsets.UTF_8)
+        val evidence = parser.parse(evidencetext).toOption.get
+        val handoff = parser.parse(handofftext).toOption.get
 
         Then("the deterministic evidence and handoff carry only the approved normalized Storyboard")
         evidence.hcursor.get[String]("schema").toOption shouldBe Some("cozy.video.storyboard-review-evidence.v1")
@@ -39,6 +43,9 @@ final class CozyVideoStoryboardReviewSpec
         evidence.hcursor.get[String]("identity").toOption shouldBe Some(result.evidenceIdentity)
         evidence.hcursor.downField("visualInputs").focus shouldBe empty
         handoff.hcursor.get[String]("schema").toOption shouldBe Some("cozy.video.storyboard-handoff.v1")
+        evidencetext should startWith(s"""{"identity":"${result.evidenceIdentity}","schema":"cozy.video.storyboard-review-evidence.v1","status":"validated"""")
+        handofftext should startWith("{\"schema\":\"cozy.video.storyboard-handoff.v1\",\"evidencePath\"")
+        handoff.hcursor.downField("identity").focus shouldBe empty
         handoff.noSpaces.toLowerCase should not include "pptx"
         handoff.noSpaces.toLowerCase should not include "accepted"
       }
@@ -212,6 +219,130 @@ final class CozyVideoStoryboardReviewSpec
       }
     }
 
+    "write v2 visual-page evidence and a self-identifying handoff from literal current inputs" in {
+      _with_temp_dir("v2-visual-page") { root =>
+        Given("a v2 Storyboard visual-page screen, its exact PageSet/catalog/binding resources, and a selected renderer")
+        val storyboard = _v2_storyboard()
+        val source = _write_storyboard(root, storyboard)
+        val material = _write_visual_page_material(root)
+        val project = _write_v2_project(root, source, storyboard, material.binding, "sha256:" + "0" * 64)
+        val save = root.resolve("target/cozy-video/v2-review")
+
+        When("the v2 review-evidence route derives the review package")
+        val generated = CozyVideo.storyboardReviewEvidence(CozyVideo.StoryboardReviewConfig(project, save))
+        val evidencetext = Files.readString(generated.evidencePath, StandardCharsets.UTF_8)
+        val handofftext = Files.readString(generated.handoffPath, StandardCharsets.UTF_8)
+        val evidence = parser.parse(evidencetext).toOption.get
+        val handoff = parser.parse(handofftext).toOption.get
+
+        Then("both v2 values retain literal screen references, every resolved identity, and deterministic renderer proof")
+        evidence.hcursor.get[String]("schema").toOption shouldBe Some("cozy.video.storyboard-review-evidence.v2")
+        evidence.hcursor.downField("visualPages").downArray.get[String]("kind").toOption shouldBe Some("visual-page")
+        evidence.hcursor.downField("visualPages").downArray.get[String]("source").toOption shouldBe Some("visual-pages.json")
+        evidence.hcursor.downField("visualPages").downArray.get[String]("visualPageSetIdentity").toOption.get should startWith("sha256:")
+        val assetsha = evidence.hcursor.downField("visualPages").downArray.downField("assets").downArray.get[String]("sha256").toOption.get
+        assetsha.length shouldBe 64
+        evidence.hcursor.downField("effectiveRenderers").downArray.get[String]("partId").toOption shouldBe Some("storyboard")
+        evidence.hcursor.downField("effectiveRenderers").downArray.get[String]("identity").toOption.get should startWith("sha256:")
+        handoff.hcursor.get[String]("schema").toOption shouldBe Some("cozy.video.storyboard-handoff.v2")
+        handoff.hcursor.get[String]("identity").toOption.get should startWith("sha256:")
+        evidencetext should startWith("""{"schema":"cozy.video.storyboard-review-evidence.v2","status":"validated","source":""")
+        evidencetext should endWith(s""""identity":"${generated.evidenceIdentity}"}""")
+        handofftext should startWith("""{"schema":"cozy.video.storyboard-handoff.v2","status":"validated","evidencePath":""")
+        handofftext should endWith(s""""identity":"${handoff.hcursor.get[String]("identity").toOption.get}"}""")
+        handoff.hcursor.downField("visualPages").downArray.get[String]("bindingIdentity").toOption shouldBe
+          evidence.hcursor.downField("visualPages").downArray.get[String]("bindingIdentity").toOption
+      }
+    }
+
+    "reject a missing or unsafe v2 visualPage declaration without choosing a binding" in {
+      _with_temp_dir("v2-visual-page-declaration") { root =>
+        Given("a v2 visual-page Storyboard and direct candidate binding material")
+        val storyboard = _v2_storyboard()
+        val source = _write_storyboard(root, storyboard)
+        val material = _write_visual_page_material(root)
+        val missing = _write_v2_project(root, source, storyboard, material.binding, "sha256:" + "0" * 64, visualpage = None)
+
+        When("the declaration is absent and then uses an escaping binding path")
+        val missingfailure = intercept[Exception] {
+          CozyVideo.storyboardReviewEvidence(CozyVideo.StoryboardReviewConfig(missing, root.resolve("target/cozy-video/missing")))
+        }
+        val unsafe = _write_v2_project(root, source, storyboard, material.binding, "sha256:" + "0" * 64, bindingref = "../binding.json")
+        val unsafefailure = intercept[Exception] {
+          CozyVideo.storyboardReviewEvidence(CozyVideo.StoryboardReviewConfig(unsafe, root.resolve("target/cozy-video/v2-review")))
+        }
+
+        Then("both routes fail closed rather than inferring or traversing a business binding")
+        missingfailure.getMessage should include("STORYBOARD_REVIEW_VISUAL_PAGE_MISSING")
+        unsafefailure.getMessage should include("STORYBOARD_REVIEW_PATH_INVALID")
+      }
+    }
+
+    "reject stale v2 visual-page proof inputs and handoff records before confirmation planning" in {
+      _with_temp_dir("v2-build-gate") { root =>
+        Given("an approved v2 visual-page evidence package with direct current inputs")
+        val storyboard = _v2_storyboard()
+        val source = _write_storyboard(root, storyboard)
+        val material = _write_visual_page_material(root)
+        val project = _write_v2_project(root, source, storyboard, material.binding, "sha256:" + "0" * 64)
+        val save = root.resolve("target/cozy-video/v2-review")
+        val generated = CozyVideo.storyboardReviewEvidence(CozyVideo.StoryboardReviewConfig(project, save))
+        _write_v2_project(root, source, storyboard, material.binding, generated.evidenceIdentity)
+        val binding = Files.readString(material.binding, StandardCharsets.UTF_8)
+        val catalog = Files.readString(root.resolve("catalog.json"), StandardCharsets.UTF_8)
+        val asset = root.resolve("assets/diagram.svg")
+        val assetbytes = Files.readString(asset, StandardCharsets.UTF_8)
+        val pagefile = root.resolve("visual-pages.json")
+        val pages = Files.readString(pagefile, StandardCharsets.UTF_8)
+        val assetidentity = _sha256(asset)
+
+        When("the binding, catalog, page asset, effective renderer, part selection, and handoff are changed in turn")
+        Files.writeString(material.binding, binding.replace("nodes-slot", "nodes-revised-slot"), StandardCharsets.UTF_8)
+        val bindingfailure = intercept[Exception] {
+          CozyVideo.build(CozyVideo.BuildConfig(project, dryRun = true, checkTools = false, mode = Some("confirmation")), CozyVideo.VideoToolRegistry(Vector.empty))
+        }
+        Files.writeString(material.binding, binding, StandardCharsets.UTF_8)
+        Files.writeString(root.resolve("catalog.json"), catalog.replace("\"core\"", "\"changed\""), StandardCharsets.UTF_8)
+        val catalogfailure = intercept[Exception] {
+          CozyVideo.build(CozyVideo.BuildConfig(project, dryRun = true, checkTools = false, mode = Some("confirmation")), CozyVideo.VideoToolRegistry(Vector.empty))
+        }
+        Files.writeString(root.resolve("catalog.json"), catalog, StandardCharsets.UTF_8)
+        Files.writeString(asset, "<svg>changed</svg>", StandardCharsets.UTF_8)
+        Files.writeString(pagefile, pages.replace(assetidentity, _sha256(asset)), StandardCharsets.UTF_8)
+        val assetfailure = intercept[Exception] {
+          CozyVideo.build(CozyVideo.BuildConfig(project, dryRun = true, checkTools = false, mode = Some("confirmation")), CozyVideo.VideoToolRegistry(Vector.empty))
+        }
+        Files.writeString(asset, assetbytes, StandardCharsets.UTF_8)
+        Files.writeString(pagefile, pages, StandardCharsets.UTF_8)
+        _write_v2_project(root, source, storyboard, material.binding, generated.evidenceIdentity, renderer = Some(Json.obj("engine" -> Json.fromString("remotion"), "fps" -> Json.fromInt(60))))
+        val rendererfailure = intercept[Exception] {
+          CozyVideo.build(CozyVideo.BuildConfig(project, dryRun = true, checkTools = false, mode = Some("confirmation")), CozyVideo.VideoToolRegistry(Vector.empty))
+        }
+        _write_v2_project(root, source, storyboard, material.binding, generated.evidenceIdentity, renderer = None)
+        val norendererfailure = intercept[Exception] {
+          CozyVideo.build(CozyVideo.BuildConfig(project, dryRun = true, checkTools = false, mode = Some("confirmation")), CozyVideo.VideoToolRegistry(Vector.empty))
+        }
+        _write_v2_project(root, source, storyboard, material.binding, generated.evidenceIdentity, storyboardpart = None)
+        val nopartfailure = intercept[Exception] {
+          CozyVideo.build(CozyVideo.BuildConfig(project, dryRun = true, checkTools = false, mode = Some("confirmation")), CozyVideo.VideoToolRegistry(Vector.empty))
+        }
+        _write_v2_project(root, source, storyboard, material.binding, generated.evidenceIdentity)
+        Files.writeString(generated.handoffPath, "{}", StandardCharsets.UTF_8)
+        val handofffailure = intercept[Exception] {
+          CozyVideo.build(CozyVideo.BuildConfig(project, dryRun = true, checkTools = false, mode = Some("confirmation")), CozyVideo.VideoToolRegistry(Vector.empty))
+        }
+
+        Then("each current-input or self-identity mismatch fails closed before cache reuse or renderer work")
+        bindingfailure.getMessage should include("STORYBOARD_REVIEW_EVIDENCE_STALE")
+        catalogfailure.getMessage should include("VISUAL_PAGE_SCREEN_RESOLUTION_INVALID")
+        assetfailure.getMessage should include("STORYBOARD_REVIEW_EVIDENCE_STALE")
+        rendererfailure.getMessage should include("STORYBOARD_REVIEW_EVIDENCE_STALE")
+        norendererfailure.getMessage should include("STORYBOARD_REVIEW_EFFECTIVE_RENDERER_MISSING")
+        nopartfailure.getMessage should include("STORYBOARD_REVIEW_STORYBOARD_PART_MISSING")
+        handofffailure.getMessage should include("STORYBOARD_REVIEW_HANDOFF_IDENTITY_MISSING")
+      }
+    }
+
     "keep generated evidence identity stable for semantically identical Storyboard inputs" in {
       Given("a generator of equivalent Storyboard captions")
       val captions = Gen.oneOf(Vector("", "caption", "another caption"))
@@ -260,6 +391,134 @@ final class CozyVideoStoryboardReviewSpec
         "Show the screen."
       ))
     )
+
+  private final case class VisualPageMaterial(binding: Path)
+
+  private def _v2_storyboard(): CozyVideo.Storyboard =
+    CozyVideo.Storyboard(
+      "cozy.video.storyboard.v2",
+      2,
+      Vector(CozyVideo.StoryboardScene(
+        "visual",
+        1,
+        "opening",
+        "narrator",
+        "narration",
+        "Visual Page proof.",
+        CozyVideoImplementation.StoryboardVisualPageScreen("visual-pages.json", "catalog.json", "overview"),
+        "Visual Page",
+        BigDecimal("1.0"),
+        BigDecimal("0.0"),
+        "cut",
+        Vector.empty,
+        Vector.empty,
+        Vector.empty,
+        Vector.empty,
+        "Review the exact visual page."
+      ))
+    )
+
+  private def _write_visual_page_material(root: Path): VisualPageMaterial = {
+    val asset = root.resolve("assets/diagram.svg")
+    val source = root.resolve("sources/research.txt")
+    Files.createDirectories(asset.getParent)
+    Files.createDirectories(source.getParent)
+    Files.writeString(asset, "<svg/>", StandardCharsets.UTF_8)
+    Files.writeString(source, "research", StandardCharsets.UTF_8)
+    val catalog = _visual_catalog()
+    val page = CozyVisualPage.Page(
+      "overview",
+      "Cozy",
+      "en",
+      CozyVisualPage.CatalogReference("core", 1),
+      CozyVisualPage.Logical(
+        "sequence",
+        Vector(
+          CozyVisualPage.Node("discover", "step", "Discover", Vector("research")),
+          CozyVisualPage.Node("apply", "step", "Apply", Vector("research"))
+        ),
+        Vector(CozyVisualPage.Relation("next", "next", "discover", "apply", Vector("research")))
+      ),
+      CozyVisualPage.Visual("flow-horizontal", Vector.empty),
+      Vector(CozyVisualPage.Asset("diagram", "assets/diagram.svg", "image/svg+xml", _sha256(asset))),
+      Vector(CozyVisualPage.SourceBinding("research", "sources/research.txt"))
+    )
+    Files.writeString(root.resolve("catalog.json"), CozyVisualPage.canonicalCatalogJson(catalog), StandardCharsets.UTF_8)
+    Files.writeString(root.resolve("visual-pages.json"), CozyVisualPage.canonicalJson(CozyVisualPage.PageSet("pages", Vector(page))), StandardCharsets.UTF_8)
+    val binding = root.resolve("binding.json")
+    Files.writeString(binding, _binding_json, StandardCharsets.UTF_8)
+    VisualPageMaterial(binding)
+  }
+
+  private def _write_v2_project(
+    root: Path,
+    source: Path,
+    storyboard: CozyVideo.Storyboard,
+    binding: Path,
+    approval: String,
+    visualpage: Option[Boolean] = Some(true),
+    bindingref: String = "binding.json",
+    renderer: Option[Json] = Some(Json.obj("engine" -> Json.fromString("remotion"), "fps" -> Json.fromInt(30))),
+    storyboardpart: Option[String] = Some("storyboard.json")
+  ): Path = {
+    val reviewfields = Vector(
+      "source" -> Json.fromString(root.relativize(source).toString.replace(java.io.File.separatorChar, '/')),
+      "approvedIdentity" -> Json.fromString(CozyVideo.storyboardIdentity(storyboard))
+    ) ++ visualpage.toVector.map { _ =>
+      "visualPage" -> Json.obj(
+        "binding" -> Json.fromString(bindingref),
+        "evidenceDirectory" -> Json.fromString("target/cozy-video/v2-review"),
+        "approvedEvidenceIdentity" -> Json.fromString(approval)
+      )
+    }
+    val projectfields = Vector(
+      Some("name" -> Json.fromString("v2-review")),
+      renderer.map(value => "renderer" -> value),
+      Some("storyboardReview" -> Json.obj(reviewfields: _*)),
+      Some("parts" -> Json.fromValues(storyboardpart.toVector.map { value =>
+        Json.obj("id" -> Json.fromString("storyboard"), "type" -> Json.fromString("storyboard"), "storyboard" -> Json.fromString(value))
+      }))
+    ).flatten
+    val project = root.resolve("video-v2.json")
+    Files.writeString(project, Json.obj(projectfields: _*).noSpaces, StandardCharsets.UTF_8)
+    project
+  }
+
+  private def _visual_catalog(): CozyVisualPage.Catalog = CozyVisualPage.Catalog(
+    "core",
+    1,
+    Vector(
+      CozyVisualPage.RelationDefinition("next", "from-to"),
+      CozyVisualPage.RelationDefinition("causes", "from-to"),
+      CozyVisualPage.RelationDefinition("depends-on", "from-to"),
+      CozyVisualPage.RelationDefinition("enables", "from-to"),
+      CozyVisualPage.RelationDefinition("maps-to", "from-to")
+    ),
+    Vector(
+      CozyVisualPage.LogicalPattern("sequence", Vector(CozyVisualPage.NodeRole("step", 2, 8)), Vector(CozyVisualPage.RelationRule("next", Vector("step"), Vector("step"), 1, 7, "linear"))),
+      CozyVisualPage.LogicalPattern("causal-chain", Vector(CozyVisualPage.NodeRole("cause", 1, 7), CozyVisualPage.NodeRole("effect", 1, 7)), Vector(CozyVisualPage.RelationRule("causes", Vector("cause"), Vector("effect"), 1, 16, "acyclic"), CozyVisualPage.RelationRule("enables", Vector("cause"), Vector("effect"), 1, 16, "acyclic"))),
+      CozyVisualPage.LogicalPattern("dependency-map", Vector(CozyVisualPage.NodeRole("dependency", 1, 7), CozyVisualPage.NodeRole("dependent", 1, 7)), Vector(CozyVisualPage.RelationRule("depends-on", Vector("dependent"), Vector("dependency"), 1, 16, "acyclic"))),
+      CozyVisualPage.LogicalPattern("mapping", Vector(CozyVisualPage.NodeRole("source", 1, 7), CozyVisualPage.NodeRole("target", 1, 7)), Vector(CozyVisualPage.RelationRule("maps-to", Vector("source"), Vector("target"), 1, 16, "bipartite")))
+    ),
+    Vector(
+      CozyVisualPage.VisualPattern("flow-horizontal", Vector("causal-chain", "sequence"), Vector(CozyVisualPage.ParameterDefinition("emphasisNode", "node-ref", false), CozyVisualPage.ParameterDefinition("showRelationLabels", "boolean", false))),
+      CozyVisualPage.VisualPattern("flow-vertical", Vector("causal-chain", "dependency-map", "sequence"), Vector(CozyVisualPage.ParameterDefinition("emphasisNode", "node-ref", false), CozyVisualPage.ParameterDefinition("showRelationLabels", "boolean", false))),
+      CozyVisualPage.VisualPattern("mapping-columns", Vector("mapping"), Vector(CozyVisualPage.ParameterDefinition("showRelationLabels", "boolean", false), CozyVisualPage.ParameterDefinition("sourceColumnTitle", "string", true), CozyVisualPage.ParameterDefinition("targetColumnTitle", "string", true)))
+    )
+  )
+
+  private def _binding_json: String = {
+    val slots = Vector("knowledge", "nodes", "relations", "assets", "parameters").map { slot =>
+      s"""{"semanticSlot":"$slot","physicalSlot":"$slot-slot"}"""
+    }.mkString("[", ",", "]")
+    val patterns = Vector("flow-horizontal", "flow-vertical", "mapping-columns").map { pattern =>
+      s"""{"visualPattern":"$pattern","slots":$slots}"""
+    }.mkString("[", ",", "]")
+    s"""{"schema":"cozy.visual-page.binding.v1","version":1,"id":"business-default","profile":"business","catalog":{"id":"core","revision":1},"patterns":$patterns}"""
+  }
+
+  private def _sha256(path: Path): String =
+    MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(value => f"${value & 0xff}%02x").mkString
 
   private def _write_storyboard(root: Path, storyboard: CozyVideo.Storyboard): Path = {
     val source = root.resolve("storyboard.json")

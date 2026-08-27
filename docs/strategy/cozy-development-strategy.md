@@ -1006,9 +1006,14 @@ VIS36-04 remains IN PROGRESS after the P36-04 implementation record.
 16 succeeded, 0 failed/aborted, SBT/wrapper 0, and the lock released.
 Independent `P36-04-REREVIEW-002` is PASS and `CB-P36-04-RR-001` is resolved.
 P36-04's implementation/validation record is included in this local acceptance
-Step commit. No push, publish, or publication is claimed. Phase 36 remains IN PROGRESS because renderer scene
-identity binding and evidence identity/proof remain open for P36-05+. VIS36-05
-and VIS36-06, and Phase 37, remain NOT STARTED.
+Step commit. No push, publish, or publication is claimed. Phase 36 remains IN
+PROGRESS because renderer scene identity binding and evidence identity/proof
+remain open for P36-05+. The `P36-05-DEC-001` decision is consumed; P36-05
+focused validation and independent Step re-review passed
+(`54038-20260827T112424Z` ReviewSpec 12/12;
+`54763-20260827T112533Z` accumulator 39/39); acceptance evidence is recorded
+in this local Step commit. VIS36-05 and Phase 36 remain IN PROGRESS; Phase
+closure remains open. VIS36-06 and Phase 37 remain NOT STARTED.
 
 Purpose and boundaries:
 
@@ -1057,8 +1062,12 @@ validation invocation `51002-20260827T073710Z` passed 29/29 with 0 failures
 across 3 suites, and independent Step review passed with zero findings. Video
 integration and cross-media receipt/review acceptance remain open for later
 work; VIS36-04 and Phase 36 remain IN PROGRESS because renderer scene identity
-binding and evidence identity/proof remain open for P36-05+. VIS36-05 and
-VIS36-06, and Phase 37, remain NOT STARTED. This status does not
+binding and evidence identity/proof remain open for P36-05+. The
+`P36-05-DEC-001` decision is consumed; P36-05 focused validation and
+independent Step re-review passed (`54038-20260827T112424Z` ReviewSpec 12/12;
+`54763-20260827T112533Z` accumulator 39/39); acceptance evidence is recorded
+in this local Step commit. VIS36-05 and Phase 36 remain IN PROGRESS; Phase
+closure remains open. VIS36-06 and Phase 37 remain NOT STARTED. This status does not
 expand Phase 30.
 Subject/Explanation Pattern composition and multi-slide/multi-scene expansion
 remain Phase 37 work.
@@ -1218,9 +1227,12 @@ focused validation invocation `51002-20260827T073710Z` passed 29/29 with 0
 failures across 3 suites, and independent Step review passed with zero findings.
 Video integration and cross-media receipt/review acceptance remain open for
 later work; VIS36-04 and Phase 36 remain IN PROGRESS because renderer scene
-identity binding and evidence identity/proof remain open for P36-05+. VIS36-05
-and VIS36-06, and Phase 37, remain NOT STARTED. Phase 37 remains excluded and
-not started; it is the
+identity binding and evidence identity/proof remain open for P36-05+. The
+`P36-05-DEC-001` decision is consumed; P36-05 focused validation and
+independent Step re-review passed (`54038-20260827T112424Z` ReviewSpec 12/12;
+`54763-20260827T112533Z` accumulator 39/39); acceptance evidence is recorded
+in this local Step commit. VIS36-05 and Phase 36 remain IN PROGRESS; Phase
+closure remains open. VIS36-06 and Phase 37 remain NOT STARTED. Phase 37 remains excluded and not started; it is the
 planned logical explanation-composition successor after Phase 36 closes.
 Neither successor adds work to the closed Phase 30 boundary or claims
 validation, review, publication, or external consumer mutation.
@@ -1248,9 +1260,13 @@ invocation `51002-20260827T073710Z` passed 29/29 with 0 failures across 3
 suites, and independent Step review passed with zero findings. Video
 integration and cross-media receipt/review acceptance remain open for later
 work; VIS36-04 and Phase 36 remain IN PROGRESS because renderer scene identity
-binding and evidence identity/proof remain open for P36-05+. VIS36-05 and
-VIS36-06, and Phase 37, remain NOT STARTED. Phase 37 remains excluded and not
-started as its planned logical explanation-composition successor. No SmartDox/Textus
+binding and evidence identity/proof remain open for P36-05+. The
+`P36-05-DEC-001` decision is consumed; P36-05 focused validation and
+independent Step re-review passed (`54038-20260827T112424Z` ReviewSpec 12/12;
+`54763-20260827T112533Z` accumulator 39/39); acceptance evidence is recorded
+in this local Step commit. VIS36-05 and Phase 36 remain IN PROGRESS; Phase
+closure remains open. VIS36-06 and Phase 37 remain NOT STARTED. Phase 37 remains excluded and not started as its planned logical
+explanation-composition successor. No SmartDox/Textus
 consumer execution or acceptance is claimed.
 SmartDox Phase 8
 `LITERAL8-03` owns regenerated-site runtime
