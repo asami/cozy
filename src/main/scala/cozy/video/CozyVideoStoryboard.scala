@@ -1,6 +1,7 @@
 package cozy.video
 
 import com.fasterxml.jackson.core.{JsonFactory, JsonParseException, JsonParser => JacksonParser}
+import cozy.media.CozyVisualPage
 import cozy.runtime.CozyCliArgs
 import io.circe.{Json, JsonObject}
 import io.circe.parser
@@ -13,7 +14,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 26, 2026
- * @version Aug. 26, 2026
+ * @version Aug. 27, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoStoryboard {
@@ -30,7 +31,7 @@ private[cozy] trait CozyVideoStoryboard {
     speaker: String,
     role: String,
     narration: String,
-    screen: StoryboardScreen,
+    screen: StoryboardScreenValue,
     caption: String,
     duration: BigDecimal,
     leadSilence: BigDecimal,
@@ -42,10 +43,29 @@ private[cozy] trait CozyVideoStoryboard {
     direction: String
   )
 
+  sealed trait StoryboardScreenValue {
+    def heading: String
+    def content: String
+  }
+
   final case class StoryboardScreen(
     heading: String,
     content: String
-  )
+  ) extends StoryboardScreenValue
+
+  final case class StoryboardTextScreen(
+    heading: String,
+    content: String
+  ) extends StoryboardScreenValue
+
+  final case class StoryboardVisualPageScreen(
+    source: String,
+    catalog: String,
+    pageId: String
+  ) extends StoryboardScreenValue {
+    def heading: String = ""
+    def content: String = ""
+  }
 
   final case class StoryboardProductionInsert(
     id: String,
@@ -102,6 +122,35 @@ private[cozy] trait CozyVideoStoryboard {
     }
   }
 
+  final case class StoryboardMigrateConfig(
+    input: Path,
+    from: String,
+    to: String,
+    screen: String,
+    output: Path
+  )
+  object StoryboardMigrateConfig {
+    def create(args: List[String]): StoryboardMigrateConfig = {
+      val parsed = CozyCliArgs.parseStrict(
+        org.goldenport.cli.spec.Parameter.argumentFile("input"),
+        org.goldenport.cli.spec.Parameter.property("from"),
+        org.goldenport.cli.spec.Parameter.property("to"),
+        org.goldenport.cli.spec.Parameter.property("screen"),
+        org.goldenport.cli.spec.Parameter.property("save")
+      )(args)
+      val input = parsed.argument("input").map(CozyCliArgs.toPath).getOrElse(
+        throw new IllegalArgumentException("Missing input for video storyboard migrate")
+      )
+      StoryboardMigrateConfig(
+        input,
+        parsed.requiredProperty("from"),
+        parsed.requiredProperty("to"),
+        parsed.requiredProperty("screen"),
+        parsed.requiredPathProperty("save")
+      )
+    }
+  }
+
   def loadStoryboard(source: Path): StoryboardResult = {
     val format = _source_format(source)
     format match {
@@ -133,8 +182,8 @@ private[cozy] trait CozyVideoStoryboard {
 
   def parseStoryboard(source: Path, text: String, format: String): StoryboardResult =
     format match {
-      case "json" => _parse_json(text, source.toString)
-      case "markdown" => _parse_markdown(text, source.toString)
+      case "json" => _parse_json(text, source)
+      case "markdown" => _parse_markdown(text, source)
       case _ => StoryboardResult(None, Vector(_diagnostic("INPUT_FORMAT_UNSUPPORTED", "$", s"Unsupported Storyboard format: $format")))
     }
 
@@ -145,6 +194,8 @@ private[cozy] trait CozyVideoStoryboard {
     _storyboard_json(storyboard).noSpaces
 
   def canonicalStoryboardMarkdown(storyboard: Storyboard): String = {
+    if (storyboard.schema != _schema_v1 || storyboard.version != _version_v1)
+      throw new IllegalArgumentException("STORYBOARD_V2_JSON_ONLY path=$ reason=Storyboard v2 has no Markdown representation")
     val lines = ArrayBuffer[String]()
     lines += "# Storyboard"
     lines += s"schema: ${_json_string(storyboard.schema)}"
@@ -159,8 +210,9 @@ private[cozy] trait CozyVideoStoryboard {
       lines += s"role: ${_json_string(scene.role)}"
       _literal_lines("narration", scene.narration).foreach(lines += _)
       lines += "screen:"
-      lines += s"  heading: ${_json_string(scene.screen.heading)}"
-      _literal_lines("  content", scene.screen.content, "  ").foreach(lines += _)
+      val screen = _v1_screen(scene.screen)
+      lines += s"  heading: ${_json_string(screen.heading)}"
+      _literal_lines("  content", screen.content, "  ").foreach(lines += _)
       lines += s"caption: ${_json_string(scene.caption)}"
       lines += s"duration: ${_decimal_text(scene.duration)}s"
       lines += s"lead-silence: ${_decimal_text(scene.leadSilence)}s"
@@ -222,6 +274,34 @@ private[cozy] trait CozyVideoStoryboard {
     ).mkString("\n")
   }
 
+  def storyboardMigrate(config: StoryboardMigrateConfig): String = {
+    val result = _required_storyboard(config.input)
+    val storyboard = result.storyboard.get
+    if (config.from == "v2" && config.to == "v1" && storyboard.scenes.exists(_.screen.isInstanceOf[StoryboardVisualPageScreen]))
+      throw new IllegalArgumentException("VISUAL_PAGE_SCREEN_LOSSY path=scenes.screen reason=visual-page screen cannot downgrade to v1")
+    if (config.from != "v1" || config.to != "v2" || config.screen != "text")
+      throw new IllegalArgumentException("STORYBOARD_MIGRATION_UNSUPPORTED path=$command reason=only --from v1 --to v2 --screen text is supported")
+    if (storyboard.schema != _schema_v1 || storyboard.version != _version_v1)
+      throw new IllegalArgumentException("STORYBOARD_MIGRATION_SOURCE path=schema reason=--from v1 requires cozy.video.storyboard.v1")
+    if (_source_format(config.output) != Right("json"))
+      throw new IllegalArgumentException("STORYBOARD_MIGRATION_OUTPUT path=$save reason=v1-to-v2 migration requires a .json output")
+    val migrated = Storyboard(
+      _schema_v2,
+      _version_v2,
+      storyboard.scenes.map { scene =>
+        val screen = _v1_screen(scene.screen)
+        scene.copy(screen = StoryboardTextScreen(screen.heading, screen.content))
+      }
+    )
+    Option(config.output.toAbsolutePath.normalize().getParent).foreach(Files.createDirectories(_))
+    Files.writeString(config.output, canonicalStoryboardJson(migrated), StandardCharsets.UTF_8)
+    Vector(
+      s"output: ${config.output}",
+      s"schema: ${migrated.schema}",
+      s"identity: ${storyboardIdentity(migrated)}"
+    ).mkString("\n")
+  }
+
   private def _required_input(args: List[String], command: String): Path = {
     val parsed = CozyCliArgs.parseStrict(org.goldenport.cli.spec.Parameter.argumentFile("input"))(args)
     parsed.argument("input").map(CozyCliArgs.toPath).getOrElse(
@@ -257,16 +337,17 @@ private[cozy] trait CozyVideoStoryboard {
       case _: CharacterCodingException => Left(_diagnostic("INPUT_ENCODING_INVALID", "$", s"Storyboard input is not valid UTF-8: $source"))
     }
 
-  private def _parse_json(text: String, source: String): StoryboardResult =
-    _strict_json(text, "$", source) match {
+  private def _parse_json(text: String, source: Path): StoryboardResult =
+    _strict_json(text, "$", source.toString) match {
       case Left(diagnostic) => StoryboardResult(None, Vector(diagnostic))
       case Right(json) => _project_storyboard(json, source)
     }
 
-  private def _parse_markdown(text: String, source: String): StoryboardResult = {
+  private def _parse_markdown(text: String, source: Path): StoryboardResult = {
+    val sourcetext = source.toString
     val normalized = text.replace("\r\n", "\n")
     if (normalized.contains('\r'))
-      StoryboardResult(None, Vector(_diagnostic("MARKDOWN_LINE_ENDING_INVALID", "$", "Storyboard Markdown may use LF or CRLF line endings", Some(source))))
+      StoryboardResult(None, Vector(_diagnostic("MARKDOWN_LINE_ENDING_INVALID", "$", "Storyboard Markdown may use LF or CRLF line endings", Some(sourcetext))))
     else {
       val split = normalized.split("\n", -1).toVector
       val lines = if (split.nonEmpty && split.last.isEmpty && normalized.endsWith("\n")) split.dropRight(1) else split
@@ -278,7 +359,7 @@ private[cozy] trait CozyVideoStoryboard {
         )
 
         def _failure_(code: String, path: String, reason: String): Nothing =
-          throw MarkdownFailure(_diagnostic(code, path, reason, Some(source)))
+          throw MarkdownFailure(_diagnostic(code, path, reason, Some(sourcetext)))
 
         def _next_(path: String): String =
           if (index >= lines.size) _failure_("MARKDOWN_FIELD_MISSING", path, "Required Markdown field is missing")
@@ -323,7 +404,7 @@ private[cozy] trait CozyVideoStoryboard {
 
         def _json_string_(name: String, path: String, known: Set[String], indent: String = ""): Json = {
           val value = _field_(name, path, known, indent)
-          _strict_json(value, path, source) match {
+          _strict_json(value, path, sourcetext) match {
             case Left(diagnostic) => throw MarkdownFailure(diagnostic)
             case Right(json) if json.asString.isDefined => json
             case Right(_) => _failure_("MARKDOWN_TYPE_INVALID", path, s"$name must be a JSON string")
@@ -332,7 +413,7 @@ private[cozy] trait CozyVideoStoryboard {
 
         def _json_array_(name: String, path: String, known: Set[String]): Json = {
           val value = _field_(name, path, known)
-          _strict_json(value, path, source) match {
+          _strict_json(value, path, sourcetext) match {
             case Left(diagnostic) => throw MarkdownFailure(diagnostic)
             case Right(json) if json.asArray.isDefined => json
             case Right(_) => _failure_("MARKDOWN_TYPE_INVALID", path, s"$name must be a JSON array")
@@ -418,7 +499,10 @@ private[cozy] trait CozyVideoStoryboard {
               _failure_("MARKDOWN_ADDITIONAL_CONTENT", "$", "Storyboard Markdown cannot end with a record separator")
           }
         }
-        _project_storyboard(Json.obj("schema" -> schema, "version" -> version, "scenes" -> Json.fromValues(scenes)), source)
+        if (schema.asString.contains(_schema_v2))
+          StoryboardResult(None, Vector(_diagnostic("STORYBOARD_V2_JSON_ONLY", "schema", "Storyboard v2 is JSON only", Some(sourcetext))))
+        else
+          _project_storyboard(Json.obj("schema" -> schema, "version" -> version, "scenes" -> Json.fromValues(scenes)), source)
       } catch {
         case MarkdownFailure(diagnostic) => StoryboardResult(None, Vector(diagnostic))
       }
@@ -445,7 +529,7 @@ private[cozy] trait CozyVideoStoryboard {
     }
   }
 
-  private def _project_storyboard(json: Json, source: String): StoryboardResult = {
+  private def _project_storyboard(json: Json, source: Path): StoryboardResult = {
     val diagnostics = ArrayBuffer[StoryboardDiagnostic]()
     val root = _object(json, "$", diagnostics)
     root.foreach(_required_fields(_, Vector("schema", "version", "scenes"), "$", diagnostics))
@@ -453,7 +537,9 @@ private[cozy] trait CozyVideoStoryboard {
     val version = root.flatMap(_integer_field(_, "version", "version", diagnostics))
     val scenesjson = root.flatMap(_array_field(_, "scenes", "scenes", diagnostics))
     val scenes = scenesjson.flatMap { values =>
-      val parsed = values.zipWithIndex.map { case (value, index) => _scene(value, s"scenes[$index]", diagnostics) }
+      val parsed = values.zipWithIndex.map { case (value, index) =>
+        _scene(value, s"scenes[$index]", diagnostics, schema.contains(_schema_v2))
+      }
       _sequence(parsed)
     }
     val storyboard = for {
@@ -462,10 +548,11 @@ private[cozy] trait CozyVideoStoryboard {
       scenesvalue <- scenes
     } yield Storyboard(schemavalue, versionvalue, scenesvalue)
     storyboard.foreach(value => diagnostics ++= _validate_storyboard(value))
+    storyboard.filter(_ => diagnostics.isEmpty).foreach(value => diagnostics ++= _validate_visual_page_screens(value, source))
     StoryboardResult(storyboard.filter(_ => diagnostics.isEmpty), diagnostics.toVector)
   }
 
-  private def _scene(json: Json, path: String, diagnostics: ArrayBuffer[StoryboardDiagnostic]): Option[StoryboardScene] =
+  private def _scene(json: Json, path: String, diagnostics: ArrayBuffer[StoryboardDiagnostic], v2: Boolean): Option[StoryboardScene] =
     _object(json, path, diagnostics).flatMap { obj =>
       _required_fields(
         obj,
@@ -482,7 +569,9 @@ private[cozy] trait CozyVideoStoryboard {
       val speaker = _string_field(obj, "speaker", s"$path.speaker", diagnostics)
       val role = _string_field(obj, "role", s"$path.role", diagnostics)
       val narration = _string_field(obj, "narration", s"$path.narration", diagnostics)
-      val screen = _json_field(obj, "screen", s"$path.screen", diagnostics).flatMap(_screen(_, s"$path.screen", diagnostics))
+      val screen = _json_field(obj, "screen", s"$path.screen", diagnostics).flatMap { value =>
+        if (v2) _screen_v2(value, s"$path.screen", diagnostics) else _screen(value, s"$path.screen", diagnostics)
+      }
       val caption = _string_field(obj, "caption", s"$path.caption", diagnostics)
       val duration = _decimal_field(obj, "duration", s"$path.duration", diagnostics)
       val leadsilence = _decimal_field(obj, "leadSilence", s"$path.leadSilence", diagnostics)
@@ -546,6 +635,28 @@ private[cozy] trait CozyVideoStoryboard {
       } yield StoryboardScreen(heading, content)
     }
 
+  private def _screen_v2(json: Json, path: String, diagnostics: ArrayBuffer[StoryboardDiagnostic]): Option[StoryboardScreenValue] =
+    _object(json, path, diagnostics).flatMap { obj =>
+      _string_field(obj, "kind", s"$path.kind", diagnostics).flatMap {
+        case "text" =>
+          _required_fields_v2(obj, Vector("kind", "heading", "content"), path, diagnostics)
+          for {
+            heading <- _string_field(obj, "heading", s"$path.heading", diagnostics)
+            content <- _string_field(obj, "content", s"$path.content", diagnostics)
+          } yield StoryboardTextScreen(heading, content)
+        case "visual-page" =>
+          _required_fields_v2(obj, Vector("kind", "source", "catalog", "pageId"), path, diagnostics)
+          for {
+            source <- _string_field(obj, "source", s"$path.source", diagnostics)
+            catalog <- _string_field(obj, "catalog", s"$path.catalog", diagnostics)
+            pageid <- _string_field(obj, "pageId", s"$path.pageId", diagnostics)
+          } yield StoryboardVisualPageScreen(source, catalog, pageid)
+        case kind =>
+          diagnostics += _diagnostic("SCREEN_KIND_UNSUPPORTED", s"$path.kind", s"Unsupported v2 screen kind $kind")
+          None
+      }
+    }
+
   private def _production_insert(json: Json, path: String, diagnostics: ArrayBuffer[StoryboardDiagnostic]): Option[StoryboardProductionInsert] =
     _object(json, path, diagnostics).flatMap { obj =>
       _required_fields(obj, Vector("id", "kind", "value"), path, diagnostics)
@@ -581,6 +692,17 @@ private[cozy] trait CozyVideoStoryboard {
     obj.keys.foreach { field =>
       if (!expected.contains(field))
         diagnostics += _diagnostic("FIELD_UNKNOWN", _field_path(path, field), s"Unknown v1 Storyboard field $field")
+    }
+  }
+
+  private def _required_fields_v2(obj: JsonObject, expected: Vector[String], path: String, diagnostics: ArrayBuffer[StoryboardDiagnostic]): Unit = {
+    expected.foreach { field =>
+      if (obj(field).isEmpty)
+        diagnostics += _diagnostic("FIELD_MISSING", _field_path(path, field), s"Required field $field is missing")
+    }
+    obj.keys.foreach { field =>
+      if (!expected.contains(field))
+        diagnostics += _diagnostic("FIELD_UNKNOWN", _field_path(path, field), s"Unknown v2 Storyboard field $field")
     }
   }
 
@@ -638,10 +760,15 @@ private[cozy] trait CozyVideoStoryboard {
 
   private def _validate_storyboard(storyboard: Storyboard): Vector[StoryboardDiagnostic] = {
     val diagnostics = ArrayBuffer[StoryboardDiagnostic]()
-    if (storyboard.schema != _schema)
-      diagnostics += _diagnostic("SCHEMA_UNSUPPORTED", "schema", s"schema must be ${_schema}")
-    if (storyboard.version != _version)
-      diagnostics += _diagnostic("VERSION_UNSUPPORTED", "version", s"version must be ${_version}")
+    if (storyboard.schema == _schema_v1) {
+      if (storyboard.version != _version_v1)
+        diagnostics += _diagnostic("VERSION_UNSUPPORTED", "version", s"version must be ${_version_v1}")
+    } else if (storyboard.schema == _schema_v2) {
+      if (storyboard.version != _version_v2)
+        diagnostics += _diagnostic("VERSION_UNSUPPORTED", "version", s"version must be ${_version_v2}")
+    } else {
+      diagnostics += _diagnostic("SCHEMA_UNSUPPORTED", "schema", s"schema must be ${_schema_v1} or ${_schema_v2}")
+    }
     if (storyboard.scenes.isEmpty)
       diagnostics += _diagnostic("SCENES_EMPTY", "scenes", "Storyboard must contain at least one scene")
     val ids = scala.collection.mutable.Set[String]()
@@ -656,6 +783,7 @@ private[cozy] trait CozyVideoStoryboard {
       if (!_stable_token(scene.section)) diagnostics += _diagnostic("SECTION_INVALID", s"$path.section", "Section must be a non-empty stable token")
       if (!_stable_token(scene.speaker)) diagnostics += _diagnostic("SPEAKER_INVALID", s"$path.speaker", "Speaker must be a non-empty stable token")
       if (!_roles.contains(scene.role)) diagnostics += _diagnostic("ROLE_UNSUPPORTED", s"$path.role", s"Unsupported scene role ${scene.role}")
+      _validate_screen(storyboard.schema, scene.screen, s"$path.screen", diagnostics)
       if (!_timing_precision(scene.duration) || scene.duration <= 0) diagnostics += _diagnostic("DURATION_INVALID", s"$path.duration", "Duration must be positive with no more than six fractional digits")
       if (!_timing_precision(scene.leadSilence) || scene.leadSilence < 0 || scene.leadSilence > scene.duration) diagnostics += _diagnostic("LEAD_SILENCE_INVALID", s"$path.leadSilence", "Lead silence must be within duration with no more than six fractional digits")
       if (!_transitions.contains(scene.transition)) diagnostics += _diagnostic("TRANSITION_UNSUPPORTED", s"$path.transition", s"Unsupported transition ${scene.transition}")
@@ -697,10 +825,7 @@ private[cozy] trait CozyVideoStoryboard {
       "speaker" -> Json.fromString(scene.speaker),
       "role" -> Json.fromString(scene.role),
       "narration" -> Json.fromString(scene.narration),
-      "screen" -> Json.obj(
-        "heading" -> Json.fromString(scene.screen.heading),
-        "content" -> Json.fromString(scene.screen.content)
-      ),
+      "screen" -> _screen_json(scene.screen),
       "caption" -> Json.fromString(scene.caption),
       "duration" -> Json.fromBigDecimal(_normalized_decimal(scene.duration)),
       "leadSilence" -> Json.fromBigDecimal(_normalized_decimal(scene.leadSilence)),
@@ -724,6 +849,27 @@ private[cozy] trait CozyVideoStoryboard {
       "surface" -> Json.fromString(note.surface),
       "reading" -> Json.fromString(note.reading)
     )
+
+  private def _screen_json(screen: StoryboardScreenValue): Json = screen match {
+    case StoryboardScreen(heading, content) =>
+      Json.obj(
+        "heading" -> Json.fromString(heading),
+        "content" -> Json.fromString(content)
+      )
+    case StoryboardTextScreen(heading, content) =>
+      Json.obj(
+        "kind" -> Json.fromString("text"),
+        "heading" -> Json.fromString(heading),
+        "content" -> Json.fromString(content)
+      )
+    case StoryboardVisualPageScreen(source, catalog, pageid) =>
+      Json.obj(
+        "kind" -> Json.fromString("visual-page"),
+        "source" -> Json.fromString(source),
+        "catalog" -> Json.fromString(catalog),
+        "pageId" -> Json.fromString(pageid)
+      )
+  }
 
   private def _literal_lines(name: String, value: String, indent: String = ""): Vector[String] =
     Vector(s"$name: |") ++ (
@@ -749,8 +895,126 @@ private[cozy] trait CozyVideoStoryboard {
   private def _timing_precision(value: BigDecimal): Boolean =
     value.bigDecimal.scale() <= 6
 
+  private def _validate_screen(
+    schema: String,
+    screen: StoryboardScreenValue,
+    path: String,
+    diagnostics: ArrayBuffer[StoryboardDiagnostic]
+  ): Unit = if (schema == _schema_v1) {
+    if (!screen.isInstanceOf[StoryboardScreen])
+      diagnostics += _diagnostic("SCREEN_V1_INVALID", path, "Storyboard v1 screen must be exactly heading and content")
+  } else if (schema == _schema_v2) {
+    screen match {
+      case StoryboardTextScreen(_, _) => ()
+      case StoryboardVisualPageScreen(source, catalog, pageid) =>
+        if (!_safe_reference(source))
+          diagnostics += _diagnostic("VISUAL_PAGE_SCREEN_SOURCE_UNSAFE", s"$path.source", "Visual Page source must be a safe normalized descriptor-relative POSIX path")
+        if (!_safe_reference(catalog))
+          diagnostics += _diagnostic("VISUAL_PAGE_SCREEN_CATALOG_UNSAFE", s"$path.catalog", "Visual Page catalog must be a safe normalized descriptor-relative POSIX path")
+        if (!_visual_page_id(pageid))
+          diagnostics += _diagnostic("VISUAL_PAGE_SCREEN_PAGE_ID_INVALID", s"$path.pageId", "Visual Page pageId must be a non-empty stable token")
+      case _ =>
+        diagnostics += _diagnostic("SCREEN_V2_INVALID", path, "Storyboard v2 screen must declare kind text or visual-page")
+    }
+  }
+
+  private def _validate_visual_page_screens(storyboard: Storyboard, source: Path): Vector[StoryboardDiagnostic] = {
+    if (storyboard.schema != _schema_v2)
+      Vector.empty
+    else {
+      val diagnostics = ArrayBuffer[StoryboardDiagnostic]()
+      val root = Option(source.toAbsolutePath.normalize().getParent).getOrElse(
+        source.toAbsolutePath.normalize()
+      )
+      storyboard.scenes.zipWithIndex.foreach {
+        case (scene, index) => scene.screen match {
+          case screen: StoryboardVisualPageScreen =>
+            val path = s"scenes[$index].screen"
+            val visualsource = _direct_visual_page_path(root, screen.source, s"$path.source", "Visual Page source", diagnostics)
+            val catalog = _direct_visual_page_path(root, screen.catalog, s"$path.catalog", "Visual Page catalog", diagnostics)
+            for {
+              sourcepath <- visualsource
+              catalogpath <- catalog
+            } {
+              try {
+                CozyVisualPage.load(sourcepath, catalogpath).document match {
+                  case set: CozyVisualPage.PageSet =>
+                    val matches = set.pages.filter(_.id == screen.pageId)
+                    if (matches.isEmpty)
+                      diagnostics += _diagnostic("VISUAL_PAGE_SCREEN_PAGE_NOT_FOUND", s"$path.pageId", s"Visual Page pageId does not resolve: ${screen.pageId}")
+                    else if (matches.size != 1)
+                      diagnostics += _diagnostic("VISUAL_PAGE_SCREEN_PAGE_DUPLICATE", s"$path.pageId", s"Visual Page pageId resolves more than once: ${screen.pageId}")
+                  case _ =>
+                    diagnostics += _diagnostic("VISUAL_PAGE_SCREEN_SOURCE_INVALID", s"$path.source", "Visual Page source must be a cozy.visual-page-set.v1 document")
+                }
+              } catch {
+                case NonFatal(error) =>
+                  diagnostics += _diagnostic(
+                    "VISUAL_PAGE_SCREEN_RESOLUTION_INVALID",
+                    path,
+                    Option(error.getMessage).getOrElse("Visual Page source or catalog cannot be validated")
+                  )
+              }
+            }
+          case _ => ()
+        }
+      }
+      diagnostics.toVector
+    }
+  }
+
+  private def _direct_visual_page_path(
+    root: Path,
+    reference: String,
+    path: String,
+    label: String,
+    diagnostics: ArrayBuffer[StoryboardDiagnostic]
+  ): Option[Path] = {
+    if (!_safe_reference(reference)) {
+      diagnostics += _diagnostic("VISUAL_PAGE_SCREEN_REFERENCE_UNSAFE", path, s"$label must be a safe normalized descriptor-relative POSIX path")
+      None
+    } else {
+      val candidate = root.resolve(reference).normalize()
+      if (!candidate.startsWith(root)) {
+        diagnostics += _diagnostic("VISUAL_PAGE_SCREEN_REFERENCE_UNSAFE", path, s"$label escapes the Storyboard source directory")
+        None
+      } else if (_has_symbolic_link(root, candidate)) {
+        diagnostics += _diagnostic("VISUAL_PAGE_SCREEN_INPUT_SYMLINK", path, s"$label must not use a symbolic-link path")
+        None
+      } else if (!Files.isRegularFile(candidate, LinkOption.NOFOLLOW_LINKS)) {
+        diagnostics += _diagnostic("VISUAL_PAGE_SCREEN_INPUT_NOT_REGULAR", path, s"$label must be an existing direct regular file")
+        None
+      } else {
+        Some(candidate)
+      }
+    }
+  }
+
+  private def _has_symbolic_link(root: Path, candidate: Path): Boolean = {
+    if (Files.isSymbolicLink(root))
+      true
+    else {
+      var current = root
+      val iterator = root.relativize(candidate).iterator()
+      var found = false
+      while (iterator.hasNext && !found) {
+        current = current.resolve(iterator.next())
+        found = Files.isSymbolicLink(current)
+      }
+      found
+    }
+  }
+
+  private def _v1_screen(screen: StoryboardScreenValue): StoryboardScreen = screen match {
+    case value: StoryboardScreen => value
+    case _ => throw new IllegalArgumentException("SCREEN_V1_INVALID path=screen reason=Storyboard v1 screen must be exactly heading and content")
+  }
+
   private def _stable_token(value: String): Boolean =
     _stable_token_pattern.pattern.matcher(value).matches()
+
+  private def _visual_page_id(value: String): Boolean =
+    _visual_page_id_pattern.pattern.matcher(value).matches()
 
   private def _safe_reference(value: String): Boolean =
     value.nonEmpty &&
@@ -775,11 +1039,14 @@ private[cozy] trait CozyVideoStoryboard {
 
   private final case class MarkdownFailure(diagnostic: StoryboardDiagnostic) extends RuntimeException
 
-  private val _schema = "cozy.video.storyboard.v1"
-  private val _version = 1
+  private val _schema_v1 = "cozy.video.storyboard.v1"
+  private val _version_v1 = 1
+  private val _schema_v2 = "cozy.video.storyboard.v2"
+  private val _version_v2 = 2
   private val _roles = Set("narration", "dialogue", "direction", "system")
   private val _transitions = Set("none", "cut", "fade", "dissolve", "wipe")
   private val _insert_kinds = Set("overlay", "cutaway", "pause", "marker", "custom")
   private val _stable_token_pattern = "^[A-Za-z][A-Za-z0-9_-]*$".r
+  private val _visual_page_id_pattern = "^[A-Za-z0-9][A-Za-z0-9._-]*$".r
   private val _safe_reference_pattern = "^[A-Za-z0-9][A-Za-z0-9._-]*(/[A-Za-z0-9][A-Za-z0-9._-]*)*$".r
 }

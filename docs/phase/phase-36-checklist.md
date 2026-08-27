@@ -87,8 +87,10 @@ Status: IN PROGRESS
 - [ ] Verify that coordinates, fonts, colors, PowerPoint Shape kinds, and
       renderer object identifiers occur only in binding/output evidence and
       never in the Logical Pattern or Relation graph.
-- [ ] P36-03C focused validation passed (presentation 16/16 and receipt
-      accumulator 9/9, no failures); independent Step review is pending.
+- [x] P36-03C/P36-03B Step accepted in local acceptance commit
+      `4d4d621fdbc1822233d49de6a618708567c02d8a`; final-tree focused validation
+      invocation `51002-20260827T073710Z` passed 29/29 with 0 failures across
+      3 suites; independent Step review passed with zero findings.
 
 Decision record: `P36-03C-DEC-001` is consumed only for Phase 36 / P36-03C.
 At phase base `955601e3cd211900d6f2db3ae0c680a29a7957b2` and the current
@@ -104,7 +106,18 @@ decision journal. The remaining VIS36-03 items stay open.
 
 ## VIS36-04: Video Scene Screen Integration
 
-Status: NOT STARTED
+Status: IN PROGRESS
+
+`P36-04-DEC-001` authorizes only the exact v2
+`{kind,source,catalog,pageId}` screen contract. `P36-04-DEC-001` is consumed.
+Focused validation invocation `90284-20260827T085957Z`
+(`testOnly cozy.video.CozyVideoStoryboardSpec`) reported 16 succeeded, 0
+failed/aborted, SBT/wrapper 0, and the lock released. Independent
+`P36-04-REREVIEW-002` is PASS and `CB-P36-04-RR-001` is resolved.
+P36-04's implementation/validation record is included in this local acceptance
+Step commit. No push, publish, or publication is claimed. VIS36-04 and Phase 36 remain IN PROGRESS because
+renderer scene identity binding and evidence identity/proof remain open for
+P36-05+. VIS36-05 and VIS36-06, and Phase 37, remain NOT STARTED.
 
 - [ ] Allow a Storyboard scene to reference or contain a normalized Visual
       Page as its displayed screen contract.
@@ -151,8 +164,20 @@ Status: NOT STARTED
       ledger synchronization before changing Phase 36 from planned/open.
 
 Phase 36 remains IN PROGRESS; VIS36-01 and VIS36-02 are DONE; VIS36-03 is IN
-PROGRESS because P36-03A is accepted and P36-03B/P36-03C implementation has
-passed focused validation but awaits independent Step review; VIS36-04 through
-VIS36-06 remain NOT STARTED. Implementation is limited to the accepted
-P36-02/P36-03A evidence and the P36-03B/P36-03C review-pending accumulator;
-no publication or downstream consumer mutation is claimed.
+PROGRESS because its remaining checklist items stay open, while VIS36-04 is IN
+PROGRESS after its P36-04 implementation record. `P36-04-DEC-001` is consumed;
+focused validation invocation `90284-20260827T085957Z`
+(`testOnly cozy.video.CozyVideoStoryboardSpec`) reported 16 succeeded, 0
+failed/aborted, SBT/wrapper 0, and the lock released; independent
+`P36-04-REREVIEW-002` is PASS and `CB-P36-04-RR-001` is resolved.
+P36-04's implementation/validation record is included in this local acceptance
+Step commit. No push, publish, or publication is claimed. VIS36-04 and Phase 36 remain IN PROGRESS because
+renderer scene identity binding and evidence identity/proof remain open for
+P36-05+. The
+P36-03B/P36-03C Step is accepted in local acceptance commit
+`4d4d621fdbc1822233d49de6a618708567c02d8a` after final-tree focused validation
+invocation `51002-20260827T073710Z` passed 29/29 with 0 failures across 3 suites
+and independent Step review passed with zero findings; VIS36-05 and VIS36-06
+and Phase 37 remain NOT STARTED. Implementation is limited to the accepted
+P36-02/P36-03 evidence and the P36-04 Storyboard boundary; no publication or
+downstream consumer mutation is claimed.

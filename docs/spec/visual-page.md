@@ -1,15 +1,27 @@
 # Visual Page Specification
 
-Status: NORMATIVE; Phase 36 `VIS36-01` is DONE; P36-03C focused validation
-passed and independent VIS36-03 Step review is pending
+Status: NORMATIVE; Phase 36 `VIS36-01` is DONE; the P36-03B/P36-03C Step is
+accepted in local acceptance commit `4d4d621fdbc1822233d49de6a618708567c02d8a`;
+final-tree focused validation invocation `51002-20260827T073710Z` passed 29/29
+with 0 failures across 3 suites, and independent VIS36-03 Step review passed
+with zero findings. `VIS36-04` remains IN PROGRESS after the P36-04
+implementation record. `P36-04-DEC-001` is consumed. Focused validation
+invocation `90284-20260827T085957Z` (`testOnly
+cozy.video.CozyVideoStoryboardSpec`) reported 16 succeeded, 0 failed/aborted,
+SBT/wrapper 0, and the lock released; independent `P36-04-REREVIEW-002` is
+PASS and `CB-P36-04-RR-001` is resolved.
+P36-04's implementation/validation record is included in this local acceptance
+Step commit. No push, publish, or publication is claimed. VIS36-04 and Phase 36 remain IN PROGRESS because renderer scene identity
+binding and evidence identity/proof remain open for P36-05+. VIS36-05 and
+VIS36-06, and Phase 37, remain NOT STARTED.
 
 This is the normative contract for the Visual Page route. It defines semantic
 values, compatibility boundaries, the independent direct core
 parse/validation/canonicalization CLI, the renderer-independent direct semantic
 Preview, the implemented separately discriminated P36-03C `visual-page-v1`
-presentation route, and the explicit legacy Slide IR migration map. It claims
-no Storyboard-route integration, review acceptance, or external-consumer
-acceptance.
+presentation route, the explicit legacy Slide IR migration map, and the P36-04
+Storyboard v2 reference contract. It claims no video review acceptance or
+external-consumer acceptance.
 
 The words **MUST**, **MUST NOT**, **SHOULD**, and **MAY** are normative. The
 ownership design is [`docs/design/visual-page.md`](../design/visual-page.md).
@@ -438,11 +450,11 @@ VisualPageSet/catalog structured-document and binding/template byte inputs.
 This implemented route leaves the existing slide-IR source, `--slide-ir`, and
 `cozy.presentation.render.v1` contract untouched.
 
-## 7. Future Storyboard v2 screen
+## 7. Storyboard v2 screen
 
-The future route is separately versioned as `cozy.video.storyboard.v2` with
-integer `version: 2`. All v1 Scene fields remain semantic in v2. Its `screen`
-is discriminated exactly as either:
+The separately versioned `cozy.video.storyboard.v2` route has integer
+`version: 2` and is JSON only. All v1 Scene fields remain semantic in v2. Its
+`screen` is discriminated exactly as either:
 
 ```json
 { "kind": "text", "heading": "...", "content": "..." }
@@ -451,13 +463,17 @@ is discriminated exactly as either:
 or:
 
 ```json
-{ "kind": "visual-page", "source": "safe/page-set-path", "pageId": "page-id" }
+{ "kind": "visual-page", "source": "safe/page-set-path", "catalog": "safe/catalog-path", "pageId": "page-id" }
 ```
 
-The latter requires its `source` to satisfy the same safe VisualPageSet source
-rules as the implemented presentation route and its `pageId` to resolve exactly once
-in that referenced set. Duplicate page IDs and zero or multiple matches reject
-fail closed.
+The latter requires both `source` and `catalog` to be nonempty normalized
+descriptor-relative forward-slash paths resolved from the Storyboard source
+directory. They reject absolute, traversal, URI/query/fragment/control,
+backslash, non-normalized, final-symlink, ancestor-symlink, and nonregular
+values. Cozy loads the `source` as a VisualPageSet using the exact supplied
+catalog and requires `pageId` to resolve exactly once. Duplicate page IDs and
+zero or multiple matches reject fail closed. Catalog, binding, renderer, and
+resolved identity inference are prohibited.
 A v2 Storyboard identity contains the screen reference, not a substituted or
 guessed page identity. Scene-screen visual evidence and receipts bind resolved
 page, catalog, binding, renderer, and asset identities. A page change stales
@@ -466,10 +482,12 @@ transition, confirmation/final separation, or audiovisual acceptance, and it
 does not make audiovisual acceptance implicit.
 
 v1 remains exactly as accepted. Only explicit
-`cozy video storyboard migrate --from v1 --to v2 --screen text` produces a v2
-text-screen equivalent. A `visual-page` v2 screen cannot downgrade to v1 and
-fails `VISUAL_PAGE_SCREEN_LOSSY`. No parser auto-upgrades or reinterprets a v1
-screen.
+`cozy video storyboard migrate --from v1 --to v2 --screen text <input> --save
+<output.json>` produces a canonical v2 JSON text-screen equivalent. A
+`visual-page` v2 screen cannot downgrade to v1 and fails
+`VISUAL_PAGE_SCREEN_LOSSY`. No parser auto-upgrades or reinterprets a v1
+screen. P36-04 adds parsing, planning metadata, and this one-way migration
+only; it does not implement video receipt/review evidence or renderer output.
 
 ## 8. Explicit Slide IR migration
 

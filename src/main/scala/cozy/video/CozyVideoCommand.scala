@@ -27,7 +27,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 26, 2026
+ * @version Aug. 27, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoCommand {
@@ -51,13 +51,16 @@ private[cozy] trait CozyVideoCommand {
       case "video" :: "storyboard" :: "convert" :: rest =>
         println(storyboardConvert(StoryboardConvertConfig.create(rest)))
         true
+      case "video" :: "storyboard" :: "migrate" :: rest =>
+        println(storyboardMigrate(StoryboardMigrateConfig.create(rest)))
+        true
       case "video" :: "storyboard" :: "review-evidence" :: rest =>
         println(storyboardReview(StoryboardReviewConfig.create(rest)))
         true
       case "video" :: "storyboard" :: other :: _ =>
         RAISE.invalidArgumentFault(s"Unsupported video storyboard command: $other")
       case "video" :: "storyboard" :: Nil =>
-        RAISE.invalidArgumentFault("Missing video storyboard command: validate, inspect, convert, or review-evidence")
+        RAISE.invalidArgumentFault("Missing video storyboard command: validate, inspect, convert, migrate, or review-evidence")
       case "video" :: "scaffold" :: rest =>
         println(CozyVideoScaffold.scaffold(CozyVideoScaffold.Config.create(rest)))
         true

@@ -151,15 +151,18 @@ phase base `955601e3cd211900d6f2db3ae0c680a29a7957b2` with the current
 P36-03B binding/design/docs accumulator, and authorized IMPLEMENT. P36-03C
 implements the closed descriptor branch, fixed renderer handoff, strict v2
 renderer/review evidence, and explicit existing receipt inputs while retaining
-the v1 route byte-for-byte. Focused validation and review remain parent-owned;
-this decision is neither global approval nor SmartDox, Textus, CAR, video, or
+the v1 route byte-for-byte. The P36-03B/P36-03C Step is accepted in local
+acceptance commit `4d4d621fdbc1822233d49de6a618708567c02d8a`; final-tree focused
+validation invocation `51002-20260827T073710Z` passed 29/29 with 0 failures
+across 3 suites, and independent VIS36-03 Step review passed with zero findings.
+This decision is neither global approval nor SmartDox, Textus, CAR, video, or
 downstream-consumer acceptance.
 
 ### VIS36-04: Video Scene Screen Integration
 
 Stage Status:
 
-- Current status: NOT STARTED
+- Current status: IN PROGRESS
 - Owner: Cozy video Storyboard integration
 - Update rule: complete only when scene-screen references, visual identity,
   review evidence, and unchanged video-specific semantics pass.
@@ -167,6 +170,24 @@ Stage Status:
 Allow a video Storyboard scene to use a Visual Page for its displayed screen
 without moving narration, timing, transition, or audiovisual review semantics
 out of the Storyboard workflow.
+
+`P36-04-DEC-001` is consumed only for Phase 36 / VIS36-04: the user approved
+the exact v2 visual-page screen shape `{kind,source,catalog,pageId}`. P36-04
+implementation is limited to the JSON-only Storyboard v2 parser, direct
+VisualPageSet/catalog/pageId validation, planning metadata projection, and
+explicit v1-text-to-v2 migration. Focused validation invocation
+`90284-20260827T085957Z` (`testOnly cozy.video.CozyVideoStoryboardSpec`) reported
+16 succeeded, 0 failed/aborted, SBT/wrapper 0, and the lock released.
+Independent `P36-04-REREVIEW-002` is PASS and `CB-P36-04-RR-001` is resolved.
+P36-04's implementation/validation record is included in this local acceptance
+Step commit. No push, publish, or publication is claimed. VIS36-04 and Phase 36 remain IN PROGRESS because
+renderer scene identity binding and evidence identity/proof remain open for
+P36-05+. VIS36-05 and VIS36-06, and Phase 37, remain NOT STARTED.
+
+Nonblocking hygiene disposition `HYG-36-04-001`: the pre-existing unified
+Storyboard parser now exceeds 1,000 lines after the v2 boundary. A safe
+physical split needs a new source path outside this frozen implementation
+manifest; defer that mechanical split to a separately authorized hygiene batch.
 
 ### VIS36-05: Media Package Identity and Review Integration
 

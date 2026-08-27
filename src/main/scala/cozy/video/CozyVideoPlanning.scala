@@ -27,7 +27,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 26, 2026
+ * @version Aug. 27, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoPlanning {
@@ -210,10 +210,7 @@ private[cozy] trait CozyVideoPlanning {
       Json.obj(
         "order" -> Json.fromInt(scene.order),
         "role" -> Json.fromString(scene.role),
-        "screen" -> Json.obj(
-          "heading" -> Json.fromString(scene.screen.heading),
-          "content" -> Json.fromString(scene.screen.content)
-        ),
+        "screen" -> _storyboard_screen_json(scene.screen),
         "duration" -> Json.fromBigDecimal(scene.duration),
         "leadSilence" -> Json.fromBigDecimal(scene.leadSilence),
         "direction" -> Json.fromString(scene.direction),
@@ -236,6 +233,27 @@ private[cozy] trait CozyVideoPlanning {
       Some(scene.section),
       Json.obj("transition" -> Json.fromString(scene.transition))
     )
+
+  private[video] def _storyboard_screen_json(screen: StoryboardScreenValue): Json = screen match {
+    case StoryboardScreen(heading, content) =>
+      Json.obj(
+        "heading" -> Json.fromString(heading),
+        "content" -> Json.fromString(content)
+      )
+    case StoryboardTextScreen(heading, content) =>
+      Json.obj(
+        "kind" -> Json.fromString("text"),
+        "heading" -> Json.fromString(heading),
+        "content" -> Json.fromString(content)
+      )
+    case StoryboardVisualPageScreen(source, catalog, pageid) =>
+      Json.obj(
+        "kind" -> Json.fromString("visual-page"),
+        "source" -> Json.fromString(source),
+        "catalog" -> Json.fromString(catalog),
+        "pageId" -> Json.fromString(pageid)
+      )
+  }
 
   private[video] def _part_artifacts(
     id: String,

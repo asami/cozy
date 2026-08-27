@@ -1,6 +1,16 @@
 # Cozy Video Storyboard Design
 
-Status: NORMATIVE DESIGN; Phase 30 is IN PROGRESS
+Status: NORMATIVE DESIGN; Phase 30 v1 remains accepted; Phase 36 `VIS36-04`
+remains IN PROGRESS after the P36-04 implementation record
+
+`P36-04-DEC-001` is consumed. Focused validation invocation
+`90284-20260827T085957Z` (`testOnly cozy.video.CozyVideoStoryboardSpec`) reported
+16 succeeded, 0 failed/aborted, SBT/wrapper 0, and the lock released.
+Independent `P36-04-REREVIEW-002` is PASS and `CB-P36-04-RR-001` is resolved.
+P36-04's implementation/validation record is included in this local acceptance
+Step commit. No push, publish, or publication is claimed. VIS36-04 and Phase 36 remain IN PROGRESS because
+renderer scene identity binding and evidence identity/proof remain open for
+P36-05+. VIS36-05 and VIS36-06, and Phase 37, remain NOT STARTED.
 
 This design defines the architecture, responsibility boundaries, and stable
 invariants for `cozy.video.storyboard.v1`. The functional contract is
@@ -309,22 +319,33 @@ Phase 30 is currently IN PROGRESS. The one-Phase authorization changes only
 delivery shape; it does not claim that any implementation or acceptance gate
 has passed.
 
-## 11. Future Visual Page v2 coexistence
+## 11. Storyboard v2 Visual Page coexistence
 
-The v1 Storyboard remains the current accepted semantic and lifecycle
-authority. Its text `Screen`, narration, speaker, timing, silence, transition,
-confirmation/final separation, and audiovisual-review behavior do not move to
-Visual Page and do not change through documentation alone.
+The accepted v1 Storyboard remains the semantic and lifecycle authority for
+its exact `{heading,content}` Screen shape. No v1 parser, Markdown path,
+review, build, cache, confirmation/final record, or external consumer path is
+reinterpreted by v2.
 
-The future `cozy.video.storyboard.v2` route may make its screen a reference to
-exactly one page in a safe Visual Page Set. The reference is semantic
-Storyboard content; resolved page/catalog/binding/renderer/asset identities
-are visual-evidence inputs. This separates a screen-image freshness change
-from Storyboard content and audiovisual approval. A stale page must stale
-visual evidence without silently rewriting narration or timing, and an
-unrepresentable visual-page screen must not downgrade to v1.
+P36-04 adds a separate JSON-only `cozy.video.storyboard.v2` route. Its screen
+is a closed choice between a text value and the literal
+`{kind,source,catalog,pageId}` Visual Page reference. `source` and `catalog`
+are direct, safe, descriptor-relative files rooted at the Storyboard source
+directory. Cozy validates the referenced VisualPageSet with precisely that
+catalog and resolves `pageId` exactly once. It never chooses catalog, binding,
+renderer, or a page by inference.
 
-The explicit v1-to-v2 text-screen migration and the lossy visual-page-to-v1
-rejection are compatibility adapters owned by a later implementation. No
-existing v1 parser, review evidence, build, cache, confirmation/final record,
-or external consumer path is altered by this design foundation.
+The literal reference is Storyboard meaning and therefore participates in the
+Storyboard identity. The resolved page/catalog/binding/renderer/asset
+identities remain future visual-evidence inputs; P36-04 neither creates a
+renderer invocation nor advances receipt/review evidence responsibility.
+Planning carries the same closed reference as scene metadata while preserving
+narration, speaker, timing, silence, transition, confirmation/final, and
+audiovisual semantics in the existing Storyboard workflow.
+
+`cozy video storyboard migrate --from v1 --to v2 --screen text <input> --save
+<output.json>` is the explicit one-way compatibility adapter. It writes only
+canonical v2 JSON text screens. A visual-page v2 screen cannot downgrade to v1
+and is rejected with `VISUAL_PAGE_SCREEN_LOSSY`; `convert` retains its existing
+representation-conversion responsibility. P36-04 excludes P36-05 receipts and
+evidence, P36-06 cross-media acceptance, SmartDox/Textus work, and external
+consumer acceptance.

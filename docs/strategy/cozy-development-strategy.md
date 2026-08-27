@@ -996,9 +996,19 @@ Primary references:
 ### Phase 36: Common Visual Page and Cross-Media Presentation Contract
 
 Status: IN PROGRESS; VIS36-01 and VIS36-02 are DONE; VIS36-03 is IN PROGRESS
-with P36-03A accepted, P36-03B recorded, and P36-03C focused validation passed
-(presentation 16/16 and receipt accumulator 9/9, no failures), with independent
-Step review pending.
+with P36-03A accepted and the P36-03B/P36-03C Step accepted in local
+acceptance commit `4d4d621fdbc1822233d49de6a618708567c02d8a`. Final-tree
+focused validation invocation `51002-20260827T073710Z` passed 29/29 with 0
+failures across 3 suites, and independent Step review passed with zero findings.
+VIS36-04 remains IN PROGRESS after the P36-04 implementation record.
+`P36-04-DEC-001` is consumed; focused validation invocation
+`90284-20260827T085957Z` (`testOnly cozy.video.CozyVideoStoryboardSpec`) reported
+16 succeeded, 0 failed/aborted, SBT/wrapper 0, and the lock released.
+Independent `P36-04-REREVIEW-002` is PASS and `CB-P36-04-RR-001` is resolved.
+P36-04's implementation/validation record is included in this local acceptance
+Step commit. No push, publish, or publication is claimed. Phase 36 remains IN PROGRESS because renderer scene
+identity binding and evidence identity/proof remain open for P36-05+. VIS36-05
+and VIS36-06, and Phase 37, remain NOT STARTED.
 
 Purpose and boundaries:
 
@@ -1041,11 +1051,14 @@ Purpose and boundaries:
 
 Phase 36 starts only after Phase 30 closes its active video Storyboard
 contract. VIS36-01 and VIS36-02 are accepted as DONE, and VIS36-03 remains IN
-PROGRESS with P36-03A accepted, P36-03B recorded as the versioned
-business-binding contract Step, and P36-03C focused validation passed
-(presentation 16/16 and receipt accumulator 9/9, no failures), with independent
-Step review pending. Video integration, cross-media receipt/review acceptance,
-and VIS36-04 through VIS36-06 remain open or NOT STARTED. This status does not
+PROGRESS with P36-03A accepted and the P36-03B/P36-03C Step accepted in local
+acceptance commit `4d4d621fdbc1822233d49de6a618708567c02d8a`. Final-tree focused
+validation invocation `51002-20260827T073710Z` passed 29/29 with 0 failures
+across 3 suites, and independent Step review passed with zero findings. Video
+integration and cross-media receipt/review acceptance remain open for later
+work; VIS36-04 and Phase 36 remain IN PROGRESS because renderer scene identity
+binding and evidence identity/proof remain open for P36-05+. VIS36-05 and
+VIS36-06, and Phase 37, remain NOT STARTED. This status does not
 expand Phase 30.
 Subject/Explanation Pattern composition and multi-slide/multi-scene expansion
 remain Phase 37 work.
@@ -1199,11 +1212,15 @@ Origin:
 ## Current Priority
 
 Phase 30 is closed. Phase 36 VIS36-01 and VIS36-02 are DONE; VIS36-03 remains
-IN PROGRESS with P36-03A accepted, P36-03B recorded, and P36-03C focused
-validation passed (presentation 16/16 and receipt accumulator 9/9, no
-failures), with independent Step review pending. Video integration,
-cross-media receipt/review acceptance, and VIS36-04 through VIS36-06 remain
-open or NOT STARTED. Phase 37 remains excluded and not started; it is the
+IN PROGRESS with P36-03A accepted and the P36-03B/P36-03C Step accepted in
+local acceptance commit `4d4d621fdbc1822233d49de6a618708567c02d8a`. Final-tree
+focused validation invocation `51002-20260827T073710Z` passed 29/29 with 0
+failures across 3 suites, and independent Step review passed with zero findings.
+Video integration and cross-media receipt/review acceptance remain open for
+later work; VIS36-04 and Phase 36 remain IN PROGRESS because renderer scene
+identity binding and evidence identity/proof remain open for P36-05+. VIS36-05
+and VIS36-06, and Phase 37, remain NOT STARTED. Phase 37 remains excluded and
+not started; it is the
 planned logical explanation-composition successor after Phase 36 closes.
 Neither successor adds work to the closed Phase 30 boundary or claims
 validation, review, publication, or external consumer mutation.
@@ -1225,12 +1242,15 @@ has been superseded by CFB3 and the candidate final receipt
 suites, 0 aborted, SBT/wrapper 0, lock released). Strict actual-Build admission
 remains correct. No Phase 35 implementation is started here. Phase 36
 VIS36-01 and VIS36-02 are DONE; VIS36-03 remains IN PROGRESS with P36-03A
-accepted, P36-03B recorded as the versioned business-binding contract Step,
-and P36-03C focused validation passed (presentation 16/16 and receipt
-accumulator 9/9, no failures), with independent Step review pending. Video
-integration, cross-media receipt/review acceptance, and VIS36-04 through
-VIS36-06 remain open or NOT STARTED. Phase 37 remains excluded and not started
-as its planned logical explanation-composition successor. No SmartDox/Textus
+accepted and the P36-03B/P36-03C Step accepted in local acceptance commit
+`4d4d621fdbc1822233d49de6a618708567c02d8a`. Final-tree focused validation
+invocation `51002-20260827T073710Z` passed 29/29 with 0 failures across 3
+suites, and independent Step review passed with zero findings. Video
+integration and cross-media receipt/review acceptance remain open for later
+work; VIS36-04 and Phase 36 remain IN PROGRESS because renderer scene identity
+binding and evidence identity/proof remain open for P36-05+. VIS36-05 and
+VIS36-06, and Phase 37, remain NOT STARTED. Phase 37 remains excluded and not
+started as its planned logical explanation-composition successor. No SmartDox/Textus
 consumer execution or acceptance is claimed.
 SmartDox Phase 8
 `LITERAL8-03` owns regenerated-site runtime

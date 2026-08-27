@@ -1,11 +1,19 @@
 # Cozy Video Storyboard Specification
 
-Status: NORMATIVE; Phase 30 is IN PROGRESS
+Status: NORMATIVE; Phase 30 v1 remains accepted; Phase 36 `VIS36-04` remains
+IN PROGRESS after the P36-04 implementation record
 
-This document is the authoritative functional specification for
-`cozy.video.storyboard.v1`. It freezes the semantic contract for the later
-internal Phase 30 Steps; it does not claim Scala code, CLI implementation,
-executable specifications, validation, review, commit, or completion.
+This document is the authoritative functional specification for accepted
+`cozy.video.storyboard.v1` and the separately versioned
+`cozy.video.storyboard.v2` screen contract. `P36-04-DEC-001` is consumed.
+P36-04 focused validation
+invocation `90284-20260827T085957Z` passed with 16 succeeded/0 failed/0
+aborted, SBT/wrapper 0, and the lock released; independent
+`P36-04-REREVIEW-002` is PASS and `CB-P36-04-RR-001` is resolved.
+P36-04's implementation/validation record is included in this local acceptance
+Step commit. No push, publish, or publication is claimed. VIS36-04 and Phase 36 remain IN PROGRESS because
+renderer scene identity binding and evidence identity/proof remain open for
+P36-05+. VIS36-05 and VIS36-06, and Phase 37, remain NOT STARTED.
 
 The words **MUST**, **MUST NOT**, **SHOULD**, and **MAY** are normative. The
 corresponding responsibility and ownership design is in
@@ -423,28 +431,54 @@ Later implementation and executable specifications MUST establish that:
 6. no source-managed `script.json` is required on the new Storyboard path,
    while the legacy path remains available pending migration acceptance.
 
-## 11. Future Visual Page v2 coexistence boundary
+## 11. Storyboard v2 Visual Page coexistence boundary
 
-This document remains the accepted `cozy.video.storyboard.v1` / `version: 1`
-contract. Its v1 `Screen` shape, every v1 Scene field, narration, speaker,
-duration, lead silence, transition, confirmation/final separation, and
-audiovisual-review semantics are unchanged. No v1 parser auto-upgrades or
-reinterprets its `screen` field.
+`cozy.video.storyboard.v1` / `version: 1` remains byte- and semantically
+unchanged. Its Screen is exactly `{heading,content}`; all v1 JSON and
+restricted Markdown behavior remain accepted, and no v1 parser auto-upgrades
+or reinterprets a screen.
 
-A distinct later contract is `cozy.video.storyboard.v2` / `version: 2`. All v1
-Scene fields remain semantic in v2. A v2 `screen` is discriminated as either
-`{kind:"text",heading,content}` or
-`{kind:"visual-page",source,pageId}`. The latter identifies exactly one
-Visual Page in a safe referenced Visual Page Set. Its Storyboard identity
-contains the screen reference, not a substituted or guessed page identity.
-Scene-screen visual evidence and receipts bind the resolved Visual Page,
-catalog, binding, renderer, and asset identities.
+`cozy.video.storyboard.v2` / integer `version: 2` is JSON only. It retains
+every v1 Scene field and their existing narration, speaker, duration, lead
+silence, transition, confirmation/final, and audiovisual-review semantics.
+Its closed `screen` discriminator is exactly one of:
 
-A changed page stales visual evidence only. It does not rewrite Storyboard
-narration, speaker, duration, silence, transition, confirmation/final state,
-or audiovisual acceptance, and it cannot make audiovisual acceptance implicit.
-Only explicit `cozy video storyboard migrate --from v1 --to v2 --screen text`
-can create a v2 text-screen equivalent. A v2 visual-page screen cannot
-downgrade to v1 and fails `VISUAL_PAGE_SCREEN_LOSSY`. This is a normative
-coexistence boundary, not a claim that a v2 parser, migration command, receipt,
-or executable specification has been implemented.
+```json
+{ "kind": "text", "heading": "...", "content": "..." }
+```
+
+```json
+{ "kind": "visual-page", "source": "pages.json", "catalog": "catalog.json", "pageId": "overview" }
+```
+
+Mixed, missing, unknown, and wrongly typed screen fields are rejected. The
+second form requires nonempty normalized descriptor-relative forward-slash
+`source` and `catalog` paths, resolved from the Storyboard source directory.
+They reject absolute paths, traversal, URI/query/fragment/control characters,
+backslashes, non-normalized forms, final symbolic links, symbolic-link
+ancestors, and nonregular files. Cozy loads the source as a VisualPageSet using
+the specified catalog and requires `pageId` to match exactly one page. It does
+not infer a catalog, binding, renderer, or any resolved identity.
+
+Canonical v2 JSON preserves the existing root and Scene field order. A v2
+screen uses the displayed field order, and the Storyboard semantic identity
+contains the literal `source`, `catalog`, and `pageId` reference rather than a
+substituted page/catalog digest. Video planning projects that same reference
+into existing scene planning metadata; it does not invoke a renderer or change
+the ownership of narration, timing, transition, confirmation/final, or
+audiovisual review.
+
+The sole cross-version adapter is:
+
+```text
+cozy video storyboard migrate --from v1 --to v2 --screen text <input> --save <output.json>
+```
+
+It accepts v1 JSON or restricted Markdown, writes only canonical v2 JSON text
+screens, and preserves every other v1 Scene value. It neither overloads
+`convert` nor accepts a downgrade. A v2 visual-page-to-v1 request fails with
+`VISUAL_PAGE_SCREEN_LOSSY` before an output is written.
+
+P36-04 does not create video renderer output, Visual Page binding, video
+receipt/review evidence, external SmartDox/Textus work, publication, or
+deployment. Those responsibilities remain separately scoped.

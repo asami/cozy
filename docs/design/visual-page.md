@@ -1,12 +1,23 @@
 # Visual Page Design
 
-Status: NORMATIVE DESIGN; Phase 36 `VIS36-01` is DONE
+Status: NORMATIVE DESIGN; Phase 36 `VIS36-01` is DONE; `VIS36-04` remains
+IN PROGRESS after the P36-04 implementation record
+
+`P36-04-DEC-001` is consumed. Focused validation invocation
+`90284-20260827T085957Z` (`testOnly cozy.video.CozyVideoStoryboardSpec`) reported
+16 succeeded, 0 failed/aborted, SBT/wrapper 0, and the lock released.
+Independent `P36-04-REREVIEW-002` is PASS and `CB-P36-04-RR-001` is resolved.
+P36-04's implementation/validation record is included in this local acceptance
+Step commit. No push, publish, or publication is claimed. VIS36-04 and Phase 36 remain IN PROGRESS because
+renderer scene identity binding and evidence identity/proof remain open for
+P36-05+. VIS36-05 and VIS36-06, and Phase 37, remain NOT STARTED.
 
 This design fixes the ownership and architecture boundary for the Visual Page
 contract in [`docs/spec/visual-page.md`](../spec/visual-page.md). It admits the
-strict direct core commands, the renderer-independent semantic Preview, and the
-separately discriminated P36-03C presentation route defined below. It creates
-no consumer-acceptance, migration-result, or downstream-runtime claim.
+strict direct core commands, the renderer-independent semantic Preview, the
+separately discriminated P36-03C presentation route, and the P36-04
+Storyboard-v2 reference route defined below. It creates no consumer-acceptance,
+migration-result, or downstream-runtime claim.
 
 ## 1. One-screen semantic authority
 
@@ -251,16 +262,23 @@ that reconstruction verifies freshness only and never records semantic
 approval. The route coexists with, but does not replace, the existing
 `--slide-ir` / `cozy.presentation.render.v1` route.
 
-The future Storyboard route is independently versioned. A v2 scene can point
-to exactly one page in a safe Visual Page Set while retaining Storyboard
-ownership of narration, speaker, duration, silence, transition, confirmation,
-final, and audiovisual-review semantics. The page reference participates in
-Storyboard identity; resolved page/catalog/binding/renderer/asset identities
-belong to visual evidence and are never guessed into Storyboard content.
+The independently versioned JSON-only Storyboard v2 route uses a closed
+`visual-page` screen reference of exactly `{kind,source,catalog,pageId}`. Both
+paths are direct safe descriptor-relative files rooted at the Storyboard source
+directory: neither permits empty, absolute, traversal, URI-like,
+query/fragment/control, backslash, non-normalized, final-symlink,
+ancestor-symlink, missing, or nonregular input. Cozy loads the VisualPageSet
+through the supplied catalog and resolves `pageId` exactly once. A v2 scene
+therefore retains Storyboard ownership of narration, speaker, duration,
+silence, transition, confirmation, final, and audiovisual-review semantics.
+The literal reference participates in Storyboard identity; resolved
+page/catalog/binding/renderer/asset identities belong to later visual evidence
+and are never guessed into Storyboard content.
 
-The current v1 presentation and Storyboard contracts remain exactly accepted;
-the Storyboard v2 route is still separate future work. Existing
-`cozy.media.receipt.v2` and review-state v1 schema shapes remain unchanged.
+The current v1 presentation and Storyboard contracts remain exactly accepted.
+P36-04 provides v2 parsing, planning metadata, and the explicit
+`migrate --from v1 --to v2 --screen text <input> --save <output.json>`
+adapter only. Existing `cozy.media.receipt.v2` and review-state v1 schema shapes remain unchanged.
 The implemented visual-page presentation route requires explicit existing
 receipt inputs for the VisualPageSet and catalog as structured documents and
 for the binding and template as bytes. Assets are proved by strict Visual Page
