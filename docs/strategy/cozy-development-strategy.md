@@ -1000,7 +1000,9 @@ Cross-media Review route is accepted in
 `245ec94dccc8abcf81cb810cd0630d91ebb15e05`; its representative article-summary
 fixture and separate test-image inspection are recorded in the Phase 36
 checklist. The independent Phase review, bounded duplicate-JSON repair, and
-focused closure re-review are complete. Phase 37 remains NOT STARTED.
+focused closure re-review are complete. Phase 37 remains IN PROGRESS; its
+P37-01 design/specification Step is review-clean and closed. Implementation
+and executable specifications remain P37-02 onward.
 
 Purpose and boundaries:
 
@@ -1045,8 +1047,10 @@ Phase 36 starts only after Phase 30 closes its active video Storyboard
 contract. VIS36-01 through VIS36-06 are DONE. Its accepted Cross-media Review
 route verifies currentness/identity only, including strict rejection of
 duplicate JSON object fields before decode; it does not expand Phase 30.
-Phase 37 remains NOT STARTED.
-Subject/Explanation Pattern composition and multi-slide/multi-scene expansion
+Phase 37 remains IN PROGRESS; its P37-01 design/specification Step is
+review-clean and closed. Implementation and executable specifications remain
+P37-02 onward.
+Subject/Explanation Pattern composition and multi-slide/multi-scene projection
 remain Phase 37 work.
 
 Primary references:
@@ -1059,22 +1063,36 @@ Primary references:
 
 ### Phase 37: Logical Explanation Composition and Media Projection
 
-Status: planned; not started.
+Status: IN PROGRESS; P37-01 design/specification Step COMPLETE (review-clean);
+acceptance commit pending without a recorded commit hash.
 
 Purpose and boundaries:
 
 - define Subject Pattern as the typed logical structure of what is explained
   and Explanation Pattern as the independently selected Narrative / Argument
   strategy by which it is developed for an audience and purpose;
-- normalize one selected subject, explanation pattern, and typed parameter set
-  into an ordered, medium-neutral Explanation Step plan containing typed
-  Logical Patterns and semantic Relation graphs;
+- deterministically validate, normalize, and copy one selected subject,
+  explanation pattern, typed parameter set, and explicitly authored ordered
+  explanation steps into an ordered, medium-neutral Explanation Step plan
+  retaining the authored typed Logical Patterns and semantic Relation graphs;
+- introduce the closed authored `cozy.explanation-projection-map.v1` between
+  Plan and final Projection with independent page and scene mappings and no
+  resource, renderer, layout, timing, narration, or approval state;
 - project Explanation Steps independently into multiple Visual Pages for a
   presentation and multiple Storyboard scenes containing Visual Pages for
   video, without requiring equal slide and scene counts;
+- require explicitly named `--explanation-catalog` and
+  `--presentation-catalog` companions, bind the P36 logical-catalog identity
+  in Plan, and bind both P36 logical and full presentation-catalog identities
+  in the final receipt without discovery configuration;
+- define `expand` as deterministic validation, normalization, and copying of
+  explicitly authored Composition steps and their Logical Pattern/Relation
+  graphs into ordered Plan steps; it never generates or infers those graphs.
+  The `product-overview`, `product-mechanism`, and `problem-solution` cases
+  preserve their authored typed roles and Relations;
 - keep subject analysis, pattern selection, and parameter authoring with humans
-  or AI while Cozy owns deterministic validation, expansion, projection,
-  identity, and stale-input rejection;
+  or AI while Cozy owns deterministic validation, normalization/copying,
+  projection, identity, and stale-input rejection;
 - admit `software-product` as the first representative Subject Pattern,
   `product-overview` with `vision`, `goal`, `context`, `use-case`, and
   `main-scenario` as the first representative Explanation Pattern, and
@@ -1093,9 +1111,13 @@ Purpose and boundaries:
   figure, Mermaid/PlantUML, and SVG renderers without making them Phase 37
   acceptance requirements.
 
-Phase 37 starts only after Phase 36 accepts the common Visual Page and
-cross-media display contracts. It does not authorize implementation or alter
-the active Phase 30 boundary.
+Phase 37 started only after Phase 36 accepted the common Visual Page and
+cross-media display contracts. The user-authorized P37-01B documentation
+repair established the P37-01 design/specification foundation and is
+review-clean and closed as a Step without altering the active Phase 30
+boundary. Implementation and executable specifications remain P37-02 onward;
+the acceptance commit is pending. No full Phase validation or Phase review,
+publication, push, or downstream consumer acceptance is claimed.
 
 Primary references:
 
@@ -1193,15 +1215,17 @@ Origin:
 | DEV-004 | Phase 29 full review `CPB-29-01` / `CPB-29-02` | Canonically admit configured BoK source paths and unconditionally validate glossary/component-reference resources before manifest publication. | NEW_PHASE | [Phase 34](../phase/phase-34.md) | RESOLVED |
 | DEV-005 | Phase 34 final official full test `58874-20260824T044406Z`; resolved by CFB3 | Make `cozy.bok.CozyBokSpec` actual-Build source fixtures self-contained local safe sources while preserving CFB2 configuration-time safe absence and strict actual-Build admission; specify any behavior change first. | NEW_PHASE | [Phase 34](../phase/phase-34.md) | RESOLVED |
 | DEV-006 | User request on 2026-08-26 following the article-summary media workflow review | Establish a common Visual Page contract carrying a typed Logical Pattern and semantic Relation graph, projected separately through Visual Patterns into presentation slides and video Storyboard scene screens with deterministic renderer binding and receipt identity. This supersedes the earlier Markdown-only Slide IR successor proposal. | NEW_PHASE | [Phase 36](../phase/phase-36.md) | RESOLVED |
-| DEV-007 | User request on 2026-08-26 following the ACE product-explanation review | Separate Subject Pattern from Explanation Pattern and deterministically project one logical explanation composition into independent multi-slide and multi-scene sequences through the common Visual Page contract. | NEW_PHASE | [Phase 37](../phase/phase-37.md) | PLANNED |
+| DEV-007 | User request on 2026-08-26 following the ACE product-explanation review | Separate Subject Pattern from Explanation Pattern and deterministically project one logical explanation composition into independent multi-slide and multi-scene sequences through the common Visual Page contract. | NEW_PHASE | [Phase 37](../phase/phase-37.md) | IN PROGRESS |
 
 ## Current Priority
 
 Phase 30 and Phase 36 are closed. Phase 36 VIS36-01 through VIS36-06 are DONE.
-Phase 37 remains excluded and NOT STARTED as the planned logical
-explanation-composition successor after Phase 36.
+Phase 37 remains IN PROGRESS as the logical explanation-composition successor
+after Phase 36. Its P37-01/P37-01B design/specification Step is review-clean
+and closed; implementation and executable specifications remain P37-02 onward.
 Neither successor adds work to the closed Phase 30 boundary or claims
-validation, review, publication, or external consumer mutation.
+full Phase validation, Phase review, publication, push, or external consumer
+mutation.
 
 Phase 34 is closed after the candidate final official full Cozy validation.
 The earlier invocation
@@ -1221,9 +1245,9 @@ suites, 0 aborted, SBT/wrapper 0, lock released). Strict actual-Build admission
 remains correct. No Phase 35 implementation is started here. Phase 36
 VIS36-01 through VIS36-05 are DONE; VIS36-06 awaits Phase-level full
 validation, independent Phase review, ledger closure, and release commit.
-Phase 37 remains excluded and NOT STARTED as its planned logical
-explanation-composition successor. No SmartDox/Textus
-consumer execution or acceptance is claimed.
+Phase 37 remains documentation-only after the review-clean, closed P37-01/P37-01B
+design/specification Step; implementation and executable specifications remain
+P37-02 onward. No SmartDox/Textus consumer execution or acceptance is claimed.
 SmartDox Phase 8
 `LITERAL8-03` owns regenerated-site runtime
 finalization, metadata-only inventory/hash evidence, and Textus BoK consumer

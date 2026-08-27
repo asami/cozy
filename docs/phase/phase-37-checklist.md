@@ -3,27 +3,47 @@
 This checklist is the authoritative progress ledger for Phase 37. It is not a
 normative behavior contract.
 
-Phase Status: PLANNED
+Phase Status: IN PROGRESS
 
 ## LOGIC37-01: Logical Composition Design and Specification
 
-Status: NOT STARTED
+Status: COMPLETE
 
-- [ ] Define Subject Pattern as the typed structure of what is explained and
+- [x] Define Subject Pattern as the typed structure of what is explained and
       Explanation Pattern as the typed Narrative / Argument strategy by which
       it is developed.
-- [ ] Specify the authority chain `Narrative / Argument Pattern -> Logical
+- [x] Specify the authority chain `Narrative / Argument Pattern -> Logical
       Pattern + Relation graph -> Visual Pattern -> renderer binding` and keep
       physical Shape/layout data below the Visual Pattern boundary.
-- [ ] Specify independent versioning, identities, parameter ownership, and
+- [x] Specify independent versioning, identities, parameter ownership, and
       compatibility rules for the two pattern layers.
-- [ ] Specify the normalized Explanation Step plan and its authority
-      relationship to subject input, explanation input, Visual Pages,
-      Storyboard scenes, and generated media.
-- [ ] Specify deterministic failure for incompatible patterns, unknown or
-      ill-typed parameters, incomplete expansion, and lossy projection.
-- [ ] Record the accepted design and specification amendments outside the
+- [x] Specify the closed authored `cozy.explanation-projection-map.v1` between
+      Plan and final Projection, including independent presentation/page and
+      video/scene mappings and its own identity without resource or media
+      state.
+- [x] Specify the normalized Explanation Step plan as deterministic validation,
+      normalization, and copying of explicitly authored Composition steps and
+      graphs, with its authority relationship to subject input, explanation
+      input, Visual Pages, Storyboard scenes, and generated media.
+- [x] Specify explicit explanation-catalog and P36 presentation-catalog file
+      companions, the P36 logical-catalog selector, the full presentation
+      catalog receipt identity, and the direct-file command/input matrix.
+- [x] Specify authored ordered Composition steps with nonempty claims,
+      closed `supporting|primary` emphasis, typed Logical Pattern/Relation
+      values, references, and parameter selections copied into ordered Plan
+      parameter provenance values.
+- [x] Specify deterministic failure for incompatible patterns, unknown or
+      ill-typed parameters, incomplete authored-step normalization/copying,
+      and lossy projection.
+- [x] Record the accepted design and specification amendments outside the
       Phase work-ledger layer.
+
+P37-01B is the authorized documentation repair Slice for this stage. Its
+P37-01 design/specification contract is review-clean and closed as a Step;
+the acceptance commit is pending and has no recorded commit hash.
+Implementation and executable specifications remain P37-02 onward. No full
+Phase validation or Phase review, publication, push, or downstream consumer
+acceptance is claimed.
 
 ## LOGIC37-02: Typed Subject and Explanation Pattern Models
 
@@ -47,20 +67,23 @@ Status: NOT STARTED
 
 Status: NOT STARTED
 
-- [ ] Expand one selected Subject Pattern, Explanation Pattern, and typed
-      parameter set into a stable ordered Explanation Step plan.
+- [ ] Define `expand` as deterministic validation, normalization, and copying
+      of one selected Subject Pattern, Explanation Pattern, typed parameter
+      set, and explicitly authored ordered Composition steps into a stable
+      ordered Explanation Step plan; it does not generate or infer graphs.
 - [ ] Require every Explanation Step to retain its semantic roles, claims,
-      Logical Pattern, typed Relations, sources, assets, and provenance before
-      Visual Pattern selection.
+      explicitly authored Logical Pattern, typed Relations, sources, assets,
+      and provenance before Visual Pattern selection.
 - [ ] Preserve source claims, assets, citations, emphasis, and
-      pattern/parameter provenance through every generated Explanation Step.
+      pattern/parameter provenance through every normalized/copied Plan step.
 - [ ] Make expansion independent of slide numbers, scene numbers, physical
       coordinates, timing, transitions, and renderer-specific identifiers.
 - [ ] Reject ambiguous, incomplete, non-deterministic, or unsupported
       expansions with structured diagnostics.
 - [ ] Prove `problem-solution` or another representative Narrative Pattern
-      expands to semantic roles and Relations rather than directly to arrows,
-      cards, coordinates, or Shape kinds.
+      preserves its explicitly authored typed semantic roles and Relations in
+      normalized Plan steps rather than generating arrows, cards, coordinates,
+      or Shape kinds.
 
 ## LOGIC37-04: Presentation and Video Projection
 
@@ -88,13 +111,14 @@ Status: NOT STARTED
       Pattern.
 - [ ] Define and validate `product-overview` with ordered `vision`, `goal`,
       `context`, `use-case`, and `main-scenario` explanation roles.
-- [ ] Define and validate `product-mechanism` relationships from product goals
-      and use cases to their realization mechanisms.
+- [ ] Define and validate explicitly authored `product-mechanism` relationships
+      from product goals and use cases to their realization mechanisms.
 - [ ] Prove that the same product subject supports both explanation patterns
       and that each pattern projects coherently to multiple slides and multiple
       video scenes.
-- [ ] Keep human/AI-authored subject facts and selected parameters
-      distinguishable from Cozy-generated deterministic expansion evidence.
+- [ ] Keep human/AI-authored subject facts, selected parameters, typed roles,
+      and Relations distinguishable from Cozy's deterministic validation,
+      normalization, and copying evidence.
 
 ## LOGIC37-06: Review, Validation, and Closure
 
@@ -105,9 +129,14 @@ Status: NOT STARTED
 - [ ] Verify semantic-step, Visual Page, slide-page, scene, asset, citation,
       receipt, and stale-input consistency across the representative package.
 - [ ] Complete separate semantic, visual, and audiovisual reviews without
-      treating deterministic generation as acceptance.
+      treating deterministic validation, normalization, copying, or delivery
+      generation as acceptance.
 - [ ] Run focused and full Cozy validation, independent review, and final
-      ledger synchronization before changing Phase 37 from planned/open.
+      ledger synchronization before closing Phase 37 from its in-progress/open
+      state.
 
-Phase 37 remains planned. No checklist item is complete and no implementation,
-validation, publication, or downstream consumer mutation is claimed.
+Phase 37 is IN PROGRESS. LOGIC37-01 is COMPLETE; LOGIC37-02 through LOGIC37-06
+remain NOT STARTED/open. P37-01B is documentation-only, and implementation and
+executable specifications remain P37-02 onward. No full Phase validation or
+Phase review, publication, push, downstream consumer acceptance, or acceptance
+commit receipt is claimed.

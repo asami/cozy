@@ -1,6 +1,6 @@
 # Phase 37: Logical Explanation Composition and Media Projection
 
-Status: planned
+Status: IN PROGRESS
 
 Plan date: 2026-08-26
 
@@ -10,8 +10,9 @@ Establish two independent pattern contracts for reusable explanation
 composition: a Subject Pattern describing the structure of what is explained,
 and an Explanation Pattern serving as the Narrative / Argument Pattern by
 which that subject is developed for an audience and purpose. Deterministically
-expand one selected composition into typed Logical Patterns and semantic
-Relation graphs, then project them into multiple presentation pages or video
+validate, normalize, and copy one selected Composition's explicitly authored
+ordered steps, typed Logical Patterns, and semantic Relation graphs into an
+ordered Plan, then project them into multiple presentation pages or video
 scenes through the Visual Page contract established by Phase 36.
 
 ## Start gate
@@ -22,8 +23,11 @@ scenes through the Visual Page contract established by Phase 36.
 - Stable design and specification must separate subject semantics,
   explanation development, projection planning, and rendered-media concerns
   before implementation begins.
-- This planning record does not authorize implementation, validation,
-  publication, or downstream article-repository mutation.
+- The user authorized one single-phase execution with the internal
+  Phase/Step/Slice boundary `Phase 37 / P37-01 / P37-01B`. This phase record
+  authorizes only the frozen P37-01B documentation repair boundary;
+  validation, review, publication, and downstream article-repository mutation
+  remain separately gated.
 
 ## Boundary and invariants
 
@@ -34,10 +38,11 @@ scenes through the Visual Page contract established by Phase 36.
   a synonym for a slide layout.
 - Make the same subject usable with multiple explanation patterns and the same
   explanation pattern usable with multiple compatible subject patterns.
-- Normalize a selected subject, explanation pattern, and parameter set into an
-  ordered medium-neutral Explanation Step plan. Each Step carries claims,
-  sources, assets, a Logical Pattern, semantic nodes, and typed Relations
-  before visual or media projection.
+- Deterministically validate, normalize, and copy a selected subject,
+  explanation pattern, parameter set, and explicitly authored ordered steps
+  into an ordered medium-neutral Explanation Step plan. Each Step retains
+  authored claims, sources, assets, a Logical Pattern, semantic nodes, and
+  typed Relations before visual or media projection.
 - Allow presentation projection to map one Explanation Step to one or multiple
   Visual Pages and video projection to map one Explanation Step to one or
   multiple Storyboard scenes containing Visual Pages.
@@ -45,12 +50,27 @@ scenes through the Visual Page contract established by Phase 36.
   does not require identical page and scene counts.
 - Keep AI or human responsibility for subject analysis, pattern selection, and
   parameter authoring separate from Cozy's deterministic validation,
-  expansion, projection, identity, and freshness responsibilities.
+  normalization/copying, projection, identity, and freshness responsibilities.
+- Add the closed authored `cozy.explanation-projection-map.v1` between Plan and
+  final Projection, with independent presentation/page and video/scene
+  mappings and no resource, renderer, layout, timing, narration, or approval
+  state.
+- Require every operation to receive explicitly named explanation and P36
+  presentation catalog files. The Plan binds the P36 logical-catalog identity,
+  while the final Projection receipt also binds the full presentation-catalog
+  identity; no discovery configuration is used.
+- Keep Composition claims, emphasis, typed Logical Pattern/Relation graphs,
+  ordered authored steps, and parameter selections explicit; Plan copies them
+  and records ordered `{name,value}` parameter provenance plus its identity.
 - Introduce `software-product` as the first representative Subject Pattern and
   `product-overview` as the first representative Explanation Pattern with the
   ordered roles `vision`, `goal`, `context`, `use-case`, and `main-scenario`.
 - Define `product-mechanism` as the explanation pattern that relates product
   goals and use cases to the mechanisms that realize them.
+- Require `product-overview`, `product-mechanism`, and `problem-solution` to
+  preserve each explicitly authored step's typed semantic role and Logical
+  Pattern/Relation graph through `expand`; no accepted case generates or
+  infers those values.
 - Define the reusable Narrative / Argument catalog boundary for
   `problem-solution`, `problem-cause-solution`, `current-target`,
   `before-after`, `challenge-approach-result`,
@@ -60,7 +80,9 @@ scenes through the Visual Page contract established by Phase 36.
   `principle-mechanism-effect`, `strategy-execution-outcome`, and
   `past-present-future`. The design stage may select a smaller acceptance
   subset but must define deterministic versioning and extension.
-- Ensure a Narrative Pattern expands to semantic roles and Relations, never
+- Ensure `expand` deterministically validates, normalizes, and copies each
+  explicitly authored Narrative Pattern step's semantic role and typed
+  Relation graph, never generating or inferring them and never mapping
   directly to arrows, cards, coordinates, or PowerPoint Shapes.
 - Allow the same accepted Narrative/Logical composition to choose different
   compatible Visual Patterns without changing its semantic identity.
@@ -74,14 +96,27 @@ scenes through the Visual Page contract established by Phase 36.
 
 Stage Status:
 
-- Current status: NOT STARTED
+- Current status: COMPLETE
 - Owner: Cozy logical presentation design and specification
 - Update rule: complete only when the checklist's authority, compatibility,
   composition, projection, and failure contracts are accepted.
 
 Define the Subject and Narrative / Argument pattern layers, their compatibility
-relationship, Logical Pattern/Relation expansion, Explanation Step
-normalization, and media-projection boundaries.
+relationship, authored Logical Pattern/Relation validation and copying,
+Explanation Step normalization, and media-projection boundaries.
+
+`P37-01B` is the authorized documentation repair Slice for the accepted
+`cozy.explanation.catalog.v1`, `cozy.explanation-composition.v1`,
+`cozy.explanation-plan.v1`, `cozy.explanation-projection-map.v1`, and
+`cozy.explanation-projection.v1` contract. Its design and specification
+documents define the closed v1 fields, canonical identities, explicit
+catalog companions, authored Composition steps, independent mapping request,
+deterministic projection receipt, and later command matrix. The P37-01
+design/specification contract is review-clean and closed as a Step; the
+acceptance commit is pending and has no recorded commit hash. Implementation
+and executable specifications remain P37-02 onward. Phase 37 remains
+IN PROGRESS: no full Phase validation or Phase review, publication, push, or
+downstream consumer acceptance is claimed.
 
 ### LOGIC37-02: Typed Subject and Explanation Pattern Models
 
@@ -102,12 +137,16 @@ Stage Status:
 
 - Current status: NOT STARTED
 - Owner: Cozy explanation planning
-- Update rule: complete only when compatible patterns expand into stable,
-  inspectable Explanation Steps with deterministic identity and diagnostics.
+- Update rule: complete only when explicitly authored compatible-pattern steps
+  and their Logical Pattern/Relation graphs are deterministically validated,
+  normalized, and copied into stable, inspectable Explanation Steps with
+  deterministic identity and diagnostics.
 
-Expand selected patterns and parameters into an ordered medium-neutral plan of
-typed Logical Patterns and Relation graphs without deciding physical page
-layout, scene timing, or renderer effects.
+`expand` means deterministic validation, normalization, and copying of
+explicitly authored Composition steps, typed Logical Patterns, and Relation
+graphs into an ordered medium-neutral plan; it does not generate or infer
+those roles or graphs. The operation does not decide physical page layout,
+scene timing, or renderer effects.
 
 ### LOGIC37-04: Presentation and Video Projection
 
@@ -153,13 +192,16 @@ Stage Status:
   synthesis, timing policy, transition/effect profiles, or final media review
   gates.
 - Cozy does not infer a subject model, select an explanation strategy, write
-  article meaning, or make semantic acceptance decisions.
+  article meaning, generate a Logical Pattern or Relation graph, or make
+  semantic acceptance decisions.
 - Site publication, upload, deployment, and external article-repository
   mutation remain outside this Phase.
 
 ## References
 
 - `docs/phase/phase-37-checklist.md`
+- `docs/design/explanation-composition.md`
+- `docs/spec/explanation-composition.md`
 - `docs/phase/phase-36.md`
 - `docs/phase/phase-30.md`
 - `docs/spec/media-package.md`
