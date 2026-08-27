@@ -3,9 +3,11 @@
 Status: NORMATIVE DESIGN; Phase 36 `VIS36-01` is DONE
 
 This design fixes the ownership and architecture boundary for the Visual Page
-contract in [`docs/spec/visual-page.md`](../spec/visual-page.md). It creates no
-Scala implementation, CLI, renderer, executable specification, validation,
-review, receipt, migration result, or consumer-acceptance claim.
+contract in [`docs/spec/visual-page.md`](../spec/visual-page.md). It admits the
+strict direct core commands and the renderer-independent semantic Preview
+defined below. It creates no Presentation-route integration, business binding,
+renderer contract, receipt, review acceptance, migration result, or
+consumer-acceptance claim.
 
 ## 1. One-screen semantic authority
 
@@ -121,7 +123,63 @@ Strict rejection of unknown information, YAML aliases/merges, duplicate keys,
 unsafe references, and non-lossless Markdown is intentional. It prevents a
 serializer from claiming an identity for content it dropped or rewrote.
 
-## 4. Binding and generated evidence
+## 4. Fast semantic preview
+
+The direct Preview command is deliberately outside the future Presentation
+route. Its exact public form is:
+
+```text
+cozy media visual-page preview <input> --catalog <catalog> --save <output.html> [--png <output.png>]
+```
+
+Preview first takes the same strict `VisualPage.load` path as the direct core
+commands. It neither infers, repairs, selects, nor alters semantic content.
+Its semantic input is limited to the validated Visual Page or ordered Visual
+Page Set and resolved catalog. It accepts no binding, template, renderer,
+PPTX, PowerPoint, receipt, review, video, or other generated-artifact input.
+
+The required UTF-8 HTML file is a deterministic semantic review artifact. It
+shows ordered page IDs; each page's Logical and Visual Pattern IDs; ordered
+logical nodes; Relations with ID, type, `from-to` direction, endpoints, and
+source references; typed visual parameters; and document/catalog identities.
+Every page-supplied value is HTML-escaped. The HTML has no physical layout or
+renderer vocabulary in its input contract.
+
+`--png` is optional. When requested, Preview generates a deterministic
+logical-structure PNG solely from that same validated value. Its physical
+diagram arrangement is generated output only. It is not an input to a PPT,
+business binding, renderer, receipt, review, video, or another reusable
+physical-layout contract.
+
+`--save` occurs exactly once and targets exactly one `.html` output; `--png`
+occurs zero or one time and targets exactly one `.png` output. Missing,
+duplicate, unsupported, valueless, or ambiguous arguments reject, as do
+normalized-identical HTML and PNG targets. Preview validates arguments,
+outputs, input, and catalog and renders all selected bytes before it atomically
+replaces either target through same-directory moves. Invalid input, catalog, or
+arguments leave all pre-existing selected output bytes unchanged.
+
+The deterministic text report has this ordered form, with `pngIdentity` absent
+when `--png` is absent:
+
+```text
+schema: cozy.visual-page.preview.v1
+version: 1
+generator: cozy media visual-page preview
+documentIdentity: <validated-document-identity>
+catalogIdentity: <resolved-catalog-identity>
+htmlIdentity: <sha256-html-bytes>
+pngIdentity: <sha256-png-bytes>
+previewIdentity: <preview-provenance-identity>
+status: generated
+```
+
+`previewIdentity` binds `cozy.visual-page.preview.v1`, validated document
+identity, catalog identity, HTML digest, and optional PNG digest in that order.
+It is output provenance only: it does not change a Visual Page, Media Package
+receipt, binding, renderer, or review identity.
+
+## 5. Binding and generated evidence
 
 `cozy.visual-page.binding.v1` belongs between selected visual semantics and a
 physical template. It is the only authored place in this route where mapping
@@ -136,7 +194,7 @@ Textus consumers own consumer/runtime acceptance. A PPTX, PNG, montage, video
 frame, cache, or manifest is derived delivery/review evidence, never semantic
 input that can repair a page.
 
-## 5. Presentation and video coexistence
+## 6. Presentation and video coexistence
 
 The legacy `presentation` object remains its accepted untagged closed object.
 It never permits `contract`, `catalog`, or `binding`. The future presentation
@@ -175,7 +233,7 @@ asset inputs inside the existing ordered receipt input evidence and its own
 verified v2 renderer/review evidence. No v1 parser, receipt, review state, or
 renderer path acquires new behavior from this design.
 
-## 6. Explicit migration only
+## 7. Explicit migration only
 
 The v1-to-v2 Storyboard migration can produce only a text-screen equivalent; a
 visual-page screen cannot downgrade because v1 would lose its semantic
@@ -215,7 +273,7 @@ and `status: migrated`. This boundary invokes no renderer, receipt,
 Storyboard, Media Package, review state, or external consumer. It has no
 inference path and does not declare an old slide to be a Logical Pattern.
 
-## 7. Deferred boundary
+## 8. Deferred boundary
 
 Subject Patterns, Explanation or Argument Patterns, explanation development,
 AI pattern/parameter selection, and deterministic multi-page or multi-scene

@@ -4,9 +4,10 @@ Status: NORMATIVE; Phase 36 `VIS36-01` is DONE
 
 This is the normative contract for the future Visual Page route. It defines
 semantic values, compatibility boundaries, the independent direct core
-parse/validation/canonicalization CLI, and the explicit legacy Slide IR
-migration map. It claims no renderer, receipt, Presentation-route integration,
-Storyboard-route integration, review, or external-consumer acceptance.
+parse/validation/canonicalization CLI, the renderer-independent direct semantic
+Preview, and the explicit legacy Slide IR migration map. It claims no renderer,
+receipt, Presentation-route integration, Storyboard-route integration, review,
+or external-consumer acceptance.
 
 The words **MUST**, **MUST NOT**, **SHOULD**, and **MAY** are normative. The
 ownership design is [`docs/design/visual-page.md`](../design/visual-page.md).
@@ -235,6 +236,68 @@ completes parsing and validation before creating its output, and replaces the
 output through a same-directory atomic move. An invalid source, catalog, or
 output suffix creates no output. These commands neither render nor select a
 Presentation, binding, Storyboard, receipt, or review state.
+
+### 4.2 Direct semantic Preview
+
+The exact direct semantic Preview command is:
+
+```text
+cozy media visual-page preview <input> --catalog <catalog> --save <output.html> [--png <output.png>]
+```
+
+`input` and `catalog` use the same direct regular non-symlink UTF-8 and
+suffix rules as the direct core command. Preview MUST invoke the strict
+`VisualPage.load` validation path before it writes either output. It MUST NOT
+infer, repair, normalize beyond the validated semantic value, or alter a
+Logical Pattern, Relation, selected Visual Pattern, parameter, source, asset,
+or identity.
+
+Preview's semantic input contract is only that validated document and its
+resolved catalog. It MUST NOT parse or consume a binding, template, renderer,
+PPTX, PowerPoint coordinate/font/color/shape/object-ID, receipt, review state,
+video, or generated media artifact. The required `.html` output is a
+deterministic UTF-8 semantic review artifact, not a physical-layout or
+renderer-binding artifact. It MUST display the ordered page IDs,
+Logical/Visual Pattern IDs, ordered logical nodes, Relations with their type
+and catalog direction, typed visual parameters, and document/catalog
+identities. Every page-supplied text value MUST be HTML-escaped.
+
+`--png` MAY occur once. When selected, it writes one deterministic `.png`
+logical-structure image generated only from the same validated input. Any
+physical arrangement in that image is generated Preview output only; it MUST
+NOT become a PPT input, reusable renderer binding, or semantic authority.
+
+`--save` MUST occur once and target exactly a `.html` file. `--png` MUST occur
+zero or once and target exactly a `.png` file. Missing, duplicate,
+unsupported, valueless, extra positional, or otherwise ambiguous arguments
+MUST reject. Normalized-identical HTML and PNG targets MUST reject. Preview
+MUST validate all arguments and targets, load the input and catalog, and render
+every selected output byte before atomically replacing either output through a
+same-directory move. An invalid input, catalog, or argument MUST leave each
+pre-existing selected output byte sequence unchanged. Preview invokes no
+external process or renderer.
+
+The Preview report is deterministic and has these exact ordered fields; the
+`pngIdentity` line occurs only when `--png` was selected:
+
+```text
+schema: cozy.visual-page.preview.v1
+version: 1
+generator: cozy media visual-page preview
+documentIdentity: <validated-document-identity>
+catalogIdentity: <resolved-catalog-identity>
+htmlIdentity: <sha256-html-bytes>
+pngIdentity: <sha256-png-bytes>
+previewIdentity: <preview-provenance-identity>
+status: generated
+```
+
+`htmlIdentity` and optional `pngIdentity` are SHA-256 identities of their
+written bytes. `previewIdentity` is SHA-256 provenance binding, in order,
+`cozy.visual-page.preview.v1`, the validated document identity, catalog
+identity, HTML identity, and optional PNG identity. It is output provenance
+only and MUST NOT alter VisualPage, Media Package receipt, binding, renderer,
+or review identities.
 
 Canonical Markdown is the following no-prose, line-oriented grammar. Each
 `<json>` is one compact canonical JSON value: no insignificant whitespace,

@@ -285,6 +285,7 @@ private[cozy] object CozyVisualPage {
     case "validate" :: rest => validate(CommandConfig.create(rest, allowSave = false))
     case "inspect" :: rest => inspect(CommandConfig.create(rest, allowSave = false))
     case "convert" :: rest => convert(CommandConfig.create(rest, allowSave = true))
+    case "preview" :: rest => CozyVisualPagePreview.execute(rest)
     case Nil => _fail("VISUAL_PAGE_COMMAND", "$command", "missing visual-page action")
     case action :: _ => _fail("VISUAL_PAGE_COMMAND", "$command", s"unsupported visual-page action: $action")
   }

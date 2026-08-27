@@ -291,6 +291,7 @@ final class CozyVisualPageSpec
         help.split("\n").map(_.trim).toVector should contain("media presentation migrate <legacy-slide-ir> --semantic-map <semantic-map> --catalog <catalog> --save <visual-page-set>")
         help.split("\n").map(_.trim).toVector should contain("media visual-page validate|inspect <input> --catalog <catalog>")
         help.split("\n").map(_.trim).toVector should contain("media visual-page convert <input> --catalog <catalog> --save <output.json|output.yaml|output.yml|output.md>")
+        help.split("\n").map(_.trim).toVector should contain("media visual-page preview <input> --catalog <catalog> --save <output.html> [--png <output.png>]")
       }
     }
   }

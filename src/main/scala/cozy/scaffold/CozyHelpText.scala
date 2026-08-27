@@ -174,6 +174,9 @@ private[cozy] object CozyHelpText {
       |  media visual-page convert <input> --catalog <catalog> --save <output.json|output.yaml|output.yml|output.md>
       |      Validate first, then atomically write the selected canonical lossless Visual Page serialization.
       |
+      |  media visual-page preview <input> --catalog <catalog> --save <output.html> [--png <output.png>]
+      |      Generate a deterministic semantic preview from one validated Visual Page or ordered Visual Page Set without selecting a presentation route.
+      |
       |  media review align <media-file> --target <presentation-id> --authority <article|slide-ir>
       |      Record an explicit article or slide-IR semantic alignment decision after deterministic verification.
       |
