@@ -411,6 +411,9 @@ private[cozy] object CozyMedia {
       case "media" :: "visual-page" :: rest =>
         println(CozyVisualPage.execute(rest))
         true
+      case "media" :: "explanation" :: rest =>
+        println(CozyExplanation.execute(rest))
+        true
       case "media" :: "review" :: "align" :: rest =>
         println(CozyMediaReviewState.executeAlign(rest))
         true

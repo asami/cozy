@@ -183,6 +183,19 @@ private[cozy] object CozyHelpText {
       |  media visual-page preview <input> --catalog <catalog> --save <output.html> [--png <output.png>]
       |      Generate a deterministic semantic preview from one validated Visual Page or ordered Visual Page Set without selecting a presentation route.
       |
+      |  media explanation validate|inspect <catalog>
+      |  media explanation validate|inspect <composition> --explanation-catalog <catalog> --presentation-catalog <catalog> [--source <id>=<file>] [--asset <id>=<file>]
+      |  media explanation validate|inspect <plan> --composition <composition> --explanation-catalog <catalog> --presentation-catalog <catalog> [--source <id>=<file>] [--asset <id>=<file>]
+      |      Strictly validate or inspect one direct JSON Explanation Catalog, authored Composition, or deterministic Plan; no catalog or resource discovery is performed.
+      |
+      |  media explanation convert <catalog> --save <output.json>
+      |  media explanation convert <composition> --explanation-catalog <catalog> --presentation-catalog <catalog> --save <output.json> [--source <id>=<file>] [--asset <id>=<file>]
+      |  media explanation convert <plan> --composition <composition> --explanation-catalog <catalog> --presentation-catalog <catalog> --save <output.json> [--source <id>=<file>] [--asset <id>=<file>]
+      |      Validate first, then atomically write the selected canonical JSON without inferring claims, graph structure, roles, steps, or media.
+      |
+      |  media explanation expand <composition> --explanation-catalog <catalog> --presentation-catalog <catalog> --save <plan.json> [--source <id>=<file>] [--asset <id>=<file>]
+      |      Validate explicitly authored Composition inputs and deterministically copy them into a medium-neutral Explanation Plan without projection or media generation.
+      |
       |  media review align <media-file> --target <presentation-id> --authority <article|slide-ir>
       |      Record an explicit article or slide-IR semantic alignment decision after deterministic verification.
       |
