@@ -32,35 +32,45 @@ Status: DONE
 
 ## VIS36-02: Typed Presentation Semantics IR and Pattern Catalogs
 
-Status: NOT STARTED
+Status: DONE
 
-- [ ] Parse every admitted representation into one typed Visual Page semantic
+- [x] Parse every admitted representation into one typed Visual Page semantic
       graph with representation-independent canonical identity.
-- [ ] Resolve versioned Logical Pattern, Relation, and Visual Pattern Catalog
+- [x] Resolve versioned Logical Pattern, Relation, and Visual Pattern Catalog
       entries and validate exact required, optional, typed, directional, and
       cardinality-constrained parameters.
-- [ ] Provide deterministic validate, inspect, and convert behavior with
+- [x] Provide deterministic validate, inspect, and convert behavior with
       canonical output and structured diagnostics.
-- [ ] Prove that `next`, `causes`, and `depends-on` keep distinct semantic
+- [x] Prove that `next`, `causes`, and `depends-on` keep distinct semantic
       identities even when projected by an identical arrow-bearing Visual
       Pattern.
-- [ ] Prove one logical graph can select two compatible Visual Patterns without
+- [x] Prove one logical graph can select two compatible Visual Patterns without
       changing its logical identity or source/provenance binding.
-- [ ] Prove admitted representation round trips, stable identity, catalog and
+- [x] Prove admitted representation round trips, stable identity, catalog and
       Relation resolution, and parameter validation through Given/When/Then
       Executable Specifications with appropriate property-based coverage.
-- [ ] Reject duplicate identities, unsupported schemas, unknown patterns,
+- [x] Reject duplicate identities, unsupported schemas, unknown patterns,
       unknown Relations, incompatible logical/visual pairings, unknown or
       ill-typed parameters, unsafe paths, missing assets, and lossy
       compatibility conversions.
 
+Acceptance evidence: `P36-02A` (typed Visual Page core) is accepted in commit
+`60ec0b0ac4c3fe9c0f97f2440be443d0859eee72`; `P36-02B` (explicit legacy Slide
+IR migration contract) is accepted in commit
+`e4d76b996c54cf8237c0e2b8fc1d8aa7216ef1e6`.
+
 ## VIS36-03: Presentation Projection and Business Binding
 
-Status: NOT STARTED
+Status: IN PROGRESS
 
 - [ ] Define a versioned business binding from logical Visual Pattern slots to
       physical template/renderer slots without exposing coordinates in Visual
       Page IR.
+- [x] Add `P36-03A` Fast Semantic Preview: renderer-independent HTML semantic
+      review before presentation-renderer handoff, with optional
+      logical-structure PNG output that remains Preview-only and is neither a
+      PPT input nor a reuse contract; do not change Visual Page, binding,
+      receipt, or visual-acceptance authority.
 - [ ] Project ordered Visual Pages into presentation slides through the
       configured presentation renderer.
 - [ ] Bind Visual Page, catalog, business binding, template, renderer, and
@@ -72,6 +82,12 @@ Status: NOT STARTED
 - [ ] Verify that coordinates, fonts, colors, PowerPoint Shape kinds, and
       renderer object identifiers occur only in binding/output evidence and
       never in the Logical Pattern or Relation graph.
+
+Acceptance evidence: `P36-03A` is accepted in commit
+`a248fade7adaa80757ccd0ee77de46588e3e987e`; focused validation succeeded
+10/10 with 0 failures, and sealed lightweight review passed. See the
+[`2026-08-27-phase-36-fast-semantic-preview-decision.md`](../journal/2026/08/2026-08-27-phase-36-fast-semantic-preview-decision.md)
+decision journal. All other VIS36-03 items remain open.
 
 ## VIS36-04: Video Scene Screen Integration
 
@@ -121,6 +137,7 @@ Status: NOT STARTED
 - [ ] Run focused and full Cozy validation, independent review, and final
       ledger synchronization before changing Phase 36 from planned/open.
 
-Phase 36 remains IN PROGRESS; VIS36-01 is DONE; VIS36-02 through VIS36-06
-remain NOT STARTED. VIS36-01 checklist items are complete. No implementation,
-validation, publication, or downstream consumer mutation is claimed.
+Phase 36 remains IN PROGRESS; VIS36-01 and VIS36-02 are DONE; VIS36-03 is IN
+PROGRESS because only P36-03A is accepted; VIS36-04 through VIS36-06 remain
+NOT STARTED. Implementation is limited to the accepted P36-02/P36-03A
+evidence; no publication or downstream consumer mutation is claimed.

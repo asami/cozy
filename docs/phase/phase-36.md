@@ -98,7 +98,7 @@ execution, or acceptance.
 
 Stage Status:
 
-- Current status: NOT STARTED
+- Current status: DONE
 - Owner: Cozy Visual Page model and adapters
 - Update rule: complete only when typed parsing, canonicalization, catalog
   resolution, identity, diagnostics, and round-trip evidence pass.
@@ -107,17 +107,35 @@ Implement the normalized one-screen semantic graph, Logical/Relation/Visual
 catalogs, typed parameter validation, admitted serializations, and explicit
 legacy compatibility route.
 
+`P36-02A` and `P36-02B` are accepted as DONE: P36-02A delivers the typed
+Visual Page core, and P36-02B delivers the explicit legacy Slide IR migration
+contract. The accepted implementation records are commits
+`60ec0b0ac4c3fe9c0f97f2440be443d0859eee72` and
+`e4d76b996c54cf8237c0e2b8fc1d8aa7216ef1e6`.
+
 ### VIS36-03: Presentation Projection and Business Binding
 
 Stage Status:
 
-- Current status: NOT STARTED
+- Current status: IN PROGRESS
 - Owner: Cozy media presentation orchestration
 - Update rule: complete only when Visual Page projection, business profile
   binding, renderer handoff, and generated-artifact verification pass.
 
 Project ordered Visual Pages into presentation slides without making a PPTX or
 template example slide the semantic authority.
+
+`P36-03A` is accepted as DONE: Fast Semantic Preview provides a
+renderer-independent HTML semantic review surface before presentation-renderer
+handoff, with optional Preview-only logical-structure PNG output. The PNG is
+not a PPT input or reuse contract. Business binding, renderer handoff,
+receipt/review acceptance, and presentation projection remain open. The
+decision journal is
+[`2026-08-27-phase-36-fast-semantic-preview-decision.md`](../journal/2026/08/2026-08-27-phase-36-fast-semantic-preview-decision.md).
+The accepted commit is `a248fade7adaa80757ccd0ee77de46588e3e987e`; focused
+validation succeeded 10/10 with 0 failures, and sealed lightweight review
+passed. This record does not change Visual Page, binding, receipt, or review
+authority.
 
 ### VIS36-04: Video Scene Screen Integration
 
