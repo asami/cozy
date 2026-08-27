@@ -121,7 +121,9 @@ P36-05+. P36-05 implementation, focused validation, and independent Step
 re-review passed (`54038-20260827T112424Z` ReviewSpec 12/12;
 `54763-20260827T112533Z` accumulator 39/39); its acceptance evidence is
 recorded in this local Step commit. VIS36-05 and Phase 36 remain IN PROGRESS;
-Phase closure remains open. VIS36-06 and Phase 37 remain NOT STARTED.
+Phase closure remains open. `P36-06-DEC-001` admits a closed structural
+cross-media evidence route; VIS36-06 is IN PROGRESS pending independent Step
+review, and Phase 37 remains NOT STARTED.
 
 - [ ] Allow a Storyboard scene to reference or contain a normalized Visual
       Page as its displayed screen contract.
@@ -154,7 +156,9 @@ are delivered; focused validation and independent Step re-review passed
 (`54038-20260827T112424Z` ReviewSpec 12/12;
 `54763-20260827T112533Z` accumulator 39/39); acceptance evidence is recorded
 in this local Step commit. VIS36-05 and Phase 36 remain IN PROGRESS; Phase
-closure remains open. VIS36-06 and Phase 37 remain NOT STARTED.
+closure remains open. `P36-06-DEC-001` admits a closed structural cross-media
+evidence route; VIS36-06 is IN PROGRESS pending independent Step review, and
+Phase 37 remains NOT STARTED.
 
 - [ ] Admit Visual Page and catalog/binding resources through explicit Media
       Package identities and safe descriptor-relative paths.
@@ -168,7 +172,16 @@ closure remains open. VIS36-06 and Phase 37 remain NOT STARTED.
 
 ## VIS36-06: Cross-Media Acceptance and Closure
 
-Status: NOT STARTED
+Status: IN PROGRESS
+
+`P36-06-DEC-001` admits the closed `cozy media cross-review build|verify`
+structural evidence route and `cozy.media.cross-review.v1` only. Focused
+validation passed: `78836-20260827T121036Z` reported the dedicated
+Cross-media Review Spec 2/2, and `79792-20260827T121146Z` reported the
+cross-media/presentation/storyboard accumulator 30/30; `40917-20260827T151855Z`
+reported the repair accumulator 31/31. Independent Step review and focused
+re-review passed, and this local acceptance Step commit records the structural
+route only. No checklist item is completed by this structural route alone.
 
 - [ ] Migrate or scaffold one representative article-summary presentation to
       the Visual Page path without changing accepted article meaning.
@@ -201,5 +214,7 @@ and independent Step review passed with zero findings; P36-05 focused
 validation and independent Step re-review passed (`54038-20260827T112424Z`
 ReviewSpec 12/12; `54763-20260827T112533Z` accumulator 39/39); acceptance
 evidence is recorded in this local Step commit. VIS36-05 and Phase 36 remain
-IN PROGRESS; Phase closure remains open. VIS36-06 and Phase 37 remain NOT STARTED. No
+IN PROGRESS; Phase closure remains open. VIS36-06 is IN PROGRESS with its
+closed structural evidence route accepted in this local Step commit; Phase 37
+remains NOT STARTED. No
 publication or downstream consumer mutation is claimed.

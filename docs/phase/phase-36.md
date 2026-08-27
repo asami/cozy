@@ -186,8 +186,9 @@ P36-05+. P36-05 implementation, focused validation, and independent Step
 re-review passed (`54038-20260827T112424Z` ReviewSpec 12/12;
 `54763-20260827T112533Z` accumulator 39/39); its acceptance evidence is
 recorded in this local Step commit. VIS36-05 and Phase 36 remain IN PROGRESS;
-Phase closure remains open.
-VIS36-06 and Phase 37 remain NOT STARTED.
+Phase closure remains open. `P36-06-DEC-001` admits a closed structural
+cross-media evidence route; VIS36-06 is IN PROGRESS pending independent Step
+review, and Phase 37 remains NOT STARTED.
 
 Nonblocking hygiene disposition `HYG-36-04-001`: the pre-existing unified
 Storyboard parser now exceeds 1,000 lines after the v2 boundary. A safe
@@ -222,13 +223,15 @@ Focused validation and independent Step re-review passed
 (`54038-20260827T112424Z` ReviewSpec 12/12;
 `54763-20260827T112533Z` accumulator 39/39); acceptance evidence is recorded
 in this local Step commit. VIS36-05 and Phase 36 remain IN PROGRESS; Phase
-closure remains open. VIS36-06 and Phase 37 remain NOT STARTED.
+closure remains open. `P36-06-DEC-001` admits a closed structural cross-media
+evidence route; VIS36-06 is IN PROGRESS pending independent Step review, and
+Phase 37 remains NOT STARTED.
 
 ### VIS36-06: Cross-Media Acceptance and Closure
 
 Stage Status:
 
-- Current status: NOT STARTED
+- Current status: IN PROGRESS
 - Owner: Cozy validation and review
 - Update rule: complete only when focused and full validation, independent
   review, and representative presentation/video evidence satisfy the
@@ -237,6 +240,16 @@ Stage Status:
 Prove at least one representative Visual Page through both presentation-slide
 and video-scene-screen projections while keeping semantic and rendered-media
 acceptance separate.
+
+`P36-06-DEC-001` admits only the closed `cozy media cross-review build|verify`
+structural evidence route and `cozy.media.cross-review.v1`. Its focused
+executable-specification validation passed (2/2 in invocation
+`78836-20260827T121036Z`; 30/30 cross-media/presentation/storyboard regression
+in `79792-20260827T121146Z`; 31/31 after repair in
+`40917-20260827T151855Z`). Independent Step review and focused re-review passed;
+this local acceptance Step commit records the structural route only. This record does not claim a render, video build,
+publication, semantic/visual/audiovisual approval, representative-media
+acceptance, or Phase closure.
 
 ## Dependencies and exclusions
 

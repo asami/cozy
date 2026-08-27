@@ -172,6 +172,62 @@ document and binding/template byte receipt inputs. Changed Visual Page,
 catalog, binding, template, renderer, or asset input stales its output/evidence;
 no legacy descriptor gains new behavior.
 
+### Cross-media review
+
+The closed Cross-media Review route proves that one current normalized Visual
+Page is the common semantic input of an already verified Visual Page
+presentation and an already verified Storyboard v2 visual-page review. It is
+not a renderer, a video build, a publication route, or an approval operation.
+Its exact commands are:
+
+```text
+cozy media cross-review build <media-file> --target <presentation-id> --video-project <project-file> --save <output.json>
+cozy media cross-review verify <media-file> --target <presentation-id> --video-project <project-file> --cross-review <input.json>
+```
+
+`target` selects exactly one current `presentation` resource whose closed
+`presentation` object has `contract: visual-page-v1`. The route requires that
+resource's current receipt and deterministic
+`cozy.media.presentation-review.v2` manifest, but it does not require or
+create a semantic-alignment approval. `video-project` must have a current
+Storyboard v2 review-evidence/handoff package; Cozy revalidates the project's
+approved Storyboard, literal screen references, VisualPageSet/catalog/binding,
+selected assets, and effective renderers before accepting it as an input.
+Neither a stale presentation review nor a stale, malformed, unapproved, or
+wrong-schema Storyboard package is a Cross-media input.
+
+The build output is the canonical `cozy.media.cross-review.v1` object with
+this ordered top-level shape:
+
+```text
+schema, target, presentationReviewIdentity, storyboardEvidenceIdentity,
+storyboardHandoffIdentity, storyboardIdentity, visualPageSetIdentity,
+catalogIdentity, bindingIdentity, slides, visualPages, verification
+```
+
+The leading identity values are SHA-256 identities of the respective current
+evidence bytes or declared Storyboard identity. `visualPageSetIdentity`,
+`catalogIdentity`, and `bindingIdentity` are the canonical semantic identities
+already used by the v2 presentation review and Storyboard proof. `slides` is
+the ordered presentation review projection `{id,sha256}`. `visualPages` is
+ordered by Storyboard scene and contains exactly
+`{sceneId,pageId,logicalIdentity,visualPageIdentity,assets}`; each asset is
+the exact `{id,sha256}` pair. Every selected Storyboard page must occur once
+in the presentation page set and its page assets must equal that presentation
+page's assets. The presentation review's page-set/catalog/binding identities
+must equal the Storyboard proof values; mismatch, duplicate page/scene,
+missing slide, missing asset, or extra/unknown field rejects.
+
+`verification` is exactly
+`{status:"valid",semanticApproval:"not-recorded",visualApproval:"not-recorded",audiovisualApproval:"not-recorded"}`.
+It is deterministic structural evidence only: it neither accepts article
+meaning, visual quality, nor audiovisual quality. A later change to any input
+causes `cross-review verify` to reject the saved object through exact current
+reconstruction. `--save` and `--cross-review` are direct regular non-symlink
+JSON files below the Media Package root, with normalized descriptor-relative
+spelling; `--save` must designate an absent output path and never overwrites
+an input or evidence file; Cross-media Review never follows an unsafe path.
+
 ## Commands
 
 - `cozy media inspect <media-file>` describes identity, resources, and resolved paths.
@@ -181,6 +237,7 @@ no legacy descriptor gains new behavior.
 - `cozy media publish <media-file> --profile <name> [--target <id>] [--dry-run]` rejects stale or v1-only evidence before copying verified outputs to profile destinations.
 - `cozy media slide validate|plan|verify <media-file> [--target <id>] [--profile business]` selects business presentation resources only.
 - `cozy media slide build <media-file> [--target <id>] [--profile business] [--dry-run]` renders business presentation resources only.
+- `cozy media cross-review build|verify <media-file> --target <presentation-id> --video-project <project-file> --save <output.json>|--cross-review <input.json>` creates or exactly verifies structural Cross-media Review evidence without performing a render, publication, or acceptance decision.
 - `cozy media review align <media-file> --target <presentation-id> --authority <article|slide-ir>` records an explicit semantic-alignment decision after deterministic verification.
 - `cozy media scaffold article <slug> --profile business --language <tag> --save <dir>` atomically creates a new source package and never merges or overwrites a destination.
 

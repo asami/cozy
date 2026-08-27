@@ -18,7 +18,7 @@ import scala.util.control.NonFatal
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoStoryboardReview {
-  self: CozyVideoTypes with CozyVideoStoryboard with CozyVideoCommand =>
+  self: CozyVideoTypes with CozyVideoStoryboard with CozyVideoCommand with CozyVideoPlanning =>
 
   final case class StoryboardReviewConfig(projectFile: Path, saveDir: Path) {
     def projectRoot: Path = projectFile.getParent
@@ -44,6 +44,15 @@ private[cozy] trait CozyVideoStoryboardReview {
     evidenceIdentity: String,
     storyboardIdentity: String,
     visualInputIdentities: Vector[String]
+  )
+
+  final case class StoryboardReviewCurrent(
+    projectFile: Path,
+    evidencePath: Path,
+    handoffPath: Path,
+    evidenceIdentity: String,
+    handoffIdentity: String,
+    storyboardIdentity: String
   )
 
   private final case class ApprovedStoryboard(
@@ -115,6 +124,33 @@ private[cozy] trait CozyVideoStoryboardReview {
     ).mkString("\n")
   }
 
+  def storyboardReviewCurrent(projectFile: Path): StoryboardReviewCurrent = {
+    val plan = _plan(projectFile, None, None)
+    val review = plan.project.storyboardReview.getOrElse(
+      _review_failure("STORYBOARD_REVIEW_DECLARATION_MISSING", "video project does not declare storyboardReview")
+    )
+    val projectroot = _canonical_project_root(plan.projectRoot)
+    val approved = _approved_storyboard(projectroot, review)
+    if (approved.storyboard.schema != _storyboard_schema_v2)
+      _review_failure("STORYBOARD_REVIEW_CROSS_MEDIA_SCHEMA_UNSUPPORTED", "Cross-media Review requires Storyboard v2 visual-page evidence")
+    val visualpage = _visual_page_review(projectroot, plan.project, review, approved).getOrElse(
+      _review_failure("STORYBOARD_REVIEW_CROSS_MEDIA_VISUAL_PAGE_MISSING", "Cross-media Review requires a Storyboard v2 visual-page declaration")
+    )
+    _validate_storyboard_review_current(plan)
+    val evidencepath = visualpage.evidencedirectory.resolve("review-evidence.json").normalize()
+    val handoffpath = visualpage.evidencedirectory.resolve("handoff.json").normalize()
+    val evidence = _read_json(evidencepath, "Storyboard v2 review evidence")
+    val handoff = _read_json(handoffpath, "Storyboard v2 review handoff")
+    StoryboardReviewCurrent(
+      plan.projectFile,
+      evidencepath,
+      handoffpath,
+      _identity_field(evidence, "Storyboard v2 review evidence"),
+      _identity_field(handoff, "Storyboard v2 review handoff"),
+      approved.identity
+    )
+  }
+
   private[video] def _validate_storyboard_review_current(plan: VideoPlan): Unit =
     plan.project.storyboardReview.foreach { review =>
       val projectroot = _canonical_project_root(plan.projectRoot)
@@ -160,6 +196,11 @@ private[cozy] trait CozyVideoStoryboardReview {
           _review_failure("STORYBOARD_REVIEW_SCHEMA_UNSUPPORTED", s"Unsupported Storyboard schema: $schema")
       }
     }
+
+  private def _identity_field(value: Json, label: String): String =
+    value.hcursor.get[String]("identity").toOption.filter(identity => _sha256_pattern.pattern.matcher(identity).matches).getOrElse(
+      _review_failure("STORYBOARD_REVIEW_CROSS_MEDIA_IDENTITY_INVALID", s"$label must contain a SHA-256 identity")
+    )
 
   private[video] def _write_storyboard_review_evidence(config: StoryboardReviewConfig): StoryboardReviewResult = {
     val projectfile = _verified_project_file(config.projectFile)

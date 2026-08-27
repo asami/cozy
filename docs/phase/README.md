@@ -59,7 +59,9 @@ Current phase state:
   independent Step re-review passed (`54038-20260827T112424Z` ReviewSpec 12/12;
   `54763-20260827T112533Z` accumulator 39/39); acceptance evidence is recorded
   in this local Step commit. VIS36-05 and Phase 36 remain IN PROGRESS; Phase
-  closure remains open. VIS36-06 and Phase 37 remain NOT STARTED. Its start gate was Phase 30 closure; this does not
+  closure remains open. `P36-06-DEC-001` admits only a closed structural
+  cross-media evidence route; VIS36-06 structural validation and independent
+  review passed and are recorded in this local Step commit; Phase 37 remains NOT STARTED. Its start gate was Phase 30 closure; this does not
   authorize Phase 37 implementation.
 - Planned successor: `phase-37.md`: Logical Explanation Composition and Media
   Projection. It will separate Subject Pattern from Narrative / Argument-
@@ -144,7 +146,9 @@ P36-05+. `P36-05-DEC-001` is consumed; P36-05 focused validation and
 independent Step re-review passed (`54038-20260827T112424Z` ReviewSpec 12/12;
 `54763-20260827T112533Z` accumulator 39/39); acceptance evidence is recorded
 in this local Step commit. VIS36-05 and Phase 36 remain IN PROGRESS; Phase
-closure remains open. VIS36-06 and Phase 37 remain NOT STARTED.
+closure remains open. `P36-06-DEC-001` admits only a closed structural
+cross-media evidence route; VIS36-06 structural validation and independent
+review passed and are recorded in this local Step commit; Phase 37 remains NOT STARTED.
 
 Phase 37 is the planned logical explanation-composition successor to Phase 36.
 Its current authority is only `phase-37.md` plus

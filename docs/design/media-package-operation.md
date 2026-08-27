@@ -67,3 +67,21 @@ cross-media receipt semantics. This does not transfer review-state acceptance
 or semantic authority to generated evidence. Cozy owns validation, identity,
 orchestration, and stale-output evidence; the external renderer owns runtime
 rendering and external consumers own acceptance.
+
+## Cross-media review boundary
+
+Cross-media Review is a verifier between two pre-existing Cozy evidence
+boundaries. It requires a current `visual-page-v1` presentation receipt and
+deterministic presentation-review v2 manifest, plus a current approved
+Storyboard-v2 review-evidence/handoff package. It reconstructs the shared
+VisualPageSet/catalog/binding and selected page/asset identities; it does not
+call either renderer, regenerate a slide or scene screen, alter a receipt,
+change a review state, or invoke publication.
+
+The resulting `cozy.media.cross-review.v1` file is a currentness proof, not
+an approval record. Its explicit `not-recorded` semantic, visual, and
+audiovisual approval states preserve the human/AI decision boundary: a
+deterministic identity match cannot decide that an explanation is correct or
+that a rendered image is visually acceptable. Exact reconstruction rejects
+saved evidence after any source, catalog, binding, asset, renderer,
+presentation-review, Storyboard, or handoff change.

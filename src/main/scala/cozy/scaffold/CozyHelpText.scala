@@ -165,6 +165,12 @@ private[cozy] object CozyHelpText {
       |  media slide build <media-file> [--target <id>] [--profile business] [--dry-run]
       |      Render selected business presentation resources with deterministic artifact evidence.
       |
+      |  media cross-review build <media-file> --target <presentation-id> --video-project <project-file> --save <output.json>
+      |      Reconstruct current Visual Page presentation and Storyboard evidence into structural cross-media review proof.
+      |
+      |  media cross-review verify <media-file> --target <presentation-id> --video-project <project-file> --cross-review <input.json>
+      |      Verify saved cross-media review proof against exact current Cozy evidence without rendering or approving content.
+      |
       |  media presentation migrate <legacy-slide-ir> --semantic-map <semantic-map> --catalog <catalog> --save <visual-page-set>
       |      Migrate legacy Slide IR only through a complete digest-bound semantic map, then atomically save the canonical Visual Page Set.
       |

@@ -399,6 +399,12 @@ private[cozy] object CozyMedia {
       case "media" :: "slide" :: "verify" :: rest =>
         println(_slide_verify(CommandConfig.create(rest)))
         true
+      case "media" :: "cross-review" :: "build" :: rest =>
+        println(CozyMediaCrossReview.build(CozyMediaCrossReview.BuildConfig.create(rest)))
+        true
+      case "media" :: "cross-review" :: "verify" :: rest =>
+        println(CozyMediaCrossReview.verify(CozyMediaCrossReview.VerifyConfig.create(rest)))
+        true
       case "media" :: "presentation" :: "migrate" :: rest =>
         println(CozyMediaPresentationMigration.execute(rest))
         true

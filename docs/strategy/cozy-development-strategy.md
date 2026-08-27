@@ -1013,7 +1013,9 @@ focused validation and independent Step re-review passed
 (`54038-20260827T112424Z` ReviewSpec 12/12;
 `54763-20260827T112533Z` accumulator 39/39); acceptance evidence is recorded
 in this local Step commit. VIS36-05 and Phase 36 remain IN PROGRESS; Phase
-closure remains open. VIS36-06 and Phase 37 remain NOT STARTED.
+closure remains open. `P36-06-DEC-001` admits a closed structural cross-media
+evidence route; VIS36-06 structural validation and independent review passed
+and are recorded in this local Step commit; Phase 37 remains NOT STARTED.
 
 Purpose and boundaries:
 
@@ -1067,7 +1069,9 @@ binding and evidence identity/proof remain open for P36-05+. The
 independent Step re-review passed (`54038-20260827T112424Z` ReviewSpec 12/12;
 `54763-20260827T112533Z` accumulator 39/39); acceptance evidence is recorded
 in this local Step commit. VIS36-05 and Phase 36 remain IN PROGRESS; Phase
-closure remains open. VIS36-06 and Phase 37 remain NOT STARTED. This status does not
+closure remains open. `P36-06-DEC-001` admits a closed structural cross-media
+evidence route; VIS36-06 structural validation and independent review passed
+and are recorded in this local Step commit; Phase 37 remains NOT STARTED. This status does not
 expand Phase 30.
 Subject/Explanation Pattern composition and multi-slide/multi-scene expansion
 remain Phase 37 work.
@@ -1232,7 +1236,9 @@ identity binding and evidence identity/proof remain open for P36-05+. The
 independent Step re-review passed (`54038-20260827T112424Z` ReviewSpec 12/12;
 `54763-20260827T112533Z` accumulator 39/39); acceptance evidence is recorded
 in this local Step commit. VIS36-05 and Phase 36 remain IN PROGRESS; Phase
-closure remains open. VIS36-06 and Phase 37 remain NOT STARTED. Phase 37 remains excluded and not started; it is the
+closure remains open. `P36-06-DEC-001` admits a closed structural cross-media
+evidence route; VIS36-06 structural validation and independent review passed
+and are recorded in this local Step commit; Phase 37 remains NOT STARTED. Phase 37 remains excluded and not started; it is the
 planned logical explanation-composition successor after Phase 36 closes.
 Neither successor adds work to the closed Phase 30 boundary or claims
 validation, review, publication, or external consumer mutation.
@@ -1265,7 +1271,9 @@ binding and evidence identity/proof remain open for P36-05+. The
 independent Step re-review passed (`54038-20260827T112424Z` ReviewSpec 12/12;
 `54763-20260827T112533Z` accumulator 39/39); acceptance evidence is recorded
 in this local Step commit. VIS36-05 and Phase 36 remain IN PROGRESS; Phase
-closure remains open. VIS36-06 and Phase 37 remain NOT STARTED. Phase 37 remains excluded and not started as its planned logical
+closure remains open. `P36-06-DEC-001` admits a closed structural cross-media
+evidence route; VIS36-06 structural validation and independent review passed
+and are recorded in this local Step commit; Phase 37 remains NOT STARTED. Phase 37 remains excluded and not started as its planned logical
 explanation-composition successor. No SmartDox/Textus
 consumer execution or acceptance is claimed.
 SmartDox Phase 8

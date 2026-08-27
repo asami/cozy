@@ -91,6 +91,21 @@ private[cozy] object CozyMediaPresentation {
       } yield ResourceConfig(contract, profile, catalog, binding, slideimages, montage, renderermanifest, reviewmanifest, reviewstate, articlepdf, infographic)
   }
 
+  final case class VisualPageAssetEvidence(id: String, sha256: String)
+  final case class VisualPagePageEvidence(
+    id: String,
+    logicalIdentity: String,
+    visualPageIdentity: String,
+    assets: Vector[VisualPageAssetEvidence]
+  )
+  final case class VisualPageEvidence(
+    reviewPath: Path,
+    visualPageSetIdentity: String,
+    catalogIdentity: String,
+    bindingIdentity: String,
+    pages: Vector[VisualPagePageEvidence]
+  )
+
   private val _renderer_schema = "cozy.presentation.render.v1"
   private val _review_schema = "cozy.media.presentation-review.v1"
   private val _visual_page_contract = "visual-page-v1"
@@ -264,6 +279,30 @@ private[cozy] object CozyMediaPresentation {
 
   def artifacts(plan: CozyMedia.Plan, resolved: CozyMedia.ResolvedResource): Vector[CozyMediaReceipt.Artifact] =
     _artifacts(plan, resolved, requirecurrentassets = false)
+
+  def visualPageEvidence(plan: CozyMedia.Plan, resolved: CozyMedia.ResolvedResource): VisualPageEvidence = {
+    val configuration = _configuration(resolved)
+    if (!_is_visual_page(configuration))
+      _invalid(s"Cross-media Review requires a visual-page-v1 presentation resource: ${resolved.resource.id}")
+    val visual = _visual_page_input(plan, resolved)
+    val logicalidentities = visual.document.logicalIdentities.toMap
+    val visualidentities = visual.document.visualPageIdentities.toMap
+    val pages = visual.document.document.pages.map { page =>
+      VisualPagePageEvidence(
+        page.id,
+        logicalidentities.getOrElse(page.id, _invalid(s"Presentation VisualPage logical identity is missing: ${page.id}")),
+        visualidentities.getOrElse(page.id, _invalid(s"Presentation VisualPage identity is missing: ${page.id}")),
+        page.assets.map(asset => VisualPageAssetEvidence(asset.id, asset.sha256))
+      )
+    }
+    VisualPageEvidence(
+      _path(plan, configuration.reviewManifest, s"Presentation VisualPage reviewManifest ${resolved.resource.id}"),
+      visual.document.documentIdentity,
+      visual.document.catalogIdentity,
+      visual.binding.bindingIdentity,
+      pages
+    )
+  }
 
   def currentArtifactEvidence(plan: CozyMedia.Plan, resolved: CozyMedia.ResolvedResource, entry: CozyMediaReceipt.ManifestEntry): Boolean =
     try {

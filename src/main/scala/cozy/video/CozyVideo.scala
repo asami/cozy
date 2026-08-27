@@ -77,6 +77,8 @@ private[cozy] object CozyVideo {
   lazy val StoryboardReviewVisualStory = CozyVideoImplementation.StoryboardReviewVisualStory
   type StoryboardReviewResult = CozyVideoImplementation.StoryboardReviewResult
   lazy val StoryboardReviewResult = CozyVideoImplementation.StoryboardReviewResult
+  type StoryboardReviewCurrent = CozyVideoImplementation.StoryboardReviewCurrent
+  lazy val StoryboardReviewCurrent = CozyVideoImplementation.StoryboardReviewCurrent
 
   type VideoToolMode = CozyVideoImplementation.VideoToolMode
   lazy val VideoToolMode = CozyVideoImplementation.VideoToolMode
@@ -227,6 +229,8 @@ private[cozy] object CozyVideo {
     CozyVideoImplementation.storyboardReview(config)
   def storyboardReviewEvidence(config: StoryboardReviewConfig): StoryboardReviewResult =
     CozyVideoImplementation.storyboardReviewEvidence(config)
+  def storyboardReviewCurrent(projectFile: Path): StoryboardReviewCurrent =
+    CozyVideoImplementation.storyboardReviewCurrent(projectFile)
 }
 
 private[cozy] object CozyVideoImplementation

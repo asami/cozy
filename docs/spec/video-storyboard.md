@@ -528,3 +528,14 @@ screens, and preserves every other v1 Scene value. It neither overloads
 P36-04 does not create video renderer output, Visual Page binding, video
 receipt/review evidence, external SmartDox/Textus work, publication, or
 deployment. Those responsibilities remain separately scoped.
+
+### Cross-media Review consumption
+
+The optional `cozy media cross-review` route consumes only an already current
+Storyboard-v2 review-evidence/handoff pair. It verifies the pair through the
+same approved Storyboard, literal visual-page screen, binding, selected asset,
+and effective-renderer reconstruction used before video confirmation/final
+work. It then compares the resulting VisualPageSet/catalog/binding and selected
+page identities against a current Visual Page presentation review. It neither
+changes the Storyboard contract, generates a video or a scene image, approves
+semantic/visual/audiovisual content, nor changes the existing video build gate.

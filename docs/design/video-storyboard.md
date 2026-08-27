@@ -377,3 +377,15 @@ mismatch, evidence mismatch, or handoff mismatch rejects closed.
 The v1 Storyboard and v1 evidence/handoff remain unchanged, as do legacy video
 projects. This boundary does not execute a renderer, generate a video, accept
 external consumers, claim focused validation, or close VIS36-05.
+
+## 13. P36-06 Cross-media Review consumption
+
+A later Cozy-only Cross-media Review may read, but never rewrite, an existing
+current P36-05 evidence/handoff pair. It proves that the literal Storyboard
+screen resolves to one page of the presentation's current VisualPageSet and
+that catalog, binding, selected-page, and selected-asset identities agree.
+This is a structural currentness check between generated evidence boundaries;
+it leaves Storyboard narration, timing, transition, confirmation/final, and
+audiovisual review authority intact. It records no semantic, visual, or
+audiovisual acceptance decision and excludes SmartDox/Textus consumer work,
+renderer execution, publication, and deployment.
