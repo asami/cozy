@@ -107,11 +107,11 @@ After renderer verification Cozy deterministically writes `cozy.media.presentati
 
 `review/state.yaml` uses `cozy.media.review-state.v1` and exact keys `schema`, `current`, `last_aligned`, `selected_authority`, and `sync`. Snapshots use exact `inputSetSha256`, `reviewManifestSha256`, `artifactSetSha256`, and UTC ISO-8601 `acceptedAt`. A successful presentation build refreshes only `current`; it preserves `last_aligned` and `selected_authority`, and is `aligned` only when all three identities still equal `last_aligned`. `cozy media review align` explicitly records the human/AI-selected authority. Ordinary media verification and slide verification require an aligned state.
 
-### Future Visual Page coexistence boundary
+### Visual Page coexistence boundary
 
 This accepted presentation contract remains the `cozy.slide-ir.v1` source,
 `--slide-ir` renderer argument, and `cozy.presentation.render.v1` receipt
-route. It is unchanged by the normative future contract in
+route. It is unchanged by the implemented discriminated contract in
 [`visual-page.md`](visual-page.md); no existing `cozy.media.v1` presentation
 resource, receipt, or review state silently opts into that route.
 
@@ -121,8 +121,8 @@ exactly `profile`, `slideImages`, `montage`, `rendererManifest`,
 permits `contract`, `catalog`, or `binding` and never infers a new route from
 its source or profile.
 
-A distinct later implementation may instead select the following discriminated
-Visual Page presentation object. Its resource `source` remains required and is
+The following separately closed discriminated Visual Page presentation object
+is implemented. Its resource `source` remains required and is
 the VisualPageSet input; all legacy artifact and dependency fields retain their
 existing meanings.
 
@@ -141,7 +141,7 @@ presentation:
   infographic: infographic-ja
 ```
 
-This future object is closed with exactly the shown keys; `contract` is exactly
+This object is closed with exactly the shown keys; `contract` is exactly
 `visual-page-v1`, and `source`, `catalog`, and `binding` are safe descriptor-
 relative direct regular non-symlink files under the descriptor root. Each
 rejects an empty, absolute, traversal, URI-like, control-character, or
@@ -156,17 +156,21 @@ exact existing template/renderer object. Its fixed renderer argv is the legacy
 fixed argv with `--slide-ir <source>` replaced by `--visual-page-set <source>
 --catalog <catalog> --binding <binding>`.
 
-The future renderer manifest is `cozy.presentation.render.v2` with exact
+The renderer manifest is `cozy.presentation.render.v2` with exact
 canonical top-level fields `schema`, `target`, `profile`, `renderer`,
 `visualPageSetSha256`, `catalogSha256`, `bindingSha256`, `templateSha256`,
-`pptx`, `slides`, and `montage`. Existing `cozy.media.receipt.v2` and
-`cozy.media.review-state.v1` schema shapes remain unchanged. Only after an
-explicit implementation may the visual-page route record named page, catalog,
-binding, and asset inputs in the existing ordered receipt input evidence and
-its own verified v2 renderer/review evidence. Changed Visual Page, catalog,
-binding, template, renderer, or asset input then stales its output/evidence;
-no legacy descriptor gains new behavior. This section specifies coexistence
-only; it does not claim the new route, renderer, receipt, or CLI exists.
+`pptx`, `slides`, and `montage`. The first three identity fields are canonical
+semantic 64-hex identities; template and generated artifacts use raw byte
+SHA-256. Every `slides` entry is exactly `id`, `path`, `sha256`, `pptxSha256`,
+and `assets`; its assets are exact `{id,sha256}` values in page asset-ID order.
+The deterministic review manifest is `cozy.media.presentation-review.v2` and
+contains reconstructed VisualPageSet, catalog, binding, template, PPTX,
+slides, assets, and montage evidence without approving itself. Existing
+`cozy.media.receipt.v2` and `cozy.media.review-state.v1` schema shapes remain
+unchanged. The route requires explicit VisualPageSet/catalog structured-
+document and binding/template byte receipt inputs. Changed Visual Page,
+catalog, binding, template, renderer, or asset input stales its output/evidence;
+no legacy descriptor gains new behavior.
 
 ## Commands
 

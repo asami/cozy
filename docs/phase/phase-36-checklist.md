@@ -63,31 +63,44 @@ IR migration contract) is accepted in commit
 
 Status: IN PROGRESS
 
-- [ ] Define a versioned business binding from logical Visual Pattern slots to
-      physical template/renderer slots without exposing coordinates in Visual
-      Page IR.
+- [x] `P36-03B` define and implement a versioned business binding from logical
+      Visual Pattern slots to opaque physical template/renderer slots without
+      exposing coordinates in Visual Page IR; validate its closed JSON grammar
+      against the resolved catalog and expose canonical binding identity.
 - [x] Add `P36-03A` Fast Semantic Preview: renderer-independent HTML semantic
       review before presentation-renderer handoff, with optional
       logical-structure PNG output that remains Preview-only and is neither a
       PPT input nor a reuse contract; do not change Visual Page, binding,
       receipt, or visual-acceptance authority.
-- [ ] Project ordered Visual Pages into presentation slides through the
-      configured presentation renderer.
-- [ ] Bind Visual Page, catalog, business binding, template, renderer, and
-      asset identities into renderer and review evidence.
-- [ ] Verify PPTX slide order, slide images, montage, embedded assets, and
-      structural output against the selected Visual Pages.
+- [x] `P36-03C` implement the separately closed `visual-page-v1` presentation
+      resource, its fixed `--visual-page-set --catalog --binding` renderer
+      handoff, and strict `cozy.presentation.render.v2` evidence while leaving
+      the untagged `cozy.slide-ir.v1` route unchanged.
+- [x] Bind canonical VisualPageSet/catalog/binding identity plus template,
+      renderer, page-ordered assets, PPTX, slide images, and montage into v2
+      renderer and deterministic review evidence; retain receipt v2 and
+      review-state v1 schemas while requiring their explicit existing inputs.
+- [x] Verify v2 PPTX slide order, slide images, montage, embedded assets, and
+      collision/OOXML structure against the selected Visual Pages.
 - [ ] Preserve PPTX and template example slides as generated or design assets,
       never semantic authorities.
 - [ ] Verify that coordinates, fonts, colors, PowerPoint Shape kinds, and
       renderer object identifiers occur only in binding/output evidence and
       never in the Logical Pattern or Relation graph.
+- [ ] P36-03C focused validation passed (presentation 16/16 and receipt
+      accumulator 9/9, no failures); independent Step review is pending.
+
+Decision record: `P36-03C-DEC-001` is consumed only for Phase 36 / P36-03C.
+At phase base `955601e3cd211900d6f2db3ae0c680a29a7957b2` and the current
+P36-03B binding/design/docs accumulator, the user approved this exact route
+and evidence grammar and authorized IMPLEMENT. It is not global or downstream
+consumer approval.
 
 Acceptance evidence: `P36-03A` is accepted in commit
 `a248fade7adaa80757ccd0ee77de46588e3e987e`; focused validation succeeded
 10/10 with 0 failures, and sealed lightweight review passed. See the
 [`2026-08-27-phase-36-fast-semantic-preview-decision.md`](../journal/2026/08/2026-08-27-phase-36-fast-semantic-preview-decision.md)
-decision journal. All other VIS36-03 items remain open.
+decision journal. The remaining VIS36-03 items stay open.
 
 ## VIS36-04: Video Scene Screen Integration
 
@@ -138,6 +151,8 @@ Status: NOT STARTED
       ledger synchronization before changing Phase 36 from planned/open.
 
 Phase 36 remains IN PROGRESS; VIS36-01 and VIS36-02 are DONE; VIS36-03 is IN
-PROGRESS because only P36-03A is accepted; VIS36-04 through VIS36-06 remain
-NOT STARTED. Implementation is limited to the accepted P36-02/P36-03A
-evidence; no publication or downstream consumer mutation is claimed.
+PROGRESS because P36-03A is accepted and P36-03B/P36-03C implementation has
+passed focused validation but awaits independent Step review; VIS36-04 through
+VIS36-06 remain NOT STARTED. Implementation is limited to the accepted
+P36-02/P36-03A evidence and the P36-03B/P36-03C review-pending accumulator;
+no publication or downstream consumer mutation is claimed.

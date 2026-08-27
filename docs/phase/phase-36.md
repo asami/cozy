@@ -137,6 +137,24 @@ validation succeeded 10/10 with 0 failures, and sealed lightweight review
 passed. This record does not change Visual Page, binding, receipt, or review
 authority.
 
+`P36-03B` records the versioned business-binding contract: strict direct JSON
+validation against the resolved Visual Page catalog, canonical pattern and
+semantic-slot ordering, opaque physical-slot tokens, and deterministic binding
+identity. It does not consume a descriptor binding, invoke a renderer, or
+create presentation artifacts. Presentation projection, renderer handoff,
+receipt/review evidence, and generated-artifact verification remain open for a
+later Step.
+
+`P36-03C-DEC-001` is consumed for Phase 36 / P36-03C only: the user approved
+this exact `visual-page-v1` presentation route and v2 evidence grammar at
+phase base `955601e3cd211900d6f2db3ae0c680a29a7957b2` with the current
+P36-03B binding/design/docs accumulator, and authorized IMPLEMENT. P36-03C
+implements the closed descriptor branch, fixed renderer handoff, strict v2
+renderer/review evidence, and explicit existing receipt inputs while retaining
+the v1 route byte-for-byte. Focused validation and review remain parent-owned;
+this decision is neither global approval nor SmartDox, Textus, CAR, video, or
+downstream-consumer acceptance.
+
 ### VIS36-04: Video Scene Screen Integration
 
 Stage Status:

@@ -442,6 +442,141 @@ final class CozyMediaPresentationSpec extends AnyWordSpec with Matchers with Giv
         CozyMedia.verify(CozyMedia.CommandConfig(descriptor)) should include("status: valid")
       }
     }
+
+    "render a closed visual-page-v1 presentation route with canonical semantic evidence" in {
+      _with_temp_dir("visual-page-renderer") { root =>
+        Given("a VisualPageSet, resolved catalog, complete business binding, explicit receipt inputs, and a v2 renderer")
+        val descriptor = _write_visual_page_fixture(root)
+        var argv = Vector.empty[String]
+        val runner = new CozyMedia.ProcessRunner {
+          def run(command: Vector[String], workingdirectory: Path): Int = {
+            argv = command
+            val pptx = Path.of(command(command.indexOf("--pptx") + 1))
+            val images = Path.of(command(command.indexOf("--slide-images") + 1))
+            val montage = Path.of(command(command.indexOf("--montage") + 1))
+            val manifest = Path.of(command(command.indexOf("--manifest") + 1))
+            val validated = CozyVisualPage.load(root.resolve("visual-pages.json"), root.resolve("catalog.json"))
+            val binding = CozyVisualPageBinding.load(root.resolve("binding.json"), validated)
+            _write_pptx(pptx, "Overview", root.resolve("assets/infographic.png"))
+            _write_png(images.resolve("overview.png"))
+            _write_png(montage)
+            val pptxhash = _sha256(pptx)
+            _write(manifest,
+              s"""{"schema":"cozy.presentation.render.v2","target":"slides","profile":"business","renderer":{"name":"fake","version":"1"},"visualPageSetSha256":"${_semantic_sha256(validated.documentIdentity)}","catalogSha256":"${_semantic_sha256(validated.catalogIdentity)}","bindingSha256":"${_semantic_sha256(binding.bindingIdentity)}","templateSha256":"${_sha256(root.resolve("template.pptx"))}","pptx":{"path":"target/rendered/article.pptx","sha256":"$pptxhash"},"slides":[{"id":"overview","path":"target/slides/overview.png","sha256":"${_sha256(images.resolve("overview.png"))}","pptxSha256":"$pptxhash","assets":[{"id":"infographic","sha256":"${_sha256(root.resolve("assets/infographic.png"))}"}]}],"montage":{"path":"target/rendered/montage.png","sha256":"${_sha256(montage)}","pptxSha256":"$pptxhash"}}"""
+            )
+            0
+          }
+        }
+
+        When("Cozy invokes the versioned renderer and records deterministic review evidence")
+        CozyMedia.build(CozyMedia.CommandConfig(descriptor), runner)
+        val review = Files.readString(root.resolve("review/manifest.json"))
+
+        Then("only the visual-page argv and v2 semantic identities are accepted while the review stays non-self-approving")
+        argv should contain("--visual-page-set")
+        argv should contain("--catalog")
+        argv should contain("--binding")
+        argv.contains("--slide-ir") shouldBe false
+        review should include("cozy.media.presentation-review.v2")
+        review should include("visualPageSet")
+        Files.readString(root.resolve("target/cozy-media/manifest.json")) should include("renderer-manifest")
+
+        Given("the accepted v2 renderer or review evidence is changed without changing inputs")
+        val manifest = root.resolve("target/rendered/renderer-manifest.json")
+        val originalmanifest = Files.readString(manifest)
+        _write(manifest, originalmanifest.replace("\"assets\":[{\"id\":\"infographic\"", "\"assets\":[{\"id\":\"wrong\""))
+
+        When("structural verification reconstructs the page order and asset linkage")
+        val rendererfailure = intercept[RuntimeException](CozyMedia.verify(CozyMedia.CommandConfig(descriptor)))
+        _write(manifest, originalmanifest)
+        val originalreview = Files.readString(root.resolve("review/manifest.json"))
+        _write(root.resolve("review/manifest.json"), originalreview.replace("cozy.media.presentation-review.v2", "cozy.media.presentation-review.v9"))
+        val reviewfailure = intercept[RuntimeException](CozyMediaPresentation.verifyStructural(CozyMedia.resolvePlan(CozyMedia.CommandConfig(descriptor)), CozyMedia.resolvePlan(CozyMedia.CommandConfig(descriptor)).resources.find(_.resource.id == "slides").get))
+
+        Then("stale renderer and review claims fail closed before they can prove acceptance")
+        rendererfailure.getMessage should include("presentation verification failed")
+        reviewfailure.getMessage should include("review manifest")
+      }
+    }
+
+    "reject mixed, malformed, unsafe, symlink, nonregular, and mismatched visual-page presentation inputs" in {
+      _with_temp_dir("visual-page-rejections") { root =>
+        Given("closed v2 descriptor variants and direct input files that violate their declared boundary")
+        val descriptor = _write_visual_page_fixture(root)
+        val original = Files.readString(descriptor)
+        val variants = Vector(
+          original.replace("contract: visual-page-v1", "contract: visual-page-v9"),
+          original.replace("contract: visual-page-v1", "contract: visual-page-v1\n      unknown: value"),
+          original.replace("source: visual-pages.json", "source: ../visual-pages.json"),
+          original.replace("catalog: catalog.json", "catalog: missing.json"),
+          original.replace("binding: binding.json", "binding: catalog.json")
+        )
+
+        When("Cozy resolves every closed grammar, path, and catalog/binding mismatch variant")
+        val failures = variants.zipWithIndex.map { case (value, index) =>
+          _write(descriptor, value)
+          intercept[Exception](CozyMedia.resolvePlan(CozyMedia.CommandConfig(descriptor)))
+        }
+        _write(descriptor, original)
+        val linktarget = root.resolve("visual-target.json")
+        Files.move(root.resolve("visual-pages.json"), linktarget)
+        Files.createSymbolicLink(root.resolve("visual-pages.json"), linktarget)
+        val linkfailure = intercept[RuntimeException](CozyMedia.resolvePlan(CozyMedia.CommandConfig(descriptor)))
+        Files.delete(root.resolve("visual-pages.json"))
+        Files.move(linktarget, root.resolve("visual-pages.json"))
+        Files.move(root.resolve("visual-pages.json"), linktarget)
+        Files.createDirectory(root.resolve("visual-pages.json"))
+        val sourcedirectoryfailure = intercept[RuntimeException](CozyMedia.resolvePlan(CozyMedia.CommandConfig(descriptor)))
+        Files.delete(root.resolve("visual-pages.json"))
+        Files.move(linktarget, root.resolve("visual-pages.json"))
+        Files.delete(root.resolve("catalog.json"))
+        Files.createDirectory(root.resolve("catalog.json"))
+        val directoryfailure = intercept[RuntimeException](CozyMedia.resolvePlan(CozyMedia.CommandConfig(descriptor)))
+        Files.delete(root.resolve("catalog.json"))
+        _write(root.resolve("catalog.json"), CozyVisualPage.canonicalCatalogJson(_visual_catalog))
+        val catalogtarget = root.resolve("catalog-target.json")
+        Files.move(root.resolve("catalog.json"), catalogtarget)
+        Files.createSymbolicLink(root.resolve("catalog.json"), catalogtarget)
+        val cataloglinkfailure = intercept[RuntimeException](CozyMedia.resolvePlan(CozyMedia.CommandConfig(descriptor)))
+        Files.delete(root.resolve("catalog.json"))
+        Files.move(catalogtarget, root.resolve("catalog.json"))
+        val bindingtarget = root.resolve("binding-target.json")
+        Files.move(root.resolve("binding.json"), bindingtarget)
+        Files.createSymbolicLink(root.resolve("binding.json"), bindingtarget)
+        val bindinglinkfailure = intercept[RuntimeException](CozyMedia.resolvePlan(CozyMedia.CommandConfig(descriptor)))
+        Files.delete(root.resolve("binding.json"))
+        Files.createDirectory(root.resolve("binding.json"))
+        val bindingdirectoryfailure = intercept[RuntimeException](CozyMedia.resolvePlan(CozyMedia.CommandConfig(descriptor)))
+        Files.delete(root.resolve("binding.json"))
+        Files.move(bindingtarget, root.resolve("binding.json"))
+        val directinputs = root.resolve("direct-inputs")
+        Files.createDirectory(directinputs)
+        Vector("visual-pages.json", "catalog.json", "binding.json").foreach(name => Files.copy(root.resolve(name), directinputs.resolve(name)))
+        Vector("source-parent", "catalog-parent", "binding-parent").foreach(name => Files.createSymbolicLink(root.resolve(name), directinputs))
+        var rendered = false
+        val runner = new CozyMedia.ProcessRunner {
+          def run(command: Vector[String], workingdirectory: Path): Int = {
+            rendered = true
+            0
+          }
+        }
+        val parentlinkfailures = Vector(
+          "source" -> original.replace("source: visual-pages.json", "source: source-parent/visual-pages.json"),
+          "catalog" -> original.replace("catalog: catalog.json", "catalog: catalog-parent/catalog.json"),
+          "binding" -> original.replace("binding: binding.json", "binding: binding-parent/binding.json")
+        ).map { case (field, value) =>
+          _write(descriptor, value)
+          field -> intercept[RuntimeException](CozyMedia.build(CozyMedia.CommandConfig(descriptor), runner))
+        }
+
+        Then("all variants reject before renderer invocation or receipt acceptance")
+        (failures ++ Vector(linkfailure, sourcedirectoryfailure, directoryfailure, cataloglinkfailure, bindinglinkfailure, bindingdirectoryfailure)).map(_.getMessage).forall(_.nonEmpty) shouldBe true
+        parentlinkfailures.map(_._1).toSet shouldBe Set("source", "catalog", "binding")
+        parentlinkfailures.map(_._2.getMessage).forall(_.nonEmpty) shouldBe true
+        rendered shouldBe false
+        Files.exists(root.resolve("target/cozy-media/manifest.json")) shouldBe false
+      }
+    }
   }
 
   private def _with_temp_dir(name: String)(body: Path => Unit): Unit = {
@@ -507,6 +642,146 @@ final class CozyMediaPresentationSpec extends AnyWordSpec with Matchers with Giv
     _write(descriptor, _presentation_descriptor)
     descriptor
   }
+
+  private def _write_visual_page_fixture(root: Path): Path = {
+    _write(root.resolve("article.dox"), "Article")
+    _write(root.resolve("article.pdf"), "PDF")
+    _write_png(root.resolve("assets/infographic.png"))
+    _write(root.resolve("sources/research.txt"), "research")
+    _write(root.resolve("template.pptx"), "template")
+    val catalog = _visual_catalog
+    val page = CozyVisualPage.Page(
+      "overview",
+      "article/example",
+      "en",
+      CozyVisualPage.CatalogReference("core", 1),
+      CozyVisualPage.Logical(
+        "sequence",
+        Vector(
+          CozyVisualPage.Node("discover", "step", "Discover", Vector("research")),
+          CozyVisualPage.Node("apply", "step", "Apply", Vector("research"))
+        ),
+        Vector(CozyVisualPage.Relation("next", "next", "discover", "apply", Vector("research")))
+      ),
+      CozyVisualPage.Visual("flow-horizontal", Vector.empty),
+      Vector(CozyVisualPage.Asset("infographic", "assets/infographic.png", "image/png", _sha256(root.resolve("assets/infographic.png")))),
+      Vector(CozyVisualPage.SourceBinding("research", "sources/research.txt"))
+    )
+    _write(root.resolve("catalog.json"), CozyVisualPage.canonicalCatalogJson(catalog))
+    _write(root.resolve("visual-pages.json"), CozyVisualPage.canonicalJson(CozyVisualPage.PageSet("article-pages", Vector(page))))
+    _write(root.resolve("binding.json"), _visual_binding_json)
+    val descriptor = root.resolve("media.yaml")
+    _write(descriptor,
+      """schema: cozy.media.v1
+        |knowledge:
+        |  id: article/example
+        |  source: article.dox
+        |profiles:
+        |  business:
+        |    root: publication
+        |    presentation:
+        |      template: template.pptx
+        |      renderer:
+        |        name: fake
+        |        version: "1"
+        |        command: [fake-renderer]
+        |receipt:
+        |  inputs:
+        |    - id: visual-pages
+        |      role: visual-page-set
+        |      path: visual-pages.json
+        |      normalization: structured-document
+        |    - id: catalog
+        |      role: catalog
+        |      path: catalog.json
+        |      normalization: structured-document
+        |    - id: binding
+        |      role: binding
+        |      path: binding.json
+        |      normalization: bytes
+        |    - id: template
+        |      role: template
+        |      path: template.pptx
+        |      normalization: bytes
+        |  producer:
+        |    profile: business
+        |    renderer:
+        |      name: fake
+        |      version: "1"
+        |resources:
+        |  - id: article-pdf
+        |    kind: document
+        |    language: en
+        |    source: article.pdf
+        |    output: article.pdf
+        |    build: prebuilt
+        |    publications:
+        |      business: article.pdf
+        |  - id: infographic
+        |    kind: infographic
+        |    language: en
+        |    source: assets/infographic.png
+        |    output: assets/infographic.png
+        |    build: prebuilt
+        |  - id: slides
+        |    kind: presentation
+        |    language: en
+        |    source: visual-pages.json
+        |    output: target/rendered/article.pptx
+        |    build: presentation
+        |    publications:
+        |      business: article.pptx
+        |    presentation:
+        |      contract: visual-page-v1
+        |      profile: business
+        |      catalog: catalog.json
+        |      binding: binding.json
+        |      slideImages: target/slides
+        |      montage: target/rendered/montage.png
+        |      rendererManifest: target/rendered/renderer-manifest.json
+        |      reviewManifest: review/manifest.json
+        |      reviewState: review/state.yaml
+        |      articlePdf: article-pdf
+        |      infographic: infographic
+        |""".stripMargin
+    )
+    descriptor
+  }
+
+  private val _visual_page_slots = Vector("knowledge", "nodes", "relations", "assets", "parameters")
+
+  private def _visual_binding_json: String = {
+    val patterns = Vector("flow-horizontal", "flow-vertical", "mapping-columns").map { pattern =>
+      val slots = _visual_page_slots.map(slot => s"""{"semanticSlot":"$slot","physicalSlot":"$slot-slot"}""").mkString("[", ",", "]")
+      s"""{"visualPattern":"$pattern","slots":$slots}"""
+    }.mkString("[", ",", "]")
+    s"""{"schema":"cozy.visual-page.binding.v1","version":1,"id":"business-default","profile":"business","catalog":{"id":"core","revision":1},"patterns":$patterns}"""
+  }
+
+  private def _visual_catalog: CozyVisualPage.Catalog = CozyVisualPage.Catalog(
+    "core",
+    1,
+    Vector(
+      CozyVisualPage.RelationDefinition("next", "from-to"),
+      CozyVisualPage.RelationDefinition("causes", "from-to"),
+      CozyVisualPage.RelationDefinition("depends-on", "from-to"),
+      CozyVisualPage.RelationDefinition("enables", "from-to"),
+      CozyVisualPage.RelationDefinition("maps-to", "from-to")
+    ),
+    Vector(
+      CozyVisualPage.LogicalPattern("sequence", Vector(CozyVisualPage.NodeRole("step", 2, 8)), Vector(CozyVisualPage.RelationRule("next", Vector("step"), Vector("step"), 1, 7, "linear"))),
+      CozyVisualPage.LogicalPattern("causal-chain", Vector(CozyVisualPage.NodeRole("cause", 1, 7), CozyVisualPage.NodeRole("effect", 1, 7)), Vector(CozyVisualPage.RelationRule("causes", Vector("cause"), Vector("effect"), 1, 16, "acyclic"), CozyVisualPage.RelationRule("enables", Vector("cause"), Vector("effect"), 1, 16, "acyclic"))),
+      CozyVisualPage.LogicalPattern("dependency-map", Vector(CozyVisualPage.NodeRole("dependency", 1, 7), CozyVisualPage.NodeRole("dependent", 1, 7)), Vector(CozyVisualPage.RelationRule("depends-on", Vector("dependent"), Vector("dependency"), 1, 16, "acyclic"))),
+      CozyVisualPage.LogicalPattern("mapping", Vector(CozyVisualPage.NodeRole("source", 1, 7), CozyVisualPage.NodeRole("target", 1, 7)), Vector(CozyVisualPage.RelationRule("maps-to", Vector("source"), Vector("target"), 1, 16, "bipartite")))
+    ),
+    Vector(
+      CozyVisualPage.VisualPattern("flow-horizontal", Vector("causal-chain", "sequence"), Vector(CozyVisualPage.ParameterDefinition("emphasisNode", "node-ref", false), CozyVisualPage.ParameterDefinition("showRelationLabels", "boolean", false))),
+      CozyVisualPage.VisualPattern("flow-vertical", Vector("causal-chain", "dependency-map", "sequence"), Vector(CozyVisualPage.ParameterDefinition("emphasisNode", "node-ref", false), CozyVisualPage.ParameterDefinition("showRelationLabels", "boolean", false))),
+      CozyVisualPage.VisualPattern("mapping-columns", Vector("mapping"), Vector(CozyVisualPage.ParameterDefinition("showRelationLabels", "boolean", false), CozyVisualPage.ParameterDefinition("sourceColumnTitle", "string", true), CozyVisualPage.ParameterDefinition("targetColumnTitle", "string", true)))
+    )
+  )
+
+  private def _semantic_sha256(value: String): String = value.stripPrefix("sha256:")
 
   private def _write_pptx(path: Path, title: String, asset: Path, slidetarget: String = "slides/slide1.xml", extraslide: Boolean = false, hostiledtd: Boolean = false, extrapresentationrelation: Boolean = false, extrasliderelation: Boolean = false, orphanmedia: Boolean = false, structuralescape: Boolean = false): Unit = {
     Option(path.getParent).foreach(Files.createDirectories(_))

@@ -4,10 +4,9 @@ Status: NORMATIVE DESIGN; Phase 36 `VIS36-01` is DONE
 
 This design fixes the ownership and architecture boundary for the Visual Page
 contract in [`docs/spec/visual-page.md`](../spec/visual-page.md). It admits the
-strict direct core commands and the renderer-independent semantic Preview
-defined below. It creates no Presentation-route integration, business binding,
-renderer contract, receipt, review acceptance, migration result, or
-consumer-acceptance claim.
+strict direct core commands, the renderer-independent semantic Preview, and the
+separately discriminated P36-03C presentation route defined below. It creates
+no consumer-acceptance, migration-result, or downstream-runtime claim.
 
 ## 1. One-screen semantic authority
 
@@ -125,8 +124,8 @@ serializer from claiming an identity for content it dropped or rewrote.
 
 ## 4. Fast semantic preview
 
-The direct Preview command is deliberately outside the future Presentation
-route. Its exact public form is:
+The direct Preview command is deliberately outside the implemented separate
+Presentation route. Its exact public form is:
 
 ```text
 cozy media visual-page preview <input> --catalog <catalog> --save <output.html> [--png <output.png>]
@@ -179,34 +178,60 @@ identity, catalog identity, HTML digest, and optional PNG digest in that order.
 It is output provenance only: it does not change a Visual Page, Media Package
 receipt, binding, renderer, or review identity.
 
-## 5. Binding and generated evidence
+## 5. Versioned business binding
 
-`cozy.visual-page.binding.v1` belongs between selected visual semantics and a
-physical template. It is the only authored place in this route where mapping
-to coordinates, fonts, colors, PowerPoint Shape kinds, or renderer object IDs
-is permitted. Generated renderer manifests may repeat physical evidence, but
-neither binding nor output changes Visual Page logical authority.
+`cozy.visual-page.binding.v1` is the separate business-binding value between
+selected Visual Page semantics and a physical template. Its canonical JSON
+root is exactly `schema`, `version`, `id`, `profile`, `catalog`, and `patterns`.
+`schema` is exactly `cozy.visual-page.binding.v1`, `version` is integer `1`,
+`id` and `profile` are nonempty canonical identity tokens, and this first
+business binding requires `profile: business`. `catalog` is exactly
+`{id,revision}` and must equal the resolved Visual Page catalog pair supplied
+to the strict loader.
 
-Cozy's future responsibility is strict validation, identity calculation, safe
-resolution, orchestration, stale-output rejection, and evidence/receipt
-serialization. The external renderer owns rendering and runtime; SmartDox and
-Textus consumers own consumer/runtime acceptance. A PPTX, PNG, montage, video
-frame, cache, or manifest is derived delivery/review evidence, never semantic
-input that can repair a page.
+`patterns` is nonempty and contains exactly `{visualPattern,slots}` entries.
+Each `visualPattern` is a catalog Visual Pattern ID; entries are unique and
+canonical output sorts them lexicographically. The binding is complete: every
+Visual Pattern in the selected resolved catalog occurs exactly once, and every
+pattern selected by the supplied validated Visual Page document is therefore
+bound. `slots` contains exactly five entries, each exactly
+`{semanticSlot,physicalSlot}`. The semantic slots are exactly
+`knowledge`, `nodes`, `relations`, `assets`, and `parameters`, in that order;
+each `physicalSlot` is a nonempty identity token and is unique within its
+Visual Pattern entry.
+
+The loader reads only a direct regular UTF-8 `.json` file with neither a final
+symlink nor a symlinked ancestor below its allowed root. It
+rejects unsupported suffixes, malformed UTF-8 or JSON, duplicate or unknown
+fields, unsafe/nonregular/symlink input, wrong schema/version/profile, invalid
+tokens, catalog mismatches, unknown or incomplete patterns, and invalid slot
+sets with structured `VISUAL_PAGE_BINDING_*` diagnostics carrying a field path
+and reason. Equivalent JSON key or pattern-entry ordering normalizes to one
+canonical JSON value. `bindingIdentity` is the deterministic SHA-256 identity
+of those canonical UTF-8 binding bytes; it does not alter Visual Page logical,
+visual-page, or document identity.
+
+Physical slots are opaque template/renderer slot identifiers only. They carry
+no coordinate, font, color, PowerPoint Shape kind, renderer object ID,
+template path, or executable command. P36-03B validates and identifies the
+business binding; P36-03C consumes it only in the separately discriminated
+presentation route below. Neither binding nor output changes Visual Page
+semantic authority. SmartDox and Textus consumer acceptance remains separate.
 
 ## 6. Presentation and video coexistence
 
 The legacy `presentation` object remains its accepted untagged closed object.
-It never permits `contract`, `catalog`, or `binding`. The future presentation
-route is a distinct discriminated `presentation` object whose exact keys are
+It never permits `contract`, `catalog`, or `binding`. P36-03C implements a
+distinct discriminated `presentation` object whose exact keys are
 `contract`, `profile`, `catalog`, `binding`, `slideImages`, `montage`,
 `rendererManifest`, `reviewManifest`, `reviewState`, `articlePdf`, and
 `infographic`; `contract` is exactly `visual-page-v1`, the resource's existing
 required `source` is the VisualPageSet input, and `source`, `catalog`, and
-`binding` are safe descriptor-relative direct regular non-symlink files under
-the descriptor root. They reject empty, absolute, traversal, URI-like, control-
-character, and backslash paths; normalization changes; symlink escapes; and
-missing or nonregular resolved files. `source` must parse as exactly
+`binding` are safe descriptor-relative direct regular files under the
+descriptor root, with neither a final symlink nor a symlinked ancestor. They
+reject empty, absolute, traversal, URI-like, control-character, and backslash
+paths; normalization changes; symlink escapes; and missing or nonregular
+resolved files. `source` must parse as exactly
 `cozy.visual-page-set.v1` with integer version `1`. The profile remains the
 accepted exact template/renderer shape. This object accepts no untagged legacy
 shape and never infers `--slide-ir`.
@@ -215,8 +240,16 @@ Its fixed v2 renderer argv replaces legacy `--slide-ir <source>` with
 `--visual-page-set <source> --catalog <catalog> --binding <binding>`. Its exact
 v2 manifest canonical top-level order is `schema, target, profile, renderer,
 visualPageSetSha256, catalogSha256, bindingSha256, templateSha256, pptx,
-slides, montage`. It expects v2 renderer evidence. It coexists with, but does
-not replace, the existing `--slide-ir` / `cozy.presentation.render.v1` route.
+slides, montage`. Its three semantic identity fields are lowercase 64-hex
+canonical identities, not raw source bytes; template and generated artifacts
+use raw byte SHA-256. Each page-ordered slide entry is exactly `id`, `path`,
+`sha256`, `pptxSha256`, and page-asset-ordered `assets` entries of exactly
+`id`, `sha256`. Cozy reconstructs the separate
+`cozy.media.presentation-review.v2` evidence from the trusted VisualPageSet,
+catalog, binding, template, renderer, artifacts, article PDF, and infographic;
+that reconstruction verifies freshness only and never records semantic
+approval. The route coexists with, but does not replace, the existing
+`--slide-ir` / `cozy.presentation.render.v1` route.
 
 The future Storyboard route is independently versioned. A v2 scene can point
 to exactly one page in a safe Visual Page Set while retaining Storyboard
@@ -225,13 +258,15 @@ final, and audiovisual-review semantics. The page reference participates in
 Storyboard identity; resolved page/catalog/binding/renderer/asset identities
 belong to visual evidence and are never guessed into Storyboard content.
 
-The current v1 presentation and Storyboard contracts remain exactly accepted
-until a distinct later implementation takes the v2 routes. Existing
+The current v1 presentation and Storyboard contracts remain exactly accepted;
+the Storyboard v2 route is still separate future work. Existing
 `cozy.media.receipt.v2` and review-state v1 schema shapes remain unchanged.
-Only an implemented visual-page route may record named page/catalog/binding/
-asset inputs inside the existing ordered receipt input evidence and its own
-verified v2 renderer/review evidence. No v1 parser, receipt, review state, or
-renderer path acquires new behavior from this design.
+The implemented visual-page presentation route requires explicit existing
+receipt inputs for the VisualPageSet and catalog as structured documents and
+for the binding and template as bytes. Assets are proved by strict Visual Page
+loading plus v2 renderer/review evidence; this does not extend cross-media
+receipt semantics. No v1 parser, receipt, review state, or renderer path
+acquires new behavior from this design.
 
 ## 7. Explicit migration only
 
