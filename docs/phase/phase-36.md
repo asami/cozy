@@ -117,7 +117,7 @@ contract. The accepted implementation records are commits
 
 Stage Status:
 
-- Current status: IN PROGRESS
+- Current status: DONE
 - Owner: Cozy media presentation orchestration
 - Update rule: complete only when Visual Page projection, business profile
   binding, renderer handoff, and generated-artifact verification pass.
@@ -125,44 +125,18 @@ Stage Status:
 Project ordered Visual Pages into presentation slides without making a PPTX or
 template example slide the semantic authority.
 
-`P36-03A` is accepted as DONE: Fast Semantic Preview provides a
-renderer-independent HTML semantic review surface before presentation-renderer
-handoff, with optional Preview-only logical-structure PNG output. The PNG is
-not a PPT input or reuse contract. Business binding, renderer handoff,
-receipt/review acceptance, and presentation projection remain open. The
-decision journal is
-[`2026-08-27-phase-36-fast-semantic-preview-decision.md`](../journal/2026/08/2026-08-27-phase-36-fast-semantic-preview-decision.md).
-The accepted commit is `a248fade7adaa80757ccd0ee77de46588e3e987e`; focused
-validation succeeded 10/10 with 0 failures, and sealed lightweight review
-passed. This record does not change Visual Page, binding, receipt, or review
-authority.
-
-`P36-03B` records the versioned business-binding contract: strict direct JSON
-validation against the resolved Visual Page catalog, canonical pattern and
-semantic-slot ordering, opaque physical-slot tokens, and deterministic binding
-identity. It does not consume a descriptor binding, invoke a renderer, or
-create presentation artifacts. Presentation projection, renderer handoff,
-receipt/review evidence, and generated-artifact verification remain open for a
-later Step.
-
-`P36-03C-DEC-001` is consumed for Phase 36 / P36-03C only: the user approved
-this exact `visual-page-v1` presentation route and v2 evidence grammar at
-phase base `955601e3cd211900d6f2db3ae0c680a29a7957b2` with the current
-P36-03B binding/design/docs accumulator, and authorized IMPLEMENT. P36-03C
-implements the closed descriptor branch, fixed renderer handoff, strict v2
-renderer/review evidence, and explicit existing receipt inputs while retaining
-the v1 route byte-for-byte. The P36-03B/P36-03C Step is accepted in local
-acceptance commit `4d4d621fdbc1822233d49de6a618708567c02d8a`; final-tree focused
-validation invocation `51002-20260827T073710Z` passed 29/29 with 0 failures
-across 3 suites, and independent VIS36-03 Step review passed with zero findings.
-This decision is neither global approval nor SmartDox, Textus, CAR, video, or
-downstream-consumer acceptance.
+P36-03A is accepted in `a248fade7adaa80757ccd0ee77de46588e3e987e`; P36-03B/C
+is accepted in `4d4d621fdbc1822233d49de6a618708567c02d8a`, whose final-tree
+focused validation `51002-20260827T073710Z` passed 29/29 with zero review
+findings. The accepted route retains PPTX/template/generated artifacts as
+non-semantic evidence, and confines physical layout vocabulary to binding or
+generated output. VIS36-03 is DONE; it grants no downstream-consumer approval.
 
 ### VIS36-04: Video Scene Screen Integration
 
 Stage Status:
 
-- Current status: IN PROGRESS
+- Current status: DONE
 - Owner: Cozy video Storyboard integration
 - Update rule: complete only when scene-screen references, visual identity,
   review evidence, and unchanged video-specific semantics pass.
@@ -179,16 +153,10 @@ explicit v1-text-to-v2 migration. Focused validation invocation
 `90284-20260827T085957Z` (`testOnly cozy.video.CozyVideoStoryboardSpec`) reported
 16 succeeded, 0 failed/aborted, SBT/wrapper 0, and the lock released.
 Independent `P36-04-REREVIEW-002` is PASS and `CB-P36-04-RR-001` is resolved.
-P36-04's implementation/validation record is included in this local acceptance
-Step commit. No push, publish, or publication is claimed. VIS36-04 and Phase 36 remain IN PROGRESS because
-renderer scene identity binding and evidence identity/proof remain open for
-P36-05+. P36-05 implementation, focused validation, and independent Step
-re-review passed (`54038-20260827T112424Z` ReviewSpec 12/12;
-`54763-20260827T112533Z` accumulator 39/39); its acceptance evidence is
-recorded in this local Step commit. VIS36-05 and Phase 36 remain IN PROGRESS;
-Phase closure remains open. `P36-06-DEC-001` admits a closed structural
-cross-media evidence route; VIS36-06 is IN PROGRESS pending independent Step
-review, and Phase 37 remains NOT STARTED.
+P36-04's acceptance record preserves every Storyboard-specific semantic and
+lifecycle field. P36-05 supplied the later visual evidence/identity proof and
+stale-input gates. VIS36-04 is DONE; no renderer, publication, or external
+consumer acceptance is claimed.
 
 Nonblocking hygiene disposition `HYG-36-04-001`: the pre-existing unified
 Storyboard parser now exceeds 1,000 lines after the v2 boundary. A safe
@@ -199,9 +167,7 @@ manifest; defer that mechanical split to a separately authorized hygiene batch.
 
 Stage Status:
 
-- Current status: IN PROGRESS (P36-05 focused validation and independent Step
-  re-review passed; acceptance evidence recorded in this local Step commit;
-  Phase closure open)
+- Current status: DONE
 - Owner: Cozy media receipts and review state
 - Update rule: complete only when cross-artifact input identity, receipts,
   alignment state, and stale-input rejection pass their checklist evidence.
@@ -221,11 +187,8 @@ unchanged. The decision record is
 The admitted v2 implementation and executable specifications are delivered.
 Focused validation and independent Step re-review passed
 (`54038-20260827T112424Z` ReviewSpec 12/12;
-`54763-20260827T112533Z` accumulator 39/39); acceptance evidence is recorded
-in this local Step commit. VIS36-05 and Phase 36 remain IN PROGRESS; Phase
-closure remains open. `P36-06-DEC-001` admits a closed structural cross-media
-evidence route; VIS36-06 is IN PROGRESS pending independent Step review, and
-Phase 37 remains NOT STARTED.
+`54763-20260827T112533Z` accumulator 39/39). VIS36-05 is DONE; Phase closure
+remains open.
 
 ### VIS36-06: Cross-Media Acceptance and Closure
 
@@ -233,8 +196,8 @@ Stage Status:
 
 - Current status: IN PROGRESS
 - Owner: Cozy validation and review
-- Update rule: complete only when focused and full validation, independent
-  review, and representative presentation/video evidence satisfy the
+- Update rule: complete only when Phase-level full validation, independent
+  Phase review, and representative presentation/video evidence satisfy the
   checklist.
 
 Prove at least one representative Visual Page through both presentation-slide
@@ -247,9 +210,15 @@ executable-specification validation passed (2/2 in invocation
 `78836-20260827T121036Z`; 30/30 cross-media/presentation/storyboard regression
 in `79792-20260827T121146Z`; 31/31 after repair in
 `40917-20260827T151855Z`). Independent Step review and focused re-review passed;
-this local acceptance Step commit records the structural route only. This record does not claim a render, video build,
-publication, semantic/visual/audiovisual approval, representative-media
-acceptance, or Phase closure.
+this local acceptance Step commit records the structural route only. The
+representative article-summary fixture now supplies one same-page presentation
+and Storyboard v2 projection; focused receipts `55224-20260827T154155Z` and
+`56922-20260827T154423Z` passed 3/3, while final focused receipt
+`68270-20260827T160345Z` passed 50/50 across 5 suites. Its retained 1280x720
+slide image was separately inspected for readable text, asset presence, layout,
+clipping, and cross-media identity consistency. This remains test-fixture
+inspection, not semantic/visual/audiovisual approval, renderer acceptance,
+publication, or Phase closure.
 
 ## Dependencies and exclusions
 

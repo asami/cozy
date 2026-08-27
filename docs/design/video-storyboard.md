@@ -1,18 +1,16 @@
 # Cozy Video Storyboard Design
 
 Status: NORMATIVE DESIGN; Phase 30 v1 remains accepted; Phase 36 `VIS36-04`
-remains IN PROGRESS after the P36-04 implementation record
+and `VIS36-05` are DONE, while Phase-level P36-06 closure work remains.
 
 `P36-04-DEC-001` is consumed. Focused validation invocation
 `90284-20260827T085957Z` (`testOnly cozy.video.CozyVideoStoryboardSpec`) reported
 16 succeeded, 0 failed/aborted, SBT/wrapper 0, and the lock released.
 Independent `P36-04-REREVIEW-002` is PASS and `CB-P36-04-RR-001` is resolved.
-P36-04's implementation/validation record is included in this local acceptance
-Step commit. No push, publish, or publication is claimed. VIS36-04 and Phase 36 remain IN PROGRESS because
-renderer scene identity binding and evidence identity/proof remain open for
-P36-05+. `P36-05-DEC-001` is consumed; P36-05 implementation is delivered,
-while focused validation and acceptance evidence remain open. VIS36-05 remains
-IN PROGRESS; VIS36-06 and Phase 37 remain NOT STARTED.
+P36-04 and P36-05 are accepted as complete. P36-06 has representative
+Cross-media evidence but remains open for final Phase validation/review. No
+push, publish, or external-consumer acceptance is claimed; Phase 37 remains
+NOT STARTED.
 
 This design defines the architecture, responsibility boundaries, and stable
 invariants for `cozy.video.storyboard.v1`. The functional contract is

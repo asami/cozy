@@ -3,10 +3,13 @@ package cozy.media
 import cozy.video.{CozyVideo, CozyVideoImplementation}
 import io.circe.Json
 import io.circe.parser
+import java.awt.{Color, Font, RenderingHints}
+import java.awt.image.BufferedImage
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path}
+import java.nio.file.{Files, Path, StandardCopyOption}
 import java.security.MessageDigest
 import java.util.zip.{ZipEntry, ZipOutputStream}
+import javax.imageio.ImageIO
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -14,7 +17,7 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   Aug. 27, 2026
- * @version Aug. 27, 2026
+ * @version Aug. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyMediaCrossReviewSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -24,8 +27,18 @@ final class CozyMediaCrossReviewSpec extends AnyWordSpec with Matchers with Give
         Given("a current Visual Page presentation and a current approved Storyboard v2 visual-page review")
         val media = _write_media_fixture(root)
         var rendererinvoked = false
+
+        When("Cozy builds the representative article-summary presentation")
         CozyMedia.build(CozyMedia.CommandConfig(media), _presentation_runner(root, () => rendererinvoked = true))
+
+        Then("the generated slide is a readable 1280 by 720 inspection artifact")
         rendererinvoked shouldBe true
+        val slide = ImageIO.read(root.resolve("target/slides/overview.png").toFile)
+        slide should not be null
+        slide.getWidth shouldBe 1280
+        slide.getHeight shouldBe 720
+
+        Given("the presentation renderer state is reset before Cross-media Review")
         rendererinvoked = false
         val storyboard = _storyboard()
         val source = _write_storyboard(root, storyboard)
@@ -193,6 +206,7 @@ final class CozyMediaCrossReviewSpec extends AnyWordSpec with Matchers with Give
         |  - id: slides
         |    kind: presentation
         |    language: en
+        |    role: article-summary
         |    source: visual-pages.json
         |    output: target/rendered/article.pptx
         |    build: presentation
@@ -333,8 +347,48 @@ final class CozyMediaCrossReviewSpec extends AnyWordSpec with Matchers with Give
 
   private def _write_png(path: Path): Unit = {
     Option(path.getParent).foreach(Files.createDirectories(_))
-    Files.write(path, Array[Byte](0x89.toByte, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00))
+    val image = new BufferedImage(1280, 720, BufferedImage.TYPE_INT_RGB)
+    val graphics = image.createGraphics()
+    try {
+      graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
+      graphics.setColor(Color.WHITE)
+      graphics.fillRect(0, 0, image.getWidth, image.getHeight)
+      graphics.setColor(new Color(20, 49, 81))
+      graphics.fillRect(0, 0, image.getWidth, 116)
+      graphics.setColor(Color.WHITE)
+      graphics.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 42))
+      graphics.drawString("Article Summary: Visual Page", 56, 72)
+      graphics.setColor(new Color(20, 49, 81))
+      graphics.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 26))
+      graphics.drawString("Overview", 56, 160)
+      graphics.setColor(new Color(227, 242, 253))
+      graphics.fillRoundRect(92, 250, 390, 170, 18, 18)
+      graphics.fillRoundRect(798, 250, 390, 170, 18, 18)
+      graphics.setColor(new Color(20, 49, 81))
+      graphics.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 34))
+      graphics.drawString("Discover", 190, 345)
+      graphics.drawString("Apply", 920, 345)
+      graphics.setStroke(new java.awt.BasicStroke(8f))
+      graphics.drawLine(512, 335, 748, 335)
+      graphics.fillPolygon(Array(748, 718, 718), Array(335, 315, 355), 3)
+      graphics.setColor(new Color(0, 121, 107))
+      graphics.fillRoundRect(448, 510, 384, 100, 18, 18)
+      graphics.setColor(Color.WHITE)
+      graphics.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 24))
+      graphics.drawString("Infographic asset", 533, 570)
+    } finally graphics.dispose()
+    ImageIO.write(image, "png", path.toFile) shouldBe true
+    _export_visual_inspection(path)
   }
+
+  private def _export_visual_inspection(path: Path): Unit =
+    Option(System.getProperty("cozy.p36.crossReviewInspection")).filter(_ == "true").foreach { _ =>
+      val destination = Path.of("target/phase-36/cross-review-inspection")
+        .toAbsolutePath.normalize()
+        .resolve(path.getFileName.toString)
+      Option(destination.getParent).foreach(Files.createDirectories(_))
+      Files.copy(path, destination, StandardCopyOption.REPLACE_EXISTING)
+    }
 
   private def _zip(output: ZipOutputStream, name: String, value: String): Unit = {
     output.putNextEntry(new ZipEntry(name))

@@ -1,19 +1,10 @@
 # Visual Page Specification
 
-Status: NORMATIVE; Phase 36 `VIS36-01` is DONE; the P36-03B/P36-03C Step is
-accepted in local acceptance commit `4d4d621fdbc1822233d49de6a618708567c02d8a`;
-final-tree focused validation invocation `51002-20260827T073710Z` passed 29/29
-with 0 failures across 3 suites, and independent VIS36-03 Step review passed
-with zero findings. `VIS36-04` remains IN PROGRESS after the P36-04
-implementation record. `P36-04-DEC-001` is consumed. Focused validation
-invocation `90284-20260827T085957Z` (`testOnly
-cozy.video.CozyVideoStoryboardSpec`) reported 16 succeeded, 0 failed/aborted,
-SBT/wrapper 0, and the lock released; independent `P36-04-REREVIEW-002` is
-PASS and `CB-P36-04-RR-001` is resolved.
-P36-04's implementation/validation record is included in this local acceptance
-Step commit. No push, publish, or publication is claimed. VIS36-04 and Phase 36 remain IN PROGRESS because renderer scene identity
-binding and evidence identity/proof remain open for P36-05+. VIS36-05 and
-VIS36-06, and Phase 37, remain NOT STARTED.
+Status: NORMATIVE; Phase 36 `VIS36-01` through `VIS36-05` are DONE. P36-06's
+closed Cross-media Review route and representative evidence are recorded in
+the Phase ledger; only Phase-level validation, review, ledger closure, and
+release work remain. Phase 37 is NOT STARTED. No external-consumer acceptance
+is claimed.
 
 This is the normative contract for the Visual Page route. It defines semantic
 values, compatibility boundaries, the independent direct core
