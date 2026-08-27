@@ -37,14 +37,14 @@ Current phase state:
   Content-review and video-review PPTX artifacts are optional inspection or
   distribution outputs, not workflow gates. The closure validates Cozy-owned
   artifacts and does not claim SmartDox/Textus or other consumer acceptance.
-  Planned Phase 36 and Phase 37 work is not started or authorized for
-  implementation.
-- Planned successor: `phase-36.md`: Common Visual Page and Cross-Media
-  Presentation Contract. It will define a one-screen Presentation Semantics IR
-  containing a Logical Pattern and typed semantic Relation graph, projected
-  separately through a Visual Pattern and template binding to presentation
-  slides and video Storyboard scene screens. Its start gate is Phase 30
-  closure; no Phase 36 implementation is started or authorized here.
+  Phase 36 is active under its accepted current status; Phase 37 remains
+  planned, not started, and not authorized for implementation.
+- Current phase: `phase-36.md`: Common Visual Page and Cross-Media Presentation
+  Contract. Phase 36 is IN PROGRESS; VIS36-01 and VIS36-02 are DONE, and
+  VIS36-03 is IN PROGRESS with only P36-03A accepted. Business binding,
+  presentation projection, renderer handoff, receipt/review acceptance, and
+  VIS36-04 through VIS36-06 remain open or NOT STARTED. Its start gate was
+  Phase 30 closure; this does not authorize Phase 37 implementation.
 - Planned successor: `phase-37.md`: Logical Explanation Composition and Media
   Projection. It will separate Subject Pattern from Narrative / Argument-
   oriented Explanation Pattern, expand the latter into typed Logical Patterns
@@ -106,10 +106,14 @@ No child Phase 30.1, 30.2, or 30.3 is created or required. Its closure records
 the completed Cozy-owned workflow only; it neither starts a successor Phase
 nor claims external consumer acceptance.
 
-Phase 36 is the planned common Visual Page successor to the representation and
-identity principles established by Phase 30. Its current authority is only
-`phase-36.md` plus `phase-36-checklist.md`; normative design/specification and
-implementation remain unstarted.
+Phase 36 is the active common Visual Page successor to the representation and
+identity principles established by Phase 30. Its canonical status authority is
+`phase-36.md` plus `phase-36-checklist.md`; accepted normative
+design/specification is recorded in `docs/design/visual-page.md` plus
+`docs/spec/visual-page.md`. Phase 36 is IN PROGRESS; VIS36-01
+and VIS36-02 are DONE, and VIS36-03 is IN PROGRESS with only P36-03A accepted.
+Business binding, presentation projection, renderer handoff, receipt/review
+acceptance, and VIS36-04 through VIS36-06 remain open or NOT STARTED.
 
 Phase 37 is the planned logical explanation-composition successor to Phase 36.
 Its current authority is only `phase-37.md` plus

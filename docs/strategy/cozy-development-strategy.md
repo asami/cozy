@@ -995,7 +995,8 @@ Primary references:
 
 ### Phase 36: Common Visual Page and Cross-Media Presentation Contract
 
-Status: IN PROGRESS; VIS36-01 documentation foundation is IN PROGRESS.
+Status: IN PROGRESS; VIS36-01 and VIS36-02 are DONE; VIS36-03 is IN PROGRESS
+with only P36-03A accepted.
 
 Purpose and boundaries:
 
@@ -1028,9 +1029,10 @@ Purpose and boundaries:
   outputs as generated delivery or review artifacts.
 
 Phase 36 starts only after Phase 30 closes its active video Storyboard
-contract. VIS36-01 is the in-progress documentation authority foundation; it
-does not expand Phase 30. P36-02 implementation has not started and follows
-only after P36-01 contract/Step acceptance.
+contract. VIS36-01 and VIS36-02 are accepted as DONE, and VIS36-03 remains IN
+PROGRESS with only P36-03A accepted. Business binding, presentation projection,
+renderer handoff, receipt/review acceptance, and VIS36-04 through VIS36-06
+remain open or NOT STARTED. This status does not expand Phase 30.
 Subject/Explanation Pattern composition and multi-slide/multi-scene expansion
 remain Phase 37 work.
 
@@ -1182,9 +1184,10 @@ Origin:
 
 ## Current Priority
 
-Phase 30 is closed. Phase 36 VIS36-01 is the in-progress common Visual Page
-documentation foundation; P36-02 implementation has not started and follows
-only after P36-01 contract/Step acceptance. Phase 37 remains excluded and not
+Phase 30 is closed. Phase 36 VIS36-01 and VIS36-02 are DONE; VIS36-03 remains
+IN PROGRESS with only P36-03A accepted. Business binding, presentation
+projection, renderer handoff, receipt/review acceptance, and VIS36-04 through
+VIS36-06 remain open or NOT STARTED. Phase 37 remains excluded and not
 started; it is the planned logical explanation-composition successor after
 Phase 36 closes. Neither successor adds work to the closed Phase 30 boundary
 or claims implementation, validation, review, publication, or external
@@ -1206,11 +1209,12 @@ has been superseded by CFB3 and the candidate final receipt
 `22693-20260824T094231Z` (`test`, 1,376 succeeded/0 failed/8 canceled, 100
 suites, 0 aborted, SBT/wrapper 0, lock released). Strict actual-Build admission
 remains correct. No Phase 35 implementation is started here. Phase 36
-VIS36-01 is a separate in-progress common Visual Page documentation foundation;
-P36-02 implementation has not started and follows only after P36-01
-contract/Step acceptance. Phase 37 remains excluded and not started as its
-planned logical explanation-composition successor. No SmartDox/Textus consumer
-execution or acceptance is claimed.
+VIS36-01 and VIS36-02 are DONE; VIS36-03 remains IN PROGRESS with only P36-03A
+accepted. Business binding, presentation projection, renderer handoff,
+receipt/review acceptance, and VIS36-04 through VIS36-06 remain open or NOT
+STARTED. Phase 37 remains excluded and not started as its planned logical
+explanation-composition successor. No SmartDox/Textus consumer execution or
+acceptance is claimed.
 SmartDox Phase 8
 `LITERAL8-03` owns regenerated-site runtime
 finalization, metadata-only inventory/hash evidence, and Textus BoK consumer

@@ -1,6 +1,6 @@
 # Phase 36 Hygiene Follow-up
 
-Status: OPEN follow-up records only
+Status: OPEN and RESOLVED follow-up records
 
 ## Accepted records
 
@@ -45,3 +45,22 @@ embedded-PageSet validation entry point moves the inherited oversized source
 from 1,201 to 1,223 lines. Parser/validation splitting remains a separate
 high-risk refactor and is not fixed by this migration slice; carry it in the
 same dedicated hygiene boundary as HYG-P36-02B-001.
+
+### HYG-P36-STATUS-001
+
+Status: RESOLVED
+
+Discovered during the P36-STATUS-01 lightweight review. Paths:
+`docs/strategy/cozy-development-strategy.md` and `docs/phase/README.md`.
+The stale snapshots carried a nonblocking stale-snapshot risk by describing
+VIS36-01 as in progress and P36-02 as not started after the accepted Phase 36
+status had advanced. This was outside P36-STATUS-01's two-phase-document
+boundary because that Step synchronized only `docs/phase/phase-36.md` and
+`docs/phase/phase-36-checklist.md`.
+
+Resolution boundary: the current task/commit subject
+`P36-HYG-STATUS-001` status synchronization. The strategy and README
+snapshots now agree with the accepted Phase 36 status: Phase 36 is IN
+PROGRESS; VIS36-01 and VIS36-02 are DONE; VIS36-03 is IN PROGRESS with only
+P36-03A accepted; and VIS36-04 through VIS36-06 are NOT STARTED. This record
+is nonblocking and resolved without any behavioral or Phase-scope change.
