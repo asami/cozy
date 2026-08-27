@@ -1,7 +1,7 @@
 # Cozy Video Storyboard Specification
 
-Status: NORMATIVE; Phase 30 v1 remains accepted; Phase 36 `VIS36-04` and
-`VIS36-05` are DONE, while Phase-level P36-06 closure work remains.
+Status: NORMATIVE; Phase 30 v1 remains accepted; Phase 36 `VIS36-04` through
+`VIS36-06` are DONE.
 
 This document is the authoritative functional specification for accepted
 `cozy.video.storyboard.v1` and the separately versioned
@@ -10,11 +10,11 @@ P36-04 focused validation
 invocation `90284-20260827T085957Z` passed with 16 succeeded/0 failed/0
 aborted, SBT/wrapper 0, and the lock released; independent
 `P36-04-REREVIEW-002` is PASS and `CB-P36-04-RR-001` is resolved.
-P36-04 and P36-05 are accepted as complete; their review proof retains the
-separate semantic, visual, and audiovisual authority boundary. P36-06 has
-representative evidence but remains open for final Phase validation/review.
-No push, publish, or external-consumer acceptance is claimed; Phase 37 remains
-NOT STARTED.
+P36-04 through P36-06 are accepted as complete; their review proof retains the
+separate semantic, visual, and audiovisual authority boundary. P36-06 rejects
+duplicate JSON object fields before Cross-media proof or Storyboard v2
+evidence/handoff decoding. No push, publish, or external-consumer acceptance
+is claimed; Phase 37 remains NOT STARTED.
 
 The words **MUST**, **MUST NOT**, **SHOULD**, and **MAY** are normative. The
 corresponding responsibility and ownership design is in

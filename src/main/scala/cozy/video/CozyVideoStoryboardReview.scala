@@ -2,6 +2,7 @@ package cozy.video
 
 import cozy.media.{CozyVisualPage, CozyVisualPageBinding}
 import cozy.runtime.CozyCliArgs
+import com.fasterxml.jackson.core.{JsonFactory, JsonParseException, JsonParser => JacksonParser}
 import io.circe.Json
 import io.circe.parser
 import java.nio.charset.StandardCharsets
@@ -14,7 +15,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 26, 2026
- * @version Aug. 27, 2026
+ * @version Aug. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoStoryboardReview {
@@ -921,14 +922,30 @@ private[cozy] trait CozyVideoStoryboardReview {
   }
 
   private def _read_json(path: Path, label: String): Json = {
-    try {
-      parser.parse(Files.readString(path, StandardCharsets.UTF_8)).fold(
-        error => _review_failure("STORYBOARD_REVIEW_EVIDENCE_MALFORMED", s"$label is not valid JSON: ${error.getMessage}"),
-        identity
-      )
-    } catch {
+    val text = try Files.readString(path, StandardCharsets.UTF_8) catch {
       case NonFatal(error) => _review_failure("STORYBOARD_REVIEW_EVIDENCE_READ_FAILED", s"cannot read $label: ${error.getMessage}")
     }
+    _require_no_duplicate_json_fields(text, label)
+    parser.parse(text).fold(
+      error => _review_failure("STORYBOARD_REVIEW_EVIDENCE_MALFORMED", s"$label is not valid JSON: ${error.getMessage}"),
+      identity
+    )
+  }
+
+  private def _require_no_duplicate_json_fields(text: String, label: String): Unit = {
+    val input = new JsonFactory().enable(JacksonParser.Feature.STRICT_DUPLICATE_DETECTION).createParser(text)
+    try {
+      try while (input.nextToken() != null) {}
+      catch {
+        case error: JsonParseException if Option(error.getOriginalMessage).exists(_.contains("Duplicate field")) =>
+          _review_failure(
+            "STORYBOARD_REVIEW_EVIDENCE_DUPLICATE_FIELD",
+            s"$label contains duplicate JSON object field: ${error.getOriginalMessage}"
+          )
+        case error: JsonParseException =>
+          _review_failure("STORYBOARD_REVIEW_EVIDENCE_MALFORMED", s"$label is not valid JSON: ${error.getOriginalMessage}")
+      }
+    } finally input.close()
   }
 
   private def _validate_identity(value: String, code: String): String = {

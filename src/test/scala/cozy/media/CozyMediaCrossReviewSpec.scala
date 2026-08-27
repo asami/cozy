@@ -64,10 +64,15 @@ final class CozyMediaCrossReviewSpec extends AnyWordSpec with Matchers with Give
         review.hcursor.downField("verification").get[String]("audiovisualApproval").toOption shouldBe Some("not-recorded")
         rendererinvoked shouldBe false
 
-        Given("the saved review and then a participating binding are changed after construction")
+        Given("the saved review, a duplicate saved-proof key, and then a participating binding are changed after construction")
         val originalreview = Files.readString(output, StandardCharsets.UTF_8)
         Files.writeString(output, originalreview.replace("\"status\":\"valid\"", "\"status\":\"changed\""), StandardCharsets.UTF_8)
         val tampered = intercept[RuntimeException] {
+          CozyMediaCrossReview.verify(CozyMediaCrossReview.VerifyConfig(media, "slides", project, "target/cozy-media/cross-review.json"))
+        }
+        Files.writeString(output, originalreview, StandardCharsets.UTF_8)
+        Files.writeString(output, originalreview.replace("{\"schema\":", "{\"schema\":\"tampered\",\"schema\":"), StandardCharsets.UTF_8)
+        val duplicate = intercept[RuntimeException] {
           CozyMediaCrossReview.verify(CozyMediaCrossReview.VerifyConfig(media, "slides", project, "target/cozy-media/cross-review.json"))
         }
         Files.writeString(output, originalreview, StandardCharsets.UTF_8)
@@ -78,9 +83,14 @@ final class CozyMediaCrossReviewSpec extends AnyWordSpec with Matchers with Give
           CozyMediaCrossReview.verify(CozyMediaCrossReview.VerifyConfig(media, "slides", project, "target/cozy-media/cross-review.json"))
         }
 
-        Then("tampered saved proof and stale participant input reject before any renderer or approval action")
+        Then("tampered or duplicate saved proof and stale participant input reject before any renderer or approval action")
         tampered.getMessage should include("Cross-media Review")
+        duplicate.getMessage should include("Cross-media Review")
+        duplicate.getMessage.toLowerCase should include("duplicate")
         stale.getMessage.nonEmpty shouldBe true
+        review.hcursor.downField("verification").get[String]("semanticApproval").toOption shouldBe Some("not-recorded")
+        review.hcursor.downField("verification").get[String]("visualApproval").toOption shouldBe Some("not-recorded")
+        review.hcursor.downField("verification").get[String]("audiovisualApproval").toOption shouldBe Some("not-recorded")
         rendererinvoked shouldBe false
       }
     }

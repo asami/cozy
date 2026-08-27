@@ -2,6 +2,7 @@ package cozy.media
 
 import cozy.runtime.CozyCliArgs
 import cozy.video.CozyVideo
+import com.fasterxml.jackson.core.{JsonFactory, JsonParseException, JsonParser => JacksonParser}
 import io.circe.{Json, JsonObject}
 import io.circe.parser.parse
 import java.nio.charset.StandardCharsets
@@ -14,7 +15,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 27, 2026
- * @version Aug. 27, 2026
+ * @version Aug. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMediaCrossReview {
@@ -281,7 +282,22 @@ private[cozy] object CozyMediaCrossReview {
   private def _read_json(path: Path, label: String): Json = {
     if (Files.isSymbolicLink(path) || !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
       _invalid(s"$label must be a direct regular file")
-    parse(Files.readString(path, StandardCharsets.UTF_8)).fold(_ => _invalid(s"$label must be JSON"), identity)
+    val text = Files.readString(path, StandardCharsets.UTF_8)
+    _require_no_duplicate_json_fields(text, label)
+    parse(text).fold(_ => _invalid(s"$label must be JSON"), identity)
+  }
+
+  private def _require_no_duplicate_json_fields(text: String, label: String): Unit = {
+    val input = new JsonFactory().enable(JacksonParser.Feature.STRICT_DUPLICATE_DETECTION).createParser(text)
+    try {
+      try while (input.nextToken() != null) {}
+      catch {
+        case error: JsonParseException if Option(error.getOriginalMessage).exists(_.contains("Duplicate field")) =>
+          _invalid(s"$label contains duplicate JSON object field: ${error.getOriginalMessage}")
+        case _: JsonParseException =>
+          _invalid(s"$label must be JSON")
+      }
+    } finally input.close()
   }
 
   private def _file_identity(path: Path): String =

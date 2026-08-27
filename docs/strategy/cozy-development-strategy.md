@@ -995,12 +995,12 @@ Primary references:
 
 ### Phase 36: Common Visual Page and Cross-Media Presentation Contract
 
-Status: IN PROGRESS; VIS36-01 through VIS36-05 are DONE. P36-06's closed
+Status: COMPLETE; VIS36-01 through VIS36-06 are DONE. P36-06's closed
 Cross-media Review route is accepted in
 `245ec94dccc8abcf81cb810cd0630d91ebb15e05`; its representative article-summary
 fixture and separate test-image inspection are recorded in the Phase 36
-checklist. Phase-level full validation, independent Phase review, ledger
-closure, and release commit remain. Phase 37 remains NOT STARTED.
+checklist. The independent Phase review, bounded duplicate-JSON repair, and
+focused closure re-review are complete. Phase 37 remains NOT STARTED.
 
 Purpose and boundaries:
 
@@ -1042,9 +1042,10 @@ Purpose and boundaries:
   outputs as generated delivery or review artifacts.
 
 Phase 36 starts only after Phase 30 closes its active video Storyboard
-contract. VIS36-01 through VIS36-05 are DONE. P36-06 retains only its final
-Phase-level full validation, independent Phase review, ledger closure, and release
-commit; it does not expand Phase 30. Phase 37 remains NOT STARTED.
+contract. VIS36-01 through VIS36-06 are DONE. Its accepted Cross-media Review
+route verifies currentness/identity only, including strict rejection of
+duplicate JSON object fields before decode; it does not expand Phase 30.
+Phase 37 remains NOT STARTED.
 Subject/Explanation Pattern composition and multi-slide/multi-scene expansion
 remain Phase 37 work.
 
@@ -1191,15 +1192,14 @@ Origin:
 | DEV-003 | User-reported CAR publication runtime-selection defect, corroborated by `docs/journal/2026/08/entity-revision-generator-downstream-acceptance-transfer-2026-08-03.md` | Make CAR publish paths select `project.yaml build.cozyVersion` without a temporary `.cozy` runtime override. | NEW_PHASE | [Phase 33](../phase/phase-33.md) | RESOLVED |
 | DEV-004 | Phase 29 full review `CPB-29-01` / `CPB-29-02` | Canonically admit configured BoK source paths and unconditionally validate glossary/component-reference resources before manifest publication. | NEW_PHASE | [Phase 34](../phase/phase-34.md) | RESOLVED |
 | DEV-005 | Phase 34 final official full test `58874-20260824T044406Z`; resolved by CFB3 | Make `cozy.bok.CozyBokSpec` actual-Build source fixtures self-contained local safe sources while preserving CFB2 configuration-time safe absence and strict actual-Build admission; specify any behavior change first. | NEW_PHASE | [Phase 34](../phase/phase-34.md) | RESOLVED |
-| DEV-006 | User request on 2026-08-26 following the article-summary media workflow review | Establish a common Visual Page contract carrying a typed Logical Pattern and semantic Relation graph, projected separately through Visual Patterns into presentation slides and video Storyboard scene screens with deterministic renderer binding and receipt identity. This supersedes the earlier Markdown-only Slide IR successor proposal. | NEW_PHASE | [Phase 36](../phase/phase-36.md) | IN PROGRESS |
+| DEV-006 | User request on 2026-08-26 following the article-summary media workflow review | Establish a common Visual Page contract carrying a typed Logical Pattern and semantic Relation graph, projected separately through Visual Patterns into presentation slides and video Storyboard scene screens with deterministic renderer binding and receipt identity. This supersedes the earlier Markdown-only Slide IR successor proposal. | NEW_PHASE | [Phase 36](../phase/phase-36.md) | RESOLVED |
 | DEV-007 | User request on 2026-08-26 following the ACE product-explanation review | Separate Subject Pattern from Explanation Pattern and deterministically project one logical explanation composition into independent multi-slide and multi-scene sequences through the common Visual Page contract. | NEW_PHASE | [Phase 37](../phase/phase-37.md) | PLANNED |
 
 ## Current Priority
 
-Phase 30 is closed. Phase 36 VIS36-01 through VIS36-05 are DONE. VIS36-06
-awaits only Phase-level full validation, independent Phase review, ledger
-closure, and release commit. Phase 37 remains excluded and NOT STARTED as the
-planned logical explanation-composition successor after Phase 36 closes.
+Phase 30 and Phase 36 are closed. Phase 36 VIS36-01 through VIS36-06 are DONE.
+Phase 37 remains excluded and NOT STARTED as the planned logical
+explanation-composition successor after Phase 36.
 Neither successor adds work to the closed Phase 30 boundary or claims
 validation, review, publication, or external consumer mutation.
 

@@ -1,10 +1,10 @@
 # Visual Page Specification
 
-Status: NORMATIVE; Phase 36 `VIS36-01` through `VIS36-05` are DONE. P36-06's
+Status: NORMATIVE; Phase 36 `VIS36-01` through `VIS36-06` are DONE. P36-06's
 closed Cross-media Review route and representative evidence are recorded in
-the Phase ledger; only Phase-level validation, review, ledger closure, and
-release work remain. Phase 37 is NOT STARTED. No external-consumer acceptance
-is claimed.
+the Phase ledger, with duplicate JSON object fields rejected before decoding
+Cross-media proof or Storyboard v2 evidence/handoff. Phase 37 is NOT STARTED.
+No external-consumer acceptance is claimed.
 
 This is the normative contract for the Visual Page route. It defines semantic
 values, compatibility boundaries, the independent direct core

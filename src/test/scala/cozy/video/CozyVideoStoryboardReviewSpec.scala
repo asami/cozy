@@ -14,7 +14,7 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   Aug. 26, 2026
- * @version Aug. 27, 2026
+ * @version Aug. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoStoryboardReviewSpec
@@ -340,6 +340,60 @@ final class CozyVideoStoryboardReviewSpec
         norendererfailure.getMessage should include("STORYBOARD_REVIEW_EFFECTIVE_RENDERER_MISSING")
         nopartfailure.getMessage should include("STORYBOARD_REVIEW_STORYBOARD_PART_MISSING")
         handofffailure.getMessage should include("STORYBOARD_REVIEW_HANDOFF_IDENTITY_MISSING")
+      }
+    }
+
+    "reject duplicate v2 evidence and handoff keys before confirmation dry-run build work" in {
+      _with_temp_dir("v2-duplicate-json") { root =>
+        Given("an approved v2 visual-page evidence package and a runner that records any renderer action")
+        val storyboard = _v2_storyboard()
+        val source = _write_storyboard(root, storyboard)
+        val material = _write_visual_page_material(root)
+        val project = _write_v2_project(root, source, storyboard, material.binding, "sha256:" + "0" * 64)
+        val save = root.resolve("target/cozy-video/v2-review")
+        val generated = CozyVideo.storyboardReviewEvidence(CozyVideo.StoryboardReviewConfig(project, save))
+        _write_v2_project(root, source, storyboard, material.binding, generated.evidenceIdentity)
+        val originalevidence = Files.readString(generated.evidencePath, StandardCharsets.UTF_8)
+        val originalhandoff = Files.readString(generated.handoffPath, StandardCharsets.UTF_8)
+        var rendererinvoked = false
+        val runner = new CozyVideo.VideoProcessRunner {
+          def run(args: Vector[String], cwd: Path): CozyVideo.VideoCommandResult = {
+            rendererinvoked = true
+            CozyVideo.VideoCommandResult(0, "", "")
+          }
+        }
+
+        When("the saved evidence and then the saved handoff repeat their schema field before a confirmation dry-run")
+        Files.writeString(
+          generated.evidencePath,
+          originalevidence.replace("{\"schema\":", "{\"schema\":\"tampered\",\"schema\":"),
+          StandardCharsets.UTF_8
+        )
+        val evidencefailure = intercept[Exception] {
+          CozyVideo.build(
+            CozyVideo.BuildConfig(project, dryRun = true, checkTools = false, mode = Some("confirmation")),
+            CozyVideo.VideoToolRegistry(Vector.empty),
+            runner
+          )
+        }
+        Files.writeString(generated.evidencePath, originalevidence, StandardCharsets.UTF_8)
+        Files.writeString(
+          generated.handoffPath,
+          originalhandoff.replace("{\"schema\":", "{\"schema\":\"tampered\",\"schema\":"),
+          StandardCharsets.UTF_8
+        )
+        val handofffailure = intercept[Exception] {
+          CozyVideo.build(
+            CozyVideo.BuildConfig(project, dryRun = true, checkTools = false, mode = Some("confirmation")),
+            CozyVideo.VideoToolRegistry(Vector.empty),
+            runner
+          )
+        }
+
+        Then("both duplicate proof values fail closed before renderer or approval work")
+        evidencefailure.getMessage should include("STORYBOARD_REVIEW_EVIDENCE_DUPLICATE_FIELD")
+        handofffailure.getMessage should include("STORYBOARD_REVIEW_EVIDENCE_DUPLICATE_FIELD")
+        rendererinvoked shouldBe false
       }
     }
 

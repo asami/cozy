@@ -1,6 +1,6 @@
 # Phase 36: Common Visual Page and Cross-Media Presentation Contract
 
-Status: IN PROGRESS
+Status: COMPLETE
 
 Plan date: 2026-08-26
 
@@ -194,7 +194,7 @@ remains open.
 
 Stage Status:
 
-- Current status: IN PROGRESS
+- Current status: DONE
 - Owner: Cozy validation and review
 - Update rule: complete only when Phase-level full validation, independent
   Phase review, and representative presentation/video evidence satisfy the
@@ -218,7 +218,18 @@ and Storyboard v2 projection; focused receipts `55224-20260827T154155Z` and
 slide image was separately inspected for readable text, asset presence, layout,
 clipping, and cross-media identity consistency. This remains test-fixture
 inspection, not semantic/visual/audiovisual approval, renderer acceptance,
-publication, or Phase closure.
+or publication. The mandatory full Phase review found
+`CPB-P36-REVIEW-001`: duplicate JSON object fields could be collapsed before
+currentness/identity validation. Cycle 1 now strictly rejects duplicate fields
+before Circe parsing in both Cross-media Review proof and Storyboard v2
+evidence/handoff readers; the independent focused re-review verified the
+repair, with no remaining Current Phase Blocker.
+
+VIS36-06 and Phase 36 are COMPLETE in this release closure. The recorded
+closed API verifies only presentation-review and Storyboard-v2
+currentness/identity. It neither renders nor builds video, publishes, or
+records semantic, visual, or audiovisual approval. Phase 37 remains NOT
+STARTED, and no external-consumer acceptance is claimed.
 
 ## Dependencies and exclusions
 

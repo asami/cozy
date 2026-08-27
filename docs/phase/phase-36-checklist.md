@@ -3,7 +3,7 @@
 This checklist is the authoritative progress ledger for Phase 36. It is not a
 normative behavior contract.
 
-Phase Status: IN PROGRESS
+Phase Status: COMPLETE
 
 ## VIS36-01: Visual Page Design and Specification
 
@@ -164,7 +164,7 @@ in its local Step commit. VIS36-05 is DONE; Phase closure remains open.
 
 ## VIS36-06: Cross-Media Acceptance and Closure
 
-Status: IN PROGRESS
+Status: DONE
 
 `P36-06-DEC-001` admits the closed `cozy media cross-review build|verify`
 structural evidence route and `cozy.media.cross-review.v1` only. Focused
@@ -186,8 +186,9 @@ broaden, that route.
 - [x] Complete visual inspection for text, assets, layout, clipping, and
       cross-media consistency while keeping semantic acceptance separate from
       renderer verification.
-- [ ] Run the Phase-level full Cozy suite, independent Phase review, and final
-      ledger synchronization before changing Phase 36 from planned/open.
+- [x] Complete the independent Phase review, its bounded duplicate-JSON repair
+      cycle, focused closure re-review, final Cozy suite, and ledger
+      synchronization for the Phase release.
 
 Representative evidence: `CozyMediaPresentationMigrationSpec` proves explicit
 legacy Slide IR migration for `article/example`; the representative
@@ -203,7 +204,9 @@ arrow, and asset panel were readable and unclipped, with the same page identity
 proved in both projections. This was a test-fixture visual inspection only; it
 records no semantic, visual, or audiovisual approval.
 
-Phase 36 remains IN PROGRESS only for VIS36-06's Phase-level full Cozy suite,
-independent Phase review, final ledger synchronization, and Phase release
-commit. Phase 37 remains NOT STARTED. No publication or downstream consumer
-mutation is claimed.
+The independent Phase review found `CPB-P36-REVIEW-001`, which Cycle 1 closed
+by rejecting duplicate JSON object fields before Circe parsing in Cross-media
+Review proof and Storyboard v2 evidence/handoff inputs. The focused closure
+re-review accepted that repair with no Current Phase Blocker. Phase 36 is
+COMPLETE in this release closure. Phase 37 remains NOT STARTED. No publication
+or downstream consumer mutation is claimed.
