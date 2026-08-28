@@ -19,14 +19,14 @@ Status: COMPLETE
 
 BOK38-01 is COMPLETE: the paired design/specification documents now fix the
 source-boundary contract. Its earlier statement that BOK38-02 through BOK38-07
-remained NOT STARTED was a historical status snapshot; BOK38-02 is now COMPLETE
-below, while BOK38-03 through BOK38-07 remain NOT STARTED. The canonical Phase
+remained NOT STARTED was a historical status snapshot; BOK38-02 and BOK38-03
+are now COMPLETE below, while BOK38-04 through BOK38-07 remain NOT STARTED.
+The canonical Phase
 Hygiene journal
 `docs/journal/2026/08/2026-08-28-phase-38-hygiene-follow-up.md` records
 resolved `HYG-P38-001` and open nonblocking documentation follow-ups; it is not
 Phase release closure. No Phase closure, driver acceptance, full validation,
-publication, upload, push, downstream consumer acceptance, or BOK38-02 Step
-commit is claimed here.
+publication, upload, push, or downstream consumer acceptance is claimed here.
 
 ## BOK38-02: Scaffold, Doctor, and Configuration Alignment
 
@@ -46,26 +46,43 @@ creating durable `media` and `publication` roots. The default UI is
 target-owned, with an explicit existing-project override. `create-category`,
 doctor, fix, guide, README, structure, help, and Executable Specification
 surfaces align with this boundary. Missing legacy roots remain valid and are
-not re-created. The focused evidence is final serial `testOnly
-cozy.bok.CozyBokSpec` invocation `65022-20260828T090426Z`, which passed 63 tests
-with 0 failures; `CPB-P38-02A-001` was resolved and its focused re-review
-passed. This does not claim full Cozy validation, Phase full review, Phase
-release, driver acceptance, `bok-knowledgehub` mutation, publication,
-upload/push, downstream consumer acceptance, or a BOK38-02 Step commit.
+not re-created. Final serial `testOnly cozy.bok.CozyBokSpec` invocation
+`39331-20260828T121546Z` passed 63 tests with 0 failures; `CPB-P38-02A-001`
+was resolved, its focused re-review passed, and the local BOK38-02 acceptance
+commit is `7c8b2bbef9c82a3d4dd3cb68536c971c0f26fa0e`. This does not claim full
+Cozy validation, Phase full review, Phase release, driver acceptance,
+`bok-knowledgehub` mutation, publication, upload/push, or downstream consumer
+acceptance.
 
 ## BOK38-03: Dynamic RDF and Graph Generation
 
-Status: NOT STARTED
+Status: COMPLETE
 
-- [ ] Derive effective Turtle and JSON-LD from admitted BoK semantic inputs.
-- [ ] Derive graph-summary nodes and edges from SmartDox, project,
+- [x] Derive effective Turtle and JSON-LD from admitted BoK semantic inputs.
+- [x] Derive graph-summary nodes and edges from SmartDox, project,
       publication, CNCF component-reference, and SIE evidence.
-- [ ] Generate registered component-reference nodes without a duplicate source
+- [x] Generate registered component-reference nodes without a duplicate source
       graph overlay.
-- [ ] Preserve deterministic merge, validation, schema versioning, and repeat
+- [x] Preserve deterministic merge, validation, schema versioning, and repeat
       output.
-- [ ] Publish only finalized resources below `website.d/rdf` and
+- [x] Publish only finalized resources below `website.d/rdf` and
       `website.d/metadata`.
+
+BOK38-03 is COMPLETE after its independent lightweight review accepted the
+implementation and focused validation; `CB-BOK38-03-RECEIPT-001` was resolved
+by the M0 receipt-wording correction. Effective Turtle and JSON-LD continue to
+be built from generated `doxsite.d` working resources and admitted semantic
+inputs. The graph summary is now built only from the generated working graph
+and configured SIE handoff: an authored
+`src/main/doxsite/metadata/rdf/graph.json` neither augments a valid generated
+graph nor substitutes for a missing one. Registered component references,
+deterministic merge and validation, schema versioning, and the final-output
+allowlist remain unchanged. Focused serial `testOnly
+cozy.CozyBokMetadataFinalizationSpec` invocation
+`48104-20260828T123347Z` passed 18 tests with 0 failures after the bounded
+test-fixture repair `P38-BOK03-TEST-001`. This is not Phase closure, full Cozy
+validation, driver acceptance, publication, upload/push, or downstream
+consumer acceptance.
 
 ## BOK38-04: Generated Manual, History, and Standard UI
 
@@ -114,7 +131,7 @@ Status: NOT STARTED
 - [ ] Synchronize Strategy, Phase, checklist, design, specification, and driver
       receipts before closure.
 
-Phase 38 is IN PROGRESS. BOK38-01 and BOK38-02 are COMPLETE, while BOK38-03
-through BOK38-07 remain NOT STARTED. No Phase closure, driver acceptance, full
-validation, publication, upload, push, downstream consumer acceptance, or
-BOK38-02 Step commit is claimed.
+Phase 38 is IN PROGRESS. BOK38-01 through BOK38-03 are COMPLETE, while
+BOK38-04 through BOK38-07 remain NOT STARTED. No Phase closure, driver
+acceptance, full validation, publication, upload, push, or downstream consumer
+acceptance is claimed.

@@ -32,7 +32,7 @@ import io.circe.syntax._
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 24, 2026
+ * @version Aug. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 
@@ -108,7 +108,6 @@ private[cozy] trait CozyBokSieMetadata {
     _copy_finalization_directory(source, target, "metadata/artifacts/repository")
     _copy_finalization_directory(source, target, "metadata/releases")
     _sync_sie_metadata(config, target)
-    _sync_source_rdf_graph_metadata(admittedsource, target)
     _version_graph_summary(config, target)
     _write_knowledge_source_manifest(config, admittedsource, target)
   }
@@ -456,30 +455,6 @@ private[cozy] trait CozyBokSieMetadata {
           identity
         )
         _write_text(graphpath, merged.spaces2 + "\n")
-      }
-    }
-  }
-
-  private def _sync_source_rdf_graph_metadata(sourcepath: Path, target: Path): Unit = {
-    val sourcegraphpath = sourcepath.resolve("metadata/rdf/graph.json")
-    if (Files.isRegularFile(sourcegraphpath)) {
-      val sourcegraph = parser.parse(Files.readString(sourcegraphpath, StandardCharsets.UTF_8)).fold(
-        error => RAISE.invalidArgumentFault(s"Invalid BoK source RDF graph metadata: ${error.message}"),
-        identity
-      )
-      val graphpath = target.resolve("metadata/rdf/graph.json")
-      if (Files.isRegularFile(graphpath)) {
-        val graph = parser.parse(Files.readString(graphpath, StandardCharsets.UTF_8)).fold(
-          error => RAISE.invalidArgumentFault(s"Invalid BoK RDF graph metadata: ${error.message}"),
-          identity
-        )
-        val merged = CozyBokSieHandoff.mergeGraphSummaries(graph, Vector(sourcegraph)).fold(
-          message => RAISE.invalidArgumentFault(s"Invalid BoK source RDF graph metadata: ${message}"),
-          identity
-        )
-        _write_text(graphpath, merged.spaces2 + "\n")
-      } else {
-        _write_text(graphpath, sourcegraph.spaces2 + "\n")
       }
     }
   }

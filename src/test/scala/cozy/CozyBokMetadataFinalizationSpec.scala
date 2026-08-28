@@ -11,7 +11,7 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   Aug. 23, 2026
- * @version Aug. 26, 2026
+ * @version Aug. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokMetadataFinalizationSpec
@@ -51,6 +51,76 @@ class CozyBokMetadataFinalizationSpec
         _graph_component_refs(graph) shouldBe Vector(
           ("car", "textus-bok", Some("org.textus"), Some("0.6.0")),
           ("sar", "textus-search", None, Some("1.2.0"))
+        )
+      }
+    }
+
+    "ignore an authored source graph when generated graph metadata is valid" in {
+      _with_temp_dir("cozy-bok-metadata-finalization-source-graph-ignored") { dir =>
+        Given("valid generated graph metadata and an authored source graph with an extra node")
+        _write_site_source(dir, glossaryterm = false)
+        _write(dir.resolve("website.d/index.html"), "<html>source-graph-sentinel</html>\n")
+        _write_prepared_metadata(
+          dir,
+          includeterms = false,
+          rdfgraph = _component_ref_graph(),
+          componentreferences = _component_reference_indexes()
+        )
+        _write(
+          dir.resolve("src/main/doxsite/metadata/rdf/graph.json"),
+          """{
+            |  "nodes": [
+            |    {"id": "authored-overlay", "label": "Authored overlay", "node_type": "concept"}
+            |  ],
+            |  "edges": [],
+            |  "truncated": false
+            |}
+            |""".stripMargin
+        )
+
+        When("the public metadata finalization API publishes the generated handoff")
+        CozyBok.finalizeMetadata(_build_config(dir))
+
+        Then("the published graph contains only generated nodes and not the authored overlay")
+        val graph = _parse_json(dir.resolve("website.d/metadata/rdf/graph.json"))
+        val nodeids = graph.hcursor.downField("nodes").as[Vector[Json]].fold(throw _, identity).map { node =>
+          node.hcursor.get[String]("id").fold(throw _, identity)
+        }
+        nodeids shouldBe Vector("car:textus-bok", "sar:textus-search")
+      }
+    }
+
+    "not publish an authored source graph when generated graph metadata is missing" in {
+      _with_temp_dir("cozy-bok-metadata-finalization-source-graph-missing") { dir =>
+        Given("missing generated graph metadata and an authored source graph")
+        _write_site_source(dir, glossaryterm = false)
+        _write(dir.resolve("website.d/index.html"), "<html>source-graph-sentinel</html>\n")
+        _write_prepared_metadata(dir, includeterms = false)
+        Files.deleteIfExists(dir.resolve("doxsite.d/metadata/rdf/graph.json"))
+        _write(
+          dir.resolve("src/main/doxsite/metadata/rdf/graph.json"),
+          """{
+            |  "nodes": [
+            |    {"id": "authored-only", "label": "Authored only", "node_type": "concept"}
+            |  ],
+            |  "edges": [],
+            |  "truncated": false
+            |}
+            |""".stripMargin
+        )
+
+        When("the public metadata finalization API publishes the available generated handoff")
+        CozyBok.finalizeMetadata(_build_config(dir))
+
+        Then("it publishes no graph resource or graph manifest entry from the authored source")
+        Files.exists(
+          dir.resolve("website.d/metadata/rdf/graph.json"),
+          LinkOption.NOFOLLOW_LINKS
+        ) shouldBe false
+        val manifest = _parse_json(dir.resolve("website.d/metadata/cncf/knowledge-source.json"))
+        _resources(manifest) shouldBe Vector(
+          ("rdf-jsonld", "rdf/site.jsonld"),
+          ("rdf-turtle", "rdf/site.ttl")
         )
       }
     }
