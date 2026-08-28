@@ -284,6 +284,9 @@ private[cozy] object CozyExplanation {
   }
 
   def execute(args: List[String]): String = args match {
+    case ("validate" | "inspect" | "convert") :: rest if CozyExplanationProjection.isProjectionDocumentCommand(rest) =>
+      CozyExplanationProjection.execute(args)
+    case ("project" | "verify-projection") :: _ => CozyExplanationProjection.execute(args)
     case "validate" :: rest => _execute_document("validate", _command_config(rest, requiresave = false))
     case "inspect" :: rest => _execute_document("inspect", _command_config(rest, requiresave = false))
     case "convert" :: rest => _execute_document("convert", _command_config(rest, requiresave = true))

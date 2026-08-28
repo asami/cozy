@@ -610,7 +610,7 @@ The canonical final Projection root has exactly this field order:
     "identity":"sha256:<64-lowercase-hex>"
   },
   "video":{
-    "storyboard":{"id":"<storyboard-id>","identity":"sha256:<64-lowercase-hex>"},
+    "storyboard":{"identity":"sha256:<64-lowercase-hex>"},
     "stepMappings":[],
     "identity":"sha256:<64-lowercase-hex>"
   },
@@ -637,6 +637,11 @@ The final Projection copies the ProjectionMap's presentation and video
 identity. The full P36 presentation-catalog identity is recorded separately
 as `receipt.presentationCatalogIdentity`; both that identity and the logical
 identity are required receipt inputs.
+
+The existing Storyboard-v2 root has no separately modeled stable `id`. Its
+canonical `storyboardIdentity` is therefore the only Storyboard descriptor
+recorded by a P37 Projection and its receipt. P37 MUST NOT derive an ID from a
+file path, filename, scene, or any other substitute value.
 
 ### 7.2 Project behavior and media agreement
 

@@ -296,6 +296,11 @@ Storyboard, presentation mapping, and video mapping identities. A receipt
 proves identity/currentness only; it is not semantic, visual, audiovisual,
 publication, or consumer approval.
 
+The existing Storyboard-v2 contract exposes canonical `storyboardIdentity`,
+but no separately modeled root ID. Projection records that identity as the
+sole Storyboard descriptor and never derives an ID from a named input path,
+filename, scene, or any other substitute.
+
 Whenever an operation's validated direct-file input closure includes declared
 sources or assets, the caller supplies each declaration as a repeatable direct
 binding exactly once: `--source <id>=<file>` and `--asset <id>=<file>`. The ID
@@ -324,3 +329,11 @@ This contract does not:
   existing boundaries; or
 - record semantic, visual, audiovisual, publication, deployment, or external
   consumer approval.
+
+## 9. Decision record
+
+`P37-04/05-DEC-001` — On 2026-08-28, the developer authorized removal of
+`video.storyboard.id` from the P37 Projection contract. The affected Phase is
+37, the source tree is based on `73130f0d7111cdef3f2988ee041ad8e97fdb4362`,
+the selected option is to bind only the existing Storyboard-v2 canonical
+identity, the authorized next state is PLAN, and this decision is consumed.

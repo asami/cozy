@@ -2,7 +2,8 @@ package cozy.scaffold
 
 /*
  * @since   Aug. 25, 2026
- * @version Aug. 25, 2026
+ *  version Aug. 25, 2026
+ * @version Aug. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyHelpText {
@@ -186,15 +187,23 @@ private[cozy] object CozyHelpText {
       |  media explanation validate|inspect <catalog>
       |  media explanation validate|inspect <composition> --explanation-catalog <catalog> --presentation-catalog <catalog> [--source <id>=<file>] [--asset <id>=<file>]
       |  media explanation validate|inspect <plan> --composition <composition> --explanation-catalog <catalog> --presentation-catalog <catalog> [--source <id>=<file>] [--asset <id>=<file>]
-      |      Strictly validate or inspect one direct JSON Explanation Catalog, authored Composition, or deterministic Plan; no catalog or resource discovery is performed.
+      |  media explanation validate|inspect <projection-map> --composition <composition> --plan <plan> --explanation-catalog <catalog> --presentation-catalog <catalog> [--source <id>=<file>] [--asset <id>=<file>]
+      |  media explanation validate|inspect <projection> --composition <composition> --plan <plan> --projection-map <projection-map> --explanation-catalog <catalog> --presentation-catalog <catalog> --visual-page-set <set> --storyboard <storyboard> [--source <id>=<file>] [--asset <id>=<file>]
+      |      Strictly validate or inspect one direct JSON Explanation Catalog, authored Composition, deterministic Plan, ProjectionMap, or Projection; no catalog or resource discovery is performed.
       |
       |  media explanation convert <catalog> --save <output.json>
       |  media explanation convert <composition> --explanation-catalog <catalog> --presentation-catalog <catalog> --save <output.json> [--source <id>=<file>] [--asset <id>=<file>]
       |  media explanation convert <plan> --composition <composition> --explanation-catalog <catalog> --presentation-catalog <catalog> --save <output.json> [--source <id>=<file>] [--asset <id>=<file>]
+      |  media explanation convert <projection-map> --composition <composition> --plan <plan> --explanation-catalog <catalog> --presentation-catalog <catalog> --save <output.json> [--source <id>=<file>] [--asset <id>=<file>]
+      |  media explanation convert <projection> --composition <composition> --plan <plan> --projection-map <projection-map> --explanation-catalog <catalog> --presentation-catalog <catalog> --visual-page-set <set> --storyboard <storyboard> --save <output.json> [--source <id>=<file>] [--asset <id>=<file>]
       |      Validate first, then atomically write the selected canonical JSON without inferring claims, graph structure, roles, steps, or media.
       |
       |  media explanation expand <composition> --explanation-catalog <catalog> --presentation-catalog <catalog> --save <plan.json> [--source <id>=<file>] [--asset <id>=<file>]
       |      Validate explicitly authored Composition inputs and deterministically copy them into a medium-neutral Explanation Plan without projection or media generation.
+      |
+      |  media explanation project --projection-map <projection-map> --composition <composition> --plan <plan> --explanation-catalog <catalog> --presentation-catalog <catalog> --visual-page-set <set> --storyboard <storyboard> --save <projection.json> [--source <id>=<file>] [--asset <id>=<file>]
+      |  media explanation verify-projection <projection> --composition <composition> --plan <plan> --projection-map <projection-map> --explanation-catalog <catalog> --presentation-catalog <catalog> --visual-page-set <set> --storyboard <storyboard> [--source <id>=<file>] [--asset <id>=<file>]
+      |      ProjectionMap and Projection use explicitly named files only. They verify currentness and linkage only; they do not discover, generate, render, modify media, or approve anything.
       |
       |  media review align <media-file> --target <presentation-id> --authority <article|slide-ir>
       |      Record an explicit article or slide-IR semantic alignment decision after deterministic verification.
