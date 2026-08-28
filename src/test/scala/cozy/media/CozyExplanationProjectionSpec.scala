@@ -97,6 +97,67 @@ final class CozyExplanationProjectionSpec
       }
     }
 
+    "project and verify an explicitly authored product-mechanism page and visual-page scene" in {
+      _with_work("product-mechanism") { root =>
+        Given("a direct-file software-product product-mechanism Composition with resolved mechanism links, mapping logical data, a mapping-columns page, and a Storyboard-v2 visual-page scene")
+        val fixture = _mechanism_fixture(root)
+        val validatedcomposition = CozyExplanation.loadComposition(
+          fixture.compositionfile, fixture.catalogfile, fixture.presentationcatalogfile, fixture.bindings
+        )
+        val plan = CozyExplanation.expand(validatedcomposition)
+        val output = root.resolve("projection.json")
+
+        When("project and verify receive the explicitly authored ProjectionMap, Composition, Plan, catalogs, VisualPageSet, Storyboard, and resource bindings")
+        val projected = CozyExplanation.execute(_project_command(fixture, output))
+        val validated = CozyExplanationProjection.loadProjection(
+          output,
+          fixture.compositionfile,
+          fixture.planfile,
+          fixture.mapfile,
+          fixture.catalogfile,
+          fixture.presentationcatalogfile,
+          fixture.visualpagesetfile,
+          fixture.storyboardfile,
+          fixture.bindings
+        )
+        val verified = CozyExplanation.execute(_verify_command(fixture, output))
+
+        Then("the Projection preserves the authored mechanism mapping and identities while validating and copying only explicit targets, without inference, rendering, or semantic, visual, audiovisual, or approval output")
+        validatedcomposition.composition.explanation.pattern shouldBe CozyExplanation.PatternReference("product-mechanism", 1)
+        validatedcomposition.composition.explanation.parameters.map(_.name) shouldBe Vector("mechanismLinks")
+        plan.steps should have size 1
+        plan.steps.head.semanticRole shouldBe "mechanism"
+        plan.steps.head.parameterProvenance.values.map(_.name) shouldBe Vector("mechanismLinks")
+        plan.steps.head.logical.pattern shouldBe "mapping"
+        plan.steps.head.logical.relations.map(_.relationType) shouldBe Vector("maps-to")
+        fixture.pages.pages.map(_.visual.pattern) shouldBe Vector("mapping-columns")
+        fixture.pages.pages.head.logical shouldBe plan.steps.head.logical
+        fixture.pages.pages.head.visual.parameters.map(_.name) should contain allOf ("sourceColumnTitle", "targetColumnTitle")
+        fixture.storyboard.scenes.map(_.screen) shouldBe Vector(
+          CozyVideoImplementation.StoryboardVisualPageScreen("visual-pages.json", "presentation-catalog.json", "page-mechanism")
+        )
+        fixture.projectionmap.presentation.stepMappings shouldBe Vector(
+          CozyExplanationProjection.PresentationStepMapping("mechanism-step", Vector("page-mechanism"))
+        )
+        fixture.projectionmap.video.stepMappings shouldBe Vector(
+          CozyExplanationProjection.VideoStepMapping("mechanism-step", Vector("scene-mechanism"))
+        )
+        projected should include_text("cozy.explanation-projection.v1")
+        verified should include_text("storyboardIdentity:")
+        validated.projection.presentation.stepMappings shouldBe fixture.projectionmap.presentation.stepMappings
+        validated.projection.video.stepMappings shouldBe fixture.projectionmap.video.stepMappings
+        validated.projection.presentation.identity shouldBe fixture.projectionmap.presentation.identity
+        validated.projection.video.identity shouldBe fixture.projectionmap.video.identity
+        validated.projection.presentation.visualPageSet.id shouldBe "product-mechanism-pages"
+        validated.projection.video.storyboard.identity shouldBe CozyVideoImplementation.storyboardIdentity(fixture.storyboard)
+        validated.projection.receipt.visualPageSetIdentity shouldBe CozyVisualPage.visualPageSetIdentity(fixture.pages, fixture.presentationcatalog)
+        validated.projection.receipt.storyboardIdentity shouldBe CozyVideoImplementation.storyboardIdentity(fixture.storyboard)
+        validated.canonicalJson should not include ("inferred")
+        validated.canonicalJson should not include ("approval")
+        validated.canonicalJson should not include ("render")
+      }
+    }
+
     "fail closed for stale selectors mappings PageSet linkage Storyboard screens and changed receipts" in {
       _with_work("projection-stale") { root =>
         Given("one valid Projection closure plus selector mapping page and Storyboard integrity variants")
@@ -217,6 +278,120 @@ final class CozyExplanationProjectionSpec
     val projectionmap = _projection_map(plan)
     val mapfile = _write(root.resolve("map.json"), CozyExplanationProjection.canonicalProjectionMapJson(projectionmap))
     Fixture(catalogfile, presentationcatalogfile, compositionfile, planfile, mapfile, visualpagesetfile, storyboardfile, bindings, presentationcatalog, pages, storyboard, projectionmap)
+  }
+
+  private def _mechanism_fixture(root: Path): Fixture = {
+    val catalog = _catalog()
+    val presentationcatalog = _presentation_catalog()
+    val catalogfile = _write(root.resolve("explanation-catalog.json"), CozyExplanation.canonicalCatalogJson(catalog))
+    val presentationcatalogfile = _write(root.resolve("presentation-catalog.json"), CozyVisualPage.canonicalCatalogJson(presentationcatalog))
+    val sourcefile = _write(root.resolve("sources/source.txt"), "mechanism source bytes")
+    val assetfile = _write(root.resolve("assets/asset.txt"), "mechanism asset bytes")
+    val bindings = CozyExplanation.ResourceBindings(Map("source" -> sourcefile), Map("asset" -> assetfile))
+    val composition = _mechanism_composition(catalog, _sha256(sourcefile), _sha256(assetfile))
+    val compositionfile = _write(root.resolve("composition.json"), CozyExplanation.canonicalCompositionJson(composition))
+    val validatedcomposition = CozyExplanation.loadComposition(compositionfile, catalogfile, presentationcatalogfile, bindings)
+    val plan = CozyExplanation.expand(validatedcomposition)
+    val planfile = _write(root.resolve("plan.json"), CozyExplanation.canonicalPlanJson(plan))
+    val page = _mechanism_page(plan.steps.head.logical, presentationcatalog, _sha256(assetfile))
+    val pages = CozyVisualPage.PageSet("product-mechanism-pages", Vector(page))
+    val visualpagesetfile = _write(root.resolve("visual-pages.json"), CozyVisualPage.canonicalJson(pages))
+    val storyboard = _mechanism_storyboard()
+    val storyboardfile = _write(root.resolve("storyboard.json"), CozyVideoImplementation.canonicalStoryboardJson(storyboard))
+    val projectionmap = _mechanism_projection_map(plan)
+    val mapfile = _write(root.resolve("map.json"), CozyExplanationProjection.canonicalProjectionMapJson(projectionmap))
+    Fixture(catalogfile, presentationcatalogfile, compositionfile, planfile, mapfile, visualpagesetfile, storyboardfile, bindings, presentationcatalog, pages, storyboard, projectionmap)
+  }
+
+  private def _mechanism_composition(catalog: CozyExplanation.Catalog, sourcedigest: String, assetdigest: String): CozyExplanation.Composition = {
+    val sources = Vector("source")
+    val assets = Vector("asset")
+    val facts = Vector(
+      CozyExplanation.Fact("name", CozyExplanation.JsonString("Cozy"), sources, assets),
+      CozyExplanation.Fact("vision", CozyExplanation.JsonString("Make mechanism linkage explicit"), sources, assets),
+      CozyExplanation.Fact("goals", CozyExplanation.JsonArray(Vector(_labeled("goal-1", "Make plans trustworthy", sources, assets))), sources, assets),
+      CozyExplanation.Fact("context", CozyExplanation.JsonString("A direct-file explanation workflow"), sources, assets),
+      CozyExplanation.Fact("useCases", CozyExplanation.JsonArray(Vector(_labeled("use-case-1", "Explain a product", sources, assets))), sources, assets),
+      CozyExplanation.Fact("mainScenario", CozyExplanation.JsonObject(Vector(
+        "id" -> CozyExplanation.JsonString("scenario-1"),
+        "label" -> CozyExplanation.JsonString("Project explicit mechanism steps"),
+        "steps" -> CozyExplanation.JsonArray(Vector(_labeled("scenario-step-1", "Validate mechanism links", sources, assets)))
+      )), sources, assets),
+      CozyExplanation.Fact("mechanisms", CozyExplanation.JsonArray(Vector(_labeled("mechanism-1", "Strict mechanism validation", sources, assets))), sources, assets)
+    )
+    val mechanismlinks = CozyExplanation.JsonArray(Vector(CozyExplanation.JsonObject(Vector(
+      "id" -> CozyExplanation.JsonString("mechanism-link-1"),
+      "goalId" -> CozyExplanation.JsonString("goal-1"),
+      "useCaseId" -> CozyExplanation.JsonString("use-case-1"),
+      "mechanismId" -> CozyExplanation.JsonString("mechanism-1"),
+      "sourceRefs" -> CozyExplanation.JsonArray(sources.map(CozyExplanation.JsonString)),
+      "assetRefs" -> CozyExplanation.JsonArray(assets.map(CozyExplanation.JsonString))
+    ))))
+    val logical = _mechanism_logical(sources)
+    val step = CozyExplanation.CompositionStep(
+      "mechanism-step", 1, "mechanism",
+      Vector(CozyExplanation.Claim("mechanism-claim", "The mechanism link is explicitly authored.", "primary", sources, assets)),
+      logical, sources, assets, Vector(CozyExplanation.ParameterSelection("mechanismLinks"))
+    )
+    CozyExplanation.Composition(
+      "product-mechanism-composition",
+      CozyExplanation.CatalogSelector(catalog.id, catalog.revision, CozyExplanation.catalogIdentity(catalog)),
+      CozyExplanation.Subject(CozyExplanation.PatternReference("software-product", 1), facts),
+      CozyExplanation.Explanation(
+        CozyExplanation.PatternReference("product-mechanism", 1),
+        Vector(CozyExplanation.Parameter("mechanismLinks", mechanismlinks)),
+        Vector(step)
+      ),
+      Vector(CozyExplanation.SourceDeclaration("source", sourcedigest)),
+      Vector(CozyExplanation.AssetDeclaration("asset", "text/plain", assetdigest))
+    )
+  }
+
+  private def _mechanism_logical(sources: Vector[String]): CozyVisualPage.Logical = CozyVisualPage.Logical(
+    "mapping",
+    Vector(
+      CozyVisualPage.Node("mechanism-source", "source", "Goal and use case", sources),
+      CozyVisualPage.Node("mechanism-target", "target", "Mechanism", sources)
+    ),
+    Vector(CozyVisualPage.Relation("mechanism-maps-to", "maps-to", "mechanism-source", "mechanism-target", sources))
+  )
+
+  private def _mechanism_page(logical: CozyVisualPage.Logical, catalog: CozyVisualPage.Catalog, assetdigest: String): CozyVisualPage.Page = CozyVisualPage.Page(
+    "page-mechanism",
+    "product-mechanism",
+    "en",
+    CozyVisualPage.CatalogReference(catalog.id, catalog.revision),
+    logical,
+    CozyVisualPage.Visual("mapping-columns", Vector(
+      CozyVisualPage.VisualParameter("sourceColumnTitle", CozyVisualPage.StringParameter("Goal and use case")),
+      CozyVisualPage.VisualParameter("targetColumnTitle", CozyVisualPage.StringParameter("Mechanism"))
+    )),
+    Vector(CozyVisualPage.Asset("asset", "assets/asset.txt", "text/plain", assetdigest)),
+    Vector(CozyVisualPage.SourceBinding("source", "sources/source.txt"))
+  )
+
+  private def _mechanism_storyboard(): CozyVideoImplementation.Storyboard = CozyVideoImplementation.Storyboard(
+    "cozy.video.storyboard.v2",
+    2,
+    Vector(CozyVideoImplementation.StoryboardScene(
+      "scene-mechanism", 1, "section-mechanism", "narrator", "narration", "Narrate page-mechanism",
+      CozyVideoImplementation.StoryboardVisualPageScreen("visual-pages.json", "presentation-catalog.json", "page-mechanism"),
+      "Caption page-mechanism", BigDecimal(1), BigDecimal(0), "cut", Vector.empty, Vector.empty, Vector.empty, Vector.empty, ""
+    ))
+  )
+
+  private def _mechanism_projection_map(plan: CozyExplanation.Plan): CozyExplanationProjection.ProjectionMap = {
+    val presentationsteps = Vector(CozyExplanationProjection.PresentationStepMapping("mechanism-step", Vector("page-mechanism")))
+    val videosteps = Vector(CozyExplanationProjection.VideoStepMapping("mechanism-step", Vector("scene-mechanism")))
+    val presentation = CozyExplanationProjection.PresentationMapping(
+      presentationsteps, CozyExplanationProjection.presentationMappingIdentity(presentationsteps)
+    )
+    val video = CozyExplanationProjection.VideoMapping(
+      videosteps, CozyExplanationProjection.videoMappingIdentity(videosteps)
+    )
+    _with_map_identity(CozyExplanationProjection.ProjectionMap(
+      plan.compositionIdentity, plan.identity, plan.explanationCatalog, plan.presentationCatalog, presentation, video, ""
+    ))
   }
 
   private def _catalog(): CozyExplanation.Catalog =
