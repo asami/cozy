@@ -32,12 +32,14 @@ import io.circe.syntax._
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Aug. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 
 private[cozy] trait CozyBokBuildConfig {
   self: CozyBokImplementation.type =>
+  private[bok] val _default_bok_ui_bundle = "target/cozy-bok/ui-bundle/ui-bundle.zip"
+
   final case class BuildConfig(
     project: Path,
     source: String,
@@ -329,6 +331,14 @@ private[cozy] trait CozyBokBuildConfig {
       val project = _project(parsed)
       val config = _load_config(project)
       val source = config.value("bok.source").getOrElse("src/main/doxsite")
+      val uibundlesetting = config.value("bok.ui-bundle")
+      uibundlesetting.foreach { value =>
+        val uibundlepath = project.resolve(value).toAbsolutePath.normalize
+        if (!Files.isRegularFile(uibundlepath))
+          RAISE.invalidArgumentFault(
+            s"Configured bok.ui-bundle must be an existing regular file: ${value}"
+          )
+      }
       val projectroot = _finalization_project_root(project)
       val admittedsource = _admit_build_config_source(project.resolve(source), projectroot)
       val admittedrelative = projectroot.relativize(admittedsource).toString
@@ -356,7 +366,7 @@ private[cozy] trait CozyBokBuildConfig {
         config.value("bok.antora").getOrElse("antora.d"),
         config.value("bok.doxsite").getOrElse("doxsite.d"),
         config.value("bok.arcadia-site").getOrElse("arcadiasite.d"),
-        config.value("bok.ui-bundle").getOrElse("src/main/antora-ui/build/ui-bundle.zip"),
+        uibundlesetting.getOrElse(_default_bok_ui_bundle),
         strategy,
         dockerimage,
         site.value("output.scope.policy").orElse(config.value("bok.output.scope.policy")).getOrElse("home_only"),

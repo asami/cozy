@@ -32,7 +32,7 @@ import io.circe.syntax._
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Aug. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 
@@ -58,6 +58,7 @@ private[cozy] trait CozyBokScaffold {
       root.resolve("conf/cozy/config.conf"),
       root.resolve("src/main/doxsite"),
       root.resolve("src/main/doxsite/site.conf"),
+      root.resolve("src/main/media"),
       root.resolve("src/main/publication")
     ).filter(p => Files.exists(p)).map(p => root.relativize(p).toString)
 
@@ -239,11 +240,12 @@ private[cozy] trait CozyBokScaffold {
       Vector(
         "1. cozy bok create --save <project-dir> --name <name> --url <site-url> --language ja",
         "2. cd <project-dir>",
-        "3. edit src/main/doxsite/site.conf and category sources",
-        "4. define BoK Vision, Goals, and Subgoals in src/main/doxsite/site.conf",
-        "5. define category Vision, Goals, and Subgoals in category.yaml when needed",
-        "6. cozy bok doctor",
-        "7. cozy bok build"
+        "3. edit public source under src/main/doxsite and add durable media/publication inputs under src/main/media and src/main/publication",
+        "4. standard Manual, History, RDF, metadata, and UI are generated outputs; do not add them as source",
+        "5. define BoK Vision, Goals, and Subgoals in src/main/doxsite/site.conf",
+        "6. define category Vision, Goals, and Subgoals in category.yaml when needed",
+        "7. cozy bok doctor",
+        "8. cozy bok build"
       )
     ),
     (

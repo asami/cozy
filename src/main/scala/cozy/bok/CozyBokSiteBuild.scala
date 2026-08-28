@@ -32,7 +32,7 @@ import io.circe.syntax._
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Aug. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 
@@ -141,16 +141,20 @@ private[cozy] trait CozyBokSiteBuild {
 
   private def _copy_ui_bundle(config: BuildConfig, target: Path): Unit =
     {
-      if (!Files.isRegularFile(config.uiBundlePath))
-        _write_default_ui_bundle(config.uiBundlePath, ProjectFilePolicy.Default)
-      if (Files.isRegularFile(config.uiBundlePath)) {
-        Files.createDirectories(target)
-        _copy_ui_bundle_with_cozy_assets(config, config.uiBundlePath, target.resolve("ui-bundle.zip"))
-        _write_text(
-          target.resolve("supplemental-ui/partials/header-content.hbs"),
-          _default_ui_header(config)
+      val source = config.uiBundlePath
+      val defaultbundle = config.project.resolve(_default_bok_ui_bundle).toAbsolutePath.normalize
+      if (source.toAbsolutePath.normalize == defaultbundle)
+        _write_default_ui_bundle(source, ProjectFilePolicy.Default)
+      else if (!Files.isRegularFile(source))
+        RAISE.invalidArgumentFault(
+          s"Configured bok.ui-bundle must be an existing regular file: ${config.uiBundle}"
         )
-      }
+      Files.createDirectories(target)
+      _copy_ui_bundle_with_cozy_assets(config, source, target.resolve("ui-bundle.zip"))
+      _write_text(
+        target.resolve("supplemental-ui/partials/header-content.hbs"),
+        _default_ui_header(config)
+      )
     }
 
   private def _copy_ui_bundle_with_cozy_assets(config: BuildConfig, source: Path, target: Path): Unit = {

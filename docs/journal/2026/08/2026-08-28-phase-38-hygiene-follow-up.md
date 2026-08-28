@@ -1,7 +1,8 @@
 # Phase 38 Hygiene Follow-up
 
-This journal records one accepted nonblocking maintenance item from the
-BOK38-01A lightweight review. It is non-normative and does not change the
+This journal records the accepted Phase 38 nonblocking Hygiene records
+`HYG-P38-001` through `HYG-P38-003` from the BOK38-01A lightweight review and
+the BOK38-01 combined Step review. It is non-normative and does not change the
 paired Phase 38 design/specification contract.
 
 ## HYG-P38-001: Phase status snapshot synchronization
@@ -20,7 +21,34 @@ content because it concerned work-ledger and strategy status snapshots only;
 the normative paired documents
 `docs/design/bok-generated-knowledge-boundary.md` and
 `docs/spec/bok-generated-knowledge-boundary.md` were already the fixed
-source-boundary contract. The BOK38-01B status-synchronization boundary
-resolves this drift by aligning the Phase record, checklist, Phase index, and
-strategy while keeping BOK38-02 through BOK38-07 not started. No development
-candidate record is admitted by this journal.
+source-boundary contract. BOK38-01B synchronized the then-current Phase
+record, checklist, Phase index, and strategy snapshots, recording BOK38-02
+through BOK38-07 as not started at that time. That outcome was historical; it
+did not make a perpetual claim that BOK38-02 remains not started. No
+development candidate record is admitted by this journal.
+
+## HYG-P38-002: Phase status snapshot correction reference
+
+Status: OPEN
+
+Discovery: BOK38-01 combined Step review.
+
+Path/evidence: `docs/phase/README.md` still reports a Phase 34 correction as
+awaiting validation despite Phase 34's canonical closure.
+
+This is nonblocking status-snapshot hygiene outside Phase 38 source-boundary
+behavior. The proposed later boundary is a documentation-status hygiene pass;
+do not fix this record in BOK38-02.
+
+## HYG-P38-003: Generated-boundary reference discoverability
+
+Status: OPEN
+
+Discovery: BOK38-01 combined Step review.
+
+Evidence: Phase and strategy references do not enumerate the new paired
+generated-boundary design/specification documents.
+
+This is discoverability-only, nonblocking hygiene outside BOK38-02 behavior.
+The proposed later boundary is a documentation-reference hygiene pass; do not
+fix this record in BOK38-02.

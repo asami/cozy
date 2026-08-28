@@ -32,7 +32,7 @@ import io.circe.syntax._
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Aug. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 
@@ -200,7 +200,6 @@ private[cozy] trait CozyBokSiteDocument {
        |    compressed: true
        |  antora: antora.d
        |  doxsite: doxsite.d
-       |  ui-bundle: src/main/antora-ui/build/ui-bundle.zip
        |  rdf:
        |    merge-publication-artifacts: true
        |  video:
@@ -228,29 +227,31 @@ private[cozy] trait CozyBokSiteDocument {
        |
        |- Operation URL: ${config.url}
        |- Main language: ${config.language}
-       |- Site source: `src/main/doxsite`
-       |- Generated public site files and publication repositories are intentionally outside this source scaffold.
+       |- Public source: `src/main/doxsite`
+       |- Durable article-media input: `src/main/media`
+       |- Durable publication-registry input: `src/main/publication`
+       |- Generated Manual, History, RDF, metadata, and standard UI are build outputs, not source authority.
+       |- Optional `src/main/extensions/rdf` declarations are absent by default and must be explicit.
+       |- Repository operations, design, specification, and journal documents remain outside the public source tree.
        |
-       |Category structure is defined by directories that contain `category.yaml`.
+       |Category structure is defined by public-source directories that contain `category.yaml`.
        |""".stripMargin
 
   private[bok] def _structure(config: CreateConfig): String =
     s"""# BoK Structure
        |
-       |`src/main/doxsite` is the cozy-generated SmartDox source tree.
-       |`site.conf` holds site metadata such as name, URL, language, license, navigation mode, and output mode.
+       |`src/main/doxsite` is the public human-readable SmartDox source tree.
+       |`site.conf` and category metadata are adjacent public-source metadata.
        |
-       |Directories with `category.yaml` are BoK categories.
-       |`knowledgehub/` contains KnowledgeHub framework articles.
-       |`book-knowledge/` contains Book/RDF/embedding articles.
+       |Directories with `category.yaml` are public BoK subject categories.
        |`glossary/` contains terms used for automatic glossary linking.
-       |`history/` contains operation history entries.
-       |`manual/` contains Cozy BoK operation guidance.
-       |`rdf/` contains minimal RDF and JSON-LD machine-readable placeholders.
-       |`src/main/antora-ui/build/ui-bundle.zip` is a minimal local Antora UI bundle for offline BoK generation.
-       |`assets/css/` contains restrained reading CSS only.
+       |`src/main/media` contains durable article-media packages.
+       |`src/main/publication` contains the durable Cozy-managed publication registry.
+       |`src/main/extensions/rdf/` is an optional explicit boundary for non-derived declarations and is absent by default.
        |
-       |Only source files, metadata, RDF seeds, glossary terms, and minimal CSS are generated here.
+       |The standard Manual, History dashboard, RDF, machine metadata, and site UI are generated outputs.
+       |Generated work and site files are kept under `doxsite.d/`, `website.d/`, `antora.d/`, and `target/`.
+       |Repository operations, design, specification, and journal documents remain outside `src/main/doxsite`.
        |""".stripMargin
 
   private[bok] def _site_conf(config: CreateConfig): String =
@@ -499,7 +500,7 @@ private[cozy] trait CozyBokSiteDocument {
          |
          |### 知識提供者 / Knowledge Contributor
          |
-         |1. 自分がKnowledge Ownerである記事、用語、カテゴリ、RDF seedなどのGit sourceを編集します。
+         |1. 自分がKnowledge Ownerである記事、用語、カテゴリ、media、publicationなどのGit sourceを編集します。
          |2. ownerではない知識への修正は、作業branchで差分を作りPull Requestとして提案します。
          |3. `cozy bok doctor` で構造、メタデータ、リンク、用語、RDFの基本品質を確認します。
          |4. `cozy bok build --strategy preview` と `cozy bok preview` でDashboard、Category Pages、Glossary、Term Hub、RDF Graph、Recent Changesを確認します。
@@ -529,7 +530,9 @@ private[cozy] trait CozyBokSiteDocument {
          |- `src/main/doxsite/**/*.md`
          |- `src/main/doxsite/**/category.yaml`
          |- `src/main/doxsite/glossary/**/*.dox`
-         |- `src/main/doxsite/rdf/**` when RDF seed is project-owned
+         |- `src/main/media/**` for durable article-media inputs
+         |- `src/main/publication/**` for the durable publication registry
+         |- `src/main/extensions/rdf/**` only for explicit admitted non-derived declarations
          |
          |### 生成物は編集しない
          |
@@ -538,6 +541,8 @@ private[cozy] trait CozyBokSiteDocument {
          |- `antora.d/`
          |- `target/`
          |- `repository/`
+
+         |The standard Manual, History dashboard, RDF, machine metadata, and UI are generated outputs; they are never edited as source.
          |
          |## Page Types
          |
@@ -603,7 +608,7 @@ private[cozy] trait CozyBokSiteDocument {
          |
          |### Knowledge Contributor
          |
-         |1. Edit Git source for knowledge they own, such as articles, terms, categories, and RDF seeds.
+         |1. Edit Git source for knowledge they own, such as articles, terms, categories, media, and publication records.
          |2. For knowledge they do not own, prepare the change on a working branch and propose it through a Pull Request.
          |3. Run `cozy bok doctor` to check structure, metadata, links, terms, and RDF basics.
          |4. Run `cozy bok build --strategy preview` and `cozy bok preview` to verify dashboards, category pages, glossary, term hub, RDF graph, and recent changes.
@@ -633,7 +638,9 @@ private[cozy] trait CozyBokSiteDocument {
          |- `src/main/doxsite/**/*.md`
          |- `src/main/doxsite/**/category.yaml`
          |- `src/main/doxsite/glossary/**/*.dox`
-         |- `src/main/doxsite/rdf/**` when RDF seed is project-owned
+         |- `src/main/media/**` for durable article-media inputs
+         |- `src/main/publication/**` for the durable publication registry
+         |- `src/main/extensions/rdf/**` only for explicit admitted non-derived declarations
          |
          |### Do Not Edit Generated Artifacts
          |
@@ -642,6 +649,8 @@ private[cozy] trait CozyBokSiteDocument {
          |- `antora.d/`
          |- `target/`
          |- `repository/`
+
+         |The standard Manual, History dashboard, RDF, machine metadata, and UI are generated outputs; they are never edited as source.
          |
          |## Page Types
          |
@@ -671,8 +680,10 @@ private[cozy] trait CozyBokSiteDocument {
          |## Project Scope
          |
          |- BoK name: `${config.name}`
-         |- Source root: `src/main/doxsite`
+         |- Public source root: `src/main/doxsite`
+         |- Durable inputs: `src/main/media`, `src/main/publication`
          |- Generated outputs: `website.d`, `doxsite.d`, `antora.d`, `target`
+         |- Optional `src/main/extensions/rdf` is absent by default and must be explicit.
          |
          |## Local Rules
          |
@@ -697,8 +708,10 @@ private[cozy] trait CozyBokSiteDocument {
          |## Project Scope
          |
          |- BoK name: `${config.name}`
-         |- Source root: `src/main/doxsite`
+         |- Public source root: `src/main/doxsite`
+         |- Durable inputs: `src/main/media`, `src/main/publication`
          |- Generated outputs: `website.d`, `doxsite.d`, `antora.d`, `target`
+         |- Optional `src/main/extensions/rdf` is absent by default and must be explicit.
          |
          |## Local Rules
          |

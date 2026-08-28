@@ -62,28 +62,38 @@ adjacent public-source metadata while excluding generated machine metadata
 from the source authority.
 
 BOK38-01 is COMPLETE: the paired design/specification documents now fix the
-source-boundary contract. BOK38-02 through BOK38-07 remain NOT STARTED. The
+source-boundary contract. Its earlier statement that BOK38-02 through BOK38-07
+remained NOT STARTED was a historical status snapshot; BOK38-02 is now COMPLETE
+as recorded below, while BOK38-03 through BOK38-07 remain NOT STARTED. The
 canonical Phase Hygiene journal
 `docs/journal/2026/08/2026-08-28-phase-38-hygiene-follow-up.md` records
-resolved `HYG-P38-001` as closure evidence for this Step only; it is not Phase
-release closure. No implementation, tests, validation, driver acceptance,
-publication, upload, push, downstream consumer acceptance, or Phase closure is
-claimed.
+resolved `HYG-P38-001` and open nonblocking documentation follow-ups; it is not
+Phase release closure. No Phase closure, driver acceptance, full validation,
+publication, upload, push, downstream consumer acceptance, or BOK38-02 Step
+commit is claimed here.
 
 ### BOK38-02: Scaffold, Doctor, and Configuration Alignment
 
 Stage Status:
 
-- Current status: NOT STARTED
+- Current status: COMPLETE
 - Owner: Cozy BoK project lifecycle
 - Update rule: complete only when new scaffolds and diagnostics enforce the
   final boundary without generating legacy source directories.
 
-Change `cozy bok create`, `create-category`, `doctor`, `fix`, guide text, and
-configuration defaults. New projects must not receive project-local standard
-Manual, History, RDF seed, graph-overlay, or Antora UI bundle source files.
-Cozy must provide its standard UI internally while retaining an explicit,
-non-default project override contract.
+BOK38-02 is COMPLETE for the accepted scaffold, doctor, and configuration
+alignment scope. New scaffolds omit default `manual`, `history`, `rdf`, and
+`metadata` source directories and project-local standard UI source, while
+creating durable `media` and `publication` roots. The default UI is
+target-owned, with an explicit existing-project override. `create-category`,
+doctor, fix, guide, README, structure, help, and Executable Specification
+surfaces align with this boundary. Missing legacy roots remain valid and are
+not re-created. The focused evidence is final serial `testOnly
+cozy.bok.CozyBokSpec` invocation `65022-20260828T090426Z`, which passed 63 tests
+with 0 failures; `CPB-P38-02A-001` was resolved and its focused re-review
+passed. This does not claim full Cozy validation, Phase full review, Phase
+release, driver acceptance, `bok-knowledgehub` mutation, publication,
+upload/push, downstream consumer acceptance, or a BOK38-02 Step commit.
 
 ### BOK38-03: Dynamic RDF and Graph Generation
 

@@ -16,7 +16,7 @@ import org.scalatest.wordspec.AnyWordSpec
  * @since   Jun.  3, 2026
  *  version Jun. 27, 2026
  *  version Jul. 23, 2026
- * @version Aug. 11, 2026
+ * @version Aug. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokSpec
@@ -43,7 +43,7 @@ class CozyBokSpec
           CozyBok.create(CozyBok.CreateConfig.create(args))
 
           Then(
-            "the scaffold contains source, configuration, UI, manual, history, and RDF seed files"
+            "the scaffold contains public source, durable inputs, and configuration"
           )
           dir.resolve("README.md") should be_regular_file
           dir.resolve("STRUCTURE.md") should be_regular_file
@@ -57,24 +57,18 @@ class CozyBokSpec
             "src/main/doxsite/glossary/category.yaml"
           ) should be_regular_file
           dir.resolve("src/main/doxsite/glossary/index.dox") shouldNot exist_path
-          dir.resolve(
-            "src/main/doxsite/history/category.yaml"
-          ) should be_regular_file
-          dir.resolve("src/main/doxsite/history/index.dox") should be_regular_file
-          dir.resolve("src/main/doxsite/manual/index.dox") shouldNot exist_path
-          dir.resolve(
-            "src/main/doxsite/manual/local-rules.dox"
-          ) should be_regular_file
-          dir.resolve("src/main/doxsite/rdf/site.ttl") should be_regular_file
-          And("the scaffold contains site UI assets")
-          dir.resolve(
-            "src/main/doxsite/assets/css/knowledgehub.css"
-          ) should be_regular_file
-          dir.resolve(
-            "src/main/antora-ui/build/ui-bundle.zip"
-          ) should be_regular_file
+          Files.isDirectory(dir.resolve("src/main/media")) shouldBe true
+          Files.isDirectory(dir.resolve("src/main/publication")) shouldBe true
+          dir.resolve("src/main/extensions") shouldNot exist_path
+          And("generated source surfaces and project-local UI are absent")
+          dir.resolve("src/main/doxsite/manual") shouldNot exist_path
+          dir.resolve("src/main/doxsite/history") shouldNot exist_path
+          dir.resolve("src/main/doxsite/rdf") shouldNot exist_path
+          dir.resolve("src/main/doxsite/metadata") shouldNot exist_path
+          dir.resolve("src/main/doxsite/assets") shouldNot exist_path
+          dir.resolve("src/main/antora-ui") shouldNot exist_path
           And(
-            "generated work directories are not created during scaffold creation"
+            "generated build and output roots are not created during scaffold creation"
           )
           dir.resolve(
             "src/main/doxsite/knowledgehub/category.yaml"
@@ -83,6 +77,9 @@ class CozyBokSpec
             "src/main/doxsite/site-structure.yaml"
           ) shouldNot exist_path
           dir.resolve("website.d") shouldNot exist_path
+          dir.resolve("doxsite.d") shouldNot exist_path
+          dir.resolve("antora.d") shouldNot exist_path
+          dir.resolve("target") shouldNot exist_path
           _read(dir.resolve("src/main/doxsite/index.dox")) should startWith(
             "Home\n======"
           )
@@ -119,23 +116,11 @@ class CozyBokSpec
           _read(
             dir.resolve("src/main/doxsite/index.dox")
           ) should not include ("日本語単独運用")
-          _read(
-            dir.resolve("src/main/doxsite/history/index.dox")
-          ) should include("# Dashboard")
-          _read(
-            dir.resolve("src/main/doxsite/manual/local-rules.dox")
-          ) should include("Local Rules")
-          _read(
-            dir.resolve("src/main/doxsite/manual/local-rules.dox")
-          ) should include("KnowledgeHub BoK")
-          _read(
-            dir.resolve("src/main/doxsite/manual/local-rules.dox")
-          ) should include("src/main/doxsite")
-          _read(
-            dir.resolve("src/main/doxsite/manual/local-rules.dox")
-          ) should include(".cozy/")
           _read(dir.resolve("conf/cozy/config.yaml")) should include(
             "textus-toolchain"
+          )
+          _read(dir.resolve("conf/cozy/config.yaml")) should not include(
+            "ui-bundle:"
           )
           _read(dir.resolve("conf/cozy/config.yaml")) should include(
             "repository: repository"
@@ -216,140 +201,23 @@ class CozyBokSpec
           _read(dir.resolve("src/main/doxsite/index.dox")) should include(
             "published_at="
           )
-          _read(
-            dir.resolve("src/main/doxsite/history/index.dox")
-          ) should include("published_at=")
-          _read(dir.resolve("README.md")) should not include ("site-structure")
-          val css = _zip_text(
-            dir.resolve("src/main/antora-ui/build/ui-bundle.zip"),
-            "css/site.css"
-          )
-          val dashboardcss = _zip_text(
-            dir.resolve("src/main/antora-ui/build/ui-bundle.zip"),
-            "css/cozy-bok-dashboard.css"
-          )
-          val bootstrapgrid = _zip_text(
-            dir.resolve("src/main/antora-ui/build/ui-bundle.zip"),
-            "css/bootstrap-grid.min.css"
-          )
-          bootstrapgrid should include("Bootstrap")
-          bootstrapgrid should include(".container-fluid")
-          bootstrapgrid should include(".row")
-          bootstrapgrid should include(".col-xl-8")
-          css should include(".navbar-menu")
-          css should include(".navbar-dropdown")
-          css should include(".nav-container")
-          css should include(".lang-toggle")
-          css should include("a.glossary")
-          css should include(".bok-special-links")
-          css should include(".bok-dashboard-grid")
-          css should include(".body.body-dashboard")
-          css should include("radial-gradient")
-          css should include(".body-dashboard .toolbar")
-          css should include("min-height:calc(100vh - 3.5rem)")
-          css should include("#0b1220")
-          css should include("0 30px 80px")
-          css should include(".bok-card:hover")
-          css should include(".bok-card-purpose")
-          css should include("font-size:2.85rem")
-          css should include(".bok-purpose-tree")
-          css should include(".bok-purpose-goal")
-          css should include(".bok-purpose-subgoals")
-          css should include(".bok-category-summary-grid")
-          css should include(".bok-category-summary-card")
-          css should not include (".row{display:grid")
-          css should include(".card-title")
-          dashboardcss should include(
-            "Card accents: keep the surface border stable and draw an outer highlight ring"
-          )
-          dashboardcss should include("--bok-card-accent")
-          dashboardcss should include("--bok-card-ring")
-          dashboardcss should include("0 0 0 4px var(--bok-card-ring)")
-          dashboardcss should include("0 0 0 9px var(--bok-card-ring-glow)")
-          dashboardcss should include(
-            "transform: translateY(-5px) scale(1.006)"
-          )
-          css should include(".bok-cumulative-line")
-          css should include(".bok-index-nav")
-          dashboardcss should include(".bok-index-term-category")
-          dashboardcss should include("Cozy BoK Dashboard")
-          dashboardcss should include(".body-dashboard .toolbar")
-          dashboardcss should include("#0b1220")
-          dashboardcss should include("0 30px 80px")
-          dashboardcss should include(".bok-dashboard-command-center")
-          dashboardcss should include(".bok-purpose-vision-panel")
-          dashboardcss should include(".bok-purpose-vision-copy")
-          dashboardcss should include(".bok-purpose-subgoal-copy")
-          dashboardcss should include(".navbar-category-dropdown > .navbar-category-toggle")
-          dashboardcss should include("background: transparent")
-          dashboardcss should include("border-radius: 0")
-          dashboardcss should include(
-            "KPI cards: centered highlight numbers read better as dashboard metrics"
-          )
-          dashboardcss should include("align-items: center !important")
-          dashboardcss should include(
-            "Dashboard hero: separate marker, title, and summary as distinct zones"
-          )
-          dashboardcss should include("gap: 1.1rem")
-          dashboardcss should include("border-left: 4px solid rgba(191,231,255,.48)")
-          dashboardcss should include(
-            "Layout corrections: use full-width separators and keep Recent Changes compact"
-          )
-          dashboardcss should include(
-            "grid-template-columns: minmax(10rem, 13rem) minmax(0, 1fr) auto"
-          )
-          _zip_text(
-            dir.resolve("src/main/antora-ui/build/ui-bundle.zip"),
-            "js/site.js"
-          ) should include("navbar-burger")
-          _zip_text(
-            dir.resolve("src/main/antora-ui/build/ui-bundle.zip"),
-            "layouts/default.hbs"
-          ) should include("{{> nav}}")
-          _zip_text(
-            dir.resolve("src/main/antora-ui/build/ui-bundle.zip"),
-            "partials/nav-menu.hbs"
-          ) should include("{{#with page.navigation}}")
-          _zip_text(
-            dir.resolve("src/main/antora-ui/build/ui-bundle.zip"),
-            "partials/nav-tree.hbs"
-          ) should include("""{{> nav-tree navigation=./items level=(increment ../level)}}""")
-          _zip_text(
-            dir.resolve("src/main/antora-ui/build/ui-bundle.zip"),
-            "helpers/eq.js"
-          ) should include("a === b")
-          _zip_text(
-            dir.resolve("src/main/antora-ui/build/ui-bundle.zip"),
-            "helpers/increment.js"
-          ) should include("+ 1")
-          _zip_text(
-            dir.resolve("src/main/antora-ui/build/ui-bundle.zip"),
-            "img/menu.svg"
-          ) should include("<svg")
-          _zip_bytes(
-            dir.resolve("src/main/antora-ui/build/ui-bundle.zip"),
-            "font/roboto-latin-400-normal.woff2"
-          ) should not be empty
-          val header = _zip_text(
-            dir.resolve("src/main/antora-ui/build/ui-bundle.zip"),
-            "partials/header-content.hbs"
-          )
-          header should include(
-            """class="navbar-item has-dropdown is-hoverable navbar-bok-nav navbar-bok-dropdown""""
-          )
-          header should include(
-            """class="navbar-link navbar-bok-toggle" href="#">BoK</a>"""
-          )
-          header should include(
-            """class="navbar-item navbar-dropdown-item" href="{{siteRootPath}}/glossary/index.html">Glossary</a>"""
-          )
-          header should include(
-            """class="navbar-item navbar-dropdown-item" href="{{siteRootPath}}/history/index.html">History</a>"""
-          )
-          header should include(
-            """class="navbar-item navbar-dropdown-item" href="{{siteRootPath}}/manual/index.html">BoK Manual</a>"""
-          )
-          header should not include ("Lexicon")
+          val readme = _read(dir.resolve("README.md"))
+          readme should include("Public source: `src/main/doxsite`")
+          readme should include("Durable article-media input: `src/main/media`")
+          readme should include("Durable publication-registry input: `src/main/publication`")
+          readme should include("Generated Manual, History, RDF, metadata, and standard UI")
+          readme should include("Optional `src/main/extensions/rdf`")
+          val structure = _read(dir.resolve("STRUCTURE.md"))
+          structure should include("public human-readable SmartDox source")
+          structure should include("durable article-media packages")
+          structure should include("durable Cozy-managed publication registry")
+          structure should include("src/main/media")
+          structure should include("src/main/publication")
+          structure should include("standard Manual, History dashboard, RDF, machine metadata, and site UI are generated outputs")
+          structure should include("absent by default")
+          dir.resolve("src/main/antora-ui/build/ui-bundle.zip") shouldNot exist_path
+
+
         }
       }
 
@@ -431,6 +299,11 @@ class CozyBokSpec
           dir.resolve(
             "src/main/doxsite/glossary/knowledgehub/knowledgehub.dox"
           ) should be_regular_file
+          And("create-category preserves the absent generated-source roots")
+          dir.resolve("src/main/doxsite/manual") shouldNot exist_path
+          dir.resolve("src/main/doxsite/history") shouldNot exist_path
+          dir.resolve("src/main/doxsite/rdf") shouldNot exist_path
+          dir.resolve("src/main/doxsite/metadata") shouldNot exist_path
           _read(
             dir.resolve("src/main/doxsite/knowledgehub/index.dox")
           ) should include("## HEADLINE\n\nKnowledgeHub")
@@ -1687,8 +1560,12 @@ class CozyBokSpec
             dir.resolve("website.d/architecture/index.html")
           ) should not include ("Lexicon")
           dir.resolve(
-            "src/main/antora-ui/build/ui-bundle.zip"
+            "target/cozy-bok/ui-bundle/ui-bundle.zip"
           ) should be_regular_file
+          _zip_text(
+            dir.resolve("target/cozy-bok/ui-bundle/ui-bundle.zip"),
+            "layouts/default.hbs"
+          ) should include("{{> nav}}")
           dir.resolve("doxsite.d/ja") shouldNot exist_path
           dir.resolve("doxsite.d/en") shouldNot exist_path
           dir.resolve(
@@ -1878,6 +1755,45 @@ class CozyBokSpec
           val config = CozyBok.BuildConfig.create(List(dir.toString))
           Then("the canonical Textus toolchain image is selected")
           config.dockerImage shouldBe "ghcr.io/asami/textus-toolchain:latest"
+        }
+      }
+
+      "keep the default UI bundle under the Cozy-owned target root" in {
+        _with_temp_dir("cozy-bok-default-ui") { dir =>
+          Given("a BoK project without a project-local UI bundle setting")
+          _write(
+            dir.resolve(".cozy/config.yaml"),
+            "bok:\n  source: src/main/doxsite\n"
+          )
+
+          When("build configuration is resolved")
+          val config = CozyBok.BuildConfig.create(List(dir.toString))
+
+          Then("the default UI bundle path is Cozy-owned generated target output")
+          config.uiBundlePath shouldBe dir.resolve(
+            "target/cozy-bok/ui-bundle/ui-bundle.zip"
+          )
+          config.uiBundle shouldBe "target/cozy-bok/ui-bundle/ui-bundle.zip"
+        }
+      }
+
+      "reject a missing explicit UI bundle override" in {
+        _with_temp_dir("cozy-bok-invalid-ui-override") { dir =>
+          Given("a BoK project configured with a missing non-default UI bundle")
+          _write(
+            dir.resolve(".cozy/config.yaml"),
+            "bok:\n  ui-bundle: custom/ui-bundle.zip\n"
+          )
+          Files.createDirectories(dir.resolve("src/main/doxsite"))
+
+          When("the Antora UI bundle is prepared")
+          val error = intercept[RuntimeException] {
+            val config = CozyBok.BuildConfig.create(List(dir.toString))
+            CozyBokImplementation._run_antora(config, new RecordingRunner)
+          }
+
+          Then("the missing override is reported as an invalid argument")
+          error.getMessage should include("Configured bok.ui-bundle must be an existing regular file")
         }
       }
 
@@ -2335,6 +2251,41 @@ class CozyBokSpec
           _read(
             dir.resolve("src/main/doxsite/concept/index.dox")
           ) shouldBe "Concept\n=======\n"
+        }
+      }
+
+      "accept absent generated-source roots during doctor and fix" in {
+        _with_temp_dir("cozy-bok-doctor-generated-roots") { dir =>
+          Given("a scaffold with no legacy generated-source directories")
+          CozyBok.create(
+            CozyBok.CreateConfig.create(List("--save", dir.toString))
+          )
+
+          When("Cozy inspects the scaffold")
+          val output = _capture {
+            CozyBok.doctor(
+              CozyBok.DoctorConfig.create(List(dir.toString), fix = false)
+            )
+          }
+
+          Then("doctor does not report missing legacy generated-source roots")
+          output should not include ("src/main/doxsite/manual")
+          output should not include ("src/main/doxsite/history")
+          output should not include ("src/main/doxsite/rdf")
+          output should not include ("src/main/doxsite/metadata")
+
+          When("Cozy applies safe fixes")
+          _capture {
+            CozyBok.doctor(
+              CozyBok.DoctorConfig.create(List(dir.toString), fix = true)
+            )
+          }
+
+          Then("fix leaves the absent generated-source roots absent")
+          dir.resolve("src/main/doxsite/manual") shouldNot exist_path
+          dir.resolve("src/main/doxsite/history") shouldNot exist_path
+          dir.resolve("src/main/doxsite/rdf") shouldNot exist_path
+          dir.resolve("src/main/doxsite/metadata") shouldNot exist_path
         }
       }
     }

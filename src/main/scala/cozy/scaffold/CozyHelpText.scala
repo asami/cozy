@@ -52,6 +52,9 @@ private[cozy] object CozyHelpText {
       |
       |  bok create --save <dir> [--name <name>] [--url <url>] [--language ja] [--no-project-files] [--overwrite-project-files]
       |      Create a SmartDox category-driven BoK source project scaffold without generated HTML, Arcadia assets, or site-structure.yaml.
+      |      Public source is src/main/doxsite; durable article-media and publication inputs are src/main/media and src/main/publication.
+      |      The standard Manual, History, RDF, machine metadata, and site UI are generated outputs. Optional src/main/extensions/rdf is absent by default.
+      |      Repository operations, design, specification, and journal documents remain outside the public source tree.
       |
       |  bok create-category <category-name> [--project <dir>] [--title <title>] [--description <text>] [--vision <text>] [--goal <text>] [--subgoal <text>] [--article <slug:title:purpose>] [--term <slug:title:definition>]
       |      Add a category, category index, and optional article or term seeds to a BoK source project.

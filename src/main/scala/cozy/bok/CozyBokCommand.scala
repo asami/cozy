@@ -32,7 +32,7 @@ import io.circe.syntax._
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 23, 2026
+ * @version Aug. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 
@@ -231,25 +231,16 @@ private[cozy] trait CozyBokCommand {
 
   def create(config: CreateConfig): Unit = {
     val sitedir = config.save.resolve("src/main/doxsite")
+    Files.createDirectories(config.save.resolve("src/main/media"))
+    Files.createDirectories(config.save.resolve("src/main/publication"))
     _write(config.save.resolve("conf/cozy/config.yaml"), _cozy_config(Some(config)), config.policy)
     _write(config.save.resolve("README.md"), _readme(config), config.policy)
     _write(config.save.resolve("STRUCTURE.md"), _structure(config), config.policy)
     _write(sitedir.resolve("site.conf"), _site_conf(config), config.policy)
     _write(sitedir.resolve("index.dox"), _site_index(config), config.policy)
     _write(sitedir.resolve("glossary/category.yaml"), _category("Glossary", "用語集", "BoK全体で共有する用語集。"), config.policy)
-    _write(sitedir.resolve("history/category.yaml"), _category("History", "History", "BoK運用と更新履歴。"), config.policy)
-    _write(sitedir.resolve("history/index.dox"), _history_index(), config.policy)
-    _write(sitedir.resolve("manual/local-rules.dox"), _manual_local_rules(config), config.policy)
-    _write(sitedir.resolve("rdf/site.ttl"), _site_ttl(config), config.policy)
-    _write(sitedir.resolve("rdf/site.jsonld"), _site_jsonld(config), config.policy)
-    _write(sitedir.resolve("rdf/schema/knowledgehub.ttl"), _schema_ttl(config), config.policy)
-    _write(sitedir.resolve("rdf/schema/knowledgehub.jsonld"), _schema_jsonld(), config.policy)
-    _write(sitedir.resolve("rdf/ontology/knowledgehub.ttl"), _ontology_ttl(config), config.policy)
-    _write(sitedir.resolve("rdf/ontology/knowledgehub.jsonld"), _ontology_jsonld(), config.policy)
-    _write(sitedir.resolve("assets/css/knowledgehub.css"), _css(), config.policy)
     _write(config.save.resolve("etc/website-stage.sh.proto"), _website_stage_script(config), config.policy)
     _write(config.save.resolve("etc/website-upload.sh.proto"), _website_upload_script(config), config.policy)
-    _write_default_ui_bundle(config.save.resolve("src/main/antora-ui/build/ui-bundle.zip"), config.policy)
   }
 
   def doctor(config: DoctorConfig): Unit = {

@@ -18,24 +18,40 @@ Status: COMPLETE
       subject categories.
 
 BOK38-01 is COMPLETE: the paired design/specification documents now fix the
-source-boundary contract. BOK38-02 through BOK38-07 remain NOT STARTED. The
-canonical Phase Hygiene journal
+source-boundary contract. Its earlier statement that BOK38-02 through BOK38-07
+remained NOT STARTED was a historical status snapshot; BOK38-02 is now COMPLETE
+below, while BOK38-03 through BOK38-07 remain NOT STARTED. The canonical Phase
+Hygiene journal
 `docs/journal/2026/08/2026-08-28-phase-38-hygiene-follow-up.md` records
-resolved `HYG-P38-001` as closure evidence for this Step only; it is not Phase
-release closure. No implementation, tests, validation, driver acceptance,
-publication, upload, push, downstream consumer acceptance, or Phase closure is
-claimed.
+resolved `HYG-P38-001` and open nonblocking documentation follow-ups; it is not
+Phase release closure. No Phase closure, driver acceptance, full validation,
+publication, upload, push, downstream consumer acceptance, or BOK38-02 Step
+commit is claimed here.
 
 ## BOK38-02: Scaffold, Doctor, and Configuration Alignment
 
-Status: NOT STARTED
+Status: COMPLETE
 
-- [ ] Stop scaffolding `doxsite/manual`, `history`, `rdf`, and `metadata`.
-- [ ] Stop scaffolding a project-local standard Antora UI bundle.
-- [ ] Update create, create-category, doctor, fix, guide, README, structure,
+- [x] Stop scaffolding `doxsite/manual`, `history`, `rdf`, and `metadata`.
+- [x] Stop scaffolding a project-local standard Antora UI bundle.
+- [x] Update create, create-category, doctor, fix, guide, README, structure,
       configuration defaults, and Executable Specifications.
-- [ ] Make missing generated-source legacy directories valid rather than
+- [x] Make missing generated-source legacy directories valid rather than
       repairing them back into the project.
+
+BOK38-02 is COMPLETE for the accepted scaffold, doctor, and configuration
+alignment scope. New scaffolds omit default `manual`, `history`, `rdf`, and
+`metadata` source directories and project-local standard UI source, while
+creating durable `media` and `publication` roots. The default UI is
+target-owned, with an explicit existing-project override. `create-category`,
+doctor, fix, guide, README, structure, help, and Executable Specification
+surfaces align with this boundary. Missing legacy roots remain valid and are
+not re-created. The focused evidence is final serial `testOnly
+cozy.bok.CozyBokSpec` invocation `65022-20260828T090426Z`, which passed 63 tests
+with 0 failures; `CPB-P38-02A-001` was resolved and its focused re-review
+passed. This does not claim full Cozy validation, Phase full review, Phase
+release, driver acceptance, `bok-knowledgehub` mutation, publication,
+upload/push, downstream consumer acceptance, or a BOK38-02 Step commit.
 
 ## BOK38-03: Dynamic RDF and Graph Generation
 
@@ -98,6 +114,7 @@ Status: NOT STARTED
 - [ ] Synchronize Strategy, Phase, checklist, design, specification, and driver
       receipts before closure.
 
-Phase 38 is IN PROGRESS. BOK38-01 is COMPLETE, while BOK38-02 through BOK38-07
-remain NOT STARTED. No implementation, tests, validation, publication, upload,
-push, downstream consumer acceptance, or Phase closure is claimed.
+Phase 38 is IN PROGRESS. BOK38-01 and BOK38-02 are COMPLETE, while BOK38-03
+through BOK38-07 remain NOT STARTED. No Phase closure, driver acceptance, full
+validation, publication, upload, push, downstream consumer acceptance, or
+BOK38-02 Step commit is claimed.
