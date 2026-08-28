@@ -1128,6 +1128,42 @@ Primary references:
 - `docs/design/media-package-operation.md`
 - `docs/journal/2026/08/2026-08-26-presentation-semantics-ir-phase-36-37.md`
 
+### Phase 38: Generated BoK Knowledge Boundary
+
+Status: planned; not started. Phase 37 remains the active Phase.
+
+Purpose and boundaries:
+
+- make `src/main/doxsite` the public human-readable SmartDox knowledge source
+  instead of a mixed source/generated-machine-input root;
+- keep durable article-media packages and the publication registry in
+  `src/main/media` and `src/main/publication` respectively;
+- generate effective RDF, JSON-LD, graph-summary metadata, the standard
+  Manual, the History dashboard, and the standard UI during the Cozy build;
+- stop scaffolding or requiring project-local `doxsite/manual`, `history`,
+  `rdf`, `metadata`, and a copied standard Antora UI bundle;
+- derive graph nodes and edges from SmartDox, project, publication, CNCF
+  component-reference, and SIE evidence, including registered component nodes
+  that previously required a duplicate source graph overlay;
+- retain an absent-by-default `src/main/extensions/rdf` boundary only for
+  explicit non-derived project ontology, schema, or graph declarations;
+- classify public knowledge by semantic subject rather than notes/design/spec
+  lifecycle stage, leaving repository operation, journal, design, and
+  specification authority under `docs/`; and
+- accept `/Users/asami/src/Project2026/bok-knowledgehub` as the driver project
+  in its reorganized final layout without restoring legacy source paths.
+
+Phase 38 is a planned successor and does not change the active Phase 37
+execution boundary. Design/specification, implementation, Executable
+Specifications, driver acceptance, full validation, independent review, and
+closure all remain not started.
+
+Primary references:
+
+- `docs/phase/phase-38.md`
+- `docs/phase/phase-38-checklist.md`
+- `/Users/asami/src/Project2026/bok-knowledgehub/STRUCTURE.md`
+
 ### Phase 31: Video Encoding Policy Profiles
 
 Status: complete; VP31-01 through VP31-03 are complete.
@@ -1216,6 +1252,7 @@ Origin:
 | DEV-005 | Phase 34 final official full test `58874-20260824T044406Z`; resolved by CFB3 | Make `cozy.bok.CozyBokSpec` actual-Build source fixtures self-contained local safe sources while preserving CFB2 configuration-time safe absence and strict actual-Build admission; specify any behavior change first. | NEW_PHASE | [Phase 34](../phase/phase-34.md) | RESOLVED |
 | DEV-006 | User request on 2026-08-26 following the article-summary media workflow review | Establish a common Visual Page contract carrying a typed Logical Pattern and semantic Relation graph, projected separately through Visual Patterns into presentation slides and video Storyboard scene screens with deterministic renderer binding and receipt identity. This supersedes the earlier Markdown-only Slide IR successor proposal. | NEW_PHASE | [Phase 36](../phase/phase-36.md) | RESOLVED |
 | DEV-007 | User request on 2026-08-26 following the ACE product-explanation review | Separate Subject Pattern from Explanation Pattern and deterministically project one logical explanation composition into independent multi-slide and multi-scene sequences through the common Visual Page contract. | NEW_PHASE | [Phase 37](../phase/phase-37.md) | IN PROGRESS |
+| DEV-008 | User-approved BoK source-boundary decision on 2026-08-28 | Make public SmartDox source, durable media/publication state, generated RDF/graph/Manual/History/UI, and optional non-derived extensions separate authorities; adopt the reorganized `bok-knowledgehub` tree as the driver. | NEW_PHASE | [Phase 38](../phase/phase-38.md) | PLANNED |
 
 ## Current Priority
 
@@ -1223,6 +1260,9 @@ Phase 30 and Phase 36 are closed. Phase 36 VIS36-01 through VIS36-06 are DONE.
 Phase 37 remains IN PROGRESS as the logical explanation-composition successor
 after Phase 36. Its P37-01/P37-01B design/specification Step is review-clean
 and closed; implementation and executable specifications remain P37-02 onward.
+Phase 38 is planned as the generated BoK knowledge-boundary successor and is
+not started. It does not alter Phase 37's active boundary; its design,
+implementation, driver acceptance, validation, and review remain open.
 Neither successor adds work to the closed Phase 30 boundary or claims
 full Phase validation, Phase review, publication, push, or external consumer
 mutation.

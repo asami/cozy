@@ -56,6 +56,11 @@ Current phase state:
   multi-scene projection through Phase 36 Visual Pages. Implementation and
   executable specifications remain P37-02 onward. No full Phase validation or
   Phase review, publication, push, or downstream consumer acceptance is claimed.
+- Planned successor: `phase-38.md`: Generated BoK Knowledge Boundary. It will
+  separate public SmartDox source from generated RDF/graph/Manual/History/UI,
+  align scaffold and diagnostics, and accept the reorganized
+  `bok-knowledgehub` driver. Phase 38 is NOT STARTED and does not alter the
+  active Phase 37 boundary.
 - Earlier closed phase: `phase-28.2.md`: SimpleModeling.org Part 5
   Integration and Regression; `AM28-03` and `AM28-04` are complete.
 - Most recent split predecessor: `phase-28.1.md`: WIP Local Article Media
@@ -130,3 +135,8 @@ is recorded in `docs/design/explanation-composition.md` and
 `docs/spec/explanation-composition.md`. Implementation and executable
 specifications remain P37-02 onward. No full Phase validation or Phase review,
 publication, push, or downstream consumer acceptance is claimed.
+
+Phase 38 is a planned, not-started successor for the generated BoK knowledge
+boundary. Its canonical planning authority is `phase-38.md` plus
+`phase-38-checklist.md`. It must not be reported as active or implemented while
+Phase 37 remains active unless the user explicitly changes the Phase order.
