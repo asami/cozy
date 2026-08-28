@@ -37,30 +37,28 @@ Current phase state:
   Content-review and video-review PPTX artifacts are optional inspection or
   distribution outputs, not workflow gates. The closure validates Cozy-owned
   artifacts and does not claim SmartDox/Textus or other consumer acceptance.
-  Phase 36 is complete under its accepted closure status; Phase 37 remains
-  IN PROGRESS. Its P37-01 design/specification Step is review-clean and
-  closed; implementation and executable specifications remain P37-02 onward.
+  Phase 36 is complete under its accepted closure status; Phase 37 is complete
+  under its separate release closure. Its logical explanation composition and
+  projection contract does not claim external consumer acceptance.
 - Most recent closed phase: `phase-36.md`: Common Visual Page and Cross-Media
   Presentation Contract. VIS36-01 through VIS36-06 are DONE. Its closed
   Cross-media Review route is accepted in `245ec94dccc8abcf81cb810cd0630d91ebb15e05`;
   its representative article-summary fixture, separate image inspection, full
   review, duplicate-JSON repair, and focused closure re-review are recorded in
   the Phase 36 checklist. No push, publish, or downstream-consumer acceptance
-  is claimed; Phase 37 is IN PROGRESS under its accepted documentation
-  foundation.
-- Current phase: `phase-37.md`: Logical Explanation Composition and Media
-  Projection. The P37-01/P37-01B design/specification contract is review-clean
-  and closed as a Step; it separates Subject Pattern from Narrative /
-  Argument-oriented Explanation Pattern, defines the typed Logical
-  Pattern/Relation plan boundary, and fixes independent multi-slide and
-  multi-scene projection through Phase 36 Visual Pages. Implementation and
-  executable specifications remain P37-02 onward. No full Phase validation or
-  Phase review, publication, push, or downstream consumer acceptance is claimed.
+  is claimed; Phase 37 is complete under its own release closure.
+- Most recent closed phase: `phase-37.md`: Logical Explanation Composition and
+  Media Projection. It separates Subject Pattern from Narrative /
+  Argument-oriented Explanation Pattern, validates and copies authored logical
+  composition, and projects it independently through Phase 36 Visual Pages.
+  The closure includes the one full Phase review, its bounded repair and
+  focused closure re-review, and full Cozy validation. No publication, push,
+  or downstream consumer acceptance is claimed.
 - Planned successor: `phase-38.md`: Generated BoK Knowledge Boundary. It will
   separate public SmartDox source from generated RDF/graph/Manual/History/UI,
   align scaffold and diagnostics, and accept the reorganized
   `bok-knowledgehub` driver. Phase 38 is NOT STARTED and does not alter the
-  active Phase 37 boundary.
+  completed Phase 37 boundary.
 - Earlier closed phase: `phase-28.2.md`: SimpleModeling.org Part 5
   Integration and Regression; `AM28-03` and `AM28-04` are complete.
 - Most recent split predecessor: `phase-28.1.md`: WIP Local Article Media
@@ -122,21 +120,18 @@ design/specification is recorded in `docs/design/visual-page.md` plus
 `docs/spec/visual-page.md`. VIS36-01 through VIS36-06 are DONE. P36-06's
 accepted structural route and representative article-summary evidence have
 passed the independent Phase review, bounded duplicate-JSON repair, and
-focused closure re-review. Phase 37 remains IN PROGRESS; its P37-01/P37-01B
-design/specification Step is review-clean and closed. Implementation and
-executable specifications remain P37-02 onward, and no external consumer
-acceptance is claimed.
+focused closure re-review. Phase 37 is complete under its independent release
+closure, and no external consumer acceptance is claimed.
 
-Phase 37 is the logical explanation-composition successor to Phase 36 and
-remains IN PROGRESS. Its P37-01/P37-01B design/specification contract is
-review-clean and closed as a Step; its canonical status authority is
-`phase-37.md` plus `phase-37-checklist.md`, and normative design/specification
-is recorded in `docs/design/explanation-composition.md` and
-`docs/spec/explanation-composition.md`. Implementation and executable
-specifications remain P37-02 onward. No full Phase validation or Phase review,
-publication, push, or downstream consumer acceptance is claimed.
+Phase 37 is the closed logical explanation-composition successor to Phase 36.
+Its canonical status authority is `phase-37.md` plus
+`phase-37-checklist.md`, and normative design/specification is recorded in
+`docs/design/explanation-composition.md` and
+`docs/spec/explanation-composition.md`. Its closure records Cozy deterministic
+validation, review, and projection only; it makes no publication, push, or
+downstream consumer acceptance claim.
 
 Phase 38 is a planned, not-started successor for the generated BoK knowledge
 boundary. Its canonical planning authority is `phase-38.md` plus
-`phase-38-checklist.md`. It must not be reported as active or implemented while
-Phase 37 remains active unless the user explicitly changes the Phase order.
+`phase-38-checklist.md`. It must not be reported as active or implemented until
+the user explicitly starts a new Phase 38 goal.

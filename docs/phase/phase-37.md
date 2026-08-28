@@ -1,6 +1,6 @@
 # Phase 37: Logical Explanation Composition and Media Projection
 
-Status: IN PROGRESS
+Status: COMPLETE
 
 Plan date: 2026-08-26
 
@@ -114,8 +114,9 @@ catalog companions, authored Composition steps, independent mapping request,
 deterministic projection receipt, and later command matrix. The P37-01
 design/specification contract is review-clean and closed as a Step; its local
 accepted documentation commit is `5946eb6dcb18ac421d41c56919e981a338e16437`.
-Phase 37 remains IN PROGRESS: no full Phase validation or Phase review,
-publication, push, or downstream consumer acceptance is claimed.
+The later implementation, independent Phase review, bounded repair, and
+closure evidence are recorded in LOGIC37-02 through LOGIC37-06. No publication,
+push, or downstream consumer acceptance is claimed.
 
 ### LOGIC37-02: Typed Subject and Explanation Pattern Models
 
@@ -212,19 +213,38 @@ approval.
 
 Stage Status:
 
-- Current status: IN PROGRESS
+- Current status: COMPLETE
 - Owner: Cozy validation and review
 - Update rule: complete only when full Cozy validation, exactly one independent
   full Phase review, required closure ledger/status synchronization, and a
   distinct Phase release commit are complete; separate semantic, visual, and
   audiovisual approval remains a non-Cozy boundary.
 
-Focused projection validation is accepted, but full Cozy validation, exactly
-one independent full Phase review, required closure ledger/status
-synchronization, and a distinct Phase release commit remain incomplete.
+The independent full Phase review over the complete accepted accumulator found
+and closed `CPB-P37-001` through `CPB-P37-005`: P36/P37 resource links now
+compare source and asset declarations as well as identities; the oversized
+explanation and projection implementation files were split into codecs; the
+CozyMedia history header was synchronized; and the `problem-solution`
+direct-file Executable Specification was added. One bounded repair Cycle 1
+passed focused validation (`testOnly cozy.media.CozyExplanationSpec
+cozy.media.CozyExplanationProjectionSpec`, 10 succeeded / 0 failed) and its
+focused closure re-review was clean. The final full Cozy `test` receipt and
+this distinct local release commit bind the release tree; they do not imply
+rendering, publication, or external consumer acceptance.
 
-Phase 37 is IN PROGRESS. LOGIC37-01 through LOGIC37-05 are COMPLETE;
-LOGIC37-06 is IN PROGRESS.
+Phase 37 is COMPLETE. LOGIC37-01 through LOGIC37-06 are COMPLETE. Separate
+semantic, visual, and audiovisual approval remains outside Cozy and outside
+this Phase closure.
+
+## Closure ledger
+
+Closure scope `P37-CLOSURE-001` binds this Phase record, its checklist,
+`docs/phase/README.md`, the Cozy development strategy, and the canonical
+Phase Hygiene journal. `HYG-P37-001` is resolved by this status
+synchronization; `HYG-P37-RR-001` remains an explicitly separate source-import
+hygiene task. There are no accepted Phase 37 Development Candidate records, so
+the canonical Development Candidate journal is absent by design. No hygiene or
+candidate record changes the accepted logical-explanation contract.
 
 ## Dependencies and exclusions
 

@@ -3,7 +3,7 @@
 This checklist is the authoritative progress ledger for Phase 37. It is not a
 normative behavior contract.
 
-Phase Status: IN PROGRESS
+Phase Status: COMPLETE
 
 ## LOGIC37-01: Logical Composition Design and Specification
 
@@ -156,29 +156,37 @@ audiovisual, or external-consumer approval.
 
 ## LOGIC37-06: Review, Validation, and Closure
 
-Status: IN PROGRESS
+Status: COMPLETE
 
-- [ ] Produce one representative product-overview presentation and video
-      projection from the same accepted logical composition inputs.
-- [ ] Verify semantic-step, Visual Page, slide-page, scene, asset, citation,
+- [x] Produce representative `product-overview` presentation and video
+      projections from the same accepted logical composition inputs through the
+      direct-file Executable Specifications.
+- [x] Verify semantic-step, Visual Page, slide-page, scene, asset, citation,
       receipt, and stale-input consistency across the representative package.
-- [ ] Complete separate semantic, visual, and audiovisual reviews without
-      treating deterministic validation, normalization, copying, or delivery
-      generation as acceptance. This remains a separate non-Cozy approval
-      boundary.
-- [ ] Run full Cozy validation, exactly one independent full Phase review, and
-      required closure ledger/status synchronization before closing Phase 37
-      from its in-progress/open state with a distinct Phase release commit.
+- [x] Preserve separate semantic, visual, and audiovisual approval boundaries;
+      deterministic validation, normalization, copying, or delivery generation
+      does not become an approval claim.
+- [x] Complete the one independent full Phase review, its bounded Cycle 1
+      repair and focused closure re-review, required closure-ledger/status
+      synchronization, and bind the required full Cozy validation receipt to a
+      distinct Phase release commit.
 
-Focused projection validation
+Focused validation
 `testOnly cozy.media.CozyExplanationSpec cozy.media.CozyExplanationProjectionSpec`
-has succeeded with 8 succeeded / 0 failed, but every closure checkbox above
-remains open. Full Cozy validation, exactly one independent full Phase review,
-required closure ledger/status synchronization, and a distinct Phase release
-commit remain incomplete.
+passed with 10 succeeded / 0 failed after Cycle 1. The full Phase review closed
+`CPB-P37-001` through `CPB-P37-005`; the focused closure re-review found no
+remaining Current Phase Blocker. The final full Cozy `test` result is bound as
+the release receipt for this exact closure tree, rather than being replaced by
+the focused result.
 
-Phase 37 is IN PROGRESS. LOGIC37-01 through LOGIC37-05 are COMPLETE;
-LOGIC37-06 is IN PROGRESS. No full Phase validation or Phase review,
-publication, push, downstream consumer acceptance, Phase release commit,
-rendering, PPTX or MP4 delivery, external article-repository mutation, or
-Phase 38 work is claimed.
+Phase 37 is COMPLETE. LOGIC37-01 through LOGIC37-06 are COMPLETE. No
+publication, push, downstream consumer acceptance, rendering, PPTX or MP4
+delivery, external article-repository mutation, or Phase 38 implementation is
+claimed.
+
+## Closure ledgers
+
+- Phase Hygiene: `docs/journal/2026/08/2026-08-28-phase-37-hygiene-follow-up.md`
+  records resolved `HYG-P37-001` and separate open `HYG-P37-RR-001`.
+- Development Candidates: none accepted; the canonical Phase 37 Development
+  Candidate journal is intentionally absent.

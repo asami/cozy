@@ -186,6 +186,14 @@ final class CozyExplanationProjectionSpec
           nodes = fixture.pages.pages.head.logical.nodes.updated(0, fixture.pages.pages.head.logical.nodes.head.copy(label = "Changed logical claim"))
         ))
         val changedpages = fixture.pages.copy(pages = fixture.pages.pages.updated(0, changedpage))
+        _write(root.resolve("sources/p36-source.txt"), "P36 source bytes with the same ID")
+        val divergentasset = _write(root.resolve("assets/p36-asset.txt"), "P36 asset bytes with the same ID")
+        val sourcevariant = fixture.pages.copy(pages = fixture.pages.pages.map(page =>
+          page.copy(sources = Vector(CozyVisualPage.SourceBinding("source", "sources/p36-source.txt")))
+        ))
+        val assetvariant = fixture.pages.copy(pages = fixture.pages.pages.map(page =>
+          page.copy(assets = Vector(CozyVisualPage.Asset("asset", "assets/p36-asset.txt", "text/plain", _sha256(divergentasset))))
+        ))
         val nonvisual = fixture.storyboard.copy(scenes = fixture.storyboard.scenes.updated(0, fixture.storyboard.scenes.head.copy(
           screen = CozyVideoImplementation.StoryboardTextScreen("Text only", "Not a visual page")
         )))
@@ -195,7 +203,7 @@ final class CozyExplanationProjectionSpec
           screen = CozyVideoImplementation.StoryboardVisualPageScreen("other-pages.json", "presentation-catalog.json", "page-vision-a")
         )))
 
-        When("the Projection boundary loads a stale selector unsafe target mapping changed page logical value non-v2 mapped screen and stale receipt inputs")
+        When("the Projection boundary loads stale selectors, same-ID divergent P36 direct resources, unsafe mappings, changed media, and stale receipt inputs")
         val selectorfailure = _failure(CozyExplanationProjection.loadProjectionMap(
           selectorfile, fixture.compositionfile, fixture.planfile, fixture.catalogfile, fixture.presentationcatalogfile, fixture.bindings
         ))
@@ -211,6 +219,10 @@ final class CozyExplanationProjectionSpec
         val unsafefailure = _failure(CozyExplanationProjection.loadProjectionMap(
           unsafefile, fixture.compositionfile, fixture.planfile, fixture.catalogfile, fixture.presentationcatalogfile, fixture.bindings
         ))
+        _write(fixture.visualpagesetfile, CozyVisualPage.canonicalJson(sourcevariant))
+        val sourcefailure = _failure(CozyExplanation.execute(_project_command(fixture, root.resolve("source-failure.json"))))
+        _write(fixture.visualpagesetfile, CozyVisualPage.canonicalJson(assetvariant))
+        val assetfailure = _failure(CozyExplanation.execute(_project_command(fixture, root.resolve("asset-failure.json"))))
         _write(fixture.visualpagesetfile, CozyVisualPage.canonicalJson(changedpages))
         val pagefailure = _failure(CozyExplanation.execute(_project_command(fixture, root.resolve("page-failure.json"))))
         _write(fixture.visualpagesetfile, CozyVisualPage.canonicalJson(fixture.pages))
@@ -228,12 +240,16 @@ final class CozyExplanationProjectionSpec
         val receiptfailure = _failure(CozyExplanation.execute(_verify_command(fixture, output)))
 
         Then("all stale or integrity closures report EXPLANATION_PROJECTION_STALE with a path and reason while unsafe authored targets are rejected before projection")
-        Vector(selectorfailure, missingfailure, reorderedfailure, pagefailure, screenfailure, versionfailure, literalfailure, receiptfailure).foreach { failure =>
+        Vector(selectorfailure, missingfailure, reorderedfailure, sourcefailure, assetfailure, pagefailure, screenfailure, versionfailure, literalfailure, receiptfailure).foreach { failure =>
           failure.getMessage should include_text("EXPLANATION_PROJECTION_STALE")
           failure.getMessage should include_text("path=")
           failure.getMessage should include_text("reason=")
         }
         selectorfailure.getMessage should include_text("compositionIdentity")
+        sourcefailure.getMessage should include_text("P36 source bytes do not agree")
+        sourcefailure.getMessage should include_text("sources.source")
+        assetfailure.getMessage should include_text("P36 asset digest does not agree")
+        assetfailure.getMessage should include_text("assets.asset")
         pagefailure.getMessage should include_text("pageIds")
         screenfailure.getMessage should include_text("sceneIds")
         receiptfailure.getMessage should include_text("Projection does not exactly preserve")

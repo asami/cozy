@@ -75,6 +75,37 @@ final class CozyExplanationSpec
       }
     }
 
+    "load and deterministically expand direct-file problem-solution roles with authored parameter provenance" in {
+      _with_work("problem-solution") { root =>
+        Given("named catalogs, explicit source and asset bindings, and an authored problem-solution Composition")
+        val catalogfile = _write(root.resolve("explanation-catalog.json"), CozyExplanation.canonicalCatalogJson(_catalog))
+        val presentationfile = _write(root.resolve("presentation-catalog.json"), CozyVisualPage.canonicalCatalogJson(_presentation_catalog))
+        val sourcefile = _write(root.resolve("sources/source.txt"), "problem-solution source bytes")
+        val assetfile = _write(root.resolve("assets/asset.txt"), "problem-solution asset bytes")
+        val composition = _problem_solution_composition(_sha256(sourcefile), _sha256(assetfile))
+        val compositionfile = _write(root.resolve("problem-solution-composition.json"), CozyExplanation.canonicalCompositionJson(composition))
+        val bindings = CozyExplanation.ResourceBindings(Map("source" -> sourcefile), Map("asset" -> assetfile))
+
+        When("the direct-file Composition is loaded and expanded twice against the named catalogs")
+        val loaded = CozyExplanation.loadComposition(compositionfile, catalogfile, presentationfile, bindings)
+        val first = CozyExplanation.expand(loaded)
+        val second = CozyExplanation.expand(loaded)
+
+        Then("the ordered problem and solution steps preserve selected parameter values, authored logical data, and canonical identities")
+        first shouldBe second
+        loaded.composition shouldBe composition
+        first.steps.map(_.semanticRole) shouldBe Vector("problem", "solution")
+        first.steps.map(_.parameterProvenance.values.map(value => value.name -> value.value)) shouldBe Vector(
+          Vector("problem" -> CozyExplanation.JsonString("Direct file provenance was previously implicit.")),
+          Vector("solution" -> CozyExplanation.JsonString("Bind every declaration to explicit direct bytes."))
+        )
+        first.steps.map(_.logical) shouldBe composition.explanation.steps.map(_.logical)
+        first.compositionIdentity shouldBe CozyExplanation.compositionIdentity(composition)
+        CozyExplanation.canonicalPlanJson(first) shouldBe CozyExplanation.canonicalPlanJson(second)
+        first.identity shouldBe CozyExplanation.planIdentity(first)
+      }
+    }
+
     "canonicalize recursively reordered dynamic values while preserving authored array order" in {
       Given("an accepted Composition containing ordered lists, a scenario value, and mechanism-link parameters")
       val composition = _composition(Vector.fill(64)("a").mkString, Vector.fill(64)("b").mkString)
@@ -299,6 +330,36 @@ final class CozyExplanationSpec
       ),
       Vector(CozyExplanation.SourceDeclaration("source", sourcedigest)),
       Vector(CozyExplanation.AssetDeclaration("asset", "text/plain", assetdigest))
+    )
+  }
+
+  private def _problem_solution_composition(sourcedigest: String, assetdigest: String): CozyExplanation.Composition = {
+    val base = _composition(sourcedigest, assetdigest)
+    val step = base.explanation.steps.head
+    val problem = step.copy(
+      id = "problem-step",
+      order = 1,
+      semanticRole = "problem",
+      claims = step.claims.map(_.copy(id = "problem-claim", text = "Implicit provenance makes explanation resources unreliable.")),
+      parameterSelection = Vector(CozyExplanation.ParameterSelection("problem"))
+    )
+    val solution = step.copy(
+      id = "solution-step",
+      order = 2,
+      semanticRole = "solution",
+      claims = step.claims.map(_.copy(id = "solution-claim", text = "Explicit bindings make explanation resources verifiable.")),
+      parameterSelection = Vector(CozyExplanation.ParameterSelection("solution"))
+    )
+    base.copy(
+      id = "problem-solution-composition",
+      explanation = CozyExplanation.Explanation(
+        CozyExplanation.PatternReference("problem-solution", 1),
+        Vector(
+          CozyExplanation.Parameter("problem", CozyExplanation.JsonString("Direct file provenance was previously implicit.")),
+          CozyExplanation.Parameter("solution", CozyExplanation.JsonString("Bind every declaration to explicit direct bytes."))
+        ),
+        Vector(problem, solution)
+      )
     )
   }
 

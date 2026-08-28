@@ -12,6 +12,8 @@ import scala.util.control.NonFatal
 
 import cozy.video.CozyVideoImplementation
 
+import CozyExplanationProjectionCodec._
+
 /*
  * @since   Aug. 28, 2026
  * @version Aug. 28, 2026
@@ -80,11 +82,12 @@ private[cozy] object CozyExplanationProjection {
 
   private final case class MediaClosure(
     visualpageset: CozyVisualPage.ValidatedDocument,
+    visualpagesetpath: Path,
     storyboard: CozyVideoImplementation.Storyboard,
     storyboardidentity: String,
     storyboardpath: Path
   )
-  private final case class CommandConfig(
+  private[media] final case class CommandConfig(
     input: Option[Path],
     projectionmap: Option[Path],
     composition: Option[Path],
@@ -97,10 +100,10 @@ private[cozy] object CozyExplanationProjection {
     bindings: CozyExplanation.ResourceBindings
   )
 
-  private val _projection_map_schema = "cozy.explanation-projection-map.v1"
-  private val _projection_schema = "cozy.explanation-projection.v1"
-  private val _token_pattern = "[A-Za-z0-9][A-Za-z0-9._-]*".r
-  private val _identity_pattern = "sha256:[0-9a-f]{64}".r
+  private[media] val _projection_map_schema = "cozy.explanation-projection-map.v1"
+  private[media] val _projection_schema = "cozy.explanation-projection.v1"
+  private[media] val _token_pattern = "[A-Za-z0-9][A-Za-z0-9._-]*".r
+  private[media] val _identity_pattern = "sha256:[0-9a-f]{64}".r
 
   def parseProjectionMapJson(text: String): ProjectionMap =
     _parse_projection_map(_parse_json(text, "$"), "$")
@@ -170,7 +173,7 @@ private[cozy] object CozyExplanationProjection {
     val validatedmap = loadProjectionMap(projectionMap, composition, plan, explanationCatalog, presentationCatalog, bindings)
     val media = _load_media(visualPageSet, storyboard, presentationCatalog, validatedmap.plan)
     val value = _parse_projection(_parse_json(_read_utf8(path, "projection"), "projection"), "$")
-    _validate_projection(value, validatedmap, media)
+    _validate_projection(value, validatedmap, media, composition, explanationCatalog, presentationCatalog, bindings)
     ValidatedProjection(value, canonicalProjectionJson(value), validatedmap)
   }
 
@@ -235,7 +238,14 @@ private[cozy] object CozyExplanationProjection {
     val storyboard = config.storyboard.getOrElse(_missing_companion("--storyboard"))
     val validatedmap = loadProjectionMap(map, composition, plan, explanationcatalog, presentationcatalog, config.bindings)
     val media = _load_media(visualpageset, storyboard, presentationcatalog, validatedmap.plan)
-    _validate_media_agreement(validatedmap, media)
+    _validate_media_agreement(
+      validatedmap,
+      media,
+      config.composition.getOrElse(_missing_companion("--composition")),
+      config.explanationcatalog.getOrElse(_missing_companion("--explanation-catalog")),
+      config.presentationcatalog.getOrElse(_missing_companion("--presentation-catalog")),
+      config.bindings
+    )
     val projection = _projection_from(validatedmap, media)
     _atomic_write(config.save.getOrElse(_missing_save()), canonicalProjectionJson(projection) + "\n")
     _projection_summary(ValidatedProjection(projection, canonicalProjectionJson(projection), validatedmap))
@@ -358,10 +368,18 @@ private[cozy] object CozyExplanationProjection {
     }
   }
 
-  private def _validate_projection(value: Projection, map: ValidatedProjectionMap, media: MediaClosure): Unit = {
+  private def _validate_projection(
+    value: Projection,
+    map: ValidatedProjectionMap,
+    media: MediaClosure,
+    composition: Path,
+    explanationcatalog: Path,
+    presentationcatalog: Path,
+    bindings: CozyExplanation.ResourceBindings
+  ): Unit = {
     if (value.identity != projectionIdentity(value))
       _stale("$.identity", "Projection identity does not match its canonical content")
-    _validate_media_agreement(map, media)
+    _validate_media_agreement(map, media, composition, explanationcatalog, presentationcatalog, bindings)
     val expected = _projection_from(map, media)
     if (canonicalProjectionJson(value) != canonicalProjectionJson(expected))
       _stale("$", "Projection does not exactly preserve the current ProjectionMap and media closure")
@@ -394,12 +412,26 @@ private[cozy] object CozyExplanationProjection {
     val board = result.storyboard.getOrElse(_stale("$command.storyboard", "named Storyboard is missing"))
     if (board.schema != "cozy.video.storyboard.v2" || board.version != 2)
       _stale("$command.storyboard", "named Storyboard must be cozy.video.storyboard.v2")
-    val closure = MediaClosure(pages, board, CozyVideoImplementation.storyboardIdentity(board), storyboardpath)
+    val closure = MediaClosure(pages, visualpath, board, CozyVideoImplementation.storyboardIdentity(board), storyboardpath)
     _validate_storyboard_visual_screens(closure, visualpath, _projection_input(presentationcatalog, "presentation-catalog"))
     closure
   }
 
-  private def _validate_media_agreement(map: ValidatedProjectionMap, media: MediaClosure): Unit = {
+  private def _validate_media_agreement(
+    map: ValidatedProjectionMap,
+    media: MediaClosure,
+    composition: Path,
+    explanationcatalog: Path,
+    presentationcatalog: Path,
+    bindings: CozyExplanation.ResourceBindings
+  ): Unit = {
+    val validatedcomposition = try {
+      CozyExplanation.loadComposition(composition, explanationcatalog, presentationcatalog, bindings)
+    } catch {
+      case fault: CozyExplanation.ExplanationFault => _stale(fault.path, fault.reason)
+    }
+    val sourcedeclarations = validatedcomposition.composition.sources.map(value => value.id -> value).toMap
+    val assetdeclarations = validatedcomposition.composition.assets.map(value => value.id -> value).toMap
     val pages = media.visualpageset.document.asInstanceOf[CozyVisualPage.PageSet].pages
     _unique(pages.map(_.id), "$.visualPageSet.pages", "VisualPageSet page ID")
     val pageindex = pages.map(page => page.id -> page).toMap
@@ -415,13 +447,40 @@ private[cozy] object CozyExplanationProjection {
           _stale(s"$$.presentation.stepMappings[$index].pageIds", s"mapped page logical value does not equal Plan step ${step.id}")
         val sourceids = (step.sourceRefs ++ step.claims.flatMap(_.sourceRefs) ++ step.logical.nodes.flatMap(_.sourceRefs) ++ step.logical.relations.flatMap(_.sourceRefs)).toSet
         val assetids = (step.assetRefs ++ step.claims.flatMap(_.assetRefs)).toSet
-        val pagesources = page.sources.map(_.id).toSet
-        val pageassets = page.assets.map(_.id).toSet
+        val pagesources = page.sources.map(value => value.id -> value).toMap
+        val pageassets = page.assets.map(value => value.id -> value).toMap
         sourceids.find(id => !pagesources.contains(id)).foreach { id =>
           _stale(s"$$.presentation.stepMappings[$index].pageIds", s"mapped page is missing source provenance: $id")
         }
         assetids.find(id => !pageassets.contains(id)).foreach { id =>
           _stale(s"$$.presentation.stepMappings[$index].pageIds", s"mapped page is missing asset provenance: $id")
+        }
+        sourceids.foreach { id =>
+          val declaration = sourcedeclarations.getOrElse(id,
+            _stale(s"$$.presentation.stepMappings[$index].pageIds", s"Plan source does not resolve in the current Composition: $id"))
+          val p36source = _descriptor_resource(media.visualpagesetpath, pagesources(id).path,
+            s"$$.presentation.stepMappings[$index].pageIds.$pageid.sources.$id.path")
+          val p37source = _projection_input(bindings.sources.getOrElse(id,
+            _stale(s"$$.presentation.stepMappings[$index].pageIds.$pageid.sources.$id", "Composition source binding is missing")), s"source.$id")
+          if (!java.util.Arrays.equals(Files.readAllBytes(p36source), Files.readAllBytes(p37source)))
+            _stale(s"$$.presentation.stepMappings[$index].pageIds.$pageid.sources.$id", "P36 source bytes do not agree with the explicit P37 source binding")
+          if (_sha256_bytes(Files.readAllBytes(p37source)) != declaration.sha256)
+            _stale(s"$$.presentation.stepMappings[$index].pageIds.$pageid.sources.$id", "P37 source bytes do not agree with the current SourceDeclaration")
+        }
+        assetids.foreach { id =>
+          val declaration = assetdeclarations.getOrElse(id,
+            _stale(s"$$.presentation.stepMappings[$index].pageIds", s"Plan asset does not resolve in the current Composition: $id"))
+          val p36asset = pageassets(id)
+          val p36path = _descriptor_resource(media.visualpagesetpath, p36asset.path,
+            s"$$.presentation.stepMappings[$index].pageIds.$pageid.assets.$id.path")
+          val p37path = _projection_input(bindings.assets.getOrElse(id,
+            _stale(s"$$.presentation.stepMappings[$index].pageIds.$pageid.assets.$id", "Composition asset binding is missing")), s"asset.$id")
+          if (p36asset.mediaType != declaration.mediaType)
+            _stale(s"$$.presentation.stepMappings[$index].pageIds.$pageid.assets.$id.mediaType", "P36 asset mediaType does not agree with the current P37 AssetDeclaration")
+          if (p36asset.sha256 != declaration.sha256)
+            _stale(s"$$.presentation.stepMappings[$index].pageIds.$pageid.assets.$id.sha256", "P36 asset digest does not agree with the current P37 AssetDeclaration")
+          if (!java.util.Arrays.equals(Files.readAllBytes(p36path), Files.readAllBytes(p37path)))
+            _stale(s"$$.presentation.stepMappings[$index].pageIds.$pageid.assets.$id", "P36 asset bytes do not agree with the explicit P37 asset binding")
         }
       }
       scenemapping.sceneIds.foreach { sceneid =>
@@ -435,6 +494,16 @@ private[cozy] object CozyExplanationProjection {
         }
       }
     }
+  }
+
+  private def _descriptor_resource(descriptor: Path, reference: String, path: String): Path = {
+    if (!_safe_relative_reference(reference))
+      _stale(path, "P36 resource reference must be a safe descriptor-relative path")
+    val root = Option(descriptor.getParent).getOrElse(_stale(path, "VisualPageSet parent directory is required"))
+    val resolved = root.resolve(reference).normalize()
+    if (!resolved.startsWith(root) || !Files.isRegularFile(resolved, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(resolved))
+      _stale(path, "P36 resource reference must resolve to an existing direct regular descriptor-relative file")
+    resolved
   }
 
   private def _validate_storyboard_visual_screens(media: MediaClosure, visualpageset: Path, presentationcatalog: Path): Unit = {
@@ -501,238 +570,8 @@ private[cozy] object CozyExplanationProjection {
     provisional.copy(identity = projectionIdentity(provisional))
   }
 
-  private def _parse_projection_map(value: CozyExplanation.JsonValue, path: String): ProjectionMap = {
-    val fields = _object(value, path)
-    _exact_fields(fields, Vector("schema", "version", "compositionIdentity", "planIdentity", "explanationCatalog", "presentationCatalog", "presentation", "video", "identity"), path)
-    _schema_version(fields, _projection_map_schema, path)
-    ProjectionMap(
-      _identity_text(_string(_field(fields, "compositionIdentity", path), s"$path.compositionIdentity"), s"$path.compositionIdentity"),
-      _identity_text(_string(_field(fields, "planIdentity", path), s"$path.planIdentity"), s"$path.planIdentity"),
-      _parse_catalog_selector(_field(fields, "explanationCatalog", path), s"$path.explanationCatalog"),
-      _parse_catalog_selector(_field(fields, "presentationCatalog", path), s"$path.presentationCatalog"),
-      _parse_presentation_mapping(_field(fields, "presentation", path), s"$path.presentation"),
-      _parse_video_mapping(_field(fields, "video", path), s"$path.video"),
-      _identity_text(_string(_field(fields, "identity", path), s"$path.identity"), s"$path.identity")
-    )
-  }
 
-  private def _parse_projection(value: CozyExplanation.JsonValue, path: String): Projection = {
-    val fields = _object(value, path)
-    _exact_fields(fields, Vector("schema", "version", "compositionIdentity", "planIdentity", "projectionMapIdentity", "explanationCatalog", "presentationCatalog", "presentation", "video", "receipt", "identity"), path)
-    _schema_version(fields, _projection_schema, path)
-    Projection(
-      _identity_text(_string(_field(fields, "compositionIdentity", path), s"$path.compositionIdentity"), s"$path.compositionIdentity"),
-      _identity_text(_string(_field(fields, "planIdentity", path), s"$path.planIdentity"), s"$path.planIdentity"),
-      _identity_text(_string(_field(fields, "projectionMapIdentity", path), s"$path.projectionMapIdentity"), s"$path.projectionMapIdentity"),
-      _parse_catalog_selector(_field(fields, "explanationCatalog", path), s"$path.explanationCatalog"),
-      _parse_catalog_selector(_field(fields, "presentationCatalog", path), s"$path.presentationCatalog"),
-      _parse_projection_presentation(_field(fields, "presentation", path), s"$path.presentation"),
-      _parse_projection_video(_field(fields, "video", path), s"$path.video"),
-      _parse_receipt(_field(fields, "receipt", path), s"$path.receipt"),
-      _identity_text(_string(_field(fields, "identity", path), s"$path.identity"), s"$path.identity")
-    )
-  }
-
-  private def _parse_catalog_selector(value: CozyExplanation.JsonValue, path: String): CozyExplanation.CatalogSelector = {
-    val fields = _object(value, path)
-    _exact_fields(fields, Vector("id", "revision", "identity"), path)
-    CozyExplanation.CatalogSelector(
-      _token(_string(_field(fields, "id", path), s"$path.id"), s"$path.id"),
-      _positive_int(_field(fields, "revision", path), s"$path.revision"),
-      _identity_text(_string(_field(fields, "identity", path), s"$path.identity"), s"$path.identity")
-    )
-  }
-
-  private def _parse_presentation_mapping(value: CozyExplanation.JsonValue, path: String): PresentationMapping = {
-    val fields = _object(value, path)
-    _exact_fields(fields, Vector("stepMappings", "identity"), path)
-    val mappings = _array(_field(fields, "stepMappings", path), s"$path.stepMappings").zipWithIndex.map {
-      case (item, index) => _parse_presentation_step_mapping(item, s"$path.stepMappings[$index]")
-    }
-    PresentationMapping(mappings, _identity_text(_string(_field(fields, "identity", path), s"$path.identity"), s"$path.identity"))
-  }
-
-  private def _parse_video_mapping(value: CozyExplanation.JsonValue, path: String): VideoMapping = {
-    val fields = _object(value, path)
-    _exact_fields(fields, Vector("stepMappings", "identity"), path)
-    val mappings = _array(_field(fields, "stepMappings", path), s"$path.stepMappings").zipWithIndex.map {
-      case (item, index) => _parse_video_step_mapping(item, s"$path.stepMappings[$index]")
-    }
-    VideoMapping(mappings, _identity_text(_string(_field(fields, "identity", path), s"$path.identity"), s"$path.identity"))
-  }
-
-  private def _parse_projection_presentation(value: CozyExplanation.JsonValue, path: String): ProjectionPresentation = {
-    val fields = _object(value, path)
-    _exact_fields(fields, Vector("visualPageSet", "stepMappings", "identity"), path)
-    val selectorfields = _object(_field(fields, "visualPageSet", path), s"$path.visualPageSet")
-    _exact_fields(selectorfields, Vector("id", "identity"), s"$path.visualPageSet")
-    ProjectionPresentation(
-      VisualPageSetSelector(
-        _token(_string(_field(selectorfields, "id", s"$path.visualPageSet"), s"$path.visualPageSet.id"), s"$path.visualPageSet.id"),
-        _identity_text(_string(_field(selectorfields, "identity", s"$path.visualPageSet"), s"$path.visualPageSet.identity"), s"$path.visualPageSet.identity")
-      ),
-      _array(_field(fields, "stepMappings", path), s"$path.stepMappings").zipWithIndex.map {
-        case (item, index) => _parse_presentation_step_mapping(item, s"$path.stepMappings[$index]")
-      },
-      _identity_text(_string(_field(fields, "identity", path), s"$path.identity"), s"$path.identity")
-    )
-  }
-
-  private def _parse_projection_video(value: CozyExplanation.JsonValue, path: String): ProjectionVideo = {
-    val fields = _object(value, path)
-    _exact_fields(fields, Vector("storyboard", "stepMappings", "identity"), path)
-    val selectorfields = _object(_field(fields, "storyboard", path), s"$path.storyboard")
-    _exact_fields(selectorfields, Vector("identity"), s"$path.storyboard")
-    ProjectionVideo(
-      StoryboardSelector(_identity_text(_string(_field(selectorfields, "identity", s"$path.storyboard"), s"$path.storyboard.identity"), s"$path.storyboard.identity")),
-      _array(_field(fields, "stepMappings", path), s"$path.stepMappings").zipWithIndex.map {
-        case (item, index) => _parse_video_step_mapping(item, s"$path.stepMappings[$index]")
-      },
-      _identity_text(_string(_field(fields, "identity", path), s"$path.identity"), s"$path.identity")
-    )
-  }
-
-  private def _parse_presentation_step_mapping(value: CozyExplanation.JsonValue, path: String): PresentationStepMapping = {
-    val fields = _object(value, path)
-    _exact_fields(fields, Vector("stepId", "pageIds"), path)
-    PresentationStepMapping(
-      _token(_string(_field(fields, "stepId", path), s"$path.stepId"), s"$path.stepId"),
-      _target_ids(_field(fields, "pageIds", path), s"$path.pageIds")
-    )
-  }
-
-  private def _parse_video_step_mapping(value: CozyExplanation.JsonValue, path: String): VideoStepMapping = {
-    val fields = _object(value, path)
-    _exact_fields(fields, Vector("stepId", "sceneIds"), path)
-    VideoStepMapping(
-      _token(_string(_field(fields, "stepId", path), s"$path.stepId"), s"$path.stepId"),
-      _target_ids(_field(fields, "sceneIds", path), s"$path.sceneIds")
-    )
-  }
-
-  private def _parse_receipt(value: CozyExplanation.JsonValue, path: String): ProjectionReceipt = {
-    val fields = _object(value, path)
-    val names = Vector(
-      "compositionIdentity", "planIdentity", "projectionMapIdentity", "explanationCatalogIdentity",
-      "presentationLogicalCatalogIdentity", "presentationCatalogIdentity", "visualPageSetIdentity",
-      "storyboardIdentity", "presentationMappingIdentity", "videoMappingIdentity", "identity"
-    )
-    _exact_fields(fields, names, path)
-    ProjectionReceipt(
-      _identity_field(fields, "compositionIdentity", path), _identity_field(fields, "planIdentity", path),
-      _identity_field(fields, "projectionMapIdentity", path), _identity_field(fields, "explanationCatalogIdentity", path),
-      _identity_field(fields, "presentationLogicalCatalogIdentity", path), _identity_field(fields, "presentationCatalogIdentity", path),
-      _identity_field(fields, "visualPageSetIdentity", path), _identity_field(fields, "storyboardIdentity", path),
-      _identity_field(fields, "presentationMappingIdentity", path), _identity_field(fields, "videoMappingIdentity", path),
-      _identity_field(fields, "identity", path)
-    )
-  }
-
-  private def _projection_map_value(value: ProjectionMap, includeidentity: Boolean): CozyExplanation.JsonValue = {
-    val fields = Vector[(String, CozyExplanation.JsonValue)](
-      "schema" -> CozyExplanation.JsonString(_projection_map_schema),
-      "version" -> CozyExplanation.JsonNumber(1),
-      "compositionIdentity" -> CozyExplanation.JsonString(value.compositionIdentity),
-      "planIdentity" -> CozyExplanation.JsonString(value.planIdentity),
-      "explanationCatalog" -> _catalog_selector_value(value.explanationCatalog),
-      "presentationCatalog" -> _catalog_selector_value(value.presentationCatalog),
-      "presentation" -> _presentation_mapping_value(value.presentation.stepMappings, includeidentity = true, value.presentation.identity),
-      "video" -> _video_mapping_value(value.video.stepMappings, includeidentity = true, value.video.identity)
-    ) ++ (if (includeidentity) Vector("identity" -> CozyExplanation.JsonString(value.identity)) else Vector.empty)
-    CozyExplanation.JsonObject(fields)
-  }
-
-  private def _projection_value(value: Projection, includeidentity: Boolean): CozyExplanation.JsonValue = {
-    val fields = Vector[(String, CozyExplanation.JsonValue)](
-      "schema" -> CozyExplanation.JsonString(_projection_schema),
-      "version" -> CozyExplanation.JsonNumber(1),
-      "compositionIdentity" -> CozyExplanation.JsonString(value.compositionIdentity),
-      "planIdentity" -> CozyExplanation.JsonString(value.planIdentity),
-      "projectionMapIdentity" -> CozyExplanation.JsonString(value.projectionMapIdentity),
-      "explanationCatalog" -> _catalog_selector_value(value.explanationCatalog),
-      "presentationCatalog" -> _catalog_selector_value(value.presentationCatalog),
-      "presentation" -> _projection_presentation_value(value.presentation),
-      "video" -> _projection_video_value(value.video),
-      "receipt" -> _receipt_value(value.receipt, includeidentity = true)
-    ) ++ (if (includeidentity) Vector("identity" -> CozyExplanation.JsonString(value.identity)) else Vector.empty)
-    CozyExplanation.JsonObject(fields)
-  }
-
-  private def _catalog_selector_value(value: CozyExplanation.CatalogSelector): CozyExplanation.JsonValue = CozyExplanation.JsonObject(Vector(
-    "id" -> CozyExplanation.JsonString(value.id),
-    "revision" -> CozyExplanation.JsonNumber(value.revision),
-    "identity" -> CozyExplanation.JsonString(value.identity)
-  ))
-
-  private def _presentation_mapping_value(
-    mappings: Vector[PresentationStepMapping],
-    includeidentity: Boolean,
-    identity: String
-  ): CozyExplanation.JsonValue = {
-    val fields = Vector[(String, CozyExplanation.JsonValue)](
-      "stepMappings" -> CozyExplanation.JsonArray(mappings.map(_presentation_step_mapping_value))
-    ) ++ (if (includeidentity) Vector("identity" -> CozyExplanation.JsonString(identity)) else Vector.empty)
-    CozyExplanation.JsonObject(fields)
-  }
-
-  private def _video_mapping_value(
-    mappings: Vector[VideoStepMapping],
-    includeidentity: Boolean,
-    identity: String
-  ): CozyExplanation.JsonValue = {
-    val fields = Vector[(String, CozyExplanation.JsonValue)](
-      "stepMappings" -> CozyExplanation.JsonArray(mappings.map(_video_step_mapping_value))
-    ) ++ (if (includeidentity) Vector("identity" -> CozyExplanation.JsonString(identity)) else Vector.empty)
-    CozyExplanation.JsonObject(fields)
-  }
-
-  private def _presentation_step_mapping_value(value: PresentationStepMapping): CozyExplanation.JsonValue = CozyExplanation.JsonObject(Vector(
-    "stepId" -> CozyExplanation.JsonString(value.stepId),
-    "pageIds" -> CozyExplanation.JsonArray(value.pageIds.map(CozyExplanation.JsonString))
-  ))
-
-  private def _video_step_mapping_value(value: VideoStepMapping): CozyExplanation.JsonValue = CozyExplanation.JsonObject(Vector(
-    "stepId" -> CozyExplanation.JsonString(value.stepId),
-    "sceneIds" -> CozyExplanation.JsonArray(value.sceneIds.map(CozyExplanation.JsonString))
-  ))
-
-  private def _projection_presentation_value(value: ProjectionPresentation): CozyExplanation.JsonValue = CozyExplanation.JsonObject(Vector(
-    "visualPageSet" -> CozyExplanation.JsonObject(Vector(
-      "id" -> CozyExplanation.JsonString(value.visualPageSet.id),
-      "identity" -> CozyExplanation.JsonString(value.visualPageSet.identity)
-    )),
-    "stepMappings" -> CozyExplanation.JsonArray(value.stepMappings.map(_presentation_step_mapping_value)),
-    "identity" -> CozyExplanation.JsonString(value.identity)
-  ))
-
-  private def _projection_video_value(value: ProjectionVideo): CozyExplanation.JsonValue = CozyExplanation.JsonObject(Vector(
-    "storyboard" -> CozyExplanation.JsonObject(Vector(
-      "identity" -> CozyExplanation.JsonString(value.storyboard.identity)
-    )),
-    "stepMappings" -> CozyExplanation.JsonArray(value.stepMappings.map(_video_step_mapping_value)),
-    "identity" -> CozyExplanation.JsonString(value.identity)
-  ))
-
-  private def _receipt_value(value: ProjectionReceipt, includeidentity: Boolean): CozyExplanation.JsonValue = {
-    val fields = Vector[(String, CozyExplanation.JsonValue)](
-      "compositionIdentity" -> CozyExplanation.JsonString(value.compositionIdentity),
-      "planIdentity" -> CozyExplanation.JsonString(value.planIdentity),
-      "projectionMapIdentity" -> CozyExplanation.JsonString(value.projectionMapIdentity),
-      "explanationCatalogIdentity" -> CozyExplanation.JsonString(value.explanationCatalogIdentity),
-      "presentationLogicalCatalogIdentity" -> CozyExplanation.JsonString(value.presentationLogicalCatalogIdentity),
-      "presentationCatalogIdentity" -> CozyExplanation.JsonString(value.presentationCatalogIdentity),
-      "visualPageSetIdentity" -> CozyExplanation.JsonString(value.visualPageSetIdentity),
-      "storyboardIdentity" -> CozyExplanation.JsonString(value.storyboardIdentity),
-      "presentationMappingIdentity" -> CozyExplanation.JsonString(value.presentationMappingIdentity),
-      "videoMappingIdentity" -> CozyExplanation.JsonString(value.videoMappingIdentity)
-    ) ++ (if (includeidentity) Vector("identity" -> CozyExplanation.JsonString(value.identity)) else Vector.empty)
-    CozyExplanation.JsonObject(fields)
-  }
-
-  private def _receipt_identity(value: ProjectionReceipt): String =
-    _identity(_receipt_value(value, includeidentity = false))
-
-  private def _command_config(args: List[String], requiresave: Boolean): CommandConfig = {
+  private[media] def _command_config(args: List[String], requiresave: Boolean): CommandConfig = {
     var input = Option.empty[Path]
     var projectionmap = Option.empty[Path]
     var composition = Option.empty[Path]
@@ -795,17 +634,17 @@ private[cozy] object CozyExplanationProjection {
     CommandConfig(input, projectionmap, composition, plan, explanationcatalog, presentationcatalog, visualpageset, storyboard, save, CozyExplanation.ResourceBindings(sources, assets))
   }
 
-  private val _value_options = Set(
+  private[media] val _value_options = Set(
     "--projection-map", "--composition", "--plan", "--explanation-catalog", "--presentation-catalog",
     "--visual-page-set", "--storyboard", "--save", "--source", "--asset"
   )
 
-  private def _single_path(current: Option[Path], value: String, path: String, option: String): Option[Path] = {
+  private[media] def _single_path(current: Option[Path], value: String, path: String, option: String): Option[Path] = {
     if (current.nonEmpty) _fail("EXPLANATION_COMMAND_INVALID", path, s"$option may appear once")
     Some(_cli_path(value, path))
   }
 
-  private def _add_binding(bindings: Map[String, Path], value: String, path: String): Map[String, Path] = {
+  private[media] def _add_binding(bindings: Map[String, Path], value: String, path: String): Map[String, Path] = {
     val index = Option(value).map(_.indexOf('='))
     if (index.isEmpty || index.get <= 0 || index.get == value.length - 1)
       _fail("EXPLANATION_REFERENCE_INVALID", path, "binding must be exactly <id>=<file>")
@@ -816,7 +655,7 @@ private[cozy] object CozyExplanationProjection {
     bindings + (id -> _cli_path(file, path))
   }
 
-  private def _input_argument(args: List[String]): Option[String] = {
+  private[media] def _input_argument(args: List[String]): Option[String] = {
     var rest = args
     while (rest.nonEmpty) {
       rest match {
@@ -829,7 +668,7 @@ private[cozy] object CozyExplanationProjection {
     None
   }
 
-  private def _schema_kind(input: Path): String = {
+  private[media] def _schema_kind(input: Path): String = {
     val path = _direct_input(input, "input")
     val fields = _object(_parse_json(_read_utf8(path, "input"), "input"), "$")
     _string(_field(fields, "schema", "$"), "$.schema") match {
@@ -839,7 +678,7 @@ private[cozy] object CozyExplanationProjection {
     }
   }
 
-  private def _parse_json(text: String, source: String): CozyExplanation.JsonValue = {
+  private[media] def _parse_json(text: String, source: String): CozyExplanation.JsonValue = {
     if (text == null || text.isEmpty) _fail("EXPLANATION_SCHEMA_INVALID", source, "JSON input is required")
     val parser = new JsonFactory().createParser(text)
     try {
@@ -853,7 +692,7 @@ private[cozy] object CozyExplanationProjection {
     } finally parser.close()
   }
 
-  private def _parse_json_value(parser: com.fasterxml.jackson.core.JsonParser, source: String): CozyExplanation.JsonValue = parser.getCurrentToken match {
+  private[media] def _parse_json_value(parser: com.fasterxml.jackson.core.JsonParser, source: String): CozyExplanation.JsonValue = parser.getCurrentToken match {
     case JsonToken.START_OBJECT =>
       val fields = Vector.newBuilder[(String, CozyExplanation.JsonValue)]
       val seen = mutable.Set.empty[String]
@@ -880,7 +719,7 @@ private[cozy] object CozyExplanationProjection {
     case _ => _fail("EXPLANATION_SCHEMA_INVALID", source, s"unsupported JSON token: ${parser.getCurrentToken}")
   }
 
-  private def _canonical(value: CozyExplanation.JsonValue): String = value match {
+  private[media] def _canonical(value: CozyExplanation.JsonValue): String = value match {
     case CozyExplanation.JsonObject(fields) => fields.map { case (name, member) => _quote(name) + ":" + _canonical(member) }.mkString("{", ",", "}")
     case CozyExplanation.JsonArray(values) => values.map(_canonical).mkString("[", ",", "]")
     case CozyExplanation.JsonString(text) => _quote(text)
@@ -888,7 +727,7 @@ private[cozy] object CozyExplanationProjection {
     case CozyExplanation.JsonBoolean(boolean) => boolean.toString
   }
 
-  private def _quote(value: String): String = {
+  private[media] def _quote(value: String): String = {
     val escaped = Option(value).getOrElse("").flatMap {
       case '"' => "\\\""
       case '\\' => "\\\\"
@@ -903,40 +742,40 @@ private[cozy] object CozyExplanationProjection {
     "\"" + escaped + "\""
   }
 
-  private def _identity(value: CozyExplanation.JsonValue): String =
+  private[media] def _identity(value: CozyExplanation.JsonValue): String =
     "sha256:" + _sha256_bytes(_canonical(value).getBytes(StandardCharsets.UTF_8))
 
-  private def _sha256_bytes(bytes: Array[Byte]): String =
+  private[media] def _sha256_bytes(bytes: Array[Byte]): String =
     MessageDigest.getInstance("SHA-256").digest(bytes).map(value => f"${value & 0xff}%02x").mkString
 
-  private def _object(value: CozyExplanation.JsonValue, path: String): Vector[(String, CozyExplanation.JsonValue)] = value match {
+  private[media] def _object(value: CozyExplanation.JsonValue, path: String): Vector[(String, CozyExplanation.JsonValue)] = value match {
     case CozyExplanation.JsonObject(fields) => fields
     case _ => _fail("EXPLANATION_SCHEMA_INVALID", path, "must be a JSON object")
   }
 
-  private def _array(value: CozyExplanation.JsonValue, path: String): Vector[CozyExplanation.JsonValue] = value match {
+  private[media] def _array(value: CozyExplanation.JsonValue, path: String): Vector[CozyExplanation.JsonValue] = value match {
     case CozyExplanation.JsonArray(values) => values
     case _ => _fail("EXPLANATION_SCHEMA_INVALID", path, "must be a JSON array")
   }
 
-  private def _string(value: CozyExplanation.JsonValue, path: String): String = value match {
+  private[media] def _string(value: CozyExplanation.JsonValue, path: String): String = value match {
     case CozyExplanation.JsonString(text) => text
     case _ => _fail("EXPLANATION_SCHEMA_INVALID", path, "must be a JSON string")
   }
 
-  private def _field(fields: Vector[(String, CozyExplanation.JsonValue)], name: String, path: String): CozyExplanation.JsonValue =
+  private[media] def _field(fields: Vector[(String, CozyExplanation.JsonValue)], name: String, path: String): CozyExplanation.JsonValue =
     _field_optional(fields, name).getOrElse(_fail("EXPLANATION_SCHEMA_INVALID", s"$path.$name", "required field is missing"))
 
-  private def _field_optional(fields: Vector[(String, CozyExplanation.JsonValue)], name: String): Option[CozyExplanation.JsonValue] =
+  private[media] def _field_optional(fields: Vector[(String, CozyExplanation.JsonValue)], name: String): Option[CozyExplanation.JsonValue] =
     fields.find(_._1 == name).map(_._2)
 
-  private def _exact_fields(fields: Vector[(String, CozyExplanation.JsonValue)], expected: Vector[String], path: String): Unit = {
+  private[media] def _exact_fields(fields: Vector[(String, CozyExplanation.JsonValue)], expected: Vector[String], path: String): Unit = {
     val actual = fields.map(_._1)
     actual.find(name => !expected.contains(name)).foreach(name => _fail("EXPLANATION_UNKNOWN_FIELD", s"$path.$name", "unknown field is not admitted"))
     expected.find(name => !actual.contains(name)).foreach(name => _fail("EXPLANATION_SCHEMA_INVALID", s"$path.$name", "required field is missing"))
   }
 
-  private def _schema_version(fields: Vector[(String, CozyExplanation.JsonValue)], schema: String, path: String): Unit = {
+  private[media] def _schema_version(fields: Vector[(String, CozyExplanation.JsonValue)], schema: String, path: String): Unit = {
     if (_string(_field(fields, "schema", path), s"$path.schema") != schema)
       _fail("EXPLANATION_SCHEMA_INVALID", s"$path.schema", s"must be exactly $schema")
     _field(fields, "version", path) match {
@@ -945,28 +784,28 @@ private[cozy] object CozyExplanationProjection {
     }
   }
 
-  private def _positive_int(value: CozyExplanation.JsonValue, path: String): Int = value match {
+  private[media] def _positive_int(value: CozyExplanation.JsonValue, path: String): Int = value match {
     case CozyExplanation.JsonNumber(number) if number > 0 && number <= Int.MaxValue => number.toInt
     case CozyExplanation.JsonNumber(_) => _fail("EXPLANATION_SCHEMA_INVALID", path, "must be a positive 32-bit integer")
     case _ => _fail("EXPLANATION_SCHEMA_INVALID", path, "must be a JSON integer")
   }
 
-  private def _token(value: String, path: String): String = {
+  private[media] def _token(value: String, path: String): String = {
     if (value == null || !_token_pattern.pattern.matcher(value).matches)
       _fail("EXPLANATION_SCHEMA_INVALID", path, "must be a nonempty stable token")
     value
   }
 
-  private def _identity_text(value: String, path: String): String = {
+  private[media] def _identity_text(value: String, path: String): String = {
     if (value == null || !_identity_pattern.pattern.matcher(value).matches)
       _fail("EXPLANATION_SCHEMA_INVALID", path, "must be sha256:<64-lowercase-hex>")
     value
   }
 
-  private def _identity_field(fields: Vector[(String, CozyExplanation.JsonValue)], name: String, path: String): String =
+  private[media] def _identity_field(fields: Vector[(String, CozyExplanation.JsonValue)], name: String, path: String): String =
     _identity_text(_string(_field(fields, name, path), s"$path.$name"), s"$path.$name")
 
-  private def _target_ids(value: CozyExplanation.JsonValue, path: String): Vector[String] = {
+  private[media] def _target_ids(value: CozyExplanation.JsonValue, path: String): Vector[String] = {
     val targets = _array(value, path).zipWithIndex.map { case (item, index) =>
       _token(_string(item, s"$path[$index]"), s"$path[$index]")
     }
@@ -975,12 +814,12 @@ private[cozy] object CozyExplanationProjection {
     targets
   }
 
-  private def _unique(values: Vector[String], path: String, label: String): Unit =
+  private[media] def _unique(values: Vector[String], path: String, label: String): Unit =
     values.groupBy(identity).collectFirst { case (value, duplicates) if duplicates.size > 1 => value }.foreach { value =>
       _fail("EXPLANATION_SCHEMA_INVALID", path, s"duplicate $label: $value")
     }
 
-  private def _safe_relative_reference(value: String): Boolean =
+  private[media] def _safe_relative_reference(value: String): Boolean =
     value.nonEmpty &&
       !value.startsWith("/") &&
       !value.contains("\\") &&
@@ -990,7 +829,7 @@ private[cozy] object CozyExplanationProjection {
       !value.exists(Character.isISOControl) &&
       value.split("/", -1).forall(segment => _token_pattern.pattern.matcher(segment).matches && segment != "." && segment != "..")
 
-  private def _direct_input(path: Path, label: String): Path = {
+  private[media] def _direct_input(path: Path, label: String): Path = {
     if (path == null) _fail("EXPLANATION_REFERENCE_INVALID", label, "direct file path is required")
     val normalized = try path.toAbsolutePath.normalize() catch { case NonFatal(_) => _fail("EXPLANATION_REFERENCE_INVALID", label, "direct file path is invalid") }
     if (!Files.isRegularFile(normalized, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(normalized))
@@ -998,13 +837,13 @@ private[cozy] object CozyExplanationProjection {
     normalized
   }
 
-  private def _projection_input(path: Path, label: String): Path = try {
+  private[media] def _projection_input(path: Path, label: String): Path = try {
     _direct_input(path, label)
   } catch {
     case fault: CozyExplanation.ExplanationFault => _stale(label, fault.reason)
   }
 
-  private def _read_utf8(path: Path, label: String): String = try {
+  private[media] def _read_utf8(path: Path, label: String): String = try {
     val decoder = StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT).onUnmappableCharacter(CodingErrorAction.REPORT)
     decoder.decode(ByteBuffer.wrap(Files.readAllBytes(path))).toString
   } catch {
@@ -1012,7 +851,7 @@ private[cozy] object CozyExplanationProjection {
     case NonFatal(error) => _fail("EXPLANATION_SCHEMA_INVALID", label, Option(error.getMessage).getOrElse("cannot read UTF-8 file"))
   }
 
-  private def _atomic_write(path: Path, text: String): Unit = {
+  private[media] def _atomic_write(path: Path, text: String): Unit = {
     val output = try path.toAbsolutePath.normalize() catch { case NonFatal(_) => _fail("EXPLANATION_COMMAND_INVALID", "$command.save", "output path is invalid") }
     val parent = Option(output.getParent).getOrElse(_fail("EXPLANATION_COMMAND_INVALID", "$command.save", "output parent is required"))
     if (!Files.isDirectory(parent, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(parent))
@@ -1034,23 +873,23 @@ private[cozy] object CozyExplanationProjection {
     }
   }
 
-  private def _cli_path(value: String, path: String): Path = {
+  private[media] def _cli_path(value: String, path: String): Path = {
     if (value == null || value.isEmpty || value != value.trim) _fail("EXPLANATION_COMMAND_INVALID", path, "path must be nonempty and trimmed")
     try Paths.get(value) catch { case NonFatal(_) => _fail("EXPLANATION_COMMAND_INVALID", path, "path is invalid") }
   }
 
-  private def _missing_companion(option: String): Nothing =
+  private[media] def _missing_companion(option: String): Nothing =
     _fail("EXPLANATION_COMMAND_INVALID", "$command", s"missing required $option")
 
-  private def _missing_input(): Nothing =
+  private[media] def _missing_input(): Nothing =
     _fail("EXPLANATION_COMMAND_INVALID", "$command.input", "missing direct input file")
 
-  private def _missing_save(): Nothing =
+  private[media] def _missing_save(): Nothing =
     _fail("EXPLANATION_COMMAND_INVALID", "$command.save", "selected operation requires exactly one --save")
 
-  private def _stale(path: String, reason: String): Nothing =
+  private[media] def _stale(path: String, reason: String): Nothing =
     _fail("EXPLANATION_PROJECTION_STALE", path, reason)
 
-  private def _fail(code: String, path: String, reason: String): Nothing =
+  private[media] def _fail(code: String, path: String, reason: String): Nothing =
     throw CozyExplanation.ExplanationFault(code, path, reason)
 }

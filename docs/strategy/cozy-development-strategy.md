@@ -1000,9 +1000,8 @@ Cross-media Review route is accepted in
 `245ec94dccc8abcf81cb810cd0630d91ebb15e05`; its representative article-summary
 fixture and separate test-image inspection are recorded in the Phase 36
 checklist. The independent Phase review, bounded duplicate-JSON repair, and
-focused closure re-review are complete. Phase 37 remains IN PROGRESS; its
-P37-01 design/specification Step is review-clean and closed. Implementation
-and executable specifications remain P37-02 onward.
+focused closure re-review are complete. Phase 37 is complete under its
+separate release closure.
 
 Purpose and boundaries:
 
@@ -1047,11 +1046,9 @@ Phase 36 starts only after Phase 30 closes its active video Storyboard
 contract. VIS36-01 through VIS36-06 are DONE. Its accepted Cross-media Review
 route verifies currentness/identity only, including strict rejection of
 duplicate JSON object fields before decode; it does not expand Phase 30.
-Phase 37 remains IN PROGRESS; its P37-01 design/specification Step is
-review-clean and closed. Implementation and executable specifications remain
-P37-02 onward.
-Subject/Explanation Pattern composition and multi-slide/multi-scene projection
-remain Phase 37 work.
+Phase 37 is complete under its separate release closure. Subject/Explanation
+Pattern composition and multi-slide/multi-scene projection are accepted Cozy
+contracts; external consumer acceptance remains separate.
 
 Primary references:
 
@@ -1063,8 +1060,8 @@ Primary references:
 
 ### Phase 37: Logical Explanation Composition and Media Projection
 
-Status: IN PROGRESS; P37-01 design/specification Step COMPLETE (review-clean);
-acceptance commit pending without a recorded commit hash.
+Status: COMPLETE. The Phase 37 release closure records the accepted logical
+explanation composition and media projection contract.
 
 Purpose and boundaries:
 
@@ -1113,10 +1110,11 @@ Purpose and boundaries:
 
 Phase 37 started only after Phase 36 accepted the common Visual Page and
 cross-media display contracts. The user-authorized P37-01B documentation
-repair established the P37-01 design/specification foundation and is
-review-clean and closed as a Step without altering the active Phase 30
-boundary. Implementation and executable specifications remain P37-02 onward;
-the acceptance commit is pending. No full Phase validation or Phase review,
+repair established the P37-01 design/specification foundation; later accepted
+Steps implemented and specified direct-file composition, expansion, and
+projection. The Phase full review closed `CPB-P37-001` through
+`CPB-P37-005` in one bounded repair cycle and a focused closure re-review.
+The release closure binds full Cozy validation and status synchronization. No
 publication, push, or downstream consumer acceptance is claimed.
 
 Primary references:
@@ -1130,7 +1128,7 @@ Primary references:
 
 ### Phase 38: Generated BoK Knowledge Boundary
 
-Status: planned; not started. Phase 37 remains the active Phase.
+Status: planned; not started. Phase 37 is closed.
 
 Purpose and boundaries:
 
@@ -1153,8 +1151,8 @@ Purpose and boundaries:
 - accept `/Users/asami/src/Project2026/bok-knowledgehub` as the driver project
   in its reorganized final layout without restoring legacy source paths.
 
-Phase 38 is a planned successor and does not change the active Phase 37
-execution boundary. Design/specification, implementation, Executable
+Phase 38 is a planned successor and does not start implementation.
+Design/specification, implementation, Executable
 Specifications, driver acceptance, full validation, independent review, and
 closure all remain not started.
 
@@ -1251,17 +1249,15 @@ Origin:
 | DEV-004 | Phase 29 full review `CPB-29-01` / `CPB-29-02` | Canonically admit configured BoK source paths and unconditionally validate glossary/component-reference resources before manifest publication. | NEW_PHASE | [Phase 34](../phase/phase-34.md) | RESOLVED |
 | DEV-005 | Phase 34 final official full test `58874-20260824T044406Z`; resolved by CFB3 | Make `cozy.bok.CozyBokSpec` actual-Build source fixtures self-contained local safe sources while preserving CFB2 configuration-time safe absence and strict actual-Build admission; specify any behavior change first. | NEW_PHASE | [Phase 34](../phase/phase-34.md) | RESOLVED |
 | DEV-006 | User request on 2026-08-26 following the article-summary media workflow review | Establish a common Visual Page contract carrying a typed Logical Pattern and semantic Relation graph, projected separately through Visual Patterns into presentation slides and video Storyboard scene screens with deterministic renderer binding and receipt identity. This supersedes the earlier Markdown-only Slide IR successor proposal. | NEW_PHASE | [Phase 36](../phase/phase-36.md) | RESOLVED |
-| DEV-007 | User request on 2026-08-26 following the ACE product-explanation review | Separate Subject Pattern from Explanation Pattern and deterministically project one logical explanation composition into independent multi-slide and multi-scene sequences through the common Visual Page contract. | NEW_PHASE | [Phase 37](../phase/phase-37.md) | IN PROGRESS |
+| DEV-007 | User request on 2026-08-26 following the ACE product-explanation review | Separate Subject Pattern from Explanation Pattern and deterministically project one logical explanation composition into independent multi-slide and multi-scene sequences through the common Visual Page contract. | NEW_PHASE | [Phase 37](../phase/phase-37.md) | RESOLVED |
 | DEV-008 | User-approved BoK source-boundary decision on 2026-08-28 | Make public SmartDox source, durable media/publication state, generated RDF/graph/Manual/History/UI, and optional non-derived extensions separate authorities; adopt the reorganized `bok-knowledgehub` tree as the driver. | NEW_PHASE | [Phase 38](../phase/phase-38.md) | PLANNED |
 
 ## Current Priority
 
-Phase 30 and Phase 36 are closed. Phase 36 VIS36-01 through VIS36-06 are DONE.
-Phase 37 remains IN PROGRESS as the logical explanation-composition successor
-after Phase 36. Its P37-01/P37-01B design/specification Step is review-clean
-and closed; implementation and executable specifications remain P37-02 onward.
+Phase 30, Phase 36, and Phase 37 are closed. Phase 36 VIS36-01 through
+VIS36-06 and Phase 37 LOGIC37-01 through LOGIC37-06 are DONE.
 Phase 38 is planned as the generated BoK knowledge-boundary successor and is
-not started. It does not alter Phase 37's active boundary; its design,
+not started. It does not alter the closed Phase 37 boundary; its design,
 implementation, driver acceptance, validation, and review remain open.
 Neither successor adds work to the closed Phase 30 boundary or claims
 full Phase validation, Phase review, publication, push, or external consumer
@@ -1282,12 +1278,9 @@ with no findings. The earlier failure is superseded; no new full-suite test has
 has been superseded by CFB3 and the candidate final receipt
 `22693-20260824T094231Z` (`test`, 1,376 succeeded/0 failed/8 canceled, 100
 suites, 0 aborted, SBT/wrapper 0, lock released). Strict actual-Build admission
-remains correct. No Phase 35 implementation is started here. Phase 36
-VIS36-01 through VIS36-05 are DONE; VIS36-06 awaits Phase-level full
-validation, independent Phase review, ledger closure, and release commit.
-Phase 37 remains documentation-only after the review-clean, closed P37-01/P37-01B
-design/specification Step; implementation and executable specifications remain
-P37-02 onward. No SmartDox/Textus consumer execution or acceptance is claimed.
+remains correct. No Phase 35 implementation is started here. Phase 36 and
+Phase 37 are closed under their respective Phase release boundaries. No
+SmartDox/Textus consumer execution or acceptance is claimed.
 SmartDox Phase 8
 `LITERAL8-03` owns regenerated-site runtime
 finalization, metadata-only inventory/hash evidence, and Textus BoK consumer

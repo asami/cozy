@@ -20,7 +20,8 @@ import scala.util.control.NonFatal
 /*
  * @since   Jul. 19, 2026
  *  version Jul. 20, 2026
- * @version Aug. 25, 2026
+ *  version Aug. 28, 2026
+ * @version Aug. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMedia {
