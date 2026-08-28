@@ -112,17 +112,16 @@ Explanation Step normalization, and media-projection boundaries.
 documents define the closed v1 fields, canonical identities, explicit
 catalog companions, authored Composition steps, independent mapping request,
 deterministic projection receipt, and later command matrix. The P37-01
-design/specification contract is review-clean and closed as a Step; the
-acceptance commit is pending and has no recorded commit hash. Implementation
-and executable specifications remain P37-02 onward. Phase 37 remains
-IN PROGRESS: no full Phase validation or Phase review, publication, push, or
-downstream consumer acceptance is claimed.
+design/specification contract is review-clean and closed as a Step; its local
+accepted documentation commit is `5946eb6dcb18ac421d41c56919e981a338e16437`.
+Phase 37 remains IN PROGRESS: no full Phase validation or Phase review,
+publication, push, or downstream consumer acceptance is claimed.
 
 ### LOGIC37-02: Typed Subject and Explanation Pattern Models
 
 Stage Status:
 
-- Current status: NOT STARTED
+- Current status: COMPLETE
 - Owner: Cozy logical presentation models and adapters
 - Update rule: complete only when typed parsing, pattern resolution,
   parameter validation, identity, diagnostics, and round-trip evidence pass.
@@ -131,11 +130,18 @@ Implement versioned Subject and Narrative / Argument-oriented Explanation
 Pattern catalogs and one normalized logical composition model without semantic
 inference by Cozy.
 
+The local accepted composition/catalog/plan implementation commit
+`73130f0d7111cdef3f2988ee041ad8e97fdb4362` completes deterministic direct-file
+parsing of the accepted v1 inputs, typed pattern and parameter resolution,
+canonical identities, and strict structured diagnostics. Its accepted focused
+Executable Specifications cover this direct-file behavior without semantic
+inference, rendering, publication, or external-consumer acceptance.
+
 ### LOGIC37-03: Deterministic Explanation Expansion
 
 Stage Status:
 
-- Current status: NOT STARTED
+- Current status: COMPLETE
 - Owner: Cozy explanation planning
 - Update rule: complete only when explicitly authored compatible-pattern steps
   and their Logical Pattern/Relation graphs are deterministically validated,
@@ -148,11 +154,18 @@ graphs into an ordered medium-neutral plan; it does not generate or infer
 those roles or graphs. The operation does not decide physical page layout,
 scene timing, or renderer effects.
 
+The local accepted composition/catalog/plan implementation commit
+`73130f0d7111cdef3f2988ee041ad8e97fdb4362` and its accepted focused
+Executable Specifications complete deterministic direct-file expansion,
+normalization, copying, stable identity, and strict diagnostics for the
+accepted inputs. They do not generate or infer semantic roles or Relation
+graphs.
+
 ### LOGIC37-04: Presentation and Video Projection
 
 Stage Status:
 
-- Current status: NOT STARTED
+- Current status: COMPLETE
 - Owner: Cozy cross-media projection
 - Update rule: complete only when independent slide-page and video-scene
   mappings, provenance, and stale-input behavior pass.
@@ -161,11 +174,20 @@ Project Explanation Steps into Visual Page sequences for presentations and
 Storyboard scene sequences for video while preserving each medium's own
 execution contract.
 
+The local accepted projection implementation commit
+`ed427a209c3bade9fb87c2be1a068deee280afdb`, with focused validation
+`testOnly cozy.media.CozyExplanationSpec cozy.media.CozyExplanationProjectionSpec`
+(8 succeeded / 0 failed), completes independent page and scene mapping,
+v2 Visual Page Storyboard checks, identity-only Storyboard selection,
+direct-file routing, and projection receipts/currentness. It does not claim
+rendering, publication, PPTX or MP4 delivery, external-consumer acceptance,
+or semantic, visual, or audiovisual approval.
+
 ### LOGIC37-05: Product Explanation Pattern Acceptance
 
 Stage Status:
 
-- Current status: NOT STARTED
+- Current status: IN PROGRESS
 - Owner: Cozy product-explanation acceptance
 - Update rule: complete only when `software-product`, `product-overview`, and
   `product-mechanism` satisfy their checklist scenarios in both media.
@@ -173,15 +195,33 @@ Stage Status:
 Use a representative product explanation to prove the distinction among
 subject structure, explanation development, visual pages, slides, and scenes.
 
+The local accepted projection implementation commit
+`ed427a209c3bade9fb87c2be1a068deee280afdb` and its focused validation
+`testOnly cozy.media.CozyExplanationSpec cozy.media.CozyExplanationProjectionSpec`
+(8 succeeded / 0 failed) cover accepted page and scene projection for the
+representative `software-product` / `product-overview` direct-file case. The
+explicitly authored `product-mechanism` relationships are accepted at the
+logical composition/plan boundary, but their page and scene projection remains
+unproven and open. This is deterministic Cozy coverage only; it does not
+constitute semantic, visual, audiovisual, or external-consumer approval.
+
 ### LOGIC37-06: Review, Validation, and Closure
 
 Stage Status:
 
-- Current status: NOT STARTED
+- Current status: IN PROGRESS
 - Owner: Cozy validation and review
-- Update rule: complete only when focused and full validation, independent
-  review, cross-media acceptance, and final ledger synchronization satisfy the
-  checklist.
+- Update rule: complete only when full Cozy validation, exactly one independent
+  full Phase review, required closure ledger/status synchronization, and a
+  distinct Phase release commit are complete; separate semantic, visual, and
+  audiovisual approval remains a non-Cozy boundary.
+
+Focused projection validation is accepted, but full Cozy validation, exactly
+one independent full Phase review, required closure ledger/status
+synchronization, and a distinct Phase release commit remain incomplete.
+
+Phase 37 is IN PROGRESS. LOGIC37-01 through LOGIC37-04 are COMPLETE;
+LOGIC37-05 and LOGIC37-06 are IN PROGRESS.
 
 ## Dependencies and exclusions
 

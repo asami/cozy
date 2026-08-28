@@ -40,89 +40,120 @@ Status: COMPLETE
 
 P37-01B is the authorized documentation repair Slice for this stage. Its
 P37-01 design/specification contract is review-clean and closed as a Step;
-the acceptance commit is pending and has no recorded commit hash.
-Implementation and executable specifications remain P37-02 onward. No full
-Phase validation or Phase review, publication, push, or downstream consumer
-acceptance is claimed.
+the local accepted documentation commit is
+`5946eb6dcb18ac421d41c56919e981a338e16437`. No full Phase validation or Phase
+review, publication, push, or downstream consumer acceptance is claimed.
 
 ## LOGIC37-02: Typed Subject and Explanation Pattern Models
 
-Status: NOT STARTED
+Status: COMPLETE
 
-- [ ] Parse versioned Subject and Explanation Pattern definitions and
-      instances into separate typed models.
-- [ ] Define versioning and deterministic extension for the candidate
+- [x] Parse versioned Subject and Explanation Pattern definitions and
+      instances from explicitly named direct files into separate typed models.
+- [x] Define versioned direct-file catalog resolution and deterministic
+      extension for the candidate
       Narrative / Argument catalog, including problem/solution,
       observation/insight/implication, claim/evidence, why/what/how, and
       strategy/execution/outcome families.
-- [ ] Validate exact parameters and pattern compatibility without semantic
+- [x] Validate exact parameters and pattern compatibility without semantic
       inference, summarization, or AI generation inside Cozy.
-- [ ] Provide deterministic validate, inspect, and convert behavior with
-      canonical identities and structured diagnostics.
-- [ ] Prove representation round trips, pattern compatibility, stable
-      identity, and strict rejection through Given/When/Then Executable
-      Specifications with appropriate property-based coverage.
+- [x] Provide deterministic direct-file validation and conversion behavior
+      with canonical identities and structured diagnostics.
+- [x] Prove direct-file parsing, pattern compatibility, stable identity, and
+      strict rejection through accepted Given/When/Then Executable
+      Specifications.
+
+Local accepted composition/catalog/plan implementation commit
+`73130f0d7111cdef3f2988ee041ad8e97fdb4362` supplies the accepted focused
+evidence for deterministic direct-file parsing, strict diagnostics, and
+Executable Specification coverage. No semantic inference, rendering,
+publication, or external-consumer acceptance is claimed.
 
 ## LOGIC37-03: Deterministic Explanation Expansion
 
-Status: NOT STARTED
+Status: COMPLETE
 
-- [ ] Define `expand` as deterministic validation, normalization, and copying
+- [x] Define `expand` as deterministic validation, normalization, and copying
       of one selected Subject Pattern, Explanation Pattern, typed parameter
       set, and explicitly authored ordered Composition steps into a stable
       ordered Explanation Step plan; it does not generate or infer graphs.
-- [ ] Require every Explanation Step to retain its semantic roles, claims,
+- [x] Require every Explanation Step to retain its semantic roles, claims,
       explicitly authored Logical Pattern, typed Relations, sources, assets,
       and provenance before Visual Pattern selection.
-- [ ] Preserve source claims, assets, citations, emphasis, and
+- [x] Preserve source claims, assets, citations, emphasis, and
       pattern/parameter provenance through every normalized/copied Plan step.
-- [ ] Make expansion independent of slide numbers, scene numbers, physical
+- [x] Make expansion independent of slide numbers, scene numbers, physical
       coordinates, timing, transitions, and renderer-specific identifiers.
-- [ ] Reject ambiguous, incomplete, non-deterministic, or unsupported
+- [x] Reject ambiguous, incomplete, non-deterministic, or unsupported
       expansions with structured diagnostics.
-- [ ] Prove `problem-solution` or another representative Narrative Pattern
-      preserves its explicitly authored typed semantic roles and Relations in
+- [x] Prove representative direct-file product explanation inputs preserve
+      their explicitly authored typed semantic roles and Relations in
       normalized Plan steps rather than generating arrows, cards, coordinates,
       or Shape kinds.
 
+Local accepted composition/catalog/plan implementation commit
+`73130f0d7111cdef3f2988ee041ad8e97fdb4362` supplies the accepted focused
+evidence for deterministic direct-file expansion, normalization/copying,
+identity, strict diagnostics, and Executable Specification coverage.
+
 ## LOGIC37-04: Presentation and Video Projection
 
-Status: NOT STARTED
+Status: COMPLETE
 
-- [ ] Project Explanation Steps into one or multiple Visual Pages for a
+- [x] Project Explanation Steps into one or multiple Visual Pages for a
       presentation without requiring one-step/one-slide correspondence.
-- [ ] Project Explanation Steps into one or multiple video Storyboard
+- [x] Project Explanation Steps into one or multiple video Storyboard
       scenes containing Visual Pages without requiring presentation/video
       count equality.
-- [ ] Preserve video narration, speaker, timing, transition, and audiovisual
-      review semantics in the Storyboard and video workflow.
-- [ ] Bind subject, explanation, step-plan, Visual Page, Storyboard, renderer,
-      and output identities into cross-media receipts and stale-input
-      rejection.
-- [ ] Prove the same accepted semantic composition can use two compatible
-      Visual Patterns while retaining its Narrative, Logical, Relation, claim,
-      and provenance identities.
+- [x] Check v2 Visual Pages through the identity-only Storyboard selector,
+      leaving narration, speaker, timing, transition, and audiovisual approval
+      to their separate downstream contracts.
+- [x] Bind direct-file request, plan, P36 presentation catalog, selected
+      Visual Page, identity-only Storyboard selector, and projection receipt
+      identities with currentness rejection.
+- [x] Prove representative direct-file product explanations map independently
+      to Visual Pages and Storyboard scenes while retaining their accepted
+      logical composition identities.
+
+Local accepted projection implementation commit
+`ed427a209c3bade9fb87c2be1a068deee280afdb`, with focused validation
+`testOnly cozy.media.CozyExplanationSpec cozy.media.CozyExplanationProjectionSpec`
+(8 succeeded / 0 failed), supplies the accepted evidence. It does not claim
+rendering, publication, PPTX or MP4 delivery, external-consumer acceptance,
+or semantic, visual, or audiovisual approval.
 
 ## LOGIC37-05: Product Explanation Pattern Acceptance
 
-Status: NOT STARTED
+Status: IN PROGRESS
 
-- [ ] Define and validate the representative `software-product` Subject
+- [x] Define and validate the representative `software-product` Subject
       Pattern.
-- [ ] Define and validate `product-overview` with ordered `vision`, `goal`,
+- [x] Define and validate `product-overview` with ordered `vision`, `goal`,
       `context`, `use-case`, and `main-scenario` explanation roles.
-- [ ] Define and validate explicitly authored `product-mechanism` relationships
+- [x] Define and validate explicitly authored `product-mechanism` relationships
       from product goals and use cases to their realization mechanisms.
-- [ ] Prove that the same product subject supports both explanation patterns
-      and that each pattern projects coherently to multiple slides and multiple
-      video scenes.
-- [ ] Keep human/AI-authored subject facts, selected parameters, typed roles,
+- [x] Prove the representative `software-product` / `product-overview`
+      direct-file case through the accepted independent page and scene
+      mappings.
+- [ ] Prove the representative `product-mechanism` direct-file case through
+      independent page and scene mappings.
+- [x] Keep human/AI-authored subject facts, selected parameters, typed roles,
       and Relations distinguishable from Cozy's deterministic validation,
       normalization, and copying evidence.
 
+Local accepted projection implementation commit
+`ed427a209c3bade9fb87c2be1a068deee280afdb`, with focused validation
+`testOnly cozy.media.CozyExplanationSpec cozy.media.CozyExplanationProjectionSpec`
+(8 succeeded / 0 failed), supplies accepted page and scene projection
+evidence for the representative `software-product` / `product-overview`
+direct-file case. The explicitly authored `product-mechanism` relationships
+are accepted at the logical composition/plan boundary, but their page and scene
+projection remains unproven and open. This is not semantic, visual,
+audiovisual, or external-consumer approval.
+
 ## LOGIC37-06: Review, Validation, and Closure
 
-Status: NOT STARTED
+Status: IN PROGRESS
 
 - [ ] Produce one representative product-overview presentation and video
       projection from the same accepted logical composition inputs.
@@ -130,13 +161,21 @@ Status: NOT STARTED
       receipt, and stale-input consistency across the representative package.
 - [ ] Complete separate semantic, visual, and audiovisual reviews without
       treating deterministic validation, normalization, copying, or delivery
-      generation as acceptance.
-- [ ] Run focused and full Cozy validation, independent review, and final
-      ledger synchronization before closing Phase 37 from its in-progress/open
-      state.
+      generation as acceptance. This remains a separate non-Cozy approval
+      boundary.
+- [ ] Run full Cozy validation, exactly one independent full Phase review, and
+      required closure ledger/status synchronization before closing Phase 37
+      from its in-progress/open state with a distinct Phase release commit.
 
-Phase 37 is IN PROGRESS. LOGIC37-01 is COMPLETE; LOGIC37-02 through LOGIC37-06
-remain NOT STARTED/open. P37-01B is documentation-only, and implementation and
-executable specifications remain P37-02 onward. No full Phase validation or
-Phase review, publication, push, downstream consumer acceptance, or acceptance
-commit receipt is claimed.
+Focused projection validation
+`testOnly cozy.media.CozyExplanationSpec cozy.media.CozyExplanationProjectionSpec`
+has succeeded with 8 succeeded / 0 failed, but every closure checkbox above
+remains open. Full Cozy validation, exactly one independent full Phase review,
+required closure ledger/status synchronization, and a distinct Phase release
+commit remain incomplete.
+
+Phase 37 is IN PROGRESS. LOGIC37-01 through LOGIC37-04 are COMPLETE;
+LOGIC37-05 and LOGIC37-06 are IN PROGRESS. No full Phase validation or Phase review,
+publication, push, downstream consumer acceptance, Phase release commit,
+rendering, PPTX or MP4 delivery, external article-repository mutation, or
+Phase 38 work is claimed.
