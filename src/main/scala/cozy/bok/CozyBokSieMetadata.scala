@@ -32,13 +32,20 @@ import io.circe.syntax._
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 28, 2026
+ * @version Aug. 29, 2026
  * @author  ASAMI, Tomoharu
  */
 
 private[cozy] trait CozyBokSieMetadata {
   self: CozyBokImplementation.type =>
   private final case class FinalizationBackup(target: Path, backup: Option[Path])
+  private final case class RdfExtensionDeclaration(
+    id: String,
+    kind: String,
+    nodes: Vector[Json],
+    edges: Vector[Json],
+    logicalpath: String
+  )
 
   private val _finalization_file_allowlist = Vector(
     "rdf/site.ttl",
@@ -108,6 +115,7 @@ private[cozy] trait CozyBokSieMetadata {
     _copy_finalization_directory(source, target, "metadata/artifacts/repository")
     _copy_finalization_directory(source, target, "metadata/releases")
     _sync_sie_metadata(config, target)
+    _apply_rdf_extensions(config, target)
     _version_graph_summary(config, target)
     _write_knowledge_source_manifest(config, admittedsource, target)
   }
@@ -458,6 +466,211 @@ private[cozy] trait CozyBokSieMetadata {
       }
     }
   }
+
+  private def _apply_rdf_extensions(config: BuildConfig, target: Path): Unit = {
+    val entries = _load_config(config.project).list("bok.extensions.rdf")
+    if (entries.nonEmpty) {
+      val projectroot = _finalization_project_root(config.project)
+      val root = _rdf_extension_root(projectroot)
+      val declarations = entries.map(_load_rdf_extension(root, _)).sortBy(_.id)
+      _require_unique_extension_identities(declarations)
+      val graphpath = target.resolve("metadata/rdf/graph.json")
+      if (!Files.isRegularFile(graphpath, LinkOption.NOFOLLOW_LINKS))
+        _extension_override_forbidden("src/main/extensions/rdf", "a generated graph summary is required before extensions can be applied")
+      val graph = parser.parse(Files.readString(graphpath, StandardCharsets.UTF_8)).fold(
+        error => RAISE.invalidArgumentFault(s"Invalid BoK RDF graph metadata: ${error.message}"),
+        identity
+      )
+      val graphobject = graph.asObject.getOrElse(
+        RAISE.invalidArgumentFault("Invalid BoK RDF graph metadata: graph summary must be a JSON object.")
+      )
+      val generatednodes = graphobject("nodes").flatMap(_.asArray).getOrElse(
+        RAISE.invalidArgumentFault("Invalid BoK RDF graph metadata: nodes must be an array.")
+      )
+      val generatededges = graphobject("edges").flatMap(_.asArray).getOrElse(
+        RAISE.invalidArgumentFault("Invalid BoK RDF graph metadata: edges must be an array.")
+      )
+      val extensionnodes = declarations.flatMap(_.nodes).sortBy(_extension_node_id)
+      val extensionedges = declarations.flatMap(_.edges).sortBy(_extension_edge_identity)
+      _require_no_generated_extension_overrides(generatednodes, generatededges, extensionnodes, extensionedges)
+      val merged = Json.fromJsonObject(
+        graphobject.
+          add("nodes", Json.fromValues(generatednodes ++ extensionnodes)).
+          add("edges", Json.fromValues(generatededges ++ extensionedges))
+      )
+      _write_text(graphpath, merged.spaces2 + "\n")
+    }
+  }
+
+  private def _rdf_extension_root(projectroot: Path): Path = {
+    val root = projectroot.resolve("src/main/extensions/rdf").normalize()
+    _validate_rdf_extension_ancestors(projectroot, root, "src/main/extensions/rdf")
+    val canonicalprojectroot = projectroot.toRealPath()
+    val canonicalroot = root.toRealPath()
+    if (!canonicalroot.startsWith(canonicalprojectroot))
+      _extension_path_invalid("src/main/extensions/rdf", "extension root resolves outside the project root")
+    root
+  }
+
+  private def _load_rdf_extension(root: Path, entry: String): RdfExtensionDeclaration = {
+    val logicalroot = "src/main/extensions/rdf"
+    if (entry.isEmpty || entry.contains('\\') || entry.contains('\u0000') || entry.matches("^[A-Za-z]:/.*") || !entry.endsWith(".json") ||
+        entry.split("/", -1).exists(x => x.isEmpty || x == "." || x == ".."))
+      _extension_path_invalid(logicalroot, "declaration must be a non-empty relative .json path")
+    val relative = try {
+      Paths.get(entry)
+    } catch {
+      case NonFatal(_) => _extension_path_invalid(logicalroot, "declaration must be a non-empty relative .json path")
+    }
+    if (relative.isAbsolute)
+      _extension_path_invalid(logicalroot, "declaration must be a non-empty relative .json path")
+    val logicalpath = s"$logicalroot/$entry"
+    val path = root.resolve(relative).normalize()
+    if (!path.startsWith(root))
+      _extension_path_invalid(logicalpath, "declaration escapes the admitted extension root")
+    _validate_rdf_extension_ancestors(root, Option(path.getParent).getOrElse(root), logicalpath)
+    if (Files.isSymbolicLink(path) || !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
+      _extension_path_invalid(logicalpath, "declaration must be an existing non-symbolic-link regular file")
+    val canonicalroot = root.toRealPath()
+    val canonicalpath = path.toRealPath()
+    if (!canonicalpath.startsWith(canonicalroot))
+      _extension_path_invalid(logicalpath, "declaration resolves outside the admitted extension root")
+    val json = try {
+      parser.parse(Files.readString(path, StandardCharsets.UTF_8)).fold(
+        error => _extension_schema_invalid(logicalpath, error.message),
+        identity
+      )
+    } catch {
+      case NonFatal(error) => _extension_schema_invalid(logicalpath, error.getMessage)
+    }
+    val declaration = json.asObject.getOrElse(
+      _extension_schema_invalid(logicalpath, "declaration must be a JSON object")
+    )
+    val schema = _required_extension_field(declaration, "schemaVersion", logicalpath)
+    if (schema != "cozy.bok.rdf-extension.v1")
+      _extension_schema_invalid(logicalpath, "schemaVersion must be cozy.bok.rdf-extension.v1")
+    val id = _required_extension_field(declaration, "id", logicalpath)
+    val kind = _required_extension_field(declaration, "kind", logicalpath)
+    if (!Set("ontology", "schema", "supplemental-graph").contains(kind))
+      _extension_schema_invalid(logicalpath, "kind must be ontology, schema, or supplemental-graph")
+    val nodes = declaration("nodes").flatMap(_.asArray).getOrElse(
+      _extension_schema_invalid(logicalpath, "nodes must be an array")
+    )
+    val edges = declaration("edges").flatMap(_.asArray).getOrElse(
+      _extension_schema_invalid(logicalpath, "edges must be an array")
+    )
+    nodes.zipWithIndex.foreach { case (node, index) =>
+      val nodeobject = node.asObject.getOrElse(
+        _extension_schema_invalid(logicalpath, s"nodes[$index] must be an object")
+      )
+      Vector("id", "label", "node_type").foreach(_required_extension_field(nodeobject, _, s"$logicalpath.nodes[$index]"))
+      if (nodeobject("componentRef").nonEmpty)
+        _extension_schema_invalid(logicalpath, s"nodes[$index].componentRef is not allowed in an extension")
+    }
+    edges.zipWithIndex.foreach { case (edge, index) =>
+      val edgeobject = edge.asObject.getOrElse(
+        _extension_schema_invalid(logicalpath, s"edges[$index] must be an object")
+      )
+      Vector("source", "predicate", "target").foreach(_required_extension_field(edgeobject, _, s"$logicalpath.edges[$index]"))
+    }
+    RdfExtensionDeclaration(id, kind, nodes, edges, logicalpath)
+  }
+
+  private def _validate_rdf_extension_ancestors(root: Path, path: Path, logicalpath: String): Unit = {
+    if (!path.startsWith(root))
+      _extension_path_invalid(logicalpath, "declaration parent escapes its admitted root")
+    var current = root
+    root.relativize(path).iterator.asScala.foreach { segment =>
+      current = current.resolve(segment.toString)
+      if (Files.isSymbolicLink(current) || !Files.isDirectory(current, LinkOption.NOFOLLOW_LINKS))
+        _extension_path_invalid(logicalpath, "extension root and declaration parents must be existing non-symbolic-link directories")
+    }
+    if (Files.isSymbolicLink(root) || !Files.isDirectory(root, LinkOption.NOFOLLOW_LINKS))
+      _extension_path_invalid(logicalpath, "extension root and declaration parents must be existing non-symbolic-link directories")
+  }
+
+  private def _require_unique_extension_identities(declarations: Vector[RdfExtensionDeclaration]): Unit = {
+    declarations.groupBy(_.id).collectFirst { case (id, items) if items.size > 1 => id }.foreach { id =>
+      _extension_identity_collision("src/main/extensions/rdf", s"duplicate declaration id $id")
+    }
+    val nodes = declarations.flatMap(_.nodes)
+    nodes.groupBy(_extension_node_id).collectFirst { case (id, items) if items.size > 1 => id }.foreach { id =>
+      _extension_identity_collision("src/main/extensions/rdf", s"duplicate extension node id $id")
+    }
+    val edges = declarations.flatMap(_.edges)
+    edges.groupBy(_extension_edge_identity).collectFirst { case (identity, items) if items.size > 1 => identity }.foreach { identity =>
+      _extension_identity_collision("src/main/extensions/rdf", s"duplicate extension edge ${identity.productIterator.mkString("(", ",", ")")}")
+    }
+  }
+
+  private def _require_no_generated_extension_overrides(
+      generatednodes: Vector[Json],
+      generatededges: Vector[Json],
+      extensionnodes: Vector[Json],
+      extensionedges: Vector[Json]
+  ): Unit = {
+    val generatednodeids = generatednodes.map(_generated_node_id).toSet
+    extensionnodes.map(_extension_node_id).find(generatednodeids.contains).foreach { id =>
+      _extension_override_forbidden("src/main/extensions/rdf", s"extension node $id collides with generated authority")
+    }
+    val generatededgeidentities = generatededges.map(_generated_edge_identity).toSet
+    extensionedges.map(_extension_edge_identity).find(generatededgeidentities.contains).foreach { identity =>
+      _extension_override_forbidden("src/main/extensions/rdf", s"extension edge ${identity.productIterator.mkString("(", ",", ")")} collides with generated authority")
+    }
+  }
+
+  private def _extension_node_id(node: Json): String =
+    _required_extension_field(node.asObject.getOrElse(
+      _extension_schema_invalid("src/main/extensions/rdf", "node must be an object")
+    ), "id", "src/main/extensions/rdf")
+
+  private def _extension_edge_identity(edge: Json): (String, String, String) = {
+    val edgeobject = edge.asObject.getOrElse(
+      _extension_schema_invalid("src/main/extensions/rdf", "edge must be an object")
+    )
+    (
+      _required_extension_field(edgeobject, "source", "src/main/extensions/rdf"),
+      _required_extension_field(edgeobject, "predicate", "src/main/extensions/rdf"),
+      _required_extension_field(edgeobject, "target", "src/main/extensions/rdf")
+    )
+  }
+
+  private def _generated_node_id(node: Json): String =
+    _required_graph_field(node.asObject.getOrElse(
+      RAISE.invalidArgumentFault("Invalid BoK RDF graph metadata: node must be an object.")
+    ), "id", "nodes")
+
+  private def _generated_edge_identity(edge: Json): (String, String, String) = {
+    val edgeobject = edge.asObject.getOrElse(
+      RAISE.invalidArgumentFault("Invalid BoK RDF graph metadata: edge must be an object.")
+    )
+    (
+      _required_graph_field(edgeobject, "source", "edges"),
+      _required_graph_field(edgeobject, "predicate", "edges"),
+      _required_graph_field(edgeobject, "target", "edges")
+    )
+  }
+
+  private def _required_extension_field(
+      jsonobject: io.circe.JsonObject,
+      field: String,
+      location: String
+  ): String =
+    jsonobject(field).flatMap(_.asString).map(_.trim).filter(_.nonEmpty).getOrElse(
+      _extension_schema_invalid(location, s"$field must be a non-empty string")
+    )
+
+  private def _extension_path_invalid(logicalpath: String, message: String): Nothing =
+    RAISE.invalidArgumentFault(s"bok.extension.path.invalid: $logicalpath: $message")
+
+  private def _extension_schema_invalid(logicalpath: String, message: String): Nothing =
+    RAISE.invalidArgumentFault(s"bok.extension.schema.invalid: $logicalpath: $message")
+
+  private def _extension_identity_collision(logicalpath: String, message: String): Nothing =
+    RAISE.invalidArgumentFault(s"bok.extension.identity.collision: $logicalpath: $message")
+
+  private def _extension_override_forbidden(logicalpath: String, message: String): Nothing =
+    RAISE.invalidArgumentFault(s"bok.extension.override.forbidden: $logicalpath: $message")
 
   private def _version_graph_summary(config: BuildConfig, target: Path): Unit = {
     val graphpath = target.resolve("metadata/rdf/graph.json")

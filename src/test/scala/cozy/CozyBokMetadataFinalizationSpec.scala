@@ -11,7 +11,7 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   Aug. 23, 2026
- * @version Aug. 28, 2026
+ * @version Aug. 29, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokMetadataFinalizationSpec
@@ -243,6 +243,180 @@ class CozyBokMetadataFinalizationSpec
         Then("the complete project-owned website tree remains byte-identical")
         second shouldBe first
       }
+    }
+
+    "explicit RDF extension admission" which {
+    "append declared JSON v1 extensions in declaration-identity order" in {
+      _with_temp_dir("cozy-bok-metadata-finalization-rdf-extensions") { dir =>
+        Given("two generated graph handoffs with the same declared extension files in opposite config-list orders")
+        _write_site_source(dir, glossaryterm = false)
+        _write_prepared_metadata(
+          dir,
+          includeterms = false,
+          rdfgraph = _generated_graph("generated")
+        )
+        _write_rdf_extension(
+          dir,
+          "z.json",
+          _rdf_extension_json(
+            "z-extension",
+            nodes = Vector(_rdf_extension_node("extension-z")),
+            edges = Vector(_rdf_extension_edge("extension-z", "depends-on", "extension-a"))
+          )
+        )
+        _write_rdf_extension(
+          dir,
+          "a.json",
+          _rdf_extension_json(
+            "a-extension",
+            nodes = Vector(_rdf_extension_node("extension-a")),
+            edges = Vector(_rdf_extension_edge("extension-a", "depends-on", "generated"))
+          )
+        )
+        _write_rdf_extension_config(dir, Vector("z.json", "a.json"))
+        _write(dir.resolve("website.d/index.html"), "<html>rdf-extension-order-sentinel</html>\n")
+
+        When("metadata finalization applies the explicitly declared extension payloads")
+        CozyBok.finalizeMetadata(_build_config(dir))
+        val firstgraph = _parse_json(dir.resolve("website.d/metadata/rdf/graph.json"))
+        _write_rdf_extension_config(dir, Vector("a.json", "z.json"))
+        CozyBok.finalizeMetadata(_build_config(dir))
+        val secondgraph = _parse_json(dir.resolve("website.d/metadata/rdf/graph.json"))
+
+        Then("both final graph summaries preserve generated authority and have the same stable extension order")
+        _graph_node_ids(firstgraph) shouldBe Vector("generated", "extension-a", "extension-z")
+        _graph_edge_identities(firstgraph) shouldBe Vector(
+          ("extension-a", "depends-on", "generated"),
+          ("extension-z", "depends-on", "extension-a")
+        )
+        secondgraph shouldBe firstgraph
+      }
+    }
+
+    "ignore unlisted extension files and an absent extension root without scanning either" in {
+      _with_temp_dir("cozy-bok-metadata-finalization-rdf-extension-no-scan") { dir =>
+        Given("one project with an unlisted malformed extension and another project without an extension root")
+        _write_site_source(dir, glossaryterm = false)
+        _write_prepared_metadata(dir, includeterms = false, rdfgraph = _generated_graph("generated"))
+        _write(dir.resolve("src/main/extensions/rdf/unlisted.json"), "not-json\n")
+        _write(dir.resolve("website.d/index.html"), "<html>rdf-extension-unlisted-sentinel</html>\n")
+        _with_temp_dir("cozy-bok-metadata-finalization-rdf-extension-no-scan-absent") { absent =>
+          _write_site_source(absent, glossaryterm = false)
+          _write_prepared_metadata(absent, includeterms = false, rdfgraph = _generated_graph("generated"))
+          _write(absent.resolve("website.d/index.html"), "<html>rdf-extension-absent-sentinel</html>\n")
+
+          When("metadata finalization runs with no bok.extensions.rdf configuration entries")
+          CozyBok.finalizeMetadata(_build_config(dir))
+          CozyBok.finalizeMetadata(_build_config(absent))
+
+          Then("both generated graphs finalize unchanged without requiring or inspecting the extension root")
+          _graph_node_ids(_parse_json(dir.resolve("website.d/metadata/rdf/graph.json"))) shouldBe Vector("generated")
+          _graph_node_ids(_parse_json(absent.resolve("website.d/metadata/rdf/graph.json"))) shouldBe Vector("generated")
+        }
+      }
+    }
+
+    "reject an invalid declared extension path before changing website sentinels" in {
+      _with_temp_dir("cozy-bok-metadata-finalization-rdf-extension-invalid-path") { dir =>
+        Given("a declared traversal path, a prepared generated graph, and existing website sentinels")
+        _write_site_source(dir, glossaryterm = false)
+        _write_prepared_metadata(dir, includeterms = false, rdfgraph = _generated_graph("generated"))
+        _write_rdf_extension_config(dir, Vector("../outside.json"))
+        _write(dir.resolve("website.d/index.html"), "<html>path-sentinel</html>\n")
+        _write(dir.resolve("website.d/metadata/cncf/knowledge-source.json"), "path-manifest-sentinel\n")
+
+        When("metadata finalization admits the configured extension declaration")
+        val error = intercept[Throwable] {
+          CozyBok.finalizeMetadata(_build_config(dir))
+        }
+
+        Then("it reports the path diagnostic using the logical extension boundary and preserves every sentinel")
+        error.getMessage should include("bok.extension.path.invalid")
+        error.getMessage should include("src/main/extensions/rdf")
+        _read(dir.resolve("website.d/index.html")) shouldBe "<html>path-sentinel</html>\n"
+        _read(dir.resolve("website.d/metadata/cncf/knowledge-source.json")) shouldBe "path-manifest-sentinel\n"
+      }
+    }
+
+    "reject a schema-invalid declared extension before changing website sentinels" in {
+      _with_temp_dir("cozy-bok-metadata-finalization-rdf-extension-invalid-schema") { dir =>
+        Given("a declared extension with an invalid v1 envelope and existing website sentinels")
+        _write_site_source(dir, glossaryterm = false)
+        _write_prepared_metadata(dir, includeterms = false, rdfgraph = _generated_graph("generated"))
+        _write_rdf_extension(dir, "invalid.json", "{\"schemaVersion\":\"cozy.bok.rdf-extension.v1\",\"id\":\"invalid\",\"kind\":\"ontology\",\"nodes\":{},\"edges\":[]}\n")
+        _write_rdf_extension_config(dir, Vector("invalid.json"))
+        _write(dir.resolve("website.d/index.html"), "<html>schema-sentinel</html>\n")
+        _write(dir.resolve("website.d/metadata/cncf/knowledge-source.json"), "schema-manifest-sentinel\n")
+
+        When("metadata finalization validates the declared JSON v1 envelope")
+        val error = intercept[Throwable] {
+          CozyBok.finalizeMetadata(_build_config(dir))
+        }
+
+        Then("it reports the schema diagnostic and preserves every website sentinel")
+        error.getMessage should include("bok.extension.schema.invalid")
+        _read(dir.resolve("website.d/index.html")) shouldBe "<html>schema-sentinel</html>\n"
+        _read(dir.resolve("website.d/metadata/cncf/knowledge-source.json")) shouldBe "schema-manifest-sentinel\n"
+      }
+    }
+
+    "reject extension-to-extension identity collisions before changing website sentinels" in {
+      _with_temp_dir("cozy-bok-metadata-finalization-rdf-extension-collision") { dir =>
+        Given("two declared JSON v1 extensions that contribute the same node identity and existing website sentinels")
+        _write_site_source(dir, glossaryterm = false)
+        _write_prepared_metadata(dir, includeterms = false, rdfgraph = _generated_graph("generated"))
+        _write_rdf_extension(dir, "first.json", _rdf_extension_json("first", nodes = Vector(_rdf_extension_node("duplicate"))))
+        _write_rdf_extension(dir, "second.json", _rdf_extension_json("second", nodes = Vector(_rdf_extension_node("duplicate"))))
+        _write_rdf_extension_config(dir, Vector("first.json", "second.json"))
+        _write(dir.resolve("website.d/index.html"), "<html>collision-sentinel</html>\n")
+        _write(dir.resolve("website.d/metadata/cncf/knowledge-source.json"), "collision-manifest-sentinel\n")
+
+        When("metadata finalization checks extension declaration identities")
+        val error = intercept[Throwable] {
+          CozyBok.finalizeMetadata(_build_config(dir))
+        }
+
+        Then("it reports the extension collision diagnostic and preserves every website sentinel")
+        error.getMessage should include("bok.extension.identity.collision")
+        _read(dir.resolve("website.d/index.html")) shouldBe "<html>collision-sentinel</html>\n"
+        _read(dir.resolve("website.d/metadata/cncf/knowledge-source.json")) shouldBe "collision-manifest-sentinel\n"
+      }
+    }
+
+    "reject generated-authority overrides and missing generated graphs before changing website sentinels" in {
+      _with_temp_dir("cozy-bok-metadata-finalization-rdf-extension-override") { dir =>
+        val collision = dir.resolve("collision")
+        val missing = dir.resolve("missing")
+        Given("one declared extension that duplicates a generated node and one declaration with no generated graph, each with website sentinels")
+        _write_site_source(collision, glossaryterm = false)
+        _write_prepared_metadata(collision, includeterms = false, rdfgraph = _generated_graph("generated"))
+        _write_rdf_extension(collision, "override.json", _rdf_extension_json("override", nodes = Vector(_rdf_extension_node("generated"))))
+        _write_rdf_extension_config(collision, Vector("override.json"))
+        _write_site_source(missing, glossaryterm = false)
+        _write_prepared_metadata(missing, includeterms = false)
+        Files.deleteIfExists(missing.resolve("doxsite.d/metadata/rdf/graph.json"))
+        _write_rdf_extension(missing, "supplement.json", _rdf_extension_json("supplement", nodes = Vector(_rdf_extension_node("extension"))))
+        _write_rdf_extension_config(missing, Vector("supplement.json"))
+        Vector(collision, missing).foreach { project =>
+          _write(project.resolve("website.d/index.html"), "<html>override-sentinel</html>\n")
+          _write(project.resolve("website.d/metadata/cncf/knowledge-source.json"), "override-manifest-sentinel\n")
+        }
+
+        When("metadata finalization verifies generated graph authority before extension merge")
+        val errors = Vector(collision, missing).map { project =>
+          project -> intercept[Throwable] {
+            CozyBok.finalizeMetadata(_build_config(project))
+          }
+        }.toMap
+
+        Then("both authority failures use the forbidden-override diagnostic and preserve every sentinel")
+        errors.values.foreach(_.getMessage should include("bok.extension.override.forbidden"))
+        Vector(collision, missing).foreach { project =>
+          _read(project.resolve("website.d/index.html")) shouldBe "<html>override-sentinel</html>\n"
+          _read(project.resolve("website.d/metadata/cncf/knowledge-source.json")) shouldBe "override-manifest-sentinel\n"
+        }
+      }
+    }
     }
 
     "dispatch the finalization command without accepting an external runner" in {
@@ -568,6 +742,40 @@ class CozyBokMetadataFinalizationSpec
     }
   }
 
+  private def _write_rdf_extension_config(dir: Path, declarations: Vector[String]): Unit =
+    _write(
+      dir.resolve("conf/cozy/config.yaml"),
+      "bok:\n  extensions:\n    rdf:\n" + declarations.map(x => s"      - $x\n").mkString
+    )
+
+  private def _write_rdf_extension(dir: Path, name: String, content: String): Unit =
+    _write(dir.resolve("src/main/extensions/rdf").resolve(name), content)
+
+  private def _rdf_extension_json(
+      extensionid: String,
+      kind: String = "supplemental-graph",
+      nodes: Vector[String] = Vector.empty,
+      edges: Vector[String] = Vector.empty
+  ): String =
+    s"""{
+       |  "schemaVersion": "cozy.bok.rdf-extension.v1",
+       |  "id": "$extensionid",
+       |  "kind": "$kind",
+       |  "nodes": [${nodes.mkString(", ")}],
+       |  "edges": [${edges.mkString(", ")}]
+       |}
+       |""".stripMargin
+
+  private def _rdf_extension_node(nodeid: String): String =
+    s"""{"id":"$nodeid","label":"$nodeid","node_type":"concept"}"""
+
+  private def _rdf_extension_edge(source: String, predicate: String, target: String): String =
+    s"""{"source":"$source","predicate":"$predicate","target":"$target"}"""
+
+  private def _generated_graph(nodeid: String): String =
+    s"""{"nodes":[${_rdf_extension_node(nodeid)}],"edges":[],"truncated":false}
+       |""".stripMargin
+
   private def _component_ref_graph(): String =
     """{
       |  "nodes": [
@@ -652,6 +860,21 @@ class CozyBokMetadataFinalizationSpec
           cursor.get[Option[String]]("version").fold(throw _, identity)
         )
       }
+    }
+
+  private def _graph_node_ids(json: Json): Vector[String] =
+    json.hcursor.downField("nodes").as[Vector[Json]].fold(throw _, identity).map { node =>
+      node.hcursor.get[String]("id").fold(throw _, identity)
+    }
+
+  private def _graph_edge_identities(json: Json): Vector[(String, String, String)] =
+    json.hcursor.downField("edges").as[Vector[Json]].fold(throw _, identity).map { edge =>
+      val cursor = edge.hcursor
+      (
+        cursor.get[String]("source").fold(throw _, identity),
+        cursor.get[String]("predicate").fold(throw _, identity),
+        cursor.get[String]("target").fold(throw _, identity)
+      )
     }
 
   private def _resources(json: Json): Vector[(String, String)] =

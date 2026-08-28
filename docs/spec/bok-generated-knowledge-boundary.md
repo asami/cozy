@@ -1,6 +1,6 @@
 # Generated BoK Knowledge Boundary Specification
 
-Status: authoritative Phase 38 BOK38-01 specification; implementation pending BOK38-02 through BOK38-06
+Status: authoritative Phase 38 BOK38-01 specification; BOK38-05 extension admission complete
 
 ## Contract scope
 
@@ -58,22 +58,29 @@ this process. They SHALL NOT be interpreted as website output roots.
 An implementation conforming to this specification SHALL admit an extension
 only when:
 
-- the project explicitly names the declaration below
-  `src/main/extensions/rdf`;
-- the extension path is normalized, relative to the admitted extension root,
-  path-safe, and free of parent traversal, unsafe separators, and symlink
-  escapes;
-- the extension uses a supported schema and carries a stable semantic
-  identity;
-- its ontology, schema, or supplemental graph contribution cannot be
-  derived from ordinary BoK inputs; and
-- validation and merge order are deterministic and independent of directory
-  enumeration order.
+- the project explicitly names it in the exact `bok.extensions.rdf` list;
+  Cozy SHALL read only that list, and an empty list SHALL neither require nor
+  inspect or scan `src/main/extensions/rdf`;
+- it is a nonempty relative `.json` path below `src/main/extensions/rdf`; the
+  root, parents, and file are existing non-symbolic-link paths with no absolute
+  path, traversal, unsafe separator, nonregular file, symbolic link, or
+  real-path escape;
+- its JSON-object envelope has `schemaVersion` exactly
+  `cozy.bok.rdf-extension.v1`, a nonempty `id`, `kind` exactly `ontology`,
+  `schema`, or `supplemental-graph`, and `nodes` and `edges` arrays;
+- every node has nonempty `id`, `label`, and `node_type` and no `componentRef`,
+  while every edge has nonempty `source`, `predicate`, and `target`; and
+- it supplements the generated graph after the SIE handoff merge and before
+  graph-summary versioning, using declaration-id, node-id, and edge-identity
+  ordering independent of configuration-list or filesystem order.
 
-The implementation SHALL reject, rather than select or overwrite, an
-extension that has a duplicate path or identity, collides with another
-extension, collides with generated node/edge/schema/resource identity, or
-attempts to override generated authority. Extensions SHALL NOT replace an
+The implementation SHALL reject, rather than select or overwrite, duplicate
+extension declaration ids, node ids, and edge `(source, predicate, target)`
+identities with `bok.extension.identity.collision`. It SHALL reject an
+extension when the generated graph is missing or an extension node or edge
+collides with generated authority using `bok.extension.override.forbidden`.
+Valid declarations SHALL not use the permissive SIE deep-merge collision
+behavior. Extensions SHALL NOT replace an
 ordinary source article, glossary, bibliography, scenario, project,
 publication record, standard Manual, History dashboard, standard UI, RDF
 output, or machine metadata resource. A valid extension supplements only
@@ -88,8 +95,9 @@ The required diagnostic classes are deterministic and stable:
 | `bok.extension.identity.collision` | The declaration collides with another extension or generated identity |
 | `bok.extension.override.forbidden` | The declaration attempts to replace generated authority |
 
-BOK38-05 implements these rules; the presence of this specification is not
-evidence that the diagnostics or reader already exist.
+BOK38-05 implements these rules. Its focused
+`CozyBokMetadataFinalizationSpec` validation and lightweight Step review are
+accepted; this does not claim driver acceptance or Phase completion.
 
 ## Legacy source compatibility
 
@@ -101,35 +109,11 @@ The following legacy source shapes SHALL never be scaffolded:
 - `src/main/doxsite/metadata`; and
 - a project-local copied standard UI bundle below `doxsite`.
 
-If a transitional legacy reader is implemented, it SHALL recognize only
-fixed, documented legacy shapes and SHALL emit one deterministic diagnostic
-per recognized logical path. Each diagnostic SHALL identify the logical
-legacy path, its replacement authority, and the removal condition. Public
-diagnostics SHALL use logical paths rather than host-specific absolute paths.
-The reader SHALL reject unknown, unsafe, colliding, or overriding legacy
-content and SHALL never silently create a graph overlay source.
-
-The stable diagnostic classes SHALL be:
-
-| Code | Default severity | Condition |
-| --- | --- | --- |
-| `bok.source.legacy.detected` | warning | A transitional reader recognizes a fixed legacy logical path |
-| `bok.source.legacy.unsupported` | error | A legacy shape is unknown, unsafe, colliding, or cannot be migrated deterministically |
-
-Each diagnostic SHALL include the logical legacy path, replacement authority,
-and removal condition, while public output SHALL omit host-specific absolute
-paths.
-
-The explicit removal condition is: BOK38-06 has accepted the reorganized
-`bok-knowledgehub` driver with no legacy path present or consumed, and no
-admitted consumer depends on a legacy path. Once that condition is met,
-BOK38-05 SHALL remove the transitional reader and BOK38-07 SHALL record the
-closure evidence. Until then the paths remain rejected by the final source
-contract and are never scaffolded.
-
-BOK38-02 and BOK38-05 implement detection and migration behavior. This
-specification records their required outcome and does not claim that outcome
-has been implemented.
+No legacy source reader SHALL be installed, used, or scanned by BOK38-05
+before BOK38-06 driver acceptance. Legacy paths remain rejected by the final
+source contract, are never scaffolded, and cannot provide a graph-overlay
+fallback. Any legacy-reader implementation requires a separately approved
+contract after that acceptance boundary.
 
 ## Responsibility and non-reparse invariants
 

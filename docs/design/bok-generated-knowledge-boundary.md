@@ -1,6 +1,6 @@
 # Generated BoK Knowledge Boundary Design
 
-Status: normative Phase 38 BOK38-01 design; implementation pending BOK38-02 through BOK38-06
+Status: normative Phase 38 BOK38-01 design; BOK38-05 extension admission complete
 
 ## Purpose
 
@@ -73,22 +73,32 @@ is not a source graph overlay under `src/main/doxsite`.
 
 An extension declaration is valid only when all of the following hold:
 
-1. The project explicitly declares the file below the admitted
-   `src/main/extensions/rdf` root. Absence of the root is normal, and the
-   implementation must not discover extension files by an arbitrary scan.
-2. The normalized path is relative to that root, contains no absolute path,
-   parent traversal, unsafe separator, or symlink escape, and resolves to the
-   same project boundary.
-3. The declaration has a supported schema and a stable semantic identity.
-   It describes only project ontology, schema, or supplemental graph data
-   that ordinary BoK inputs cannot derive.
-4. The declaration and its contribution are validated before they are used
-   to construct effective output. Ordering is deterministic and does not
-   depend on filesystem enumeration order.
-5. A declaration whose identity, path, graph node, edge, schema, or other
-   authoritative identity collides with generated data or another extension
-   fails deterministically. An extension cannot silently replace, shadow, or
-   override generated authority.
+1. The project explicitly opts in through the exact configuration list
+   `bok.extensions.rdf`. Cozy reads only that list; when it is empty, the
+   absent `src/main/extensions/rdf` root is not required or inspected, and no
+   extension directory scan is permitted.
+2. Every listed declaration is a nonempty relative `.json` path below
+   `src/main/extensions/rdf`. The root, every parent, and the file must be
+   existing non-symbolic-link paths; absolute paths, traversal, unsafe
+   separators, nonregular files, symbolic links, and real-path escapes fail
+   with `bok.extension.path.invalid`. Public diagnostics use logical paths.
+3. A declaration is one JSON object with
+   `schemaVersion: "cozy.bok.rdf-extension.v1"`, a nonempty `id`, `kind` equal
+   to `ontology`, `schema`, or `supplemental-graph`, and `nodes` and `edges`
+   arrays. Each node has nonempty `id`, `label`, and `node_type` and must not
+   declare `componentRef`; each edge has nonempty `source`, `predicate`, and
+   `target`. Malformed envelopes or fields fail with
+   `bok.extension.schema.invalid`.
+4. Cozy applies validated declarations after the SIE handoff merge and before
+   final graph-summary versioning. A generated graph remains required and
+   authoritative; extensions cannot create a missing graph or collide with a
+   generated node or edge identity, and those attempts fail with
+   `bok.extension.override.forbidden`.
+5. Duplicate declaration ids, node ids, and `(source, predicate, target)` edge
+   identities across declarations fail with
+   `bok.extension.identity.collision`. Valid declarations are appended by
+   declaration id, nodes by id, and edges by identity. This merge does not use
+   the permissive SIE deep-merge collision behavior.
 
 The generated result remains authoritative for all derivable knowledge. An
 extension can supplement a non-derived declaration only; it cannot provide a
@@ -96,9 +106,10 @@ second copy of an ordinary article, glossary, project, publication record,
 standard UI, Manual, History dashboard, RDF output, or machine metadata
 resource.
 
-BOK38-05 will implement extension admission, schema validation, collision
-diagnostics, and output integration against this contract. This design does
-not claim that those mechanisms already exist.
+BOK38-05 implements only this extension admission, schema validation,
+collision diagnostics, and output integration. Its focused
+`CozyBokMetadataFinalizationSpec` validation and lightweight Step review are
+accepted; this does not claim driver acceptance or Phase completion.
 
 ## Legacy compatibility and removal
 
@@ -107,26 +118,10 @@ The legacy source directories `src/main/doxsite/manual`,
 `src/main/doxsite/metadata`, together with a project-local copied standard UI
 bundle, are never scaffolded. They are not final source authorities.
 
-If a transitional reader is retained, it may recognize only the fixed legacy
-shapes and must emit deterministic diagnostics for each recognized logical
-path. The diagnostic must identify the logical legacy path, the replacement
-authority (`src/main/doxsite`, `src/main/media`, `src/main/publication`, or
-`src/main/extensions/rdf`), and the migration/removal condition without
-leaking host-specific absolute paths into public output. It must not infer a
-replacement graph overlay or silently prefer legacy data over generated
-data. Unknown or unsafe legacy paths fail rather than being selected by
-filesystem order. The stable diagnostic classes are
-`bok.source.legacy.detected` (a deprecation warning for a recognized logical
-path) and `bok.source.legacy.unsupported` (an error for an unknown, unsafe, or
-unmigratable legacy shape).
-
-The transitional reader is removable only after BOK38-06 accepts the
-reorganized `bok-knowledgehub` driver with no legacy source path present or
-consumed, and no admitted consumer still depends on a legacy path. At that
-point BOK38-05 removes the reader and BOK38-07 records the closure evidence;
-legacy paths remain rejected and are never re-scaffolded. BOK38-02 and
-BOK38-05 are responsible for implementing and proving this behavior; this
-Slice records the contract only.
+No legacy source reader is installed in BOK38-05 before BOK38-06 driver
+acceptance. Legacy paths remain neither scaffolded nor source authority, and
+Cozy does not read, scan, or infer a legacy graph overlay during this Slice.
+Any later legacy-reader decision requires a separate approved contract.
 
 ## Responsibility boundary
 

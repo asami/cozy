@@ -20,8 +20,8 @@ Status: COMPLETE
 BOK38-01 is COMPLETE: the paired design/specification documents now fix the
 source-boundary contract. Its earlier statement that BOK38-02 through BOK38-07
 remained NOT STARTED was a historical status snapshot; BOK38-02 through
-BOK38-04 are now COMPLETE below, while BOK38-05 through BOK38-07 remain NOT
-STARTED.
+BOK38-04 are now COMPLETE below, BOK38-05 is now COMPLETE, and BOK38-06
+through BOK38-07 remain NOT STARTED.
 The canonical Phase
 Hygiene journal
 `docs/journal/2026/08/2026-08-28-phase-38-hygiene-follow-up.md` records
@@ -111,15 +111,24 @@ upload, or push.
 
 ## BOK38-05: Optional Extensions and Legacy Migration
 
-Status: NOT STARTED
+Status: COMPLETE
 
-- [ ] Keep `src/main/extensions` absent from the default scaffold.
-- [ ] Admit only explicit ontology, schema, and graph declarations that cannot
+- [x] Keep `src/main/extensions` absent from the default scaffold.
+- [x] Admit only explicit ontology, schema, and graph declarations that cannot
       be derived from normal BoK inputs.
-- [ ] Reject extensions that silently replace generated authority or escape
+- [x] Reject extensions that silently replace generated authority or escape
       their admitted root.
-- [ ] If legacy input is read temporarily, emit deterministic deprecation
-      diagnostics and prove the removal condition.
+- [x] Keep BOK38-05 free of a legacy source reader through BOK38-06 driver
+      acceptance.
+
+BOK38-05 is COMPLETE for explicit `bok.extensions.rdf` JSON v1 declaration
+admission under `src/main/extensions/rdf`. The implemented boundary admits only
+listed path-safe declarations, validates deterministic identities and payloads,
+and applies supplements after SIE merge without replacing generated authority.
+No legacy reader is installed or used. Focused
+`CozyBokMetadataFinalizationSpec` validation (24 successful, 0 failed) and a
+lightweight independent Step review are accepted. Driver acceptance, Phase
+completion, publication, upload, push, and deployment remain unclaimed.
 
 ## BOK38-06: KnowledgeHub Driver Migration Acceptance
 
@@ -144,8 +153,8 @@ Status: NOT STARTED
 - [ ] Synchronize Strategy, Phase, checklist, design, specification, and driver
       receipts before closure.
 
-Phase 38 is IN PROGRESS. BOK38-01 through BOK38-04 are COMPLETE, while
-BOK38-05 through BOK38-07 remain NOT STARTED. The canonical Hygiene journal
+Phase 38 is IN PROGRESS. BOK38-01 through BOK38-05 are COMPLETE, and BOK38-06
+through BOK38-07 remain NOT STARTED. The canonical Hygiene journal
 records HYG-P38-001 as RESOLVED and HYG-P38-002 through HYG-P38-005 as open
 nonblocking follow-ups. No Phase closure, driver acceptance, full validation,
 publication, upload, push, or downstream consumer acceptance is claimed.

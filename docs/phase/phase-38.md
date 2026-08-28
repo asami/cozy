@@ -64,8 +64,8 @@ from the source authority.
 BOK38-01 is COMPLETE: the paired design/specification documents now fix the
 source-boundary contract. Its earlier statement that BOK38-02 through BOK38-07
 remained NOT STARTED was a historical status snapshot; BOK38-02 through
-BOK38-04 are now COMPLETE as recorded below, while BOK38-05 through BOK38-07
-remain NOT STARTED. The
+BOK38-04 are now COMPLETE as recorded below, BOK38-05 is now COMPLETE, and
+BOK38-06 through BOK38-07 remain NOT STARTED. The
 canonical Phase Hygiene journal
 `docs/journal/2026/08/2026-08-28-phase-38-hygiene-follow-up.md` records
 resolved `HYG-P38-001` and open nonblocking documentation follow-ups; it is not
@@ -152,15 +152,21 @@ upload, or push.
 
 Stage Status:
 
-- Current status: NOT STARTED
+- Current status: COMPLETE
 - Owner: Cozy BoK extension admission and migration
 - Update rule: complete only when optional extensions are explicit,
   path-safe, deterministic, and cannot silently replace generated authority.
 
-Admit an absent-by-default `src/main/extensions/rdf` boundary only for
-non-derived project ontology, schema, or graph declarations. If a transitional
-legacy reader is retained, it must emit deterministic deprecation diagnostics,
-must never be scaffolded, and must have an explicit removal condition.
+Implement the explicitly configured `bok.extensions.rdf` JSON v1 declaration
+admission at the absent-by-default `src/main/extensions/rdf` boundary for
+non-derived project ontology, schema, or supplemental-graph declarations.
+Declarations are path-safe, deterministic, collision-rejecting supplements to
+the generated graph after SIE merge and before graph-summary versioning. No
+legacy source reader is installed or used before BOK38-06. Focused
+`CozyBokMetadataFinalizationSpec` validation (24 successful, 0 failed) and a
+lightweight independent Step review are accepted. This stage is COMPLETE; no
+driver acceptance, Phase completion, publication, upload, push, or deployment
+is claimed.
 
 ### BOK38-06: KnowledgeHub Driver Migration Acceptance
 
@@ -198,7 +204,7 @@ Stage Status:
 - Phase planning does not claim implementation, validation, publication,
   upload, push, or downstream consumer acceptance.
 
-High-level tracker: BOK38-01 through BOK38-04 are COMPLETE; BOK38-05 through
+High-level tracker: BOK38-01 through BOK38-05 are COMPLETE; BOK38-06 and
 BOK38-07 are NOT STARTED. Phase 38 remains IN PROGRESS.
 
 ## References
