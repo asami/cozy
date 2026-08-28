@@ -20,8 +20,8 @@ Status: COMPLETE
 BOK38-01 is COMPLETE: the paired design/specification documents now fix the
 source-boundary contract. Its earlier statement that BOK38-02 through BOK38-07
 remained NOT STARTED was a historical status snapshot; BOK38-02 through
-BOK38-04 are now COMPLETE below, BOK38-05 is now COMPLETE, and BOK38-06
-through BOK38-07 remain NOT STARTED.
+BOK38-04 are now COMPLETE below, BOK38-05 through BOK38-06 are now COMPLETE,
+and BOK38-07 remains NOT STARTED.
 The canonical Phase
 Hygiene journal
 `docs/journal/2026/08/2026-08-28-phase-38-hygiene-follow-up.md` records
@@ -132,16 +132,29 @@ completion, publication, upload, push, and deployment remain unclaimed.
 
 ## BOK38-06: KnowledgeHub Driver Migration Acceptance
 
-Status: NOT STARTED
+Status: COMPLETE
 
-- [ ] Run `cozy bok doctor` against the reorganized `bok-knowledgehub` source.
-- [ ] Build the driver without restoring `manual`, `history`, `rdf`,
+- [x] Run `cozy bok doctor` against the reorganized `bok-knowledgehub` source.
+- [x] Build the driver without restoring `manual`, `history`, `rdf`,
       `metadata`, or a standard UI bundle below `doxsite`.
-- [ ] Verify concept, architecture, technology, glossary, bibliography,
+- [x] Verify concept, architecture, technology, glossary, bibliography,
       scenario, project, media, and publication behavior.
-- [ ] Verify generated RDF, graph, Manual, History, UI, component references,
+- [x] Verify generated RDF, graph, Manual, History, UI, component references,
       and stable repeated output.
-- [ ] Verify publication dry-run without upload or external mutation.
+- [x] Verify publication dry-run without upload or external mutation.
+
+BOK38-06 is COMPLETE. With
+`cozy 0.3.3-SNAPSHOT` explicitly selected through
+`--runtime-dev-dir /Users/asami/src/dev2025/cozy`, `bok doctor`, two preview
+builds, and explicit metadata finalization all succeeded. The selected
+RDF/metadata and Manual/History/root-page artifact digests were identical
+across builds; expected generated UI, RDF graph, KnowledgeSource, and CAR
+component-reference artifacts exist, while the absent legacy source paths
+remain absent. `bok publish --dry-run` produced only
+`target/cozy-bok/publish/latest/manifest.json` (`dryRun: true`), with no
+publication, upload, deployment, remote write, or driver source change. The
+driver was validation-only; downstream Textus BoK consumer acceptance remains
+out of scope.
 
 ## BOK38-07: Review, Validation, and Closure
 
@@ -153,8 +166,8 @@ Status: NOT STARTED
 - [ ] Synchronize Strategy, Phase, checklist, design, specification, and driver
       receipts before closure.
 
-Phase 38 is IN PROGRESS. BOK38-01 through BOK38-05 are COMPLETE, and BOK38-06
-through BOK38-07 remain NOT STARTED. The canonical Hygiene journal
+Phase 38 is IN PROGRESS. BOK38-01 through BOK38-06 are COMPLETE, and BOK38-07
+remains NOT STARTED. The canonical Hygiene journal
 records HYG-P38-001 as RESOLVED and HYG-P38-002 through HYG-P38-005 as open
 nonblocking follow-ups. No Phase closure, driver acceptance, full validation,
 publication, upload, push, or downstream consumer acceptance is claimed.

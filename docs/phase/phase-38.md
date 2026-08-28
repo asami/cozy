@@ -64,8 +64,8 @@ from the source authority.
 BOK38-01 is COMPLETE: the paired design/specification documents now fix the
 source-boundary contract. Its earlier statement that BOK38-02 through BOK38-07
 remained NOT STARTED was a historical status snapshot; BOK38-02 through
-BOK38-04 are now COMPLETE as recorded below, BOK38-05 is now COMPLETE, and
-BOK38-06 through BOK38-07 remain NOT STARTED. The
+BOK38-04 are now COMPLETE as recorded below, BOK38-05 through BOK38-06 are
+now COMPLETE, and BOK38-07 remains NOT STARTED. The
 canonical Phase Hygiene journal
 `docs/journal/2026/08/2026-08-28-phase-38-hygiene-follow-up.md` records
 resolved `HYG-P38-001` and open nonblocking documentation follow-ups; it is not
@@ -172,15 +172,22 @@ is claimed.
 
 Stage Status:
 
-- Current status: NOT STARTED
+- Current status: COMPLETE
 - Owner: Cozy BoK end-to-end acceptance
 - Update rule: complete only when the reorganized driver builds without
   restoring legacy paths or duplicated article-media assets.
 
-Run doctor, build, metadata finalization, preview-oriented inspection, and
-publication dry-run against `bok-knowledgehub`. Verify subject categories,
-special knowledge types, media/publication roots, generated RDF/graph,
-generated Manual/History/UI, component references, and stable repeat output.
+The driver acceptance completed with explicit Cozy development-runtime
+selection (`--runtime-dev-dir /Users/asami/src/dev2025/cozy`): `bok doctor`,
+two preview-strategy builds, and explicit metadata finalization succeeded. The
+repeated generated RDF/metadata and Manual/History/root-page artifact digests
+are stable; expected generated UI, RDF graph, KnowledgeSource, and CAR
+component-reference artifacts exist; and deleted legacy source paths remain
+absent. The dry-run publication manifest is `dryRun: true` and lives only in
+the driver's ignored `target/` output. The driver's pre-existing source changes
+were preserved. This stage is COMPLETE; Phase completion, actual publication,
+upload, push, deployment, and downstream Textus BoK consumer acceptance remain
+unclaimed.
 
 ### BOK38-07: Review, Validation, and Closure
 
@@ -204,8 +211,8 @@ Stage Status:
 - Phase planning does not claim implementation, validation, publication,
   upload, push, or downstream consumer acceptance.
 
-High-level tracker: BOK38-01 through BOK38-05 are COMPLETE; BOK38-06 and
-BOK38-07 are NOT STARTED. Phase 38 remains IN PROGRESS.
+High-level tracker: BOK38-01 through BOK38-06 are COMPLETE; BOK38-07 is NOT
+STARTED. Phase 38 remains IN PROGRESS.
 
 ## References
 
