@@ -124,7 +124,7 @@ or semantic, visual, or audiovisual approval.
 
 ## LOGIC37-05: Product Explanation Pattern Acceptance
 
-Status: IN PROGRESS
+Status: COMPLETE
 
 - [x] Define and validate the representative `software-product` Subject
       Pattern.
@@ -135,20 +135,23 @@ Status: IN PROGRESS
 - [x] Prove the representative `software-product` / `product-overview`
       direct-file case through the accepted independent page and scene
       mappings.
-- [ ] Prove the representative `product-mechanism` direct-file case through
+- [x] Prove the representative `product-mechanism` direct-file case through
       independent page and scene mappings.
 - [x] Keep human/AI-authored subject facts, selected parameters, typed roles,
       and Relations distinguishable from Cozy's deterministic validation,
       normalization, and copying evidence.
 
-Local accepted projection implementation commit
+The local accepted product-overview projection implementation commit
 `ed427a209c3bade9fb87c2be1a068deee280afdb`, with focused validation
 `testOnly cozy.media.CozyExplanationSpec cozy.media.CozyExplanationProjectionSpec`
 (8 succeeded / 0 failed), supplies accepted page and scene projection
 evidence for the representative `software-product` / `product-overview`
-direct-file case. The explicitly authored `product-mechanism` relationships
-are accepted at the logical composition/plan boundary, but their page and scene
-projection remains unproven and open. This is not semantic, visual,
+direct-file case. P37-05A's accepted product-mechanism projection
+implementation commit `ca68f59a9b513d4d718a523d6617fd1f41bc66c7`, with focused
+validation `testOnly cozy.media.CozyExplanationProjectionSpec` (4 succeeded /
+0 failed), supplies accepted independent page and scene projection evidence
+for the representative `product-mechanism` direct-file case. This is
+deterministic Cozy coverage only; it does not constitute semantic, visual,
 audiovisual, or external-consumer approval.
 
 ## LOGIC37-06: Review, Validation, and Closure
@@ -174,8 +177,8 @@ remains open. Full Cozy validation, exactly one independent full Phase review,
 required closure ledger/status synchronization, and a distinct Phase release
 commit remain incomplete.
 
-Phase 37 is IN PROGRESS. LOGIC37-01 through LOGIC37-04 are COMPLETE;
-LOGIC37-05 and LOGIC37-06 are IN PROGRESS. No full Phase validation or Phase review,
+Phase 37 is IN PROGRESS. LOGIC37-01 through LOGIC37-05 are COMPLETE;
+LOGIC37-06 is IN PROGRESS. No full Phase validation or Phase review,
 publication, push, downstream consumer acceptance, Phase release commit,
 rendering, PPTX or MP4 delivery, external article-repository mutation, or
 Phase 38 work is claimed.
