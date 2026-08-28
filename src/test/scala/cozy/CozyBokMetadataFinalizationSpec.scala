@@ -383,6 +383,36 @@ class CozyBokMetadataFinalizationSpec
       }
     }
 
+    "report the lexically first node collision independently of declaration order" in {
+      _with_temp_dir("cozy-bok-metadata-finalization-rdf-extension-collision-order") { dir =>
+        Given("four declared JSON v1 extensions with two duplicate node identities and existing website sentinels")
+        _write_site_source(dir, glossaryterm = false)
+        _write_prepared_metadata(dir, includeterms = false, rdfgraph = _generated_graph("generated"))
+        _write_rdf_extension(dir, "a-first.json", _rdf_extension_json("a-first", nodes = Vector(_rdf_extension_node("a-node"))))
+        _write_rdf_extension(dir, "a-second.json", _rdf_extension_json("a-second", nodes = Vector(_rdf_extension_node("a-node"))))
+        _write_rdf_extension(dir, "z-first.json", _rdf_extension_json("z-first", nodes = Vector(_rdf_extension_node("z-node"))))
+        _write_rdf_extension(dir, "z-second.json", _rdf_extension_json("z-second", nodes = Vector(_rdf_extension_node("z-node"))))
+        _write_rdf_extension_config(dir, Vector("z-first.json", "a-first.json", "z-second.json", "a-second.json"))
+        _write(dir.resolve("website.d/index.html"), "<html>collision-order-sentinel</html>\n")
+        _write(dir.resolve("website.d/metadata/cncf/knowledge-source.json"), "collision-order-manifest-sentinel\n")
+
+        When("metadata finalization checks the same collisions in two reversed declaration configurations")
+        val firsterror = intercept[Throwable] {
+          CozyBok.finalizeMetadata(_build_config(dir))
+        }
+        _write_rdf_extension_config(dir, Vector("a-second.json", "z-second.json", "a-first.json", "z-first.json"))
+        val seconderror = intercept[Throwable] {
+          CozyBok.finalizeMetadata(_build_config(dir))
+        }
+
+        Then("both attempts report the stable lexical collision and preserve every website sentinel")
+        firsterror.getMessage shouldBe "bok.extension.identity.collision: src/main/extensions/rdf: duplicate extension node id a-node"
+        seconderror.getMessage shouldBe firsterror.getMessage
+        _read(dir.resolve("website.d/index.html")) shouldBe "<html>collision-order-sentinel</html>\n"
+        _read(dir.resolve("website.d/metadata/cncf/knowledge-source.json")) shouldBe "collision-order-manifest-sentinel\n"
+      }
+    }
+
     "reject generated-authority overrides and missing generated graphs before changing website sentinels" in {
       _with_temp_dir("cozy-bok-metadata-finalization-rdf-extension-override") { dir =>
         val collision = dir.resolve("collision")

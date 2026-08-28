@@ -11,7 +11,8 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   Jul. 13, 2026
- * @version Jul. 23, 2026
+ *  version Jul. 23, 2026
+ * @version Aug. 29, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokKnowledgeSourceSpec
@@ -179,7 +180,7 @@ class CozyBokKnowledgeSourceSpec
         }
       }
 
-      "merges source-declared RDF graph component references before validation" in {
+      "ignores legacy source-declared RDF graph component references" in {
         _with_temp_dir("cozy-bok-knowledge-source-graph-overlay-component-ref") { dir =>
           Given("a BoK source graph overlay that declares a CAR component-reference node")
           _write_site_source(dir, glossaryterm = false)
@@ -204,9 +205,10 @@ class CozyBokKnowledgeSourceSpec
             )
           )
 
-          Then("the source-declared componentRef is preserved in the versioned graph summary")
+          Then("the legacy source-declared componentRef is absent from the versioned graph summary")
           val graph = _parse_json(dir.resolve("website.d/metadata/rdf/graph.json"))
-          _graph_component_refs(graph) shouldBe Vector(("car", "nict-knowledgehub", None, Some("0.1.0-SNAPSHOT")))
+          _graph_component_refs(graph) shouldBe Vector.empty
+          graph.hcursor.get[Vector[Json]]("nodes") shouldBe Right(Vector.empty)
 
           And("the component-reference index is advertised as a KnowledgeSource resource")
           _resources(_parse_json(dir.resolve("website.d/metadata/cncf/knowledge-source.json"))) should contain(
@@ -215,42 +217,33 @@ class CozyBokKnowledgeSourceSpec
         }
       }
 
-      "rejects malformed source-declared RDF graph overlay containers" in {
+      "ignores malformed legacy source-declared RDF graph overlay containers" in {
         Vector(
-          "non-object" -> (
-            "[]\n",
-            "RDF graph summary overlay[0] must be a JSON object"
-          ),
-          "non-array-nodes" -> (
-            """{"nodes":{},"edges":[]}
-              |""".stripMargin,
-            "RDF graph summary overlay[0].nodes must be an array when present"
-          ),
-          "non-array-edges" -> (
-            """{"nodes":[],"edges":{}}
-              |""".stripMargin,
-            "RDF graph summary overlay[0].edges must be an array when present"
-          )
-        ).foreach { case (label, (sourcegraph, expectedmessage)) =>
+          "non-object" -> "[]\n",
+          "non-array-nodes" -> """{"nodes":{},"edges":[]}
+            |""".stripMargin,
+          "non-array-edges" -> """{"nodes":[],"edges":{}}
+            |""".stripMargin
+        ).foreach { case (label, sourcegraph) =>
           _with_temp_dir(s"cozy-bok-knowledge-source-graph-overlay-$label") { dir =>
             Given(s"a BoK source graph overlay with a $label container")
             _write_site_source(dir, glossaryterm = false)
             _write(dir.resolve("src/main/doxsite/metadata/rdf/graph.json"), sourcegraph)
 
-            When("Cozy merges the source overlay into a valid SmartDox graph summary")
-            val error = intercept[Throwable] {
-              CozyBok.build(
-                _build_config(dir),
-                new MetadataRunner(
-                  includeterms = false,
-                  includerdf = true,
-                  rdfgraph = "{\"nodes\":[],\"edges\":[],\"truncated\":false}\n"
-                )
+            When("Cozy builds the public BoK site with a valid generated graph summary")
+            CozyBok.build(
+              _build_config(dir),
+              new MetadataRunner(
+                includeterms = false,
+                includerdf = true,
+                rdfgraph = "{\"nodes\":[],\"edges\":[],\"truncated\":false}\n"
               )
-            }
+            )
 
-            Then("the malformed source declaration fails instead of disappearing from the published graph")
-            error.getMessage should include(expectedmessage)
+            Then("the malformed legacy declaration contributes no nodes to the published graph")
+            val graph = _parse_json(dir.resolve("website.d/metadata/rdf/graph.json"))
+            _graph_component_refs(graph) shouldBe Vector.empty
+            graph.hcursor.get[Vector[Json]]("nodes") shouldBe Right(Vector.empty)
           }
         }
       }

@@ -1,6 +1,6 @@
 # Phase 38: Generated BoK Knowledge Boundary
 
-Status: IN PROGRESS
+Status: COMPLETE
 
 Plan date: 2026-08-28
 
@@ -193,10 +193,33 @@ unclaimed.
 
 Stage Status:
 
-- Current status: NOT STARTED
+- Current status: COMPLETE
 - Owner: Cozy validation and independent review
 - Update rule: complete only when focused and full validation, driver
   acceptance, independent review, and ledger synchronization are complete.
+
+BOK38-07 is COMPLETE in this Phase-release binding. The mandatory independent
+full Phase review over the accepted accumulator found and boundedly resolved
+`CPB-P38-001`: duplicate RDF-extension declaration, node, and edge identities
+now choose their diagnostic identity deterministically, and the direct
+Executable Specification verifies multiple collisions in reversed declaration
+orders. Its serialized focused validation passed 25 tests with 0 failures, and
+the independent focused re-review accepted the repair.
+
+The initial serialized full Cozy validation failed in
+`CozyBokKnowledgeSourceSpec` (1,524 succeeded; 2 failed) because two scenarios
+still asserted the retired source-overlay reader. The accepted spec-only repair
+`CPB-P38-002` changes those scenarios to verify the actual BOK38-05 contract:
+an authored `src/main/doxsite/metadata/rdf/graph.json`, including malformed
+content, is ignored, while the generated graph and explicit
+`bok.extensions.rdf` declarations remain the only authorities. Focused serial
+`testOnly cozy.CozyBokKnowledgeSourceSpec` invocation
+`71094-20260828T221535Z` passed 13 tests with 0 failures, and the independent
+focused re-review concluded `CPB-P38-002` PASS/CONVERGED. The immediately
+following full Cozy validation is the final release gate; a local Phase release
+commit is permitted only when that gate passes. The uncommitted planned Phase
+39/40 documents and their shared README/strategy projections remain preserved
+as concurrent planning.
 
 ## Dependencies and exclusions
 
@@ -211,8 +234,10 @@ Stage Status:
 - Phase planning does not claim implementation, validation, publication,
   upload, push, or downstream consumer acceptance.
 
-High-level tracker: BOK38-01 through BOK38-06 are COMPLETE; BOK38-07 is NOT
-STARTED. Phase 38 remains IN PROGRESS.
+High-level tracker: BOK38-01 through BOK38-07 are COMPLETE in the prepared
+release binding; the serialized full Cozy validation is the final pre-commit
+gate. Actual publication, upload, push, deployment, and downstream Textus BoK
+consumer acceptance remain excluded.
 
 ## References
 

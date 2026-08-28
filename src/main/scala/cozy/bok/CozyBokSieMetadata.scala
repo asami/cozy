@@ -590,15 +590,15 @@ private[cozy] trait CozyBokSieMetadata {
   }
 
   private def _require_unique_extension_identities(declarations: Vector[RdfExtensionDeclaration]): Unit = {
-    declarations.groupBy(_.id).collectFirst { case (id, items) if items.size > 1 => id }.foreach { id =>
+    declarations.groupBy(_.id).collect { case (id, items) if items.size > 1 => id }.toVector.sorted.headOption.foreach { id =>
       _extension_identity_collision("src/main/extensions/rdf", s"duplicate declaration id $id")
     }
     val nodes = declarations.flatMap(_.nodes)
-    nodes.groupBy(_extension_node_id).collectFirst { case (id, items) if items.size > 1 => id }.foreach { id =>
+    nodes.groupBy(_extension_node_id).collect { case (id, items) if items.size > 1 => id }.toVector.sorted.headOption.foreach { id =>
       _extension_identity_collision("src/main/extensions/rdf", s"duplicate extension node id $id")
     }
     val edges = declarations.flatMap(_.edges)
-    edges.groupBy(_extension_edge_identity).collectFirst { case (identity, items) if items.size > 1 => identity }.foreach { identity =>
+    edges.groupBy(_extension_edge_identity).collect { case (identity, items) if items.size > 1 => identity }.toVector.sorted.headOption.foreach { identity =>
       _extension_identity_collision("src/main/extensions/rdf", s"duplicate extension edge ${identity.productIterator.mkString("(", ",", ")")}")
     }
   }

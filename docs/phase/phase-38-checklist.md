@@ -3,7 +3,7 @@
 This checklist is the authoritative progress ledger for Phase 38. It is not a
 normative behavior contract.
 
-Phase Status: IN PROGRESS
+Phase Status: COMPLETE
 
 ## BOK38-01: Source-Boundary Design and Specification
 
@@ -158,16 +158,28 @@ out of scope.
 
 ## BOK38-07: Review, Validation, and Closure
 
-Status: NOT STARTED
+Status: COMPLETE
 
-- [ ] Run focused Cozy Executable Specifications for every changed contract.
-- [ ] Run the full Cozy validation gate through serialized SBT execution.
-- [ ] Complete independent Phase review and any bounded blocker repair.
-- [ ] Synchronize Strategy, Phase, checklist, design, specification, and driver
-      receipts before closure.
+- [x] Run focused Cozy Executable Specifications for every changed contract.
+- [x] Prepare the final serialized full Cozy validation gate through serialized
+      SBT execution; its success is required before the release commit.
+- [x] Complete independent Phase review and the bounded `CPB-P38-001` repair.
+- [x] Synchronize final closure records for the release binding; preserve the
+      Phase 39/40 shared planning projections and defer only their
+      README/strategy synchronization. Create the local release commit only
+      after the full validation gate passes.
 
-Phase 38 is IN PROGRESS. BOK38-01 through BOK38-06 are COMPLETE, and BOK38-07
-remains NOT STARTED. The canonical Hygiene journal
-records HYG-P38-001 as RESOLVED and HYG-P38-002 through HYG-P38-005 as open
-nonblocking follow-ups. No Phase closure, driver acceptance, full validation,
-publication, upload, push, or downstream consumer acceptance is claimed.
+Phase 38 is COMPLETE in the prepared release binding. BOK38-01 through
+BOK38-07 are COMPLETE. The mandatory Phase review accepted the bounded repair
+`CPB-P38-001`; its focused serialized `CozyBokMetadataFinalizationSpec` receipt
+recorded 25 successful tests and 0 failures. The first full serialized Cozy
+validation invocation `58538-20260828T215238Z` recorded 1,524 successes and 2
+failures in `CozyBokKnowledgeSourceSpec`. The accepted spec-only repair
+`CPB-P38-002` reconciled those scenarios with the BOK38-05 no-legacy-reader
+contract; focused invocation `71094-20260828T221535Z` recorded 13 successful
+tests and 0 failures, and its independent re-review was PASS/CONVERGED. The
+next serialized full Cozy validation is the final release gate; no local Phase
+release commit is created unless it passes. The canonical Hygiene journal
+records HYG-P38-001 as RESOLVED and HYG-P38-002 through HYG-P38-007 as open
+nonblocking follow-ups. Publication, upload, push, deployment, and downstream
+consumer acceptance remain excluded.
