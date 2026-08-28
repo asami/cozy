@@ -54,11 +54,13 @@ Current phase state:
   The closure includes the one full Phase review, its bounded repair and
   focused closure re-review, and full Cozy validation. No publication, push,
   or downstream consumer acceptance is claimed.
-- Planned successor: `phase-38.md`: Generated BoK Knowledge Boundary. It will
+- Active successor: `phase-38.md`: Generated BoK Knowledge Boundary. It will
   separate public SmartDox source from generated RDF/graph/Manual/History/UI,
   align scaffold and diagnostics, and accept the reorganized
-  `bok-knowledgehub` driver. Phase 38 is NOT STARTED and does not alter the
-  completed Phase 37 boundary.
+  `bok-knowledgehub` driver. Phase 38 is IN PROGRESS; BOK38-01's
+  source-boundary design/specification is COMPLETE, while implementation and
+  later acceptance remain NOT STARTED. It does not alter the completed Phase
+  37 boundary.
 - Earlier closed phase: `phase-28.2.md`: SimpleModeling.org Part 5
   Integration and Regression; `AM28-03` and `AM28-04` are complete.
 - Most recent split predecessor: `phase-28.1.md`: WIP Local Article Media
@@ -131,7 +133,8 @@ Its canonical status authority is `phase-37.md` plus
 validation, review, and projection only; it makes no publication, push, or
 downstream consumer acceptance claim.
 
-Phase 38 is a planned, not-started successor for the generated BoK knowledge
-boundary. Its canonical planning authority is `phase-38.md` plus
-`phase-38-checklist.md`. It must not be reported as active or implemented until
-the user explicitly starts a new Phase 38 goal.
+Phase 38 is the active, in-progress successor for the generated BoK knowledge
+boundary. Its canonical status authority is `phase-38.md` plus
+`phase-38-checklist.md`; BOK38-01's source-boundary design/specification is
+complete, while implementation and later acceptance remain not started. It
+must not be reported as implemented or closed.

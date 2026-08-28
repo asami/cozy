@@ -1,12 +1,33 @@
 # BoK / SIE Information Handoff
 
-Status: normative Phase 14 schema
+Status: normative Phase 14 schema; aligned with the Phase 38 generated-knowledge boundary
 
 ## Purpose
 
 This document defines the SIE-owned JSON resources consumed by Cozy after SIE
 has projected a BoK KnowledgeSource. It refines the SIE-to-Cozy side of
 `bok-sie-integration-contract.md`.
+
+## Phase 38 source and generated-resource boundary
+
+The public human-readable source is `src/main/doxsite` together with its
+adjacent public source metadata (`site.conf` and category metadata).
+`src/main/media` and `src/main/publication` are durable inputs and are not
+generated website output. Generated working resources are under `doxsite.d`,
+and finalized public RDF and machine-readable resources are under
+`website.d/rdf` and `website.d/metadata`.
+
+The standard source must not contain `manual`, `history`, `rdf`, or
+`metadata` source directories or a copied standard UI bundle. Public guidance
+belongs in the ordinary `guide` category, while repository operations,
+design, specification, and journal documents remain outside `doxsite`.
+`src/main/extensions` is absent by default. Only explicitly declared,
+path-safe, schema-validated, deterministic non-derived ontology, schema, or
+supplemental graph declarations below `src/main/extensions/rdf` may
+supplement generated resources. They cannot override or collide with
+generated authority. BOK38-05 will implement this admission boundary; the
+SIE handoff remains a generated-resource contract and does not make a source
+overlay under `doxsite` admissible.
 
 Cozy reads only the local handoff root explicitly configured at:
 
@@ -69,15 +90,16 @@ edge metadata stays source-attributable; Cozy does not use it to infer new
 relations. Existing SmartDox graph fields remain compatible as additional
 fields in this versioned producer contract.
 
-BoK source may add supplemental graph-summary metadata at
-`src/main/doxsite/metadata/rdf/graph.json`. Cozy merges that explicit
-machine-readable source into the SmartDox/SIE graph summary before applying
-the same `cozy.rdf-graph-summary.v1` validation. This route is for declared
-graph metadata only; Cozy still does not parse RDF source files or infer graph
-nodes from labels, tags, terms, repository filenames, or rendered HTML.
-The overlay must be a JSON object. When it declares `nodes` or `edges`, those
-fields must be arrays; malformed containers fail the build rather than being
-ignored.
+Project-specific supplemental graph-summary metadata, when it cannot be
+derived from ordinary BoK inputs, belongs only to an explicitly declared
+extension below `src/main/extensions/rdf`. Cozy will admit that extension
+only after path-safety, schema, identity, collision, and deterministic-order
+checks; an identity or override conflict fails rather than replacing the
+generated graph summary. This route is for declared graph metadata only;
+Cozy still does not parse RDF source files or infer graph nodes from labels,
+tags, terms, repository filenames, or rendered HTML. BOK38-05 will implement
+the extension reader and diagnostics. The handoff graph resource remains the
+generated `metadata/rdf/graph.json`, not a source overlay.
 
 The BoK producer may preserve a node-level `componentRef` object in this
 schema only for nodes whose `node_type` is `component-reference`. The object

@@ -1,6 +1,6 @@
 # Phase 38: Generated BoK Knowledge Boundary
 
-Status: PLANNED / NOT STARTED
+Status: IN PROGRESS
 
 Plan date: 2026-08-28
 
@@ -51,7 +51,7 @@ operation rules remain outside the public source tree.
 
 Stage Status:
 
-- Current status: NOT STARTED
+- Current status: COMPLETE
 - Owner: Cozy BoK source and generated-knowledge contracts
 - Update rule: complete only when source authority, output authority,
   compatibility, diagnostics, and extension behavior are specified.
@@ -60,6 +60,15 @@ Define the exact paths, authorities, generated-resource identities, failure
 semantics, and migration contract. Keep `site.conf` and category metadata as
 adjacent public-source metadata while excluding generated machine metadata
 from the source authority.
+
+BOK38-01 is COMPLETE: the paired design/specification documents now fix the
+source-boundary contract. BOK38-02 through BOK38-07 remain NOT STARTED. The
+canonical Phase Hygiene journal
+`docs/journal/2026/08/2026-08-28-phase-38-hygiene-follow-up.md` records
+resolved `HYG-P38-001` as closure evidence for this Step only; it is not Phase
+release closure. No implementation, tests, validation, driver acceptance,
+publication, upload, push, downstream consumer acceptance, or Phase closure is
+claimed.
 
 ### BOK38-02: Scaffold, Doctor, and Configuration Alignment
 

@@ -1128,7 +1128,8 @@ Primary references:
 
 ### Phase 38: Generated BoK Knowledge Boundary
 
-Status: planned; not started. Phase 37 is closed.
+Status: in progress; BOK38-01 source-boundary design/specification complete.
+BOK38-02 through BOK38-07 remain not started. Phase 37 is closed.
 
 Purpose and boundaries:
 
@@ -1151,10 +1152,10 @@ Purpose and boundaries:
 - accept `/Users/asami/src/Project2026/bok-knowledgehub` as the driver project
   in its reorganized final layout without restoring legacy source paths.
 
-Phase 38 is a planned successor and does not start implementation.
-Design/specification, implementation, Executable
-Specifications, driver acceptance, full validation, independent review, and
-closure all remain not started.
+Phase 38 is in progress and BOK38-01's paired source-boundary
+design/specification is complete. BOK38-02 through BOK38-07, implementation,
+Executable Specifications, driver acceptance, full validation, independent
+review, and closure all remain not started.
 
 Primary references:
 
@@ -1256,9 +1257,10 @@ Origin:
 
 Phase 30, Phase 36, and Phase 37 are closed. Phase 36 VIS36-01 through
 VIS36-06 and Phase 37 LOGIC37-01 through LOGIC37-06 are DONE.
-Phase 38 is planned as the generated BoK knowledge-boundary successor and is
-not started. It does not alter the closed Phase 37 boundary; its design,
-implementation, driver acceptance, validation, and review remain open.
+Phase 38 is in progress as the generated BoK knowledge-boundary successor;
+BOK38-01's source-boundary design/specification is complete. It does not alter
+the closed Phase 37 boundary; BOK38-02 through BOK38-07, implementation,
+driver acceptance, validation, and review remain not started.
 Neither successor adds work to the closed Phase 30 boundary or claims
 full Phase validation, Phase review, publication, push, or external consumer
 mutation.

@@ -1,6 +1,34 @@
 # BoK Metadata Finalization Design
 
-Status: Phase 34 BOK34-02 working design
+Status: Phase 34 BOK34-02 working design; Phase 38 source-boundary alignment
+
+## Phase 38 source-boundary alignment
+
+The finalization service operates on generated working resources, not on a
+second source tree. `src/main/doxsite` is the public, human-readable
+SmartDox knowledge source plus adjacent public source metadata (`site.conf`
+and category metadata). `src/main/media` and `src/main/publication` are
+durable inputs, not generated website output. `src/main/extensions` is absent
+by default; only explicitly declared, path-safe, schema-validated
+non-derived declarations below `src/main/extensions/rdf` may supplement the
+derived result.
+
+Cozy and SmartDox derive effective RDF Turtle, JSON-LD, graph summary,
+machine metadata, the standard Manual, the History dashboard, and the
+standard UI during the build. Generated working resources are under
+`doxsite.d`; finalized public RDF and machine metadata are under
+`website.d/rdf` and `website.d/metadata`. None of these generated resources
+is hand-maintained source authority. The standard source therefore contains
+no `manual`, `history`, `rdf`, or `metadata` source directory and no copied
+standard UI bundle. Public guidance belongs in the ordinary `guide` category;
+repository operations, design, specification, and journal documents remain
+outside `doxsite`.
+
+This alignment does not change the finalizer's allowlist or SIE ownership
+boundary. BOK38-02 through BOK38-06 will implement scaffold, derivation,
+extension, migration, and driver behavior against the paired Phase 38
+contract; this design records that contract without claiming those stages
+are complete.
 
 ## Responsibility
 
@@ -62,10 +90,13 @@ root. At execution time, `build` and `finalizeMetadata` use the strict
 existing-source admission, then compare the admitted source's canonical real
 path with the project's canonical real path to reject canonical escapes. The
 resulting strictly admitted source path is passed to source glossary
-declaration and source RDF graph merge; those consumers do not resolve the
+declaration and generated graph assembly; those consumers do not resolve the
 unadmitted configuration independently. This keeps an existing project-owned
 site orchestration intact while allowing Cozy to update its machine-readable
-handoff.
+handoff. Any non-derived graph supplement is accepted only from an
+explicitly declared, validated extension below
+`src/main/extensions/rdf`; it cannot override or replace generated graph
+authority.
 
 ## Command integration
 

@@ -3,19 +3,28 @@
 This checklist is the authoritative progress ledger for Phase 38. It is not a
 normative behavior contract.
 
-Phase Status: PLANNED / NOT STARTED
+Phase Status: IN PROGRESS
 
 ## BOK38-01: Source-Boundary Design and Specification
 
-Status: NOT STARTED
+Status: COMPLETE
 
-- [ ] Define the final `doxsite`, `media`, `publication`, and optional
+- [x] Define the final `doxsite`, `media`, `publication`, and optional
       `extensions` authorities in paired design and specification documents.
-- [ ] Specify generated RDF, graph, Manual, History, and standard UI authority.
-- [ ] Specify deterministic diagnostics, migration compatibility, and removal
+- [x] Specify generated RDF, graph, Manual, History, and standard UI authority.
+- [x] Specify deterministic diagnostics, migration compatibility, and removal
       conditions for every admitted legacy path.
-- [ ] Specify that lifecycle documentation categories do not replace public
+- [x] Specify that lifecycle documentation categories do not replace public
       subject categories.
+
+BOK38-01 is COMPLETE: the paired design/specification documents now fix the
+source-boundary contract. BOK38-02 through BOK38-07 remain NOT STARTED. The
+canonical Phase Hygiene journal
+`docs/journal/2026/08/2026-08-28-phase-38-hygiene-follow-up.md` records
+resolved `HYG-P38-001` as closure evidence for this Step only; it is not Phase
+release closure. No implementation, tests, validation, driver acceptance,
+publication, upload, push, downstream consumer acceptance, or Phase closure is
+claimed.
 
 ## BOK38-02: Scaffold, Doctor, and Configuration Alignment
 
@@ -89,6 +98,6 @@ Status: NOT STARTED
 - [ ] Synchronize Strategy, Phase, checklist, design, specification, and driver
       receipts before closure.
 
-Phase 38 is planned and not started. No implementation, validation,
-publication, upload, push, downstream consumer acceptance, or Phase closure is
-claimed.
+Phase 38 is IN PROGRESS. BOK38-01 is COMPLETE, while BOK38-02 through BOK38-07
+remain NOT STARTED. No implementation, tests, validation, publication, upload,
+push, downstream consumer acceptance, or Phase closure is claimed.
