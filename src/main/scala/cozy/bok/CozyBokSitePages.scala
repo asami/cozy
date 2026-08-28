@@ -134,7 +134,6 @@ private[cozy] trait CozyBokSitePages {
     val categories = _category_contents(config.sourcepath)
     val terms = _terms(config)
     val glossarybody = _glossary_dashboard_body(config, categories, terms, _language_index_root_prefix(config), locale)
-    val historyhref = _latest_history_year_page(target.resolve("history"))
     _write_category_index_page(config, target, locale, categories)
     _write_article_page(config, target, locale, categories)
     _write_project_pages(config, target, locale, categories)
@@ -157,22 +156,20 @@ private[cozy] trait CozyBokSitePages {
         terms
       )
     )
-    if (historyhref.isEmpty) {
-      val historypage = target.resolve("history").resolve("index.html")
-      _write_text(
+    val historypage = target.resolve("history").resolve("index.html")
+    _write_text(
+      historypage,
+      _special_html_page_with_toc(
+        config,
+        categories,
+        locale,
         historypage,
-        _special_html_page_with_toc(
-          config,
-          categories,
-          locale,
-          historypage,
-          _ui(locale, "history.title"),
-          _ui(locale, "history.description"),
-          _history_dashboard_body(locale),
-          Vector("dashboard" -> "Dashboard", "timeline" -> "Timeline", "operation-notes" -> "Operation Notes")
-        )
+        _ui(locale, "history.title"),
+        _ui(locale, "history.description"),
+        _history_dashboard_body(locale),
+        Vector("dashboard" -> "Dashboard", "timeline" -> "Timeline", "operation-notes" -> "Operation Notes")
       )
-    }
+    )
     val manualpage = target.resolve("manual").resolve("index.html")
     val manualbody = _manual_body_with_anchors(
       _source_narrative_html(_manual_index(locale), "cozy-bok-manual.dox", locale)
@@ -188,15 +185,6 @@ private[cozy] trait CozyBokSitePages {
         _ui(locale, "manual.description"),
         manualbody
       )
-    )
-    _write_manual_source_page(
-      config,
-      categories,
-      locale,
-      target,
-      "local-rules",
-      "Local Rules",
-      "Project-local BoK operation rules."
     )
     _post_process_knowledge_pages(config, target, locale, categories)
     if (writelocalizedglossaryindexes) {

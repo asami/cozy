@@ -457,14 +457,13 @@ private[cozy] trait CozyBokSiteDocument {
          |
          |# Dashboard
          |
-         |このManualは、BoK標準運用の手順と責務分担をまとめる技術マニュアルです。プロジェクト固有のルールは Local Rules に記録します。
+         |このManualは、BoK標準運用の手順と責務分担をまとめる技術マニュアルです。プロジェクト固有のルールはリポジトリのドキュメントに記録します。
          |
          |## Quick Links
          |
          |- <a href="../index.html">BoK Home</a>
          |- <a href="../glossary/index.html">Glossary</a>
          |- <a href="../history/index.html">History</a>
-         |- <a href="local-rules.html">Local Rules</a>
          |
          |## Basic Operations
          |
@@ -565,14 +564,13 @@ private[cozy] trait CozyBokSiteDocument {
          |
          |# Dashboard
          |
-         |This manual describes the standard BoK operation workflow and responsibilities. Project-local rules belong to Local Rules.
+         |This manual describes the standard BoK operation workflow and responsibilities. Project-local rules belong in repository documentation.
          |
          |## Quick Links
          |
          |- <a href="../index.html">BoK Home</a>
          |- <a href="../glossary/index.html">Glossary</a>
          |- <a href="../history/index.html">History</a>
-         |- <a href="local-rules.html">Local Rules</a>
          |
          |## Basic Operations
          |
@@ -664,64 +662,6 @@ private[cozy] trait CozyBokSiteDocument {
          |
          |Standard BoK pages are dashboards, not ordinary articles. Glossary, History, and Manual are BoK console pages rather than normal categories.
          |Manual pages are excluded from automatic glossary linking.
-         |""".stripMargin
-
-  private[bok] def _manual_local_rules(config: CreateConfig): String =
-    if (_is_japanese(config.language))
-      s"""Local Rules
-         |===========
-         |
-         |${_dox_head("Local Rules", s"${config.name} project-local BoK operation rules.")}
-         |
-         |# Dashboard
-         |
-         |このページは`${config.name}`固有の運用ルールを記録します。BoK標準運用は現在のCozy runtimeが持つ標準Manualから生成されます。
-         |
-         |## Project Scope
-         |
-         |- BoK name: `${config.name}`
-         |- Public source root: `src/main/doxsite`
-         |- Durable inputs: `src/main/media`, `src/main/publication`
-         |- Generated outputs: `website.d`, `doxsite.d`, `antora.d`, `target`
-         |- Optional `src/main/extensions/rdf` is absent by default and must be explicit.
-         |
-         |## Local Rules
-         |
-         |- このBoK固有のカテゴリ、レビュー基準、公開判断、アップロード手順をここに記録します。
-         |- 機微情報やsecretは`.cozy/`または外部の安全な管理場所に置きます。
-         |
-         |## Upload And Publication
-         |
-         |- `cozy bok publish --dry-run`で公開計画を確認します。
-         |- 実uploadはプロジェクト所有のworkflow scriptで行います。
-         |""".stripMargin
-    else
-      s"""Local Rules
-         |===========
-         |
-         |${_dox_head("Local Rules", s"${config.name} project-local BoK operation rules.")}
-         |
-         |# Dashboard
-         |
-         |This page records operation rules specific to `${config.name}`. The standard BoK workflow is generated from the current Cozy runtime manual.
-         |
-         |## Project Scope
-         |
-         |- BoK name: `${config.name}`
-         |- Public source root: `src/main/doxsite`
-         |- Durable inputs: `src/main/media`, `src/main/publication`
-         |- Generated outputs: `website.d`, `doxsite.d`, `antora.d`, `target`
-         |- Optional `src/main/extensions/rdf` is absent by default and must be explicit.
-         |
-         |## Local Rules
-         |
-         |- Record project-specific categories, review criteria, publication decisions, and upload procedures here.
-         |- Keep sensitive values and secrets in `.cozy/` or another safe external location.
-         |
-         |## Upload And Publication
-         |
-         |- Run `cozy bok publish --dry-run` to verify the publication plan.
-         |- Actual upload is handled by project-owned workflow scripts.
          |""".stripMargin
 
   private[bok] def _category_name(name: String): String =

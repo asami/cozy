@@ -497,6 +497,14 @@ class CozyBokSpec
             "Overview\n========\n\n# HEAD\n\n## BRIEF\nArchitecture overview.\n"
           )
           _write(
+            dir.resolve("src/main/doxsite/guide/category.yaml"),
+            "name: Guide\ntitle: Guide\ndescription: Public guide category.\n"
+          )
+          _write(
+            dir.resolve("src/main/doxsite/guide/index.dox"),
+            "Guide\n=====\n\n# HEAD\n\n## BRIEF\nPublic guide category.\n"
+          )
+          _write(
             dir.resolve("src/main/doxsite/manual/index.dox"),
             """Stale Manual
           |============
@@ -788,9 +796,13 @@ class CozyBokSpec
           ) should not include ("このBoKはSmartDox本文")
           dir.resolve("website.d/history/index.html") should be_regular_file
           dir.resolve("website.d/manual/index.html") should be_regular_file
-          dir.resolve("website.d/manual/local-rules.html") should be_regular_file
+          dir.resolve("website.d/manual/local-rules.html") shouldNot exist_path
           _read(dir.resolve("website.d/history/index.html")) should include(
             "BoK運用、更新履歴、公開履歴のDashboard"
+          )
+          dir.resolve("website.d/guide/index.html") should be_regular_file
+          _read(dir.resolve("website.d/index.html")) should include(
+            "class=\"navbar-item navbar-dropdown-item\" href=\"guide/index.html\">Guide</a>"
           )
           _read(dir.resolve("website.d/manual/index.html")) should include(
             "Cozy BoK source and site operation manual"
@@ -822,15 +834,12 @@ class CozyBokSpec
           _read(dir.resolve("website.d/manual/index.html")) should include(
             "Site Administrator"
           )
-          _read(dir.resolve("website.d/manual/index.html")) should include(
+          _read(dir.resolve("website.d/manual/index.html")) should not include(
             "local-rules.html"
           )
-          _read(
-            dir.resolve("website.d/manual/local-rules.html")
-          ) should include("KnowledgeHub BoK")
-          _read(
-            dir.resolve("website.d/manual/local-rules.html")
-          ) should include("Project Scope")
+          _read(dir.resolve("website.d/manual/index.html")) should include(
+            "リポジトリのドキュメント"
+          )
           _read(dir.resolve("website.d/glossary/index.html")) should not include (
             """glossary/&lt;category&gt;/"""
           )
@@ -1701,7 +1710,10 @@ class CozyBokSpec
           _read(dir.resolve("website.d/ja/glossary/index.html")) should include(
             """href="../../history/2026.html">History</a>"""
           )
-          dir.resolve("website.d/history/index.html") shouldNot exist_path
+          dir.resolve("website.d/history/index.html") should be_regular_file
+          _read(dir.resolve("website.d/history/index.html")) should include(
+            "BoK運用、更新履歴、公開履歴のDashboard"
+          )
         }
       }
 

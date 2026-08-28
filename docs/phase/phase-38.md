@@ -63,8 +63,8 @@ from the source authority.
 
 BOK38-01 is COMPLETE: the paired design/specification documents now fix the
 source-boundary contract. Its earlier statement that BOK38-02 through BOK38-07
-remained NOT STARTED was a historical status snapshot; BOK38-02 and BOK38-03
-are now COMPLETE as recorded below, while BOK38-04 through BOK38-07
+remained NOT STARTED was a historical status snapshot; BOK38-02 through
+BOK38-04 are now COMPLETE as recorded below, while BOK38-05 through BOK38-07
 remain NOT STARTED. The
 canonical Phase Hygiene journal
 `docs/journal/2026/08/2026-08-28-phase-38-hygiene-follow-up.md` records
@@ -131,16 +131,22 @@ consumer acceptance.
 
 Stage Status:
 
-- Current status: NOT STARTED
+- Current status: COMPLETE
 - Owner: Cozy BoK generated site surfaces
 - Update rule: complete only when all three surfaces build without their
   former project-local source files and preserve deterministic navigation.
 
-Generate the standard Manual and History dashboard from Cozy-owned content and
-durable project/publication evidence. Treat project-user guidance as an
-ordinary `guide` category and project operation rules as repository
-documentation. Supply the default site UI from Cozy rather than a copied
-project bundle.
+BOK38-04 is COMPLETE for the generated Manual, History, and standard UI
+closure scope. Focused serialized `testOnly cozy.bok.CozyBokSpec` receipt
+`63418-20260828T130808Z` recorded 63 succeeded, 0 failed, and 1 suite; the
+independent Step review was PASS. Cozy always emits the standard History at
+`website.d/history/index.html` while preserving deterministic annual-history
+navigation. The standard Manual is Cozy-owned and does not expose
+`manual/local-rules.html`; Guide remains an ordinary category, and the
+standard Cozy UI remains the default with the explicit override unchanged.
+This is BOK38-04 closure only and does not claim Phase 38 closure, full
+validation, driver acceptance, downstream Textus BoK acceptance, publication,
+upload, or push.
 
 ### BOK38-05: Optional Extensions and Legacy Migration
 
@@ -191,6 +197,9 @@ Stage Status:
   second hand-maintained source of truth.
 - Phase planning does not claim implementation, validation, publication,
   upload, push, or downstream consumer acceptance.
+
+High-level tracker: BOK38-01 through BOK38-04 are COMPLETE; BOK38-05 through
+BOK38-07 are NOT STARTED. Phase 38 remains IN PROGRESS.
 
 ## References
 

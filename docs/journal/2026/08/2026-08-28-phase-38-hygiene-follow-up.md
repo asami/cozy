@@ -1,9 +1,10 @@
 # Phase 38 Hygiene Follow-up
 
 This journal records the accepted Phase 38 nonblocking Hygiene records
-`HYG-P38-001` through `HYG-P38-003` from the BOK38-01A lightweight review and
-the BOK38-01 combined Step review. It is non-normative and does not change the
-paired Phase 38 design/specification contract.
+`HYG-P38-001` through `HYG-P38-005` from the BOK38-01A lightweight review, the
+BOK38-01 combined Step review, and the BOK38-04 independent Step review. It is
+non-normative and does not change the paired Phase 38 design/specification
+contract.
 
 ## HYG-P38-001: Phase status snapshot synchronization
 
@@ -52,3 +53,29 @@ generated-boundary design/specification documents.
 This is discoverability-only, nonblocking hygiene outside BOK38-02 behavior.
 The proposed later boundary is a documentation-reference hygiene pass; do not
 fix this record in BOK38-02.
+
+## HYG-P38-004: Unreferenced history-index helper
+
+Status: OPEN
+
+Discovery: BOK38-04 independent Step review.
+
+Path/evidence: `CozyBokSiteDocument.scala` `_history_index()` has no repository
+references.
+
+This is low-risk dead-code cleanup and nonblocking hygiene. It is outside
+BOK38-04 because the output now comes from SitePages, and deletion is not
+needed for the implemented contract. Handle it in a later bounded cleanup.
+
+## HYG-P38-005: Unreferenced manual-dashboard helper
+
+Status: OPEN
+
+Discovery: BOK38-04 independent Step review.
+
+Path/evidence: `CozyBokGlossaryPages.scala` `_manual_dashboard_body()` has no
+repository references.
+
+This is low-risk dead-code cleanup and nonblocking hygiene. It is outside
+BOK38-04 because deletion is not needed for the implemented contract. Handle
+it in a later bounded cleanup.

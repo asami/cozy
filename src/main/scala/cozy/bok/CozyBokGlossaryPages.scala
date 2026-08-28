@@ -129,34 +129,6 @@ private[cozy] trait CozyBokGlossaryPages {
        |  </div>
        |</div>""".stripMargin
 
-  private[bok] def _write_manual_source_page(
-    config: BuildConfig,
-    categories: Vector[CategoryContent],
-    locale: String,
-    target: Path,
-    name: String,
-    title: String,
-    description: String
-  ): Unit = {
-    val source = config.sourcepath.resolve("manual").resolve(s"${name}.dox")
-    val body = _source_narrative_html(source, locale)
-    if (body.nonEmpty) {
-      val page = target.resolve("manual").resolve(s"${name}.html")
-      _write_text(
-        page,
-        _manual_html_page(
-          config,
-          categories,
-          locale,
-          page,
-          title,
-          description,
-          body
-        )
-      )
-    }
-  }
-
   private def _manual_dashboard_body(locale: String): String =
     s"""<div class="sect1" id="basic-operations">
        |  <h2>Basic Operations</h2>

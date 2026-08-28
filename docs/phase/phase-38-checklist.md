@@ -19,8 +19,9 @@ Status: COMPLETE
 
 BOK38-01 is COMPLETE: the paired design/specification documents now fix the
 source-boundary contract. Its earlier statement that BOK38-02 through BOK38-07
-remained NOT STARTED was a historical status snapshot; BOK38-02 and BOK38-03
-are now COMPLETE below, while BOK38-04 through BOK38-07 remain NOT STARTED.
+remained NOT STARTED was a historical status snapshot; BOK38-02 through
+BOK38-04 are now COMPLETE below, while BOK38-05 through BOK38-07 remain NOT
+STARTED.
 The canonical Phase
 Hygiene journal
 `docs/journal/2026/08/2026-08-28-phase-38-hygiene-follow-up.md` records
@@ -86,15 +87,27 @@ consumer acceptance.
 
 ## BOK38-04: Generated Manual, History, and Standard UI
 
-Status: NOT STARTED
+Status: COMPLETE
 
-- [ ] Generate the standard Manual without project-local Manual source.
-- [ ] Generate History from durable project/publication evidence without a
+- [x] Generate the standard Manual without project-local Manual source.
+- [x] Generate History from durable project/publication evidence without a
       project-local History category.
-- [ ] Supply the standard UI from Cozy and retain only an explicit optional
+- [x] Supply the standard UI from Cozy and retain only an explicit optional
       project override.
-- [ ] Treat a public project guide as an ordinary category and repository
+- [x] Treat a public project guide as an ordinary category and repository
       operation rules as non-public documentation.
+
+BOK38-04 is COMPLETE for the generated Manual, History, and standard UI
+closure scope. Focused serialized `testOnly cozy.bok.CozyBokSpec` receipt
+`63418-20260828T130808Z` recorded 63 succeeded, 0 failed, and 1 suite; the
+independent Step review was PASS. Cozy always emits the standard History at
+`website.d/history/index.html` while preserving deterministic annual-history
+navigation. The standard Manual is Cozy-owned and does not expose
+`manual/local-rules.html`; Guide remains an ordinary category, and the
+standard Cozy UI remains the default with the explicit override unchanged.
+This is BOK38-04 closure only and does not claim Phase 38 closure, full
+validation, driver acceptance, downstream Textus BoK acceptance, publication,
+upload, or push.
 
 ## BOK38-05: Optional Extensions and Legacy Migration
 
@@ -131,7 +144,8 @@ Status: NOT STARTED
 - [ ] Synchronize Strategy, Phase, checklist, design, specification, and driver
       receipts before closure.
 
-Phase 38 is IN PROGRESS. BOK38-01 through BOK38-03 are COMPLETE, while
-BOK38-04 through BOK38-07 remain NOT STARTED. No Phase closure, driver
-acceptance, full validation, publication, upload, push, or downstream consumer
-acceptance is claimed.
+Phase 38 is IN PROGRESS. BOK38-01 through BOK38-04 are COMPLETE, while
+BOK38-05 through BOK38-07 remain NOT STARTED. The canonical Hygiene journal
+records HYG-P38-001 as RESOLVED and HYG-P38-002 through HYG-P38-005 as open
+nonblocking follow-ups. No Phase closure, driver acceptance, full validation,
+publication, upload, push, or downstream consumer acceptance is claimed.
