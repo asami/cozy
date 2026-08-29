@@ -8,7 +8,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 29, 2026
- * @version Aug. 29, 2026
+ * @version Aug. 30, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMediaPdf {
@@ -187,7 +187,18 @@ private[cozy] object CozyMediaPdf {
     val resolved = descriptorroot.resolve(output).normalize()
     if (output.isAbsolute || !resolved.startsWith(descriptorroot))
       _invalid(s"Article PDF output escapes descriptor root: $resourceid")
+    _reject_symlinked_output_ancestors(descriptorroot, resolved, resourceid)
     resolved
+  }
+
+  private def _reject_symlinked_output_ancestors(descriptorroot: Path, output: Path, resourceid: String): Unit = {
+    val segments = descriptorroot.relativize(output).iterator()
+    var ancestor = descriptorroot
+    while (segments.hasNext) {
+      ancestor = ancestor.resolve(segments.next())
+      if (segments.hasNext && Files.isSymbolicLink(ancestor))
+        _invalid(s"Article PDF output has a symlinked ancestor below descriptor root: $resourceid")
+    }
   }
 
   private def _optional_field[A: Decoder](c: HCursor, field: String): Decoder.Result[Option[A]] =

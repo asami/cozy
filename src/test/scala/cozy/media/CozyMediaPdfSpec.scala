@@ -10,7 +10,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Aug. 29, 2026
- * @version Aug. 29, 2026
+ * @version Aug. 30, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyMediaPdfSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -82,6 +82,38 @@ final class CozyMediaPdfSpec extends AnyWordSpec with Matchers with GivenWhenThe
         failure.getMessage should include("Article PDF output escapes descriptor root")
         rendererinvoked shouldBe false
         Files.readString(escaped, StandardCharsets.US_ASCII) shouldBe "%PDF-1.7\nprevious"
+      }
+    }
+
+    "reject an article-PDF output with a symlinked in-root parent before renderer invocation" in {
+      _with_temp_dir("output-symlink-ancestor") { root =>
+        Given("an article-PDF descriptor whose lexically in-root output parent is a symlink to an external sibling directory")
+        val external = root.resolveSibling(root.getFileName.toString + "-external")
+        try {
+          _write(root.resolve("knowledge/article.dox"), "article")
+          _write_infographic(root)
+          _write_pdf(external.resolve("article-ja.pdf"), "external-previous")
+          Files.createDirectories(root.resolve("target"))
+          Files.createSymbolicLink(root.resolve("target/cozy-media"), external)
+          val descriptor = root.resolve("media.json")
+          _write(descriptor, _descriptor())
+          var rendererinvoked = false
+          val runner = new CozyMedia.ProcessRunner {
+            def run(command: Vector[String], workingdirectory: Path): Int = {
+              rendererinvoked = true
+              _write_pdf(Path.of(command(command.indexOf("--output") + 1)), "unexpected")
+              0
+            }
+          }
+
+          When("Cozy resolves the build plan before rendering")
+          val failure = intercept[Exception](CozyMedia.build(CozyMedia.CommandConfig(descriptor), runner))
+
+          Then("descriptor validation rejects the symlinked ancestor without invoking the renderer or replacing the external previous PDF")
+          failure.getMessage should include("Article PDF output has a symlinked ancestor below descriptor root")
+          rendererinvoked shouldBe false
+          Files.readString(external.resolve("article-ja.pdf"), StandardCharsets.US_ASCII) shouldBe "%PDF-1.7\nexternal-previous"
+        } finally _delete(external)
       }
     }
 

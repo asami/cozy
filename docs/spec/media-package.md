@@ -45,7 +45,8 @@ public path, or locale from a filename or path.
 
 Only `build: article-pdf` is implemented in this step. Its `source` is exactly
 the descriptor `knowledge.source`, its `output` is a declared direct regular
-PDF destination contained by the descriptor root after normalization, and its closed configuration has exactly `latexFormat`,
+PDF destination contained by the descriptor root after normalization with no
+existing symlinked ancestor below that root, and its closed configuration has exactly `latexFormat`,
 `infographic`, and `renderer`:
 
 ```yaml
@@ -76,8 +77,10 @@ input race preserves the previous output and creates no fresh receipt. Its
 resource entry continues to hold the accepted output hash. An absolute output
 is rejected during descriptor path resolution; an output whose normalized
 effective destination traverses or otherwise escapes the descriptor root is
-rejected with the stable Article PDF output-escapes-descriptor-root diagnostic.
-Each rejection occurs before renderer invocation, staging, or output replacement.
+rejected with the stable Article PDF output-escapes-descriptor-root diagnostic;
+and an output with an existing symlinked ancestor below that root is rejected
+by Article-PDF descriptor validation. Each rejection occurs before renderer
+invocation, staging, or output replacement.
 
 `summary_slides_pdf` is a declared public-resource role only in this step.
 Its Visual Page/slide-IR conversion, page verification, and any internal PPTX

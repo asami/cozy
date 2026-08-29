@@ -150,6 +150,36 @@ final class CozyMediaPdfReviewStateSpec extends AnyWordSpec with Matchers with G
         result should include("status: valid")
       }
     }
+
+    "require receipt and review state for selected public article-PDF preparation as PDF-only preflight evidence" in {
+      _with_temp_dir("publication-preflight") { root =>
+        Given("a selected public article PDF with neither current receipt nor PDF review-state evidence")
+        val descriptor = _write_public_article_fixture(root)
+        val config = CozyMedia.CommandConfig(descriptor, profile = Some("site"))
+        Files.createDirectories(root.resolve("publication"))
+
+        When("publication preparation is attempted before the selected article-PDF target is built")
+        val missingreceipt = intercept[RuntimeException](CozyMedia.preparePublication(config, force = true))
+
+        Then("the selected public PDF is rejected for absent receipt evidence")
+        missingreceipt.getMessage should include("Media publication receipt pre-commit validation failed: article-pdf")
+
+        When("the selected article-PDF target is built and its PDF review state is removed")
+        CozyMedia.build(config.copy(target = Some("article-pdf")))
+        Files.delete(root.resolve("target/cozy-media/pdf-review-state.json"))
+        val missingreviewstate = intercept[RuntimeException](CozyMedia.preparePublication(config, force = true))
+
+        Then("the selected public PDF is rejected for absent review-state evidence")
+        missingreviewstate.getMessage should include("Selected public PDF resources lack current cozy.media.pdf-review-state.v1 evidence: article-pdf")
+
+        When("the selected article-PDF target is rebuilt")
+        CozyMedia.build(config.copy(target = Some("article-pdf")))
+        val prepared = CozyMedia.preparePublication(config, force = true)
+
+        Then("the selected PDF preflight succeeds with current receipt and review-state evidence while image-only preparation remains outside this PDF-only contract")
+        prepared.map(_.resource.id) shouldBe Vector("article-pdf")
+      }
+    }
   }
 
   private def _write_article_fixture(root: Path): Path = {
@@ -162,6 +192,26 @@ final class CozyMediaPdfReviewStateSpec extends AnyWordSpec with Matchers with G
         |  "knowledge": {"id": "article/example", "source": "knowledge.dox"},
         |  "resources": [{
         |    "id": "article-pdf", "kind": "document", "language": "en", "source": "article.pdf", "build": "prebuilt",
+        |    "articleMedia": {"role": "article_pdf", "publicPath": "/articles/example/article.pdf", "mediaType": "application/pdf"}
+        |  }]
+        |}
+        |""".stripMargin
+    )
+    descriptor
+  }
+
+  private def _write_public_article_fixture(root: Path): Path = {
+    _write(root.resolve("knowledge.dox"), "knowledge")
+    _write_pdf(root.resolve("article.pdf"), 1, "article")
+    val descriptor = root.resolve("media.json")
+    _write(descriptor,
+      """{
+        |  "schema": "cozy.media.v1",
+        |  "knowledge": {"id": "article/example", "source": "knowledge.dox"},
+        |  "profiles": {"site": {"root": "publication"}},
+        |  "resources": [{
+        |    "id": "article-pdf", "kind": "document", "language": "en", "source": "article.pdf", "build": "prebuilt",
+        |    "publications": {"site": "articles/example/article.pdf"},
         |    "articleMedia": {"role": "article_pdf", "publicPath": "/articles/example/article.pdf", "mediaType": "application/pdf"}
         |  }]
         |}

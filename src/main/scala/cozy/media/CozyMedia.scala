@@ -20,7 +20,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Jul. 19, 2026
  *  version Jul. 20, 2026
- * @version Aug. 29, 2026
+ * @version Aug. 30, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMedia {
@@ -565,8 +565,14 @@ private[cozy] object CozyMedia {
     val candidates = selected.filter(_.publications.contains(profile))
     if (candidates.isEmpty)
       RAISE.invalidArgumentFault(s"No media resources publish to profile: $profile")
-    CozyMediaReceipt.requireCurrent(mediaplan, candidates)
-    CozyMediaPdfReviewState.requireCurrent(mediaplan, candidates)
+    val pdfcandidates = candidates.filter { resolved =>
+      resolved.resource.kind == "document" &&
+      resolved.resource.articleMedia.exists { media =>
+        media.role == "article_pdf" || media.role == "summary_slides_pdf"
+      }
+    }
+    CozyMediaReceipt.requireCurrent(mediaplan, pdfcandidates)
+    CozyMediaPdfReviewState.requireCurrent(mediaplan, pdfcandidates)
     _prepare_publications(mediaplan, candidates, profile, config.target, force)
   }
 

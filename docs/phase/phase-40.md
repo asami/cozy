@@ -1,6 +1,6 @@
 # Phase 40: Article and Summary Slide PDF Generation and Currentness
 
-Status: IN PROGRESS
+Status: COMPLETE — LOCAL RELEASE COMMIT PENDING
 
 Plan date: 2026-08-29
 
@@ -11,8 +11,9 @@ Dependencies:
 - the accepted SmartDox Phase 9 article-media PDF contract and usable
   development or release coordinate.
 
-Phase 40 is active. This plan does not alter the closed Phase 38, Phase 39,
-or Phase 39.1 boundaries.
+Phase 40 has passed its fresh final validation and awaits its distinct local
+release commit. This plan does not alter the closed Phase 38, Phase 39, or
+Phase 39.1 boundaries.
 
 ## Split Provenance
 
@@ -126,7 +127,7 @@ with no Current Boundary Blocker.
 ### PDF40-03: Summary Slide PDF Build
 
 Stage Status:
-- Current status: OPEN
+- Current status: COMPLETE
 - Owner: Cozy Phase 40
 - Update rule: Update when the PDF40-03 checklist state changes.
 
@@ -229,34 +230,124 @@ P40-03A implementation is confined to descriptor-driven Cozy generation: a
 to create a direct staged PDF and only requests an internal PPTX when the
 descriptor names its sidecar path. It does not call BoK publication or
 SmartDox registration. The direct descriptor-driven implementation is complete:
-`P40-03A-TEST-027` passed 45 executable specs (3 suites, 0 failed), and focused
+`P40-03A-TEST-028` passed 45 executable specs (3 suites, 0 failed), and focused
 closure re-review `P40-03A-RE-REVIEW-003` passed with all P40-03A blockers closed.
-The local P40-03 Step acceptance commit remains before the stage can close.
+The P40-03 Step acceptance commit
+`fa7233d4cbf24dcb33b3abe69f01b975796c84b3` completed the implementation, so
+P40-03 is complete. Phase 40 remains in progress pending its final full
+validation, independent Phase review, and release closure.
 
 ### PDF40-04: Package Verification and Currentness
 
 Stage Status:
-- Current status: OPEN
+- Current status: COMPLETE
 - Owner: Cozy Phase 40
 - Update rule: Update when the PDF40-04 checklist state changes.
 
-#### P40-04-CONT-001: Receipt and Review-State Boundary
+#### P40-04-DEC-001: Closed PDF Package Review State
 
-The summary-slides PDF must be a current presentation artifact and a current
-document resource at the same time. Its PDF bytes, page/order evidence, and
-presentation input set therefore belong to media-package receipt and
-presentation review-state currentness. Changing, deleting, or replacing the
-PDF must invalidate that evidence before it can support public-PDF delivery.
-The existing `cozy.media.cross-review.v1` remains a closed presentation and
-Storyboard currentness API: Phase 40 neither broadens it to PDF inspection nor
-introduces video or audiovisual approval.
+Status: ACCEPTED on 2026-08-30 — consumed once for Phase 40/P40-04.
 
-- Add both PDFs to media receipts, manifests, review state, and cross-artifact
-  verification.
-- Verify deterministic receipt identity, exact locale, public-PDF-only
-  delivery, and stale-input rejection without mutating a site registry.
-- Produce the frozen BoK-artifact receipt handoff that the later direct-
-  SmartDox adapter uses for normal and WIP site registration.
+Cozy records the current `article_pdf` and `summary_slides_pdf` document
+resources in a deterministic package-level `cozy.media.pdf-review-state.v1`
+state reconstructed from the existing media-package receipt and accepted
+artifacts. It does not introduce a new PDF receipt. The state binds each PDF's
+role, locale, public PDF path, output hash, and receipt identity; a direct
+summary-slides entry additionally binds its already-verified renderer-manifest
+identity. Existing `cozy.media.review-state.v1` and
+`cozy.media.cross-review.v1` remain presentation/video-only and unchanged.
+The new state performs currentness verification only: it neither publishes,
+registers with SmartDox, exposes PPTX, nor records semantic, visual, or
+audiovisual approval.
+
+Decision Resolution Record:
+
+- decision_id: `P40-04-DEC-001`
+- answer: user instruction on 2026-08-30: “review stateに記録するようにして”
+- selected option: add the deterministic receipt-derived PDF package review
+  state without expanding the presentation/video review-state or cross-review
+  APIs
+- affected scope: Cozy Phase 40 / P40-04 only
+- authorized next state: PLAN
+- consumed: true
+
+#### P40-04-CONT-001: Receipt-derived PDF Review-State Boundary
+
+The `article_pdf` and `summary_slides_pdf` resources remain current document
+resources whose receipt-v2 evidence is authoritative. Cozy reconstructs the
+closed PDF review state from the accepted candidate receipt; selected public
+PDF verification and publication preflight require that state without creating
+a second receipt. Direct summary-PDF entries bind the already verified
+renderer-manifest identity; prebuilt summaries keep ordinary receipt-derived
+currentness without direct renderer evidence. The existing
+`cozy.media.cross-review.v1` remains a closed presentation/Storyboard API and
+is not broadened to PDF inspection.
+
+The P40-04 implementation is complete. It records both PDF roles with exact
+locale, public path, output hash, and receipt input-set identity; it rejects
+stale output, locale, public-path, receipt, or direct-summary renderer
+evidence without site mutation. It also rejects an article-PDF output that
+escapes the descriptor root before renderer invocation or output replacement.
+Focused receipt `P40-04-TEST-007` passed 63 executable specifications in five
+suites with no failures, and focused closure re-review `P40-04-RE-REVIEW-001`
+closed both P40-04 Current Boundary Blockers. The local Step acceptance commit
+`77ab9d2dbf7aa58ca6563c33b1756396643c0566` contains the frozen implementation;
+Phase 40.1 alone owns normal/WIP registration and driver acceptance.
+
+## Phase Closure Record
+
+The independent Phase 40 review found one Current Phase Blocker and one
+nonblocking Hygiene item. `CPB-P40-001` found that an article-PDF output could
+lexically remain below the descriptor root while an existing intermediate
+ancestor symlink redirected rendering outside it. Phase repair cycle 1 rejects
+every existing symlinked ancestor below the descriptor root before directory
+creation, staging, renderer invocation, or output replacement. Its added
+Executable Specification proves no renderer call occurs and the external prior
+PDF remains unchanged. Focused receipt
+`p40-cpb001-val-001-20260829t213016z` passed all 15
+`CozyMediaPdfSpec` scenarios; the focused closure re-review sealed
+`CPB-P40-001` as CLOSED.
+
+`HYG-P40-001` remains intentionally OPEN in the canonical
+`docs/journal/2026/08/2026-08-30-phase-40-hygiene-follow-up.md`: it records
+only missing `which` chapter subdivisions in otherwise sound large Executable
+Specifications. It does not change this Phase's behavior, containment, or
+currentness guarantees.
+
+### P40-FINAL-CPB-001: Publication Currentness Integration
+
+Status: CLOSED — final full validation passed on 2026-08-30; local release commit pending.
+
+The one permitted final serialized Cozy suite
+`82822-20260829T214854Z` compiled successfully but failed 20 of 1,568 tests
+(1,548 succeeded; 8 canceled; 120 suites completed). The failures are limited
+to `CozyArticleMediaPublicationOrchestrationSpec`,
+`CozyArticleMediaInfographicCommandSpec`, and `CozyMediaPublicationSpec`.
+Their shared pre-commit path now rejects fixture resources such as `summary-ja`
+or `summary-en` through `CozyMediaReceipt.requireCurrent` before the existing
+publication checks can exercise their expected destination, symlink, stale,
+and build-manifest diagnostics. Because Phase 40 directly added PDF
+receipt/currentness state to this publication-adjacent boundary, the failure is
+a Current Phase Blocker rather than Hygiene.
+
+The user authorized `P40-FINAL-CPB-001` source/spec repair. The repair keeps
+the authoritative receipt and `cozy.media.pdf-review-state.v1` gates for
+selected qualifying document PDFs only: their article-media role is exactly
+`article_pdf` or `summary_slides_pdf`. Image-only public resources retain the
+prior publication-preparation path, while `CozyMedia.publish` remains
+unchanged. Focused receipt `89900-20260829T220058Z` passed 70 specifications
+in four suites with no failures, including the previously failing publication
+specifications and a PDF-only preflight scenario.
+
+The first focused review request was not a complete typed manifest and is a
+pre-review governance result, not a semantic re-review or a consumed repair
+cycle. The accepted `cncf.focused-rereview-manifest.v1` bundle
+`fa82c84b46ef13787ce5f89b50f80620916a5268022d807184f0b06e4fdadc99`
+then sealed this repair clean: `P40-FINAL-CPB-001` is CLOSED, no new Current
+Phase Blocker was found, and no second full Phase review is required. Fresh
+final receipt `18266-20260829T230400Z` then passed all 1,569 Cozy
+specifications in 120 suites with zero failures. The distinct local release
+commit is the remaining closure operation.
 
 ## Exclusions
 
@@ -288,12 +379,12 @@ PPTX as semantic authority.
 
 ## Completion Criteria
 
-Phase 40 completes only when both localized PDFs are reproducible current
+Phase 40 is complete when both localized PDFs are reproducible current
 media-package outputs, PPTX is not exposed as a public article download,
-receipts and review state reject stale inputs, focused and full Cozy validation
-pass, and independent Phase review closes all Current Boundary Blockers.
-Normal/WIP registration and the SimpleModeling.org driver acceptance are
-explicitly Phase 40.1 closure criteria, not evidence for this Phase.
+receipts and review state reject stale inputs, focused and final full Cozy
+validation pass, and independent Phase review closes all Current Boundary
+Blockers. Normal/WIP registration and the SimpleModeling.org driver acceptance
+are explicitly Phase 40.1 closure criteria, not evidence for this Phase.
 
 ## References
 

@@ -46,10 +46,12 @@ includes it through existing receipt-v2 automatic source evidence, and
 revalidates it before acceptance. Cozy appends only the accepted
 source/output/locale/LaTeX-format operands; it never passes the infographic
 path to the renderer. Its declared PDF destination must resolve within the
-descriptor root after normalization; an absolute destination is rejected during
-descriptor path resolution and a traversal/escape destination is rejected by the
-Article PDF root-boundary validation, both before renderer invocation, staging,
-or output replacement. It stages beside the declared PDF destination, validates a direct regular PDF and unchanged receipt inputs, then performs an atomic
+descriptor root after normalization and cannot have an existing symlinked
+ancestor below that root; an absolute destination is rejected during descriptor
+path resolution, while traversal/root escape and a symlinked ancestor are
+rejected by Article-PDF descriptor validation before renderer invocation,
+staging, or output replacement. It stages beside the declared PDF destination,
+validates a direct regular PDF and unchanged receipt inputs, then performs an atomic
 replacement. Thus a renderer failure, invalid staging result, or
 article/infographic source/configuration race cannot alter the previous output
 or make a new receipt visible. `summary_slides_pdf` retains its prebuilt route
