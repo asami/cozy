@@ -16,6 +16,26 @@ Media descriptors contain relative package paths and logical profile names. User
 
 Cozy receipt v2 is the ownership boundary for deterministic acceptance. Cozy captures declared and automatic input identities, producer identity, selected operation context, validated output hashes, and optional presentation subordinate artifacts after structural verification. It owns receipt serialization, target-entry merge, current-evidence admission, and pre-destination-write input revalidation. Acceptance prepares review-state and receipt documents first, installs state documents before receipt, and rolls back in-process installation failures; the receipt is the final visibility record.
 
+The package-owned `target/cozy-media/pdf-review-state.json` is a separate,
+closed `cozy.media.pdf-review-state.v1` projection of the candidate receipt
+manifest, not another receipt or descriptor setting. During normal media-build
+acceptance it is reconstructed from that exact merged candidate and current
+plan, then installed before the receipt. It records only currently valid public
+document PDFs with article-media roles `article_pdf` and `summary_slides_pdf`:
+knowledge, resource/role/locale/public path/media type, accepted relative
+output/hash, and receipt input-set identity. Direct `summary-slides-pdf` summary
+entries additionally bind the already verified renderer-manifest hash. Only that
+direct route requires the summary PDF structural verifier for page count/order/
+assets and current dependent receipts; a prebuilt `summary_slides_pdf` retains
+its ordinary receipt-derived role/path/hash currentness without renderer
+evidence or direct structural/dependency verification. This state neither
+duplicates nor weakens either contract. Exact reconstruction makes it a deterministic PDF-currentness guard
+for selected PDF verification and publication preflight, while receipt v2
+remains the authoritative resource-currentness check. Presentation-only slide
+operations, presentation/video review state, and cross-media review do not
+depend on it or change shape. It performs no SmartDox registration, publish,
+PPTX exposure, or semantic, visual, or audiovisual approval.
+
 Article PDF is a separate narrow adapter boundary. A resource explicitly marked
 by SmartDox role `article_pdf` names a current article source, one `ja` or `en`
 locale, a public PDF path, and an approved renderer argv. Its closed
@@ -25,8 +45,11 @@ That source is an explicit authority input: Cozy validates it before rendering,
 includes it through existing receipt-v2 automatic source evidence, and
 revalidates it before acceptance. Cozy appends only the accepted
 source/output/locale/LaTeX-format operands; it never passes the infographic
-path to the renderer. It stages beside the declared PDF destination, validates
-a direct regular PDF and unchanged receipt inputs, then performs an atomic
+path to the renderer. Its declared PDF destination must resolve within the
+descriptor root after normalization; an absolute destination is rejected during
+descriptor path resolution and a traversal/escape destination is rejected by the
+Article PDF root-boundary validation, both before renderer invocation, staging,
+or output replacement. It stages beside the declared PDF destination, validates a direct regular PDF and unchanged receipt inputs, then performs an atomic
 replacement. Thus a renderer failure, invalid staging result, or
 article/infographic source/configuration race cannot alter the previous output
 or make a new receipt visible. `summary_slides_pdf` retains its prebuilt route

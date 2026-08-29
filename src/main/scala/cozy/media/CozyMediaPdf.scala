@@ -66,6 +66,7 @@ private[cozy] object CozyMediaPdf {
     val configuration = resource.articlePdf.getOrElse(_invalid(s"Article PDF resource requires articlePdf configuration: ${resource.id}"))
     if (resource.kind != "document" || resource.source != Some(descriptor.knowledge.source) || resource.output.isEmpty || !resource.language.exists(Set("ja", "en")))
       _invalid(s"Article PDF resource requires document kind, direct knowledge.source, output, and language ja or en: ${resource.id}")
+    _descriptor_root_output(root, resource.output.get, resource.id)
     resource.articleMedia match {
       case Some(CozyMedia.ResourceArticleMedia("article_pdf", _, Some("application/pdf"), _, _, _)) => ()
       case _ => _invalid(s"Article PDF resource requires articleMedia.role article_pdf and application/pdf: ${resource.id}")
@@ -179,6 +180,15 @@ private[cozy] object CozyMediaPdf {
   }
 
   private def _direct_regular_file(path: Path): Boolean = path != null && !Files.isSymbolicLink(path) && Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)
+
+  private def _descriptor_root_output(root: Path, value: String, resourceid: String): Path = {
+    val output = Path.of(value)
+    val descriptorroot = root.toAbsolutePath.normalize()
+    val resolved = descriptorroot.resolve(output).normalize()
+    if (output.isAbsolute || !resolved.startsWith(descriptorroot))
+      _invalid(s"Article PDF output escapes descriptor root: $resourceid")
+    resolved
+  }
 
   private def _optional_field[A: Decoder](c: HCursor, field: String): Decoder.Result[Option[A]] =
     c.downField(field).success match {

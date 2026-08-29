@@ -45,7 +45,7 @@ public path, or locale from a filename or path.
 
 Only `build: article-pdf` is implemented in this step. Its `source` is exactly
 the descriptor `knowledge.source`, its `output` is a declared direct regular
-PDF destination, and its closed configuration has exactly `latexFormat`,
+PDF destination contained by the descriptor root after normalization, and its closed configuration has exactly `latexFormat`,
 `infographic`, and `renderer`:
 
 ```yaml
@@ -73,7 +73,11 @@ replaces the declared output only then. The existing receipt-v2 automatic
 source evidence therefore includes the selected infographic authority without
 a receipt schema change. Failure, invalid output, or an article/infographic
 input race preserves the previous output and creates no fresh receipt. Its
-resource entry continues to hold the accepted output hash.
+resource entry continues to hold the accepted output hash. An absolute output
+is rejected during descriptor path resolution; an output whose normalized
+effective destination traverses or otherwise escapes the descriptor root is
+rejected with the stable Article PDF output-escapes-descriptor-root diagnostic.
+Each rejection occurs before renderer invocation, staging, or output replacement.
 
 `summary_slides_pdf` is a declared public-resource role only in this step.
 Its Visual Page/slide-IR conversion, page verification, and any internal PPTX
@@ -111,6 +115,52 @@ The receipt input-set digest is SHA-256 of compact recursively key-sorted JSON c
 Every newly accepted resource entry in `target/cozy-media/manifest.json` retains the legacy `schema`, `knowledge`, and resource `id`/`path`/`sha256` fields, and adds a `receipt` with schema `cozy.media.receipt.v2`, `inputSetSha256`, sorted `inputs`, `producer`, operation `{name:"cozy media build"}` plus selected target/effective profile when present, UTC ISO-8601 `acceptedAt`, and `{status:"valid",findings:[]}` verification. The output SHA-256 remains the exact accepted output-file digest. Cozy prepares selected review states and this receipt before any acceptance write, installs states first, and makes the receipt the final visibility record; in-process failure restores prior bytes/existence. Dry run and failing work do not expose a fresh receipt.
 
 Freshness is content-based, not mtime-based. A resource is Current only when its output exists, its v2 receipt is well formed, the manifest output path/hash match, and the full producer/input evidence recomputes to the recorded input-set digest. `copy` and `svg-to-png` rebuild when this evidence is absent or mismatched; `video-project` delegates when mismatched; matching video evidence is Current. A target build replaces only selected manifest entries and preserves unselected entries and their prior evidence without re-accepting them. The full input identity is captured again after selected work; a change rejects the build without fresh evidence.
+
+### PDF review currentness state
+
+`target/cozy-media/pdf-review-state.json` is a package-owned, receipt-derived
+currentness document with the exact closed schema
+`cozy.media.pdf-review-state.v1`. It has no descriptor configuration and is
+prepared from the same merged candidate `cozy.media.v1` manifest that a normal
+`cozy media build` atomically accepts. Acceptance installs it before the final
+receipt through the existing rollback-safe receipt transaction. An absent state
+target is created only when the candidate has at least one current qualifying
+PDF resource; an existing target must be a direct regular non-symlink file.
+
+Its exact ordered object is `schema`, `knowledge`, and `resources`. Resources
+are ordered by `(role,id)` and each is exactly `id`, `role`, `language`,
+`publicPath`, `mediaType`, `output`, `sha256`, and `inputSetSha256`; a
+direct `build: summary-slides-pdf` `summary_slides_pdf` entry additionally has
+`rendererManifestSha256`. Entries
+are projections only of current `kind: document` resources whose
+`articleMedia.role` is exactly `article_pdf` or `summary_slides_pdf`; `language`
+is the exact `ja` or `en` locale, `mediaType` is exactly `application/pdf`, and
+all paths are descriptor-relative forward-slash spellings. The state binds the
+knowledge identity, accepted resource output path/hash, public path, and the
+resource receipt input-set digest without serializing a source-machine path.
+
+For a direct `build: summary-slides-pdf` summary-slides entry Cozy first
+requires its current dependency receipts and the existing
+`CozyMediaSummarySlidesPdf.verifyStructural` proof. Its renderer-manifest byte
+SHA-256 is then bound in this state; page count, source page order, and asset
+evidence remain exclusively validated by that structural proof. A prebuilt
+`summary_slides_pdf` instead retains ordinary receipt-derived role, path, hash,
+and currentness evidence without a `rendererManifestSha256` field or direct
+summary dependency/structural verification. Exact reconstruction rejects a
+missing, malformed, stale, altered, or unexpected state entry, changed
+output/locale/public path/media type/receipt, or changed direct-summary renderer
+evidence. A stale retained summary is omitted by a target article-PDF refresh
+rather than blessed, and a later valid summary refresh may restore both roles.
+
+This state adds PDF review/currentness only; `CozyMediaReceipt.current` remains
+the authoritative receipt-currentness check. Normal `cozy media verify` and
+publication preflight require the state only when their selected resources are
+qualifying PDFs. `cozy media slide build` remains presentation-only and neither
+writes nor requires it. The state is not a receipt and does not change the
+`cozy.media.v1`, `cozy.media.receipt.v2`, `cozy.media.review-state.v1`, or
+`cozy.media.cross-review.v1` shapes. It performs no registration, publishing,
+SmartDox action, PPTX exposure, semantic approval, visual approval, or
+audiovisual approval.
 
 `prebuilt` uses explicit adoption. The first explicit build with no prior entry may establish a receipt baseline for its current direct regular output. When a prior v1 or v2 entry has the same output hash but inputs have changed, Cozy rejects it as stale rather than blessing it. A changed prebuilt output hash may be accepted as an externally refreshed output. Missing prebuilt source remains MissingSource.
 

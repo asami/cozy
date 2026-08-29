@@ -112,6 +112,8 @@ private[cozy] object CozyMediaReceipt {
   final case class Manifest(knowledge: String, resources: Vector[ManifestEntry])
   /** A fully validated acceptance document which has not yet been made visible. */
   final case class PreparedDocument(path: Path, bytes: Array[Byte])
+  /** Candidate receipt manifest and its final acceptance document. */
+  final case class PreparedAcceptance(manifest: Manifest, document: PreparedDocument)
 
   private val _schema = "cozy.media.v1"
   private val _receipt_schema = "cozy.media.receipt.v2"
@@ -281,7 +283,16 @@ private[cozy] object CozyMediaReceipt {
     selected: Vector[CozyMedia.ResolvedResource],
     captured: Captured,
     target: Option[String]
-  ): PreparedDocument = {
+  ): PreparedDocument =
+    prepareAcceptance(plan, selected, captured, target).document
+
+  /** Prepares the candidate manifest and its receipt without modifying either target. */
+  def prepareAcceptance(
+    plan: CozyMedia.Plan,
+    selected: Vector[CozyMedia.ResolvedResource],
+    captured: Captured,
+    target: Option[String]
+  ): PreparedAcceptance = {
     val receiptvalue = receipt(captured, target, plan.effectiveProfile.map(_.id))
     val selectedids = selected.map(_.resource.id).toSet
     if (selectedids.size != selected.size)
@@ -314,8 +325,29 @@ private[cozy] object CozyMediaReceipt {
       "knowledge" -> Json.fromString(plan.descriptor.knowledge.id),
       "resources" -> Json.fromValues(merged.map(_entry_json))
     )
-    PreparedDocument(_manifest_path(plan), (json.spaces2 + "\n").getBytes(StandardCharsets.UTF_8))
+    PreparedAcceptance(
+      Manifest(plan.descriptor.knowledge.id, merged),
+      PreparedDocument(_manifest_path(plan), (json.spaces2 + "\n").getBytes(StandardCharsets.UTF_8))
+    )
   }
+
+  private[cozy] def candidateCurrent(
+    plan: CozyMedia.Plan,
+    resolved: CozyMedia.ResolvedResource,
+    entry: ManifestEntry,
+    captured: Captured
+  ): Boolean =
+    try {
+      val output = _output(resolved).getOrElse(return false)
+      Files.isRegularFile(output) &&
+        entry.id == resolved.resource.id &&
+        entry.path == _relative_from_path(plan.descriptorRoot, output, "Media receipt output") &&
+        entry.sha256 == _sha256(output) &&
+        entry.receipt.exists(receipt => _receipt_current(receipt, captured)) &&
+        (if (resolved.resource.build == "presentation") CozyMediaPresentation.currentArtifactEvidence(plan, resolved, entry) else entry.artifacts.isEmpty)
+    } catch {
+      case NonFatal(_) => false
+    }
 
   /**
    * Makes prepared review states visible before the receipt, which is the sole

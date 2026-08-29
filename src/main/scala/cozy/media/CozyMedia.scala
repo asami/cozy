@@ -501,8 +501,9 @@ private[cozy] object CozyMedia {
       if (plannedidentity.exists(_.inputSetSha256 != acceptedidentity.inputSetSha256))
         RAISE.invalidArgumentFault("Media receipt inputs changed during selected build; no fresh acceptance evidence was written")
       val reviewstates = selected.filter(_.resource.build == "presentation").map(resolved => CozyMediaReviewState.prepareRefresh(mediaplan, resolved))
-      val receipt = CozyMediaReceipt.prepare(mediaplan, selected, acceptedidentity, config.target)
-      CozyMediaReceipt.commit(reviewstates, receipt)
+      val acceptance = CozyMediaReceipt.prepareAcceptance(mediaplan, selected, acceptedidentity, config.target)
+      val pdfreviewstate = CozyMediaPdfReviewState.prepare(mediaplan, acceptance.manifest, selected, acceptedidentity)
+      CozyMediaReceipt.commit(reviewstates ++ pdfreviewstate.toVector, acceptance.document)
     }
     (Vector("Cozy Media Build", s"descriptor: ${mediaplan.descriptorFile}") ++ results.map(x => s"  - $x")).mkString("\n")
   }
@@ -536,7 +537,10 @@ private[cozy] object CozyMedia {
         _prepare_publications(mediaplan, candidates, profile, config.target, force = true)
       }
     if (!config.dryRun)
-      commitPublication(prepared, () => CozyMediaReceipt.requireCurrent(mediaplan, candidates))
+      commitPublication(prepared, () => {
+        CozyMediaReceipt.requireCurrent(mediaplan, candidates)
+        CozyMediaPdfReviewState.requireCurrent(mediaplan, candidates)
+      })
     val results =
       if (config.dryRun)
         candidates.map { resolved =>
@@ -561,6 +565,8 @@ private[cozy] object CozyMedia {
     val candidates = selected.filter(_.publications.contains(profile))
     if (candidates.isEmpty)
       RAISE.invalidArgumentFault(s"No media resources publish to profile: $profile")
+    CozyMediaReceipt.requireCurrent(mediaplan, candidates)
+    CozyMediaPdfReviewState.requireCurrent(mediaplan, candidates)
     _prepare_publications(mediaplan, candidates, profile, config.target, force)
   }
 
@@ -949,6 +955,12 @@ private[cozy] object CozyMedia {
       val receiptfindings =
         if (requirereceipt && !CozyMediaReceipt.current(plan, resolved)) Vector(s"${resource.id}: missing or stale cozy.media.receipt.v2 evidence")
         else Vector.empty
+      val pdfreviewstatefindings =
+        if (requirereceipt) try {
+          CozyMediaPdfReviewState.requireCurrent(plan, Vector(resolved))
+          Vector.empty
+        } catch { case NonFatal(e) => Vector(s"${resource.id}: PDF review-state verification failed: ${e.getMessage}") }
+        else Vector.empty
       val presentationfindings =
         if (resource.build == "presentation") try {
           if (requirereceipt)
@@ -966,7 +978,7 @@ private[cozy] object CozyMedia {
           Vector.empty
         } catch { case NonFatal(e) => Vector(s"${resource.id}: summary-slides PDF verification failed: ${e.getMessage}") }
         else Vector.empty
-      sourcefindings ++ outputfindings ++ publicationfindings ++ receiptfindings ++ presentationfindings ++ summaryfindings
+      sourcefindings ++ outputfindings ++ publicationfindings ++ receiptfindings ++ pdfreviewstatefindings ++ presentationfindings ++ summaryfindings
     }
   }
 

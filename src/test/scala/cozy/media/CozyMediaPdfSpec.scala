@@ -57,6 +57,34 @@ final class CozyMediaPdfSpec extends AnyWordSpec with Matchers with GivenWhenThe
       }
     }
 
+    "reject an article-PDF output that escapes the descriptor root before renderer invocation" in {
+      _with_temp_dir("output-escape") { root =>
+        Given("an article-PDF descriptor whose declared output traverses outside its descriptor root")
+        _write(root.resolve("knowledge/article.dox"), "article")
+        _write_infographic(root)
+        val escaped = root.getParent.resolve(root.getFileName.toString + "-escaped.pdf")
+        _write_pdf(escaped, "previous")
+        val descriptor = root.resolve("media.json")
+        _write(descriptor, _descriptor(articleoutput = "../" + escaped.getFileName.toString))
+        var rendererinvoked = false
+        val runner = new CozyMedia.ProcessRunner {
+          def run(command: Vector[String], workingdirectory: Path): Int = {
+            rendererinvoked = true
+            _write_pdf(Path.of(command(command.indexOf("--output") + 1)), "unexpected")
+            0
+          }
+        }
+
+        When("Cozy resolves the build plan before rendering")
+        val failure = intercept[Exception](CozyMedia.build(CozyMedia.CommandConfig(descriptor), runner))
+
+        Then("descriptor validation rejects the escape without invoking the renderer or mutating the outside destination")
+        failure.getMessage should include("Article PDF output escapes descriptor root")
+        rendererinvoked shouldBe false
+        Files.readString(escaped, StandardCharsets.US_ASCII) shouldBe "%PDF-1.7\nprevious"
+      }
+    }
+
     "reject missing, unknown, wrong-kind, wrong-role, and cross-locale infographic bindings" in {
       _with_temp_dir("infographic-binding") { root =>
         Given("a direct Japanese article source and a declared Japanese infographic authority")
@@ -351,6 +379,7 @@ final class CozyMediaPdfSpec extends AnyWordSpec with Matchers with GivenWhenThe
 
   private def _descriptor(
     version: String = "2.4.18-SNAPSHOT",
+    articleoutput: String = "target/cozy-media/article-ja.pdf",
     articleinfographic: String = "infographic-ja",
     infographickind: String = "infographic",
     infographicrole: String = "infographic",
@@ -364,7 +393,7 @@ final class CozyMediaPdfSpec extends AnyWordSpec with Matchers with GivenWhenThe
        |  "knowledge": {"id": "development-process/example", "source": "knowledge/article.dox"},
        |  "resources": [{
        |    "id": "article-pdf-ja", "kind": "document", "language": "ja",
-       |    "source": "knowledge/article.dox", "output": "target/cozy-media/article-ja.pdf", "build": "article-pdf",
+       |    "source": "knowledge/article.dox", "output": "$articleoutput", "build": "article-pdf",
        |    "articleMedia": {"role": "article_pdf", "publicPath": "/articles/example/article-ja.pdf", "mediaType": "application/pdf", "label": "Article PDF"},
        |    "articlePdf": {"latexFormat": "business", "infographic": "$articleinfographic", "renderer": {"name": "smartdox-pdf", "version": "$version", "command": ["smartdox", "pdf"]}}
        |  }, {
