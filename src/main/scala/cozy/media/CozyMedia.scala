@@ -20,8 +20,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Jul. 19, 2026
  *  version Jul. 20, 2026
- *  version Aug. 28, 2026
- * @version Aug. 28, 2026
+ * @version Aug. 29, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMedia {
@@ -80,19 +79,11 @@ private[cozy] object CozyMedia {
     publicPath: Option[String],
     mediaType: Option[String],
     alt: Option[String],
-    production: Option[String]
+    production: Option[String],
+    label: Option[String] = None
   )
   object ResourceArticleMedia {
-    implicit val decoder: Decoder[ResourceArticleMedia] = (c: HCursor) =>
-      for {
-        _ <- _require_article_media_object(c)
-        role <- c.downField("role").as[String]
-        _ <- _require_resource_article_media_keys(c, role)
-        publicpath <- _optional_article_media_field[String](c, "publicPath")
-        mediatype <- _optional_article_media_field[String](c, "mediaType")
-        alt <- _optional_article_media_field[String](c, "alt")
-        production <- _optional_article_media_field[String](c, "production")
-      } yield ResourceArticleMedia(role, publicpath, mediatype, alt, production)
+    implicit val decoder: Decoder[ResourceArticleMedia] = CozyMediaPdf._resource_article_media_decoder
   }
 
   final case class Resource(
@@ -108,7 +99,8 @@ private[cozy] object CozyMedia {
     project: Option[String],
     publications: Map[String, String],
     articleMedia: Option[ResourceArticleMedia] = None,
-    presentation: Option[CozyMediaPresentation.ResourceConfig] = None
+    presentation: Option[CozyMediaPresentation.ResourceConfig] = None,
+    articlePdf: Option[CozyMediaPdf.Config] = None
   )
   object Resource {
     implicit val decoder: Decoder[Resource] = (c: HCursor) =>
@@ -125,8 +117,9 @@ private[cozy] object CozyMedia {
         project <- c.downField("project").as[Option[String]]
         publications <- c.downField("publications").as[Option[Map[String, String]]]
         articlemedia <- _optional_article_media_field[ResourceArticleMedia](c, "articleMedia")
+        articlepdf <- _optional_article_media_field[CozyMediaPdf.Config](c, "articlePdf")
         presentation <- _optional_article_media_field[CozyMediaPresentation.ResourceConfig](c, "presentation")
-      } yield Resource(id, kind, language, role, source, output, build.getOrElse("copy"), width, height, project, publications.getOrElse(Map.empty), articlemedia, presentation)
+      } yield Resource(id, kind, language, role, source, output, build.getOrElse("copy"), width, height, project, publications.getOrElse(Map.empty), articlemedia, presentation, articlepdf)
   }
 
   final case class Descriptor(
@@ -318,7 +311,7 @@ private[cozy] object CozyMedia {
   private val _p_profile = spec.Parameter.property("profile")
   private val _p_dry_run = spec.Parameter("dry-run", spec.Parameter.SwitchKind)
   private val _schema = "cozy.media.v1"
-  private val _build_kinds = Set("copy", "svg-to-png", "prebuilt", "video-project", "presentation")
+  private val _build_kinds = Set("copy", "svg-to-png", "prebuilt", "video-project", "presentation", "article-pdf")
   private val _property_options = Set("target", "profile")
   private val _publication_layer_names = Vector("built-in", "user", "project-conf", "project-local", "package-conf", "package-local")
 
@@ -344,30 +337,6 @@ private[cozy] object CozyMedia {
         else Left(io.circe.DecodingFailure("media profile permits only root and rootEnv", c.history))
       case None => Left(io.circe.DecodingFailure("media profile must be an object", c.history))
     }
-
-  private def _require_article_media_object(c: HCursor): Decoder.Result[Unit] =
-    c.value.asObject match {
-      case Some(_) => Right(())
-      case None => Left(io.circe.DecodingFailure("articleMedia must be an object", c.history))
-    }
-
-  private def _require_resource_article_media_keys(c: HCursor, role: String): Decoder.Result[Unit] = {
-    val keys = c.value.asObject.map(_.keys.toSet).getOrElse(
-      return Left(io.circe.DecodingFailure("articleMedia must be an object", c.history))
-    )
-    role match {
-      case "infographic" =>
-        val required = Set("role", "publicPath")
-        val allowed = required ++ Set("mediaType", "alt")
-        if (required.subsetOf(keys) && keys.subsetOf(allowed)) Right(())
-        else Left(io.circe.DecodingFailure("articleMedia infographic requires role and publicPath and permits only mediaType and alt", c.history))
-      case "video" =>
-        val expected = Set("role", "production")
-        if (keys == expected) Right(())
-        else Left(io.circe.DecodingFailure("articleMedia video requires exactly role and production", c.history))
-      case _ => Left(io.circe.DecodingFailure("articleMedia role must be infographic or video", c.history))
-    }
-  }
 
   def execute(args: List[String]): Boolean = execute(args, ProcessRunner.default)
 
@@ -673,17 +642,23 @@ private[cozy] object CozyMedia {
       if (!Set("video-project", "prebuilt").contains(resource.build) && (resource.source.isEmpty || resource.output.isEmpty))
         RAISE.invalidArgumentFault(s"Media resource requires source and output: ${resource.id}")
       resource.articleMedia.foreach {
-        case ResourceArticleMedia("infographic", publicpath, _, _, _) =>
+        case ResourceArticleMedia("infographic", publicpath, _, _, _, _) =>
           _validate_article_media_value(publicpath.getOrElse(""), s"Media resource ${resource.id} articleMedia.publicPath")
           if (resource.kind != "infographic")
             RAISE.invalidArgumentFault(s"Media resource ${resource.id} articleMedia infographic requires kind: infographic")
-        case ResourceArticleMedia("video", _, _, _, production) =>
+        case ResourceArticleMedia("video", _, _, _, production, _) =>
           _validate_article_media_value(production.getOrElse(""), s"Media resource ${resource.id} articleMedia.production")
           if (resource.kind != "video")
             RAISE.invalidArgumentFault(s"Media resource ${resource.id} articleMedia video requires kind: video")
+        case media @ ResourceArticleMedia("article_pdf" | "summary_slides_pdf", _, _, _, _, _) =>
+          CozyMediaPdf.validateArticleMedia(resource, media)
         case _ =>
           RAISE.invalidArgumentFault(s"Media resource ${resource.id} articleMedia role is invalid")
       }
+      if (resource.build == "article-pdf")
+        CozyMediaPdf.validateDescriptor(descriptor, resource, Option(descriptorfile.getParent).getOrElse(Paths.get(".").toAbsolutePath.normalize()))
+      else if (resource.articlePdf.nonEmpty)
+        RAISE.invalidArgumentFault(s"Only article-pdf build resources may declare articlePdf configuration: ${resource.id}")
       resource.publications.keys.foreach { profile =>
         if (!profiles.contains(profile))
           _missing_publication_profile(
@@ -905,6 +880,8 @@ private[cozy] object CozyMedia {
               RAISE.invalidArgumentFault(s"rsvg-convert failed for ${resolved.resource.id}: exit=$code")
           case "presentation" =>
             return CozyMediaPresentation.build(plan, resolved, runner)
+          case "article-pdf" =>
+            return CozyMediaPdf.build(plan, resolved, runner)
           case other =>
             RAISE.invalidArgumentFault(s"Unsupported executable media build kind: $other")
         }

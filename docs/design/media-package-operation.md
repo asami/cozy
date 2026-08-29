@@ -16,6 +16,19 @@ Media descriptors contain relative package paths and logical profile names. User
 
 Cozy receipt v2 is the ownership boundary for deterministic acceptance. Cozy captures declared and automatic input identities, producer identity, selected operation context, validated output hashes, and optional presentation subordinate artifacts after structural verification. It owns receipt serialization, target-entry merge, current-evidence admission, and pre-destination-write input revalidation. Acceptance prepares review-state and receipt documents first, installs state documents before receipt, and rolls back in-process installation failures; the receipt is the final visibility record.
 
+Article PDF is a separate narrow adapter boundary. A resource explicitly marked
+by SmartDox role `article_pdf` names a current article source, one `ja` or `en`
+locale, a public PDF path, and an approved renderer argv; Cozy appends only the
+accepted source/output/locale/LaTeX-format operands. It stages beside the
+declared PDF destination, validates a direct regular PDF and unchanged receipt
+inputs, then performs an atomic replacement. Thus a renderer failure, invalid
+staging result, or source/configuration race cannot alter the previous output
+or make a new receipt visible. `summary_slides_pdf` is an explicit resource
+grammar discriminator but has no conversion route in this boundary: later work
+owns Visual Page/slide-IR conversion and internal-PPTX handling. This leaves
+the existing presentation `articlePdf` dependency and receipt v2 schema
+unchanged.
+
 Presentation is an adapter boundary: Cozy owns semantic-IR validation and invokes an approved external renderer by a configured argv vector, but never designs a layout or interpolates a shell command. The only presentation profile is `business`. The renderer manifest is untrusted evidence until Cozy checks collision-free descriptor-relative paths, IR/template/PPTX hashes, secure relationship-driven OOXML structure/text/per-slide media, and PNG evidence. Cozy reconstructs the deterministic cross-artifact review manifest exactly before recording only the explicit `article` or `slide-ir` alignment decision. A build can refresh current evidence but cannot alter the last approved semantic alignment; changed inputs or artifacts make the state stale. This keeps PPTX a distribution product rather than a semantic authority.
 
 ## Visual Page presentation coexistence

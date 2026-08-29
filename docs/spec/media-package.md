@@ -34,6 +34,42 @@ resources:
 
 Paths are resolved relative to the descriptor. Absolute publication paths are rejected. Machine-specific archive roots belong in profile configuration and not in a Media Package.
 
+### Article PDF resources
+
+`articleMedia.role` has two additive SmartDox PDF discriminators: exactly
+`article_pdf` and `summary_slides_pdf`. Each is a `kind: document` resource
+with `language: ja` or `en`, a direct explicit site-visible `articleMedia.publicPath`,
+and `articleMedia.mediaType: application/pdf`; `articleMedia.label` is optional
+but, when present, is a nonblank exact value. Cozy never infers a PDF role,
+public path, or locale from a filename or path.
+
+Only `build: article-pdf` is implemented in this step. Its `source` is exactly
+the descriptor `knowledge.source`, its `output` is a declared direct regular
+PDF destination, and its closed configuration is:
+
+```yaml
+articlePdf:
+  latexFormat: business # standard | business
+  renderer:
+    name: smartdox-pdf
+    version: 2.4.18-SNAPSHOT
+    command: [smartdox]
+```
+
+The renderer command is the configured exact argv tokens followed without a
+shell by `<source> --output <staged-output> --locale <ja|en> --latex-format
+<standard|business>`. Cozy accepts only a zero-exit direct regular `%PDF-`
+staged file, rechecks full receipt input identity, and atomically replaces the
+declared output only then. Failure, invalid output, or an input race preserves
+the previous output and creates no fresh receipt. Existing receipt v2 input
+evidence captures the descriptor and source configuration; its resource entry
+continues to hold the accepted output hash without a schema change.
+
+`summary_slides_pdf` is a declared public-resource role only in this step.
+Its Visual Page/slide-IR conversion, page verification, and any internal PPTX
+handling are a later Phase 40 handoff; this route neither converts nor exposes
+a public PPTX.
+
 ### Receipt Evidence
 
 `cozy.media.v1` remains the descriptor schema. Additive presentation fields preserve every legacy descriptor. A descriptor may add one strict optional `receipt` block and a profile may add a strict optional `presentation` block:

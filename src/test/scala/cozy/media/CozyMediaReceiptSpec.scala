@@ -11,7 +11,7 @@ import io.circe.parser.parse
 
 /*
  * @since   Aug. 25, 2026
- * @version Aug. 25, 2026
+ * @version Aug. 29, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -93,6 +93,35 @@ final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhe
 
         Then("planning rebuilds on the receipt content identity")
         CozyMedia.plan(CozyMedia.CommandConfig(descriptor)) should include("example: build")
+      }
+    }
+
+    "retain the v2 receipt shape for an accepted article-PDF output" in {
+      _with_temp_dir("article-pdf-shape") { root =>
+        Given("a localized article PDF resource using the existing receipt acceptance route")
+        _write(root.resolve("knowledge/article.dox"), "knowledge")
+        val descriptor = root.resolve("media.json")
+        _write(descriptor, _article_pdf_descriptor)
+        val runner = new CozyMedia.ProcessRunner {
+          def run(command: Vector[String], workingdirectory: Path): Int = {
+            _write(Path.of(command(command.indexOf("--output") + 1)), "%PDF-1.7\naccepted")
+            0
+          }
+        }
+
+        When("Cozy accepts the renderer output")
+        CozyMedia.build(CozyMedia.CommandConfig(descriptor), runner)
+        val resource = _manifest_resource_json(root.resolve("target/cozy-media/manifest.json"), "article-pdf-ja")
+
+        Then("the existing manifest and receipt schemas remain unchanged while storing the PDF hash")
+        resource.asObject.map(_.keys.toSet) shouldBe Some(Set("id", "path", "sha256", "receipt"))
+        resource.hcursor.downField("receipt").get[String]("schema").toOption shouldBe Some("cozy.media.receipt.v2")
+
+        When("the accepted output bytes change")
+        _write(root.resolve("target/cozy-media/article-ja.pdf"), "%PDF-1.7\nchanged")
+
+        Then("a changed accepted output is stale under the same receipt model")
+        CozyMedia.plan(CozyMedia.CommandConfig(descriptor)) should include("article-pdf-ja: build")
       }
     }
 
@@ -248,6 +277,19 @@ final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhe
       |  "resources": [
       |    {"id": "prebuilt", "kind": "document", "source": "prebuilt.txt", "build": "prebuilt"}
       |  ]
+      |}
+       |""".stripMargin
+
+  private def _article_pdf_descriptor: String =
+    """{
+      |  "schema": "cozy.media.v1",
+      |  "knowledge": {"id": "development-process/example", "source": "knowledge/article.dox"},
+      |  "resources": [{
+      |    "id": "article-pdf-ja", "kind": "document", "language": "ja",
+      |    "source": "knowledge/article.dox", "output": "target/cozy-media/article-ja.pdf", "build": "article-pdf",
+      |    "articleMedia": {"role": "article_pdf", "publicPath": "/articles/example/article-ja.pdf", "mediaType": "application/pdf"},
+      |    "articlePdf": {"latexFormat": "business", "renderer": {"name": "smartdox-pdf", "version": "2.4.18-SNAPSHOT", "command": ["smartdox"]}}
+      |  }]
       |}
       |""".stripMargin
 

@@ -13,7 +13,7 @@ import org.goldenport.io.InputSource
 /*
  * @since   Jul. 19, 2026
  *  version Jul. 20, 2026
- * @version Aug. 25, 2026
+ * @version Aug. 29, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyMediaSpec
@@ -574,6 +574,9 @@ final class CozyMediaSpec
             Some(CozyMedia.ResourceArticleMedia("infographic", Some("/articles/development-process/part-5/summary.png"), Some("image/png"), Some("Part 5 summary"), None))
           decoded.resources.find(_.id == "part-5-video").flatMap(_.articleMedia) shouldBe
             Some(CozyMedia.ResourceArticleMedia("video", None, None, None, Some("part-5-video-ja")))
+
+          And("legacy infographic and video resources retain no article-PDF build configuration")
+          decoded.resources.map(_.articlePdf) shouldBe Vector(None, None)
         }
       }
 
