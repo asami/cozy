@@ -3,7 +3,7 @@ package cozy.scaffold
 /*
  * @since   Aug. 25, 2026
  *  version Aug. 25, 2026
- * @version Aug. 28, 2026
+ * @version Aug. 29, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyHelpText {
@@ -17,6 +17,8 @@ private[cozy] object CozyHelpText {
       |
       |  version, --version
       |      Show the Cozy runtime version and exit.
+      |
+      |  pdf <input> (use `cozy pdf --help` for PDF options and formats).
       |
       |  init component --save <dir> [--config <file>] [--name <artifact>] [--component-name <name>|--component <name>] [--service-name <name>] [--entity <name>] [--command-operation <name>] [--query-operation <name>] [--display-name <title>] [--organization <organization>] [--package <package>] [--version <version>] [--kind car|car-sar] [--bounded-context <name>] [--domain <name>] [--gitignore] [--readme] [--tests] [--mcp-ready-service] [--no-project-files] [--overwrite-project-files]
       |    canonical identity keys: project.namespace, project.id
@@ -276,5 +278,23 @@ private[cozy] object CozyHelpText {
       |      Start the Cozy web server.
       |
       |With no arguments, cozy starts the interactive REPL.
+      |""".stripMargin
+
+  private[cozy] val _pdf_text: String =
+    """Usage:
+      |  cozy pdf <input> [--output <file>] [--renderer <name>] [--latex-format <format>]
+      |
+      |Render the required SmartDox document input as a PDF.
+      |
+      |Options:
+      |  <input>
+      |      Required SmartDox document input.
+      |  --output <file>
+      |      Write the PDF to the selected output file.
+      |  --renderer <name>
+      |      Select the SmartDox PDF renderer.
+      |  --latex-format <format>
+      |      Select the canonical LaTeX format: standard or business.
+      |      This is a SmartDox PDF renderer format, not Cozy Media --profile.
       |""".stripMargin
 }

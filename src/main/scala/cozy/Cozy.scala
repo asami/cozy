@@ -47,7 +47,7 @@ class Cozy(
 
   def run(args: Array[String]) {
     if (_is_help_request(args))
-      println(Cozy._help_text)
+      println(_help_text_for(args))
     else {
       val effectiveargs = _operation_config_args(args.toList).toArray
       val call = _operation_call(effectiveargs)
@@ -194,7 +194,18 @@ class Cozy(
       case "--help" :: Nil => true
       case "-h" :: Nil => true
       case "help" :: Nil => true
+      case "pdf" :: "--help" :: Nil => true
+      case "pdf" :: "-h" :: Nil => true
+      case "help" :: "pdf" :: Nil => true
       case _ => false
+    }
+
+  private def _help_text_for(args: Array[String]): String =
+    args.toList match {
+      case "pdf" :: "--help" :: Nil => Cozy._pdf_help_text
+      case "pdf" :: "-h" :: Nil => Cozy._pdf_help_text
+      case "help" :: "pdf" :: Nil => Cozy._pdf_help_text
+      case _ => Cozy._help_text
     }
 
   private def _operation_call(args: Array[String]): OperationCall = {
@@ -221,7 +232,11 @@ class Cozy(
 
   private def _operation_config_args(command: String, args: List[String]): List[String] =
     command match {
-      case "pdf" => CozyOperationConfig._with_pdf_defaults(args)
+      case "pdf" => {
+        val effectiveargs = CozyOperationConfig._with_pdf_defaults(args)
+        CozyOperationConfig._validate_pdf_options(effectiveargs)
+        effectiveargs
+      }
       case _ => args
     }
 
@@ -1225,6 +1240,7 @@ object Cozy {
   private[cozy] def _car_run_server_debug_script(): String = CozyScaffold.carRunServerDebugScript()
   private[cozy] def _car_launcher_script(): String = CozyScaffold.carLauncherScript()
   private[cozy] val _help_text: String = CozyScaffold.helpText
+  private[cozy] val _pdf_help_text: String = cozy.scaffold.CozyHelpText._pdf_text
 
   val cozyServiceClass: CozyRuntime.CozyServiceClass.type = CozyRuntime.CozyServiceClass
   val cozyOperationClass: CozyRuntime.CozyOperationClass.type = CozyRuntime.CozyOperationClass
@@ -1288,6 +1304,52 @@ private object CozyOperationConfig {
         else
           _value(root, property).fold(z)(v => z :+ option :+ v)
     }
+
+  private[cozy] def _validate_pdf_options(args: List[String]): Unit = {
+    if (_has_option(args, "--profile"))
+      RAISE.invalidArgumentFault(
+        "cozy pdf does not accept --profile. Use --latex-format standard|business; Cozy Media --profile is a separate namespace."
+      )
+    _latex_format_values(args).foreach {
+      case None =>
+        RAISE.invalidArgumentFault(
+          "Missing value for Cozy PDF --latex-format. Supported canonical formats: standard, business."
+        )
+      case Some(value) if value.trim.isEmpty =>
+        RAISE.invalidArgumentFault(
+          "Missing value for Cozy PDF --latex-format. Supported canonical formats: standard, business."
+        )
+      case Some(value) if !_is_supported_latex_format(value) =>
+        RAISE.invalidArgumentFault(
+          s"Unsupported Cozy PDF --latex-format '$value'. Supported canonical formats: standard, business."
+        )
+      case _ =>
+    }
+  }
+
+  private def _latex_format_values(args: List[String]): Vector[Option[String]] = {
+    @annotation.tailrec
+    def _go_(rest: List[String], values: Vector[Option[String]]): Vector[Option[String]] = rest match {
+      case Nil => values
+      case option :: tail if option == "--latex-format" =>
+        tail match {
+          case value :: _ if !value.startsWith("-") =>
+            _go_(tail, values :+ Some(value))
+          case _ =>
+            _go_(tail, values :+ None)
+        }
+      case option :: tail if option.startsWith("--latex-format=") =>
+        _go_(tail, values :+ Some(option.drop("--latex-format=".length)))
+      case _ :: tail =>
+        _go_(tail, values)
+    }
+    _go_(args, Vector.empty)
+  }
+
+  private def _is_supported_latex_format(value: String): Boolean =
+    Set("standard", "business", "default", "business-document", "business-doc").contains(
+      value.trim.toLowerCase(java.util.Locale.ROOT)
+    )
 
   private val _pdf_property_options = Vector(
     "renderer" -> "--renderer",
