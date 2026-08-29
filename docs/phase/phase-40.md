@@ -72,9 +72,11 @@ Make article PDF and summary-slides PDF first-class Cozy media-package outputs
 with deterministic generation, review evidence, receipt identity, and
 freshness validation.
 
-The public delivery contract contains PDF documents only. Cozy may retain a
+Phase 40's generation contract contains PDF documents only. Cozy may retain a
 generated PPTX as an internal presentation artifact when required by the
-renderer, but must not register or publish it as an article download.
+renderer, but must not register or publish it as an article download. A
+successful generation does not imply a BoK publication or SmartDox registration;
+those are separate operations that may consume an accepted artifact receipt.
 
 ## Origin
 
@@ -128,12 +130,108 @@ Stage Status:
 - Owner: Cozy Phase 40
 - Update rule: Update when the PDF40-03 checklist state changes.
 
+#### P40-03-DEC-001: Presentation-owned Summary PDF Contract
+
+Status: ACCEPTED on 2026-08-29 — consumed once for Phase 40/P40-03.
+
+The current `summary_slides_pdf` role is deliberately a generic `prebuilt`
+resource. The current presentation renderer emits only PPTX, slide PNGs,
+montage, and its renderer manifest; it has no PDF operand or PDF artifact
+evidence. Further, a full media build admits prebuilt resources before
+presentations. A PDF generated as an undeclared presentation side effect would
+therefore lack a closed dependency, ordering, and receipt boundary.
+
+The accepted decision is PDF-first direct rendering: extend the approved
+presentation-renderer contract with a direct PDF operand and PDF artifact
+evidence; support both the accepted Visual Page and legacy Slide-IR
+authorities; and introduce a closed presentation-owned `summary_slides_pdf`
+resource binding. A summary-slides PDF is the standard generated output. PPTX
+is an optional renderer-owned internal artifact, generated only when the media
+descriptor explicitly requests it; it is never publicly published or
+registered on this route. Cozy will verify PDF page count/order,
+shared-infographic evidence, direct-file safety, and stale-input rejection.
+This decision does not add a second PDF converter, alter SmartDox
+schema/projection, or begin Phase 40.1 registration.
+
+Decision Resolution Record:
+
+- decision_id: `P40-03-DEC-001`
+- answer: user instruction on 2026-08-29: “pptxは要求されたら作る、という扱いにして。”
+- selected option: direct PDF as the standard summary-slide output; optional
+  internal PPTX only on explicit descriptor request
+- affected scope: Cozy Phase 40 / P40-03 only
+- authorized next state: PLAN
+- consumed: true
+
+#### P40-03-DEC-002: BoK Publication and Direct-SmartDox Boundary
+
+Status: ACCEPTED on 2026-08-29 — consumed once for Phase 40/P40-03.
+
+The normal BoK-public artifact set is article HTML, article PDF, video,
+summary-slides PDF, and infographic. PPTX is a useful optional presentation
+export, generated only on explicit descriptor request; it is not a normally
+published BoK artifact and is not a standard SmartDox site registration target.
+Article-slide HTML derived from `deck.md` and video-slide HTML derived from
+`storyboard.md` are internal review evidence, not public BoK artifacts.
+
+The stated BoK-public artifact set is a consumer operating profile, not a Cozy
+media-generation contract. Cozy generates exactly the artifacts explicitly
+requested by a media descriptor and validates their declared dependencies. A
+later BoK or direct-SmartDox operation may consume accepted receipts for its
+own registration/publication workflow; it does not redefine, imply, or trigger
+generation. SimpleModeling.org is one local driver of such an operation.
+
+Decision Resolution Record:
+
+- decision_id: `P40-03-DEC-002`
+- answer: user instructions on 2026-08-29 defining direct-SmartDox registration
+  for article HTML, article PDF, video, summary-slides PDF, and infographic,
+  and stating that ordinary BoK operation does not publish PowerPoint
+- selected option: PDF-first Phase 40 output; optional non-public PPTX export;
+  later BoK/direct-SmartDox consumer operation for the normal BoK-public
+  artifact set
+- affected scope: Cozy Phase 40 / P40-03 only; no Phase 40.1 execution
+- authorized next state: PLAN
+- consumed: true
+
+#### P40-03-DEC-003: Generation and Publication Separation
+
+Status: ACCEPTED on 2026-08-29 — consumed once for Phase 40/P40-03.
+
+Cozy must generate and verify exactly the artifacts requested by its descriptor.
+It must not infer a BoK workflow, a public release, or SmartDox registration
+from an artifact type. BoK publication and direct-SmartDox registration are
+separate consumer operations over already accepted artifacts and receipts.
+This Phase implements only the requested article-PDF, summary-slides-PDF, and
+optional internal-PPTX generation behavior.
+
+Decision Resolution Record:
+
+- decision_id: `P40-03-DEC-003`
+- answer: user instruction on 2026-08-29: “Cozyが各種成果物を作れる、という話と、
+  それぞれの成果物をBoKとして公開する運用が想定されている、という話は分けて考えて。”
+- selected option: descriptor-driven generation without implied BoK publication
+  or SmartDox registration
+- affected scope: Cozy Phase 40 / P40-03 only; no publication or registration
+  operation is started
+- authorized next state: PLAN
+- consumed: true
+
 - Extend the Cozy presentation route to emit and verify a summary-slides PDF
   from the accepted Visual Page or slide-IR authority.
 - Permit PPTX only as a renderer-owned internal artifact; exclude it from
   SmartDox registration and public delivery.
 - Verify PDF page count, page order, article/infographic alignment, visual
   legibility, and stale-input rejection.
+
+P40-03A implementation is confined to descriptor-driven Cozy generation: a
+`summary-slides-pdf` resource uses the existing business presentation renderer
+to create a direct staged PDF and only requests an internal PPTX when the
+descriptor names its sidecar path. It does not call BoK publication or
+SmartDox registration. The direct descriptor-driven implementation is complete:
+`P40-03A-TEST-027` passed 45 executable specs (3 suites, 0 failed), and focused
+closure re-review `P40-03A-RE-REVIEW-003` passed with all P40-03A blockers closed.
+The local P40-03 Step acceptance commit remains before the stage can close.
 
 ### PDF40-04: Package Verification and Currentness
 
@@ -142,12 +240,23 @@ Stage Status:
 - Owner: Cozy Phase 40
 - Update rule: Update when the PDF40-04 checklist state changes.
 
+#### P40-04-CONT-001: Receipt and Review-State Boundary
+
+The summary-slides PDF must be a current presentation artifact and a current
+document resource at the same time. Its PDF bytes, page/order evidence, and
+presentation input set therefore belong to media-package receipt and
+presentation review-state currentness. Changing, deleting, or replacing the
+PDF must invalidate that evidence before it can support public-PDF delivery.
+The existing `cozy.media.cross-review.v1` remains a closed presentation and
+Storyboard currentness API: Phase 40 neither broadens it to PDF inspection nor
+introduces video or audiovisual approval.
+
 - Add both PDFs to media receipts, manifests, review state, and cross-artifact
   verification.
 - Verify deterministic receipt identity, exact locale, public-PDF-only
   delivery, and stale-input rejection without mutating a site registry.
-- Produce the frozen handoff that Phase 40.1 uses for normal and WIP site
-  registration.
+- Produce the frozen BoK-artifact receipt handoff that the later direct-
+  SmartDox adapter uses for normal and WIP site registration.
 
 ## Exclusions
 

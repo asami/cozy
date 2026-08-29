@@ -100,7 +100,8 @@ private[cozy] object CozyMedia {
     publications: Map[String, String],
     articleMedia: Option[ResourceArticleMedia] = None,
     presentation: Option[CozyMediaPresentation.ResourceConfig] = None,
-    articlePdf: Option[CozyMediaPdf.Config] = None
+    articlePdf: Option[CozyMediaPdf.Config] = None,
+    summarySlidesPdf: Option[CozyMediaSummarySlidesPdf.Config] = None
   )
   object Resource {
     implicit val decoder: Decoder[Resource] = (c: HCursor) =>
@@ -118,8 +119,9 @@ private[cozy] object CozyMedia {
         publications <- c.downField("publications").as[Option[Map[String, String]]]
         articlemedia <- _optional_article_media_field[ResourceArticleMedia](c, "articleMedia")
         articlepdf <- _optional_article_media_field[CozyMediaPdf.Config](c, "articlePdf")
+        summaryslidespdf <- _optional_article_media_field[CozyMediaSummarySlidesPdf.Config](c, "summarySlidesPdf")
         presentation <- _optional_article_media_field[CozyMediaPresentation.ResourceConfig](c, "presentation")
-      } yield Resource(id, kind, language, role, source, output, build.getOrElse("copy"), width, height, project, publications.getOrElse(Map.empty), articlemedia, presentation, articlepdf)
+      } yield Resource(id, kind, language, role, source, output, build.getOrElse("copy"), width, height, project, publications.getOrElse(Map.empty), articlemedia, presentation, articlepdf, summaryslidespdf)
   }
 
   final case class Descriptor(
@@ -311,7 +313,7 @@ private[cozy] object CozyMedia {
   private val _p_profile = spec.Parameter.property("profile")
   private val _p_dry_run = spec.Parameter("dry-run", spec.Parameter.SwitchKind)
   private val _schema = "cozy.media.v1"
-  private val _build_kinds = Set("copy", "svg-to-png", "prebuilt", "video-project", "presentation", "article-pdf")
+  private val _build_kinds = Set("copy", "svg-to-png", "prebuilt", "video-project", "presentation", "article-pdf", "summary-slides-pdf")
   private val _property_options = Set("target", "profile")
   private val _publication_layer_names = Vector("built-in", "user", "project-conf", "project-local", "package-conf", "package-local")
 
@@ -473,13 +475,21 @@ private[cozy] object CozyMedia {
     val mediaplan = _plan(config)
     val selected = _selected(mediaplan, config.target)
     val plannedidentity = if (config.dryRun) None else Some(CozyMediaReceipt.capture(mediaplan))
-    val ordered = selected.sortBy(resolved => if (resolved.resource.build == "presentation") 1 else 0)
+    val ordered = selected.sortBy { resolved =>
+      resolved.resource.build match {
+        case "summary-slides-pdf" => 1
+        case "presentation" => 2
+        case _ => 0
+      }
+    }
     val results = ordered.map { resolved =>
       if (config.dryRun)
         s"${resolved.resource.id}: ${resolved.action.label} (dry-run)"
       else {
         if (config.target.isDefined && resolved.resource.build == "presentation")
           CozyMediaPresentation.requireDependenciesCurrent(mediaplan, resolved)
+        if (config.target.isDefined && resolved.resource.build == "summary-slides-pdf")
+          CozyMediaSummarySlidesPdf.requireDependenciesCurrent(mediaplan, resolved)
         _build_resource(mediaplan, resolved, runner)
       }
     }
@@ -608,7 +618,11 @@ private[cozy] object CozyMedia {
     }
     val preliminary = Plan(descriptorfile, descriptorroot, descriptor, knowledgesource, unresolved, context, profiles, effectiveprofile)
     preliminary.copy(resources = unresolved.map { resolved =>
-      resolved.copy(action = CozyMediaReceipt.action(preliminary, resolved))
+      val action = CozyMediaReceipt.action(preliminary, resolved)
+      val selected =
+        if (resolved.resource.build == "summary-slides-pdf") CozyMediaSummarySlidesPdf.action(preliminary, resolved, action)
+        else action
+      resolved.copy(action = selected)
     })
   }
 
@@ -659,6 +673,10 @@ private[cozy] object CozyMedia {
         CozyMediaPdf.validateDescriptor(descriptor, resource, Option(descriptorfile.getParent).getOrElse(Paths.get(".").toAbsolutePath.normalize()))
       else if (resource.articlePdf.nonEmpty)
         RAISE.invalidArgumentFault(s"Only article-pdf build resources may declare articlePdf configuration: ${resource.id}")
+      if (resource.build == "summary-slides-pdf")
+        CozyMediaSummarySlidesPdf.validateDescriptor(descriptor, resource, Option(descriptorfile.getParent).getOrElse(Paths.get(".").toAbsolutePath.normalize()))
+      else if (resource.summarySlidesPdf.nonEmpty)
+        RAISE.invalidArgumentFault(s"Only summary-slides-pdf build resources may declare summarySlidesPdf configuration: ${resource.id}")
       resource.publications.keys.foreach { profile =>
         if (!profiles.contains(profile))
           _missing_publication_profile(
@@ -670,6 +688,10 @@ private[cozy] object CozyMedia {
           )
       }
     }
+    CozyMediaSummarySlidesPdf.validateGeneratedPathCollisions(
+      descriptor,
+      Option(descriptorfile.getParent).getOrElse(Paths.get(".").toAbsolutePath.normalize())
+    )
     CozyMediaPresentation.validateDescriptor(descriptor, profiles, Option(descriptorfile.getParent).getOrElse(Paths.get(".").toAbsolutePath.normalize()))
   }
 
@@ -882,6 +904,8 @@ private[cozy] object CozyMedia {
             return CozyMediaPresentation.build(plan, resolved, runner)
           case "article-pdf" =>
             return CozyMediaPdf.build(plan, resolved, runner)
+          case "summary-slides-pdf" =>
+            return CozyMediaSummarySlidesPdf.build(plan, resolved, runner)
           case other =>
             RAISE.invalidArgumentFault(s"Unsupported executable media build kind: $other")
         }
@@ -934,7 +958,15 @@ private[cozy] object CozyMedia {
           Vector.empty
         } catch { case NonFatal(e) => Vector(s"${resource.id}: presentation verification failed: ${e.getMessage}") }
         else Vector.empty
-      sourcefindings ++ outputfindings ++ publicationfindings ++ receiptfindings ++ presentationfindings
+      val summaryfindings =
+        if (resource.build == "summary-slides-pdf") try {
+          if (requirereceipt)
+            CozyMediaSummarySlidesPdf.requireDependenciesCurrent(plan, resolved)
+          CozyMediaSummarySlidesPdf.verifyStructural(plan, resolved)
+          Vector.empty
+        } catch { case NonFatal(e) => Vector(s"${resource.id}: summary-slides PDF verification failed: ${e.getMessage}") }
+        else Vector.empty
+      sourcefindings ++ outputfindings ++ publicationfindings ++ receiptfindings ++ presentationfindings ++ summaryfindings
     }
   }
 

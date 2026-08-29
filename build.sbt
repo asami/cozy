@@ -52,6 +52,8 @@ javacOptions ++= Seq("--release", "17")
 
 // resolvers += "GitHab releases 2019" at "https://raw.github.com/asami/maven-repository/2019/releases"
 
+resolvers += Resolver.mavenLocal
+
 resolvers += "GitHab releases 2020" at "https://raw.github.com/asami/maven-repository/2020/releases"
 
 // resolvers += "GitHab releases 2021" at "https://raw.github.com/asami/maven-repository/2021/releases"
@@ -136,6 +138,8 @@ libraryDependencies += "org.eclipse.jetty" % "jetty-server" % "9.4.38.v20210224"
 // libraryDependencies += "org.xerial" % "sqlite-jdbc" % "3.27.2.1"
 
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.19" % "test"
+
+libraryDependencies += "org.apache.pdfbox" % "pdfbox" % "2.0.30"
 
 libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.19.0" % "test"
 

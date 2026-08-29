@@ -29,10 +29,16 @@ path to the renderer. It stages beside the declared PDF destination, validates
 a direct regular PDF and unchanged receipt inputs, then performs an atomic
 replacement. Thus a renderer failure, invalid staging result, or
 article/infographic source/configuration race cannot alter the previous output
-or make a new receipt visible. `summary_slides_pdf` is an explicit resource
-grammar discriminator but has no conversion route in this boundary: later work
-owns Visual Page/slide-IR conversion and internal-PPTX handling. This leaves
-the existing presentation `articlePdf` dependency and receipt v2 schema
+or make a new receipt visible. `summary_slides_pdf` retains its prebuilt route
+for a separately produced PDF and adds the closed `summary-slides-pdf` direct
+route. That route consumes either a `slide-ir-v1` or `visual-page-v1` authority
+through the business presentation renderer/template and stages a regular PDF
+before verifying its header, PDFBox page count, source-ordered PNG evidence,
+shared-infographic hash, montage, and optional sidecar PPTX. PPTX is generated
+only when its descriptor path is explicit; it has no resource, public, BoK, or
+SmartDox-registration identity. Generation neither publishes to BoK nor
+registers with SmartDox. The existing presentation grammar, `articlePdf`
+dependency, receipt-v2 shape, and `cozy.media.cross-review.v1` boundary remain
 unchanged.
 
 Presentation is an adapter boundary: Cozy owns semantic-IR validation and invokes an approved external renderer by a configured argv vector, but never designs a layout or interpolates a shell command. The only presentation profile is `business`. The renderer manifest is untrusted evidence until Cozy checks collision-free descriptor-relative paths, IR/template/PPTX hashes, secure relationship-driven OOXML structure/text/per-slide media, and PNG evidence. Cozy reconstructs the deterministic cross-artifact review manifest exactly before recording only the explicit `article` or `slide-ir` alignment decision. A build can refresh current evidence but cannot alter the last approved semantic alignment; changed inputs or artifacts make the state stale. This keeps PPTX a distribution product rather than a semantic authority.

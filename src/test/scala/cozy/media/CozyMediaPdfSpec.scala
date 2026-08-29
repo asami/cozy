@@ -107,7 +107,7 @@ final class CozyMediaPdfSpec extends AnyWordSpec with Matchers with GivenWhenThe
       }
     }
 
-    "keep summary-slides PDF declarations on the generic prebuilt route" in {
+    "keep already-prebuilt summary-slides PDF declarations on the compatible prebuilt route" in {
       _with_temp_dir("summary-slides-declaration") { root =>
         Given("a direct article source and an explicitly declared summary-slides PDF resource")
         _write(root.resolve("knowledge/article.dox"), "article")
@@ -128,7 +128,7 @@ final class CozyMediaPdfSpec extends AnyWordSpec with Matchers with GivenWhenThe
       }
     }
 
-    "reject summary-slides PDF declarations on generic conversion routes" in {
+    "reject summary-slides PDF declarations on unsupported generic conversion routes" in {
       _with_temp_dir("summary-slides-generic-routes") { root =>
         Given("a direct article source and syntactically valid summary-slides PDF descriptors for copy, SVG conversion, and video delegation")
         _write(root.resolve("knowledge/article.dox"), "article")
@@ -144,7 +144,7 @@ final class CozyMediaPdfSpec extends AnyWordSpec with Matchers with GivenWhenThe
 
         Then("every generic route is rejected before any converter or delegated build is invoked")
         errors should have size 3
-        errors.map(_.getMessage).foreach(_ should include("summary_slides_pdf requires build: prebuilt"))
+        errors.map(_.getMessage).foreach(_ should include("summary_slides_pdf requires build: prebuilt or summary-slides-pdf"))
       }
     }
 

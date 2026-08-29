@@ -36,8 +36,8 @@ private[cozy] object CozyMediaPdf {
     label.foreach(value => _validate_article_media_value(value, s"Media resource ${resource.id} articleMedia.label"))
     if (resource.kind != "document" || mediatype != Some("application/pdf") || !resource.language.exists(Set("ja", "en")))
       _invalid(s"Media resource ${resource.id} articleMedia ${media.role} requires kind document, mediaType application/pdf, and language ja or en")
-    if (media.role == "summary_slides_pdf" && resource.build != "prebuilt")
-      _invalid(s"Media resource ${resource.id} summary_slides_pdf requires build: prebuilt")
+    if (media.role == "summary_slides_pdf" && !Set("prebuilt", "summary-slides-pdf").contains(resource.build))
+      _invalid(s"Media resource ${resource.id} summary_slides_pdf requires build: prebuilt or summary-slides-pdf")
   }
 
   final case class RendererConfig(name: String, version: String, command: Vector[String])

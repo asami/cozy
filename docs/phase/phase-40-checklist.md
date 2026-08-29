@@ -43,16 +43,34 @@ Stage Status:
 ## PDF40-03: Summary Slide PDF Build
 
 Stage Status:
-- Current status: OPEN
+- Current status: IN PROGRESS
 - Owner: Cozy Phase 40
 - Update rule: Update this block from the checklist state below.
 
-- [ ] Generate a summary-slides PDF from an accepted Visual Page or slide-IR
-      authority.
-- [ ] Keep any PPTX renderer artifact internal and exclude it from public
-      registration and delivery.
-- [ ] Verify page count, order, legibility, shared-infographic use, and
-      stale-input rejection.
+- [x] Accept `P40-03-DEC-001`: generate the summary-slides PDF directly as
+      the standard output; make PPTX an explicitly requested internal-only
+      output; freeze the presentation-owned generation, PDF artifact/receipt
+      evidence, authority order, shared-infographic proof, and public-PPTX
+      exclusion.
+- [x] Accept `P40-03-DEC-002`: ordinary BoK publication excludes PPTX; article
+      HTML, article PDF, video, summary-slides PDF, and infographic define a
+      consumer operating profile; `deck.md` and `storyboard.md` HTML remain
+      internal review evidence.
+- [x] Accept `P40-03-DEC-003`: generate only artifacts explicitly requested by
+      the descriptor; do not imply BoK publication or SmartDox registration
+      from an artifact type.
+- [x] Generate a summary-slides PDF from an accepted Visual Page or slide-IR
+      authority. (`P40-03A`; `P40-03A-TEST-027`: 45 executable specs, 3
+      suites, 0 failed; `P40-03A-RE-REVIEW-003`: PASS.)
+- [x] Keep any PPTX renderer artifact internal and exclude it from public
+      registration and delivery. (`P40-03A-RE-REVIEW-003`: PASS.)
+- [x] Verify page count, order, legibility, shared-infographic use, and
+      stale-input rejection. (`P40-03A-TEST-027`: 45 executable specs, 3
+      suites, 0 failed; `P40-03A-RE-REVIEW-003`: PASS.)
+- [ ] Complete the P40-03 Step acceptance commit for the P40-03A direct
+      descriptor-driven PDF implementation; its optional PPTX sidecar remains
+      internal and neither generation route implies BoK publication or
+      SmartDox registration.
 
 ## PDF40-04: Package Verification and Currentness
 
@@ -61,6 +79,9 @@ Stage Status:
 - Owner: Cozy Phase 40
 - Update rule: Update this block from the checklist state below.
 
+- [ ] Keep PDF currentness inside the media-package receipt and presentation
+      review-state boundary; preserve the closed video-oriented
+      `cozy.media.cross-review.v1` API unchanged. (`P40-04-CONT-001`)
 - [ ] Record both PDFs in manifests, receipts, review state, and cross-artifact
       verification.
 - [ ] Verify deterministic receipt identity, exact locale, public-PDF-only
