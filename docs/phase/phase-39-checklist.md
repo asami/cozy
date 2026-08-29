@@ -3,7 +3,7 @@
 This checklist is the authoritative progress ledger for Phase 39. It is not a
 normative behavior contract.
 
-Phase Status: IN PROGRESS
+Phase Status: COMPLETE
 
 ## Split Scope
 
@@ -77,7 +77,7 @@ Stage Status:
 
 Stage Status:
 
-- Current status: IN PROGRESS
+- Current status: COMPLETE
 - Owner: Cozy PDF command-contract validation and Phase closure
 - Update rule: mark work complete only when all PDF39-05 acceptance bullets
   below are checked.
@@ -86,11 +86,16 @@ Stage Status:
       contracts. (`P39-S1`, focused receipt `65773-20260829T011025Z`: 6
       succeeded, 0 failed; `P39-S2`, focused receipt
       `94705-20260829T021750Z`: 8 succeeded, 0 failed)
-- [ ] Run the full Cozy gate through serialized SBT execution.
-- [ ] Complete independent Phase review and synchronize Strategy, Phase, and
+- [x] Run the full Cozy gate through serialized SBT execution. Final receipt
+      `12823-20260829T025348Z`: 1,532 succeeded, 0 failed, 8 canceled, 117
+      suites completed, and 0 aborted; the distinct local release commit is
+      therefore permitted.
+- [x] Complete independent Phase review and synchronize Strategy, Phase, and
       checklist ledgers before closure.
 
-Phase 39 is IN PROGRESS. `P39-S1` and `P39-S2` are accepted in their local
-commits, with focused validation recorded for both Steps. The full Cozy gate
-and independent Phase review remain open; no Phase closure, release commit,
-publication, push, or downstream consumer acceptance is claimed.
+Phase 39 is COMPLETE in its release binding. `P39-S1` and `P39-S2` are
+accepted in their local commits, with focused validation recorded for both
+Steps; the mandatory independent Phase review is sealed PASS. Final serialized
+Cozy receipt `12823-20260829T025348Z` passed. Phase 39 neither publishes nor
+pushes, and it does not execute, activate, or accept downstream work for
+Phase 39.1.

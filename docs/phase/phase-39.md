@@ -1,6 +1,6 @@
 # Phase 39: PDF Command Contract and Semantics
 
-Status: IN PROGRESS
+Status: COMPLETE
 
 Plan date: 2026-08-29
 
@@ -83,19 +83,22 @@ Stage Status:
 
 Stage Status:
 
-- Current status: IN PROGRESS
+- Current status: COMPLETE
 - Checklist basis: docs/phase/phase-39-checklist.md#PDF39-05
 - Owner: Cozy PDF command-contract validation and Phase closure
-- Update rule: mark work complete only when the focused specifications,
-  artifact checks, serialized validation, and independent review closure
-  acceptance bullets are complete.
+- Update rule: complete only with focused specifications, final serialized
+  Cozy validation, independent Phase review, and the distinct local release
+  commit. No release commit is permitted if the final validation fails.
 
 - Add focused Executable Specifications for the Phase 39 command contracts.
 - Verify the focused command help, option validation, and compatibility
   contracts through Cozy-owned evidence. Artifact-level image, layout, and
   receipt-identity acceptance is outside this Phase.
 - Run full serialized Cozy validation and complete independent Phase review
-  before closure.
+  before closure. Final serialized invocation `12823-20260829T025348Z`
+  recorded 1,532 successful tests, 0 failures, 8 canceled tests, 117 completed
+  suites, and 0 aborted suites. The local release commit does not publish,
+  push, or activate Phase 39.1.
 
 ## Handoff to Phase 39.1
 
