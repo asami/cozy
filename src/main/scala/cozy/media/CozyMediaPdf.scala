@@ -51,14 +51,15 @@ private[cozy] object CozyMediaPdf {
       } yield RendererConfig(name, version, command)
   }
 
-  final case class Config(latexFormat: String, renderer: RendererConfig)
+  final case class Config(latexFormat: String, infographic: String, renderer: RendererConfig)
   object Config {
     implicit val decoder: Decoder[Config] = (c: HCursor) =>
       for {
-        _ <- _require_exact_keys(c, Set("latexFormat", "renderer"), "articlePdf")
+        _ <- _require_exact_keys(c, Set("latexFormat", "infographic", "renderer"), "articlePdf")
         latexformat <- c.downField("latexFormat").as[String]
+        infographic <- c.downField("infographic").as[String]
         renderer <- c.downField("renderer").as[RendererConfig]
-      } yield Config(latexformat, renderer)
+      } yield Config(latexformat, infographic, renderer)
   }
 
   def validateDescriptor(descriptor: CozyMedia.Descriptor, resource: CozyMedia.Resource, root: Path): Unit = {
@@ -71,6 +72,7 @@ private[cozy] object CozyMediaPdf {
     }
     if (!Set("standard", "business").contains(configuration.latexFormat))
       _invalid(s"Article PDF resource latexFormat must be standard or business: ${resource.id}")
+    _infographic_resource(descriptor, resource, configuration, root)
     _identity(configuration.renderer.name, s"Article PDF renderer name ${resource.id}")
     _identity(configuration.renderer.version, s"Article PDF renderer version ${resource.id}")
     if (configuration.renderer.command.isEmpty || configuration.renderer.command.exists(x => x == null || x.isEmpty || x != x.trim))
@@ -91,6 +93,7 @@ private[cozy] object CozyMediaPdf {
       _invalid(s"Article PDF output must be absent or a direct regular non-symlink file: $output")
     if (source == output)
       _invalid(s"Article PDF output must not replace its knowledge source: ${resource.id}")
+    val infographic = _infographic_resource(plan, resolved, configuration)
     val parent = Option(output.getParent).getOrElse(_invalid(s"Article PDF output requires a parent: $output"))
     Files.createDirectories(parent)
     val before = CozyMediaReceipt.capture(plan).inputSetSha256
@@ -110,6 +113,8 @@ private[cozy] object CozyMediaPdf {
         _invalid(s"Article PDF renderer did not create a direct regular PDF output: ${resource.id}")
       if (!_direct_regular_file(source))
         _invalid(s"Article PDF source changed during build: ${resource.id}")
+      if (!_direct_regular_file(infographic.source.get))
+        _invalid(s"Article PDF infographic authority source changed during build: ${resource.id}")
       val after = CozyMediaReceipt.capture(plan).inputSetSha256
       if (before != after)
         _invalid(s"Article PDF inputs changed during build; no fresh acceptance evidence was written: ${resource.id}")
@@ -127,6 +132,50 @@ private[cozy] object CozyMediaPdf {
   private def _pdf(path: Path): Boolean = {
     val bytes = Files.readAllBytes(path)
     bytes.length >= 5 && new String(bytes.take(5), StandardCharsets.US_ASCII) == "%PDF-"
+  }
+
+  private def _infographic_resource(
+    descriptor: CozyMedia.Descriptor,
+    resource: CozyMedia.Resource,
+    configuration: Config,
+    root: Path
+  ): CozyMedia.Resource = {
+    _identity(configuration.infographic, s"Article PDF infographic ${resource.id}")
+    val infographic = descriptor.resources.find(_.id == configuration.infographic).getOrElse(
+      _invalid(s"Article PDF infographic authority is not declared: ${resource.id}")
+    )
+    if (infographic.id == resource.id)
+      _invalid(s"Article PDF infographic authority must be distinct: ${resource.id}")
+    if (infographic.kind != "infographic")
+      _invalid(s"Article PDF infographic authority must have kind infographic: ${resource.id}")
+    infographic.articleMedia match {
+      case Some(CozyMedia.ResourceArticleMedia("infographic", _, _, _, _, _)) => ()
+      case _ => _invalid(s"Article PDF infographic authority requires articleMedia.role infographic: ${resource.id}")
+    }
+    if (infographic.language != resource.language)
+      _invalid(s"Article PDF infographic authority language must match: ${resource.id}")
+    val source = infographic.source.map(root.resolve(_).normalize()).getOrElse(
+      _invalid(s"Article PDF infographic authority requires a source: ${resource.id}")
+    )
+    if (!_direct_regular_file(source))
+      _invalid(s"Article PDF infographic authority source must be a direct regular non-symlink file: ${resource.id}")
+    infographic
+  }
+
+  private def _infographic_resource(
+    plan: CozyMedia.Plan,
+    resource: CozyMedia.ResolvedResource,
+    configuration: Config
+  ): CozyMedia.ResolvedResource = {
+    val infographic = plan.resources.find(_.resource.id == configuration.infographic).getOrElse(
+      _invalid(s"Article PDF infographic authority is not declared: ${resource.resource.id}")
+    )
+    val source = infographic.source.getOrElse(
+      _invalid(s"Article PDF infographic authority requires a source: ${resource.resource.id}")
+    )
+    if (!_direct_regular_file(source))
+      _invalid(s"Article PDF infographic authority source must be a direct regular non-symlink file: ${resource.resource.id}")
+    infographic
   }
 
   private def _direct_regular_file(path: Path): Boolean = path != null && !Files.isSymbolicLink(path) && Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)

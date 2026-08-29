@@ -109,14 +109,17 @@ the focused closure re-review found no Current Boundary Blocker.
 ### PDF40-02: Localized Article PDF Build
 
 Stage Status:
-- Current status: OPEN
+- Current status: COMPLETE
 - Owner: Cozy Phase 40
 - Update rule: Update when the PDF40-02 checklist state changes.
+- Checklist basis: `docs/phase/phase-40-checklist.md#pdf40-02-localized-article-pdf-build`
 
-- Invoke the accepted locale-aware SmartDox PDF boundary through Cozy.
-- Generate the configured business-profile article PDF from the current
-  article and infographic authorities.
-- Record source, locale, renderer/profile, output hash, and freshness evidence.
+P40-02 binds a closed same-locale infographic authority to each article-PDF
+resource without adding an infographic renderer operand. Existing receipt-v2
+automatic source evidence makes either authority stale; a source race rejects
+the staged PDF before receipt visibility. Focused receipt `P40-02-TEST-003`
+passed 42 executable specifications, and the focused closure re-review passed
+with no Current Boundary Blocker.
 
 ### PDF40-03: Summary Slide PDF Build
 

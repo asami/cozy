@@ -3,6 +3,7 @@ package cozy.media
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 import scala.collection.JavaConverters._
+import io.circe.parser.parse
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -18,6 +19,7 @@ final class CozyMediaPdfSpec extends AnyWordSpec with Matchers with GivenWhenThe
       _with_temp_dir("grammar") { root =>
         Given("a direct SmartDox article source and a closed article PDF descriptor")
         _write(root.resolve("knowledge/article.dox"), "article")
+        _write_infographic(root)
         val descriptor = root.resolve("media.json")
         _write(descriptor, _descriptor())
 
@@ -27,6 +29,7 @@ final class CozyMediaPdfSpec extends AnyWordSpec with Matchers with GivenWhenThe
         Then("the article_pdf role and its exact renderer configuration are retained")
         resource.articleMedia.map(_.role) shouldBe Some("article_pdf")
         resource.articlePdf.map(_.latexFormat) shouldBe Some("business")
+        resource.articlePdf.map(_.infographic) shouldBe Some("infographic-ja")
       }
     }
 
@@ -34,6 +37,7 @@ final class CozyMediaPdfSpec extends AnyWordSpec with Matchers with GivenWhenThe
       _with_temp_dir("malformed-grammar") { root =>
         Given("a direct SmartDox article source and three malformed article PDF descriptors")
         _write(root.resolve("knowledge/article.dox"), "article")
+        _write_infographic(root)
         val descriptor = root.resolve("media.json")
         val invalids = Vector(
           _descriptor().replace("article_pdf", "article-pdf"),
@@ -50,6 +54,56 @@ final class CozyMediaPdfSpec extends AnyWordSpec with Matchers with GivenWhenThe
         Then("each malformed descriptor is rejected with a diagnostic")
         errors should have size invalids.size
         errors.map(_.getMessage).foreach(_ should not be empty)
+      }
+    }
+
+    "reject missing, unknown, wrong-kind, wrong-role, and cross-locale infographic bindings" in {
+      _with_temp_dir("infographic-binding") { root =>
+        Given("a direct Japanese article source and a declared Japanese infographic authority")
+        _write(root.resolve("knowledge/article.dox"), "article")
+        _write_infographic(root)
+        Files.createDirectories(root.resolve("infographic/nonregular.svg"))
+        _write(root.resolve("infographic/symlink-target.svg"), "symlink-target")
+        Files.createSymbolicLink(root.resolve("infographic/symlink.svg"), Paths.get("symlink-target.svg"))
+        val descriptor = root.resolve("media.json")
+        val invalids = Vector(
+          (_descriptor(articleinfographic = "missing-infographic"), "Article PDF infographic authority is not declared"),
+          (_descriptor(articleinfographic = "article-pdf-ja"), "Article PDF infographic authority must be distinct"),
+          (_descriptor(infographickind = "image"), "Article PDF infographic authority must have kind infographic"),
+          (_descriptor(infographiclanguage = "en"), "Article PDF infographic authority language must match"),
+          (_descriptor(infographicsource = None), "Article PDF infographic authority requires a source"),
+          (_descriptor(infographicsource = Some("infographic/nonregular.svg")), "Article PDF infographic authority source must be a direct regular non-symlink file"),
+          (_descriptor(infographicsource = Some("infographic/symlink.svg")), "Article PDF infographic authority source must be a direct regular non-symlink file")
+        )
+
+        When("Cozy resolves each invalid article-PDF authority binding")
+        val errors = invalids.map { case (value, _) =>
+          _write(descriptor, value)
+          intercept[Exception](CozyMedia.resolvePlan(CozyMedia.CommandConfig(descriptor)))
+        }
+
+        Then("each absent or incompatible infographic authority is rejected with its contract diagnostic before rendering")
+        errors should have size invalids.size
+        errors.zip(invalids).foreach { case (error, (_, diagnostic)) =>
+          error.getMessage should include(diagnostic)
+        }
+      }
+    }
+
+    "reject an authority resource whose decoded articleMedia role is not infographic" in {
+      _with_temp_dir("infographic-wrong-role") { root =>
+        Given("a direct article source and a syntactically valid authority resource with an article_pdf role")
+        _write(root.resolve("knowledge/article.dox"), "article")
+        _write_infographic(root)
+        val decoded = _decode_descriptor(_descriptor(infographicrole = "article_pdf"))
+        val articlepdf = decoded.resources.find(_.id == "article-pdf-ja").get
+
+        When("Cozy validates the decoded article-PDF authority binding")
+        val failure = intercept[Exception](CozyMediaPdf.validateDescriptor(decoded, articlepdf, root))
+
+        Then("the decoded non-infographic role is rejected with the role-specific diagnostic")
+        decoded.resources.find(_.id == "infographic-ja").flatMap(_.articleMedia).map(_.role) shouldBe Some("article_pdf")
+        failure.getMessage should include("Article PDF infographic authority requires articleMedia.role infographic")
       }
     }
 
@@ -98,6 +152,7 @@ final class CozyMediaPdfSpec extends AnyWordSpec with Matchers with GivenWhenThe
       _with_temp_dir("argv") { root =>
         Given("a Japanese article PDF target and a recording renderer")
         _write(root.resolve("knowledge/article.dox"), "article")
+        _write_infographic(root)
         val descriptor = root.resolve("media.json")
         _write(descriptor, _descriptor())
         var recordedcommand = Vector.empty[String]
@@ -113,12 +168,11 @@ final class CozyMediaPdfSpec extends AnyWordSpec with Matchers with GivenWhenThe
         CozyMedia.build(CozyMedia.CommandConfig(descriptor), runner)
 
         Then("the renderer receives only its configured argv followed by source, staged output, locale, and canonical format")
-        recordedcommand.take(2) shouldBe Vector("smartdox", "pdf")
-        recordedcommand.drop(2).head shouldBe root.resolve("knowledge/article.dox").toString
-        recordedcommand(3) shouldBe "--output"
-        Path.of(recordedcommand(4)).getParent shouldBe root.resolve("target/cozy-media")
-        Path.of(recordedcommand(4)).getFileName.toString should startWith(".cozy-media-pdf-")
-        recordedcommand.takeRight(4) shouldBe Vector("--locale", "ja", "--latex-format", "business")
+        val staged = recordedcommand(4)
+        recordedcommand shouldBe Vector("smartdox", "pdf", root.resolve("knowledge/article.dox").toString, "--output", staged, "--locale", "ja", "--latex-format", "business")
+        Path.of(staged).getParent shouldBe root.resolve("target/cozy-media")
+        Path.of(staged).getFileName.toString should startWith(".cozy-media-pdf-")
+        recordedcommand should not contain root.resolve("infographic/article-ja.svg").toString
         Files.readString(root.resolve("target/cozy-media/article-ja.pdf"), StandardCharsets.US_ASCII) should include("%PDF-")
       }
     }
@@ -127,6 +181,7 @@ final class CozyMediaPdfSpec extends AnyWordSpec with Matchers with GivenWhenThe
       _with_temp_dir("failure") { root =>
         Given("an existing PDF and manifest before a failing render")
         _write(root.resolve("knowledge/article.dox"), "article")
+        _write_infographic(root)
         _write_pdf(root.resolve("target/cozy-media/article-ja.pdf"), "previous")
         val manifest = root.resolve("target/cozy-media/manifest.json")
         _write(manifest, "previous-receipt")
@@ -150,6 +205,7 @@ final class CozyMediaPdfSpec extends AnyWordSpec with Matchers with GivenWhenThe
       _with_temp_dir("invalid-staged-output") { root =>
         Given("an existing PDF and manifest before a renderer writes a regular non-PDF staged file")
         _write(root.resolve("knowledge/article.dox"), "article")
+        _write_infographic(root)
         val output = root.resolve("target/cozy-media/article-ja.pdf")
         _write_pdf(output, "previous-invalid-output")
         val manifest = root.resolve("target/cozy-media/manifest.json")
@@ -178,6 +234,7 @@ final class CozyMediaPdfSpec extends AnyWordSpec with Matchers with GivenWhenThe
         Given("an existing PDF and manifest before a renderer changes the article source")
         val source = root.resolve("knowledge/article.dox")
         _write(source, "article")
+        _write_infographic(root)
         val output = root.resolve("target/cozy-media/article-ja.pdf")
         _write_pdf(output, "previous-race-output")
         val manifest = root.resolve("target/cozy-media/manifest.json")
@@ -202,10 +259,65 @@ final class CozyMediaPdfSpec extends AnyWordSpec with Matchers with GivenWhenThe
       }
     }
 
+    "preserve prior output and receipt bytes when the infographic authority changes during rendering" in {
+      _with_temp_dir("infographic-input-race") { root =>
+        Given("an existing PDF and manifest before a renderer changes the selected infographic source")
+        _write(root.resolve("knowledge/article.dox"), "article")
+        val infographic = root.resolve("infographic/article-ja.svg")
+        _write_infographic(root)
+        val output = root.resolve("target/cozy-media/article-ja.pdf")
+        _write_pdf(output, "previous-infographic-race-output")
+        val manifest = root.resolve("target/cozy-media/manifest.json")
+        _write(manifest, "previous-infographic-race-receipt")
+        val descriptor = root.resolve("media.json")
+        _write(descriptor, _descriptor())
+        val runner = new CozyMedia.ProcessRunner {
+          def run(command: Vector[String], workingdirectory: Path): Int = {
+            _write_pdf(Path.of(command(command.indexOf("--output") + 1)), "raced")
+            _write(infographic, "infographic-changed-during-render")
+            0
+          }
+        }
+
+        When("the renderer returns after changing the explicit infographic authority")
+        val failure = intercept[RuntimeException](CozyMedia.build(CozyMedia.CommandConfig(descriptor), runner))
+
+        Then("the authority race is rejected and prior output and receipt bytes remain unchanged")
+        failure.getMessage should include("inputs changed during build")
+        Files.readString(output, StandardCharsets.US_ASCII) shouldBe "%PDF-1.7\nprevious-infographic-race-output"
+        Files.readString(manifest, StandardCharsets.UTF_8) shouldBe "previous-infographic-race-receipt"
+      }
+    }
+
+    "become stale after an accepted infographic authority source changes" in {
+      _with_temp_dir("infographic-currentness") { root =>
+        Given("an accepted article PDF resource with an explicit infographic authority")
+        _write(root.resolve("knowledge/article.dox"), "article")
+        val infographic = root.resolve("infographic/article-ja.svg")
+        _write_infographic(root)
+        val descriptor = root.resolve("media.json")
+        _write(descriptor, _descriptor())
+        val runner = new CozyMedia.ProcessRunner {
+          def run(command: Vector[String], workingdirectory: Path): Int = {
+            _write_pdf(Path.of(command(command.indexOf("--output") + 1)), "accepted")
+            0
+          }
+        }
+        CozyMedia.build(CozyMedia.CommandConfig(descriptor), runner)
+
+        When("the accepted infographic source bytes change")
+        _write(infographic, "infographic-changed")
+
+        Then("planning reports the article PDF stale through existing receipt-v2 evidence")
+        CozyMedia.plan(CozyMedia.CommandConfig(descriptor)) should include("article-pdf-ja: build")
+      }
+    }
+
     "become stale after bound source, configuration, or output changes" in {
       _with_temp_dir("currentness") { root =>
         Given("an accepted article PDF resource")
         _write(root.resolve("knowledge/article.dox"), "article")
+        _write_infographic(root)
         val descriptor = root.resolve("media.json")
         _write(descriptor, _descriptor())
         val runner = new CozyMedia.ProcessRunner {
@@ -237,7 +349,16 @@ final class CozyMediaPdfSpec extends AnyWordSpec with Matchers with GivenWhenThe
     }
   }
 
-  private def _descriptor(version: String = "2.4.18-SNAPSHOT"): String =
+  private def _descriptor(
+    version: String = "2.4.18-SNAPSHOT",
+    articleinfographic: String = "infographic-ja",
+    infographickind: String = "infographic",
+    infographicrole: String = "infographic",
+    infographiclanguage: String = "ja",
+    infographicsource: Option[String] = Some("infographic/article-ja.svg")
+  ): String = {
+    val source = infographicsource.map(value => "\"source\": \"" + value + "\", ").getOrElse("")
+    val mediatype = if (infographicrole == "article_pdf") ", \"mediaType\": \"application/pdf\"" else ""
     s"""{
        |  "schema": "cozy.media.v1",
        |  "knowledge": {"id": "development-process/example", "source": "knowledge/article.dox"},
@@ -245,10 +366,21 @@ final class CozyMediaPdfSpec extends AnyWordSpec with Matchers with GivenWhenThe
        |    "id": "article-pdf-ja", "kind": "document", "language": "ja",
        |    "source": "knowledge/article.dox", "output": "target/cozy-media/article-ja.pdf", "build": "article-pdf",
        |    "articleMedia": {"role": "article_pdf", "publicPath": "/articles/example/article-ja.pdf", "mediaType": "application/pdf", "label": "Article PDF"},
-       |    "articlePdf": {"latexFormat": "business", "renderer": {"name": "smartdox-pdf", "version": "$version", "command": ["smartdox", "pdf"]}}
+       |    "articlePdf": {"latexFormat": "business", "infographic": "$articleinfographic", "renderer": {"name": "smartdox-pdf", "version": "$version", "command": ["smartdox", "pdf"]}}
+       |  }, {
+       |    "id": "infographic-ja", "kind": "$infographickind", "language": "$infographiclanguage",
+       |    $source"build": "prebuilt",
+       |    "articleMedia": {"role": "$infographicrole", "publicPath": "/articles/example/infographic-ja.svg"$mediatype}
        |  }]
        |}
        |""".stripMargin
+  }
+
+  private def _decode_descriptor(value: String): CozyMedia.Descriptor =
+    parse(value).flatMap(_.as[CozyMedia.Descriptor]).fold(
+      error => throw new RuntimeException(error.toString),
+      identity
+    )
 
   private def _summary_slides_pdf_descriptor(build: String = "prebuilt"): String = {
     val route = build match {
@@ -277,6 +409,9 @@ final class CozyMediaPdfSpec extends AnyWordSpec with Matchers with GivenWhenThe
     Option(path.getParent).foreach(Files.createDirectories(_))
     Files.write(path, ("%PDF-1.7\n" + value).getBytes(StandardCharsets.US_ASCII))
   }
+
+  private def _write_infographic(root: Path): Unit =
+    _write(root.resolve("infographic/article-ja.svg"), "<svg>infographic</svg>")
 
   private def _with_temp_dir(name: String)(body: Path => Unit): Unit = {
     val work = Paths.get(sys.props("user.dir")).resolve("target")

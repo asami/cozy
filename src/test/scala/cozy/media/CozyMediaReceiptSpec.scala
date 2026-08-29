@@ -100,6 +100,7 @@ final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhe
       _with_temp_dir("article-pdf-shape") { root =>
         Given("a localized article PDF resource using the existing receipt acceptance route")
         _write(root.resolve("knowledge/article.dox"), "knowledge")
+        _write(root.resolve("infographic/article-ja.svg"), "<svg>infographic</svg>")
         val descriptor = root.resolve("media.json")
         _write(descriptor, _article_pdf_descriptor)
         val runner = new CozyMedia.ProcessRunner {
@@ -288,7 +289,11 @@ final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhe
       |    "id": "article-pdf-ja", "kind": "document", "language": "ja",
       |    "source": "knowledge/article.dox", "output": "target/cozy-media/article-ja.pdf", "build": "article-pdf",
       |    "articleMedia": {"role": "article_pdf", "publicPath": "/articles/example/article-ja.pdf", "mediaType": "application/pdf"},
-      |    "articlePdf": {"latexFormat": "business", "renderer": {"name": "smartdox-pdf", "version": "2.4.18-SNAPSHOT", "command": ["smartdox"]}}
+      |    "articlePdf": {"latexFormat": "business", "infographic": "infographic-ja", "renderer": {"name": "smartdox-pdf", "version": "2.4.18-SNAPSHOT", "command": ["smartdox"]}}
+      |  }, {
+      |    "id": "infographic-ja", "kind": "infographic", "language": "ja",
+      |    "source": "infographic/article-ja.svg", "build": "prebuilt",
+      |    "articleMedia": {"role": "infographic", "publicPath": "/articles/example/infographic-ja.svg"}
       |  }]
       |}
       |""".stripMargin

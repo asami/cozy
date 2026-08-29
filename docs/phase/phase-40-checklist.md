@@ -8,8 +8,8 @@ Phase Status: IN PROGRESS
 Split on 2026-08-29 by the user-approved `$cncf-split-phase Phase 40`.
 Phase 40 retains `PDF40-01` through `PDF40-04` exactly once. Phase 40.1 owns
 the original registration work and `PDF40-05` exactly once. No item was
-complete before the split. P40-01 completed `PDF40-01`; `PDF40-02` through
-`PDF40-04` remain open.
+complete before the split. P40-01 completed `PDF40-01`; P40-02 completed
+`PDF40-02`; `PDF40-03` and `PDF40-04` remain open.
 
 ## PDF40-01: Media Contract and SmartDox Binding
 
@@ -28,15 +28,17 @@ Stage Status:
 ## PDF40-02: Localized Article PDF Build
 
 Stage Status:
-- Current status: OPEN
+- Current status: COMPLETE
 - Owner: Cozy Phase 40
 - Update rule: Update this block from the checklist state below.
 
-- [ ] Generate a business-profile article PDF through the accepted locale-aware
-      SmartDox boundary.
-- [ ] Bind the article and infographic authorities, locale, renderer/profile,
-      and output hash in the receipt.
-- [ ] Reject missing, changed, or cross-locale inputs as stale or invalid.
+- [x] Generate a business-profile article PDF through the accepted locale-aware
+      SmartDox boundary. (`P40-02`)
+- [x] Bind the article and infographic authorities, locale, renderer/profile,
+      and output hash in the receipt. (`P40-02`)
+- [x] Reject missing, changed, or cross-locale inputs as stale or invalid.
+      (`P40-02`; focused receipt `P40-02-TEST-003`: 42 succeeded, 0 failed;
+      focused closure re-review: PASS)
 
 ## PDF40-03: Summary Slide PDF Build
 
@@ -66,8 +68,8 @@ Stage Status:
 - [ ] Freeze the PDF resource/receipt/currentness handoff for Phase 40.1
       normal and WIP registration.
 
-Phase 40 is IN PROGRESS. `PDF40-01` is complete through P40-01; PDF40-02
-through PDF40-04, Phase 40.1 registration, driver acceptance, publication,
+Phase 40 is IN PROGRESS. `PDF40-01` and `PDF40-02` are complete; PDF40-03
+and PDF40-04, Phase 40.1 registration, driver acceptance, publication,
 deployment, push, and downstream series backfill are not claimed.
 
 [DEV-012](../strategy/cozy-development-strategy.md#9-development-item-status) is

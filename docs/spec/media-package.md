@@ -45,25 +45,35 @@ public path, or locale from a filename or path.
 
 Only `build: article-pdf` is implemented in this step. Its `source` is exactly
 the descriptor `knowledge.source`, its `output` is a declared direct regular
-PDF destination, and its closed configuration is:
+PDF destination, and its closed configuration has exactly `latexFormat`,
+`infographic`, and `renderer`:
 
 ```yaml
 articlePdf:
   latexFormat: business # standard | business
+  infographic: infographic-ja
   renderer:
     name: smartdox-pdf
     version: 2.4.18-SNAPSHOT
     command: [smartdox]
 ```
 
+`infographic` is a nonblank exact resource ID. It names a distinct declared
+resource with `kind: infographic`, `articleMedia.role: infographic`, a source,
+and the same required `ja` or `en` locale as the article-PDF resource. That
+resolved source must be a direct regular non-symlink file. This is an explicit
+article-PDF authority binding, not an additional renderer operand.
+
 The renderer command is the configured exact argv tokens followed without a
 shell by `<source> --output <staged-output> --locale <ja|en> --latex-format
-<standard|business>`. Cozy accepts only a zero-exit direct regular `%PDF-`
-staged file, rechecks full receipt input identity, and atomically replaces the
-declared output only then. Failure, invalid output, or an input race preserves
-the previous output and creates no fresh receipt. Existing receipt v2 input
-evidence captures the descriptor and source configuration; its resource entry
-continues to hold the accepted output hash without a schema change.
+<standard|business>`. Cozy never passes the infographic path to the renderer.
+It accepts only a zero-exit direct regular `%PDF-` staged file, revalidates the
+bound infographic source and full receipt input identity, and atomically
+replaces the declared output only then. The existing receipt-v2 automatic
+source evidence therefore includes the selected infographic authority without
+a receipt schema change. Failure, invalid output, or an article/infographic
+input race preserves the previous output and creates no fresh receipt. Its
+resource entry continues to hold the accepted output hash.
 
 `summary_slides_pdf` is a declared public-resource role only in this step.
 Its Visual Page/slide-IR conversion, page verification, and any internal PPTX

@@ -18,11 +18,17 @@ Cozy receipt v2 is the ownership boundary for deterministic acceptance. Cozy cap
 
 Article PDF is a separate narrow adapter boundary. A resource explicitly marked
 by SmartDox role `article_pdf` names a current article source, one `ja` or `en`
-locale, a public PDF path, and an approved renderer argv; Cozy appends only the
-accepted source/output/locale/LaTeX-format operands. It stages beside the
-declared PDF destination, validates a direct regular PDF and unchanged receipt
-inputs, then performs an atomic replacement. Thus a renderer failure, invalid
-staging result, or source/configuration race cannot alter the previous output
+locale, a public PDF path, and an approved renderer argv. Its closed
+`articlePdf` configuration names one distinct same-locale `kind: infographic`
+resource with `articleMedia.role: infographic` and a direct regular source.
+That source is an explicit authority input: Cozy validates it before rendering,
+includes it through existing receipt-v2 automatic source evidence, and
+revalidates it before acceptance. Cozy appends only the accepted
+source/output/locale/LaTeX-format operands; it never passes the infographic
+path to the renderer. It stages beside the declared PDF destination, validates
+a direct regular PDF and unchanged receipt inputs, then performs an atomic
+replacement. Thus a renderer failure, invalid staging result, or
+article/infographic source/configuration race cannot alter the previous output
 or make a new receipt visible. `summary_slides_pdf` is an explicit resource
 grammar discriminator but has no conversion route in this boundary: later work
 owns Visual Page/slide-IR conversion and internal-PPTX handling. This leaves
