@@ -35,8 +35,16 @@ final class CozyPdfCommandHelpSpec
       outputs.head should include("--renderer <name>")
       outputs.head should include("--latex-format <format>")
       outputs.head should include("standard or business")
+      outputs.head should include("cozy pdf system.dox --output system.pdf")
+      outputs.head should include("cozy pdf system.dox --renderer latex")
+      outputs.head should include(
+        "cozy pdf system.dox --renderer latex --latex-format business"
+      )
       outputs.head should include(
         "This is a SmartDox PDF renderer format, not Cozy Media --profile."
+      )
+      outputs.head should include(
+        "The business value is only a PDF LaTeX format; it does not select, map to, or imply any Cozy Media --profile."
       )
       outputs.head should not include("cozy pdf <input> --profile")
     }

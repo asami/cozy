@@ -286,6 +286,11 @@ private[cozy] object CozyHelpText {
       |
       |Render the required SmartDox document input as a PDF.
       |
+      |Examples:
+      |  cozy pdf system.dox --output system.pdf
+      |  cozy pdf system.dox --renderer latex
+      |  cozy pdf system.dox --renderer latex --latex-format business
+      |
       |Options:
       |  <input>
       |      Required SmartDox document input.
@@ -296,5 +301,6 @@ private[cozy] object CozyHelpText {
       |  --latex-format <format>
       |      Select the canonical LaTeX format: standard or business.
       |      This is a SmartDox PDF renderer format, not Cozy Media --profile.
+      |      The business value is only a PDF LaTeX format; it does not select, map to, or imply any Cozy Media --profile.
       |""".stripMargin
 }
