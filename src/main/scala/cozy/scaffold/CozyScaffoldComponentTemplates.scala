@@ -37,7 +37,7 @@ private[cozy] object CozyScaffoldComponentTemplates {
       |    name := moduleName.value,
       |    version := ProjectYamlBuild.version(projectIdentityEvidence.value, cozyProjectMetadata.value),
       |    scalaVersion := ProjectYamlBuild.requiredValue(cozyProjectMetadata.value, "build.scalaVersion"),
-      |    resolvers += Resolver.mavenLocal,
+      |    resolvers += Resolver.defaultLocal,
       |    resolvers += "SimpleModeling.org" at "https://www.simplemodeling.org/repository/maven",
       |    libraryDependencies ++= ProjectYamlBuild.dependencies(cozyProjectMetadata.value),
       |
@@ -200,7 +200,7 @@ private[cozy] object CozyScaffoldComponentTemplates {
       |  organization := ProjectYamlBuild.organization(componentIdentityEvidence.value, componentMetadata),
       |  version := ProjectYamlBuild.version(componentIdentityEvidence.value, componentMetadata),
       |  scalaVersion := ProjectYamlBuild.requiredValue(componentMetadata, "build.scalaVersion"),
-      |  resolvers += Resolver.mavenLocal,
+      |  resolvers += Resolver.defaultLocal,
       |  resolvers += "SimpleModeling.org" at "https://www.simplemodeling.org/repository/maven"
       |)
       |
@@ -325,7 +325,7 @@ private[cozy] object CozyScaffoldComponentTemplates {
 
   private[cozy] def carPluginsSbt(): String =
     s"""resolvers += "SimpleModeling.org" at "https://www.simplemodeling.org/repository/maven"
-       |resolvers += Resolver.mavenLocal
+       |resolvers += Resolver.defaultLocal
        |
        |val sbtCozyVersion = sys.props.getOrElse("sbt.cozy.version", sys.env.getOrElse("SBT_COZY_VERSION", "${_default_sbt_cozy_version}"))
        |addSbtPlugin("org.goldenport" % "sbt-cozy" % sbtCozyVersion)

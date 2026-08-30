@@ -52,7 +52,7 @@ javacOptions ++= Seq("--release", "17")
 
 // resolvers += "GitHab releases 2019" at "https://raw.github.com/asami/maven-repository/2019/releases"
 
-resolvers += Resolver.mavenLocal
+resolvers += Resolver.defaultLocal
 
 resolvers += "GitHab releases 2020" at "https://raw.github.com/asami/maven-repository/2020/releases"
 
