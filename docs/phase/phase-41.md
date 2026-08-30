@@ -1,6 +1,6 @@
 # Phase 41: Explanation Structure Review HTML
 
-Status: PLANNED; NOT STARTED
+Status: IN PROGRESS
 
 Plan date: 2026-08-29
 
@@ -12,7 +12,7 @@ Dependencies:
   representative acceptance. Article 8 runtime use is an optional
   post-Phase-42 operational follow-up, not a Phase 41 dependency.
 
-This plan does not activate Phase 41 or alter the active Phase 38 and planned
+Phase 41 is in progress and does not alter the active Phase 38 or planned
 Phase 39, Phase 39.1, Phase 40, or Phase 40.1 boundaries.
 
 ## Goal
@@ -54,7 +54,7 @@ asset bindings continue to follow the accepted Phase 37 direct-file contract.
 
 Stage Status:
 
-- Current status: NOT STARTED
+- Current status: COMPLETE
 - Owner: Cozy explanation-review design and specification
 - Update rule: complete only when input authority, page composition, review
   artifact status, command grammar, diagnostics, and identity boundaries are
@@ -76,7 +76,7 @@ Stage Status:
 
 Stage Status:
 
-- Current status: NOT STARTED
+- Current status: COMPLETE
 - Owner: Cozy explanation-preview normalization
 - Update rule: complete only when the integrated review model and its
   diagnostics have focused Executable Specification evidence.
@@ -96,7 +96,7 @@ Stage Status:
 
 Stage Status:
 
-- Current status: NOT STARTED
+- Current status: COMPLETE
 - Owner: Cozy deterministic review renderer
 - Update rule: complete only when overview, page cards, page details,
   accessibility, deterministic bytes, and atomic-output cases pass.
@@ -117,7 +117,7 @@ Stage Status:
 
 Stage Status:
 
-- Current status: NOT STARTED
+- Current status: COMPLETE
 - Owner: Cozy preview evidence and command integration
 - Update rule: complete only when the receipt, stale-input rejection, help,
   and coexistence contracts pass.
@@ -137,7 +137,7 @@ Stage Status:
 
 Stage Status:
 
-- Current status: NOT STARTED
+- Current status: IN PROGRESS
 - Owner: Cozy integrated-preview acceptance
 - Update rule: complete only when representative structure review, focused and
   full validation, independent review, and Phase closure pass.

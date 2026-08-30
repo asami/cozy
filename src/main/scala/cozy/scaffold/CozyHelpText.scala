@@ -189,6 +189,9 @@ private[cozy] object CozyHelpText {
       |  media visual-page preview <input> --catalog <catalog> --save <output.html> [--png <output.png>]
       |      Generate a deterministic semantic preview from one validated Visual Page or ordered Visual Page Set without selecting a presentation route.
       |
+      |  media explanation preview <plan> --composition <composition> --projection-map <projection-map> --explanation-catalog <explanation-catalog> --presentation-catalog <presentation-catalog> --visual-page-set <visual-page-set> --save <review.html> [--source <id>=<file>] [--asset <id>=<file>]
+      |      Generate a deterministic self-contained HTML review of one current Explanation Plan and its explicit Step-to-Page mappings; this command does not read Storyboard or render media.
+      |
       |  media explanation validate|inspect <catalog>
       |  media explanation validate|inspect <composition> --explanation-catalog <catalog> --presentation-catalog <catalog> [--source <id>=<file>] [--asset <id>=<file>]
       |  media explanation validate|inspect <plan> --composition <composition> --explanation-catalog <catalog> --presentation-catalog <catalog> [--source <id>=<file>] [--asset <id>=<file>]

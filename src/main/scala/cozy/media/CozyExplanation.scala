@@ -287,6 +287,7 @@ private[cozy] object CozyExplanation {
   }
 
   def execute(args: List[String]): String = args match {
+    case "preview" :: rest => CozyExplanationPreview.execute(rest)
     case ("validate" | "inspect" | "convert") :: rest if CozyExplanationProjection.isProjectionDocumentCommand(rest) =>
       CozyExplanationProjection.execute(args)
     case ("project" | "verify-projection") :: _ => CozyExplanationProjection.execute(args)
