@@ -54,13 +54,39 @@ Current phase state:
   The closure includes the one full Phase review, its bounded repair and
   focused closure re-review, and full Cozy validation. No publication, push,
   or downstream consumer acceptance is claimed.
-- Active successor: `phase-38.md`: Generated BoK Knowledge Boundary. It will
-  separate public SmartDox source from generated RDF/graph/Manual/History/UI,
-  align scaffold and diagnostics, and accept the reorganized
-  `bok-knowledgehub` driver. Phase 38 is IN PROGRESS; BOK38-01's
-  source-boundary design/specification is COMPLETE, while implementation and
-  later acceptance remain NOT STARTED. It does not alter the completed Phase
-  37 boundary.
+- Earlier closed phase: `phase-38.md`: Generated BoK Knowledge Boundary. It
+  separates public SmartDox source from generated RDF/graph/Manual/History/UI,
+  aligns scaffold and diagnostics, and accepts the reorganized
+  `bok-knowledgehub` driver without publication, push, or downstream consumer
+  acceptance.
+- Most recent closed phase: `phase-39.md`: PDF Command Contract and Semantics.
+  It makes `cozy pdf --help` discoverable and clarifies LaTeX format versus
+  media profile semantics. Markdown image admission and PDF receipts remain
+  deferred to `DEV-012`.
+- Earlier closed phase: `phase-39.1.md`: Cozy Launcher PDF Portability. It
+  establishes selected-runtime discovery and supported-working-directory path
+  portability without changing the Phase 39 PDF command contract.
+- Earlier closed phase: `phase-40.md`: Article and Summary Slide PDF
+  Generation and Currentness. It generates and verifies localized article and
+  summary-slide PDFs, keeps PPTX internal, and freezes the current
+  media-package handoff.
+- Most recent closed phase: `phase-40.1.md`: Article and Summary Slide PDF
+  Registration and Driver Acceptance. It closes the normal and WIP PDF
+  registration contract. Operational acceptance on a SimpleModeling.org
+  article is deferred as `P401-DC-001` to the post-Phase-42 Article 8
+  authoring loop; no external driver change is claimed here.
+- Planned later successor: `phase-41.md`: Explanation Structure Review HTML.
+  It will combine Explanation Pattern/Step flow, Step-to-Page mapping,
+  per-page Logical Pattern/Relations, and per-page Visual Pattern/parameters in
+  one self-contained confirmation HTML. It is NOT STARTED, follows Phase 40.1
+  closure, uses a repository-controlled accepted Visual Page fixture, and
+  changes no active or earlier planned Phase boundary.
+- Planned later successor: `phase-42.md`: Document Project Workflow Management
+  and Visibility. It will scaffold a canonical Document Project, derive one
+  Workflow Instance and first-class Work Product state from exact evidence,
+  retain append-only attempts, and generate a self-contained dashboard for
+  standalone-directory and BoK-hosted drivers. It is NOT STARTED, follows
+  Phase 41, and changes no active or earlier planned Phase boundary.
 - Earlier closed phase: `phase-28.2.md`: SimpleModeling.org Part 5
   Integration and Regression; `AM28-03` and `AM28-04` are complete.
 - Most recent split predecessor: `phase-28.1.md`: WIP Local Article Media
@@ -133,8 +159,40 @@ Its canonical status authority is `phase-37.md` plus
 validation, review, and projection only; it makes no publication, push, or
 downstream consumer acceptance claim.
 
-Phase 38 is the active, in-progress successor for the generated BoK knowledge
-boundary. Its canonical status authority is `phase-38.md` plus
-`phase-38-checklist.md`; BOK38-01's source-boundary design/specification is
-complete, while implementation and later acceptance remain not started. It
-must not be reported as implemented or closed.
+Phase 38 is closed for the generated BoK knowledge boundary. Its canonical
+status authority is `phase-38.md` plus `phase-38-checklist.md`.
+
+Phase 39 is closed for PDF command contract and semantics. Its canonical
+status authority is `phase-39.md` plus `phase-39-checklist.md`. It excludes
+handwritten source heading numbers: source headings remain unnumbered and
+renderer-owned numbering remains the expected route. Markdown image admission
+and PDF receipts remain deferred to `DEV-012`. Its ordered child, Phase 39.1,
+is closed for `cozy-launcher` runtime-discovery and working-directory
+portability; its authority is `phase-39.1.md` plus `phase-39.1-checklist.md`.
+
+Phase 40 is closed for article and summary-slide PDF generation and
+currentness. Its canonical authority is `phase-40.md` plus
+`phase-40-checklist.md`. It keeps any PPTX renderer artifact internal and
+outside public registration or distribution. Phase 40.1 owns the separate
+normal/WIP registry mutation contract.
+
+Phase 40.1 is closed. Its canonical authority is `phase-40.1.md` plus
+`phase-40.1-checklist.md`: normal/WIP PDF registration is complete, while
+external-driver operational acceptance is explicitly deferred as post-Phase-42
+`P401-DC-001`.
+
+Phase 41 is a planned, not-started later successor for integrated explanation
+structure review. Its canonical planning authority is `phase-41.md` plus
+`phase-41-checklist.md`. It reuses the closed Phase 36/37 semantic authorities,
+uses a repository-controlled accepted Visual Page fixture as its representative
+driver, and keeps generated HTML as self-contained review evidence rather than
+semantic or renderer authority.
+
+Phase 42 is a planned, not-started later successor for Document Project
+workflow management and visibility. Its canonical planning authority is
+`phase-42.md` plus `phase-42-checklist.md`, with non-normative specification
+input in `docs/notes/document-project-workflow-management-specification-proposal.md`.
+It follows Phase 41, scaffolds authored project sources without generated
+success evidence, derives state from source/receipt/review/attempt evidence,
+and accepts standalone-directory and BoK-hosted drivers without implicit
+registration, publication, deployment, upload, or legacy-article migration.

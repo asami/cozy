@@ -1128,8 +1128,8 @@ Primary references:
 
 ### Phase 38: Generated BoK Knowledge Boundary
 
-Status: in progress; BOK38-01 source-boundary design/specification complete.
-BOK38-02 through BOK38-07 remain not started. Phase 37 is closed.
+Status: COMPLETE. BOK38-01 through BOK38-07 are complete under the accepted
+Phase closure; Phase 37 remains closed.
 
 Purpose and boundaries:
 
@@ -1152,16 +1152,189 @@ Purpose and boundaries:
 - accept `/Users/asami/src/Project2026/bok-knowledgehub` as the driver project
   in its reorganized final layout without restoring legacy source paths.
 
-Phase 38 is in progress and BOK38-01's paired source-boundary
-design/specification is complete. BOK38-02 through BOK38-07, implementation,
-Executable Specifications, driver acceptance, full validation, independent
-review, and closure all remain not started.
+Phase 38 is COMPLETE. Its paired source-boundary design/specification,
+scaffold/doctor/configuration alignment, generated outputs, driver acceptance,
+full validation, independent review, and release closure are recorded in its
+canonical Phase documents. No publication, push, or downstream consumer
+acceptance is claimed.
 
 Primary references:
 
 - `docs/phase/phase-38.md`
 - `docs/phase/phase-38-checklist.md`
 - `/Users/asami/src/Project2026/bok-knowledgehub/STRUCTURE.md`
+
+### Phase 39: PDF Command Contract and Semantics
+
+Status: COMPLETE. Phase 38 and Phase 39.1 are closed.
+
+Purpose and boundaries:
+
+- make `cozy pdf --help` display command help rather than treating `--help` as
+  an input document;
+- clarify the relationship between PDF `--latex-format` and media `--profile`,
+  including enumeration, validation, diagnostics, and compatibility.
+
+Handwritten heading numbers are explicitly outside this Phase. Source headings
+remain unnumbered and the renderer owns automatic numbering. Phase 39 does not
+start until Phase 38 closes or the user explicitly changes active-Phase order.
+
+Phase 39 defines and freezes the Cozy PDF command contract. It does not own
+working-directory portability, selected-runtime discovery, launcher classpath
+resolution, or cross-directory driver acceptance; those belong exclusively to
+the ordered child Phase 39.1. Markdown image admission and PDF receipt
+semantics are deferred as `DEV-012`: SmartDox owns the image model, and a
+future separately planned integration Phase owns any receipt contract.
+
+Primary references:
+
+- `docs/phase/phase-39.md`
+- `docs/phase/phase-39-checklist.md`
+- `/Users/asami/src/Project2026/bok-knowledgehub/src/main/media/architecture/knowledgehub-component-architecture/review/cozy-gaps.yaml`
+
+### Phase 39.1: Cozy Launcher PDF Portability
+
+Status: COMPLETE. This ordered child closes the selected-runtime discovery and
+supported-working-directory portability boundary without changing Phase 39
+PDF command semantics.
+
+Purpose and boundaries:
+
+- discover the configured Cozy runtime and classpath consistently from every
+  documented project working directory;
+- remove the project-root `Runtime / fullClasspath` failure and package-root
+  workaround while preserving the accepted Phase 39 command contract;
+- prove source identity, artifact semantics, and receipt identity across the
+  repository root, media package root, and each other documented project CWD;
+  and
+- use KnowledgeHub only as a read-only driver with isolated temporary outputs.
+
+Phase 39.1's primary implementation owner is `cozy-launcher`. It excludes
+image syntax, command help, format/profile meaning, receipt semantics, driver
+source/configuration mutation, Textus BoK verification, publication, upload,
+and downstream consumer acceptance.
+
+Primary references:
+
+- `docs/phase/phase-39.1.md`
+- `docs/phase/phase-39.1-checklist.md`
+- `/Users/asami/src/Project2026/bok-knowledgehub/src/main/media/architecture/knowledgehub-component-architecture/review/cozy-gaps.yaml`
+
+### Phase 40: Article and Summary Slide PDF Generation and Currentness
+
+Status: COMPLETE. This Phase follows the accepted SmartDox Phase 9
+article-media PDF contract and has its distinct local release commit.
+
+Purpose and boundaries:
+
+- make localized article and summary-slide PDFs first-class Cozy media-package
+  outputs with deterministic generation, review evidence, and currentness;
+- keep any renderer-owned PPTX internal and outside public registration or
+  delivery;
+- freeze the accepted SmartDox PDF role bindings without mutating a site
+  registry; and
+- hand off current PDF resources and receipts to Phase 40.1 for normal/WIP
+  registration.
+
+Phase 40 owns PDF generation/currentness, not a new explanation-review
+interface or site registration. Its ordered child Phase 40.1 owns registration;
+Phase 41 instead owns a repository-controlled Visual Page fixture for its
+separate integrated review HTML.
+
+Primary references:
+
+- `docs/phase/phase-40.md`
+- `docs/phase/phase-40-checklist.md`
+
+### Phase 40.1: Article and Summary Slide PDF Registration and Driver Acceptance
+
+Status: COMPLETE. Phase 40 is closed. This ordered child completes the
+normal/WIP registration contract, current full Cozy validation, independent
+Phase review, and local release closure.
+
+Purpose and boundaries:
+
+- register only accepted current PDF roles through normal and WIP SmartDox site
+  routes with exact locale and atomic preservation of existing records;
+- record the selected SimpleModeling.org driver without fabricating its absent
+  PDF/summary-slide authority; defer its Article 8 operational acceptance as
+  post-Phase-42 `P401-DC-001`; and
+- consume, rather than redefine, Phase 40's PDF resource/receipt/currentness
+  handoff.
+
+Phase 40.1 excludes PDF generation and receipt semantics, public PPTX,
+SmartDox schema/projection work, `DEV-012`, editorial work, video regeneration,
+publication, deployment, upload, push, and series backfill.
+
+Primary references:
+
+- `docs/phase/phase-40.1.md`
+- `docs/phase/phase-40.1-checklist.md`
+
+### Phase 41: Explanation Structure Review HTML
+
+Status: planned; not started. It follows Phase 40.1 closure, uses a
+repository-controlled accepted Visual Page fixture, and does not change an
+earlier Phase boundary.
+
+Purpose and boundaries:
+
+- generate one deterministic, self-contained review HTML that shows the
+  selected Explanation Pattern, ordered Steps, and Step-to-Page mapping;
+- show every page's Logical Pattern, semantic nodes, typed Relations, Visual
+  Pattern, and parameters in the same overview;
+- reuse the accepted Phase 36/37 semantic authorities without inference or a
+  parallel IR;
+- keep HTML/CSS/inline-SVG layout below the Visual Pattern boundary and make
+  the HTML review evidence rather than a renderer or authoring authority;
+- bind every consumed input, preview renderer/profile, and HTML identity in a
+  currentness receipt; and
+- preserve the existing per-page `cozy media visual-page preview` unchanged.
+
+Phase 41 excludes semantic authoring, pattern selection, slide/PDF/video
+replacement, Web hosting, publication, upload, deployment, and public PPTX
+delivery. Its repository-controlled Visual Page fixture is a driver, not
+semantic input authority.
+
+Primary references:
+
+- `docs/phase/phase-41.md`
+- `docs/phase/phase-41-checklist.md`
+- `docs/journal/2026/08/2026-08-29-explanation-structure-review-html.md`
+
+### Phase 42: Document Project Workflow Management and Visibility
+
+Status: planned; not started. It follows Phase 41 and does not change any
+active, closed, or earlier planned Phase boundary.
+
+Purpose and boundaries:
+
+- scaffold one canonical authored Document Project package without copying a
+  common workflow or creating generated success evidence;
+- resolve a reusable logical-operation DAG into one Workflow Instance through
+  deliverable, profile, provider, and workspace bindings;
+- make authorities, plans, candidates, review projections, deliverables, and
+  receipts first-class Work Products with typed completion criteria;
+- derive completion coverage, currentness, review decision, and operation
+  readiness from exact source, receipt, review, and append-only attempt
+  evidence rather than mutable progress fields;
+- generate a deterministic self-contained dashboard with Workflow, Work
+  Product matrix, and Work Product detail views; and
+- accept the same logical workflow in a standalone directory and one
+  non-Article-8 BoK-hosted or isolated driver without changing Article 7 or
+  implicitly registering, building, publishing, deploying, or uploading the
+  host workspace.
+
+Phase 42 excludes semantic invention, a general scheduler or daemon, arbitrary
+command descriptors, dashboard write-back, replacement of existing media or
+review authorities, implicit workspace mutation, and legacy article migration.
+
+Primary references:
+
+- `docs/phase/phase-42.md`
+- `docs/phase/phase-42-checklist.md`
+- `docs/notes/document-project-workflow-management-specification-proposal.md`
+- `docs/journal/2026/08/2026-08-30-document-project-content-core-direction.md`
 
 ### Phase 31: Video Encoding Policy Profiles
 
@@ -1251,19 +1424,34 @@ Origin:
 | DEV-005 | Phase 34 final official full test `58874-20260824T044406Z`; resolved by CFB3 | Make `cozy.bok.CozyBokSpec` actual-Build source fixtures self-contained local safe sources while preserving CFB2 configuration-time safe absence and strict actual-Build admission; specify any behavior change first. | NEW_PHASE | [Phase 34](../phase/phase-34.md) | RESOLVED |
 | DEV-006 | User request on 2026-08-26 following the article-summary media workflow review | Establish a common Visual Page contract carrying a typed Logical Pattern and semantic Relation graph, projected separately through Visual Patterns into presentation slides and video Storyboard scene screens with deterministic renderer binding and receipt identity. This supersedes the earlier Markdown-only Slide IR successor proposal. | NEW_PHASE | [Phase 36](../phase/phase-36.md) | RESOLVED |
 | DEV-007 | User request on 2026-08-26 following the ACE product-explanation review | Separate Subject Pattern from Explanation Pattern and deterministically project one logical explanation composition into independent multi-slide and multi-scene sequences through the common Visual Page contract. | NEW_PHASE | [Phase 37](../phase/phase-37.md) | RESOLVED |
-| DEV-008 | User-approved BoK source-boundary decision on 2026-08-28 | Make public SmartDox source, durable media/publication state, generated RDF/graph/Manual/History/UI, and optional non-derived extensions separate authorities; adopt the reorganized `bok-knowledgehub` tree as the driver. | NEW_PHASE | [Phase 38](../phase/phase-38.md) | PLANNED |
+| DEV-008 | User-approved BoK source-boundary decision on 2026-08-28 | Make public SmartDox source, durable media/publication state, generated RDF/graph/Manual/History/UI, and optional non-derived extensions separate authorities; adopt the reorganized `bok-knowledgehub` tree as the driver. | NEW_PHASE | [Phase 38](../phase/phase-38.md) | RESOLVED |
+| DEV-009 | KnowledgeHub architecture article PDF production feedback on 2026-08-28; split approval on 2026-08-29 | Make Cozy PDF command help correct and distinguish LaTeX format from media profile semantics; then make `cozy-launcher` portable across supported working directories. | NEW_PHASE | [Phase 39](../phase/phase-39.md) COMPLETE → [Phase 39.1](../phase/phase-39.1.md) PLANNED | IN PROGRESS |
+| DEV-010 | User request for localized article and summary-slide PDF delivery on 2026-08-29; split approval on 2026-08-29 | Make localized article and summary-slide PDFs reproducible Cozy media-package outputs, keep PPTX internal, then register only accepted PDF roles through SmartDox. | NEW_PHASE | [Phase 40](../phase/phase-40.md) COMPLETE → [Phase 40.1](../phase/phase-40.1.md) COMPLETE | RESOLVED |
+| DEV-011 | User request for an integrated confirmation HTML on 2026-08-29 | Generate one self-contained review HTML that exposes explanation flow, Step-to-Page mapping, per-page logical semantics, and per-page visual structure together without becoming semantic authority. | NEW_PHASE | [Phase 41](../phase/phase-41.md), after Phase 40.1 | PLANNED |
+| DEV-012 | User decision on 2026-08-29 resolving `P39-DEC-IMAGE-RECEIPT-001` | Implement Markdown image admission in the SmartDox parser/image model and, only if needed, define a separate Cozy PDF receipt contract without reusing `cozy.media.receipt.v2`. | STRATEGY_ITEM | Future explicitly planned SmartDox/Cozy integration Phase | CANDIDATE |
+| DEV-013 | User-approved Document Project workflow direction on 2026-08-30 | Scaffold and manage one Document Project through a reusable workflow; expose first-class intermediate Work Products, evidence-derived completion/currentness/review/readiness, append-only attempts, and a deterministic dashboard for directory and BoK drivers. | NEW_PHASE | [Phase 42](../phase/phase-42.md), after Phase 41 | PLANNED |
 
 ## Current Priority
 
 Phase 30, Phase 36, and Phase 37 are closed. Phase 36 VIS36-01 through
 VIS36-06 and Phase 37 LOGIC37-01 through LOGIC37-06 are DONE.
-Phase 38 is in progress as the generated BoK knowledge-boundary successor;
-BOK38-01's source-boundary design/specification is complete. It does not alter
-the closed Phase 37 boundary; BOK38-02 through BOK38-07, implementation,
-driver acceptance, validation, and review remain not started.
-Neither successor adds work to the closed Phase 30 boundary or claims
-full Phase validation, Phase review, publication, push, or external consumer
-mutation.
+Phase 38 is closed for the generated BoK knowledge boundary. Phase 39 is
+closed for the Cozy PDF command contract and semantics; Markdown image
+admission and PDF receipt semantics remain deferred to `DEV-012`. Phase 39.1
+is the planned, not-started ordered child for `cozy-launcher` portability and
+does not expand either closed Phase boundary.
+Phase 40 is closed for localized article and summary-slide PDF
+generation/currentness. Its ordered child Phase 40.1 is closed for normal/WIP
+SmartDox registration; its external Article 8 driver acceptance is the
+explicit post-Phase-42 `P401-DC-001` follow-up.
+Phase 41 is planned after Phase 40.1 for the integrated Explanation Structure
+Review HTML and uses a repository-controlled accepted Visual Page fixture as
+its representative driver.
+Phase 42 is planned after Phase 41 for Document Project scaffold, workflow
+management, evidence-derived Work Product visibility, and directory/BoK
+driver acceptance. None of these successors is started, adds work to the closed Phase 30/36/37
+boundaries, or claims full Phase validation, Phase review, publication, push,
+or external consumer mutation.
 
 Phase 34 is closed after the candidate final official full Cozy validation.
 The earlier invocation
