@@ -147,7 +147,10 @@ private[cozy] object CozyExplanationPreview {
       _stale("$command.visualPageSet", "named VisualPageSet logical presentation catalog identity is not current")
     _unique(pageset.pages.map(_.id), "$command.visualPageSet.pages", "page ID")
     val pageindex = pageset.pages.map(page => page.id -> page).toMap
-    val rendered = projectionmap.plan.plan.steps.zipWithIndex.flatMap { case (step, index) =>
+    val visualpagesetpath = try config.visualpageset.toAbsolutePath.normalize() catch {
+      case NonFatal(_) => _stale("$command.visualPageSet", "named VisualPageSet path is invalid")
+    }
+    val renderedandresources = projectionmap.plan.plan.steps.zipWithIndex.flatMap { case (step, index) =>
       val mapping = projectionmap.projectionMap.presentation.stepMappings(index)
       mapping.pageIds.map { pageid =>
         val page = pageindex.getOrElse(pageid,
@@ -155,24 +158,135 @@ private[cozy] object CozyExplanationPreview {
         )
         if (page.logical != step.logical)
           _stale(s"$$.presentation.stepMappings[$index].pageIds", s"mapped page logical value does not equal Plan step ${step.id}")
-        _validate_provenance(step, page, index)
-        RenderedPage(step, mapping, page)
+        val resourcepaths = _validate_provenance(
+          step,
+          page,
+          index,
+          composition,
+          visualpagesetpath,
+          config.bindings
+        )
+        RenderedPage(step, mapping, page) -> resourcepaths
       }
     }
-    ValidatedPreview(composition, projectionmap, visualpages, rendered)
+    _validate_output_aliases(config.save, config, renderedandresources.flatMap(_._2))
+    ValidatedPreview(composition, projectionmap, visualpages, renderedandresources.map(_._1))
   }
 
-  private def _validate_provenance(step: CozyExplanation.PlanStep, page: CozyVisualPage.Page, index: Int): Unit = {
+  private def _validate_provenance(
+    step: CozyExplanation.PlanStep,
+    page: CozyVisualPage.Page,
+    index: Int,
+    composition: CozyExplanation.ValidatedComposition,
+    visualpagesetpath: Path,
+    bindings: CozyExplanation.ResourceBindings
+  ): Vector[Path] = {
     val requiredsources = (step.sourceRefs ++ step.claims.flatMap(_.sourceRefs) ++ step.logical.nodes.flatMap(_.sourceRefs) ++ step.logical.relations.flatMap(_.sourceRefs)).distinct
     val requiredassets = (step.assetRefs ++ step.claims.flatMap(_.assetRefs)).distinct
-    val pagesources = page.sources.map(_.id).toSet
-    val pageassets = page.assets.map(_.id).toSet
+    val pagesources = page.sources.map(value => value.id -> value).toMap
+    val pageassets = page.assets.map(value => value.id -> value).toMap
     requiredsources.find(id => !pagesources.contains(id)).foreach { id =>
       _stale(s"$$.presentation.stepMappings[$index].pageIds", s"mapped page is missing source provenance: $id")
     }
     requiredassets.find(id => !pageassets.contains(id)).foreach { id =>
       _stale(s"$$.presentation.stepMappings[$index].pageIds", s"mapped page is missing asset provenance: $id")
     }
+    val sourcedeclarations = composition.composition.sources.map(value => value.id -> value).toMap
+    val assetdeclarations = composition.composition.assets.map(value => value.id -> value).toMap
+    val sourcepaths = requiredsources.map { id =>
+      val declaration = sourcedeclarations.getOrElse(id,
+        _stale(s"$$.presentation.stepMappings[$index].pageIds", s"Plan source does not resolve in the current Composition: $id"))
+      val pagesource = pagesources(id)
+      val p36source = _descriptor_resource(
+        visualpagesetpath,
+        pagesource.path,
+        s"$$.presentation.stepMappings[$index].pageIds.${page.id}.sources.$id.path"
+      )
+      val p37source = CozyExplanationProjection._projection_input(
+        bindings.sources.getOrElse(id,
+          _stale(s"$$.presentation.stepMappings[$index].pageIds.${page.id}.sources.$id", "Composition source binding is missing")),
+        s"source.$id"
+      )
+      val p36bytes = Files.readAllBytes(p36source)
+      val p37bytes = Files.readAllBytes(p37source)
+      if (!java.util.Arrays.equals(p36bytes, p37bytes))
+        _stale(s"$$.presentation.stepMappings[$index].pageIds.${page.id}.sources.$id", "P36 source bytes do not agree with the explicit P37 source binding")
+      if (CozyExplanationProjection._sha256_bytes(p37bytes) != declaration.sha256)
+        _stale(s"$$.presentation.stepMappings[$index].pageIds.${page.id}.sources.$id", "P37 source bytes do not agree with the current SourceDeclaration")
+      p36source
+    }
+    val assetpaths = requiredassets.map { id =>
+      val declaration = assetdeclarations.getOrElse(id,
+        _stale(s"$$.presentation.stepMappings[$index].pageIds", s"Plan asset does not resolve in the current Composition: $id"))
+      val pageasset = pageassets(id)
+      val p36asset = _descriptor_resource(
+        visualpagesetpath,
+        pageasset.path,
+        s"$$.presentation.stepMappings[$index].pageIds.${page.id}.assets.$id.path"
+      )
+      val p37asset = CozyExplanationProjection._projection_input(
+        bindings.assets.getOrElse(id,
+          _stale(s"$$.presentation.stepMappings[$index].pageIds.${page.id}.assets.$id", "Composition asset binding is missing")),
+        s"asset.$id"
+      )
+      if (pageasset.mediaType != declaration.mediaType)
+        _stale(s"$$.presentation.stepMappings[$index].pageIds.${page.id}.assets.$id.mediaType", "P36 asset mediaType does not agree with the current P37 AssetDeclaration")
+      if (pageasset.sha256 != declaration.sha256)
+        _stale(s"$$.presentation.stepMappings[$index].pageIds.${page.id}.assets.$id.sha256", "P36 asset digest does not agree with the current P37 AssetDeclaration")
+      if (!java.util.Arrays.equals(Files.readAllBytes(p36asset), Files.readAllBytes(p37asset)))
+        _stale(s"$$.presentation.stepMappings[$index].pageIds.${page.id}.assets.$id", "P36 asset bytes do not agree with the explicit P37 asset binding")
+      p36asset
+    }
+    val descriptorpaths = page.sources.map { value =>
+      _descriptor_resource(
+        visualpagesetpath,
+        value.path,
+        s"$$.presentation.stepMappings[$index].pageIds.${page.id}.sources.${value.id}.path"
+      )
+    } ++ page.assets.map { value =>
+      _descriptor_resource(
+        visualpagesetpath,
+        value.path,
+        s"$$.presentation.stepMappings[$index].pageIds.${page.id}.assets.${value.id}.path"
+      )
+    }
+    (sourcepaths ++ assetpaths ++ descriptorpaths).distinct
+  }
+
+  private def _descriptor_resource(descriptor: Path, reference: String, path: String): Path = {
+    if (!CozyExplanationProjection._safe_relative_reference(reference))
+      _stale(path, "P36 resource reference must be a safe descriptor-relative path")
+    val root = Option(descriptor.getParent).getOrElse(_stale(path, "VisualPageSet parent directory is required"))
+    val resolved = root.resolve(reference).normalize()
+    if (!resolved.startsWith(root) || !Files.isRegularFile(resolved, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(resolved))
+      _stale(path, "P36 resource reference must resolve to an existing direct regular descriptor-relative file")
+    resolved
+  }
+
+  private def _validate_output_aliases(save: Path, config: Config, resourcepaths: Vector[Path]): Unit = {
+    val output = try save.toAbsolutePath.normalize() catch {
+      case NonFatal(_) => _fail("EXPLANATION_PREVIEW_COMMAND", "$command.save", "output path is invalid")
+    }
+    val namedinputs = Vector(
+      config.plan,
+      config.composition,
+      config.projectionmap,
+      config.explanationcatalog,
+      config.presentationcatalog,
+      config.visualpageset
+    )
+    val consumed = (namedinputs ++ config.bindings.sources.values ++ config.bindings.assets.values ++ resourcepaths)
+      .map(path => path.toAbsolutePath.normalize())
+      .distinct
+    consumed.find(path => _same_file(output, path)).foreach { path =>
+      _fail("EXPLANATION_PREVIEW_COMMAND", "$command.save", s"output aliases consumed input: $path")
+    }
+  }
+
+  private def _same_file(first: Path, second: Path): Boolean = {
+    if (first == second) true
+    else if (!Files.exists(first, LinkOption.NOFOLLOW_LINKS) || !Files.exists(second, LinkOption.NOFOLLOW_LINKS)) false
+    else try Files.isSameFile(first, second) catch { case NonFatal(_) => false }
   }
 
   private def _html(validated: ValidatedPreview): String = {

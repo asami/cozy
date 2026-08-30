@@ -1,6 +1,6 @@
 # Phase 41: Explanation Structure Review HTML
 
-Status: IN PROGRESS
+Status: COMPLETE
 
 Plan date: 2026-08-29
 
@@ -12,7 +12,7 @@ Dependencies:
   representative acceptance. Article 8 runtime use is an optional
   post-Phase-42 operational follow-up, not a Phase 41 dependency.
 
-Phase 41 is in progress and does not alter the active Phase 38 or planned
+Phase 41 is complete and does not alter the closed Phase 38,
 Phase 39, Phase 39.1, Phase 40, or Phase 40.1 boundaries.
 
 ## Goal
@@ -137,10 +137,11 @@ Stage Status:
 
 Stage Status:
 
-- Current status: IN PROGRESS
+- Current status: COMPLETE
 - Owner: Cozy integrated-preview acceptance
 - Update rule: complete only when representative structure review, focused and
-  full validation, independent review, and Phase closure pass.
+  final full validation, independent review, and the local Phase-release
+  commit pass; all are recorded in this closure.
 
 - Cover `problem-solution`, `product-overview`, and at least one Step mapped to
   multiple Pages.
@@ -152,8 +153,14 @@ Stage Status:
   making any PDF or internal PPTX the semantic source. An Article 8 runtime
   driver may be exercised only as a separate post-Phase-42 operational
   follow-up.
-- Run focused and full serialized Cozy validation and complete independent
-  Phase review before closure.
+- Focused serialized validation passed for the Preview, Explanation Projection,
+  and Visual Page Preview suites. The mandatory independent Phase review and
+  two bounded focused closure reviews closed `CPB-P41-001` and
+  `CPB-P41-002`. Final serialized Cozy validation passed on
+  `sbt --batch test` (invocation `91007-20260830T053008Z`: 1,597 succeeded,
+  0 failed, 121 suites; SBT/wrapper exit 0 and lock released). This closure is
+  local only: no push, publish, deployment, or downstream consumer acceptance
+  is claimed.
 
 ## Exclusions
 
@@ -180,6 +187,13 @@ or stale inputs fail closed; the existing per-page preview remains compatible;
 the repository-controlled Visual Page fixture passes; full Cozy validation
 succeeds; and independent Phase review closes all Current Boundary Blockers.
 Any Article 8 runtime acceptance remains optional post-Phase-42 follow-up.
+
+## Closure
+
+Phase 41 is complete through its local Phase-release commit. The Phase
+Hygiene Ledger records `HYG-P41-001` separately in
+`docs/journal/2026/08/2026-08-30-phase-41-hygiene-follow-up.md`; it is not a
+current Phase blocker. There are no Phase 41 Development Candidate records.
 
 ## Structural Phase Plan Gate
 

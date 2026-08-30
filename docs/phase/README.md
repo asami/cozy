@@ -75,13 +75,13 @@ Current phase state:
   registration contract. Operational acceptance on a SimpleModeling.org
   article is deferred as `P401-DC-001` to the post-Phase-42 Article 8
   authoring loop; no external driver change is claimed here.
-- Planned later successor: `phase-41.md`: Explanation Structure Review HTML.
-  It will combine Explanation Pattern/Step flow, Step-to-Page mapping,
-  per-page Logical Pattern/Relations, and per-page Visual Pattern/parameters in
-  one self-contained confirmation HTML. It is NOT STARTED, follows Phase 40.1
-  closure, uses a repository-controlled accepted Visual Page fixture, and
-  changes no active or earlier planned Phase boundary.
-- Planned later successor: `phase-42.md`: Document Project Workflow Management
+- Most recent closed phase: `phase-41.md`: Explanation Structure Review HTML.
+  It combines Explanation Pattern/Step flow, Step-to-Page mapping, per-page
+  Logical Pattern/Relations, and per-page Visual Pattern/parameters in one
+  self-contained confirmation HTML. Its local closure includes final Cozy
+  validation, one Phase review, and two focused closure reviews; no external
+  consumer acceptance is claimed.
+- Planned next successor: `phase-42.md`: Document Project Workflow Management
   and Visibility. It will scaffold a canonical Document Project, derive one
   Workflow Instance and first-class Work Product state from exact evidence,
   retain append-only attempts, and generate a self-contained dashboard for
@@ -181,12 +181,12 @@ Phase 40.1 is closed. Its canonical authority is `phase-40.1.md` plus
 external-driver operational acceptance is explicitly deferred as post-Phase-42
 `P401-DC-001`.
 
-Phase 41 is a planned, not-started later successor for integrated explanation
-structure review. Its canonical planning authority is `phase-41.md` plus
-`phase-41-checklist.md`. It reuses the closed Phase 36/37 semantic authorities,
-uses a repository-controlled accepted Visual Page fixture as its representative
-driver, and keeps generated HTML as self-contained review evidence rather than
-semantic or renderer authority.
+Phase 41 is closed for integrated explanation-structure review. Its canonical
+authority is `phase-41.md` plus `phase-41-checklist.md`. It reuses the closed
+Phase 36/37 semantic authorities, uses a repository-controlled accepted Visual
+Page fixture as its representative driver, and keeps generated HTML as
+self-contained review evidence rather than semantic or renderer authority. Its
+local closure does not claim external consumer acceptance.
 
 Phase 42 is a planned, not-started later successor for Document Project
 workflow management and visibility. Its canonical planning authority is

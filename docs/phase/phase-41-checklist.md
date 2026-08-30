@@ -3,7 +3,7 @@
 This checklist is the authoritative progress ledger for Phase 41. It is not a
 normative behavior contract.
 
-Phase Status: IN PROGRESS
+Phase Status: COMPLETE
 
 ## PREVIEW41-01: Review Contract and Information Architecture
 
@@ -65,9 +65,10 @@ Stage Status:
 ## PREVIEW41-05: Representative Driver Acceptance and Closure
 
 Stage Status:
-- Current status: IN PROGRESS
+- Current status: COMPLETE
 - Owner: Cozy Phase 41
-- Update rule: Update this block from the checklist state below.
+- Update rule: This block is complete when its final validation, review, and
+  local Phase-release commit are recorded below.
 
 - [x] Cover `problem-solution`, `product-overview`, and one Step-to-multiple-
       Pages projection.
@@ -77,9 +78,16 @@ Stage Status:
       the representative driver and verify page identity/order agreement
       without treating PDF/PPTX as authority. Article 8 runtime acceptance is
       optional post-Phase-42 operational follow-up only.
-- [ ] Run full serialized Cozy validation.
-- [ ] Complete independent Phase review and synchronize Strategy, Phase, and
-      checklist ledgers before closure.
+- [x] Complete the mandatory independent Phase review and two bounded focused
+      closure reviews; `CPB-P41-001` and `CPB-P41-002` are closed.
+- [x] Run full serialized Cozy validation: invocation
+      `91007-20260830T053008Z`, `sbt --batch test`, 1,597 succeeded, 0 failed,
+      121 suites, SBT/wrapper exit 0, lock released.
+- [x] Create the local Phase-release commit and synchronize Strategy, Phase,
+      and checklist ledgers; no push, publish, deployment, or downstream
+      consumer acceptance is claimed.
 
-Phase 41 is IN PROGRESS. Implementation and validation remain in progress; no
-publication, deployment, push, or downstream consumer acceptance is claimed.
+Phase 41 is COMPLETE. The local closure records the final full validation, one
+mandatory Phase review, two focused closure reviews, and the separate open
+Hygiene record `HYG-P41-001`; no publication, deployment, push, or downstream
+consumer acceptance is claimed.

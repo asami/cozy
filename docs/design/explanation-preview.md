@@ -28,7 +28,11 @@ directory and is replaced atomically. Every value option accepts either the
 separate `--option <value>` form or the equivalent `--option=<value>` form;
 each single-valued option occurs at most once. Repeated `--source` and
 `--asset` use the same two forms but retain the existing distinct-identifier
-rule.
+rule. Before replacement, `--save` MUST NOT alias any named direct document,
+explicit source or asset binding, or resolved descriptor-relative source or
+asset resource. Both normalized same-path aliases and existing filesystem
+aliases are rejected while the direct regular-file safety rules remain in
+force.
 
 ## Validation and Review Model
 
@@ -43,7 +47,11 @@ constructing a video Projection:
    has the Plan's logical catalog identity;
 4. every mapped Page ID resolves exactly once in that set; and
 5. every mapped page preserves the mapped Plan Step's logical value and
-   required source and asset provenance.
+   required source and asset provenance; and
+6. every required source descriptor's bytes agree with its explicit binding
+   and the binding digest agrees with the current SourceDeclaration, while
+   every required asset descriptor's media type and digest agree with the
+   current AssetDeclaration and its bytes agree with the explicit binding.
 
 The review model retains input identities, ordered steps, claims, sources,
 assets, Logical Pattern nodes and typed Relations, Visual Pattern, and typed
@@ -97,8 +105,9 @@ input to its receipt.
 Any missing, unsafe, malformed, duplicate, unknown, incompatible,
 identity-mismatched, or stale input fails closed with structured diagnostics.
 Identical accepted inputs and preview renderer/profile produce byte-identical
-HTML. The existing `cozy media visual-page preview` command and schema remain
-unchanged.
+HTML. Output aliases of consumed inputs fail before atomic replacement, so the
+preview remains read-only and cannot write back to any input. The existing
+`cozy media visual-page preview` command and schema remain unchanged.
 
 ## Non-goals
 

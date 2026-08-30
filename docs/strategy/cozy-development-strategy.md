@@ -1273,9 +1273,8 @@ Primary references:
 
 ### Phase 41: Explanation Structure Review HTML
 
-Status: planned; not started. It follows Phase 40.1 closure, uses a
-repository-controlled accepted Visual Page fixture, and does not change an
-earlier Phase boundary.
+Status: closed. It follows Phase 40.1 closure, uses a repository-controlled
+accepted Visual Page fixture, and does not change an earlier Phase boundary.
 
 Purpose and boundaries:
 
@@ -1296,11 +1295,17 @@ replacement, Web hosting, publication, upload, deployment, and public PPTX
 delivery. Its repository-controlled Visual Page fixture is a driver, not
 semantic input authority.
 
+Its local closure records the mandatory Phase review, two bounded focused
+closure reviews, and final serialized Cozy validation (`91007-20260830T053008Z`:
+1,597 succeeded, 0 failed, 121 suites). No push, publish, deployment, or
+downstream consumer acceptance is claimed.
+
 Primary references:
 
 - `docs/phase/phase-41.md`
 - `docs/phase/phase-41-checklist.md`
 - `docs/journal/2026/08/2026-08-29-explanation-structure-review-html.md`
+- `docs/journal/2026/08/2026-08-30-phase-41-hygiene-follow-up.md`
 
 ### Phase 42: Document Project Workflow Management and Visibility
 
@@ -1427,7 +1432,7 @@ Origin:
 | DEV-008 | User-approved BoK source-boundary decision on 2026-08-28 | Make public SmartDox source, durable media/publication state, generated RDF/graph/Manual/History/UI, and optional non-derived extensions separate authorities; adopt the reorganized `bok-knowledgehub` tree as the driver. | NEW_PHASE | [Phase 38](../phase/phase-38.md) | RESOLVED |
 | DEV-009 | KnowledgeHub architecture article PDF production feedback on 2026-08-28; split approval on 2026-08-29 | Make Cozy PDF command help correct and distinguish LaTeX format from media profile semantics; then make `cozy-launcher` portable across supported working directories. | NEW_PHASE | [Phase 39](../phase/phase-39.md) COMPLETE → [Phase 39.1](../phase/phase-39.1.md) PLANNED | IN PROGRESS |
 | DEV-010 | User request for localized article and summary-slide PDF delivery on 2026-08-29; split approval on 2026-08-29 | Make localized article and summary-slide PDFs reproducible Cozy media-package outputs, keep PPTX internal, then register only accepted PDF roles through SmartDox. | NEW_PHASE | [Phase 40](../phase/phase-40.md) COMPLETE → [Phase 40.1](../phase/phase-40.1.md) COMPLETE | RESOLVED |
-| DEV-011 | User request for an integrated confirmation HTML on 2026-08-29 | Generate one self-contained review HTML that exposes explanation flow, Step-to-Page mapping, per-page logical semantics, and per-page visual structure together without becoming semantic authority. | NEW_PHASE | [Phase 41](../phase/phase-41.md), after Phase 40.1 | PLANNED |
+| DEV-011 | User request for an integrated confirmation HTML on 2026-08-29 | Generate one self-contained review HTML that exposes explanation flow, Step-to-Page mapping, per-page logical semantics, and per-page visual structure together without becoming semantic authority. | NEW_PHASE | [Phase 41](../phase/phase-41.md), after Phase 40.1 | RESOLVED |
 | DEV-012 | User decision on 2026-08-29 resolving `P39-DEC-IMAGE-RECEIPT-001` | Implement Markdown image admission in the SmartDox parser/image model and, only if needed, define a separate Cozy PDF receipt contract without reusing `cozy.media.receipt.v2`. | STRATEGY_ITEM | Future explicitly planned SmartDox/Cozy integration Phase | CANDIDATE |
 | DEV-013 | User-approved Document Project workflow direction on 2026-08-30 | Scaffold and manage one Document Project through a reusable workflow; expose first-class intermediate Work Products, evidence-derived completion/currentness/review/readiness, append-only attempts, and a deterministic dashboard for directory and BoK drivers. | NEW_PHASE | [Phase 42](../phase/phase-42.md), after Phase 41 | PLANNED |
 
@@ -1444,10 +1449,10 @@ Phase 40 is closed for localized article and summary-slide PDF
 generation/currentness. Its ordered child Phase 40.1 is closed for normal/WIP
 SmartDox registration; its external Article 8 driver acceptance is the
 explicit post-Phase-42 `P401-DC-001` follow-up.
-Phase 41 is planned after Phase 40.1 for the integrated Explanation Structure
-Review HTML and uses a repository-controlled accepted Visual Page fixture as
-its representative driver.
-Phase 42 is planned after Phase 41 for Document Project scaffold, workflow
+Phase 41 is closed for the integrated Explanation Structure Review HTML and
+uses a repository-controlled accepted Visual Page fixture as its representative
+driver. Its closure is local only and makes no external consumer claim.
+Phase 42 is the planned next successor for Document Project scaffold, workflow
 management, evidence-derived Work Product visibility, and directory/BoK
 driver acceptance. None of these successors is started, adds work to the closed Phase 30/36/37
 boundaries, or claims full Phase validation, Phase review, publication, push,

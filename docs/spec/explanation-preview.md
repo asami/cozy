@@ -24,7 +24,10 @@ Every value option accepts both `--option <value>` and `--option=<value>`.
 `--source` and `--asset` follow the existing Explanation direct-binding
 contract and may repeat only for distinct declared identifiers. `--save` is
 required and names a direct `.html` file. Unsupported, duplicated, valueless,
-or positional options fail deterministically.
+or positional options fail deterministically. `--save` MUST NOT alias any
+named direct document, explicit source or asset binding, or resolved mapped-Page
+descriptor resource. Normalized same-path aliases and existing filesystem
+aliases MUST be rejected before output replacement.
 
 ## Required Input Agreement
 
@@ -41,6 +44,12 @@ Before writing output, Cozy MUST validate all of the following:
 - Every mapped Page ID exists exactly once; a mapped Page's Logical Pattern is
   exactly the Plan Step's Logical Pattern; and source and asset provenance
   required by the Step are present on that Page.
+- For every required source, the descriptor-relative resource bytes equal the
+  explicit source binding and the binding digest equals the current
+  SourceDeclaration.
+- For every required asset, the descriptor mediaType and digest equal the
+  current AssetDeclaration, and the descriptor-relative resource bytes equal
+  the explicit asset binding.
 
 Missing, duplicate, unsafe, malformed, unknown, incompatible,
 identity-mismatched, or stale input MUST fail before output replacement.

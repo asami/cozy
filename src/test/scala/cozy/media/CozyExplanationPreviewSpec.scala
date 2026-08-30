@@ -169,6 +169,153 @@ final class CozyExplanationPreviewSpec
       }
     }
 
+    "reject a mapped Page whose source descriptor bytes disagree with its explicit binding" in {
+      _with_work("source-agreement") { root =>
+        Given("a current explanation closure, a source descriptor with different bytes, and sentinel output bytes")
+        val fixture = _fixture(root)
+        val output = _write(root.resolve("source-agreement.html"), "preserve-me")
+        val descriptor = _write(root.resolve("descriptor-source.txt"), "different source bytes")
+        val pageset = fixture.pageset.copy(pages = fixture.pageset.pages.map { page =>
+          page.copy(sources = page.sources.map(source => source.copy(path = root.relativize(descriptor).toString)))
+        })
+        val pagesfile = _write(root.resolve("source-agreement-pages.json"), CozyVisualPage.canonicalJson(pageset))
+
+        When("the explanation Preview consumes the mismatched source descriptor")
+        val failure = _failure(CozyExplanation.execute(_preview_command(fixture, output, visualpageset = Some(pagesfile))))
+
+        Then("Preview reports stale source agreement and preserves the sentinel output")
+        failure.getMessage should include_text("EXPLANATION_PREVIEW_STALE")
+        failure.getMessage should include_text("P36 source bytes")
+        Files.readString(output, StandardCharsets.UTF_8) shouldBe "preserve-me"
+      }
+    }
+
+    "reject a mapped Page whose asset media type disagrees with its Composition declaration" in {
+      _with_work("asset-media-type-agreement") { root =>
+        Given("a current explanation closure, an asset descriptor with a different media type, and sentinel output bytes")
+        val fixture = _fixture(root)
+        val output = _write(root.resolve("asset-media-type-agreement.html"), "preserve-me")
+        val pageset = fixture.pageset.copy(pages = fixture.pageset.pages.map { page =>
+          page.copy(assets = page.assets.map(asset => asset.copy(mediaType = "image/png")))
+        })
+        val pagesfile = _write(root.resolve("asset-media-type-agreement-pages.json"), CozyVisualPage.canonicalJson(pageset))
+
+        When("the explanation Preview consumes the mismatched asset media type")
+        val failure = _failure(CozyExplanation.execute(_preview_command(fixture, output, visualpageset = Some(pagesfile))))
+
+        Then("Preview reports stale asset media type agreement and preserves the sentinel output")
+        failure.getMessage should include_text("EXPLANATION_PREVIEW_STALE")
+        failure.getMessage should include_text("P36 asset mediaType")
+        Files.readString(output, StandardCharsets.UTF_8) shouldBe "preserve-me"
+      }
+    }
+
+    "reject a mapped Page whose asset digest disagrees with its Composition declaration" in {
+      _with_work("asset-digest-agreement") { root =>
+        Given("a current explanation closure, an asset descriptor with a different digest, and sentinel output bytes")
+        val fixture = _fixture(root)
+        val output = _write(root.resolve("asset-digest-agreement.html"), "preserve-me")
+        val descriptor = _write(root.resolve("descriptor-asset-digest.txt"), "different asset digest bytes")
+        val descriptordigest = _sha256_file(descriptor)
+        val pageset = fixture.pageset.copy(pages = fixture.pageset.pages.map { page =>
+          page.copy(assets = page.assets.map(asset => asset.copy(path = root.relativize(descriptor).toString, sha256 = descriptordigest)))
+        })
+        val pagesfile = _write(root.resolve("asset-digest-agreement-pages.json"), CozyVisualPage.canonicalJson(pageset))
+
+        When("the explanation Preview consumes the mismatched asset digest")
+        val failure = _failure(CozyExplanation.execute(_preview_command(fixture, output, visualpageset = Some(pagesfile))))
+
+        Then("Preview reports stale asset digest agreement and preserves the sentinel output")
+        failure.getMessage should include_text("EXPLANATION_PREVIEW_STALE")
+        failure.getMessage should include_text("P36 asset digest")
+        Files.readString(output, StandardCharsets.UTF_8) shouldBe "preserve-me"
+      }
+    }
+
+    "reject a mapped Page whose asset descriptor bytes disagree with its explicit binding" in {
+      _with_work("asset-bytes-agreement") { root =>
+        Given("a current explanation closure, an asset descriptor with different bytes, and sentinel output bytes")
+        val fixture = _fixture(root)
+        val output = _write(root.resolve("asset-bytes-agreement.html"), "preserve-me")
+        val descriptor = _write(root.resolve("descriptor-asset.txt"), "different asset bytes")
+        val pageset = fixture.pageset.copy(pages = fixture.pageset.pages.map { page =>
+          page.copy(assets = page.assets.map(asset => asset.copy(path = root.relativize(descriptor).toString)))
+        })
+        val pagesfile = _write(root.resolve("asset-bytes-agreement-pages.json"), CozyVisualPage.canonicalJson(pageset))
+
+        When("the explanation Preview consumes the mismatched asset descriptor")
+        val failure = _failure(CozyExplanation.execute(_preview_command(fixture, output, visualpageset = Some(pagesfile))))
+
+        Then("Preview reports stale asset byte agreement and preserves the sentinel output")
+        failure.getMessage should include_text("EXPLANATION_PREVIEW_STALE")
+        Files.readString(output, StandardCharsets.UTF_8) shouldBe "preserve-me"
+      }
+    }
+
+    "reject a --save path aliased to an explicit direct binding" in {
+      _with_work("binding-alias") { root =>
+        Given("a current explanation closure and a direct hard-link alias to its source binding")
+        val fixture = _fixture(root)
+        val output = root.resolve("binding-alias.html")
+        Files.createLink(output, fixture.bindings.sources("source"))
+        val sentinel = Files.readAllBytes(output).toVector
+
+        When("the explanation Preview selects the source-binding alias as its output")
+        val failure = _failure(CozyExplanation.execute(_preview_command(fixture, output)))
+
+        Then("Preview reports the consumed-input alias and preserves the binding bytes")
+        failure.getMessage should include_text("EXPLANATION_PREVIEW_COMMAND")
+        failure.getMessage should include_text("output aliases consumed input")
+        Files.readAllBytes(output).toVector shouldBe sentinel
+      }
+    }
+
+    "reject a --save path aliased to a named direct document" in {
+      _with_work("named-document-alias") { root =>
+        Given("a current explanation closure and a direct hard-link alias to its named Plan document")
+        val fixture = _fixture(root)
+        val output = root.resolve("plan-alias.html")
+        Files.createLink(output, fixture.planfile)
+        val sentinel = Files.readAllBytes(output).toVector
+
+        When("the explanation Preview selects the named-document alias as its output")
+        val failure = _failure(CozyExplanation.execute(_preview_command(fixture, output)))
+
+        Then("Preview reports the consumed-input alias and preserves the named document bytes")
+        failure.getMessage should include_text("EXPLANATION_PREVIEW_COMMAND")
+        failure.getMessage should include_text("output aliases consumed input")
+        Files.readAllBytes(output).toVector shouldBe sentinel
+      }
+    }
+
+    "reject a --save path aliased to a non-required mapped Page descriptor resource" in {
+      _with_work("mapped-page-extra-alias") { root =>
+        Given("a current explanation closure with an extra mapped Page source descriptor and a direct hard-link output alias")
+        val fixture = _fixture(root)
+        val descriptor = _write(root.resolve("sources/extra-source.txt"), "extra source descriptor bytes")
+        val pageset = fixture.pageset.copy(pages = fixture.pageset.pages.updated(0,
+          fixture.pageset.pages.head.copy(
+            sources = fixture.pageset.pages.head.sources :+ CozyVisualPage.SourceBinding(
+              "extra-source",
+              root.relativize(descriptor).toString
+            )
+          )
+        ))
+        val pagesfile = _write(root.resolve("mapped-page-extra-pages.json"), CozyVisualPage.canonicalJson(pageset))
+        val output = root.resolve("mapped-page-extra-alias.html")
+        Files.createLink(output, descriptor)
+        val sentinel = Files.readAllBytes(output).toVector
+
+        When("the explanation Preview selects the non-required mapped Page descriptor alias as its output")
+        val failure = _failure(CozyExplanation.execute(_preview_command(fixture, output, visualpageset = Some(pagesfile))))
+
+        Then("Preview reports the consumed-input alias and preserves the descriptor bytes")
+        failure.getMessage should include_text("EXPLANATION_PREVIEW_COMMAND")
+        failure.getMessage should include_text("output aliases consumed input")
+        Files.readAllBytes(output).toVector shouldBe sentinel
+      }
+    }
+
     "reject unsupported incomplete duplicated and positional Preview grammar deterministically" in {
       _with_work("grammar") { root =>
         Given("one otherwise complete direct-file explanation closure")
