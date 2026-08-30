@@ -7,7 +7,7 @@ import org.smartdox.metadata.PublishMetadata.{ArticleMediaPublication, ArticleMe
 
 /*
  * @since   Aug.  4, 2026
- * @version Aug.  4, 2026
+ * @version Aug. 30, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArticleMediaAssociation {
@@ -174,9 +174,15 @@ private[cozy] object CozyArticleMediaAssociation {
     val variants = Option(result.publication.variants).getOrElse(
       _invalid("Article-media association publication result variants must be defined")
     ).map { variant =>
-      if (variant == null || variant.infographic == null || variant.video == null)
+      if (variant == null || variant.infographic == null || variant.video == null || variant.articlePdf == null || variant.summarySlidesPdf == null)
         _invalid("Article-media association publication result variant must be defined")
-      CozyArticleMediaPublication.Variant(variant.locale, variant.infographic, variant.video)
+      CozyArticleMediaPublication.Variant(
+        locale = variant.locale,
+        infographic = variant.infographic,
+        video = variant.video,
+        articlePdf = variant.articlePdf,
+        summarySlidesPdf = variant.summarySlidesPdf
+      )
     }
     val canonical = CozyArticleMediaPublication.produce(result.publication.articleIdentity, variants)
     if (result != canonical)

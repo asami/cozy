@@ -7,12 +7,12 @@ import java.security.MessageDigest
 import scala.collection.JavaConverters._
 import scala.util.Try
 import org.goldenport.RAISE
-import org.smartdox.metadata.PublishMetadata.{ImageReference, VideoPresentation, VideoReference, VideoStatus}
+import org.smartdox.metadata.PublishMetadata.{ImageReference, PdfDocumentReference, VideoPresentation, VideoReference, VideoStatus}
 import play.api.libs.json.{JsArray, JsObject, JsString, JsValue, Json}
 
 /*
  * @since   Aug.  4, 2026
- * @version Aug. 12, 2026
+ * @version Aug. 30, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArticleMediaRegistry {
@@ -53,6 +53,28 @@ private[cozy] object CozyArticleMediaRegistry {
     strictPublications: Vector[CozyArticleMediaPublication.Result],
     integrityResults: Vector[CozyArticleMediaIntegrity.Result]
   )
+
+  sealed trait StrictRole {
+    def name: String
+  }
+
+  object StrictRole {
+    case object Infographic extends StrictRole {
+      val name = "infographic"
+    }
+
+    case object Video extends StrictRole {
+      val name = "video"
+    }
+
+    case object ArticlePdf extends StrictRole {
+      val name = "article_pdf"
+    }
+
+    case object SummarySlidesPdf extends StrictRole {
+      val name = "summary_slides_pdf"
+    }
+  }
 
   final case class UpsertResult(
     bundlePath: Path,
@@ -276,12 +298,14 @@ private[cozy] object CozyArticleMediaRegistry {
       if (owners.size != 1)
         _invalid("Article-media registry WIP transaction requires exactly one owner bundle")
       val owner = owners.head
+      val integrityarticles = updates.filter(_.integrity.nonEmpty).map(_.articleidentity).toSet
       val entries = plan.articles.flatMap { article =>
-        _publication_entry(article.strict) +: article.integrities.map { integrity =>
+        val integrities = if (integrityarticles.contains(article.articleIdentity)) article.integrities else Vector.empty
+        _publication_entry(article.strict) +: integrities.map { integrity =>
           Entry(owner, integrity.entryPath, _canonical_key(integrity.entryPath), integrity.metadata)
         }
       }.sortBy(_.path)
-      val removals = plan.articles.flatMap(article => _integrity_entries_for_identity(_initial_snapshot, article.articleIdentity).map(_.path)).distinct.sorted
+      val removals = plan.articles.filter(article => integrityarticles.contains(article.articleIdentity)).flatMap(article => _integrity_entries_for_identity(_initial_snapshot, article.articleIdentity).map(_.path)).distinct.sorted
       val createarticlemedia = owner == "article-media" && !_initial_snapshot.bundleDigests.contains(owner)
       _validate_plans(_initial_snapshot, Vector(OwnerPlan(owner, entries, removals, createarticlemedia)))
       _capability.validateSnapshot(_initial_snapshot.bundleDigests)
@@ -678,8 +702,8 @@ private[cozy] object CozyArticleMediaRegistry {
   private final case class NormalizedRoleUpdate(
     articleidentity: String,
     variant: CozyArticleMediaPublication.Variant,
-    integrity: CozyArticleMediaIntegrity.Result,
-    role: CozyArticleMediaIntegrity.Role
+    integrity: Option[CozyArticleMediaIntegrity.Result],
+    role: StrictRole
   ) {
     def key: (String, String, String) = (articleidentity, variant.locale, role.name)
   }
@@ -687,7 +711,7 @@ private[cozy] object CozyArticleMediaRegistry {
   private final case class NormalizedSiteRoleUpdate(
     articleidentity: String,
     variant: CozyArticleMediaPublication.Variant,
-    role: CozyArticleMediaIntegrity.Role
+    role: StrictRole
   ) {
     def key: (String, String, String) = (articleidentity, variant.locale, role.name)
   }
@@ -696,7 +720,7 @@ private[cozy] object CozyArticleMediaRegistry {
     articleidentity: String,
     variant: CozyArticleMediaPublication.Variant,
     integrity: Option[CozyArticleMediaIntegrity.Result],
-    role: CozyArticleMediaIntegrity.Role
+    role: StrictRole
   ) {
     def key: (String, String, String) = (articleidentity, variant.locale, role.name)
   }
@@ -818,41 +842,90 @@ private[cozy] object CozyArticleMediaRegistry {
   }
 
   private def _normalize_role_update(value: RoleUpdate): NormalizedRoleUpdate = {
-    if (value == null || value.variant == null || value.integrity == null)
+    if (value == null || value.variant == null)
       _invalid("Article-media registry role update must be defined")
     val supplied = value.variant
-    if (supplied.infographic.isDefined == supplied.video.isDefined)
-      _invalid("Article-media registry role update variant must contain exactly one medium")
     val strict = CozyArticleMediaPublication.produce(value.articleIdentity, Vector(supplied))
     val canonicalvariant = strict.publication.variants.head
-    val variant = CozyArticleMediaPublication.Variant(canonicalvariant.locale, canonicalvariant.infographic, canonicalvariant.video)
-    val integrity = _canonical_integrity(value.integrity)
-    val role = if (variant.infographic.isDefined) CozyArticleMediaIntegrity.Role.Infographic else CozyArticleMediaIntegrity.Role.Video
-    val publicpath = variant.infographic.map(_.publicPath).orElse {
-      variant.video.flatMap { video =>
-        if (video.presentation != VideoPresentation.SiteHosted || video.contentUrl.isEmpty)
-          _invalid("Article-media registry video role update must be site-hosted with content_url")
-        video.contentUrl
-      }
-    }.getOrElse(_invalid("Article-media registry role update medium is missing"))
-    val record = integrity.record
-    if (record.articleIdentity != strict.publication.articleIdentity || record.locale != variant.locale ||
-      record.role != role || record.publicPath.toString != publicpath.toString)
-      _invalid("Article-media registry role update strict and integrity evidence must have the same identity, locale, role, and public path")
-    _validate_strict_integrities(strict, Vector(integrity))
+    val variant = CozyArticleMediaPublication.Variant(
+      locale = canonicalvariant.locale,
+      infographic = canonicalvariant.infographic,
+      video = canonicalvariant.video,
+      articlePdf = canonicalvariant.articlePdf,
+      summarySlidesPdf = canonicalvariant.summarySlidesPdf
+    )
+    val role = _strict_role(variant)
+    val integrity = role match {
+      case StrictRole.Infographic | StrictRole.Video =>
+        val canonical = _canonical_integrity(Option(value.integrity).getOrElse(
+          _invalid("Article-media registry role update integrity must be defined")
+        ))
+        val publicpath = _integrity_public_path(variant, role)
+        val record = canonical.record
+        val expectedrole = role match {
+          case StrictRole.Infographic => CozyArticleMediaIntegrity.Role.Infographic
+          case StrictRole.Video => CozyArticleMediaIntegrity.Role.Video
+          case _ => _invalid("Article-media registry role update integrity role is invalid")
+        }
+        if (record.articleIdentity != strict.publication.articleIdentity || record.locale != variant.locale ||
+          record.role != expectedrole || record.publicPath.toString != publicpath.toString)
+          _invalid("Article-media registry role update strict and integrity evidence must have the same identity, locale, role, and public path")
+        _validate_strict_integrities(strict, Vector(canonical))
+        Some(canonical)
+      case StrictRole.ArticlePdf | StrictRole.SummarySlidesPdf =>
+        if (value.integrity != null)
+          _invalid("Article-media registry PDF role update must not carry integrity")
+        None
+    }
     NormalizedRoleUpdate(strict.publication.articleIdentity, variant, integrity, role)
+  }
+
+  private def _strict_role(value: CozyArticleMediaPublication.Variant): StrictRole = {
+    val roles = Vector(
+      value.infographic.map(_ => StrictRole.Infographic),
+      value.video.map(_ => StrictRole.Video),
+      value.articlePdf.map(_ => StrictRole.ArticlePdf),
+      value.summarySlidesPdf.map(_ => StrictRole.SummarySlidesPdf)
+    ).flatten
+    if (roles.size != 1)
+      _invalid("Article-media registry role update variant must contain exactly one medium")
+    roles.head
+  }
+
+  private def _integrity_public_path(
+    value: CozyArticleMediaPublication.Variant,
+    strictrole: StrictRole
+  ): URI = strictrole match {
+    case StrictRole.Infographic => value.infographic.map(_.publicPath).getOrElse(
+      _invalid("Article-media registry infographic role update medium is missing")
+    )
+    case StrictRole.Video => value.video.flatMap { video =>
+      if (video.presentation != VideoPresentation.SiteHosted || video.contentUrl.isEmpty)
+        _invalid("Article-media registry video role update must be site-hosted with content_url")
+      video.contentUrl
+    }.getOrElse(_invalid("Article-media registry video role update medium is missing"))
+    case StrictRole.ArticlePdf => value.articlePdf.map(_.publicPath).getOrElse(
+      _invalid("Article-media registry article PDF role update medium is missing")
+    )
+    case StrictRole.SummarySlidesPdf => value.summarySlidesPdf.map(_.publicPath).getOrElse(
+      _invalid("Article-media registry summary-slides PDF role update medium is missing")
+    )
   }
 
   private def _normalize_site_role_update(value: SiteRoleUpdate): NormalizedSiteRoleUpdate = {
     if (value == null || value.variant == null)
       _invalid("Article-media registry site role update must be defined")
     val supplied = value.variant
-    if (supplied.infographic.isDefined == supplied.video.isDefined)
-      _invalid("Article-media registry site role update variant must contain exactly one medium")
     val strict = CozyArticleMediaPublication.produce(value.articleIdentity, Vector(supplied))
     val canonicalvariant = strict.publication.variants.head
-    val variant = CozyArticleMediaPublication.Variant(canonicalvariant.locale, canonicalvariant.infographic, canonicalvariant.video)
-    val role = if (variant.infographic.isDefined) CozyArticleMediaIntegrity.Role.Infographic else CozyArticleMediaIntegrity.Role.Video
+    val variant = CozyArticleMediaPublication.Variant(
+      locale = canonicalvariant.locale,
+      infographic = canonicalvariant.infographic,
+      video = canonicalvariant.video,
+      articlePdf = canonicalvariant.articlePdf,
+      summarySlidesPdf = canonicalvariant.summarySlidesPdf
+    )
+    val role = _strict_role(variant)
     variant.video.foreach { video =>
       if (video.presentation != VideoPresentation.ExternalLink)
         _invalid("Article-media registry site video role update must be an external-link")
@@ -864,17 +937,24 @@ private[cozy] object CozyArticleMediaRegistry {
     if (value == null || value.variant == null || value.integrity == null)
       _invalid("Article-media registry WIP role update must be defined")
     val supplied = value.variant
-    if (supplied.infographic.isDefined == supplied.video.isDefined)
-      _invalid("Article-media registry WIP role update variant must contain exactly one medium")
     val strict = CozyArticleMediaPublication.produce(value.articleIdentity, Vector(supplied))
     val canonicalvariant = strict.publication.variants.head
-    val variant = CozyArticleMediaPublication.Variant(canonicalvariant.locale, canonicalvariant.infographic, canonicalvariant.video)
-    val role = if (variant.infographic.isDefined) CozyArticleMediaIntegrity.Role.Infographic else CozyArticleMediaIntegrity.Role.Video
+    val variant = CozyArticleMediaPublication.Variant(
+      locale = canonicalvariant.locale,
+      infographic = canonicalvariant.infographic,
+      video = canonicalvariant.video,
+      articlePdf = canonicalvariant.articlePdf,
+      summarySlidesPdf = canonicalvariant.summarySlidesPdf
+    )
+    val role = _strict_role(variant)
     role match {
-      case CozyArticleMediaIntegrity.Role.Infographic =>
+      case StrictRole.Infographic =>
         if (value.integrity.nonEmpty)
           _invalid("Article-media registry WIP infographic update must not carry integrity")
-      case CozyArticleMediaIntegrity.Role.Video =>
+      case StrictRole.ArticlePdf | StrictRole.SummarySlidesPdf =>
+        if (value.integrity.nonEmpty)
+          _invalid("Article-media registry WIP PDF update must not carry integrity")
+      case StrictRole.Video =>
         val video = variant.video.getOrElse(_invalid("Article-media registry WIP video update is missing"))
         if (video.presentation != VideoPresentation.SiteHosted || video.status != VideoStatus.Published ||
           video.provider.nonEmpty || video.watchUrl.nonEmpty || video.contentUrl.isEmpty)
@@ -928,12 +1008,13 @@ private[cozy] object CozyArticleMediaRegistry {
       val existingintegrities = _integrity_entries_for_identity(snapshot, identity).map(x => _integrity_result(x.metadata))
       val strict = _merge_strict(identity, existingstrict, articleupdates)
       val integrities = _merge_integrities(existingintegrities, articleupdates)
+      val integrityupdates = articleupdates.exists(_.integrity.nonEmpty)
       _validate_strict_integrities(strict, integrities)
-      val entries = (_publication_entry(strict) +: integrities.map(x => Entry("", x.entryPath, _canonical_key(x.entryPath), x.metadata))).sortBy(_.path)
+      val entries = (_publication_entry(strict) +: (if (integrityupdates) integrities else Vector.empty).map(x => Entry("", x.entryPath, _canonical_key(x.entryPath), x.metadata))).sortBy(_.path)
       owner -> OwnerPlan(
         owner = owner,
         entries = entries,
-        removeprefixes = _integrity_entries_for_identity(snapshot, identity).map(_.path),
+        removeprefixes = if (integrityupdates) _integrity_entries_for_identity(snapshot, identity).map(_.path) else Vector.empty,
         createarticlemedia = owner == "article-media" && !snapshot.bundleDigests.contains("article-media")
       )
     }
@@ -979,7 +1060,7 @@ private[cozy] object CozyArticleMediaRegistry {
     updates: Vector[NormalizedWipRoleUpdate]
   ): WipReadOnlyPlan = {
     val videostates = updates.collect {
-      case update if update.role == CozyArticleMediaIntegrity.Role.Video =>
+      case update if update.role == StrictRole.Video =>
         val existingstrict = snapshot.entries.find(_.path == s"metadata/article-media/${update.articleidentity}.json").map(x => _strict_result(x.metadata))
         val existingintegrities = _integrity_entries_for_identity(snapshot, update.articleidentity).map(x => _integrity_result(x.metadata))
         update.key -> _wip_video_state(existingstrict, existingintegrities, update)
@@ -990,12 +1071,13 @@ private[cozy] object CozyArticleMediaRegistry {
       val existingintegrities = _integrity_entries_for_identity(snapshot, identity).map(x => _integrity_result(x.metadata))
       val strict = _merge_wip_strict(identity, existingstrict, articleupdates)
       val integrities = _merge_wip_integrities(existingintegrities, articleupdates)
+      val integrityupdates = articleupdates.exists(_.integrity.nonEmpty)
       _validate_strict_integrities(strict, integrities)
-      val entries = (_publication_entry(strict) +: integrities.map(x => Entry("", x.entryPath, _canonical_key(x.entryPath), x.metadata))).sortBy(_.path)
+      val entries = (_publication_entry(strict) +: (if (integrityupdates) integrities else Vector.empty).map(x => Entry("", x.entryPath, _canonical_key(x.entryPath), x.metadata))).sortBy(_.path)
       _validate_plans(snapshot, Vector(OwnerPlan(
         owner = owner,
         entries = entries,
-        removeprefixes = _integrity_entries_for_identity(snapshot, identity).map(_.path),
+        removeprefixes = if (integrityupdates) _integrity_entries_for_identity(snapshot, identity).map(_.path) else Vector.empty,
         createarticlemedia = owner == "article-media" && !snapshot.bundleDigests.contains("article-media")
       )))
       WipArticlePlan(identity, owner, strict, integrities)
@@ -1035,13 +1117,21 @@ private[cozy] object CozyArticleMediaRegistry {
     updates: Vector[NormalizedWipRoleUpdate]
   ): CozyArticleMediaPublication.Result = {
     val initial = existing.map(_.publication.variants.map { variant =>
-      variant.locale -> CozyArticleMediaPublication.Variant(variant.locale, variant.infographic, variant.video)
+      variant.locale -> CozyArticleMediaPublication.Variant(
+        locale = variant.locale,
+        infographic = variant.infographic,
+        video = variant.video,
+        articlePdf = variant.articlePdf,
+        summarySlidesPdf = variant.summarySlidesPdf
+      )
     }.toMap).getOrElse(Map.empty[String, CozyArticleMediaPublication.Variant])
     val merged = updates.foldLeft(initial) { case (state, update) =>
       val previous = state.getOrElse(update.variant.locale, CozyArticleMediaPublication.Variant(update.variant.locale))
       val replacement = update.role match {
-        case CozyArticleMediaIntegrity.Role.Infographic => previous.copy(infographic = update.variant.infographic)
-        case CozyArticleMediaIntegrity.Role.Video => previous.copy(video = update.variant.video)
+        case StrictRole.Infographic => previous.copy(infographic = update.variant.infographic)
+        case StrictRole.Video => previous.copy(video = update.variant.video)
+        case StrictRole.ArticlePdf => previous.copy(articlePdf = update.variant.articlePdf)
+        case StrictRole.SummarySlidesPdf => previous.copy(summarySlidesPdf = update.variant.summarySlidesPdf)
         case _ => _invalid("Article-media registry WIP role is invalid")
       }
       state + (replacement.locale -> replacement)
@@ -1054,7 +1144,7 @@ private[cozy] object CozyArticleMediaRegistry {
     updates: Vector[NormalizedWipRoleUpdate]
   ): Vector[CozyArticleMediaIntegrity.Result] = {
     val replacements = updates.collect {
-      case update if update.role == CozyArticleMediaIntegrity.Role.Video =>
+      case update if update.role == StrictRole.Video =>
         (update.variant.locale, update.role.name) -> update.integrity.getOrElse(
           _invalid("Article-media registry WIP video integrity is missing")
         )
@@ -1091,13 +1181,21 @@ private[cozy] object CozyArticleMediaRegistry {
     updates: Vector[NormalizedRoleUpdate]
   ): CozyArticleMediaPublication.Result = {
     val initial = existing.map(_.publication.variants.map { variant =>
-      variant.locale -> CozyArticleMediaPublication.Variant(variant.locale, variant.infographic, variant.video)
+      variant.locale -> CozyArticleMediaPublication.Variant(
+        locale = variant.locale,
+        infographic = variant.infographic,
+        video = variant.video,
+        articlePdf = variant.articlePdf,
+        summarySlidesPdf = variant.summarySlidesPdf
+      )
     }.toMap).getOrElse(Map.empty[String, CozyArticleMediaPublication.Variant])
     val merged = updates.foldLeft(initial) { case (state, update) =>
       val previous = state.getOrElse(update.variant.locale, CozyArticleMediaPublication.Variant(update.variant.locale))
       val replacement = update.role match {
-        case CozyArticleMediaIntegrity.Role.Infographic => previous.copy(infographic = update.variant.infographic)
-        case CozyArticleMediaIntegrity.Role.Video => previous.copy(video = update.variant.video)
+        case StrictRole.Infographic => previous.copy(infographic = update.variant.infographic)
+        case StrictRole.Video => previous.copy(video = update.variant.video)
+        case StrictRole.ArticlePdf => previous.copy(articlePdf = update.variant.articlePdf)
+        case StrictRole.SummarySlidesPdf => previous.copy(summarySlidesPdf = update.variant.summarySlidesPdf)
         case _ => _invalid("Article-media registry role update role is invalid")
       }
       state + (replacement.locale -> replacement)
@@ -1111,13 +1209,21 @@ private[cozy] object CozyArticleMediaRegistry {
     updates: Vector[NormalizedSiteRoleUpdate]
   ): CozyArticleMediaPublication.Result = {
     val initial = existing.map(_.publication.variants.map { variant =>
-      variant.locale -> CozyArticleMediaPublication.Variant(variant.locale, variant.infographic, variant.video)
+      variant.locale -> CozyArticleMediaPublication.Variant(
+        locale = variant.locale,
+        infographic = variant.infographic,
+        video = variant.video,
+        articlePdf = variant.articlePdf,
+        summarySlidesPdf = variant.summarySlidesPdf
+      )
     }.toMap).getOrElse(Map.empty[String, CozyArticleMediaPublication.Variant])
     val merged = updates.foldLeft(initial) { case (state, update) =>
       val previous = state.getOrElse(update.variant.locale, CozyArticleMediaPublication.Variant(update.variant.locale))
       val replacement = update.role match {
-        case CozyArticleMediaIntegrity.Role.Infographic => previous.copy(infographic = update.variant.infographic)
-        case CozyArticleMediaIntegrity.Role.Video => previous.copy(video = update.variant.video)
+        case StrictRole.Infographic => previous.copy(infographic = update.variant.infographic)
+        case StrictRole.Video => previous.copy(video = update.variant.video)
+        case StrictRole.ArticlePdf => previous.copy(articlePdf = update.variant.articlePdf)
+        case StrictRole.SummarySlidesPdf => previous.copy(summarySlidesPdf = update.variant.summarySlidesPdf)
         case _ => _invalid("Article-media registry site role update role is invalid")
       }
       state + (replacement.locale -> replacement)
@@ -1129,7 +1235,10 @@ private[cozy] object CozyArticleMediaRegistry {
     existing: Vector[CozyArticleMediaIntegrity.Result],
     updates: Vector[NormalizedRoleUpdate]
   ): Vector[CozyArticleMediaIntegrity.Result] = {
-    val replacements = updates.map(x => (x.variant.locale, x.role.name) -> x.integrity).toMap
+    val replacements = updates.collect {
+      case update if update.integrity.nonEmpty =>
+        (update.variant.locale, update.role.name) -> update.integrity.get
+    }.toMap
     (existing.filterNot { value => replacements.contains((value.record.locale, value.record.role.name)) } ++ replacements.values).sortBy { value =>
       (value.record.locale, value.record.role.name)
     }
@@ -1253,12 +1362,35 @@ private[cozy] object CozyArticleMediaRegistry {
 
   private def _strict_variant(locale: String, value: JsValue): CozyArticleMediaPublication.Variant = {
     val variant = _json_object(value)
-    _validate_fields(variant, Set.empty, Set("infographic", "video"))
+    _validate_fields(variant, Set.empty, Set("infographic", "article_pdf", "summary_slides_pdf", "video"))
     CozyArticleMediaPublication.Variant(
       locale = locale,
       infographic = variant.value.get("infographic").map(_strict_infographic),
-      video = variant.value.get("video").map(_strict_video)
+      video = variant.value.get("video").map(_strict_video),
+      articlePdf = variant.value.get("article_pdf").map(_strict_article_pdf),
+      summarySlidesPdf = variant.value.get("summary_slides_pdf").map(_strict_summary_slides_pdf)
     )
+  }
+
+  private def _strict_article_pdf(value: JsValue): PdfDocumentReference =
+    _strict_pdf(value, "article_pdf")
+
+  private def _strict_summary_slides_pdf(value: JsValue): PdfDocumentReference =
+    _strict_pdf(value, "summary_slides_pdf")
+
+  private def _strict_pdf(value: JsValue, role: String): PdfDocumentReference = {
+    val pdf = _json_object(value)
+    _validate_fields(pdf, Set("public_path", "media_type"), Set("label"))
+    val mediatype = _required_string(pdf, "media_type")
+    if (mediatype != "application/pdf")
+      _invalid(s"Article-media $role media_type must be application/pdf")
+    val label = pdf.value.get("label").map {
+      case JsString(string) if string.trim.nonEmpty => string
+      case _ => _invalid(s"Article-media $role label must be nonblank")
+    }
+    val publicpath = _uri(_required_string(pdf, "public_path"))
+    CozyArticleMediaNormalization.validateSiteVisibleUri(publicpath, s"Article-media $role public_path")
+    PdfDocumentReference(publicpath, mediatype, label)
   }
 
   private def _strict_infographic(value: JsValue): ImageReference = {
@@ -1413,9 +1545,15 @@ private[cozy] object CozyArticleMediaRegistry {
     val variants = Option(result.publication.variants).getOrElse(
       _invalid("Article-media publication result variants must be defined")
     ).map { variant =>
-      if (variant == null || variant.infographic == null || variant.video == null)
+      if (variant == null || variant.infographic == null || variant.video == null || variant.articlePdf == null || variant.summarySlidesPdf == null)
         _invalid("Article-media publication result variant must be defined")
-      CozyArticleMediaPublication.Variant(variant.locale, variant.infographic, variant.video)
+      CozyArticleMediaPublication.Variant(
+        locale = variant.locale,
+        infographic = variant.infographic,
+        video = variant.video,
+        articlePdf = variant.articlePdf,
+        summarySlidesPdf = variant.summarySlidesPdf
+      )
     }
     val canonical = CozyArticleMediaPublication.produce(result.publication.articleIdentity, variants)
     if (result != canonical)

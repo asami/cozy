@@ -12,7 +12,7 @@ import org.scalacheck.{Gen, Prop, Test}
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import org.smartdox.metadata.PublishMetadata.{ImageReference, VideoPresentation, VideoReference, VideoStatus}
+import org.smartdox.metadata.PublishMetadata.{ImageReference, PdfDocumentReference, VideoPresentation, VideoReference, VideoStatus}
 import play.api.libs.json.{JsObject, Json}
 
 private object CozyArticleMediaBuildContextFixture {
@@ -21,7 +21,7 @@ private object CozyArticleMediaBuildContextFixture {
 
 /*
  * @since   Aug.  5, 2026
- * @version Aug. 12, 2026
+ * @version Aug. 30, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyArticleMediaBuildContextSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -150,6 +150,37 @@ final class CozyArticleMediaBuildContextSpec extends AnyWordSpec with Matchers w
           context.omittedKeys.map(_.role) shouldBe Vector(CozyArticleMediaIntegrity.Role.Infographic)
           paths shouldBe Vector("metadata/article-media-integrity/development-process/example/ja/infographic.json", "metadata/catalog/ordinary.json", "metadata/legacy/video.json")
           Files.readAllBytes(fixture.publication.resolve("publication.json")).toVector shouldBe source.toVector
+        }
+      }
+
+      "preserve both strict PDF roles when Preview omits an unavailable infographic" in {
+        Given("a strict variant with an unavailable infographic and two direct SmartDox PDF references")
+        _with_fixture { fixture =>
+          val strict = CozyArticleMediaPublication.produce("development-process/example", Vector(
+            CozyArticleMediaPublication.Variant(
+              locale = "ja",
+              infographic = Some(ImageReference(new URI("/ja/development-process/images/example.png"), Some("image/png"), None)),
+              articlePdf = Some(PdfDocumentReference(new URI("/ja/development-process/pdf/example-article.pdf"), "application/pdf", Some("Article PDF"))),
+              summarySlidesPdf = Some(PdfDocumentReference(new URI("/ja/development-process/pdf/example-summary.pdf"), "application/pdf", Some("Summary slides PDF")))
+            )
+          ))
+          _write_bundle(fixture.publication, "publication", Vector(
+            _entry("metadata/catalog/ordinary.json", Json.obj("kind" -> "ordinary")),
+            _entry(strict.entryPath, strict.metadata)
+          ))
+
+          When("Preview materializes its effective context")
+          val context = CozyArticleMediaBuildContext.withContext(
+            fixture.project, fixture.publication, fixture.repository, "preview"
+          )(context => context)
+          val installed = Json.parse(new String(Files.readAllBytes(context.publicationPath.resolve("publication.json")), StandardCharsets.UTF_8))
+
+          Then("the unavailable infographic is omitted but both PDF roles remain direct and uncorrelated")
+          context.omittedKeys.map(_.role) shouldBe Vector(CozyArticleMediaIntegrity.Role.Infographic)
+          (installed \ "entries").as[Vector[JsObject]].map(x => (x \ "path").as[String]) shouldBe Vector(strict.entryPath, "metadata/catalog/ordinary.json")
+          val strictentry = (installed \ "entries").as[Vector[JsObject]].find(x => (x \ "path").as[String] == strict.entryPath).get
+          (strictentry \ "metadata" \ "variants" \ "ja" \ "article_pdf" \ "media_type").as[String] shouldBe "application/pdf"
+          (strictentry \ "metadata" \ "variants" \ "ja" \ "summary_slides_pdf" \ "public_path").as[String] shouldBe "/ja/development-process/pdf/example-summary.pdf"
         }
       }
 

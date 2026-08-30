@@ -5,14 +5,13 @@
 This document governs the Phase 26 Cozy-owned association and integrity base
 for optional article media in a BoK, plus the explicitly additive Phase 28.1
 `wip-site-video` extension. It consumes, but does not extend, the accepted
-SmartDox article-media publication contract at commit
-`fa21316973416c24bca7f8e366d65572c72720b7` through the development integration
-coordinate `org.smartdox:smartdox_2.12:2.4.17-SNAPSHOT`.
+SmartDox article-media publication contract from closed Phase 9 through the
+development integration coordinate `org.smartdox:smartdox_2.12:2.4.18-SNAPSHOT`.
 
-SmartDox Phase 1 is closed. Its accepted commit and development coordinate are
-the Phase 26 base input contract; public/non-SNAPSHOT publication is not a
-Phase 26 start gate. The admitted SmartDox repository may be used for the corresponding
-development `publishLocal` integration under repository rules.
+SmartDox Phase 9 is closed and its accepted PDF roles are part of the input
+contract; public/non-SNAPSHOT publication is not a Phase 26 start gate. The
+admitted SmartDox repository may be used for the corresponding development
+`publishLocal` integration under repository rules.
 
 ## Responsibilities and Sources of Truth
 
@@ -74,6 +73,24 @@ mutation. It then registers their article-media state. `update-publication` and
 one-stop `publish` include that media operation with their existing video and
 project operations. One-stop publish owns dry-run semantics; `publish-media`
 introduces no separate dry-run contract.
+
+### SmartDox Phase 9 PDF Roles
+
+SmartDox Phase 9 defines two independent optional locale-variant roles,
+`article_pdf` and `summary_slides_pdf`. Each role uses the accepted
+`PublishMetadata.PdfDocumentReference` shape: a site-visible `public_path`,
+the exact `application/pdf` `media_type`, and an optional nonblank `label`.
+The role is selected only by its direct field in its exact canonical locale
+variant; Cozy performs no filename inference, locale fallback, or cross-locale
+merge.
+
+Cozy's package-private registry preserves these accepted PDF references as
+direct strict fields during load, canonicalization, exact-role merge, and
+build-context copying. PDF roles are strict provider metadata only: they do
+not enter `cozy.article-media-integrity.v1`, and that integrity projection
+remains limited to infographic and site-hosted video. This is a consumer-side
+preservation boundary; Cozy does not implement or claim a SmartDox schema or
+projection change.
 
 ## Correlation and Lifecycle
 

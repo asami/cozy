@@ -4,10 +4,9 @@
 
 This specification governs the Cozy Phase 26 base implementation and the
 explicitly additive Phase 28.1 `wip-site-video` integrity extension. Its
-SmartDox input is the accepted closed SmartDox Phase 1 commit
-`fa21316973416c24bca7f8e366d65572c72720b7`, integrated in development through
-`org.smartdox:smartdox_2.12:2.4.17-SNAPSHOT`. A public/non-SNAPSHOT SmartDox
-release is not required to start Phase 26.
+SmartDox input is the accepted closed SmartDox Phase 9 contract, integrated in
+development through `org.smartdox:smartdox_2.12:2.4.18-SNAPSHOT`. A
+public/non-SNAPSHOT SmartDox release is not required to start Phase 26.
 
 ## SmartDox Input Surface
 
@@ -24,6 +23,16 @@ accepted SmartDox fields:
         "public_path": "/ja/development-process/images/example.png",
         "media_type": "image/png",
         "alt": "詳細インフォグラフィック"
+      },
+      "article_pdf": {
+        "public_path": "/ja/development-process/pdf/example-article.pdf",
+        "media_type": "application/pdf",
+        "label": "記事 PDF"
+      },
+      "summary_slides_pdf": {
+        "public_path": "/ja/development-process/pdf/example-summary.pdf",
+        "media_type": "application/pdf",
+        "label": "要約スライド PDF"
       },
       "video": {
         "presentation": "site-hosted",
@@ -51,6 +60,22 @@ correlate. The Cozy producer/validator must emit only these accepted SmartDox
 fields and must never serialize integrity fields into this record; this
 specification does not require SmartDox to reject unknown producer fields.
 
+### Localized PDF Roles
+
+SmartDox Phase 9 already defines the direct `article_pdf` and
+`summary_slides_pdf` variant fields consumed here. Each present field is the
+accepted `PublishMetadata.PdfDocumentReference` shape: required site-visible
+`public_path`, required `media_type` exactly `application/pdf`, and optional
+nonblank `label`. The enclosing key is the exact canonical locale variant;
+Cozy performs no filename inference, locale fallback, or role merging.
+
+These PDF fields remain strict provider metadata only. They never carry a
+generic `role`, artifact identity, hash, provenance, repository path, or Cozy
+integrity value. `cozy.article-media-integrity.v1` continues to apply only to
+the existing infographic and video roles. This section consumes the accepted
+SmartDox Phase 9 contract and does not redefine or implement the SmartDox
+schema or projection.
+
 ## Registry Container and Key Paths
 
 For the Phase 26 repository-backed `media-package` and `video-publication`
@@ -75,6 +100,10 @@ publication bundle entries through the existing registry loader; it does not
 inspect arbitrary directories. Phase 27 site-local infographic and Phase 28.1
 WIP reuse of that infographic strict record create no new integrity entry and
 are outside these Phase 26 producer requirements.
+
+PDF roles are preserved in the strict article entry at their direct
+`article_pdf` and `summary_slides_pdf` fields. They do not create an integrity
+entry or alter the integrity key space.
 
 All recognized strict and integrity entries for one normalized
 `articleIdentity` form one ownership unit. Under the real-publication-root lock,
@@ -141,6 +170,7 @@ Ordinary `cozy bok build` never enumerates descriptors.
 Cozy serializes the separate association/integrity projection as
 `cozy.article-media-integrity.v1`. Each record is keyed uniquely by normalized
 `(articleIdentity, locale, role)`, where `role` is `infographic` or `video`.
+PDF roles are intentionally outside this integrity surface.
 
 ```json
 {
@@ -415,7 +445,9 @@ It never permits a registered-but-missing or stale infographic.
 The existing SmartDox `VideoPublication` and `.video` path remain compatible.
 An exact-locale native record is a complete variant and wins over compatibility
 input. Cozy must not extend SmartDox's producer schema, implicitly merge native
-and legacy records, or apply locale fallback.
+and legacy records, or apply locale fallback. The accepted SmartDox Phase 9
+PDF roles remain direct strict fields under this same exact-locale rule; Cozy
+does not add SmartDox schema or projection behavior for them.
 
 Executable specifications added during implementation must demonstrate:
 

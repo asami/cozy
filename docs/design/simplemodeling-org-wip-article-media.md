@@ -281,6 +281,29 @@ MP4 SHA-256. `render.sha256` is required to be a JSON string matching exactly
 length, or other interpretation is accepted. WIP does not require or serialize YouTube; listening review is
 evidence-only and non-gating.
 
+### Phase 40 PDF WIP registration
+
+WIP accepts `article_pdf` and `summary_slides_pdf` only as strict reuse
+candidates when the resolved resource is a `document` in canonical `ja` or
+`en`, its `articleMedia.publicPath` is an exact site-visible path, its media
+type is exactly `application/pdf`, and its optional label is already an exact
+nonblank value. The candidate output is the existing resolved output, or the
+source only for a `prebuilt` resource. That direct regular non-symlink output
+must have current `cozy.media.receipt.v2` and
+`cozy.media.pdf-review-state.v1` evidence from the Phase 40 acceptance
+boundary. The WIP binding revalidates those exact conditions under the existing
+two-root and registry locks before replacement.
+
+The resulting strict variant maps `article_pdf` only to `articlePdf` and
+`summary_slides_pdf` only to `summarySlidesPdf`, retaining exactly the public
+path, `application/pdf`, and optional label. PDF candidates are reuse-only:
+they perform no copy, installation, destination or parent construction,
+backup, rollback entry, website-root mutation, or PDF integrity correlation.
+They do not alter `CozyMediaReceipt`, `CozyMediaPdfReviewState`, or the
+`CozyArticleMediaIntegrity` contract. Existing video staging/install/rollback
+and its correlated WIP integrity record, and existing infographic reuse,
+remain unchanged.
+
 ### Site path and public record
 
 Phase 28.1 accepts an article identity only when it has exactly two normalized
@@ -328,6 +351,12 @@ replacement but never overwrites production; infographic preservation remains
 the existing Phase 27 behavior. It is semantic registry-state isolation, not a
 new production marker or root schema.
 
+PDF strict records are independent role replacements in the same owner bundle;
+their current receipt/review-state evidence is validation input only and is
+never serialized. A PDF WIP registration does not create a website output,
+correlated integrity entry, staging artifact, backup, rollback item, or
+production-state transition.
+
 ### Two-root transaction
 
 Non-dry execution first acquires a direct regular non-symlink
@@ -339,17 +368,19 @@ fails. Dry-run creates and acquires no lock and instead relies on captured and
 revalidated read-only evidence.
 
 Preflight MUST capture coherent evidence for descriptor and project
-configuration/profile, resource mapping, infographic destination, production
-JSON, source MP4, publication-registry snapshot/root, website root, and every
+configuration/profile, resource mapping, infographic destination, PDF output
+and current Phase 40 receipt/review-state evidence, production JSON, source
+MP4, publication-registry snapshot/root, website root, and every video
 destination. Under both root locks and the registry lock, it revalidates all
 evidence, builds the canonical correlated strict-plus-integrity plan, creates
-each same-filesystem sibling temp, copies, fsyncs, and verifies its digest,
-then creates verified sibling backups for every existing destination. It
-installs destinations by same-filesystem atomic replacement in sorted
-site-relative-path order, validates installed bytes, atomically replaces the
-single selected owner registry bundle last, validates registry and destinations
-while locked, and then removes backups and temps. One descriptor replaces
-exactly one owner bundle.
+same-filesystem sibling temps only for video candidates, copies, fsyncs, and
+verifies their digests, then creates verified sibling backups only for
+existing video destinations. It installs video destinations by same-filesystem
+atomic replacement in sorted site-relative-path order, validates installed
+bytes, atomically replaces the single selected owner registry bundle last,
+validates registry and video destinations while locked, and then removes
+backups and temps. PDF candidates contribute no staging or destination
+mutation. One descriptor replaces exactly one owner bundle.
 
 On failure after any mutation, if registry replacement occurred, rollback first
 atomically restores its exact original owner-bundle bytes (or removes a newly

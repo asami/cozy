@@ -6,14 +6,16 @@ import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.{Files, LinkOption, Path}
 import java.security.MessageDigest
 import cozy.media.CozyMedia
+import cozy.media.CozyMediaPdfReviewState
+import cozy.media.CozyMediaReceipt
 import org.goldenport.RAISE
-import org.smartdox.metadata.PublishMetadata.{ImageReference, VideoPresentation, VideoReference, VideoStatus}
+import org.smartdox.metadata.PublishMetadata.{ImageReference, PdfDocumentReference, VideoPresentation, VideoReference, VideoStatus}
 import play.api.libs.json.{JsObject, JsString, Json}
 import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 12, 2026
- * @version Aug. 12, 2026
+ * @version Aug. 30, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArticleMediaWipBinding {
@@ -40,6 +42,7 @@ private[cozy] object CozyArticleMediaWipBinding {
 
   sealed trait Evidence
   final case class InfographicEvidence(destination: FileEvidence) extends Evidence
+  final case class PdfEvidence(output: FileEvidence) extends Evidence
   final case class VideoEvidence(
     source: FileEvidence,
     production: FileEvidence,
@@ -51,7 +54,7 @@ private[cozy] object CozyArticleMediaWipBinding {
   final case class Candidate(
     resourceId: String,
     locale: String,
-    role: CozyArticleMediaIntegrity.Role,
+    role: CozyArticleMediaRegistry.StrictRole,
     variant: CozyArticleMediaPublication.Variant,
     integrity: Option[CozyArticleMediaIntegrity.Result],
     evidence: Evidence
@@ -120,6 +123,7 @@ private[cozy] object CozyArticleMediaWipBinding {
       _invalid("Article-media WIP binding requires at least one articleMedia resource")
     val drafts = selected.map(_candidate(
       _,
+      mediaplan,
       articleidentity,
       profile,
       normalizedconfig.descriptorFile,
@@ -191,7 +195,7 @@ private[cozy] object CozyArticleMediaWipBinding {
   }
 
   private def _stable_plan(value: Plan): (Config, CozyMedia.Descriptor, FileEvidence, Vector[Byte], DirectoryEvidence, DirectoryEvidence,
-    cozy.config.CozyProjectContext.Context, String, String, DirectoryEvidence, DirectoryEvidence, DirectoryEvidence, Vector[(String, String, CozyArticleMediaIntegrity.Role, CozyArticleMediaPublication.Variant, Option[CozyArticleMediaIntegrity.Result], Any)]) =
+    cozy.config.CozyProjectContext.Context, String, String, DirectoryEvidence, DirectoryEvidence, DirectoryEvidence, Vector[(String, String, CozyArticleMediaRegistry.StrictRole, CozyArticleMediaPublication.Variant, Option[CozyArticleMediaIntegrity.Result], Any)]) =
     (
       value.config,
       value.descriptor,
@@ -220,7 +224,7 @@ private[cozy] object CozyArticleMediaWipBinding {
     articleIdentity: String,
     resourceId: String,
     locale: String,
-    role: CozyArticleMediaIntegrity.Role,
+    role: CozyArticleMediaRegistry.StrictRole,
     variant: CozyArticleMediaPublication.Variant,
     integrity: Option[CozyArticleMediaIntegrity.Result],
     evidence: Evidence
@@ -260,6 +264,7 @@ private[cozy] object CozyArticleMediaWipBinding {
 
   private def _candidate(
     resolved: CozyMedia.ResolvedResource,
+    mediaplan: CozyMedia.Plan,
     articleidentity: String,
     profile: String,
     descriptorfile: Path,
@@ -286,7 +291,7 @@ private[cozy] object CozyArticleMediaWipBinding {
           _invalid(s"Article-media WIP binding infographic resource kind is invalid: $resourceid")
         val publicpath = _site_visible_uri(articlemedia.publicPath.getOrElse(
           _invalid(s"Article-media WIP binding infographic publicPath must be defined: $resourceid")
-        ))
+        ), "infographic")
         val destination = resolved.publications.getOrElse(profile,
           _invalid(s"Article-media WIP binding infographic has no selected publication profile: $resourceid/$profile")
         )
@@ -295,7 +300,7 @@ private[cozy] object CozyArticleMediaWipBinding {
           locale = locale,
           infographic = Some(ImageReference(publicpath, articlemedia.mediaType, articlemedia.alt))
         ))
-        CandidateDraft(articleidentity, resourceid, locale, CozyArticleMediaIntegrity.Role.Infographic, variant, None, InfographicEvidence(evidence.evidence))
+        CandidateDraft(articleidentity, resourceid, locale, CozyArticleMediaRegistry.StrictRole.Infographic, variant, None, InfographicEvidence(evidence.evidence))
       case "video" =>
         if (resource.kind != "video")
           _invalid(s"Article-media WIP binding video resource kind is invalid: $resourceid")
@@ -334,11 +339,66 @@ private[cozy] object CozyArticleMediaWipBinding {
           provenance = CozyArticleMediaIntegrity.WipSiteVideo(descriptorrelative, resourceid, productionprojectrelative),
           publicationState = CozyArticleMediaIntegrity.PublicationState.Published
         ))
-        CandidateDraft(articleidentity, resourceid, locale, CozyArticleMediaIntegrity.Role.Video, variant, Some(integrity),
+        CandidateDraft(articleidentity, resourceid, locale, CozyArticleMediaRegistry.StrictRole.Video, variant, Some(integrity),
           VideoEvidence(source.evidence, production.evidence, destination, parent, installed.map(_.evidence)))
+      case "article_pdf" =>
+        _pdf_candidate(resolved, mediaplan, articleidentity, locale, resourceid, CozyArticleMediaRegistry.StrictRole.ArticlePdf)
+      case "summary_slides_pdf" =>
+        _pdf_candidate(resolved, mediaplan, articleidentity, locale, resourceid, CozyArticleMediaRegistry.StrictRole.SummarySlidesPdf)
       case other =>
         _invalid(s"Article-media WIP binding resource role is invalid: $resourceid/$other")
     }
+  }
+
+  private def _pdf_candidate(
+    resolved: CozyMedia.ResolvedResource,
+    mediaplan: CozyMedia.Plan,
+    articleidentity: String,
+    locale: String,
+    resourceid: String,
+    role: CozyArticleMediaRegistry.StrictRole
+  ): CandidateDraft = {
+    val resource = resolved.resource
+    if (resource.kind != "document")
+      _invalid(s"Article-media WIP binding PDF resource kind is invalid: $resourceid")
+    if (!Set("ja", "en").contains(locale))
+      _invalid(s"Article-media WIP binding PDF resource locale is invalid: $resourceid")
+    val articlemedia = resource.articleMedia.getOrElse(
+      _invalid(s"Article-media WIP binding PDF resource articleMedia is missing: $resourceid")
+    )
+    val publicpath = _site_visible_uri(
+      articlemedia.publicPath.getOrElse(
+        _invalid(s"Article-media WIP binding PDF publicPath must be defined: $resourceid")
+      ),
+      role.name
+    )
+    if (articlemedia.mediaType != Some("application/pdf"))
+      _invalid(s"Article-media WIP binding PDF mediaType must be application/pdf: $resourceid")
+    val output = resolved.output.orElse(
+      if (resource.build == "prebuilt") resolved.source else None
+    ).getOrElse(
+      _invalid(s"Article-media WIP binding PDF output must be defined: $resourceid")
+    )
+    val evidence = _file_snapshot(output, s"${role.name} output for $resourceid")
+    CozyMediaReceipt.requireCurrent(mediaplan, resolved)
+    CozyMediaPdfReviewState.requireCurrent(mediaplan, Vector(resolved))
+    val pdf = PdfDocumentReference(publicpath, "application/pdf", articlemedia.label)
+    val variant = role match {
+      case CozyArticleMediaRegistry.StrictRole.ArticlePdf =>
+        CozyArticleMediaPublication.Variant(locale = locale, articlePdf = Some(pdf))
+      case CozyArticleMediaRegistry.StrictRole.SummarySlidesPdf =>
+        CozyArticleMediaPublication.Variant(locale = locale, summarySlidesPdf = Some(pdf))
+      case _ => _invalid(s"Article-media WIP binding PDF role is invalid: $resourceid")
+    }
+    CandidateDraft(
+      articleidentity,
+      resourceid,
+      locale,
+      role,
+      _normalized_variant(articleidentity, variant),
+      None,
+      PdfEvidence(evidence.evidence)
+    )
   }
 
   private def _validate_duplicate_tuples(articleidentity: String, values: Vector[CandidateDraft]): Unit =
@@ -397,17 +457,18 @@ private[cozy] object CozyArticleMediaWipBinding {
   ): CozyArticleMediaPublication.Variant = {
     val result = CozyArticleMediaPublication.produce(articleidentity, Vector(variant))
     val value = result.publication.variants.head
-    CozyArticleMediaPublication.Variant(value.locale, value.infographic, value.video)
+    CozyArticleMediaPublication.Variant(value.locale, value.infographic, value.video, value.articlePdf, value.summarySlidesPdf)
   }
 
-  private def _site_visible_uri(value: String): URI = {
-    val raw = CozyArticleMediaNormalization.requireExactTrimmed(value, "Article-media WIP binding infographic publicPath")
+  private def _site_visible_uri(value: String, role: String): URI = {
+    val label = s"Article-media WIP binding $role publicPath"
+    val raw = CozyArticleMediaNormalization.requireExactTrimmed(value, label)
     val uri = try new URI(raw) catch {
-      case NonFatal(_) => _invalid(s"Article-media WIP binding infographic publicPath is invalid: $raw")
+      case NonFatal(_) => _invalid(s"$label is invalid: $raw")
     }
     if (uri.toString != raw)
-      _invalid(s"Article-media WIP binding infographic publicPath is not exact: $raw")
-    CozyArticleMediaNormalization.validateSiteVisibleUri(uri, "Article-media WIP binding infographic publicPath")
+      _invalid(s"$label is not exact: $raw")
+    CozyArticleMediaNormalization.validateSiteVisibleUri(uri, label)
     uri
   }
 

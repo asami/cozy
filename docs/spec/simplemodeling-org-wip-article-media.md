@@ -349,6 +349,27 @@ wrong lengths, non-string values, and digest mismatch fail before mutation.
 WIP does not require, read, or serialize a YouTube URL. Any listening
 review value remains non-gating evidence only.
 
+### PDF WIP evidence and strict-only reuse
+
+WIP also accepts the two Phase 40 PDF roles, `article_pdf` and
+`summary_slides_pdf`, but only as strict reuse candidates. The resolved
+resource MUST have `kind: document`, canonical language `ja` or `en`, an exact
+site-visible `articleMedia.publicPath`, `mediaType: application/pdf`, and an
+optional exact nonblank `label`. The direct output is the resolved output, or
+the source only when `build: prebuilt`; it MUST be a current direct regular
+non-symlink file. The binding MUST require both current
+`cozy.media.receipt.v2` and current `cozy.media.pdf-review-state.v1` evidence
+using the unchanged Phase 40 contracts, and MUST repeat that check under the
+existing WIP root and registry locks before replacement.
+
+The strict candidate maps `article_pdf` only to `articlePdf` and
+`summary_slides_pdf` only to `summarySlidesPdf`, preserving exactly its public
+path, `application/pdf`, and optional label. PDF evidence is validation input
+only: WIP MUST NOT copy, install, construct a destination or parent, create a
+backup or rollback item, mutate the website root, or create a PDF integrity
+record. Existing infographic reuse and local-video staging/install/rollback
+with its separate video integrity record remain unchanged.
+
 ## 6.4 WIP path and public record
 
 Phase 28.1 accepts exactly two normalized article-identity segments,
@@ -413,6 +434,13 @@ registry mutation. This permits repeat WIP replacement while never overwriting
 production; infographic preservation remains Phase 27 behavior. This is
 semantic registry-state isolation, not a new marker or root schema.
 
+PDF strict records are independent role replacements in the same owner bundle.
+Their receipt, review-state, output, renderer, hash, host-path, and other
+internal evidence MUST NOT be serialized. A PDF-only WIP registration changes
+only the selected strict registry fields; it does not create website bytes,
+integrity correlation, staging artifacts, backups, rollback entries, or
+production state.
+
 ## 6.5 Two-root transaction and rollback
 
 For non-dry execution, the command MUST acquire direct regular non-symlink
@@ -425,22 +453,24 @@ relies on captured/revalidated read-only evidence.
 
 Complete preflight MUST capture coherent evidence for the descriptor,
 discovered project configuration and profile, selected resource mappings,
-infographic destination, production JSON, source MP4, publication registry
-snapshot/root, website root, and each selected destination. Immediately before
-mutation, under both root locks and the registry lock, the command MUST
-revalidate every item and build the canonical correlated strict-plus-integrity
-registry plan. A stale descriptor, profile, mapping, registry snapshot,
-production JSON, source MP4, destination identity/bytes, or root identity fails
+infographic destination, PDF output and current receipt/review-state evidence,
+production JSON, source MP4, publication registry snapshot/root, website root,
+and each selected video destination. Immediately before mutation, under both
+root locks and the registry lock, the command MUST revalidate every item and
+build the canonical correlated strict-plus-integrity registry plan. A stale
+descriptor, profile, mapping, PDF evidence, registry snapshot, production
+JSON, source MP4, video destination identity/bytes, or root identity fails
 before install.
 
 For each selected MP4, it MUST create a same-filesystem sibling temp, copy,
 fsync, and verify its digest, then create and verify a sibling backup for each
-existing destination. It MUST install destinations through same-filesystem
-atomic replacement in sorted site-relative-path order, validate installed
-bytes, replace the single selected owner registry bundle last through the
-existing atomic registry operation, validate registry and destinations while
-locked, and remove backups and temps. One descriptor replaces exactly one
-owner bundle.
+existing destination. It MUST install video destinations through
+same-filesystem atomic replacement in sorted site-relative-path order, validate
+installed bytes, replace the single selected owner registry bundle last
+through the existing atomic registry operation, validate registry and video
+destinations while locked, and remove backups and temps. PDF candidates
+contribute no staging or destination mutation. One descriptor replaces exactly
+one owner bundle.
 
 After any mutation failure, if registry replacement occurred, rollback MUST
 first atomically restore exact original owner-bundle bytes (or remove a newly
@@ -502,6 +532,8 @@ documentation only in this Slice; no Scala tests are added here.
 | MP4 hardening | MP4 is non-regular, symlinked, unnormalized, stale, or SHA differs from production `render.sha256` | Fail before mutation. |
 | Production gate | Production JSON has identity/language mismatch, incomplete render, or failed technical/visual QA | Fail before mutation. |
 | YouTube/listening exclusion | YouTube is absent or listening review is pending | WIP remains eligible; neither is read/serialized as a requirement. |
+| PDF acceptance boundary | `article_pdf` or `summary_slides_pdf` has document kind, canonical JA/EN, exact public path, `application/pdf`, optional exact label, direct current output, current receipt, and current PDF review state | Candidate is admitted as strict reuse only; no PDF integrity record is created. |
+| PDF evidence failure | PDF output is missing/stale, receipt or review-state evidence is missing/stale, role/kind/media type/locale is incompatible, or public path/label is non-exact | Fail before registry or website mutation. |
 
 ### Path and serialization
 
@@ -511,6 +543,8 @@ documentation only in this Slice; no Scala tests are added here.
 | Identity decomposition | One, three, or more normalized identity segments | Fail before path construction; WIP accepts exactly `<category>/<article>`. |
 | Unsafe identity/locale | Raw or unnormalized identity/locale | Fail; no resource ID or filename fallback. |
 | Public record | Successful local-video registration | Exactly `presentation=site-hosted`, `status=published`, `content_url`; no provider/watch URL/host path/hash/provenance. |
+| PDF public record | Successful PDF registration | Exact `article_pdf -> articlePdf` or `summary_slides_pdf -> summarySlidesPdf` with public path, `application/pdf`, and optional label only; no evidence fields. |
+| PDF reuse exclusion | PDF-only WIP registration | No website output, copy/install, destination/parent, backup/rollback item, or PDF integrity entry is created. |
 | Published meaning | Inspect WIP record and disposable tree | Published denotes disposable-tree availability, not YouTube or production promotion. |
 | Integrity correlation | Successful WIP video and infographic registration | Video emits the separate correlated `wip-site-video` integrity record; infographic remains Phase 27 site-visible with no new integrity. |
 | Exact video state: fresh | Both exact video strict/integrity records absent | WIP may stage and register its correlated pair. |

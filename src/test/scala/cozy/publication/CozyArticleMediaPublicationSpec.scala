@@ -9,12 +9,12 @@ import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.smartdox.metadata.PublishMetadata
-import org.smartdox.metadata.PublishMetadata.{ImageReference, VideoPresentation, VideoReference, VideoStatus}
+import org.smartdox.metadata.PublishMetadata.{ImageReference, PdfDocumentReference, VideoPresentation, VideoReference, VideoStatus}
 import play.api.libs.json.{JsObject, Json}
 
 /*
  * @since   Aug.  4, 2026
- * @version Aug.  4, 2026
+ * @version Aug. 30, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyArticleMediaPublicationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -28,7 +28,9 @@ final class CozyArticleMediaPublicationSpec extends AnyWordSpec with Matchers wi
             CozyArticleMediaPublication.Variant(
               locale = "ja",
               infographic = Some(ImageReference(new URI("/ja/development-process/images/example.png"), Some("image/png"), Some("詳細インフォグラフィック"))),
-              video = Some(VideoReference(VideoPresentation.SiteHosted, VideoStatus.Published, Some("cozy"), None, Some(new URI("/repository/video/example.mp4"))))
+              video = Some(VideoReference(VideoPresentation.SiteHosted, VideoStatus.Published, Some("cozy"), None, Some(new URI("/repository/video/example.mp4")))),
+              articlePdf = Some(PdfDocumentReference(new URI("/ja/development-process/pdf/example-article.pdf"), "application/pdf", Some("記事 PDF"))),
+              summarySlidesPdf = Some(PdfDocumentReference(new URI("/ja/development-process/pdf/example-summary.pdf"), "application/pdf", Some("要約スライド PDF")))
             ),
             CozyArticleMediaPublication.Variant(
               locale = "en",
@@ -49,8 +51,10 @@ final class CozyArticleMediaPublicationSpec extends AnyWordSpec with Matchers wi
         metadatavariants.fields.map(_._1) shouldBe Vector("en", "ja")
         en.fields.map(_._1) shouldBe Vector("video")
         (en \ "video").as[JsObject].fields.map(_._1) shouldBe Vector("presentation", "status", "watch_url")
-        ja.fields.map(_._1) shouldBe Vector("infographic", "video")
+        ja.fields.map(_._1) shouldBe Vector("infographic", "article_pdf", "summary_slides_pdf", "video")
         (ja \ "infographic").as[JsObject].fields.map(_._1) shouldBe Vector("public_path", "media_type", "alt")
+        (ja \ "article_pdf").as[JsObject].fields.map(_._1) shouldBe Vector("public_path", "media_type", "label")
+        (ja \ "summary_slides_pdf").as[JsObject].fields.map(_._1) shouldBe Vector("public_path", "media_type", "label")
         (ja \ "video").as[JsObject].fields.map(_._1) shouldBe Vector("presentation", "status", "provider", "content_url")
 
         And("the deterministic source-relative entry path has no Cozy integrity leakage")
@@ -72,10 +76,12 @@ final class CozyArticleMediaPublicationSpec extends AnyWordSpec with Matchers wi
             CozyArticleMediaPublication.Variant(
               "en",
               infographic = Some(ImageReference(new URI("/en/development-process/images/example.png"), Some("image/png"), Some("Example infographic"))),
+              articlePdf = Some(PdfDocumentReference(new URI("/en/development-process/pdf/example-article.pdf"), "application/pdf", Some("Article PDF"))),
               video = Some(VideoReference(VideoPresentation.ExternalLink, VideoStatus.Published, Some("vimeo"), Some(new URI("https://example.com/watch")), Some(new URI("/repository/video/example.mp4"))))
             ),
             CozyArticleMediaPublication.Variant(
               "ja",
+              summarySlidesPdf = Some(PdfDocumentReference(new URI("/ja/development-process/pdf/example-summary.pdf"), "application/pdf", None)),
               video = Some(VideoReference(VideoPresentation.SiteHosted, VideoStatus.Published, None, None, Some(new URI("/repository/video/example-ja.mp4"))))
             )
           )
@@ -92,12 +98,18 @@ final class CozyArticleMediaPublicationSpec extends AnyWordSpec with Matchers wi
         parsedvariants.head.infographic.map(_.publicPath.toString) shouldBe Some("/en/development-process/images/example.png")
         parsedvariants.head.infographic.flatMap(_.mediaType) shouldBe Some("image/png")
         parsedvariants.head.infographic.flatMap(_.alt) shouldBe Some("Example infographic")
+        parsedvariants.head.articlePdf.map(_.publicPath.toString) shouldBe Some("/en/development-process/pdf/example-article.pdf")
+        parsedvariants.head.articlePdf.map(_.mediaType) shouldBe Some("application/pdf")
+        parsedvariants.head.articlePdf.flatMap(_.label) shouldBe Some("Article PDF")
         parsedvariants.head.video.flatMap(_.provider) shouldBe Some("vimeo")
         parsedvariants.head.video.map(_.presentation) shouldBe Some(VideoPresentation.ExternalLink)
         parsedvariants.head.video.map(_.status) shouldBe Some(VideoStatus.Published)
         parsedvariants.head.video.flatMap(_.watchUrl).map(_.toString) shouldBe Some("https://example.com/watch")
         parsedvariants.head.video.flatMap(_.contentUrl).map(_.toString) shouldBe Some("/repository/video/example.mp4")
         parsedvariants(1).infographic shouldBe empty
+        parsedvariants(1).articlePdf shouldBe empty
+        parsedvariants(1).summarySlidesPdf.map(_.publicPath.toString) shouldBe Some("/ja/development-process/pdf/example-summary.pdf")
+        parsedvariants(1).summarySlidesPdf.flatMap(_.label) shouldBe empty
         parsedvariants(1).video.flatMap(_.provider) shouldBe empty
         parsedvariants(1).video.flatMap(_.watchUrl) shouldBe empty
         parsedvariants(1).video.flatMap(_.contentUrl).map(_.toString) shouldBe Some("/repository/video/example-ja.mp4")
@@ -276,6 +288,40 @@ final class CozyArticleMediaPublicationSpec extends AnyWordSpec with Matchers wi
 
         Then("the record is rejected with a stable video error")
         videoerror.getMessage should include("video must not be null")
+      }
+
+      "reject a PDF with a non-PDF media type" in {
+        Given("an article PDF reference with an image media type")
+        val invalidpdf = () => CozyArticleMediaPublication.produce(
+          "development-process/example",
+          Vector(CozyArticleMediaPublication.Variant(
+            "en",
+            articlePdf = Some(PdfDocumentReference(new URI("/en/development-process/pdf/example.pdf"), "application/pdfx", None))
+          ))
+        )
+
+        When("the producer validates the PDF reference")
+        val pdferror = intercept[IllegalArgumentException](invalidpdf())
+
+        Then("the PDF role requires the accepted application/pdf media type")
+        pdferror.getMessage should include("media_type must be application/pdf")
+      }
+
+      "reject a PDF with a blank label" in {
+        Given("a summary-slides PDF reference with a whitespace-only label")
+        val invalidlabel = () => CozyArticleMediaPublication.produce(
+          "development-process/example",
+          Vector(CozyArticleMediaPublication.Variant(
+            "en",
+            summarySlidesPdf = Some(PdfDocumentReference(new URI("/en/development-process/pdf/example-summary.pdf"), "application/pdf", Some("  ")))
+          ))
+        )
+
+        When("the producer validates the optional PDF label")
+        val labelerror = intercept[IllegalArgumentException](invalidlabel())
+
+        Then("a supplied PDF label must be nonblank")
+        labelerror.getMessage should include("label must be nonblank")
       }
     }
 

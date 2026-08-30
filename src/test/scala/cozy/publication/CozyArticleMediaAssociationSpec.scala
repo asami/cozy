@@ -9,12 +9,12 @@ import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.smartdox.metadata.PublishMetadata
-import org.smartdox.metadata.PublishMetadata.{ImageReference, VideoPresentation, VideoReference, VideoStatus}
+import org.smartdox.metadata.PublishMetadata.{ImageReference, PdfDocumentReference, VideoPresentation, VideoReference, VideoStatus}
 import play.api.libs.json.{JsObject, Json}
 
 /*
  * @since   Aug.  4, 2026
- * @version Aug.  4, 2026
+ * @version Aug. 30, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyArticleMediaAssociationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -243,6 +243,24 @@ final class CozyArticleMediaAssociationSpec extends AnyWordSpec with Matchers wi
         Then("no correlation is required")
         result.correlations shouldBe empty
       }
+
+      "preserve SmartDox PDF roles without creating Cozy integrity correlation" in {
+        Given("an exact-locale native publication containing article and summary-slides PDFs")
+        val publication = _pdf_publication("development-process/example", "ja")
+
+        When("association validates the publication with no integrity results")
+        val result = _with_metadata(Vector(publication))(metadata => CozyArticleMediaAssociation.validate(metadata, Vector.empty))
+        val variant = result.resolve("development-process/example", "ja").get
+
+        Then("both direct PDF references remain available and the Cozy correlation view stays empty")
+        variant.articlePdf.map(_.publicPath.toString) shouldBe Some("/ja/development-process/pdf/example-article.pdf")
+        variant.articlePdf.map(_.mediaType) shouldBe Some("application/pdf")
+        variant.articlePdf.flatMap(_.label) shouldBe Some("Article PDF")
+        variant.summarySlidesPdf.map(_.publicPath.toString) shouldBe Some("/ja/development-process/pdf/example-summary.pdf")
+        variant.summarySlidesPdf.flatMap(_.label) shouldBe empty
+        result.correlations shouldBe empty
+        result.integrityResults shouldBe empty
+      }
     }
 
     "delegate compatibility resolution" which {
@@ -434,6 +452,13 @@ final class CozyArticleMediaAssociationSpec extends AnyWordSpec with Matchers wi
 
   private def _site_video(status: VideoStatus, publicpath: String): VideoReference =
     VideoReference(VideoPresentation.SiteHosted, status, None, None, Some(new URI(publicpath)))
+
+  private def _pdf_publication(articleidentity: String, locale: String): CozyArticleMediaPublication.Result =
+    CozyArticleMediaPublication.produce(articleidentity, Vector(CozyArticleMediaPublication.Variant(
+      locale = locale,
+      articlePdf = Some(PdfDocumentReference(new URI("/ja/development-process/pdf/example-article.pdf"), "application/pdf", Some("Article PDF"))),
+      summarySlidesPdf = Some(PdfDocumentReference(new URI("/ja/development-process/pdf/example-summary.pdf"), "application/pdf", None))
+    )))
 
   private def _video_integrity(
     articleidentity: String,

@@ -5,14 +5,15 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 import java.security.MessageDigest
 import scala.collection.JavaConverters._
+import cozy.media.CozyMedia
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import org.smartdox.metadata.PublishMetadata.{ImageReference, VideoPresentation, VideoStatus}
+import org.smartdox.metadata.PublishMetadata.{ImageReference, PdfDocumentReference, VideoPresentation, VideoStatus}
 
 /*
  * @since   Aug. 11, 2026
- * @version Aug. 12, 2026
+ * @version Aug. 30, 2026
  * @author  ASAMI, Tomoharu
  */
 private object SiteBindingPart5Fixture {
@@ -434,6 +435,87 @@ final class CozyArticleMediaSiteBindingSpec extends AnyWordSpec with Matchers wi
         }
       }
     }
+
+    "admit accepted Phase 40 PDF site resources" which {
+      "capture direct output evidence and map each role to its exact strict variant" in {
+        _with_part5_pdf_fixture("pdf-roles") { fixture =>
+          Given("a Part 5 package with accepted article and summary PDF outputs in both canonical locales")
+
+          When("the normal site binding resolves the accepted PDF resources")
+          val plan = CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(fixture.descriptor))
+          val pdfs = plan.candidates.filter(candidate =>
+            candidate.role == CozyArticleMediaSiteBinding.Role.ArticlePdf ||
+              candidate.role == CozyArticleMediaSiteBinding.Role.SummarySlidesPdf
+          )
+
+          Then("both PDF roles retain exact locale and deterministic direct-output evidence")
+          pdfs.map(_.resourceId) shouldBe Vector(
+            "part-5-article-pdf-en",
+            "part-5-article-pdf-ja",
+            "part-5-summary-pdf-en",
+            "part-5-summary-pdf-ja"
+          )
+          pdfs.map(candidate => candidate.locale -> candidate.role.serializedName) shouldBe Vector(
+            "en" -> "article_pdf",
+            "ja" -> "article_pdf",
+            "en" -> "summary_slides_pdf",
+            "ja" -> "summary_slides_pdf"
+          )
+          val articleja = _candidate(plan, "part-5-article-pdf-ja")
+          val articleen = _candidate(plan, "part-5-article-pdf-en")
+          val summaryja = _candidate(plan, "part-5-summary-pdf-ja")
+          val summaryen = _candidate(plan, "part-5-summary-pdf-en")
+          articleja.variant.articlePdf shouldBe Some(PdfDocumentReference(
+            new URI("/ja/development-process/pdf/part-5/article.pdf"),
+            "application/pdf",
+            Some("Article PDF ja")
+          ))
+          articleen.variant.articlePdf.map(_.label) shouldBe Some(None)
+          summaryja.variant.summarySlidesPdf.map(_.label) shouldBe Some(Some("Summary slides PDF ja"))
+          summaryen.variant.summarySlidesPdf.map(_.label) shouldBe Some(None)
+          articleja.variant.summarySlidesPdf shouldBe empty
+          summaryja.variant.articlePdf shouldBe empty
+          val evidence = articleja.evidence.asInstanceOf[CozyArticleMediaSiteBinding.PdfEvidence].output
+          evidence.path shouldBe fixture.root.resolve("target/article-ja.pdf").toAbsolutePath.normalize()
+          evidence.identity shouldBe evidence.path
+          evidence.sha256 shouldBe _sha256(evidence.path)
+          evidence.size shouldBe Files.size(evidence.path)
+          evidence.fileKey should not be null
+
+          And("the same current receipt and PDF review-state evidence revalidates unchanged")
+          CozyArticleMediaSiteBinding.revalidate(plan) shouldBe plan
+        }
+      }
+
+      "refuse missing, stale, and role-incompatible PDF evidence before admission" in {
+        Given("PDF evidence cases with missing review state, stale output, or an incompatible resource role")
+        val missingstate = _with_part5_pdf_fixture("pdf-missing-state") { fixture =>
+          Files.delete(fixture.root.resolve("target/cozy-media/pdf-review-state.json"))
+          When("the site binding planner evaluates the missing PDF review-state evidence")
+          _failure(CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(fixture.descriptor)))
+        }
+        val staleoutput = _with_part5_pdf_fixture("pdf-stale-output") { fixture =>
+          _write(fixture.root.resolve("target/article-en.pdf"), "%PDF-1.7\nstale")
+          When("the site binding planner evaluates the stale PDF output evidence")
+          _failure(CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(fixture.descriptor)))
+        }
+        val incompatible = _with_part5_fixture(
+          "pdf-role-incompatible",
+          _part5_pdf_yaml().replace(
+            "  - id: part-5-article-pdf-ja\n    kind: document",
+            "  - id: part-5-article-pdf-ja\n    kind: infographic"
+          )
+        ) { fixture =>
+          When("the site binding planner evaluates the incompatible PDF resource role")
+          _failure(CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(fixture.descriptor)))
+        }
+
+        Then("each invalid Phase 40 boundary fails closed")
+        missingstate.getMessage should include("pdf-review-state")
+        staleoutput.getMessage should include("receipt.v2")
+        incompatible.getMessage should include("requires kind document")
+      }
+    }
   }
 
   private def _candidate(plan: CozyArticleMediaSiteBinding.Plan, resourceid: String): CozyArticleMediaSiteBinding.Candidate =
@@ -456,6 +538,65 @@ final class CozyArticleMediaSiteBindingSpec extends AnyWordSpec with Matchers wi
       change(fixture)
       _failure(CozyArticleMediaSiteBinding.revalidate(plan))
     }
+
+  private def _with_part5_pdf_fixture[A](name: String)(f: SiteBindingPart5Fixture.Data => A): A =
+    _with_part5_fixture(name, _part5_pdf_yaml()) { fixture =>
+      _write(fixture.root.resolve("knowledge/part-5.dox"), "Part 5 article authority")
+      _write(fixture.root.resolve("input/summary-ja.png"), "Part 5 summary ja source")
+      _write(fixture.root.resolve("input/summary-en.png"), "Part 5 summary en source")
+      _write(fixture.root.resolve("input/unbound.png"), "Part 5 unbound source")
+      _write(fixture.root.resolve("target/video-ja.mp4"), "Part 5 video ja")
+      _write(fixture.root.resolve("target/video-en.mp4"), "Part 5 video en")
+      _write(fixture.root.resolve("target/article-ja.pdf"), "%PDF-1.7\nPart 5 article ja")
+      _write(fixture.root.resolve("target/article-en.pdf"), "%PDF-1.7\nPart 5 article en")
+      _write(fixture.root.resolve("target/summary-ja.pdf"), "%PDF-1.7\nPart 5 summary ja")
+      _write(fixture.root.resolve("target/summary-en.pdf"), "%PDF-1.7\nPart 5 summary en")
+      CozyMedia.build(CozyMedia.CommandConfig(fixture.descriptor))
+      f(fixture)
+    }
+
+  private def _part5_pdf_yaml(): String =
+    _part5_yaml().stripSuffix("\n") +
+      """
+       |  - id: part-5-article-pdf-ja
+       |    kind: document
+       |    language: ja
+       |    source: target/article-ja.pdf
+       |    build: prebuilt
+       |    articleMedia:
+       |      role: article_pdf
+       |      publicPath: /ja/development-process/pdf/part-5/article.pdf
+       |      mediaType: application/pdf
+       |      label: Article PDF ja
+       |  - id: part-5-article-pdf-en
+       |    kind: document
+       |    language: en
+       |    source: target/article-en.pdf
+       |    build: prebuilt
+       |    articleMedia:
+       |      role: article_pdf
+       |      publicPath: /en/development-process/pdf/part-5/article.pdf
+       |      mediaType: application/pdf
+       |  - id: part-5-summary-pdf-ja
+       |    kind: document
+       |    language: ja
+       |    source: target/summary-ja.pdf
+       |    build: prebuilt
+       |    articleMedia:
+       |      role: summary_slides_pdf
+       |      publicPath: /ja/development-process/pdf/part-5/summary.pdf
+       |      mediaType: application/pdf
+       |      label: Summary slides PDF ja
+       |  - id: part-5-summary-pdf-en
+       |    kind: document
+       |    language: en
+       |    source: target/summary-en.pdf
+       |    build: prebuilt
+       |    articleMedia:
+       |      role: summary_slides_pdf
+       |      publicPath: /en/development-process/pdf/part-5/summary.pdf
+       |      mediaType: application/pdf
+      """.stripMargin
 
   private def _failure(value: => Any): RuntimeException =
     intercept[RuntimeException](value)

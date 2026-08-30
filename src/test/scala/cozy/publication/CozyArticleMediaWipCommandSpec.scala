@@ -10,6 +10,7 @@ import cozy.scaffold.CozyScaffold
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+import play.api.libs.json.{JsObject, Json}
 
 private object CozyArticleMediaWipCommandFixture {
   final case class Data(
@@ -24,7 +25,7 @@ private object CozyArticleMediaWipCommandFixture {
 
 /*
  * @since   Aug. 12, 2026
- * @version Aug. 12, 2026
+ * @version Aug. 30, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyArticleMediaWipCommandSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -63,6 +64,48 @@ final class CozyArticleMediaWipCommandSpec extends AnyWordSpec with Matchers wit
             "metadata/article-media/development-process/example.json",
             "metadata/article-media-integrity/development-process/example/ja/video.json"
           )
+        }
+      }
+
+      "register PDF roles as strict reuse without changing the website tree or creating PDF integrity" in {
+        Given("a PDF-only authorized descriptor with current receipt and review-state evidence")
+        _with_pdf_fixture("pdf-reuse") { fixture =>
+          val args = List(
+            "media",
+            "register-site-wip",
+            fixture.descriptor.toString,
+            "--publication",
+            fixture.publication.toString,
+            "--website",
+            fixture.website.toString
+          )
+          val beforewebsite = _tree(fixture.website).filterNot(_._1 == ".cozy-article-media-wip.lock")
+
+          When("the WIP command registers every selected PDF")
+          val dryrun = _capture(CozyMedia.execute(args :+ "--dry-run"))
+          val registered = _capture(CozyMedia.execute(args))
+
+          Then("dry-run and registration report PDF reuse with no website output mutation")
+          dryrun._1 shouldBe true
+          registered._1 shouldBe true
+          dryrun._2.replace("mode: dry-run", "mode: registered") shouldBe registered._2
+          registered._2 should include("article-pdf-ja: locale=ja, role=article_pdf, reuse")
+          registered._2 should include("summary-pdf-en: locale=en, role=summary_slides_pdf, reuse")
+          _tree(fixture.website).filterNot(_._1 == ".cozy-article-media-wip.lock") shouldBe beforewebsite
+          CozyArticleMediaRegistry.load(fixture.publication).entries.map(_.path) should contain (
+            "metadata/article-media/development-process/example.json"
+          )
+          val snapshot = CozyArticleMediaRegistry.load(fixture.publication)
+          snapshot.entries.map(_.path).exists(_.contains("article-media-integrity")) shouldBe false
+          val strict = snapshot.entries.find(_.path == "metadata/article-media/development-process/example.json").get.metadata
+          val variants = (strict \ "variants").as[JsObject]
+          ((variants \ "ja" \ "article_pdf").as[JsObject]).fields.map(_._1) shouldBe Vector("public_path", "media_type", "label")
+          ((variants \ "en" \ "article_pdf").as[JsObject]).fields.map(_._1) shouldBe Vector("public_path", "media_type")
+          ((variants \ "ja" \ "summary_slides_pdf").as[JsObject]).fields.map(_._1) shouldBe Vector("public_path", "media_type", "label")
+          ((variants \ "en" \ "summary_slides_pdf").as[JsObject]).fields.map(_._1) shouldBe Vector("public_path", "media_type")
+          Json.stringify(strict) should not include "sha256"
+          Json.stringify(strict) should not include "receipt"
+          Json.stringify(strict) should not include "renderer"
         }
       }
     }
@@ -160,6 +203,18 @@ final class CozyArticleMediaWipCommandSpec extends AnyWordSpec with Matchers wit
     } finally _delete(container)
   }
 
+  private def _with_pdf_fixture[A](name: String)(f: CozyArticleMediaWipCommandFixture.Data => A): A =
+    _with_fixture(name) { fixture =>
+      _write(fixture.project.resolve("knowledge/example.dox"), "Example article authority")
+      _write(fixture.descriptor, _pdf_media_yaml)
+      _write(fixture.project.resolve("output/article-ja.pdf"), "%PDF-1.7\nArticle PDF ja")
+      _write(fixture.project.resolve("output/article-en.pdf"), "%PDF-1.7\nArticle PDF en")
+      _write(fixture.project.resolve("output/summary-ja.pdf"), "%PDF-1.7\nSummary PDF ja")
+      _write(fixture.project.resolve("output/summary-en.pdf"), "%PDF-1.7\nSummary PDF en")
+      CozyMedia.build(CozyMedia.CommandConfig(fixture.descriptor))
+      f(fixture)
+    }
+
   private def _project_config: String =
     """project:
       |  id: simplemodeling-org
@@ -206,6 +261,58 @@ final class CozyArticleMediaWipCommandSpec extends AnyWordSpec with Matchers wit
        |  }
        |}
        |""".stripMargin
+
+  private def _pdf_media_yaml: String =
+    """schema: cozy.media.v1
+      |knowledge:
+      |  id: media-package/example
+      |  source: knowledge/example.dox
+      |profiles:
+      |  site:
+      |    root: profile
+      |articleMedia:
+      |  articleIdentity: development-process/example
+      |  publicationProfile: site
+      |resources:
+      |  - id: article-pdf-ja
+      |    kind: document
+      |    language: ja
+      |    source: output/article-ja.pdf
+      |    build: prebuilt
+      |    articleMedia:
+      |      role: article_pdf
+      |      publicPath: /ja/development-process/pdf/example/article.pdf
+      |      mediaType: application/pdf
+      |      label: Article PDF ja
+      |  - id: article-pdf-en
+      |    kind: document
+      |    language: en
+      |    source: output/article-en.pdf
+      |    build: prebuilt
+      |    articleMedia:
+      |      role: article_pdf
+      |      publicPath: /en/development-process/pdf/example/article.pdf
+      |      mediaType: application/pdf
+      |  - id: summary-pdf-ja
+      |    kind: document
+      |    language: ja
+      |    source: output/summary-ja.pdf
+      |    build: prebuilt
+      |    articleMedia:
+      |      role: summary_slides_pdf
+      |      publicPath: /ja/development-process/pdf/example/summary.pdf
+      |      mediaType: application/pdf
+      |      label: Summary PDF ja
+      |  - id: summary-pdf-en
+      |    kind: document
+      |    language: en
+      |    source: output/summary-en.pdf
+      |    build: prebuilt
+      |    articleMedia:
+      |      role: summary_slides_pdf
+      |      publicPath: /en/development-process/pdf/example/summary.pdf
+      |      mediaType: application/pdf
+      |""".stripMargin
 
   private def _tree(root: Path): Vector[(String, Vector[Byte])] = {
     val stream = Files.walk(root)

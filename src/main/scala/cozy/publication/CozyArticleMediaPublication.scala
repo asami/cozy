@@ -4,19 +4,21 @@ import java.net.URI
 import scala.collection.immutable.ListMap
 import org.goldenport.RAISE
 import org.smartdox.metadata.PublishMetadata
-import org.smartdox.metadata.PublishMetadata.{ArticleMediaPublication, ArticleMediaVariant, ImageReference, VideoPresentation, VideoReference, VideoStatus}
+import org.smartdox.metadata.PublishMetadata.{ArticleMediaPublication, ArticleMediaVariant, ImageReference, PdfDocumentReference, VideoPresentation, VideoReference, VideoStatus}
 import play.api.libs.json.{JsObject, JsString, JsValue}
 
 /*
  * @since   Aug.  4, 2026
- * @version Aug.  4, 2026
+ * @version Aug. 30, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArticleMediaPublication {
   final case class Variant(
     locale: String,
     infographic: Option[ImageReference] = None,
-    video: Option[VideoReference] = None
+    video: Option[VideoReference] = None,
+    articlePdf: Option[PdfDocumentReference] = None,
+    summarySlidesPdf: Option[PdfDocumentReference] = None
   )
 
   final case class Result(
@@ -43,12 +45,34 @@ private[cozy] object CozyArticleMediaPublication {
   }
 
   private def _normalize_variant(variant: Variant): ArticleMediaVariant = {
-    if (variant == null)
+    if (variant == null || variant.infographic == null || variant.video == null || variant.articlePdf == null || variant.summarySlidesPdf == null)
       _invalid("Article-media variant must not be null")
     val locale = CozyArticleMediaNormalization.normalizeLocale(variant.locale)
     val infographic = variant.infographic.map(_normalize_infographic)
     val video = variant.video.map(_normalize_video)
-    ArticleMediaVariant(locale, infographic, video)
+    val articlepdf = variant.articlePdf.map(_normalize_article_pdf)
+    val summaryslidespdf = variant.summarySlidesPdf.map(_normalize_summary_slides_pdf)
+    ArticleMediaVariant(locale, infographic, video, articlepdf, summaryslidespdf)
+  }
+
+  private def _normalize_article_pdf(pdfreference: PdfDocumentReference): PdfDocumentReference =
+    _normalize_pdf(pdfreference, "article_pdf")
+
+  private def _normalize_summary_slides_pdf(pdfreference: PdfDocumentReference): PdfDocumentReference =
+    _normalize_pdf(pdfreference, "summary_slides_pdf")
+
+  private def _normalize_pdf(pdfreference: PdfDocumentReference, role: String): PdfDocumentReference = {
+    if (pdfreference == null)
+      _invalid(s"Article-media $role must not be null")
+    CozyArticleMediaNormalization.validateSiteVisibleUri(pdfreference.publicPath, s"Article-media $role public_path")
+    if (pdfreference.mediaType != "application/pdf")
+      _invalid(s"Article-media $role media_type must be application/pdf")
+    val label = pdfreference.label match {
+      case None => None
+      case Some(value) if value != null && value.trim.nonEmpty => Some(value)
+      case _ => _invalid(s"Article-media $role label must be nonblank")
+    }
+    pdfreference.copy(mediaType = "application/pdf", label = label)
   }
 
   private def _normalize_infographic(infographic: ImageReference): ImageReference = {
@@ -106,6 +130,8 @@ private[cozy] object CozyArticleMediaPublication {
 
   private def _variant_json(variant: ArticleMediaVariant): JsObject = {
     val fields = variant.infographic.map(x => Vector("infographic" -> _infographic_json(x))).getOrElse(Vector.empty) ++
+      variant.articlePdf.map(x => Vector("article_pdf" -> _pdf_json(x))).getOrElse(Vector.empty) ++
+      variant.summarySlidesPdf.map(x => Vector("summary_slides_pdf" -> _pdf_json(x))).getOrElse(Vector.empty) ++
       variant.video.map(x => Vector("video" -> _video_json(x))).getOrElse(Vector.empty)
     _json_object(fields: _*)
   }
@@ -114,6 +140,14 @@ private[cozy] object CozyArticleMediaPublication {
     val fields = Vector("public_path" -> JsString(infographic.publicPath.toString)) ++
       infographic.mediaType.map(x => "media_type" -> JsString(x)) ++
       infographic.alt.map(x => "alt" -> JsString(x))
+    _json_object(fields: _*)
+  }
+
+  private def _pdf_json(pdf: PdfDocumentReference): JsObject = {
+    val fields = Vector(
+      "public_path" -> JsString(pdf.publicPath.toString),
+      "media_type" -> JsString(pdf.mediaType)
+    ) ++ pdf.label.map(x => "label" -> JsString(x))
     _json_object(fields: _*)
   }
 

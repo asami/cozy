@@ -12,7 +12,7 @@ import play.api.libs.json.{JsArray, JsObject, JsString, JsValue, Json}
 
 /*
  * @since   Aug.  5, 2026
- * @version Aug. 12, 2026
+ * @version Aug. 30, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArticleMediaBuildContext {
@@ -182,8 +182,14 @@ private[cozy] object CozyArticleMediaBuildContext {
       val variants = strict.publication.variants.flatMap { variant =>
         val infographic = if (omitted.contains(_key(strict.publication.articleIdentity, variant.locale, CozyArticleMediaIntegrity.Role.Infographic))) None else variant.infographic
         val video = if (omitted.contains(_key(strict.publication.articleIdentity, variant.locale, CozyArticleMediaIntegrity.Role.Video))) None else variant.video
-        if (infographic.isDefined || video.isDefined)
-          Some(CozyArticleMediaPublication.Variant(variant.locale, infographic, video))
+        if (infographic.isDefined || video.isDefined || variant.articlePdf.isDefined || variant.summarySlidesPdf.isDefined)
+          Some(CozyArticleMediaPublication.Variant(
+            locale = variant.locale,
+            infographic = infographic,
+            video = video,
+            articlePdf = variant.articlePdf,
+            summarySlidesPdf = variant.summarySlidesPdf
+          ))
         else None
       }.toVector
       val replacement = if (variants.isEmpty) None else Some(CozyArticleMediaPublication.produce(strict.publication.articleIdentity, variants).metadata)

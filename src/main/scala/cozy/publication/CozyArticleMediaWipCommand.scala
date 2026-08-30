@@ -6,7 +6,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 12, 2026
- * @version Aug. 12, 2026
+ * @version Aug. 30, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArticleMediaWipCommand {
@@ -110,6 +110,7 @@ private[cozy] object CozyArticleMediaWipCommand {
     ) ++ plan.candidates.sortBy(_.resourceId).map { candidate =>
       val action = candidate.evidence match {
         case _: CozyArticleMediaWipBinding.InfographicEvidence => "reuse"
+        case _: CozyArticleMediaWipBinding.PdfEvidence => "reuse"
         case video: CozyArticleMediaWipBinding.VideoEvidence => s"install=${video.destination}"
       }
       s"  - ${candidate.resourceId}: locale=${candidate.locale}, role=${candidate.role.name}, $action"

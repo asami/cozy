@@ -5,15 +5,16 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 import java.security.MessageDigest
 import scala.collection.JavaConverters._
+import cozy.media.CozyMedia
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import org.smartdox.metadata.PublishMetadata.{VideoPresentation, VideoStatus}
+import org.smartdox.metadata.PublishMetadata.{PdfDocumentReference, VideoPresentation, VideoStatus}
 import play.api.libs.json.{JsArray, JsObject, JsString, Json}
 
 /*
  * @since   Aug. 12, 2026
- * @version Aug. 12, 2026
+ * @version Aug. 30, 2026
  * @author  ASAMI, Tomoharu
  */
 private object CozyArticleMediaWipBindingFixture {
@@ -72,6 +73,66 @@ final class CozyArticleMediaWipBindingSpec extends AnyWordSpec with Matchers wit
           missing.getMessage should include("top-level articleMedia")
           duplicate.getMessage should include("Duplicate article-media WIP binding candidate")
         }
+      }
+
+      "accept current JA and EN article and summary PDFs as strict reuse-only candidates" in {
+        Given("a configured package with current Phase 40 article and summary PDF evidence")
+        _with_pdf_fixture("pdf-success") { fixture =>
+          val beforewebsite = _direct_names(fixture.website)
+
+          When("the WIP binding plans all PDF candidates")
+          val plan = CozyArticleMediaWipBinding.plan(_config(fixture))
+          val target = CozyArticleMediaWipBinding.plan(_config(fixture, target = Some("summary-pdf-en")))
+          val articleja = _candidate(plan, "article-pdf-ja")
+          val articleen = _candidate(plan, "article-pdf-en")
+          val summaryja = _candidate(plan, "summary-pdf-ja")
+          val summaryen = _candidate(plan, "summary-pdf-en")
+
+          Then("each PDF maps to its exact strict role, path, media type, and optional label")
+          plan.candidates.map(_.resourceId) shouldBe Vector(
+            "article-pdf-en", "article-pdf-ja", "summary-pdf-en", "summary-pdf-ja"
+          )
+          articleja.role shouldBe CozyArticleMediaRegistry.StrictRole.ArticlePdf
+          summaryja.role shouldBe CozyArticleMediaRegistry.StrictRole.SummarySlidesPdf
+          articleja.variant.articlePdf shouldBe Some(PdfDocumentReference(
+            new URI("/ja/development-process/pdf/example/article.pdf"),
+            "application/pdf",
+            Some("Article PDF ja")
+          ))
+          articleen.variant.articlePdf.map(_.label) shouldBe Some(None)
+          summaryja.variant.summarySlidesPdf.map(_.label) shouldBe Some(Some("Summary PDF ja"))
+          summaryen.variant.summarySlidesPdf.map(_.label) shouldBe Some(None)
+          articleja.variant.summarySlidesPdf shouldBe empty
+          summaryja.variant.articlePdf shouldBe empty
+          articleja.evidence.asInstanceOf[CozyArticleMediaWipBinding.PdfEvidence].output.path shouldBe
+            fixture.root.resolve("output/article-ja.pdf").toAbsolutePath.normalize()
+          plan.registry.articles.head.integrities shouldBe empty
+          _direct_names(fixture.website) shouldBe beforewebsite
+          target.candidates.map(_.resourceId) shouldBe Vector("summary-pdf-en")
+        }
+      }
+
+      "reject missing, stale, or role-incompatible PDF evidence before registry planning" in {
+        Given("PDF evidence cases with missing review state, stale output, or an incompatible resource role")
+        val missing = _with_pdf_fixture("pdf-missing") { fixture =>
+          Files.delete(fixture.root.resolve("target/cozy-media/pdf-review-state.json"))
+          When("the WIP binding planner evaluates the missing PDF review-state evidence")
+          _failure(CozyArticleMediaWipBinding.plan(_config(fixture, target = Some("article-pdf-ja"))))
+        }
+        val stale = _with_pdf_fixture("pdf-stale") { fixture =>
+          _write(fixture.root.resolve("output/article-ja.pdf"), "%PDF-1.7\nstale")
+          When("the WIP binding planner evaluates the stale PDF output evidence")
+          _failure(CozyArticleMediaWipBinding.plan(_config(fixture, target = Some("article-pdf-ja"))))
+        }
+        val incompatible = _with_pdf_fixture("pdf-incompatible", kind = "infographic") { fixture =>
+          When("the WIP binding planner evaluates the incompatible PDF resource role")
+          _failure(CozyArticleMediaWipBinding.plan(_config(fixture, target = Some("article-pdf-ja"))))
+        }
+
+        Then("the binding fails before a WIP registry update for every invalid boundary")
+        missing.getMessage should include("pdf-review-state")
+        stale.getMessage should include("receipt.v2")
+        incompatible.getMessage should include("requires kind document")
       }
 
       "reject missing configured SmartDox authority and invalid video evidence before a plan" in {
@@ -267,6 +328,19 @@ final class CozyArticleMediaWipBindingSpec extends AnyWordSpec with Matchers wit
     }
   }
 
+  private def _with_pdf_fixture[A](name: String, kind: String = "document")(f: CozyArticleMediaWipBindingFixture.Data => A): A =
+    _with_fixture(name) { fixture =>
+      _write(fixture.root.resolve("knowledge/example.dox"), "Example article authority")
+      _write(fixture.descriptor, _pdf_media_yaml(kind))
+      _write(fixture.root.resolve("output/article-ja.pdf"), "%PDF-1.7\nArticle PDF ja")
+      _write(fixture.root.resolve("output/article-en.pdf"), "%PDF-1.7\nArticle PDF en")
+      _write(fixture.root.resolve("output/summary-ja.pdf"), "%PDF-1.7\nSummary PDF ja")
+      _write(fixture.root.resolve("output/summary-en.pdf"), "%PDF-1.7\nSummary PDF en")
+      if (kind == "document")
+        CozyMedia.build(CozyMedia.CommandConfig(fixture.descriptor))
+      f(fixture)
+    }
+
   private def _project_config(projectkind: String = "smartdox-site", sitekind: String = "smartdox"): String =
     s"""project:
        |  id: simplemodeling-org
@@ -307,6 +381,58 @@ final class CozyArticleMediaWipBindingSpec extends AnyWordSpec with Matchers wit
        |      mediaType: image/png
        |$english${_video_resource("video-ja", "ja", "output/video-ja.mp4", "video/ja/production.json")}$duplicate""".stripMargin
   }
+
+  private def _pdf_media_yaml(kind: String): String =
+    s"""schema: cozy.media.v1
+       |knowledge:
+       |  id: media-package/example
+       |  source: knowledge/example.dox
+       |profiles:
+       |  site:
+       |    root: profile
+       |articleMedia:
+       |  articleIdentity: development-process/example
+       |  publicationProfile: site
+       |resources:
+       |  - id: article-pdf-ja
+       |    kind: $kind
+       |    language: ja
+       |    source: output/article-ja.pdf
+       |    build: prebuilt
+       |    articleMedia:
+       |      role: article_pdf
+       |      publicPath: /ja/development-process/pdf/example/article.pdf
+       |      mediaType: application/pdf
+       |      label: Article PDF ja
+       |  - id: article-pdf-en
+       |    kind: document
+       |    language: en
+       |    source: output/article-en.pdf
+       |    build: prebuilt
+       |    articleMedia:
+       |      role: article_pdf
+       |      publicPath: /en/development-process/pdf/example/article.pdf
+       |      mediaType: application/pdf
+       |  - id: summary-pdf-ja
+       |    kind: document
+       |    language: ja
+       |    source: output/summary-ja.pdf
+       |    build: prebuilt
+       |    articleMedia:
+       |      role: summary_slides_pdf
+       |      publicPath: /ja/development-process/pdf/example/summary.pdf
+       |      mediaType: application/pdf
+       |      label: Summary PDF ja
+       |  - id: summary-pdf-en
+       |    kind: document
+       |    language: en
+       |    source: output/summary-en.pdf
+       |    build: prebuilt
+       |    articleMedia:
+       |      role: summary_slides_pdf
+       |      publicPath: /en/development-process/pdf/example/summary.pdf
+       |      mediaType: application/pdf
+       |""".stripMargin
 
   private def _video_resource(id: String, locale: String, output: String, production: String): String =
     s"""  - id: $id

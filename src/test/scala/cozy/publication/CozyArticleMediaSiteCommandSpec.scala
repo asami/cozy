@@ -15,7 +15,7 @@ import play.api.libs.json.{JsArray, JsNull, JsObject, JsString, Json}
 
 /*
  * @since   Aug. 11, 2026
- * @version Aug. 12, 2026
+ * @version Aug. 30, 2026
  * @author  ASAMI, Tomoharu
  */
 private object SiteCommandPart5Fixture {
@@ -360,6 +360,113 @@ final class CozyArticleMediaSiteCommandSpec extends AnyWordSpec with Matchers wi
       }
     }
 
+    "register accepted Phase 40 PDF site media" which {
+      "emit exact strict PDF fields while retaining existing media and unrelated state" in {
+        _with_part5_pdf_fixture("pdf-registration") { fixture =>
+          Given("a normal Part 5 package with current JA/EN article and summary PDF evidence")
+          _write_bundle(fixture.registryroot, "owner", Vector(_entry("metadata/generic.json", Json.obj("kept" -> true))))
+
+          When("the normal register-site command registers all declared candidates")
+          val output = CozyArticleMediaSiteCommand.execute(_config(fixture))
+          val snapshot = CozyArticleMediaRegistry.load(fixture.registryroot)
+          val strict = _strict(snapshot, "development-process/part-5")
+          val variants = (strict \ "variants").as[JsObject]
+
+          Then("article and summary PDFs map to exact locale variants and strict fields")
+          output should include("part-5-article-pdf-ja: locale=ja, role=article_pdf")
+          output should include("part-5-summary-pdf-en: locale=en, role=summary_slides_pdf")
+          ((variants \ "ja" \ "article_pdf").as[JsObject]).fields.map(_._1) shouldBe
+            Vector("public_path", "media_type", "label")
+          ((variants \ "en" \ "article_pdf").as[JsObject]).fields.map(_._1) shouldBe
+            Vector("public_path", "media_type")
+          ((variants \ "ja" \ "summary_slides_pdf").as[JsObject]).fields.map(_._1) shouldBe
+            Vector("public_path", "media_type", "label")
+          ((variants \ "en" \ "summary_slides_pdf").as[JsObject]).fields.map(_._1) shouldBe
+            Vector("public_path", "media_type")
+          ((variants \ "ja" \ "article_pdf" \ "public_path").as[String]) shouldBe
+            "/ja/development-process/pdf/part-5/article.pdf"
+          ((variants \ "ja" \ "article_pdf" \ "media_type").as[String]) shouldBe "application/pdf"
+          ((variants \ "ja" \ "article_pdf" \ "label").as[String]) shouldBe "Article PDF ja"
+          ((variants \ "en" \ "summary_slides_pdf" \ "public_path").as[String]) shouldBe
+            "/en/development-process/pdf/part-5/summary.pdf"
+          ((variants \ "en" \ "summary_slides_pdf" \ "media_type").as[String]) shouldBe "application/pdf"
+
+          And("existing infographic/video roles and unrelated registry state remain intact")
+          ((variants \ "ja" \ "infographic" \ "public_path").as[String]) shouldBe
+            "/ja/development-process/images/part-5/summary.png"
+          ((variants \ "ja" \ "video" \ "watch_url").as[String]) shouldBe "https://youtu.be/ja_Part5-1"
+          snapshot.entries.find(_.path == "metadata/generic.json").map(_.metadata) shouldBe Some(Json.obj("kept" -> true))
+          snapshot.entries.exists(_.path.startsWith("metadata/article-media-integrity/")) shouldBe false
+          Json.stringify(strict) should not include "sha256"
+          Json.stringify(strict) should not include "receipt"
+          Json.stringify(strict) should not include "renderer"
+        }
+      }
+
+      "select only the requested PDF target and keep dry-run immutable" in {
+        _with_part5_pdf_fixture("pdf-target") { fixture =>
+          Given("a package whose accepted PDF evidence includes four exact locale-role candidates")
+
+          When("register-site targets only the Japanese summary PDF")
+          val targetoutput = CozyArticleMediaSiteCommand.execute(_config(fixture, target = Some("part-5-summary-pdf-ja")))
+          val targetstrict = _strict(CozyArticleMediaRegistry.load(fixture.registryroot), "development-process/part-5")
+          val targetvariants = (targetstrict \ "variants").as[JsObject]
+
+          Then("the target selects only its declared locale and role")
+          targetoutput shouldBe _expected_pdf_output(fixture, "registered", Vector("part-5-summary-pdf-ja"))
+          targetvariants.keys shouldBe Set("ja")
+          (targetvariants \ "ja" \ "summary_slides_pdf").toOption should not be empty
+          (targetvariants \ "ja" \ "article_pdf").toOption shouldBe empty
+
+          And("dry-run performs complete preflight without changing the registry")
+          val before = _registry_tree(fixture.registryroot)
+          val dryrun = CozyArticleMediaSiteCommand.execute(_config(fixture, dryrun = true))
+          dryrun shouldBe _expected_pdf_output(fixture, "dry-run")
+          _registry_tree(fixture.registryroot) shouldBe before
+        }
+      }
+
+      "refuse missing or stale PDF evidence before registry mutation" in {
+        Given("PDF evidence cases with missing review state, revalidation drift, or an incompatible resource role")
+        val missing = _with_part5_pdf_fixture("pdf-missing-evidence") { fixture =>
+          val before = _registry_tree(fixture.registryroot)
+          Files.delete(fixture.root.resolve("target/cozy-media/pdf-review-state.json"))
+          When("the site command evaluates the missing PDF review-state evidence")
+          val error = _failure(CozyArticleMediaSiteCommand.execute(_config(fixture)))
+          (error, _registry_tree(fixture.registryroot), before)
+        }
+        val drift = _with_part5_pdf_fixture("pdf-revalidation-drift") { fixture =>
+          val before = _registry_bundles(fixture.registryroot)
+          When("the site command evaluates the changed PDF output during revalidation")
+          val error = _failure(CozyArticleMediaSiteCommand.execute(
+            _config(fixture),
+            () => _write(fixture.root.resolve("target/article-ja.pdf"), "%PDF-1.7\nchanged")
+          ))
+          (error, _registry_bundles(fixture.registryroot), before)
+        }
+        val incompatible = _with_part5_fixture(
+          "pdf-command-role-incompatible",
+          _part5_pdf_yaml().replace(
+            "  - id: part-5-article-pdf-ja\n    kind: document",
+            "  - id: part-5-article-pdf-ja\n    kind: infographic"
+          )
+        ) { fixture =>
+          val before = _registry_tree(fixture.registryroot)
+          When("the site command evaluates the incompatible PDF resource role")
+          val error = _failure(CozyArticleMediaSiteCommand.execute(_config(fixture)))
+          (error, _registry_tree(fixture.registryroot), before)
+        }
+
+        Then("all PDF currentness and role failures leave the registry unchanged")
+        missing._1.getMessage should include("pdf-review-state")
+        missing._2 shouldBe missing._3
+        drift._1.getMessage should include("receipt.v2")
+        drift._2 shouldBe drift._3
+        incompatible._1.getMessage should include("requires kind document")
+        incompatible._2 shouldBe incompatible._3
+      }
+    }
+
       "expose the strict command surface" which {
       "accept equals and separated options while rejecting missing, unknown, extra, duplicate, and profile arguments" in {
         _with_part5_fixture("strict-cli") { fixture =>
@@ -506,6 +613,42 @@ final class CozyArticleMediaSiteCommandSpec extends AnyWordSpec with Matchers wi
     }).mkString("\n")
   }
 
+  private def _expected_pdf_output(
+    fixture: SiteCommandPart5Fixture.Data,
+    mode: String,
+    selected: Vector[String] = Vector(
+      "part-5-article-pdf-en",
+      "part-5-article-pdf-ja",
+      "part-5-summary-pdf-en",
+      "part-5-summary-pdf-ja",
+      "part-5-summary-en",
+      "part-5-summary-ja",
+      "part-5-video-en",
+      "part-5-video-ja"
+    )
+  ): String = {
+    val roles = Map(
+      "part-5-article-pdf-en" -> ("en", "article_pdf"),
+      "part-5-article-pdf-ja" -> ("ja", "article_pdf"),
+      "part-5-summary-en" -> ("en", "infographic"),
+      "part-5-summary-ja" -> ("ja", "infographic"),
+      "part-5-summary-pdf-en" -> ("en", "summary_slides_pdf"),
+      "part-5-summary-pdf-ja" -> ("ja", "summary_slides_pdf"),
+      "part-5-video-en" -> ("en", "video"),
+      "part-5-video-ja" -> ("ja", "video")
+    )
+    (Vector(
+      "Cozy Media Register Site",
+      s"descriptor: ${fixture.descriptor.toAbsolutePath.normalize()}",
+      s"publication: ${fixture.registryroot.toAbsolutePath.normalize()}",
+      "articleIdentity: development-process/part-5",
+      s"mode: $mode"
+    ) ++ selected.sorted.map { resourceid =>
+      val role = roles(resourceid)
+      s"  - $resourceid: locale=${role._1}, role=${role._2}"
+    }).mkString("\n")
+  }
+
   private def _strict(snapshot: CozyArticleMediaRegistry.Snapshot, identity: String): JsObject =
     snapshot.entries.find(_.path == s"metadata/article-media/$identity.json").map(_.metadata.as[JsObject]).getOrElse(
       throw new IllegalStateException(s"Missing strict article-media record: $identity")
@@ -589,6 +732,65 @@ final class CozyArticleMediaSiteCommandSpec extends AnyWordSpec with Matchers wi
       _delete(root)
     }
   }
+
+  private def _with_part5_pdf_fixture[A](name: String)(f: SiteCommandPart5Fixture.Data => A): A =
+    _with_part5_fixture(name, _part5_pdf_yaml()) { fixture =>
+      _write(fixture.root.resolve("knowledge/part-5.dox"), "Part 5 article authority")
+      _write(fixture.root.resolve("input/summary-ja.png"), "Part 5 summary ja source")
+      _write(fixture.root.resolve("input/summary-en.png"), "Part 5 summary en source")
+      _write(fixture.root.resolve("input/unbound.png"), "Part 5 unbound source")
+      _write(fixture.root.resolve("target/video-ja.mp4"), "Part 5 video ja")
+      _write(fixture.root.resolve("target/video-en.mp4"), "Part 5 video en")
+      _write(fixture.root.resolve("target/article-ja.pdf"), "%PDF-1.7\nPart 5 article ja")
+      _write(fixture.root.resolve("target/article-en.pdf"), "%PDF-1.7\nPart 5 article en")
+      _write(fixture.root.resolve("target/summary-ja.pdf"), "%PDF-1.7\nPart 5 summary ja")
+      _write(fixture.root.resolve("target/summary-en.pdf"), "%PDF-1.7\nPart 5 summary en")
+      CozyMedia.build(CozyMedia.CommandConfig(fixture.descriptor))
+      f(fixture)
+    }
+
+  private def _part5_pdf_yaml(): String =
+    _part5_yaml().stripSuffix("\n") +
+      """
+       |  - id: part-5-article-pdf-ja
+       |    kind: document
+       |    language: ja
+       |    source: target/article-ja.pdf
+       |    build: prebuilt
+       |    articleMedia:
+       |      role: article_pdf
+       |      publicPath: /ja/development-process/pdf/part-5/article.pdf
+       |      mediaType: application/pdf
+       |      label: Article PDF ja
+       |  - id: part-5-article-pdf-en
+       |    kind: document
+       |    language: en
+       |    source: target/article-en.pdf
+       |    build: prebuilt
+       |    articleMedia:
+       |      role: article_pdf
+       |      publicPath: /en/development-process/pdf/part-5/article.pdf
+       |      mediaType: application/pdf
+       |  - id: part-5-summary-pdf-ja
+       |    kind: document
+       |    language: ja
+       |    source: target/summary-ja.pdf
+       |    build: prebuilt
+       |    articleMedia:
+       |      role: summary_slides_pdf
+       |      publicPath: /ja/development-process/pdf/part-5/summary.pdf
+       |      mediaType: application/pdf
+       |      label: Summary slides PDF ja
+       |  - id: part-5-summary-pdf-en
+       |    kind: document
+       |    language: en
+       |    source: target/summary-en.pdf
+       |    build: prebuilt
+       |    articleMedia:
+       |      role: summary_slides_pdf
+       |      publicPath: /en/development-process/pdf/part-5/summary.pdf
+       |      mediaType: application/pdf
+      """.stripMargin
 
   private def _part5_yaml(
     association: String = "articleMedia:\n  articleIdentity: development-process/part-5\n  publicationProfile: site",

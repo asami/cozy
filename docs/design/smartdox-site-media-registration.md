@@ -21,10 +21,11 @@ user-facing package orchestrator.
 
 Cozy owns the user-facing normal-media-package command
 `cozy media register-site`. It understands explicit `cozy.media.v1` resources,
-their publication-profile evidence, and accepted external-video production
-evidence. Skills invoke supported product commands after their respective
-accepted outputs exist; they never hand-edit publication bundles. A future
-standalone registration skill may orchestrate the command.
+their publication-profile evidence, accepted external-video production
+evidence, and the already accepted Phase 40 PDF evidence. Skills invoke
+supported product commands after their respective accepted outputs exist; they
+never hand-edit publication bundles. A future standalone registration skill
+may orchestrate the command.
 
 The command produces provider-neutral SmartDox registry input. A later `dox
 site` consumes that input. Registration neither creates the article source nor
@@ -47,16 +48,25 @@ complete valid block; a target never opts a resource in. These failures happen
 before publication mutation.
 
 The nested `resources[*].articleMedia.role` is the registration role and maps
-exactly to the resource kind: `infographic` to `kind: infographic` and `video`
-to `kind: video`; other combinations fail. Existing top-level
+exactly to the resource kind: `infographic` to `kind: infographic`, `video` to
+`kind: video`, and either `article_pdf` or `summary_slides_pdf` to
+`kind: document`; other combinations fail. PDF candidates additionally
+require canonical `ja` or `en` locale, explicit site-visible `publicPath`,
+exact `mediaType: application/pdf`, and an optional exact nonblank `label`.
+The two PDF roles map directly to SmartDox `Variant.articlePdf` and
+`Variant.summarySlidesPdf`, respectively. Existing top-level
 `resources[*].role` (such as `article-summary`) remains the independent
 media-package production role and is not consulted for registration.
 
 This is a declared association, not an inference from a package name,
 filesystem path, generated site, target tree, or host behavior. The selected
 profile is the only evidence used to validate an infographic's published
-destination. The explicitly declared resources are selected; the caller may
-narrow those declarations with `--target`, which never creates an association.
+destination. A PDF is admitted only from its already resolved Cozy media
+resource: its resolved output, or its source when `build: prebuilt`, must be a
+direct current PDF output with current `cozy.media.receipt.v2` and
+`cozy.media.pdf-review-state.v1` evidence. The explicitly declared resources
+are selected; the caller may narrow those declarations with `--target`, which
+never creates an association.
 
 ## Registry and Transaction Boundary
 
@@ -79,9 +89,12 @@ metadata drift aborts before mutation; all candidates pass together, with no
 partial registration. Internal evidence hashes and path identities remain
 transactional and are never emitted in the provider-neutral SmartDox record.
 
-Site-local infographics and watch-only external videos are strict SmartDox
-input. They create no `cozy.article-media-integrity.v1` entry: unlike Phase 26
-artifact-path-bearing media, their record has no Cozy artifact correlation.
+Site-local infographics, watch-only external videos, and the two accepted PDF
+references are strict SmartDox input. They create no
+`cozy.article-media-integrity.v1` entry: unlike Phase 26 artifact-path-bearing
+media, their record has no Cozy artifact correlation. PDF strict records carry
+only `public_path`, `media_type`, and optional `label`; no Cozy path, hash,
+receipt, renderer, or integrity data is emitted.
 
 ## Media Evidence Boundary
 
@@ -105,19 +118,31 @@ Rendering requires completed technical and visual QA, and the external
 publication requires a published YouTube URL. Human listening review may remain
 pending; it is evidence only and is never serialized as accepted listening.
 
+An `article_pdf` or `summary_slides_pdf` is eligible only from the resolved
+Cozy resource's direct output (or source for a prebuilt resource), after
+reusing the current Phase 40 receipt-v2 and PDF review-state APIs. The binding
+captures that direct output's identity, size, and SHA-256 in its immutable
+plan. Revalidation rereads the same resolved output and requires both current
+Phase 40 evidence documents again under the publication-root lock immediately
+before replacement. Registration consumes no renderer, receipt, or review
+state fields beyond this currentness gate.
+
 ## Lifecycle and Exclusions
 
 Infographic workflows register only after the accepted published infographic
 exists. Video workflows register only after accepted published external-video
-production metadata exists. The command may plan without mutation, but it does
-not generate/copy media, upload a video, build/deploy a site, invoke `cozy
-bok`, scan arbitrary target/site/repository trees, or fall back to host
-behavior.
+production metadata exists. PDF workflows register only after the current
+Phase 40 PDF output, receipt-v2 evidence, and PDF review-state evidence exist.
+Registration reads that evidence; it does not generate, copy, or publish PDFs.
+The command may plan without mutation, but it does not generate/copy media,
+upload a video, build/deploy a site, invoke `cozy bok`, scan arbitrary
+target/site/repository trees, or fall back to host behavior.
 
 This boundary does not introduce `cozy bok publish-media`, a Cozy BoK,
 descriptor enumeration, BoK build/repository/staging coupling, site/artifact
 deployment coupling, media generation, remote publication, YouTube mutation,
-or a SmartDox Phase 1 schema extension.
+or a SmartDox Phase 9 schema/projection extension. PDF renderer and receipt
+semantics remain owned by Phase 40 and are outside this registration scope.
 
 ## Acceptance Direction
 
@@ -126,7 +151,12 @@ package fixture, not a Part 4 artifact or output. Its distinct `knowledge.id`
 and `articleIdentity` must exercise existing `kind: infographic` resources
 with an independent top-level `resources[*].role` (such as
 `article-summary`), JA/EN infographic and published external-video records,
-deterministic candidate output, dry-run immutability, exact-locale output,
-preservation, duplicate/failure atomicity, and pinned SmartDox/Dox article and
-Notice projection. `development-process/part-5` is only a fixture identity and
-does not prescribe a future Part 5 editorial title.
+and JA/EN `article_pdf` and `summary_slides_pdf` records backed by current
+Phase 40 evidence. Acceptance must prove exact PDF role mapping and strict
+JSON fields (including optional labels), deterministic candidate output,
+target selection, dry-run immutability, exact-locale output, preservation,
+duplicate/failure atomicity, and refusal before mutation for missing, stale,
+currentness-invalid, or role-incompatible PDFs. It must also state that the
+fixture registration reads current evidence and performs no PDF generation,
+copy, or publication. `development-process/part-5` is only a fixture identity
+and does not prescribe a future Part 5 editorial title.

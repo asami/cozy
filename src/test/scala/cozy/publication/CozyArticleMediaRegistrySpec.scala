@@ -10,12 +10,12 @@ import org.scalacheck.{Gen, Prop, Test}
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import org.smartdox.metadata.PublishMetadata.{VideoPresentation, VideoReference, VideoStatus}
+import org.smartdox.metadata.PublishMetadata.{PdfDocumentReference, VideoPresentation, VideoReference, VideoStatus}
 import play.api.libs.json.{JsArray, JsNull, JsObject, JsString, Json}
 
 /*
  * @since   Aug.  4, 2026
- * @version Aug. 12, 2026
+ * @version Aug. 30, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyArticleMediaRegistrySpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -344,6 +344,29 @@ final class CozyArticleMediaRegistrySpec extends AnyWordSpec with Matchers with 
             "unrelated"
           )
           result.snapshot.entries.find(_.path == "metadata/unrelated.json").map(_.metadata) shouldBe Some(Json.obj("kept" -> true))
+        }
+      }
+
+      "preserve both direct PDF roles through strict registry load and round trip" in {
+        Given("a canonical strict article record with infographic, video, and both SmartDox PDF roles")
+        _with_root { root =>
+          val strict = _strict_with_pdfs()
+          _write_bundle(root, "publication", Vector(_entry(strict.entryPath, strict.metadata)))
+
+          When("the registry loads and rewrites the exact strict entry")
+          val loaded = CozyArticleMediaRegistry.load(root)
+          val result = CozyArticleMediaRegistry.upsert(root, "publication", strict, Vector.empty)
+          val parsed = result.snapshot.entries.find(_.path == strict.entryPath).get.metadata
+
+          Then("the two direct PDF roles retain their exact shape and no integrity entries appear")
+          loaded.entries.find(_.path == strict.entryPath).map(_.metadata) shouldBe Some(strict.metadata)
+          (parsed \ "variants" \ "ja" \ "article_pdf" \ "public_path").as[String] shouldBe "/ja/development-process/pdf/example-article.pdf"
+          (parsed \ "variants" \ "ja" \ "article_pdf" \ "media_type").as[String] shouldBe "application/pdf"
+          (parsed \ "variants" \ "ja" \ "article_pdf" \ "label").as[String] shouldBe "Article PDF"
+          (parsed \ "variants" \ "ja" \ "summary_slides_pdf" \ "public_path").as[String] shouldBe "/ja/development-process/pdf/example-summary.pdf"
+          (parsed \ "variants" \ "ja" \ "summary_slides_pdf" \ "media_type").as[String] shouldBe "application/pdf"
+          (parsed \ "variants" \ "ja" \ "summary_slides_pdf" \ "label").as[String] shouldBe "Summary slides PDF"
+          result.snapshot.entries.exists(_.path.startsWith("metadata/article-media-integrity/")) shouldBe false
         }
       }
 
@@ -1028,6 +1051,83 @@ final class CozyArticleMediaRegistrySpec extends AnyWordSpec with Matchers with 
         }
       }
 
+      "merge a normal PDF role without demanding or rewriting integrity" in {
+        Given("an owner with all strict media roles and existing video integrity evidence")
+        _with_root { root =>
+          val strict = _strict_with_pdfs()
+          val integrity = _video_integrity()
+          _write_bundle(root, "owner", Vector(_entry(strict.entryPath, strict.metadata), _entry(integrity.entryPath, integrity.metadata)))
+          val replacement = _article_pdf("/ja/development-process/pdf/example-article-replacement.pdf", "Replacement article PDF")
+
+          When("a normal role merge updates only the article PDF")
+          val result = CozyArticleMediaRegistry.transaction(root)(_.merge(Vector(
+            CozyArticleMediaRegistry.RoleUpdate(
+              strict.publication.articleIdentity,
+              CozyArticleMediaPublication.Variant("ja", articlePdf = Some(replacement)),
+              null
+            )
+          )))
+          val merged = result.snapshot.entries.find(_.path == strict.entryPath).get.metadata
+
+          Then("all strict roles and the pre-existing video integrity entry remain while the PDF changes")
+          (merged \ "variants" \ "ja" \ "article_pdf" \ "public_path").as[String] shouldBe "/ja/development-process/pdf/example-article-replacement.pdf"
+          (merged \ "variants" \ "ja" \ "summary_slides_pdf" \ "public_path").as[String] shouldBe "/ja/development-process/pdf/example-summary.pdf"
+          (merged \ "variants" \ "ja" \ "infographic" \ "public_path").as[String] shouldBe "/ja/development-process/images/example.png"
+          (merged \ "variants" \ "ja" \ "video" \ "content_url").as[String] shouldBe "/repository/video/example.mp4"
+          result.snapshot.entries.find(_.path == integrity.entryPath).map(_.metadata) shouldBe Some(integrity.metadata)
+        }
+      }
+
+      "merge a site PDF role while retaining existing integrity state" in {
+        Given("an owner with strict PDF, infographic, and video roles plus video integrity")
+        _with_root { root =>
+          val strict = _strict_with_pdfs()
+          val integrity = _video_integrity()
+          _write_bundle(root, "owner", Vector(_entry(strict.entryPath, strict.metadata), _entry(integrity.entryPath, integrity.metadata)))
+          val replacement = _summary_slides_pdf("/ja/development-process/pdf/example-summary-replacement.pdf", "Replacement summary slides PDF")
+
+          When("a strict-only site merge updates only the summary-slides PDF")
+          val result = CozyArticleMediaRegistry.transaction(root)(_.mergeSite(Vector(
+            CozyArticleMediaRegistry.SiteRoleUpdate(
+              strict.publication.articleIdentity,
+              CozyArticleMediaPublication.Variant("ja", summarySlidesPdf = Some(replacement))
+            )
+          ), () => ()))
+          val merged = result.snapshot.entries.find(_.path == strict.entryPath).get.metadata
+
+          Then("the PDF update is canonical and no integrity record is demanded, synthesized, or removed")
+          (merged \ "variants" \ "ja" \ "summary_slides_pdf" \ "public_path").as[String] shouldBe "/ja/development-process/pdf/example-summary-replacement.pdf"
+          (merged \ "variants" \ "ja" \ "article_pdf" \ "public_path").as[String] shouldBe "/ja/development-process/pdf/example-article.pdf"
+          (merged \ "variants" \ "ja" \ "video" \ "content_url").as[String] shouldBe "/repository/video/example.mp4"
+          result.snapshot.entries.find(_.path == integrity.entryPath).map(_.metadata) shouldBe Some(integrity.metadata)
+        }
+      }
+
+      "merge a WIP PDF role while retaining pre-existing PDF and integrity entries" in {
+        Given("an owner with both PDF roles, infographic, video, and its existing video integrity")
+        _with_root { root =>
+          val strict = _strict_with_pdfs()
+          val integrity = _video_integrity()
+          _write_bundle(root, "owner", Vector(_entry(strict.entryPath, strict.metadata), _entry(integrity.entryPath, integrity.metadata)))
+          val replacement = _article_pdf("/ja/development-process/pdf/example-article-wip.pdf", "WIP article PDF")
+          val update = CozyArticleMediaRegistry.WipRoleUpdate(
+            strict.publication.articleIdentity,
+            CozyArticleMediaPublication.Variant("ja", articlePdf = Some(replacement)),
+            None
+          )
+
+          When("a WIP strict merge updates only the article PDF")
+          val result = CozyArticleMediaRegistry.transaction(root)(_.mergeWip(Vector(update), () => (), _ => ()))
+          val merged = result.snapshot.entries.find(_.path == strict.entryPath).get.metadata
+
+          Then("the PDF is preserved canonically and Cozy integrity remains limited to the pre-existing video")
+          (merged \ "variants" \ "ja" \ "article_pdf" \ "public_path").as[String] shouldBe "/ja/development-process/pdf/example-article-wip.pdf"
+          (merged \ "variants" \ "ja" \ "summary_slides_pdf" \ "public_path").as[String] shouldBe "/ja/development-process/pdf/example-summary.pdf"
+          result.snapshot.entries.find(_.path == integrity.entryPath).map(_.metadata) shouldBe Some(integrity.metadata)
+          result.snapshot.entries.count(_.path.startsWith("metadata/article-media-integrity/")) shouldBe 1
+        }
+      }
+
       "reject duplicate, mismatched, and multi-owner plans before mutation" in {
         Given("a role update, a mismatched integrity result, and an article split over two bundles")
         _with_root { root =>
@@ -1370,6 +1470,18 @@ final class CozyArticleMediaRegistrySpec extends AnyWordSpec with Matchers with 
       ))
     )
 
+  private def _strict_with_pdfs(articleidentity: String = "development-process/example"): CozyArticleMediaPublication.Result =
+    CozyArticleMediaPublication.produce(
+      articleidentity,
+      Vector(CozyArticleMediaPublication.Variant(
+        locale = "ja",
+        infographic = Some(_infographic_image("/ja/development-process/images/example.png")),
+        video = Some(_site_video()),
+        articlePdf = Some(_article_pdf("/ja/development-process/pdf/example-article.pdf", "Article PDF")),
+        summarySlidesPdf = Some(_summary_slides_pdf("/ja/development-process/pdf/example-summary.pdf", "Summary slides PDF"))
+      ))
+    )
+
   private def _site_strict(identity: String, publicpath: String): CozyArticleMediaPublication.Result =
     CozyArticleMediaPublication.produce(
       identity,
@@ -1381,6 +1493,12 @@ final class CozyArticleMediaRegistrySpec extends AnyWordSpec with Matchers with 
 
   private def _infographic_image(publicpath: String): org.smartdox.metadata.PublishMetadata.ImageReference =
     org.smartdox.metadata.PublishMetadata.ImageReference(new URI(publicpath), Some("image/png"), None)
+
+  private def _article_pdf(publicpath: String, label: String): PdfDocumentReference =
+    PdfDocumentReference(new URI(publicpath), "application/pdf", Some(label))
+
+  private def _summary_slides_pdf(publicpath: String, label: String): PdfDocumentReference =
+    PdfDocumentReference(new URI(publicpath), "application/pdf", Some(label))
 
   private def _video_role_update(identity: String = "development-process/example", locale: String = "ja"): CozyArticleMediaRegistry.RoleUpdate =
     CozyArticleMediaRegistry.RoleUpdate(
