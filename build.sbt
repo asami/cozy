@@ -168,8 +168,6 @@ excludeDependencies ++= Seq(
 
 Compile / mainClass := Some("cozy.Cozy")
 
-useCoursier := false
-
 lazy val exportClasspath = taskKey[Unit]("Export full classpath to a file")
 
 lazy val validateCozyPublishMetadata = taskKey[Unit]("Validate Cozy release publish metadata against public runtime catalogs.")

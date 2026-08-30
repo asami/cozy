@@ -14,7 +14,7 @@ import org.scalatest.wordspec.AnyWordSpec
  * @since   Jun. 23, 2026
  *  version Jun. 27, 2026
  *  version Jul. 31, 2026
- * @version Aug. 20, 2026
+ * @version Aug. 30, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -121,6 +121,12 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         buildsbtcontent should include ("ProjectYamlBuild.organization(projectIdentityEvidence.value")
         buildsbtcontent should include ("ProjectYamlBuild.version(projectIdentityEvidence.value")
         buildsbtcontent should include ("build.scalaVersion")
+        buildsbtcontent should include ("resolvers += Resolver.mavenLocal")
+        buildsbtcontent should not include ("useCoursier := false")
+        buildsbtcontent should not include ("Resolver.defaultLocal")
+        buildsbtcontent should not include ("Local Ivy")
+        pluginssbtcontent should include ("resolvers += Resolver.mavenLocal")
+        pluginssbtcontent should not include ("Resolver.defaultLocal")
         buildsbtcontent should not include ("cozyPublishCar.value")
         buildsbtcontent should not include ("cozyPublishLocalCar.value")
         buildsbtcontent should not include ("cozyDelegateCommand :=")
@@ -314,6 +320,10 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         rootbuildcontent should include ("cozyCarName := ProjectYamlBuild.carBaseName(componentIdentityEvidence.value")
         rootbuildcontent should include ("cozyManifestMetadata ++= ProjectYamlBuild.manifestMetadata(componentIdentityEvidence.value")
         rootbuildcontent should include ("build.scalaVersion")
+        rootbuildcontent should include ("resolvers += Resolver.mavenLocal")
+        rootbuildcontent should not include ("useCoursier := false")
+        rootbuildcontent should not include ("Resolver.defaultLocal")
+        rootbuildcontent should not include ("Local Ivy")
         rootbuildcontent should include ("(component / publish).value")
         rootbuildcontent should include ("(subsystem / publish).value")
         rootbuildcontent should include ("(component / publishLocal).value")

@@ -7,7 +7,7 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   Aug. 26, 2026
- * @version Aug. 26, 2026
+ * @version Aug. 30, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyScaffoldComponentTemplates {
@@ -37,11 +37,7 @@ private[cozy] object CozyScaffoldComponentTemplates {
       |    name := moduleName.value,
       |    version := ProjectYamlBuild.version(projectIdentityEvidence.value, cozyProjectMetadata.value),
       |    scalaVersion := ProjectYamlBuild.requiredValue(cozyProjectMetadata.value, "build.scalaVersion"),
-      |    useCoursier := false,
-      |
-      |    resolvers += Resolver.defaultLocal,
-      |    resolvers += Resolver.file("Local Ivy", file(Path.userHome.absolutePath + "/.ivy2/local"))(Resolver.ivyStylePatterns),
-      |    resolvers += "Local Maven Repository" at ("file://" + Path.userHome.absolutePath + "/.m2/repository"),
+      |    resolvers += Resolver.mavenLocal,
       |    resolvers += "SimpleModeling.org" at "https://www.simplemodeling.org/repository/maven",
       |    libraryDependencies ++= ProjectYamlBuild.dependencies(cozyProjectMetadata.value),
       |
@@ -204,10 +200,7 @@ private[cozy] object CozyScaffoldComponentTemplates {
       |  organization := ProjectYamlBuild.organization(componentIdentityEvidence.value, componentMetadata),
       |  version := ProjectYamlBuild.version(componentIdentityEvidence.value, componentMetadata),
       |  scalaVersion := ProjectYamlBuild.requiredValue(componentMetadata, "build.scalaVersion"),
-      |  useCoursier := false,
-      |  resolvers += Resolver.defaultLocal,
-      |  resolvers += Resolver.file("Local Ivy", file(Path.userHome.absolutePath + "/.ivy2/local"))(Resolver.ivyStylePatterns),
-      |  resolvers += "Local Maven Repository" at ("file://" + Path.userHome.absolutePath + "/.m2/repository"),
+      |  resolvers += Resolver.mavenLocal,
       |  resolvers += "SimpleModeling.org" at "https://www.simplemodeling.org/repository/maven"
       |)
       |
@@ -332,7 +325,7 @@ private[cozy] object CozyScaffoldComponentTemplates {
 
   private[cozy] def carPluginsSbt(): String =
     s"""resolvers += "SimpleModeling.org" at "https://www.simplemodeling.org/repository/maven"
-       |resolvers += Resolver.defaultLocal
+       |resolvers += Resolver.mavenLocal
        |
        |val sbtCozyVersion = sys.props.getOrElse("sbt.cozy.version", sys.env.getOrElse("SBT_COZY_VERSION", "${_default_sbt_cozy_version}"))
        |addSbtPlugin("org.goldenport" % "sbt-cozy" % sbtCozyVersion)
