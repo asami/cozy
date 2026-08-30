@@ -3,15 +3,15 @@
 This checklist is the authoritative progress ledger for Phase 40. It is not a
 normative behavior contract.
 
-Phase Status: COMPLETE — LOCAL RELEASE COMMIT PENDING
+Phase Status: COMPLETE
 
 Split on 2026-08-29 by the user-approved `$cncf-split-phase Phase 40`.
 Phase 40 retains `PDF40-01` through `PDF40-04` exactly once. Phase 40.1 owns
 the original registration work and `PDF40-05` exactly once. No item was
 complete before the split. P40-01 through P40-04 have completed their scoped
 Steps. `P40-FINAL-CPB-001` source/spec repair passed focused validation and
-its independent typed focused re-review; fresh final validation passed and the
-distinct local release commit remains.
+its independent typed focused re-review; fresh final validation passed. This
+distinct local Phase release commit records the completed closure.
 
 ## PDF40-01: Media Contract and SmartDox Binding
 
@@ -125,13 +125,14 @@ Stage Status:
       `fa82c84b46ef13787ce5f89b50f80620916a5268022d807184f0b06e4fdadc99`
       sealed it CLOSED with no new Current Phase Blocker. A fresh final suite
       `18266-20260829T230400Z` then passed all 1,569 specifications in 120
-      suites with zero failures; the distinct local release commit remains.
+      suites with zero failures; this distinct local release commit records
+      the completed closure.
 
-Phase 40 is COMPLETE pending its distinct local release commit. `PDF40-01`
-through `PDF40-04` remain complete, the final publication-currentness
-integration blocker is closed, and fresh final validation passed. Normal/WIP
-registration, driver acceptance, publication, deployment, push, and downstream
-series backfill remain exclusively outside this Phase.
+Phase 40 is COMPLETE. `PDF40-01` through `PDF40-04` remain complete, the
+final publication-currentness integration blocker is closed, and fresh final
+validation passed. Normal/WIP registration, driver acceptance, publication,
+deployment, push, and downstream series backfill remain exclusively outside
+this Phase.
 
 [DEV-012](../strategy/cozy-development-strategy.md#9-development-item-status) is
 excluded from Phase 40. Its future SmartDox Markdown-image admission and any

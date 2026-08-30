@@ -1,6 +1,6 @@
 # Phase 40: Article and Summary Slide PDF Generation and Currentness
 
-Status: COMPLETE — LOCAL RELEASE COMMIT PENDING
+Status: COMPLETE
 
 Plan date: 2026-08-29
 
