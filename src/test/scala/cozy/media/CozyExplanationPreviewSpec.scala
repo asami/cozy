@@ -22,350 +22,361 @@ final class CozyExplanationPreviewSpec
     with GivenWhenThen
     with CozySpecVocabulary {
   "Cozy Explanation Preview" should {
-    "render a current multi-step and multi-page closure with byte-stable HTML and an exact deterministic receipt" in {
-      _with_work("current") { root =>
-        Given("one current direct-file Explanation Plan, Projection Map, catalogs, resource bindings, and three mapped Visual Pages")
-        val fixture = _fixture(root)
-        val first = root.resolve("first.html")
-        val second = root.resolve("second.html")
+    "rendering and receipt behavior" which {
+      "render a current multi-step and multi-page closure with byte-stable HTML and an exact deterministic receipt" in {
+        _with_work("current") { root =>
+          Given("one current direct-file Explanation Plan, Projection Map, catalogs, resource bindings, and three mapped Visual Pages")
+          val fixture = _fixture(root)
+          val first = root.resolve("first.html")
+          val second = root.resolve("second.html")
 
-        When("the explanation Preview is requested once with separated options and once with equivalent equals-form options")
-        val firstreport = CozyExplanation.execute(_preview_command(fixture, first))
-        val secondreport = CozyExplanation.execute(_preview_command(fixture, second, equals = true))
-        val html = Files.readString(first, StandardCharsets.UTF_8)
-        val receiptlines = firstreport.split("\\n").toVector
-        val optionforms = Gen.oneOf(true, false)
-        val check = Test.check(Test.Parameters.default.withMinSuccessfulTests(30), Prop.forAll(optionforms) { equals =>
-          val propertyoutput = root.resolve("property.html")
-          val report = CozyExplanation.execute(_preview_command(fixture, propertyoutput, equals = equals))
-          report == firstreport && Files.readAllBytes(propertyoutput).toVector == Files.readAllBytes(first).toVector
-        })
+          When("the explanation Preview is requested once with separated options and once with equivalent equals-form options")
+          val firstreport = CozyExplanation.execute(_preview_command(fixture, first))
+          val secondreport = CozyExplanation.execute(_preview_command(fixture, second, equals = true))
+          val html = Files.readString(first, StandardCharsets.UTF_8)
+          val receiptlines = firstreport.split("\\n").toVector
+          val optionforms = Gen.oneOf(true, false)
+          val check = Test.check(Test.Parameters.default.withMinSuccessfulTests(30), Prop.forAll(optionforms) { equals =>
+            val propertyoutput = root.resolve("property.html")
+            val report = CozyExplanation.execute(_preview_command(fixture, propertyoutput, equals = equals))
+            report == firstreport && Files.readAllBytes(propertyoutput).toVector == Files.readAllBytes(first).toVector
+          })
 
-        Then("the static HTML retains ordered Step-to-Page semantics and both invocations produce identical evidence")
-        Files.readAllBytes(first).toVector shouldBe Files.readAllBytes(second).toVector
-        firstreport shouldBe secondreport
-        check.passed shouldBe true
-        check.succeeded should be >= 30
-        html.indexOf("data-step-id=\"problem-step\"") should be < html.indexOf("data-step-id=\"solution-step\"")
-        html.indexOf("data-page-id=\"problem-page-a\"") should be < html.indexOf("data-page-id=\"problem-page-b\"")
-        html should include_text("Static explanation flow")
-        html should include_text("Typed Relations")
-        html should include_text("Visual Pattern")
-        html should include_text("cozy.explanation-preview.renderer.v1")
-        html should include_text("data-visual-pattern=\"flow-horizontal\"")
-        html should include_text("data-visual-pattern=\"flow-vertical\"")
-        html should not include "htmlIdentity"
-        html should not include "receiptIdentity"
+          Then("the static HTML retains ordered Step-to-Page semantics and both invocations produce identical evidence")
+          Files.readAllBytes(first).toVector shouldBe Files.readAllBytes(second).toVector
+          firstreport shouldBe secondreport
+          check.passed shouldBe true
+          check.succeeded should be >= 30
+          html.indexOf("data-step-id=\"problem-step\"") should be < html.indexOf("data-step-id=\"solution-step\"")
+          html.indexOf("data-page-id=\"problem-page-a\"") should be < html.indexOf("data-page-id=\"problem-page-b\"")
+          html should include_text("Static explanation flow")
+          html should include_text("Typed Relations")
+          html should include_text("Visual Pattern")
+          html should include_text("cozy.explanation-preview.renderer.v1")
+          html should include_text("data-visual-pattern=\"flow-horizontal\"")
+          html should include_text("data-visual-pattern=\"flow-vertical\"")
+          html should not include "htmlIdentity"
+          html should not include "receiptIdentity"
 
-        And("the receipt has its frozen LF field order and hashes only the preceding receipt lines")
-        receiptlines.map(_.takeWhile(_ != ':')) shouldBe Vector(
-          "schema",
-          "version",
-          "generator",
-          "rendererProfile",
-          "compositionIdentity",
-          "planIdentity",
-          "projectionMapIdentity",
-          "explanationCatalogIdentity",
-          "presentationCatalogIdentity",
-          "visualPageSetIdentity",
-          "htmlIdentity",
-          "identity"
-        )
-        receiptlines.head shouldBe "schema: cozy.explanation-preview.v1"
-        receiptlines(2) shouldBe "generator: cozy media explanation preview"
-        receiptlines(3) shouldBe "rendererProfile: cozy.explanation-preview.renderer.v1"
-        receiptlines.last shouldBe "identity: " + _sha256_text(receiptlines.dropRight(1).mkString("\n"))
-      }
-    }
-
-    "render a current product-overview closure with ordered overview and page semantics" in {
-      _with_work("product-overview") { root =>
-        Given("one current direct-file product-overview Composition, Plan, Projection Map, catalogs, bindings, and mapped Visual Pages")
-        val fixture = _product_overview_fixture(root)
-        val output = root.resolve("product-overview.html")
-        val composition = CozyExplanation.parseCompositionJson(Files.readString(fixture.compositionfile, StandardCharsets.UTF_8))
-        val presentationcatalog = _presentation_catalog()
-        val plan = CozyExplanation.parsePlanJson(Files.readString(fixture.planfile, StandardCharsets.UTF_8))
-
-        When("the product-overview Explanation Preview is requested through its explicit direct-file command")
-        val report = CozyExplanation.execute(_preview_command(fixture, output))
-        val html = Files.readString(output, StandardCharsets.UTF_8)
-        val receiptlines = report.split("\\n").toVector
-
-        Then("the receipt binds the current product-overview identities and the static HTML preserves authored role and page order")
-        plan.explanationPattern shouldBe CozyExplanation.PatternReference("product-overview", 1)
-        plan.steps.map(_.semanticRole) shouldBe Vector("vision", "goal", "context", "use-case", "main-scenario")
-        fixture.projectionmap.presentation.stepMappings.map(_.stepId) shouldBe plan.steps.map(_.id)
-        receiptlines.map(_.takeWhile(_ != ':')) shouldBe Vector(
-          "schema",
-          "version",
-          "generator",
-          "rendererProfile",
-          "compositionIdentity",
-          "planIdentity",
-          "projectionMapIdentity",
-          "explanationCatalogIdentity",
-          "presentationCatalogIdentity",
-          "visualPageSetIdentity",
-          "htmlIdentity",
-          "identity"
-        )
-        report should include_text("compositionIdentity: " + CozyExplanation.compositionIdentity(composition))
-        report should include_text("planIdentity: " + plan.identity)
-        report should include_text("projectionMapIdentity: " + fixture.projectionmap.identity)
-        report should include_text("presentationCatalogIdentity: " + CozyVisualPage.catalogIdentity(presentationcatalog))
-        report should include_text("visualPageSetIdentity: " + CozyVisualPage.visualPageSetIdentity(fixture.pageset, presentationcatalog))
-        html should include_text("Explanation Pattern <code>product-overview@1</code>")
-        html should include_text("vision is an authored product overview claim.")
-        html should include_text("<code>sequence</code>")
-        html should include_text("<code>vision-next</code>")
-        html should include_text("<code>flow-horizontal</code>")
-        html should include_text("data-visual-pattern=\"flow-horizontal\"")
-        html should include_text("data-visual-pattern=\"flow-vertical\"")
-        html should include_text("data-visual-pattern=\"mapping-columns\"")
-        html should include_text("Source concepts")
-        html should include_text("Target outcomes")
-        html.indexOf("data-step-id=\"vision-step\"") should be < html.indexOf("data-step-id=\"goal-step\"")
-        html.indexOf("data-step-id=\"goal-step\"") should be < html.indexOf("data-step-id=\"context-step\"")
-        html.indexOf("data-step-id=\"context-step\"") should be < html.indexOf("data-step-id=\"use-case-step\"")
-        html.indexOf("data-step-id=\"use-case-step\"") should be < html.indexOf("data-step-id=\"main-scenario-step\"")
-        html.indexOf("data-page-id=\"page-vision-a\"") should be < html.indexOf("data-page-id=\"page-vision-b\"")
-      }
-    }
-
-    "fail before replacing the selected output when a mapped Page is unknown or no longer agrees with its Plan Step" in {
-      _with_work("preservation") { root =>
-        Given("a current explanation closure, sentinel output bytes, and unknown and stale Step-to-Page variants")
-        val fixture = _fixture(root)
-        val output = _write(root.resolve("preserve.html"), "preserve-me")
-        val unknownpresentation = fixture.projectionmap.presentation.copy(
-          stepMappings = fixture.projectionmap.presentation.stepMappings.updated(0,
-            fixture.projectionmap.presentation.stepMappings.head.copy(pageIds = Vector("unknown-page")))
-        )
-        val unknownmap = _with_mapping_identities(fixture.projectionmap.copy(presentation = unknownpresentation))
-        val unknownfile = _write(root.resolve("unknown-map.json"), CozyExplanationProjection.canonicalProjectionMapJson(unknownmap))
-        val changedpage = fixture.pageset.pages.head.copy(logical = fixture.pageset.pages.head.logical.copy(
-          nodes = fixture.pageset.pages.head.logical.nodes.updated(0,
-            fixture.pageset.pages.head.logical.nodes.head.copy(label = "Changed logical value"))
-        ))
-        val stalefile = _write(root.resolve("stale-pages.json"), CozyVisualPage.canonicalJson(
-          fixture.pageset.copy(pages = fixture.pageset.pages.updated(0, changedpage))
-        ))
-
-        When("Preview validates the unknown mapping and the stale PageSet before it writes review evidence")
-        val unknownfailure = _failure(CozyExplanation.execute(_preview_command(fixture, output, projectionmap = Some(unknownfile))))
-        val stalefailure = _failure(CozyExplanation.execute(_preview_command(fixture, output, visualpageset = Some(stalefile))))
-
-        Then("both failures are structured currentness failures and the pre-existing output remains byte-for-byte unchanged")
-        Vector(unknownfailure, stalefailure).foreach { failure =>
-          failure.getMessage should include_text("EXPLANATION_PREVIEW_STALE")
-          failure.getMessage should include_text("path=")
-          failure.getMessage should include_text("reason=")
-        }
-        unknownfailure.getMessage should include_text("unknown-page")
-        stalefailure.getMessage should include_text("does not equal Plan step")
-        Files.readString(output, StandardCharsets.UTF_8) shouldBe "preserve-me"
-      }
-    }
-
-    "reject a mapped Page whose source descriptor bytes disagree with its explicit binding" in {
-      _with_work("source-agreement") { root =>
-        Given("a current explanation closure, a source descriptor with different bytes, and sentinel output bytes")
-        val fixture = _fixture(root)
-        val output = _write(root.resolve("source-agreement.html"), "preserve-me")
-        val descriptor = _write(root.resolve("descriptor-source.txt"), "different source bytes")
-        val pageset = fixture.pageset.copy(pages = fixture.pageset.pages.map { page =>
-          page.copy(sources = page.sources.map(source => source.copy(path = root.relativize(descriptor).toString)))
-        })
-        val pagesfile = _write(root.resolve("source-agreement-pages.json"), CozyVisualPage.canonicalJson(pageset))
-
-        When("the explanation Preview consumes the mismatched source descriptor")
-        val failure = _failure(CozyExplanation.execute(_preview_command(fixture, output, visualpageset = Some(pagesfile))))
-
-        Then("Preview reports stale source agreement and preserves the sentinel output")
-        failure.getMessage should include_text("EXPLANATION_PREVIEW_STALE")
-        failure.getMessage should include_text("P36 source bytes")
-        Files.readString(output, StandardCharsets.UTF_8) shouldBe "preserve-me"
-      }
-    }
-
-    "reject a mapped Page whose asset media type disagrees with its Composition declaration" in {
-      _with_work("asset-media-type-agreement") { root =>
-        Given("a current explanation closure, an asset descriptor with a different media type, and sentinel output bytes")
-        val fixture = _fixture(root)
-        val output = _write(root.resolve("asset-media-type-agreement.html"), "preserve-me")
-        val pageset = fixture.pageset.copy(pages = fixture.pageset.pages.map { page =>
-          page.copy(assets = page.assets.map(asset => asset.copy(mediaType = "image/png")))
-        })
-        val pagesfile = _write(root.resolve("asset-media-type-agreement-pages.json"), CozyVisualPage.canonicalJson(pageset))
-
-        When("the explanation Preview consumes the mismatched asset media type")
-        val failure = _failure(CozyExplanation.execute(_preview_command(fixture, output, visualpageset = Some(pagesfile))))
-
-        Then("Preview reports stale asset media type agreement and preserves the sentinel output")
-        failure.getMessage should include_text("EXPLANATION_PREVIEW_STALE")
-        failure.getMessage should include_text("P36 asset mediaType")
-        Files.readString(output, StandardCharsets.UTF_8) shouldBe "preserve-me"
-      }
-    }
-
-    "reject a mapped Page whose asset digest disagrees with its Composition declaration" in {
-      _with_work("asset-digest-agreement") { root =>
-        Given("a current explanation closure, an asset descriptor with a different digest, and sentinel output bytes")
-        val fixture = _fixture(root)
-        val output = _write(root.resolve("asset-digest-agreement.html"), "preserve-me")
-        val descriptor = _write(root.resolve("descriptor-asset-digest.txt"), "different asset digest bytes")
-        val descriptordigest = _sha256_file(descriptor)
-        val pageset = fixture.pageset.copy(pages = fixture.pageset.pages.map { page =>
-          page.copy(assets = page.assets.map(asset => asset.copy(path = root.relativize(descriptor).toString, sha256 = descriptordigest)))
-        })
-        val pagesfile = _write(root.resolve("asset-digest-agreement-pages.json"), CozyVisualPage.canonicalJson(pageset))
-
-        When("the explanation Preview consumes the mismatched asset digest")
-        val failure = _failure(CozyExplanation.execute(_preview_command(fixture, output, visualpageset = Some(pagesfile))))
-
-        Then("Preview reports stale asset digest agreement and preserves the sentinel output")
-        failure.getMessage should include_text("EXPLANATION_PREVIEW_STALE")
-        failure.getMessage should include_text("P36 asset digest")
-        Files.readString(output, StandardCharsets.UTF_8) shouldBe "preserve-me"
-      }
-    }
-
-    "reject a mapped Page whose asset descriptor bytes disagree with its explicit binding" in {
-      _with_work("asset-bytes-agreement") { root =>
-        Given("a current explanation closure, an asset descriptor with different bytes, and sentinel output bytes")
-        val fixture = _fixture(root)
-        val output = _write(root.resolve("asset-bytes-agreement.html"), "preserve-me")
-        val descriptor = _write(root.resolve("descriptor-asset.txt"), "different asset bytes")
-        val pageset = fixture.pageset.copy(pages = fixture.pageset.pages.map { page =>
-          page.copy(assets = page.assets.map(asset => asset.copy(path = root.relativize(descriptor).toString)))
-        })
-        val pagesfile = _write(root.resolve("asset-bytes-agreement-pages.json"), CozyVisualPage.canonicalJson(pageset))
-
-        When("the explanation Preview consumes the mismatched asset descriptor")
-        val failure = _failure(CozyExplanation.execute(_preview_command(fixture, output, visualpageset = Some(pagesfile))))
-
-        Then("Preview reports stale asset byte agreement and preserves the sentinel output")
-        failure.getMessage should include_text("EXPLANATION_PREVIEW_STALE")
-        Files.readString(output, StandardCharsets.UTF_8) shouldBe "preserve-me"
-      }
-    }
-
-    "reject a --save path aliased to an explicit direct binding" in {
-      _with_work("binding-alias") { root =>
-        Given("a current explanation closure and a direct hard-link alias to its source binding")
-        val fixture = _fixture(root)
-        val output = root.resolve("binding-alias.html")
-        Files.createLink(output, fixture.bindings.sources("source"))
-        val sentinel = Files.readAllBytes(output).toVector
-
-        When("the explanation Preview selects the source-binding alias as its output")
-        val failure = _failure(CozyExplanation.execute(_preview_command(fixture, output)))
-
-        Then("Preview reports the consumed-input alias and preserves the binding bytes")
-        failure.getMessage should include_text("EXPLANATION_PREVIEW_COMMAND")
-        failure.getMessage should include_text("output aliases consumed input")
-        Files.readAllBytes(output).toVector shouldBe sentinel
-      }
-    }
-
-    "reject a --save path aliased to a named direct document" in {
-      _with_work("named-document-alias") { root =>
-        Given("a current explanation closure and a direct hard-link alias to its named Plan document")
-        val fixture = _fixture(root)
-        val output = root.resolve("plan-alias.html")
-        Files.createLink(output, fixture.planfile)
-        val sentinel = Files.readAllBytes(output).toVector
-
-        When("the explanation Preview selects the named-document alias as its output")
-        val failure = _failure(CozyExplanation.execute(_preview_command(fixture, output)))
-
-        Then("Preview reports the consumed-input alias and preserves the named document bytes")
-        failure.getMessage should include_text("EXPLANATION_PREVIEW_COMMAND")
-        failure.getMessage should include_text("output aliases consumed input")
-        Files.readAllBytes(output).toVector shouldBe sentinel
-      }
-    }
-
-    "reject a --save path aliased to a non-required mapped Page descriptor resource" in {
-      _with_work("mapped-page-extra-alias") { root =>
-        Given("a current explanation closure with an extra mapped Page source descriptor and a direct hard-link output alias")
-        val fixture = _fixture(root)
-        val descriptor = _write(root.resolve("sources/extra-source.txt"), "extra source descriptor bytes")
-        val pageset = fixture.pageset.copy(pages = fixture.pageset.pages.updated(0,
-          fixture.pageset.pages.head.copy(
-            sources = fixture.pageset.pages.head.sources :+ CozyVisualPage.SourceBinding(
-              "extra-source",
-              root.relativize(descriptor).toString
-            )
+          And("the receipt has its frozen LF field order and hashes only the preceding receipt lines")
+          receiptlines.map(_.takeWhile(_ != ':')) shouldBe Vector(
+            "schema",
+            "version",
+            "generator",
+            "rendererProfile",
+            "compositionIdentity",
+            "planIdentity",
+            "projectionMapIdentity",
+            "explanationCatalogIdentity",
+            "presentationCatalogIdentity",
+            "visualPageSetIdentity",
+            "htmlIdentity",
+            "identity"
           )
-        ))
-        val pagesfile = _write(root.resolve("mapped-page-extra-pages.json"), CozyVisualPage.canonicalJson(pageset))
-        val output = root.resolve("mapped-page-extra-alias.html")
-        Files.createLink(output, descriptor)
-        val sentinel = Files.readAllBytes(output).toVector
+          receiptlines.head shouldBe "schema: cozy.explanation-preview.v1"
+          receiptlines(2) shouldBe "generator: cozy media explanation preview"
+          receiptlines(3) shouldBe "rendererProfile: cozy.explanation-preview.renderer.v1"
+          receiptlines.last shouldBe "identity: " + _sha256_text(receiptlines.dropRight(1).mkString("\n"))
+        }
+      }
 
-        When("the explanation Preview selects the non-required mapped Page descriptor alias as its output")
-        val failure = _failure(CozyExplanation.execute(_preview_command(fixture, output, visualpageset = Some(pagesfile))))
+      "render a current product-overview closure with ordered overview and page semantics" in {
+        _with_work("product-overview") { root =>
+          Given("one current direct-file product-overview Composition, Plan, Projection Map, catalogs, bindings, and mapped Visual Pages")
+          val fixture = _product_overview_fixture(root)
+          val output = root.resolve("product-overview.html")
+          val composition = CozyExplanation.parseCompositionJson(Files.readString(fixture.compositionfile, StandardCharsets.UTF_8))
+          val presentationcatalog = _presentation_catalog()
+          val plan = CozyExplanation.parsePlanJson(Files.readString(fixture.planfile, StandardCharsets.UTF_8))
 
-        Then("Preview reports the consumed-input alias and preserves the descriptor bytes")
-        failure.getMessage should include_text("EXPLANATION_PREVIEW_COMMAND")
-        failure.getMessage should include_text("output aliases consumed input")
-        Files.readAllBytes(output).toVector shouldBe sentinel
+          When("the product-overview Explanation Preview is requested through its explicit direct-file command")
+          val report = CozyExplanation.execute(_preview_command(fixture, output))
+          val html = Files.readString(output, StandardCharsets.UTF_8)
+          val receiptlines = report.split("\\n").toVector
+
+          Then("the receipt binds the current product-overview identities and the static HTML preserves authored role and page order")
+          plan.explanationPattern shouldBe CozyExplanation.PatternReference("product-overview", 1)
+          plan.steps.map(_.semanticRole) shouldBe Vector("vision", "goal", "context", "use-case", "main-scenario")
+          fixture.projectionmap.presentation.stepMappings.map(_.stepId) shouldBe plan.steps.map(_.id)
+          receiptlines.map(_.takeWhile(_ != ':')) shouldBe Vector(
+            "schema",
+            "version",
+            "generator",
+            "rendererProfile",
+            "compositionIdentity",
+            "planIdentity",
+            "projectionMapIdentity",
+            "explanationCatalogIdentity",
+            "presentationCatalogIdentity",
+            "visualPageSetIdentity",
+            "htmlIdentity",
+            "identity"
+          )
+          report should include_text("compositionIdentity: " + CozyExplanation.compositionIdentity(composition))
+          report should include_text("planIdentity: " + plan.identity)
+          report should include_text("projectionMapIdentity: " + fixture.projectionmap.identity)
+          report should include_text("presentationCatalogIdentity: " + CozyVisualPage.catalogIdentity(presentationcatalog))
+          report should include_text("visualPageSetIdentity: " + CozyVisualPage.visualPageSetIdentity(fixture.pageset, presentationcatalog))
+          html should include_text("Explanation Pattern <code>product-overview@1</code>")
+          html should include_text("vision is an authored product overview claim.")
+          html should include_text("<code>sequence</code>")
+          html should include_text("<code>vision-next</code>")
+          html should include_text("<code>flow-horizontal</code>")
+          html should include_text("data-visual-pattern=\"flow-horizontal\"")
+          html should include_text("data-visual-pattern=\"flow-vertical\"")
+          html should include_text("data-visual-pattern=\"mapping-columns\"")
+          html should include_text("Source concepts")
+          html should include_text("Target outcomes")
+          html.indexOf("data-step-id=\"vision-step\"") should be < html.indexOf("data-step-id=\"goal-step\"")
+          html.indexOf("data-step-id=\"goal-step\"") should be < html.indexOf("data-step-id=\"context-step\"")
+          html.indexOf("data-step-id=\"context-step\"") should be < html.indexOf("data-step-id=\"use-case-step\"")
+          html.indexOf("data-step-id=\"use-case-step\"") should be < html.indexOf("data-step-id=\"main-scenario-step\"")
+          html.indexOf("data-page-id=\"page-vision-a\"") should be < html.indexOf("data-page-id=\"page-vision-b\"")
+        }
       }
     }
 
-    "reject unsupported incomplete duplicated and positional Preview grammar deterministically" in {
-      _with_work("grammar") { root =>
-        Given("one otherwise complete direct-file explanation closure")
-        val fixture = _fixture(root)
-        val output = root.resolve("grammar.html")
+    "mapping currentness and source/asset agreement" which {
 
-        When("Preview receives unsupported, valueless, duplicated, and additional positional arguments")
-        val failures = Vector(
-          _failure(CozyExplanation.execute(List("preview", fixture.planfile.toString, "--composition", fixture.compositionfile.toString))),
-          _failure(CozyExplanation.execute(_preview_command(fixture, output) :+ "--unsupported=value")),
-          _failure(CozyExplanation.execute(_preview_command(fixture, output) :+ "--asset")),
-          _failure(CozyExplanation.execute(_preview_command(fixture, output) ++ List("--save", root.resolve("other.html").toString))),
-          _failure(CozyExplanation.execute(_preview_command(fixture, output) :+ "unexpected"))
-        )
+      "fail before replacing the selected output when a mapped Page is unknown or no longer agrees with its Plan Step" in {
+        _with_work("preservation") { root =>
+          Given("a current explanation closure, sentinel output bytes, and unknown and stale Step-to-Page variants")
+          val fixture = _fixture(root)
+          val output = _write(root.resolve("preserve.html"), "preserve-me")
+          val unknownpresentation = fixture.projectionmap.presentation.copy(
+            stepMappings = fixture.projectionmap.presentation.stepMappings.updated(0,
+              fixture.projectionmap.presentation.stepMappings.head.copy(pageIds = Vector("unknown-page")))
+          )
+          val unknownmap = _with_mapping_identities(fixture.projectionmap.copy(presentation = unknownpresentation))
+          val unknownfile = _write(root.resolve("unknown-map.json"), CozyExplanationProjection.canonicalProjectionMapJson(unknownmap))
+          val changedpage = fixture.pageset.pages.head.copy(logical = fixture.pageset.pages.head.logical.copy(
+            nodes = fixture.pageset.pages.head.logical.nodes.updated(0,
+              fixture.pageset.pages.head.logical.nodes.head.copy(label = "Changed logical value"))
+          ))
+          val stalefile = _write(root.resolve("stale-pages.json"), CozyVisualPage.canonicalJson(
+            fixture.pageset.copy(pages = fixture.pageset.pages.updated(0, changedpage))
+          ))
 
-        Then("each grammar failure reports the dedicated command taxonomy without replacing an output")
-        failures.foreach(_.getMessage should include_text("EXPLANATION_PREVIEW_COMMAND"))
-        Files.exists(output, LinkOption.NOFOLLOW_LINKS) shouldBe false
+          When("Preview validates the unknown mapping and the stale PageSet before it writes review evidence")
+          val unknownfailure = _failure(CozyExplanation.execute(_preview_command(fixture, output, projectionmap = Some(unknownfile))))
+          val stalefailure = _failure(CozyExplanation.execute(_preview_command(fixture, output, visualpageset = Some(stalefile))))
+
+          Then("both failures are structured currentness failures and the pre-existing output remains byte-for-byte unchanged")
+          Vector(unknownfailure, stalefailure).foreach { failure =>
+            failure.getMessage should include_text("EXPLANATION_PREVIEW_STALE")
+            failure.getMessage should include_text("path=")
+            failure.getMessage should include_text("reason=")
+          }
+          unknownfailure.getMessage should include_text("unknown-page")
+          stalefailure.getMessage should include_text("does not equal Plan step")
+          Files.readString(output, StandardCharsets.UTF_8) shouldBe "preserve-me"
+        }
+      }
+
+      "reject a mapped Page whose source descriptor bytes disagree with its explicit binding" in {
+        _with_work("source-agreement") { root =>
+          Given("a current explanation closure, a source descriptor with different bytes, and sentinel output bytes")
+          val fixture = _fixture(root)
+          val output = _write(root.resolve("source-agreement.html"), "preserve-me")
+          val descriptor = _write(root.resolve("descriptor-source.txt"), "different source bytes")
+          val pageset = fixture.pageset.copy(pages = fixture.pageset.pages.map { page =>
+            page.copy(sources = page.sources.map(source => source.copy(path = root.relativize(descriptor).toString)))
+          })
+          val pagesfile = _write(root.resolve("source-agreement-pages.json"), CozyVisualPage.canonicalJson(pageset))
+
+          When("the explanation Preview consumes the mismatched source descriptor")
+          val failure = _failure(CozyExplanation.execute(_preview_command(fixture, output, visualpageset = Some(pagesfile))))
+
+          Then("Preview reports stale source agreement and preserves the sentinel output")
+          failure.getMessage should include_text("EXPLANATION_PREVIEW_STALE")
+          failure.getMessage should include_text("P36 source bytes")
+          Files.readString(output, StandardCharsets.UTF_8) shouldBe "preserve-me"
+        }
+      }
+
+      "reject a mapped Page whose asset media type disagrees with its Composition declaration" in {
+        _with_work("asset-media-type-agreement") { root =>
+          Given("a current explanation closure, an asset descriptor with a different media type, and sentinel output bytes")
+          val fixture = _fixture(root)
+          val output = _write(root.resolve("asset-media-type-agreement.html"), "preserve-me")
+          val pageset = fixture.pageset.copy(pages = fixture.pageset.pages.map { page =>
+            page.copy(assets = page.assets.map(asset => asset.copy(mediaType = "image/png")))
+          })
+          val pagesfile = _write(root.resolve("asset-media-type-agreement-pages.json"), CozyVisualPage.canonicalJson(pageset))
+
+          When("the explanation Preview consumes the mismatched asset media type")
+          val failure = _failure(CozyExplanation.execute(_preview_command(fixture, output, visualpageset = Some(pagesfile))))
+
+          Then("Preview reports stale asset media type agreement and preserves the sentinel output")
+          failure.getMessage should include_text("EXPLANATION_PREVIEW_STALE")
+          failure.getMessage should include_text("P36 asset mediaType")
+          Files.readString(output, StandardCharsets.UTF_8) shouldBe "preserve-me"
+        }
+      }
+
+      "reject a mapped Page whose asset digest disagrees with its Composition declaration" in {
+        _with_work("asset-digest-agreement") { root =>
+          Given("a current explanation closure, an asset descriptor with a different digest, and sentinel output bytes")
+          val fixture = _fixture(root)
+          val output = _write(root.resolve("asset-digest-agreement.html"), "preserve-me")
+          val descriptor = _write(root.resolve("descriptor-asset-digest.txt"), "different asset digest bytes")
+          val descriptordigest = _sha256_file(descriptor)
+          val pageset = fixture.pageset.copy(pages = fixture.pageset.pages.map { page =>
+            page.copy(assets = page.assets.map(asset => asset.copy(path = root.relativize(descriptor).toString, sha256 = descriptordigest)))
+          })
+          val pagesfile = _write(root.resolve("asset-digest-agreement-pages.json"), CozyVisualPage.canonicalJson(pageset))
+
+          When("the explanation Preview consumes the mismatched asset digest")
+          val failure = _failure(CozyExplanation.execute(_preview_command(fixture, output, visualpageset = Some(pagesfile))))
+
+          Then("Preview reports stale asset digest agreement and preserves the sentinel output")
+          failure.getMessage should include_text("EXPLANATION_PREVIEW_STALE")
+          failure.getMessage should include_text("P36 asset digest")
+          Files.readString(output, StandardCharsets.UTF_8) shouldBe "preserve-me"
+        }
+      }
+
+      "reject a mapped Page whose asset descriptor bytes disagree with its explicit binding" in {
+        _with_work("asset-bytes-agreement") { root =>
+          Given("a current explanation closure, an asset descriptor with different bytes, and sentinel output bytes")
+          val fixture = _fixture(root)
+          val output = _write(root.resolve("asset-bytes-agreement.html"), "preserve-me")
+          val descriptor = _write(root.resolve("descriptor-asset.txt"), "different asset bytes")
+          val pageset = fixture.pageset.copy(pages = fixture.pageset.pages.map { page =>
+            page.copy(assets = page.assets.map(asset => asset.copy(path = root.relativize(descriptor).toString)))
+          })
+          val pagesfile = _write(root.resolve("asset-bytes-agreement-pages.json"), CozyVisualPage.canonicalJson(pageset))
+
+          When("the explanation Preview consumes the mismatched asset descriptor")
+          val failure = _failure(CozyExplanation.execute(_preview_command(fixture, output, visualpageset = Some(pagesfile))))
+
+          Then("Preview reports stale asset byte agreement and preserves the sentinel output")
+          failure.getMessage should include_text("EXPLANATION_PREVIEW_STALE")
+          Files.readString(output, StandardCharsets.UTF_8) shouldBe "preserve-me"
+        }
       }
     }
 
-    "leave the established single-command Visual Page Preview contract callable" in {
-      _with_work("visual-page-compatibility") { root =>
-        Given("one valid ordered Visual Page Set and its presentation catalog")
-        val fixture = _fixture(root)
-        val output = root.resolve("visual-page-preview.html")
+    "output/input alias behavior" which {
+      "reject a --save path aliased to an explicit direct binding" in {
+        _with_work("binding-alias") { root =>
+          Given("a current explanation closure and a direct hard-link alias to its source binding")
+          val fixture = _fixture(root)
+          val output = root.resolve("binding-alias.html")
+          Files.createLink(output, fixture.bindings.sources("source"))
+          val sentinel = Files.readAllBytes(output).toVector
 
-        When("the existing visual-page Preview command is invoked with its unchanged grammar")
-        val report = CozyVisualPage.execute(List(
-          "preview",
-          fixture.visualpagesetfile.toString,
-          "--catalog",
-          fixture.presentationcatalogfile.toString,
-          "--save",
-          output.toString
-        ))
+          When("the explanation Preview selects the source-binding alias as its output")
+          val failure = _failure(CozyExplanation.execute(_preview_command(fixture, output)))
 
-        Then("its established receipt schema and deterministic semantic HTML remain available")
-        report.split("\\n").map(_.takeWhile(_ != ':')).toVector shouldBe Vector(
-          "schema",
-          "version",
-          "generator",
-          "documentIdentity",
-          "catalogIdentity",
-          "htmlIdentity",
-          "previewIdentity",
-          "status"
-        )
-        report should include_text("schema: cozy.visual-page.preview.v1")
-        Files.readString(output, StandardCharsets.UTF_8) should include_text("Cozy Visual Page Semantic Preview")
+          Then("Preview reports the consumed-input alias and preserves the binding bytes")
+          failure.getMessage should include_text("EXPLANATION_PREVIEW_COMMAND")
+          failure.getMessage should include_text("output aliases consumed input")
+          Files.readAllBytes(output).toVector shouldBe sentinel
+        }
+      }
+
+      "reject a --save path aliased to a named direct document" in {
+        _with_work("named-document-alias") { root =>
+          Given("a current explanation closure and a direct hard-link alias to its named Plan document")
+          val fixture = _fixture(root)
+          val output = root.resolve("plan-alias.html")
+          Files.createLink(output, fixture.planfile)
+          val sentinel = Files.readAllBytes(output).toVector
+
+          When("the explanation Preview selects the named-document alias as its output")
+          val failure = _failure(CozyExplanation.execute(_preview_command(fixture, output)))
+
+          Then("Preview reports the consumed-input alias and preserves the named document bytes")
+          failure.getMessage should include_text("EXPLANATION_PREVIEW_COMMAND")
+          failure.getMessage should include_text("output aliases consumed input")
+          Files.readAllBytes(output).toVector shouldBe sentinel
+        }
+      }
+
+      "reject a --save path aliased to a non-required mapped Page descriptor resource" in {
+        _with_work("mapped-page-extra-alias") { root =>
+          Given("a current explanation closure with an extra mapped Page source descriptor and a direct hard-link output alias")
+          val fixture = _fixture(root)
+          val descriptor = _write(root.resolve("sources/extra-source.txt"), "extra source descriptor bytes")
+          val pageset = fixture.pageset.copy(pages = fixture.pageset.pages.updated(0,
+            fixture.pageset.pages.head.copy(
+              sources = fixture.pageset.pages.head.sources :+ CozyVisualPage.SourceBinding(
+                "extra-source",
+                root.relativize(descriptor).toString
+              )
+            )
+          ))
+          val pagesfile = _write(root.resolve("mapped-page-extra-pages.json"), CozyVisualPage.canonicalJson(pageset))
+          val output = root.resolve("mapped-page-extra-alias.html")
+          Files.createLink(output, descriptor)
+          val sentinel = Files.readAllBytes(output).toVector
+
+          When("the explanation Preview selects the non-required mapped Page descriptor alias as its output")
+          val failure = _failure(CozyExplanation.execute(_preview_command(fixture, output, visualpageset = Some(pagesfile))))
+
+          Then("Preview reports the consumed-input alias and preserves the descriptor bytes")
+          failure.getMessage should include_text("EXPLANATION_PREVIEW_COMMAND")
+          failure.getMessage should include_text("output aliases consumed input")
+          Files.readAllBytes(output).toVector shouldBe sentinel
+        }
+      }
+    }
+
+    "deterministic Preview grammar" which {
+      "reject unsupported incomplete duplicated and positional Preview grammar deterministically" in {
+        _with_work("grammar") { root =>
+          Given("one otherwise complete direct-file explanation closure")
+          val fixture = _fixture(root)
+          val output = root.resolve("grammar.html")
+
+          When("Preview receives unsupported, valueless, duplicated, and additional positional arguments")
+          val failures = Vector(
+            _failure(CozyExplanation.execute(List("preview", fixture.planfile.toString, "--composition", fixture.compositionfile.toString))),
+            _failure(CozyExplanation.execute(_preview_command(fixture, output) :+ "--unsupported=value")),
+            _failure(CozyExplanation.execute(_preview_command(fixture, output) :+ "--asset")),
+            _failure(CozyExplanation.execute(_preview_command(fixture, output) ++ List("--save", root.resolve("other.html").toString))),
+            _failure(CozyExplanation.execute(_preview_command(fixture, output) :+ "unexpected"))
+          )
+
+          Then("each grammar failure reports the dedicated command taxonomy without replacing an output")
+          failures.foreach(_.getMessage should include_text("EXPLANATION_PREVIEW_COMMAND"))
+          Files.exists(output, LinkOption.NOFOLLOW_LINKS) shouldBe false
+        }
+      }
+    }
+
+    "Visual Page Preview compatibility" which {
+      "leave the established single-command Visual Page Preview contract callable" in {
+        _with_work("visual-page-compatibility") { root =>
+          Given("one valid ordered Visual Page Set and its presentation catalog")
+          val fixture = _fixture(root)
+          val output = root.resolve("visual-page-preview.html")
+
+          When("the existing visual-page Preview command is invoked with its unchanged grammar")
+          val report = CozyVisualPage.execute(List(
+            "preview",
+            fixture.visualpagesetfile.toString,
+            "--catalog",
+            fixture.presentationcatalogfile.toString,
+            "--save",
+            output.toString
+          ))
+
+          Then("its established receipt schema and deterministic semantic HTML remain available")
+          report.split("\\n").map(_.takeWhile(_ != ':')).toVector shouldBe Vector(
+            "schema",
+            "version",
+            "generator",
+            "documentIdentity",
+            "catalogIdentity",
+            "htmlIdentity",
+            "previewIdentity",
+            "status"
+          )
+          report should include_text("schema: cozy.visual-page.preview.v1")
+          Files.readString(output, StandardCharsets.UTF_8) should include_text("Cozy Visual Page Semantic Preview")
+        }
       }
     }
   }

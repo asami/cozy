@@ -2,7 +2,7 @@
 
 ## HYG-P41-001: Group Explanation Preview executable specifications by behavior area
 
-- Status: OPEN
+- Status: RESOLVED
 - Discovery: mandatory Phase 41 full review, 2026-08-30
 - Repository: Cozy
 - Location: `src/test/scala/cozy/media/CozyExplanationPreviewSpec.scala:24`
@@ -14,3 +14,6 @@
 - Resume condition: Start an explicitly scoped Cozy hygiene task.
 - Prohibited local workaround: Do not alter Preview production behavior, receipt semantics, or scenario expectations merely to close this record.
 - Source review: Phase 41 mandatory full review, `HYG-P41-001`.
+- Resolution: The twelve existing scenarios are grouped into five behavior-area `which` blocks without changing their behavior, receipt semantics, or expectations.
+- Resolution task: `$goal-task hygieneを回収して`
+- Validation: `sbt --batch test` — 1,597 succeeded, 0 failed, 121 suites (2026-08-30).
