@@ -1,0 +1,384 @@
+package cozy.document
+
+/*
+ * @since   Aug. 31, 2026
+ * @version Aug. 31, 2026
+ * @author  ASAMI, Tomoharu
+ */
+private[cozy] object CozyDocumentWorkflow {
+  sealed abstract class WorkProductRole(val value: String)
+
+  object WorkProductRole {
+    case object Authority extends WorkProductRole("authority")
+    case object Plan extends WorkProductRole("plan")
+    case object Candidate extends WorkProductRole("candidate")
+    case object ReviewProjection extends WorkProductRole("review-projection")
+    case object Deliverable extends WorkProductRole("deliverable")
+    case object Receipt extends WorkProductRole("receipt")
+
+    val all: Vector[WorkProductRole] = Vector(Authority, Plan, Candidate, ReviewProjection, Deliverable, Receipt)
+  }
+
+  sealed abstract class WorkProductDisposition(val value: String)
+
+  object WorkProductDisposition {
+    case object Required extends WorkProductDisposition("required")
+    case object Optional extends WorkProductDisposition("optional")
+    case object Disabled extends WorkProductDisposition("disabled")
+
+    val all: Vector[WorkProductDisposition] = Vector(Required, Optional, Disabled)
+  }
+
+  final case class Criterion(id: String, description: String)
+  final case class Gate(id: String, description: String, criteria: Vector[String])
+  final case class EvidenceReference(id: String, description: String)
+  final case class ProviderBinding(id: String, provider: String)
+  final case class LogicalOperation(
+    id: String,
+    providerBinding: String,
+    consumes: Vector[String],
+    produces: Vector[String]
+  )
+  final case class WorkProduct(
+    id: String,
+    label: String,
+    role: WorkProductRole,
+    producer: String,
+    consumers: Vector[String],
+    criteria: Vector[String],
+    dependencies: Vector[String],
+    gates: Vector[String],
+    evidenceReferences: Vector[String]
+  )
+  final case class WorkProductBinding(
+    workProductId: String,
+    disposition: WorkProductDisposition,
+    reason: Option[String]
+  )
+  final case class WorkflowProfile(id: String, bindings: Vector[WorkProductBinding])
+  final case class WorkflowDefinition(
+    id: String,
+    workProducts: Vector[WorkProduct],
+    operations: Vector[LogicalOperation],
+    criteria: Vector[Criterion],
+    gates: Vector[Gate],
+    evidenceReferences: Vector[EvidenceReference],
+    providerBindings: Vector[ProviderBinding],
+    profiles: Vector[WorkflowProfile]
+  )
+  final case class ResolvedWorkProduct(workProduct: WorkProduct, binding: WorkProductBinding)
+  final case class ResolvedWorkflow(
+    definition: WorkflowDefinition,
+    profile: WorkflowProfile,
+    workProducts: Vector[ResolvedWorkProduct]
+  )
+  final case class WorkflowPlan(
+    activeWorkProducts: Vector[ResolvedWorkProduct],
+    omittedWorkProducts: Vector[ResolvedWorkProduct],
+    blockedOperations: Vector[LogicalOperation],
+    eligibleOperations: Vector[LogicalOperation]
+  )
+
+  val executionReservedExplanation: String = "execution and Operation Attempts are reserved for Phase 42.1"
+
+  def documentProduction: WorkflowDefinition = _document_production
+
+  def isRegisteredProfile(profileId: String): Boolean =
+    _validated_document_production().profiles.exists(_.id == profileId)
+
+  def declaredOperation(operationId: String): Either[String, Option[LogicalOperation]] =
+    Right(_validated_document_production().operations.find(_.id == operationId))
+
+  def resolve(profileId: String): Either[String, ResolvedWorkflow] = {
+    val definition = _validated_document_production()
+    definition.profiles.find(_.id == profileId) match {
+      case Some(profile) =>
+        val bindings = profile.bindings.map(binding => binding.workProductId -> binding).toMap
+        Right(ResolvedWorkflow(definition, profile, definition.workProducts.map(product => ResolvedWorkProduct(product, bindings(product.id)))))
+      case None => Left(s"unknown document-production profile: $profileId")
+    }
+  }
+
+  def plan(profileId: String): Either[String, WorkflowPlan] =
+    resolve(profileId) match {
+      case Right(resolved) =>
+        val activeproducts = resolved.workProducts.filter(_.binding.disposition != WorkProductDisposition.Disabled)
+        val omittedproducts = resolved.workProducts.filter(_.binding.disposition == WorkProductDisposition.Disabled)
+        val activeids = activeproducts.map(_.workProduct.id).toSet
+        val activeoperations = resolved.definition.operations.filter(_.produces.exists(activeids.contains))
+        Right(WorkflowPlan(activeproducts, omittedproducts, activeoperations, activeoperations))
+      case Left(cause) => Left(cause)
+    }
+
+  def validate(definition: WorkflowDefinition): Vector[String] = {
+    val errors = Vector.newBuilder[String]
+    val workproductids = definition.workProducts.map(_.id)
+    val operationids = definition.operations.map(_.id)
+    val criterionids = definition.criteria.map(_.id)
+    val gateids = definition.gates.map(_.id)
+    val evidencereferenceids = definition.evidenceReferences.map(_.id)
+    val providerbindingids = definition.providerBindings.map(_.id)
+    val profileids = definition.profiles.map(_.id)
+    val workproductidset = workproductids.toSet
+    val operationidset = operationids.toSet
+    val criterionidset = criterionids.toSet
+    val gateidset = gateids.toSet
+    val evidencereferenceidset = evidencereferenceids.toSet
+    val providerbindingidset = providerbindingids.toSet
+
+    def _empty_(value: String): Boolean = value.trim.isEmpty
+
+    def _duplicate_ids_(label: String, ids: Vector[String]): Unit =
+      ids.groupBy(identity).collect { case (id, values) if values.size > 1 => id }.toVector.sorted.foreach { id =>
+        errors += s"duplicate $label id: $id"
+      }
+
+    def _unknown_references_(owner: String, label: String, references: Vector[String], known: Set[String]): Unit =
+      references.filterNot(known.contains).foreach(reference => errors += s"$owner references unknown $label: $reference")
+
+    if (_empty_(definition.id))
+      errors += "workflow id is empty"
+    _duplicate_ids_("Work Product", workproductids)
+    _duplicate_ids_("logical operation", operationids)
+    _duplicate_ids_("criterion", criterionids)
+    _duplicate_ids_("gate", gateids)
+    _duplicate_ids_("evidence reference", evidencereferenceids)
+    _duplicate_ids_("provider binding", providerbindingids)
+    _duplicate_ids_("profile", profileids)
+    if (profileids.toSet != Set("standard", "standard-video"))
+      errors += "document-production must resolve only standard and standard-video profiles"
+
+    definition.criteria.foreach { criterion =>
+      if (_empty_(criterion.id) || _empty_(criterion.description))
+        errors += s"criterion has empty required metadata: ${criterion.id}"
+    }
+    definition.gates.foreach { gate =>
+      if (_empty_(gate.id) || _empty_(gate.description) || gate.criteria.isEmpty || gate.criteria.exists(_empty_))
+        errors += s"gate has empty required metadata: ${gate.id}"
+      _unknown_references_(s"gate ${gate.id}", "criterion", gate.criteria, criterionidset)
+    }
+    definition.evidenceReferences.foreach { reference =>
+      if (_empty_(reference.id) || _empty_(reference.description))
+        errors += s"evidence reference has empty required metadata: ${reference.id}"
+    }
+    definition.providerBindings.foreach { binding =>
+      if (_empty_(binding.id) || _empty_(binding.provider))
+        errors += s"provider binding has empty required metadata: ${binding.id}"
+    }
+    definition.operations.foreach { operation =>
+      if (_empty_(operation.id) || _empty_(operation.providerBinding) || operation.produces.isEmpty || operation.produces.exists(_empty_) || operation.consumes.exists(_empty_))
+        errors += s"logical operation has empty required metadata: ${operation.id}"
+      _unknown_references_(s"logical operation ${operation.id}", "provider binding", Vector(operation.providerBinding), providerbindingidset)
+      _unknown_references_(s"logical operation ${operation.id}", "consumed Work Product", operation.consumes, workproductidset)
+      _unknown_references_(s"logical operation ${operation.id}", "produced Work Product", operation.produces, workproductidset)
+    }
+    definition.workProducts.foreach { product =>
+      if (_empty_(product.id) || _empty_(product.label) || _empty_(product.producer) || product.criteria.isEmpty || product.gates.isEmpty || product.evidenceReferences.isEmpty || product.consumers.exists(_empty_) || product.criteria.exists(_empty_) || product.dependencies.exists(_empty_) || product.gates.exists(_empty_) || product.evidenceReferences.exists(_empty_))
+        errors += s"Work Product has empty required metadata: ${product.id}"
+      if (!WorkProductRole.all.contains(product.role))
+        errors += s"Work Product ${product.id} has an unknown role"
+      _unknown_references_(s"Work Product ${product.id}", "producer logical operation", Vector(product.producer), operationidset)
+      _unknown_references_(s"Work Product ${product.id}", "consumer logical operation", product.consumers, operationidset)
+      _unknown_references_(s"Work Product ${product.id}", "criterion", product.criteria, criterionidset)
+      _unknown_references_(s"Work Product ${product.id}", "dependency Work Product", product.dependencies, workproductidset)
+      _unknown_references_(s"Work Product ${product.id}", "gate", product.gates, gateidset)
+      _unknown_references_(s"Work Product ${product.id}", "evidence reference", product.evidenceReferences, evidencereferenceidset)
+      definition.operations.find(_.id == product.producer).foreach { operation =>
+        if (!operation.produces.contains(product.id))
+          errors += s"Work Product ${product.id} producer does not produce the Work Product"
+      }
+      product.consumers.foreach { consumer =>
+        definition.operations.find(_.id == consumer).foreach { operation =>
+          if (!operation.consumes.contains(product.id))
+            errors += s"Work Product ${product.id} consumer does not consume the Work Product: $consumer"
+        }
+      }
+    }
+    definition.profiles.foreach { profile =>
+      if (_empty_(profile.id) || profile.bindings.isEmpty)
+        errors += s"profile has empty required metadata: ${profile.id}"
+      val bindingids = profile.bindings.map(_.workProductId)
+      _duplicate_ids_(s"profile ${profile.id} Work Product binding", bindingids)
+      _unknown_references_(s"profile ${profile.id}", "Work Product binding", bindingids, workproductidset)
+      if (bindingids.toSet != workproductidset)
+        errors += s"profile ${profile.id} must bind exactly the closed Work Product definition"
+      profile.bindings.foreach { binding =>
+        if (_empty_(binding.workProductId) || !WorkProductDisposition.all.contains(binding.disposition) || binding.disposition == WorkProductDisposition.Disabled && binding.reason.forall(_empty_) || binding.disposition != WorkProductDisposition.Disabled && binding.reason.nonEmpty)
+          errors += s"profile ${profile.id} binding has invalid disposition metadata: ${binding.workProductId}"
+      }
+    }
+    _dependency_cycle_work_product_ids(definition.workProducts).foreach { id =>
+      errors += s"dependency cycle includes Work Product: $id"
+    }
+    _canonical_profile_binding_errors(definition).foreach(errors += _)
+    errors.result().distinct
+  }
+
+  private val _criteria = Vector(
+    Criterion("content-core-candidate-composed", "Content Core candidate is composed"),
+    Criterion("content-core-accepted", "Content Core is explicitly accepted"),
+    Criterion("article-source-authored", "SmartDox article source is authored"),
+    Criterion("article-html-rendered", "Article HTML is rendered"),
+    Criterion("article-pdf-rendered", "Article PDF is rendered"),
+    Criterion("summary-slides-rendered", "Summary slides PDF is rendered"),
+    Criterion("infographic-svg-authored", "Editable infographic SVG is authored"),
+    Criterion("infographic-png-rendered", "Infographic PNG is rendered"),
+    Criterion("video-storyboard-authored", "Video storyboard is authored"),
+    Criterion("video-review-rendered", "Video review projection is rendered"),
+    Criterion("video-deliverable-rendered", "Video deliverable is rendered"),
+    Criterion("explanation-structure-reviewed", "Explanation Structure Review HTML is available"),
+    Criterion("operation-receipt-recorded", "Operation receipt evidence is recorded")
+  )
+
+  private val _gates = Vector(
+    Gate("content-core-acceptance", "Content Core acceptance gate", Vector("content-core-candidate-composed")),
+    Gate("article-composition", "Article composition gate", Vector("content-core-accepted", "infographic-svg-authored")),
+    Gate("article-delivery", "Article delivery gate", Vector("article-source-authored")),
+    Gate("slides-delivery", "Summary slides delivery gate", Vector("content-core-accepted", "infographic-svg-authored")),
+    Gate("infographic-delivery", "Infographic delivery gate", Vector("infographic-svg-authored")),
+    Gate("video-delivery", "Video delivery gate", Vector("video-storyboard-authored", "video-review-rendered")),
+    Gate("explanation-structure", "Explanation Structure Review gate", Vector("content-core-accepted")),
+    Gate("receipt-evidence", "Operation receipt evidence gate", Vector("operation-receipt-recorded"))
+  )
+
+  private val _evidence_references = Vector(
+    EvidenceReference("content-core-reference", "Content Core authority reference"),
+    EvidenceReference("article-source-reference", "SmartDox article source reference"),
+    EvidenceReference("article-output-reference", "Article output reference"),
+    EvidenceReference("slides-output-reference", "Summary slides output reference"),
+    EvidenceReference("infographic-source-reference", "Editable infographic SVG reference"),
+    EvidenceReference("infographic-output-reference", "Infographic PNG reference"),
+    EvidenceReference("video-storyboard-reference", "Video storyboard reference"),
+    EvidenceReference("video-review-reference", "Video review projection reference"),
+    EvidenceReference("video-output-reference", "Video deliverable reference"),
+    EvidenceReference("explanation-structure-reference", "Phase-41 Explanation Structure Review reference"),
+    EvidenceReference("operation-receipt-reference", "Future operation receipt evidence reference")
+  )
+
+  private val _provider_bindings = Vector(
+    ProviderBinding("cozy-content-core", "Cozy Content Core adapter"),
+    ProviderBinding("cozy-review-projection", "Cozy review projection adapter"),
+    ProviderBinding("smartdox-authoring", "SmartDox article authoring adapter"),
+    ProviderBinding("smartdox-rendering", "SmartDox rendering adapter"),
+    ProviderBinding("cozy-visual-page", "Cozy Visual Page adapter"),
+    ProviderBinding("cozy-infographic", "Cozy infographic adapter"),
+    ProviderBinding("cozy-video", "Cozy video adapter"),
+    ProviderBinding("phase-41-explanation-structure", "Phase-41 Explanation Structure Review adapter"),
+    ProviderBinding("cozy-operation-receipt", "Cozy operation receipt adapter")
+  )
+
+  private val _operations = Vector(
+    LogicalOperation("content-core.compose", "cozy-content-core", Vector.empty, Vector("content-core-candidate")),
+    LogicalOperation("content-core.review", "cozy-review-projection", Vector("content-core-candidate"), Vector("content-core")),
+    LogicalOperation("article.compose", "smartdox-authoring", Vector("content-core", "infographic-svg"), Vector("article-source")),
+    LogicalOperation("article.render-html", "smartdox-rendering", Vector("article-source"), Vector("article-html")),
+    LogicalOperation("article.render-pdf", "smartdox-rendering", Vector("article-source"), Vector("article-pdf")),
+    LogicalOperation("summary-slides.render-pdf", "cozy-visual-page", Vector("content-core", "infographic-svg"), Vector("summary-slides-pdf")),
+    LogicalOperation("infographic.compose", "cozy-infographic", Vector("content-core"), Vector("infographic-svg")),
+    LogicalOperation("infographic.render-png", "cozy-infographic", Vector("infographic-svg"), Vector("infographic-png")),
+    LogicalOperation("video.compose-storyboard", "cozy-video", Vector("content-core", "infographic-svg"), Vector("video-storyboard")),
+    LogicalOperation("video.render-review", "cozy-video", Vector("video-storyboard"), Vector("video-review")),
+    LogicalOperation("video.render-deliverable", "cozy-video", Vector("video-review"), Vector("video-deliverable")),
+    LogicalOperation("explanation-structure.render-review", "phase-41-explanation-structure", Vector("content-core"), Vector("explanation-structure-review-html")),
+    LogicalOperation("operation-receipt.record", "cozy-operation-receipt", Vector("content-core-candidate", "content-core", "article-source", "article-html", "article-pdf", "summary-slides-pdf", "infographic-svg", "infographic-png", "video-storyboard", "video-review", "video-deliverable", "explanation-structure-review-html"), Vector("operation-receipt-evidence"))
+  )
+
+  private val _work_products = Vector(
+    WorkProduct("content-core-candidate", "Content Core candidate", WorkProductRole.Candidate, "content-core.compose", Vector("content-core.review", "operation-receipt.record"), Vector("content-core-candidate-composed"), Vector.empty, Vector("content-core-acceptance"), Vector("content-core-reference")),
+    WorkProduct("content-core", "Content Core", WorkProductRole.Authority, "content-core.review", Vector("article.compose", "summary-slides.render-pdf", "infographic.compose", "video.compose-storyboard", "explanation-structure.render-review", "operation-receipt.record"), Vector("content-core-accepted"), Vector("content-core-candidate"), Vector("content-core-acceptance"), Vector("content-core-reference")),
+    WorkProduct("article-source", "SmartDox article source", WorkProductRole.Authority, "article.compose", Vector("article.render-html", "article.render-pdf", "operation-receipt.record"), Vector("article-source-authored"), Vector("content-core", "infographic-svg"), Vector("article-composition"), Vector("article-source-reference")),
+    WorkProduct("article-html", "Article HTML", WorkProductRole.Deliverable, "article.render-html", Vector("operation-receipt.record"), Vector("article-html-rendered"), Vector("article-source"), Vector("article-delivery"), Vector("article-output-reference")),
+    WorkProduct("article-pdf", "Article PDF", WorkProductRole.Deliverable, "article.render-pdf", Vector("operation-receipt.record"), Vector("article-pdf-rendered"), Vector("article-source"), Vector("article-delivery"), Vector("article-output-reference")),
+    WorkProduct("summary-slides-pdf", "Summary slides PDF", WorkProductRole.Deliverable, "summary-slides.render-pdf", Vector("operation-receipt.record"), Vector("summary-slides-rendered"), Vector("content-core", "infographic-svg"), Vector("slides-delivery"), Vector("slides-output-reference")),
+    WorkProduct("infographic-svg", "Editable infographic SVG", WorkProductRole.Authority, "infographic.compose", Vector("article.compose", "summary-slides.render-pdf", "infographic.render-png", "video.compose-storyboard", "operation-receipt.record"), Vector("infographic-svg-authored"), Vector("content-core"), Vector("infographic-delivery"), Vector("infographic-source-reference")),
+    WorkProduct("infographic-png", "Infographic PNG", WorkProductRole.Deliverable, "infographic.render-png", Vector("operation-receipt.record"), Vector("infographic-png-rendered"), Vector("infographic-svg"), Vector("infographic-delivery"), Vector("infographic-output-reference")),
+    WorkProduct("video-storyboard", "Video storyboard", WorkProductRole.Plan, "video.compose-storyboard", Vector("video.render-review", "operation-receipt.record"), Vector("video-storyboard-authored"), Vector("content-core", "infographic-svg"), Vector("video-delivery"), Vector("video-storyboard-reference")),
+    WorkProduct("video-review", "Video review projection", WorkProductRole.ReviewProjection, "video.render-review", Vector("video.render-deliverable", "operation-receipt.record"), Vector("video-review-rendered"), Vector("video-storyboard"), Vector("video-delivery"), Vector("video-review-reference")),
+    WorkProduct("video-deliverable", "Video deliverable", WorkProductRole.Deliverable, "video.render-deliverable", Vector("operation-receipt.record"), Vector("video-deliverable-rendered"), Vector("video-review"), Vector("video-delivery"), Vector("video-output-reference")),
+    WorkProduct("explanation-structure-review-html", "Phase-41 Explanation Structure Review HTML", WorkProductRole.ReviewProjection, "explanation-structure.render-review", Vector("operation-receipt.record"), Vector("explanation-structure-reviewed"), Vector("content-core"), Vector("explanation-structure"), Vector("explanation-structure-reference")),
+    WorkProduct("operation-receipt-evidence", "Future operation receipt evidence", WorkProductRole.Receipt, "operation-receipt.record", Vector.empty, Vector("operation-receipt-recorded"), Vector("content-core-candidate", "content-core", "article-source", "article-html", "article-pdf", "summary-slides-pdf", "infographic-svg", "infographic-png", "video-storyboard", "video-review", "video-deliverable", "explanation-structure-review-html"), Vector("receipt-evidence"), Vector("operation-receipt-reference"))
+  )
+
+  private val _standard_bindings = Vector(
+    WorkProductBinding("content-core-candidate", WorkProductDisposition.Optional, None),
+    WorkProductBinding("content-core", WorkProductDisposition.Required, None),
+    WorkProductBinding("article-source", WorkProductDisposition.Required, None),
+    WorkProductBinding("article-html", WorkProductDisposition.Optional, None),
+    WorkProductBinding("article-pdf", WorkProductDisposition.Required, None),
+    WorkProductBinding("summary-slides-pdf", WorkProductDisposition.Optional, None),
+    WorkProductBinding("infographic-svg", WorkProductDisposition.Required, None),
+    WorkProductBinding("infographic-png", WorkProductDisposition.Optional, None),
+    WorkProductBinding("video-storyboard", WorkProductDisposition.Disabled, Some("profile standard disables video branch")),
+    WorkProductBinding("video-review", WorkProductDisposition.Disabled, Some("profile standard disables video branch")),
+    WorkProductBinding("video-deliverable", WorkProductDisposition.Disabled, Some("profile standard disables video branch")),
+    WorkProductBinding("explanation-structure-review-html", WorkProductDisposition.Optional, None),
+    WorkProductBinding("operation-receipt-evidence", WorkProductDisposition.Optional, None)
+  )
+
+  private val _standard_video_bindings = Vector(
+    WorkProductBinding("content-core-candidate", WorkProductDisposition.Optional, None),
+    WorkProductBinding("content-core", WorkProductDisposition.Required, None),
+    WorkProductBinding("article-source", WorkProductDisposition.Required, None),
+    WorkProductBinding("article-html", WorkProductDisposition.Optional, None),
+    WorkProductBinding("article-pdf", WorkProductDisposition.Required, None),
+    WorkProductBinding("summary-slides-pdf", WorkProductDisposition.Optional, None),
+    WorkProductBinding("infographic-svg", WorkProductDisposition.Required, None),
+    WorkProductBinding("infographic-png", WorkProductDisposition.Optional, None),
+    WorkProductBinding("video-storyboard", WorkProductDisposition.Required, None),
+    WorkProductBinding("video-review", WorkProductDisposition.Required, None),
+    WorkProductBinding("video-deliverable", WorkProductDisposition.Required, None),
+    WorkProductBinding("explanation-structure-review-html", WorkProductDisposition.Optional, None),
+    WorkProductBinding("operation-receipt-evidence", WorkProductDisposition.Optional, None)
+  )
+
+  private val _document_production = WorkflowDefinition(
+    "document-production",
+    _work_products,
+    _operations,
+    _criteria,
+    _gates,
+    _evidence_references,
+    _provider_bindings,
+    Vector(
+      WorkflowProfile("standard", _standard_bindings),
+      WorkflowProfile("standard-video", _standard_video_bindings)
+    )
+  )
+
+  private def _validated_document_production(): WorkflowDefinition = {
+    val errors = validate(_document_production)
+    if (errors.nonEmpty)
+      throw new IllegalStateException(s"invalid document-production workflow: ${errors.mkString("; ")}")
+    _document_production
+  }
+
+  private def _dependency_cycle_work_product_ids(workproducts: Vector[WorkProduct]): Vector[String] = {
+    val dependencies = workproducts.map(product => product.id -> product.dependencies).toMap
+
+    def _visit_(id: String, visiting: Set[String]): Vector[String] =
+      if (visiting.contains(id)) Vector(id)
+      else dependencies.getOrElse(id, Vector.empty).flatMap(dependency => _visit_(dependency, visiting + id))
+
+    workproducts.flatMap(product => _visit_(product.id, Set.empty)).distinct
+  }
+
+  private def _canonical_profile_binding_errors(definition: WorkflowDefinition): Vector[String] = {
+    Vector(
+      "standard" -> _standard_bindings,
+      "standard-video" -> _standard_video_bindings
+    ).flatMap { case (profileid, expectedbindings) =>
+      definition.profiles.find(_.id == profileid).toVector.flatMap { profile =>
+        expectedbindings.flatMap { expectedbinding =>
+          profile.bindings.find(_.workProductId == expectedbinding.workProductId).toVector.flatMap { binding =>
+            if (binding.disposition == expectedbinding.disposition && binding.reason == expectedbinding.reason)
+              Vector.empty
+            else
+              Vector(
+                s"profile $profileid Work Product binding ${expectedbinding.workProductId} differs from canonical matrix: expected disposition ${expectedbinding.disposition.value} with reason ${expectedbinding.reason.getOrElse("none")}, found disposition ${binding.disposition.value} with reason ${binding.reason.getOrElse("none")}"
+              )
+          }
+        }
+      }
+    }
+  }
+}

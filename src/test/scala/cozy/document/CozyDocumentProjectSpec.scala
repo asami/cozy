@@ -70,21 +70,159 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       }
     }
 
-    "report DP42-02 deferred work categories through plan without creating authority" in {
+    "define a closed reusable document-production model" which {
+      "validate its stable Work Products and closed reference vocabulary" in {
+        Given("the immutable document-production definition")
+        val definition = CozyDocumentWorkflow.documentProduction
+
+        When("the reusable definition is validated before projection")
+        val validation = CozyDocumentWorkflow.validate(definition)
+
+        Then("every stable Work Product role and disposition reference is closed")
+        validation shouldBe Vector.empty
+        definition.workProducts.map(_.id).distinct shouldBe definition.workProducts.map(_.id)
+        definition.workProducts.map(_.role.value).toSet shouldBe Set("authority", "plan", "candidate", "review-projection", "deliverable", "receipt")
+        definition.profiles.flatMap(_.bindings.map(_.disposition.value)).toSet shouldBe Set("required", "optional", "disabled")
+      }
+
+      "reject duplicate Work Product ids before a projection can use them" in {
+        Given("the immutable definition with a duplicate Work Product")
+        val definition = CozyDocumentWorkflow.documentProduction
+        val invalid = definition.copy(workProducts = definition.workProducts :+ definition.workProducts.head)
+
+        When("the duplicate definition is validated")
+        val errors = CozyDocumentWorkflow.validate(invalid)
+
+        Then("validation reports the duplicate Work Product id")
+        errors should contain("duplicate Work Product id: content-core-candidate")
+      }
+
+      "reject unknown Work Product dependencies before a projection can use them" in {
+        Given("the immutable definition with an unknown article dependency")
+        val definition = CozyDocumentWorkflow.documentProduction
+        val invalid = definition.copy(workProducts = definition.workProducts.map { product =>
+          if (product.id == "article-source") product.copy(dependencies = product.dependencies :+ "unknown-work-product") else product
+        })
+
+        When("the definition with an unknown dependency is validated")
+        val errors = CozyDocumentWorkflow.validate(invalid)
+
+        Then("validation reports the unknown dependency reference")
+        errors should contain("Work Product article-source references unknown dependency Work Product: unknown-work-product")
+      }
+
+      "reject Work Product dependency cycles before a projection can use them" in {
+        Given("the immutable definition with a content-core dependency cycle")
+        val definition = CozyDocumentWorkflow.documentProduction
+        val invalid = definition.copy(workProducts = definition.workProducts.map { product =>
+          if (product.id == "content-core-candidate") product.copy(dependencies = Vector("content-core")) else product
+        })
+
+        When("the cyclic definition is validated")
+        val errors = CozyDocumentWorkflow.validate(invalid)
+
+        Then("validation reports the dependency cycle")
+        errors should contain("dependency cycle includes Work Product: content-core-candidate")
+      }
+
+      "reject empty Work Product metadata before a projection can use it" in {
+        Given("the immutable definition with an empty article label")
+        val definition = CozyDocumentWorkflow.documentProduction
+        val invalid = definition.copy(workProducts = definition.workProducts.map { product =>
+          if (product.id == "article-source") product.copy(label = " ") else product
+        })
+
+        When("the incomplete definition is validated")
+        val errors = CozyDocumentWorkflow.validate(invalid)
+
+        Then("validation reports the empty required metadata")
+        errors should contain("Work Product has empty required metadata: article-source")
+      }
+
+      "reject profile bindings outside the closed Work Product definition" in {
+        Given("the immutable definition with an outside standard profile binding")
+        val definition = CozyDocumentWorkflow.documentProduction
+        val invalid = definition.copy(profiles = definition.profiles.map { profile =>
+          if (profile.id == "standard") profile.copy(bindings = profile.bindings :+ CozyDocumentWorkflow.WorkProductBinding("outside-work-product", CozyDocumentWorkflow.WorkProductDisposition.Required, None)) else profile
+        })
+
+        When("the outside-binding definition is validated")
+        val errors = CozyDocumentWorkflow.validate(invalid)
+
+        Then("validation reports the unknown profile binding")
+        errors should contain("profile standard references unknown Work Product binding: outside-work-product")
+      }
+
+      "reject deviations from the canonical profile binding matrix" in {
+        Given("independently mutated standard and standard-video profile bindings")
+        val definition = CozyDocumentWorkflow.documentProduction
+        val standarddeviation = definition.copy(profiles = definition.profiles.map { profile =>
+          if (profile.id == "standard") profile.copy(bindings = profile.bindings.map { binding =>
+            if (binding.workProductId == "article-pdf") binding.copy(disposition = CozyDocumentWorkflow.WorkProductDisposition.Optional) else binding
+          }) else profile
+        })
+        val standardvideodeviation = definition.copy(profiles = definition.profiles.map { profile =>
+          if (profile.id == "standard-video") profile.copy(bindings = profile.bindings.map { binding =>
+            if (binding.workProductId == "video-storyboard") binding.copy(disposition = CozyDocumentWorkflow.WorkProductDisposition.Optional) else binding
+          }) else profile
+        })
+
+        When("each mutated profile matrix is validated")
+        val standarderrors = CozyDocumentWorkflow.validate(standarddeviation)
+        val standardvideoerrors = CozyDocumentWorkflow.validate(standardvideodeviation)
+
+        Then("validation reports each exact canonical disposition and reason deviation")
+        standarderrors should contain("profile standard Work Product binding article-pdf differs from canonical matrix: expected disposition required with reason none, found disposition optional with reason none")
+        standardvideoerrors should contain("profile standard-video Work Product binding video-storyboard differs from canonical matrix: expected disposition required with reason none, found disposition optional with reason none")
+      }
+
+      "resolve the standard and standard-video video branches from one definition" in {
+        Given("the reusable document-production definition")
+        val definition = CozyDocumentWorkflow.documentProduction
+
+        When("the standard and standard-video profiles are resolved")
+        val standard = _resolved("standard")
+        val standardvideo = _resolved("standard-video")
+
+        Then("standard visibly omits the video branch without a private descriptor DAG")
+        standard.definition shouldBe definition
+        standard.workProducts.filter(_.workProduct.id.startsWith("video-")).map(_.binding.disposition.value).toSet shouldBe Set("disabled")
+        standard.workProducts.filter(_.workProduct.id.startsWith("video-")).flatMap(_.binding.reason).toSet shouldBe Set("profile standard disables video branch")
+
+        And("standard-video activates the same branch without the disabled reason")
+        standardvideo.definition shouldBe definition
+        standardvideo.workProducts.filter(_.workProduct.id.startsWith("video-")).map(_.binding.disposition.value).toSet shouldBe Set("required")
+        standardvideo.workProducts.filter(_.workProduct.id.startsWith("video-")).flatMap(_.binding.reason) shouldBe Vector.empty
+      }
+    }
+
+    "report static workflow categories through plan without creating authority" in {
       _with_temp_dir("cozy-document-project-plan") { root =>
-        Given("a valid scaffolded standard Document Project")
-        val parent = Files.createDirectory(root.resolve("parent"))
-        _execute(List("document-project", "scaffold", "sample", "--profile", "standard", "--language", "en", "--workspace", "directory", "--save", parent.toString))
-        val project = parent.resolve("sample.dox")
+        Given("valid scaffolded standard and standard-video Document Projects")
+        val standardparent = Files.createDirectory(root.resolve("standard-parent"))
+        val videoparent = Files.createDirectory(root.resolve("video-parent"))
+        _execute(List("document-project", "scaffold", "sample", "--profile", "standard", "--language", "en", "--workspace", "directory", "--save", standardparent.toString))
+        _execute(List("document-project", "scaffold", "sample-video", "--profile", "standard-video", "--language", "en", "--workspace", "directory", "--save", videoparent.toString))
+        val standard = standardparent.resolve("sample.dox")
+        val video = videoparent.resolve("sample-video.dox")
 
-        When("plan reads the declared project before DP42-02 declares operations and branches")
-        val plan = _execute(List("document-project", "plan", project.toString))
+        When("plan resolves each static profile without operation execution")
+        val standardplan = _execute(List("document-project", "plan", standard.toString))
+        val videoplan = _execute(List("document-project", "plan", video.toString))
 
-        Then("the report distinguishes active, omitted, blocked, and eligible declared work")
-        plan should include("active: no declared work")
-        plan should include("omitted: no declared work")
-        plan should include("blocked: operation and branch resolution pending DP42-02 (not state or authority)")
-        plan should include("eligible: no declared work")
+        Then("the reports distinguish deterministic active, omitted, blocked, and eligible model categories")
+        standardplan should include("active: work-product content-core [authority, required]")
+        standardplan should include("omitted: work-product video-storyboard [plan, disabled: profile standard disables video branch]")
+        standardplan should include("blocked: operation article.render-pdf [execution and Operation Attempts are reserved for Phase 42.1]")
+        standardplan should include("eligible: operation article.render-pdf [provider: smartdox-rendering]")
+        videoplan should include("active: work-product video-storyboard [plan, required]")
+        videoplan should include("omitted: none")
+        videoplan should not include "profile standard disables video branch"
+
+        And("planning creates neither generated authority nor evidence")
+        Files.exists(standard.resolve("target"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(standard.resolve("state"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(standard.resolve("operation-receipt-evidence"), LinkOption.NOFOLLOW_LINKS) shouldBe false
       }
     }
 
@@ -203,18 +341,32 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       missingoperation should include("DP-CLI-002")
     }
 
-    "reject every run operation as undeclared only after project and descriptor admission" in {
+    "admit declared run operations without executing or recording an attempt" in {
       _with_temp_dir("cozy-document-project-run") { root =>
         Given("an admitted standard Document Project")
         val parent = Files.createDirectory(root.resolve("parent"))
         _execute(List("document-project", "scaffold", "sample", "--profile", "standard", "--language", "en", "--workspace", "directory", "--save", parent.toString))
         val project = parent.resolve("sample.dox")
 
-        When("run names a logical operation before DP42-02 declares operations")
-        val failure = _failure(List("document-project", "run", project.toString, "--operation", "render"))
+        When("run names declared, dry-run declared, and undeclared logical operations")
+        val declared = _failure(List("document-project", "run", project.toString, "--operation", "article.render-pdf"))
+        val dryrun = _failure(List("document-project", "run", project.toString, "--operation", "article.render-pdf", "--dry-run"))
+        val undeclared = _failure(List("document-project", "run", project.toString, "--operation", "render"))
 
-        Then("the declared-operation gate rejects without execution")
-        failure should include("DP-OP-001")
+        Then("declared names stop at the Phase 42.1 execution boundary")
+        declared should include("DP-OP-001")
+        declared should include("execution and Operation Attempts are reserved for Phase 42.1")
+        dryrun should include("DP-OP-001")
+        dryrun should include("execution and Operation Attempts are reserved for Phase 42.1")
+
+        And("an undeclared name remains a distinct declared-operation admission failure")
+        undeclared should include("DP-OP-001")
+        undeclared should include("undeclared logical operation: render")
+
+        And("none of the admissions creates generated evidence")
+        Files.exists(project.resolve("target"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(project.resolve("state"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(project.resolve("operation-receipt-evidence"), LinkOption.NOFOLLOW_LINKS) shouldBe false
       }
     }
 
@@ -249,6 +401,12 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       help should include("Dashboard is reserved for Phase 42.1 and rejects in Phase 42")
     }
   }
+
+  private def _resolved(profile: String): CozyDocumentWorkflow.ResolvedWorkflow =
+    CozyDocumentWorkflow.resolve(profile) match {
+      case Right(value) => value
+      case Left(cause) => throw new RuntimeException(cause)
+    }
 
   private def _execute(args: List[String]): String = {
     val bytes = new ByteArrayOutputStream()

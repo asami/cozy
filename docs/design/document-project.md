@@ -60,6 +60,67 @@ vocabulary is `authority`, `plan`, `candidate`, `review-projection`,
 `optional`, and `disabled`; an omitted branch has a visible reason rather than
 being treated as completed work.
 
+## Closed DP42-02 workflow definition
+
+DP42-02 closes the initial reusable `document-production` definition in code.
+It is immutable, resolves only `standard` and `standard-video`, and is not
+serialized into, copied by, or editable through a Document Project descriptor.
+The definition validates itself before a plan projection or operation-admission
+lookup: identifiers are unique; producer, consumer, criterion, dependency,
+gate, evidence-reference, and provider-binding references are closed; product
+dependencies are acyclic; required metadata is non-empty; and every profile
+binds only the closed Work Product set.
+
+The definition's stable initial Work Products are:
+
+| Work Product id | Role | `standard` | `standard-video` |
+| --- | --- | --- | --- |
+| `content-core-candidate` | candidate | optional | optional |
+| `content-core` | authority | required | required |
+| `article-source` | authority | required | required |
+| `article-html` | deliverable | optional | optional |
+| `article-pdf` | deliverable | required | required |
+| `summary-slides-pdf` | deliverable | optional | optional |
+| `infographic-svg` | authority | required | required |
+| `infographic-png` | deliverable | optional | optional |
+| `video-storyboard` | plan | disabled: `profile standard disables video branch` | required |
+| `video-review` | review-projection | disabled: `profile standard disables video branch` | required |
+| `video-deliverable` | deliverable | disabled: `profile standard disables video branch` | required |
+| `explanation-structure-review-html` | review-projection | optional | optional |
+| `operation-receipt-evidence` | receipt | optional | optional |
+
+`required`, `optional`, and `disabled` are visibly different dispositions.
+The exact disabled reason belongs only to the three video Work Products in the
+`standard` profile; `standard-video` activates the same reusable branch
+without a disabled reason.
+
+Each Work Product declares its producer and consumer logical operations, its
+criteria, Work Product dependencies, gate, and evidence reference.  Each
+logical operation has a stable id and one static provider binding.  The initial
+bindings are `content-core.compose`/`content-core.review`, article compose and
+render operations, `summary-slides.render-pdf`, infographic compose and PNG
+render operations, the three video operations,
+`explanation-structure.render-review`, and `operation-receipt.record`.  Their
+providers identify the fixed Cozy, SmartDox, Visual Page, infographic, video,
+Phase-41 Explanation Structure Review, or receipt adapter responsibility; they
+do not discover a provider or execute an adapter in DP42-02.  Criteria, gates,
+and evidence references are static identity links, not completion, currentness,
+review, receipt, or lifecycle fields.
+
+`plan` resolves this definition read-only.  It emits deterministic static
+`active` and `omitted` Work Product lines, plus `blocked` and `eligible`
+logical-operation lines.  `eligible` means that an operation is declared for
+the selected profile, not that it is runtime-ready.  In Phase 42 every such
+operation is simultaneously blocked from execution because execution and
+Operation Attempts are reserved for Phase 42.1.  The command creates no
+target, dashboard, state, attempt, receipt, registry, delivery, or output file.
+
+`run` performs only the same declared-operation admission.  A declared name,
+including one supplied with `--dry-run`, rejects with `DP-OP-001` and the exact
+explanation `execution and Operation Attempts are reserved for Phase 42.1`.
+An unknown name rejects with `DP-OP-001` as an undeclared logical operation.
+Neither outcome invokes an operation or creates evidence.
+
 ## Initial authored kernel
 
 The initial Document Project package has one authored descriptor,
@@ -155,21 +216,22 @@ authorities above and does not retrofit existing article or media packages.
 
 ## Deferred implementation boundary
 
-The companion specification now freezes the initial descriptor/Core grammar,
-public command signatures, validation diagnostics, success headings, and
-atomic scaffold contents.  The descriptor and Core grammars are permanently
-closed and are not expandable by a later Phase.  DP42-02 does not yet close the workflow-owned
-Work Product, provider-binding, deliverable-disposition, criteria/gate, and
-operation model; it MUST NOT add descriptor fields.  This design does not yet
-define canonical serialization or identity algorithms; implement the commands;
-or introduce their executable specifications.
+The companion specification freezes the initial descriptor/Core grammar,
+public command signatures, validation diagnostics, success headings, atomic
+scaffold contents, and the DP42-02 reusable workflow definition above.  The
+descriptor and Core grammars are permanently closed and are not expandable by
+a later Phase.  DP42-02 MUST NOT add descriptor fields, canonical workflow
+serialization, or identity calculation beyond the closed in-code Work Product
+identities and references.
 
 Phase 42.1 retains executable dashboard content, derived-state reconstruction,
 append-only attempt persistence, receipts/currentness/stale propagation,
 review projection, and driver acceptance.  It implements the already-fixed
-dashboard grammar rather than expanding it.  SmartDox source projection and
-host discovery are also outside this kernel.  No deferred capability is
-accepted or claimed by this design.
+dashboard grammar rather than expanding it.  It consumes the closed DP42-02
+definition without redefining profiles, Work Product roles, criteria, gates,
+operations, or provider bindings.  SmartDox source projection and host
+discovery are also outside this kernel.  No deferred capability is accepted or
+claimed by this design.
 
 ## Related authorities
 

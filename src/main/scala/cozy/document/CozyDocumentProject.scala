@@ -46,7 +46,12 @@ private[cozy] object CozyDocumentProject {
             case "inspect" => println(_inspect(project, descriptor))
             case "plan" => println(_plan(project, descriptor))
             case "verify" => println(_verify(project, descriptor))
-            case "run" => _failure("DP-OP-001", s"undeclared logical operation: ${operation.getOrElse("")}")
+            case "run" =>
+              CozyDocumentWorkflow.declaredOperation(operation.getOrElse("")) match {
+                case Right(Some(_)) => _failure("DP-OP-001", CozyDocumentWorkflow.executionReservedExplanation)
+                case Right(None) => _failure("DP-OP-001", s"undeclared logical operation: ${operation.getOrElse("")}")
+                case Left(cause) => _descriptor_failure(cause)
+              }
             case _ => _failure("DP-CLI-001", s"unsupported document-project command: $command")
           }
           true
@@ -178,7 +183,7 @@ private[cozy] object CozyDocumentProject {
       _descriptor_failure("descriptor schema or id is invalid")
     if (workflow.keySet != Set("schema", "id") || _string(workflow, "schema", "workflow") != "cozy.document-workflow.v1" || _string(workflow, "id", "workflow") != "document-production")
       _descriptor_failure("workflow must identify cozy.document-workflow.v1/document-production")
-    if (profile != "standard" && profile != "standard-video")
+    if (!CozyDocumentWorkflow.isRegisteredProfile(profile))
       _descriptor_failure("descriptor profile is invalid")
     if (!_language_pattern.pattern.matcher(language).matches())
       _descriptor_failure("descriptor language is invalid")
@@ -232,8 +237,29 @@ private[cozy] object CozyDocumentProject {
   private def _inspect(project: Path, descriptor: Descriptor): String =
     s"Cozy Document Project Inspect\nproject: ${descriptor.id}\npackage: $project\nschema: cozy.document-project.v1\nworkflow: document-production\nprofile: ${descriptor.profile}\nlanguage: ${descriptor.language}\nworkspace: ${descriptor.workspace}"
 
-  private def _plan(project: Path, descriptor: Descriptor): String =
-    s"Cozy Document Project Plan\nproject: ${descriptor.id}\npackage: $project\nschema: cozy.document-project.v1\nactive: no declared work\nomitted: no declared work\nblocked: operation and branch resolution pending DP42-02 (not state or authority)\neligible: no declared work"
+  private def _plan(project: Path, descriptor: Descriptor): String = {
+    val workflowplan = CozyDocumentWorkflow.plan(descriptor.profile) match {
+      case Right(value) => value
+      case Left(cause) => _descriptor_failure(cause)
+    }
+    val activelines = workflowplan.activeWorkProducts.map(value => s"active: ${_plan_work_product_line(value)}")
+    val omittedlines = if (workflowplan.omittedWorkProducts.isEmpty) Vector("omitted: none") else workflowplan.omittedWorkProducts.map(value => s"omitted: ${_plan_work_product_line(value)}")
+    val blockedlines = workflowplan.blockedOperations.map(value => s"blocked: operation ${value.id} [${CozyDocumentWorkflow.executionReservedExplanation}]")
+    val eligiblelines = workflowplan.eligibleOperations.map(value => s"eligible: operation ${value.id} [provider: ${value.providerBinding}]")
+    (Vector(
+      "Cozy Document Project Plan",
+      s"project: ${descriptor.id}",
+      s"package: $project",
+      "schema: cozy.document-project.v1"
+    ) ++ activelines ++ omittedlines ++ blockedlines ++ eligiblelines).mkString("\n")
+  }
+
+  private def _plan_work_product_line(value: CozyDocumentWorkflow.ResolvedWorkProduct): String = {
+    val product = value.workProduct
+    val binding = value.binding
+    val reason = binding.reason.map(text => s": $text").getOrElse("")
+    s"work-product ${product.id} [${product.role.value}, ${binding.disposition.value}$reason]"
+  }
 
   private def _scaffold(slug: String, profile: String, language: String, workspace: String, parentvalue: String): Path = {
     val parent = _scaffold_parent(parentvalue)

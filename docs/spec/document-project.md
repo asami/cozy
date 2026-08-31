@@ -103,6 +103,53 @@ The closed Work Product role vocabulary is exactly `authority`, `plan`,
 declared by the workflow or project binding; it MUST NOT be inferred from a
 filename, extension, or output directory.
 
+DP42-02 closes one immutable in-code `document-production` definition.  It
+resolves only `standard` and `standard-video` and is selected by the existing
+descriptor identity; it MUST NOT be serialized into, copied by, or extended
+through `cozy.document-project.v1`.  Before plan projection or declared-
+operation admission, the definition MUST reject duplicate ids, empty required
+metadata, unknown producer, consumer, criterion, dependency, gate,
+evidence-reference, or provider-binding references, Work Product dependency
+cycles, and profile bindings outside the closed definition.
+
+The stable initial Work Product table is:
+
+| Work Product id | Role | `standard` disposition | `standard-video` disposition |
+| --- | --- | --- | --- |
+| `content-core-candidate` | candidate | optional | optional |
+| `content-core` | authority | required | required |
+| `article-source` | authority | required | required |
+| `article-html` | deliverable | optional | optional |
+| `article-pdf` | deliverable | required | required |
+| `summary-slides-pdf` | deliverable | optional | optional |
+| `infographic-svg` | authority | required | required |
+| `infographic-png` | deliverable | optional | optional |
+| `video-storyboard` | plan | disabled: `profile standard disables video branch` | required |
+| `video-review` | review-projection | disabled: `profile standard disables video branch` | required |
+| `video-deliverable` | deliverable | disabled: `profile standard disables video branch` | required |
+| `explanation-structure-review-html` | review-projection | optional | optional |
+| `operation-receipt-evidence` | receipt | optional | optional |
+
+Every Work Product MUST directly declare a producer and consumer logical-
+operation reference, criterion reference, Work Product dependency reference,
+gate reference, and evidence-reference.  Every logical operation MUST have a
+stable id and exactly one static provider binding.  The initial operation set
+is `content-core.compose`, `content-core.review`, `article.compose`,
+`article.render-html`, `article.render-pdf`, `summary-slides.render-pdf`,
+`infographic.compose`, `infographic.render-png`, `video.compose-storyboard`,
+`video.render-review`, `video.render-deliverable`,
+`explanation-structure.render-review`, and `operation-receipt.record`.
+Their provider bindings are fixed Cozy, SmartDox, Visual Page, infographic,
+video, Phase-41 Explanation Structure Review, or receipt-adapter identities;
+they are neither descriptor fields nor provider discovery or execution.
+
+`required`, `optional`, and `disabled` are distinct static dispositions.  The
+three video Work Products in `standard` MUST expose exactly `profile standard
+disables video branch`; no Work Product in the activated `standard-video` video
+branch MAY expose that disabled reason.  Criteria, gates, and evidence
+references are stable model links.  They MUST NOT be used as mutable lifecycle,
+status, receipt/currentness, or dashboard fields.
+
 Document Project MUST preserve, rather than reinterpret, the authorities
 defined by the [Media Package specification](media-package.md), [Media Package
 operation design](../design/media-package-operation.md), [Visual Page
@@ -168,9 +215,15 @@ and `cozy media` commands.  No alias or ambiguous dispatch is permitted.
 
 - `inspect` MUST inspect and report a derived project view without mutating
   authored authority, project state, evidence, registration, or delivery.
-- `plan` MUST report active, omitted, blocked, and eligible declared work
-  without mutating authored authority, project state, evidence, registration,
-  or delivery.
+- `plan` MUST resolve the closed reusable definition and report deterministic
+  static `active` and `omitted` Work Product lines and `blocked` and `eligible`
+  logical-operation lines without mutating authored authority, project state,
+  evidence, registration, or delivery.  In this Phase, `eligible` means only
+  declared for the selected profile; it is not runtime readiness.  Every such
+  operation is blocked from execution because execution and Operation Attempts
+  are reserved for Phase 42.1.  For `standard`, the omitted video lines MUST
+  include exactly `profile standard disables video branch`; for
+  `standard-video`, that text MUST be absent.
 - `dashboard` MUST reject with `DP-PHASE-001` until Phase 42.1 implements its
   fixed grammar as a generated, read-only dashboard projection at its explicit
   output destination.  That rejection MUST create no destination, generated
@@ -178,9 +231,14 @@ and `cozy media` commands.  No alias or ambiguous dispatch is permitted.
 - `verify` MUST inspect declared project material for conformance without
   mutating authored authority, project state, evidence, registration, or
   delivery.
-- `run --operation` MUST dispatch exactly one declared logical operation.  It
-  MUST NOT infer downstream publication, workspace-wide execution, aggregate
-  build, registration, deployment, upload, or any undeclared operation.
+- `run --operation` MUST admit only one declared logical operation and MUST NOT
+  execute it in Phase 42.  A known declared name, with or without `--dry-run`,
+  MUST reject with `DP-OP-001` and exactly `execution and Operation Attempts
+  are reserved for Phase 42.1`.  An unknown name MUST reject with `DP-OP-001`
+  as an undeclared logical operation.  Neither result may create an attempt,
+  receipt, generated state, dashboard, registry, delivery, or output file, or
+  infer downstream publication, workspace-wide execution, aggregate build,
+  registration, deployment, or upload.
 - `scaffold` MUST create only the authored initial package described below.  It
   MUST NOT register, build, publish, deploy, upload, or create delivery
   evidence implicitly.
@@ -244,7 +302,7 @@ another token.  This Slice does not prescribe an exception class or exit code.
 | 5 | `DP-SCAFFOLD-001` | `scaffold` has safe paths, but its destination already exists, its parent is absent or non-real, or the required atomic move cannot be completed. |
 | 6 | `DP-DESC-001` | An inspected, planned, verified, or run project has a missing, unreadable, or malformed descriptor or Core after path admission. |
 | 7 | `DP-DESC-002` | A successfully parsed descriptor or Core has an unknown field or unsupported or invalid closed value or relationship after descriptor admission. |
-| 8 | `DP-OP-001` | A path- and descriptor-valid `run` request names an unknown or undeclared logical operation. |
+| 8 | `DP-OP-001` | A path- and descriptor-valid `run` request names an unknown or undeclared logical operation, or a declared logical operation rejected at the Phase 42.1 reservation boundary. |
 
 Successful `inspect`, `plan`, `verify`, and `scaffold` output MUST begin with,
 respectively, `Cozy Document Project Inspect`, `Cozy Document Project Plan`,
@@ -264,18 +322,19 @@ dashboard write-back, implicit registration/build/publish/deploy/upload,
 migration, or Phase 41 expansion.
 
 The closed `cozy.document-project.v1` descriptor fields are not deferred or
-expandable.  The following remain deferred by their designated boundaries:
-workflow-owned Work Product, provider-binding, deliverable-disposition,
-criteria/gate, and operation model closure (DP42-02); canonical serialization
-and identity calculation; SmartDox source projection and host discovery;
-executable implementation and its executable specifications; and all Phase
-42.1 dashboard/state/attempt/receipt/review/driver behavior.  Phase 42.1 owns
-executable dashboard content, derived state reconstruction, append-only
-attempt persistence, receipts/currentness/stale propagation, review projection,
-and driver acceptance; it implements the already-fixed dashboard grammar and
-MUST NOT expand descriptor fields.  This specification MUST NOT be represented
-as implementing, accepting, or proving compatibility for those deferred
-matters.
+expandable.  DP42-02 closes the workflow-owned Work Product, provider-binding,
+deliverable-disposition, criteria/gate, evidence-reference, and operation
+model only as the static in-code definition specified above.  Canonical
+serialization and identity calculation; SmartDox source projection and host
+discovery; and all Phase 42.1 dashboard/state/attempt/receipt/review/driver
+behavior remain deferred.  Phase 42.1 owns executable dashboard content,
+derived state reconstruction, append-only attempt persistence,
+receipts/currentness/stale propagation, review projection, and driver
+acceptance.  It consumes the closed DP42-02 definition and implements the
+already-fixed dashboard grammar; it MUST NOT expand descriptor fields or
+redefine profiles, Work Product roles, criteria, gates, operations, or provider
+bindings.  This specification MUST NOT be represented as implementing,
+accepting, or proving compatibility for those deferred matters.
 
 ## Related authorities
 
