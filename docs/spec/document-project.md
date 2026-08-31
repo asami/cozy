@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-This is the normative Phase 42 baseline for the Document Project responsibility
+This is the normative Phase 42.1 contract for the Document Project responsibility
 boundary.  Its stable design intent is [Document Project
 Design](../design/document-project.md).  The [Phase 42
 checklist](../phase/phase-42-checklist.md) is a progress ledger, not a behavior
@@ -178,7 +178,8 @@ remain distinct views.
 
 Dashboard HTML and review HTML MUST be generated read-only projections.  They
 MUST NOT become semantic, workflow, renderer, receipt, or status authority and
-MUST NOT write back into authored sources.
+MUST NOT write back into authored sources.  Phase 42.1 Slice DP42-04A defines
+their public purpose-oriented commands and deterministic output contract below.
 
 ## Phase 42.1 evidence and attempt contract
 
@@ -285,7 +286,9 @@ The complete public Document Project command grammar is:
 ```text
 cozy document-project inspect <project>
 cozy document-project plan <project>
-cozy document-project dashboard <project> --save <dashboard.html>
+cozy document-project dashboard <project> [--save <dashboard.html>]
+cozy document-project review <project> --kind core|video|logical-chart [--save <review.html>]
+cozy document-project reflect-feedback <project> <feedback>
 cozy document-project verify <project>
 cozy document-project run <project> --operation <logical-operation> [--dry-run]
 cozy document-project scaffold <slug> --profile standard|standard-video --language <tag> --workspace directory|bok --save <parent>
@@ -305,11 +308,114 @@ When `verify` checks the initial authored source paths, `index.dox`,
 `review/README.md` MUST each be direct regular non-symlink entries contained in
 the admitted package.  `video/storyboard.md` has the same requirement only for
 the `standard-video` profile.  Their semantic contents and workflow validation
-remain deferred.  Dashboard `--save` is its fixed explicit output destination.
-Phase 42 fixes that grammar and protected non-authority boundary only;
-dashboard rendering and state evidence are Phase 42.1 behavior.  The command
-namespace MUST remain distinct from existing software Project knowledge-package
-and `cozy media` commands.  No alias or ambiguous dispatch is permitted.
+remain deferred.  `dashboard` accepts an optional `--save <dashboard.html>`;
+without it, the output MUST be written to the deterministic project-local
+`target/document-project/project-dashboard.html`.  An explicit external save
+path is used exactly as requested; a Project-internal save path is admitted
+only under the projection boundary below.  `review` requires `--kind core|video|logical-chart` and accepts
+the same optional save path; its defaults are
+`target/document-project/core-review.html`,
+`target/document-project/video-review.html`, and
+`target/document-project/logical-chart-review.html`, respectively.  Review
+never accepts or exposes a logical-operation identifier.  The command namespace MUST
+remain distinct from existing software Project knowledge-package and `cozy
+media` commands.  No alias or ambiguous dispatch is permitted.
+
+Generated dashboard and review destinations MUST be admitted as direct,
+non-symlink regular files or absent destinations.  For an absent destination,
+the nearest existing parent directory MUST be direct and non-symlinked; only
+missing parent components beneath it MAY be created, and they MUST be direct
+directories.  Higher pre-existing ancestry is not inspected for this
+admission.  Existing regular destinations MAY be replaced only by a
+same-directory temporary file moved with `ATOMIC_MOVE`; symlinks, non-direct
+destinations, and non-directory nearest existing parents MUST reject with
+`DP-PATH-001`.  An implementation MUST NOT fall back to direct writing or a
+non-atomic move.  The only generated write for each successful command is its
+selected HTML projection.
+
+After normalization, a destination that is inside the admitted Project package
+MUST be under `<project>/target/document-project/` and its filename MUST end
+exactly in `.html`.  Any other Project-internal `--save` destination MUST
+reject with `DP-PATH-001` before parent creation, temporary output, or
+publication.  This boundary protects the descriptor, Content Core, article,
+Visual Page, infographic, review, video, target state, evidence, and every
+other Project-owned path from projection replacement.  An explicit destination
+outside the Project retains exact-path behavior, subject to the direct
+non-symlink parent and atomic-publication rules above.
+
+`reflect-feedback` consumes one direct, non-symlink structured input file whose
+name ends in `.json`, `.yaml`, or `.yml` (case-insensitive); any other suffix is
+rejected with `DP-CLI-001` before parsing.  It accepts JSON and YAML and is the
+only command in this boundary that may reflect an accepted feedback item into
+an authored authority.  JSON and YAML use one common object schema; validation
+never derives feedback semantics from the filename suffix.  The complete batch
+grammar is:
+
+```yaml
+reason: nonempty trimmed batch reason
+changes:
+  - target: core
+    replacement:
+      accepted:
+        - id: claim-1
+          text: ...
+    applicability: applicable
+    disposition: accepted
+  - target: article
+    replacement: proposed full source
+    applicability: applicable
+    disposition: rejected
+    rejectionReason: nonempty trimmed reason
+  - target: video
+    replacement: proposed storyboard
+    applicability: not-applicable
+    disposition: not-applicable
+    notApplicableReason: profile does not use video
+```
+
+The top-level object MUST contain exactly `reason` and a non-empty `changes`
+array.  Each item MUST contain exactly `target`, `replacement`,
+`applicability`, and `disposition`, plus exactly one conditional reason:
+`rejectionReason` for an applicable rejection or `notApplicableReason` for a
+not-applicable item.  Targets MUST be unique and drawn from `core`, `article`,
+`slides`, `infographic`, and `video`.  `applicability: applicable` permits
+only `accepted` or `rejected`; `not-applicable` permits only the
+`not-applicable` disposition.  Every item retains its replacement proposal,
+including rejected and not-applicable items, so a later amended batch can
+accept it.  A Core replacement is exactly `{"accepted":[{"id":"...","text":"..."}]}`;
+other replacements are non-empty strings.  Core entry IDs MUST be unique and
+its entry text MUST satisfy the closed Core grammar.
+
+The target mappings are `core` to the descriptor `contentCore` path, `article`
+to `index.dox`, `slides` to `presentation/visual-pages.yaml`, `infographic`
+to `infographic/infographic.svg`, and `video` to `video/storyboard.md`.  An
+accepted Core replacement preserves the existing Core envelope
+(`schema`, `id`, and `language`) and is revalidated before publication.  For
+the `standard` profile, a `video` item MUST be present as
+`not-applicable` with its required reason; an applicable video item is
+rejected with `DP-OP-001`.  The `standard-video` profile admits the active
+video mapping.
+
+The entire batch, every replacement, the profile rule, and every selected
+accepted authority path MUST validate before any write.  Accepted authorities
+MUST already be direct, non-symlink regular files with existing direct parent
+directories.  Each accepted source is replaced through a same-directory
+temporary file and `ATOMIC_MOVE`; there is no direct-write or non-atomic
+fallback and no parent creation.  Rejected and not-applicable items never
+write an authority.  Malformed combinations and missing/extra item fields
+reject with `DP-CLI-001`; malformed JSON/YAML syntax also rejects with
+`DP-CLI-001`.  Malformed replacements and duplicate Core IDs reject with
+`DP-DESC-001`, missing operands with `DP-CLI-002`, and unsafe input or source
+paths with `DP-PATH-001`.
+
+Successful output begins with `Cozy Document Project Feedback Reflection`,
+identifies the project, and emits in input order exactly one of
+`reflected: <target> <path>`, `rejected: <target> — <rejectionReason>`, or
+`not-applicable: <target> — <notApplicableReason>`.  It MUST NOT echo the
+batch reason or any replacement.  The command creates no feedback
+record, receipt, attempt, state cache, provider run, review, or auxiliary
+evidence.  This write boundary is distinct from `review`: review is a
+read-only projection and never accepts, persists, or reflects feedback.
 
 - `inspect` MUST inspect and report a derived project view without mutating
   authored authority, durable evidence, registration, or delivery.  The
@@ -324,10 +430,49 @@ and `cozy media` commands.  No alias or ambiguous dispatch is permitted.
   are reserved for Phase 42.1.  For `standard`, the omitted video lines MUST
   include exactly `profile standard disables video branch`; for
   `standard-video`, that text MUST be absent.
-- `dashboard` MUST reject with `DP-PHASE-001` until Phase 42.1 implements its
-  fixed grammar as a generated, read-only dashboard projection at its explicit
-  output destination.  That rejection MUST create no destination, generated
-  state, receipt, approval, attempt, registry, or delivery evidence.
+- `dashboard` MUST generate a deterministic, self-contained, read-only HTML
+  projection.  With no `--save`, it MUST use
+  `target/document-project/project-dashboard.html`; with `--save`, it MUST use
+  exactly the requested path when external, or the requested `.html` path under
+  `target/document-project/` when Project-internal.  Any other Project-internal
+  destination MUST reject with `DP-PATH-001` before creating a parent or
+  temporary output.  Its Workflow view MUST show active and omitted
+  Work Products, provider bindings, and gates.  Its Work Product matrix MUST
+  show coverage, currentness, review, readiness, and omitted/blocking reasons.
+  Its Work Product details MUST show dependencies, producer and consumer
+  operations, evidence references, and the next operation.  Disabled video
+  status MUST remain visibly omitted, never complete.  The existing
+  `explanation-structure-review-html` Work Product MUST remain an active,
+  optional `review-projection`; its coverage, currentness, and readiness MUST
+  derive from the available project-local Content Core, Visual Page, and
+  applicable storyboard IR inputs, while its producer, gate, dependency, and
+  evidence-reference links remain those of the closed workflow.  Current snapshot data
+  MUST be distinguished from retained historical attempts; initial attempts
+  have no receipt or currentness authority.  It MUST execute no provider and
+  persist no authority, candidate, feedback, acceptance, receipt, deliverable,
+  workspace, build, publication, deployment, or upload state.
+- `review` MUST generate a deterministic, self-contained, read-only HTML
+  projection at the kind-specific default or exact optional external save path;
+  an optional Project-internal save path MUST be under
+  `target/document-project/` and end exactly in `.html`, with all other
+  Project-internal destinations rejected by `DP-PATH-001` before any parent or
+  temporary output is created.  Core
+  review MUST present accepted Core entries and explicitly mark candidate,
+  feedback, and acceptance as non-authoritative and not yet persisted.  Video
+  review MUST be admitted only for `standard-video` using the existing
+  `DP-OP-001` disabled operation/profile diagnostic for standard, and MUST
+  present storyboard and Visual Page source projections when active.  The
+  `logical-chart` review MUST be titled `Logical Chart` and visualize exactly
+  the current Content Core IR, `presentation/visual-pages.yaml` Visual Page IR,
+  and, only for `standard-video`, `video/storyboard.md` video IR.  For
+  `standard`, its video section MUST visibly say `Omitted: profile standard
+  disables video branch`; it MUST not treat that source as missing or complete.
+  The chart MUST state that it is not an authority, provider run, receipt,
+  state cache, feedback record, or write-back mechanism.  All supplied values
+  MUST be HTML-escaped.  Review MUST claim no provider execution, candidate or
+  feedback persistence, acceptance, receipt, or deliverable.  It MUST not
+  modify Content Core, accepted entries, storyboard, Visual Pages, attempts,
+  receipts, or state cache.
 - `verify` MUST inspect declared project material for conformance without
   mutating authored authority, durable evidence, registration, or delivery.
   After successful validation it MUST regenerate only the disposable snapshot
@@ -404,21 +549,25 @@ another token.  This Slice does not prescribe an exception class or exit code.
 | --- | --- | --- |
 | 1 | `DP-CLI-001` | Unknown command or subcommand, unsupported option, or extra or otherwise invalid command grammar for a command form. |
 | 2 | `DP-CLI-002` | A known syntactically valid command form lacks a required positional argument or required option/value. |
-| 3 | `DP-PHASE-001` | A syntactically complete `dashboard <project> --save <dashboard.html>` request in Phase 42.  It rejects before resolving or validating project or save paths and creates no destination, state, receipt, attempt, registry, or delivery evidence. |
+| 3 | `DP-PHASE-001` | Historical Phase-42-only behavior: a syntactically complete dashboard request was rejected before path resolution.  Phase 42.1 no longer emits this token for dashboard. |
 | 4 | `DP-PATH-001` | A command whose preceding gates passed has an unsafe, outside-package, symlink, or non-direct path, including a project, descriptor/Core source, verified authored source, or scaffold parent/destination path that fails path admission. |
 | 5 | `DP-SCAFFOLD-001` | `scaffold` has safe paths, but its destination already exists, its parent is absent or non-real, or the required atomic move cannot be completed. |
-| 6 | `DP-DESC-001` | An inspected, planned, verified, or run project has a missing, unreadable, or malformed descriptor or Core after path admission. |
+| 6 | `DP-DESC-001` | An inspected, planned, verified, or run project has a missing, unreadable, or malformed descriptor or Core after path admission, or a `reflect-feedback` request has a malformed replacement or an accepted Content Core source that is missing, unreadable, or malformed. |
 | 7 | `DP-DESC-002` | A successfully parsed descriptor or Core has an unknown field or unsupported or invalid closed value or relationship after descriptor admission. |
-| 8 | `DP-OP-001` | A path- and descriptor-valid `run` request names an unknown or undeclared logical operation, or a declared logical operation disabled by the selected profile. |
+| 8 | `DP-OP-001` | A path- and descriptor-valid `run` request names an unknown or undeclared logical operation, or a declared logical operation disabled by the selected profile, or a path- and descriptor-valid `reflect-feedback` request declares a video mapping that is disabled by the selected profile. |
 
 Successful `inspect`, `plan`, `verify`, and `scaffold` output MUST begin with,
 respectively, `Cozy Document Project Inspect`, `Cozy Document Project Plan`,
 `Cozy Document Project Verify`, and `Cozy Document Project Scaffold`.  Each
 such success output MUST identify the project and schema.  Scaffold success
-output MUST also identify package, workflow, profile, and workspace.  This
-Slice defines no dashboard success output because `dashboard` rejects in Phase
-42.  Phase 42.1 implements its already-fixed explicit-output grammar; this
-Slice does not define dashboard contents or receipt evidence.
+output MUST also identify package, workflow, profile, and workspace.  A
+successful dashboard MUST begin with `Cozy Document Project Dashboard` and a
+successful review MUST begin with `Cozy Document Project Core Review`,
+`Cozy Document Project Video Review`, or `Cozy Document Project Logical Chart`;
+each MUST identify the project, profile, schema, and selected output.  Dashboard
+and review HTML MUST be UTF-8,
+self-contained, deterministic for unchanged inputs, structurally accessible
+with headings and tables, and HTML-escape authored or descriptor values.
 
 ## Non-goals and deliberate deferrals
 
@@ -431,9 +580,8 @@ The closed `cozy.document-project.v1` descriptor fields are not deferred or
 expandable.  DP42-02 closes the workflow-owned Work Product, provider-binding,
 deliverable-disposition, criteria/gate, evidence-reference, and operation
 model only as the static in-code definition specified above.  SmartDox source
-projection and host discovery, dashboard rendering, receipt evidence,
-evidence-based stale propagation, review projection, and driver acceptance
-remain deferred.  DP42-03B implements the
+projection and host discovery, receipt evidence, evidence-based stale
+propagation, and driver acceptance remain deferred.  DP42-03B implements the
 deterministic disposable state reconstruction specified above and DP42-03C
 implements recorded append-only attempts; later Phase 42.1 Slices own the
 remaining capabilities.  They consume the closed

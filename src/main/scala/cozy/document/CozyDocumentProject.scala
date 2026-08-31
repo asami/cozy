@@ -13,11 +13,11 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 31, 2026
- * @version Aug. 31, 2026
+ * @version Sep. 1, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentProject {
-  private final case class Descriptor(
+  private[cozy] final case class Descriptor(
     id: String,
     profile: String,
     language: String,
@@ -25,10 +25,10 @@ private[cozy] object CozyDocumentProject {
     contentCore: String
   )
 
-  private final case class ProjectRequest(command: String, project: String, operation: Option[String], dryrun: Boolean)
+  private final case class ProjectRequest(command: String, project: String, operation: Option[String], dryrun: Boolean, kind: Option[String], save: Option[String])
+  private final case class FeedbackRequest(project: String, feedback: String)
   private final case class ScaffoldRequest(slug: String, profile: String, language: String, workspace: String, parent: String)
   private final case class ParsedOptions(values: Map[String, String], flags: Set[String], positionals: Vector[String])
-
   private val _slug_pattern = "[a-z0-9][a-z0-9._-]*".r
   private val _language_pattern = "[a-z]{2,8}(?:-[a-z0-9]{1,8})*".r
   private val _descriptor_keys = Set("schema", "id", "workflow", "profile", "language", "workspace", "contentCore")
@@ -37,9 +37,12 @@ private[cozy] object CozyDocumentProject {
   def execute(args: List[String]): Boolean = args match {
     case "document-project" :: rest =>
       _parse(rest) match {
-        case ProjectRequest("dashboard", _, _, _) =>
-          _failure("DP-PHASE-001", "dashboard is reserved for Phase 42.1")
-        case ProjectRequest(command, projectvalue, operation, dryrun) =>
+        case FeedbackRequest(projectvalue, feedbackvalue) =>
+          val project = _admit_project(projectvalue)
+          val descriptor = _load_project(project)
+          println(CozyDocumentFeedbackReflection.reflect(project, descriptor, feedbackvalue))
+          true
+        case ProjectRequest(command, projectvalue, operation, dryrun, kind, save) =>
           val project = _admit_project(projectvalue)
           if (command == "verify" || command == "run")
             _verify_initial_sources(project)
@@ -56,6 +59,27 @@ private[cozy] object CozyDocumentProject {
             case "run" =>
               _verify(project, descriptor)
               println(_run(project, descriptor, operation.getOrElse(""), dryrun))
+            case "dashboard" =>
+              val html = CozyDocumentProjectProjection.dashboardHtml(project, descriptor)
+              val destination = CozyDocumentProjectProjection.admitDestination(project, save, "project-dashboard.html")
+              CozyDocumentProjectProjection.publish(destination, html)
+              println(CozyDocumentProjectProjection.projectionResult("Dashboard", project, descriptor, destination))
+            case "review" =>
+              val reviewkind = kind.getOrElse(_failure("DP-CLI-002", "review requires --kind core|video|logical-chart"))
+              val html = reviewkind match {
+                case "core" => CozyDocumentProjectProjection.coreReviewHtml(project, descriptor)
+                case "video" => CozyDocumentProjectProjection.videoReviewHtml(project, descriptor)
+                case "logical-chart" => CozyDocumentProjectProjection.logicalChartHtml(project, descriptor)
+                case _ => _failure("DP-CLI-001", "review --kind must be core, video, or logical-chart")
+              }
+              val destination = CozyDocumentProjectProjection.admitDestination(project, save, s"$reviewkind-review.html")
+              CozyDocumentProjectProjection.publish(destination, html)
+              val reviewlabel = reviewkind match {
+                case "core" => "Core Review"
+                case "video" => "Video Review"
+                case "logical-chart" => "Logical Chart"
+              }
+              println(CozyDocumentProjectProjection.projectionResult(reviewlabel, project, descriptor, destination))
             case _ => _failure("DP-CLI-001", s"unsupported document-project command: $command")
           }
           true
@@ -71,6 +95,8 @@ private[cozy] object CozyDocumentProject {
     case "inspect" :: rest => _project_request("inspect", rest, Set.empty, Set.empty)
     case "plan" :: rest => _project_request("plan", rest, Set.empty, Set.empty)
     case "dashboard" :: rest => _project_request("dashboard", rest, Set("save"), Set.empty)
+    case "review" :: rest => _project_request("review", rest, Set("kind", "save"), Set.empty)
+    case "reflect-feedback" :: rest => _feedback_request(rest)
     case "verify" :: rest => _project_request("verify", rest, Set.empty, Set.empty)
     case "run" :: rest => _project_request("run", rest, Set("operation"), Set("dry-run"))
     case "scaffold" :: rest => _scaffold_request(rest)
@@ -87,13 +113,27 @@ private[cozy] object CozyDocumentProject {
     val parsed = _parse_options(args, valueoptions, flagoptions)
     if (parsed.positionals.size > 1)
       _failure("DP-CLI-001", s"invalid $command command grammar")
-    if (command == "dashboard" && !parsed.values.contains("save"))
-      _failure("DP-CLI-002", "dashboard requires --save <dashboard.html>")
     if (command == "run" && !parsed.values.contains("operation"))
       _failure("DP-CLI-002", "run requires --operation <logical-operation>")
+    if (command == "review") {
+      parsed.values.get("kind") match {
+        case None => _failure("DP-CLI-002", "review requires --kind core|video|logical-chart")
+        case Some(value) if value != "core" && value != "video" && value != "logical-chart" => _failure("DP-CLI-001", "review --kind must be core, video, or logical-chart")
+        case _ => ()
+      }
+    }
     if (parsed.positionals.isEmpty)
       _failure("DP-CLI-002", s"$command requires <project>")
-    ProjectRequest(command, parsed.positionals.head, parsed.values.get("operation"), parsed.flags.contains("dry-run"))
+    ProjectRequest(command, parsed.positionals.head, parsed.values.get("operation"), parsed.flags.contains("dry-run"), parsed.values.get("kind"), parsed.values.get("save"))
+  }
+
+  private def _feedback_request(args: List[String]): FeedbackRequest = {
+    val parsed = _parse_options(args, Set.empty, Set.empty)
+    if (parsed.positionals.size > 2)
+      _failure("DP-CLI-001", "invalid reflect-feedback command grammar")
+    if (parsed.positionals.size < 2)
+      _failure("DP-CLI-002", "reflect-feedback requires <project> <feedback>")
+    FeedbackRequest(parsed.positionals(0), parsed.positionals(1))
   }
 
   private def _scaffold_request(args: List[String]): ScaffoldRequest = {
@@ -199,7 +239,7 @@ private[cozy] object CozyDocumentProject {
     Descriptor(id, profile, language, _string(workspace, "kind", "workspace"), contentcore)
   }
 
-  private def _validate_core(value: Json, descriptor: Descriptor): Unit = {
+  private[cozy] def _validate_core(value: Json, descriptor: Descriptor): Unit = {
     val fields = _object(value, "Content Core")
     if (fields.keySet != _core_keys)
       _descriptor_failure("Content Core must have exactly schema, id, language, accepted")
@@ -343,7 +383,7 @@ private[cozy] object CozyDocumentProject {
     )).mkString("\n") + "\n"
   }
 
-  private def _project_relative(project: Path, path: Path): String =
+  private[cozy] def _project_relative(project: Path, path: Path): String =
     project.relativize(path).toString.replace('\\', '/')
 
   private def _inspect(project: Path, descriptor: Descriptor, state: Path): String =
@@ -423,7 +463,7 @@ private[cozy] object CozyDocumentProject {
     ) ++ sourceyaml ++ Vector("workProducts:") ++ productyaml).mkString("\n") + "\n"
   }
 
-  private def _state_sources(project: Path, descriptor: Descriptor): Vector[(String, Path)] = {
+  private[cozy] def _state_sources(project: Path, descriptor: Descriptor): Vector[(String, Path)] = {
     val declared = Vector(
       "document-project.yaml",
       descriptor.contentCore,
@@ -451,7 +491,7 @@ private[cozy] object CozyDocumentProject {
     }
   }
 
-  private def _core_has_accepted_entries(project: Path, descriptor: Descriptor): Boolean =
+  private[cozy] def _core_has_accepted_entries(project: Path, descriptor: Descriptor): Boolean =
     _load_json(project.resolve(descriptor.contentCore), "Content Core").hcursor.downField("accepted").focus.flatMap(_.asArray).exists(_.nonEmpty)
 
   private def _sha256(path: Path): String =
@@ -533,7 +573,7 @@ private[cozy] object CozyDocumentProject {
     parent
   }
 
-  private def _direct_directory(path: Path, label: String): Unit =
+  private[cozy] def _direct_directory(path: Path, label: String): Unit =
     if (Files.isSymbolicLink(path) || !Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS))
       _failure("DP-PATH-001", s"$label must be a direct non-symlink directory")
 
@@ -552,7 +592,7 @@ private[cozy] object CozyDocumentProject {
     _direct_file(project, relative, label)
   }
 
-  private def _direct_file(project: Path, relative: String, label: String): Path = {
+  private[cozy] def _direct_file(project: Path, relative: String, label: String): Path = {
     val candidate = project.resolve(relative).normalize()
     if (!candidate.startsWith(project))
       _failure("DP-PATH-001", s"$label escapes the project package")
@@ -567,7 +607,7 @@ private[cozy] object CozyDocumentProject {
     candidate
   }
 
-  private def _load_json(path: Path, label: String): Json =
+  private[cozy] def _load_json(path: Path, label: String): Json =
     try {
       Files.readString(path, StandardCharsets.UTF_8)
       StructuredDocumentLoader.loadJson(InputSource(path.toFile)).take
@@ -581,13 +621,13 @@ private[cozy] object CozyDocumentProject {
         _failure("DP-PATH-001", "descriptor contentCore path is unsafe")
     }
 
-  private def _object(value: Json, label: String): Map[String, Json] =
+  private[cozy] def _object(value: Json, label: String): Map[String, Json] =
     value.asObject.map(_.toMap).getOrElse(_descriptor_failure(s"$label must be an object"))
 
-  private def _field(fields: Map[String, Json], name: String, label: String): Json =
+  private[cozy] def _field(fields: Map[String, Json], name: String, label: String): Json =
     fields.getOrElse(name, _descriptor_failure(s"$label is missing $name"))
 
-  private def _string(fields: Map[String, Json], name: String, label: String): String =
+  private[cozy] def _string(fields: Map[String, Json], name: String, label: String): String =
     _field(fields, name, label).asString.getOrElse(_descriptor_failure(s"$label $name must be a string"))
 
   private def _relative_path(value: String): Boolean = {
@@ -630,8 +670,8 @@ private[cozy] object CozyDocumentProject {
       finally stream.close()
     }
 
-  private def _descriptor_failure(cause: String): Nothing = _failure("DP-DESC-002", cause)
+  private[cozy] def _descriptor_failure(cause: String): Nothing = _failure("DP-DESC-002", cause)
 
-  private def _failure(token: String, cause: String): Nothing =
+  private[cozy] def _failure(token: String, cause: String): Nothing =
     RAISE.invalidArgumentFault(s"$token: $cause")
 }

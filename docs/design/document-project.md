@@ -3,7 +3,7 @@
 ## Status and authority
 
 This document records the stable design intent for the Document Project
-boundary planned in [Phase 42](../phase/phase-42.md).  It is design, not an
+boundary in Phase 42.1, extending [Phase 42](../phase/phase-42.md).  It is design, not an
 executable implementation or a replacement for the [Phase 42
 checklist](../phase/phase-42-checklist.md), which remains the progress ledger.
 The normative behavior contract is [Document Project
@@ -254,11 +254,40 @@ separate from the existing software Project knowledge-package commands and
 `cozy media`.  Its project operands name existing `*.dox/` package directories,
 not arbitrary descriptor files.  `inspect`, `plan`, and `verify` are derived
 inspections; successful `inspect` and `verify` regenerate only the disposable
-state cache specified above.  Phase 42 fixes the `dashboard` command syntax
-and its protected non-authority boundary: dashboard still rejects with
-`DP-PHASE-001` and creates no destination, state, receipt, attempt, registry,
-or delivery evidence until a later Slice supplies rendering.  Phase 42.1
-implements the same fixed explicit-output grammar as a read-only projection.
+state cache specified above.  Phase 42.1 implements
+`dashboard <project> [--save <dashboard.html>]` and
+`review <project> --kind core|video|logical-chart [--save <review.html>]` as deterministic,
+self-contained, read-only HTML projections.  The dashboard default is
+`target/document-project/project-dashboard.html`; review defaults are
+`target/document-project/core-review.html`,
+`target/document-project/video-review.html`, and
+`target/document-project/logical-chart-review.html`.  An explicit `--save` path is
+used exactly as requested when external or valid under the project-local
+projection boundary, and review exposes no logical-operation ID.  The
+Logical Chart is an existing optional `explanation-structure-review-html`
+projection over current Content Core, Visual Page, and applicable storyboard IR;
+standard visibly omits its video branch with `profile standard disables video
+branch`.  These
+commands do not execute providers, persist candidate/feedback/acceptance/
+receipt state, or modify authored authorities.  The historical Phase-42
+`DP-PHASE-001` dashboard rejection is retained only as compatibility history
+and is not emitted by Phase 42.1.
+
+The exact Phase 42.1 public forms are:
+
+```text
+cozy document-project dashboard <project> [--save <dashboard.html>]
+cozy document-project review <project> --kind core|video|logical-chart [--save <review.html>]
+cozy document-project reflect-feedback <project> <feedback>
+```
+
+Dashboard defaults to `target/document-project/project-dashboard.html`; Core,
+video, and Logical Chart review default to
+`target/document-project/core-review.html`,
+`target/document-project/video-review.html`, and
+`target/document-project/logical-chart-review.html`.  Each selected output is
+published through direct non-symlink parent admission and a same-directory
+atomic temporary-file move, with no direct-write fallback.
 `run` dispatches one declared operation; and `scaffold` is the only command
 that creates authored sources.  No command aliases or ambiguous dispatch are
 part of this kernel.
@@ -286,10 +315,99 @@ concerns, never scaffolded authority.
 
 ## Projections and delivery boundaries
 
-When Phase 42.1 implements dashboard rendering, project dashboard HTML and
-review HTML are generated, read-only projections.  They may explain evidence,
-workflow, or review material, but are never semantic, workflow, renderer, or
-status authority and never write back into authored sources.
+Phase 42.1 dashboard and review HTML are generated, read-only projections.
+Dashboard content has accessible Workflow, Work Product matrix, and Work
+Product details tables covering dispositions, providers, gates, coverage,
+currentness, review, readiness, dependencies, producer/consumer operations,
+evidence references, and next operations.  It distinguishes the current
+snapshot from retained attempts, whose initial records have no receipt or
+currentness authority.  Core review presents accepted Core entries and marks
+candidate/feedback/acceptance as non-authoritative and not yet persisted.
+The dashboard represents the existing `explanation-structure-review-html`
+Work Product as an active optional review projection; its coverage, currentness,
+and readiness derive from the available project-local Content Core, Visual Page,
+and applicable storyboard IR inputs, while its producer, gate, dependency, and
+evidence-reference links remain workflow-owned.
+Active video review presents storyboard and Visual Page source projections;
+disabled video remains visibly omitted.  Logical Chart presents accepted Core
+entries, Visual Page IR, and the standard-video storyboard IR as an existing
+`explanation-structure-review-html` Work Product projection; standard marks
+video omitted with its profile reason.  It is not an authority, provider run,
+receipt, state cache, feedback record, or write-back mechanism.  Values are
+HTML-escaped and the projections are self-contained and deterministic.  Their destinations require
+the nearest existing parent directory to be direct and non-symlinked; only
+missing descendants beneath it may be created as direct directories, and
+higher pre-existing ancestry is not inspected for this publication admission.
+A present destination must be a direct, non-symlink regular file; publication
+uses a same-directory atomic temporary-file move, with no direct-write or
+non-atomic fallback.  After normalization, any destination inside the admitted
+Project package is permitted only beneath `<project>/target/document-project/`
+and only when its filename ends exactly in `.html`; all other Project-internal
+destinations reject with `DP-PATH-001` before parent creation, temporary output,
+or publication.  This protects descriptor, Content Core, article, Visual Page,
+infographic, review, video, target state, evidence, and other Project-owned
+paths from projection replacement.  Explicit destinations outside the Project
+retain exact-path behavior under the direct-parent and atomic-publication
+rules.  They are never semantic, workflow, renderer, receipt, or status
+authority and never write back into authored sources.
+
+## Feedback reflection boundary
+
+Phase 42.1 DP42-04B defines `reflect-feedback <project> <feedback>` as a
+bounded authority-reflection command.  Its feedback path must be a direct,
+non-symlink regular file whose name ends in `.json`, `.yaml`, or `.yml`
+(case-insensitive); any other suffix is rejected with `DP-CLI-001` before
+parsing.  Its direct JSON or YAML structured batch uses one common object
+schema and keeps the original replacement proposal on every item while making
+applicability and disposition explicit.  Format decoding may follow the
+`.json`, `.yaml`, or `.yml` suffix, but feedback semantics never do.  Malformed
+JSON/YAML syntax is feedback input grammar and rejects with `DP-CLI-001`;
+malformed replacements and duplicate Core IDs remain `DP-DESC-001`.
+Applicable items are either accepted or rejected; a
+rejected item requires `rejectionReason`.  A not-applicable item has the
+matching `not-applicable` disposition and requires `notApplicableReason`.  The
+batch reason and both conditional reasons are non-empty trimmed strings,
+targets are unique among `core`, `article`, `slides`, `infographic`, and
+`video`, and the replacement is a Core `{accepted: [...]}` object for `core`
+or a non-empty full-source string for every other target.
+
+The common batch schema is format-neutral:
+
+```yaml
+reason: nonempty trimmed batch reason
+changes:
+  - target: core
+    replacement:
+      accepted:
+        - id: claim-1
+          text: ...
+    applicability: applicable
+    disposition: accepted
+  - target: article
+    replacement: proposed full source
+    applicability: applicable
+    disposition: rejected
+    rejectionReason: nonempty trimmed reason
+```
+
+The closed mappings are `core` -> descriptor `contentCore`, `article` ->
+`index.dox`, `slides` -> `presentation/visual-pages.yaml`, `infographic` ->
+`infographic/infographic.svg`, and `video` -> `video/storyboard.md`.  Core
+reflection preserves and revalidates the current Core envelope.  The standard
+profile requires a video item marked not-applicable with its reason; an
+applicable video item is an operation/profile rejection.  Standard-video may
+reflect its active storyboard source.
+
+Reflection validates the complete batch and all accepted source paths before
+writing.  Only accepted direct, non-symlink authority files are replaced,
+using a same-directory temporary file and `ATOMIC_MOVE`, with no parent
+creation or fallback.  Rejected and not-applicable items leave their
+authorities unchanged.  Success reports each item disposition and mapped
+path or reason without echoing the batch reason or replacement.  No feedback
+record, receipt, attempt, state, provider execution, review output, or other
+evidence is created.  The command therefore remains a write boundary for
+explicitly accepted authorities, while dashboard and review remain
+read-only projections.
 
 Project production stops at the project boundary.  Workspace integration,
 aggregate build, and external delivery are separate operations and separate
@@ -314,12 +432,12 @@ a later Phase.  DP42-02 MUST NOT add descriptor fields, canonical workflow
 serialization, or identity calculation beyond the closed in-code Work Product
 identities and references.
 
-Phase 42.1 retains executable dashboard content, receipt evidence,
-evidence-based stale propagation, review projection, and driver acceptance.
-DP42-03B implements deterministic disposable state reconstruction and
+Phase 42.1 retains receipt evidence, evidence-based stale propagation, and
+driver acceptance.  DP42-04A implements executable dashboard and review
+projections as described above.  DP42-03B implements deterministic disposable state reconstruction and
 DP42-03C implements recorded append-only attempts as described above; the
-remaining capabilities are later Slices.  Phase 42.1 implements the already-fixed dashboard grammar
-rather than expanding it.  It consumes the closed DP42-02 definition without
+  remaining capabilities are later Slices.  These projections consume the
+  closed DP42-02 definition without
 redefining profiles, Work Product roles, criteria, gates, operations, or
 provider bindings.  SmartDox source projection and host discovery are also
 outside this kernel.  No deferred capability is accepted or claimed by this

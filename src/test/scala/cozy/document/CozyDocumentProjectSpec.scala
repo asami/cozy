@@ -368,19 +368,592 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       }
     }
 
-    "give dashboard phase rejection precedence before any path resolution or output write" in {
+    "generate deterministic dashboard and core review projections without changing authorities" in {
       _with_temp_dir("cozy-document-project-dashboard") { root =>
-        Given("syntactically complete dashboard arguments with nonexistent project and parent paths")
-        val project = root.resolve("missing.dox")
-        val output = root.resolve("uncreated/output/dashboard.html")
+        Given("an admitted standard project with an HTML-sensitive accepted Core entry")
+        val parent = Files.createDirectory(root.resolve("parent"))
+        _execute(List("document-project", "scaffold", "sample", "--profile", "standard", "--language", "en", "--workspace", "directory", "--save", parent.toString))
+        val project = parent.resolve("sample.dox")
+        val core = project.resolve("content/core-en.yaml")
+        Files.writeString(core, Files.readString(core, StandardCharsets.UTF_8).replace("accepted: []", "accepted:\n  - id: html-sensitive\n    text: \"<script>& text\""), StandardCharsets.UTF_8)
+        val descriptorbytes = Files.readAllBytes(project.resolve("document-project.yaml"))
+        val corebytes = Files.readAllBytes(core)
+        val sourcebytes = Files.readAllBytes(project.resolve("index.dox"))
 
-        When("dashboard is requested in Phase 42")
-        val failure = _failure(List("document-project", "dashboard", project.toString, "--save", output.toString))
+        When("dashboard is requested without an explicit output path and then repeated")
+        val firstoutput = _execute(List("document-project", "dashboard", project.toString))
+        val dashboard = project.resolve("target/document-project/project-dashboard.html")
+        val firstbytes = Files.readAllBytes(dashboard)
+        _execute(List("document-project", "dashboard", project.toString))
+        val secondbytes = Files.readAllBytes(dashboard)
 
-        Then("the phase diagnostic is the only gate reached and no output is written")
-        failure should include("DP-PHASE-001")
-        Files.exists(output, LinkOption.NOFOLLOW_LINKS) shouldBe false
-        Files.exists(output.getParent, LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Then("the default dashboard is self-contained, escaped, structurally accessible, and byte-identical")
+        firstoutput should startWith("Cozy Document Project Dashboard")
+        Files.isRegularFile(dashboard, LinkOption.NOFOLLOW_LINKS) shouldBe true
+        firstbytes shouldBe secondbytes
+        val dashboardtext = Files.readString(dashboard, StandardCharsets.UTF_8)
+        dashboardtext should include("<h2>Workflow</h2>")
+        dashboardtext should include("Branch (active/omitted)")
+        dashboardtext should include(">active<")
+        dashboardtext should include(">omitted<")
+        dashboardtext should include("<h2>Work Product matrix</h2>")
+        dashboardtext should include("<h2>Work Product details</h2>")
+        dashboardtext should include("&lt;script&gt;&amp; text")
+        dashboardtext should include("profile standard disables video branch")
+        dashboardtext should include("not-applicable")
+        dashboardtext should include("readiness")
+        dashboardtext should include("Producer operation")
+        dashboardtext should include("Consumer operations")
+        dashboardtext should include("no receipt or currentness authority")
+        And("disabled video products are not applicable in the dashboard matrix")
+        Vector("video-storyboard", "video-review", "video-deliverable").foreach { id =>
+          dashboardtext should include(s"$id</th><td>not-applicable</td><td>not-applicable</td><td>pending</td><td>omitted")
+        }
+        Files.exists(project.resolve("target/document-project/state.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.readAllBytes(project.resolve("document-project.yaml")) shouldBe descriptorbytes
+        Files.readAllBytes(core) shouldBe corebytes
+        Files.readAllBytes(project.resolve("index.dox")) shouldBe sourcebytes
+
+        When("dashboard is requested with an explicit output path")
+        val explicit = root.resolve("saved/dashboard.html")
+        _execute(List("document-project", "dashboard", project.toString, "--save", explicit.toString))
+
+        Then("the exact explicit path is the selected generated projection")
+        Files.isRegularFile(explicit, LinkOption.NOFOLLOW_LINKS) shouldBe true
+        Files.readAllBytes(explicit) shouldBe firstbytes
+
+        When("dashboard is directed to an explicit HTML path under the project projection directory")
+        val internal = project.resolve("target/document-project/explicit-dashboard.html")
+        _execute(List("document-project", "dashboard", project.toString, "--save", internal.toString))
+
+        Then("the permitted project-internal projection path is generated")
+        Files.isRegularFile(internal, LinkOption.NOFOLLOW_LINKS) shouldBe true
+        Files.readAllBytes(internal) shouldBe firstbytes
+
+        When("an existing regular explicit destination is regenerated")
+        val existingparent = Files.createDirectory(root.resolve("existing"))
+        val existing = existingparent.resolve("dashboard.html")
+        Files.writeString(existing, "old projection\n", StandardCharsets.UTF_8)
+        _execute(List("document-project", "dashboard", project.toString, "--save", existing.toString))
+
+        Then("the regular destination is atomically replaced with the same deterministic bytes")
+        Files.readAllBytes(existing) shouldBe firstbytes
+      }
+    }
+
+    "generate core and active video review projections without persistence" in {
+      _with_temp_dir("cozy-document-project-review") { root =>
+        Given("admitted standard and standard-video projects")
+        val standardparent = Files.createDirectory(root.resolve("standard-parent"))
+        val videoparent = Files.createDirectory(root.resolve("video-parent"))
+        _execute(List("document-project", "scaffold", "core-doc", "--profile", "standard", "--language", "en", "--workspace", "directory", "--save", standardparent.toString))
+        _execute(List("document-project", "scaffold", "video-doc", "--profile", "standard-video", "--language", "en", "--workspace", "directory", "--save", videoparent.toString))
+        val standard = standardparent.resolve("core-doc.dox")
+        val video = videoparent.resolve("video-doc.dox")
+        val standardcore = standard.resolve("content/core-en.yaml")
+        Files.writeString(standardcore, Files.readString(standardcore, StandardCharsets.UTF_8).replace("accepted: []", "accepted:\n  - id: accepted-entry\n    text: \"Accepted semantic statement\""), StandardCharsets.UTF_8)
+        val standardcorebytes = Files.readAllBytes(standardcore)
+        val storyboardbytes = Files.readAllBytes(video.resolve("video/storyboard.md"))
+        val visualpagebytes = Files.readAllBytes(video.resolve("presentation/visual-pages.yaml"))
+
+        When("core review and standard-video review are requested twice")
+        _execute(List("document-project", "review", standard.toString, "--kind", "core"))
+        val coreview = standard.resolve("target/document-project/core-review.html")
+        val firstcorebytes = Files.readAllBytes(coreview)
+        _execute(List("document-project", "review", standard.toString, "--kind", "core"))
+        val explicitcoreview = root.resolve("saved/core-review.html")
+        _execute(List("document-project", "review", standard.toString, "--kind", "core", "--save", explicitcoreview.toString))
+        _execute(List("document-project", "review", video.toString, "--kind", "video"))
+        val videoreview = video.resolve("target/document-project/video-review.html")
+        val videoreviewtext = Files.readString(videoreview, StandardCharsets.UTF_8)
+
+        Then("reviews are deterministic source projections with explicit non-authority boundaries")
+        Files.readAllBytes(coreview) shouldBe firstcorebytes
+        Files.isRegularFile(explicitcoreview, LinkOption.NOFOLLOW_LINKS) shouldBe true
+        Files.readAllBytes(explicitcoreview) shouldBe firstcorebytes
+        Files.readString(coreview, StandardCharsets.UTF_8) should include("Accepted Core entries")
+        Files.readString(coreview, StandardCharsets.UTF_8) should include("<table aria-label=\"Accepted Core entries\">")
+        Files.readString(coreview, StandardCharsets.UTF_8) should include("<th scope=\"col\">Entry ID</th>")
+        Files.readString(coreview, StandardCharsets.UTF_8) should include("<th scope=\"col\">Text</th>")
+        Files.readString(coreview, StandardCharsets.UTF_8) should include("Accepted semantic statement")
+        Files.readString(coreview, StandardCharsets.UTF_8) should include("not yet persisted")
+        Files.readString(coreview, StandardCharsets.UTF_8) should include("Candidate, feedback, and acceptance surface")
+        Files.readString(coreview, StandardCharsets.UTF_8) should not include "logical-operation"
+        videoreviewtext should include("Storyboard source projection")
+        videoreviewtext should include("<table aria-label=\"Storyboard source projection\">")
+        videoreviewtext should include("<table aria-label=\"Visual-page source projection\">")
+        videoreviewtext should include("<th scope=\"col\">Source</th>")
+        videoreviewtext should include("<th scope=\"col\">Content</th>")
+        videoreviewtext should include("Visual-page source projection")
+        videoreviewtext should include("Storyboard source belongs here.")
+        videoreviewtext should include("pages: []")
+        videoreviewtext should include("No provider")
+        videoreviewtext should not include "video.render-review"
+        Files.exists(standard.resolve("target/document-project/state.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(video.resolve("target/document-project/state.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(standard.resolve("evidence"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(video.resolve("evidence"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.readAllBytes(standard.resolve("content/core-en.yaml")) shouldBe standardcorebytes
+        Files.readAllBytes(video.resolve("video/storyboard.md")) shouldBe storyboardbytes
+        Files.readAllBytes(video.resolve("presentation/visual-pages.yaml")) shouldBe visualpagebytes
+
+        Given("an admitted standard project with no accepted Core entries")
+        val emptycoreparent = Files.createDirectory(root.resolve("empty-core-parent"))
+        _execute(List("document-project", "scaffold", "empty-core-doc", "--profile", "standard", "--language", "en", "--workspace", "directory", "--save", emptycoreparent.toString))
+        val emptycoreproject = emptycoreparent.resolve("empty-core-doc.dox")
+
+        When("the empty Core review is requested")
+        _execute(List("document-project", "review", emptycoreproject.toString, "--kind", "core"))
+
+        Then("the Core review exposes an accessible table state for no entries")
+        val emptycoreviewtext = Files.readString(emptycoreproject.resolve("target/document-project/core-review.html"), StandardCharsets.UTF_8)
+        emptycoreviewtext should include("<h2>Accepted Core entries</h2>")
+        emptycoreviewtext should include("<table aria-label=\"Accepted Core entries\">")
+        emptycoreviewtext should include("No accepted Core entries are present.")
+
+        When("standard requests the disabled video review")
+        val failure = _failure(List("document-project", "review", standard.toString, "--kind", "video"))
+
+        Then("the existing operation/profile diagnostic is retained")
+        _diagnostic_tokens(failure) shouldBe Vector("DP-OP-001")
+        failure should include("logical operation video.render-review is disabled for profile standard")
+      }
+    }
+
+    "generate a deterministic logical chart from the current project IR without persistence" in {
+      _with_temp_dir("cozy-document-project-logical-chart") { root =>
+        Given("standard and standard-video projects with HTML-sensitive Core, Visual Page, and storyboard IR")
+        val standardparent = Files.createDirectory(root.resolve("standard-parent"))
+        val videoparent = Files.createDirectory(root.resolve("video-parent"))
+        _execute(List("document-project", "scaffold", "chart-doc", "--profile", "standard", "--language", "en", "--workspace", "directory", "--save", standardparent.toString))
+        _execute(List("document-project", "scaffold", "chart-video", "--profile", "standard-video", "--language", "en", "--workspace", "directory", "--save", videoparent.toString))
+        val standard = standardparent.resolve("chart-doc.dox")
+        val video = videoparent.resolve("chart-video.dox")
+        val standardcore = standard.resolve("content/core-en.yaml")
+        val standardvisualpages = standard.resolve("presentation/visual-pages.yaml")
+        val standardarticle = standard.resolve("index.dox")
+        Files.writeString(standardcore, Files.readString(standardcore, StandardCharsets.UTF_8).replace("accepted: []", "accepted:\n  - id: chart-entry\n    text: \"<script>& core\""), StandardCharsets.UTF_8)
+        Files.writeString(standardvisualpages, "pages: [\"<script>& visual\"]\n", StandardCharsets.UTF_8)
+        Files.writeString(standardarticle, "article content stays outside the logical chart\n", StandardCharsets.UTF_8)
+        val standardcorebytes = Files.readAllBytes(standardcore)
+        val standardvisualbytes = Files.readAllBytes(standardvisualpages)
+        val standardarticlebytes = Files.readAllBytes(standardarticle)
+
+        When("the standard logical chart is requested twice and saved at an exact path")
+        val standardoutput = _execute(List("document-project", "review", standard.toString, "--kind", "logical-chart"))
+        val standardchart = standard.resolve("target/document-project/logical-chart-review.html")
+        val standardfirstbytes = Files.readAllBytes(standardchart)
+        _execute(List("document-project", "review", standard.toString, "--kind", "logical-chart"))
+        val standardsecondbytes = Files.readAllBytes(standardchart)
+        val explicit = root.resolve("saved/logical-chart.html")
+        _execute(List("document-project", "review", standard.toString, "--kind", "logical-chart", "--save", explicit.toString))
+
+        Then("the standard chart is titled, escaped, deterministic, and visibly omits only its disabled video branch")
+        standardoutput should startWith("Cozy Document Project Logical Chart")
+        Files.readAllBytes(standardchart) shouldBe standardfirstbytes
+        standardsecondbytes shouldBe standardfirstbytes
+        Files.readAllBytes(explicit) shouldBe standardfirstbytes
+        val standardcharttext = Files.readString(standardchart, StandardCharsets.UTF_8)
+        standardcharttext should include("<title>Logical Chart</title>")
+        standardcharttext should include("<h1>Logical Chart</h1>")
+        standardcharttext should include("Accepted Core entries")
+        And("the chart identifies the closed Logical Chart Work Product")
+        standardcharttext should include("Work Product: <code>explanation-structure-review-html</code>; label: <span>Phase-41 Explanation Structure Review HTML</span>")
+        standardcharttext should include("chart-entry")
+        standardcharttext should include("&lt;script&gt;&amp; core")
+        standardcharttext should include("Visual Page IR source")
+        standardcharttext should include("&lt;script&gt;&amp; visual")
+        standardcharttext should include("Video storyboard IR")
+        standardcharttext should include("Omitted: profile standard disables video branch")
+        standardcharttext should not include ">missing<"
+        standardcharttext should not include ">complete<"
+        standardcharttext should include("not an authority, provider run, receipt, state cache, feedback record, or write-back mechanism")
+        standardcharttext should not include("article content stays outside the logical chart")
+        Files.exists(standard.resolve("target/document-project/state.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(standard.resolve("evidence"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.readAllBytes(standardcore) shouldBe standardcorebytes
+        Files.readAllBytes(standardvisualpages) shouldBe standardvisualbytes
+        Files.readAllBytes(standardarticle) shouldBe standardarticlebytes
+
+        val videocore = video.resolve("content/core-en.yaml")
+        val videovisualpages = video.resolve("presentation/visual-pages.yaml")
+        val videostoryboard = video.resolve("video/storyboard.md")
+        Files.writeString(videocore, Files.readString(videocore, StandardCharsets.UTF_8).replace("accepted: []", "accepted:\n  - id: video-chart-entry\n    text: \"Video <script>& core\""), StandardCharsets.UTF_8)
+        Files.writeString(videovisualpages, "pages: [\"<script>& video visual\"]\n", StandardCharsets.UTF_8)
+        Files.writeString(videostoryboard, "# Storyboard\n\n<script>& storyboard\n", StandardCharsets.UTF_8)
+        val videocorebytes = Files.readAllBytes(videocore)
+        val videovisualbytes = Files.readAllBytes(videovisualpages)
+        val videostoryboardbytes = Files.readAllBytes(videostoryboard)
+
+        When("the standard-video logical chart is requested twice")
+        _execute(List("document-project", "review", video.toString, "--kind", "logical-chart"))
+        val videochart = video.resolve("target/document-project/logical-chart-review.html")
+        val videofirstbytes = Files.readAllBytes(videochart)
+        _execute(List("document-project", "review", video.toString, "--kind", "logical-chart"))
+
+        Then("the active chart includes the storyboard and Visual Page IR without changing sources")
+        Files.readAllBytes(videochart) shouldBe videofirstbytes
+        val videocharttext = Files.readString(videochart, StandardCharsets.UTF_8)
+        videocharttext should include("video-chart-entry")
+        videocharttext should include("Video &lt;script&gt;&amp; core")
+        videocharttext should include("&lt;script&gt;&amp; video visual")
+        videocharttext should include("&lt;script&gt;&amp; storyboard")
+        videocharttext should not include("Omitted: profile standard disables video branch")
+        videocharttext should include("Logical Chart")
+        Files.exists(video.resolve("target/document-project/state.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(video.resolve("evidence"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.readAllBytes(videocore) shouldBe videocorebytes
+        Files.readAllBytes(videovisualpages) shouldBe videovisualbytes
+        Files.readAllBytes(videostoryboard) shouldBe videostoryboardbytes
+
+        When("the standard-video dashboard is projected")
+        _execute(List("document-project", "dashboard", video.toString))
+
+        Then("the existing explanation-structure Work Product is active optional and current from its IR inputs")
+        val dashboardtext = Files.readString(video.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8)
+        dashboardtext should include("explanation-structure-review-html<br/><span>Phase-41 Explanation Structure Review HTML</span></th><td>active</td><td>review-projection</td><td>optional</td>")
+        dashboardtext should include("explanation-structure-review-html</th><td>satisfied</td><td>current</td><td>pending</td><td>ready")
+        dashboardtext should include("phase-41-explanation-structure")
+        dashboardtext should include("content-core")
+        dashboardtext should include("explanation-structure")
+        dashboardtext should include("explanation-structure-reference")
+      }
+    }
+
+    "reflect mixed feedback dispositions with explicit reasons and bounded authority writes" in {
+      _with_temp_dir("cozy-document-project-feedback") { root =>
+        Given("an admitted standard project and a direct JSON feedback batch")
+        val parent = Files.createDirectory(root.resolve("parent"))
+        _execute(List("document-project", "scaffold", "sample", "--profile", "standard", "--language", "en", "--workspace", "directory", "--save", parent.toString))
+        val project = parent.resolve("sample.dox")
+        val core = project.resolve("content/core-en.yaml")
+        val article = project.resolve("index.dox")
+        val slides = project.resolve("presentation/visual-pages.yaml")
+        val infographic = project.resolve("infographic/infographic.svg")
+        val corebefore = Files.readAllBytes(core)
+        val articlebefore = Files.readAllBytes(article)
+        val slidesbefore = Files.readAllBytes(slides)
+        val feedback = root.resolve("feedback.json")
+        Files.writeString(feedback, """{
+          |  "reason": "first review batch",
+          |  "changes": [
+          |    {"target":"core","replacement":{"accepted":[{"id":"claim-1","text":"Accepted claim"}]},"applicability":"applicable","disposition":"accepted"},
+          |    {"target":"article","replacement":"proposed article","applicability":"applicable","disposition":"rejected","rejectionReason":"article needs another pass"},
+          |    {"target":"slides","replacement":"proposed slides","applicability":"not-applicable","disposition":"not-applicable","notApplicableReason":"slides are deferred"},
+          |    {"target":"infographic","replacement":"<svg>accepted</svg>\n","applicability":"applicable","disposition":"accepted"},
+          |    {"target":"video","replacement":"proposed storyboard","applicability":"not-applicable","disposition":"not-applicable","notApplicableReason":"profile does not use video"}
+          |  ]
+          |}""".stripMargin, StandardCharsets.UTF_8)
+
+        When("the mixed feedback batch is reflected")
+        val output = _execute(List("document-project", "reflect-feedback", project.toString, feedback.toString))
+
+        Then("accepted items write their mapped authority and every item reports its disposition")
+        output should startWith("Cozy Document Project Feedback Reflection")
+        output should include("reflected: core content/core-en.yaml")
+        output should include("rejected: article — article needs another pass")
+        output should include("not-applicable: slides — slides are deferred")
+        output should include("reflected: infographic infographic/infographic.svg")
+        output should include("not-applicable: video — profile does not use video")
+        output should not include "first review batch"
+        output should not include "proposed article"
+        output should not include "proposed storyboard"
+        Files.readString(core, StandardCharsets.UTF_8) should include("claim-1")
+        Files.readString(core, StandardCharsets.UTF_8) should include("Accepted claim")
+        Files.readString(core, StandardCharsets.UTF_8) should include("schema: \"cozy.content-core.v1\"")
+        Files.readString(core, StandardCharsets.UTF_8) should include("id: \"sample:core:en\"")
+        Files.readString(core, StandardCharsets.UTF_8) should include("language: \"en\"")
+        Files.readAllBytes(article) shouldBe articlebefore
+        Files.readAllBytes(slides) shouldBe slidesbefore
+        Files.readString(infographic, StandardCharsets.UTF_8) shouldBe "<svg>accepted</svg>\n"
+        Files.readAllBytes(core) should not equal corebefore
+        Files.exists(project.resolve("target"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(project.resolve("evidence"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+
+        Given("the same standard project and an amended batch that accepts the earlier article proposal")
+        val amended = root.resolve("amended-feedback.json")
+        Files.writeString(amended, """{
+          |  "reason": "amended decision",
+          |  "changes": [
+          |    {"target":"article","replacement":"accepted article source\n","applicability":"applicable","disposition":"accepted"},
+          |    {"target":"video","replacement":"still no video","applicability":"not-applicable","disposition":"not-applicable","notApplicableReason":"profile does not use video"}
+          |  ]
+          |}""".stripMargin, StandardCharsets.UTF_8)
+
+        When("the amended batch is reflected")
+        val amendedoutput = _execute(List("document-project", "reflect-feedback", project.toString, amended.toString))
+
+        Then("the formerly rejected proposal can be accepted later without persisting feedback state")
+        amendedoutput should include("reflected: article index.dox")
+        Files.readString(article, StandardCharsets.UTF_8) shouldBe "accepted article source\n"
+        Files.exists(project.resolve("target"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(project.resolve("evidence"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+      }
+    }
+
+    "reflect YAML feedback through the common structured schema" in {
+      _with_temp_dir("cozy-document-project-feedback-yaml") { root =>
+        Given("an admitted standard project and a direct YAML feedback batch")
+        val parent = Files.createDirectory(root.resolve("parent"))
+        _execute(List("document-project", "scaffold", "sample", "--profile", "standard", "--language", "en", "--workspace", "directory", "--save", parent.toString))
+        val project = parent.resolve("sample.dox")
+        val core = project.resolve("content/core-en.yaml")
+        val article = project.resolve("index.dox")
+        val slides = project.resolve("presentation/visual-pages.yaml")
+        val corebefore = Files.readAllBytes(core)
+        val articlebefore = Files.readAllBytes(article)
+        val slidesbefore = Files.readAllBytes(slides)
+        val feedback = root.resolve("feedback.yaml")
+        Files.writeString(feedback, """reason: yaml review batch
+          |changes:
+          |  - target: core
+          |    replacement:
+          |      accepted:
+          |        - id: yaml-claim
+          |          text: Accepted YAML claim
+          |    applicability: applicable
+          |    disposition: accepted
+          |  - target: article
+          |    replacement: proposed YAML article
+          |    applicability: applicable
+          |    disposition: rejected
+          |    rejectionReason: article needs another pass
+          |  - target: slides
+          |    replacement: proposed YAML slides
+          |    applicability: not-applicable
+          |    disposition: not-applicable
+          |    notApplicableReason: slides are deferred
+          |  - target: video
+          |    replacement: proposed YAML storyboard
+          |    applicability: not-applicable
+          |    disposition: not-applicable
+          |    notApplicableReason: profile does not use video
+          |""".stripMargin, StandardCharsets.UTF_8)
+
+        When("the YAML feedback batch is reflected")
+        val output = _execute(List("document-project", "reflect-feedback", project.toString, feedback.toString))
+
+        Then("YAML has the same disposition output and bounded authority behavior as JSON")
+        output should startWith("Cozy Document Project Feedback Reflection")
+        output should include("reflected: core content/core-en.yaml")
+        output should include("rejected: article — article needs another pass")
+        output should include("not-applicable: slides — slides are deferred")
+        output should include("not-applicable: video — profile does not use video")
+        output should not include "yaml review batch"
+        output should not include "proposed YAML article"
+        output should not include "proposed YAML storyboard"
+        Files.readString(core, StandardCharsets.UTF_8) should include("yaml-claim")
+        Files.readAllBytes(core) should not equal corebefore
+        Files.readAllBytes(article) shouldBe articlebefore
+        Files.readAllBytes(slides) shouldBe slidesbefore
+        Files.exists(project.resolve("target"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(project.resolve("evidence"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+      }
+    }
+
+    "map every accepted feedback target, including the active video source" in {
+      _with_temp_dir("cozy-document-project-feedback-targets") { root =>
+        Given("an admitted standard-video project and one accepted replacement for each authority mapping")
+        val parent = Files.createDirectory(root.resolve("parent"))
+        _execute(List("document-project", "scaffold", "video", "--profile", "standard-video", "--language", "en", "--workspace", "directory", "--save", parent.toString))
+        val project = parent.resolve("video.dox")
+        val feedback = root.resolve("all-targets.json")
+        Files.writeString(feedback, """{
+          |  "reason": "accept all authorities",
+          |  "changes": [
+          |    {"target":"core","replacement":{"accepted":[]},"applicability":"applicable","disposition":"accepted"},
+          |    {"target":"article","replacement":"article\n","applicability":"applicable","disposition":"accepted"},
+          |    {"target":"slides","replacement":"slides\n","applicability":"applicable","disposition":"accepted"},
+          |    {"target":"infographic","replacement":"infographic\n","applicability":"applicable","disposition":"accepted"},
+          |    {"target":"video","replacement":"storyboard\n","applicability":"applicable","disposition":"accepted"}
+          |  ]
+          |}""".stripMargin, StandardCharsets.UTF_8)
+
+        When("all accepted feedback targets are reflected")
+        val output = _execute(List("document-project", "reflect-feedback", project.toString, feedback.toString))
+
+        Then("each target maps to its exact in-project authority path")
+        output should include("reflected: core content/core-en.yaml")
+        output should include("reflected: article index.dox")
+        output should include("reflected: slides presentation/visual-pages.yaml")
+        output should include("reflected: infographic infographic/infographic.svg")
+        output should include("reflected: video video/storyboard.md")
+        Files.readString(project.resolve("index.dox"), StandardCharsets.UTF_8) shouldBe "article\n"
+        Files.readString(project.resolve("presentation/visual-pages.yaml"), StandardCharsets.UTF_8) shouldBe "slides\n"
+        Files.readString(project.resolve("infographic/infographic.svg"), StandardCharsets.UTF_8) shouldBe "infographic\n"
+        Files.readString(project.resolve("video/storyboard.md"), StandardCharsets.UTF_8) shouldBe "storyboard\n"
+        Files.exists(project.resolve("target"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(project.resolve("evidence"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+      }
+    }
+
+    "prevalidate feedback combinations, replacements, profile rules, and unsafe input without writes" in {
+      _with_temp_dir("cozy-document-project-feedback-invalid") { root =>
+        Given("an admitted standard project and unchanged authority bytes")
+        val parent = Files.createDirectory(root.resolve("parent"))
+        _execute(List("document-project", "scaffold", "sample", "--profile", "standard", "--language", "en", "--workspace", "directory", "--save", parent.toString))
+        val project = parent.resolve("sample.dox")
+        val core = project.resolve("content/core-en.yaml")
+        val article = project.resolve("index.dox")
+        val corebefore = Files.readAllBytes(core)
+        val articlebefore = Files.readAllBytes(article)
+
+        When("an incompatible applicability/disposition pair is supplied")
+        val incompatible = root.resolve("incompatible.json")
+        Files.writeString(incompatible, """{"reason":"invalid","changes":[{"target":"article","replacement":"new","applicability":"not-applicable","disposition":"accepted"}]}""", StandardCharsets.UTF_8)
+        val incompatiblefailure = _failure(List("document-project", "reflect-feedback", project.toString, incompatible.toString))
+
+        Then("the grammar diagnostic is returned before any authority write")
+        _diagnostic_tokens(incompatiblefailure) shouldBe Vector("DP-CLI-001")
+        Files.readAllBytes(core) shouldBe corebefore
+        Files.readAllBytes(article) shouldBe articlebefore
+        Files.exists(project.resolve("target"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+
+        When("a Core replacement repeats an entry identity")
+        val duplicatecore = root.resolve("duplicate-core.json")
+        Files.writeString(duplicatecore, """{"reason":"invalid","changes":[{"target":"core","replacement":{"accepted":[{"id":"same","text":"one"},{"id":"same","text":"two"}]},"applicability":"applicable","disposition":"accepted"},{"target":"video","replacement":"none","applicability":"not-applicable","disposition":"not-applicable","notApplicableReason":"profile does not use video"}]}""", StandardCharsets.UTF_8)
+        val duplicatefailure = _failure(List("document-project", "reflect-feedback", project.toString, duplicatecore.toString))
+
+        Then("the descriptor diagnostic is returned and the sources remain unchanged")
+        _diagnostic_tokens(duplicatefailure) shouldBe Vector("DP-DESC-001")
+        Files.readAllBytes(core) shouldBe corebefore
+        Files.readAllBytes(article) shouldBe articlebefore
+
+        When("standard receives an applicable video item after an accepted Core proposal")
+        val videofailurebatch = root.resolve("video-applicable.json")
+        Files.writeString(videofailurebatch, """{"reason":"invalid profile","changes":[{"target":"core","replacement":{"accepted":[{"id":"would-not-write","text":"proposal"}]},"applicability":"applicable","disposition":"accepted"},{"target":"video","replacement":"video","applicability":"applicable","disposition":"rejected","rejectionReason":"disabled"}]}""", StandardCharsets.UTF_8)
+        val videofailure = _failure(List("document-project", "reflect-feedback", project.toString, videofailurebatch.toString))
+
+        Then("the profile operation diagnostic wins before all writes")
+        _diagnostic_tokens(videofailure) shouldBe Vector("DP-OP-001")
+        Files.readAllBytes(core) shouldBe corebefore
+        Files.exists(project.resolve("target"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+
+        When("a symbolic-link feedback input is supplied")
+        val external = root.resolve("external.json")
+        Files.writeString(external, "{}", StandardCharsets.UTF_8)
+        val linked = root.resolve("linked-feedback.json")
+        Files.createSymbolicLink(linked, external)
+        val pathfailure = _failure(List("document-project", "reflect-feedback", project.toString, linked.toString))
+
+        Then("unsafe input is rejected without changing an authority")
+        _diagnostic_tokens(pathfailure) shouldBe Vector("DP-PATH-001")
+        Files.readAllBytes(core) shouldBe corebefore
+        Files.readAllBytes(article) shouldBe articlebefore
+
+        When("an accepted authority source is replaced by a symbolic link")
+        val externalarticle = root.resolve("external-article.dox")
+        Files.writeString(externalarticle, "external article\n", StandardCharsets.UTF_8)
+        Files.delete(article)
+        Files.createSymbolicLink(article, externalarticle)
+        val sourcebatch = root.resolve("unsafe-source.json")
+        Files.writeString(sourcebatch, """{"reason":"unsafe source","changes":[{"target":"article","replacement":"new article","applicability":"applicable","disposition":"accepted"},{"target":"video","replacement":"none","applicability":"not-applicable","disposition":"not-applicable","notApplicableReason":"profile does not use video"}]}""", StandardCharsets.UTF_8)
+        val sourcefailure = _failure(List("document-project", "reflect-feedback", project.toString, sourcebatch.toString))
+
+        Then("the unsafe source is rejected before any replacement")
+        _diagnostic_tokens(sourcefailure) shouldBe Vector("DP-PATH-001")
+        Files.readAllBytes(core) shouldBe corebefore
+        Files.readString(externalarticle, StandardCharsets.UTF_8) shouldBe "external article\n"
+
+        When("a feedback file has an unsupported suffix")
+        val unsupported = root.resolve("unsupported.conf")
+        Files.writeString(unsupported, "not valid feedback", StandardCharsets.UTF_8)
+        val unsupportedfailure = _failure(List("document-project", "reflect-feedback", project.toString, unsupported.toString))
+
+        Then("the suffix is rejected before structured parsing without changing an authority")
+        _diagnostic_tokens(unsupportedfailure) shouldBe Vector("DP-CLI-001")
+        Files.readAllBytes(core) shouldBe corebefore
+
+        When("feedback JSON or YAML syntax is malformed")
+        val malformedjson = root.resolve("malformed.json")
+        Files.writeString(malformedjson, "{\"reason\": \"missing close\"", StandardCharsets.UTF_8)
+        val malformedjsonfailure = _failure(List("document-project", "reflect-feedback", project.toString, malformedjson.toString))
+        val malformedyaml = root.resolve("malformed.yaml")
+        Files.writeString(malformedyaml, "reason: [missing close", StandardCharsets.UTF_8)
+        val malformedyamlfailure = _failure(List("document-project", "reflect-feedback", project.toString, malformedyaml.toString))
+
+        Then("both syntax failures use the feedback grammar diagnostic without changing an authority")
+        _diagnostic_tokens(malformedjsonfailure) shouldBe Vector("DP-CLI-001")
+        _diagnostic_tokens(malformedyamlfailure) shouldBe Vector("DP-CLI-001")
+        Files.readAllBytes(core) shouldBe corebefore
+        Files.readString(externalarticle, StandardCharsets.UTF_8) shouldBe "external article\n"
+      }
+    }
+
+    "reject unsafe dashboard output destinations without direct-write fallback" in {
+      _with_temp_dir("cozy-document-project-dashboard-path") { root =>
+        Given("an admitted standard project, a real output parent, and a symbolic-link alias")
+        val parent = Files.createDirectory(root.resolve("parent"))
+        _execute(List("document-project", "scaffold", "sample", "--profile", "standard", "--language", "en", "--workspace", "directory", "--save", parent.toString))
+        val project = parent.resolve("sample.dox")
+        val realoutput = Files.createDirectory(root.resolve("real-output"))
+        val linkedoutput = root.resolve("linked-output")
+        Files.createSymbolicLink(linkedoutput, realoutput)
+        val linkedparentdestination = linkedoutput.resolve("dashboard.html")
+        val external = root.resolve("external-dashboard.html")
+        Files.writeString(external, "external\n", StandardCharsets.UTF_8)
+        val symlinkdestination = root.resolve("symlink-dashboard.html")
+        Files.createSymbolicLink(symlinkdestination, external)
+        val fileparent = root.resolve("file-output")
+        Files.writeString(fileparent, "not a directory\n", StandardCharsets.UTF_8)
+        val fileparentdestination = fileparent.resolve("dashboard.html")
+
+        When("dashboard is directed through a symbolic-link parent, non-directory parent, or symbolic-link destination")
+        val parentfailure = _failure(List("document-project", "dashboard", project.toString, "--save", linkedparentdestination.toString))
+        val fileparentfailure = _failure(List("document-project", "dashboard", project.toString, "--save", fileparentdestination.toString))
+        val destinationfailure = _failure(List("document-project", "dashboard", project.toString, "--save", symlinkdestination.toString))
+
+        Then("all unsafe paths reject with DP-PATH-001 and publish no projection")
+        _diagnostic_tokens(parentfailure) shouldBe Vector("DP-PATH-001")
+        _diagnostic_tokens(fileparentfailure) shouldBe Vector("DP-PATH-001")
+        _diagnostic_tokens(destinationfailure) shouldBe Vector("DP-PATH-001")
+        Files.exists(linkedparentdestination, LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.readString(external, StandardCharsets.UTF_8) shouldBe "external\n"
+      }
+    }
+
+    "reject Project-internal projection collisions before creating parents or replacing authorities" in {
+      _with_temp_dir("cozy-document-project-projection-collision") { root =>
+        Given("an admitted standard-video project and direct authored authorities")
+        val parent = Files.createDirectory(root.resolve("parent"))
+        _execute(List("document-project", "scaffold", "collision", "--profile", "standard-video", "--language", "en", "--workspace", "directory", "--save", parent.toString))
+        val project = parent.resolve("collision.dox")
+        val descriptor = project.resolve("document-project.yaml")
+        val core = project.resolve("content/core-en.yaml")
+        val article = project.resolve("index.dox")
+        val visualpages = project.resolve("presentation/visual-pages.yaml")
+        val descriptorbytes = Files.readAllBytes(descriptor)
+        val corebytes = Files.readAllBytes(core)
+        val articlebytes = Files.readAllBytes(article)
+        val visualpagebytes = Files.readAllBytes(visualpages)
+
+        When("each projection command is directed at an authored Project authority")
+        val dashboardfailure = _failure(List("document-project", "dashboard", project.toString, "--save", descriptor.toString))
+        val corereviewfailure = _failure(List("document-project", "review", project.toString, "--kind", "core", "--save", core.toString))
+        val videoreviewfailure = _failure(List("document-project", "review", project.toString, "--kind", "video", "--save", article.toString))
+        val logicalchartfailure = _failure(List("document-project", "review", project.toString, "--kind", "logical-chart", "--save", visualpages.toString))
+
+        Then("dashboard and every review kind reject with one path diagnostic before publication")
+        Vector(dashboardfailure, corereviewfailure, videoreviewfailure, logicalchartfailure).foreach { failure =>
+          _diagnostic_tokens(failure) shouldBe Vector("DP-PATH-001")
+        }
+        Files.readAllBytes(descriptor) shouldBe descriptorbytes
+        Files.readAllBytes(core) shouldBe corebytes
+        Files.readAllBytes(article) shouldBe articlebytes
+        Files.readAllBytes(visualpages) shouldBe visualpagebytes
+
+        When("an in-project state or evidence path is selected before its parent exists")
+        val state = project.resolve("target/document-project/state.yaml")
+        val attempt = project.resolve("evidence/attempts/projection.html")
+        val statefailure = _failure(List("document-project", "dashboard", project.toString, "--save", state.toString))
+        val attemptfailure = _failure(List("document-project", "review", project.toString, "--kind", "core", "--save", attempt.toString))
+
+        Then("state and evidence paths reject before creating target or evidence parents")
+        _diagnostic_tokens(statefailure) shouldBe Vector("DP-PATH-001")
+        _diagnostic_tokens(attemptfailure) shouldBe Vector("DP-PATH-001")
+        Files.exists(project.resolve("target"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(project.resolve("evidence"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(project.resolve("evidence/attempts"), LinkOption.NOFOLLOW_LINKS) shouldBe false
       }
     }
 
@@ -392,12 +965,22 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       val unknown = _failure(List("document-project", "unknown", "sample.dox"))
       val missingproject = _failure(List("document-project", "verify"))
       val missingoperation = _failure(List("document-project", "run", "sample.dox"))
+      val missingreviewkind = _failure(List("document-project", "review", "sample.dox"))
+      val invalidreviewkind = _failure(List("document-project", "review", "sample.dox", "--kind", "logical-chart-extra"))
+      val reviewoperation = _failure(List("document-project", "review", "sample.dox", "--kind", "core", "--operation", "article.render-pdf"))
+      val missingfeedback = _failure(List("document-project", "reflect-feedback", "sample.dox"))
+      val extrafeedback = _failure(List("document-project", "reflect-feedback", "sample.dox", "feedback.json", "extra"))
 
       Then("grammar failures precede only with DP-CLI-001 and missing forms use DP-CLI-002")
       spelling should include("DP-CLI-001")
       unknown should include("DP-CLI-001")
       missingproject should include("DP-CLI-002")
       missingoperation should include("DP-CLI-002")
+      missingreviewkind should include("DP-CLI-002")
+      invalidreviewkind should include("DP-CLI-001")
+      reviewoperation should include("DP-CLI-001")
+      missingfeedback should include("DP-CLI-002")
+      extrafeedback should include("DP-CLI-001")
     }
 
     "record one immutable attempt for each eligible run without executing a provider" in {
@@ -571,11 +1154,22 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       When("the Document Project command section is inspected")
       val help = CozyHelpText._text
 
-      Then("each no-alias form and the Phase 42 dashboard boundary are described")
+      Then("each no-alias form and the Phase 42.1 projection boundary are described")
       help should include("document-project inspect <project>")
+      help should include("document-project dashboard <project> [--save <dashboard.html>]")
+      help should include("document-project review <project> --kind core|video|logical-chart [--save <review.html>]")
+      help should include("document-project reflect-feedback <project> <feedback>")
       help should include("document-project run <project> --operation <logical-operation> [--dry-run]")
       help should include("document-project scaffold <slug> --profile standard|standard-video --language <tag> --workspace directory|bok --save <parent>")
-      help should include("Dashboard is reserved for Phase 42.1 and rejects in Phase 42")
+      help should include("Dashboard defaults to target/document-project/project-dashboard.html")
+      help should include("Core review defaults to target/document-project/core-review.html")
+      help should include("Video review defaults to target/document-project/video-review.html")
+      help should include("Logical chart defaults to target/document-project/logical-chart-review.html")
+      help should include("Logical Chart visualizes current Content Core, Visual Page, and applicable storyboard IR")
+      help should include("same-directory temporary file and atomic move")
+      help should include("direct JSON or YAML structured feedback with one common object schema")
+      help should include("each item retains its proposal, applicability, and disposition")
+      help should include("Standard requires a not-applicable video item")
     }
   }
 
