@@ -89,8 +89,8 @@ never authority; eventual Phase 42.1 attempt/review evidence MUST retain
 provider, model, request, and response identities and explicit review
 acceptance before any Core write-back.  That evidence MUST NOT make the Core
 into mutable status or a receipt.  Structured semantic vocabulary and
-automation remain out of scope.  This specification does not yet define a
-persisted attempt or review format.
+automation remain out of scope.  The Phase 42.1 evidence/attempt contract
+below does not add a Core field or make attempt evidence a review authority.
 
 The closed descriptor and Core fields above are permanently closed and are not
 expandable.  DP42-02 closes only the workflow-owned Work Product, provider-binding,
@@ -180,6 +180,104 @@ Dashboard HTML and review HTML MUST be generated read-only projections.  They
 MUST NOT become semantic, workflow, renderer, receipt, or status authority and
 MUST NOT write back into authored sources.
 
+## Phase 42.1 evidence and attempt contract
+
+This section is the normative Phase 42.1 evidence boundary.  DP42-03B
+implements the disposable snapshot cache described here and DP42-03C
+implements recorded single-operation dispatch and append-only attempt
+persistence.  Evidence-based stale propagation remains a later follow-up.
+
+`cozy.document-project-state.v1` MUST be a disposable derived YAML snapshot at
+`<project>/target/document-project/state.yaml`.  It is neither an authored
+authority nor a state override and MUST NOT be edited to alter project state.
+Deleting `<project>/target/document-project` and inspecting unchanged admitted
+project inputs MUST reconstruct an identical snapshot.
+
+Successful `inspect` and `verify` MUST regenerate the snapshot after all
+descriptor, Core, and command-specific source validation succeeds.  The
+canonical UTF-8 YAML serialization MUST contain, in this order, `schema`,
+`project`, `profile`, `workspace`, `sources`, and `workProducts`.  `schema` is
+exactly `cozy.document-project-state.v1`; the three identity values are taken
+from the admitted descriptor.  `sources` is a fixed-order list of direct,
+project-relative authored inputs, each with only `path` and its lowercase
+hexadecimal `sha256` content identity.  The admitted source order is the
+descriptor, the exact Core, `index.dox`, editable infographic SVG, Visual Page
+source, review README, and the standard-video storyboard when directly
+present.  The serialization MUST contain no absolute path, timestamp, random
+value, directory-discovery order, generated output, receipt, or attempt.
+
+`workProducts` MUST follow the closed `document-production` Work Product order.
+Each entry MUST contain `id`, `role`, `disposition`, `criterion`, `coverage`,
+`currentness`, `review`, and `readiness`, using only the DP42-03A vocabularies.
+The source-backed Core, article, infographic, and activated storyboard
+projections may be `satisfied`/`current`; absent output or receipt-dependent
+evidence remains `missing`, `blocked`, and `pending`.  A disabled standard
+video entry MUST be `coverage: not-applicable` and `readiness: omitted`, with
+`reason: profile standard disables video branch`; it MUST never be treated as
+complete.  DP42-03C implements immutable append-only attempts and recorded
+dispatch only.  This initial projection has no retained receipt or dependency
+evidence from which to derive `stale`; receipt evidence and evidence-based
+dependency/stale propagation remain later Phase 42.1 work.
+
+`cozy.document-operation-attempt.v1` MUST be durable append-only evidence at
+`<project>/evidence/attempts/<attempt-id>.yaml`.  Attempts MUST NOT be
+scaffolded.  Existing attempt bytes MUST NOT be overwritten; failures and
+superseded attempts MUST remain inspectable.  The existence of an attempt MUST
+NOT by itself make a Work Product current, complete, reviewed, or accepted.
+Each attempt MUST be UTF-8 YAML with exactly these ordered top-level keys:
+`schema`, `id`, `operation`, `provider`, `profile`, `inputs`, `outcome`,
+`diagnostics`, `outputs`, and `receipt`.  `schema` MUST be exactly
+`cozy.document-operation-attempt.v1`; `id` MUST be a newly generated stable
+attempt identifier; `operation` and `provider` MUST be the declared operation
+and its frozen workflow provider binding; and `profile` MUST be copied from
+the descriptor.  `inputs` MUST be the fixed-order direct project-relative
+descriptor, Core, and initial authored source identities, each containing only
+`path` and a lowercase hexadecimal SHA-256 `sha256`.  A recorded dispatch MUST
+use `outcome: recorded`, one diagnostic that provider execution is deferred and
+the dispatch was recorded only, `outputs: []`, and `receipt: none`.  It MUST
+not invoke a provider, generate a deliverable, create a receipt, write back
+the Core, update the disposable snapshot, or infer downstream work.  Accepted
+review evidence MUST remain separate from an attempt and MUST be present before
+a Content Core write-back.
+
+DP42-03C MUST publish an eligible attempt by writing a same-directory
+temporary file and moving it with `ATOMIC_MOVE` without replacement.  The
+`evidence` and `evidence/attempts` directories and every attempt file MUST be
+direct, non-symlinked project entries.  Attempts are never scaffolded.  A
+collision or publication failure MUST preserve every existing attempt byte,
+leave no partial attempt file, and return a stable path/evidence diagnostic.
+
+The snapshot MUST independently represent all of the following derived views:
+
+- coverage for each criterion as `satisfied`, `missing`, or `not-applicable`;
+- currentness as `missing`, `current`, `stale`, or `failed`, derived from
+  declared identities rather than timestamps;
+- review as `pending`, `accepted`, `rejected`, or `stale`; and
+- readiness as `blocked`, `ready`, `running`, `succeeded`, `failed`, or
+  `omitted`.
+
+`omitted` MUST expose its declared profile reason and MUST NOT be counted as
+completion.  Reconstruction MUST use only the closed `document-production`
+Work Product definition; descriptor and Core identities; retained source,
+receipt, review, and attempt evidence; and declared producer, consumer, and
+dependency identities.  It MUST NOT infer state from filenames or timestamps.
+A changed dependency MUST make every declared consumer `stale`; consequently,
+a changed shared infographic MUST make its declared article, slides, and video
+consumers `stale`.
+
+`inspect` and `verify` remain non-authoritative.  An implementation of either
+command MAY write only the disposable snapshot cache above; it MUST NOT write
+an attempt, receipt, acceptance, authored source, registry, workspace
+integration, aggregate build, publication, deployment, upload, or downstream
+operation.  DP42-03C `run` admits exactly one declared, registered operation
+that is enabled by the selected profile and creates exactly one append-only
+attempt, or, with `--dry-run`, reports the selected operation, provider, and
+profile without creating any cache, evidence, output, or other file.  It MUST
+NOT infer downstream execution.  The closed descriptor fields, common workflow
+DAG, profiles, Work Product roles, criteria, gates, operation IDs, provider
+bindings, retained media/SmartDox/Visual Page/Phase-41 authorities, public
+command grammar, and Phase-42 compatibility behavior remain unchanged.
+
 ## Public command grammar and boundaries
 
 The complete public Document Project command grammar is:
@@ -214,7 +312,9 @@ namespace MUST remain distinct from existing software Project knowledge-package
 and `cozy media` commands.  No alias or ambiguous dispatch is permitted.
 
 - `inspect` MUST inspect and report a derived project view without mutating
-  authored authority, project state, evidence, registration, or delivery.
+  authored authority, durable evidence, registration, or delivery.  The
+  successful command MUST regenerate only the disposable snapshot cache
+  specified above, and MUST identify its project-relative location in output.
 - `plan` MUST resolve the closed reusable definition and report deterministic
   static `active` and `omitted` Work Product lines and `blocked` and `eligible`
   logical-operation lines without mutating authored authority, project state,
@@ -229,16 +329,23 @@ and `cozy media` commands.  No alias or ambiguous dispatch is permitted.
   output destination.  That rejection MUST create no destination, generated
   state, receipt, approval, attempt, registry, or delivery evidence.
 - `verify` MUST inspect declared project material for conformance without
-  mutating authored authority, project state, evidence, registration, or
-  delivery.
-- `run --operation` MUST admit only one declared logical operation and MUST NOT
-  execute it in Phase 42.  A known declared name, with or without `--dry-run`,
-  MUST reject with `DP-OP-001` and exactly `execution and Operation Attempts
-  are reserved for Phase 42.1`.  An unknown name MUST reject with `DP-OP-001`
-  as an undeclared logical operation.  Neither result may create an attempt,
-  receipt, generated state, dashboard, registry, delivery, or output file, or
-  infer downstream publication, workspace-wide execution, aggregate build,
-  registration, deployment, or upload.
+  mutating authored authority, durable evidence, registration, or delivery.
+  After successful validation it MUST regenerate only the disposable snapshot
+  cache specified above and MUST identify its project-relative location in
+  output.  Failed validation MUST create no new cache.
+- `run --operation` MUST validate the descriptor, Core, and all command-admitted
+  initial authored sources before any evidence write.  It MUST admit exactly
+  one declared logical operation enabled by the selected profile.  A normal
+  eligible run MUST record one append-only attempt and MUST NOT invoke a
+  provider, generate a deliverable or receipt, write the Core or state cache,
+  or infer downstream work.  `--dry-run` uses the same admission and reports
+  the operation, provider, and profile without creating an attempt or cache.
+  An unknown operation or a declared operation disabled by the selected profile
+  MUST reject with `DP-OP-001`; malformed or unsafe project input retains its
+  earlier descriptor/path diagnostic precedence.  Rejection MUST create no
+  attempt, receipt, generated state, dashboard, registry, delivery, or output
+  file, and MUST not infer downstream publication, workspace-wide execution,
+  aggregate build, registration, deployment, or upload.
 - `scaffold` MUST create only the authored initial package described below.  It
   MUST NOT register, build, publish, deploy, upload, or create delivery
   evidence implicitly.
@@ -302,7 +409,7 @@ another token.  This Slice does not prescribe an exception class or exit code.
 | 5 | `DP-SCAFFOLD-001` | `scaffold` has safe paths, but its destination already exists, its parent is absent or non-real, or the required atomic move cannot be completed. |
 | 6 | `DP-DESC-001` | An inspected, planned, verified, or run project has a missing, unreadable, or malformed descriptor or Core after path admission. |
 | 7 | `DP-DESC-002` | A successfully parsed descriptor or Core has an unknown field or unsupported or invalid closed value or relationship after descriptor admission. |
-| 8 | `DP-OP-001` | A path- and descriptor-valid `run` request names an unknown or undeclared logical operation, or a declared logical operation rejected at the Phase 42.1 reservation boundary. |
+| 8 | `DP-OP-001` | A path- and descriptor-valid `run` request names an unknown or undeclared logical operation, or a declared logical operation disabled by the selected profile. |
 
 Successful `inspect`, `plan`, `verify`, and `scaffold` output MUST begin with,
 respectively, `Cozy Document Project Inspect`, `Cozy Document Project Plan`,
@@ -311,8 +418,7 @@ such success output MUST identify the project and schema.  Scaffold success
 output MUST also identify package, workflow, profile, and workspace.  This
 Slice defines no dashboard success output because `dashboard` rejects in Phase
 42.  Phase 42.1 implements its already-fixed explicit-output grammar; this
-Slice does not define dashboard contents, operation-attempt persistence, or
-receipts.
+Slice does not define dashboard contents or receipt evidence.
 
 ## Non-goals and deliberate deferrals
 
@@ -324,17 +430,17 @@ migration, or Phase 41 expansion.
 The closed `cozy.document-project.v1` descriptor fields are not deferred or
 expandable.  DP42-02 closes the workflow-owned Work Product, provider-binding,
 deliverable-disposition, criteria/gate, evidence-reference, and operation
-model only as the static in-code definition specified above.  Canonical
-serialization and identity calculation; SmartDox source projection and host
-discovery; and all Phase 42.1 dashboard/state/attempt/receipt/review/driver
-behavior remain deferred.  Phase 42.1 owns executable dashboard content,
-derived state reconstruction, append-only attempt persistence,
-receipts/currentness/stale propagation, review projection, and driver
-acceptance.  It consumes the closed DP42-02 definition and implements the
-already-fixed dashboard grammar; it MUST NOT expand descriptor fields or
-redefine profiles, Work Product roles, criteria, gates, operations, or provider
-bindings.  This specification MUST NOT be represented as implementing,
-accepting, or proving compatibility for those deferred matters.
+model only as the static in-code definition specified above.  SmartDox source
+projection and host discovery, dashboard rendering, receipt evidence,
+evidence-based stale propagation, review projection, and driver acceptance
+remain deferred.  DP42-03B implements the
+deterministic disposable state reconstruction specified above and DP42-03C
+implements recorded append-only attempts; later Phase 42.1 Slices own the
+remaining capabilities.  They consume the closed
+DP42-02 definition and MUST NOT expand descriptor fields or redefine profiles,
+Work Product roles, criteria, gates, operations, or provider bindings.  This
+specification MUST NOT be represented as implementing, accepting, or proving
+compatibility for those deferred matters.
 
 ## Related authorities
 

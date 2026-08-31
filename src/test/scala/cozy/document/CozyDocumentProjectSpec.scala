@@ -64,6 +64,46 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         verify should startWith("Cozy Document Project Verify")
         verify should include("schema: cozy.document-project.v1")
 
+        And("successful inspections and verification expose only a deterministic disposable state cache")
+        val state = project.resolve("target/document-project/state.yaml")
+        Files.isRegularFile(state, LinkOption.NOFOLLOW_LINKS) shouldBe true
+        inspect should include("state: target/document-project/state.yaml")
+        verify should include("state: target/document-project/state.yaml")
+        val firststate = Files.readString(state, StandardCharsets.UTF_8)
+        firststate should include("schema: cozy.document-project-state.v1")
+        firststate should include("workProducts:")
+        firststate should include("coverage: satisfied")
+        firststate should include("currentness: current")
+        firststate should include("review: pending")
+        firststate should include("readiness: ready")
+        firststate should include("coverage: not-applicable")
+        firststate should include("readiness: omitted")
+        firststate should include("reason: profile standard disables video branch")
+        Files.exists(project.resolve("evidence/attempts"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        val descriptor = project.resolve("document-project.yaml")
+        val descriptorbytes = Files.readAllBytes(descriptor)
+        val coretext = Files.readString(project.resolve("content/core-en.yaml"), StandardCharsets.UTF_8)
+
+        When("inspect replaces a cache state entry hard linked to the authored descriptor")
+        Files.delete(state)
+        Files.createLink(state, descriptor)
+        _execute(List("document-project", "inspect", project.toString))
+
+        Then("the descriptor bytes remain authored evidence and the regenerated cache is independent")
+        Files.readAllBytes(descriptor) shouldBe descriptorbytes
+        Files.isSameFile(state, descriptor) shouldBe false
+        Files.readString(state, StandardCharsets.UTF_8) should include("schema: cozy.document-project-state.v1")
+
+        When("the cache is deleted and inspect reconstructs it")
+        Files.delete(state)
+        Files.delete(state.getParent)
+        _execute(List("document-project", "inspect", project.toString))
+
+        Then("the reconstructed cache remains deterministic and authored inputs remain unchanged")
+        Files.readString(state, StandardCharsets.UTF_8) shouldBe firststate
+        Files.readAllBytes(descriptor) shouldBe descriptorbytes
+        Files.readString(project.resolve("content/core-en.yaml"), StandardCharsets.UTF_8) shouldBe coretext
+
         And("a parsed unknown field remains a closed-descriptor diagnostic")
         Files.writeString(project.resolve("document-project.yaml"), Files.readString(project.resolve("document-project.yaml"), StandardCharsets.UTF_8) + "unknown: value\n", StandardCharsets.UTF_8)
         _failure(List("document-project", "inspect", project.toString)) should include("DP-DESC-002")
@@ -275,6 +315,8 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
 
         Then("the first and sole stable diagnostic is the unsafe-path token")
         _diagnostic_tokens(failure) shouldBe Vector("DP-PATH-001")
+        And("failed source validation creates no disposable state cache")
+        Files.exists(project.resolve("target"), LinkOption.NOFOLLOW_LINKS) shouldBe false
       }
     }
 
@@ -358,32 +400,150 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       missingoperation should include("DP-CLI-002")
     }
 
-    "admit declared run operations without executing or recording an attempt" in {
+    "record one immutable attempt for each eligible run without executing a provider" in {
       _with_temp_dir("cozy-document-project-run") { root =>
         Given("an admitted standard Document Project")
         val parent = Files.createDirectory(root.resolve("parent"))
         _execute(List("document-project", "scaffold", "sample", "--profile", "standard", "--language", "en", "--workspace", "directory", "--save", parent.toString))
         val project = parent.resolve("sample.dox")
+        val attempts = project.resolve("evidence/attempts")
+        val authored = project.resolve("index.dox")
+        val authoredbytes = Files.readAllBytes(authored)
 
-        When("run names declared, dry-run declared, and undeclared logical operations")
-        val declared = _failure(List("document-project", "run", project.toString, "--operation", "article.render-pdf"))
-        val dryrun = _failure(List("document-project", "run", project.toString, "--operation", "article.render-pdf", "--dry-run"))
-        val undeclared = _failure(List("document-project", "run", project.toString, "--operation", "render"))
+        When("dry-run admits the declared operation")
+        val dryrun = _execute(List("document-project", "run", project.toString, "--operation", "article.render-pdf", "--dry-run"))
 
-        Then("declared names stop at the Phase 42.1 execution boundary")
-        declared should include("DP-OP-001")
-        declared should include("execution and Operation Attempts are reserved for Phase 42.1")
-        dryrun should include("DP-OP-001")
-        dryrun should include("execution and Operation Attempts are reserved for Phase 42.1")
+        Then("dry-run reports the selected operation and does not persist any evidence")
+        dryrun should include("operation: article.render-pdf")
+        dryrun should include("provider: smartdox-rendering")
+        dryrun should include("profile: standard")
+        dryrun should include("outcome: not-recorded")
+        Files.exists(attempts, LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(project.resolve("target"), LinkOption.NOFOLLOW_LINKS) shouldBe false
 
-        And("an undeclared name remains a distinct declared-operation admission failure")
-        undeclared should include("DP-OP-001")
-        undeclared should include("undeclared logical operation: render")
+        When("an eligible operation is run twice")
+        val firstoutput = _execute(List("document-project", "run", project.toString, "--operation", "article.render-pdf"))
+        val firstattempt = project.resolve(firstoutput.linesIterator.find(_.startsWith("attempt: ")).get.stripPrefix("attempt: "))
+        val firstbytes = Files.readAllBytes(firstattempt)
+        val secondoutput = _execute(List("document-project", "run", project.toString, "--operation", "article.render-pdf"))
+        val secondattempt = project.resolve(secondoutput.linesIterator.find(_.startsWith("attempt: ")).get.stripPrefix("attempt: "))
 
-        And("none of the admissions creates generated evidence")
+        Then("each run records one canonical attempt and preserves the first immutable bytes")
+        firstoutput should include("outcome: recorded")
+        secondoutput should include("outcome: recorded")
+        firstattempt should not equal secondattempt
+        Files.readAllBytes(firstattempt) shouldBe firstbytes
+        Files.readAllBytes(authored) shouldBe authoredbytes
+        _relative_files(attempts).size shouldBe 2
+        val attempttext = Files.readString(firstattempt, StandardCharsets.UTF_8)
+        attempttext.linesIterator.filterNot(_.startsWith(" ")).map(_.takeWhile(_ != ':')).toVector shouldBe Vector(
+          "schema", "id", "operation", "provider", "profile", "inputs", "outcome", "diagnostics", "outputs", "receipt"
+        )
+        attempttext.linesIterator.take(10).toVector shouldBe Vector(
+          "schema: cozy.document-operation-attempt.v1",
+          attempttext.linesIterator.drop(1).next(),
+          "operation: article.render-pdf",
+          "provider: smartdox-rendering",
+          "profile: standard",
+          "inputs:",
+          "  - path: document-project.yaml",
+          attempttext.linesIterator.drop(7).next(),
+          "  - path: content/core-en.yaml",
+          attempttext.linesIterator.drop(9).next()
+        )
+        attempttext should include("outcome: recorded")
+        attempttext should include("provider execution is deferred; this dispatch was recorded only")
+        attempttext should include("outputs: []")
+        attempttext should include("receipt: none")
+        attempttext should include("path: index.dox")
+        attempttext should include("path: infographic/infographic.svg")
+        attempttext should include("path: presentation/visual-pages.yaml")
+        attempttext should include("path: review/README.md")
+
+        And("recorded dispatch creates no generated state or deliverable")
         Files.exists(project.resolve("target"), LinkOption.NOFOLLOW_LINKS) shouldBe false
         Files.exists(project.resolve("state"), LinkOption.NOFOLLOW_LINKS) shouldBe false
         Files.exists(project.resolve("operation-receipt-evidence"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+      }
+    }
+
+    "reject unknown and profile-disabled operations without creating attempts" in {
+      _with_temp_dir("cozy-document-project-run-admission") { root =>
+        Given("admitted standard and standard-video Document Projects")
+        val standardparent = Files.createDirectory(root.resolve("standard-parent"))
+        val videoparent = Files.createDirectory(root.resolve("video-parent"))
+        _execute(List("document-project", "scaffold", "standard", "--profile", "standard", "--language", "en", "--workspace", "directory", "--save", standardparent.toString))
+        _execute(List("document-project", "scaffold", "video", "--profile", "standard-video", "--language", "en", "--workspace", "directory", "--save", videoparent.toString))
+        val standard = standardparent.resolve("standard.dox")
+        val video = videoparent.resolve("video.dox")
+
+        When("unknown and disabled operations are requested")
+        val unknown = _failure(List("document-project", "run", standard.toString, "--operation", "render"))
+        val disabled = _failure(List("document-project", "run", standard.toString, "--operation", "video.render-review"))
+
+        Then("both admissions reject with DP-OP-001 and create no evidence")
+        unknown should include("DP-OP-001")
+        unknown should include("undeclared logical operation: render")
+        disabled should include("DP-OP-001")
+        disabled should include("disabled for profile standard")
+        Files.exists(standard.resolve("evidence"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(video.resolve("evidence"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+      }
+    }
+
+    "reject unsafe initial run input before writing an attempt" in {
+      _with_temp_dir("cozy-document-project-run-input") { root =>
+        Given("a standard scaffold whose required initial source is replaced by a symbolic link")
+        val parent = Files.createDirectory(root.resolve("parent"))
+        _execute(List("document-project", "scaffold", "sample", "--profile", "standard", "--language", "en", "--workspace", "directory", "--save", parent.toString))
+        val project = parent.resolve("sample.dox")
+        val external = root.resolve("external-index.dox")
+        Files.writeString(external, "external source\n", StandardCharsets.UTF_8)
+        Files.delete(project.resolve("index.dox"))
+        Files.createSymbolicLink(project.resolve("index.dox"), external)
+
+        When("an eligible run is requested")
+        val failure = _failure(List("document-project", "run", project.toString, "--operation", "article.render-pdf"))
+
+        Then("path admission wins and no attempt directory is created")
+        _diagnostic_tokens(failure) shouldBe Vector("DP-PATH-001")
+        Files.exists(project.resolve("evidence"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+      }
+    }
+
+    "reject malformed run input before writing an attempt" in {
+      _with_temp_dir("cozy-document-project-run-malformed") { root =>
+        Given("a standard scaffold whose descriptor has an unknown closed field")
+        val parent = Files.createDirectory(root.resolve("parent"))
+        _execute(List("document-project", "scaffold", "sample", "--profile", "standard", "--language", "en", "--workspace", "directory", "--save", parent.toString))
+        val project = parent.resolve("sample.dox")
+        val descriptor = project.resolve("document-project.yaml")
+        Files.writeString(descriptor, Files.readString(descriptor, StandardCharsets.UTF_8) + "unknown: value\n", StandardCharsets.UTF_8)
+
+        When("an eligible run is requested")
+        val failure = _failure(List("document-project", "run", project.toString, "--operation", "article.render-pdf"))
+
+        Then("descriptor validation rejects before evidence publication")
+        failure should include("DP-DESC-002")
+        Files.exists(project.resolve("evidence"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+      }
+    }
+
+    "record the activated video source identity without executing its provider" in {
+      _with_temp_dir("cozy-document-project-run-video") { root =>
+        Given("an admitted standard-video Document Project")
+        val parent = Files.createDirectory(root.resolve("parent"))
+        _execute(List("document-project", "scaffold", "sample", "--profile", "standard-video", "--language", "en", "--workspace", "directory", "--save", parent.toString))
+        val project = parent.resolve("sample.dox")
+
+        When("the activated video operation is recorded")
+        val output = _execute(List("document-project", "run", project.toString, "--operation", "video.render-review"))
+        val attempt = project.resolve(output.linesIterator.find(_.startsWith("attempt: ")).get.stripPrefix("attempt: "))
+
+        Then("the attempt includes the direct storyboard identity and no generated output")
+        Files.readString(attempt, StandardCharsets.UTF_8) should include("path: video/storyboard.md")
+        Files.exists(project.resolve("target"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(project.resolve("video-review"), LinkOption.NOFOLLOW_LINKS) shouldBe false
       }
     }
 

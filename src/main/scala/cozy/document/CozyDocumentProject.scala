@@ -4,8 +4,10 @@ import org.goldenport.RAISE
 import org.goldenport.config.StructuredDocumentLoader
 import org.goldenport.io.InputSource
 import io.circe.Json
+import java.security.MessageDigest
 import java.nio.charset.StandardCharsets
 import java.nio.file.{AtomicMoveNotSupportedException, Files, LinkOption, Path, Paths, StandardCopyOption}
+import java.util.UUID
 import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
 
@@ -23,7 +25,7 @@ private[cozy] object CozyDocumentProject {
     contentCore: String
   )
 
-  private final case class ProjectRequest(command: String, project: String, operation: Option[String])
+  private final case class ProjectRequest(command: String, project: String, operation: Option[String], dryrun: Boolean)
   private final case class ScaffoldRequest(slug: String, profile: String, language: String, workspace: String, parent: String)
   private final case class ParsedOptions(values: Map[String, String], flags: Set[String], positionals: Vector[String])
 
@@ -35,23 +37,25 @@ private[cozy] object CozyDocumentProject {
   def execute(args: List[String]): Boolean = args match {
     case "document-project" :: rest =>
       _parse(rest) match {
-        case ProjectRequest("dashboard", _, _) =>
+        case ProjectRequest("dashboard", _, _, _) =>
           _failure("DP-PHASE-001", "dashboard is reserved for Phase 42.1")
-        case ProjectRequest(command, projectvalue, operation) =>
+        case ProjectRequest(command, projectvalue, operation, dryrun) =>
           val project = _admit_project(projectvalue)
-          if (command == "verify")
+          if (command == "verify" || command == "run")
             _verify_initial_sources(project)
           val descriptor = _load_project(project)
           command match {
-            case "inspect" => println(_inspect(project, descriptor))
+            case "inspect" =>
+              val state = _write_state_snapshot(project, descriptor)
+              println(_inspect(project, descriptor, state))
             case "plan" => println(_plan(project, descriptor))
-            case "verify" => println(_verify(project, descriptor))
+            case "verify" =>
+              val verification = _verify(project, descriptor)
+              val state = _write_state_snapshot(project, descriptor)
+              println(_with_state(verification, state))
             case "run" =>
-              CozyDocumentWorkflow.declaredOperation(operation.getOrElse("")) match {
-                case Right(Some(_)) => _failure("DP-OP-001", CozyDocumentWorkflow.executionReservedExplanation)
-                case Right(None) => _failure("DP-OP-001", s"undeclared logical operation: ${operation.getOrElse("")}")
-                case Left(cause) => _descriptor_failure(cause)
-              }
+              _verify(project, descriptor)
+              println(_run(project, descriptor, operation.getOrElse(""), dryrun))
             case _ => _failure("DP-CLI-001", s"unsupported document-project command: $command")
           }
           true
@@ -89,7 +93,7 @@ private[cozy] object CozyDocumentProject {
       _failure("DP-CLI-002", "run requires --operation <logical-operation>")
     if (parsed.positionals.isEmpty)
       _failure("DP-CLI-002", s"$command requires <project>")
-    ProjectRequest(command, parsed.positionals.head, parsed.values.get("operation"))
+    ProjectRequest(command, parsed.positionals.head, parsed.values.get("operation"), parsed.flags.contains("dry-run"))
   }
 
   private def _scaffold_request(args: List[String]): ScaffoldRequest = {
@@ -234,8 +238,224 @@ private[cozy] object CozyDocumentProject {
     s"Cozy Document Project Verify\nproject: ${descriptor.id}\npackage: $project\nschema: cozy.document-project.v1"
   }
 
-  private def _inspect(project: Path, descriptor: Descriptor): String =
-    s"Cozy Document Project Inspect\nproject: ${descriptor.id}\npackage: $project\nschema: cozy.document-project.v1\nworkflow: document-production\nprofile: ${descriptor.profile}\nlanguage: ${descriptor.language}\nworkspace: ${descriptor.workspace}"
+  private def _run(project: Path, descriptor: Descriptor, operationid: String, dryrun: Boolean): String = {
+    val operation = CozyDocumentWorkflow.declaredOperation(operationid) match {
+      case Right(Some(value)) => value
+      case Right(None) => _failure("DP-OP-001", s"undeclared logical operation: $operationid")
+      case Left(cause) => _descriptor_failure(cause)
+    }
+    val resolved = CozyDocumentWorkflow.resolve(descriptor.profile) match {
+      case Right(value) => value
+      case Left(cause) => _descriptor_failure(cause)
+    }
+    val activeproducts = resolved.workProducts.collect {
+      case value if value.binding.disposition != CozyDocumentWorkflow.WorkProductDisposition.Disabled => value.workProduct.id
+    }.toSet
+    if (!operation.produces.exists(activeproducts.contains))
+      _failure("DP-OP-001", s"logical operation $operationid is disabled for profile ${descriptor.profile}")
+    val provider = operation.providerBinding
+    if (dryrun)
+      s"Cozy Document Project Run\nproject: ${descriptor.id}\noperation: $operationid\nprovider: $provider\nprofile: ${descriptor.profile}\nmode: dry-run\noutcome: not-recorded\nattempt: none"
+    else {
+      val attemptid = UUID.randomUUID().toString
+      val attempt = _write_operation_attempt(project, descriptor, operationid, provider, attemptid)
+      s"Cozy Document Project Run\nproject: ${descriptor.id}\noperation: $operationid\nprovider: $provider\nprofile: ${descriptor.profile}\noutcome: recorded\nattempt: ${_project_relative(project, attempt)}"
+    }
+  }
+
+  private def _write_operation_attempt(
+    project: Path,
+    descriptor: Descriptor,
+    operationid: String,
+    provider: String,
+    attemptid: String
+  ): Path = {
+    val evidencedirectory = project.resolve("evidence").normalize()
+    val attemptsdirectory = evidencedirectory.resolve("attempts").normalize()
+    if (!evidencedirectory.startsWith(project) || !attemptsdirectory.startsWith(project))
+      _failure("DP-PATH-001", "attempt evidence directory must be contained in the project")
+    var createdevidence = false
+    var createdattempts = false
+    var temporary: Option[Path] = None
+    try {
+      if (Files.exists(evidencedirectory, LinkOption.NOFOLLOW_LINKS))
+        _direct_directory(evidencedirectory, "attempt evidence directory")
+      else {
+        Files.createDirectory(evidencedirectory)
+        createdevidence = true
+      }
+      if (Files.exists(attemptsdirectory, LinkOption.NOFOLLOW_LINKS))
+        _direct_directory(attemptsdirectory, "attempts directory")
+      else {
+        Files.createDirectory(attemptsdirectory)
+        createdattempts = true
+      }
+      val destination = attemptsdirectory.resolve(s"$attemptid.yaml").normalize()
+      if (!destination.startsWith(attemptsdirectory) || Files.exists(destination, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(destination))
+        _failure("DP-PATH-001", s"attempt evidence already exists or has an unsafe path: $attemptid")
+      val temporaryfile = Files.createTempFile(attemptsdirectory, s".$attemptid-", ".tmp")
+      temporary = Some(temporaryfile)
+      Files.write(temporaryfile, _operation_attempt_yaml(project, descriptor, operationid, provider, attemptid).getBytes(StandardCharsets.UTF_8))
+      Files.move(temporaryfile, destination, StandardCopyOption.ATOMIC_MOVE)
+      temporary = None
+      destination
+    } catch {
+      case _: AtomicMoveNotSupportedException => _failure("DP-PATH-001", "attempt evidence requires an atomic move")
+      case NonFatal(_) => _failure("DP-PATH-001", "attempt evidence cannot be published without overwriting existing evidence")
+    } finally {
+      temporary.foreach(Files.deleteIfExists)
+      if (createdattempts && Files.exists(attemptsdirectory, LinkOption.NOFOLLOW_LINKS)) {
+        try Files.deleteIfExists(attemptsdirectory) catch { case NonFatal(_) => () }
+      }
+      if (createdevidence && Files.exists(evidencedirectory, LinkOption.NOFOLLOW_LINKS)) {
+        try Files.deleteIfExists(evidencedirectory) catch { case NonFatal(_) => () }
+      }
+    }
+  }
+
+  private def _operation_attempt_yaml(
+    project: Path,
+    descriptor: Descriptor,
+    operationid: String,
+    provider: String,
+    attemptid: String
+  ): String = {
+    val sources = _state_sources(project, descriptor)
+    val expectedsourcecount = if (descriptor.profile == "standard-video") 7 else 6
+    if (sources.size != expectedsourcecount)
+      _failure("DP-PATH-001", "initial authored sources changed before attempt evidence publication")
+    val inputs = sources.map { case (relative, path) =>
+      s"  - path: $relative\n    sha256: ${_sha256(path)}"
+    }
+    (Vector(
+      "schema: cozy.document-operation-attempt.v1",
+      s"id: $attemptid",
+      s"operation: $operationid",
+      s"provider: $provider",
+      s"profile: ${descriptor.profile}",
+      "inputs:"
+    ) ++ inputs ++ Vector(
+      "outcome: recorded",
+      "diagnostics:",
+      "  - provider execution is deferred; this dispatch was recorded only",
+      "outputs: []",
+      "receipt: none"
+    )).mkString("\n") + "\n"
+  }
+
+  private def _project_relative(project: Path, path: Path): String =
+    project.relativize(path).toString.replace('\\', '/')
+
+  private def _inspect(project: Path, descriptor: Descriptor, state: Path): String =
+    _with_state(s"Cozy Document Project Inspect\nproject: ${descriptor.id}\npackage: $project\nschema: cozy.document-project.v1\nworkflow: document-production\nprofile: ${descriptor.profile}\nlanguage: ${descriptor.language}\nworkspace: ${descriptor.workspace}", state)
+
+  private def _with_state(output: String, state: Path): String = {
+    val reference = Vector(state.getParent.getParent.getFileName, state.getParent.getFileName, state.getFileName).mkString("/")
+    s"$output\nstate: $reference"
+  }
+
+  private def _write_state_snapshot(project: Path, descriptor: Descriptor): Path = {
+    val statedirectory = project.resolve("target").resolve("document-project").normalize()
+    if (!statedirectory.startsWith(project) || Files.isSymbolicLink(project.resolve("target")) || Files.isSymbolicLink(statedirectory))
+      _failure("DP-PATH-001", "state cache directory must be contained in the project and must not be a symbolic link")
+    val state = statedirectory.resolve("state.yaml")
+    if (Files.isSymbolicLink(state))
+      _failure("DP-PATH-001", "state cache file must not be a symbolic link")
+    try {
+      Files.createDirectories(statedirectory)
+      val temporary = Files.createTempFile(statedirectory, ".state-", ".tmp")
+      try {
+        Files.writeString(temporary, _state_yaml(project, descriptor), StandardCharsets.UTF_8)
+        Files.move(temporary, state, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+        state
+      } finally {
+        Files.deleteIfExists(temporary)
+      }
+    } catch {
+      case NonFatal(_) => _failure("DP-PATH-001", "state cache cannot be written")
+    }
+  }
+
+  private def _state_yaml(project: Path, descriptor: Descriptor): String = {
+    val sources = _state_sources(project, descriptor)
+    val resolved = CozyDocumentWorkflow.resolve(descriptor.profile) match {
+      case Right(value) => value
+      case Left(cause) => _descriptor_failure(cause)
+    }
+    val coreaccepted = _core_has_accepted_entries(project, descriptor)
+    val sourcepaths = sources.map(_._1).toSet
+    val sourceproducts = Map(
+      "content-core" -> (sourcepaths.contains(descriptor.contentCore), coreaccepted),
+      "article-source" -> (sourcepaths.contains("index.dox"), sourcepaths.contains("index.dox")),
+      "infographic-svg" -> (sourcepaths.contains("infographic/infographic.svg"), sourcepaths.contains("infographic/infographic.svg")),
+      "video-storyboard" -> (sourcepaths.contains("video/storyboard.md"), sourcepaths.contains("video/storyboard.md"))
+    )
+    val sourceyaml = sources.map { case (relative, path) =>
+      s"  - path: $relative\n    sha256: ${_sha256(path)}"
+    }
+    val productyaml = resolved.workProducts.map { value =>
+      val product = value.workProduct
+      val binding = value.binding
+      val disabled = binding.disposition == CozyDocumentWorkflow.WorkProductDisposition.Disabled
+      val sourcepresent = sourceproducts.get(product.id).map(_._1).getOrElse(false)
+      val sourcecovered = sourceproducts.get(product.id).map(_._2).getOrElse(false)
+      val coverage = if (disabled) "not-applicable" else if (sourcecovered) "satisfied" else "missing"
+      val currentness = if (!disabled && sourcepresent) "current" else "missing"
+      val readiness = if (disabled) "omitted" else if (sourcepresent) "ready" else "blocked"
+      val lines = Vector(
+        s"  - id: ${product.id}",
+        s"    role: ${product.role.value}",
+        s"    disposition: ${binding.disposition.value}",
+        s"    criterion: ${product.criteria.head}",
+        s"    coverage: $coverage",
+        s"    currentness: $currentness",
+        "    review: pending",
+        s"    readiness: $readiness"
+      ) ++ binding.reason.map(reason => s"    reason: $reason").toVector
+      lines.mkString("\n")
+    }
+    (Vector(
+      "schema: cozy.document-project-state.v1",
+      s"project: ${descriptor.id}",
+      s"profile: ${descriptor.profile}",
+      s"workspace: ${descriptor.workspace}",
+      "sources:"
+    ) ++ sourceyaml ++ Vector("workProducts:") ++ productyaml).mkString("\n") + "\n"
+  }
+
+  private def _state_sources(project: Path, descriptor: Descriptor): Vector[(String, Path)] = {
+    val declared = Vector(
+      "document-project.yaml",
+      descriptor.contentCore,
+      "index.dox",
+      "infographic/infographic.svg",
+      "presentation/visual-pages.yaml",
+      "review/README.md"
+    ) ++ (if (descriptor.profile == "standard-video") Vector("video/storyboard.md") else Vector.empty)
+    declared.flatMap { relative =>
+      val path = project.resolve(relative).normalize()
+      if (_is_direct_source(project, path)) Some(relative.replace('\\', '/') -> path) else None
+    }
+  }
+
+  private def _is_direct_source(project: Path, path: Path): Boolean = {
+    if (!path.startsWith(project) || Files.isSymbolicLink(path) || !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
+      false
+    else {
+      val relative = project.relativize(path)
+      var parent = project
+      (0 until relative.getNameCount - 1).forall { index =>
+        parent = parent.resolve(relative.getName(index))
+        !Files.isSymbolicLink(parent) && Files.isDirectory(parent, LinkOption.NOFOLLOW_LINKS)
+      }
+    }
+  }
+
+  private def _core_has_accepted_entries(project: Path, descriptor: Descriptor): Boolean =
+    _load_json(project.resolve(descriptor.contentCore), "Content Core").hcursor.downField("accepted").focus.flatMap(_.asArray).exists(_.nonEmpty)
+
+  private def _sha256(path: Path): String =
+    MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(value => f"${value & 0xff}%02x").mkString
 
   private def _plan(project: Path, descriptor: Descriptor): String = {
     val workflowplan = CozyDocumentWorkflow.plan(descriptor.profile) match {

@@ -60,6 +60,92 @@ vocabulary is `authority`, `plan`, `candidate`, `review-projection`,
 `optional`, and `disabled`; an omitted branch has a visible reason rather than
 being treated as completed work.
 
+## Phase 42.1 evidence and attempt boundary
+
+This design records the Phase 42.1 evidence boundary.  DP42-03B implements the
+disposable snapshot cache; DP42-03C implements recorded single-operation
+dispatch and append-only attempt persistence.  Evidence-based stale
+propagation remains a later follow-up.
+
+The `cozy.document-project-state.v1` Workflow Instance Snapshot is disposable
+derived YAML at `<project>/target/document-project/state.yaml`.  It is never
+authored authority and cannot be edited as a state override.  Removing
+`<project>/target/document-project` and inspecting unchanged admitted project
+inputs reconstructs the identical snapshot.
+
+Successful `inspect` and `verify` regenerate the cache only after their
+descriptor, Core, and command-specific source validation succeeds.  Its
+canonical UTF-8 YAML keys are ordered `schema`, `project`, `profile`,
+`workspace`, `sources`, and `workProducts`.  The fixed-order `sources` entries
+contain only project-relative direct authored paths and lowercase hexadecimal
+SHA-256 content identities: descriptor, exact Core, `index.dox`, infographic
+SVG, Visual Page source, review README, and directly present standard-video
+storyboard.  No absolute path, timestamp, random value, discovery order,
+generated output, receipt, or attempt is serialized.
+
+The fixed-order Work Product projection contains `id`, `role`, `disposition`,
+`criterion`, `coverage`, `currentness`, `review`, and `readiness`.  It uses only
+the closed status vocabularies.  Existing source assets may be
+`satisfied`/`current`; absent output or receipt-dependent evidence remains
+`missing`/`blocked`/`pending`.  Standard's disabled video products explicitly
+use `coverage: not-applicable`, `readiness: omitted`, and the profile reason
+`profile standard disables video branch`, never completion.  DP42-03C
+implements immutable append-only attempts and recorded dispatch only.  This
+Slice does not yet derive `stale`; receipt evidence and evidence-based
+dependency/stale propagation remain later Phase 42.1 work.
+
+A `cozy.document-operation-attempt.v1` Operation Attempt is durable,
+append-only evidence at `<project>/evidence/attempts/<attempt-id>.yaml`; it is
+never scaffolded.  Existing attempt bytes are never overwritten, so failures
+and superseded attempts remain inspectable.  Its existence alone does not make
+a Work Product current, complete, reviewed, or accepted.  Canonical UTF-8
+attempt YAML has exactly the ordered top-level keys `schema`, `id`,
+`operation`, `provider`, `profile`, `inputs`, `outcome`, `diagnostics`,
+`outputs`, and `receipt`.  It records the newly generated stable id, declared
+operation, frozen provider binding, selected profile, fixed-order direct
+project-relative source identities with lowercase SHA-256 values,
+`outcome: recorded`, one diagnostic stating that provider execution is
+deferred and the dispatch was recorded only, `outputs: []`, and `receipt:
+none`.  The dispatch invokes no provider, creates no output or receipt, writes
+no Core or state cache, and infers no downstream operation.  Accepted review
+evidence is separate from an attempt and remains required before a Content Core
+write-back.
+
+DP42-03C creates `evidence/attempts` only for an eligible normal run; the
+directories and files must be direct, non-symlinked project entries.  Each
+attempt is written to a same-directory temporary file and published with
+`ATOMIC_MOVE` without replacement.  Collisions or publication failures leave
+existing bytes untouched, remove the temporary file, and return a stable
+path/evidence diagnostic.  `--dry-run` performs the same admission without
+creating evidence or a cache.
+
+The snapshot independently derives coverage (`satisfied`, `missing`, and
+`not-applicable` criteria), currentness (`missing`, `current`, `stale`, or
+`failed`) from declared identities rather than timestamps, review (`pending`,
+`accepted`, `rejected`, or `stale`), and readiness (`blocked`, `ready`,
+`running`, `succeeded`, `failed`, or `omitted`).  `omitted` is visible with its
+declared profile reason and is not completion.
+
+Reconstruction uses the closed `document-production` Work Product definition,
+descriptor and Core identities, retained source/receipt/review/attempt evidence,
+and declared producer/consumer/dependency identities.  It does not infer state
+from filenames or timestamps.  A changed dependency makes every declared
+consumer stale; a changed shared infographic therefore stales its declared
+article, slides, and video consumers.
+
+`inspect` and `verify` remain non-authoritative: they may write only that
+disposable snapshot cache, never an attempt, receipt, acceptance, authored
+source, registry, workspace integration, aggregate build, publication,
+deployment, upload, or downstream operation.  DP42-03C `run` dispatches
+exactly one declared registered operation enabled for the selected profile and
+creates one append-only attempt, while `--dry-run` reports the same selected
+operation, provider, and profile without persistence.  It does not infer
+downstream execution.  This boundary
+does not alter the closed descriptor fields, common workflow DAG, profiles,
+Work Product roles, criteria, gates, operation IDs, provider bindings, retained
+media/SmartDox/Visual Page/Phase-41 authorities, public command grammar, or
+Phase-42 compatibility behavior.
+
 ## Closed DP42-02 workflow definition
 
 DP42-02 closes the initial reusable `document-production` definition in code.
@@ -115,11 +201,14 @@ operation is simultaneously blocked from execution because execution and
 Operation Attempts are reserved for Phase 42.1.  The command creates no
 target, dashboard, state, attempt, receipt, registry, delivery, or output file.
 
-`run` performs only the same declared-operation admission.  A declared name,
-including one supplied with `--dry-run`, rejects with `DP-OP-001` and the exact
-explanation `execution and Operation Attempts are reserved for Phase 42.1`.
-An unknown name rejects with `DP-OP-001` as an undeclared logical operation.
-Neither outcome invokes an operation or creates evidence.
+`run` validates the descriptor, Core, and command-admitted initial sources,
+then admits exactly one declared operation enabled by the selected profile.  A
+normal eligible run records one attempt without invoking its provider or
+creating output, receipt, Core write-back, state cache, or downstream work.
+`--dry-run` reports the selected operation, provider, and profile without
+creating evidence.  An unknown or profile-disabled operation rejects with
+`DP-OP-001`; malformed or unsafe input retains its earlier diagnostic
+precedence and neither rejection creates evidence.
 
 ## Initial authored kernel
 
@@ -152,11 +241,11 @@ Core.  Thus the Core is an actual minimal semantic authority rather than an
 identity-only placeholder.  Only an explicitly accepted review may add or
 replace an accepted entry.  Raw AI output remains provenance outside the Core.
 The Core contains neither status nor renderer/delivery/provider fields.  The
-eventual Phase 42.1 attempt/review evidence records provider, model, request,
-response identities, and acceptance, but it does not make the Core mutable
+Phase 42.1 evidence/attempt contract records provider, model, request, and
+response identities and acceptance, but it does not make the Core mutable
 status or a receipt.  Structured semantic vocabulary and automation remain out
-of scope.  This initial kernel does not define an attempt or review persistence
-format.
+of scope.  The evidence/attempt boundary does not add a Core field or make
+attempt evidence a review authority.
 
 ## Command and scaffold boundary
 
@@ -164,14 +253,15 @@ format.
 separate from the existing software Project knowledge-package commands and
 `cozy media`.  Its project operands name existing `*.dox/` package directories,
 not arbitrary descriptor files.  `inspect`, `plan`, and `verify` are derived
-non-mutating inspections.  Phase 42 fixes the `dashboard` command syntax and
-its protected non-authority boundary only: until Phase 42.1 supplies rendering
-and state behavior, `dashboard` rejects with `DP-PHASE-001` and creates no
-destination, state, receipt, attempt, registry, or delivery evidence.  Phase
-42.1 implements the same fixed explicit-output grammar as a read-only
-projection.  `run` dispatches one declared operation; and `scaffold` is the
-only command that creates authored sources.  No command aliases or ambiguous
-dispatch are part of this kernel.
+inspections; successful `inspect` and `verify` regenerate only the disposable
+state cache specified above.  Phase 42 fixes the `dashboard` command syntax
+and its protected non-authority boundary: dashboard still rejects with
+`DP-PHASE-001` and creates no destination, state, receipt, attempt, registry,
+or delivery evidence until a later Slice supplies rendering.  Phase 42.1
+implements the same fixed explicit-output grammar as a read-only projection.
+`run` dispatches one declared operation; and `scaffold` is the only command
+that creates authored sources.  No command aliases or ambiguous dispatch are
+part of this kernel.
 
 Canonical package source traversal is direct and non-symlinked.  An admitted
 package is itself a direct non-symlink directory, and its descriptor, `content/`
@@ -224,14 +314,16 @@ a later Phase.  DP42-02 MUST NOT add descriptor fields, canonical workflow
 serialization, or identity calculation beyond the closed in-code Work Product
 identities and references.
 
-Phase 42.1 retains executable dashboard content, derived-state reconstruction,
-append-only attempt persistence, receipts/currentness/stale propagation,
-review projection, and driver acceptance.  It implements the already-fixed
-dashboard grammar rather than expanding it.  It consumes the closed DP42-02
-definition without redefining profiles, Work Product roles, criteria, gates,
-operations, or provider bindings.  SmartDox source projection and host
-discovery are also outside this kernel.  No deferred capability is accepted or
-claimed by this design.
+Phase 42.1 retains executable dashboard content, receipt evidence,
+evidence-based stale propagation, review projection, and driver acceptance.
+DP42-03B implements deterministic disposable state reconstruction and
+DP42-03C implements recorded append-only attempts as described above; the
+remaining capabilities are later Slices.  Phase 42.1 implements the already-fixed dashboard grammar
+rather than expanding it.  It consumes the closed DP42-02 definition without
+redefining profiles, Work Product roles, criteria, gates, operations, or
+provider bindings.  SmartDox source projection and host discovery are also
+outside this kernel.  No deferred capability is accepted or claimed by this
+design.
 
 ## Related authorities
 
