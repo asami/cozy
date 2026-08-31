@@ -8,6 +8,7 @@ import java.util.zip.{ZipEntry, ZipFile, ZipOutputStream}
 import scala.collection.JavaConverters._
 
 import cozy.archive.ComponentRepositoryIndex
+import cozy.archive.RepositoryArtifactPublisher
 import cozy.compatibility.{
   GenerationCompatibility,
   GenerationCompatibilityBoundary,
@@ -27,7 +28,7 @@ import cozy.modeler.GenerationProvenance
  * @since   May. 20, 2026
  *  version Jun.  4, 2026
  *  version Jul. 28, 2026
- * @version Aug. 21, 2026
+ * @version Aug. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyCarPublisherSpec
@@ -121,6 +122,20 @@ class CozyCarPublisherSpec
         }
       }
 
+      "removes the terminal local-publication marker before CAR packaging" in {
+        Given("publish arguments with a terminal internal local-publication marker")
+        val args = List("--main-jar", "/tmp/component.jar", "--local-publication")
+
+        When("the CAR publisher projects its packaging arguments")
+        val packagingargs = RepositoryArtifactPublisher.removePublishOnlyArgs(
+          args,
+          Set("local-publication")
+        )
+
+        Then("the zero-arity local marker is not forwarded to the package request")
+        packagingargs shouldBe Vector("--main-jar", "/tmp/component.jar")
+      }
+
     }
 
     "publish release artifacts" which {
@@ -147,7 +162,7 @@ class CozyCarPublisherSpec
             "0.3.1"
           )
 
-          When("Cozy publishes the release as recommended")
+          When("Cozy publishes the release without an explicit recommendation flag")
           _publish_with_immutable_evidence(
             List(
               projectdir.toString,
@@ -158,8 +173,7 @@ class CozyCarPublisherSpec
               "--version",
               "0.1.0",
               "--car",
-              car.toString,
-              "--recommended"
+              car.toString
             ),
             "0.5.17",
             "0.3.1"
@@ -638,6 +652,7 @@ class CozyCarPublisherSpec
               ("0.1.0", "stable", "active", releasedigest),
               ("0.1.1-SNAPSHOT", "snapshot", "active", snapshotdigest)
             ),
+            recommended = Some("0.1.0"),
             lateststable = Some("0.1.0"),
             latestsnapshot = Some("0.1.1-SNAPSHOT")
           )
@@ -669,6 +684,7 @@ class CozyCarPublisherSpec
             "0.1.0",
             "0.1.2-SNAPSHOT"
           )
+          sourcecatalog.recommended shouldBe Some("0.1.0")
           sourcecatalog.latestStable shouldBe Some("0.1.0")
           sourcecatalog.latestSnapshot shouldBe Some("0.1.2-SNAPSHOT")
           sourcecatalog.versions.exists(_.version == "0.1.1-SNAPSHOT") shouldBe false
@@ -680,6 +696,138 @@ class CozyCarPublisherSpec
         }
       }
 
+    }
+
+    "isolate local snapshot publication from the project source catalog" which {
+      "uses only valid local warehouse history while retaining source bytes" in {
+        _with_temp_dir("cozy-publish-car-local-catalog") { dir =>
+          Given("a source catalog containing an unavailable stable release")
+          val projectdir = dir.resolve("project")
+          val warehouse = dir.resolve("warehouse")
+          val car = _write_canonical_car(
+            dir.resolve("input/sample.car"),
+            "0.1.1-SNAPSHOT",
+            "local-snapshot"
+          )
+          _write_project_yaml(projectdir, "sample-component", "0.1.1-SNAPSHOT")
+          _write_car_catalog(
+            projectdir,
+            Vector(("0.1.0", "stable", "active", "0" * 64)),
+            recommended = Some("0.1.0"),
+            lateststable = Some("0.1.0")
+          )
+          val sourcecatalogpath = projectdir.resolve(
+            "src/main/catalog/car/org/sample/sample-component.yaml"
+          )
+          val sourcebytes = Files.readString(sourcecatalogpath, StandardCharsets.UTF_8)
+
+          When("Cozy publishes a local CAR snapshot")
+          CozyCarPublisher.publish(
+            List(
+              projectdir.toString,
+              "--warehouse",
+              warehouse.toString,
+              "--name",
+              "sample-component",
+              "--version",
+              "0.1.1-SNAPSHOT",
+              "--car",
+              car.toString,
+              "--local-publication"
+            )
+          )
+
+          Then("the source catalog is untouched and the local catalog contains only the snapshot")
+          Files.readString(sourcecatalogpath, StandardCharsets.UTF_8) shouldBe sourcebytes
+          Files.exists(
+            warehouse.resolve(
+              "repository/car/org/sample/sample-component/0.1.0/sample-component-0.1.0.car"
+            )
+          ) shouldBe false
+          val catalog = RepositoryArtifactCatalog.load(
+            warehouse.resolve("repository/catalog/car/org/sample/sample-component.yaml")
+          )
+          catalog.versions.map(_.version) shouldBe Vector("0.1.1-SNAPSHOT")
+          catalog.latestStable shouldBe empty
+          catalog.latestSnapshot shouldBe Some("0.1.1-SNAPSHOT")
+          val indexpath = warehouse.resolve(ComponentRepositoryIndex.PUBLIC_PATH)
+          ComponentRepositoryIndex.validateCatalogs(
+            ComponentRepositoryIndex.load(indexpath),
+            indexpath
+          ).artifacts.map(_.identity) shouldBe Vector(
+            ("car", "org.sample", "Component")
+          )
+        }
+      }
+    }
+
+    "retain an existing recommendation on explicit request" which {
+      "keeps a valid older stable selector while advancing latestStable" in {
+        _with_temp_dir("cozy-publish-car-keep-recommended") { dir =>
+          Given("a canonical CAR catalog with an older valid recommendation")
+          val projectdir = dir.resolve("project")
+          val warehouse = dir.resolve("warehouse")
+          val car = _write_canonical_car(
+            dir.resolve("input/sample.car"),
+            "0.1.0",
+            "replacement"
+          )
+          _write_project_yaml(projectdir, "sample-component", "0.1.0")
+          val deprecateddigest = _write_retained_car(
+            warehouse,
+            "0.0.9",
+            "deprecated-release"
+          )
+          val currentdigest = _write_retained_car(
+            warehouse,
+            "0.1.0",
+            "current-release"
+          )
+          _write_car_catalog(
+            projectdir,
+            Vector(
+              ("0.0.9", "stable", "deprecated", deprecateddigest),
+              ("0.1.0", "stable", "active", currentdigest)
+            ),
+            recommended = Some("0.0.9"),
+            lateststable = Some("0.1.0")
+          )
+
+          When("Cozy republishes the stable CAR with --keep-recommended")
+          CozyCarPublisher.publish(
+            List(
+              projectdir.toString,
+              "--warehouse",
+              warehouse.toString,
+              "--name",
+              "sample-component",
+              "--version",
+              "0.1.0",
+              "--car",
+              car.toString,
+              "--keep-recommended"
+            )
+          )
+
+          Then("the older stable recommendation is retained in matching catalogs")
+          val sourcecatalog = RepositoryArtifactCatalog.load(
+            projectdir.resolve("src/main/catalog/car/org/sample/sample-component.yaml")
+          )
+          val publiccatalog = RepositoryArtifactCatalog.load(
+            warehouse.resolve("repository/catalog/car/org/sample/sample-component.yaml")
+          )
+          sourcecatalog shouldBe publiccatalog
+          sourcecatalog.recommended shouldBe Some("0.0.9")
+          sourcecatalog.latestStable shouldBe Some("0.1.0")
+          val metadata = Files.readString(
+            warehouse.resolve(
+              "repository/car/org/sample/sample-component/maven-metadata.xml"
+            )
+          )
+          metadata should include("<latest>0.0.9</latest>")
+          metadata should include("<release>0.1.0</release>")
+        }
+      }
     }
 
     "maintain release history" which {
@@ -712,7 +860,7 @@ class CozyCarPublisherSpec
             terms = Vector("Sample Component")
           )
 
-          When("Cozy publishes the stable canonical CAR to the new public warehouse")
+          When("Cozy republishes the stable canonical CAR without retaining the older recommendation")
           CozyCarPublisher.publish(
             List(
               projectdir.toString,
@@ -734,7 +882,7 @@ class CozyCarPublisherSpec
             warehouse.resolve("repository/catalog/car/org/sample/sample-component.yaml")
           )
           Then(
-            "stable history remains, the requested release is replaced, and the stale snapshot is excluded"
+            "stable history remains, the requested release becomes recommended, and the stale snapshot is excluded"
           )
           catalog.versions.map(_.version) shouldBe Vector(
             "0.0.9",
@@ -746,7 +894,7 @@ class CozyCarPublisherSpec
           catalog.versions
             .find(_.version == "0.1.0")
             .flatMap(_.checksumSha256) should not be Some("old")
-          catalog.recommended shouldBe Some("0.0.9")
+          catalog.recommended shouldBe Some("0.1.0")
           catalog.latestStable shouldBe Some("0.1.0")
           catalog.latestSnapshot shouldBe None
           catalog.versions.find(_.version == "0.1.1-SNAPSHOT") shouldBe None
@@ -764,7 +912,7 @@ class CozyCarPublisherSpec
               "repository/car/org/sample/sample-component/maven-metadata.xml"
             )
           )
-          metadata should include("<latest>0.0.9</latest>")
+          metadata should include("<latest>0.1.0</latest>")
           metadata should include("<release>0.1.0</release>")
           metadata should include("<version>0.0.9</version>")
           metadata should include("<version>0.1.0</version>")

@@ -131,11 +131,11 @@ private[cozy] object CozyDocumentFeedbackReflection {
   }
 
   private def _prepare_reflection(project: Path, descriptor: CozyDocumentProject.Descriptor, feedback: ParsedFeedback): Vector[ReflectionWrite] = {
-    if (descriptor.profile == "standard") {
+    if (!CozyDocumentWorkflow.isVideoProfile(descriptor.profile)) {
       feedback.changes.find(_.target == "video") match {
         case Some(change) if change.applicability == "not-applicable" && change.disposition == "not-applicable" => ()
-        case Some(_) => CozyDocumentProject._failure("DP-OP-001", "standard profile requires video feedback to be not-applicable")
-        case None => CozyDocumentProject._failure("DP-OP-001", "standard profile requires a not-applicable video feedback item")
+        case Some(_) => CozyDocumentProject._failure("DP-OP-001", s"${descriptor.profile} profile requires video feedback to be not-applicable")
+        case None => CozyDocumentProject._failure("DP-OP-001", s"${descriptor.profile} profile requires a not-applicable video feedback item")
       }
     }
     val currentcore = if (feedback.changes.exists(change => change.target == "core" && change.disposition == "accepted"))

@@ -1,6 +1,6 @@
 # Phase 42.1: Document Project Evidence, Review Projection, and Driver Acceptance
 
-Status: PLANNED; NOT STARTED
+Status: IN PROGRESS
 
 Plan date: 2026-08-31
 
@@ -31,7 +31,7 @@ BoK-hosted or isolated driver.
 
 Stage Status:
 
-- Current status: NOT STARTED
+- Current status: IN PROGRESS
 - Owner: Cozy project-state and execution evidence
 - Update rule: complete only when state reconstruction, stale propagation,
   append-only attempts, and exact diagnostics pass focused tests.
@@ -53,7 +53,7 @@ Stage Status:
 
 Stage Status:
 
-- Current status: NOT STARTED
+- Current status: IN PROGRESS
 - Owner: Cozy deterministic Document Project review projection
 - Update rule: complete only when all three views, accessibility,
   deterministic output, and read-only authority boundaries pass.

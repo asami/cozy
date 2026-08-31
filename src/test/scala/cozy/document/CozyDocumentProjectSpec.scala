@@ -17,17 +17,20 @@ import org.scalatest.wordspec.AnyWordSpec
  */
 final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "Cozy Document Project" should {
-    "scaffold the exact standard and standard-video authored skeletons without fake outputs" in {
+    "scaffold public no-video and video profile skeletons without fake outputs" in {
       _with_temp_dir("cozy-document-project-scaffold") { root =>
-        Given("an existing direct parent and two absent Document Project packages")
+        Given("an existing direct parent and three absent Document Project packages")
         val standardparent = Files.createDirectory(root.resolve("standard-parent"))
         val videoparent = Files.createDirectory(root.resolve("video-parent"))
+        val bokparent = Files.createDirectory(root.resolve("bok-parent"))
 
-        When("the standard and standard-video commands scaffold their packages")
+        When("the public profile commands scaffold their packages")
         val standardoutput = _execute(List("document-project", "scaffold", "standard-doc", "--profile", "standard", "--language", "en", "--workspace", "directory", "--save", standardparent.toString))
         val videooutput = _execute(List("document-project", "scaffold", "video-doc", "--profile", "standard-video", "--language", "ja", "--workspace", "bok", "--save", videoparent.toString))
+        val bokoutput = _execute(List("document-project", "scaffold", "bok-doc", "--profile", "bok", "--language", "en", "--workspace", "bok", "--save", bokparent.toString))
         val standard = standardparent.resolve("standard-doc.dox")
         val video = videoparent.resolve("video-doc.dox")
+        val bok = bokparent.resolve("bok-doc.dox")
 
         Then("each profile contains only its declared authored sources")
         _relative_files(standard) shouldBe Set(
@@ -38,11 +41,13 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
           "document-project.yaml", "index.dox", "content/core-ja.yaml", "infographic/infographic.svg",
           "presentation/visual-pages.yaml", "review/README.md", "video/storyboard.md"
         )
+        _relative_files(bok) shouldBe _relative_files(standard)
         Files.readString(standard.resolve("content/core-en.yaml"), StandardCharsets.UTF_8) should include("accepted: []")
         Files.exists(standard.resolve("target"), LinkOption.NOFOLLOW_LINKS) shouldBe false
         Files.exists(standard.resolve("dashboard.html"), LinkOption.NOFOLLOW_LINKS) shouldBe false
         standardoutput should startWith("Cozy Document Project Scaffold")
         videooutput should include("workspace: bok")
+        bokoutput should include("profile: bok")
       }
     }
 
@@ -121,7 +126,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         Then("every stable Work Product role and disposition reference is closed")
         validation shouldBe Vector.empty
         definition.workProducts.map(_.id).distinct shouldBe definition.workProducts.map(_.id)
-        definition.workProducts.map(_.role.value).toSet shouldBe Set("authority", "plan", "candidate", "review-projection", "deliverable", "receipt")
+        definition.workProducts.map(_.role.value).toSet shouldBe Set("authority", "plan", "candidate", "review-projection", "site-deliverable", "deliverable", "receipt")
         definition.profiles.flatMap(_.bindings.map(_.disposition.value)).toSet shouldBe Set("required", "optional", "disabled")
       }
 
@@ -216,23 +221,29 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         standardvideoerrors should contain("profile standard-video Work Product binding video-storyboard differs from canonical matrix: expected disposition required with reason none, found disposition optional with reason none")
       }
 
-      "resolve the standard and standard-video video branches from one definition" in {
+      "resolve no-video and video branches, including the hidden profile, from one definition" in {
         Given("the reusable document-production definition")
         val definition = CozyDocumentWorkflow.documentProduction
 
-        When("the standard and standard-video profiles are resolved")
+        When("the public and hidden profiles are resolved")
         val standard = _resolved("standard")
         val standardvideo = _resolved("standard-video")
+        val bok = _resolved("bok")
+        val hidden = _resolved("simplemodeling-org-video")
 
         Then("standard visibly omits the video branch without a private descriptor DAG")
         standard.definition shouldBe definition
-        standard.workProducts.filter(_.workProduct.id.startsWith("video-")).map(_.binding.disposition.value).toSet shouldBe Set("disabled")
-        standard.workProducts.filter(_.workProduct.id.startsWith("video-")).flatMap(_.binding.reason).toSet shouldBe Set("profile standard disables video branch")
+        val standardvideoids = Set("video-storyboard", "video-review", "video-deliverable", "video-logical-chart-html")
+        standard.workProducts.filter(value => standardvideoids.contains(value.workProduct.id)).map(_.binding.disposition.value).toSet shouldBe Set("disabled")
+        standard.workProducts.filter(value => standardvideoids.contains(value.workProduct.id)).flatMap(_.binding.reason).toSet shouldBe Set("profile standard disables video branch")
+        bok.workProducts.map(_.binding.disposition) shouldBe standard.workProducts.map(_.binding.disposition)
+        CozyDocumentWorkflow.isHiddenProfile(hidden.profile.id) shouldBe true
 
-        And("standard-video activates the same branch without the disabled reason")
+        And("standard-video activates the delivery branch and makes the video logical chart available")
         standardvideo.definition shouldBe definition
-        standardvideo.workProducts.filter(_.workProduct.id.startsWith("video-")).map(_.binding.disposition.value).toSet shouldBe Set("required")
-        standardvideo.workProducts.filter(_.workProduct.id.startsWith("video-")).flatMap(_.binding.reason) shouldBe Vector.empty
+        standardvideo.workProducts.filter(value => Set("video-storyboard", "video-review", "video-deliverable").contains(value.workProduct.id)).map(_.binding.disposition.value).toSet shouldBe Set("required")
+        standardvideo.workProducts.find(_.workProduct.id == "video-logical-chart-html").map(_.binding.disposition.value) shouldBe Some("optional")
+        standardvideo.workProducts.filter(value => standardvideoids.contains(value.workProduct.id)).flatMap(_.binding.reason) shouldBe Vector.empty
       }
     }
 
@@ -539,32 +550,32 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         val standardvisualbytes = Files.readAllBytes(standardvisualpages)
         val standardarticlebytes = Files.readAllBytes(standardarticle)
 
-        When("the standard logical chart is requested twice and saved at an exact path")
-        val standardoutput = _execute(List("document-project", "review", standard.toString, "--kind", "logical-chart"))
-        val standardchart = standard.resolve("target/document-project/logical-chart-review.html")
+        When("the standard Slide Logical Chart is requested twice and saved at an exact path")
+        val standardoutput = _execute(List("document-project", "review", standard.toString, "--kind", "slide-logical-chart"))
+        val standardchart = standard.resolve("target/document-project/slide-logical-chart-review.html")
         val standardfirstbytes = Files.readAllBytes(standardchart)
-        _execute(List("document-project", "review", standard.toString, "--kind", "logical-chart"))
+        _execute(List("document-project", "review", standard.toString, "--kind", "slide-logical-chart"))
         val standardsecondbytes = Files.readAllBytes(standardchart)
         val explicit = root.resolve("saved/logical-chart.html")
-        _execute(List("document-project", "review", standard.toString, "--kind", "logical-chart", "--save", explicit.toString))
+        _execute(List("document-project", "review", standard.toString, "--kind", "slide-logical-chart", "--save", explicit.toString))
 
-        Then("the standard chart is titled, escaped, deterministic, and visibly omits only its disabled video branch")
-        standardoutput should startWith("Cozy Document Project Logical Chart")
+        Then("the standard chart is titled, escaped, deterministic, and limited to the slide IR")
+        standardoutput should startWith("Cozy Document Project Slide Logical Chart")
         Files.readAllBytes(standardchart) shouldBe standardfirstbytes
         standardsecondbytes shouldBe standardfirstbytes
         Files.readAllBytes(explicit) shouldBe standardfirstbytes
         val standardcharttext = Files.readString(standardchart, StandardCharsets.UTF_8)
-        standardcharttext should include("<title>Logical Chart</title>")
-        standardcharttext should include("<h1>Logical Chart</h1>")
+        standardcharttext should include("<title>Slide Logical Chart - chart-doc</title>")
+        standardcharttext should include("<h1>Slide Logical Chart</h1>")
         standardcharttext should include("Accepted Core entries")
         And("the chart identifies the closed Logical Chart Work Product")
-        standardcharttext should include("Work Product: <code>explanation-structure-review-html</code>; label: <span>Phase-41 Explanation Structure Review HTML</span>")
+        standardcharttext should include("Work Product: <code>explanation-structure-review-html</code>; label: <span>Slide Logical Chart HTML</span>; operation: <code>slide-logical-chart.render-review</code>")
         standardcharttext should include("chart-entry")
         standardcharttext should include("&lt;script&gt;&amp; core")
         standardcharttext should include("Visual Page IR source")
         standardcharttext should include("&lt;script&gt;&amp; visual")
         standardcharttext should include("Video storyboard IR")
-        standardcharttext should include("Omitted: profile standard disables video branch")
+        standardcharttext should include("Not included in the Slide Logical Chart.")
         standardcharttext should not include ">missing<"
         standardcharttext should not include ">complete<"
         standardcharttext should include("not an authority, provider run, receipt, state cache, feedback record, or write-back mechanism")
@@ -585,11 +596,11 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         val videovisualbytes = Files.readAllBytes(videovisualpages)
         val videostoryboardbytes = Files.readAllBytes(videostoryboard)
 
-        When("the standard-video logical chart is requested twice")
-        _execute(List("document-project", "review", video.toString, "--kind", "logical-chart"))
-        val videochart = video.resolve("target/document-project/logical-chart-review.html")
+        When("the standard-video Video Logical Chart is requested twice")
+        _execute(List("document-project", "review", video.toString, "--kind", "video-logical-chart"))
+        val videochart = video.resolve("target/document-project/video-logical-chart-review.html")
         val videofirstbytes = Files.readAllBytes(videochart)
-        _execute(List("document-project", "review", video.toString, "--kind", "logical-chart"))
+        _execute(List("document-project", "review", video.toString, "--kind", "video-logical-chart"))
 
         Then("the active chart includes the storyboard and Visual Page IR without changing sources")
         Files.readAllBytes(videochart) shouldBe videofirstbytes
@@ -598,8 +609,8 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         videocharttext should include("Video &lt;script&gt;&amp; core")
         videocharttext should include("&lt;script&gt;&amp; video visual")
         videocharttext should include("&lt;script&gt;&amp; storyboard")
-        videocharttext should not include("Omitted: profile standard disables video branch")
-        videocharttext should include("Logical Chart")
+        videocharttext should include("<h1>Video Logical Chart</h1>")
+        videocharttext should include("video-logical-chart.render-review")
         Files.exists(video.resolve("target/document-project/state.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
         Files.exists(video.resolve("evidence"), LinkOption.NOFOLLOW_LINKS) shouldBe false
         Files.readAllBytes(videocore) shouldBe videocorebytes
@@ -609,14 +620,16 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         When("the standard-video dashboard is projected")
         _execute(List("document-project", "dashboard", video.toString))
 
-        Then("the existing explanation-structure Work Product is active optional and current from its IR inputs")
+        Then("slide and video logical-chart Work Products are independently current from their IR inputs")
         val dashboardtext = Files.readString(video.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8)
-        dashboardtext should include("explanation-structure-review-html<br/><span>Phase-41 Explanation Structure Review HTML</span></th><td>active</td><td>review-projection</td><td>optional</td>")
+        dashboardtext should include("explanation-structure-review-html<br/><span>Slide Logical Chart HTML</span></th><td>active</td><td>review-projection</td><td>optional</td>")
         dashboardtext should include("explanation-structure-review-html</th><td>satisfied</td><td>current</td><td>pending</td><td>ready")
+        dashboardtext should include("video-logical-chart-html<br/><span>Video Logical Chart HTML</span></th><td>active</td><td>review-projection</td><td>optional</td>")
+        dashboardtext should include("video-logical-chart-html</th><td>satisfied</td><td>current</td><td>pending</td><td>ready")
         dashboardtext should include("phase-41-explanation-structure")
         dashboardtext should include("content-core")
-        dashboardtext should include("explanation-structure")
-        dashboardtext should include("explanation-structure-reference")
+        dashboardtext should include("slide-logical-chart")
+        dashboardtext should include("slide-logical-chart-reference")
       }
     }
 
@@ -931,7 +944,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         val dashboardfailure = _failure(List("document-project", "dashboard", project.toString, "--save", descriptor.toString))
         val corereviewfailure = _failure(List("document-project", "review", project.toString, "--kind", "core", "--save", core.toString))
         val videoreviewfailure = _failure(List("document-project", "review", project.toString, "--kind", "video", "--save", article.toString))
-        val logicalchartfailure = _failure(List("document-project", "review", project.toString, "--kind", "logical-chart", "--save", visualpages.toString))
+        val logicalchartfailure = _failure(List("document-project", "review", project.toString, "--kind", "slide-logical-chart", "--save", visualpages.toString))
 
         Then("dashboard and every review kind reject with one path diagnostic before publication")
         Vector(dashboardfailure, corereviewfailure, videoreviewfailure, logicalchartfailure).foreach { failure =>
@@ -966,7 +979,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       val missingproject = _failure(List("document-project", "verify"))
       val missingoperation = _failure(List("document-project", "run", "sample.dox"))
       val missingreviewkind = _failure(List("document-project", "review", "sample.dox"))
-      val invalidreviewkind = _failure(List("document-project", "review", "sample.dox", "--kind", "logical-chart-extra"))
+      val invalidreviewkind = _failure(List("document-project", "review", "sample.dox", "--kind", "logical-chart"))
       val reviewoperation = _failure(List("document-project", "review", "sample.dox", "--kind", "core", "--operation", "article.render-pdf"))
       val missingfeedback = _failure(List("document-project", "reflect-feedback", "sample.dox"))
       val extrafeedback = _failure(List("document-project", "reflect-feedback", "sample.dox", "feedback.json", "extra"))
@@ -1148,6 +1161,41 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       }
     }
 
+    "separate slide and video review products while resolving hidden profiles" in {
+      _with_temp_dir("cozy-document-project-profile-reviews") { root =>
+        Given("a public bok project and a video bok project promoted to the hidden profile identity")
+        val parent = Files.createDirectory(root.resolve("parent"))
+        _execute(List("document-project", "scaffold", "bok", "--profile", "bok", "--language", "en", "--workspace", "bok", "--save", parent.toString))
+        _execute(List("document-project", "scaffold", "bok-video", "--profile", "bok-video", "--language", "en", "--workspace", "bok", "--save", parent.toString))
+        val bok = parent.resolve("bok.dox")
+        val hidden = parent.resolve("bok-video.dox")
+        val hiddenDescriptor = hidden.resolve("document-project.yaml")
+        Files.writeString(hiddenDescriptor, Files.readString(hiddenDescriptor, StandardCharsets.UTF_8).replace("profile: bok-video", "profile: simplemodeling-org-video"), StandardCharsets.UTF_8)
+
+        When("explicit review kinds are requested")
+        _execute(List("document-project", "review", bok.toString, "--kind", "slides"))
+        _execute(List("document-project", "review", bok.toString, "--kind", "slide-logical-chart"))
+        _execute(List("document-project", "review", hidden.toString, "--kind", "video-logical-chart"))
+        _execute(List("document-project", "dashboard", bok.toString))
+        _execute(List("document-project", "dashboard", hidden.toString))
+
+        Then("each review has its own Work Product output and only video profiles admit the video chart")
+        Files.readString(bok.resolve("target/document-project/slides-review.html"), StandardCharsets.UTF_8) should include("<h1>Slide Review</h1>")
+        Files.readString(bok.resolve("target/document-project/slide-logical-chart-review.html"), StandardCharsets.UTF_8) should include("<h1>Slide Logical Chart</h1>")
+        Files.readString(hidden.resolve("target/document-project/video-logical-chart-review.html"), StandardCharsets.UTF_8) should include("<h1>Video Logical Chart</h1>")
+        Files.readString(bok.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8) should include("href=\"slides-review.html\"")
+        Files.readString(bok.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8) should include("href=\"../../infographic/infographic.svg\"")
+        Files.readString(bok.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8) should include("Infographic final artifact")
+        Files.readString(bok.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8) should not include("video-logical-chart-review.html")
+        Files.readString(bok.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8) should include("<th scope=\"col\">Next action</th>")
+        Files.readString(bok.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8) should include("Generate Article site HTML with Cozy Site")
+        Files.readString(hidden.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8) should include("href=\"video-logical-chart-review.html\"")
+        _failure(List("document-project", "review", bok.toString, "--kind", "video-logical-chart")) should include("logical operation video-logical-chart.render-review is disabled for profile bok")
+        _execute(List("document-project", "verify", hidden.toString)) should include("Cozy Document Project Verify")
+        CozyHelpText._text should not include("simplemodeling-org")
+      }
+    }
+
     "publish the frozen public Document Project help forms" in {
       Given("the Cozy public help text")
 
@@ -1157,19 +1205,19 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       Then("each no-alias form and the Phase 42.1 projection boundary are described")
       help should include("document-project inspect <project>")
       help should include("document-project dashboard <project> [--save <dashboard.html>]")
-      help should include("document-project review <project> --kind core|video|logical-chart [--save <review.html>]")
+      help should include("document-project review <project> --kind core|slides|video|slide-logical-chart|video-logical-chart [--save <review.html>]")
       help should include("document-project reflect-feedback <project> <feedback>")
       help should include("document-project run <project> --operation <logical-operation> [--dry-run]")
-      help should include("document-project scaffold <slug> --profile standard|standard-video --language <tag> --workspace directory|bok --save <parent>")
+      help should include("document-project scaffold <slug> --profile standard|standard-video|bok|bok-video --language <tag> --workspace directory|bok --save <parent>")
       help should include("Dashboard defaults to target/document-project/project-dashboard.html")
       help should include("Core review defaults to target/document-project/core-review.html")
       help should include("Video review defaults to target/document-project/video-review.html")
-      help should include("Logical chart defaults to target/document-project/logical-chart-review.html")
-      help should include("Logical Chart visualizes current Content Core, Visual Page, and applicable storyboard IR")
+      help should include("Slide and video logical charts default to target/document-project/slide-logical-chart-review.html")
+      help should include("Slide Logical Chart visualizes current Content Core and Visual Page IR")
       help should include("same-directory temporary file and atomic move")
       help should include("direct JSON or YAML structured feedback with one common object schema")
       help should include("each item retains its proposal, applicability, and disposition")
-      help should include("Standard requires a not-applicable video item")
+      help should include("A non-video profile requires a not-applicable video item")
     }
   }
 

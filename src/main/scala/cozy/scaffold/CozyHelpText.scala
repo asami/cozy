@@ -21,24 +21,25 @@ private[cozy] object CozyHelpText {
       |  document-project inspect <project>
       |  document-project plan <project>
       |  document-project dashboard <project> [--save <dashboard.html>]
-      |  document-project review <project> --kind core|video|logical-chart [--save <review.html>]
+      |  document-project review <project> --kind core|slides|video|slide-logical-chart|video-logical-chart [--save <review.html>]
       |  document-project reflect-feedback <project> <feedback>
       |  document-project verify <project>
       |  document-project run <project> --operation <logical-operation> [--dry-run]
-      |  document-project scaffold <slug> --profile standard|standard-video --language <tag> --workspace directory|bok --save <parent>
+      |  document-project scaffold <slug> --profile standard|standard-video|bok|bok-video --language <tag> --workspace directory|bok --save <parent>
       |      Inspect, plan, verify, run a declared operation, scaffold a package, or generate read-only projections.
       |      Dashboard defaults to target/document-project/project-dashboard.html; --save selects the exact requested path.
       |      Core review defaults to target/document-project/core-review.html.
+      |      Slide review defaults to target/document-project/slides-review.html.
       |      Video review defaults to target/document-project/video-review.html; --save overrides it.
-      |      Logical chart defaults to target/document-project/logical-chart-review.html; --save overrides it.
-      |      Review is purpose-oriented and exposes no logical-operation IDs. Video review is admitted only for standard-video.
-      |      Logical Chart visualizes current Content Core, Visual Page, and applicable storyboard IR as a read-only projection; standard omits video with its profile reason.
+      |      Slide and video logical charts default to target/document-project/slide-logical-chart-review.html and video-logical-chart-review.html; --save overrides them.
+      |      Review is purpose-oriented and exposes no logical-operation IDs. Video review and video logical charts are admitted only for video profiles.
+      |      Slide Logical Chart visualizes current Content Core and Visual Page IR; Video Logical Chart also visualizes storyboard IR, all as read-only projections.
       |      Projections are deterministic, self-contained, HTML-escaped, and write only the selected output.
       |      Output parents and destinations must be direct non-symlinks; existing regular files use a same-directory temporary file and atomic move.
       |      Projections never execute providers or persist authored authority, candidates, feedback, acceptance, receipts, attempts, or delivery state.
       |      Feedback reflection accepts direct JSON or YAML structured feedback with one common object schema; each item retains its proposal, applicability, and disposition.
       |      Accepted items replace only their mapped authority; rejected and not-applicable items report their required reason without writing.
-      |      Standard requires a not-applicable video item; all feedback is prevalidated before same-directory atomic authority replacement.
+      |      A non-video profile requires a not-applicable video item; all feedback is prevalidated before same-directory atomic authority replacement.
       |
       |  pdf <input> (use `cozy pdf --help` for PDF options and formats).
       |

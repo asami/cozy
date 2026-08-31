@@ -56,7 +56,7 @@ historical evidence:
 
 Work Products make the edges of that model visible.  Their closed role
 vocabulary is `authority`, `plan`, `candidate`, `review-projection`,
-`deliverable`, and `receipt`.  Branch selection distinguishes `required`,
+`site-deliverable`, `deliverable`, and `receipt`. Branch selection distinguishes `required`,
 `optional`, and `disabled`; an omitted branch has a visible reason rather than
 being treated as completed work.
 
@@ -149,7 +149,8 @@ Phase-42 compatibility behavior.
 ## Closed DP42-02 workflow definition
 
 DP42-02 closes the initial reusable `document-production` definition in code.
-It is immutable, resolves only `standard` and `standard-video`, and is not
+It is immutable, resolves public `standard`, `standard-video`, `bok`, and
+`bok-video`, plus hidden `simplemodeling-org` and `simplemodeling-org-video`, and is not
 serialized into, copied by, or editable through a Document Project descriptor.
 The definition validates itself before a plan projection or operation-admission
 lookup: identifiers are unique; producer, consumer, criterion, dependency,
@@ -159,34 +160,47 @@ binds only the closed Work Product set.
 
 The definition's stable initial Work Products are:
 
-| Work Product id | Role | `standard` | `standard-video` |
+| Work Product id | Role | no-video | video |
 | --- | --- | --- | --- |
 | `content-core-candidate` | candidate | optional | optional |
 | `content-core` | authority | required | required |
+| `core-review-html` | review-projection | optional | optional |
 | `article-source` | authority | required | required |
-| `article-html` | deliverable | optional | optional |
+| `article-html` | site-deliverable | required | required |
 | `article-pdf` | deliverable | required | required |
+| `visual-pages` | authority | required | required |
+| `slide-review-html` | review-projection | optional | optional |
 | `summary-slides-pdf` | deliverable | optional | optional |
 | `infographic-svg` | authority | required | required |
 | `infographic-png` | deliverable | optional | optional |
-| `video-storyboard` | plan | disabled: `profile standard disables video branch` | required |
-| `video-review` | review-projection | disabled: `profile standard disables video branch` | required |
-| `video-deliverable` | deliverable | disabled: `profile standard disables video branch` | required |
+| `video-storyboard`, `video-review`, `video-deliverable` | plan/review/deliverable | disabled with profile reason | required |
 | `explanation-structure-review-html` | review-projection | optional | optional |
+| `video-logical-chart-html` | review-projection | disabled with profile reason | optional |
 | `operation-receipt-evidence` | receipt | optional | optional |
 
 `required`, `optional`, and `disabled` are visibly different dispositions.
-The exact disabled reason belongs only to the three video Work Products in the
-`standard` profile; `standard-video` activates the same reusable branch
-without a disabled reason.
+No-video profiles expose their selected `profile <id> disables video branch`
+reason; video profiles activate the reusable branch without a disabled reason.
+`bok` and `simplemodeling-org` share the current no-video matrix, and their
+`-video` variants share the current video matrix. `simplemodeling-org` is
+registered for descriptor resolution but intentionally absent from public
+scaffold/help selection. This profile concern is independent of `workspace`,
+which selects operating context such as `directory` or `bok`.
+
+`article-html` is a required `site-deliverable`: Cozy Site generates it from
+the SmartDox article source. It is outside the ordinary PDF, slide,
+infographic, and video deliverable grouping.
+
+The required editable `infographic-svg` is itself the final infographic
+artifact and review target. It does not have a parallel review HTML.
 
 Each Work Product declares its producer and consumer logical operations, its
 criteria, Work Product dependencies, gate, and evidence reference.  Each
 logical operation has a stable id and one static provider binding.  The initial
-bindings are `content-core.compose`/`content-core.review`, article compose and
-render operations, `summary-slides.render-pdf`, infographic compose and PNG
-render operations, the three video operations,
-`explanation-structure.render-review`, and `operation-receipt.record`.  Their
+bindings are `content-core.compose`/`content-core.review`, article compose,
+Site publication, and PDF render operations, `summary-slides.render-pdf`, infographic compose and PNG
+render operations, the three video operations, slide and video logical-chart
+review operations, and `operation-receipt.record`. Their
 providers identify the fixed Cozy, SmartDox, Visual Page, infographic, video,
 Phase-41 Explanation Structure Review, or receipt adapter responsibility; they
 do not discover a provider or execute an adapter in DP42-02.  Criteria, gates,
@@ -256,18 +270,20 @@ not arbitrary descriptor files.  `inspect`, `plan`, and `verify` are derived
 inspections; successful `inspect` and `verify` regenerate only the disposable
 state cache specified above.  Phase 42.1 implements
 `dashboard <project> [--save <dashboard.html>]` and
-`review <project> --kind core|video|logical-chart [--save <review.html>]` as deterministic,
+`review <project> --kind core|slides|video|slide-logical-chart|video-logical-chart [--save <review.html>]` as deterministic,
 self-contained, read-only HTML projections.  The dashboard default is
 `target/document-project/project-dashboard.html`; review defaults are
 `target/document-project/core-review.html`,
-`target/document-project/video-review.html`, and
-`target/document-project/logical-chart-review.html`.  An explicit `--save` path is
+`target/document-project/slides-review.html`,
+`target/document-project/video-review.html`,
+`target/document-project/slide-logical-chart-review.html`, and
+`target/document-project/video-logical-chart-review.html`. An explicit `--save` path is
 used exactly as requested when external or valid under the project-local
 projection boundary, and review exposes no logical-operation ID.  The
-Logical Chart is an existing optional `explanation-structure-review-html`
-projection over current Content Core, Visual Page, and applicable storyboard IR;
-standard visibly omits its video branch with `profile standard disables video
-branch`.  These
+Core review, Slide review, Video review, Slide Logical Chart, and Video Logical
+Chart are separate purpose-oriented projections. The slide chart projects Core
+and Visual Page IR; the video chart additionally projects storyboard IR and is
+available only for a video profile. These
 commands do not execute providers, persist candidate/feedback/acceptance/
 receipt state, or modify authored authorities.  The historical Phase-42
 `DP-PHASE-001` dashboard rejection is retained only as compatibility history
@@ -277,15 +293,17 @@ The exact Phase 42.1 public forms are:
 
 ```text
 cozy document-project dashboard <project> [--save <dashboard.html>]
-cozy document-project review <project> --kind core|video|logical-chart [--save <review.html>]
+cozy document-project review <project> --kind core|slides|video|slide-logical-chart|video-logical-chart [--save <review.html>]
 cozy document-project reflect-feedback <project> <feedback>
 ```
 
 Dashboard defaults to `target/document-project/project-dashboard.html`; Core,
-video, and Logical Chart review default to
+slide, video, Slide Logical Chart, and Video Logical Chart review default to
 `target/document-project/core-review.html`,
+`target/document-project/slides-review.html`,
 `target/document-project/video-review.html`, and
-`target/document-project/logical-chart-review.html`.  Each selected output is
+`target/document-project/slide-logical-chart-review.html` and
+`target/document-project/video-logical-chart-review.html`. Each selected output is
 published through direct non-symlink parent admission and a same-directory
 atomic temporary-file move, with no direct-write fallback.
 `run` dispatches one declared operation; and `scaffold` is the only command
@@ -299,8 +317,9 @@ that package.  A lexical Core path is resolved only from that admitted package
 and cannot escape it through a symlink-based path.  This is a contract boundary
 for package admission, not a filesystem implementation prescription.
 
-Scaffold constructs either the `standard` authoring skeleton or the
-`standard-video` skeleton, which adds only `video/storyboard.md`.  It preserves
+Scaffold offers `standard`, `standard-video`, `bok`, and `bok-video`; the two
+video forms add only `video/storyboard.md`. `simplemodeling-org` forms remain
+hidden but descriptor-resolvable. It preserves
 the regular `index.dox` article-expression authority and does not perform
 SmartDox host discovery or source projection.  Creation is all-or-nothing: a
 new package is moved atomically into an existing real parent directory only
@@ -319,20 +338,20 @@ Phase 42.1 dashboard and review HTML are generated, read-only projections.
 Dashboard content has accessible Workflow, Work Product matrix, and Work
 Product details tables covering dispositions, providers, gates, coverage,
 currentness, review, readiness, dependencies, producer/consumer operations,
-evidence references, and next operations.  It distinguishes the current
+evidence references, and a user-facing next action. It is the place to see the
+current Project state and the next required or useful action without needing to
+interpret a logical-operation identifier. It distinguishes the current
 snapshot from retained attempts, whose initial records have no receipt or
 currentness authority.  Core review presents accepted Core entries and marks
 candidate/feedback/acceptance as non-authoritative and not yet persisted.
-The dashboard represents the existing `explanation-structure-review-html`
-Work Product as an active optional review projection; its coverage, currentness,
-and readiness derive from the available project-local Content Core, Visual Page,
-and applicable storyboard IR inputs, while its producer, gate, dependency, and
-evidence-reference links remain workflow-owned.
-Active video review presents storyboard and Visual Page source projections;
-disabled video remains visibly omitted.  Logical Chart presents accepted Core
-entries, Visual Page IR, and the standard-video storyboard IR as an existing
-`explanation-structure-review-html` Work Product projection; standard marks
-video omitted with its profile reason.  It is not an authority, provider run,
+The dashboard represents Core review, Slide review, Video review, Slide Logical
+Chart, and Video Logical Chart as distinct review projections. Slide Logical
+Chart derives from Core and Visual Page IR. Video Logical Chart additionally
+derives from storyboard IR and is visibly omitted in no-video profiles. Active
+video review presents storyboard and Visual Page source projections; disabled
+video remains visibly omitted. Dashboard links the required final infographic
+SVG for direct review, while review HTML links appear after their corresponding
+default outputs exist. These projections are not an authority, provider run,
 receipt, state cache, feedback record, or write-back mechanism.  Values are
 HTML-escaped and the projections are self-contained and deterministic.  Their destinations require
 the nearest existing parent directory to be direct and non-symlinked; only

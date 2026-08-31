@@ -65,19 +65,23 @@ private[cozy] object CozyDocumentProject {
               CozyDocumentProjectProjection.publish(destination, html)
               println(CozyDocumentProjectProjection.projectionResult("Dashboard", project, descriptor, destination))
             case "review" =>
-              val reviewkind = kind.getOrElse(_failure("DP-CLI-002", "review requires --kind core|video|logical-chart"))
+              val reviewkind = kind.getOrElse(_failure("DP-CLI-002", "review requires --kind core|slides|video|slide-logical-chart|video-logical-chart"))
               val html = reviewkind match {
                 case "core" => CozyDocumentProjectProjection.coreReviewHtml(project, descriptor)
+                case "slides" => CozyDocumentProjectProjection.slideReviewHtml(project, descriptor)
                 case "video" => CozyDocumentProjectProjection.videoReviewHtml(project, descriptor)
-                case "logical-chart" => CozyDocumentProjectProjection.logicalChartHtml(project, descriptor)
-                case _ => _failure("DP-CLI-001", "review --kind must be core, video, or logical-chart")
+                case "slide-logical-chart" => CozyDocumentProjectProjection.slideLogicalChartHtml(project, descriptor)
+                case "video-logical-chart" => CozyDocumentProjectProjection.videoLogicalChartHtml(project, descriptor)
+                case _ => _failure("DP-CLI-001", "review --kind must be core, slides, video, slide-logical-chart, or video-logical-chart")
               }
               val destination = CozyDocumentProjectProjection.admitDestination(project, save, s"$reviewkind-review.html")
               CozyDocumentProjectProjection.publish(destination, html)
               val reviewlabel = reviewkind match {
                 case "core" => "Core Review"
+                case "slides" => "Slide Review"
                 case "video" => "Video Review"
-                case "logical-chart" => "Logical Chart"
+                case "slide-logical-chart" => "Slide Logical Chart"
+                case "video-logical-chart" => "Video Logical Chart"
               }
               println(CozyDocumentProjectProjection.projectionResult(reviewlabel, project, descriptor, destination))
             case _ => _failure("DP-CLI-001", s"unsupported document-project command: $command")
@@ -117,8 +121,8 @@ private[cozy] object CozyDocumentProject {
       _failure("DP-CLI-002", "run requires --operation <logical-operation>")
     if (command == "review") {
       parsed.values.get("kind") match {
-        case None => _failure("DP-CLI-002", "review requires --kind core|video|logical-chart")
-        case Some(value) if value != "core" && value != "video" && value != "logical-chart" => _failure("DP-CLI-001", "review --kind must be core, video, or logical-chart")
+        case None => _failure("DP-CLI-002", "review requires --kind core|slides|video|slide-logical-chart|video-logical-chart")
+        case Some(value) if !Set("core", "slides", "video", "slide-logical-chart", "video-logical-chart").contains(value) => _failure("DP-CLI-001", "review --kind must be core, slides, video, slide-logical-chart, or video-logical-chart")
         case _ => ()
       }
     }
@@ -139,8 +143,8 @@ private[cozy] object CozyDocumentProject {
   private def _scaffold_request(args: List[String]): ScaffoldRequest = {
     val parsed = _parse_options(args, Set("profile", "language", "workspace", "save"), Set.empty)
     parsed.values.get("profile").foreach { value =>
-      if (value != "standard" && value != "standard-video")
-        _failure("DP-CLI-001", "scaffold profile must be standard or standard-video")
+      if (!CozyDocumentWorkflow.isScaffoldProfile(value))
+        _failure("DP-CLI-001", "scaffold profile must be standard, standard-video, bok, or bok-video")
     }
     parsed.values.get("language").foreach { value =>
       if (!_language_pattern.pattern.matcher(value).matches())
@@ -273,7 +277,7 @@ private[cozy] object CozyDocumentProject {
     ).foreach(_direct_file(project, _, "initial authored source"))
 
   private def _verify(project: Path, descriptor: Descriptor): String = {
-    if (descriptor.profile == "standard-video")
+    if (CozyDocumentWorkflow.isVideoProfile(descriptor.profile))
       _direct_file(project, "video/storyboard.md", "initial authored source")
     s"Cozy Document Project Verify\nproject: ${descriptor.id}\npackage: $project\nschema: cozy.document-project.v1"
   }
@@ -361,7 +365,7 @@ private[cozy] object CozyDocumentProject {
     attemptid: String
   ): String = {
     val sources = _state_sources(project, descriptor)
-    val expectedsourcecount = if (descriptor.profile == "standard-video") 7 else 6
+    val expectedsourcecount = if (CozyDocumentWorkflow.isVideoProfile(descriptor.profile)) 7 else 6
     if (sources.size != expectedsourcecount)
       _failure("DP-PATH-001", "initial authored sources changed before attempt evidence publication")
     val inputs = sources.map { case (relative, path) =>
@@ -471,7 +475,7 @@ private[cozy] object CozyDocumentProject {
       "infographic/infographic.svg",
       "presentation/visual-pages.yaml",
       "review/README.md"
-    ) ++ (if (descriptor.profile == "standard-video") Vector("video/storyboard.md") else Vector.empty)
+    ) ++ (if (CozyDocumentWorkflow.isVideoProfile(descriptor.profile)) Vector("video/storyboard.md") else Vector.empty)
     declared.flatMap { relative =>
       val path = project.resolve(relative).normalize()
       if (_is_direct_source(project, path)) Some(relative.replace('\\', '/') -> path) else None
@@ -538,7 +542,7 @@ private[cozy] object CozyDocumentProject {
       _write(staging.resolve("infographic/infographic.svg"), "<svg xmlns=\"http://www.w3.org/2000/svg\"><title>Document Project infographic</title></svg>\n")
       _write(staging.resolve("presentation/visual-pages.yaml"), "pages: []\n")
       _write(staging.resolve("review/README.md"), "# Review\n\nReview material belongs here.\n")
-      if (profile == "standard-video")
+      if (CozyDocumentWorkflow.isVideoProfile(profile))
         _write(staging.resolve("video/storyboard.md"), "# Storyboard\n\nStoryboard source belongs here.\n")
       Files.move(staging, destination, StandardCopyOption.ATOMIC_MOVE)
       temporary = None

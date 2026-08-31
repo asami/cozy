@@ -3,7 +3,7 @@
 This checklist is the authoritative progress ledger for Phase 42.1. It is not
 a normative behavior contract.
 
-Phase Status: PLANNED; NOT STARTED
+Phase Status: IN PROGRESS
 
 Predecessor: Phase 42 closure and its frozen contract/model handoff.
 
@@ -11,7 +11,7 @@ Predecessor: Phase 42 closure and its frozen contract/model handoff.
 
 Stage Status:
 
-- Current status: OPEN
+- Current status: IN PROGRESS
 - Owner: Cozy Phase 42.1
 - Update rule: Update this block from the checklist state below.
 
@@ -19,30 +19,30 @@ Stage Status:
 - [ ] Report exact satisfied, missing, and not-applicable completion criteria.
 - [ ] Propagate staleness through declared identities, including shared
       infographic consumers, without timestamps.
-- [ ] Persist append-only exact Operation Attempt evidence and keep historical
+- [x] Persist append-only exact Operation Attempt evidence and keep historical
       success/failure separate from current state.
-- [ ] Prove snapshot-cache deletion followed by inspection reconstructs the
+- [x] Prove snapshot-cache deletion followed by inspection reconstructs the
       same state.
-- [ ] Execute only one explicitly selected admitted logical operation.
+- [x] Execute only one explicitly selected admitted logical operation.
 
 ## DP42-04: Review Projections and Self-Contained Project Dashboard
 
 Stage Status:
 
-- Current status: OPEN
+- Current status: IN PROGRESS
 - Owner: Cozy Phase 42.1
 - Update rule: Update this block from the checklist state below.
 
-- [ ] Generate deterministic, atomic, self-contained HTML.
-- [ ] Generate `core-review.html` and route accepted feedback to either
+- [x] Generate deterministic, atomic, self-contained HTML.
+- [x] Generate `core-review.html` and route accepted feedback to either
       Content Core or the correct artifact-local authority.
-- [ ] Integrate Phase 41 Explanation Structure Review HTML as a selectable Work
+- [x] Integrate Slide and Video Logical Chart HTML as selectable Work
       Product.
-- [ ] Generate `video-review.html` when the video branch is active.
-- [ ] Implement Workflow, Work Product matrix, and Work Product detail views.
+- [x] Generate `video-review.html` when the video branch is active.
+- [x] Implement Workflow, Work Product matrix, and Work Product detail views.
 - [ ] Expose provider, gate, coverage, currentness, review, readiness,
       stale/blocking reason, and next-operation evidence.
-- [ ] Show shared Work Products once and separate current state from attempts.
+- [x] Show shared Work Products once and separate current state from attempts.
 - [ ] Separate project, workspace integration, aggregate build, and external
       delivery surfaces for hosted projects.
 - [ ] Keep dashboard data read-only and outside semantic/workflow authority.

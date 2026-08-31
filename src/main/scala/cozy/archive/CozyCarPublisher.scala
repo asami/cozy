@@ -13,7 +13,7 @@ import scala.collection.JavaConverters._
  * @since   May. 20, 2026
  *  version Jun.  4, 2026
  *  version Jul. 28, 2026
- * @version Aug.  7, 2026
+ * @version Aug. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 object CozyCarPublisher {
@@ -303,5 +303,5 @@ object CozyCarPublisher {
   }
 
   private val _publish_only_keys =
-    Set("warehouse", "car", "name", "version", "channel", "status", "published-at", "recommended")
+    Set("warehouse", "car", "name", "version", "channel", "status", "published-at", "keep-recommended", "local-publication")
 }

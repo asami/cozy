@@ -16,7 +16,7 @@ import org.scalatest.wordspec.AnyWordSpec
 /*
  * @since   May. 20, 2026
  *  version Jul. 21, 2026
- * @version Aug.  7, 2026
+ * @version Aug. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozySarPublisherSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -62,14 +62,13 @@ class CozySarPublisherSpec extends AnyWordSpec with Matchers with GivenWhenThen 
       val sar = _write(dir.resolve("input/sample.sar"), "sar-body")
       _write_project_yaml(projectdir, "sample-application")
 
-      When("Cozy publishes the release as recommended")
+      When("Cozy publishes the release without an explicit recommendation flag")
       CozySarPublisher.publish(List(
         projectdir.toString,
         "--warehouse", warehouse.toString,
         "--name", "sample-application",
         "--version", "0.1.0",
-        "--sar", sar.toString,
-        "--recommended"
+        "--sar", sar.toString
       ))
 
       Then("the archive, detailed catalogs, Maven metadata, and discovery index are published")
@@ -136,6 +135,60 @@ class CozySarPublisherSpec extends AnyWordSpec with Matchers with GivenWhenThen 
     }
   }
 
+  "isolate local snapshot publication from the project source catalog" in {
+    _with_temp_dir("cozy-publish-sar-local-catalog") { dir =>
+      Given("a source catalog containing an unavailable stable SAR release")
+      val projectdir = dir.resolve("project")
+      val warehouse = dir.resolve("warehouse")
+      val sar = _write(dir.resolve("input/sample.sar"), "local-snapshot")
+      _write_project_yaml(projectdir, "sample-application")
+      val sourcecatalogpath = projectdir.resolve(
+        "src/main/catalog/sar/sample-application.yaml"
+      )
+      _write(
+        sourcecatalogpath,
+        """schemaVersion: 1
+          |kind: sar
+          |artifactId: sample-application
+          |recommended: 0.1.0
+          |latestStable: 0.1.0
+          |status: active
+          |aliases: []
+          |versions:
+          |  - version: 0.1.0
+          |    channel: stable
+          |    status: active
+          |    file: repository/sar/sample-application/0.1.0/sample-application-0.1.0.sar
+          |""".stripMargin
+      )
+      val sourcebytes = Files.readString(sourcecatalogpath, StandardCharsets.UTF_8)
+
+      When("Cozy publishes a local SAR snapshot")
+      CozySarPublisher.publish(List(
+        projectdir.toString,
+        "--warehouse", warehouse.toString,
+        "--name", "sample-application",
+        "--version", "0.1.1-SNAPSHOT",
+        "--sar", sar.toString,
+        "--local-publication"
+      ))
+
+      Then("the source catalog is untouched and the local index retains no unavailable history")
+      Files.readString(sourcecatalogpath, StandardCharsets.UTF_8) shouldBe sourcebytes
+      Files.isRegularFile(
+        warehouse.resolve(
+          "repository/sar/sample-application/0.1.1-SNAPSHOT/sample-application-0.1.1-SNAPSHOT.sar"
+        )
+      ) shouldBe true
+      Files.exists(warehouse.resolve("repository/catalog/sar/sample-application.yaml")) shouldBe false
+      val indexpath = warehouse.resolve(ComponentRepositoryIndex.PUBLIC_PATH)
+      ComponentRepositoryIndex.validateCatalogs(
+        ComponentRepositoryIndex.load(indexpath),
+        indexpath
+      ).artifacts shouldBe empty
+    }
+  }
+
   "remove existing snapshot entries from a catalog" in {
     _with_temp_dir("cozy-publish-sar-snapshot-cleanup") { dir =>
       Given("a release catalog contaminated by an older snapshot entry")
@@ -148,6 +201,8 @@ class CozySarPublisherSpec extends AnyWordSpec with Matchers with GivenWhenThen 
         """schemaVersion: 1
           |kind: sar
           |artifactId: sample-application
+          |recommended: 0.1.0
+          |latestStable: 0.1.0
           |latestSnapshot: 0.1.1-SNAPSHOT
           |status: active
           |aliases: []
@@ -176,6 +231,8 @@ class CozySarPublisherSpec extends AnyWordSpec with Matchers with GivenWhenThen 
       val sourcecatalog = RepositoryArtifactCatalog.load(projectdir.resolve("src/main/catalog/sar/sample-application.yaml"))
       val publiccatalog = RepositoryArtifactCatalog.load(warehouse.resolve("repository/catalog/sar/sample-application.yaml"))
       sourcecatalog shouldBe publiccatalog
+      sourcecatalog.recommended shouldBe Some("0.1.0")
+      sourcecatalog.latestStable shouldBe Some("0.1.0")
       sourcecatalog.latestSnapshot shouldBe empty
       sourcecatalog.versions.map(_.version) shouldBe Vector("0.1.0")
       sourcecatalog.versions.forall(_.channel != Some("snapshot")) shouldBe true
@@ -213,7 +270,7 @@ class CozySarPublisherSpec extends AnyWordSpec with Matchers with GivenWhenThen 
           |""".stripMargin
       )
 
-      When("Cozy republishes the current release")
+      When("Cozy republishes the current release without retaining the older recommendation")
       CozySarPublisher.publish(List(
         projectdir.toString,
         "--warehouse", warehouse.toString,
@@ -222,19 +279,77 @@ class CozySarPublisherSpec extends AnyWordSpec with Matchers with GivenWhenThen 
         "--sar", sar.toString
       ))
 
-      Then("history and selectors remain stable while current metadata is replaced")
+      Then("history is retained while the current stable release becomes recommended")
       val catalog = RepositoryArtifactCatalog.load(projectdir.resolve("src/main/catalog/sar/sample-application.yaml"))
       catalog.versions.map(_.version) shouldBe Vector("0.0.9", "0.1.0")
       catalog.versions.find(_.version == "0.0.9").flatMap(_.status) shouldBe Some("deprecated")
       catalog.versions.find(_.version == "0.1.0").flatMap(_.checksumSha256) should not be Some("old")
-      catalog.recommended shouldBe Some("0.0.9")
+      catalog.recommended shouldBe Some("0.1.0")
       catalog.latestStable shouldBe Some("0.1.0")
       catalog.aliases shouldBe Vector("sample-old")
       val metadata = Files.readString(warehouse.resolve("repository/sar/sample-application/maven-metadata.xml"))
-      metadata should include("<latest>0.0.9</latest>")
+      metadata should include("<latest>0.1.0</latest>")
       metadata should include("<release>0.1.0</release>")
       metadata should include("<version>0.0.9</version>")
       metadata should include("<version>0.1.0</version>")
+    }
+  }
+
+  "retain an existing recommendation on explicit request" in {
+    _with_temp_dir("cozy-publish-sar-keep-recommended") { dir =>
+      Given("a SAR catalog with an older valid stable recommendation")
+      val projectdir = dir.resolve("project")
+      val warehouse = dir.resolve("warehouse")
+      val sar = _write(dir.resolve("input/sample.sar"), "new-sar-body")
+      _write_project_yaml(projectdir, "sample-application")
+      _write(
+        projectdir.resolve("src/main/catalog/sar/sample-application.yaml"),
+        """schemaVersion: 1
+          |kind: sar
+          |artifactId: sample-application
+          |recommended: 0.0.9
+          |latestStable: 0.1.0
+          |status: active
+          |aliases: []
+          |versions:
+          |  - version: 0.0.9
+          |    channel: stable
+          |    status: deprecated
+          |    file: repository/sar/sample-application/0.0.9/sample-application-0.0.9.sar
+          |  - version: 0.1.0
+          |    channel: stable
+          |    status: active
+          |    file: repository/sar/sample-application/0.1.0/sample-application-0.1.0.sar
+          |    checksum:
+          |      sha256: old
+          |""".stripMargin
+      )
+
+      When("Cozy republishes the stable SAR with --keep-recommended")
+      CozySarPublisher.publish(List(
+        projectdir.toString,
+        "--warehouse", warehouse.toString,
+        "--name", "sample-application",
+        "--version", "0.1.0",
+        "--sar", sar.toString,
+        "--keep-recommended"
+      ))
+
+      Then("the older stable recommendation remains while latestStable is current")
+      val sourcecatalog = RepositoryArtifactCatalog.load(
+        projectdir.resolve("src/main/catalog/sar/sample-application.yaml")
+      )
+      val publiccatalog = RepositoryArtifactCatalog.load(
+        warehouse.resolve("repository/catalog/sar/sample-application.yaml")
+      )
+      sourcecatalog shouldBe publiccatalog
+      sourcecatalog.recommended shouldBe Some("0.0.9")
+      sourcecatalog.latestStable shouldBe Some("0.1.0")
+      val metadata = Files.readString(
+        warehouse.resolve("repository/sar/sample-application/maven-metadata.xml")
+      )
+      metadata should include("<latest>0.0.9</latest>")
+      metadata should include("<release>0.1.0</release>")
     }
   }
 

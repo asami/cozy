@@ -13,10 +13,11 @@ private[cozy] object CozyDocumentWorkflow {
     case object Plan extends WorkProductRole("plan")
     case object Candidate extends WorkProductRole("candidate")
     case object ReviewProjection extends WorkProductRole("review-projection")
+    case object SiteDeliverable extends WorkProductRole("site-deliverable")
     case object Deliverable extends WorkProductRole("deliverable")
     case object Receipt extends WorkProductRole("receipt")
 
-    val all: Vector[WorkProductRole] = Vector(Authority, Plan, Candidate, ReviewProjection, Deliverable, Receipt)
+    val all: Vector[WorkProductRole] = Vector(Authority, Plan, Candidate, ReviewProjection, SiteDeliverable, Deliverable, Receipt)
   }
 
   sealed abstract class WorkProductDisposition(val value: String)
@@ -86,6 +87,15 @@ private[cozy] object CozyDocumentWorkflow {
   def isRegisteredProfile(profileId: String): Boolean =
     _validated_document_production().profiles.exists(_.id == profileId)
 
+  def isVideoProfile(profileId: String): Boolean =
+    Set("standard-video", "bok-video", "simplemodeling-org-video").contains(profileId)
+
+  def isHiddenProfile(profileId: String): Boolean =
+    Set("simplemodeling-org", "simplemodeling-org-video").contains(profileId)
+
+  def isScaffoldProfile(profileId: String): Boolean =
+    Set("standard", "standard-video", "bok", "bok-video").contains(profileId)
+
   def declaredOperation(operationId: String): Either[String, Option[LogicalOperation]] =
     Right(_validated_document_production().operations.find(_.id == operationId))
 
@@ -145,8 +155,8 @@ private[cozy] object CozyDocumentWorkflow {
     _duplicate_ids_("evidence reference", evidencereferenceids)
     _duplicate_ids_("provider binding", providerbindingids)
     _duplicate_ids_("profile", profileids)
-    if (profileids.toSet != Set("standard", "standard-video"))
-      errors += "document-production must resolve only standard and standard-video profiles"
+    if (profileids.toSet != Set("standard", "standard-video", "bok", "bok-video", "simplemodeling-org", "simplemodeling-org-video"))
+      errors += "document-production must resolve the closed standard, bok, and simplemodeling-org profile set"
 
     definition.criteria.foreach { criterion =>
       if (_empty_(criterion.id) || _empty_(criterion.description))
@@ -217,41 +227,55 @@ private[cozy] object CozyDocumentWorkflow {
   private val _criteria = Vector(
     Criterion("content-core-candidate-composed", "Content Core candidate is composed"),
     Criterion("content-core-accepted", "Content Core is explicitly accepted"),
+    Criterion("core-review-rendered", "Content Core review HTML is rendered"),
     Criterion("article-source-authored", "SmartDox article source is authored"),
-    Criterion("article-html-rendered", "Article HTML is rendered"),
+    Criterion("article-site-rendered", "Article site HTML is generated"),
     Criterion("article-pdf-rendered", "Article PDF is rendered"),
+    Criterion("visual-pages-authored", "Visual Page IR is authored"),
+    Criterion("slide-review-rendered", "Slide review HTML is rendered"),
     Criterion("summary-slides-rendered", "Summary slides PDF is rendered"),
     Criterion("infographic-svg-authored", "Editable infographic SVG is authored"),
     Criterion("infographic-png-rendered", "Infographic PNG is rendered"),
     Criterion("video-storyboard-authored", "Video storyboard is authored"),
     Criterion("video-review-rendered", "Video review projection is rendered"),
     Criterion("video-deliverable-rendered", "Video deliverable is rendered"),
-    Criterion("explanation-structure-reviewed", "Explanation Structure Review HTML is available"),
+    Criterion("slide-logical-chart-rendered", "Slide Logical Chart HTML is rendered"),
+    Criterion("video-logical-chart-rendered", "Video Logical Chart HTML is rendered"),
     Criterion("operation-receipt-recorded", "Operation receipt evidence is recorded")
   )
 
   private val _gates = Vector(
     Gate("content-core-acceptance", "Content Core acceptance gate", Vector("content-core-candidate-composed")),
+    Gate("core-review", "Content Core review gate", Vector("content-core-accepted")),
     Gate("article-composition", "Article composition gate", Vector("content-core-accepted", "infographic-svg-authored")),
-    Gate("article-delivery", "Article delivery gate", Vector("article-source-authored")),
+    Gate("article-site-publication", "Article site publication gate", Vector("article-source-authored")),
+    Gate("article-delivery", "Article PDF delivery gate", Vector("article-source-authored")),
+    Gate("visual-pages-authoring", "Visual Page authoring gate", Vector("content-core-accepted", "infographic-svg-authored")),
+    Gate("slide-review", "Slide review gate", Vector("visual-pages-authored")),
     Gate("slides-delivery", "Summary slides delivery gate", Vector("content-core-accepted", "infographic-svg-authored")),
     Gate("infographic-delivery", "Infographic delivery gate", Vector("infographic-svg-authored")),
     Gate("video-delivery", "Video delivery gate", Vector("video-storyboard-authored", "video-review-rendered")),
-    Gate("explanation-structure", "Explanation Structure Review gate", Vector("content-core-accepted")),
+    Gate("slide-logical-chart", "Slide Logical Chart gate", Vector("content-core-accepted", "visual-pages-authored")),
+    Gate("video-logical-chart", "Video Logical Chart gate", Vector("content-core-accepted", "visual-pages-authored", "video-storyboard-authored")),
     Gate("receipt-evidence", "Operation receipt evidence gate", Vector("operation-receipt-recorded"))
   )
 
   private val _evidence_references = Vector(
     EvidenceReference("content-core-reference", "Content Core authority reference"),
+    EvidenceReference("core-review-reference", "Content Core review reference"),
     EvidenceReference("article-source-reference", "SmartDox article source reference"),
-    EvidenceReference("article-output-reference", "Article output reference"),
+    EvidenceReference("article-site-reference", "Article site output reference"),
+    EvidenceReference("article-output-reference", "Article PDF output reference"),
+    EvidenceReference("visual-pages-reference", "Visual Page IR reference"),
+    EvidenceReference("slide-review-reference", "Slide review reference"),
     EvidenceReference("slides-output-reference", "Summary slides output reference"),
     EvidenceReference("infographic-source-reference", "Editable infographic SVG reference"),
     EvidenceReference("infographic-output-reference", "Infographic PNG reference"),
     EvidenceReference("video-storyboard-reference", "Video storyboard reference"),
     EvidenceReference("video-review-reference", "Video review projection reference"),
     EvidenceReference("video-output-reference", "Video deliverable reference"),
-    EvidenceReference("explanation-structure-reference", "Phase-41 Explanation Structure Review reference"),
+    EvidenceReference("slide-logical-chart-reference", "Phase-41 Slide Logical Chart reference"),
+    EvidenceReference("video-logical-chart-reference", "Video Logical Chart reference"),
     EvidenceReference("operation-receipt-reference", "Future operation receipt evidence reference")
   )
 
@@ -260,6 +284,7 @@ private[cozy] object CozyDocumentWorkflow {
     ProviderBinding("cozy-review-projection", "Cozy review projection adapter"),
     ProviderBinding("smartdox-authoring", "SmartDox article authoring adapter"),
     ProviderBinding("smartdox-rendering", "SmartDox rendering adapter"),
+    ProviderBinding("cozy-site", "Cozy Site generation adapter"),
     ProviderBinding("cozy-visual-page", "Cozy Visual Page adapter"),
     ProviderBinding("cozy-infographic", "Cozy infographic adapter"),
     ProviderBinding("cozy-video", "Cozy video adapter"),
@@ -270,57 +295,72 @@ private[cozy] object CozyDocumentWorkflow {
   private val _operations = Vector(
     LogicalOperation("content-core.compose", "cozy-content-core", Vector.empty, Vector("content-core-candidate")),
     LogicalOperation("content-core.review", "cozy-review-projection", Vector("content-core-candidate"), Vector("content-core")),
+    LogicalOperation("content-core.render-review", "cozy-review-projection", Vector("content-core"), Vector("core-review-html")),
     LogicalOperation("article.compose", "smartdox-authoring", Vector("content-core", "infographic-svg"), Vector("article-source")),
-    LogicalOperation("article.render-html", "smartdox-rendering", Vector("article-source"), Vector("article-html")),
+    LogicalOperation("article.publish-site", "cozy-site", Vector("article-source"), Vector("article-html")),
     LogicalOperation("article.render-pdf", "smartdox-rendering", Vector("article-source"), Vector("article-pdf")),
-    LogicalOperation("summary-slides.render-pdf", "cozy-visual-page", Vector("content-core", "infographic-svg"), Vector("summary-slides-pdf")),
+    LogicalOperation("visual-pages.author", "cozy-visual-page", Vector("content-core", "infographic-svg"), Vector("visual-pages")),
+    LogicalOperation("visual-pages.render-review", "cozy-visual-page", Vector("visual-pages"), Vector("slide-review-html")),
+    LogicalOperation("summary-slides.render-pdf", "cozy-visual-page", Vector("visual-pages"), Vector("summary-slides-pdf")),
     LogicalOperation("infographic.compose", "cozy-infographic", Vector("content-core"), Vector("infographic-svg")),
     LogicalOperation("infographic.render-png", "cozy-infographic", Vector("infographic-svg"), Vector("infographic-png")),
-    LogicalOperation("video.compose-storyboard", "cozy-video", Vector("content-core", "infographic-svg"), Vector("video-storyboard")),
-    LogicalOperation("video.render-review", "cozy-video", Vector("video-storyboard"), Vector("video-review")),
+    LogicalOperation("video.compose-storyboard", "cozy-video", Vector("content-core", "infographic-svg", "visual-pages"), Vector("video-storyboard")),
+    LogicalOperation("video.render-review", "cozy-video", Vector("video-storyboard", "visual-pages"), Vector("video-review")),
     LogicalOperation("video.render-deliverable", "cozy-video", Vector("video-review"), Vector("video-deliverable")),
-    LogicalOperation("explanation-structure.render-review", "phase-41-explanation-structure", Vector("content-core"), Vector("explanation-structure-review-html")),
-    LogicalOperation("operation-receipt.record", "cozy-operation-receipt", Vector("content-core-candidate", "content-core", "article-source", "article-html", "article-pdf", "summary-slides-pdf", "infographic-svg", "infographic-png", "video-storyboard", "video-review", "video-deliverable", "explanation-structure-review-html"), Vector("operation-receipt-evidence"))
+    LogicalOperation("slide-logical-chart.render-review", "phase-41-explanation-structure", Vector("content-core", "visual-pages"), Vector("explanation-structure-review-html")),
+    LogicalOperation("video-logical-chart.render-review", "phase-41-explanation-structure", Vector("content-core", "visual-pages", "video-storyboard"), Vector("video-logical-chart-html")),
+    LogicalOperation("operation-receipt.record", "cozy-operation-receipt", Vector("content-core-candidate", "content-core", "core-review-html", "article-source", "article-html", "article-pdf", "visual-pages", "slide-review-html", "summary-slides-pdf", "infographic-svg", "infographic-png", "video-storyboard", "video-review", "video-deliverable", "explanation-structure-review-html", "video-logical-chart-html"), Vector("operation-receipt-evidence"))
   )
 
   private val _work_products = Vector(
     WorkProduct("content-core-candidate", "Content Core candidate", WorkProductRole.Candidate, "content-core.compose", Vector("content-core.review", "operation-receipt.record"), Vector("content-core-candidate-composed"), Vector.empty, Vector("content-core-acceptance"), Vector("content-core-reference")),
-    WorkProduct("content-core", "Content Core", WorkProductRole.Authority, "content-core.review", Vector("article.compose", "summary-slides.render-pdf", "infographic.compose", "video.compose-storyboard", "explanation-structure.render-review", "operation-receipt.record"), Vector("content-core-accepted"), Vector("content-core-candidate"), Vector("content-core-acceptance"), Vector("content-core-reference")),
-    WorkProduct("article-source", "SmartDox article source", WorkProductRole.Authority, "article.compose", Vector("article.render-html", "article.render-pdf", "operation-receipt.record"), Vector("article-source-authored"), Vector("content-core", "infographic-svg"), Vector("article-composition"), Vector("article-source-reference")),
-    WorkProduct("article-html", "Article HTML", WorkProductRole.Deliverable, "article.render-html", Vector("operation-receipt.record"), Vector("article-html-rendered"), Vector("article-source"), Vector("article-delivery"), Vector("article-output-reference")),
+    WorkProduct("content-core", "Content Core", WorkProductRole.Authority, "content-core.review", Vector("content-core.render-review", "article.compose", "visual-pages.author", "infographic.compose", "video.compose-storyboard", "slide-logical-chart.render-review", "video-logical-chart.render-review", "operation-receipt.record"), Vector("content-core-accepted"), Vector("content-core-candidate"), Vector("content-core-acceptance"), Vector("content-core-reference")),
+    WorkProduct("core-review-html", "Core review HTML", WorkProductRole.ReviewProjection, "content-core.render-review", Vector("operation-receipt.record"), Vector("core-review-rendered"), Vector("content-core"), Vector("core-review"), Vector("core-review-reference")),
+    WorkProduct("article-source", "SmartDox article source", WorkProductRole.Authority, "article.compose", Vector("article.publish-site", "article.render-pdf", "operation-receipt.record"), Vector("article-source-authored"), Vector("content-core", "infographic-svg"), Vector("article-composition"), Vector("article-source-reference")),
+    WorkProduct("article-html", "Article site HTML", WorkProductRole.SiteDeliverable, "article.publish-site", Vector("operation-receipt.record"), Vector("article-site-rendered"), Vector("article-source"), Vector("article-site-publication"), Vector("article-site-reference")),
     WorkProduct("article-pdf", "Article PDF", WorkProductRole.Deliverable, "article.render-pdf", Vector("operation-receipt.record"), Vector("article-pdf-rendered"), Vector("article-source"), Vector("article-delivery"), Vector("article-output-reference")),
-    WorkProduct("summary-slides-pdf", "Summary slides PDF", WorkProductRole.Deliverable, "summary-slides.render-pdf", Vector("operation-receipt.record"), Vector("summary-slides-rendered"), Vector("content-core", "infographic-svg"), Vector("slides-delivery"), Vector("slides-output-reference")),
-    WorkProduct("infographic-svg", "Editable infographic SVG", WorkProductRole.Authority, "infographic.compose", Vector("article.compose", "summary-slides.render-pdf", "infographic.render-png", "video.compose-storyboard", "operation-receipt.record"), Vector("infographic-svg-authored"), Vector("content-core"), Vector("infographic-delivery"), Vector("infographic-source-reference")),
+    WorkProduct("visual-pages", "Visual Page IR", WorkProductRole.Authority, "visual-pages.author", Vector("visual-pages.render-review", "summary-slides.render-pdf", "video.compose-storyboard", "video.render-review", "slide-logical-chart.render-review", "video-logical-chart.render-review", "operation-receipt.record"), Vector("visual-pages-authored"), Vector("content-core", "infographic-svg"), Vector("visual-pages-authoring"), Vector("visual-pages-reference")),
+    WorkProduct("slide-review-html", "Slide review HTML", WorkProductRole.ReviewProjection, "visual-pages.render-review", Vector("operation-receipt.record"), Vector("slide-review-rendered"), Vector("visual-pages"), Vector("slide-review"), Vector("slide-review-reference")),
+    WorkProduct("summary-slides-pdf", "Summary slides PDF", WorkProductRole.Deliverable, "summary-slides.render-pdf", Vector("operation-receipt.record"), Vector("summary-slides-rendered"), Vector("visual-pages"), Vector("slides-delivery"), Vector("slides-output-reference")),
+    WorkProduct("infographic-svg", "Editable infographic SVG", WorkProductRole.Authority, "infographic.compose", Vector("article.compose", "infographic.render-png", "video.compose-storyboard", "operation-receipt.record"), Vector("infographic-svg-authored"), Vector("content-core"), Vector("infographic-delivery"), Vector("infographic-source-reference")),
     WorkProduct("infographic-png", "Infographic PNG", WorkProductRole.Deliverable, "infographic.render-png", Vector("operation-receipt.record"), Vector("infographic-png-rendered"), Vector("infographic-svg"), Vector("infographic-delivery"), Vector("infographic-output-reference")),
-    WorkProduct("video-storyboard", "Video storyboard", WorkProductRole.Plan, "video.compose-storyboard", Vector("video.render-review", "operation-receipt.record"), Vector("video-storyboard-authored"), Vector("content-core", "infographic-svg"), Vector("video-delivery"), Vector("video-storyboard-reference")),
-    WorkProduct("video-review", "Video review projection", WorkProductRole.ReviewProjection, "video.render-review", Vector("video.render-deliverable", "operation-receipt.record"), Vector("video-review-rendered"), Vector("video-storyboard"), Vector("video-delivery"), Vector("video-review-reference")),
+    WorkProduct("video-storyboard", "Video storyboard", WorkProductRole.Plan, "video.compose-storyboard", Vector("video.render-review", "video-logical-chart.render-review", "operation-receipt.record"), Vector("video-storyboard-authored"), Vector("content-core", "infographic-svg", "visual-pages"), Vector("video-delivery"), Vector("video-storyboard-reference")),
+    WorkProduct("video-review", "Video review HTML", WorkProductRole.ReviewProjection, "video.render-review", Vector("video.render-deliverable", "operation-receipt.record"), Vector("video-review-rendered"), Vector("video-storyboard", "visual-pages"), Vector("video-delivery"), Vector("video-review-reference")),
     WorkProduct("video-deliverable", "Video deliverable", WorkProductRole.Deliverable, "video.render-deliverable", Vector("operation-receipt.record"), Vector("video-deliverable-rendered"), Vector("video-review"), Vector("video-delivery"), Vector("video-output-reference")),
-    WorkProduct("explanation-structure-review-html", "Phase-41 Explanation Structure Review HTML", WorkProductRole.ReviewProjection, "explanation-structure.render-review", Vector("operation-receipt.record"), Vector("explanation-structure-reviewed"), Vector("content-core"), Vector("explanation-structure"), Vector("explanation-structure-reference")),
-    WorkProduct("operation-receipt-evidence", "Future operation receipt evidence", WorkProductRole.Receipt, "operation-receipt.record", Vector.empty, Vector("operation-receipt-recorded"), Vector("content-core-candidate", "content-core", "article-source", "article-html", "article-pdf", "summary-slides-pdf", "infographic-svg", "infographic-png", "video-storyboard", "video-review", "video-deliverable", "explanation-structure-review-html"), Vector("receipt-evidence"), Vector("operation-receipt-reference"))
+    WorkProduct("explanation-structure-review-html", "Slide Logical Chart HTML", WorkProductRole.ReviewProjection, "slide-logical-chart.render-review", Vector("operation-receipt.record"), Vector("slide-logical-chart-rendered"), Vector("content-core", "visual-pages"), Vector("slide-logical-chart"), Vector("slide-logical-chart-reference")),
+    WorkProduct("video-logical-chart-html", "Video Logical Chart HTML", WorkProductRole.ReviewProjection, "video-logical-chart.render-review", Vector("operation-receipt.record"), Vector("video-logical-chart-rendered"), Vector("content-core", "visual-pages", "video-storyboard"), Vector("video-logical-chart"), Vector("video-logical-chart-reference")),
+    WorkProduct("operation-receipt-evidence", "Future operation receipt evidence", WorkProductRole.Receipt, "operation-receipt.record", Vector.empty, Vector("operation-receipt-recorded"), Vector("content-core-candidate", "content-core", "core-review-html", "article-source", "article-html", "article-pdf", "visual-pages", "slide-review-html", "summary-slides-pdf", "infographic-svg", "infographic-png", "video-storyboard", "video-review", "video-deliverable", "explanation-structure-review-html", "video-logical-chart-html"), Vector("receipt-evidence"), Vector("operation-receipt-reference"))
   )
 
-  private val _standard_bindings = Vector(
+  private def _no_video_bindings(profileId: String): Vector[WorkProductBinding] = Vector(
     WorkProductBinding("content-core-candidate", WorkProductDisposition.Optional, None),
     WorkProductBinding("content-core", WorkProductDisposition.Required, None),
+    WorkProductBinding("core-review-html", WorkProductDisposition.Optional, None),
     WorkProductBinding("article-source", WorkProductDisposition.Required, None),
-    WorkProductBinding("article-html", WorkProductDisposition.Optional, None),
+    WorkProductBinding("article-html", WorkProductDisposition.Required, None),
     WorkProductBinding("article-pdf", WorkProductDisposition.Required, None),
+    WorkProductBinding("visual-pages", WorkProductDisposition.Required, None),
+    WorkProductBinding("slide-review-html", WorkProductDisposition.Optional, None),
     WorkProductBinding("summary-slides-pdf", WorkProductDisposition.Optional, None),
     WorkProductBinding("infographic-svg", WorkProductDisposition.Required, None),
     WorkProductBinding("infographic-png", WorkProductDisposition.Optional, None),
-    WorkProductBinding("video-storyboard", WorkProductDisposition.Disabled, Some("profile standard disables video branch")),
-    WorkProductBinding("video-review", WorkProductDisposition.Disabled, Some("profile standard disables video branch")),
-    WorkProductBinding("video-deliverable", WorkProductDisposition.Disabled, Some("profile standard disables video branch")),
+    WorkProductBinding("video-storyboard", WorkProductDisposition.Disabled, Some(s"profile $profileId disables video branch")),
+    WorkProductBinding("video-review", WorkProductDisposition.Disabled, Some(s"profile $profileId disables video branch")),
+    WorkProductBinding("video-deliverable", WorkProductDisposition.Disabled, Some(s"profile $profileId disables video branch")),
     WorkProductBinding("explanation-structure-review-html", WorkProductDisposition.Optional, None),
+    WorkProductBinding("video-logical-chart-html", WorkProductDisposition.Disabled, Some(s"profile $profileId disables video branch")),
     WorkProductBinding("operation-receipt-evidence", WorkProductDisposition.Optional, None)
   )
 
-  private val _standard_video_bindings = Vector(
+  private val _video_bindings = Vector(
     WorkProductBinding("content-core-candidate", WorkProductDisposition.Optional, None),
     WorkProductBinding("content-core", WorkProductDisposition.Required, None),
+    WorkProductBinding("core-review-html", WorkProductDisposition.Optional, None),
     WorkProductBinding("article-source", WorkProductDisposition.Required, None),
-    WorkProductBinding("article-html", WorkProductDisposition.Optional, None),
+    WorkProductBinding("article-html", WorkProductDisposition.Required, None),
     WorkProductBinding("article-pdf", WorkProductDisposition.Required, None),
+    WorkProductBinding("visual-pages", WorkProductDisposition.Required, None),
+    WorkProductBinding("slide-review-html", WorkProductDisposition.Optional, None),
     WorkProductBinding("summary-slides-pdf", WorkProductDisposition.Optional, None),
     WorkProductBinding("infographic-svg", WorkProductDisposition.Required, None),
     WorkProductBinding("infographic-png", WorkProductDisposition.Optional, None),
@@ -328,8 +368,16 @@ private[cozy] object CozyDocumentWorkflow {
     WorkProductBinding("video-review", WorkProductDisposition.Required, None),
     WorkProductBinding("video-deliverable", WorkProductDisposition.Required, None),
     WorkProductBinding("explanation-structure-review-html", WorkProductDisposition.Optional, None),
+    WorkProductBinding("video-logical-chart-html", WorkProductDisposition.Optional, None),
     WorkProductBinding("operation-receipt-evidence", WorkProductDisposition.Optional, None)
   )
+
+  private val _standard_bindings = _no_video_bindings("standard")
+  private val _standard_video_bindings = _video_bindings
+  private val _bok_bindings = _no_video_bindings("bok")
+  private val _bok_video_bindings = _video_bindings
+  private val _simplemodeling_org_bindings = _no_video_bindings("simplemodeling-org")
+  private val _simplemodeling_org_video_bindings = _video_bindings
 
   private val _document_production = WorkflowDefinition(
     "document-production",
@@ -341,7 +389,11 @@ private[cozy] object CozyDocumentWorkflow {
     _provider_bindings,
     Vector(
       WorkflowProfile("standard", _standard_bindings),
-      WorkflowProfile("standard-video", _standard_video_bindings)
+      WorkflowProfile("standard-video", _standard_video_bindings),
+      WorkflowProfile("bok", _bok_bindings),
+      WorkflowProfile("bok-video", _bok_video_bindings),
+      WorkflowProfile("simplemodeling-org", _simplemodeling_org_bindings),
+      WorkflowProfile("simplemodeling-org-video", _simplemodeling_org_video_bindings)
     )
   )
 
@@ -365,7 +417,11 @@ private[cozy] object CozyDocumentWorkflow {
   private def _canonical_profile_binding_errors(definition: WorkflowDefinition): Vector[String] = {
     Vector(
       "standard" -> _standard_bindings,
-      "standard-video" -> _standard_video_bindings
+      "standard-video" -> _standard_video_bindings,
+      "bok" -> _bok_bindings,
+      "bok-video" -> _bok_video_bindings,
+      "simplemodeling-org" -> _simplemodeling_org_bindings,
+      "simplemodeling-org-video" -> _simplemodeling_org_video_bindings
     ).flatMap { case (profileid, expectedbindings) =>
       definition.profiles.find(_.id == profileid).toVector.flatMap { profile =>
         expectedbindings.flatMap { expectedbinding =>

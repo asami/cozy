@@ -31,6 +31,9 @@ Current notes:
 - `cml-semantic-scalar-modeling-spec-proposal.md`: provisional Phase 16
   classification for predefined text types, constrained domain scalars,
   powertypes, statemachines, and string value ranges.
+- `document-project-workflow-management-specification-proposal.md`: Phase 42
+  proposal for Document Project scaffold, workflow instances, first-class Work
+  Products, evidence-derived progress, attempt history, and dashboard views.
 - `scalar-entity-persistence-roundtrip-implementation-proposal.md`: proposed
   Phase 23 implementation boundary, reproduction gates, generated-reader
   change points, and Entity lifecycle verification matrix.

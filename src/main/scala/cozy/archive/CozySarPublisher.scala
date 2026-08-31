@@ -4,7 +4,8 @@ import java.nio.file.{Files, Path}
 
 /*
  * @since   May. 20, 2026
- * @version Jun.  4, 2026
+ *  version Jun.  4, 2026
+ * @version Aug. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 object CozySarPublisher {
@@ -55,5 +56,5 @@ object CozySarPublisher {
     )
 
   private val _publish_only_keys =
-    Set("warehouse", "sar", "name", "version", "channel", "status", "published-at", "recommended")
+    Set("warehouse", "sar", "name", "version", "channel", "status", "published-at", "keep-recommended", "local-publication")
 }

@@ -88,6 +88,11 @@ Current phase state:
   complete locally. `phase-42.1.md` remains its planned, NOT STARTED successor
   for evidence-derived state, review/dashboard projection, and directory/BoK
   driver acceptance; it begins only after this distinct Phase closure commit.
+- Planned next development item: `phase-43.md`: Logical UI Model and Review
+  HTML. It begins only after Phase 42.1 closure, projects Application Core,
+  three-layer use cases, and public Component vocabulary into accepted Logical
+  Screen Compositions, and stops before Flutter or target-framework
+  generation.
 - Earlier closed phase: `phase-28.2.md`: SimpleModeling.org Part 5
   Integration and Regression; `AM28-03` and `AM28-04` are complete.
 - Most recent split predecessor: `phase-28.1.md`: WIP Local Article Media
@@ -205,3 +210,9 @@ the non-normative input in
 `docs/notes/document-project-workflow-management-specification-proposal.md`
 and exclude implicit registration, publication, deployment, upload, and
 legacy-article migration.
+
+Phase 43 is the planned Logical UI successor after Phase 42.1. Its canonical
+work-ledger authority is `phase-43.md` plus `phase-43-checklist.md`; its
+non-normative planning input is
+`docs/notes/logical-ui-model-specification-proposal.md`. Planning it does not
+start Phase 43 or alter Phase 42.1 state.

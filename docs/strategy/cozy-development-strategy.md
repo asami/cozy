@@ -1376,6 +1376,61 @@ Primary references:
 - `docs/notes/document-project-workflow-management-specification-proposal.md`
 - `docs/journal/2026/08/2026-08-30-document-project-content-core-direction.md`
 
+### Phase 43: Logical UI Model and Review HTML
+
+Status: planned; not started. Phase 43 is the next Cozy development item after
+Phase 42.1 closure. It introduces a platform-neutral Logical UI Model before
+Flutter or another target-framework generator.
+
+Purpose and boundaries:
+
+- bind Application Core and Business/System/UI UseCases to exact public CML/
+  CNCF Component identities without creating a parallel domain model;
+- define UseCase-to-Screen Projection and Logical Screen Composition;
+- freeze the minimum closed Purpose, Display, and Interaction Pattern
+  vocabularies required by a representative SalesOrder driver;
+- project Datatype, Value, DbC, Powertype, and StateMachine meaning while
+  keeping domain, Workflow, and UI interaction state distinct;
+- generate deterministic self-contained Logical UI Review HTML with coverage,
+  reachability, authority, validation, lifecycle, failure, and currentness
+  diagnostics; and
+- accept one repository-controlled SalesOrder fixture through focused/full
+  Cozy validation and independent Phase review.
+
+Phase 43 excludes Flutter, target widgets, URL routing, target state-management
+libraries, REST/Form API client generation, application packaging, generated
+binaries, publication, deployment, and external-driver mutation. A later
+Policy plus target-generation phase may consume its accepted Logical UI Model
+only after Phase 43 closes. That successor owns a `presentation` Subcomponent
+with independent Component/CAR identity. It is a reusable multi-application-
+kind Flutter development environment with separate versioned application-kind
+and Web/iPhone/Android/Desktop target-platform profiles,
+generator/completion ownership, platform artifact production, self-contained
+manuals, artifact inventory, compatibility, licenses, Help/MCP, and
+provenance/integrity resources. Its terminal development result is a
+deterministic verified CAR; Component Repository publication is the subsequent
+product-distribution operation. Acquiring the CAR must be sufficient to
+inspect, verify, select, extract, and prepare distribution of its platform
+artifacts without the generating workspace. Running the CAR under CNCF exposes
+authorized Help, Manual, MCP, identity, compatibility, provenance, and artifact
+information. An admitted Web target supports both external-server export and
+CNCF-hosted direct Web publication. An explicit parent/child Web-exposure
+binding lets the parent Component publish the connected Presentation
+Subcomponent's internal Web app without transferring bundle ownership or
+backend Operation ownership. No Flutter business, mobile/desktop platform
+execution, deployment, or official-distribution Component Operation is
+introduced. Exact mobile artifact or desktop
+installer/package extraction and official platform-channel distribution are
+separate downstream operations; CAR publication or discovery must not perform
+them implicitly.
+
+Primary references:
+
+- `docs/phase/phase-43.md`
+- `docs/phase/phase-43-checklist.md`
+- `docs/notes/logical-ui-model-specification-proposal.md`
+- `docs/journal/2026/09/2026-09-01-logical-ui-model-direction.md`
+
 ### Phase 31: Video Encoding Policy Profiles
 
 Status: complete; VP31-01 through VP31-03 are complete.
@@ -1470,6 +1525,7 @@ Origin:
 | DEV-011 | User request for an integrated confirmation HTML on 2026-08-29 | Generate one self-contained review HTML that exposes explanation flow, Step-to-Page mapping, per-page logical semantics, and per-page visual structure together without becoming semantic authority. | NEW_PHASE | [Phase 41](../phase/phase-41.md), after Phase 40.1 | RESOLVED |
 | DEV-012 | User decision on 2026-08-29 resolving `P39-DEC-IMAGE-RECEIPT-001` | Implement Markdown image admission in the SmartDox parser/image model and, only if needed, define a separate Cozy PDF receipt contract without reusing `cozy.media.receipt.v2`. | STRATEGY_ITEM | Future explicitly planned SmartDox/Cozy integration Phase | CANDIDATE |
 | DEV-013 | User-approved Document Project workflow direction on 2026-08-30; split approved on 2026-08-31 | Scaffold and manage one Document Project through a reusable workflow; first freeze its Content Core, command/scaffold, Workflow Instance, and Work Product kernel, then derive evidence state, review/dashboard projections, and directory/BoK driver acceptance. | NEW_PHASE | [Phase 42](../phase/phase-42.md) COMPLETE → [Phase 42.1](../phase/phase-42.1.md) PLANNED, after Phase 41 | PARTIALLY RESOLVED |
+| DEV-014 | User-approved Logical UI direction on 2026-09-01; `docs/journal/2026/09/2026-09-01-logical-ui-model-direction.md` | Establish Application Core and three-layer use-case bindings, project public Component vocabulary into Logical Screen Composition, and generate deterministic Logical UI Review HTML before target-framework generation. | NEW_PHASE | [Phase 43](../phase/phase-43.md), after Phase 42.1 | PLANNED |
 
 ## Current Priority
 
@@ -1493,6 +1549,18 @@ and not started; it receives the frozen handoff for evidence-derived Work
 Product visibility, review/dashboard output, and directory/BoK driver
 acceptance. Neither child adds work to the closed Phase 30/36/37 boundaries or
 claims publication, push, or external consumer mutation.
+
+Phase 43 is the planned next Cozy development item after Phase 42.1 closure.
+It owns the Logical UI contract kernel, UseCase-to-Screen Projection, Logical
+Screen Composition, closed semantic pattern selections, CML/CNCF Component
+bindings, validation/state semantics, deterministic review HTML, and a
+repository-controlled SalesOrder acceptance driver. It stops before Flutter
+or any other target-framework generation. Its successor is expected to produce
+the Flutter application as a `presentation` Subcomponent, distribute its
+independent self-contained CAR as the product boundary, support Web export and
+CNCF-hosted publication including explicit parent-connected exposure, and
+expose separately authorized operations that extract mobile/Desktop artifacts
+and distribute them through official platform channels.
 
 Phase 34 is closed after the candidate final official full Cozy validation.
 The earlier invocation

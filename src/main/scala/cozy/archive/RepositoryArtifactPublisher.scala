@@ -20,7 +20,7 @@ import scala.util.control.NonFatal
  * @since   May. 20, 2026
  *  version Jun. 23, 2026
  *  version Jul. 21, 2026
- * @version Aug. 21, 2026
+ * @version Aug. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object RepositoryArtifactPublisher {
@@ -95,7 +95,8 @@ private[cozy] object RepositoryArtifactPublisher {
       if (!Files.isRegularFile(sourcearchive))
         RAISE.invalidArgumentFault(s"${policy.missingArchiveMessage}: $sourcearchive")
       val archivecandidate = _stage_(_stage_copy(target, sourcearchive))
-      val catalog = _updated_catalog(projectdir, warehouse, name, version, target, archivecandidate, publicationargs, policy)
+      val localpublication = flag(publicationargs, "local-publication")
+      val catalog = _updated_catalog(projectdir, warehouse, name, version, target, archivecandidate, publicationargs, policy, localpublication)
       val sourcecatalog = sourceCatalogPath(projectdir, policy.kind, name, policy.coordinate)
       val publiccatalog = publicCatalogPath(warehouse, policy.kind, name, policy.coordinate)
       val metadatapath = mavenMetadataPath(warehouse, policy.kind, name, policy.coordinate)
@@ -107,12 +108,14 @@ private[cozy] object RepositoryArtifactPublisher {
           Some(_stage_(_stage_text(target.resolveSibling(target.getFileName.toString + ".sha256"), sha256(archivecandidate) + "\n")))
       }
       if (catalog.versions.isEmpty) {
-        writes += sourcecatalog -> None
+        if (!localpublication)
+          writes += sourcecatalog -> None
         writes += publiccatalog -> None
         writes += metadatapath -> None
       } else {
         val metadata = RepositoryArtifactMavenMetadata.toXml(catalog, publishedAt(publicationargs))
-        writes += sourcecatalog -> Some(_stage_(_stage_text(sourcecatalog, catalog.toYaml)))
+        if (!localpublication)
+          writes += sourcecatalog -> Some(_stage_(_stage_text(sourcecatalog, catalog.toYaml)))
         writes += publiccatalog -> Some(_stage_(_stage_text(publiccatalog, catalog.toYaml)))
         writes += metadatapath -> Some(_stage_(_stage_text(metadatapath, metadata)))
       }
@@ -184,11 +187,13 @@ private[cozy] object RepositoryArtifactPublisher {
     def _go_(xs: List[String], acc: Vector[String]): Vector[String] =
       xs match {
         case Nil => acc
+        case "--keep-recommended" :: tail =>
+          _go_(tail, acc)
+        case "--local-publication" :: tail if skipKeys.contains("local-publication") =>
+          _go_(tail, acc)
         case x :: tail if x.startsWith("--") && x.contains("=") && skipKeys.contains(x.drop(2).takeWhile(_ != '=')) =>
           _go_(tail, acc)
         case x :: _ :: tail if x.startsWith("--") && skipKeys.contains(x.drop(2)) =>
-          _go_(tail, acc)
-        case "--recommended" :: tail =>
           _go_(tail, acc)
         case x :: tail =>
           _go_(tail, acc :+ x)
@@ -227,7 +232,8 @@ private[cozy] object RepositoryArtifactPublisher {
     spec.Parameter.property("status"),
     spec.Parameter.property("channel"),
     spec.Parameter.property("published-at"),
-    spec.Parameter("recommended", spec.Parameter.SwitchKind)
+    spec.Parameter("keep-recommended", spec.Parameter.SwitchKind),
+    spec.Parameter("local-publication", spec.Parameter.SwitchKind)
   )
 
   private def _parse(args: List[String]): CozyCliArgs.Parsed =
@@ -449,14 +455,18 @@ private[cozy] object RepositoryArtifactPublisher {
     publishedarchive: Path,
     candidatearchive: Path,
     args: List[String],
-    policy: Policy
+    policy: Policy,
+    localpublication: Boolean
   ): RepositoryArtifactCatalog = {
     val sourcepath = sourceCatalogPath(projectdir, policy.kind, name, policy.coordinate)
+    val publicpath = publicCatalogPath(warehouse, policy.kind, name, policy.coordinate)
     val existing: RepositoryArtifactCatalog =
-      if (Files.isRegularFile(sourcepath))
+      if (localpublication && Files.isRegularFile(publicpath))
+        RepositoryArtifactCatalog.load(publicpath)
+      else if (!localpublication && Files.isRegularFile(sourcepath))
         RepositoryArtifactCatalog.load(sourcepath)
-      else if (Files.isRegularFile(publicCatalogPath(warehouse, policy.kind, name, policy.coordinate)))
-        RepositoryArtifactCatalog.load(publicCatalogPath(warehouse, policy.kind, name, policy.coordinate))
+      else if (!localpublication && Files.isRegularFile(publicpath))
+        RepositoryArtifactCatalog.load(publicpath)
       else
         RepositoryArtifactCatalog(
           schemaVersion = if (policy.coordinate.isDefined) "2" else "1",
@@ -504,13 +514,18 @@ private[cozy] object RepositoryArtifactPublisher {
       selector.filter(value => versions.exists(version => version.version == value && version.channel.contains("stable")))
     def _valid_snapshot_selector_(selector: Option[String]): Option[String] =
       selector.filter(value => versions.exists(version => version.version == value && version.channel.contains("snapshot")))
+    val stablepublish = !snapshotpublish && channel == "stable"
     val recommended =
-      if (!snapshotpublish && flag(args, "recommended"))
+      if (snapshotpublish)
+        _valid_stable_selector_(existing.recommended)
+      else if (stablepublish && !flag(args, "keep-recommended"))
         Some(version)
       else
-        _valid_stable_selector_(existing.recommended).orElse(if (snapshotpublish) None else Some(version))
+        _valid_stable_selector_(existing.recommended).orElse(if (stablepublish) Some(version) else None)
     val lateststable =
-      if (!snapshotpublish && channel == "stable") Some(version) else _valid_stable_selector_(existing.latestStable)
+      if (snapshotpublish) _valid_stable_selector_(existing.latestStable)
+      else if (stablepublish) Some(version)
+      else _valid_stable_selector_(existing.latestStable)
     val latestsnapshot =
       if (policy.coordinate.isDefined && snapshotpublish) Some(version)
       else if (policy.coordinate.isDefined) _valid_snapshot_selector_(existing.latestSnapshot)
