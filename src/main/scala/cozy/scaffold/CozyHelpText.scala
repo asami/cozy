@@ -18,6 +18,15 @@ private[cozy] object CozyHelpText {
       |  version, --version
       |      Show the Cozy runtime version and exit.
       |
+      |  document-project inspect <project>
+      |  document-project plan <project>
+      |  document-project dashboard <project> --save <dashboard.html>
+      |  document-project verify <project>
+      |  document-project run <project> --operation <logical-operation> [--dry-run]
+      |  document-project scaffold <slug> --profile standard|standard-video --language <tag> --workspace directory|bok --save <parent>
+      |      Inspect, plan, verify, run a declared operation, or scaffold a Document Project package.
+      |      Dashboard is reserved for Phase 42.1 and rejects in Phase 42; it does not render in this release.
+      |
       |  pdf <input> (use `cozy pdf --help` for PDF options and formats).
       |
       |  init component --save <dir> [--config <file>] [--name <artifact>] [--component-name <name>|--component <name>] [--service-name <name>] [--entity <name>] [--command-operation <name>] [--query-operation <name>] [--display-name <title>] [--organization <organization>] [--package <package>] [--version <version>] [--kind car|car-sar] [--bounded-context <name>] [--domain <name>] [--gitignore] [--readme] [--tests] [--mcp-ready-service] [--no-project-files] [--overwrite-project-files]

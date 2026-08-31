@@ -1,0 +1,382 @@
+package cozy.document
+
+import org.goldenport.RAISE
+import org.goldenport.config.StructuredDocumentLoader
+import org.goldenport.io.InputSource
+import io.circe.Json
+import java.nio.charset.StandardCharsets
+import java.nio.file.{AtomicMoveNotSupportedException, Files, LinkOption, Path, Paths, StandardCopyOption}
+import scala.collection.JavaConverters._
+import scala.util.control.NonFatal
+
+/*
+ * @since   Aug. 31, 2026
+ * @version Aug. 31, 2026
+ * @author  ASAMI, Tomoharu
+ */
+private[cozy] object CozyDocumentProject {
+  private final case class Descriptor(
+    id: String,
+    profile: String,
+    language: String,
+    workspace: String,
+    contentCore: String
+  )
+
+  private final case class ProjectRequest(command: String, project: String, operation: Option[String])
+  private final case class ScaffoldRequest(slug: String, profile: String, language: String, workspace: String, parent: String)
+  private final case class ParsedOptions(values: Map[String, String], flags: Set[String], positionals: Vector[String])
+
+  private val _slug_pattern = "[a-z0-9][a-z0-9._-]*".r
+  private val _language_pattern = "[a-z]{2,8}(?:-[a-z0-9]{1,8})*".r
+  private val _descriptor_keys = Set("schema", "id", "workflow", "profile", "language", "workspace", "contentCore")
+  private val _core_keys = Set("schema", "id", "language", "accepted")
+
+  def execute(args: List[String]): Boolean = args match {
+    case "document-project" :: rest =>
+      _parse(rest) match {
+        case ProjectRequest("dashboard", _, _) =>
+          _failure("DP-PHASE-001", "dashboard is reserved for Phase 42.1")
+        case ProjectRequest(command, projectvalue, operation) =>
+          val project = _admit_project(projectvalue)
+          if (command == "verify")
+            _verify_initial_sources(project)
+          val descriptor = _load_project(project)
+          command match {
+            case "inspect" => println(_inspect(project, descriptor))
+            case "plan" => println(_plan(project, descriptor))
+            case "verify" => println(_verify(project, descriptor))
+            case "run" => _failure("DP-OP-001", s"undeclared logical operation: ${operation.getOrElse("")}")
+            case _ => _failure("DP-CLI-001", s"unsupported document-project command: $command")
+          }
+          true
+        case ScaffoldRequest(slug, profile, language, workspace, parent) =>
+          val destination = _scaffold(slug, profile, language, workspace, parent)
+          println(_scaffold_result(destination, slug, profile, language, workspace))
+          true
+      }
+    case _ => false
+  }
+
+  private def _parse(args: List[String]): Product = args match {
+    case "inspect" :: rest => _project_request("inspect", rest, Set.empty, Set.empty)
+    case "plan" :: rest => _project_request("plan", rest, Set.empty, Set.empty)
+    case "dashboard" :: rest => _project_request("dashboard", rest, Set("save"), Set.empty)
+    case "verify" :: rest => _project_request("verify", rest, Set.empty, Set.empty)
+    case "run" :: rest => _project_request("run", rest, Set("operation"), Set("dry-run"))
+    case "scaffold" :: rest => _scaffold_request(rest)
+    case value :: _ => _failure("DP-CLI-001", s"unknown document-project command: $value")
+    case Nil => _failure("DP-CLI-001", "missing document-project command")
+  }
+
+  private def _project_request(
+    command: String,
+    args: List[String],
+    valueoptions: Set[String],
+    flagoptions: Set[String]
+  ): ProjectRequest = {
+    val parsed = _parse_options(args, valueoptions, flagoptions)
+    if (parsed.positionals.size > 1)
+      _failure("DP-CLI-001", s"invalid $command command grammar")
+    if (command == "dashboard" && !parsed.values.contains("save"))
+      _failure("DP-CLI-002", "dashboard requires --save <dashboard.html>")
+    if (command == "run" && !parsed.values.contains("operation"))
+      _failure("DP-CLI-002", "run requires --operation <logical-operation>")
+    if (parsed.positionals.isEmpty)
+      _failure("DP-CLI-002", s"$command requires <project>")
+    ProjectRequest(command, parsed.positionals.head, parsed.values.get("operation"))
+  }
+
+  private def _scaffold_request(args: List[String]): ScaffoldRequest = {
+    val parsed = _parse_options(args, Set("profile", "language", "workspace", "save"), Set.empty)
+    parsed.values.get("profile").foreach { value =>
+      if (value != "standard" && value != "standard-video")
+        _failure("DP-CLI-001", "scaffold profile must be standard or standard-video")
+    }
+    parsed.values.get("language").foreach { value =>
+      if (!_language_pattern.pattern.matcher(value).matches())
+        _failure("DP-CLI-001", "scaffold language must be a lowercase BCP-47 tag")
+    }
+    parsed.values.get("workspace").foreach { value =>
+      if (value != "directory" && value != "bok")
+        _failure("DP-CLI-001", "scaffold workspace must be directory or bok")
+    }
+    if (parsed.positionals.size > 1)
+      _failure("DP-CLI-001", "invalid scaffold command grammar")
+    parsed.positionals.headOption.foreach { value =>
+      if (!_slug_pattern.pattern.matcher(value).matches())
+        _failure("DP-CLI-001", "scaffold slug must match [a-z0-9][a-z0-9._-]*")
+    }
+    if (parsed.positionals.isEmpty)
+      _failure("DP-CLI-002", "scaffold requires <slug>")
+    val profile = parsed.values.getOrElse("profile", _failure("DP-CLI-002", "scaffold requires --profile"))
+    val language = parsed.values.getOrElse("language", _failure("DP-CLI-002", "scaffold requires --language"))
+    val workspace = parsed.values.getOrElse("workspace", _failure("DP-CLI-002", "scaffold requires --workspace"))
+    val parent = parsed.values.getOrElse("save", _failure("DP-CLI-002", "scaffold requires --save <parent>"))
+    ScaffoldRequest(parsed.positionals.head, profile, language, workspace, parent)
+  }
+
+  private def _parse_options(args: List[String], valueoptions: Set[String], flagoptions: Set[String]): ParsedOptions = {
+    val recognized = valueoptions ++ flagoptions
+    if (args.exists(value => value.startsWith("-") && (!value.startsWith("--") || !recognized.contains(value.drop(2)))))
+      _failure("DP-CLI-001", "unsupported option or option spelling")
+    @annotation.tailrec
+    def _go_(rest: List[String], values: Map[String, String], flags: Set[String], positionals: Vector[String]): ParsedOptions = rest match {
+      case Nil => ParsedOptions(values, flags, positionals)
+      case option :: tail if valueoptions.contains(option.drop(2)) =>
+        val name = option.drop(2)
+        if (values.contains(name))
+          _failure("DP-CLI-001", s"duplicate --$name option")
+        tail match {
+          case value :: remainder if !value.startsWith("-") => _go_(remainder, values + (name -> value), flags, positionals)
+          case _ => _failure("DP-CLI-002", s"--$name requires a value")
+        }
+      case option :: tail if flagoptions.contains(option.drop(2)) =>
+        val name = option.drop(2)
+        if (flags.contains(name))
+          _failure("DP-CLI-001", s"duplicate --$name option")
+        _go_(tail, values, flags + name, positionals)
+      case value :: tail => _go_(tail, values, flags, positionals :+ value)
+    }
+    _go_(args, Map.empty, Set.empty, Vector.empty)
+  }
+
+  private def _admit_project(value: String): Path = {
+    val project = try Paths.get(value).toAbsolutePath.normalize() catch {
+      case NonFatal(_) => _failure("DP-PATH-001", "project path is invalid")
+    }
+    val name = Option(project.getFileName).map(_.toString).getOrElse("")
+    if (!name.endsWith(".dox") || Files.isSymbolicLink(project) || !Files.isDirectory(project, LinkOption.NOFOLLOW_LINKS))
+      _failure("DP-PATH-001", "project must be an existing direct non-symlink .dox directory")
+    project
+  }
+
+  private def _load_project(project: Path): Descriptor = {
+    val descriptorfile = _admitted_descriptor_file(project, "document-project.yaml", "descriptor")
+    _admitted_content_directory(project.resolve("content"))
+    val descriptorjson = _load_json(descriptorfile, "descriptor")
+    _admit_raw_content_core_path(descriptorjson)
+    val descriptor = _validate_descriptor(descriptorjson)
+    val corefile = _admitted_descriptor_file(project, descriptor.contentCore, "Content Core")
+    val corejson = _load_json(corefile, "Content Core")
+    _validate_core(corejson, descriptor)
+    descriptor
+  }
+
+  private def _validate_descriptor(value: Json): Descriptor = {
+    val fields = _object(value, "descriptor")
+    if (fields.keySet != _descriptor_keys)
+      _descriptor_failure("descriptor must have exactly schema, id, workflow, profile, language, workspace, contentCore")
+    val schema = _string(fields, "schema", "descriptor")
+    val id = _string(fields, "id", "descriptor")
+    val workflow = _object(_field(fields, "workflow", "descriptor"), "workflow")
+    val profile = _string(fields, "profile", "descriptor")
+    val language = _string(fields, "language", "descriptor")
+    val workspace = _object(_field(fields, "workspace", "descriptor"), "workspace")
+    val contentcore = _string(fields, "contentCore", "descriptor")
+    if (schema != "cozy.document-project.v1" || !_slug_pattern.pattern.matcher(id).matches())
+      _descriptor_failure("descriptor schema or id is invalid")
+    if (workflow.keySet != Set("schema", "id") || _string(workflow, "schema", "workflow") != "cozy.document-workflow.v1" || _string(workflow, "id", "workflow") != "document-production")
+      _descriptor_failure("workflow must identify cozy.document-workflow.v1/document-production")
+    if (profile != "standard" && profile != "standard-video")
+      _descriptor_failure("descriptor profile is invalid")
+    if (!_language_pattern.pattern.matcher(language).matches())
+      _descriptor_failure("descriptor language is invalid")
+    if (workspace.keySet != Set("kind") || !Set("directory", "bok").contains(_string(workspace, "kind", "workspace")))
+      _descriptor_failure("descriptor workspace is invalid")
+    val expectedcore = s"content/core-$language.yaml"
+    if (contentcore != expectedcore || !_relative_path(contentcore))
+      _descriptor_failure("descriptor contentCore is invalid")
+    Descriptor(id, profile, language, _string(workspace, "kind", "workspace"), contentcore)
+  }
+
+  private def _validate_core(value: Json, descriptor: Descriptor): Unit = {
+    val fields = _object(value, "Content Core")
+    if (fields.keySet != _core_keys)
+      _descriptor_failure("Content Core must have exactly schema, id, language, accepted")
+    if (_string(fields, "schema", "Content Core") != "cozy.content-core.v1")
+      _descriptor_failure("Content Core schema is invalid")
+    if (_string(fields, "id", "Content Core") != s"${descriptor.id}:core:${descriptor.language}")
+      _descriptor_failure("Content Core id is invalid")
+    if (_string(fields, "language", "Content Core") != descriptor.language)
+      _descriptor_failure("Content Core language is invalid")
+    val accepted = _field(fields, "accepted", "Content Core").asArray.getOrElse(_descriptor_failure("Content Core accepted must be an array"))
+    val ids = accepted.map { entry =>
+      val item = _object(entry, "Content Core accepted entry")
+      if (item.keySet != Set("id", "text"))
+        _descriptor_failure("Content Core accepted entries must have exactly id and text")
+      val id = _string(item, "id", "Content Core accepted entry")
+      val text = _string(item, "text", "Content Core accepted entry")
+      if (!_slug_pattern.pattern.matcher(id).matches() || text.isEmpty || text.trim != text)
+        _descriptor_failure("Content Core accepted entry is invalid")
+      id
+    }
+    if (ids.distinct.size != ids.size)
+      _descriptor_failure("Content Core accepted ids must be unique")
+  }
+
+  private def _verify_initial_sources(project: Path): Unit =
+    Vector(
+      "index.dox",
+      "infographic/infographic.svg",
+      "presentation/visual-pages.yaml",
+      "review/README.md"
+    ).foreach(_direct_file(project, _, "initial authored source"))
+
+  private def _verify(project: Path, descriptor: Descriptor): String = {
+    if (descriptor.profile == "standard-video")
+      _direct_file(project, "video/storyboard.md", "initial authored source")
+    s"Cozy Document Project Verify\nproject: ${descriptor.id}\npackage: $project\nschema: cozy.document-project.v1"
+  }
+
+  private def _inspect(project: Path, descriptor: Descriptor): String =
+    s"Cozy Document Project Inspect\nproject: ${descriptor.id}\npackage: $project\nschema: cozy.document-project.v1\nworkflow: document-production\nprofile: ${descriptor.profile}\nlanguage: ${descriptor.language}\nworkspace: ${descriptor.workspace}"
+
+  private def _plan(project: Path, descriptor: Descriptor): String =
+    s"Cozy Document Project Plan\nproject: ${descriptor.id}\npackage: $project\nschema: cozy.document-project.v1\nactive: no declared work\nomitted: no declared work\nblocked: operation and branch resolution pending DP42-02 (not state or authority)\neligible: no declared work"
+
+  private def _scaffold(slug: String, profile: String, language: String, workspace: String, parentvalue: String): Path = {
+    val parent = _scaffold_parent(parentvalue)
+    val destination = parent.resolve(s"$slug.dox").normalize()
+    if (!destination.startsWith(parent) || Files.isSymbolicLink(destination))
+      _failure("DP-PATH-001", "scaffold destination path is unsafe")
+    if (Files.exists(destination, LinkOption.NOFOLLOW_LINKS))
+      _failure("DP-SCAFFOLD-001", s"scaffold destination already exists: $destination")
+    var temporary: Option[Path] = None
+    try {
+      val staging = Files.createTempDirectory(parent, ".cozy-document-project-")
+      temporary = Some(staging)
+      _write(staging.resolve("document-project.yaml"), _descriptor_yaml(slug, profile, language, workspace))
+      _write(staging.resolve("index.dox"), s"$slug\n${"=" * slug.length}\n\nDocument Project source.\n")
+      _write(staging.resolve(s"content/core-$language.yaml"), _core_yaml(slug, language))
+      _write(staging.resolve("infographic/infographic.svg"), "<svg xmlns=\"http://www.w3.org/2000/svg\"><title>Document Project infographic</title></svg>\n")
+      _write(staging.resolve("presentation/visual-pages.yaml"), "pages: []\n")
+      _write(staging.resolve("review/README.md"), "# Review\n\nReview material belongs here.\n")
+      if (profile == "standard-video")
+        _write(staging.resolve("video/storyboard.md"), "# Storyboard\n\nStoryboard source belongs here.\n")
+      Files.move(staging, destination, StandardCopyOption.ATOMIC_MOVE)
+      temporary = None
+      destination
+    } catch {
+      case _: AtomicMoveNotSupportedException => _failure("DP-SCAFFOLD-001", "atomic scaffold installation is not supported")
+      case NonFatal(e) => _failure("DP-SCAFFOLD-001", s"scaffold installation failed: ${Option(e.getMessage).getOrElse(e.getClass.getSimpleName)}")
+    } finally {
+      temporary.foreach(_delete_temporary)
+    }
+  }
+
+  private def _scaffold_parent(value: String): Path = {
+    val parent = try Paths.get(value).toAbsolutePath.normalize() catch {
+      case NonFatal(_) => _failure("DP-PATH-001", "scaffold parent path is invalid")
+    }
+    if (Files.isSymbolicLink(parent))
+      _failure("DP-PATH-001", "scaffold parent must not be a symbolic link")
+    if (!Files.exists(parent, LinkOption.NOFOLLOW_LINKS))
+      _failure("DP-SCAFFOLD-001", "scaffold parent must be an existing real directory")
+    if (!Files.isDirectory(parent, LinkOption.NOFOLLOW_LINKS))
+      _failure("DP-PATH-001", "scaffold parent must be a direct non-symlink directory")
+    parent
+  }
+
+  private def _direct_directory(path: Path, label: String): Unit =
+    if (Files.isSymbolicLink(path) || !Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS))
+      _failure("DP-PATH-001", s"$label must be a direct non-symlink directory")
+
+  private def _admitted_content_directory(path: Path): Unit = {
+    if (!Files.exists(path, LinkOption.NOFOLLOW_LINKS))
+      _failure("DP-DESC-001", "Content Core directory is missing")
+    _direct_directory(path, "content directory")
+  }
+
+  private def _admitted_descriptor_file(project: Path, relative: String, label: String): Path = {
+    val candidate = project.resolve(relative).normalize()
+    if (!candidate.startsWith(project))
+      _failure("DP-PATH-001", s"$label escapes the project package")
+    if (!Files.exists(candidate, LinkOption.NOFOLLOW_LINKS))
+      _failure("DP-DESC-001", s"$label is missing")
+    _direct_file(project, relative, label)
+  }
+
+  private def _direct_file(project: Path, relative: String, label: String): Path = {
+    val candidate = project.resolve(relative).normalize()
+    if (!candidate.startsWith(project))
+      _failure("DP-PATH-001", s"$label escapes the project package")
+    val path = project.relativize(candidate)
+    var parent = project
+    (0 until path.getNameCount - 1).foreach { index =>
+      parent = parent.resolve(path.getName(index))
+      _direct_directory(parent, s"$label parent")
+    }
+    if (Files.isSymbolicLink(candidate) || !Files.isRegularFile(candidate, LinkOption.NOFOLLOW_LINKS))
+      _failure("DP-PATH-001", s"$label must be a direct regular non-symlink file")
+    candidate
+  }
+
+  private def _load_json(path: Path, label: String): Json =
+    try {
+      Files.readString(path, StandardCharsets.UTF_8)
+      StructuredDocumentLoader.loadJson(InputSource(path.toFile)).take
+    } catch {
+      case NonFatal(_) => _failure("DP-DESC-001", s"$label is missing, unreadable, or malformed")
+    }
+
+  private def _admit_raw_content_core_path(value: Json): Unit =
+    value.asObject.flatMap(_.apply("contentCore")).flatMap(_.asString).foreach { contentcore =>
+      if (!_relative_path(contentcore) || contentcore.split("/", -1).exists(_.isEmpty))
+        _failure("DP-PATH-001", "descriptor contentCore path is unsafe")
+    }
+
+  private def _object(value: Json, label: String): Map[String, Json] =
+    value.asObject.map(_.toMap).getOrElse(_descriptor_failure(s"$label must be an object"))
+
+  private def _field(fields: Map[String, Json], name: String, label: String): Json =
+    fields.getOrElse(name, _descriptor_failure(s"$label is missing $name"))
+
+  private def _string(fields: Map[String, Json], name: String, label: String): String =
+    _field(fields, name, label).asString.getOrElse(_descriptor_failure(s"$label $name must be a string"))
+
+  private def _relative_path(value: String): Boolean = {
+    val path = try Paths.get(value) catch { case NonFatal(_) => return false }
+    !path.isAbsolute && path.iterator().asScala.forall(part => part.toString != "." && part.toString != "..")
+  }
+
+  private def _descriptor_yaml(slug: String, profile: String, language: String, workspace: String): String =
+    s"""schema: cozy.document-project.v1
+       |id: $slug
+       |workflow:
+       |  schema: cozy.document-workflow.v1
+       |  id: document-production
+       |profile: $profile
+       |language: $language
+       |workspace:
+       |  kind: $workspace
+       |contentCore: content/core-$language.yaml
+       |""".stripMargin
+
+  private def _core_yaml(slug: String, language: String): String =
+    s"""schema: cozy.content-core.v1
+       |id: $slug:core:$language
+       |language: $language
+       |accepted: []
+       |""".stripMargin
+
+  private def _scaffold_result(destination: Path, slug: String, profile: String, language: String, workspace: String): String =
+    s"Cozy Document Project Scaffold\nproject: $slug\npackage: $destination\nschema: cozy.document-project.v1\nworkflow: document-production\nprofile: $profile\nlanguage: $language\nworkspace: $workspace"
+
+  private def _write(path: Path, value: String): Unit = {
+    Option(path.getParent).foreach(Files.createDirectories(_))
+    Files.writeString(path, value, StandardCharsets.UTF_8)
+  }
+
+  private def _delete_temporary(path: Path): Unit =
+    if (Files.exists(path, LinkOption.NOFOLLOW_LINKS)) {
+      val stream = Files.walk(path)
+      try stream.iterator().asScala.toVector.sortBy(_.toString.length).reverse.foreach(Files.deleteIfExists)
+      finally stream.close()
+    }
+
+  private def _descriptor_failure(cause: String): Nothing = _failure("DP-DESC-002", cause)
+
+  private def _failure(token: String, cause: String): Nothing =
+    RAISE.invalidArgumentFault(s"$token: $cause")
+}
