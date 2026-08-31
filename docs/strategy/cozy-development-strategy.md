@@ -1307,37 +1307,72 @@ Primary references:
 - `docs/journal/2026/08/2026-08-29-explanation-structure-review-html.md`
 - `docs/journal/2026/08/2026-08-30-phase-41-hygiene-follow-up.md`
 
-### Phase 42: Document Project Workflow Management and Visibility
+### Phase 42: Document Project Contract Kernel and Workflow Instance
 
-Status: planned; not started. It follows Phase 41 and does not change any
-active, closed, or earlier planned Phase boundary.
+Status: complete. It is the first child of the 2026-08-31 approved Phase 42
+split, follows Phase 41, and does not change any active, closed, or earlier
+planned Phase boundary.
 
 Purpose and boundaries:
 
-- scaffold one canonical authored Document Project package without copying a
-  common workflow or creating generated success evidence;
+- establish the Content Core authority boundary, public Document Project
+  schemas, command/scaffold grammar, and compatibility diagnostics;
 - resolve a reusable logical-operation DAG into one Workflow Instance through
   deliverable, profile, provider, and workspace bindings;
 - make authorities, plans, candidates, review projections, deliverables, and
-  receipts first-class Work Products with typed completion criteria;
-- derive completion coverage, currentness, review decision, and operation
-  readiness from exact source, receipt, review, and append-only attempt
-  evidence rather than mutable progress fields;
-- generate a deterministic self-contained dashboard with Workflow, Work
-  Product matrix, and Work Product detail views; and
-- accept the same logical workflow in a standalone directory and one
-  non-Article-8 BoK-hosted or isolated driver without changing Article 7 or
-  implicitly registering, building, publishing, deploying, or uploading the
-  host workspace.
+  receipts first-class Work Products with typed completion criteria; and
+- produce the accepted frozen contract/model handoff for Phase 42.1 without
+  generating state, review/dashboard output, or exercising external drivers.
 
-Phase 42 excludes semantic invention, a general scheduler or daemon, arbitrary
+Phase 42 retains the expensive public-contract reasoning kernel. It excludes
+evidence-derived state, append-only attempt persistence, stale propagation,
+review/dashboard rendering, and driver acceptance, which belong to Phase 42.1;
+it also excludes semantic invention, a general scheduler or daemon, arbitrary
 command descriptors, dashboard write-back, replacement of existing media or
 review authorities, implicit workspace mutation, and legacy article migration.
+
+DP42-01 and DP42-02 are accepted locally in
+`6fa01ac3687d66a8a24b0f20ec6c1d8b3b597729` and
+`a26f32d4c96fc1c35404f91ad1b18ee57cf99406`. The mandatory Phase review's
+`CPB-42-001` has a focused validation/re-review closure. Final serialized Cozy
+validation `33960-20260831T101434Z` passed (1,619 succeeded, 0 failed, 122
+suites; SBT/wrapper 0 and lock released). Phase 42.1 is still planned and not
+started.
 
 Primary references:
 
 - `docs/phase/phase-42.md`
 - `docs/phase/phase-42-checklist.md`
+
+### Phase 42.1: Document Project Evidence, Review Projection, and Driver Acceptance
+
+Status: planned; not started. It is the ordered second child of the approved
+Phase 42 split and begins only after Phase 42 closure and receipt of its frozen
+contract/model handoff.
+
+Purpose and boundaries:
+
+- derive completion coverage, currentness, review decision, and operation
+  readiness from exact source, receipt, review, and append-only attempt
+  evidence rather than mutable progress fields;
+- generate deterministic `core-review.html`, `video-review.html` where active,
+  and the self-contained Workflow, Work Product matrix, and Work Product detail
+  dashboard views; and
+- accept the same logical workflow in a standalone directory and one
+  non-Article-8 BoK-hosted or isolated driver without changing Article 7 or
+  implicitly registering, building, publishing, deploying, or uploading the
+  host workspace.
+
+Phase 42.1 is the lower-cost execution child. It must consume rather than
+redefine the Phase 42 public kernel, and excludes semantic invention, a
+general scheduler or daemon, arbitrary command descriptors, dashboard
+write-back, replacement of existing media or review authorities, implicit
+workspace mutation, and legacy article migration.
+
+Primary references:
+
+- `docs/phase/phase-42.1.md`
+- `docs/phase/phase-42.1-checklist.md`
 - `docs/notes/document-project-workflow-management-specification-proposal.md`
 - `docs/journal/2026/08/2026-08-30-document-project-content-core-direction.md`
 
@@ -1434,7 +1469,7 @@ Origin:
 | DEV-010 | User request for localized article and summary-slide PDF delivery on 2026-08-29; split approval on 2026-08-29 | Make localized article and summary-slide PDFs reproducible Cozy media-package outputs, keep PPTX internal, then register only accepted PDF roles through SmartDox. | NEW_PHASE | [Phase 40](../phase/phase-40.md) COMPLETE → [Phase 40.1](../phase/phase-40.1.md) COMPLETE | RESOLVED |
 | DEV-011 | User request for an integrated confirmation HTML on 2026-08-29 | Generate one self-contained review HTML that exposes explanation flow, Step-to-Page mapping, per-page logical semantics, and per-page visual structure together without becoming semantic authority. | NEW_PHASE | [Phase 41](../phase/phase-41.md), after Phase 40.1 | RESOLVED |
 | DEV-012 | User decision on 2026-08-29 resolving `P39-DEC-IMAGE-RECEIPT-001` | Implement Markdown image admission in the SmartDox parser/image model and, only if needed, define a separate Cozy PDF receipt contract without reusing `cozy.media.receipt.v2`. | STRATEGY_ITEM | Future explicitly planned SmartDox/Cozy integration Phase | CANDIDATE |
-| DEV-013 | User-approved Document Project workflow direction on 2026-08-30 | Scaffold and manage one Document Project through a reusable workflow; expose first-class intermediate Work Products, evidence-derived completion/currentness/review/readiness, append-only attempts, and a deterministic dashboard for directory and BoK drivers. | NEW_PHASE | [Phase 42](../phase/phase-42.md), after Phase 41 | PLANNED |
+| DEV-013 | User-approved Document Project workflow direction on 2026-08-30; split approved on 2026-08-31 | Scaffold and manage one Document Project through a reusable workflow; first freeze its Content Core, command/scaffold, Workflow Instance, and Work Product kernel, then derive evidence state, review/dashboard projections, and directory/BoK driver acceptance. | NEW_PHASE | [Phase 42](../phase/phase-42.md) COMPLETE → [Phase 42.1](../phase/phase-42.1.md) PLANNED, after Phase 41 | PARTIALLY RESOLVED |
 
 ## Current Priority
 
@@ -1452,11 +1487,12 @@ explicit post-Phase-42 `P401-DC-001` follow-up.
 Phase 41 is closed for the integrated Explanation Structure Review HTML and
 uses a repository-controlled accepted Visual Page fixture as its representative
 driver. Its closure is local only and makes no external consumer claim.
-Phase 42 is the planned next successor for Document Project scaffold, workflow
-management, evidence-derived Work Product visibility, and directory/BoK
-driver acceptance. None of these successors is started, adds work to the closed Phase 30/36/37
-boundaries, or claims full Phase validation, Phase review, publication, push,
-or external consumer mutation.
+Phase 42 is complete locally as the first Document Project contract-kernel and
+Workflow Instance successor. Its ordered child, Phase 42.1, remains planned
+and not started; it receives the frozen handoff for evidence-derived Work
+Product visibility, review/dashboard output, and directory/BoK driver
+acceptance. Neither child adds work to the closed Phase 30/36/37 boundaries or
+claims publication, push, or external consumer mutation.
 
 Phase 34 is closed after the candidate final official full Cozy validation.
 The earlier invocation

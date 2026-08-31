@@ -295,8 +295,17 @@ private[cozy] object CozyDocumentProject {
     val parent = try Paths.get(value).toAbsolutePath.normalize() catch {
       case NonFatal(_) => _failure("DP-PATH-001", "scaffold parent path is invalid")
     }
-    if (Files.isSymbolicLink(parent))
+    if (Files.exists(parent, LinkOption.NOFOLLOW_LINKS) && Files.isSymbolicLink(parent))
       _failure("DP-PATH-001", "scaffold parent must not be a symbolic link")
+    var ancestor = Option(parent.getParent)
+    while (ancestor.nonEmpty) {
+      val ancestorpath = ancestor.get
+      val ancestorparent = Option(ancestorpath.getParent)
+      if (!ancestorparent.exists(_.getParent == null) && Files.exists(ancestorpath, LinkOption.NOFOLLOW_LINKS) && Files.isSymbolicLink(ancestorpath)) {
+        _failure("DP-PATH-001", "scaffold parent ancestry must not contain a symbolic link")
+      }
+      ancestor = ancestorparent
+    }
     if (!Files.exists(parent, LinkOption.NOFOLLOW_LINKS))
       _failure("DP-SCAFFOLD-001", "scaffold parent must be an existing real directory")
     if (!Files.isDirectory(parent, LinkOption.NOFOLLOW_LINKS))

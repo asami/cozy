@@ -1,8 +1,10 @@
-# Phase 42: Document Project Workflow Management and Visibility
+# Phase 42: Document Project Contract Kernel and Workflow Instance
 
-Status: PLANNED; NOT STARTED
+Status: COMPLETE
 
 Plan date: 2026-08-30
+
+Split approval date: 2026-08-31
 
 Dependencies:
 
@@ -10,31 +12,31 @@ Dependencies:
   review-state contracts from Phases 19, 30, 36, and 37;
 - Phase 41 closure for the reusable Explanation Structure Review projection.
 
-This plan assigns Phase 42 but does not activate it or alter any active or
-earlier planned Phase boundary.
+This is the closed first child of the approved Phase 42 split. DP42-01 and
+DP42-02, the required review/closure evidence, and final serialized Cozy
+validation are complete. Phase 42.1 stays planned and does not activate
+implementation or alter an active, closed, or earlier planned Phase boundary.
 
 ## Goal
 
-Make a Document Project manageable as one evidence-derived workflow and make
-the completion, currentness, review state, and readiness of every intermediate
-Work Product visible through inspect/plan output and a deterministic,
-self-contained dashboard.
+Establish the reusable Document Project contract: the Content Core authority
+boundary, the public command and scaffold grammar, and the normalized Workflow
+Instance and Work Product model. The resulting accepted contract is the frozen
+handoff that Phase 42.1 consumes when it adds evidence-derived state, review
+projections, dashboard output, and driver acceptance.
 
-Support the primary authoring loop in which a user develops an idea through
-AI-assisted dialogue, accumulates accepted proposals in Content Core, reviews
-that core through `core-review.html` (内容確認HTML), and returns semantic feedback to
-the core before activating the required or optional artifact branches.
-
-Phase 42 admits the minimum Content Core and Document Project contract needed
-to establish shared authority, Work Product dependencies, and stale
-propagation. It preserves medium-specific authoring authorities and existing
-receipts.
+The Phase supports the primary authoring loop in which a user develops an idea
+through AI-assisted dialogue, accumulates accepted proposals in Content Core,
+reviews that core through `core-review.html` (内容確認HTML), and returns semantic
+feedback to the core before activating the required or optional artifact
+branches. A raw model response never becomes Content Core authority without
+accepted review evidence.
 
 ## DP42-01: Contract Kernel and Command Surface
 
 Stage Status:
 
-- Current status: NOT STARTED
+- Current status: COMPLETE; release closure pending
 - Owner: Cozy Document Project design and specification
 - Update rule: complete only when schemas, authority boundaries, command
   grammar, diagnostics, persistence, and compatibility are frozen.
@@ -46,8 +48,7 @@ Stage Status:
 - Define the minimal Content Core identity and dependency boundary required by
   the workflow without broad semantic automation.
 - Freeze AI-assisted core proposal, provider/model provenance, review,
-  acceptance, and feedback-write-back boundaries. A raw model response must
-  never become Content Core authority without accepted review evidence.
+  acceptance, and feedback-write-back boundaries.
 - Freeze `required`, `optional`, and `disabled` artifact-branch dispositions
   and their completion/omission semantics.
 - Freeze `cozy document-project inspect|plan|dashboard|verify|run` behavior,
@@ -62,7 +63,7 @@ Stage Status:
 
 Stage Status:
 
-- Current status: NOT STARTED
+- Current status: COMPLETE; release closure pending
 - Owner: Cozy Document Project normalization
 - Update rule: complete only when the reusable DAG, profile activation,
   bindings, Work Products, criteria, and gates have Executable Specification.
@@ -89,89 +90,35 @@ Stage Status:
 - Reject duplicate identities, unknown operations/providers, dependency
   cycles, unsafe paths, undeclared outputs, and ambiguous workspace binding.
 
-## DP42-03: Evidence-Derived State and Attempt History
+## Approved Split (2026-08-31)
 
-Stage Status:
-
-- Current status: NOT STARTED
-- Owner: Cozy project-state and execution evidence
-- Update rule: complete only when state reconstruction, stale propagation,
-  append-only attempts, and exact diagnostics pass focused tests.
-
-- Derive completion coverage, artifact currentness, review decision, and
-  operation readiness independently from exact source and receipt evidence.
-- Report satisfied/total criteria and retain exact missing/not-applicable
-  reasons rather than storing an editable percentage.
-- Propagate staleness through declared dependency identities, including shared
-  infographic consumers, without timestamp inference.
-- Record append-only Operation Attempts with exact input, provider/profile,
-  output, diagnostic, and receipt identities.
-- Prove deleting generated state caches and re-inspecting accepted inputs
-  reconstructs the same snapshot.
-- Dispatch only one selected registered logical operation; do not infer
-  downstream publication or workspace-wide execution.
-
-## DP42-04: Review Projections and Self-Contained Project Dashboard
-
-Stage Status:
-
-- Current status: NOT STARTED
-- Owner: Cozy deterministic Document Project review projection
-- Update rule: complete only when all three views, accessibility,
-  deterministic output, and read-only authority boundaries pass.
-
-- Generate `core-review.html` that exposes the accepted/candidate core
-  and classifies feedback as shared-semantic or artifact-local before
-  write-back.
-- Integrate Phase 41's page-flow, page-semantic, and page-display-structure
-  logical-chart projection as a selectable Work Product without redefining it.
-- Generate `video-review.html` for storyboard/scene intent and rendered
-  video review evidence where the video branch is active.
-- Generate one self-contained project dashboard with Workflow view, Work
-  Product matrix, and Work Product detail.
-- Show active/omitted branches, provider bindings, gates, coverage,
-  currentness, review, readiness, stale/blocking reasons, and next operations.
-- Show shared Work Products once with all producer/consumer edges.
-- Separate current snapshot from failed, successful, and superseded attempt
-  history.
-- Separate project production, workspace integration, aggregate build, and
-  external delivery for hosted projects.
-- Keep dashboard HTML/CSS/inline-SVG/interaction outside semantic and workflow
-  authority and produce deterministic, atomic output.
-
-## DP42-05: Directory and BoK Driver Acceptance and Closure
-
-Stage Status:
-
-- Current status: NOT STARTED
-- Owner: Cozy Document Project acceptance
-- Update rule: complete only when both drivers, compatibility, full
-  validation, focused Phase review, and ledger synchronization pass.
-
-- Accept one standalone directory with local deliverable assembly and explicit
-  non-applicable hosted operations.
-- Accept one non-Article-8 BoK-hosted or isolated driver while preserving
-  existing public article identities and legacy behavior.
-- Keep Article 8 out of Phase 42 driver acceptance. Its operational rollout
-  and acceptance are the post-Phase-42 `P401-DC-001` follow-up.
-- Prove safe SmartDox/public source projection excludes Content Core internals,
-  raw media, reviews, receipts, and generated target data.
-- Cover partial/current/stale/missing/failed/not-applicable state, omitted
-  video, stale propagation, failed attempt retention, and deterministic cache
-  reconstruction.
-- Prove one AI-assisted core dialogue and `core-review.html` feedback cycle,
-  including provider/model evidence and explicit human acceptance.
-- Exercise independent branch selection for SmartDox/article PDF,
-  summary-slides PDF, infographic PNG, video plus `video-review.html`, and
-  Phase 41 Explanation Structure Review HTML.
-- Run focused and full serialized Cozy validation and complete one focused
-  independent Phase review before closure.
+- Approval evidence: `Phase 42 を Phase 42 と Phase 42.1 に、この提案どおり分割することを許可する`.
+- Child sequence: Phase 42 first, then Phase 42.1. The original unsuffixed
+  number remains the first child; no completed history exists to move.
+- Phase 42 owns DP42-01 and DP42-02. Phase 42.1 owns DP42-03, DP42-04, and
+  DP42-05 exactly once.
+- Reason: the former 10–14 hour proposal combined the protected public
+  contract/model kernel with evidence reconstruction, deterministic review
+  projection, and two-driver acceptance. The approved split keeps the
+  expensive reasoning kernel coherent while giving the evidence/projection
+  work a closed, lower-cost successor boundary.
+- Estimated planning overhead: 1–1.5 hours for the extra phase/checklist,
+  frozen handoff, and second closure; the saved rework risk is 3–5 hours from
+  avoiding a redesign of state/dashboard work if the public kernel changes.
+- No under-four-hour child is created, so no merge attempt is required.
+- Frozen handoff to Phase 42.1: accepted `cozy.document-project.v1` and
+  `cozy.document-workflow.v1` contract/spec/design, command and scaffold
+  grammar, Content Core authority boundary, normalized Workflow Instance and
+  Work Product roles/criteria/gates, and their Executable Specifications.
 
 ## Exclusions
 
+- Evidence-derived state reconstruction, append-only attempt persistence,
+  stale propagation, review/dashboard rendering, and external driver
+  acceptance; these are Phase 42.1 work.
 - Fully autonomous claim, evidence, relation, narrative, or Visual Pattern
   creation and acceptance. AI-assisted proposal generation with explicit
-  review and accepted write-back is included.
+  review and accepted write-back remains included.
 - A general scheduler, daemon, remote workflow service, or arbitrary command
   execution descriptor.
 - Mutable workflow status or percentage fields.
@@ -185,42 +132,65 @@ Stage Status:
 
 ## Completion Criteria
 
-Phase 42 completes only when the same Document Project workflow can be
-scaffolded, inspected, planned, verified, selectively executed, and visualized
-for both a standalone directory and one non-Article-8 BoK-hosted or isolated
-driver; every
-intermediate Work Product exposes evidence-derived coverage, currentness,
-review, and readiness;
-the AI-dialogue/`core-review.html` loop produces only explicitly accepted
-Content Core authority; artifact feedback is routed to the correct shared or
-medium-local authority; required/optional/disabled branches are exact;
-SmartDox/article PDF, slides PDF, infographic PNG, video/`video-review.html`,
-and Phase 41 Explanation Structure Review HTML are independently selectable;
-state and dashboard projections reconstruct deterministically; stale and
-omitted branches are exact; existing authorities and legacy articles remain
-compatible; full Cozy validation succeeds; and focused independent Phase
-review closes all Current Boundary Blockers. Article 8 is only the
-post-Phase-42 `P401-DC-001` operational rollout and is not Phase 42 acceptance.
+Phase 42 completes only when the Document Project schemas, Content Core
+authority boundary, command/scaffold grammar, and Workflow Instance/Work
+Product model are specified and implemented with Executable Specification;
+required/optional/disabled branches and all rejected ambiguous bindings are
+exact; existing Project knowledge-package and `cozy media` behavior remains
+compatible; localized and full serialized Cozy validation succeeds; and a
+focused independent Phase review closes all Current Boundary Blockers. Its
+release supplies the frozen handoff above and makes no claim about
+evidence-derived state, dashboard output, external driver acceptance, or
+Article 8 rollout.
+
+## Closure Evidence in Progress (2026-08-31)
+
+- DP42-01 is accepted in local commit
+  `6fa01ac3687d66a8a24b0f20ec6c1d8b3b597729`.
+- DP42-02 is accepted in local commit
+  `a26f32d4c96fc1c35404f91ad1b18ee57cf99406`.
+- The mandatory independent Phase review found `CPB-42-001`. Its bounded
+  source/spec repair passed focused serialized Cozy validation
+  `26428-20260831T095703Z` (21 succeeded, 0 failed), and the focused closure
+  re-review resolved the blocker with no remaining Current Boundary Blocker.
+- `HYG-42-001` is recorded separately in the Phase 42 hygiene follow-up
+  journal. It does not alter the accepted Document Project boundary.
+- Final repository-wide Cozy validation passed as
+  `33960-20260831T101434Z`: 1,619 succeeded, 0 failed, 8 canceled, and 122
+  suites completed; SBT and wrapper exited 0 and the serial lock was released.
+- This distinct local-only Phase release commit records the completed closure.
+  No push, publication, deployment, upload, or Phase 42.1 work is included.
 
 ## Structural Phase Plan Gate
 
 State: PROCEED
 
-- planning demand: new public schemas, scaffold and command family, workflow
-  projection, execution evidence, dashboard, and two workspace drivers
-- recommended parent profile: `gpt-5.6-sol / medium`
-- implementation profile target: bounded Luna xhigh workers for model,
-  projection, dashboard, and Executable Specification packages; Sol medium
-  retains Phase authority and integration decisions
-- estimate: 10–14 hours
-- split disposition: retain one Phase with five committed internal stages
-  because schema, state derivation, dashboard, and drivers must close against
-  one coherent evidence model; split only if DP42-01 discovers a new external
-  SmartDox contract that cannot be accepted within this boundary
+- planning demand: protected public contract, command/scaffold grammar, and
+  reusable Workflow Instance/Work Product modeling
+- parent profile: `gpt-5.6-terra / xhigh`
+- implementation profile target: bounded workers under a Terra/xhigh parent
+  when the approved Phase is started
+- cost role: expensive reasoning kernel; it remains entirely in this first
+  child to avoid splitting its public-contract decisions
+- estimate: 5–7 hours
+- predecessor: Phase 41 closure
+- successor: Phase 42.1, which may start only after this Phase closes with its
+  frozen handoff
+
+## Pre-Split Gate Evidence (2026-08-30; superseded)
+
+The original unsplit plan gate was `PROCEED`, estimated 10–14 hours, and
+recommended `gpt-5.6-sol / medium` with bounded Luna xhigh implementation
+workers. Its then-current disposition was to retain one Phase unless DP42-01
+discovered an external SmartDox contract. The 2026-08-31 approved split
+supersedes that disposition; it is retained only as dated planning evidence,
+not as the current Phase gate.
 
 ## References
 
 - `docs/phase/phase-42-checklist.md`
+- `docs/phase/phase-42.1.md`
+- `docs/phase/phase-42.1-checklist.md`
 - `docs/notes/document-project-workflow-management-specification-proposal.md`
 - `docs/journal/2026/08/2026-08-30-document-project-content-core-direction.md`
 - `docs/spec/media-package.md`

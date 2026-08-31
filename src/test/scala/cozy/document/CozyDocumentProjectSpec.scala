@@ -240,6 +240,23 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       }
     }
 
+    "reject a scaffold parent reached through a symbolic-link ancestor at the path gate" in {
+      _with_temp_dir("cozy-document-project-scaffold-symbolic-ancestor") { root =>
+        Given("a real parent, a symbolic-link alias, and a child directory reached through that alias")
+        val realparent = Files.createDirectory(root.resolve("real-parent"))
+        val link = root.resolve("linked-parent")
+        Files.createSymbolicLink(link, realparent)
+        val child = Files.createDirectory(link.resolve("child"))
+
+        When("scaffold receives the child parent path through the symbolic-link ancestor")
+        val failure = _failure(List("document-project", "scaffold", "sample", "--profile", "standard", "--language", "en", "--workspace", "directory", "--save", child.toString))
+
+        Then("the path gate emits only DP-PATH-001 and creates no package in the real target")
+        _diagnostic_tokens(failure) shouldBe Vector("DP-PATH-001")
+        Files.exists(realparent.resolve("child/sample.dox"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+      }
+    }
+
     "reject an unsafe initial source before a closed-invalid descriptor during verify" in {
       _with_temp_dir("cozy-document-project-verify-path-precedence") { root =>
         Given("a scaffolded project with a closed-invalid descriptor and an external source")

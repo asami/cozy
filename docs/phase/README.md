@@ -81,12 +81,13 @@ Current phase state:
   self-contained confirmation HTML. Its local closure includes final Cozy
   validation, one Phase review, and two focused closure reviews; no external
   consumer acceptance is claimed.
-- Planned next successor: `phase-42.md`: Document Project Workflow Management
-  and Visibility. It will scaffold a canonical Document Project, derive one
-  Workflow Instance and first-class Work Product state from exact evidence,
-  retain append-only attempts, and generate a self-contained dashboard for
-  standalone-directory and BoK-hosted drivers. It is NOT STARTED, follows
-  Phase 41, and changes no active or earlier planned Phase boundary.
+- Most recent closed phase: `phase-42.md`: Document Project Contract Kernel and
+  Workflow Instance. DP42-01/DP42-02, the independent review and bounded
+  closure repair, and final serialized Cozy validation
+  `33960-20260831T101434Z` (1,619 succeeded, 0 failed, 122 suites) are
+  complete locally. `phase-42.1.md` remains its planned, NOT STARTED successor
+  for evidence-derived state, review/dashboard projection, and directory/BoK
+  driver acceptance; it begins only after this distinct Phase closure commit.
 - Earlier closed phase: `phase-28.2.md`: SimpleModeling.org Part 5
   Integration and Regression; `AM28-03` and `AM28-04` are complete.
 - Most recent split predecessor: `phase-28.1.md`: WIP Local Article Media
@@ -188,11 +189,19 @@ Page fixture as its representative driver, and keeps generated HTML as
 self-contained review evidence rather than semantic or renderer authority. Its
 local closure does not claim external consumer acceptance.
 
-Phase 42 is a planned, not-started later successor for Document Project
-workflow management and visibility. Its canonical planning authority is
-`phase-42.md` plus `phase-42-checklist.md`, with non-normative specification
-input in `docs/notes/document-project-workflow-management-specification-proposal.md`.
-It follows Phase 41, scaffolds authored project sources without generated
-success evidence, derives state from source/receipt/review/attempt evidence,
-and accepts standalone-directory and BoK-hosted drivers without implicit
-registration, publication, deployment, upload, or legacy-article migration.
+Phase 42 is complete locally for the Document Project contract kernel and
+Workflow Instance model. Its canonical authority is `phase-42.md` plus
+`phase-42-checklist.md`. DP42-01/DP42-02 accepted the authored source
+scaffold/command behavior and frozen contract/model boundary; its final Cozy
+validation passed. The distinct local release commit records the closure and
+makes no external consumer-acceptance claim.
+
+Phase 42.1 is the planned, not-started ordered child for evidence-derived
+state, append-only attempts, deterministic review/dashboard projection, and
+standalone-directory plus non-Article-8 BoK driver acceptance. Its canonical
+authority is `phase-42.1.md` plus `phase-42.1-checklist.md`; it begins only
+after Phase 42 closure and does not reopen its public kernel. Both phases use
+the non-normative input in
+`docs/notes/document-project-workflow-management-specification-proposal.md`
+and exclude implicit registration, publication, deployment, upload, and
+legacy-article migration.
