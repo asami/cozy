@@ -1378,9 +1378,9 @@ Primary references:
 
 ### Phase 43: Logical UI Model and Review HTML
 
-Status: planned; not started. Phase 43 is the next Cozy development item after
-Phase 42.1 closure. It introduces a platform-neutral Logical UI Model before
-Flutter or another target-framework generator.
+Status: complete locally. Phase 43 follows the accepted Phase 42.1 closure and
+introduces a platform-neutral Logical UI Model before Flutter or another
+target-framework generator.
 
 Purpose and boundaries:
 
@@ -1396,6 +1396,13 @@ Purpose and boundaries:
   diagnostics; and
 - accept one repository-controlled SalesOrder fixture through focused/full
   Cozy validation and independent Phase review.
+
+Independent full Phase review receipt `P43-FULL-REVIEW-001` is `PASS` with zero
+Current Phase Blockers. Final serialized Cozy validation receipt
+`P43-FINAL-TEST-013`, invocation `86897-20260901T171129Z`, completed
+successfully with 1,677 succeeded, 126 suites completed, and 0 failed/aborted;
+SBT and wrapper exits were 0. The local Phase release commit binds this
+accepted closure; no commit SHA is recorded before that commit exists.
 
 Phase 43 excludes Flutter, target widgets, URL routing, target state-management
 libraries, REST/Form API client generation, application packaging, generated
@@ -1525,7 +1532,7 @@ Origin:
 | DEV-011 | User request for an integrated confirmation HTML on 2026-08-29 | Generate one self-contained review HTML that exposes explanation flow, Step-to-Page mapping, per-page logical semantics, and per-page visual structure together without becoming semantic authority. | NEW_PHASE | [Phase 41](../phase/phase-41.md), after Phase 40.1 | RESOLVED |
 | DEV-012 | User decision on 2026-08-29 resolving `P39-DEC-IMAGE-RECEIPT-001` | Implement Markdown image admission in the SmartDox parser/image model and, only if needed, define a separate Cozy PDF receipt contract without reusing `cozy.media.receipt.v2`. | STRATEGY_ITEM | Future explicitly planned SmartDox/Cozy integration Phase | CANDIDATE |
 | DEV-013 | User-approved Document Project workflow direction on 2026-08-30; split approved on 2026-08-31 | Scaffold and manage one Document Project through a reusable workflow; first freeze its Content Core, command/scaffold, Workflow Instance, and Work Product kernel, then derive evidence state, review/dashboard projections, and directory/BoK driver acceptance. | NEW_PHASE | [Phase 42](../phase/phase-42.md) COMPLETE → [Phase 42.1](../phase/phase-42.1.md) PLANNED, after Phase 41 | PARTIALLY RESOLVED |
-| DEV-014 | User-approved Logical UI direction on 2026-09-01; `docs/journal/2026/09/2026-09-01-logical-ui-model-direction.md` | Establish Application Core and three-layer use-case bindings, project public Component vocabulary into Logical Screen Composition, and generate deterministic Logical UI Review HTML before target-framework generation. | NEW_PHASE | [Phase 43](../phase/phase-43.md), after Phase 42.1 | PLANNED |
+| DEV-014 | User-approved Logical UI direction on 2026-09-01; `docs/journal/2026/09/2026-09-01-logical-ui-model-direction.md` | Establish Application Core and three-layer use-case bindings, project public Component vocabulary into Logical Screen Composition, and generate deterministic Logical UI Review HTML before target-framework generation. | NEW_PHASE | [Phase 43](../phase/phase-43.md), after Phase 42.1 | RESOLVED |
 
 ## Current Priority
 
@@ -1550,12 +1557,18 @@ and bounded directory/BoK driver acceptance. Neither child adds work to the
 closed Phase 30/36/37 boundaries or claims provider execution, registration,
 publication, push, or external consumer mutation.
 
-Phase 43 is the planned next Cozy development item after Phase 42.1 closure.
-It owns the Logical UI contract kernel, UseCase-to-Screen Projection, Logical
-Screen Composition, closed semantic pattern selections, CML/CNCF Component
-bindings, validation/state semantics, deterministic review HTML, and a
+Phase 43 is closed locally after the accepted Phase 42.1 closure. It owns the
+Logical UI contract kernel, UseCase-to-Screen Projection, Logical Screen
+Composition, closed semantic pattern selections, CML/CNCF Component bindings,
+validation/state semantics, deterministic review HTML, and a
 repository-controlled SalesOrder acceptance driver. It stops before Flutter
-or any other target-framework generation. Its successor is expected to produce
+or any other target-framework generation. Its independent full Phase review
+receipt `P43-FULL-REVIEW-001` is `PASS` with zero Current Phase Blockers. Final
+serialized Cozy validation receipt `P43-FINAL-TEST-013`, invocation
+`86897-20260901T171129Z`, completed successfully with 1,677 succeeded, 126
+suites completed, and 0 failed/aborted; SBT and wrapper exits were 0. The
+local Phase release commit binds this accepted closure; no commit SHA is
+recorded before that commit exists. Its successor is expected to produce
 the Flutter application as a `presentation` Subcomponent, distribute its
 independent self-contained CAR as the product boundary, support Web export and
 CNCF-hosted publication including explicit parent-connected exposure, and

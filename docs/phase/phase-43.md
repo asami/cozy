@@ -1,10 +1,16 @@
 # Phase 43: Logical UI Model and Review HTML
 
-Status: IN PROGRESS; LUI43-01 Authority and Contract Kernel,
-LUI43-02 UseCase-to-Screen and Component Projection, and LUI43-03 Pattern,
-Constraint, and State Semantics are complete; LUI43-03W Workflow Subject and
-Pattern Semantics and LUI43-04 Logical UI Review HTML and Currentness are
-complete; LUI43-05 SalesOrder Driver Acceptance and Closure is not started.
+Status: COMPLETE LOCALLY; LUI43-01 Authority and Contract Kernel,
+LUI43-02 UseCase-to-Screen and Component Projection, LUI43-03 Pattern,
+Constraint, and State Semantics, LUI43-03W Workflow Subject and Pattern
+Semantics, LUI43-04 Logical UI Review HTML and Currentness, and LUI43-05 SalesOrder
+Driver Acceptance and Closure are DONE. Independent full Phase review receipt
+`P43-FULL-REVIEW-001` is `PASS` with zero Current Phase Blockers. Final
+serialized Cozy validation receipt `P43-FINAL-TEST-013`, invocation
+`86897-20260901T171129Z`, completed successfully with 1,677 succeeded, 126
+suites completed, and 0 failed/aborted; SBT and wrapper exits were 0. The local
+Phase release commit binds this accepted closure; no commit SHA is recorded
+before that commit exists.
 
 Plan date: 2026-09-01
 
@@ -21,8 +27,9 @@ Dependencies:
   Datatype, Powertype, StateMachine, DbC, structured failures, and
   observability.
 
-Phase 43 is the next Cozy development item after Phase 42.1. Planning it does
-not start it or change Phase 42.1 state.
+Phase 43 follows the accepted Phase 42.1 closure and is complete locally under
+this closure documentation. The local Phase release commit binds the accepted
+closure; Phase 42.1 state is unchanged.
 
 ## Goal
 
@@ -168,7 +175,7 @@ Stage Status:
 
 Stage Status:
 
-- Current status: NOT STARTED
+- Current status: DONE
 - Owner: Cozy Logical UI acceptance
 - Update rule: complete only when the representative driver, focused/full
   validation, independent Phase review, and ledgers converge.
@@ -180,8 +187,16 @@ Stage Status:
   success, conflict, and service-unavailable feedback.
 - Prove deterministic repeat output, candidate-to-accepted identity, stale
   input diagnosis, and read-only review projection.
-- Run focused and full serialized Cozy validation and complete one independent
-  Phase review before closure.
+- Completion evidence: SalesOrder driver acceptance is implemented. Focused
+  acceptance receipt `P43-LUI43-05A-FIX-TEST-012` reports 4 succeeded and 0
+  failed; the independent Step review is clean; and the local Step commit is
+  `de0a7877bc04fd29cb35156dd64f77a223f0fc1a`. Independent full Phase review
+  receipt `P43-FULL-REVIEW-001` is `PASS` with zero Current Phase Blockers.
+  Final serialized Cozy validation receipt `P43-FINAL-TEST-013`, invocation
+  `86897-20260901T171129Z`, completed successfully with 1,677 succeeded, 126
+  suites completed, and 0 failed/aborted; SBT and wrapper exits were 0. The
+  local Phase release commit binds this accepted closure; no commit SHA is
+  recorded before that commit exists.
 
 ## Exclusions
 

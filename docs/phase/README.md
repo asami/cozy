@@ -75,24 +75,30 @@ Current phase state:
   registration contract. Operational acceptance on a SimpleModeling.org
   article is deferred as `P401-DC-001` to the post-Phase-42 Article 8
   authoring loop; no external driver change is claimed here.
-- Most recent closed phase: `phase-41.md`: Explanation Structure Review HTML.
+- Earlier closed phase: `phase-41.md`: Explanation Structure Review HTML.
   It combines Explanation Pattern/Step flow, Step-to-Page mapping, per-page
   Logical Pattern/Relations, and per-page Visual Pattern/parameters in one
   self-contained confirmation HTML. Its local closure includes final Cozy
   validation, one Phase review, and two focused closure reviews; no external
   consumer acceptance is claimed.
-- Most recent closed phase: `phase-42.1.md`: Document Project Evidence, Review
+- Predecessor closed phase: `phase-42.1.md`: Document Project Evidence, Review
   Projection, and Driver Acceptance. It closes evidence-derived state,
   deterministic review/dashboard projection, and one standalone-directory plus
   one isolated non-Article-8 BoK driver locally. Its full review's four
   blockers were disposed by one accepted focused repair cycle; no external
   consumer acceptance, provider execution, registration, publication,
   deployment, upload, or push is claimed.
-- Planned next development item: `phase-43.md`: Logical UI Model and Review
-  HTML. It begins only after Phase 42.1 closure, projects Application Core,
+- Most recent closed local phase: `phase-43.md`: Logical UI Model and Review
+  HTML. It follows the accepted Phase 42.1 closure, projects Application Core,
   three-layer use cases, and public Component vocabulary into accepted Logical
   Screen Compositions, and stops before Flutter or target-framework
-  generation.
+  generation. Independent full Phase review receipt `P43-FULL-REVIEW-001` is
+  `PASS` with zero Current Phase Blockers. Final serialized Cozy validation
+  receipt `P43-FINAL-TEST-013`, invocation `86897-20260901T171129Z`, completed
+  successfully with 1,677 succeeded, 126 suites completed, and 0
+  failed/aborted; SBT and wrapper exits were 0. The local Phase release commit
+  binds this accepted closure; no commit SHA is recorded before that commit
+  exists. No external consumer acceptance or external operation is claimed.
 - Earlier closed phase: `phase-28.2.md`: SimpleModeling.org Part 5
   Integration and Regression; `AM28-03` and `AM28-04` are complete.
 - Most recent split predecessor: `phase-28.1.md`: WIP Local Article Media
@@ -210,8 +216,14 @@ public kernel without reopening it. Both phases use the non-normative input in
 and exclude implicit registration, publication, deployment, upload, and
 legacy-article migration.
 
-Phase 43 is the planned Logical UI successor after Phase 42.1. Its canonical
-work-ledger authority is `phase-43.md` plus `phase-43-checklist.md`; its
-non-normative planning input is
-`docs/notes/logical-ui-model-specification-proposal.md`. Planning it does not
-start Phase 43 or alter Phase 42.1 state.
+Phase 43 is closed locally as the Logical UI successor after Phase 42.1. Its
+canonical work-ledger authority is `phase-43.md` plus
+`phase-43-checklist.md`; its non-normative planning input is
+`docs/notes/logical-ui-model-specification-proposal.md`. Independent full
+Phase review receipt `P43-FULL-REVIEW-001` is `PASS` with zero Current Phase
+Blockers. Final serialized Cozy validation receipt `P43-FINAL-TEST-013`,
+invocation `86897-20260901T171129Z`, completed successfully with 1,677
+succeeded, 126 suites completed, and 0 failed/aborted; SBT and wrapper exits
+were 0. The local Phase release commit binds this accepted closure; no commit
+SHA is recorded before that commit exists. Phase 42.1 remains the predecessor,
+and no external operation or consumer acceptance is claimed.

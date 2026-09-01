@@ -3,11 +3,17 @@
 This checklist is the authoritative progress ledger for Phase 43. It is not a
 normative behavior contract.
 
-Phase Status: IN PROGRESS; LUI43-01 Authority and Contract Kernel,
-LUI43-02 UseCase-to-Screen and Component Projection, and LUI43-03 Pattern,
-Constraint, and State Semantics are complete; LUI43-03W Workflow Subject and
-Pattern Semantics and LUI43-04 Logical UI Review HTML and Currentness are
-complete; LUI43-05 SalesOrder Driver Acceptance and Closure is not started.
+Phase Status: COMPLETE LOCALLY; LUI43-01 Authority and Contract Kernel,
+LUI43-02 UseCase-to-Screen and Component Projection, LUI43-03 Pattern,
+Constraint, and State Semantics, LUI43-03W Workflow Subject and Pattern
+Semantics, LUI43-04 Logical UI Review HTML and Currentness, and LUI43-05 SalesOrder
+Driver Acceptance and Closure are DONE. Independent full Phase review receipt
+`P43-FULL-REVIEW-001` is `PASS` with zero Current Phase Blockers. Final
+serialized Cozy validation receipt `P43-FINAL-TEST-013`, invocation
+`86897-20260901T171129Z`, completed successfully with 1,677 succeeded, 126
+suites completed, and 0 failed/aborted; SBT and wrapper exits were 0. The local
+Phase release commit binds this accepted closure; no commit SHA is recorded
+before that commit exists.
 
 Predecessor: accepted Phase 42.1 closure.
 
@@ -109,21 +115,36 @@ Stage Status:
 
 Stage Status:
 
-- Current status: OPEN
+- Current status: DONE
 - Owner: Cozy Phase 43
 - Update rule: Update this block from the checklist state below.
 
-- [ ] Build one repository-controlled SalesOrder fixture with required
+- [x] Build one repository-controlled SalesOrder fixture with required
       Component and three-layer use-case vocabulary.
-- [ ] Cover list/detail navigation, validation, transition, success, conflict,
+- [x] Cover list/detail navigation, validation, transition, success, conflict,
       and service-unavailable behavior.
-- [ ] Prove candidate acceptance, deterministic repeat output, and stale-input
+- [x] Prove candidate acceptance, deterministic repeat output, and stale-input
       diagnosis.
-- [ ] Run focused and full serialized Cozy validation.
-- [ ] Complete one independent Phase review with no Current Boundary Blocker.
-- [ ] Synchronize Strategy, Phase, checklist, notes, and journal records at
-      closure.
+- Completion evidence: SalesOrder driver acceptance is implemented. Focused
+  acceptance receipt `P43-LUI43-05A-FIX-TEST-012` reports 4 succeeded and 0
+  failed; the independent Step review is clean; and the local Step commit is
+  `de0a7877bc04fd29cb35156dd64f77a223f0fc1a`. Independent full Phase review
+  receipt `P43-FULL-REVIEW-001` is `PASS` with zero Current Phase Blockers.
+  Final serialized Cozy validation receipt `P43-FINAL-TEST-013`, invocation
+  `86897-20260901T171129Z`, completed successfully with 1,677 succeeded, 126
+  suites completed, and 0 failed/aborted; SBT and wrapper exits were 0.
+- [x] Run focused and full serialized Cozy validation.
+      Receipt: `P43-FINAL-TEST-013`, invocation `86897-20260901T171129Z`;
+      1,677 succeeded, 126 suites completed, 0 failed/aborted, SBT and
+      wrapper exits 0.
+- [x] Complete one independent Phase review with no Current Boundary Blocker.
+      Receipt: `P43-FULL-REVIEW-001` is `PASS` with zero Current Phase
+      Blockers.
+- [x] Synchronize Strategy, Phase, checklist, notes, and journal records at
+      closure. The closure documentation records the accepted review and full
+      validation evidence; the three Hygiene records remain unchanged in
+      meaning, status, and separate follow-up boundary.
 
-Phase 43 closes only when every checkbox is done and current validation/review
-evidence is bound to the accepted tree. It does not claim Flutter generation,
-publication, deployment, upload, push, or external-driver acceptance.
+Phase 43 is complete locally when this closure documentation is accepted in the
+local Phase release commit. It does not claim Flutter generation, publication,
+deployment, upload, push, or external-driver acceptance.
