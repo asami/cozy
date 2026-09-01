@@ -1,7 +1,7 @@
 # Phase 43: Logical UI Model and Review HTML
 
 Status: IN PROGRESS; LUI43-01 Authority and Contract Kernel is complete;
-LUI43-02 is not started.
+LUI43-02 UseCase-to-Screen and Component Projection is complete.
 
 Plan date: 2026-09-01
 
@@ -53,7 +53,7 @@ Stage Status:
 
 Stage Status:
 
-- Current status: NOT STARTED
+- Current status: DONE
 - Owner: Cozy Logical UI normalization
 - Update rule: complete only when mapping cardinalities, public-surface
   admission, Aggregate boundaries, and coverage diagnostics pass focused
@@ -69,6 +69,16 @@ Stage Status:
   model.
 - Reject unexported references, unjustified surfaces, missing Operation
   bindings, and direct child mutation that bypasses an Aggregate Operation.
+
+## Phase Hygiene Ledger
+
+- `HYG-LUI43-02-001` (OPEN): `CozyLogicalUi.scala` is 1,221 lines and exceeds
+  the repository's 1,000-line source-size threshold. Owner: Cozy Logical UI
+  normalization. Target: a separately authorized hygiene batch that may add a
+  source path and perform the physical split. Rationale: the split is
+  structural work outside this frozen behavior repair and must preserve the
+  current projection contract. This disposition makes no current behavior
+  change and does not resolve the hygiene item.
 
 ## LUI43-03: Pattern, Constraint, and State Semantics
 

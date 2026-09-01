@@ -121,3 +121,60 @@ rejection, three-layer realization validation, candidate/accepted separation,
 canonical identity plus strict codec roundtrip, and non-authority boundaries.
 It includes a ScalaCheck ordering property in addition to Given/When/Then
 scenarios.
+
+## 6. UseCase-to-Screen projection
+
+`cozy.usecase-screen-projection.v1` is a typed projection pinned to the exact
+`LogicalUiCandidate.identity` supplied to `CozyLogicalUi.project`. It is
+deliberately separate from the already committed `cozy.logical-ui.v1`
+candidate JSON and `CozyLogicalUiCodec`; it has no JSON transport or acceptance
+envelope in this slice.
+
+The projection admits a catalog of opaque `UseCaseLayers` values. The catalog
+is nonempty, contains the candidate's exact three-layer value, and every
+catalog UI UseCase has at least one declared `UiUseCaseStep`. A step contains
+the exact UI-layer `UseCaseReference`, a nonempty step ID, and exactly one of
+the closed paths `normal`, `alternative`, `exception`, or `system-only`.
+`ScreenInteractionMapping` joins a step to a concrete screen interaction.
+Normal, alternative, and exception steps have one or more mappings; a
+system-only step has none. A mapping may be shared by several steps and a
+screen may be reused by several catalog UI UseCases. Duplicate mappings fail
+closed.
+
+`LogicalScreen` has a globally unique ID, a nonempty primary purpose and
+unique optional secondary purposes, one `Entity`, `Aggregate`, or `View`
+subject, a nonempty semantic region tree with one root, existing parents, and
+deterministic sibling order, named interactions, feedback states, and logical
+navigation endpoints. Interaction kinds are closed to `entry`, `input`,
+`query`, `selection`, `invocation`, `observation`, `feedback`, and
+`navigation`. Navigation interactions require a valid endpoint to an existing
+screen and non-navigation interactions cannot carry an endpoint. Feedback is
+closed to `normal`, `loading`, `empty`, `unavailable`, `validation-failed`,
+`conflict`, and `operation-failed`; every screen includes exactly one normal
+state.
+
+Component roles are closed to `Entity`, `Aggregate`, `Service`, `Operation`,
+`Value`, `Datatype`, `View`, `Powertype`, and `StateMachine`. Every
+role-bearing reference is an exact existing public `ComponentBinding` from
+`candidate.input.componentBindings`; no parallel Component declaration,
+unexported binding, or unused candidate binding is admitted. Every screen and
+interaction must be justified by a mapping, and every selected candidate
+binding must be used by a subject, interaction usage, or mutation action.
+
+An `AggregateBoundary` explicitly names an Aggregate, root, members, and
+public Operation bindings. Each public Operation binding is owned by exactly
+one boundary; the same binding MUST NOT authorize mutations in multiple
+boundaries. Boundaries have no overlap and contain their root. Every mutation
+action names both a target and a public Operation. A mutating invocation must
+contain that same binding as an explicit `Operation` role usage. A direct child
+member cannot be a mutation target; a root mutation must use one of its
+boundary's declared public Operations. Unknown or unexported references,
+malformed regions/navigation, invalid paths/kinds/feedback, and missing
+Operation bindings fail closed with stable `LUI43_` diagnostics.
+
+Projection construction normalizes catalogs, steps, screens, interactions,
+regions, mappings, usages, feedback, and Aggregate boundaries before computing
+a canonical identity from the exact candidate identity and normalized
+projection content. It performs no reachability analysis, pattern selection,
+constraint or StateMachine interpretation, HTML/receipt generation,
+serialization, or target realization.

@@ -4,7 +4,7 @@ This checklist is the authoritative progress ledger for Phase 43. It is not a
 normative behavior contract.
 
 Phase Status: IN PROGRESS; LUI43-01 Authority and Contract Kernel is complete;
-LUI43-02 is open.
+LUI43-02 UseCase-to-Screen and Component Projection is complete.
 
 Predecessor: accepted Phase 42.1 closure.
 
@@ -27,17 +27,17 @@ Stage Status:
 
 Stage Status:
 
-- Current status: OPEN
+- Current status: DONE
 - Owner: Cozy Phase 43
 - Update rule: Update this block from the checklist state below.
 
-- [ ] Support one-to-many, many-to-one, reused-screen, system-only,
+- [x] Support one-to-many, many-to-one, reused-screen, system-only,
       alternative, and exception mappings.
-- [ ] Define Logical Screen purpose, subject, regions, navigation,
+- [x] Define Logical Screen purpose, subject, regions, navigation,
       interactions, feedback states, and use-case coverage.
-- [ ] Bind all admitted Component vocabulary by exact public identity.
-- [ ] Reject unexported or unjustified model surfaces.
-- [ ] Preserve Aggregate mutation boundaries and public Operation authority.
+- [x] Bind all admitted Component vocabulary by exact public identity.
+- [x] Reject unexported or unjustified model surfaces.
+- [x] Preserve Aggregate mutation boundaries and public Operation authority.
 
 ## LUI43-03: Pattern, Constraint, and State Semantics
 

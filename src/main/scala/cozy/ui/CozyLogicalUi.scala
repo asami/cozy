@@ -48,6 +48,195 @@ private[cozy] object CozyLogicalUi {
     useCases: UseCaseLayers
   )
 
+  sealed trait UiUseCasePath {
+    def id: String
+  }
+
+  case object NormalPath extends UiUseCasePath {
+    val id = "normal"
+  }
+
+  case object AlternativePath extends UiUseCasePath {
+    val id = "alternative"
+  }
+
+  case object ExceptionPath extends UiUseCasePath {
+    val id = "exception"
+  }
+
+  case object SystemOnlyPath extends UiUseCasePath {
+    val id = "system-only"
+  }
+
+  sealed trait InteractionKind {
+    def id: String
+  }
+
+  case object EntryInteraction extends InteractionKind {
+    val id = "entry"
+  }
+
+  case object InputInteraction extends InteractionKind {
+    val id = "input"
+  }
+
+  case object QueryInteraction extends InteractionKind {
+    val id = "query"
+  }
+
+  case object SelectionInteraction extends InteractionKind {
+    val id = "selection"
+  }
+
+  case object InvocationInteraction extends InteractionKind {
+    val id = "invocation"
+  }
+
+  case object ObservationInteraction extends InteractionKind {
+    val id = "observation"
+  }
+
+  case object FeedbackInteraction extends InteractionKind {
+    val id = "feedback"
+  }
+
+  case object NavigationInteraction extends InteractionKind {
+    val id = "navigation"
+  }
+
+  sealed trait ComponentRole {
+    def id: String
+  }
+
+  case object EntityRole extends ComponentRole {
+    val id = "Entity"
+  }
+
+  case object AggregateRole extends ComponentRole {
+    val id = "Aggregate"
+  }
+
+  case object ServiceRole extends ComponentRole {
+    val id = "Service"
+  }
+
+  case object OperationRole extends ComponentRole {
+    val id = "Operation"
+  }
+
+  case object ValueRole extends ComponentRole {
+    val id = "Value"
+  }
+
+  case object DatatypeRole extends ComponentRole {
+    val id = "Datatype"
+  }
+
+  case object ViewRole extends ComponentRole {
+    val id = "View"
+  }
+
+  case object PowertypeRole extends ComponentRole {
+    val id = "Powertype"
+  }
+
+  case object StateMachineRole extends ComponentRole {
+    val id = "StateMachine"
+  }
+
+  sealed trait FeedbackState {
+    def id: String
+  }
+
+  case object NormalFeedback extends FeedbackState {
+    val id = "normal"
+  }
+
+  case object LoadingFeedback extends FeedbackState {
+    val id = "loading"
+  }
+
+  case object EmptyFeedback extends FeedbackState {
+    val id = "empty"
+  }
+
+  case object UnavailableFeedback extends FeedbackState {
+    val id = "unavailable"
+  }
+
+  case object ValidationFailedFeedback extends FeedbackState {
+    val id = "validation-failed"
+  }
+
+  case object ConflictFeedback extends FeedbackState {
+    val id = "conflict"
+  }
+
+  case object OperationFailedFeedback extends FeedbackState {
+    val id = "operation-failed"
+  }
+
+  final case class UiUseCaseStep(
+    uiUseCase: UseCaseReference,
+    stepId: String,
+    path: UiUseCasePath
+  )
+
+  final case class ScreenInteractionMapping(
+    uiUseCase: UseCaseReference,
+    stepId: String,
+    screenId: String,
+    interactionId: String
+  )
+
+  final case class ScreenSubject(role: ComponentRole, binding: ComponentBinding)
+
+  final case class ComponentUsage(role: ComponentRole, binding: ComponentBinding)
+
+  final case class SemanticRegion(
+    id: String,
+    parentId: Option[String],
+    order: Int
+  )
+
+  final case class NavigationEndpoint(endpointId: String, targetScreenId: String)
+
+  final case class MutationAction(target: ComponentBinding, operation: ComponentBinding)
+
+  final case class ScreenInteraction(
+    id: String,
+    kind: InteractionKind,
+    componentUsages: Vector[ComponentUsage],
+    mutation: Option[MutationAction],
+    navigation: Option[NavigationEndpoint]
+  )
+
+  final case class LogicalScreen(
+    id: String,
+    primaryPurpose: String,
+    secondaryPurposes: Vector[String],
+    subject: ScreenSubject,
+    regions: Vector[SemanticRegion],
+    interactions: Vector[ScreenInteraction],
+    feedbackStates: Vector[FeedbackState]
+  )
+
+  final case class AggregateBoundary(
+    aggregate: ComponentBinding,
+    root: ComponentBinding,
+    members: Vector[ComponentBinding],
+    publicOperations: Vector[ComponentBinding]
+  )
+
+  final case class UseCaseScreenProjection(
+    candidateIdentity: String,
+    catalog: Vector[UseCaseLayers],
+    steps: Vector[UiUseCaseStep],
+    screens: Vector[LogicalScreen],
+    mappings: Vector[ScreenInteractionMapping],
+    aggregateBoundaries: Vector[AggregateBoundary]
+  )
+
   final case class AcceptanceDecision(decisionId: String, candidateIdentity: String) {
     def decisionIdentity: String = _decision_identity(this)
   }
@@ -67,12 +256,22 @@ private[cozy] object CozyLogicalUi {
     val decision: AcceptanceDecision
   )
 
+  final class LogicalUiProjection private[CozyLogicalUi] (
+    val identity: String,
+    val candidate: LogicalUiCandidate,
+    val input: UseCaseScreenProjection
+  ) {
+    def canonicalContent: String = _canonical_projection_content(candidate.identity, input)
+  }
+
   private val _schema = "cozy.logical-ui.v1"
   private val _version = 1
   private val _candidate_kind = "candidate"
   private val _consumed_input_kind = "consumed-input"
   private val _acceptance_decision_kind = "acceptance-decision"
   private val _accepted_kind = "accepted"
+  private val _projection_schema = "cozy.usecase-screen-projection.v1"
+  private val _projection_version = 1
   private val _component_segment_pattern = "[A-Za-z][A-Za-z0-9_-]*".r
 
   def schema: String = _schema
@@ -85,6 +284,18 @@ private[cozy] object CozyLogicalUi {
         val content = _canonical_logical_content(normalized)
         Right(new LogicalUiCandidate(_identity(content), _input_identity(content), normalized))
     }
+
+  def project(
+    candidate: LogicalUiCandidate,
+    input: UseCaseScreenProjection
+  ): Either[LogicalUiError, LogicalUiProjection] = {
+    _normalize_projection(candidate, input) match {
+      case Left(error) => Left(error)
+      case Right(normalized) =>
+        val content = _canonical_projection_content(candidate.identity, normalized)
+        Right(new LogicalUiProjection(_identity(content), candidate, normalized))
+    }
+  }
 
   def accept(
     candidate: LogicalUiCandidate,
@@ -102,6 +313,600 @@ private[cozy] object CozyLogicalUi {
           else
             Right(new AcceptedLogicalUi(identity, candidate, decision))
       }
+  }
+
+  private def _normalize_projection(
+    candidate: LogicalUiCandidate,
+    input: UseCaseScreenProjection
+  ): Either[LogicalUiError, UseCaseScreenProjection] = {
+    if (candidate == null)
+      Left(LogicalUiError("LUI43_PROJECTION_CANDIDATE_MISMATCH", "candidate", "a LogicalUiCandidate is required"))
+    else if (input == null)
+      Left(LogicalUiError("LUI43_PROJECTION_INPUT_MISSING", "projection", "a typed UseCase-to-Screen projection is required"))
+    else if (_required_text_error(input.candidateIdentity, "projection.candidateIdentity").isDefined)
+      Left(LogicalUiError("LUI43_PROJECTION_CANDIDATE_MISMATCH", "projection.candidateIdentity", "candidate identity must be nonempty and trimmed"))
+    else if (input.candidateIdentity != candidate.identity)
+      Left(LogicalUiError("LUI43_PROJECTION_CANDIDATE_MISMATCH", "projection.candidateIdentity", "projection must bind the exact LogicalUiCandidate identity"))
+    else
+      _normalize_projection_catalog(input.catalog, candidate.input.useCases) match {
+        case Left(error) => Left(error)
+        case Right(catalog) =>
+          _normalize_projection_steps(input.steps, catalog) match {
+            case Left(error) => Left(error)
+            case Right(steps) =>
+              _normalize_projection_screens(input.screens) match {
+                case Left(error) => Left(error)
+                case Right(screens) =>
+                  _projection_navigation_error(screens) match {
+                    case Some(error) => Left(error)
+                    case None =>
+                      _normalize_projection_mappings(input.mappings, steps, screens) match {
+                        case Left(error) => Left(error)
+                        case Right(mappings) =>
+                          _normalize_projection_boundaries(input.aggregateBoundaries) match {
+                            case Left(error) => Left(error)
+                            case Right(boundaries) =>
+                              val normalized = input.copy(
+                                catalog = catalog,
+                                steps = steps,
+                                screens = screens,
+                                mappings = mappings,
+                                aggregateBoundaries = boundaries
+                              )
+                              _projection_component_error(candidate, normalized) match {
+                                case Some(error) => Left(error)
+                                case None =>
+                                  _projection_aggregate_error(normalized) match {
+                                    case Some(error) => Left(error)
+                                    case None => Right(normalized)
+                                  }
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+      }
+  }
+
+  private def _normalize_projection_catalog(
+    values: Vector[UseCaseLayers],
+    candidateusecases: UseCaseLayers
+  ): Either[LogicalUiError, Vector[UseCaseLayers]] = {
+    val catalog = Option(values).getOrElse(Vector.empty)
+    if (catalog.isEmpty)
+      Left(LogicalUiError("LUI43_PROJECTION_CATALOG_CLOSED", "projection.catalog", "at least one opaque three-layer UseCase identity is required"))
+    else {
+      val normalized = catalog.zipWithIndex.map { case (value, index) =>
+        _normalize_use_cases(value) match {
+          case Left(error) => Left(error.copy(code = "LUI43_PROJECTION_CATALOG_CLOSED", path = s"projection.catalog[$index].${error.path}", reason = "catalog UseCaseLayers must be a valid opaque three-layer identity"))
+          case Right(item) => Right(item)
+        }
+      }
+      normalized.collectFirst { case Left(error) => error } match {
+        case Some(error) => Left(error)
+        case None =>
+          val items = normalized.collect { case Right(value) => value }
+          val identities = items.map(_use_case_layers_key)
+          if (identities.distinct.size != identities.size)
+            Left(LogicalUiError("LUI43_PROJECTION_CATALOG_CLOSED", "projection.catalog", "catalog UseCaseLayers identities must be unique"))
+          else if (!items.contains(candidateusecases))
+            Left(LogicalUiError("LUI43_PROJECTION_CATALOG_CLOSED", "projection.catalog", "catalog must contain the candidate's exact UseCaseLayers identity"))
+          else
+            Right(items.sortBy(_use_case_layers_key))
+      }
+    }
+  }
+
+  private def _normalize_projection_steps(
+    values: Vector[UiUseCaseStep],
+    catalog: Vector[UseCaseLayers]
+  ): Either[LogicalUiError, Vector[UiUseCaseStep]] = {
+    val steps = Option(values).getOrElse(Vector.empty)
+    if (steps.isEmpty)
+      Left(LogicalUiError("LUI43_PROJECTION_STEP_COVERAGE", "projection.steps", "every catalog UI UseCase must declare at least one step"))
+    else {
+      val uiidentities = catalog.map(_.ui).toSet
+      val errors = steps.zipWithIndex.flatMap { case (step, index) =>
+        _projection_step_error(step, uiidentities, s"projection.steps[$index]")
+      }
+      errors.headOption match {
+        case Some(error) => Left(error)
+        case None =>
+          val keys = steps.map(_step_key)
+          if (keys.distinct.size != keys.size)
+            Left(LogicalUiError("LUI43_PROJECTION_STEP_COVERAGE", "projection.steps", "step identity must be unique within a catalog UI UseCase"))
+          else {
+            val declared = steps.map(_.uiUseCase).toSet
+            catalog.map(_.ui).find(reference => !declared.contains(reference)) match {
+              case Some(reference) => Left(LogicalUiError("LUI43_PROJECTION_STEP_COVERAGE", "projection.steps", s"catalog UI UseCase ${reference.id} must declare at least one step"))
+              case None => Right(steps.sortBy(_step_key))
+            }
+          }
+      }
+    }
+  }
+
+  private def _projection_step_error(
+    value: UiUseCaseStep,
+    uiidentities: Set[UseCaseReference],
+    path: String
+  ): Option[LogicalUiError] = {
+    if (value == null)
+      Some(LogicalUiError("LUI43_PROJECTION_STEP_COVERAGE", path, "UI UseCase step is required"))
+    else if (value.uiUseCase == null || value.uiUseCase.layer != Ui || !uiidentities.contains(value.uiUseCase))
+      Some(LogicalUiError("LUI43_PROJECTION_CATALOG_CLOSED", s"$path.uiUseCase", "step must reference an exact catalog UI UseCase identity"))
+    else if (_required_text_error(value.stepId, s"$path.stepId").isDefined)
+      Some(LogicalUiError("LUI43_PROJECTION_STEP_COVERAGE", s"$path.stepId", "step ID must be nonempty and trimmed"))
+    else if (value.path == null)
+      Some(LogicalUiError("LUI43_PROJECTION_PATH_INVALID", s"$path.path", "step path must be normal, alternative, exception, or system-only"))
+    else
+      None
+  }
+
+  private def _normalize_projection_screens(
+    values: Vector[LogicalScreen]
+  ): Either[LogicalUiError, Vector[LogicalScreen]] = {
+    val screens = Option(values).getOrElse(Vector.empty)
+    if (screens.isEmpty)
+      Left(LogicalUiError("LUI43_PROJECTION_SCREEN_UNJUSTIFIED", "projection.screens", "at least one mapped Logical Screen is required"))
+    else {
+      val errors = screens.zipWithIndex.flatMap { case (screen, index) =>
+        _projection_screen_error(screen, s"projection.screens[$index]")
+      }
+      errors.headOption match {
+        case Some(error) => Left(error)
+        case None =>
+          val ids = screens.map(_.id)
+          if (ids.distinct.size != ids.size)
+            Left(LogicalUiError("LUI43_PROJECTION_SCREEN_UNJUSTIFIED", "projection.screens", "screen identity must be globally unique"))
+          else
+            Right(screens.map(_normalize_screen).sortBy(_.id))
+      }
+    }
+  }
+
+  private def _projection_screen_error(value: LogicalScreen, path: String): Option[LogicalUiError] = {
+    if (value == null)
+      Some(LogicalUiError("LUI43_PROJECTION_SCREEN_INVALID", path, "Logical Screen is required"))
+    else if (_required_text_error(value.id, s"$path.id").isDefined)
+      Some(LogicalUiError("LUI43_PROJECTION_SCREEN_INVALID", s"$path.id", "screen ID must be nonempty and trimmed"))
+    else if (_required_text_error(value.primaryPurpose, s"$path.primaryPurpose").isDefined)
+      Some(LogicalUiError("LUI43_PROJECTION_SCREEN_INVALID", s"$path.primaryPurpose", "primary purpose must be nonempty and trimmed"))
+    else {
+      val purposes = Option(value.secondaryPurposes).getOrElse(Vector.empty)
+      if (purposes.exists(item => _required_text_error(item, s"$path.secondaryPurposes").isDefined))
+        Some(LogicalUiError("LUI43_PROJECTION_SCREEN_INVALID", s"$path.secondaryPurposes", "secondary purposes must be nonempty and trimmed"))
+      else if (purposes.distinct.size != purposes.size)
+        Some(LogicalUiError("LUI43_PROJECTION_SCREEN_INVALID", s"$path.secondaryPurposes", "secondary purposes must be unique"))
+      else if (value.subject == null || value.subject.role == null)
+        Some(LogicalUiError("LUI43_PROJECTION_COMPONENT_ROLE_INVALID", s"$path.subject", "screen subject must be Entity, Aggregate, or View"))
+      else if (!Set[ComponentRole](EntityRole, AggregateRole, ViewRole).contains(value.subject.role))
+        Some(LogicalUiError("LUI43_PROJECTION_COMPONENT_ROLE_INVALID", s"$path.subject.role", "screen subject must be Entity, Aggregate, or View"))
+      else if (value.subject.binding == null)
+        Some(LogicalUiError("LUI43_PROJECTION_COMPONENT_CLOSED", s"$path.subject.binding", "screen subject must use an exact public Component binding"))
+      else
+        _projection_region_error(value.regions, s"$path.regions").orElse {
+          val interactions = Option(value.interactions).getOrElse(Vector.empty)
+          if (interactions.isEmpty)
+            Some(LogicalUiError("LUI43_PROJECTION_INTERACTION_UNJUSTIFIED", s"$path.interactions", "a Logical Screen must declare at least one interaction"))
+          else {
+            val errors = interactions.zipWithIndex.flatMap { case (interaction, index) =>
+              _projection_interaction_error(interaction, s"$path.interactions[$index]")
+            }
+            errors.headOption.orElse {
+              val ids = interactions.map(_.id)
+              if (ids.distinct.size != ids.size)
+                Some(LogicalUiError("LUI43_PROJECTION_INTERACTION_UNJUSTIFIED", s"$path.interactions", "interaction identity must be unique within a screen"))
+              else
+                _projection_feedback_error(value.feedbackStates, s"$path.feedbackStates")
+            }
+          }
+        }
+    }
+  }
+
+  private def _projection_region_error(values: Vector[SemanticRegion], path: String): Option[LogicalUiError] = {
+    val regions = Option(values).getOrElse(Vector.empty)
+    if (regions.isEmpty)
+      Some(LogicalUiError("LUI43_PROJECTION_REGION_INVALID", path, "a screen must contain a nonempty semantic region tree"))
+    else if (regions.exists(_ == null))
+      Some(LogicalUiError("LUI43_PROJECTION_REGION_INVALID", path, "semantic region is required"))
+    else {
+      val ids = regions.map(_.id)
+      if (ids.exists(value => _required_text_error(value, s"$path.id").isDefined))
+        Some(LogicalUiError("LUI43_PROJECTION_REGION_INVALID", path, "region ID must be nonempty and trimmed"))
+      else if (ids.distinct.size != ids.size)
+        Some(LogicalUiError("LUI43_PROJECTION_REGION_INVALID", path, "region ID must be unique within a screen"))
+      else if (regions.exists(_.parentId == null))
+        Some(LogicalUiError("LUI43_PROJECTION_REGION_INVALID", path, "region parent must be explicitly empty or reference a parent"))
+      else if (regions.exists(region => region.parentId.exists(parent => _required_text_error(parent, path).isDefined)))
+        Some(LogicalUiError("LUI43_PROJECTION_REGION_INVALID", path, "region parent ID must be nonempty and trimmed"))
+      else if (regions.exists(_.order < 0))
+        Some(LogicalUiError("LUI43_PROJECTION_REGION_INVALID", path, "region sibling order must be nonnegative"))
+      else if (regions.count(_.parentId.isEmpty) != 1)
+        Some(LogicalUiError("LUI43_PROJECTION_REGION_INVALID", path, "semantic region tree must contain exactly one root"))
+      else if (regions.exists(region => region.parentId.exists(parent => !ids.contains(parent))))
+        Some(LogicalUiError("LUI43_PROJECTION_REGION_INVALID", path, "every region parent must exist"))
+      else if (regions.groupBy(_.parentId).exists { case (_, siblings) => siblings.map(_.order).distinct.size != siblings.size })
+        Some(LogicalUiError("LUI43_PROJECTION_REGION_INVALID", path, "sibling region order must be unique"))
+      else {
+        val root = regions.find(_.parentId.isEmpty).get.id
+        var visited = Set.empty[String]
+        var frontier = Vector(root)
+        while (frontier.nonEmpty) {
+          val current = frontier.head
+          frontier = frontier.tail
+          if (!visited.contains(current)) {
+            visited += current
+            frontier = frontier ++ regions.filter(_.parentId.contains(current)).map(_.id)
+          }
+        }
+        if (visited.size != ids.size)
+          Some(LogicalUiError("LUI43_PROJECTION_REGION_INVALID", path, "semantic regions must form one rooted tree without cycles"))
+        else
+          None
+      }
+    }
+  }
+
+  private def _projection_interaction_error(value: ScreenInteraction, path: String): Option[LogicalUiError] = {
+    if (value == null)
+      Some(LogicalUiError("LUI43_PROJECTION_INTERACTION_UNJUSTIFIED", path, "screen interaction is required"))
+    else if (_required_text_error(value.id, s"$path.id").isDefined)
+      Some(LogicalUiError("LUI43_PROJECTION_INTERACTION_UNJUSTIFIED", s"$path.id", "interaction ID must be nonempty and trimmed"))
+    else if (value.kind == null)
+      Some(LogicalUiError("LUI43_PROJECTION_INTERACTION_KIND_INVALID", s"$path.kind", "interaction kind must be one of the closed v1 kinds"))
+    else if (value.componentUsages == null)
+      Some(LogicalUiError("LUI43_PROJECTION_COMPONENT_CLOSED", s"$path.componentUsages", "component usages must be explicit"))
+    else if (value.componentUsages.exists(usage => usage == null || usage.role == null))
+      Some(LogicalUiError("LUI43_PROJECTION_COMPONENT_ROLE_INVALID", s"$path.componentUsages", "every component usage must have a closed role"))
+    else if (value.componentUsages.exists(_.binding == null))
+      Some(LogicalUiError("LUI43_PROJECTION_COMPONENT_CLOSED", s"$path.componentUsages", "every component usage must use an exact public Component binding"))
+    else if (value.componentUsages.map(usage => (usage.role.id, usage.binding)).distinct.size != value.componentUsages.size)
+      Some(LogicalUiError("LUI43_PROJECTION_COMPONENT_CLOSED", s"$path.componentUsages", "component usage must not be duplicated"))
+    else if (value.mutation == null || value.navigation == null)
+      Some(LogicalUiError("LUI43_PROJECTION_INTERACTION_KIND_INVALID", path, "optional mutation and navigation values must be explicit Options"))
+    else if (value.mutation.exists(action => action == null || action.target == null || action.operation == null))
+      Some(LogicalUiError("LUI43_PROJECTION_OPERATION_MISSING", s"$path.mutation", "a mutation action must name both target and public Operation"))
+    else if (value.navigation.exists(endpoint => endpoint == null || _required_text_error(endpoint.endpointId, s"$path.navigation.endpointId").isDefined || _required_text_error(endpoint.targetScreenId, s"$path.navigation.targetScreenId").isDefined))
+      Some(LogicalUiError("LUI43_PROJECTION_NAVIGATION_INVALID", s"$path.navigation", "navigation endpoint must have nonempty endpoint and target screen IDs"))
+    else if (value.kind == NavigationInteraction && value.navigation.isEmpty)
+      Some(LogicalUiError("LUI43_PROJECTION_NAVIGATION_INVALID", s"$path.navigation", "navigation interaction must declare an endpoint"))
+    else if (value.kind != NavigationInteraction && value.navigation.nonEmpty)
+      Some(LogicalUiError("LUI43_PROJECTION_NAVIGATION_INVALID", s"$path.navigation", "only a navigation interaction may declare an endpoint"))
+    else if (value.mutation.nonEmpty && value.kind != InvocationInteraction)
+      Some(LogicalUiError("LUI43_PROJECTION_OPERATION_MISSING", s"$path.mutation", "a mutation action must belong to an invocation interaction"))
+    else
+      None
+  }
+
+  private def _projection_feedback_error(values: Vector[FeedbackState], path: String): Option[LogicalUiError] = {
+    val states = Option(values).getOrElse(Vector.empty)
+    if (states.isEmpty)
+      Some(LogicalUiError("LUI43_PROJECTION_FEEDBACK_INVALID", path, "every screen must include a normal feedback state"))
+    else if (states.exists(_ == null))
+      Some(LogicalUiError("LUI43_PROJECTION_FEEDBACK_INVALID", path, "feedback state must be one of the closed v1 states"))
+    else if (states.distinct.size != states.size)
+      Some(LogicalUiError("LUI43_PROJECTION_FEEDBACK_INVALID", path, "feedback state must not be duplicated"))
+    else if (!states.contains(NormalFeedback))
+      Some(LogicalUiError("LUI43_PROJECTION_FEEDBACK_INVALID", path, "every screen must include normal feedback"))
+    else
+      None
+  }
+
+  private def _projection_navigation_error(screens: Vector[LogicalScreen]): Option[LogicalUiError] = {
+    val screenids = screens.map(_.id).toSet
+    screens.iterator.flatMap { screen =>
+      val endpoints = screen.interactions.flatMap(_.navigation.toVector)
+      if (endpoints.map(_.endpointId).distinct.size != endpoints.size)
+        Iterator.single(LogicalUiError("LUI43_PROJECTION_NAVIGATION_INVALID", s"projection.screens.${screen.id}.interactions", "navigation endpoint identity must be unique within a screen"))
+      else
+        endpoints.iterator.filter(endpoint => !screenids.contains(endpoint.targetScreenId)).map { endpoint =>
+          LogicalUiError("LUI43_PROJECTION_NAVIGATION_INVALID", s"projection.screens.${screen.id}.navigation.${endpoint.endpointId}", "navigation target screen must exist in the projection")
+        }
+    }.toStream.headOption
+  }
+
+  private def _normalize_screen(value: LogicalScreen): LogicalScreen =
+    value.copy(
+      secondaryPurposes = Option(value.secondaryPurposes).getOrElse(Vector.empty).sorted,
+      regions = value.regions.sortBy(_.id),
+      interactions = value.interactions.map { interaction =>
+        interaction.copy(
+          componentUsages = interaction.componentUsages.sortBy(usage => (usage.role.id, _binding_key(usage.binding)))
+        )
+      }.sortBy(_.id),
+      feedbackStates = value.feedbackStates.sortBy(_.id)
+    )
+
+  private def _normalize_projection_mappings(
+    values: Vector[ScreenInteractionMapping],
+    steps: Vector[UiUseCaseStep],
+    screens: Vector[LogicalScreen]
+  ): Either[LogicalUiError, Vector[ScreenInteractionMapping]] = {
+    val mappings = Option(values).getOrElse(Vector.empty)
+    val stepbykey = steps.map(step => _step_key(step) -> step).toMap
+    val screenbyid = screens.map(screen => screen.id -> screen).toMap
+    val errors = mappings.zipWithIndex.flatMap { case (mapping, index) =>
+      _projection_mapping_error(mapping, stepbykey, screenbyid, s"projection.mappings[$index]")
+    }
+    errors.headOption match {
+      case Some(error) => Left(error)
+      case None =>
+        val keys = mappings.map(_mapping_key)
+        if (keys.distinct.size != keys.size)
+          Left(LogicalUiError("LUI43_PROJECTION_STEP_COVERAGE", "projection.mappings", "duplicate step-to-screen interaction mapping is not admitted"))
+        else {
+          val mappedsteps = mappings.map(mapping => (mapping.uiUseCase, mapping.stepId)).toSet
+          steps.find(step => step.path == SystemOnlyPath && mappedsteps.contains((step.uiUseCase, step.stepId))) match {
+            case Some(step) => Left(LogicalUiError("LUI43_PROJECTION_SYSTEM_STEP_MAPPING", "projection.mappings", s"system-only step ${step.stepId} must not map to a screen interaction"))
+            case None =>
+              steps.find(step => step.path != SystemOnlyPath && !mappedsteps.contains((step.uiUseCase, step.stepId))) match {
+                case Some(step) => Left(LogicalUiError("LUI43_PROJECTION_STEP_COVERAGE", "projection.mappings", s"non-system step ${step.stepId} must map to at least one interaction"))
+                case None =>
+                  val screenkeys = mappings.map(mapping => (mapping.screenId, mapping.interactionId)).toSet
+                  val missingscreen = screens.find(screen => !mappings.exists(_.screenId == screen.id))
+                  missingscreen match {
+                    case Some(screen) => Left(LogicalUiError("LUI43_PROJECTION_SCREEN_UNJUSTIFIED", s"projection.screens.${screen.id}", "every screen must be justified by at least one step mapping"))
+                    case None =>
+                      screens.iterator.flatMap(screen => screen.interactions.map(interaction => (screen.id, interaction.id))).find(key => !screenkeys.contains(key)) match {
+                        case Some(_) =>
+                          val missing = screens.iterator.flatMap(screen => screen.interactions.map(interaction => (screen.id, interaction.id))).find(key => !screenkeys.contains(key)).get
+                          Left(LogicalUiError("LUI43_PROJECTION_INTERACTION_UNJUSTIFIED", s"projection.screens.${missing._1}.interactions.${missing._2}", "every interaction must be justified by at least one step mapping"))
+                        case None => Right(mappings.sortBy(_mapping_key))
+                      }
+                  }
+              }
+          }
+        }
+    }
+  }
+
+  private def _projection_mapping_error(
+    value: ScreenInteractionMapping,
+    stepbykey: Map[(String, String, String), UiUseCaseStep],
+    screenbyid: Map[String, LogicalScreen],
+    path: String
+  ): Option[LogicalUiError] = {
+    if (value == null)
+      Some(LogicalUiError("LUI43_PROJECTION_STEP_COVERAGE", path, "screen interaction mapping is required"))
+    else if (value.uiUseCase == null || value.uiUseCase.layer != Ui || _required_text_error(value.uiUseCase.id, s"$path.uiUseCase.id").isDefined || _required_text_error(value.stepId, s"$path.stepId").isDefined)
+      Some(LogicalUiError("LUI43_PROJECTION_STEP_COVERAGE", path, "mapping must name a nonempty UI UseCase step"))
+    else if (!stepbykey.contains(_step_reference_key(value.uiUseCase, value.stepId)))
+      Some(LogicalUiError("LUI43_PROJECTION_CATALOG_CLOSED", s"$path.step", "mapping must reference an exact declared step"))
+    else if (_required_text_error(value.screenId, s"$path.screenId").isDefined || !screenbyid.contains(value.screenId))
+      Some(LogicalUiError("LUI43_PROJECTION_SCREEN_UNJUSTIFIED", s"$path.screenId", "mapping must reference an exact declared screen"))
+    else if (_required_text_error(value.interactionId, s"$path.interactionId").isDefined || !screenbyid(value.screenId).interactions.exists(_.id == value.interactionId))
+      Some(LogicalUiError("LUI43_PROJECTION_INTERACTION_UNJUSTIFIED", s"$path.interactionId", "mapping must reference an exact declared screen interaction"))
+    else
+      None
+  }
+
+  private def _normalize_projection_boundaries(
+    values: Vector[AggregateBoundary]
+  ): Either[LogicalUiError, Vector[AggregateBoundary]] = {
+    val boundaries = Option(values).getOrElse(Vector.empty)
+    val errors = boundaries.zipWithIndex.flatMap { case (boundary, index) =>
+      _projection_boundary_error(boundary, s"projection.aggregateBoundaries[$index]")
+    }
+    errors.headOption match {
+      case Some(error) => Left(error)
+      case None =>
+        val identities = boundaries.map(boundary => _binding_key(boundary.aggregate))
+        if (identities.distinct.size != identities.size)
+          Left(LogicalUiError("LUI43_PROJECTION_COMPONENT_CLOSED", "projection.aggregateBoundaries", "Aggregate boundary identity must be unique"))
+        else
+          Right(boundaries.map(_normalize_boundary).sortBy(boundary => _binding_key(boundary.aggregate)))
+    }
+  }
+
+  private def _projection_boundary_error(value: AggregateBoundary, path: String): Option[LogicalUiError] = {
+    if (value == null)
+      Some(LogicalUiError("LUI43_PROJECTION_COMPONENT_CLOSED", path, "Aggregate boundary is required"))
+    else if (value.aggregate == null || value.root == null)
+      Some(LogicalUiError("LUI43_PROJECTION_COMPONENT_CLOSED", path, "Aggregate boundary must name an Aggregate and root binding"))
+    else if (value.members == null || value.members.isEmpty)
+      Some(LogicalUiError("LUI43_PROJECTION_COMPONENT_CLOSED", s"$path.members", "Aggregate boundary must declare members"))
+    else if (value.publicOperations == null || value.publicOperations.isEmpty)
+      Some(LogicalUiError("LUI43_PROJECTION_OPERATION_MISSING", s"$path.publicOperations", "Aggregate boundary must declare public Operation bindings"))
+    else if (!value.members.contains(value.root))
+      Some(LogicalUiError("LUI43_PROJECTION_COMPONENT_CLOSED", s"$path.members", "Aggregate boundary members must contain the root binding"))
+    else if (value.members.exists(_ == null) || value.publicOperations.exists(_ == null))
+      Some(LogicalUiError("LUI43_PROJECTION_COMPONENT_CLOSED", path, "Aggregate boundary references must be explicit bindings"))
+    else if (value.members.map(_binding_key).distinct.size != value.members.size || value.publicOperations.map(_binding_key).distinct.size != value.publicOperations.size)
+      Some(LogicalUiError("LUI43_PROJECTION_COMPONENT_CLOSED", path, "Aggregate members and public Operations must be unique"))
+    else
+      None
+  }
+
+  private def _normalize_boundary(value: AggregateBoundary): AggregateBoundary =
+    value.copy(
+      members = value.members.sortBy(_binding_key),
+      publicOperations = value.publicOperations.sortBy(_binding_key)
+    )
+
+  private def _use_case_layers_key(value: UseCaseLayers): ((String, String), (String, String), (String, String), ((String, String, String, String), (String, String, String, String))) = {
+    val realizations = value.realizations.map(_realization_key).sorted
+    (
+      (value.business.layer.id, value.business.id),
+      (value.system.layer.id, value.system.id),
+      (value.ui.layer.id, value.ui.id),
+      (realizations(0), realizations(1))
+    )
+  }
+
+  private def _step_key(value: UiUseCaseStep): (String, String, String) =
+    _step_reference_key(value.uiUseCase, value.stepId)
+
+  private def _step_reference_key(reference: UseCaseReference, stepid: String): (String, String, String) =
+    (reference.layer.id, reference.id, stepid)
+
+  private def _mapping_key(value: ScreenInteractionMapping): (String, String, String, String, String) =
+    (value.uiUseCase.layer.id, value.uiUseCase.id, value.stepId, value.screenId, value.interactionId)
+
+  private def _canonical_projection_content(
+    candidateidentity: String,
+    input: UseCaseScreenProjection
+  ): String =
+    _json_object(Vector(
+      "schema" -> _json_string(_projection_schema),
+      "version" -> _projection_version.toString,
+      "candidateIdentity" -> _json_string(candidateidentity),
+      "catalog" -> _json_array(input.catalog.map(_use_case_layers_json)),
+      "steps" -> _json_array(input.steps.map(_step_json)),
+      "screens" -> _json_array(input.screens.map(_screen_json)),
+      "mappings" -> _json_array(input.mappings.map(_mapping_json)),
+      "aggregateBoundaries" -> _json_array(input.aggregateBoundaries.map(_boundary_json))
+    ))
+
+  private def _use_case_layers_json(value: UseCaseLayers): String =
+    _use_cases_json(value)
+
+  private def _step_json(value: UiUseCaseStep): String =
+    _json_object(Vector(
+      "uiUseCase" -> _use_case_reference_json(value.uiUseCase),
+      "stepId" -> _json_string(value.stepId),
+      "path" -> _json_string(value.path.id)
+    ))
+
+  private def _mapping_json(value: ScreenInteractionMapping): String =
+    _json_object(Vector(
+      "uiUseCase" -> _use_case_reference_json(value.uiUseCase),
+      "stepId" -> _json_string(value.stepId),
+      "screenId" -> _json_string(value.screenId),
+      "interactionId" -> _json_string(value.interactionId)
+    ))
+
+  private def _screen_json(value: LogicalScreen): String =
+    _json_object(Vector(
+      "id" -> _json_string(value.id),
+      "primaryPurpose" -> _json_string(value.primaryPurpose),
+      "secondaryPurposes" -> _json_array(value.secondaryPurposes.map(_json_string)),
+      "subject" -> _subject_json(value.subject),
+      "regions" -> _json_array(value.regions.map(_region_json)),
+      "interactions" -> _json_array(value.interactions.map(_interaction_json)),
+      "feedbackStates" -> _json_array(value.feedbackStates.map(state => _json_string(state.id)))
+    ))
+
+  private def _subject_json(value: ScreenSubject): String =
+    _json_object(Vector(
+      "role" -> _json_string(value.role.id),
+      "binding" -> _component_binding_json(value.binding)
+    ))
+
+  private def _region_json(value: SemanticRegion): String =
+    _json_object(Vector(
+      "id" -> _json_string(value.id),
+      "parentId" -> value.parentId.map(_json_string).getOrElse("null"),
+      "order" -> value.order.toString
+    ))
+
+  private def _interaction_json(value: ScreenInteraction): String =
+    _json_object(Vector(
+      "id" -> _json_string(value.id),
+      "kind" -> _json_string(value.kind.id),
+      "componentUsages" -> _json_array(value.componentUsages.map(_usage_json)),
+      "mutation" -> value.mutation.map(_mutation_json).getOrElse("null"),
+      "navigation" -> value.navigation.map(_navigation_json).getOrElse("null")
+    ))
+
+  private def _usage_json(value: ComponentUsage): String =
+    _json_object(Vector(
+      "role" -> _json_string(value.role.id),
+      "binding" -> _component_binding_json(value.binding)
+    ))
+
+  private def _mutation_json(value: MutationAction): String =
+    _json_object(Vector(
+      "target" -> _component_binding_json(value.target),
+      "operation" -> _component_binding_json(value.operation)
+    ))
+
+  private def _navigation_json(value: NavigationEndpoint): String =
+    _json_object(Vector(
+      "endpointId" -> _json_string(value.endpointId),
+      "targetScreenId" -> _json_string(value.targetScreenId)
+    ))
+
+  private def _boundary_json(value: AggregateBoundary): String =
+    _json_object(Vector(
+      "aggregate" -> _component_binding_json(value.aggregate),
+      "root" -> _component_binding_json(value.root),
+      "members" -> _json_array(value.members.map(_component_binding_json)),
+      "publicOperations" -> _json_array(value.publicOperations.map(_component_binding_json))
+    ))
+
+  private def _projection_component_error(
+    candidate: LogicalUiCandidate,
+    input: UseCaseScreenProjection
+  ): Option[LogicalUiError] = {
+    val candidatebindings = candidate.input.componentBindings.toSet
+    val references = input.screens.flatMap { screen =>
+      val subject = Vector(screen.subject.binding)
+      val usages = screen.interactions.flatMap(_.componentUsages.map(_.binding))
+      val mutations = screen.interactions.flatMap(_.mutation.toVector.flatMap(action => Vector(action.target, action.operation)))
+      subject ++ usages ++ mutations
+    }
+    val boundaryreferences = input.aggregateBoundaries.flatMap(boundary =>
+      Vector(boundary.aggregate, boundary.root) ++ boundary.members ++ boundary.publicOperations
+    )
+    (references ++ boundaryreferences).zipWithIndex.collectFirst {
+      case (binding, index) if binding == null =>
+        LogicalUiError("LUI43_PROJECTION_COMPONENT_CLOSED", s"projection.componentBindings[$index]", "every Component reference must be an exact public candidate binding")
+      case (binding, index) if !candidatebindings.contains(binding) =>
+        LogicalUiError("LUI43_PROJECTION_COMPONENT_CLOSED", s"projection.componentBindings[$index]", "unknown or unexported Component binding is not admitted")
+    }.orElse {
+      val used = references.filter(_ != null).toSet
+      candidate.input.componentBindings.find(binding => !used.contains(binding)).map { binding =>
+        LogicalUiError("LUI43_PROJECTION_COMPONENT_UNJUSTIFIED", s"candidate.input.componentBindings.${binding.exportId}", "every candidate binding must be used by a subject, interaction usage, or mutation action")
+      }
+    }
+  }
+
+  private def _projection_aggregate_error(input: UseCaseScreenProjection): Option[LogicalUiError] = {
+    val boundaries = input.aggregateBoundaries
+    val overlap = boundaries.indices.toStream.flatMap { index =>
+      val left = (Vector(boundaries(index).aggregate, boundaries(index).root) ++ boundaries(index).members ++ boundaries(index).publicOperations).map(_binding_key).toSet
+      boundaries.drop(index + 1).find { right =>
+        val rightreferences = (Vector(right.aggregate, right.root) ++ right.members ++ right.publicOperations).map(_binding_key).toSet
+        left.intersect(rightreferences).nonEmpty
+      }.map(right => (boundaries(index), right))
+    }.headOption
+    overlap.map { pair =>
+      LogicalUiError("LUI43_PROJECTION_COMPONENT_CLOSED", "projection.aggregateBoundaries", s"Aggregate boundaries ${pair._1.aggregate.exportId} and ${pair._2.aggregate.exportId} overlap")
+    }.orElse {
+      val aggregateusages = input.screens.flatMap { screen =>
+        val subjectusage = if (screen.subject.role == AggregateRole) Vector(screen.subject.binding) else Vector.empty
+        val interactionusages = screen.interactions.flatMap(_.componentUsages).collect {
+          case usage if usage.role == AggregateRole => usage.binding
+        }
+        subjectusage ++ interactionusages
+      }.toSet
+      boundaries.find(boundary => !aggregateusages.contains(boundary.aggregate)) match {
+        case Some(boundary) =>
+          Some(LogicalUiError("LUI43_PROJECTION_COMPONENT_CLOSED", s"projection.aggregateBoundaries.${boundary.aggregate.exportId}", "an Aggregate boundary must have an explicit Aggregate role usage"))
+        case None =>
+          input.screens.iterator.flatMap(_.interactions).flatMap { interaction =>
+            interaction.mutation.map(action => (interaction, action))
+          }.flatMap { pair =>
+            val interaction = pair._1
+            val action = pair._2
+            val operationusage = interaction.componentUsages.exists(usage => usage.role == OperationRole && usage.binding == action.operation)
+            boundaries.find(boundary => boundary.root == action.target || boundary.members.contains(action.target)) match {
+              case None =>
+                Some(LogicalUiError("LUI43_PROJECTION_AGGREGATE_MUTATION_BYPASS", s"projection.interactions.${interaction.id}.mutation.target", "a mutation target must belong to a declared Aggregate boundary"))
+              case Some(boundary) if boundary.root != action.target =>
+                Some(LogicalUiError("LUI43_PROJECTION_AGGREGATE_MUTATION_BYPASS", s"projection.interactions.${interaction.id}.mutation.target", "an Aggregate child cannot be a mutation target"))
+              case Some(_) if !operationusage =>
+                Some(LogicalUiError("LUI43_PROJECTION_OPERATION_MISSING", s"projection.interactions.${interaction.id}.mutation.operation", "a mutating invocation must explicitly use the same Operation binding"))
+              case Some(boundary) if !boundary.publicOperations.contains(action.operation) =>
+                Some(LogicalUiError("LUI43_PROJECTION_AGGREGATE_MUTATION_BYPASS", s"projection.interactions.${interaction.id}.mutation.operation", "a root mutation must use a declared public Aggregate Operation"))
+              case Some(_) => None
+            }
+          }.toStream.headOption
+      }
+    }
   }
 
   private def _normalize_input(input: CandidateInput): Either[LogicalUiError, CandidateInput] = {
@@ -295,8 +1100,8 @@ private[cozy] object CozyLogicalUi {
   private def _binding_key(value: ComponentBinding): (String, String, String, String) =
     (value.component.namespace, value.component.id, value.component.version, value.exportId)
 
-  private def _realization_key(value: UseCaseRealization): String =
-    s"${value.source.layer.id}:${value.source.id}->${value.target.layer.id}:${value.target.id}"
+  private def _realization_key(value: UseCaseRealization): (String, String, String, String) =
+    (value.source.layer.id, value.source.id, value.target.layer.id, value.target.id)
 
   private def _canonical_candidate_document(candidate: LogicalUiCandidate): String =
     _json_object(

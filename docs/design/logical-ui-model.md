@@ -79,3 +79,46 @@ The kernel does not expose all Component vocabulary; it merely admits exact
 public references for later use. It has no CML grammar, source reader, HTML
 renderer, screen composition, projection policy, Widget/Flutter abstraction,
 or automatic acceptance. LUI43-02 through LUI43-05 own those later concerns.
+
+## 6. UseCase-to-Screen projection boundary
+
+LUI43-02 introduces `cozy.usecase-screen-projection.v1` as a typed projection
+over the committed candidate kernel. `CozyLogicalUi.project` takes a
+`LogicalUiCandidate` and a projection input whose candidate identity must equal
+that candidate's exact `identity`. The projection retains the candidate as an
+explicit authority dependency while remaining deliberately separate from
+`cozy.logical-ui.v1` candidate JSON and `CozyLogicalUiCodec`.
+
+The projection's catalog is a vector of opaque three-layer `UseCaseLayers`
+identities and must include the exact candidate value. `UiUseCaseStep` is an
+exact UI-layer reference plus a nonempty ID and one closed path: normal,
+alternative, exception, or system-only. Mappings are explicit joins from
+steps to concrete screen interactions. They permit one-to-many and
+many-to-one coverage, screen reuse across UI UseCases, and unmapped
+system-only steps. Every non-system step is covered exactly by at least one
+mapping, and duplicate mappings fail closed.
+
+The logical screen is semantic rather than visual. It has a unique identity,
+purpose values, one Entity/Aggregate/View subject, a rooted region tree with
+parent and sibling order, named interactions, feedback states, and logical
+navigation. Interaction kinds, Component roles, and feedback states are closed
+typed alternatives. Every mapping must justify its screen and interaction;
+every candidate binding selected by the projection must be used by a subject,
+interaction usage, or mutation action. All binding references are exact public
+candidate bindings, so this projection cannot perform source lookup, private
+name parsing, export inference, or fallback version resolution.
+
+Aggregate boundaries are explicit values containing an Aggregate reference,
+root, members, and public Operation bindings. Each public Operation binding is
+owned by exactly one boundary, so the same binding cannot authorize mutations
+in multiple boundaries; boundaries may not overlap. A mutation is valid only
+on a boundary root through one of that boundary's public Operations and only
+when the invocation also carries the exact Operation-role usage. Direct child
+mutation is therefore rejected even when a public Operation exists. The
+projection does not infer Operation semantics or StateMachine meaning.
+
+The normalized projection identity includes the exact candidate identity and
+canonical projection content. This identity is deterministic under catalog,
+step, screen, interaction, mapping, usage, feedback, region, and boundary
+permutations. No renderer, HTML, receipt, route, widget, codec, acceptance,
+pattern, constraint, reachability, or target-framework concern is introduced.
