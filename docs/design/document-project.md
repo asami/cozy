@@ -76,7 +76,7 @@ inputs reconstructs the identical snapshot.
 Successful `inspect` and `verify` regenerate the cache only after their
 descriptor, Core, and command-specific source validation succeeds.  Its
 canonical UTF-8 YAML keys are ordered `schema`, `project`, `profile`,
-`workspace`, `sources`, `evidence`, and `workProducts`.  The fixed-order `sources` entries
+`workspace`, `sources`, `evidence`, `criteria`, and `workProducts`.  The fixed-order `sources` entries
 contain only project-relative direct authored paths and lowercase hexadecimal
 SHA-256 content identities: descriptor, exact Core, `index.dox`, infographic
 SVG, Visual Page source, review README, and directly present storyboard for a
@@ -95,6 +95,14 @@ use `coverage: not-applicable`, `readiness: omitted`, and the profile reason
 implements immutable append-only attempts and recorded dispatch only.  DP42-03D
 adds the optional sidecar evidence that derives retained receipt currentness
 and dependency-driven `stale` state without changing media receipt contracts.
+
+The intervening `criteria` projection is immutable evidence-derived state in
+Workflow Definition criterion order.  It records scalar `satisfied` and
+`total` counts, then ordered `missing` and `notApplicable` criterion lists
+with each criterion id and its derived reason.  It is neither a writable
+percentage nor an acceptance authority.  Dashboard Criterion coverage presents
+the same snapshot as `<satisfied>/<total> applicable criteria satisfied` with
+one accessible criterion, coverage, and reason table.
 
 A `cozy.document-operation-attempt.v1` Operation Attempt is durable,
 append-only evidence at `<project>/evidence/attempts/<attempt-id>.yaml`; it is
@@ -384,8 +392,8 @@ aggregate build, and external delivery as read-only, non-invoked
 responsibilities.  Its self-contained escaped HTML is never a route to host
 discovery, registry/site registration, aggregate execution, publication,
 deployment, upload, remote calls, or Article 8 work.
-Dashboard content has accessible Workflow, Work Product matrix, and Work
-Product details tables covering dispositions, providers, gates, coverage,
+Dashboard content has accessible Workflow, Work Product matrix, Criterion
+coverage, and Work Product details tables covering dispositions, providers, gates, coverage,
 currentness, review, readiness, dependencies, producer/consumer operations,
 evidence references, and a user-facing next action. It is the place to see the
 current Project state and the next required or useful action without needing to
@@ -509,7 +517,11 @@ a later Phase.  DP42-02 MUST NOT add descriptor fields, canonical workflow
 serialization, or identity calculation beyond the closed in-code Work Product
 identities and references.
 
-Phase 42.1 retains driver acceptance and any external receipt-schema work.
+Phase 42.1 accepts exactly one standalone local `standard-video`/`directory`
+driver and one isolated non-Article-8 `bok`/`bok` driver.  That bounded local
+acceptance does not admit host discovery, registration, external receipts,
+Article 8, migration, aggregate build, publication, deployment, or upload;
+those and any external receipt-schema work remain deferred.
 DP42-04A implements executable dashboard and review projections as described
 above.  DP42-03B implements deterministic disposable state reconstruction,
 DP42-03C implements recorded append-only attempts, and DP42-03D implements

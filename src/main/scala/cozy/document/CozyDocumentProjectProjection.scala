@@ -24,6 +24,11 @@ private[cozy] object CozyDocumentProjectProjection {
       val product = item.value.workProduct
       s"""<tr><th scope="row">${_html_escape(product.id)}</th><td>${_html_escape(item.coverage)}</td><td>${_html_escape(item.currentness)}</td><td>${_html_escape(item.review)}</td><td>${_html_escape(item.readiness)}</td><td>${_html_escape(item.reason.getOrElse(""))}</td></tr>"""
     }.mkString("\n")
+    val satisfiedcriteria = snapshot.criteria.count(_.coverage == "satisfied")
+    val applicablecriteria = snapshot.criteria.count(_.coverage != "not-applicable")
+    val criteriarows = snapshot.criteria.map { criterion =>
+      s"""<tr><th scope="row">${_html_escape(criterion.id)}</th><td>${_html_escape(criterion.coverage)}</td><td>${_html_escape(criterion.reason)}</td></tr>"""
+    }.mkString("\n")
     val detailrows = products.map { item =>
       val product = item.value.workProduct
       s"""<tr><th scope="row">${_html_escape(product.id)}</th><td>${_html_list(product.dependencies)}</td><td>${_html_escape(product.producer)}</td><td>${_html_list(product.consumers)}</td><td>${_html_list(product.evidenceReferences)}</td><td>${_html_escape(_next_action(item))}</td></tr>"""
@@ -68,6 +73,9 @@ private[cozy] object CozyDocumentProjectProjection {
          |<table aria-label="Workflow Work Products"><thead><tr><th scope="col">Work Product</th><th scope="col">Branch (active/omitted)</th><th scope="col">Role</th><th scope="col">Disposition</th><th scope="col">Provider</th><th scope="col">Gates</th><th scope="col">Omitted or blocking reason</th></tr></thead><tbody>$workflowrows</tbody></table>
          |<h2>Work Product matrix</h2>
          |<table aria-label="Work Product status matrix"><thead><tr><th scope="col">Work Product</th><th scope="col">Coverage</th><th scope="col">Currentness</th><th scope="col">Review</th><th scope="col">readiness</th><th scope="col">Omitted or blocking reason</th></tr></thead><tbody>$matrixrows</tbody></table>
+         |<h2>Criterion coverage</h2>
+         |<p>$satisfiedcriteria/$applicablecriteria applicable criteria satisfied</p>
+         |<table aria-label="Criterion coverage"><thead><tr><th scope="col">Criterion</th><th scope="col">Coverage</th><th scope="col">Reason</th></tr></thead><tbody>$criteriarows</tbody></table>
          |<h2>Work Product details</h2>
          |<table aria-label="Work Product details"><thead><tr><th scope="col">Work Product</th><th scope="col">Dependencies</th><th scope="col">Producer operation</th><th scope="col">Consumer operations</th><th scope="col">Evidence references</th><th scope="col">Next action</th></tr></thead><tbody>$detailrows</tbody></table>
          |<h2>Review and final artifact links</h2>

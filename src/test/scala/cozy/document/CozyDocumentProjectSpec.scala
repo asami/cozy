@@ -1335,6 +1335,60 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         Files.exists(standalone.resolve("target"), LinkOption.NOFOLLOW_LINKS) shouldBe false
         Files.exists(bok.resolve("target"), LinkOption.NOFOLLOW_LINKS) shouldBe false
 
+        When("plan and verify prove the bounded local drivers without external acceptance")
+        val standaloneplan = _execute(List("document-project", "plan", standalone.toString))
+        val bokplan = _execute(List("document-project", "plan", bok.toString))
+        val standaloneverify = _execute(List("document-project", "verify", standalone.toString))
+        val bokverify = _execute(List("document-project", "verify", bok.toString))
+
+        Then("each driver resolves its selected profile and verifies only its local package")
+        standaloneplan should include("eligible: operation video.render-review [provider: cozy-video]")
+        bokplan should include("eligible: operation article.render-pdf [provider: smartdox-rendering]")
+        bokplan should include("omitted: work-product video-review [review-projection, disabled: profile bok disables video branch]")
+        standaloneverify should include("Cozy Document Project Verify")
+        bokverify should include("Cozy Document Project Verify")
+        Files.exists(standalone.resolve("target/document-project/state.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe true
+        Files.exists(bok.resolve("target/document-project/state.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe true
+
+        When("the selected local operations are recorded without provider execution")
+        val standaloneoperations = Vector(
+          "article.render-pdf",
+          "summary-slides.render-pdf",
+          "infographic.render-png",
+          "video.render-review",
+          "slide-logical-chart.render-review",
+          "video-logical-chart.render-review"
+        )
+        val bokoperations = Vector(
+          "article.render-pdf",
+          "summary-slides.render-pdf",
+          "infographic.render-png",
+          "slide-logical-chart.render-review"
+        )
+        val standaloneoutputs = standaloneoperations.map(operation => _execute(List("document-project", "run", standalone.toString, "--operation", operation)))
+        val bokoutputs = bokoperations.map(operation => _execute(List("document-project", "run", bok.toString, "--operation", operation)))
+        val bokvideofailure = _failure(List("document-project", "run", bok.toString, "--operation", "video.render-review"))
+
+        Then("every selected dispatch is recorded only and the disabled BoK video operation remains rejected")
+        standaloneoperations.zip(standaloneoutputs).foreach { case (operation, output) =>
+          output should include(s"operation: $operation")
+          output should include("outcome: recorded")
+          val attempt = standalone.resolve(output.linesIterator.find(_.startsWith("attempt: ")).get.stripPrefix("attempt: "))
+          Files.readString(attempt, StandardCharsets.UTF_8) should include("provider execution is deferred; this dispatch was recorded only")
+          Files.readString(attempt, StandardCharsets.UTF_8) should include("outputs: []")
+        }
+        bokoperations.zip(bokoutputs).foreach { case (operation, output) =>
+          output should include(s"operation: $operation")
+          output should include("outcome: recorded")
+          val attempt = bok.resolve(output.linesIterator.find(_.startsWith("attempt: ")).get.stripPrefix("attempt: "))
+          Files.readString(attempt, StandardCharsets.UTF_8) should include("provider execution is deferred; this dispatch was recorded only")
+          Files.readString(attempt, StandardCharsets.UTF_8) should include("outputs: []")
+        }
+        bokvideofailure should include("DP-OP-001")
+        bokvideofailure should include("disabled for profile bok")
+        _relative_files(standalone.resolve("evidence/attempts")).size shouldBe standaloneoperations.size
+        _relative_files(bok.resolve("evidence/attempts")).size shouldBe bokoperations.size
+
         When("the standalone Core review is generated")
         _execute(List("document-project", "review", standalone.toString, "--kind", "core"))
 
@@ -1387,9 +1441,17 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         _execute(List("document-project", "inspect", bok.toString))
 
         Then("the standalone Core dialogue is accepted and both fixtures retain evidence-derived state")
-        Files.readString(standalone.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8) should include("review: accepted")
-        Files.readString(standalone.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8) should include("path: evidence/document-project.yaml")
-        Files.readString(bok.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8) should include("path: evidence/document-project.yaml")
+        val standalonestate = Files.readString(standalone.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
+        val bokstate = Files.readString(bok.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
+        standalonestate should include("review: accepted")
+        standalonestate should include("path: evidence/document-project.yaml")
+        bokstate should include("path: evidence/document-project.yaml")
+        standalonestate.linesIterator.filter(line => line.nonEmpty && !line.startsWith(" ")).map(_.takeWhile(_ != ':')).toVector shouldBe Vector(
+          "schema", "project", "profile", "workspace", "sources", "evidence", "criteria", "workProducts"
+        )
+        standalonestate should include("criteria:\n  satisfied: 4\n  total: 17")
+        bokstate should include("criteria:\n  satisfied: 3\n  total: 13")
+        bokstate should include("notApplicable:\n    - id: video-storyboard-authored\n      reason: \"profile bok disables video branch\"")
         val standalonesidecar = Files.readString(standalone.resolve("evidence/document-project.yaml"), StandardCharsets.UTF_8)
         standalonesidecar should include("provider: local-ai-provider")
         standalonesidecar should include("model: local-ai-model")
@@ -1431,7 +1493,11 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
           dashboard should not include "target/document-project/state.yaml"
           dashboard should not include "receipt-media.json"
           dashboard should include("External delivery</th><td>Read-only and non-invoked; no publication, deployment, upload, or registration is performed.")
+          dashboard should include("<h2>Criterion coverage</h2>")
+          dashboard should include("<table aria-label=\"Criterion coverage\">")
         }
+        standalonedashboard should include("4/17 applicable criteria satisfied")
+        bokdashboard should include("3/13 applicable criteria satisfied")
         standalonedashboard should include("video-review<br/><span>Video review HTML</span></th><td>active</td><td>review-projection</td><td>required")
         standalonedashboard should include("video-deliverable<br/><span>Video deliverable</span></th><td>active</td><td>deliverable</td><td>required")
         bokdashboard should include("video-review<br/><span>Video review HTML</span></th><td>omitted</td><td>review-projection</td><td>disabled")

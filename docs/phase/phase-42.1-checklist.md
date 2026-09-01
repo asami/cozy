@@ -3,7 +3,7 @@
 This checklist is the authoritative progress ledger for Phase 42.1. It is not
 a normative behavior contract.
 
-Phase Status: IN PROGRESS
+Phase Status: COMPLETE
 
 Predecessor: Phase 42 closure and its frozen contract/model handoff.
 
@@ -11,13 +11,13 @@ Predecessor: Phase 42 closure and its frozen contract/model handoff.
 
 Stage Status:
 
-- Current status: IN PROGRESS
+- Current status: COMPLETE
 - Owner: Cozy Phase 42.1
 - Update rule: Update this block from the checklist state below.
 
-- [ ] Derive coverage, currentness, review, and readiness independently.
-- [ ] Report exact satisfied, missing, and not-applicable completion criteria.
-- [ ] Propagate staleness through declared identities, including shared
+- [x] Derive coverage, currentness, review, and readiness independently.
+- [x] Report exact satisfied, missing, and not-applicable completion criteria.
+- [x] Propagate staleness through declared identities, including shared
       infographic consumers, without timestamps.
 - [x] Persist append-only exact Operation Attempt evidence and keep historical
       success/failure separate from current state.
@@ -29,7 +29,7 @@ Stage Status:
 
 Stage Status:
 
-- Current status: IN PROGRESS
+- Current status: COMPLETE
 - Owner: Cozy Phase 42.1
 - Update rule: Update this block from the checklist state below.
 
@@ -40,37 +40,37 @@ Stage Status:
       Product.
 - [x] Generate `video-review.html` when the video branch is active.
 - [x] Implement Workflow, Work Product matrix, and Work Product detail views.
-- [ ] Expose provider, gate, coverage, currentness, review, readiness,
+- [x] Expose provider, gate, coverage, currentness, review, readiness,
       stale/blocking reason, and next-operation evidence.
 - [x] Show shared Work Products once and separate current state from attempts.
-- [ ] Separate project, workspace integration, aggregate build, and external
+- [x] Separate project, workspace integration, aggregate build, and external
       delivery surfaces for hosted projects.
-- [ ] Keep dashboard data read-only and outside semantic/workflow authority.
+- [x] Keep dashboard data read-only and outside semantic/workflow authority.
 
 ## DP42-05: Directory and BoK Driver Acceptance and Closure
 
 Stage Status:
 
-- Current status: OPEN
+- Current status: COMPLETE
 - Owner: Cozy Phase 42.1
 - Update rule: Update this block from the checklist state below.
 
-- [ ] Accept one standalone directory driver.
-- [ ] Accept one non-Article-8 BoK-hosted or isolated driver without changing
+- [x] Accept one standalone directory driver.
+- [x] Accept one non-Article-8 BoK-hosted or isolated driver without changing
       existing legacy articles.
-- [ ] Keep Article 8 out of Phase 42.1 acceptance; record its operational
+- [x] Keep Article 8 out of Phase 42.1 acceptance; record its operational
       rollout/acceptance only as post-Phase-42 `P401-DC-001`.
-- [ ] Prove public identity compatibility and safe SmartDox/public source
+- [x] Prove public identity compatibility and safe SmartDox/public source
       projection.
-- [ ] Cover partial/current/stale/missing/failed/not-applicable, omitted video,
+- [x] Cover partial/current/stale/missing/failed/not-applicable, omitted video,
       stale propagation, attempt history, and cache reconstruction.
-- [ ] Accept one AI-assisted core dialogue and `core-review.html` feedback
+- [x] Accept one AI-assisted core dialogue and `core-review.html` feedback
       cycle with provider/model evidence and explicit human acceptance.
-- [ ] Exercise required/optional/disabled selection across article/PDF,
+- [x] Exercise required/optional/disabled selection across article/PDF,
       slides PDF, infographic PNG, video/`video-review.html`, and Phase 41
       Explanation Structure Review HTML.
-- [ ] Run focused and full serialized Cozy validation.
-- [ ] Complete one focused independent Phase review and synchronize Strategy,
+- [x] Run focused and full serialized Cozy validation.
+- [x] Complete one focused independent Phase review and synchronize Strategy,
       Phase, checklist, notes, and journal records before closure.
 
 ## Approved Split (2026-08-31)
@@ -85,3 +85,10 @@ focused and full serialized Cozy validation receipts are current, and its
 focused independent Phase review has no Current Boundary Blocker. It does not
 claim publication, deployment, upload, push, migration, or downstream
 consumer acceptance.
+
+Phase 42.1 is COMPLETE.  Its mandatory full Phase review sealed
+`CPB-P42.1-001` through `CPB-P42.1-004`; the accepted Cycle 1 focused
+re-review disposed all of them.  `HYG-P42.1-001` remains a separate open,
+nonblocking Hygiene record.  No publication, deployment, upload, push,
+provider execution, Article 8 acceptance, or downstream consumer acceptance
+is claimed.

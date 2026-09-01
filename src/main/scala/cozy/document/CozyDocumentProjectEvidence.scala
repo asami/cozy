@@ -67,11 +67,13 @@ private[cozy] object CozyDocumentProjectEvidence {
     readiness: String,
     reason: Option[String]
   )
+  private[cozy] final case class CriterionState(id: String, coverage: String, reason: String)
   final case class Snapshot(
     sources: Vector[FileIdentity],
     sidecar: Option[Sidecar],
     attempts: Vector[Attempt],
-    products: Vector[WorkProductState]
+    products: Vector[WorkProductState],
+    criteria: Vector[CriterionState]
   )
 
   private final case class EvidenceStatus(currentness: String, reason: Option[String])
@@ -91,7 +93,22 @@ private[cozy] object CozyDocumentProjectEvidence {
     val sidecar = _sidecar(project, descriptor, resolved, sources)
     val attempts = _attempts(project, descriptor)
     val products = _products(project, descriptor, resolved, sources, sidecar, attempts)
-    Snapshot(sources, sidecar, attempts, products)
+    val productsbycriterion = products.flatMap { product =>
+      product.value.workProduct.criteria.map(_ -> product)
+    }.toMap
+    val criteria = resolved.definition.criteria.map { criterion =>
+      productsbycriterion.get(criterion.id) match {
+        case Some(product) =>
+          val reason = product.coverage match {
+            case "missing" => product.reason.getOrElse(s"criterion ${criterion.id} is missing")
+            case "not-applicable" => product.reason.getOrElse(s"criterion ${criterion.id} is not applicable")
+            case _ => product.reason.getOrElse("")
+          }
+          CriterionState(criterion.id, product.coverage, reason)
+        case None => CozyDocumentProject._descriptor_failure(s"document-production criterion is not mapped to a Work Product: ${criterion.id}")
+      }
+    }
+    Snapshot(sources, sidecar, attempts, products, criteria)
   }
 
   def stateYaml(project: Path, descriptor: CozyDocumentProject.Descriptor): String = {
@@ -121,14 +138,30 @@ private[cozy] object CozyDocumentProjectEvidence {
         s"    readiness: ${product.readiness}"
       ) ++ product.reason.map(reason => s"    reason: ${_yaml_double_quoted(reason)}").toVector).mkString("\n")
     }
+    val criteriayaml = Vector(
+      s"  satisfied: ${value.criteria.count(_.coverage == "satisfied")}",
+      s"  total: ${value.criteria.count(_.coverage != "not-applicable")}",
+      "  missing:"
+    ) ++ _criterion_yaml(value.criteria.filter(_.coverage == "missing")) ++ Vector(
+      "  notApplicable:"
+    ) ++ _criterion_yaml(value.criteria.filter(_.coverage == "not-applicable"))
     (Vector(
       "schema: cozy.document-project-state.v1",
       s"project: ${descriptor.id}",
       s"profile: ${descriptor.profile}",
       s"workspace: ${descriptor.workspace}",
       "sources:"
-    ) ++ sourceyaml ++ Vector("evidence:") ++ evidenceyaml ++ Vector("workProducts:") ++ productyaml).mkString("\n") + "\n"
+    ) ++ sourceyaml ++ Vector("evidence:") ++ evidenceyaml ++ Vector("criteria:") ++ criteriayaml ++ Vector("workProducts:") ++ productyaml).mkString("\n") + "\n"
   }
+
+  private def _criterion_yaml(criteria: Vector[CriterionState]): Vector[String] =
+    if (criteria.isEmpty) Vector("    []")
+    else criteria.flatMap { criterion =>
+      Vector(
+        s"    - id: ${criterion.id}",
+        s"      reason: ${_yaml_double_quoted(criterion.reason)}"
+      )
+    }
 
   private def _attempt_yaml(attempts: Vector[Attempt]): Vector[String] =
     if (attempts.isEmpty) {

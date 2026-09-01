@@ -225,7 +225,8 @@ project inputs MUST reconstruct an identical snapshot.
 Successful `inspect` and `verify` MUST regenerate the snapshot after all
 descriptor, Core, and command-specific source validation succeeds.  The
 canonical UTF-8 YAML serialization MUST contain, in this order, `schema`,
-`project`, `profile`, `workspace`, `sources`, and `workProducts`.  `schema` is
+`project`, `profile`, `workspace`, `sources`, `evidence`, `criteria`, and
+`workProducts`.  `schema` is
 exactly `cozy.document-project-state.v1`; the three identity values are taken
 from the admitted descriptor.  `sources` is a fixed-order list of direct,
 project-relative authored inputs, each with only `path` and its lowercase
@@ -234,6 +235,16 @@ descriptor, the exact Core, `index.dox`, editable infographic SVG, Visual Page
 source, review README, and the storyboard when directly present for a video
 profile.  The serialization MUST contain no absolute path, timestamp, random
 value, directory-discovery order, generated output, receipt, or attempt.
+
+`criteria` MUST follow Workflow Definition criterion order.  It MUST contain
+scalar `satisfied`, the count whose derived coverage is `satisfied`, and
+`total`, the count whose derived coverage is not `not-applicable`, followed by
+ordered `missing` and `notApplicable` lists.  Each list item MUST contain an
+`id` and a double-quoted `reason`; a missing criterion uses its derived reason
+or `criterion <id> is missing`, while a not-applicable criterion uses its
+declared profile reason or `criterion <id> is not applicable`.  It is
+evidence-derived state only, never a writable percentage or acceptance
+authority.
 
 `workProducts` MUST follow the closed `document-production` Work Product order.
 Each entry MUST contain `id`, `role`, `disposition`, `criterion`, `coverage`,
@@ -375,7 +386,8 @@ attempts otherwise remain historical and never imply success.
 The canonical state YAML remains `cozy.document-project-state.v1`.  In addition
 to fixed-order authored `sources`, it has a distinct deterministic `evidence`
 section for the optional sidecar and retained attempt path/SHA-256 identities,
-followed by fixed-order `workProducts`.  It contains no absolute path,
+then immutable `criteria` in Workflow Definition criterion order, followed by
+fixed-order `workProducts`.  It contains no absolute path,
 timestamp, random value, generated receipt content, or authority override.
 Deleting the cache and inspecting unchanged inputs reconstructs byte-identical
 bytes.  `inspect` and `verify` write only this disposable cache and never write
@@ -384,7 +396,9 @@ durable evidence.
 Dashboard derives the identical shared model without writing the state cache.
 It shows providers, gates, coverage/currentness/review/readiness, exact reason,
 and user-facing next action; it keeps retained attempts separate from current
-product state.  When present, it shows only the safe public-source mapping.
+product state.  It MUST include a Criterion coverage section stating
+`<satisfied>/<total> applicable criteria satisfied` and one accessible table
+with criterion, coverage, and reason from the same snapshot.  When present, it shows only the safe public-source mapping.
 It visibly labels Project production, workspace integration, aggregate build,
 and external delivery as read-only, non-invoked responsibilities.  It remains
 self-contained, deterministic, HTML-escaped, and read-only; no external call,
@@ -712,8 +726,12 @@ The closed `cozy.document-project.v1` descriptor fields are not deferred or
 expandable.  DP42-02 closes the workflow-owned Work Product, provider-binding,
 deliverable-disposition, criteria/gate, evidence-reference, and operation
 model only as the static in-code definition specified above.  SmartDox source
-projection and host discovery, external receipt schema changes, and driver
-acceptance remain deferred.  DP42-03B implements the deterministic disposable
+projection and host discovery, and external receipt schema changes remain
+deferred.  Exactly one standalone local `standard-video`/`directory` driver
+and one isolated non-Article-8 `bok`/`bok` driver are accepted only through the
+bounded local command scenarios in this contract; that acceptance does not
+admit host discovery, registration, external receipts, Article 8, migration,
+aggregate build, publication, deployment, or upload.  DP42-03B implements the deterministic disposable
 state reconstruction specified above, DP42-03C implements recorded append-only
 attempts, and DP42-03D implements sidecar-bound receipt/currentness and
 evidence-based stale propagation; later Phase 42.1 Slices own the remaining

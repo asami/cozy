@@ -81,13 +81,13 @@ Current phase state:
   self-contained confirmation HTML. Its local closure includes final Cozy
   validation, one Phase review, and two focused closure reviews; no external
   consumer acceptance is claimed.
-- Most recent closed phase: `phase-42.md`: Document Project Contract Kernel and
-  Workflow Instance. DP42-01/DP42-02, the independent review and bounded
-  closure repair, and final serialized Cozy validation
-  `33960-20260831T101434Z` (1,619 succeeded, 0 failed, 122 suites) are
-  complete locally. `phase-42.1.md` remains its planned, NOT STARTED successor
-  for evidence-derived state, review/dashboard projection, and directory/BoK
-  driver acceptance; it begins only after this distinct Phase closure commit.
+- Most recent closed phase: `phase-42.1.md`: Document Project Evidence, Review
+  Projection, and Driver Acceptance. It closes evidence-derived state,
+  deterministic review/dashboard projection, and one standalone-directory plus
+  one isolated non-Article-8 BoK driver locally. Its full review's four
+  blockers were disposed by one accepted focused repair cycle; no external
+  consumer acceptance, provider execution, registration, publication,
+  deployment, upload, or push is claimed.
 - Planned next development item: `phase-43.md`: Logical UI Model and Review
   HTML. It begins only after Phase 42.1 closure, projects Application Core,
   three-layer use cases, and public Component vocabulary into accepted Logical
@@ -201,12 +201,11 @@ scaffold/command behavior and frozen contract/model boundary; its final Cozy
 validation passed. The distinct local release commit records the closure and
 makes no external consumer-acceptance claim.
 
-Phase 42.1 is the planned, not-started ordered child for evidence-derived
-state, append-only attempts, deterministic review/dashboard projection, and
-standalone-directory plus non-Article-8 BoK driver acceptance. Its canonical
-authority is `phase-42.1.md` plus `phase-42.1-checklist.md`; it begins only
-after Phase 42 closure and does not reopen its public kernel. Both phases use
-the non-normative input in
+Phase 42.1 is closed locally for evidence-derived state, append-only attempts,
+deterministic review/dashboard projection, and standalone-directory plus
+non-Article-8 BoK driver acceptance. Its canonical authority is
+`phase-42.1.md` plus `phase-42.1-checklist.md`; it consumed Phase 42's frozen
+public kernel without reopening it. Both phases use the non-normative input in
 `docs/notes/document-project-workflow-management-specification-proposal.md`
 and exclude implicit registration, publication, deployment, upload, and
 legacy-article migration.

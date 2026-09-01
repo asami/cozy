@@ -1,6 +1,6 @@
 # Phase 42.1: Document Project Evidence, Review Projection, and Driver Acceptance
 
-Status: IN PROGRESS
+Status: COMPLETE
 
 Plan date: 2026-08-31
 
@@ -31,10 +31,10 @@ BoK-hosted or isolated driver.
 
 Stage Status:
 
-- Current status: IN PROGRESS
+- Current status: COMPLETE
 - Owner: Cozy project-state and execution evidence
-- Update rule: complete only when state reconstruction, stale propagation,
-  append-only attempts, and exact diagnostics pass focused tests.
+- Update rule: completed by the accepted evidence-state Step, final focused
+  validation, and Phase closure review recorded below.
 
 - Derive completion coverage, artifact currentness, review decision, and
   operation readiness independently from exact source and receipt evidence.
@@ -53,10 +53,10 @@ Stage Status:
 
 Stage Status:
 
-- Current status: IN PROGRESS
+- Current status: COMPLETE
 - Owner: Cozy deterministic Document Project review projection
-- Update rule: complete only when all three views, accessibility,
-  deterministic output, and read-only authority boundaries pass.
+- Update rule: completed by the accepted review-projection Step, final focused
+  validation, and Phase closure review recorded below.
 
 - Generate `core-review.html` that exposes the accepted/candidate core and
   classifies feedback as shared-semantic or artifact-local before write-back.
@@ -83,10 +83,10 @@ Stage Status:
 
 Stage Status:
 
-- Current status: NOT STARTED
+- Current status: COMPLETE
 - Owner: Cozy Document Project acceptance
-- Update rule: complete only when both drivers, compatibility, full
-  validation, focused Phase review, and ledger synchronization pass.
+- Update rule: completed by the accepted bounded local-driver Step, full Cozy
+  validation, focused Phase review, and synchronized closure ledger.
 
 - Accept one standalone directory with local deliverable assembly and explicit
   non-applicable hosted operations.
@@ -154,6 +154,19 @@ deterministically; stale and omitted branches are exact; existing authorities
 and legacy articles remain compatible; full Cozy validation succeeds; and
 focused independent Phase review closes all Current Boundary Blockers. Article
 8 remains only the post-Phase-42 `P401-DC-001` operational rollout.
+
+## Closure
+
+Phase 42.1 is complete through a local Phase-release commit.  The mandatory
+full Phase review found `CPB-P42.1-001` through `CPB-P42.1-004`; Cycle 1
+repaired the frozen five-path state, dashboard, documentation, and executable
+driver boundary.  The accepted focused re-review disposed all four blockers.
+The final serialized Cozy validation is bound to this local closure.  The
+separate open Hygiene record `HYG-P42.1-001` is in
+`docs/journal/2026/09/2026-09-01-phase-42.1-hygiene-follow-up.md`; there are
+no Phase 42.1 Development Candidate records.  This closure makes no claim of
+provider execution, SmartDox site registration, publication, deployment,
+upload, push, Article 8 acceptance, or downstream consumer acceptance.
 
 ## Structural Phase Plan Gate
 

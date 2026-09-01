@@ -1336,8 +1336,8 @@ DP42-01 and DP42-02 are accepted locally in
 `a26f32d4c96fc1c35404f91ad1b18ee57cf99406`. The mandatory Phase review's
 `CPB-42-001` has a focused validation/re-review closure. Final serialized Cozy
 validation `33960-20260831T101434Z` passed (1,619 succeeded, 0 failed, 122
-suites; SBT/wrapper 0 and lock released). Phase 42.1 is still planned and not
-started.
+suites; SBT/wrapper 0 and lock released). Phase 42.1 has since completed its
+separate evidence, review-projection, and bounded-driver closure.
 
 Primary references:
 
@@ -1346,9 +1346,9 @@ Primary references:
 
 ### Phase 42.1: Document Project Evidence, Review Projection, and Driver Acceptance
 
-Status: planned; not started. It is the ordered second child of the approved
-Phase 42 split and begins only after Phase 42 closure and receipt of its frozen
-contract/model handoff.
+Status: complete locally. It is the ordered second child of the approved Phase
+42 split. It consumed the frozen contract/model handoff without reopening it;
+its final local closure makes no external consumer claim.
 
 Purpose and boundaries:
 
@@ -1363,8 +1363,8 @@ Purpose and boundaries:
   implicitly registering, building, publishing, deploying, or uploading the
   host workspace.
 
-Phase 42.1 is the lower-cost execution child. It must consume rather than
-redefine the Phase 42 public kernel, and excludes semantic invention, a
+Phase 42.1 was the lower-cost execution child. It consumed rather than
+redefined the Phase 42 public kernel, and excluded semantic invention, a
 general scheduler or daemon, arbitrary command descriptors, dashboard
 write-back, replacement of existing media or review authorities, implicit
 workspace mutation, and legacy article migration.
@@ -1544,11 +1544,11 @@ Phase 41 is closed for the integrated Explanation Structure Review HTML and
 uses a repository-controlled accepted Visual Page fixture as its representative
 driver. Its closure is local only and makes no external consumer claim.
 Phase 42 is complete locally as the first Document Project contract-kernel and
-Workflow Instance successor. Its ordered child, Phase 42.1, remains planned
-and not started; it receives the frozen handoff for evidence-derived Work
-Product visibility, review/dashboard output, and directory/BoK driver
-acceptance. Neither child adds work to the closed Phase 30/36/37 boundaries or
-claims publication, push, or external consumer mutation.
+Workflow Instance successor. Its ordered child, Phase 42.1, is also complete
+locally for evidence-derived Work Product visibility, review/dashboard output,
+and bounded directory/BoK driver acceptance. Neither child adds work to the
+closed Phase 30/36/37 boundaries or claims provider execution, registration,
+publication, push, or external consumer mutation.
 
 Phase 43 is the planned next Cozy development item after Phase 42.1 closure.
 It owns the Logical UI contract kernel, UseCase-to-Screen Projection, Logical
